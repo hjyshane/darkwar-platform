@@ -1,0 +1,30 @@
+title = "DarkWar Platform gitleaks config"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "supabase-secret-key"
+description = "Supabase secret / service-role key (bypasses RLS)"
+regex = '''(?i)(sb_secret_[A-Za-z0-9_-]{20,}|service_role[^\n]{0,40}eyJ[A-Za-z0-9_-]{20,})'''
+tags = ["supabase", "key"]
+
+[[rules]]
+id = "supabase-legacy-service-jwt"
+description = "Legacy Supabase service_role JWT"
+regex = '''eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{0,400}service_role[A-Za-z0-9_-]{0,400}\.[A-Za-z0-9_-]{20,}'''
+tags = ["supabase", "jwt"]
+
+[[rules]]
+id = "discord-bot-token"
+description = "Discord bot token"
+regex = '''[MNO][A-Za-z0-9_-]{23,27}\.[A-Za-z0-9_-]{6}\.[A-Za-z0-9_-]{27,}'''
+tags = ["discord"]
+
+[allowlist]
+description = "Placeholders and the local-stack demo keys are not secrets"
+paths = [
+  '''\.env\.example$''',
+  '''^supabase/config\.toml$''',
+  '''^\.gitleaks\.toml$''',
+]

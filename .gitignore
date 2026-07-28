@@ -1,0 +1,68 @@
+# ---------------------------------------------------------------------------
+# Capture and game data — NEVER commit.
+# Login PCAPs contain the collector account's UID and session signature
+# (spec 5.2, Appendix A darkwar_loading.pcapng). Once in history, it is
+# permanent even in a private repo.
+# Raw captures and databases live OUTSIDE this repo, in a sibling directory.
+# ---------------------------------------------------------------------------
+*.pcap
+*.pcapng
+*.cap
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+legacy/**/data/
+legacy/**/*.db
+
+# ---------------------------------------------------------------------------
+# Secrets. The Supabase secret/service-role key bypasses RLS entirely (NFR-001)
+# and belongs only in collector env vars and GitHub Actions secrets.
+# ---------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+
+# ---------------------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# ---------------------------------------------------------------------------
+# Node / TypeScript
+# ---------------------------------------------------------------------------
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# ---------------------------------------------------------------------------
+# Supabase local stack
+# ---------------------------------------------------------------------------
+.supabase/
+supabase/.branches/
+supabase/.temp/
+
+# ---------------------------------------------------------------------------
+# Claude Code — .claude/settings.json is shared, .local.json is per-machine
+# ---------------------------------------------------------------------------
+.claude/settings.local.json
+
+# ---------------------------------------------------------------------------
+# Editors and OS
+# ---------------------------------------------------------------------------
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini

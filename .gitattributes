@@ -1,0 +1,27 @@
+# Development happens on Windows; CI runs on Linux. Normalize to LF in the
+# repo so diffs stay clean across that boundary.
+* text=auto eol=lf
+
+*.sh   text eol=lf
+*.sql  text eol=lf
+*.py   text eol=lf
+*.ts   text eol=lf
+*.tsx  text eol=lf
+*.json text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.md   text eol=lf
+
+# Windows-only scripts need CRLF to run.
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+*.ps1  text eol=crlf
+
+# Never touch these.
+*.png  binary
+*.jpg  binary
+*.gif  binary
+*.ico  binary
+*.pcap binary
+*.pcapng binary
+*.db   binary

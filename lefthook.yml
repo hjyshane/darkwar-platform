@@ -1,0 +1,33 @@
+# Install once with: lefthook install
+pre-commit:
+  parallel: true
+  commands:
+    gitleaks:
+      run: gitleaks protect --staged --redact --config .gitleaks.toml
+    ruff-lint:
+      root: services/collector/
+      glob: "services/collector/**/*.py"
+      run: uv run ruff check --fix {staged_files}
+      stage_fixed: true
+    ruff-format:
+      root: services/collector/
+      glob: "services/collector/**/*.py"
+      run: uv run ruff format {staged_files}
+      stage_fixed: true
+    biome:
+      glob: "*.{js,ts,tsx,json,jsonc}"
+      exclude: "legacy/**"
+      run: pnpm biome check --write --no-errors-on-unmatched {staged_files}
+      stage_fixed: true
+    block-capture-artifacts:
+      glob: "*.{pcap,pcapng,db,sqlite,sqlite3,env}"
+      run: |
+        echo "Refusing to commit capture artifacts, databases, or env files:"
+        echo "{staged_files}"
+        echo "These belong in the sibling data directory, outside the repo."
+        exit 1
+
+pre-push:
+  commands:
+    typecheck:
+      run: pnpm typecheck

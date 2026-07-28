@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Development is Windows-only, so Linux CI is the only thing catching
+  # case-sensitivity, line-ending, and path assumptions before they harden.
+  python:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/collector
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+      # No --extra capture: the pipeline must be testable without Npcap.
+      - run: uv sync --dev
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy src
+      - run: uv run pytest
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+
+  db:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - run: supabase start
+      # Proves migrations apply from an empty database, not just incrementally.
+      - run: supabase db reset
+      - run: supabase test db
+      # Committed types must match the schema they claim to describe.
+      - name: Check generated types are current
+        run: |
+          supabase gen types typescript --local > packages/shared-types/src/database.types.ts
+          git diff --exit-code -- packages/shared-types/src/database.types.ts
+
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Scan for secrets
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Reject imports from quarantined legacy code
+        run: |
+          if grep -rn --include='*.py' --include='*.ts' --include='*.tsx' \
+               -E '(from|import)[^\n]*legacy' services apps packages 2>/dev/null; then
+            echo "::error::legacy/ is quarantined reference material and must not be imported."
+            exit 1
+          fi
+      - name: Reject capture artifacts and databases
+        run: |
+          if git ls-files | grep -E '\.(pcap|pcapng|db|sqlite3?)$'; then
+            echo "::error::Capture files and databases must never be committed."
+            exit 1
+          fi

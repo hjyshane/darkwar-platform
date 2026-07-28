@@ -1,0 +1,75 @@
+[project]
+name = "dw-collector"
+version = "0.1.0"
+description = "DarkWar collector agent: capture, parse, journal, sync"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "pydantic>=2.9",
+    "httpx>=0.27",
+    "structlog>=24.4",
+    "typer>=0.15",
+]
+
+# Capture is Windows-only and needs Npcap. Kept out of the default install so
+# tests and CI run without it, and so the pipeline stays testable via fixtures.
+[project.optional-dependencies]
+capture = ["scapy>=2.6"]
+
+# Spec 10.1 asks for process separation, not package separation. One package,
+# four entrypoints: capture must not die because sync or a UI workflow failed.
+[project.scripts]
+dw-collector = "dw_collector.cli:app"
+dw-capture = "dw_collector.capture.__main__:main"
+dw-sync = "dw_collector.sync.__main__:main"
+dw-jobs = "dw_collector.jobs.__main__:main"
+dw-ui-worker = "dw_collector.ui_worker.__main__:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-cov>=6.0",
+    "syrupy>=4.8",
+    "mypy>=1.13",
+    "ruff>=0.8",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dw_collector"]
+
+# --- ruff --------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+# legacy/ is quarantined. It is never linted, formatted, or type-checked.
+extend-exclude = ["../../legacy"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "SIM", "PTH", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+
+# --- mypy --------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+exclude = ["^\\.\\./\\.\\./legacy/"]
+
+[[tool.mypy.overrides]]
+module = "scapy.*"
+ignore_missing_imports = true
+
+# --- pytest ------------------------------------------------------------------
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+norecursedirs = ["legacy", ".venv", "node_modules"]
+addopts = "-q --strict-markers"
+markers = [
+    "capture: requires Npcap and a live interface (Windows only)",
+    "supabase: requires the local Supabase stack to be running",
+]

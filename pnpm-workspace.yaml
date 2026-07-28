@@ -1,0 +1,5 @@
+# Only TypeScript lives in the pnpm workspace. `services/` is Python (uv) and
+# `legacy/` is quarantined — neither may be walked by pnpm.
+packages:
+  - "apps/*"
+  - "packages/*"
