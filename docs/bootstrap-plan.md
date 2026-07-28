@@ -17,7 +17,15 @@
 >   두 바이너리가 들어있고 `db reset`은 둘 다 필요하다.
 > - **남은 수동 작업** — push는 사용자 터미널에서(SSH 키가 패스프레이즈로 잠겨
 >   있고 ssh-agent 미실행).
-> - **다음** — P1: 마이그레이션 0001~0006 + RLS pgTAP + seed (S1~S2).
+> - **P1 완료** — 마이그레이션 0001~0006(21개 테이블 + internal.raw_observations),
+>   seed(합성 연맹 1·로스터 20·아레나 1주), pgTAP 75개 통과(RLS negative,
+>   Realtime publication 3개 테이블 한정, reset-week 벡터 7개 —
+>   `protocol-fixtures/reset-week/vectors.json`이 원본), `packages/shared-types`
+>   생성 + 타입 드리프트 0. 발견: 이 Postgres 이미지는 public 테이블에
+>   anon/authenticated 기본 grant가 없어 0006에서 명시적으로 grant한다.
+>   D-1은 계획대로 `game_uid` 전역 유니크로 확정(레거시 SQLite로 사후 검증 예정).
+> - **다음** — P2: Python 코어(Observation 모델, SQLite 저널, outbox,
+>   idempotency, replay CLI — S3~S8).
 
 ## Context
 
