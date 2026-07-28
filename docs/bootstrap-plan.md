@@ -24,8 +24,15 @@
 >   생성 + 타입 드리프트 0. 발견: 이 Postgres 이미지는 public 테이블에
 >   anon/authenticated 기본 grant가 없어 0006에서 명시적으로 grant한다.
 >   D-1은 계획대로 `game_uid` 전역 유니크로 확정(레거시 SQLite로 사후 검증 예정).
-> - **다음** — P2: Python 코어(Observation 모델, SQLite 저널, outbox,
->   idempotency, replay CLI — S3~S8).
+> - **P2 완료** — Observation 모델·파서 레지스트리(al.rank, user.get.arena.info
+>   정규화기 2개), SQLite 저널(raw+정규화+outbox 단일 트랜잭션, FR-COL-004),
+>   sync 워커(엔티티 해석 → idempotency upsert, 백오프/데드레터),
+>   `dw-collector init-db/replay/sync` CLI. 합성 fixture 4종
+>   (`protocol-fixtures/decoded/`). pytest 27개 통과 — idempotency 키가 raw
+>   payload 해시임을 고정하는 회귀 테스트, 저널 원자성(강제 롤백), 로컬
+>   Supabase 대상 논리적 exactly-once(강제 재전송 흡수) 포함.
+> - **다음** — P3: 대시보드 셸, Realtime 구독 → 패널 refetch, 로스터/아레나
+>   화면, 장애 주입(S9~S10, S12).
 
 ## Context
 
