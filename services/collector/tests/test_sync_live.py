@@ -1,0 +1,98 @@
+"""S8 exit proof against the real local Supabase stack.
+
+Requires `supabase start` and SUPABASE_SECRET_KEY in the environment;
+skipped otherwise (CI's python job has no stack — the db job covers the
+schema side).
+"""
+
+from __future__ import annotations
+
+import os
+from typing import Any
+
+import httpx
+import pytest
+
+from dw_collector.normalize import al_rank, arena
+from dw_collector.storage.journal import Journal
+from dw_collector.sync.worker import SyncConfig, SyncWorker
+from tests.conftest import load_observation
+
+pytestmark = pytest.mark.supabase
+
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "http://127.0.0.1:54321")
+SECRET_KEY = os.environ.get("SUPABASE_SECRET_KEY", "")
+FIXTURE_COLLECTOR = "00000000-0000-4000-8000-00000000c777"
+
+
+@pytest.fixture(scope="module")
+def client() -> httpx.Client:
+    if not SECRET_KEY:
+        pytest.skip("SUPABASE_SECRET_KEY not set")
+    c = httpx.Client(
+        base_url=SUPABASE_URL,
+        headers={"apikey": SECRET_KEY, "Authorization": f"Bearer {SECRET_KEY}"},
+        timeout=10.0,
+    )
+    try:
+        c.get("/rest/v1/", timeout=3.0)
+    except httpx.HTTPError:
+        pytest.skip("local Supabase stack is not running")
+    # Make the module re-runnable: drop anything this collector wrote before.
+    for table in ("arena_entries", "arena_snapshots", "alliance_member_snapshots"):
+        c.delete(f"/rest/v1/{table}", params={"collector_id": f"eq.{FIXTURE_COLLECTOR}"})
+    return c
+
+
+def _count(client: httpx.Client, table: str) -> int:
+    resp = client.get(
+        f"/rest/v1/{table}",
+        params={"collector_id": f"eq.{FIXTURE_COLLECTOR}", "select": "snapshot_id"},
+        headers={"Prefer": "count=exact", "Range-Unit": "items", "Range": "0-0"},
+    )
+    resp.raise_for_status()
+    return int(resp.headers["content-range"].split("/")[1])
+
+
+def test_replay_then_sync_is_logically_exactly_once(client: httpx.Client, journal: Journal) -> None:
+    observations: list[Any] = [
+        (load_observation("al.rank/synthetic_roster_v1.json"), al_rank.normalize),
+        (load_observation("al.rank/synthetic_roster_nulls_v1.json"), al_rank.normalize),
+        (load_observation("user.get.arena.info/synthetic_week_v1.json"), arena.normalize),
+    ]
+    for observation, normalize in observations:
+        journal.record(observation, normalize(observation))
+
+    worker = SyncWorker(journal, SyncConfig(supabase_url=SUPABASE_URL, secret_key=SECRET_KEY))
+    stats = worker.drain_once()
+    assert stats.failed == 0
+    assert stats.sent == 44  # 20 + 3 roster rows, 1 header, 20 entries
+
+    counts = {
+        t: _count(client, t)
+        for t in (
+            "alliance_member_snapshots",
+            "arena_snapshots",
+            "arena_entries",
+        )
+    }
+    assert counts == {
+        "alliance_member_snapshots": 23,
+        "arena_snapshots": 1,
+        "arena_entries": 20,
+    }
+
+    # Replaying the fixtures is absorbed by the journal...
+    for observation, normalize in observations:
+        result = journal.record(observation, normalize(observation))
+        assert result.rows_inserted == 0
+    assert worker.drain_once().sent == 0
+
+    # ...and even a forced resend is absorbed by the cloud-side unique
+    # idempotency_key upsert (FR-COL-005: logical exactly-once).
+    with journal.conn:
+        journal.conn.execute("update sync_outbox set status = 'pending'")
+    stats = worker.drain_once()
+    assert stats.failed == 0
+    assert stats.sent == 44
+    assert {t: _count(client, t) for t in counts} == counts
