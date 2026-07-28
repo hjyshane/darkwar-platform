@@ -1,16 +1,23 @@
 # DarkWar Platform — 저장소 부트스트랩 및 첫 수직 슬라이스
 
-> **진행 상황** (2026-07-28 기준)
+> **진행 상황** (2026-07-28 기준, WSL 검증 후 갱신)
 >
 > - **P0 완료** — 커밋 `8464377`. 저장소 뼈대, `.gitignore`/gitleaks/lefthook
 >   시크릿 가드, pnpm 워크스페이스, Python 패키지 설정, CI 워크플로, `CLAUDE.md`.
-> - **미검증** — P0 파일은 Mac에서 *작성만* 됐고 실행된 적이 없다. 그 Mac에는
->   node·pnpm·uv·supabase·docker가 없었다. 핀으로 박은 버전(`pnpm@9.15.0`,
->   biome 1.9.4 스키마, 각 의존성 범위)은 Windows에서 첫 설치 시 조정이 필요할 수 있다.
-> - **다음** — Windows에서 도구 설치 → `pnpm install`, `uv sync`, `supabase start`가
->   한 번 통과하는 것 확인 → 그다음 P1(마이그레이션 0001~0006).
->   검증 안 된 설정 위에 스키마 21개를 쌓으면 나중에 원인 분리가 안 된다.
-> - **GitHub 저장소 미생성** — Mac에 `gh`가 없었다.
+> - **P0 검증 완료** — 실제 개발 환경은 계획과 달리 Windows 네이티브가 아니라
+>   **WSL2**다(저장소가 WSL 파일시스템에 있음). 캡처(P5/S15)만 네이티브 Windows.
+>   `~/.local/bin`에 설치: pnpm 9.15.0(corepack) · uv 0.12.0 · supabase CLI
+>   2.110.0 · gh 2.96.0 · gitleaks 8.30.1 · lefthook 2.1.10.
+>   통과: `pnpm install` · `biome check` · `uv sync`(Python 3.12) · `ruff` ·
+>   gitleaks 히스토리 스캔(누출 0) · lefthook 훅 설치. 핀 버전 조정 불필요했음.
+> - **GitHub 저장소 생성됨** — `git@github.com:hjyshane/darkwar-platform.git`.
+> - **Supabase 로컬 검증 완료** — Docker Desktop WSL 통합 활성화, `gh` 인증 완료.
+>   `supabase init`(project_id는 `darkwar-platform`으로 교정) → `supabase start` →
+>   `supabase db reset` 전부 통과. 주의: CLI tarball에는 `supabase`와 `supabase-go`
+>   두 바이너리가 들어있고 `db reset`은 둘 다 필요하다.
+> - **남은 수동 작업** — push는 사용자 터미널에서(SSH 키가 패스프레이즈로 잠겨
+>   있고 ssh-agent 미실행).
+> - **다음** — P1: 마이그레이션 0001~0006 + RLS pgTAP + seed (S1~S2).
 
 ## Context
 
