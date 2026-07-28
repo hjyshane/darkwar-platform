@@ -11,14 +11,13 @@
 >   통과: `pnpm install` · `biome check` · `uv sync`(Python 3.12) · `ruff` ·
 >   gitleaks 히스토리 스캔(누출 0) · lefthook 훅 설치. 핀 버전 조정 불필요했음.
 > - **GitHub 저장소 생성됨** — `git@github.com:hjyshane/darkwar-platform.git`.
-> - **남은 블로커** (전부 사용자 수동 작업):
->   1. Docker Desktop → Settings → Resources → WSL integration에서 이 배포판
->      활성화. 그 전까지 `supabase start` 불가.
->   2. `gh auth login` (미인증).
->   3. SSH 키(`id_ed25519_github`)가 패스프레이즈로 잠겨 있고 ssh-agent 미실행
->      → push는 사용자 터미널에서. GitHub에 키 등록 여부도 미확인.
-> - **다음** — Docker 통합 켠 뒤 `supabase init` + `supabase start` 1회 통과 확인
->   → P1(마이그레이션 0001~0006). `supabase/` 디렉터리는 아직 없다(P1에서 생성).
+> - **Supabase 로컬 검증 완료** — Docker Desktop WSL 통합 활성화, `gh` 인증 완료.
+>   `supabase init`(project_id는 `darkwar-platform`으로 교정) → `supabase start` →
+>   `supabase db reset` 전부 통과. 주의: CLI tarball에는 `supabase`와 `supabase-go`
+>   두 바이너리가 들어있고 `db reset`은 둘 다 필요하다.
+> - **남은 수동 작업** — push는 사용자 터미널에서(SSH 키가 패스프레이즈로 잠겨
+>   있고 ssh-agent 미실행).
+> - **다음** — P1: 마이그레이션 0001~0006 + RLS pgTAP + seed (S1~S2).
 
 ## Context
 
