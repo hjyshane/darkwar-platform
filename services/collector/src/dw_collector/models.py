@@ -8,6 +8,7 @@ assume a live socket.
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import uuid
@@ -17,10 +18,20 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
+def json_default(value: Any) -> str:
+    """SFS type 10 decodes to bytes (army lineups, blobs), which json cannot
+    encode. Base64 keeps it representable and, crucially, deterministic —
+    idempotency keys hash this output."""
+    if isinstance(value, bytes):
+        return "b64:" + base64.b64encode(value).decode("ascii")
+    msg = f"cannot serialize {type(value).__name__} in a decoded payload"
+    raise TypeError(msg)
+
+
 class Observation(BaseModel):
     """One decoded SmartFox response, before any normalization."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, ser_json_bytes="base64")
 
     observation_id: uuid.UUID
     collector_id: uuid.UUID
@@ -50,17 +61,23 @@ class NormalizedRow(BaseModel):
     resolves `entity_refs` (natural keys) against Supabase and fills them in.
     """
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, ser_json_bytes="base64")
 
     target_table: str
     idempotency_key: str
     row: dict[str, Any]
     entity_refs: dict[str, Any] = Field(default_factory=dict)
+    # Which unique constraint the cloud upsert conflicts on. Snapshot tables
+    # all carry idempotency_key; discovery rows dedupe on their own natural
+    # key instead.
+    conflict_target: str = "idempotency_key"
 
 
 def payload_hash(payload: dict[str, Any]) -> str:
     """sha256 over the canonical JSON encoding of a raw decoded payload."""
-    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    canonical = json.dumps(
+        payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True, default=json_default
+    )
     return hashlib.sha256(canonical.encode("ascii")).hexdigest()
 
 

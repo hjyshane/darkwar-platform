@@ -12,6 +12,10 @@ test('arena topics map to the arena query only', () => {
   expect(queryKeysForTopic('arena_entries')).toEqual([['arena']]);
 });
 
+test('alliance ranking topic maps to the rankings query only', () => {
+  expect(queryKeysForTopic('alliance_snapshots')).toEqual([['rankings']]);
+});
+
 test('unknown topics invalidate nothing', () => {
   expect(queryKeysForTopic('battle_report_ingests')).toEqual([]);
 });

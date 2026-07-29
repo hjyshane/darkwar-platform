@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from dw_collector.models import NormalizedRow, Observation
+from dw_collector.models import NormalizedRow, Observation, json_default
 
 _SCHEMA = """
 create table if not exists raw_observations (
@@ -104,7 +104,7 @@ class Journal:
                     observation.source_command,
                     observation.captured_at.isoformat(),
                     observation.collected_from_server_id,
-                    json.dumps(observation.payload, sort_keys=True),
+                    json.dumps(observation.payload, sort_keys=True, default=json_default),
                     now,
                 ),
             )

@@ -61,8 +61,25 @@
 >   동일성 보존). pytest 49·vitest 26·pgTAP 78.
 > - **S14-PR3 완료** — `alliance.rank` 파서 승격(로컬 41 + 크로스 100 fixture,
 >   연맹 id md5 매핑 공유로 fixture 간 동일성 유지). pytest 58·vitest 28.
-> - **다음** — 남은 파서 승격(get.al.info / server.rank / get.new.user.info,
->   PR당 1개) → S15 라이브 캡처(네이티브 Windows) → P6(S13 Discord 런타임).
+> - **S14 완료 — 확정 커맨드 7개 전부 파서 보유** — get.al.info(leaderUid로
+>   leader_game_uid 확보), server.rank(150명·8서버 = 대상/출처 분리 실증),
+>   get.new.user.info(6종 파워 합계 = 총합 **정확히 일치**, FR-CORE-004 실증),
+>   get.user.info.multi(유일하게 allianceId 보유). 모두 실 캡처 fixture +
+>   provenance 테스트. Appendix B 커버리지를 테스트로 고정.
+> - **발견 인박스 구현(FR-COL-008)** — `dw-collector scan-capture`가 PCAP을
+>   파이프라인에 통째로 흘려보내고, 미확인 커맨드는 **값 없이 타입 스켈레톤만**
+>   `schema_observations`에 기록. 로그인 캡처 1개에서 미확인 132종 발견
+>   (`get.alliance.duel.season.info`, `get.battlepass.info`,
+>   `al.battle.week.result.info`, `chat.get.system.mails` …) → §13/§14 이벤트·
+>   시즌 프레임워크의 캡처 백로그를 실제로 앞당길 단서.
+> - **실행이 잡은 진짜 버그 3건** — PostgREST는 한 요청 내 행들의 키 집합이
+>   같아야 함(파서별 컬럼 차이) · SFS 바이트 배열이 JSON 직렬화·해싱을 깨뜨림
+>   (base64 결정적 인코딩) · 자연키로 dedupe하는 테이블에 idempotency_key를
+>   주입하면 안 됨.
+> - **대시보드** — 연맹 순위 패널 추가(alliance_snapshots). pytest 91 ·
+>   vitest 36 · pgTAP 78.
+> - **다음(차단됨)** — S15 라이브 캡처(네이티브 Windows + Npcap),
+>   P6/S13 Discord 런타임. 그 외 확정 프로토콜 기반 작업은 소진.
 
 ## Context
 

@@ -149,3 +149,37 @@ def test_alliance_rank_sync_creates_alliances(journal: Journal) -> None:
     row = fake.upserted["alliance_snapshots"][0]
     assert row["alliance_id"] is not None
     assert row["external_id"] == ranking.payload["allianceRanking"][0]["uid"]
+
+
+def test_mixed_column_sets_are_grouped_per_request(journal: Journal) -> None:
+    """PostgREST rejects a bulk insert whose objects differ in keys, and
+    alliance.rank + get.al.info both write alliance_snapshots with
+    different columns."""
+    from dw_collector.normalize import alliance_rank, get_al_info
+
+    ranking = load_observation("alliance.rank/local_580_v1.json")
+    detail = load_observation("get.al.info/love_580_v1.json")
+    journal.record(ranking, alliance_rank.normalize(ranking))
+    journal.record(detail, get_al_info.normalize(detail))
+
+    signatures: list[frozenset[str]] = []
+
+    class KeyCheckingSupabase(FakeSupabase):
+        def handler(self, request: httpx.Request) -> httpx.Response:
+            table = request.url.path.removeprefix("/rest/v1/")
+            if request.method == "POST" and table not in self.entities:
+                body = json.loads(request.content)
+                keys = {frozenset(row) for row in body}
+                assert len(keys) == 1, "PostgREST would reject mismatched keys"
+                signatures.append(next(iter(keys)))
+            return super().handler(request)
+
+    fake = KeyCheckingSupabase()
+    stats = _worker(journal, fake).drain_once()
+
+    assert stats.failed == 0
+    assert stats.sent == 42
+    # Two distinct shapes for one table → two requests.
+    assert len(signatures) == 2
+    assert any("leader_game_uid" in s for s in signatures)
+    assert any("leader_game_uid" not in s for s in signatures)

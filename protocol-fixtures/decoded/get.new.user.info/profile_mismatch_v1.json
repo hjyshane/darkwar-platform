@@ -1,0 +1,20 @@
+{
+  "observation_id": "00000000-0000-4000-8000-00000000b103",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "get.new.user.info",
+  "captured_at": "2026-07-27T23:05:00+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "uid": "9629347793000578",
+    "name": "ProfilePlayer",
+    "serverId": 578,
+    "power": 1125940166,
+    "armyPower": 775623540,
+    "heroPower": 103477400,
+    "buildingPower": 79726100,
+    "sciencePower": 110529309,
+    "petPower": 17943772,
+    "modCarPower": 38627700
+  },
+  "schema_version": 1
+}

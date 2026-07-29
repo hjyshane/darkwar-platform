@@ -262,3 +262,123 @@ def test_committed_alliance_rank_fixtures_match_sanitized_captures(
     )
     committed = load_observation(fixture)
     assert committed.payload == sanitize_alliance_rank(dict(inbound.payload))
+
+
+def test_committed_get_al_info_fixture_matches_sanitized_capture() -> None:
+    pcap = Path("/mnt/c/darkwar-adb/darkwar_alliance_rank_580_T2.pcapng")
+    if not pcap.exists():
+        pytest.skip("real capture not on this machine")
+    from dw_collector.sanitize import sanitize_get_al_info
+    from tests.conftest import load_observation
+
+    inbound = next(
+        event
+        for event in iter_extension_events(pcap)
+        if event.direction == "inbound" and event.command == "get.al.info"
+    )
+    committed = load_observation("get.al.info/love_580_v1.json")
+    assert committed.payload == sanitize_get_al_info(dict(inbound.payload))
+
+
+def test_committed_server_rank_fixture_matches_sanitized_capture() -> None:
+    pcap = Path("/mnt/c/darkwar-adb/darkwar_player_profile_cp.pcapng")
+    if not pcap.exists():
+        pytest.skip("real capture not on this machine")
+    from dw_collector.sanitize import sanitize_server_rank
+    from tests.conftest import load_observation
+
+    inbound = next(
+        event
+        for event in iter_extension_events(pcap)
+        if event.direction == "inbound" and event.command == "server.rank"
+    )
+    committed = load_observation("server.rank/group_top150_v1.json")
+    assert committed.payload == sanitize_server_rank(dict(inbound.payload))
+
+
+def test_committed_profile_fixture_matches_sanitized_capture() -> None:
+    pcap = Path("/mnt/c/darkwar-adb/darkwar_player_profile_cp.pcapng")
+    if not pcap.exists():
+        pytest.skip("real capture not on this machine")
+    from dw_collector.sanitize import sanitize_get_new_user_info
+    from tests.conftest import load_observation
+
+    inbound = next(
+        event
+        for event in iter_extension_events(pcap)
+        if event.direction == "inbound" and event.command == "get.new.user.info"
+    )
+    committed = load_observation("get.new.user.info/profile_578_v1.json")
+    assert committed.payload == sanitize_get_new_user_info(dict(inbound.payload))
+
+
+def test_committed_multi_fixture_matches_sanitized_capture() -> None:
+    pcap = Path("/mnt/c/darkwar-adb/darkwar_player_profile_cp.pcapng")
+    if not pcap.exists():
+        pytest.skip("real capture not on this machine")
+    from dw_collector.sanitize import sanitize_get_user_info_multi
+    from tests.conftest import load_observation
+
+    inbound = next(
+        event
+        for event in iter_extension_events(pcap)
+        if event.direction == "inbound" and event.command == "get.user.info.multi"
+    )
+    committed = load_observation("get.user.info.multi/summary_578_v1.json")
+    assert committed.payload == sanitize_get_user_info_multi(dict(inbound.payload))
+
+
+def test_every_confirmed_command_has_a_parser() -> None:
+    """Appendix B registry vs what the collector can actually normalize.
+    user.arena.save.defend.army is the collector's own outbound write and
+    has no product table, so it is deliberately unparsed."""
+    from dw_collector import normalize as _normalize  # noqa: F401
+    from dw_collector import registry
+
+    confirmed = {
+        "alliance.rank",
+        "get.al.info",
+        "al.rank",
+        "server.rank",
+        "get.new.user.info",
+        "get.user.info.multi",
+        "user.get.arena.info",
+    }
+    assert confirmed <= registry.known_commands()
+
+
+def test_binary_payload_survives_the_journal_and_hashing(tmp_path: Path) -> None:
+    """SFS type 10 decodes to bytes (defense lineups carry them). Legacy had
+    a dedicated bytes-payload test; this is its promoted form."""
+    import uuid
+    from datetime import UTC, datetime
+
+    from dw_collector.models import Observation, payload_hash
+    from dw_collector.normalize import al_rank
+    from dw_collector.storage.journal import Journal
+
+    observation = Observation(
+        observation_id=uuid.uuid4(),
+        collector_id=uuid.UUID("00000000-0000-4000-8000-00000000c777"),
+        source_command="al.rank",
+        captured_at=datetime.now(tz=UTC),
+        collected_from_server_id=580,
+        payload={
+            "allianceId": "f" * 32,
+            "list": [{"uid": "9000000901000580", "name": "Bin", "blob": b"\x00\xff\x10raw"}],
+        },
+    )
+    # Hashing must not raise, and must stay stable across calls.
+    assert payload_hash(observation.payload) == payload_hash(observation.payload)
+
+    journal = Journal(tmp_path / "bytes.db")
+    journal.init_db()
+    try:
+        result = journal.record(observation, al_rank.normalize(observation))
+        assert result.rows_inserted == 1
+        # Round-tripped rows carry the blob as base64 text, never raw bytes,
+        # so the sync worker can hand them to an HTTP client.
+        item = journal.pending_outbox()[0]
+        assert isinstance(item.payload.row["raw"]["blob"], str)
+    finally:
+        journal.close()

@@ -27,6 +27,8 @@ log = structlog.get_logger()
 # Parents before children so FKs resolve on first sync; facts last since
 # they point at snapshot rows.
 _TABLE_ORDER = [
+    "player_snapshots",
+    "player_detail_snapshots",
     "alliance_snapshots",
     "alliance_member_snapshots",
     "arena_snapshots",
@@ -166,8 +168,10 @@ class SyncWorker:
         for item in items:
             row = dict(item.payload.row)
             # The key lives on the outbox item; inject it here so the row and
-            # the delivery envelope cannot drift apart.
-            row["idempotency_key"] = item.idempotency_key
+            # the delivery envelope cannot drift apart. Tables that dedupe on
+            # a natural key have no such column.
+            if item.payload.conflict_target == "idempotency_key":
+                row["idempotency_key"] = item.idempotency_key
             refs = item.payload.entity_refs
             if "alliance" in refs:
                 ref = refs["alliance"]
@@ -180,15 +184,26 @@ class SyncWorker:
             rows.append(row)
         return rows
 
-    def _upsert(self, table: str, rows: list[dict[str, Any]]) -> None:
-        resp = self.client.post(
-            f"/rest/v1/{table}",
-            params={"on_conflict": "idempotency_key"},
-            json=rows,
-            headers={"Prefer": "resolution=ignore-duplicates,return=minimal"},
-        )
-        if resp.status_code >= 400:
-            raise SyncError(f"{table}: HTTP {resp.status_code}: {resp.text[:300]}")
+    def _upsert(self, table: str, rows: list[dict[str, Any]], conflict_target: str) -> None:
+        # PostgREST rejects a bulk insert whose objects do not all share the
+        # same keys ("All object keys must match"), and two parsers writing
+        # the same table legitimately produce different column sets — only
+        # get.al.info knows leader_game_uid, for instance. Group by key
+        # signature rather than padding with nulls, so columns a parser
+        # never saw keep their database defaults.
+        groups: dict[frozenset[str], list[dict[str, Any]]] = {}
+        for row in rows:
+            groups.setdefault(frozenset(row), []).append(row)
+
+        for group in groups.values():
+            resp = self.client.post(
+                f"/rest/v1/{table}",
+                params={"on_conflict": conflict_target},
+                json=group,
+                headers={"Prefer": "resolution=ignore-duplicates,return=minimal"},
+            )
+            if resp.status_code >= 400:
+                raise SyncError(f"{table}: HTTP {resp.status_code}: {resp.text[:300]}")
 
     def drain_once(self, now: datetime | None = None) -> DrainStats:
         stats = DrainStats()
@@ -231,7 +246,7 @@ class SyncWorker:
             batch = by_table[table]
             try:
                 rows = self._resolve_rows(batch)
-                self._upsert(table, rows)
+                self._upsert(table, rows, batch[0].payload.conflict_target)
             except (httpx.HTTPError, SyncError) as exc:
                 log.warning("sync.batch_failed", table=table, error=str(exc))
                 self.journal.mark_failed(

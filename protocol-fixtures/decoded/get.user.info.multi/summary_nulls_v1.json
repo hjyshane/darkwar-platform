@@ -1,0 +1,21 @@
+{
+  "observation_id": "00000000-0000-4000-8000-00000000b202",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "get.user.info.multi",
+  "captured_at": "2026-07-27T23:20:00+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "uids": [
+      {
+        "uid": "9000000701000584"
+      },
+      {
+        "uid": "9000000702000584",
+        "name": null,
+        "power": null,
+        "allianceId": null
+      }
+    ]
+  },
+  "schema_version": 1
+}

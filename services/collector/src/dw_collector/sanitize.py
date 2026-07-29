@@ -120,8 +120,93 @@ def sanitize_alliance_rank(payload: dict[str, Any]) -> dict[str, Any]:
     return sanitized
 
 
+def sanitize_get_al_info(payload: dict[str, Any]) -> dict[str, Any]:
+    sanitized = dict(payload)
+    if isinstance(payload.get("uid"), str):
+        sanitized["uid"] = _fake_alliance_id(str(payload["uid"]))
+    if payload.get("leaderUid"):
+        sanitized["leaderUid"] = _fake_uid(str(payload["leaderUid"]))
+    for key, replacement in (
+        ("name", "Alliance Detail"),
+        ("abbr", "ADET"),
+        ("leaderName", "Leader01"),
+        # Free text written by players; never worth committing verbatim.
+        ("announce", "[redacted announcement]"),
+        ("intro", "[redacted intro]"),
+    ):
+        if payload.get(key):
+            sanitized[key] = replacement
+    return sanitized
+
+
+def sanitize_server_rank(payload: dict[str, Any]) -> dict[str, Any]:
+    entries = payload.get("serverRanking")
+    if not isinstance(entries, list):
+        return payload
+
+    sanitized_entries = []
+    for index, entry in enumerate(entries, start=1):
+        clean = dict(entry)
+        if "uid" in clean:
+            clean["uid"] = _fake_uid(str(clean["uid"]))
+        if clean.get("name"):
+            clean["name"] = f"Ranked{index:03d}"
+        if clean.get("allianceName"):
+            clean["allianceName"] = f"Alliance{index:02d}"
+        if clean.get("abbr"):
+            clean["abbr"] = f"A{index:03d}"
+        sanitized_entries.append(clean)
+
+    sanitized = dict(payload)
+    sanitized["serverRanking"] = sanitized_entries
+    if "selfPower" in sanitized:
+        sanitized["selfPower"] = 100000000
+    return sanitized
+
+
+def _sanitize_profile(profile: dict[str, Any], label: str) -> dict[str, Any]:
+    """Shared field masking for the two player-profile responses."""
+    clean = dict(profile)
+    if clean.get("uid"):
+        clean["uid"] = _fake_uid(str(clean["uid"]))
+    if clean.get("name"):
+        clean["name"] = label
+    if clean.get("allianceId"):
+        clean["allianceId"] = _fake_alliance_id(str(clean["allianceId"]))
+    if clean.get("allianceName"):
+        clean["allianceName"] = "Alliance01"
+    if clean.get("allianceAbbrName"):
+        clean["allianceAbbrName"] = "A001"
+    if clean.get("abbr"):
+        clean["abbr"] = "A001"
+    # Player-written profile text.
+    if clean.get("info"):
+        clean["info"] = []
+    return clean
+
+
+def sanitize_get_new_user_info(payload: dict[str, Any]) -> dict[str, Any]:
+    return _sanitize_profile(payload, "ProfilePlayer")
+
+
+def sanitize_get_user_info_multi(payload: dict[str, Any]) -> dict[str, Any]:
+    entries = payload.get("uids")
+    if not isinstance(entries, list):
+        return payload
+    sanitized = dict(payload)
+    sanitized["uids"] = [
+        _sanitize_profile(entry, f"MultiPlayer{index:02d}")
+        for index, entry in enumerate(entries, start=1)
+    ]
+    return sanitized
+
+
 SANITIZERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "al.rank": sanitize_al_rank,
     "alliance.rank": sanitize_alliance_rank,
+    "get.al.info": sanitize_get_al_info,
+    "get.new.user.info": sanitize_get_new_user_info,
+    "get.user.info.multi": sanitize_get_user_info_multi,
+    "server.rank": sanitize_server_rank,
     "user.get.arena.info": sanitize_user_get_arena_info,
 }

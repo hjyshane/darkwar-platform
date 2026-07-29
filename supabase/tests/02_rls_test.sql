@@ -56,7 +56,9 @@ select is_empty(
 -- anon
 set local role anon;
 
-select is((select count(*) from public.players), 20::bigint,
+-- Visibility, not totals: these must hold whatever else is in the
+-- database, so they assert presence rather than a row count.
+select isnt_empty($$ select * from public.players $$,
   'anon reads public rankings');
 select is_empty($$ select * from public.alliance_member_snapshots $$,
   'anon cannot read alliance-internal presence');
@@ -71,7 +73,7 @@ select set_config('request.jwt.claims',
   '{"sub":"00000000-0000-4000-8000-00000000f001","role":"authenticated"}',
   true);
 
-select is((select count(*) from public.arena_entries), 20::bigint,
+select isnt_empty($$ select * from public.arena_entries $$,
   'viewer reads arena entries');
 select is_empty($$ select * from public.alliance_member_snapshots $$,
   'viewer cannot read alliance-internal presence');
@@ -93,15 +95,15 @@ select set_config('request.jwt.claims',
   '{"sub":"00000000-0000-4000-8000-00000000f002","role":"authenticated"}',
   true);
 
-select is((select count(*) from public.alliance_member_snapshots),
-  20::bigint, 'member reads alliance-internal presence');
+select isnt_empty($$ select * from public.alliance_member_snapshots $$,
+  'member reads alliance-internal presence');
 
 -- officer
 select set_config('request.jwt.claims',
   '{"sub":"00000000-0000-4000-8000-00000000f003","role":"authenticated"}',
   true);
 
-select is((select count(*) from public.activity_facts), 1::bigint,
+select isnt_empty($$ select * from public.activity_facts $$,
   'officer reads activity facts');
 select lives_ok($$
   insert into public.refresh_jobs (job_type, requested_by)

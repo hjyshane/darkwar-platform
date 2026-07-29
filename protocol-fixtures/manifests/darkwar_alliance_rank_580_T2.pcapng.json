@@ -1,0 +1,8 @@
+{
+  "file": "darkwar_alliance_rank_580_T2.pcapng",
+  "sha256": "7b128354d4f8ea84cda1c4779e5eacd67d25518363dd3d24bd1312a98fe6f05f",
+  "location": "outside the repo (C:\\darkwar-adb)",
+  "captured_at_approx": "2026-07-27T21:57:00Z",
+  "note": "LovE alliance detail + roster, server 580; source of decoded/get.al.info/love_580_v1.json (sanitized: alliance id md5-mapped, leader uid hash-mapped, names/announce/intro replaced)",
+  "commands_extracted": ["get.al.info"]
+}
