@@ -345,3 +345,40 @@ def test_every_confirmed_command_has_a_parser() -> None:
         "user.get.arena.info",
     }
     assert confirmed <= registry.known_commands()
+
+
+def test_binary_payload_survives_the_journal_and_hashing(tmp_path: Path) -> None:
+    """SFS type 10 decodes to bytes (defense lineups carry them). Legacy had
+    a dedicated bytes-payload test; this is its promoted form."""
+    import uuid
+    from datetime import UTC, datetime
+
+    from dw_collector.models import Observation, payload_hash
+    from dw_collector.normalize import al_rank
+    from dw_collector.storage.journal import Journal
+
+    observation = Observation(
+        observation_id=uuid.uuid4(),
+        collector_id=uuid.UUID("00000000-0000-4000-8000-00000000c777"),
+        source_command="al.rank",
+        captured_at=datetime.now(tz=UTC),
+        collected_from_server_id=580,
+        payload={
+            "allianceId": "f" * 32,
+            "list": [{"uid": "9000000901000580", "name": "Bin", "blob": b"\x00\xff\x10raw"}],
+        },
+    )
+    # Hashing must not raise, and must stay stable across calls.
+    assert payload_hash(observation.payload) == payload_hash(observation.payload)
+
+    journal = Journal(tmp_path / "bytes.db")
+    journal.init_db()
+    try:
+        result = journal.record(observation, al_rank.normalize(observation))
+        assert result.rows_inserted == 1
+        # Round-tripped rows carry the blob as base64 text, never raw bytes,
+        # so the sync worker can hand them to an HTTP client.
+        item = journal.pending_outbox()[0]
+        assert isinstance(item.payload.row["raw"]["blob"], str)
+    finally:
+        journal.close()

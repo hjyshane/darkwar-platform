@@ -1,4 +1,4 @@
-"""dw-collector CLI: init-db, replay, sync."""
+"""dw-collector CLI: init-db, replay, sync, extract-fixture, scan-capture."""
 
 from __future__ import annotations
 
@@ -156,6 +156,75 @@ def extract_fixture(
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(observation.model_dump_json(indent=2) + "\n")
     typer.echo(f"wrote {out}  (source pcap sha256 {pcap_sha[:16]}…)")
+
+
+@app.command("scan-capture")
+def scan_capture(
+    pcap: Annotated[Path, typer.Option(exists=True, dir_okay=False)],
+    db: Annotated[Path | None, _DB_OPTION] = None,
+    collected_from_server: Annotated[int, typer.Option()] = 580,
+    port: Annotated[int, typer.Option()] = 8680,
+    discover_only: Annotated[
+        bool, typer.Option(help="record unknown-command shapes but ingest nothing")
+    ] = False,
+) -> None:
+    """Ingest every inbound response in a capture through the pipeline.
+
+    Known commands become snapshot rows; unknown ones become
+    schema_observations shape records (FR-COL-008) so the next parser has
+    somewhere to start. Malformed payloads are counted, not fatal
+    (FR-COL-003).
+    """
+    import uuid
+    from datetime import UTC, datetime
+
+    from dw_collector import pipeline
+    from dw_collector.protocol.pcapng import iter_extension_events
+
+    collector_id = uuid.UUID(
+        os.environ.get("DW_COLLECTOR_ID", "00000000-0000-4000-8000-00000000c777")
+    )
+    # A pcap has no trustworthy wall-clock for the decoded response, so the
+    # scan time is the observation time; the manifest records the real one.
+    captured_at = datetime.now(tz=UTC)
+
+    journal = _open_journal(db)
+    ingested = discovered = rejected = 0
+    commands: dict[str, int] = {}
+    try:
+        for index, event in enumerate(iter_extension_events(pcap, port=port)):
+            if event.direction != "inbound":
+                continue
+            known = registry.get(event.command) is not None
+            if discover_only and known:
+                continue
+            observation = Observation(
+                observation_id=uuid.uuid5(
+                    uuid.NAMESPACE_URL, f"dw-scan:{pcap.name}:{index}:{event.command}"
+                ),
+                collector_id=collector_id,
+                source_command=event.command,
+                captured_at=captured_at,
+                collected_from_server_id=collected_from_server,
+                payload=dict(event.payload),
+            )
+            try:
+                rows = pipeline.observe(observation)
+            except ValidationError:
+                rejected += 1
+                continue
+            journal.record(observation, rows)
+            commands[event.command] = commands.get(event.command, 0) + 1
+            if known:
+                ingested += 1
+            else:
+                discovered += 1
+    finally:
+        journal.close()
+
+    typer.echo(
+        f"ingested={ingested} discovered={discovered} rejected={rejected} commands={len(commands)}"
+    )
 
 
 if __name__ == "__main__":

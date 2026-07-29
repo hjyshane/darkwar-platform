@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from dw_collector import registry
 from dw_collector.activity import emit_facts
+from dw_collector.discovery import discovery_row
 from dw_collector.models import NormalizedRow, Observation
 
 
@@ -25,3 +26,16 @@ def process(observation: Observation) -> list[NormalizedRow]:
         raise UnknownCommandError(observation.source_command)
     rows = normalizer(observation)
     return rows + emit_facts(observation, rows)
+
+
+def observe(observation: Observation) -> list[NormalizedRow]:
+    """process(), but an unrecognized command becomes a discovery row.
+
+    FR-COL-003: an unknown or malformed payload must never stop collection.
+    Bulk paths (capture scan, live capture at S15) use this; `replay` keeps
+    using process() so a typo in a fixture is still an error.
+    """
+    try:
+        return process(observation)
+    except UnknownCommandError:
+        return [discovery_row(observation)]

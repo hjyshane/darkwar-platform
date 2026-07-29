@@ -168,8 +168,10 @@ class SyncWorker:
         for item in items:
             row = dict(item.payload.row)
             # The key lives on the outbox item; inject it here so the row and
-            # the delivery envelope cannot drift apart.
-            row["idempotency_key"] = item.idempotency_key
+            # the delivery envelope cannot drift apart. Tables that dedupe on
+            # a natural key have no such column.
+            if item.payload.conflict_target == "idempotency_key":
+                row["idempotency_key"] = item.idempotency_key
             refs = item.payload.entity_refs
             if "alliance" in refs:
                 ref = refs["alliance"]
@@ -182,7 +184,7 @@ class SyncWorker:
             rows.append(row)
         return rows
 
-    def _upsert(self, table: str, rows: list[dict[str, Any]]) -> None:
+    def _upsert(self, table: str, rows: list[dict[str, Any]], conflict_target: str) -> None:
         # PostgREST rejects a bulk insert whose objects do not all share the
         # same keys ("All object keys must match"), and two parsers writing
         # the same table legitimately produce different column sets — only
@@ -196,7 +198,7 @@ class SyncWorker:
         for group in groups.values():
             resp = self.client.post(
                 f"/rest/v1/{table}",
-                params={"on_conflict": "idempotency_key"},
+                params={"on_conflict": conflict_target},
                 json=group,
                 headers={"Prefer": "resolution=ignore-duplicates,return=minimal"},
             )
@@ -244,7 +246,7 @@ class SyncWorker:
             batch = by_table[table]
             try:
                 rows = self._resolve_rows(batch)
-                self._upsert(table, rows)
+                self._upsert(table, rows, batch[0].payload.conflict_target)
             except (httpx.HTTPError, SyncError) as exc:
                 log.warning("sync.batch_failed", table=table, error=str(exc))
                 self.journal.mark_failed(
