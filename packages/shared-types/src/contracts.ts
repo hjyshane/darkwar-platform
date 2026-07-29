@@ -43,20 +43,26 @@ export const alRankPayloadSchema = z
   })
   .passthrough();
 
+// Real user.get.arena.info shape (S14-PR2, extracted from
+// darkwar_arena_match.pcapng): rankArr is the Top100, startTime/endTime
+// are the week bounds in epoch ms, fightServers the matchup.
 export const arenaPayloadSchema = z
   .object({
-    server_id: z.number().int(),
-    entries: z.array(
+    rankArr: z.array(
       z
         .object({
-          game_uid: z.number().int(),
+          uid: z.string().regex(/^\d+$/),
           rank: z.number().int(),
           name: z.string().nullish(),
           score: z.number().int().nullish(),
-          defense_power: z.number().int().nullish(),
+          power: z.number().int().nullish(),
+          serverId: z.number().int().nullish(),
         })
         .passthrough(),
     ),
+    startTime: z.number().int().nullish(),
+    endTime: z.number().int().nullish(),
+    fightServers: z.string().nullish(),
   })
   .passthrough();
 

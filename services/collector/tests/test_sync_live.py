@@ -64,7 +64,7 @@ def test_replay_then_sync_is_logically_exactly_once(client: httpx.Client, journa
     observations: list[Any] = [
         (load_observation("al.rank/cbfw_roster_v1.json"), al_rank.normalize),
         (load_observation("al.rank/roster_nulls_v1.json"), al_rank.normalize),
-        (load_observation("user.get.arena.info/synthetic_week_v1.json"), arena.normalize),
+        (load_observation("user.get.arena.info/top100_580v582_v1.json"), arena.normalize),
     ]
     for observation, normalize in observations:
         journal.record(observation, normalize(observation))
@@ -74,7 +74,7 @@ def test_replay_then_sync_is_logically_exactly_once(client: httpx.Client, journa
     )
     stats = worker.drain_once()
     assert stats.failed == 0
-    assert stats.sent == 117  # 93 + 3 roster rows, 1 header, 20 entries
+    assert stats.sent == 197  # 93 + 3 roster rows, 1 header, 100 entries
 
     counts = {
         t: _count(client, t)
@@ -87,7 +87,7 @@ def test_replay_then_sync_is_logically_exactly_once(client: httpx.Client, journa
     assert counts == {
         "alliance_member_snapshots": 96,
         "arena_snapshots": 1,
-        "arena_entries": 20,
+        "arena_entries": 100,
     }
 
     # Replaying the fixtures is absorbed by the journal...
@@ -102,7 +102,7 @@ def test_replay_then_sync_is_logically_exactly_once(client: httpx.Client, journa
         journal.conn.execute("update sync_outbox set status = 'pending'")
     stats = worker.drain_once()
     assert stats.failed == 0
-    assert stats.sent == 117
+    assert stats.sent == 197
     assert {t: _count(client, t) for t in counts} == counts
 
 
@@ -113,7 +113,7 @@ def test_network_cut_and_recovery(client: httpx.Client, journal: Journal) -> Non
     import uuid
     from datetime import UTC, datetime, timedelta
 
-    base = load_observation("user.get.arena.info/synthetic_week_v1.json")
+    base = load_observation("user.get.arena.info/top100_580v582_v1.json")
     observation = base.model_copy(
         update={
             "observation_id": uuid.uuid4(),
@@ -133,12 +133,13 @@ def test_network_cut_and_recovery(client: httpx.Client, journal: Journal) -> Non
             supabase_url="http://127.0.0.1:9",
             secret_key=SECRET_KEY,
             base_backoff_seconds=5.0,
+            batch_size=500,
         ),
     )
     stats = dead.drain_once(now=now)
     assert stats.sent == 0
-    assert stats.failed == 21
-    assert journal.outbox_counts() == {"pending": 21}
+    assert stats.failed == 101
+    assert journal.outbox_counts() == {"pending": 101}
 
     # Recovery after backoff: full drain, header before entries.
     worker = SyncWorker(
@@ -146,15 +147,15 @@ def test_network_cut_and_recovery(client: httpx.Client, journal: Journal) -> Non
     )
     stats = worker.drain_once(now=now + timedelta(seconds=6))
     assert stats.failed == 0
-    assert stats.sent == 21
-    assert journal.outbox_counts() == {"sent": 21}
+    assert stats.sent == 101
+    assert journal.outbox_counts() == {"sent": 101}
 
 
 def test_fact_drills_down_to_original_observation(client: httpx.Client, journal: Journal) -> None:
     """S11/FR-ACT-008: fact → snapshot row → observation_id → raw payload."""
     from dw_collector import pipeline
 
-    observation = load_observation("user.get.arena.info/synthetic_week_v1.json")
+    observation = load_observation("user.get.arena.info/top100_580v582_v1.json")
     journal.record(observation, pipeline.process(observation))
 
     worker = SyncWorker(

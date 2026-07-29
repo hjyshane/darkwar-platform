@@ -27,7 +27,7 @@ def test_real_roster() -> None:
     assert len({r.idempotency_key for r in rows}) == 93
 
     first = rows[0].row
-    assert first["game_uid"] == 9000000001000580
+    assert first["game_uid"] == 9473022442000580
     assert first["name"] == "Member01"
     assert first["member_rank"] == 4
     assert first["hq_level"] == 45
@@ -48,7 +48,7 @@ def test_real_roster() -> None:
     refs = rows[0].entity_refs
     assert refs["alliance"]["external_id"] == observation.payload["allianceId"]
     assert refs["alliance"]["server_id"] == 580
-    assert refs["player"]["game_uid"] == 9000000001000580
+    assert refs["player"]["game_uid"] == 9473022442000580
 
 
 def test_null_and_missing_optionals() -> None:

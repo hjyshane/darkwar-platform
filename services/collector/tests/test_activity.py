@@ -8,13 +8,13 @@ from tests.conftest import load_observation
 
 
 def test_arena_pipeline_emits_participation_facts() -> None:
-    observation = load_observation("user.get.arena.info/synthetic_week_v1.json")
+    observation = load_observation("user.get.arena.info/top100_580v582_v1.json")
     rows = pipeline.process(observation)
 
     facts = [r for r in rows if r.target_table == "activity_facts"]
     entries = {r.row["snapshot_id"]: r for r in rows if r.target_table == "arena_entries"}
-    assert len(rows) == 41  # header + 20 entries + 20 facts
-    assert len(facts) == 20
+    assert len(rows) == 201  # header + 100 entries + 100 facts
+    assert len(facts) == 100
 
     fact = facts[0].row
     assert fact["metric_key"] == "arena_participation"
@@ -32,7 +32,7 @@ def test_arena_pipeline_emits_participation_facts() -> None:
 
 
 def test_fact_keys_survive_parser_version_bump(monkeypatch: pytest.MonkeyPatch) -> None:
-    observation = load_observation("user.get.arena.info/synthetic_week_v1.json")
+    observation = load_observation("user.get.arena.info/top100_580v582_v1.json")
     before = sorted(
         r.idempotency_key
         for r in pipeline.process(observation)

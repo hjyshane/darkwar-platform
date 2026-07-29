@@ -220,3 +220,20 @@ def test_committed_fixture_matches_sanitized_capture() -> None:
     )
     committed = load_observation("al.rank/cbfw_roster_v1.json")
     assert committed.payload == sanitize_al_rank(dict(inbound.payload))
+
+
+ARENA_PCAP = Path("/mnt/c/darkwar-adb/darkwar_arena_match.pcapng")
+
+
+@pytest.mark.skipif(not ARENA_PCAP.exists(), reason="real capture not on this machine")
+def test_committed_arena_fixture_matches_sanitized_capture() -> None:
+    from dw_collector.sanitize import sanitize_user_get_arena_info
+    from tests.conftest import load_observation
+
+    inbound = next(
+        event
+        for event in iter_extension_events(ARENA_PCAP)
+        if event.direction == "inbound" and event.command == "user.get.arena.info"
+    )
+    committed = load_observation("user.get.arena.info/top100_580v582_v1.json")
+    assert committed.payload == sanitize_user_get_arena_info(dict(inbound.payload))
