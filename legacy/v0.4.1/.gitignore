@@ -1,0 +1,6 @@
+.env.activity
+activity/client/node_modules/
+activity/dist/
+logs/
+data/*.sqlite3-wal
+data/*.sqlite3-shm

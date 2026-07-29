@@ -1,0 +1,19 @@
+[refresh_automation]
+enabled = true
+weekly_enabled = true
+weekly_weekday_utc = 0
+reset_hour_utc = 2
+reset_minute_utc = 0
+weekly_delay_seconds = 300
+idle_seconds_required = 300
+poll_seconds = 30
+interrupt_check_seconds = 1
+adb_path = ""
+device_serial = ""
+package = "com.readygo.dark.gp"
+sequence_dir = "data/refresh_sequences"
+launch_wait_seconds = 25
+tap_wait_seconds = 3
+verification_timeout_seconds = 75
+max_attempts = 3
+catch_up_weekly = true

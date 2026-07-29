@@ -28,3 +28,9 @@ paths = [
   '''^supabase/config\.toml$''',
   '''^\.gitleaks\.toml$''',
 ]
+# The canonical sequential example ID used in legacy setup docs. Discord
+# client IDs are public identifiers to begin with; this pins the one
+# documented placeholder value rather than loosening the rule.
+regexes = [
+  '''123456789012345678''',
+]

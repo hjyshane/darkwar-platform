@@ -1,0 +1,7 @@
+# Copy this file to .env.activity and fill in the values from
+# Discord Developer Portal -> OAuth2.
+DISCORD_CLIENT_ID=YOUR_DISCORD_APPLICATION_ID
+DISCORD_CLIENT_SECRET=YOUR_DISCORD_CLIENT_SECRET
+
+# Used only when discord_activity.allow_dev_bypass=true.
+DARKWAR_ACTIVITY_DEV_USER_ID=YOUR_DISCORD_USER_ID
