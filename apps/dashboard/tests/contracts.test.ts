@@ -2,7 +2,12 @@
 // Pydantic models parse. The malformed fixture must fail on both sides.
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { alRankPayloadSchema, arenaPayloadSchema, observationSchema } from '@dw/shared-types';
+import {
+  alRankPayloadSchema,
+  allianceRankPayloadSchema,
+  arenaPayloadSchema,
+  observationSchema,
+} from '@dw/shared-types';
 import { expect, test } from 'vitest';
 
 function loadFixture(relative: string): unknown {
@@ -57,4 +62,23 @@ test('arena malformed fixture is rejected', () => {
     loadFixture('user.get.arena.info/arena_malformed_v1.json'),
   );
   expect(arenaPayloadSchema.safeParse(observation.payload).success).toBe(false);
+});
+
+test('alliance ranking fixtures satisfy the contract', () => {
+  const local = observationSchema.parse(loadFixture('alliance.rank/local_580_v1.json'));
+  const cross = observationSchema.parse(loadFixture('alliance.rank/cross_group_v1.json'));
+  expect(allianceRankPayloadSchema.parse(local.payload).allianceRanking).toHaveLength(41);
+  expect(allianceRankPayloadSchema.parse(cross.payload).allianceRanking).toHaveLength(100);
+  // The local #1 is the same alliance as the al.rank roster fixture.
+  const roster = observationSchema.parse(loadFixture('al.rank/cbfw_roster_v1.json'));
+  expect(allianceRankPayloadSchema.parse(local.payload).allianceRanking[0]?.uid).toBe(
+    roster.payload.allianceId,
+  );
+});
+
+test('alliance ranking malformed fixture is rejected', () => {
+  const observation = observationSchema.parse(
+    loadFixture('alliance.rank/ranking_malformed_v1.json'),
+  );
+  expect(allianceRankPayloadSchema.safeParse(observation.payload).success).toBe(false);
 });

@@ -237,3 +237,28 @@ def test_committed_arena_fixture_matches_sanitized_capture() -> None:
     )
     committed = load_observation("user.get.arena.info/top100_580v582_v1.json")
     assert committed.payload == sanitize_user_get_arena_info(dict(inbound.payload))
+
+
+ALLIANCE_RANK_PCAPS = [
+    ("darkwar_alliance_rank_local.pcapng", "alliance.rank/local_580_v1.json"),
+    ("darkwar_alliance_rank_local_try2.pcapng", "alliance.rank/cross_group_v1.json"),
+]
+
+
+@pytest.mark.parametrize(("pcap_name", "fixture"), ALLIANCE_RANK_PCAPS)
+def test_committed_alliance_rank_fixtures_match_sanitized_captures(
+    pcap_name: str, fixture: str
+) -> None:
+    pcap = Path("/mnt/c/darkwar-adb") / pcap_name
+    if not pcap.exists():
+        pytest.skip("real capture not on this machine")
+    from dw_collector.sanitize import sanitize_alliance_rank
+    from tests.conftest import load_observation
+
+    inbound = next(
+        event
+        for event in iter_extension_events(pcap)
+        if event.direction == "inbound" and event.command == "alliance.rank"
+    )
+    committed = load_observation(fixture)
+    assert committed.payload == sanitize_alliance_rank(dict(inbound.payload))

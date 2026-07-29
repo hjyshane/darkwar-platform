@@ -88,7 +88,40 @@ def sanitize_user_get_arena_info(payload: dict[str, Any]) -> dict[str, Any]:
     return sanitized
 
 
+def _fake_alliance_id(original: str) -> str:
+    """Same md5 mapping sanitize_al_rank uses for allianceId, so one real
+    alliance keeps one fake id across every fixture."""
+    return hashlib.md5(original.encode()).hexdigest()
+
+
+def sanitize_alliance_rank(payload: dict[str, Any]) -> dict[str, Any]:
+    entries = payload.get("allianceRanking")
+    if not isinstance(entries, list):
+        return payload
+
+    sanitized_entries = []
+    for index, entry in enumerate(entries, start=1):
+        clean = dict(entry)
+        if "uid" in clean:
+            clean["uid"] = _fake_alliance_id(str(clean["uid"]))
+        if clean.get("alliancename"):
+            clean["alliancename"] = f"Alliance{index:02d}"
+        if clean.get("abbr"):
+            clean["abbr"] = f"A{index:03d}"
+        if clean.get("leader"):
+            clean["leader"] = f"Leader{index:02d}"
+        sanitized_entries.append(clean)
+
+    sanitized = dict(payload)
+    sanitized["allianceRanking"] = sanitized_entries
+    # The collector account's own alliance power.
+    if "selfPower" in sanitized:
+        sanitized["selfPower"] = 10000000000
+    return sanitized
+
+
 SANITIZERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "al.rank": sanitize_al_rank,
+    "alliance.rank": sanitize_alliance_rank,
     "user.get.arena.info": sanitize_user_get_arena_info,
 }

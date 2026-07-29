@@ -1,0 +1,22 @@
+{
+  "observation_id": "00000000-0000-4000-8000-00000000ae02",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "alliance.rank",
+  "captured_at": "2026-07-27T22:30:00+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "allianceRanking": [
+      {
+        "uid": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa01",
+        "rank": 1
+      },
+      {
+        "uid": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa02",
+        "rank": 2,
+        "alliancename": null,
+        "fightpower": null
+      }
+    ]
+  },
+  "schema_version": 1
+}

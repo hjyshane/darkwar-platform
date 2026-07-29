@@ -27,6 +27,7 @@ log = structlog.get_logger()
 # Parents before children so FKs resolve on first sync; facts last since
 # they point at snapshot rows.
 _TABLE_ORDER = [
+    "alliance_snapshots",
     "alliance_member_snapshots",
     "arena_snapshots",
     "arena_entries",
