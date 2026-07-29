@@ -120,8 +120,28 @@ def sanitize_alliance_rank(payload: dict[str, Any]) -> dict[str, Any]:
     return sanitized
 
 
+def sanitize_get_al_info(payload: dict[str, Any]) -> dict[str, Any]:
+    sanitized = dict(payload)
+    if isinstance(payload.get("uid"), str):
+        sanitized["uid"] = _fake_alliance_id(str(payload["uid"]))
+    if payload.get("leaderUid"):
+        sanitized["leaderUid"] = _fake_uid(str(payload["leaderUid"]))
+    for key, replacement in (
+        ("name", "Alliance Detail"),
+        ("abbr", "ADET"),
+        ("leaderName", "Leader01"),
+        # Free text written by players; never worth committing verbatim.
+        ("announce", "[redacted announcement]"),
+        ("intro", "[redacted intro]"),
+    ):
+        if payload.get(key):
+            sanitized[key] = replacement
+    return sanitized
+
+
 SANITIZERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "al.rank": sanitize_al_rank,
     "alliance.rank": sanitize_alliance_rank,
+    "get.al.info": sanitize_get_al_info,
     "user.get.arena.info": sanitize_user_get_arena_info,
 }

@@ -262,3 +262,19 @@ def test_committed_alliance_rank_fixtures_match_sanitized_captures(
     )
     committed = load_observation(fixture)
     assert committed.payload == sanitize_alliance_rank(dict(inbound.payload))
+
+
+def test_committed_get_al_info_fixture_matches_sanitized_capture() -> None:
+    pcap = Path("/mnt/c/darkwar-adb/darkwar_alliance_rank_580_T2.pcapng")
+    if not pcap.exists():
+        pytest.skip("real capture not on this machine")
+    from dw_collector.sanitize import sanitize_get_al_info
+    from tests.conftest import load_observation
+
+    inbound = next(
+        event
+        for event in iter_extension_events(pcap)
+        if event.direction == "inbound" and event.command == "get.al.info"
+    )
+    committed = load_observation("get.al.info/love_580_v1.json")
+    assert committed.payload == sanitize_get_al_info(dict(inbound.payload))
