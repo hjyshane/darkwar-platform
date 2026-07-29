@@ -37,8 +37,17 @@
 >   fixture를 소비(§20.1), TS reset-week가 공유 벡터 소비. S12 장애 주입:
 >   네트워크 차단 → 손실 0·백오프 → 복구 시 부모-자식 순서 유지(pytest 28개).
 >   E2E: replay → sync → 트리거 → 알림행을 anon REST로 확인.
-> - **다음** — P4: activity fact 1호(`arena_participation`, S11) → Gate 3 실질
->   완료. 이후 P5(레거시 import → 파서 승격), P6(S13 Discord).
+> - **P4 완료 — Gate 3 실질 완료** — `pipeline.process()`가 정규화 + fact 방출을
+>   한 트랜잭션 재료로 묶음. 아레나 엔트리 PK를 결정적으로 생성하고
+>   `arena_participation` fact(observed, confidence 1.0)가 `source_snapshot_id`로
+>   엔트리를 가리킴. live 테스트가 fact → arena_entries → observation_id →
+>   로컬 저널 raw payload 역추적(FR-ACT-008)을 증명(pytest 33개).
+>   fact 키도 raw payload 해시 기반이라 파서 버전 bump에 불변.
+> - **CI 정리** — gitleaks-action(PR API 권한 문제)을 CLI 직접 실행으로 교체.
+>   main 전 잡 초록.
+> - **다음** — P5: `legacy/v0.4.1` import 브랜치(--no-ff, 소스만) → triage →
+>   파서 승격(S14, PR당 파서 1개) → 라이브 캡처(S15, 네이티브 Windows).
+>   이후 P6(S13 Discord 런타임). v0.4.1 코드·PCAP·SQLite의 실제 경로 확인 필요.
 
 ## Context
 
