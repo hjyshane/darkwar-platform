@@ -70,12 +70,17 @@ def normalize(observation: Observation) -> list[NormalizedRow]:
     ]
     for entry, raw_entry in zip(payload.entries, raw_entries, strict=True):
         scope = f"arena:{payload.server_id}:{entry.game_uid}"
+        entry_key = idempotency_key(observation, scope, bucket)
         rows.append(
             NormalizedRow(
                 target_table="arena_entries",
-                idempotency_key=idempotency_key(observation, scope, bucket),
+                idempotency_key=entry_key,
                 row={
                     **common,
+                    # Deterministic PK: activity facts reference this row via
+                    # source_snapshot_id (FR-ACT-008), so the id must survive
+                    # replays.
+                    "snapshot_id": str(stable_uuid(entry_key)),
                     "raw": raw_entry,
                     "arena_snapshot_id": header_id,
                     "game_uid": entry.game_uid,

@@ -11,7 +11,7 @@ import typer
 from pydantic import ValidationError
 
 from dw_collector import normalize as _normalize  # noqa: F401  (registers normalizers)
-from dw_collector import registry
+from dw_collector import pipeline, registry
 from dw_collector.models import Observation
 from dw_collector.storage.journal import Journal
 from dw_collector.sync.worker import SyncConfig, SyncWorker
@@ -56,18 +56,16 @@ def replay(
         typer.echo(f"fixture is not a valid Observation: {exc}", err=True)
         raise typer.Exit(code=1) from exc
 
-    normalizer = registry.get(observation.source_command)
-    if normalizer is None:
+    try:
+        rows = pipeline.process(observation)
+    except pipeline.UnknownCommandError as exc:
         # FR-COL-003/008: unknown commands are discovery input, not crashes.
         typer.echo(
-            f"no normalizer for {observation.source_command!r}"
+            f"no normalizer for {exc.command!r}"
             f" (known: {sorted(registry.known_commands())}); nothing recorded",
             err=True,
         )
-        raise typer.Exit(code=1)
-
-    try:
-        rows = normalizer(observation)
+        raise typer.Exit(code=1) from exc
     except ValidationError as exc:
         typer.echo(f"payload rejected by {observation.source_command} normalizer: {exc}", err=True)
         raise typer.Exit(code=1) from exc
