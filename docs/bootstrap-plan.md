@@ -31,8 +31,14 @@
 >   (`protocol-fixtures/decoded/`). pytest 27개 통과 — idempotency 키가 raw
 >   payload 해시임을 고정하는 회귀 테스트, 저널 원자성(강제 롤백), 로컬
 >   Supabase 대상 논리적 exactly-once(강제 재전송 흡수) 포함.
-> - **다음** — P3: 대시보드 셸, Realtime 구독 → 패널 refetch, 로스터/아레나
->   화면, 장애 주입(S9~S10, S12).
+> - **P3 완료** — 0007 statement-level 알림 트리거(문장당 알림 1건, pgTAP 78개),
+>   대시보드(Vite+React: 로스터/아레나 패널, freshness 배지, 미관측=—,
+>   topic→query-key 매핑으로 해당 패널만 refetch), Zod 계약이 Pydantic과 같은
+>   fixture를 소비(§20.1), TS reset-week가 공유 벡터 소비. S12 장애 주입:
+>   네트워크 차단 → 손실 0·백오프 → 복구 시 부모-자식 순서 유지(pytest 28개).
+>   E2E: replay → sync → 트리거 → 알림행을 anon REST로 확인.
+> - **다음** — P4: activity fact 1호(`arena_participation`, S11) → Gate 3 실질
+>   완료. 이후 P5(레거시 import → 파서 승격), P6(S13 Discord).
 
 ## Context
 

@@ -1,0 +1,27 @@
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '../../lib/supabase';
+import { type RosterRow, RosterTable } from './RosterTable';
+
+async function fetchRoster(): Promise<RosterRow[]> {
+  const { data, error } = await supabase
+    .from('players')
+    .select('player_id, game_uid, current_name, hq_level, power, kills, last_seen_at')
+    .order('power', { ascending: false, nullsFirst: false })
+    .limit(50);
+  if (error) {
+    throw new Error(`roster query failed: ${error.message}`);
+  }
+  return data;
+}
+
+export function RosterPanel() {
+  const { data, error, isPending } = useQuery({ queryKey: ['roster'], queryFn: fetchRoster });
+  return (
+    <section aria-labelledby="roster-heading">
+      <h2 id="roster-heading">로스터</h2>
+      {isPending && <p className="empty">불러오는 중…</p>}
+      {error && <p className="error">로스터를 불러오지 못했습니다: {error.message}</p>}
+      {data && <RosterTable rows={data} />}
+    </section>
+  );
+}

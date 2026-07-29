@@ -193,16 +193,31 @@ class SyncWorker:
         if not items:
             return stats
 
-        seen_collectors: set[str] = set()
-        for item in items:
-            cid = str(item.payload.row.get("collector_id", ""))
-            if cid and cid not in seen_collectors:
-                try:
-                    uuid.UUID(cid)
-                except ValueError:
-                    continue
-                self.ensure_collector(cid)
-                seen_collectors.add(cid)
+        # Collector registration is the first network touch; a dead network
+        # must back everything off, not raise out of the drain (FR-COL-006).
+        try:
+            seen_collectors: set[str] = set()
+            for item in items:
+                cid = str(item.payload.row.get("collector_id", ""))
+                if cid and cid not in seen_collectors:
+                    try:
+                        uuid.UUID(cid)
+                    except ValueError:
+                        continue
+                    self.ensure_collector(cid)
+                    seen_collectors.add(cid)
+        except (httpx.HTTPError, SyncError) as exc:
+            log.warning("sync.collector_registration_failed", error=str(exc))
+            self.journal.mark_failed(
+                [i.id for i in items],
+                str(exc),
+                max_attempts=self.config.max_attempts,
+                base_backoff=self.config.base_backoff_seconds,
+                max_backoff=self.config.max_backoff_seconds,
+                now=now,
+            )
+            stats.failed = len(items)
+            return stats
 
         by_table: dict[str, list[OutboxItem]] = {}
         for item in items:
