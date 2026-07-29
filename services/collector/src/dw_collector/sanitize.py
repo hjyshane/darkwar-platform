@@ -164,10 +164,36 @@ def sanitize_server_rank(payload: dict[str, Any]) -> dict[str, Any]:
     return sanitized
 
 
+def _sanitize_profile(profile: dict[str, Any], label: str) -> dict[str, Any]:
+    """Shared field masking for the two player-profile responses."""
+    clean = dict(profile)
+    if clean.get("uid"):
+        clean["uid"] = _fake_uid(str(clean["uid"]))
+    if clean.get("name"):
+        clean["name"] = label
+    if clean.get("allianceId"):
+        clean["allianceId"] = _fake_alliance_id(str(clean["allianceId"]))
+    if clean.get("allianceName"):
+        clean["allianceName"] = "Alliance01"
+    if clean.get("allianceAbbrName"):
+        clean["allianceAbbrName"] = "A001"
+    if clean.get("abbr"):
+        clean["abbr"] = "A001"
+    # Player-written profile text.
+    if clean.get("info"):
+        clean["info"] = []
+    return clean
+
+
+def sanitize_get_new_user_info(payload: dict[str, Any]) -> dict[str, Any]:
+    return _sanitize_profile(payload, "ProfilePlayer")
+
+
 SANITIZERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "al.rank": sanitize_al_rank,
     "alliance.rank": sanitize_alliance_rank,
     "get.al.info": sanitize_get_al_info,
+    "get.new.user.info": sanitize_get_new_user_info,
     "server.rank": sanitize_server_rank,
     "user.get.arena.info": sanitize_user_get_arena_info,
 }

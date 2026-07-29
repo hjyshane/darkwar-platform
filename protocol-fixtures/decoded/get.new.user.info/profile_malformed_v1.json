@@ -1,0 +1,12 @@
+{
+  "observation_id": "00000000-0000-4000-8000-00000000b104",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "get.new.user.info",
+  "captured_at": "2026-07-27T23:10:00+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "uid": "nope",
+    "power": 1
+  },
+  "schema_version": 1
+}
