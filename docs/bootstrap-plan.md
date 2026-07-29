@@ -45,9 +45,14 @@
 >   fact 키도 raw payload 해시 기반이라 파서 버전 bump에 불변.
 > - **CI 정리** — gitleaks-action(PR API 권한 문제)을 CLI 직접 실행으로 교체.
 >   main 전 잡 초록.
-> - **다음** — P5: `legacy/v0.4.1` import 브랜치(--no-ff, 소스만) → triage →
->   파서 승격(S14, PR당 파서 1개) → 라이브 캡처(S15, 네이티브 Windows).
->   이후 P6(S13 Discord 런타임). v0.4.1 코드·PCAP·SQLite의 실제 경로 확인 필요.
+> - **P5 진행** — 레거시는 `C:\darkwar-adb`. 최신 완전판은
+>   `darkwar_tracker_v0.4.0.zip`(스펙의 "v0.4.1"에 해당하는 마지막 스냅샷)이며
+>   소스만 `legacy/v0.4.1/`로 verbatim import(데이터 제외, sha256은 커밋에).
+>   **D-1 확정**: game_uid가 홈 서버 id를 접미로 내장(`…000580`) → 전역 유일
+>   맞음, 0002 유지. 판정표는 `docs/legacy-triage.md`.
+> - **다음** — S14: `protocol.py` + `al.rank` 파서 승격(PR 1: 실 PCAP에서 살균
+>   fixture 추출 → 합성 fixture 교체 → S6~S11 무수정 재실행) → S15 라이브
+>   캡처(네이티브 Windows). 이후 P6(S13 Discord 런타임).
 
 ## Context
 
