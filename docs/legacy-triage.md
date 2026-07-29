@@ -32,13 +32,13 @@ reference = consult while building, then discard · discard = obsolete.
 |---|---|---|
 | `darkwar_tracker/protocol.py` | **PROMOTED** (S14-PR1) | → `dw_collector/protocol/{sfs,frames}.py` with synthetic + real-capture tests |
 | `darkwar_tracker/reassembly.py` | **PROMOTED** (S14-PR1) | → `dw_collector/protocol/pcapng.py` (TCPDirectionReassembler) |
-| `darkwar_tracker/collector.py` | reference | Capture loop shape; ours is the `Observation` seam + `dw-capture` (S15) |
+| `darkwar_tracker/collector.py` | **SUPERSEDED** (S15 prep) | `capture/session.py` (engine, testable without Npcap) + `capture/live.py` (thin scapy source) + `dw-capture` |
 | `darkwar_tracker/database.py` | **MINED OUT** (S14) | Field mappings for all seven confirmed commands are promoted into `normalize/*.py`; nothing left to take |
 | `darkwar_tracker/offline.py` | **PROMOTED** (S14) | → `protocol/pcapng.py`, `dw-collector extract-fixture` (sanitizing) and `scan-capture` (offline ingest + discovery) |
 | `darkwar_tracker/config.py` | discard | Replaced by env vars + pyproject |
 | `darkwar_tracker/dashboard.py` | discard | Replaced by `apps/dashboard` |
 | `darkwar_tracker/activity_api.py` | reference | FastAPI Discord Activity API → S13 Edge Function + adapter design |
-| `darkwar_tracker/adb_control.py` | **adopt** | `ui_worker/` — ADB serial allowlist/denylist logic (FR-COL-001/010) |
+| `darkwar_tracker/adb_control.py` | **REPLACED** (S15 prep) | It has *no* denylist and falls back to `devices[0]`; `ui_worker/guard.py` was written against that gap, not ported from it. Shell/tap plumbing still to promote with the ADB workflows |
 | `darkwar_tracker/arena_automation.py` | reference | Tap-sequence workflow shape → `ui_worker` refresh workflows |
 | `darkwar_tracker/refresh_worker.py` | reference | Idle-aware refresh queue → `dw-jobs` consuming `refresh_jobs` |
 | `darkwar_tracker/refresh_control.py` | reference | With refresh_worker.py |
