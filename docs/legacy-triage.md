@@ -62,6 +62,11 @@ reference = consult while building, then discard · discard = obsolete.
    members, provenance-pinned to `darkwar_alrank.pcapng`, sha256 in
    `manifests/`); found the alliance id is a 32-hex string → alliances
    `external_id` became text
-2. `user.get.arena.info` parser → fixture from `darkwar_arena_match.pcapng`
+2. ~~`user.get.arena.info` parser~~ **done (S14-PR2)** — real Top100
+   fixture `decoded/user.get.arena.info/top100_580v582_v1.json`
+   (matchup 580 vs 582; game startTime = Monday 02:00 UTC exactly).
+   Fake uids are hash-derived so the 19 CBFW members in the Top100 keep
+   one identity across fixtures
 3. `alliance.rank` / `get.al.info` / `server.rank` /
-   `get.new.user.info` — after the first two prove the loop
+   `get.new.user.info` — the extract→sanitize→fixture→normalize loop is
+   now proven; one parser per PR

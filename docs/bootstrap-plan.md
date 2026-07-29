@@ -55,9 +55,13 @@
 >   provenance 테스트가 fixture == sanitize(실캡처)를 고정). 발견: alliance id는
 >   32-hex 문자열 → `external_id` text로 교정(동결 전이라 0002/0003 직접 수정).
 >   레거시 redaction 휴리스틱 승격(FR-CORE-003). pytest 46·vitest 25·pgTAP 78.
-> - **다음** — S14-PR2: `user.get.arena.info` 파서 승격
->   (`darkwar_arena_match.pcapng`) → 이후 alliance.rank/server.rank/
->   get.new.user.info → S15 라이브 캡처(네이티브 Windows) → P6(S13 Discord).
+> - **S14-PR2 완료** — `user.get.arena.info` 파서 승격. 실 Top100 fixture
+>   (매치업 580v582, `startTime`이 정확히 월 02:00 UTC — 리셋 규칙 3중 확인).
+>   가짜 uid를 해시 기반으로 교정(fixture 간 충돌 제거, Top100 속 CBFW 19명의
+>   동일성 보존). pytest 49·vitest 26·pgTAP 78.
+> - **다음** — 남은 파서 승격(alliance.rank / get.al.info / server.rank /
+>   get.new.user.info, PR당 1개) → S15 라이브 캡처(네이티브 Windows) →
+>   P6(S13 Discord 런타임).
 
 ## Context
 
