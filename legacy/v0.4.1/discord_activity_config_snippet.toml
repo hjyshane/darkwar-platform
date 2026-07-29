@@ -1,0 +1,18 @@
+[discord_activity]
+enabled = true
+host = "127.0.0.1"
+port = 8765
+
+# Leave viewer_user_ids empty to allow any Discord user who can launch the
+# private Activity to view the dashboard. For tighter control, list Discord
+# user IDs as strings.
+viewer_user_ids = []
+
+# Only these Discord users can queue/cancel refresh jobs.
+admin_user_ids = ["YOUR_DISCORD_USER_ID"]
+
+timezone = "America/New_York"
+max_rows = 200
+
+# Browser-only local testing. Keep false when the server is reachable publicly.
+allow_dev_bypass = false

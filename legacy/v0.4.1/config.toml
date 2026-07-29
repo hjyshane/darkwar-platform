@@ -1,0 +1,87 @@
+[capture]
+# Leave empty to use Scapy's default active network interface.
+# Run `python -m darkwar_tracker.collector --list-interfaces` if needed.
+interface = ""
+port = 8680
+server_ip = ""
+
+[database]
+path = "data/darkwar.sqlite3"
+
+[tracking]
+servers = [577, 578, 579, 580, 581, 582, 583, 584]
+top_n = 3
+
+[activity]
+# The dashboard prefers this code when multiple non-redacted alliances exist.
+own_alliance_code = "CBFW"
+auto_refresh_seconds = 30
+inactive_warning_days = 3
+inactive_critical_days = 7
+pass_expiry_warning_days = 7
+
+[arena_automation]
+# Legacy v0.2.3 arena-only scheduler. Keep disabled; v0.3.0 uses
+# [refresh_automation] below.
+enabled = false
+
+# Leave blank to auto-detect adb or BlueStacks HD-Adb.exe.
+adb_path = ""
+# Leave blank when only one emulator is connected.
+device_serial = ""
+package = "com.readygo.dark.gp"
+# Recommended for deterministic navigation. Set false to avoid interrupting play.
+force_restart_game = true
+sequence_path = "data/arena_taps.json"
+
+reset_hour_utc = 2
+reset_minute_utc = 0
+delay_after_reset_seconds = 120
+
+# Timing after launching the game and between calibrated taps.
+launch_wait_seconds = 20
+tap_wait_seconds = 3
+verification_timeout_seconds = 45
+retry_delays_seconds = [60, 180, 600]
+
+# When the scheduler starts after today's run time, perform one catch-up run
+# only when no arena snapshot has been stored since today's target time.
+catch_up_after_start = true
+
+[refresh_automation]
+# Passive capture is preferred. UI automation runs only after Windows has
+# remained idle for five minutes.
+enabled = true
+
+# Monday server reset (02:00 UTC) + 5 minutes.
+weekly_enabled = true
+weekly_weekday_utc = 0
+reset_hour_utc = 2
+reset_minute_utc = 0
+weekly_delay_seconds = 300
+
+idle_seconds_required = 300
+poll_seconds = 30
+interrupt_check_seconds = 1
+
+# Leave blank to auto-detect BlueStacks ADB.
+adb_path = ""
+device_serial = ""
+package = "com.readygo.dark.gp"
+sequence_dir = "data/refresh_sequences"
+
+launch_wait_seconds = 25
+tap_wait_seconds = 3
+verification_timeout_seconds = 75
+max_attempts = 3
+catch_up_weekly = true
+
+[discord_activity]
+enabled = true
+host = "127.0.0.1"
+port = 8765
+viewer_user_ids = []
+admin_user_ids = ["YOUR_DISCORD_USER_ID"]
+timezone = "America/New_York"
+max_rows = 200
+allow_dev_bypass = false
