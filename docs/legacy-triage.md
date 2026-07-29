@@ -32,9 +32,9 @@ reference = consult while building, then discard · discard = obsolete.
 |---|---|---|
 | `darkwar_tracker/protocol.py` | **PROMOTED** (S14-PR1) | → `dw_collector/protocol/{sfs,frames}.py` with synthetic + real-capture tests |
 | `darkwar_tracker/reassembly.py` | **PROMOTED** (S14-PR1) | → `dw_collector/protocol/pcapng.py` (TCPDirectionReassembler) |
-| `darkwar_tracker/collector.py` | reference | Capture loop shape; ours is the `Observation` seam + `dw-capture` |
-| `darkwar_tracker/database.py` | reference (al.rank done) | al.rank mapping + redaction heuristic promoted into `normalize/al_rank.py`; remaining commands still to mine |
-| `darkwar_tracker/offline.py` | **PROMOTED** (S14-PR1) | → `dw_collector/protocol/pcapng.py` + `dw-collector extract-fixture` (sanitizing) |
+| `darkwar_tracker/collector.py` | reference | Capture loop shape; ours is the `Observation` seam + `dw-capture` (S15) |
+| `darkwar_tracker/database.py` | **MINED OUT** (S14) | Field mappings for all seven confirmed commands are promoted into `normalize/*.py`; nothing left to take |
+| `darkwar_tracker/offline.py` | **PROMOTED** (S14) | → `protocol/pcapng.py`, `dw-collector extract-fixture` (sanitizing) and `scan-capture` (offline ingest + discovery) |
 | `darkwar_tracker/config.py` | discard | Replaced by env vars + pyproject |
 | `darkwar_tracker/dashboard.py` | discard | Replaced by `apps/dashboard` |
 | `darkwar_tracker/activity_api.py` | reference | FastAPI Discord Activity API → S13 Edge Function + adapter design |
@@ -45,7 +45,7 @@ reference = consult while building, then discard · discard = obsolete.
 | `darkwar_tracker/idle_detection.py` | **adopt** | `ui_worker/` — Windows idle detection (FR-COL-009 politeness) |
 | `darkwar_tracker/migrate.py` | discard | SQLite migrations; new journal owns its schema |
 | `darkwar_tracker/__init__.py` | discard | Version marker only |
-| `scripts/test_bytes_payload.py` | reference | Malformed/bytes cases → parser fixture ideas |
+| `scripts/test_bytes_payload.py` | **PROMOTED** (S14) | Its warning was real: SFS byte arrays broke JSON serialization; now a regression test in `test_protocol.py` |
 | `scripts/test_null_rank_names.py` | reference | Null-name cases → parser fixture ideas |
 | `scripts/test_player_profiles.py` | reference | 6-power profile cases → `get.new.user.info` fixtures |
 | `scripts/seed_database.py` | discard | Replaced by `supabase/seed.sql` |
@@ -72,6 +72,18 @@ reference = consult while building, then discard · discard = obsolete.
    mapping so the local #1 stays identical to the roster fixture's
    alliance. rangeType is request-side only, so scope is recoverable from
    row data, not stored
-4. `get.al.info` (capture exists in `darkwar_alliance_rank_580_T2.pcapng`)
-   / `server.rank` (capture TBD) / `get.new.user.info`
-   (`darkwar_player_profile_cp.pcapng`) — one parser per PR
+4. ~~`get.al.info` / `server.rank` / `get.new.user.info` /
+   `get.user.info.multi`~~ **done (S14-PR4…PR7)**
+
+**The queue is empty: all seven confirmed Appendix B commands have
+parsers, fixtures and replay tests**, and a test asserts that set stays
+covered. `user.arena.save.defend.army` is deliberately unparsed — it is
+the collector's own outbound write and has no product table.
+
+The next parsers are for commands that are not confirmed yet. They now
+have a discovery path rather than a capture backlog: `dw-collector
+scan-capture` records unknown command shapes into `schema_observations`.
+One login capture surfaced 132 of them, including
+`get.alliance.duel.season.info`, `get.battlepass.info`,
+`al.battle.week.result.info` and `chat.get.system.mails` — leads for the
+event and season frameworks (§13/§14).
