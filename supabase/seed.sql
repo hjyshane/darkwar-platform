@@ -35,7 +35,7 @@ insert into public.alliances
   (alliance_id, server_id, external_id, current_name, current_code,
    power, member_count, first_seen_at, last_seen_at)
 values
-  ('00000000-0000-4000-8000-00000000a001', 580, 987001,
+  ('00000000-0000-4000-8000-00000000a001', 580, 'seedcbfw00000000000000000987001',
    'Synthetic CBFW', 'CBFW', 210000000, 20,
    '2026-07-27T12:00:00Z', '2026-07-27T12:00:00Z');
 

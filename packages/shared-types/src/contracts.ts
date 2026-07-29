@@ -18,30 +18,28 @@ export const observationSchema = z
   })
   .passthrough();
 
+// Real al.rank shape (S14, extracted from darkwar_alrank.pcapng): the
+// alliance id is the game's 32-hex string and members use the game's own
+// field names. Unpromoted fields pass through — they belong to `raw`.
 export const alRankMemberSchema = z
   .object({
-    game_uid: z.number().int(),
+    uid: z.string().regex(/^\d+$/),
     name: z.string().nullish(),
-    member_rank: z.number().int().nullish(),
-    hq_level: z.number().int().nullish(),
+    rank: z.number().int().nullish(),
     power: z.number().int().nullish(),
-    kills: z.number().int().nullish(),
-    online_state: z.string().nullish(),
-    presence_redacted: z.boolean().default(false),
+    mainCityLv: z.number().int().nullish(),
+    armyKill: z.number().int().nullish(),
+    online: z.boolean().nullish(),
+    offLineTime: z.number().int().nullish(),
+    pointId: z.union([z.number().int(), z.string()]).nullish(),
+    serverId: z.number().int().nullish(),
   })
   .passthrough();
 
 export const alRankPayloadSchema = z
   .object({
-    alliance: z
-      .object({
-        external_id: z.number().int(),
-        server_id: z.number().int(),
-        name: z.string().nullish(),
-        code: z.string().nullish(),
-      })
-      .passthrough(),
-    members: z.array(alRankMemberSchema),
+    allianceId: z.string().min(1),
+    list: z.array(alRankMemberSchema),
   })
   .passthrough();
 

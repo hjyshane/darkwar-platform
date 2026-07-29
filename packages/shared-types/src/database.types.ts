@@ -267,7 +267,7 @@ export type Database = {
           collected_from_server_id: number
           collector_id: string
           created_at: string
-          external_id: number
+          external_id: string
           idempotency_key: string
           leader_game_uid: number | null
           member_count: number | null
@@ -288,7 +288,7 @@ export type Database = {
           collected_from_server_id: number
           collector_id: string
           created_at?: string
-          external_id: number
+          external_id: string
           idempotency_key: string
           leader_game_uid?: number | null
           member_count?: number | null
@@ -309,7 +309,7 @@ export type Database = {
           collected_from_server_id?: number
           collector_id?: string
           created_at?: string
-          external_id?: number
+          external_id?: string
           idempotency_key?: string
           leader_game_uid?: number | null
           member_count?: number | null
@@ -360,7 +360,7 @@ export type Database = {
           created_at: string
           current_code: string | null
           current_name: string | null
-          external_id: number
+          external_id: string
           first_seen_at: string
           last_seen_at: string | null
           leader_player_id: string | null
@@ -374,7 +374,7 @@ export type Database = {
           created_at?: string
           current_code?: string | null
           current_name?: string | null
-          external_id: number
+          external_id: string
           first_seen_at?: string
           last_seen_at?: string | null
           leader_player_id?: string | null
@@ -388,7 +388,7 @@ export type Database = {
           created_at?: string
           current_code?: string | null
           current_name?: string | null
-          external_id?: number
+          external_id?: string
           first_seen_at?: string
           last_seen_at?: string | null
           leader_player_id?: string | null
@@ -1026,7 +1026,7 @@ export type Database = {
       }
       player_snapshots: {
         Row: {
-          alliance_external_id: number | null
+          alliance_external_id: string | null
           captured_at: string
           collected_from_server_id: number
           collector_id: string
@@ -1047,7 +1047,7 @@ export type Database = {
           source_command: string
         }
         Insert: {
-          alliance_external_id?: number | null
+          alliance_external_id?: string | null
           captured_at: string
           collected_from_server_id: number
           collector_id: string
@@ -1068,7 +1068,7 @@ export type Database = {
           source_command: string
         }
         Update: {
-          alliance_external_id?: number | null
+          alliance_external_id?: string | null
           captured_at?: string
           collected_from_server_id?: number
           collector_id?: string

@@ -48,14 +48,14 @@ def test_fact_keys_survive_parser_version_bump(monkeypatch: pytest.MonkeyPatch) 
 
 
 def test_roster_pipeline_emits_no_facts() -> None:
-    observation = load_observation("al.rank/synthetic_roster_v1.json")
+    observation = load_observation("al.rank/cbfw_roster_v1.json")
     rows = pipeline.process(observation)
-    assert len(rows) == 20
+    assert len(rows) == 93
     assert all(r.target_table == "alliance_member_snapshots" for r in rows)
 
 
 def test_unknown_command_raises() -> None:
-    observation = load_observation("al.rank/synthetic_roster_v1.json").model_copy(
+    observation = load_observation("al.rank/cbfw_roster_v1.json").model_copy(
         update={"source_command": "battle.report.share"}
     )
     with pytest.raises(pipeline.UnknownCommandError):

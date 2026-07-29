@@ -30,11 +30,11 @@ reference = consult while building, then discard · discard = obsolete.
 
 | File | Verdict | Target / note |
 |---|---|---|
-| `darkwar_tracker/protocol.py` | **adopt** | `protocol/` — SmartFox frame decode, SFSObject types. First promotion candidate (S14) |
-| `darkwar_tracker/reassembly.py` | **adopt** | `capture/` — TCP stream reassembly. Promotes with S15 live capture |
+| `darkwar_tracker/protocol.py` | **PROMOTED** (S14-PR1) | → `dw_collector/protocol/{sfs,frames}.py` with synthetic + real-capture tests |
+| `darkwar_tracker/reassembly.py` | **PROMOTED** (S14-PR1) | → `dw_collector/protocol/pcapng.py` (TCPDirectionReassembler) |
 | `darkwar_tracker/collector.py` | reference | Capture loop shape; ours is the `Observation` seam + `dw-capture` |
-| `darkwar_tracker/database.py` | reference | Field mappings per command → informs typed-column promotion from `raw` |
-| `darkwar_tracker/offline.py` | **adopt** | PCAP replay → offline fixture extraction for `protocol-fixtures/` |
+| `darkwar_tracker/database.py` | reference (al.rank done) | al.rank mapping + redaction heuristic promoted into `normalize/al_rank.py`; remaining commands still to mine |
+| `darkwar_tracker/offline.py` | **PROMOTED** (S14-PR1) | → `dw_collector/protocol/pcapng.py` + `dw-collector extract-fixture` (sanitizing) |
 | `darkwar_tracker/config.py` | discard | Replaced by env vars + pyproject |
 | `darkwar_tracker/dashboard.py` | discard | Replaced by `apps/dashboard` |
 | `darkwar_tracker/activity_api.py` | reference | FastAPI Discord Activity API → S13 Edge Function + adapter design |
@@ -57,9 +57,11 @@ reference = consult while building, then discard · discard = obsolete.
 
 ## Promotion queue (one parser per PR)
 
-1. `protocol.py` decode path + `al.rank` parser → real fixture from
-   `darkwar_alrank.pcapng` (sanitize!) → replace synthetic fixture → S6–S11
-   rerun untouched (S14)
+1. ~~`protocol.py` decode path + `al.rank` parser~~ **done (S14-PR1)** —
+   real sanitized fixture `decoded/al.rank/cbfw_roster_v1.json` (93
+   members, provenance-pinned to `darkwar_alrank.pcapng`, sha256 in
+   `manifests/`); found the alliance id is a 32-hex string → alliances
+   `external_id` became text
 2. `user.get.arena.info` parser → fixture from `darkwar_arena_match.pcapng`
 3. `alliance.rank` / `get.al.info` / `server.rank` /
    `get.new.user.info` — after the first two prove the loop

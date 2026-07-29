@@ -11,30 +11,32 @@ function loadFixture(relative: string): unknown {
   );
 }
 
-test('normal roster fixture satisfies the contract', () => {
-  const observation = observationSchema.parse(loadFixture('al.rank/synthetic_roster_v1.json'));
+test('real roster fixture satisfies the contract', () => {
+  const observation = observationSchema.parse(loadFixture('al.rank/cbfw_roster_v1.json'));
   const payload = alRankPayloadSchema.parse(observation.payload);
-  expect(payload.members).toHaveLength(20);
-  expect(payload.alliance.external_id).toBe(987001);
-  // Unpromoted fields pass through — they belong to raw.
-  expect(payload.members[0]).toHaveProperty('decoration_id', 9001);
+  expect(payload.list).toHaveLength(93);
+  expect(payload.allianceId).toMatch(/^[0-9a-f]{32}$/);
+  expect(payload.list[0]?.uid).toBe('9000000001000580');
+  // Unpromoted real fields pass through — they belong to raw.
+  expect(payload.list[0]).toHaveProperty('alsign');
 });
 
 test('null/optional roster fixture satisfies the contract', () => {
-  const observation = observationSchema.parse(
-    loadFixture('al.rank/synthetic_roster_nulls_v1.json'),
-  );
+  const observation = observationSchema.parse(loadFixture('al.rank/roster_nulls_v1.json'));
   const payload = alRankPayloadSchema.parse(observation.payload);
-  expect(payload.members).toHaveLength(3);
-  expect(payload.members[0]?.name).toBeUndefined();
-  expect(payload.members[0]?.presence_redacted).toBe(false);
-  expect(payload.members[2]?.presence_redacted).toBe(true);
+  expect(payload.list).toHaveLength(3);
+  expect(payload.list[0]?.name).toBeUndefined();
+  expect(payload.list[2]?.online).toBe(false);
+});
+
+test('redacted roster fixture satisfies the contract', () => {
+  const observation = observationSchema.parse(loadFixture('al.rank/roster_redacted_v1.json'));
+  const payload = alRankPayloadSchema.parse(observation.payload);
+  expect(payload.list.every((m) => m.online === true && m.offLineTime === 0)).toBe(true);
 });
 
 test('malformed fixture is rejected, matching the Pydantic side', () => {
-  const observation = observationSchema.parse(
-    loadFixture('al.rank/synthetic_roster_malformed_v1.json'),
-  );
+  const observation = observationSchema.parse(loadFixture('al.rank/roster_malformed_v1.json'));
   expect(alRankPayloadSchema.safeParse(observation.payload).success).toBe(false);
 });
 

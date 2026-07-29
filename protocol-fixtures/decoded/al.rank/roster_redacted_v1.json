@@ -1,0 +1,41 @@
+{
+  "observation_id": "00000000-0000-4000-8000-00000000ac04",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "al.rank",
+  "captured_at": "2026-07-27T22:20:00+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "allianceId": "feedfacefeedfacefeedfacefeedface",
+    "_id": 141,
+    "list": [
+      {
+        "uid": "9000000201000577",
+        "name": "OtherA",
+        "rank": 5,
+        "power": 111,
+        "online": true,
+        "offLineTime": 0,
+        "pointId": 0
+      },
+      {
+        "uid": "9000000202000577",
+        "name": "OtherB",
+        "rank": 1,
+        "power": 222,
+        "online": true,
+        "offLineTime": 0,
+        "pointId": 0
+      },
+      {
+        "uid": "9000000203000577",
+        "name": "OtherC",
+        "rank": 1,
+        "power": 333,
+        "online": true,
+        "offLineTime": 0,
+        "pointId": 0
+      }
+    ]
+  },
+  "schema_version": 1
+}

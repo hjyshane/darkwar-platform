@@ -28,7 +28,9 @@ select s, '577-584' from generate_series(577, 584) as s;
 create table public.alliances (
   alliance_id uuid primary key default gen_random_uuid(),
   server_id int not null references public.servers (server_id),
-  external_id bigint not null,
+  -- The game's alliance id is a 32-hex string (verified in al.rank and
+  -- alliance.rank captures), not a number.
+  external_id text not null,
   current_name text,
   current_code text,
   power bigint,

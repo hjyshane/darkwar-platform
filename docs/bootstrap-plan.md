@@ -50,9 +50,14 @@
 >   소스만 `legacy/v0.4.1/`로 verbatim import(데이터 제외, sha256은 커밋에).
 >   **D-1 확정**: game_uid가 홈 서버 id를 접미로 내장(`…000580`) → 전역 유일
 >   맞음, 0002 유지. 판정표는 `docs/legacy-triage.md`.
-> - **다음** — S14: `protocol.py` + `al.rank` 파서 승격(PR 1: 실 PCAP에서 살균
->   fixture 추출 → 합성 fixture 교체 → S6~S11 무수정 재실행) → S15 라이브
->   캡처(네이티브 Windows). 이후 P6(S13 Discord 런타임).
+> - **S14-PR1 완료** — SmartFox 디코더(`protocol/`)와 `al.rank` 파서 승격.
+>   `dw-collector extract-fixture`가 실 PCAP에서 살균 fixture를 추출(93명,
+>   provenance 테스트가 fixture == sanitize(실캡처)를 고정). 발견: alliance id는
+>   32-hex 문자열 → `external_id` text로 교정(동결 전이라 0002/0003 직접 수정).
+>   레거시 redaction 휴리스틱 승격(FR-CORE-003). pytest 46·vitest 25·pgTAP 78.
+> - **다음** — S14-PR2: `user.get.arena.info` 파서 승격
+>   (`darkwar_arena_match.pcapng`) → 이후 alliance.rank/server.rank/
+>   get.new.user.info → S15 라이브 캡처(네이티브 Windows) → P6(S13 Discord).
 
 ## Context
 
