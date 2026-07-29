@@ -1,0 +1,8 @@
+{
+  "file": "darkwar_alrank.pcapng",
+  "sha256": "c7a21f232c5d65ca105578f421683e8c4a68a414e6b180d2fa815be23c999097",
+  "location": "outside the repo (C:\\darkwar-adb)",
+  "captured_at_approx": "2026-07-27T21:29:00Z",
+  "note": "CBFW roster capture, server 580; source of decoded/al.rank/cbfw_roster_v1.json (sanitized: uids remapped with server suffix kept, names replaced, pointId replaced, allianceId hashed)",
+  "commands_extracted": ["al.rank"]
+}

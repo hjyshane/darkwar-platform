@@ -30,7 +30,7 @@ create table public.player_snapshots (
   server_id int not null references public.servers (server_id),
   game_uid bigint not null,
   name text,
-  alliance_external_id bigint,
+  alliance_external_id text,
   hq_level int,
   power bigint,
   kills bigint,
@@ -84,7 +84,7 @@ create table public.alliance_snapshots (
 
   alliance_id uuid not null references public.alliances (alliance_id),
   server_id int not null references public.servers (server_id),
-  external_id bigint not null,
+  external_id text not null,
   name text,
   code text,
   power bigint,

@@ -154,7 +154,7 @@ class SyncWorker:
     # -- drain ---------------------------------------------------------------
 
     def _resolve_rows(self, items: list[OutboxItem]) -> list[dict[str, Any]]:
-        alliance_ids: dict[tuple[int, int], str] = {}
+        alliance_ids: dict[tuple[int, str], str] = {}
         player_refs: list[dict[str, Any]] = []
         for item in items:
             if "player" in item.payload.entity_refs:
@@ -170,7 +170,7 @@ class SyncWorker:
             refs = item.payload.entity_refs
             if "alliance" in refs:
                 ref = refs["alliance"]
-                key = (int(ref["server_id"]), int(ref["external_id"]))
+                key = (int(ref["server_id"]), str(ref["external_id"]))
                 if key not in alliance_ids:
                     alliance_ids[key] = self.ensure_alliance(ref)
                 row["alliance_id"] = alliance_ids[key]

@@ -22,22 +22,22 @@ def _counts(journal: Journal) -> tuple[int, int, int]:
 
 
 def test_duplicate_replay_is_a_noop(journal: Journal) -> None:
-    observation = load_observation("al.rank/synthetic_roster_v1.json")
+    observation = load_observation("al.rank/cbfw_roster_v1.json")
     rows = al_rank.normalize(observation)
 
     first = journal.record(observation, rows)
-    assert first.raw_inserted and first.rows_inserted == 20 and first.rows_duplicate == 0
-    assert _counts(journal) == (1, 20, 20)
+    assert first.raw_inserted and first.rows_inserted == 93 and first.rows_duplicate == 0
+    assert _counts(journal) == (1, 93, 93)
 
     second = journal.record(observation, rows)
     assert not second.raw_inserted
-    assert second.rows_inserted == 0 and second.rows_duplicate == 20
-    assert _counts(journal) == (1, 20, 20)
+    assert second.rows_inserted == 0 and second.rows_duplicate == 93
+    assert _counts(journal) == (1, 93, 93)
 
 
 def test_record_is_atomic(journal: Journal) -> None:
     """FR-COL-004: a failure mid-write must leave no partial observation."""
-    observation = load_observation("al.rank/synthetic_roster_v1.json")
+    observation = load_observation("al.rank/cbfw_roster_v1.json")
     rows = al_rank.normalize(observation)
 
     # Plant an outbox row whose idempotency_key collides with row 10. The
@@ -61,7 +61,7 @@ def test_record_is_atomic(journal: Journal) -> None:
 
 
 def test_backoff_and_dead_letter(journal: Journal) -> None:
-    observation = load_observation("al.rank/synthetic_roster_nulls_v1.json")
+    observation = load_observation("al.rank/roster_nulls_v1.json")
     journal.record(observation, al_rank.normalize(observation))
     now = datetime.now(tz=UTC)
 
@@ -84,7 +84,7 @@ def test_backoff_and_dead_letter(journal: Journal) -> None:
 
 
 def test_mark_sent(journal: Journal) -> None:
-    observation = load_observation("al.rank/synthetic_roster_nulls_v1.json")
+    observation = load_observation("al.rank/roster_nulls_v1.json")
     journal.record(observation, al_rank.normalize(observation))
     ids = [item.id for item in journal.pending_outbox()]
     journal.mark_sent(ids)

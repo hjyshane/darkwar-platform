@@ -1,0 +1,30 @@
+{
+  "observation_id": "00000000-0000-4000-8000-00000000ac02",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "al.rank",
+  "captured_at": "2026-07-27T22:00:00+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "allianceId": "f8516dc0aa8fbaeee1998d518e36e478",
+    "_id": 140,
+    "list": [
+      {
+        "uid": "9000000101000581"
+      },
+      {
+        "uid": "9000000102000581",
+        "name": null,
+        "power": null,
+        "online": null
+      },
+      {
+        "uid": "9000000103000581",
+        "name": "Partial",
+        "rank": 3,
+        "online": false,
+        "offLineTime": 86400000
+      }
+    ]
+  },
+  "schema_version": 1
+}

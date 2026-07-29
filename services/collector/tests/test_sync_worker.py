@@ -64,7 +64,7 @@ class FakeSupabase:
 
 
 def _loaded_journal(tmp_journal: Journal) -> Journal:
-    roster = load_observation("al.rank/synthetic_roster_v1.json")
+    roster = load_observation("al.rank/cbfw_roster_v1.json")
     tmp_journal.record(roster, al_rank.normalize(roster))
     week = load_observation("user.get.arena.info/synthetic_week_v1.json")
     tmp_journal.record(week, arena.normalize(week))
@@ -73,6 +73,7 @@ def _loaded_journal(tmp_journal: Journal) -> Journal:
 
 def _worker(journal: Journal, fake: FakeSupabase, **config: Any) -> SyncWorker:
     client = httpx.Client(base_url="http://fake.local", transport=httpx.MockTransport(fake.handler))
+    config.setdefault("batch_size", 500)  # the 93-member roster exceeds the default
     return SyncWorker(
         journal,
         SyncConfig(supabase_url="http://fake.local", secret_key="test", **config),
@@ -86,13 +87,13 @@ def test_drain_resolves_entities_and_upserts(journal: Journal) -> None:
 
     stats = worker.drain_once()
 
-    assert stats.sent == 41  # 20 roster + 1 header + 20 entries
+    assert stats.sent == 114  # 93 roster + 1 header + 20 entries
     assert stats.failed == 0
-    assert journal.outbox_counts() == {"sent": 41}
+    assert journal.outbox_counts() == {"sent": 114}
     # One collector, one alliance, 20 players created exactly once.
     assert len(fake.entities["collectors"]) == 1
     assert len(fake.entities["alliances"]) == 1
-    assert len(fake.entities["players"]) == 20
+    assert len(fake.entities["players"]) == 113
     # Snapshot rows went up with resolved UUIDs.
     member_row = fake.upserted["alliance_member_snapshots"][0]
     assert member_row["alliance_id"] == fake.entities["alliances"][0]["alliance_id"]
@@ -108,7 +109,7 @@ def test_failure_backs_off_then_recovers(journal: Journal) -> None:
     now = datetime.now(tz=UTC)
 
     stats = worker.drain_once(now=now)
-    assert stats.failed == 21  # roster batch + arena header; entries succeeded
+    assert stats.failed == 94  # roster batch + arena header; entries succeeded
     assert stats.sent == 20
 
     # Still backing off: nothing pending yet.
@@ -116,13 +117,13 @@ def test_failure_backs_off_then_recovers(journal: Journal) -> None:
 
     fake.fail_tables.clear()
     stats = worker.drain_once(now=now + timedelta(seconds=11))
-    assert stats.sent == 21
-    assert journal.outbox_counts() == {"sent": 41}
+    assert stats.sent == 94
+    assert journal.outbox_counts() == {"sent": 114}
 
 
 def test_dead_letter_after_max_attempts(journal: Journal) -> None:
     fake = FakeSupabase(fail_tables={"alliance_member_snapshots"})
-    roster = load_observation("al.rank/synthetic_roster_nulls_v1.json")
+    roster = load_observation("al.rank/roster_nulls_v1.json")
     journal.record(roster, al_rank.normalize(roster))
     worker = _worker(journal, fake, max_attempts=1)
 

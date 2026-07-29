@@ -62,17 +62,19 @@ def _count(client: httpx.Client, table: str) -> int:
 
 def test_replay_then_sync_is_logically_exactly_once(client: httpx.Client, journal: Journal) -> None:
     observations: list[Any] = [
-        (load_observation("al.rank/synthetic_roster_v1.json"), al_rank.normalize),
-        (load_observation("al.rank/synthetic_roster_nulls_v1.json"), al_rank.normalize),
+        (load_observation("al.rank/cbfw_roster_v1.json"), al_rank.normalize),
+        (load_observation("al.rank/roster_nulls_v1.json"), al_rank.normalize),
         (load_observation("user.get.arena.info/synthetic_week_v1.json"), arena.normalize),
     ]
     for observation, normalize in observations:
         journal.record(observation, normalize(observation))
 
-    worker = SyncWorker(journal, SyncConfig(supabase_url=SUPABASE_URL, secret_key=SECRET_KEY))
+    worker = SyncWorker(
+        journal, SyncConfig(supabase_url=SUPABASE_URL, secret_key=SECRET_KEY, batch_size=500)
+    )
     stats = worker.drain_once()
     assert stats.failed == 0
-    assert stats.sent == 44  # 20 + 3 roster rows, 1 header, 20 entries
+    assert stats.sent == 117  # 93 + 3 roster rows, 1 header, 20 entries
 
     counts = {
         t: _count(client, t)
@@ -83,7 +85,7 @@ def test_replay_then_sync_is_logically_exactly_once(client: httpx.Client, journa
         )
     }
     assert counts == {
-        "alliance_member_snapshots": 23,
+        "alliance_member_snapshots": 96,
         "arena_snapshots": 1,
         "arena_entries": 20,
     }
@@ -100,7 +102,7 @@ def test_replay_then_sync_is_logically_exactly_once(client: httpx.Client, journa
         journal.conn.execute("update sync_outbox set status = 'pending'")
     stats = worker.drain_once()
     assert stats.failed == 0
-    assert stats.sent == 44
+    assert stats.sent == 117
     assert {t: _count(client, t) for t in counts} == counts
 
 
@@ -139,7 +141,9 @@ def test_network_cut_and_recovery(client: httpx.Client, journal: Journal) -> Non
     assert journal.outbox_counts() == {"pending": 21}
 
     # Recovery after backoff: full drain, header before entries.
-    worker = SyncWorker(journal, SyncConfig(supabase_url=SUPABASE_URL, secret_key=SECRET_KEY))
+    worker = SyncWorker(
+        journal, SyncConfig(supabase_url=SUPABASE_URL, secret_key=SECRET_KEY, batch_size=500)
+    )
     stats = worker.drain_once(now=now + timedelta(seconds=6))
     assert stats.failed == 0
     assert stats.sent == 21
@@ -153,7 +157,9 @@ def test_fact_drills_down_to_original_observation(client: httpx.Client, journal:
     observation = load_observation("user.get.arena.info/synthetic_week_v1.json")
     journal.record(observation, pipeline.process(observation))
 
-    worker = SyncWorker(journal, SyncConfig(supabase_url=SUPABASE_URL, secret_key=SECRET_KEY))
+    worker = SyncWorker(
+        journal, SyncConfig(supabase_url=SUPABASE_URL, secret_key=SECRET_KEY, batch_size=500)
+    )
     stats = worker.drain_once()
     assert stats.failed == 0
 

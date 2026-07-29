@@ -101,5 +101,62 @@ def sync(
     typer.echo(f"sent={stats.sent} failed={stats.failed} outbox={counts}")
 
 
+@app.command("extract-fixture")
+def extract_fixture(
+    pcap: Annotated[Path, typer.Option(exists=True, dir_okay=False)],
+    command: Annotated[str, typer.Option()],
+    out: Annotated[Path, typer.Option()],
+    captured_at: Annotated[str, typer.Option(help="ISO timestamp of the capture")],
+    collected_from_server: Annotated[int, typer.Option()] = 580,
+    index: Annotated[int, typer.Option(help="nth matching inbound event")] = 0,
+) -> None:
+    """Decode one inbound response from a pcap into a SANITIZED fixture.
+
+    Refuses commands without a registered sanitizer — unsanitized captures
+    never become committable files. The pcap itself stays outside the repo;
+    record its sha256 in protocol-fixtures/manifests/.
+    """
+    import hashlib
+    import uuid
+    from datetime import datetime
+
+    from dw_collector.protocol.pcapng import iter_extension_events
+    from dw_collector.sanitize import SANITIZERS
+
+    sanitizer = SANITIZERS.get(command)
+    if sanitizer is None:
+        typer.echo(f"no sanitizer registered for {command!r}; refusing to write", err=True)
+        raise typer.Exit(code=1)
+
+    when = datetime.fromisoformat(captured_at)
+    if when.tzinfo is None:
+        typer.echo("--captured-at must include a timezone offset", err=True)
+        raise typer.Exit(code=1)
+
+    matches = [
+        event
+        for event in iter_extension_events(pcap)
+        if event.direction == "inbound" and event.command == command
+    ]
+    if index >= len(matches):
+        typer.echo(
+            f"found {len(matches)} inbound {command!r} events; index {index} out of range", err=True
+        )
+        raise typer.Exit(code=1)
+
+    pcap_sha = hashlib.sha256(pcap.read_bytes()).hexdigest()
+    observation = Observation(
+        observation_id=uuid.uuid5(uuid.NAMESPACE_URL, f"dw-fixture:{pcap_sha}:{command}:{index}"),
+        collector_id=uuid.UUID("00000000-0000-4000-8000-00000000c777"),
+        source_command=command,
+        captured_at=when,
+        collected_from_server_id=collected_from_server,
+        payload=sanitizer(dict(matches[index].payload)),
+    )
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(observation.model_dump_json(indent=2) + "\n")
+    typer.echo(f"wrote {out}  (source pcap sha256 {pcap_sha[:16]}…)")
+
+
 if __name__ == "__main__":
     app()
