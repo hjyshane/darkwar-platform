@@ -59,9 +59,10 @@
 >   (매치업 580v582, `startTime`이 정확히 월 02:00 UTC — 리셋 규칙 3중 확인).
 >   가짜 uid를 해시 기반으로 교정(fixture 간 충돌 제거, Top100 속 CBFW 19명의
 >   동일성 보존). pytest 49·vitest 26·pgTAP 78.
-> - **다음** — 남은 파서 승격(alliance.rank / get.al.info / server.rank /
->   get.new.user.info, PR당 1개) → S15 라이브 캡처(네이티브 Windows) →
->   P6(S13 Discord 런타임).
+> - **S14-PR3 완료** — `alliance.rank` 파서 승격(로컬 41 + 크로스 100 fixture,
+>   연맹 id md5 매핑 공유로 fixture 간 동일성 유지). pytest 58·vitest 28.
+> - **다음** — 남은 파서 승격(get.al.info / server.rank / get.new.user.info,
+>   PR당 1개) → S15 라이브 캡처(네이티브 Windows) → P6(S13 Discord 런타임).
 
 ## Context
 

@@ -1,0 +1,8 @@
+{
+  "file": "darkwar_alliance_rank_local.pcapng",
+  "sha256": "9116c707f3d2caf5d6ae1bd79f31d0ed7f1d967f05f931d0de7e6abc60d81a41",
+  "location": "outside the repo (C:\\darkwar-adb)",
+  "captured_at_approx": "2026-07-27T21:46:00Z",
+  "note": "local ranking (rangeType 0), server 580, 41 alliances; source of decoded/alliance.rank/local_580_v1.json (sanitized: alliance ids md5-mapped, names/leaders replaced, selfPower fixed)",
+  "commands_extracted": ["alliance.rank"]
+}

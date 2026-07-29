@@ -1,0 +1,13 @@
+{
+  "observation_id": "00000000-0000-4000-8000-00000000ae03",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "alliance.rank",
+  "captured_at": "2026-07-27T22:35:00+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "allianceRanking": {
+      "not": "a list"
+    }
+  },
+  "schema_version": 1
+}

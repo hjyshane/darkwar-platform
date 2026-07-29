@@ -66,4 +66,26 @@ export const arenaPayloadSchema = z
   })
   .passthrough();
 
+// Real alliance.rank shape (S14-PR3): allianceRanking entries with the
+// 32-hex alliance uid; leader is a display name, not a uid.
+export const allianceRankPayloadSchema = z
+  .object({
+    allianceRanking: z.array(
+      z
+        .object({
+          uid: z.string().regex(/^[0-9a-f]{32}$/),
+          rank: z.number().int(),
+          serverId: z.number().int().nullish(),
+          alliancename: z.string().nullish(),
+          abbr: z.string().nullish(),
+          leader: z.string().nullish(),
+          fightpower: z.number().int().nullish(),
+          curMember: z.number().int().nullish(),
+          maxMember: z.number().int().nullish(),
+        })
+        .passthrough(),
+    ),
+  })
+  .passthrough();
+
 export type ObservationEnvelope = z.infer<typeof observationSchema>;

@@ -67,6 +67,11 @@ reference = consult while building, then discard · discard = obsolete.
    (matchup 580 vs 582; game startTime = Monday 02:00 UTC exactly).
    Fake uids are hash-derived so the 19 CBFW members in the Top100 keep
    one identity across fixtures
-3. `alliance.rank` / `get.al.info` / `server.rank` /
-   `get.new.user.info` — the extract→sanitize→fixture→normalize loop is
-   now proven; one parser per PR
+3. ~~`alliance.rank`~~ **done (S14-PR3)** — local(41, server 580) and
+   cross(100, all eight servers) fixtures; alliance ids share the md5
+   mapping so the local #1 stays identical to the roster fixture's
+   alliance. rangeType is request-side only, so scope is recoverable from
+   row data, not stored
+4. `get.al.info` (capture exists in `darkwar_alliance_rank_580_T2.pcapng`)
+   / `server.rank` (capture TBD) / `get.new.user.info`
+   (`darkwar_player_profile_cp.pcapng`) — one parser per PR

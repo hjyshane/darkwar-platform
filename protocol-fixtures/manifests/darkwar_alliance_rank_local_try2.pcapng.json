@@ -1,0 +1,8 @@
+{
+  "file": "darkwar_alliance_rank_local_try2.pcapng",
+  "sha256": "df7eb5806fc6c62a2bb4b6eb72083023d8084e89dad28f9b60a3a3e704af30bf",
+  "location": "outside the repo (C:\\darkwar-adb)",
+  "captured_at_approx": "2026-07-27T21:48:00Z",
+  "note": "cross-server ranking (rangeType 1), Top100 across 577-584; source of decoded/alliance.rank/cross_group_v1.json (sanitized: alliance ids md5-mapped, names/leaders replaced, selfPower fixed)",
+  "commands_extracted": ["alliance.rank"]
+}

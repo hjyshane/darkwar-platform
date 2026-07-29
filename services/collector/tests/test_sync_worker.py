@@ -132,3 +132,20 @@ def test_dead_letter_after_max_attempts(journal: Journal) -> None:
     assert journal.outbox_counts() == {"dead_letter": 3}
     # Dead letters never come back on their own (§10.3).
     assert worker.drain_once().sent == 0
+
+
+def test_alliance_rank_sync_creates_alliances(journal: Journal) -> None:
+    from dw_collector.normalize import alliance_rank
+
+    ranking = load_observation("alliance.rank/local_580_v1.json")
+    journal.record(ranking, alliance_rank.normalize(ranking))
+    fake = FakeSupabase()
+    worker = _worker(journal, fake)
+
+    stats = worker.drain_once()
+    assert stats.failed == 0
+    assert stats.sent == 41
+    assert len(fake.entities["alliances"]) == 41
+    row = fake.upserted["alliance_snapshots"][0]
+    assert row["alliance_id"] is not None
+    assert row["external_id"] == ranking.payload["allianceRanking"][0]["uid"]
