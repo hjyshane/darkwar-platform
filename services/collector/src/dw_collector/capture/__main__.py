@@ -15,7 +15,7 @@ from pathlib import Path
 import structlog
 
 from dw_collector import normalize as _normalize  # noqa: F401  (registers normalizers)
-from dw_collector.capture.live import DEFAULT_PORT, sniff_segments
+from dw_collector.capture.live import DEFAULT_PORT, sniff_into
 from dw_collector.capture.session import CaptureSession
 from dw_collector.storage.journal import Journal
 
@@ -41,8 +41,9 @@ def main() -> None:
 
     log.info("capture.start", interface=interface or "default", port=port, server_id=server_id)
     try:
-        for segment in sniff_segments(interface, port):
-            session.feed(segment)
+        # Blocking; every segment is journalled through the callback as it
+        # arrives, so Ctrl+C is the normal way to stop.
+        sniff_into(session.feed, interface, port)
     except KeyboardInterrupt:
         pass
     finally:
