@@ -139,9 +139,35 @@ def sanitize_get_al_info(payload: dict[str, Any]) -> dict[str, Any]:
     return sanitized
 
 
+def sanitize_server_rank(payload: dict[str, Any]) -> dict[str, Any]:
+    entries = payload.get("serverRanking")
+    if not isinstance(entries, list):
+        return payload
+
+    sanitized_entries = []
+    for index, entry in enumerate(entries, start=1):
+        clean = dict(entry)
+        if "uid" in clean:
+            clean["uid"] = _fake_uid(str(clean["uid"]))
+        if clean.get("name"):
+            clean["name"] = f"Ranked{index:03d}"
+        if clean.get("allianceName"):
+            clean["allianceName"] = f"Alliance{index:02d}"
+        if clean.get("abbr"):
+            clean["abbr"] = f"A{index:03d}"
+        sanitized_entries.append(clean)
+
+    sanitized = dict(payload)
+    sanitized["serverRanking"] = sanitized_entries
+    if "selfPower" in sanitized:
+        sanitized["selfPower"] = 100000000
+    return sanitized
+
+
 SANITIZERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "al.rank": sanitize_al_rank,
     "alliance.rank": sanitize_alliance_rank,
     "get.al.info": sanitize_get_al_info,
+    "server.rank": sanitize_server_rank,
     "user.get.arena.info": sanitize_user_get_arena_info,
 }

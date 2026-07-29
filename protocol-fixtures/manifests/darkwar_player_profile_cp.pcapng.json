@@ -1,0 +1,8 @@
+{
+  "file": "darkwar_player_profile_cp.pcapng",
+  "sha256": "a0ac8d15a182b7145ae72029af7a42ace2d5a5be971fd41dc54455c7fb2c92d2",
+  "location": "outside the repo (C:\\darkwar-adb)",
+  "captured_at_approx": "2026-07-27T22:26:00Z",
+  "note": "cross-server player ranking (150 players over 577-584) plus a detailed player profile; source of decoded/server.rank/group_top150_v1.json (sanitized: uids hash-mapped, player/alliance names replaced, selfPower fixed)",
+  "commands_extracted": ["server.rank"]
+}
