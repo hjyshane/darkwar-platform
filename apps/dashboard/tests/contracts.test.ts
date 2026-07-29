@@ -16,7 +16,7 @@ test('real roster fixture satisfies the contract', () => {
   const payload = alRankPayloadSchema.parse(observation.payload);
   expect(payload.list).toHaveLength(93);
   expect(payload.allianceId).toMatch(/^[0-9a-f]{32}$/);
-  expect(payload.list[0]?.uid).toBe('9000000001000580');
+  expect(payload.list[0]?.uid).toBe('9473022442000580');
   // Unpromoted real fields pass through — they belong to raw.
   expect(payload.list[0]).toHaveProperty('alsign');
 });
@@ -42,9 +42,19 @@ test('malformed fixture is rejected, matching the Pydantic side', () => {
 
 test('arena fixture satisfies the contract', () => {
   const observation = observationSchema.parse(
-    loadFixture('user.get.arena.info/synthetic_week_v1.json'),
+    loadFixture('user.get.arena.info/top100_580v582_v1.json'),
   );
   const payload = arenaPayloadSchema.parse(observation.payload);
-  expect(payload.entries).toHaveLength(20);
-  expect(payload.entries[0]?.rank).toBe(1);
+  expect(payload.rankArr).toHaveLength(100);
+  expect(payload.rankArr[0]?.rank).toBe(1);
+  expect(payload.fightServers).toBe('580;582');
+  // startTime is the game's own Monday 02:00 UTC week bound.
+  expect(payload.startTime).toBe(Date.parse('2026-07-27T02:00:00Z'));
+});
+
+test('arena malformed fixture is rejected', () => {
+  const observation = observationSchema.parse(
+    loadFixture('user.get.arena.info/arena_malformed_v1.json'),
+  );
+  expect(arenaPayloadSchema.safeParse(observation.payload).success).toBe(false);
 });

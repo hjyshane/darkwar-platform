@@ -17,9 +17,14 @@ from typing import Any
 UID_SUFFIX_LEN = 6
 
 
-def _fake_uid(index: int, original: str) -> str:
+def _fake_uid(original: str) -> str:
+    """Content-derived fake uid: the same real player maps to the same fake
+    uid in EVERY fixture (CBFW members genuinely appear in both the roster
+    and the arena Top100), and distinct players cannot collide the way an
+    index-based mapping does. The server suffix survives (D-1)."""
     suffix = original[-UID_SUFFIX_LEN:] if len(original) > UID_SUFFIX_LEN else original
-    return f"9{index:09d}{suffix}"
+    digest = int(hashlib.sha256(original.encode()).hexdigest(), 16) % 10**9
+    return f"9{digest:09d}{suffix}"
 
 
 def sanitize_al_rank(payload: dict[str, Any]) -> dict[str, Any]:
@@ -27,17 +32,11 @@ def sanitize_al_rank(payload: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(members, list):
         return payload
 
-    uid_map: dict[str, str] = {}
-    for index, member in enumerate(members, start=1):
-        original = str(member.get("uid", ""))
-        if original:
-            uid_map[original] = _fake_uid(index, original)
-
     sanitized_members = []
     for index, member in enumerate(members, start=1):
         clean = dict(member)
         if "uid" in clean:
-            clean["uid"] = uid_map.get(str(clean["uid"]), _fake_uid(index, str(clean["uid"])))
+            clean["uid"] = _fake_uid(str(clean["uid"]))
         if "name" in clean:
             clean["name"] = f"Member{index:02d}"
         if clean.get("pointId"):
@@ -51,11 +50,45 @@ def sanitize_al_rank(payload: dict[str, Any]) -> dict[str, Any]:
     officials = payload.get("allianceOfficialArr")
     if isinstance(officials, list):
         sanitized["allianceOfficialArr"] = [
-            {**o, "uid": uid_map.get(str(o.get("uid")), str(o.get("uid")))} for o in officials
+            {**o, "uid": _fake_uid(str(o.get("uid", "")))} for o in officials
         ]
+    return sanitized
+
+
+def sanitize_user_get_arena_info(payload: dict[str, Any]) -> dict[str, Any]:
+    entries = payload.get("rankArr")
+    if not isinstance(entries, list):
+        return payload
+
+    sanitized_entries = []
+    for index, entry in enumerate(entries, start=1):
+        clean = dict(entry)
+        if "uid" in clean:
+            clean["uid"] = _fake_uid(str(clean["uid"]))
+        if "name" in clean:
+            clean["name"] = f"Arena{index:03d}"
+        if clean.get("alName"):
+            clean["alName"] = f"Alliance{index:02d}"
+        if clean.get("abbr"):
+            clean["abbr"] = f"A{index:03d}"
+        # Defense lineup blob: opaque protobuf of the player's troops.
+        if "army" in clean:
+            clean["army"] = ""
+        if clean.get("mainBuildPoint"):
+            clean["mainBuildPoint"] = 100000 + index
+        sanitized_entries.append(clean)
+
+    sanitized = dict(payload)
+    sanitized["rankArr"] = sanitized_entries
+    # Top-level power/army describe the COLLECTOR account.
+    if "power" in sanitized:
+        sanitized["power"] = 100000000
+    if "army" in sanitized:
+        sanitized["army"] = ""
     return sanitized
 
 
 SANITIZERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "al.rank": sanitize_al_rank,
+    "user.get.arena.info": sanitize_user_get_arena_info,
 }

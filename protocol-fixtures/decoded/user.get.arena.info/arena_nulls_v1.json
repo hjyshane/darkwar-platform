@@ -1,0 +1,30 @@
+{
+  "observation_id": "00000000-0000-4000-8000-00000000ad02",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "user.get.arena.info",
+  "captured_at": "2026-07-27T23:50:00+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "arenaType": 1,
+    "rankArr": [
+      {
+        "uid": "9000000301000582",
+        "rank": 1
+      },
+      {
+        "uid": "9000000302000582",
+        "rank": 2,
+        "name": null,
+        "score": null,
+        "power": null
+      },
+      {
+        "uid": "9000000303000580",
+        "rank": 3,
+        "name": "Partial",
+        "score": 990
+      }
+    ]
+  },
+  "schema_version": 1
+}

@@ -66,7 +66,7 @@ class FakeSupabase:
 def _loaded_journal(tmp_journal: Journal) -> Journal:
     roster = load_observation("al.rank/cbfw_roster_v1.json")
     tmp_journal.record(roster, al_rank.normalize(roster))
-    week = load_observation("user.get.arena.info/synthetic_week_v1.json")
+    week = load_observation("user.get.arena.info/top100_580v582_v1.json")
     tmp_journal.record(week, arena.normalize(week))
     return tmp_journal
 
@@ -87,20 +87,20 @@ def test_drain_resolves_entities_and_upserts(journal: Journal) -> None:
 
     stats = worker.drain_once()
 
-    assert stats.sent == 114  # 93 roster + 1 header + 20 entries
+    assert stats.sent == 194  # 93 roster + 1 header + 100 entries
     assert stats.failed == 0
-    assert journal.outbox_counts() == {"sent": 114}
+    assert journal.outbox_counts() == {"sent": 194}
     # One collector, one alliance, 20 players created exactly once.
     assert len(fake.entities["collectors"]) == 1
     assert len(fake.entities["alliances"]) == 1
-    assert len(fake.entities["players"]) == 113
+    assert len(fake.entities["players"]) == 174
     # Snapshot rows went up with resolved UUIDs.
     member_row = fake.upserted["alliance_member_snapshots"][0]
     assert member_row["alliance_id"] == fake.entities["alliances"][0]["alliance_id"]
     assert member_row["player_id"] is not None
     # Parent table synced in the same drain as its children.
     assert len(fake.upserted["arena_snapshots"]) == 1
-    assert len(fake.upserted["arena_entries"]) == 20
+    assert len(fake.upserted["arena_entries"]) == 100
 
 
 def test_failure_backs_off_then_recovers(journal: Journal) -> None:
@@ -110,7 +110,7 @@ def test_failure_backs_off_then_recovers(journal: Journal) -> None:
 
     stats = worker.drain_once(now=now)
     assert stats.failed == 94  # roster batch + arena header; entries succeeded
-    assert stats.sent == 20
+    assert stats.sent == 100
 
     # Still backing off: nothing pending yet.
     assert worker.drain_once(now=now).sent == 0
@@ -118,7 +118,7 @@ def test_failure_backs_off_then_recovers(journal: Journal) -> None:
     fake.fail_tables.clear()
     stats = worker.drain_once(now=now + timedelta(seconds=11))
     assert stats.sent == 94
-    assert journal.outbox_counts() == {"sent": 114}
+    assert journal.outbox_counts() == {"sent": 194}
 
 
 def test_dead_letter_after_max_attempts(journal: Journal) -> None:

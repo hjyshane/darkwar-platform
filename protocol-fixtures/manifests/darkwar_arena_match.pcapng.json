@@ -1,0 +1,8 @@
+{
+  "file": "darkwar_arena_match.pcapng",
+  "sha256": "b0f03e2cd172cbb5999c4fa87f6b3e0ba90e49e428266e6868df4a56e05ef629",
+  "location": "outside the repo (C:\\darkwar-adb)",
+  "captured_at_approx": "2026-07-27T23:40:00Z",
+  "note": "Arena weekly Top100, matchup 580 vs 582; source of decoded/user.get.arena.info/top100_580v582_v1.json (sanitized: uids remapped with server suffix kept, player/alliance names replaced, army blobs emptied, mainBuildPoint replaced, own power fixed)",
+  "commands_extracted": ["user.get.arena.info"]
+}
