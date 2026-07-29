@@ -96,3 +96,45 @@ def test_replay_then_sync_is_logically_exactly_once(client: httpx.Client, journa
     assert stats.failed == 0
     assert stats.sent == 44
     assert {t: _count(client, t) for t in counts} == counts
+
+
+def test_network_cut_and_recovery(client: httpx.Client, journal: Journal) -> None:
+    """S12 failure injection: sync fails mid-flight, nothing is lost, and
+    recovery preserves parent-before-child order (entries' FK to the header
+    could not resolve otherwise)."""
+    import uuid
+    from datetime import UTC, datetime, timedelta
+
+    base = load_observation("user.get.arena.info/synthetic_week_v1.json")
+    observation = base.model_copy(
+        update={
+            "observation_id": uuid.uuid4(),
+            # New field → new payload hash → genuinely new rows and a new
+            # arena header PK, so FK ordering is exercised for real.
+            "payload": {**base.payload, "failure_injection_run": str(uuid.uuid4())},
+        }
+    )
+    journal.record(observation, arena.normalize(observation))
+    now = datetime.now(tz=UTC)
+
+    # Network cut: nothing listens on port 9. Everything fails, nothing is
+    # lost, attempts are recorded.
+    dead = SyncWorker(
+        journal,
+        SyncConfig(
+            supabase_url="http://127.0.0.1:9",
+            secret_key=SECRET_KEY,
+            base_backoff_seconds=5.0,
+        ),
+    )
+    stats = dead.drain_once(now=now)
+    assert stats.sent == 0
+    assert stats.failed == 21
+    assert journal.outbox_counts() == {"pending": 21}
+
+    # Recovery after backoff: full drain, header before entries.
+    worker = SyncWorker(journal, SyncConfig(supabase_url=SUPABASE_URL, secret_key=SECRET_KEY))
+    stats = worker.drain_once(now=now + timedelta(seconds=6))
+    assert stats.failed == 0
+    assert stats.sent == 21
+    assert journal.outbox_counts() == {"sent": 21}
