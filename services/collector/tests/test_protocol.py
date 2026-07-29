@@ -310,3 +310,38 @@ def test_committed_profile_fixture_matches_sanitized_capture() -> None:
     )
     committed = load_observation("get.new.user.info/profile_578_v1.json")
     assert committed.payload == sanitize_get_new_user_info(dict(inbound.payload))
+
+
+def test_committed_multi_fixture_matches_sanitized_capture() -> None:
+    pcap = Path("/mnt/c/darkwar-adb/darkwar_player_profile_cp.pcapng")
+    if not pcap.exists():
+        pytest.skip("real capture not on this machine")
+    from dw_collector.sanitize import sanitize_get_user_info_multi
+    from tests.conftest import load_observation
+
+    inbound = next(
+        event
+        for event in iter_extension_events(pcap)
+        if event.direction == "inbound" and event.command == "get.user.info.multi"
+    )
+    committed = load_observation("get.user.info.multi/summary_578_v1.json")
+    assert committed.payload == sanitize_get_user_info_multi(dict(inbound.payload))
+
+
+def test_every_confirmed_command_has_a_parser() -> None:
+    """Appendix B registry vs what the collector can actually normalize.
+    user.arena.save.defend.army is the collector's own outbound write and
+    has no product table, so it is deliberately unparsed."""
+    from dw_collector import normalize as _normalize  # noqa: F401
+    from dw_collector import registry
+
+    confirmed = {
+        "alliance.rank",
+        "get.al.info",
+        "al.rank",
+        "server.rank",
+        "get.new.user.info",
+        "get.user.info.multi",
+        "user.get.arena.info",
+    }
+    assert confirmed <= registry.known_commands()

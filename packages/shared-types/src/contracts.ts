@@ -88,4 +88,84 @@ export const allianceRankPayloadSchema = z
   })
   .passthrough();
 
+// Real get.al.info shape (S14-PR4): alliance detail card. leaderUid is the
+// only confirmed place the leader appears as a uid rather than a name.
+export const getAlInfoPayloadSchema = z
+  .object({
+    uid: z.string().regex(/^[0-9a-f]{32}$/),
+    name: z.string().nullish(),
+    abbr: z.string().nullish(),
+    leaderUid: z.string().regex(/^\d+$/).nullish(),
+    fightPower: z.number().int().nullish(),
+    curMember: z.number().int().nullish(),
+    createServer: z.number().int().nullish(),
+  })
+  .passthrough();
+
+// Real server.rank shape (S14-PR5): cross-server player ranking. `lv` is
+// the main-city level; the alliance is named but never identified.
+export const serverRankPayloadSchema = z
+  .object({
+    serverRanking: z.array(
+      z
+        .object({
+          uid: z.string().regex(/^\d+$/),
+          rank: z.number().int(),
+          name: z.string().nullish(),
+          power: z.number().int().nullish(),
+          lv: z.number().int().nullish(),
+          serverId: z.number().int().nullish(),
+        })
+        .passthrough(),
+    ),
+  })
+  .passthrough();
+
+/** The six components whose sum equals the profile's total power (FR-CORE-004). */
+export const POWER_COMPONENTS = [
+  'armyPower',
+  'heroPower',
+  'buildingPower',
+  'sciencePower',
+  'petPower',
+  'modCarPower',
+] as const;
+
+// Real get.new.user.info shape (S14-PR6): full player profile.
+export const getNewUserInfoPayloadSchema = z
+  .object({
+    uid: z.string().regex(/^\d+$/),
+    name: z.string().nullish(),
+    power: z.number().int().nullish(),
+    serverId: z.number().int().nullish(),
+    allianceId: z.string().nullish(),
+    armyPower: z.number().int().nullish(),
+    heroPower: z.number().int().nullish(),
+    buildingPower: z.number().int().nullish(),
+    sciencePower: z.number().int().nullish(),
+    petPower: z.number().int().nullish(),
+    modCarPower: z.number().int().nullish(),
+  })
+  .passthrough();
+
+// Real get.user.info.multi shape (S14-PR7): public summaries. The only
+// summary response carrying allianceId; `rank` is 0 everywhere observed.
+export const getUserInfoMultiPayloadSchema = z
+  .object({
+    uids: z.array(
+      z
+        .object({
+          uid: z.string().regex(/^\d+$/),
+          name: z.string().nullish(),
+          power: z.number().int().nullish(),
+          mainBuildingLevel: z.number().int().nullish(),
+          armyKill: z.number().int().nullish(),
+          allianceId: z.string().nullish(),
+          serverId: z.number().int().nullish(),
+        })
+        .passthrough(),
+    ),
+  })
+  .passthrough();
+
 export type ObservationEnvelope = z.infer<typeof observationSchema>;

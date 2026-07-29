@@ -189,11 +189,24 @@ def sanitize_get_new_user_info(payload: dict[str, Any]) -> dict[str, Any]:
     return _sanitize_profile(payload, "ProfilePlayer")
 
 
+def sanitize_get_user_info_multi(payload: dict[str, Any]) -> dict[str, Any]:
+    entries = payload.get("uids")
+    if not isinstance(entries, list):
+        return payload
+    sanitized = dict(payload)
+    sanitized["uids"] = [
+        _sanitize_profile(entry, f"MultiPlayer{index:02d}")
+        for index, entry in enumerate(entries, start=1)
+    ]
+    return sanitized
+
+
 SANITIZERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "al.rank": sanitize_al_rank,
     "alliance.rank": sanitize_alliance_rank,
     "get.al.info": sanitize_get_al_info,
     "get.new.user.info": sanitize_get_new_user_info,
+    "get.user.info.multi": sanitize_get_user_info_multi,
     "server.rank": sanitize_server_rank,
     "user.get.arena.info": sanitize_user_get_arena_info,
 }

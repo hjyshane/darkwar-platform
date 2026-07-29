@@ -3,10 +3,15 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
+  POWER_COMPONENTS,
   alRankPayloadSchema,
   allianceRankPayloadSchema,
   arenaPayloadSchema,
+  getAlInfoPayloadSchema,
+  getNewUserInfoPayloadSchema,
+  getUserInfoMultiPayloadSchema,
   observationSchema,
+  serverRankPayloadSchema,
 } from '@dw/shared-types';
 import { expect, test } from 'vitest';
 
@@ -81,4 +86,37 @@ test('alliance ranking malformed fixture is rejected', () => {
     loadFixture('alliance.rank/ranking_malformed_v1.json'),
   );
   expect(allianceRankPayloadSchema.safeParse(observation.payload).success).toBe(false);
+});
+
+test('alliance detail fixture satisfies the contract', () => {
+  const observation = observationSchema.parse(loadFixture('get.al.info/love_580_v1.json'));
+  const payload = getAlInfoPayloadSchema.parse(observation.payload);
+  expect(payload.leaderUid).toBe('9734238058000580');
+  expect(payload.curMember).toBe(98);
+});
+
+test('cross-server player ranking fixture satisfies the contract', () => {
+  const observation = observationSchema.parse(loadFixture('server.rank/group_top150_v1.json'));
+  const payload = serverRankPayloadSchema.parse(observation.payload);
+  expect(payload.serverRanking).toHaveLength(150);
+  const servers = new Set(payload.serverRanking.map((e) => e.serverId));
+  expect([...servers].sort()).toEqual([577, 578, 579, 580, 581, 582, 583, 584]);
+});
+
+test('player profile six power components sum to the total', () => {
+  const observation = observationSchema.parse(loadFixture('get.new.user.info/profile_578_v1.json'));
+  const payload = getNewUserInfoPayloadSchema.parse(observation.payload);
+  const sum = POWER_COMPONENTS.reduce((total, key) => total + (payload[key] ?? 0), 0);
+  expect(sum).toBe(payload.power);
+});
+
+test('public summary fixture satisfies the contract and matches the profile', () => {
+  const summary = getUserInfoMultiPayloadSchema.parse(
+    observationSchema.parse(loadFixture('get.user.info.multi/summary_578_v1.json')).payload,
+  );
+  const profile = getNewUserInfoPayloadSchema.parse(
+    observationSchema.parse(loadFixture('get.new.user.info/profile_578_v1.json')).payload,
+  );
+  expect(summary.uids[0]?.uid).toBe(profile.uid);
+  expect(summary.uids[0]?.allianceId).toBe(profile.allianceId);
 });

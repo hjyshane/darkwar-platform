@@ -183,14 +183,25 @@ class SyncWorker:
         return rows
 
     def _upsert(self, table: str, rows: list[dict[str, Any]]) -> None:
-        resp = self.client.post(
-            f"/rest/v1/{table}",
-            params={"on_conflict": "idempotency_key"},
-            json=rows,
-            headers={"Prefer": "resolution=ignore-duplicates,return=minimal"},
-        )
-        if resp.status_code >= 400:
-            raise SyncError(f"{table}: HTTP {resp.status_code}: {resp.text[:300]}")
+        # PostgREST rejects a bulk insert whose objects do not all share the
+        # same keys ("All object keys must match"), and two parsers writing
+        # the same table legitimately produce different column sets — only
+        # get.al.info knows leader_game_uid, for instance. Group by key
+        # signature rather than padding with nulls, so columns a parser
+        # never saw keep their database defaults.
+        groups: dict[frozenset[str], list[dict[str, Any]]] = {}
+        for row in rows:
+            groups.setdefault(frozenset(row), []).append(row)
+
+        for group in groups.values():
+            resp = self.client.post(
+                f"/rest/v1/{table}",
+                params={"on_conflict": "idempotency_key"},
+                json=group,
+                headers={"Prefer": "resolution=ignore-duplicates,return=minimal"},
+            )
+            if resp.status_code >= 400:
+                raise SyncError(f"{table}: HTTP {resp.status_code}: {resp.text[:300]}")
 
     def drain_once(self, now: datetime | None = None) -> DrainStats:
         stats = DrainStats()

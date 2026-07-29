@@ -45,7 +45,14 @@ def client() -> httpx.Client:
         "/rest/v1/activity_facts",
         params={"idempotency_key": "like.fact:arena_participation:*"},
     )
-    for table in ("arena_entries", "arena_snapshots", "alliance_member_snapshots"):
+    for table in (
+        "arena_entries",
+        "arena_snapshots",
+        "alliance_member_snapshots",
+        "player_detail_snapshots",
+        "player_snapshots",
+        "alliance_snapshots",
+    ):
         c.delete(f"/rest/v1/{table}", params={"collector_id": f"eq.{FIXTURE_COLLECTOR}"})
     return c
 
@@ -202,3 +209,63 @@ def test_fact_drills_down_to_original_observation(client: httpx.Client, journal:
     ).fetchone()
     assert row is not None
     assert str(entry["game_uid"]) in row[0]
+
+
+def test_all_promoted_parsers_reach_supabase(client: httpx.Client, journal: Journal) -> None:
+    """Every confirmed command, decoded from real captures, lands in its
+    table through the same journal → outbox → upsert path (S14 exit)."""
+    from dw_collector import pipeline
+
+    fixtures = [
+        "al.rank/cbfw_roster_v1.json",
+        "alliance.rank/local_580_v1.json",
+        "alliance.rank/cross_group_v1.json",
+        "get.al.info/love_580_v1.json",
+        "server.rank/group_top150_v1.json",
+        "get.new.user.info/profile_578_v1.json",
+        "get.user.info.multi/summary_578_v1.json",
+        "user.get.arena.info/top100_580v582_v1.json",
+    ]
+    expected_rows = 0
+    for name in fixtures:
+        observation = load_observation(name)
+        rows = pipeline.process(observation)
+        expected_rows += len(rows)
+        journal.record(observation, rows)
+
+    worker = SyncWorker(
+        journal, SyncConfig(supabase_url=SUPABASE_URL, secret_key=SECRET_KEY, batch_size=1000)
+    )
+    stats = worker.drain_once()
+    assert stats.failed == 0
+    assert stats.sent == expected_rows
+    assert set(stats.tables) == {
+        "player_snapshots",
+        "player_detail_snapshots",
+        "alliance_snapshots",
+        "alliance_member_snapshots",
+        "arena_snapshots",
+        "arena_entries",
+        "activity_facts",
+    }
+    # alliance.rank(41+100) + get.al.info(1) all target alliance_snapshots.
+    assert stats.tables["alliance_snapshots"] == 142
+    # server.rank(150) + get.user.info.multi(1).
+    assert stats.tables["player_snapshots"] == 151
+    assert stats.tables["player_detail_snapshots"] == 1
+
+    # The six-power verification survived the round trip.
+    resp = client.get(
+        "/rest/v1/player_detail_snapshots",
+        params={
+            "game_uid": "eq.9629347793000578",
+            "select": "components_sum_matches,power_total",
+        },
+    )
+    resp.raise_for_status()
+    assert resp.json()[0]["components_sum_matches"] is True
+
+    # Replaying everything is absorbed; no duplicate rows.
+    for name in fixtures:
+        observation = load_observation(name)
+        assert journal.record(observation, pipeline.process(observation)).rows_inserted == 0

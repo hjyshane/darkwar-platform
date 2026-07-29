@@ -6,6 +6,7 @@ from dw_collector.normalize import (
     arena,
     get_al_info,
     get_new_user_info,
+    get_user_info_multi,
     server_rank,
 )
 
@@ -15,5 +16,6 @@ __all__ = [
     "arena",
     "get_al_info",
     "get_new_user_info",
+    "get_user_info_multi",
     "server_rank",
 ]
