@@ -11,6 +11,7 @@ import httpx
 import structlog
 
 from dw_collector import __version__
+from dw_collector.envfile import load_env_file
 from dw_collector.storage.journal import Journal
 from dw_collector.sync.heartbeat import assess, report
 from dw_collector.sync.worker import SyncConfig, SyncWorker
@@ -25,6 +26,7 @@ def _last_packet_at(journal: Journal) -> datetime | None:
 
 
 def main() -> None:
+    load_env_file()
     url = os.environ.get("SUPABASE_URL")
     key = os.environ.get("SUPABASE_SECRET_KEY")
     if not url or not key:

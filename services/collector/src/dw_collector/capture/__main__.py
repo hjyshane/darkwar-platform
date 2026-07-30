@@ -17,12 +17,14 @@ import structlog
 from dw_collector import normalize as _normalize  # noqa: F401  (registers normalizers)
 from dw_collector.capture.live import DEFAULT_PORT, sniff_into
 from dw_collector.capture.session import CaptureSession
+from dw_collector.envfile import load_env_file
 from dw_collector.storage.journal import Journal
 
 log = structlog.get_logger()
 
 
 def main() -> None:
+    load_env_file()
     collector_id = os.environ.get("DW_COLLECTOR_ID")
     if not collector_id:
         raise SystemExit("DW_COLLECTOR_ID is required")
