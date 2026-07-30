@@ -211,6 +211,46 @@ class Journal:
                         ),
                     )
 
+    def command_counts(self) -> list[tuple[str, int]]:
+        """Observations per command, most frequent first."""
+        cur = self.conn.execute(
+            "select source_command, count(*) from raw_observations"
+            " group by source_command order by count(*) desc, source_command"
+        )
+        return [(str(r[0]), int(r[1])) for r in cur.fetchall()]
+
+    def table_counts(self) -> list[tuple[str, int]]:
+        """Normalized rows per target table, most frequent first."""
+        cur = self.conn.execute(
+            "select target_table, count(*) from normalized_rows"
+            " group by target_table order by count(*) desc, target_table"
+        )
+        return [(str(r[0]), int(r[1])) for r in cur.fetchall()]
+
+    def retry_outbox(self, *, dead_letters: bool = False, already_sent: bool = False) -> int:
+        """Make the sync worker look at rows again; returns rows affected.
+
+        Three real needs, none of which loses anything: clearing the backoff
+        on pending rows so a recovered stack drains now, retrying dead letters
+        after fixing what killed them (§10.3), and resending rows the journal
+        already sent — which is what a `supabase db reset` requires, since the
+        cloud forgot but the journal did not. The cloud-side unique key makes
+        a redundant resend a no-op.
+        """
+        statuses = ["pending"]
+        if dead_letters:
+            statuses.append("dead_letter")
+        if already_sent:
+            statuses.append("sent")
+        placeholders = ",".join("?" for _ in statuses)
+        with self.conn:
+            cur = self.conn.execute(
+                "update sync_outbox set status = 'pending', attempt_count = 0,"
+                f" next_attempt_at = ?, last_error = null where status in ({placeholders})",
+                (_now_iso(), *statuses),
+            )
+        return int(cur.rowcount)
+
     def outbox_counts(self) -> dict[str, int]:
         cur = self.conn.execute("select status, count(*) from sync_outbox group by status")
         return dict(cur.fetchall())

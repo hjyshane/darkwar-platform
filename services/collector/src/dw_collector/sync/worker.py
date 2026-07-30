@@ -196,12 +196,19 @@ class SyncWorker:
         for row in rows:
             groups.setdefault(frozenset(row), []).append(row)
 
+        # Snapshot rows are immutable history, so a duplicate is ignored. Rows
+        # keyed on a natural key are running state — the discovery inbox counts
+        # sightings — so a duplicate has to become an UPDATE for the database
+        # to notice it.
+        resolution = (
+            "ignore-duplicates" if conflict_target == "idempotency_key" else "merge-duplicates"
+        )
         for group in groups.values():
             resp = self.client.post(
                 f"/rest/v1/{table}",
                 params={"on_conflict": conflict_target},
                 json=group,
-                headers={"Prefer": "resolution=ignore-duplicates,return=minimal"},
+                headers={"Prefer": f"resolution={resolution},return=minimal"},
             )
             if resp.status_code >= 400:
                 raise SyncError(f"{table}: HTTP {resp.status_code}: {resp.text[:300]}")

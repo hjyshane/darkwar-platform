@@ -103,6 +103,7 @@ def sync(
     if not url or not secret_key:
         typer.echo("SUPABASE_URL and SUPABASE_SECRET_KEY are required", err=True)
         raise typer.Exit(code=1)
+    path = _db_path(db)
     journal = _open_journal(db)
     try:
         worker = SyncWorker(journal, SyncConfig(supabase_url=url, secret_key=secret_key))
@@ -110,7 +111,53 @@ def sync(
         counts = journal.outbox_counts()
     finally:
         journal.close()
+    # The journal path is in the output because syncing the wrong one — a
+    # fresh, empty journal in whichever checkout you happened to be in —
+    # otherwise looks exactly like having nothing to send.
+    typer.echo(f"journal={path}")
     typer.echo(f"sent={stats.sent} failed={stats.failed} outbox={counts}")
+
+
+@app.command("journal-summary")
+def journal_summary(db: Annotated[Path | None, _DB_OPTION] = None) -> None:
+    """What the local journal holds: commands, target tables, outbox state."""
+    path = _db_path(db)
+    journal = _open_journal(db)
+    try:
+        commands = journal.command_counts()
+        tables = journal.table_counts()
+        outbox = journal.outbox_counts()
+    finally:
+        journal.close()
+
+    typer.echo(f"journal={path}")
+    typer.echo(f"outbox={outbox}")
+    typer.echo(f"\nobservations by command ({len(commands)} distinct):")
+    for command, count in commands:
+        typer.echo(f"  {count:6d}  {command}")
+    typer.echo("\nnormalized rows by table:")
+    for table, count in tables:
+        typer.echo(f"  {count:6d}  {table}")
+
+
+@app.command("retry-outbox")
+def retry_outbox(
+    db: Annotated[Path | None, _DB_OPTION] = None,
+    dead_letters: Annotated[
+        bool, typer.Option(help="also retry rows that gave up (§10.3)")
+    ] = False,
+    already_sent: Annotated[
+        bool, typer.Option(help="also resend rows already sent, e.g. after supabase db reset")
+    ] = False,
+) -> None:
+    """Queue rows for another sync attempt. Nothing is deleted or rewritten."""
+    journal = _open_journal(db)
+    try:
+        affected = journal.retry_outbox(dead_letters=dead_letters, already_sent=already_sent)
+        counts = journal.outbox_counts()
+    finally:
+        journal.close()
+    typer.echo(f"queued={affected} outbox={counts}")
 
 
 @app.command("extract-fixture")
