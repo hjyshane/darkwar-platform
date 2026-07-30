@@ -117,6 +117,13 @@ def parse_tcp(packet: bytes) -> TcpSegment | None:
     )
 
 
+# A 47KB al.rank response arrives in roughly 32 segments, so this leaves
+# headroom for legitimate reordering while still recovering quickly when a
+# segment is genuinely lost. The old 512 meant one dropped packet could stall
+# a stream for the best part of a megabyte.
+MAX_PENDING_SEGMENTS = 64
+
+
 @dataclass
 class TCPDirectionReassembler:
     """Directional in-order reassembly for one long game session."""
@@ -124,6 +131,9 @@ class TCPDirectionReassembler:
     decoder: SmartFoxStreamDecoder = field(default_factory=SmartFoxStreamDecoder)
     next_sequence: int | None = None
     pending: dict[int, bytes] = field(default_factory=dict)
+    # Times a lost segment forced a jump past the gap. Live capture only;
+    # a pcap replay has every byte.
+    gap_skips: int = 0
 
     def feed(self, sequence: int, payload: bytes) -> list[SmartFoxFrame]:
         if not payload:
@@ -149,10 +159,11 @@ class TCPDirectionReassembler:
             self.next_sequence += len(chunk)
             frames.extend(self.decoder.feed(chunk))
 
-        # A capture that starts on a lost segment would otherwise buffer
-        # forever; jump to the lowest pending offset.
-        if len(self.pending) > 512:
+        # A lost segment would otherwise buffer forever; jump past the gap
+        # to the lowest offset we do have and let the decoder resync.
+        if len(self.pending) > MAX_PENDING_SEGMENTS:
             self.next_sequence = min(self.pending)
+            self.gap_skips += 1
         return frames
 
 

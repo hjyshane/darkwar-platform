@@ -15,6 +15,14 @@ from dw_collector.protocol.sfs import ParseError, Reader, SfsValue, parse_sfs_va
 
 MAX_FRAME_SIZE = 32 * 1024 * 1024
 
+# Every frame in every real capture (473 of them across the login, roster and
+# arena pcaps) decodes to a top-level SFSObject. Requiring the type byte turns
+# a resync from "does this parse?" into "does this parse AS A FRAME?", which
+# matters live: a mis-synced window can otherwise read a string-length prefix
+# that swallows the next command name, producing a plausible-looking frame
+# such as "push.world.march." + "world.get.new" glued together.
+SFS_OBJECT_TYPE = 0x12
+
 
 @dataclass(frozen=True)
 class SmartFoxFrame:
@@ -30,6 +38,14 @@ class SmartFoxStreamDecoder:
 
     def __init__(self) -> None:
         self.buffer = bytearray()
+        # Bytes discarded while hunting for a frame boundary. Non-zero after
+        # startup means packets were dropped or reordered — surfaced in the
+        # capture stats so silent loss becomes a visible number.
+        self.resync_bytes = 0
+
+    def _skip_byte(self) -> None:
+        del self.buffer[0]
+        self.resync_bytes += 1
 
     def feed(self, data: bytes) -> list[SmartFoxFrame]:
         if data:
@@ -42,7 +58,7 @@ class SmartFoxStreamDecoder:
 
             flags = self.buffer[0]
             if not flags & 0x80:
-                del self.buffer[0]
+                self._skip_byte()
                 continue
 
             header_length = 5 if flags & 0x08 else 3
@@ -51,7 +67,7 @@ class SmartFoxStreamDecoder:
 
             body_length = int.from_bytes(self.buffer[1:header_length], "big")
             if body_length <= 0 or body_length > MAX_FRAME_SIZE:
-                del self.buffer[0]
+                self._skip_byte()
                 continue
 
             frame_length = header_length + body_length
@@ -61,12 +77,14 @@ class SmartFoxStreamDecoder:
             encoded = bytes(self.buffer[header_length:frame_length])
             try:
                 decoded_bytes = zlib.decompress(encoded) if flags & 0x20 else encoded
+                if decoded_bytes[:1] != bytes([SFS_OBJECT_TYPE]):
+                    raise ParseError("frame payload is not a top-level SFSObject")
                 reader = Reader(decoded_bytes)
                 decoded_object = parse_sfs_value(reader)
                 if reader.pos != len(decoded_bytes):
                     raise ParseError(f"{len(decoded_bytes) - reader.pos} unparsed bytes")
             except (ParseError, zlib.error):
-                del self.buffer[0]
+                self._skip_byte()
                 continue
 
             del self.buffer[:frame_length]

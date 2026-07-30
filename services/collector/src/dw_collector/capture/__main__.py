@@ -50,6 +50,7 @@ def main() -> None:
         pass
     finally:
         journal.close()
+        session.refresh_loss_counters()
         log.info(
             "capture.stop",
             segments=session.stats.segments,
@@ -57,6 +58,8 @@ def main() -> None:
             discovered=session.stats.discovered,
             rejected=session.stats.rejected,
             rows=session.stats.rows,
+            resync_bytes=session.stats.resync_bytes,
+            gap_skips=session.stats.gap_skips,
         )
 
 
