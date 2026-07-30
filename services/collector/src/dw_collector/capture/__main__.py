@@ -57,6 +57,7 @@ def main() -> None:
             ingested=session.stats.ingested,
             discovered=session.stats.discovered,
             rejected=session.stats.rejected,
+            clock_skew_seconds=session.stats.clock_skew_seconds,
             rows=session.stats.rows,
             resync_bytes=session.stats.resync_bytes,
             gap_skips=session.stats.gap_skips,

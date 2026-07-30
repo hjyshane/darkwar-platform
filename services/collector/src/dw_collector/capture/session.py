@@ -18,11 +18,12 @@ from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from typing import Any
 
 import structlog
 from pydantic import ValidationError
 
-from dw_collector import pipeline
+from dw_collector import clock, pipeline
 from dw_collector.models import Observation
 from dw_collector.protocol.frames import extract_extension_event
 from dw_collector.protocol.pcapng import ExtensionEvent, TCPDirectionReassembler, TcpSegment
@@ -31,6 +32,13 @@ from dw_collector.storage.journal import Journal
 log = structlog.get_logger()
 
 DEFAULT_PORT = 8680
+
+# Above this, the machine's clock is wrong in a way that matters rather than
+# merely imprecise. captured_at decides three things that fail silently: the
+# idempotency key's date bucket, which game week a row belongs to (the reset
+# is Monday 02:00 UTC), and how stale the dashboard thinks data is. A few
+# seconds moves none of them; a few minutes can, near a boundary.
+CLOCK_SKEW_WARN_SECONDS = 60.0
 
 
 @dataclass
@@ -47,6 +55,9 @@ class CaptureStats:
     # "the game never sent it".
     resync_bytes: int = 0
     gap_skips: int = 0
+    # Server clock minus ours, when the game told us (push.utc.time, on
+    # login). None means the session never saw one.
+    clock_skew_seconds: float | None = None
 
 
 class CaptureSession:
@@ -96,6 +107,7 @@ class CaptureSession:
             if event is None:
                 continue
             command, payload, request_id = event
+            self._check_clock(command, dict(payload), now or datetime.now(tz=UTC))
             self._record(
                 ExtensionEvent("inbound", command, payload, request_id),
                 now=now or datetime.now(tz=UTC),
@@ -107,6 +119,30 @@ class CaptureSession:
         for segment in segments:
             self.feed(segment, now=now)
         return self.stats
+
+    def _check_clock(self, command: str, payload: dict[str, Any], now: datetime) -> None:
+        """Compare our clock against the server's when it volunteers one.
+
+        Checking beats correcting: this process has no business setting the
+        system clock, and a session that ran with a wrong one needs to be
+        recognisable afterwards, not silently adjusted.
+        """
+        if command != clock.SOURCE_COMMAND:
+            return
+        skew = clock.skew_seconds(payload, now)
+        if skew is None:
+            log.warning("capture.clock_unreadable", payload=payload)
+            return
+        self.stats.clock_skew_seconds = skew
+        if abs(skew) > CLOCK_SKEW_WARN_SECONDS:
+            log.warning(
+                "capture.clock_skew",
+                skew_seconds=round(skew, 1),
+                detail="this machine's clock disagrees with the game server;"
+                " captured_at on this session is off by the same amount",
+            )
+        else:
+            log.info("capture.clock_checked", skew_seconds=round(skew, 1))
 
     def refresh_loss_counters(self) -> None:
         """Roll per-stream loss counters up into the reported stats."""
