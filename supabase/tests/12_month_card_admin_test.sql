@@ -74,7 +74,13 @@ select set_config('request.jwt.claims',
   true);
 select isnt_empty($$ select player_id from public.player_month_cards $$,
   'admin reads month cards');
-select is((select expires_at from public.player_month_cards limit 1),
+-- Scoped to the row this test created: the table also holds live data,
+-- and an unscoped limit 1 grabs whoever sorts first. Resolved through
+-- players (readable by this role) because the temp table belongs to
+-- postgres and the persona cannot see it.
+select is((select m.expires_at from public.player_month_cards m
+           where m.player_id = (select player_id from public.players
+                                where game_uid = 58000001)),
   '2026-08-25T02:00:00Z'::timestamptz, 'and gets the real expiry');
 select throws_ok('select raw from public.player_snapshots',
   '42501', null,
