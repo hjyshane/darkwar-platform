@@ -1,0 +1,16 @@
+{
+  "observation_id": "00000000-0000-4000-8000-00000000c303",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "kill.rank",
+  "captured_at": "2026-07-30T05:15:00+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "serverRanking": [
+      {
+        "uid": "bad",
+        "rank": 1
+      }
+    ]
+  },
+  "schema_version": 1
+}

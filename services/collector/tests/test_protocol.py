@@ -401,3 +401,19 @@ def test_committed_donation_fixture_matches_sanitized_capture() -> None:
     )
     committed = load_observation("get.daily.alliance.donate.rank/daily_580_v1.json")
     assert committed.payload == sanitize_daily_alliance_donate_rank(dict(inbound.payload))
+
+
+def test_committed_kill_rank_fixture_matches_sanitized_capture() -> None:
+    pcap = Path("/mnt/c/DW_data/probe.pcapng")
+    if not pcap.exists():
+        pytest.skip("sweep capture not on this machine")
+    from dw_collector.sanitize import sanitize_kill_rank
+    from tests.conftest import load_observation
+
+    inbound = next(
+        event
+        for event in iter_extension_events(pcap)
+        if event.direction == "inbound" and event.command == "kill.rank"
+    )
+    committed = load_observation("kill.rank/group_kills_v1.json")
+    assert committed.payload == sanitize_kill_rank(dict(inbound.payload))
