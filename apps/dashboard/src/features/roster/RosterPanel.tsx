@@ -6,7 +6,7 @@ async function fetchRoster(): Promise<RosterRow[]> {
   const { data, error } = await supabase
     .from('players')
     .select(
-      'player_id, game_uid, current_name, hq_level, power, kills, month_card_expires_at, last_seen_at',
+      'player_id, game_uid, current_name, hq_level, power, kills, daily_donation_score, alliance_battle_score, last_seen_at',
     )
     .order('power', { ascending: false, nullsFirst: false })
     .limit(50);

@@ -1,5 +1,4 @@
 import { FreshnessBadge } from '../../components/FreshnessBadge';
-import { classifyPass, formatPass } from '../../lib/freshness';
 
 export interface RosterRow {
   player_id: string;
@@ -8,7 +7,8 @@ export interface RosterRow {
   hq_level: number | null;
   power: number | null;
   kills: number | null;
-  month_card_expires_at: string | null;
+  daily_donation_score: number | null;
+  alliance_battle_score: number | null;
   last_seen_at: string | null;
 }
 
@@ -20,7 +20,6 @@ function formatNumber(value: number | null): string {
 }
 
 export function RosterTable({ rows, now }: { rows: RosterRow[]; now?: Date }) {
-  const current = now ?? new Date();
   if (rows.length === 0) {
     return <p className="empty">로스터 데이터가 아직 없습니다.</p>;
   }
@@ -32,7 +31,8 @@ export function RosterTable({ rows, now }: { rows: RosterRow[]; now?: Date }) {
           <th scope="col">HQ</th>
           <th scope="col">전투력</th>
           <th scope="col">킬</th>
-          <th scope="col">월정액</th>
+          <th scope="col">일일 기여</th>
+          <th scope="col">주간 대결</th>
           <th scope="col">마지막 관측</th>
         </tr>
       </thead>
@@ -43,13 +43,8 @@ export function RosterTable({ rows, now }: { rows: RosterRow[]; now?: Date }) {
             <td>{row.hq_level ?? '—'}</td>
             <td>{formatNumber(row.power)}</td>
             <td>{formatNumber(row.kills)}</td>
-            <td>
-              <span
-                className={`badge badge-pass-${classifyPass(row.month_card_expires_at, current)}`}
-              >
-                {formatPass(row.month_card_expires_at, current)}
-              </span>
-            </td>
+            <td>{formatNumber(row.daily_donation_score)}</td>
+            <td>{formatNumber(row.alliance_battle_score)}</td>
             <td>
               <FreshnessBadge capturedAt={row.last_seen_at} now={now} />
             </td>
