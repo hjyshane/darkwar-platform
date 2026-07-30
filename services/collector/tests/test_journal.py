@@ -90,3 +90,17 @@ def test_mark_sent(journal: Journal) -> None:
     journal.mark_sent(ids)
     assert journal.outbox_counts() == {"sent": 3}
     assert journal.pending_outbox() == []
+
+
+def test_commands_since_excludes_rows_written_before_the_boundary(journal: Journal) -> None:
+    """What the UI worker's step verification rests on: only commands that
+    arrived AFTER the tap count as proof the tap landed."""
+    observation = load_observation("al.rank/cbfw_roster_v1.json")
+    journal.record(observation, al_rank.normalize(observation))
+
+    written = journal.conn.execute("select created_at from raw_observations").fetchone()[0]
+    stamp = datetime.fromisoformat(written)
+
+    assert journal.commands_since(stamp - timedelta(seconds=1)) == {"al.rank"}
+    assert journal.commands_since(stamp) == set()
+    assert journal.commands_since(stamp + timedelta(seconds=1)) == set()

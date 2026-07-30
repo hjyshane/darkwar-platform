@@ -219,6 +219,21 @@ class Journal:
         )
         return [(str(r[0]), int(r[1])) for r in cur.fetchall()]
 
+    def commands_since(self, moment: datetime) -> set[str]:
+        """Commands journalled after `moment` — the UI worker's proof that a
+        tap opened the screen it meant to.
+
+        Filters on `created_at` (when the journal wrote the row), not
+        `captured_at`: a live capture sets captured_at from the packet and a
+        replay sets it from the fixture, so only created_at answers "did this
+        arrive after I tapped".
+        """
+        cur = self.conn.execute(
+            "select distinct source_command from raw_observations where created_at > ?",
+            (moment.isoformat(),),
+        )
+        return {str(r[0]) for r in cur.fetchall()}
+
     def table_counts(self) -> list[tuple[str, int]]:
         """Normalized rows per target table, most frequent first."""
         cur = self.conn.execute(

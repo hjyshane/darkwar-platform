@@ -1,0 +1,82 @@
+{
+  "name": "example-alliance-daily",
+  "description": "EXAMPLE ONLY — every x/y below is 0 and must be replaced with coordinates read off your own emulator (dw-ui-worker screenshot). Left at 0 the first step fails verification and the run aborts, which is the intended behaviour for an unconfigured routine. Screen order follows the read-only part of the 2026-07-30 walkthrough capture.",
+  "steps": [
+    {
+      "name": "open alliance",
+      "action": "tap",
+      "x": 0,
+      "y": 0,
+      "settle_seconds": 2.5
+    },
+    {
+      "name": "member list",
+      "action": "tap",
+      "x": 0,
+      "y": 0,
+      "expect": ["al.rank"],
+      "settle_seconds": 2.0,
+      "timeout_seconds": 20
+    },
+    {
+      "name": "contribution tab (daily)",
+      "action": "tap",
+      "x": 0,
+      "y": 0,
+      "expect": ["get.daily.alliance.donate.rank"],
+      "settle_seconds": 2.0,
+      "timeout_seconds": 20
+    },
+    {
+      "name": "close contribution",
+      "action": "back",
+      "settle_seconds": 1.5
+    },
+    {
+      "name": "alliance ranking (multi-server)",
+      "action": "tap",
+      "x": 0,
+      "y": 0,
+      "expect": ["alliance.rank"],
+      "settle_seconds": 2.5,
+      "timeout_seconds": 25
+    },
+    {
+      "name": "close alliance ranking",
+      "action": "back",
+      "settle_seconds": 1.5
+    },
+    {
+      "name": "server power ranking",
+      "action": "tap",
+      "x": 0,
+      "y": 0,
+      "expect": ["server.rank"],
+      "settle_seconds": 2.5,
+      "timeout_seconds": 25
+    },
+    {
+      "name": "kill ranking",
+      "action": "tap",
+      "x": 0,
+      "y": 0,
+      "expect": ["kill.rank"],
+      "settle_seconds": 2.0,
+      "timeout_seconds": 20
+    },
+    {
+      "name": "close rankings",
+      "action": "back",
+      "settle_seconds": 1.5
+    },
+    {
+      "name": "arena top 100",
+      "action": "tap",
+      "x": 0,
+      "y": 0,
+      "expect": ["user.get.arena.info"],
+      "settle_seconds": 3.0,
+      "timeout_seconds": 25
+    }
+  ]
+}
