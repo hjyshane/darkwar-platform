@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { classifyFreshness, formatAge } from '../src/lib/freshness';
+import { classifyFreshness, classifyPass, formatAge, formatPass } from '../src/lib/freshness';
 
 const NOW = new Date('2026-07-28T12:00:00Z');
 
@@ -22,4 +22,18 @@ test.each([
   ['2026-07-26T12:00:00Z', '2일 전'],
 ])('formatAge(%s) → %s', (capturedAt, label) => {
   expect(formatAge(capturedAt, NOW)).toBe(label);
+});
+
+test('pass status distinguishes never-seen from expired', () => {
+  expect(classifyPass(null, NOW)).toBe('none');
+  expect(classifyPass('2026-07-01T00:00:00Z', NOW)).toBe('expired');
+  expect(classifyPass('2026-07-31T00:00:00Z', NOW)).toBe('expiring');
+  expect(classifyPass('2026-09-01T00:00:00Z', NOW)).toBe('active');
+});
+
+test('pass formatting', () => {
+  expect(formatPass(null, NOW)).toBe('—');
+  expect(formatPass('2026-07-01T00:00:00Z', NOW)).toBe('만료');
+  expect(formatPass('2026-07-28T20:00:00Z', NOW)).toBe('오늘 만료');
+  expect(formatPass('2026-08-25T02:00:00Z', NOW)).toBe('D-27');
 });

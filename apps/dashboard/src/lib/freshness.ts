@@ -28,3 +28,32 @@ export function formatAge(capturedAt: string, now: Date): string {
   }
   return `${Math.floor(hours / 24)}일 전`;
 }
+
+export type PassStatus = 'active' | 'expiring' | 'expired' | 'none';
+
+const EXPIRING_WITHIN_DAYS = 7;
+
+/** Monthly pass state. `null` means we have never observed a pass for this
+ * player — which is not the same as one that has run out. */
+export function classifyPass(expiresAt: string | null, now: Date): PassStatus {
+  if (expiresAt === null) {
+    return 'none';
+  }
+  const daysLeft = (new Date(expiresAt).getTime() - now.getTime()) / 86_400_000;
+  if (daysLeft < 0) {
+    return 'expired';
+  }
+  return daysLeft <= EXPIRING_WITHIN_DAYS ? 'expiring' : 'active';
+}
+
+export function formatPass(expiresAt: string | null, now: Date): string {
+  const status = classifyPass(expiresAt, now);
+  if (status === 'none' || expiresAt === null) {
+    return '—';
+  }
+  if (status === 'expired') {
+    return '만료';
+  }
+  const daysLeft = Math.floor((new Date(expiresAt).getTime() - now.getTime()) / 86_400_000);
+  return daysLeft === 0 ? '오늘 만료' : `D-${daysLeft}`;
+}

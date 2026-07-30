@@ -227,6 +227,7 @@ export type Database = {
           idempotency_key: string
           kills: number | null
           member_rank: number | null
+          month_card_expires_at: string | null
           name: string | null
           observation_id: string
           online_state: string | null
@@ -250,6 +251,7 @@ export type Database = {
           idempotency_key: string
           kills?: number | null
           member_rank?: number | null
+          month_card_expires_at?: string | null
           name?: string | null
           observation_id: string
           online_state?: string | null
@@ -273,6 +275,7 @@ export type Database = {
           idempotency_key?: string
           kills?: number | null
           member_rank?: number | null
+          month_card_expires_at?: string | null
           name?: string | null
           observation_id?: string
           online_state?: string | null
@@ -1134,6 +1137,7 @@ export type Database = {
           hq_level: number | null
           idempotency_key: string
           kills: number | null
+          month_card_expires_at: string | null
           name: string | null
           observation_id: string
           parser_version: string
@@ -1155,6 +1159,7 @@ export type Database = {
           hq_level?: number | null
           idempotency_key: string
           kills?: number | null
+          month_card_expires_at?: string | null
           name?: string | null
           observation_id: string
           parser_version: string
@@ -1176,6 +1181,7 @@ export type Database = {
           hq_level?: number | null
           idempotency_key?: string
           kills?: number | null
+          month_card_expires_at?: string | null
           name?: string | null
           observation_id?: string
           parser_version?: string
@@ -1228,6 +1234,7 @@ export type Database = {
           hq_level: number | null
           kills: number | null
           last_seen_at: string | null
+          month_card_expires_at: string | null
           player_id: string
           power: number | null
           server_id: number
@@ -1242,6 +1249,7 @@ export type Database = {
           hq_level?: number | null
           kills?: number | null
           last_seen_at?: string | null
+          month_card_expires_at?: string | null
           player_id?: string
           power?: number | null
           server_id: number
@@ -1256,6 +1264,7 @@ export type Database = {
           hq_level?: number | null
           kills?: number | null
           last_seen_at?: string | null
+          month_card_expires_at?: string | null
           player_id?: string
           power?: number | null
           server_id?: number

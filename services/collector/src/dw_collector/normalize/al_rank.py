@@ -19,6 +19,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from dw_collector.fields import month_card_expires_at
 from dw_collector.models import NormalizedRow, Observation, idempotency_key
 from dw_collector.registry import register
 
@@ -117,6 +118,9 @@ def normalize(observation: Observation) -> list[NormalizedRow]:
                     "power": member.power,
                     "kills": member.army_kill,
                     "presence_redacted": redacted,
+                    "month_card_expires_at": month_card_expires_at(
+                        raw_member.get("monthCardEndTime")
+                    ),
                     "online_state": online_state,
                 },
                 entity_refs={
