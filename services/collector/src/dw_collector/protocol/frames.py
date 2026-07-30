@@ -15,13 +15,19 @@ from dw_collector.protocol.sfs import ParseError, Reader, SfsValue, parse_sfs_va
 
 MAX_FRAME_SIZE = 32 * 1024 * 1024
 
-# Every frame in every real capture (473 of them across the login, roster and
-# arena pcaps) decodes to a top-level SFSObject. Requiring the type byte turns
-# a resync from "does this parse?" into "does this parse AS A FRAME?", which
-# matters live: a mis-synced window can otherwise read a string-length prefix
-# that swallows the next command name, producing a plausible-looking frame
-# such as "push.world.march." + "world.get.new" glued together.
+# Requiring the type byte turns a resync from "does this parse?" into "does
+# this parse AS A FRAME?" — a mis-synced window can otherwise read a
+# string-length prefix that swallows the next command name, producing a
+# plausible-looking frame such as "push.world.march." + "world.get.new" glued
+# together. That check alone proved insufficient live: the glued command
+# reappeared, because a false window can still begin with 0x12 and parse.
 SFS_OBJECT_TYPE = 0x12
+
+# All 520 frames across five real captures (login, roster, arena, alliance
+# ranking, player profile) carry exactly this top-level key set — the
+# SmartFox2X envelope. Requiring the keys to be present, rather than the set
+# to match exactly, keeps a future field from silently dropping real frames.
+ENVELOPE_KEYS = frozenset({"a", "c", "p"})
 
 
 @dataclass(frozen=True)
@@ -83,6 +89,8 @@ class SmartFoxStreamDecoder:
                 decoded_object = parse_sfs_value(reader)
                 if reader.pos != len(decoded_bytes):
                     raise ParseError(f"{len(decoded_bytes) - reader.pos} unparsed bytes")
+                if not isinstance(decoded_object, dict) or not set(decoded_object) >= ENVELOPE_KEYS:
+                    raise ParseError("frame is not a SmartFox envelope")
             except (ParseError, zlib.error):
                 self._skip_byte()
                 continue
