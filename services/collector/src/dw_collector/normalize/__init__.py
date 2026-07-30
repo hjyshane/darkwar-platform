@@ -9,6 +9,7 @@ from dw_collector.normalize import (
     get_new_user_info,
     get_user_info_multi,
     kill_rank,
+    mail_read_share,
     server_rank,
 )
 
@@ -21,5 +22,6 @@ __all__ = [
     "get_new_user_info",
     "get_user_info_multi",
     "kill_rank",
+    "mail_read_share",
     "server_rank",
 ]

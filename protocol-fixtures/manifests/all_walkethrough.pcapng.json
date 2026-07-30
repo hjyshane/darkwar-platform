@@ -1,0 +1,9 @@
+{
+  "file": "all_walkethrough.pcapng",
+  "sha256": "8d1dd48bef36592910c25b1883f9dc7d3ca49f6c81b56d8c581f6c8afef38b43",
+  "location": "outside the repo (C:\\DW_data)",
+  "captured_at_approx": "2026-07-30T18:39:26Z",
+  "note": "Guided walkthrough of 19 screens in a known order (alliance roster → member power → contribution daily/weekly → multi-server alliance ranking → other alliance roster → multi-server personal rankings ×4 → alliance duel daily/weekly/round → zombie event ranking → zombie event battle report from mail → Franky event top-10 alliance mail → battle report received → arena gold/silver → arena hero detail → arena battle report). captured_at is the pcap file mtime, i.e. the END of the session: the reader does not expose per-packet timestamps and the payload carries no wall clock (_time is a sequence counter, not epoch).",
+  "commands_extracted": ["mail.read.share"],
+  "resolved": "rank.get.by.range type ids, by matching selfPower against the collector's own profile and by capture order: 45=hero power total, 79=hero power best, 49=pet power total, 80=pet power best"
+}

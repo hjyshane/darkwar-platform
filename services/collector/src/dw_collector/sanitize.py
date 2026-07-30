@@ -11,6 +11,7 @@ protocol shape.
 from __future__ import annotations
 
 import hashlib
+import json
 from collections.abc import Callable
 from typing import Any
 
@@ -217,7 +218,49 @@ def sanitize_kill_rank(payload: dict[str, Any]) -> dict[str, Any]:
     return sanitize_server_rank(payload)
 
 
+BATTLE_CONTENT_KEEP = 64
+
+
+def sanitize_mail_read_share(payload: dict[str, Any]) -> dict[str, Any]:
+    """Mail carrying a battle report.
+
+    The report body is another player's full army composition, so the fixture
+    keeps only its first characters — enough to prove the parser extracts the
+    right field, without committing someone's battle to the repo. A decoder,
+    when it exists, will need its own deliberately captured sample.
+    """
+    messages = payload.get("msg")
+    if not isinstance(messages, list):
+        return payload
+
+    sanitized_messages = []
+    for index, mail in enumerate(messages, start=1):
+        clean = dict(mail)
+        for key in ("uid", "fromUser", "toUser"):
+            if clean.get(key):
+                clean[key] = _fake_uid(str(clean[key]))
+        if clean.get("fromName"):
+            clean["fromName"] = f"Sender{index:02d}"
+        local = clean.get("contentsLocal")
+        if isinstance(local, str) and local:
+            try:
+                body = json.loads(local)
+            except json.JSONDecodeError:
+                body = None
+            if isinstance(body, dict) and isinstance(body.get("obj"), dict):
+                content = body["obj"].get("battleContent")
+                if isinstance(content, str):
+                    body["obj"]["battleContent"] = content[:BATTLE_CONTENT_KEEP]
+                clean["contentsLocal"] = json.dumps(body, ensure_ascii=False)
+        sanitized_messages.append(clean)
+
+    sanitized = dict(payload)
+    sanitized["msg"] = sanitized_messages
+    return sanitized
+
+
 SANITIZERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
+    "mail.read.share": sanitize_mail_read_share,
     "kill.rank": sanitize_kill_rank,
     "get.daily.alliance.donate.rank": sanitize_daily_alliance_donate_rank,
     "al.rank": sanitize_al_rank,
