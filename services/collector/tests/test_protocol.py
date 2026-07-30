@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import struct
 import zlib
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -146,12 +147,28 @@ def _block(block_type: int, body: bytes) -> bytes:
     )
 
 
-def _pcapng(packets: list[bytes]) -> bytes:
+def _pcapng(packets: list[bytes], *, ticks: int = 0, tsresol: int | None = None) -> bytes:
+    """`ticks` is the packet timestamp in units of `tsresol`; omitting
+    tsresol omits the option entirely, which per pcapng 4.2 means 10^-6."""
     shb_body = struct.pack("<IHHq", 0x1A2B3C4D, 1, 0, -1)
     out = _block(0x0A0D0D0A, shb_body)
-    out += _block(1, struct.pack("<HHI", 1, 0, 0x40000))
+    idb_body = struct.pack("<HHI", 1, 0, 0x40000)
+    if tsresol is not None:
+        idb_body += struct.pack("<HH", 9, 1) + bytes([tsresol]) + b"\x00" * 3
+        idb_body += struct.pack("<HH", 0, 0)  # opt_endofopt
+    out += _block(1, idb_body)
     for packet in packets:
-        epb_body = struct.pack("<IIIII", 0, 0, 0, len(packet), len(packet)) + packet
+        epb_body = (
+            struct.pack(
+                "<IIIII",
+                0,
+                (ticks >> 32) & 0xFFFFFFFF,
+                ticks & 0xFFFFFFFF,
+                len(packet),
+                len(packet),
+            )
+            + packet
+        )
         out += _block(6, epb_body)
     return out
 
@@ -419,6 +436,7 @@ def test_committed_kill_rank_fixture_matches_sanitized_capture() -> None:
     assert committed.payload == sanitize_kill_rank(dict(inbound.payload))
 
 
+@pytest.mark.skipif(not REAL_PCAP.exists(), reason="real capture not on this machine")
 def test_packets_carry_their_capture_time() -> None:
     """A pcap replayed weeks later must not be labelled with the replay's
     clock. The timestamps were being read and discarded."""
@@ -434,6 +452,7 @@ def test_packets_carry_their_capture_time() -> None:
     assert (times[-1] - times[0]).total_seconds() < 60 * 60 * 24
 
 
+@pytest.mark.skipif(not REAL_PCAP.exists(), reason="real capture not on this machine")
 def test_extension_events_inherit_the_packet_time() -> None:
     events = [e for e in iter_extension_events(REAL_PCAP) if e.direction == "inbound"]
 
@@ -451,3 +470,41 @@ def test_timestamp_resolution_defaults_to_microseconds() -> None:
     assert _timestamp_divisor(3) == 1_000
     # High bit set means 2^-n rather than 10^-n.
     assert _timestamp_divisor(0x80 | 10) == 1024
+
+
+def test_microsecond_timestamps_decode(tmp_path: Path) -> None:
+    from dw_collector.protocol.pcapng import read_pcapng_records
+
+    path = tmp_path / "micro.pcapng"
+    # 2026-07-30T18:33:47.776080Z, the push.utc.time packet from the real
+    # walkthrough capture.
+    path.write_bytes(_pcapng([b"\x00" * 16], ticks=1_785_436_427_776_080, tsresol=6))
+
+    records = read_pcapng_records(path)
+
+    assert len(records) == 1
+    assert records[0].captured_at == datetime(2026, 7, 30, 18, 33, 47, 776080, tzinfo=UTC)
+
+
+def test_absent_tsresol_means_microseconds(tmp_path: Path) -> None:
+    """The option is optional and its default is 10^-6. Assuming nanoseconds
+    would put every capture a thousand-fold off."""
+    from dw_collector.protocol.pcapng import read_pcapng_records
+
+    path = tmp_path / "default.pcapng"
+    path.write_bytes(_pcapng([b"\x00" * 16], ticks=1_785_436_427_776_080))
+
+    assert read_pcapng_records(path)[0].captured_at == datetime(
+        2026, 7, 30, 18, 33, 47, 776080, tzinfo=UTC
+    )
+
+
+def test_nanosecond_tsresol_is_honoured(tmp_path: Path) -> None:
+    from dw_collector.protocol.pcapng import read_pcapng_records
+
+    path = tmp_path / "nano.pcapng"
+    path.write_bytes(_pcapng([b"\x00" * 16], ticks=1_785_436_427_776_080_000, tsresol=9))
+
+    assert read_pcapng_records(path)[0].captured_at == datetime(
+        2026, 7, 30, 18, 33, 47, 776080, tzinfo=UTC
+    )

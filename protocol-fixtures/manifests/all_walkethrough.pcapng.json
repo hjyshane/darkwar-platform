@@ -4,9 +4,7 @@
   "location": "outside the repo (C:\\DW_data)",
   "captured_at_approx": "2026-07-30T18:33:47Z .. 18:39:08Z (first..last packet)",
   "note": "Guided walkthrough of 19 screens in a known order (alliance roster -> member power -> contribution daily/weekly -> multi-server alliance ranking -> other alliance roster -> multi-server personal rankings x4 -> alliance duel daily/weekly/round -> zombie event ranking -> zombie event battle report from mail -> Franky event top-10 alliance mail -> battle report received -> arena gold/silver -> arena hero detail -> arena battle report). Timestamps come from the pcapng packet records themselves: an earlier note here said the reader did not expose them and used the file mtime instead, which was wrong -- the enhanced-packet blocks carry them and the reader was discarding them.",
-  "commands_extracted": [
-    "mail.read.share"
-  ],
+  "commands_extracted": ["mail.read.share"],
   "resolved": "rank.get.by.range type ids, by matching selfPower against the collector's own profile and by capture order: 45=hero power total, 79=hero power best, 49=pet power total, 80=pet power best",
   "server_clock": "push.utc.time reported 2026-07-30T18:33:41Z while the packet carrying it was recorded at 18:33:47.776Z, i.e. the game server's clock read 6.8s behind the capture machine's. Only one sample; the field is misnamed (db_timezone_offset holds epoch seconds)."
 }
