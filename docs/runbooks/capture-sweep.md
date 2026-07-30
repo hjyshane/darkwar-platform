@@ -90,3 +90,24 @@ curl -s "http://127.0.0.1:54321/rest/v1/schema_observations?select=source_comman
 
 승격은 `docs/legacy-triage.md`의 큐와 같은 규칙을 따른다 — 파서 1개당 PR 1개,
 살균 fixture와 replay 테스트 필수.
+
+## 이미 판정한 커맨드
+
+UID가 있다는 것만으로 승격하면 안 된다. 아래는 payload를 열어보고 내린 판정이며,
+둘은 **필드 존재를 확인한 뒤에 의미가 다름을 발견해 되돌린 사례**다.
+
+| 커맨드 | 판정 | 근거 |
+|---|---|---|
+| `get.daily.alliance.donate.rank` | **승격** | `{uid, score, updateTime}`. 개인 귀속이 명확 |
+| `al.battle.rank.info` | **승격** | `{uid, name, score}`. `type`이 두 랭킹을 구분하므로 `variant`로 해석 없이 기록 |
+| `kill.rank` | **승격** | `{uid, armyKill, rank}`. `server.rank`가 주지 않는 킬 |
+| `al.show.help` | **거절** | UID는 있지만 **지원을 요청한 사람**이다. `senderId`가 1~2개뿐이고 대부분 `senderId == recvId`, `nowcount/maxcount`는 몇 명이 도왔는지만 알려주고 **누가** 도왔는지는 없다. `todayHelpPoint`는 수집 계정 자신의 값. "지원 기여도"로 만들면 실제로는 요청 횟수를 보여주게 된다 |
+| `rank.get.by.range` | **거절** | 엔트리 필드가 `power`인데 **`type`마다 값이 다르다**. 같은 플레이어가 66.5M / 7.09M / 4.73M / 1.93M이고 실제 총 전투력(314M)과는 어느 것도 일치하지 않으며 4개 합(약 8천만)도 총합이 아니다. 즉 `power`는 그 랭킹 종류의 지표다. `player_snapshots.power`에 넣으면 전투력을 4분의 1로 오염시킨다. 크기 순서는 `45 ≥ 49 ≥ 79 ≥ 80`으로 일관(79명 중 72명)해 계층 구조는 있으나, 각 type이 무엇인지는 미확정 |
+| `al.battle.week.result.info` | **거절** | 점수는 있으나 **이름만** 있고 UID가 없다 |
+| `get.alliance.boss.activity.info.new` | **재캡처 필요** | `dmgRecordArr`가 `{diff, dmg}`뿐이고 `memberDamageArr`는 이 캡처에서 비어 있었다. 보스전 진행 중에 다시 캡처하면 개인 귀속 여부를 판정할 수 있다 |
+| `push.share.msg` | **재캡처 필요** | 채팅 채널이며 이 캡처에서 `msg`가 비어 있었다. 리포트를 **수집 계정으로** 공유받는 순간을 캡처해야 §26.1 `01_report_share_receive`가 채워진다 |
+| `push.mail` | **유망** | `fromUser`/`toUser`가 UID이고 `contentsArr`가 본문. §6.2 계정 연결이 기다리던 인게임 메시지 경로일 가능성이 높다. 수집 계정으로 메일을 받으면서 캡처해 확인한다 |
+
+`rank.get.by.range`를 확정하는 방법은 **라벨 붙인 캡처**다: 랭킹 탭을 하나씩,
+어떤 탭인지 적으면서 열고 화면의 숫자를 payload 값과 대조하면 type↔지표 대응이
+확정된다.
