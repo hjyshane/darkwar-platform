@@ -1613,6 +1613,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      backfill_month_card_from_raw: {
+        Args: never
+        Returns: {
+          cards: number
+          member_rows: number
+          player_rows: number
+        }[]
+      }
       current_app_role: {
         Args: never
         Returns: Database["public"]["Enums"]["app_role"]
