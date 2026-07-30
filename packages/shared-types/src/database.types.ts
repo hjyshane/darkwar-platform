@@ -116,6 +116,105 @@ export type Database = {
           },
         ]
       }
+      alliance_contribution_snapshots: {
+        Row: {
+          alliance_id: string | null
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          contribution_type: string
+          created_at: string
+          game_uid: number
+          idempotency_key: string
+          observation_id: string
+          parser_version: string
+          player_id: string | null
+          rank: number | null
+          raw: Json
+          score: number | null
+          score_updated_at: string | null
+          server_id: number
+          snapshot_id: string
+          source_command: string
+        }
+        Insert: {
+          alliance_id?: string | null
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          contribution_type: string
+          created_at?: string
+          game_uid: number
+          idempotency_key: string
+          observation_id: string
+          parser_version: string
+          player_id?: string | null
+          rank?: number | null
+          raw?: Json
+          score?: number | null
+          score_updated_at?: string | null
+          server_id: number
+          snapshot_id?: string
+          source_command: string
+        }
+        Update: {
+          alliance_id?: string | null
+          captured_at?: string
+          collected_from_server_id?: number
+          collector_id?: string
+          contribution_type?: string
+          created_at?: string
+          game_uid?: number
+          idempotency_key?: string
+          observation_id?: string
+          parser_version?: string
+          player_id?: string | null
+          rank?: number | null
+          raw?: Json
+          score?: number | null
+          score_updated_at?: string | null
+          server_id?: number
+          snapshot_id?: string
+          source_command?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alliance_contribution_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "alliance_contribution_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "alliance_contribution_snapshots_collector_id_fkey"
+            columns: ["collector_id"]
+            isOneToOne: false
+            referencedRelation: "collectors"
+            referencedColumns: ["collector_id"]
+          },
+          {
+            foreignKeyName: "alliance_contribution_snapshots_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "alliance_contribution_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+        ]
+      }
       alliance_member_snapshots: {
         Row: {
           alliance_id: string

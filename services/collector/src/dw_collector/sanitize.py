@@ -201,7 +201,18 @@ def sanitize_get_user_info_multi(payload: dict[str, Any]) -> dict[str, Any]:
     return sanitized
 
 
+def sanitize_daily_alliance_donate_rank(payload: dict[str, Any]) -> dict[str, Any]:
+    entries = payload.get("rankList")
+    if not isinstance(entries, list):
+        return payload
+    sanitized = dict(payload)
+    # Scores and update times are the data; only the identity is masked.
+    sanitized["rankList"] = [{**e, "uid": _fake_uid(str(e.get("uid", "")))} for e in entries]
+    return sanitized
+
+
 SANITIZERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
+    "get.daily.alliance.donate.rank": sanitize_daily_alliance_donate_rank,
     "al.rank": sanitize_al_rank,
     "alliance.rank": sanitize_alliance_rank,
     "get.al.info": sanitize_get_al_info,

@@ -33,6 +33,7 @@ _TABLE_ORDER = [
     "alliance_member_snapshots",
     "arena_snapshots",
     "arena_entries",
+    "alliance_contribution_snapshots",
     "activity_facts",
 ]
 

@@ -385,3 +385,19 @@ def test_binary_payload_survives_the_journal_and_hashing(tmp_path: Path) -> None
         assert isinstance(item.payload.row["raw"]["blob"], str)
     finally:
         journal.close()
+
+
+def test_committed_donation_fixture_matches_sanitized_capture() -> None:
+    pcap = Path("/mnt/c/DW_data/probe.pcapng")
+    if not pcap.exists():
+        pytest.skip("sweep capture not on this machine")
+    from dw_collector.sanitize import sanitize_daily_alliance_donate_rank
+    from tests.conftest import load_observation
+
+    inbound = next(
+        event
+        for event in iter_extension_events(pcap)
+        if event.direction == "inbound" and event.command == "get.daily.alliance.donate.rank"
+    )
+    committed = load_observation("get.daily.alliance.donate.rank/daily_580_v1.json")
+    assert committed.payload == sanitize_daily_alliance_donate_rank(dict(inbound.payload))

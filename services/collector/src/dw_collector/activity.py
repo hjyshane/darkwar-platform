@@ -20,6 +20,9 @@ def emit_facts(observation: Observation, rows: list[NormalizedRow]) -> list[Norm
     """Derive activity facts from freshly normalized rows."""
     facts: list[NormalizedRow] = []
     for row in rows:
+        if row.target_table == "alliance_contribution_snapshots":
+            facts.append(_contribution_fact(row))
+            continue
         if row.target_table != "arena_entries":
             continue
         facts.append(
@@ -44,3 +47,29 @@ def emit_facts(observation: Observation, rows: list[NormalizedRow]) -> list[Norm
             )
         )
     return facts
+
+
+_CONTRIBUTION_METRICS = {"daily_donation": "alliance_donation_score"}
+
+
+def _contribution_fact(row: NormalizedRow) -> NormalizedRow:
+    """A donation score is a measured value, not a participation flag, so the
+    fact carries the score itself and its server-reported update time."""
+    metric = _CONTRIBUTION_METRICS[row.row["contribution_type"]]
+    return NormalizedRow(
+        target_table="activity_facts",
+        idempotency_key=f"fact:{metric}:{row.idempotency_key}",
+        row={
+            "occurred_at": row.row["score_updated_at"] or row.row["captured_at"],
+            "activity_type": "alliance_contribution",
+            "metric_key": metric,
+            "value_numeric": row.row["score"] or 0,
+            "unit": "points",
+            "source_type": "alliance_contribution_snapshots",
+            "source_snapshot_id": row.row["snapshot_id"],
+            "measurement_type": "observed",
+            "confidence": 1.0,
+            "schema_version": SCHEMA_VERSION,
+        },
+        entity_refs=dict(row.entity_refs),
+    )
