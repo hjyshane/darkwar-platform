@@ -55,8 +55,11 @@ def frame(obj: SfsValue, *, compressed: bool = False) -> bytes:
     return bytes([0x80]) + struct.pack("!H", len(body)) + body
 
 
+# The a/c/p shape every real frame carries (SmartFox2X extension response).
 ENVELOPE: dict[str, SfsValue] = {
-    "p": {"c": "al.rank", "p": {"_id": 7, "allianceId": "abc", "list": [{"uid": "1000580"}]}}
+    "a": 13,
+    "c": 1,
+    "p": {"c": "al.rank", "p": {"_id": 7, "allianceId": "abc", "list": [{"uid": "1000580"}]}},
 }
 
 

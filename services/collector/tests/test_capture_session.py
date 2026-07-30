@@ -35,7 +35,8 @@ def segment(payload: bytes, *, sport: int = 8680, dport: int = 50000, seq: int =
 
 
 def envelope(command: str, payload: dict[str, object]) -> dict[str, object]:
-    return {"p": {"c": command, "p": payload}}
+    """A SmartFox2X extension envelope: the a/c/p shape every real frame has."""
+    return {"a": 13, "c": 1, "p": {"c": command, "p": payload}}
 
 
 def real_payload(relative: str) -> dict[str, object]:
@@ -209,6 +210,26 @@ def test_live_source_delivers_segments_through_the_callback(
     assert fake.kwargs["iface"] == "Fake Adapter"
     assert fake.kwargs["filter"] == "tcp port 8680"
     assert fake.kwargs["store"] is False
+
+
+def test_frame_must_be_a_smartfox_envelope() -> None:
+    """The type-byte check was not enough: a false window can still start
+    with 0x12 and parse. Every real frame carries the a/c/p envelope, so a
+    valid object that is not one must be rejected."""
+    import struct
+
+    from dw_collector.protocol.frames import SmartFoxStreamDecoder
+    from tests.test_protocol import encode_sfs
+
+    body = encode_sfs({"not": "an envelope", "x": 1})
+    bogus = bytes([0x80]) + struct.pack("!H", len(body)) + body
+    good = frame(envelope("al.rank", {"allianceId": "x", "list": []}))
+
+    decoder = SmartFoxStreamDecoder()
+    frames = decoder.feed(bogus + good)
+
+    assert len(frames) == 1, "an object without a/c/p is not a frame"
+    assert frames[0].object == envelope("al.rank", {"allianceId": "x", "list": []})
 
 
 def test_frame_must_be_a_top_level_object() -> None:
