@@ -1089,6 +1089,107 @@ export type Database = {
         }
         Relationships: []
       }
+      player_component_power_snapshots: {
+        Row: {
+          alliance_abbr: string | null
+          alliance_name: string | null
+          board_type: number
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at: string
+          game_uid: number
+          idempotency_key: string
+          metric: string
+          name: string | null
+          observation_id: string
+          parser_version: string
+          player_id: string | null
+          power: number | null
+          rank: number | null
+          raw: Json
+          server_id: number
+          snapshot_id: string
+          source_command: string
+          unit_id: number | null
+        }
+        Insert: {
+          alliance_abbr?: string | null
+          alliance_name?: string | null
+          board_type: number
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at?: string
+          game_uid: number
+          idempotency_key: string
+          metric: string
+          name?: string | null
+          observation_id: string
+          parser_version: string
+          player_id?: string | null
+          power?: number | null
+          rank?: number | null
+          raw?: Json
+          server_id: number
+          snapshot_id?: string
+          source_command: string
+          unit_id?: number | null
+        }
+        Update: {
+          alliance_abbr?: string | null
+          alliance_name?: string | null
+          board_type?: number
+          captured_at?: string
+          collected_from_server_id?: number
+          collector_id?: string
+          created_at?: string
+          game_uid?: number
+          idempotency_key?: string
+          metric?: string
+          name?: string | null
+          observation_id?: string
+          parser_version?: string
+          player_id?: string | null
+          power?: number | null
+          rank?: number | null
+          raw?: Json
+          server_id?: number
+          snapshot_id?: string
+          source_command?: string
+          unit_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_component_power_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "player_component_power_snapshots_collector_id_fkey"
+            columns: ["collector_id"]
+            isOneToOne: false
+            referencedRelation: "collectors"
+            referencedColumns: ["collector_id"]
+          },
+          {
+            foreignKeyName: "player_component_power_snapshots_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "player_component_power_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+        ]
+      }
       player_detail_snapshots: {
         Row: {
           captured_at: string
