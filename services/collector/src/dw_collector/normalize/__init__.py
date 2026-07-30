@@ -2,6 +2,7 @@
 
 from dw_collector.normalize import (
     al_rank,
+    alliance_battle_rank,
     alliance_donate_rank,
     alliance_rank,
     arena,
@@ -17,6 +18,7 @@ from dw_collector.normalize import (
 
 __all__ = [
     "al_rank",
+    "alliance_battle_rank",
     "alliance_donate_rank",
     "alliance_rank",
     "arena",

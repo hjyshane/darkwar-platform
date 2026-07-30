@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import uuid
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, ClassVar
 
 import httpx
 
@@ -24,6 +24,7 @@ class FakeSupabase:
             "collectors": [],
             "alliances": [],
             "players": [],
+            "servers": [{"server_id": s} for s in range(577, 585)],
         }
         self.upserted: dict[str, list[dict[str, Any]]] = {}
 
@@ -54,10 +55,26 @@ class FakeSupabase:
                 rows = [r for r in rows if str(r.get(key)) in allowed]
         return rows
 
+    # Natural keys PostgREST would conflict on, so the double honours
+    # `resolution=ignore-duplicates` instead of blindly appending.
+    NATURAL_KEYS: ClassVar[dict[str, tuple[str, ...]]] = {
+        "collectors": ("collector_id",),
+        "alliances": ("server_id", "external_id"),
+        "players": ("game_uid",),
+        "servers": ("server_id",),
+    }
+
     def _create_entity(self, table: str, row: dict[str, Any]) -> dict[str, Any]:
-        pk = {"collectors": "collector_id", "alliances": "alliance_id", "players": "player_id"}[
-            table
-        ]
+        pk = {
+            "collectors": "collector_id",
+            "alliances": "alliance_id",
+            "players": "player_id",
+            "servers": "server_id",
+        }[table]
+        key = tuple(row.get(k) for k in self.NATURAL_KEYS[table])
+        for existing in self.entities[table]:
+            if tuple(existing.get(k) for k in self.NATURAL_KEYS[table]) == key:
+                return existing
         created = {pk: row.get(pk, str(uuid.uuid4())), **row}
         self.entities[table].append(created)
         return created
@@ -183,3 +200,19 @@ def test_mixed_column_sets_are_grouped_per_request(journal: Journal) -> None:
     assert len(signatures) == 2
     assert any("leader_game_uid" in s for s in signatures)
     assert any("leader_game_uid" not in s for s in signatures)
+
+
+def test_unknown_servers_are_registered_untracked(journal: Journal) -> None:
+    """Cross-server rankings reach outside 577-584, and every snapshot row
+    has an FK to servers, so an unseen id would otherwise fail the batch."""
+    from dw_collector.normalize import alliance_battle_rank
+
+    observation = load_observation("al.battle.rank.info/battle_type0_v1.json")
+    journal.record(observation, alliance_battle_rank.normalize(observation))
+    fake = FakeSupabase()
+    stats = _worker(journal, fake).drain_once()
+
+    assert stats.failed == 0
+    created = [s for s in fake.entities["servers"] if s.get("server_group") == "unknown"]
+    assert [s["server_id"] for s in created] == [586]
+    assert created[0]["is_tracked"] is False
