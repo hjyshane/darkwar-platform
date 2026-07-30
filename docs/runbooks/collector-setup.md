@@ -157,6 +157,12 @@ uv run dw-collector sync
 cd ~/Projects/DW_app && pnpm dev
 ```
 
+## 운영 절차
+
+설치가 끝난 뒤의 일상 작업 — 수집·sync·pcap에서 fixture 만들기·코드 업데이트·
+스키마 변경 후 재동기화·장애 대응 — 은 `collector-operations.md`에 순서대로
+정리돼 있다.
+
 ## 넓게 쓸어담기
 
 프로토콜 발견이 목적인 세션은 `capture-sweep.md`를 따른다 — 어떤 화면을 어떤
