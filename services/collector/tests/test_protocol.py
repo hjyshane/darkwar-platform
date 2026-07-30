@@ -417,3 +417,37 @@ def test_committed_kill_rank_fixture_matches_sanitized_capture() -> None:
     )
     committed = load_observation("kill.rank/group_kills_v1.json")
     assert committed.payload == sanitize_kill_rank(dict(inbound.payload))
+
+
+def test_packets_carry_their_capture_time() -> None:
+    """A pcap replayed weeks later must not be labelled with the replay's
+    clock. The timestamps were being read and discarded."""
+    from dw_collector.protocol.pcapng import read_pcapng_records
+
+    records = read_pcapng_records(REAL_PCAP)
+
+    assert records
+    assert all(r.captured_at is not None for r in records)
+    # Monotonic within a capture, and every packet inside the session.
+    times = [r.captured_at for r in records]
+    assert times == sorted(times)
+    assert (times[-1] - times[0]).total_seconds() < 60 * 60 * 24
+
+
+def test_extension_events_inherit_the_packet_time() -> None:
+    events = [e for e in iter_extension_events(REAL_PCAP) if e.direction == "inbound"]
+
+    assert events
+    assert all(e.captured_at is not None for e in events)
+
+
+def test_timestamp_resolution_defaults_to_microseconds() -> None:
+    """if_tsresol is optional; absent means 10^-6 (pcapng 4.2). Getting the
+    default wrong scales every timestamp by a million."""
+    from dw_collector.protocol.pcapng import _timestamp_divisor
+
+    assert _timestamp_divisor(6) == 1_000_000
+    assert _timestamp_divisor(9) == 1_000_000_000
+    assert _timestamp_divisor(3) == 1_000
+    # High bit set means 2^-n rather than 10^-n.
+    assert _timestamp_divisor(0x80 | 10) == 1024

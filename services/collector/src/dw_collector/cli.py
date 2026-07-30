@@ -140,6 +140,47 @@ def journal_summary(db: Annotated[Path | None, _DB_OPTION] = None) -> None:
         typer.echo(f"  {count:6d}  {table}")
 
 
+@app.command("clock-skew")
+def clock_skew(db: Annotated[Path | None, _DB_OPTION] = None) -> None:
+    """Compare the game server's clock against ours, per observation.
+
+    The collector timestamps everything from the local clock, so a machine
+    whose clock drifts silently mislabels when data was seen. This makes
+    that measurable instead of assumed: every `push.utc.time` the capture
+    already journals carries the server's own wall clock.
+    """
+    from dw_collector.clock import SOURCE_COMMAND, server_time
+
+    journal = _open_journal(db)
+    try:
+        samples = journal.raw_payloads(SOURCE_COMMAND)
+    finally:
+        journal.close()
+
+    if not samples:
+        typer.echo(
+            f"no {SOURCE_COMMAND} observations yet — it arrives on login,"
+            " so capture a game start to get one"
+        )
+        return
+
+    typer.echo(f"{len(samples)} sample(s)  (server minus local; positive = server ahead)")
+    skews = []
+    for observed_at, payload_json in samples:
+        payload = json.loads(payload_json)
+        server = server_time(payload)
+        if server is None:
+            typer.echo(f"  {observed_at.isoformat()}  unreadable: {payload}")
+            continue
+        delta = (server - observed_at).total_seconds()
+        skews.append(delta)
+        typer.echo(
+            f"  observed {observed_at.isoformat()}  server {server.isoformat()}  skew {delta:+.1f}s"
+        )
+    if skews:
+        typer.echo(f"\nmedian skew {sorted(skews)[len(skews) // 2]:+.1f}s")
+
+
 @app.command("retry-outbox")
 def retry_outbox(
     db: Annotated[Path | None, _DB_OPTION] = None,
@@ -165,7 +206,10 @@ def extract_fixture(
     pcap: Annotated[Path, typer.Option(exists=True, dir_okay=False)],
     command: Annotated[str, typer.Option()],
     out: Annotated[Path, typer.Option()],
-    captured_at: Annotated[str, typer.Option(help="ISO timestamp of the capture")],
+    captured_at: Annotated[
+        str | None,
+        typer.Option(help="ISO timestamp; defaults to the packet's own capture time"),
+    ] = None,
     collected_from_server: Annotated[int, typer.Option()] = 580,
     index: Annotated[int, typer.Option(help="nth matching inbound event")] = 0,
 ) -> None:
@@ -187,10 +231,12 @@ def extract_fixture(
         typer.echo(f"no sanitizer registered for {command!r}; refusing to write", err=True)
         raise typer.Exit(code=1)
 
-    when = datetime.fromisoformat(captured_at)
-    if when.tzinfo is None:
-        typer.echo("--captured-at must include a timezone offset", err=True)
-        raise typer.Exit(code=1)
+    when: datetime | None = None
+    if captured_at is not None:
+        when = datetime.fromisoformat(captured_at)
+        if when.tzinfo is None:
+            typer.echo("--captured-at must include a timezone offset", err=True)
+            raise typer.Exit(code=1)
 
     matches = [
         event
@@ -201,6 +247,11 @@ def extract_fixture(
         typer.echo(
             f"found {len(matches)} inbound {command!r} events; index {index} out of range", err=True
         )
+        raise typer.Exit(code=1)
+
+    when = when or matches[index].captured_at
+    if when is None:
+        typer.echo("the packet carries no timestamp; pass --captured-at", err=True)
         raise typer.Exit(code=1)
 
     pcap_sha = hashlib.sha256(pcap.read_bytes()).hexdigest()
@@ -243,9 +294,12 @@ def scan_capture(
     collector_id = uuid.UUID(
         os.environ.get("DW_COLLECTOR_ID", "00000000-0000-4000-8000-00000000c777")
     )
-    # A pcap has no trustworthy wall-clock for the decoded response, so the
-    # scan time is the observation time; the manifest records the real one.
-    captured_at = datetime.now(tz=UTC)
+    # The packet's own timestamp, not the scan's. captured_at is meant to say
+    # when the data was OBSERVED, and that was when the capture engine
+    # recorded the packet — possibly days ago. Stamping "now" also made the
+    # idempotency key depend on the scan date, so re-scanning one pcap on two
+    # days produced two copies of the same history.
+    fallback = datetime.now(tz=UTC)
 
     journal = _open_journal(db)
     ingested = discovered = rejected = 0
@@ -263,7 +317,7 @@ def scan_capture(
                 ),
                 collector_id=collector_id,
                 source_command=event.command,
-                captured_at=captured_at,
+                captured_at=event.captured_at or fallback,
                 collected_from_server_id=collected_from_server,
                 payload=dict(event.payload),
             )
