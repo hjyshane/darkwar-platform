@@ -1,0 +1,92 @@
+# 런북: 발견 스윕 캡처
+
+목적은 데이터 수집이 아니라 **프로토콜 발견**이다. 화면을 한 번에 넓게 열어
+미확인 커맨드의 shape을 `schema_observations`에 쌓아두면, 이벤트·시즌·전투
+리포트 프레임워크(§13/§14/§15)를 만들 때 새로 캡처하러 돌아가지 않아도 된다.
+스펙 §26.1이 "새로 찍어야 한다"고 나열한 14개 캡처의 상당 부분이 이 방식으로
+대체된다.
+
+## 규칙
+
+- **한 번의 캡처를 계속 켜둔다.** 화면마다 끊지 않는다. 10~20분 한 세션.
+- **각 화면은 닫고 다시 연다.** 이미 열려 있으면 캐시돼 요청이 안 나간다.
+- **VPN은 끊는다.** 켜져 있으면 물리 어댑터에 암호화된 UDP만 보인다.
+- 순서대로 진행하면 `_id`가 증가하므로 나중에 시간순 상관이 가능하다.
+- 이름만 있고 UID가 없는 화면은 **개인 귀속에 쓸 수 없다**(이름은 바뀌므로).
+  그래도 캡처해 둘 가치는 있다 — shape을 알면 판단할 수 있다.
+
+## 목록
+
+시작: `uv run dw-capture` (그대로 두고 게임으로 전환)
+
+### 1. 로그인 흐름 (§26.1 `01_announcement_login`)
+게임을 **완전히 종료하고 재시작**한다. 로그인 직후 공지·이벤트 초기 payload가
+한꺼번에 흐른다. 여기서만 보이는 커맨드가 많다.
+
+### 2. 연맹
+- 멤버 목록 ← `al.rank` (확정, 로스터)
+- 멤버 목록에서 **개인 프로필** 몇 명 ← `get.new.user.info`, `get.user.info.multi`
+- **기여 / 지원 탭** ← `al.show.help`(UID 있음) 그리고 기여 탭에 별도 커맨드가
+  있는지 확인하는 것이 이 세션의 핵심 목표
+- 연맹 랭킹 — 로컬과 크로스서버 둘 다 ← `alliance.rank`
+- 다른 연맹 정보 열기 ← `get.al.info`
+- 연맹 공지 / 가입 신청 목록 / 투표
+- 연맹 보스, 연맹 결투(duel), 선전포고 화면
+- 연맹 창고 / 복지 / 레드패킷 / 기술(science)
+
+### 3. 랭킹
+- 플레이어 전투력 순위 ← `server.rank` (확정, 크로스서버)
+- 킬 순위, 그 외 순위 탭 전부 (각 탭이 다른 커맨드일 가능성이 높다)
+
+### 4. 아레나
+- 아레나 랭킹 ← `user.get.arena.info` (확정, Top100)
+- 주간 매치업, 방어 편성 화면
+
+### 5. 이벤트 (§26.1 이벤트 5종)
+- 이벤트 탭 목록
+- 진행 중인 이벤트의 **랭킹**
+- 이벤트 보상 tier / 목표 달성률
+- 메일함 — 이벤트 정산 메일이 있으면 열기
+
+### 6. 시즌 (활성일 때만, §26.1 시즌 6종)
+- 시즌 개요 탭
+- 지도를 **팬(pan)** 해서 몇 화면 이동
+- 시즌 건물 하나 열기
+- 수령/기여 동작
+
+### 7. 전투 리포트 (§26.1 전투 3종)
+- 전투 리포트 목록에서 **리포트 하나 열기**
+- 가능하면 수집 계정에 **리포트 공유**해보기 (§5.3의 미확정 항목)
+
+종료: PowerShell로 돌아와 Ctrl+C → `uv run dw-collector sync`
+
+## 세션 후 확인
+
+무엇이 새로 발견됐는지 (Windows, 저널 기준):
+
+```powershell
+uv run python -c "import sqlite3,sys,json; c=sqlite3.connect(sys.argv[1]); [print(f'{n:4d}  {k}') for k,n in c.execute('select source_command, count(*) from raw_observations group by 1 order by 2 desc').fetchall()]" C:\DW_data\collector.db
+```
+
+sync 후 shape까지 보려면 (WSL, 로컬 스택):
+
+```bash
+curl -s "http://127.0.0.1:54321/rest/v1/schema_observations?select=source_command,fingerprint,sample&order=source_command" \
+  -H "apikey: $KEY" -H "Authorization: Bearer $KEY" | python3 -m json.tool | head -80
+```
+
+`sample`에는 **값이 아니라 타입 스켈레톤만** 들어간다. 그래서 이 테이블을
+브라우저로 열어도 UID·세션 자료가 새지 않는다. 파서를 만들 때 필요한 정보는
+그 shape이다.
+
+## 판정 기준
+
+발견된 커맨드를 파서로 승격할지 결정할 때:
+
+- **UID가 있는가?** 이름만 있으면 개인 귀속 불가(개명 때문). 연맹 집계로만 쓴다.
+- **집계인가 개인별인가?** 연맹 총량을 개인에게 나누는 것은 FR-SEA-008 위반이다.
+- **`measurement_type`은 무엇인가?** 직접 관측이면 `observed`, 다른 소스와
+  결합해 추론했으면 `calculated`, 추정이면 `estimated`.
+
+승격은 `docs/legacy-triage.md`의 큐와 같은 규칙을 따른다 — 파서 1개당 PR 1개,
+살균 fixture와 replay 테스트 필수.
