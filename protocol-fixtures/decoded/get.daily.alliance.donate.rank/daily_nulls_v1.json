@@ -1,0 +1,20 @@
+{
+  "observation_id": "00000000-0000-4000-8000-00000000c102",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "get.daily.alliance.donate.rank",
+  "captured_at": "2026-07-30T04:00:00+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "rankList": [
+      {
+        "uid": "9000000801000584"
+      },
+      {
+        "uid": "9000000802000584",
+        "score": null,
+        "updateTime": null
+      }
+    ]
+  },
+  "schema_version": 1
+}
