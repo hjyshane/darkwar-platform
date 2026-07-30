@@ -129,3 +129,47 @@ def test_live_module_imports_without_scapy() -> None:
     assert live.DEFAULT_PORT == 8680
     if Path("/nonexistent-scapy-marker").exists():  # pragma: no cover
         pytest.skip("unreachable")
+
+
+def test_frame_must_be_a_top_level_object() -> None:
+    """A mis-synced window can parse as a valid SFS *value* without being a
+    frame. Every real frame is an SFSObject, so require the type byte."""
+    import struct
+
+    from dw_collector.protocol.frames import SmartFoxStreamDecoder
+
+    # A well-formed frame whose payload is an int64, not an object.
+    body = b"\x05" + struct.pack("!q", 1)
+    bogus = bytes([0x80]) + struct.pack("!H", len(body)) + body
+    good = frame(envelope("al.rank", {"allianceId": "x", "list": []}))
+
+    decoder = SmartFoxStreamDecoder()
+    frames = decoder.feed(bogus + good)
+
+    assert len(frames) == 1, "the non-object frame must be rejected"
+    assert frames[0].object == envelope("al.rank", {"allianceId": "x", "list": []})
+    # Rejecting it is a resync, and that is now visible.
+    assert decoder.resync_bytes == len(bogus)
+
+
+def test_lost_segment_recovers_instead_of_stalling(journal: Journal) -> None:
+    """One dropped segment used to buffer up to 512 segments before the
+    stream recovered; a 47KB response is only ~32."""
+    from dw_collector.protocol.pcapng import MAX_PENDING_SEGMENTS, TCPDirectionReassembler
+
+    reassembler = TCPDirectionReassembler()
+    reassembler.feed(1000, b"\x00")  # establishes the stream base
+    # Everything after a hole, arriving out of order.
+    for index in range(MAX_PENDING_SEGMENTS + 2):
+        reassembler.feed(2000 + index * 10, b"\x00" * 10)
+
+    assert reassembler.gap_skips == 1
+    assert reassembler.next_sequence is not None
+
+
+def test_session_reports_loss_counters(session: CaptureSession) -> None:
+    session.feed(segment(b"\x77" * 40 + frame(envelope("get.battlepass.info", {"a": 1}))), now=NOW)
+    session.refresh_loss_counters()
+    assert session.stats.discovered == 1
+    assert session.stats.resync_bytes == 40
+    assert session.stats.gap_skips == 0

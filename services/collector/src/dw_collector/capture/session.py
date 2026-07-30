@@ -42,6 +42,11 @@ class CaptureStats:
     rejected: int = 0
     rows: int = 0
     commands: dict[str, int] = field(default_factory=dict)
+    # Loss indicators. Non-zero means Npcap dropped or reordered packets, so
+    # a large response may have been missed — worth knowing before concluding
+    # "the game never sent it".
+    resync_bytes: int = 0
+    gap_skips: int = 0
 
 
 class CaptureSession:
@@ -82,7 +87,8 @@ class CaptureSession:
         # Responses come FROM the game port; our own requests are not data.
         inbound = segment.source_port == self.port
 
-        for frame in self._streams[key].feed(segment.sequence, segment.payload):
+        stream = self._streams[key]
+        for frame in stream.feed(segment.sequence, segment.payload):
             self.stats.frames += 1
             if not inbound:
                 continue
@@ -101,6 +107,11 @@ class CaptureSession:
         for segment in segments:
             self.feed(segment, now=now)
         return self.stats
+
+    def refresh_loss_counters(self) -> None:
+        """Roll per-stream loss counters up into the reported stats."""
+        self.stats.resync_bytes = sum(s.decoder.resync_bytes for s in self._streams.values())
+        self.stats.gap_skips = sum(s.gap_skips for s in self._streams.values())
 
     def _record(self, event: ExtensionEvent, *, now: datetime) -> None:
         self._sequence += 1
