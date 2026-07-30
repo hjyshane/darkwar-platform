@@ -121,37 +121,83 @@ class SyncWorker:
         )
         return str(created[0]["alliance_id"])
 
-    def ensure_players(self, refs: list[dict[str, Any]]) -> dict[int, str]:
-        """game_uid → player_id, creating unknown players on the fly."""
-        uids = sorted({int(r["game_uid"]) for r in refs})
-        if not uids:
-            return {}
-        resolved: dict[int, str] = {}
+    def ensure_servers(self, server_ids: set[int]) -> None:
+        """Register servers we have never seen, untracked.
+
+        Cross-server rankings reach outside the tracked group —
+        al.battle.rank.info returned server 586 alongside 580 — and every
+        snapshot table has an FK to servers, so an unknown id would fail the
+        whole batch. NFR-007 asks for this to be absorbed without a schema
+        change, and `is_tracked` is exactly that lever: the row exists so the
+        FK resolves, flagged so nothing treats it as ours. The group is
+        recorded as unknown because we genuinely do not know it.
+        """
+        if not server_ids:
+            return
         resp = self.client.get(
-            "/rest/v1/players",
+            "/rest/v1/servers",
             params={
-                "game_uid": f"in.({','.join(str(u) for u in uids)})",
-                "select": "player_id,game_uid",
+                "server_id": f"in.({','.join(str(s) for s in sorted(server_ids))})",
+                "select": "server_id",
             },
         )
         resp.raise_for_status()
-        for row in resp.json():
-            resolved[int(row["game_uid"])] = str(row["player_id"])
-        by_uid = {int(r["game_uid"]): r for r in refs}
-        missing = [u for u in uids if u not in resolved]
+        known = {int(row["server_id"]) for row in resp.json()}
+        missing = sorted(server_ids - known)
         if missing:
-            created = self._insert(
-                "players",
-                [
-                    {
-                        "game_uid": u,
-                        "server_id": by_uid[u]["server_id"],
-                        "current_name": by_uid[u].get("name"),
-                    }
-                    for u in missing
-                ],
+            log.info("sync.registering_untracked_servers", servers=missing)
+            self._insert(
+                "servers",
+                [{"server_id": s, "server_group": "unknown", "is_tracked": False} for s in missing],
             )
-            for row in created:
+
+    def ensure_players(self, refs: list[dict[str, Any]]) -> dict[int, str]:
+        """game_uid → player_id, creating unknown players first.
+
+        Insert-then-read rather than read-then-insert: checking first and
+        inserting only the difference is a race with any other writer, and an
+        upsert that ignores duplicates is idempotent regardless of what the
+        read saw.
+
+        Callers must register servers first: players.server_id is a real FK,
+        so a cross-server ranking naming an unknown server fails here.
+        """
+        by_uid = {int(r["game_uid"]): r for r in refs}
+        if not by_uid:
+            return {}
+
+        resp = self.client.post(
+            "/rest/v1/players",
+            params={"on_conflict": "game_uid"},
+            json=[
+                {
+                    "game_uid": uid,
+                    "server_id": ref["server_id"],
+                    "current_name": ref.get("name"),
+                }
+                for uid, ref in sorted(by_uid.items())
+            ],
+            headers={"Prefer": "resolution=ignore-duplicates,return=minimal"},
+        )
+        if resp.status_code >= 400:
+            raise SyncError(f"players: HTTP {resp.status_code}: {resp.text[:300]}")
+
+        resolved: dict[int, str] = {}
+        uids = sorted(by_uid)
+        # PostgREST puts the filter in the URL, so a 162-member ranking has to
+        # be asked for in chunks or the request grows past what the gateway
+        # will accept.
+        for start in range(0, len(uids), 100):
+            chunk = uids[start : start + 100]
+            resp = self.client.get(
+                "/rest/v1/players",
+                params={
+                    "game_uid": f"in.({','.join(str(u) for u in chunk)})",
+                    "select": "player_id,game_uid",
+                },
+            )
+            resp.raise_for_status()
+            for row in resp.json():
                 resolved[int(row["game_uid"])] = str(row["player_id"])
         return resolved
 
@@ -163,6 +209,21 @@ class SyncWorker:
         for item in items:
             if "player" in item.payload.entity_refs:
                 player_refs.append(item.payload.entity_refs["player"])
+
+        # Servers before players: players.server_id is a foreign key, and a
+        # cross-server ranking can name a server outside the tracked group.
+        self.ensure_servers(
+            {
+                int(value)
+                for item in items
+                for value in (
+                    item.payload.row.get("server_id"),
+                    item.payload.row.get("collected_from_server_id"),
+                )
+                if isinstance(value, int)
+            }
+            | {int(ref["server_id"]) for ref in player_refs if ref.get("server_id") is not None}
+        )
         players = self.ensure_players(player_refs)
 
         rows: list[dict[str, Any]] = []

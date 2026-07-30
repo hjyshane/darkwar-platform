@@ -4,5 +4,5 @@
   "location": "outside the repo (C:\\DW_data)",
   "captured_at_approx": "2026-07-30T04:40:00Z",
   "note": "discovery sweep per docs/runbooks/capture-sweep.md: login, alliance (members/contribution/ranking), rankings, arena. 164 distinct commands, 15 confirmed-command events. Source of decoded/get.daily.alliance.donate.rank/daily_580_v1.json (sanitized: uids hash-mapped, scores and update times kept). captured_at is approximate: it was set from the newest server-side updateTime in the payload, since a pcap carries no trustworthy wall clock for the decoded response",
-  "commands_extracted": ["get.daily.alliance.donate.rank"]
+  "commands_extracted": ["get.daily.alliance.donate.rank", "al.battle.rank.info"]
 }

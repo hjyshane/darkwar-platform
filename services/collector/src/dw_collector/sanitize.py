@@ -211,7 +211,26 @@ def sanitize_daily_alliance_donate_rank(payload: dict[str, Any]) -> dict[str, An
     return sanitized
 
 
+def sanitize_al_battle_rank_info(payload: dict[str, Any]) -> dict[str, Any]:
+    entries = payload.get("rankInfo")
+    if not isinstance(entries, list):
+        return payload
+    sanitized = dict(payload)
+    sanitized["rankInfo"] = [
+        {
+            **e,
+            "uid": _fake_uid(str(e.get("uid", ""))),
+            **({"name": f"Fighter{i:03d}"} if e.get("name") else {}),
+            **({"alName": f"Alliance{i:02d}"} if e.get("alName") else {}),
+            **({"abbr": f"A{i:03d}"} if e.get("abbr") else {}),
+        }
+        for i, e in enumerate(entries, start=1)
+    ]
+    return sanitized
+
+
 SANITIZERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
+    "al.battle.rank.info": sanitize_al_battle_rank_info,
     "get.daily.alliance.donate.rank": sanitize_daily_alliance_donate_rank,
     "al.rank": sanitize_al_rank,
     "alliance.rank": sanitize_alliance_rank,

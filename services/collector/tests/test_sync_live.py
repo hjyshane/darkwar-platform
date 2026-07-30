@@ -269,3 +269,39 @@ def test_all_promoted_parsers_reach_supabase(client: httpx.Client, journal: Jour
     for name in fixtures:
         observation = load_observation(name)
         assert journal.record(observation, pipeline.process(observation)).rows_inserted == 0
+
+
+def test_untracked_server_is_registered_against_the_real_schema(
+    client: httpx.Client, journal: Journal
+) -> None:
+    """server_id has a real FK. A cross-server ranking that reaches outside
+    577-584 would fail the batch unless sync registers the server first."""
+    from dw_collector import pipeline
+
+    observation = load_observation("al.battle.rank.info/battle_type0_v1.json")
+    journal.record(observation, pipeline.process(observation))
+
+    worker = SyncWorker(
+        journal, SyncConfig(supabase_url=SUPABASE_URL, secret_key=SECRET_KEY, batch_size=1000)
+    )
+    stats = worker.drain_once()
+    assert stats.failed == 0
+    assert stats.sent == 324  # 162 contribution rows + 162 facts
+
+    resp = client.get(
+        "/rest/v1/servers",
+        params={"server_id": "eq.586", "select": "server_id,server_group,is_tracked"},
+    )
+    resp.raise_for_status()
+    rows = resp.json()
+    assert len(rows) == 1
+    assert rows[0]["is_tracked"] is False
+    assert rows[0]["server_group"] == "unknown"
+
+    # And the contribution rows for that server actually landed.
+    resp = client.get(
+        "/rest/v1/alliance_contribution_snapshots",
+        params={"server_id": "eq.586", "select": "score", "limit": "1"},
+    )
+    resp.raise_for_status()
+    assert resp.json()
