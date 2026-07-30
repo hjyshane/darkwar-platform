@@ -219,6 +219,35 @@ class Journal:
         )
         return [(str(r[0]), int(r[1])) for r in cur.fetchall()]
 
+    def commands_since(self, moment: datetime) -> set[str]:
+        """Commands journalled after `moment` — the UI worker's proof that a
+        tap opened the screen it meant to.
+
+        Filters on `created_at` (when the journal wrote the row), not
+        `captured_at`: a live capture sets captured_at from the packet and a
+        replay sets it from the fixture, so only created_at answers "did this
+        arrive after I tapped".
+        """
+        cur = self.conn.execute(
+            "select distinct source_command from raw_observations where created_at > ?",
+            (moment.isoformat(),),
+        )
+        return {str(r[0]) for r in cur.fetchall()}
+
+    def raw_payloads(self, command: str) -> list[tuple[datetime, str]]:
+        """(observation time, payload JSON) for one command, oldest first.
+
+        captured_at, not created_at: the question this serves is "what did
+        our clock say when the data was observed", which for a replayed pcap
+        is the packet's timestamp and not when the scan happened to run.
+        """
+        cur = self.conn.execute(
+            "select captured_at, payload_json from raw_observations"
+            " where source_command = ? order by captured_at",
+            (command,),
+        )
+        return [(datetime.fromisoformat(str(r[0])), str(r[1])) for r in cur.fetchall()]
+
     def table_counts(self) -> list[tuple[str, int]]:
         """Normalized rows per target table, most frequent first."""
         cur = self.conn.execute(

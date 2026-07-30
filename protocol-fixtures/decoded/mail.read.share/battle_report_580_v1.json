@@ -2,7 +2,7 @@
   "observation_id": "04c3e62f-add2-5051-a651-75cd873d32fd",
   "collector_id": "00000000-0000-4000-8000-00000000c777",
   "source_command": "mail.read.share",
-  "captured_at": "2026-07-30T18:39:26Z",
+  "captured_at": "2026-07-30T18:38:05.429020Z",
   "collected_from_server_id": 580,
   "payload": {
     "msg": [

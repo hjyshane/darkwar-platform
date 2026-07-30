@@ -12,6 +12,7 @@ import struct
 from collections import defaultdict
 from collections.abc import Iterator
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 
 from dw_collector.protocol.frames import (
@@ -26,13 +27,57 @@ class PcapError(RuntimeError):
     pass
 
 
-def read_pcapng_packets(path: Path) -> list[bytes]:
-    """Raw link-layer packets from every Ethernet interface in the file."""
+# pcapng option code for if_tsresol, and its default when the option is
+# absent: 10^-6, i.e. microseconds (pcapng spec 4.2).
+_IF_TSRESOL = 9
+_DEFAULT_TSRESOL = 6
+
+
+def _timestamp_divisor(raw: int) -> float:
+    """if_tsresol encodes 10^-n, or 2^-n when the high bit is set."""
+    if raw & 0x80:
+        return float(2 ** (raw & 0x7F))
+    return float(10**raw)
+
+
+def _parse_idb(body: bytes, endian: str) -> tuple[int, float]:
+    """(linktype, timestamp divisor) for one interface description block."""
+    linktype = int(struct.unpack_from(endian + "H", body, 0)[0])
+    divisor = _timestamp_divisor(_DEFAULT_TSRESOL)
+    # Options follow linktype(2) + reserved(2) + snaplen(4).
+    offset = 8
+    while offset + 4 <= len(body):
+        code, length = struct.unpack_from(endian + "HH", body, offset)
+        if code == 0:  # opt_endofopt
+            break
+        if code == _IF_TSRESOL and length >= 1:
+            divisor = _timestamp_divisor(body[offset + 4])
+        # Option values are padded to a 4-byte boundary.
+        offset += 4 + ((length + 3) // 4) * 4
+    return linktype, divisor
+
+
+@dataclass(frozen=True)
+class PcapngPacket:
+    """A link-layer packet with the time the capture engine saw it.
+
+    The timestamp matters because a pcap replayed later must not be
+    labelled with the replay's wall clock: `captured_at` is meant to say
+    when the data was observed, and observation happened when the packet
+    was recorded.
+    """
+
+    captured_at: datetime
+    data: bytes
+
+
+def read_pcapng_records(path: Path) -> list[PcapngPacket]:
+    """Packets with their capture timestamps, from every Ethernet interface."""
     data = path.read_bytes()
     offset = 0
     endian = "<"
-    interfaces: list[int] = []
-    packets: list[bytes] = []
+    interfaces: list[tuple[int, float]] = []
+    packets: list[PcapngPacket] = []
 
     while offset + 12 <= len(data):
         raw_type = data[offset : offset + 4]
@@ -56,18 +101,32 @@ def read_pcapng_packets(path: Path) -> list[bytes]:
 
         body = data[offset + 8 : offset + block_length - 4]
         if block_type == 1:  # interface description
-            interfaces.append(int(struct.unpack_from(endian + "H", body, 0)[0]))
+            interfaces.append(_parse_idb(body, endian))
         elif block_type == 6:  # enhanced packet
-            interface_id, _, _, captured_length, _ = struct.unpack_from(endian + "IIIII", body, 0)
+            interface_id, ts_high, ts_low, captured_length, _ = struct.unpack_from(
+                endian + "IIIII", body, 0
+            )
             if interface_id >= len(interfaces):
                 raise PcapError("unknown pcapng interface")
-            if interfaces[interface_id] != 1:
+            linktype, divisor = interfaces[interface_id]
+            if linktype != 1:
                 raise PcapError("only Ethernet pcapng is supported")
-            packets.append(body[20 : 20 + captured_length])
+            ticks = (ts_high << 32) | ts_low
+            packets.append(
+                PcapngPacket(
+                    captured_at=datetime.fromtimestamp(ticks / divisor, tz=UTC),
+                    data=body[20 : 20 + captured_length],
+                )
+            )
 
         offset += block_length
 
     return packets
+
+
+def read_pcapng_packets(path: Path) -> list[bytes]:
+    """Raw link-layer packets, without their timestamps."""
+    return [record.data for record in read_pcapng_records(path)]
 
 
 @dataclass(frozen=True)
@@ -173,6 +232,8 @@ class ExtensionEvent:
     command: str
     payload: dict[str, SfsValue]
     request_id: int | None
+    # When the capture engine recorded the packet that completed this frame.
+    captured_at: datetime | None = None
 
 
 def iter_extension_events(path: Path, port: int = 8680) -> Iterator[ExtensionEvent]:
@@ -180,8 +241,8 @@ def iter_extension_events(path: Path, port: int = 8680) -> Iterator[ExtensionEve
     streams: dict[tuple[str, int, str, int], TCPDirectionReassembler] = defaultdict(
         TCPDirectionReassembler
     )
-    for raw_packet in read_pcapng_packets(path):
-        segment = parse_tcp(raw_packet)
+    for record in read_pcapng_records(path):
+        segment = parse_tcp(record.data)
         if segment is None or not segment.payload:
             continue
         if port not in (segment.source_port, segment.destination_port):
@@ -198,4 +259,4 @@ def iter_extension_events(path: Path, port: int = 8680) -> Iterator[ExtensionEve
             if event is None:
                 continue
             command, payload, request_id = event
-            yield ExtensionEvent(direction, command, payload, request_id)
+            yield ExtensionEvent(direction, command, payload, request_id, record.captured_at)

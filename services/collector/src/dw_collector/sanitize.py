@@ -259,7 +259,19 @@ def sanitize_mail_read_share(payload: dict[str, Any]) -> dict[str, Any]:
     return sanitized
 
 
+def sanitize_get_fight_report_detail(payload: dict[str, Any]) -> dict[str, Any]:
+    """Same reasoning as the mail body: a report is somebody's full army
+    composition, so the fixture keeps only enough to prove the parser reads
+    the right field."""
+    sanitized = dict(payload)
+    contents = payload.get("contents")
+    if isinstance(contents, str):
+        sanitized["contents"] = contents[:BATTLE_CONTENT_KEEP]
+    return sanitized
+
+
 SANITIZERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
+    "get.fight.report.detail": sanitize_get_fight_report_detail,
     "mail.read.share": sanitize_mail_read_share,
     "kill.rank": sanitize_kill_rank,
     "get.daily.alliance.donate.rank": sanitize_daily_alliance_donate_rank,

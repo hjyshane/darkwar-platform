@@ -274,3 +274,43 @@ def test_session_reports_loss_counters(session: CaptureSession) -> None:
     assert session.stats.discovered == 1
     assert session.stats.resync_bytes == 40
     assert session.stats.gap_skips == 0
+
+
+def _utc_time_frame(epoch_seconds: int) -> bytes:
+    return frame(
+        envelope("push.utc.time", {"db_utc_timestamp": 0, "db_timezone_offset": epoch_seconds})
+    )
+
+
+def test_clock_skew_is_measured_against_the_server(
+    session: CaptureSession, journal: Journal
+) -> None:
+    """The game volunteers its clock on login; the session records how far
+    ours is from it, because captured_at inherits that error."""
+    server_epoch = int(NOW.timestamp()) + 30  # server 30s ahead of us
+    session.feed(segment(_utc_time_frame(server_epoch)), now=NOW)
+
+    assert session.stats.clock_skew_seconds == 30.0
+
+
+def test_a_session_without_a_login_reports_no_skew(
+    session: CaptureSession, journal: Journal
+) -> None:
+    """Nothing to compare against is not the same as agreeing."""
+    payload = real_payload("al.rank/cbfw_roster_v1.json")
+    session.feed(segment(frame(envelope("al.rank", payload))), now=NOW)
+
+    assert session.stats.clock_skew_seconds is None
+
+
+def test_an_unreadable_clock_does_not_stop_capture(
+    session: CaptureSession, journal: Journal
+) -> None:
+    """If the server ever uses db_timezone_offset as its name suggests, the
+    value must be refused rather than believed — and capture continues."""
+    session.feed(segment(frame(envelope("push.utc.time", {"db_timezone_offset": 32400}))), now=NOW)
+
+    assert session.stats.clock_skew_seconds is None
+    # Still journalled as a discovery row: an unusable clock is not a reason
+    # to drop the observation.
+    assert session.stats.discovered == 1

@@ -95,6 +95,7 @@ def normalize(observation: Observation) -> list[NormalizedRow]:
                     "collector_id": str(observation.collector_id),
                     "collected_from_server_id": observation.collected_from_server_id,
                     "raw": raw_mail,
+                    "report_kind": "mail_simple",
                     "mail_uid": mail.uid,
                     "mail_type": mail.type,
                     "from_game_uid": _game_uid(mail.from_user),

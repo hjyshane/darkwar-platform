@@ -58,7 +58,7 @@
 | 파일 | 상태 |
 |---|---|
 | `01_report_share_receive` | **확보** — `mail.read.share`. 마커는 `custom.c.battleReportSimple`, 본문은 `contentsLocal.obj.battleContent` |
-| `02_report_open_detail` | `get.fight.report.detail`의 `contents` shape 확보 (파서 없음) |
+| `02_report_open_detail` | **확보** — `get.fight.report.detail` 승격, `report_kind='detail'`로 적재. 메일 본문과 **다른 바이트**다(12,340 vs 5,642 decoded — 요약본과 전체본) |
 | `03_report_reply_send` | 미확보. 회신은 우리가 **보내는** 쪽이라 캡처 엔진이 버린다 (FR-BR-006) |
 
 **남은 진짜 장애물은 캡처가 아니라 스키마다.** `battleContent`는 base64 protobuf인데

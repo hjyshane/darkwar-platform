@@ -133,6 +133,30 @@ Ctrl+C로 멈추면 카운터가 찍힌다:
 - `rows` — 저널에 새로 들어간 정규화 행. `discovered`보다 작으면 같은 모양이
   반복된 것이고, `(source_command, fingerprint)` 중복 제거가 동작한 결과다.
 - `rejected` — 아는 커맨드인데 파싱 실패. 0이 아니면 파서를 봐야 한다.
+- `clock_skew_seconds` — **게임 서버 시계 − 이 PC 시계**(초). 게임에 로그인할
+  때 서버가 자기 시각을 보내주므로, 그 세션에 로그인이 없었으면 `None`이다.
+
+`clock_skew_seconds`가 커지면 그 세션의 `captured_at`이 통째로 그만큼 어긋난
+것이다. 조용히 망가지는 곳이 세 군데다:
+
+| 어긋나면 | 무슨 일이 생기나 |
+|---|---|
+| idempotency 키의 날짜 버킷 | 같은 데이터가 다른 키로 들어가 역사가 두 벌이 된다 |
+| 게임 주 경계 (월요일 02:00 UTC) | 지난주 기록이 이번 주로 들어간다 |
+| 대시보드 신선도 | "20분 전 관측"이 거짓말이 된다 |
+
+몇 초는 정상이다(네트워크 지연 + 서버가 초 단위로만 보냄). **60초를 넘으면
+경고가 찍힌다** — 그때는 수집을 멈추고 Windows 시계부터 맞춘다.
+
+수집기는 시계를 **고치지 않고 확인만 한다.** 시스템 시계를 건드리는 것은 이
+프로세스가 할 일이 아니고, 잘못된 시계로 돌아간 세션은 나중에 **알아볼 수 있어야**
+하기 때문이다 — 몰래 보정해버리면 그 세션의 데이터가 왜 이상한지 알 방법이 없다.
+
+쌓인 표본은 이렇게 본다:
+
+```powershell
+uv run dw-collector clock-skew
+```
 
 무엇이 잡혔는지 확인:
 
@@ -156,6 +180,126 @@ uv run dw-collector sync
 ```bash
 cd ~/Projects/DW_app && pnpm dev
 ```
+
+## 화면 열기를 자동화하기 (dw-ui-worker)
+
+위의 "캡처 실행"까지 하면 데이터는 들어오지만, **화면은 사람이 눌러야** 한다.
+`dw-ui-worker`가 그 손을 대신한다. **읽기 전용 화면만** 연다 — 자원 수급, 출정,
+채팅 전송 같은 **게임 상태를 바꾸는 동작은 하지 않는다.**
+
+### 왜 눈감고 누르지 않는가
+
+좌표는 해상도와 UI 버전에 따라 밀린다. 밀린 좌표로 계속 누르면 엉뚱한 버튼이
+눌린다. 그래서 이 워커는 **각 단계마다 "어떤 커맨드가 와야 하는지"를 미리
+적어두고, 그게 저널에 들어올 때까지 기다린다.** 안 오면 **거기서 멈춘다.**
+다음 단계를 누르지 않는다 — 지금 어느 화면에 있는지 모르는 상태에서 누르는 것이
+정확히 사고가 나는 방식이기 때문이다.
+
+그래서 **`dw-capture`가 먼저 돌고 있어야 한다.** 안 돌면 아무것도 저널에 안
+들어오고, 1단계에서 멈추면서 그 이유를 말해준다.
+
+### 1단계 — 어느 인스턴스를 건드릴지 확인
+
+```powershell
+uv run dw-ui-worker devices
+```
+
+adb가 보는 시리얼과 **가드의 판정**이 같이 나온다. 수집 인스턴스 하나만
+`ALLOWED (collector)`여야 한다. 본계정이 ALLOWED로 나오면 **거기서 멈추고**
+`DW_ADB_COLLECTOR_SERIAL`과 `DW_ADB_DENYLIST_SERIALS`를 다시 본다.
+
+### 2단계 — 좌표 읽기
+
+```powershell
+uv run dw-ui-worker screenshot --out C:\DW_data\screen.png
+```
+
+그림판이나 이미지 뷰어로 열어서, 누르고 싶은 버튼의 **픽셀 좌표**를 읽는다.
+(그림판은 커서 위치를 왼쪽 아래에 보여준다.)
+
+### 3단계 — 루틴 파일 만들기
+
+`services/collector/routines/example-alliance-daily.json`을 복사해서 좌표를
+채운다. 예제의 `x`/`y`는 전부 **0**이다 — 그대로 돌리면 1단계에서 실패하고
+멈춘다. 그게 의도된 동작이다.
+
+한 단계는 이렇게 생겼다:
+
+```json
+{
+  "name": "member list",
+  "action": "tap",
+  "x": 450, "y": 700,
+  "expect": ["al.rank"],
+  "settle_seconds": 2.0,
+  "timeout_seconds": 20
+}
+```
+
+- `expect` — 이 탭이 성공하면 서버가 보내야 하는 커맨드. **이게 검증의 전부다.**
+  위 "캡처 실행" 표에서 화면 ↔ 커맨드 대응을 보고 채운다.
+- `settle_seconds` — 누른 뒤 기다리는 시간. 메뉴 애니메이션이 있다.
+- `action`은 `tap` / `swipe` / `back` / `wait` 네 가지. `back`과 `wait`은
+  응답이 없으므로 `expect`를 쓸 수 없다(파일 읽을 때 거부된다).
+
+### 4단계 — 눌러보지 않고 먼저 확인
+
+```powershell
+uv run dw-ui-worker run --routine C:\DW_data\daily.json --dry-run
+```
+
+무엇을 누를지만 출력하고 **아무것도 건드리지 않는다.** 좌표를 잘못 적었는지
+여기서 본다.
+
+### 5단계 — 실제 실행
+
+**창 두 개**가 필요하다. `dw-capture`가 도는 창은 그대로 두고, **새 창**에서:
+
+```powershell
+cd C:\darkwar-platform\services\collector; ..\..\dw-env.ps1; uv run dw-ui-worker run --routine C:\DW_data\daily.json
+```
+
+정상이면 이렇게 나온다:
+
+```
+routine=alliance_daily serial=127.0.0.1:5575
+  ok          roster saw=['al.rank']
+  ok          contribution saw=['get.daily.alliance.donate.rank']
+  skipped     close contribution
+
+all steps verified
+```
+
+`skipped`는 실패가 아니다 — `back`/`wait`처럼 **검증할 응답이 없는 단계**다.
+
+실패하면:
+
+```
+  unverified  ranking MISSING=['alliance.rank']
+
+ABORTED at 'ranking': expected ['alliance.rank'] after 20.0s but saw none
+ — screen state is unknown, so no further taps
+```
+
+이때 할 일은 **좌표를 다시 읽는 것**이다(2단계). 게임 UI가 업데이트되면 좌표가
+밀린다.
+
+### 급할 때 멈추기
+
+`DW_UI_KILL_SWITCH_FILE`이 가리키는 파일을 만들면 된다. 실행 중이어도 **다음
+단계로 넘어가기 전에 확인**하므로 즉시 멈춘다.
+
+```powershell
+New-Item -ItemType File $env:DW_UI_KILL_SWITCH_FILE
+```
+
+다시 돌리려면 그 파일을 지운다.
+
+### 하지 않는 것
+
+게임 플레이 자동화(자원 수급, 전투, 채팅)는 **만들지 않는다.** 약관상 밴 사유이고,
+무엇보다 검증 고리가 없다 — 화면이 밀렸을 때 "응답이 안 왔으니 멈춘다"가 성립하는
+것은 **읽기 전용 화면**뿐이다.
 
 ## 넓게 쓸어담기
 

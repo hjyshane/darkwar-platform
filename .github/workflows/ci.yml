@@ -74,10 +74,20 @@ jobs:
         run: |
           curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz | tar xz gitleaks
           ./gitleaks git --no-banner --redact
+      # Matches import STATEMENTS only. The previous pattern was
+      # `(from|import)[^\n]*legacy`, which also matched prose — every
+      # promoted parser's docstring says "promoted from legacy/v0.4.1",
+      # which is exactly the provenance note NFR-009 asks for. That left
+      # this job permanently red, so a real violation would have looked
+      # identical to the noise.
       - name: Reject imports from quarantined legacy code
         run: |
-          if grep -rn --include='*.py' --include='*.ts' --include='*.tsx' \
-               -E '(from|import)[^\n]*legacy' services apps packages 2>/dev/null; then
+          if grep -rnE --include='*.py' --include='*.ts' --include='*.tsx' \
+               -e "^[[:space:]]*(from|import)[[:space:]]+[^[:space:]\"']*legacy" \
+               -e "^[[:space:]]*import[[:space:]].*from[[:space:]]*[\"'][^\"']*legacy" \
+               -e "^[[:space:]]*import[[:space:]]*[\"'][^\"']*legacy" \
+               -e "require\([[:space:]]*[\"'][^\"']*legacy" \
+               services apps packages 2>/dev/null; then
             echo "::error::legacy/ is quarantined reference material and must not be imported."
             exit 1
           fi
