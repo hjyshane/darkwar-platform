@@ -9,6 +9,8 @@ export interface RosterRow {
   power: number | null;
   kills: number | null;
   month_card_expires_at: string | null;
+  daily_donation_score: number | null;
+  alliance_battle_score: number | null;
   last_seen_at: string | null;
 }
 
@@ -32,6 +34,8 @@ export function RosterTable({ rows, now }: { rows: RosterRow[]; now?: Date }) {
           <th scope="col">HQ</th>
           <th scope="col">전투력</th>
           <th scope="col">킬</th>
+          <th scope="col">일일 기여</th>
+          <th scope="col">주간 대결</th>
           <th scope="col">월정액</th>
           <th scope="col">마지막 관측</th>
         </tr>
@@ -43,6 +47,8 @@ export function RosterTable({ rows, now }: { rows: RosterRow[]; now?: Date }) {
             <td>{row.hq_level ?? '—'}</td>
             <td>{formatNumber(row.power)}</td>
             <td>{formatNumber(row.kills)}</td>
+            <td>{formatNumber(row.daily_donation_score)}</td>
+            <td>{formatNumber(row.alliance_battle_score)}</td>
             <td>
               <span
                 className={`badge badge-pass-${classifyPass(row.month_card_expires_at, current)}`}

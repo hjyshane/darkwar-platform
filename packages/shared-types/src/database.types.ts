@@ -1307,9 +1307,13 @@ export type Database = {
       }
       players: {
         Row: {
+          alliance_battle_score: number | null
+          alliance_battle_updated_at: string | null
           created_at: string
           current_alliance_id: string | null
           current_name: string | null
+          daily_donation_score: number | null
+          daily_donation_updated_at: string | null
           first_seen_at: string
           game_uid: number
           hq_level: number | null
@@ -1322,9 +1326,13 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          alliance_battle_score?: number | null
+          alliance_battle_updated_at?: string | null
           created_at?: string
           current_alliance_id?: string | null
           current_name?: string | null
+          daily_donation_score?: number | null
+          daily_donation_updated_at?: string | null
           first_seen_at?: string
           game_uid: number
           hq_level?: number | null
@@ -1337,9 +1345,13 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          alliance_battle_score?: number | null
+          alliance_battle_updated_at?: string | null
           created_at?: string
           current_alliance_id?: string | null
           current_name?: string | null
+          daily_donation_score?: number | null
+          daily_donation_updated_at?: string | null
           first_seen_at?: string
           game_uid?: number
           hq_level?: number | null

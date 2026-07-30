@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { ArenaPanel } from './features/arena/ArenaPanel';
+import { CrossRankingsPanel } from './features/crossRankings/CrossRankingsPanel';
 import { RankingsPanel } from './features/rankings/RankingsPanel';
 import { RosterPanel } from './features/roster/RosterPanel';
 import { queryKeysForTopic, subscribeDataChanges } from './lib/realtime';
@@ -32,6 +33,7 @@ export function App() {
       <main>
         <RosterPanel />
         <RankingsPanel />
+        <CrossRankingsPanel />
         <ArenaPanel />
       </main>
     </QueryClientProvider>

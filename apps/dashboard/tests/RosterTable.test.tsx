@@ -15,6 +15,8 @@ const rows: RosterRow[] = [
     power: 200_000_000,
     kills: 1_000_000,
     month_card_expires_at: '2026-08-25T02:00:00Z',
+    daily_donation_score: 5860,
+    alliance_battle_score: 42_000,
     last_seen_at: '2026-07-28T11:55:00Z',
   },
   {
@@ -25,6 +27,8 @@ const rows: RosterRow[] = [
     power: null,
     kills: null,
     month_card_expires_at: null,
+    daily_donation_score: null,
+    alliance_battle_score: null,
     last_seen_at: null,
   },
 ];
@@ -45,6 +49,14 @@ test('missing values render as unknown, not zero', () => {
 test('empty roster states itself instead of a bare table', () => {
   render(<RosterTable rows={[]} now={NOW} />);
   expect(screen.getByText('로스터 데이터가 아직 없습니다.')).toBeDefined();
+});
+
+test('contribution scores appear, and unknown stays a dash', () => {
+  render(<RosterTable rows={rows} now={NOW} />);
+  expect(screen.getByText('5,860')).toBeDefined();
+  expect(screen.getByText('42,000')).toBeDefined();
+  // The second player has no observed contribution: dashes, not zeros.
+  expect(screen.queryByText('0')).toBeNull();
 });
 
 test('monthly pass shows remaining days, and unknown is not expired', () => {

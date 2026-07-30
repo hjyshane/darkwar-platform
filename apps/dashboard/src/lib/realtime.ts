@@ -7,7 +7,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 const TOPIC_QUERY_KEYS: Record<string, readonly (readonly string[])[]> = {
   alliance_member_snapshots: [['roster']],
-  player_snapshots: [['roster']],
+  alliance_contribution_snapshots: [['roster']],
+  player_snapshots: [['roster'], ['crossRankings']],
   alliance_snapshots: [['rankings']],
   player_detail_snapshots: [['roster']],
   arena_snapshots: [['arena']],
