@@ -131,6 +131,86 @@ def test_live_module_imports_without_scapy() -> None:
         pytest.skip("unreachable")
 
 
+# --- live source glue (no scapy, no Npcap) -----------------------------------
+
+
+class _FakeLayer:
+    pass
+
+
+class _FakeIP(_FakeLayer):
+    pass
+
+
+class _FakeTCP(_FakeLayer):
+    pass
+
+
+class _FakePacket:
+    def __init__(self, payload: bytes, *, sport: int, dport: int, seq: int, tcp: bool = True):
+        self._tcp = tcp
+        self._layers = {
+            _FakeIP: type("ip", (), {"src": "10.0.0.1", "dst": "10.0.0.2"})(),
+            _FakeTCP: type(
+                "tcp", (), {"sport": sport, "dport": dport, "seq": seq, "payload": payload}
+            )(),
+        }
+
+    def haslayer(self, layer: type) -> bool:
+        return self._tcp
+
+    def __getitem__(self, layer: type) -> object:
+        return self._layers[layer]
+
+
+class _FakeScapy:
+    TCP = _FakeTCP
+    IP = _FakeIP
+
+    def __init__(self, packets: list[_FakePacket]) -> None:
+        self.packets = packets
+        self.kwargs: dict[str, object] = {}
+
+    def sniff(self, **kwargs: object) -> list[_FakePacket]:
+        self.kwargs = kwargs
+        prn = kwargs["prn"]
+        assert callable(prn)
+        for packet in self.packets:
+            prn(packet)
+        # sniff() returns its (unstored) result only when capture ENDS; the
+        # caller must not depend on iterating this.
+        return []
+
+
+def test_live_source_delivers_segments_through_the_callback(
+    monkeypatch: pytest.MonkeyPatch, journal: Journal
+) -> None:
+    """Regression: sniff() is blocking and returns a PacketList when capture
+    ends, so a streaming capture must use prn, not iterate the result."""
+    from dw_collector.capture import live
+
+    data = frame(envelope("get.battlepass.info", {"season": 3}))
+    fake = _FakeScapy(
+        [
+            _FakePacket(data, sport=8680, dport=50000, seq=1),
+            _FakePacket(b"", sport=8680, dport=50000, seq=999),  # empty: skipped
+            _FakePacket(data, sport=8680, dport=50000, seq=1, tcp=False),  # not TCP
+        ]
+    )
+    monkeypatch.setattr(live, "_require_scapy", lambda: fake)
+
+    session = CaptureSession(journal, collector_id=COLLECTOR, collected_from_server_id=580)
+    live.sniff_into(session.feed, "Fake Adapter", 8680)
+
+    # One usable packet in, one observation journalled out.
+    assert session.stats.segments == 1
+    assert session.stats.discovered == 1
+    # Passive capture with the port filter, and no packet storage.
+    assert fake.kwargs["iface"] == "Fake Adapter"
+    assert fake.kwargs["filter"] == "tcp port 8680"
+    assert fake.kwargs["store"] is False
+
+
 def test_frame_must_be_a_top_level_object() -> None:
     """A mis-synced window can parse as a valid SFS *value* without being a
     frame. Every real frame is an SFSObject, so require the type byte."""

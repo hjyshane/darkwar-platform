@@ -12,11 +12,23 @@ from pydantic import ValidationError
 
 from dw_collector import normalize as _normalize  # noqa: F401  (registers normalizers)
 from dw_collector import pipeline, registry
+from dw_collector.envfile import load_env_file
 from dw_collector.models import Observation
 from dw_collector.storage.journal import Journal
 from dw_collector.sync.worker import SyncConfig, SyncWorker
 
 app = typer.Typer(no_args_is_help=True)
+
+
+@app.callback()
+def _bootstrap() -> None:
+    """Load .env before a command resolves its options.
+
+    Runs for every subcommand, so `SUPABASE_URL` and friends work from a
+    file instead of only from the shell.
+    """
+    load_env_file()
+
 
 _DB_OPTION = typer.Option("--db", help="SQLite path (default: $DW_SQLITE_PATH)")
 

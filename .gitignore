@@ -23,6 +23,8 @@ legacy/**/*.db
 .env
 .env.*
 !.env.example
+# Windows collector env script (copy of dw-env.example.ps1 with real paths)
+dw-env.ps1
 
 # ---------------------------------------------------------------------------
 # Python
