@@ -211,7 +211,14 @@ def sanitize_daily_alliance_donate_rank(payload: dict[str, Any]) -> dict[str, An
     return sanitized
 
 
+def sanitize_kill_rank(payload: dict[str, Any]) -> dict[str, Any]:
+    """Same masking as server.rank — the two responses differ in the metric
+    they report, not in the identities they expose."""
+    return sanitize_server_rank(payload)
+
+
 SANITIZERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
+    "kill.rank": sanitize_kill_rank,
     "get.daily.alliance.donate.rank": sanitize_daily_alliance_donate_rank,
     "al.rank": sanitize_al_rank,
     "alliance.rank": sanitize_alliance_rank,
