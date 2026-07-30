@@ -1175,6 +1175,32 @@ export type Database = {
           },
         ]
       }
+      player_month_cards: {
+        Row: {
+          expires_at: string
+          observed_at: string
+          player_id: string
+        }
+        Insert: {
+          expires_at: string
+          observed_at: string
+          player_id: string
+        }
+        Update: {
+          expires_at?: string
+          observed_at?: string
+          player_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_month_cards_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: true
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+        ]
+      }
       player_names: {
         Row: {
           first_seen_at: string
@@ -1319,7 +1345,6 @@ export type Database = {
           hq_level: number | null
           kills: number | null
           last_seen_at: string | null
-          month_card_expires_at: string | null
           player_id: string
           power: number | null
           server_id: number
@@ -1338,7 +1363,6 @@ export type Database = {
           hq_level?: number | null
           kills?: number | null
           last_seen_at?: string | null
-          month_card_expires_at?: string | null
           player_id?: string
           power?: number | null
           server_id: number
@@ -1357,7 +1381,6 @@ export type Database = {
           hq_level?: number | null
           kills?: number | null
           last_seen_at?: string | null
-          month_card_expires_at?: string | null
           player_id?: string
           power?: number | null
           server_id?: number

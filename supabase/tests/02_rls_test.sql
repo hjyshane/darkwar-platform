@@ -60,7 +60,7 @@ set local role anon;
 -- database, so they assert presence rather than a row count.
 select isnt_empty($$ select * from public.players $$,
   'anon reads public rankings');
-select is_empty($$ select * from public.alliance_member_snapshots $$,
+select is_empty($$ select snapshot_id, name from public.alliance_member_snapshots $$,
   'anon cannot read alliance-internal presence');
 select throws_ok('select count(*) from internal.raw_observations', '42501',
   null, 'anon cannot touch raw payloads in the internal schema');
@@ -75,7 +75,7 @@ select set_config('request.jwt.claims',
 
 select isnt_empty($$ select * from public.arena_entries $$,
   'viewer reads arena entries');
-select is_empty($$ select * from public.alliance_member_snapshots $$,
+select is_empty($$ select snapshot_id, name from public.alliance_member_snapshots $$,
   'viewer cannot read alliance-internal presence');
 select is_empty($$ select * from public.activity_facts $$,
   'viewer cannot read activity facts');
@@ -95,7 +95,7 @@ select set_config('request.jwt.claims',
   '{"sub":"00000000-0000-4000-8000-00000000f002","role":"authenticated"}',
   true);
 
-select isnt_empty($$ select * from public.alliance_member_snapshots $$,
+select isnt_empty($$ select snapshot_id, name from public.alliance_member_snapshots $$,
   'member reads alliance-internal presence');
 
 -- officer
