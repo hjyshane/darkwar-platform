@@ -34,6 +34,7 @@ _TABLE_ORDER = [
     "arena_snapshots",
     "arena_entries",
     "alliance_contribution_snapshots",
+    "battle_report_ingests",
     "activity_facts",
 ]
 

@@ -839,6 +839,84 @@ export type Database = {
           },
         ]
       }
+      battle_report_ingests: {
+        Row: {
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at: string
+          expires_at: string | null
+          from_game_uid: number | null
+          idempotency_key: string
+          ingest_id: string
+          mail_type: number | null
+          mail_uid: string
+          observation_id: string
+          parser_version: string
+          raw: Json
+          report_content: string | null
+          report_marker: Json | null
+          sent_at: string | null
+          source_command: string
+          to_game_uid: number | null
+        }
+        Insert: {
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at?: string
+          expires_at?: string | null
+          from_game_uid?: number | null
+          idempotency_key: string
+          ingest_id?: string
+          mail_type?: number | null
+          mail_uid: string
+          observation_id: string
+          parser_version: string
+          raw?: Json
+          report_content?: string | null
+          report_marker?: Json | null
+          sent_at?: string | null
+          source_command: string
+          to_game_uid?: number | null
+        }
+        Update: {
+          captured_at?: string
+          collected_from_server_id?: number
+          collector_id?: string
+          created_at?: string
+          expires_at?: string | null
+          from_game_uid?: number | null
+          idempotency_key?: string
+          ingest_id?: string
+          mail_type?: number | null
+          mail_uid?: string
+          observation_id?: string
+          parser_version?: string
+          raw?: Json
+          report_content?: string | null
+          report_marker?: Json | null
+          sent_at?: string | null
+          source_command?: string
+          to_game_uid?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "battle_report_ingests_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "battle_report_ingests_collector_id_fkey"
+            columns: ["collector_id"]
+            isOneToOne: false
+            referencedRelation: "collectors"
+            referencedColumns: ["collector_id"]
+          },
+        ]
+      }
       collector_heartbeats: {
         Row: {
           collector_id: string
