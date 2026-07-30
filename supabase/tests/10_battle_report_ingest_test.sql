@@ -4,7 +4,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(12);
+select plan(16);
 
 select has_column('public', 'battle_report_ingests', c.col,
   'battle_report_ingests has ' || c.col)
@@ -24,14 +24,47 @@ select col_is_null('public', 'battle_report_ingests', 'report_content',
 insert into public.battle_report_ingests
   (observation_id, source_command, parser_version, idempotency_key, captured_at,
    collector_id, collected_from_server_id, mail_uid, mail_type,
-   from_game_uid, to_game_uid, sent_at, expires_at, report_content, report_marker)
+   from_game_uid, to_game_uid, sent_at, expires_at, report_content, report_marker,
+   report_kind)
 values
   ('00000000-0000-4000-8000-00000000f201', 'mail.read.share', 'test',
    'test:report:1', '2026-07-30T18:39:26Z',
    '00000000-0000-4000-8000-000000000c01', 580, '9175367513003731', 72,
    null, 9111364514000629, '2026-07-25T22:08:21Z', '2026-08-24T22:08:21Z',
    'EPHgydr5MxjxvAgiBwj5BBjX',
-   '{"c":{"battleReportSimple":{}}}'::jsonb);
+   '{"c":{"battleReportSimple":{}}}'::jsonb, 'mail_simple');
+
+-- 0014: an opened report has a body and nothing else — no mail, no sender,
+-- no recipient, no timestamps. If mail_uid were still NOT NULL this insert
+-- would fail, which is the point of the test.
+insert into public.battle_report_ingests
+  (observation_id, source_command, parser_version, idempotency_key, captured_at,
+   collector_id, collected_from_server_id, report_content, report_kind)
+values
+  ('00000000-0000-4000-8000-00000000f202', 'get.fight.report.detail', 'test',
+   'test:report:2', '2026-07-30T18:38:05Z',
+   '00000000-0000-4000-8000-000000000c01', 580,
+   'CikQARjCmAQgASigjQYwATj', 'detail');
+
+select is((select count(*)::int from public.battle_report_ingests
+           where report_kind = 'detail'), 1,
+  'a detail row needs no mail identity');
+
+select col_is_null('public', 'battle_report_ingests', 'mail_uid',
+  'mail_uid is nullable — a detail response carries no mail');
+
+select throws_ok($$
+  insert into public.battle_report_ingests
+    (observation_id, source_command, parser_version, idempotency_key, captured_at,
+     collector_id, collected_from_server_id, report_content, report_kind)
+  values
+    ('00000000-0000-4000-8000-00000000f203', 'x', 'test', 'test:report:3',
+     '2026-07-30T18:38:05Z', '00000000-0000-4000-8000-000000000c01', 580,
+     'x', 'guessed')
+$$, '23514', null, 'an unknown report_kind is refused rather than stored');
+
+select col_hasnt_default('public', 'battle_report_ingests', 'report_kind',
+  'report_kind has no default: a new row must say which body it holds');
 
 select is((select from_game_uid from public.battle_report_ingests
            where idempotency_key = 'test:report:1'), null::bigint,

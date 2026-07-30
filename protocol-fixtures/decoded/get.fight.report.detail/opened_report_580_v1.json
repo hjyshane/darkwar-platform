@@ -1,0 +1,13 @@
+{
+  "observation_id": "58c8150e-cc6c-5950-9aa8-e3fda94096a7",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "get.fight.report.detail",
+  "captured_at": "2026-07-30T18:38:46.283023Z",
+  "collected_from_server_id": 580,
+  "payload": {
+    "contents": "CikQARjCmAQgASigjQYwATj///////////8BQAFItuiuA2jCmARwtuiuAwopCAEQ",
+    "_id": 199,
+    "_time": 2
+  },
+  "schema_version": 1
+}

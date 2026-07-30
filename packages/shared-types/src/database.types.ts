@@ -850,11 +850,12 @@ export type Database = {
           idempotency_key: string
           ingest_id: string
           mail_type: number | null
-          mail_uid: string
+          mail_uid: string | null
           observation_id: string
           parser_version: string
           raw: Json
           report_content: string | null
+          report_kind: string
           report_marker: Json | null
           sent_at: string | null
           source_command: string
@@ -870,11 +871,12 @@ export type Database = {
           idempotency_key: string
           ingest_id?: string
           mail_type?: number | null
-          mail_uid: string
+          mail_uid?: string | null
           observation_id: string
           parser_version: string
           raw?: Json
           report_content?: string | null
+          report_kind: string
           report_marker?: Json | null
           sent_at?: string | null
           source_command: string
@@ -890,11 +892,12 @@ export type Database = {
           idempotency_key?: string
           ingest_id?: string
           mail_type?: number | null
-          mail_uid?: string
+          mail_uid?: string | null
           observation_id?: string
           parser_version?: string
           raw?: Json
           report_content?: string | null
+          report_kind?: string
           report_marker?: Json | null
           sent_at?: string | null
           source_command?: string
