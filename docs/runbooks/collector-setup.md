@@ -49,9 +49,10 @@ denylist 검증"에 해당한다. 2026-07-29 첫 라이브 캡처에서 실제�
    supabase status -o json
    ```
 
-   `.env` 파일은 **자동으로 읽히지 않는다.** 수집기는 환경변수를 직접 읽고
-   python-dotenv 의존성이 없다. `dw-env.ps1`을 쓰거나
-   `uv run --env-file .env <명령>` 형태로 실행한다.
+   `.env`를 써도 된다 — 수집기가 `$DW_ENV_FILE`, 없으면 작업 디렉터리와 그 상위의
+   가장 가까운 `.env`를 자동으로 읽는다. **셸에 이미 설정된 변수가 항상 이긴다**,
+   그래서 `dw-env.ps1`이 `.env`를 덮어쓴다. PowerShell에서는 경로에 백슬래시가
+   들어가므로 `dw-env.ps1` 쪽이 덜 헷갈린다.
 
 ## 캡처 인터페이스 결정
 
@@ -162,7 +163,7 @@ cd ~/Projects/DW_app && pnpm dev
 |---|---|
 | `packets: 0` | VPN이 켜져 있다 / 그 20초 안에 게임이 서버와 통신하지 않았다 / 어댑터를 잘못 골랐다 |
 | `ModuleNotFoundError: No module named 'dw_collector'` | 그 체크아웃에 `src/`가 없다. `git pull`이 안 된 오래된 체크아웃이거나 잘못된 디렉터리다 |
-| `SUPABASE_URL and SUPABASE_SECRET_KEY are required` | 환경변수를 다른 셸(PowerShell↔WSL)에 설정했다. 캡처와 sync는 같은 창에서 |
+| `SUPABASE_URL and SUPABASE_SECRET_KEY are required` | 환경변수를 다른 셸(PowerShell↔WSL)에 설정했거나, `.env`가 작업 디렉터리·상위 4단계 안에 없다 |
 | sync가 `WinError 10061` / `Connection refused` | 로컬 스택이 내려갔다. 아래 참조 |
 | WSL에서 `docker: command not found` | Docker Desktop → Settings → Resources → WSL integration이 꺼졌다. 켜고 Docker Desktop 재시작 |
 | `curl http://127.0.0.1:54321` 이 `000` | Kong(API 게이트웨이)이 죽었다. `supabase start`가 "already running"이라며 `Stopped services`에 kong을 나열하면, `supabase stop && supabase start`로 완전히 재시작한다 |
