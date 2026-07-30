@@ -6,8 +6,13 @@
 //
 // Hash-based so it works on any static host with zero rewrite config.
 
-export type Route = 'dashboard' | 'monthCards';
+export type Route = 'dashboard' | 'monthCards' | 'login';
+
+const ROUTES: Record<string, Route> = {
+  '#/month-cards': 'monthCards',
+  '#/login': 'login',
+};
 
 export function routeFromHash(hash: string): Route {
-  return hash === '#/month-cards' ? 'monthCards' : 'dashboard';
+  return ROUTES[hash] ?? 'dashboard';
 }
