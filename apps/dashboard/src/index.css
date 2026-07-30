@@ -62,3 +62,23 @@ th:nth-child(n + 2) {
 .error {
   color: #dc2626;
 }
+
+/* Monthly pass: "never observed" must not look like "ran out". */
+.badge-pass-active {
+  background: #1e3a8a;
+  color: #dbeafe;
+}
+
+.badge-pass-expiring {
+  background: #78350f;
+  color: #fef3c7;
+}
+
+.badge-pass-expired {
+  background: #7f1d1d;
+  color: #fee2e2;
+}
+
+.badge-pass-none {
+  opacity: 0.6;
+}
