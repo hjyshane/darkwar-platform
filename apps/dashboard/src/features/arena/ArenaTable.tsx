@@ -1,5 +1,8 @@
 import { FreshnessBadge } from '../../components/FreshnessBadge';
+import { SortableTh } from '../../components/SortableTh';
+import { TableSearch } from '../../components/TableSearch';
 import { TERMS } from '../../lib/terms';
+import { useTableView } from '../../lib/useTableView';
 
 export interface ArenaHeader {
   snapshot_id: string;
@@ -19,6 +22,8 @@ export interface ArenaEntryRow {
 
 const numberFormat = new Intl.NumberFormat('ko-KR');
 
+const SEARCH_FIELDS = ['name', 'game_uid'] as const;
+
 export function ArenaTable({
   header,
   entries,
@@ -28,33 +33,46 @@ export function ArenaTable({
   entries: ArenaEntryRow[];
   now?: Date;
 }) {
+  const { query, setQuery, sort, onSort, view, shown, total } = useTableView(
+    entries,
+    SEARCH_FIELDS,
+  );
   const weekLabel = new Date(header.week_start).toISOString().slice(0, 10);
   return (
     <>
       <p>
         <span>Week {weekLabel}</span> <FreshnessBadge capturedAt={header.captured_at} now={now} />
       </p>
+      <TableSearch
+        label="Search arena"
+        onChange={setQuery}
+        shown={shown}
+        total={total}
+        value={query}
+      />
       <div className="table-wrap">
         <table>
           <thead>
             <tr>
-              <th className="num" scope="col">
+              <SortableTh numeric onSort={onSort} sort={sort} sortKey="rank">
                 {TERMS.rank}
-              </th>
-              <th scope="col">{TERMS.name}</th>
-              <th className="num" scope="col">
+              </SortableTh>
+              <SortableTh className="label" onSort={onSort} sort={sort} sortKey="name">
+                {TERMS.name}
+              </SortableTh>
+              <SortableTh numeric onSort={onSort} sort={sort} sortKey="score">
                 {TERMS.score}
-              </th>
-              <th className="num" scope="col">
+              </SortableTh>
+              <SortableTh numeric onSort={onSort} sort={sort} sortKey="defense_power">
                 {TERMS.defensePower}
-              </th>
+              </SortableTh>
             </tr>
           </thead>
           <tbody>
-            {entries.map((entry) => (
+            {view.map((entry) => (
               <tr key={entry.snapshot_id}>
                 <td className="num">{entry.rank}</td>
-                <td>{entry.name ?? `UID ${entry.game_uid}`}</td>
+                <td className="label">{entry.name ?? `UID ${entry.game_uid}`}</td>
                 <td className="num">
                   {entry.score === null ? '—' : numberFormat.format(entry.score)}
                 </td>
@@ -66,6 +84,7 @@ export function ArenaTable({
           </tbody>
         </table>
       </div>
+      {view.length === 0 && <p className="empty">No arena entry matches “{query}”.</p>}
     </>
   );
 }
