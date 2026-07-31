@@ -25,33 +25,35 @@ export function RosterTable({ rows, now }: { rows: RosterRow[]; now?: Date }) {
     return <p className="empty">No member data yet.</p>;
   }
   return (
-    <table>
-      <thead>
-        <tr>
-          <th scope="col">{TERMS.name}</th>
-          <th scope="col">{TERMS.hq}</th>
-          <th scope="col">{TERMS.power}</th>
-          <th scope="col">{TERMS.kills}</th>
-          <th scope="col">{TERMS.dailyDonation}</th>
-          <th scope="col">{TERMS.allianceBattle}</th>
-          <th scope="col">{TERMS.lastSeen}</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row) => (
-          <tr key={row.player_id}>
-            <td>{row.current_name ?? `UID ${row.game_uid}`}</td>
-            <td>{row.hq_level ?? '—'}</td>
-            <td>{formatNumber(row.power)}</td>
-            <td>{formatNumber(row.kills)}</td>
-            <td>{formatNumber(row.daily_donation_score)}</td>
-            <td>{formatNumber(row.alliance_battle_score)}</td>
-            <td>
-              <FreshnessBadge capturedAt={row.last_seen_at} now={now} />
-            </td>
+    <div className="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">{TERMS.name}</th>
+            <th scope="col">{TERMS.hq}</th>
+            <th scope="col">{TERMS.power}</th>
+            <th scope="col">{TERMS.kills}</th>
+            <th scope="col">{TERMS.dailyDonation}</th>
+            <th scope="col">{TERMS.allianceBattle}</th>
+            <th scope="col">{TERMS.lastSeen}</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.player_id}>
+              <td>{row.current_name ?? `UID ${row.game_uid}`}</td>
+              <td>{row.hq_level ?? '—'}</td>
+              <td>{formatNumber(row.power)}</td>
+              <td>{formatNumber(row.kills)}</td>
+              <td>{formatNumber(row.daily_donation_score)}</td>
+              <td>{formatNumber(row.alliance_battle_score)}</td>
+              <td>
+                <FreshnessBadge capturedAt={row.last_seen_at} now={now} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }

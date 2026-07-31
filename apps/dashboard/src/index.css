@@ -1,18 +1,186 @@
+/* Design tokens.
+ *
+ * Everything visual resolves to a custom property here, so a colour or a
+ * spacing step changes in one place instead of across component files.
+ *
+ * Light and dark are both real. `color-scheme: light dark` was already
+ * declared, but the badge colours were dark-mode-only — a dark green block
+ * with pale text sitting on a white page. Each status family now carries a
+ * value for both schemes.
+ *
+ * Colour is never the only signal (NFR-011). The badges say "No data" and
+ * "(stale)" in words; these tokens make that visible, not meaningful.
+ */
+
 :root {
   color-scheme: light dark;
-  font-family: system-ui, sans-serif;
+
+  /* Spacing — a 4px base, used for padding, gaps, and rhythm. */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+
+  --text-sm: 0.8125rem;
+  --text-base: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.75rem;
+
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  --measure: 72rem;
+
+  /* Surfaces and text — light. */
+  --bg: #ffffff;
+  --bg-raised: #f8fafc;
+  --bg-hover: #f1f5f9;
+  --fg: #0f172a;
+  --fg-muted: #64748b;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --accent: #1d4ed8;
+
+  /* Status families. Each is a background/foreground pair that keeps its
+   * contrast in its own scheme, rather than one colour reused in both. */
+  --ok-bg: #dcfce7;
+  --ok-fg: #14532d;
+  --warn-bg: #fef3c7;
+  --warn-fg: #78350f;
+  --danger-bg: #fee2e2;
+  --danger-fg: #7f1d1d;
+  --info-bg: #dbeafe;
+  --info-fg: #1e3a8a;
+  --neutral-bg: #f1f5f9;
+  --neutral-fg: #475569;
+
+  font-family: var(--font-sans);
   line-height: 1.5;
 }
 
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b1220;
+    --bg-raised: #131c2e;
+    --bg-hover: #1b2537;
+    --fg: #e6edf7;
+    --fg-muted: #94a3b8;
+    --border: #24304a;
+    --border-strong: #34405c;
+    --accent: #7aa2f7;
+
+    /* Inverted: dark plate, light text — the reverse of the light values,
+     * not the same hex reused. */
+    --ok-bg: #14532d;
+    --ok-fg: #dcfce7;
+    --warn-bg: #78350f;
+    --warn-fg: #fef3c7;
+    --danger-bg: #7f1d1d;
+    --danger-fg: #fee2e2;
+    --info-bg: #1e3a8a;
+    --info-fg: #dbeafe;
+    --neutral-bg: #1e293b;
+    --neutral-fg: #cbd5e1;
+  }
+}
+
+/* --- base ---------------------------------------------------------------- */
+
 body {
+  background: var(--bg);
+  color: var(--fg);
   margin: 0 auto;
-  max-width: 64rem;
-  padding: 1rem;
+  max-width: var(--measure);
+  padding: var(--space-4);
+}
+
+h1 {
+  font-size: var(--text-xl);
+  margin: 0 0 var(--space-4);
+}
+
+/* --- navigation ---------------------------------------------------------- */
+
+.app-header {
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--space-6);
+}
+
+.tabs {
+  display: flex;
+  gap: var(--space-1);
+  /* Four tabs fit on a phone; ten (FR-UI-004) will not, so they scroll
+   * rather than wrap into a second row that shifts the page down. */
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.tab {
+  border-bottom: 2px solid transparent;
+  color: var(--fg-muted);
+  padding: var(--space-2) var(--space-3);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.tab:hover {
+  background: var(--bg-hover);
+  color: var(--fg);
+}
+
+/* Keyed off aria-current, so the accessible state and the visible state
+ * cannot disagree. */
+.tab[aria-current="page"] {
+  border-bottom-color: var(--accent);
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+h2 {
+  font-size: var(--text-lg);
+  margin: 0 0 var(--space-3);
 }
 
 main {
   display: grid;
-  gap: 2rem;
+  gap: var(--space-8);
+}
+
+/* A grid item defaults to min-width: auto, meaning it refuses to be narrower
+ * than its content — so a wide table stretches its section, the section
+ * stretches the page, and .table-wrap has nothing left to scroll. Letting
+ * the item shrink is what actually hands the overflow to the wrapper. */
+main > * {
+  min-width: 0;
+}
+
+/* --- tables -------------------------------------------------------------- */
+
+/* The scroll lives here, not on the page. Seven columns of figures are wider
+ * than a phone, and without this the whole document widens: the heading, the
+ * error message and everything else slide off with the table (FR-UI-006).
+ *
+ * Setting overflow also gives the grid item a zero min-width, which is what
+ * actually lets it shrink — a grid child sized to its content is the reason
+ * the page grew in the first place.
+ */
+.table-wrap {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
 }
 
 table {
@@ -22,63 +190,114 @@ table {
 
 th,
 td {
-  border-bottom: 1px solid color-mix(in srgb, currentColor 20%, transparent);
-  padding: 0.35rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  padding: var(--space-2) var(--space-3);
   text-align: left;
 }
 
+th {
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Column one is a name; everything after it is a figure. */
 td:nth-child(n + 2),
 th:nth-child(n + 2) {
   text-align: right;
 }
 
+/* Digits share a width, so ranked figures line up as columns instead of
+ * drifting with the glyphs. Without it a table of powers is unreadable. */
+td:nth-child(n + 2) {
+  font-variant-numeric: tabular-nums;
+}
+
+tbody tr:hover {
+  background: var(--bg-hover);
+}
+
+/* Scrolled sideways, the figures are meaningless without the name they
+ * belong to, so the first column stays put. It needs an opaque background
+ * of its own or the scrolling cells show through it. */
+@media (width <= 48rem) {
+  .table-wrap :is(th, td):first-child {
+    background: var(--bg);
+    left: 0;
+    position: sticky;
+  }
+
+  .table-wrap tbody tr:hover :is(th, td):first-child {
+    background: var(--bg-hover);
+  }
+
+  /* A long name would otherwise stretch the sticky column across the
+   * viewport and leave no room for what it is stuck next to. */
+  .table-wrap td:first-child {
+    max-width: 9rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* --- badges -------------------------------------------------------------- */
+
 .badge {
-  border-radius: 0.5rem;
-  font-size: 0.8rem;
-  padding: 0.1rem 0.5rem;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  padding: var(--space-1) var(--space-2);
   white-space: nowrap;
 }
 
 /* FR-UI-008: stale and missing must not look like fresh. */
 .badge-fresh {
-  background: #14532d;
-  color: #dcfce7;
+  background: var(--ok-bg);
+  color: var(--ok-fg);
 }
 
 .badge-stale {
-  background: #78350f;
-  color: #fef3c7;
+  background: var(--warn-bg);
+  color: var(--warn-fg);
 }
 
 .badge-missing {
-  background: #7f1d1d;
-  color: #fee2e2;
-}
-
-.empty {
-  opacity: 0.7;
-}
-
-.error {
-  color: #dc2626;
+  background: var(--danger-bg);
+  color: var(--danger-fg);
 }
 
 /* Monthly pass: "never observed" must not look like "ran out". */
 .badge-pass-active {
-  background: #1e3a8a;
-  color: #dbeafe;
+  background: var(--info-bg);
+  color: var(--info-fg);
 }
 
 .badge-pass-expiring {
-  background: #78350f;
-  color: #fef3c7;
+  background: var(--warn-bg);
+  color: var(--warn-fg);
 }
 
 .badge-pass-expired {
-  background: #7f1d1d;
-  color: #fee2e2;
+  background: var(--danger-bg);
+  color: var(--danger-fg);
 }
 
 .badge-pass-none {
-  opacity: 0.6;
+  color: var(--fg-muted);
+}
+
+/* --- states -------------------------------------------------------------- */
+
+.empty {
+  color: var(--fg-muted);
+}
+
+.error {
+  color: var(--danger-fg);
+  background: var(--danger-bg);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
 }

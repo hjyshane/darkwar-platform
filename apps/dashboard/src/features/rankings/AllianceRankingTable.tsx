@@ -42,32 +42,34 @@ export function AllianceRankingTable({
     return <p className="empty">No alliance ranking data yet.</p>;
   }
   return (
-    <table>
-      <thead>
-        <tr>
-          <th scope="col">{TERMS.alliance}</th>
-          <th scope="col">{TERMS.server}</th>
-          <th scope="col">{TERMS.power}</th>
-          <th scope="col">{TERMS.members_count}</th>
-          <th scope="col">{TERMS.observed}</th>
-        </tr>
-      </thead>
-      <tbody>
-        {latest.map((row) => (
-          <tr key={row.external_id}>
-            <td>
-              {row.code ? `[${row.code}] ` : ''}
-              {row.name ?? row.external_id.slice(0, 8)}
-            </td>
-            <td>{row.server_id}</td>
-            <td>{row.power === null ? '—' : numberFormat.format(row.power)}</td>
-            <td>{row.member_count ?? '—'}</td>
-            <td>
-              <FreshnessBadge capturedAt={row.captured_at} now={now} />
-            </td>
+    <div className="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">{TERMS.alliance}</th>
+            <th scope="col">{TERMS.server}</th>
+            <th scope="col">{TERMS.power}</th>
+            <th scope="col">{TERMS.members_count}</th>
+            <th scope="col">{TERMS.observed}</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {latest.map((row) => (
+            <tr key={row.external_id}>
+              <td>
+                {row.code ? `[${row.code}] ` : ''}
+                {row.name ?? row.external_id.slice(0, 8)}
+              </td>
+              <td>{row.server_id}</td>
+              <td>{row.power === null ? '—' : numberFormat.format(row.power)}</td>
+              <td>{row.member_count ?? '—'}</td>
+              <td>
+                <FreshnessBadge capturedAt={row.captured_at} now={now} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }

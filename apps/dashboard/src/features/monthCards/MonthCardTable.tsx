@@ -20,27 +20,29 @@ export function MonthCardTable({ rows, now }: { rows: MonthCardRow[]; now?: Date
     return <p className="empty">Nothing to show.</p>;
   }
   return (
-    <table>
-      <thead>
-        <tr>
-          <th scope="col">{TERMS.name}</th>
-          <th scope="col">{TERMS.status}</th>
-          <th scope="col">{TERMS.expires}</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row) => (
-          <tr key={row.player_id}>
-            <td>{row.players?.current_name ?? `UID ${row.players?.game_uid ?? '?'}`}</td>
-            <td>
-              <span className={`badge badge-pass-${classifyPass(row.expires_at, current)}`}>
-                {formatPass(row.expires_at, current)}
-              </span>
-            </td>
-            <td>{row.expires_at.slice(0, 10)}</td>
+    <div className="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">{TERMS.name}</th>
+            <th scope="col">{TERMS.status}</th>
+            <th scope="col">{TERMS.expires}</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.player_id}>
+              <td>{row.players?.current_name ?? `UID ${row.players?.game_uid ?? '?'}`}</td>
+              <td>
+                <span className={`badge badge-pass-${classifyPass(row.expires_at, current)}`}>
+                  {formatPass(row.expires_at, current)}
+                </span>
+              </td>
+              <td>{row.expires_at.slice(0, 10)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
