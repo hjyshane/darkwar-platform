@@ -27,6 +27,7 @@ import structlog
 
 from dw_collector.storage.journal import Journal
 from dw_collector.ui_worker.adb import AdbClient, AdbError
+from dw_collector.ui_worker.idle import IdlePolicy
 from dw_collector.ui_worker.routine import Routine, Step
 
 log = structlog.get_logger()
@@ -70,11 +71,13 @@ class RoutineRunner:
         client: AdbClient,
         journal: Journal,
         *,
+        idle: IdlePolicy | None = None,
         sleep: Callable[[float], None] = time.sleep,
         now: Callable[[], datetime] = lambda: datetime.now(tz=UTC),
     ) -> None:
         self.client = client
         self.journal = journal
+        self.idle = idle
         self._sleep = sleep
         self._now = now
 
@@ -116,6 +119,19 @@ class RoutineRunner:
                 report.abort_reason = "kill switch engaged"
                 log.warning("ui_worker.kill_switch", step=step.name)
                 return report
+
+            # Also per step, and for the same reason: the operator can sit
+            # down mid-routine. Stopping then leaves the emulator on some
+            # inner screen, which is untidy but harmless — the alternative
+            # is fighting them for the mouse. Dry runs skip it because they
+            # touch nothing to begin with (FR-COL-009).
+            if self.idle is not None and not self.client.dry_run:
+                state = self.idle.evaluate()
+                if not state.is_idle:
+                    report.aborted_at = step.name
+                    report.abort_reason = f"operator is active — {state.reason}"
+                    log.info("ui_worker.not_idle", step=step.name, reason=state.reason)
+                    return report
 
             started = self._now()
             try:
