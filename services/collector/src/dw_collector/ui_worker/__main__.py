@@ -22,6 +22,7 @@ from dw_collector.envfile import load_env_file
 from dw_collector.storage.journal import Journal
 from dw_collector.ui_worker.adb import AdbClient, list_devices
 from dw_collector.ui_worker.guard import AdbGuardError, AdbPolicy
+from dw_collector.ui_worker.idle import IdlePolicy
 from dw_collector.ui_worker.routine import Routine
 from dw_collector.ui_worker.runner import RoutineRunner
 
@@ -92,16 +93,18 @@ def run(
         raise typer.Exit(code=2) from exc
 
     plan = Routine.load(routine)
+    idle = IdlePolicy.from_env()
     path = db or Path(os.environ.get("DW_SQLITE_PATH", "./data/collector.db"))
     journal = Journal(path)
     journal.init_db()
     try:
         client = AdbClient(policy=policy, serial=target, executable=adb, dry_run=dry_run)
-        report = RoutineRunner(client, journal).run(plan)
+        report = RoutineRunner(client, journal, idle=idle).run(plan)
     finally:
         journal.close()
 
-    typer.echo(f"routine={report.routine} serial={target}{' (dry run)' if dry_run else ''}")
+    gate = f" idle>={idle.minimum_idle_seconds:.0f}s" if idle else ""
+    typer.echo(f"routine={report.routine} serial={target}{gate}{' (dry run)' if dry_run else ''}")
     for step in report.steps:
         detail = f" saw={step.observed}" if step.observed else ""
         missing = f" MISSING={step.missing}" if step.missing else ""

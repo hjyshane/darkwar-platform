@@ -42,7 +42,7 @@ reference = consult while building, then discard · discard = obsolete.
 | `darkwar_tracker/arena_automation.py` | reference | Tap-sequence workflow shape → `ui_worker` refresh workflows |
 | `darkwar_tracker/refresh_worker.py` | reference | Idle-aware refresh queue → `dw-jobs` consuming `refresh_jobs` |
 | `darkwar_tracker/refresh_control.py` | reference | With refresh_worker.py |
-| `darkwar_tracker/idle_detection.py` | **adopt** | `ui_worker/` — Windows idle detection (FR-COL-009 politeness) |
+| `darkwar_tracker/idle_detection.py` | **PROMOTED** (FR-COL-009) | → `ui_worker/idle.py`, gated per step in `runner.py` beside the kill switch. Its non-Windows short-circuit to `is_idle=True` was *not* carried over — a permission check that defaults to granted off its supported platform is the same gap as this file's sibling `adb_control.py` picking `devices[0]`. The probe is injected instead, so every branch is tested on Linux CI |
 | `darkwar_tracker/migrate.py` | discard | SQLite migrations; new journal owns its schema |
 | `darkwar_tracker/__init__.py` | discard | Version marker only |
 | `scripts/test_bytes_payload.py` | **PROMOTED** (S14) | Its warning was real: SFS byte arrays broke JSON serialization; now a regression test in `test_protocol.py` |
@@ -87,3 +87,22 @@ One login capture surfaced 132 of them, including
 `get.alliance.duel.season.info`, `get.battlepass.info`,
 `al.battle.week.result.info` and `chat.get.system.mails` — leads for the
 event and season frameworks (§13/§14).
+
+## Why `legacy/` is still here
+
+No **adopt** row remains — every promotion the codebase needs today is
+done. `git rm -r legacy/` is nonetheless premature, because four
+`reference` rows point at work that has not started:
+
+| Still needed by | Rows |
+|---|---|
+| **S13 Discord Activity** — not begun; no `supabase/functions/`, `DiscordRuntimeAdapter` is a comment | `activity_api.py`, `activity/client/*`, `DISCORD_ACTIVITY_SETUP.md` |
+| **`dw-jobs`** — a nine-line stub that raises `SystemExit` | `refresh_worker.py`, `refresh_control.py` |
+| **ADB workflows** — `guard.py`/`runner.py` exist, the tap-sequence library does not | `arena_automation.py`, `adb_control.py` shell/tap plumbing |
+
+"reference" means consult while building, then discard. Two of those three
+have not been built, so the material has not been consulted yet. Deleting
+now would mean re-deriving from git history the moment S13 starts.
+
+Delete when `dw-jobs` consumes `refresh_jobs`, the ADB workflow library
+lands, and S13 has its Edge Function and adapter — whichever comes last.

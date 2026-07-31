@@ -17,6 +17,7 @@ from dw_collector.models import Observation
 from dw_collector.storage.journal import Journal
 from dw_collector.ui_worker.adb import AdbClient
 from dw_collector.ui_worker.guard import AdbGuardError, AdbPolicy
+from dw_collector.ui_worker.idle import IdlePolicy
 from dw_collector.ui_worker.routine import Routine
 from dw_collector.ui_worker.runner import RoutineRunner
 
@@ -172,6 +173,70 @@ def test_kill_switch_stops_mid_routine(policy: AdbPolicy, journal: Journal) -> N
     assert report.aborted_at == "ranking"
     assert report.abort_reason == "kill switch engaged"
     assert ["shell", "input", "tap", "30", "40"] not in client.performed
+
+
+class _Idle:
+    """Idle until `stop_after` calls, then the operator is back."""
+
+    def __init__(self, stop_after: int | None = None) -> None:
+        self.calls = 0
+        self.stop_after = stop_after
+
+    def idle_seconds(self) -> float:
+        self.calls += 1
+        return 5.0 if self.stop_after is not None and self.calls > self.stop_after else 900.0
+
+    def foreground(self) -> tuple[str, str]:
+        return "Notepad", "notepad.exe"
+
+
+def test_operator_returning_stops_the_routine(policy: AdbPolicy, journal: Journal) -> None:
+    """FR-COL-009: like the kill switch, re-checked before every step."""
+    client = RecordingClient(
+        responses={(10, 20): "al.rank"}, journal=journal, policy=policy, serial=COLLECTOR
+    )
+    routine = _routine(
+        {"name": "roster", "action": "tap", "x": 10, "y": 20, "expect": ["al.rank"]},
+        {"name": "ranking", "action": "tap", "x": 30, "y": 40, "expect": ["alliance.rank"]},
+    )
+    idle = IdlePolicy(minimum_idle_seconds=60.0, probe=_Idle(stop_after=1))
+
+    report = RoutineRunner(client, journal, idle=idle, sleep=lambda _: None).run(routine)
+
+    assert not report.ok
+    assert report.aborted_at == "ranking"
+    assert "operator is active" in str(report.abort_reason)
+    assert ["shell", "input", "tap", "30", "40"] not in client.performed
+
+
+def test_idle_gate_does_not_block_a_quiet_machine(policy: AdbPolicy, journal: Journal) -> None:
+    client = RecordingClient(
+        responses={(10, 20): "al.rank"}, journal=journal, policy=policy, serial=COLLECTOR
+    )
+    routine = _routine({"name": "roster", "action": "tap", "x": 10, "y": 20, "expect": ["al.rank"]})
+    idle = IdlePolicy(minimum_idle_seconds=60.0, probe=_Idle())
+
+    report = RoutineRunner(client, journal, idle=idle, sleep=lambda _: None).run(routine)
+
+    assert report.ok
+
+
+def test_dry_run_skips_the_idle_gate(policy: AdbPolicy, journal: Journal) -> None:
+    """A dry run taps nothing, so there is no one to interrupt — and an
+    unmeasurable platform must not make `--dry-run` unusable off Windows."""
+    client = RecordingClient(
+        responses={},
+        journal=journal,
+        policy=policy,
+        serial=COLLECTOR,
+        dry_run=True,
+    )
+    routine = _routine({"name": "roster", "action": "tap", "x": 10, "y": 20, "expect": ["al.rank"]})
+    idle = IdlePolicy(minimum_idle_seconds=60.0, probe=None)  # would refuse
+
+    report = RoutineRunner(client, journal, idle=idle, sleep=lambda _: None).run(routine)
+
+    assert report.ok
 
 
 def test_main_account_serial_never_reaches_a_tap(policy: AdbPolicy, journal: Journal) -> None:
