@@ -36,7 +36,9 @@ export function MonthCardTable({ rows, now }: { rows: MonthCardRow[]; now?: Date
         <tbody>
           {rows.map((row) => (
             <tr key={row.player_id}>
-              <td>{row.players?.current_name ?? `UID ${row.players?.game_uid ?? '?'}`}</td>
+              <td className="label">
+                {row.players?.current_name ?? `UID ${row.players?.game_uid ?? '?'}`}
+              </td>
               <td className="num">
                 <span className={`badge badge-pass-${classifyPass(row.expires_at, current)}`}>
                   {formatPass(row.expires_at, current)}
