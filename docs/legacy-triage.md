@@ -40,8 +40,8 @@ reference = consult while building, then discard · discard = obsolete.
 | `darkwar_tracker/activity_api.py` | reference | FastAPI Discord Activity API → S13 Edge Function + adapter design |
 | `darkwar_tracker/adb_control.py` | **REPLACED** (S15 prep) | It has *no* denylist and falls back to `devices[0]`; `ui_worker/guard.py` was written against that gap, not ported from it. Shell/tap plumbing still to promote with the ADB workflows |
 | `darkwar_tracker/arena_automation.py` | reference | Tap-sequence workflow shape → `ui_worker` refresh workflows |
-| `darkwar_tracker/refresh_worker.py` | reference | Idle-aware refresh queue → `dw-jobs` consuming `refresh_jobs` |
-| `darkwar_tracker/refresh_control.py` | reference | With refresh_worker.py |
+| `darkwar_tracker/refresh_worker.py` | **CONSULTED** | Its shape informed `jobs/worker.py` (claim → run → record, backoff, dead-letter) and `jobs/executor.py`. Not ported: the legacy worker owns its own SQLite queue and drives ADB directly; ours claims from Supabase and goes through the same guard, idle gate and verified runner as `dw-ui-worker` |
+| `darkwar_tracker/refresh_control.py` | **CONSULTED** | With refresh_worker.py |
 | `darkwar_tracker/idle_detection.py` | **PROMOTED** (FR-COL-009) | → `ui_worker/idle.py`, gated per step in `runner.py` beside the kill switch. Its non-Windows short-circuit to `is_idle=True` was *not* carried over — a permission check that defaults to granted off its supported platform is the same gap as this file's sibling `adb_control.py` picking `devices[0]`. The probe is injected instead, so every branch is tested on Linux CI |
 | `darkwar_tracker/migrate.py` | discard | SQLite migrations; new journal owns its schema |
 | `darkwar_tracker/__init__.py` | discard | Version marker only |
@@ -97,12 +97,16 @@ done. `git rm -r legacy/` is nonetheless premature, because four
 | Still needed by | Rows |
 |---|---|
 | **S13 Discord Activity** — not begun; no `supabase/functions/`, `DiscordRuntimeAdapter` is a comment | `activity_api.py`, `activity/client/*`, `DISCORD_ACTIVITY_SETUP.md` |
-| **`dw-jobs`** — a nine-line stub that raises `SystemExit` | `refresh_worker.py`, `refresh_control.py` |
-| **ADB workflows** — `guard.py`/`runner.py` exist, the tap-sequence library does not | `arena_automation.py`, `adb_control.py` shell/tap plumbing |
+| **Routine coordinates** — `routines/` holds one example whose every x/y is 0 | `arena_automation.py` tap sequences |
 
-"reference" means consult while building, then discard. Two of those three
-have not been built, so the material has not been consulted yet. Deleting
-now would mean re-deriving from git history the moment S13 starts.
+`dw-jobs` now consumes `refresh_jobs`, so `refresh_worker.py` and
+`refresh_control.py` are done with. What remains is S13, which needs a
+Discord app and a tunnel before any of it can be written, and the tap
+coordinates — which cannot come from the legacy files anyway, since they
+are specific to an emulator layout and have to be read off a live screen
+with `dw-ui-worker screenshot`.
 
-Delete when `dw-jobs` consumes `refresh_jobs`, the ADB workflow library
-lands, and S13 has its Edge Function and adapter — whichever comes last.
+That makes `arena_automation.py` reference material for *ordering* the
+screens, not for the numbers. Once a real routine JSON exists and S13 has
+its Edge Function and adapter, nothing here is load-bearing and the
+directory goes.
