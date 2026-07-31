@@ -2,9 +2,10 @@
 // unknown — never as zero. The monthly pass is deliberately ABSENT from
 // this table: it lives on its own unlinked page (see route.ts), and a
 // test below pins that it does not creep back in.
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import { expect, test } from 'vitest';
 import { type RosterRow, RosterTable } from '../src/features/roster/RosterTable';
+import { renderWithQuery } from './renderWithQuery';
 
 const NOW = new Date('2026-07-28T12:00:00Z');
 
@@ -34,25 +35,25 @@ const rows: RosterRow[] = [
 ];
 
 test('renders roster with freshness badge', () => {
-  render(<RosterTable rows={rows} now={NOW} />);
+  renderWithQuery(<RosterTable rows={rows} now={NOW} />);
   expect(screen.getByText('SyntheticPlayer01')).toBeDefined();
   expect(screen.getByText('5m ago')).toBeDefined();
 });
 
 test('missing values render as unknown, not zero', () => {
-  render(<RosterTable rows={rows} now={NOW} />);
+  renderWithQuery(<RosterTable rows={rows} now={NOW} />);
   expect(screen.getByText('UID 58000002')).toBeDefined();
   expect(screen.getByText('No data')).toBeDefined();
   expect(screen.queryByText('0')).toBeNull();
 });
 
 test('empty roster states itself instead of a bare table', () => {
-  render(<RosterTable rows={[]} now={NOW} />);
+  renderWithQuery(<RosterTable rows={[]} now={NOW} />);
   expect(screen.getByText('No member data yet.')).toBeDefined();
 });
 
 test('contribution scores appear, and unknown stays a dash', () => {
-  render(<RosterTable rows={rows} now={NOW} />);
+  renderWithQuery(<RosterTable rows={rows} now={NOW} />);
   expect(screen.getByText('5,860')).toBeDefined();
   expect(screen.getByText('42,000')).toBeDefined();
   // The second player has no observed contribution: dashes, not zeros.
@@ -62,6 +63,6 @@ test('contribution scores appear, and unknown stays a dash', () => {
 test('the monthly pass does not appear in the roster', () => {
   // Admin-only finance data has its own page, reached only by typing its
   // address; the shared dashboard must not even name it.
-  render(<RosterTable rows={rows} now={NOW} />);
+  renderWithQuery(<RosterTable rows={rows} now={NOW} />);
   expect(screen.queryByText('Monthly Card')).toBeNull();
 });

@@ -12,12 +12,15 @@ export function TableSearch({
   label,
   shown,
   total,
+  children,
 }: {
   value: string;
   onChange: (value: string) => void;
   label: string;
   shown: number;
   total: number;
+  /** Extra controls for this table — the favourites filter, so far. */
+  children?: React.ReactNode;
 }) {
   const id = useId();
   return (
@@ -36,6 +39,7 @@ export function TableSearch({
       <output className="count" htmlFor={id}>
         {value.trim() === '' ? `${total}` : `${shown} / ${total}`}
       </output>
+      {children}
     </div>
   );
 }

@@ -1,16 +1,18 @@
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import { expect, test } from 'vitest';
 import {
   type AllianceRankingRow,
   AllianceRankingTable,
   latestPerAlliance,
 } from '../src/features/rankings/AllianceRankingTable';
+import { renderWithQuery } from './renderWithQuery';
 
 const NOW = new Date('2026-07-28T12:00:00Z');
 
 function row(overrides: Partial<AllianceRankingRow>): AllianceRankingRow {
   return {
     snapshot_id: crypto.randomUUID(),
+    alliance_id: crypto.randomUUID(),
     external_id: 'a'.repeat(32),
     server_id: 580,
     rank: 1,
@@ -37,7 +39,7 @@ test('keeps only the newest observation of each alliance', () => {
 });
 
 test('renders alliances with freshness and unknown values', () => {
-  render(
+  renderWithQuery(
     <AllianceRankingTable
       rows={[
         row({ external_id: 'a' }),
@@ -55,6 +57,6 @@ test('renders alliances with freshness and unknown values', () => {
 });
 
 test('empty rankings state themselves', () => {
-  render(<AllianceRankingTable rows={[]} now={NOW} />);
+  renderWithQuery(<AllianceRankingTable rows={[]} now={NOW} />);
   expect(screen.getByText('No alliance ranking data yet.')).toBeDefined();
 });

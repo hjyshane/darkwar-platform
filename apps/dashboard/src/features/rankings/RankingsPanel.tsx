@@ -7,7 +7,7 @@ async function fetchAllianceRankings(): Promise<AllianceRankingRow[]> {
   const { data, error } = await supabase
     .from('alliance_snapshots')
     .select(
-      'snapshot_id, external_id, server_id, rank, name, code, power, member_count, captured_at',
+      'snapshot_id, alliance_id, external_id, server_id, rank, name, code, power, member_count, captured_at',
     )
     .order('captured_at', { ascending: false })
     .limit(200);
