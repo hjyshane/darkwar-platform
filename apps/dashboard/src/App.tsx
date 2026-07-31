@@ -9,6 +9,7 @@ import { RosterPanel } from './features/roster/RosterPanel';
 import { queryKeysForTopic, subscribeDataChanges } from './lib/realtime';
 import { NAV_TABS, type Route, routeFromHash } from './lib/route';
 import { supabase } from './lib/supabase';
+import { useSession } from './lib/useSession';
 
 function DataChangeSubscriber() {
   const queryClient = useQueryClient();
@@ -42,6 +43,7 @@ function subscribeHash(onChange: () => void) {
 }
 
 function Nav({ route }: { route: Route }) {
+  const { data: session } = useSession();
   return (
     <nav aria-label="Screens" className="tabs">
       {NAV_TABS.map((tab) => (
@@ -56,6 +58,13 @@ function Nav({ route }: { route: Route }) {
           {tab.label}
         </a>
       ))}
+      {/* Sign-in used to be an unlisted address, which was fine when only an
+          admin ever needed it. Members now sign in to see their own
+          alliance's figures, so it has to be findable — and the role has to
+          be visible, or "why is this column empty" has no answer. */}
+      <a className="tab tab-end" href="#/login">
+        {session?.email ? `Signed in · ${session.role}` : 'Sign in'}
+      </a>
     </nav>
   );
 }
