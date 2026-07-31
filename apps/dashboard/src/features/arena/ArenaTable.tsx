@@ -1,4 +1,5 @@
 import { FreshnessBadge } from '../../components/FreshnessBadge';
+import { TERMS } from '../../lib/terms';
 
 export interface ArenaHeader {
   snapshot_id: string;
@@ -31,15 +32,15 @@ export function ArenaTable({
   return (
     <>
       <p>
-        <span>{weekLabel} 주차</span> <FreshnessBadge capturedAt={header.captured_at} now={now} />
+        <span>Week {weekLabel}</span> <FreshnessBadge capturedAt={header.captured_at} now={now} />
       </p>
       <table>
         <thead>
           <tr>
-            <th scope="col">순위</th>
-            <th scope="col">이름</th>
-            <th scope="col">점수</th>
-            <th scope="col">방어 전투력</th>
+            <th scope="col">{TERMS.rank}</th>
+            <th scope="col">{TERMS.name}</th>
+            <th scope="col">{TERMS.score}</th>
+            <th scope="col">{TERMS.defensePower}</th>
           </tr>
         </thead>
         <tbody>

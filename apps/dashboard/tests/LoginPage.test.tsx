@@ -27,9 +27,9 @@ test('submits the entered credentials', async () => {
   auth.signInWithPassword.mockResolvedValue({ error: null });
   render(<LoginPage />);
 
-  fireEvent.change(screen.getByLabelText('이메일'), { target: { value: 'a@b.c' } });
-  fireEvent.change(screen.getByLabelText('비밀번호'), { target: { value: 'pw' } });
-  fireEvent.click(screen.getByRole('button', { name: '로그인' }));
+  fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'a@b.c' } });
+  fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'pw' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
 
   await waitFor(() =>
     expect(auth.signInWithPassword).toHaveBeenCalledWith({ email: 'a@b.c', password: 'pw' }),
@@ -42,11 +42,11 @@ test('failure is one neutral message', async () => {
   auth.signInWithPassword.mockResolvedValue({ error: { message: 'Invalid login credentials' } });
   render(<LoginPage />);
 
-  fireEvent.change(screen.getByLabelText('이메일'), { target: { value: 'a@b.c' } });
-  fireEvent.change(screen.getByLabelText('비밀번호'), { target: { value: 'nope' } });
-  fireEvent.click(screen.getByRole('button', { name: '로그인' }));
+  fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'a@b.c' } });
+  fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'nope' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
 
-  expect(await screen.findByText('로그인에 실패했습니다.')).toBeDefined();
+  expect(await screen.findByText('Sign-in failed.')).toBeDefined();
   expect(screen.queryByText(/Invalid login/)).toBeNull();
 });
 
@@ -58,6 +58,6 @@ test('an existing session shows who you are and offers sign-out', async () => {
   render(<LoginPage />);
 
   expect(await screen.findByText(/admin@test.local/)).toBeDefined();
-  fireEvent.click(screen.getByRole('button', { name: '로그아웃' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Sign out' }));
   await waitFor(() => expect(auth.signOut).toHaveBeenCalled());
 });

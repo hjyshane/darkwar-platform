@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
+import { TERMS } from '../../lib/terms';
 
 /**
  * Unlinked, like #/month-cards: nothing on the dashboard points here, and
@@ -32,7 +33,7 @@ export function LoginPage() {
     if (signInError) {
       // One neutral message: this form does not confirm which part was wrong,
       // nor whether the account exists.
-      setError('로그인에 실패했습니다.');
+      setError('Sign-in failed.');
       return;
     }
     window.location.hash = '';
@@ -47,10 +48,10 @@ export function LoginPage() {
     return (
       <main>
         <section aria-labelledby="login-heading">
-          <h2 id="login-heading">로그인</h2>
-          <p>{sessionEmail} 으로 로그인되어 있습니다.</p>
+          <h2 id="login-heading">{TERMS.signIn}</h2>
+          <p>Signed in as {sessionEmail}.</p>
           <button type="button" onClick={() => void signOut()}>
-            로그아웃
+            Sign out
           </button>
         </section>
       </main>
@@ -60,10 +61,10 @@ export function LoginPage() {
   return (
     <main>
       <section aria-labelledby="login-heading">
-        <h2 id="login-heading">로그인</h2>
+        <h2 id="login-heading">{TERMS.signIn}</h2>
         <form onSubmit={(event) => void signIn(event)}>
           <label>
-            이메일
+            Email
             <input
               type="email"
               autoComplete="username"
@@ -73,7 +74,7 @@ export function LoginPage() {
             />
           </label>
           <label>
-            비밀번호
+            Password
             <input
               type="password"
               autoComplete="current-password"
@@ -83,7 +84,7 @@ export function LoginPage() {
             />
           </label>
           <button type="submit" disabled={busy}>
-            {busy ? '확인 중…' : '로그인'}
+            {busy ? 'Signing in…' : TERMS.signIn}
           </button>
         </form>
         {error && <p className="error">{error}</p>}

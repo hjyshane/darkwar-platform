@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
+import { TERMS } from '../../lib/terms';
 import { type AllianceRankingRow, AllianceRankingTable } from './AllianceRankingTable';
 
 async function fetchAllianceRankings(): Promise<AllianceRankingRow[]> {
@@ -23,9 +24,9 @@ export function RankingsPanel() {
   });
   return (
     <section aria-labelledby="rankings-heading">
-      <h2 id="rankings-heading">연맹 순위</h2>
-      {isPending && <p className="empty">불러오는 중…</p>}
-      {error && <p className="error">연맹 순위를 불러오지 못했습니다: {error.message}</p>}
+      <h2 id="rankings-heading">{TERMS.allianceRanking}</h2>
+      {isPending && <p className="empty">Loading…</p>}
+      {error && <p className="error">Could not load alliance ranking: {error.message}</p>}
       {data && <AllianceRankingTable rows={data} />}
     </section>
   );

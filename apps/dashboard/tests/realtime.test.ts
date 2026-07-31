@@ -7,6 +7,10 @@ test('roster topics refetch the roster', () => {
   expect(queryKeysForTopic('alliance_contribution_snapshots')).toEqual([['roster']]);
 });
 
+test('component power boards refetch the ranking panel', () => {
+  expect(queryKeysForTopic('player_component_power_snapshots')).toEqual([['crossRankings']]);
+});
+
 test('player snapshots feed both the roster summary and the ranking boards', () => {
   // server.rank / kill.rank write player_snapshots, and those rows are the
   // cross-server boards; the same insert also advances the players summary.

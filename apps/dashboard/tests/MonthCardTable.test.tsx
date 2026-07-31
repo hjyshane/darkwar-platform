@@ -24,7 +24,7 @@ test('only the exact address reaches the page', () => {
 test('an admin sees holder, status and expiry', () => {
   render(<MonthCardTable rows={rows} now={NOW} />);
   expect(screen.getByText('Holder')).toBeDefined();
-  expect(screen.getByText('D-27')).toBeDefined();
+  expect(screen.getByText('27d left')).toBeDefined();
   expect(screen.getByText('2026-08-25')).toBeDefined();
 });
 
@@ -33,5 +33,5 @@ test('empty is one neutral message, whoever is asking', () => {
   // zero. The page must not distinguish the two — confirming "there is
   // data you cannot see" would leak by implication.
   render(<MonthCardTable rows={[]} now={NOW} />);
-  expect(screen.getByText('표시할 데이터가 없습니다.')).toBeDefined();
+  expect(screen.getByText('Nothing to show.')).toBeDefined();
 });

@@ -47,7 +47,7 @@ test('renders alliances with freshness and unknown values', () => {
     />,
   );
   expect(screen.getByText('[CBFW] Tempest')).toBeDefined();
-  expect(screen.getAllByText('5분 전')).toHaveLength(2);
+  expect(screen.getAllByText('5m ago')).toHaveLength(2);
   // An alliance with no name falls back to its id, and unknown power
   // renders as unknown rather than zero.
   expect(screen.getByText('bbbbbbbb')).toBeDefined();
@@ -56,5 +56,5 @@ test('renders alliances with freshness and unknown values', () => {
 
 test('empty rankings state themselves', () => {
   render(<AllianceRankingTable rows={[]} now={NOW} />);
-  expect(screen.getByText('연맹 순위 데이터가 아직 없습니다.')).toBeDefined();
+  expect(screen.getByText('No alliance ranking data yet.')).toBeDefined();
 });
