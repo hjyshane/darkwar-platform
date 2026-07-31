@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
+import { TERMS } from '../../lib/terms';
 import { type RosterRow, RosterTable } from './RosterTable';
 
 async function fetchRoster(): Promise<RosterRow[]> {
@@ -20,9 +21,9 @@ export function RosterPanel() {
   const { data, error, isPending } = useQuery({ queryKey: ['roster'], queryFn: fetchRoster });
   return (
     <section aria-labelledby="roster-heading">
-      <h2 id="roster-heading">로스터</h2>
-      {isPending && <p className="empty">불러오는 중…</p>}
-      {error && <p className="error">로스터를 불러오지 못했습니다: {error.message}</p>}
+      <h2 id="roster-heading">{TERMS.members}</h2>
+      {isPending && <p className="empty">Loading…</p>}
+      {error && <p className="error">Could not load members: {error.message}</p>}
       {data && <RosterTable rows={data} />}
     </section>
   );

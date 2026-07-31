@@ -8,6 +8,7 @@
 // shape.
 
 import { supabase } from '../../lib/supabase';
+import { TERMS } from '../../lib/terms';
 import { latestBatch } from './latestBatch';
 
 export type BoardId =
@@ -93,44 +94,44 @@ async function fetchComponentBoard(metric: string): Promise<BoardRow[]> {
 export const BOARDS: readonly Board[] = [
   {
     id: 'power',
-    label: '전투력',
-    valueLabel: '전투력',
+    label: TERMS.power,
+    valueLabel: TERMS.power,
     unitLabel: null,
     fetch: () => fetchFromPlayerSnapshots('server.rank', 'power'),
   },
   {
     id: 'kills',
-    label: '킬',
-    valueLabel: '킬',
+    label: TERMS.kills,
+    valueLabel: TERMS.kills,
     unitLabel: null,
     fetch: () => fetchFromPlayerSnapshots('kill.rank', 'kills'),
   },
   {
     id: 'hero_power_total',
-    label: '영웅 총합',
-    valueLabel: '영웅 총 전투력',
+    label: TERMS.heroPower,
+    valueLabel: TERMS.heroPower,
     unitLabel: null,
     fetch: () => fetchComponentBoard('hero_power_total'),
   },
   {
     id: 'hero_power_best',
-    label: '최강 영웅',
-    valueLabel: '영웅 전투력',
-    unitLabel: '영웅 ID',
+    label: TERMS.topHero,
+    valueLabel: TERMS.power,
+    unitLabel: TERMS.heroId,
     fetch: () => fetchComponentBoard('hero_power_best'),
   },
   {
     id: 'pet_power_total',
-    label: '펫 총합',
-    valueLabel: '펫 총 전투력',
+    label: TERMS.petPower,
+    valueLabel: TERMS.petPower,
     unitLabel: null,
     fetch: () => fetchComponentBoard('pet_power_total'),
   },
   {
     id: 'pet_power_best',
-    label: '최강 펫',
-    valueLabel: '펫 전투력',
-    unitLabel: '펫 ID',
+    label: TERMS.topPet,
+    valueLabel: TERMS.power,
+    unitLabel: TERMS.petId,
     fetch: () => fetchComponentBoard('pet_power_best'),
   },
 ];

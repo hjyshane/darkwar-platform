@@ -17,16 +17,16 @@ export function formatAge(capturedAt: string, now: Date): string {
   const ageMs = Math.max(0, now.getTime() - new Date(capturedAt).getTime());
   const minutes = Math.floor(ageMs / 60_000);
   if (minutes < 1) {
-    return '방금';
+    return 'just now';
   }
   if (minutes < 60) {
-    return `${minutes}분 전`;
+    return `${minutes}m ago`;
   }
   const hours = Math.floor(minutes / 60);
   if (hours < 24) {
-    return `${hours}시간 전`;
+    return `${hours}h ago`;
   }
-  return `${Math.floor(hours / 24)}일 전`;
+  return `${Math.floor(hours / 24)}d ago`;
 }
 
 export type PassStatus = 'active' | 'expiring' | 'expired' | 'none';
@@ -52,8 +52,10 @@ export function formatPass(expiresAt: string | null, now: Date): string {
     return '—';
   }
   if (status === 'expired') {
-    return '만료';
+    return 'Expired';
   }
   const daysLeft = Math.floor((new Date(expiresAt).getTime() - now.getTime()) / 86_400_000);
-  return daysLeft === 0 ? '오늘 만료' : `D-${daysLeft}`;
+  // `D-n` is a Korean/Japanese convention; the rest of the UI speaks the
+  // game's English, so count down in words.
+  return daysLeft === 0 ? 'Expires today' : `${daysLeft}d left`;
 }

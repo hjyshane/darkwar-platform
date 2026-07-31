@@ -51,8 +51,8 @@ describe('boards', () => {
   it('names a unit only on the boards that rank one', () => {
     // The totals aggregate across every hero/pet, so there is no single
     // unit to name — a column of dashes would imply otherwise.
-    expect(boardById('hero_power_best').unitLabel).toBe('영웅 ID');
-    expect(boardById('pet_power_best').unitLabel).toBe('펫 ID');
+    expect(boardById('hero_power_best').unitLabel).toBe('Hero ID');
+    expect(boardById('pet_power_best').unitLabel).toBe('Pet ID');
     expect(boardById('hero_power_total').unitLabel).toBeNull();
     expect(boardById('power').unitLabel).toBeNull();
   });
@@ -61,7 +61,7 @@ describe('boards', () => {
 describe('CrossRankingTable', () => {
   it('labels the ranked number per board', () => {
     render(<CrossRankingTable rows={[row()]} board={boardById('hero_power_total')} />);
-    expect(screen.getByRole('columnheader', { name: '영웅 총 전투력' })).toBeDefined();
+    expect(screen.getByRole('columnheader', { name: 'Hero Power' })).toBeDefined();
     expect(screen.getByText('109,781,050')).toBeDefined();
   });
 
@@ -69,13 +69,13 @@ describe('CrossRankingTable', () => {
     render(
       <CrossRankingTable rows={[row({ unit_id: 40002 })]} board={boardById('hero_power_best')} />,
     );
-    expect(screen.getByRole('columnheader', { name: '영웅 ID' })).toBeDefined();
+    expect(screen.getByRole('columnheader', { name: 'Hero ID' })).toBeDefined();
     expect(screen.getByText('40002')).toBeDefined();
   });
 
   it('omits the unit column on a total board', () => {
     render(<CrossRankingTable rows={[row()]} board={boardById('pet_power_total')} />);
-    expect(screen.queryByRole('columnheader', { name: '펫 ID' })).toBeNull();
+    expect(screen.queryByRole('columnheader', { name: 'Pet ID' })).toBeNull();
   });
 
   it('renders unknown as a dash, never zero (FR-UI-008)', () => {

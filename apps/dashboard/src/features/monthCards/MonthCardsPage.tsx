@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
+import { TERMS } from '../../lib/terms';
 import { type MonthCardRow, MonthCardTable } from './MonthCardTable';
 
 async function fetchMonthCards(): Promise<MonthCardRow[]> {
@@ -23,9 +24,9 @@ export function MonthCardsPage() {
   return (
     <main>
       <section aria-labelledby="month-cards-heading">
-        <h2 id="month-cards-heading">월정액 현황</h2>
-        {isPending && <p className="empty">불러오는 중…</p>}
-        {error && <p className="error">불러오지 못했습니다: {error.message}</p>}
+        <h2 id="month-cards-heading">{TERMS.monthlyCard}</h2>
+        {isPending && <p className="empty">Loading…</p>}
+        {error && <p className="error">Could not load: {error.message}</p>}
         {data && <MonthCardTable rows={data} />}
       </section>
     </main>

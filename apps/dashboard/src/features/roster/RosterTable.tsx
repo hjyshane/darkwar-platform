@@ -1,4 +1,5 @@
 import { FreshnessBadge } from '../../components/FreshnessBadge';
+import { TERMS } from '../../lib/terms';
 
 export interface RosterRow {
   player_id: string;
@@ -21,19 +22,19 @@ function formatNumber(value: number | null): string {
 
 export function RosterTable({ rows, now }: { rows: RosterRow[]; now?: Date }) {
   if (rows.length === 0) {
-    return <p className="empty">로스터 데이터가 아직 없습니다.</p>;
+    return <p className="empty">No member data yet.</p>;
   }
   return (
     <table>
       <thead>
         <tr>
-          <th scope="col">이름</th>
-          <th scope="col">HQ</th>
-          <th scope="col">전투력</th>
-          <th scope="col">킬</th>
-          <th scope="col">일일 기여</th>
-          <th scope="col">주간 대결</th>
-          <th scope="col">마지막 관측</th>
+          <th scope="col">{TERMS.name}</th>
+          <th scope="col">{TERMS.hq}</th>
+          <th scope="col">{TERMS.power}</th>
+          <th scope="col">{TERMS.kills}</th>
+          <th scope="col">{TERMS.dailyDonation}</th>
+          <th scope="col">{TERMS.allianceBattle}</th>
+          <th scope="col">{TERMS.lastSeen}</th>
         </tr>
       </thead>
       <tbody>

@@ -1,4 +1,5 @@
 import { FreshnessBadge } from '../../components/FreshnessBadge';
+import { TERMS } from '../../lib/terms';
 
 export interface AllianceRankingRow {
   snapshot_id: string;
@@ -38,17 +39,17 @@ export function AllianceRankingTable({
 }) {
   const latest = latestPerAlliance(rows);
   if (latest.length === 0) {
-    return <p className="empty">연맹 순위 데이터가 아직 없습니다.</p>;
+    return <p className="empty">No alliance ranking data yet.</p>;
   }
   return (
     <table>
       <thead>
         <tr>
-          <th scope="col">연맹</th>
-          <th scope="col">서버</th>
-          <th scope="col">전투력</th>
-          <th scope="col">인원</th>
-          <th scope="col">관측</th>
+          <th scope="col">{TERMS.alliance}</th>
+          <th scope="col">{TERMS.server}</th>
+          <th scope="col">{TERMS.power}</th>
+          <th scope="col">{TERMS.members_count}</th>
+          <th scope="col">{TERMS.observed}</th>
         </tr>
       </thead>
       <tbody>

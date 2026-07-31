@@ -36,19 +36,19 @@ const rows: RosterRow[] = [
 test('renders roster with freshness badge', () => {
   render(<RosterTable rows={rows} now={NOW} />);
   expect(screen.getByText('SyntheticPlayer01')).toBeDefined();
-  expect(screen.getByText('5분 전')).toBeDefined();
+  expect(screen.getByText('5m ago')).toBeDefined();
 });
 
 test('missing values render as unknown, not zero', () => {
   render(<RosterTable rows={rows} now={NOW} />);
   expect(screen.getByText('UID 58000002')).toBeDefined();
-  expect(screen.getByText('데이터 없음')).toBeDefined();
+  expect(screen.getByText('No data')).toBeDefined();
   expect(screen.queryByText('0')).toBeNull();
 });
 
 test('empty roster states itself instead of a bare table', () => {
   render(<RosterTable rows={[]} now={NOW} />);
-  expect(screen.getByText('로스터 데이터가 아직 없습니다.')).toBeDefined();
+  expect(screen.getByText('No member data yet.')).toBeDefined();
 });
 
 test('contribution scores appear, and unknown stays a dash', () => {
@@ -63,5 +63,5 @@ test('the monthly pass does not appear in the roster', () => {
   // Admin-only finance data has its own page, reached only by typing its
   // address; the shared dashboard must not even name it.
   render(<RosterTable rows={rows} now={NOW} />);
-  expect(screen.queryByText('월정액')).toBeNull();
+  expect(screen.queryByText('Monthly Card')).toBeNull();
 });

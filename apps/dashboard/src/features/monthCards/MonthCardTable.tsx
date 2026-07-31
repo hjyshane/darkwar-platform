@@ -1,4 +1,5 @@
 import { classifyPass, formatPass } from '../../lib/freshness';
+import { TERMS } from '../../lib/terms';
 
 export interface MonthCardRow {
   player_id: string;
@@ -16,15 +17,15 @@ export function MonthCardTable({ rows, now }: { rows: MonthCardRow[]; now?: Date
     // True for an admin before any pass was observed AND for everyone
     // else (RLS returns nothing). Deliberately the same message: this
     // page does not confirm to a non-admin that there is data to miss.
-    return <p className="empty">표시할 데이터가 없습니다.</p>;
+    return <p className="empty">Nothing to show.</p>;
   }
   return (
     <table>
       <thead>
         <tr>
-          <th scope="col">이름</th>
-          <th scope="col">상태</th>
-          <th scope="col">만료일</th>
+          <th scope="col">{TERMS.name}</th>
+          <th scope="col">{TERMS.status}</th>
+          <th scope="col">{TERMS.expires}</th>
         </tr>
       </thead>
       <tbody>

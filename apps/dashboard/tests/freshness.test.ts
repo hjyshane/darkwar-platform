@@ -16,10 +16,10 @@ test('null capture is missing, never zero-aged', () => {
 });
 
 test.each([
-  ['2026-07-28T11:59:40Z', '방금'],
-  ['2026-07-28T11:55:00Z', '5분 전'],
-  ['2026-07-28T09:00:00Z', '3시간 전'],
-  ['2026-07-26T12:00:00Z', '2일 전'],
+  ['2026-07-28T11:59:40Z', 'just now'],
+  ['2026-07-28T11:55:00Z', '5m ago'],
+  ['2026-07-28T09:00:00Z', '3h ago'],
+  ['2026-07-26T12:00:00Z', '2d ago'],
 ])('formatAge(%s) → %s', (capturedAt, label) => {
   expect(formatAge(capturedAt, NOW)).toBe(label);
 });
@@ -33,7 +33,7 @@ test('pass status distinguishes never-seen from expired', () => {
 
 test('pass formatting', () => {
   expect(formatPass(null, NOW)).toBe('—');
-  expect(formatPass('2026-07-01T00:00:00Z', NOW)).toBe('만료');
-  expect(formatPass('2026-07-28T20:00:00Z', NOW)).toBe('오늘 만료');
-  expect(formatPass('2026-08-25T02:00:00Z', NOW)).toBe('D-27');
+  expect(formatPass('2026-07-01T00:00:00Z', NOW)).toBe('Expired');
+  expect(formatPass('2026-07-28T20:00:00Z', NOW)).toBe('Expires today');
+  expect(formatPass('2026-08-25T02:00:00Z', NOW)).toBe('27d left');
 });

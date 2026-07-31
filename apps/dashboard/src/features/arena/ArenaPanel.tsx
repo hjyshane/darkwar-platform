@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
+import { TERMS } from '../../lib/terms';
 import { type ArenaEntryRow, type ArenaHeader, ArenaTable } from './ArenaTable';
 
 interface ArenaData {
@@ -35,12 +36,12 @@ export function ArenaPanel() {
   const { data, error, isPending } = useQuery({ queryKey: ['arena'], queryFn: fetchArena });
   return (
     <section aria-labelledby="arena-heading">
-      <h2 id="arena-heading">아레나</h2>
-      {isPending && <p className="empty">불러오는 중…</p>}
-      {error && <p className="error">아레나를 불러오지 못했습니다: {error.message}</p>}
+      <h2 id="arena-heading">{TERMS.arena}</h2>
+      {isPending && <p className="empty">Loading…</p>}
+      {error && <p className="error">Could not load arena: {error.message}</p>}
       {data &&
         (data.header === null ? (
-          <p className="empty">아레나 스냅샷이 아직 없습니다.</p>
+          <p className="empty">No arena snapshot yet.</p>
         ) : (
           <ArenaTable header={data.header} entries={data.entries} />
         ))}
