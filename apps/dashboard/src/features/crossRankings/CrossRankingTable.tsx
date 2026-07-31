@@ -13,27 +13,29 @@ export function CrossRankingTable({ rows, board }: { rows: BoardRow[]; board: Bo
     return <p className="empty">No ranking data yet.</p>;
   }
   return (
-    <table>
-      <thead>
-        <tr>
-          <th scope="col">{TERMS.rank}</th>
-          <th scope="col">{TERMS.name}</th>
-          <th scope="col">{TERMS.server}</th>
-          <th scope="col">{board.valueLabel}</th>
-          {board.unitLabel && <th scope="col">{board.unitLabel}</th>}
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row) => (
-          <tr key={row.id}>
-            <td>{row.rank ?? '—'}</td>
-            <td>{row.name ?? `UID ${row.game_uid}`}</td>
-            <td>{row.server_id}</td>
-            <td>{formatNumber(row.value)}</td>
-            {board.unitLabel && <td>{row.unit_id ?? '—'}</td>}
+    <div className="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">{TERMS.rank}</th>
+            <th scope="col">{TERMS.name}</th>
+            <th scope="col">{TERMS.server}</th>
+            <th scope="col">{board.valueLabel}</th>
+            {board.unitLabel && <th scope="col">{board.unitLabel}</th>}
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.id}>
+              <td>{row.rank ?? '—'}</td>
+              <td>{row.name ?? `UID ${row.game_uid}`}</td>
+              <td>{row.server_id}</td>
+              <td>{formatNumber(row.value)}</td>
+              {board.unitLabel && <td>{row.unit_id ?? '—'}</td>}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
