@@ -31,7 +31,7 @@
   --text-lg: 1.25rem;
   --text-xl: 1.75rem;
 
-  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 
   --measure: 72rem;
 
@@ -139,7 +139,7 @@ h1 {
 
 /* Keyed off aria-current, so the accessible state and the visible state
  * cannot disagree. */
-.tab[aria-current='page'] {
+.tab[aria-current="page"] {
   border-bottom-color: var(--accent);
   color: var(--fg);
   font-weight: 600;
