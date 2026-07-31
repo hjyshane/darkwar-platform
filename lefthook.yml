@@ -19,6 +19,26 @@ pre-commit:
       exclude: "legacy/**"
       run: pnpm biome check --write --no-errors-on-unmatched {staged_files}
       stage_fixed: true
+    # CI regenerates the types and diffs them, which is the authoritative
+    # check but only reports after a push. This catches the same mistake at
+    # commit time without needing Docker or a running stack.
+    types-follow-schema:
+      glob: "supabase/migrations/*.sql"
+      run: |
+        if git diff --cached --name-only | grep -q '^packages/shared-types/src/database.types.ts$'; then
+          exit 0
+        fi
+        echo "Migrations are staged but the generated types are not."
+        echo ""
+        echo "  supabase start      # if the stack is not already up"
+        echo "  pnpm db:types"
+        echo "  git add packages/shared-types/src/database.types.ts"
+        echo ""
+        echo "All 18 migrations so far have changed the generated types, including"
+        echo "ones that look policy-only: 0014 drops a NOT NULL, which flips a"
+        echo "field to nullable. If this migration genuinely does not, bypass with"
+        echo "git commit --no-verify."
+        exit 1
     block-capture-artifacts:
       glob: "*.{pcap,pcapng,db,sqlite,sqlite3,env}"
       run: |
