@@ -188,10 +188,10 @@ class JobWorker:
             log.warning("jobs.run_not_recorded", job_id=job.job_id, error=str(exc))
 
     def backoff_seconds(self, attempt: int) -> float:
-        return min(
-            self.config.base_backoff_seconds * (2 ** max(0, attempt - 1)),
-            self.config.max_backoff_seconds,
-        )
+        # float() because mypy types int ** int as Any (the result is not
+        # necessarily an int), which would leak out of the declared return.
+        growth = float(2 ** max(0, attempt - 1))
+        return min(self.config.base_backoff_seconds * growth, self.config.max_backoff_seconds)
 
     # -- execution -----------------------------------------------------------
 
