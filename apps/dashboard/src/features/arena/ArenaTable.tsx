@@ -16,13 +16,20 @@ export interface ArenaEntryRow {
   rank: number;
   name: string | null;
   game_uid: number;
+  server_id: number;
+  /** As the arena response reported it — text, because the payload carries
+   * no alliance id to resolve against public.alliances. */
+  alliance_name: string | null;
+  alliance_code: string | null;
   score: number | null;
   defense_power: number | null;
 }
 
 const numberFormat = new Intl.NumberFormat('ko-KR');
 
-const SEARCH_FIELDS = ['name', 'game_uid'] as const;
+// A cross-server board is scanned by who is in it: "who from LovE made the
+// top 100", or "how many of these are from 582".
+const SEARCH_FIELDS = ['name', 'game_uid', 'alliance_name', 'alliance_code', 'server_id'] as const;
 
 export function ArenaTable({
   header,
@@ -60,6 +67,12 @@ export function ArenaTable({
               <SortableTh className="label" onSort={onSort} sort={sort} sortKey="name">
                 {TERMS.name}
               </SortableTh>
+              <SortableTh onSort={onSort} sort={sort} sortKey="alliance_code">
+                {TERMS.alliance}
+              </SortableTh>
+              <SortableTh numeric onSort={onSort} sort={sort} sortKey="server_id">
+                {TERMS.server}
+              </SortableTh>
               <SortableTh numeric onSort={onSort} sort={sort} sortKey="score">
                 {TERMS.score}
               </SortableTh>
@@ -73,6 +86,14 @@ export function ArenaTable({
               <tr key={entry.snapshot_id}>
                 <td className="num">{entry.rank}</td>
                 <td className="label">{entry.name ?? `UID ${entry.game_uid}`}</td>
+                <td>
+                  {/* Tag first because that is what people say out loud;
+                      the full name is there for the ones nobody knows by
+                      tag. Unallied stays an em dash, like every other
+                      unknown in these tables. */}
+                  {entry.alliance_code ?? entry.alliance_name ?? '—'}
+                </td>
+                <td className="num">{entry.server_id}</td>
                 <td className="num">
                   {entry.score === null ? '—' : numberFormat.format(entry.score)}
                 </td>

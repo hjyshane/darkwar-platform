@@ -47,6 +47,10 @@ def test_header_and_entries() -> None:
     # Cross-server matchup: entries carry their own subject server.
     assert {e.row["server_id"] for e in entries} == {580, 582}
     assert "alName" in top["raw"]
+    # Promoted out of raw: the response names the opponent's alliance, so a
+    # top-100 board can be read by who is in it rather than only by uid.
+    assert top["alliance_name"] == "Alliance01"
+    assert top["alliance_code"] == "A001"
 
 
 def test_null_and_missing_optionals() -> None:
@@ -62,6 +66,10 @@ def test_null_and_missing_optionals() -> None:
     assert bare["defense_power"] is None
     # serverId missing → derived from the uid's embedded server suffix.
     assert bare["server_id"] == 582
+    # An unallied player has no alliance, which must stay null rather than
+    # becoming an empty tag that renders as a blank chip.
+    assert bare["alliance_name"] is None
+    assert bare["alliance_code"] is None
 
 
 def test_malformed_payload_rejected() -> None:

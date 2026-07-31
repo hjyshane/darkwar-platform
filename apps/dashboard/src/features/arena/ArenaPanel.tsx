@@ -23,7 +23,9 @@ async function fetchArena(): Promise<ArenaData> {
   }
   const { data: entries, error: entriesError } = await supabase
     .from('arena_entries')
-    .select('snapshot_id, rank, name, game_uid, score, defense_power')
+    .select(
+      'snapshot_id, rank, name, game_uid, server_id, alliance_name, alliance_code, score, defense_power',
+    )
     .eq('arena_snapshot_id', header.snapshot_id)
     .order('rank', { ascending: true });
   if (entriesError) {
