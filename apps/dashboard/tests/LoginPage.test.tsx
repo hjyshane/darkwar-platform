@@ -1,4 +1,6 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { beforeEach, expect, test, vi } from 'vitest';
 
 const auth = vi.hoisted(() => ({
@@ -7,14 +9,27 @@ const auth = vi.hoisted(() => ({
   signOut: vi.fn(),
 }));
 
-vi.mock('../src/lib/supabase', () => ({ supabase: { auth } }));
+// useSession reads the caller's own app_users row to show which role the
+// database has them at.
+const from = vi.hoisted(() => vi.fn());
+
+vi.mock('../src/lib/supabase', () => ({ supabase: { auth, from } }));
 
 import { LoginPage } from '../src/features/auth/LoginPage';
 import { routeFromHash } from '../src/lib/route';
 
+/** Retries off: a failing query should surface now, not after backoff. */
+function withQueryClient(ui: ReactNode) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return <QueryClientProvider client={client}>{ui}</QueryClientProvider>;
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   auth.getSession.mockResolvedValue({ data: { session: null } });
+  from.mockReturnValue({
+    select: () => ({ eq: () => ({ limit: async () => ({ data: [] }) }) }),
+  });
 });
 
 test('the login address is unlinked but routable', () => {
@@ -25,7 +40,7 @@ test('the login address is unlinked but routable', () => {
 
 test('submits the entered credentials', async () => {
   auth.signInWithPassword.mockResolvedValue({ error: null });
-  render(<LoginPage />);
+  render(withQueryClient(<LoginPage />));
 
   fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'a@b.c' } });
   fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'pw' } });
@@ -40,7 +55,7 @@ test('failure is one neutral message', async () => {
   // Not "wrong password", not "no such user": the form must not confirm
   // whether an account exists.
   auth.signInWithPassword.mockResolvedValue({ error: { message: 'Invalid login credentials' } });
-  render(<LoginPage />);
+  render(withQueryClient(<LoginPage />));
 
   fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'a@b.c' } });
   fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'nope' } });
@@ -55,7 +70,7 @@ test('an existing session shows who you are and offers sign-out', async () => {
     data: { session: { user: { email: 'admin@test.local' } } },
   });
   auth.signOut.mockResolvedValue({ error: null });
-  render(<LoginPage />);
+  render(withQueryClient(<LoginPage />));
 
   expect(await screen.findByText(/admin@test.local/)).toBeDefined();
   fireEvent.click(screen.getByRole('button', { name: 'Sign out' }));

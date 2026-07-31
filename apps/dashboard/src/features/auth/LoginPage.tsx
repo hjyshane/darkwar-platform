@@ -1,15 +1,19 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
+import { useSession } from '../../lib/useSession';
+import { JoinCodeForm } from './JoinCodeForm';
 
 /**
- * Unlinked, like #/month-cards: nothing on the dashboard points here, and
- * there is no logged-in indicator anywhere else — the shared screen stays
- * identical whether an admin is signed in or not. Sign-out therefore also
- * lives HERE: revisit the address to see who you are or to leave.
+ * No longer unlinked. It was, back when signing in was an admin-only errand
+ * and the shared screen looked the same either way — but 0020 moved
+ * alliance contribution behind the member role, so ordinary members now
+ * sign in to see their own alliance, and a page nobody can find is no use
+ * to them. The nav links here and shows who you are.
  *
- * The address is not the security boundary. Signing in only changes which
- * JWT the queries carry; what that JWT may read is decided by RLS.
+ * The address is still not the security boundary. Signing in only changes
+ * which JWT the queries carry; what that JWT may read is decided by RLS.
  */
 export function LoginPage() {
   const [email, setEmail] = useState('');
@@ -17,6 +21,8 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [sessionEmail, setSessionEmail] = useState<string | null>(null);
+  const { data: session } = useSession();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     void supabase.auth.getSession().then(({ data }) => {
@@ -44,13 +50,23 @@ export function LoginPage() {
     setSessionEmail(null);
   }
 
+  function refreshSession() {
+    // The role changed, so every cached answer was computed under the old
+    // one — including the roster's contribution query, which returned
+    // nothing a moment ago.
+    void queryClient.invalidateQueries();
+  }
+
   if (sessionEmail) {
     return (
       <main>
         <section aria-labelledby="login-heading">
           <h2 id="login-heading">{TERMS.signIn}</h2>
-          <p>Signed in as {sessionEmail}.</p>
-          <button type="button" onClick={() => void signOut()}>
+          <p>
+            Signed in as {sessionEmail} — <strong>{session?.role ?? 'viewer'}</strong>.
+          </p>
+          {session?.role === 'viewer' && <JoinCodeForm onRedeemed={() => refreshSession()} />}
+          <button onClick={() => void signOut()} type="button">
             Sign out
           </button>
         </section>

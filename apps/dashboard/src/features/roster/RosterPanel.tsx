@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
+import { useSession } from '../../lib/useSession';
 import { type RosterRow, RosterTable } from './RosterTable';
 
 /** Two queries rather than an embedded select.
@@ -45,9 +46,30 @@ async function fetchRoster(): Promise<RosterRow[]> {
 
 export function RosterPanel() {
   const { data, error, isPending } = useQuery({ queryKey: ['roster'], queryFn: fetchRoster });
+  const { data: session } = useSession();
+  const restricted = session !== undefined && session.role === 'viewer';
   return (
     <section aria-labelledby="roster-heading">
       <h2 id="roster-heading">{TERMS.members}</h2>
+      {/* Without this the contribution columns are just full of em dashes,
+          which elsewhere in this app means "never observed". Here it means
+          "not yours to see", and those are different enough that saying so
+          is the whole point (FR-UI-008). */}
+      {restricted && (
+        <p className="empty">
+          Donation and duel figures are alliance-only.{' '}
+          {session?.email ? (
+            <>
+              This account is a viewer — <a href="#/login">redeem an invitation code</a> to see
+              them.
+            </>
+          ) : (
+            <>
+              <a href="#/login">Sign in</a> to see them.
+            </>
+          )}
+        </p>
+      )}
       {isPending && <p className="empty">Loading…</p>}
       {error && <p className="error">Could not load members: {error.message}</p>}
       {data && <RosterTable rows={data} />}

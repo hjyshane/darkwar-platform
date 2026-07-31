@@ -1044,6 +1044,74 @@ export type Database = {
           },
         ]
       }
+      join_code_attempts: {
+        Row: {
+          failed_count: number
+          first_failed_at: string
+          last_failed_at: string
+          user_id: string
+        }
+        Insert: {
+          failed_count?: number
+          first_failed_at?: string
+          last_failed_at?: string
+          user_id: string
+        }
+        Update: {
+          failed_count?: number
+          first_failed_at?: string
+          last_failed_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      join_codes: {
+        Row: {
+          code: string
+          code_id: string
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          grants_role: Database["public"]["Enums"]["app_role"]
+          max_uses: number | null
+          note: string | null
+          revoked_at: string | null
+          used_count: number
+        }
+        Insert: {
+          code: string
+          code_id?: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          grants_role?: Database["public"]["Enums"]["app_role"]
+          max_uses?: number | null
+          note?: string | null
+          revoked_at?: string | null
+          used_count?: number
+        }
+        Update: {
+          code?: string
+          code_id?: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          grants_role?: Database["public"]["Enums"]["app_role"]
+          max_uses?: number | null
+          note?: string | null
+          revoked_at?: string | null
+          used_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "join_codes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       metric_registry: {
         Row: {
           aggregation: string
@@ -1750,6 +1818,10 @@ export type Database = {
       }
       current_app_role: {
         Args: never
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
+      redeem_join_code: {
+        Args: { p_code: string }
         Returns: Database["public"]["Enums"]["app_role"]
       }
       reset_week_start: { Args: { ts: string }; Returns: string }
