@@ -38,6 +38,10 @@ class _Entry(BaseModel):
     score: int | None = None
     power: int | None = None
     server_id: int | None = Field(default=None, alias="serverId")
+    # Reported by the arena response itself. There is no alliance id in the
+    # payload, so these stay text rather than resolving to public.alliances.
+    alliance_name: str | None = Field(default=None, alias="alName")
+    alliance_code: str | None = Field(default=None, alias="abbr")
 
     @field_validator("uid")
     @classmethod
@@ -125,6 +129,10 @@ def normalize(observation: Observation) -> list[NormalizedRow]:
                     "rank": entry.rank,
                     "score": entry.score,
                     "defense_power": entry.power,
+                    # Empty string means "no alliance" in this payload, and
+                    # an empty tag must not read as a tag.
+                    "alliance_name": entry.alliance_name or None,
+                    "alliance_code": entry.alliance_code or None,
                 },
                 entity_refs={
                     "player": {

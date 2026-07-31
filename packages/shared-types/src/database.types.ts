@@ -542,6 +542,8 @@ export type Database = {
       }
       arena_entries: {
         Row: {
+          alliance_code: string | null
+          alliance_name: string | null
           arena_snapshot_id: string
           captured_at: string
           collected_from_server_id: number
@@ -562,6 +564,8 @@ export type Database = {
           source_command: string
         }
         Insert: {
+          alliance_code?: string | null
+          alliance_name?: string | null
           arena_snapshot_id: string
           captured_at: string
           collected_from_server_id: number
@@ -582,6 +586,8 @@ export type Database = {
           source_command: string
         }
         Update: {
+          alliance_code?: string | null
+          alliance_name?: string | null
           arena_snapshot_id?: string
           captured_at?: string
           collected_from_server_id?: number
