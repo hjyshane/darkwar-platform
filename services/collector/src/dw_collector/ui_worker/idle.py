@@ -25,6 +25,7 @@ from __future__ import annotations
 import ctypes
 import os
 from dataclasses import dataclass
+from pathlib import PureWindowsPath
 from typing import Any, Protocol
 
 DEFAULT_PROTECTED_TERMS: tuple[str, ...] = (
@@ -125,10 +126,10 @@ class WindowsInputProbe:
         try:
             size = ctypes.c_uint32(32768)
             path_buffer = ctypes.create_unicode_buffer(size.value)
-            ok = kernel32.QueryFullProcessImageNameW(
-                handle, 0, path_buffer, ctypes.byref(size)
-            )
-            process_name = os.path.basename(path_buffer.value) if ok else ""
+            ok = kernel32.QueryFullProcessImageNameW(handle, 0, path_buffer, ctypes.byref(size))
+            # PureWindowsPath, not Path: the string came from a Win32 API and
+            # is backslash-separated regardless of what is interpreting it.
+            process_name = PureWindowsPath(path_buffer.value).name if ok else ""
         finally:
             kernel32.CloseHandle(handle)
         return title, process_name
