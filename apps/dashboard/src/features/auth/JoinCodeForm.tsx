@@ -8,10 +8,14 @@ import { supabase } from '../../lib/supabase';
  * cannot check a code before submitting it and does not try to. Whatever
  * the server says is the answer.
  *
- * Errors are shown verbatim because the function was written to say the
- * same thing for every failure ("that code is not valid"), whether the code
- * is wrong, expired, revoked or used up. Paraphrasing here would risk
- * inventing a distinction the database deliberately refuses to make.
+ * A refused code comes back as null rather than an error — the function
+ * returns instead of raising so that the failed attempt it just recorded
+ * survives, since raising would roll the counter back with it. So null is
+ * the answer for wrong, expired, revoked and exhausted alike, and this form
+ * says one thing for all four. Anything more specific would invent a
+ * distinction the database deliberately refuses to make.
+ *
+ * An actual error is the lockout, and that one is shown verbatim.
  */
 export function JoinCodeForm({ onRedeemed }: { onRedeemed: () => void }) {
   const [code, setCode] = useState('');
@@ -26,8 +30,16 @@ export function JoinCodeForm({ onRedeemed }: { onRedeemed: () => void }) {
     const { data, error } = await supabase.rpc('redeem_join_code', { p_code: code.trim() });
     setBusy(false);
     if (error) {
+      // The only error the function raises is the lockout, and that one is
+      // about the caller rather than about which codes exist, so it is safe
+      // to pass through as written.
       setFailed(true);
       setMessage(error.message);
+      return;
+    }
+    if (data === null) {
+      setFailed(true);
+      setMessage('That code is not valid.');
       return;
     }
     setFailed(false);

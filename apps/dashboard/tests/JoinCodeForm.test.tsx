@@ -1,16 +1,19 @@
-// The form must not soften what the database says. redeem_join_code()
-// reports every failure identically on purpose — wrong, expired, revoked,
-// exhausted — so anything the UI adds risks inventing a distinction the
-// server refuses to make.
+// redeem_join_code() returns null for wrong, expired, revoked and
+// exhausted alike — it returns rather than raises so the attempt counter it
+// just wrote survives. The form must keep that one answer one answer; a
+// friendlier message per case would invent a distinction the server
+// deliberately refuses to make.
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { expect, test, vi } from 'vitest';
 import { JoinCodeForm } from '../src/features/auth/JoinCodeForm';
 import { supabase } from '../src/lib/supabase';
 
-test('a rejected code shows the server message verbatim', async () => {
+test('a refused code reads as refused, not as a crash', async () => {
+  // null is the refusal. It is not an error, and it is the same answer for
+  // every reason a code might not work.
   vi.spyOn(supabase, 'rpc').mockResolvedValue({
     data: null,
-    error: { message: 'that code is not valid' },
+    error: null,
     // biome-ignore lint/suspicious/noExplicitAny: partial PostgrestResponse
   } as any);
 
@@ -19,7 +22,42 @@ test('a rejected code shows the server message verbatim', async () => {
   fireEvent.click(screen.getByRole('button', { name: /redeem/i }));
 
   await waitFor(() => {
-    expect(screen.getByText('that code is not valid').className).toBe('error');
+    expect(screen.getByText('That code is not valid.').className).toBe('error');
+  });
+});
+
+test('a refused code does not tell the caller to refetch', async () => {
+  // Nothing changed, so invalidating every query would be pure churn.
+  const onRedeemed = vi.fn();
+  vi.spyOn(supabase, 'rpc').mockResolvedValue({
+    data: null,
+    error: null,
+    // biome-ignore lint/suspicious/noExplicitAny: partial PostgrestResponse
+  } as any);
+
+  render(<JoinCodeForm onRedeemed={onRedeemed} />);
+  fireEvent.change(screen.getByLabelText(/invitation code/i), { target: { value: 'NOPE' } });
+  fireEvent.click(screen.getByRole('button', { name: /redeem/i }));
+
+  await waitFor(() => expect(screen.getByText('That code is not valid.')).toBeDefined());
+  expect(onRedeemed).not.toHaveBeenCalled();
+});
+
+test('the lockout is shown as the server worded it', async () => {
+  // The one raised error, and the only one that is about the caller rather
+  // than about which codes exist.
+  vi.spyOn(supabase, 'rpc').mockResolvedValue({
+    data: null,
+    error: { message: 'too many attempts; try again later' },
+    // biome-ignore lint/suspicious/noExplicitAny: partial PostgrestResponse
+  } as any);
+
+  render(<JoinCodeForm onRedeemed={() => {}} />);
+  fireEvent.change(screen.getByLabelText(/invitation code/i), { target: { value: 'NOPE' } });
+  fireEvent.click(screen.getByRole('button', { name: /redeem/i }));
+
+  await waitFor(() => {
+    expect(screen.getByText('too many attempts; try again later').className).toBe('error');
   });
 });
 

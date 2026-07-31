@@ -23,10 +23,17 @@
 --     (collector_service and analyst_service sort above admin), so the rule
 --     is explicit rather than comparative: a code applies only to a user
 --     who is currently 'viewer' or has no row at all.
---   * Failure is one message for every cause — wrong, expired, revoked,
---     exhausted. Distinguishing them tells an attacker which codes exist.
+--   * Failure is one answer for every cause — wrong, expired, revoked,
+--     exhausted all return null. Distinguishing them tells an attacker
+--     which codes exist.
 --   * Attempts are counted per user and capped, because a code short enough
 --     to type is short enough to guess given unlimited tries.
+--
+-- Why a bad code RETURNS rather than RAISEs: raising aborts the statement,
+-- which rolls back everything the function did — including the row counting
+-- the failed attempt. A throttle that erases its own counter is not a
+-- throttle. The lockout itself still raises, because at that point the
+-- function has not written anything worth keeping.
 
 create table public.join_codes (
   code_id uuid primary key default gen_random_uuid(),
@@ -105,7 +112,7 @@ begin
     and (max_uses is null or used_count < max_uses)
   for update;
 
-  if v_code_id is null then
+  if v_code_id is null or v_role not in ('member', 'officer') then
     insert into public.join_code_attempts as a (user_id, failed_count)
     values (v_uid, 1)
     on conflict (user_id) do update
@@ -118,13 +125,9 @@ begin
           else now()
         end,
         last_failed_at = now();
-    -- One message for every cause: which codes exist is not the caller's
-    -- business.
-    raise exception 'that code is not valid' using errcode = '22023';
-  end if;
-
-  if v_role not in ('member', 'officer') then
-    raise exception 'that code is not valid' using errcode = '22023';
+    -- One answer for every cause: which codes exist is not the caller's
+    -- business. Returned, not raised, so the count above survives.
+    return null;
   end if;
 
   select role into v_current from public.app_users where user_id = v_uid;
@@ -150,5 +153,7 @@ revoke all on function public.redeem_join_code(text) from public;
 grant execute on function public.redeem_join_code(text) to authenticated;
 
 comment on function public.redeem_join_code(text) is
-  'Exchange an invitation code for a role. Signed-in callers only; never '
-  'grants admin, never downgrades, and reports every failure identically.';
+  'Exchange an invitation code for a role, or null if it will not do. '
+  'Signed-in callers only; never grants admin, never downgrades, and returns '
+  'the same null for wrong, expired, revoked and exhausted alike. Raises '
+  'only when the caller is locked out for too many attempts.';

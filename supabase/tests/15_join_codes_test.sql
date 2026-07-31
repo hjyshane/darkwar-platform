@@ -52,19 +52,21 @@ set local role authenticated;
 select set_config('request.jwt.claims',
   '{"sub":"00000000-0000-4000-8000-00000000e003","role":"authenticated"}', true);
 
-select throws_ok($$ select public.redeem_join_code('NOTACODE01') $$, '22023',
-  'that code is not valid', 'an unknown code is refused');
-select throws_ok($$ select public.redeem_join_code('EXPIRED001') $$, '22023',
-  'that code is not valid', 'an expired code fails with the same message');
-select throws_ok($$ select public.redeem_join_code('REVOKED001') $$, '22023',
-  'that code is not valid', 'a revoked code fails with the same message');
-select throws_ok($$ select public.redeem_join_code('USEDUP0001') $$, '22023',
-  'that code is not valid', 'an exhausted code fails with the same message');
+-- Null, not an exception: raising would roll back the attempt counter in
+-- the same breath, and a throttle that erases its own count is not one.
+select is(public.redeem_join_code('NOTACODE01'), null::public.app_role,
+  'an unknown code is refused');
+select is(public.redeem_join_code('EXPIRED001'), null::public.app_role,
+  'an expired code gives the same answer');
+select is(public.redeem_join_code('REVOKED001'), null::public.app_role,
+  'a revoked code gives the same answer');
+select is(public.redeem_join_code('USEDUP0001'), null::public.app_role,
+  'an exhausted code gives the same answer');
 
--- Four failures so far. The fifth is still allowed through and still fails
--- as a bad code; it is the sixth that meets the cap.
-select throws_ok($$ select public.redeem_join_code('NOPENOPE01') $$, '22023',
-  'that code is not valid', 'the fifth attempt is still a code error, not a lockout');
+-- Four failures so far. The fifth is still let through and still refused as
+-- a bad code; it is the sixth that meets the cap.
+select is(public.redeem_join_code('NOPENOPE01'), null::public.app_role,
+  'the fifth attempt is still a code refusal, not a lockout');
 select throws_ok($$ select public.redeem_join_code('GOODCODE01') $$, '54000',
   'too many attempts; try again later',
   'once locked out, even a valid code is refused');
