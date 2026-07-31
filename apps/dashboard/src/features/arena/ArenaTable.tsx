@@ -38,19 +38,27 @@ export function ArenaTable({
         <table>
           <thead>
             <tr>
-              <th scope="col">{TERMS.rank}</th>
+              <th className="num" scope="col">
+                {TERMS.rank}
+              </th>
               <th scope="col">{TERMS.name}</th>
-              <th scope="col">{TERMS.score}</th>
-              <th scope="col">{TERMS.defensePower}</th>
+              <th className="num" scope="col">
+                {TERMS.score}
+              </th>
+              <th className="num" scope="col">
+                {TERMS.defensePower}
+              </th>
             </tr>
           </thead>
           <tbody>
             {entries.map((entry) => (
               <tr key={entry.snapshot_id}>
-                <td>{entry.rank}</td>
+                <td className="num">{entry.rank}</td>
                 <td>{entry.name ?? `UID ${entry.game_uid}`}</td>
-                <td>{entry.score === null ? '—' : numberFormat.format(entry.score)}</td>
-                <td>
+                <td className="num">
+                  {entry.score === null ? '—' : numberFormat.format(entry.score)}
+                </td>
+                <td className="num">
                   {entry.defense_power === null ? '—' : numberFormat.format(entry.defense_power)}
                 </td>
               </tr>

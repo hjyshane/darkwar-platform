@@ -47,10 +47,18 @@ export function AllianceRankingTable({
         <thead>
           <tr>
             <th scope="col">{TERMS.alliance}</th>
-            <th scope="col">{TERMS.server}</th>
-            <th scope="col">{TERMS.power}</th>
-            <th scope="col">{TERMS.members_count}</th>
-            <th scope="col">{TERMS.observed}</th>
+            <th className="num" scope="col">
+              {TERMS.server}
+            </th>
+            <th className="num" scope="col">
+              {TERMS.power}
+            </th>
+            <th className="num" scope="col">
+              {TERMS.members_count}
+            </th>
+            <th className="num" scope="col">
+              {TERMS.observed}
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -60,10 +68,10 @@ export function AllianceRankingTable({
                 {row.code ? `[${row.code}] ` : ''}
                 {row.name ?? row.external_id.slice(0, 8)}
               </td>
-              <td>{row.server_id}</td>
-              <td>{row.power === null ? '—' : numberFormat.format(row.power)}</td>
-              <td>{row.member_count ?? '—'}</td>
-              <td>
+              <td className="num">{row.server_id}</td>
+              <td className="num">{row.power === null ? '—' : numberFormat.format(row.power)}</td>
+              <td className="num">{row.member_count ?? '—'}</td>
+              <td className="num">
                 <FreshnessBadge capturedAt={row.captured_at} now={now} />
               </td>
             </tr>
