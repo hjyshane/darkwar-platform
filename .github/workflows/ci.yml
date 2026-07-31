@@ -19,7 +19,9 @@ jobs:
         working-directory: services/collector
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v9
+      # Exact tag, not @v9: this action publishes no floating major tag past
+      # v6, so @v9 fails to resolve before any step runs.
+      - uses: astral-sh/setup-uv@v9.0.0
         with:
           enable-cache: true
           # v9 flipped prune-cache to false, which grows the cache for no
