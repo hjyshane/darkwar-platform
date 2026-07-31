@@ -82,7 +82,7 @@ export function App() {
     <QueryClientProvider client={queryClient}>
       <DataChangeSubscriber />
       <header className="app-header">
-        <h1>DarkWar 577-584</h1>
+        <h1>Dark War dashboard</h1>
         {!standalone && <Nav route={route} />}
       </header>
       {route === 'login' ? (
