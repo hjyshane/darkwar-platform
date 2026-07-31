@@ -5,7 +5,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(14);
+select plan(18);
 
 -- Setup (as postgres, RLS not yet in play): three auth users + rows in the
 -- restricted tables.
@@ -40,6 +40,10 @@ from public.players where game_uid = 58000001;
 insert into public.audit_logs (action, entity_type, entity_id)
 values ('test.seed', 'test', 'rls');
 
+insert into public.player_contributions
+  (player_id, daily_donation_score, alliance_battle_score)
+select player_id, 18400, 96200 from public.players where game_uid = 58000001;
+
 insert into public.schema_observations (source_command, fingerprint)
 values ('unknown.command', 'test-fingerprint');
 
@@ -62,6 +66,13 @@ select isnt_empty($$ select * from public.players $$,
   'anon reads public rankings');
 select is_empty($$ select snapshot_id, name from public.alliance_member_snapshots $$,
   'anon cannot read alliance-internal presence');
+-- 0020: these scores lived on players, which anon reads, until they moved.
+select is_empty($$ select * from public.player_contributions $$,
+  'anon cannot read alliance contribution');
+-- The column is gone, not merely filtered — a projection of restricted data
+-- onto a world-readable table is how it leaked in the first place.
+select throws_ok($$ select daily_donation_score from public.players $$, '42703',
+  null, 'contribution is not a column on the public players table');
 select throws_ok('select count(*) from internal.raw_observations', '42501',
   null, 'anon cannot touch raw payloads in the internal schema');
 
@@ -77,6 +88,8 @@ select isnt_empty($$ select * from public.arena_entries $$,
   'viewer reads arena entries');
 select is_empty($$ select snapshot_id, name from public.alliance_member_snapshots $$,
   'viewer cannot read alliance-internal presence');
+select is_empty($$ select * from public.player_contributions $$,
+  'viewer cannot read alliance contribution');
 select is_empty($$ select * from public.activity_facts $$,
   'viewer cannot read activity facts');
 select is_empty($$ select * from public.audit_logs $$,
@@ -97,6 +110,8 @@ select set_config('request.jwt.claims',
 
 select isnt_empty($$ select snapshot_id, name from public.alliance_member_snapshots $$,
   'member reads alliance-internal presence');
+select isnt_empty($$ select * from public.player_contributions $$,
+  'member reads alliance contribution');
 
 -- officer
 select set_config('request.jwt.claims',
