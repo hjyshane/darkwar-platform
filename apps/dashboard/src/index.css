@@ -526,3 +526,45 @@ button:focus-visible {
 [role="tab"] {
   font-weight: inherit;
 }
+
+/* --- favourites ----------------------------------------------------------- */
+
+/* Sits inside the name cell rather than a column of its own, so on a phone
+ * it stays pinned with the name instead of scrolling away with the figures. */
+.favourite {
+  background: none;
+  border: 0;
+  color: var(--fg-muted);
+  cursor: pointer;
+  font-size: var(--text-base);
+  line-height: 1;
+  margin-right: var(--space-1);
+  padding: 0;
+}
+
+.favourite:hover {
+  color: var(--fg);
+}
+
+/* Keyed off aria-pressed, like every other state in this stylesheet: the
+ * announced state and the filled star cannot drift apart. */
+.favourite[aria-pressed="true"] {
+  color: var(--accent);
+}
+
+.favourite:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.chip {
+  font-size: var(--text-sm);
+  padding: var(--space-1) var(--space-3);
+  white-space: nowrap;
+}
+
+.chip[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+}

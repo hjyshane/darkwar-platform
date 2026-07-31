@@ -1,12 +1,18 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { FavouriteButton } from '../../components/FavouriteButton';
+import { FavouritesFilter } from '../../components/FavouritesFilter';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
 import { SortableTh } from '../../components/SortableTh';
 import { TableSearch } from '../../components/TableSearch';
 import { TERMS } from '../../lib/terms';
+import { useFavourites } from '../../lib/useFavourites';
 import { useTableView } from '../../lib/useTableView';
 
 export interface AllianceRankingRow {
   snapshot_id: string;
+  /** The resolved alliance, stable across name and tag changes — which is
+   *  what a favourite has to hang on. */
+  alliance_id: string;
   external_id: string;
   server_id: number;
   rank: number | null;
@@ -44,8 +50,17 @@ export function AllianceRankingTable({
   rows: AllianceRankingRow[];
   now?: Date;
 }) {
+  const { signedIn, isFavourite, toggle, count } = useFavourites();
+  const [starredOnly, setStarredOnly] = useState(false);
   const latest = useMemo(() => latestPerAlliance(rows), [rows]);
-  const { query, setQuery, sort, onSort, view, shown, total } = useTableView(latest, SEARCH_FIELDS);
+  const visible = useMemo(
+    () => (starredOnly ? latest.filter((row) => isFavourite('alliance', row.alliance_id)) : latest),
+    [latest, starredOnly, isFavourite],
+  );
+  const { query, setQuery, sort, onSort, view, shown, total } = useTableView(
+    visible,
+    SEARCH_FIELDS,
+  );
 
   if (latest.length === 0) {
     return <p className="empty">No alliance ranking data yet.</p>;
@@ -58,7 +73,15 @@ export function AllianceRankingTable({
         shown={shown}
         total={total}
         value={query}
-      />
+      >
+        {signedIn && (
+          <FavouritesFilter
+            active={starredOnly}
+            count={count('alliance')}
+            onChange={setStarredOnly}
+          />
+        )}
+      </TableSearch>
       <div className="table-wrap">
         <table>
           <thead>
@@ -84,6 +107,15 @@ export function AllianceRankingTable({
             {view.map((row) => (
               <tr key={row.external_id}>
                 <td className="label">
+                  {signedIn && (
+                    <FavouriteButton
+                      id={row.alliance_id}
+                      isFavourite={isFavourite('alliance', row.alliance_id)}
+                      kind="alliance"
+                      label={row.name ?? row.code ?? row.external_id.slice(0, 8)}
+                      onToggle={toggle}
+                    />
+                  )}
                   {row.code ? `[${row.code}] ` : ''}
                   {row.name ?? row.external_id.slice(0, 8)}
                 </td>

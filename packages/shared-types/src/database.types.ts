@@ -1044,6 +1044,55 @@ export type Database = {
           },
         ]
       }
+      favourites: {
+        Row: {
+          alliance_id: string | null
+          created_at: string
+          favourite_id: string
+          player_id: string | null
+          server_id: number | null
+          user_id: string
+        }
+        Insert: {
+          alliance_id?: string | null
+          created_at?: string
+          favourite_id?: string
+          player_id?: string | null
+          server_id?: number | null
+          user_id: string
+        }
+        Update: {
+          alliance_id?: string | null
+          created_at?: string
+          favourite_id?: string
+          player_id?: string | null
+          server_id?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "favourites_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "favourites_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "favourites_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+        ]
+      }
       join_code_attempts: {
         Row: {
           failed_count: number

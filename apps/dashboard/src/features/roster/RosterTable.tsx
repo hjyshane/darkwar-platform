@@ -1,7 +1,11 @@
+import { useMemo, useState } from 'react';
+import { FavouriteButton } from '../../components/FavouriteButton';
+import { FavouritesFilter } from '../../components/FavouritesFilter';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
 import { SortableTh } from '../../components/SortableTh';
 import { TableSearch } from '../../components/TableSearch';
 import { TERMS } from '../../lib/terms';
+import { useFavourites } from '../../lib/useFavourites';
 import { useTableView } from '../../lib/useTableView';
 
 export interface RosterRow {
@@ -27,7 +31,18 @@ function formatNumber(value: number | null): string {
 }
 
 export function RosterTable({ rows, now }: { rows: RosterRow[]; now?: Date }) {
-  const { query, setQuery, sort, onSort, view, shown, total } = useTableView(rows, SEARCH_FIELDS);
+  const { signedIn, isFavourite, toggle, count } = useFavourites();
+  const [starredOnly, setStarredOnly] = useState(false);
+  // Before the search, so the count reads "3 / 8 of my starred members"
+  // rather than "3 / 50 of everyone".
+  const visible = useMemo(
+    () => (starredOnly ? rows.filter((row) => isFavourite('player', row.player_id)) : rows),
+    [rows, starredOnly, isFavourite],
+  );
+  const { query, setQuery, sort, onSort, view, shown, total } = useTableView(
+    visible,
+    SEARCH_FIELDS,
+  );
 
   if (rows.length === 0) {
     return <p className="empty">No member data yet.</p>;
@@ -40,7 +55,15 @@ export function RosterTable({ rows, now }: { rows: RosterRow[]; now?: Date }) {
         shown={shown}
         total={total}
         value={query}
-      />
+      >
+        {signedIn && (
+          <FavouritesFilter
+            active={starredOnly}
+            count={count('player')}
+            onChange={setStarredOnly}
+          />
+        )}
+      </TableSearch>
       <div className="table-wrap">
         <table>
           <thead>
@@ -71,7 +94,22 @@ export function RosterTable({ rows, now }: { rows: RosterRow[]; now?: Date }) {
           <tbody>
             {view.map((row) => (
               <tr key={row.player_id}>
-                <td className="label">{row.current_name ?? `UID ${row.game_uid}`}</td>
+                {/* Inside the name cell, not a column of its own: on a
+                    phone that cell is the one pinned to the left, so the
+                    star stays reachable instead of scrolling away with the
+                    figures. */}
+                <td className="label">
+                  {signedIn && (
+                    <FavouriteButton
+                      id={row.player_id}
+                      isFavourite={isFavourite('player', row.player_id)}
+                      kind="player"
+                      label={row.current_name ?? `UID ${row.game_uid}`}
+                      onToggle={toggle}
+                    />
+                  )}
+                  {row.current_name ?? `UID ${row.game_uid}`}
+                </td>
                 <td className="num">{row.hq_level ?? '—'}</td>
                 <td className="num">{formatNumber(row.power)}</td>
                 <td className="num">{formatNumber(row.kills)}</td>
