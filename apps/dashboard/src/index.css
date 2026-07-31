@@ -150,9 +150,55 @@ h1 {
   outline-offset: -2px;
 }
 
+/* Board pickers inside a panel (which metric a ranking shows). Styled off
+ * the ARIA roles rather than a class: the markup already says what these
+ * are, and keying off aria-selected keeps the announced state and the
+ * visible state from drifting — same reason the nav uses aria-current. */
+[role="tablist"] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-bottom: var(--space-4);
+}
+
+[role="tab"] {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--fg-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-sm);
+  padding: var(--space-1) var(--space-3);
+}
+
+[role="tab"]:hover {
+  background: var(--bg-hover);
+  color: var(--fg);
+}
+
+[role="tab"][aria-selected="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+  font-weight: 600;
+}
+
+[role="tab"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 h2 {
   font-size: var(--text-lg);
   margin: 0 0 var(--space-3);
+}
+
+/* Several panels put a freshness badge in the heading; without this it sits
+ * flush against the last letter. */
+h2 .badge {
+  margin-left: var(--space-2);
+  vertical-align: middle;
 }
 
 main {
@@ -204,16 +250,17 @@ th {
   white-space: nowrap;
 }
 
-/* Column one is a name; everything after it is a figure. */
-td:nth-child(n + 2),
-th:nth-child(n + 2) {
-  text-align: right;
-}
-
-/* Digits share a width, so ranked figures line up as columns instead of
- * drifting with the glyphs. Without it a table of powers is unreadable. */
-td:nth-child(n + 2) {
+/* Figures are marked, not inferred from position. The old rule assumed
+ * "column one is the name, the rest are numbers", which is wrong for every
+ * table that leads with Rank — Arena and Cross-Server both right-aligned
+ * their Name column against the scores.
+ *
+ * Tabular digits matter more than the alignment: without them the glyphs
+ * have different widths, so a column of powers wobbles instead of stacking.
+ */
+.num {
   font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
 tbody tr:hover {

@@ -25,20 +25,24 @@ export function MonthCardTable({ rows, now }: { rows: MonthCardRow[]; now?: Date
         <thead>
           <tr>
             <th scope="col">{TERMS.name}</th>
-            <th scope="col">{TERMS.status}</th>
-            <th scope="col">{TERMS.expires}</th>
+            <th className="num" scope="col">
+              {TERMS.status}
+            </th>
+            <th className="num" scope="col">
+              {TERMS.expires}
+            </th>
           </tr>
         </thead>
         <tbody>
           {rows.map((row) => (
             <tr key={row.player_id}>
               <td>{row.players?.current_name ?? `UID ${row.players?.game_uid ?? '?'}`}</td>
-              <td>
+              <td className="num">
                 <span className={`badge badge-pass-${classifyPass(row.expires_at, current)}`}>
                   {formatPass(row.expires_at, current)}
                 </span>
               </td>
-              <td>{row.expires_at.slice(0, 10)}</td>
+              <td className="num">{row.expires_at.slice(0, 10)}</td>
             </tr>
           ))}
         </tbody>

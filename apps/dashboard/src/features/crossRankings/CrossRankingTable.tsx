@@ -17,21 +17,31 @@ export function CrossRankingTable({ rows, board }: { rows: BoardRow[]; board: Bo
       <table>
         <thead>
           <tr>
-            <th scope="col">{TERMS.rank}</th>
+            <th className="num" scope="col">
+              {TERMS.rank}
+            </th>
             <th scope="col">{TERMS.name}</th>
-            <th scope="col">{TERMS.server}</th>
-            <th scope="col">{board.valueLabel}</th>
-            {board.unitLabel && <th scope="col">{board.unitLabel}</th>}
+            <th className="num" scope="col">
+              {TERMS.server}
+            </th>
+            <th className="num" scope="col">
+              {board.valueLabel}
+            </th>
+            {board.unitLabel && (
+              <th className="num" scope="col">
+                {board.unitLabel}
+              </th>
+            )}
           </tr>
         </thead>
         <tbody>
           {rows.map((row) => (
             <tr key={row.id}>
-              <td>{row.rank ?? '—'}</td>
+              <td className="num">{row.rank ?? '—'}</td>
               <td>{row.name ?? `UID ${row.game_uid}`}</td>
-              <td>{row.server_id}</td>
-              <td>{formatNumber(row.value)}</td>
-              {board.unitLabel && <td>{row.unit_id ?? '—'}</td>}
+              <td className="num">{row.server_id}</td>
+              <td className="num">{formatNumber(row.value)}</td>
+              {board.unitLabel && <td className="num">{row.unit_id ?? '—'}</td>}
             </tr>
           ))}
         </tbody>
