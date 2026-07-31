@@ -213,8 +213,7 @@ class IdlePolicy:
                 foreground_process=process,
                 is_idle=False,
                 reason=(
-                    f"recent user input: idle {seconds:.0f}s"
-                    f" < {self.minimum_idle_seconds:.0f}s"
+                    f"recent user input: idle {seconds:.0f}s < {self.minimum_idle_seconds:.0f}s"
                 ),
             )
 
