@@ -270,7 +270,36 @@ def sanitize_get_fight_report_detail(payload: dict[str, Any]) -> dict[str, Any]:
     return sanitized
 
 
+def sanitize_rank_get_by_range(payload: dict[str, Any]) -> dict[str, Any]:
+    """Same masking as server.rank — the boards differ in the metric they
+    report, not in the identities they expose. selfPower is the COLLECTOR's
+    own component power, so it is replaced too."""
+    entries = payload.get("serverRanking")
+    if not isinstance(entries, list):
+        return payload
+
+    sanitized_entries = []
+    for index, entry in enumerate(entries, start=1):
+        clean = dict(entry)
+        if "uid" in clean:
+            clean["uid"] = _fake_uid(str(clean["uid"]))
+        if clean.get("name"):
+            clean["name"] = f"Ranked{index:03d}"
+        if clean.get("allianceName"):
+            clean["allianceName"] = f"Alliance{index:02d}"
+        if clean.get("abbr"):
+            clean["abbr"] = f"A{index:03d}"
+        sanitized_entries.append(clean)
+
+    sanitized = dict(payload)
+    sanitized["serverRanking"] = sanitized_entries
+    if "selfPower" in sanitized:
+        sanitized["selfPower"] = 10000000
+    return sanitized
+
+
 SANITIZERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
+    "rank.get.by.range": sanitize_rank_get_by_range,
     "get.fight.report.detail": sanitize_get_fight_report_detail,
     "mail.read.share": sanitize_mail_read_share,
     "kill.rank": sanitize_kill_rank,

@@ -46,8 +46,11 @@ values
    '00000000-0000-4000-8000-000000000c01', 580,
    'CikQARjCmAQgASigjQYwATj', 'detail');
 
+-- Scoped to this test's own row: the table also holds live captures, so an
+-- unscoped count asserts against whatever else has been synced.
 select is((select count(*)::int from public.battle_report_ingests
-           where report_kind = 'detail'), 1,
+           where idempotency_key = 'test:report:2' and report_kind = 'detail'
+             and mail_uid is null), 1,
   'a detail row needs no mail identity');
 
 select col_is_null('public', 'battle_report_ingests', 'mail_uid',

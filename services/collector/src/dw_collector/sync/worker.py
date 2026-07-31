@@ -29,6 +29,7 @@ log = structlog.get_logger()
 _TABLE_ORDER = [
     "player_snapshots",
     "player_detail_snapshots",
+    "player_component_power_snapshots",
     "alliance_snapshots",
     "alliance_member_snapshots",
     "arena_snapshots",
