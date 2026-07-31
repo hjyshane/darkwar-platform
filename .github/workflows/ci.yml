@@ -18,10 +18,13 @@ jobs:
       run:
         working-directory: services/collector
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v4
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v9
         with:
           enable-cache: true
+          # v9 flipped prune-cache to false, which grows the cache for no
+          # benefit here — the dependency set is small and rarely changes.
+          prune-cache: true
       # No --extra capture: the pipeline must be testable without Npcap.
       - run: uv sync --dev
       - run: uv run ruff check .
@@ -32,10 +35,15 @@ jobs:
   web:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
+          # v5 started auto-caching whenever package.json has a
+          # `packageManager` field, and ours pins pnpm. That cache step shells
+          # out to pnpm, which does not exist until `corepack enable` runs on
+          # the next line — so leaving it enabled fails the job outright.
+          package-manager-cache: false
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
@@ -46,10 +54,14 @@ jobs:
   db:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: supabase/setup-cli@v1
+      - uses: actions/checkout@v7
+      - uses: supabase/setup-cli@v3
         with:
-          version: latest
+          # Pinned, not `latest`. `latest` re-resolved the release on every
+          # run and intermittently died on "rate limit exceeded" — a failure
+          # with nothing to do with the code under test. Keep this in step
+          # with the CLI used locally so pgTAP runs against the same binary.
+          version: 2.110.0
       - run: supabase start
       # Proves migrations apply from an empty database, not just incrementally.
       - run: supabase db reset
@@ -58,12 +70,24 @@ jobs:
       - name: Check generated types are current
         run: |
           supabase gen types typescript --local > packages/shared-types/src/database.types.ts
-          git diff --exit-code -- packages/shared-types/src/database.types.ts
+          if git diff --quiet -- packages/shared-types/src/database.types.ts; then
+            exit 0
+          fi
+          echo "::error::Generated types are stale: a migration changed the schema but packages/shared-types/src/database.types.ts was not regenerated."
+          echo ""
+          echo "Fix locally, with the stack running:"
+          echo "    supabase start"
+          echo "    pnpm db:types"
+          echo "    git add packages/shared-types/src/database.types.ts"
+          echo ""
+          echo "What the schema produces vs what is committed:"
+          git --no-pager diff -- packages/shared-types/src/database.types.ts
+          exit 1
 
   guard:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       # The gitleaks CLI directly (same binary as the lefthook pre-commit
