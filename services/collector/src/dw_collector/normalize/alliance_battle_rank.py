@@ -10,6 +10,9 @@ Two things this response teaches:
 
 - It attributes by UID, unlike al.battle.week.result.info which gives only a
   display name. That is what makes it usable as a per-player fact.
+- The daily and weekly rankings name BOTH alliances in the duel — 165 rows
+  where our roster is 94 — so `alName` is what tells our players' scores from
+  the opponent's. The round total (type 2) lists only ours.
 - It spans servers outside the tracked group (586 appeared alongside 580), so
   the sync worker has to register unknown servers rather than assume the
   group is closed.
@@ -25,7 +28,7 @@ from dw_collector.models import NormalizedRow, Observation, idempotency_key, sta
 from dw_collector.registry import register
 from dw_collector.resetweek import reset_week_start
 
-PARSER_VERSION = "1.0.0"
+PARSER_VERSION = "1.1.0"
 CONTRIBUTION_TYPE = "alliance_battle"
 
 _UID_SERVER_SUFFIX = 6
@@ -38,6 +41,10 @@ class _Entry(BaseModel):
     name: str | None = None
     score: int | None = None
     server_id: int | None = Field(default=None, alias="serverId")
+    # A duel ranking names both alliances. Without these, an opponent's score
+    # is indistinguishable from ours.
+    alliance_name: str | None = Field(default=None, alias="alName")
+    alliance_code: str | None = Field(default=None, alias="abbr")
 
     @field_validator("uid")
     @classmethod
@@ -91,6 +98,10 @@ def normalize(observation: Observation) -> list[NormalizedRow]:
                     "server_id": server_id,
                     "game_uid": game_uid,
                     "alliance_id": None,
+                    # Empty string means "no alliance" in this payload, and an
+                    # empty tag must not read as a tag.
+                    "alliance_name": entry.alliance_name or None,
+                    "alliance_code": entry.alliance_code or None,
                     "contribution_type": CONTRIBUTION_TYPE,
                     "score": entry.score,
                     "rank": position,

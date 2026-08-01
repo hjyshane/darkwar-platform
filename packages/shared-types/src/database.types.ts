@@ -118,7 +118,9 @@ export type Database = {
       }
       alliance_contribution_snapshots: {
         Row: {
+          alliance_code: string | null
           alliance_id: string | null
+          alliance_name: string | null
           captured_at: string
           collected_from_server_id: number
           collector_id: string
@@ -139,7 +141,9 @@ export type Database = {
           variant: number | null
         }
         Insert: {
+          alliance_code?: string | null
           alliance_id?: string | null
+          alliance_name?: string | null
           captured_at: string
           collected_from_server_id: number
           collector_id: string
@@ -160,7 +164,9 @@ export type Database = {
           variant?: number | null
         }
         Update: {
+          alliance_code?: string | null
           alliance_id?: string | null
+          alliance_name?: string | null
           captured_at?: string
           collected_from_server_id?: number
           collector_id?: string

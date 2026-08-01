@@ -304,17 +304,36 @@ def sanitize_rank_get_by_range(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def sanitize_al_battle_rank_info(payload: dict[str, Any]) -> dict[str, Any]:
+    """A duel ranking names BOTH alliances, so the mapping has to be per
+    alliance rather than per row.
+
+    Numbering alliances by row index — which this did — gave 165 members 165
+    different alliance names and destroyed the one structure the fixture
+    exists to show: whose score is whose. Distinct real alliances now map to
+    distinct fake ones, stable within the payload.
+    """
     entries = payload.get("rankInfo")
     if not isinstance(entries, list):
         return payload
+
+    alliances: dict[str, int] = {}
+    for entry in entries:
+        real = entry.get("alName")
+        if real and real not in alliances:
+            alliances[real] = len(alliances) + 1
+
     sanitized = dict(payload)
     sanitized["rankInfo"] = [
         {
             **e,
             "uid": _fake_uid(str(e.get("uid", ""))),
             **({"name": f"Fighter{i:03d}"} if e.get("name") else {}),
-            **({"alName": f"Alliance{i:02d}"} if e.get("alName") else {}),
-            **({"abbr": f"A{i:03d}"} if e.get("abbr") else {}),
+            **({"alName": f"Alliance{alliances[e['alName']]:02d}"} if e.get("alName") else {}),
+            **(
+                {"abbr": f"A{alliances[e['alName']]:02d}"}
+                if e.get("alName") and e.get("abbr")
+                else {}
+            ),
         }
         for i, e in enumerate(entries, start=1)
     ]

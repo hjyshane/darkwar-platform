@@ -26,12 +26,43 @@ def test_both_variants_are_distinct_rankings() -> None:
         load_observation("al.battle.rank.info/battle_type1_v1.json")
     )
 
-    assert len(v0) == len(v1) == 162
+    assert len(v0) == len(v1) == 165
     assert v0[0].row["variant"] == 0
     assert v1[0].row["variant"] == 1
-    assert v0[0].row["score"] == 2596145
-    assert v1[0].row["score"] == 13725206
+    # Labelled against the game screen: type 0 is the daily board, type 1 the
+    # weekly one, and the top scores are the ones that were read off it.
+    assert v0[0].row["score"] == 5658634
+    assert v1[0].row["score"] == 26865932
     assert {r.idempotency_key for r in v0}.isdisjoint({r.idempotency_key for r in v1})
+
+
+def test_daily_and_weekly_name_both_alliances() -> None:
+    """A duel has two sides and the daily/weekly boards list both. Without the
+    alliance on the row, an opponent's score is indistinguishable from ours —
+    165 rows against a roster of 94."""
+    rows = alliance_battle_rank.normalize(
+        load_observation("al.battle.rank.info/battle_type0_v1.json")
+    )
+    by_alliance: dict[str | None, int] = {}
+    for row in rows:
+        name = row.row["alliance_name"]
+        by_alliance[name] = by_alliance.get(name, 0) + 1
+
+    assert len(by_alliance) == 2, "the daily board carries both sides of the duel"
+    assert sorted(by_alliance.values()) == [72, 93]
+    assert all(row.row["alliance_code"] for row in rows)
+
+
+def test_the_round_total_is_our_alliance_only() -> None:
+    """type 2 sums the duel's four rounds and, unlike daily and weekly, lists
+    only our own members — which is what the row count pins."""
+    rows = alliance_battle_rank.normalize(
+        load_observation("al.battle.rank.info/battle_round_v1.json")
+    )
+
+    assert len(rows) == 94
+    assert len({row.row["alliance_name"] for row in rows}) == 1
+    assert rows[0].row["variant"] == 2
 
 
 def test_spans_servers_outside_the_tracked_group() -> None:
@@ -53,7 +84,7 @@ def test_scores_ordered_and_ranked() -> None:
     )
     scores = [r.row["score"] for r in rows]
     assert scores == sorted(scores, reverse=True)
-    assert [r.row["rank"] for r in rows] == list(range(1, 163))
+    assert [r.row["rank"] for r in rows] == list(range(1, 166))
     # This response reports no per-entry update time, unlike the donation rank.
     assert all(r.row["score_updated_at"] is None for r in rows)
 
@@ -64,9 +95,9 @@ def test_facts_use_the_battle_metric() -> None:
     facts = [r for r in rows if r.target_table == "activity_facts"]
     snapshots = {r.row["snapshot_id"]: r for r in rows if r.target_table != "activity_facts"}
 
-    assert len(facts) == 162
+    assert len(facts) == 165
     assert facts[0].row["metric_key"] == "alliance_battle_score"
-    assert facts[0].row["value_numeric"] == 13725206
+    assert facts[0].row["value_numeric"] == 26865932
     # No server update time, so the fact falls back to when we observed it.
     assert facts[0].row["occurred_at"] == observation.captured_at.isoformat()
     for row in facts:

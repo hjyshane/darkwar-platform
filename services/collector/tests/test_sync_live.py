@@ -308,7 +308,7 @@ def test_untracked_server_is_registered_against_the_real_schema(
     )
     stats = worker.drain_once()
     assert stats.failed == 0
-    assert stats.sent == 324  # 162 contribution rows + 162 facts
+    assert stats.sent == 330  # 165 contribution rows + 165 facts
 
     resp = client.get(
         "/rest/v1/servers",

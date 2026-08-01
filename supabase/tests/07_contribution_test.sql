@@ -3,7 +3,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(8);
+select plan(9);
 
 select has_column('public', 'alliance_contribution_snapshots', c.col,
   'alliance_contribution_snapshots has ' || c.col)
@@ -12,6 +12,10 @@ from unnest(array['observation_id', 'source_command', 'parser_version',
 
 select col_is_unique('public', 'alliance_contribution_snapshots', 'idempotency_key',
   'contribution idempotency_key is unique');
+
+-- 0027: a duel ranking names both alliances, so the row has to say which.
+select has_column('public', 'alliance_contribution_snapshots', 'alliance_name',
+  'a contribution row records the alliance it was scored for');
 
 insert into public.alliance_contribution_snapshots
   (observation_id, source_command, parser_version, idempotency_key, captured_at,
