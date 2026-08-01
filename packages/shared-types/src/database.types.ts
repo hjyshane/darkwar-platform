@@ -654,6 +654,7 @@ export type Database = {
       arena_entry_heroes: {
         Row: {
           arena_entry_id: string
+          base_level: number | null
           captured_at: string
           collected_from_server_id: number
           collector_id: string
@@ -665,6 +666,7 @@ export type Database = {
           hero_power: number | null
           hero_uuid: number | null
           idempotency_key: string
+          level_synced: boolean
           max_level: number | null
           observation_id: string
           parser_version: string
@@ -683,6 +685,7 @@ export type Database = {
         }
         Insert: {
           arena_entry_id: string
+          base_level?: number | null
           captured_at: string
           collected_from_server_id: number
           collector_id: string
@@ -694,6 +697,7 @@ export type Database = {
           hero_power?: number | null
           hero_uuid?: number | null
           idempotency_key: string
+          level_synced?: boolean
           max_level?: number | null
           observation_id: string
           parser_version: string
@@ -712,6 +716,7 @@ export type Database = {
         }
         Update: {
           arena_entry_id?: string
+          base_level?: number | null
           captured_at?: string
           collected_from_server_id?: number
           collector_id?: string
@@ -723,6 +728,7 @@ export type Database = {
           hero_power?: number | null
           hero_uuid?: number | null
           idempotency_key?: string
+          level_synced?: boolean
           max_level?: number | null
           observation_id?: string
           parser_version?: string

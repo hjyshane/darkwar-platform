@@ -30,6 +30,7 @@ function hero(over: Partial<LineupHero> & Pick<LineupHero, 'slot' | 'hero_id'>):
   return {
     troop_class: FIGHTER,
     hero_level: 103,
+    level_synced: false,
     star: 6,
     hero_power: 6_731_000,
     weapon_level: null,
@@ -97,6 +98,17 @@ test('expanding shows weapon, gear and skills, not just the roster', () => {
   // Gear and skill levels, joined — the ids are in the tooltip.
   expect(screen.getByText('100 / 70')).toBeDefined();
   expect(screen.getByText('15 / 10')).toBeDefined();
+});
+
+test('a synced level is marked rather than passed off as the hero own', () => {
+  const synced = [hero({ slot: 1, hero_id: 40001, hero_level: 120, level_synced: true })];
+  renderWithQuery(<LineupCell heroes={synced} />);
+  expand();
+
+  // The game shows 120; it came from the training centre, and hiding that
+  // would make "levelled to 120" and "parked at 1 and synced" look identical.
+  expect(screen.getByTitle('Synced in the training centre')).toBeDefined();
+  expect(screen.getByText(/120\*/)).toBeDefined();
 });
 
 test('a hero with no exclusive weapon reads as unknown, not level zero', () => {

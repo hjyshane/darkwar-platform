@@ -81,6 +81,42 @@ def test_level_is_the_hero_level_not_the_cap() -> None:
     assert {unit.level for unit in units} != {unit.max_level for unit in units}
 
 
+def test_a_synced_hero_reports_the_level_the_game_shows() -> None:
+    """A hero in the training centre is synced to another level, and the blob
+    carries both. Reading only its own level reports 1 for a hero the screen
+    shows at 120 — which is what a labelled capture of arena rank 1 caught."""
+    synced = [
+        unit
+        for entry in _entries()
+        for unit in decode_army(entry["army"]).units
+        if unit.level_synced
+    ]
+
+    assert synced, "the fixture should contain training-centre heroes"
+    # The displayed level is never the stale own level, and the own level is
+    # kept rather than overwritten — the two facts are different.
+    assert all(unit.level != unit.base_level for unit in synced)
+    assert all(unit.level is not None and unit.base_level is not None for unit in synced)
+    assert any(unit.base_level == 1 for unit in synced)
+    # An unsynced hero reports its own level unchanged.
+    plain = [
+        unit
+        for entry in _entries()
+        for unit in decode_army(entry["army"]).units
+        if not unit.level_synced
+    ]
+    assert all(unit.level == unit.base_level for unit in plain)
+
+
+def test_skills_come_back_in_the_order_the_game_lists_them() -> None:
+    """Checked against a labelled capture: five lineups, twenty skills, every
+    level matching once sorted by id."""
+    for army in (decode_army(entry["army"]) for entry in _entries()):
+        for unit in army.units:
+            ids = [skill.skill_id for skill in unit.skills]
+            assert ids == sorted(ids)
+
+
 def test_unit_carries_star_power_and_instance_id() -> None:
     units = decode_army(_entries()[0]["army"]).units
 

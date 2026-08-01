@@ -81,7 +81,16 @@ export function LineupCell({ heroes }: { heroes: readonly LineupHero[] }) {
                 <td className="num">{hero.slot ?? '—'}</td>
                 <td className="num">{hero.hero_id}</td>
                 <td>{troopClassName(hero.troop_class)}</td>
-                <td className="num">{hero.hero_level ?? '—'}</td>
+                {/* A synced level is marked, not hidden: it is what the
+                    game shows, but it came from the training centre rather
+                    than from levelling that hero. */}
+                <td
+                  className="num"
+                  title={hero.level_synced ? 'Synced in the training centre' : undefined}
+                >
+                  {hero.hero_level ?? '—'}
+                  {hero.level_synced ? '*' : ''}
+                </td>
                 <td className="num">{hero.star ?? '—'}</td>
                 {/* Null is "not unlocked", a real state rather than a zero:
                     1,730 of 4,028 observed heroes have a weapon. */}

@@ -4,8 +4,8 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
--- 6 has_column + 1 col_is_unique + 8 assertions.
-select plan(15);
+-- 6 has_column + 1 col_is_unique + 9 assertions.
+select plan(16);
 
 select has_column('public', 'arena_entry_heroes', c.col,
   'arena_entry_heroes has ' || c.col)
@@ -24,14 +24,15 @@ insert into public.arena_entry_heroes
   (observation_id, source_command, parser_version, idempotency_key, captured_at,
    collector_id, collected_from_server_id, arena_entry_id, server_id, game_uid,
    slot, hero_id, troop_class, hero_level, max_level, star, hero_power,
-   hero_uuid, weapon_level, skills, equipment, troop_type_id, troop_count, raw)
+   hero_uuid, weapon_level, skills, equipment, troop_type_id, troop_count, raw,
+   base_level, level_synced)
 select '00000000-0000-4000-8000-00000000e501', 'user.get.arena.info', 'test',
        'test:lineup:1', '2026-07-30T05:35:55Z',
        '00000000-0000-4000-8000-000000000c01', 580, p.entry_id, p.server_id,
        58000001, 3, 40001, 1, 103, 200, 6, 6731000, 1374965744252634311, 26,
        '[{"skill_id": 10042150, "level": 15}]'::jsonb,
        '[{"equipment_id": 410100, "level": 100, "step": 11}]'::jsonb,
-       '107009', 11201, '{"field_9": [2]}'::jsonb
+       '107009', 11201, '{"field_9": [2]}'::jsonb, 1, true
 from _parent p;
 
 select is((select troop_class from public.arena_entry_heroes
@@ -52,6 +53,14 @@ select is((select hero_level from public.arena_entry_heroes
 select is((select max_level from public.arena_entry_heroes
            where idempotency_key = 'test:lineup:1'), 200,
   'the cap is kept alongside it');
+
+-- 0026: a training-centre hero is displayed at a synced level while its own
+-- stays where it was. Both are kept, because "levelled to 103" and "parked at
+-- 1 and synced to 103" are different facts about a player.
+select is((select base_level::text || '/' || level_synced::text
+           from public.arena_entry_heroes where idempotency_key = 'test:lineup:1'),
+          '1/true',
+  'the hero''s own level survives beside the displayed one');
 
 -- Fields the parser does not interpret have to survive somewhere.
 select is((select raw ->> 'field_9' from public.arena_entry_heroes
