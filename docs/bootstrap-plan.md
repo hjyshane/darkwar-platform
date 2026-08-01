@@ -1,5 +1,7 @@
 # DarkWar Platform — 저장소 부트스트랩 및 첫 수직 슬라이스
 
+> **이 문서는 부트스트랩 계획이다. 현재 상태는 `docs/handover.md`를 본다.**
+>
 > **진행 상황** (2026-07-28 기준, WSL 검증 후 갱신)
 >
 > - **P0 완료** — 커밋 `8464377`. 저장소 뼈대, `.gitignore`/gitleaks/lefthook

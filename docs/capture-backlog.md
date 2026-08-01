@@ -15,12 +15,49 @@
 | 로그인 시퀀스 (§26.1 이벤트 01) | `init` · `account.login.new` · `check.device.change` · `push.setting` · `push.utc.time` shape 확보 |
 | 이벤트 탭 (§26.1 이벤트 02) | `get.battlepass.info` · `dragon.activity.info` · `monster.siege.activity.info` · `get.fortress.activity.info` · `get.dig.activity.info` · `hero.event.info.get` · `apex.info` 등 shape 확보 |
 | 메일 (§26.1 이벤트 03) | `push.mail`(`fromUser`/`toUser`가 UID, `contentsArr`가 본문) · `chat.get.system.mails` · `get.del.mail.list` |
-| 기여도 | `get.daily.alliance.donate.rank`, `al.battle.rank.info` 승격 완료 |
+| 기여도(일간 기부) | `get.daily.alliance.donate.rank` 승격 완료 — `contribution_type='daily_donation'` |
 
 `schema_observations`에 미확인 커맨드 **164종**의 타입 스켈레톤이 있다. 새 파서를
 쓸 때는 새로 찍기 전에 먼저 여기를 본다.
 
 ## 필요한 캡처 — 우선순위 순
+
+### 0. 기여도 일간·주간 — 아무 때나 가능 · **최우선**
+
+게임 화면에는 기부와 듀얼이 **일간과 주간으로 각각** 나온다. 우리가 가진 것은
+일간 기부 하나뿐이다.
+
+`al.battle.rank.info`는 스윕에서 "승격" 판정을 받았지만 **실제로 승격되지
+않았다** — 파서도 fixture도 없다. 그 결과:
+
+- `contribution_type='alliance_battle'` 행을 만드는 코드가 **없다**
+- 스키마·트리거·대시보드 열(`Alliance Battle`)은 전부 존재하는데 **영원히 비어
+  있다**. 목 데이터로만 확인해서 여태 드러나지 않았다
+
+스윕 노트가 남긴 단서: `al.battle.rank.info`의 **`type`이 두 랭킹을 구분한다.**
+그것이 일간/주간일 가능성이 높다.
+
+**캡처 방법** — `rank.get.by.range`와 같은 라벨 붙인 캡처다. 탭을 하나씩 열되
+어떤 탭인지 적고, 화면의 숫자를 payload 값과 대조한다.
+
+| 열 화면 | 적어둘 것 |
+|---|---|
+| 연맹 → 기부 랭킹 → **일간** | 상위 3명의 이름과 점수 |
+| 연맹 → 기부 랭킹 → **주간** | 같은 3명의 점수 (일간과 다른지) |
+| 연맹 → 듀얼(연맹 대전) → **일간** | 상위 3명의 이름과 점수 |
+| 연맹 → 듀얼 → **주간** | 같은 3명의 점수 |
+| 듀얼에 **라운드** 구분이 있으면 그것도 | 라운드 번호와 점수 |
+
+확인할 것:
+
+1. 주간 기부가 **별도 커맨드**인가(`get.week...` 같은), 아니면 같은 커맨드의
+   다른 `type`인가
+2. `al.battle.rank.info`의 `type` 값과 화면 탭의 대응
+3. 화면 숫자와 payload `score`가 일치하는가 — 일치해야 개인 귀속이 성립한다
+
+판정이 끝나면 `contribution_type` check 제약을 확장하고
+(`daily_donation`, `weekly_donation`, `alliance_battle_daily`, … 실제로 관측된
+것만) 파서를 승격한다. **관측 전에 컬럼을 추측해서 만들지 않는다.**
 
 ### 1. 라벨 붙인 랭킹 탭 — 아무 때나 가능
 
