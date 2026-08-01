@@ -49,8 +49,17 @@ def emit_facts(observation: Observation, rows: list[NormalizedRow]) -> list[Norm
     return facts
 
 
+# Donation's two periods get a metric each. They are not comparable: the same
+# player scores ~14.5k on the daily board and ~86k on the weekly one, so a
+# shared metric_key would put both scales in one percentile_rank and rank a
+# member by which board happened to be captured last.
+#
+# The three duel boards do share alliance_battle_score, which has the same
+# problem for the same reason (0028 separated their columns but not their
+# metric). Left as it is rather than changed in passing — see docs/handover.md.
 _CONTRIBUTION_METRICS = {
     "daily_donation": "alliance_donation_score",
+    "weekly_donation": "alliance_weekly_donation_score",
     "alliance_battle_daily": "alliance_battle_score",
     "alliance_battle_weekly": "alliance_battle_score",
     "alliance_battle_round": "alliance_battle_score",

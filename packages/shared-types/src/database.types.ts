@@ -1461,6 +1461,8 @@ export type Database = {
           duel_weekly_score: number | null
           duel_weekly_updated_at: string | null
           player_id: string
+          weekly_donation_score: number | null
+          weekly_donation_updated_at: string | null
         }
         Insert: {
           daily_donation_score?: number | null
@@ -1472,6 +1474,8 @@ export type Database = {
           duel_weekly_score?: number | null
           duel_weekly_updated_at?: string | null
           player_id: string
+          weekly_donation_score?: number | null
+          weekly_donation_updated_at?: string | null
         }
         Update: {
           daily_donation_score?: number | null
@@ -1483,6 +1487,8 @@ export type Database = {
           duel_weekly_score?: number | null
           duel_weekly_updated_at?: string | null
           player_id?: string
+          weekly_donation_score?: number | null
+          weekly_donation_updated_at?: string | null
         }
         Relationships: [
           {

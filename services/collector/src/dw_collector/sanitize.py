@@ -207,7 +207,10 @@ def sanitize_get_user_info_multi(payload: dict[str, Any]) -> dict[str, Any]:
     return sanitized
 
 
-def sanitize_daily_alliance_donate_rank(payload: dict[str, Any]) -> dict[str, Any]:
+def sanitize_alliance_donate_rank(payload: dict[str, Any]) -> dict[str, Any]:
+    """Serves both donation rankings. get.week.alliance.donate.rank returns the
+    same {uid, score, updateTime} rankList as the daily one — different period,
+    identical shape — so masking it twice would be two names for one function."""
     entries = payload.get("rankList")
     if not isinstance(entries, list):
         return payload
@@ -346,7 +349,8 @@ SANITIZERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "mail.read.share": sanitize_mail_read_share,
     "kill.rank": sanitize_kill_rank,
     "al.battle.rank.info": sanitize_al_battle_rank_info,
-    "get.daily.alliance.donate.rank": sanitize_daily_alliance_donate_rank,
+    "get.daily.alliance.donate.rank": sanitize_alliance_donate_rank,
+    "get.week.alliance.donate.rank": sanitize_alliance_donate_rank,
     "al.rank": sanitize_al_rank,
     "alliance.rank": sanitize_alliance_rank,
     "get.al.info": sanitize_get_al_info,

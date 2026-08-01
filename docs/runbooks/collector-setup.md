@@ -265,6 +265,7 @@ cd C:\darkwar-platform\services\collector; ..\..\dw-env.ps1; uv run dw-ui-worker
 routine=alliance_daily serial=127.0.0.1:5575
   ok          roster saw=['al.rank']
   ok          contribution saw=['get.daily.alliance.donate.rank']
+  ok          contribution saw=['get.week.alliance.donate.rank']
   skipped     close contribution
 
 all steps verified

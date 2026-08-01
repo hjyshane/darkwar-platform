@@ -8,7 +8,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(7);
+select plan(10);
 
 insert into public.collectors (collector_id, name)
 values ('00000000-0000-4000-8000-000000000c11', 'summary-test')
@@ -72,6 +72,26 @@ select is((select last_seen_at >= '2026-07-30T05:40:00Z'::timestamptz
 
 select has_column('public', 'player_contributions', 'duel_round_updated_at',
   'each duel board has its own updated_at');
+
+-- 0029: donation weekly is its own board, so it needs its own column and its
+-- own clock. Deliberately given an OLDER timestamp than the daily readings
+-- above: if the two shared a gate, this would be discarded.
+select pg_temp.contrib('t:c:5', 'weekly_donation', 86440,
+                       '2026-07-29T02:00:00Z', '2026-07-29T01:59:00Z');
+select is((select weekly_donation_score from public.player_contributions
+           where player_id = '00000000-0000-4000-8000-0000000da001'), 86440::bigint,
+  'the weekly donation is not gated by the daily donation timestamp');
+select is((select daily_donation_score from public.player_contributions
+           where player_id = '00000000-0000-4000-8000-0000000da001'), 5860::bigint,
+  'and it leaves the daily donation alone');
+
+-- The weekly board is a separate reading, never a derivation from daily.
+select throws_ok(
+  $$ select pg_temp.contrib('t:c:6', 'donation_weekly', 1,
+                            '2026-07-30T06:00:00Z', '2026-07-30T06:00:00Z') $$,
+  '23514',
+  null,
+  'an unknown contribution_type is rejected by the check constraint');
 
 select * from finish();
 rollback;

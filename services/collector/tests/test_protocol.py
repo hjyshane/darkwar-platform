@@ -418,7 +418,7 @@ def test_committed_donation_fixture_matches_sanitized_capture() -> None:
     pcap = Path("/mnt/c/DW_data/probe.pcapng")
     if not pcap.exists():
         pytest.skip("sweep capture not on this machine")
-    from dw_collector.sanitize import sanitize_daily_alliance_donate_rank
+    from dw_collector.sanitize import sanitize_alliance_donate_rank
     from tests.conftest import load_observation
 
     inbound = next(
@@ -427,7 +427,29 @@ def test_committed_donation_fixture_matches_sanitized_capture() -> None:
         if event.direction == "inbound" and event.command == "get.daily.alliance.donate.rank"
     )
     committed = load_observation("get.daily.alliance.donate.rank/daily_580_v1.json")
-    assert committed.payload == sanitize_daily_alliance_donate_rank(dict(inbound.payload))
+    assert committed.payload == sanitize_alliance_donate_rank(dict(inbound.payload))
+
+
+def test_committed_weekly_donation_fixture_matches_sanitized_capture() -> None:
+    """The weekly board came out of a different capture from the daily one, so
+    it gets its own guard against a hand-edited fixture drifting from the wire."""
+    pcap = Path("/mnt/c/DW_data/re-capture.pcapng")
+    if not pcap.exists():
+        pytest.skip("labelling capture not on this machine")
+    from dw_collector.sanitize import sanitize_alliance_donate_rank
+    from tests.conftest import load_observation
+
+    inbound = next(
+        event
+        for event in iter_extension_events(pcap)
+        if event.direction == "inbound" and event.command == "get.week.alliance.donate.rank"
+    )
+    committed = load_observation("get.week.alliance.donate.rank/week_580_v1.json")
+    assert committed.payload == sanitize_alliance_donate_rank(dict(inbound.payload))
+    # The two boards really were captured in one session, seconds apart. If this
+    # ever fails, the fixture was taken from a different pcap than the manifest
+    # says and the daily/weekly comparison above it is no longer like-for-like.
+    assert committed.captured_at.date().isoformat() == "2026-08-01"
 
 
 def test_committed_kill_rank_fixture_matches_sanitized_capture() -> None:

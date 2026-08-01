@@ -1,4 +1,4 @@
-"""get.daily.alliance.donate.rank → alliance_contribution_snapshots.
+"""The two donation rankings → alliance_contribution_snapshots.
 
 Real payload (fixture extracted from a discovery sweep): `rankList` holds
 {uid, score, updateTime} per member, ordered by score descending. The uid is
@@ -8,6 +8,12 @@ neither can honestly become a per-player fact.
 
 `updateTime` is when the server last changed that member's score, which is
 strictly better provenance than captured_at (when we happened to look).
+
+The daily and weekly boards are two SEPARATE commands, not a `type` field on
+one — the shape the duel ranking has. Confirmed from re-capture.pcapng, where
+they arrive 37s apart and their top three match the two lists written down off
+the screen. Only the period differs, so one parser serves both and the command
+picks the contribution_type; the period is never derived from a score.
 """
 
 from __future__ import annotations
@@ -21,8 +27,12 @@ from dw_collector.models import NormalizedRow, Observation, idempotency_key, sta
 from dw_collector.registry import register
 from dw_collector.resetweek import reset_week_start
 
-PARSER_VERSION = "1.0.0"
-CONTRIBUTION_TYPE = "daily_donation"
+PARSER_VERSION = "1.1.0"
+
+CONTRIBUTION_TYPES = {
+    "get.daily.alliance.donate.rank": "daily_donation",
+    "get.week.alliance.donate.rank": "weekly_donation",
+}
 
 _UID_SERVER_SUFFIX = 6
 
@@ -50,12 +60,15 @@ class _Payload(BaseModel):
 
 
 @register("get.daily.alliance.donate.rank")
+@register("get.week.alliance.donate.rank")
 def normalize(observation: Observation) -> list[NormalizedRow]:
+    contribution_type = CONTRIBUTION_TYPES[observation.source_command]
     payload = _Payload.model_validate(observation.payload)
     raw_entries: list[dict[str, Any]] = observation.payload.get("rankList", [])
-    # A daily ranking resets with the game week; bucketing by week start keeps
+    # Both rankings reset with the game week; bucketing by week start keeps
     # one key per member per week while the raw payload hash still separates
-    # genuinely different readings.
+    # genuinely different readings. The two cannot collide despite sharing a
+    # bucket: §11.2 puts source_command in the key ahead of the scope.
     bucket = reset_week_start(observation.captured_at).isoformat()
 
     rows: list[NormalizedRow] = []
@@ -87,7 +100,7 @@ def normalize(observation: Observation) -> list[NormalizedRow]:
                     "server_id": server_id,
                     "game_uid": game_uid,
                     "alliance_id": None,
-                    "contribution_type": CONTRIBUTION_TYPE,
+                    "contribution_type": contribution_type,
                     "score": entry.score,
                     "rank": position,
                     "score_updated_at": (

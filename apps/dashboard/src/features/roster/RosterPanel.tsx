@@ -28,7 +28,7 @@ async function fetchRoster(): Promise<RosterRow[]> {
   const { data: contributions, error: contributionError } = await supabase
     .from('player_contributions')
     .select(
-      'player_id, daily_donation_score, duel_daily_score, duel_weekly_score, duel_round_score',
+      'player_id, daily_donation_score, weekly_donation_score, duel_daily_score, duel_weekly_score, duel_round_score',
     )
     .in(
       'player_id',
@@ -54,6 +54,7 @@ async function fetchRoster(): Promise<RosterRow[]> {
   return players.map((player) => ({
     ...player,
     daily_donation_score: byPlayer.get(player.player_id)?.daily_donation_score ?? null,
+    weekly_donation_score: byPlayer.get(player.player_id)?.weekly_donation_score ?? null,
     duel_daily_score: byPlayer.get(player.player_id)?.duel_daily_score ?? null,
     duel_weekly_score: byPlayer.get(player.player_id)?.duel_weekly_score ?? null,
     duel_round_score: byPlayer.get(player.player_id)?.duel_round_score ?? null,

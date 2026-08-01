@@ -49,7 +49,8 @@ export const TERMS = {
 
   // Contribution types (alliance_contribution_snapshots.contribution_type)
   dailyDonation: 'Daily Donation',
-  allianceBattle: 'Alliance Battle',
+  // Its own board, from its own command — not the daily figure accumulated.
+  weeklyDonation: 'Weekly Donation',
   duelDaily: 'Duel (Daily)',
   duelWeekly: 'Duel (Weekly)',
   duelRound: 'Duel (Rounds)', // the total over the duel's four rounds
