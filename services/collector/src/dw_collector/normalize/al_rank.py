@@ -10,11 +10,18 @@ Redaction heuristic (legacy-verified, FR-CORE-003): the server hides other
 alliances' presence by reporting everyone online with offLineTime 0 and
 pointId 0 — that pattern marks the whole snapshot presence_redacted, and
 online_state stays null rather than pretending everyone is online.
+
+`offLineTime` is promoted to `offline_since` as of 1.1.0. It had been read
+for the redaction heuristic and then left in `raw`, so the one field that
+says when a member was actually last playing was never queryable — while the
+dashboard's Last Seen column showed players.last_seen_at, which is when the
+collector observed them.
 """
 
 from __future__ import annotations
 
 from collections import Counter
+from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -23,7 +30,7 @@ from dw_collector.fields import month_card_expires_at
 from dw_collector.models import NormalizedRow, Observation, idempotency_key
 from dw_collector.registry import register
 
-PARSER_VERSION = "1.0.0"
+PARSER_VERSION = "1.1.0"
 
 # The uid embeds the home server id as its trailing digits (D-1).
 _UID_SERVER_SUFFIX = 6
@@ -65,6 +72,19 @@ def _presence_redacted(members: list[_Member]) -> bool:
         and all(int(member.off_line_time or 0) == 0 for member in members)
         and all(str(member.point_id or 0) == "0" for member in members)
     )
+
+
+def _offline_since(member: _Member, redacted: bool) -> str | None:
+    """`offLineTime` as a timestamp, or null when it says nothing.
+
+    Three different questions share that answer: the snapshot is redacted (the
+    server withheld presence), the member was online (the field is 0 by
+    definition — measured over a real roster, online is true exactly when
+    offLineTime is 0), or the field is absent.
+    """
+    if redacted or not member.off_line_time:
+        return None
+    return datetime.fromtimestamp(member.off_line_time / 1000, tz=UTC).isoformat()
 
 
 def _member_server(member: _Member, fallback: int) -> int:
@@ -122,6 +142,7 @@ def normalize(observation: Observation) -> list[NormalizedRow]:
                         raw_member.get("monthCardEndTime")
                     ),
                     "online_state": online_state,
+                    "offline_since": _offline_since(member, redacted),
                 },
                 entity_refs={
                     "alliance": {

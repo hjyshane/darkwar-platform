@@ -19,6 +19,8 @@ const rows: RosterRow[] = [
     kills: 1_000_000,
     daily_donation_score: 5860,
     alliance_battle_score: 42_000,
+    online_state: 'offline',
+    last_online_at: '2026-07-28T09:00:00Z',
     last_seen_at: '2026-07-28T11:55:00Z',
   },
   {
@@ -30,6 +32,8 @@ const rows: RosterRow[] = [
     kills: null,
     daily_donation_score: null,
     alliance_battle_score: null,
+    online_state: null,
+    last_online_at: null,
     last_seen_at: null,
   },
 ];
@@ -38,6 +42,20 @@ test('renders roster with freshness badge', () => {
   renderWithQuery(<RosterTable rows={rows} now={NOW} />);
   expect(screen.getByText('SyntheticPlayer01')).toBeDefined();
   expect(screen.getByText('5m ago')).toBeDefined();
+});
+
+test("last online is the player's own clock, not the collector's", () => {
+  renderWithQuery(<RosterTable rows={rows} now={NOW} />);
+  // Two facts about the same row: last online 3h ago, last looked at 5m ago.
+  // Before 0024 the second was labelled as if it were the first.
+  expect(screen.getByText('3h ago')).toBeDefined();
+  expect(screen.getByText('5m ago')).toBeDefined();
+});
+
+test('presence we were never shown reads as unknown, not offline', () => {
+  renderWithQuery(<RosterTable rows={rows} now={NOW} />);
+  // A redacted roster, a non-member, or a logged-out reader all land here.
+  expect(screen.queryByText('Offline')).toBeNull();
 });
 
 test('missing values render as unknown, not zero', () => {

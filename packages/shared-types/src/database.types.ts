@@ -233,6 +233,7 @@ export type Database = {
           month_card_expires_at: string | null
           name: string | null
           observation_id: string
+          offline_since: string | null
           online_state: string | null
           parser_version: string
           player_id: string | null
@@ -257,6 +258,7 @@ export type Database = {
           month_card_expires_at?: string | null
           name?: string | null
           observation_id: string
+          offline_since?: string | null
           online_state?: string | null
           parser_version: string
           player_id?: string | null
@@ -281,6 +283,7 @@ export type Database = {
           month_card_expires_at?: string | null
           name?: string | null
           observation_id?: string
+          offline_since?: string | null
           online_state?: string | null
           parser_version?: string
           player_id?: string | null
@@ -1487,6 +1490,35 @@ export type Database = {
             foreignKeyName: "player_names_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+        ]
+      }
+      player_presence: {
+        Row: {
+          observed_at: string
+          offline_since: string | null
+          online_state: string | null
+          player_id: string
+        }
+        Insert: {
+          observed_at: string
+          offline_since?: string | null
+          online_state?: string | null
+          player_id: string
+        }
+        Update: {
+          observed_at?: string
+          offline_since?: string | null
+          online_state?: string | null
+          player_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_presence_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: true
             referencedRelation: "players"
             referencedColumns: ["player_id"]
           },

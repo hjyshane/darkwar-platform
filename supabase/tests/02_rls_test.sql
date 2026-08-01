@@ -5,7 +5,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(18);
+select plan(21);
 
 -- Setup (as postgres, RLS not yet in play): three auth users + rows in the
 -- restricted tables.
@@ -44,6 +44,18 @@ insert into public.player_contributions
   (player_id, daily_donation_score, alliance_battle_score)
 select player_id, 18400, 96200 from public.players where game_uid = 58000001;
 
+-- Upsert, not insert: the seed's roster snapshots already project a presence
+-- row through 0024's trigger. This file's contract is that the target row
+-- exists so the negatives cannot pass vacuously, and an upsert says that
+-- without depending on whether the seed happens to cover this player.
+insert into public.player_presence (player_id, online_state, offline_since, observed_at)
+select player_id, 'offline', '2026-07-27T09:12:45Z', '2026-07-28T00:17:20Z'
+from public.players where game_uid = 58000001
+on conflict (player_id) do update
+  set online_state = excluded.online_state,
+      offline_since = excluded.offline_since,
+      observed_at = excluded.observed_at;
+
 insert into public.schema_observations (source_command, fingerprint)
 values ('unknown.command', 'test-fingerprint');
 
@@ -69,6 +81,11 @@ select is_empty($$ select snapshot_id, name from public.alliance_member_snapshot
 -- 0020: these scores lived on players, which anon reads, until they moved.
 select is_empty($$ select * from public.player_contributions $$,
   'anon cannot read alliance contribution');
+-- 0024: presence follows contribution off players for the same reason. The
+-- world-readable last_seen_at is when the collector looked; this is when the
+-- player was actually there, and that is alliance-internal (§17.3).
+select is_empty($$ select * from public.player_presence $$,
+  'anon cannot read member presence');
 -- The column is gone, not merely filtered — a projection of restricted data
 -- onto a world-readable table is how it leaked in the first place.
 select throws_ok($$ select daily_donation_score from public.players $$, '42703',
@@ -90,6 +107,8 @@ select is_empty($$ select snapshot_id, name from public.alliance_member_snapshot
   'viewer cannot read alliance-internal presence');
 select is_empty($$ select * from public.player_contributions $$,
   'viewer cannot read alliance contribution');
+select is_empty($$ select * from public.player_presence $$,
+  'viewer cannot read member presence');
 select is_empty($$ select * from public.activity_facts $$,
   'viewer cannot read activity facts');
 select is_empty($$ select * from public.audit_logs $$,
@@ -112,6 +131,8 @@ select isnt_empty($$ select snapshot_id, name from public.alliance_member_snapsh
   'member reads alliance-internal presence');
 select isnt_empty($$ select * from public.player_contributions $$,
   'member reads alliance contribution');
+select isnt_empty($$ select * from public.player_presence $$,
+  'member reads member presence');
 
 -- officer
 select set_config('request.jwt.claims',

@@ -29,6 +29,27 @@ export function formatAge(capturedAt: string, now: Date): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
+/** Presence as a phrase.
+ *
+ * `onlineState` null means we have never observed this player's presence —
+ * they are outside the alliance, the roster came back redacted, or the
+ * reader is not a member. None of those is the same as being offline, so it
+ * reads as unknown rather than as an absence (FR-UI-008).
+ */
+export function formatLastOnline(
+  onlineState: string | null,
+  lastOnlineAt: string | null,
+  now: Date,
+): string {
+  if (onlineState === null) {
+    return '—';
+  }
+  if (onlineState === 'online') {
+    return 'Online now';
+  }
+  return lastOnlineAt === null ? 'Offline' : formatAge(lastOnlineAt, now);
+}
+
 export type PassStatus = 'active' | 'expiring' | 'expired' | 'none';
 
 const EXPIRING_WITHIN_DAYS = 7;

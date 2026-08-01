@@ -39,7 +39,8 @@ export const TERMS = {
   members_count: 'Members',
   status: 'Status',
   expires: 'Expires',
-  lastSeen: 'Last Seen', // ours: last_seen_at
+  lastOnline: 'Last Online', // ours: from al.rank offLineTime — when they last played
+  lastSeen: 'Last Seen', // ours: last_seen_at — when the collector last looked
   observed: 'Observed', // ours: captured_at
   defensePower: 'Defense Power', // ours: the `army` blob is a lineup, not a number
   heroId: 'Hero ID',

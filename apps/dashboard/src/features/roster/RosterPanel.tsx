@@ -4,16 +4,16 @@ import { TERMS } from '../../lib/terms';
 import { useSession } from '../../lib/useSession';
 import { type RosterRow, RosterTable } from './RosterTable';
 
-/** Two queries rather than an embedded select.
+/** Three queries rather than an embedded select.
  *
- * Contribution moved to its own member-only table in 0020, so it is a join
- * away. Fetching it separately keeps the shape flat — the sort and search
- * work on top-level keys, and a nested object would silently stop being
- * sortable — and it makes the permission boundary obvious: logged out, the
- * second query returns nothing because RLS filters every row, and the
- * merge leaves the columns null. The table already renders null as "—",
- * which is the honest answer: not zero, not hidden, just not visible to
- * you.
+ * Contribution moved to its own member-only table in 0020 and presence in
+ * 0024, so both are a join away. Fetching them separately keeps the shape
+ * flat — the sort and search work on top-level keys, and a nested object
+ * would silently stop being sortable — and it makes the permission boundary
+ * obvious: logged out, those queries return nothing because RLS filters
+ * every row, and the merge leaves the columns null. The table already
+ * renders null as "—", which is the honest answer: not zero, not hidden,
+ * just not visible to you.
  */
 async function fetchRoster(): Promise<RosterRow[]> {
   const { data: players, error } = await supabase
@@ -36,12 +36,50 @@ async function fetchRoster(): Promise<RosterRow[]> {
     throw new Error(`contribution query failed: ${contributionError.message}`);
   }
 
+  const { data: presence, error: presenceError } = await supabase
+    .from('player_presence')
+    .select('player_id, online_state, offline_since, observed_at')
+    .in(
+      'player_id',
+      players.map((player) => player.player_id),
+    );
+  if (presenceError) {
+    throw new Error(`presence query failed: ${presenceError.message}`);
+  }
+
   const byPlayer = new Map(contributions.map((row) => [row.player_id, row]));
+  const presenceByPlayer = new Map(presence.map((row) => [row.player_id, row]));
   return players.map((player) => ({
     ...player,
     daily_donation_score: byPlayer.get(player.player_id)?.daily_donation_score ?? null,
     alliance_battle_score: byPlayer.get(player.player_id)?.alliance_battle_score ?? null,
+    ...lastOnline(presenceByPlayer.get(player.player_id)),
   }));
+}
+
+type PresenceRow = {
+  online_state: string | null;
+  offline_since: string | null;
+  observed_at: string;
+};
+
+/** Collapse presence to one sortable instant.
+ *
+ * Sorting on offline_since alone would be backwards: it is null for players
+ * who are online, and the sort puts nulls last, so the people playing right
+ * now would sink below everyone who left days ago. For someone online the
+ * last moment we know they were there is observed_at — the snapshot that
+ * said so — so that is what the column means: last known to be online.
+ */
+function lastOnline(presence: PresenceRow | undefined) {
+  if (presence === undefined || presence.online_state === null) {
+    return { online_state: null, last_online_at: null };
+  }
+  return {
+    online_state: presence.online_state,
+    last_online_at:
+      presence.online_state === 'online' ? presence.observed_at : presence.offline_since,
+  };
 }
 
 export function RosterPanel() {

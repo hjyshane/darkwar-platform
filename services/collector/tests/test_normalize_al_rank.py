@@ -6,6 +6,8 @@ cbfw_roster_v1.json is extracted from darkwar_alrank.pcapng by
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pytest
 from pydantic import ValidationError
 
@@ -76,6 +78,47 @@ def test_redacted_presence_never_reads_as_online() -> None:
     assert len(rows) == 3
     assert all(r.row["presence_redacted"] is True for r in rows)
     assert all(r.row["online_state"] is None for r in rows)
+    # Same reasoning for the timestamp: offLineTime is 0 across a redacted
+    # snapshot, and reading that as "went offline at the epoch" would be worse
+    # than admitting we were not told.
+    assert all(r.row["offline_since"] is None for r in rows)
+
+
+def test_offline_since_is_the_real_last_online_time() -> None:
+    """offLineTime is the one field saying when a member was last playing.
+    players.last_seen_at is captured_at — when we looked, not when they were
+    there."""
+    observation = load_observation("al.rank/cbfw_roster_v1.json")
+    rows = al_rank.normalize(observation)
+
+    online = [r.row for r in rows if r.row["online_state"] == "online"]
+    offline = [r.row for r in rows if r.row["online_state"] == "offline"]
+
+    # Online is true exactly when offLineTime is 0, so the timestamp is null
+    # for precisely the online members — no partial coverage either way.
+    assert len(online) == 7
+    assert len(offline) == 86
+    assert all(r["offline_since"] is None for r in online)
+    assert all(r["offline_since"] is not None for r in offline)
+
+    # Milliseconds, not seconds. Pinned against a value read straight out of
+    # the payload, so the unit cannot drift; treating it as seconds throws
+    # "year 58540 is out of range", which is how the unit was established.
+    raw_ms = min(int(m["offLineTime"]) for m in observation.payload["list"] if m.get("offLineTime"))
+    oldest = min(r["offline_since"] for r in offline)
+    assert oldest == datetime.fromtimestamp(raw_ms / 1000, tz=UTC).isoformat()
+    assert oldest.startswith("2026-")
+
+
+def test_offline_since_survives_a_missing_field() -> None:
+    observation = load_observation("al.rank/roster_nulls_v1.json")
+    rows = al_rank.normalize(observation)
+
+    # No offLineTime at all, and online unknown.
+    assert rows[0].row["offline_since"] is None
+    # Present and non-zero → a timestamp, even though this fixture's value is
+    # implausibly small. It is what the server said; `raw` keeps the original.
+    assert rows[2].row["offline_since"] == datetime.fromtimestamp(86400, tz=UTC).isoformat()
 
 
 def test_malformed_payload_rejected() -> None:

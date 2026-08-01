@@ -4,6 +4,7 @@ import { FavouritesFilter } from '../../components/FavouritesFilter';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
 import { SortableTh } from '../../components/SortableTh';
 import { TableSearch } from '../../components/TableSearch';
+import { formatLastOnline } from '../../lib/freshness';
 import { TERMS } from '../../lib/terms';
 import { useFavourites } from '../../lib/useFavourites';
 import { useTableView } from '../../lib/useTableView';
@@ -17,6 +18,8 @@ export interface RosterRow {
   kills: number | null;
   daily_donation_score: number | null;
   alliance_battle_score: number | null;
+  online_state: string | null;
+  last_online_at: string | null;
   last_seen_at: string | null;
 }
 
@@ -86,6 +89,9 @@ export function RosterTable({ rows, now }: { rows: RosterRow[]; now?: Date }) {
               <SortableTh numeric onSort={onSort} sort={sort} sortKey="alliance_battle_score">
                 {TERMS.allianceBattle}
               </SortableTh>
+              <SortableTh numeric onSort={onSort} sort={sort} sortKey="last_online_at">
+                {TERMS.lastOnline}
+              </SortableTh>
               <SortableTh numeric onSort={onSort} sort={sort} sortKey="last_seen_at">
                 {TERMS.lastSeen}
               </SortableTh>
@@ -115,6 +121,13 @@ export function RosterTable({ rows, now }: { rows: RosterRow[]; now?: Date }) {
                 <td className="num">{formatNumber(row.kills)}</td>
                 <td className="num">{formatNumber(row.daily_donation_score)}</td>
                 <td className="num">{formatNumber(row.alliance_battle_score)}</td>
+                {/* Two different facts, deliberately side by side: when
+                    the player was last in the game, and when we last looked.
+                    They were conflated until 0024 — Last Seen was captured_at
+                    wearing a name that reads like presence. */}
+                <td className="num">
+                  {formatLastOnline(row.online_state, row.last_online_at, now ?? new Date())}
+                </td>
                 <td className="num">
                   <FreshnessBadge capturedAt={row.last_seen_at} now={now} />
                 </td>
