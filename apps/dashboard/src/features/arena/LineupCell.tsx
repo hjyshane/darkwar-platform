@@ -81,6 +81,9 @@ export function LineupCell({ heroes }: { heroes: readonly LineupHero[] }) {
                 <td className="num">{hero.slot ?? '—'}</td>
                 <td className="num">{hero.hero_id}</td>
                 <td>{troopClassName(hero.troop_class)}</td>
+                {/* Unqualified. A hero raised by the training centre really
+                    is this level — the effect applies in combat — so marking
+                    it would suggest the number is somehow provisional. */}
                 <td className="num">{hero.hero_level ?? '—'}</td>
                 <td className="num">{hero.star ?? '—'}</td>
                 {/* Null is "not unlocked", a real state rather than a zero:

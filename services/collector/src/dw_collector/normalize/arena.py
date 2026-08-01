@@ -188,6 +188,8 @@ def _lineup_rows(
                     "hero_id": unit.hero_id,
                     "troop_class": unit.troop_class,
                     "hero_level": unit.level,
+                    "base_level": unit.base_level,
+                    "level_synced": unit.level_synced,
                     "max_level": unit.max_level,
                     "star": unit.star,
                     "hero_power": unit.power,

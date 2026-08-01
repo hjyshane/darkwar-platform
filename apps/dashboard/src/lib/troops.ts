@@ -27,9 +27,12 @@ export interface LineupHero {
   slot: number | null;
   hero_id: number;
   troop_class: number | null;
-  /** The hero's level, not the cap — the blob carries both and the cap is
-   * 200 for everyone. */
+  /** The hero's actual level. A training-centre hero is genuinely raised to
+   * this level, so it is the real figure either way. */
   hero_level: number | null;
+  /** Whether the level comes from the training centre. Recorded because the
+   * payload distinguishes them, not because the level is worth less. */
+  level_synced: boolean;
   star: number | null;
   hero_power: number | null;
   /** Null means the exclusive weapon is not unlocked, which is a state, not

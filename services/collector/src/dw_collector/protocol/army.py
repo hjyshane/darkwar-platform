@@ -17,8 +17,8 @@ and maxLv. That is what pins the identity and level fields.
              entry's power, which is what identifies it
     2 (rep)  one per deployed hero, always exactly five
     2.1      heroId, same id space as rank.get.by.range type 49's heroId
-    2.2      hero level. 103 for the collector's own five, matching
-             army.info's heroLevel exactly
+    2.2      the level the hero reached on its own. Not its actual level when
+             2.14 is present — see below
     2.4      slot, 1-5, each appearing exactly once per lineup
     2.5 (rep) skills, 3-5 per hero: id then level (1-30). The ids group by
              hero — 40001 owns 100421xx/100422xx, 1004 owns 100131xx
@@ -30,6 +30,11 @@ and maxLv. That is what pins the identity and level fields.
     2.15     the hero's exclusive weapon: its id is the hero's own id in
              1730 of 1730 cases, and the second value is its level (3-41).
              Absent for a hero whose weapon is not unlocked
+    2.14     the level the training centre raises a hero to, which IS that
+             hero's level — the effect applies, it is not a display trick.
+             Guaplee's lineup pinned this: all five are level 120, 2.2 reads
+             120/90/1/70/1, and exactly the four in the training centre carry
+             2.14 = 120. Reading 2.2 alone reports 1 for a level-120 hero
     2.16     the hero's power
 
 2.12 is the one the game screen was needed for. It takes exactly three values
@@ -38,12 +43,14 @@ axis rather than a per-player choice; which number means which class came from
 the user reading it in game. `careerType` was expected to carry this and does
 not — it is 0 for every player in every capture.
 
-Fields 2.9 (1-4), 2.14 (58-120) and the trailing 12 (id 41001 with a float
-between 250 and 10250) are NOT interpreted. They are plausibly the refit and
-research figures the arena screen shows, but nothing in any captured command
-pins them, and the 49/79 swap is this project's standing reminder that a
-plausible reading becomes a permanent column. They ride along in `extra` and
-land in the row's `raw`.
+Skills come back in id order once sorted, and that is the order the game
+lists them in — checked against five lineups, twenty skills, every level
+matching.
+
+Field 2.9 (1-4) is still NOT interpreted. It is absent at max star, so it
+looks like progress toward the next one, but the lineup that would have
+settled it had every hero at max. The trailing block 12 is unread too. Both
+ride along in `extra` and land in the row's `raw`.
 """
 
 from __future__ import annotations
@@ -74,6 +81,7 @@ _MAX_LEVEL = 7
 _STAR = 8
 _TROOP_CLASS = 12
 _EQUIPMENT = 13
+_SYNCED_LEVEL = 14
 _EXCLUSIVE_WEAPON = 15
 _POWER = 16
 
@@ -90,6 +98,7 @@ _INTERPRETED_UNIT_FIELDS = frozenset(
         _EQUIPMENT,
         _EXCLUSIVE_WEAPON,
         _POWER,
+        _SYNCED_LEVEL,
     }
 )
 
@@ -118,7 +127,14 @@ class ArmyUnit:
     hero_id: int
     slot: int | None = None
     troop_class: int | None = None
+    #: The hero's actual level, whether it got there on its own or through
+    #: the training centre.
     level: int | None = None
+    #: The level it reached on its own. Often 1 for a hero raised entirely by
+    #: the training centre; kept because the payload distinguishes them.
+    base_level: int | None = None
+    #: Whether the level comes from the training centre.
+    level_synced: bool = False
     max_level: int | None = None
     star: int | None = None
     power: int | None = None
@@ -226,11 +242,17 @@ def _unit(values: dict[int, list[int | bytes]]) -> ArmyUnit:
         msg = "unit carries no hero id"
         raise ArmyDecodeError(msg)
 
+    # Sorted by id, which is the order the game lists them in.
     skills = tuple(
-        Skill(skill_id=sid, level=_varint(sub, 2))
-        for sub in _submessages(values, _SKILLS)
-        for sid in (_varint(sub, 1),)
-        if sid is not None
+        sorted(
+            (
+                Skill(skill_id=sid, level=_varint(sub, 2))
+                for sub in _submessages(values, _SKILLS)
+                for sid in (_varint(sub, 1),)
+                if sid is not None
+            ),
+            key=lambda skill: skill.skill_id,
+        )
     )
     equipment = tuple(
         Equipment(equipment_id=eid, level=_varint(sub, 2), step=_varint(sub, 3))
@@ -239,11 +261,15 @@ def _unit(values: dict[int, list[int | bytes]]) -> ArmyUnit:
         if eid is not None
     )
     weapon = _submessages(values, _EXCLUSIVE_WEAPON)
+    base_level = _varint(values, _LEVEL)
+    synced = _varint(values, _SYNCED_LEVEL)
     return ArmyUnit(
         hero_id=hero_id,
         slot=_varint(values, _SLOT),
         troop_class=_varint(values, _TROOP_CLASS),
-        level=_varint(values, _LEVEL),
+        level=synced if synced is not None else base_level,
+        base_level=base_level,
+        level_synced=synced is not None,
         max_level=_varint(values, _MAX_LEVEL),
         star=_varint(values, _STAR),
         power=_varint(values, _POWER),

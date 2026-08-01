@@ -30,6 +30,7 @@ function hero(over: Partial<LineupHero> & Pick<LineupHero, 'slot' | 'hero_id'>):
   return {
     troop_class: FIGHTER,
     hero_level: 103,
+    level_synced: false,
     star: 6,
     hero_power: 6_731_000,
     weapon_level: null,
@@ -97,6 +98,17 @@ test('expanding shows weapon, gear and skills, not just the roster', () => {
   // Gear and skill levels, joined — the ids are in the tooltip.
   expect(screen.getByText('100 / 70')).toBeDefined();
   expect(screen.getByText('15 / 10')).toBeDefined();
+});
+
+test('a training-centre level renders as the plain number it is', () => {
+  const synced = [hero({ slot: 1, hero_id: 40001, hero_level: 120, level_synced: true })];
+  renderWithQuery(<LineupCell heroes={synced} />);
+  expand();
+
+  // The hero really is level 120 — the training centre effect applies — so
+  // the cell must not qualify it with a marker or a caveat.
+  expect(screen.getByText('120')).toBeDefined();
+  expect(screen.queryByText(/120\D/)).toBeNull();
 });
 
 test('a hero with no exclusive weapon reads as unknown, not level zero', () => {
