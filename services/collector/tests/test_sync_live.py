@@ -8,15 +8,18 @@ schema side).
 from __future__ import annotations
 
 import os
+from collections import Counter
 from typing import Any
 
 import httpx
 import pytest
 
+from dw_collector import registry
 from dw_collector.normalize import al_rank, arena
 from dw_collector.storage.journal import Journal
 from dw_collector.sync.worker import SyncConfig, SyncWorker
 from tests.conftest import load_observation
+from tests.test_fixture_coverage import healthy_fixtures
 
 pytestmark = pytest.mark.supabase
 
@@ -213,46 +216,62 @@ def test_fact_drills_down_to_original_observation(client: httpx.Client, journal:
 
 def test_all_promoted_parsers_reach_supabase(client: httpx.Client, journal: Journal) -> None:
     """Every confirmed command, decoded from real captures, lands in its
-    table through the same journal → outbox → upsert path (S14 exit)."""
+    table through the same journal → outbox → upsert path (S14 exit).
+
+    The fixture list is derived from the registry rather than written out, so
+    promoting a parser extends this test automatically. It used to be a hand
+    list and went stale: six parsers were promoted after it was written and
+    none of them was added, while the docstring still claimed "every".
+    """
     from dw_collector import pipeline
 
     fixtures = [
-        "al.rank/cbfw_roster_v1.json",
-        "alliance.rank/local_580_v1.json",
-        "alliance.rank/cross_group_v1.json",
-        "get.al.info/love_580_v1.json",
-        "server.rank/group_top150_v1.json",
-        "get.new.user.info/profile_578_v1.json",
-        "get.user.info.multi/summary_578_v1.json",
-        "user.get.arena.info/top100_580v582_v1.json",
+        f"{command}/{path.name}"
+        for command in sorted(registry.known_commands())
+        for path in healthy_fixtures(command)
     ]
-    expected_rows = 0
+    expected_by_table: Counter[str] = Counter()
+    covered: set[str] = set()
     for name in fixtures:
         observation = load_observation(name)
         rows = pipeline.process(observation)
-        expected_rows += len(rows)
+        expected_by_table.update(row.target_table for row in rows)
+        covered.add(observation.source_command)
         journal.record(observation, rows)
+
+    assert covered == registry.known_commands()
 
     worker = SyncWorker(
         journal, SyncConfig(supabase_url=SUPABASE_URL, secret_key=SECRET_KEY, batch_size=1000)
     )
-    stats = worker.drain_once()
-    assert stats.failed == 0
-    assert stats.sent == expected_rows
-    assert set(stats.tables) == {
+    # Drain to empty rather than once: the full fixture set outgrew a single
+    # batch when this stopped being a hand-picked list, and asserting on one
+    # batch would quietly measure the batch size instead of the delivery.
+    delivered: Counter[str] = Counter()
+    while True:
+        stats = worker.drain_once()
+        assert stats.failed == 0
+        if stats.sent == 0:
+            break
+        delivered.update(stats.tables)
+
+    # Per table, not just in total: a parser that stopped writing one of its
+    # tables would still satisfy a row count.
+    assert delivered == expected_by_table
+    # And the tables themselves are named, so a parser dropping out of the
+    # registry cannot quietly shrink both sides of that equality together.
+    assert set(delivered) >= {
         "player_snapshots",
         "player_detail_snapshots",
         "alliance_snapshots",
         "alliance_member_snapshots",
+        "alliance_contribution_snapshots",
+        "player_component_power_snapshots",
+        "battle_report_ingests",
         "arena_snapshots",
         "arena_entries",
         "activity_facts",
     }
-    # alliance.rank(41+100) + get.al.info(1) all target alliance_snapshots.
-    assert stats.tables["alliance_snapshots"] == 142
-    # server.rank(150) + get.user.info.multi(1).
-    assert stats.tables["player_snapshots"] == 151
-    assert stats.tables["player_detail_snapshots"] == 1
 
     # The six-power verification survived the round trip.
     resp = client.get(
