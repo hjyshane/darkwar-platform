@@ -1,8 +1,25 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
-import { type LineupHero, composition } from '../../lib/troops';
+import type { LineupEquipment, LineupHero, LineupSkill } from '../../lib/troops';
+import { composition } from '../../lib/troops';
 import { type ArenaEntryRow, type ArenaHeader, ArenaTable } from './ArenaTable';
+
+/** Narrow a jsonb column to the record list the parser writes.
+ *
+ * Anything that is not an array of objects carrying the identifying key is
+ * dropped rather than trusted — the column is jsonb precisely so the parser
+ * can put shapes there without a migration, which means the reader cannot
+ * assume one.
+ */
+function asList<T>(value: unknown, idKey: string): T[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter(
+    (item): item is T => typeof item === 'object' && item !== null && idKey in item,
+  );
+}
 
 interface ArenaData {
   header: ArenaHeader | null;
@@ -41,15 +58,25 @@ async function fetchArena(): Promise<ArenaData> {
   for (let start = 0; start < ids.length; start += 100) {
     const { data: heroes, error: heroesError } = await supabase
       .from('arena_entry_heroes')
-      .select('arena_entry_id, slot, hero_id, troop_class, star, hero_power')
+      .select(
+        'arena_entry_id, slot, hero_id, troop_class, hero_level, star, hero_power, weapon_level, skills, equipment',
+      )
       .in('arena_entry_id', ids.slice(start, start + 100));
     if (heroesError) {
       throw new Error(`arena lineup query failed: ${heroesError.message}`);
     }
-    for (const hero of heroes) {
-      const group = lineups.get(hero.arena_entry_id);
+    for (const row of heroes) {
+      const hero: LineupHero = {
+        ...row,
+        // skills and equipment are jsonb, so they arrive as `Json` and have
+        // to be narrowed at the boundary rather than asserted through. A
+        // shape the parser did not write reads as absent, not as a crash.
+        skills: asList<LineupSkill>(row.skills, 'skill_id'),
+        equipment: asList<LineupEquipment>(row.equipment, 'equipment_id'),
+      };
+      const group = lineups.get(row.arena_entry_id);
       if (group === undefined) {
-        lineups.set(hero.arena_entry_id, [hero]);
+        lineups.set(row.arena_entry_id, [hero]);
       } else {
         group.push(hero);
       }

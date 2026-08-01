@@ -627,3 +627,31 @@ button:focus-visible {
   background: var(--class-3-bg);
   color: var(--class-3-fg);
 }
+
+/* The lineup expands in place. `details` rather than a modal: the row stays
+ * where it is, several can be open at once for comparison, and it needs no
+ * focus trapping to be usable from a keyboard. */
+.lineup-details > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.lineup-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.lineup-detail {
+  font-size: var(--text-sm);
+  margin-top: var(--space-2);
+  /* Its own scroll container, so a nine-column table inside a cell cannot
+   * push the page sideways on a phone. */
+  display: block;
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.lineup-detail th {
+  color: var(--fg-muted);
+  font-weight: 500;
+  white-space: nowrap;
+}

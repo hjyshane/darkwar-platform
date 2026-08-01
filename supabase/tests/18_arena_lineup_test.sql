@@ -4,8 +4,8 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
--- 6 has_column + 1 col_is_unique + 4 assertions.
-select plan(11);
+-- 6 has_column + 1 col_is_unique + 8 assertions.
+select plan(15);
 
 select has_column('public', 'arena_entry_heroes', c.col,
   'arena_entry_heroes has ' || c.col)
@@ -23,21 +23,40 @@ select
 insert into public.arena_entry_heroes
   (observation_id, source_command, parser_version, idempotency_key, captured_at,
    collector_id, collected_from_server_id, arena_entry_id, server_id, game_uid,
-   slot, hero_id, troop_class, hero_level, star, hero_power, hero_uuid, equipment)
+   slot, hero_id, troop_class, hero_level, max_level, star, hero_power,
+   hero_uuid, weapon_level, skills, equipment, troop_type_id, troop_count, raw)
 select '00000000-0000-4000-8000-00000000e501', 'user.get.arena.info', 'test',
        'test:lineup:1', '2026-07-30T05:35:55Z',
        '00000000-0000-4000-8000-000000000c01', 580, p.entry_id, p.server_id,
-       58000001, 3, 40001, 1, 200, 6, 6731000, 1374965744252634311,
-       array[410100, 410200, 410300, 410400]
+       58000001, 3, 40001, 1, 103, 200, 6, 6731000, 1374965744252634311, 26,
+       '[{"skill_id": 10042150, "level": 15}]'::jsonb,
+       '[{"equipment_id": 410100, "level": 100, "step": 11}]'::jsonb,
+       '107009', 11201, '{"field_9": [2]}'::jsonb
 from _parent p;
 
 select is((select troop_class from public.arena_entry_heroes
            where idempotency_key = 'test:lineup:1'), 1,
   'troop class is stored as the number the payload gives');
-select is((select equipment from public.arena_entry_heroes
-           where idempotency_key = 'test:lineup:1'),
-          array[410100, 410200, 410300, 410400],
-  'equipment survives as an array rather than four columns');
+select is((select equipment -> 0 ->> 'level' from public.arena_entry_heroes
+           where idempotency_key = 'test:lineup:1'), '100',
+  'equipment keeps its level, not just the id');
+select is((select skills -> 0 ->> 'skill_id' from public.arena_entry_heroes
+           where idempotency_key = 'test:lineup:1'), '10042150',
+  'skills are stored per hero with their levels');
+
+-- The level and the cap are different fields in the blob and must stay
+-- different columns: reading the cap would store 200 for every player.
+select is((select hero_level from public.arena_entry_heroes
+           where idempotency_key = 'test:lineup:1'), 103,
+  'hero_level is the level, not the cap');
+select is((select max_level from public.arena_entry_heroes
+           where idempotency_key = 'test:lineup:1'), 200,
+  'the cap is kept alongside it');
+
+-- Fields the parser does not interpret have to survive somewhere.
+select is((select raw ->> 'field_9' from public.arena_entry_heroes
+           where idempotency_key = 'test:lineup:1'), '[2]',
+  'uninterpreted army fields land in raw rather than being dropped');
 
 -- hero_uuid exceeds int4; it is the game's 64-bit instance id.
 select is((select hero_uuid from public.arena_entry_heroes

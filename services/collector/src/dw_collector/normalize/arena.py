@@ -15,6 +15,7 @@ matches).
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from datetime import UTC, datetime
 from typing import Any
 
@@ -164,8 +165,9 @@ def _lineup_rows(
     five heroes is a real change, and keying on slot would let the reorder
     collide with whatever used to occupy that position.
     """
+    army = decode_army(entry.army or "")
     rows: list[NormalizedRow] = []
-    for unit in decode_army(entry.army or ""):
+    for unit in army.units:
         key = f"{entry_key}:hero:{unit.hero_id}"
         rows.append(
             NormalizedRow(
@@ -174,20 +176,28 @@ def _lineup_rows(
                 row={
                     **common,
                     "snapshot_id": str(stable_uuid(key)),
-                    # The blob itself is the source of record on the entry; a
-                    # decoded copy here would only restate these columns.
-                    "raw": {},
+                    # Whatever the decoder does not interpret. The schema
+                    # convention is that unrecognised fields survive here
+                    # rather than being dropped, and this blob still has
+                    # three of them.
+                    "raw": unit.extra,
                     "arena_entry_id": str(stable_uuid(entry_key)),
                     "server_id": server_id,
                     "game_uid": game_uid,
                     "slot": unit.slot,
                     "hero_id": unit.hero_id,
                     "troop_class": unit.troop_class,
-                    "hero_level": unit.hero_level,
+                    "hero_level": unit.level,
+                    "max_level": unit.max_level,
                     "star": unit.star,
-                    "hero_power": unit.hero_power,
+                    "hero_power": unit.power,
                     "hero_uuid": unit.hero_uuid,
-                    "equipment": list(unit.equipment),
+                    "weapon_level": unit.weapon_level,
+                    "skills": [asdict(skill) for skill in unit.skills],
+                    "equipment": [asdict(item) for item in unit.equipment],
+                    # One stack for the lineup, repeated on each of its rows.
+                    "troop_type_id": army.troop_type_id,
+                    "troop_count": army.troop_count,
                 },
                 entity_refs={
                     "player": {

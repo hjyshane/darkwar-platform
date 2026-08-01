@@ -658,23 +658,28 @@ export type Database = {
           collected_from_server_id: number
           collector_id: string
           created_at: string
-          equipment: number[]
+          equipment: Json
           game_uid: number
           hero_id: number
           hero_level: number | null
           hero_power: number | null
           hero_uuid: number | null
           idempotency_key: string
+          max_level: number | null
           observation_id: string
           parser_version: string
           player_id: string | null
           raw: Json
           server_id: number
+          skills: Json
           slot: number | null
           snapshot_id: string
           source_command: string
           star: number | null
           troop_class: number | null
+          troop_count: number | null
+          troop_type_id: string | null
+          weapon_level: number | null
         }
         Insert: {
           arena_entry_id: string
@@ -682,23 +687,28 @@ export type Database = {
           collected_from_server_id: number
           collector_id: string
           created_at?: string
-          equipment?: number[]
+          equipment?: Json
           game_uid: number
           hero_id: number
           hero_level?: number | null
           hero_power?: number | null
           hero_uuid?: number | null
           idempotency_key: string
+          max_level?: number | null
           observation_id: string
           parser_version: string
           player_id?: string | null
           raw?: Json
           server_id: number
+          skills?: Json
           slot?: number | null
           snapshot_id?: string
           source_command: string
           star?: number | null
           troop_class?: number | null
+          troop_count?: number | null
+          troop_type_id?: string | null
+          weapon_level?: number | null
         }
         Update: {
           arena_entry_id?: string
@@ -706,23 +716,28 @@ export type Database = {
           collected_from_server_id?: number
           collector_id?: string
           created_at?: string
-          equipment?: number[]
+          equipment?: Json
           game_uid?: number
           hero_id?: number
           hero_level?: number | null
           hero_power?: number | null
           hero_uuid?: number | null
           idempotency_key?: string
+          max_level?: number | null
           observation_id?: string
           parser_version?: string
           player_id?: string | null
           raw?: Json
           server_id?: number
+          skills?: Json
           slot?: number | null
           snapshot_id?: string
           source_command?: string
           star?: number | null
           troop_class?: number | null
+          troop_count?: number | null
+          troop_type_id?: string | null
+          weapon_level?: number | null
         }
         Relationships: [
           {

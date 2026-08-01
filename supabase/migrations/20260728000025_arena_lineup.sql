@@ -38,10 +38,23 @@ create table public.arena_entry_heroes (
   hero_id int not null,
   troop_class int,
   hero_level int,
+  max_level int,
   star int,
   hero_power bigint,
   hero_uuid bigint,
-  equipment int[] not null default '{}'
+  -- The hero's exclusive weapon. Null means not unlocked, which is a real
+  -- state: 1,730 of 4,028 observed units have one.
+  weapon_level int,
+  -- Skills and equipment are lists of small records, and neither is queried
+  -- by element yet. jsonb keeps them whole rather than inventing two more
+  -- child tables for data nothing filters on.
+  skills jsonb not null default '[]'::jsonb,
+  equipment jsonb not null default '[]'::jsonb,
+  -- The defending stack is one per lineup, not per hero, so it repeats
+  -- across a lineup's five rows. Denormalised deliberately: the alternative
+  -- is a second table holding one row per entry with two columns.
+  troop_type_id text,
+  troop_count int
 );
 
 comment on table public.arena_entry_heroes is
@@ -58,6 +71,25 @@ comment on column public.arena_entry_heroes.troop_class is
 comment on column public.arena_entry_heroes.hero_uuid is
   'Per-instance hero id (army field 2.6). Matches army.info''s heroUuid for '
   'the collector''s own account, which is how field 2.1 was pinned as heroId.';
+
+comment on column public.arena_entry_heroes.hero_level is
+  'The hero''s level (army field 2.2), NOT the cap. army.info reports '
+  'heroLevel 103 and maxLv 200 for the collector''s own five, and the blob '
+  'carries both — reading the cap here would store 200 for everyone.';
+
+comment on column public.arena_entry_heroes.troop_type_id is
+  'Defending troop type, e.g. "107009": `107` + class digit + `0` + tier '
+  'digit. Belongs to the lineup, so it repeats across its five rows.';
+
+comment on column public.arena_entry_heroes.troop_count is
+  'Defending troop count. Identified by correlating 0.85 with the entry''s '
+  'power across 800 lineups; 4,677-14,665 observed.';
+
+comment on column public.arena_entry_heroes.raw is
+  'Army fields this parser does not interpret — 2.9, 2.14 and the trailing '
+  'block 12. Plausibly the refit and research figures the arena screen '
+  'shows, but nothing observed pins them, so they are kept rather than '
+  'guessed at.';
 
 -- server_id leads, as everywhere else: the group grows to 12/16/32/64.
 create index arena_entry_heroes_server_captured_idx

@@ -1,23 +1,62 @@
 // The decoded defence lineup, on screen. The protocol carries no hero names,
 // so the cell leads with the troop class — which is the thing you counter —
 // and keeps the hero id in the tooltip.
-import { screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import { expect, test } from 'vitest';
 import { type ArenaEntryRow, ArenaTable } from '../src/features/arena/ArenaTable';
 import { LineupCell } from '../src/features/arena/LineupCell';
-import { bySlot, composition, troopClassInitial, troopClassName } from '../src/lib/troops';
+import {
+  type LineupHero,
+  bySlot,
+  composition,
+  troopClassInitial,
+  troopClassName,
+} from '../src/lib/troops';
 import { renderWithQuery } from './renderWithQuery';
+
+/** jsdom does not toggle a <details> from a summary click, so the state is
+ * set directly and the toggle event fired on the element React listens on. */
+function expand(): void {
+  const details = document.querySelector('details') as HTMLDetailsElement;
+  details.open = true;
+  fireEvent(details, new Event('toggle'));
+}
 
 const FIGHTER = 1;
 const SHOOTER = 2;
 const RIDER = 3;
 
-const lineup = [
-  { slot: 3, hero_id: 40001, troop_class: FIGHTER, star: 6, hero_power: 6_731_000 },
-  { slot: 1, hero_id: 40002, troop_class: SHOOTER, star: 6, hero_power: 7_031_800 },
-  { slot: 2, hero_id: 21001, troop_class: SHOOTER, star: 6, hero_power: 6_929_350 },
-  { slot: 5, hero_id: 11001, troop_class: SHOOTER, star: 6, hero_power: 4_535_500 },
-  { slot: 4, hero_id: 1004, troop_class: FIGHTER, star: 5, hero_power: 6_305_850 },
+function hero(over: Partial<LineupHero> & Pick<LineupHero, 'slot' | 'hero_id'>): LineupHero {
+  return {
+    troop_class: FIGHTER,
+    hero_level: 103,
+    star: 6,
+    hero_power: 6_731_000,
+    weapon_level: null,
+    skills: [],
+    equipment: [],
+    ...over,
+  };
+}
+
+const lineup: LineupHero[] = [
+  hero({
+    slot: 3,
+    hero_id: 40001,
+    weapon_level: 26,
+    skills: [
+      { skill_id: 10042150, level: 15 },
+      { skill_id: 10042250, level: 10 },
+    ],
+    equipment: [
+      { equipment_id: 410100, level: 100, step: 11 },
+      { equipment_id: 410200, level: 70, step: 5 },
+    ],
+  }),
+  hero({ slot: 1, hero_id: 40002, troop_class: SHOOTER, hero_power: 7_031_800 }),
+  hero({ slot: 2, hero_id: 21001, troop_class: SHOOTER, hero_power: 6_929_350 }),
+  hero({ slot: 5, hero_id: 11001, troop_class: SHOOTER, hero_power: 4_535_500 }),
+  hero({ slot: 4, hero_id: 1004, star: 5, hero_power: 6_305_850 }),
 ];
 
 test('composition counts the classes, most common first', () => {
@@ -35,19 +74,37 @@ test('chips render in slot order, not payload order', () => {
 });
 
 test('a hero with no slot still renders rather than being dropped', () => {
-  const odd = [
-    ...lineup,
-    { slot: null, hero_id: 33003, troop_class: RIDER, star: 4, hero_power: 1 },
-  ];
+  const odd = [...lineup, hero({ slot: null, hero_id: 33003, troop_class: RIDER, star: 4 })];
 
   expect(bySlot(odd)).toHaveLength(6);
   expect(bySlot(odd).at(-1)?.hero_id).toBe(33003);
 });
 
-test('the cell names the hero and its class in the tooltip', () => {
+test('the cell names the hero, its class and its level in the tooltip', () => {
   renderWithQuery(<LineupCell heroes={lineup} />);
 
-  expect(screen.getByTitle(/Slot 3 · Hero 40001 · Fighter · 6★/)).toBeDefined();
+  expect(screen.getByTitle(/Slot 3 · Hero 40001 · Fighter · Lv 103 · 6★/)).toBeDefined();
+});
+
+test('expanding shows weapon, gear and skills, not just the roster', () => {
+  renderWithQuery(<LineupCell heroes={lineup} />);
+  // The arena screen shows this detail, which is why it was decoded; the
+  // collapsed chips alone would throw the reason away.
+  expand();
+
+  expect(screen.getByText('Weapon')).toBeDefined();
+  expect(screen.getByText('Lv 26')).toBeDefined();
+  // Gear and skill levels, joined — the ids are in the tooltip.
+  expect(screen.getByText('100 / 70')).toBeDefined();
+  expect(screen.getByText('15 / 10')).toBeDefined();
+});
+
+test('a hero with no exclusive weapon reads as unknown, not level zero', () => {
+  renderWithQuery(<LineupCell heroes={lineup} />);
+  expand();
+
+  // Four of the five have none; each renders an em dash rather than "Lv 0".
+  expect(screen.queryByText('Lv 0')).toBeNull();
 });
 
 test('no lineup reads as unknown, not as an empty team', () => {

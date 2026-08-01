@@ -12,12 +12,31 @@ export const TROOP_CLASSES: Record<number, string> = {
   3: 'Rider',
 };
 
+export interface LineupSkill {
+  skill_id: number;
+  level: number | null;
+}
+
+export interface LineupEquipment {
+  equipment_id: number;
+  level: number | null;
+  step: number | null;
+}
+
 export interface LineupHero {
   slot: number | null;
   hero_id: number;
   troop_class: number | null;
+  /** The hero's level, not the cap — the blob carries both and the cap is
+   * 200 for everyone. */
+  hero_level: number | null;
   star: number | null;
   hero_power: number | null;
+  /** Null means the exclusive weapon is not unlocked, which is a state, not
+   * a zero. */
+  weapon_level: number | null;
+  skills: LineupSkill[];
+  equipment: LineupEquipment[];
 }
 
 export function troopClassName(value: number | null): string {
