@@ -1,6 +1,11 @@
--- 0010: al.battle.rank.info returns two different rankings under the same
+-- 0023: al.battle.rank.info returns two different rankings under the same
 -- command, distinguished only by a `type` field (0 and 1 were both captured,
 -- with different leaders and score magnitudes an order apart).
+--
+-- Written as 0010 and never merged, so the 0010 slot stayed vacant while
+-- 0011-0022 shipped. Renumbered to the end on merge: a migration that sorts
+-- before ones already applied is skipped by any database that is not rebuilt
+-- from scratch.
 --
 -- What `type` means is not known, so it is recorded rather than interpreted:
 -- naming the column `variant` and leaving it uninterpreted is honest, whereas

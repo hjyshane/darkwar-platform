@@ -78,3 +78,48 @@ def test_malformed_uid_rejected() -> None:
         alliance_battle_rank.normalize(
             load_observation("al.battle.rank.info/battle_malformed_v1.json")
         )
+
+
+def test_missing_score_and_server_are_kept_optional() -> None:
+    """An entry that reports neither score nor serverId still names a player.
+    The server falls back to the uid suffix, which is where it lives anyway."""
+    observation = load_observation("al.battle.rank.info/battle_type0_v1.json")
+    sparse = observation.model_copy(
+        update={"payload": {"type": 0, "rankInfo": [{"uid": "9162481630000586"}]}}
+    )
+
+    rows = alliance_battle_rank.normalize(sparse)
+
+    assert len(rows) == 1
+    assert rows[0].row["score"] is None
+    assert rows[0].row["server_id"] == 586
+    assert rows[0].entity_refs["player"]["name"] is None
+
+
+def test_empty_ranking_yields_no_rows() -> None:
+    observation = load_observation("al.battle.rank.info/battle_type0_v1.json")
+    empty = observation.model_copy(update={"payload": {"type": 0, "rankInfo": []}})
+
+    assert alliance_battle_rank.normalize(empty) == []
+
+
+def test_replay_is_idempotent() -> None:
+    observation = load_observation("al.battle.rank.info/battle_type0_v1.json")
+    first = [r.idempotency_key for r in alliance_battle_rank.normalize(observation)]
+    second = [r.idempotency_key for r in alliance_battle_rank.normalize(observation)]
+
+    assert first == second
+
+
+def test_key_survives_a_parser_version_bump() -> None:
+    observation = load_observation("al.battle.rank.info/battle_type0_v1.json")
+    before = alliance_battle_rank.normalize(observation)[0].idempotency_key
+
+    original = alliance_battle_rank.PARSER_VERSION
+    alliance_battle_rank.PARSER_VERSION = "9.9.9"
+    try:
+        after = alliance_battle_rank.normalize(observation)[0].idempotency_key
+    finally:
+        alliance_battle_rank.PARSER_VERSION = original
+
+    assert before == after
