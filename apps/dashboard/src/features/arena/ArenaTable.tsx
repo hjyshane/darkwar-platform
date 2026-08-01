@@ -1,6 +1,7 @@
 import { FreshnessBadge } from '../../components/FreshnessBadge';
 import { SortableTh } from '../../components/SortableTh';
 import { TableSearch } from '../../components/TableSearch';
+import { serverHash } from '../../lib/route';
 import { TERMS } from '../../lib/terms';
 import { useTableView } from '../../lib/useTableView';
 
@@ -93,7 +94,9 @@ export function ArenaTable({
                       unknown in these tables. */}
                   {entry.alliance_code ?? entry.alliance_name ?? '—'}
                 </td>
-                <td className="num">{entry.server_id}</td>
+                <td className="num">
+                  <a href={serverHash(entry.server_id)}>{entry.server_id}</a>
+                </td>
                 <td className="num">
                   {entry.score === null ? '—' : numberFormat.format(entry.score)}
                 </td>

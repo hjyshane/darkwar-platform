@@ -4,6 +4,7 @@ import { FavouritesFilter } from '../../components/FavouritesFilter';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
 import { SortableTh } from '../../components/SortableTh';
 import { TableSearch } from '../../components/TableSearch';
+import { serverHash } from '../../lib/route';
 import { TERMS } from '../../lib/terms';
 import { useFavourites } from '../../lib/useFavourites';
 import { useTableView } from '../../lib/useTableView';
@@ -119,7 +120,9 @@ export function AllianceRankingTable({
                   {row.code ? `[${row.code}] ` : ''}
                   {row.name ?? row.external_id.slice(0, 8)}
                 </td>
-                <td className="num">{row.server_id}</td>
+                <td className="num">
+                  <a href={serverHash(row.server_id)}>{row.server_id}</a>
+                </td>
                 <td className="num">{row.power === null ? '—' : numberFormat.format(row.power)}</td>
                 <td className="num">{row.member_count ?? '—'}</td>
                 <td className="num">
