@@ -1452,24 +1452,36 @@ export type Database = {
       }
       player_contributions: {
         Row: {
-          alliance_battle_score: number | null
-          alliance_battle_updated_at: string | null
           daily_donation_score: number | null
           daily_donation_updated_at: string | null
+          duel_daily_score: number | null
+          duel_daily_updated_at: string | null
+          duel_round_score: number | null
+          duel_round_updated_at: string | null
+          duel_weekly_score: number | null
+          duel_weekly_updated_at: string | null
           player_id: string
         }
         Insert: {
-          alliance_battle_score?: number | null
-          alliance_battle_updated_at?: string | null
           daily_donation_score?: number | null
           daily_donation_updated_at?: string | null
+          duel_daily_score?: number | null
+          duel_daily_updated_at?: string | null
+          duel_round_score?: number | null
+          duel_round_updated_at?: string | null
+          duel_weekly_score?: number | null
+          duel_weekly_updated_at?: string | null
           player_id: string
         }
         Update: {
-          alliance_battle_score?: number | null
-          alliance_battle_updated_at?: string | null
           daily_donation_score?: number | null
           daily_donation_updated_at?: string | null
+          duel_daily_score?: number | null
+          duel_daily_updated_at?: string | null
+          duel_round_score?: number | null
+          duel_round_updated_at?: string | null
+          duel_weekly_score?: number | null
+          duel_weekly_updated_at?: string | null
           player_id?: string
         }
         Relationships: [

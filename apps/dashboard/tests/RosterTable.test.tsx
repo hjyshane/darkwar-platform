@@ -18,7 +18,9 @@ const rows: RosterRow[] = [
     power: 200_000_000,
     kills: 1_000_000,
     daily_donation_score: 5860,
-    alliance_battle_score: 42_000,
+    duel_daily_score: 5_658_634,
+    duel_weekly_score: 26_865_932,
+    duel_round_score: 103_501_541,
     online_state: 'offline',
     last_online_at: '2026-07-28T09:00:00Z',
     last_seen_at: '2026-07-28T11:55:00Z',
@@ -31,7 +33,9 @@ const rows: RosterRow[] = [
     power: null,
     kills: null,
     daily_donation_score: null,
-    alliance_battle_score: null,
+    duel_daily_score: null,
+    duel_weekly_score: null,
+    duel_round_score: null,
     online_state: null,
     last_online_at: null,
     last_seen_at: null,
@@ -73,7 +77,11 @@ test('empty roster states itself instead of a bare table', () => {
 test('contribution scores appear, and unknown stays a dash', () => {
   renderWithQuery(<RosterTable rows={rows} now={NOW} />);
   expect(screen.getByText('5,860')).toBeDefined();
-  expect(screen.getByText('42,000')).toBeDefined();
+  // The duel's three boards each get their own figure. They shared one column
+  // until 0028, where the number shown depended on insert order.
+  expect(screen.getByText('5,658,634')).toBeDefined();
+  expect(screen.getByText('26,865,932')).toBeDefined();
+  expect(screen.getByText('103,501,541')).toBeDefined();
   // The second player has no observed contribution: dashes, not zeros.
   expect(screen.queryByText('0')).toBeNull();
 });

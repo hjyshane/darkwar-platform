@@ -51,7 +51,9 @@ def emit_facts(observation: Observation, rows: list[NormalizedRow]) -> list[Norm
 
 _CONTRIBUTION_METRICS = {
     "daily_donation": "alliance_donation_score",
-    "alliance_battle": "alliance_battle_score",
+    "alliance_battle_daily": "alliance_battle_score",
+    "alliance_battle_weekly": "alliance_battle_score",
+    "alliance_battle_round": "alliance_battle_score",
 }
 
 

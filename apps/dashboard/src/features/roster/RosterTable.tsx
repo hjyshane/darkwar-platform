@@ -17,7 +17,9 @@ export interface RosterRow {
   power: number | null;
   kills: number | null;
   daily_donation_score: number | null;
-  alliance_battle_score: number | null;
+  duel_daily_score: number | null;
+  duel_weekly_score: number | null;
+  duel_round_score: number | null;
   online_state: string | null;
   last_online_at: string | null;
   last_seen_at: string | null;
@@ -86,8 +88,17 @@ export function RosterTable({ rows, now }: { rows: RosterRow[]; now?: Date }) {
               <SortableTh numeric onSort={onSort} sort={sort} sortKey="daily_donation_score">
                 {TERMS.dailyDonation}
               </SortableTh>
-              <SortableTh numeric onSort={onSort} sort={sort} sortKey="alliance_battle_score">
-                {TERMS.allianceBattle}
+              {/* Three boards, three columns. They shared one until 0028,
+                  which meant the figure shown depended on which of the three
+                  happened to be inserted last. */}
+              <SortableTh numeric onSort={onSort} sort={sort} sortKey="duel_daily_score">
+                {TERMS.duelDaily}
+              </SortableTh>
+              <SortableTh numeric onSort={onSort} sort={sort} sortKey="duel_weekly_score">
+                {TERMS.duelWeekly}
+              </SortableTh>
+              <SortableTh numeric onSort={onSort} sort={sort} sortKey="duel_round_score">
+                {TERMS.duelRound}
               </SortableTh>
               <SortableTh numeric onSort={onSort} sort={sort} sortKey="last_online_at">
                 {TERMS.lastOnline}
@@ -120,7 +131,9 @@ export function RosterTable({ rows, now }: { rows: RosterRow[]; now?: Date }) {
                 <td className="num">{formatNumber(row.power)}</td>
                 <td className="num">{formatNumber(row.kills)}</td>
                 <td className="num">{formatNumber(row.daily_donation_score)}</td>
-                <td className="num">{formatNumber(row.alliance_battle_score)}</td>
+                <td className="num">{formatNumber(row.duel_daily_score)}</td>
+                <td className="num">{formatNumber(row.duel_weekly_score)}</td>
+                <td className="num">{formatNumber(row.duel_round_score)}</td>
                 {/* Two different facts, deliberately side by side: when
                     the player was last in the game, and when we last looked.
                     They were conflated until 0024 — Last Seen was captured_at

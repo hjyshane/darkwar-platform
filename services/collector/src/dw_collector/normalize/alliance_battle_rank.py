@@ -28,8 +28,15 @@ from dw_collector.models import NormalizedRow, Observation, idempotency_key, sta
 from dw_collector.registry import register
 from dw_collector.resetweek import reset_week_start
 
-PARSER_VERSION = "1.1.0"
-CONTRIBUTION_TYPE = "alliance_battle"
+PARSER_VERSION = "1.2.0"
+# Labelled against the game screen on 2026-08-01. An unlabelled variant has
+# no contribution type it could honestly take, so its rows are not emitted —
+# they would otherwise be indistinguishable from one of these three.
+CONTRIBUTION_TYPES = {
+    0: "alliance_battle_daily",
+    1: "alliance_battle_weekly",
+    2: "alliance_battle_round",
+}
 
 _UID_SERVER_SUFFIX = 6
 
@@ -66,6 +73,11 @@ class _Payload(BaseModel):
 def normalize(observation: Observation) -> list[NormalizedRow]:
     payload = _Payload.model_validate(observation.payload)
     raw_entries: list[dict[str, Any]] = observation.payload.get("rankInfo", [])
+    contribution_type = CONTRIBUTION_TYPES.get(
+        payload.variant if payload.variant is not None else -1
+    )
+    if contribution_type is None:
+        return []
     # The variant belongs in the key: the two rankings are different data and
     # must not collide on the same member in the same week.
     bucket = f"{reset_week_start(observation.captured_at).isoformat()}:v{payload.variant}"
@@ -102,7 +114,7 @@ def normalize(observation: Observation) -> list[NormalizedRow]:
                     # empty tag must not read as a tag.
                     "alliance_name": entry.alliance_name or None,
                     "alliance_code": entry.alliance_code or None,
-                    "contribution_type": CONTRIBUTION_TYPE,
+                    "contribution_type": contribution_type,
                     "score": entry.score,
                     "rank": position,
                     "score_updated_at": None,

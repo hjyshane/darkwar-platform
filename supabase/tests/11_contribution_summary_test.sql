@@ -53,11 +53,11 @@ select is((select daily_donation_score from public.player_contributions
 
 -- The other type has its own clock: an alliance_battle reading older than
 -- the daily one must still land, because they gate independently.
-select pg_temp.contrib('t:c:3', 'alliance_battle', 42000,
+select pg_temp.contrib('t:c:3', 'alliance_battle_weekly', 42000,
                        '2026-07-29T10:00:00Z', '2026-07-29T09:59:00Z');
-select is((select alliance_battle_score from public.player_contributions
+select is((select duel_weekly_score from public.player_contributions
            where player_id = '00000000-0000-4000-8000-0000000da001'), 42000::bigint,
-  'alliance_battle is not gated by the daily donation timestamp');
+  'the weekly duel is not gated by the daily donation timestamp');
 
 -- A null score on a newer sighting advances the clock without erasing.
 select pg_temp.contrib('t:c:4', 'daily_donation', null,
@@ -70,8 +70,8 @@ select is((select last_seen_at >= '2026-07-30T05:40:00Z'::timestamptz
            from public.players where game_uid = 58011111000580), true,
   'a contribution sighting advances last_seen_at');
 
-select has_column('public', 'player_contributions', 'alliance_battle_updated_at',
-  'per-type updated_at exists');
+select has_column('public', 'player_contributions', 'duel_round_updated_at',
+  'each duel board has its own updated_at');
 
 select * from finish();
 rollback;

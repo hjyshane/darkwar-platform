@@ -41,7 +41,7 @@ insert into public.audit_logs (action, entity_type, entity_id)
 values ('test.seed', 'test', 'rls');
 
 insert into public.player_contributions
-  (player_id, daily_donation_score, alliance_battle_score)
+  (player_id, daily_donation_score, duel_weekly_score)
 select player_id, 18400, 96200 from public.players where game_uid = 58000001;
 
 -- Upsert, not insert: the seed's roster snapshots already project a presence

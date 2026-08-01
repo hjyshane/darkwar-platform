@@ -50,6 +50,9 @@ export const TERMS = {
   // Contribution types (alliance_contribution_snapshots.contribution_type)
   dailyDonation: 'Daily Donation',
   allianceBattle: 'Alliance Battle',
+  duelDaily: 'Duel (Daily)',
+  duelWeekly: 'Duel (Weekly)',
+  duelRound: 'Duel (Rounds)', // the total over the duel's four rounds
 
   // Component power boards (rank.get.by.range)
   heroPower: 'Hero Power',
