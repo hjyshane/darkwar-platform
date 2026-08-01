@@ -102,7 +102,7 @@ UID가 있다는 것만으로 승격하면 안 된다. 아래는 payload를 열�
 | 커맨드 | 판정 | 근거 |
 |---|---|---|
 | `get.daily.alliance.donate.rank` | **승격** | `{uid, score, updateTime}`. 개인 귀속이 명확 |
-| `al.battle.rank.info` | **승격 대상 — 아직 미승격** | `{uid, name, score}`. `type`이 두 랭킹을 구분한다. 판정만 내리고 파서를 만들지 않아 `contribution_type='alliance_battle'`을 쓰는 코드가 없다 → 대시보드 열이 영원히 빈다. 캡처 백로그 0번 참조 |
+| `al.battle.rank.info` | **승격** | `{uid, name, score}`. `type`이 두 랭킹을 구분하며 그 의미는 아직 미확정이라 `variant` 컬럼에 해석 없이 기록한다. 파서는 2026-07-30에 작성됐으나 푸시되지 않아 다른 머신에서 보이지 않았고, 그 사이 두 문서가 "미승격"으로 잘못 적었다. 2026-08-01 리베이스 후 머지. `variant` 해석은 캡처 백로그 0번이 계속 막고 있다 |
 | `kill.rank` | **승격** | `{uid, armyKill, rank}`. `server.rank`가 주지 않는 킬 |
 | `al.show.help` | **거절** | UID는 있지만 **지원을 요청한 사람**이다. `senderId`가 1~2개뿐이고 대부분 `senderId == recvId`, `nowcount/maxcount`는 몇 명이 도왔는지만 알려주고 **누가** 도왔는지는 없다. `todayHelpPoint`는 수집 계정 자신의 값. "지원 기여도"로 만들면 실제로는 요청 횟수를 보여주게 된다 |
 | `rank.get.by.range` | **거절** | 엔트리 필드가 `power`인데 **`type`마다 값이 다르다**. 같은 플레이어가 66.5M / 7.09M / 4.73M / 1.93M이고 실제 총 전투력(314M)과는 어느 것도 일치하지 않으며 4개 합(약 8천만)도 총합이 아니다. 즉 `power`는 그 랭킹 종류의 지표다. `player_snapshots.power`에 넣으면 전투력을 4분의 1로 오염시킨다. 크기 순서는 `45 ≥ 49 ≥ 79 ≥ 80`으로 일관(79명 중 72명)해 계층 구조는 있으나, 각 type이 무엇인지는 미확정 |

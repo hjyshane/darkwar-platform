@@ -136,6 +136,7 @@ export type Database = {
           server_id: number
           snapshot_id: string
           source_command: string
+          variant: number | null
         }
         Insert: {
           alliance_id?: string | null
@@ -156,6 +157,7 @@ export type Database = {
           server_id: number
           snapshot_id?: string
           source_command: string
+          variant?: number | null
         }
         Update: {
           alliance_id?: string | null
@@ -176,6 +178,7 @@ export type Database = {
           server_id?: number
           snapshot_id?: string
           source_command?: string
+          variant?: number | null
         }
         Relationships: [
           {

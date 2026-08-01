@@ -1,0 +1,17 @@
+{
+  "observation_id": "00000000-0000-4000-8000-00000000c203",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "al.battle.rank.info",
+  "captured_at": "2026-07-30T05:00:00+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "type": 0,
+    "rankInfo": [
+      {
+        "uid": "nope",
+        "score": 1
+      }
+    ]
+  },
+  "schema_version": 1
+}
