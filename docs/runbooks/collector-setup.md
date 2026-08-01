@@ -6,10 +6,19 @@ denylist 검증"에 해당한다. 2026-07-29 첫 라이브 캡처에서 실제�
 
 ## 역할 분담 — 어느 쪽에서 무엇을 돌리는가
 
+프롬프트가 `PS C:\...>` 면 Windows, `사용자@컴퓨터:~$` 면 WSL이다.
+
 | 어디서 | 무엇을 | 왜 |
 |---|---|---|
 | **Windows** `C:\darkwar-platform` | `dw-capture`, `dw-collector sync` | Npcap이 Windows 전용이고, SQLite 저널이 로컬 디스크에 있어야 한다 |
 | **WSL** `~/Projects/DW_app` | `supabase` 마이그레이션·pgTAP, `pnpm dev`, pytest | 툴체인이 여기 있고 CI와 같은 환경이다 |
+
+**캡처는 WSL에서 원리적으로 불가능하다.** Npcap이 Windows 전용인 것에 더해,
+WSL2는 자기만의 가상 랜카드(`172.19.160.1`)를 쓰는 별도 네트워크다. 게임은
+Windows의 실제 랜카드(`192.168.86.30`)로 통신하므로 WSL에서는 그 트래픽이 보이지
+않는다 — 환경변수를 다 채워도 0패킷이다. WSL에서 `dw-capture`를 돌리면
+`DW_COLLECTOR_ID is required`로 멈추는데, 이건 "값을 채워라"가 아니라 **"창을
+잘못 열었다"**는 뜻으로 읽는다.
 
 두 체크아웃은 같은 Supabase(`127.0.0.1:54321`)를 보고, 코드는 git으로만
 오간다. **WSL에서 수집기 명령을 돌리면 별개의 빈 저널이 생긴다** —
@@ -180,6 +189,15 @@ uv run dw-collector sync
 ```bash
 cd ~/Projects/DW_app && pnpm dev
 ```
+
+## 운영 절차
+
+설치가 끝난 뒤의 일상 작업은 **`collector-operations.md`**에 단계별로 있다 —
+어느 창에서 무엇을 치고, 무엇이 보여야 하고, 다르게 나오면 무엇이 문제인지까지.
+처음이라면 그 문서를 순서대로 따라가면 된다.
+
+아래 자동화는 그 일상 작업의 손을 덜어주는 것이므로, 먼저 한 번은 손으로
+돌려보고 오는 편이 낫다.
 
 ## 화면 열기를 자동화하기 (dw-ui-worker)
 
