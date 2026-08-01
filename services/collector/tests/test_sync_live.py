@@ -79,12 +79,15 @@ def test_replay_then_sync_is_logically_exactly_once(client: httpx.Client, journa
     for observation, normalize in observations:
         journal.record(observation, normalize(observation))
 
+    # 1000, not 500: an arena week is 601 rows on its own now that lineups
+    # are decoded, and a drain capped below the load measures the cap.
     worker = SyncWorker(
-        journal, SyncConfig(supabase_url=SUPABASE_URL, secret_key=SECRET_KEY, batch_size=500)
+        journal, SyncConfig(supabase_url=SUPABASE_URL, secret_key=SECRET_KEY, batch_size=1000)
     )
     stats = worker.drain_once()
     assert stats.failed == 0
-    assert stats.sent == 197  # 93 + 3 roster rows, 1 header, 100 entries
+    # 93 + 3 roster rows, 1 arena header, 100 entries, 500 lineup heroes
+    assert stats.sent == 697
 
     counts = {
         t: _count(client, t)
@@ -112,7 +115,7 @@ def test_replay_then_sync_is_logically_exactly_once(client: httpx.Client, journa
         journal.conn.execute("update sync_outbox set status = 'pending'")
     stats = worker.drain_once()
     assert stats.failed == 0
-    assert stats.sent == 197
+    assert stats.sent == 697
     assert {t: _count(client, t) for t in counts} == counts
 
 
@@ -143,22 +146,22 @@ def test_network_cut_and_recovery(client: httpx.Client, journal: Journal) -> Non
             supabase_url="http://127.0.0.1:9",
             secret_key=SECRET_KEY,
             base_backoff_seconds=5.0,
-            batch_size=500,
+            batch_size=1000,
         ),
     )
     stats = dead.drain_once(now=now)
     assert stats.sent == 0
-    assert stats.failed == 101
-    assert journal.outbox_counts() == {"pending": 101}
+    assert stats.failed == 601
+    assert journal.outbox_counts() == {"pending": 601}
 
     # Recovery after backoff: full drain, header before entries.
     worker = SyncWorker(
-        journal, SyncConfig(supabase_url=SUPABASE_URL, secret_key=SECRET_KEY, batch_size=500)
+        journal, SyncConfig(supabase_url=SUPABASE_URL, secret_key=SECRET_KEY, batch_size=1000)
     )
     stats = worker.drain_once(now=now + timedelta(seconds=6))
     assert stats.failed == 0
-    assert stats.sent == 101
-    assert journal.outbox_counts() == {"sent": 101}
+    assert stats.sent == 601
+    assert journal.outbox_counts() == {"sent": 601}
 
 
 def test_fact_drills_down_to_original_observation(client: httpx.Client, journal: Journal) -> None:
@@ -169,7 +172,7 @@ def test_fact_drills_down_to_original_observation(client: httpx.Client, journal:
     journal.record(observation, pipeline.process(observation))
 
     worker = SyncWorker(
-        journal, SyncConfig(supabase_url=SUPABASE_URL, secret_key=SECRET_KEY, batch_size=500)
+        journal, SyncConfig(supabase_url=SUPABASE_URL, secret_key=SECRET_KEY, batch_size=1000)
     )
     stats = worker.drain_once()
     assert stats.failed == 0

@@ -13,7 +13,8 @@ def test_arena_pipeline_emits_participation_facts() -> None:
 
     facts = [r for r in rows if r.target_table == "activity_facts"]
     entries = {r.row["snapshot_id"]: r for r in rows if r.target_table == "arena_entries"}
-    assert len(rows) == 201  # header + 100 entries + 100 facts
+    # header + 100 entries + 500 lineup heroes + 100 facts
+    assert len(rows) == 701
     assert len(facts) == 100
 
     fact = facts[0].row

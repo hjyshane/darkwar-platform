@@ -651,6 +651,110 @@ export type Database = {
           },
         ]
       }
+      arena_entry_heroes: {
+        Row: {
+          arena_entry_id: string
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at: string
+          equipment: number[]
+          game_uid: number
+          hero_id: number
+          hero_level: number | null
+          hero_power: number | null
+          hero_uuid: number | null
+          idempotency_key: string
+          observation_id: string
+          parser_version: string
+          player_id: string | null
+          raw: Json
+          server_id: number
+          slot: number | null
+          snapshot_id: string
+          source_command: string
+          star: number | null
+          troop_class: number | null
+        }
+        Insert: {
+          arena_entry_id: string
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at?: string
+          equipment?: number[]
+          game_uid: number
+          hero_id: number
+          hero_level?: number | null
+          hero_power?: number | null
+          hero_uuid?: number | null
+          idempotency_key: string
+          observation_id: string
+          parser_version: string
+          player_id?: string | null
+          raw?: Json
+          server_id: number
+          slot?: number | null
+          snapshot_id?: string
+          source_command: string
+          star?: number | null
+          troop_class?: number | null
+        }
+        Update: {
+          arena_entry_id?: string
+          captured_at?: string
+          collected_from_server_id?: number
+          collector_id?: string
+          created_at?: string
+          equipment?: number[]
+          game_uid?: number
+          hero_id?: number
+          hero_level?: number | null
+          hero_power?: number | null
+          hero_uuid?: number | null
+          idempotency_key?: string
+          observation_id?: string
+          parser_version?: string
+          player_id?: string | null
+          raw?: Json
+          server_id?: number
+          slot?: number | null
+          snapshot_id?: string
+          source_command?: string
+          star?: number | null
+          troop_class?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "arena_entry_heroes_arena_entry_id_fkey"
+            columns: ["arena_entry_id"]
+            isOneToOne: false
+            referencedRelation: "arena_entries"
+            referencedColumns: ["snapshot_id"]
+          },
+          {
+            foreignKeyName: "arena_entry_heroes_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "arena_entry_heroes_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "arena_entry_heroes_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+        ]
+      }
       arena_matches: {
         Row: {
           captured_at: string

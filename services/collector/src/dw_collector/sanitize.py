@@ -72,20 +72,25 @@ def sanitize_user_get_arena_info(payload: dict[str, Any]) -> dict[str, Any]:
             clean["alName"] = f"Alliance{index:02d}"
         if clean.get("abbr"):
             clean["abbr"] = f"A{index:03d}"
-        # Defense lineup blob: opaque protobuf of the player's troops.
-        if "army" in clean:
-            clean["army"] = ""
+        # The defence lineup is KEPT. It used to be blanked as an "opaque
+        # protobuf", a precaution taken before anyone decoded it. Every field
+        # path across 806 real lineups is now accounted for (protocol/army.py):
+        # hero ids, slots, levels, stars, equipment, per-hero power, a
+        # per-instance hero uuid, and exactly one string — the troop type id,
+        # "107009" and friends. No names, no uids, no coordinates, so nothing
+        # this module is charged with masking. Blanking it would also leave the
+        # lineup parser with no fixture to be tested against.
         if clean.get("mainBuildPoint"):
             clean["mainBuildPoint"] = 100000 + index
         sanitized_entries.append(clean)
 
     sanitized = dict(payload)
     sanitized["rankArr"] = sanitized_entries
-    # Top-level power/army describe the COLLECTOR account.
+    # Top-level power/army describe the COLLECTOR account. Power is masked
+    # because it is a real figure about the operator; the lineup is kept for
+    # the same reason the entries' lineups are.
     if "power" in sanitized:
         sanitized["power"] = 100000000
-    if "army" in sanitized:
-        sanitized["army"] = ""
     return sanitized
 
 

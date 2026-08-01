@@ -90,7 +90,10 @@ def _loaded_journal(tmp_journal: Journal) -> Journal:
 
 def _worker(journal: Journal, fake: FakeSupabase, **config: Any) -> SyncWorker:
     client = httpx.Client(base_url="http://fake.local", transport=httpx.MockTransport(fake.handler))
-    config.setdefault("batch_size", 500)  # the 93-member roster exceeds the default
+    # One drain has to cover the whole fixture load, or these tests measure
+    # the batch size instead of the behaviour they name. 694 rows now: the
+    # 93-member roster plus an arena week with its 500 decoded lineup heroes.
+    config.setdefault("batch_size", 1000)
     return SyncWorker(
         journal,
         SyncConfig(supabase_url="http://fake.local", secret_key="test", **config),
@@ -104,9 +107,10 @@ def test_drain_resolves_entities_and_upserts(journal: Journal) -> None:
 
     stats = worker.drain_once()
 
-    assert stats.sent == 194  # 93 roster + 1 header + 100 entries
+    # 93 roster + 1 arena header + 100 entries + 500 lineup heroes
+    assert stats.sent == 694
     assert stats.failed == 0
-    assert journal.outbox_counts() == {"sent": 194}
+    assert journal.outbox_counts() == {"sent": 694}
     # One collector, one alliance, 20 players created exactly once.
     assert len(fake.entities["collectors"]) == 1
     assert len(fake.entities["alliances"]) == 1
@@ -118,6 +122,7 @@ def test_drain_resolves_entities_and_upserts(journal: Journal) -> None:
     # Parent table synced in the same drain as its children.
     assert len(fake.upserted["arena_snapshots"]) == 1
     assert len(fake.upserted["arena_entries"]) == 100
+    assert len(fake.upserted["arena_entry_heroes"]) == 500
 
 
 def test_failure_backs_off_then_recovers(journal: Journal) -> None:
@@ -126,8 +131,9 @@ def test_failure_backs_off_then_recovers(journal: Journal) -> None:
     now = datetime.now(tz=UTC)
 
     stats = worker.drain_once(now=now)
-    assert stats.failed == 94  # roster batch + arena header; entries succeeded
-    assert stats.sent == 100
+    # Roster batch and arena header fail; entries and their lineups do not.
+    assert stats.failed == 94
+    assert stats.sent == 600
 
     # Still backing off: nothing pending yet.
     assert worker.drain_once(now=now).sent == 0
@@ -135,7 +141,7 @@ def test_failure_backs_off_then_recovers(journal: Journal) -> None:
     fake.fail_tables.clear()
     stats = worker.drain_once(now=now + timedelta(seconds=11))
     assert stats.sent == 94
-    assert journal.outbox_counts() == {"sent": 194}
+    assert journal.outbox_counts() == {"sent": 694}
 
 
 def test_dead_letter_after_max_attempts(journal: Journal) -> None:

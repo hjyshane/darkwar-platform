@@ -21,10 +21,11 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from dw_collector.models import NormalizedRow, Observation, idempotency_key, stable_uuid
+from dw_collector.protocol.army import decode_army
 from dw_collector.registry import register
 from dw_collector.resetweek import reset_week_start
 
-PARSER_VERSION = "1.0.0"
+PARSER_VERSION = "1.1.0"
 
 _UID_SERVER_SUFFIX = 6
 
@@ -42,6 +43,9 @@ class _Entry(BaseModel):
     # payload, so these stay text rather than resolving to public.alliances.
     alliance_name: str | None = Field(default=None, alias="alName")
     alliance_code: str | None = Field(default=None, alias="abbr")
+    # The defence lineup, base64 protobuf. Optional because the sanitizer
+    # blanked it in older fixtures and an entry can carry none.
+    army: str | None = None
 
     @field_validator("uid")
     @classmethod
@@ -133,6 +137,57 @@ def normalize(observation: Observation) -> list[NormalizedRow]:
                     # an empty tag must not read as a tag.
                     "alliance_name": entry.alliance_name or None,
                     "alliance_code": entry.alliance_code or None,
+                },
+                entity_refs={
+                    "player": {
+                        "game_uid": game_uid,
+                        "server_id": server_id,
+                        "name": entry.name,
+                    },
+                },
+            )
+        )
+        rows.extend(_lineup_rows(entry, common, entry_key, game_uid, server_id))
+    return rows
+
+
+def _lineup_rows(
+    entry: _Entry,
+    common: dict[str, Any],
+    entry_key: str,
+    game_uid: int,
+    server_id: int,
+) -> list[NormalizedRow]:
+    """The entry's defence lineup, one row per hero.
+
+    Keyed on the entry's key plus the hero, not the slot. Reordering the same
+    five heroes is a real change, and keying on slot would let the reorder
+    collide with whatever used to occupy that position.
+    """
+    rows: list[NormalizedRow] = []
+    for unit in decode_army(entry.army or ""):
+        key = f"{entry_key}:hero:{unit.hero_id}"
+        rows.append(
+            NormalizedRow(
+                target_table="arena_entry_heroes",
+                idempotency_key=key,
+                row={
+                    **common,
+                    "snapshot_id": str(stable_uuid(key)),
+                    # The blob itself is the source of record on the entry; a
+                    # decoded copy here would only restate these columns.
+                    "raw": {},
+                    "arena_entry_id": str(stable_uuid(entry_key)),
+                    "server_id": server_id,
+                    "game_uid": game_uid,
+                    "slot": unit.slot,
+                    "hero_id": unit.hero_id,
+                    "troop_class": unit.troop_class,
+                    "hero_level": unit.hero_level,
+                    "star": unit.star,
+                    "hero_power": unit.hero_power,
+                    "hero_uuid": unit.hero_uuid,
+                    "equipment": list(unit.equipment),
                 },
                 entity_refs={
                     "player": {

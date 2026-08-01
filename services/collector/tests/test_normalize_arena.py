@@ -20,10 +20,10 @@ def test_header_and_entries() -> None:
     rows = arena.normalize(observation)
 
     header = rows[0]
-    entries = rows[1:]
+    # Selected by table, not by slicing: the lineup rows share this list now.
+    entries = [r for r in rows if r.target_table == "arena_entries"]
     assert header.target_table == "arena_snapshots"
     assert len(entries) == 100
-    assert {r.target_table for r in entries} == {"arena_entries"}
 
     # The game's own startTime IS Monday 02:00 UTC — the third independent
     # confirmation of the reset rule.
@@ -83,3 +83,56 @@ def test_replay_regenerates_identical_parent_pk() -> None:
     first = arena.normalize(observation)[0].row["snapshot_id"]
     second = arena.normalize(observation)[0].row["snapshot_id"]
     assert first == second
+
+
+def test_lineups_become_rows_under_their_entry() -> None:
+    """Five heroes per entry, each pointing at the arena_entries row it was
+    decoded from — the parent link has to survive replay, since the child's
+    FK is the parent's deterministic snapshot_id."""
+    observation = load_observation("user.get.arena.info/top100_580v582_v1.json")
+    rows = arena.normalize(observation)
+
+    entries = [r for r in rows if r.target_table == "arena_entries"]
+    heroes = [r for r in rows if r.target_table == "arena_entry_heroes"]
+    assert len(entries) == 100
+    assert len(heroes) == 500
+
+    by_entry: dict[str, list[dict]] = {}
+    for hero in heroes:
+        by_entry.setdefault(hero.row["arena_entry_id"], []).append(hero.row)
+    assert set(by_entry) == {entry.row["snapshot_id"] for entry in entries}
+    assert {len(group) for group in by_entry.values()} == {5}
+
+    first = by_entry[entries[0].row["snapshot_id"]]
+    assert sorted(h["slot"] for h in first) == [1, 2, 3, 4, 5]
+    assert all(h["game_uid"] == entries[0].row["game_uid"] for h in first)
+    assert all(h["server_id"] == entries[0].row["server_id"] for h in first)
+    assert all(h["troop_class"] in (1, 2, 3) for h in first)
+
+
+def test_lineup_keys_are_stable_and_distinct() -> None:
+    observation = load_observation("user.get.arena.info/top100_580v582_v1.json")
+    first = [r.idempotency_key for r in arena.normalize(observation)]
+    second = [r.idempotency_key for r in arena.normalize(observation)]
+
+    assert first == second
+    assert len(set(first)) == len(first)
+
+
+def test_a_blank_lineup_yields_no_hero_rows() -> None:
+    """Synthesized rather than taken from a fixture: every committed fixture
+    now carries real lineups, and an entry with no `army` still has to produce
+    its entry row instead of failing the whole batch."""
+    observation = load_observation("user.get.arena.info/top100_580v582_v1.json")
+    blanked = observation.model_copy(
+        update={
+            "payload": {
+                **observation.payload,
+                "rankArr": [{**e, "army": ""} for e in observation.payload["rankArr"]],
+            }
+        }
+    )
+    rows = arena.normalize(blanked)
+
+    assert len([r for r in rows if r.target_table == "arena_entries"]) == 100
+    assert [r for r in rows if r.target_table == "arena_entry_heroes"] == []

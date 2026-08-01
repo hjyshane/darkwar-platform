@@ -49,11 +49,21 @@ def encode_sfs(value: SfsValue) -> bytes:
 
 
 def frame(obj: SfsValue, *, compressed: bool = False) -> bytes:
+    """Build a frame the way the wire does, including the large-packet form.
+
+    A two-byte length caps the body at 65535, which real responses exceed —
+    the arena Top100 with its lineups decodes to well over 100KB. The decoder
+    has always read the 0x08 flag; this helper only ever wrote the short form,
+    so any fixture that outgrew 64KB failed here with a struct error rather
+    than telling us anything about the code under test.
+    """
     body = encode_sfs(obj)
+    flags = 0xA0 if compressed else 0x80
     if compressed:
         body = zlib.compress(body)
-        return bytes([0xA0]) + struct.pack("!H", len(body)) + body
-    return bytes([0x80]) + struct.pack("!H", len(body)) + body
+    if len(body) > 0xFFFF:
+        return bytes([flags | 0x08]) + struct.pack("!I", len(body)) + body
+    return bytes([flags]) + struct.pack("!H", len(body)) + body
 
 
 # The a/c/p shape every real frame carries (SmartFox2X extension response).
