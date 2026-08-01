@@ -1,5 +1,6 @@
 import { SortableTh } from '../../components/SortableTh';
 import { TableSearch } from '../../components/TableSearch';
+import { serverHash } from '../../lib/route';
 import { TERMS } from '../../lib/terms';
 import { useTableView } from '../../lib/useTableView';
 import type { Board, BoardRow } from './boards';
@@ -58,7 +59,9 @@ export function CrossRankingTable({ rows, board }: { rows: BoardRow[]; board: Bo
               <tr key={row.id}>
                 <td className="num">{row.rank ?? '—'}</td>
                 <td className="label">{row.name ?? `UID ${row.game_uid}`}</td>
-                <td className="num">{row.server_id}</td>
+                <td className="num">
+                  <a href={serverHash(row.server_id)}>{row.server_id}</a>
+                </td>
                 <td className="num">{formatNumber(row.value)}</td>
                 {board.unitLabel && <td className="num">{row.unit_id ?? '—'}</td>}
               </tr>

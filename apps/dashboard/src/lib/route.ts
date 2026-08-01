@@ -13,7 +13,14 @@
 //
 // Hash-based so it works on any static host with zero rewrite config.
 
-export type Route = 'dashboard' | 'rankings' | 'crossRankings' | 'arena' | 'monthCards' | 'login';
+export type Route =
+  | 'dashboard'
+  | 'rankings'
+  | 'crossRankings'
+  | 'arena'
+  | 'server'
+  | 'monthCards'
+  | 'login';
 
 const ROUTES: Record<string, Route> = {
   '#/rankings': 'rankings',
@@ -23,8 +30,26 @@ const ROUTES: Record<string, Route> = {
   '#/login': 'login',
 };
 
+// The one address that carries a value. Digits only: a server id is a
+// number, and anything else falls through to the dashboard rather than
+// reaching a query.
+const SERVER_HASH = /^#\/server\/(\d+)$/;
+
 export function routeFromHash(hash: string): Route {
+  if (SERVER_HASH.test(hash)) {
+    return 'server';
+  }
   return ROUTES[hash] ?? 'dashboard';
+}
+
+/** The server a `#/server/580` address names, or null for any other. */
+export function serverIdFromHash(hash: string): number | null {
+  const match = SERVER_HASH.exec(hash);
+  return match === null ? null : Number(match[1]);
+}
+
+export function serverHash(serverId: number): string {
+  return `#/server/${serverId}`;
 }
 
 /** Tabs shown in the nav, in order. Excludes month-cards (unlinked above)

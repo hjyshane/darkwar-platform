@@ -1,7 +1,7 @@
 // The gameplay screens each have an address; the month-card page has one
 // but is deliberately not linked (see route.ts).
 import { expect, test } from 'vitest';
-import { NAV_TABS, routeFromHash } from '../src/lib/route';
+import { NAV_TABS, routeFromHash, serverHash, serverIdFromHash } from '../src/lib/route';
 
 test('each screen has its own address', () => {
   expect(routeFromHash('#/rankings')).toBe('rankings');
@@ -39,4 +39,26 @@ test('sign-in is an account action, not a screen', () => {
 test('no two tabs share an address', () => {
   const hashes = NAV_TABS.map((tab) => tab.hash);
   expect(new Set(hashes).size).toBe(hashes.length);
+});
+
+test('a server address carries which server', () => {
+  expect(routeFromHash('#/server/580')).toBe('server');
+  expect(serverIdFromHash('#/server/580')).toBe(580);
+  expect(serverHash(584)).toBe('#/server/584');
+  expect(routeFromHash(serverHash(577))).toBe('server');
+  expect(serverIdFromHash(serverHash(577))).toBe(577);
+});
+
+test('anything that is not a plain server number is not a server page', () => {
+  // The id reaches a query, so it has to be digits — not "580; drop", not a
+  // name, not empty. Everything else falls through to the dashboard.
+  for (const hash of ['#/server/', '#/server/abc', '#/server/580/extra', '#/server/-1']) {
+    expect(routeFromHash(hash)).toBe('dashboard');
+    expect(serverIdFromHash(hash)).toBeNull();
+  }
+});
+
+test('the other addresses carry no server', () => {
+  expect(serverIdFromHash('#/arena')).toBeNull();
+  expect(serverIdFromHash('')).toBeNull();
 });
