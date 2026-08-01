@@ -476,6 +476,7 @@ export type Database = {
           current_name: string | null
           external_id: string
           first_seen_at: string
+          is_own: boolean
           last_seen_at: string | null
           leader_player_id: string | null
           member_count: number | null
@@ -490,6 +491,7 @@ export type Database = {
           current_name?: string | null
           external_id: string
           first_seen_at?: string
+          is_own?: boolean
           last_seen_at?: string | null
           leader_player_id?: string | null
           member_count?: number | null
@@ -504,6 +506,7 @@ export type Database = {
           current_name?: string | null
           external_id?: string
           first_seen_at?: string
+          is_own?: boolean
           last_seen_at?: string | null
           leader_player_id?: string | null
           member_count?: number | null
@@ -1783,6 +1786,7 @@ export type Database = {
           last_seen_at: string | null
           player_id: string
           power: number | null
+          roster_observed_at: string | null
           server_id: number
           updated_at: string
         }
@@ -1797,6 +1801,7 @@ export type Database = {
           last_seen_at?: string | null
           player_id?: string
           power?: number | null
+          roster_observed_at?: string | null
           server_id: number
           updated_at?: string
         }
@@ -1811,6 +1816,7 @@ export type Database = {
           last_seen_at?: string | null
           player_id?: string
           power?: number | null
+          roster_observed_at?: string | null
           server_id?: number
           updated_at?: string
         }
