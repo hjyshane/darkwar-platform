@@ -16,16 +16,44 @@
 | 이벤트 탭 (§26.1 이벤트 02) | `get.battlepass.info` · `dragon.activity.info` · `monster.siege.activity.info` · `get.fortress.activity.info` · `get.dig.activity.info` · `hero.event.info.get` · `apex.info` 등 shape 확보 |
 | 메일 (§26.1 이벤트 03) | `push.mail`(`fromUser`/`toUser`가 UID, `contentsArr`가 본문) · `chat.get.system.mails` · `get.del.mail.list` |
 | 기여도(일간 기부) | `get.daily.alliance.donate.rank` 승격 완료 — `contribution_type='daily_donation'` |
+| 기여도(주간 기부) | `get.week.alliance.donate.rank` 승격 완료 (0029) — `contribution_type='weekly_donation'`. **별도 커맨드였다** |
 
 `schema_observations`에 미확인 커맨드 **164종**의 타입 스켈레톤이 있다. 새 파서를
 쓸 때는 새로 찍기 전에 먼저 여기를 본다.
 
 ## 필요한 캡처 — 우선순위 순
 
-### 0. 기여도 일간·주간 — 아무 때나 가능 · **최우선**
+### 0. 기여도 일간·주간 — **완료 (2026-08-01). 재캡처 불필요**
 
-게임 화면에는 기부와 듀얼이 **일간과 주간으로 각각** 나온다. 우리가 가진 것은
-일간 기부 하나뿐이다.
+게임 화면에는 기부와 듀얼이 **일간과 주간으로 각각** 나온다. 네 보드가 전부
+`re-capture.pcapng` 안에 있었고, 아래 세 질문에 모두 답이 나왔다.
+
+**기부 주간은 별도 커맨드였다** — `get.week.alliance.donate.rank`. 같은 캡처에서
+일간과 37초 간격으로 오고 payload는 `{uid, score, updateTime}`으로 **완전히
+동일**하다. `type` 같은 구분자는 없다(듀얼과는 다른 모양이다).
+
+| 보드 | 인원 | 상위 3명 (같은 캡처의 `al.rank`로 이름 조인) |
+|---|---|---|
+| 일간 `get.daily.alliance.donate.rank` | 83 | Vina-BảoPhan 14,500 · Baby Nur 11,980 · đắng 11,980 |
+| 주간 `get.week.alliance.donate.rank` | 90 | Bored101 86,440 · VINA ăn cướp 80,820 · R3HAB 80,640 |
+
+화면 기록과 이름·순서가 전부 일치한다. 기록의 `86400`과 `90640`은 각각 `86440`,
+`80640`의 필기 오류였다.
+
+**듀얼과 달리 기부는 두 보드 모두 우리 연맹만** 담는다 — 90명·83명 전원이 같은
+캡처의 `al.rank` 94명 안에 있고 바깥 사람은 0명이다. 그래서 `alliance_name`
+필터가 필요 없고 `alliance_id`는 0009이 정한 대로 null로 둔다.
+
+승격 완료: 파서(`normalize/alliance_donate_rank.py`, 두 커맨드가 한 정규화기를
+공유하고 **기간은 커맨드 이름에서 온다**), 마이그레이션 0029
+(`contribution_type='weekly_donation'`, `player_contributions.weekly_donation_score`),
+대시보드 `Weekly Donation` 열.
+
+**유도하지 않은 이유**: 한때 일간 스냅샷의 차분으로 주간을 재구성하자는 안이
+있었다. 그러면 숫자의 정확도가 수집 주기에 묶인다. 게임이 그대로 주는 값을
+추정할 이유가 없다.
+
+아래는 그 판정을 하던 당시의 기록이다.
 
 `al.battle.rank.info` 파서는 **2026-08-01에 머지됐다**(마이그레이션 0023).
 2026-07-30에 작성해 놓고 푸시하지 않아 다른 머신에서 보이지 않았고, 그래서 한동안
@@ -81,16 +109,19 @@
 | 연맹 → 듀얼 → **주간** | 같은 3명의 점수 |
 | 듀얼에 **라운드** 구분이 있으면 그것도 | 라운드 번호와 점수 |
 
-확인할 것:
+확인할 것 — **세 가지 모두 답이 나왔다**:
 
-1. 주간 기부가 **별도 커맨드**인가(`get.week...` 같은), 아니면 같은 커맨드의
-   다른 `type`인가
-2. `al.battle.rank.info`의 `type` 값과 화면 탭의 대응
-3. 화면 숫자와 payload `score`가 일치하는가 — 일치해야 개인 귀속이 성립한다
+1. 주간 기부가 **별도 커맨드**인가, 같은 커맨드의 다른 `type`인가 →
+   **별도 커맨드** `get.week.alliance.donate.rank`
+2. `al.battle.rank.info`의 `type` 값과 화면 탭의 대응 → **0 일간 / 1 주간 /
+   2 라운드 총합**
+3. 화면 숫자와 payload `score`가 일치하는가 → **일치한다.** 네 보드 전부
 
-판정이 끝나면 `contribution_type` check 제약을 확장하고
-(`daily_donation`, `weekly_donation`, `alliance_battle_daily`, … 실제로 관측된
-것만) 파서를 승격한다. **관측 전에 컬럼을 추측해서 만들지 않는다.**
+`contribution_type` check 제약은 관측된 다섯 개로 확장됐다 — `daily_donation`,
+`weekly_donation`(0029), `alliance_battle_daily`, `alliance_battle_weekly`,
+`alliance_battle_round`(0028). **관측 전에 컬럼을 추측해서 만들지 않는다**는
+규칙은 지켜졌다: 0023은 의미를 모르는 동안 `variant`에 숫자만 기록했고, 이름은
+라벨 캡처로 대조한 뒤에야 붙였다.
 
 ### 0-b. 아레나 편성 라벨 캡처 — 아무 때나 가능 · **최우선**
 
@@ -165,6 +196,12 @@
 `fromUser`가 보낸 사람 UID로 채워지고 `contentsArr`에 본문이 들어오면 확정이며,
 "일회용 코드를 게임 메일로 받아 UID와 매칭"하는 흐름을 구현할 수 있다.
 
+**2026-08-01 — `re-capture.pcapng`에는 없다.** 인수인계는 이 캡처에 메일 수신이
+들어 있다고 적었으나 `push.mail`이 **0건**이다. 들어 있는 메일 계열은
+`chat.get.system.mails`(시스템 발신 — 집결 결과·자원 배달), `get.del.mail.list`,
+`get.bind.mail.reward`뿐이고 `push.share.msg`는 채널 두 개가 모두 비어 있었다.
+즉 이 항목은 **여전히 대기이며, 메일이 실제로 도착하는 순간을 찍어야 한다.**
+
 ### 3. 전투 리포트 — 수신은 확보, 해석이 남음
 
 **2026-07-30 갱신**: `all_walkethrough.pcapng`에서 리포트 메일을 잡았고
@@ -223,7 +260,7 @@
 
 | 항목 | 언제 | 상태 |
 |---|---|---|
-| 0. 기여도 일간·주간 | 아무 때나 | 대기 |
+| 0. 기여도 일간·주간 | — | **완료** (재캡처 불필요) |
 | 0-b. 아레나 편성 라벨 | 아무 때나 | 대기 |
 | 1. 라벨 붙인 랭킹 탭 | — | **완료** (재캡처 불필요) |
 | 2. 수집 계정으로 메일 받기 | 아무 때나 | 대기 — 다른 계정 필요 |
@@ -232,9 +269,10 @@
 | 5. 이벤트 랭킹·정산 | 이벤트 진행 중 | 시점 제약 |
 | 6. 시즌 | 시즌 활성 시 | 시점 제약 |
 
-**0과 0-b는 한 세션에 같이 찍을 수 있다** — 둘 다 연맹/아레나 화면이고 둘 다
-라벨(화면 숫자를 적어두는 것)이 필요하다. 2도 다른 계정만 있으면 같은 세션에
-얹을 수 있다.
+**남은 "아무 때나"는 0-b와 2뿐이다.** 둘 다 다음 캡처 한 세션에 같이 얹을 수
+있다 — 0-b는 아레나 화면을 열며 영웅 5기를 적는 것, 2는 다른 계정에서 수집
+계정으로 메일을 보내는 것이다. `re-capture.pcapng`에는 **플레이어 간 메일이
+한 건도 없어서**(`push.mail` 0건) 2는 여전히 미확보다.
 
 4·5·6은 **그 기능이 돌아가는 동안에만** 찍힌다. 이벤트나 시즌이 시작되면 그때
 캡처를 켜두는 편이 낫다 — 놓치면 다음 사이클까지 기다려야 하고 그동안 해당

@@ -17,6 +17,7 @@ export interface RosterRow {
   power: number | null;
   kills: number | null;
   daily_donation_score: number | null;
+  weekly_donation_score: number | null;
   duel_daily_score: number | null;
   duel_weekly_score: number | null;
   duel_round_score: number | null;
@@ -88,6 +89,11 @@ export function RosterTable({ rows, now }: { rows: RosterRow[]; now?: Date }) {
               <SortableTh numeric onSort={onSort} sort={sort} sortKey="daily_donation_score">
                 {TERMS.dailyDonation}
               </SortableTh>
+              {/* Two donation commands, two columns. The weekly figure is
+                  reported by the game, not summed from the daily one. */}
+              <SortableTh numeric onSort={onSort} sort={sort} sortKey="weekly_donation_score">
+                {TERMS.weeklyDonation}
+              </SortableTh>
               {/* Three boards, three columns. They shared one until 0028,
                   which meant the figure shown depended on which of the three
                   happened to be inserted last. */}
@@ -131,6 +137,7 @@ export function RosterTable({ rows, now }: { rows: RosterRow[]; now?: Date }) {
                 <td className="num">{formatNumber(row.power)}</td>
                 <td className="num">{formatNumber(row.kills)}</td>
                 <td className="num">{formatNumber(row.daily_donation_score)}</td>
+                <td className="num">{formatNumber(row.weekly_donation_score)}</td>
                 <td className="num">{formatNumber(row.duel_daily_score)}</td>
                 <td className="num">{formatNumber(row.duel_weekly_score)}</td>
                 <td className="num">{formatNumber(row.duel_round_score)}</td>

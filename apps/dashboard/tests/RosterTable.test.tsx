@@ -17,7 +17,8 @@ const rows: RosterRow[] = [
     hq_level: 21,
     power: 200_000_000,
     kills: 1_000_000,
-    daily_donation_score: 5860,
+    daily_donation_score: 14_500,
+    weekly_donation_score: 86_440,
     duel_daily_score: 5_658_634,
     duel_weekly_score: 26_865_932,
     duel_round_score: 103_501_541,
@@ -33,6 +34,7 @@ const rows: RosterRow[] = [
     power: null,
     kills: null,
     daily_donation_score: null,
+    weekly_donation_score: null,
     duel_daily_score: null,
     duel_weekly_score: null,
     duel_round_score: null,
@@ -76,7 +78,10 @@ test('empty roster states itself instead of a bare table', () => {
 
 test('contribution scores appear, and unknown stays a dash', () => {
   renderWithQuery(<RosterTable rows={rows} now={NOW} />);
-  expect(screen.getByText('5,860')).toBeDefined();
+  // Donation's two boards, both from the 2026-08-01 capture's top entry: the
+  // weekly figure is its own reading, which is why it is not 14,500 × 7.
+  expect(screen.getByText('14,500')).toBeDefined();
+  expect(screen.getByText('86,440')).toBeDefined();
   // The duel's three boards each get their own figure. They shared one column
   // until 0028, where the number shown depended on insert order.
   expect(screen.getByText('5,658,634')).toBeDefined();

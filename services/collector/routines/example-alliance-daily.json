@@ -28,6 +28,15 @@
       "timeout_seconds": 20
     },
     {
+      "name": "contribution tab (weekly)",
+      "action": "tap",
+      "x": 0,
+      "y": 0,
+      "expect": ["get.week.alliance.donate.rank"],
+      "settle_seconds": 2.0,
+      "timeout_seconds": 20
+    },
+    {
       "name": "close contribution",
       "action": "back",
       "settle_seconds": 1.5

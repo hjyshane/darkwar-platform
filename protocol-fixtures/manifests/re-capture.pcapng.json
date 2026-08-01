@@ -1,0 +1,10 @@
+{
+  "file": "re-capture.pcapng",
+  "sha256": "80271f2dd451b5b2c1ec26b8ff74033fef05d86ec5c5542a1187f408f5f7677f",
+  "location": "outside the repo (C:\\DW_data)",
+  "captured_at_approx": "2026-08-01T17:29:40Z .. 17:37:09Z (first..last packet), 1925 packets",
+  "note": "Labelling capture: the screens were opened in a known order and the top three names and scores on each were written down at the same moment, so a payload can be matched to a board rather than guessed at. 130 distinct commands. This is the capture that settled al.battle.rank.info's three types (0 daily, 1 weekly, 2 round total) and the one the weekly donation ranking was found in.",
+  "commands_extracted": ["al.battle.rank.info", "get.week.alliance.donate.rank"],
+  "resolved": "get.week.alliance.donate.rank is its OWN command, not a field or a type on the daily one. Both are in this capture 37s apart and return the identical {uid, score, updateTime} rankList: daily 83 entries topped by 14500 / 11980 / 11980, weekly 90 entries topped by 86440 / 80820 / 80640. Joined against the al.rank roster in the same capture, those are Vina-BaoPhan, Baby Nur, dang (daily) and Bored101, VINA an cuop, R3HAB (weekly) — the six names the screen recorded, in order. The screen note's 86400 and 90640 were transcription slips for 86440 and 80640; the names and their order match exactly.",
+  "not_present": "No player-to-player mail. The handover expected a received mail here and there is none: no push.mail at all, and the only mail commands present are chat.get.system.mails (system reports — rally results, resource deliveries), get.del.mail.list and get.bind.mail.reward. push.share.msg arrived with both chat channels empty. So §6.2's Discord identity link is still unevidenced and needs a capture taken while a mail actually arrives."
+}
