@@ -59,6 +59,9 @@ supabase/.temp/
 # Claude Code — .claude/settings.json is shared, .local.json is per-machine
 # ---------------------------------------------------------------------------
 .claude/settings.local.json
+# Worktrees live under the repo, so `git add -A` from the main checkout stages
+# them as embedded git repositories. Caught once; ignore them instead.
+.claude/worktrees/
 
 # ---------------------------------------------------------------------------
 # Editors and OS
