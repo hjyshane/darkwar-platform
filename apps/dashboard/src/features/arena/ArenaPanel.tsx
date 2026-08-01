@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
+import { type LineupHero, composition } from '../../lib/troops';
 import { type ArenaEntryRow, type ArenaHeader, ArenaTable } from './ArenaTable';
 
 interface ArenaData {
@@ -31,7 +32,37 @@ async function fetchArena(): Promise<ArenaData> {
   if (entriesError) {
     throw new Error(`arena entries query failed: ${entriesError.message}`);
   }
-  return { header, entries };
+
+  // Chunked at 100: PostgREST puts an `in.(...)` filter in the URL, and a
+  // Top100 board is exactly the size at which that starts to matter — the
+  // sync worker chunks the same way for the same reason.
+  const lineups = new Map<string, LineupHero[]>();
+  const ids = entries.map((entry) => entry.snapshot_id);
+  for (let start = 0; start < ids.length; start += 100) {
+    const { data: heroes, error: heroesError } = await supabase
+      .from('arena_entry_heroes')
+      .select('arena_entry_id, slot, hero_id, troop_class, star, hero_power')
+      .in('arena_entry_id', ids.slice(start, start + 100));
+    if (heroesError) {
+      throw new Error(`arena lineup query failed: ${heroesError.message}`);
+    }
+    for (const hero of heroes) {
+      const group = lineups.get(hero.arena_entry_id);
+      if (group === undefined) {
+        lineups.set(hero.arena_entry_id, [hero]);
+      } else {
+        group.push(hero);
+      }
+    }
+  }
+
+  return {
+    header,
+    entries: entries.map((entry) => {
+      const lineup = lineups.get(entry.snapshot_id) ?? [];
+      return { ...entry, lineup, composition: composition(lineup) };
+    }),
+  };
 }
 
 export function ArenaPanel() {

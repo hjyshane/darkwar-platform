@@ -5,7 +5,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(21);
+select plan(22);
 
 -- Setup (as postgres, RLS not yet in play): three auth users + rows in the
 -- restricted tables.
@@ -78,6 +78,12 @@ select isnt_empty($$ select * from public.players $$,
   'anon reads public rankings');
 select is_empty($$ select snapshot_id, name from public.alliance_member_snapshots $$,
   'anon cannot read alliance-internal presence');
+-- 0025: the arena board is public, and so is the lineup it shows. This ran as
+-- the owner in the lineup's own test file and via service_role in sync, so
+-- nothing checked the grant a logged-out reader actually needs — the answer
+-- was 401 until one was added.
+select lives_ok($$ select * from public.arena_entry_heroes $$,
+  'anon may read arena lineups');
 -- 0020: these scores lived on players, which anon reads, until they moved.
 select is_empty($$ select * from public.player_contributions $$,
   'anon cannot read alliance contribution');

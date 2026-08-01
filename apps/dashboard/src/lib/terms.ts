@@ -43,6 +43,7 @@ export const TERMS = {
   lastSeen: 'Last Seen', // ours: last_seen_at — when the collector last looked
   observed: 'Observed', // ours: captured_at
   defensePower: 'Defense Power', // ours: the `army` blob is a lineup, not a number
+  lineup: 'Lineup', // ours: the decoded `army` blob
   heroId: 'Hero ID',
   petId: 'Pet ID',
 

@@ -3,7 +3,9 @@ import { SortableTh } from '../../components/SortableTh';
 import { TableSearch } from '../../components/TableSearch';
 import { serverHash } from '../../lib/route';
 import { TERMS } from '../../lib/terms';
+import type { LineupHero } from '../../lib/troops';
 import { useTableView } from '../../lib/useTableView';
+import { LineupCell } from './LineupCell';
 
 export interface ArenaHeader {
   snapshot_id: string;
@@ -24,13 +26,27 @@ export interface ArenaEntryRow {
   alliance_code: string | null;
   score: number | null;
   defense_power: number | null;
+  /** The decoded defence lineup. Empty when the entry carried no `army` —
+   * which is not the same as a lineup of nobody. */
+  lineup: LineupHero[];
+  /** "3 Shooter · 1 Fighter · 1 Rider", precomputed so it can be searched
+   * on: useTableView matches top-level string fields, and a value derived
+   * during render would not be one. */
+  composition: string;
 }
 
 const numberFormat = new Intl.NumberFormat('ko-KR');
 
 // A cross-server board is scanned by who is in it: "who from LovE made the
 // top 100", or "how many of these are from 582".
-const SEARCH_FIELDS = ['name', 'game_uid', 'alliance_name', 'alliance_code', 'server_id'] as const;
+const SEARCH_FIELDS = [
+  'name',
+  'game_uid',
+  'alliance_name',
+  'alliance_code',
+  'server_id',
+  'composition',
+] as const;
 
 export function ArenaTable({
   header,
@@ -80,6 +96,9 @@ export function ArenaTable({
               <SortableTh numeric onSort={onSort} sort={sort} sortKey="defense_power">
                 {TERMS.defensePower}
               </SortableTh>
+              {/* Not sortable: an ordering over compositions would be
+                  invented, and this column is for scanning and searching. */}
+              <th scope="col">{TERMS.lineup}</th>
             </tr>
           </thead>
           <tbody>
@@ -102,6 +121,9 @@ export function ArenaTable({
                 </td>
                 <td className="num">
                   {entry.defense_power === null ? '—' : numberFormat.format(entry.defense_power)}
+                </td>
+                <td>
+                  <LineupCell heroes={entry.lineup} />
                 </td>
               </tr>
             ))}

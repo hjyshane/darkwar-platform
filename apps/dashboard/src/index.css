@@ -568,3 +568,62 @@ button:focus-visible {
   border-color: var(--accent);
   color: var(--bg);
 }
+
+/* --- arena lineup -------------------------------------------------------- */
+
+/* Categorical, not status. Deliberately NOT the ok/warn/danger tokens: those
+ * mean fresh/stale/missing elsewhere in this app, and a shooter is not a
+ * warning. Three hues that stay distinguishable in both themes, plus neutral
+ * for a class the payload has not shown us before. */
+:root {
+  --class-1-bg: #ffedd5;
+  --class-1-fg: #7c2d12;
+  --class-2-bg: #e0f2fe;
+  --class-2-fg: #075985;
+  --class-3-bg: #ede9fe;
+  --class-3-fg: #4c1d95;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --class-1-bg: #7c2d12;
+    --class-1-fg: #ffedd5;
+    --class-2-bg: #075985;
+    --class-2-fg: #e0f2fe;
+    --class-3-bg: #4c1d95;
+    --class-3-fg: #ede9fe;
+  }
+}
+
+.lineup {
+  display: inline-flex;
+  gap: var(--space-1);
+}
+
+.chip {
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  /* Fixed width so five chips line up as a column across rows — the point of
+   * the cell is comparing compositions down the table, not reading one. */
+  min-width: 1.4em;
+  padding: 0 var(--space-1);
+  text-align: center;
+  background: var(--neutral-bg);
+  color: var(--neutral-fg);
+}
+
+.chip-class-1 {
+  background: var(--class-1-bg);
+  color: var(--class-1-fg);
+}
+
+.chip-class-2 {
+  background: var(--class-2-bg);
+  color: var(--class-2-fg);
+}
+
+.chip-class-3 {
+  background: var(--class-3-bg);
+  color: var(--class-3-fg);
+}

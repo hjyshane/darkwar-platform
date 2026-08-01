@@ -77,6 +77,10 @@ alter table public.arena_entry_heroes enable row level security;
 -- so every table added since has to say this for itself or sync gets 42501 on
 -- its first insert. 0009 and 0016 carry the same line.
 grant all on public.arena_entry_heroes to service_role;
+-- And the readers. A policy decides which rows; the grant decides whether the
+-- role may look at all, and without this PostgREST answers a logged-out
+-- dashboard with 401 no matter how permissive the policy is.
+grant select on public.arena_entry_heroes to anon, authenticated;
 
 create policy public_read on public.arena_entry_heroes
   for select to anon, authenticated using (true);
