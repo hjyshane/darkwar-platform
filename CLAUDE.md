@@ -6,6 +6,10 @@ developer, AI-assisted. The spec at
 for requirements; when this file and the spec disagree about *process*, this
 file wins — it reflects decisions made after the spec was written.
 
+**Start here if you are picking this up: `docs/handover.md`.** It says where
+the work stopped, what is blocked and why, and — importantly — which parts
+have never been run against real data.
+
 ## Decisions already made — do not relitigate
 
 - **Development is Windows-only.** No WSL. Capture, BlueStacks, and ADB are
@@ -92,3 +96,31 @@ outside the repo.
 - Scoring change → new version; never overwrite historical scores.
 
 Prefer fixture coverage over line coverage for parsers.
+
+Run everything locally before committing — CI is the backstop, not the loop:
+
+```
+pnpm check && pnpm typecheck && pnpm test && pnpm build
+uv run ruff check . && uv run ruff format --check . && uv run mypy src && uv run pytest
+supabase test db
+```
+
+Two traps this repo has already hit:
+
+- **`RAISE EXCEPTION` rolls back everything the function wrote in that call.**
+  A throttle that records a failed attempt and then raises erases its own
+  counter. Return instead when the write has to survive.
+- **Changing a column means grepping the whole repo**, `supabase/` included.
+  Checking only `apps/` and `services/` left a pgTAP file pointing at columns
+  that had moved.
+
+## Judging a command before promoting it
+
+A UID in the payload is not enough. `docs/runbooks/capture-sweep.md` records
+each verdict and the evidence behind it, including three commands that were
+rejected after their fields turned out to mean something else.
+
+A verdict is not a promotion. `al.battle.rank.info` was marked "promote" and
+never was, so `contribution_type='alliance_battle'` has no writer and the
+dashboard column it feeds is permanently empty. If you mark something for
+promotion, either do it or say plainly that it is outstanding.
