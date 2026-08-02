@@ -96,6 +96,11 @@ admin은 이름 조인된 실데이터, anon은 `[]`. pgTAP 12번 파일이 같�
 연맹을 옮겼거나, 다른 연맹을 돕느라 그쪽 로스터를 찍어서 증거가 두 곳을
 가리킬 때다.
 
+**보통은 SQL이 필요 없다.** admin으로 로그인하면 상단에 `Settings` 탭이 생기고,
+거기서 연맹을 고르면 된다(`#/admin`). 관측 여부와 현재 적용 상태가 같이 보인다.
+
+SQL로 해야 한다면:
+
 ```sql
 insert into public.app_settings (key, value)
 select 'own_alliance', jsonb_build_object('alliance_id', alliance_id, 'name', current_name)

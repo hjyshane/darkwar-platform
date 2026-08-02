@@ -22,6 +22,7 @@ export type Route =
   | 'server'
   | 'player'
   | 'alliance'
+  | 'admin'
   | 'monthCards'
   | 'login';
 
@@ -30,6 +31,7 @@ const ROUTES: Record<string, Route> = {
   '#/rankings': 'rankings',
   '#/cross-server': 'crossRankings',
   '#/arena': 'arena',
+  '#/admin': 'admin',
   '#/month-cards': 'monthCards',
   '#/login': 'login',
 };

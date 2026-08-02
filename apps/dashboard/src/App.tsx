@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useSyncExternalStore } from 'react';
+import { AdminPage } from './features/admin/AdminPage';
 import { AlliancePage } from './features/alliance/AlliancePage';
 import { ArenaPanel } from './features/arena/ArenaPanel';
 import { LoginPage } from './features/auth/LoginPage';
@@ -73,7 +74,16 @@ function Nav({ route }: { route: Route }) {
           admin ever needed it. Members now sign in to see their own
           alliance's figures, so it has to be findable — and the role has to
           be visible, or "why is this column empty" has no answer. */}
-      <a className="tab tab-end" href="#/login">
+      {/* Only an admin is shown the way in. The address is not the
+          boundary — RLS is, and #/admin renders for anyone who types it —
+          but there is no reason to put a settings screen in front of people
+          who cannot save anything on it. */}
+      {session?.role === 'admin' && (
+        <a className="tab tab-end" href="#/admin">
+          Settings
+        </a>
+      )}
+      <a className={session?.role === 'admin' ? 'tab' : 'tab tab-end'} href="#/login">
         {session?.email ? `Signed in · ${session.role}` : 'Sign in'}
       </a>
     </nav>
@@ -116,6 +126,8 @@ export function App() {
       </header>
       {route === 'login' ? (
         <LoginPage />
+      ) : route === 'admin' ? (
+        <AdminPage />
       ) : route === 'monthCards' ? (
         <MonthCardsPage />
       ) : route === 'server' && serverId !== null ? (
