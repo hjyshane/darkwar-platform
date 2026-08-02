@@ -968,3 +968,31 @@ button:focus-visible {
   flex-wrap: wrap;
   gap: var(--space-3);
 }
+
+/* The chosen-metric list on the settings page. Ordered, because the order is
+ * the setting — the first entry is the one drawn large on the overview. */
+.picked {
+  display: grid;
+  gap: var(--space-2);
+  list-style: none;
+  margin: 0 0 var(--space-4);
+  padding: 0;
+}
+
+.picked li {
+  align-items: center;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  display: flex;
+  gap: var(--space-3);
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-3);
+}
+
+/* A chip that acts rather than navigates. Same look as the link chips, but a
+ * button, because it changes a setting instead of going somewhere. */
+button.chip {
+  cursor: pointer;
+  font: inherit;
+}
