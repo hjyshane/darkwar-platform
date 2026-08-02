@@ -16,11 +16,31 @@ import { type RosterRow, RosterTable } from './RosterTable';
  * just not visible to you.
  */
 async function fetchRoster(): Promise<RosterRow[]> {
+  // Our alliance's members, not the strongest players we have ever seen.
+  //
+  // `players` accumulates everyone the collector observes — cross-server
+  // boards, kill rankings, other servers' arena entries. Against real data
+  // that is 557 rows to 93 members, and our members are not the strongest of
+  // them: they ranked 91st to 557th by power, so an unfiltered top 50
+  // contained no member at all and every contribution column rendered "—"
+  // even for a signed-in officer. Six mock players, all members, hid it.
+  //
+  // 0031 marks the alliance from al.rank's redaction behaviour rather than a
+  // configured id; `alliances` is world-readable so this still works logged
+  // out, which is why the filter is here and not on the member-only roster
+  // snapshot table.
   const { data: players, error } = await supabase
     .from('players')
-    .select('player_id, game_uid, current_name, hq_level, power, kills, last_seen_at')
+    // The foreign key has to be named: players and alliances are related
+    // twice (players.current_alliance_id, and alliances.leader_player_id
+    // pointing back), and PostgREST refuses an ambiguous embed with PGRST201
+    // rather than picking one.
+    .select(
+      'player_id, game_uid, current_name, hq_level, power, kills, last_seen_at, alliances!players_current_alliance_id_fkey!inner(is_own)',
+    )
+    .eq('alliances.is_own', true)
     .order('power', { ascending: false, nullsFirst: false })
-    .limit(50);
+    .limit(100);
   if (error) {
     throw new Error(`roster query failed: ${error.message}`);
   }
@@ -51,7 +71,9 @@ async function fetchRoster(): Promise<RosterRow[]> {
 
   const byPlayer = new Map(contributions.map((row) => [row.player_id, row]));
   const presenceByPlayer = new Map(presence.map((row) => [row.player_id, row]));
-  return players.map((player) => ({
+  // `alliances` is the join used to filter, not a column of the row — drop it
+  // so the shape stays flat and every key remains sortable.
+  return players.map(({ alliances: _joined, ...player }) => ({
     ...player,
     daily_donation_score: byPlayer.get(player.player_id)?.daily_donation_score ?? null,
     weekly_donation_score: byPlayer.get(player.player_id)?.weekly_donation_score ?? null,
