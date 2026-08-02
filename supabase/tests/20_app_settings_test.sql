@@ -17,6 +17,15 @@ values
 -- unredacted roster, without needing a whole snapshot to say one thing.
 update public.alliances set roster_unredacted_seen = true
 where alliance_id = '00000000-0000-4000-8000-0000000a2001';
+
+-- "No pin" has to be arranged, not assumed. own_alliance is a single-row
+-- setting an admin writes from the dashboard, so any database somebody has
+-- actually used may already hold one — and then the insert below collides on
+-- the primary key and every assertion after it is skipped. Safe because the
+-- whole file runs inside a transaction that rolls back, so the admin's real
+-- pin is untouched. Same lesson as 21_announcements: a test must not assume
+-- it is the only thing that ever wrote to the table.
+delete from public.app_settings where key = 'own_alliance';
 select public.resolve_own_alliance();
 
 select is((select is_own from public.alliances

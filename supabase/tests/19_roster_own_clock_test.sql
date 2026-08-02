@@ -92,6 +92,15 @@ select is((select roster_unredacted_seen from public.alliances
   'a redacted roster is not evidence of membership');
 
 -- Opening someone else's roster later must not unmark our own.
+--
+-- "With no pin set" is a precondition this test has to create rather than
+-- hope for: an admin who has pinned an alliance from the dashboard leaves a
+-- row in app_settings, and then is_own follows the pin and this assertion
+-- fails for a reason that has nothing to do with rosters. Clearing it here
+-- is safe — the file runs in a transaction that rolls back — and re-running
+-- the resolver is what makes the cleared state take effect.
+delete from public.app_settings where key = 'own_alliance';
+select public.resolve_own_alliance();
 select is((select is_own from public.alliances
            where alliance_id = '00000000-0000-4000-8000-0000000a1001'), true,
   'and with no pin set, is_own follows the evidence');
