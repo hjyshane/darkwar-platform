@@ -49,20 +49,23 @@ def emit_facts(observation: Observation, rows: list[NormalizedRow]) -> list[Norm
     return facts
 
 
-# Donation's two periods get a metric each. They are not comparable: the same
-# player scores ~14.5k on the daily board and ~86k on the weekly one, so a
-# shared metric_key would put both scales in one percentile_rank and rank a
-# member by which board happened to be captured last.
+# One metric_key per board, because a key names one population.
 #
-# The three duel boards do share alliance_battle_score, which has the same
-# problem for the same reason (0028 separated their columns but not their
-# metric). Left as it is rather than changed in passing — see docs/handover.md.
+# These five are not comparable with each other: the same player reads ~14.5k
+# on the daily donation board and ~86k on the weekly one, and the duel's three
+# boards top out eighteen times apart. metric_registry gives them all
+# percentile_rank, so sharing a key would rank a member by whichever board
+# happened to be captured last rather than by anything they did.
+#
+# Donation had the weekly board split out in 0029; the duel's three were left
+# sharing one until 0036, which also gave the daily donation key a name that
+# says "daily" — the ambiguous one is what made the mistake easy to write.
 _CONTRIBUTION_METRICS = {
-    "daily_donation": "alliance_donation_score",
+    "daily_donation": "alliance_daily_donation_score",
     "weekly_donation": "alliance_weekly_donation_score",
-    "alliance_battle_daily": "alliance_battle_score",
-    "alliance_battle_weekly": "alliance_battle_score",
-    "alliance_battle_round": "alliance_battle_score",
+    "alliance_battle_daily": "alliance_battle_daily_score",
+    "alliance_battle_weekly": "alliance_battle_weekly_score",
+    "alliance_battle_round": "alliance_battle_round_score",
 }
 
 

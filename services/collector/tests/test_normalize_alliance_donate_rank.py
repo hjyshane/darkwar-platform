@@ -66,7 +66,7 @@ def test_fact_is_the_measured_score_not_a_flag() -> None:
     assert len(facts) == 53
 
     fact = facts[0].row
-    assert fact["metric_key"] == "alliance_donation_score"
+    assert fact["metric_key"] == "alliance_daily_donation_score"
     assert fact["value_numeric"] == 5860
     assert fact["unit"] == "points"
     assert fact["measurement_type"] == "observed"
