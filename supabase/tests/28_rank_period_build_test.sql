@@ -12,7 +12,14 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(9);
+select plan(11);
+
+-- This file's alliance is the ONLY one marked ours for the duration.
+-- build_rank_period covers every member of every is_own alliance, and the
+-- seed marks one too — leaving it in put 114 members in the period and made
+-- "this member gave nearly everything" read 0.09%. Rolled back with the
+-- rest of the transaction.
+update public.alliances set is_own = false where is_own;
 
 -- A member of our own alliance, with contributions in each of the period's
 -- two weeks so the windows can be told apart.
@@ -99,6 +106,26 @@ select is((select count(*) from public.rank_period_snapshots
            where period_start = '2026-07-27T02:00:00Z'
              and player_id = '00000000-0000-4000-8000-0000000ab101'), 1::bigint,
   'and leaves one row, not two');
+
+-- 0056: the scaling method is a choice, and choosing differently has to
+-- change the answer. Percentile throws magnitude away on purpose — the two
+-- members here are 100x apart on both boards and percentile puts them at
+-- 100 and 0 either way — so the assertion is against `share`, which keeps
+-- it: Busy contributed 4000 of 4010 donated, and 120000 of 120020 duelled.
+update public.app_settings
+set value = jsonb_set(value, '{normalisation}', '"share"')
+where key = 'rank_tiers';
+
+select set_config('request.jwt.claims',
+  json_build_object('sub', '00000000-0000-4000-8000-0000000ab201')::text, true);
+set local role authenticated;
+select lives_ok($$ select public.build_rank_period('2026-07-27T02:00:00Z') $$,
+  'rebuilding under a different scaling method is allowed');
+reset role;
+
+select ok((pg_temp.row_of('Busy')).donation_pct > 99,
+  'under share, a member who gave nearly everything scores nearly everything '
+  '— which is the magnitude percentile deliberately discards');
 
 select * from finish();
 rollback;

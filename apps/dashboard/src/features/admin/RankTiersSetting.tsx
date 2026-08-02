@@ -18,10 +18,30 @@ import { supabase } from '../../lib/supabase';
  * always moves down even if the whole alliance improved — worth knowing
  * before reading the report as a judgement on effort.
  */
+/** How each figure is put on a comparable scale before the weights mix
+ * them. All four work; none is right for everything, and the difference
+ * shows most on a member who dominates one board:
+ *
+ *   percentile  ignores how far ahead they were — a donor ten times the
+ *               runner-up scores the same as one who edged them
+ *   share       "4% of the alliance's donations", magnitude kept
+ *   zscore      spreads the middle out, but one huge figure moves the mean
+ *               and the spread, so everybody else shifts because of them
+ *   median      multiples of the typical member, and an outlier cannot move
+ *               a median
+ */
+const METHODS = [
+  { id: 'percentile', label: 'Percentile — rank inside the alliance' },
+  { id: 'share', label: 'Share — of the alliance total' },
+  { id: 'zscore', label: 'Z-score — standard deviations from the mean' },
+  { id: 'median', label: 'Median — multiples of the typical member' },
+] as const;
+
 interface Tiers {
   r3_percent: number;
   r2_percent: number;
   offline_hours: number;
+  normalisation: string;
   weights: { donation: number; duel: number; power_growth: number };
 }
 
@@ -29,6 +49,7 @@ const FALLBACK: Tiers = {
   r3_percent: 20,
   r2_percent: 50,
   offline_hours: 48,
+  normalisation: 'percentile',
   weights: { donation: 0.4, duel: 0.6, power_growth: 0 },
 };
 
@@ -91,14 +112,30 @@ export function RankTiersSetting() {
   return (
     <>
       <p className="subtle">
-        Each figure is ranked inside the alliance first, then the weights are applied to those
-        ranks. Weighting the raw numbers would not work: the duel board is roughly a hundred times
-        the donation board, so a "0.4 / 0.6" mix of the raw figures is the duel board alone.
+        Each figure is put on a comparable scale first, then the weights mix those. Weighting the
+        raw numbers would not work: the duel board is roughly a hundred times the donation board, so
+        a "0.4 / 0.6" mix of the raw figures is the duel board alone. Which scale is a real choice —
+        percentile ignores how far ahead the top member was, the other three do not.
       </p>
 
       {message && <p className={failed ? 'error' : 'empty'}>{message}</p>}
 
       <div className="stack">
+        <label htmlFor="normalisation">
+          How each figure is scaled before the weights mix it
+          <select
+            id="normalisation"
+            onChange={(event) => setDraft({ ...draft, normalisation: event.target.value })}
+            value={draft.normalisation}
+          >
+            {METHODS.map((method) => (
+              <option key={method.id} value={method.id}>
+                {method.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
         {(['donation', 'duel', 'power_growth'] as const).map((key) => (
           <label htmlFor={`weight-${key}`} key={key}>
             {key === 'power_growth' ? 'Power growth weight' : `${key} weight`} (
