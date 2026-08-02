@@ -21,9 +21,14 @@ from (values
 
 -- Owner's list, seeded as postgres so the negatives below cannot pass
 -- against an empty table.
+-- Its own player to favourite. Borrowing a seeded one meant this inserted
+-- nothing at all once the seed was cleared for real captures, and "the owner
+-- sees their own list" failed against an empty list rather than a hidden one.
+insert into public.players (player_id, server_id, game_uid, current_name)
+values ('00000000-0000-4000-8000-0000000ad401', 580, 58009401, 'FavouriteOnly');
+
 insert into public.favourites (user_id, player_id)
-select '00000000-0000-4000-8000-00000000b001', player_id
-from public.players where game_uid = 58000001;
+values ('00000000-0000-4000-8000-00000000b001', '00000000-0000-4000-8000-0000000ad401');
 
 select throws_ok($$
   insert into public.favourites (user_id) values ('00000000-0000-4000-8000-00000000b001')

@@ -5,8 +5,14 @@ create extension if not exists pgtap with schema extensions;
 
 select plan(4);
 
+-- Its own player. The assertions are absolute values on one row, and this
+-- file used to borrow a seeded one — which stops existing the moment
+-- somebody loads real captures and clears the seed.
+insert into public.players (player_id, server_id, game_uid, current_name)
+values ('00000000-0000-4000-8000-0000000ad701', 580, 58009701, 'MonthCardOnly');
+
 create temp table _ids as
-select (select player_id from public.players where game_uid = 58000001) as player_id,
+select '00000000-0000-4000-8000-0000000ad701'::uuid as player_id,
        (select alliance_id from public.alliances limit 1) as alliance_id;
 
 insert into public.alliance_member_snapshots
@@ -16,7 +22,7 @@ insert into public.alliance_member_snapshots
 select '00000000-0000-4000-8000-00000000d001', 'al.rank', 'test',
        'test:card:1', '2026-07-28T10:00:00Z',
        '00000000-0000-4000-8000-000000000c01', 580, i.alliance_id, 580,
-       i.player_id, 58000001, 'Holder', '2026-08-25T02:00:00Z'
+       i.player_id, 58009701, 'Holder', '2026-08-25T02:00:00Z'
 from _ids i;
 
 select is((select expires_at from public.player_month_cards m, _ids i
@@ -32,13 +38,13 @@ insert into public.player_snapshots
 select '00000000-0000-4000-8000-00000000d002', 'server.rank', 'test',
        'test:card:2', '2026-07-28T11:00:00Z',
        '00000000-0000-4000-8000-000000000c01', 580, i.player_id, 580,
-       58000001, 'Holder', 999, null
+       58009701, 'Holder', 999, null
 from _ids i;
 
 select is((select expires_at from public.player_month_cards m, _ids i
            where m.player_id = i.player_id),
   '2026-08-25T02:00:00Z'::timestamptz, 'a null reading does not erase a known pass');
-select is((select power from public.players where game_uid = 58000001), 999::bigint,
+select is((select power from public.players where game_uid = 58009701), 999::bigint,
   'while the rest of the summary still advances');
 
 -- A renewal seen later moves the expiry forward.
@@ -49,7 +55,7 @@ insert into public.player_snapshots
 select '00000000-0000-4000-8000-00000000d003', 'kill.rank', 'test',
        'test:card:3', '2026-07-28T12:00:00Z',
        '00000000-0000-4000-8000-000000000c01', 580, i.player_id, 580,
-       58000001, 'Holder', '2026-09-24T02:00:00Z'
+       58009701, 'Holder', '2026-09-24T02:00:00Z'
 from _ids i;
 
 select is((select expires_at from public.player_month_cards m, _ids i

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import sqlite3
 from pathlib import Path
 from typing import Annotated
 
@@ -91,6 +92,67 @@ def replay(
         f"recorded raw={'new' if result.raw_inserted else 'duplicate'}"
         f" rows={result.rows_inserted} duplicates={result.rows_duplicate}"
     )
+
+
+@app.command()
+def renormalize(
+    source: Annotated[Path, typer.Option(exists=True, dir_okay=False)],
+    db: Annotated[Path | None, _DB_OPTION] = None,
+) -> None:
+    """Rebuild a journal's normalized rows from its raw observations.
+
+    A journal holds what the parsers made of an observation ON THE DAY IT
+    ARRIVED. Parsers improve — weekly donation only became a column in 0029,
+    arena lineups only got decoded in 0025 — and until now nothing brought an
+    old journal forward. A real one captured before both carried 135
+    contribution rows and no lineups at all; the same raw observations
+    through today's parsers give 1,615 and 3,998.
+
+    That the raw payloads are kept and idempotency keys hash them rather than
+    the normalized row (§11.2) is what makes this safe: the same observation
+    reprocessed keeps its keys, so replaying into Supabase updates rather
+    than duplicating. This command is the thing that design was for, and it
+    was missing.
+
+    Writes to a SEPARATE journal, never in place. The source is somebody's
+    real capture history and a bug in a parser must not be able to eat it.
+    """
+    reader = sqlite3.connect(f"file:{source}?mode=ro", uri=True)
+    journal = _open_journal(db)
+    processed = unknown = rejected = 0
+    known = set(registry.known_commands())
+    try:
+        rows_iter = reader.execute(
+            "select observation_id, collector_id, source_command, captured_at,"
+            " collected_from_server_id, payload_json from raw_observations"
+        )
+        for observation_id, collector_id, command, captured_at, server_id, payload in rows_iter:
+            if command not in known:
+                # Not a failure. Most of a capture is commands nobody has
+                # written a parser for, and they stay in the raw table as
+                # discovery input (FR-COL-003/008).
+                unknown += 1
+                continue
+            try:
+                observation = Observation(
+                    observation_id=observation_id,
+                    collector_id=collector_id,
+                    source_command=command,
+                    captured_at=captured_at,
+                    collected_from_server_id=server_id,
+                    payload=json.loads(payload),
+                )
+                rows = pipeline.process(observation)
+            except (json.JSONDecodeError, ValidationError, pipeline.UnknownCommandError):
+                # One unparseable observation must not stop the other 1,983.
+                rejected += 1
+                continue
+            journal.record(observation, rows)
+            processed += 1
+    finally:
+        reader.close()
+        journal.close()
+    typer.echo(f"renormalized={processed} no-parser={unknown} rejected={rejected}")
 
 
 @app.command()

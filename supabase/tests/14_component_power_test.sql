@@ -31,12 +31,19 @@ select pg_temp.board('t:cp:2', 'hero_power_best', 49, 11880950, 40002);
 select pg_temp.board('t:cp:3', 'pet_power_total', 79, 18036787, null);
 select pg_temp.board('t:cp:4', 'pet_power_best', 80, 8373780, 106);
 
+-- Counted over THIS file's four rows, not over every reading the database
+-- holds for that uid. 1327205044000578 is a real player, so a database with
+-- real captures loaded already has readings for them and the absolute count
+-- came out 12 — the same fault 21_announcements was fixed for.
 select is((select count(*)::int from public.player_component_power_snapshots
-           where game_uid = 1327205044000578), 4,
+           where idempotency_key like 't:cp:%'), 4,
   'one player holds all four component readings at once');
 
+-- Scoped to this file's row for the same reason as the count above: the uid
+-- is a real player, and a database with real captures holds their readings
+-- too, so an unscoped subquery returns several and errors outright.
 select is((select power from public.player_component_power_snapshots
-           where metric = 'hero_power_total' and game_uid = 1327205044000578),
+           where metric = 'hero_power_total' and idempotency_key like 't:cp:%'),
   109781050::bigint, 'each metric keeps its own value');
 
 -- The guard that matters: a metric nobody verified must not be storable.

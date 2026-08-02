@@ -1009,19 +1009,27 @@ select.rank-badge {
   color: var(--grade-3-fg);
 }
 
-/* Three marks share one box-shadow, so each owns a slot rather than every
- * combination getting its own selector — four marks would otherwise need
- * eight rules. Unset slots are transparent shadows of zero size.
+/* Two rings, and they must not read as one.
  *
- * Inner ring: the hero is at maximum star. Drawn in currentColor, which on a
- * chip is the fill's own paired foreground and therefore contrasts by
- * construction. (The synergy ring learned this the hard way: drawn in
- * currentColor OUTSIDE the chip it was white text colour on a white page and
- * vanished. Outside needs --fg; inside needs currentColor.)
+ * The maximum-star mark used to be an inset shadow at the chip's very edge,
+ * drawn in currentColor. On a light page that is white, and the synergy
+ * ring's inner gap is also white — so a chip wearing both showed one thick
+ * white band and the two marks were indistinguishable. Which is exactly
+ * what a reader reported.
  *
- * Outer ring: the hero counts toward the lineup's class bonus. Unchanged. */
-.chip-max-star {
-  --chip-ring-inner: inset 0 0 0 2px currentColor;
+ * It is a pseudo-element ring now, inset far enough that a band of the
+ * chip's own fill shows between it and the edge. That band is the thing
+ * that separates them: fill, ring, fill, gap, ring reads as two marks;
+ * ring-touching-gap reads as one.
+ *
+ * ::before, because ::after is the weapon dot. */
+.chip-max-star::before {
+  border: 1.5px solid currentColor;
+  border-radius: 1px;
+  content: "";
+  inset: 3px 2px;
+  pointer-events: none;
+  position: absolute;
 }
 
 .chip-synergy {
