@@ -17,6 +17,9 @@ const TOPIC_QUERY_KEYS: Record<string, readonly (readonly string[])[]> = {
   player_detail_snapshots: [['roster']],
   arena_snapshots: [['arena']],
   arena_entries: [['arena']],
+  // Written by an admin rather than the collector, and the only topic here
+  // that fires on delete too — a notice taken down has to disappear.
+  announcements: [['announcements'], ['announcements-admin']],
 };
 
 export function queryKeysForTopic(topic: string): readonly (readonly string[])[] {
