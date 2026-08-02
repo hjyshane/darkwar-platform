@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
 import { StatTile } from '../../components/StatTile';
+import { type MetricId, resolveMetrics, specFor } from '../../lib/overviewMetrics';
 import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
 import { useSession } from '../../lib/useSession';
@@ -26,18 +27,18 @@ export interface OverviewSummary {
    *  heading cannot name them and the figures are a sum across all. */
   allianceCount: number;
   serverIds: number[];
-  members: number | null;
-  totalPower: number | null;
-  online: number | null;
-  weeklyDonation: number | null;
-  duelRound: number | null;
   rosterObservedAt: string | null;
+  /** Every figure the catalogue knows how to show, computed whether or not
+   *  it was chosen. They all come out of the four queries below, so working
+   *  out which ones are on screen first would save nothing and would make
+   *  the admin's choice able to change what gets fetched. */
+  values: Record<MetricId, number | null>;
 }
 
 async function fetchSummary(): Promise<OverviewSummary> {
   const { data: alliances, error: allianceError } = await supabase
     .from('alliances')
-    .select('alliance_id, current_name, current_code, server_id')
+    .select('alliance_id, current_name, current_code, server_id, power, member_count')
     .eq('is_own', true);
   if (allianceError) {
     throw new Error(`alliance query failed: ${allianceError.message}`);
@@ -51,7 +52,7 @@ async function fetchSummary(): Promise<OverviewSummary> {
   const ids = alliances.map((row) => row.alliance_id);
   const { data: players, error: playerError } = await supabase
     .from('players')
-    .select('player_id, power, roster_observed_at')
+    .select('player_id, power, kills, roster_observed_at')
     .in('current_alliance_id', ids.length > 0 ? ids : ['00000000-0000-0000-0000-000000000000']);
   if (playerError) {
     throw new Error(`member query failed: ${playerError.message}`);
@@ -66,7 +67,9 @@ async function fetchSummary(): Promise<OverviewSummary> {
 
   const { data: contributions, error: contributionError } = await supabase
     .from('player_contributions')
-    .select('player_id, weekly_donation_score, duel_round_score');
+    .select(
+      'player_id, daily_donation_score, weekly_donation_score, duel_daily_score, duel_weekly_score, duel_round_score',
+    );
   if (contributionError) {
     throw new Error(`contribution query failed: ${contributionError.message}`);
   }
@@ -89,17 +92,25 @@ async function fetchSummary(): Promise<OverviewSummary> {
     allianceCode: alliances.length === 1 ? (alliances[0]?.current_code ?? null) : null,
     allianceCount: alliances.length,
     serverIds: [...new Set(alliances.map((row) => row.server_id))].sort((a, b) => a - b),
-    members: players.length === 0 ? null : players.length,
-    totalPower: sum(players.map((row) => row.power)),
-    // Zero rows is "not visible to you", not "nobody is online" — RLS hands
-    // a viewer an empty presence table, and 0 would be a claim.
-    online:
-      presence.length === 0
-        ? null
-        : presence.filter((row) => memberIds.has(row.player_id) && row.online_state === 'online')
-            .length,
-    weeklyDonation: sum(ours.map((row) => row.weekly_donation_score)),
-    duelRound: sum(ours.map((row) => row.duel_round_score)),
+    values: {
+      total_power: sum(players.map((row) => row.power)),
+      members: players.length === 0 ? null : players.length,
+      kills: sum(players.map((row) => row.kills)),
+      // Zero rows is "not visible to you", not "nobody is online" — RLS hands
+      // a viewer an empty presence table, and 0 would be a claim.
+      online:
+        presence.length === 0
+          ? null
+          : presence.filter((row) => memberIds.has(row.player_id) && row.online_state === 'online')
+              .length,
+      daily_donation: sum(ours.map((row) => row.daily_donation_score)),
+      weekly_donation: sum(ours.map((row) => row.weekly_donation_score)),
+      duel_daily: sum(ours.map((row) => row.duel_daily_score)),
+      duel_weekly: sum(ours.map((row) => row.duel_weekly_score)),
+      duel_round: sum(ours.map((row) => row.duel_round_score)),
+      alliance_power: sum(alliances.map((row) => row.power)),
+      alliance_members: sum(alliances.map((row) => row.member_count)),
+    },
     rosterObservedAt:
       players
         .map((row) => row.roster_observed_at)
@@ -120,10 +131,28 @@ function formatPlain(value: number | null): string | null {
   return value === null ? null : plain.format(value);
 }
 
+/** The admin's choice, or the default. Its own query so a change to the
+ *  setting refetches this and nothing else — the figures did not move. */
+async function fetchChosenMetrics(): Promise<MetricId[]> {
+  const { data, error } = await supabase
+    .from('app_settings')
+    .select('value')
+    .eq('key', 'overview_metrics')
+    .maybeSingle();
+  if (error) {
+    throw new Error(`metric setting query failed: ${error.message}`);
+  }
+  return resolveMetrics((data?.value as { tiles?: unknown } | null)?.tiles);
+}
+
 export function OverviewPanel({ now }: { now?: Date }) {
   const { data, error, isPending } = useQuery({
     queryKey: ['overview'],
     queryFn: fetchSummary,
+  });
+  const { data: chosen } = useQuery({
+    queryKey: ['overview-metrics'],
+    queryFn: fetchChosenMetrics,
   });
   const { data: session } = useSession();
   // Same wording as the roster: a dash means "never observed" everywhere
@@ -147,38 +176,33 @@ export function OverviewPanel({ now }: { now?: Date }) {
       {isPending && <p className="empty">Loading…</p>}
       {error && <p className="error">Could not load the summary: {error.message}</p>}
 
-      {data && data.members === null && (
+      {data && data.values.members === null && (
         <p className="empty">
           No roster captured yet. Open the alliance member list in game with the collector running,
           and this fills in.
         </p>
       )}
 
-      {data && data.members !== null && (
+      {data && data.values.members !== null && (
         <>
           <div className="stats">
-            <StatTile
-              hero
-              label={TERMS.power}
-              note={`summed over ${formatPlain(data.members)} observed ${TERMS.members.toLowerCase()}`}
-              value={formatCompact(data.totalPower)}
-            />
-            <StatTile label={TERMS.members} value={formatPlain(data.members)} />
-            <StatTile
-              label="Online now"
-              note={restricted ? 'alliance members only' : undefined}
-              value={formatPlain(data.online)}
-            />
-            <StatTile
-              label={TERMS.weeklyDonation}
-              note={restricted ? 'alliance members only' : 'alliance total this week'}
-              value={formatCompact(data.weeklyDonation)}
-            />
-            <StatTile
-              label={TERMS.duelRound}
-              note={restricted ? 'alliance members only' : 'alliance total, four rounds'}
-              value={formatCompact(data.duelRound)}
-            />
+            {(chosen ?? []).map((id, index) => {
+              const spec = specFor(id);
+              return (
+                <StatTile
+                  // The first chosen tile is the hero. One per screen, and
+                  // the admin's order is what decides which — a rule the
+                  // picker can state rather than a second setting.
+                  hero={index === 0}
+                  key={id}
+                  label={spec.label}
+                  note={spec.restricted && restricted ? 'alliance members only' : spec.note}
+                  value={
+                    spec.compact ? formatCompact(data.values[id]) : formatPlain(data.values[id])
+                  }
+                />
+              );
+            })}
           </div>
           <p className="subtle">
             Roster last observed <FreshnessBadge capturedAt={data.rosterObservedAt} now={now} />
