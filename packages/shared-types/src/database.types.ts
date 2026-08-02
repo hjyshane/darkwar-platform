@@ -1820,6 +1820,35 @@ export type Database = {
           },
         ]
       }
+      player_ranks: {
+        Row: {
+          assigned_rank: string
+          player_id: string
+          set_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          assigned_rank: string
+          player_id: string
+          set_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assigned_rank?: string
+          player_id?: string
+          set_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_ranks_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: true
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+        ]
+      }
       player_snapshots: {
         Row: {
           alliance_external_id: string | null
@@ -1920,7 +1949,6 @@ export type Database = {
       }
       players: {
         Row: {
-          assigned_rank: string | null
           created_at: string
           current_alliance_id: string | null
           current_name: string | null
@@ -1936,7 +1964,6 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          assigned_rank?: string | null
           created_at?: string
           current_alliance_id?: string | null
           current_name?: string | null
@@ -1952,7 +1979,6 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          assigned_rank?: string | null
           created_at?: string
           current_alliance_id?: string | null
           current_name?: string | null
@@ -2353,6 +2379,7 @@ export type Database = {
       }
       player_current_rank: {
         Row: {
+          assigned_rank: string | null
           computed_reason: string | null
           computed_tier: string | null
           donation_pct: number | null
@@ -2362,15 +2389,7 @@ export type Database = {
           player_id: string | null
           rank_score: number | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "rank_period_snapshots_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "players"
-            referencedColumns: ["player_id"]
-          },
-        ]
+        Relationships: []
       }
       player_power_growth: {
         Row: {

@@ -206,14 +206,32 @@ export function RosterTable({
 
   const setRank = useMutation({
     mutationFn: async ({ playerId, rank }: { playerId: string; rank: string | null }) => {
+      // Clearing an override is a delete, not a null: the row exists only
+      // while somebody has decided something, and its absence is what makes
+      // the computed tier take over again.
+      if (rank === null) {
+        const { error, count: removed } = await supabase
+          .from('player_ranks')
+          .delete({ count: 'exact' })
+          .eq('player_id', playerId);
+        if (error) {
+          throw new Error(error.message);
+        }
+        // Nothing to remove is success, not a refusal — the override may
+        // already have been absent.
+        if (removed === 0) {
+          return;
+        }
+        return;
+      }
+      // set_by is stamped by a trigger from the session (0059), so it is
+      // deliberately not sent.
       const { error, count: written } = await supabase
-        .from('players')
-        .update({ assigned_rank: rank }, { count: 'exact' })
-        .eq('player_id', playerId);
+        .from('player_ranks')
+        .upsert({ player_id: playerId, assigned_rank: rank }, { count: 'exact' });
       if (error) {
         throw new Error(error.message);
       }
-      // A refused UPDATE is filtered to zero rows and reports success.
       if (written === 0) {
         throw new Error('Nothing was written. Setting a rank needs "Manage members".');
       }

@@ -10,7 +10,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(6);
+select plan(8);
 
 insert into auth.users (id, instance_id, aud, role, email)
 values
@@ -29,42 +29,64 @@ create function pg_temp.act_as(who uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', who)::text, true);
 $$;
 
-select is((select assigned_rank from public.players
+select is((select assigned_rank from public.player_ranks
            where player_id = '00000000-0000-4000-8000-0000000cd101'), null,
   'a member arrives with no rank set — the computed one stands until somebody decides');
 
 set local role authenticated;
 select pg_temp.act_as('00000000-0000-4000-8000-0000000cd002');
-update public.players set assigned_rank = 'R5'
-where player_id = '00000000-0000-4000-8000-0000000cd101';
--- Refused updates are filtered to zero rows, not raised, so the assertion
--- is that nothing moved.
-select is((select assigned_rank from public.players
-           where player_id = '00000000-0000-4000-8000-0000000cd101'), null,
-  'an ordinary member cannot set one');
+select throws_ok(
+  $$ insert into public.player_ranks (player_id, assigned_rank)
+     values ('00000000-0000-4000-8000-0000000cd101', 'R5') $$,
+  '42501', null, 'an ordinary member cannot set one');
 reset role;
 
 set local role authenticated;
 select pg_temp.act_as('00000000-0000-4000-8000-0000000cd001');
 select lives_ok(
-  $$ update public.players set assigned_rank = 'R4'
-      where player_id = '00000000-0000-4000-8000-0000000cd101' $$,
+  $$ insert into public.player_ranks (player_id, assigned_rank)
+     values ('00000000-0000-4000-8000-0000000cd101', 'R4') $$,
   'somebody who may manage members can');
-select is((select assigned_rank from public.players
+select is((select assigned_rank from public.player_ranks
            where player_id = '00000000-0000-4000-8000-0000000cd101'), 'R4',
   'and it sticks');
 
--- The column grant, which is the part that actually constrains this.
+-- The rank lives on its own table so that a policy can hold it. Setting one
+-- must not be a way into the world-readable players row it points at.
 select throws_ok(
   $$ update public.players set power = 999
       where player_id = '00000000-0000-4000-8000-0000000cd101' $$,
   '42501', null,
-  'and cannot reach any other column through the same policy');
+  'and setting a rank is not a way to rewrite the player it belongs to');
 reset role;
 
 select is((select power from public.players
            where player_id = '00000000-0000-4000-8000-0000000cd101'), 12345::bigint,
   'so the power the collector observed is still the collector''s');
+
+-- 0059: the whole rank is member-only, both halves of it. It used to be
+-- half and half — the hand-set rank sat on world-readable `players` while
+-- the computed tier stayed member-only, so a logged-out reader saw a rank
+-- for the few members somebody had set by hand and a blank for the rest,
+-- with nothing on screen to say why. Every figure a rank is derived from is
+-- member-only; the conclusion cannot be looser than its inputs.
+set local role anon;
+select throws_ok(
+  $$ select count(*) from public.player_current_rank $$,
+  '42501', null, 'a logged-out reader cannot see ranks at all');
+reset role;
+
+insert into auth.users (id, instance_id, aud, role, email)
+values ('00000000-0000-4000-8000-0000000cd003', '00000000-0000-0000-0000-000000000000',
+        'authenticated', 'authenticated', 'rank-viewer@test.invalid');
+insert into public.app_users (user_id, role, display_name)
+values ('00000000-0000-4000-8000-0000000cd003', 'viewer', 'rank viewer');
+
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-4000-8000-0000000cd003');
+select is((select count(*) from public.player_current_rank), 0::bigint,
+  'and a signed-in viewer sees none either — a rank is alliance business');
+reset role;
 
 select * from finish();
 rollback;
