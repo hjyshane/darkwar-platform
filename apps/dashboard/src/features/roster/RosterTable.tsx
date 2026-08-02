@@ -12,9 +12,9 @@ import { useFavourites } from '../../lib/useFavourites';
 import { useTableView } from '../../lib/useTableView';
 
 export interface RosterRow {
-  /** Power against the newest snapshot at least a day / a week older than
-   * the latest one. Null where there is no earlier snapshot to compare with
-   * — which is not the same as 0% and must not render as one. */
+  /** Power at the most recent 02:05 UTC against the same point a day and a
+   * week earlier (0051). Null where there is no earlier snapshot to compare
+   * with — which is not the same as 0% and must not render as one. */
   growth_1d: number | null;
   growth_7d: number | null;
   growth_1d_at: string | null;
@@ -63,9 +63,9 @@ function GrowthCell({ value, since }: { value: number | null; since: string | nu
   return (
     <td
       className={`num ${rounded > 0 ? 'growth-up' : rounded < 0 ? 'growth-down' : ''}`}
-      // What it actually compared against. A collector that has not run for
-      // five days makes "daily" mean something else, and the reader is
-      // entitled to know which day it means.
+      // What it actually compared against. The measurement point is fixed
+      // at 02:05 UTC, but the collector may not have run then, so the cell
+      // names the reading it really used rather than implying yesterday.
       title={since === null ? undefined : `vs ${new Date(since).toISOString().slice(0, 10)}`}
     >
       {rounded > 0 ? '+' : ''}
@@ -219,7 +219,7 @@ export function RosterTable({
                 Growth (1d)
               </SortableTh>
               <SortableTh numeric onSort={onSort} sort={sort} sortKey="growth_7d">
-                Growth (7d)
+                Growth (1w)
               </SortableTh>
               <SortableTh numeric onSort={onSort} sort={sort} sortKey="last_online_at">
                 {TERMS.lastOnline}

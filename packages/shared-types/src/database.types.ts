@@ -2257,6 +2257,7 @@ export type Database = {
           power_1d_at: string | null
           power_7d: number | null
           power_7d_at: string | null
+          power_at: string | null
         }
         Relationships: [
           {
@@ -2283,6 +2284,11 @@ export type Database = {
         Returns: Database["public"]["Enums"]["app_role"]
       }
       has_permission: { Args: { p_capability: string }; Returns: boolean }
+      rank_period_start: { Args: { ts: string }; Returns: string }
+      rank_period_week_ends: {
+        Args: { period_start: string }
+        Returns: string[]
+      }
       redeem_join_code: {
         Args: { p_code: string }
         Returns: Database["public"]["Enums"]["app_role"]
