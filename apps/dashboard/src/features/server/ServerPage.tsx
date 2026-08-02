@@ -4,11 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
 import { useFavourites } from '../../lib/useFavourites';
 import { latestBatch } from '../crossRankings/latestBatch';
-import {
-  type AllianceRankingRow,
-  AllianceRankingTable,
-  latestPerAlliance,
-} from '../rankings/AllianceRankingTable';
+import { type AllianceRankingRow, AllianceRankingTable } from '../rankings/AllianceRankingTable';
 import { type ServerPlayerRow, ServerPlayerTable } from './ServerPlayerTable';
 
 interface ServerData {
@@ -25,14 +21,16 @@ interface ServerData {
  */
 async function fetchServer(serverId: number): Promise<ServerData> {
   const [alliances, players] = await Promise.all([
+    // The same view the ranking uses (0035). Deduping in the browser meant
+    // the answer depended on how many snapshots came back, which is a
+    // strange thing for "which alliances are on this server" to depend on.
     supabase
-      .from('alliance_snapshots')
+      .from('alliance_latest')
       .select(
         'snapshot_id, alliance_id, external_id, server_id, rank, name, code, power, member_count, captured_at',
       )
       .eq('server_id', serverId)
-      .order('captured_at', { ascending: false })
-      .limit(200),
+      .order('power', { ascending: false, nullsFirst: false }),
     supabase
       .from('player_snapshots')
       .select('snapshot_id, player_id, rank, name, game_uid, server_id, power, kills, captured_at')
@@ -47,8 +45,11 @@ async function fetchServer(serverId: number): Promise<ServerData> {
   if (players.error) {
     throw new Error(`server players query failed: ${players.error.message}`);
   }
+  // Postgres cannot promise a view's columns are non-null, so the generated
+  // type widens every one. The underlying columns are the snapshot table's
+  // and their nullability has not changed — the same cast RankingsPanel makes.
   return {
-    alliances: alliances.data,
+    alliances: alliances.data as AllianceRankingRow[],
     // One capture produces many rows sharing a captured_at; the board as
     // last seen is the newest of those batches.
     players: latestBatch(players.data),
@@ -92,7 +93,7 @@ export function ServerPage({ serverId }: { serverId: number }) {
         <>
           <section aria-labelledby="server-alliances-heading">
             <h2 id="server-alliances-heading">{TERMS.allianceRanking}</h2>
-            {latestPerAlliance(data.alliances).length === 0 ? (
+            {data.alliances.length === 0 ? (
               <p className="empty">No alliance seen on server {serverId} yet.</p>
             ) : (
               <AllianceRankingTable rows={data.alliances} />

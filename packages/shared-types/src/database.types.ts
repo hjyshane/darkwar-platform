@@ -2107,7 +2107,36 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      alliance_latest: {
+        Row: {
+          alliance_id: string | null
+          captured_at: string | null
+          code: string | null
+          external_id: string | null
+          member_count: number | null
+          name: string | null
+          power: number | null
+          rank: number | null
+          server_id: number | null
+          snapshot_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alliance_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "alliance_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+        ]
+      }
     }
     Functions: {
       backfill_month_card_from_raw: {

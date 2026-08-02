@@ -3,7 +3,6 @@ import { expect, test } from 'vitest';
 import {
   type AllianceRankingRow,
   AllianceRankingTable,
-  latestPerAlliance,
 } from '../src/features/rankings/AllianceRankingTable';
 import { renderWithQuery } from './renderWithQuery';
 
@@ -25,17 +24,22 @@ function row(overrides: Partial<AllianceRankingRow>): AllianceRankingRow {
   };
 }
 
-test('keeps only the newest observation of each alliance', () => {
+test('shows the rows it is given, in the order it is given them', () => {
+  // Deduping moved into the alliance_latest view (0035). It used to happen
+  // here AND re-sort by power on the way out, which silently overrode
+  // whatever order the query asked for — that is how the sort header ended
+  // up describing an order nothing was in.
   const rows = [
-    row({ external_id: 'a', power: 200, captured_at: '2026-07-28T11:00:00Z' }),
-    row({ external_id: 'a', power: 100, captured_at: '2026-07-27T11:00:00Z' }),
-    row({ external_id: 'b', power: 300 }),
+    row({ external_id: 'a', name: 'First', power: 300 }),
+    row({ external_id: 'b', name: 'Second', power: 200 }),
   ];
-  const latest = latestPerAlliance(rows);
-  expect(latest).toHaveLength(2);
-  // Sorted by power, and the stale 100 never wins over the fresh 200.
-  expect(latest.map((r) => r.external_id)).toEqual(['b', 'a']);
-  expect(latest[1]?.power).toBe(200);
+  renderWithQuery(<AllianceRankingTable rows={rows} now={NOW} />);
+  const names = screen
+    .getAllByRole('row')
+    .slice(1)
+    .map((r) => r.textContent ?? '');
+  expect(names[0]).toContain('First');
+  expect(names[1]).toContain('Second');
 });
 
 test('renders alliances with freshness and unknown values', () => {

@@ -29,21 +29,6 @@ const numberFormat = new Intl.NumberFormat('ko-KR');
 // Both, so "CBFW" finds the alliance whether the user knows it by tag or name.
 const SEARCH_FIELDS = ['name', 'code'] as const;
 
-/** One row per alliance, keeping the newest observation of each. Rows arrive
- * newest-first, so the first sighting of an alliance is the current one. */
-export function latestPerAlliance(rows: AllianceRankingRow[]): AllianceRankingRow[] {
-  const seen = new Set<string>();
-  const latest: AllianceRankingRow[] = [];
-  for (const row of rows) {
-    if (seen.has(row.external_id)) {
-      continue;
-    }
-    seen.add(row.external_id);
-    latest.push(row);
-  }
-  return latest.sort((a, b) => (b.power ?? 0) - (a.power ?? 0));
-}
-
 export function AllianceRankingTable({
   rows,
   now,
@@ -53,21 +38,21 @@ export function AllianceRankingTable({
 }) {
   const { signedIn, isFavourite, toggle, count } = useFavourites();
   const [starredOnly, setStarredOnly] = useState(false);
-  const latest = useMemo(() => latestPerAlliance(rows), [rows]);
   const visible = useMemo(
-    () => (starredOnly ? latest.filter((row) => isFavourite('alliance', row.alliance_id)) : latest),
-    [latest, starredOnly, isFavourite],
+    () => (starredOnly ? rows.filter((row) => isFavourite('alliance', row.alliance_id)) : rows),
+    [rows, starredOnly, isFavourite],
   );
   const { query, setQuery, sort, onSort, view, shown, total } = useTableView(
     visible,
     SEARCH_FIELDS,
-    // RankingsPanel orders by captured_at desc and nothing else, so that is
-    // what the header says. It is an odd default for a ranking — worth
-    // revisiting — but showing it is how anyone would notice.
-    { key: 'captured_at', direction: 'desc' },
+    // Matches what the query asks for AND what the rows arrive in. Those
+    // were two different things until 0035: the panel ordered by captured_at
+    // while this file re-sorted by power on the way out, so the header
+    // described an order nothing was in.
+    { key: 'power', direction: 'desc' },
   );
 
-  if (latest.length === 0) {
+  if (rows.length === 0) {
     return <p className="empty">No alliance ranking data yet.</p>;
   }
   return (
