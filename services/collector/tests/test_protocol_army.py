@@ -173,10 +173,55 @@ def test_the_defending_stack_is_read_once_per_lineup() -> None:
     assert army.troop_count is not None and army.troop_count > 0
 
 
+def test_the_stack_carries_class_and_industry() -> None:
+    """1.2 and 1.9 were unread until a user said what they are.
+
+    A unit levels 1-10 — the tier digit in the type id — and only then takes
+    industry levels 1-3. The data says exactly that: across 800 real lineups
+    industry is non-zero ONLY at tier 9, never at 7 or 8. 1.2 turned out to
+    carry nothing new, being the type id's own class digit plus one in every
+    lineup, which is why it had looked like an unexplained 1-3.
+
+    Industry is a plain integer rather than a checked 1-3 because the game is
+    due to extend it to 10.
+    """
+    armies = [decode_army(entry["army"]) for entry in _entries()]
+
+    assert armies
+    for army in armies:
+        assert army.troop_type_id is not None
+        assert army.troop_class == int(army.troop_type_id[3]) + 1
+        assert army.troop_industry >= 0
+        if army.troop_type_id[-1] != "9":
+            assert army.troop_industry == 0, "industry only exists at top tier"
+
+
+def test_stage_is_zero_at_max_star_and_absent_means_zero() -> None:
+    """2.9 is the step within the current star.
+
+    push.hero.data returns the collector's own heroes as plain JSON and names
+    the field `stage`: 0 for all nine at rankLv 6, 1 for the one at rankLv 4.
+    The arena blob has the same shape — omitted at max star every time, 1-4
+    below it — and proto3 omits a field equal to its default, so an absent
+    2.9 is a zero rather than an unknown. Reading it as None would have made
+    "no next star to work towards" indistinguishable from "not observed".
+    """
+    units = [unit for entry in _entries() for unit in decode_army(entry["army"]).units]
+
+    assert units, "fixture has lineups"
+    assert all(unit.stage is not None for unit in units)
+    assert all(0 <= (unit.stage or 0) <= 4 for unit in units)
+    at_max = [unit for unit in units if unit.star == 6]
+    assert at_max, "fixture has heroes at max star"
+    assert all(unit.stage == 0 for unit in at_max), "a maxed hero has no step in progress"
+
+
 def test_uninterpreted_fields_are_kept_rather_than_dropped() -> None:
-    """2.9, 2.14 and the trailing block are not understood. The schema
-    convention is that such fields survive in `raw`, so the decoder has to
-    hand them over instead of discarding them."""
+    """One field is still unread — 2.3, which is 1 on every unit observed.
+
+    A field with a single value carries nothing, but the schema convention is
+    that unrecognised values survive in `raw` rather than being dropped, so
+    the decoder still hands it over."""
     extras = [unit.extra for entry in _entries() for unit in decode_army(entry["army"]).units]
 
     assert any(extra for extra in extras), "some units carry fields we do not read"
