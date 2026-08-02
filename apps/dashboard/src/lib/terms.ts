@@ -47,6 +47,8 @@ export const TERMS = {
   heroId: 'Hero ID',
   petId: 'Pet ID',
 
+  overview: 'Overview',
+
   // Contribution types (alliance_contribution_snapshots.contribution_type)
   dailyDonation: 'Daily Donation',
   // Its own board, from its own command — not the daily figure accumulated.

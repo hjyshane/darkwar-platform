@@ -44,6 +44,8 @@ export function ServerPlayerTable({
   const { query, setQuery, sort, onSort, view, shown, total } = useTableView(
     visible,
     SEARCH_FIELDS,
+    // ServerPage asks for rank asc.
+    { key: 'rank', direction: 'asc' },
   );
 
   if (rows.length === 0) {
@@ -53,6 +55,7 @@ export function ServerPlayerTable({
     <>
       <TableSearch
         label="Search players"
+        unit="players"
         onChange={setQuery}
         shown={shown}
         total={total}

@@ -61,6 +61,10 @@ export function AllianceRankingTable({
   const { query, setQuery, sort, onSort, view, shown, total } = useTableView(
     visible,
     SEARCH_FIELDS,
+    // RankingsPanel orders by captured_at desc and nothing else, so that is
+    // what the header says. It is an odd default for a ranking — worth
+    // revisiting — but showing it is how anyone would notice.
+    { key: 'captured_at', direction: 'desc' },
   );
 
   if (latest.length === 0) {
@@ -70,6 +74,7 @@ export function AllianceRankingTable({
     <>
       <TableSearch
         label="Search alliances"
+        unit="alliances"
         onChange={setQuery}
         shown={shown}
         total={total}

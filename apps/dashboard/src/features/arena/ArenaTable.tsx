@@ -60,6 +60,8 @@ export function ArenaTable({
   const { query, setQuery, sort, onSort, view, shown, total } = useTableView(
     entries,
     SEARCH_FIELDS,
+    // ArenaPanel asks for rank asc.
+    { key: 'rank', direction: 'asc' },
   );
   const weekLabel = new Date(header.week_start).toISOString().slice(0, 10);
   return (
@@ -69,6 +71,7 @@ export function ArenaTable({
       </p>
       <TableSearch
         label="Search arena"
+        unit="entries"
         onChange={setQuery}
         shown={shown}
         total={total}

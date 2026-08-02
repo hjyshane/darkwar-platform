@@ -35,7 +35,7 @@ beforeEach(() => {
 test('the login address is unlinked but routable', () => {
   expect(routeFromHash('#/login')).toBe('login');
   expect(routeFromHash('#/month-cards')).toBe('monthCards');
-  expect(routeFromHash('')).toBe('dashboard');
+  expect(routeFromHash('')).toBe('overview');
 });
 
 test('submits the entered credentials', async () => {

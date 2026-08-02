@@ -4,6 +4,7 @@ import { ArenaPanel } from './features/arena/ArenaPanel';
 import { LoginPage } from './features/auth/LoginPage';
 import { CrossRankingsPanel } from './features/crossRankings/CrossRankingsPanel';
 import { MonthCardsPage } from './features/monthCards/MonthCardsPage';
+import { OverviewPanel } from './features/overview/OverviewPanel';
 import { RankingsPanel } from './features/rankings/RankingsPanel';
 import { RosterPanel } from './features/roster/RosterPanel';
 import { ServerPage } from './features/server/ServerPage';
@@ -72,6 +73,8 @@ function Nav({ route }: { route: Route }) {
 
 function Screen({ route }: { route: Route }) {
   switch (route) {
+    case 'members':
+      return <RosterPanel />;
     case 'rankings':
       return <RankingsPanel />;
     case 'crossRankings':
@@ -79,7 +82,9 @@ function Screen({ route }: { route: Route }) {
     case 'arena':
       return <ArenaPanel />;
     default:
-      return <RosterPanel />;
+      // Unknown addresses land here too, which is why the overview has to
+      // stand on its own with no data rather than assume it was navigated to.
+      return <OverviewPanel />;
   }
 }
 

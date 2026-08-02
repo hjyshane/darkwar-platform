@@ -45,9 +45,12 @@ export function RosterTable({ rows, now }: { rows: RosterRow[]; now?: Date }) {
     () => (starredOnly ? rows.filter((row) => isFavourite('player', row.player_id)) : rows),
     [rows, starredOnly, isFavourite],
   );
+  // RosterPanel asks PostgREST for power desc; say so rather than letting
+  // the header claim the rows arrived in no order at all.
   const { query, setQuery, sort, onSort, view, shown, total } = useTableView(
     visible,
     SEARCH_FIELDS,
+    { key: 'power', direction: 'desc' },
   );
 
   if (rows.length === 0) {
@@ -57,6 +60,7 @@ export function RosterTable({ rows, now }: { rows: RosterRow[]; now?: Date }) {
     <>
       <TableSearch
         label={`Search ${TERMS.members.toLowerCase()}`}
+        unit={TERMS.members.toLowerCase()}
         onChange={setQuery}
         shown={shown}
         total={total}

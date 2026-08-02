@@ -2,9 +2,12 @@
 import { expect, test } from 'vitest';
 import { queryKeysForTopic } from '../src/lib/realtime';
 
-test('roster topics refetch the roster', () => {
-  expect(queryKeysForTopic('alliance_member_snapshots')).toEqual([['roster']]);
-  expect(queryKeysForTopic('alliance_contribution_snapshots')).toEqual([['roster']]);
+test('roster topics refetch the roster and the overview', () => {
+  // The overview summarises the same rows, so a topic that changes the
+  // roster has to reach both — a stat tile that disagrees with the table
+  // under it is worse than one that is a moment late.
+  expect(queryKeysForTopic('alliance_member_snapshots')).toEqual([['roster'], ['overview']]);
+  expect(queryKeysForTopic('alliance_contribution_snapshots')).toEqual([['roster'], ['overview']]);
 });
 
 test('component power boards refetch the ranking panel', () => {
@@ -14,7 +17,11 @@ test('component power boards refetch the ranking panel', () => {
 test('player snapshots feed both the roster summary and the ranking boards', () => {
   // server.rank / kill.rank write player_snapshots, and those rows are the
   // cross-server boards; the same insert also advances the players summary.
-  expect(queryKeysForTopic('player_snapshots')).toEqual([['roster'], ['crossRankings']]);
+  expect(queryKeysForTopic('player_snapshots')).toEqual([
+    ['roster'],
+    ['crossRankings'],
+    ['overview'],
+  ]);
 });
 
 test('arena topics map to the arena query only', () => {

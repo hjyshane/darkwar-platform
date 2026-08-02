@@ -5,10 +5,13 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+// The overview summarises the roster and its contribution, so it refetches
+// on the same two topics the roster does — it is a second reader of the same
+// facts, not a source of its own.
 const TOPIC_QUERY_KEYS: Record<string, readonly (readonly string[])[]> = {
-  alliance_member_snapshots: [['roster']],
-  alliance_contribution_snapshots: [['roster']],
-  player_snapshots: [['roster'], ['crossRankings']],
+  alliance_member_snapshots: [['roster'], ['overview']],
+  alliance_contribution_snapshots: [['roster'], ['overview']],
+  player_snapshots: [['roster'], ['crossRankings'], ['overview']],
   alliance_snapshots: [['rankings']],
   player_component_power_snapshots: [['crossRankings']],
   player_detail_snapshots: [['roster']],

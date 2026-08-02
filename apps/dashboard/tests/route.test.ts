@@ -12,10 +12,10 @@ test('each screen has its own address', () => {
 });
 
 test('an unknown address lands on the dashboard rather than nothing', () => {
-  expect(routeFromHash('')).toBe('dashboard');
-  expect(routeFromHash('#/')).toBe('dashboard');
-  expect(routeFromHash('#/nope')).toBe('dashboard');
-  expect(routeFromHash('#/arena/extra')).toBe('dashboard');
+  expect(routeFromHash('')).toBe('overview');
+  expect(routeFromHash('#/')).toBe('overview');
+  expect(routeFromHash('#/nope')).toBe('overview');
+  expect(routeFromHash('#/arena/extra')).toBe('overview');
 });
 
 test('every tab address resolves back to the route it claims', () => {
@@ -53,7 +53,7 @@ test('anything that is not a plain server number is not a server page', () => {
   // The id reaches a query, so it has to be digits — not "580; drop", not a
   // name, not empty. Everything else falls through to the dashboard.
   for (const hash of ['#/server/', '#/server/abc', '#/server/580/extra', '#/server/-1']) {
-    expect(routeFromHash(hash)).toBe('dashboard');
+    expect(routeFromHash(hash)).toBe('overview');
     expect(serverIdFromHash(hash)).toBeNull();
   }
 });

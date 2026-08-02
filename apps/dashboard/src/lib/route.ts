@@ -14,7 +14,8 @@
 // Hash-based so it works on any static host with zero rewrite config.
 
 export type Route =
-  | 'dashboard'
+  | 'overview'
+  | 'members'
   | 'rankings'
   | 'crossRankings'
   | 'arena'
@@ -23,6 +24,7 @@ export type Route =
   | 'login';
 
 const ROUTES: Record<string, Route> = {
+  '#/members': 'members',
   '#/rankings': 'rankings',
   '#/cross-server': 'crossRankings',
   '#/arena': 'arena',
@@ -31,7 +33,7 @@ const ROUTES: Record<string, Route> = {
 };
 
 // The one address that carries a value. Digits only: a server id is a
-// number, and anything else falls through to the dashboard rather than
+// number, and anything else falls through to the landing screen rather than
 // reaching a query.
 const SERVER_HASH = /^#\/server\/(\d+)$/;
 
@@ -39,7 +41,7 @@ export function routeFromHash(hash: string): Route {
   if (SERVER_HASH.test(hash)) {
     return 'server';
   }
-  return ROUTES[hash] ?? 'dashboard';
+  return ROUTES[hash] ?? 'overview';
 }
 
 /** The server a `#/server/580` address names, or null for any other. */
@@ -55,7 +57,13 @@ export function serverHash(serverId: number): string {
 /** Tabs shown in the nav, in order. Excludes month-cards (unlinked above)
  *  and login, which is an account action rather than a screen. */
 export const NAV_TABS: ReadonlyArray<{ route: Route; hash: string; label: string }> = [
-  { route: 'dashboard', hash: '#/', label: 'Members' },
+  // `#/` is the overview, and Members moved to its own address. The roster
+  // was the landing screen because it was the first screen that existed,
+  // not because a hundred rows of figures is what you want to be handed
+  // first — the overview answers "how are we doing" before the table
+  // answers "who did what".
+  { route: 'overview', hash: '#/', label: 'Overview' },
+  { route: 'members', hash: '#/members', label: 'Members' },
   { route: 'rankings', hash: '#/rankings', label: 'Alliance Ranking' },
   { route: 'crossRankings', hash: '#/cross-server', label: 'Cross-Server' },
   { route: 'arena', hash: '#/arena', label: 'Arena' },
