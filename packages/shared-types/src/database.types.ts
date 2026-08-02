@@ -1296,6 +1296,33 @@ export type Database = {
           },
         ]
       }
+      heroes: {
+        Row: {
+          created_at: string
+          hero_id: number
+          name: string | null
+          notes: string
+          troop_class: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          hero_id: number
+          name?: string | null
+          notes?: string
+          troop_class?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          hero_id?: number
+          name?: string | null
+          notes?: string
+          troop_class?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       join_code_attempts: {
         Row: {
           failed_count: number

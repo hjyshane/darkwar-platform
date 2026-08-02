@@ -1,8 +1,10 @@
 import { useState } from 'react';
+import { type HeroCatalogue, heroName, useHeroCatalogue } from '../../lib/heroes';
 import {
   type LineupHero,
   bySlot,
   composition,
+  starsShown,
   synergy,
   troopClassInitial,
   troopClassName,
@@ -10,13 +12,14 @@ import {
 
 const numberFormat = new Intl.NumberFormat('ko-KR');
 
-function detail(hero: LineupHero): string {
+function detail(hero: LineupHero, catalogue: HeroCatalogue | undefined): string {
+  const stars = starsShown(hero.star);
   return [
     hero.slot === null ? 'Slot ?' : `Slot ${hero.slot}`,
-    `Hero ${hero.hero_id}`,
+    heroName(catalogue, hero.hero_id),
     troopClassName(hero.troop_class),
     hero.hero_level === null ? null : `Lv ${hero.hero_level}`,
-    hero.star === null ? null : `${hero.star}★`,
+    stars === null ? null : `${stars}★`,
     hero.hero_power === null ? null : numberFormat.format(hero.hero_power),
   ]
     .filter((part) => part !== null)
@@ -25,10 +28,10 @@ function detail(hero: LineupHero): string {
 
 /** A defence lineup: five class chips, expanding to the detail behind them.
  *
- * Chips rather than hero names because the protocol has none — names are
- * client-side, and nothing in 1,984 captured observations carries one. What
- * it does carry is the class, which is what you counter, so the collapsed
- * cell leads with that.
+ * Chips rather than hero names in the collapsed cell, because the class is
+ * what you counter and five letters fit where five names do not. The names
+ * themselves come from the catalogue an admin types (0037) — the protocol
+ * carries none, so an id with no row yet prints as the id.
  *
  * The expansion exists because the arena screen shows more than a roster:
  * level, star, the hero's exclusive weapon, four equipment pieces with their
@@ -37,6 +40,7 @@ function detail(hero: LineupHero): string {
  */
 export function LineupCell({ heroes }: { heroes: readonly LineupHero[] }) {
   const [open, setOpen] = useState(false);
+  const { data: catalogue } = useHeroCatalogue();
 
   if (heroes.length === 0) {
     // Not a lineup of nobody — no `army` was decoded for this entry, which is
@@ -63,7 +67,7 @@ export function LineupCell({ heroes }: { heroes: readonly LineupHero[] }) {
                 .filter(Boolean)
                 .join(' ')}
               key={`${hero.slot}-${hero.hero_id}`}
-              title={detail(hero)}
+              title={detail(hero, catalogue)}
             >
               {troopClassInitial(hero.troop_class)}
             </span>
@@ -108,13 +112,20 @@ export function LineupCell({ heroes }: { heroes: readonly LineupHero[] }) {
             {ordered.map((hero) => (
               <tr key={`${hero.slot}-${hero.hero_id}`}>
                 <td className="num">{hero.slot ?? '—'}</td>
-                <td className="num">{hero.hero_id}</td>
+                {/* The id stays in the tooltip even when a name is shown:
+                    it is what the payload carried and what a bug report
+                    needs to name. */}
+                <td className="label" title={`Hero ${hero.hero_id}`}>
+                  {heroName(catalogue, hero.hero_id)}
+                </td>
                 <td>{troopClassName(hero.troop_class)}</td>
                 {/* Unqualified. A hero raised by the training centre really
                     is this level — the effect applies in combat — so marking
                     it would suggest the number is somehow provisional. */}
                 <td className="num">{hero.hero_level ?? '—'}</td>
-                <td className="num">{hero.star ?? '—'}</td>
+                {/* Converted, not raw: the payload counts one star higher
+                    than the game, which caps at 5. See starsShown. */}
+                <td className="num">{starsShown(hero.star) ?? '—'}</td>
                 {/* Null is "not unlocked", a real state rather than a zero:
                     1,730 of 4,028 observed heroes have a weapon. */}
                 <td className="num">
