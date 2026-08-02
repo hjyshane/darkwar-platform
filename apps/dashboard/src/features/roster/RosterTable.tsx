@@ -86,7 +86,17 @@ export function RosterTable({ rows, now }: { rows: RosterRow[]; now?: Date }) {
               <SortableTh numeric onSort={onSort} sort={sort} sortKey="kills">
                 {TERMS.kills}
               </SortableTh>
-              <SortableTh numeric onSort={onSort} sort={sort} sortKey="daily_donation_score">
+              {/* group-start marks where the donation family begins, and
+                  again where the duel family does. Five adjacent figures
+                  otherwise invite a comparison that means nothing — a daily
+                  donation against a total over four duel rounds. */}
+              <SortableTh
+                className="group-start"
+                numeric
+                onSort={onSort}
+                sort={sort}
+                sortKey="daily_donation_score"
+              >
                 {TERMS.dailyDonation}
               </SortableTh>
               {/* Two donation commands, two columns. The weekly figure is
@@ -97,7 +107,13 @@ export function RosterTable({ rows, now }: { rows: RosterRow[]; now?: Date }) {
               {/* Three boards, three columns. They shared one until 0028,
                   which meant the figure shown depended on which of the three
                   happened to be inserted last. */}
-              <SortableTh numeric onSort={onSort} sort={sort} sortKey="duel_daily_score">
+              <SortableTh
+                className="group-start"
+                numeric
+                onSort={onSort}
+                sort={sort}
+                sortKey="duel_daily_score"
+              >
                 {TERMS.duelDaily}
               </SortableTh>
               <SortableTh numeric onSort={onSort} sort={sort} sortKey="duel_weekly_score">
@@ -136,9 +152,9 @@ export function RosterTable({ rows, now }: { rows: RosterRow[]; now?: Date }) {
                 <td className="num">{row.hq_level ?? '—'}</td>
                 <td className="num">{formatNumber(row.power)}</td>
                 <td className="num">{formatNumber(row.kills)}</td>
-                <td className="num">{formatNumber(row.daily_donation_score)}</td>
+                <td className="num group-start">{formatNumber(row.daily_donation_score)}</td>
                 <td className="num">{formatNumber(row.weekly_donation_score)}</td>
-                <td className="num">{formatNumber(row.duel_daily_score)}</td>
+                <td className="num group-start">{formatNumber(row.duel_daily_score)}</td>
                 <td className="num">{formatNumber(row.duel_weekly_score)}</td>
                 <td className="num">{formatNumber(row.duel_round_score)}</td>
                 {/* Two different facts, deliberately side by side: when
