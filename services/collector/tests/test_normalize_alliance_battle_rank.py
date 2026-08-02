@@ -89,6 +89,32 @@ def test_scores_ordered_and_ranked() -> None:
     assert all(r.row["score_updated_at"] is None for r in rows)
 
 
+def test_each_board_gets_its_own_metric() -> None:
+    """One metric_key per board (0036).
+
+    This test used to assert `alliance_battle_score` against the type 1
+    fixture and passed, because all three boards mapped to that one key —
+    the assertion could not have caught a board being filed under another's
+    name, which is what made mixing them easy to miss.
+    """
+    boards = {
+        "battle_type0_v1.json": "alliance_battle_daily_score",
+        "battle_type1_v1.json": "alliance_battle_weekly_score",
+        "battle_round_v1.json": "alliance_battle_round_score",
+    }
+    seen = set()
+    for fixture, expected in boards.items():
+        facts = [
+            r
+            for r in pipeline.process(load_observation(f"al.battle.rank.info/{fixture}"))
+            if r.target_table == "activity_facts"
+        ]
+        assert {r.row["metric_key"] for r in facts} == {expected}, fixture
+        seen.add(expected)
+    # Three boards, three keys — not one key three times.
+    assert len(seen) == 3
+
+
 def test_facts_use_the_battle_metric() -> None:
     observation = load_observation("al.battle.rank.info/battle_type1_v1.json")
     rows = pipeline.process(observation)
@@ -96,7 +122,7 @@ def test_facts_use_the_battle_metric() -> None:
     snapshots = {r.row["snapshot_id"]: r for r in rows if r.target_table != "activity_facts"}
 
     assert len(facts) == 165
-    assert facts[0].row["metric_key"] == "alliance_battle_score"
+    assert facts[0].row["metric_key"] == "alliance_battle_weekly_score"
     assert facts[0].row["value_numeric"] == 26865932
     # No server update time, so the fact falls back to when we observed it.
     assert facts[0].row["occurred_at"] == observation.captured_at.isoformat()

@@ -363,16 +363,17 @@ id 접두사로는 병종을 알 수 없다(`33001`·`33003`은 라이더인데 
 
 고치지 않고 적어만 둔다. 둘 다 지금 무언가를 깨뜨리고 있지는 않다.
 
-**1. 듀얼 세 보드가 `metric_key`를 하나 공유한다.** 0028이 `contribution_type`과
-컬럼은 셋으로 나눴지만 `activity.py`의 `_CONTRIBUTION_METRICS`는 셋 다
-`alliance_battle_score`로 보낸다. `activity_facts`에서 일간(5.6M)·주간(26M)·
-라운드(103M)가 한 계열에 섞이고, `metric_registry`가 이 지표에
-`percentile_rank`를 지정하고 있으므로 그 백분위는 **어느 보드가 마지막에
-적재됐는지**에 좌우된다. 0029는 기부에서 같은 실수를 피해
-`alliance_weekly_donation_score`를 따로 만들었다. 듀얼도 같게 하려면 마이그레이션
-하나(레지스트리 2행 추가)와 `_CONTRIBUTION_METRICS` 3줄이다. **대시보드는 이
-지표를 읽지 않으므로 화면에는 영향이 없다** — `player_contributions` 컬럼을
-직접 읽는다.
+**1. ~~듀얼 세 보드가 `metric_key`를 하나 공유한다.~~ 해결됨 (0036).**
+
+`activity_facts`에서 일간(5.6M)·주간(26M)·라운드(103M)가 한 계열에 섞여 있었고,
+`metric_registry`가 `percentile_rank`를 지정하므로 백분위가 **어느 보드가
+마지막에 적재됐는지**에 좌우됐다. 보드마다 키를 하나씩 주고, 이미 쌓인 424건은
+`source_snapshot_id` → `contribution_type`으로 되짚어 재분류했다 — 값은 그대로고
+분류만 고쳤다.
+
+같은 김에 `alliance_donation_score`를 `alliance_daily_donation_score`로 바꿨다.
+"일간"이라고 말하지 않는 이름이 이 실수를 쉽게 만든 원인이었고, 그걸
+`alliance_battle_daily_score` 옆에 두면 다음 사람이 "기부 전체"로 읽는다.
 
 **2. `player_contributions`와 `player_presence`에 `service_role` 권한이 없다.**
 `player_month_cards`(0016)는 `grant all ... to service_role`을 하는데 0020·0024는
