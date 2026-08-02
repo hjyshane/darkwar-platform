@@ -1,5 +1,8 @@
+import { useQuery } from '@tanstack/react-query';
 import { useSession } from '../../lib/useSession';
+import { fetchSummary } from '../overview/OverviewPanel';
 import { AnnouncementsSetting } from './AnnouncementsSetting';
+import { FormulaSetting } from './FormulaSetting';
 import { OverviewMetricsSetting } from './OverviewMetricsSetting';
 import { OwnAllianceSetting } from './OwnAllianceSetting';
 
@@ -17,6 +20,9 @@ import { OwnAllianceSetting } from './OwnAllianceSetting';
 export function AdminPage() {
   const { data: session } = useSession();
   const isAdmin = session?.role === 'admin';
+  // The same figures the overview computes, so a formula can be previewed
+  // against what it will actually run on rather than against nothing.
+  const { data: summary } = useQuery({ queryKey: ['overview'], queryFn: fetchSummary });
 
   return (
     <main>
@@ -44,6 +50,11 @@ export function AdminPage() {
       <section aria-labelledby="metrics-heading">
         <h2 id="metrics-heading">Overview figures</h2>
         <OverviewMetricsSetting />
+      </section>
+
+      <section aria-labelledby="formulas-heading">
+        <h2 id="formulas-heading">Calculated figures</h2>
+        <FormulaSetting values={summary?.values ?? {}} />
       </section>
 
       <section aria-labelledby="notices-heading">

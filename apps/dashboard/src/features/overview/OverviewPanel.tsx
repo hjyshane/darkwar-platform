@@ -1,7 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
 import { StatTile } from '../../components/StatTile';
-import { type MetricId, resolveMetrics, specFor } from '../../lib/overviewMetrics';
+import { FormulaError, evaluateFormula, parseFormula } from '../../lib/formula';
+import {
+  type FormulaMetric,
+  METRIC_CATALOGUE,
+  type MetricId,
+  isFormulaId,
+  resolveFormulas,
+  resolveMetrics,
+  specFor,
+} from '../../lib/overviewMetrics';
 import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
 import { useSession } from '../../lib/useSession';
@@ -35,7 +44,7 @@ export interface OverviewSummary {
   values: Record<MetricId, number | null>;
 }
 
-async function fetchSummary(): Promise<OverviewSummary> {
+export async function fetchSummary(): Promise<OverviewSummary> {
   const { data: alliances, error: allianceError } = await supabase
     .from('alliances')
     .select('alliance_id, current_name, current_code, server_id, power, member_count')
@@ -131,18 +140,57 @@ function formatPlain(value: number | null): string | null {
   return value === null ? null : plain.format(value);
 }
 
-/** The admin's choice, or the default. Its own query so a change to the
- *  setting refetches this and nothing else — the figures did not move. */
-async function fetchChosenMetrics(): Promise<MetricId[]> {
+/** The admin's choice and their formulas. One query for both keys so the
+ *  tile list and the formulas it may name cannot arrive out of step. */
+export interface ChosenTiles {
+  tiles: string[];
+  formulas: FormulaMetric[];
+}
+
+async function fetchChosenMetrics(): Promise<ChosenTiles> {
   const { data, error } = await supabase
     .from('app_settings')
-    .select('value')
-    .eq('key', 'overview_metrics')
-    .maybeSingle();
+    .select('key, value')
+    .in('key', ['overview_metrics', 'overview_formulas']);
   if (error) {
     throw new Error(`metric setting query failed: ${error.message}`);
   }
-  return resolveMetrics((data?.value as { tiles?: unknown } | null)?.tiles);
+  const byKey = new Map((data ?? []).map((row) => [row.key, row.value]));
+  const formulas = resolveFormulas(
+    (byKey.get('overview_formulas') as { formulas?: unknown } | undefined)?.formulas,
+  );
+  const tiles = resolveMetrics(
+    (byKey.get('overview_metrics') as { tiles?: unknown } | undefined)?.tiles,
+    formulas.map((formula) => formula.id),
+  );
+  return { tiles, formulas };
+}
+
+/** Compute each formula against the catalogue's figures.
+ *
+ * Re-parsed on every read rather than stored as a tree: a formula whose
+ * inputs stopped existing has to stop being shown, and parsing is where
+ * that is noticed. A formula that no longer parses is dropped rather than
+ * rendered — a tile with no source is worse than a missing tile, the same
+ * rule an unknown catalogue id follows.
+ */
+function formulaValues(
+  formulas: readonly FormulaMetric[],
+  values: Record<MetricId, number | null>,
+): Record<string, number | null> {
+  const known = METRIC_CATALOGUE.map((metric) => metric.id);
+  const computed: Record<string, number | null> = {};
+  for (const formula of formulas) {
+    try {
+      computed[formula.id] = evaluateFormula(parseFormula(formula.expression, known), values);
+    } catch (problem) {
+      if (!(problem instanceof FormulaError)) {
+        throw problem;
+      }
+      // Left out of the map entirely, so the tile is skipped below.
+    }
+  }
+  return computed;
 }
 
 export function OverviewPanel({ now }: { now?: Date }) {
@@ -154,6 +202,7 @@ export function OverviewPanel({ now }: { now?: Date }) {
     queryKey: ['overview-metrics'],
     queryFn: fetchChosenMetrics,
   });
+  const formulaByTile = data && chosen ? formulaValues(chosen.formulas, data.values) : {};
   const { data: session } = useSession();
   // Same wording as the roster: a dash means "never observed" everywhere
   // else in this app, so where it means "not yours to see" the tile has to
@@ -186,8 +235,28 @@ export function OverviewPanel({ now }: { now?: Date }) {
       {data && data.values.members !== null && (
         <>
           <div className="stats">
-            {(chosen ?? []).map((id, index) => {
-              const spec = specFor(id);
+            {(chosen?.tiles ?? []).map((id, index) => {
+              if (isFormulaId(id)) {
+                const formula = chosen?.formulas.find((item) => item.id === id);
+                // Missing, or one whose expression no longer parses. Skipped
+                // rather than drawn empty — same rule as an unknown metric.
+                if (formula === undefined || !(id in formulaByTile)) {
+                  return null;
+                }
+                const value = formulaByTile[id] ?? null;
+                return (
+                  <StatTile
+                    hero={index === 0}
+                    key={id}
+                    label={formula.label}
+                    // The expression itself is the note. A derived figure with
+                    // no visible derivation is a number nobody can check.
+                    note={formula.expression}
+                    value={formula.compact ? formatCompact(value) : formatPlain(value)}
+                  />
+                );
+              }
+              const spec = specFor(id as MetricId);
               return (
                 <StatTile
                   // The first chosen tile is the hero. One per screen, and
@@ -198,7 +267,9 @@ export function OverviewPanel({ now }: { now?: Date }) {
                   label={spec.label}
                   note={spec.restricted && restricted ? 'alliance members only' : spec.note}
                   value={
-                    spec.compact ? formatCompact(data.values[id]) : formatPlain(data.values[id])
+                    spec.compact
+                      ? formatCompact(data.values[id as MetricId])
+                      : formatPlain(data.values[id as MetricId])
                   }
                 />
               );

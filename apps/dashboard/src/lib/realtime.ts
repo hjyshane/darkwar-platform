@@ -22,7 +22,12 @@ const TOPIC_QUERY_KEYS: Record<string, readonly (readonly string[])[]> = {
   announcements: [['announcements'], ['announcements-admin']],
   // Not a snapshot table, but the same problem: an admin changing which
   // figures the overview shows has to reach the readers looking at it.
-  app_settings: [['overview-metrics'], ['overview-metrics-admin'], ['admin-own-alliance']],
+  app_settings: [
+    ['overview-metrics'],
+    ['overview-metrics-admin'],
+    ['overview-formulas-admin'],
+    ['admin-own-alliance'],
+  ],
 };
 
 export function queryKeysForTopic(topic: string): readonly (readonly string[])[] {

@@ -2,8 +2,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import {
   DEFAULT_METRICS,
+  type FormulaMetric,
   METRIC_CATALOGUE,
-  type MetricId,
+  resolveFormulas,
   resolveMetrics,
 } from '../../lib/overviewMetrics';
 import { supabase } from '../../lib/supabase';
@@ -18,21 +19,32 @@ import { supabase } from '../../lib/supabase';
  * Order matters twice — it is the order of the tiles, and the first one is
  * the hero. Stating that beats a second setting for "which is big".
  */
-async function fetchChosen(): Promise<MetricId[]> {
+/** Both keys in one query. A formula an admin just wrote has to be
+ *  offerable immediately, and the tile list is only meaningful against the
+ *  formulas that exist — fetching them apart lets the picker show a chosen
+ *  id it cannot name. */
+async function fetchChosen(): Promise<{ tiles: string[]; formulas: FormulaMetric[] }> {
   const { data, error } = await supabase
     .from('app_settings')
-    .select('value')
-    .eq('key', 'overview_metrics')
-    .maybeSingle();
+    .select('key, value')
+    .in('key', ['overview_metrics', 'overview_formulas']);
   if (error) {
     throw new Error(`metric setting query failed: ${error.message}`);
   }
-  return resolveMetrics((data?.value as { tiles?: unknown } | null)?.tiles);
+  const byKey = new Map((data ?? []).map((row) => [row.key, row.value]));
+  const formulas = resolveFormulas(
+    (byKey.get('overview_formulas') as { formulas?: unknown } | undefined)?.formulas,
+  );
+  const tiles = resolveMetrics(
+    (byKey.get('overview_metrics') as { tiles?: unknown } | undefined)?.tiles,
+    formulas.map((formula) => formula.id),
+  );
+  return { tiles, formulas };
 }
 
 export function OverviewMetricsSetting() {
   const queryClient = useQueryClient();
-  const [chosen, setChosen] = useState<MetricId[] | null>(null);
+  const [chosen, setChosen] = useState<string[] | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -45,12 +57,12 @@ export function OverviewMetricsSetting() {
   // it changes underneath us — another admin saving, or this one saving.
   useEffect(() => {
     if (data !== undefined) {
-      setChosen(data);
+      setChosen(data.tiles);
     }
   }, [data]);
 
   const save = useMutation({
-    mutationFn: async (tiles: MetricId[]) => {
+    mutationFn: async (tiles: string[]) => {
       const { error: writeError } = await supabase
         .from('app_settings')
         .upsert({ key: 'overview_metrics', value: { tiles } });
@@ -68,6 +80,21 @@ export function OverviewMetricsSetting() {
       setMessage(e.message);
     },
   });
+
+  // Built-ins and the admin's own formulas offered from one list — the
+  // picker should not care which kind a figure is, only whether it is shown.
+  const options: { id: string; label: string; restricted: boolean }[] = [
+    ...METRIC_CATALOGUE.map((metric) => ({
+      id: metric.id as string,
+      label: metric.label,
+      restricted: metric.restricted,
+    })),
+    ...(data?.formulas ?? []).map((formula) => ({
+      id: formula.id,
+      label: formula.label,
+      restricted: false,
+    })),
+  ];
 
   if (isPending || chosen === null) {
     return <p className="empty">Loading…</p>;
@@ -89,7 +116,7 @@ export function OverviewMetricsSetting() {
     setChosen(next);
   };
 
-  const toggle = (id: MetricId) => {
+  const toggle = (id: string) => {
     setChosen(chosen.includes(id) ? chosen.filter((x) => x !== id) : [...chosen, id]);
   };
 
@@ -107,7 +134,7 @@ export function OverviewMetricsSetting() {
 
       <ol className="picked">
         {chosen.map((id, index) => {
-          const spec = METRIC_CATALOGUE.find((metric) => metric.id === id);
+          const spec = options.find((option) => option.id === id);
           return (
             <li key={id}>
               <span>
@@ -142,13 +169,15 @@ export function OverviewMetricsSetting() {
 
       <p className="subtle">Not shown:</p>
       <ul className="chips">
-        {METRIC_CATALOGUE.filter((metric) => !chosen.includes(metric.id)).map((metric) => (
-          <li key={metric.id}>
-            <button className="chip" onClick={() => toggle(metric.id)} type="button">
-              + {metric.label}
-            </button>
-          </li>
-        ))}
+        {options
+          .filter((option) => !chosen.includes(option.id))
+          .map((option) => (
+            <li key={option.id}>
+              <button className="chip" onClick={() => toggle(option.id)} type="button">
+                + {option.label}
+              </button>
+            </li>
+          ))}
       </ul>
 
       <div className="row" style={{ marginTop: '1rem' }}>
