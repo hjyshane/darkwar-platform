@@ -39,6 +39,10 @@ export interface Board {
   valueLabel: string;
   /** Column header for unit_id, or null when the board names no unit. */
   unitLabel: string | null;
+  /** Which catalogue turns unit_id into a name. `unit_id` is a hero id on
+   * one board and a pet id on another — the same column, two vocabularies,
+   * and only the board knows which. */
+  unitKind: 'hero' | 'pet' | null;
   fetch: () => Promise<BoardRow[]>;
 }
 
@@ -94,6 +98,7 @@ async function fetchComponentBoard(metric: string): Promise<BoardRow[]> {
 export const BOARDS: readonly Board[] = [
   {
     id: 'power',
+    unitKind: null,
     label: TERMS.power,
     valueLabel: TERMS.power,
     unitLabel: null,
@@ -101,6 +106,7 @@ export const BOARDS: readonly Board[] = [
   },
   {
     id: 'kills',
+    unitKind: null,
     label: TERMS.kills,
     valueLabel: TERMS.kills,
     unitLabel: null,
@@ -108,6 +114,7 @@ export const BOARDS: readonly Board[] = [
   },
   {
     id: 'hero_power_total',
+    unitKind: null,
     label: TERMS.heroPower,
     valueLabel: TERMS.heroPower,
     unitLabel: null,
@@ -115,6 +122,7 @@ export const BOARDS: readonly Board[] = [
   },
   {
     id: 'hero_power_best',
+    unitKind: 'hero',
     label: TERMS.topHero,
     valueLabel: TERMS.power,
     unitLabel: TERMS.heroId,
@@ -122,6 +130,7 @@ export const BOARDS: readonly Board[] = [
   },
   {
     id: 'pet_power_total',
+    unitKind: null,
     label: TERMS.petPower,
     valueLabel: TERMS.petPower,
     unitLabel: null,
@@ -129,6 +138,7 @@ export const BOARDS: readonly Board[] = [
   },
   {
     id: 'pet_power_best',
+    unitKind: 'pet',
     label: TERMS.topPet,
     valueLabel: TERMS.power,
     unitLabel: TERMS.petId,

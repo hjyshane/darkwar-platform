@@ -1,40 +1,31 @@
-import { HERO_GRADES } from '../../lib/heroes';
+import { TROOP_CLASSES } from '../../lib/troops';
+import { CLASS_GLYPHS, Glyph } from './Glyphs';
 
-/** What the marks on a lineup chip mean.
+/** Which symbol is which class.
  *
- * A chip carries four things at once — fill, letter, ring, dot — and three of
- * them are shapes rather than words. That is the right trade inside a table
- * of a hundred rows and the wrong one if nothing ever says what they are, so
- * this sits above the table and says it once.
+ * The chip used to carry a letter and now carries the game's own glyph, so
+ * this is the one mapping a reader cannot get from the screen itself. The
+ * other marks a chip carries — the fill, the border, the dots, the ring —
+ * are all named in its tooltip and in the row it expands to, so spelling
+ * them out here as well was four lines of text explaining what one hover
+ * already answers.
  *
- * Rendered from the same HERO_GRADES map the cells use, so a grade added
- * later cannot appear in the board and be missing from the key.
+ * Rendered from TROOP_CLASSES and CLASS_GLYPHS rather than a hand-written
+ * list, so a class added to either cannot appear on the board and be missing
+ * from the key.
  */
 export function LineupLegend() {
   return (
     <p className="lineup-legend">
-      <span>
-        {Object.entries(HERO_GRADES).map(([value, label]) => (
+      {Object.entries(TROOP_CLASSES).map(([value, label]) => {
+        const glyph = CLASS_GLYPHS[Number(value)];
+        return glyph === undefined ? null : (
           <span key={value}>
-            <span className={`grade-dot grade-${value}`} />
+            <Glyph label={label} name={glyph} spoken={false} />
             {label}
           </span>
-        ))}
-      </span>
-      <span>
-        <span className="chip legend-chip chip-max-star" />
-        테두리 = 5성
-      </span>
-      <span>
-        <span className="chip legend-chip chip-weapon" />점 = 전용무기
-      </span>
-      <span>
-        <span className="chip legend-chip chip-weapon chip-weapon-awakened" />
-        빨간 점 = 무기 각
-      </span>
-      <span>
-        <span className="chip legend-chip chip-synergy" />링 = 상성 보너스
-      </span>
+        );
+      })}
     </p>
   );
 }

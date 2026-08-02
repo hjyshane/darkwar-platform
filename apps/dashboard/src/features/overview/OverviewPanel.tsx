@@ -276,7 +276,7 @@ export function OverviewPanel({ now }: { now?: Date }) {
             })}
           </div>
           <p className="subtle">
-            Roster last observed <FreshnessBadge capturedAt={data.rosterObservedAt} now={now} />
+            Roster last updated <FreshnessBadge capturedAt={data.rosterObservedAt} now={now} />
           </p>
         </>
       )}

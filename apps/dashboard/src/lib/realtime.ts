@@ -23,7 +23,10 @@ const TOPIC_QUERY_KEYS: Record<string, readonly (readonly string[])[]> = {
   // Naming a hero has to reach the arena board that prints the name, not
   // just the admin page where it was typed — and deleting one has to reach
   // it too, so that the board falls back to the id straight away.
-  heroes: [['heroes'], ['heroes-admin']],
+  heroes: [['heroes'], ['heroes-admin'], ['crossRankings']],
+  // Same reasoning as heroes: the cross-server board prints these names, so
+  // renaming one has to reach it and not just the form it was typed in.
+  pets: [['pets'], ['pets-admin'], ['crossRankings']],
   // Not a snapshot table, but the same problem: an admin changing which
   // figures the overview shows has to reach the readers looking at it.
   app_settings: [

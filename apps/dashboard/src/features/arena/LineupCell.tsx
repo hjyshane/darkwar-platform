@@ -21,9 +21,27 @@ import {
   weaponRank,
   weaponRankLabel,
 } from '../../lib/troops';
+import { CLASS_GLYPHS, Glyph, gearSlot } from './Glyphs';
 import { Rank } from './RankIcons';
 
 const numberFormat = new Intl.NumberFormat('ko-KR');
+
+/** The class as the game draws it, or null for a class with no glyph — an
+ * unrecognised class keeps its letter, because there is no honest shape for
+ * something we have never seen. */
+function classGlyph(troopClass: number | null) {
+  const name = troopClass === null ? undefined : CLASS_GLYPHS[troopClass];
+  return name === undefined ? null : <Glyph label={troopClassName(troopClass)} name={name} />;
+}
+
+/** Which slot a piece of gear sits in. Four numbers in a column say nothing
+ * about which is which. */
+function slotGlyph(equipmentId: number) {
+  const slot = gearSlot(equipmentId);
+  return slot === null ? null : (
+    <Glyph className="gear-slot" label={slot.label} name={slot.glyph} />
+  );
+}
 
 function detail(hero: LineupHero, catalogue: HeroCatalogue | undefined): string {
   const stars = starsShown(hero.star);
@@ -100,7 +118,11 @@ export function LineupCell({ heroes }: { heroes: readonly LineupHero[] }) {
               key={`${hero.slot}-${hero.hero_id}`}
               title={detail(hero, catalogue)}
             >
-              {troopClassInitial(hero.troop_class)}
+              {/* The game draws an axe, a bow and a gear for these three, so
+                  the chip does too — the letter was a translation the reader
+                  had to learn. An unrecognised class keeps the letter,
+                  because there is no glyph to be honest with. */}
+              {classGlyph(hero.troop_class) ?? troopClassInitial(hero.troop_class)}
             </span>
           ))}
         </span>
@@ -171,7 +193,7 @@ export function LineupCell({ heroes }: { heroes: readonly LineupHero[] }) {
                     <span className="grade-dot" />
                   )}
                 </td>
-                <td>{troopClassName(hero.troop_class)}</td>
+                <td>{classGlyph(hero.troop_class) ?? troopClassName(hero.troop_class)}</td>
                 {/* Unqualified. A hero raised by the training centre really
                     is this level — the effect applies in combat — so marking
                     it would suggest the number is somehow provisional. */}
@@ -188,8 +210,8 @@ export function LineupCell({ heroes }: { heroes: readonly LineupHero[] }) {
                       kind="star"
                       label={
                         hero.stage === null
-                          ? `${starsShown(hero.star)}성`
-                          : `${starsShown(hero.star)}성 ${hero.stage}단계`
+                          ? `${starsShown(hero.star)}★`
+                          : `${starsShown(hero.star)}★ step ${hero.stage}`
                       }
                       step={hero.stage ?? 0}
                       total={5}
@@ -235,6 +257,10 @@ export function LineupCell({ heroes }: { heroes: readonly LineupHero[] }) {
                         const rank = gearRank(piece.level, piece.step);
                         return (
                           <span className="gear-piece" key={piece.equipment_id}>
+                            {/* Which slot the piece is in, from its id. Four
+                                numbers in a column say nothing about which
+                                is which. */}
+                            {slotGlyph(piece.equipment_id)}
                             {rank === null ? (
                               (piece.level ?? '?')
                             ) : (

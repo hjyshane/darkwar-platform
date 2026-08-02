@@ -33,11 +33,12 @@ test('alliance ranking topic maps to the rankings query only', () => {
   expect(queryKeysForTopic('alliance_snapshots')).toEqual([['rankings']]);
 });
 
-test('naming a hero reaches the board that prints the name, not just the form', () => {
-  // The admin page is where the rename happens and the arena board is where
-  // it shows, so the topic has to invalidate both — otherwise the person who
-  // just typed the name is the only one who cannot see it took effect.
-  expect(queryKeysForTopic('heroes')).toEqual([['heroes'], ['heroes-admin']]);
+test('naming a hero reaches every board that prints the name', () => {
+  // The admin page is where the rename happens; the arena board and the
+  // cross-server board are where it shows. Miss one and the person who just
+  // typed the name is the only one who cannot see it took effect.
+  expect(queryKeysForTopic('heroes')).toEqual([['heroes'], ['heroes-admin'], ['crossRankings']]);
+  expect(queryKeysForTopic('pets')).toEqual([['pets'], ['pets-admin'], ['crossRankings']]);
 });
 
 test('unknown topics invalidate nothing', () => {

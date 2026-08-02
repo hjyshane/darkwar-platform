@@ -769,7 +769,37 @@ button:focus-visible {
   background: var(--grade, var(--neutral-bg));
 }
 
-/* Rank shapes — stars for the star track, pentagons for 각.
+/* The game's own class and slot symbols. Sized in em so they follow the
+ * text around them, and painted in currentColor so a glyph inside a chip
+ * takes the chip's foreground without a second rule per class. */
+.glyph {
+  display: inline-flex;
+  vertical-align: middle;
+}
+
+.glyph > svg {
+  height: 1em;
+  width: 1em;
+}
+
+/* The chip is 1.4em wide with a letter in it; a glyph wants a touch more
+ * room than the letter did or it reads as a smudge. */
+.chip .glyph > svg {
+  height: 1.05em;
+  width: 1.05em;
+}
+
+.gear-slot {
+  color: var(--fg-muted);
+  margin-inline-end: 0.25em;
+}
+
+.gear-slot > svg {
+  height: 0.85em;
+  width: 0.85em;
+}
+
+/* Rank shapes — stars for the star track, pentagons for awakenings.
  *
  * Sized in em so they follow the table's own text size instead of needing a
  * breakpoint of their own, and laid out inline-flex so five of them stay on
@@ -794,7 +824,7 @@ button:focus-visible {
   width: 0.7em;
 }
 
-/* Gold for stars, red for 각 — the game's own two colours for these, and the
+/* Gold for stars, red for awakenings — the game's own two colours, and the
  * one place in this app where a colour is allowed to repeat between light and
  * dark: a gold star that changed hue by theme would stop looking like the
  * thing it is copying. Contrast is carried by the outline, which is the same
@@ -819,7 +849,8 @@ button:focus-visible {
 
 /* Gear is four pieces, one per line: at level 100 the number stops meaning
  * anything and five pentagons take its place, and those do not fit beside
- * three other values on one line. */
+ * three other values on one line. Each line leads with its slot symbol,
+ * because four values in a column say nothing about which is which. */
 .gear {
   display: flex;
   flex-direction: column;

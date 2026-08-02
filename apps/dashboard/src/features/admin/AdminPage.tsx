@@ -6,6 +6,7 @@ import { FormulaSetting } from './FormulaSetting';
 import { HeroesSetting } from './HeroesSetting';
 import { OverviewMetricsSetting } from './OverviewMetricsSetting';
 import { OwnAllianceSetting } from './OwnAllianceSetting';
+import { PetsSetting } from './PetsSetting';
 
 /** Settings an admin can change without a deploy.
  *
@@ -66,6 +67,11 @@ export function AdminPage() {
       <section aria-labelledby="heroes-heading">
         <h2 id="heroes-heading">Heroes</h2>
         <HeroesSetting />
+      </section>
+
+      <section aria-labelledby="pets-heading">
+        <h2 id="pets-heading">Pets</h2>
+        <PetsSetting />
       </section>
     </main>
   );

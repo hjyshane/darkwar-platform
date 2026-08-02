@@ -1448,6 +1448,30 @@ export type Database = {
         }
         Relationships: []
       }
+      pets: {
+        Row: {
+          created_at: string
+          name: string | null
+          notes: string
+          pet_id: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          name?: string | null
+          notes?: string
+          pet_id: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          name?: string | null
+          notes?: string
+          pet_id?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       player_component_power_snapshots: {
         Row: {
           alliance_abbr: string | null
