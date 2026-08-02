@@ -141,12 +141,69 @@ export function specFor(id: MetricId): MetricSpec {
  * nothing. Someone who genuinely wants no tiles is not a case worth serving
  * at the cost of a blank landing screen after a bad save.
  */
-export function resolveMetrics(stored: unknown): MetricId[] {
+export function resolveMetrics(stored: unknown, extra: readonly string[] = []): string[] {
   const list = Array.isArray(stored) ? stored : [];
+  const allowed = new Set<string>([...KNOWN, ...extra]);
   const seen = new Set<string>();
   const resolved = list.filter(
-    (id): id is MetricId =>
-      typeof id === 'string' && KNOWN.has(id) && !seen.has(id) && seen.add(id) !== undefined,
+    (id): id is string =>
+      typeof id === 'string' && allowed.has(id) && !seen.has(id) && seen.add(id) !== undefined,
   );
   return resolved.length > 0 ? resolved : [...DEFAULT_METRICS];
+}
+
+/** A figure an admin described rather than picked.
+ *
+ * Stored with the expression, not with a computed value: the value changes
+ * every time a capture lands, and a cached one would be a second source of
+ * truth that nothing keeps honest. The expression is re-parsed on every
+ * read, which is also what catches a formula whose inputs no longer exist.
+ */
+export interface FormulaMetric {
+  /** Prefixed so it can never collide with a catalogue id, now or later. */
+  id: string;
+  label: string;
+  expression: string;
+  compact: boolean;
+}
+
+export const FORMULA_PREFIX = 'formula:';
+
+export function isFormulaId(id: string): boolean {
+  return id.startsWith(FORMULA_PREFIX);
+}
+
+/** Keep only the formulas this build can parse and compute.
+ *
+ * Same rule as an unknown catalogue id: a tile whose expression no longer
+ * resolves is dropped rather than rendered blank or thrown over. The list
+ * an admin sees is the one that survived, so a broken formula is visible as
+ * a missing row rather than as a screen that will not load. */
+export function resolveFormulas(stored: unknown): FormulaMetric[] {
+  const list = Array.isArray(stored) ? stored : [];
+  const seen = new Set<string>();
+  return list.flatMap((raw): FormulaMetric[] => {
+    if (typeof raw !== 'object' || raw === null) {
+      return [];
+    }
+    const item = raw as Partial<FormulaMetric>;
+    if (typeof item.id !== 'string' || !isFormulaId(item.id) || seen.has(item.id)) {
+      return [];
+    }
+    if (typeof item.label !== 'string' || item.label.trim() === '') {
+      return [];
+    }
+    if (typeof item.expression !== 'string' || item.expression.trim() === '') {
+      return [];
+    }
+    seen.add(item.id);
+    return [
+      {
+        id: item.id,
+        label: item.label,
+        expression: item.expression,
+        compact: item.compact === true,
+      },
+    ];
+  });
 }
