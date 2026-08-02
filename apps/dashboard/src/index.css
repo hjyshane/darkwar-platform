@@ -888,3 +888,83 @@ button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+
+/* --- notices ------------------------------------------------------------- */
+
+.notices {
+  display: grid;
+  gap: var(--space-3);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.notice {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+}
+
+.notice-pinned {
+  border-left-color: var(--accent);
+}
+
+.notice-head {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* The body is whatever an admin typed and is rendered as text, never markup.
+ * pre-wrap is what keeps their line breaks without letting them supply any. */
+.notice-body {
+  margin: var(--space-2) 0 0;
+  white-space: pre-wrap;
+}
+
+/* --- forms --------------------------------------------------------------- */
+
+.stack {
+  display: grid;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  max-width: 40rem;
+}
+
+.stack label {
+  display: grid;
+  font-size: var(--text-sm);
+  gap: var(--space-1);
+}
+
+.stack label.inline {
+  align-items: center;
+  display: flex;
+  flex-direction: row;
+  gap: var(--space-2);
+}
+
+.stack input,
+.stack textarea,
+.stack select {
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--fg);
+  font: inherit;
+  padding: var(--space-2);
+}
+
+.stack input[type="checkbox"] {
+  width: auto;
+}
+
+.row {
+  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}

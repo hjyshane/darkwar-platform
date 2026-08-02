@@ -534,6 +534,45 @@ export type Database = {
           },
         ]
       }
+      announcements: {
+        Row: {
+          announcement_id: string
+          body: string
+          created_at: string
+          created_by: string | null
+          ends_at: string | null
+          pinned: boolean
+          starts_at: string | null
+          title: string
+          updated_at: string
+          visibility: string
+        }
+        Insert: {
+          announcement_id?: string
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          ends_at?: string | null
+          pinned?: boolean
+          starts_at?: string | null
+          title: string
+          updated_at?: string
+          visibility?: string
+        }
+        Update: {
+          announcement_id?: string
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          ends_at?: string | null
+          pinned?: boolean
+          starts_at?: string | null
+          title?: string
+          updated_at?: string
+          visibility?: string
+        }
+        Relationships: []
+      }
       app_settings: {
         Row: {
           key: string

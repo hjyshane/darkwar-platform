@@ -1,4 +1,5 @@
 import { useSession } from '../../lib/useSession';
+import { AnnouncementsSetting } from './AnnouncementsSetting';
 import { OwnAllianceSetting } from './OwnAllianceSetting';
 
 /** Settings an admin can change without a deploy.
@@ -37,6 +38,11 @@ export function AdminPage() {
       <section aria-labelledby="own-alliance-heading">
         <h2 id="own-alliance-heading">Our alliance</h2>
         <OwnAllianceSetting />
+      </section>
+
+      <section aria-labelledby="notices-heading">
+        <h2 id="notices-heading">Notices</h2>
+        <AnnouncementsSetting />
       </section>
     </main>
   );

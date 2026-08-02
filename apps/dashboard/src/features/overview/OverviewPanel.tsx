@@ -4,6 +4,7 @@ import { StatTile } from '../../components/StatTile';
 import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
 import { useSession } from '../../lib/useSession';
+import { AnnouncementsBlock } from './AnnouncementsBlock';
 import { FavouritesBlock } from './FavouritesBlock';
 
 /** The landing screen: where the alliance stands, before who did what.
@@ -193,6 +194,8 @@ export function Overview({ now }: { now?: Date }) {
   return (
     <>
       <OverviewPanel now={now} />
+      {/* Notices before shortcuts: one is news and the other is furniture. */}
+      <AnnouncementsBlock />
       <FavouritesBlock />
     </>
   );
