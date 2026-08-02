@@ -6,6 +6,7 @@ import { TERMS } from '../../lib/terms';
 import type { LineupHero } from '../../lib/troops';
 import { useTableView } from '../../lib/useTableView';
 import { LineupCell } from './LineupCell';
+import { LineupLegend } from './LineupLegend';
 
 export interface ArenaHeader {
   snapshot_id: string;
@@ -77,6 +78,7 @@ export function ArenaTable({
         total={total}
         value={query}
       />
+      <LineupLegend />
       <div className="table-wrap">
         <table>
           <thead>

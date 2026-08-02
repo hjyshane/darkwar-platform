@@ -10,14 +10,18 @@ import {
   type LineupHero,
   bySlot,
   composition,
+  gearRank,
+  gearRankLabel,
   isMaxStar,
   isWeaponAwakened,
   starsShown,
   synergy,
   troopClassInitial,
   troopClassName,
+  weaponRank,
   weaponRankLabel,
 } from '../../lib/troops';
+import { Rank } from './RankIcons';
 
 const numberFormat = new Intl.NumberFormat('ko-KR');
 
@@ -134,10 +138,10 @@ export function LineupCell({ heroes }: { heroes: readonly LineupHero[] }) {
               <th scope="col">Grade</th>
               <th scope="col">Class</th>
               <th scope="col">Lv</th>
-              <th scope="col">★</th>
-              {/* How far toward the next star. Worth a column of its own on
-                  a defence board: it says who is about to get stronger. */}
-              <th scope="col">Step</th>
+              {/* Star and step were two columns of numbers that only meant
+                  anything read together. One row of five outlines, the next
+                  one part-filled, says it the way the game does. */}
+              <th scope="col">Stars</th>
               <th scope="col">Weapon</th>
               <th scope="col">Gear</th>
               <th scope="col">Skills</th>
@@ -157,13 +161,14 @@ export function LineupCell({ heroes }: { heroes: readonly LineupHero[] }) {
                 <td
                   className={`grade-cell ${heroGradeClass(catalogue?.get(hero.hero_id)?.grade ?? null) ?? ''}`}
                 >
+                  {/* The swatch alone. The word is in the title and in the
+                      legend above the table — three grades is a small enough
+                      vocabulary to learn once, and the column was spending
+                      its width on repeating it a hundred times. */}
                   {catalogue?.get(hero.hero_id)?.grade == null ? (
                     '—'
                   ) : (
-                    <>
-                      <span className="grade-dot" />
-                      {heroGradeName(catalogue.get(hero.hero_id)?.grade ?? null)}
-                    </>
+                    <span className="grade-dot" />
                   )}
                 </td>
                 <td>{troopClassName(hero.troop_class)}</td>
@@ -173,24 +178,78 @@ export function LineupCell({ heroes }: { heroes: readonly LineupHero[] }) {
                 <td className="num">{hero.hero_level ?? '—'}</td>
                 {/* Converted, not raw: the payload counts one star higher
                     than the game, which caps at 5. See starsShown. */}
-                <td className="num">{starsShown(hero.star) ?? '—'}</td>
-                {/* The em dash here means "at maximum star, so there is no
-                    next step" — not "unknown". A 0 would be a lie: below the
-                    cap 0 is a real value meaning no progress yet. */}
-                <td className="num" title={hero.stage === null ? 'At maximum star' : undefined}>
-                  {hero.stage ?? '—'}
+                <td>
+                  {starsShown(hero.star) === null ? (
+                    '—'
+                  ) : (
+                    <Rank
+                      full={starsShown(hero.star) ?? 0}
+                      idPrefix={`s${hero.slot}-${hero.hero_id}`}
+                      kind="star"
+                      label={
+                        hero.stage === null
+                          ? `${starsShown(hero.star)}성`
+                          : `${starsShown(hero.star)}성 ${hero.stage}단계`
+                      }
+                      step={hero.stage ?? 0}
+                      total={5}
+                    />
+                  )}
                 </td>
                 {/* Null is "not unlocked", a real state rather than a zero:
                     1,730 of 4,028 observed heroes have a weapon. */}
-                <td className="num" title={weaponRankLabel(hero.weapon_level) ?? undefined}>
-                  {hero.weapon_level === null
-                    ? '—'
-                    : `Lv ${hero.weapon_level} · ${weaponRankLabel(hero.weapon_level)}`}
+                {/* Stars while it is climbing them, pentagons once it is in
+                    각 — the weapon stops at five stars like its hero, so a
+                    sixth star would be a grade the game does not have. */}
+                <td title={`Lv ${hero.weapon_level} · ${weaponRankLabel(hero.weapon_level)}`}>
+                  {hero.weapon_level === null ? (
+                    '—'
+                  ) : isWeaponAwakened(hero.weapon_level) ? (
+                    <Rank
+                      full={weaponRank(hero.weapon_level)?.awakening ?? 0}
+                      idPrefix={`w${hero.slot}-${hero.hero_id}`}
+                      kind="pentagon"
+                      label={weaponRankLabel(hero.weapon_level) ?? ''}
+                      step={weaponRank(hero.weapon_level)?.step ?? 0}
+                      total={5}
+                    />
+                  ) : (
+                    <Rank
+                      full={weaponRank(hero.weapon_level)?.star ?? 0}
+                      idPrefix={`w${hero.slot}-${hero.hero_id}`}
+                      kind="star"
+                      label={weaponRankLabel(hero.weapon_level) ?? ''}
+                      step={weaponRank(hero.weapon_level)?.step ?? 0}
+                      total={5}
+                    />
+                  )}
                 </td>
-                <td className="num" title={hero.equipment.map((e) => e.equipment_id).join(', ')}>
+                {/* One line per piece rather than a joined string: at level
+                    100 the number stops carrying anything (everything is
+                    100) and the 각 takes over, and those cannot share a
+                    line. */}
+                <td className="gear">
                   {hero.equipment.length === 0
                     ? '—'
-                    : hero.equipment.map((e) => e.level ?? '?').join(' / ')}
+                    : hero.equipment.map((piece) => {
+                        const rank = gearRank(piece.level, piece.step);
+                        return (
+                          <span className="gear-piece" key={piece.equipment_id}>
+                            {rank === null ? (
+                              (piece.level ?? '?')
+                            ) : (
+                              <Rank
+                                full={rank.awakening}
+                                idPrefix={`g${hero.slot}-${hero.hero_id}-${piece.equipment_id}`}
+                                kind="pentagon"
+                                label={gearRankLabel(piece.level, piece.step)}
+                                step={rank.step}
+                                total={5}
+                              />
+                            )}
+                          </span>
+                        );
+                      })}
                 </td>
                 <td className="num" title={hero.skills.map((s) => s.skill_id).join(', ')}>
                   {hero.skills.length === 0

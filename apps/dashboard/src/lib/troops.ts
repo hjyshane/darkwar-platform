@@ -135,6 +135,60 @@ export function isWeaponAwakened(level: number | null): boolean {
   return weaponRank(level)?.awakening != null;
 }
 
+/** A piece of gear's 각, derived from its promote count.
+ *
+ * Gear levels to 100 and then takes up to five 각. Neither the 각 nor the
+ * step is sent — the equipment submessage has exactly three fields across
+ * 17,028 observed, an id, a level and this promote count — so it comes out
+ * of promote, and the arithmetic is what the numbers themselves suggest.
+ *
+ * At level 100 promote lands on 11, 16, 21, 26, 31, 36 far more often than
+ * anywhere between, an arithmetic run of five, and **36 is the largest value
+ * observed anywhere**. (36 - 11) / 5 = 5, which is exactly the cap the user
+ * stated independently. Filtering to the top ten arena ranks — the players
+ * who would have finished the track — is what made the run visible: the
+ * values above 16 are almost all theirs.
+ *
+ * The five values between one landmark and the next are the steps inside a
+ * 각, the same five-to-a-step rhythm the weapon uses.
+ *
+ * Not confirmed against a screen. Level-100 gear below promote 11 exists and
+ * this reads it as 각 0, which is the part most likely to be wrong — it may
+ * be that promote below 11 means something else entirely and only the run
+ * above it is the 각 track.
+ */
+export const GEAR_MAX_LEVEL = 100;
+export const GEAR_PROMOTE_AT_MAX_LEVEL = 11;
+export const GEAR_MAX_AWAKENING = 5;
+
+export interface GearRank {
+  awakening: number;
+  step: number;
+}
+
+export function gearRank(level: number | null, promote: number | null): GearRank | null {
+  if (level === null || level < GEAR_MAX_LEVEL) {
+    return null;
+  }
+  const past = (promote ?? 0) - GEAR_PROMOTE_AT_MAX_LEVEL;
+  if (past <= 0) {
+    return { awakening: 0, step: 0 };
+  }
+  return {
+    awakening: Math.min(Math.floor(past / WEAPON_LEVELS_PER_STEP), GEAR_MAX_AWAKENING),
+    step: past % WEAPON_LEVELS_PER_STEP,
+  };
+}
+
+/** "각3 1단계", or "Lv 70" for a piece still levelling. */
+export function gearRankLabel(level: number | null, promote: number | null): string {
+  if (level === null) {
+    return '—';
+  }
+  const rank = gearRank(level, promote);
+  return rank === null ? `Lv ${level}` : `Lv 100 각${rank.awakening} ${rank.step}단계`;
+}
+
 export function troopClassName(value: number | null): string {
   if (value === null) {
     return 'Unknown';

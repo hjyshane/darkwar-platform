@@ -769,6 +769,94 @@ button:focus-visible {
   background: var(--grade, var(--neutral-bg));
 }
 
+/* Rank shapes — stars for the star track, pentagons for 각.
+ *
+ * Sized in em so they follow the table's own text size instead of needing a
+ * breakpoint of their own, and laid out inline-flex so five of them stay on
+ * one line inside a cell that is already scrolling sideways. */
+.rank {
+  align-items: center;
+  display: inline-flex;
+  gap: 1px;
+  vertical-align: middle;
+}
+
+.rank-shape {
+  height: 0.85em;
+  width: 0.85em;
+}
+
+/* Gear is four rows of five, the widest block in the detail table, and it
+ * sits behind three other columns in a table that already scrolls. Smaller
+ * here only — the hero's own stars are the thing being read, not these. */
+.gear .rank-shape {
+  height: 0.7em;
+  width: 0.7em;
+}
+
+/* Gold for stars, red for 각 — the game's own two colours for these, and the
+ * one place in this app where a colour is allowed to repeat between light and
+ * dark: a gold star that changed hue by theme would stop looking like the
+ * thing it is copying. Contrast is carried by the outline, which is the same
+ * colour as the fill, so an empty shape is still visible on either surface. */
+.rank-star {
+  color: #d9a105;
+}
+
+.rank-pentagon {
+  color: #dc2626;
+}
+
+@media (prefers-color-scheme: dark) {
+  .rank-star {
+    color: #fbbf24;
+  }
+
+  .rank-pentagon {
+    color: #f87171;
+  }
+}
+
+/* Gear is four pieces, one per line: at level 100 the number stops meaning
+ * anything and five pentagons take its place, and those do not fit beside
+ * three other values on one line. */
+.gear {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  white-space: nowrap;
+}
+
+.gear-piece {
+  font-variant-numeric: tabular-nums;
+}
+
+/* What the marks on a chip mean. Above the table rather than inside it: the
+ * chips are in every row, so the explanation belongs where it is read once
+ * instead of repeated a hundred times. */
+.lineup-legend {
+  color: var(--fg-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: var(--text-sm);
+  gap: var(--space-1) var(--space-4);
+  margin-bottom: var(--space-3);
+}
+
+.lineup-legend > * {
+  align-items: center;
+  display: inline-flex;
+  gap: var(--space-1);
+}
+
+/* The sample chips in the legend carry no letter, so they need a size of
+ * their own — otherwise an empty chip collapses to its padding. */
+.legend-chip {
+  display: inline-block;
+  height: 1.1em;
+  min-width: 1.4em;
+}
+
 .lineup {
   display: inline-flex;
   gap: var(--space-1);

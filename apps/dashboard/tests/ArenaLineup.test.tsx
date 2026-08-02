@@ -137,14 +137,17 @@ function column(header: string): (string | undefined)[] {
   );
 }
 
-test('the step reads as a dash at maximum star, never as a zero', () => {
+test('star and step are one row of shapes, not two columns of numbers', () => {
   renderWithQuery(<LineupCell heroes={lineup} />);
   expand();
 
-  // Slot 2 is the one below the cap and shows its 2; the other four are maxed
-  // and show an em dash, because a 0 there would claim they had made no
-  // progress toward a star that does not exist.
-  expect(column('Step')).toEqual(['—', '2', '—', '—', '—']);
+  // The shapes are aria-hidden; each rank carries its own words for the
+  // reader, and those words are what this asserts. Slots 2 and 4 sit below
+  // the cap and say how far along they are; the rest are simply 5성.
+  expect(column('Stars')).toEqual(['5성', '4성 2단계', '5성', '4성', '5성']);
+  // Five outlines per hero, always — an empty star still gets drawn, so the
+  // count never has to be inferred from a gap.
+  expect(document.querySelectorAll('.rank-star .rank-shape')).toHaveLength(5 * 5 + 5);
 });
 
 test('a grade nobody has established renders as a dash, not as a colour', () => {
@@ -234,10 +237,11 @@ test('expanding shows weapon, gear and skills, not just the roster', () => {
   expand();
 
   expect(screen.getByText('Weapon')).toBeDefined();
-  // The weapon cell now carries the derived star alongside the level.
-  expect(screen.getByText('Lv 26 · 5성 1단계')).toBeDefined();
-  // Gear and skill levels, joined — the ids are in the tooltip.
-  expect(screen.getByText('100 / 70')).toBeDefined();
+  // The weapon is shapes now; its words come from the rank's own label.
+  expect(column('Weapon')).toContain('5성 1단계');
+  // Gear is a line per piece now, and a piece at 100 gives up its number
+  // for pentagons — so the fixture's 100 and 70 no longer share a string.
+  expect(column('Gear')).toContain('Lv 100 각0 0단계70');
   expect(screen.getByText('15 / 10')).toBeDefined();
 });
 
@@ -264,7 +268,7 @@ test('no lineup reads as unknown, not as an empty team', () => {
   const { container } = renderWithQuery(<LineupCell heroes={[]} />);
 
   expect(container.textContent).toBe('—');
-  expect(container.querySelectorAll('.chip')).toHaveLength(0);
+  expect(container.querySelectorAll('.lineup .chip')).toHaveLength(0);
 });
 
 const header = {
@@ -307,8 +311,9 @@ test('the arena table shows a lineup per entry', () => {
   renderWithQuery(<ArenaTable entries={entries} header={header} />);
 
   expect(screen.getByText('Lineup')).toBeDefined();
-  // Five chips for the entry that has a lineup, none for the one that does not.
-  expect(document.querySelectorAll('.chip')).toHaveLength(5);
+  // Scoped to .lineup: the legend above the table draws sample chips of its
+  // own, and an unscoped count silently included them.
+  expect(document.querySelectorAll('.lineup .chip')).toHaveLength(5);
 });
 
 test('composition is searchable, which is the point of precomputing it', () => {
