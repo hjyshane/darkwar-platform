@@ -879,6 +879,27 @@ button:focus-visible {
   margin-bottom: var(--space-3);
 }
 
+/* Power moving up or down. The sign is in the text as well, so the colour
+ * is emphasis rather than the message — a reader who cannot separate these
+ * two hues still reads +2.4% and -1.1%. */
+.growth-up {
+  color: var(--ok-fg);
+}
+
+.growth-down {
+  color: var(--danger-fg);
+}
+
+@media (prefers-color-scheme: dark) {
+  .growth-up {
+    color: #4ade80;
+  }
+
+  .growth-down {
+    color: #f87171;
+  }
+}
+
 /* The list of names a formula may use. Wraps freely — eleven ids is more
  * than a line and fewer than a table wants. */
 .metric-picker {

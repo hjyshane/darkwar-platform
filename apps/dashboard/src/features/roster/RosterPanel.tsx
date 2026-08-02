@@ -112,7 +112,22 @@ export async function fetchRoster(): Promise<RosterRow[]> {
     throw new Error(`presence query failed: ${presenceError.message}`);
   }
 
+  // Which way each member's power has moved. A view rather than a fourth
+  // shape to assemble here: the answer is a question about two rows of
+  // player_snapshots, and the database is where that belongs (0049).
+  const { data: growth, error: growthError } = await supabase
+    .from('player_power_growth')
+    .select('player_id, growth_1d, growth_7d, power_1d_at, power_7d_at')
+    .in(
+      'player_id',
+      players.map((player) => player.player_id),
+    );
+  if (growthError) {
+    throw new Error(`growth query failed: ${growthError.message}`);
+  }
+
   const byPlayer = new Map(contributions.map((row) => [row.player_id, row]));
+  const growthByPlayer = new Map(growth.map((row) => [row.player_id, row]));
   const presenceByPlayer = new Map(presence.map((row) => [row.player_id, row]));
   // `alliances` is the join used to filter, not a column of the row — drop it
   // so the shape stays flat and every key remains sortable.
@@ -123,6 +138,10 @@ export async function fetchRoster(): Promise<RosterRow[]> {
     duel_daily_score: byPlayer.get(player.player_id)?.duel_daily_score ?? null,
     duel_weekly_score: byPlayer.get(player.player_id)?.duel_weekly_score ?? null,
     duel_round_score: byPlayer.get(player.player_id)?.duel_round_score ?? null,
+    growth_1d: growthByPlayer.get(player.player_id)?.growth_1d ?? null,
+    growth_7d: growthByPlayer.get(player.player_id)?.growth_7d ?? null,
+    growth_1d_at: growthByPlayer.get(player.player_id)?.power_1d_at ?? null,
+    growth_7d_at: growthByPlayer.get(player.player_id)?.power_7d_at ?? null,
     ...lastOnline(presenceByPlayer.get(player.player_id)),
   }));
 }

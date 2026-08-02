@@ -12,6 +12,13 @@ import { useFavourites } from '../../lib/useFavourites';
 import { useTableView } from '../../lib/useTableView';
 
 export interface RosterRow {
+  /** Power against the newest snapshot at least a day / a week older than
+   * the latest one. Null where there is no earlier snapshot to compare with
+   * — which is not the same as 0% and must not render as one. */
+  growth_1d: number | null;
+  growth_7d: number | null;
+  growth_1d_at: string | null;
+  growth_7d_at: string | null;
   player_id: string;
   game_uid: number;
   current_name: string | null;
@@ -36,6 +43,36 @@ const compactFormat = new Intl.NumberFormat('en', {
   notation: 'compact',
   maximumFractionDigits: 1,
 });
+
+/** A signed percentage, coloured by direction.
+ *
+ * Green up, red down, and a plain dash for "no earlier snapshot" — the
+ * colour is never the only carrier, since the sign is right there in the
+ * text (NFR-011). Zero gets neither colour: it moved by nothing, which is
+ * news of a different kind from moving down.
+ */
+function GrowthCell({ value, since }: { value: number | null; since: string | null }) {
+  if (value === null) {
+    return (
+      <td className="num" title="No earlier snapshot to compare against">
+        —
+      </td>
+    );
+  }
+  const rounded = Math.round(value * 10) / 10;
+  return (
+    <td
+      className={`num ${rounded > 0 ? 'growth-up' : rounded < 0 ? 'growth-down' : ''}`}
+      // What it actually compared against. A collector that has not run for
+      // five days makes "daily" mean something else, and the reader is
+      // entitled to know which day it means.
+      title={since === null ? undefined : `vs ${new Date(since).toISOString().slice(0, 10)}`}
+    >
+      {rounded > 0 ? '+' : ''}
+      {rounded.toFixed(1)}%
+    </td>
+  );
+}
 
 // Module level so the reference is stable across renders.
 const SEARCH_FIELDS = ['current_name', 'game_uid'] as const;
@@ -175,6 +212,15 @@ export function RosterTable({
               <SortableTh numeric onSort={onSort} sort={sort} sortKey="duel_round_score">
                 {TERMS.duelRound}
               </SortableTh>
+              {/* Growth sits with the figure it is derived from rather than
+                  at the end: power is the number, these two are which way it
+                  is going, and reading them apart makes neither useful. */}
+              <SortableTh numeric onSort={onSort} sort={sort} sortKey="growth_1d">
+                Growth (1d)
+              </SortableTh>
+              <SortableTh numeric onSort={onSort} sort={sort} sortKey="growth_7d">
+                Growth (7d)
+              </SortableTh>
               <SortableTh numeric onSort={onSort} sort={sort} sortKey="last_online_at">
                 {TERMS.lastOnline}
               </SortableTh>
@@ -220,6 +266,8 @@ export function RosterTable({
                 <td className="num group-start">{formatNumber(row.duel_daily_score)}</td>
                 <td className="num">{formatNumber(row.duel_weekly_score)}</td>
                 <td className="num">{formatNumber(row.duel_round_score)}</td>
+                <GrowthCell since={row.growth_1d_at} value={row.growth_1d} />
+                <GrowthCell since={row.growth_7d_at} value={row.growth_7d} />
                 {/* Two different facts, deliberately side by side: when
                     the player was last in the game, and when we last looked.
                     They were conflated until 0024 — Last Seen was captured_at

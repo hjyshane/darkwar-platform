@@ -2247,6 +2247,27 @@ export type Database = {
           },
         ]
       }
+      player_power_growth: {
+        Row: {
+          growth_1d: number | null
+          growth_7d: number | null
+          player_id: string | null
+          power: number | null
+          power_1d: number | null
+          power_1d_at: string | null
+          power_7d: number | null
+          power_7d_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_snapshots_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+        ]
+      }
     }
     Functions: {
       backfill_month_card_from_raw: {

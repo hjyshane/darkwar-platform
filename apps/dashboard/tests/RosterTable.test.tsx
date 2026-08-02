@@ -25,6 +25,10 @@ const rows: RosterRow[] = [
     online_state: 'offline',
     last_online_at: '2026-07-28T09:00:00Z',
     last_seen_at: '2026-07-28T11:55:00Z',
+    growth_1d: 2.44,
+    growth_7d: -1.06,
+    growth_1d_at: '2026-07-27T09:00:00Z',
+    growth_7d_at: '2026-07-21T09:00:00Z',
   },
   {
     player_id: 'p2',
@@ -38,6 +42,10 @@ const rows: RosterRow[] = [
     duel_daily_score: null,
     duel_weekly_score: null,
     duel_round_score: null,
+    growth_1d: null,
+    growth_7d: null,
+    growth_1d_at: null,
+    growth_7d_at: null,
     online_state: null,
     last_online_at: null,
     last_seen_at: null,
@@ -96,4 +104,23 @@ test('the monthly pass does not appear in the roster', () => {
   // address; the shared dashboard must not even name it.
   renderWithQuery(<RosterTable rows={rows} now={NOW} />);
   expect(screen.queryByText('Monthly Card')).toBeNull();
+});
+
+test('growth carries its sign and its direction, and unknown carries neither', () => {
+  renderWithQuery(<RosterTable rows={rows} now={NOW} />);
+
+  // The sign is in the text, so the colour is emphasis rather than the
+  // message — a reader who cannot separate the two hues still reads these.
+  const up = screen.getByText('+2.4%');
+  const down = screen.getByText('-1.1%');
+  expect(up.className).toContain('growth-up');
+  expect(down.className).toContain('growth-down');
+
+  // The second member has no earlier snapshot. That is not 0% — a member
+  // whose power has not been measured twice has an unknown change, and
+  // FR-UI-008 says an unknown never wears a nought.
+  expect(screen.queryByText('0.0%')).toBeNull();
+  expect(
+    document.querySelectorAll('td[title="No earlier snapshot to compare against"]').length,
+  ).toBe(2);
 });
