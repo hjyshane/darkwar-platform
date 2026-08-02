@@ -3,6 +3,7 @@ import { useSession } from '../../lib/useSession';
 import { fetchSummary } from '../overview/OverviewPanel';
 import { AnnouncementsSetting } from './AnnouncementsSetting';
 import { FormulaSetting } from './FormulaSetting';
+import { HeroesSetting } from './HeroesSetting';
 import { OverviewMetricsSetting } from './OverviewMetricsSetting';
 import { OwnAllianceSetting } from './OwnAllianceSetting';
 
@@ -60,6 +61,11 @@ export function AdminPage() {
       <section aria-labelledby="notices-heading">
         <h2 id="notices-heading">Notices</h2>
         <AnnouncementsSetting />
+      </section>
+
+      <section aria-labelledby="heroes-heading">
+        <h2 id="heroes-heading">Heroes</h2>
+        <HeroesSetting />
       </section>
     </main>
   );

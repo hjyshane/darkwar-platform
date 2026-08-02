@@ -20,6 +20,10 @@ const TOPIC_QUERY_KEYS: Record<string, readonly (readonly string[])[]> = {
   // Written by an admin rather than the collector, and the only topic here
   // that fires on delete too — a notice taken down has to disappear.
   announcements: [['announcements'], ['announcements-admin']],
+  // Naming a hero has to reach the arena board that prints the name, not
+  // just the admin page where it was typed — and deleting one has to reach
+  // it too, so that the board falls back to the id straight away.
+  heroes: [['heroes'], ['heroes-admin']],
   // Not a snapshot table, but the same problem: an admin changing which
   // figures the overview shows has to reach the readers looking at it.
   app_settings: [

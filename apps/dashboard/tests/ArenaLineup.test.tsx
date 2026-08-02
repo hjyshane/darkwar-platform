@@ -1,14 +1,17 @@
-// The decoded defence lineup, on screen. The protocol carries no hero names,
-// so the cell leads with the troop class — which is the thing you counter —
-// and keeps the hero id in the tooltip.
+// The decoded defence lineup, on screen. The protocol carries no hero names —
+// the server sends localisation keys and the client resolves them locally —
+// so the cell leads with the troop class, which is the thing you counter, and
+// the names come from the catalogue an admin fills in (0037).
 import { fireEvent, screen } from '@testing-library/react';
 import { expect, test } from 'vitest';
 import { type ArenaEntryRow, ArenaTable } from '../src/features/arena/ArenaTable';
 import { LineupCell } from '../src/features/arena/LineupCell';
+import { heroName } from '../src/lib/heroes';
 import {
   type LineupHero,
   bySlot,
   composition,
+  starsShown,
   troopClassInitial,
   troopClassName,
 } from '../src/lib/troops';
@@ -84,7 +87,39 @@ test('a hero with no slot still renders rather than being dropped', () => {
 test('the cell names the hero, its class and its level in the tooltip', () => {
   renderWithQuery(<LineupCell heroes={lineup} />);
 
-  expect(screen.getByTitle(/Slot 3 · Hero 40001 · Fighter · Lv 103 · 6★/)).toBeDefined();
+  // No catalogue is loaded here, so the hero reads as its id — and the star
+  // count is the game's, one below the payload's 6.
+  expect(screen.getByTitle(/Slot 3 · 40001 · Fighter · Lv 103 · 5★/)).toBeDefined();
+});
+
+test('an unnamed hero prints its id rather than a placeholder name', () => {
+  // "Hero 40001" would read as a name, and a reader cannot tell an invented
+  // one from a real one. The bare id is honest and points at the gap.
+  expect(heroName(undefined, 40001)).toBe('40001');
+  expect(heroName(new Map(), 40001)).toBe('40001');
+  expect(
+    heroName(new Map([[40001, { hero_id: 40001, name: null, troop_class: 1, notes: '' }]]), 40001),
+  ).toBe('40001');
+});
+
+test('a named hero prints the name the catalogue gives it', () => {
+  const catalogue = new Map([[40001, { hero_id: 40001, name: 'Ivan', troop_class: 1, notes: '' }]]);
+
+  expect(heroName(catalogue, 40001)).toBe('Ivan');
+  // And only that one — an id with no row is unaffected by its neighbours.
+  expect(heroName(catalogue, 40002)).toBe('40002');
+});
+
+test('stars are shown as the game counts them, one below the payload', () => {
+  // The payload's top value is 6 and the game caps at 5, so an unconverted
+  // number put a sixth star on 2,196 of the 4,260 decoded heroes.
+  expect(starsShown(6)).toBe(5);
+  expect(starsShown(3)).toBe(2);
+  expect(starsShown(1)).toBe(0);
+  // Unknown stays unknown (FR-UI-008), and an unexpected value passes
+  // through rather than turning into a negative count.
+  expect(starsShown(null)).toBeNull();
+  expect(starsShown(0)).toBe(0);
 });
 
 test('expanding shows weapon, gear and skills, not just the roster', () => {

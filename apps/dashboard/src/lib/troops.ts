@@ -42,6 +42,25 @@ export interface LineupHero {
   equipment: LineupEquipment[];
 }
 
+/** Stars as the game prints them. The payload counts one higher.
+ *
+ * `arena_entry_heroes.star` keeps the observed number, which is right — the
+ * database records what arrived. But 5★ is the cap in game and the payload's
+ * top value is 6, so showing it unconverted put a sixth star on 2,196 of the
+ * 4,260 decoded heroes. The offset is not a guess: init.userHero carries a
+ * `stage` field on exactly the heroes below payload 6 and on none of the
+ * ones at it, which is the boundary the game draws at maximum stars.
+ *
+ * Below 1 there is nothing sensible to print, so an unexpected value passes
+ * through rather than becoming a negative star count.
+ */
+export function starsShown(star: number | null): number | null {
+  if (star === null) {
+    return null;
+  }
+  return star >= 1 ? star - 1 : star;
+}
+
 export function troopClassName(value: number | null): string {
   if (value === null) {
     return 'Unknown';
