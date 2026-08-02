@@ -87,11 +87,9 @@ export function isMaxStar(star: number | null): boolean {
  * code that printed six, seven and eight stars — grades the game does not
  * have). Blocks past the fifth are counted as awakenings, not more stars.
  *
- * The awakening numbering is the ONE part still unconfirmed. It assumes the
- * same five-level rhythm continues, which is what the level distribution
- * looks like — 2 to 41 with nothing between the blocks — but no awakened
- * weapon has been read off a screen. If a level-30 weapon does not show
- * awakening 1, the star half of this is right and the awakening half is not.
+ * The awakening numbering is confirmed too: the user opened the level-30
+ * weapon and it reads awakening 1, which is what the same five-level rhythm
+ * predicts. Nothing in this function is a guess any more.
  */
 export const WEAPON_LEVELS_PER_STEP = 5;
 export const WEAPON_MAX_STAR = 5;
@@ -153,10 +151,11 @@ export function isWeaponAwakened(level: number | null): boolean {
  * The five values between one landmark and the next are the steps inside an
  * awakening, the same five-to-a-step rhythm the weapon uses.
  *
- * Not confirmed against a screen. Level-100 gear below promote 11 exists and
- * this reads it as awakening 0, which is the part most likely to be wrong —
- * promote below 11 may mean something else entirely, with only the run above
- * it being the awakening track.
+ * Confirmed against the game: a level-100 piece at promote 11 reads
+ * awakening 0, so 11 is the landmark this arithmetic hangs on. Level-100
+ * gear BELOW promote 11 still exists and is read as awakening 0 as well —
+ * that is the one case nobody has looked at, and it errs toward "not yet
+ * awakened", which is the harmless direction.
  */
 export const GEAR_MAX_LEVEL = 100;
 export const GEAR_PROMOTE_AT_MAX_LEVEL = 11;

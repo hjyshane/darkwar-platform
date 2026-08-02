@@ -88,8 +88,7 @@ export function PetsSetting() {
       <p className="subtle">
         The cross-server board ranks a player's strongest pet and the protocol names it with a
         number, same as it does heroes. These names were read off the game; only 105 and 106 have
-        ever appeared in a capture, so the rest cannot be checked here — if the order is wrong it
-        will be wrong for all of them at once.
+        ever appeared in a capture, so if the order is wrong it is wrong for all of them at once.
       </p>
 
       {message && <p className={failed ? 'error' : 'empty'}>{message}</p>}
