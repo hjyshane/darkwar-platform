@@ -40,12 +40,17 @@ export const TERMS = {
   status: 'Status',
   expires: 'Expires',
   lastOnline: 'Last Online', // ours: from al.rank offLineTime — when they last played
-  lastSeen: 'Last Seen', // ours: last_seen_at — when the collector last looked
-  observed: 'Observed', // ours: captured_at
+  // One name for one fact. The alliance ranking called this 'Observed' and
+  // the member table called it 'Last Seen', and a reader had no way to know
+  // they were the same captured_at — while 'Observed' sat one column away
+  // from real presence data and read like it.
+  lastSeen: 'Last Seen', // ours: captured_at / last_seen_at — when we last looked
   defensePower: 'Defense Power', // ours: the `army` blob is a lineup, not a number
   lineup: 'Lineup', // ours: the decoded `army` blob
   heroId: 'Hero ID',
   petId: 'Pet ID',
+
+  overview: 'Overview',
 
   // Contribution types (alliance_contribution_snapshots.contribution_type)
   dailyDonation: 'Daily Donation',

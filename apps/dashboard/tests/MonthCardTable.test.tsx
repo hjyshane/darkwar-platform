@@ -16,9 +16,9 @@ const rows: MonthCardRow[] = [
 
 test('only the exact address reaches the page', () => {
   expect(routeFromHash('#/month-cards')).toBe('monthCards');
-  expect(routeFromHash('')).toBe('dashboard');
-  expect(routeFromHash('#/')).toBe('dashboard');
-  expect(routeFromHash('#/month-cards/extra')).toBe('dashboard');
+  expect(routeFromHash('')).toBe('overview');
+  expect(routeFromHash('#/')).toBe('overview');
+  expect(routeFromHash('#/month-cards/extra')).toBe('overview');
 });
 
 test('an admin sees holder, status and expiry', () => {

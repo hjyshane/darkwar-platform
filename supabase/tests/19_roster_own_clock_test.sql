@@ -77,23 +77,24 @@ select is((select current_name from public.players
            where player_id = '00000000-0000-4000-8000-0000000db001'), 'Ours01',
   'an older roster does not overwrite a newer one');
 
--- 0031: ownership is evidence, not configuration.
-select is((select is_own from public.alliances
+-- 0031/0032: ownership is evidence first. The trigger writes the OBSERVATION;
+-- is_own is resolved from it when no admin pin exists, which is the case here.
+select is((select roster_unredacted_seen from public.alliances
            where alliance_id = '00000000-0000-4000-8000-0000000a1001'), true,
-  'an unredacted roster marks the alliance as ours');
+  'an unredacted roster records the evidence of membership');
 
 -- A redacted roster is another alliance's: the server hid presence because we
 -- are not in it.
 select pg_temp.roster('t:rc:3', '00000000-0000-4000-8000-0000000a1002',
                       'Theirs01', '2026-08-02T00:00:00Z', true);
-select is((select is_own from public.alliances
+select is((select roster_unredacted_seen from public.alliances
            where alliance_id = '00000000-0000-4000-8000-0000000a1002'), false,
-  'a redacted roster does not mark an alliance as ours');
+  'a redacted roster is not evidence of membership');
 
 -- Opening someone else's roster later must not unmark our own.
 select is((select is_own from public.alliances
            where alliance_id = '00000000-0000-4000-8000-0000000a1001'), true,
-  'and looking at theirs afterwards leaves ours marked');
+  'and with no pin set, is_own follows the evidence');
 
 select * from finish();
 rollback;

@@ -81,3 +81,44 @@ admin 세션으로 `app_users`에 쓰면 된다(admin_write 정책).
 publishable 키로 비밀번호 로그인 → 받은 JWT로 `player_month_cards` 조회 →
 admin은 이름 조인된 실데이터, anon은 `[]`. pgTAP 12번 파일이 같은 것을
 페르소나별로 고정한다.
+
+## 우리 연맹 지정하기
+
+대시보드는 `alliances.is_own`이 참인 연맹을 "우리"로 본다. 그 값은 두 곳에서
+온다:
+
+| 출처 | 언제 |
+|---|---|
+| `roster_unredacted_seen` (관측) | 기본값. `al.rank` 응답이 접속 정보를 **가리지 않았으면** 우리가 그 연맹에 속해 있다는 증거다 — 게임은 비연맹 로스터의 접속 정보를 가린다 |
+| `app_settings.own_alliance` (지정) | admin이 지정하면 **관측을 이긴다** |
+
+대개 관측이 맞으므로 아무것도 안 해도 된다. 지정이 필요한 경우는 수집 계정이
+연맹을 옮겼거나, 다른 연맹을 돕느라 그쪽 로스터를 찍어서 증거가 두 곳을
+가리킬 때다.
+
+```sql
+insert into public.app_settings (key, value)
+select 'own_alliance', jsonb_build_object('alliance_id', alliance_id, 'name', current_name)
+from public.alliances where current_code = 'CBFW'
+on conflict (key) do update set value = excluded.value;
+```
+
+`current_code`는 실제 값으로 바꾼다. 확인:
+
+```sql
+select current_name, current_code, roster_unredacted_seen as observed, is_own
+from public.alliances where roster_unredacted_seen or is_own;
+```
+
+지정을 지우면 관측으로 되돌아간다:
+
+```sql
+delete from public.app_settings where key = 'own_alliance';
+```
+
+**지정은 관측을 덮어쓰지 않는다.** `roster_unredacted_seen`은 그대로 남으므로,
+"admin은 CBFW라는데 우리가 가진 로스터는 전부 다른 연맹 것"인 상태를 나중에
+알아볼 수 있다. 그게 이 둘을 한 컬럼으로 합치지 않은 이유다.
+
+`alliance_id`는 설치마다 생성되는 값이라 마이그레이션에 박을 수 없다. 그래서
+이 지정은 런타임 설정이고, 다음 단계에서 admin 화면으로 올라간다.

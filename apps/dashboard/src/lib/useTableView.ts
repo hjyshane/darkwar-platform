@@ -11,9 +11,20 @@ import { type SortState, nextSort, searchRows, sortRows } from './tableControls'
 export function useTableView<T extends object>(
   rows: readonly T[],
   searchFields: readonly (keyof T & string)[],
+  /** The order the QUERY already returned the rows in.
+   *
+   * Every panel sorts server-side and then handed the table a null sort, so
+   * the arrows all read "unsorted" while the rows plainly were — the reader
+   * could see an order with nothing on screen accounting for it, and the
+   * first click on that same column appeared to do nothing.
+   *
+   * Passing it here states the order rather than re-deriving it: sortRows
+   * reproduces the same sequence, so nothing moves, and the header now says
+   * what it is. */
+  initialSort: SortState | null = null,
 ) {
   const [query, setQuery] = useState('');
-  const [sort, setSort] = useState<SortState | null>(null);
+  const [sort, setSort] = useState<SortState | null>(initialSort);
 
   const view = useMemo(
     () => sortRows(searchRows(rows, query, searchFields), sort),

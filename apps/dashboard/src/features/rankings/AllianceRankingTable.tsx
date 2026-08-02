@@ -4,7 +4,7 @@ import { FavouritesFilter } from '../../components/FavouritesFilter';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
 import { SortableTh } from '../../components/SortableTh';
 import { TableSearch } from '../../components/TableSearch';
-import { serverHash } from '../../lib/route';
+import { allianceHash, serverHash } from '../../lib/route';
 import { TERMS } from '../../lib/terms';
 import { useFavourites } from '../../lib/useFavourites';
 import { useTableView } from '../../lib/useTableView';
@@ -61,6 +61,10 @@ export function AllianceRankingTable({
   const { query, setQuery, sort, onSort, view, shown, total } = useTableView(
     visible,
     SEARCH_FIELDS,
+    // RankingsPanel orders by captured_at desc and nothing else, so that is
+    // what the header says. It is an odd default for a ranking — worth
+    // revisiting — but showing it is how anyone would notice.
+    { key: 'captured_at', direction: 'desc' },
   );
 
   if (latest.length === 0) {
@@ -70,6 +74,7 @@ export function AllianceRankingTable({
     <>
       <TableSearch
         label="Search alliances"
+        unit="alliances"
         onChange={setQuery}
         shown={shown}
         total={total}
@@ -100,7 +105,7 @@ export function AllianceRankingTable({
                 {TERMS.members_count}
               </SortableTh>
               <SortableTh numeric onSort={onSort} sort={sort} sortKey="captured_at">
-                {TERMS.observed}
+                {TERMS.lastSeen}
               </SortableTh>
             </tr>
           </thead>
@@ -117,8 +122,10 @@ export function AllianceRankingTable({
                       onToggle={toggle}
                     />
                   )}
-                  {row.code ? `[${row.code}] ` : ''}
-                  {row.name ?? row.external_id.slice(0, 8)}
+                  <a href={allianceHash(row.alliance_id)}>
+                    {row.code ? `[${row.code}] ` : ''}
+                    {row.name ?? row.external_id.slice(0, 8)}
+                  </a>
                 </td>
                 <td className="num">
                   <a href={serverHash(row.server_id)}>{row.server_id}</a>

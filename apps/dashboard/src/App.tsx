@@ -1,14 +1,24 @@
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useSyncExternalStore } from 'react';
+import { AlliancePage } from './features/alliance/AlliancePage';
 import { ArenaPanel } from './features/arena/ArenaPanel';
 import { LoginPage } from './features/auth/LoginPage';
 import { CrossRankingsPanel } from './features/crossRankings/CrossRankingsPanel';
 import { MonthCardsPage } from './features/monthCards/MonthCardsPage';
+import { Overview } from './features/overview/OverviewPanel';
+import { PlayerPage } from './features/player/PlayerPage';
 import { RankingsPanel } from './features/rankings/RankingsPanel';
 import { RosterPanel } from './features/roster/RosterPanel';
 import { ServerPage } from './features/server/ServerPage';
 import { queryKeysForTopic, subscribeDataChanges } from './lib/realtime';
-import { NAV_TABS, type Route, routeFromHash, serverIdFromHash } from './lib/route';
+import {
+  NAV_TABS,
+  type Route,
+  allianceIdFromHash,
+  playerIdFromHash,
+  routeFromHash,
+  serverIdFromHash,
+} from './lib/route';
 import { supabase } from './lib/supabase';
 import { useSession } from './lib/useSession';
 
@@ -72,6 +82,8 @@ function Nav({ route }: { route: Route }) {
 
 function Screen({ route }: { route: Route }) {
   switch (route) {
+    case 'members':
+      return <RosterPanel />;
     case 'rankings':
       return <RankingsPanel />;
     case 'crossRankings':
@@ -79,7 +91,9 @@ function Screen({ route }: { route: Route }) {
     case 'arena':
       return <ArenaPanel />;
     default:
-      return <RosterPanel />;
+      // Unknown addresses land here too, which is why the overview has to
+      // stand on its own with no data rather than assume it was navigated to.
+      return <Overview />;
   }
 }
 
@@ -87,6 +101,8 @@ export function App() {
   const hash = useSyncExternalStore(subscribeHash, () => window.location.hash);
   const route = routeFromHash(hash);
   const serverId = serverIdFromHash(hash);
+  const playerId = playerIdFromHash(hash);
+  const allianceId = allianceIdFromHash(hash);
   // Month cards is unlinked on purpose and the sign-in form has no use for
   // a tab bar behind it. A server page keeps the tabs: it is reached FROM
   // one, and taking the way back away would strand the reader.
@@ -104,6 +120,10 @@ export function App() {
         <MonthCardsPage />
       ) : route === 'server' && serverId !== null ? (
         <ServerPage serverId={serverId} />
+      ) : route === 'player' && playerId !== null ? (
+        <PlayerPage playerId={playerId} />
+      ) : route === 'alliance' && allianceId !== null ? (
+        <AlliancePage allianceId={allianceId} />
       ) : (
         <main>
           <Screen route={route} />

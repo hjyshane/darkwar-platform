@@ -17,7 +17,10 @@ function formatNumber(value: number | null): string {
 }
 
 export function CrossRankingTable({ rows, board }: { rows: BoardRow[]; board: Board }) {
-  const { query, setQuery, sort, onSort, view, shown, total } = useTableView(rows, SEARCH_FIELDS);
+  const { query, setQuery, sort, onSort, view, shown, total } = useTableView(rows, SEARCH_FIELDS, {
+    key: 'rank',
+    direction: 'asc',
+  });
 
   if (rows.length === 0) {
     return <p className="empty">No ranking data yet.</p>;
@@ -26,6 +29,7 @@ export function CrossRankingTable({ rows, board }: { rows: BoardRow[]; board: Bo
     <>
       <TableSearch
         label="Search players"
+        unit="players"
         onChange={setQuery}
         shown={shown}
         total={total}
