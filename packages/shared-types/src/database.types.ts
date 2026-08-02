@@ -1302,6 +1302,7 @@ export type Database = {
       heroes: {
         Row: {
           created_at: string
+          grade: number | null
           hero_id: number
           name: string | null
           notes: string
@@ -1310,6 +1311,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          grade?: number | null
           hero_id: number
           name?: string | null
           notes?: string
@@ -1318,6 +1320,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          grade?: number | null
           hero_id?: number
           name?: string | null
           notes?: string

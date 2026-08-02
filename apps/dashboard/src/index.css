@@ -683,40 +683,90 @@ button:focus-visible {
 
 /* --- arena lineup -------------------------------------------------------- */
 
-/* Categorical, not status. Deliberately NOT the ok/warn/danger tokens: those
- * mean fresh/stale/missing elsewhere in this app, and a shooter is not a
- * warning.
+/* Hero grade — 파랑 / 보라 / 노랑 — is what the chip is filled with.
  *
- * These were pale tints (#ffedd5 / #e0f2fe / #ede9fe) and did not actually
- * separate: run through a categorical-palette check, shooter and rider came
- * out ΔE 2.7 apart in NORMAL vision — indistinguishable to everyone, not
- * just to a colourblind reader — and all three failed the chroma floor,
- * reading as three shades of grey. The F/S/R letter was doing the whole job
- * and the colour was decoration.
+ * It used to be the troop class, and the class moved to being only the
+ * letter: the letter already said Fighter/Shooter/Rider, so the fill was
+ * spending the loudest channel on something already stated. Grade had
+ * nothing.
  *
- * Re-stepped until the check passed in both themes: mid-lightness, real
- * chroma, worst adjacent pair ΔE 20.3 normal / 7.8 deutan in light and
- * 9.9 in dark. Deutan sits in the 6-8 band where a second channel is
- * required — the chip keeps its letter, which is that channel. Dark is its
- * own set chosen against the dark surface, not a flip of the light one. */
+ * These were measured, not picked. A deuteranope simulation (Viénot) over
+ * the candidates put the obvious blue/purple/gold set at ΔE 2.7 in dark
+ * mode — indistinguishable — so the blue moved toward cyan and the gold
+ * toward light. What shipped:
+ *
+ *            worst pair, normal   worst pair, deutan   text contrast
+ *   light            78.0                 33.5             4.92
+ *   dark             66.7                 24.4             7.09
+ *
+ * Colour is still not the only carrier (NFR-011): the chip tooltip names the
+ * grade, the expanded table prints the word beside a swatch, and the admin
+ * form is a select. */
 :root {
-  --class-1-bg: #b45309;
-  --class-1-fg: #ffffff;
-  --class-2-bg: #0369a1;
-  --class-2-fg: #ffffff;
-  --class-3-bg: #7e22ce;
-  --class-3-fg: #ffffff;
+  --grade-1-bg: #0369a1;
+  --grade-1-fg: #ffffff;
+  --grade-2-bg: #7e22ce;
+  --grade-2-fg: #ffffff;
+  --grade-3-bg: #a16207;
+  --grade-3-fg: #ffffff;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --class-1-bg: #d97706;
-    --class-1-fg: #1a1206;
-    --class-2-bg: #0891b2;
-    --class-2-fg: #04161c;
-    --class-3-bg: #a855f7;
-    --class-3-fg: #1a0a2b;
+    --grade-1-bg: #7dd3fc;
+    --grade-1-fg: #04161c;
+    --grade-2-bg: #c084fc;
+    --grade-2-fg: #1a0a2b;
+    --grade-3-bg: #fcd34d;
+    --grade-3-fg: #1a1206;
   }
+}
+
+:root[data-theme="light"] {
+  --grade-1-bg: #0369a1;
+  --grade-1-fg: #ffffff;
+  --grade-2-bg: #7e22ce;
+  --grade-2-fg: #ffffff;
+  --grade-3-bg: #a16207;
+  --grade-3-fg: #ffffff;
+}
+
+:root[data-theme="dark"] {
+  --grade-1-bg: #7dd3fc;
+  --grade-1-fg: #04161c;
+  --grade-2-bg: #c084fc;
+  --grade-2-fg: #1a0a2b;
+  --grade-3-bg: #fcd34d;
+  --grade-3-fg: #1a1206;
+}
+
+.grade-1 {
+  --grade: var(--grade-1-bg);
+}
+
+.grade-2 {
+  --grade: var(--grade-2-bg);
+}
+
+.grade-3 {
+  --grade: var(--grade-3-bg);
+}
+
+/* Swatch and word are one unit. Left to wrap they split across two lines in
+ * a narrow column and the dot reads as a bullet for the row below it. */
+.grade-cell {
+  white-space: nowrap;
+}
+
+/* The swatch used wherever a grade is named in text. */
+.grade-dot {
+  border-radius: 50%;
+  display: inline-block;
+  height: 0.6em;
+  margin-inline-end: 0.35em;
+  vertical-align: baseline;
+  width: 0.6em;
+  background: var(--grade, var(--neutral-bg));
 }
 
 .lineup {
@@ -725,6 +775,9 @@ button:focus-visible {
 }
 
 .chip {
+  --chip-ring-inner: 0 0 0 0 transparent;
+  --chip-ring-outer: 0 0 0 0 transparent;
+
   border-radius: var(--radius-sm);
   font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
@@ -732,24 +785,77 @@ button:focus-visible {
    * the cell is comparing compositions down the table, not reading one. */
   min-width: 1.4em;
   padding: 0 var(--space-1);
+  /* The weapon dot hangs off the corner, so the chip has to be its
+   * containing block. */
+  position: relative;
   text-align: center;
+  /* Neutral is the "no grade established" fill, which is a state rather than
+   * a fourth grade — nobody has said yet. */
   background: var(--neutral-bg);
   color: var(--neutral-fg);
+  box-shadow: var(--chip-ring-inner), var(--chip-ring-outer);
 }
 
-.chip-class-1 {
-  background: var(--class-1-bg);
-  color: var(--class-1-fg);
+.chip-grade-1 {
+  background: var(--grade-1-bg);
+  color: var(--grade-1-fg);
 }
 
-.chip-class-2 {
-  background: var(--class-2-bg);
-  color: var(--class-2-fg);
+.chip-grade-2 {
+  background: var(--grade-2-bg);
+  color: var(--grade-2-fg);
 }
 
-.chip-class-3 {
-  background: var(--class-3-bg);
-  color: var(--class-3-fg);
+.chip-grade-3 {
+  background: var(--grade-3-bg);
+  color: var(--grade-3-fg);
+}
+
+/* Three marks share one box-shadow, so each owns a slot rather than every
+ * combination getting its own selector — four marks would otherwise need
+ * eight rules. Unset slots are transparent shadows of zero size.
+ *
+ * Inner ring: the hero is at maximum star. Drawn in currentColor, which on a
+ * chip is the fill's own paired foreground and therefore contrasts by
+ * construction. (The synergy ring learned this the hard way: drawn in
+ * currentColor OUTSIDE the chip it was white text colour on a white page and
+ * vanished. Outside needs --fg; inside needs currentColor.)
+ *
+ * Outer ring: the hero counts toward the lineup's class bonus. Unchanged. */
+.chip-max-star {
+  --chip-ring-inner: inset 0 0 0 2px currentColor;
+}
+
+.chip-synergy {
+  --chip-ring-outer: 0 0 0 2px var(--bg), 0 0 0 4px var(--fg);
+}
+
+/* The exclusive weapon, as a dot in the corner. Not a fourth ring: three
+ * concentric outlines on a 1.4em chip stop being separable marks. The dot
+ * carries two states — unlocked, and past the fifth star into 각, which is
+ * where a weapon leaves the track its hero is on. */
+.chip-weapon::after {
+  border-radius: 50%;
+  content: "";
+  height: 6px;
+  position: absolute;
+  inset-block-start: -2px;
+  inset-inline-end: -2px;
+  width: 6px;
+  background: var(--fg);
+  /* A ring of page colour so the dot reads against any of the three fills
+   * rather than merging into the darker two. */
+  box-shadow: 0 0 0 1.5px var(--bg);
+}
+
+.chip-weapon-awakened::after {
+  background: #dc2626;
+}
+
+@media (prefers-color-scheme: dark) {
+  .chip-weapon-awakened::after {
+    background: #f87171;
+  }
 }
 
 /* The lineup expands in place. `details` rather than a modal: the row stays
@@ -1031,15 +1137,8 @@ button:focus-visible {
   color: var(--fg);
 }
 
-/* The chips that earned the bonus, marked so the eye can find them among the
- * five without counting. An outline rather than a different fill: the fill
- * already means the class, and overloading it would make a shooter in a
- * shooter lineup a different colour from a shooter in a mixed one.
- *
- * The ring is --fg, not currentcolor. currentcolor is the chip's own text,
- * which is white on the class fill, so the ring was drawn white on a white
- * page and vanished in both themes — the marking was there in the DOM and
- * invisible on screen. */
-.chip-synergy {
-  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--fg);
-}
+/* Superseded: the synergy ring is now the outer slot of the chip's shared
+ * box-shadow (see .chip-synergy above). A second rule setting box-shadow
+ * outright lived here and, being later in the file, quietly dropped the
+ * maximum-star ring from every chip that also earned the class bonus — the
+ * marks were in the DOM and one of them never drew. */

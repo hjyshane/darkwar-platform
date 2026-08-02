@@ -64,6 +64,77 @@ export function starsShown(star: number | null): number | null {
   return star >= 1 ? star - 1 : star;
 }
 
+/** The game's top star. Heroes stop at five; the payload's 6 is this. */
+export const MAX_STAR = 5;
+
+export function isMaxStar(star: number | null): boolean {
+  const shown = starsShown(star);
+  return shown !== null && shown >= MAX_STAR;
+}
+
+/** The exclusive weapon's rank, derived from its level.
+ *
+ * The payload gives the weapon a level and nothing else — its submessage has
+ * exactly two fields, an id equal to the hero's and this level, checked
+ * across 1,904 weapons. So the rank is computed, five levels to a step:
+ * `block = level / 5`, `step = level % 5`.
+ *
+ * Confirmed for the star range: the user read Cyrus's weapon in game as
+ * 4성 2단계 and its level is 22, which is 4×5+2 exactly.
+ *
+ * A weapon stops at five stars, same as its hero, and what continues past
+ * that is 각 (also the user, correcting an earlier reading of this code that
+ * printed 6성, 7성 and 8성 — grades the game does not have). Blocks past the
+ * fifth are therefore counted as 각, not as more stars.
+ *
+ * The 각 numbering is the ONE part still unconfirmed. It assumes the same
+ * five-level rhythm continues, which is what the level distribution looks
+ * like — 2 to 41 with nothing between the blocks — but no 각 weapon has been
+ * read off a screen. If a level-30 weapon does not show 각 1, the star half
+ * of this is still right and the 각 half is not.
+ */
+export const WEAPON_LEVELS_PER_STEP = 5;
+export const WEAPON_MAX_STAR = 5;
+
+export interface WeaponRank {
+  /** Capped at WEAPON_MAX_STAR: the weapon does not go past five. */
+  star: number;
+  step: number;
+  /** How many 각 past the fifth star, or null while still within it. */
+  awakening: number | null;
+}
+
+export function weaponRank(level: number | null): WeaponRank | null {
+  if (level === null) {
+    return null;
+  }
+  const block = Math.floor(level / WEAPON_LEVELS_PER_STEP);
+  const step = level % WEAPON_LEVELS_PER_STEP;
+  if (block <= WEAPON_MAX_STAR) {
+    return { star: block, step, awakening: null };
+  }
+  return { star: WEAPON_MAX_STAR, step, awakening: block - WEAPON_MAX_STAR };
+}
+
+/** "4성 2단계", or "5성 각1 2단계" once it is past the cap. Null with no
+ * weapon — which is a state, not a level-zero weapon. */
+export function weaponRankLabel(level: number | null): string | null {
+  const rank = weaponRank(level);
+  if (rank === null) {
+    return null;
+  }
+  if (rank.awakening === null) {
+    return `${rank.star}성 ${rank.step}단계`;
+  }
+  return `${rank.star}성 각${rank.awakening} ${rank.step}단계`;
+}
+
+/** Past five stars, where the weapon leaves the star track for 각. The one
+ * thing about a weapon worth marking on a chip. */
+export function isWeaponAwakened(level: number | null): boolean {
+  return weaponRank(level)?.awakening != null;
+}
+
 export function troopClassName(value: number | null): string {
   if (value === null) {
     return 'Unknown';

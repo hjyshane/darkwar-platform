@@ -7,7 +7,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(11);
+select plan(13);
 
 insert into auth.users (id, instance_id, aud, role, email)
 values
@@ -34,6 +34,14 @@ select is((select count(*) from public.heroes
   'the catalogue holds the ids the evidence produced, including 33005 — '
   'a hero seen only in other players'' lineups and owned by nobody here');
 reset role;
+
+-- 0043. Pinned with its nullability, like `stage` in 18: null means nobody
+-- has established the grade, and a NOT NULL would force the catalogue to
+-- invent one for the two heroes the evidence genuinely cannot separate.
+select has_column('public', 'heroes', 'grade',
+  'the catalogue records the hero grade rather than spelling it in a note');
+select col_is_null('public', 'heroes', 'grade',
+  'and leaves it null when nobody has established one');
 
 -- Everything below owns its rows. 990001 stands in for "a freshly seeded
 -- hero" without depending on one staying untouched.
@@ -67,8 +75,9 @@ reset role;
 set local role authenticated;
 select pg_temp.act_as('00000000-0000-4000-8000-0000000e0001');
 select lives_ok(
-  $$ update public.heroes set name = 'Pgtap Only Hero' where hero_id = 990001 $$,
-  'an admin can name a hero');
+  $$ update public.heroes
+     set name = 'Pgtap Only Hero', grade = 3 where hero_id = 990001 $$,
+  'an admin can name a hero and set its grade');
 select lives_ok(
   $$ insert into public.heroes (hero_id, name, troop_class)
      values (99999, 'Next Season', 2) $$,

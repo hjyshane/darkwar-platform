@@ -13,7 +13,39 @@ export interface Hero {
   hero_id: number;
   name: string | null;
   troop_class: number | null;
+  /** 1 파랑 · 2 보라 · 3 노랑, the game's own order. Null means nobody has
+   * established it — the catalogue never guesses one. */
+  grade: number | null;
   notes: string;
+}
+
+/** Grade labels, in the game's words.
+ *
+ * The game names these by colour, so translating them ("Blue", "Rare") would
+ * put a second vocabulary between the screen and the dashboard. They live
+ * here rather than in the schema for the same reason TROOP_CLASSES does:
+ * somebody read them off a screen.
+ *
+ * A grade we have not seen renders as its number instead of guessing — a
+ * fourth grade is the kind of thing a season ships.
+ */
+export const HERO_GRADES: Record<number, string> = {
+  1: '파랑',
+  2: '보라',
+  3: '노랑',
+};
+
+export function heroGradeName(grade: number | null): string {
+  if (grade === null) {
+    return '미정';
+  }
+  return HERO_GRADES[grade] ?? `등급 ${grade}`;
+}
+
+/** The class name for a hero's grade swatch, or null when there is nothing
+ * to colour. Kept next to the label so the two never drift apart. */
+export function heroGradeClass(grade: number | null): string | null {
+  return grade === null ? null : `grade-${grade}`;
 }
 
 export type HeroCatalogue = ReadonlyMap<number, Hero>;
@@ -21,7 +53,7 @@ export type HeroCatalogue = ReadonlyMap<number, Hero>;
 export async function fetchHeroes(): Promise<HeroCatalogue> {
   const { data, error } = await supabase
     .from('heroes')
-    .select('hero_id, name, troop_class, notes')
+    .select('hero_id, name, troop_class, grade, notes')
     .order('hero_id');
   if (error) {
     throw new Error(`hero query failed: ${error.message}`);
