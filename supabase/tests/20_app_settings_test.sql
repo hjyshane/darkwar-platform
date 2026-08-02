@@ -6,7 +6,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(9);
+select plan(12);
 
 insert into public.alliances (alliance_id, server_id, external_id, current_name, current_code)
 values
@@ -65,6 +65,36 @@ select isnt_empty($$ select * from public.app_settings $$,
 select throws_ok(
   $$ insert into public.app_settings (key, value) values ('x', '{}'::jsonb) $$,
   '42501', null, 'anon cannot write settings');
+reset role;
+
+-- The POSITIVE case, which is what was missing. 0032 granted only SELECT, so
+-- the admin_write policy governed a privilege nobody held and every write —
+-- an admin's included — was refused before RLS was reached. A suite that only
+-- asks "can the wrong person write?" passes happily against a table no one
+-- can write.
+create function pg_temp.as_admin() returns void language sql as $$
+  select set_config('request.jwt.claims',
+    json_build_object('sub', '00000000-0000-4000-8000-0000000ad001')::text, true);
+$$;
+
+insert into auth.users (id, instance_id, aud, role, email)
+values ('00000000-0000-4000-8000-0000000ad001', '00000000-0000-0000-0000-000000000000',
+        'authenticated', 'authenticated', 'settings-admin@test.invalid');
+insert into public.app_users (user_id, role, display_name)
+values ('00000000-0000-4000-8000-0000000ad001', 'admin', 'settings admin');
+
+set local role authenticated;
+select pg_temp.as_admin();
+select lives_ok(
+  $$ insert into public.app_settings (key, value)
+     values ('own_alliance', '{"alliance_id": "00000000-0000-4000-8000-0000000a2002"}'::jsonb) $$,
+  'an admin can write settings');
+select is((select is_own from public.alliances
+           where alliance_id = '00000000-0000-4000-8000-0000000a2002'), true,
+  'and the pin takes effect through the trigger');
+select is((select updated_by from public.app_settings where key = 'own_alliance'),
+          '00000000-0000-4000-8000-0000000ad001'::uuid,
+  'updated_by comes from the session, not the request body');
 reset role;
 
 select has_column('public', 'alliances', 'roster_unredacted_seen',
