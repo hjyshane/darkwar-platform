@@ -59,7 +59,7 @@ async function fetchArena(): Promise<ArenaData> {
     const { data: heroes, error: heroesError } = await supabase
       .from('arena_entry_heroes')
       .select(
-        'arena_entry_id, slot, hero_id, troop_class, hero_level, level_synced, star, hero_power, weapon_level, skills, equipment',
+        'arena_entry_id, slot, hero_id, troop_class, hero_level, level_synced, star, stage, hero_power, weapon_level, skills, equipment',
       )
       .in('arena_entry_id', ids.slice(start, start + 100));
     if (heroesError) {

@@ -20,6 +20,8 @@ function detail(hero: LineupHero, catalogue: HeroCatalogue | undefined): string 
     troopClassName(hero.troop_class),
     hero.hero_level === null ? null : `Lv ${hero.hero_level}`,
     stars === null ? null : `${stars}★`,
+    // Only present below the cap, which is where it means anything.
+    hero.stage === null ? null : `step ${hero.stage}`,
     hero.hero_power === null ? null : numberFormat.format(hero.hero_power),
   ]
     .filter((part) => part !== null)
@@ -102,6 +104,9 @@ export function LineupCell({ heroes }: { heroes: readonly LineupHero[] }) {
               <th scope="col">Class</th>
               <th scope="col">Lv</th>
               <th scope="col">★</th>
+              {/* How far toward the next star. Worth a column of its own on
+                  a defence board: it says who is about to get stronger. */}
+              <th scope="col">Step</th>
               <th scope="col">Weapon</th>
               <th scope="col">Gear</th>
               <th scope="col">Skills</th>
@@ -126,6 +131,12 @@ export function LineupCell({ heroes }: { heroes: readonly LineupHero[] }) {
                 {/* Converted, not raw: the payload counts one star higher
                     than the game, which caps at 5. See starsShown. */}
                 <td className="num">{starsShown(hero.star) ?? '—'}</td>
+                {/* The em dash here means "at maximum star, so there is no
+                    next step" — not "unknown". A 0 would be a lie: below the
+                    cap 0 is a real value meaning no progress yet. */}
+                <td className="num" title={hero.stage === null ? 'At maximum star' : undefined}>
+                  {hero.stage ?? '—'}
+                </td>
                 {/* Null is "not unlocked", a real state rather than a zero:
                     1,730 of 4,028 observed heroes have a weapon. */}
                 <td className="num">

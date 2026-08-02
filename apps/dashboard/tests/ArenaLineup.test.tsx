@@ -35,6 +35,9 @@ function hero(over: Partial<LineupHero> & Pick<LineupHero, 'slot' | 'hero_id'>):
     hero_level: 103,
     level_synced: false,
     star: 6,
+    // Null because star 6 is the cap: the payload sends no step for a maxed
+    // hero, and the normalizer writes that as null rather than 0 (0038).
+    stage: null,
     hero_power: 6_731_000,
     weapon_level: null,
     skills: [],
@@ -58,7 +61,9 @@ const lineup: LineupHero[] = [
     ],
   }),
   hero({ slot: 1, hero_id: 40002, troop_class: SHOOTER, hero_power: 7_031_800 }),
-  hero({ slot: 2, hero_id: 21001, troop_class: SHOOTER, hero_power: 6_929_350 }),
+  // Below the cap, so it has a step — and the step is a real 2, not a
+  // stand-in for "unknown".
+  hero({ slot: 2, hero_id: 21001, troop_class: SHOOTER, star: 5, stage: 2, hero_power: 6_929_350 }),
   hero({ slot: 5, hero_id: 11001, troop_class: SHOOTER, hero_power: 4_535_500 }),
   hero({ slot: 4, hero_id: 1004, star: 5, hero_power: 6_305_850 }),
 ];
@@ -108,6 +113,20 @@ test('a named hero prints the name the catalogue gives it', () => {
   expect(heroName(catalogue, 40001)).toBe('Ivan');
   // And only that one — an id with no row is unaffected by its neighbours.
   expect(heroName(catalogue, 40002)).toBe('40002');
+});
+
+test('the step reads as a dash at maximum star, never as a zero', () => {
+  renderWithQuery(<LineupCell heroes={lineup} />);
+  expand();
+
+  const cells = [...document.querySelectorAll('table.lineup-detail tbody tr')].map((tr) =>
+    [...tr.querySelectorAll('td')].map((td) => td.textContent?.trim()),
+  );
+  // Column 5 is Step. Slot 2 is the one below the cap and shows its 2; the
+  // other four are maxed and show an em dash, because a 0 there would claim
+  // they had made no progress toward a star that does not exist.
+  const steps = cells.map((row) => row[5]);
+  expect(steps).toEqual(['—', '2', '—', '—', '—']);
 });
 
 test('stars are shown as the game counts them, one below the payload', () => {

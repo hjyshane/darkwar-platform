@@ -19,6 +19,23 @@ supabase start                    # idempotent; skip if already running
 supabase db reset                 # applies every migration + seed
 ```
 
+**`db reset` destroys everything an admin typed.** Observations come back
+from fixtures; `heroes` names, `announcements`, `app_settings` and the
+alliance pin do not — nothing replays them, because a human is their only
+source. This has already cost a session's worth of hero names, typed while
+a migration was being applied in the background.
+
+Reset when the schema has to be rebuilt from scratch. When the only thing
+needed is a new migration on top of a database somebody is using, apply it
+without touching their rows:
+
+```bash
+supabase migration up               # new migrations only, no seed, no wipe
+```
+
+And if a reset is genuinely required while someone might be entering data,
+say so before running it — the cost falls on them, not on the run.
+
 The fixture observations reference a collector that the seed does not create:
 
 ```bash

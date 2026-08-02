@@ -9,6 +9,7 @@ function lineup(classes: (number | null)[]): LineupHero[] {
     hero_level: 100,
     level_synced: false,
     star: 6,
+    stage: null,
     hero_power: 1,
     weapon_level: null,
     skills: [],

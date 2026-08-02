@@ -749,6 +749,7 @@ export type Database = {
           slot: number | null
           snapshot_id: string
           source_command: string
+          stage: number | null
           star: number | null
           troop_class: number | null
           troop_count: number | null
@@ -780,6 +781,7 @@ export type Database = {
           slot?: number | null
           snapshot_id?: string
           source_command: string
+          stage?: number | null
           star?: number | null
           troop_class?: number | null
           troop_count?: number | null
@@ -811,6 +813,7 @@ export type Database = {
           slot?: number | null
           snapshot_id?: string
           source_command?: string
+          stage?: number | null
           star?: number | null
           troop_class?: number | null
           troop_count?: number | null
