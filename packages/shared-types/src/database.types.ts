@@ -2413,6 +2413,13 @@ export type Database = {
           },
         ]
       }
+      sync_status: {
+        Row: {
+          is_live: boolean | null
+          last_heartbeat_at: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       backfill_month_card_from_raw: {

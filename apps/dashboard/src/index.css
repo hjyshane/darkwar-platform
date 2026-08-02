@@ -879,6 +879,61 @@ button:focus-visible {
   margin-bottom: var(--space-3);
 }
 
+/* Whether anything is still arriving. Sits in the title because it is about
+ * the whole board rather than one table.
+ *
+ * The words carry the state; the dot and its colour are emphasis. A reader
+ * who cannot separate green from grey still reads "Real-time sync stopped",
+ * which is the half that matters. */
+.sync-status {
+  align-items: center;
+  display: inline-flex;
+  font-size: var(--text-sm);
+  font-weight: 400;
+  gap: var(--space-1);
+  margin-inline-start: var(--space-3);
+  vertical-align: middle;
+  color: var(--fg-muted);
+}
+
+.sync-dot {
+  border-radius: 50%;
+  height: 0.55em;
+  width: 0.55em;
+  background: var(--neutral-fg);
+}
+
+.sync-live .sync-dot {
+  background: var(--ok-fg);
+}
+
+/* Stopped is the state worth noticing, so it is the one that gets colour on
+ * the text as well — the board looks identical when the collector dies, and
+ * nothing else on screen would say so. */
+.sync-stopped {
+  color: var(--danger-fg);
+}
+
+.sync-stopped .sync-dot {
+  background: var(--danger-fg);
+}
+
+@media (prefers-color-scheme: dark) {
+  .sync-live .sync-dot {
+    background: #4ade80;
+  }
+
+  .sync-stopped,
+  .sync-stopped .sync-dot {
+    color: #f87171;
+    background: revert-layer;
+  }
+
+  .sync-stopped .sync-dot {
+    background: #f87171;
+  }
+}
+
 /* The rank in front of a member's name. Small, so it reads as a label on
  * the name rather than a column of its own — which is what it would have
  * had to be if the pinned name cell had room to its left.
