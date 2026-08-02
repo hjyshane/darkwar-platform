@@ -685,25 +685,37 @@ button:focus-visible {
 
 /* Categorical, not status. Deliberately NOT the ok/warn/danger tokens: those
  * mean fresh/stale/missing elsewhere in this app, and a shooter is not a
- * warning. Three hues that stay distinguishable in both themes, plus neutral
- * for a class the payload has not shown us before. */
+ * warning.
+ *
+ * These were pale tints (#ffedd5 / #e0f2fe / #ede9fe) and did not actually
+ * separate: run through a categorical-palette check, shooter and rider came
+ * out ΔE 2.7 apart in NORMAL vision — indistinguishable to everyone, not
+ * just to a colourblind reader — and all three failed the chroma floor,
+ * reading as three shades of grey. The F/S/R letter was doing the whole job
+ * and the colour was decoration.
+ *
+ * Re-stepped until the check passed in both themes: mid-lightness, real
+ * chroma, worst adjacent pair ΔE 20.3 normal / 7.8 deutan in light and
+ * 9.9 in dark. Deutan sits in the 6-8 band where a second channel is
+ * required — the chip keeps its letter, which is that channel. Dark is its
+ * own set chosen against the dark surface, not a flip of the light one. */
 :root {
-  --class-1-bg: #ffedd5;
-  --class-1-fg: #7c2d12;
-  --class-2-bg: #e0f2fe;
-  --class-2-fg: #075985;
-  --class-3-bg: #ede9fe;
-  --class-3-fg: #4c1d95;
+  --class-1-bg: #b45309;
+  --class-1-fg: #ffffff;
+  --class-2-bg: #0369a1;
+  --class-2-fg: #ffffff;
+  --class-3-bg: #7e22ce;
+  --class-3-fg: #ffffff;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --class-1-bg: #7c2d12;
-    --class-1-fg: #ffedd5;
-    --class-2-bg: #075985;
-    --class-2-fg: #e0f2fe;
-    --class-3-bg: #4c1d95;
-    --class-3-fg: #ede9fe;
+    --class-1-bg: #d97706;
+    --class-1-fg: #1a1206;
+    --class-2-bg: #0891b2;
+    --class-2-fg: #04161c;
+    --class-3-bg: #a855f7;
+    --class-3-fg: #1a0a2b;
   }
 }
 
@@ -835,7 +847,12 @@ button:focus-visible {
 
 /* Shortcut chips — the favourites block on the overview. A list, not a row
  * of buttons: these are links to other screens, and a screen reader should
- * be told how many there are before reading them out. */
+ * be told how many there are before reading them out.
+ *
+ * Scoped to `.chips`, and that is not tidiness. `.chip` was already the
+ * lineup's class badge, and an unscoped rule here — later in the file, same
+ * specificity — silently repainted every F/S/R badge in the arena the same
+ * neutral grey. The colour was gone and nothing failed. */
 .chips {
   display: flex;
   flex-wrap: wrap;
@@ -845,7 +862,7 @@ button:focus-visible {
   padding: 0;
 }
 
-.chip {
+.chips .chip {
   background: var(--bg-raised);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -855,12 +872,12 @@ button:focus-visible {
   text-decoration: none;
 }
 
-.chip:hover {
+.chips .chip:hover {
   background: var(--bg-hover);
   border-color: var(--border-strong);
 }
 
-.chip:focus-visible {
+.chips .chip:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
@@ -992,7 +1009,37 @@ button:focus-visible {
 
 /* A chip that acts rather than navigates. Same look as the link chips, but a
  * button, because it changes a setting instead of going somewhere. */
-button.chip {
+.chips button.chip {
   cursor: pointer;
   font: inherit;
+}
+
+/* The synergy line under a lineup. Not a status colour — a lineup with three
+ * of a class is not "good", it is a fact about the lineup, and the reader is
+ * as likely to be looking for what beats it. */
+.synergy {
+  align-items: center;
+  color: var(--fg-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: var(--text-sm);
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.synergy strong {
+  color: var(--fg);
+}
+
+/* The chips that earned the bonus, marked so the eye can find them among the
+ * five without counting. An outline rather than a different fill: the fill
+ * already means the class, and overloading it would make a shooter in a
+ * shooter lineup a different colour from a shooter in a mixed one.
+ *
+ * The ring is --fg, not currentcolor. currentcolor is the chip's own text,
+ * which is white on the class fill, so the ring was drawn white on a white
+ * page and vanished in both themes — the marking was there in the DOM and
+ * invisible on screen. */
+.chip-synergy {
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--fg);
 }
