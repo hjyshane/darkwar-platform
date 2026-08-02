@@ -148,6 +148,33 @@ export function FormulaSetting({ values }: { values: Record<string, number | nul
           />
         </label>
 
+        {/* The names were undiscoverable: a formula is written against ids
+            like `weekly_donation` and the only place they appeared was this
+            field's placeholder. Clicking one appends it, so the list is both
+            the reference and the way to use it. Each shows its current value
+            because "which figure is this" is answered faster by the number
+            than by the id. */}
+        <div className="metric-picker">
+          <span className="subtle">Figures you can use — click to insert:</span>
+          {METRIC_CATALOGUE.map((metric) => (
+            <button
+              className="linklike"
+              key={metric.id}
+              onClick={() =>
+                setExpression((current) =>
+                  current.trim() === '' ? metric.id : `${current.trimEnd()} ${metric.id}`,
+                )
+              }
+              title={`${metric.label} · now ${
+                values[metric.id] == null ? 'unknown' : values[metric.id]?.toLocaleString('ko-KR')
+              }`}
+              type="button"
+            >
+              <code>{metric.id}</code>
+            </button>
+          ))}
+        </div>
+
         {parseProblem !== null && <p className="error">{parseProblem}</p>}
         {parseProblem === null && expression.trim() !== '' && (
           <p className="subtle">

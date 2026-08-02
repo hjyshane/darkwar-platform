@@ -229,26 +229,31 @@ main > * {
   overscroll-behavior-x: contain;
 }
 
-/* The measure is a READING width. Eleven columns are not prose, and at
- * 1440 the page was leaving ~290px of margin unused while clipping three
- * columns off the right. So the table — and only the table — reaches past
- * it; the heading and tabs stay where the eye expects them.
+/* The measure is a READING width, and eleven columns of figures are not
+ * prose. At 1440 the page was leaving ~290px of margin unused while clipping
+ * three columns off the right, so wide viewports get a wider page.
  *
- * Bleeding by a fixed amount behind a viewport query, rather than
- * calc()-ing against 100vw: vw includes the scrollbar, so the arithmetic
- * overflows the page by exactly the scrollbar's width on the platforms
- * that reserve one. The breakpoints below leave room for the bleed with
- * the body's own 1152 + 2×16 already spent.
+ * This used to be done by bleeding .table-wrap out of the measure with a
+ * negative margin, which had two faults the user saw straight away: the
+ * table no longer lined up with the heading above it, and the bleed
+ * overflowed the body by exactly the part that stuck out past its padding —
+ * 32px of sideways page scroll, which is the one thing NFR-011's layout
+ * rule says must never happen.
+ *
+ * Widening the measure gives the table the same room and keeps every edge on
+ * the page in one column. The steps stay clear of the viewport with the
+ * body's own padding already spent: 78rem + 2rem fits 85rem, 88rem + 2rem
+ * fits 100rem.
  */
 @media (width >= 85rem) {
-  .table-wrap {
-    margin-inline: -3rem;
+  body {
+    --measure: 78rem;
   }
 }
 
 @media (width >= 100rem) {
-  .table-wrap {
-    margin-inline: -8rem;
+  body {
+    --measure: 88rem;
   }
 }
 
@@ -874,10 +879,33 @@ button:focus-visible {
   margin-bottom: var(--space-3);
 }
 
-.lineup-legend > * {
+/* The list of names a formula may use. Wraps freely — eleven ids is more
+ * than a line and fewer than a table wants. */
+.metric-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.metric-picker code {
+  background: var(--bg-hover);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-1);
+}
+
+.legend-entry {
   align-items: center;
   display: inline-flex;
   gap: var(--space-1);
+}
+
+/* The equals sign carries no information a sighted reader needs spelling
+ * out and no screen reader should read "equals" between a chip and its
+ * meaning, so it is muted and hidden from the accessibility tree. */
+.legend-entry > [aria-hidden] {
+  color: var(--border-strong);
 }
 
 /* The sample chips in the legend carry no letter, so they need a size of
