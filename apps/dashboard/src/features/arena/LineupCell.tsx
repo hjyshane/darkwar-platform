@@ -3,6 +3,7 @@ import {
   type LineupHero,
   bySlot,
   composition,
+  synergy,
   troopClassInitial,
   troopClassName,
 } from '../../lib/troops';
@@ -43,13 +44,24 @@ export function LineupCell({ heroes }: { heroes: readonly LineupHero[] }) {
     return <>—</>;
   }
   const ordered = bySlot(heroes);
+  // Three of a class is the thing worth seeing at a glance, because it is
+  // what changes the fight — and what tells you which lineup of your own to
+  // send. Counting five chips by eye every row is exactly the work a screen
+  // should be doing.
+  const bonus = synergy(heroes);
   return (
     <details className="lineup-details" onToggle={(event) => setOpen(event.currentTarget.open)}>
       <summary>
         <span className="lineup" title={composition(heroes)}>
           {ordered.map((hero) => (
             <span
-              className={`chip chip-class-${hero.troop_class ?? 'unknown'}`}
+              className={[
+                'chip',
+                `chip-class-${hero.troop_class ?? 'unknown'}`,
+                bonus !== null && hero.troop_class === bonus.troopClass ? 'chip-synergy' : null,
+              ]
+                .filter(Boolean)
+                .join(' ')}
               key={`${hero.slot}-${hero.hero_id}`}
               title={detail(hero)}
             >
@@ -57,6 +69,23 @@ export function LineupCell({ heroes }: { heroes: readonly LineupHero[] }) {
             </span>
           ))}
         </span>
+        {bonus !== null && (
+          <span className="synergy">
+            <strong>
+              {bonus.count} {troopClassName(bonus.troopClass)}
+            </strong>
+            {/* The numbers, not just "has a bonus" — the whole point is
+                comparing one opponent against another. */}
+            <span>×{bonus.statMultiplier} atk/def</span>
+            <span>+{Math.round(bonus.counterDamageBonus * 100)}% counter</span>
+            {/* Both directions. A reader looking at someone else's defence
+                wants the second one at least as much as the first. */}
+            <span>
+              beats {troopClassName(bonus.strongAgainst)} · loses to{' '}
+              {troopClassName(bonus.weakAgainst)}
+            </span>
+          </span>
+        )}
       </summary>
       {/* Rendered only while open: a Top100 board would otherwise build 100
           of these tables up front, for the one a reader actually opens. */}

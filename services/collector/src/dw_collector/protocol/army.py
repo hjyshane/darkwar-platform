@@ -13,8 +13,17 @@ and maxLv. That is what pins the identity and level fields.
     1        the defending troop stack, once per lineup
     1.1      troop type id, e.g. "107009" — the only string in the message.
              `107` + class digit (0/1/2) + `0` + tier digit (7/8/9)
+    1.2      troop class again, as `id[3] + 1`. Exactly that in 800 of 800
+             lineups, which is why it looked like an unknown 1-3 field: it
+             carries nothing the id does not already say
     1.3      troop count. 4,677-14,665 observed, correlating 0.85 with the
              entry's power, which is what identifies it
+    1.9      industry level, 1-3, absent below 1. A unit levels 1-10 — the
+             tier digit in 1.1 — and only then takes industry levels, which
+             the data shows exactly: non-zero ONLY at tier 9, never at 7 or
+             8 (91 and 170 units, all absent). Stored as a plain integer
+             rather than checked against 1-3, because the game is due to
+             extend it to 10
     2 (rep)  one per deployed hero, always exactly five
     2.1      heroId, same id space as rank.get.by.range type 49's heroId
     2.2      the level the hero reached on its own. Not its actual level when
@@ -24,7 +33,19 @@ and maxLv. That is what pins the identity and level fields.
              hero — 40001 owns 100421xx/100422xx, 1004 owns 100131xx
     2.6      heroUuid, matching army.info for the collector's own account
     2.7      level cap. 200 everywhere, matching army.info's maxLv
-    2.8      star
+    2.8      star, ONE HIGHER than the game shows: 3-6 here is 2-5 stars on
+             screen, and 5 is the cap — so payload 6 is a maxed hero. The
+             offset was read off the screen in an earlier session and lived
+             only in the handover, which is how a note about a decoder ends
+             up somewhere the decoder's reader will not look. Same value
+             space as push.hero.data's `rankLv`
+    2.9      stage — the step within the current star. Named by
+             push.hero.data, which returns the collector's own heroes as
+             plain JSON with a `stage` field that is 0 for all nine at
+             rankLv 6 (5 stars, maxed) and 1 for the one at rankLv 4. Here
+             it is absent for 1,973 of 1,973 units at 2.8 = 6 and takes 1-4
+             below it, which is the same shape: proto3 omits a zero, so
+             absent means 0 — no next star to work towards
     2.12     troop class: 1 fighter, 2 shooter, 3 rider
     2.13 (rep) equipment, always four: id, level (1-100), step (1-36)
     2.15     the hero's exclusive weapon: its id is the hero's own id in
@@ -47,10 +68,13 @@ Skills come back in id order once sorted, and that is the order the game
 lists them in — checked against five lineups, twenty skills, every level
 matching.
 
-Field 2.9 (1-4) is still NOT interpreted. It is absent at max star, so it
-looks like progress toward the next one, but the lineup that would have
-settled it had every hero at max. The trailing block 12 is unread too. Both
-ride along in `extra` and land in the row's `raw`.
+Field 2.3 is 1 on all 3,998 units observed. A field with one value carries
+nothing, so it is left in `extra` rather than named — but it is not a
+mystery either, and nobody should spend a capture on it.
+
+What 2.9 LOOKS like on the hero screen is still unconfirmed — shards toward
+the next star, pips beside it, something else. The name comes from the
+game's own field in another command, not from having read the screen.
 """
 
 from __future__ import annotations
@@ -71,7 +95,11 @@ LINEUP_SIZE = 5
 _TROOPS = 1
 _UNITS = 2
 _TROOP_TYPE = 1
+# 1.2. NOT _TROOP_CLASS, which is the unit's class at 2.12 — naming this one
+# the same shadowed that constant and silently read field 12 of the stack.
+_STACK_CLASS = 2
 _TROOP_COUNT = 3
+_TROOP_INDUSTRY = 9
 _HERO_ID = 1
 _LEVEL = 2
 _SLOT = 4
@@ -79,6 +107,7 @@ _SKILLS = 5
 _HERO_UUID = 6
 _MAX_LEVEL = 7
 _STAR = 8
+_STAGE = 9
 _TROOP_CLASS = 12
 _EQUIPMENT = 13
 _SYNCED_LEVEL = 14
@@ -94,6 +123,7 @@ _INTERPRETED_UNIT_FIELDS = frozenset(
         _HERO_UUID,
         _MAX_LEVEL,
         _STAR,
+        _STAGE,
         _TROOP_CLASS,
         _EQUIPMENT,
         _EXCLUSIVE_WEAPON,
@@ -137,6 +167,9 @@ class ArmyUnit:
     level_synced: bool = False
     max_level: int | None = None
     star: int | None = None
+    #: The step within the current star. Zero at max star, where the payload
+    #: omits it — proto3 drops a zero, so absent and 0 are the same fact.
+    stage: int | None = None
     power: int | None = None
     hero_uuid: int | None = None
     weapon_level: int | None = None
@@ -153,6 +186,11 @@ class Army:
     units: tuple[ArmyUnit, ...] = field(default=())
     troop_type_id: str | None = None
     troop_count: int | None = None
+    #: Class of the defending stack, 1-3. Redundant with troop_type_id.
+    troop_class: int | None = None
+    #: Industry level on top of the unit's own level. Zero until the unit is
+    #: at top tier, where the payload omits it — absent means 0, not unknown.
+    troop_industry: int = 0
 
 
 def _read_varint(buf: bytes, i: int) -> tuple[int, int]:
@@ -272,6 +310,9 @@ def _unit(values: dict[int, list[int | bytes]]) -> ArmyUnit:
         level_synced=synced is not None,
         max_level=_varint(values, _MAX_LEVEL),
         star=_varint(values, _STAR),
+        # Absent means zero, not unknown: proto3 omits a field equal to its
+        # default, and at max star this one is omitted every time.
+        stage=_varint(values, _STAGE) or 0,
         power=_varint(values, _POWER),
         hero_uuid=_varint(values, _HERO_UUID),
         weapon_level=_varint(weapon[0], 2) if weapon else None,
@@ -303,4 +344,8 @@ def decode_army(blob: str) -> Army:
         units=tuple(_unit(sub) for sub in _submessages(top, _UNITS)),
         troop_type_id=troop_type.decode() if isinstance(troop_type, bytes) else None,
         troop_count=_varint(troops[0], _TROOP_COUNT) if troops else None,
+        troop_class=_varint(troops[0], _STACK_CLASS) if troops else None,
+        # Absent means zero here too — a unit below top tier has no industry
+        # level yet, and the payload simply omits the field.
+        troop_industry=(_varint(troops[0], _TROOP_INDUSTRY) or 0) if troops else 0,
     )
