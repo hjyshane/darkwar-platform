@@ -5,6 +5,7 @@ import { FreshnessBadge } from '../../components/FreshnessBadge';
 import { SortableTh } from '../../components/SortableTh';
 import { TableSearch } from '../../components/TableSearch';
 import { formatLastOnline } from '../../lib/freshness';
+import { fieldsOf } from '../../lib/memberFormulas';
 import { playerHash } from '../../lib/route';
 import { TERMS } from '../../lib/terms';
 import { useFavourites } from '../../lib/useFavourites';
@@ -28,6 +29,13 @@ export interface RosterRow {
 }
 
 const numberFormat = new Intl.NumberFormat('ko-KR');
+// Same shortening the overview tiles offer — 4.4M rather than 4,400,000 —
+// because a described column is usually a score, and a score with seven
+// digits is read as a shape rather than a number.
+const compactFormat = new Intl.NumberFormat('en', {
+  notation: 'compact',
+  maximumFractionDigits: 1,
+});
 
 // Module level so the reference is stable across renders.
 const SEARCH_FIELDS = ['current_name', 'game_uid'] as const;
@@ -37,14 +45,54 @@ function formatNumber(value: number | null): string {
   return value === null ? '—' : numberFormat.format(value);
 }
 
-export function RosterTable({ rows, now }: { rows: RosterRow[]; now?: Date }) {
+/** A member formula's value for one row, under the formula's own id.
+ *
+ * Computed into the row rather than rendered on the fly, so the table's
+ * existing sort works on it — a column you cannot sort by is half a column,
+ * and the sort machinery reads keys off the row object. */
+function withFormulas(rows: RosterRow[], formulas: readonly ComputedColumn[]): RosterRow[] {
+  if (formulas.length === 0) {
+    return rows;
+  }
+  return rows.map((row) => {
+    const values = fieldsOf(row);
+    const extra: Record<string, number | null> = {};
+    for (const formula of formulas) {
+      extra[formula.id] = formula.evaluate(values);
+    }
+    // The extra keys are named at runtime by whoever wrote the formula, so
+    // they cannot be in RosterRow's type. They ride along untyped and are
+    // read back through an index signature at the one place that renders
+    // them — which is honest about what they are.
+    return { ...row, ...extra } as RosterRow;
+  });
+}
+
+export interface ComputedColumn {
+  id: string;
+  label: string;
+  compact: boolean;
+  evaluate: (values: Record<string, number | null>) => number | null;
+}
+
+export function RosterTable({
+  rows,
+  now,
+  columns = [],
+}: {
+  rows: RosterRow[];
+  now?: Date;
+  /** Columns an admin described. Empty is the normal case. */
+  columns?: readonly ComputedColumn[];
+}) {
   const { signedIn, isFavourite, toggle, count } = useFavourites();
   const [starredOnly, setStarredOnly] = useState(false);
   // Before the search, so the count reads "3 / 8 of my starred members"
   // rather than "3 / 50 of everyone".
+  const computed = useMemo(() => withFormulas(rows, columns), [rows, columns]);
   const visible = useMemo(
-    () => (starredOnly ? rows.filter((row) => isFavourite('player', row.player_id)) : rows),
-    [rows, starredOnly, isFavourite],
+    () => (starredOnly ? computed.filter((row) => isFavourite('player', row.player_id)) : computed),
+    [computed, starredOnly, isFavourite],
   );
   // RosterPanel asks PostgREST for power desc; say so rather than letting
   // the header claim the rows arrived in no order at all.
@@ -133,6 +181,14 @@ export function RosterTable({ rows, now }: { rows: RosterRow[]; now?: Date }) {
               <SortableTh numeric onSort={onSort} sort={sort} sortKey="last_seen_at">
                 {TERMS.lastSeen}
               </SortableTh>
+              {/* Described columns go last: they are derived from the ones
+                  to their left, and putting them there keeps the figures
+                  the game actually reported in one block. */}
+              {columns.map((column) => (
+                <SortableTh key={column.id} numeric onSort={onSort} sort={sort} sortKey={column.id}>
+                  {column.label}
+                </SortableTh>
+              ))}
             </tr>
           </thead>
           <tbody>
@@ -174,6 +230,21 @@ export function RosterTable({ rows, now }: { rows: RosterRow[]; now?: Date }) {
                 <td className="num">
                   <FreshnessBadge capturedAt={row.last_seen_at} now={now} />
                 </td>
+                {columns.map((column) => {
+                  const value = (row as unknown as Record<string, unknown>)[column.id];
+                  return (
+                    <td className="num" key={column.id}>
+                      {/* Unknown stays unknown: a formula that read a member's
+                          missing duel score has no answer, and a 0 there
+                          would rank them below somebody who scored 1. */}
+                      {typeof value !== 'number'
+                        ? '—'
+                        : column.compact
+                          ? compactFormat.format(value)
+                          : numberFormat.format(Math.round(value))}
+                    </td>
+                  );
+                })}
               </tr>
             ))}
           </tbody>

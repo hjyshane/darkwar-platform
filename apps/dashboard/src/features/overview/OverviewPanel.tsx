@@ -7,7 +7,6 @@ import {
   METRIC_CATALOGUE,
   type MetricId,
   isFormulaId,
-  resolveFormulas,
   resolveMetrics,
   specFor,
 } from '../../lib/overviewMetrics';
@@ -151,14 +150,15 @@ async function fetchChosenMetrics(): Promise<ChosenTiles> {
   const { data, error } = await supabase
     .from('app_settings')
     .select('key, value')
-    .in('key', ['overview_metrics', 'overview_formulas']);
+    .in('key', ['overview_metrics']);
   if (error) {
     throw new Error(`metric setting query failed: ${error.message}`);
   }
   const byKey = new Map((data ?? []).map((row) => [row.key, row.value]));
-  const formulas = resolveFormulas(
-    (byKey.get('overview_formulas') as { formulas?: unknown } | undefined)?.formulas,
-  );
+  // No formulas here any more: a formula runs on a member and lands as a
+  // column on the Members table (0048). What was a tile saying one number
+  // for all 93 of them is now 93 numbers.
+  const formulas: FormulaMetric[] = [];
   const tiles = resolveMetrics(
     (byKey.get('overview_metrics') as { tiles?: unknown } | undefined)?.tiles,
     formulas.map((formula) => formula.id),

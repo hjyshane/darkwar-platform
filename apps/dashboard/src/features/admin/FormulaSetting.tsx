@@ -1,34 +1,33 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useId, useState } from 'react';
 import { FormulaError, evaluateFormula, parseFormula, referencedNames } from '../../lib/formula';
-import {
-  FORMULA_PREFIX,
-  type FormulaMetric,
-  METRIC_CATALOGUE,
-  resolveFormulas,
-} from '../../lib/overviewMetrics';
+import { MEMBER_FIELDS, MEMBER_FIELD_IDS, MEMBER_FORMULAS_KEY } from '../../lib/memberFormulas';
+import { FORMULA_PREFIX, type FormulaMetric, resolveFormulas } from '../../lib/overviewMetrics';
 import { supabase } from '../../lib/supabase';
 
-/** Figures an admin describes rather than picks.
+/** Columns an admin describes rather than picks.
  *
- * The expression is checked HERE, before it is written. That is what keeps
- * the overview simple: it only ever meets formulas that parsed once, and a
+ * A formula runs on ONE MEMBER and becomes a column on the Members table.
+ * It used to run on alliance totals and land as a tile on the overview,
+ * which made "Activity Score" the same number for all 93 of them.
+ *
+ * The expression is checked HERE, before it is written, which is what keeps
+ * the roster simple: it only ever meets formulas that parsed once, and a
  * reader never lands on a screen that will not draw because of somebody's
- * typo. It re-parses anyway on every read, because a formula can be made
- * invalid later by a metric going away rather than by being edited.
+ * typo. It re-parses on every read anyway, because a formula can be made
+ * invalid later by a field going away rather than by being edited.
  *
- * The preview is the other half of that. A formula is arithmetic over
- * figures the writer cannot see the values of while typing, so showing the
- * result against real current data is the difference between "it saved" and
- * "it is right".
+ * The preview is the other half of that, and it needs a member to run on.
+ * It uses the one at the top of the roster — named, so nobody reads the
+ * number as an alliance figure.
  */
-const KNOWN = METRIC_CATALOGUE.map((metric) => metric.id);
+const KNOWN = MEMBER_FIELD_IDS;
 
 async function fetchFormulas(): Promise<FormulaMetric[]> {
   const { data, error } = await supabase
     .from('app_settings')
     .select('value')
-    .eq('key', 'overview_formulas')
+    .eq('key', MEMBER_FORMULAS_KEY)
     .maybeSingle();
   if (error) {
     throw new Error(`formula query failed: ${error.message}`);
@@ -36,7 +35,13 @@ async function fetchFormulas(): Promise<FormulaMetric[]> {
   return resolveFormulas((data?.value as { formulas?: unknown } | null)?.formulas);
 }
 
-export function FormulaSetting({ values }: { values: Record<string, number | null> }) {
+export function FormulaSetting({
+  values,
+  sampleName,
+}: {
+  values: Record<string, number | null>;
+  sampleName: string | null;
+}) {
   const queryClient = useQueryClient();
   const formId = useId();
   const [label, setLabel] = useState('');
@@ -47,7 +52,7 @@ export function FormulaSetting({ values }: { values: Record<string, number | nul
   const [failed, setFailed] = useState(false);
 
   const { data, error, isPending } = useQuery({
-    queryKey: ['overview-formulas-admin'],
+    queryKey: ['member-formulas-admin'],
     queryFn: fetchFormulas,
   });
 
@@ -59,7 +64,7 @@ export function FormulaSetting({ values }: { values: Record<string, number | nul
         // whatever resolveFormulas will accept back, which is what the read
         // side actually enforces.
         .upsert({
-          key: 'overview_formulas',
+          key: MEMBER_FORMULAS_KEY,
           value: { formulas } as unknown as Record<string, never>,
         });
       if (writeError) {
@@ -122,8 +127,9 @@ export function FormulaSetting({ values }: { values: Record<string, number | nul
   return (
     <>
       <p className="subtle">
-        Arithmetic over the figures above — <code>+ - * /</code> and brackets, nothing else. A
-        formula whose inputs are unknown stays unknown; it never turns into a zero.
+        A column on the <strong>Members</strong> table, worked out per member. Arithmetic only —
+        <code>+ - * /</code> and brackets. A member whose figures are unknown gets an unknown
+        result; it never turns into a zero.
       </p>
 
       <form className="stack" onSubmit={submit}>
@@ -156,7 +162,7 @@ export function FormulaSetting({ values }: { values: Record<string, number | nul
             than by the id. */}
         <div className="metric-picker">
           <span className="subtle">Figures you can use — click to insert:</span>
-          {METRIC_CATALOGUE.map((metric) => (
+          {MEMBER_FIELDS.map((metric) => (
             <button
               className="linklike"
               key={metric.id}
@@ -178,8 +184,9 @@ export function FormulaSetting({ values }: { values: Record<string, number | nul
         {parseProblem !== null && <p className="error">{parseProblem}</p>}
         {parseProblem === null && expression.trim() !== '' && (
           <p className="subtle">
-            Now: <strong>{preview === null ? '—' : preview.toLocaleString('ko-KR')}</strong>
-            {preview === null && ' (one of its figures is unknown, or it divides by zero)'}
+            {sampleName === null ? 'Preview' : `For ${sampleName}`}:{' '}
+            <strong>{preview === null ? '—' : preview.toLocaleString('ko-KR')}</strong>
+            {preview === null && ' (one of their figures is unknown, or it divides by zero)'}
             {reads.length > 0 && ` · reads ${reads.join(', ')}`}
           </p>
         )}

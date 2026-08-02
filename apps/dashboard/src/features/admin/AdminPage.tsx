@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
+import { fieldsOf } from '../../lib/memberFormulas';
 import { useSession } from '../../lib/useSession';
-import { fetchSummary } from '../overview/OverviewPanel';
+import { fetchRoster } from '../roster/RosterPanel';
 import { AnnouncementsSetting } from './AnnouncementsSetting';
 import { FormulaSetting } from './FormulaSetting';
 import { HeroesSetting } from './HeroesSetting';
@@ -24,9 +25,17 @@ import { PetsSetting } from './PetsSetting';
 export function AdminPage() {
   const { data: session } = useSession();
   const isAdmin = session?.role === 'admin';
-  // The same figures the overview computes, so a formula can be previewed
-  // against what it will actually run on rather than against nothing.
-  const { data: summary } = useQuery({ queryKey: ['overview'], queryFn: fetchSummary });
+  // A member formula runs on one member, so the preview needs one. The
+  // strongest is used because they are the row most likely to have every
+  // figure filled in — a preview against somebody with three nulls says
+  // "unknown" and teaches nothing.
+  // Same query the Members tab runs, so the preview cannot drift from the
+  // rows the formula will actually meet. The roster comes back strongest
+  // first, and the strongest member is the row most likely to have every
+  // figure filled in — previewing against somebody with three nulls says
+  // "unknown" and teaches nothing.
+  const { data: roster } = useQuery({ queryKey: ['roster'], queryFn: fetchRoster });
+  const sample = roster?.[0] ?? null;
 
   return (
     <main>
@@ -67,8 +76,11 @@ export function AdminPage() {
       </section>
 
       <section aria-labelledby="formulas-heading">
-        <h2 id="formulas-heading">Calculated figures</h2>
-        <FormulaSetting values={summary?.values ?? {}} />
+        <h2 id="formulas-heading">Member columns</h2>
+        <FormulaSetting
+          sampleName={sample?.current_name ?? null}
+          values={sample === null ? {} : fieldsOf(sample)}
+        />
       </section>
 
       <section aria-labelledby="notices-heading">

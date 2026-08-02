@@ -1,8 +1,49 @@
 import { useQuery } from '@tanstack/react-query';
+import { FormulaError, evaluateFormula, parseFormula } from '../../lib/formula';
+import { MEMBER_FIELD_IDS, MEMBER_FORMULAS_KEY } from '../../lib/memberFormulas';
+import { resolveFormulas } from '../../lib/overviewMetrics';
 import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
 import { useSession } from '../../lib/useSession';
-import { type RosterRow, RosterTable } from './RosterTable';
+import { type ComputedColumn, type RosterRow, RosterTable } from './RosterTable';
+
+/** The columns an admin described, parsed once here.
+ *
+ * Parsed rather than stored as a tree: a formula is text in a settings row,
+ * and it can be made invalid after it was written — by a figure going away
+ * rather than by anybody editing it. One that no longer parses is dropped,
+ * so a bad expression costs its own column and not the whole table.
+ */
+async function fetchMemberColumns(): Promise<ComputedColumn[]> {
+  const { data, error } = await supabase
+    .from('app_settings')
+    .select('value')
+    .eq('key', MEMBER_FORMULAS_KEY)
+    .maybeSingle();
+  if (error) {
+    throw new Error(`member formula query failed: ${error.message}`);
+  }
+  return resolveFormulas((data?.value as { formulas?: unknown } | null)?.formulas).flatMap(
+    (formula) => {
+      try {
+        const tree = parseFormula(formula.expression, MEMBER_FIELD_IDS);
+        return [
+          {
+            id: formula.id,
+            label: formula.label,
+            compact: formula.compact,
+            evaluate: (values: Record<string, number | null>) => evaluateFormula(tree, values),
+          },
+        ];
+      } catch (parseError) {
+        if (parseError instanceof FormulaError) {
+          return [];
+        }
+        throw parseError;
+      }
+    },
+  );
+}
 
 /** Three queries rather than an embedded select.
  *
@@ -15,7 +56,9 @@ import { type RosterRow, RosterTable } from './RosterTable';
  * renders null as "—", which is the honest answer: not zero, not hidden,
  * just not visible to you.
  */
-async function fetchRoster(): Promise<RosterRow[]> {
+/** Exported so the admin's formula preview can run against a real member
+ * rather than a second, drifting copy of this join. */
+export async function fetchRoster(): Promise<RosterRow[]> {
   // Our alliance's members, not the strongest players we have ever seen.
   //
   // `players` accumulates everyone the collector observes — cross-server
@@ -111,6 +154,10 @@ function lastOnline(presence: PresenceRow | undefined) {
 
 export function RosterPanel() {
   const { data, error, isPending } = useQuery({ queryKey: ['roster'], queryFn: fetchRoster });
+  const { data: columns } = useQuery({
+    queryKey: ['member-formulas'],
+    queryFn: fetchMemberColumns,
+  });
   const { data: session } = useSession();
   const restricted = session !== undefined && session.role === 'viewer';
   return (
@@ -137,7 +184,7 @@ export function RosterPanel() {
       )}
       {isPending && <p className="empty">Loading…</p>}
       {error && <p className="error">Could not load members: {error.message}</p>}
-      {data && <RosterTable rows={data} />}
+      {data && <RosterTable columns={columns ?? []} rows={data} />}
     </section>
   );
 }
