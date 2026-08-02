@@ -1,3 +1,4 @@
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { FavouriteButton } from '../../components/FavouriteButton';
 import { FavouritesFilter } from '../../components/FavouritesFilter';
@@ -6,12 +7,23 @@ import { SortableTh } from '../../components/SortableTh';
 import { TableSearch } from '../../components/TableSearch';
 import { formatLastOnline } from '../../lib/freshness';
 import { fieldsOf } from '../../lib/memberFormulas';
+import { GAME_RANKS, isAllowed, usePermissions } from '../../lib/permissions';
 import { playerHash } from '../../lib/route';
+import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
 import { useFavourites } from '../../lib/useFavourites';
+import { useSession } from '../../lib/useSession';
 import { useTableView } from '../../lib/useTableView';
 
 export interface RosterRow {
+  /** What an admin set, which wins over anything computed. */
+  assigned_rank: string | null;
+  /** What the newest period worked out — R1-R3 only, because R4 and R5 are
+   * limited seats handed out by hand. */
+  computed_rank: string | null;
+  /** The score that rank came from. A rank on its own is an assertion; this
+   * is what makes it arguable. */
+  rank_score: number | null;
   /** Power at the most recent 02:05 UTC against the same point a day and a
    * week earlier (0051). Null where there is no earlier snapshot to compare
    * with — which is not the same as 0% and must not render as one. */
@@ -44,6 +56,66 @@ const compactFormat = new Intl.NumberFormat('en', {
   maximumFractionDigits: 1,
 });
 
+/** The rank a member holds, in front of their name.
+ *
+ * In the name cell rather than a column of its own, for the same reason the
+ * favourite star is: the name cell is the one pinned to the left, and a
+ * column placed before it would slide underneath the pinned name the moment
+ * the table scrolls sideways. The CSS above already carries that scar from
+ * Arena's rank column.
+ *
+ * Editable in place for whoever may manage members. A rank is decided by
+ * looking at somebody's figures, and those figures are on this row — sending
+ * the reader to a settings page to act on what they just read is the kind of
+ * separation that stops people bothering.
+ *
+ * A computed rank shows faded: it is what the last period worked out, not
+ * what anybody decided, and the difference is worth seeing at a glance.
+ */
+function RankBadge({
+  row,
+  editable,
+  onSet,
+}: {
+  row: RosterRow;
+  editable: boolean;
+  onSet: (playerId: string, rank: string | null) => void;
+}) {
+  const shown = row.assigned_rank ?? row.computed_rank;
+  if (!editable) {
+    return shown === null ? null : (
+      <span
+        className={`rank-badge ${row.assigned_rank === null ? 'rank-badge-computed' : ''}`}
+        title={row.assigned_rank === null ? 'Worked out from the last period' : 'Set by an admin'}
+      >
+        {shown}
+      </span>
+    );
+  }
+  return (
+    <select
+      aria-label={`Rank for ${row.current_name ?? row.game_uid}`}
+      className={`rank-badge ${row.assigned_rank === null ? 'rank-badge-computed' : ''}`}
+      onChange={(event) => onSet(row.player_id, event.target.value || null)}
+      title={
+        row.assigned_rank === null
+          ? 'Worked out from the last period — choosing here overrides it'
+          : 'Set by an admin'
+      }
+      value={row.assigned_rank ?? ''}
+    >
+      {/* Blank means "use the computed one", not "no rank". Clearing an
+          override has to be possible from the same control that sets it. */}
+      <option value="">{row.computed_rank ?? '—'}</option>
+      {GAME_RANKS.map((rank) => (
+        <option key={rank} value={rank}>
+          {rank}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 /** A signed percentage, coloured by direction.
  *
  * Green up, red down, and a plain dash for "no earlier snapshot" — the
@@ -75,7 +147,10 @@ function GrowthCell({ value, since }: { value: number | null; since: string | nu
 }
 
 // Module level so the reference is stable across renders.
-const SEARCH_FIELDS = ['current_name', 'game_uid'] as const;
+// Rank is searchable rather than sortable. It rides inside the name cell
+// (see below), so there is no column header to sort by — typing R3 is how
+// you get "everyone I would promote".
+const SEARCH_FIELDS = ['current_name', 'game_uid', 'assigned_rank', 'computed_rank'] as const;
 
 function formatNumber(value: number | null): string {
   // FR-UI-008: unknown is unknown, never zero.
@@ -123,6 +198,32 @@ export function RosterTable({
   columns?: readonly ComputedColumn[];
 }) {
   const { signedIn, isFavourite, toggle, count } = useFavourites();
+  const { data: session } = useSession();
+  const { data: permissions } = usePermissions();
+  const queryClient = useQueryClient();
+  const [rankError, setRankError] = useState<string | null>(null);
+  const mayRank = isAllowed(permissions?.grants, session?.role, 'members.manage');
+
+  const setRank = useMutation({
+    mutationFn: async ({ playerId, rank }: { playerId: string; rank: string | null }) => {
+      const { error, count: written } = await supabase
+        .from('players')
+        .update({ assigned_rank: rank }, { count: 'exact' })
+        .eq('player_id', playerId);
+      if (error) {
+        throw new Error(error.message);
+      }
+      // A refused UPDATE is filtered to zero rows and reports success.
+      if (written === 0) {
+        throw new Error('Nothing was written. Setting a rank needs "Manage members".');
+      }
+    },
+    onSuccess: () => {
+      setRankError(null);
+      void queryClient.invalidateQueries({ queryKey: ['roster'] });
+    },
+    onError: (error: Error) => setRankError(error.message),
+  });
   const [starredOnly, setStarredOnly] = useState(false);
   // Before the search, so the count reads "3 / 8 of my starred members"
   // rather than "3 / 50 of everyone".
@@ -144,6 +245,7 @@ export function RosterTable({
   }
   return (
     <>
+      {rankError !== null && <p className="error">{rankError}</p>}
       <TableSearch
         label={`Search ${TERMS.members.toLowerCase()}`}
         unit={TERMS.members.toLowerCase()}
@@ -227,6 +329,13 @@ export function RosterTable({
               <SortableTh numeric onSort={onSort} sort={sort} sortKey="last_seen_at">
                 {TERMS.lastSeen}
               </SortableTh>
+              {/* The score the rank came from. Next to the derived columns
+                  rather than next to the name, because it is worked out
+                  rather than observed — but before them, because it is the
+                  one the alliance runs on. */}
+              <SortableTh numeric onSort={onSort} sort={sort} sortKey="rank_score">
+                Rank score
+              </SortableTh>
               {/* Described columns go last: they are derived from the ones
                   to their left, and putting them there keeps the figures
                   the game actually reported in one block. */}
@@ -245,6 +354,11 @@ export function RosterTable({
                     star stays reachable instead of scrolling away with the
                     figures. */}
                 <td className="label">
+                  <RankBadge
+                    editable={mayRank}
+                    onSet={(playerId, rank) => setRank.mutate({ playerId, rank })}
+                    row={row}
+                  />
                   {signedIn && (
                     <FavouriteButton
                       id={row.player_id}
@@ -277,6 +391,9 @@ export function RosterTable({
                 </td>
                 <td className="num">
                   <FreshnessBadge capturedAt={row.last_seen_at} now={now} />
+                </td>
+                <td className="num" title={row.computed_rank ?? undefined}>
+                  {row.rank_score === null ? '—' : row.rank_score.toFixed(1)}
                 </td>
                 {columns.map((column) => {
                   const value = (row as unknown as Record<string, unknown>)[column.id];

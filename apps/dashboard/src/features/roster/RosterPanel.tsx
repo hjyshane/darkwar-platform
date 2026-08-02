@@ -79,7 +79,7 @@ export async function fetchRoster(): Promise<RosterRow[]> {
     // pointing back), and PostgREST refuses an ambiguous embed with PGRST201
     // rather than picking one.
     .select(
-      'player_id, game_uid, current_name, hq_level, power, kills, last_seen_at, alliances!players_current_alliance_id_fkey!inner(is_own)',
+      'player_id, game_uid, current_name, hq_level, power, kills, last_seen_at, assigned_rank, alliances!players_current_alliance_id_fkey!inner(is_own)',
     )
     .eq('alliances.is_own', true)
     .order('power', { ascending: false, nullsFirst: false })
@@ -126,7 +126,24 @@ export async function fetchRoster(): Promise<RosterRow[]> {
     throw new Error(`growth query failed: ${growthError.message}`);
   }
 
+  // What the latest period worked out, for the members nobody has set a
+  // rank on by hand.
+  const { data: ranks, error: rankError } = await supabase
+    .from('player_current_rank')
+    .select('player_id, computed_tier, rank_score')
+    .in(
+      'player_id',
+      players.map((player) => player.player_id),
+    );
+  // Not fatal. rank_period_snapshots is member-only, so a logged-out reader
+  // gets nothing here and should still see the roster — the same reason the
+  // contribution columns render as dashes rather than an error.
+  if (rankError && rankError.code !== '42501') {
+    throw new Error(`rank query failed: ${rankError.message}`);
+  }
+
   const byPlayer = new Map(contributions.map((row) => [row.player_id, row]));
+  const rankByPlayer = new Map((ranks ?? []).map((row) => [row.player_id, row]));
   const growthByPlayer = new Map(growth.map((row) => [row.player_id, row]));
   const presenceByPlayer = new Map(presence.map((row) => [row.player_id, row]));
   // `alliances` is the join used to filter, not a column of the row — drop it
@@ -138,6 +155,8 @@ export async function fetchRoster(): Promise<RosterRow[]> {
     duel_daily_score: byPlayer.get(player.player_id)?.duel_daily_score ?? null,
     duel_weekly_score: byPlayer.get(player.player_id)?.duel_weekly_score ?? null,
     duel_round_score: byPlayer.get(player.player_id)?.duel_round_score ?? null,
+    computed_rank: rankByPlayer.get(player.player_id)?.computed_tier ?? null,
+    rank_score: rankByPlayer.get(player.player_id)?.rank_score ?? null,
     growth_1d: growthByPlayer.get(player.player_id)?.growth_1d ?? null,
     growth_7d: growthByPlayer.get(player.player_id)?.growth_7d ?? null,
     growth_1d_at: growthByPlayer.get(player.player_id)?.power_1d_at ?? null,

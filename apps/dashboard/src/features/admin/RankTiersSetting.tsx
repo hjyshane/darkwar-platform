@@ -31,10 +31,30 @@ import { supabase } from '../../lib/supabase';
  *               a median
  */
 const METHODS = [
-  { id: 'percentile', label: 'Percentile — rank inside the alliance' },
-  { id: 'share', label: 'Share — of the alliance total' },
-  { id: 'zscore', label: 'Z-score — standard deviations from the mean' },
-  { id: 'median', label: 'Median — multiples of the typical member' },
+  {
+    id: 'percentile',
+    label: 'Percentile — rank inside the alliance',
+    formula: '100 × (members below x) ÷ (members − 1)',
+    note: 'Ignores how far ahead the top member was. Immune to one huge figure.',
+  },
+  {
+    id: 'share',
+    label: 'Share — of the alliance total',
+    formula: '100 × x ÷ Σx',
+    note: 'Reads as a sentence: "4% of the donations". One dominant member flattens the rest.',
+  },
+  {
+    id: 'zscore',
+    label: 'Z-score — standard deviations from the mean',
+    formula: '(x − mean) ÷ standard deviation',
+    note: 'Spreads the middle out. One huge figure moves the mean AND the spread, so everybody else shifts because of them.',
+  },
+  {
+    id: 'median',
+    label: 'Median — multiples of the typical member',
+    formula: '100 × x ÷ median',
+    note: 'Keeps magnitude, and an outlier cannot move a median the way it moves a mean.',
+  },
 ] as const;
 
 interface Tiers {
@@ -135,6 +155,41 @@ export function RankTiersSetting() {
             ))}
           </select>
         </label>
+
+        {/* Every method's arithmetic, not only the chosen one. Picking
+            between them is the point, and a comparison cannot be made from
+            a description of the one already selected. */}
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th className="label">Method</th>
+                <th className="label">Each figure becomes</th>
+                <th className="label">What that costs</th>
+              </tr>
+            </thead>
+            <tbody>
+              {METHODS.map((method) => (
+                <tr key={method.id}>
+                  <td className="label">
+                    {method.id === draft.normalisation ? <strong>{method.id}</strong> : method.id}
+                  </td>
+                  <td className="label">
+                    <code>{method.formula}</code>
+                  </td>
+                  <td className="label">{method.note}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <p className="subtle">
+          Then: <code>score = (Σ weight × scaled figure) ÷ Σ weight</code>, and the tier comes from
+          where that score ranks — top {draft.r3_percent}% R3, next {draft.r2_percent}% R2, the
+          remaining {r1}% R1. Anyone offline {draft.offline_hours} hours or more is R1 whatever the
+          score says.
+        </p>
 
         {(['donation', 'duel', 'power_growth'] as const).map((key) => (
           <label htmlFor={`weight-${key}`} key={key}>

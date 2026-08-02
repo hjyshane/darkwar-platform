@@ -879,6 +879,36 @@ button:focus-visible {
   margin-bottom: var(--space-3);
 }
 
+/* The rank in front of a member's name. Small, so it reads as a label on
+ * the name rather than a column of its own — which is what it would have
+ * had to be if the pinned name cell had room to its left.
+ *
+ * A computed rank is faded: it is what the last period worked out rather
+ * than what somebody decided, and a reader deciding promotions needs to
+ * know which of the two they are looking at. The `select` variant keeps the
+ * same size so the row does not jump between a reader and a manager. */
+.rank-badge {
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  margin-inline-end: var(--space-1);
+  padding: 0 0.3em;
+  background: var(--bg-raised);
+}
+
+select.rank-badge {
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-sm);
+}
+
+.rank-badge-computed {
+  border-style: dashed;
+  opacity: 0.75;
+}
+
 /* Power moving up or down. The sign is in the text as well, so the colour
  * is emphasis rather than the message — a reader who cannot separate these
  * two hues still reads +2.4% and -1.1%. */

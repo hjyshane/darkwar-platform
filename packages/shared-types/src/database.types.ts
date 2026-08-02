@@ -1920,6 +1920,7 @@ export type Database = {
       }
       players: {
         Row: {
+          assigned_rank: string | null
           created_at: string
           current_alliance_id: string | null
           current_name: string | null
@@ -1935,6 +1936,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          assigned_rank?: string | null
           created_at?: string
           current_alliance_id?: string | null
           current_name?: string | null
@@ -1950,6 +1952,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          assigned_rank?: string | null
           created_at?: string
           current_alliance_id?: string | null
           current_name?: string | null
@@ -2345,6 +2348,27 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "servers"
             referencedColumns: ["server_id"]
+          },
+        ]
+      }
+      player_current_rank: {
+        Row: {
+          computed_reason: string | null
+          computed_tier: string | null
+          donation_pct: number | null
+          duel_pct: number | null
+          growth_pct: number | null
+          period_start: string | null
+          player_id: string | null
+          rank_score: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rank_period_snapshots_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
           },
         ]
       }
