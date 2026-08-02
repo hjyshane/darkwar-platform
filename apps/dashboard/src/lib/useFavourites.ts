@@ -88,6 +88,9 @@ export function useFavourites() {
 
   return {
     signedIn,
+    // The sets themselves, for the overview block that lists what was
+    // starred rather than asking about one id at a time.
+    ids,
     isFavourite: (kind: FavouriteKind, id: string | number) =>
       (ids[kind] as Set<string | number>).has(id),
     toggle: (kind: FavouriteKind, id: string | number) => toggle.mutate({ kind, id }),

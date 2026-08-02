@@ -3,6 +3,7 @@ import { FavouriteButton } from '../../components/FavouriteButton';
 import { FavouritesFilter } from '../../components/FavouritesFilter';
 import { SortableTh } from '../../components/SortableTh';
 import { TableSearch } from '../../components/TableSearch';
+import { playerHash } from '../../lib/route';
 import { TERMS } from '../../lib/terms';
 import { useFavourites } from '../../lib/useFavourites';
 import { useTableView } from '../../lib/useTableView';
@@ -101,7 +102,7 @@ export function ServerPlayerTable({
                       onToggle={toggle}
                     />
                   )}
-                  {row.name ?? `UID ${row.game_uid}`}
+                  <a href={playerHash(row.player_id)}>{row.name ?? `UID ${row.game_uid}`}</a>
                 </td>
                 <td className="num">{formatNumber(row.power)}</td>
                 <td className="num">{formatNumber(row.kills)}</td>

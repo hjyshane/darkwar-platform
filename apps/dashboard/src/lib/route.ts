@@ -20,6 +20,8 @@ export type Route =
   | 'crossRankings'
   | 'arena'
   | 'server'
+  | 'player'
+  | 'alliance'
   | 'monthCards'
   | 'login';
 
@@ -37,11 +39,43 @@ const ROUTES: Record<string, Route> = {
 // reaching a query.
 const SERVER_HASH = /^#\/server\/(\d+)$/;
 
+// A player and an alliance are addressed by their uuid rather than a name:
+// names change (player_names exists for that reason) and are not unique
+// across servers. Matched strictly, so a malformed id falls through to the
+// landing screen instead of reaching a query as a string.
+const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
+const PLAYER_HASH = new RegExp(`^#/player/(${UUID})$`, 'i');
+const ALLIANCE_HASH = new RegExp(`^#/alliance/(${UUID})$`, 'i');
+
 export function routeFromHash(hash: string): Route {
   if (SERVER_HASH.test(hash)) {
     return 'server';
   }
+  if (PLAYER_HASH.test(hash)) {
+    return 'player';
+  }
+  if (ALLIANCE_HASH.test(hash)) {
+    return 'alliance';
+  }
   return ROUTES[hash] ?? 'overview';
+}
+
+/** The player a `#/player/<uuid>` address names, or null for any other. */
+export function playerIdFromHash(hash: string): string | null {
+  return PLAYER_HASH.exec(hash)?.[1] ?? null;
+}
+
+/** The alliance an `#/alliance/<uuid>` address names, or null. */
+export function allianceIdFromHash(hash: string): string | null {
+  return ALLIANCE_HASH.exec(hash)?.[1] ?? null;
+}
+
+export function playerHash(playerId: string): string {
+  return `#/player/${playerId}`;
+}
+
+export function allianceHash(allianceId: string): string {
+  return `#/alliance/${allianceId}`;
 }
 
 /** The server a `#/server/580` address names, or null for any other. */

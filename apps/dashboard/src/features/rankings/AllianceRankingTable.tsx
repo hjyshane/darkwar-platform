@@ -4,7 +4,7 @@ import { FavouritesFilter } from '../../components/FavouritesFilter';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
 import { SortableTh } from '../../components/SortableTh';
 import { TableSearch } from '../../components/TableSearch';
-import { serverHash } from '../../lib/route';
+import { allianceHash, serverHash } from '../../lib/route';
 import { TERMS } from '../../lib/terms';
 import { useFavourites } from '../../lib/useFavourites';
 import { useTableView } from '../../lib/useTableView';
@@ -105,7 +105,7 @@ export function AllianceRankingTable({
                 {TERMS.members_count}
               </SortableTh>
               <SortableTh numeric onSort={onSort} sort={sort} sortKey="captured_at">
-                {TERMS.observed}
+                {TERMS.lastSeen}
               </SortableTh>
             </tr>
           </thead>
@@ -122,8 +122,10 @@ export function AllianceRankingTable({
                       onToggle={toggle}
                     />
                   )}
-                  {row.code ? `[${row.code}] ` : ''}
-                  {row.name ?? row.external_id.slice(0, 8)}
+                  <a href={allianceHash(row.alliance_id)}>
+                    {row.code ? `[${row.code}] ` : ''}
+                    {row.name ?? row.external_id.slice(0, 8)}
+                  </a>
                 </td>
                 <td className="num">
                   <a href={serverHash(row.server_id)}>{row.server_id}</a>

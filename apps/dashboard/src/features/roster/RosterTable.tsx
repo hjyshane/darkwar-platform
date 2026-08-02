@@ -5,6 +5,7 @@ import { FreshnessBadge } from '../../components/FreshnessBadge';
 import { SortableTh } from '../../components/SortableTh';
 import { TableSearch } from '../../components/TableSearch';
 import { formatLastOnline } from '../../lib/freshness';
+import { playerHash } from '../../lib/route';
 import { TERMS } from '../../lib/terms';
 import { useFavourites } from '../../lib/useFavourites';
 import { useTableView } from '../../lib/useTableView';
@@ -151,7 +152,9 @@ export function RosterTable({ rows, now }: { rows: RosterRow[]; now?: Date }) {
                       onToggle={toggle}
                     />
                   )}
-                  {row.current_name ?? `UID ${row.game_uid}`}
+                  <a href={playerHash(row.player_id)}>
+                    {row.current_name ?? `UID ${row.game_uid}`}
+                  </a>
                 </td>
                 <td className="num">{row.hq_level ?? '—'}</td>
                 <td className="num">{formatNumber(row.power)}</td>

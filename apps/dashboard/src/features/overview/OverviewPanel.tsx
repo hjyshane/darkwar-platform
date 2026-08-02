@@ -4,6 +4,7 @@ import { StatTile } from '../../components/StatTile';
 import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
 import { useSession } from '../../lib/useSession';
+import { FavouritesBlock } from './FavouritesBlock';
 
 /** The landing screen: where the alliance stands, before who did what.
  *
@@ -184,5 +185,15 @@ export function OverviewPanel({ now }: { now?: Date }) {
         </>
       )}
     </section>
+  );
+}
+
+/** The landing screen. Sections in reading order; the next one appends. */
+export function Overview({ now }: { now?: Date }) {
+  return (
+    <>
+      <OverviewPanel now={now} />
+      <FavouritesBlock />
+    </>
   );
 }
