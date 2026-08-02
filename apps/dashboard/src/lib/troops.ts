@@ -34,6 +34,9 @@ export interface LineupHero {
    * payload distinguishes them, not because the level is worth less. */
   level_synced: boolean;
   star: number | null;
+  /** Promotion step toward the next star, 0-4. Null at maximum star, where
+   * there is no next star to step toward — not a zero. */
+  stage: number | null;
   hero_power: number | null;
   /** Null means the exclusive weapon is not unlocked, which is a state, not
    * a zero. */

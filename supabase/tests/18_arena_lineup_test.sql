@@ -4,8 +4,8 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
--- 6 has_column + 1 col_is_unique + 9 assertions.
-select plan(16);
+-- 6 has_column + 1 col_is_unique + 9 assertions, + 2 for `stage` (0038).
+select plan(18);
 
 select has_column('public', 'arena_entry_heroes', c.col,
   'arena_entry_heroes has ' || c.col)
@@ -14,6 +14,15 @@ from unnest(array['observation_id', 'source_command', 'parser_version',
 
 select col_is_unique('public', 'arena_entry_heroes', 'idempotency_key',
   'lineup idempotency_key is unique');
+
+-- 0038. The column is pinned along with its nullability, because the
+-- nullability is the finding: a hero at maximum star has no next step, and
+-- writing that as 0 would be indistinguishable from a hero below the cap
+-- who has not started one. A NOT NULL here would force exactly that.
+select has_column('public', 'arena_entry_heroes', 'stage',
+  'the promotion step is stored rather than decoded and dropped');
+select col_is_null('public', 'arena_entry_heroes', 'stage',
+  'and it is nullable, because at maximum star there is no step to record');
 
 create temp table _parent as
 select

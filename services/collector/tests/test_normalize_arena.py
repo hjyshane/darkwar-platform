@@ -12,6 +12,7 @@ import pytest
 from pydantic import ValidationError
 
 from dw_collector.normalize import arena
+from dw_collector.protocol.army import MAX_STAR
 from tests.conftest import load_observation
 
 
@@ -108,6 +109,42 @@ def test_lineups_become_rows_under_their_entry() -> None:
     assert all(h["game_uid"] == entries[0].row["game_uid"] for h in first)
     assert all(h["server_id"] == entries[0].row["server_id"] for h in first)
     assert all(h["troop_class"] in (1, 2, 3) for h in first)
+
+
+def test_stage_is_stored_below_the_cap_and_null_at_it() -> None:
+    """0038. The decoder emitted `stage` from the start and the normalizer
+    never read it, so it was discarded on every observation for thirteen
+    migrations. What makes it worth a test rather than one more assignment is
+    the null: proto3 sends nothing for a maxed hero and nothing decodes to 0,
+    which is also a real value below the cap. Writing both as 0 would put
+    "finished" and "not started" in the same column.
+    """
+    observation = load_observation("user.get.arena.info/top100_580v582_v1.json")
+    heroes = [r.row for r in arena.normalize(observation) if r.target_table == "arena_entry_heroes"]
+
+    maxed = [h for h in heroes if h["star"] == MAX_STAR]
+    below = [h for h in heroes if h["star"] is not None and h["star"] < MAX_STAR]
+    assert maxed and below, "the fixture has to contain both to prove anything"
+
+    assert all(h["stage"] is None for h in maxed)
+    # Not "every one of them is set" — below the cap 0 is legitimate, so the
+    # claim is that the value survives, and that at least one is non-zero.
+    assert all(isinstance(h["stage"], int) for h in below)
+    assert any(h["stage"] > 0 for h in below)
+    assert {h["stage"] for h in below} <= {0, 1, 2, 3, 4}
+
+
+def test_stage_survives_a_star_the_decoder_did_not_read() -> None:
+    """A unit with no star is not a maxed unit. Both write null, but for
+    opposite reasons, and the one that matters is that an unknown star must
+    not let a 0 through as though the cap had been checked."""
+    observation = load_observation("user.get.arena.info/top100_580v582_v1.json")
+    rows = arena.normalize(observation)
+    heroes = [r.row for r in rows if r.target_table == "arena_entry_heroes"]
+
+    for hero in heroes:
+        if hero["star"] is None:
+            assert hero["stage"] is None
 
 
 def test_lineup_keys_are_stable_and_distinct() -> None:

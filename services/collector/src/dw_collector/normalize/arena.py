@@ -22,7 +22,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from dw_collector.models import NormalizedRow, Observation, idempotency_key, stable_uuid
-from dw_collector.protocol.army import decode_army
+from dw_collector.protocol.army import MAX_STAR, decode_army
 from dw_collector.registry import register
 from dw_collector.resetweek import reset_week_start
 
@@ -192,6 +192,13 @@ def _lineup_rows(
                     "level_synced": unit.level_synced,
                     "max_level": unit.max_level,
                     "star": unit.star,
+                    # Only meaningful below the cap. proto3 sends nothing
+                    # for a maxed hero and nothing decodes to 0, which would
+                    # be indistinguishable from a real "no progress yet" —
+                    # so the cap is written as null instead (0038).
+                    "stage": (
+                        unit.stage if unit.star is not None and unit.star < MAX_STAR else None
+                    ),
                     "hero_power": unit.power,
                     "hero_uuid": unit.hero_uuid,
                     "weapon_level": unit.weapon_level,

@@ -72,9 +72,17 @@ Field 2.3 is 1 on all 3,998 units observed. A field with one value carries
 nothing, so it is left in `extra` rather than named — but it is not a
 mystery either, and nobody should spend a capture on it.
 
-What 2.9 LOOKS like on the hero screen is still unconfirmed — shards toward
-the next star, pips beside it, something else. The name comes from the
-game's own field in another command, not from having read the screen.
+2.9 is the promotion step toward the next star, and `init.userHero` is what
+settled it: on the collector's own 27 heroes the field is ABSENT for all 23
+at the maximum star and present only on the four below. That response is
+JSON, where absence is real absence rather than proto3's "equal to the
+default" — the server does not send a stage for a hero with no next star.
+The 4,260 decoded units agree: every one of the 2,196 at star 6 reads 0.
+
+Interpreting that is the normalizer's job, not this module's. Here 2.9 is
+read as the wire gives it; `stage` at maximum star is written as null
+downstream, because a 0 that means "no next star" and a 0 that means "no
+progress yet" must not end up in the same column.
 """
 
 from __future__ import annotations
@@ -113,6 +121,12 @@ _EQUIPMENT = 13
 _SYNCED_LEVEL = 14
 _EXCLUSIVE_WEAPON = 15
 _POWER = 16
+
+#: The top value `_STAR` takes, which the game prints as 5 — the payload
+#: counts one higher. Nothing in 4,260 decoded units read above it, and every
+#: unit that read it carried no stage. Exported because the meaning of
+#: `stage` depends on being below it.
+MAX_STAR = 6
 
 _INTERPRETED_UNIT_FIELDS = frozenset(
     {
