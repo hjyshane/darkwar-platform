@@ -782,11 +782,11 @@ button:focus-visible {
   width: 1em;
 }
 
-/* The chip is 1.4em wide with a letter in it; a glyph wants a touch more
- * room than the letter did or it reads as a smudge. */
+/* The chip is 1.4em wide and used to hold one letter; a glyph needs more of
+ * that room than a letter did or it reads as a smudge. */
 .chip .glyph > svg {
-  height: 1.05em;
-  width: 1.05em;
+  height: 1.2em;
+  width: 1.2em;
 }
 
 .gear-slot {

@@ -13,12 +13,15 @@
 export type GlyphName = 'axe' | 'bow' | 'gear' | 'hand' | 'head' | 'body' | 'foot';
 
 const PATHS: Record<GlyphName, string> = {
-  // Fighter. A double-bit head over a straight haft — the silhouette reads
-  // at 14px, which a thin diagonal blade did not.
-  axe: 'M8.9 6.6h2.2v11.2H8.9ZM11.1 2.2c4 0 7.1 2 7.1 5.1h-7.1ZM8.9 2.2c-4 0-7.1 2-7.1 5.1h7.1Z',
-  // Shooter. Stave, string and a nocked arrow — four solid pieces rather
-  // than one outline, so nothing disappears at chip size.
-  bow: 'M5 2.6a9.6 9.6 0 0 1 0 14.8l-1.9-1.4a7.3 7.3 0 0 0 0-12ZM4.4 2.6h1.2v14.8H4.4ZM6 9.2h9.2v1.9H6ZM14.4 7.4 19 10.15 14.4 12.9Z',
+  // Fighter. Broad head with the poll notched out, haft on the diagonal —
+  // the game's own axe rather than a hammer-ish T. Chosen by rendering four
+  // candidates at 14px, 24px and 56px and keeping the one still legible in
+  // a chip.
+  axe: 'M12.6 1.6C16.2 2.4 18.8 5.6 18.8 9.4 18.8 11 18.4 12.5 17.6 13.8L11.6 10.2 13.4 7.6 10.4 5.9ZM10.2 8.2 12.6 10.6 5.3 17.9 2.9 15.5Z',
+  // Shooter. Stave curving away from a nocked arrow, which is the crossed
+  // silhouette the game draws. Solid pieces rather than an outline: a thin
+  // stroke is the first thing to vanish at chip size.
+  bow: 'M15.8 2.6A12 12 0 0 0 2.6 15.8L5.4 15.6A9.4 9.4 0 0 1 15.6 5.4ZM17.4 17.4 7 7 5.6 8.4 16 18.8ZM2.2 2.2 8 3.4 3.4 8Z',
   // Rider. Ring with six teeth, hollow at the centre.
   gear: 'M10 1.6l1.9 1.6 2.4-.6.9 2.3 2.3.9-.6 2.4L18.4 10l-1.6 1.9.6 2.4-2.3.9-.9 2.3-2.4-.6L10 18.4l-1.9-1.6-2.4.6-.9-2.3-2.3-.9.6-2.4L1.6 10l1.6-1.9-.6-2.4 2.3-.9.9-2.3 2.4.6ZM10 6.4A3.6 3.6 0 1 0 10 13.6 3.6 3.6 0 0 0 10 6.4Z',
   // Gauntlet.
