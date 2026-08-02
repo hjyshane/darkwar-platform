@@ -27,6 +27,9 @@ const TOPIC_QUERY_KEYS: Record<string, readonly (readonly string[])[]> = {
   // Same reasoning as heroes: the cross-server board prints these names, so
   // renaming one has to reach it and not just the form it was typed in.
   pets: [['pets'], ['pets-admin'], ['crossRankings']],
+  // Not data about the game at all — what the database will let a role do.
+  // A control greyed out on the strength of the old answer has to ungrey.
+  role_permissions: [['permissions'], ['session']],
   // Not a snapshot table, but the same problem: an admin changing which
   // figures the overview shows has to reach the readers looking at it.
   app_settings: [

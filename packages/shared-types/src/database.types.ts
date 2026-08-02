@@ -598,6 +598,7 @@ export type Database = {
         Row: {
           created_at: string
           display_name: string | null
+          game_rank: string | null
           role: Database["public"]["Enums"]["app_role"]
           updated_at: string
           user_id: string
@@ -605,6 +606,7 @@ export type Database = {
         Insert: {
           created_at?: string
           display_name?: string | null
+          game_rank?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
           user_id: string
@@ -612,6 +614,7 @@ export type Database = {
         Update: {
           created_at?: string
           display_name?: string | null
+          game_rank?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
           user_id?: string
@@ -1131,6 +1134,27 @@ export type Database = {
             referencedColumns: ["collector_id"]
           },
         ]
+      }
+      capabilities: {
+        Row: {
+          capability: string
+          description: string
+          label: string
+          sort_order: number
+        }
+        Insert: {
+          capability: string
+          description?: string
+          label: string
+          sort_order?: number
+        }
+        Update: {
+          capability?: string
+          description?: string
+          label?: string
+          sort_order?: number
+        }
+        Relationships: []
       }
       collector_heartbeats: {
         Row: {
@@ -2026,6 +2050,35 @@ export type Database = {
           },
         ]
       }
+      role_permissions: {
+        Row: {
+          allowed: boolean
+          capability: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at: string
+        }
+        Insert: {
+          allowed?: boolean
+          capability: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Update: {
+          allowed?: boolean
+          capability?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_permissions_capability_fkey"
+            columns: ["capability"]
+            isOneToOne: false
+            referencedRelation: "capabilities"
+            referencedColumns: ["capability"]
+          },
+        ]
+      }
       schema_observations: {
         Row: {
           collector_id: string | null
@@ -2208,6 +2261,7 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      has_permission: { Args: { p_capability: string }; Returns: boolean }
       redeem_join_code: {
         Args: { p_code: string }
         Returns: Database["public"]["Enums"]["app_role"]

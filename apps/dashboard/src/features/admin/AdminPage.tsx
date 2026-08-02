@@ -4,8 +4,10 @@ import { fetchSummary } from '../overview/OverviewPanel';
 import { AnnouncementsSetting } from './AnnouncementsSetting';
 import { FormulaSetting } from './FormulaSetting';
 import { HeroesSetting } from './HeroesSetting';
+import { MembersSetting } from './MembersSetting';
 import { OverviewMetricsSetting } from './OverviewMetricsSetting';
 import { OwnAllianceSetting } from './OwnAllianceSetting';
+import { PermissionsSetting } from './PermissionsSetting';
 import { PetsSetting } from './PetsSetting';
 
 /** Settings an admin can change without a deploy.
@@ -42,6 +44,16 @@ export function AdminPage() {
             </p>
           )
         )}
+      </section>
+
+      <section aria-labelledby="members-heading">
+        <h2 id="members-heading">Members</h2>
+        <MembersSetting />
+      </section>
+
+      <section aria-labelledby="permissions-heading">
+        <h2 id="permissions-heading">Permissions</h2>
+        <PermissionsSetting />
       </section>
 
       <section aria-labelledby="own-alliance-heading">

@@ -44,3 +44,10 @@ test('naming a hero reaches every board that prints the name', () => {
 test('unknown topics invalidate nothing', () => {
   expect(queryKeysForTopic('battle_report_ingests')).toEqual([]);
 });
+
+test('a permission change reaches the screens that gate on it', () => {
+  // Every form in the app asks the database what it may do; when the answer
+  // changes, the person looking at a greyed-out control has to see it
+  // ungrey without reloading.
+  expect(queryKeysForTopic('role_permissions')).toEqual([['permissions'], ['session']]);
+});
