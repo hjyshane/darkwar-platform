@@ -1,27 +1,44 @@
 import { useState } from 'react';
-import { type HeroCatalogue, heroName, useHeroCatalogue } from '../../lib/heroes';
+import {
+  type HeroCatalogue,
+  heroGradeClass,
+  heroGradeName,
+  heroName,
+  useHeroCatalogue,
+} from '../../lib/heroes';
 import {
   type LineupHero,
   bySlot,
   composition,
+  isMaxStar,
+  isWeaponAwakened,
   starsShown,
   synergy,
   troopClassInitial,
   troopClassName,
+  weaponRankLabel,
 } from '../../lib/troops';
 
 const numberFormat = new Intl.NumberFormat('ko-KR');
 
 function detail(hero: LineupHero, catalogue: HeroCatalogue | undefined): string {
   const stars = starsShown(hero.star);
+  const grade = catalogue?.get(hero.hero_id)?.grade ?? null;
   return [
     hero.slot === null ? 'Slot ?' : `Slot ${hero.slot}`,
     heroName(catalogue, hero.hero_id),
+    // Named, not just coloured. The bar under the chip is the only place a
+    // grade is visible without expanding, and a colour on its own is not a
+    // readable answer to "which grade is that".
+    grade === null ? null : heroGradeName(grade),
     troopClassName(hero.troop_class),
     hero.hero_level === null ? null : `Lv ${hero.hero_level}`,
     stars === null ? null : `${stars}★`,
     // Only present below the cap, which is where it means anything.
     hero.stage === null ? null : `step ${hero.stage}`,
+    // The dot on the chip says a weapon exists and whether it has gone past
+    // five stars into 각; the tooltip is where the actual figure lives.
+    hero.weapon_level === null ? null : `전용무기 ${weaponRankLabel(hero.weapon_level)}`,
     hero.hero_power === null ? null : numberFormat.format(hero.hero_power),
   ]
     .filter((part) => part !== null)
@@ -63,7 +80,15 @@ export function LineupCell({ heroes }: { heroes: readonly LineupHero[] }) {
             <span
               className={[
                 'chip',
-                `chip-class-${hero.troop_class ?? 'unknown'}`,
+                // Fill is the GRADE. The class is the letter inside it, which
+                // already said Fighter/Shooter/Rider — spending the loudest
+                // channel on something already stated left grade with none.
+                // No fill for a hero whose grade nobody has set: the neutral
+                // default reads as "not established", not as a fourth grade.
+                `chip-grade-${catalogue?.get(hero.hero_id)?.grade ?? 'unknown'}`,
+                isMaxStar(hero.star) ? 'chip-max-star' : null,
+                hero.weapon_level === null ? null : 'chip-weapon',
+                isWeaponAwakened(hero.weapon_level) ? 'chip-weapon-awakened' : null,
                 bonus !== null && hero.troop_class === bonus.troopClass ? 'chip-synergy' : null,
               ]
                 .filter(Boolean)
@@ -101,6 +126,12 @@ export function LineupCell({ heroes }: { heroes: readonly LineupHero[] }) {
             <tr>
               <th scope="col">Slot</th>
               <th scope="col">Hero</th>
+              {/* Grade gets a column of its own rather than only tinting the
+                  name: the word is what makes the colour legible, and it is
+                  what a reader searching for "노랑" needs on the page.
+                  The header is English like every other header here; only the
+                  VALUES stay in the game's words, same rule as the labels. */}
+              <th scope="col">Grade</th>
               <th scope="col">Class</th>
               <th scope="col">Lv</th>
               <th scope="col">★</th>
@@ -123,6 +154,18 @@ export function LineupCell({ heroes }: { heroes: readonly LineupHero[] }) {
                 <td className="label" title={`Hero ${hero.hero_id}`}>
                   {heroName(catalogue, hero.hero_id)}
                 </td>
+                <td
+                  className={`grade-cell ${heroGradeClass(catalogue?.get(hero.hero_id)?.grade ?? null) ?? ''}`}
+                >
+                  {catalogue?.get(hero.hero_id)?.grade == null ? (
+                    '—'
+                  ) : (
+                    <>
+                      <span className="grade-dot" />
+                      {heroGradeName(catalogue.get(hero.hero_id)?.grade ?? null)}
+                    </>
+                  )}
+                </td>
                 <td>{troopClassName(hero.troop_class)}</td>
                 {/* Unqualified. A hero raised by the training centre really
                     is this level — the effect applies in combat — so marking
@@ -139,8 +182,10 @@ export function LineupCell({ heroes }: { heroes: readonly LineupHero[] }) {
                 </td>
                 {/* Null is "not unlocked", a real state rather than a zero:
                     1,730 of 4,028 observed heroes have a weapon. */}
-                <td className="num">
-                  {hero.weapon_level === null ? '—' : `Lv ${hero.weapon_level}`}
+                <td className="num" title={weaponRankLabel(hero.weapon_level) ?? undefined}>
+                  {hero.weapon_level === null
+                    ? '—'
+                    : `Lv ${hero.weapon_level} · ${weaponRankLabel(hero.weapon_level)}`}
                 </td>
                 <td className="num" title={hero.equipment.map((e) => e.equipment_id).join(', ')}>
                   {hero.equipment.length === 0

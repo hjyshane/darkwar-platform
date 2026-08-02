@@ -1,6 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { type Hero, fetchHeroes } from '../../lib/heroes';
+import {
+  HERO_GRADES,
+  type Hero,
+  fetchHeroes,
+  heroGradeClass,
+  heroGradeName,
+} from '../../lib/heroes';
 import { supabase } from '../../lib/supabase';
 import { TROOP_CLASSES, troopClassName } from '../../lib/troops';
 
@@ -28,6 +34,7 @@ async function fetchHeroList(): Promise<Hero[]> {
 interface Draft {
   name: string;
   troop_class: string;
+  grade: string;
   notes: string;
 }
 
@@ -35,6 +42,7 @@ function draftOf(hero: Hero): Draft {
   return {
     name: hero.name ?? '',
     troop_class: hero.troop_class === null ? '' : String(hero.troop_class),
+    grade: hero.grade === null ? '' : String(hero.grade),
     notes: hero.notes,
   };
 }
@@ -42,7 +50,7 @@ function draftOf(hero: Hero): Draft {
 export function HeroesSetting() {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<number | null>(null);
-  const [draft, setDraft] = useState<Draft>({ name: '', troop_class: '', notes: '' });
+  const [draft, setDraft] = useState<Draft>({ name: '', troop_class: '', grade: '', notes: '' });
   const [newId, setNewId] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
@@ -61,6 +69,7 @@ export function HeroesSetting() {
     mutationFn: async ({ heroId, values }: { heroId: number; values: Draft }) => {
       const name = values.name.trim();
       const troopClass = values.troop_class.trim();
+      const grade = values.grade.trim();
       const { error: updateError, count } = await supabase
         .from('heroes')
         .update(
@@ -70,6 +79,9 @@ export function HeroesSetting() {
             // whitespace outright.
             name: name === '' ? null : name,
             troop_class: troopClass === '' ? null : Number(troopClass),
+            // Blank is null, never a default grade. "Nobody has established
+            // it" is a state the catalogue keeps rather than filling in.
+            grade: grade === '' ? null : Number(grade),
             notes: values.notes.trim(),
           },
           { count: 'exact' },
@@ -152,6 +164,7 @@ export function HeroesSetting() {
             <tr>
               <th className="num">Id</th>
               <th className="label">Name</th>
+              <th className="label">Grade</th>
               <th className="label">Class</th>
               <th className="label">Notes</th>
               <th className="num" />
@@ -168,6 +181,23 @@ export function HeroesSetting() {
                       onChange={(event) => setDraft({ ...draft, name: event.target.value })}
                       value={draft.name}
                     />
+                  </td>
+                  <td className="label">
+                    <select
+                      aria-label={`Grade for hero ${hero.hero_id}`}
+                      onChange={(event) => setDraft({ ...draft, grade: event.target.value })}
+                      value={draft.grade}
+                    >
+                      {/* 미정 is a choice, not a placeholder — clearing a
+                          grade back to "nobody has established it" has to be
+                          possible from the same control that sets one. */}
+                      <option value="">미정</option>
+                      {Object.entries(HERO_GRADES).map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
                   </td>
                   <td className="label">
                     <select
@@ -209,6 +239,16 @@ export function HeroesSetting() {
                   <td className="num">{hero.hero_id}</td>
                   <td className="label">
                     {hero.name ?? <span className="subtle">not named yet</span>}
+                  </td>
+                  <td className={`label grade-cell ${heroGradeClass(hero.grade) ?? ''}`}>
+                    {hero.grade === null ? (
+                      <span className="subtle">미정</span>
+                    ) : (
+                      <>
+                        <span className="grade-dot" />
+                        {heroGradeName(hero.grade)}
+                      </>
+                    )}
                   </td>
                   <td className="label">
                     {hero.troop_class === null ? (
