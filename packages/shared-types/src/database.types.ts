@@ -481,6 +481,7 @@ export type Database = {
           leader_player_id: string | null
           member_count: number | null
           power: number | null
+          roster_unredacted_seen: boolean
           server_id: number
           updated_at: string
         }
@@ -496,6 +497,7 @@ export type Database = {
           leader_player_id?: string | null
           member_count?: number | null
           power?: number | null
+          roster_unredacted_seen?: boolean
           server_id: number
           updated_at?: string
         }
@@ -511,6 +513,7 @@ export type Database = {
           leader_player_id?: string | null
           member_count?: number | null
           power?: number | null
+          roster_unredacted_seen?: boolean
           server_id?: number
           updated_at?: string
         }
@@ -530,6 +533,27 @@ export type Database = {
             referencedColumns: ["server_id"]
           },
         ]
+      }
+      app_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: []
       }
       app_users: {
         Row: {
@@ -2064,6 +2088,7 @@ export type Database = {
         Returns: Database["public"]["Enums"]["app_role"]
       }
       reset_week_start: { Args: { ts: string }; Returns: string }
+      resolve_own_alliance: { Args: never; Returns: undefined }
     }
     Enums: {
       app_role:
