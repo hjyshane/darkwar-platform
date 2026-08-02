@@ -10,6 +10,8 @@ import { OverviewMetricsSetting } from './OverviewMetricsSetting';
 import { OwnAllianceSetting } from './OwnAllianceSetting';
 import { PermissionsSetting } from './PermissionsSetting';
 import { PetsSetting } from './PetsSetting';
+import { RankReportSetting } from './RankReportSetting';
+import { RankTiersSetting } from './RankTiersSetting';
 
 /** Settings an admin can change without a deploy.
  *
@@ -63,6 +65,16 @@ export function AdminPage() {
       <section aria-labelledby="permissions-heading">
         <h2 id="permissions-heading">Permissions</h2>
         <PermissionsSetting />
+      </section>
+
+      <section aria-labelledby="rank-report-heading">
+        <h2 id="rank-report-heading">Rank changes</h2>
+        <RankReportSetting />
+      </section>
+
+      <section aria-labelledby="rank-tiers-heading">
+        <h2 id="rank-tiers-heading">How ranks are decided</h2>
+        <RankTiersSetting />
       </section>
 
       <section aria-labelledby="own-alliance-heading">

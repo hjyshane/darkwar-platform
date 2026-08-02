@@ -9,9 +9,17 @@ create extension if not exists pgtap with schema extensions;
 
 select plan(8);
 
+-- A player of this file's own, not a seeded one. The assertions below are
+-- about absolute presence state, and the trigger under test deliberately
+-- refuses to overwrite a NEWER observation — so any row somebody else has
+-- touched since makes every one of them fail for a reason that has nothing
+-- to do with presence. Sharing a seeded player cost exactly that once.
+insert into public.players (player_id, server_id, game_uid, current_name)
+values ('00000000-0000-4000-8000-0000000ac901', 580, 58009901, 'PresenceOnly');
+
 create temp table _ids as
 select
-  (select player_id from public.players where game_uid = 58000001) as player_id,
+  '00000000-0000-4000-8000-0000000ac901'::uuid as player_id,
   (select alliance_id from public.alliances limit 1) as alliance_id;
 
 create function pg_temp.roster(
@@ -23,7 +31,7 @@ create function pg_temp.roster(
      game_uid, online_state, offline_since, presence_redacted)
   select '00000000-0000-4000-8000-00000000e401', 'al.rank', 'test',
          key, seen, '00000000-0000-4000-8000-000000000c01', 580,
-         i.alliance_id, 580, i.player_id, 58000001, state, since, redacted
+         i.alliance_id, 580, i.player_id, 58009901, state, since, redacted
   from _ids i;
 $$;
 

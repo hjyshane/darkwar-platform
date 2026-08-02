@@ -1,0 +1,163 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+import { supabase } from '../../lib/supabase';
+
+/** How the score is mixed, and where the rank boundaries fall.
+ *
+ * The weights apply to each figure's PERCENTILE inside the alliance, not to
+ * the raw number, and that is not a detail. The alliance averages 48,684
+ * weekly donation against 3,502,889 duel points; weighting those directly at
+ * 0.4 and 0.6 contributes 19,474 and 2,101,733, so the donation half is
+ * noise and the score is the duel board wearing a disguise. Ranking each
+ * figure first is what makes these numbers mean what they look like.
+ *
+ * Shares of the roster rather than absolute scores, for two reasons: an
+ * absolute cut cannot be chosen before there is history to choose it from,
+ * and it goes stale as everyone's figures climb. The in-game ranks are
+ * limited slots anyway, which is what a share is. The cost is that somebody
+ * always moves down even if the whole alliance improved — worth knowing
+ * before reading the report as a judgement on effort.
+ */
+interface Tiers {
+  r3_percent: number;
+  r2_percent: number;
+  offline_hours: number;
+  weights: { donation: number; duel: number; power_growth: number };
+}
+
+const FALLBACK: Tiers = {
+  r3_percent: 20,
+  r2_percent: 50,
+  offline_hours: 48,
+  weights: { donation: 0.4, duel: 0.6, power_growth: 0 },
+};
+
+async function fetchTiers(): Promise<Tiers> {
+  const { data, error } = await supabase
+    .from('app_settings')
+    .select('value')
+    .eq('key', 'rank_tiers')
+    .maybeSingle();
+  if (error) {
+    throw new Error(`tier settings query failed: ${error.message}`);
+  }
+  return { ...FALLBACK, ...((data?.value as Partial<Tiers> | null) ?? {}) };
+}
+
+export function RankTiersSetting() {
+  const queryClient = useQueryClient();
+  const [draft, setDraft] = useState<Tiers | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  const { data, error, isPending } = useQuery({ queryKey: ['rank-tiers'], queryFn: fetchTiers });
+  useEffect(() => {
+    if (data !== undefined) {
+      setDraft(data);
+    }
+  }, [data]);
+
+  const save = useMutation({
+    mutationFn: async (next: Tiers) => {
+      const { error: writeError } = await supabase
+        .from('app_settings')
+        .upsert({ key: 'rank_tiers', value: next as unknown as never });
+      if (writeError) {
+        throw new Error(writeError.message);
+      }
+    },
+    onSuccess: () => {
+      setFailed(false);
+      setMessage('Saved. Rebuild a period for it to take effect.');
+      void queryClient.invalidateQueries({ queryKey: ['rank-tiers'] });
+    },
+    onError: (mutationError: Error) => {
+      setFailed(true);
+      setMessage(mutationError.message);
+    },
+  });
+
+  if (isPending || draft === null) {
+    return <p className="empty">Loading…</p>;
+  }
+  if (error) {
+    return <p className="error">Could not load the settings: {error.message}</p>;
+  }
+
+  const r1 = Math.max(0, 100 - draft.r3_percent - draft.r2_percent);
+  const weightSum = draft.weights.donation + draft.weights.duel + draft.weights.power_growth || 1;
+  const share = (value: number) => `${Math.round((value / weightSum) * 100)}%`;
+
+  return (
+    <>
+      <p className="subtle">
+        Each figure is ranked inside the alliance first, then the weights are applied to those
+        ranks. Weighting the raw numbers would not work: the duel board is roughly a hundred times
+        the donation board, so a "0.4 / 0.6" mix of the raw figures is the duel board alone.
+      </p>
+
+      {message && <p className={failed ? 'error' : 'empty'}>{message}</p>}
+
+      <div className="stack">
+        {(['donation', 'duel', 'power_growth'] as const).map((key) => (
+          <label htmlFor={`weight-${key}`} key={key}>
+            {key === 'power_growth' ? 'Power growth weight' : `${key} weight`} (
+            {share(draft.weights[key])} of the score)
+            <input
+              id={`weight-${key}`}
+              min="0"
+              onChange={(event) =>
+                setDraft({
+                  ...draft,
+                  weights: { ...draft.weights, [key]: Number(event.target.value) },
+                })
+              }
+              step="0.1"
+              type="number"
+              value={draft.weights[key]}
+            />
+          </label>
+        ))}
+
+        <label htmlFor="r3-percent">
+          Top share that becomes R3
+          <input
+            id="r3-percent"
+            max="100"
+            min="0"
+            onChange={(event) => setDraft({ ...draft, r3_percent: Number(event.target.value) })}
+            type="number"
+            value={draft.r3_percent}
+          />
+        </label>
+        <label htmlFor="r2-percent">
+          Next share that becomes R2 — the remaining {r1}% are R1
+          <input
+            id="r2-percent"
+            max="100"
+            min="0"
+            onChange={(event) => setDraft({ ...draft, r2_percent: Number(event.target.value) })}
+            type="number"
+            value={draft.r2_percent}
+          />
+        </label>
+        <label htmlFor="offline-hours">
+          Hours offline that force R1 whatever the score says
+          <input
+            id="offline-hours"
+            min="0"
+            onChange={(event) => setDraft({ ...draft, offline_hours: Number(event.target.value) })}
+            type="number"
+            value={draft.offline_hours}
+          />
+        </label>
+
+        <div className="row">
+          <button disabled={save.isPending} onClick={() => save.mutate(draft)} type="button">
+            Save
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
