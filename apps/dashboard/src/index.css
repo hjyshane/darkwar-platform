@@ -229,8 +229,78 @@ main > * {
   overscroll-behavior-x: contain;
 }
 
+/* The measure is a READING width. Eleven columns are not prose, and at
+ * 1440 the page was leaving ~290px of margin unused while clipping three
+ * columns off the right. So the table — and only the table — reaches past
+ * it; the heading and tabs stay where the eye expects them.
+ *
+ * Bleeding by a fixed amount behind a viewport query, rather than
+ * calc()-ing against 100vw: vw includes the scrollbar, so the arithmetic
+ * overflows the page by exactly the scrollbar's width on the platforms
+ * that reserve one. The breakpoints below leave room for the bleed with
+ * the body's own 1152 + 2×16 already spent.
+ */
+@media (width >= 85rem) {
+  .table-wrap {
+    margin-inline: -3rem;
+  }
+}
+
+@media (width >= 100rem) {
+  .table-wrap {
+    margin-inline: -8rem;
+  }
+}
+
+/* Above phone width the table becomes its own scroll pane so the header can
+ * stay put over a hundred rows.
+ *
+ * It has to own the vertical axis for that to work at all: `position:
+ * sticky` resolves against the nearest scrollport, and `overflow-x: auto`
+ * already made this element one on BOTH axes (setting either axis to auto
+ * computes the other to auto, not visible). Without a height it never
+ * scrolls vertically, so a sticky header would pin to the top of a box
+ * that is itself scrolling away with the page — which looks exactly like
+ * not being sticky at all.
+ *
+ * Left on the page's own scroll on a phone: a nested scroll pane there
+ * fights the browser's overscroll gestures, and with three columns visible
+ * the header is rarely far away.
+ */
+@media (width > 48rem) {
+  .table-wrap {
+    max-height: calc(100dvh - 15rem);
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+
+  .table-wrap thead th {
+    position: sticky;
+    top: 0;
+    /* Opaque, or the rows read straight through it while they pass under. */
+    background: var(--bg);
+    z-index: 2;
+  }
+}
+
+/* `separate` with zero spacing, not `collapse`, so the sticky header keeps
+ * its bottom border.
+ *
+ * A collapsed border belongs to the table, not to the cell, so it stays
+ * where the table put it while the header cell travels — the header then
+ * butts straight against the half-scrolled row beneath it with no line
+ * between them. Under `separate` the border is the cell's own and moves
+ * with it. Nothing else changes: every border here is a single edge
+ * (bottom on every cell, left at a group boundary), so there is nothing for
+ * collapsing to merge.
+ *
+ * The backgrounds were never the problem, whatever it looks like at a
+ * glance: a row scrolled half under the header reads like it is showing
+ * through, and painting the header magenta shows it covering its whole band.
+ */
 table {
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   width: 100%;
 }
 
@@ -280,18 +350,61 @@ tbody tr:hover {
  * offset the name by, and `width` on a cell is only a hint under
  * table-layout: auto — the "RANK ↕" header made the real column wider than
  * the offset, so the name then covered the digits it was supposed to sit
- * beside. Rank is ordinal and readable from the row order anyway. */
+ * beside. Rank is ordinal and readable from the row order anyway.
+ *
+ * This used to be phone-only, which quietly assumed a desktop never scrolls
+ * sideways. It does: the Members table is ~1550px against a 1152px measure,
+ * so scrolling right on a 1440 screen left a wall of figures with no names
+ * against them. The pin belongs wherever the overflow is, which is
+ * everywhere. */
+.table-wrap :is(th, td).label {
+  background: var(--bg);
+  left: 0;
+  position: sticky;
+  z-index: 1;
+}
+
+/* The corner cell is pinned on both axes at once, so it has to outrank the
+ * header row it sits in — otherwise the first name scrolls up through it. */
+.table-wrap thead th.label {
+  z-index: 3;
+}
+
+.table-wrap tbody tr:hover :is(th, td).label {
+  background: var(--bg-hover);
+}
+
+/* The only cue that there is more to the right. A pinned column with a
+ * shadow reads as "held in place while something passes behind it"; a
+ * clipped edge with nothing on it reads as the end of the table. Drawn on
+ * the cells rather than a wrapper pseudo-element so it travels with the
+ * column instead of hovering over whatever happens to be under it. */
+.table-wrap :is(th, td).label {
+  box-shadow: 1px 0 0 var(--border), 6px 0 6px -6px rgb(0 0 0 / 18%);
+}
+
+/* Where one family of figures ends and the next begins. The roster carries
+ * five contribution columns — two donation boards and three duel boards —
+ * and read as five neighbouring numbers they invite comparisons that do not
+ * mean anything, like a daily donation against a four-round duel total.
+ *
+ * A marker class, not :nth-child. Column positions differ per table and
+ * have already moved twice; this file's other rules are marked for the same
+ * reason, and the one place that inferred a column from its position got
+ * Arena's name column right-aligned against the scores. */
+.table-wrap :is(th, td).group-start {
+  border-left: 1px solid var(--border-strong);
+}
+
+/* The star and the name are two elements in one cell, so a cell narrow
+ * enough to wrap breaks BETWEEN them and leaves a lone ☆ on its own line —
+ * which then makes that one row taller than every other. Pinning the column
+ * made it visible, but the wrap was always available to any long name. */
+.table-wrap td.label {
+  white-space: nowrap;
+}
+
 @media (width <= 48rem) {
-  .table-wrap :is(th, td).label {
-    background: var(--bg);
-    left: 0;
-    position: sticky;
-  }
-
-  .table-wrap tbody tr:hover :is(th, td).label {
-    background: var(--bg-hover);
-  }
-
   /* Clamp the NAME, not whichever column happens to be first. Arena and
    * Cross-Server lead with Rank, so targeting :first-child clamped a
    * two-character number and let the name wrap to three lines instead —
@@ -300,7 +413,6 @@ tbody tr:hover {
     max-width: 9rem;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
   }
 }
 
