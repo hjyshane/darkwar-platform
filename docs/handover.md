@@ -13,10 +13,21 @@
 이라고 정해 둔 그대로다.
 
 2026-08-02 세션은 그 결정에서 벗어나 WSL에서 진행됐고, 런북의 분담표까지
-"데이터베이스·화면·테스트는 WSL"로 흘러 있었다. 되돌렸다. Supabase CLI·pnpm·
-pytest는 Windows에서 그대로 돌고, Supabase는 Docker Desktop을 쓴다.
-**단, 그 Windows 경로를 이 세션이 직접 돌려본 것은 아니다** — WSL에서 돌렸다.
-막히면 그건 새 정보이니 런북에 적는다.
+"데이터베이스·화면·테스트는 WSL"로 흘러 있었다. 되돌렸다.
+
+**Windows에서 실제로 돌려본 것** (2026-08-02): Scoop으로 툴체인 설치 →
+`supabase status` → `dw-collector renormalize` · `retry-outbox --already-sent`
+· `sync`(11,542행) → `supabase test db` **329건 통과** → 합성 시드 제거 →
+연맹 핀. 즉 데이터베이스와 수집기 경로는 검증됐다.
+
+**아직 Windows에서 안 돌려본 것**: `pnpm dev` · `pnpm test` · `pnpm build`,
+그리고 라이브 캡처(`dw-capture`).
+
+설치는 Scoop이다 (`scoop bucket add supabase …` 후
+`scoop install supabase/supabase main/uv main/gh main/gitleaks main/lefthook`).
+pnpm은 corepack이 `package.json`의 핀(9.15.0)을 읽어 받는다. 버전은 WSL과
+동일하게 떨어졌고 supabase만 2.111.0, uv만 0.12.1로 올라갔다 — 둘 다 저장소가
+고정하는 값이 아니다.
 
 두 창을 섞지 않는 것이 요점이다. 섞으면 저널 경로와 `.env`가 두 벌이 되고,
 "왜 `sent=0`인가"의 답이 대체로 "다른 창에서 돌렸다"가 된다.
@@ -60,11 +71,34 @@ uv run dw-collector sync --db .\data\fresh.db      # sent=0 이 나올 때까지
 원본 payload를 해시하므로(§11.2) sync는 **중복이 아니라 갱신**이다.
 
 이 경로로 넣은 결과: 멤버 **93명**(HELLBOUND [CBFW], 실명), 아레나 편성
-**3,998행**, 기여도 **1,615행**. (2026-08-02, WSL에서 확인)
+**3,998행**, 기여도 **1,615행**. (2026-08-02, **Windows에서 확인**)
 
-`supabase db reset`은 seed.sql의 합성 플레이어 20명도 같이 넣는다. 실데이터만
-보고 싶으면 `game_uid 58000001~58000020`과 `Synthetic%` 연맹을 지운다 —
-순서는 FK 때문에 자식 테이블부터다.
+### 합성 시드를 지운다
+
+`supabase db reset`은 seed.sql의 합성 플레이어 20명과 연맹 하나를 같이 넣는다.
+실데이터가 들어온 뒤에는 방해물이다 — 멤버 수가 113으로 부풀고, 그 연맹이
+`roster_unredacted_seen`을 달고 있어서 **핀이 없으면 "우리 연맹"이 둘**이 된다.
+
+```powershell
+Get-Content supabase\drop-synthetic-seed.sql |
+  docker exec -i supabase_db_darkwar-platform psql -U postgres -v ON_ERROR_STOP=1
+```
+
+`removed 20 players, 1 alliances`가 나오면 된다. 삭제 대상은 손으로 나열하지
+않고 `pg_constraint`에서 뽑는다 — players를 참조하는 테이블이 16개인데 절반만
+`on delete cascade`라, 손으로 적었다가 두 번 틀렸다.
+
+### 연맹 핀을 박는다
+
+`is_own`은 핀이 있으면 핀, 없으면 "접속정보가 안 지워진 로스터를 본 연맹"으로
+정해진다([0032](../supabase/migrations/20260728000032_app_settings.sql)). 후자는
+**수집 계정을 따라다니고 되돌리는 코드가 없다.** 수집 계정이 다른 연맹을 한 번
+훑으면 그대로 붙는다. Admin 설정에서 HELLBOUND [CBFW]를 고정하면 끝이다.
+
+수집 계정이 바뀌어도 **연맹만 같으면** 나머지는 그대로다. 연맹 밖 계정이면
+게임이 로스터의 접속 정보를 지우고(`presence_redacted`), [0024](../supabase/migrations/20260728000024_member_presence.sql)의
+접속 이력이 **에러 없이 비어버린다** — Activity Score의 48시간 오프라인 규칙이
+거기 얹혀 있다. 코드로 우회할 수 있는 종류가 아니다.
 
 ### 알아둘 것 하나 — 브라우저 검증 스킬은 리눅스용이다
 

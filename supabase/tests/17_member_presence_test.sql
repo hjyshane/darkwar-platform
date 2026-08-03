@@ -52,7 +52,10 @@ select is((select observed_at from public.player_presence where player_id =
 
 -- players.last_seen_at is a different fact and must stay that way: it is the
 -- freshness signal the dashboard badges, not a presence claim.
-select isnt((select last_seen_at from public.players where game_uid = 58000001),
+-- Its own player, not the seed's 58000001. Against a deleted player the
+-- subquery is NULL, isnt(NULL, ts) is true, and the assertion passes without
+-- ever reading a last_seen_at.
+select isnt((select last_seen_at from public.players where game_uid = 58009901),
             '2026-07-27T09:12:45Z'::timestamptz,
   'last_seen_at is not overwritten with the offline time');
 
