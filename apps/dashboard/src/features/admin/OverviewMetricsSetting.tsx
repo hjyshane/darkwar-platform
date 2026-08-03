@@ -1,12 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import {
-  DEFAULT_METRICS,
-  type FormulaMetric,
-  METRIC_CATALOGUE,
-  resolveFormulas,
-  resolveMetrics,
-} from '../../lib/overviewMetrics';
+import { DEFAULT_METRICS, METRIC_CATALOGUE, resolveMetrics } from '../../lib/overviewMetrics';
 import { supabase } from '../../lib/supabase';
 
 /** Which figures the overview shows, and in what order.
@@ -19,27 +13,32 @@ import { supabase } from '../../lib/supabase';
  * Order matters twice — it is the order of the tiles, and the first one is
  * the hero. Stating that beats a second setting for "which is big".
  */
-/** Both keys in one query. A formula an admin just wrote has to be
- *  offerable immediately, and the tile list is only meaningful against the
- *  formulas that exist — fetching them apart lets the picker show a chosen
- *  id it cannot name. */
-async function fetchChosen(): Promise<{ tiles: string[]; formulas: FormulaMetric[] }> {
+/** This asked for `overview_formulas` until 0048 deleted that key.
+ *
+ * The read was dead rather than wrong-looking: the key does not exist, so
+ * resolveFormulas got undefined and the picker offered nothing extra. What
+ * makes it worth removing rather than repointing at `member_formulas` is
+ * that repointing would break it for real. A formula runs on a MEMBER now
+ * and lands as a column on the roster; OverviewPanel says so and hardcodes
+ * an empty formula list. Offering those ids here would let an admin tick a
+ * tile, save it, and watch the overview silently draw nothing — which is
+ * worse than the dead read, and is the conflation 0048 existed to undo.
+ *
+ * So this now matches OverviewPanel exactly: catalogue tiles only.
+ */
+async function fetchChosen(): Promise<{ tiles: string[] }> {
   const { data, error } = await supabase
     .from('app_settings')
     .select('key, value')
-    .in('key', ['overview_metrics', 'overview_formulas']);
+    .in('key', ['overview_metrics']);
   if (error) {
     throw new Error(`metric setting query failed: ${error.message}`);
   }
   const byKey = new Map((data ?? []).map((row) => [row.key, row.value]));
-  const formulas = resolveFormulas(
-    (byKey.get('overview_formulas') as { formulas?: unknown } | undefined)?.formulas,
-  );
   const tiles = resolveMetrics(
     (byKey.get('overview_metrics') as { tiles?: unknown } | undefined)?.tiles,
-    formulas.map((formula) => formula.id),
   );
-  return { tiles, formulas };
+  return { tiles };
 }
 
 export function OverviewMetricsSetting() {
@@ -81,20 +80,16 @@ export function OverviewMetricsSetting() {
     },
   });
 
-  // Built-ins and the admin's own formulas offered from one list — the
-  // picker should not care which kind a figure is, only whether it is shown.
-  const options: { id: string; label: string; restricted: boolean }[] = [
-    ...METRIC_CATALOGUE.map((metric) => ({
+  // The catalogue, and only the catalogue. Every entry here is a figure this
+  // build knows how to draw; a formula is a member column and belongs to the
+  // Members screen (0048).
+  const options: { id: string; label: string; restricted: boolean }[] = METRIC_CATALOGUE.map(
+    (metric) => ({
       id: metric.id as string,
       label: metric.label,
       restricted: metric.restricted,
-    })),
-    ...(data?.formulas ?? []).map((formula) => ({
-      id: formula.id,
-      label: formula.label,
-      restricted: false,
-    })),
-  ];
+    }),
+  );
 
   if (isPending || chosen === null) {
     return <p className="empty">Loading…</p>;
