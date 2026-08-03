@@ -1,0 +1,14 @@
+{
+  // Static assets only — there is no Worker script and no `main` entry.
+  // The dashboard talks to Supabase directly from the browser; putting a
+  // Worker in front would be a second place for auth to be wrong.
+  //
+  // No SPA fallback is configured because routing is hash-based
+  // (see src/lib/route.ts) — every URL the app produces resolves to
+  // index.html on its own, which is why this host needs no rewrite rules.
+  "name": "darkwar-platform",
+  "compatibility_date": "2026-08-03",
+  "assets": {
+    "directory": "./dist"
+  }
+}
