@@ -16,7 +16,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(12);
+select plan(13);
 
 insert into auth.users
   (instance_id, id, aud, role, email, encrypted_password,
@@ -110,9 +110,23 @@ select is_empty($$ select snapshot_id from public.alliance_member_snapshots $$,
 select set_config('request.jwt.claims',
   '{"sub":"00000000-0000-4000-8000-00000000e003","role":"authenticated"}', true);
 
+-- Scoped to this file's own players. The seed carries roster snapshots of
+-- its own, so an absolute count here measures the seed rather than the
+-- policy — which is the trap 12_month_card_admin_test's comment warns
+-- about, and it caught this file on its first CI run.
+--
+-- The member above was not scoped and did not need to be: their result is
+-- empty of everything except their own rows, which is the assertion.
 select is(
-  (select count(*)::int from public.alliance_member_snapshots),
-  3, 'an officer reads every member''s history');
+  (select count(*)::int from public.alliance_member_snapshots
+    where player_id in ('00000000-0000-4000-8000-0000000a1601',
+                        '00000000-0000-4000-8000-0000000a1602')),
+  3, 'an officer reads every member''s history, not only one member''s');
+select is(
+  (select count(distinct player_id)::int from public.alliance_member_snapshots
+    where player_id in ('00000000-0000-4000-8000-0000000a1601',
+                        '00000000-0000-4000-8000-0000000a1602')),
+  2, 'including the member they are not');
 
 -- The pass column stays admin-only whatever this migration says. 0016's
 -- column grant is a different mechanism and must not have been loosened.
