@@ -5,7 +5,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(22);
+select plan(23);
 
 -- Setup (as postgres, RLS not yet in play): three auth users + rows in the
 -- restricted tables.
@@ -64,6 +64,38 @@ on conflict (player_id) do update
       offline_since = excluded.offline_since,
       observed_at = excluded.observed_at;
 
+-- This file's own arena rows. 0064 turned the arena member-only, and an
+-- is_empty() proving that would pass just as well against a database with
+-- no arena in it at all — which is exactly how the seed-borrowing negatives
+-- in this file went quietly vacuous once the seed was deleted.
+insert into public.arena_snapshots
+  (observation_id, source_command, parser_version, idempotency_key, captured_at,
+   collector_id, collected_from_server_id, server_id, week_start, entry_count, league)
+values
+  ('00000000-0000-4000-8000-00000000ae01', 'user.get.arena.info', 'test',
+   'test:rls:arena:header', '2026-07-27T23:40:00Z',
+   '00000000-0000-4000-8000-000000000c01', 580, 580,
+   public.reset_week_start('2026-07-27T23:40:00Z'::timestamptz), 1, 1);
+
+insert into public.arena_entries
+  (snapshot_id, observation_id, source_command, parser_version, idempotency_key,
+   captured_at, collector_id, collected_from_server_id, arena_snapshot_id,
+   server_id, game_uid, rank, score, defense_power)
+select '00000000-0000-4000-8000-00000000ae02', '00000000-0000-4000-8000-00000000ae02',
+       'user.get.arena.info', 'test', 'test:rls:arena:entry', '2026-07-27T23:40:00Z',
+       '00000000-0000-4000-8000-000000000c01', 580, snapshot_id, 580, 58009902, 1, 1500, 400000000
+from public.arena_snapshots where idempotency_key = 'test:rls:arena:header';
+
+insert into public.arena_entry_heroes
+  (observation_id, source_command, parser_version, idempotency_key, captured_at,
+   collector_id, collected_from_server_id, arena_entry_id, server_id, game_uid,
+   hero_id, slot, level_synced)
+values
+  ('00000000-0000-4000-8000-00000000ae03', 'user.get.arena.info', 'test',
+   'test:rls:arena:hero', '2026-07-27T23:40:00Z',
+   '00000000-0000-4000-8000-000000000c01', 580,
+   '00000000-0000-4000-8000-00000000ae02', 580, 58009902, 40001, 1, false);
+
 insert into public.schema_observations (source_command, fingerprint)
 values ('unknown.command', 'test-fingerprint');
 
@@ -86,12 +118,16 @@ select isnt_empty($$ select * from public.players $$,
   'anon reads public rankings');
 select is_empty($$ select snapshot_id, name from public.alliance_member_snapshots $$,
   'anon cannot read alliance-internal presence');
--- 0025: the arena board is public, and so is the lineup it shows. This ran as
--- the owner in the lineup's own test file and via service_role in sync, so
--- nothing checked the grant a logged-out reader actually needs — the answer
--- was 401 until one was added.
-select lives_ok($$ select * from public.arena_entry_heroes $$,
-  'anon may read arena lineups');
+-- 0025 made the arena board public and 0064 took it back, before anything
+-- went on the internet. As an endpoint 3,998 decoded defence lineups are a
+-- scouting download rather than a screen. The grant is still there — a
+-- logged-in member needs it — so this asserts the POLICY withholds the
+-- rows, which is a different failure from a missing grant and reads
+-- differently when it breaks.
+select is_empty($$ select * from public.arena_entry_heroes $$,
+  'anon cannot read arena lineups');
+select is_empty($$ select * from public.arena_entries $$,
+  'nor who is on the board');
 -- 0020: these scores lived on players, which anon reads, until they moved.
 select is_empty($$ select * from public.player_contributions $$,
   'anon cannot read alliance contribution');
@@ -115,8 +151,10 @@ select set_config('request.jwt.claims',
   '{"sub":"00000000-0000-4000-8000-00000000f001","role":"authenticated"}',
   true);
 
-select isnt_empty($$ select * from public.arena_entries $$,
-  'viewer reads arena entries');
+-- 0064: a signed-in VIEWER is not a member, and the arena is a member
+-- screen now. Signing in is not the gate; holding the role is.
+select is_empty($$ select * from public.arena_entries $$,
+  'a signed-in viewer cannot read arena entries either');
 select is_empty($$ select snapshot_id, name from public.alliance_member_snapshots $$,
   'viewer cannot read alliance-internal presence');
 select is_empty($$ select * from public.player_contributions $$,
