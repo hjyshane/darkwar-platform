@@ -1,6 +1,7 @@
 import { FreshnessBadge } from '../../components/FreshnessBadge';
 import { SortableTh } from '../../components/SortableTh';
 import { TableSearch } from '../../components/TableSearch';
+import { leagueLabel } from '../../lib/arenaLeague';
 import { serverHash } from '../../lib/route';
 import { TERMS } from '../../lib/terms';
 import type { LineupHero } from '../../lib/troops';
@@ -13,6 +14,10 @@ export interface ArenaHeader {
   week_start: string;
   captured_at: string;
   entry_count: number | null;
+  /** Which board this is (0062). Null for captures taken before the field
+   * was understood — those keep their data and say they do not know, rather
+   * than being filed under Gold. */
+  league: number | null;
 }
 
 export interface ArenaEntryRow {
@@ -68,7 +73,10 @@ export function ArenaTable({
   return (
     <>
       <p>
-        <span>Week {weekLabel}</span> <FreshnessBadge capturedAt={header.captured_at} now={now} />
+        <span>
+          {leagueLabel(header.league)} · Week {weekLabel}
+        </span>{' '}
+        <FreshnessBadge capturedAt={header.captured_at} now={now} />
       </p>
       <TableSearch
         label="Search arena"

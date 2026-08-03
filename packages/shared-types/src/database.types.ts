@@ -948,6 +948,7 @@ export type Database = {
           created_at: string
           entry_count: number | null
           idempotency_key: string
+          league: number | null
           observation_id: string
           parser_version: string
           raw: Json
@@ -963,6 +964,7 @@ export type Database = {
           created_at?: string
           entry_count?: number | null
           idempotency_key: string
+          league?: number | null
           observation_id: string
           parser_version: string
           raw?: Json
@@ -978,6 +980,7 @@ export type Database = {
           created_at?: string
           entry_count?: number | null
           idempotency_key?: string
+          league?: number | null
           observation_id?: string
           parser_version?: string
           raw?: Json

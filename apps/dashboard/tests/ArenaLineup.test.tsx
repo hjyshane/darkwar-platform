@@ -276,6 +276,7 @@ const header = {
   week_start: '2026-07-27T02:00:00Z',
   captured_at: '2026-07-27T23:40:00Z',
   entry_count: 2,
+  league: 1,
 };
 
 const entries: ArenaEntryRow[] = [
