@@ -170,8 +170,12 @@ select set_config('request.jwt.claims',
   '{"sub":"00000000-0000-4000-8000-00000000f002","role":"authenticated"}',
   true);
 
-select isnt_empty($$ select snapshot_id, name from public.alliance_member_snapshots $$,
-  'member reads alliance-internal presence');
+-- 0066 narrowed this from "any member" to "the member it is about, or an
+-- officer". This persona is linked to nobody, so it reads nothing — which
+-- is the new correct answer, not a regression. The full matrix (linked,
+-- unlinked, officer, viewer) is 35_member_history_test.
+select is_empty($$ select snapshot_id, name from public.alliance_member_snapshots $$,
+  'a member unlinked to any player reads no roster history');
 select isnt_empty($$ select * from public.player_contributions $$,
   'member reads alliance contribution');
 select isnt_empty($$ select * from public.player_presence $$,
