@@ -7,7 +7,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(13);
+select plan(14);
 
 insert into auth.users (id, instance_id, aud, role, email)
 values
@@ -28,11 +28,17 @@ $$;
 -- makes every claim about names and classes against rows it inserts itself
 -- further down. Asserting "1006 has no name" passed until somebody used the
 -- feature and typed one, which is the same fault 19 and 20 had.
-set local role anon;
+-- A claim about the catalogue's CONTENT, so it runs as the owner. It used
+-- to run as anon, which quietly made it a claim about visibility too; 0065
+-- closed the catalogue and that second, unstated claim is what broke.
 select is((select count(*) from public.heroes
            where hero_id in (1006, 1015, 33005)), 3::bigint,
   'the catalogue holds the ids the evidence produced, including 33005 — '
   'a hero seen only in other players'' lineups and owned by nobody here');
+
+set local role anon;
+select throws_ok($$ select * from public.heroes $$,
+  '42501', null, 'and anon reads none of it (0065)');
 reset role;
 
 -- 0043. Pinned with its nullability, like `stage` in 18: null means nobody

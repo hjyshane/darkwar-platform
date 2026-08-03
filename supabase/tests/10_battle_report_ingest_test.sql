@@ -74,8 +74,8 @@ select is((select from_game_uid from public.battle_report_ingests
   'a system report stores no sender rather than a placeholder');
 
 set local role anon;
-select is_empty($$ select * from public.battle_report_ingests $$,
-  'anon cannot read battle reports');
+select throws_ok($$ select * from public.battle_report_ingests $$,
+  '42501', null, 'anon cannot read battle reports');
 reset role;
 
 -- Not even a signed-in member: a report exposes another player's army

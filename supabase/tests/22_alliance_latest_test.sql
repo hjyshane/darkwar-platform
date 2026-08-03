@@ -64,8 +64,10 @@ select is(
   'the view runs as its caller, so RLS still applies');
 
 set local role anon;
-select isnt_empty($$ select * from public.alliance_latest $$,
-  'anon reads it, because alliance_snapshots is public_read');
+-- The view is security_invoker, so it used to inherit alliance_snapshots'
+-- public_read. 0065 removed that policy AND the grant on the view itself.
+select throws_ok($$ select * from public.alliance_latest $$,
+  '42501', null, 'anon cannot read the view either');
 reset role;
 
 select * from finish();

@@ -8,7 +8,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(6);
+select plan(7);
 
 insert into auth.users (id, instance_id, aud, role, email)
 values
@@ -26,9 +26,13 @@ $$;
 
 -- The seed is data an admin edits, so this asserts the ids exist and says
 -- nothing about their names — 24 learned that the hard way.
-set local role anon;
+-- Content, not visibility — as the owner. See 24_heroes_test for why.
 select is((select count(*) from public.pets where pet_id between 101 and 107), 7::bigint,
   'the seven pets the user named are in the catalogue');
+
+set local role anon;
+select throws_ok($$ select * from public.pets $$,
+  '42501', null, 'and anon reads none of it (0065)');
 reset role;
 
 set local role authenticated;

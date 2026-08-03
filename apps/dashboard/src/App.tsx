@@ -56,38 +56,56 @@ function subscribeHash(onChange: () => void) {
   return () => window.removeEventListener('hashchange', onChange);
 }
 
-/** Whether this reader may be offered the Members screen (0063).
+/** Whether this reader may be offered a gated screen (0063, 0064).
  *
  * Undefined while the grid is still loading, which callers must treat as
  * "not yet" rather than "no": rendering the tab and then taking it away is
  * worse than a tab that appears a beat late.
+ *
+ * This hides a tab. It does not withhold anything — RLS does that, and for
+ * the arena it does it on all four tables (0064). A reader who types the
+ * address gets the screen's own empty state, not the data.
  */
-function useMayViewMembers(): boolean | undefined {
+function useMayView(capability: string): boolean | undefined {
   const { data: session } = useSession();
   const { data: permissions, isPending } = usePermissions();
   if (isPending) {
     return undefined;
   }
-  return isAllowed(permissions?.grants, session?.role, 'members.view');
+  return isAllowed(permissions?.grants, session?.role, capability);
 }
+
+/** Which capability each gated tab needs. A route absent from here is
+ * public, which is the default and has to stay the readable case. */
+const GATED_ROUTES: Partial<Record<Route, string>> = {
+  members: 'members.view',
+  arena: 'arena.view',
+};
 
 function Nav({ route }: { route: Route }) {
   const { data: session } = useSession();
-  const mayViewMembers = useMayViewMembers();
+  const mayViewMembers = useMayView('members.view');
+  const mayViewArena = useMayView('arena.view');
+  const allowed: Partial<Record<Route, boolean | undefined>> = {
+    members: mayViewMembers,
+    arena: mayViewArena,
+  };
   return (
     <nav aria-label="Screens" className="tabs">
-      {NAV_TABS.filter((tab) => tab.route !== 'members' || mayViewMembers === true).map((tab) => (
-        <a
-          key={tab.hash}
-          href={tab.hash}
-          className="tab"
-          // Marks the current tab for screen readers, and is what the
-          // stylesheet keys off — no active-state class to keep in sync.
-          aria-current={tab.route === route ? 'page' : undefined}
-        >
-          {tab.label}
-        </a>
-      ))}
+      {NAV_TABS.filter((tab) => !(tab.route in GATED_ROUTES) || allowed[tab.route] === true).map(
+        (tab) => (
+          <a
+            key={tab.hash}
+            href={tab.hash}
+            className="tab"
+            // Marks the current tab for screen readers, and is what the
+            // stylesheet keys off — no active-state class to keep in sync.
+            aria-current={tab.route === route ? 'page' : undefined}
+          >
+            {tab.label}
+          </a>
+        ),
+      )}
       {/* Sign-in used to be an unlisted address, which was fine when only an
           admin ever needed it. Members now sign in to see their own
           alliance's figures, so it has to be findable — and the role has to
@@ -109,7 +127,8 @@ function Nav({ route }: { route: Route }) {
 }
 
 function Screen({ route }: { route: Route }) {
-  const mayViewMembers = useMayViewMembers();
+  const mayViewMembers = useMayView('members.view');
+  const mayViewArena = useMayView('arena.view');
   switch (route) {
     case 'members':
       // Typing the address gets the same answer as the missing tab. Not a
@@ -133,6 +152,19 @@ function Screen({ route }: { route: Route }) {
     case 'crossRankings':
       return <CrossRankingsPanel />;
     case 'arena':
+      // Here the tab and the data agree: 0064 made all four arena tables
+      // member-only, so an ungated reader would get an empty board rather
+      // than a board. Saying why beats rendering nothing.
+      if (mayViewArena === undefined) {
+        return <p className="empty">Loading…</p>;
+      }
+      if (!mayViewArena) {
+        return (
+          <p className="empty">
+            Arena boards are for alliance members. <a href="#/login">Sign in</a> to see them.
+          </p>
+        );
+      }
       return <ArenaPanel />;
     default:
       // Unknown addresses land here too, which is why the overview has to
@@ -140,6 +172,44 @@ function Screen({ route }: { route: Route }) {
       return <Overview />;
   }
 }
+
+/** Everything except the way in.
+ *
+ * 0065 made every table in the schema member-only, so a signed-out reader
+ * does not get an empty dashboard — every query is refused outright (42501)
+ * and every panel would render its error state. There is nothing left to
+ * show them, so nothing is shown.
+ *
+ * This is a wall in front of screens whose data is already withheld, not
+ * the withholding itself. Anyone can still open the address; they will find
+ * this, and the database would refuse them anyway.
+ *
+ * `viewer` lands here too. Signing up creates a viewer with no rows until an
+ * admin admits them or they redeem a join code, and that is exactly the
+ * state this text is written for.
+ */
+function SignedOutWall({ role }: { role: string | undefined }) {
+  return (
+    <main>
+      <section aria-labelledby="wall-heading">
+        <h2 id="wall-heading">Alliance members only</h2>
+        <p>Every screen on this dashboard is for HELLBOUND [CBFW]. Nothing here is public.</p>
+        <p>
+          {role === 'viewer' ? (
+            <>
+              You are signed in, but no role has been granted yet. Enter a join code on the{' '}
+              <a href="#/login">sign-in page</a>, or ask an admin.
+            </>
+          ) : (
+            <a href="#/login">Sign in</a>
+          )}
+        </p>
+      </section>
+    </main>
+  );
+}
+
+const MEMBER_ROLES = new Set(['member', 'officer', 'admin']);
 
 export function App() {
   const hash = useSyncExternalStore(subscribeHash, () => window.location.hash);
@@ -153,17 +223,57 @@ export function App() {
   const standalone = route === 'login' || route === 'monthCards';
   return (
     <QueryClientProvider client={queryClient}>
+      <Shell
+        allianceId={allianceId}
+        playerId={playerId}
+        route={route}
+        serverId={serverId}
+        standalone={standalone}
+      />
+    </QueryClientProvider>
+  );
+}
+
+function Shell({
+  route,
+  serverId,
+  playerId,
+  allianceId,
+  standalone,
+}: {
+  route: Route;
+  serverId: number | null;
+  playerId: string | null;
+  allianceId: string | null;
+  standalone: boolean;
+}) {
+  // Inside the provider, because it is a query. Undefined means "not
+  // answered yet" and must not be read as "not a member" — flashing the
+  // wall at a member on every load would be worse than a beat of Loading.
+  const { data: session, isPending } = useSession();
+  const isMember = session !== undefined && MEMBER_ROLES.has(session.role);
+  const walled = !standalone && !isPending && !isMember;
+
+  return (
+    <>
       <DataChangeSubscriber />
       <header className="app-header">
         <h1>
           Dark War dashboard
           {/* In the title rather than on a panel: it is about the whole
-              board, not one table's data. */}
-          <SyncStatus />
+              board, not one table's data. Only for members — it reads
+              sync_status, which 0065 closed like everything else. */}
+          {isMember && <SyncStatus />}
         </h1>
-        {!standalone && <Nav route={route} />}
+        {!standalone && isMember && <Nav route={route} />}
       </header>
-      {route === 'login' ? (
+      {walled ? (
+        <SignedOutWall role={session?.role} />
+      ) : isPending && !standalone ? (
+        <main>
+          <p className="empty">Loading…</p>
+        </main>
+      ) : route === 'login' ? (
         <LoginPage />
       ) : route === 'admin' ? (
         <AdminPage />
@@ -180,6 +290,6 @@ export function App() {
           <Screen route={route} />
         </main>
       )}
-    </QueryClientProvider>
+    </>
   );
 }

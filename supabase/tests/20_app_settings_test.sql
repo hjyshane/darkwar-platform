@@ -68,8 +68,10 @@ insert into public.app_settings (key, value)
 values ('overview_note', '{"text": "readable by everyone"}'::jsonb);
 
 set local role anon;
-select isnt_empty($$ select * from public.app_settings $$,
-  'anon can read settings — the overview renders from them logged out');
+-- Was 'the overview renders from them logged out'. There is no logged-out
+-- overview any more (0065).
+select throws_ok($$ select * from public.app_settings $$,
+  '42501', null, 'anon cannot read settings');
 
 select throws_ok(
   $$ insert into public.app_settings (key, value) values ('x', '{}'::jsonb) $$,

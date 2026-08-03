@@ -6,7 +6,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(13);
+select plan(12);
 
 insert into auth.users (id, instance_id, aud, role, email)
 values
@@ -41,17 +41,22 @@ create function pg_temp.mine() returns setof public.announcements language sql a
                             '00000000-0000-4000-8000-0000000a3002');
 $$;
 
+-- Until 0065 a 'public' notice was readable logged out and this asserted
+-- exactly that. There is no logged-out reader now, so visibility='public'
+-- no longer widens anything — it records what the author meant. The column
+-- stays for that reason; this assertion moves to saying anon gets nothing.
 set local role anon;
-select is((select count(*) from pg_temp.mine()), 1::bigint,
-  'anon sees the public notice only');
-select is((select title from pg_temp.mine()), 'Downtime',
-  'and it is the public one');
+select throws_ok($$ select count(*) from public.announcements $$,
+  '42501', null, 'anon reads no notice, public or otherwise');
 reset role;
 
 set local role authenticated;
 select pg_temp.act_as('00000000-0000-4000-8000-0000000ac003');
-select is((select count(*) from pg_temp.mine()), 1::bigint,
-  'a signed-in viewer is still not alliance staff, so still one');
+-- Was "still one" — the public notice. 0065 dropped announcements'
+-- public_read entirely, so the only SELECT policy left is member_read,
+-- keyed on the announcement.read capability that a viewer does not hold.
+select is((select count(*) from pg_temp.mine()), 0::bigint,
+  'a signed-in viewer holds no announcement.read, so sees neither');
 select pg_temp.act_as('00000000-0000-4000-8000-0000000ac002');
 select is((select count(*) from pg_temp.mine()), 2::bigint,
   'a member sees both');

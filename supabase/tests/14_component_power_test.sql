@@ -60,8 +60,9 @@ $$, '23514', null, 'an unverified metric name is refused');
 
 -- These boards are what every player already sees in the client.
 set local role anon;
-select isnt_empty($$ select snapshot_id from public.player_component_power_snapshots $$,
-  'anon reads the component boards, like the other cross-server rankings');
+-- Was 'anon reads the component boards'. 0065 made every board member-only.
+select throws_ok($$ select snapshot_id from public.player_component_power_snapshots $$,
+  '42501', null, 'anon reads no component board');
 reset role;
 
 select * from finish();
