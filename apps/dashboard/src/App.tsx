@@ -51,7 +51,9 @@ function DataChangeSubscriber() {
   return null;
 }
 
-const queryClient = new QueryClient();
+// Exported only so the local look-around build (src/dev) can seed it before
+// render. Nothing in the app reads it from outside this file.
+export const queryClient = new QueryClient();
 
 function subscribeHash(onChange: () => void) {
   window.addEventListener('hashchange', onChange);
