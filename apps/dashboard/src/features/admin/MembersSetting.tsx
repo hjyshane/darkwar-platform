@@ -129,7 +129,10 @@ export function MembersSetting() {
       <p className="subtle">
         A row appears here once somebody signs in. <strong>Role</strong> decides what the database
         allows; <strong>Rank</strong> is their standing in the alliance and is shown only — nothing
-        enforces it, so a promotion in game grants nothing here.
+        enforces it, so a promotion in game grants nothing here. <strong>Player</strong> says which
+        character the account is: set it and they can see their own roster history, leave it and
+        they cannot. Only an admin can set it, which is the point — an account that could name
+        itself could name anyone.
       </p>
 
       {message && <p className={failed ? 'error' : 'empty'}>{message}</p>}

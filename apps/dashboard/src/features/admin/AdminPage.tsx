@@ -166,7 +166,10 @@ function OperationsGroup() {
   return (
     <>
       <section aria-labelledby="collectors-heading">
-        <h2 id="collectors-heading">Collectors</h2>
+        {/* Not "Collectors": the section holds two tables and the first of
+            them is already called that, so the same word twice running was
+            the first thing visible on the screen. */}
+        <h2 id="collectors-heading">Collector health</h2>
         <CollectorHealth />
       </section>
 
