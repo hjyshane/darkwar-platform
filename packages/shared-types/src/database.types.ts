@@ -626,7 +626,7 @@ export type Database = {
           {
             foreignKeyName: "app_users_player_id_fkey"
             columns: ["player_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "players"
             referencedColumns: ["player_id"]
           },
@@ -2450,7 +2450,7 @@ export type Database = {
         Returns: Database["public"]["Enums"]["app_role"]
       }
       has_permission: { Args: { p_capability: string }; Returns: boolean }
-      linked_player_id: { Args: Record<PropertyKey, never>; Returns: string }
+      linked_player_id: { Args: never; Returns: string }
       rank_period_start: { Args: { ts: string }; Returns: string }
       rank_period_week_ends: {
         Args: { period_start: string }
