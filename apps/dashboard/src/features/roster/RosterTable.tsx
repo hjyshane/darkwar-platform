@@ -32,7 +32,6 @@ export interface RosterRow {
   growth_1d_at: string | null;
   growth_7d_at: string | null;
   player_id: string;
-  game_uid: number;
   current_name: string | null;
   hq_level: number | null;
   power: number | null;
@@ -94,7 +93,7 @@ function RankBadge({
   }
   return (
     <select
-      aria-label={`Rank for ${row.current_name ?? row.game_uid}`}
+      aria-label={`Rank for ${row.current_name ?? 'an unnamed member'}`}
       className={`rank-badge ${row.assigned_rank === null ? 'rank-badge-computed' : ''}`}
       onChange={(event) => onSet(row.player_id, event.target.value || null)}
       title={
@@ -150,7 +149,10 @@ function GrowthCell({ value, since }: { value: number | null; since: string | nu
 // Rank is searchable rather than sortable. It rides inside the name cell
 // (see below), so there is no column header to sort by — typing R3 is how
 // you get "everyone I would promote".
-const SEARCH_FIELDS = ['current_name', 'game_uid', 'assigned_rank', 'computed_rank'] as const;
+// game_uid is deliberately absent. It is not on screen any more, and a
+// field you can search but cannot see is a way of reading it out one guess
+// at a time.
+const SEARCH_FIELDS = ['current_name', 'assigned_rank', 'computed_rank'] as const;
 
 function formatNumber(value: number | null): string {
   // FR-UI-008: unknown is unknown, never zero.
@@ -382,13 +384,16 @@ export function RosterTable({
                       id={row.player_id}
                       isFavourite={isFavourite('player', row.player_id)}
                       kind="player"
-                      label={row.current_name ?? `UID ${row.game_uid}`}
+                      label={row.current_name ?? 'an unnamed member'}
                       onToggle={toggle}
                     />
                   )}
-                  <a href={playerHash(row.player_id)}>
-                    {row.current_name ?? `UID ${row.game_uid}`}
-                  </a>
+                  {/* No uid fallback here. Every member on this screen has
+                      a name, and printing the game uid for the one who does
+                      not would put an identifier on the page that the rest
+                      of it deliberately leaves off. The row still links, so
+                      the player page can say who it is. */}
+                  <a href={playerHash(row.player_id)}>{row.current_name ?? 'Unnamed'}</a>
                 </td>
                 <td className="num">{row.hq_level ?? '—'}</td>
                 <td className="num">{formatNumber(row.power)}</td>

@@ -12,6 +12,7 @@ import { PlayerPage } from './features/player/PlayerPage';
 import { RankingsPanel } from './features/rankings/RankingsPanel';
 import { RosterPanel } from './features/roster/RosterPanel';
 import { ServerPage } from './features/server/ServerPage';
+import { isAllowed, usePermissions } from './lib/permissions';
 import { queryKeysForTopic, subscribeDataChanges } from './lib/realtime';
 import {
   NAV_TABS,
@@ -55,11 +56,27 @@ function subscribeHash(onChange: () => void) {
   return () => window.removeEventListener('hashchange', onChange);
 }
 
+/** Whether this reader may be offered the Members screen (0063).
+ *
+ * Undefined while the grid is still loading, which callers must treat as
+ * "not yet" rather than "no": rendering the tab and then taking it away is
+ * worse than a tab that appears a beat late.
+ */
+function useMayViewMembers(): boolean | undefined {
+  const { data: session } = useSession();
+  const { data: permissions, isPending } = usePermissions();
+  if (isPending) {
+    return undefined;
+  }
+  return isAllowed(permissions?.grants, session?.role, 'members.view');
+}
+
 function Nav({ route }: { route: Route }) {
   const { data: session } = useSession();
+  const mayViewMembers = useMayViewMembers();
   return (
     <nav aria-label="Screens" className="tabs">
-      {NAV_TABS.map((tab) => (
+      {NAV_TABS.filter((tab) => tab.route !== 'members' || mayViewMembers === true).map((tab) => (
         <a
           key={tab.hash}
           href={tab.hash}
@@ -92,8 +109,24 @@ function Nav({ route }: { route: Route }) {
 }
 
 function Screen({ route }: { route: Route }) {
+  const mayViewMembers = useMayViewMembers();
   switch (route) {
     case 'members':
+      // Typing the address gets the same answer as the missing tab. Not a
+      // security boundary — RLS is, and every figure on that screen that is
+      // actually alliance-internal is member-only on its own table (0063's
+      // comment says which). This is about not putting a screen in front of
+      // someone it is not for.
+      if (mayViewMembers === undefined) {
+        return <p className="empty">Loading…</p>;
+      }
+      if (!mayViewMembers) {
+        return (
+          <p className="empty">
+            The roster is for alliance members. <a href="#/login">Sign in</a> to see it.
+          </p>
+        );
+      }
       return <RosterPanel />;
     case 'rankings':
       return <RankingsPanel />;
