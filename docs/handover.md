@@ -226,7 +226,7 @@ UID, `contentsArr`가 본문). 없는 것은 **실제 수신 사례**다. 그러
 
 **WSL에서도 Supabase 스택은 돌아간다** (2026-08-01 확인). 돈다는 것과 거기서
 해야 한다는 것은 다르다 — `CLAUDE.md`는 Windows-only이고, 2026-08-02에 문서를
-그쪽으로 되돌렸다. 아래 "Windows에서 가장
+전부 그쪽으로 되돌렸다(창은 PowerShell 하나). 아래 "Windows에서 가장
 먼저 할 일"은 pgTAP이 Windows 전용이라는 전제로 쓰였는데 그렇지 않다 —
 `supabase start` · `db reset` · `test db` · `gen types` 전부 WSL에서 돈다.
 Windows여야 하는 것은 **라이브 캡처(Npcap·BlueStacks)뿐**이다. 0029는 WSL에서
@@ -399,7 +399,7 @@ al.rank 93명 전원과 아레나 엔트리 전원이 `careerType=0`, `careerPos
 
 **2026-08-01 해결 — `army`는 열렸고, 영웅 정보가 들어 있다.**
 
-`C:\DW_data`의 실 저널(`collector.db`, `probe.db`)이 WSL에서 `/mnt/c`로 읽힌다.
+실 저널은 `C:\DW_data\collector.db`(과 `probe.db`)다.
 캡처를 새로 찍을 필요가 없었다. `army`는 **base64 protobuf**이고 `.proto` 없이
 와이어 포맷만으로 완전히 파싱된다(전투 리포트의 `battleContent`와 달리 여기서
 막히지 않는다).
@@ -621,7 +621,7 @@ Windows에는 해당 없지만 기록해둔다.
 
 이번 세션에서 CI가 잡은 것들이며, 반복하지 않기 위해 적는다.
 
-**세션 끝에 브랜치를 푸시한다. 미완성이어도.** 맥과 윈도우/WSL 사이에 충돌이
+**세션 끝에 브랜치를 푸시한다. 미완성이어도.** 맥과 윈도우 사이에 충돌이
 난 적은 **한 번도 없다** — 두 머신이 같은 파일을 동시에 고치지 않기 때문이다.
 실제로 손해를 낸 것은 언제나 **푸시하지 않은 브랜치**였다.
 
@@ -636,7 +636,10 @@ Windows에는 해당 없지만 기록해둔다.
 세션 시작에 `git fetch --prune`, 세션 끝에 푸시. 이것만 지키면 머신이 몇 대든
 상관없다.
 
-**WSL에서 GitHub 인증이 막히면 키 문제가 아닐 가능성이 높다.** 키
+**GitHub 인증이 막히면 키 문제가 아닐 가능성이 높다.** Windows에서는 ssh-agent가
+서비스라 `Set-Service -StartupType Automatic` + `ssh-add` 한 번이면 끝이고, 그
+뒤로는 셸을 새로 열어도 유지된다(2026-08-02 확인). 아래는 WSL에서 겪은 기록이다.
+키
 (`~/.ssh/id_ed25519_github`)는 계정에 `home_wsl_github`로 등록돼 있다. 새 창에
 ssh-agent가 없고 키에 passphrase가 걸려 있으면 `Permission denied (publickey)`가
 난다. 새 키를 만들거나 등록하지 말고 아래만 하면 된다.

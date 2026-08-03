@@ -6,12 +6,13 @@ denylist 검증"에 해당한다. 2026-07-29 첫 라이브 캡처에서 실제�
 
 ## 역할 분담 — 어느 쪽에서 무엇을 돌리는가
 
-프롬프트가 `PS C:\...>` 면 Windows, `사용자@컴퓨터:~$` 면 WSL이다.
+창은 **PowerShell 하나**다 (`PS C:\...>`). WSL은 지우지 않지만 — Docker
+Desktop이 내부적으로 WSL2를 쓴다 — 거기서 타이핑하지 않는다.
 
 | 어디서 | 무엇을 | 왜 |
 |---|---|---|
 | **Windows** `C:\darkwar-platform` | `dw-capture`, `dw-collector sync` | Npcap이 Windows 전용이고, SQLite 저널이 로컬 디스크에 있어야 한다 |
-| **WSL** `~/Projects/DW_app` | `supabase` 마이그레이션·pgTAP, `pnpm dev`, pytest | 툴체인이 여기 있고 CI와 같은 환경이다 |
+| **Windows** `C:\darkwar-platform` | `supabase` 마이그레이션·pgTAP, `pnpm dev`, pytest | 창을 나누면 저널과 `.env`가 두 벌이 된다 |
 
 **캡처는 WSL에서 원리적으로 불가능하다.** Npcap이 Windows 전용인 것에 더해,
 WSL2는 자기만의 가상 랜카드(`172.19.160.1`)를 쓰는 별도 네트워크다. 게임은
@@ -184,10 +185,10 @@ uv run dw-collector sync
 `sent=N failed=0`이 정상이다. 네트워크나 스택 문제로 실패하면 행은 outbox에
 `pending`으로 남고, 스택을 복구한 뒤 같은 명령을 다시 돌리면 손실 없이 올라간다.
 
-그다음 WSL에서 대시보드로 확인한다.
+그다음 대시보드로 확인한다.
 
-```bash
-cd ~/Projects/DW_app && pnpm dev
+```powershell
+cd C:\darkwar-platform; pnpm dev
 ```
 
 ## 운영 절차
@@ -378,7 +379,7 @@ cd C:\darkwar-platform\services\collector; ..\..\dw-env.ps1; uv run dw-jobs
 | `ModuleNotFoundError: No module named 'dw_collector'` | 그 체크아웃에 `src/`가 없다. `git pull`이 안 된 오래된 체크아웃이거나 잘못된 디렉터리다 |
 | `SUPABASE_URL and SUPABASE_SECRET_KEY are required` | 환경변수를 다른 셸(PowerShell↔WSL)에 설정했거나, `.env`가 작업 디렉터리·상위 4단계 안에 없다 |
 | sync가 `WinError 10061` / `Connection refused` | 로컬 스택이 내려갔다. 아래 참조 |
-| WSL에서 `docker: command not found` | Docker Desktop → Settings → Resources → WSL integration이 꺼졌다. 켜고 Docker Desktop 재시작 |
+| `docker: command not found` | Docker Desktop이 안 떠 있다. 켜고 다시 (Supabase 로컬 스택이 그 위에서 돈다) |
 | `curl http://127.0.0.1:54321` 이 `000` | Kong(API 게이트웨이)이 죽었다. `supabase start`가 "already running"이라며 `Stopped services`에 kong을 나열하면, `supabase stop && supabase start`로 완전히 재시작한다 |
 | `git pull`이 untracked `uv.lock` 때문에 중단 | Windows uv가 만들어 둔 사본이다. 커밋된 것과 동일하면 지우고 다시 pull |
 | `git clone`이 `no such identity: /c/Users/.../id_ed25519_github` | WSL 안에만 있는 키를 Windows ssh가 찾고 있다. HTTPS로 클론한다 |
