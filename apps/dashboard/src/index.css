@@ -150,6 +150,14 @@ h1 {
   outline-offset: -2px;
 }
 
+/* A second bar inside a page (the settings groups). The header supplies the
+ * main nav's spacing; this one has to bring its own, and sits under a rule
+ * so it does not read as a second row of the nav above it. */
+.subtabs {
+  border-bottom: 1px solid var(--border);
+  margin-top: var(--space-4);
+}
+
 /* Board pickers inside a panel (which metric a ranking shows). Styled off
  * the ARIA roles rather than a class: the markup already says what these
  * are, and keying off aria-selected keeps the announced state and the

@@ -31,10 +31,44 @@ const ROUTES: Record<string, Route> = {
   '#/rankings': 'rankings',
   '#/cross-server': 'crossRankings',
   '#/arena': 'arena',
-  '#/admin': 'admin',
   '#/month-cards': 'monthCards',
   '#/login': 'login',
 };
+
+/** Settings is one route with several screens under it.
+ *
+ * Twelve settings on one page meant twelve queries on every visit and no way
+ * to link somebody to one of them. The groups are named after what an admin
+ * came to do, not after the tables underneath — Heroes and Pets are a
+ * catalogue somebody types into, which is why they are not "settings".
+ */
+export type AdminGroup = 'access' | 'alliance' | 'display' | 'catalogue';
+
+export const ADMIN_GROUPS: ReadonlyArray<{ group: AdminGroup; label: string }> = [
+  { group: 'access', label: 'Access' },
+  { group: 'alliance', label: 'Alliance' },
+  { group: 'display', label: 'Display' },
+  { group: 'catalogue', label: 'Catalogue' },
+];
+
+// Built from the list above so a new group is one edit, not two that can
+// disagree. A group this does not name falls through to the landing screen,
+// the same as `#/arena/extra` — an invented address should not silently
+// render Access and look like it worked.
+const ADMIN_HASH = new RegExp(`^#/admin(?:/(${ADMIN_GROUPS.map((g) => g.group).join('|')}))?$`);
+
+/** The group an `#/admin/...` address names, or null for any other address.
+ *
+ * Bare `#/admin` is Access: that address predates the groups and is in
+ * people's history and in the nav. */
+export function adminGroupFromHash(hash: string): AdminGroup | null {
+  const match = ADMIN_HASH.exec(hash);
+  return match === null ? null : ((match[1] as AdminGroup | undefined) ?? 'access');
+}
+
+export function adminHash(group: AdminGroup): string {
+  return `#/admin/${group}`;
+}
 
 // The one address that carries a value. Digits only: a server id is a
 // number, and anything else falls through to the landing screen rather than
@@ -50,6 +84,9 @@ const PLAYER_HASH = new RegExp(`^#/player/(${UUID})$`, 'i');
 const ALLIANCE_HASH = new RegExp(`^#/alliance/(${UUID})$`, 'i');
 
 export function routeFromHash(hash: string): Route {
+  if (ADMIN_HASH.test(hash)) {
+    return 'admin';
+  }
   if (SERVER_HASH.test(hash)) {
     return 'server';
   }

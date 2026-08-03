@@ -15,8 +15,10 @@ import { ServerPage } from './features/server/ServerPage';
 import { isAllowed, usePermissions } from './lib/permissions';
 import { queryKeysForTopic, subscribeDataChanges } from './lib/realtime';
 import {
+  type AdminGroup,
   NAV_TABS,
   type Route,
+  adminGroupFromHash,
   allianceIdFromHash,
   playerIdFromHash,
   routeFromHash,
@@ -217,6 +219,7 @@ export function App() {
   const serverId = serverIdFromHash(hash);
   const playerId = playerIdFromHash(hash);
   const allianceId = allianceIdFromHash(hash);
+  const adminGroup = adminGroupFromHash(hash);
   // Month cards is unlinked on purpose and the sign-in form has no use for
   // a tab bar behind it. A server page keeps the tabs: it is reached FROM
   // one, and taking the way back away would strand the reader.
@@ -224,6 +227,7 @@ export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <Shell
+        adminGroup={adminGroup}
         allianceId={allianceId}
         playerId={playerId}
         route={route}
@@ -239,12 +243,14 @@ function Shell({
   serverId,
   playerId,
   allianceId,
+  adminGroup,
   standalone,
 }: {
   route: Route;
   serverId: number | null;
   playerId: string | null;
   allianceId: string | null;
+  adminGroup: AdminGroup | null;
   standalone: boolean;
 }) {
   // Inside the provider, because it is a query. Undefined means "not
@@ -275,8 +281,8 @@ function Shell({
         </main>
       ) : route === 'login' ? (
         <LoginPage />
-      ) : route === 'admin' ? (
-        <AdminPage />
+      ) : route === 'admin' && adminGroup !== null ? (
+        <AdminPage group={adminGroup} />
       ) : route === 'monthCards' ? (
         <MonthCardsPage />
       ) : route === 'server' && serverId !== null ? (
