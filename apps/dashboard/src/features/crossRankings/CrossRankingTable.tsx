@@ -1,7 +1,7 @@
 import { SortableTh } from '../../components/SortableTh';
 import { TableSearch } from '../../components/TableSearch';
 import { heroName, petName, useHeroCatalogue, usePetCatalogue } from '../../lib/heroes';
-import { serverHash } from '../../lib/route';
+import { playerHash, serverHash } from '../../lib/route';
 import { TERMS } from '../../lib/terms';
 import { useTableView } from '../../lib/useTableView';
 import type { Board, BoardRow } from './boards';
@@ -68,7 +68,17 @@ export function CrossRankingTable({ rows, board }: { rows: BoardRow[]; board: Bo
             {view.map((row) => (
               <tr key={row.id}>
                 <td className="num">{row.rank ?? '—'}</td>
-                <td className="label">{row.name ?? `UID ${row.game_uid}`}</td>
+                <td className="label">
+                  {/* Linked where we have matched the board's entry to a
+                      player row. Unlinked otherwise — a board can rank
+                      someone from a server nobody has swept, and a link to
+                      a page that would 404 is worse than plain text. */}
+                  {row.playerId === null ? (
+                    (row.name ?? `UID ${row.game_uid}`)
+                  ) : (
+                    <a href={playerHash(row.playerId)}>{row.name ?? `UID ${row.game_uid}`}</a>
+                  )}
+                </td>
                 <td className="num">
                   <a href={serverHash(row.server_id)}>{row.server_id}</a>
                 </td>

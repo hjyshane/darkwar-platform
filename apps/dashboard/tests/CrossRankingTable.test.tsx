@@ -11,6 +11,10 @@ import { renderWithQuery } from './renderWithQuery';
 function row(overrides: Partial<BoardRow> = {}): BoardRow {
   return {
     id: crypto.randomUUID(),
+    // Unlinked by default: the interesting case is the board entry we have
+    // never matched to a player row, which is what a cross-server board is
+    // full of.
+    playerId: null,
     rank: 1,
     name: 'Ranked001',
     game_uid: 9000000001000578,

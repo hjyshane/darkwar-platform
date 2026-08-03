@@ -9,14 +9,19 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 // on the same two topics the roster does — it is a second reader of the same
 // facts, not a source of its own.
 const TOPIC_QUERY_KEYS: Record<string, readonly (readonly string[])[]> = {
-  alliance_member_snapshots: [['roster'], ['overview']],
-  alliance_contribution_snapshots: [['roster'], ['overview']],
-  player_snapshots: [['roster'], ['crossRankings'], ['overview']],
+  //
+  // `['player']` is a PREFIX of the player page's `['player', id]` key, so
+  // naming it here reaches whichever player is open. The page had no topic at
+  // all until the arena block went on it: contribution, power breakdown and
+  // presence all sat there going stale until a manual reload.
+  alliance_member_snapshots: [['roster'], ['overview'], ['player']],
+  alliance_contribution_snapshots: [['roster'], ['overview'], ['player']],
+  player_snapshots: [['roster'], ['crossRankings'], ['overview'], ['player']],
   alliance_snapshots: [['rankings']],
-  player_component_power_snapshots: [['crossRankings']],
-  player_detail_snapshots: [['roster']],
-  arena_snapshots: [['arena']],
-  arena_entries: [['arena']],
+  player_component_power_snapshots: [['crossRankings'], ['player']],
+  player_detail_snapshots: [['roster'], ['player']],
+  arena_snapshots: [['arena'], ['player']],
+  arena_entries: [['arena'], ['player']],
   // Written by an admin rather than the collector, and the only topic here
   // that fires on delete too — a notice taken down has to disappear.
   announcements: [['announcements'], ['announcements-admin']],

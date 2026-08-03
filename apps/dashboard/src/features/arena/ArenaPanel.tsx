@@ -4,25 +4,9 @@ import { compareLeagues, leagueLabel, leagueScope } from '../../lib/arenaLeague'
 import { formatAge } from '../../lib/freshness';
 import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
-import type { LineupEquipment, LineupHero, LineupSkill } from '../../lib/troops';
 import { composition } from '../../lib/troops';
 import { type ArenaEntryRow, type ArenaHeader, ArenaTable } from './ArenaTable';
-
-/** Narrow a jsonb column to the record list the parser writes.
- *
- * Anything that is not an array of objects carrying the identifying key is
- * dropped rather than trusted — the column is jsonb precisely so the parser
- * can put shapes there without a migration, which means the reader cannot
- * assume one.
- */
-function asList<T>(value: unknown, idKey: string): T[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value.filter(
-    (item): item is T => typeof item === 'object' && item !== null && idKey in item,
-  );
-}
+import { fetchLineups } from './lineups';
 
 /** The newest snapshot of each league.
  *
@@ -61,7 +45,7 @@ async function fetchBoardEntries(snapshotId: string): Promise<ArenaEntryRow[]> {
   const { data: entries, error: entriesError } = await supabase
     .from('arena_entries')
     .select(
-      'snapshot_id, rank, name, game_uid, server_id, alliance_name, alliance_code, score, defense_power',
+      'snapshot_id, player_id, rank, name, game_uid, server_id, alliance_name, alliance_code, score, defense_power',
     )
     .eq('arena_snapshot_id', snapshotId)
     .order('rank', { ascending: true });
@@ -69,38 +53,7 @@ async function fetchBoardEntries(snapshotId: string): Promise<ArenaEntryRow[]> {
     throw new Error(`arena entries query failed: ${entriesError.message}`);
   }
 
-  // Chunked at 100: PostgREST puts an `in.(...)` filter in the URL, and a
-  // Top100 board is exactly the size at which that starts to matter — the
-  // sync worker chunks the same way for the same reason.
-  const lineups = new Map<string, LineupHero[]>();
-  const ids = entries.map((entry) => entry.snapshot_id);
-  for (let start = 0; start < ids.length; start += 100) {
-    const { data: heroes, error: heroesError } = await supabase
-      .from('arena_entry_heroes')
-      .select(
-        'arena_entry_id, slot, hero_id, troop_class, hero_level, level_synced, star, stage, hero_power, weapon_level, skills, equipment',
-      )
-      .in('arena_entry_id', ids.slice(start, start + 100));
-    if (heroesError) {
-      throw new Error(`arena lineup query failed: ${heroesError.message}`);
-    }
-    for (const row of heroes) {
-      const hero: LineupHero = {
-        ...row,
-        // skills and equipment are jsonb, so they arrive as `Json` and have
-        // to be narrowed at the boundary rather than asserted through. A
-        // shape the parser did not write reads as absent, not as a crash.
-        skills: asList<LineupSkill>(row.skills, 'skill_id'),
-        equipment: asList<LineupEquipment>(row.equipment, 'equipment_id'),
-      };
-      const group = lineups.get(row.arena_entry_id);
-      if (group === undefined) {
-        lineups.set(row.arena_entry_id, [hero]);
-      } else {
-        group.push(hero);
-      }
-    }
-  }
+  const lineups = await fetchLineups(entries.map((entry) => entry.snapshot_id));
 
   return entries.map((entry) => {
     const lineup = lineups.get(entry.snapshot_id) ?? [];
