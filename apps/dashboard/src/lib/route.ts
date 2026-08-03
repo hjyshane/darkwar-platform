@@ -42,13 +42,14 @@ const ROUTES: Record<string, Route> = {
  * came to do, not after the tables underneath — Heroes and Pets are a
  * catalogue somebody types into, which is why they are not "settings".
  */
-export type AdminGroup = 'access' | 'alliance' | 'display' | 'catalogue';
+export type AdminGroup = 'access' | 'alliance' | 'display' | 'catalogue' | 'operations';
 
 export const ADMIN_GROUPS: ReadonlyArray<{ group: AdminGroup; label: string }> = [
   { group: 'access', label: 'Access' },
   { group: 'alliance', label: 'Alliance' },
   { group: 'display', label: 'Display' },
   { group: 'catalogue', label: 'Catalogue' },
+  { group: 'operations', label: 'Operations' },
 ];
 
 // Built from the list above so a new group is one edit, not two that can
