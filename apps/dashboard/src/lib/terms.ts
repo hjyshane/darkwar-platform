@@ -44,7 +44,7 @@ export const TERMS = {
   // the member table called it 'Last Seen', and a reader had no way to know
   // they were the same captured_at — while 'Observed' sat one column away
   // from real presence data and read like it.
-  lastSeen: 'Last Seen', // ours: captured_at / last_seen_at — when we last looked
+  lastSeen: 'Last Updated', // ours: captured_at / last_seen_at — when we last looked
   defensePower: 'Defense Power', // ours: the `army` blob is a lineup, not a number
   lineup: 'Lineup', // ours: the decoded `army` blob
   heroId: 'Hero ID',

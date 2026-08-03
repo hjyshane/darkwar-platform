@@ -598,6 +598,7 @@ export type Database = {
         Row: {
           created_at: string
           display_name: string | null
+          game_rank: string | null
           role: Database["public"]["Enums"]["app_role"]
           updated_at: string
           user_id: string
@@ -605,6 +606,7 @@ export type Database = {
         Insert: {
           created_at?: string
           display_name?: string | null
+          game_rank?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
           user_id: string
@@ -612,6 +614,7 @@ export type Database = {
         Update: {
           created_at?: string
           display_name?: string | null
+          game_rank?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
           user_id?: string
@@ -1132,6 +1135,27 @@ export type Database = {
           },
         ]
       }
+      capabilities: {
+        Row: {
+          capability: string
+          description: string
+          label: string
+          sort_order: number
+        }
+        Insert: {
+          capability: string
+          description?: string
+          label: string
+          sort_order?: number
+        }
+        Update: {
+          capability?: string
+          description?: string
+          label?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
       collector_heartbeats: {
         Row: {
           collector_id: string
@@ -1444,6 +1468,30 @@ export type Database = {
           recommended_period?: string | null
           source_priority?: Json
           unit?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      pets: {
+        Row: {
+          created_at: string
+          name: string | null
+          notes: string
+          pet_id: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          name?: string | null
+          notes?: string
+          pet_id: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          name?: string | null
+          notes?: string
+          pet_id?: number
           updated_at?: string
         }
         Relationships: []
@@ -1772,6 +1820,35 @@ export type Database = {
           },
         ]
       }
+      player_ranks: {
+        Row: {
+          assigned_rank: string
+          player_id: string
+          set_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          assigned_rank: string
+          player_id: string
+          set_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assigned_rank?: string
+          player_id?: string
+          set_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_ranks_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: true
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+        ]
+      }
       player_snapshots: {
         Row: {
           alliance_external_id: string | null
@@ -1933,6 +2010,107 @@ export type Database = {
           },
         ]
       }
+      rank_period_snapshots: {
+        Row: {
+          activity_score: number | null
+          computed_at: string
+          donation_pct: number | null
+          donation_total: number | null
+          donation_week1: number | null
+          donation_week1_at: string | null
+          donation_week2: number | null
+          donation_week2_at: string | null
+          duel_pct: number | null
+          duel_total: number | null
+          duel_week1: number | null
+          duel_week1_at: string | null
+          duel_week2: number | null
+          duel_week2_at: string | null
+          game_uid: number
+          growth_pct: number | null
+          name: string | null
+          offline_hours: number | null
+          period_start: string
+          player_id: string
+          power_end: number | null
+          power_end_at: string | null
+          power_growth: number | null
+          power_start: number | null
+          power_start_at: string | null
+          snapshot_id: string
+          tier: string | null
+          tier_reason: string | null
+        }
+        Insert: {
+          activity_score?: number | null
+          computed_at?: string
+          donation_pct?: number | null
+          donation_total?: number | null
+          donation_week1?: number | null
+          donation_week1_at?: string | null
+          donation_week2?: number | null
+          donation_week2_at?: string | null
+          duel_pct?: number | null
+          duel_total?: number | null
+          duel_week1?: number | null
+          duel_week1_at?: string | null
+          duel_week2?: number | null
+          duel_week2_at?: string | null
+          game_uid: number
+          growth_pct?: number | null
+          name?: string | null
+          offline_hours?: number | null
+          period_start: string
+          player_id: string
+          power_end?: number | null
+          power_end_at?: string | null
+          power_growth?: number | null
+          power_start?: number | null
+          power_start_at?: string | null
+          snapshot_id?: string
+          tier?: string | null
+          tier_reason?: string | null
+        }
+        Update: {
+          activity_score?: number | null
+          computed_at?: string
+          donation_pct?: number | null
+          donation_total?: number | null
+          donation_week1?: number | null
+          donation_week1_at?: string | null
+          donation_week2?: number | null
+          donation_week2_at?: string | null
+          duel_pct?: number | null
+          duel_total?: number | null
+          duel_week1?: number | null
+          duel_week1_at?: string | null
+          duel_week2?: number | null
+          duel_week2_at?: string | null
+          game_uid?: number
+          growth_pct?: number | null
+          name?: string | null
+          offline_hours?: number | null
+          period_start?: string
+          player_id?: string
+          power_end?: number | null
+          power_end_at?: string | null
+          power_growth?: number | null
+          power_start?: number | null
+          power_start_at?: string | null
+          snapshot_id?: string
+          tier?: string | null
+          tier_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rank_period_snapshots_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+        ]
+      }
       refresh_jobs: {
         Row: {
           attempt_count: number
@@ -1999,6 +2177,35 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "app_users"
             referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      role_permissions: {
+        Row: {
+          allowed: boolean
+          capability: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at: string
+        }
+        Insert: {
+          allowed?: boolean
+          capability: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Update: {
+          allowed?: boolean
+          capability?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_permissions_capability_fkey"
+            columns: ["capability"]
+            isOneToOne: false
+            referencedRelation: "capabilities"
+            referencedColumns: ["capability"]
           },
         ]
       }
@@ -2170,6 +2377,49 @@ export type Database = {
           },
         ]
       }
+      player_current_rank: {
+        Row: {
+          assigned_rank: string | null
+          computed_reason: string | null
+          computed_tier: string | null
+          donation_pct: number | null
+          duel_pct: number | null
+          growth_pct: number | null
+          period_start: string | null
+          player_id: string | null
+          rank_score: number | null
+        }
+        Relationships: []
+      }
+      player_power_growth: {
+        Row: {
+          growth_1d: number | null
+          growth_7d: number | null
+          player_id: string | null
+          power: number | null
+          power_1d: number | null
+          power_1d_at: string | null
+          power_7d: number | null
+          power_7d_at: string | null
+          power_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_snapshots_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+        ]
+      }
+      sync_status: {
+        Row: {
+          is_live: boolean | null
+          last_heartbeat_at: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       backfill_month_card_from_raw: {
@@ -2180,9 +2430,16 @@ export type Database = {
           player_rows: number
         }[]
       }
+      build_rank_period: { Args: { p_period_start: string }; Returns: number }
       current_app_role: {
         Args: never
         Returns: Database["public"]["Enums"]["app_role"]
+      }
+      has_permission: { Args: { p_capability: string }; Returns: boolean }
+      rank_period_start: { Args: { ts: string }; Returns: string }
+      rank_period_week_ends: {
+        Args: { period_start: string }
+        Returns: string[]
       }
       redeem_join_code: {
         Args: { p_code: string }

@@ -80,18 +80,16 @@ export function isMaxStar(star: number | null): boolean {
  * `block = level / 5`, `step = level % 5`.
  *
  * Confirmed for the star range: the user read Cyrus's weapon in game as
- * 4성 2단계 and its level is 22, which is 4×5+2 exactly.
+ * 4 stars 2 steps, and its level is 22, which is 4×5+2 exactly.
  *
  * A weapon stops at five stars, same as its hero, and what continues past
- * that is 각 (also the user, correcting an earlier reading of this code that
- * printed 6성, 7성 and 8성 — grades the game does not have). Blocks past the
- * fifth are therefore counted as 각, not as more stars.
+ * that is awakening (also the user, correcting an earlier reading of this
+ * code that printed six, seven and eight stars — grades the game does not
+ * have). Blocks past the fifth are counted as awakenings, not more stars.
  *
- * The 각 numbering is the ONE part still unconfirmed. It assumes the same
- * five-level rhythm continues, which is what the level distribution looks
- * like — 2 to 41 with nothing between the blocks — but no 각 weapon has been
- * read off a screen. If a level-30 weapon does not show 각 1, the star half
- * of this is still right and the 각 half is not.
+ * The awakening numbering is confirmed too: the user opened the level-30
+ * weapon and it reads awakening 1, which is what the same five-level rhythm
+ * predicts. Nothing in this function is a guess any more.
  */
 export const WEAPON_LEVELS_PER_STEP = 5;
 export const WEAPON_MAX_STAR = 5;
@@ -100,7 +98,7 @@ export interface WeaponRank {
   /** Capped at WEAPON_MAX_STAR: the weapon does not go past five. */
   star: number;
   step: number;
-  /** How many 각 past the fifth star, or null while still within it. */
+  /** How many awakenings past the fifth star, or null while within it. */
   awakening: number | null;
 }
 
@@ -116,23 +114,79 @@ export function weaponRank(level: number | null): WeaponRank | null {
   return { star: WEAPON_MAX_STAR, step, awakening: block - WEAPON_MAX_STAR };
 }
 
-/** "4성 2단계", or "5성 각1 2단계" once it is past the cap. Null with no
- * weapon — which is a state, not a level-zero weapon. */
+/** "4★ step 2", or "5★ awaken 1 step 2" once it is past the cap. Null with
+ * no weapon — which is a state, not a level-zero weapon. */
 export function weaponRankLabel(level: number | null): string | null {
   const rank = weaponRank(level);
   if (rank === null) {
     return null;
   }
   if (rank.awakening === null) {
-    return `${rank.star}성 ${rank.step}단계`;
+    return `${rank.star}★ step ${rank.step}`;
   }
-  return `${rank.star}성 각${rank.awakening} ${rank.step}단계`;
+  return `${rank.star}★ awaken ${rank.awakening} step ${rank.step}`;
 }
 
-/** Past five stars, where the weapon leaves the star track for 각. The one
- * thing about a weapon worth marking on a chip. */
+/** Past five stars, where the weapon leaves the star track for awakenings.
+ * The one thing about a weapon worth marking on a chip. */
 export function isWeaponAwakened(level: number | null): boolean {
   return weaponRank(level)?.awakening != null;
+}
+
+/** A piece of gear's awakening, derived from its promote count.
+ *
+ * Gear levels to 100 and then takes up to five awakenings. Neither the
+ * awakening nor the step is sent — the equipment submessage has exactly
+ * three fields across 17,028 observed, an id, a level and this promote
+ * count — so it comes out of promote, and the arithmetic is what the numbers
+ * themselves suggest.
+ *
+ * At level 100 promote lands on 11, 16, 21, 26, 31, 36 far more often than
+ * anywhere between, an arithmetic run of five, and **36 is the largest value
+ * observed anywhere**. (36 - 11) / 5 = 5, which is exactly the cap the user
+ * stated independently. Filtering to the top ten arena ranks — the players
+ * who would have finished the track — is what made the run visible: the
+ * values above 16 are almost all theirs.
+ *
+ * The five values between one landmark and the next are the steps inside an
+ * awakening, the same five-to-a-step rhythm the weapon uses.
+ *
+ * Confirmed against the game: a level-100 piece at promote 11 reads
+ * awakening 0, so 11 is the landmark this arithmetic hangs on. Level-100
+ * gear BELOW promote 11 still exists and is read as awakening 0 as well —
+ * that is the one case nobody has looked at, and it errs toward "not yet
+ * awakened", which is the harmless direction.
+ */
+export const GEAR_MAX_LEVEL = 100;
+export const GEAR_PROMOTE_AT_MAX_LEVEL = 11;
+export const GEAR_MAX_AWAKENING = 5;
+
+export interface GearRank {
+  awakening: number;
+  step: number;
+}
+
+export function gearRank(level: number | null, promote: number | null): GearRank | null {
+  if (level === null || level < GEAR_MAX_LEVEL) {
+    return null;
+  }
+  const past = (promote ?? 0) - GEAR_PROMOTE_AT_MAX_LEVEL;
+  if (past <= 0) {
+    return { awakening: 0, step: 0 };
+  }
+  return {
+    awakening: Math.min(Math.floor(past / WEAPON_LEVELS_PER_STEP), GEAR_MAX_AWAKENING),
+    step: past % WEAPON_LEVELS_PER_STEP,
+  };
+}
+
+/** "Lv 100 awaken 3 step 1", or "Lv 70" for a piece still levelling. */
+export function gearRankLabel(level: number | null, promote: number | null): string {
+  if (level === null) {
+    return '—';
+  }
+  const rank = gearRank(level, promote);
+  return rank === null ? `Lv ${level}` : `Lv 100 awaken ${rank.awakening} step ${rank.step}`;
 }
 
 export function troopClassName(value: number | null): string {

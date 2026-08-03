@@ -78,3 +78,34 @@ export function heroName(catalogue: HeroCatalogue | undefined, heroId: number): 
   const name = catalogue?.get(heroId)?.name;
   return name != null && name.length > 0 ? name : String(heroId);
 }
+
+/** The pet catalogue. Same shape and same reason as the hero one — the
+ * protocol carries no pet names either, and the list grows a pet at a time
+ * (107 shipped recently), so it is a table an admin edits rather than a
+ * constant somebody has to deploy. */
+export interface Pet {
+  pet_id: number;
+  name: string | null;
+  notes: string;
+}
+
+export type PetCatalogue = ReadonlyMap<number, Pet>;
+
+export async function fetchPets(): Promise<PetCatalogue> {
+  const { data, error } = await supabase.from('pets').select('pet_id, name, notes').order('pet_id');
+  if (error) {
+    throw new Error(`pet query failed: ${error.message}`);
+  }
+  return new Map((data ?? []).map((pet) => [pet.pet_id, pet as Pet]));
+}
+
+export function usePetCatalogue() {
+  return useQuery({ queryKey: ['pets'], queryFn: fetchPets });
+}
+
+/** The name, or the id when nobody has typed one — same rule as heroName:
+ * an unnamed pet is not a pet called "Pet 105". */
+export function petName(catalogue: PetCatalogue | undefined, petId: number): string {
+  const name = catalogue?.get(petId)?.name;
+  return name != null && name.length > 0 ? name : String(petId);
+}

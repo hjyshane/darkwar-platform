@@ -141,14 +141,10 @@ export function HeroesSetting() {
         shows the id until they are. Classes are already filled in for every hero someone has been
         seen fielding.
       </p>
-      {/* An id is not something the game shows you, so the catalogue shipped
-          unfillable until 0039 put a way to find each hero beside it. */}
-      <p className="subtle">
-        The <strong>Notes</strong> column says where to find each hero on a game screen, since the
-        id itself appears nowhere in game. Fastest order: open the training centre and name the 15
-        heroes by slot number, then work down the enhancement levels, then the six with an exclusive
-        weapon. The note is yours to overwrite once the name is in.
-      </p>
+      {/* The Notes column used to carry how to find each hero on a game
+          screen, because an id appears nowhere in game and the catalogue
+          shipped unfillable without it. Every hero is named now, so 0047
+          cleared them and the column is free text again. */}
 
       {message && <p className={failed ? 'error' : 'empty'}>{message}</p>}
 

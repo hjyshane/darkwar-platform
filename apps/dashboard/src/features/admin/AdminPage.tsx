@@ -1,11 +1,17 @@
 import { useQuery } from '@tanstack/react-query';
+import { fieldsOf } from '../../lib/memberFormulas';
 import { useSession } from '../../lib/useSession';
-import { fetchSummary } from '../overview/OverviewPanel';
+import { fetchRoster } from '../roster/RosterPanel';
 import { AnnouncementsSetting } from './AnnouncementsSetting';
 import { FormulaSetting } from './FormulaSetting';
 import { HeroesSetting } from './HeroesSetting';
+import { MembersSetting } from './MembersSetting';
 import { OverviewMetricsSetting } from './OverviewMetricsSetting';
 import { OwnAllianceSetting } from './OwnAllianceSetting';
+import { PermissionsSetting } from './PermissionsSetting';
+import { PetsSetting } from './PetsSetting';
+import { RankReportSetting } from './RankReportSetting';
+import { RankTiersSetting } from './RankTiersSetting';
 
 /** Settings an admin can change without a deploy.
  *
@@ -21,9 +27,17 @@ import { OwnAllianceSetting } from './OwnAllianceSetting';
 export function AdminPage() {
   const { data: session } = useSession();
   const isAdmin = session?.role === 'admin';
-  // The same figures the overview computes, so a formula can be previewed
-  // against what it will actually run on rather than against nothing.
-  const { data: summary } = useQuery({ queryKey: ['overview'], queryFn: fetchSummary });
+  // A member formula runs on one member, so the preview needs one. The
+  // strongest is used because they are the row most likely to have every
+  // figure filled in — a preview against somebody with three nulls says
+  // "unknown" and teaches nothing.
+  // Same query the Members tab runs, so the preview cannot drift from the
+  // rows the formula will actually meet. The roster comes back strongest
+  // first, and the strongest member is the row most likely to have every
+  // figure filled in — previewing against somebody with three nulls says
+  // "unknown" and teaches nothing.
+  const { data: roster } = useQuery({ queryKey: ['roster'], queryFn: fetchRoster });
+  const sample = roster?.[0] ?? null;
 
   return (
     <main>
@@ -43,6 +57,26 @@ export function AdminPage() {
         )}
       </section>
 
+      <section aria-labelledby="members-heading">
+        <h2 id="members-heading">Members</h2>
+        <MembersSetting />
+      </section>
+
+      <section aria-labelledby="permissions-heading">
+        <h2 id="permissions-heading">Permissions</h2>
+        <PermissionsSetting />
+      </section>
+
+      <section aria-labelledby="rank-report-heading">
+        <h2 id="rank-report-heading">Rank changes</h2>
+        <RankReportSetting />
+      </section>
+
+      <section aria-labelledby="rank-tiers-heading">
+        <h2 id="rank-tiers-heading">How ranks are decided</h2>
+        <RankTiersSetting />
+      </section>
+
       <section aria-labelledby="own-alliance-heading">
         <h2 id="own-alliance-heading">Our alliance</h2>
         <OwnAllianceSetting />
@@ -54,8 +88,11 @@ export function AdminPage() {
       </section>
 
       <section aria-labelledby="formulas-heading">
-        <h2 id="formulas-heading">Calculated figures</h2>
-        <FormulaSetting values={summary?.values ?? {}} />
+        <h2 id="formulas-heading">Member columns</h2>
+        <FormulaSetting
+          sampleName={sample?.current_name ?? null}
+          values={sample === null ? {} : fieldsOf(sample)}
+        />
       </section>
 
       <section aria-labelledby="notices-heading">
@@ -66,6 +103,11 @@ export function AdminPage() {
       <section aria-labelledby="heroes-heading">
         <h2 id="heroes-heading">Heroes</h2>
         <HeroesSetting />
+      </section>
+
+      <section aria-labelledby="pets-heading">
+        <h2 id="pets-heading">Pets</h2>
+        <PetsSetting />
       </section>
     </main>
   );

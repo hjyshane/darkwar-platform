@@ -25,9 +25,17 @@ insert into public.app_users (user_id, role) values
   ('00000000-0000-4000-8000-00000000f104', 'admin');
 
 -- A pass reaches the secured table through the summary trigger.
+-- Its own rows. These assertions are absolute values on specific
+-- players, and borrowing seeded ones means the file stops working the
+-- moment somebody loads real captures and clears the seed.
+insert into public.players (player_id, server_id, game_uid, current_name) values
+  ('00000000-0000-4000-8000-0000000ad601', 580, 58009601, 'MonthAdminOnly');
+insert into public.alliances (alliance_id, server_id, external_id, current_name)
+values ('00000000-0000-4000-8000-0000000ad501', 580, 'ext-month-admin', 'MonthAdminAlliance');
+
 create temp table _ids as
-select (select player_id from public.players where game_uid = 58000001) as player_id,
-       (select alliance_id from public.alliances limit 1) as alliance_id;
+select '00000000-0000-4000-8000-0000000ad601'::uuid as player_id,
+       '00000000-0000-4000-8000-0000000ad501'::uuid as alliance_id;
 
 insert into public.alliance_member_snapshots
   (observation_id, source_command, parser_version, idempotency_key, captured_at,
@@ -36,7 +44,7 @@ insert into public.alliance_member_snapshots
 select '00000000-0000-4000-8000-00000000d101', 'al.rank', 'test',
        'test:mc:1', '2026-07-28T10:00:00Z',
        '00000000-0000-4000-8000-000000000c01', 580, i.alliance_id, 580,
-       i.player_id, 58000001, 'Holder', '2026-08-25T02:00:00Z'
+       i.player_id, 58009601, 'Holder', '2026-08-25T02:00:00Z'
 from _ids i;
 
 select isnt_empty($$ select player_id from public.player_month_cards $$,
@@ -80,7 +88,7 @@ select isnt_empty($$ select player_id from public.player_month_cards $$,
 -- postgres and the persona cannot see it.
 select is((select m.expires_at from public.player_month_cards m
            where m.player_id = (select player_id from public.players
-                                where game_uid = 58000001)),
+                                where game_uid = 58009601)),
   '2026-08-25T02:00:00Z'::timestamptz, 'and gets the real expiry');
 select throws_ok('select raw from public.player_snapshots',
   '42501', null,

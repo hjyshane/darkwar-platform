@@ -229,26 +229,31 @@ main > * {
   overscroll-behavior-x: contain;
 }
 
-/* The measure is a READING width. Eleven columns are not prose, and at
- * 1440 the page was leaving ~290px of margin unused while clipping three
- * columns off the right. So the table — and only the table — reaches past
- * it; the heading and tabs stay where the eye expects them.
+/* The measure is a READING width, and eleven columns of figures are not
+ * prose. At 1440 the page was leaving ~290px of margin unused while clipping
+ * three columns off the right, so wide viewports get a wider page.
  *
- * Bleeding by a fixed amount behind a viewport query, rather than
- * calc()-ing against 100vw: vw includes the scrollbar, so the arithmetic
- * overflows the page by exactly the scrollbar's width on the platforms
- * that reserve one. The breakpoints below leave room for the bleed with
- * the body's own 1152 + 2×16 already spent.
+ * This used to be done by bleeding .table-wrap out of the measure with a
+ * negative margin, which had two faults the user saw straight away: the
+ * table no longer lined up with the heading above it, and the bleed
+ * overflowed the body by exactly the part that stuck out past its padding —
+ * 32px of sideways page scroll, which is the one thing NFR-011's layout
+ * rule says must never happen.
+ *
+ * Widening the measure gives the table the same room and keeps every edge on
+ * the page in one column. The steps stay clear of the viewport with the
+ * body's own padding already spent: 78rem + 2rem fits 85rem, 88rem + 2rem
+ * fits 100rem.
  */
 @media (width >= 85rem) {
-  .table-wrap {
-    margin-inline: -3rem;
+  body {
+    --measure: 78rem;
   }
 }
 
 @media (width >= 100rem) {
-  .table-wrap {
-    margin-inline: -8rem;
+  body {
+    --measure: 88rem;
   }
 }
 
@@ -769,6 +774,254 @@ button:focus-visible {
   background: var(--grade, var(--neutral-bg));
 }
 
+/* The game's own class and slot symbols. Sized in em so they follow the
+ * text around them, and painted in currentColor so a glyph inside a chip
+ * takes the chip's foreground without a second rule per class. */
+.glyph {
+  display: inline-flex;
+  vertical-align: middle;
+}
+
+.glyph > svg {
+  height: 1em;
+  width: 1em;
+}
+
+/* The chip is 1.4em wide and used to hold one letter; a glyph needs more of
+ * that room than a letter did or it reads as a smudge. */
+.chip .glyph > svg {
+  height: 1.2em;
+  width: 1.2em;
+}
+
+.gear-slot {
+  color: var(--fg-muted);
+  margin-inline-end: 0.25em;
+}
+
+.gear-slot > svg {
+  height: 0.85em;
+  width: 0.85em;
+}
+
+/* Rank shapes — stars for the star track, pentagons for awakenings.
+ *
+ * Sized in em so they follow the table's own text size instead of needing a
+ * breakpoint of their own, and laid out inline-flex so five of them stay on
+ * one line inside a cell that is already scrolling sideways. */
+.rank {
+  align-items: center;
+  display: inline-flex;
+  gap: 1px;
+  vertical-align: middle;
+}
+
+.rank-shape {
+  height: 0.85em;
+  width: 0.85em;
+}
+
+/* Gear is four rows of five, the widest block in the detail table, and it
+ * sits behind three other columns in a table that already scrolls. Smaller
+ * here only — the hero's own stars are the thing being read, not these. */
+.gear .rank-shape {
+  height: 0.7em;
+  width: 0.7em;
+}
+
+/* Gold for stars, red for awakenings — the game's own two colours, and the
+ * one place in this app where a colour is allowed to repeat between light and
+ * dark: a gold star that changed hue by theme would stop looking like the
+ * thing it is copying. Contrast is carried by the outline, which is the same
+ * colour as the fill, so an empty shape is still visible on either surface. */
+.rank-star {
+  color: #d9a105;
+}
+
+.rank-pentagon {
+  color: #dc2626;
+}
+
+@media (prefers-color-scheme: dark) {
+  .rank-star {
+    color: #fbbf24;
+  }
+
+  .rank-pentagon {
+    color: #f87171;
+  }
+}
+
+/* Gear is four pieces, one per line: at level 100 the number stops meaning
+ * anything and five pentagons take its place, and those do not fit beside
+ * three other values on one line. Each line leads with its slot symbol,
+ * because four values in a column say nothing about which is which. */
+.gear {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  white-space: nowrap;
+}
+
+.gear-piece {
+  font-variant-numeric: tabular-nums;
+}
+
+/* What the marks on a chip mean. Above the table rather than inside it: the
+ * chips are in every row, so the explanation belongs where it is read once
+ * instead of repeated a hundred times. */
+.lineup-legend {
+  color: var(--fg-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: var(--text-sm);
+  gap: var(--space-1) var(--space-4);
+  margin-bottom: var(--space-3);
+}
+
+/* Whether anything is still arriving. Sits in the title because it is about
+ * the whole board rather than one table.
+ *
+ * The words carry the state; the dot and its colour are emphasis. A reader
+ * who cannot separate green from grey still reads "Real-time sync stopped",
+ * which is the half that matters. */
+.sync-status {
+  align-items: center;
+  display: inline-flex;
+  font-size: var(--text-sm);
+  font-weight: 400;
+  gap: var(--space-1);
+  margin-inline-start: var(--space-3);
+  vertical-align: middle;
+  color: var(--fg-muted);
+}
+
+.sync-dot {
+  border-radius: 50%;
+  height: 0.55em;
+  width: 0.55em;
+  background: var(--neutral-fg);
+}
+
+.sync-live .sync-dot {
+  background: var(--ok-fg);
+}
+
+/* Stopped is the state worth noticing, so it is the one that gets colour on
+ * the text as well — the board looks identical when the collector dies, and
+ * nothing else on screen would say so. */
+.sync-stopped {
+  color: var(--danger-fg);
+}
+
+.sync-stopped .sync-dot {
+  background: var(--danger-fg);
+}
+
+@media (prefers-color-scheme: dark) {
+  .sync-live .sync-dot {
+    background: #4ade80;
+  }
+
+  .sync-stopped,
+  .sync-stopped .sync-dot {
+    color: #f87171;
+    background: revert-layer;
+  }
+
+  .sync-stopped .sync-dot {
+    background: #f87171;
+  }
+}
+
+/* The rank in front of a member's name. Small, so it reads as a label on
+ * the name rather than a column of its own — which is what it would have
+ * had to be if the pinned name cell had room to its left.
+ *
+ * A computed rank is faded: it is what the last period worked out rather
+ * than what somebody decided, and a reader deciding promotions needs to
+ * know which of the two they are looking at. The `select` variant keeps the
+ * same size so the row does not jump between a reader and a manager. */
+.rank-badge {
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  margin-inline-end: var(--space-1);
+  padding: 0 0.3em;
+  background: var(--bg-raised);
+}
+
+select.rank-badge {
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-sm);
+}
+
+.rank-badge-computed {
+  border-style: dashed;
+  opacity: 0.75;
+}
+
+/* Power moving up or down. The sign is in the text as well, so the colour
+ * is emphasis rather than the message — a reader who cannot separate these
+ * two hues still reads +2.4% and -1.1%. */
+.growth-up {
+  color: var(--ok-fg);
+}
+
+.growth-down {
+  color: var(--danger-fg);
+}
+
+@media (prefers-color-scheme: dark) {
+  .growth-up {
+    color: #4ade80;
+  }
+
+  .growth-down {
+    color: #f87171;
+  }
+}
+
+/* The list of names a formula may use. Wraps freely — eleven ids is more
+ * than a line and fewer than a table wants. */
+.metric-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.metric-picker code {
+  background: var(--bg-hover);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-1);
+}
+
+.legend-entry {
+  align-items: center;
+  display: inline-flex;
+  gap: var(--space-1);
+}
+
+/* The equals sign carries no information a sighted reader needs spelling
+ * out and no screen reader should read "equals" between a chip and its
+ * meaning, so it is muted and hidden from the accessibility tree. */
+.legend-entry > [aria-hidden] {
+  color: var(--border-strong);
+}
+
+/* The sample chips in the legend carry no letter, so they need a size of
+ * their own — otherwise an empty chip collapses to its padding. */
+.legend-chip {
+  display: inline-block;
+  height: 1.1em;
+  min-width: 1.4em;
+}
+
 .lineup {
   display: inline-flex;
   gap: var(--space-1);
@@ -811,19 +1064,27 @@ button:focus-visible {
   color: var(--grade-3-fg);
 }
 
-/* Three marks share one box-shadow, so each owns a slot rather than every
- * combination getting its own selector — four marks would otherwise need
- * eight rules. Unset slots are transparent shadows of zero size.
+/* Two rings, and they must not read as one.
  *
- * Inner ring: the hero is at maximum star. Drawn in currentColor, which on a
- * chip is the fill's own paired foreground and therefore contrasts by
- * construction. (The synergy ring learned this the hard way: drawn in
- * currentColor OUTSIDE the chip it was white text colour on a white page and
- * vanished. Outside needs --fg; inside needs currentColor.)
+ * The maximum-star mark used to be an inset shadow at the chip's very edge,
+ * drawn in currentColor. On a light page that is white, and the synergy
+ * ring's inner gap is also white — so a chip wearing both showed one thick
+ * white band and the two marks were indistinguishable. Which is exactly
+ * what a reader reported.
  *
- * Outer ring: the hero counts toward the lineup's class bonus. Unchanged. */
-.chip-max-star {
-  --chip-ring-inner: inset 0 0 0 2px currentColor;
+ * It is a pseudo-element ring now, inset far enough that a band of the
+ * chip's own fill shows between it and the edge. That band is the thing
+ * that separates them: fill, ring, fill, gap, ring reads as two marks;
+ * ring-touching-gap reads as one.
+ *
+ * ::before, because ::after is the weapon dot. */
+.chip-max-star::before {
+  border: 1.5px solid currentColor;
+  border-radius: 1px;
+  content: "";
+  inset: 3px 2px;
+  pointer-events: none;
+  position: absolute;
 }
 
 .chip-synergy {

@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useSyncExternalStore } from 'react';
+import { SyncStatus } from './components/SyncStatus';
 import { AdminPage } from './features/admin/AdminPage';
 import { AlliancePage } from './features/alliance/AlliancePage';
 import { ArenaPanel } from './features/arena/ArenaPanel';
@@ -121,7 +122,12 @@ export function App() {
     <QueryClientProvider client={queryClient}>
       <DataChangeSubscriber />
       <header className="app-header">
-        <h1>Dark War dashboard</h1>
+        <h1>
+          Dark War dashboard
+          {/* In the title rather than on a panel: it is about the whole
+              board, not one table's data. */}
+          <SyncStatus />
+        </h1>
         {!standalone && <Nav route={route} />}
       </header>
       {route === 'login' ? (

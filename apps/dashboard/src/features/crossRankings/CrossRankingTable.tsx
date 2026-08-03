@@ -1,5 +1,6 @@
 import { SortableTh } from '../../components/SortableTh';
 import { TableSearch } from '../../components/TableSearch';
+import { heroName, petName, useHeroCatalogue, usePetCatalogue } from '../../lib/heroes';
 import { serverHash } from '../../lib/route';
 import { TERMS } from '../../lib/terms';
 import { useTableView } from '../../lib/useTableView';
@@ -17,6 +18,11 @@ function formatNumber(value: number | null): string {
 }
 
 export function CrossRankingTable({ rows, board }: { rows: BoardRow[]; board: Board }) {
+  // Both catalogues are fetched unconditionally rather than per board: they
+  // are two small tables behind a shared query key, and branching here would
+  // mean a hook that runs on some boards and not others.
+  const { data: heroes } = useHeroCatalogue();
+  const { data: pets } = usePetCatalogue();
   const { query, setQuery, sort, onSort, view, shown, total } = useTableView(rows, SEARCH_FIELDS, {
     key: 'rank',
     direction: 'asc',
@@ -67,7 +73,22 @@ export function CrossRankingTable({ rows, board }: { rows: BoardRow[]; board: Bo
                   <a href={serverHash(row.server_id)}>{row.server_id}</a>
                 </td>
                 <td className="num">{formatNumber(row.value)}</td>
-                {board.unitLabel && <td className="num">{row.unit_id ?? '—'}</td>}
+                {/* The id becomes a name where a catalogue has one, and
+                    stays the id where nobody has typed it — the same
+                    fallback the arena board uses, so a gap in the catalogue
+                    looks the same everywhere. */}
+                {board.unitLabel && (
+                  <td
+                    className="label"
+                    title={row.unit_id === null ? undefined : `#${row.unit_id}`}
+                  >
+                    {row.unit_id === null
+                      ? '—'
+                      : board.unitKind === 'pet'
+                        ? petName(pets, row.unit_id)
+                        : heroName(heroes, row.unit_id)}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

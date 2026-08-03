@@ -1,8 +1,49 @@
 import { useQuery } from '@tanstack/react-query';
+import { FormulaError, evaluateFormula, parseFormula } from '../../lib/formula';
+import { MEMBER_FIELD_IDS, MEMBER_FORMULAS_KEY } from '../../lib/memberFormulas';
+import { resolveFormulas } from '../../lib/overviewMetrics';
 import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
 import { useSession } from '../../lib/useSession';
-import { type RosterRow, RosterTable } from './RosterTable';
+import { type ComputedColumn, type RosterRow, RosterTable } from './RosterTable';
+
+/** The columns an admin described, parsed once here.
+ *
+ * Parsed rather than stored as a tree: a formula is text in a settings row,
+ * and it can be made invalid after it was written — by a figure going away
+ * rather than by anybody editing it. One that no longer parses is dropped,
+ * so a bad expression costs its own column and not the whole table.
+ */
+async function fetchMemberColumns(): Promise<ComputedColumn[]> {
+  const { data, error } = await supabase
+    .from('app_settings')
+    .select('value')
+    .eq('key', MEMBER_FORMULAS_KEY)
+    .maybeSingle();
+  if (error) {
+    throw new Error(`member formula query failed: ${error.message}`);
+  }
+  return resolveFormulas((data?.value as { formulas?: unknown } | null)?.formulas).flatMap(
+    (formula) => {
+      try {
+        const tree = parseFormula(formula.expression, MEMBER_FIELD_IDS);
+        return [
+          {
+            id: formula.id,
+            label: formula.label,
+            compact: formula.compact,
+            evaluate: (values: Record<string, number | null>) => evaluateFormula(tree, values),
+          },
+        ];
+      } catch (parseError) {
+        if (parseError instanceof FormulaError) {
+          return [];
+        }
+        throw parseError;
+      }
+    },
+  );
+}
 
 /** Three queries rather than an embedded select.
  *
@@ -15,7 +56,9 @@ import { type RosterRow, RosterTable } from './RosterTable';
  * renders null as "—", which is the honest answer: not zero, not hidden,
  * just not visible to you.
  */
-async function fetchRoster(): Promise<RosterRow[]> {
+/** Exported so the admin's formula preview can run against a real member
+ * rather than a second, drifting copy of this join. */
+export async function fetchRoster(): Promise<RosterRow[]> {
   // Our alliance's members, not the strongest players we have ever seen.
   //
   // `players` accumulates everyone the collector observes — cross-server
@@ -69,7 +112,40 @@ async function fetchRoster(): Promise<RosterRow[]> {
     throw new Error(`presence query failed: ${presenceError.message}`);
   }
 
+  // Which way each member's power has moved. A view rather than a fourth
+  // shape to assemble here: the answer is a question about two rows of
+  // player_snapshots, and the database is where that belongs (0049).
+  const { data: growth, error: growthError } = await supabase
+    .from('player_power_growth')
+    .select('player_id, growth_1d, growth_7d, power_1d_at, power_7d_at')
+    .in(
+      'player_id',
+      players.map((player) => player.player_id),
+    );
+  if (growthError) {
+    throw new Error(`growth query failed: ${growthError.message}`);
+  }
+
+  // Both halves of a rank — what an admin set and what the last period
+  // worked out — from the one member-only view, so a reader never sees one
+  // without the other (0059).
+  const { data: ranks, error: rankError } = await supabase
+    .from('player_current_rank')
+    .select('player_id, assigned_rank, computed_tier, rank_score')
+    .in(
+      'player_id',
+      players.map((player) => player.player_id),
+    );
+  // Not fatal. Ranks are member-only, so a logged-out reader gets nothing
+  // here and should still see the roster — the same reason the contribution
+  // columns render as dashes rather than an error.
+  if (rankError && rankError.code !== '42501') {
+    throw new Error(`rank query failed: ${rankError.message}`);
+  }
+
   const byPlayer = new Map(contributions.map((row) => [row.player_id, row]));
+  const rankByPlayer = new Map((ranks ?? []).map((row) => [row.player_id, row]));
+  const growthByPlayer = new Map(growth.map((row) => [row.player_id, row]));
   const presenceByPlayer = new Map(presence.map((row) => [row.player_id, row]));
   // `alliances` is the join used to filter, not a column of the row — drop it
   // so the shape stays flat and every key remains sortable.
@@ -80,6 +156,13 @@ async function fetchRoster(): Promise<RosterRow[]> {
     duel_daily_score: byPlayer.get(player.player_id)?.duel_daily_score ?? null,
     duel_weekly_score: byPlayer.get(player.player_id)?.duel_weekly_score ?? null,
     duel_round_score: byPlayer.get(player.player_id)?.duel_round_score ?? null,
+    assigned_rank: rankByPlayer.get(player.player_id)?.assigned_rank ?? null,
+    computed_rank: rankByPlayer.get(player.player_id)?.computed_tier ?? null,
+    rank_score: rankByPlayer.get(player.player_id)?.rank_score ?? null,
+    growth_1d: growthByPlayer.get(player.player_id)?.growth_1d ?? null,
+    growth_7d: growthByPlayer.get(player.player_id)?.growth_7d ?? null,
+    growth_1d_at: growthByPlayer.get(player.player_id)?.power_1d_at ?? null,
+    growth_7d_at: growthByPlayer.get(player.player_id)?.power_7d_at ?? null,
     ...lastOnline(presenceByPlayer.get(player.player_id)),
   }));
 }
@@ -111,6 +194,10 @@ function lastOnline(presence: PresenceRow | undefined) {
 
 export function RosterPanel() {
   const { data, error, isPending } = useQuery({ queryKey: ['roster'], queryFn: fetchRoster });
+  const { data: columns } = useQuery({
+    queryKey: ['member-formulas'],
+    queryFn: fetchMemberColumns,
+  });
   const { data: session } = useSession();
   const restricted = session !== undefined && session.role === 'viewer';
   return (
@@ -137,7 +224,7 @@ export function RosterPanel() {
       )}
       {isPending && <p className="empty">Loading…</p>}
       {error && <p className="error">Could not load members: {error.message}</p>}
-      {data && <RosterTable rows={data} />}
+      {data && <RosterTable columns={columns ?? []} rows={data} />}
     </section>
   );
 }

@@ -5,10 +5,19 @@ create extension if not exists pgtap with schema extensions;
 
 select plan(7);
 
+-- Its own rows. These assertions are absolute values on specific
+-- players, and borrowing seeded ones means the file stops working the
+-- moment somebody loads real captures and clears the seed.
+insert into public.players (player_id, server_id, game_uid, current_name) values
+  ('00000000-0000-4000-8000-0000000ad602', 580, 58009602, 'BackfillOne'),
+  ('00000000-0000-4000-8000-0000000ad603', 580, 58009603, 'BackfillTwo');
+insert into public.alliances (alliance_id, server_id, external_id, current_name)
+values ('00000000-0000-4000-8000-0000000ad502', 580, 'ext-month-backfill', 'BackfillAlliance');
+
 create temp table _ids as
-select (select player_id from public.players where game_uid = 58000001) as p1,
-       (select player_id from public.players where game_uid = 58000002) as p2,
-       (select alliance_id from public.alliances limit 1) as alliance_id;
+select '00000000-0000-4000-8000-0000000ad602'::uuid as p1,
+       '00000000-0000-4000-8000-0000000ad603'::uuid as p2,
+       '00000000-0000-4000-8000-0000000ad502'::uuid as alliance_id;
 
 -- Four pre-promotion rows (typed column NULL, value only in raw):
 -- a real expiry, the two sentinels, and a millisecond-magnitude confusion.
@@ -22,16 +31,16 @@ select v.obs, 'al.rank', '1.0.0', v.key, v.seen,
 from _ids i,
 lateral (values
   ('00000000-0000-4000-8000-00000000e001'::uuid, 'test:bf:1',
-   '2026-07-30T02:48:55Z'::timestamptz, i.p1, 58000001::bigint, 'Holder',
+   '2026-07-30T02:48:55Z'::timestamptz, i.p1, 58009602::bigint, 'Holder',
    '{"monthCardEndTime": 1787623200}'::jsonb),
   ('00000000-0000-4000-8000-00000000e002'::uuid, 'test:bf:2',
-   '2026-07-30T02:48:55Z'::timestamptz, i.p2, 58000002::bigint, 'NoPass',
+   '2026-07-30T02:48:55Z'::timestamptz, i.p2, 58009603::bigint, 'NoPass',
    '{"monthCardEndTime": -1}'::jsonb),
   ('00000000-0000-4000-8000-00000000e003'::uuid, 'test:bf:3',
-   '2026-07-30T02:48:56Z'::timestamptz, i.p2, 58000002::bigint, 'NoPass',
+   '2026-07-30T02:48:56Z'::timestamptz, i.p2, 58009603::bigint, 'NoPass',
    '{"monthCardEndTime": 0}'::jsonb),
   ('00000000-0000-4000-8000-00000000e004'::uuid, 'test:bf:4',
-   '2026-07-30T02:48:57Z'::timestamptz, i.p2, 58000002::bigint, 'NoPass',
+   '2026-07-30T02:48:57Z'::timestamptz, i.p2, 58009603::bigint, 'NoPass',
    '{"monthCardEndTime": 1785636000000}'::jsonb)
 ) as v(obs, key, seen, pid, uid, name, raw);
 
