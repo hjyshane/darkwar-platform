@@ -26,9 +26,17 @@
 |---|---|
 | 게임 데이터 모으기 (`dw-capture`) | **Windows** |
 | 모은 것 올리기 (`dw-collector sync`) | **Windows** |
-| 데이터베이스 켜기 (`supabase start`) | **WSL** |
-| 화면 보기 (`pnpm dev`) | **WSL** |
-| 테스트 돌리기 | **WSL** |
+| 데이터베이스 켜기 (`supabase start`) | **Windows** |
+| 화면 보기 (`pnpm dev`) | **Windows** |
+| 테스트 돌리기 | **Windows** |
+
+> **아래 세 줄은 한동안 WSL로 적혀 있었다.** `CLAUDE.md`의 "Development is
+> Windows-only. No WSL."에서 흘러나온 것이고, 2026-08-02에 되돌렸다. Supabase
+> CLI·pnpm·pytest는 Windows에서 그대로 돈다(Supabase는 Docker Desktop을 쓴다).
+> WSL에서 돌려도 동작은 하지만, 그러면 저널 경로와 `.env`가 두 벌이 되고
+> "왜 `sent=0`인가"의 답이 대체로 "다른 창에서 돌렸다"가 된다.
+>
+> 캡처만은 선택이 아니다 — 이유는 바로 아래.
 
 ### 왜 캡처는 Windows에서만 되나
 

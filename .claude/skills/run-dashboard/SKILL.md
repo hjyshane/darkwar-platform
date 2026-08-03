@@ -5,7 +5,20 @@ description: Launch the Dark War dashboard against the local Supabase stack and 
 
 # Running the dashboard
 
-Everything here runs in **WSL**. Only live capture needs Windows.
+**This file was written from a WSL session and its browser steps are
+Linux-only** — `apt-get download`, `dpkg -x`, `LD_LIBRARY_PATH`, `/tmp`
+paths. None of that applies on Windows, which is where CLAUDE.md says
+development happens ("Windows-only. No WSL.").
+
+On Windows the stack and data steps are the same commands; what changes is
+the browser. Playwright's Windows install needs no unpacked `.so` files —
+`npx playwright install chromium` outside the repo is the whole of it, and
+`chromium.launch()` finds it without an `executablePath`. **That path has
+not been run here**, so treat the browser section below as the Linux recipe
+it is and expect to shorten it rather than translate it.
+
+Everything else — `supabase start`, `db reset`, the fixture replay, the
+member session — is platform-neutral.
 
 The whole point of this skill is that the mock hid two bugs for weeks — the
 Members tab listed non-members, and the roster projection was silently
