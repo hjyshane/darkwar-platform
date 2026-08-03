@@ -32,6 +32,11 @@ interface AllianceDetail {
     power: number | null;
     hqLevel: number | null;
   }[];
+  /** What this alliance used to be called. `alliance_names` has been filled
+   * by apply_alliance_summary since 0008 and nothing read it — the player
+   * page has shown `player_names` all along, and an alliance renames for the
+   * same reasons a player does. */
+  pastNames: { name: string; code: string | null; lastSeenAt: string }[];
 }
 
 async function fetchAlliance(allianceId: string): Promise<AllianceDetail | null> {
@@ -59,6 +64,15 @@ async function fetchAlliance(allianceId: string): Promise<AllianceDetail | null>
     throw new Error(`member query failed: ${memberError.message}`);
   }
 
+  const { data: names, error: nameError } = await supabase
+    .from('alliance_names')
+    .select('name, code, last_seen_at')
+    .eq('alliance_id', allianceId)
+    .order('last_seen_at', { ascending: false });
+  if (nameError) {
+    throw new Error(`alliance name query failed: ${nameError.message}`);
+  }
+
   return {
     allianceId: alliance.alliance_id,
     name: alliance.current_name,
@@ -76,6 +90,12 @@ async function fetchAlliance(allianceId: string): Promise<AllianceDetail | null>
       power: row.power,
       hqLevel: row.hq_level,
     })),
+    // Both halves compared, not just the name. An alliance keeping its name
+    // and changing its tag is a rename people notice, and filtering on the
+    // name alone would drop exactly that row.
+    pastNames: (names ?? [])
+      .filter((row) => row.name !== alliance.current_name || row.code !== alliance.current_code)
+      .map((row) => ({ name: row.name, code: row.code, lastSeenAt: row.last_seen_at })),
   };
 }
 
@@ -208,6 +228,44 @@ export function AlliancePage({ allianceId, now }: { allianceId: string; now?: Da
           </div>
         )}
       </section>
+
+      {data.pastNames.length > 0 && (
+        <section aria-labelledby="alliance-names">
+          <h2 id="alliance-names">Also known as</h2>
+          {/* The player page has shown player_names since it existed and the
+              alliance side was simply never built. Same reason it matters:
+              a name is not an identity, and somebody searching for an
+              alliance that renamed has nothing else to go on.
+
+              A table rather than the badges the player page uses, because
+              there are three facts here — a tag can change while the name
+              does not, and badges would flatten that into a repeat. */}
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th className="label" scope="col">
+                    {TERMS.name}
+                  </th>
+                  <th scope="col">Tag</th>
+                  <th scope="col">Last seen as this</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.pastNames.map((row) => (
+                  <tr key={`${row.name}:${row.code ?? ''}`}>
+                    <td className="label">{row.name}</td>
+                    {/* Null is a capture that carried no tag, not an alliance
+                        without one. */}
+                    <td>{row.code === null ? '—' : `[${row.code}]`}</td>
+                    <td title={row.lastSeenAt}>{row.lastSeenAt.slice(0, 10)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
     </main>
   );
 }
