@@ -29,28 +29,36 @@ insert into public.app_users (user_id, role) values
   ('00000000-0000-4000-8000-00000000f002', 'member'),
   ('00000000-0000-4000-8000-00000000f003', 'officer');
 
+-- This file's own player. It used to reach for the seed's 58000001, which
+-- worked right up until the seed was deleted to make room for a real
+-- capture: `insert ... select ... where game_uid = 58000001` then selects
+-- nothing, inserts nothing, and RAISES NOTHING. Every negative below would
+-- have gone on passing against rows that no longer existed — the vacuous
+-- green this file's own header promises not to allow.
+insert into public.players (player_id, server_id, game_uid, current_name)
+values ('00000000-0000-4000-8000-0000000ac902', 580, 58009902, 'RlsTarget');
+
 insert into public.activity_facts
   (player_id, occurred_at, activity_type, metric_key, value_numeric, unit,
    source_type, measurement_type, idempotency_key)
 select player_id, '2026-07-27T12:05:00Z', 'competition',
        'arena_participation', 1, 'boolean', 'arena_entries', 'observed',
        'test:fact:' || game_uid
-from public.players where game_uid = 58000001;
+from public.players where game_uid = 58009902;
 
 insert into public.audit_logs (action, entity_type, entity_id)
 values ('test.seed', 'test', 'rls');
 
 insert into public.player_contributions
   (player_id, daily_donation_score, duel_weekly_score)
-select player_id, 18400, 96200 from public.players where game_uid = 58000001;
+select player_id, 18400, 96200 from public.players where game_uid = 58009902;
 
--- Upsert, not insert: the seed's roster snapshots already project a presence
--- row through 0024's trigger. This file's contract is that the target row
--- exists so the negatives cannot pass vacuously, and an upsert says that
--- without depending on whether the seed happens to cover this player.
+-- Upsert, not insert: 0024's trigger projects a presence row from any roster
+-- snapshot, so this player may already have one. The contract is that the
+-- row EXISTS, not that this statement created it.
 insert into public.player_presence (player_id, online_state, offline_since, observed_at)
 select player_id, 'offline', '2026-07-27T09:12:45Z', '2026-07-28T00:17:20Z'
-from public.players where game_uid = 58000001
+from public.players where game_uid = 58009902
 on conflict (player_id) do update
   set online_state = excluded.online_state,
       offline_since = excluded.offline_since,
