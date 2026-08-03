@@ -79,7 +79,11 @@ export async function fetchRoster(): Promise<RosterRow[]> {
     // pointing back), and PostgREST refuses an ambiguous embed with PGRST201
     // rather than picking one.
     .select(
-      'player_id, game_uid, current_name, hq_level, power, kills, last_seen_at, alliances!players_current_alliance_id_fkey!inner(is_own)',
+      // No game_uid. The column is off the screen and out of the search
+      // fields, so fetching it would only mean shipping an identifier to a
+      // browser that has no use for it. No formula reads it either — the
+      // picker's fields are all figures.
+      'player_id, current_name, hq_level, power, kills, last_seen_at, alliances!players_current_alliance_id_fkey!inner(is_own)',
     )
     .eq('alliances.is_own', true)
     .order('power', { ascending: false, nullsFirst: false })

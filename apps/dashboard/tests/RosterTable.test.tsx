@@ -12,7 +12,6 @@ const NOW = new Date('2026-07-28T12:00:00Z');
 const rows: RosterRow[] = [
   {
     player_id: 'p1',
-    game_uid: 58000001,
     current_name: 'SyntheticPlayer01',
     hq_level: 21,
     power: 200_000_000,
@@ -35,7 +34,6 @@ const rows: RosterRow[] = [
   },
   {
     player_id: 'p2',
-    game_uid: 58000002,
     current_name: null,
     hq_level: null,
     power: null,
@@ -80,9 +78,20 @@ test('presence we were never shown reads as unknown, not offline', () => {
 
 test('missing values render as unknown, not zero', () => {
   renderWithQuery(<RosterTable rows={rows} now={NOW} />);
-  expect(screen.getByText('UID 58000002')).toBeDefined();
+  // A member with no name reads as "Unnamed" rather than as their game uid.
+  // The uid used to stand in here, which meant the one row that could not
+  // be identified by name was the one row that printed an identifier.
+  expect(screen.getByText('Unnamed')).toBeDefined();
   expect(screen.getByText('No data')).toBeDefined();
   expect(screen.queryByText('0')).toBeNull();
+});
+
+test('no game uid reaches this screen, in any cell', () => {
+  renderWithQuery(<RosterTable rows={rows} now={NOW} />);
+  // Not "the column is gone" — the whole point is that the number is not on
+  // the page at all, including as a fallback, a title or a label.
+  expect(document.body.textContent).not.toMatch(/\b58\d{6}\b/);
+  expect(document.body.innerHTML).not.toMatch(/\b58\d{6}\b/);
 });
 
 test('empty roster states itself instead of a bare table', () => {
