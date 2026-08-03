@@ -4,6 +4,8 @@ import { ADMIN_GROUPS, type AdminGroup, adminHash } from '../../lib/route';
 import { useSession } from '../../lib/useSession';
 import { fetchRoster } from '../roster/RosterPanel';
 import { AnnouncementsSetting } from './AnnouncementsSetting';
+import { CollectorHealth } from './CollectorHealth';
+import { DiscoveryInbox } from './DiscoveryInbox';
 import { FormulaSetting } from './FormulaSetting';
 import { HeroesSetting } from './HeroesSetting';
 import { JoinCodesSetting } from './JoinCodesSetting';
@@ -68,6 +70,7 @@ export function AdminPage({ group }: { group: AdminGroup }) {
       {group === 'alliance' && <AllianceGroup />}
       {group === 'display' && <DisplayGroup />}
       {group === 'catalogue' && <CatalogueGroup />}
+      {group === 'operations' && <OperationsGroup />}
     </main>
   );
 }
@@ -148,6 +151,28 @@ function DisplayGroup() {
       <section aria-labelledby="notices-heading">
         <h2 id="notices-heading">Notices</h2>
         <AnnouncementsSetting />
+      </section>
+    </>
+  );
+}
+
+/** Not settings at all — what the machinery underneath is doing.
+ *
+ * Both screens are read-only. The collector writes these tables with the
+ * service key and there is no cloud-side control that would change them, so
+ * this group answers questions rather than offering buttons.
+ */
+function OperationsGroup() {
+  return (
+    <>
+      <section aria-labelledby="collectors-heading">
+        <h2 id="collectors-heading">Collectors</h2>
+        <CollectorHealth />
+      </section>
+
+      <section aria-labelledby="discovery-heading">
+        <h2 id="discovery-heading">Unrecognized commands</h2>
+        <DiscoveryInbox />
       </section>
     </>
   );

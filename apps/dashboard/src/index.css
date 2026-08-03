@@ -237,6 +237,26 @@ main > * {
   overscroll-behavior-x: contain;
 }
 
+/* A payload skeleton inside a table cell (the discovery inbox).
+ *
+ * Both limits are load-bearing. A <pre> is sized to its longest line and a
+ * table cell is happy to grow with it, so without max-width one deep
+ * skeleton widens the whole table and the sideways page scroll comes back —
+ * the same failure the .table-wrap comment above describes, arriving from
+ * inside the table instead of from the number of columns. max-height keeps
+ * an expanded four-level shape from burying the rows under it.
+ */
+.shape {
+  background: var(--bg-hover);
+  border-radius: 4px;
+  font-size: 0.8125rem;
+  margin: var(--space-1) 0 0;
+  max-height: 16rem;
+  max-width: 32rem;
+  overflow: auto;
+  padding: var(--space-2);
+}
+
 /* The measure is a READING width, and eleven columns of figures are not
  * prose. At 1440 the page was leaving ~290px of margin unused while clipping
  * three columns off the right, so wide viewports get a wider page.
