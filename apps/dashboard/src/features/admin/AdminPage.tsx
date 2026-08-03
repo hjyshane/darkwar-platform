@@ -5,6 +5,7 @@ import { fetchRoster } from '../roster/RosterPanel';
 import { AnnouncementsSetting } from './AnnouncementsSetting';
 import { FormulaSetting } from './FormulaSetting';
 import { HeroesSetting } from './HeroesSetting';
+import { JoinCodesSetting } from './JoinCodesSetting';
 import { MembersSetting } from './MembersSetting';
 import { OverviewMetricsSetting } from './OverviewMetricsSetting';
 import { OwnAllianceSetting } from './OwnAllianceSetting';
@@ -60,6 +61,11 @@ export function AdminPage() {
       <section aria-labelledby="members-heading">
         <h2 id="members-heading">Members</h2>
         <MembersSetting />
+      </section>
+
+      <section aria-labelledby="join-codes-heading">
+        <h2 id="join-codes-heading">Invitations</h2>
+        <JoinCodesSetting />
       </section>
 
       <section aria-labelledby="permissions-heading">
