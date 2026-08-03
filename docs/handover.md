@@ -1,8 +1,71 @@
 # 인수인계
 
-작성 2026-08-01. 다음 세션이 이 문서만 읽고 이어받을 수 있게 쓴다.
+작성 2026-08-01, 갱신 2026-08-02. 다음 세션이 이 문서만 읽고 이어받을 수 있게 쓴다.
 
-> **다음 세션은 여기서 시작한다 — 「이어서 할 일」 절.** 그 아래는 배경이다.
+> **다음 세션은 여기서 시작한다 — 바로 아래 「Windows에서 다시 시작하기」.**
+> 그 아래 「이어서 할 일」이 남은 작업이고, 더 아래는 배경이다.
+
+---
+
+## Windows에서 다시 시작하기 (2026-08-02 기준)
+
+작업은 WSL에서 진행됐고 다음 세션은 **Windows에서 시작한다.** 바뀌는 것은
+캡처뿐이다 — Supabase·pgTAP·pnpm은 어느 쪽에서든 돈다.
+
+### 지금 상태
+
+- **PR #62가 열려 있다** (커밋 17개, CI 4종 전부 통과). 머지 전이면 먼저 머지한다.
+- 마이그레이션은 **0061**까지. `supabase db reset` 한 번이면 영웅 카탈로그 28기
+  이름·병종·등급까지 전부 들어온다 — 0061이 그 일을 한다. **손으로 다시 입력할
+  것이 없다.**
+- 테스트: pgTAP 30파일 **329건**, 대시보드 **173건**, pytest 전부 통과.
+
+### 처음 한 번
+
+```powershell
+supabase start
+supabase db reset            # 0001~0061
+pnpm install
+pnpm --filter @dw/dashboard dev
+```
+
+`.env`에 `SUPABASE_URL` · `SUPABASE_SECRET_KEY` · `DW_COLLECTOR_ID`.
+대시보드용 `VITE_*`는 없어도 된다(`lib/env.ts` 기본값이 로컬 스택).
+
+admin 계정이 필요하면 `docs/runbooks/admin-access.md`.
+
+### 실제 데이터를 넣는다
+
+**저널은 관측이 도착한 그날의 파서 결과를 들고 있다.** 기존 저널은 0025·0029
+이전 것이라 아레나 편성이 아예 없고 기여도가 135행뿐이다. 그래서 sync 전에
+한 번 다시 정규화한다:
+
+```powershell
+uv run dw-collector renormalize --source C:\DW_data\collector.db --db .\data\fresh.db
+uv run dw-collector retry-outbox --already-sent --db .\data\fresh.db
+uv run dw-collector sync --db .\data\fresh.db      # sent=0 이 나올 때까지 반복
+```
+
+`renormalize`는 **원본을 읽기만 한다.** 결과는 별도 파일로 나가므로 실제 캡처
+이력이 파서 버그에 상하지 않는다. 같은 관측을 다시 돌려도 idempotency_key가
+원본 payload를 해시하므로(§11.2) sync는 **중복이 아니라 갱신**이다.
+
+WSL에서 이 경로로 넣은 결과: 멤버 **93명**(HELLBOUND [CBFW], 실명), 아레나 편성
+**3,998행**, 기여도 **1,615행**.
+
+`supabase db reset`은 seed.sql의 합성 플레이어 20명도 같이 넣는다. 실데이터만
+보고 싶으면 `game_uid 58000001~58000020`과 `Synthetic%` 연맹을 지운다 —
+순서는 FK 때문에 자식 테이블부터다.
+
+### 다음에 할 일 하나
+
+**ADB 화면 순회.** 이것만 하면 상시 수집이 완성된다. 절차는
+`docs/runbooks/continuous-collection.md`에 있고, **좌표는 적혀 있지 않다** —
+기기마다 다르고, 지어낸 좌표가 든 스크립트는 없느니만 못하다. 문서에 좌표
+찾는 법이 있다.
+
+대시보드 쪽은 이미 됐다: `dw-sync`가 10초마다 하트비트를 쓰고, 1분 침묵이면
+제목 옆이 `Real-time sync stopped`로 바뀐다. 양쪽 상태 모두 브라우저로 확인했다.
 
 ---
 
@@ -172,7 +235,10 @@ Windows여야 하는 것은 **라이브 캡처(Npcap·BlueStacks)뿐**이다. 00
 
 ---
 
-## Windows에서 가장 먼저 할 일
+## Windows에서 가장 먼저 할 일 — 옛 기록
+
+> 이 절은 2026-08-01 시점의 것이고, 여기 적힌 "실 데이터로 한 번 돌린다"는
+> 2026-08-02에 끝났다(문서 맨 위 참조). 절차 자체는 아직 맞으므로 남긴다.
 
 ### 1. 실 데이터로 대시보드를 한 번 돌린다
 
