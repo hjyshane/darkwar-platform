@@ -28,8 +28,9 @@ values
    'daily_donation', 5860, 1, '2026-07-30T04:38:11Z');
 
 set local role anon;
-select is_empty($$ select * from public.alliance_contribution_snapshots $$,
-  'anon cannot read alliance contribution');
+-- 0065: refused, not filtered.
+select throws_ok($$ select * from public.alliance_contribution_snapshots $$,
+  '42501', null, 'anon cannot read alliance contribution');
 reset role;
 
 select * from finish();

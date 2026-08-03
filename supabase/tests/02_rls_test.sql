@@ -5,7 +5,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(23);
+select plan(22);
 
 -- Setup (as postgres, RLS not yet in play): three auth users + rows in the
 -- restricted tables.
@@ -112,34 +112,25 @@ select is_empty(
 -- anon
 set local role anon;
 
--- Visibility, not totals: these must hold whatever else is in the
--- database, so they assert presence rather than a row count.
-select isnt_empty($$ select * from public.players $$,
-  'anon reads public rankings');
-select is_empty($$ select snapshot_id, name from public.alliance_member_snapshots $$,
-  'anon cannot read alliance-internal presence');
--- 0025 made the arena board public and 0064 took it back, before anything
--- went on the internet. As an endpoint 3,998 decoded defence lineups are a
--- scouting download rather than a screen. The grant is still there — a
--- logged-in member needs it — so this asserts the POLICY withholds the
--- rows, which is a different failure from a missing grant and reads
--- differently when it breaks.
-select is_empty($$ select * from public.arena_entry_heroes $$,
-  'anon cannot read arena lineups');
-select is_empty($$ select * from public.arena_entries $$,
-  'nor who is on the board');
--- 0020: these scores lived on players, which anon reads, until they moved.
-select is_empty($$ select * from public.player_contributions $$,
-  'anon cannot read alliance contribution');
--- 0024: presence follows contribution off players for the same reason. The
--- world-readable last_seen_at is when the collector looked; this is when the
--- player was actually there, and that is alliance-internal (§17.3).
-select is_empty($$ select * from public.player_presence $$,
-  'anon cannot read member presence');
--- The column is gone, not merely filtered — a projection of restricted data
--- onto a world-readable table is how it leaked in the first place.
-select throws_ok($$ select daily_donation_score from public.players $$, '42703',
-  null, 'contribution is not a column on the public players table');
+-- 0065 inverted the default: there is no public half of this schema any
+-- more, so anon is refused rather than filtered. The distinction matters in
+-- the failure — 42501 says "you may not read this table", where an empty
+-- result would also be what a correctly-filtered read of an empty table
+-- looks like. 34_no_public_read_test asserts the same thing across every
+-- relation at once; these stay because a persona file should show the
+-- persona getting nothing.
+select throws_ok($$ select * from public.players $$, '42501',
+  null, 'anon cannot read the roster at all');
+select throws_ok($$ select * from public.alliance_member_snapshots $$, '42501',
+  null, 'nor alliance-internal presence');
+select throws_ok($$ select * from public.arena_entry_heroes $$, '42501',
+  null, 'nor arena lineups — 3,998 rows of scouting, closed by 0064');
+select throws_ok($$ select * from public.arena_entries $$, '42501',
+  null, 'nor who is on the board');
+select throws_ok($$ select * from public.player_contributions $$, '42501',
+  null, 'nor alliance contribution');
+select throws_ok($$ select * from public.player_presence $$, '42501',
+  null, 'nor member presence');
 select throws_ok('select count(*) from internal.raw_observations', '42501',
   null, 'anon cannot touch raw payloads in the internal schema');
 

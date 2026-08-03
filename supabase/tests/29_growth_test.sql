@@ -38,8 +38,10 @@ reset role;
 -- see nothing, and the test said 150. The comments in 0049 and 0051 had the
 -- same wrong premise; 0055 corrects them.
 set local role anon;
-select is((select count(*) from public.player_power_growth) >= 0, true,
-  'anon can read it, because the snapshots underneath are public too');
+-- Was 'anon can read it, because the snapshots underneath are public too'.
+-- They are not public any more (0065), and neither is the view.
+select throws_ok($$ select count(*) from public.player_power_growth $$,
+  '42501', null, 'anon cannot read power growth');
 reset role;
 
 select * from finish();

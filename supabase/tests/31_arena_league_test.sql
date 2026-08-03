@@ -74,9 +74,9 @@ select lives_ok(
 -- Adding a column to a table whose grant is table-level needs no new grant,
 -- but 0051 taught that assuming so is how a column becomes unreadable.
 set local role anon;
-select lives_ok(
+select throws_ok(
   $$ select league from public.arena_snapshots $$,
-  'anon can read the league, like the rest of the arena board');
+  '42501', null, 'anon cannot read the league, like the rest of the arena board');
 reset role;
 
 select * from finish();

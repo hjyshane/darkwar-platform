@@ -173,6 +173,44 @@ function Screen({ route }: { route: Route }) {
   }
 }
 
+/** Everything except the way in.
+ *
+ * 0065 made every table in the schema member-only, so a signed-out reader
+ * does not get an empty dashboard — every query is refused outright (42501)
+ * and every panel would render its error state. There is nothing left to
+ * show them, so nothing is shown.
+ *
+ * This is a wall in front of screens whose data is already withheld, not
+ * the withholding itself. Anyone can still open the address; they will find
+ * this, and the database would refuse them anyway.
+ *
+ * `viewer` lands here too. Signing up creates a viewer with no rows until an
+ * admin admits them or they redeem a join code, and that is exactly the
+ * state this text is written for.
+ */
+function SignedOutWall({ role }: { role: string | undefined }) {
+  return (
+    <main>
+      <section aria-labelledby="wall-heading">
+        <h2 id="wall-heading">Alliance members only</h2>
+        <p>Every screen on this dashboard is for HELLBOUND [CBFW]. Nothing here is public.</p>
+        <p>
+          {role === 'viewer' ? (
+            <>
+              You are signed in, but no role has been granted yet. Enter a join code on the{' '}
+              <a href="#/login">sign-in page</a>, or ask an admin.
+            </>
+          ) : (
+            <a href="#/login">Sign in</a>
+          )}
+        </p>
+      </section>
+    </main>
+  );
+}
+
+const MEMBER_ROLES = new Set(['member', 'officer', 'admin']);
+
 export function App() {
   const hash = useSyncExternalStore(subscribeHash, () => window.location.hash);
   const route = routeFromHash(hash);
@@ -185,17 +223,57 @@ export function App() {
   const standalone = route === 'login' || route === 'monthCards';
   return (
     <QueryClientProvider client={queryClient}>
+      <Shell
+        allianceId={allianceId}
+        playerId={playerId}
+        route={route}
+        serverId={serverId}
+        standalone={standalone}
+      />
+    </QueryClientProvider>
+  );
+}
+
+function Shell({
+  route,
+  serverId,
+  playerId,
+  allianceId,
+  standalone,
+}: {
+  route: Route;
+  serverId: number | null;
+  playerId: string | null;
+  allianceId: string | null;
+  standalone: boolean;
+}) {
+  // Inside the provider, because it is a query. Undefined means "not
+  // answered yet" and must not be read as "not a member" — flashing the
+  // wall at a member on every load would be worse than a beat of Loading.
+  const { data: session, isPending } = useSession();
+  const isMember = session !== undefined && MEMBER_ROLES.has(session.role);
+  const walled = !standalone && !isPending && !isMember;
+
+  return (
+    <>
       <DataChangeSubscriber />
       <header className="app-header">
         <h1>
           Dark War dashboard
           {/* In the title rather than on a panel: it is about the whole
-              board, not one table's data. */}
-          <SyncStatus />
+              board, not one table's data. Only for members — it reads
+              sync_status, which 0065 closed like everything else. */}
+          {isMember && <SyncStatus />}
         </h1>
-        {!standalone && <Nav route={route} />}
+        {!standalone && isMember && <Nav route={route} />}
       </header>
-      {route === 'login' ? (
+      {walled ? (
+        <SignedOutWall role={session?.role} />
+      ) : isPending && !standalone ? (
+        <main>
+          <p className="empty">Loading…</p>
+        </main>
+      ) : route === 'login' ? (
         <LoginPage />
       ) : route === 'admin' ? (
         <AdminPage />
@@ -212,6 +290,6 @@ export function App() {
           <Screen route={route} />
         </main>
       )}
-    </QueryClientProvider>
+    </>
   );
 }

@@ -52,14 +52,18 @@ select isnt_empty($$ select player_id from public.player_month_cards $$,
 
 -- anon: the summary table is empty, the snapshot columns are gone.
 set local role anon;
-select is_empty($$ select player_id from public.player_month_cards $$,
-  'anon sees no month cards');
+select throws_ok($$ select player_id from public.player_month_cards $$,
+  '42501', null, 'anon sees no month cards');
 select throws_ok('select month_card_expires_at from public.player_snapshots',
   '42501', null, 'anon cannot select the pass column on player_snapshots');
 select throws_ok('select raw from public.player_snapshots',
   '42501', null, 'anon cannot select raw on player_snapshots — the pass rides in it');
-select lives_ok('select snapshot_id, name, power, kills, rank from public.player_snapshots',
-  'the public ranking columns still read fine');
+-- Since 0065 anon cannot read ANY column here, so this no longer isolates
+-- the pass; the column-level grant it was written for is what still protects
+-- the pass from a MEMBER, and that is asserted below with a member session.
+-- Kept as the anon half of the story, saying what actually refuses it now.
+select throws_ok('select snapshot_id, name, power, kills, rank from public.player_snapshots',
+  '42501', null, 'and no longer the ranking columns either — 0065 closed the table');
 reset role;
 
 -- member: may see the roster, may NOT see who pays.

@@ -75,12 +75,15 @@ values
 select isnt_empty($$ select * from public.arena_entry_heroes $$,
   'the lineup row exists when read as the owner');
 
--- anon: all four closed.
+-- anon: all four closed. 0064 filtered the rows away with a policy; 0065
+-- took the grant as well, so the answer is now a refusal rather than an
+-- empty list. Both are correct outcomes and only one of them can be
+-- produced by an empty table, which is why this asserts the refusal.
 set local role anon;
-select is_empty($$ select * from public.arena_snapshots $$, 'anon: no boards');
-select is_empty($$ select * from public.arena_entries $$, 'anon: no entries');
-select is_empty($$ select * from public.arena_entry_heroes $$, 'anon: no lineups');
-select is_empty($$ select * from public.arena_matches $$, 'anon: no matches');
+select throws_ok($$ select * from public.arena_snapshots $$, '42501', null, 'anon: no boards');
+select throws_ok($$ select * from public.arena_entries $$, '42501', null, 'anon: no entries');
+select throws_ok($$ select * from public.arena_entry_heroes $$, '42501', null, 'anon: no lineups');
+select throws_ok($$ select * from public.arena_matches $$, '42501', null, 'anon: no matches');
 reset role;
 
 -- A signed-in viewer is not a member. Signing in is not the gate.
