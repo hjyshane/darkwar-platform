@@ -1403,3 +1403,53 @@ select.rank-badge {
  * outright lived here and, being later in the file, quietly dropped the
  * maximum-star ring from every chip that also earned the class bonus — the
  * marks were in the DOM and one of them never drew. */
+
+/* --- invitation codes ------------------------------------------------------ */
+
+/* The code is meant to be read aloud and typed, so it gets a monospace face
+ * and room to breathe rather than being just another table cell. */
+code {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-size: 0.95em;
+  letter-spacing: 0.04em;
+}
+
+.issued {
+  background: var(--ok-bg);
+  border-radius: var(--radius-md);
+  color: var(--ok-fg);
+  padding: var(--space-2) var(--space-3);
+}
+
+.issued code {
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+
+/* A code that cannot be redeemed should not look like one that can. Same
+ * families the freshness badges use, so "this is fine" and "this is spent"
+ * read the same way here as everywhere else. */
+.badge-code-active {
+  background: var(--ok-bg);
+  color: var(--ok-fg);
+}
+
+.badge-code-revoked {
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+}
+
+.badge-code-expired,
+.badge-code-used-up {
+  background: var(--neutral-bg);
+  color: var(--neutral-fg);
+}
+
+form select {
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  color: var(--fg);
+  font: inherit;
+  padding: var(--space-2) var(--space-3);
+}
