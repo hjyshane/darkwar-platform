@@ -11,6 +11,7 @@ import { useFavourites } from '../../lib/useFavourites';
 import { LineupCell } from '../arena/LineupCell';
 import { LineupLegend } from '../arena/LineupLegend';
 import { fetchLineups } from '../arena/lineups';
+import { MemberHistory } from './MemberHistory';
 import { type PlayerArenaEntry, growthNote, newestPerLeague, percent } from './playerArena';
 
 /** One player, gathered from every table that knows something about them.
@@ -331,6 +332,14 @@ export function PlayerPage({ playerId, now }: { playerId: string; now?: Date }) 
                 ))}
               </div>
             )}
+          </section>
+
+          <section aria-labelledby="player-history">
+            <h2 id="player-history">Roster history</h2>
+            {/* Own-or-officer (0066), which is narrower than everything else
+                on this page. The component says which of the three empty
+                cases applies rather than leaving a bare table. */}
+            <MemberHistory now={now} playerId={data.playerId} />
           </section>
 
           {(data.rank !== null || data.growth !== null) && (

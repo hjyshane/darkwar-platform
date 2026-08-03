@@ -599,6 +599,7 @@ export type Database = {
           created_at: string
           display_name: string | null
           game_rank: string | null
+          player_id: string | null
           role: Database["public"]["Enums"]["app_role"]
           updated_at: string
           user_id: string
@@ -607,6 +608,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           game_rank?: string | null
+          player_id?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
           user_id: string
@@ -615,11 +617,20 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           game_rank?: string | null
+          player_id?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "app_users_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+        ]
       }
       arena_entries: {
         Row: {
@@ -2439,6 +2450,7 @@ export type Database = {
         Returns: Database["public"]["Enums"]["app_role"]
       }
       has_permission: { Args: { p_capability: string }; Returns: boolean }
+      linked_player_id: { Args: never; Returns: string }
       rank_period_start: { Args: { ts: string }; Returns: string }
       rank_period_week_ends: {
         Args: { period_start: string }

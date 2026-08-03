@@ -33,6 +33,18 @@ insert into public.players (player_id, server_id, game_uid, current_name) values
 insert into public.alliances (alliance_id, server_id, external_id, current_name)
 values ('00000000-0000-4000-8000-0000000ad501', 580, 'ext-month-admin', 'MonthAdminAlliance');
 
+-- 0066 narrowed alliance_member_snapshots to own-or-officer. This file's
+-- point is that the ROW stays readable while the pass COLUMN does not — two
+-- different mechanisms — so the member is linked to the player the snapshot
+-- below is about. Leaving them unlinked would empty the row and the
+-- column-grant assertion would pass for the wrong reason.
+--
+-- After the players insert, not before: player_id is a foreign key, and
+-- setting it first fails the whole file before a single test runs.
+update public.app_users
+   set player_id = '00000000-0000-4000-8000-0000000ad601'
+ where user_id = '00000000-0000-4000-8000-00000000f102';
+
 create temp table _ids as
 select '00000000-0000-4000-8000-0000000ad601'::uuid as player_id,
        '00000000-0000-4000-8000-0000000ad501'::uuid as alliance_id;
