@@ -1,0 +1,8 @@
+{
+  "file": "collector.db",
+  "sha256": "not applicable — extracted from the collector journal, not a PCAP",
+  "location": "outside the repo (C:\\DW_data\\collector.db)",
+  "captured_at_approx": "2026-07-30T18:38:23Z",
+  "note": "Arena weekly Top100, SILVER league (userArenaType 2, fightServers \"580\" — own server only); source of decoded/user.get.arena.info/top100_silver_580_v1.json. Extracted from raw_observations rather than a PCAP because the journal keeps the decoded payload and the PCAP for this session was not retained. Sanitized by sanitize_user_get_arena_info: uids remapped with the server suffix kept, player and alliance names replaced. Army blobs are KEPT (see the sanitizer's comment — every field in them is accounted for and none of it identifies anyone); this Silver capture happens to carry none at the header level anyway. Verified against the source payload that no real name, uid or alliance name survives.",
+  "commands_extracted": ["user.get.arena.info"]
+}

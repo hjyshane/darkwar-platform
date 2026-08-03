@@ -20,8 +20,11 @@
 · `sync`(11,542행) → `supabase test db` **329건 통과** → 합성 시드 제거 →
 연맹 핀. 즉 데이터베이스와 수집기 경로는 검증됐다.
 
-**아직 Windows에서 안 돌려본 것**: `pnpm dev` · `pnpm test` · `pnpm build`,
-그리고 라이브 캡처(`dw-capture`).
+`pnpm install` · `pnpm dev`도 Windows에서 뜬다 (2026-08-02).
+
+**아직 Windows에서 안 돌려본 것**: `pnpm test` · `pnpm build` · pytest, 그리고
+라이브 캡처(`dw-capture`). 캡처는 Npcap·BlueStacks가 있어야 하므로 미검증인
+것이 정상이고, 나머지 셋은 그냥 아직 안 돌린 것이다.
 
 설치는 Scoop이다 (`scoop bucket add supabase …` 후
 `scoop install supabase/supabase main/uv main/gh main/gitleaks main/lefthook`).

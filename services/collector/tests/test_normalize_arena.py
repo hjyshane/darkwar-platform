@@ -173,3 +173,47 @@ def test_a_blank_lineup_yields_no_hero_rows() -> None:
 
     assert len([r for r in rows if r.target_table == "arena_entries"]) == 100
     assert [r for r in rows if r.target_table == "arena_entry_heroes"] == []
+
+
+def test_league_distinguishes_the_two_boards() -> None:
+    """Gold and Silver come back from the SAME command.
+
+    Nothing else in the header separates them: `arenaType` and
+    `selfArenaType` are 1 in both. Before 0062 they landed as two
+    indistinguishable snapshots and the dashboard, taking the newest one,
+    showed whichever was captured last — in the live database Silver, by 1.7
+    seconds, with Gold's 163 players unread behind it.
+    """
+    gold = arena.normalize(load_observation("user.get.arena.info/top100_580v582_v1.json"))[0]
+    silver = arena.normalize(load_observation("user.get.arena.info/top100_silver_580_v1.json"))[0]
+
+    assert gold.row["league"] == 1
+    assert silver.row["league"] == 2
+
+    # The other two candidates agree in both, which is why neither is it.
+    assert gold.row["raw"]["arenaType"] == silver.row["raw"]["arenaType"] == 1
+    assert gold.row["raw"]["selfArenaType"] == silver.row["raw"]["selfArenaType"] == 1
+
+    # The second, independent signal: Gold is the cross-server board.
+    assert gold.row["raw"]["fightServers"] == "580;582"
+    assert silver.row["raw"]["fightServers"] == "580"
+
+    # And they must not collide, or one would overwrite the other on sync.
+    assert gold.idempotency_key != silver.idempotency_key
+
+
+def test_silver_entries_are_all_one_server() -> None:
+    rows = arena.normalize(load_observation("user.get.arena.info/top100_silver_580_v1.json"))
+    entries = [r for r in rows if r.target_table == "arena_entries"]
+    assert len(entries) == 100
+    assert {e.row["server_id"] for e in entries} == {580}
+
+
+def test_league_is_null_when_the_payload_does_not_say() -> None:
+    """FR-UI-008: unknown is unknown.
+
+    proto3 omits defaults, so a missing userArenaType cannot be read as
+    league 0 — and guessing 1 would file an unknown board under Gold.
+    """
+    header = arena.normalize(load_observation("user.get.arena.info/arena_nulls_v1.json"))[0]
+    assert header.row["league"] is None

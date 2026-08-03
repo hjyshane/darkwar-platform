@@ -11,6 +11,11 @@ power (Appendix A: "weekly match, Top100, defense power").
 The header's snapshot_id is deterministic so replays keep entries pointing
 at the same parent (FR-CORE-005 keeps ranking snapshots apart from weekly
 matches).
+
+The same command answers for TWO boards — Gold and Silver — and says which
+only through `userArenaType`. Nothing collides, because the header key
+hashes the raw payload, but until 0062 nothing distinguished them either
+and the dashboard showed whichever was captured last.
 """
 
 from __future__ import annotations
@@ -26,7 +31,7 @@ from dw_collector.protocol.army import MAX_STAR, decode_army
 from dw_collector.registry import register
 from dw_collector.resetweek import reset_week_start
 
-PARSER_VERSION = "1.1.0"
+PARSER_VERSION = "1.2.0"
 
 _UID_SERVER_SUFFIX = 6
 
@@ -62,6 +67,11 @@ class _Payload(BaseModel):
 
     entries: list[_Entry] = Field(alias="rankArr")
     start_time_ms: int | None = Field(default=None, alias="startTime")
+    # Which board this is: 1 = Gold (cross-server), 2 = Silver (own server).
+    # See 0062 for how the mapping was established — the payload carries a
+    # number and never the word. `arenaType` and `selfArenaType` are both 1
+    # in Silver responses too, so neither of them is the discriminator.
+    league: int | None = Field(default=None, alias="userArenaType")
 
 
 def _entry_server(entry: _Entry, fallback: int) -> int:
@@ -108,6 +118,7 @@ def normalize(observation: Observation) -> list[NormalizedRow]:
                 "server_id": header_server,
                 "week_start": week_start.isoformat(),
                 "entry_count": len(payload.entries),
+                "league": payload.league,
             },
         )
     ]
