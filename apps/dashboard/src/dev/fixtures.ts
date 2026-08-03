@@ -213,8 +213,14 @@ const GRANTS = ROLES.flatMap((role) =>
  *
  * A key that is absent is not a mistake — the screen will render its own
  * "nothing here" state, which is worth looking at too. */
+export const SESSION_KEY = ['session'] as const;
+
+/** Held as a stable reference so main.tsx can tell "still the fixture" from
+ *  "something replaced it" by identity. */
+export const SESSION = { email: 'you@example.invalid', role: 'admin' };
+
 export const FIXTURES: [readonly unknown[], unknown][] = [
-  [['session'], { email: 'you@example.invalid', role: 'admin' }],
+  [SESSION_KEY, SESSION],
   [['permissions'], { capabilities: CAPABILITIES, grants: GRANTS }],
   // Rows as the table stores them — one row per starred thing, two of its
   // three id columns null. useFavourites maps over this directly.

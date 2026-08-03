@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:local": "vite --open /index.dev.html",
     "build": "vite build",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"

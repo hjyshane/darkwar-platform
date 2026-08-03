@@ -10,11 +10,16 @@
 // it, whether a column grant exists, whether PostgREST returns what the
 // component expects. Every one of those is bypassed here by construction.
 // It tells you what the screens look like. That is all it is for.
+//
+// Run it with `pnpm --filter @dw/dashboard dev:local`, which opens the right
+// page. The plain `dev` script serves the REAL entry at `/`, and with no
+// backend that lands on the signed-out wall — correct behaviour, and
+// indistinguishable from this build being broken.
 import { Component, type ReactNode, StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App, queryClient } from '../App';
 import '../index.css';
-import { FIXTURES } from './fixtures';
+import { FIXTURES, SESSION, SESSION_KEY } from './fixtures';
 
 /** Dev-only. A fixture of the wrong shape throws inside a component and
  * React unmounts the whole tree, so the symptom is a white page with the
@@ -69,6 +74,30 @@ queryClient.setDefaultOptions({
 for (const [key, value] of FIXTURES) {
   queryClient.setQueryData(key, value);
 }
+
+// The session fixture is pinned, not merely seeded.
+//
+// useSession's queryFn does not need a backend to answer: supabase.auth
+// .getSession() reads localStorage, finds nothing, and returns role
+// 'viewer' — successfully. So any invalidation of ['session'] does not fail
+// and leave the fixture in place; it REPLACES it, and every screen falls
+// behind the signed-out wall. That is correct behaviour for the real app
+// and indistinguishable from this build being broken.
+//
+// App invalidates everything on a SIGNED_IN/SIGNED_OUT auth event, and two
+// admin screens invalidate ['session'] after a save. None of those is
+// reachable here today — #/login renders the sign-in form rather than the
+// Sign out button, because it reads the real auth state and finds none, and
+// the saves fail before their onSuccess. This is a guard against the path
+// existing, not a fix for one that fires.
+//
+// Writing only when the value has drifted makes it terminate: the write
+// restores the same reference the check compares against.
+queryClient.getQueryCache().subscribe(() => {
+  if (queryClient.getQueryData(SESSION_KEY) !== SESSION) {
+    queryClient.setQueryData(SESSION_KEY, SESSION);
+  }
+});
 
 // Two queries set their own refetchInterval (the header's sync badge and the
 // collector table, both 20s). A call-site option beats a default, so after
