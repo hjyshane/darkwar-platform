@@ -21,6 +21,11 @@ export type BoardId =
 
 export interface BoardRow {
   id: string;
+  /** Resolved by the sync worker's entity refs. Null when the snapshot
+   * named a player we have never matched to a row — a board can rank
+   * someone whose server we have not swept. The name still renders; only
+   * the link is withheld, because a link to nothing is worse than none. */
+  playerId: string | null;
   rank: number | null;
   name: string | null;
   game_uid: number;
@@ -52,7 +57,7 @@ async function fetchFromPlayerSnapshots(
 ): Promise<BoardRow[]> {
   const { data, error } = await supabase
     .from('player_snapshots')
-    .select('snapshot_id, rank, name, game_uid, server_id, power, kills, captured_at')
+    .select('snapshot_id, player_id, rank, name, game_uid, server_id, power, kills, captured_at')
     .eq('source_command', sourceCommand)
     .order('captured_at', { ascending: false })
     .order('rank', { ascending: true, nullsFirst: false })
@@ -62,6 +67,7 @@ async function fetchFromPlayerSnapshots(
   }
   return latestBatch(data).map((row) => ({
     id: row.snapshot_id,
+    playerId: row.player_id,
     rank: row.rank,
     name: row.name,
     game_uid: row.game_uid,
@@ -75,7 +81,7 @@ async function fetchFromPlayerSnapshots(
 async function fetchComponentBoard(metric: string): Promise<BoardRow[]> {
   const { data, error } = await supabase
     .from('player_component_power_snapshots')
-    .select('snapshot_id, rank, name, game_uid, server_id, power, unit_id, captured_at')
+    .select('snapshot_id, player_id, rank, name, game_uid, server_id, power, unit_id, captured_at')
     .eq('metric', metric)
     .order('captured_at', { ascending: false })
     .order('rank', { ascending: true, nullsFirst: false })
@@ -85,6 +91,7 @@ async function fetchComponentBoard(metric: string): Promise<BoardRow[]> {
   }
   return latestBatch(data).map((row) => ({
     id: row.snapshot_id,
+    playerId: row.player_id,
     rank: row.rank,
     name: row.name,
     game_uid: row.game_uid,

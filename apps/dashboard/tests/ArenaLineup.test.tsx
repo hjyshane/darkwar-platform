@@ -282,6 +282,7 @@ const header = {
 const entries: ArenaEntryRow[] = [
   {
     snapshot_id: 'e1',
+    player_id: '00000000-0000-4000-8000-0000000000e1',
     rank: 1,
     name: 'Arena001',
     game_uid: 9259969116000582,
@@ -295,6 +296,8 @@ const entries: ArenaEntryRow[] = [
   },
   {
     snapshot_id: 'e2',
+    // Never matched to a player row, so this one stays plain text.
+    player_id: null,
     rank: 2,
     name: 'Arena002',
     game_uid: 9105284188000580,

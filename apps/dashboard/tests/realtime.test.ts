@@ -6,12 +6,23 @@ test('roster topics refetch the roster and the overview', () => {
   // The overview summarises the same rows, so a topic that changes the
   // roster has to reach both — a stat tile that disagrees with the table
   // under it is worse than one that is a moment late.
-  expect(queryKeysForTopic('alliance_member_snapshots')).toEqual([['roster'], ['overview']]);
-  expect(queryKeysForTopic('alliance_contribution_snapshots')).toEqual([['roster'], ['overview']]);
+  expect(queryKeysForTopic('alliance_member_snapshots')).toEqual([
+    ['roster'],
+    ['overview'],
+    ['player'],
+  ]);
+  expect(queryKeysForTopic('alliance_contribution_snapshots')).toEqual([
+    ['roster'],
+    ['overview'],
+    ['player'],
+  ]);
 });
 
 test('component power boards refetch the ranking panel', () => {
-  expect(queryKeysForTopic('player_component_power_snapshots')).toEqual([['crossRankings']]);
+  expect(queryKeysForTopic('player_component_power_snapshots')).toEqual([
+    ['crossRankings'],
+    ['player'],
+  ]);
 });
 
 test('player snapshots feed both the roster summary and the ranking boards', () => {
@@ -21,12 +32,13 @@ test('player snapshots feed both the roster summary and the ranking boards', () 
     ['roster'],
     ['crossRankings'],
     ['overview'],
+    ['player'],
   ]);
 });
 
-test('arena topics map to the arena query only', () => {
-  expect(queryKeysForTopic('arena_snapshots')).toEqual([['arena']]);
-  expect(queryKeysForTopic('arena_entries')).toEqual([['arena']]);
+test('arena topics reach the board and whichever player page is open', () => {
+  expect(queryKeysForTopic('arena_snapshots')).toEqual([['arena'], ['player']]);
+  expect(queryKeysForTopic('arena_entries')).toEqual([['arena'], ['player']]);
 });
 
 test('alliance ranking topic maps to the rankings query only', () => {

@@ -2,7 +2,7 @@ import { FreshnessBadge } from '../../components/FreshnessBadge';
 import { SortableTh } from '../../components/SortableTh';
 import { TableSearch } from '../../components/TableSearch';
 import { leagueLabel } from '../../lib/arenaLeague';
-import { serverHash } from '../../lib/route';
+import { playerHash, serverHash } from '../../lib/route';
 import { TERMS } from '../../lib/terms';
 import type { LineupHero } from '../../lib/troops';
 import { useTableView } from '../../lib/useTableView';
@@ -22,6 +22,9 @@ export interface ArenaHeader {
 
 export interface ArenaEntryRow {
   snapshot_id: string;
+  /** Null when the entry has not been matched to a player row — the board
+   * ranks players from servers we may not have swept. */
+  player_id: string | null;
   rank: number;
   name: string | null;
   game_uid: number;
@@ -118,7 +121,17 @@ export function ArenaTable({
             {view.map((entry) => (
               <tr key={entry.snapshot_id}>
                 <td className="num">{entry.rank}</td>
-                <td className="label">{entry.name ?? `UID ${entry.game_uid}`}</td>
+                <td className="label">
+                  {/* Same rule as the cross-server board: a link only where
+                      the entry resolved to a player row. */}
+                  {entry.player_id === null ? (
+                    (entry.name ?? `UID ${entry.game_uid}`)
+                  ) : (
+                    <a href={playerHash(entry.player_id)}>
+                      {entry.name ?? `UID ${entry.game_uid}`}
+                    </a>
+                  )}
+                </td>
                 <td>
                   {/* Tag first because that is what people say out loud;
                       the full name is there for the ones nobody knows by
