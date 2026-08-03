@@ -92,15 +92,29 @@ def test_mark_sent(journal: Journal) -> None:
     assert journal.pending_outbox() == []
 
 
-def test_commands_since_excludes_rows_written_before_the_boundary(journal: Journal) -> None:
+def test_commands_after_excludes_rows_written_before_the_boundary(journal: Journal) -> None:
     """What the UI worker's step verification rests on: only commands that
     arrived AFTER the tap count as proof the tap landed."""
+    before = journal.watermark()
     observation = load_observation("al.rank/cbfw_roster_v1.json")
     journal.record(observation, al_rank.normalize(observation))
+    after = journal.watermark()
 
-    written = journal.conn.execute("select created_at from raw_observations").fetchone()[0]
-    stamp = datetime.fromisoformat(written)
+    assert journal.commands_after(before) == {"al.rank"}
+    assert journal.commands_after(after) == set()
+    assert journal.commands_after(after + 1) == set()
 
-    assert journal.commands_since(stamp - timedelta(seconds=1)) == {"al.rank"}
-    assert journal.commands_since(stamp) == set()
-    assert journal.commands_since(stamp + timedelta(seconds=1)) == set()
+
+def test_watermark_does_not_move_for_a_replayed_observation(journal: Journal) -> None:
+    """A duplicate is not fresh proof.
+
+    `insert or ignore` leaves rowid alone, so replaying an observation the
+    journal already holds cannot verify a step that never opened a screen.
+    """
+    observation = load_observation("al.rank/cbfw_roster_v1.json")
+    journal.record(observation, al_rank.normalize(observation))
+    once = journal.watermark()
+    journal.record(observation, al_rank.normalize(observation))
+
+    assert journal.watermark() == once
+    assert journal.commands_after(once) == set()

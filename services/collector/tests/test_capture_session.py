@@ -40,7 +40,7 @@ def envelope(command: str, payload: dict[str, object]) -> dict[str, object]:
 
 
 def real_payload(relative: str) -> dict[str, object]:
-    raw = json.loads((FIXTURES / "decoded" / relative).read_text())
+    raw = json.loads((FIXTURES / "decoded" / relative).read_text(encoding="utf-8"))
     return dict(raw["payload"])
 
 

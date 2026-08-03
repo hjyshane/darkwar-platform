@@ -219,18 +219,29 @@ class Journal:
         )
         return [(str(r[0]), int(r[1])) for r in cur.fetchall()]
 
-    def commands_since(self, moment: datetime) -> set[str]:
-        """Commands journalled after `moment` — the UI worker's proof that a
+    def watermark(self) -> int:
+        """Insert position to compare later arrivals against.
+
+        A wall clock cannot answer this on Windows. `datetime.now()` there
+        resolves to about 15.6ms, and six consecutive calls on the collector
+        box return the same value — so "written after I tapped" compared on
+        created_at silently means "written at least a tick after I tapped".
+        rowid is exact, monotonic, and needs no clock at all.
+        """
+        cur = self.conn.execute("select coalesce(max(rowid), 0) from raw_observations")
+        return int(cur.fetchone()[0])
+
+    def commands_after(self, mark: int) -> set[str]:
+        """Commands journalled after `mark` — the UI worker's proof that a
         tap opened the screen it meant to.
 
-        Filters on `created_at` (when the journal wrote the row), not
-        `captured_at`: a live capture sets captured_at from the packet and a
-        replay sets it from the fixture, so only created_at answers "did this
-        arrive after I tapped".
+        Ordered by insert, not by `captured_at`: a live capture sets
+        captured_at from the packet and a replay sets it from the fixture, so
+        neither answers "did this arrive after I tapped".
         """
         cur = self.conn.execute(
-            "select distinct source_command from raw_observations where created_at > ?",
-            (moment.isoformat(),),
+            "select distinct source_command from raw_observations where rowid > ?",
+            (mark,),
         )
         return {str(r[0]) for r in cur.fetchall()}
 

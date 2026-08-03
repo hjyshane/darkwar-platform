@@ -306,14 +306,21 @@ def test_routine_loads_from_disk(tmp_path: Path) -> None:
                 "name": "alliance_daily",
                 "steps": [{"name": "roster", "action": "tap", "x": 1, "y": 2}],
             }
-        )
+        ),
+        encoding="utf-8",
     )
     assert Routine.load(path).name == "alliance_daily"
 
 
-def test_commands_since_ignores_earlier_rows(journal: Journal) -> None:
+def test_commands_after_ignores_earlier_rows(journal: Journal) -> None:
+    """The boundary is an insert position, not a moment.
+
+    Written as three statements with no delay between them on purpose: that
+    is what a tap and its response look like to a 15.6ms Windows clock, and a
+    created_at comparison returns nothing at all for this.
+    """
     _record(journal, "before.tap")
-    boundary = datetime.now(tz=UTC)
+    boundary = journal.watermark()
     _record(journal, "after.tap")
 
-    assert journal.commands_since(boundary) == {"after.tap"}
+    assert journal.commands_after(boundary) == {"after.tap"}
