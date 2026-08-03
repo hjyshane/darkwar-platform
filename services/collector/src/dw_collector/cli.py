@@ -64,7 +64,7 @@ def replay(
     (FR-COL-004). Replaying the same fixture is a no-op.
     """
     try:
-        observation = Observation.model_validate(json.loads(fixture.read_text()))
+        observation = Observation.model_validate(json.loads(fixture.read_text(encoding="utf-8")))
     except (json.JSONDecodeError, ValidationError) as exc:
         typer.echo(f"fixture is not a valid Observation: {exc}", err=True)
         raise typer.Exit(code=1) from exc
@@ -326,7 +326,7 @@ def extract_fixture(
         payload=sanitizer(dict(matches[index].payload)),
     )
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(observation.model_dump_json(indent=2) + "\n")
+    out.write_text(observation.model_dump_json(indent=2) + "\n", encoding="utf-8")
     typer.echo(f"wrote {out}  (source pcap sha256 {pcap_sha[:16]}…)")
 
 

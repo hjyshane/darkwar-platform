@@ -14,9 +14,13 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 FIXTURES = REPO_ROOT / "protocol-fixtures"
 
 
+# Every fixture read goes through utf-8 explicitly. `read_text()` uses the
+# locale encoding, which is cp949 on a Korean Windows box — and the fixtures
+# carry Vietnamese player names, so the default decodes them into an error
+# rather than mojibake. CI is Linux/utf-8 and never sees it.
 def load_observation(relative: str) -> Observation:
     path = FIXTURES / "decoded" / relative
-    return Observation.model_validate(json.loads(path.read_text()))
+    return Observation.model_validate(json.loads(path.read_text(encoding="utf-8")))
 
 
 @pytest.fixture

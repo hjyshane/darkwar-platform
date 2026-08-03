@@ -10,7 +10,9 @@ import pytest
 from dw_collector.resetweek import reset_week_start
 from tests.conftest import FIXTURES
 
-_VECTORS = json.loads((FIXTURES / "reset-week" / "vectors.json").read_text())["vectors"]
+_VECTORS = json.loads((FIXTURES / "reset-week" / "vectors.json").read_text(encoding="utf-8"))[
+    "vectors"
+]
 
 
 @pytest.mark.parametrize("vector", _VECTORS, ids=[v["name"] for v in _VECTORS])

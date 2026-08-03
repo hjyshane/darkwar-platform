@@ -21,7 +21,6 @@ from __future__ import annotations
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
 
 import structlog
 
@@ -73,13 +72,11 @@ class RoutineRunner:
         *,
         idle: IdlePolicy | None = None,
         sleep: Callable[[float], None] = time.sleep,
-        now: Callable[[], datetime] = lambda: datetime.now(tz=UTC),
     ) -> None:
         self.client = client
         self.journal = journal
         self.idle = idle
         self._sleep = sleep
-        self._now = now
 
     def _perform(self, step: Step) -> None:
         if step.action == "tap":
@@ -96,13 +93,13 @@ class RoutineRunner:
             self.client.back()
         # "wait" performs nothing; settle_seconds is the whole point of it.
 
-    def _await_commands(self, step: Step, since: datetime) -> tuple[list[str], list[str]]:
+    def _await_commands(self, step: Step, mark: int) -> tuple[list[str], list[str]]:
         """Poll the journal until every expected command has been seen."""
         wanted = set(step.expect)
         seen: set[str] = set()
         deadline = time.monotonic() + step.timeout_seconds
         while True:
-            seen |= {c for c in self.journal.commands_since(since) if c in wanted}
+            seen |= {c for c in self.journal.commands_after(mark) if c in wanted}
             if wanted <= seen:
                 return sorted(seen), []
             if time.monotonic() >= deadline:
@@ -133,7 +130,10 @@ class RoutineRunner:
                     log.info("ui_worker.not_idle", step=step.name, reason=state.reason)
                     return report
 
-            started = self._now()
+            # Taken before the tap, so anything journalled from here on is
+            # this step's doing. A timestamp cannot draw that line on Windows
+            # — see Journal.watermark.
+            mark = self.journal.watermark()
             try:
                 self._perform(step)
             # AdbGuardError is NOT caught: "never caught to continue" is the
@@ -158,7 +158,7 @@ class RoutineRunner:
                 report.steps.append(StepResult(step.name, "skipped"))
                 continue
 
-            observed, missing = self._await_commands(step, started)
+            observed, missing = self._await_commands(step, mark)
             if missing:
                 report.steps.append(StepResult(step.name, "unverified", observed, missing))
                 report.aborted_at = step.name
