@@ -83,7 +83,7 @@ supabase link --project-ref <프로젝트 ref>
 supabase db push
 ```
 
-63개 마이그레이션이 순서대로 적용된다. 영웅 카탈로그 28기는 0061이 함께
+64개 마이그레이션이 순서대로 적용된다. 영웅 카탈로그 28기는 0061이 함께
 넣으므로 손으로 다시 입력할 것이 없다.
 
 **`supabase db push`는 seed.sql을 실행하지 않는다.** 합성 플레이어 20명이
@@ -163,9 +163,18 @@ VITE_SUPABASE_PUBLISHABLE_KEY=<Project Settings > API > publishable/anon key>
 
 배포 주소를 **시크릿 창**에서 연다. 0단계의 표와 맞는지 눈으로 본다.
 
-- 멤버 탭이 안 보여야 한다 (0063).
+- **멤버 탭과 아레나 탭이 둘 다 안 보여야 한다** (0063, 0064).
 - 기여도·접속·등급이 안 보여야 한다.
-- 아레나가 보이는지 여부는 0단계에서 정한 대로.
+- 크로스서버 랭킹과 서버 페이지는 보여야 한다 — `players`는 공개로 뒀다.
+
+탭이 없는 것만으로 만족하지 말고 **데이터에 직접 물어본다.** 탭은 경계가
+아니다:
+
+```powershell
+curl "https://<ref>.supabase.co/rest/v1/arena_entry_heroes?select=hero_id&limit=1" -H "apikey: <publishable key>"
+```
+
+`[]`가 나와야 한다. 행이 나오면 정책이 안 올라간 것이다.
 
 맞지 않으면 되돌리는 것보다 **먼저 프로젝트를 일시정지**하고 원인을 찾는다.
 
