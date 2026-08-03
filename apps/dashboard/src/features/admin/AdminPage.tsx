@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { fieldsOf } from '../../lib/memberFormulas';
+import { ADMIN_GROUPS, type AdminGroup, adminHash } from '../../lib/route';
 import { useSession } from '../../lib/useSession';
 import { fetchRoster } from '../roster/RosterPanel';
 import { AnnouncementsSetting } from './AnnouncementsSetting';
@@ -16,29 +17,20 @@ import { RankTiersSetting } from './RankTiersSetting';
 
 /** Settings an admin can change without a deploy.
  *
- * One section per setting, so the next one — the overview's metric list, the
- * announcement — lands underneath without this page being rearranged.
+ * One group per screen rather than twelve sections stacked. Stacking meant
+ * twelve queries fired to read one setting, and no way to send somebody to
+ * the setting you meant — the address said `#/admin` whichever one you were
+ * looking at. Only the open group mounts, so only its queries run.
  *
  * The role check here is a courtesy, not the boundary. RLS refuses the write
- * whatever this component renders, and the section below reports what the
+ * whatever this component renders, and each section reports what the
  * database said rather than hiding the control and leaving a non-admin
  * wondering. Telling someone why they cannot do a thing beats pretending the
  * thing does not exist.
  */
-export function AdminPage() {
+export function AdminPage({ group }: { group: AdminGroup }) {
   const { data: session } = useSession();
   const isAdmin = session?.role === 'admin';
-  // A member formula runs on one member, so the preview needs one. The
-  // strongest is used because they are the row most likely to have every
-  // figure filled in — a preview against somebody with three nulls says
-  // "unknown" and teaches nothing.
-  // Same query the Members tab runs, so the preview cannot drift from the
-  // rows the formula will actually meet. The roster comes back strongest
-  // first, and the strongest member is the row most likely to have every
-  // figure filled in — previewing against somebody with three nulls says
-  // "unknown" and teaches nothing.
-  const { data: roster } = useQuery({ queryKey: ['roster'], queryFn: fetchRoster });
-  const sample = roster?.[0] ?? null;
 
   return (
     <main>
@@ -56,8 +48,34 @@ export function AdminPage() {
             </p>
           )
         )}
+        {/* Same markup and the same aria-current as the main nav, so the
+            selected state cannot drift between the two bars. */}
+        <nav aria-label="Settings groups" className="tabs subtabs">
+          {ADMIN_GROUPS.map((entry) => (
+            <a
+              key={entry.group}
+              aria-current={entry.group === group ? 'page' : undefined}
+              className="tab"
+              href={adminHash(entry.group)}
+            >
+              {entry.label}
+            </a>
+          ))}
+        </nav>
       </section>
 
+      {group === 'access' && <AccessGroup />}
+      {group === 'alliance' && <AllianceGroup />}
+      {group === 'display' && <DisplayGroup />}
+      {group === 'catalogue' && <CatalogueGroup />}
+    </main>
+  );
+}
+
+/** Who is in, and what they may do once they are. */
+function AccessGroup() {
+  return (
+    <>
       <section aria-labelledby="members-heading">
         <h2 id="members-heading">Members</h2>
         <MembersSetting />
@@ -72,10 +90,17 @@ export function AdminPage() {
         <h2 id="permissions-heading">Permissions</h2>
         <PermissionsSetting />
       </section>
+    </>
+  );
+}
 
-      <section aria-labelledby="rank-report-heading">
-        <h2 id="rank-report-heading">Rank changes</h2>
-        <RankReportSetting />
+/** Facts about our own alliance, and how it grades people. */
+function AllianceGroup() {
+  return (
+    <>
+      <section aria-labelledby="own-alliance-heading">
+        <h2 id="own-alliance-heading">Our alliance</h2>
+        <OwnAllianceSetting />
       </section>
 
       <section aria-labelledby="rank-tiers-heading">
@@ -83,11 +108,30 @@ export function AdminPage() {
         <RankTiersSetting />
       </section>
 
-      <section aria-labelledby="own-alliance-heading">
-        <h2 id="own-alliance-heading">Our alliance</h2>
-        <OwnAllianceSetting />
+      <section aria-labelledby="rank-report-heading">
+        <h2 id="rank-report-heading">Rank changes</h2>
+        <RankReportSetting />
       </section>
+    </>
+  );
+}
 
+/** What the dashboard puts in front of everybody else. */
+function DisplayGroup() {
+  // A member formula runs on one member, so the preview needs one. Same
+  // query the Members tab runs, so the preview cannot drift from the rows
+  // the formula will actually meet. The roster comes back strongest first,
+  // and the strongest member is the row most likely to have every figure
+  // filled in — previewing against somebody with three nulls says "unknown"
+  // and teaches nothing.
+  //
+  // It lives here rather than on the page because opening Access is no
+  // reason to fetch a hundred members.
+  const { data: roster } = useQuery({ queryKey: ['roster'], queryFn: fetchRoster });
+  const sample = roster?.[0] ?? null;
+
+  return (
+    <>
       <section aria-labelledby="metrics-heading">
         <h2 id="metrics-heading">Overview figures</h2>
         <OverviewMetricsSetting />
@@ -105,7 +149,15 @@ export function AdminPage() {
         <h2 id="notices-heading">Notices</h2>
         <AnnouncementsSetting />
       </section>
+    </>
+  );
+}
 
+/** Reference data somebody types in, not settings that change behaviour —
+ *  HeroesSetting's own docstring is what draws this line. */
+function CatalogueGroup() {
+  return (
+    <>
       <section aria-labelledby="heroes-heading">
         <h2 id="heroes-heading">Heroes</h2>
         <HeroesSetting />
@@ -115,6 +167,6 @@ export function AdminPage() {
         <h2 id="pets-heading">Pets</h2>
         <PetsSetting />
       </section>
-    </main>
+    </>
   );
 }

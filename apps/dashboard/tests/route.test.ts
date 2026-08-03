@@ -1,7 +1,15 @@
 // The gameplay screens each have an address; the month-card page has one
 // but is deliberately not linked (see route.ts).
 import { expect, test } from 'vitest';
-import { NAV_TABS, routeFromHash, serverHash, serverIdFromHash } from '../src/lib/route';
+import {
+  ADMIN_GROUPS,
+  NAV_TABS,
+  adminGroupFromHash,
+  adminHash,
+  routeFromHash,
+  serverHash,
+  serverIdFromHash,
+} from '../src/lib/route';
 
 test('each screen has its own address', () => {
   expect(routeFromHash('#/rankings')).toBe('rankings');
@@ -56,6 +64,39 @@ test('anything that is not a plain server number is not a server page', () => {
     expect(routeFromHash(hash)).toBe('overview');
     expect(serverIdFromHash(hash)).toBeNull();
   }
+});
+
+test('every settings group has its own address', () => {
+  for (const entry of ADMIN_GROUPS) {
+    expect(routeFromHash(adminHash(entry.group))).toBe('admin');
+    expect(adminGroupFromHash(adminHash(entry.group))).toBe(entry.group);
+  }
+});
+
+test('bare #/admin is Access, because that address is already in use', () => {
+  // It is in the nav, in browser history, and in the docs. Sending it
+  // somewhere it does not resolve would break all three at once.
+  expect(routeFromHash('#/admin')).toBe('admin');
+  expect(adminGroupFromHash('#/admin')).toBe('access');
+});
+
+test('an invented group is not a settings page', () => {
+  // Falling back to Access would render a working-looking screen for an
+  // address that means nothing, the same trap `#/arena/extra` avoids.
+  for (const hash of ['#/admin/nope', '#/admin/', '#/admin/access/extra', '#/admin/ACCESS']) {
+    expect(routeFromHash(hash)).toBe('overview');
+    expect(adminGroupFromHash(hash)).toBeNull();
+  }
+});
+
+test('the other addresses name no settings group', () => {
+  expect(adminGroupFromHash('#/members')).toBeNull();
+  expect(adminGroupFromHash('')).toBeNull();
+});
+
+test('no two settings groups share a name', () => {
+  const groups = ADMIN_GROUPS.map((entry) => entry.group);
+  expect(new Set(groups).size).toBe(groups.length);
 });
 
 test('the other addresses carry no server', () => {
