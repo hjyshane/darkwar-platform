@@ -9,12 +9,21 @@
 
 ## Windows에서 다시 시작하기 (2026-08-02 기준)
 
-작업은 WSL에서 진행됐고 다음 세션은 **Windows에서 시작한다.** 바뀌는 것은
-캡처뿐이다 — Supabase·pgTAP·pnpm은 어느 쪽에서든 돈다.
+**전부 Windows에서 한다.** `CLAUDE.md`가 "Development is Windows-only. No WSL."
+이라고 정해 둔 그대로다.
+
+2026-08-02 세션은 그 결정에서 벗어나 WSL에서 진행됐고, 런북의 분담표까지
+"데이터베이스·화면·테스트는 WSL"로 흘러 있었다. 되돌렸다. Supabase CLI·pnpm·
+pytest는 Windows에서 그대로 돌고, Supabase는 Docker Desktop을 쓴다.
+**단, 그 Windows 경로를 이 세션이 직접 돌려본 것은 아니다** — WSL에서 돌렸다.
+막히면 그건 새 정보이니 런북에 적는다.
+
+두 창을 섞지 않는 것이 요점이다. 섞으면 저널 경로와 `.env`가 두 벌이 되고,
+"왜 `sent=0`인가"의 답이 대체로 "다른 창에서 돌렸다"가 된다.
 
 ### 지금 상태
 
-- **PR #62가 열려 있다** (커밋 17개, CI 4종 전부 통과). 머지 전이면 먼저 머지한다.
+- **PR #62는 머지됐다** (커밋 18개, CI 4종 통과). 작업 트리는 깨끗하다.
 - 마이그레이션은 **0061**까지. `supabase db reset` 한 번이면 영웅 카탈로그 28기
   이름·병종·등급까지 전부 들어온다 — 0061이 그 일을 한다. **손으로 다시 입력할
   것이 없다.**
@@ -50,12 +59,20 @@ uv run dw-collector sync --db .\data\fresh.db      # sent=0 이 나올 때까지
 이력이 파서 버그에 상하지 않는다. 같은 관측을 다시 돌려도 idempotency_key가
 원본 payload를 해시하므로(§11.2) sync는 **중복이 아니라 갱신**이다.
 
-WSL에서 이 경로로 넣은 결과: 멤버 **93명**(HELLBOUND [CBFW], 실명), 아레나 편성
-**3,998행**, 기여도 **1,615행**.
+이 경로로 넣은 결과: 멤버 **93명**(HELLBOUND [CBFW], 실명), 아레나 편성
+**3,998행**, 기여도 **1,615행**. (2026-08-02, WSL에서 확인)
 
 `supabase db reset`은 seed.sql의 합성 플레이어 20명도 같이 넣는다. 실데이터만
 보고 싶으면 `game_uid 58000001~58000020`과 `Synthetic%` 연맹을 지운다 —
 순서는 FK 때문에 자식 테이블부터다.
+
+### 알아둘 것 하나 — 브라우저 검증 스킬은 리눅스용이다
+
+`.claude/skills/run-dashboard`의 **브라우저 절만** WSL 전용이다
+(`apt-get download`, `dpkg -x`, `LD_LIBRARY_PATH`). Windows에서는 그 과정이
+필요 없다 — `npx playwright install chromium` 하나면 되고 `executablePath`도
+안 준다. 스택 기동·픽스처 적재·세션 만들기는 양쪽 같다. 스킬 첫머리에 그렇게
+적어 뒀고, **Windows 경로는 아직 아무도 돌려보지 않았다.**
 
 ### 다음에 할 일 하나
 
@@ -71,7 +88,7 @@ WSL에서 이 경로로 넣은 결과: 멤버 **93명**(HELLBOUND [CBFW], 실명
 
 ## 이어서 할 일 (우선순위)
 
-캡처는 `C:\DW_data\re-capture.pcapng`에 있고 **WSL에서 `/mnt/c`로 읽힌다.**
+캡처는 `C:\DW_data\re-capture.pcapng`에 있다.
 
 ### 0-a. 상시 수집 — 대시보드 쪽은 됐고, 순회는 미검증 (2026-08-02)
 
@@ -207,7 +224,9 @@ UID, `contentsArr`가 본문). 없는 것은 **실제 수신 사례**다. 그러
 그대로(익명 키로) 실행하는 방식이다. 브라우저로 띄워본 것은 아직 아니므로
 렌더링·Realtime은 여전히 미검증이다.
 
-**WSL에도 Supabase 스택이 돌아간다** (2026-08-01 확인). 아래 "Windows에서 가장
+**WSL에서도 Supabase 스택은 돌아간다** (2026-08-01 확인). 돈다는 것과 거기서
+해야 한다는 것은 다르다 — `CLAUDE.md`는 Windows-only이고, 2026-08-02에 문서를
+전부 그쪽으로 되돌렸다(창은 PowerShell 하나). 아래 "Windows에서 가장
 먼저 할 일"은 pgTAP이 Windows 전용이라는 전제로 쓰였는데 그렇지 않다 —
 `supabase start` · `db reset` · `test db` · `gen types` 전부 WSL에서 돈다.
 Windows여야 하는 것은 **라이브 캡처(Npcap·BlueStacks)뿐**이다. 0029는 WSL에서
@@ -380,7 +399,7 @@ al.rank 93명 전원과 아레나 엔트리 전원이 `careerType=0`, `careerPos
 
 **2026-08-01 해결 — `army`는 열렸고, 영웅 정보가 들어 있다.**
 
-`C:\DW_data`의 실 저널(`collector.db`, `probe.db`)이 WSL에서 `/mnt/c`로 읽힌다.
+실 저널은 `C:\DW_data\collector.db`(과 `probe.db`)다.
 캡처를 새로 찍을 필요가 없었다. `army`는 **base64 protobuf**이고 `.proto` 없이
 와이어 포맷만으로 완전히 파싱된다(전투 리포트의 `battleContent`와 달리 여기서
 막히지 않는다).
@@ -602,7 +621,7 @@ Windows에는 해당 없지만 기록해둔다.
 
 이번 세션에서 CI가 잡은 것들이며, 반복하지 않기 위해 적는다.
 
-**세션 끝에 브랜치를 푸시한다. 미완성이어도.** 맥과 윈도우/WSL 사이에 충돌이
+**세션 끝에 브랜치를 푸시한다. 미완성이어도.** 맥과 윈도우 사이에 충돌이
 난 적은 **한 번도 없다** — 두 머신이 같은 파일을 동시에 고치지 않기 때문이다.
 실제로 손해를 낸 것은 언제나 **푸시하지 않은 브랜치**였다.
 
@@ -617,7 +636,10 @@ Windows에는 해당 없지만 기록해둔다.
 세션 시작에 `git fetch --prune`, 세션 끝에 푸시. 이것만 지키면 머신이 몇 대든
 상관없다.
 
-**WSL에서 GitHub 인증이 막히면 키 문제가 아닐 가능성이 높다.** 키
+**GitHub 인증이 막히면 키 문제가 아닐 가능성이 높다.** Windows에서는 ssh-agent가
+서비스라 `Set-Service -StartupType Automatic` + `ssh-add` 한 번이면 끝이고, 그
+뒤로는 셸을 새로 열어도 유지된다(2026-08-02 확인). 아래는 WSL에서 겪은 기록이다.
+키
 (`~/.ssh/id_ed25519_github`)는 계정에 `home_wsl_github`로 등록돼 있다. 새 창에
 ssh-agent가 없고 키에 passphrase가 걸려 있으면 `Permission denied (publickey)`가
 난다. 새 키를 만들거나 등록하지 말고 아래만 하면 된다.

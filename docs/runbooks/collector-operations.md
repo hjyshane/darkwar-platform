@@ -18,7 +18,7 @@
 | 프롬프트 모양 | 여기는 | 예 |
 |---|---|---|
 | `PS C:\...>` | **Windows** (PowerShell) | `PS C:\darkwar-platform\services\collector>` |
-| `사용자@컴퓨터:~$` | **WSL** (리눅스) | `hyoju_5pede6k@JunePChome:~/Projects/DW_app$` |
+| `사용자@컴퓨터:~$` | **WSL** — 여기서 하는 일은 이제 없다 | `hyoju_5pede6k@JunePChome:~$` |
 
 **무엇을 어디서 하는가**
 
@@ -26,9 +26,21 @@
 |---|---|
 | 게임 데이터 모으기 (`dw-capture`) | **Windows** |
 | 모은 것 올리기 (`dw-collector sync`) | **Windows** |
-| 데이터베이스 켜기 (`supabase start`) | **WSL** |
-| 화면 보기 (`pnpm dev`) | **WSL** |
-| 테스트 돌리기 | **WSL** |
+| 데이터베이스 켜기 (`supabase start`) | **Windows** |
+| 화면 보기 (`pnpm dev`) | **Windows** |
+| 테스트 돌리기 | **Windows** |
+
+> **창은 하나다 — PowerShell.** `CLAUDE.md`의 "Development is Windows-only.
+> No WSL."이 원래 결정이고, 2026-08-02에 문서를 거기 맞췄다. 아래 세 줄이
+> 한동안 WSL로 적혀 있었던 것은 그 시기 세션이 WSL에서 돌아간 흔적이다.
+>
+> 나눠 쓰면 저널 경로와 `.env`가 두 벌이 되고, "왜 `sent=0`인가"의 답이 대체로
+> "다른 창에서 돌렸다"가 된다. 그 값을 치를 이유가 없다.
+>
+> WSL 자체는 지우지 않는다 — **Docker Desktop이 내부적으로 WSL2를 쓴다.**
+> 설치돼 있되 거기서 타이핑하지 않는다는 뜻이다.
+>
+> 캡처만은 선택이 아니다 — 이유는 바로 아래.
 
 ### 왜 캡처는 Windows에서만 되나
 
@@ -57,13 +69,16 @@ DW_COLLECTOR_ID is required
 
 ## 1. 데이터 모으기 (가장 자주 하는 일)
 
-### 1-1. WSL 창에서 데이터베이스 켜기
+### 1-1. 데이터베이스 켜기
 
-WSL 터미널을 열고:
+PowerShell을 열고:
 
-```bash
-cd ~/Projects/DW_app && supabase start
+```powershell
+cd C:\darkwar-platform
+supabase start
 ```
+
+Docker Desktop이 먼저 떠 있어야 한다. Supabase는 그 위에서 돈다.
 
 **보여야 할 것**: 여러 줄 뒤에 `API URL`, `Studio URL` 같은 주소 목록.
 
@@ -98,7 +113,7 @@ cd C:\darkwar-platform; Copy-Item dw-env.example.ps1 dw-env.ps1
 ```
 
 그리고 메모장으로 `dw-env.ps1`을 열어 `SUPABASE_SECRET_KEY = ""` 의 따옴표 안에
-키를 넣는다. 키는 WSL 창에서 이 명령으로 확인한다:
+키를 넣는다. 키는 이 명령으로 확인한다:
 
 ```bash
 supabase status -o json
@@ -124,7 +139,7 @@ capture.start   interface='Intel(R) Ethernet Controller (3) I225-V' port=8680 se
 
 | 나온 것 | 뜻과 조치 |
 |---|---|
-| `DW_COLLECTOR_ID is required` | WSL 창에서 실행했거나 1-3을 안 했다 |
+| `DW_COLLECTOR_ID is required` | `.env`를 안 읽었다. 1-3부터 |
 | `live capture needs the capture extra` | `uv sync --extra capture` 를 실행한다 |
 | 아무 것도 안 뜨고 오류 | Npcap이 설치돼 있는지 확인 |
 
@@ -196,14 +211,14 @@ sent=57 failed=0 outbox={'sent': 214}
 |---|---|
 | `Connection refused` / `WinError 10061` | 데이터베이스가 꺼졌다. 1-1로 돌아간다. 데이터는 안 없어지고 다음 sync에 다시 올라간다 |
 | `SUPABASE_URL and ... are required` | 1-3의 설정 불러오기를 안 했다 |
-| `sent=0` 인데 방금 모았다 | `journal=` 경로를 본다. 십중팔구 WSL이나 다른 폴더에서 돌렸다 |
+| `sent=0` 인데 방금 모았다 | `journal=` 경로를 본다. 십중팔구 다른 폴더에서 돌렸다 |
 
 ### 1-8. 화면에서 확인
 
-WSL 창에서:
+PowerShell에서:
 
-```bash
-cd ~/Projects/DW_app && pnpm dev
+```powershell
+cd C:\darkwar-platform; pnpm dev
 ```
 
 **보여야 할 것**: `Local: http://localhost:5173/` — 브라우저로 그 주소를 연다.
@@ -279,10 +294,10 @@ uv run dw-collector sync --db C:\DW_data\probe.db
 
 **양쪽 다** 업데이트해야 한다.
 
-WSL 창:
+PowerShell:
 
-```bash
-cd ~/Projects/DW_app && git pull && pnpm install
+```powershell
+cd C:\darkwar-platform; git pull; pnpm install
 ```
 
 데이터베이스 구조가 바뀌었으면(마이그레이션 포함 PR):
@@ -322,13 +337,13 @@ uv run dw-collector sync
 
 | 증상 | 원인 | 해결 |
 |---|---|---|
-| `DW_COLLECTOR_ID is required` | WSL에서 캡처를 돌렸다 | PowerShell에서 1-3부터 |
+| `DW_COLLECTOR_ID is required` | `.env`가 안 읽혔다 | 1-3부터 |
 | `packets: 0` / `segments=0` | VPN이 켜져 있다 | VPN을 끊고 다시 |
 | `ingested=0` | 게임 화면을 안 열었거나 다시 안 열었다 | 1-5, 화면을 **닫았다 다시** |
 | `sent=0` 인데 데이터가 있어야 함 | 저장소를 잘못 봤다 | 출력의 `journal=` 확인 |
-| `Connection refused` | 데이터베이스가 꺼짐 | WSL에서 `supabase start` |
+| `Connection refused` | 데이터베이스가 꺼짐 | `supabase start`, Docker Desktop 확인 |
 | `curl` 응답이 `000` | 일부 서비스만 죽음 | `supabase stop && supabase start` |
-| WSL에서 `docker: command not found` | Docker Desktop 연동이 꺼짐 | Docker Desktop → Settings → Resources → WSL integration 켜기 |
+| `docker: command not found` | Docker Desktop이 안 떠 있다 | Docker Desktop을 켜고 다시 |
 | `outbox={'dead_letter': N}` | 여러 번 실패해 포기한 항목 | 원인 고친 뒤 `retry-outbox --dead-letters` |
 | `rejected > 0` | 프로그램이 못 읽는 데이터 | 개발자에게 알린다(수정 필요) |
 | `git pull`이 `uv.lock` 때문에 멈춤 | 자동 생성 파일 충돌 | 그 파일을 지우고 다시 pull |
@@ -337,7 +352,7 @@ uv run dw-collector sync
 
 ## 7. 자주 하는 실수 모음
 
-1. **WSL에서 수집기 명령 실행** — 가장 흔하다. 프롬프트가 `PS C:\`인지 먼저 본다
+1. **다른 폴더에서 실행** — 가장 흔하다. 저장소 안인지, `.env`가 읽혔는지 먼저 본다
 2. **`. ..\..\dw-env.ps1` 의 점을 빼먹음** — 설정이 안 들어간다
 3. **PowerShell 창을 새로 열고 설정을 다시 안 불러옴** — 설정은 창마다 따로다
 4. **화면을 열어둔 채로 캡처 시작** — 게임이 서버에 안 묻는다. 닫았다 열어야 한다
@@ -360,9 +375,9 @@ uv run dw-collector sync
 | `dw-collector extract-fixture` | 어디서나 | pcap → 테스트용 살균 자료 |
 | `dw-collector replay --fixture X` | 어디서나 | 자료 1개 통과시키기 |
 | `dw-collector init-db` | 어디서나 | 저장소 파일 만들기 |
-| `supabase start` / `stop` | WSL | 데이터베이스 켜기/끄기 |
-| `supabase db reset` | WSL | 구조 새로 적용(데이터 비움) |
-| `pnpm dev` | WSL | 화면 띄우기 |
+| `supabase start` / `stop` | PowerShell | 데이터베이스 켜기/끄기 |
+| `supabase db reset` | PowerShell | 구조 새로 적용(데이터 비움) |
+| `pnpm dev` | PowerShell | 화면 띄우기 |
 
 `dw-jobs`, `dw-ui-worker`는 아직 만들지 않았다(수집 전용 계정과 ADB 자동화가
 준비된 뒤).
