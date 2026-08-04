@@ -10,6 +10,7 @@ import { fieldsOf } from '../../lib/memberFormulas';
 import { GAME_RANKS, isAllowed, usePermissions } from '../../lib/permissions';
 import { playerHash } from '../../lib/route';
 import { supabase } from '../../lib/supabase';
+import { emptyViewReason } from '../../lib/tableControls';
 import { TERMS } from '../../lib/terms';
 import { useFavourites } from '../../lib/useFavourites';
 import { useSession } from '../../lib/useSession';
@@ -153,6 +154,24 @@ function GrowthCell({ value, since }: { value: number | null; since: string | nu
 // field you can search but cannot see is a way of reading it out one guess
 // at a time.
 const SEARCH_FIELDS = ['current_name', 'assigned_rank', 'computed_rank'] as const;
+
+/** Why this table came out empty, in this table's own noun.
+ *
+ * Written here rather than shared because "member" is the word Members uses
+ * and the star case needs a whole sentence, not a swapped noun: a favourite
+ * is global and this board is one alliance, so "none of them are here" is a
+ * different fact from "your search found nothing".
+ */
+function emptyMessage(query: string, starredOnly: boolean): string {
+  switch (emptyViewReason(query, starredOnly)) {
+    case 'starred':
+      return 'None of your starred players is a member of this alliance.';
+    case 'starred-search':
+      return `No starred member matches “${query}”.`;
+    default:
+      return `No member matches “${query}”.`;
+  }
+}
 
 function formatNumber(value: number | null): string {
   // FR-UI-008: unknown is unknown, never zero.
@@ -438,7 +457,7 @@ export function RosterTable({
           </tbody>
         </table>
       </div>
-      {view.length === 0 && <p className="empty">No member matches “{query}”.</p>}
+      {view.length === 0 && <p className="empty">{emptyMessage(query, starredOnly)}</p>}
     </>
   );
 }

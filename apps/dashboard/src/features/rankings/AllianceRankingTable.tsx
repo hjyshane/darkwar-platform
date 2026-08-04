@@ -5,9 +5,24 @@ import { FreshnessBadge } from '../../components/FreshnessBadge';
 import { SortableTh } from '../../components/SortableTh';
 import { TableSearch } from '../../components/TableSearch';
 import { allianceHash, serverHash } from '../../lib/route';
+import { emptyViewReason } from '../../lib/tableControls';
 import { TERMS } from '../../lib/terms';
 import { useFavourites } from '../../lib/useFavourites';
 import { useTableView } from '../../lib/useTableView';
+
+/** Why this board came out empty, in its own noun. Not shared with the other
+ * tables: a starred alliance missing from THIS ranking is a different
+ * sentence from a starred player missing from a roster. */
+function emptyMessage(query: string, starredOnly: boolean): string {
+  switch (emptyViewReason(query, starredOnly)) {
+    case 'starred':
+      return 'None of your starred alliances is on this ranking.';
+    case 'starred-search':
+      return `No starred alliance matches “${query}”.`;
+    default:
+      return `No alliance matches “${query}”.`;
+  }
+}
 
 export interface AllianceRankingRow {
   snapshot_id: string;
@@ -125,7 +140,7 @@ export function AllianceRankingTable({
           </tbody>
         </table>
       </div>
-      {view.length === 0 && <p className="empty">No alliance matches “{query}”.</p>}
+      {view.length === 0 && <p className="empty">{emptyMessage(query, starredOnly)}</p>}
     </>
   );
 }
