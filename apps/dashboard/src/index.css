@@ -702,13 +702,27 @@ button:focus-visible {
   outline-offset: 2px;
 }
 
-.chip {
+/* "Only the ones I watch", beside a table's search box.
+ *
+ * Named for itself rather than `.chip`, which it used to borrow. `.chip` is
+ * the arena's class badge 350 lines below, same specificity and later in the
+ * file, so the arena won: this toggle was rendering at 22px beside a 38px
+ * search box, with the badge's zero vertical padding, its tighter radius and
+ * its neutral fill. See the note over `.chips` — that is the SECOND time an
+ * unscoped `.chip` repainted something silently, and this toggle was the
+ * element the first fix did not reach.
+ *
+ * It is a <button>, so the border, radius and hover already come from the
+ * button rules. Only the toolbar-tight padding and the pressed fill are its
+ * own, and the pressed state stays keyed off aria-pressed like everything
+ * else here. */
+.filter-toggle {
   font-size: var(--text-sm);
   padding: var(--space-1) var(--space-3);
   white-space: nowrap;
 }
 
-.chip[aria-pressed="true"] {
+.filter-toggle[aria-pressed="true"] {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--bg);
@@ -1258,7 +1272,14 @@ select.rank-badge {
  * Scoped to `.chips`, and that is not tidiness. `.chip` was already the
  * lineup's class badge, and an unscoped rule here — later in the file, same
  * specificity — silently repainted every F/S/R badge in the arena the same
- * neutral grey. The colour was gone and nothing failed. */
+ * neutral grey. The colour was gone and nothing failed.
+ *
+ * It happened twice. Scoping this one left the favourites toggle still
+ * calling itself `.chip`, and since it sits outside `.chips` the arena rule
+ * won there instead — a 22px control beside a 38px search box, for months.
+ * It is `.filter-toggle` now. The lesson is not "scope your selectors": it
+ * is that a class this file uses for one specific badge should not also be
+ * the obvious name for any small rounded thing. */
 .chips {
   display: flex;
   flex-wrap: wrap;
