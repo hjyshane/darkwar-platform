@@ -935,6 +935,17 @@ button:focus-visible {
   background: var(--ok-fg);
 }
 
+/* The second half — how long since anything actually arrived. It inherits
+ * the badge's colour rather than setting its own, because the stopped state
+ * has to be able to tint the whole line; a fixed muted grey here would leave
+ * half the badge looking calm while the other half says it is not.
+ *
+ * Tabular figures so the number does not shift the layout as it ticks over
+ * every twenty seconds. */
+.sync-data {
+  font-variant-numeric: tabular-nums;
+}
+
 /* Stopped is the state worth noticing, so it is the one that gets colour on
  * the text as well — the board looks identical when the collector dies, and
  * nothing else on screen would say so. */
