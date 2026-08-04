@@ -6,6 +6,12 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "@dw/dashboard", "dev"],
       "port": 5173
+    },
+    {
+      "name": "dashboard-worktree",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@dw/dashboard", "exec", "vite", "--port", "5178"],
+      "port": 5178
     }
   ]
 }
