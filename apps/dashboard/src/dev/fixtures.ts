@@ -11,6 +11,9 @@
 // column grants, or PostgREST behaviour. It shows layout, typography,
 // spacing, empty states and navigation. Nothing else.
 
+import type { Hero } from '../lib/heroes';
+import { type LineupHero, composition } from '../lib/troops';
+
 const PLAYER = {
   shane: '11111111-1111-4111-8111-111111111101',
   mira: '11111111-1111-4111-8111-111111111102',
@@ -163,6 +166,199 @@ const CROSS_ROWS = [
   },
 ];
 
+/** The hero catalogue, as a Map because that is what `fetchHeroes` returns
+ * and the seed replaces the query's result, not its rows.
+ *
+ * Grades 1/2/3 and one hero nobody has graded: the null is the case the
+ * Grade column's dash exists for, and without it the screen only ever shows
+ * the three that are coloured.
+ */
+const HEROES: ReadonlyMap<number, Hero> = new Map(
+  [
+    { hero_id: 101, name: 'Ashe', troop_class: 1, grade: 3, notes: '' },
+    { hero_id: 102, name: 'Brann', troop_class: 2, grade: 2, notes: '' },
+    { hero_id: 103, name: 'Cyra', troop_class: 1, grade: 1, notes: '' },
+    { hero_id: 104, name: 'Dun', troop_class: 3, grade: 2, notes: '' },
+    // Named but ungraded — the catalogue is typed by hand, so "we know who
+    // this is but nobody has said what grade" is an ordinary state.
+    { hero_id: 105, name: 'Eir', troop_class: 1, grade: null, notes: '' },
+  ].map((hero) => [hero.hero_id, hero]),
+);
+
+/** A defence lineup shaped like the real thing, not like the minimum that
+ * renders.
+ *
+ * The first version of this fixture gave one hero a single skill and a
+ * single piece of gear and everyone else none, so the Gear and Skills
+ * columns were mostly dashes and the screen read as though the app had lost
+ * features it has always had. A fixture that under-fills is worse than no
+ * fixture: it invites someone to "fix" working code.
+ *
+ * So: four pieces of gear per equipped hero, one per slot, because gearSlot
+ * reads the slot out of the id (1 Hand, 2 Foot, 3 Head, 4 Body) and four
+ * lines with four different glyphs is what a real hero looks like. Gear at
+ * level 100 goes onto the awakening track and draws pentagons; gear below it
+ * prints its level. Weapons do the same one column over — stars while they
+ * climb, pentagons once past 5★ into 각. Skills are several per hero, joined
+ * by the cell.
+ *
+ * The last hero keeps nothing at all, because "not unlocked" is a real state
+ * and the dash has to be visible somewhere.
+ */
+const LINEUP: LineupHero[] = [
+  {
+    slot: 1,
+    hero_id: 101,
+    troop_class: 1,
+    hero_level: 103,
+    level_synced: false,
+    star: 6,
+    stage: null,
+    hero_power: 8_400_000,
+    // Past 5★ into 각 — block 6, so awakening 1 step 3. Draws pentagons.
+    weapon_level: 33,
+    skills: [
+      { skill_id: 10042150, level: 15 },
+      { skill_id: 10042250, level: 12 },
+      { skill_id: 10042350, level: 10 },
+    ],
+    // All four slots, all at max level and on the awakening track.
+    equipment: [
+      { equipment_id: 410100, level: 100, step: 26 },
+      { equipment_id: 410200, level: 100, step: 21 },
+      { equipment_id: 410300, level: 100, step: 24 },
+      { equipment_id: 410400, level: 100, step: 16 },
+    ],
+  },
+  {
+    slot: 2,
+    hero_id: 102,
+    troop_class: 2,
+    hero_level: 98,
+    level_synced: true,
+    star: 5,
+    stage: 2,
+    hero_power: 6_100_000,
+    // Still on the star track: block 5, step 1.
+    weapon_level: 26,
+    skills: [
+      { skill_id: 10041150, level: 11 },
+      { skill_id: 10041250, level: 8 },
+      { skill_id: 10041350, level: 5 },
+    ],
+    // Half-finished: two pieces awakening, two still levelling and printing
+    // their level instead.
+    equipment: [
+      { equipment_id: 410100, level: 100, step: 14 },
+      { equipment_id: 410200, level: 100, step: 11 },
+      { equipment_id: 410300, level: 82, step: 0 },
+      { equipment_id: 410400, level: 76, step: 0 },
+    ],
+  },
+  {
+    slot: 3,
+    hero_id: 103,
+    troop_class: 1,
+    hero_level: 103,
+    level_synced: false,
+    star: 6,
+    stage: null,
+    hero_power: 7_700_000,
+    // 2★ step 2 — early on the star track.
+    weapon_level: 12,
+    skills: [
+      { skill_id: 10043150, level: 14 },
+      { skill_id: 10043250, level: 14 },
+    ],
+    // At the landmark: promote 11 on a level-100 piece is awakening 0.
+    equipment: [
+      { equipment_id: 410100, level: 100, step: 11 },
+      { equipment_id: 410200, level: 100, step: 11 },
+      { equipment_id: 410300, level: 100, step: 13 },
+      { equipment_id: 410400, level: 100, step: 11 },
+    ],
+  },
+  {
+    slot: 4,
+    hero_id: 104,
+    troop_class: 3,
+    hero_level: 71,
+    level_synced: false,
+    star: 4,
+    stage: 1,
+    hero_power: 4_200_000,
+    // Not unlocked, which is a state rather than a level zero.
+    weapon_level: null,
+    skills: [
+      { skill_id: 10044150, level: 6 },
+      { skill_id: 10044250, level: 4 },
+    ],
+    equipment: [
+      { equipment_id: 410100, level: 64, step: 0 },
+      { equipment_id: 410200, level: 60, step: 0 },
+      { equipment_id: 410300, level: 58, step: 0 },
+      { equipment_id: 410400, level: 55, step: 0 },
+    ],
+  },
+  {
+    slot: 5,
+    hero_id: 105,
+    troop_class: 1,
+    hero_level: 80,
+    level_synced: false,
+    star: 6,
+    stage: null,
+    hero_power: 7_050_000,
+    // Nothing equipped and no skills read. The dashes have to be visible
+    // somewhere, or the columns look as though they can never be empty.
+    weapon_level: null,
+    skills: [],
+    equipment: [],
+  },
+];
+
+const ARENA_GOLD = 'ar-gold-1';
+const ARENA_SILVER = 'ar-silver-1';
+
+/** Two boards captured minutes apart.
+ *
+ * The drift is the point: the tab prints each board's own age precisely
+ * because the collector fetches them separately, and a fixture where both
+ * ages match would make that machinery look like decoration.
+ */
+const ARENA_BOARDS = [
+  {
+    snapshot_id: ARENA_GOLD,
+    week_start: ago(60 * 24 * 3),
+    captured_at: ago(52),
+    entry_count: 3,
+    league: 1,
+  },
+  {
+    snapshot_id: ARENA_SILVER,
+    week_start: ago(60 * 24 * 3),
+    captured_at: ago(47),
+    entry_count: 2,
+    league: 2,
+  },
+];
+
+const arenaEntry = (
+  entry: {
+    snapshot_id: string;
+    player_id: string | null;
+    rank: number;
+    name: string | null;
+    game_uid: number;
+    server_id: number;
+    alliance_name: string | null;
+    alliance_code: string | null;
+    score: number | null;
+    defense_power: number | null;
+  },
+  lineup: typeof LINEUP,
+) => ({ ...entry, lineup, composition: composition(lineup) });
+
 const CAPABILITIES = [
   { capability: 'members.view', label: 'See the Members screen', description: '', sort_order: 5 },
   {
@@ -293,8 +489,83 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
     (board): [readonly unknown[], unknown] => [['crossRankings', board], CROSS_ROWS],
   ),
 
-  // Arena — no board captured, which is a real and common state worth seeing.
-  [['arena', 'boards'], []],
+  // Arena. Two boards, and the Gold one carries lineups — the chips, the
+  // grade column and the synergy line have no other way to be looked at, and
+  // for a long time this key was `[]`, so the whole screen read "No arena
+  // snapshot yet." and three features were invisible to every visual check.
+  [['arena', 'boards'], ARENA_BOARDS],
+  [
+    ['arena', 'board', ARENA_GOLD],
+    [
+      arenaEntry(
+        {
+          snapshot_id: 'ae-1',
+          player_id: PLAYER.shane,
+          rank: 1,
+          name: 'Shane',
+          game_uid: 58001,
+          server_id: 580,
+          alliance_name: 'HELLBOUND',
+          alliance_code: 'CBFW',
+          score: 2140,
+          defense_power: 33_450_000,
+        },
+        LINEUP,
+      ),
+      arenaEntry(
+        {
+          snapshot_id: 'ae-2',
+          player_id: null,
+          rank: 2,
+          name: 'Ryn',
+          game_uid: 58210,
+          server_id: 582,
+          alliance_name: 'Iron Wolves',
+          alliance_code: 'IRWF',
+          score: 2090,
+          defense_power: 31_100_000,
+        },
+        LINEUP.slice(0, 3),
+      ),
+      // No lineup at all. Empty is not "a lineup of nobody", and the table
+      // has to say so rather than drawing an empty row of chips.
+      arenaEntry(
+        {
+          snapshot_id: 'ae-3',
+          player_id: null,
+          rank: 3,
+          name: null,
+          game_uid: 58411,
+          server_id: 584,
+          alliance_name: null,
+          alliance_code: null,
+          score: null,
+          defense_power: null,
+        },
+        [],
+      ),
+    ],
+  ],
+  [
+    ['arena', 'board', ARENA_SILVER],
+    [
+      arenaEntry(
+        {
+          snapshot_id: 'ae-4',
+          player_id: PLAYER.mira,
+          rank: 1,
+          name: 'Mira',
+          game_uid: 58002,
+          server_id: 580,
+          alliance_name: 'HELLBOUND',
+          alliance_code: 'CBFW',
+          score: 1880,
+          defense_power: 27_300_000,
+        },
+        LINEUP.slice(0, 4),
+      ),
+    ],
+  ],
 
   // Detail pages, ids matching the roster above so links work.
   [
@@ -441,6 +712,43 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
       })),
     },
   ],
+  // A board with nobody starred on it.
+  //
+  // Every other fixture puts a favourite in every table — Mira is in the
+  // roster and in server 580, the rival alliance is in the rankings — so the
+  // "starred filter on, nothing to show" state could not be reached here at
+  // all. A favourite is global and a board is not, which is exactly the
+  // state that turns the filter into an empty table. Ryn is already a 582
+  // player in CROSS_ROWS, so this is a board we half-had rather than an
+  // invention.
+  [
+    ['server', 582],
+    {
+      alliances: [],
+      players: [
+        {
+          player_id: '11111111-1111-4111-8111-111111111201',
+          current_name: 'Ryn',
+          game_uid: 58210,
+          hq_level: 30,
+          power: 59_800_000,
+          kills: 4_900_000,
+          last_seen_at: ago(70),
+          current_alliance_id: null,
+        },
+        {
+          player_id: '11111111-1111-4111-8111-111111111202',
+          current_name: 'Solen',
+          game_uid: 58211,
+          hq_level: 29,
+          power: 41_300_000,
+          kills: 2_600_000,
+          last_seen_at: ago(300),
+          current_alliance_id: null,
+        },
+      ],
+    },
+  ],
 
   // Admin — Access
   [
@@ -523,7 +831,7 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
   [['announcements-admin'], []],
 
   // Admin — Catalogue
-  [['heroes'], []],
+  [['heroes'], HEROES],
   [['heroes-admin'], []],
   [['pets'], []],
   [['pets-admin'], []],
