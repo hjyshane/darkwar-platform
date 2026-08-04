@@ -17,7 +17,12 @@ export function FavouritesFilter({
     return null;
   }
   return (
-    <button aria-pressed={active} className="chip" onClick={() => onChange(!active)} type="button">
+    <button
+      aria-pressed={active}
+      className="filter-toggle"
+      onClick={() => onChange(!active)}
+      type="button"
+    >
       ★ {count}
     </button>
   );
