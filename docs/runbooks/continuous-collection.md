@@ -105,22 +105,51 @@ dumpcap 측정에 `push.mail`이 1건 들어왔다. handover가 "shape은 있으
 수신 사례가 없다**"고 적어둔 그 커맨드다(§6.2). 기능 자체는 사용자가 안
 만들기로 했지만, 다시 필요해지면 캡처를 새로 잡을 필요가 없다는 뜻이다.
 
-### 우리 스니핑이 트래픽을 흘리는 것으로 보인다 — 미확정
+### `dw-capture`는 관측의 40%를 잃는다 — 통제된 비교로 확인
 
-같은 종류의 조작에서 dumpcap은 544패킷/186KB, scapy probe는 87패킷/10.8KB를
-봤다. 두 창의 활동량이 달랐으므로(dumpcap 창에는 전투 push가 60건) **통제된
-비교가 아니다.** 다만 하루치 라이브 저널의 `push.battle.round.batch`가 8건인데
-dumpcap이 2분 만에 60건을 본 것은 설명이 필요하다.
+**같은 창에서 dumpcap과 `dw-capture`를 동시에 돌렸다.** 같은 인터페이스, 같은
+BPF 필터, 같은 150초. 차이는 캡처 방식뿐이다.
 
-`sniff(prn=...)`은 패킷마다 Python 콜백으로 넘어가므로 버스트에서 Npcap 링
-버퍼가 넘칠 수 있고, **그 유실은 아무 데도 보고되지 않는다.** dumpcap은 C로
-디스크에 바로 쓰고 드롭 카운터를 남긴다.
+| | dumpcap | `dw-capture` |
+|---|---|---|
+| 패킷 | 1,683 (드롭 0) | — |
+| 커맨드 종류 | **45** | **27** |
+| 관측 합계 | **636** | **387** |
 
-`CLAUDE.md`가 "라이브 캡처는 `Observation`의 한 생산자일 뿐"이라고 정해 둔
-덕분에, 필요하면 **dumpcap이 링 버퍼로 pcapng을 쓰고 `scan-capture`가
-이어받는** 구조로 바꿀 수 있다. 이미 검증된 경로이고 유실도 계측된다.
-**먼저 통제된 비교부터 한다** — 같은 창에서 두 방식을 동시에 돌려 패킷 수를
-맞대는 것이 순서다.
+**18종은 통째로 못 봤다**: `world.get.new`(28→0),
+`push.world.march.world.get.new`(28→0), `push.alliance.march.create`(10→0),
+`get.server.world.info`(6→0), `world.get.alliance.city.effect`(6→0),
+`stat.tt`(4→0), `train.list`(2→0), `push.mail`(1→0) 외.
+
+잡은 것들도 대체로 절반 안팎이다 — `push.al.help.update` 60→19,
+`push.alliance.march.refresh` 74→48, `push.al.sign` 10→4, `player.info` 5→1.
+`push.battle.round.batch`만 65→64로 거의 온전한데, 왜 이 커맨드만 다른지는
+모른다.
+
+**원인은 아직 규명하지 않았다.** 유력한 가설은 `sniff(prn=...)`가 패킷마다
+Python 콜백을 태우므로 Npcap 링 버퍼가 버스트에서 넘친다는 것이다. 그러나
+"거의 절반"이라는 규칙성은 단순 버퍼 오버런보다는 다른 무언가를 시사한다 —
+한쪽 방향만 처리한다거나, 재조립이 특정 조건에서 스트림을 버린다거나. **재현
+절차가 있으므로**(`scratchpad`의 `ab_capture.ps1` 방식) 다음 세션이 계측부터
+다시 할 수 있다.
+
+**이것이 상시 수집에 갖는 의미는 크다.** 40%를 잃는 수집기는 등급 리포트의
+입력을 조용히 갉아먹는다. 그리고 그 손실은 화면에 "캡처 없음"이 아니라 **낮은
+점수**로 나타난다 — 일요일 01:59 창에서 우려한 것과 같은 실패 양상이다.
+
+**바꿀 길은 이미 열려 있다.** `CLAUDE.md`가 "라이브 캡처는 `Observation`의 한
+생산자일 뿐"이라고 정해 둔 덕분에, **dumpcap이 링 버퍼로 pcapng을 쓰고
+`scan-capture`가 이어받는** 구조가 새 설계가 아니라 이미 검증된 경로다.
+유실도 dumpcap이 카운터로 보고한다. 재현 명령:
+
+```powershell
+& "C:\Program Files\Wireshark\dumpcap.exe" -i \Device\NPF_{GUID} `
+    -f "tcp port 8680" -w out.pcapng -a duration:150 -B 64
+uv run dw-collector scan-capture --pcap out.pcapng --db scan.db --discover-only
+```
+
+**다만 로스터 문제는 이것으로 설명되지 않는다.** 드롭 0인 dumpcap 창에서도
+`al.rank`와 연맹 묶음은 나오지 않았다. 두 문제는 별개다.
 
 **한 가지 주의.** `dw-capture`는 인터페이스 전체를 듣는다. BlueStacks
 인스턴스를 두 개 돌리면 **두 계정의 트래픽이 같은 저널에 섞인다** — 저널은
