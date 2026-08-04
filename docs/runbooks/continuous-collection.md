@@ -95,9 +95,28 @@ alliance.team.ls
 **다음에 시험할 것** (오늘 못 해본 것들):
 - 연맹 화면을 **연 채로** 앱을 백그라운드↔포그라운드 전환
 - 캐시 TTL: 몇 시간 뒤 다시 열어보기
-- `probe.pcapng` · `all_walkethrough.pcapng` 스캔 — `re-capture.pcapng`에는
-  묶음은 있지만 `al.rank`가 없다. 과거 8건은 다른 파일에서 왔으므로, 그
-  파일의 앞뒤 순서가 유일한 실물 단서다
+**pcap 추적은 끝났다 — 원본이 없다.** `C:\DW_data`의 세 파일을 전부 스캔했다:
+
+| 파일 | 커맨드 | `al.rank` |
+|---|---|---|
+| `re-capture.pcapng` | 127종 | 없음 |
+| `probe.pcapng` | 153종 | 없음 |
+| `all_walkethrough.pcapng` | 139종 | 없음 |
+
+셋 다 연맹 묶음(`get.alliance.center.point`·`alliance.team.ls`·
+`alliance.reward.list`)은 갖고 있는데 `al.rank`만 없다. 반면 저널에는 있다:
+
+| | 관측 | 커맨드 | `al.rank` | 기간 |
+|---|---|---|---|---|
+| `collector.db` | 1,984 | 182종 | 8 | 07-28 ~ 07-30 |
+| `probe.db` | 525 | 164종 | 3 | **전부 같은 시각** |
+
+`probe.db`의 525건이 같은 타임스탬프를 갖는 것은 pcap을 한 번에 스캔한
+결과의 서명이다. 그런데 그 원본은 지금 디스크의 `probe.pcapng`이 아니다.
+**과거 `al.rank`를 만든 캡처 파일은 남아 있지 않다.** 그때 무슨 조작을
+했는지 재구성할 실물 근거는 없다.
+
+남은 접근은 관측이 아니라 실험뿐이다:
 
 ### 덤 — `push.mail`이 잡혔다
 
