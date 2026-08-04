@@ -185,52 +185,98 @@ const HEROES: ReadonlyMap<number, Hero> = new Map(
   ].map((hero) => [hero.hero_id, hero]),
 );
 
-/** A defence lineup that exercises every mark the chip can wear.
+/** A defence lineup shaped like the real thing, not like the minimum that
+ * renders.
  *
- * Slot 1 is at maximum star with an awakened exclusive weapon, slot 2 sits a
- * star below with a promotion step, slot 5 has no weapon at all. Three
- * Shooters give the composition a synergy bonus to draw. Without a lineup
- * this shape, the arena screen renders but proves nothing about the chips.
+ * The first version of this fixture gave one hero a single skill and a
+ * single piece of gear and everyone else none, so the Gear and Skills
+ * columns were mostly dashes and the screen read as though the app had lost
+ * features it has always had. A fixture that under-fills is worse than no
+ * fixture: it invites someone to "fix" working code.
+ *
+ * So: four pieces of gear per equipped hero, one per slot, because gearSlot
+ * reads the slot out of the id (1 Hand, 2 Foot, 3 Head, 4 Body) and four
+ * lines with four different glyphs is what a real hero looks like. Gear at
+ * level 100 goes onto the awakening track and draws pentagons; gear below it
+ * prints its level. Weapons do the same one column over — stars while they
+ * climb, pentagons once past 5★ into 각. Skills are several per hero, joined
+ * by the cell.
+ *
+ * The last hero keeps nothing at all, because "not unlocked" is a real state
+ * and the dash has to be visible somewhere.
  */
 const LINEUP: LineupHero[] = [
   {
     slot: 1,
     hero_id: 101,
     troop_class: 1,
-    hero_level: 80,
+    hero_level: 103,
     level_synced: false,
     star: 6,
     stage: null,
     hero_power: 8_400_000,
-    weapon_level: 10,
-    skills: [{ skill_id: 1, level: 5 }],
-    equipment: [{ equipment_id: 1, level: 20, step: 4 }],
+    // Past 5★ into 각 — block 6, so awakening 1 step 3. Draws pentagons.
+    weapon_level: 33,
+    skills: [
+      { skill_id: 10042150, level: 15 },
+      { skill_id: 10042250, level: 12 },
+      { skill_id: 10042350, level: 10 },
+    ],
+    // All four slots, all at max level and on the awakening track.
+    equipment: [
+      { equipment_id: 410100, level: 100, step: 26 },
+      { equipment_id: 410200, level: 100, step: 21 },
+      { equipment_id: 410300, level: 100, step: 24 },
+      { equipment_id: 410400, level: 100, step: 16 },
+    ],
   },
   {
     slot: 2,
     hero_id: 102,
     troop_class: 2,
-    hero_level: 78,
+    hero_level: 98,
     level_synced: true,
     star: 5,
     stage: 2,
     hero_power: 6_100_000,
-    skills: [],
-    equipment: [],
-    weapon_level: null,
+    // Still on the star track: block 5, step 1.
+    weapon_level: 26,
+    skills: [
+      { skill_id: 10041150, level: 11 },
+      { skill_id: 10041250, level: 8 },
+      { skill_id: 10041350, level: 5 },
+    ],
+    // Half-finished: two pieces awakening, two still levelling and printing
+    // their level instead.
+    equipment: [
+      { equipment_id: 410100, level: 100, step: 14 },
+      { equipment_id: 410200, level: 100, step: 11 },
+      { equipment_id: 410300, level: 82, step: 0 },
+      { equipment_id: 410400, level: 76, step: 0 },
+    ],
   },
   {
     slot: 3,
     hero_id: 103,
     troop_class: 1,
-    hero_level: 80,
+    hero_level: 103,
     level_synced: false,
     star: 6,
     stage: null,
     hero_power: 7_700_000,
-    weapon_level: 4,
-    skills: [],
-    equipment: [],
+    // 2★ step 2 — early on the star track.
+    weapon_level: 12,
+    skills: [
+      { skill_id: 10043150, level: 14 },
+      { skill_id: 10043250, level: 14 },
+    ],
+    // At the landmark: promote 11 on a level-100 piece is awakening 0.
+    equipment: [
+      { equipment_id: 410100, level: 100, step: 11 },
+      { equipment_id: 410200, level: 100, step: 11 },
+      { equipment_id: 410300, level: 100, step: 13 },
+      { equipment_id: 410400, level: 100, step: 11 },
+    ],
   },
   {
     slot: 4,
@@ -241,9 +287,18 @@ const LINEUP: LineupHero[] = [
     star: 4,
     stage: 1,
     hero_power: 4_200_000,
+    // Not unlocked, which is a state rather than a level zero.
     weapon_level: null,
-    skills: [],
-    equipment: [],
+    skills: [
+      { skill_id: 10044150, level: 6 },
+      { skill_id: 10044250, level: 4 },
+    ],
+    equipment: [
+      { equipment_id: 410100, level: 64, step: 0 },
+      { equipment_id: 410200, level: 60, step: 0 },
+      { equipment_id: 410300, level: 58, step: 0 },
+      { equipment_id: 410400, level: 55, step: 0 },
+    ],
   },
   {
     slot: 5,
@@ -254,6 +309,8 @@ const LINEUP: LineupHero[] = [
     star: 6,
     stage: null,
     hero_power: 7_050_000,
+    // Nothing equipped and no skills read. The dashes have to be visible
+    // somewhere, or the columns look as though they can never be empty.
     weapon_level: null,
     skills: [],
     equipment: [],

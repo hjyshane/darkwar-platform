@@ -163,12 +163,13 @@ test('a grade nobody has established renders as a dash, not as a colour', () => 
   expect(document.querySelectorAll('.grade-dot')).toHaveLength(0);
 });
 
-test('a grade that is established is a word, not only a swatch', () => {
-  // The cell used to render the swatch alone. Nothing caught it because no
-  // test ever seeded a catalogue — every grade was null, so the only
-  // assertion was the dash above, and the case where a grade EXISTS had no
-  // coverage. Colour was the whole carrier: an empty cell to a screen
-  // reader, and three dots a deuteranope cannot separate.
+test('an established grade is the swatch alone, with no word beside it', () => {
+  // This is a settled decision, not an oversight, and it is pinned here
+  // because it was already re-opened once: three grades is a small enough
+  // vocabulary to learn, the word is in the chip's tooltip, and the column
+  // was spending its width repeating it down a hundred rows. Until now no
+  // test seeded a catalogue, so every grade was null and this branch had no
+  // coverage at all — which is what made it look like an accident.
   const catalogue = new Map(
     [
       { hero_id: 40002, name: null, troop_class: null, grade: 3, notes: '' },
@@ -180,10 +181,9 @@ test('a grade that is established is a word, not only a swatch', () => {
   renderWithQuery(<LineupCell heroes={lineup} />, [[['heroes'], catalogue]]);
   expand();
 
-  // Slot order: 40002, 21001, 40001, 1004 (ungraded), 11001.
-  expect(column('Grade')).toEqual(['노랑', '보라', '파랑', '—', '보라']);
-  // The swatch stays. The word is what makes it legible; it does not replace
-  // it, and .grade-cell's nowrap exists to hold the pair on one line.
+  // Slot order: 40002, 21001, 40001, 1004 (ungraded), 11001. Four swatches
+  // carrying no text, and a dash for the one nobody has graded.
+  expect(column('Grade')).toEqual(['', '', '', '—', '']);
   expect(document.querySelectorAll('.lineup-detail .grade-dot')).toHaveLength(4);
 });
 
