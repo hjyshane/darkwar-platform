@@ -95,6 +95,57 @@ alliance.team.ls
 **다음에 시험할 것** (오늘 못 해본 것들):
 - 연맹 화면을 **연 채로** 앱을 백그라운드↔포그라운드 전환
 - 캐시 TTL: 몇 시간 뒤 다시 열어보기
+> **아래 「pcap 추적은 끝났다」 절은 틀렸다. 2026-08-04에 정정했다.**
+> 원본은 없어지지 않았고, `al.rank`는 그 파일들 안에 있다. 우리 디코더가
+> 못 읽었을 뿐이다. **먼저 바로 아래 「디코더가 `al.rank`를 흘린다」를 읽는다.**
+
+## 디코더가 `al.rank`를 흘린다 — 이 문서 최대의 정정 (2026-08-04)
+
+`C:\darkwar-adb\extract_darkwar_alrank.py`는 pcapng에서 `al.rank`를 뽑는
+단독 스크립트다(표준 라이브러리만 쓴다). 같은 파일을 우리 `scan-capture`와
+그 스크립트에 각각 물렸다:
+
+| 파일 | `scan-capture` | `extract_darkwar_alrank.py` |
+|---|---|---|
+| `darkwar-adb\darkwar_alrank.pcapng` | 4종, `al.rank` 없음 | **멤버 93명** |
+| `DW_data\re-capture.pcapng` | 127종, `al.rank` 없음 | **멤버 94명** |
+| `DW_data\probe.pcapng` | 153종, `al.rank` 없음 | **멤버 88명** |
+
+**데이터는 처음부터 파일 안에 있었다.** 아래 절들이 "클라이언트가 요청을 안
+보낸다", "원본 캡처가 없어졌다"로 결론 낸 것은 전부 이 사실 위에서 무너진다.
+그 절들은 조사 경위로 남겨두되 **결론으로 읽지 않는다.**
+
+**어디가 다른가.** 단독 스크립트는 4-tuple 연결마다 패킷을 모아
+**시퀀스 순으로 정렬해 스트림 전체를 붙인 뒤** 프레임을 파고, 빈틈이 있으면
+예외를 던진다. 우리는 pcapng 레코드를 **파일 순서대로** `TCPDirectionReassembler`
+에 흘린다. 재전송·순서 뒤바뀜·큰 응답의 다중 세그먼트에서 갈릴 자리다.
+
+**이것이 40% 유실의 유력한 원인이기도 하다.** 앞서 dumpcap과 `dw-capture`를
+같은 창에서 비교해 관측의 40%가 사라지는 것을 쟀는데, 그때는 스니핑을
+의심했다. 그러나 스니핑이 같아도 디코더가 흘리면 같은 결과가 나온다. 그리고
+작은 단일 세그먼트 메시지(`push.battle.round.batch` 65→64)만 온전했던 것은
+**세그먼트가 하나뿐인 메시지는 재조립이 필요 없다**로 깔끔하게 설명된다.
+
+**다음 세션이 여기서 시작한다:**
+
+```powershell
+# 우리 디코더 — al.rank 안 나옴
+uv run dw-collector scan-capture --pcap C:\darkwar-adb\darkwar_alrank.pcapng --db x.db --discover-only
+
+# 단독 스크립트 — 멤버 93명 나옴
+python C:\darkwar-adb\extract_darkwar_alrank.py C:\darkwar-adb\darkwar_alrank.pcapng --output out
+```
+
+두 경로에 같은 pcapng을 물려 어느 프레임에서 갈리는지 좁히면 된다. 고정할
+회귀 테스트도 이미 손에 있다 — **`darkwar_alrank.pcapng`에서 93명이 나와야
+한다**는 것이 그대로 테스트 케이스다. (파일 자체는 저장소에 넣지 않는다.
+`.pcapng`는 gitignore 대상이고 UID·세션 서명이 들어 있다. 살균한 fixture를
+만들어 커밋하는 것이 이 저장소의 방식이다.)
+
+---
+
+## 아래는 정정 전의 조사 기록이다
+
 **pcap 추적은 끝났다 — 원본이 없다.** `C:\DW_data`의 세 파일을 전부 스캔했다:
 
 | 파일 | 커맨드 | `al.rank` |
