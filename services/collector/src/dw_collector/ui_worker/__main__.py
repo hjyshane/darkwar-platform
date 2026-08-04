@@ -29,7 +29,11 @@ from dw_collector.ui_worker.runner import RoutineRunner
 app = typer.Typer(no_args_is_help=True)
 
 _SERIAL = typer.Option("--serial", help="target serial; must equal DW_ADB_COLLECTOR_SERIAL")
-_ADB = typer.Option("--adb", help="path to adb executable")
+# envvar, because BlueStacks ships its own adb as HD-Adb.exe and does not put
+# it on PATH. .env.example has asked for DW_ADB_EXECUTABLE since the ADB work
+# landed; without this the variable was accepted and ignored, and every
+# scheduled invocation had to repeat --adb or fail on a missing binary.
+_ADB = typer.Option("--adb", envvar="DW_ADB_EXECUTABLE", help="path to adb executable")
 
 
 @app.callback()
