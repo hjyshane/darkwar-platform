@@ -62,6 +62,47 @@ def to_segment(packet: Any) -> TcpSegment | None:
     )
 
 
+class InterfaceNotFoundError(RuntimeError):
+    """DW_CAPTURE_INTERFACE names an adapter this machine does not have."""
+
+
+def check_interface(interface: str | None, known: list[str]) -> None:
+    """Refuse a name no adapter answers to, rather than capturing nothing.
+
+    scapy does not complain about an unknown interface: it sniffs, delivers
+    no packets, and the process looks healthy forever. That cost a session —
+    the adapter here is named 이더넷, capture logged its start, journalled
+    zero observations, and nothing anywhere said why. An unattended
+    collector would have done that silently for days, and the heartbeat
+    would have kept saying it was alive, because it was.
+
+    Non-ASCII friendly names are the usual way in, so the message names the
+    device form (\\Device\\NPF_{GUID}) that has no encoding to get wrong.
+    """
+    if interface is None or interface in known:
+        return
+    msg = (
+        f"capture interface {interface!r} matches no adapter on this machine."
+        f" Known: {known}."
+        " Prefer the device form, e.g. \\Device\\NPF_{GUID}, which is ASCII"
+        " and cannot be mangled by a locale."
+    )
+    raise InterfaceNotFoundError(msg)
+
+
+def _known_interfaces(scapy_all: Any) -> list[str]:
+    """Every name scapy would accept, both friendly and device form."""
+    names: list[str] = []
+    for dev in scapy_all.get_windows_if_list():
+        name = dev.get("name")
+        guid = dev.get("guid")
+        if name:
+            names.append(str(name))
+        if guid:
+            names.append(f"\\Device\\NPF_{guid}")
+    return names
+
+
 def sniff_into(
     handle_segment: Callable[[TcpSegment], None],
     interface: str | None = None,
@@ -77,6 +118,11 @@ def sniff_into(
     long-running capture journals continuously instead of buffering.
     """
     scapy_all = _require_scapy()
+
+    # Only where the list is available; scapy exposes get_windows_if_list on
+    # Windows, and this whole module only ever runs there in production.
+    if interface is not None and hasattr(scapy_all, "get_windows_if_list"):
+        check_interface(interface, _known_interfaces(scapy_all))
 
     def _deliver(packet: Any) -> None:
         segment = to_segment(packet)
