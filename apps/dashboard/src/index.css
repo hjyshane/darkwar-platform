@@ -25,6 +25,7 @@
 
   --radius-sm: 0.25rem;
   --radius-md: 0.5rem;
+  --radius-full: 50%;
 
   --text-sm: 0.8125rem;
   --text-base: 1rem;
@@ -32,8 +33,32 @@
   --text-xl: 1.75rem;
 
   --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
 
   --measure: 72rem;
+
+  /* The focus ring, in three cases rather than one.
+   *
+   * They are not accidental variants. A control with room around it takes the
+   * ring OUTSIDE its box; one that fills its container — a sort button fills
+   * its th, a tab fills the header strip — has to take it inside, because an
+   * outward ring is clipped by the sticky header's overflow. A text input is
+   * the third case: it already draws a 1px border at its own edge, so a ring
+   * at +2px reads as a second border and one at -2px eats the text padding.
+   *
+   * Written as tokens so the width is stated once; the offsets stay at each
+   * site, because which of the three a control is cannot be derived here. */
+  --focus-width: 2px;
+  --focus-offset: 2px;
+  --focus-offset-inset: -2px;
+  --focus-offset-border: -1px;
+
+  /* Stacking, for the pinned name column and the sticky header that crosses
+   * it. Three values that only mean anything relative to each other, so they
+   * are named together rather than written as 1, 2, 3 in three places. */
+  --z-sticky-cell: 1;
+  --z-sticky-header: 2;
+  --z-sticky-corner: 3;
 
   /* Surfaces and text — light. */
   --bg: #ffffff;
@@ -57,6 +82,23 @@
   --info-fg: #1e3a8a;
   --neutral-bg: #f1f5f9;
   --neutral-fg: #475569;
+
+  /* Status as TEXT on the page, which is not what the pairs above are for.
+   *
+   * `--ok-fg` and `--danger-fg` are the foreground halves of badges — dark
+   * green on a pale green plate. Painted straight onto the page they are
+   * nearly invisible in the dark scheme, so every place that did it bolted a
+   * raw hex override into its own dark media block: five copies of #f87171,
+   * two of #4ade80, scattered across four blocks. Same values, named once.
+   *
+   * `--star` and `--awaken` are NOT status. They are the game's own colours
+   * for a full star and for 각, copied deliberately, and they must not drift
+   * with the theme's idea of "danger" — which is exactly what would happen
+   * if the pentagon were folded into --danger-text. */
+  --ok-text: #14532d;
+  --danger-text: #7f1d1d;
+  --star: #d9a105;
+  --awaken: #dc2626;
 
   font-family: var(--font-sans);
   line-height: 1.5;
@@ -85,6 +127,13 @@
     --info-fg: #dbeafe;
     --neutral-bg: #1e293b;
     --neutral-fg: #cbd5e1;
+
+    /* Lifted well clear of the dark page, which is the whole reason these
+     * exist separately from the badge pairs above. */
+    --ok-text: #4ade80;
+    --danger-text: #f87171;
+    --star: #fbbf24;
+    --awaken: #f87171;
   }
 }
 
@@ -146,8 +195,8 @@ h1 {
 }
 
 .tab:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
+  outline: var(--focus-width) solid var(--accent);
+  outline-offset: var(--focus-offset-inset);
 }
 
 /* A second bar inside a page (the settings groups). The header supplies the
@@ -193,8 +242,8 @@ h1 {
 }
 
 [role="tab"]:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  outline: var(--focus-width) solid var(--accent);
+  outline-offset: var(--focus-offset);
 }
 
 h2 {
@@ -312,7 +361,7 @@ main > * {
     top: 0;
     /* Opaque, or the rows read straight through it while they pass under. */
     background: var(--bg);
-    z-index: 2;
+    z-index: var(--z-sticky-header);
   }
 }
 
@@ -394,13 +443,13 @@ tbody tr:hover {
   background: var(--bg);
   left: 0;
   position: sticky;
-  z-index: 1;
+  z-index: var(--z-sticky-cell);
 }
 
 /* The corner cell is pinned on both axes at once, so it has to outrank the
  * header row it sits in — otherwise the first name scrolls up through it. */
 .table-wrap thead th.label {
-  z-index: 3;
+  z-index: var(--z-sticky-corner);
 }
 
 .table-wrap tbody tr:hover :is(th, td).label {
@@ -472,8 +521,8 @@ tbody tr:hover {
 
 .search input:focus-visible {
   border-color: var(--accent);
-  outline: 2px solid var(--accent);
-  outline-offset: -1px;
+  outline: var(--focus-width) solid var(--accent);
+  outline-offset: var(--focus-offset-border);
 }
 
 .count {
@@ -511,8 +560,8 @@ th:has(.sort) {
 }
 
 .sort:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
+  outline: var(--focus-width) solid var(--accent);
+  outline-offset: var(--focus-offset-inset);
 }
 
 /* Dim until it means something: an idle ↕ on every column is noise, and a
@@ -630,8 +679,8 @@ form input {
 
 form input:focus-visible {
   border-color: var(--accent);
-  outline: 2px solid var(--accent);
-  outline-offset: -1px;
+  outline: var(--focus-width) solid var(--accent);
+  outline-offset: var(--focus-offset-border);
 }
 
 button {
@@ -662,8 +711,8 @@ button[type="submit"] {
 }
 
 button:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  outline: var(--focus-width) solid var(--accent);
+  outline-offset: var(--focus-offset);
 }
 
 /* The tab bar and the board pickers set their own look; keep this off them. */
@@ -698,8 +747,8 @@ button:focus-visible {
 }
 
 .favourite:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  outline: var(--focus-width) solid var(--accent);
+  outline-offset: var(--focus-offset);
 }
 
 .chip {
@@ -793,7 +842,7 @@ button:focus-visible {
 
 /* The swatch used wherever a grade is named in text. */
 .grade-dot {
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   display: inline-block;
   height: 0.6em;
   margin-inline-end: 0.35em;
@@ -863,21 +912,11 @@ button:focus-visible {
  * thing it is copying. Contrast is carried by the outline, which is the same
  * colour as the fill, so an empty shape is still visible on either surface. */
 .rank-star {
-  color: #d9a105;
+  color: var(--star);
 }
 
 .rank-pentagon {
-  color: #dc2626;
-}
-
-@media (prefers-color-scheme: dark) {
-  .rank-star {
-    color: #fbbf24;
-  }
-
-  .rank-pentagon {
-    color: #f87171;
-  }
+  color: var(--awaken);
 }
 
 /* Gear is four pieces, one per line: at level 100 the number stops meaning
@@ -925,14 +964,14 @@ button:focus-visible {
 }
 
 .sync-dot {
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   height: 0.55em;
   width: 0.55em;
   background: var(--neutral-fg);
 }
 
 .sync-live .sync-dot {
-  background: var(--ok-fg);
+  background: var(--ok-text);
 }
 
 /* The second half — how long since anything actually arrived. It inherits
@@ -950,27 +989,11 @@ button:focus-visible {
  * the text as well — the board looks identical when the collector dies, and
  * nothing else on screen would say so. */
 .sync-stopped {
-  color: var(--danger-fg);
+  color: var(--danger-text);
 }
 
 .sync-stopped .sync-dot {
-  background: var(--danger-fg);
-}
-
-@media (prefers-color-scheme: dark) {
-  .sync-live .sync-dot {
-    background: #4ade80;
-  }
-
-  .sync-stopped,
-  .sync-stopped .sync-dot {
-    color: #f87171;
-    background: revert-layer;
-  }
-
-  .sync-stopped .sync-dot {
-    background: #f87171;
-  }
+  background: var(--danger-text);
 }
 
 /* The rank in front of a member's name. Small, so it reads as a label on
@@ -1007,21 +1030,11 @@ select.rank-badge {
  * is emphasis rather than the message — a reader who cannot separate these
  * two hues still reads +2.4% and -1.1%. */
 .growth-up {
-  color: var(--ok-fg);
+  color: var(--ok-text);
 }
 
 .growth-down {
-  color: var(--danger-fg);
-}
-
-@media (prefers-color-scheme: dark) {
-  .growth-up {
-    color: #4ade80;
-  }
-
-  .growth-down {
-    color: #f87171;
-  }
+  color: var(--danger-text);
 }
 
 /* The list of names a formula may use. Wraps freely — eleven ids is more
@@ -1135,7 +1148,7 @@ select.rank-badge {
  * carries two states — unlocked, and past the fifth star into 각, which is
  * where a weapon leaves the track its hero is on. */
 .chip-weapon::after {
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   content: "";
   height: 6px;
   position: absolute;
@@ -1149,13 +1162,7 @@ select.rank-badge {
 }
 
 .chip-weapon-awakened::after {
-  background: #dc2626;
-}
-
-@media (prefers-color-scheme: dark) {
-  .chip-weapon-awakened::after {
-    background: #f87171;
-  }
+  background: var(--awaken);
 }
 
 /* The lineup expands in place. `details` rather than a modal: the row stays
@@ -1284,8 +1291,8 @@ select.rank-badge {
 }
 
 .chips .chip:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  outline: var(--focus-width) solid var(--accent);
+  outline-offset: var(--focus-offset);
 }
 
 /* A button that acts on a row, styled as the link it behaves like. Kept a
@@ -1308,8 +1315,8 @@ select.rank-badge {
 }
 
 .linklike:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  outline: var(--focus-width) solid var(--accent);
+  outline-offset: var(--focus-offset);
 }
 
 /* --- notices ------------------------------------------------------------- */
@@ -1448,7 +1455,7 @@ select.rank-badge {
 /* The code is meant to be read aloud and typed, so it gets a monospace face
  * and room to breathe rather than being just another table cell. */
 code {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 0.95em;
   letter-spacing: 0.04em;
 }
