@@ -189,20 +189,28 @@ function Screen({ route }: { route: Route }) {
  * this, and the database would refuse them anyway.
  *
  * `viewer` lands here too. Signing up creates a viewer with no rows until an
- * admin admits them or they redeem a join code, and that is exactly the
- * state this text is written for.
+ * admin admits them or they redeem a join code, and the second sentence is
+ * written for that state.
+ *
+ * Which sentence to show turns on `email`, NOT on the role. useSession
+ * collapses signed-out and signed-in-without-a-row into 'viewer' on purpose,
+ * because that is what current_app_role() returns for both — correct for
+ * explaining what RLS will do, useless for telling the two apart. Branching
+ * on the role told every first-time visitor "You are signed in", and made
+ * the Sign in link unreachable, since by the time the wall renders the
+ * session query has resolved and the role is never undefined.
  */
-function SignedOutWall({ role }: { role: string | undefined }) {
+export function SignedOutWall({ email }: { email: string | null | undefined }) {
   return (
     <main>
       <section aria-labelledby="wall-heading">
         <h2 id="wall-heading">Alliance members only</h2>
         <p>Every screen on this dashboard is for HELLBOUND [CBFW]. Nothing here is public.</p>
         <p>
-          {role === 'viewer' ? (
+          {email != null ? (
             <>
-              You are signed in, but no role has been granted yet. Enter a join code on the{' '}
-              <a href="#/login">sign-in page</a>, or ask an admin.
+              You are signed in as {email}, but no role has been granted yet. Enter a join code on
+              the <a href="#/login">sign-in page</a>, or ask an admin.
             </>
           ) : (
             <a href="#/login">Sign in</a>
@@ -276,7 +284,7 @@ function Shell({
         {!standalone && isMember && <Nav route={route} />}
       </header>
       {walled ? (
-        <SignedOutWall role={session?.role} />
+        <SignedOutWall email={session?.email} />
       ) : isPending && !standalone ? (
         <main>
           <p className="empty">Loading…</p>
