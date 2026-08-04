@@ -16,6 +16,7 @@ import structlog
 
 from dw_collector import normalize as _normalize  # noqa: F401  (registers normalizers)
 from dw_collector.capture.live import DEFAULT_PORT, sniff_into
+from dw_collector.capture.pump import SegmentPump
 from dw_collector.capture.session import CaptureSession
 from dw_collector.envfile import load_env_file
 from dw_collector.storage.journal import Journal
@@ -32,7 +33,12 @@ def main() -> None:
     interface = os.environ.get("DW_CAPTURE_INTERFACE") or None
     port = int(os.environ.get("DW_CAPTURE_PORT", str(DEFAULT_PORT)))
 
-    journal = Journal(Path(os.environ.get("DW_SQLITE_PATH", "./data/collector.db")))
+    # single_writer_thread: every write below happens on the pump's worker,
+    # never on the sniffer's thread. See Journal.__init__.
+    journal = Journal(
+        Path(os.environ.get("DW_SQLITE_PATH", "./data/collector.db")),
+        single_writer_thread=True,
+    )
     journal.init_db()
     session = CaptureSession(
         journal,
@@ -42,13 +48,20 @@ def main() -> None:
     )
 
     log.info("capture.start", interface=interface or "default", port=port, server_id=server_id)
+    # Through a pump, so scapy's capture loop only enqueues. Journalling from
+    # the callback let Npcap's ring overflow during bursts: dumpcap saw 45
+    # command types over a window where this process journalled 27.
+    pump = SegmentPump(session.feed)
     try:
-        # Blocking; every segment is journalled through the callback as it
-        # arrives, so Ctrl+C is the normal way to stop.
-        sniff_into(session.feed, interface, port)
+        pump.start()
+        # Blocking; Ctrl+C is the normal way to stop.
+        sniff_into(pump.submit, interface, port)
     except KeyboardInterrupt:
         pass
     finally:
+        # Before the journal closes, or the queued tail is written into a
+        # closed database — which would put the loss back by another route.
+        pump.close()
         journal.close()
         session.refresh_loss_counters()
         log.info(
@@ -61,6 +74,7 @@ def main() -> None:
             rows=session.stats.rows,
             resync_bytes=session.stats.resync_bytes,
             gap_skips=session.stats.gap_skips,
+            pump_blocked=pump.blocked,
         )
 
 

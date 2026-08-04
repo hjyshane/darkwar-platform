@@ -78,10 +78,21 @@ def _now_iso() -> str:
 
 
 class Journal:
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, *, single_writer_thread: bool = False) -> None:
+        """`single_writer_thread` opts out of sqlite3's own thread check.
+
+        Only dw-capture sets it, and only because its writes all happen on
+        SegmentPump's one worker thread — the sniffer never touches the
+        journal. The check exists to catch concurrent use, and there is
+        none here; what there is, is a connection opened on the thread that
+        starts the process and used on the thread that does the work.
+
+        Left off by default so that anything which grows a second writer
+        gets the loud error rather than a corrupt database.
+        """
         self.path = path
         path.parent.mkdir(parents=True, exist_ok=True)
-        self.conn = sqlite3.connect(path)
+        self.conn = sqlite3.connect(path, check_same_thread=not single_writer_thread)
         self.conn.execute("pragma journal_mode=wal")
         self.conn.execute("pragma foreign_keys=on")
 
