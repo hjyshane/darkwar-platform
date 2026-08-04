@@ -183,14 +183,27 @@ export function LineupCell({ heroes }: { heroes: readonly LineupHero[] }) {
                 <td
                   className={`grade-cell ${heroGradeClass(catalogue?.get(hero.hero_id)?.grade ?? null) ?? ''}`}
                 >
-                  {/* The swatch alone. The word is in the title and in the
-                      legend above the table — three grades is a small enough
-                      vocabulary to learn once, and the column was spending
-                      its width on repeating it a hundred times. */}
+                  {/* Swatch AND word — the rule `detail()` already applies
+                      to the collapsed chip's tooltip, which this cell was
+                      the one place not to follow.
+
+                      It rendered the swatch alone, on the strength of a
+                      comment claiming the word was "in the title and in the
+                      legend above the table". Neither was true: there is no
+                      title on this cell (the only one is on the summary
+                      chip, a different element), and LineupLegend says in as
+                      many words that the grades are not in the legend. So
+                      colour was the whole carrier — an empty cell to a
+                      screen reader, and three dots a deuteranope cannot
+                      separate, which is the reader the grade palette was
+                      picked for. */}
                   {catalogue?.get(hero.hero_id)?.grade == null ? (
                     '—'
                   ) : (
-                    <span className="grade-dot" />
+                    <>
+                      <span className="grade-dot" />
+                      {heroGradeName(catalogue?.get(hero.hero_id)?.grade ?? null)}
+                    </>
                   )}
                 </td>
                 <td>{classGlyph(hero.troop_class) ?? troopClassName(hero.troop_class)}</td>

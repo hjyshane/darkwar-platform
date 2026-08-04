@@ -163,6 +163,30 @@ test('a grade nobody has established renders as a dash, not as a colour', () => 
   expect(document.querySelectorAll('.grade-dot')).toHaveLength(0);
 });
 
+test('a grade that is established is a word, not only a swatch', () => {
+  // The cell used to render the swatch alone. Nothing caught it because no
+  // test ever seeded a catalogue — every grade was null, so the only
+  // assertion was the dash above, and the case where a grade EXISTS had no
+  // coverage. Colour was the whole carrier: an empty cell to a screen
+  // reader, and three dots a deuteranope cannot separate.
+  const catalogue = new Map(
+    [
+      { hero_id: 40002, name: null, troop_class: null, grade: 3, notes: '' },
+      { hero_id: 21001, name: null, troop_class: null, grade: 2, notes: '' },
+      { hero_id: 40001, name: null, troop_class: null, grade: 1, notes: '' },
+      { hero_id: 11001, name: null, troop_class: null, grade: 2, notes: '' },
+    ].map((entry) => [entry.hero_id, entry]),
+  );
+  renderWithQuery(<LineupCell heroes={lineup} />, [[['heroes'], catalogue]]);
+  expand();
+
+  // Slot order: 40002, 21001, 40001, 1004 (ungraded), 11001.
+  expect(column('Grade')).toEqual(['노랑', '보라', '파랑', '—', '보라']);
+  // The swatch stays. The word is what makes it legible; it does not replace
+  // it, and .grade-cell's nowrap exists to hold the pair on one line.
+  expect(document.querySelectorAll('.lineup-detail .grade-dot')).toHaveLength(4);
+});
+
 test('the chip marks maximum star, and only for the heroes that have it', () => {
   renderWithQuery(<LineupCell heroes={lineup} />);
 
