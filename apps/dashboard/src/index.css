@@ -248,8 +248,8 @@ main > * {
  */
 .shape {
   background: var(--bg-hover);
-  border-radius: 4px;
-  font-size: 0.8125rem;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
   margin: var(--space-1) 0 0;
   max-height: 16rem;
   max-width: 32rem;
@@ -769,24 +769,6 @@ button:focus-visible {
   }
 }
 
-:root[data-theme="light"] {
-  --grade-1-bg: #0369a1;
-  --grade-1-fg: #ffffff;
-  --grade-2-bg: #7e22ce;
-  --grade-2-fg: #ffffff;
-  --grade-3-bg: #a16207;
-  --grade-3-fg: #ffffff;
-}
-
-:root[data-theme="dark"] {
-  --grade-1-bg: #7dd3fc;
-  --grade-1-fg: #04161c;
-  --grade-2-bg: #c084fc;
-  --grade-2-fg: #1a0a2b;
-  --grade-3-bg: #fcd34d;
-  --grade-3-fg: #1a1206;
-}
-
 .grade-1 {
   --grade: var(--grade-1-bg);
 }
@@ -971,15 +953,22 @@ button:focus-visible {
   background: var(--danger-fg);
 }
 
+/* The dark values are here because --ok-fg / --danger-fg are the foreground
+ * halves of BADGE pairs — dark green on a pale green plate — and this badge
+ * paints them straight onto the page background instead. On the dark page
+ * those two are nearly invisible, so the scheme gets its own.
+ *
+ * `.sync-stopped .sync-dot` used to be declared three times between here and
+ * the rules above, one of them `background: revert-layer` in a stylesheet
+ * with no @layer at all — it degraded to `revert`, went transparent, and was
+ * repainted by the very next rule. Two declarations now, one per scheme. */
 @media (prefers-color-scheme: dark) {
   .sync-live .sync-dot {
     background: #4ade80;
   }
 
-  .sync-stopped,
-  .sync-stopped .sync-dot {
+  .sync-stopped {
     color: #f87171;
-    background: revert-layer;
   }
 
   .sync-stopped .sync-dot {
@@ -1411,6 +1400,13 @@ select.rank-badge {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-3);
+}
+
+/* Buttons set off from the control they act on. Its one use was the app's
+ * only inline style — a hardcoded 1rem, which is --space-4 written the one
+ * way this file cannot restyle. */
+.form-actions {
+  margin-top: var(--space-4);
 }
 
 /* The chosen-metric list on the settings page. Ordered, because the order is
