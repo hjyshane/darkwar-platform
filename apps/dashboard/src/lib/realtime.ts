@@ -49,6 +49,30 @@ export function queryKeysForTopic(topic: string): readonly (readonly string[])[]
   return TOPIC_QUERY_KEYS[topic] ?? [];
 }
 
+/** The topics above that the COLLECTOR fills, as opposed to the ones a human
+ *  types into the admin page.
+ *
+ * The distinction only matters to one reader — the sync badge, which uses the
+ * newest notification as evidence that observations are still arriving. An
+ * admin renaming a hero also writes a notification row, and counting that as
+ * arriving data would let the board report itself healthy on the strength of
+ * its own operator's typing. That is the same shape of lie the badge exists
+ * to avoid, one table further along.
+ *
+ * `announcements`, `heroes`, `pets`, `role_permissions` and `app_settings`
+ * are the admin-typed ones and are deliberately absent.
+ */
+export const COLLECTOR_TOPICS: readonly string[] = [
+  'alliance_member_snapshots',
+  'alliance_contribution_snapshots',
+  'player_snapshots',
+  'alliance_snapshots',
+  'player_component_power_snapshots',
+  'player_detail_snapshots',
+  'arena_snapshots',
+  'arena_entries',
+];
+
 export function subscribeDataChanges(
   // biome-ignore lint/suspicious/noExplicitAny: supabase client generics are irrelevant here
   client: SupabaseClient<any>,

@@ -241,6 +241,10 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
     },
   ],
   [['sync-status'], { last_heartbeat_at: ago(0.2), is_live: true }],
+  // Deliberately hours behind the heartbeat above. This pair IS the state the
+  // badge was rewritten for — process alive, decoder dead — so the fixture
+  // that shows the badge should show it saying so, not the easy agreeing case.
+  [['sync-newest-observation'], ago(303)],
 
   // Overview
   [
