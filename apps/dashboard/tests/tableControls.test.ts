@@ -1,7 +1,13 @@
 // The behaviour worth pinning is what happens to unknown values: a null
 // power means nobody looked, not a player with none.
 import { expect, test } from 'vitest';
-import { ariaSort, nextSort, searchRows, sortRows } from '../src/lib/tableControls';
+import {
+  ariaSort,
+  emptyViewReason,
+  nextSort,
+  searchRows,
+  sortRows,
+} from '../src/lib/tableControls';
 
 const ROWS = [
   { name: 'ShaneKim', power: 88_452_100, alliance: 'CBFW' },
@@ -104,4 +110,25 @@ test('aria-sort is only set on the column actually sorted', () => {
   expect(ariaSort(state, 'kills')).toBeUndefined();
   expect(ariaSort(null, 'power')).toBeUndefined();
   expect(ariaSort({ key: 'power', direction: 'asc' }, 'power')).toBe('ascending');
+});
+
+test('an empty table blames the star, not a search nobody typed', () => {
+  // The bug: the starred filter runs before the search, so a table emptied
+  // by the STAR with the search box untouched printed `No member matches ""`
+  // — an empty pair of quotes. Reachable because favourites are counted
+  // globally: star a player on a server drill-down, open Members, press the
+  // toggle, and none of them is a member of your alliance.
+  expect(emptyViewReason('', true)).toBe('starred');
+  expect(emptyViewReason('   ', true)).toBe('starred');
+
+  // Both filters on is its own case: naming only the star would leave the
+  // reader wondering whether their search was even applied.
+  expect(emptyViewReason('mira', true)).toBe('starred-search');
+
+  expect(emptyViewReason('mira', false)).toBe('search');
+
+  // Neither filter is active, so no filter did this. Every caller returns
+  // earlier when the table has no rows at all, so this is unreachable there
+  // — it is null rather than a sentence so that it cannot be printed as one.
+  expect(emptyViewReason('', false)).toBeNull();
 });

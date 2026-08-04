@@ -92,6 +92,33 @@ export function nextSort(current: SortState | null, key: string): SortState {
   return { key, direction: current.direction === 'desc' ? 'asc' : 'desc' };
 }
 
+/** Why a table's view came out empty — the reason, deliberately not the
+ * sentence.
+ *
+ * The tables that call this say "member", "alliance" and "player", and the
+ * roster has a case the others do not: your starred players can all be real
+ * and none of them be on THIS board. A helper that returned finished copy
+ * would pull all three toward one "No rows matched", which is exactly the
+ * flattening the empty-state wording elsewhere in this app was written to
+ * avoid ("never observed" and "not yours to see" are not the same fact).
+ *
+ * The bug this exists for: the starred filter runs before the search, so a
+ * table filtered to nothing by the STAR while the search box was empty
+ * printed `No member matches ""` — an empty pair of quotes. It is reachable
+ * because `useFavourites` counts favourites globally, not per table: star a
+ * player on a server drill-down, open Members, press the toggle.
+ */
+export function emptyViewReason(
+  query: string,
+  starredOnly: boolean,
+): 'search' | 'starred' | 'starred-search' | null {
+  const searching = query.trim() !== '';
+  if (starredOnly) {
+    return searching ? 'starred-search' : 'starred';
+  }
+  return searching ? 'search' : null;
+}
+
 /** The value for a th's aria-sort attribute. */
 export function ariaSort(
   current: SortState | null,

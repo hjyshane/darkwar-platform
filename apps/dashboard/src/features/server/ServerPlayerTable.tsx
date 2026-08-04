@@ -4,9 +4,24 @@ import { FavouritesFilter } from '../../components/FavouritesFilter';
 import { SortableTh } from '../../components/SortableTh';
 import { TableSearch } from '../../components/TableSearch';
 import { playerHash } from '../../lib/route';
+import { emptyViewReason } from '../../lib/tableControls';
 import { TERMS } from '../../lib/terms';
 import { useFavourites } from '../../lib/useFavourites';
 import { useTableView } from '../../lib/useTableView';
+
+/** Why this server's list came out empty, in its own noun. This is the table
+ * where the star case is easiest to hit: favourites are global, so most of
+ * yours are on some other server than the one being read. */
+function emptyMessage(query: string, starredOnly: boolean): string {
+  switch (emptyViewReason(query, starredOnly)) {
+    case 'starred':
+      return 'None of your starred players is on this server.';
+    case 'starred-search':
+      return `No starred player matches “${query}”.`;
+    default:
+      return `No player matches “${query}”.`;
+  }
+}
 
 export interface ServerPlayerRow {
   snapshot_id: string;
@@ -111,7 +126,7 @@ export function ServerPlayerTable({
           </tbody>
         </table>
       </div>
-      {view.length === 0 && <p className="empty">No player matches “{query}”.</p>}
+      {view.length === 0 && <p className="empty">{emptyMessage(query, starredOnly)}</p>}
     </>
   );
 }
