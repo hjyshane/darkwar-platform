@@ -80,6 +80,38 @@ class CaptureSession:
             TCPDirectionReassembler
         )
         self._sequence = 0
+        # When a frame last completed. A capture that has gone quiet cannot
+        # otherwise be told apart from a game that has gone quiet, and this
+        # process has twice been believed dead when it was idle, and once
+        # believed idle when it was dead.
+        self.last_frame_at: datetime | None = None
+
+    def diagnostics(self) -> dict[str, object]:
+        """A snapshot that separates "no packets arrive" from "packets arrive
+        and nothing comes out".
+
+        Those two look identical from outside — the journal stops growing
+        either way — and telling them apart took a side-by-side dumpcap run
+        every time. `segments` answers the first; `buffered_bytes` answers
+        the second, because a decoder waiting on a length that never arrives
+        grows its buffer and never returns a frame.
+        """
+        self.refresh_loss_counters()
+        buffered = sum(len(s.decoder.buffer) for s in self._streams.values())
+        pending = sum(len(s.pending) for s in self._streams.values())
+        return {
+            "streams": len(self._streams),
+            "segments": self.stats.segments,
+            "frames": self.stats.frames,
+            "ingested": self.stats.ingested,
+            "discovered": self.stats.discovered,
+            "rejected": self.stats.rejected,
+            "buffered_bytes": buffered,
+            "pending_segments": pending,
+            "resync_bytes": self.stats.resync_bytes,
+            "gap_skips": self.stats.gap_skips,
+            "last_frame_at": self.last_frame_at.isoformat() if self.last_frame_at else None,
+        }
 
     def feed(self, segment: TcpSegment, *, now: datetime | None = None) -> None:
         """Absorb one TCP segment; journals whatever completes because of it."""
@@ -101,6 +133,7 @@ class CaptureSession:
         stream = self._streams[key]
         for frame in stream.feed(segment.sequence, segment.payload):
             self.stats.frames += 1
+            self.last_frame_at = now or datetime.now(tz=UTC)
             if not inbound:
                 continue
             event = extract_extension_event(frame.object)

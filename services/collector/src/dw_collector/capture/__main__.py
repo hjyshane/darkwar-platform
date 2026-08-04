@@ -9,6 +9,7 @@ runs for real on Windows.
 from __future__ import annotations
 
 import os
+import threading
 import uuid
 from pathlib import Path
 
@@ -48,17 +49,36 @@ def main() -> None:
     )
 
     log.info("capture.start", interface=interface or "default", port=port, server_id=server_id)
+
+    # Periodic health, because the interesting failures are all silent. This
+    # process has gone quiet three separate ways — a wrong interface, a
+    # pump that stalled the capture loop, and a decoder waiting on a length
+    # that never arrived — and every one of them looked the same from
+    # outside: alive, no error, heartbeat still written, journal frozen.
+    # Stats only existed at shutdown, and Task Scheduler kills rather than
+    # interrupts, so nobody ever saw them.
+    health_seconds = float(os.environ.get("DW_CAPTURE_HEALTH_SECONDS", "60"))
+    stop_health = threading.Event()
+
+    def _health() -> None:
+        while not stop_health.wait(health_seconds):
+            log.info("capture.health", **session.diagnostics(), pump_pending=pump.pending)
+
+    health_thread = threading.Thread(target=_health, name="dw-capture-health", daemon=True)
     # Through a pump, so scapy's capture loop only enqueues. Journalling from
     # the callback let Npcap's ring overflow during bursts: dumpcap saw 45
     # command types over a window where this process journalled 27.
     pump = SegmentPump(session.feed)
     try:
         pump.start()
+        if health_seconds > 0:
+            health_thread.start()
         # Blocking; Ctrl+C is the normal way to stop.
         sniff_into(pump.submit, interface, port)
     except KeyboardInterrupt:
         pass
     finally:
+        stop_health.set()
         # Before the journal closes, or the queued tail is written into a
         # closed database — which would put the loss back by another route.
         pump.close()
