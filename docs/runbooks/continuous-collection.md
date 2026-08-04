@@ -308,6 +308,55 @@ routine이 재접속을 포함해야 하는데, `am force-stop`·`am start`는 �
 없으므로, 무인 운영에서는 통계를 주기적으로 남기거나 저널에 적는 편이 낫다.
 아직 안 고쳤다.
 
+## 지금 돌리는 방법 (2026-08-04, 실제로 등록해서 돌림)
+
+**`dw-capture`를 쓰지 않는다.** 그것은 프로세스 수명 내내 재조립기를 하나만
+쓰므로, 스트림이 한 번 꼬이면 조용히 멈추고 살아 있는 것처럼 보인다(아래
+「재접속 뒤 영구히 멈춘다」). dumpcap이 파일을 쓰고 `ingest-dir`가 읽는다 —
+파일마다 재조립기가 새로 생기므로 그 고장이 **한 파일로 갇힌다.**
+
+세 프로세스를 작업 스케줄러에 **로그온 시 실행**으로 건다. 서비스가 아닌
+이유는 BlueStacks와 Npcap 캡처 둘 다 데스크톱 세션이 필요해서다.
+
+| 작업 | 명령 |
+|---|---|
+| `DarkWar-Capture` | `dumpcap -i <NPF> -f "tcp port 8680" -w C:\DW_data\live\cap.pcapng -b duration:300 -b files:288 -B 64` |
+| `DarkWar-Ingest` | `uv run dw-collector ingest-dir --dir C:\DW_data\live --interval-seconds 60` |
+| `DarkWar-Sync` | `uv run dw-sync` |
+
+5분짜리 파일 288개 = 24시간치. 등록 스크립트는 `C:\DW_data\register-tasks.ps1`에
+있고 **관리자 PowerShell**이 필요하다(작업 등록은 권한이 있어야 한다). 시작은
+권한이 없어도 된다:
+
+```powershell
+foreach ($n in 'DarkWar-Capture','DarkWar-Ingest','DarkWar-Sync') { Start-ScheduledTask -TaskName $n }
+```
+
+작업 설정에 넣은 것: 실패 시 1분 간격 재시작, **실행 시간 제한 없음**(기본값은
+3일 뒤 죽인다), 중복 실행 방지, 배터리에서도 계속.
+
+**확인 방법**
+
+```powershell
+Get-ScheduledTask -TaskName "DarkWar-*" | ForEach-Object {
+    "$($_.TaskName) $($_.State) $((Get-ScheduledTaskInfo $_.TaskName).LastTaskResult)" }
+uv run dw-collector journal-summary --db C:\DW_data\live.db
+```
+
+`state=Running`, `lastResult=267009`(실행 중)이면 정상이다. 저널의
+`ingested_captures` 표에 파일이 쌓이고 `outbox`의 pending이 0에 가까우면
+끝까지 도는 것이다. **첫 파일은 5분 창이 끝나고 30초가 더 지나야 들어온다** —
+`--min-age-seconds`가 아직 쓰이는 중인 파일을 건드리지 않게 막는다.
+
+**전원 설정을 확인한다.** 절전이나 최대 절전으로 들어가면 새벽 수집이 끊기고,
+그게 하필 일요일 01:59 UTC 창이면 등급 리포트가 통째로 틀어진다.
+
+**남은 것은 ADB 순회다.** 위 셋은 화면을 열지 않는다 — 사람이 게임을 하는 동안
+흐르는 트래픽만 줍는다. 순회가 붙어야 무인이 된다. 그리고 순회를 짜려면 먼저
+로스터를 무엇이 유발하는지 알아야 한다(아래).
+
+---
+
 ## 무엇이 상시로 돌아야 하나
 
 세 가지가 동시에 살아 있어야 한다.
