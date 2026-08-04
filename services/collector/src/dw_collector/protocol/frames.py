@@ -13,7 +13,18 @@ from dataclasses import dataclass
 
 from dw_collector.protocol.sfs import ParseError, Reader, SfsValue, parse_sfs_value
 
-MAX_FRAME_SIZE = 32 * 1024 * 1024
+# The cap is what bounds a stall, not just what rejects nonsense. A false
+# header claiming a length UNDER the cap is not rejected — the decoder waits
+# for that many bytes, and everything arriving meanwhile is swallowed as that
+# frame's body. At 32MB that wait never ended: dw-capture went silent after a
+# reconnect and stayed silent for the rest of the run, alive and heartbeating.
+#
+# 4,906 frames across twelve real captures (login, roster, arena, alliance
+# ranking, player profile, and two days of live traffic) put the largest at
+# 83,549 bytes — the login response. 4,126 are under 1KB and nothing reaches
+# 256KB. 1MiB is twelve times the largest ever seen, and it caps the stall at
+# 1MiB of traffic rather than 32MB.
+MAX_FRAME_SIZE = 1024 * 1024
 
 # Requiring the type byte turns a resync from "does this parse?" into "does
 # this parse AS A FRAME?" — a mis-synced window can otherwise read a
