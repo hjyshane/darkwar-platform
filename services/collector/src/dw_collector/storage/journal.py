@@ -53,6 +53,16 @@ create table if not exists sync_outbox (
 
 create index if not exists sync_outbox_pending_idx
   on sync_outbox (status, next_attempt_at);
+
+-- Which capture files ingest-dir has already read. Re-reading one is safe
+-- (idempotency_key hashes the raw payload, so a replay updates rather than
+-- duplicates) but it is wasted work, and on a ring buffer of 288 files it
+-- would be most of the work.
+create table if not exists ingested_captures (
+  name text primary key,
+  ingested_at text not null,
+  events integer not null
+);
 """
 
 
@@ -229,6 +239,19 @@ class Journal:
             " group by source_command order by count(*) desc, source_command"
         )
         return [(str(r[0]), int(r[1])) for r in cur.fetchall()]
+
+    def ingested_captures(self) -> set[str]:
+        """Capture file names already read by ingest-dir."""
+        cur = self.conn.execute("select name from ingested_captures")
+        return {str(row[0]) for row in cur.fetchall()}
+
+    def mark_capture_ingested(self, name: str, events: int) -> None:
+        with self.conn:
+            self.conn.execute(
+                "insert or replace into ingested_captures (name, ingested_at, events)"
+                " values (?, ?, ?)",
+                (name, _now_iso(), events),
+            )
 
     def watermark(self) -> int:
         """Insert position to compare later arrivals against.

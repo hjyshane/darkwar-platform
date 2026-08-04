@@ -5,6 +5,10 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+import time
+import uuid
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -15,6 +19,7 @@ from dw_collector import normalize as _normalize  # noqa: F401  (registers norma
 from dw_collector import pipeline, registry
 from dw_collector.envfile import load_env_file
 from dw_collector.models import Observation
+from dw_collector.protocol.pcapng import PcapError
 from dw_collector.storage.journal import Journal
 from dw_collector.sync.worker import SyncConfig, SyncWorker
 
@@ -347,12 +352,6 @@ def scan_capture(
     somewhere to start. Malformed payloads are counted, not fatal
     (FR-COL-003).
     """
-    import uuid
-    from datetime import UTC, datetime
-
-    from dw_collector import pipeline
-    from dw_collector.protocol.pcapng import iter_extension_events
-
     collector_id = uuid.UUID(
         os.environ.get("DW_COLLECTOR_ID", "00000000-0000-4000-8000-00000000c777")
     )
@@ -364,42 +363,173 @@ def scan_capture(
     fallback = datetime.now(tz=UTC)
 
     journal = _open_journal(db)
-    ingested = discovered = rejected = 0
-    commands: dict[str, int] = {}
     try:
-        for index, event in enumerate(iter_extension_events(pcap, port=port)):
-            if event.direction != "inbound":
-                continue
-            known = registry.get(event.command) is not None
-            if discover_only and known:
-                continue
-            observation = Observation(
-                observation_id=uuid.uuid5(
-                    uuid.NAMESPACE_URL, f"dw-scan:{pcap.name}:{index}:{event.command}"
-                ),
-                collector_id=collector_id,
-                source_command=event.command,
-                captured_at=event.captured_at or fallback,
-                collected_from_server_id=collected_from_server,
-                payload=dict(event.payload),
-            )
-            try:
-                rows = pipeline.observe(observation)
-            except ValidationError:
-                rejected += 1
-                continue
-            journal.record(observation, rows)
-            commands[event.command] = commands.get(event.command, 0) + 1
-            if known:
-                ingested += 1
-            else:
-                discovered += 1
+        result = _ingest_capture(
+            journal,
+            pcap,
+            collector_id=collector_id,
+            collected_from_server=collected_from_server,
+            port=port,
+            discover_only=discover_only,
+            fallback=fallback,
+        )
     finally:
         journal.close()
 
     typer.echo(
-        f"ingested={ingested} discovered={discovered} rejected={rejected} commands={len(commands)}"
+        f"ingested={result.ingested} discovered={result.discovered}"
+        f" rejected={result.rejected} commands={len(result.commands)}"
     )
+
+
+@dataclass(frozen=True)
+class _ScanResult:
+    ingested: int
+    discovered: int
+    rejected: int
+    commands: dict[str, int]
+
+    @property
+    def events(self) -> int:
+        return self.ingested + self.discovered
+
+
+def _ingest_capture(
+    journal: Journal,
+    pcap: Path,
+    *,
+    collector_id: uuid.UUID,
+    collected_from_server: int,
+    port: int,
+    discover_only: bool,
+    fallback: datetime,
+) -> _ScanResult:
+    """One capture file through the pipeline. Shared by scan-capture and
+    ingest-dir so the continuous path cannot drift from the one that has
+    been used by hand all along."""
+    import uuid as _uuid
+
+    from dw_collector import pipeline
+    from dw_collector.protocol.pcapng import iter_extension_events
+
+    ingested = discovered = rejected = 0
+    commands: dict[str, int] = {}
+    for index, event in enumerate(iter_extension_events(pcap, port=port)):
+        if event.direction != "inbound":
+            continue
+        known = registry.get(event.command) is not None
+        if discover_only and known:
+            continue
+        observation = Observation(
+            # The file name is part of the id, and dumpcap's ring buffer gives
+            # every file a distinct name, so two files never collide. Replays
+            # of the SAME file are harmless anyway: idempotency_key hashes the
+            # raw payload (§11.2), so re-ingesting updates rather than copies.
+            observation_id=_uuid.uuid5(
+                _uuid.NAMESPACE_URL, f"dw-scan:{pcap.name}:{index}:{event.command}"
+            ),
+            collector_id=collector_id,
+            source_command=event.command,
+            captured_at=event.captured_at or fallback,
+            collected_from_server_id=collected_from_server,
+            payload=dict(event.payload),
+        )
+        try:
+            rows = pipeline.observe(observation)
+        except ValidationError:
+            rejected += 1
+            continue
+        journal.record(observation, rows)
+        commands[event.command] = commands.get(event.command, 0) + 1
+        if known:
+            ingested += 1
+        else:
+            discovered += 1
+    return _ScanResult(ingested, discovered, rejected, commands)
+
+
+def _ready_captures(directory: Path, minimum_age_seconds: float) -> list[Path]:
+    """Capture files dumpcap has finished with, oldest first.
+
+    The newest file in a ring buffer is the one being written, and reading
+    it would ingest a truncated tail and then mark it done. Age is the test
+    rather than "skip the newest", because a stopped dumpcap leaves its last
+    file complete and that one should still be read.
+    """
+    now = time.time()
+    ready = [
+        path
+        for path in directory.glob("*.pcapng")
+        if now - path.stat().st_mtime >= minimum_age_seconds
+    ]
+    return sorted(ready, key=lambda p: p.stat().st_mtime)
+
+
+@app.command("ingest-dir")
+def ingest_dir(
+    directory: Annotated[Path, typer.Option("--dir", exists=True, file_okay=False)],
+    db: Annotated[Path | None, _DB_OPTION] = None,
+    collected_from_server: Annotated[int, typer.Option()] = 580,
+    port: Annotated[int, typer.Option()] = 8680,
+    min_age_seconds: Annotated[
+        float, typer.Option(help="skip files touched more recently than this")
+    ] = 30.0,
+    interval_seconds: Annotated[
+        float, typer.Option(help="0 runs once and exits; otherwise poll forever")
+    ] = 0.0,
+) -> None:
+    """Ingest pcapng files a capture engine leaves in a directory.
+
+    The point is dumpcap rather than dw-capture as the packet source. Live
+    capture keeps one reassembler for the life of the process, so a stream
+    that wedges stays wedged and the collector goes quiet while still
+    looking healthy. Reading files gives every file a fresh reassembler,
+    which bounds that failure to one file instead of to the rest of the run.
+
+    Files already read are recorded in the journal, so restarting does not
+    re-read the ring.
+    """
+    collector_id = uuid.UUID(
+        os.environ.get("DW_COLLECTOR_ID", "00000000-0000-4000-8000-00000000c777")
+    )
+    journal = _open_journal(db)
+    try:
+        while True:
+            done = journal.ingested_captures()
+            pending = [p for p in _ready_captures(directory, min_age_seconds) if p.name not in done]
+            for pcap in pending:
+                fallback = datetime.now(tz=UTC)
+                try:
+                    result = _ingest_capture(
+                        journal,
+                        pcap,
+                        collector_id=collector_id,
+                        collected_from_server=collected_from_server,
+                        port=port,
+                        discover_only=False,
+                        fallback=fallback,
+                    )
+                except (PcapError, OSError, ValueError) as exc:
+                    # One unreadable file must not stop the loop — a
+                    # collector that stops on the first bad capture is the
+                    # failure this command exists to escape. Marked done
+                    # rather than retried: a truncated file never becomes
+                    # valid, and retrying it every poll would lose
+                    # everything after it instead of just that window.
+                    journal.mark_capture_ingested(pcap.name, 0)
+                    typer.echo(f"{pcap.name}  UNREADABLE {exc}", err=True)
+                    continue
+                journal.mark_capture_ingested(pcap.name, result.events)
+                typer.echo(
+                    f"{pcap.name}  ingested={result.ingested} discovered={result.discovered}"
+                    f" rejected={result.rejected} commands={len(result.commands)}"
+                )
+            if interval_seconds <= 0:
+                typer.echo(f"done: {len(pending)} file(s)")
+                return
+            time.sleep(interval_seconds)
+    finally:
+        journal.close()
 
 
 if __name__ == "__main__":
