@@ -175,7 +175,7 @@ export function OverviewMetricsSetting() {
           ))}
       </ul>
 
-      <div className="row" style={{ marginTop: '1rem' }}>
+      <div className="row form-actions">
         <button disabled={save.isPending} onClick={() => save.mutate(chosen)} type="button">
           Save
         </button>
