@@ -120,21 +120,7 @@ A UID in the payload is not enough. `docs/runbooks/capture-sweep.md` records
 each verdict and the evidence behind it, including three commands that were
 rejected after their fields turned out to mean something else.
 
-A verdict is not a promotion. If you mark something for promotion, either do
-it or say plainly that it is outstanding — and when you do it, **push the
-branch.**
-
-`al.battle.rank.info` is the worked example, and it cost time twice. It was
-marked "promote" and sat unwritten long enough that this file recorded
-`contribution_type='alliance_battle'` as having no writer and its dashboard
-column as permanently empty. Both halves are now false: the parser was in
-fact written on `feat-battle-rank` and simply never pushed, so a second
-machine could not see it and two documents went on describing it as missing
-while a session planned the work again from scratch. 0028 then split the one
-ambiguous type into `alliance_battle_daily`/`_weekly`/`_round` against
-labelled captures, 0029 wired each to its own column, and the roster shows
-three duel columns that fill.
-
-The lesson that survives is not about this command. **An unpushed branch is
-indistinguishable from unwritten work**, and the documents will start saying
-so.
+A verdict is not a promotion. `al.battle.rank.info` was marked "promote" and
+never was, so `contribution_type='alliance_battle'` has no writer and the
+dashboard column it feeds is permanently empty. If you mark something for
+promotion, either do it or say plainly that it is outstanding.
