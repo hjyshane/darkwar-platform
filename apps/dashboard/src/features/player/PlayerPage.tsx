@@ -67,6 +67,19 @@ interface PlayerDetail {
     power1dAt: string | null;
     power7dAt: string | null;
   } | null;
+  /** Growth against the previous reading, whatever interval that was.
+   *
+   * The 1d/7d figures above are measured from a fixed 02:05 UTC baseline
+   * (0055), which suits our own members because they are captured on a
+   * schedule. Anyone else is seen only when somebody opens their profile, so
+   * both of those are null and the page showed dashes for a player we have
+   * two readings of. */
+  recentGrowth: {
+    growthSinceLast: number | null;
+    powerPrev: number | null;
+    powerPrevAt: string | null;
+    powerAt: string | null;
+  } | null;
   componentPower: { metric: string; power: number | null; rank: number | null }[];
   arena: PlayerArenaEntry[];
   pastNames: { name: string; lastSeenAt: string }[];
@@ -118,7 +131,7 @@ async function fetchPlayer(playerId: string): Promise<PlayerDetail | null> {
     return null;
   }
 
-  const [alliance, presence, contributions, component, names, rank, growth, arena] =
+  const [alliance, presence, contributions, component, names, rank, growth, recent, arena] =
     await Promise.all([
       player.current_alliance_id
         ? supabase
@@ -161,6 +174,15 @@ async function fetchPlayer(playerId: string): Promise<PlayerDetail | null> {
         .select('growth_1d, growth_7d, power_1d_at, power_7d_at')
         .eq('player_id', playerId)
         .maybeSingle(),
+      // The fallback the fixed baselines cannot provide (0069). Fetched for
+      // everyone rather than only when the others are null: it is one row,
+      // and branching the query on the result of another query would make
+      // this page two round trips deep for no benefit.
+      supabase
+        .from('player_growth_recent')
+        .select('growth_since_last, power_prev, power_prev_at, power_at')
+        .eq('player_id', playerId)
+        .maybeSingle(),
       fetchPlayerArena(playerId),
     ]);
 
@@ -200,6 +222,14 @@ async function fetchPlayer(playerId: string): Promise<PlayerDetail | null> {
           growth7d: growth.data.growth_7d,
           power1dAt: growth.data.power_1d_at,
           power7dAt: growth.data.power_7d_at,
+        }
+      : null,
+    recentGrowth: recent.data
+      ? {
+          growthSinceLast: recent.data.growth_since_last,
+          powerPrev: recent.data.power_prev,
+          powerPrevAt: recent.data.power_prev_at,
+          powerAt: recent.data.power_at,
         }
       : null,
     componentPower,
@@ -362,6 +392,21 @@ export function PlayerPage({ playerId, now }: { playerId: string; now?: Date }) 
                   note={growthNote(data.growth?.power7dAt ?? null)}
                   value={percent(data.growth?.growth7d)}
                 />
+                {/* Only when neither fixed baseline could answer. Showing all
+                    three would put "grew 2% since some unspecified moment"
+                    next to "grew 2% in a day" and invite reading them as the
+                    same claim — the interval one is strictly better when it
+                    exists, so this fills a gap rather than adding a column.
+                    The gap is everyone outside our own alliance, who is
+                    captured when somebody opens their profile and never on a
+                    schedule. */}
+                {data.growth?.growth1d == null && data.growth?.growth7d == null && (
+                  <StatTile
+                    label="Since last reading"
+                    note={growthNote(data.recentGrowth?.powerPrevAt ?? null)}
+                    value={percent(data.recentGrowth?.growthSinceLast)}
+                  />
+                )}
               </div>
             </section>
           )}

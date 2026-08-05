@@ -45,19 +45,6 @@ async function fetchMemberColumns(): Promise<ComputedColumn[]> {
   );
 }
 
-/** Three queries rather than an embedded select.
- *
- * Contribution moved to its own member-only table in 0020 and presence in
- * 0024, so both are a join away. Fetching them separately keeps the shape
- * flat — the sort and search work on top-level keys, and a nested object
- * would silently stop being sortable — and it makes the permission boundary
- * obvious: logged out, those queries return nothing because RLS filters
- * every row, and the merge leaves the columns null. The table already
- * renders null as "—", which is the honest answer: not zero, not hidden,
- * just not visible to you.
- */
-/** Exported so the admin's formula preview can run against a real member
- * rather than a second, drifting copy of this join. */
 export type DepartureRow = {
   game_uid: number;
   player_id: string | null;
@@ -70,17 +57,6 @@ export type DepartureRow = {
   confirmed: boolean | null;
 };
 
-/** Who is in the alliance right now, by player_id.
- *
- * `players.current_alliance_id` is set and never cleared, so it answers
- * "was ever in this alliance". 0067 derives the real answer from the newest
- * al.rank batch, which is the whole roster in one response.
- *
- * Returns null, not an empty set, when the view yields nothing — a viewer
- * and a signed-out reader both get no rows, and treating that as "the
- * alliance is empty" would replace a roster of stale names with no roster
- * at all. Null means "no opinion", and the caller leaves the list alone.
- */
 /** Our alliance's id, looked up rather than embedded.
  *
  * The roster query embeds `alliances!inner(is_own)` because players has a
@@ -103,6 +79,17 @@ async function fetchOwnAllianceId(): Promise<string | null> {
   return data?.alliance_id ?? null;
 }
 
+/** Who is in the alliance right now, by player_id.
+ *
+ * `players.current_alliance_id` is set and never cleared, so it answers "was
+ * ever in this alliance". 0067 derives the real answer from the newest
+ * al.rank batch, which is the whole roster in one response.
+ *
+ * Returns null, not an empty set, when the view yields nothing — a viewer and
+ * a signed-out reader both get no rows, and treating that as "the alliance is
+ * empty" would replace a roster of stale names with no roster at all. Null
+ * means "no opinion", and the caller leaves the list alone.
+ */
 async function fetchCurrentMemberIds(): Promise<Set<string> | null> {
   const allianceId = await fetchOwnAllianceId();
   if (allianceId === null) {
@@ -152,6 +139,20 @@ export async function fetchDepartures(): Promise<DepartureRow[]> {
   return data as DepartureRow[];
 }
 
+/** Several queries rather than one embedded select.
+ *
+ * Contribution moved to its own member-only table in 0020 and presence in
+ * 0024, so both are a join away. Fetching them separately keeps the shape
+ * flat — the sort and search work on top-level keys, and a nested object
+ * would silently stop being sortable — and it makes the permission boundary
+ * obvious: logged out, those queries return nothing because RLS filters every
+ * row, and the merge leaves the columns null. The table already renders null
+ * as "—", which is the honest answer: not zero, not hidden, just not visible
+ * to you.
+ *
+ * Exported so the admin's formula preview can run against a real member
+ * rather than a second, drifting copy of this join.
+ */
 export async function fetchRoster(): Promise<RosterRow[]> {
   // Our alliance's members, not the strongest players we have ever seen.
   //
@@ -298,64 +299,8 @@ function lastOnline(presence: PresenceRow | undefined) {
   };
 }
 
-/** Everyone who has left, under the roster rather than mixed into it.
- *
- * Kept as its own list because a departed member is not a member with worse
- * numbers — sorting them together would put someone who left last month
- * above half the alliance on power alone.
- */
-function Departures({ rows }: { rows: DepartureRow[] }) {
-  if (rows.length === 0) {
-    return null;
-  }
-  return (
-    <section aria-labelledby="roster-departed">
-      <h3 id="roster-departed">Left the alliance</h3>
-      <table>
-        <thead>
-          <tr>
-            <th scope="col">Name</th>
-            <th scope="col">HQ</th>
-            <th scope="col">Power</th>
-            <th scope="col">Last seen as a member</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.game_uid}>
-              <td className="label">
-                {row.player_id === null ? (
-                  (row.last_known_name ?? '—')
-                ) : (
-                  <a href={`#/player/${row.player_id}`}>{row.last_known_name ?? '—'}</a>
-                )}
-                {/* An absence from a capture that did not see the whole
-                    member list is a maybe, not a departure. Six of this
-                    alliance's ten captured batches are one or two rows
-                    short, and calling those departures would be worse than
-                    saying nothing. */}
-                {row.confirmed === false && (
-                  <span className="badge" title="The newest capture did not cover the whole roster">
-                    unconfirmed
-                  </span>
-                )}
-              </td>
-              <td className="num">{row.last_hq_level ?? '—'}</td>
-              <td className="num">
-                {row.last_power === null ? '—' : row.last_power.toLocaleString('ko-KR')}
-              </td>
-              <td>{row.last_seen_in_alliance_at.slice(0, 10)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </section>
-  );
-}
-
 export function RosterPanel() {
   const { data, error, isPending } = useQuery({ queryKey: ['roster'], queryFn: fetchRoster });
-  const { data: departures } = useQuery({ queryKey: ['departures'], queryFn: fetchDepartures });
   const { data: columns } = useQuery({
     queryKey: ['member-formulas'],
     queryFn: fetchMemberColumns,
@@ -387,7 +332,6 @@ export function RosterPanel() {
       {isPending && <p className="empty">Loading…</p>}
       {error && <p className="error">Could not load members: {error.message}</p>}
       {data && <RosterTable columns={columns ?? []} rows={data} />}
-      <Departures rows={departures ?? []} />
     </section>
   );
 }
