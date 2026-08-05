@@ -56,4 +56,11 @@ class Routine(BaseModel):
 
     @classmethod
     def load(cls, path: Path) -> Routine:
-        return cls.model_validate(json.loads(path.read_text(encoding="utf-8")))
+        # utf-8-sig, not utf-8. These files are hand-edited on the machine
+        # that runs them, and every Windows tool that might touch one —
+        # Notepad, PowerShell's Set-Content -Encoding utf8, VS Code's default
+        # for a new file — writes a BOM. Plain utf-8 then fails with
+        # "Unexpected UTF-8 BOM" from inside json, which reads as a broken
+        # routine rather than a byte order mark. The same mark had already
+        # cost this project a supabase CLI that would not start.
+        return cls.model_validate(json.loads(path.read_text(encoding="utf-8-sig")))
