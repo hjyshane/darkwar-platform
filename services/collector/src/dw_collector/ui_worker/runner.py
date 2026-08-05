@@ -21,6 +21,7 @@ from __future__ import annotations
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 
 import structlog
 
@@ -116,7 +117,9 @@ class RoutineRunner:
                 return f"operator is active — {state.reason}"
         return None
 
-    def _await_commands(self, step: Step, mark: int) -> tuple[list[str], list[str]]:
+    def _await_commands(
+        self, step: Step, mark: int, since: datetime | None
+    ) -> tuple[list[str], list[str]]:
         """Poll the journal until every expected command has been seen.
 
         Checked inside the loop, not only between steps. A wait is up to
@@ -131,7 +134,7 @@ class RoutineRunner:
         seen: set[str] = set()
         deadline = time.monotonic() + step.timeout_seconds
         while True:
-            seen |= {c for c in self.journal.commands_after(mark) if c in wanted}
+            seen |= {c for c in self.journal.commands_after(mark, since) if c in wanted}
             if wanted <= seen:
                 return sorted(seen), []
             if time.monotonic() >= deadline:
@@ -159,10 +162,15 @@ class RoutineRunner:
                 log.warning("ui_worker.stopped", step=step.name, reason=reason)
                 return report
 
-            # Taken before the tap, so anything journalled from here on is
-            # this step's doing. A timestamp cannot draw that line on Windows
-            # — see Journal.watermark.
+            # Two marks, because one is not enough once capture is not
+            # instantaneous. `mark` is a rowid — anything journalled from here
+            # on was WRITTEN after the tap, and a Windows clock cannot draw
+            # that line (see Journal.watermark). `tapped_at` is wall time, and
+            # bounds which packets could have been CAUSED by the tap: with a
+            # 60s capture ring, a response from a minute ago gets written a
+            # minute from now and would otherwise count as proof.
             mark = self.journal.watermark()
+            tapped_at = datetime.now(tz=UTC)
             try:
                 self._perform(step)
             # AdbGuardError is NOT caught: "never caught to continue" is the
@@ -188,7 +196,7 @@ class RoutineRunner:
                 continue
 
             try:
-                observed, missing = self._await_commands(step, mark)
+                observed, missing = self._await_commands(step, mark, tapped_at)
             except _Interrupted as stop:
                 report.aborted_at = step.name
                 report.abort_reason = stop.reason

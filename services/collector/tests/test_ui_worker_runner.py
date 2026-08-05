@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -45,13 +45,13 @@ def _routine(*steps: dict[str, object]) -> Routine:
     return Routine.model_validate({"name": "test", "steps": list(steps)})
 
 
-def _record(journal: Journal, command: str) -> None:
+def _record(journal: Journal, command: str, captured_at: datetime | None = None) -> None:
     journal.record(
         Observation(
             observation_id=uuid.uuid4(),
             collector_id=uuid.UUID("00000000-0000-4000-8000-00000000c777"),
             source_command=command,
-            captured_at=datetime.now(tz=UTC),
+            captured_at=captured_at or datetime.now(tz=UTC),
             collected_from_server_id=580,
             payload={},
         ),
@@ -63,10 +63,22 @@ class RecordingClient(AdbClient):
     """AdbClient that journals a response when a tap lands, so the runner's
     verification loop has something real to observe."""
 
-    def __init__(self, *, responses: dict[tuple[int, int], str], journal: Journal, **kw: object):
+    def __init__(
+        self,
+        *,
+        responses: dict[tuple[int, int], str],
+        journal: Journal,
+        captured_at: datetime | None = None,
+        **kw: object,
+    ):
         super().__init__(**kw)  # type: ignore[arg-type]
         self.responses = responses
         self.journal = journal
+        # Overrides the wire time of every response. A real capture ring
+        # writes packets to the journal up to a minute after they were sent,
+        # so a stale response can be journalled after a later tap — this is
+        # how that is reproduced.
+        self.captured_at = captured_at
 
     def _run(self, argv: list[str], *, capture: bool = False) -> bytes:
         # Overriding the one place every action funnels through, so back and
@@ -77,7 +89,7 @@ class RecordingClient(AdbClient):
         if argv[:3] == ["shell", "input", "tap"]:
             command = self.responses.get((int(argv[3]), int(argv[4])))
             if command:
-                _record(self.journal, command)
+                _record(self.journal, command, self.captured_at)
         return b""
 
 
@@ -365,3 +377,40 @@ def test_kill_switch_stops_a_run_that_is_waiting(policy, journal):
     assert report.abort_reason == "kill switch engaged"
     # Stopped in the wait, not after 600 seconds of polling.
     assert len(ticks) < 10
+
+
+def test_a_late_arriving_older_packet_is_not_proof(policy: AdbPolicy, journal: Journal) -> None:
+    """The bug this closes: eight alliances reported verified, two opened.
+
+    The capture ring closes a file every 60s, so a response the game sent
+    before the tap reaches the journal after it. A rowid-only test counts
+    that as proof, and every step gets credited with the previous step's
+    late answer.
+    """
+    stale = datetime.now(tz=UTC) - timedelta(minutes=5)
+    client = RecordingClient(
+        responses={(1, 2): "al.rank"},
+        journal=journal,
+        captured_at=stale,
+        policy=policy,
+        serial=COLLECTOR,
+    )
+    runner = RoutineRunner(client, journal, sleep=lambda _s: None)
+    routine = _routine(
+        {
+            "name": "opens a roster",
+            "action": "tap",
+            "x": 1,
+            "y": 2,
+            "expect": ["al.rank"],
+            "timeout_seconds": 3,
+            "settle_seconds": 0,
+        }
+    )
+
+    report = runner.run(routine)
+
+    # Written after the tap, but sent five minutes before it. Not this tap's.
+    assert report.ok is False
+    assert report.steps[0].status == "unverified"
+    assert report.steps[0].missing == ["al.rank"]

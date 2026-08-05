@@ -265,18 +265,38 @@ class Journal:
         cur = self.conn.execute("select coalesce(max(rowid), 0) from raw_observations")
         return int(cur.fetchone()[0])
 
-    def commands_after(self, mark: int) -> set[str]:
+    def commands_after(self, mark: int, since: datetime | None = None) -> set[str]:
         """Commands journalled after `mark` — the UI worker's proof that a
         tap opened the screen it meant to.
 
-        Ordered by insert, not by `captured_at`: a live capture sets
-        captured_at from the packet and a replay sets it from the fixture, so
-        neither answers "did this arrive after I tapped".
+        `mark` is a rowid, not a clock: a wall clock cannot separate two rows
+        written in the same 15.6ms Windows tick. It answers "written after I
+        tapped".
+
+        `since` answers a different question, and BOTH are needed once capture
+        is not instantaneous. The dumpcap ring closes a file every 60s and the
+        reader follows, so a packet the game sent a minute BEFORE the tap is
+        written to the journal a minute AFTER it — and satisfies a rowid-only
+        test. That is not theoretical: a board sweep reported eight alliances
+        verified and had actually opened two, because each step was credited
+        with the previous step's late-arriving response.
+
+        So `since` filters on `captured_at`, which is when the packet was on
+        the wire. A response captured before the tap cannot be the tap's.
+        Left optional because a replay sets captured_at from its fixture,
+        where wire time means nothing and rowid is the only honest ordering.
         """
-        cur = self.conn.execute(
-            "select distinct source_command from raw_observations where rowid > ?",
-            (mark,),
-        )
+        if since is None:
+            cur = self.conn.execute(
+                "select distinct source_command from raw_observations where rowid > ?",
+                (mark,),
+            )
+        else:
+            cur = self.conn.execute(
+                "select distinct source_command from raw_observations "
+                "where rowid > ? and captured_at >= ?",
+                (mark, since.isoformat()),
+            )
         return {str(r[0]) for r in cur.fetchall()}
 
     def raw_payloads(self, command: str) -> list[tuple[datetime, str]]:
