@@ -2361,6 +2361,38 @@ export type Database = {
       }
     }
     Views: {
+      alliance_departures: {
+        Row: {
+          alliance_id: string | null
+          confirmed: boolean | null
+          first_seen_in_alliance_at: string | null
+          game_uid: number | null
+          last_hq_level: number | null
+          last_kills: number | null
+          last_known_name: string | null
+          last_member_rank: number | null
+          last_power: number | null
+          last_seen_in_alliance_at: string | null
+          player_id: string | null
+          roster_captured_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alliance_member_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "alliance_member_snapshots_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+        ]
+      }
       alliance_latest: {
         Row: {
           alliance_id: string | null
@@ -2384,6 +2416,47 @@ export type Database = {
           },
           {
             foreignKeyName: "alliance_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+        ]
+      }
+      alliance_roster_latest: {
+        Row: {
+          alliance_id: string | null
+          captured_at: string | null
+          expected_members: number | null
+          game_uid: number | null
+          hq_level: number | null
+          kills: number | null
+          member_rank: number | null
+          name: string | null
+          observed_members: number | null
+          player_id: string | null
+          power: number | null
+          server_id: number | null
+          snapshot_complete: boolean | null
+          snapshot_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alliance_member_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "alliance_member_snapshots_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "alliance_member_snapshots_server_id_fkey"
             columns: ["server_id"]
             isOneToOne: false
             referencedRelation: "servers"

@@ -58,6 +58,100 @@ async function fetchMemberColumns(): Promise<ComputedColumn[]> {
  */
 /** Exported so the admin's formula preview can run against a real member
  * rather than a second, drifting copy of this join. */
+export type DepartureRow = {
+  game_uid: number;
+  player_id: string | null;
+  last_known_name: string | null;
+  last_member_rank: number | null;
+  last_hq_level: number | null;
+  last_power: number | null;
+  last_seen_in_alliance_at: string;
+  roster_captured_at: string;
+  confirmed: boolean | null;
+};
+
+/** Who is in the alliance right now, by player_id.
+ *
+ * `players.current_alliance_id` is set and never cleared, so it answers
+ * "was ever in this alliance". 0067 derives the real answer from the newest
+ * al.rank batch, which is the whole roster in one response.
+ *
+ * Returns null, not an empty set, when the view yields nothing — a viewer
+ * and a signed-out reader both get no rows, and treating that as "the
+ * alliance is empty" would replace a roster of stale names with no roster
+ * at all. Null means "no opinion", and the caller leaves the list alone.
+ */
+/** Our alliance's id, looked up rather than embedded.
+ *
+ * The roster query embeds `alliances!inner(is_own)` because players has a
+ * foreign key to it. A view has none, so PostgREST cannot embed against
+ * these two — the id has to come first and be passed as a filter.
+ */
+async function fetchOwnAllianceId(): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('alliances')
+    .select('alliance_id')
+    .eq('is_own', true)
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    if (error.code === '42501') {
+      return null;
+    }
+    throw new Error(`own alliance query failed: ${error.message}`);
+  }
+  return data?.alliance_id ?? null;
+}
+
+async function fetchCurrentMemberIds(): Promise<Set<string> | null> {
+  const allianceId = await fetchOwnAllianceId();
+  if (allianceId === null) {
+    return null;
+  }
+  const { data, error } = await supabase
+    .from('alliance_roster_latest')
+    .select('player_id')
+    .eq('alliance_id', allianceId);
+  if (error) {
+    // Not fatal, same rule as the rank query below: a permission failure
+    // must not take the roster down with it.
+    if (error.code === '42501') {
+      return null;
+    }
+    throw new Error(`current roster query failed: ${error.message}`);
+  }
+  const ids = data.flatMap((row) => (row.player_id === null ? [] : [row.player_id as string]));
+  return ids.length === 0 ? null : new Set(ids);
+}
+
+/** Members seen before but absent from the newest capture.
+ *
+ * `confirmed` is false when that capture did not cover the whole roster —
+ * an unscrolled member list looks exactly like a departure, and six of this
+ * alliance's ten captured batches are short by one or two.
+ */
+export async function fetchDepartures(): Promise<DepartureRow[]> {
+  const allianceId = await fetchOwnAllianceId();
+  if (allianceId === null) {
+    return [];
+  }
+  const { data, error } = await supabase
+    .from('alliance_departures')
+    .select(
+      'game_uid, player_id, last_known_name, last_member_rank, last_hq_level, last_power, last_seen_in_alliance_at, roster_captured_at, confirmed',
+    )
+    .eq('alliance_id', allianceId)
+    .order('last_seen_in_alliance_at', { ascending: false })
+    .limit(100);
+  if (error) {
+    if (error.code === '42501') {
+      return [];
+    }
+    throw new Error(`departure query failed: ${error.message}`);
+  }
+  return data as DepartureRow[];
+}
+
 export async function fetchRoster(): Promise<RosterRow[]> {
   // Our alliance's members, not the strongest players we have ever seen.
   //
@@ -92,6 +186,14 @@ export async function fetchRoster(): Promise<RosterRow[]> {
     throw new Error(`roster query failed: ${error.message}`);
   }
 
+  // Drop the people who have left. The filter is here rather than in the
+  // query because the membership answer lives in a view that has no foreign
+  // key to embed against, and because "no opinion" has to be distinguishable
+  // from "nobody is a member" — see fetchCurrentMemberIds.
+  const current = await fetchCurrentMemberIds();
+  const members =
+    current === null ? players : players.filter((player) => current.has(player.player_id));
+
   const { data: contributions, error: contributionError } = await supabase
     .from('player_contributions')
     .select(
@@ -99,7 +201,7 @@ export async function fetchRoster(): Promise<RosterRow[]> {
     )
     .in(
       'player_id',
-      players.map((player) => player.player_id),
+      members.map((player) => player.player_id),
     );
   if (contributionError) {
     throw new Error(`contribution query failed: ${contributionError.message}`);
@@ -110,7 +212,7 @@ export async function fetchRoster(): Promise<RosterRow[]> {
     .select('player_id, online_state, offline_since, observed_at')
     .in(
       'player_id',
-      players.map((player) => player.player_id),
+      members.map((player) => player.player_id),
     );
   if (presenceError) {
     throw new Error(`presence query failed: ${presenceError.message}`);
@@ -124,7 +226,7 @@ export async function fetchRoster(): Promise<RosterRow[]> {
     .select('player_id, growth_1d, growth_7d, power_1d_at, power_7d_at')
     .in(
       'player_id',
-      players.map((player) => player.player_id),
+      members.map((player) => player.player_id),
     );
   if (growthError) {
     throw new Error(`growth query failed: ${growthError.message}`);
@@ -138,7 +240,7 @@ export async function fetchRoster(): Promise<RosterRow[]> {
     .select('player_id, assigned_rank, computed_tier, rank_score')
     .in(
       'player_id',
-      players.map((player) => player.player_id),
+      members.map((player) => player.player_id),
     );
   // Not fatal. Ranks are member-only, so a logged-out reader gets nothing
   // here and should still see the roster — the same reason the contribution
@@ -153,7 +255,7 @@ export async function fetchRoster(): Promise<RosterRow[]> {
   const presenceByPlayer = new Map(presence.map((row) => [row.player_id, row]));
   // `alliances` is the join used to filter, not a column of the row — drop it
   // so the shape stays flat and every key remains sortable.
-  return players.map(({ alliances: _joined, ...player }) => ({
+  return members.map(({ alliances: _joined, ...player }) => ({
     ...player,
     daily_donation_score: byPlayer.get(player.player_id)?.daily_donation_score ?? null,
     weekly_donation_score: byPlayer.get(player.player_id)?.weekly_donation_score ?? null,
@@ -196,8 +298,64 @@ function lastOnline(presence: PresenceRow | undefined) {
   };
 }
 
+/** Everyone who has left, under the roster rather than mixed into it.
+ *
+ * Kept as its own list because a departed member is not a member with worse
+ * numbers — sorting them together would put someone who left last month
+ * above half the alliance on power alone.
+ */
+function Departures({ rows }: { rows: DepartureRow[] }) {
+  if (rows.length === 0) {
+    return null;
+  }
+  return (
+    <section aria-labelledby="roster-departed">
+      <h3 id="roster-departed">Left the alliance</h3>
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Name</th>
+            <th scope="col">HQ</th>
+            <th scope="col">Power</th>
+            <th scope="col">Last seen as a member</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.game_uid}>
+              <td className="label">
+                {row.player_id === null ? (
+                  (row.last_known_name ?? '—')
+                ) : (
+                  <a href={`#/player/${row.player_id}`}>{row.last_known_name ?? '—'}</a>
+                )}
+                {/* An absence from a capture that did not see the whole
+                    member list is a maybe, not a departure. Six of this
+                    alliance's ten captured batches are one or two rows
+                    short, and calling those departures would be worse than
+                    saying nothing. */}
+                {row.confirmed === false && (
+                  <span className="badge" title="The newest capture did not cover the whole roster">
+                    unconfirmed
+                  </span>
+                )}
+              </td>
+              <td className="num">{row.last_hq_level ?? '—'}</td>
+              <td className="num">
+                {row.last_power === null ? '—' : row.last_power.toLocaleString('ko-KR')}
+              </td>
+              <td>{row.last_seen_in_alliance_at.slice(0, 10)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  );
+}
+
 export function RosterPanel() {
   const { data, error, isPending } = useQuery({ queryKey: ['roster'], queryFn: fetchRoster });
+  const { data: departures } = useQuery({ queryKey: ['departures'], queryFn: fetchDepartures });
   const { data: columns } = useQuery({
     queryKey: ['member-formulas'],
     queryFn: fetchMemberColumns,
@@ -229,6 +387,7 @@ export function RosterPanel() {
       {isPending && <p className="empty">Loading…</p>}
       {error && <p className="error">Could not load members: {error.message}</p>}
       {data && <RosterTable columns={columns ?? []} rows={data} />}
+      <Departures rows={departures ?? []} />
     </section>
   );
 }
