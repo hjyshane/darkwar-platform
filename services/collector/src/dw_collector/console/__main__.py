@@ -18,7 +18,7 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import scrolledtext, ttk
 
-from dw_collector.console import logs, state
+from dw_collector.console import logs, session, state
 from dw_collector.envfile import load_env_file
 
 REFRESH_MS = 3000
@@ -42,6 +42,7 @@ class Console:
 
         self.journal_path = Path(os.environ.get("DW_SQLITE_PATH", "./data/collector.db"))
         self.capture_dir = Path(os.environ.get("DW_CAPTURE_DIR", r"C:\DW_data\live"))
+        self.session: session.Session | None = None
 
         self._build_actions(root)
         self.tails = logs.tails()
@@ -83,6 +84,10 @@ class Console:
         notebook.add(status_tab, text="Status")
         self._build_status(status_tab)
 
+        session_tab = ttk.Frame(notebook)
+        notebook.add(session_tab, text="Session")
+        self._build_session(session_tab)
+
         self.log_views: dict[str, scrolledtext.ScrolledText] = {}
         for name in self.tails:
             tab = ttk.Frame(notebook)
@@ -95,6 +100,114 @@ class Console:
         notebook.add(message_tab, text="Activity")
         self.log = scrolledtext.ScrolledText(message_tab, wrap="none", height=20)
         self.log.pack(fill="both", expand=True)
+
+    def _build_session(self, root: tk.Misc) -> None:
+        """A stretch of play, and a receipt for it.
+
+        Capture does not start here — it is already running, and a Start that
+        implied otherwise would misdescribe the machine. What this marks is a
+        boundary, so "I opened six profiles" becomes a number, and Stop spends
+        the ~110s pipeline delay on purpose instead of leaving it to be
+        wondered about.
+        """
+        bar = ttk.Frame(root)
+        bar.pack(fill="x", padx=10, pady=(8, 4))
+        self.session_start = ttk.Button(bar, text="Start session", command=self._session_start)
+        self.session_start.grid(row=0, column=0, padx=(0, 6))
+        self.session_stop = ttk.Button(bar, text="Stop and sync", command=self._session_stop)
+        self.session_stop.grid(row=0, column=1)
+        self.session_stop.state(["disabled"])
+        self.session_label = tk.Label(bar, text="not recording", anchor="w", fg=IDLE)
+        self.session_label.grid(row=0, column=2, padx=10, sticky="w")
+
+        ttk.Label(
+            root,
+            text=(
+                "Collection runs whether or not a session is open. This counts what arrives\n"
+                "while it is, and on Stop it flushes the capture ring and waits for the\n"
+                "upload so the figures are what reached the dashboard."
+            ),
+            justify="left",
+        ).pack(anchor="w", padx=10, pady=(0, 6))
+
+        self.session_view = scrolledtext.ScrolledText(root, wrap="none", height=16)
+        self.session_view.pack(fill="both", expand=True, padx=10, pady=(0, 8))
+
+    def _session_start(self) -> None:
+        started = session.start(self.journal_path)
+        if started is None:
+            self._append(f"error: no journal at {self.journal_path}")
+            return
+        self.session = started
+        self.session_start.state(["disabled"])
+        self.session_stop.state(["!disabled"])
+        self.session_view.delete("1.0", "end")
+        self._append("session started")
+
+    def _session_stop(self) -> None:
+        current = self.session
+        if current is None:
+            return
+        self.session_stop.state(["disabled"])
+        self.session_label.config(text="finishing…", fg=IDLE)
+
+        def work() -> str:
+            report = session.finish(
+                current,
+                capture_dir=self.capture_dir,
+                collector_dir=Path(__file__).resolve().parents[3],
+                progress=lambda message: self.messages.put(message),
+            )
+            lines = [
+                f"session of {current.elapsed / 60:.1f} min",
+                f"  {report.observations:,} observations in {len(report.commands)} commands",
+                f"  {report.files_ingested} capture file(s) read on stop",
+                f"  outbox: {report.outbox_pending:,} pending · {report.sent:,} sent",
+                "",
+            ]
+            lines += [f"  {command:34} {n:5}" for command, n in report.commands.items()]
+            lines += [""] + [f"  ! {note}" for note in report.notes]
+            receipt = "\n".join(lines)
+            self.root.after(0, lambda: self._session_done(report.delivered, receipt))
+            return "session finished"
+
+        self._spawn(work)
+
+    def _session_done(self, delivered: bool, receipt: str) -> None:
+        self.session = None
+        self.session_start.state(["!disabled"])
+        self.session_label.config(
+            text="delivered" if delivered else "queued, not yet in the cloud",
+            fg=GOOD if delivered else BAD,
+        )
+        self.session_view.delete("1.0", "end")
+        self.session_view.insert("end", receipt + "\n")
+
+    def _refresh_session(self) -> None:
+        """Live counts while a session is open.
+
+        Cheap: one grouped count over rows newer than a rowid. It runs on the
+        UI thread with the rest of the tick because a read-only SQLite query
+        against a local file is not what would make this window stutter.
+        """
+        current = self.session
+        if current is None:
+            return
+        rows = session.counts(current)
+        total = sum(rows.values())
+        self.session_label.config(
+            text=f"recording {current.elapsed / 60:.1f} min · {total:,} observations",
+            fg=GOOD if total else IDLE,
+        )
+        self.session_view.delete("1.0", "end")
+        if not rows:
+            # Not an error. Between ring rotations nothing arrives however
+            # long you look, which is the delay the Stop button exists to end.
+            self.session_view.insert("end", "nothing has arrived yet (the ring closes every 60s)\n")
+            return
+        self.session_view.insert(
+            "end", "\n".join(f"  {command:34} {n:5}" for command, n in rows.items()) + "\n"
+        )
 
     def _build_status(self, root: tk.Misc) -> None:
         frame = ttk.LabelFrame(root, text="Status")
@@ -162,6 +275,7 @@ class Console:
         while not self.messages.empty():
             self._append(self.messages.get())
         self._drain_logs()
+        self._refresh_session()
         self._spawn_refresh()
         self.root.after(REFRESH_MS, self._tick)
 
