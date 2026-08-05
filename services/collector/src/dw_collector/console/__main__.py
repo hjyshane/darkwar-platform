@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import os
 import queue
+import sys
 import threading
 import tkinter as tk
 from pathlib import Path
@@ -29,8 +30,9 @@ IDLE = "#6b6b6b"
 
 
 class Console:
-    def __init__(self, root: tk.Tk) -> None:
+    def __init__(self, root: tk.Tk, env_file: Path | None = None) -> None:
         self.root = root
+        self.env_file = env_file
         self.messages: queue.Queue[str] = queue.Queue()
         # English throughout, like the rest of the repo. Mixing scripts here
         # also invited the encoding problems that cost a build and a log tab
@@ -102,6 +104,7 @@ class Console:
             "BlueStacks",
             "Dark War",
             *state.TASKS,
+            "Config",
             "Journal",
             "Last observation",
             "Outbox",
@@ -211,6 +214,16 @@ class Console:
         self.buttons["start"].state(["disabled"] if emulator else ["!disabled"])
         self.buttons["game"].state(["disabled"] if game or not emulator else ["!disabled"])
 
+        # Which .env was read, if any. Without it DW_SQLITE_PATH is unset and
+        # the journal falls back to ./data/collector.db, so the window reports
+        # "missing" while collection is running perfectly against a different
+        # file. Naming the config file makes that five seconds of diagnosis
+        # instead of an hour - it already cost one.
+        if self.env_file is None:
+            self._set("Config", "no .env found - paths are defaults", BAD)
+        else:
+            self._set("Config", str(self.env_file), GOOD)
+
         if not journal.exists:
             self._set("Journal", f"missing ({journal.path})", IDLE)
         else:
@@ -238,10 +251,26 @@ class Console:
         self.log.see("end")
 
 
+def _load_env() -> Path | None:
+    """The working directory first, then next to the executable.
+
+    A shortcut can set a working directory but not an environment, and the
+    frozen exe can be launched from anywhere, so cwd alone is not a reliable
+    anchor. Falling back to the binary's own location finds `.env` for a
+    normal install; when neither works the window says so rather than
+    quietly using defaults.
+    """
+    found = load_env_file()
+    if found is not None:
+        return found
+    base = Path(sys.executable if getattr(sys, "frozen", False) else __file__).resolve().parent
+    return load_env_file(start=base)
+
+
 def main() -> None:
-    load_env_file()
+    env_file = _load_env()
     root = tk.Tk()
-    Console(root)
+    Console(root, env_file=env_file)
     root.mainloop()
 
 
