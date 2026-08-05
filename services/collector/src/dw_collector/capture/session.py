@@ -131,7 +131,14 @@ class CaptureSession:
         inbound = segment.source_port == self.port
 
         stream = self._streams[key]
-        for frame in stream.feed(segment.sequence, segment.payload):
+        # The clock goes down with the segment so the reassembler can give up
+        # on a gap that has been outstanding too long. Without it a gap only
+        # clears once 64 segments have piled up behind it, and the wedge this
+        # collector had was a gap followed by a quiet game — the count never
+        # arrived and the stream stayed silent until the process was restarted.
+        for frame in stream.feed(
+            segment.sequence, segment.payload, now=now or datetime.now(tz=UTC)
+        ):
             self.stats.frames += 1
             self.last_frame_at = now or datetime.now(tz=UTC)
             if not inbound:

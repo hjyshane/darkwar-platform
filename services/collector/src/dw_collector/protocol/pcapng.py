@@ -182,6 +182,11 @@ def parse_tcp(packet: bytes) -> TcpSegment | None:
 # a stream for the best part of a megabyte.
 MAX_PENDING_SEGMENTS = 64
 
+# How long a gap may stay unresolved before the stream gives up on it. Ten
+# seconds is far beyond any real retransmit on a loopback-to-emulator path, and
+# far below the "silent until restarted" this replaced.
+GAP_TIMEOUT_SECONDS = 10.0
+
 
 @dataclass
 class TCPDirectionReassembler:
@@ -193,8 +198,12 @@ class TCPDirectionReassembler:
     # Times a lost segment forced a jump past the gap. Live capture only;
     # a pcap replay has every byte.
     gap_skips: int = 0
+    # When the current gap first appeared. None while nothing is waiting.
+    gap_since: datetime | None = None
 
-    def feed(self, sequence: int, payload: bytes) -> list[SmartFoxFrame]:
+    def feed(
+        self, sequence: int, payload: bytes, *, now: datetime | None = None
+    ) -> list[SmartFoxFrame]:
         if not payload:
             return []
         if self.next_sequence is None:
@@ -218,11 +227,39 @@ class TCPDirectionReassembler:
             self.next_sequence += len(chunk)
             frames.extend(self.decoder.feed(chunk))
 
-        # A lost segment would otherwise buffer forever; jump past the gap
-        # to the lowest offset we do have and let the decoder resync.
-        if len(self.pending) > MAX_PENDING_SEGMENTS:
+        # A lost segment would otherwise buffer forever; jump past the gap to
+        # the lowest offset we do have and let the decoder resync.
+        #
+        # TWO BOUNDS, and the second is the one that matters. A count alone
+        # only fires while traffic keeps coming, and the case that wedged this
+        # collector is the opposite: a reconnect burst overruns the capture
+        # buffer, a gap opens, and then the game goes quiet. Seven segments
+        # arrive over the next minute, 64 is never reached, and the stream is
+        # silent for as long as the process runs. Reproduced offline — three
+        # consecutive capture files fed through one reassembler produced 0
+        # frames from 51 segments, with buffered=0 and resync=0 because the
+        # bytes were sitting here rather than in the decoder.
+        stalled_too_long = (
+            now is not None
+            and self.gap_since is not None
+            and (now - self.gap_since).total_seconds() > GAP_TIMEOUT_SECONDS
+        )
+        if self.pending and (len(self.pending) > MAX_PENDING_SEGMENTS or stalled_too_long):
             self.next_sequence = min(self.pending)
             self.gap_skips += 1
+            self.gap_since = None
+            # Drain whatever the jump made contiguous, or the caller sees the
+            # skip counted and still gets no frames until the next segment.
+            while self.next_sequence in self.pending:
+                chunk = self.pending.pop(self.next_sequence)
+                self.next_sequence += len(chunk)
+                frames.extend(self.decoder.feed(chunk))
+
+        # Tracked after the skip so a fresh gap starts its own clock.
+        if not self.pending:
+            self.gap_since = None
+        elif self.gap_since is None:
+            self.gap_since = now
         return frames
 
 
