@@ -32,7 +32,10 @@ class Console:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
         self.messages: queue.Queue[str] = queue.Queue()
-        root.title("Dark War 수집기")
+        # English throughout, like the rest of the repo. Mixing scripts here
+        # also invited the encoding problems that cost a build and a log tab
+        # today — Windows consoles and .ps1 files are unforgiving about it.
+        root.title("Dark War Collector")
         root.geometry("760x560")
 
         self.journal_path = Path(os.environ.get("DW_SQLITE_PATH", "./data/collector.db"))
@@ -46,16 +49,16 @@ class Console:
     # --- layout ---------------------------------------------------------
 
     def _build_actions(self, root: tk.Tk) -> None:
-        frame = ttk.LabelFrame(root, text="시작")
+        frame = ttk.LabelFrame(root, text="Actions")
         frame.pack(fill="x", padx=10, pady=(10, 6))
 
         buttons = [
-            ("start", "BlueStacks (collector)", self._start_emulator),
-            ("game", "Dark War 실행", self._start_game),
-            ("collect", "수집 시작", self._start_tasks),
-            ("stop", "수집 중지", self._stop_tasks),
-            ("web", "대시보드 열기", self._open_dashboard),
-            ("docker", "Docker (로컬 스택용)", self._start_docker),
+            ("start", "Start BlueStacks", self._start_emulator),
+            ("game", "Start Dark War", self._start_game),
+            ("collect", "Start collection", self._start_tasks),
+            ("stop", "Stop collection", self._stop_tasks),
+            ("web", "Open dashboard", self._open_dashboard),
+            ("docker", "Start Docker (local stack)", self._start_docker),
         ]
         self.buttons: dict[str, ttk.Button] = {}
         for index, (key, label, command) in enumerate(buttons):
@@ -75,7 +78,7 @@ class Console:
         notebook.pack(fill="both", expand=True, padx=10, pady=6)
 
         status_tab = ttk.Frame(notebook)
-        notebook.add(status_tab, text="상태")
+        notebook.add(status_tab, text="Status")
         self._build_status(status_tab)
 
         self.log_views: dict[str, scrolledtext.ScrolledText] = {}
@@ -87,22 +90,22 @@ class Console:
             self.log_views[name] = view
 
         message_tab = ttk.Frame(notebook)
-        notebook.add(message_tab, text="동작")
+        notebook.add(message_tab, text="Activity")
         self.log = scrolledtext.ScrolledText(message_tab, wrap="none", height=20)
         self.log.pack(fill="both", expand=True)
 
     def _build_status(self, root: tk.Misc) -> None:
-        frame = ttk.LabelFrame(root, text="상태")
+        frame = ttk.LabelFrame(root, text="Status")
         frame.pack(fill="x", padx=10, pady=6)
         self.status_labels: dict[str, tk.Label] = {}
         rows = [
             "BlueStacks",
             "Dark War",
             *state.TASKS,
-            "저널",
-            "마지막 관측",
-            "outbox",
-            "캡처 파일",
+            "Journal",
+            "Last observation",
+            "Outbox",
+            "Capture files",
         ]
         for index, name in enumerate(rows):
             ttk.Label(frame, text=name, width=18).grid(row=index, column=0, sticky="w", padx=6)
@@ -123,7 +126,7 @@ class Console:
             # Broad on purpose: this is the window you open when something
             # is already wrong, so it shows the failure rather than dying.
             except Exception as exc:
-                self.messages.put(f"오류: {type(exc).__name__}: {exc}")
+                self.messages.put(f"error: {type(exc).__name__}: {exc}")
 
         threading.Thread(target=run, daemon=True).start()
 
@@ -134,10 +137,10 @@ class Console:
         self._spawn(state.start_game)
 
     def _start_tasks(self) -> None:
-        self._spawn(lambda: "수집 시작: " + ", ".join(state.TASKS) + f"  {state.start_tasks()}")
+        self._spawn(lambda: "start: " + ", ".join(state.TASKS) + f"  {state.start_tasks()}")
 
     def _stop_tasks(self) -> None:
-        self._spawn(lambda: "수집 중지: " + ", ".join(state.TASKS) + f"  {state.stop_tasks()}")
+        self._spawn(lambda: "stop: " + ", ".join(state.TASKS) + f"  {state.stop_tasks()}")
 
     def _start_docker(self) -> None:
         self._spawn(state.start_docker)
@@ -193,8 +196,8 @@ class Console:
         journal: state.JournalState,
         files: int,
     ) -> None:
-        self._set("BlueStacks", "실행 중" if emulator else "꺼짐", GOOD if emulator else BAD)
-        self._set("Dark War", "실행 중" if game else "꺼짐", GOOD if game else BAD)
+        self._set("BlueStacks", "running" if emulator else "stopped", GOOD if emulator else BAD)
+        self._set("Dark War", "running" if game else "stopped", GOOD if game else BAD)
         for task in tasks:
             self._set(task.name, task.status, GOOD if task.healthy else BAD)
 
@@ -209,26 +212,26 @@ class Console:
         self.buttons["game"].state(["disabled"] if game or not emulator else ["!disabled"])
 
         if not journal.exists:
-            self._set("저널", f"없음 ({journal.path})", IDLE)
+            self._set("Journal", f"missing ({journal.path})", IDLE)
         else:
-            self._set("저널", f"관측 {journal.observations:,}건 · {journal.commands}종", GOOD)
+            self._set(
+                "Journal",
+                f"{journal.observations:,} observations · {journal.commands} commands",
+                GOOD,
+            )
         age = journal.seconds_since_last
         if age is None:
-            self._set("마지막 관측", "없음", IDLE)
+            self._set("Last observation", "none yet", IDLE)
         else:
             # Five minutes is the ingest lag plus slack; below that, quiet
             # means the game is quiet rather than the collector being dead.
-            self._set(
-                "마지막 관측",
-                f"{age:,.0f}초 전",
-                GOOD if age < 400 else BAD,
-            )
+            self._set("Last observation", f"{age:,.0f}s ago", GOOD if age < 400 else BAD)
         self._set(
-            "outbox",
-            f"대기 {journal.pending_outbox:,} · 전송 {journal.sent_outbox:,}",
+            "Outbox",
+            f"{journal.pending_outbox:,} pending · {journal.sent_outbox:,} sent",
             BAD if journal.pending_outbox > 5000 else GOOD,
         )
-        self._set("캡처 파일", f"{files}개", GOOD if files else IDLE)
+        self._set("Capture files", str(files), GOOD if files else IDLE)
 
     def _append(self, text: str) -> None:
         self.log.insert("end", text.rstrip() + "\n")

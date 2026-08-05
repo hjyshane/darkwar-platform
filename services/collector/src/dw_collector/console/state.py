@@ -165,7 +165,7 @@ def open_dashboard() -> str:
     to it should not require remembering the address.
     """
     webbrowser.open(DASHBOARD_URL)
-    return f"대시보드 열기: {DASHBOARD_URL}"
+    return f"opening {DASHBOARD_URL}"
 
 
 def start_docker() -> str:
@@ -173,7 +173,7 @@ def start_docker() -> str:
     if not DOCKER_DESKTOP.exists():
         return f"not found: {DOCKER_DESKTOP}"
     subprocess.Popen([str(DOCKER_DESKTOP)])
-    return "Docker Desktop 시작 요청"
+    return "Docker Desktop launch requested"
 
 
 def start_emulator() -> str:
@@ -187,7 +187,7 @@ def start_emulator() -> str:
     if not HD_PLAYER.exists():
         return f"not found: {HD_PLAYER}"
     subprocess.Popen([str(HD_PLAYER), "--instance", COLLECTOR_INSTANCE])
-    return f"BlueStacks {COLLECTOR_INSTANCE} (collector) 시작 요청"
+    return f"BlueStacks {COLLECTOR_INSTANCE} (collector) launch requested"
 
 
 def start_game() -> str:
@@ -211,5 +211,5 @@ def start_game() -> str:
         timeout=30.0,
     )
     if result.returncode != 0:
-        return f"실패: {result.stderr.strip() or result.stdout.strip()}"
-    return f"{GAME_PACKAGE} 시작 요청"
+        return f"failed: {result.stderr.strip() or result.stdout.strip()}"
+    return f"{GAME_PACKAGE} launch requested"

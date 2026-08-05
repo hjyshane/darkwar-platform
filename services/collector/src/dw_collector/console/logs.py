@@ -20,9 +20,9 @@ LOG_DIR = Path(r"C:\DW_data\logs")
 # Name -> file. Kept here rather than in the window so the set of things
 # worth watching is one edit, not two.
 LOG_FILES = {
-    "캡처": LOG_DIR / "capture.log",
-    "수집": LOG_DIR / "ingest.log",
-    "동기화": LOG_DIR / "sync.log",
+    "Capture": LOG_DIR / "capture.log",
+    "Ingest": LOG_DIR / "ingest.log",
+    "Sync": LOG_DIR / "sync.log",
 }
 
 MAX_LINES = 500
