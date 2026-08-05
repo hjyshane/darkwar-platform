@@ -12,6 +12,7 @@ import { LineupCell } from '../arena/LineupCell';
 import { LineupLegend } from '../arena/LineupLegend';
 import { fetchLineups } from '../arena/lineups';
 import { MemberHistory } from './MemberHistory';
+import { PlayerTrend } from './PlayerTrend';
 import {
   type PlayerArenaEntry,
   growthNote,
@@ -425,6 +426,16 @@ export function PlayerPage({ playerId, now }: { playerId: string; now?: Date }) 
           )}
         </>
       )}
+
+      {/* OUTSIDE the isOwnAlliance block above, which is the point of it. The
+          contribution, roster-history and standing sections are alliance-internal
+          and do not exist for anybody else; this one is built on the ranking
+          boards, which list every player on the server. Somebody browsing a
+          rival's profile gets a growth trend here and nothing else on the page. */}
+      <section aria-labelledby="player-trend">
+        <h2 id="player-trend">Growth</h2>
+        <PlayerTrend playerId={data.playerId} />
+      </section>
 
       {data.componentPower.length > 0 && (
         <section aria-labelledby="player-component">

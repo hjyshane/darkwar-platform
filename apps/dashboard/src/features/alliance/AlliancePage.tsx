@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import { FavouriteButton } from '../../components/FavouriteButton';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
 import { StatTile } from '../../components/StatTile';
@@ -6,6 +7,8 @@ import { playerHash, serverHash } from '../../lib/route';
 import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
 import { useFavourites } from '../../lib/useFavourites';
+import { AllianceCompare } from './AllianceCompare';
+import { AllianceTrends } from './AllianceTrends';
 
 /** One alliance: what the game reports about it, and who we have seen in it.
  *
@@ -167,6 +170,17 @@ async function fetchAlliance(allianceId: string): Promise<AllianceDetail | null>
   };
 }
 
+/** The three questions this page answers, in the order they get asked: who is
+ * in it, how has it moved, how does it compare. Members first because that is
+ * what the page has always opened on and a link from elsewhere expects it. */
+type View = 'members' | 'trends' | 'compare';
+
+const VIEWS: { view: View; label: string }[] = [
+  { view: 'members', label: 'Members' },
+  { view: 'trends', label: 'Trends' },
+  { view: 'compare', label: 'Against the server' },
+];
+
 const plain = new Intl.NumberFormat('ko-KR');
 const compact = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 });
 
@@ -179,6 +193,7 @@ function big(value: number | null): string | null {
 }
 
 export function AlliancePage({ allianceId, now }: { allianceId: string; now?: Date }) {
+  const [view, setView] = useState<View>('members');
   const { signedIn, isFavourite, toggle } = useFavourites();
   const { data, error, isPending } = useQuery({
     queryKey: ['alliance', allianceId],
@@ -273,53 +288,88 @@ export function AlliancePage({ allianceId, now }: { allianceId: string; now?: Da
         )}
       </section>
 
-      <section aria-labelledby="alliance-members">
-        <h2 id="alliance-members">{TERMS.members}</h2>
-        {data.members.length === 0 ? (
-          // The common case for someone else's alliance, and worth saying
-          // rather than showing an empty table: the game gives a member COUNT
-          // on the ranking screen but the names only come from opening that
-          // alliance's roster, which we can only do for our own.
-          <p className="empty">
-            No member of this alliance has been observed. The ranking screen reports how many there
-            are; the names come from a roster capture.
-          </p>
-        ) : (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th className="label">{TERMS.name}</th>
-                  <th className="num">{TERMS.hq}</th>
-                  <th className="num">{TERMS.power}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.members.map((member) => (
-                  <tr key={member.playerId ?? `uid:${member.gameUid}`}>
-                    <td className="label">
-                      {/* No link when the uid never resolved to a player row.
+      {/* Buttons, not links, and local state rather than a hash segment.
+          Switching view is not navigation here: every tab is about the same
+          alliance and the back button should leave the page, not step through
+          three panels. The markup and `aria-current` match the main nav so the
+          selected state cannot look different from the rest of the app. */}
+      <nav aria-label="Alliance views" className="tabs subtabs">
+        {VIEWS.map((entry) => (
+          <button
+            key={entry.view}
+            aria-current={entry.view === view ? 'page' : undefined}
+            className="tab"
+            onClick={() => setView(entry.view)}
+            type="button"
+          >
+            {entry.label}
+          </button>
+        ))}
+      </nav>
+
+      {view === 'trends' && (
+        <section aria-labelledby="alliance-trends">
+          <h2 id="alliance-trends">Trends</h2>
+          <AllianceTrends allianceId={data.allianceId} isOwn={data.isOwn} />
+        </section>
+      )}
+
+      {view === 'compare' && (
+        <section aria-labelledby="alliance-compare">
+          <h2 id="alliance-compare">Against the server</h2>
+          <AllianceCompare serverId={data.serverId} />
+        </section>
+      )}
+
+      {view === 'members' && (
+        <section aria-labelledby="alliance-members">
+          <h2 id="alliance-members">{TERMS.members}</h2>
+          {data.members.length === 0 ? (
+            // The common case for someone else's alliance, and worth saying
+            // rather than showing an empty table: the game gives a member COUNT
+            // on the ranking screen but the names only come from opening that
+            // alliance's roster, which we can only do for our own.
+            <p className="empty">
+              No member of this alliance has been observed. The ranking screen reports how many
+              there are; the names come from a roster capture.
+            </p>
+          ) : (
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th className="label">{TERMS.name}</th>
+                    <th className="num">{TERMS.hq}</th>
+                    <th className="num">{TERMS.power}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.members.map((member) => (
+                    <tr key={member.playerId ?? `uid:${member.gameUid}`}>
+                      <td className="label">
+                        {/* No link when the uid never resolved to a player row.
                           They are in the alliance and belong in the count; there
                           is simply no page to send anybody to. */}
-                      {member.playerId === null ? (
-                        `UID ${member.gameUid}`
-                      ) : (
-                        <a href={playerHash(member.playerId)}>
-                          {member.name ?? `UID ${member.gameUid}`}
-                        </a>
-                      )}
-                    </td>
-                    <td className="num">{member.hqLevel ?? '—'}</td>
-                    <td className="num">{num(member.power) ?? '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+                        {member.playerId === null ? (
+                          `UID ${member.gameUid}`
+                        ) : (
+                          <a href={playerHash(member.playerId)}>
+                            {member.name ?? `UID ${member.gameUid}`}
+                          </a>
+                        )}
+                      </td>
+                      <td className="num">{member.hqLevel ?? '—'}</td>
+                      <td className="num">{num(member.power) ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      )}
 
-      {data.pastNames.length > 0 && (
+      {view === 'members' && data.pastNames.length > 0 && (
         <section aria-labelledby="alliance-names">
           <h2 id="alliance-names">Also known as</h2>
           {/* The player page has shown player_names since it existed and the
