@@ -1,6 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { rankPeriodEnd, rankPeriodStart, rankPeriodWeekEnds } from '../../lib/rankPeriod';
+import {
+  rankPeriodEnd,
+  rankPeriodStart,
+  rankPeriodWeekEnds,
+  recentRankPeriods,
+} from '../../lib/rankPeriod';
 import { supabase } from '../../lib/supabase';
 
 /** Which members changed rank over the last two weeks, and why.
@@ -33,6 +38,10 @@ interface RankRow {
 
 const TIER_ORDER: Record<string, number> = { R1: 1, R2: 2, R3: 3 };
 
+/** A rank period is a fortnight. Written once rather than as
+ * `14 * 24 * 3600 * 1000` at each of the four places that needed it. */
+const PERIOD_MS = 14 * 24 * 3600 * 1000;
+
 async function fetchPeriod(periodStart: Date): Promise<RankRow[]> {
   const { data, error } = await supabase
     .from('rank_period_snapshots')
@@ -56,12 +65,28 @@ export function RankReportSetting() {
   const [message, setMessage] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 
-  // The period now in progress, the one before it — which is the newest one
-  // with a complete fortnight behind it — and the one before that, which is
-  // what it gets compared against.
+  // The period now in progress, and the newest one with a complete fortnight
+  // behind it. That second one is the default to report on.
   const current = rankPeriodStart(new Date());
-  const closed = new Date(current.getTime() - 14 * 24 * 3600 * 1000);
-  const previous = new Date(closed.getTime() - 14 * 24 * 3600 * 1000);
+  const newestClosed = new Date(current.getTime() - PERIOD_MS);
+
+  // Which period the screen is looking at.
+  //
+  // It used to be `newestClosed` and nothing else, and on a young database
+  // that is a screen showing two empty fortnights: the grid is anchored at
+  // 2026-07-27 02:00 UTC, so today the newest CLOSED period is 07-13 — before
+  // this collector existed. Every figure read zero and the dates looked stale,
+  // because they were. The only period with data in it is the one in progress,
+  // and there was no way to ask for it.
+  const [chosen, setChosen] = useState<string | null>(null);
+  const closed = chosen === null ? newestClosed : new Date(chosen);
+  const previous = new Date(closed.getTime() - PERIOD_MS);
+  const inProgress = closed.getTime() === current.getTime();
+
+  // Grid boundaries rather than free dates: a period boundary IS a game week
+  // boundary, and an arbitrary start puts the two weekly contribution readings
+  // somewhere the game never cleared a board. See recentRankPeriods.
+  const options = recentRankPeriods(new Date(), 6);
 
   const report = useQuery({
     queryKey: ['rank-report', closed.toISOString()],
@@ -125,11 +150,41 @@ export function RankReportSetting() {
 
   return (
     <>
+      <label>
+        Period
+        {/* On the grid, not free dates. A period boundary is a game week
+            boundary — Monday 02:00 UTC, every other one — and the two weekly
+            contribution readings sit one minute before the game clears each
+            week. An arbitrary start puts those readings in the wrong place and
+            scores everybody at zero. */}
+        <select onChange={(event) => setChosen(event.target.value)} value={closed.toISOString()}>
+          {options.map((start) => (
+            <option key={start.toISOString()} value={start.toISOString()}>
+              {iso(start)} to {iso(rankPeriodEnd(start))}
+              {start.getTime() === current.getTime() ? ' (in progress)' : ''}
+            </option>
+          ))}
+        </select>
+      </label>
+
       <p className="subtle">
         Period <strong>{iso(closed)}</strong> to <strong>{iso(rankPeriodEnd(closed))}</strong>.
         Contribution and duel were read at {iso(firstWeek)} 01:59Z and {iso(secondWeek)} 01:59Z —
         one minute before the game clears each week — and power at the period's own two boundaries.
       </p>
+
+      {inProgress && (
+        // Said rather than refused. Building a period that has not finished is
+        // a legitimate thing to want — on a young database it is the only
+        // period with any captures in it — but its second weekly reading has
+        // not happened yet, so half the contribution figures will be missing
+        // and that must not read as somebody having contributed nothing.
+        <p className="empty">
+          This period is still running. Its second weekly reading is on {iso(secondWeek)}, so
+          contribution and duel for week two are not in yet — building it now gives a partial
+          answer, not a wrong one.
+        </p>
+      )}
 
       {message && <p className={failed ? 'error' : 'empty'}>{message}</p>}
 

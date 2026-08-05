@@ -29,6 +29,24 @@ export function rankPeriodEnd(periodStart: Date): Date {
   return new Date(periodStart.getTime() + 2 * WEEK_MS);
 }
 
+/** The period running now and the ones before it, newest first.
+ *
+ * Here rather than in the admin screen because it is grid arithmetic, and the
+ * grid is what this module owns and what the shared vectors check.
+ *
+ * The screen needs it to offer a choice. It used to report on the newest
+ * CLOSED period and nothing else, which on a young database means two empty
+ * fortnights — the grid is anchored at 2026-07-27, so the newest closed period
+ * predates the collector, and the only period holding captures is the one in
+ * progress. A choice of WHICH period is the fix; free date entry would not be,
+ * because an arbitrary start puts the two weekly contribution readings
+ * somewhere the game never cleared a board.
+ */
+export function recentRankPeriods(ts: Date, count: number): Date[] {
+  const current = rankPeriodStart(ts).getTime();
+  return Array.from({ length: count }, (_unused, index) => new Date(current - index * 2 * WEEK_MS));
+}
+
 /** The two moments a week's contribution has to be read at: 01:59Z on the
  * last day of each week, one minute before the game clears the boards.
  * Reading them a minute later would score everybody at zero, which is the

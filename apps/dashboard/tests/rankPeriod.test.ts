@@ -3,7 +3,12 @@
 // the game week rule has been kept honest this way since 0001.
 import { expect, test } from 'vitest';
 import vectors from '../../../protocol-fixtures/rank-period/vectors.json';
-import { rankPeriodEnd, rankPeriodStart, rankPeriodWeekEnds } from '../src/lib/rankPeriod';
+import {
+  rankPeriodEnd,
+  rankPeriodStart,
+  rankPeriodWeekEnds,
+  recentRankPeriods,
+} from '../src/lib/rankPeriod';
 
 for (const vector of vectors.vectors) {
   test(`rankPeriodStart: ${vector.name}`, () => {
@@ -32,4 +37,38 @@ test('the weekly readings land a minute before the boards clear', () => {
   // in the next week and score zero, which is the mistake this pins.
   expect(rankPeriodStart(first).toISOString()).toBe(start.toISOString());
   expect(second.getTime()).toBeLessThan(rankPeriodEnd(start).getTime());
+});
+
+test('recentRankPeriods walks the grid backwards from the one running now', () => {
+  // A Wednesday inside the 2026-07-27 period.
+  const periods = recentRankPeriods(new Date('2026-08-05T12:00:00Z'), 4);
+
+  expect(periods.map((d) => d.toISOString())).toEqual([
+    '2026-07-27T02:00:00.000Z',
+    '2026-07-13T02:00:00.000Z',
+    '2026-06-29T02:00:00.000Z',
+    '2026-06-15T02:00:00.000Z',
+  ]);
+});
+
+test('every offered period is a real grid start, including before the epoch', () => {
+  // The reason the picker offers a list instead of a date field: each entry
+  // has to be a start rankPeriodStart would itself return, or the two weekly
+  // readings land where the game never cleared a board.
+  for (const start of recentRankPeriods(new Date('2026-08-05T12:00:00Z'), 12)) {
+    expect(rankPeriodStart(start).toISOString()).toBe(start.toISOString());
+  }
+});
+
+test('the first entry is the period in progress, not the newest closed one', () => {
+  // What this screen got wrong: it reported on the newest CLOSED period only,
+  // which on this grid is 2026-07-13 — before the collector existed. Every
+  // figure read zero and the dates looked stale, because they were.
+  const now = new Date('2026-08-05T12:00:00Z');
+  const periods = recentRankPeriods(now, 1);
+
+  expect(periods).toHaveLength(1);
+  const first = periods[0] as Date;
+  expect(first.toISOString()).toBe(rankPeriodStart(now).toISOString());
+  expect(rankPeriodEnd(first).getTime()).toBeGreaterThan(now.getTime());
 });
