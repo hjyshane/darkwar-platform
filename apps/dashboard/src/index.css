@@ -110,6 +110,19 @@ h1 {
   margin-bottom: var(--space-6);
 }
 
+/* A button that has to look like a link: switching to the sign-up form is
+ * navigation, but it is state rather than a route, so an <a href> would be
+ * a lie to a screen reader and to anyone middle-clicking it. */
+.linklike {
+  background: none;
+  border: none;
+  color: var(--accent, inherit);
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+  text-decoration: underline;
+}
+
 /* Secondary on purpose. It sits next to the title, and a full-weight button
  * there would read as the page's main action, which it is not — the board
  * already refreshes itself and this is the manual nudge. */

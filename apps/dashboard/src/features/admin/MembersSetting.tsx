@@ -71,6 +71,38 @@ async function fetchLinkablePlayers(): Promise<LinkablePlayer[]> {
   return (data ?? []) as LinkablePlayer[];
 }
 
+type PendingClaim = {
+  user_id: string;
+  player_id: string;
+  note: string | null;
+  created_at: string;
+};
+
+/** What members have said about themselves, awaiting a decision.
+ *
+ * The link box below already existed and asked an admin to know which
+ * account belongs to whom. 0068 lets the member answer that, and this is
+ * where the answer is accepted or refused — approving writes
+ * `app_users.player_id` through a security-definer function, so the rule
+ * that a member cannot link themselves (0066) is untouched.
+ */
+async function fetchPendingClaims(): Promise<PendingClaim[]> {
+  const { data, error } = await supabase
+    .from('player_claims')
+    .select('user_id, player_id, note, created_at')
+    .eq('status', 'pending')
+    .order('created_at');
+  if (error) {
+    // An admin without members.manage reads nothing here, and that is not a
+    // reason to fail the whole screen.
+    if (error.code === '42501') {
+      return [];
+    }
+    throw new Error(`claim query failed: ${error.message}`);
+  }
+  return (data ?? []) as PendingClaim[];
+}
+
 export function MembersSetting() {
   const queryClient = useQueryClient();
   const [message, setMessage] = useState<string | null>(null);
@@ -83,6 +115,35 @@ export function MembersSetting() {
   const { data: players } = useQuery({
     queryKey: ['linkable-players'],
     queryFn: fetchLinkablePlayers,
+  });
+  const { data: claims } = useQuery({
+    queryKey: ['player-claims'],
+    queryFn: fetchPendingClaims,
+  });
+
+  const decide = useMutation({
+    mutationFn: async (next: { userId: string; approve: boolean }) => {
+      const { error: rpcError } = await supabase.rpc(
+        next.approve ? 'approve_player_claim' : 'reject_player_claim',
+        { p_user: next.userId },
+      );
+      if (rpcError) {
+        throw new Error(rpcError.message);
+      }
+    },
+    onSuccess: () => {
+      setFailed(false);
+      setMessage('Saved.');
+      void queryClient.invalidateQueries({ queryKey: ['player-claims'] });
+      void queryClient.invalidateQueries({ queryKey: ['members-admin'] });
+      // Same reason the link box invalidates it: approving is a link, and
+      // the cached history answer predates it.
+      void queryClient.invalidateQueries({ queryKey: ['member-history'] });
+    },
+    onError: (mutationError: Error) => {
+      setFailed(true);
+      setMessage(mutationError.message);
+    },
   });
 
   const save = useMutation({
@@ -136,6 +197,57 @@ export function MembersSetting() {
       </p>
 
       {message && <p className={failed ? 'error' : 'empty'}>{message}</p>}
+
+      {(claims ?? []).length > 0 && (
+        <section aria-labelledby="member-claims">
+          <h3 id="member-claims">Claims waiting</h3>
+          <p className="subtle">
+            What each account says it is. Approving is what writes <strong>Player</strong> below —
+            the member cannot do it themselves.
+          </p>
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Account</th>
+                <th scope="col">Claims to be</th>
+                <th scope="col">Note</th>
+                <th scope="col">Decide</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(claims ?? []).map((claim) => {
+                const account = members.find((member) => member.user_id === claim.user_id);
+                const player = (players ?? []).find(
+                  (candidate) => candidate.player_id === claim.player_id,
+                );
+                return (
+                  <tr key={claim.user_id}>
+                    <td className="label">{account?.display_name ?? claim.user_id}</td>
+                    <td className="label">{player?.current_name ?? claim.player_id}</td>
+                    <td>{claim.note ?? '—'}</td>
+                    <td>
+                      <button
+                        disabled={decide.isPending}
+                        onClick={() => decide.mutate({ userId: claim.user_id, approve: true })}
+                        type="button"
+                      >
+                        Approve
+                      </button>{' '}
+                      <button
+                        disabled={decide.isPending}
+                        onClick={() => decide.mutate({ userId: claim.user_id, approve: false })}
+                        type="button"
+                      >
+                        Reject
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </section>
+      )}
 
       {members.length === 0 ? (
         <p className="empty">Nobody has signed in yet.</p>

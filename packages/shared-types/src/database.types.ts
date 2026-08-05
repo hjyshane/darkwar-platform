@@ -1510,6 +1510,54 @@ export type Database = {
         }
         Relationships: []
       }
+      player_claims: {
+        Row: {
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          note: string | null
+          player_id: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          note?: string | null
+          player_id: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          note?: string | null
+          player_id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_claims_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "player_claims_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+        ]
+      }
       player_component_power_snapshots: {
         Row: {
           alliance_abbr: string | null
@@ -2509,6 +2557,25 @@ export type Database = {
       }
     }
     Functions: {
+      approve_player_claim: {
+        Args: { p_user: string }
+        Returns: {
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          note: string | null
+          player_id: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "player_claims"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       backfill_month_card_from_raw: {
         Args: never
         Returns: {
@@ -2532,6 +2599,25 @@ export type Database = {
       redeem_join_code: {
         Args: { p_code: string }
         Returns: Database["public"]["Enums"]["app_role"]
+      }
+      reject_player_claim: {
+        Args: { p_user: string }
+        Returns: {
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          note: string | null
+          player_id: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "player_claims"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       reset_week_start: { Args: { ts: string }; Returns: string }
       resolve_own_alliance: { Args: never; Returns: undefined }

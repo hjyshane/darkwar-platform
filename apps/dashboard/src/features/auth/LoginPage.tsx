@@ -4,6 +4,8 @@ import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
 import { useSession } from '../../lib/useSession';
 import { JoinCodeForm } from './JoinCodeForm';
+import { PlayerClaimForm } from './PlayerClaimForm';
+import { SignUpForm } from './SignUpForm';
 
 /**
  * No longer unlinked. It was, back when signing in was an admin-only errand
@@ -21,6 +23,7 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [sessionEmail, setSessionEmail] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
   const { data: session } = useSession();
   const queryClient = useQueryClient();
 
@@ -66,8 +69,31 @@ export function LoginPage() {
             Signed in as {sessionEmail} — <strong>{session?.role ?? 'viewer'}</strong>.
           </p>
           {session?.role === 'viewer' && <JoinCodeForm onRedeemed={() => refreshSession()} />}
+          {/* Only once the code has been redeemed. A viewer cannot read the
+              roster (0065), so the picker would have nothing in it, and the
+              claim policy refuses them anyway — offering the form first
+              would be an invitation to a failure. */}
+          {session !== undefined && session.role !== 'viewer' && <PlayerClaimForm />}
           <button onClick={() => void signOut()} type="button">
             Sign out
+          </button>
+        </section>
+      </main>
+    );
+  }
+
+  if (creating) {
+    return (
+      <main>
+        <section aria-labelledby="login-heading">
+          <h2 id="login-heading">Create an account</h2>
+          <SignUpForm
+            onSignedIn={() => {
+              window.location.hash = '';
+            }}
+          />
+          <button onClick={() => setCreating(false)} type="button">
+            I already have an account
           </button>
         </section>
       </main>
@@ -104,6 +130,15 @@ export function LoginPage() {
           </button>
         </form>
         {error && <p className="error">{error}</p>}
+        {/* The reason this page existed and could not be reached: an
+            invitation code needs an account to redeem it, and nothing made
+            one. */}
+        <p>
+          No account yet?{' '}
+          <button className="linklike" onClick={() => setCreating(true)} type="button">
+            Create one
+          </button>
+        </p>
       </section>
     </main>
   );
