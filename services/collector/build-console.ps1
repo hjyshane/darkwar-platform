@@ -49,6 +49,11 @@ uv run --with pyinstaller pyinstaller `
 if ($LASTEXITCODE -ne 0) {
     Write-Output ''
     Write-Output 'FAIL: PyInstaller exited nonzero'
+    # The common cause, and it reads as a permissions problem rather than the
+    # obvious thing it is: PyInstaller cannot replace an .exe that is running.
+    if (Get-Process dw-console -ErrorAction SilentlyContinue) {
+        Write-Output '      dw-console is running - close the window and build again.'
+    }
     exit 1
 }
 
