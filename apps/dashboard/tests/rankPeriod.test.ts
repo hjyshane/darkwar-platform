@@ -31,8 +31,8 @@ test('the weekly readings land a minute before the boards clear', () => {
   const start = rankPeriodStart(new Date('2026-08-05T13:45:12Z'));
   const [first, second] = rankPeriodWeekEnds(start);
 
-  expect(first.toISOString()).toBe('2026-08-03T01:59:00.000Z');
-  expect(second.toISOString()).toBe('2026-08-10T01:59:00.000Z');
+  expect(first.toISOString()).toBe('2026-08-10T01:59:00.000Z');
+  expect(second.toISOString()).toBe('2026-08-17T01:59:00.000Z');
   // Each is inside the period it belongs to. A reading at 02:00 would fall
   // in the next week and score zero, which is the mistake this pins.
   expect(rankPeriodStart(first).toISOString()).toBe(start.toISOString());
@@ -44,10 +44,10 @@ test('recentRankPeriods walks the grid backwards from the one running now', () =
   const periods = recentRankPeriods(new Date('2026-08-05T12:00:00Z'), 4);
 
   expect(periods.map((d) => d.toISOString())).toEqual([
-    '2026-07-27T02:00:00.000Z',
-    '2026-07-13T02:00:00.000Z',
-    '2026-06-29T02:00:00.000Z',
-    '2026-06-15T02:00:00.000Z',
+    '2026-08-03T02:00:00.000Z',
+    '2026-07-20T02:00:00.000Z',
+    '2026-07-06T02:00:00.000Z',
+    '2026-06-22T02:00:00.000Z',
   ]);
 });
 

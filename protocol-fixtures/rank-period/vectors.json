@@ -1,53 +1,61 @@
 {
   "rule": "A rank period is two game weeks. It starts on a Monday 02:00 UTC — the same boundary reset_week_start returns — but only every other one, counted from the epoch below. rank_period_start(ts) returns the most recent period start at or before ts (boundary inclusive).",
-  "epoch": "2026-07-27T02:00:00Z",
-  "why_this_epoch": "A Monday 02:00 UTC boundary that appears in real captured data: user.get.arena.info reported it as its own week_start, so it is a boundary the game itself named rather than one we picked.",
+  "epoch": "2026-08-03T02:00:00Z",
+  "why_this_epoch": "A fortnightly grid has two possible phases and both are real Monday 02:00 UTC boundaries. The first anchor was 2026-07-27, taken from arena's own reported week_start; arena weeks start on Monday too, so 2026-08-03 is the same kind of boundary one week over. The alliance chose this phase, so periods run 08-03 to 08-17 and every other Monday from there. That is a change of PHASE, not of rule — but it moves every boundary, so these vectors and both implementations moved together (0071).",
+  "whose_fortnight": "The game has no two-week anything. Daily rankings and daily arena reset every day; the donation and duel boards reset weekly. The fortnight is OUR aggregation unit, chosen because ranks are reviewed that often — which is why its phase is a free choice rather than something the protocol dictates.",
   "measurement_points": {
-    "contribution_and_duel": "01:59:00Z on the last day of each of the two weeks — one minute before the game wipes the weekly boards. Two captures per period, summed.",
-    "power": "the period's own two boundaries, 02:00Z at the start and 02:00Z at the end. Power does not reset, so the boundary itself is a fine place to read it."
+    "contribution_and_duel": "01:59:00Z on the last day of each of the two weeks — one minute before the game wipes the WEEKLY boards. Two captures per period, summed.",
+    "power": "the period's own two boundaries, 02:00Z at the start and 02:00Z at the end. Power does not reset, so the boundary itself is a fine place to read it.",
+    "not_the_daily_boards": "Daily rankings and daily arena must NOT be summed across a period. One reading of a board that resets every day is one day's figure, and adding two of them over a fortnight would understate everybody by whatever was not captured. If a daily figure is ever wanted per period it needs a reading per day, which nothing collects yet."
   },
+  "absent_is_not_zero": "A period with no captures in it must not produce figures of zero and a tier of 'score'. Before 0071 it did: 93 members were graded R3 over a fortnight that predated the collector, and offline_hours came back at -225 because presence was read from outside the period. donation_total and duel_total are null when neither week was read, activity_score is null when every input is absent, a member with no activity_score gets no tier, and presence is bounded by the period's end.",
   "consumers": ["supabase/migrations (rank_period_start)", "apps/dashboard (rankPeriod.ts)"],
   "not_a_consumer": "services/collector — nothing there needs a period yet, and an implementation with no caller is one that drifts unnoticed. Add it there when something asks.",
   "vectors": [
     {
       "name": "the epoch is its own period start",
-      "input": "2026-07-27T02:00:00Z",
-      "expected": "2026-07-27T02:00:00Z"
+      "input": "2026-08-03T02:00:00Z",
+      "expected": "2026-08-03T02:00:00Z"
     },
     {
       "name": "one second before the epoch falls in the previous period",
-      "input": "2026-07-27T01:59:59Z",
-      "expected": "2026-07-13T02:00:00Z"
+      "input": "2026-08-03T01:59:59Z",
+      "expected": "2026-07-20T02:00:00Z"
     },
     {
       "name": "the odd week in between belongs to the period that started before it",
-      "input": "2026-08-03T02:00:00Z",
-      "expected": "2026-07-27T02:00:00Z"
+      "input": "2026-08-10T02:00:00Z",
+      "expected": "2026-08-03T02:00:00Z"
     },
     {
       "name": "and so does the last moment of it",
-      "input": "2026-08-10T01:59:59Z",
-      "expected": "2026-07-27T02:00:00Z"
+      "input": "2026-08-17T01:59:59Z",
+      "expected": "2026-08-03T02:00:00Z"
     },
     {
       "name": "two weeks on is the next period",
-      "input": "2026-08-10T02:00:00Z",
-      "expected": "2026-08-10T02:00:00Z"
+      "input": "2026-08-17T02:00:00Z",
+      "expected": "2026-08-17T02:00:00Z"
     },
     {
       "name": "midweek lands on the period it is inside",
       "input": "2026-08-05T13:45:12Z",
-      "expected": "2026-07-27T02:00:00Z"
+      "expected": "2026-08-03T02:00:00Z"
+    },
+    {
+      "name": "the previous anchor is now mid-period, which is what the phase change means",
+      "input": "2026-07-27T02:00:00Z",
+      "expected": "2026-07-20T02:00:00Z"
     },
     {
       "name": "well before the epoch still resolves, on the same fortnightly grid",
       "input": "2026-01-05T02:00:00Z",
-      "expected": "2025-12-29T02:00:00Z"
+      "expected": "2026-01-05T02:00:00Z"
     },
     {
       "name": "a year on stays on the grid",
-      "input": "2027-07-26T02:00:00Z",
-      "expected": "2027-07-26T02:00:00Z"
+      "input": "2027-08-02T02:00:00Z",
+      "expected": "2027-08-02T02:00:00Z"
     }
   ]
 }

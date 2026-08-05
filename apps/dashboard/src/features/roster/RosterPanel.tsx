@@ -233,6 +233,25 @@ export async function fetchRoster(): Promise<RosterRow[]> {
     throw new Error(`growth query failed: ${growthError.message}`);
   }
 
+  // The fallback for members the fixed baselines cannot describe.
+  //
+  // `player_power_growth` measures against 02:05 UTC a day and a week back
+  // (0055), so a member whose first capture was yesterday afternoon has no 1d
+  // baseline and shows a dash — which on a young database is most of the
+  // roster. `player_growth_recent` (0069) compares against the previous
+  // reading whatever the interval was, and carries that reading's timestamp so
+  // the column can say what it measured from.
+  const { data: recent, error: recentError } = await supabase
+    .from('player_growth_recent')
+    .select('player_id, growth_since_last, power_prev_at')
+    .in(
+      'player_id',
+      members.map((player) => player.player_id),
+    );
+  if (recentError && recentError.code !== '42501') {
+    throw new Error(`recent growth query failed: ${recentError.message}`);
+  }
+
   // Both halves of a rank — what an admin set and what the last period
   // worked out — from the one member-only view, so a reader never sees one
   // without the other (0059).
@@ -253,6 +272,7 @@ export async function fetchRoster(): Promise<RosterRow[]> {
   const byPlayer = new Map(contributions.map((row) => [row.player_id, row]));
   const rankByPlayer = new Map((ranks ?? []).map((row) => [row.player_id, row]));
   const growthByPlayer = new Map(growth.map((row) => [row.player_id, row]));
+  const recentByPlayer = new Map((recent ?? []).map((row) => [row.player_id, row]));
   const presenceByPlayer = new Map(presence.map((row) => [row.player_id, row]));
   // `alliances` is the join used to filter, not a column of the row — drop it
   // so the shape stays flat and every key remains sortable.
@@ -266,9 +286,19 @@ export async function fetchRoster(): Promise<RosterRow[]> {
     assigned_rank: rankByPlayer.get(player.player_id)?.assigned_rank ?? null,
     computed_rank: rankByPlayer.get(player.player_id)?.computed_tier ?? null,
     rank_score: rankByPlayer.get(player.player_id)?.rank_score ?? null,
-    growth_1d: growthByPlayer.get(player.player_id)?.growth_1d ?? null,
+    // The day figure falls back to "since the previous reading" when there is
+    // no day-old baseline. Not a silent substitution: `growth_1d_at` carries
+    // the timestamp it actually measured from either way, and the column
+    // renders that, so a figure over six hours does not read as a day's.
+    growth_1d:
+      growthByPlayer.get(player.player_id)?.growth_1d ??
+      recentByPlayer.get(player.player_id)?.growth_since_last ??
+      null,
     growth_7d: growthByPlayer.get(player.player_id)?.growth_7d ?? null,
-    growth_1d_at: growthByPlayer.get(player.player_id)?.power_1d_at ?? null,
+    growth_1d_at:
+      growthByPlayer.get(player.player_id)?.power_1d_at ??
+      recentByPlayer.get(player.player_id)?.power_prev_at ??
+      null,
     growth_7d_at: growthByPlayer.get(player.player_id)?.power_7d_at ?? null,
     ...lastOnline(presenceByPlayer.get(player.player_id)),
   }));
