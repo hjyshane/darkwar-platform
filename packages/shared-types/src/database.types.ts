@@ -1063,6 +1063,13 @@ export type Database = {
             foreignKeyName: "audit_logs_actor_user_id_fkey"
             columns: ["actor_user_id"]
             isOneToOne: false
+            referencedRelation: "app_user_directory"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "audit_logs_actor_user_id_fkey"
+            columns: ["actor_user_id"]
+            isOneToOne: false
             referencedRelation: "app_users"
             referencedColumns: ["user_id"]
           },
@@ -1430,6 +1437,13 @@ export type Database = {
             foreignKeyName: "join_codes_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "app_user_directory"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "join_codes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "app_users"
             referencedColumns: ["user_id"]
           },
@@ -1542,6 +1556,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "player_claims_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "app_user_directory"
+            referencedColumns: ["user_id"]
+          },
           {
             foreignKeyName: "player_claims_decided_by_fkey"
             columns: ["decided_by"]
@@ -2237,6 +2258,13 @@ export type Database = {
             foreignKeyName: "refresh_jobs_requested_by_fkey"
             columns: ["requested_by"]
             isOneToOne: false
+            referencedRelation: "app_user_directory"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "refresh_jobs_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
             referencedRelation: "app_users"
             referencedColumns: ["user_id"]
           },
@@ -2512,6 +2540,28 @@ export type Database = {
           },
         ]
       }
+      app_user_directory: {
+        Row: {
+          created_at: string | null
+          display_name: string | null
+          email: string | null
+          email_confirmed_at: string | null
+          game_rank: string | null
+          last_sign_in_at: string | null
+          player_id: string | null
+          role: Database["public"]["Enums"]["app_role"] | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "app_users_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+        ]
+      }
       player_current_rank: {
         Row: {
           assigned_rank: string | null
@@ -2525,6 +2575,26 @@ export type Database = {
           rank_score: number | null
         }
         Relationships: []
+      }
+      player_growth_recent: {
+        Row: {
+          growth_since_last: number | null
+          player_id: string | null
+          power: number | null
+          power_at: string | null
+          power_prev: number | null
+          power_prev_at: string | null
+          span: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_snapshots_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+        ]
       }
       player_power_growth: {
         Row: {

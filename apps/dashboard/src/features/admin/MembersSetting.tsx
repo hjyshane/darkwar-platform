@@ -29,14 +29,51 @@ interface AppUser {
   role: AppRole;
   game_rank: string | null;
   player_id: string | null;
+  /** From app_user_directory (0069), which is admin-only. Null when this
+   * screen is being read by somebody without members.manage — the view
+   * returns no rows at all then, so in practice null means the fallback
+   * query below ran. */
+  email: string | null;
+  last_sign_in_at: string | null;
 }
+
+/** The fields of an account this screen may write. `email` and
+ * `last_sign_in_at` are read from auth.users through a view and are not
+ * columns of app_users, so they must not be reachable from an update. */
+type AppUserPatch = Pick<Partial<AppUser>, 'role' | 'game_rank' | 'player_id' | 'display_name'>;
 
 interface LinkablePlayer {
   player_id: string;
   current_name: string | null;
 }
 
+/** The accounts, with the address each signed up under where that is
+ * permitted.
+ *
+ * `app_user_directory` (0069) is the only thing in the schema that exposes an
+ * email, and it is gated on members.manage. Reading it first and falling back
+ * to `app_users` keeps this screen working for a non-admin who opens it — the
+ * page deliberately renders for them and lets the database refuse the writes,
+ * and an empty table would have been a worse answer than a table with no
+ * email column.
+ *
+ * The fallback is on an EMPTY result, not on an error: the view has a
+ * predicate rather than a policy, so somebody without the capability gets
+ * zero rows and no complaint.
+ */
 async function fetchMembers(): Promise<AppUser[]> {
+  const directory = await supabase
+    .from('app_user_directory')
+    .select('user_id, display_name, role, game_rank, player_id, email, last_sign_in_at')
+    .order('role')
+    .order('display_name', { nullsFirst: false });
+  if (directory.error && directory.error.code !== '42501') {
+    throw new Error(`member query failed: ${directory.error.message}`);
+  }
+  if (directory.data && directory.data.length > 0) {
+    return directory.data as AppUser[];
+  }
+
   const { data, error } = await supabase
     .from('app_users')
     .select('user_id, display_name, role, game_rank, player_id')
@@ -45,7 +82,7 @@ async function fetchMembers(): Promise<AppUser[]> {
   if (error) {
     throw new Error(`member query failed: ${error.message}`);
   }
-  return (data ?? []) as AppUser[];
+  return (data ?? []).map((row) => ({ ...row, email: null, last_sign_in_at: null })) as AppUser[];
 }
 
 /** Our own alliance's players, for the link picker.
@@ -121,6 +158,48 @@ export function MembersSetting() {
     queryFn: fetchPendingClaims,
   });
 
+  /** Take someone's access away.
+   *
+   * Not a delete. The auth account lives in `auth.users`, which no client may
+   * touch — removing it needs the service key — and deleting the `app_users`
+   * row would only make the next sign-in recreate it as a viewer, which is
+   * where this puts them anyway. So the honest action is: role back to viewer,
+   * character unlinked, and any pending claim refused.
+   *
+   * Unlinking matters as much as the role. 0066 made `player_id` the thing
+   * that opens a member's own history; leaving it set on a revoked account
+   * would keep that door open.
+   */
+  const revoke = useMutation({
+    mutationFn: async (userId: string) => {
+      const { error: updateError, count } = await supabase
+        .from('app_users')
+        .update({ role: 'viewer', player_id: null }, { count: 'exact' })
+        .eq('user_id', userId);
+      if (updateError) {
+        throw new Error(updateError.message);
+      }
+      if (count === 0) {
+        throw new Error('Nothing was written. Removing a member needs "Manage members".');
+      }
+      // Best effort: a member with no pending claim is the normal case, and
+      // the function raising P0002 for that must not read as a failed removal.
+      await supabase.rpc('reject_player_claim', { p_user: userId });
+    },
+    onSuccess: () => {
+      setFailed(false);
+      setMessage('Removed. The account can sign in but sees nothing until a code is redeemed.');
+      void queryClient.invalidateQueries({ queryKey: ['members-admin'] });
+      void queryClient.invalidateQueries({ queryKey: ['player-claims'] });
+      void queryClient.invalidateQueries({ queryKey: ['session'] });
+      void queryClient.invalidateQueries({ queryKey: ['member-history'] });
+    },
+    onError: (mutationError: Error) => {
+      setFailed(true);
+      setMessage(mutationError.message);
+    },
+  });
+
   const decide = useMutation({
     mutationFn: async (next: { userId: string; approve: boolean }) => {
       const { error: rpcError } = await supabase.rpc(
@@ -147,7 +226,10 @@ export function MembersSetting() {
   });
 
   const save = useMutation({
-    mutationFn: async (next: { userId: string; patch: Partial<AppUser> }) => {
+    // Not Partial<AppUser>: that type now carries `email` and
+    // `last_sign_in_at`, which belong to auth.users and are not columns of
+    // app_users. Naming the writable fields is what caught it.
+    mutationFn: async (next: { userId: string; patch: AppUserPatch }) => {
       const { error: updateError, count } = await supabase
         .from('app_users')
         .update(next.patch, { count: 'exact' })
@@ -257,9 +339,14 @@ export function MembersSetting() {
             <thead>
               <tr>
                 <th className="label">Name</th>
+                {/* The address is how an admin tells one unnamed row from
+                    another. display_name is whatever the person typed, which
+                    is usually nothing. */}
+                <th className="label">Email</th>
                 <th className="label">Role</th>
                 <th className="label">Rank</th>
                 <th className="label">Player</th>
+                <th className="label">Remove</th>
               </tr>
             </thead>
             <tbody>
@@ -268,6 +355,14 @@ export function MembersSetting() {
                   <td className="label">
                     {member.display_name ?? (
                       <span className="subtle">{member.user_id.slice(0, 8)}</span>
+                    )}
+                  </td>
+                  <td className="label">
+                    {member.email ?? <span className="subtle">needs Manage members</span>}
+                    {member.email !== null && member.last_sign_in_at === null && (
+                      <span className="badge" title="Signed up but has never signed in">
+                        never signed in
+                      </span>
                     )}
                   </td>
                   <td className="label">
@@ -330,6 +425,22 @@ export function MembersSetting() {
                         </option>
                       ))}
                     </select>
+                  </td>
+                  <td>
+                    {/* Already a viewer: there is nothing left to take, and a
+                        button that would do nothing should not offer to. */}
+                    {member.role === 'viewer' ? (
+                      <span className="subtle">—</span>
+                    ) : (
+                      <button
+                        disabled={revoke.isPending}
+                        onClick={() => revoke.mutate(member.user_id)}
+                        title="Set the account back to viewer and unlink its character"
+                        type="button"
+                      >
+                        Remove
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

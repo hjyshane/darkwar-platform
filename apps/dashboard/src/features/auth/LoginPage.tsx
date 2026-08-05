@@ -68,12 +68,26 @@ export function LoginPage() {
           <p>
             Signed in as {sessionEmail} — <strong>{session?.role ?? 'viewer'}</strong>.
           </p>
-          {session?.role === 'viewer' && <JoinCodeForm onRedeemed={() => refreshSession()} />}
-          {/* Only once the code has been redeemed. A viewer cannot read the
-              roster (0065), so the picker would have nothing in it, and the
-              claim policy refuses them anyway — offering the form first
-              would be an invitation to a failure. */}
-          {session !== undefined && session.role !== 'viewer' && <PlayerClaimForm />}
+          {/* One screen, and the order is forced rather than chosen: a viewer
+              cannot read `players` (0065), so the character picker would be an
+              empty list, and `player_claims` refuses an insert from a viewer
+              anyway (0068). So the code comes first and the picker replaces it
+              the moment the role changes — as close to "choose your character
+              while joining" as the gate allows.
+              Not numbered: the two never appear together, so "step 2" would
+              be labelling something with nothing above it. */}
+          {session?.role === 'viewer' && (
+            <>
+              <h3>Enter your invitation code</h3>
+              <JoinCodeForm onRedeemed={() => refreshSession()} />
+            </>
+          )}
+          {session !== undefined && session.role !== 'viewer' && (
+            <>
+              <h3>Which character are you?</h3>
+              <PlayerClaimForm />
+            </>
+          )}
           <button onClick={() => void signOut()} type="button">
             Sign out
           </button>
