@@ -411,7 +411,11 @@ export function PlayerPage({ playerId, now }: { playerId: string; now?: Date }) 
               ) : (
                 <>
                   <LineupLegend />
-                  <LineupCell heroes={entry.lineup} />
+                  {/* Open on arrival. This page shows at most three entries
+                      and the reader navigated here for them; the disclosure
+                      also expanded below the fold with nothing scrolling to
+                      follow it, so the content appeared not to be there. */}
+                  <LineupCell defaultOpen heroes={entry.lineup} />
                 </>
               )}
             </div>

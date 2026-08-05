@@ -328,3 +328,22 @@ test('composition is searchable, which is the point of precomputing it', () => {
   const row = entries.filter((entry) => entry.composition.toLowerCase().includes('shooter'));
   expect(row.map((entry) => entry.snapshot_id)).toEqual(['e1']);
 });
+
+test('the board collapses the detail table, so a hundred rows do not build it', () => {
+  renderWithQuery(<LineupCell heroes={lineup} />);
+
+  expect(document.querySelector('details')?.open).toBe(false);
+  expect(document.querySelector('.lineup-detail')).toBeNull();
+});
+
+test('defaultOpen renders the detail table without a click', () => {
+  // The player page passes this. The disclosure opened below the fold with
+  // nothing scrolling to follow it, so the content read as missing.
+  renderWithQuery(<LineupCell defaultOpen heroes={lineup} />);
+
+  expect(document.querySelector('details')?.open).toBe(true);
+  expect(document.querySelector('.lineup-detail')).not.toBeNull();
+  // The wrapper is what scrolls; the table fills it. Without the wrapper the
+  // table was display:block and shrank to its content on a full-width page.
+  expect(document.querySelector('.lineup-detail-scroll .lineup-detail')).not.toBeNull();
+});
