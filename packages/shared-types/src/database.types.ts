@@ -2120,6 +2120,7 @@ export type Database = {
           power_growth: number | null
           power_start: number | null
           power_start_at: string | null
+          scoring_version: number
           snapshot_id: string
           tier: string | null
           tier_reason: string | null
@@ -2150,6 +2151,7 @@ export type Database = {
           power_growth?: number | null
           power_start?: number | null
           power_start_at?: string | null
+          scoring_version?: number
           snapshot_id?: string
           tier?: string | null
           tier_reason?: string | null
@@ -2180,6 +2182,7 @@ export type Database = {
           power_growth?: number | null
           power_start?: number | null
           power_start_at?: string | null
+          scoring_version?: number
           snapshot_id?: string
           tier?: string | null
           tier_reason?: string | null
@@ -2562,6 +2565,20 @@ export type Database = {
           },
         ]
       }
+      own_player_ids: {
+        Row: {
+          player_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alliance_member_snapshots_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+        ]
+      }
       player_current_rank: {
         Row: {
           assigned_rank: string | null
@@ -2611,6 +2628,48 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "player_snapshots_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+        ]
+      }
+      rank_period_latest: {
+        Row: {
+          activity_score: number | null
+          computed_at: string | null
+          donation_pct: number | null
+          donation_total: number | null
+          donation_week1: number | null
+          donation_week1_at: string | null
+          donation_week2: number | null
+          donation_week2_at: string | null
+          duel_pct: number | null
+          duel_total: number | null
+          duel_week1: number | null
+          duel_week1_at: string | null
+          duel_week2: number | null
+          duel_week2_at: string | null
+          game_uid: number | null
+          growth_pct: number | null
+          name: string | null
+          offline_hours: number | null
+          period_start: string | null
+          player_id: string | null
+          power_end: number | null
+          power_end_at: string | null
+          power_growth: number | null
+          power_start: number | null
+          power_start_at: string | null
+          scoring_version: number | null
+          snapshot_id: string | null
+          tier: string | null
+          tier_reason: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rank_period_snapshots_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
             referencedRelation: "players"
@@ -2691,6 +2750,17 @@ export type Database = {
       }
       reset_week_start: { Args: { ts: string }; Returns: string }
       resolve_own_alliance: { Args: never; Returns: undefined }
+      retention_report: {
+        Args: {
+          p_confirm?: boolean
+          p_keep_others?: string
+          p_keep_ours?: string
+        }
+        Returns: {
+          relation: string
+          rows: number
+        }[]
+      }
     }
     Enums: {
       app_role:

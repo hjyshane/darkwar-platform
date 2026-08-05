@@ -11,7 +11,11 @@ import { resetWeekStart } from './resetWeek';
  * purpose — nothing in the collector needs a period, and an implementation
  * with no caller drifts without anyone noticing.
  */
-const PERIOD_EPOCH = Date.UTC(2026, 6, 27, 2);
+// 2026-08-03 02:00 UTC. Moved from 07-27 in 0071: a fortnightly grid has two
+// phases, both are real Monday 02:00 boundaries, and the alliance decided
+// periods should start this week. The vectors file carries the reasoning and
+// both implementations read it.
+const PERIOD_EPOCH = Date.UTC(2026, 7, 3, 2);
 const WEEK_MS = 604_800_000;
 const MINUTE_MS = 60_000;
 
