@@ -44,6 +44,19 @@ def _coord(step: Step, field: str) -> int:
     return value
 
 
+class _Interrupted(Exception):  # noqa: N818 - not an error, a stop request
+    """The operator asked for the run to end while it was waiting.
+
+    Carried as an exception rather than a third return value because the
+    wait can be interrupted several frames down and every caller of
+    `_await_commands` would otherwise have to remember to check.
+    """
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
+
+
 @dataclass
 class StepResult:
     name: str
@@ -93,8 +106,27 @@ class RoutineRunner:
             self.client.back()
         # "wait" performs nothing; settle_seconds is the whole point of it.
 
+    def _stop_requested(self) -> str | None:
+        """The two reasons to abandon a run, in the order they are cheap."""
+        if self.client.policy.kill_switch_engaged():
+            return "kill switch engaged"
+        if self.idle is not None and not self.client.dry_run:
+            state = self.idle.evaluate()
+            if not state.is_idle:
+                return f"operator is active — {state.reason}"
+        return None
+
     def _await_commands(self, step: Step, mark: int) -> tuple[list[str], list[str]]:
-        """Poll the journal until every expected command has been seen."""
+        """Poll the journal until every expected command has been seen.
+
+        Checked inside the loop, not only between steps. A wait is up to
+        `timeout_seconds` long — 150s in the routines that sweep the
+        cross-server board — and the kill switch existing to stop automation
+        (FR-OPS-006) is worth very little if engaging it does nothing for two
+        and a half minutes. That is not hypothetical: an operator sat down
+        mid-run, the switch was engaged, and the run had to be killed by pid
+        because it was in the middle of a wait.
+        """
         wanted = set(step.expect)
         seen: set[str] = set()
         deadline = time.monotonic() + step.timeout_seconds
@@ -104,31 +136,28 @@ class RoutineRunner:
                 return sorted(seen), []
             if time.monotonic() >= deadline:
                 return sorted(seen), sorted(wanted - seen)
+            reason = self._stop_requested()
+            if reason is not None:
+                raise _Interrupted(reason)
             self._sleep(POLL_SECONDS)
 
     def run(self, routine: Routine) -> RunReport:
         report = RunReport(routine=routine.name)
         for step in routine.steps:
-            # Re-checked every step, not once at the start: the operator
-            # must be able to stop a running routine mid-way (FR-OPS-006).
-            if self.client.policy.kill_switch_engaged():
+            # Re-checked every step, not once at the start: the operator must
+            # be able to stop a running routine mid-way (FR-OPS-006). The same
+            # check runs inside the wait — see _await_commands.
+            #
+            # Stopping leaves the emulator on some inner screen, which is
+            # untidy but harmless; the alternative is fighting the operator
+            # for the mouse. Dry runs skip the idle half because they touch
+            # nothing to begin with (FR-COL-009).
+            reason = self._stop_requested()
+            if reason is not None:
                 report.aborted_at = step.name
-                report.abort_reason = "kill switch engaged"
-                log.warning("ui_worker.kill_switch", step=step.name)
+                report.abort_reason = reason
+                log.warning("ui_worker.stopped", step=step.name, reason=reason)
                 return report
-
-            # Also per step, and for the same reason: the operator can sit
-            # down mid-routine. Stopping then leaves the emulator on some
-            # inner screen, which is untidy but harmless — the alternative
-            # is fighting them for the mouse. Dry runs skip it because they
-            # touch nothing to begin with (FR-COL-009).
-            if self.idle is not None and not self.client.dry_run:
-                state = self.idle.evaluate()
-                if not state.is_idle:
-                    report.aborted_at = step.name
-                    report.abort_reason = f"operator is active — {state.reason}"
-                    log.info("ui_worker.not_idle", step=step.name, reason=state.reason)
-                    return report
 
             # Taken before the tap, so anything journalled from here on is
             # this step's doing. A timestamp cannot draw that line on Windows
@@ -158,7 +187,13 @@ class RoutineRunner:
                 report.steps.append(StepResult(step.name, "skipped"))
                 continue
 
-            observed, missing = self._await_commands(step, mark)
+            try:
+                observed, missing = self._await_commands(step, mark)
+            except _Interrupted as stop:
+                report.aborted_at = step.name
+                report.abort_reason = stop.reason
+                log.warning("ui_worker.stopped", step=step.name, reason=stop.reason)
+                return report
             if missing:
                 report.steps.append(StepResult(step.name, "unverified", observed, missing))
                 report.aborted_at = step.name
