@@ -1159,14 +1159,27 @@ select.rank-badge {
   display: none;
 }
 
-.lineup-detail {
-  font-size: var(--text-sm);
-  margin-top: var(--space-2);
-  /* Its own scroll container, so a nine-column table inside a cell cannot
-   * push the page sideways on a phone. */
-  display: block;
+/* The scroll lives on a wrapper, not on the table.
+ *
+ * `display: block` on a <table> makes the element a block box, so it does
+ * fill its container - but the rows inside become an anonymous table box
+ * that is shrink-to-fit, and that is what a reader sees. Measured in a
+ * 900px container: the table element 900px, its rows 181px. Inside an arena
+ * cell nobody noticed, because the cell was narrow anyway; on the player
+ * page the same table sat alone in a full-width section. */
+.lineup-detail-scroll {
+  /* Still its own scroll container, so a nine-column table inside a cell
+   * cannot push the page sideways on a phone. */
   overflow-x: auto;
   max-width: 100%;
+  margin-top: var(--space-2);
+}
+
+.lineup-detail {
+  font-size: var(--text-sm);
+  /* min-, not width: fill the room when there is room, and overflow into
+   * the wrapper's scroll when there is not. */
+  min-width: 100%;
 }
 
 .lineup-detail th {

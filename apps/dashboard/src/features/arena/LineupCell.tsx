@@ -79,8 +79,18 @@ function detail(hero: LineupHero, catalogue: HeroCatalogue | undefined): string 
  * own levels, and skill levels. All of that is decoded, and collapsing it to
  * five letters would throw away the reason for decoding it.
  */
-export function LineupCell({ heroes }: { heroes: readonly LineupHero[] }) {
-  const [open, setOpen] = useState(false);
+export function LineupCell({
+  heroes,
+  defaultOpen = false,
+}: {
+  heroes: readonly LineupHero[];
+  /** Start expanded. The collapse earns its keep on a Top100 board, where
+   * a hundred nine-column tables is real work; on one player's page there
+   * are at most three, the reader came specifically to see them, and the
+   * disclosure opened below the fold with no scroll to follow it. */
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
   const { data: catalogue } = useHeroCatalogue();
 
   if (heroes.length === 0) {
@@ -95,7 +105,11 @@ export function LineupCell({ heroes }: { heroes: readonly LineupHero[] }) {
   // should be doing.
   const bonus = synergy(heroes);
   return (
-    <details className="lineup-details" onToggle={(event) => setOpen(event.currentTarget.open)}>
+    <details
+      className="lineup-details"
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+      open={defaultOpen}
+    >
       <summary>
         <span className="lineup" title={composition(heroes)}>
           {ordered.map((hero) => (
@@ -147,148 +161,150 @@ export function LineupCell({ heroes }: { heroes: readonly LineupHero[] }) {
       {/* Rendered only while open: a Top100 board would otherwise build 100
           of these tables up front, for the one a reader actually opens. */}
       {open && (
-        <table className="lineup-detail">
-          <thead>
-            <tr>
-              <th scope="col">Slot</th>
-              <th scope="col">Hero</th>
-              {/* Grade gets a column of its own rather than only tinting the
+        <div className="lineup-detail-scroll">
+          <table className="lineup-detail">
+            <thead>
+              <tr>
+                <th scope="col">Slot</th>
+                <th scope="col">Hero</th>
+                {/* Grade gets a column of its own rather than only tinting the
                   name: the word is what makes the colour legible, and it is
                   what a reader searching for "노랑" needs on the page.
                   The header is English like every other header here; only the
                   VALUES stay in the game's words, same rule as the labels. */}
-              <th scope="col">Grade</th>
-              <th scope="col">Class</th>
-              <th scope="col">Lv</th>
-              {/* Star and step were two columns of numbers that only meant
+                <th scope="col">Grade</th>
+                <th scope="col">Class</th>
+                <th scope="col">Lv</th>
+                {/* Star and step were two columns of numbers that only meant
                   anything read together. One row of five outlines, the next
                   one part-filled, says it the way the game does. */}
-              <th scope="col">Stars</th>
-              <th scope="col">Weapon</th>
-              <th scope="col">Gear</th>
-              <th scope="col">Skills</th>
-              <th scope="col">Power</th>
-            </tr>
-          </thead>
-          <tbody>
-            {ordered.map((hero) => (
-              <tr key={`${hero.slot}-${hero.hero_id}`}>
-                <td className="num">{hero.slot ?? '—'}</td>
-                {/* The id stays in the tooltip even when a name is shown:
+                <th scope="col">Stars</th>
+                <th scope="col">Weapon</th>
+                <th scope="col">Gear</th>
+                <th scope="col">Skills</th>
+                <th scope="col">Power</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ordered.map((hero) => (
+                <tr key={`${hero.slot}-${hero.hero_id}`}>
+                  <td className="num">{hero.slot ?? '—'}</td>
+                  {/* The id stays in the tooltip even when a name is shown:
                     it is what the payload carried and what a bug report
                     needs to name. */}
-                <td className="label" title={`Hero ${hero.hero_id}`}>
-                  {heroName(catalogue, hero.hero_id)}
-                </td>
-                <td
-                  className={`grade-cell ${heroGradeClass(catalogue?.get(hero.hero_id)?.grade ?? null) ?? ''}`}
-                >
-                  {/* The swatch alone. The word is in the title and in the
+                  <td className="label" title={`Hero ${hero.hero_id}`}>
+                    {heroName(catalogue, hero.hero_id)}
+                  </td>
+                  <td
+                    className={`grade-cell ${heroGradeClass(catalogue?.get(hero.hero_id)?.grade ?? null) ?? ''}`}
+                  >
+                    {/* The swatch alone. The word is in the title and in the
                       legend above the table — three grades is a small enough
                       vocabulary to learn once, and the column was spending
                       its width on repeating it a hundred times. */}
-                  {catalogue?.get(hero.hero_id)?.grade == null ? (
-                    '—'
-                  ) : (
-                    <span className="grade-dot" />
-                  )}
-                </td>
-                <td>{classGlyph(hero.troop_class) ?? troopClassName(hero.troop_class)}</td>
-                {/* Unqualified. A hero raised by the training centre really
+                    {catalogue?.get(hero.hero_id)?.grade == null ? (
+                      '—'
+                    ) : (
+                      <span className="grade-dot" />
+                    )}
+                  </td>
+                  <td>{classGlyph(hero.troop_class) ?? troopClassName(hero.troop_class)}</td>
+                  {/* Unqualified. A hero raised by the training centre really
                     is this level — the effect applies in combat — so marking
                     it would suggest the number is somehow provisional. */}
-                <td className="num">{hero.hero_level ?? '—'}</td>
-                {/* Converted, not raw: the payload counts one star higher
+                  <td className="num">{hero.hero_level ?? '—'}</td>
+                  {/* Converted, not raw: the payload counts one star higher
                     than the game, which caps at 5. See starsShown. */}
-                <td>
-                  {starsShown(hero.star) === null ? (
-                    '—'
-                  ) : (
-                    <Rank
-                      full={starsShown(hero.star) ?? 0}
-                      idPrefix={`s${hero.slot}-${hero.hero_id}`}
-                      kind="star"
-                      label={
-                        hero.stage === null
-                          ? `${starsShown(hero.star)}★`
-                          : `${starsShown(hero.star)}★ step ${hero.stage}`
-                      }
-                      step={hero.stage ?? 0}
-                      total={5}
-                    />
-                  )}
-                </td>
-                {/* Null is "not unlocked", a real state rather than a zero:
+                  <td>
+                    {starsShown(hero.star) === null ? (
+                      '—'
+                    ) : (
+                      <Rank
+                        full={starsShown(hero.star) ?? 0}
+                        idPrefix={`s${hero.slot}-${hero.hero_id}`}
+                        kind="star"
+                        label={
+                          hero.stage === null
+                            ? `${starsShown(hero.star)}★`
+                            : `${starsShown(hero.star)}★ step ${hero.stage}`
+                        }
+                        step={hero.stage ?? 0}
+                        total={5}
+                      />
+                    )}
+                  </td>
+                  {/* Null is "not unlocked", a real state rather than a zero:
                     1,730 of 4,028 observed heroes have a weapon. */}
-                {/* Stars while it is climbing them, pentagons once it is in
+                  {/* Stars while it is climbing them, pentagons once it is in
                     각 — the weapon stops at five stars like its hero, so a
                     sixth star would be a grade the game does not have. */}
-                <td title={`Lv ${hero.weapon_level} · ${weaponRankLabel(hero.weapon_level)}`}>
-                  {hero.weapon_level === null ? (
-                    '—'
-                  ) : isWeaponAwakened(hero.weapon_level) ? (
-                    <Rank
-                      full={weaponRank(hero.weapon_level)?.awakening ?? 0}
-                      idPrefix={`w${hero.slot}-${hero.hero_id}`}
-                      kind="pentagon"
-                      label={weaponRankLabel(hero.weapon_level) ?? ''}
-                      step={weaponRank(hero.weapon_level)?.step ?? 0}
-                      total={5}
-                    />
-                  ) : (
-                    <Rank
-                      full={weaponRank(hero.weapon_level)?.star ?? 0}
-                      idPrefix={`w${hero.slot}-${hero.hero_id}`}
-                      kind="star"
-                      label={weaponRankLabel(hero.weapon_level) ?? ''}
-                      step={weaponRank(hero.weapon_level)?.step ?? 0}
-                      total={5}
-                    />
-                  )}
-                </td>
-                {/* One line per piece rather than a joined string: at level
+                  <td title={`Lv ${hero.weapon_level} · ${weaponRankLabel(hero.weapon_level)}`}>
+                    {hero.weapon_level === null ? (
+                      '—'
+                    ) : isWeaponAwakened(hero.weapon_level) ? (
+                      <Rank
+                        full={weaponRank(hero.weapon_level)?.awakening ?? 0}
+                        idPrefix={`w${hero.slot}-${hero.hero_id}`}
+                        kind="pentagon"
+                        label={weaponRankLabel(hero.weapon_level) ?? ''}
+                        step={weaponRank(hero.weapon_level)?.step ?? 0}
+                        total={5}
+                      />
+                    ) : (
+                      <Rank
+                        full={weaponRank(hero.weapon_level)?.star ?? 0}
+                        idPrefix={`w${hero.slot}-${hero.hero_id}`}
+                        kind="star"
+                        label={weaponRankLabel(hero.weapon_level) ?? ''}
+                        step={weaponRank(hero.weapon_level)?.step ?? 0}
+                        total={5}
+                      />
+                    )}
+                  </td>
+                  {/* One line per piece rather than a joined string: at level
                     100 the number stops carrying anything (everything is
                     100) and the 각 takes over, and those cannot share a
                     line. */}
-                <td className="gear">
-                  {hero.equipment.length === 0
-                    ? '—'
-                    : hero.equipment.map((piece) => {
-                        const rank = gearRank(piece.level, piece.step);
-                        return (
-                          <span className="gear-piece" key={piece.equipment_id}>
-                            {/* Which slot the piece is in, from its id. Four
+                  <td className="gear">
+                    {hero.equipment.length === 0
+                      ? '—'
+                      : hero.equipment.map((piece) => {
+                          const rank = gearRank(piece.level, piece.step);
+                          return (
+                            <span className="gear-piece" key={piece.equipment_id}>
+                              {/* Which slot the piece is in, from its id. Four
                                 numbers in a column say nothing about which
                                 is which. */}
-                            {slotGlyph(piece.equipment_id)}
-                            {rank === null ? (
-                              (piece.level ?? '?')
-                            ) : (
-                              <Rank
-                                full={rank.awakening}
-                                idPrefix={`g${hero.slot}-${hero.hero_id}-${piece.equipment_id}`}
-                                kind="pentagon"
-                                label={gearRankLabel(piece.level, piece.step)}
-                                step={rank.step}
-                                total={5}
-                              />
-                            )}
-                          </span>
-                        );
-                      })}
-                </td>
-                <td className="num" title={hero.skills.map((s) => s.skill_id).join(', ')}>
-                  {hero.skills.length === 0
-                    ? '—'
-                    : hero.skills.map((s) => s.level ?? '?').join(' / ')}
-                </td>
-                <td className="num">
-                  {hero.hero_power === null ? '—' : numberFormat.format(hero.hero_power)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                              {slotGlyph(piece.equipment_id)}
+                              {rank === null ? (
+                                (piece.level ?? '?')
+                              ) : (
+                                <Rank
+                                  full={rank.awakening}
+                                  idPrefix={`g${hero.slot}-${hero.hero_id}-${piece.equipment_id}`}
+                                  kind="pentagon"
+                                  label={gearRankLabel(piece.level, piece.step)}
+                                  step={rank.step}
+                                  total={5}
+                                />
+                              )}
+                            </span>
+                          );
+                        })}
+                  </td>
+                  <td className="num" title={hero.skills.map((s) => s.skill_id).join(', ')}>
+                    {hero.skills.length === 0
+                      ? '—'
+                      : hero.skills.map((s) => s.level ?? '?').join(' / ')}
+                  </td>
+                  <td className="num">
+                    {hero.hero_power === null ? '—' : numberFormat.format(hero.hero_power)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </details>
   );
