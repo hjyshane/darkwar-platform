@@ -5,6 +5,7 @@ import { useSession } from '../../lib/useSession';
 import { fetchRoster } from '../roster/RosterPanel';
 import { AnnouncementsSetting } from './AnnouncementsSetting';
 import { CollectorHealth } from './CollectorHealth';
+import { DepartedSetting } from './DepartedSetting';
 import { DiscoveryInbox } from './DiscoveryInbox';
 import { FormulaSetting } from './FormulaSetting';
 import { HeroesSetting } from './HeroesSetting';
@@ -87,6 +88,14 @@ function AccessGroup() {
       <section aria-labelledby="join-codes-heading">
         <h2 id="join-codes-heading">Invitations</h2>
         <JoinCodesSetting />
+      </section>
+
+      {/* Not on the roster. A departure is administrative tidying-up, and
+          showing it where the whole alliance reads the member table turns it
+          into an announcement nobody asked for. */}
+      <section aria-labelledby="departed-heading">
+        <h2 id="departed-heading">Left the alliance</h2>
+        <DepartedSetting />
       </section>
 
       <section aria-labelledby="permissions-heading">
