@@ -324,3 +324,44 @@ def test_commands_after_ignores_earlier_rows(journal: Journal) -> None:
     _record(journal, "after.tap")
 
     assert journal.commands_after(boundary) == {"after.tap"}
+
+
+def test_kill_switch_stops_a_run_that_is_waiting(policy, journal):
+    """The wait is the long part, so it is the part that has to notice.
+
+    A step with `expect` blocks for up to timeout_seconds. Checking the
+    switch only between steps meant engaging it did nothing for as long as
+    that wait — 150s in the board sweeps, which is not a stop.
+    """
+    # Not a dry run: dry runs skip verification entirely, so the wait this
+    # test is about would never happen. No responses, so nothing arrives and
+    # the runner settles into polling.
+    client = RecordingClient(responses={}, journal=journal, policy=policy, serial=COLLECTOR)
+    ticks: list[float] = []
+
+    def sleep(seconds: float) -> None:
+        ticks.append(seconds)
+        # Engaged partway through the wait, by somebody sitting down.
+        if len(ticks) == 2:
+            policy.kill_switch_file.write_text("stop", encoding="utf-8")
+
+    runner = RoutineRunner(client, journal, sleep=sleep)
+    routine = _routine(
+        {
+            "name": "waits",
+            "action": "tap",
+            "x": 1,
+            "y": 2,
+            "expect": ["never.arrives"],
+            "timeout_seconds": 600,
+            "settle_seconds": 0,
+        }
+    )
+
+    report = runner.run(routine)
+
+    assert report.ok is False
+    assert report.aborted_at == "waits"
+    assert report.abort_reason == "kill switch engaged"
+    # Stopped in the wait, not after 600 seconds of polling.
+    assert len(ticks) < 10
