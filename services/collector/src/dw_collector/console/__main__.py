@@ -17,7 +17,7 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import scrolledtext, ttk
 
-from dw_collector.console import state
+from dw_collector.console import logs, state
 from dw_collector.envfile import load_env_file
 
 REFRESH_MS = 3000
@@ -39,8 +39,8 @@ class Console:
         self.capture_dir = Path(os.environ.get("DW_CAPTURE_DIR", r"C:\DW_data\live"))
 
         self._build_actions(root)
-        self._build_status(root)
-        self._build_log(root)
+        self.tails = logs.tails()
+        self._build_tabs(root)
         self._tick()
 
     # --- layout ---------------------------------------------------------
@@ -61,7 +61,35 @@ class Console:
                 row=index // 3, column=index % 3, padx=5, pady=5
             )
 
-    def _build_status(self, root: tk.Tk) -> None:
+    def _build_tabs(self, root: tk.Tk) -> None:
+        """One window, tabs instead of three console windows.
+
+        The three processes stay as scheduled tasks — owning them here would
+        stop collection every time this window is closed, which is the
+        opposite of what a 24-hour collector needs. They write to log files
+        with their windows hidden, and these tabs follow those files.
+        """
+        notebook = ttk.Notebook(root)
+        notebook.pack(fill="both", expand=True, padx=10, pady=6)
+
+        status_tab = ttk.Frame(notebook)
+        notebook.add(status_tab, text="상태")
+        self._build_status(status_tab)
+
+        self.log_views: dict[str, scrolledtext.ScrolledText] = {}
+        for name in self.tails:
+            tab = ttk.Frame(notebook)
+            notebook.add(tab, text=name)
+            view = scrolledtext.ScrolledText(tab, wrap="none", height=20)
+            view.pack(fill="both", expand=True)
+            self.log_views[name] = view
+
+        message_tab = ttk.Frame(notebook)
+        notebook.add(message_tab, text="동작")
+        self.log = scrolledtext.ScrolledText(message_tab, wrap="none", height=20)
+        self.log.pack(fill="both", expand=True)
+
+    def _build_status(self, root: tk.Misc) -> None:
         frame = ttk.LabelFrame(root, text="상태")
         frame.pack(fill="x", padx=10, pady=6)
         self.status_labels: dict[str, tk.Label] = {}
@@ -79,12 +107,6 @@ class Console:
             value = tk.Label(frame, text="…", anchor="w", fg=IDLE)
             value.grid(row=index, column=1, sticky="w")
             self.status_labels[name] = value
-
-    def _build_log(self, root: tk.Tk) -> None:
-        frame = ttk.LabelFrame(root, text="로그")
-        frame.pack(fill="both", expand=True, padx=10, pady=(6, 10))
-        self.log = scrolledtext.ScrolledText(frame, height=10, wrap="none")
-        self.log.pack(fill="both", expand=True)
 
     # --- actions --------------------------------------------------------
 
@@ -128,8 +150,24 @@ class Console:
     def _tick(self) -> None:
         while not self.messages.empty():
             self._append(self.messages.get())
+        self._drain_logs()
         self._spawn_refresh()
         self.root.after(REFRESH_MS, self._tick)
+
+    def _drain_logs(self) -> None:
+        """Cheap enough to do on the UI thread: a seek and a short read per
+        file, and nothing at all when a file has not grown."""
+        for name, tail in self.tails.items():
+            fresh = tail.read_new()
+            if not fresh:
+                continue
+            view = self.log_views[name]
+            view.insert("end", "\n".join(fresh) + "\n")
+            # Trim, or a day of health lines makes the widget the slowest
+            # thing in the window.
+            if int(view.index("end-1c").split(".")[0]) > logs.MAX_LINES:
+                view.delete("1.0", f"end-{logs.MAX_LINES}l")
+            view.see("end")
 
     def _spawn_refresh(self) -> None:
         def work() -> None:
