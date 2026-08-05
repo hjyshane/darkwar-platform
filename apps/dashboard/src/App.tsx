@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useSyncExternalStore } from 'react';
+import { RefreshButton } from './components/RefreshButton';
 import { SyncStatus } from './components/SyncStatus';
 import { AdminPage } from './features/admin/AdminPage';
 import { AlliancePage } from './features/alliance/AlliancePage';
@@ -280,6 +281,9 @@ function Shell({
               board, not one table's data. Only for members — it reads
               sync_status, which 0065 closed like everything else. */}
           {isMember && <SyncStatus />}
+          {/* Beside the sync badge on purpose: the badge says whether data
+              is arriving, and this is what you reach for next. */}
+          {isMember && <RefreshButton />}
         </h1>
         {!standalone && isMember && <Nav route={route} />}
       </header>
