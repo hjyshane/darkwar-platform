@@ -50,16 +50,18 @@ class Console:
         frame.pack(fill="x", padx=10, pady=(10, 6))
 
         buttons = [
-            ("BlueStacks (collector)", self._start_emulator),
-            ("Dark War 실행", self._start_game),
-            ("수집 시작", self._start_tasks),
-            ("수집 중지", self._stop_tasks),
-            ("Docker (로컬 스택용)", self._start_docker),
+            ("start", "BlueStacks (collector)", self._start_emulator),
+            ("game", "Dark War 실행", self._start_game),
+            ("collect", "수집 시작", self._start_tasks),
+            ("stop", "수집 중지", self._stop_tasks),
+            ("web", "대시보드 열기", self._open_dashboard),
+            ("docker", "Docker (로컬 스택용)", self._start_docker),
         ]
-        for index, (label, command) in enumerate(buttons):
-            ttk.Button(frame, text=label, command=command, width=22).grid(
-                row=index // 3, column=index % 3, padx=5, pady=5
-            )
+        self.buttons: dict[str, ttk.Button] = {}
+        for index, (key, label, command) in enumerate(buttons):
+            button = ttk.Button(frame, text=label, command=command, width=22)
+            button.grid(row=index // 3, column=index % 3, padx=5, pady=5)
+            self.buttons[key] = button
 
     def _build_tabs(self, root: tk.Tk) -> None:
         """One window, tabs instead of three console windows.
@@ -140,6 +142,9 @@ class Console:
     def _start_docker(self) -> None:
         self._spawn(state.start_docker)
 
+    def _open_dashboard(self) -> None:
+        self._spawn(state.open_dashboard)
+
     # --- refresh --------------------------------------------------------
 
     def _set(self, name: str, text: str, colour: str) -> None:
@@ -193,12 +198,20 @@ class Console:
         for task in tasks:
             self._set(task.name, task.status, GOOD if task.healthy else BAD)
 
+        # A button that does nothing is worse than a missing one: pressing
+        # "start" on a running collector looks like it did something, and the
+        # only way to find out otherwise is to read the status you already
+        # had. Disable by what IS running, checked every refresh.
+        running = sum(1 for task in tasks if task.healthy)
+        self.buttons["collect"].state(["disabled"] if running == len(tasks) else ["!disabled"])
+        self.buttons["stop"].state(["disabled"] if running == 0 else ["!disabled"])
+        self.buttons["start"].state(["disabled"] if emulator else ["!disabled"])
+        self.buttons["game"].state(["disabled"] if game or not emulator else ["!disabled"])
+
         if not journal.exists:
             self._set("저널", f"없음 ({journal.path})", IDLE)
         else:
-            self._set(
-                "저널", f"관측 {journal.observations:,}건 · {journal.commands}종", GOOD
-            )
+            self._set("저널", f"관측 {journal.observations:,}건 · {journal.commands}종", GOOD)
         age = journal.seconds_since_last
         if age is None:
             self._set("마지막 관측", "없음", IDLE)

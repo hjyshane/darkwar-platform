@@ -11,6 +11,7 @@ import os
 import shutil
 import sqlite3
 import subprocess
+import webbrowser
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -150,6 +151,21 @@ def start_tasks() -> list[str]:
 
 def stop_tasks() -> list[str]:
     return [_run(["schtasks", "/end", "/tn", name]).stdout.strip() for name in TASKS]
+
+
+DASHBOARD_URL = "https://darkwar-platform.hjyshane.workers.dev"
+
+
+def open_dashboard() -> str:
+    """Open the deployed dashboard in the default browser.
+
+    The URL lives here rather than in the window because it is deployment
+    state, not layout — and because the badge on that page was the only
+    thing that noticed collection had been down for 18.7 hours, so getting
+    to it should not require remembering the address.
+    """
+    webbrowser.open(DASHBOARD_URL)
+    return f"대시보드 열기: {DASHBOARD_URL}"
 
 
 def start_docker() -> str:
