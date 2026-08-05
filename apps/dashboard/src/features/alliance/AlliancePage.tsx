@@ -14,6 +14,20 @@ import { useFavourites } from '../../lib/useFavourites';
  * below is whoever a roster capture has actually put in it, which for an
  * alliance that is not ours is usually nobody. Presenting the game's member
  * count above an empty list without explaining the gap would read as a bug.
+ *
+ * WHERE THE MEMBER LIST COMES FROM, and why it is two queries.
+ *
+ * `players.current_alliance_id` is a LAST KNOWN alliance, not a current one —
+ * every writer since 0008 coalesces it, so nothing ever clears it and a member
+ * who leaves keeps the badge. Counting it reported 95 for an alliance the game
+ * says has 94, and the extra row was someone last seen in a roster batch on
+ * 2026-07-28 and in none of the ~180 since.
+ *
+ * So the roster batch wins where there is one: `alliance_roster_latest` (0067)
+ * is the newest `al.rank` response, and one of those is the whole roster. The
+ * fallback still matters — that view is member-gated and only ever populated
+ * for our own alliance, so for everybody else's, `players` is the only link
+ * there is and a stale badge is better than an empty page.
  */
 interface AllianceDetail {
   allianceId: string;
@@ -26,12 +40,24 @@ interface AllianceDetail {
   rosterUnredactedSeen: boolean;
   lastSeenAt: string | null;
   members: {
-    playerId: string;
+    /** Null for a roster row whose uid never resolved to a `players` row —
+     * nullable on the base table since 0003. They are still a member and still
+     * count; there is just nothing to link to yet. */
+    playerId: string | null;
     name: string | null;
     gameUid: number;
     power: number | null;
     hqLevel: number | null;
   }[];
+  /** Whether `members` is the newest roster batch or the coalesced badge on
+   * `players`. The page says which, because the second one can name somebody
+   * who left and there is no way to tell from the row itself. */
+  membersFrom: 'roster' | 'last known';
+  /** Only for a roster list: how much of it the newest batch actually saw. A
+   * capture that was not scrolled to the end is short, and a short batch looks
+   * exactly like a mass departure. */
+  rosterCapturedAt: string | null;
+  rosterComplete: boolean;
   /** What this alliance used to be called. `alliance_names` has been filled
    * by apply_alliance_summary since 0008 and nothing read it — the player
    * page has shown `player_names` all along, and an alliance renames for the
@@ -54,12 +80,31 @@ async function fetchAlliance(allianceId: string): Promise<AllianceDetail | null>
     return null;
   }
 
-  const { data: members, error: memberError } = await supabase
-    .from('players')
-    .select('player_id, current_name, game_uid, power, hq_level')
-    .eq('current_alliance_id', allianceId)
-    .order('power', { ascending: false, nullsFirst: false })
-    .limit(100);
+  // Both member sources at once. The roster is preferred where it has rows;
+  // asking for the fallback anyway costs one round trip against a query the
+  // page was already making, and sequencing them would put a second wait in
+  // front of every alliance that is not ours — which is nearly all of them.
+  const [{ data: roster, error: rosterError }, { data: members, error: memberError }] =
+    await Promise.all([
+      // Empty here is the ordinary case, not an error: the view is member-gated
+      // and only our own alliance has ever had its member list opened, so a
+      // signed-out reader and every other alliance both land on nothing.
+      supabase
+        .from('alliance_roster_latest')
+        .select('player_id, game_uid, name, power, hq_level, captured_at, snapshot_complete')
+        .eq('alliance_id', allianceId)
+        .order('power', { ascending: false, nullsFirst: false })
+        .limit(200),
+      supabase
+        .from('players')
+        .select('player_id, current_name, game_uid, power, hq_level')
+        .eq('current_alliance_id', allianceId)
+        .order('power', { ascending: false, nullsFirst: false })
+        .limit(100),
+    ]);
+  if (rosterError) {
+    throw new Error(`roster query failed: ${rosterError.message}`);
+  }
   if (memberError) {
     throw new Error(`member query failed: ${memberError.message}`);
   }
@@ -73,6 +118,10 @@ async function fetchAlliance(allianceId: string): Promise<AllianceDetail | null>
     throw new Error(`alliance name query failed: ${nameError.message}`);
   }
 
+  // Held as a row rather than re-indexing: `roster[0]` is `| undefined` to the
+  // type checker at every use, and narrowing it once is clearer than three
+  // assertions that all mean the same thing.
+  const newestBatch = roster?.[0] ?? null;
   return {
     allianceId: alliance.alliance_id,
     name: alliance.current_name,
@@ -83,13 +132,32 @@ async function fetchAlliance(allianceId: string): Promise<AllianceDetail | null>
     isOwn: alliance.is_own,
     rosterUnredactedSeen: alliance.roster_unredacted_seen,
     lastSeenAt: alliance.last_seen_at,
-    members: (members ?? []).map((row) => ({
-      playerId: row.player_id,
-      name: row.current_name,
-      gameUid: row.game_uid,
-      power: row.power,
-      hqLevel: row.hq_level,
-    })),
+    members:
+      newestBatch === null
+        ? (members ?? []).map((row) => ({
+            playerId: row.player_id,
+            name: row.current_name,
+            gameUid: row.game_uid,
+            power: row.power,
+            hqLevel: row.hq_level,
+          }))
+        : (roster ?? []).map((row) => ({
+            playerId: row.player_id,
+            name: row.name,
+            // Not null on the base table; the view widens every column, so the
+            // fallback is for the type checker and never for a real row.
+            gameUid: row.game_uid ?? 0,
+            power: row.power,
+            hqLevel: row.hq_level,
+          })),
+    membersFrom: newestBatch === null ? 'last known' : 'roster',
+    rosterCapturedAt: newestBatch?.captured_at ?? null,
+    // One batch, one flag: every row of an `al.rank` response shares its
+    // `captured_at` and therefore its completeness, so this reads the first row
+    // rather than and-ing across them — which would only mask a bug in 0067.
+    // Null means the alliance has no member count to measure against, which 0067
+    // treats as unmeasured rather than incomplete.
+    rosterComplete: newestBatch?.snapshot_complete ?? true,
     // Both halves compared, not just the name. An alliance keeping its name
     // and changing its tag is a rename people notice, and filtering on the
     // name alone would drop exactly that row.
@@ -175,7 +243,11 @@ export function AlliancePage({ allianceId, now }: { allianceId: string; now?: Da
           />
           <StatTile
             label="Members observed"
-            note="whoever a roster capture has put here"
+            note={
+              data.membersFrom === 'roster'
+                ? 'the newest roster capture'
+                : 'last known alliance, which is not cleared when somebody leaves'
+            }
             value={num(data.members.length === 0 ? null : data.members.length)}
           />
         </div>
@@ -188,6 +260,17 @@ export function AlliancePage({ allianceId, now }: { allianceId: string; now?: Da
             </>
           )}
         </p>
+        {/* A short batch and a mass departure look identical from the rows
+            alone, so 0067 measures the batch against the game's own count and
+            this repeats the verdict. Without it, a capture that was not
+            scrolled to the end reads as members having left. */}
+        {data.membersFrom === 'roster' && !data.rosterComplete && (
+          <p className="empty">
+            The newest roster capture saw {data.members.length} of the {num(data.memberCount)} the
+            game reports, so it was cut short rather than finished — anybody missing from this list
+            may simply not have been scrolled to.
+          </p>
+        )}
       </section>
 
       <section aria-labelledby="alliance-members">
@@ -213,11 +296,18 @@ export function AlliancePage({ allianceId, now }: { allianceId: string; now?: Da
               </thead>
               <tbody>
                 {data.members.map((member) => (
-                  <tr key={member.playerId}>
+                  <tr key={member.playerId ?? `uid:${member.gameUid}`}>
                     <td className="label">
-                      <a href={playerHash(member.playerId)}>
-                        {member.name ?? `UID ${member.gameUid}`}
-                      </a>
+                      {/* No link when the uid never resolved to a player row.
+                          They are in the alliance and belong in the count; there
+                          is simply no page to send anybody to. */}
+                      {member.playerId === null ? (
+                        `UID ${member.gameUid}`
+                      ) : (
+                        <a href={playerHash(member.playerId)}>
+                          {member.name ?? `UID ${member.gameUid}`}
+                        </a>
+                      )}
                     </td>
                     <td className="num">{member.hqLevel ?? '—'}</td>
                     <td className="num">{num(member.power) ?? '—'}</td>

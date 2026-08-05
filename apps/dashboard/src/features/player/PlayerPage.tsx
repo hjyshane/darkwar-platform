@@ -12,7 +12,13 @@ import { LineupCell } from '../arena/LineupCell';
 import { LineupLegend } from '../arena/LineupLegend';
 import { fetchLineups } from '../arena/lineups';
 import { MemberHistory } from './MemberHistory';
-import { type PlayerArenaEntry, growthNote, newestPerLeague, percent } from './playerArena';
+import {
+  type PlayerArenaEntry,
+  growthNote,
+  growthTone,
+  newestPerLeague,
+  percent,
+} from './playerArena';
 
 /** One player, gathered from every table that knows something about them.
  *
@@ -382,14 +388,20 @@ export function PlayerPage({ playerId, now }: { playerId: string; now?: Date }) 
                   note={data.rank?.score === null ? undefined : `score ${data.rank?.score}`}
                   value={data.rank?.computed ?? null}
                 />
+                {/* Coloured, unlike the level tiles above them. A delta has a
+                    direction and these three are the only tiles here that do;
+                    the sign is still in the text, so the hue is reinforcement
+                    rather than the message. */}
                 <StatTile
                   label="Power 1d"
                   note={growthNote(data.growth?.power1dAt ?? null)}
+                  tone={growthTone(data.growth?.growth1d)}
                   value={percent(data.growth?.growth1d)}
                 />
                 <StatTile
                   label="Power 7d"
                   note={growthNote(data.growth?.power7dAt ?? null)}
+                  tone={growthTone(data.growth?.growth7d)}
                   value={percent(data.growth?.growth7d)}
                 />
                 {/* Only when neither fixed baseline could answer. Showing all
@@ -404,6 +416,7 @@ export function PlayerPage({ playerId, now }: { playerId: string; now?: Date }) 
                   <StatTile
                     label="Since last reading"
                     note={growthNote(data.recentGrowth?.powerPrevAt ?? null)}
+                    tone={growthTone(data.recentGrowth?.growthSinceLast)}
                     value={percent(data.recentGrowth?.growthSinceLast)}
                   />
                 )}
