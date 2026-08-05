@@ -14,9 +14,14 @@ from __future__ import annotations
 
 import struct
 import uuid
+from datetime import UTC, datetime, timedelta
 
 from dw_collector.capture.session import CaptureSession
-from dw_collector.protocol.pcapng import TcpSegment
+from dw_collector.protocol.pcapng import (
+    MAX_PENDING_SEGMENTS,
+    TCPDirectionReassembler,
+    TcpSegment,
+)
 from dw_collector.storage.journal import Journal
 from tests.test_capture_session import envelope, frame
 
@@ -94,3 +99,48 @@ def test_the_entrypoint_logs_health_periodically() -> None:
 
     assert "capture.health" in source
     assert "DW_CAPTURE_HEALTH_SECONDS" in source
+
+
+def test_a_gap_is_abandoned_after_a_timeout_not_only_after_64_segments() -> None:
+    """The wedge, in one test.
+
+    A reconnect burst overruns the capture buffer and opens a gap. Then the
+    game goes quiet, so the count-based escape never fires: seven segments
+    arrive over the next minute and 64 is never reached. Reproduced offline
+    from three consecutive capture files fed through one reassembler - 51
+    segments in, 0 frames out, with buffered=0 and resync=0 because the bytes
+    were held here rather than in the decoder.
+    """
+    blob = frame(envelope("al.rank", {"allianceId": "x", "list": []}))
+    stream = TCPDirectionReassembler()
+    start = datetime(2026, 8, 5, 12, 0, 0, tzinfo=UTC)
+
+    # In order, so the cursor is established.
+    assert stream.feed(1000, blob, now=start) != []
+
+    # A gap: the next 200 bytes were never captured. One segment behind it.
+    stalled_at = 1000 + len(blob) + 200
+    assert stream.feed(stalled_at, blob, now=start) == []
+    assert stream.pending
+
+    # Traffic stays light. Nine seconds later, still waiting — a real
+    # retransmit would have arrived, but this is well inside the window.
+    assert stream.feed(stalled_at, blob, now=start + timedelta(seconds=9)) == []
+    assert stream.gap_skips == 0
+
+    # Past the window: give up on the missing bytes and decode what is here.
+    frames = stream.feed(stalled_at, blob, now=start + timedelta(seconds=11))
+    assert stream.gap_skips == 1
+    assert frames != [], "the jump must also drain what it made contiguous"
+    assert not stream.pending
+
+
+def test_a_replay_with_no_clock_still_uses_the_count() -> None:
+    """`now` is optional because a pcap replay has every byte and no wall
+    clock worth trusting. The old bound has to keep working there."""
+    blob = frame(envelope("al.rank", {"allianceId": "x", "list": []}))
+    stream = TCPDirectionReassembler()
+    stream.feed(1000, blob)
+    for i in range(MAX_PENDING_SEGMENTS + 2):
+        stream.feed(50_000 + i * len(blob), blob)
+    assert stream.gap_skips >= 1
