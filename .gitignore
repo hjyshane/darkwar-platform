@@ -39,6 +39,8 @@ venv/
 *.egg-info/
 dist/
 build/
+# PyInstaller regenerates this on every build-console.ps1 run.
+*.spec
 
 # ---------------------------------------------------------------------------
 # Node / TypeScript

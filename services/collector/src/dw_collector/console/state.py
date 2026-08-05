@@ -11,6 +11,7 @@ import os
 import shutil
 import sqlite3
 import subprocess
+import webbrowser
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -152,12 +153,27 @@ def stop_tasks() -> list[str]:
     return [_run(["schtasks", "/end", "/tn", name]).stdout.strip() for name in TASKS]
 
 
+DASHBOARD_URL = "https://darkwar-platform.hjyshane.workers.dev"
+
+
+def open_dashboard() -> str:
+    """Open the deployed dashboard in the default browser.
+
+    The URL lives here rather than in the window because it is deployment
+    state, not layout — and because the badge on that page was the only
+    thing that noticed collection had been down for 18.7 hours, so getting
+    to it should not require remembering the address.
+    """
+    webbrowser.open(DASHBOARD_URL)
+    return f"opening {DASHBOARD_URL}"
+
+
 def start_docker() -> str:
     """Only the local Supabase stack needs this; cloud operation does not."""
     if not DOCKER_DESKTOP.exists():
         return f"not found: {DOCKER_DESKTOP}"
     subprocess.Popen([str(DOCKER_DESKTOP)])
-    return "Docker Desktop 시작 요청"
+    return "Docker Desktop launch requested"
 
 
 def start_emulator() -> str:
@@ -171,7 +187,7 @@ def start_emulator() -> str:
     if not HD_PLAYER.exists():
         return f"not found: {HD_PLAYER}"
     subprocess.Popen([str(HD_PLAYER), "--instance", COLLECTOR_INSTANCE])
-    return f"BlueStacks {COLLECTOR_INSTANCE} (collector) 시작 요청"
+    return f"BlueStacks {COLLECTOR_INSTANCE} (collector) launch requested"
 
 
 def start_game() -> str:
@@ -195,5 +211,5 @@ def start_game() -> str:
         timeout=30.0,
     )
     if result.returncode != 0:
-        return f"실패: {result.stderr.strip() or result.stdout.strip()}"
-    return f"{GAME_PACKAGE} 시작 요청"
+        return f"failed: {result.stderr.strip() or result.stdout.strip()}"
+    return f"{GAME_PACKAGE} launch requested"
