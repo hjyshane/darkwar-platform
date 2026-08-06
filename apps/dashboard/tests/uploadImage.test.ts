@@ -4,7 +4,8 @@
 // words rather than by a status code after a slow upload.
 import { describe, expect, test } from 'vitest';
 import { isSafeImageSrc } from '../src/lib/richText';
-import { MAX_BYTES, objectPath, publicUrl, whyNot } from '../src/lib/uploadImage';
+import { objectPathFromUrl } from '../src/lib/signedImage';
+import { MAX_BYTES, canonicalUrl, objectPath, whyNot } from '../src/lib/uploadImage';
 
 describe('whyNot', () => {
   test('a png under the limit is fine', () => {
@@ -72,9 +73,9 @@ describe('objectPath', () => {
 
 // The two halves have to agree: a URL this builds must be one the renderer will
 // accept, or an upload succeeds and the picture silently renders as text.
-describe('publicUrl and isSafeImageSrc', () => {
+describe('canonicalUrl and isSafeImageSrc', () => {
   test('what we upload is what the renderer will show', () => {
-    const url = publicUrl(objectPath('11111111-1111-4111-8111-111111111111', 'image/png'));
+    const url = canonicalUrl(objectPath('11111111-1111-4111-8111-111111111111', 'image/png'));
     expect(isSafeImageSrc(url)).toBe(true);
   });
 
@@ -102,5 +103,37 @@ describe('publicUrl and isSafeImageSrc', () => {
   test('nor a javascript: or data: url', () => {
     expect(isSafeImageSrc('javascript:alert(1)')).toBe(false);
     expect(isSafeImageSrc('data:image/png;base64,iVBORw0KGgo=')).toBe(false);
+  });
+});
+
+// The bucket is private since 0083, so the URL stored in a post body is a NAME for
+// the object and the renderer signs it. These two have to agree about the shape or
+// an uploaded picture renders as "could not be loaded".
+describe('objectPathFromUrl', () => {
+  const uid = '11111111-1111-4111-8111-111111111111';
+
+  test('a canonical url round-trips to the path that was uploaded', () => {
+    const path = objectPath(uid, 'image/png');
+    expect(objectPathFromUrl(canonicalUrl(path))).toBe(path);
+  });
+
+  test('anything not in our bucket names no object', () => {
+    expect(objectPathFromUrl('https://example.invalid/a.png')).toBeNull();
+    expect(
+      objectPathFromUrl('http://127.0.0.1:54321/storage/v1/object/public/other/a.png'),
+    ).toBeNull();
+  });
+
+  // A prefix check alone would hand Storage a path that climbs out of the bucket.
+  test('nor a path that climbs', () => {
+    expect(
+      objectPathFromUrl('http://127.0.0.1:54321/storage/v1/object/public/post-images/../x/a.png'),
+    ).toBeNull();
+  });
+
+  test('nor the bucket root with nothing after it', () => {
+    expect(
+      objectPathFromUrl('http://127.0.0.1:54321/storage/v1/object/public/post-images/'),
+    ).toBeNull();
   });
 });

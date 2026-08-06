@@ -1969,6 +1969,18 @@ form select {
   object-fit: contain;
 }
 
+/* While the signed URL is being minted (0083). A box of roughly the right height,
+ * so the text below does not jump when the picture lands. */
+.rich-image-pending {
+  align-items: center;
+  background: var(--bg-raised);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  display: flex;
+  justify-content: center;
+  min-height: 8rem;
+}
+
 .rich-image figcaption {
   color: var(--fg-muted);
   font-size: var(--text-sm);

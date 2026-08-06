@@ -156,12 +156,13 @@ export function MarkupEditor({
         Emoji work as they are. Nothing is rendered as HTML, so a tag you type shows as a tag.
       </p>
       {/* Said at the point of upload rather than in a runbook nobody writing a
-          guide will read. The bucket has to be public for Discord to show the
-          picture in the channel, and public means public. */}
+          guide will read. It said "pictures are public" until 0083 closed the
+          bucket — a claim to 94 people about where their screenshots end up has to
+          track what the schema actually does. */}
       <p className="subtle">
-        <strong>Pictures are public.</strong> They have to be, or Discord cannot show them in the
-        channel — anybody with the link can open one, signed in or not. Screenshots of the roster,
-        anyone's power, or the member list do not belong here.
+        <strong>Pictures are alliance-only.</strong> They are not public: a link copied out of the
+        page stops working within the hour. When a guide is published, the picture is uploaded to
+        the Discord channel as a file — so anybody in that channel can see and re-share it.
       </p>
       {value.trim() !== '' && (
         <>

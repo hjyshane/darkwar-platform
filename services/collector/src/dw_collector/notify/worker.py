@@ -18,7 +18,8 @@ credential, and nothing in the browser should hold it.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import json
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from urllib.parse import quote
@@ -28,6 +29,7 @@ import structlog
 
 from dw_collector.notify.compose import (
     Message,
+    attachment_name,
     departure_message,
     discord_payload,
     guide_message,
@@ -138,6 +140,10 @@ class NotifyWorker:
                 "idempotency_key": message.idempotency_key,
                 "title": message.title,
                 "body": message.body,
+                # 0083. Carried on the row because `guide_message` has already taken
+                # the image lines OUT of the body — the URL is known here and would
+                # otherwise be gone by the time anything posted it.
+                "image_url": message.image_url,
             }
             for message in messages
         ]
@@ -316,9 +322,33 @@ class NotifyWorker:
             idempotency_key=row["idempotency_key"],
             title=row["title"],
             body=row["body"],
+            image_url=row.get("image_url"),
         )
+        # THE PICTURE IS UPLOADED, NOT LINKED (0083). The bucket is private, so a URL
+        # in the embed would be unfetchable by Discord and a signed one would expire
+        # in the channel. Downloading it here with the service key and posting the
+        # bytes leaves nothing of ours readable by URL.
+        picture = self._fetch_picture(message.image_url)
+        if message.image_url is not None and picture is None:
+            # The download failed, so the attachment will not be there. Take the
+            # image off the MESSAGE rather than posting an embed that points at an
+            # attachment nobody sent — that renders as a picture-shaped blank. The
+            # words are worth more than the picture, so the post still goes.
+            message = replace(message, image_url=None)
+        payload = discord_payload(message)
         try:
-            response = httpx.post(url, json=discord_payload(message), timeout=30.0)
+            if picture is None:
+                response = httpx.post(url, json=payload, timeout=30.0)
+            else:
+                # multipart: `payload_json` carries what would have been the JSON
+                # body, and the file rides beside it under the name the embed's
+                # `attachment://` refers to.
+                response = httpx.post(
+                    url,
+                    data={"payload_json": json.dumps(payload)},
+                    files={"files[0]": (picture[0], picture[1], picture[2])},
+                    timeout=60.0,
+                )
             response.raise_for_status()
         except httpx.HTTPError as error:
             self._mark(row, error=str(error)[:400])
@@ -327,6 +357,42 @@ class NotifyWorker:
         self._mark(row, error=None)
         self._touch_channel(row["channel"], error=None)
         return True
+
+    def _fetch_picture(self, image_url: str | None) -> tuple[str, bytes, str] | None:
+        """The bytes of one post image, as (filename, bytes, content type).
+
+        Read with the SERVICE KEY, which is why this is the collector's job and not
+        the dashboard's: the bucket is private (0083) and only a server-side caller
+        has a credential that bypasses the need for a session.
+        `/object/<bucket>/<path>` rather than `/object/public/...` — the public
+        endpoint is exactly what 0083 turned off.
+
+        RETURNS NONE ON ANY FAILURE, and the caller then posts without the picture.
+        A missing image must not lose the announcement: the words are the message and
+        the picture is decoration, so a 404 on one object cannot be allowed to burn
+        the row's retry budget on text that was ready to send.
+        """
+        if image_url is None:
+            return None
+        marker = "/object/public/post-images/"
+        if marker not in image_url:
+            log.warning("notify.picture.unrecognised", url=image_url[:200])
+            return None
+        path = image_url.split(marker, 1)[1]
+        try:
+            response = self.client.get(
+                f"{self.config.supabase_url.rstrip('/')}/storage/v1/object/post-images/{path}",
+                # The client sets a JSON content type for PostgREST; asking for an
+                # image with it is harmless, but the response is bytes and must not
+                # be parsed as JSON anywhere below.
+                headers={"Accept": "*/*"},
+            )
+            response.raise_for_status()
+        except httpx.HTTPError as error:
+            log.warning("notify.picture.failed", path=path, error=str(error)[:200])
+            return None
+        content_type = response.headers.get("content-type", "application/octet-stream")
+        return attachment_name(image_url), response.content, content_type
 
     def _mark(self, row: Row, *, error: str | None) -> None:
         patch: dict[str, object] = {"attempts": row["attempts"] + 1, "last_error": error}
