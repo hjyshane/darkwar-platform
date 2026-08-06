@@ -2669,6 +2669,9 @@ export type Database = {
         Row: {
           alliance_id: string | null
           code: string | null
+          cross_rank_climb: number | null
+          cross_rank_first: number | null
+          cross_rank_last: number | null
           first_at: string | null
           is_own: boolean | null
           last_at: string | null
@@ -2735,6 +2738,8 @@ export type Database = {
       alliance_power_history: {
         Row: {
           alliance_id: string | null
+          board_scope: string | null
+          board_size: number | null
           captured_at: string | null
           code: string | null
           is_own: boolean | null

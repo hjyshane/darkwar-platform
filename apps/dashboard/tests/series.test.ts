@@ -223,6 +223,35 @@ describe('ticks', () => {
   test('an extent with no span still yields something to label', () => {
     expect(ticks({ min: 5, max: 5 })).toEqual([5]);
   });
+
+  // The rank axis, which is what caught this. Ranks 1 to 9, padded to 0.2–9.8,
+  // ask for a rough step of 2.4 and take the 5 rung — landing ONE gridline,
+  // labelled 5, on an axis nobody can then read a value off. `count` being an
+  // upper bound is right; one tick is not a legible axis.
+  test('a rung that would leave a single gridline steps down', () => {
+    expect(ticks({ min: 0.2, max: 9.8 }, 4)).toEqual([2, 4, 6, 8]);
+  });
+
+  test('every extent with a span gets at least two gridlines', () => {
+    const spans: [number, number][] = [
+      [0.2, 9.8],
+      [1, 3],
+      [93.5, 94.5],
+      [0.9, 2.1],
+      [17_500_000_000, 17_860_000_000],
+      [-3, 4],
+    ];
+    for (const [min, max] of spans) {
+      expect(ticks({ min, max }, 4).length).toBeGreaterThanOrEqual(2);
+    }
+  });
+
+  // Stepping down must not undo the rung choice everywhere else: these already
+  // produced enough gridlines and have to come out unchanged.
+  test('and an extent that was already fine is untouched', () => {
+    expect(ticks({ min: 0, max: 1000 }, 4)).toEqual([0, 500, 1000]);
+    expect(ticks({ min: 0, max: 3 }, 4)).toEqual([0, 1, 2, 3]);
+  });
 });
 
 describe('the hover index', () => {

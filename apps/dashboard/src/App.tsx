@@ -26,6 +26,7 @@ import {
   NAV_TABS,
   type Route,
   adminGroupFromHash,
+  allianceHash,
   allianceIdFromHash,
   guideIdFromHash,
   noticeIdFromHash,
@@ -34,6 +35,7 @@ import {
   serverIdFromHash,
 } from './lib/route';
 import { supabase } from './lib/supabase';
+import { useOwnAlliance } from './lib/useOwnAlliance';
 import { useSession } from './lib/useSession';
 
 function DataChangeSubscriber() {
@@ -95,30 +97,57 @@ const GATED_ROUTES: Partial<Record<Route, string>> = {
   arena: 'arena.view',
 };
 
-function Nav({ route }: { route: Route }) {
+function Nav({ route, allianceId }: { route: Route; allianceId: string | null }) {
   const { data: session } = useSession();
+  const { data: ownAlliance } = useOwnAlliance();
   const mayViewMembers = useMayView('members.view');
   const mayViewArena = useMayView('arena.view');
   const allowed: Partial<Record<Route, boolean | undefined>> = {
     members: mayViewMembers,
     arena: mayViewArena,
   };
+  // Built as a list rather than mapped in place, because one tab is not in
+  // NAV_TABS: our own alliance's address carries a uuid that only a query knows,
+  // so the static list cannot hold it. It sits immediately right of Overview, is
+  // absent until the query answers, and stays absent if no alliance is pinned
+  // rather than linking at `#/alliance/null`.
+  const tabs = NAV_TABS.filter(
+    (tab) => !(tab.route in GATED_ROUTES) || allowed[tab.route] === true,
+  ).flatMap((tab) => {
+    const entry = {
+      key: tab.hash,
+      href: tab.hash,
+      label: tab.label,
+      current: tab.route === route,
+    };
+    if (tab.route !== 'overview' || ownAlliance == null) {
+      return [entry];
+    }
+    return [
+      entry,
+      {
+        key: 'own-alliance',
+        href: allianceHash(ownAlliance.alliance_id),
+        label: ownAlliance.code ?? ownAlliance.name ?? 'Our alliance',
+        current: route === 'alliance' && allianceId === ownAlliance.alliance_id,
+      },
+    ];
+  });
+
   return (
     <nav aria-label="Screens" className="tabs">
-      {NAV_TABS.filter((tab) => !(tab.route in GATED_ROUTES) || allowed[tab.route] === true).map(
-        (tab) => (
-          <a
-            key={tab.hash}
-            href={tab.hash}
-            className="tab"
-            // Marks the current tab for screen readers, and is what the
-            // stylesheet keys off — no active-state class to keep in sync.
-            aria-current={tab.route === route ? 'page' : undefined}
-          >
-            {tab.label}
-          </a>
-        ),
-      )}
+      {tabs.map((tab) => (
+        <a
+          key={tab.key}
+          href={tab.href}
+          className="tab"
+          // Marks the current tab for screen readers, and is what the
+          // stylesheet keys off — no active-state class to keep in sync.
+          aria-current={tab.current ? 'page' : undefined}
+        >
+          {tab.label}
+        </a>
+      ))}
       {/* Sign-in used to be an unlisted address, which was fine when only an
           admin ever needed it. Members now sign in to see their own
           alliance's figures, so it has to be findable — and the role has to
@@ -322,7 +351,7 @@ function Shell({
               at all. */}
           {session?.email != null && <SignOutButton email={session.email} />}
         </h1>
-        {!standalone && isMember && <Nav route={route} />}
+        {!standalone && isMember && <Nav allianceId={allianceId} route={route} />}
       </header>
       {walled ? (
         <SignedOutWall email={session?.email} />

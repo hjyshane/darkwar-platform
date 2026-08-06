@@ -750,6 +750,44 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
   // Month cards — unlinked from the nav, reachable at #/month-cards.
   [['monthCards'], []],
 
+  // Which alliance is ours, for the nav tab that links straight to it.
+  [['own-alliance'], { alliance_id: ALLIANCE.ours, name: 'HELLBOUND', code: 'CBFW' }],
+
+  // One alliance's trends. The board readings come in PAIRS — a server board and
+  // a cross-server board three minutes apart, same power, different rank — which
+  // is the shape 0081 exists for and the only way to see the two rank lines
+  // separate rather than sawtooth.
+  [
+    ['alliance-trends', ALLIANCE.ours],
+    {
+      board: [0, 1, 2, 3, 4].flatMap((step) => {
+        const at = 60 * 24 * (5 - step);
+        return [
+          {
+            captured_at: ago(at),
+            server_id: 580,
+            power: 17_500_000_000 + step * 90_000_000,
+            rank: step < 2 ? 2 : 1,
+            member_count: 94,
+            board_scope: 'server',
+            board_size: 39,
+          },
+          {
+            captured_at: ago(at - 3),
+            server_id: 580,
+            power: 17_500_000_000 + step * 90_000_000,
+            rank: 9 - step,
+            member_count: 94,
+            board_scope: 'cross_server',
+            board_size: 100,
+          },
+        ];
+      }),
+      roster: [],
+      daily: [],
+    },
+  ],
+
   // The two boards. Enough rows to put the pager on screen (22 unpinned at 20
   // a page), a pinned one above them, and a mix of read and unread — the three
   // things about a board list that can only be judged by looking at it.
