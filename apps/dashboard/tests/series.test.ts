@@ -13,6 +13,7 @@ import {
   scaleY,
   thin,
   ticks,
+  wholeNumbers,
 } from '../src/lib/series';
 
 const box: Box = {
@@ -251,6 +252,50 @@ describe('ticks', () => {
   test('and an extent that was already fine is untouched', () => {
     expect(ticks({ min: 0, max: 1000 }, 4)).toEqual([0, 500, 1000]);
     expect(ticks({ min: 0, max: 3 }, 4)).toEqual([0, 1, 2, 3]);
+  });
+
+  // A rank axis spanning 1st to 2nd. Half-steps gave gridlines 1, 1.5, 2, which a
+  // whole-number formatter printed as "1", "2", "2" — and there is no rank of 1.5
+  // to point at anyway.
+  test('a whole-number axis gets no fractional gridlines', () => {
+    expect(ticks({ min: 0.9, max: 2.1 }, 4, 1)).toEqual([1, 2]);
+    expect(ticks({ min: 0.9, max: 2.1 }, 4)).toContain(1.5);
+  });
+
+  // The floor. An axis narrower than two whole numbers cannot have two whole
+  // gridlines, and the step-down loop must stop rather than spin.
+  test('and stops at one label when a whole number axis is that narrow', () => {
+    expect(ticks({ min: 0.9, max: 1.1 }, 4, 1)).toEqual([1]);
+    expect(ticks({ min: 1, max: 1 }, 4, 1)).toEqual([1]);
+  });
+});
+
+describe('wholeNumbers', () => {
+  const line = (values: (number | null)[]): Series => ({
+    name: 'x',
+    slot: 0,
+    points: values.map((v, index) => ({ t: index, v })),
+  });
+
+  test('true when every reading is an integer', () => {
+    expect(wholeNumbers([line([1, 2, 7])])).toBe(true);
+  });
+
+  test('false as soon as one is not', () => {
+    expect(wholeNumbers([line([1, 2]), line([34.5])])).toBe(false);
+  });
+
+  // Gaps are the ordinary case — the boards are captured when somebody opens
+  // them — and a missing reading says nothing about whether the figure is whole.
+  test('nulls are skipped rather than disqualifying', () => {
+    expect(wholeNumbers([line([1, null, 3])])).toBe(true);
+  });
+
+  // Not whole, because there is nothing to be whole. Claiming otherwise would
+  // constrain an axis that has no data to constrain.
+  test('nothing measured is not a whole-number axis', () => {
+    expect(wholeNumbers([])).toBe(false);
+    expect(wholeNumbers([line([null, null])])).toBe(false);
   });
 });
 

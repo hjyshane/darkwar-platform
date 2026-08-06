@@ -12,6 +12,7 @@ import {
   scaleX,
   scaleY,
   ticks,
+  wholeNumbers,
 } from '../lib/series';
 
 /** A line chart, in SVG, with no charting library.
@@ -96,6 +97,14 @@ export function LineChart({
   const rightRange = right.length > 0 ? extents(right) : null;
   const leftInverted = axisInverted(left);
   const rightInverted = axisInverted(right);
+  // Ranks, member counts and "how many reached level 35" are whole numbers, and a
+  // fractional gridline on them is both meaningless and — once the formatter
+  // rounds it — a duplicate label. Read off the DATA rather than declared by each
+  // caller: every series that is whole is whole, and a chart cannot forget to say
+  // so. A single axis of 1 to 2 is where it showed: gridlines 1, 1.5, 2 printed
+  // "1", "2", "2".
+  const leftStep = wholeNumbers(left.length > 0 ? left : series) ? 1 : 0;
+  const rightStep = wholeNumbers(right) ? 1 : 0;
   const times = mergedTimes(series);
   const activeTime = active === null ? null : (times[active] ?? null);
 
@@ -168,7 +177,7 @@ export function LineChart({
             two unrelated grids over each other and neither would be readable —
             the right axis gets labels against the same lines it does not own,
             which is the ordinary convention for a twin-axis chart. */}
-        {ticks(range.y, 4).map((value) => {
+        {ticks(range.y, 4, leftStep).map((value) => {
           const y = scaleY(value, range.y, box, leftInverted);
           return (
             <g key={`y${value}`}>
@@ -187,7 +196,7 @@ export function LineChart({
         })}
 
         {rightRange !== null &&
-          ticks(rightRange.y, 4).map((value) => (
+          ticks(rightRange.y, 4, rightStep).map((value) => (
             <text
               key={`r${value}`}
               className="chart-axis"

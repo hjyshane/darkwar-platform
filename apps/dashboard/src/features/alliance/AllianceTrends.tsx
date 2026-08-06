@@ -205,18 +205,56 @@ function crossLabel(board: readonly BoardPoint[]): string {
   return size === null ? 'Cross-server rank' : `Cross-server rank (of ${size})`;
 }
 
+/** One rank line per board, each on its own axis.
+ *
+ * Separate axes because the boards are different sizes. Sharing one puts 1st of 39
+ * and 7th of 100 within a few pixels of each other, and the shape of neither line
+ * survives that — which was the point of splitting them in the first place.
+ *
+ * An alliance seen on ONE board gets the left axis, whichever board that is. The
+ * right axis exists to keep two lines apart; with one line it would only move the
+ * numbers to the far side of the chart.
+ */
+function rankSeries(board: readonly BoardPoint[]): Series[] {
+  const server = hasScope(board, 'server');
+  const cross = hasScope(board, 'cross_server');
+  const line = (scope: string, name: string, slot: number, axis: 'left' | 'right'): Series => ({
+    ...column(
+      board.filter((row) => row.board_scope === scope),
+      (row) => row.rank,
+      name,
+      slot,
+    ),
+    axis,
+    invert: true,
+  });
+  if (server && cross) {
+    return [
+      line('server', serverLabel(board), 1, 'left'),
+      line('cross_server', crossLabel(board), 2, 'right'),
+    ];
+  }
+  if (server) {
+    return [line('server', serverLabel(board), 1, 'left')];
+  }
+  if (cross) {
+    return [line('cross_server', crossLabel(board), 2, 'left')];
+  }
+  return [];
+}
+
 /** Said in the chart's note, because two rank lines that are both "rank" need a
  * sentence explaining why one is higher. */
 function scopeNote(board: readonly BoardPoint[]): string {
   const server = hasScope(board, 'server');
   const cross = hasScope(board, 'cross_server');
   if (server && cross) {
-    return 'The two boards are separate lines: one is this alliance among its own server, the other among every server the board covers. They are different questions, and a good answer to one can look poor beside the other.';
+    return 'One line per board, each on its own axis — left is this alliance among its own server, right is among every server the board covers. Different questions, and a good answer to one can look poor beside the other, which is why they do not share a scale.';
   }
   if (cross) {
-    return 'Only the cross-server board has been captured for this alliance.';
+    return 'Only the cross-server board has been captured for this alliance, so there is one line.';
   }
-  return 'Only their own server board has been captured.';
+  return 'Only their own server board has been captured, so there is one line.';
 }
 
 /** One kind of daily board as a series, keyed on the game day it belongs to. */
@@ -301,59 +339,44 @@ export function AllianceTrends({ allianceId, isOwn }: { allianceId: string; isOw
         </p>
       ) : (
         <>
+          {/* Members ride along with power rather than with rank. They belong to
+              either — the board reports both — but the rank chart has only two
+              axes and both are now spoken for, and power-and-size is the more
+              useful pairing anyway: it says whether the alliance grew because
+              members grew or because members arrived. */}
           <LineChart
+            formatRight={wholeValue}
             formatTime={moment}
             formatValue={bigValue}
-            label="Alliance power as the ranking board reported it"
-            note="Captured when somebody opens the board, so the gaps are ours and not theirs."
-            series={[column(board, (row) => row.power, 'Power', 0)]}
+            label="Alliance power and member count as the ranking board reported them"
+            note="Captured when somebody opens the board, so the gaps are ours and not theirs. Members are the dashed line on the right — power rising while that line is flat is the members themselves growing."
+            series={[
+              column(board, (row) => row.power, 'Power', 0),
+              { ...column(board, (row) => row.member_count, 'Members', 5), axis: 'right' },
+            ]}
           />
-          {/* Rank on its own axis, drawn UPSIDE DOWN. Rank 6 beats rank 9, so an
-              ordinary axis makes improvement point downwards and gets misread by
-              everybody exactly once. Member count on the other side because 35
-              members against rank 4 on one scale leaves the rank line flat along
-              the bottom.
+          {/* Rank drawn UPSIDE DOWN. Rank 6 beats rank 9, so an ordinary axis
+              makes improvement point downwards and gets misread by everybody
+              exactly once.
 
-              ONE LINE PER BOARD (0081). These were a single series, and since the
-              routine opens the server board and the cross-server board about three
-              minutes apart, the line sawtoothed between 1st and 7th with the power
-              unchanged — which reads as broken data and is two true answers to two
-              different questions. */}
+              ONE LINE PER BOARD (0081), AND ONE AXIS EACH. These were a single
+              series, and since the routine opens the server board and the
+              cross-server board about three minutes apart, the line sawtoothed
+              between 1st and 7th with the power unchanged — two true answers to
+              two different questions, drawn as one lie.
+
+              Separate axes rather than a shared one because the two boards are
+              different sizes: 1st of 39 against 7th of 100 on one scale puts both
+              lines in the same inch of chart, where the shape of neither can be
+              read. Each axis now spans its own board, so what you see is movement
+              within that board — which is the only movement that means anything. */}
           <LineChart
             formatRight={wholeValue}
             formatTime={moment}
             formatValue={wholeValue}
-            label="Board rank and member count over time"
-            note={`The rank axis is inverted, so climbing a board is a line going UP. ${scopeNote(board)} Members are the dashed line on the right.`}
-            series={[
-              ...(hasScope(board, 'server')
-                ? [
-                    {
-                      ...column(
-                        board.filter((row) => row.board_scope === 'server'),
-                        (row) => row.rank,
-                        serverLabel(board),
-                        1,
-                      ),
-                      invert: true,
-                    },
-                  ]
-                : []),
-              ...(hasScope(board, 'cross_server')
-                ? [
-                    {
-                      ...column(
-                        board.filter((row) => row.board_scope === 'cross_server'),
-                        (row) => row.rank,
-                        crossLabel(board),
-                        2,
-                      ),
-                      invert: true,
-                    },
-                  ]
-                : []),
-              { ...column(board, (row) => row.member_count, 'Members', 5), axis: 'right' },
-            ]}
+            label="Board rank over time, one line per board"
+            note={`The rank axis is inverted, so climbing is a line going UP. ${scopeNote(board)}`}
+            series={rankSeries(board)}
           />
         </>
       )}

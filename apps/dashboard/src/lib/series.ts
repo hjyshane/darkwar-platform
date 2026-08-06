@@ -200,7 +200,7 @@ export function forwardFill(points: readonly Point[]): Point[] {
  * 183,402 / 366,804. A chart whose gridlines are arbitrary is one nobody can
  * read a value off without the tooltip.
  */
-export function ticks(extent: Extent, count = 4): number[] {
+export function ticks(extent: Extent, count = 4, minStep = 0): number[] {
   const span = extent.max - extent.min;
   if (span <= 0 || !Number.isFinite(span)) {
     return [extent.min];
@@ -212,7 +212,15 @@ export function ticks(extent: Extent, count = 4): number[] {
   // for — so `count` is an upper bound on the intervals. Stopping the ladder at
   // 5 was a bug: an extent of 0..3 wants a step of 1 and got 0.5, which is a
   // legal round number and twice as many gridlines as were asked for.
-  let step = (normalised > 5 ? 10 : normalised > 2 ? 5 : normalised > 1 ? 2 : 1) * magnitude;
+  // `minStep` is how a caller says the values are whole numbers. A rank axis
+  // spanning 1 to 2 asked for a step of 0.5 and drew gridlines at 1, 1.5 and 2 —
+  // which a whole-number formatter printed as "1", "2", "2". Two identical labels
+  // on one axis reads as a rendering fault, and there is no rank of 1.5 to point
+  // at anyway.
+  let step = Math.max(
+    minStep,
+    (normalised > 5 ? 10 : normalised > 2 ? 5 : normalised > 1 ? 2 : 1) * magnitude,
+  );
 
   let out = ladder(extent, step);
   // Stepping DOWN when the rung chosen leaves fewer than two gridlines.
@@ -225,14 +233,45 @@ export function ticks(extent: Extent, count = 4): number[] {
   //
   // One rung down, not a recomputation: 5 → 2 → 1 → 0.5 keeps the labels on the
   // same round progression, which is the whole point of the ladder.
-  while (out.length < 2 && step > 0) {
-    step = nextRungDown(step);
+  while (out.length < 2 && step > minStep) {
+    step = Math.max(minStep, nextRungDown(step));
     if (step <= 0 || !Number.isFinite(step)) {
       break;
     }
-    out = ladder(extent, step);
+    const next = ladder(extent, step);
+    if (next.length <= out.length) {
+      // The floor has been reached — a whole-number axis spanning less than two
+      // whole numbers cannot be given two gridlines, and looping would not change
+      // that. One label beats none.
+      return next.length === 0 ? out : next;
+    }
+    out = next;
   }
   return out;
+}
+
+/** Whether every value across these series is a whole number.
+ *
+ * Ranks, member counts, "how many reached level 35" — a gridline at 1.5 on any of
+ * them is a value the game cannot report, and a whole-number formatter turns it
+ * into a label identical to its neighbour. An empty list is NOT whole: there is
+ * nothing to be whole, and claiming otherwise would constrain an axis that has no
+ * data to constrain.
+ */
+export function wholeNumbers(series: readonly Series[]): boolean {
+  let seen = false;
+  for (const line of series) {
+    for (const point of line.points) {
+      if (point.v === null) {
+        continue;
+      }
+      if (!Number.isInteger(point.v)) {
+        return false;
+      }
+      seen = true;
+    }
+  }
+  return seen;
 }
 
 /** The rung below this one on the 1/2/5 ladder. */
