@@ -106,6 +106,22 @@ function BlockNode({ block }: { block: Block }) {
       );
     case 'list':
       return <NestedList items={block.items} />;
+    case 'image':
+      // `loading="lazy"` because a guide can carry several and only the first is
+      // above the fold. No width or height attributes: the file's own dimensions
+      // are unknown here and the stylesheet caps it — a guessed pair would either
+      // squash the picture or reserve the wrong space.
+      //
+      // The alt text is whatever the author typed between the brackets, and it is
+      // empty when they typed nothing. Empty alt is the correct value for a
+      // decorative image: a screen reader skips it rather than reading a filename
+      // aloud. An invented alt would be worse than none.
+      return (
+        <figure className="rich-image">
+          <img alt={block.alt} loading="lazy" src={block.src} />
+          {block.alt !== '' && <figcaption>{block.alt}</figcaption>}
+        </figure>
+      );
     default:
       return (
         <p>

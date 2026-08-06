@@ -5,6 +5,9 @@
 import { describe, expect, test } from 'vitest';
 import { isSafeHref, parse, parseInline } from '../src/lib/richText';
 
+// The local stack's URL, which is what `lib/env` falls back to under vitest.
+const OURS = 'http://127.0.0.1:54321/storage/v1/object/public/post-images';
+
 describe('link schemes', () => {
   test('http and https are allowed', () => {
     expect(isSafeHref('https://example.com')).toBe(true);
@@ -185,5 +188,49 @@ describe('blocks', () => {
   test('an empty body is no blocks at all', () => {
     expect(parse('')).toEqual([]);
     expect(parse('\n\n  \n')).toEqual([]);
+  });
+});
+
+describe('images', () => {
+  // A block, not an inline: an image halfway through a sentence is not what a
+  // guide wants, and a block can be captioned.
+  test('a line that is only an image becomes an image block', () => {
+    expect(parse(`![a hero line-up](${OURS}/u/1.png)`)).toEqual([
+      { kind: 'image', src: `${OURS}/u/1.png`, alt: 'a hero line-up' },
+    ]);
+  });
+
+  // Empty alt is the CORRECT value for a decorative picture — a screen reader
+  // skips it rather than reading a uuid aloud.
+  test('no alt text is empty alt, not a missing field', () => {
+    expect(parse(`![](${OURS}/u/1.png)`)).toEqual([
+      { kind: 'image', src: `${OURS}/u/1.png`, alt: '' },
+    ]);
+  });
+
+  // The privacy rule. An <img src> is fetched with no click, so an outside host
+  // would collect a log line per reader — which is how many people opened the
+  // guide, a question `post_reads` deliberately refuses to answer.
+  test('an image from anywhere else stays text', () => {
+    const blocks = parse('![x](https://example.invalid/tracker.png)');
+    expect(blocks[0]?.kind).toBe('paragraph');
+  });
+
+  // Not stripped — the author sees their markup and can work out why, instead of
+  // wondering where the picture went.
+  test('and keeps the characters that were typed', () => {
+    const blocks = parse('![x](https://example.invalid/a.png)');
+    expect(JSON.stringify(blocks)).toContain('example.invalid');
+  });
+
+  test('an image with words beside it is a paragraph, not an image', () => {
+    expect(parse(`see this ![x](${OURS}/u/1.png)`)[0]?.kind).toBe('paragraph');
+  });
+
+  test('an image ends the paragraph above it', () => {
+    const blocks = parse(`text
+![x](${OURS}/u/1.png)
+more`);
+    expect(blocks.map((b) => b.kind)).toEqual(['paragraph', 'image', 'paragraph']);
   });
 });

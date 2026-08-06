@@ -1,3 +1,5 @@
+import { SUPABASE_URL } from './env';
+
 // A deliberately small markup subset, parsed into data rather than HTML.
 //
 // WHY THIS EXISTS AND WHAT IT REFUSES TO DO.
@@ -14,7 +16,9 @@
 //
 // The subset is chosen to match what Discord already understands, because the
 // same body gets published there: bold, italic, inline code, links, bullets and
-// headings all survive the trip. Tables and images do not, and are left out.
+// headings all survive the trip. Tables are left out. Images arrive as a bare URL
+// in the published text, which Discord unfurls into a preview — so they survive
+// too, by a different route than the rest.
 
 /** Where a link may point.
  *
@@ -23,6 +27,21 @@
  * allowlist rather than a blocklist, so a scheme nobody has thought of yet is
  * refused by default. */
 const SAFE_SCHEMES = ['http://', 'https://'];
+
+/** Where an IMAGE may point, which is a far shorter list: our own bucket.
+ *
+ * An `<img src>` is fetched by every reader's browser the moment the page opens,
+ * with no click. Pointed at somebody else's host, that hands the host a log line
+ * per reader — address, time, user agent — which is a serviceable way to count who
+ * has opened a guide. This dashboard deliberately cannot answer that question:
+ * `post_reads` is private even to admins (0079), and an image tag must not become
+ * the back door to it.
+ *
+ * So an image comes from `post-images` (0082) or it is not rendered as an image. A
+ * picture hosted elsewhere still works as a LINK, where the reader chooses to go —
+ * which is the whole difference.
+ */
+const IMAGE_PREFIX = `${SUPABASE_URL}/storage/v1/object/public/post-images/`;
 
 export type Inline =
   | { kind: 'text'; text: string }
@@ -45,7 +64,11 @@ export interface ListItem {
 export type Block =
   | { kind: 'paragraph'; content: Inline[] }
   | { kind: 'heading'; level: 2 | 3; content: Inline[] }
-  | { kind: 'list'; items: ListItem[] };
+  | { kind: 'list'; items: ListItem[] }
+  // A BLOCK, not an inline. An image halfway through a sentence is not what a
+  // guide wants, and a block is the shape that can be given a caption and a width
+  // without fighting the line box around it.
+  | { kind: 'image'; src: string; alt: string };
 
 /** Whether a link target is one we will render as a link at all. */
 export function isSafeHref(href: string): boolean {
@@ -59,6 +82,24 @@ export function isSafeHref(href: string): boolean {
   // did not write — a quieter failure than refusing, and a worse one. Since the
   // captured href can never contain `)`, any `(` in it proves the truncation.
   return !trimmed.includes('(');
+}
+
+/** Whether an image source is one we will render as an image.
+ *
+ * Our own public bucket and nothing else — see IMAGE_PREFIX for why. Compared
+ * case-sensitively, because a path is case-sensitive and lowercasing first would
+ * accept a host that merely looks like ours after folding.
+ */
+export function isSafeImageSrc(src: string): boolean {
+  const trimmed = src.trim();
+  if (!trimmed.startsWith(IMAGE_PREFIX)) {
+    return false;
+  }
+  // Same truncation proof as a link href: the pattern stops at the first `)`, so a
+  // `(` surviving in the captured URL means the real one was cut short. And no
+  // `..` — a public object path has no business walking upwards, and a prefix
+  // check alone would accept `…/post-images/../another-bucket/x`.
+  return !trimmed.includes('(') && !trimmed.includes('..');
 }
 
 // One pattern, alternatives ordered so the longest marker wins: `**` has to be
@@ -164,6 +205,21 @@ export function parse(body: string): Block[] {
         // instead of their intent being dropped.
         depth: (bullet[1] ?? '').length >= 2 ? 1 : 0,
       });
+      continue;
+    }
+    // An image, alone on its line. Only alone: `![a](x) and text` stays a
+    // paragraph, because half a line of prose wrapped around a block image is a
+    // layout question the subset does not answer.
+    //
+    // An unsafe source falls through to the paragraph below and renders as the
+    // characters typed — same rule as an unsafe link href. The author sees their
+    // markup instead of wondering where the picture went.
+    const image = /^!\[([^\]]*)\]\(([^)\s]+)\)$/.exec(trimmed.trim());
+    const src = image?.[2];
+    if (src !== undefined && isSafeImageSrc(src)) {
+      flushParagraph();
+      flushList();
+      blocks.push({ kind: 'image', src: src.trim(), alt: (image?.[1] ?? '').trim() });
       continue;
     }
     const heading = /^(#{2,3})\s+(.*)$/.exec(trimmed);

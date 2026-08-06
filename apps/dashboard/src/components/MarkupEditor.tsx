@@ -1,5 +1,6 @@
-import { useRef } from 'react';
-import { type MarkupAction, applyMarkup } from '../lib/markupActions';
+import { useRef, useState } from 'react';
+import { type MarkupAction, applyMarkup, insertImage } from '../lib/markupActions';
+import { ALLOWED_TYPES, uploadPostImage } from '../lib/uploadImage';
 import { RichText } from './RichText';
 
 /** A textarea with buttons, so nobody has to know the markup.
@@ -43,6 +44,48 @@ export function MarkupEditor({
   rows?: number;
 }) {
   const ref = useRef<HTMLTextAreaElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  /** Upload the chosen file and drop the markup in at the caret.
+   *
+   * The file input is hidden behind a button because a bare `<input type="file">`
+   * cannot be styled and reads as an afterthought beside the other controls. It is
+   * still a real input, so the keyboard and a screen reader reach it through the
+   * label.
+   */
+  async function upload(file: File): Promise<void> {
+    const box = ref.current;
+    setUploadError(null);
+    setUploading(true);
+    try {
+      const url = await uploadPostImage(file);
+      const at =
+        box === null
+          ? { start: value.length, end: value.length }
+          : {
+              start: box.selectionStart,
+              end: box.selectionEnd,
+            };
+      const applied = insertImage(value, at, url);
+      onChange(applied.body);
+      requestAnimationFrame(() => {
+        box?.focus();
+        box?.setSelectionRange(applied.selection.start, applied.selection.end);
+      });
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : 'Upload failed.');
+    } finally {
+      setUploading(false);
+      // Cleared so choosing the SAME file again fires `change` a second time —
+      // otherwise a failed upload cannot be retried without picking something else
+      // first.
+      if (fileRef.current !== null) {
+        fileRef.current.value = '';
+      }
+    }
+  }
 
   function press(action: MarkupAction): void {
     const box = ref.current;
@@ -79,6 +122,27 @@ export function MarkupEditor({
             {button.label}
           </button>
         ))}
+        <button
+          disabled={uploading}
+          onClick={() => fileRef.current?.click()}
+          title="Add a picture — PNG, JPEG, WebP or GIF, up to 5MB"
+          type="button"
+        >
+          {uploading ? '⏳ Uploading…' : '🖼 Image'}
+        </button>
+        <input
+          accept={ALLOWED_TYPES.join(',')}
+          aria-label="Choose a picture to upload"
+          className="visually-hidden"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file !== undefined) {
+              void upload(file);
+            }
+          }}
+          ref={fileRef}
+          type="file"
+        />
       </div>
       <textarea
         id={id}
@@ -87,8 +151,17 @@ export function MarkupEditor({
         rows={rows}
         value={value}
       />
+      {uploadError !== null && <p className="error">{uploadError}</p>}
       <p className="subtle">
         Emoji work as they are. Nothing is rendered as HTML, so a tag you type shows as a tag.
+      </p>
+      {/* Said at the point of upload rather than in a runbook nobody writing a
+          guide will read. The bucket has to be public for Discord to show the
+          picture in the channel, and public means public. */}
+      <p className="subtle">
+        <strong>Pictures are public.</strong> They have to be, or Discord cannot show them in the
+        channel — anybody with the link can open one, signed in or not. Screenshots of the roster,
+        anyone's power, or the member list do not belong here.
       </p>
       {value.trim() !== '' && (
         <>

@@ -31,6 +31,41 @@ export interface Applied {
   selection: Selection;
 }
 
+/** Put an uploaded image into the body, on a line of its own.
+ *
+ * Not a `MarkupAction`, because it needs a URL and the actions take none — the
+ * caller has just uploaded a file and knows where it landed.
+ *
+ * ON ITS OWN LINE, because `parse` only treats `![alt](url)` as an image when the
+ * line holds nothing else. Inserting at a caret mid-sentence would otherwise
+ * produce markup that renders as literal text, which looks like the upload failed.
+ * Blank lines around it so it is its own block whatever it was dropped between.
+ *
+ * The ALT TEXT is left selected. An image with no alt is invisible to anybody using
+ * a screen reader, and the one moment somebody might actually type a description is
+ * the moment the cursor is already sitting on it.
+ */
+export function insertImage(
+  body: string,
+  selection: Selection,
+  url: string,
+  alt = 'describe the picture',
+): Applied {
+  const before = body.slice(0, selection.start);
+  const after = body.slice(selection.end);
+  // Only add the separators that are missing: a body already ending in a blank
+  // line does not need two more.
+  const lead =
+    before === '' || before.endsWith('\n\n') ? '' : before.endsWith('\n') ? '\n' : '\n\n';
+  const tail =
+    after === '' || after.startsWith('\n\n') ? '' : after.startsWith('\n') ? '\n' : '\n\n';
+  const altStart = before.length + lead.length + 2;
+  return {
+    body: `${before}${lead}![${alt}](${url})${tail}${after}`,
+    selection: { start: altStart, end: altStart + alt.length },
+  };
+}
+
 const WRAPPERS: Record<InlineAction, string> = {
   bold: '**',
   italic: '*',
