@@ -187,9 +187,15 @@ class NotifyWorker:
         channel = self._target(routing, "departures")
         if channel is None:
             return []
+        # THE COLUMN NAMES ARE 0067's, not invented ones. It asked for `name`,
+        # `power` and `snapshot_complete` at first — the view calls them
+        # `last_known_name`, `last_power` and `confirmed`, and PostgREST answers
+        # 400 for a column that does not exist. `44_discord_notifications_test`
+        # now asserts this exact list against the view, so the next rename fails
+        # in CI rather than on the first live run.
         rows = self._get(
-            "alliance_departures?select=alliance_id,game_uid,name,power,"
-            "last_seen_in_alliance_at,snapshot_complete&limit=200"
+            "alliance_departures?select=alliance_id,game_uid,last_known_name,last_power,"
+            "last_seen_in_alliance_at,confirmed&limit=200"
         )
         alliances = {
             row["alliance_id"]: row["current_name"]
@@ -197,7 +203,14 @@ class NotifyWorker:
         }
         return [
             departure_message(
-                channel=channel, alliance_name=alliances.get(row["alliance_id"]), row=row
+                channel=channel,
+                alliance_name=alliances.get(row["alliance_id"]),
+                alliance_id=row["alliance_id"],
+                game_uid=row["game_uid"],
+                last_known_name=row["last_known_name"],
+                last_power=row["last_power"],
+                last_seen_in_alliance_at=row["last_seen_in_alliance_at"],
+                confirmed=row["confirmed"],
             )
             for row in rows
         ]

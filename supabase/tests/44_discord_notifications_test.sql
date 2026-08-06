@@ -7,7 +7,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(13);
+select plan(19);
 
 insert into auth.users (id, instance_id, aud, role, email) values
   ('00000000-0000-4000-8000-0000000ad076', '00000000-0000-0000-0000-000000000000',
@@ -131,6 +131,32 @@ select throws_ok(
   '23505',
   NULL,
   'the same message cannot be enqueued twice');
+
+-- ------------------------------------------------- the columns dw-notify selects
+--
+-- This is here because the tests did not catch it. `departure_candidates` asked
+-- `alliance_departures` for `name`, `power` and `snapshot_complete`; the view
+-- calls them `last_known_name`, `last_power` and `confirmed`. Every Python test
+-- passed, because they handed the composer the same invented keys the query used.
+-- PostgREST answered 400 on the first live run.
+--
+-- A pgTAP assertion is the only place that can compare the two, since the query
+-- is a string on one side of a network boundary and the view is on the other.
+-- Keep this list identical to the `select=` in `notify/worker.py`.
+select has_column('public', 'alliance_departures', 'alliance_id', 'dw-notify selects alliance_id');
+select has_column('public', 'alliance_departures', 'game_uid', 'dw-notify selects game_uid');
+select has_column(
+  'public', 'alliance_departures', 'last_known_name',
+  'dw-notify selects last_known_name — NOT name');
+select has_column(
+  'public', 'alliance_departures', 'last_power',
+  'dw-notify selects last_power — NOT power');
+select has_column(
+  'public', 'alliance_departures', 'last_seen_in_alliance_at',
+  'dw-notify selects last_seen_in_alliance_at, which is also its idempotency key');
+select has_column(
+  'public', 'alliance_departures', 'confirmed',
+  'dw-notify selects confirmed — NOT snapshot_complete');
 
 select * from finish();
 rollback;
