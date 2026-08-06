@@ -34,7 +34,7 @@ const EMPTY: Draft = {
 async function fetchAll(): Promise<Announcement[]> {
   const { data, error } = await supabase
     .from('announcements')
-    .select('announcement_id, title, body, starts_at, ends_at, pinned, visibility')
+    .select('announcement_id, title, body, starts_at, ends_at, pinned, visibility, created_at')
     .order('pinned', { ascending: false })
     .order('starts_at', { ascending: false, nullsFirst: false });
   if (error) {

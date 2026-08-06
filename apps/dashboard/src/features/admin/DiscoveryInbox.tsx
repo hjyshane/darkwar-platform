@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import { SortableTh } from '../../components/SortableTh';
 import { TableSearch } from '../../components/TableSearch';
 import { formatAge } from '../../lib/freshness';
@@ -49,6 +50,10 @@ async function fetchObservations(): Promise<ObservationRow[]> {
   return data as ObservationRow[];
 }
 
+/** How many shapes the screen shows before it needs asking. Ten, because the
+ * list is sorted by how often each was seen and the tail is things seen once. */
+const COLLAPSED_ROWS = 10;
+
 const SEARCH_FIELDS = ['source_command'] as const;
 
 export function DiscoveryInbox({ now }: { now?: Date }) {
@@ -64,6 +69,13 @@ export function DiscoveryInbox({ now }: { now?: Date }) {
     key: 'seen_count',
     direction: 'desc',
   });
+
+  // Folded to the first ten. The query takes up to 500 rows, sorted by how often
+  // each shape was seen, and the tail is a long list of things seen once — real
+  // but not what anybody opened this screen to read. Search still runs over all
+  // of them, so a command you know the name of is one keystroke away whether or
+  // not the list is expanded.
+  const [expanded, setExpanded] = useState(false);
 
   if (isPending) {
     return <p className="empty">Loading…</p>;
@@ -82,6 +94,9 @@ export function DiscoveryInbox({ now }: { now?: Date }) {
       </p>
     );
   }
+
+  const shown = expanded ? view.view : view.view.slice(0, COLLAPSED_ROWS);
+  const hidden = view.view.length - shown.length;
 
   return (
     <>
@@ -123,7 +138,7 @@ export function DiscoveryInbox({ now }: { now?: Date }) {
             </tr>
           </thead>
           <tbody>
-            {view.view.map((row) => (
+            {shown.map((row) => (
               <tr key={row.schema_observation_id}>
                 <td className="label">
                   <code>{row.source_command}</code>
@@ -144,6 +159,15 @@ export function DiscoveryInbox({ now }: { now?: Date }) {
           </tbody>
         </table>
       </div>
+      {/* Only when something is folded away. A button reading "show 0 more" is
+          worse than no button — the count is the reason to press it. */}
+      {(hidden > 0 || expanded) && (
+        <button aria-expanded={expanded} onClick={() => setExpanded(!expanded)} type="button">
+          {expanded
+            ? `Show only the top ${COLLAPSED_ROWS}`
+            : `Show ${hidden} more command shape${hidden === 1 ? '' : 's'}`}
+        </button>
+      )}
     </>
   );
 }
