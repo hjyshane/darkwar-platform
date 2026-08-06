@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { FavouriteButton } from '../../components/FavouriteButton';
 import { FavouritesFilter } from '../../components/FavouritesFilter';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
@@ -16,6 +16,12 @@ import { useSession } from '../../lib/useSession';
 import { useTableView } from '../../lib/useTableView';
 
 export interface RosterRow {
+  /** The rank the GAME reports, from the member list itself (1-5, R5 being the
+   * leader). Distinct from both fields below: `assigned_rank` is what an admin
+   * typed and is null for most of the roster, and `computed_rank` is what the
+   * scoring worked out. This is the one the alliance actually runs on, so it is
+   * what the table groups by. */
+  member_rank: number | null;
   /** What an admin set, which wins over anything computed. */
   assigned_rank: string | null;
   /** What the newest period worked out — R1-R3 only, because R4 and R5 are
@@ -180,6 +186,75 @@ function withFormulas(rows: RosterRow[], formulas: readonly ComputedColumn[]): R
     // them — which is honest about what they are.
     return { ...row, ...extra } as RosterRow;
   });
+}
+
+/** How many columns the table has before the admin's computed ones.
+ *
+ * Counted once, here, because a group heading has to span the whole width and a
+ * heading that spans the wrong number leaves a cell sitting under it. If a column is
+ * added to the header, this changes with it.
+ */
+const BASE_COLUMNS = 16;
+
+/** What each in-game rank is called.
+ *
+ * R5 is the leader and R1 the newest member, which is the game's own ordering and
+ * the opposite of the computed tier's — where R3 is the best (see 0087). Two
+ * meanings of "R3" in one product is unfortunate and not ours to rename, so the
+ * headings say which one this is.
+ */
+const RANK_LABELS: Record<number, string> = {
+  5: 'R5 · leader',
+  4: 'R4 · officers',
+  3: 'R3',
+  2: 'R2',
+  1: 'R1',
+};
+
+interface RankGroup {
+  key: string;
+  label: string;
+  rows: RosterRow[];
+}
+
+/** The rows split by game rank, highest first.
+ *
+ * SORTING IS PRESERVED INSIDE EACH GROUP. Grouping and sorting would otherwise
+ * fight: somebody who sorts by power expects the strongest first, and re-sorting by
+ * rank would throw that away. So the sort decides the order within a group and the
+ * group decides where the block sits — "the strongest R4s" is then one glance, which
+ * neither arrangement alone gives.
+ *
+ * Members whose rank nobody has read fall into a group of their own at the bottom
+ * rather than being dropped or lumped in with R1. That happens to a logged-out
+ * reader, for whom the roster answer is withheld entirely.
+ */
+function grouped(rows: readonly RosterRow[]): RankGroup[] {
+  const byRank = new Map<number, RosterRow[]>();
+  const unranked: RosterRow[] = [];
+  for (const row of rows) {
+    if (row.member_rank === null) {
+      unranked.push(row);
+      continue;
+    }
+    const bucket = byRank.get(row.member_rank);
+    if (bucket === undefined) {
+      byRank.set(row.member_rank, [row]);
+    } else {
+      bucket.push(row);
+    }
+  }
+  const out: RankGroup[] = [...byRank.entries()]
+    .sort(([a], [b]) => b - a)
+    .map(([rank, group]) => ({
+      key: `rank-${rank}`,
+      label: RANK_LABELS[rank] ?? `R${rank}`,
+      rows: group,
+    }));
+  if (unranked.length > 0) {
+    out.push({ key: 'rank-none', label: 'Rank not read', rows: unranked });
+  }
+  return out;
 }
 
 export interface ComputedColumn {
@@ -390,80 +465,96 @@ export function RosterTable({
             </tr>
           </thead>
           <tbody>
-            {view.map((row) => (
-              <tr key={row.player_id}>
-                {/* Inside the name cell, not a column of its own: on a
+            {grouped(view).map((group) => (
+              <Fragment key={group.key}>
+                {/* A heading row per game rank. `scope="colgroup"` so a screen
+                    reader announces it as heading the rows beneath rather than as a
+                    stray cell, and it spans every column so nothing lines up under
+                    it by accident. */}
+                <tr className="group-row">
+                  <th colSpan={BASE_COLUMNS + columns.length} scope="colgroup">
+                    {group.label}{' '}
+                    <span className="subtle">
+                      {group.rows.length} member{group.rows.length === 1 ? '' : 's'}
+                    </span>
+                  </th>
+                </tr>
+                {group.rows.map((row) => (
+                  <tr key={row.player_id}>
+                    {/* Inside the name cell, not a column of its own: on a
                     phone that cell is the one pinned to the left, so the
                     star stays reachable instead of scrolling away with the
                     figures. */}
-                {/* Rank in its own cell, pinned to the left of the name. It used
+                    {/* Rank in its own cell, pinned to the left of the name. It used
                     to sit inside the name cell — see RankBadge — which kept it
                     visible while scrolling but made it unsortable, and "R3s,
                     weakest first" is a question this table exists to answer. Both
                     cells are pinned now, so nothing slid under anything. */}
-                <td className="pin-rank">
-                  <RankBadge
-                    editable={mayRank}
-                    onSet={(playerId, rank) => setRank.mutate({ playerId, rank })}
-                    row={row}
-                  />
-                </td>
-                <td className="label">
-                  {signedIn && (
-                    <FavouriteButton
-                      id={row.player_id}
-                      isFavourite={isFavourite('player', row.player_id)}
-                      kind="player"
-                      label={row.current_name ?? 'an unnamed member'}
-                      onToggle={toggle}
-                    />
-                  )}
-                  {/* No uid fallback here. Every member on this screen has
+                    <td className="pin-rank">
+                      <RankBadge
+                        editable={mayRank}
+                        onSet={(playerId, rank) => setRank.mutate({ playerId, rank })}
+                        row={row}
+                      />
+                    </td>
+                    <td className="label">
+                      {signedIn && (
+                        <FavouriteButton
+                          id={row.player_id}
+                          isFavourite={isFavourite('player', row.player_id)}
+                          kind="player"
+                          label={row.current_name ?? 'an unnamed member'}
+                          onToggle={toggle}
+                        />
+                      )}
+                      {/* No uid fallback here. Every member on this screen has
                       a name, and printing the game uid for the one who does
                       not would put an identifier on the page that the rest
                       of it deliberately leaves off. The row still links, so
                       the player page can say who it is. */}
-                  <a href={playerHash(row.player_id)}>{row.current_name ?? 'Unnamed'}</a>
-                </td>
-                <td className="num">{row.hq_level ?? '—'}</td>
-                <td className="num">{formatNumber(row.power)}</td>
-                <td className="num">{formatNumber(row.kills)}</td>
-                <td className="num group-start">{formatNumber(row.daily_donation_score)}</td>
-                <td className="num">{formatNumber(row.weekly_donation_score)}</td>
-                <td className="num group-start">{formatNumber(row.duel_daily_score)}</td>
-                <td className="num">{formatNumber(row.duel_weekly_score)}</td>
-                <td className="num">{formatNumber(row.duel_round_score)}</td>
-                <GrowthCell since={row.growth_1d_at} value={row.growth_1d} />
-                <GrowthCell since={row.growth_7d_at} value={row.growth_7d} />
-                {/* Two different facts, deliberately side by side: when
+                      <a href={playerHash(row.player_id)}>{row.current_name ?? 'Unnamed'}</a>
+                    </td>
+                    <td className="num">{row.hq_level ?? '—'}</td>
+                    <td className="num">{formatNumber(row.power)}</td>
+                    <td className="num">{formatNumber(row.kills)}</td>
+                    <td className="num group-start">{formatNumber(row.daily_donation_score)}</td>
+                    <td className="num">{formatNumber(row.weekly_donation_score)}</td>
+                    <td className="num group-start">{formatNumber(row.duel_daily_score)}</td>
+                    <td className="num">{formatNumber(row.duel_weekly_score)}</td>
+                    <td className="num">{formatNumber(row.duel_round_score)}</td>
+                    <GrowthCell since={row.growth_1d_at} value={row.growth_1d} />
+                    <GrowthCell since={row.growth_7d_at} value={row.growth_7d} />
+                    {/* Two different facts, deliberately side by side: when
                     the player was last in the game, and when we last looked.
                     They were conflated until 0024 — Last Seen was captured_at
                     wearing a name that reads like presence. */}
-                <td className="num">
-                  {formatLastOnline(row.online_state, row.last_online_at, now ?? new Date())}
-                </td>
-                <td className="num">
-                  <FreshnessBadge capturedAt={row.last_seen_at} now={now} />
-                </td>
-                <td className="num" title={row.computed_rank ?? undefined}>
-                  {row.rank_score === null ? '—' : row.rank_score.toFixed(1)}
-                </td>
-                {columns.map((column) => {
-                  const value = (row as unknown as Record<string, unknown>)[column.id];
-                  return (
-                    <td className="num" key={column.id}>
-                      {/* Unknown stays unknown: a formula that read a member's
+                    <td className="num">
+                      {formatLastOnline(row.online_state, row.last_online_at, now ?? new Date())}
+                    </td>
+                    <td className="num">
+                      <FreshnessBadge capturedAt={row.last_seen_at} now={now} />
+                    </td>
+                    <td className="num" title={row.computed_rank ?? undefined}>
+                      {row.rank_score === null ? '—' : row.rank_score.toFixed(1)}
+                    </td>
+                    {columns.map((column) => {
+                      const value = (row as unknown as Record<string, unknown>)[column.id];
+                      return (
+                        <td className="num" key={column.id}>
+                          {/* Unknown stays unknown: a formula that read a member's
                           missing duel score has no answer, and a 0 there
                           would rank them below somebody who scored 1. */}
-                      {typeof value !== 'number'
-                        ? '—'
-                        : column.compact
-                          ? compactFormat.format(value)
-                          : numberFormat.format(Math.round(value))}
-                    </td>
-                  );
-                })}
-              </tr>
+                          {typeof value !== 'number'
+                            ? '—'
+                            : column.compact
+                              ? compactFormat.format(value)
+                              : numberFormat.format(Math.round(value))}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </Fragment>
             ))}
           </tbody>
         </table>
