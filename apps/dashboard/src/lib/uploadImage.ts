@@ -1,18 +1,20 @@
 import { SUPABASE_URL } from './env';
 import { supabase } from './supabase';
 
-/** Putting a picture in the `post-images` bucket (0082).
+/** Putting a picture in the `post-images` bucket (0082, closed again by 0083).
  *
- * THE BUCKET IS PUBLIC. Anything uploaded here can be fetched by anybody with the
- * URL — that is what makes Discord able to show it in the channel, and it is the
- * reason the checks below are about what the file IS rather than only about who is
- * uploading it. A roster screenshot put here is published to the internet; the
- * editor says so next to the button.
+ * THE BUCKET IS PRIVATE. It was public for one release so that Discord could fetch
+ * an image URL with no session to present; having the collector upload the FILE to
+ * the webhook removed that need. Reading is member-only through a short-lived
+ * signed URL (`lib/signedImage`), which is why nothing here returns a working
+ * address: `canonicalUrl` NAMES the object, and the renderer signs it at the moment
+ * somebody looks.
  *
- * The limits are enforced twice on purpose. Storage holds the real ones (bucket
- * `file_size_limit` and `allowed_mime_types`, which a hand-written request cannot
- * skip); these exist so a member who picks a 12MB photo is told immediately in
- * words, rather than after a slow upload fails with a status code.
+ * The checks below are still about what the file IS rather than only about who is
+ * uploading it, and the limits are enforced twice on purpose. Storage holds the real
+ * ones (bucket `file_size_limit` and `allowed_mime_types`, which a hand-written
+ * request cannot skip); these exist so a member who picks a 12MB photo is told
+ * immediately in words rather than after a slow upload fails with a status code.
  */
 export const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'] as const;
 
@@ -42,10 +44,12 @@ export function whyNot(file: { type: string; size: number }): string | null {
   if (!ALLOWED_TYPES.includes(file.type as (typeof ALLOWED_TYPES)[number])) {
     // Named individually: "unsupported file type" leaves somebody trying a second
     // wrong format. SVG is called out because it is the one a designer would reach
-    // for and the one the bucket refuses on purpose — an SVG can carry script, and
-    // on a public bucket that is script served from our own origin.
+    // for and the one the bucket refuses on purpose — an SVG is a document that can
+    // carry script, and a browser runs it when the file is opened directly. Still
+    // true now the bucket is private (0083): these files are handed to Discord,
+    // which re-hosts them for anybody in the channel to open.
     return file.type === 'image/svg+xml'
-      ? 'SVG cannot be uploaded — it can carry script, and this bucket is public. Export it as PNG.'
+      ? 'SVG cannot be uploaded — it can carry script that a browser will run. Export it as PNG.'
       : 'Only PNG, JPEG, WebP and GIF images can be uploaded.';
   }
   if (file.size > MAX_BYTES) {
@@ -65,18 +69,28 @@ export function whyNot(file: { type: string; size: number }): string | null {
  * guide that used the image has been edited or deleted.
  *
  * The filename is random, NOT the original. Two people uploading `image.png` must
- * not collide, and the uploader's own filename can carry anything — a name, a
- * path, a date they did not mean to publish on a public bucket.
+ * not collide, and the uploader's own filename can carry anything — a name, a path,
+ * a date they did not mean to hand to the alliance or to the Discord channel the
+ * picture is published to.
  */
 export function objectPath(userId: string, type: string): string {
   const extension = EXTENSIONS[type] ?? 'bin';
   return `${userId}/${crypto.randomUUID()}.${extension}`;
 }
 
-/** The public URL for a stored object. Built here rather than taken from the
- * upload response so it matches what `isSafeImageSrc` will accept — the two agree
- * by construction instead of by coincidence. */
-export function publicUrl(path: string): string {
+/** The object's canonical URL — its NAME in a post body, not a working address.
+ *
+ * Since 0083 the bucket is private, so this URL does not fetch anything: the
+ * renderer takes the path back out of it and asks Storage to sign it
+ * (`lib/signedImage`). It keeps the `/object/public/` shape because that is what
+ * `isSafeImageSrc` allows and what is already stored in published guides, and
+ * because a stored URL has to be STABLE — a signed one expires, and a guide written
+ * in August would show broken pictures in September.
+ *
+ * Built here rather than taken from the upload response so it matches what the
+ * parser accepts by construction instead of by coincidence.
+ */
+export function canonicalUrl(path: string): string {
   return `${SUPABASE_URL}/storage/v1/object/public/post-images/${path}`;
 }
 
@@ -106,5 +120,5 @@ export async function uploadPostImage(file: File): Promise<string> {
   if (error) {
     throw new Error(`Upload failed: ${error.message}`);
   }
-  return publicUrl(path);
+  return canonicalUrl(path);
 }

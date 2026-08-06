@@ -1,24 +1,25 @@
--- 0082: the one public bucket, and who may put things in it.
+-- 0082/0083: the picture bucket, and who may put things in it or read them.
 --
--- This bucket is a deliberate hole in a schema that is otherwise closed to
--- non-members, so the things worth pinning are the ones that would quietly widen
--- it: the mime allowlist (an SVG is script hosted on our own origin), the size
--- limit, and the fact that writing needs `guide.write` and stays inside the
--- uploader's own folder.
+-- The things worth pinning are the ones that would quietly widen it: the mime
+-- allowlist (an SVG is script served from our own origin), the size limit, that
+-- writing needs `guide.write` and stays inside the uploader's own folder, and —
+-- since 0083 — that the bucket is not public.
 --
--- What is NOT tested here is anonymous reading, because that does not go through
--- RLS at all — a public bucket is served by the storage API's public endpoint. The
--- `public` flag being true IS the reading rule, so this asserts the flag.
+-- 0082 made it public for one reason: Discord fetches an image URL with no session
+-- to present. 0083 removed that reason by having the collector attach the FILE to
+-- the webhook instead of a link to it, so the flag going back to false is now the
+-- assertion that matters. With it true, every picture the alliance uploads is
+-- readable by anybody holding the URL.
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(10);
+select plan(11);
 
 -- ------------------------------------------------------------------ the bucket
 select is(
   (select public from storage.buckets where id = 'post-images'),
-  true,
-  'the bucket is public — Discord fetches image URLs with no session to present');
+  false,
+  'the bucket is NOT public — the collector carries the file to Discord instead');
 
 select is(
   (select file_size_limit from storage.buckets where id = 'post-images'),
@@ -100,10 +101,23 @@ select throws_ok(
   NULL,
   'a member without guide.write cannot upload at all');
 
--- Members may LIST, because the images sit on pages they can already read.
+-- Members may READ, and since 0083 this policy is what decides it — while the
+-- bucket was public, reads went through the public endpoint and never reached RLS.
 select isnt_empty(
   $$ select name from storage.objects where bucket_id = 'post-images' $$,
-  'a member can see what is there');
+  'a member can read what is there');
+
+-- The other half, and the whole point of 0083: somebody who is not a member gets
+-- nothing. `anon` is what an unauthenticated storage request arrives as, and this
+-- is the row filter behind the signed URL the dashboard hands out.
+reset role;
+set local role anon;
+select is_empty(
+  $$ select name from storage.objects where bucket_id = 'post-images' $$,
+  'and nobody signed out can — "anybody with the URL" is what 0083 removed');
+reset role;
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-4000-8000-0000000bf082');
 
 -- REMOVAL IS ASSERTED AS A POLICY, NOT AS BEHAVIOUR, and the reason is worth
 -- writing down: storage carries its own trigger, `storage.protect_delete()`,

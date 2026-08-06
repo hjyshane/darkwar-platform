@@ -13,6 +13,7 @@ import pytest
 from dw_collector.notify.compose import (
     BODY_LIMIT,
     TITLE_LIMIT,
+    attachment_name,
     clamp,
     departure_message,
     discord_payload,
@@ -380,7 +381,39 @@ def test_a_guide_with_a_picture_carries_it_on_the_embed() -> None:
     assert "![" not in message.body
     payload = discord_payload(message)
     embed = payload["embeds"][0]  # type: ignore[index]
-    assert embed["image"] == {"url": OURS}  # type: ignore[index]
+    # `attachment://`, NOT the object's URL. The bucket is private (0083), so a URL
+    # here would be unfetchable by Discord and a signed one would expire in the
+    # channel — the worker uploads the file beside this payload instead.
+    assert embed["image"] == {"url": "attachment://picture.png"}  # type: ignore[index]
+
+
+def test_the_attachment_name_matches_what_the_embed_refers_to() -> None:
+    """The one contract that fails silently. A mismatch renders an embed with no
+    picture and no error, so both sides come from one function."""
+    for url, expected in [
+        (f"{OURS}", "picture.png"),
+        ("http://h/storage/v1/object/public/post-images/u/a.jpg", "picture.jpg"),
+        ("http://h/storage/v1/object/public/post-images/u/a.webp", "picture.webp"),
+        ("http://h/storage/v1/object/public/post-images/u/a.gif", "picture.gif"),
+    ]:
+        assert attachment_name(url) == expected
+        message = guide_message(
+            channel="c",
+            guide_id="g",
+            title="T",
+            body=f"![x]({url})",
+            category="tip",
+            published_at="2026-08-06T10:00:00+00:00",
+        )
+        embed = discord_payload(message)["embeds"][0]  # type: ignore[index]
+        assert embed["image"] == {"url": f"attachment://{expected}"}  # type: ignore[index]
+
+
+def test_an_odd_extension_is_not_carried_into_the_filename() -> None:
+    """An allowlist, not the string. A URL ending `.php` must not become a filename
+    Discord serves under that name."""
+    assert attachment_name("http://h/storage/v1/object/public/post-images/u/a.php") == "picture.png"
+    assert attachment_name("http://h/storage/v1/object/public/post-images/u/noext") == "picture.png"
 
 
 def test_a_guide_with_several_says_so_rather_than_posting_a_wall() -> None:

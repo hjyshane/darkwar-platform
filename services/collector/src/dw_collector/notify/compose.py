@@ -59,6 +59,26 @@ def clamp(text: str, limit: int) -> str:
 # docstring and is not one.
 IMAGE_LINE = re.compile(r"^!\[([^\]]*)\]\((\S+)\)$")
 
+ALLOWED_IMAGE_EXTENSIONS = frozenset({"png", "jpg", "jpeg", "webp", "gif"})
+
+
+def attachment_name(image_url: str) -> str:
+    """The filename Discord sees, which `attachment://` in the embed must match.
+
+    The two agreeing is the whole contract — a mismatch renders an embed with no
+    picture and no error at all, which is the kind of failure that gets shipped.
+    Hence one function, used by both the payload and the upload.
+
+    `picture.<ext>` rather than the object's own name: that name is a uuid and tells
+    a reader nothing when they save the file. The extension is carried across
+    because Discord decides whether to render an attachment inline partly from it,
+    and it is taken from an ALLOWLIST rather than from the string — a URL ending
+    `.php` or `.html` must not become a filename Discord serves under that name.
+    """
+    tail = image_url.rsplit(".", 1)[-1].split("?")[0].lower()
+    extension = tail if tail in ALLOWED_IMAGE_EXTENSIONS else "png"
+    return f"picture.{extension}"
+
 
 def split_images(body: str) -> tuple[str, list[str]]:
     """The body without its image lines, and the image URLs in order.
@@ -101,10 +121,18 @@ def discord_payload(message: Message) -> dict[str, object]:
         "description": clamp(message.body, BODY_LIMIT),
     }
     if message.image_url is not None:
-        # Discord fetches this URL itself, from its own servers, which is the whole
-        # reason the bucket is public (0082). A signed URL would expire and leave
-        # the channel with a dead thumbnail weeks later.
-        embed["image"] = {"url": message.image_url}
+        # `attachment://`, NOT the object's own URL.
+        #
+        # 0082 pointed Discord at a public bucket, which meant every picture the
+        # alliance uploaded was readable by anybody holding the URL. 0083 closed the
+        # bucket, and this is what replaces it: the worker uploads the FILE beside
+        # this payload and the embed refers to its own attachment by name. Discord
+        # keeps its own copy, the channel shows the picture, and nothing of ours is
+        # left fetchable.
+        #
+        # A signed URL would not serve instead — it expires, and the channel would be
+        # left with a dead thumbnail weeks later.
+        embed["image"] = {"url": f"attachment://{attachment_name(message.image_url)}"}
     return {"embeds": [embed]}
 
 

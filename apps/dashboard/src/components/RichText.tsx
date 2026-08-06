@@ -1,4 +1,5 @@
 import { type Block, type Inline, type ListItem, parse } from '../lib/richText';
+import { useSignedImage } from '../lib/signedImage';
 
 /** Render the markup subset from `lib/richText`.
  *
@@ -92,6 +93,48 @@ function NestedList({ items }: { items: ListItem[] }) {
   );
 }
 
+/** One picture, signed for this reader.
+ *
+ * The bucket is private (0083), so the URL in the body is a NAME for the object
+ * rather than an address that works. Storage mints a short-lived signed URL for a
+ * session RLS already allows, and that is what goes in the `src`.
+ *
+ * `loading="lazy"` because a guide can carry several and only the first is above
+ * the fold. No width or height: the file's own dimensions are unknown here and the
+ * stylesheet caps it — a guessed pair would either squash the picture or reserve
+ * the wrong space.
+ *
+ * The alt text is whatever the author typed between the brackets, and empty when
+ * they typed nothing. Empty alt is the CORRECT value for a decorative image: a
+ * screen reader skips it rather than reading a uuid aloud, and an invented
+ * description would be worse than none.
+ */
+function PostImage({ src, alt }: { src: string; alt: string }) {
+  const { data: signed, isPending, error } = useSignedImage(src);
+
+  if (error) {
+    // Said rather than left as a broken frame. A reader who cannot load the
+    // picture should know it is a permission or a network problem and not that the
+    // author forgot to attach anything.
+    return <p className="empty">A picture here could not be loaded.</p>;
+  }
+  if (isPending || signed == null) {
+    // A placeholder of the right shape, so the text below does not jump when the
+    // picture arrives.
+    return (
+      <figure className="rich-image rich-image-pending">
+        <p className="empty">Loading the picture…</p>
+      </figure>
+    );
+  }
+  return (
+    <figure className="rich-image">
+      <img alt={alt} loading="lazy" src={signed} />
+      {alt !== '' && <figcaption>{alt}</figcaption>}
+    </figure>
+  );
+}
+
 function BlockNode({ block }: { block: Block }) {
   switch (block.kind) {
     case 'heading':
@@ -107,21 +150,7 @@ function BlockNode({ block }: { block: Block }) {
     case 'list':
       return <NestedList items={block.items} />;
     case 'image':
-      // `loading="lazy"` because a guide can carry several and only the first is
-      // above the fold. No width or height attributes: the file's own dimensions
-      // are unknown here and the stylesheet caps it — a guessed pair would either
-      // squash the picture or reserve the wrong space.
-      //
-      // The alt text is whatever the author typed between the brackets, and it is
-      // empty when they typed nothing. Empty alt is the correct value for a
-      // decorative image: a screen reader skips it rather than reading a filename
-      // aloud. An invented alt would be worse than none.
-      return (
-        <figure className="rich-image">
-          <img alt={block.alt} loading="lazy" src={block.src} />
-          {block.alt !== '' && <figcaption>{block.alt}</figcaption>}
-        </figure>
-      );
+      return <PostImage alt={block.alt} src={block.src} />;
     default:
       return (
         <p>
