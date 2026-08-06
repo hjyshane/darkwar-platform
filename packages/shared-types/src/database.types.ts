@@ -1500,6 +1500,78 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_channels: {
+        Row: {
+          channel: string
+          created_at: string
+          enabled: boolean
+          last_delivered_at: string | null
+          last_error: string | null
+          updated_at: string
+          updated_by: string | null
+          webhook_url: string
+        }
+        Insert: {
+          channel: string
+          created_at?: string
+          enabled?: boolean
+          last_delivered_at?: string | null
+          last_error?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          webhook_url: string
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          enabled?: boolean
+          last_delivered_at?: string | null
+          last_error?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          webhook_url?: string
+        }
+        Relationships: []
+      }
+      notification_outbox: {
+        Row: {
+          attempts: number
+          body: string
+          channel: string
+          created_at: string
+          delivered_at: string | null
+          event: string
+          idempotency_key: string
+          last_error: string | null
+          notification_id: number
+          title: string
+        }
+        Insert: {
+          attempts?: number
+          body: string
+          channel: string
+          created_at?: string
+          delivered_at?: string | null
+          event: string
+          idempotency_key: string
+          last_error?: string | null
+          notification_id?: never
+          title: string
+        }
+        Update: {
+          attempts?: number
+          body?: string
+          channel?: string
+          created_at?: string
+          delivered_at?: string | null
+          event?: string
+          idempotency_key?: string
+          last_error?: string | null
+          notification_id?: never
+          title?: string
+        }
+        Relationships: []
+      }
       pets: {
         Row: {
           created_at: string

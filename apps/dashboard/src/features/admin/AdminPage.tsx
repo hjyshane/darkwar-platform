@@ -11,6 +11,7 @@ import { FormulaSetting } from './FormulaSetting';
 import { HeroesSetting } from './HeroesSetting';
 import { JoinCodesSetting } from './JoinCodesSetting';
 import { MembersSetting } from './MembersSetting';
+import { NotificationsSetting } from './NotificationsSetting';
 import { OverviewMetricsSetting } from './OverviewMetricsSetting';
 import { OwnAllianceSetting } from './OwnAllianceSetting';
 import { PermissionsSetting } from './PermissionsSetting';
@@ -165,11 +166,16 @@ function DisplayGroup() {
   );
 }
 
-/** Not settings at all — what the machinery underneath is doing.
+/** What the machinery underneath is doing, and the one thing it takes orders on.
  *
- * Both screens are read-only. The collector writes these tables with the
- * service key and there is no cloud-side control that would change them, so
- * this group answers questions rather than offering buttons.
+ * The first two screens are read-only: the collector writes those tables with
+ * the service key and there is no cloud-side control that would change them, so
+ * they answer questions rather than offering buttons.
+ *
+ * Notifications is the exception, and it belongs here rather than in Access even
+ * though it holds a credential — what it configures is the collector's behaviour,
+ * and "why did nobody get told" is a question asked next to "is the collector
+ * running".
  */
 function OperationsGroup() {
   return (
@@ -185,6 +191,15 @@ function OperationsGroup() {
       <section aria-labelledby="discovery-heading">
         <h2 id="discovery-heading">Unrecognized commands</h2>
         <DiscoveryInbox />
+      </section>
+
+      {/* In Operations rather than Access, even though it holds a credential.
+          What it configures is the collector's behaviour — the same thing the two
+          screens above report on — and an admin looking for "why did nobody get
+          told" will look here. */}
+      <section aria-labelledby="notifications-heading">
+        <h2 id="notifications-heading">Discord notifications</h2>
+        <NotificationsSetting />
       </section>
     </>
   );
