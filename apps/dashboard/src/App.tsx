@@ -8,8 +8,11 @@ import { AlliancePage } from './features/alliance/AlliancePage';
 import { ArenaPanel } from './features/arena/ArenaPanel';
 import { LoginPage } from './features/auth/LoginPage';
 import { CrossRankingsPanel } from './features/crossRankings/CrossRankingsPanel';
+import { GuidePostPage } from './features/guides/GuidePostPage';
 import { GuidesPanel } from './features/guides/GuidesPanel';
 import { MonthCardsPage } from './features/monthCards/MonthCardsPage';
+import { NoticePostPage } from './features/notices/NoticePostPage';
+import { NoticesPanel } from './features/notices/NoticesPanel';
 import { Overview } from './features/overview/OverviewPanel';
 import { PlayerPage } from './features/player/PlayerPage';
 import { RankingsPanel } from './features/rankings/RankingsPanel';
@@ -17,12 +20,15 @@ import { RosterPanel } from './features/roster/RosterPanel';
 import { ServerPage } from './features/server/ServerPage';
 import { isAllowed, usePermissions } from './lib/permissions';
 import { queryKeysForTopic, subscribeDataChanges } from './lib/realtime';
+import { rememberReturnTo } from './lib/returnTo';
 import {
   type AdminGroup,
   NAV_TABS,
   type Route,
   adminGroupFromHash,
   allianceIdFromHash,
+  guideIdFromHash,
+  noticeIdFromHash,
   playerIdFromHash,
   routeFromHash,
   serverIdFromHash,
@@ -229,9 +235,20 @@ const MEMBER_ROLES = new Set(['member', 'officer', 'admin']);
 export function App() {
   const hash = useSyncExternalStore(subscribeHash, () => window.location.hash);
   const route = routeFromHash(hash);
+  // Where to come back to after signing in.
+  //
+  // Recorded here, on every hash change, rather than from each of the eleven
+  // "Sign in" links — the one that got missed would be the one somebody uses.
+  // Following a link to #/guides while signed out used to end on the overview,
+  // with no way back to the page the link was for.
+  useEffect(() => {
+    rememberReturnTo(hash);
+  }, [hash]);
   const serverId = serverIdFromHash(hash);
   const playerId = playerIdFromHash(hash);
   const allianceId = allianceIdFromHash(hash);
+  const guideId = guideIdFromHash(hash);
+  const noticeId = noticeIdFromHash(hash);
   const adminGroup = adminGroupFromHash(hash);
   // Month cards is unlinked on purpose and the sign-in form has no use for
   // a tab bar behind it. A server page keeps the tabs: it is reached FROM
@@ -242,6 +259,8 @@ export function App() {
       <Shell
         adminGroup={adminGroup}
         allianceId={allianceId}
+        guideId={guideId}
+        noticeId={noticeId}
         playerId={playerId}
         route={route}
         serverId={serverId}
@@ -256,6 +275,8 @@ function Shell({
   serverId,
   playerId,
   allianceId,
+  guideId,
+  noticeId,
   adminGroup,
   standalone,
 }: {
@@ -263,6 +284,8 @@ function Shell({
   serverId: number | null;
   playerId: string | null;
   allianceId: string | null;
+  guideId: string | null;
+  noticeId: string | null;
   adminGroup: AdminGroup | null;
   standalone: boolean;
 }) {
@@ -315,6 +338,12 @@ function Shell({
         <MonthCardsPage />
       ) : route === 'guides' ? (
         <GuidesPanel />
+      ) : route === 'guide' && guideId !== null ? (
+        <GuidePostPage guideId={guideId} />
+      ) : route === 'notices' ? (
+        <NoticesPanel />
+      ) : route === 'notice' && noticeId !== null ? (
+        <NoticePostPage noticeId={noticeId} />
       ) : route === 'server' && serverId !== null ? (
         <ServerPage serverId={serverId} />
       ) : route === 'player' && playerId !== null ? (

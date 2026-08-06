@@ -1,5 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
+import { takeReturnTo } from '../../lib/returnTo';
 import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
 import { useSession } from '../../lib/useSession';
@@ -45,7 +46,10 @@ export function LoginPage() {
       setError('Sign-in failed.');
       return;
     }
-    window.location.hash = '';
+    // Back to the page they were sent to, if there was one. Empty string is
+    // the overview, which is the right fallback for somebody who came to the
+    // sign-in page directly.
+    window.location.hash = takeReturnTo();
   }
 
   async function signOut() {
@@ -103,7 +107,7 @@ export function LoginPage() {
           <h2 id="login-heading">Create an account</h2>
           <SignUpForm
             onSignedIn={() => {
-              window.location.hash = '';
+              window.location.hash = takeReturnTo();
             }}
           />
           <button onClick={() => setCreating(false)} type="button">

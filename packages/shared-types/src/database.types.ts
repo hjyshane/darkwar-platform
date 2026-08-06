@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -1073,6 +1073,13 @@ export type Database = {
             referencedRelation: "app_users"
             referencedColumns: ["user_id"]
           },
+          {
+            foreignKeyName: "audit_logs_actor_user_id_fkey"
+            columns: ["actor_user_id"]
+            isOneToOne: false
+            referencedRelation: "post_authors"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
       battle_report_ingests: {
@@ -1483,6 +1490,13 @@ export type Database = {
             referencedRelation: "app_users"
             referencedColumns: ["user_id"]
           },
+          {
+            foreignKeyName: "join_codes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "post_authors"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
       metric_registry: {
@@ -1676,6 +1690,13 @@ export type Database = {
             columns: ["decided_by"]
             isOneToOne: false
             referencedRelation: "app_users"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "player_claims_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "post_authors"
             referencedColumns: ["user_id"]
           },
           {
@@ -2201,6 +2222,42 @@ export type Database = {
           },
         ]
       }
+      post_reads: {
+        Row: {
+          announcement_id: string | null
+          guide_id: string | null
+          read_at: string
+          user_id: string
+        }
+        Insert: {
+          announcement_id?: string | null
+          guide_id?: string | null
+          read_at?: string
+          user_id: string
+        }
+        Update: {
+          announcement_id?: string | null
+          guide_id?: string | null
+          read_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_reads_announcement_id_fkey"
+            columns: ["announcement_id"]
+            isOneToOne: false
+            referencedRelation: "announcements"
+            referencedColumns: ["announcement_id"]
+          },
+          {
+            foreignKeyName: "post_reads_guide_id_fkey"
+            columns: ["guide_id"]
+            isOneToOne: false
+            referencedRelation: "guides"
+            referencedColumns: ["guide_id"]
+          },
+        ]
+      }
       rank_period_snapshots: {
         Row: {
           activity_score: number | null
@@ -2377,6 +2434,13 @@ export type Database = {
             columns: ["requested_by"]
             isOneToOne: false
             referencedRelation: "app_users"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "refresh_jobs_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "post_authors"
             referencedColumns: ["user_id"]
           },
         ]
@@ -2905,6 +2969,13 @@ export type Database = {
             referencedColumns: ["server_id"]
           },
         ]
+      }
+      post_authors: {
+        Row: {
+          display_name: string | null
+          user_id: string | null
+        }
+        Relationships: []
       }
       rank_period_latest: {
         Row: {
