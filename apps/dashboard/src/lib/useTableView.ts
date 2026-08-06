@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { type SortState, nextSort, searchRows, sortRows } from './tableControls';
+import { type SortState, nextSortKeys, searchRows, sortRows } from './tableControls';
 
 /** Search box + sortable headers for one table.
  *
@@ -7,6 +7,12 @@ import { type SortState, nextSort, searchRows, sortRows } from './tableControls'
  *
  * `searchFields` must be a stable reference — declare it as a module-level
  * constant, not an inline array, or every render rebuilds the view.
+ *
+ * The sort is a LIST of up to two keys, and it lives here rather than in each
+ * table: every table in the app already routes its headers through this hook, so
+ * putting the tiebreaker here gives it to all of them instead of only the screen
+ * that asked. A table that never receives a shift-click behaves exactly as it did
+ * with one key.
  */
 export function useTableView<T extends object>(
   rows: readonly T[],
@@ -24,15 +30,17 @@ export function useTableView<T extends object>(
   initialSort: SortState | null = null,
 ) {
   const [query, setQuery] = useState('');
-  const [sort, setSort] = useState<SortState | null>(initialSort);
+  const [sort, setSort] = useState<SortState[]>(initialSort === null ? [] : [initialSort]);
 
   const view = useMemo(
     () => sortRows(searchRows(rows, query, searchFields), sort),
     [rows, query, searchFields, sort],
   );
 
-  const onSort = useCallback((key: string) => {
-    setSort((current) => nextSort(current, key));
+  // Defaulted rather than required, so a header that only passes a key — every
+  // one of them before this change — still compiles and still replaces the sort.
+  const onSort = useCallback((key: string, additive = false) => {
+    setSort((current) => nextSortKeys(current, key, additive));
   }, []);
 
   return { query, setQuery, sort, onSort, view, shown: view.length, total: rows.length };

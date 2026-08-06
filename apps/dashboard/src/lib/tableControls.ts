@@ -39,24 +39,102 @@ function read(row: object, key: string): Comparable {
   return (row as Record<string, Comparable>)[key];
 }
 
-/** Sort by `key`, keeping unknown values at the end whichever way it runs. */
-export function sortRows<T extends object>(rows: readonly T[], sort: SortState | null): T[] {
-  if (sort === null) {
+/** How many keys a table sorts by at once.
+ *
+ * Two. One cannot answer "the R3s, weakest first" — that is a single question
+ * needing two keys. Three is a control nobody can predict from looking at it,
+ * because the third key only ever breaks ties the second already broke. */
+export const MAX_SORT_KEYS = 2;
+
+/** One key's comparison, unknowns last in both directions. */
+function compareBy<T extends object>(left: T, right: T, sort: SortState): number {
+  const a = read(left, sort.key);
+  const b = read(right, sort.key);
+  const aMissing = a === null || a === undefined;
+  const bMissing = b === null || b === undefined;
+  if (aMissing || bMissing) {
+    // Not multiplied by the direction: reversing the sort must not promote
+    // "unknown" to the top of the table.
+    return aMissing && bMissing ? 0 : aMissing ? 1 : -1;
+  }
+  return compare(a, b) * (sort.direction === 'asc' ? 1 : -1);
+}
+
+/** Sort by one or two keys, keeping unknown values at the end whichever way
+ * each one runs.
+ *
+ * The second key speaks only where the first ties, which is the whole point:
+ * rank and then power answers "who in each rank is strongest", and no single key
+ * can. Rows still tied after the last key keep their existing order — sort is
+ * stable, so the previous arrangement shows through instead of the table
+ * reshuffling on every render.
+ */
+export function sortRows<T extends object>(
+  rows: readonly T[],
+  sort: SortState | readonly SortState[] | null,
+): T[] {
+  const keys: readonly SortState[] = sort === null ? [] : Array.isArray(sort) ? sort : [sort];
+  if (keys.length === 0) {
     return [...rows];
   }
-  const factor = sort.direction === 'asc' ? 1 : -1;
   return [...rows].sort((left, right) => {
-    const a = read(left, sort.key);
-    const b = read(right, sort.key);
-    const aMissing = a === null || a === undefined;
-    const bMissing = b === null || b === undefined;
-    if (aMissing || bMissing) {
-      // Not multiplied by factor: reversing the sort must not promote
-      // "unknown" to the top of the table.
-      return aMissing && bMissing ? 0 : aMissing ? 1 : -1;
+    for (const key of keys) {
+      const result = compareBy(left, right, key);
+      if (result !== 0) {
+        return result;
+      }
     }
-    return compare(a, b) * factor;
+    return 0;
   });
+}
+
+/** Click a header when a table sorts by more than one key.
+ *
+ * A plain click means "sort by this, only this" — the common case, and it must
+ * not silently keep a second key the reader may have forgotten setting. Shift or
+ * Ctrl adds a key, or flips one already there.
+ *
+ * At the cap, an added key replaces the LAST one rather than the first. The
+ * primary key is what the reader is thinking about; the tiebreaker is the part
+ * they are still adjusting.
+ */
+export function nextSortKeys(
+  current: readonly SortState[],
+  key: string,
+  additive: boolean,
+): SortState[] {
+  const at = current.findIndex((entry) => entry.key === key);
+  if (!additive) {
+    // Flip only when it is ALREADY the primary key. Plain-clicking a column that
+    // happens to be the tiebreaker promotes it, descending, like a fresh column.
+    return current[0]?.key === key ? [flip(current[0])] : [{ key, direction: 'desc' }];
+  }
+  if (at >= 0) {
+    return current.map((entry, index) => (index === at ? flip(entry) : entry));
+  }
+  const kept = current.slice(0, MAX_SORT_KEYS - 1);
+  return [...kept, { key, direction: 'desc' }];
+}
+
+function flip(sort: SortState): SortState {
+  return { key: sort.key, direction: sort.direction === 'desc' ? 'asc' : 'desc' };
+}
+
+/** Which sort level a column holds, 1-based, or null when it is not sorted.
+ *
+ * Only worth showing when there are two: a lone "1" next to the arrow is noise,
+ * and the arrow already says the column is sorted.
+ */
+export function sortLevel(
+  sort: SortState | readonly SortState[] | null,
+  key: string,
+): number | null {
+  const keys: readonly SortState[] = sort === null ? [] : Array.isArray(sort) ? sort : [sort];
+  if (keys.length < 2) {
+    return null;
+  }
+  const at = keys.findIndex((entry) => entry.key === key);
+  return at < 0 ? null : at + 1;
 }
 
 /** Case- and accent-insensitive substring match over the named fields. */
@@ -92,13 +170,21 @@ export function nextSort(current: SortState | null, key: string): SortState {
   return { key, direction: current.direction === 'desc' ? 'asc' : 'desc' };
 }
 
-/** The value for a th's aria-sort attribute. */
+/** The value for a th's aria-sort attribute.
+ *
+ * Reported for the tiebreaker as well as the primary key. `aria-sort` has no way
+ * to say "second", so a table sorted two ways announces two sorted columns —
+ * which is true, and less misleading than announcing one of them as unsorted.
+ */
 export function ariaSort(
-  current: SortState | null,
+  current: SortState | readonly SortState[] | null,
   key: string,
 ): 'ascending' | 'descending' | undefined {
-  if (current === null || current.key !== key) {
+  const keys: readonly SortState[] =
+    current === null ? [] : Array.isArray(current) ? current : [current];
+  const found = keys.find((entry) => entry.key === key);
+  if (found === undefined) {
     return undefined;
   }
-  return current.direction === 'asc' ? 'ascending' : 'descending';
+  return found.direction === 'asc' ? 'ascending' : 'descending';
 }

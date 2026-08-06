@@ -1719,3 +1719,48 @@ form select {
   padding: var(--space-1) var(--space-3);
   vertical-align: middle;
 }
+
+/* --- the roster's pinned rank column ------------------------------------- */
+
+/* Rank used to live inside the name cell, because a column placed BEFORE the
+ * pinned name slid underneath it the moment the table scrolled sideways. It is
+ * its own column now so it can be sorted, which means both columns are pinned
+ * and the second one has to know how wide the first is.
+ *
+ * Hence the fixed width. It is a two-character badge or a five-character select,
+ * so a fixed width is honest here in a way it would not be for a name — and it is
+ * what lets `.label` sit at a known offset instead of guessing. */
+.table-wrap.pinned-rank :is(th, td).pin-rank {
+  background: var(--bg);
+  box-shadow: 1px 0 0 var(--border);
+  left: 0;
+  min-width: 5.5rem;
+  position: sticky;
+  width: 5.5rem;
+  z-index: 1;
+}
+
+.table-wrap.pinned-rank thead th.pin-rank {
+  z-index: 3;
+}
+
+.table-wrap.pinned-rank tbody tr:hover :is(th, td).pin-rank {
+  background: var(--bg-hover);
+}
+
+/* The name, pushed clear of the rank column. Only inside `.pinned-rank`, so
+ * every other table still pins its name at the left edge. */
+.table-wrap.pinned-rank :is(th, td).label {
+  left: 5.5rem;
+}
+
+/* Which sort level a column holds, when there are two. A superscript-ish digit
+ * rather than a word: it sits between the header text and the arrow, and "2nd"
+ * there would wrap the narrow columns. */
+.sort-level {
+  color: var(--fg-muted);
+  font-size: 0.7em;
+  font-weight: 600;
+  margin-left: 0.15em;
+  vertical-align: super;
+}
