@@ -1947,6 +1947,34 @@ form select {
   padding: var(--space-4);
 }
 
+/* --- pictures in a post ---------------------------------------------------- */
+
+/* Capped rather than sized. The file's own dimensions are unknown to the markup —
+ * `max-width: 100%` is what keeps a 3000px screenshot from widening the page the
+ * way a table does, and `height: auto` keeps its proportions. */
+.rich-image {
+  margin: var(--space-4) 0;
+}
+
+.rich-image img {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  display: block;
+  height: auto;
+  /* Tall screenshots are the common case from a phone, and one that fills three
+   * screens buries the sentence after it. Click through for the full size. */
+  max-height: 70vh;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.rich-image figcaption {
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+  margin-top: var(--space-1);
+}
+
 /* --- the boards ---------------------------------------------------------- */
 
 /* Unread is the emphasised state, not read. The list is for finding what you

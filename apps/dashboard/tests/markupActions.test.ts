@@ -2,7 +2,7 @@
 // wrong. Every test here is a case that makes a button feel broken rather than
 // throw anything.
 import { describe, expect, test } from 'vitest';
-import { applyMarkup } from '../src/lib/markupActions';
+import { applyMarkup, insertImage } from '../src/lib/markupActions';
 
 describe('bold, italic, code', () => {
   // With nothing selected the caret has to end up BETWEEN the markers. After
@@ -106,5 +106,43 @@ describe('the affected block stays selected', () => {
   test('after a line action the whole block is selected', () => {
     const applied = applyMarkup('a\nb', { start: 1, end: 1 }, 'bullet');
     expect(applied.body.slice(applied.selection.start, applied.selection.end)).toBe('- a');
+  });
+});
+
+describe('insertImage', () => {
+  const URL = 'http://127.0.0.1:54321/storage/v1/object/public/post-images/u/1.png';
+
+  // On its own line, because `parse` only reads it as an image when the line holds
+  // nothing else. Dropped mid-sentence it would render as literal text, which
+  // looks exactly like the upload failing.
+  test('an image lands on a line of its own', () => {
+    const applied = insertImage('before after', { start: 6, end: 6 }, URL);
+    expect(applied.body).toBe(`before
+
+![describe the picture](${URL})
+
+ after`);
+  });
+
+  test('an empty body needs no leading blank line', () => {
+    const applied = insertImage('', { start: 0, end: 0 }, URL);
+    expect(applied.body).toBe(`![describe the picture](${URL})`);
+  });
+
+  // A body already ending in a blank line does not need two more.
+  test('existing blank lines are not doubled', () => {
+    const applied = insertImage('text\n\n', { start: 6, end: 6 }, URL);
+    expect(applied.body).toBe(`text
+
+![describe the picture](${URL})`);
+  });
+
+  // The one moment somebody might actually write alt text is when the cursor is
+  // already on it.
+  test('the alt text is left selected, ready to be typed over', () => {
+    const applied = insertImage('', { start: 0, end: 0 }, URL);
+    expect(applied.body.slice(applied.selection.start, applied.selection.end)).toBe(
+      'describe the picture',
+    );
   });
 });

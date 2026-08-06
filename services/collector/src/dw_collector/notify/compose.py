@@ -10,6 +10,7 @@ Nothing in this module talks to the network or to a database.
 
 from __future__ import annotations
 
+import re
 from collections import Counter
 from dataclasses import dataclass
 from typing import Any
@@ -37,6 +38,11 @@ class Message:
     idempotency_key: str
     title: str
     body: str
+    # One picture for the embed, when the guide carried any. Discord renders an
+    # embed's `image` but does NOT understand `![alt](url)` in a description — it
+    # prints the markup verbatim — so an image has to be lifted out of the text and
+    # attached here, or it arrives as clutter instead of a picture.
+    image_url: str | None = None
 
 
 def clamp(text: str, limit: int) -> str:
@@ -48,20 +54,58 @@ def clamp(text: str, limit: int) -> str:
     return text[: limit - len(ELLIPSIS)] + ELLIPSIS
 
 
+# An image line, matching `lib/richText`'s block rule: alone on its line. A
+# comment rather than a string above the assignment, which would look like a
+# docstring and is not one.
+IMAGE_LINE = re.compile(r"^!\[([^\]]*)\]\((\S+)\)$")
+
+
+def split_images(body: str) -> tuple[str, list[str]]:
+    """The body without its image lines, and the image URLs in order.
+
+    The dashboard and the channel disagree about images and this is where the
+    disagreement is handled: the board renders them in place, Discord cannot, so
+    they come out of the text here rather than being printed as `![…](…)`.
+
+    URLS ARE NOT VALIDATED against the bucket. The collector is downstream of a
+    body that the dashboard already refused to render as an image unless it came
+    from `post-images` — checking again here would put the rule in two places, and
+    the two would drift. What arrives is whatever an author typed; the worst case is
+    an embed Discord declines to render, not something unsafe.
+
+    The alt text is dropped. Discord has nowhere to put it — an embed image has no
+    caption — and repeating it as a line of body text would read as a stray phrase.
+    """
+    kept: list[str] = []
+    images: list[str] = []
+    for line in body.replace("\r\n", "\n").split("\n"):
+        match = IMAGE_LINE.match(line.strip())
+        if match is None:
+            kept.append(line)
+            continue
+        images.append(match.group(2))
+    # Collapse the blank run an extracted image leaves behind, so the channel does
+    # not get a paragraph gap where the picture used to be.
+    text = re.sub(r"\n{3,}", "\n\n", "\n".join(kept))
+    return text, images
+
+
 def discord_payload(message: Message) -> dict[str, object]:
     """The request body for a webhook.
 
     An embed rather than plain `content`: the description cap is 4096 against
     content's 2000, and a rank report for 95 members does not fit in 2000.
     """
-    return {
-        "embeds": [
-            {
-                "title": clamp(message.title, TITLE_LIMIT),
-                "description": clamp(message.body, BODY_LIMIT),
-            }
-        ]
+    embed: dict[str, object] = {
+        "title": clamp(message.title, TITLE_LIMIT),
+        "description": clamp(message.body, BODY_LIMIT),
     }
+    if message.image_url is not None:
+        # Discord fetches this URL itself, from its own servers, which is the whole
+        # reason the bucket is public (0082). A signed URL would expire and leave
+        # the channel with a dead thumbnail weeks later.
+        embed["image"] = {"url": message.image_url}
+    return {"embeds": [embed]}
 
 
 def rank_period_message(
@@ -222,9 +266,15 @@ def guide_message(
     here rewrites the text, so what a member sees on the board and what the
     channel shows are the same words.
 
-    Tables and images were left out of the subset for this reason too: neither
-    survives the trip, and a guide that renders one way in two places is worse
-    than one that renders plainly in both.
+    Tables were left out of the subset for this reason: they do not survive the
+    trip, and a guide that renders one way in two places is worse than one that
+    renders plainly in both.
+
+    IMAGES ARE THE EXCEPTION, and they need lifting rather than passing through.
+    Discord does not understand `![alt](url)` — it prints those characters — so
+    every image line is taken out of the text and the first URL is attached to the
+    embed, where Discord shows it as a picture. When a guide carries more than one,
+    the channel says so and points at the dashboard rather than posting a wall.
 
     KEYED ON `published_at`, not on the guide id alone. Editing a published guide
     leaves that timestamp alone, so a typo fix does not re-announce. Unpublishing
@@ -232,17 +282,25 @@ def guide_message(
     saying — that is the distinction the key exists to make.
     """
     kind = {"info": "Information", "strategy": "Strategy", "tip": "Tip"}.get(category, category)
-    lines = [f"_{kind}_", "", body.strip()]
+    text, images = split_images(body)
+    lines = [f"_{kind}_", "", text.strip()]
+    if len(images) > 1:
+        lines += ["", f"_{len(images)} pictures — the rest are on the dashboard._"]
     if dashboard_url is not None:
         # Because the body is clamped to Discord's embed limit and a long guide
         # will lose its tail. A reader who hits the cut needs somewhere to go.
-        lines += ["", f"[Read it on the dashboard]({dashboard_url.rstrip('/')}/#/guides)"]
+        # The guide's OWN address, not the board's. Somebody following this from the
+        # channel wants the thing that was announced, and 0079 gave every post a
+        # link worth sending.
+        link = f"{dashboard_url.rstrip('/')}/#/guides/{guide_id}"
+        lines += ["", f"[Read it on the dashboard]({link})"]
     return Message(
         channel=channel,
         event="guides",
         idempotency_key=f"guide:{guide_id}:{published_at}",
         title=title,
         body="\n".join(lines),
+        image_url=images[0] if images else None,
     )
 
 

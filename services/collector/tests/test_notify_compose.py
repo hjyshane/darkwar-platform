@@ -18,6 +18,7 @@ from dw_collector.notify.compose import (
     discord_payload,
     guide_message,
     rank_period_message,
+    split_images,
     tier_changes,
     wiring_check_message,
 )
@@ -323,3 +324,102 @@ def test_the_kind_is_spelled_out() -> None:
         published_at="2026-08-06T10:00:00+00:00",
     )
     assert "Strategy" in message.body
+
+
+# --------------------------------------------------------------------- images
+#
+# The dashboard renders `![alt](url)` as a picture; Discord prints those
+# characters. So the channel gets the image on the embed and the text without it,
+# and the two places show a guide that reads the same rather than one carrying
+# stray markup.
+
+OURS = "http://127.0.0.1:54321/storage/v1/object/public/post-images/u/1.png"
+
+
+def test_split_images_lifts_the_line_out_of_the_text() -> None:
+    text, images = split_images(f"before\n![a map]({OURS})\nafter")
+    assert images == [OURS]
+    assert "![" not in text
+    assert "before" in text and "after" in text
+
+
+def test_split_images_keeps_the_order_it_found_them() -> None:
+    body = f"![one]({OURS}?a)\n\n![two]({OURS}?b)"
+    _, images = split_images(body)
+    assert images == [f"{OURS}?a", f"{OURS}?b"]
+
+
+def test_split_images_leaves_an_inline_image_alone() -> None:
+    """Only a line that is ONLY an image counts, matching lib/richText's rule.
+
+    Half a sentence around a picture is a layout question the subset does not
+    answer, and lifting the URL out would leave the sentence with a hole in it.
+    """
+    body = f"see this ![x]({OURS}) here"
+    text, images = split_images(body)
+    assert images == []
+    assert text == body
+
+
+def test_split_images_does_not_leave_a_paragraph_gap_behind() -> None:
+    text, _ = split_images(f"one\n\n![x]({OURS})\n\ntwo")
+    assert "\n\n\n" not in text
+
+
+def test_a_guide_with_a_picture_carries_it_on_the_embed() -> None:
+    message = guide_message(
+        channel="reports",
+        guide_id="g1",
+        title="T",
+        body=f"Tanks first.\n\n![line-up]({OURS})",
+        category="strategy",
+        published_at="2026-08-06T10:00:00+00:00",
+    )
+    assert message.image_url == OURS
+    # Not in the text as well: Discord would print the markup verbatim.
+    assert "![" not in message.body
+    payload = discord_payload(message)
+    embed = payload["embeds"][0]  # type: ignore[index]
+    assert embed["image"] == {"url": OURS}  # type: ignore[index]
+
+
+def test_a_guide_with_several_says_so_rather_than_posting_a_wall() -> None:
+    message = guide_message(
+        channel="reports",
+        guide_id="g1",
+        title="T",
+        body=f"![a]({OURS}?a)\n\n![b]({OURS}?b)\n\n![c]({OURS}?c)",
+        category="tip",
+        published_at="2026-08-06T10:00:00+00:00",
+    )
+    assert message.image_url == f"{OURS}?a"
+    assert "3 pictures" in message.body
+
+
+def test_a_guide_with_no_picture_has_no_image_key() -> None:
+    """An embed carrying `image: null` is a 400 from Discord, not an embed
+    without a picture."""
+    message = guide_message(
+        channel="reports",
+        guide_id="g1",
+        title="T",
+        body="just words",
+        category="tip",
+        published_at="2026-08-06T10:00:00+00:00",
+    )
+    assert message.image_url is None
+    embed = discord_payload(message)["embeds"][0]  # type: ignore[index]
+    assert "image" not in embed
+
+
+def test_the_link_points_at_the_guide_rather_than_the_board() -> None:
+    message = guide_message(
+        channel="reports",
+        guide_id="abc-123",
+        title="T",
+        body="words",
+        category="tip",
+        published_at="2026-08-06T10:00:00+00:00",
+        dashboard_url="https://example.invalid/",
+    )
+    assert "#/guides/abc-123" in message.body
