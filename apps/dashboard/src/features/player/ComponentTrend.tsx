@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { LineChart } from '../../components/LineChart';
-import type { Series } from '../../lib/series';
+import { type Series, assignAxes } from '../../lib/series';
 import { supabase } from '../../lib/supabase';
 
 /** Hero, pet and account figures over time, and where those put the player.
@@ -201,11 +201,17 @@ export function ComponentTrend({ playerId }: { playerId: string }) {
   // the right. Split by ROLE rather than by family: within heroes the total is ten
   // times the best, so a hero-only chart puts its own best line along the floor,
   // while totals against totals and bests against bests are the comparable pairs.
-  const powers = present
-    .map((group, index) =>
-      lineFrom(group, (row) => row.power, index, group.role === 'best' ? 'right' : 'left'),
-    )
-    .filter((line): line is Series => line !== null);
+  // The axis is decided by MAGNITUDE, not by the registry's role. Role was the
+  // first rule and it was the wrong one: `migrate_power` is an "other" and sits at
+  // 27M, between the totals and the bests, so grouping by role put a 3.2M line on
+  // the same scale as a 74M one and left it crawling along the floor. `assignAxes`
+  // splits where the numbers actually separate, and leaves one axis alone when they
+  // do not.
+  const powers = assignAxes(
+    present
+      .map((group, index) => lineFrom(group, (row) => row.power, index, 'left'))
+      .filter((line): line is Series => line !== null),
+  );
 
   // Every metric that has a rank, on one inverted axis. Small integers where the
   // powers are millions, so they were never going to share a chart with them.
@@ -239,8 +245,8 @@ export function ComponentTrend({ playerId }: { playerId: string }) {
           formatRight={bigValue}
           formatTime={moment}
           formatValue={bigValue}
-          label="Hero, pet and account figures over time: totals on the left, single strongest on the right"
-          note="Totals share the left axis and the 'strongest' figures share the right, because a total is about ten times its own best — on one scale the best lines would lie along the floor. Steps rather than slopes are normal: hero power moves when a threshold is crossed."
+          label="Hero, pet and account figures over time, split across two scales so no line is squashed"
+          note="The two axes are split where the figures separate, because a total is about ten times its own best and on one scale the smaller lines lie along the floor. Steps rather than slopes are normal: hero power moves when a threshold is crossed."
           series={powers}
         />
       )}

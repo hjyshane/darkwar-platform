@@ -1,9 +1,34 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
+import { serverHash } from '../../lib/route';
 import { TERMS } from '../../lib/terms';
 import { CrossRankingTable } from './CrossRankingTable';
 import { BOARDS, type BoardId, boardById } from './boards';
+
+/** Every server the current board mentions, as a link to its own page.
+ *
+ * Sorted numerically rather than by how many entries each has: the group is
+ * 577-588 and a reader looking for "my server" wants it where its number says, not
+ * wherever this week's board happens to put it.
+ */
+function ServerLinks({ rows }: { rows: readonly { server_id: number | null }[] }) {
+  const servers = [
+    ...new Set(rows.flatMap((row) => (row.server_id === null ? [] : [row.server_id]))),
+  ].sort((a, b) => a - b);
+  if (servers.length === 0) {
+    return null;
+  }
+  return (
+    <nav aria-label="Servers on this board" className="server-links">
+      {servers.map((server) => (
+        <a className="server-link" href={serverHash(server)} key={server}>
+          {server}
+        </a>
+      ))}
+    </nav>
+  );
+}
 
 export function CrossRankingsPanel() {
   const [boardId, setBoardId] = useState<BoardId>('power');
@@ -31,6 +56,16 @@ export function CrossRankingsPanel() {
           </button>
         ))}
       </div>
+      {/* Straight to a server's own page.
+          LINKS, not tabs. The board above switches what this screen shows; these
+          leave it, so they have to be middle-clickable, focusable and visible in the
+          status bar like any other link — which a button with a click handler is
+          not.
+
+          The list is derived from the rows on screen rather than from the `servers`
+          table: this is a jumping-off point from what you are looking at, and
+          offering a server the board never mentioned would lead to an empty page. */}
+      {data && <ServerLinks rows={data} />}
       {isPending && <p className="empty">Loading…</p>}
       {error && <p className="error">Could not load ranking: {error.message}</p>}
       {data && <CrossRankingTable rows={data} board={board} />}

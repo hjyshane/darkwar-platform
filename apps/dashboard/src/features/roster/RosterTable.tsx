@@ -473,9 +473,16 @@ export function RosterTable({
                     it by accident. */}
                 <tr className="group-row">
                   <th colSpan={BASE_COLUMNS + columns.length} scope="colgroup">
-                    {group.label}{' '}
-                    <span className="subtle">
-                      {group.rows.length} member{group.rows.length === 1 ? '' : 's'}
+                    {/* The cell spans every column, so it scrolls sideways with the
+                        table and the label leaves the screen. Sticking the LABEL
+                        inside it keeps "R4 · officers" in view while the figures
+                        scroll past — the cell cannot stick, because it is the thing
+                        being scrolled. */}
+                    <span className="group-label">
+                      {group.label}{' '}
+                      <span className="subtle">
+                        {group.rows.length} member{group.rows.length === 1 ? '' : 's'}
+                      </span>
                     </span>
                   </th>
                 </tr>

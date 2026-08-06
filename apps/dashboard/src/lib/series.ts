@@ -194,6 +194,90 @@ export function forwardFill(points: readonly Point[]): Point[] {
   });
 }
 
+/** Split series across two axes so no line is squashed against the floor.
+ *
+ * THE PROBLEM. Lines sharing one axis are drawn against the largest of them. Put
+ * hero power (74M) and pet power (9.9M) on one scale and the pet line lives in the
+ * bottom eighth of the chart, where its shape — the thing a trend chart is for — is
+ * unreadable. It is not wrong, it is just useless, and it looks like a bug.
+ *
+ * WHAT DECIDES: THE TOTAL SPREAD, not the widest gap between neighbours. The first
+ * version cut at the largest adjacent gap and failed on the case it was written
+ * for: 74M / 27M / 9.9M / 7.5M / 3.2M steps down evenly, so no neighbouring pair is
+ * more than 3x apart, while the set as a whole spans 23x and the bottom lines still
+ * crawl. A test caught it.
+ *
+ * So: split when the largest series is more than 4x the smallest, and choose the
+ * cut that leaves the WORSE of the two groups as tight as possible. On that set it
+ * cuts below 27M, leaving 74M/27M against 9.9M/7.5M/3.2M — each group inside 3x,
+ * and every line legible.
+ *
+ * Left keeps the larger group, because a reader's eye starts there and the bigger
+ * figures are usually the headline.
+ *
+ * NOT SPLIT when everything is within 4x. Two axes for series of similar size is
+ * worse than one: it invites reading a crossing as meaningful when the two scales
+ * are arbitrary.
+ */
+export function assignAxes(series: readonly Series[]): Series[] {
+  const measured = series
+    .map((line) => ({ line, size: typicalMagnitude(line) }))
+    .filter(
+      (entry): entry is { line: Series; size: number } => entry.size !== null && entry.size > 0,
+    );
+  if (measured.length < 2) {
+    return [...series];
+  }
+  const sorted = [...measured].sort((a, b) => b.size - a.size);
+  const largest = sorted[0]?.size ?? 0;
+  const smallest = sorted[sorted.length - 1]?.size ?? 0;
+  // A fourfold spread is where a line starts crawling. Below it, one axis reads
+  // better than two.
+  if (smallest <= 0 || largest / smallest < 4) {
+    return [...series];
+  }
+
+  // The cut that leaves the worse group tightest. Ties keep the earlier cut, which
+  // puts more of the series on the left.
+  let cut = 0;
+  let best = Number.POSITIVE_INFINITY;
+  for (let index = 0; index < sorted.length - 1; index += 1) {
+    const upper = sorted.slice(0, index + 1);
+    const lower = sorted.slice(index + 1);
+    const spread = (group: typeof sorted) => {
+      const sizes = group.map((entry) => entry.size);
+      const low = Math.min(...sizes);
+      return low > 0 ? Math.max(...sizes) / low : Number.POSITIVE_INFINITY;
+    };
+    const worst = Math.max(spread(upper), spread(lower));
+    if (worst < best) {
+      best = worst;
+      cut = index;
+    }
+  }
+
+  const right = new Set(sorted.slice(cut + 1).map((entry) => entry.line));
+  return series.map((line) => ({ ...line, axis: right.has(line) ? 'right' : 'left' }));
+}
+
+/** A series' typical size, as the median of what it actually measured.
+ *
+ * The median rather than the max: one spike must not decide which axis a whole
+ * series belongs on. Null when nothing was measured — such a series has no
+ * magnitude to compare and is left where the caller put it.
+ */
+function typicalMagnitude(line: Series): number | null {
+  const values = line.points
+    .map((point) => point.v)
+    .filter((value): value is number => value !== null)
+    .map(Math.abs)
+    .sort((a, b) => a - b);
+  if (values.length === 0) {
+    return null;
+  }
+  return values[Math.floor(values.length / 2)] ?? null;
+}
+
 /** Round tick values that cover the extent, at most `count` of them.
  *
  * The 1/2/5 progression, so labels read 200k / 400k / 600k rather than

@@ -2028,6 +2028,16 @@ form select {
 
 /* A heading row inside the table. Sticky like the header above it, so scrolling
  * through 36 R2s does not lose which block you are in. */
+/* The label inside the group row, pinned to the left edge of the scroll
+ * container. The `th` spans every column and therefore scrolls with the table, so
+ * the text is what has to stay put — otherwise "R4 · officers" leaves the screen
+ * as soon as you scroll to the duel columns. */
+.group-label {
+  display: inline-block;
+  left: var(--space-3);
+  position: sticky;
+}
+
 .group-row th {
   background: var(--bg-hover);
   border-bottom: 1px solid var(--border-strong);
@@ -2077,4 +2087,30 @@ form select {
 .movement-card li {
   font-size: var(--text-sm);
   margin-bottom: var(--space-1);
+}
+
+/* Jump straight to a server's page from the cross-server board. Links rather than
+ * tabs, so they behave like links; laid out as a row that wraps on a phone. */
+.server-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-bottom: var(--space-4);
+}
+
+.server-link {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  padding: var(--space-1) var(--space-3);
+  text-decoration: none;
+}
+
+.server-link:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+  color: var(--fg);
 }
