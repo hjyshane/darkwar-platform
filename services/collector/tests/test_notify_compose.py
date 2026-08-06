@@ -18,6 +18,7 @@ from dw_collector.notify.compose import (
     tier_changes,
     wiring_check_message,
 )
+from dw_collector.notify.worker import filter_value
 
 
 def row(player_id: str, name: str, tier: str | None, reason: str = "score") -> dict:
@@ -204,3 +205,31 @@ def test_a_quiet_period_says_nobody_moved() -> None:
         rows=rows,
     )
     assert "Nobody changed rank" not in first_ever.body
+
+
+# --- PostgREST filter escaping ---------------------------------------------
+#
+# Not composition, but it belongs with the other things that fail without an
+# error. This one DID fail: the first live run of dw-notify answered 400, and
+# nothing in the message pointed at the cause.
+
+
+def test_filter_value_escapes_the_plus_in_a_timestamp() -> None:
+    """`+` in a query string decodes as a SPACE.
+
+    A timestamptz from PostgREST reads `2026-08-03T02:00:00+00:00`. Interpolated
+    raw, the server received `02:00:00 00:00` and rejected it as a bad timestamp —
+    a 400 whose text mentioned neither the plus sign nor the column.
+    """
+    assert "%2B" in filter_value("2026-08-03T02:00:00+00:00")
+    assert "+" not in filter_value("2026-08-03T02:00:00+00:00")
+
+
+def test_filter_value_escapes_what_would_change_the_query() -> None:
+    """A channel name is whatever an admin typed.
+
+    `&` would end the filter and start another parameter, which is a PATCH
+    matching different rows than intended rather than an error.
+    """
+    assert "&" not in filter_value("reports&all")
+    assert " " not in filter_value("my channel")
