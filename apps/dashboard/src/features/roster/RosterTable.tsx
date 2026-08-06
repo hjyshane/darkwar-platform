@@ -248,9 +248,17 @@ export function RosterTable({
   // Before the search, so the count reads "3 / 8 of my starred members"
   // rather than "3 / 50 of everyone".
   const computed = useMemo(() => withFormulas(rows, columns), [rows, columns]);
+  // The rank the cell actually shows, as a field, so the column can be sorted on
+  // it. Derived rather than stored: `assigned_rank ?? computed_rank` is already
+  // how RankBadge decides what to print, and duplicating that rule in a sort
+  // comparator is how the two drift apart.
+  const ranked = useMemo(
+    () => computed.map((row) => ({ ...row, rank_shown: row.assigned_rank ?? row.computed_rank })),
+    [computed],
+  );
   const visible = useMemo(
-    () => (starredOnly ? computed.filter((row) => isFavourite('player', row.player_id)) : computed),
-    [computed, starredOnly, isFavourite],
+    () => (starredOnly ? ranked.filter((row) => isFavourite('player', row.player_id)) : ranked),
+    [ranked, starredOnly, isFavourite],
   );
   // RosterPanel asks PostgREST for power desc; say so rather than letting
   // the header claim the rows arrived in no order at all.
@@ -282,10 +290,25 @@ export function RosterTable({
           />
         )}
       </TableSearch>
-      <div className="table-wrap">
+      {/* `pinned-rank` is what shifts the name column right by the rank column's
+          width. A marker on the wrapper rather than :nth-child, for the reason
+          every other rule in that stylesheet carries: column positions here have
+          already moved twice, and the one place that inferred a column from its
+          position right-aligned Arena's names against the scores. */}
+      <div className="table-wrap pinned-rank">
         <table>
           <thead>
             <tr>
+              {/* Sorted on the SHOWN rank, not on `assigned_rank`: 71 of 94
+                  members have no assignment, and sorting the stored column would
+                  file all of them at the end regardless of what the last period
+                  worked out for them. `rank_shown` is the value in the cell, so
+                  the order matches what the reader is looking at.
+                  R1 < R2 < … < R5 alphabetically, so descending puts the leader
+                  first, which is what a first click on a rank column should do. */}
+              <SortableTh className="pin-rank" onSort={onSort} sort={sort} sortKey="rank_shown">
+                {TERMS.rank}
+              </SortableTh>
               <SortableTh className="label" onSort={onSort} sort={sort} sortKey="current_name">
                 {TERMS.name}
               </SortableTh>
@@ -373,12 +396,19 @@ export function RosterTable({
                     phone that cell is the one pinned to the left, so the
                     star stays reachable instead of scrolling away with the
                     figures. */}
-                <td className="label">
+                {/* Rank in its own cell, pinned to the left of the name. It used
+                    to sit inside the name cell — see RankBadge — which kept it
+                    visible while scrolling but made it unsortable, and "R3s,
+                    weakest first" is a question this table exists to answer. Both
+                    cells are pinned now, so nothing slid under anything. */}
+                <td className="pin-rank">
                   <RankBadge
                     editable={mayRank}
                     onSet={(playerId, rank) => setRank.mutate({ playerId, rank })}
                     row={row}
                   />
+                </td>
+                <td className="label">
                   {signedIn && (
                     <FavouriteButton
                       id={row.player_id}

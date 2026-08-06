@@ -5,7 +5,7 @@ import { SortableTh } from '../../components/SortableTh';
 import { allianceHash } from '../../lib/route';
 import type { Series } from '../../lib/series';
 import { supabase } from '../../lib/supabase';
-import { type SortState, nextSort, sortRows } from '../../lib/tableControls';
+import { type SortState, nextSortKeys, sortRows } from '../../lib/tableControls';
 
 /** Who on this server is growing, and how we compare.
  *
@@ -113,10 +113,10 @@ function shortName(row: GrowthRow): string {
 export function AllianceCompare({ serverId }: { serverId: number }) {
   // Growth first, because "who is pulling away" is the question this tab exists
   // for. The ranking table already answers "who is big".
-  const [sort, setSort] = useState<SortState | null>({
-    key: 'power_growth_pct',
-    direction: 'desc',
-  });
+  // A list, like every other table since the roster got a tiebreaker — this one
+  // does not use useTableView (it has no search box), so it carries the same
+  // state shape by hand rather than behaving differently from its neighbours.
+  const [sort, setSort] = useState<SortState[]>([{ key: 'power_growth_pct', direction: 'desc' }]);
   const { data, error, isPending } = useQuery({
     queryKey: ['alliance-compare', serverId],
     queryFn: () => fetchCompare(serverId),
@@ -159,8 +159,8 @@ export function AllianceCompare({ serverId }: { serverId: number }) {
     chosen.unshift(ours);
   }
 
-  function onSort(key: string): void {
-    setSort((current) => nextSort(current, key));
+  function onSort(key: string, additive: boolean): void {
+    setSort((current) => nextSortKeys(current, key, additive));
   }
 
   const byAlliance = new Map<string, HistoryRow[]>();
