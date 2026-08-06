@@ -92,10 +92,17 @@ select lives_ok(
   $$ select public.build_rank_period('2026-08-03T02:00:00Z') $$,
   'the period builds');
 
-create function pg_temp.row_of(who text) returns public.rank_period_snapshots
+-- Through `rank_period_latest`, not the table with a version pinned.
+--
+-- It said `scoring_version = 3` and broke the moment 0075 wrote 4 — five
+-- assertions failing with `have: NULL` for a change that had nothing to do with
+-- any of them. The version is not what this file is about; the cohort rule is.
+-- The view is defined as the newest version per member per period, so reading it
+-- keeps these assertions pointed at whatever the current formula does.
+create function pg_temp.row_of(who text) returns public.rank_period_latest
 language sql as $$
-  select * from public.rank_period_snapshots
-  where period_start = '2026-08-03T02:00:00Z' and name = who and scoring_version = 3;
+  select * from public.rank_period_latest
+  where period_start = '2026-08-03T02:00:00Z' and name = who;
 $$;
 
 -- Everybody gets a row, graded or not. Scoped to these four names: 0031's
@@ -103,8 +110,8 @@ $$;
 -- insert, so adding an unredacted roster row here also re-flags the seed's
 -- alliance and its 20 members join the output. Counting the whole period read
 -- 24 and told me nothing about my own fixture.
-select is((select count(*) from public.rank_period_snapshots
-           where period_start = '2026-08-03T02:00:00Z' and scoring_version = 3
+select is((select count(*) from public.rank_period_latest
+           where period_start = '2026-08-03T02:00:00Z'
              and name in ('Worker', 'Slacker', 'Officer', 'Newcomer')),
   4::bigint, 'all four members are in the output');
 
@@ -148,8 +155,8 @@ select ok(
 -- anybody down.
 select ok(
   (pg_temp.row_of('Worker')).donation_pct >= all (
-    select coalesce(donation_pct, -1) from public.rank_period_snapshots
-    where period_start = '2026-08-03T02:00:00Z' and scoring_version = 3
+    select coalesce(donation_pct, -1) from public.rank_period_latest
+    where period_start = '2026-08-03T02:00:00Z'
       and tier_reason in ('score', 'offline')
   ),
   'and the officer''s 999999 tops nobody, because it was never in the pool');

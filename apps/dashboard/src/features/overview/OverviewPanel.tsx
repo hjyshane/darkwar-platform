@@ -58,13 +58,45 @@ export async function fetchSummary(): Promise<OverviewSummary> {
   // capture has seen. Reporting the game's number beside a member count that
   // came from somewhere else would put two different populations in one row.
   const ids = alliances.map((row) => row.alliance_id);
-  const { data: players, error: playerError } = await supabase
-    .from('players')
-    .select('player_id, power, kills, roster_observed_at')
-    .in('current_alliance_id', ids.length > 0 ? ids : ['00000000-0000-0000-0000-000000000000']);
+  const noMatch = ['00000000-0000-0000-0000-000000000000'];
+
+  // Who counts as a member. Two sources, and the roster wins where there is one.
+  //
+  // `players.current_alliance_id` is a LAST KNOWN alliance — every writer since
+  // 0008 coalesces it, so nothing clears it when somebody leaves. This screen
+  // read 95 for an alliance the game says has 94, and the extra row was somebody
+  // last seen in a roster batch on 2026-07-28. It is the same fault the alliance
+  // page had, and it is worse here: `memberIds` also decides whose contribution
+  // is summed and who counts as online, so one departed member inflated four
+  // figures at once.
+  //
+  // `alliance_roster_latest` (0067) is the newest `al.rank` response, and one of
+  // those is the whole roster. The fallback stays because that view is
+  // member-gated: a signed-out reader gets nothing from it, and for them a stale
+  // badge is better than an empty overview.
+  const [{ data: roster, error: rosterError }, { data: players, error: playerError }] =
+    await Promise.all([
+      supabase
+        .from('alliance_roster_latest')
+        .select('player_id')
+        .in('alliance_id', ids.length > 0 ? ids : noMatch),
+      supabase
+        .from('players')
+        .select('player_id, power, kills, roster_observed_at, current_alliance_id')
+        .in('current_alliance_id', ids.length > 0 ? ids : noMatch),
+    ]);
+  if (rosterError) {
+    throw new Error(`roster query failed: ${rosterError.message}`);
+  }
   if (playerError) {
     throw new Error(`member query failed: ${playerError.message}`);
   }
+
+  // Rows from `players` — they carry the power and kills — narrowed to whoever
+  // the roster still lists. The roster gives identity; `players` gives figures.
+  const inRoster = new Set((roster ?? []).map((row) => row.player_id));
+  const known = players ?? [];
+  const current = inRoster.size === 0 ? known : known.filter((row) => inRoster.has(row.player_id));
 
   const { data: presence, error: presenceError } = await supabase
     .from('player_presence')
@@ -82,7 +114,7 @@ export async function fetchSummary(): Promise<OverviewSummary> {
     throw new Error(`contribution query failed: ${contributionError.message}`);
   }
 
-  const memberIds = new Set(players.map((row) => row.player_id));
+  const memberIds = new Set(current.map((row) => row.player_id));
   const sum = (values: (number | null)[]) => {
     const known = values.filter((value): value is number => value !== null);
     // An empty set is not zero. RLS hands a logged-out reader no rows at
@@ -101,9 +133,9 @@ export async function fetchSummary(): Promise<OverviewSummary> {
     allianceCount: alliances.length,
     serverIds: [...new Set(alliances.map((row) => row.server_id))].sort((a, b) => a - b),
     values: {
-      total_power: sum(players.map((row) => row.power)),
-      members: players.length === 0 ? null : players.length,
-      kills: sum(players.map((row) => row.kills)),
+      total_power: sum(current.map((row) => row.power)),
+      members: current.length === 0 ? null : current.length,
+      kills: sum(current.map((row) => row.kills)),
       // Zero rows is "not visible to you", not "nobody is online" — RLS hands
       // a viewer an empty presence table, and 0 would be a claim.
       online:
@@ -120,7 +152,7 @@ export async function fetchSummary(): Promise<OverviewSummary> {
       alliance_members: sum(alliances.map((row) => row.member_count)),
     },
     rosterObservedAt:
-      players
+      current
         .map((row) => row.roster_observed_at)
         .filter((value): value is string => value !== null)
         .sort()
