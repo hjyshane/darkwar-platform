@@ -18,12 +18,31 @@ async function fetchClaimablePlayers(): Promise<ClaimablePlayer[]> {
 }
 
 async function fetchMyClaim(): Promise<Claim | null> {
-  // No filter on user_id: self_read already restricts this to the caller's
-  // own row, and repeating the predicate in the query would be a second
-  // place for it to be wrong.
+  // FILTERED ON user_id, and the comment that used to be here was wrong.
+  //
+  // It said `self_read` already restricts this to the caller's own row, so
+  // repeating the predicate would be a second place for it to be wrong. But
+  // `player_claims` carries TWO select policies and RLS ORs them: `self_read` for
+  // your own row, and `manage_read` for anybody with `members.manage` — which
+  // officers have, because they are the ones who approve claims.
+  //
+  // So for an officer this query returned every claim in the table. With one row in
+  // it, that row was the admin's approved claim, and a brand-new officer was told
+  // "This account is linked to WonderingDuck" — somebody else's character, and no
+  // form to claim their own. With two rows `maybeSingle()` would have failed
+  // outright.
+  //
+  // Scoping here is not duplicating the policy. The policy answers "may I see this
+  // row"; only the query can say "which of them is MINE".
+  const { data: auth } = await supabase.auth.getUser();
+  const userId = auth.user?.id;
+  if (userId === undefined) {
+    return null;
+  }
   const { data, error } = await supabase
     .from('player_claims')
     .select('player_id, status, note')
+    .eq('user_id', userId)
     .maybeSingle();
   if (error) {
     if (error.code === '42501') {
