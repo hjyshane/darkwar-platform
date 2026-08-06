@@ -7,7 +7,15 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Only for pull requests. A PR's ref is `refs/pull/N/merge`, unique per PR, so
+  # cancelling there kills nothing but the author's own superseded push.
+  #
+  # A push to main is always `refs/heads/main`, so cancel-in-progress meant every
+  # merge killed the previous merge's run. Six merges in an afternoon left six
+  # cancelled runs — which the checks UI reports as failure — and main, the branch
+  # the deploy comes from, was never actually checked end to end. A cancelled run
+  # and a red run look identical from outside, which is how this survived.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # Development is Windows-only, so Linux CI is the only thing catching
