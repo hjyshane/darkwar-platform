@@ -203,6 +203,49 @@ def departure_message(
     )
 
 
+def guide_message(
+    *,
+    channel: str,
+    guide_id: str,
+    title: str,
+    body: str,
+    category: str,
+    published_at: str,
+    dashboard_url: str | None = None,
+) -> Message:
+    """A guide the alliance just published.
+
+    THE BODY GOES THROUGH ALMOST VERBATIM, and that is why the markup subset was
+    chosen the way it was. Discord understands `**bold**`, `*italic*`, backtick
+    code, `[text](url)`, `- bullets` and `##` headings, and treats a single
+    newline as a line break — the same reading `lib/richText` gives them. Nothing
+    here rewrites the text, so what a member sees on the board and what the
+    channel shows are the same words.
+
+    Tables and images were left out of the subset for this reason too: neither
+    survives the trip, and a guide that renders one way in two places is worse
+    than one that renders plainly in both.
+
+    KEYED ON `published_at`, not on the guide id alone. Editing a published guide
+    leaves that timestamp alone, so a typo fix does not re-announce. Unpublishing
+    and publishing again sets a new one, which is a new publication and worth
+    saying — that is the distinction the key exists to make.
+    """
+    kind = {"info": "Information", "strategy": "Strategy", "tip": "Tip"}.get(category, category)
+    lines = [f"_{kind}_", "", body.strip()]
+    if dashboard_url is not None:
+        # Because the body is clamped to Discord's embed limit and a long guide
+        # will lose its tail. A reader who hits the cut needs somewhere to go.
+        lines += ["", f"[Read it on the dashboard]({dashboard_url.rstrip('/')}/#/guides)"]
+    return Message(
+        channel=channel,
+        event="guides",
+        idempotency_key=f"guide:{guide_id}:{published_at}",
+        title=title,
+        body="\n".join(lines),
+    )
+
+
 def wiring_check_message(channel: str) -> Message:
     """What the settings screen's "Send test" button sends.
 
