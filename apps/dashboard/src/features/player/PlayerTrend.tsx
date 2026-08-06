@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { LineChart } from '../../components/LineChart';
-import { forwardFill } from '../../lib/series';
+import { type Series, forwardFill } from '../../lib/series';
 import { supabase } from '../../lib/supabase';
 
 /** One player's readings over time — for ANY player, not only our members.
@@ -26,12 +26,20 @@ interface TrendRow {
   hq_level: number | null;
   kills: number | null;
   rank: number | null;
+  /** WHICH BOARD, and it decides what `rank` even means (0084).
+   *
+   * `server.rank` ranks by power and `kill.rank` ranks by kills. Both write to the
+   * same column, so plotted together our own R4 alternated between 32 and 104 one
+   * reading apart — two true numbers about two different things. */
+  source_command: string;
+  /** How many entries that board held. A rank without it says nothing. */
+  board_size: number | null;
 }
 
 async function fetchTrend(playerId: string): Promise<TrendRow[]> {
   const { data, error } = await supabase
     .from('player_power_history')
-    .select('captured_at, power, hq_level, kills, rank')
+    .select('captured_at, power, hq_level, kills, rank, source_command, board_size')
     .eq('player_id', playerId)
     .order('captured_at', { ascending: true })
     .limit(500);
@@ -54,6 +62,54 @@ function wholeValue(value: number): string {
 
 function moment(t: number): string {
   return `${new Date(t).toISOString().slice(0, 16).replace('T', ' ')}Z`;
+}
+
+/** One numeric column, taken only from the readings that CARRY it.
+ *
+ * Mapping over every row and letting the misses be null shredded both lines: a
+ * `server.rank` reading has no kills and a `kill.rank` reading has no power, they
+ * arrive a minute apart, so every second point was a gap and `linePath` broke the
+ * line at each one. A board that did not report kills is not a player with no
+ * kills — it is a reading about something else.
+ */
+function carried(
+  rows: readonly TrendRow[],
+  pick: (row: TrendRow) => number | null,
+  name: string,
+  slot: number,
+  axis: 'left' | 'right' = 'left',
+): Series {
+  return {
+    name,
+    slot,
+    axis,
+    points: rows
+      .filter((row) => pick(row) !== null)
+      .map((row) => ({ t: Date.parse(row.captured_at), v: pick(row) })),
+  };
+}
+
+/** One board's rank line, labelled with what that board held.
+ *
+ * Null when this player has never appeared on it — an empty legend entry for a
+ * board they are not on reads as a query that failed.
+ */
+function rankSeries(
+  rows: readonly TrendRow[],
+  command: string,
+  name: string,
+  slot: number,
+): Series | null {
+  const mine = rows.filter((row) => row.source_command === command && row.rank !== null);
+  if (mine.length === 0) {
+    return null;
+  }
+  // From the newest reading of that board. Boards do change size.
+  const size = [...mine].reverse().find((row) => row.board_size !== null)?.board_size ?? null;
+  return {
+    ...carried(mine, (row) => row.rank, size === null ? name : `${name} (of ${size})`, slot),
+    invert: true,
+  };
 }
 
 export function PlayerTrend({ playerId }: { playerId: string }) {
@@ -92,6 +148,8 @@ export function PlayerTrend({ playerId }: { playerId: string }) {
   const times = rows.map((row) => Date.parse(row.captured_at));
   const span = ((times[times.length - 1] ?? 0) - (times[0] ?? 0)) / 86_400_000;
   const levels = rows.filter((row) => row.hq_level !== null);
+  const powerRank = rankSeries(rows, 'server.rank', 'Power rank', 3);
+  const killRank = rankSeries(rows, 'kill.rank', 'Kill rank', 4);
 
   return (
     <>
@@ -101,7 +159,12 @@ export function PlayerTrend({ playerId }: { playerId: string }) {
 
       {/* Separate axes. A player's power runs to the hundreds of millions and
           their kill count to the thousands — a hundred-thousandfold gap, so on
-          one scale the kill line is indistinguishable from the axis itself. */}
+          one scale the kill line is indistinguishable from the axis itself.
+
+          EACH LINE FROM THE READINGS THAT CARRY IT. These used to map over every
+          row, so the power line broke at every kill-board reading and the kill line
+          broke at every power-board one — they arrive a minute apart, so both were
+          drawn as a row of disconnected stubs. */}
       <LineChart
         formatRight={wholeValue}
         formatTime={moment}
@@ -109,17 +172,8 @@ export function PlayerTrend({ playerId }: { playerId: string }) {
         label="Power on the left, kills on the right, as the ranking boards reported them"
         note="Gaps are captures we do not have. For somebody outside our alliance a reading happens when a board is opened. Kills are the dashed line."
         series={[
-          {
-            name: 'Power',
-            slot: 0,
-            points: rows.map((row, index) => ({ t: times[index] ?? 0, v: row.power })),
-          },
-          {
-            name: 'Kills',
-            slot: 1,
-            axis: 'right',
-            points: rows.map((row, index) => ({ t: times[index] ?? 0, v: row.kills })),
-          },
+          carried(rows, (row) => row.power, 'Power', 0),
+          carried(rows, (row) => row.kills, 'Kills', 1, 'right'),
         ]}
       />
 
@@ -133,30 +187,51 @@ export function PlayerTrend({ playerId }: { playerId: string }) {
         </p>
       ) : (
         <LineChart
-          formatRight={wholeValue}
           formatTime={moment}
           formatValue={wholeValue}
           height={160}
-          label="Tower level on the left, board rank on the right, inverted so climbing is up"
-          note="Tower levels never fall, so a capture missing the figure holds the last one. The rank axis is inverted — a line going UP is them climbing the board."
+          label="Tower level over time"
+          note="Levels never fall, so a capture missing the figure holds the last one."
           series={[
+            // Forward-filled: a tower is never demolished, so a board that did not
+            // carry the level is our gap and not their loss. Rank gets no such
+            // treatment below — a rank genuinely falls.
             {
-              name: 'Tower level',
-              slot: 2,
-              // Forward-filled: a tower is never demolished, so a board that did
-              // not carry the level is our gap and not their loss. The rank
-              // beside it gets no fill — a rank genuinely falls.
+              ...carried(rows, (row) => row.hq_level, 'Tower level', 2),
               points: forwardFill(
                 rows.map((row, index) => ({ t: times[index] ?? 0, v: row.hq_level })),
               ),
             },
-            {
-              name: 'Board rank',
-              slot: 3,
-              axis: 'right',
-              invert: true,
-              points: rows.map((row, index) => ({ t: times[index] ?? 0, v: row.rank })),
-            },
+          ]}
+        />
+      )}
+
+      {/* RANK ON ITS OWN CHART, ONE LINE PER BOARD (0084).
+          This was a single "Board rank" line sharing an axis with the tower level,
+          and it was two different quantities drawn as one: `server.rank` ranks by
+          POWER and `kill.rank` ranks by KILLS, both write to the same column, and
+          they are captured a minute apart. Our own R4 appeared to swing between
+          32nd and 104th every minute while nothing about them changed.
+
+          One axis each, because the boards are the same size today but measure
+          unrelated things — sharing a scale invites reading one against the other. */}
+      <h4>On the ranking boards</h4>
+      {powerRank === null && killRank === null ? (
+        <p className="empty">
+          No ranking board has placed this player yet. Their power and kills above came from a
+          roster capture or their profile being opened, neither of which carries a rank.
+        </p>
+      ) : (
+        <LineChart
+          formatRight={wholeValue}
+          formatTime={moment}
+          formatValue={wholeValue}
+          height={180}
+          label="Board rank over time, one line per board"
+          note="Both axes are inverted, so climbing is a line going UP. These are two different boards — one ranks power, the other kills — and both cover every server the game puts on them (577 to 588), not server 580 alone. A rank here is not a position within our own server."
+          series={[
+            ...(powerRank === null ? [] : [powerRank]),
+            ...(killRank === null ? [] : [{ ...killRank, axis: 'right' as const }]),
           ]}
         />
       )}
