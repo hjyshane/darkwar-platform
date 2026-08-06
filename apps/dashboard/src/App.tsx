@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useSyncExternalStore } from 'react';
 import { RefreshButton } from './components/RefreshButton';
+import { SignOutButton } from './components/SignOutButton';
 import { SyncStatus } from './components/SyncStatus';
 import { AdminPage } from './features/admin/AdminPage';
 import { AlliancePage } from './features/alliance/AlliancePage';
@@ -276,7 +277,13 @@ function Shell({
       <DataChangeSubscriber />
       <header className="app-header">
         <h1>
-          Dark War dashboard
+          {/* The title is a link home, which is what every reader tries first.
+              An `<a>` rather than a click handler on the h1: it is navigation,
+              so it should be middle-clickable, focusable and visible in the
+              status bar like any other link. */}
+          <a className="app-home" href="#/">
+            Dark War dashboard
+          </a>
           {/* In the title rather than on a panel: it is about the whole
               board, not one table's data. Only for members — it reads
               sync_status, which 0065 closed like everything else. */}
@@ -284,6 +291,12 @@ function Shell({
           {/* Beside the sync badge on purpose: the badge says whether data
               is arriving, and this is what you reach for next. */}
           {isMember && <RefreshButton />}
+          {/* Signing out was only reachable from the login screen, which is the
+              one place somebody already signed in has no reason to visit. It
+              sits here for anybody with a session — including a signed-in
+              non-member looking at the wall, who otherwise has no way out of it
+              at all. */}
+          {session?.email != null && <SignOutButton email={session.email} />}
         </h1>
         {!standalone && isMember && <Nav route={route} />}
       </header>

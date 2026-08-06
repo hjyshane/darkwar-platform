@@ -1686,3 +1686,36 @@ form select {
 .chart-right-axis {
   stroke-dasharray: 5 3;
 }
+
+/* The title, as a link home. Undecorated until hovered: it is a heading first,
+ * and underlining it permanently makes the header look like a navigation bar
+ * that lost its layout. */
+.app-home {
+  color: inherit;
+  text-decoration: none;
+}
+
+.app-home:hover,
+.app-home:focus-visible {
+  text-decoration: underline;
+}
+
+/* Secondary, like Refresh beside it, and deliberately NOT right-aligned: the h1
+ * is not a flex row, so `margin-left: auto` does nothing there and a float in a
+ * heading breaks the moment the sync badge wraps. It sits after Refresh with a
+ * wider gap, which is separation enough for a control you do not want misclicked.
+ *
+ * Muted rather than red. Signing out is reversible in ten seconds; the alarming
+ * treatment belongs on the buttons that delete rows. */
+.sign-out {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 4px);
+  color: var(--fg-muted);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  font-weight: 400;
+  margin-left: var(--space-6);
+  padding: var(--space-1) var(--space-3);
+  vertical-align: middle;
+}
