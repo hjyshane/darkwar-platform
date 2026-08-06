@@ -47,6 +47,12 @@ select is((select power from public.player_component_power_snapshots
   109781050::bigint, 'each metric keeps its own value');
 
 -- The guard that matters: a metric nobody verified must not be storable.
+--
+-- 23503 (foreign key) rather than 23514 (check) since 0086. The guard is the same
+-- and this test is still the one that proves it — what changed is where the list of
+-- valid names lives. It was a CHECK constraint, so every new metric the game
+-- started reporting needed a migration to edit it; it is now a row in
+-- `component_metrics`, which also carries the metric's label and who may see it.
 select throws_ok($$
   insert into public.player_component_power_snapshots
     (observation_id, source_command, parser_version, idempotency_key, captured_at,
@@ -56,7 +62,7 @@ select throws_ok($$
     ('00000000-0000-4000-8000-00000000f402', 'rank.get.by.range', 'test',
      't:cp:5', '2026-07-30T05:37:10Z', '00000000-0000-4000-8000-000000000c01',
      580, 578, 1327205044000578, 'total_power', 999, 999)
-$$, '23514', null, 'an unverified metric name is refused');
+$$, '23503', null, 'an unverified metric name is refused');
 
 -- These boards are what every player already sees in the client.
 set local role anon;

@@ -1267,6 +1267,42 @@ export type Database = {
         }
         Relationships: []
       }
+      component_metrics: {
+        Row: {
+          created_at: string
+          family: string
+          label: string
+          metric: string
+          notes: string
+          role: string
+          sort_order: number
+          updated_at: string
+          visibility: string
+        }
+        Insert: {
+          created_at?: string
+          family: string
+          label: string
+          metric: string
+          notes?: string
+          role: string
+          sort_order?: number
+          updated_at?: string
+          visibility?: string
+        }
+        Update: {
+          created_at?: string
+          family?: string
+          label?: string
+          metric?: string
+          notes?: string
+          role?: string
+          sort_order?: number
+          updated_at?: string
+          visibility?: string
+        }
+        Relationships: []
+      }
       data_change_notifications: {
         Row: {
           created_at: string
@@ -1715,7 +1751,7 @@ export type Database = {
         Row: {
           alliance_abbr: string | null
           alliance_name: string | null
-          board_type: number
+          board_type: number | null
           captured_at: string
           collected_from_server_id: number
           collector_id: string
@@ -1738,7 +1774,7 @@ export type Database = {
         Insert: {
           alliance_abbr?: string | null
           alliance_name?: string | null
-          board_type: number
+          board_type?: number | null
           captured_at: string
           collected_from_server_id: number
           collector_id: string
@@ -1761,7 +1797,7 @@ export type Database = {
         Update: {
           alliance_abbr?: string | null
           alliance_name?: string | null
-          board_type?: number
+          board_type?: number | null
           captured_at?: string
           collected_from_server_id?: number
           collector_id?: string
@@ -1795,6 +1831,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "collectors"
             referencedColumns: ["collector_id"]
+          },
+          {
+            foreignKeyName: "player_component_power_snapshots_metric_fkey"
+            columns: ["metric"]
+            isOneToOne: false
+            referencedRelation: "component_metrics"
+            referencedColumns: ["metric"]
           },
           {
             foreignKeyName: "player_component_power_snapshots_player_id_fkey"
@@ -2878,16 +2921,28 @@ export type Database = {
         Row: {
           board_size: number | null
           captured_at: string | null
+          family: string | null
           metric: string | null
+          metric_label: string | null
           player_id: string | null
           power: number | null
           rank: number | null
+          role: string | null
           server_id: number | null
+          sort_order: number | null
+          source_command: string | null
           unit_grade: number | null
           unit_id: number | null
           unit_name: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "player_component_power_snapshots_metric_fkey"
+            columns: ["metric"]
+            isOneToOne: false
+            referencedRelation: "component_metrics"
+            referencedColumns: ["metric"]
+          },
           {
             foreignKeyName: "player_component_power_snapshots_player_id_fkey"
             columns: ["player_id"]
