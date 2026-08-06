@@ -1678,3 +1678,11 @@ form select {
   display: block;
   width: 100%;
 }
+
+/* A line measured against the right axis, dashed. The axis captions name which
+ * is which, but with four lines and two scales the reader still has to trace a
+ * colour back to a caption; the dash says "this one is the other scale" without
+ * needing the legend at all. */
+.chart-right-axis {
+  stroke-dasharray: 5 3;
+}

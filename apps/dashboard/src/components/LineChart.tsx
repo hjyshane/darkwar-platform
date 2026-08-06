@@ -1,11 +1,14 @@
 import { useId, useState } from 'react';
 import {
+  type Extent,
   type Point,
   type Series,
+  axisInverted,
   extents,
   linePath,
   mergedTimes,
   nearestIndex,
+  onAxis,
   scaleX,
   scaleY,
   ticks,
@@ -38,9 +41,14 @@ export interface LineChartProps {
   series: Series[];
   /** What the whole chart is of. Becomes the accessible name. */
   label: string;
-  /** Formats a value for the axis and the readout. The chart never guesses:
-   * 4,350,390 as "4.35M" is right for power and wrong for a tower level. */
+  /** Formats a value on the LEFT axis. The chart never guesses: 4,350,390 as
+   * "4.35M" is right for power and wrong for a tower level. */
   formatValue: (value: number) => string;
+  /** Formats a value on the right axis. Required in practice whenever a series
+   * sets `axis: 'right'` — that axis exists because the two quantities are
+   * different, so one formatter for both would defeat the purpose. Falls back to
+   * `formatValue` rather than throwing. */
+  formatRight?: (value: number) => string;
   /** Formats a moment for the axis and the readout. */
   formatTime: (t: number) => string;
   height?: number;
@@ -55,6 +63,7 @@ export function LineChart({
   series,
   label,
   formatValue,
+  formatRight,
   formatTime,
   height = 220,
   note,
@@ -62,21 +71,45 @@ export function LineChart({
   const clipId = useId();
   const [active, setActive] = useState<number | null>(null);
 
+  const left = onAxis(series, 'left');
+  const right = onAxis(series, 'right');
+  const rightFormat = formatRight ?? formatValue;
+
   const box = {
     width: WIDTH,
     height,
     // Left room enough for a formatted power figure; bottom for one row of
     // dates. Hard-coded rather than measured: measuring text means a layout
     // pass per render, and the two formatters here produce short strings.
+    //
+    // The right gutter opens up only when something is measured against it, so a
+    // single-axis chart does not carry an empty margin.
     padLeft: 64,
-    padRight: 12,
+    padRight: right.length > 0 ? 60 : 12,
     padTop: 12,
     padBottom: 28,
   };
 
-  const range = extents(series);
+  // One extent per axis. Sharing one would put a 17-billion total and a
+  // 180-million mean on the same scale, which is the whole thing two axes fix.
+  const range = extents(left.length > 0 ? left : series);
+  const rightRange = right.length > 0 ? extents(right) : null;
+  const leftInverted = axisInverted(left);
+  const rightInverted = axisInverted(right);
   const times = mergedTimes(series);
   const activeTime = active === null ? null : (times[active] ?? null);
+
+  // Which axis a line belongs to, resolved once so the path, the dots and the
+  // readout cannot disagree about it.
+  //
+  // Takes the left extent as an argument for the same reason `pick` does: the
+  // null check below is what makes it non-null, and a closure reading it from
+  // above has forgotten that narrowing by the time it runs.
+  function axisOf(line: Series, y: Extent): { y: Extent; invert: boolean } {
+    return (line.axis ?? 'left') === 'right' && rightRange !== null
+      ? { y: rightRange.y, invert: rightInverted }
+      : { y, invert: leftInverted };
+  }
 
   // The cursor arrives as a fraction of the rendered width; the plot lives in
   // viewBox units and is inset by the axis gutter, so it has to go back through
@@ -131,8 +164,12 @@ export function LineChart({
           </clipPath>
         </defs>
 
+        {/* Gridlines come from the LEFT axis only. Drawing both sets would put
+            two unrelated grids over each other and neither would be readable —
+            the right axis gets labels against the same lines it does not own,
+            which is the ordinary convention for a twin-axis chart. */}
         {ticks(range.y, 4).map((value) => {
-          const y = scaleY(value, range.y, box);
+          const y = scaleY(value, range.y, box, leftInverted);
           return (
             <g key={`y${value}`}>
               <line
@@ -148,6 +185,35 @@ export function LineChart({
             </g>
           );
         })}
+
+        {rightRange !== null &&
+          ticks(rightRange.y, 4).map((value) => (
+            <text
+              key={`r${value}`}
+              className="chart-axis"
+              dy="0.32em"
+              x={box.width - box.padRight + 8}
+              y={scaleY(value, rightRange.y, box, rightInverted)}
+            >
+              {rightFormat(value)}
+            </text>
+          ))}
+
+        {/* Which axis is which, in words. Two unlabelled scales are worse than
+            one: the reader cannot tell which number belongs to which line, and
+            the colours only help once you already know. */}
+        {right.length > 0 && (
+          <>
+            <text className="chart-axis" x={4} y={box.padTop - 2}>
+              {left.map((line) => line.name).join(' · ')}
+              {leftInverted ? ' (up is better)' : ''}
+            </text>
+            <text className="chart-axis" textAnchor="end" x={box.width - 4} y={box.padTop - 2}>
+              {right.map((line) => line.name).join(' · ')}
+              {rightInverted ? ' (up is better)' : ''}
+            </text>
+          </>
+        )}
 
         {/* Two labels, not a tick per capture. The x axis exists to say what
             range you are looking at; the exact moment of a reading comes from
@@ -174,17 +240,21 @@ export function LineChart({
               y2={box.height - box.padBottom}
             />
           )}
-          {series.map((line) => (
-            <path
-              key={line.name}
-              className={`chart-line chart-slot-${line.slot % 6}${line.emphasis ? ' chart-emphasis' : ''}`}
-              d={linePath(line.points, range.x, range.y, box)}
-            />
-          ))}
+          {series.map((line) => {
+            const { y, invert } = axisOf(line, range.y);
+            return (
+              <path
+                key={line.name}
+                className={`chart-line chart-slot-${line.slot % 6}${line.emphasis ? ' chart-emphasis' : ''}${(line.axis ?? 'left') === 'right' ? ' chart-right-axis' : ''}`}
+                d={linePath(line.points, range.x, y, box, invert)}
+              />
+            );
+          })}
           {/* A dot per reading only when the series is sparse. On a dense one
               they merge into a band and stop meaning "here is a capture". */}
-          {series.map((line) =>
-            line.points.length > 40
+          {series.map((line) => {
+            const { y, invert } = axisOf(line, range.y);
+            return line.points.length > 40
               ? null
               : line.points.map((point) =>
                   point.v === null ? null : (
@@ -192,12 +262,12 @@ export function LineChart({
                       key={`${line.name}:${point.t}`}
                       className={`chart-dot chart-slot-${line.slot % 6}`}
                       cx={scaleX(point.t, range.x, box)}
-                      cy={scaleY(point.v, range.y, box)}
+                      cy={scaleY(point.v, y, box, invert)}
                       r={activeTime === point.t ? 4.5 : 2.5}
                     />
                   ),
-                ),
-          )}
+                );
+          })}
         </g>
       </svg>
 
@@ -236,9 +306,10 @@ export function LineChart({
               if (at === undefined || at.v === null) {
                 return null;
               }
+              const format = (line.axis ?? 'left') === 'right' ? rightFormat : formatValue;
               return (
                 <span key={line.name} className={`chart-legend chart-slot-${line.slot % 6}`}>
-                  {line.name} {formatValue(at.v)}
+                  {line.name} {format(at.v)}
                 </span>
               );
             })}
@@ -266,9 +337,10 @@ export function LineChart({
               <th scope="row">{formatTime(time)}</th>
               {series.map((line) => {
                 const at = line.points.find((point) => point.t === time);
+                const format = (line.axis ?? 'left') === 'right' ? rightFormat : formatValue;
                 return (
                   <td key={line.name}>
-                    {at === undefined || at.v === null ? 'not observed' : formatValue(at.v)}
+                    {at === undefined || at.v === null ? 'not observed' : format(at.v)}
                   </td>
                 );
               })}

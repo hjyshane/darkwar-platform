@@ -2,10 +2,13 @@ import { describe, expect, test } from 'vitest';
 import {
   type Box,
   type Series,
+  axisInverted,
   extents,
+  forwardFill,
   linePath,
   mergedTimes,
   nearestIndex,
+  onAxis,
   scaleX,
   scaleY,
   thin,
@@ -26,7 +29,10 @@ function line(name: string, points: [number, number | null][]): Series {
 }
 
 describe('extents', () => {
-  test('covers every point of every series', () => {
+  // The time axis is exactly the data. The value axis is the data plus a tenth
+  // of its range at each end: without that the lowest line is drawn along the
+  // very bottom of the frame, where it reads as a floor rather than a value.
+  test('covers every point of every series, with headroom on the value axis', () => {
     const range = extents([
       line('a', [
         [10, 5],
@@ -37,7 +43,19 @@ describe('extents', () => {
         [30, 12],
       ]),
     ]);
-    expect(range).toEqual({ x: { min: 5, max: 30 }, y: { min: 5, max: 15 } });
+    expect(range?.x).toEqual({ min: 5, max: 30 });
+    expect(range?.y).toEqual({ min: 4, max: 16 });
+  });
+
+  test('no line ever touches the top or bottom edge', () => {
+    const range = extents([
+      line('a', [
+        [1, 100],
+        [2, 200],
+      ]),
+    ]);
+    expect(range?.y.min).toBeLessThan(100);
+    expect(range?.y.max).toBeGreaterThan(200);
   });
 
   // A reading whose value is missing still happened. It belongs on the time
@@ -84,6 +102,65 @@ describe('scales', () => {
     // backwards draws a chart that is upside down and entirely plausible.
     expect(scaleY(10, y, box)).toBe(0);
     expect(scaleY(0, y, box)).toBe(100);
+  });
+
+  // For rank. Rank 1 beats rank 40, so an ordinary axis makes improvement point
+  // downwards — which every reader misinterprets exactly once. Inverting the
+  // SCALE rather than negating the data keeps the readout showing 6, not −6.
+  test('an inverted axis puts the smallest value at the top', () => {
+    const y = { min: 0, max: 10 };
+    expect(scaleY(0, y, box, true)).toBe(0);
+    expect(scaleY(10, y, box, true)).toBe(100);
+  });
+});
+
+describe('axes', () => {
+  test('series are split by the axis they name, defaulting to the left', () => {
+    const total = line('total', [[1, 1000]]);
+    const mean = { ...line('mean', [[1, 10]]), axis: 'right' as const };
+    expect(onAxis([total, mean], 'left').map((row) => row.name)).toEqual(['total']);
+    expect(onAxis([total, mean], 'right').map((row) => row.name)).toEqual(['mean']);
+  });
+
+  // An axis has ONE direction. Two lines sharing it and disagreeing cannot both
+  // be drawn, so the flag is read off the axis rather than per line — callers put
+  // a rank on its own axis for exactly this reason.
+  test('an axis is inverted when any line on it asks to be', () => {
+    expect(axisInverted([line('a', [[1, 1]])])).toBe(false);
+    expect(axisInverted([{ ...line('rank', [[1, 1]]), invert: true }])).toBe(true);
+  });
+});
+
+describe('forwardFill', () => {
+  // For a figure that cannot fall — a tower level. A capture that did not carry
+  // it is our gap, not a demolished tower, so holding the last reading is closer
+  // to the truth than breaking the line.
+  test('a gap holds the last reading', () => {
+    expect(
+      forwardFill([
+        { t: 1, v: 31 },
+        { t: 2, v: null },
+        { t: 3, v: 32 },
+      ]),
+    ).toEqual([
+      { t: 1, v: 31 },
+      { t: 2, v: 31 },
+      { t: 3, v: 32 },
+    ]);
+  });
+
+  // The one thing forward-fill must never do: invent the first value out of the
+  // future. Before any reading there is nothing to carry.
+  test('leading gaps stay unknown', () => {
+    expect(
+      forwardFill([
+        { t: 1, v: null },
+        { t: 2, v: 31 },
+      ]),
+    ).toEqual([
+      { t: 1, v: null },
+      { t: 2, v: 31 },
+    ]);
   });
 });
 

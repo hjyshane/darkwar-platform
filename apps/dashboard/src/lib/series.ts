@@ -22,6 +22,18 @@ export interface Series {
   slot: number;
   /** Drawn thicker and above the rest. For "ours" among a field of strangers. */
   emphasis?: boolean;
+  /** Which value axis this line is measured against. Defaults to the left.
+   *
+   * Two axes exist because of a real problem, not for decoration: total alliance
+   * power is 17 billion and the mean per member is 180 million, so on one axis
+   * the mean lies flat along the floor and the only readable line is the one you
+   * already knew. Splitting them is what makes the second line say anything. */
+  axis?: 'left' | 'right';
+  /** Draw the axis upside down, so a FALLING number rises on the chart.
+   *
+   * For rank. Rank 6 is better than rank 9, and a chart where improvement points
+   * downwards gets misread by everybody exactly once. */
+  invert?: boolean;
 }
 
 export interface Box {
@@ -44,6 +56,14 @@ export interface Extent {
  * reading happened, we just do not know what it said, so the x range includes
  * it while the y range is not stretched by it.
  */
+/** How much of the plot's height is left clear above and below the data.
+ *
+ * The value axis used to start exactly at the smallest reading, which drew the
+ * lowest line along the very bottom of the frame where it reads as a floor
+ * rather than as a value. A tenth of the range at each end lifts it clear
+ * without the axis pretending to a span it does not have. */
+const FLOOR_HEADROOM = 0.1;
+
 export function extents(series: readonly Series[]): { x: Extent; y: Extent } | null {
   let xMin = Number.POSITIVE_INFINITY;
   let xMax = Number.NEGATIVE_INFINITY;
@@ -74,6 +94,10 @@ export function extents(series: readonly Series[]): { x: Extent; y: Extent } | n
     const pad = Math.abs(yMin) < 1 ? 1 : Math.abs(yMin) * 0.1;
     yMin -= pad;
     yMax += pad;
+  } else {
+    const pad = (yMax - yMin) * FLOOR_HEADROOM;
+    yMin -= pad;
+    yMax += pad;
   }
   if (xMin === xMax) {
     xMin -= 1;
@@ -83,16 +107,38 @@ export function extents(series: readonly Series[]): { x: Extent; y: Extent } | n
   return { x: { min: xMin, max: xMax }, y: { min: yMin, max: yMax } };
 }
 
+/** The series belonging to one value axis. */
+export function onAxis(series: readonly Series[], axis: 'left' | 'right'): Series[] {
+  return series.filter((line) => (line.axis ?? 'left') === axis);
+}
+
+/** True when any line on this axis wants it drawn upside down.
+ *
+ * Read off the axis rather than the line, because an axis has one direction: two
+ * lines sharing it and disagreeing about which way is up cannot both be drawn,
+ * and silently honouring the first would be a chart that lies about the second.
+ * Callers put a rank on its own axis for exactly this reason.
+ */
+export function axisInverted(series: readonly Series[]): boolean {
+  return series.some((line) => line.invert === true);
+}
+
 /** Where a value sits across the plot, in SVG user units. */
 export function scaleX(t: number, x: Extent, box: Box): number {
   const span = box.width - box.padLeft - box.padRight;
   return box.padLeft + ((t - x.min) / (x.max - x.min)) * span;
 }
 
-/** Same, downwards: SVG y grows towards the bottom and a value axis does not. */
-export function scaleY(v: number, y: Extent, box: Box): number {
+/** Same, downwards: SVG y grows towards the bottom and a value axis does not.
+ *
+ * `invert` flips it again, which puts the SMALLEST value at the top. That is
+ * what a rank axis needs — rank 1 is the best — and doing it here rather than by
+ * negating the data keeps the tooltip showing 6 instead of −6.
+ */
+export function scaleY(v: number, y: Extent, box: Box, invert = false): number {
   const span = box.height - box.padTop - box.padBottom;
-  return box.padTop + (1 - (v - y.min) / (y.max - y.min)) * span;
+  const fraction = (v - y.min) / (y.max - y.min);
+  return box.padTop + (invert ? fraction : 1 - fraction) * span;
 }
 
 /** An SVG path for one series, broken wherever a reading is missing.
@@ -101,7 +147,13 @@ export function scaleY(v: number, y: Extent, box: Box): number {
  * gap. Joining across a capture we do not have draws a straight line through
  * days nobody observed and reads as steady growth.
  */
-export function linePath(points: readonly Point[], x: Extent, y: Extent, box: Box): string {
+export function linePath(
+  points: readonly Point[],
+  x: Extent,
+  y: Extent,
+  box: Box,
+  invert = false,
+): string {
   const parts: string[] = [];
   let open = false;
   for (const point of points) {
@@ -110,11 +162,36 @@ export function linePath(points: readonly Point[], x: Extent, y: Extent, box: Bo
       continue;
     }
     const px = scaleX(point.t, x, box).toFixed(2);
-    const py = scaleY(point.v, y, box).toFixed(2);
+    const py = scaleY(point.v, y, box, invert).toFixed(2);
     parts.push(`${open ? 'L' : 'M'}${px} ${py}`);
     open = true;
   }
   return parts.join(' ');
+}
+
+/** Carry the last known value forward across gaps.
+ *
+ * ONLY for a quantity that cannot go down. A tower level is one: a capture that
+ * did not carry it is a capture that did not carry it, not a demolished tower, so
+ * holding the last reading is closer to the truth than a break in the line.
+ *
+ * Wrong for anything that can fall — power, rank, a daily total that resets —
+ * where a flat run would assert a measurement nobody took. Which is why this is
+ * a separate call the caller makes per series rather than something `linePath`
+ * does for everyone.
+ *
+ * Leading nulls stay null: there is nothing yet to carry, and inventing the
+ * first value from the future is the one thing forward-fill must never do.
+ */
+export function forwardFill(points: readonly Point[]): Point[] {
+  let last: number | null = null;
+  return points.map((point) => {
+    if (point.v !== null) {
+      last = point.v;
+      return point;
+    }
+    return { t: point.t, v: last };
+  });
 }
 
 /** Round tick values that cover the extent, at most `count` of them.
