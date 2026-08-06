@@ -30,6 +30,7 @@ from dw_collector.notify.compose import (
     Message,
     departure_message,
     discord_payload,
+    guide_message,
     rank_period_message,
 )
 
@@ -58,6 +59,10 @@ MAX_ATTEMPTS = 5
 class NotifyConfig:
     supabase_url: str
     secret_key: str
+    # Optional. Only used to add a "read it on the dashboard" link to a
+    # published guide, whose body may have been clamped to Discord's limit.
+    # Absent means the line is left out rather than pointing nowhere.
+    dashboard_url: str | None = None
 
 
 @dataclass
@@ -70,6 +75,7 @@ class NotifyStats:
 class NotifyWorker:
     def __init__(self, config: NotifyConfig) -> None:
         self.config = config
+        self.dashboard_url = config.dashboard_url
         self.rest = f"{config.supabase_url.rstrip('/')}/rest/v1"
         self.client = httpx.Client(
             timeout=30.0,
@@ -254,6 +260,39 @@ class NotifyWorker:
             for row in rows
         ]
 
+    def guide_candidates(self, routing: dict[str, Row]) -> list[Message]:
+        """Guides that have been published and not yet announced.
+
+        No completeness or settling problem here, unlike departures: publishing is
+        a deliberate act by a person, not something inferred from a capture that
+        might have stopped early. The outbox alone decides which are new.
+
+        `guides` is member-gated by an RLS POLICY, which the service key bypasses —
+        so unlike 0077's four views, this needed no migration. The difference is
+        worth remembering: a role check in a view's WHERE clause stops the
+        collector, a policy on a table does not.
+        """
+        channel = self._target(routing, "guides")
+        if channel is None:
+            return []
+        rows = self._get(
+            "guides?select=guide_id,title,body,category,published_at"
+            "&published_at=not.is.null"
+            "&order=published_at.desc&limit=20"
+        )
+        return [
+            guide_message(
+                channel=channel,
+                guide_id=row["guide_id"],
+                title=row["title"],
+                body=row["body"],
+                category=row["category"],
+                published_at=row["published_at"],
+                dashboard_url=self.dashboard_url,
+            )
+            for row in rows
+        ]
+
     # --------------------------------------------------------------- delivering
 
     def pending(self) -> list[Row]:
@@ -324,7 +363,11 @@ class NotifyWorker:
     def run_once(self) -> NotifyStats:
         stats = NotifyStats()
         routing = self.routing()
-        messages = self.rank_period_candidates(routing) + self.departure_candidates(routing)
+        messages = (
+            self.rank_period_candidates(routing)
+            + self.departure_candidates(routing)
+            + self.guide_candidates(routing)
+        )
         stats.enqueued = self.enqueue(messages)
 
         channels = self.channels()

@@ -30,7 +30,16 @@ def main() -> None:
         raise SystemExit("SUPABASE_URL and SUPABASE_SECRET_KEY are required")
     interval = float(os.environ.get("DW_NOTIFY_INTERVAL_SECONDS", "300"))
 
-    worker = NotifyWorker(NotifyConfig(supabase_url=url, secret_key=key))
+    worker = NotifyWorker(
+        NotifyConfig(
+            supabase_url=url,
+            secret_key=key,
+            # Optional: adds a link back to a published guide, whose body may
+            # have been clamped to Discord's embed limit. Unset leaves the line
+            # out rather than linking nowhere.
+            dashboard_url=os.environ.get("DW_DASHBOARD_URL") or None,
+        )
+    )
     log.info("notify.start", interval=interval)
     once = os.environ.get("DW_NOTIFY_ONCE") == "1"
     while True:

@@ -16,6 +16,7 @@ from dw_collector.notify.compose import (
     clamp,
     departure_message,
     discord_payload,
+    guide_message,
     rank_period_message,
     tier_changes,
     wiring_check_message,
@@ -240,3 +241,85 @@ def test_filter_value_escapes_what_would_change_the_query() -> None:
     """
     assert "&" not in filter_value("reports&all")
     assert " " not in filter_value("my channel")
+
+
+# --- guides ----------------------------------------------------------------
+
+
+def test_a_guide_is_keyed_on_when_it_was_published() -> None:
+    """Editing a published guide must not announce it again.
+
+    A typo fix leaves `published_at` alone, so the key is unchanged and the outbox
+    swallows it. Unpublishing and publishing again sets a new timestamp, which is
+    a new publication and worth saying — that distinction is the whole reason the
+    key carries the date rather than only the id.
+    """
+    base = {
+        "channel": "reports",
+        "guide_id": "g1",
+        "title": "Arena line-ups",
+        "category": "strategy",
+    }
+    first = guide_message(**base, body="Tanks first.", published_at="2026-08-06T10:00:00+00:00")
+    edited = guide_message(
+        **base, body="Tanks first, always.", published_at="2026-08-06T10:00:00+00:00"
+    )
+    republished = guide_message(
+        **base, body="Tanks first.", published_at="2026-08-07T10:00:00+00:00"
+    )
+
+    assert first.idempotency_key == edited.idempotency_key
+    assert first.idempotency_key != republished.idempotency_key
+
+
+def test_a_guide_body_goes_through_unchanged() -> None:
+    """The subset was chosen so it survives the trip.
+
+    Discord reads `**bold**`, backtick code, `[text](url)`, `- bullets` and `##`
+    headings the same way `lib/richText` does. Nothing here rewrites the text, so
+    the board and the channel show the same words — which is why tables and images
+    were left out of the subset rather than translated.
+    """
+    body = "## Setup\n\n- **tanks** first\n- see [the board](https://example.com)\n\n`al.rank`"
+    message = guide_message(
+        channel="reports",
+        guide_id="g1",
+        title="T",
+        body=body,
+        category="tip",
+        published_at="2026-08-06T10:00:00+00:00",
+    )
+    assert body in message.body
+
+
+def test_the_dashboard_link_is_left_out_when_there_is_no_url() -> None:
+    """A link to nowhere is worse than no link.
+
+    It exists because a long guide's body is clamped to Discord's embed limit and
+    the reader who hits the cut needs somewhere to go. With no configured URL there
+    is nowhere, so the line is absent rather than broken.
+    """
+    args = {
+        "channel": "reports",
+        "guide_id": "g1",
+        "title": "T",
+        "body": "x",
+        "category": "tip",
+        "published_at": "2026-08-06T10:00:00+00:00",
+    }
+    assert "dashboard" not in guide_message(**args).body
+    linked = guide_message(**args, dashboard_url="https://example.com/")
+    assert "https://example.com/#/guides" in linked.body
+
+
+def test_the_kind_is_spelled_out() -> None:
+    """`strategy` is a database value; "Strategy" is what a reader wants."""
+    message = guide_message(
+        channel="reports",
+        guide_id="g1",
+        title="T",
+        body="x",
+        category="strategy",
+        published_at="2026-08-06T10:00:00+00:00",
+    )
+    assert "Strategy" in message.body

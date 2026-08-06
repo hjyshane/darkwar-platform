@@ -45,7 +45,12 @@ const EVENTS: { event: string; label: string; note: string }[] = [
   {
     event: 'departures',
     label: 'Member left',
-    note: 'One message per departure. Says so when the roster capture was short, because a short capture looks the same as somebody leaving.',
+    note: 'One message per departure. Only when a complete roster capture confirms it, and only after six hours — a capture still in progress looks exactly like half the alliance leaving.',
+  },
+  {
+    event: 'guides',
+    label: 'Guide published',
+    note: 'The title, kind and body of a guide, when somebody publishes it. Editing a published guide does not post again; unpublishing and publishing does.',
   },
 ];
 
