@@ -18,6 +18,7 @@ from dw_collector.notify.compose import (
     departure_message,
     discord_payload,
     guide_message,
+    notice_message,
     rank_period_message,
     split_images,
     tier_changes,
@@ -456,3 +457,67 @@ def test_the_link_points_at_the_guide_rather_than_the_board() -> None:
         dashboard_url="https://example.invalid/",
     )
     assert "#/guides/abc-123" in message.body
+
+
+# ---------------------------------------------------------------------- notices
+#
+# A notice travels exactly like a guide, and the assertions worth having are the
+# two that fail silently: a key that changes when it should not posts the same
+# notice to 94 people twice, and one that does not change when it should leaves a
+# rescheduled event unannounced.
+
+
+def test_a_typo_fix_does_not_re_announce_a_notice() -> None:
+    """Keyed on when it goes LIVE, not on when it was last edited.
+
+    `updated_at` would make every correction a fresh post.
+    """
+    base = {
+        "channel": "reports",
+        "announcement_id": "n1",
+        "title": "Bear hunt Saturday",
+        "live_at": "2026-08-06T10:00:00+00:00",
+    }
+    first = notice_message(**base, body="At 20:00 UTC")
+    fixed = notice_message(**base, body="At 21:00 UTC — corrected")
+    assert first.idempotency_key == fixed.idempotency_key
+
+
+def test_moving_the_start_date_is_a_new_announcement() -> None:
+    base = {
+        "channel": "reports",
+        "announcement_id": "n1",
+        "title": "Bear hunt",
+        "body": "x",
+    }
+    saturday = notice_message(**base, live_at="2026-08-08T10:00:00+00:00")
+    sunday = notice_message(**base, live_at="2026-08-09T10:00:00+00:00")
+    assert saturday.idempotency_key != sunday.idempotency_key
+
+
+def test_a_notice_links_to_itself_and_is_labelled() -> None:
+    message = notice_message(
+        channel="reports",
+        announcement_id="abc-1",
+        title="T",
+        body="words",
+        live_at="2026-08-06T10:00:00+00:00",
+        dashboard_url="https://example.invalid/",
+    )
+    assert message.event == "notices"
+    assert "_Notice_" in message.body
+    assert "#/notices/abc-1" in message.body
+
+
+def test_a_notice_carries_a_picture_the_same_way_a_guide_does() -> None:
+    """The board renders `![alt](url)` and Discord prints it verbatim, so the same
+    lifting applies — a notice with a picture must not arrive as markup."""
+    message = notice_message(
+        channel="reports",
+        announcement_id="n1",
+        title="T",
+        body=f"Look at this.\n\n![map]({OURS})",
+        live_at="2026-08-06T10:00:00+00:00",
+    )
+    assert message.image_url == OURS
+    assert "![" not in message.body

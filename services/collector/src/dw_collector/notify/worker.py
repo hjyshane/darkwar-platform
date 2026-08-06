@@ -33,6 +33,7 @@ from dw_collector.notify.compose import (
     departure_message,
     discord_payload,
     guide_message,
+    notice_message,
     rank_period_message,
 )
 
@@ -55,6 +56,13 @@ SETTLE = timedelta(hours=6)
 # Retry-After and 404 when a webhook has been deleted in Discord; retrying the
 # second forever writes an error to the row every interval and never succeeds.
 MAX_ATTEMPTS = 5
+# How far back a newly switched-on notice event will reach.
+#
+# The outbox has no memory of the time before an event was enabled, so without a
+# bound the first run posts every standing notice the alliance ever wrote. A week:
+# long enough that switching it on announces what is actually current, short enough
+# that it cannot dump a season of history into the channel.
+NOTICE_BACKLOG = timedelta(days=7)
 
 
 @dataclass(frozen=True)
@@ -299,6 +307,58 @@ class NotifyWorker:
             for row in rows
         ]
 
+    def notice_candidates(self, routing: dict[str, Row]) -> list[Message]:
+        """Notices that are live and not yet announced.
+
+        LIVE, not merely written. A notice whose `starts_at` is next Saturday is
+        deliberately not current yet, and announcing it today would have the channel
+        disagreeing with the dashboard about when something happens. Expired ones are
+        skipped for the same reason in reverse.
+
+        AND RECENT, which is the part that needed thought. The outbox has no memory
+        of the time before this event was switched on, so without a window the first
+        run after an admin enables it posts every standing notice the alliance has
+        ever had. `NOTICE_BACKLOG` bounds it: a notice that went live a month ago is
+        not news, and the dashboard is where it still lives.
+
+        No settling delay, unlike departures. A notice is a deliberate act by a
+        person; there is nothing to confirm.
+        """
+        channel = self._target(routing, "notices")
+        if channel is None:
+            return []
+        now = datetime.now(UTC)
+        current = filter_value(now.isoformat())
+        cutoff = (now - NOTICE_BACKLOG).isoformat()
+        rows = self._get(
+            "announcements?select=announcement_id,title,body,starts_at,ends_at,created_at"
+            # Live: started, or with no start at all; and not yet finished.
+            f"&or=(starts_at.is.null,starts_at.lte.{current})"
+            f"&or=(ends_at.is.null,ends_at.gte.{current})"
+            "&order=created_at.desc&limit=20"
+        )
+        out: list[Message] = []
+        for row in rows:
+            # The backlog window is applied HERE rather than in the query, because
+            # PostgREST cannot filter on "starts_at, or created_at when that is
+            # null" — and doing it once in Python beats two filters that can
+            # disagree. ISO strings compare correctly: PostgREST returns every
+            # timestamptz in the same UTC shape.
+            live_at = row.get("starts_at") or row.get("created_at")
+            if live_at is None or live_at < cutoff:
+                continue
+            out.append(
+                notice_message(
+                    channel=channel,
+                    announcement_id=row["announcement_id"],
+                    title=row["title"],
+                    body=row["body"] or "",
+                    live_at=live_at,
+                    dashboard_url=self.dashboard_url,
+                )
+            )
+        return out
+
     # --------------------------------------------------------------- delivering
 
     def pending(self) -> list[Row]:
@@ -429,11 +489,22 @@ class NotifyWorker:
     def run_once(self) -> NotifyStats:
         stats = NotifyStats()
         routing = self.routing()
-        messages = (
-            self.rank_period_candidates(routing)
-            + self.departure_candidates(routing)
-            + self.guide_candidates(routing)
+        # ADDING AN EVENT IS THREE LINES, and this is one of them: a name in
+        # `EVENTS` in the settings screen so an admin can switch it on, a
+        # `*_candidates` method here, and its entry in this tuple. Nothing else in
+        # the worker changes — enqueue, delivery, retries and the outbox are all
+        # event-agnostic already.
+        #
+        # A tuple of bound methods rather than method NAMES: a typo in a string is
+        # found at run time by an event quietly never sending, and a typo here does
+        # not compile.
+        sources = (
+            self.rank_period_candidates,
+            self.departure_candidates,
+            self.guide_candidates,
+            self.notice_candidates,
         )
+        messages = [message for source in sources for message in source(routing)]
         stats.enqueued = self.enqueue(messages)
 
         channels = self.channels()

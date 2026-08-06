@@ -332,6 +332,46 @@ def guide_message(
     )
 
 
+def notice_message(
+    *,
+    channel: str,
+    announcement_id: str,
+    title: str,
+    body: str,
+    live_at: str,
+    dashboard_url: str | None = None,
+) -> Message:
+    """A notice the alliance just posted.
+
+    The same shape as a guide, deliberately: same markup subset, same image
+    handling, same "read it on the dashboard" tail. A notice and a guide differ in
+    what they are FOR, not in how they travel.
+
+    KEYED ON `live_at` — the notice's own start time, or when it was written if it
+    has none. Fixing a typo leaves that alone, so it does not re-announce; moving
+    the start window is a different announcement and should say so, which is the
+    same distinction `published_at` draws for guides.
+
+    NOT keyed on `updated_at`, which would make every correction a fresh post to 94
+    people.
+    """
+    text, images = split_images(body)
+    lines = ["_Notice_", "", text.strip()]
+    if len(images) > 1:
+        lines += ["", f"_{len(images)} pictures — the rest are on the dashboard._"]
+    if dashboard_url is not None:
+        link = f"{dashboard_url.rstrip('/')}/#/notices/{announcement_id}"
+        lines += ["", f"[Read it on the dashboard]({link})"]
+    return Message(
+        channel=channel,
+        event="notices",
+        idempotency_key=f"notice:{announcement_id}:{live_at}",
+        title=title,
+        body="\n".join(lines),
+        image_url=images[0] if images else None,
+    )
+
+
 def wiring_check_message(channel: str) -> Message:
     """What the settings screen's "Send test" button sends.
 
