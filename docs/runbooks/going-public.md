@@ -1,7 +1,11 @@
 # 런북: 외부 공개 (Supabase 클라우드)
 
-지금까지 이 프로젝트에는 **클라우드 프로젝트가 연결된 적이 없다.** 스펙 §21.1의
-배포 파이프라인도 의도적으로 미룬 항목이다. 이 문서는 그것을 처음 하는 절차다.
+> **실행됐다 — 2026-08-04.** 프로젝트 `balpuvkvpiqvclibajje`, 대시보드는
+> `https://darkwar-platform.hjyshane.workers.dev`. 아래는 그 절차이고, 실제로
+> 겪은 것은 각 단계의 「실제로 이랬다」에 적었다. 처음 하는 사람 기준으로 쓴
+> 문장은 그대로 뒀다 — 다시 만들 때 같은 순서로 필요하다.
+
+스펙 §21.1의 배포 파이프라인은 **여전히 미룬 항목이다.** 배포는 손으로 한다.
 
 **이 작업은 되돌리기 어렵다.** 한 번 인터넷에 올라간 데이터는 나중에 지워도
 누군가 이미 읽었을 수 있다. 그래서 0단계가 "무엇이 공개되는가"다.
@@ -65,8 +69,8 @@ supabase link --project-ref <프로젝트 ref>
 supabase db push
 ```
 
-65개 마이그레이션이 순서대로 적용된다. 영웅 카탈로그 28기는 0061이 함께
-넣으므로 손으로 다시 입력할 것이 없다.
+마이그레이션이 순서대로 적용된다(2026-08-06 기준 75개). 영웅 카탈로그 28기는
+0061이 함께 넣으므로 손으로 다시 입력할 것이 없다.
 
 **`supabase db push`는 seed.sql을 실행하지 않는다.** 합성 플레이어 20명이
 안 들어간다는 뜻이고, 그게 맞다 — `supabase/drop-synthetic-seed.sql`을 클라우드에
@@ -79,6 +83,36 @@ supabase db diff --linked
 ```
 
 아무것도 안 나와야 한다. 나오면 로컬과 클라우드가 갈라진 것이다.
+
+### 실제로 이랬다 — 번호가 건너뛰어지면 조용히 안 올라간다
+
+`db push`는 **원격 마지막 번호보다 앞선** 마이그레이션을 그냥 넣지 않는다. 0072가
+빠진 상태로 0073이 올라가 있었고, 그 뒤의 push는 이것만 뱉었다:
+
+```
+Found local migration files to be inserted before the last migration on remote
+database. Rerun the command with --include-all flag to apply these migrations
+```
+
+`--include-all`로 해결된다. 다만 **문제는 메시지가 아니라 그 전이다** — 0072가
+없는 동안 화면은 정상이었고 `scoring_version`만 옛 값이었다. 그걸 "리빌드를 안
+눌러서"라고 잘못 진단했다. 함수가 아예 없었던 것이다.
+
+그러니 push 전후로 **번호를 직접 본다**:
+
+```powershell
+supabase migration list
+```
+
+`remote`가 빈 문자열인 줄이 있으면 그게 안 올라간 것이다. `db diff --linked`는
+함수 본문 차이를 항상 잡아주지 않는다.
+
+### 함수를 올리는 것과 실행하는 것은 다르다
+
+`build_rank_period` 같은 계산 함수는 올라가도 **기존 행을 다시 쓰지 않는다.**
+새 결과를 보려면 어드민 화면에서 다시 실행해야 하고, 그 함수는 스크립트로 못
+돌린다 — `current_app_role()`을 보기 때문에 서비스 키는 `42501 members only`로
+거부된다. 로그인 세션이 필요하다.
 
 ## 4. admin 계정을 만든다
 
@@ -140,6 +174,29 @@ VITE_SUPABASE_PUBLISHABLE_KEY=<Project Settings > API > publishable/anon key>
 - **Authentication → URL Configuration → Site URL**을 배포 주소로 바꾼다.
   지금 `config.toml`은 `http://127.0.0.1:3000`이고, 그대로 두면 로그인 후
   리디렉션이 로컬로 간다.
+
+### 실제로 이랬다 — Cloudflare Workers 자산, Pages 아님
+
+`apps/dashboard/wrangler.jsonc`가 정적 자산만 서빙한다. Worker 스크립트도
+`main` 엔트리도 없다 — 대시보드는 브라우저에서 Supabase로 직접 말하고, 앞에
+Worker를 두면 인증이 틀릴 수 있는 자리가 하나 더 생긴다. SPA fallback도 없다
+(해시 라우팅).
+
+주소는 `darkwar-platform.hjyshane.workers.dev`다. **`*.pages.dev`는 존재하지
+않는다** — DNS부터 안 뜬다. 이걸 몰라서 한 번 헛짚었다.
+
+### 배포된 것이 무엇인지 확인하는 법 — 날짜가 아니라 마커로
+
+Cloudflare가 표시하는 시각은 **언제** 빌드했는지만 말하고 **무엇을** 빌드했는지는
+말하지 않는다. 번들에서 문자열을 찾는다:
+
+```powershell
+# index.html에서 /assets/index-*.js 를 뽑아 내려받고, 최근 변경의 흔적을 찾는다.
+# 예: 'pinned-rank'(#118), 'Signed in as'(#117), 'up is better'(#116)
+```
+
+> **urllib로 그냥 받으면 403이다.** User-Agent 헤더를 붙이면 200이 온다.
+> PowerShell의 `Invoke-WebRequest`는 기본으로 붙여 준다.
 
 ## 7. 확인한다 — 로그인하지 않은 브라우저로
 
