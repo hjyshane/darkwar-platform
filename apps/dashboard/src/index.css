@@ -1764,3 +1764,54 @@ form select {
   margin-left: 0.15em;
   vertical-align: super;
 }
+
+/* --- notices: titles on the page, body in a dialog ----------------------- */
+
+/* The whole row is the target. A title people have to aim at is a title people
+ * do not open. */
+.notice-open {
+  align-items: baseline;
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  flex-wrap: wrap;
+  font: inherit;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  text-align: left;
+  width: 100%;
+}
+
+.notice-open:hover .notice-title,
+.notice-open:focus-visible .notice-title {
+  text-decoration: underline;
+}
+
+.notice-title {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+/* max-width in ch, not px: the body is prose and a measure of about 70
+ * characters is what makes prose readable, whatever the viewport is. */
+.notice-dialog {
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  color: var(--fg);
+  max-height: 80vh;
+  max-width: min(70ch, 92vw);
+  overflow-y: auto;
+  padding: var(--space-6);
+}
+
+.notice-dialog::backdrop {
+  /* Dark in both themes. A light backdrop over a light page leaves the modal
+   * looking like part of the page rather than in front of it. */
+  background: rgb(0 0 0 / 45%);
+}
+
+.notice-dialog h3 {
+  margin-top: 0;
+}
