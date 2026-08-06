@@ -53,16 +53,25 @@ interface DailyPoint {
 
 interface BoardPoint {
   captured_at: string;
+  /** The alliance's own server, for naming the server board it appears on. */
+  server_id: number | null;
   power: number | null;
   rank: number | null;
   member_count: number | null;
+  /** Which board this reading came from (0081). Two boards report the same
+   * alliance at different ranks minutes apart under one command name, so plotting
+   * them as one series drew a sawtooth and called it movement. */
+  board_scope: string;
+  /** How many alliances were on that board. A rank without it says nothing —
+   * 7th of 100 is not worse than 1st of 39. */
+  board_size: number | null;
 }
 
 async function fetchTrends(allianceId: string) {
   const [board, roster, daily] = await Promise.all([
     supabase
       .from('alliance_power_history')
-      .select('captured_at, power, rank, member_count')
+      .select('captured_at, server_id, power, rank, member_count, board_scope, board_size')
       .eq('alliance_id', allianceId)
       .order('captured_at', { ascending: true })
       .limit(500),
@@ -166,6 +175,50 @@ function filled(line: Series): Series {
   return { ...line, points: forwardFill(line.points) };
 }
 
+/** Whether any reading came from that board. A line for a board this alliance has
+ * never been seen on would be an empty legend entry. */
+function hasScope(board: readonly BoardPoint[], scope: string): boolean {
+  return board.some((row) => row.board_scope === scope && row.rank !== null);
+}
+
+/** How big that board was, from the newest reading of it. */
+function sizeOf(board: readonly BoardPoint[], scope: string): number | null {
+  for (let index = board.length - 1; index >= 0; index -= 1) {
+    const row = board[index];
+    if (row?.board_scope === scope && row.board_size !== null) {
+      return row.board_size;
+    }
+  }
+  return null;
+}
+
+/** The server board's name, which is the alliance's own server number. */
+function serverLabel(board: readonly BoardPoint[]): string {
+  const server = board.find((row) => row.server_id !== null)?.server_id ?? null;
+  const size = sizeOf(board, 'server');
+  const where = server === null ? 'own server' : `server ${server}`;
+  return size === null ? `Rank on ${where}` : `Rank on ${where} (of ${size})`;
+}
+
+function crossLabel(board: readonly BoardPoint[]): string {
+  const size = sizeOf(board, 'cross_server');
+  return size === null ? 'Cross-server rank' : `Cross-server rank (of ${size})`;
+}
+
+/** Said in the chart's note, because two rank lines that are both "rank" need a
+ * sentence explaining why one is higher. */
+function scopeNote(board: readonly BoardPoint[]): string {
+  const server = hasScope(board, 'server');
+  const cross = hasScope(board, 'cross_server');
+  if (server && cross) {
+    return 'The two boards are separate lines: one is this alliance among its own server, the other among every server the board covers. They are different questions, and a good answer to one can look poor beside the other.';
+  }
+  if (cross) {
+    return 'Only the cross-server board has been captured for this alliance.';
+  }
+  return 'Only their own server board has been captured.';
+}
+
 /** One kind of daily board as a series, keyed on the game day it belongs to. */
 function dailySeries(
   rows: readonly DailyPoint[],
@@ -259,15 +312,46 @@ export function AllianceTrends({ allianceId, isOwn }: { allianceId: string; isOw
               ordinary axis makes improvement point downwards and gets misread by
               everybody exactly once. Member count on the other side because 35
               members against rank 4 on one scale leaves the rank line flat along
-              the bottom. */}
+              the bottom.
+
+              ONE LINE PER BOARD (0081). These were a single series, and since the
+              routine opens the server board and the cross-server board about three
+              minutes apart, the line sawtoothed between 1st and 7th with the power
+              unchanged — which reads as broken data and is two true answers to two
+              different questions. */}
           <LineChart
             formatRight={wholeValue}
             formatTime={moment}
             formatValue={wholeValue}
             label="Board rank and member count over time"
-            note="The rank axis is inverted, so climbing the board is a line going UP. Members are the dashed line on the right."
+            note={`The rank axis is inverted, so climbing a board is a line going UP. ${scopeNote(board)} Members are the dashed line on the right.`}
             series={[
-              { ...column(board, (row) => row.rank, 'Rank', 1), invert: true },
+              ...(hasScope(board, 'server')
+                ? [
+                    {
+                      ...column(
+                        board.filter((row) => row.board_scope === 'server'),
+                        (row) => row.rank,
+                        serverLabel(board),
+                        1,
+                      ),
+                      invert: true,
+                    },
+                  ]
+                : []),
+              ...(hasScope(board, 'cross_server')
+                ? [
+                    {
+                      ...column(
+                        board.filter((row) => row.board_scope === 'cross_server'),
+                        (row) => row.rank,
+                        crossLabel(board),
+                        2,
+                      ),
+                      invert: true,
+                    },
+                  ]
+                : []),
               { ...column(board, (row) => row.member_count, 'Members', 5), axis: 'right' },
             ]}
           />
@@ -320,9 +404,12 @@ export function AllianceTrends({ allianceId, isOwn }: { allianceId: string; isOw
               }
               value={latest.avg_hq_level === null ? null : levelValue(latest.avg_hq_level)}
             />
+            {/* "Tower 35+", not "At tower 35": the figure counts hq_level >= 35
+                (0073), and the old wording read as exactly 35 — which would make
+                it fall as people levelled past it. */}
             <StatTile
-              label="At tower 35"
-              note={`of ${latest.observed_members} seen`}
+              label="Tower 35 or higher"
+              note={`of ${latest.observed_members} members seen`}
               value={plain.format(latest.members_at_hq35)}
             />
           </div>
@@ -368,11 +455,11 @@ export function AllianceTrends({ allianceId, isOwn }: { allianceId: string; isOw
             formatTime={moment}
             formatValue={levelValue}
             label="Mean tower level and how many members have reached level 35"
-            note="Levels never fall, so a capture missing the figure holds the last one. The dashed line counts members at the cap, on the right."
+            note="Levels never fall, so a capture missing the figure holds the last one. The dashed line counts members whose tower is level 35 or higher, on the right."
             series={[
               filled(column(usable, (row) => row.avg_hq_level, 'Mean level', 2)),
               {
-                ...filled(column(usable, (row) => row.members_at_hq35, 'At level 35', 3)),
+                ...filled(column(usable, (row) => row.members_at_hq35, 'Tower 35+', 3)),
                 axis: 'right',
               },
             ]}

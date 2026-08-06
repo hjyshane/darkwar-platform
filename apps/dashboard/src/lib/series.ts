@@ -212,14 +212,52 @@ export function ticks(extent: Extent, count = 4): number[] {
   // for — so `count` is an upper bound on the intervals. Stopping the ladder at
   // 5 was a bug: an extent of 0..3 wants a step of 1 and got 0.5, which is a
   // legal round number and twice as many gridlines as were asked for.
-  const step = (normalised > 5 ? 10 : normalised > 2 ? 5 : normalised > 1 ? 2 : 1) * magnitude;
+  let step = (normalised > 5 ? 10 : normalised > 2 ? 5 : normalised > 1 ? 2 : 1) * magnitude;
 
+  let out = ladder(extent, step);
+  // Stepping DOWN when the rung chosen leaves fewer than two gridlines.
+  //
+  // `count` is an upper bound, so a rung slightly too coarse is normally fine —
+  // except when it is coarse enough that only one tick lands inside the extent,
+  // and then the axis has a single number on it and can no longer be read. The
+  // rank chart hit exactly that: ranks 1 to 9 padded to 0.2–9.8 asked for a rough
+  // step of 2.4, took the 5 rung, and drew one gridline labelled 5.
+  //
+  // One rung down, not a recomputation: 5 → 2 → 1 → 0.5 keeps the labels on the
+  // same round progression, which is the whole point of the ladder.
+  while (out.length < 2 && step > 0) {
+    step = nextRungDown(step);
+    if (step <= 0 || !Number.isFinite(step)) {
+      break;
+    }
+    out = ladder(extent, step);
+  }
+  return out;
+}
+
+/** The rung below this one on the 1/2/5 ladder. */
+function nextRungDown(step: number): number {
+  const magnitude = 10 ** Math.floor(Math.log10(step));
+  const normalised = Math.round(step / magnitude);
+  if (normalised >= 10) {
+    return 5 * magnitude;
+  }
+  if (normalised >= 5) {
+    return 2 * magnitude;
+  }
+  if (normalised >= 2) {
+    return magnitude;
+  }
+  return 5 * (magnitude / 10);
+}
+
+/** Every multiple of `step` inside the extent. */
+function ladder(extent: Extent, step: number): number[] {
   // How many decimals the step itself has. Snapping by `round(v / step) * step`
   // does not work — 3 * 0.2 is 0.6000000000000001 in binary floating point, so
   // the multiplication puts the drift back. Rounding to the step's own precision
   // is what actually keeps a label from reading 0.6000000000000001.
   const decimals = Math.max(0, -Math.floor(Math.log10(step)));
-
   const out: number[] = [];
   const first = Math.ceil(extent.min / step) * step;
   for (let index = 0; ; index += 1) {
@@ -230,6 +268,11 @@ export function ticks(extent: Extent, count = 4): number[] {
       break;
     }
     out.push(value);
+    // A guard, not a policy: a step small enough to round to nothing would loop
+    // forever, and that is reachable from a degenerate extent.
+    if (out.length > 100) {
+      break;
+    }
   }
   return out;
 }
