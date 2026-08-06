@@ -11,6 +11,7 @@ import { useFavourites } from '../../lib/useFavourites';
 import { LineupCell } from '../arena/LineupCell';
 import { LineupLegend } from '../arena/LineupLegend';
 import { fetchLineups } from '../arena/lineups';
+import { ComponentTrend } from './ComponentTrend';
 import { MemberHistory } from './MemberHistory';
 import { PlayerTrend } from './PlayerTrend';
 import {
@@ -439,7 +440,12 @@ export function PlayerPage({ playerId, now }: { playerId: string; now?: Date }) 
 
       {data.componentPower.length > 0 && (
         <section aria-labelledby="player-component">
-          <h2 id="player-component">Power breakdown</h2>
+          {/* Not "Power breakdown". These four are hero and pet boards, and their
+              sum is nothing like the player's total power — a reader who took the
+              old heading literally would look for the rest of the breakdown and
+              find it missing. What splits total power into gear, troops, research
+              and buildings is not captured; these are separate boards. */}
+          <h2 id="player-component">Heroes and pets</h2>
           <div className="stats">
             {data.componentPower.map((row) => (
               <StatTile
@@ -450,6 +456,9 @@ export function PlayerPage({ playerId, now }: { playerId: string; now?: Date }) 
               />
             ))}
           </div>
+          {/* The tiles are the newest reading; this is the shape. Hero power moves
+              in steps when a threshold is crossed, which no single figure shows. */}
+          <ComponentTrend playerId={data.playerId} />
         </section>
       )}
 

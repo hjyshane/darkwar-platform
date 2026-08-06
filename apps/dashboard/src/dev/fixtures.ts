@@ -750,6 +750,54 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
   // Month cards — unlinked from the nav, reachable at #/month-cards.
   [['monthCards'], []],
 
+  // Hero and pet boards for one player. All four, because they are captured
+  // together — and with the hero total ten times its own best, which is the gap
+  // the two axes exist for.
+  [
+    ['component-trend', PLAYER.shane],
+    [0, 1, 2, 3, 4].flatMap((step) => {
+      const at = ago(60 * 24 * (4 - step));
+      return [
+        {
+          captured_at: at,
+          metric: 'hero_power_total',
+          power: 70_000_000 + step * 1_100_000,
+          rank: 32 - step,
+          unit_name: null,
+          unit_grade: null,
+          board_size: 150,
+        },
+        {
+          captured_at: at,
+          metric: 'hero_power_best',
+          power: 7_100_000 + step * 120_000,
+          rank: 41 - step,
+          unit_name: 'Tristan',
+          unit_grade: 3,
+          board_size: 150,
+        },
+        {
+          captured_at: at,
+          metric: 'pet_power_total',
+          power: 9_400_000 + step * 130_000,
+          rank: 13,
+          unit_name: null,
+          unit_grade: null,
+          board_size: 150,
+        },
+        {
+          captured_at: at,
+          metric: 'pet_power_best',
+          power: 3_100_000 + step * 30_000,
+          rank: 19,
+          unit_name: 'Zeus',
+          unit_grade: null,
+          board_size: 150,
+        },
+      ];
+    }),
+  ],
+
   // Which alliance is ours, for the nav tab that links straight to it.
   [['own-alliance'], { alliance_id: ALLIANCE.ours, name: 'HELLBOUND', code: 'CBFW' }],
 
