@@ -94,17 +94,17 @@ def test_departure_key_is_per_sighting_not_per_member() -> None:
     Keyed on the uid alone, somebody who leaves, rejoins and leaves again would
     have the second departure swallowed by the first one's key.
     """
-    base = {"alliance_id": "a1", "game_uid": 1, "name": "Gone", "power": 100}
-    first = departure_message(
-        channel="reports",
-        alliance_name="HELLBOUND",
-        row={**base, "last_seen_in_alliance_at": "2026-07-28T00:00:00+00:00"},
-    )
-    later = departure_message(
-        channel="reports",
-        alliance_name="HELLBOUND",
-        row={**base, "last_seen_in_alliance_at": "2026-08-20T00:00:00+00:00"},
-    )
+    base = {
+        "channel": "reports",
+        "alliance_name": "HELLBOUND",
+        "alliance_id": "a1",
+        "game_uid": 1,
+        "last_known_name": "Gone",
+        "last_power": 100,
+        "confirmed": True,
+    }
+    first = departure_message(**base, last_seen_in_alliance_at="2026-07-28T00:00:00+00:00")
+    later = departure_message(**base, last_seen_in_alliance_at="2026-08-20T00:00:00+00:00")
     assert first.idempotency_key != later.idempotency_key
 
 
@@ -116,20 +116,18 @@ def test_an_unconfirmed_departure_says_so() -> None:
     member who never left why they left.
     """
     row_data = {
+        "channel": "reports",
+        "alliance_name": "HELLBOUND",
         "alliance_id": "a1",
         "game_uid": 1,
-        "name": "Maybe",
+        "last_known_name": "Maybe",
+        "last_power": None,
         "last_seen_in_alliance_at": "2026-08-01T00:00:00+00:00",
-        "snapshot_complete": False,
     }
-    message = departure_message(channel="reports", alliance_name="HELLBOUND", row=row_data)
+    message = departure_message(**row_data, confirmed=False)
     assert "Unconfirmed" in message.body
 
-    confirmed = departure_message(
-        channel="reports",
-        alliance_name="HELLBOUND",
-        row={**row_data, "snapshot_complete": True},
-    )
+    confirmed = departure_message(**row_data, confirmed=True)
     assert "Unconfirmed" not in confirmed.body
 
 

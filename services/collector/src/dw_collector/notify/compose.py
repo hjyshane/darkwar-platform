@@ -144,23 +144,43 @@ def tier_changes(rows: list[Row], previous: list[Row]) -> list[tuple[str, str, s
     return sorted(out)
 
 
-def departure_message(*, channel: str, alliance_name: str | None, row: Row) -> Message:
+def departure_message(
+    *,
+    channel: str,
+    alliance_name: str | None,
+    alliance_id: str,
+    game_uid: int,
+    last_known_name: str | None,
+    last_power: int | None,
+    last_seen_in_alliance_at: str,
+    confirmed: bool | None,
+) -> Message:
     """One member seen leaving.
+
+    EXPLICIT ARGUMENTS, not the row dict this used to take. Taking the row meant
+    this module carried its own guess at `alliance_departures`'s column names —
+    and the guess was wrong: the view calls them `last_known_name`, `last_power`
+    and `confirmed`, not `name`, `power` and `snapshot_complete`. Every test
+    passed, because the tests handed it the same invented keys. The first live run
+    answered 400.
+
+    With named parameters the mapping lives in exactly one place — the caller's
+    `select` — and a wrong column is a TypeError here rather than a message with
+    "UID None" in it.
 
     Keyed on the last sighting, not on the uid: somebody who leaves, rejoins and
     leaves again is two departures and worth saying twice. Keyed on the uid alone,
     the second one would be swallowed.
     """
-    name = row.get("name") or f"UID {row.get('game_uid')}"
-    last_seen = str(row.get("last_seen_in_alliance_at") or "")
-    confirmed = row.get("snapshot_complete")
+    name = last_known_name or f"UID {game_uid}"
+    last_seen = last_seen_in_alliance_at or ""
     lines = [
         f"**{name}** is no longer in the newest roster capture.",
         "",
         f"Last seen in {alliance_name or 'the alliance'}: {last_seen[:16].replace('T', ' ')}Z",
     ]
-    if row.get("power") is not None:
-        lines.append(f"Power at the time: {int(row['power']):,}")
+    if last_power is not None:
+        lines.append(f"Power at the time: {int(last_power):,}")
     if confirmed is False:
         # 0067's trap, repeated where somebody might act on it. A capture that
         # stopped early is short, and a short capture looks exactly like a
@@ -175,7 +195,7 @@ def departure_message(*, channel: str, alliance_name: str | None, row: Row) -> M
     return Message(
         channel=channel,
         event="departures",
-        idempotency_key=f"departure:{row.get('alliance_id')}:{row.get('game_uid')}:{last_seen}",
+        idempotency_key=f"departure:{alliance_id}:{game_uid}:{last_seen}",
         title="Member left the alliance",
         body="\n".join(lines),
     )
