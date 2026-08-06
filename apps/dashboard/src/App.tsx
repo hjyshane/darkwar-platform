@@ -8,6 +8,7 @@ import { AlliancePage } from './features/alliance/AlliancePage';
 import { ArenaPanel } from './features/arena/ArenaPanel';
 import { LoginPage } from './features/auth/LoginPage';
 import { CrossRankingsPanel } from './features/crossRankings/CrossRankingsPanel';
+import { GuidesPanel } from './features/guides/GuidesPanel';
 import { MonthCardsPage } from './features/monthCards/MonthCardsPage';
 import { Overview } from './features/overview/OverviewPanel';
 import { PlayerPage } from './features/player/PlayerPage';
@@ -312,6 +313,8 @@ function Shell({
         <AdminPage group={adminGroup} />
       ) : route === 'monthCards' ? (
         <MonthCardsPage />
+      ) : route === 'guides' ? (
+        <GuidesPanel />
       ) : route === 'server' && serverId !== null ? (
         <ServerPage serverId={serverId} />
       ) : route === 'player' && playerId !== null ? (

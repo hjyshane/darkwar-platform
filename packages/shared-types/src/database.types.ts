@@ -1344,6 +1344,42 @@ export type Database = {
           },
         ]
       }
+      guides: {
+        Row: {
+          body: string
+          category: string
+          created_at: string
+          created_by: string | null
+          guide_id: string
+          pinned: boolean
+          published_at: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          body?: string
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          guide_id?: string
+          pinned?: boolean
+          published_at?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          guide_id?: string
+          pinned?: boolean
+          published_at?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       heroes: {
         Row: {
           created_at: string
@@ -2954,6 +2990,7 @@ export type Database = {
         Returns: Database["public"]["Enums"]["app_role"]
       }
       has_permission: { Args: { p_capability: string }; Returns: boolean }
+      is_service_request: { Args: never; Returns: boolean }
       linked_player_id: { Args: never; Returns: string }
       rank_period_start: { Args: { ts: string }; Returns: string }
       rank_period_week_ends: {

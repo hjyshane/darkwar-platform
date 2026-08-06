@@ -24,6 +24,7 @@ export type Route =
   | 'alliance'
   | 'admin'
   | 'monthCards'
+  | 'guides'
   | 'login';
 
 const ROUTES: Record<string, Route> = {
@@ -32,6 +33,7 @@ const ROUTES: Record<string, Route> = {
   '#/cross-server': 'crossRankings',
   '#/arena': 'arena',
   '#/month-cards': 'monthCards',
+  '#/guides': 'guides',
   '#/login': 'login',
 };
 
@@ -141,4 +143,8 @@ export const NAV_TABS: ReadonlyArray<{ route: Route; hash: string; label: string
   { route: 'rankings', hash: '#/rankings', label: 'Alliance Ranking' },
   { route: 'crossRankings', hash: '#/cross-server', label: 'Cross-Server' },
   { route: 'arena', hash: '#/arena', label: 'Arena' },
+  // Last, because it is the one tab that is not a board the game produced —
+  // everything left of it is observation, and this is what the alliance wrote
+  // about it.
+  { route: 'guides', hash: '#/guides', label: 'Guides' },
 ];
