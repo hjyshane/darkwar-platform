@@ -8,6 +8,8 @@ unmeasured member as promoted is a false statement about somebody's conduct.
 
 from __future__ import annotations
 
+import pytest
+
 from dw_collector.notify.compose import (
     BODY_LIMIT,
     TITLE_LIMIT,
@@ -108,27 +110,34 @@ def test_departure_key_is_per_sighting_not_per_member() -> None:
     assert first.idempotency_key != later.idempotency_key
 
 
-def test_an_unconfirmed_departure_says_so() -> None:
-    """0067's trap, where somebody might act on it.
+def test_an_unconfirmed_departure_cannot_be_composed_at_all() -> None:
+    """0067's comment is an instruction, and the first version disobeyed it.
 
-    A roster capture that stopped early is short, and a short capture looks exactly
-    like a departure. Announcing one as certain would have an officer asking a
-    member who never left why they left.
+    "An unscrolled capture looks exactly like a departure and must not be reported
+    as one." The first version read that, posted anyway, and appended a warning
+    line — and 20 present members were announced as having left the alliance.
+
+    So it raises now. A message that cannot be safely sent should not be
+    constructible, which puts the rule somewhere a caller cannot forget it.
     """
     row_data = {
         "channel": "reports",
         "alliance_name": "HELLBOUND",
         "alliance_id": "a1",
         "game_uid": 1,
-        "last_known_name": "Maybe",
+        "last_known_name": "StillHere",
         "last_power": None,
         "last_seen_in_alliance_at": "2026-08-01T00:00:00+00:00",
     }
-    message = departure_message(**row_data, confirmed=False)
-    assert "Unconfirmed" in message.body
+    with pytest.raises(ValueError, match="unconfirmed"):
+        departure_message(**row_data, confirmed=False)
+    # Null is not "fine either" — the view returns null when it has no member
+    # count to measure against, which is the same absence of evidence.
+    with pytest.raises(ValueError, match="unconfirmed"):
+        departure_message(**row_data, confirmed=None)
 
-    confirmed = departure_message(**row_data, confirmed=True)
-    assert "Unconfirmed" not in confirmed.body
+    ok = departure_message(**row_data, confirmed=True)
+    assert "StillHere" in ok.body
 
 
 def test_the_send_test_button_posts_once_however_often_it_is_pressed() -> None:

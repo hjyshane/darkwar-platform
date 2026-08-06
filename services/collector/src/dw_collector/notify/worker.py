@@ -41,6 +41,13 @@ Row = dict[str, Any]
 
 # A fortnight, in the units the period grid uses.
 PERIOD_DAYS = 14
+# How long a member has to have been missing before their absence is announced.
+#
+# Six hours, and it is not politeness — it is the difference between a departure
+# and a roster sweep in progress. Each scroll page of a sweep lands as its own
+# batch, so for a few minutes "the newest batch" holds 69 of 94 members and the
+# other 25 look gone. A real departure's last sighting is hours or days old.
+SETTLE = timedelta(hours=6)
 # How many failures before a row is left alone. Discord answers 429 with a
 # Retry-After and 404 when a webhook has been deleted in Discord; retrying the
 # second forever writes an error to the row every interval and never succeeds.
@@ -181,11 +188,31 @@ class NotifyWorker:
         ]
 
     def departure_candidates(self, routing: dict[str, Row]) -> list[Message]:
-        """Everyone `alliance_departures` currently lists.
+        """Departures from OUR alliance that a complete capture confirms.
 
-        Every one, every pass — the outbox decides which are new. Filtering by a
-        remembered high-water mark here would need state this process does not
-        have, and would go wrong exactly once, silently.
+        THREE FILTERS, and the first version had none of them. It enqueued 45
+        messages and posted 20, almost all about members who had not left.
+
+        1. OUR ALLIANCE ONLY. `alliance_departures` spans every alliance it has
+           ever seen a roster for, and for a stranger's alliance that roster is a
+           one-row capture from browsing the cross-server board. One row means
+           everybody else is "absent"; a null `member_count` means the view calls
+           that capture complete. That produced most of the 45.
+
+        2. CONFIRMED ONLY. 0067's own comment says an unscrolled capture looks
+           exactly like a departure "and must not be reported as one". Posting it
+           with a warning attached is still reporting it.
+
+        3. SETTLED ONLY. While a roster sweep is running, each scroll page lands
+           as its own batch — 69, 88, 96, 85 rows seconds apart — so "the newest
+           batch" is whatever page arrived last and half the alliance is missing
+           from it. A real departure's last sighting is hours or days old; a blip
+           from live capture is minutes old. So the last sighting has to be older
+           than SETTLE before it counts.
+
+        Every surviving row goes in every pass — the outbox decides which are new.
+        Filtering on a remembered high-water mark would need state this process
+        does not have, and would go wrong exactly once, silently.
         """
         channel = self._target(routing, "departures")
         if channel is None:
@@ -196,14 +223,23 @@ class NotifyWorker:
         # 400 for a column that does not exist. `44_discord_notifications_test`
         # now asserts this exact list against the view, so the next rename fails
         # in CI rather than on the first live run.
-        rows = self._get(
-            "alliance_departures?select=alliance_id,game_uid,last_known_name,last_power,"
-            "last_seen_in_alliance_at,confirmed&limit=200"
-        )
         alliances = {
             row["alliance_id"]: row["current_name"]
             for row in self._get("alliances?is_own=is.true&select=alliance_id,current_name")
         }
+        if not alliances:
+            return []
+
+        settled_before = filter_value((datetime.now(tz=UTC) - SETTLE).isoformat())
+        ours = ",".join(alliances)
+        rows = self._get(
+            "alliance_departures?select=alliance_id,game_uid,last_known_name,last_power,"
+            "last_seen_in_alliance_at,confirmed"
+            f"&alliance_id=in.({ours})"
+            "&confirmed=is.true"
+            f"&last_seen_in_alliance_at=lt.{settled_before}"
+            "&limit=200"
+        )
         return [
             departure_message(
                 channel=channel,
