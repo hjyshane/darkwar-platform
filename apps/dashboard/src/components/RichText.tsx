@@ -1,4 +1,4 @@
-import { type Block, type Inline, parse } from '../lib/richText';
+import { type Block, type Inline, type ListItem, parse } from '../lib/richText';
 
 /** Render the markup subset from `lib/richText`.
  *
@@ -49,6 +49,49 @@ function Content({ content }: { content: Inline[] }) {
   );
 }
 
+/** Bullets, with sub-bullets inside their parent's `<li>`.
+ *
+ * Nesting a `<ul>` as a SIBLING of the `<li>` it belongs under is the common
+ * mistake and it is invalid HTML — a `<ul>` may only contain `<li>`. Browsers
+ * render it anyway, which is why it survives, and screen readers then announce a
+ * list of one item followed by an unrelated list.
+ *
+ * A sub-bullet with no parent above it (somebody indented the first line) is
+ * promoted rather than dropped: their intent was a bullet, and the indentation
+ * was the part that could not be honoured.
+ */
+function NestedList({ items }: { items: ListItem[] }) {
+  const groups: { item: ListItem; children: ListItem[] }[] = [];
+  for (const item of items) {
+    const last = groups[groups.length - 1];
+    if (item.depth === 1 && last !== undefined) {
+      last.children.push(item);
+    } else {
+      groups.push({ item, children: [] });
+    }
+  }
+  return (
+    <ul>
+      {groups.map((group, index) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: derived from one immutable string and replaced whole, so nothing reorders
+        <li key={index}>
+          <Content content={group.item.content} />
+          {group.children.length > 0 && (
+            <ul>
+              {group.children.map((child, childIndex) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: same immutable string
+                <li key={childIndex}>
+                  <Content content={child.content} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function BlockNode({ block }: { block: Block }) {
   switch (block.kind) {
     case 'heading':
@@ -62,18 +105,7 @@ function BlockNode({ block }: { block: Block }) {
         </h4>
       );
     case 'list':
-      return (
-        <ul>
-          {block.items.map((item, index) => (
-            <li
-              // biome-ignore lint/suspicious/noArrayIndexKey: derived from one immutable string and replaced whole, so nothing reorders
-              key={index}
-            >
-              <Content content={item} />
-            </li>
-          ))}
-        </ul>
-      );
+      return <NestedList items={block.items} />;
     default:
       return (
         <p>

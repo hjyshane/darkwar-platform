@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useId, useState } from 'react';
+import { MarkupEditor } from '../../components/MarkupEditor';
 import { RichText } from '../../components/RichText';
 import { isAllowed, usePermissions } from '../../lib/permissions';
 import { supabase } from '../../lib/supabase';
@@ -70,9 +71,17 @@ interface Draft {
 
 const EMPTY: Draft = { title: '', body: '', category: 'tip', pinned: false, publish: false };
 
-/** The editor. Markup goes in as text and is previewed with the same component
- * that renders it for everybody else — a preview drawn by different code is a
- * preview that can lie. */
+/** The editor.
+ *
+ * Layout is label-above-field in one column, which is what every form people
+ * already use looks like. The first version put the title, the kind and the body
+ * in a row of bare `<label>`s and it read as a settings screen rather than as
+ * somewhere to write.
+ *
+ * The body is a `MarkupEditor` — a textarea with buttons — because a member who
+ * knows how the arena works should not have to learn a notation before they can
+ * say so.
+ */
 function GuideEditor({
   draft,
   onChange,
@@ -86,78 +95,70 @@ function GuideEditor({
   onCancel: () => void;
   saving: boolean;
 }) {
+  const formId = useId();
   return (
     <section aria-labelledby="guide-editor-heading">
       <h3 id="guide-editor-heading">{draft.guide_id === undefined ? 'New guide' : 'Editing'}</h3>
-      <label>
-        Title
-        <input
-          onChange={(event) => onChange({ ...draft, title: event.target.value })}
-          value={draft.title}
-        />
-      </label>
-      <label>
-        Kind
-        <select
-          onChange={(event) => onChange({ ...draft, category: event.target.value })}
-          value={draft.category}
-        >
-          {CATEGORIES.map((entry) => (
-            <option key={entry.value} value={entry.value}>
-              {entry.label}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        Body
-        <textarea
-          onChange={(event) => onChange({ ...draft, body: event.target.value })}
-          rows={12}
-          value={draft.body}
-        />
-      </label>
-      <p className="subtle">
-        <strong>**bold**</strong>, <em>*italic*</em>, <code>`code`</code>,{' '}
-        <code>[text](https://…)</code>, <code>- bullets</code>, <code>## heading</code>. Emoji work
-        as they are. Nothing is rendered as HTML, so a tag you type shows as a tag.
-      </p>
-      <div className="row">
-        <label>
+      <div className="form-stack">
+        <div className="field">
+          <label htmlFor={`${formId}-title`}>Title</label>
           <input
-            checked={draft.pinned}
-            onChange={(event) => onChange({ ...draft, pinned: event.target.checked })}
-            type="checkbox"
+            id={`${formId}-title`}
+            onChange={(event) => onChange({ ...draft, title: event.target.value })}
+            value={draft.title}
           />
-          Pin to the top
-        </label>
-        {/* Publishing is a separate act from saving, because publishing is what
-            posts to Discord. Somebody writing a long guide over two evenings must
-            not announce it twice, or announce half of it. */}
-        <label>
-          <input
-            checked={draft.publish}
-            onChange={(event) => onChange({ ...draft, publish: event.target.checked })}
-            type="checkbox"
+        </div>
+        <div className="field field-narrow">
+          <label htmlFor={`${formId}-kind`}>Kind</label>
+          <select
+            id={`${formId}-kind`}
+            onChange={(event) => onChange({ ...draft, category: event.target.value })}
+            value={draft.category}
+          >
+            {CATEGORIES.map((entry) => (
+              <option key={entry.value} value={entry.value}>
+                {entry.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor={`${formId}-body`}>Body</label>
+          <MarkupEditor
+            id={`${formId}-body`}
+            onChange={(body) => onChange({ ...draft, body })}
+            value={draft.body}
           />
-          Published — visible to the alliance
-        </label>
-      </div>
-      {draft.body.trim() !== '' && (
-        <>
-          <h4>Preview</h4>
-          <div className="guide-preview">
-            <RichText body={draft.body} />
-          </div>
-        </>
-      )}
-      <div className="row">
-        <button disabled={saving || draft.title.trim() === ''} onClick={onSave} type="button">
-          Save
-        </button>
-        <button onClick={onCancel} type="button">
-          Cancel
-        </button>
+        </div>
+        <div className="field-checks">
+          <label>
+            <input
+              checked={draft.pinned}
+              onChange={(event) => onChange({ ...draft, pinned: event.target.checked })}
+              type="checkbox"
+            />
+            Pin to the top
+          </label>
+          {/* Publishing is a separate act from saving, because publishing is what
+              posts to Discord. Somebody writing a long guide over two evenings
+              must not announce it twice, or announce half of it. */}
+          <label>
+            <input
+              checked={draft.publish}
+              onChange={(event) => onChange({ ...draft, publish: event.target.checked })}
+              type="checkbox"
+            />
+            Published — visible to the alliance, and posted to Discord
+          </label>
+        </div>
+        <div className="row">
+          <button disabled={saving || draft.title.trim() === ''} onClick={onSave} type="button">
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+          <button onClick={onCancel} type="button">
+            Cancel
+          </button>
+        </div>
       </div>
     </section>
   );

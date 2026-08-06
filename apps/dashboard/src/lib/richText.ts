@@ -31,10 +31,21 @@ export type Inline =
   | { kind: 'code'; text: string }
   | { kind: 'link'; text: string; href: string };
 
+/** One bullet, and how deeply it is indented.
+ *
+ * Two levels, not arbitrary depth. Two is what a tips board needs — a step and
+ * its caveat — and Discord renders a two-space indent as a sub-bullet, so both
+ * levels survive being published. A third level would render flat there and the
+ * board would disagree with the channel. */
+export interface ListItem {
+  content: Inline[];
+  depth: 0 | 1;
+}
+
 export type Block =
   | { kind: 'paragraph'; content: Inline[] }
   | { kind: 'heading'; level: 2 | 3; content: Inline[] }
-  | { kind: 'list'; items: Inline[][] };
+  | { kind: 'list'; items: ListItem[] };
 
 /** Whether a link target is one we will render as a link at all. */
 export function isSafeHref(href: string): boolean {
@@ -117,7 +128,7 @@ export function parse(body: string): Block[] {
   const lines = body.replaceAll('\r\n', '\n').split('\n');
 
   let paragraph: string[] = [];
-  let items: string[] = [];
+  let items: ListItem[] = [];
 
   function flushParagraph(): void {
     if (paragraph.length > 0) {
@@ -127,7 +138,7 @@ export function parse(body: string): Block[] {
   }
   function flushList(): void {
     if (items.length > 0) {
-      blocks.push({ kind: 'list', items: items.map(parseInline) });
+      blocks.push({ kind: 'list', items });
       items = [];
     }
   }
@@ -139,10 +150,20 @@ export function parse(body: string): Block[] {
       flushList();
       continue;
     }
-    const bullet = /^\s*[-*]\s+(.*)$/.exec(trimmed);
-    if (bullet?.[1] !== undefined) {
+    // `-`, `*` and `+` all mean a bullet, because all three are what people
+    // type. The leading run of spaces is captured, not skipped: two or more make
+    // it a sub-bullet, which is the same rule Discord applies when the guide is
+    // published there.
+    const bullet = /^( *)[-*+]\s+(.*)$/.exec(trimmed);
+    if (bullet?.[2] !== undefined) {
       flushParagraph();
-      items.push(bullet[1]);
+      items.push({
+        content: parseInline(bullet[2]),
+        // Clamped at one. Deeper indentation is treated as one level rather than
+        // ignored, so a reader who indented four spaces still gets a sub-bullet
+        // instead of their intent being dropped.
+        depth: (bullet[1] ?? '').length >= 2 ? 1 : 0,
+      });
       continue;
     }
     const heading = /^(#{2,3})\s+(.*)$/.exec(trimmed);

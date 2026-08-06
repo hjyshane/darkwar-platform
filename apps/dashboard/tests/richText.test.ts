@@ -126,10 +126,36 @@ describe('blocks', () => {
 
   test('a bullet can carry markup', () => {
     const blocks = parse('- go **now**');
-    expect(blocks[0]?.kind === 'list' && blocks[0].items[0]).toEqual([
-      { kind: 'text', text: 'go ' },
-      { kind: 'bold', text: 'now' },
-    ]);
+    expect(blocks[0]?.kind === 'list' && blocks[0].items[0]).toEqual({
+      depth: 0,
+      content: [
+        { kind: 'text', text: 'go ' },
+        { kind: 'bold', text: 'now' },
+      ],
+    });
+  });
+
+  // All three markers, because all three are what people type. `+` was missing
+  // until the toolbar made the omission visible.
+  test('dash, asterisk and plus all mean a bullet', () => {
+    for (const marker of ['-', '*', '+']) {
+      const blocks = parse(`${marker} a`);
+      expect(blocks[0]?.kind).toBe('list');
+    }
+  });
+
+  // Two spaces, which is also what Discord reads as a sub-bullet — so an
+  // indented bullet means the same thing on the board and in the channel.
+  test('two spaces make a sub-bullet, one does not', () => {
+    const blocks = parse('- top\n  - under\n - still top');
+    expect(blocks[0]?.kind === 'list' && blocks[0].items.map((i) => i.depth)).toEqual([0, 1, 0]);
+  });
+
+  // Clamped rather than ignored: somebody who indented four spaces meant a
+  // sub-bullet, and dropping their intent is worse than flattening the depth.
+  test('deeper indentation is clamped to one level', () => {
+    const blocks = parse('- top\n      - deep');
+    expect(blocks[0]?.kind === 'list' && blocks[0].items[1]?.depth).toBe(1);
   });
 
   // `#` alone is not a heading: a single hash starts an h1, and a body outranking

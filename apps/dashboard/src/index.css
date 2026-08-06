@@ -1857,3 +1857,92 @@ form select {
   border-radius: var(--radius-md);
   padding: var(--space-4);
 }
+
+/* --- forms that look like forms ------------------------------------------ */
+
+/* Label above field, one column. The editor's first version put three bare
+ * `<label>`s in a row and read as a settings screen rather than as somewhere to
+ * write something. */
+.form-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: 60rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.field > label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.field > input,
+.field > select,
+.field > textarea {
+  width: 100%;
+}
+
+/* For a select whose options are three words long — full width would leave a
+ * dropdown the width of the page pointing at "Tip". */
+.field-narrow {
+  max-width: 14rem;
+}
+
+/* Checkboxes read as a group, not as two more fields. */
+.field-checks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.field-checks label {
+  align-items: center;
+  display: flex;
+  font-weight: 400;
+  gap: var(--space-2);
+}
+
+/* --- the markup editor --------------------------------------------------- */
+
+.markup-editor textarea {
+  border-bottom-left-radius: var(--radius-sm);
+  border-bottom-right-radius: var(--radius-sm);
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  font-family: var(--font-sans);
+  line-height: 1.5;
+  width: 100%;
+}
+
+/* Attached to the top of the textarea, so it reads as part of the box rather
+ * than as a floating row of unexplained letters. */
+.markup-toolbar {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-bottom: 0;
+  border-top-left-radius: var(--radius-sm);
+  border-top-right-radius: var(--radius-sm);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding: var(--space-2);
+}
+
+.markup-toolbar button {
+  background: var(--bg);
+  font-size: var(--text-sm);
+  min-width: 2.25rem;
+  padding: var(--space-1) var(--space-2);
+}
+
+.markup-preview {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+}

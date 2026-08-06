@@ -17,6 +17,7 @@ import { RosterPanel } from './features/roster/RosterPanel';
 import { ServerPage } from './features/server/ServerPage';
 import { isAllowed, usePermissions } from './lib/permissions';
 import { queryKeysForTopic, subscribeDataChanges } from './lib/realtime';
+import { rememberReturnTo } from './lib/returnTo';
 import {
   type AdminGroup,
   NAV_TABS,
@@ -229,6 +230,15 @@ const MEMBER_ROLES = new Set(['member', 'officer', 'admin']);
 export function App() {
   const hash = useSyncExternalStore(subscribeHash, () => window.location.hash);
   const route = routeFromHash(hash);
+  // Where to come back to after signing in.
+  //
+  // Recorded here, on every hash change, rather than from each of the eleven
+  // "Sign in" links — the one that got missed would be the one somebody uses.
+  // Following a link to #/guides while signed out used to end on the overview,
+  // with no way back to the page the link was for.
+  useEffect(() => {
+    rememberReturnTo(hash);
+  }, [hash]);
   const serverId = serverIdFromHash(hash);
   const playerId = playerIdFromHash(hash);
   const allianceId = allianceIdFromHash(hash);

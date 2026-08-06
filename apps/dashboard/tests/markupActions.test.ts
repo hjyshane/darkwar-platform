@@ -1,0 +1,110 @@
+// The toolbar's behaviour, which is where a hand-rolled editor usually goes
+// wrong. Every test here is a case that makes a button feel broken rather than
+// throw anything.
+import { describe, expect, test } from 'vitest';
+import { applyMarkup } from '../src/lib/markupActions';
+
+describe('bold, italic, code', () => {
+  // With nothing selected the caret has to end up BETWEEN the markers. After
+  // them, the next keystroke gives `**bold**text`.
+  test('with nothing selected, the caret lands between the markers', () => {
+    const applied = applyMarkup('', { start: 0, end: 0 }, 'bold');
+    expect(applied.body).toBe('****');
+    expect(applied.selection).toEqual({ start: 2, end: 2 });
+  });
+
+  test('a selection is wrapped and stays selected', () => {
+    const applied = applyMarkup('go now', { start: 3, end: 6 }, 'bold');
+    expect(applied.body).toBe('go **now**');
+    expect(applied.body.slice(applied.selection.start, applied.selection.end)).toBe('now');
+  });
+
+  // The one that makes a toolbar look broken: pressing bold on bold text should
+  // take it off. Adding again gives `****a****`, which renders as asterisks.
+  test('pressing it again unwraps, whether the markers are inside the selection', () => {
+    const applied = applyMarkup('go **now**', { start: 3, end: 10 }, 'bold');
+    expect(applied.body).toBe('go now');
+    expect(applied.body.slice(applied.selection.start, applied.selection.end)).toBe('now');
+  });
+
+  test('or just outside it', () => {
+    const applied = applyMarkup('go **now**', { start: 5, end: 8 }, 'bold');
+    expect(applied.body).toBe('go now');
+    expect(applied.body.slice(applied.selection.start, applied.selection.end)).toBe('now');
+  });
+
+  test('italic and code use their own markers', () => {
+    expect(applyMarkup('a', { start: 0, end: 1 }, 'italic').body).toBe('*a*');
+    expect(applyMarkup('a', { start: 0, end: 1 }, 'code').body).toBe('`a`');
+  });
+});
+
+describe('link', () => {
+  // The URL is selected afterwards so the next keystroke replaces it. Somebody
+  // who pressed the button wants to type an address, not hunt for the brackets.
+  test('the placeholder url is selected, ready to be typed over', () => {
+    const applied = applyMarkup('', { start: 0, end: 0 }, 'link');
+    expect(applied.body).toBe('[text](https://)');
+    expect(applied.body.slice(applied.selection.start, applied.selection.end)).toBe('https://');
+  });
+
+  test('a selection becomes the link text', () => {
+    const applied = applyMarkup('see the board', { start: 4, end: 13 }, 'link');
+    expect(applied.body).toBe('see [the board](https://)');
+    expect(applied.body.slice(applied.selection.start, applied.selection.end)).toBe('https://');
+  });
+});
+
+describe('bullets and indentation', () => {
+  test('a bullet is added to the line the caret is on', () => {
+    const applied = applyMarkup('do this', { start: 3, end: 3 }, 'bullet');
+    expect(applied.body).toBe('- do this');
+  });
+
+  test('every line the selection touches gets one', () => {
+    const applied = applyMarkup('a\nb\nc', { start: 0, end: 5 }, 'bullet');
+    expect(applied.body).toBe('- a\n- b\n- c');
+  });
+
+  // Off if they all have one already, or a list turns into `- - a`.
+  test('pressing it again takes them off', () => {
+    const applied = applyMarkup('- a\n- b', { start: 0, end: 7 }, 'bullet');
+    expect(applied.body).toBe('a\nb');
+  });
+
+  // Two spaces is what the parser reads as a sub-bullet and what Discord reads
+  // the same way, so an indented bullet survives being published.
+  test('indent is two spaces, and outdent takes them back', () => {
+    const indented = applyMarkup('- b', { start: 0, end: 3 }, 'indent');
+    expect(indented.body).toBe('  - b');
+    expect(applyMarkup(indented.body, indented.selection, 'outdent').body).toBe('- b');
+  });
+
+  test('outdent on an unindented line does nothing harmful', () => {
+    expect(applyMarkup('- b', { start: 0, end: 3 }, 'outdent').body).toBe('- b');
+  });
+});
+
+describe('headings', () => {
+  test('a heading is added and removed', () => {
+    const on = applyMarkup('Setup', { start: 0, end: 5 }, 'heading2');
+    expect(on.body).toBe('## Setup');
+    expect(applyMarkup(on.body, on.selection, 'heading2').body).toBe('Setup');
+  });
+
+  // Switching level replaces rather than stacking: `### ## Setup` is not a
+  // heading of either kind.
+  test('switching level replaces the marker', () => {
+    const two = applyMarkup('Setup', { start: 0, end: 5 }, 'heading2');
+    expect(applyMarkup(two.body, two.selection, 'heading3').body).toBe('### Setup');
+  });
+});
+
+describe('the affected block stays selected', () => {
+  // So pressing a line button twice toggles the same lines rather than a
+  // drifting subset of them.
+  test('after a line action the whole block is selected', () => {
+    const applied = applyMarkup('a\nb', { start: 1, end: 1 }, 'bullet');
+    expect(applied.body.slice(applied.selection.start, applied.selection.end)).toBe('- a');
+  });
+});
