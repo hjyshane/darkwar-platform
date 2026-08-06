@@ -10,7 +10,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(12);
+select plan(14);
 
 -- ------------------------------------------------------------------ the ordering
 select is(public.tier_rank('R1'), 1, 'R1 is the lowest tier');
@@ -105,6 +105,33 @@ select is(
     where player_id = '00000000-0000-4000-8000-0000000c1087'),
   35::numeric,
   'score_change is the newest score less the previous one');
+
+-- ------------------------------------------- comparing across scoring versions
+--
+-- 0088. THE FAILURE THIS PREVENTS, seen on live data the day 0087 shipped: 58
+-- members climbed and nobody slipped. The newest period was v4 and the previous one
+-- existed only at v1 — the version whose offline-hours calculation 0075 fixed, which
+-- had parked most of the alliance in R1. Subtracting the two reported the fix as
+-- member improvement.
+--
+-- A period built only under an older version is SKIPPED, and the comparison reaches
+-- back to the most recent one that shares the version.
+select pg_temp.snap('00000000-0000-4000-8000-0000000c1087', '2026-07-27T02:00:00Z', 1, 'R1', 3);
+select pg_temp.snap('00000000-0000-4000-8000-0000000c2087', '2026-07-27T02:00:00Z', 1, 'R1', 2);
+
+select is(
+  (select previous_period_start::date from public.rank_period_movement
+    where player_id = '00000000-0000-4000-8000-0000000c1087'),
+  '2026-07-20'::date,
+  'a period built only under an older scoring version is skipped, not compared');
+
+-- And the answer is unchanged by that period existing at all, which is the point:
+-- the climb is still one tier, not three.
+select is(
+  (select tier_change from public.rank_period_movement
+    where player_id = '00000000-0000-4000-8000-0000000c1087'),
+  1,
+  'so the movement is what the member did, not what the rescoring did');
 
 reset role;
 select * from finish();
