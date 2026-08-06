@@ -21,6 +21,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 import structlog
@@ -157,13 +158,15 @@ class NotifyWorker:
 
         rows = self._get(
             "rank_period_snapshots?select=player_id,name,tier,tier_reason"
-            f"&period_start=eq.{period_start}&scoring_version=eq.{version}&limit=500"
+            f"&period_start=eq.{filter_value(period_start)}"
+            f"&scoring_version=eq.{version}&limit=500"
         )
         # The previous period at ITS newest version, which is what the dashboard
         # compares against too.
         previous_rows = self._get(
             "rank_period_latest?select=player_id,name,tier"
-            f"&period_start=lt.{period_start}&order=period_start.desc&limit=500"
+            f"&period_start=lt.{filter_value(period_start)}"
+            "&order=period_start.desc&limit=500"
         )
         period_end = _add_days(period_start, PERIOD_DAYS)
         return [
@@ -260,7 +263,11 @@ class NotifyWorker:
         if error is None:
             patch["last_delivered_at"] = _now()
         self.client.patch(
-            f"{self.rest}/notification_channels?channel=eq.{channel}", json=patch
+            # Escaped for the same reason as the timestamps: a channel name is
+            # whatever an admin typed, and a space or an ampersand in it would
+            # otherwise change which rows this PATCH matched.
+            f"{self.rest}/notification_channels?channel=eq.{filter_value(channel)}",
+            json=patch,
         ).raise_for_status()
 
     # --------------------------------------------------------------------- loop
@@ -278,6 +285,20 @@ class NotifyWorker:
             else:
                 stats.failed += 1
         return stats
+
+
+def filter_value(value: str) -> str:
+    """Escape a value going into a PostgREST filter.
+
+    `+` is the reason this exists. A timestamptz from PostgREST reads
+    `2026-08-03T02:00:00+00:00`, and interpolated raw into a query string the `+`
+    is decoded as a SPACE — so the server received `02:00:00 00:00` and answered
+    400. Nothing about the failure pointed at the plus sign.
+
+    `safe=''` so `:` is escaped too. PostgREST accepts either form, and encoding
+    everything means no second character surprises this later.
+    """
+    return quote(value, safe="")
 
 
 def _add_days(timestamp: str, days: int) -> str:
