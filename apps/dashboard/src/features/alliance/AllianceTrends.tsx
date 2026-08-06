@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { LineChart } from '../../components/LineChart';
 import { StatTile } from '../../components/StatTile';
-import { type Point, type Series, thin } from '../../lib/series';
+import { type Point, type Series, forwardFill, thin } from '../../lib/series';
 import { supabase } from '../../lib/supabase';
 
 /** One alliance over time.
@@ -37,10 +37,18 @@ interface RosterPoint {
   officers: number;
 }
 
-interface PeriodPoint {
-  period_start: string;
-  activity_score: number | null;
-  tier: string | null;
+/** One game day's board total for one kind of contribution.
+ *
+ * Replaced a mean activity SCORE, which was the wrong figure for this chart: a
+ * score is a percentile blend, so it moves when the pool changes — a member
+ * joining shifts everybody's — and an officer looking at a trend wants what the
+ * game itself reports. Donated today, duel points today. */
+interface DailyPoint {
+  game_day: string;
+  kind: string;
+  total: number | null;
+  members_counted: number;
+  readings: number;
 }
 
 interface BoardPoint {
@@ -51,7 +59,7 @@ interface BoardPoint {
 }
 
 async function fetchTrends(allianceId: string) {
-  const [board, roster, periods] = await Promise.all([
+  const [board, roster, daily] = await Promise.all([
     supabase
       .from('alliance_power_history')
       .select('captured_at, power, rank, member_count')
@@ -66,15 +74,16 @@ async function fetchTrends(allianceId: string) {
       .eq('alliance_id', allianceId)
       .order('captured_at', { ascending: true })
       .limit(2000),
-    // The scored fortnights. `rank_period_latest`, not the table: 0071 keeps
-    // every scoring version, so the table holds a member twice per period as
-    // soon as one is rebuilt and every average here would be a blend of two
-    // formulas.
+    // Daily totals from 0074, which does the three things that are easy to get
+    // wrong — the 02:00 UTC day boundary, taking the day's LARGEST reading rather
+    // than summing readings of an accumulating board, and restricting to our own
+    // members on a board that carries 189 rows for an alliance of 94.
     supabase
-      .from('rank_period_latest')
-      .select('period_start, activity_score, tier')
-      .order('period_start', { ascending: true })
-      .limit(5000),
+      .from('alliance_daily_contribution')
+      .select('game_day, kind, total, members_counted, readings')
+      .eq('alliance_id', allianceId)
+      .order('game_day', { ascending: true })
+      .limit(1000),
   ]);
   if (board.error) {
     throw new Error(`board history failed: ${board.error.message}`);
@@ -82,13 +91,13 @@ async function fetchTrends(allianceId: string) {
   if (roster.error) {
     throw new Error(`roster history failed: ${roster.error.message}`);
   }
-  if (periods.error) {
-    throw new Error(`rank period query failed: ${periods.error.message}`);
+  if (daily.error) {
+    throw new Error(`daily contribution failed: ${daily.error.message}`);
   }
   return {
     board: (board.data ?? []) as BoardPoint[],
     roster: (roster.data ?? []) as RosterPoint[],
-    periods: (periods.data ?? []) as PeriodPoint[],
+    daily: (daily.data ?? []) as DailyPoint[],
   };
 }
 
@@ -134,6 +143,47 @@ function column<Row extends { captured_at: string }>(
   return { name, slot, points: thin(points, 120) };
 }
 
+/** The newest reading of a series, formatted, or null when there is none. */
+function lastValue(line: Series, format: (value: number) => string): string | null {
+  for (let index = line.points.length - 1; index >= 0; index -= 1) {
+    const value = line.points[index]?.v;
+    if (value !== null && value !== undefined) {
+      return format(value);
+    }
+  }
+  return null;
+}
+
+/** Which day the tile's figure is FOR. A daily total with no day on it invites
+ * being read as a running total. */
+function lastDayNote(line: Series): string | undefined {
+  const point = [...line.points].reverse().find((entry) => entry.v !== null);
+  return point === undefined ? undefined : day(point.t);
+}
+
+/** Hold the last reading across gaps. Only for a figure that cannot fall. */
+function filled(line: Series): Series {
+  return { ...line, points: forwardFill(line.points) };
+}
+
+/** One kind of daily board as a series, keyed on the game day it belongs to. */
+function dailySeries(
+  rows: readonly DailyPoint[],
+  kind: string,
+  name: string,
+  slot: number,
+  axis: 'left' | 'right',
+): Series {
+  return {
+    name,
+    slot,
+    axis,
+    points: rows
+      .filter((row) => row.kind === kind)
+      .map((row) => ({ t: Date.parse(row.game_day), v: row.total })),
+  };
+}
+
 export function AllianceTrends({ allianceId, isOwn }: { allianceId: string; isOwn: boolean }) {
   const { data, error, isPending } = useQuery({
     queryKey: ['alliance-trends', allianceId],
@@ -154,30 +204,18 @@ export function AllianceTrends({ allianceId, isOwn }: { allianceId: string; isOw
   const latest = usable[usable.length - 1] ?? null;
   const first = usable[0] ?? null;
 
-  // Fortnight averages of the activity score, over the members who were graded.
-  // Ungraded rows are excluded rather than counted as zero: since 0072 an
-  // officer is measured but not ranked and a fortnight-old member is not
-  // measured at all, and folding either into the mean makes the alliance look
-  // like it slowed down when a member joined.
-  const byPeriod = new Map<string, number[]>();
-  for (const row of data?.periods ?? []) {
-    if (row.activity_score === null || row.tier === null) {
-      continue;
-    }
-    const bucket = byPeriod.get(row.period_start) ?? [];
-    bucket.push(row.activity_score);
-    byPeriod.set(row.period_start, bucket);
-  }
-  const activity: Series = {
-    name: 'Mean activity score',
-    slot: 4,
-    points: [...byPeriod.entries()]
-      .sort(([left], [right]) => left.localeCompare(right))
-      .map(([period, scores]) => ({
-        t: Date.parse(period),
-        v: scores.reduce((sum, score) => sum + score, 0) / scores.length,
-      })),
-  };
+  // One series per kind of daily board. Donation and duel go on separate axes:
+  // a day's donation total is in the hundreds of thousands and a day's duel
+  // total in the tens of millions, so sharing a scale flattens the donation line
+  // onto the floor and it is the one an officer chases.
+  const daily = data?.daily ?? [];
+  const donation = dailySeries(daily, 'daily_donation', 'Donated', 0, 'left');
+  const duel = dailySeries(daily, 'alliance_battle_daily', 'Duel points', 1, 'right');
+  const dailyDays = new Set(daily.map((row) => row.game_day)).size;
+  // A day read once, early, is a partial day and looks like a bad day. Worth
+  // naming rather than letting the dip be read as the alliance slacking.
+  const partialDays = new Set(daily.filter((row) => row.readings <= 1).map((row) => row.game_day))
+    .size;
 
   const powerChange =
     first === null ||
@@ -217,14 +255,20 @@ export function AllianceTrends({ allianceId, isOwn }: { allianceId: string; isOw
             note="Captured when somebody opens the board, so the gaps are ours and not theirs."
             series={[column(board, (row) => row.power, 'Power', 0)]}
           />
+          {/* Rank on its own axis, drawn UPSIDE DOWN. Rank 6 beats rank 9, so an
+              ordinary axis makes improvement point downwards and gets misread by
+              everybody exactly once. Member count on the other side because 35
+              members against rank 4 on one scale leaves the rank line flat along
+              the bottom. */}
           <LineChart
+            formatRight={wholeValue}
             formatTime={moment}
             formatValue={wholeValue}
             label="Board rank and member count over time"
-            note="Rank falls as an alliance climbs, so a line going DOWN here is them doing better."
+            note="The rank axis is inverted, so climbing the board is a line going UP. Members are the dashed line on the right."
             series={[
-              column(board, (row) => row.rank, 'Rank', 1),
-              column(board, (row) => row.member_count, 'Members', 5),
+              { ...column(board, (row) => row.rank, 'Rank', 1), invert: true },
+              { ...column(board, (row) => row.member_count, 'Members', 5), axis: 'right' },
             ]}
           />
         </>
@@ -295,40 +339,42 @@ export function AllianceTrends({ allianceId, isOwn }: { allianceId: string; isOw
           )}
 
           <h3>Power, member by member</h3>
+          {/* Total on the left, per-member on the right. 17 billion against 180
+              million is a hundredfold gap: on one axis the mean and the median
+              lie on top of each other along the floor, and those two are the
+              interesting pair — the total moves when somebody joins, the median
+              only when members actually grow. */}
           <LineChart
+            formatRight={bigValue}
             formatTime={moment}
             formatValue={bigValue}
-            label="Alliance power over time: total, mean per member, and median per member"
-            note="Total moves with the roster size; the median moves only when members actually grow."
+            label="Alliance power over time: total on the left, mean and median per member on the right"
+            note="The total moves with the roster size. The dashed pair is per member, on its own scale — that is where growth shows."
             series={[
               column(usable, (row) => row.total_power, 'Total', 0),
-              column(usable, (row) => row.avg_power, 'Mean', 1),
-              column(usable, (row) => row.median_power, 'Median', 2),
+              { ...column(usable, (row) => row.avg_power, 'Mean', 1), axis: 'right' },
+              { ...column(usable, (row) => row.median_power, 'Median', 2), axis: 'right' },
             ]}
           />
 
           <h3>Tower levels</h3>
+          {/* Forward-filled, and only these two series are. A tower is never
+              demolished, so a capture that did not carry the level is a gap in
+              our reading rather than a fall — holding the last value is closer to
+              the truth than breaking the line. Power and rank get no such
+              treatment: both can genuinely drop. */}
           <LineChart
+            formatRight={wholeValue}
             formatTime={moment}
             formatValue={levelValue}
             label="Mean tower level and how many members have reached level 35"
-            note="The mean drifts; the count at the cap moves in steps, one member at a time."
+            note="Levels never fall, so a capture missing the figure holds the last one. The dashed line counts members at the cap, on the right."
             series={[
-              column(usable, (row) => row.avg_hq_level, 'Mean level', 2),
-              column(usable, (row) => row.members_at_hq35, 'At level 35', 3),
-            ]}
-          />
-
-          <h3>Roster size</h3>
-          <LineChart
-            formatTime={moment}
-            formatValue={wholeValue}
-            label="Members observed in each complete roster capture, against the count the game reports"
-            note="A drop here is a departure, because only complete captures are plotted."
-            series={[
-              column(usable, (row) => row.observed_members, 'Observed', 0),
-              column(usable, (row) => row.expected_members, 'Game reports', 5),
-              column(usable, (row) => row.officers, 'R4 and above', 3),
+              filled(column(usable, (row) => row.avg_hq_level, 'Mean level', 2)),
+              {
+                ...filled(column(usable, (row) => row.members_at_hq35, 'At level 35', 3)),
+                axis: 'right',
+              },
             ]}
           />
         </>
@@ -341,27 +387,58 @@ export function AllianceTrends({ allianceId, isOwn }: { allianceId: string; isOw
       {isOwn && (
         <>
           <h3>Activity</h3>
-          {activity.points.length === 0 ? (
+          {dailyDays === 0 ? (
             <p className="empty">
-              No fortnight has been scored yet. The rank report builds a period; until one exists
-              there is no activity score to average.
-            </p>
-          ) : activity.points.length === 1 ? (
-            // One point is not a trend, and drawing it as a flat line implies we
-            // measured something staying still.
-            <p className="empty">
-              One scored fortnight so far, averaging{' '}
-              <strong>{(activity.points[0]?.v ?? 0).toFixed(1)}</strong> across the graded members.
-              A second period is what makes this a trend.
+              No daily board has been captured for this alliance yet. Donation and duel totals come
+              from the daily ranking screens, which have to be opened before 02:00 UTC clears them.
             </p>
           ) : (
-            <LineChart
-              formatTime={day}
-              formatValue={levelValue}
-              label="Mean activity score per rank period, across graded members"
-              note="Graded members only: an officer is measured but not ranked, and a member who joined inside the fortnight is not measured at all."
-              series={[activity]}
-            />
+            <>
+              <div className="stats">
+                <StatTile
+                  hero
+                  label="Donated, latest day"
+                  note={lastDayNote(donation)}
+                  value={lastValue(donation, wholeValue)}
+                />
+                <StatTile
+                  label="Duel points, latest day"
+                  note={lastDayNote(duel)}
+                  value={lastValue(duel, bigValue)}
+                />
+                <StatTile
+                  label="Days captured"
+                  note={`${partialDays} read only once`}
+                  value={plain.format(dailyDays)}
+                />
+              </div>
+
+              {dailyDays === 1 ? (
+                // One day is not a trend, and a flat line across one point claims
+                // a measurement that held still.
+                <p className="empty">
+                  One game day captured so far. A second is what makes this a trend — the daily
+                  boards reset at 02:00 UTC, so each one has to be read before then or it is gone.
+                </p>
+              ) : (
+                <LineChart
+                  formatRight={bigValue}
+                  formatTime={day}
+                  formatValue={wholeValue}
+                  label="Alliance donation and duel points per game day"
+                  note="A game day runs 02:00 to 02:00 UTC, and each figure is the largest reading taken that day — the boards accumulate, so summing our captures would count the same points twice. Duel points are the dashed line, on the right."
+                  series={[donation, duel]}
+                />
+              )}
+
+              {partialDays > 0 && (
+                <p className="subtle">
+                  {partialDays} of these days was read only once. The boards accumulate through the
+                  day, so a single early reading is a part of that day rather than its total — a dip
+                  there is our capture, not the alliance.
+                </p>
+              )}
+            </>
           )}
         </>
       )}

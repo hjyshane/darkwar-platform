@@ -1,4 +1,4 @@
-export type Json =
+﻿export type Json =
   | string
   | number
   | boolean
@@ -2440,6 +2440,27 @@ export type Database = {
       }
     }
     Views: {
+      alliance_daily_contribution: {
+        Row: {
+          alliance_id: string | null
+          avg_per_member: number | null
+          game_day: string | null
+          kind: string | null
+          last_capture_at: string | null
+          members_counted: number | null
+          readings: number | null
+          total: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alliance_member_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
+        ]
+      }
       alliance_departures: {
         Row: {
           alliance_id: string | null

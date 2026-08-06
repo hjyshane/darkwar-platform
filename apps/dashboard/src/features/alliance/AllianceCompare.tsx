@@ -1,9 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { LineChart } from '../../components/LineChart';
+import { SortableTh } from '../../components/SortableTh';
 import { allianceHash } from '../../lib/route';
 import type { Series } from '../../lib/series';
 import { supabase } from '../../lib/supabase';
+import { type SortState, nextSort, sortRows } from '../../lib/tableControls';
 
 /** Who on this server is growing, and how we compare.
  *
@@ -92,10 +94,29 @@ function moment(t: number): string {
   return `${new Date(t).toISOString().slice(0, 16).replace('T', ' ')}Z`;
 }
 
-type Sort = 'power' | 'growth' | 'climb';
+/** A legend label short enough for six of them on one line.
+ *
+ * The tag first, because that is what the game puts on the board. An alliance
+ * with no tag captured falls back to a clipped name, and one with neither to the
+ * id — never to an empty label, which would leave a coloured line with nothing
+ * to identify it. */
+function shortName(row: GrowthRow): string {
+  if (row.code) {
+    return row.code;
+  }
+  if (row.name) {
+    return row.name.length > 10 ? `${row.name.slice(0, 9)}…` : row.name;
+  }
+  return row.alliance_id.slice(0, 6);
+}
 
 export function AllianceCompare({ serverId }: { serverId: number }) {
-  const [sort, setSort] = useState<Sort>('growth');
+  // Growth first, because "who is pulling away" is the question this tab exists
+  // for. The ranking table already answers "who is big".
+  const [sort, setSort] = useState<SortState | null>({
+    key: 'power_growth_pct',
+    direction: 'desc',
+  });
   const { data, error, isPending } = useQuery({
     queryKey: ['alliance-compare', serverId],
     queryFn: () => fetchCompare(serverId),
@@ -117,23 +138,11 @@ export function AllianceCompare({ serverId }: { serverId: number }) {
     );
   }
 
-  const ranked = [...rows].sort((left, right) => {
-    if (sort === 'power') {
-      return (right.power_last ?? -1) - (left.power_last ?? -1);
-    }
-    if (sort === 'climb') {
-      // Unmeasured last in both directions, rather than sorting as zero. An
-      // alliance we have seen once has not held still.
-      return (
-        (right.rank_climb ?? Number.NEGATIVE_INFINITY) -
-        (left.rank_climb ?? Number.NEGATIVE_INFINITY)
-      );
-    }
-    return (
-      (right.power_growth_pct ?? Number.NEGATIVE_INFINITY) -
-      (left.power_growth_pct ?? Number.NEGATIVE_INFINITY)
-    );
-  });
+  // `sortRows` rather than a comparator per column: it already puts unknowns last
+  // in BOTH directions, which is the rule that matters here. An alliance seen
+  // once has not held still, and sorting its null growth as zero would file it
+  // among the alliances that genuinely did not move.
+  const ranked = sortRows(rows, sort);
 
   // The chart takes the top of whatever the table is sorted by, plus us — so
   // sorting by growth draws the fastest movers and sorting by power draws the
@@ -150,6 +159,10 @@ export function AllianceCompare({ serverId }: { serverId: number }) {
     chosen.unshift(ours);
   }
 
+  function onSort(key: string): void {
+    setSort((current) => nextSort(current, key));
+  }
+
   const byAlliance = new Map<string, HistoryRow[]>();
   for (const row of data?.history ?? []) {
     const bucket = byAlliance.get(row.alliance_id) ?? [];
@@ -158,7 +171,10 @@ export function AllianceCompare({ serverId }: { serverId: number }) {
   }
 
   const series: Series[] = chosen.map((row, index) => ({
-    name: row.name ?? row.alliance_id.slice(0, 8),
+    // The tag, not the name. Six full names in one readout wraps to three lines
+    // and pushes the chart around as the cursor moves; `[GRDK]` is what the game
+    // shows on the board anyway. The table below carries both.
+    name: shortName(row),
     slot: index,
     emphasis: row.is_own,
     points: (byAlliance.get(row.alliance_id) ?? []).map((point) => ({
@@ -169,20 +185,14 @@ export function AllianceCompare({ serverId }: { serverId: number }) {
 
   return (
     <>
-      <div className="row">
-        <label>
-          Rank by
-          <select onChange={(event) => setSort(event.target.value as Sort)} value={sort}>
-            <option value="growth">Power growth</option>
-            <option value="climb">Board places climbed</option>
-            <option value="power">Power now</option>
-          </select>
-        </label>
-        <span className="subtle">
-          {rows.length} alliance{rows.length === 1 ? '' : 's'} on server {serverId} ·{' '}
-          {rows.filter((row) => row.readings > 1).length} seen more than once
-        </span>
-      </div>
+      {/* No sort control of its own: the table headers are the control, and the
+          chart follows them. Two ways to set one order would be two places to
+          look when they disagree. */}
+      <p className="subtle">
+        {rows.length} alliance{rows.length === 1 ? '' : 's'} on server {serverId} ·{' '}
+        {rows.filter((row) => row.readings > 1).length} seen more than once · sort a column below to
+        change which alliances the chart draws
+      </p>
 
       {series.length === 0 ? (
         <p className="empty">
@@ -203,27 +213,32 @@ export function AllianceCompare({ serverId }: { serverId: number }) {
         <table>
           <thead>
             <tr>
-              <th className="label" scope="col">
+              {/* Sorted on `name`, not on the tag shown in the chart: sorting a
+                  list of alliances by their tag is not an order anybody is
+                  looking for. */}
+              <SortableTh className="label" onSort={onSort} sort={sort} sortKey="name">
                 Alliance
-              </th>
-              <th className="num" scope="col">
+              </SortableTh>
+              <SortableTh numeric onSort={onSort} sort={sort} sortKey="power_last">
                 Power
-              </th>
-              <th className="num" scope="col">
+              </SortableTh>
+              <SortableTh numeric onSort={onSort} sort={sort} sortKey="power_growth_pct">
                 Change
-              </th>
-              <th className="num" scope="col">
+              </SortableTh>
+              <SortableTh numeric onSort={onSort} sort={sort} sortKey="rank_last">
                 Rank
-              </th>
-              <th className="num" scope="col">
+              </SortableTh>
+              <SortableTh numeric onSort={onSort} sort={sort} sortKey="rank_climb">
                 Climb
-              </th>
-              <th className="num" scope="col">
+              </SortableTh>
+              <SortableTh numeric onSort={onSort} sort={sort} sortKey="member_count">
                 Members
-              </th>
-              <th className="label" scope="col">
+              </SortableTh>
+              {/* On `span_days`, so descending is the longest measurement rather
+                  than alphabetical order over "9.1 days · 35 readings". */}
+              <SortableTh className="label" onSort={onSort} sort={sort} sortKey="span_days">
                 Measured over
-              </th>
+              </SortableTh>
             </tr>
           </thead>
           <tbody>

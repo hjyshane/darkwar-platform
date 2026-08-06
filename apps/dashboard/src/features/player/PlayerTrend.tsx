@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { LineChart } from '../../components/LineChart';
+import { forwardFill } from '../../lib/series';
 import { supabase } from '../../lib/supabase';
 
 /** One player's readings over time — for ANY player, not only our members.
@@ -98,11 +99,15 @@ export function PlayerTrend({ playerId }: { playerId: string }) {
         {rows.length} sightings over {span.toFixed(1)} days.
       </p>
 
+      {/* Separate axes. A player's power runs to the hundreds of millions and
+          their kill count to the thousands — a hundred-thousandfold gap, so on
+          one scale the kill line is indistinguishable from the axis itself. */}
       <LineChart
+        formatRight={wholeValue}
         formatTime={moment}
         formatValue={bigValue}
-        label="Power and kills as the ranking boards reported them"
-        note="Gaps are captures we do not have. For somebody outside our alliance a reading happens when a board is opened."
+        label="Power on the left, kills on the right, as the ranking boards reported them"
+        note="Gaps are captures we do not have. For somebody outside our alliance a reading happens when a board is opened. Kills are the dashed line."
         series={[
           {
             name: 'Power',
@@ -112,6 +117,7 @@ export function PlayerTrend({ playerId }: { playerId: string }) {
           {
             name: 'Kills',
             slot: 1,
+            axis: 'right',
             points: rows.map((row, index) => ({ t: times[index] ?? 0, v: row.kills })),
           },
         ]}
@@ -127,20 +133,28 @@ export function PlayerTrend({ playerId }: { playerId: string }) {
         </p>
       ) : (
         <LineChart
+          formatRight={wholeValue}
           formatTime={moment}
           formatValue={wholeValue}
           height={160}
-          label="Tower level and board rank over time"
-          note="Rank falls as a player climbs, so a line going DOWN here is them doing better."
+          label="Tower level on the left, board rank on the right, inverted so climbing is up"
+          note="Tower levels never fall, so a capture missing the figure holds the last one. The rank axis is inverted — a line going UP is them climbing the board."
           series={[
             {
               name: 'Tower level',
               slot: 2,
-              points: rows.map((row, index) => ({ t: times[index] ?? 0, v: row.hq_level })),
+              // Forward-filled: a tower is never demolished, so a board that did
+              // not carry the level is our gap and not their loss. The rank
+              // beside it gets no fill — a rank genuinely falls.
+              points: forwardFill(
+                rows.map((row, index) => ({ t: times[index] ?? 0, v: row.hq_level })),
+              ),
             },
             {
               name: 'Board rank',
               slot: 3,
+              axis: 'right',
+              invert: true,
               points: rows.map((row, index) => ({ t: times[index] ?? 0, v: row.rank })),
             },
           ]}
