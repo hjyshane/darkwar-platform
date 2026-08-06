@@ -208,20 +208,24 @@ export function LineChart({
             </text>
           ))}
 
-        {/* Which axis is which, in words. Two unlabelled scales are worse than
+        {/* Which line is which, in words. Two unlabelled scales are worse than
             one: the reader cannot tell which number belongs to which line, and
-            the colours only help once you already know. */}
+            the colours only help once you already know.
+
+            THE LEFT LABEL IS ALWAYS DRAWN NOW. It used to be conditional on there
+            being a right axis, so a single-axis chart naming four lines — the four
+            hero and pet ranks — named none of them and left colour as the only
+            way to tell them apart. Colour is never the only signal here (NFR-011),
+            and that was the chart where naming matters most. */}
+        <text className="chart-axis" x={4} y={box.padTop - 2}>
+          {left.map((line) => line.name).join(' · ')}
+          {leftInverted ? ' (up is better)' : ''}
+        </text>
         {right.length > 0 && (
-          <>
-            <text className="chart-axis" x={4} y={box.padTop - 2}>
-              {left.map((line) => line.name).join(' · ')}
-              {leftInverted ? ' (up is better)' : ''}
-            </text>
-            <text className="chart-axis" textAnchor="end" x={box.width - 4} y={box.padTop - 2}>
-              {right.map((line) => line.name).join(' · ')}
-              {rightInverted ? ' (up is better)' : ''}
-            </text>
-          </>
+          <text className="chart-axis" textAnchor="end" x={box.width - 4} y={box.padTop - 2}>
+            {right.map((line) => line.name).join(' · ')}
+            {rightInverted ? ' (up is better)' : ''}
+          </text>
         )}
 
         {/* Two labels, not a tick per capture. The x axis exists to say what

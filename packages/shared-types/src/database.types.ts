@@ -2874,6 +2874,36 @@ export type Database = {
           },
         ]
       }
+      player_component_power_history: {
+        Row: {
+          board_size: number | null
+          captured_at: string | null
+          metric: string | null
+          player_id: string | null
+          power: number | null
+          rank: number | null
+          server_id: number | null
+          unit_grade: number | null
+          unit_id: number | null
+          unit_name: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_component_power_snapshots_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "player_component_power_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+        ]
+      }
       player_current_rank: {
         Row: {
           assigned_rank: string | null
