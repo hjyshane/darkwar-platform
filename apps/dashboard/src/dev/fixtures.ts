@@ -193,6 +193,10 @@ const CAPABILITIES = [
   { capability: 'announcement.write', label: 'Post a notice', description: '', sort_order: 50 },
   { capability: 'announcement.edit', label: 'Edit a notice', description: '', sort_order: 60 },
   { capability: 'announcement.delete', label: 'Delete a notice', description: '', sort_order: 70 },
+  // 0078. Officers write and edit guides; only an admin deletes one.
+  { capability: 'guide.write', label: 'Write a guide', description: '', sort_order: 80 },
+  { capability: 'guide.edit', label: 'Edit a guide', description: '', sort_order: 90 },
+  { capability: 'guide.delete', label: 'Delete a guide', description: '', sort_order: 100 },
 ];
 
 const ROLES = ['viewer', 'member', 'officer', 'admin'] as const;
@@ -208,6 +212,105 @@ const GRANTS = ROLES.flatMap((role) =>
         ['members.view', 'arena.view', 'announcement.read'].includes(cap.capability)),
   })),
 );
+
+/** A board page, as `features/board/board.ts` assembles it.
+ *
+ * Built rather than typed out: twenty-two titles by hand would be twenty-two
+ * chances to look at a list that is uniform in a way a real board never is, and
+ * the pager only appears once there are more rows than fit on a page.
+ */
+const AUTHORS = {
+  [PLAYER.shane]: 'ShaneOfCBFW',
+  [PLAYER.mira]: 'MiraKV',
+};
+
+const GUIDE_TITLES = [
+  'Reading the rank report',
+  'Bear Hunt: when to save your stamina',
+  'Which hero goes in slot three',
+  'Zombie siege — the two waves that matter',
+  'Duel points without spending gems',
+  'What counts as contribution',
+  'Tower levels are not power',
+  'Arena: picking a team you can beat',
+  'Alliance donations, and why Monday matters',
+  'Radar missions worth the march time',
+];
+
+function guidePost(index: number, read: boolean) {
+  const id = `33333333-3333-4333-8333-3333333333${String(index).padStart(2, '0')}`;
+  return {
+    post: {
+      id,
+      title: `${GUIDE_TITLES[index % GUIDE_TITLES.length]}${index >= GUIDE_TITLES.length ? ` (${Math.floor(index / GUIDE_TITLES.length) + 1})` : ''}`,
+      body: `A short body. The list does not show it — **${id.slice(-2)}** is on its own page.`,
+      pinned: false,
+      liveAt: ago(60 * 24 * (index + 1)),
+      createdAt: ago(60 * 24 * (index + 1)),
+      // Every fourth one has been edited since, which is the only way to see
+      // the Edited column carry a badge rather than a dash.
+      updatedAt: index % 4 === 0 ? ago(60 * 3) : ago(60 * 24 * (index + 1)),
+      createdBy: index % 3 === 0 ? PLAYER.shane : index % 3 === 1 ? PLAYER.mira : null,
+      tag: (['tip', 'strategy', 'info'] as const)[index % 3],
+    },
+    read,
+  };
+}
+
+function guideBoard(page: number) {
+  const total = 22;
+  const all = Array.from({ length: total }, (_, index) => guidePost(index, index % 3 !== 0));
+  const slice = all.slice((page - 1) * 20, (page - 1) * 20 + 20);
+  return {
+    posts: slice.map((entry) => entry.post),
+    pinned: [
+      {
+        id: '33333333-3333-4333-8333-333333333399',
+        title: 'Start here — what this dashboard is',
+        body: 'Pinned, so it is on every page.',
+        pinned: true,
+        liveAt: ago(60 * 24 * 30),
+        createdAt: ago(60 * 24 * 30),
+        updatedAt: ago(60 * 24 * 30),
+        createdBy: PLAYER.shane,
+        tag: 'info',
+      },
+    ],
+    total,
+    page,
+    pageCount: 2,
+    authors: AUTHORS,
+    read: new Set(all.filter((entry) => entry.read).map((entry) => entry.post.id)),
+  };
+}
+
+function noticeBoard() {
+  const post = (index: number, title: string, pinned: boolean, visibility: string) => ({
+    id: `44444444-4444-4444-8444-4444444444${String(index).padStart(2, '0')}`,
+    title,
+    body: 'Body lives on the notice page.',
+    pinned,
+    liveAt: ago(60 * 24 * index),
+    createdAt: ago(60 * 24 * index),
+    updatedAt: ago(60 * 24 * index),
+    createdBy: index % 2 === 0 ? PLAYER.shane : null,
+    visibility,
+    tag: visibility,
+  });
+  return {
+    posts: [
+      post(2, 'Weekly board resets Monday 02:00 UTC', false, 'member'),
+      post(5, 'Arena week — sign-ups close Friday', false, 'member'),
+      post(9, 'Anyone can read this one', false, 'public'),
+    ],
+    pinned: [post(1, 'Welcome to CBFW dashboard!!', true, 'member')],
+    total: 3,
+    page: 1,
+    pageCount: 1,
+    authors: AUTHORS,
+    read: new Set<string>(),
+  };
+}
 
 /** Every key the app asks for, with the data it expects behind it.
  *
@@ -514,9 +617,25 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
   [['rank-tiers'], []],
   [['rank-report'], []],
 
-  // Admin — Display
-  [['announcements'], []],
-  [['announcements-admin'], []],
+  // The overview's notice block. PINNED ONLY now — the rest are on the Notices
+  // board — so a fixture of unpinned rows would show an empty block and look
+  // like a bug. The editor's own key (`announcements-admin`) is gone with the
+  // settings screen that owned it.
+  [
+    ['announcements'],
+    [
+      {
+        announcement_id: '44444444-4444-4444-8444-444444444401',
+        title: 'Welcome to CBFW dashboard!!',
+        body: 'Titles only here. The body opens in a dialog, and every notice is on the **Notices** board.',
+        starts_at: null,
+        ends_at: null,
+        pinned: true,
+        visibility: 'member',
+        created_at: ago(60 * 24),
+      },
+    ],
+  ],
 
   // Admin — Catalogue
   [['heroes'], []],
@@ -630,4 +749,35 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
 
   // Month cards — unlinked from the nav, reachable at #/month-cards.
   [['monthCards'], []],
+
+  // The two boards. Enough rows to put the pager on screen (22 unpinned at 20
+  // a page), a pinned one above them, and a mix of read and unread — the three
+  // things about a board list that can only be judged by looking at it.
+  [['board', 'guides', 1], guideBoard(1)],
+  [['board', 'guides', 2], guideBoard(2)],
+  [['board', 'announcements', 1], noticeBoard()],
+
+  // One post open, so the reader — the body through the safe markup subset, the
+  // author line, the back link — can be looked at as well as the list.
+  [
+    ['post', 'guides', '33333333-3333-4333-8333-333333333399'],
+    {
+      post: {
+        ...guideBoard(1).pinned[0],
+        body: [
+          '## What this is',
+          '',
+          'Everything left of the Guides tab is **observed** — the collector saw it in the',
+          'game and wrote it down. This tab is the part people *wrote*.',
+          '',
+          '- Bullets work',
+          '  - and nest one level',
+          '- `code` too, and 🔥 emoji are just characters',
+          '',
+          'Links are allowlisted to http(s): https://example.invalid',
+        ].join('\n'),
+      },
+      author: AUTHORS[PLAYER.shane],
+    },
+  ],
 ];

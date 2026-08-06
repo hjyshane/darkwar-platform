@@ -1946,3 +1946,40 @@ form select {
   border-radius: var(--radius-md);
   padding: var(--space-4);
 }
+
+/* --- the boards ---------------------------------------------------------- */
+
+/* Unread is the emphasised state, not read. The list is for finding what you
+ * have not seen; marking the majority would emphasise nothing. Weight only —
+ * a colour would be the sole signal for the "new" badge that sits beside it,
+ * and the badge is there because weight alone is not visible to everybody. */
+.board-unread :is(td, th) {
+  font-weight: 600;
+}
+
+.board-unread td.label a {
+  font-weight: 700;
+}
+
+.pager {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  justify-content: center;
+  margin: var(--space-4) 0;
+}
+
+.pager button {
+  min-width: 2.25rem;
+  padding: var(--space-1) var(--space-2);
+}
+
+/* The current page. Disabled in the markup as well, so it is not clickable —
+ * this only stops it looking clickable. */
+.pager button[aria-current="page"] {
+  background: var(--accent-soft, var(--bg-raised));
+  border-color: var(--accent, var(--border));
+  font-weight: 700;
+  opacity: 1;
+}

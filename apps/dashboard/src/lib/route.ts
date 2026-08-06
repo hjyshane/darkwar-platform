@@ -25,6 +25,9 @@ export type Route =
   | 'admin'
   | 'monthCards'
   | 'guides'
+  | 'guide'
+  | 'notices'
+  | 'notice'
   | 'login';
 
 const ROUTES: Record<string, Route> = {
@@ -34,6 +37,7 @@ const ROUTES: Record<string, Route> = {
   '#/arena': 'arena',
   '#/month-cards': 'monthCards',
   '#/guides': 'guides',
+  '#/notices': 'notices',
   '#/login': 'login',
 };
 
@@ -85,6 +89,10 @@ const SERVER_HASH = /^#\/server\/(\d+)$/;
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 const PLAYER_HASH = new RegExp(`^#/player/(${UUID})$`, 'i');
 const ALLIANCE_HASH = new RegExp(`^#/alliance/(${UUID})$`, 'i');
+// One post, on either board. Both are `#/<board>/<uuid>` so a member can send
+// somebody a link to the thing itself rather than to the list it is on.
+const GUIDE_HASH = new RegExp(`^#/guides/(${UUID})$`, 'i');
+const NOTICE_HASH = new RegExp(`^#/notices/(${UUID})$`, 'i');
 
 export function routeFromHash(hash: string): Route {
   if (ADMIN_HASH.test(hash)) {
@@ -98,6 +106,12 @@ export function routeFromHash(hash: string): Route {
   }
   if (ALLIANCE_HASH.test(hash)) {
     return 'alliance';
+  }
+  if (GUIDE_HASH.test(hash)) {
+    return 'guide';
+  }
+  if (NOTICE_HASH.test(hash)) {
+    return 'notice';
   }
   return ROUTES[hash] ?? 'overview';
 }
@@ -114,6 +128,22 @@ export function allianceIdFromHash(hash: string): string | null {
 
 export function playerHash(playerId: string): string {
   return `#/player/${playerId}`;
+}
+
+export function guideIdFromHash(hash: string): string | null {
+  return GUIDE_HASH.exec(hash)?.[1] ?? null;
+}
+
+export function noticeIdFromHash(hash: string): string | null {
+  return NOTICE_HASH.exec(hash)?.[1] ?? null;
+}
+
+export function guideHash(guideId: string): string {
+  return `#/guides/${guideId}`;
+}
+
+export function noticeHash(noticeId: string): string {
+  return `#/notices/${noticeId}`;
 }
 
 export function allianceHash(allianceId: string): string {
@@ -146,5 +176,6 @@ export const NAV_TABS: ReadonlyArray<{ route: Route; hash: string; label: string
   // Last, because it is the one tab that is not a board the game produced —
   // everything left of it is observation, and this is what the alliance wrote
   // about it.
+  { route: 'notices', hash: '#/notices', label: 'Notices' },
   { route: 'guides', hash: '#/guides', label: 'Guides' },
 ];

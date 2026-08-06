@@ -5,6 +5,11 @@ import { supabase } from '../../lib/supabase';
 
 /** Notices an admin wrote, on the screen everyone lands on.
  *
+ * PINNED ONLY. Every notice now has the Notices board and its own address, so
+ * the landing screen's job is narrower than it was: carry the few that are meant
+ * to be unmissable, and get out of the way of the figures. Pinning is the admin
+ * saying "this one goes on the front".
+ *
  * TITLES ONLY, and the body in a dialog. Three standing notices with bodies took
  * more of the landing screen than the figures the screen is for, and a notice
  * board that pushes the alliance's numbers below the fold gets the numbers read
@@ -41,8 +46,8 @@ async function fetchAnnouncements(): Promise<Announcement[]> {
   const { data, error } = await supabase
     .from('announcements')
     .select('announcement_id, title, body, starts_at, ends_at, pinned, visibility, created_at')
+    .eq('pinned', true)
     .or(`ends_at.is.null,ends_at.gt.${nowIso}`)
-    .order('pinned', { ascending: false })
     .order('starts_at', { ascending: false, nullsFirst: false });
   if (error) {
     throw new Error(`announcements query failed: ${error.message}`);
@@ -168,6 +173,9 @@ export function AnnouncementsBlock() {
           </li>
         ))}
       </ul>
+      <p className="subtle">
+        <a href="#/notices">All notices →</a>
+      </p>
       {opened !== null && <NoticeDialog notice={opened} onClose={() => setOpen(null)} />}
     </section>
   );

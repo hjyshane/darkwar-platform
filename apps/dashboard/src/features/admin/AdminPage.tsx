@@ -3,7 +3,6 @@ import { fieldsOf } from '../../lib/memberFormulas';
 import { ADMIN_GROUPS, type AdminGroup, adminHash } from '../../lib/route';
 import { useSession } from '../../lib/useSession';
 import { fetchRoster } from '../roster/RosterPanel';
-import { AnnouncementsSetting } from './AnnouncementsSetting';
 import { CollectorHealth } from './CollectorHealth';
 import { DepartedSetting } from './DepartedSetting';
 import { DiscoveryInbox } from './DiscoveryInbox';
@@ -158,9 +157,15 @@ function DisplayGroup() {
         />
       </section>
 
+      {/* Notices used to be edited here. Writing one is not configuring the
+          dashboard, so it moved to the board it appears on (`#/notices`), where
+          the draft sits among the notices it will join. */}
       <section aria-labelledby="notices-heading">
         <h2 id="notices-heading">Notices</h2>
-        <AnnouncementsSetting />
+        <p className="subtle">
+          Posting and editing notices moved to the <a href="#/notices">Notices board</a>, which
+          shows expired ones too.
+        </p>
       </section>
     </>
   );
