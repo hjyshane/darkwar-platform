@@ -44,7 +44,12 @@ const PERIOD_MS = 14 * 24 * 3600 * 1000;
 
 async function fetchPeriod(periodStart: Date): Promise<RankRow[]> {
   const { data, error } = await supabase
-    .from('rank_period_snapshots')
+    // The view, not the table. 0071 added `scoring_version` so an old answer
+    // can be kept rather than rewritten, which means the table now holds more
+    // than one row per member per period — reading it directly shows somebody
+    // twice as soon as a period is rebuilt under a new version. The view keeps
+    // the newest.
+    .from('rank_period_latest')
     .select(
       'player_id, name, donation_total, duel_total, power_growth, activity_score, offline_hours, tier, tier_reason',
     )
