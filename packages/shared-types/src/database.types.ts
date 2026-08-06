@@ -1592,6 +1592,7 @@ export type Database = {
           delivered_at: string | null
           event: string
           idempotency_key: string
+          image_url: string | null
           last_error: string | null
           notification_id: number
           title: string
@@ -1604,6 +1605,7 @@ export type Database = {
           delivered_at?: string | null
           event: string
           idempotency_key: string
+          image_url?: string | null
           last_error?: string | null
           notification_id?: never
           title: string
@@ -1616,6 +1618,7 @@ export type Database = {
           delivered_at?: string | null
           event?: string
           idempotency_key?: string
+          image_url?: string | null
           last_error?: string | null
           notification_id?: never
           title?: string
@@ -2929,6 +2932,7 @@ export type Database = {
       }
       player_power_history: {
         Row: {
+          board_size: number | null
           captured_at: string | null
           hq_level: number | null
           kills: number | null
@@ -2937,26 +2941,6 @@ export type Database = {
           rank: number | null
           server_id: number | null
           source_command: string | null
-        }
-        Insert: {
-          captured_at?: string | null
-          hq_level?: number | null
-          kills?: number | null
-          player_id?: string | null
-          power?: number | null
-          rank?: number | null
-          server_id?: number | null
-          source_command?: string | null
-        }
-        Update: {
-          captured_at?: string | null
-          hq_level?: number | null
-          kills?: number | null
-          player_id?: string | null
-          power?: number | null
-          rank?: number | null
-          server_id?: number | null
-          source_command?: string | null
         }
         Relationships: [
           {
