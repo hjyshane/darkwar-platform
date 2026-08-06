@@ -171,27 +171,29 @@ def departure_message(
     Keyed on the last sighting, not on the uid: somebody who leaves, rejoins and
     leaves again is two departures and worth saying twice. Keyed on the uid alone,
     the second one would be swallowed.
+
+    RAISES on an unconfirmed departure, rather than posting it with a caveat.
+    0067's comment says it outright: an unscrolled capture looks exactly like a
+    departure "and must not be reported as one". The first version read that,
+    posted anyway, and added a warning line — and 20 present members were
+    announced as having left. A message that cannot be safely sent should not be
+    constructible, so the check is here as well as in the caller's filter.
     """
+    if confirmed is not True:
+        raise ValueError(
+            f"refusing to compose an unconfirmed departure for {game_uid}: the "
+            "newest roster capture did not cover the whole alliance, so absence "
+            "from it is not evidence of leaving (0067)"
+        )
     name = last_known_name or f"UID {game_uid}"
     last_seen = last_seen_in_alliance_at or ""
     lines = [
-        f"**{name}** is no longer in the newest roster capture.",
+        f"**{name}** is no longer in the alliance roster.",
         "",
         f"Last seen in {alliance_name or 'the alliance'}: {last_seen[:16].replace('T', ' ')}Z",
     ]
     if last_power is not None:
         lines.append(f"Power at the time: {int(last_power):,}")
-    if confirmed is False:
-        # 0067's trap, repeated where somebody might act on it. A capture that
-        # stopped early is short, and a short capture looks exactly like a
-        # departure — announcing one as certain would have people asking a member
-        # who never left why they left.
-        lines.append("")
-        lines.append(
-            "⚠ Unconfirmed: the newest roster capture saw fewer members than the "
-            "game reports, so this may be a capture that stopped early rather "
-            "than somebody leaving."
-        )
     return Message(
         channel=channel,
         event="departures",
