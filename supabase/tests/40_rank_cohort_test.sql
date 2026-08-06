@@ -1,4 +1,4 @@
--- 0071: who is in the pool being compared, and who gets no tier at all.
+-- 0071/0072: who is in the pool being compared, and who gets no tier at all.
 --
 -- Percentiles are relative, so the cohort decides everybody's answer. Two
 -- groups are out: R4 and above, who are not competing for a promotion and whose
@@ -12,7 +12,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(9);
+select plan(11);
 
 insert into public.collectors (collector_id, name, status, version)
 values ('00000000-0000-4000-8000-00000000cc71', 'cohort test', 'offline', 'test')
@@ -95,7 +95,7 @@ select lives_ok(
 create function pg_temp.row_of(who text) returns public.rank_period_snapshots
 language sql as $$
   select * from public.rank_period_snapshots
-  where period_start = '2026-08-03T02:00:00Z' and name = who and scoring_version = 2;
+  where period_start = '2026-08-03T02:00:00Z' and name = who and scoring_version = 3;
 $$;
 
 -- Everybody gets a row, graded or not. Scoped to these four names: 0031's
@@ -104,22 +104,32 @@ $$;
 -- alliance and its 20 members join the output. Counting the whole period read
 -- 24 and told me nothing about my own fixture.
 select is((select count(*) from public.rank_period_snapshots
-           where period_start = '2026-08-03T02:00:00Z' and scoring_version = 2
+           where period_start = '2026-08-03T02:00:00Z' and scoring_version = 3
              and name in ('Worker', 'Slacker', 'Officer', 'Newcomer')),
   4::bigint, 'all four members are in the output');
 
 -- The officer.
 select is((pg_temp.row_of('Officer')).tier, null, 'an R4 gets no tier');
-select is((pg_temp.row_of('Officer')).tier_reason, 'not graded: R4 and above',
+select is((pg_temp.row_of('Officer')).tier_reason, 'measured but not ranked: R4 and above',
   'and the row says why');
-select is((pg_temp.row_of('Officer')).activity_score, null,
-  'and no activity score, so nothing to sort them by');
+-- MEASURED, though, and this is what 0072 corrected. 0071 blanked their
+-- figures too, and only half of that was wanted: an officer's donation total is
+-- usually the largest in the alliance and is a fact worth showing. What they
+-- must not have is a tier, or any influence on anybody else's.
+select isnt((pg_temp.row_of('Officer')).activity_score, null,
+  'but an officer still gets an activity score — measured, just not ranked');
+select isnt((pg_temp.row_of('Officer')).donation_total, null,
+  'and their donation total, which is usually the biggest one there is');
 
--- The newcomer.
+-- The newcomer, who is neither measured nor ranked: a fortnight's contribution
+-- is impossible for them, so a percentile against people who had one would be
+-- a fact about the join date and nothing else.
 select is((pg_temp.row_of('Newcomer')).tier, null,
   'somebody we watched join this fortnight gets no tier');
 select is((pg_temp.row_of('Newcomer')).tier_reason,
-  'not graded: joined within the last two weeks', 'and the row says why');
+  'not measured: joined within the last two weeks', 'and the row says why');
+select is((pg_temp.row_of('Newcomer')).activity_score, null,
+  'and no activity score either — that is the difference from an officer');
 
 -- The two who are competing. THE POINT: the officer gave 999999 and is out of
 -- the pool, so nobody's percentile is measured against it.
@@ -131,10 +141,16 @@ select is((pg_temp.row_of('Newcomer')).tier_reason,
 select ok(
   (pg_temp.row_of('Worker')).donation_pct > (pg_temp.row_of('Slacker')).donation_pct,
   'giving more ranks higher inside the graded pool');
+-- Scoped to the POOL. Since 0072 the officer gets a percentile too, computed
+-- against the pool from outside it — and having given the most, theirs is the
+-- highest number on the screen. That is fine and intended. What must hold is
+-- that inside the pool, Worker is top: the officer's 999999 did not push
+-- anybody down.
 select ok(
   (pg_temp.row_of('Worker')).donation_pct >= all (
     select coalesce(donation_pct, -1) from public.rank_period_snapshots
-    where period_start = '2026-08-03T02:00:00Z' and scoring_version = 2
+    where period_start = '2026-08-03T02:00:00Z' and scoring_version = 3
+      and tier_reason in ('score', 'offline')
   ),
   'and the officer''s 999999 tops nobody, because it was never in the pool');
 reset role;
