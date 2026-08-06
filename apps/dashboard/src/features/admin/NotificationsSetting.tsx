@@ -35,7 +35,24 @@ interface Routing {
 
 /** The events the worker knows how to send. Listed here rather than derived from
  * whatever happens to be in the settings row, so an event the collector does not
- * implement cannot be switched on. */
+ * implement cannot be switched on.
+ *
+ * ADDING ONE IS THREE LINES, in three files, and they are the three you would
+ * expect:
+ *
+ *   1. an entry here, so an admin can switch it on and pick a channel;
+ *   2. a `*_message` in `notify/compose.py`, which decides the words and the
+ *      idempotency key that stops it being said twice;
+ *   3. a `*_candidates` method in `notify/worker.py` plus its line in the `sources`
+ *      tuple in `run_once`.
+ *
+ * Nothing else changes. The outbox, the retry budget, the delivery and the
+ * per-channel error reporting are all event-agnostic, and the switch below is
+ * generated from this array rather than written per event.
+ *
+ * No migration either: the routing lives in one `app_settings` jsonb blob and an
+ * absent key reads as off.
+ */
 const EVENTS: { event: string; label: string; note: string }[] = [
   {
     event: 'rank_period',
@@ -51,6 +68,11 @@ const EVENTS: { event: string; label: string; note: string }[] = [
     event: 'guides',
     label: 'Guide published',
     note: 'The title, kind and body of a guide, when somebody publishes it. Editing a published guide does not post again; unpublishing and publishing does.',
+  },
+  {
+    event: 'notices',
+    label: 'Notice posted',
+    note: 'A notice, once it is live — one with a start date next Saturday waits until then. Fixing a typo does not post again; moving the start date does. Switching this on reaches back one week only, so it cannot empty months of standing notices into the channel.',
   },
 ];
 
