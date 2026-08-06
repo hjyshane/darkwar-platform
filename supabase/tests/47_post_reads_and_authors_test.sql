@@ -7,7 +7,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(12);
+select plan(15);
 
 insert into auth.users (id, instance_id, aud, role, email) values
   ('00000000-0000-4000-8000-0000000ad079', '00000000-0000-0000-0000-000000000000',
@@ -17,17 +17,23 @@ insert into auth.users (id, instance_id, aud, role, email) values
   ('00000000-0000-4000-8000-0000000ce079', '00000000-0000-0000-0000-000000000000',
    'authenticated', 'authenticated', 'reads-other@test.invalid'),
   ('00000000-0000-4000-8000-0000000de079', '00000000-0000-0000-0000-000000000000',
-   'authenticated', 'authenticated', 'reads-nobody@test.invalid');
+   'authenticated', 'authenticated', 'reads-nobody@test.invalid'),
+  ('00000000-0000-4000-8000-0000000ef079', '00000000-0000-0000-0000-000000000000',
+   'authenticated', 'authenticated', 'reads-unlinked@test.invalid');
 
 -- The admin is linked to a character, so the author view has a name to show.
 insert into public.players (player_id, server_id, game_uid, current_name)
 values ('00000000-0000-4000-8000-0000000cb791', 580, 9900000000000001, 'TheWriter');
 
-insert into public.app_users (user_id, role, player_id) values
+-- The admin carries BOTH a character and a display name, so the fallback chain
+-- (0080) can be shown to prefer the character. The officer carries only a display
+-- name, which is the case that used to read "Unknown member".
+insert into public.app_users (user_id, role, player_id, display_name) values
   ('00000000-0000-4000-8000-0000000ad079', 'admin',
-   '00000000-0000-4000-8000-0000000cb791'),
-  ('00000000-0000-4000-8000-0000000be079', 'member', null),
-  ('00000000-0000-4000-8000-0000000ce079', 'member', null);
+   '00000000-0000-4000-8000-0000000cb791', 'not-the-character'),
+  ('00000000-0000-4000-8000-0000000be079', 'member', null, null),
+  ('00000000-0000-4000-8000-0000000ce079', 'member', null, null),
+  ('00000000-0000-4000-8000-0000000ef079', 'officer', null, 'Quill');
 
 create function pg_temp.act_as(who uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', who)::text, true);
@@ -44,12 +50,21 @@ select pg_temp.act_as('00000000-0000-4000-8000-0000000ad079');
 insert into public.guides (title, body, category, published_at) values
   ('Arena line-ups', 'Tanks first.', 'strategy', now());
 
+-- An officer with no character linked. This is the recurring case 0080 is for:
+-- `guide.write` arrives with the role, and linking the account is a separate
+-- errand somebody has to remember.
+select pg_temp.act_as('00000000-0000-4000-8000-0000000ef079');
+select lives_ok(
+  $$ insert into public.guides (title, body, category, published_at)
+     values ('Radar missions', 'Skip the long ones.', 'tip', now()) $$,
+  'an officer with no character linked can still write a guide');
+
 -- ------------------------------------------------------------------ read marks
 select pg_temp.act_as('00000000-0000-4000-8000-0000000be079');
 
 select lives_ok(
   $$ insert into public.post_reads (user_id, guide_id)
-     select (select auth.uid()), guide_id from public.guides limit 1 $$,
+     select (select auth.uid()), guide_id from public.guides where title = 'Arena line-ups' $$,
   'a member can mark a guide read');
 
 select is(
@@ -61,7 +76,7 @@ select is(
 -- another's history, which is the same fault as writing to their favourites.
 select throws_ok(
   $$ insert into public.post_reads (user_id, guide_id)
-     select '00000000-0000-4000-8000-0000000ce079', guide_id from public.guides limit 1 $$,
+     select '00000000-0000-4000-8000-0000000ce079', guide_id from public.guides where title = 'Arena line-ups' $$,
   '42501',
   NULL,
   'but cannot mark one read on somebody else''s behalf');
@@ -85,7 +100,7 @@ select is(
 select pg_temp.act_as('00000000-0000-4000-8000-0000000be079');
 select throws_ok(
   $$ insert into public.post_reads (user_id, guide_id)
-     select (select auth.uid()), guide_id from public.guides limit 1 $$,
+     select (select auth.uid()), guide_id from public.guides where title = 'Arena line-ups' $$,
   '23505',
   NULL,
   'and a second mark for the same guide is refused');
@@ -95,7 +110,7 @@ select throws_ok(
 select throws_ok(
   $$ insert into public.post_reads (user_id, guide_id, announcement_id)
      values ((select auth.uid()),
-             (select guide_id from public.guides limit 1),
+             (select guide_id from public.guides where title = 'Arena line-ups'),
              gen_random_uuid()) $$,
   '23514',
   NULL,
@@ -106,19 +121,44 @@ select lives_ok(
   'and a member can clear their own marks');
 
 -- --------------------------------------------------------------- author names
+-- The character wins over the display name, even though this account has both.
+-- The alliance knows each other by who they are in the game, so a linked account
+-- has to read the same on the board as it does on the roster.
 select is(
   (select display_name from public.post_authors
     where user_id = '00000000-0000-4000-8000-0000000ad079'),
   'TheWriter',
-  'a member sees the author''s game name, not their email');
+  'a member sees the author''s game name, not their email or display name');
+
+-- 0080. Without the fallback this said 'Unknown member' — for somebody whose name
+-- an admin had already typed in when admitting them.
+select is(
+  (select display_name from public.post_authors
+    where user_id = '00000000-0000-4000-8000-0000000ef079'),
+  'Quill',
+  'an author with no character falls back to the name the account carries');
 
 -- The narrowing. Two members exist with no writing to their name; neither should
 -- appear, because the view's justification is "you may see who wrote what you are
 -- reading" and nothing more.
 select is(
   (select count(*) from public.post_authors),
-  1::bigint,
+  2::bigint,
   'and only people who have actually written something appear at all');
+
+-- The last resort. An account with neither is still an author, and the board has
+-- to put SOMETHING in the column — a blank cell reads as a rendering fault.
+reset role;
+update public.app_users set display_name = null
+  where user_id = '00000000-0000-4000-8000-0000000ef079';
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-4000-8000-0000000be079');
+
+select is(
+  (select display_name from public.post_authors
+    where user_id = '00000000-0000-4000-8000-0000000ef079'),
+  'Unknown member',
+  'an author with neither a character nor a display name is named as unknown');
 
 -- Somebody signed in with no app_users row is not in the alliance.
 select pg_temp.act_as('00000000-0000-4000-8000-0000000de079');
