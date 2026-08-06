@@ -5,6 +5,7 @@ import { resolveFormulas } from '../../lib/overviewMetrics';
 import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
 import { useSession } from '../../lib/useSession';
+import { RankMovement } from './RankMovement';
 import { type ComputedColumn, type RosterRow, RosterTable } from './RosterTable';
 
 /** The columns an admin described, parsed once here.
@@ -90,14 +91,21 @@ async function fetchOwnAllianceId(): Promise<string | null> {
  * empty" would replace a roster of stale names with no roster at all. Null
  * means "no opinion", and the caller leaves the list alone.
  */
-async function fetchCurrentMemberIds(): Promise<Set<string> | null> {
+async function fetchCurrentMembers(): Promise<Map<string, number | null> | null> {
   const allianceId = await fetchOwnAllianceId();
   if (allianceId === null) {
     return null;
   }
+  // `member_rank` comes down with the membership answer rather than in a query of
+  // its own: this view is already the one that says who is in, and the in-game rank
+  // is a fact of the same roster capture.
+  //
+  // THE GAME'S RANK, not `assigned_rank`. That one is what an admin typed into the
+  // dashboard and is null for most of the roster; this is what the member list
+  // itself reported, for all 94.
   const { data, error } = await supabase
     .from('alliance_roster_latest')
-    .select('player_id')
+    .select('player_id, member_rank')
     .eq('alliance_id', allianceId);
   if (error) {
     // Not fatal, same rule as the rank query below: a permission failure
@@ -107,8 +115,13 @@ async function fetchCurrentMemberIds(): Promise<Set<string> | null> {
     }
     throw new Error(`current roster query failed: ${error.message}`);
   }
-  const ids = data.flatMap((row) => (row.player_id === null ? [] : [row.player_id as string]));
-  return ids.length === 0 ? null : new Set(ids);
+  const found = new Map<string, number | null>();
+  for (const row of data) {
+    if (row.player_id !== null) {
+      found.set(row.player_id as string, (row.member_rank as number | null) ?? null);
+    }
+  }
+  return found.size === 0 ? null : found;
 }
 
 /** Members seen before but absent from the newest capture.
@@ -190,8 +203,8 @@ export async function fetchRoster(): Promise<RosterRow[]> {
   // Drop the people who have left. The filter is here rather than in the
   // query because the membership answer lives in a view that has no foreign
   // key to embed against, and because "no opinion" has to be distinguishable
-  // from "nobody is a member" — see fetchCurrentMemberIds.
-  const current = await fetchCurrentMemberIds();
+  // from "nobody is a member" — see fetchCurrentMembers.
+  const current = await fetchCurrentMembers();
   const members =
     current === null ? players : players.filter((player) => current.has(player.player_id));
 
@@ -283,6 +296,10 @@ export async function fetchRoster(): Promise<RosterRow[]> {
     duel_daily_score: byPlayer.get(player.player_id)?.duel_daily_score ?? null,
     duel_weekly_score: byPlayer.get(player.player_id)?.duel_weekly_score ?? null,
     duel_round_score: byPlayer.get(player.player_id)?.duel_round_score ?? null,
+    // The in-game rank the member list reported, which is what the table groups
+    // by. Null when the roster answer was unavailable — a logged-out reader gets no
+    // groups rather than a wrong one.
+    member_rank: current?.get(player.player_id) ?? null,
     assigned_rank: rankByPlayer.get(player.player_id)?.assigned_rank ?? null,
     computed_rank: rankByPlayer.get(player.player_id)?.computed_tier ?? null,
     rank_score: rankByPlayer.get(player.player_id)?.rank_score ?? null,
@@ -359,6 +376,10 @@ export function RosterPanel() {
           )}
         </p>
       )}
+      {/* Above the table, because "who moved" is what an officer opens this screen
+          for and the table below answers "where does everybody stand". Renders
+          nothing at all for a reader who cannot see rank figures. */}
+      <RankMovement />
       {isPending && <p className="empty">Loading…</p>}
       {error && <p className="error">Could not load members: {error.message}</p>}
       {data && <RosterTable columns={columns ?? []} rows={data} />}

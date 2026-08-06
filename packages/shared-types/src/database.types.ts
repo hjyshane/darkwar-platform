@@ -3093,6 +3093,30 @@ export type Database = {
           },
         ]
       }
+      rank_period_movement: {
+        Row: {
+          activity_score: number | null
+          name: string | null
+          period_start: string | null
+          player_id: string | null
+          previous_activity_score: number | null
+          previous_period_start: string | null
+          previous_tier: string | null
+          score_change: number | null
+          tier: string | null
+          tier_change: number | null
+          tier_reason: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rank_period_snapshots_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+        ]
+      }
       sync_status: {
         Row: {
           is_live: boolean | null
@@ -3178,6 +3202,7 @@ export type Database = {
           rows: number
         }[]
       }
+      tier_rank: { Args: { p_tier: string }; Returns: number }
     }
     Enums: {
       app_role:

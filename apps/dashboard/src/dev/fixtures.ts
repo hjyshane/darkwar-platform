@@ -36,6 +36,7 @@ function member(
 ) {
   return {
     player_id: playerId,
+    member_rank: 1,
     current_name: name,
     hq_level: 30,
     power,
@@ -60,8 +61,16 @@ function member(
 }
 
 const ROSTER = [
-  member(PLAYER.shane, 'Shane', 61_200_000, { assigned_rank: 'R5', computed_rank: 'R1' }),
-  member(PLAYER.mira, 'Mira', 48_900_000, { assigned_rank: 'R4', online_state: 'online' }),
+  member(PLAYER.shane, 'Shane', 61_200_000, {
+    assigned_rank: 'R5',
+    computed_rank: 'R1',
+    member_rank: 5,
+  }),
+  member(PLAYER.mira, 'Mira', 48_900_000, {
+    assigned_rank: 'R4',
+    online_state: 'online',
+    member_rank: 4,
+  }),
   // Never observed for contribution: every one of these must render "—",
   // never 0, and must sort last in both directions.
   member(PLAYER.kova, 'Kova', 33_100_000, {
@@ -76,7 +85,7 @@ const ROSTER = [
     last_online_at: null,
     computed_rank: 'R3',
   }),
-  member(PLAYER.dex, 'Dex', null, { kills: null, computed_rank: 'R3' }),
+  member(PLAYER.dex, 'Dex', null, { kills: null, computed_rank: 'R3', member_rank: null }),
 ];
 
 const ALLIANCE_ROWS = [
@@ -830,6 +839,59 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
         },
       ];
     }),
+  ],
+
+  // What moved at the last rank period. One climber, one who slipped, one who
+  // gained without changing band — which is the case the "biggest gain" card exists
+  // for — and an officer with no tier at either end.
+  [
+    ['rank-movement'],
+    [
+      {
+        player_id: PLAYER.mira,
+        name: 'Mira',
+        period_start: ago(60 * 24 * 3),
+        previous_period_start: ago(60 * 24 * 17),
+        tier: 'R3',
+        previous_tier: 'R2',
+        activity_score: 78.4,
+        tier_change: 1,
+        score_change: 31.2,
+      },
+      {
+        player_id: PLAYER.kova,
+        name: 'Kova',
+        period_start: ago(60 * 24 * 3),
+        previous_period_start: ago(60 * 24 * 17),
+        tier: 'R1',
+        previous_tier: 'R2',
+        activity_score: 12.0,
+        tier_change: -1,
+        score_change: -22.6,
+      },
+      {
+        player_id: PLAYER.dex,
+        name: 'Dex',
+        period_start: ago(60 * 24 * 3),
+        previous_period_start: ago(60 * 24 * 17),
+        tier: 'R2',
+        previous_tier: 'R2',
+        activity_score: 59.9,
+        tier_change: 0,
+        score_change: 40.5,
+      },
+      {
+        player_id: PLAYER.shane,
+        name: 'Shane',
+        period_start: ago(60 * 24 * 3),
+        previous_period_start: ago(60 * 24 * 17),
+        tier: null,
+        previous_tier: null,
+        activity_score: 96.2,
+        tier_change: null,
+        score_change: 4.1,
+      },
+    ],
   ],
 
   // Which alliance is ours, for the nav tab that links straight to it.

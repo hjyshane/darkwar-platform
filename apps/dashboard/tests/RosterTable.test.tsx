@@ -11,6 +11,7 @@ const NOW = new Date('2026-07-28T12:00:00Z');
 
 const rows: RosterRow[] = [
   {
+    member_rank: 4,
     player_id: 'p1',
     current_name: 'SyntheticPlayer01',
     hq_level: 21,
@@ -33,6 +34,7 @@ const rows: RosterRow[] = [
     growth_7d_at: '2026-07-21T09:00:00Z',
   },
   {
+    member_rank: null,
     player_id: 'p2',
     current_name: null,
     hq_level: null,
@@ -138,4 +140,27 @@ test('growth carries its sign and its direction, and unknown carries neither', (
   expect(
     document.querySelectorAll('td[title="No earlier snapshot to compare against"]').length,
   ).toBe(2);
+});
+
+// Grouping by the GAME's rank (R5 leader down to R1), which is what the alliance
+// runs on — not `assigned_rank`, which an admin types and which is null for most of
+// the roster.
+test('members are grouped by game rank, highest first', () => {
+  renderWithQuery(<RosterTable columns={[]} now={NOW} rows={rows} />);
+  const headings = screen.getAllByRole('columnheader', { name: /R[1-5]|Rank not read/ });
+  const labels = headings.map((cell) => cell.textContent ?? '');
+  // p1 is R4 and p2 has no rank read, so both groups exist and the ranked one leads.
+  expect(labels[0]).toContain('R4');
+  expect(labels.at(-1)).toContain('Rank not read');
+});
+
+// A member whose rank nobody has read is kept, in a group of their own. Dropping
+// them would lose a member from a roster; lumping them into R1 would assert a rank
+// nobody observed. This is what a logged-out reader sees for everybody.
+test('an unread rank is its own group rather than a guess', () => {
+  renderWithQuery(<RosterTable columns={[]} now={NOW} rows={rows} />);
+  const heading = screen.getByRole('columnheader', { name: /Rank not read/ });
+  expect(heading).toBeTruthy();
+  // And the member is still counted rather than dropped from the roster.
+  expect(heading.textContent).toContain('1 member');
 });
