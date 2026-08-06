@@ -1815,3 +1815,36 @@ form select {
 .notice-dialog h3 {
   margin-top: 0;
 }
+
+/* --- the markup subset --------------------------------------------------- */
+
+/* pre-line, so a single newline inside a paragraph shows as a line break. The
+ * parser keeps those newlines because people writing a notice use them to mean
+ * newlines; collapsing them the way markdown does would reflow every notice
+ * written before this existed. */
+.rich-text {
+  white-space: pre-line;
+}
+
+.rich-text > :first-child {
+  margin-top: 0;
+}
+
+.rich-text > :last-child {
+  margin-bottom: 0;
+}
+
+/* Lists are the one place pre-line hurts: the newline after `- a` would render
+ * as a blank line inside the item. */
+.rich-text ul {
+  margin: var(--space-2) 0;
+  padding-left: var(--space-6);
+  white-space: normal;
+}
+
+.rich-text code {
+  background: var(--neutral-bg);
+  border-radius: var(--radius-sm);
+  font-size: 0.9em;
+  padding: 0 0.25em;
+}

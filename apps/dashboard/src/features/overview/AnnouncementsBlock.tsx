@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
+import { RichText } from '../../components/RichText';
 import { supabase } from '../../lib/supabase';
 
 /** Notices an admin wrote, on the screen everyone lands on.
@@ -107,12 +108,14 @@ function NoticeDialog({ notice, onClose }: { notice: Announcement; onClose: () =
         Posted {day.format(new Date(notice.created_at))} UTC
         {windowLabel(notice) && ` · ${windowLabel(notice)}`}
       </p>
-      {/* Plain text, deliberately. The body is whatever an admin typed and
-          rendering it as markup would make the notice board the one place in this
-          app where a person can inject HTML into everyone else's page. pre-wrap
-          keeps their line breaks. */}
+      {/* A small markup subset — bold, italic, code, links, bullets, headings —
+          parsed into React elements by `lib/richText`. Never HTML: nothing hands
+          the body to the DOM as markup, so a `<script>` an author types renders
+          as those characters rather than being stripped by a sanitizer that has
+          to stay ahead of every trick. Link hrefs are allowlisted to http(s).
+          Emoji were always fine; they are just characters. */}
       {notice.body.trim() !== '' ? (
-        <p className="notice-body">{notice.body}</p>
+        <RichText body={notice.body} />
       ) : (
         <p className="empty">This notice has no body — the title is all of it.</p>
       )}
