@@ -1533,3 +1533,148 @@ form select {
   font: inherit;
   padding: var(--space-2) var(--space-3);
 }
+
+/* --- charts -------------------------------------------------------------- */
+
+/* Six hues, defined once and referenced by SLOT, so a series carries an index
+ * and the palette stays a styling decision. Each slot sets only `color`; the
+ * line maps that to its stroke and the dot to its fill, which keeps one rule
+ * per hue instead of one per hue per shape.
+ *
+ * Chosen to hold up on both backgrounds and to stay separable in the two common
+ * forms of colour blindness — and the chart still never leans on colour alone:
+ * the readout names every series in text beside its figure. */
+:root {
+  --chart-1: #1d4ed8;
+  --chart-2: #b91c1c;
+  --chart-3: #047857;
+  --chart-4: #a16207;
+  --chart-5: #7e22ce;
+  --chart-6: #0e7490;
+  --chart-grid: #e2e8f0;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --chart-1: #60a5fa;
+    --chart-2: #f87171;
+    --chart-3: #34d399;
+    --chart-4: #fbbf24;
+    --chart-5: #c084fc;
+    --chart-6: #22d3ee;
+    --chart-grid: #334155;
+  }
+}
+
+.chart {
+  margin: 0 0 var(--space-6);
+}
+
+/* height:auto against the viewBox's ratio, so the plot scales down on a phone
+ * without the labels stretching with it. */
+.chart-svg {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  display: block;
+  height: auto;
+  width: 100%;
+}
+
+.chart-svg:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.chart-grid {
+  stroke: var(--chart-grid);
+  stroke-width: 1;
+}
+
+.chart-crosshair {
+  stroke: var(--border-strong);
+  stroke-dasharray: 3 3;
+  stroke-width: 1;
+}
+
+.chart-axis {
+  fill: var(--fg-muted);
+  font-size: 11px;
+}
+
+.chart-line {
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.75;
+}
+
+/* Ours among a field of strangers. Width as well as hue, so it is still the
+ * emphasised line in a greyscale printout. */
+.chart-emphasis {
+  stroke-width: 3.25;
+}
+
+.chart-dot {
+  fill: currentcolor;
+  stroke: var(--bg-raised);
+  stroke-width: 1;
+}
+
+.chart-slot-0 {
+  color: var(--chart-1);
+}
+
+.chart-slot-1 {
+  color: var(--chart-2);
+}
+
+.chart-slot-2 {
+  color: var(--chart-3);
+}
+
+.chart-slot-3 {
+  color: var(--chart-4);
+}
+
+.chart-slot-4 {
+  color: var(--chart-5);
+}
+
+.chart-slot-5 {
+  color: var(--chart-6);
+}
+
+.chart figcaption {
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+  margin-top: var(--space-2);
+  min-height: 1.5em;
+}
+
+.chart-readout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+/* The legend is text, not a swatch: the name sits next to the figure, so the
+ * colour is a way of FINDING the line and never the only way of telling two
+ * apart. Nothing extra needed here — the slot classes already carry `color`. */
+.chart-readout strong {
+  color: var(--fg);
+}
+
+/* The scrubber. Full width and directly under the plot so the thumb lines up
+ * with roughly the reading it selects — roughly, because the steps are readings
+ * and the axis is time, and the captures are not evenly spaced. */
+.chart-scrub {
+  display: block;
+  margin-top: var(--space-1);
+}
+
+.chart-scrub input {
+  display: block;
+  width: 100%;
+}

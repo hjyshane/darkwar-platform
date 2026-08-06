@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import { formatAge } from '../../lib/freshness';
 import {
   type HistoryRow,
@@ -46,6 +47,11 @@ async function fetchHistory(playerId: string): Promise<HistoryRow[]> {
   return (data ?? []) as HistoryRow[];
 }
 
+/** How many changes the section shows before it needs asking. Enough to see a
+ * trend over a day or two of captures, short enough that the section below it
+ * is still reachable. */
+const COLLAPSED_ROWS = 10;
+
 const plain = new Intl.NumberFormat('ko-KR');
 
 function num(value: number | null): string {
@@ -62,6 +68,9 @@ function signed(value: number | null): string {
 
 export function MemberHistory({ playerId, now }: { playerId: string; now?: Date }) {
   const current = now ?? new Date();
+  // Before the early returns: a hook cannot be called conditionally, and the
+  // three empty cases below all return before the table exists.
+  const [expanded, setExpanded] = useState(false);
   const { data: session } = useSession();
   const { data, error, isPending } = useQuery({
     queryKey: ['member-history', playerId],
@@ -100,7 +109,14 @@ export function MemberHistory({ playerId, now }: { playerId: string; now?: Date 
 
   // Newest first for reading; the collapse ran forwards.
   const kept = collapseHistory(rows);
-  const display = [...kept].reverse();
+  const ordered = [...kept].reverse();
+  // Collapsed to the newest few by default. The collector runs continuously,
+  // so this list only grows — a member captured every half hour accumulates
+  // changes indefinitely, and a page whose last section is a thousand rows
+  // long buries everything under it. The recent ones answer "what happened
+  // lately"; the rest is an archive somebody asks for.
+  const display = expanded ? ordered : ordered.slice(0, COLLAPSED_ROWS);
+  const hidden = ordered.length - display.length;
 
   return (
     <>
@@ -167,6 +183,16 @@ export function MemberHistory({ playerId, now }: { playerId: string; now?: Date 
           </tbody>
         </table>
       </div>
+      {/* Only when there is something folded away. A button that says "show 0
+          more" is worse than no button — the count is the whole reason to
+          press it. */}
+      {(hidden > 0 || expanded) && (
+        <button aria-expanded={expanded} onClick={() => setExpanded(!expanded)} type="button">
+          {expanded
+            ? `Show only the latest ${COLLAPSED_ROWS}`
+            : `Show ${hidden} older change${hidden === 1 ? '' : 's'}`}
+        </button>
+      )}
     </>
   );
 }

@@ -93,6 +93,25 @@ export function percent(value: number | null | undefined): string | null {
   return `${value > 0 ? '+' : ''}${value.toFixed(1)}%`;
 }
 
+/** Which way a growth figure went, for StatTile's `tone`.
+ *
+ * Separate from `percent` because the two disagree about zero on purpose: the
+ * text formats it as "0.0%" — a real reading — while the tone leaves it the
+ * ordinary colour. Flat is the absence of a direction, not a third one.
+ *
+ * Undefined for a figure we never measured, so an unobserved tile is not
+ * quietly coloured the same as a flat one.
+ */
+export function growthTone(value: number | null | undefined): 'up' | 'down' | 'flat' | undefined {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+  if (value > 0) {
+    return 'up';
+  }
+  return value < 0 ? 'down' : 'flat';
+}
+
 /** What the growth figure is measured AGAINST.
  *
  * Without it the number is unreadable: "+3.4%" since when? The anchor is a

@@ -2472,6 +2472,43 @@ export type Database = {
           },
         ]
       }
+      alliance_growth: {
+        Row: {
+          alliance_id: string | null
+          code: string | null
+          first_at: string | null
+          is_own: boolean | null
+          last_at: string | null
+          member_count: number | null
+          name: string | null
+          power_first: number | null
+          power_growth: number | null
+          power_growth_pct: number | null
+          power_last: number | null
+          rank_climb: number | null
+          rank_first: number | null
+          rank_last: number | null
+          readings: number | null
+          server_id: number | null
+          span_days: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alliance_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "alliances_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+        ]
+      }
       alliance_latest: {
         Row: {
           alliance_id: string | null
@@ -2499,6 +2536,63 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "servers"
             referencedColumns: ["server_id"]
+          },
+        ]
+      }
+      alliance_power_history: {
+        Row: {
+          alliance_id: string | null
+          captured_at: string | null
+          code: string | null
+          is_own: boolean | null
+          member_count: number | null
+          name: string | null
+          power: number | null
+          rank: number | null
+          server_id: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alliance_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "alliance_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+        ]
+      }
+      alliance_roster_history: {
+        Row: {
+          alliance_id: string | null
+          avg_hq_level: number | null
+          avg_power: number | null
+          captured_at: string | null
+          expected_members: number | null
+          max_hq_level: number | null
+          max_power: number | null
+          median_power: number | null
+          members_at_hq35: number | null
+          observed_members: number | null
+          officers: number | null
+          presence_unknown: number | null
+          snapshot_complete: boolean | null
+          total_kills: number | null
+          total_power: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alliance_member_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
           },
         ]
       }
@@ -2632,6 +2726,54 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "players"
             referencedColumns: ["player_id"]
+          },
+        ]
+      }
+      player_power_history: {
+        Row: {
+          captured_at: string | null
+          hq_level: number | null
+          kills: number | null
+          player_id: string | null
+          power: number | null
+          rank: number | null
+          server_id: number | null
+          source_command: string | null
+        }
+        Insert: {
+          captured_at?: string | null
+          hq_level?: number | null
+          kills?: number | null
+          player_id?: string | null
+          power?: number | null
+          rank?: number | null
+          server_id?: number | null
+          source_command?: string | null
+        }
+        Update: {
+          captured_at?: string | null
+          hq_level?: number | null
+          kills?: number | null
+          player_id?: string | null
+          power?: number | null
+          rank?: number | null
+          server_id?: number | null
+          source_command?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_snapshots_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "player_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
           },
         ]
       }

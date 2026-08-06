@@ -1,6 +1,11 @@
 import { describe, expect, test } from 'vitest';
 import type { ArenaBoardRecord, ArenaEntryRecord } from '../src/features/player/playerArena';
-import { growthNote, newestPerLeague, percent } from '../src/features/player/playerArena';
+import {
+  growthNote,
+  growthTone,
+  newestPerLeague,
+  percent,
+} from '../src/features/player/playerArena';
 
 function entry(over: Partial<ArenaEntryRecord> & Pick<ArenaEntryRecord, 'snapshot_id'>) {
   return {
@@ -133,5 +138,19 @@ describe('growth figures', () => {
   test('the note names the day the figure is measured against', () => {
     expect(growthNote('2026-07-29T02:05:00Z')).toBe('since 2026-07-29');
     expect(growthNote(null)).toBeUndefined();
+  });
+
+  test('up is green, down is red', () => {
+    expect(growthTone(3.42)).toBe('up');
+    expect(growthTone(-1.05)).toBe('down');
+  });
+
+  // The one place tone and text deliberately disagree. `percent` prints 0 as a
+  // real reading, and it is; but no change is the absence of a direction, not a
+  // third one, so the tile keeps the ordinary colour.
+  test('flat gets no colour, and unmeasured gets no tone at all', () => {
+    expect(growthTone(0)).toBe('flat');
+    expect(growthTone(null)).toBeUndefined();
+    expect(growthTone(undefined)).toBeUndefined();
   });
 });
