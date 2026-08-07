@@ -69,6 +69,10 @@ export function RankReportSetting() {
   const queryClient = useQueryClient();
   const [message, setMessage] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
+  // Whether this rebuild also clears hand-set R1-R3 ranks. Component state, not a
+  // stored setting: it deletes something a person typed, so it should be a
+  // decision made at the moment the button is pressed.
+  const [applyToAssigned, setApplyToAssigned] = useState(false);
 
   // The period now in progress, and the newest one with a complete fortnight
   // behind it. That second one is the default to report on.
@@ -103,8 +107,12 @@ export function RankReportSetting() {
 
   const build = useMutation({
     mutationFn: async (periodStart: Date) => {
-      const { error } = await supabase.rpc('build_rank_period', {
+      // `rebuild_rank_period`, not `build_rank_period` (0090). The wrapper is
+      // the one allowed to touch `player_ranks`, and it only does so when the
+      // box below is ticked and the caller may manage members.
+      const { error } = await supabase.rpc('rebuild_rank_period', {
         p_period_start: periodStart.toISOString(),
+        p_apply_to_assigned: applyToAssigned,
       });
       if (error) {
         throw new Error(error.message);
@@ -112,7 +120,11 @@ export function RankReportSetting() {
     },
     onSuccess: () => {
       setFailed(false);
-      setMessage('Worked out from the captures inside the period.');
+      setMessage(
+        applyToAssigned
+          ? 'Worked out from the captures inside the period, and applied to R1-R3.'
+          : 'Worked out from the captures inside the period. Hand-set ranks left alone.',
+      );
       // EVERYTHING, not just this screen's own query. A rebuild changes the rank
       // and the score on the members table (`roster`), the movement highlights
       // (`rank-movement`) and every player page — and invalidating only
@@ -206,6 +218,25 @@ export function RankReportSetting() {
         <button disabled={build.isPending} onClick={() => build.mutate(closed)} type="button">
           {now.length === 0 ? 'Work out this period' : 'Rebuild'}
         </button>
+        {/* Off by default, and deliberately not remembered between visits.
+            Ticking it DELETES the hand-set rank of everyone the period could
+            grade, and there is no undo on this screen — so it has to be a thing
+            somebody chose this time, not a setting they turned on in June. */}
+        <label className="row">
+          <input
+            checked={applyToAssigned}
+            onChange={(event) => setApplyToAssigned(event.target.checked)}
+            type="checkbox"
+          />
+          <span>
+            Overwrite hand-set R1–R3
+            <br />
+            <span className="subtle">
+              Clears the override so the computed rank shows. R4 and R5 are never touched, and
+              nobody the period could not grade is cleared.
+            </span>
+          </span>
+        </label>
         {now.length > 0 && (
           <span className="subtle">
             {Object.entries(counts)

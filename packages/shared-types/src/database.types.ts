@@ -3166,6 +3166,10 @@ export type Database = {
         Args: { period_start: string }
         Returns: string[]
       }
+      rebuild_rank_period: {
+        Args: { p_apply_to_assigned?: boolean; p_period_start: string }
+        Returns: number
+      }
       redeem_join_code: {
         Args: { p_code: string }
         Returns: Database["public"]["Enums"]["app_role"]
