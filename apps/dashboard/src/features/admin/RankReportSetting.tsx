@@ -113,7 +113,16 @@ export function RankReportSetting() {
     onSuccess: () => {
       setFailed(false);
       setMessage('Worked out from the captures inside the period.');
-      void queryClient.invalidateQueries({ queryKey: ['rank-report'] });
+      // EVERYTHING, not just this screen's own query. A rebuild changes the rank
+      // and the score on the members table (`roster`), the movement highlights
+      // (`rank-movement`) and every player page — and invalidating only
+      // `rank-report` left all of those showing the previous answer until a
+      // reload, which reads as "Rebuild did nothing".
+      //
+      // Coarse on purpose. A rebuild is a rare, deliberate act, and listing the
+      // keys that depend on a rank is a list that goes stale the next time
+      // somebody adds a screen that reads one.
+      void queryClient.invalidateQueries();
     },
     onError: (error: Error) => {
       setFailed(true);

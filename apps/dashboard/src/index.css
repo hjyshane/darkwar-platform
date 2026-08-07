@@ -343,7 +343,16 @@ main > * {
   .table-wrap {
     max-height: calc(100dvh - 15rem);
     overflow: auto;
-    overscroll-behavior: contain;
+    /* Y is deliberately NOT contained. `overscroll-behavior: contain` used to
+     * apply to both axes, which meant reaching the bottom of the table stopped
+     * the wheel dead: the page underneath never took over, so the table and the
+     * page felt like two scrolls that had to be driven separately. Chaining is
+     * the behaviour every other long page has.
+     *
+     * X stays contained (from the base rule) because there the containment is
+     * doing real work — a sideways flick that escaped the table would trigger
+     * the browser's back gesture. */
+    overscroll-behavior-y: auto;
   }
 
   .table-wrap thead th {
