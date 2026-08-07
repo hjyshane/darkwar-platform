@@ -52,7 +52,7 @@ function Row({
         {day.format(new Date(post.liveAt ?? post.createdAt))}
       </td>
       {/* A plain date, not a FreshnessBadge. The badge exists to say whether
-          OBSERVED data is current, and it says "(stale)" once a reading is old —
+          OBSERVED data is current, and it colours itself once a reading is old —
           which beside an edit date reads as though the guide itself had gone off,
           when all it means is that nobody has had to change it. */}
       <td title={post.updatedAt}>
