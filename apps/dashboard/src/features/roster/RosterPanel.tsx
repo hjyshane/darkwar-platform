@@ -282,7 +282,25 @@ export async function fetchRoster(): Promise<RosterRow[]> {
     throw new Error(`rank query failed: ${rankError.message}`);
   }
 
+  // What people are paying for, for officers and admins. A member's request is
+  // filtered to zero rows by RLS (0092) rather than refused, so this is not an
+  // error path — an empty answer IS the answer for most readers, and the table
+  // leaves the columns out when it gets one.
+  const { data: subscriptions, error: subscriptionError } = await supabase
+    .from('player_subscriptions')
+    .select('player_id, month_card_expires_at, vip_level, vip_expires_at, svip_level')
+    .in(
+      'player_id',
+      members.map((player) => player.player_id),
+    );
+  // 42501 is a signed-out reader, who has no grant at all. Also not fatal: the
+  // roster is the point of the screen and this is a detail on it.
+  if (subscriptionError && subscriptionError.code !== '42501') {
+    throw new Error(`subscription query failed: ${subscriptionError.message}`);
+  }
+
   const byPlayer = new Map(contributions.map((row) => [row.player_id, row]));
+  const subscriptionByPlayer = new Map((subscriptions ?? []).map((row) => [row.player_id, row]));
   const rankByPlayer = new Map((ranks ?? []).map((row) => [row.player_id, row]));
   const growthByPlayer = new Map(growth.map((row) => [row.player_id, row]));
   const recentByPlayer = new Map((recent ?? []).map((row) => [row.player_id, row]));
@@ -317,6 +335,11 @@ export async function fetchRoster(): Promise<RosterRow[]> {
       recentByPlayer.get(player.player_id)?.power_prev_at ??
       null,
     growth_7d_at: growthByPlayer.get(player.player_id)?.power_7d_at ?? null,
+    month_card_expires_at:
+      subscriptionByPlayer.get(player.player_id)?.month_card_expires_at ?? null,
+    vip_level: subscriptionByPlayer.get(player.player_id)?.vip_level ?? null,
+    vip_expires_at: subscriptionByPlayer.get(player.player_id)?.vip_expires_at ?? null,
+    svip_level: subscriptionByPlayer.get(player.player_id)?.svip_level ?? null,
     ...lastOnline(presenceByPlayer.get(player.player_id)),
   }));
 }

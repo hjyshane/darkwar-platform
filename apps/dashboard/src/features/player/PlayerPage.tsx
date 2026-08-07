@@ -48,6 +48,15 @@ import {
  * renamed has nothing else to go on.
  */
 interface PlayerDetail {
+  /** What they are paying for — null for every reader below officer, because the
+   * row was filtered away rather than the query refused (0092). Null means "not
+   * for you"; the fields inside it mean "we looked". */
+  subscription: {
+    month_card_expires_at: string | null;
+    vip_level: number | null;
+    vip_expires_at: string | null;
+    svip_level: number | null;
+  } | null;
   playerId: string;
   gameUid: number;
   name: string | null;
@@ -139,60 +148,78 @@ async function fetchPlayer(playerId: string): Promise<PlayerDetail | null> {
     return null;
   }
 
-  const [alliance, presence, contributions, component, names, rank, growth, recent, arena] =
-    await Promise.all([
-      player.current_alliance_id
-        ? supabase
-            .from('alliances')
-            .select('alliance_id, current_name, current_code, is_own')
-            .eq('alliance_id', player.current_alliance_id)
-            .maybeSingle()
-        : Promise.resolve({ data: null, error: null }),
-      supabase
-        .from('player_presence')
-        .select('online_state, offline_since, observed_at')
-        .eq('player_id', playerId)
-        .maybeSingle(),
-      supabase
-        .from('player_contributions')
-        .select(
-          'daily_donation_score, weekly_donation_score, duel_daily_score, duel_weekly_score, duel_round_score',
-        )
-        .eq('player_id', playerId)
-        .maybeSingle(),
-      supabase
-        .from('player_component_power_snapshots')
-        .select('metric, power, rank, captured_at')
-        .eq('player_id', playerId)
-        .order('captured_at', { ascending: false }),
-      supabase
-        .from('player_names')
-        .select('name, last_seen_at')
-        .eq('player_id', playerId)
-        .order('last_seen_at', { ascending: false }),
-      // Member-only, and a logged-out reader must still get the rest of the
-      // page. The roster treats 42501 the same way, for the same reason.
-      supabase
-        .from('player_current_rank')
-        .select('assigned_rank, computed_tier, rank_score')
-        .eq('player_id', playerId)
-        .maybeSingle(),
-      supabase
-        .from('player_power_growth')
-        .select('growth_1d, growth_7d, power_1d_at, power_7d_at')
-        .eq('player_id', playerId)
-        .maybeSingle(),
-      // The fallback the fixed baselines cannot provide (0069). Fetched for
-      // everyone rather than only when the others are null: it is one row,
-      // and branching the query on the result of another query would make
-      // this page two round trips deep for no benefit.
-      supabase
-        .from('player_growth_recent')
-        .select('growth_since_last, power_prev, power_prev_at, power_at')
-        .eq('player_id', playerId)
-        .maybeSingle(),
-      fetchPlayerArena(playerId),
-    ]);
+  const [
+    alliance,
+    presence,
+    contributions,
+    component,
+    names,
+    rank,
+    growth,
+    recent,
+    subscription,
+    arena,
+  ] = await Promise.all([
+    player.current_alliance_id
+      ? supabase
+          .from('alliances')
+          .select('alliance_id, current_name, current_code, is_own')
+          .eq('alliance_id', player.current_alliance_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    supabase
+      .from('player_presence')
+      .select('online_state, offline_since, observed_at')
+      .eq('player_id', playerId)
+      .maybeSingle(),
+    supabase
+      .from('player_contributions')
+      .select(
+        'daily_donation_score, weekly_donation_score, duel_daily_score, duel_weekly_score, duel_round_score',
+      )
+      .eq('player_id', playerId)
+      .maybeSingle(),
+    supabase
+      .from('player_component_power_snapshots')
+      .select('metric, power, rank, captured_at')
+      .eq('player_id', playerId)
+      .order('captured_at', { ascending: false }),
+    supabase
+      .from('player_names')
+      .select('name, last_seen_at')
+      .eq('player_id', playerId)
+      .order('last_seen_at', { ascending: false }),
+    // Member-only, and a logged-out reader must still get the rest of the
+    // page. The roster treats 42501 the same way, for the same reason.
+    supabase
+      .from('player_current_rank')
+      .select('assigned_rank, computed_tier, rank_score')
+      .eq('player_id', playerId)
+      .maybeSingle(),
+    supabase
+      .from('player_power_growth')
+      .select('growth_1d, growth_7d, power_1d_at, power_7d_at')
+      .eq('player_id', playerId)
+      .maybeSingle(),
+    // The fallback the fixed baselines cannot provide (0069). Fetched for
+    // everyone rather than only when the others are null: it is one row,
+    // and branching the query on the result of another query would make
+    // this page two round trips deep for no benefit.
+    supabase
+      .from('player_growth_recent')
+      .select('growth_since_last, power_prev, power_prev_at, power_at')
+      .eq('player_id', playerId)
+      .maybeSingle(),
+    // Officer and above. A member's request comes back with no row rather than
+    // an error (0092), so this needs no special handling — `subscription.data`
+    // is simply null for them and the tiles below never render.
+    supabase
+      .from('player_subscriptions')
+      .select('month_card_expires_at, vip_level, vip_expires_at, svip_level')
+      .eq('player_id', playerId)
+      .maybeSingle(),
+    fetchPlayerArena(playerId),
+  ]);
 
   // One row per board, newest first — keep the first sighting of each.
   const seen = new Set<string>();
@@ -201,6 +228,10 @@ async function fetchPlayer(playerId: string): Promise<PlayerDetail | null> {
     .map((row) => ({ metric: row.metric, power: row.power, rank: row.rank }));
 
   return {
+    // Null for every reader below officer, because the row was filtered away
+    // rather than the query refused (0092). The tiles are absent rather than
+    // dashed: a dash would say "no pass", which is a different claim.
+    subscription: subscription.data ?? null,
     playerId: player.player_id,
     gameUid: player.game_uid,
     name: player.current_name,
@@ -379,6 +410,43 @@ export function PlayerPage({ playerId, now }: { playerId: string; now?: Date }) 
                 cases applies rather than leaving a bare table. */}
             <MemberHistory now={now} playerId={data.playerId} />
           </section>
+
+          {data.subscription !== null && (
+            <section aria-labelledby="player-subscriptions">
+              <h2 id="player-subscriptions">Subscriptions</h2>
+              {/* Officers and admins only, and the section is simply not here for
+                  anybody else — the query returned them no row. The game reports
+                  the monthly pass and the VIP ladder and nothing else about
+                  spending; there is no weekly card or battle pass field to show. */}
+              <div className="stats">
+                <StatTile
+                  label="Monthly pass"
+                  note={
+                    data.subscription.month_card_expires_at === null
+                      ? undefined
+                      : `until ${data.subscription.month_card_expires_at.slice(0, 10)}`
+                  }
+                  value={data.subscription.month_card_expires_at === null ? 'None' : 'Active'}
+                />
+                <StatTile
+                  label="VIP"
+                  note={
+                    data.subscription.vip_expires_at === null
+                      ? undefined
+                      : `until ${data.subscription.vip_expires_at.slice(0, 10)}`
+                  }
+                  value={
+                    data.subscription.vip_level === null ? null : `${data.subscription.vip_level}`
+                  }
+                />
+                {/* Only when they have one. A separate ladder, so an absent SVIP
+                    is not an SVIP of 0. */}
+                {data.subscription.svip_level ? (
+                  <StatTile label="SVIP" value={`${data.subscription.svip_level}`} />
+                ) : null}
+              </div>
+            </section>
+          )}
 
           {(data.rank !== null || data.growth !== null) && (
             <section aria-labelledby="player-standing">

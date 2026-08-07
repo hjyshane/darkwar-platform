@@ -34,6 +34,10 @@ const rows: RosterRow[] = [
     growth_7d: -1.06,
     growth_1d_at: '2026-07-27T09:00:00Z',
     growth_7d_at: '2026-07-21T09:00:00Z',
+    month_card_expires_at: '2026-08-25T02:00:00Z',
+    vip_level: 9,
+    vip_expires_at: '2026-09-01T00:00:00Z',
+    svip_level: 2,
   },
   {
     member_rank: null,
@@ -57,8 +61,22 @@ const rows: RosterRow[] = [
     online_state: null,
     last_online_at: null,
     last_seen_at: null,
+    month_card_expires_at: null,
+    vip_level: null,
+    vip_expires_at: null,
+    svip_level: null,
   },
 ];
+
+/** Every row with nothing to say about subscriptions — what the database hands a
+ * member, because RLS filtered the rows away rather than refusing the query. */
+const withoutSubscriptions: RosterRow[] = rows.map((row) => ({
+  ...row,
+  month_card_expires_at: null,
+  vip_level: null,
+  vip_expires_at: null,
+  svip_level: null,
+}));
 
 test('renders roster with freshness badge', () => {
   renderWithQuery(<RosterTable rows={rows} now={NOW} />);
@@ -233,4 +251,22 @@ test('a saved width reaches the column, clamped', () => {
   expect(widths).toContain('120px');
   // 4000px would push every other column off the screen; MAX_COLUMN_WIDTH wins.
   expect(widths).toContain(`${MAX_COLUMN_WIDTH}px`);
+});
+
+// 0092. Officers and admins get these two columns; everybody else gets a query
+// that returned no subscription rows at all, and therefore no columns — a column
+// of dashes would say "nobody has a pass" rather than "this is not for you".
+test('subscription columns appear for a reader the database answered', () => {
+  renderWithQuery(<RosterTable columns={[]} now={NOW} rows={rows} />);
+  expect(headerOrder()).toContain('Monthly pass');
+  expect(headerOrder()).toContain('VIP');
+  expect(screen.getByText('2026-08-25')).toBeDefined();
+  // SVIP rides alongside rather than being added in: 9 and S2 are two ladders.
+  expect(screen.getByText('9 · S2')).toBeDefined();
+});
+
+test('and are absent entirely for a reader it did not', () => {
+  renderWithQuery(<RosterTable columns={[]} now={NOW} rows={withoutSubscriptions} />);
+  expect(headerOrder()).not.toContain('Monthly pass');
+  expect(headerOrder()).not.toContain('VIP');
 });
