@@ -10,6 +10,7 @@ import {
   mergedTimes,
   nearestIndex,
   onAxis,
+  readingAt,
   scaleX,
   scaleY,
   thin,
@@ -420,5 +421,57 @@ describe('assignAxes', () => {
   test('nothing to compare is left alone', () => {
     expect(assignAxes([at([5], 'only')]).every((line) => line.axis === undefined)).toBe(true);
     expect(assignAxes([])).toEqual([]);
+  });
+});
+
+// The readout under every chart names every line, always. `readingAt` is what
+// makes that possible without lying about when a value was taken.
+describe('readingAt', () => {
+  const points = [
+    { t: 10, v: 100 },
+    { t: 20, v: null },
+    { t: 30, v: 300 },
+  ];
+
+  test('a reading the cursor is on is exact', () => {
+    expect(readingAt(points, 30)).toEqual({ v: 300, t: 30, exact: true });
+  });
+
+  // The case the whole thing exists for: two boards read on different days, so
+  // most cursor positions sit on one line and beside the other.
+  test('a cursor between readings gets the nearest one, marked', () => {
+    expect(readingAt(points, 12)).toEqual({ v: 100, t: 10, exact: false });
+    expect(readingAt(points, 28)).toEqual({ v: 300, t: 30, exact: false });
+  });
+
+  // A gap is not a reading. Snapping to one would print an unknown as a number,
+  // and the gap at t=20 is nearer to 20 than either real reading is.
+  //
+  // Equidistant, so this also pins the tie-break: the EARLIER reading wins. That
+  // is the defensible half of a tie — at t=20 the earlier value had been observed
+  // and the later one had not happened yet.
+  test('a null is never what nearest lands on', () => {
+    expect(readingAt(points, 20)).toEqual({ v: 100, t: 10, exact: false });
+  });
+
+  test('no cursor reads the most recent value', () => {
+    expect(readingAt(points, null)).toEqual({ v: 300, t: 30, exact: false });
+    // Order in the array must not decide it — series are built from queries.
+    expect(
+      readingAt(
+        [
+          { t: 30, v: 300 },
+          { t: 10, v: 100 },
+        ],
+        null,
+      )?.t,
+    ).toBe(30);
+  });
+
+  // The only dash on screen. A line of nothing but gaps has no nearest anything.
+  test('a series with no observed value at all is null', () => {
+    expect(readingAt([{ t: 1, v: null }], 1)).toBeNull();
+    expect(readingAt([], 1)).toBeNull();
+    expect(readingAt([], null)).toBeNull();
   });
 });

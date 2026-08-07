@@ -9,6 +9,7 @@ import {
   mergedTimes,
   nearestIndex,
   onAxis,
+  readingAt,
   scaleX,
   scaleY,
   ticks,
@@ -263,33 +264,22 @@ export function LineChart({
               />
             );
           })}
-          {/* ONE DOT PER SERIES, at the reading the crosshair is on — not a dot
-              per capture.
+          {/* NO DOTS. Not one per capture, and not one at the cursor either.
 
               A dot per capture drew the SCHEDULE rather than the data: the boards
-              are read whenever somebody opens them, so the dots bunch where the
-              collector was busy and thin out where it was not, and the eye reads
-              that rhythm as something the alliance did. The line already carries
-              every reading; the dot's job is to say which one you are reading off.
+              are read whenever somebody opens them, so the dots bunched where the
+              collector was busy and thinned out where it was not, and the eye read
+              that rhythm as something the alliance had done.
 
-              Nothing is lost by dropping the rest: a gap still breaks the line
-              (linePath), so a missing capture stays visible as a gap rather than as
-              an absent dot. */}
-          {series.map((line) => {
-            const { y, invert } = axisOf(line, range.y);
-            const point = line.points.find(
-              (candidate) => candidate.t === activeTime && candidate.v !== null,
-            );
-            return point === undefined || point.v === null ? null : (
-              <circle
-                key={`${line.name}:active`}
-                className={`chart-dot chart-slot-${line.slot % 6}`}
-                cx={scaleX(point.t, range.x, box)}
-                cy={scaleY(point.v, y, box, invert)}
-                r={4.5}
-              />
-            );
-          })}
+              The single dot at the cursor that replaced them had a subtler version
+              of the same fault — it appeared and vanished as the cursor moved,
+              because only the line captured at that exact moment had a reading
+              there, so the dot flickered between series and looked like the data
+              jumping. The crosshair says where you are and the readout below says
+              what every line reads there, which is the job the dot was doing badly.
+
+              A gap still breaks the line (linePath), so a missing capture stays
+              visible as a gap. */}
         </g>
       </svg>
 
@@ -312,31 +302,45 @@ export function LineChart({
         </label>
       )}
 
+      {/* EVERY LINE, ALWAYS — with or without a cursor.
+       *
+       * This used to print only the lines that had a reading at the cursor's exact
+       * moment, which meant the legend changed length as the cursor moved and
+       * often listed one line out of five. That is the moment you most need to
+       * know which colour is which, and it was the moment the answer disappeared.
+       *
+       * A line with no reading AT the cursor shows its nearest one, marked `≈`
+       * with the moment it was really taken in the title. Not silence, which
+       * hides a line, and not a dash, which claims we looked and found nothing:
+       * the boards are read whenever somebody opens them, so two lines sharing a
+       * moment is the exception rather than the rule. A line with no reading
+       * anywhere is the only dash. */}
       <figcaption>
-        {activeTime === null ? (
-          <span className="subtle">
-            {note ?? 'Hover the chart, or drag the slider, to read a value.'}
-          </span>
-        ) : (
-          <span className="chart-readout">
-            <strong>{formatTime(activeTime)}</strong>
-            {series.map((line) => {
-              const at = line.points.find((point) => point.t === activeTime);
-              // Silent for a series with no reading at this moment, rather than
-              // "—": the alliances here are captured at different times, and a
-              // dash would read as "we looked and they had nothing".
-              if (at === undefined || at.v === null) {
-                return null;
-              }
-              const format = (line.axis ?? 'left') === 'right' ? rightFormat : formatValue;
-              return (
-                <span key={line.name} className={`chart-legend chart-slot-${line.slot % 6}`}>
-                  {line.name} {format(at.v)}
-                </span>
-              );
-            })}
-          </span>
-        )}
+        <span className="chart-readout">
+          <strong>
+            {activeTime === null
+              ? (note ?? 'Latest reading — hover the chart, or drag the slider.')
+              : formatTime(activeTime)}
+          </strong>
+          {series.map((line) => {
+            const reading = readingAt(line.points, activeTime);
+            const format = (line.axis ?? 'left') === 'right' ? rightFormat : formatValue;
+            return (
+              <span key={line.name} className={`chart-legend chart-slot-${line.slot % 6}`}>
+                {line.name}{' '}
+                {reading === null ? (
+                  <span title="Never observed in this range">—</span>
+                ) : reading.exact ? (
+                  format(reading.v)
+                ) : (
+                  <span title={`Nearest reading, taken ${formatTime(reading.t)}`}>
+                    ≈{format(reading.v)}
+                  </span>
+                )}
+              </span>
+            );
+          })}
+        </span>
       </figcaption>
 
       {/* The same numbers as a table, for anything that cannot read an SVG.

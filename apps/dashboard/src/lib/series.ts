@@ -419,6 +419,51 @@ export function nearestIndex(points: readonly Point[], t: number): number | null
   return best;
 }
 
+/** What one line reads at a moment: its value, WHERE that value came from, and
+ * whether the cursor was actually on it.
+ *
+ * `exact: false` is why this returns a shape rather than a number. The series
+ * here are captured at different moments — two alliances read seconds apart, a
+ * hero board read on Tuesday and a pet board on Thursday — so at most cursor
+ * positions only one line has a reading of its own. Showing nothing for the rest
+ * made the legend change length as the cursor moved, which is precisely when you
+ * cannot tell which colour is which; showing a bare value would claim a
+ * measurement nobody took. So it answers with the nearest reading and says that
+ * is what it is, and the caller marks it.
+ */
+export interface Reading {
+  v: number;
+  /** When the value was actually observed. Not the cursor's moment unless
+   * `exact`. */
+  t: number;
+  exact: boolean;
+}
+
+/** One line's reading at a moment, or its most recent one when there is no
+ * cursor.
+ *
+ * Null only when the line has no observed value anywhere — a series of nothing
+ * but gaps, which is a dash on screen rather than a nearest anything.
+ */
+export function readingAt(points: readonly Point[], t: number | null): Reading | null {
+  // A null value is a gap, not a reading, and must never be what "nearest" lands
+  // on: a chart that snapped to one would print an unknown as a number.
+  const observed = points.filter((point): point is { t: number; v: number } => point.v !== null);
+  const first = observed[0];
+  if (first === undefined) {
+    return null;
+  }
+  if (t === null) {
+    // No cursor: the newest reading, which is what somebody glancing at a legend
+    // means by "what is it now".
+    const last = observed.reduce((newest, point) => (point.t > newest.t ? point : newest), first);
+    return { v: last.v, t: last.t, exact: false };
+  }
+  const index = nearestIndex(observed, t);
+  const point = index === null ? undefined : observed[index];
+  return point === undefined ? null : { v: point.v, t: point.t, exact: point.t === t };
+}
+
 /** Every distinct moment across the series, ascending.
  *
  * The chart's hover is indexed on this rather than on one series, because the
