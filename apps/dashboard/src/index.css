@@ -2042,6 +2042,17 @@ form select {
   z-index: 1;
 }
 
+/* And the label inside stays put when the table scrolls SIDEWAYS.
+ * The `th` itself cannot do this: it spans every column, so it is already as wide
+ * as the table and sticking it moves nothing. The text is what has to stay, so the
+ * text is what sticks — otherwise you scroll right to read the duel columns and
+ * lose which rank block you are in, which is the one thing the grouping was for. */
+.group-row th > .group-label {
+  display: inline-block;
+  left: var(--space-3);
+  position: sticky;
+}
+
 .rank-movement {
   margin-bottom: var(--space-6);
 }

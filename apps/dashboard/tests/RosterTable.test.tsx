@@ -2,9 +2,11 @@
 // unknown — never as zero. The monthly pass is deliberately ABSENT from
 // this table: it lives on its own unlinked page (see route.ts), and a
 // test below pins that it does not creep back in.
-import { screen } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { render, screen } from '@testing-library/react';
 import { expect, test } from 'vitest';
 import { type RosterRow, RosterTable } from '../src/features/roster/RosterTable';
+import { MAX_COLUMN_WIDTH, type TableLayouts } from '../src/lib/tableLayout';
 import { renderWithQuery } from './renderWithQuery';
 
 const NOW = new Date('2026-07-28T12:00:00Z');
@@ -163,4 +165,72 @@ test('an unread rank is its own group rather than a guess', () => {
   expect(heading).toBeTruthy();
   // And the member is still counted rather than dropped from the roster.
   expect(heading.textContent).toContain('1 member');
+});
+
+// The group label sits in its own element so it can stay put while the table
+// scrolls sideways (`.group-label`). Sticking the cell would do nothing — it spans
+// every column, so it is already as wide as the table.
+test('the rank heading label is its own stickable element', () => {
+  renderWithQuery(<RosterTable columns={[]} now={NOW} rows={rows} />);
+  const label = document.querySelector('.group-row th > .group-label');
+  expect(label).not.toBeNull();
+  expect(label?.textContent).toContain('R4');
+});
+
+/** Render with a saved arrangement already in the cache.
+ *
+ * The table reads the arrangement through react-query rather than a prop, so this
+ * seeds the same cache key the hook reads. Going through the cache rather than
+ * stubbing the hook is the point: it proves the wiring, not just `arrangeColumns`,
+ * which has its own tests.
+ */
+function renderArranged(layout: TableLayouts) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+  client.setQueryData(['table-layout'], layout);
+  return render(
+    <QueryClientProvider client={client}>
+      <RosterTable columns={[]} now={NOW} rows={rows} />
+    </QueryClientProvider>,
+  );
+}
+
+/** The header labels, without the sort affordance the header draws after them. */
+function headerOrder(): string[] {
+  return Array.from(document.querySelectorAll('thead th')).map((cell) =>
+    (cell.textContent ?? '').replace(/[↕↑↓▲▼]/g, '').trim(),
+  );
+}
+
+test('a saved order puts the columns where an admin put them', () => {
+  renderArranged({ members: { order: ['kills', 'power'] } });
+  const order = headerOrder();
+  expect(order.indexOf('Kills')).toBeLessThan(order.indexOf('Power'));
+  // And what the saved order never mentioned is still here, in its declared place —
+  // the failure this shape exists to avoid is a stored list swallowing every column
+  // added after it was saved.
+  expect(order).toContain('HQ');
+});
+
+test('a hidden column leaves the table', () => {
+  renderArranged({ members: { hidden: ['kills'] } });
+  expect(headerOrder()).not.toContain('Kills');
+  expect(headerOrder()).toContain('Power');
+});
+
+test('the name column is shown even when the setting says to hide it', () => {
+  // Not a hypothetical: `hidden` is free text in a JSON settings row. Hiding the
+  // name leaves a grid of figures belonging to nobody, so the table refuses rather
+  // than the form.
+  renderArranged({ members: { hidden: ['name'] } });
+  expect(screen.getByText('SyntheticPlayer01')).toBeDefined();
+});
+
+test('a saved width reaches the column, clamped', () => {
+  renderArranged({ members: { width: { power: 4000, kills: 120 } } });
+  const widths = Array.from(document.querySelectorAll('colgroup col')).map(
+    (col) => (col as HTMLElement).style.width,
+  );
+  expect(widths).toContain('120px');
+  // 4000px would push every other column off the screen; MAX_COLUMN_WIDTH wins.
+  expect(widths).toContain(`${MAX_COLUMN_WIDTH}px`);
 });

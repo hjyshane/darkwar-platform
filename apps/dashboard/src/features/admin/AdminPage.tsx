@@ -17,6 +17,7 @@ import { PermissionsSetting } from './PermissionsSetting';
 import { PetsSetting } from './PetsSetting';
 import { RankReportSetting } from './RankReportSetting';
 import { RankTiersSetting } from './RankTiersSetting';
+import { TableLayoutSetting } from './TableLayoutSetting';
 
 /** Settings an admin can change without a deploy.
  *
@@ -155,6 +156,11 @@ function DisplayGroup() {
           sampleName={sample?.current_name ?? null}
           values={sample === null ? {} : fieldsOf(sample)}
         />
+      </section>
+
+      <section aria-labelledby="table-layout-heading">
+        <h2 id="table-layout-heading">Table columns</h2>
+        <TableLayoutSetting />
       </section>
 
       {/* Notices used to be edited here. Writing one is not configuring the
