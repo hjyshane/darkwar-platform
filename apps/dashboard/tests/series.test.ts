@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 import {
   type Box,
   type Series,
+  assignAxes,
   axisInverted,
   extents,
   forwardFill,
@@ -357,5 +358,67 @@ describe('thin', () => {
     for (const point of thinned) {
       expect(point.t).toBe(point.v);
     }
+  });
+});
+
+describe('assignAxes', () => {
+  const at = (values: number[], name = 'x', slot = 0): Series => ({
+    name,
+    slot,
+    points: values.map((v, index) => ({ t: index, v })),
+  });
+
+  // The case that prompted it: hero power against pet power on one scale put the
+  // pet line in the bottom eighth of the chart, where its shape is unreadable.
+  test('a large gap sends the smaller series to the right axis', () => {
+    const out = assignAxes([at([74_000_000], 'hero'), at([9_900_000], 'pet')]);
+    expect(out.find((line) => line.name === 'hero')?.axis).toBe('left');
+    expect(out.find((line) => line.name === 'pet')?.axis).toBe('right');
+  });
+
+  // Two axes for series of similar size is worse than one: it invites reading a
+  // crossing as meaningful when the two scales are arbitrary.
+  test('similar magnitudes are left on one axis', () => {
+    const out = assignAxes([at([100], 'a'), at([150], 'b'), at([90], 'c')]);
+    expect(out.every((line) => line.axis === undefined)).toBe(true);
+  });
+
+  // Cut at the LARGEST gap rather than a fixed threshold, so the natural grouping
+  // wins: 74M/27M go together and 9.9M/3.2M go together.
+  // The case the first version got wrong: these step down evenly, so no
+  // NEIGHBOURING pair is more than 3x apart while the set spans 23x. Cutting on the
+  // widest adjacent gap left everything on one axis and the bottom lines crawling.
+  test('an evenly stepped set is still split, on total spread', () => {
+    const out = assignAxes([
+      at([74_000_000], 'hero'),
+      at([27_000_000], 'migrate'),
+      at([9_900_000], 'pet'),
+      at([7_500_000], 'bestHero'),
+      at([3_200_000], 'bestPet'),
+    ]);
+    const axisOf = (name: string) => out.find((line) => line.name === name)?.axis;
+    expect(axisOf('hero')).toBe('left');
+    expect(axisOf('migrate')).toBe('left');
+    expect(axisOf('pet')).toBe('right');
+    expect(axisOf('bestHero')).toBe('right');
+    expect(axisOf('bestPet')).toBe('right');
+  });
+
+  // The median, not the max: one spike must not decide where a whole series lives.
+  test('an outlier does not drag a series onto the other axis', () => {
+    const out = assignAxes([at([100, 100, 100, 5_000_000], 'spiky'), at([120, 110], 'steady')]);
+    expect(out.every((line) => line.axis === undefined)).toBe(true);
+  });
+
+  // A series sitting at zero would make every ratio infinite and win the cut
+  // wherever it sat.
+  test('a zero series does not capture the cut', () => {
+    const out = assignAxes([at([100], 'a'), at([90], 'b'), at([0], 'zero')]);
+    expect(out.every((line) => line.axis === undefined)).toBe(true);
+  });
+
+  test('nothing to compare is left alone', () => {
+    expect(assignAxes([at([5], 'only')]).every((line) => line.axis === undefined)).toBe(true);
+    expect(assignAxes([])).toEqual([]);
   });
 });

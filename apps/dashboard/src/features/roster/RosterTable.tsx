@@ -636,9 +636,15 @@ export function RosterTable({
                     it by accident. */}
                 <tr className="group-row">
                   <th colSpan={arranged.length + columns.length} scope="colgroup">
-                    {/* Wrapped so the label can stay put while the table scrolls
-                        sideways — the cell spans everything, so sticking the cell
-                        would achieve nothing (see `.group-label`). */}
+                    {/* The cell spans every column, so it scrolls sideways with the
+                        table and the label leaves the screen. Sticking the LABEL
+                        inside it keeps "R4 · officers" in view while the figures
+                        scroll past — the cell cannot stick, because it is the thing
+                        being scrolled (see `.group-label`).
+
+                        The span counts the ARRANGED columns, not a fixed number: an
+                        admin can hide columns now, and a colSpan that outlived the
+                        columns it counted would stretch the heading past the table. */}
                     <span className="group-label">
                       {group.label}{' '}
                       <span className="subtle">

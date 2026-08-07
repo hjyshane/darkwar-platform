@@ -2046,7 +2046,7 @@ form select {
  * The `th` itself cannot do this: it spans every column, so it is already as wide
  * as the table and sticking it moves nothing. The text is what has to stay, so the
  * text is what sticks — otherwise you scroll right to read the duel columns and
- * lose which rank block you are in, which is the one thing the grouping was for. */
+ * "R4 · officers" leaves the screen, which is the one thing the grouping was for. */
 .group-row th > .group-label {
   display: inline-block;
   left: var(--space-3);
@@ -2088,4 +2088,30 @@ form select {
 .movement-card li {
   font-size: var(--text-sm);
   margin-bottom: var(--space-1);
+}
+
+/* Jump straight to a server's page from the cross-server board. Links rather than
+ * tabs, so they behave like links; laid out as a row that wraps on a phone. */
+.server-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-bottom: var(--space-4);
+}
+
+.server-link {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  padding: var(--space-1) var(--space-3);
+  text-decoration: none;
+}
+
+.server-link:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+  color: var(--fg);
 }

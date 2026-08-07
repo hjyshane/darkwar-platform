@@ -263,23 +263,32 @@ export function LineChart({
               />
             );
           })}
-          {/* A dot per reading only when the series is sparse. On a dense one
-              they merge into a band and stop meaning "here is a capture". */}
+          {/* ONE DOT PER SERIES, at the reading the crosshair is on — not a dot
+              per capture.
+
+              A dot per capture drew the SCHEDULE rather than the data: the boards
+              are read whenever somebody opens them, so the dots bunch where the
+              collector was busy and thin out where it was not, and the eye reads
+              that rhythm as something the alliance did. The line already carries
+              every reading; the dot's job is to say which one you are reading off.
+
+              Nothing is lost by dropping the rest: a gap still breaks the line
+              (linePath), so a missing capture stays visible as a gap rather than as
+              an absent dot. */}
           {series.map((line) => {
             const { y, invert } = axisOf(line, range.y);
-            return line.points.length > 40
-              ? null
-              : line.points.map((point) =>
-                  point.v === null ? null : (
-                    <circle
-                      key={`${line.name}:${point.t}`}
-                      className={`chart-dot chart-slot-${line.slot % 6}`}
-                      cx={scaleX(point.t, range.x, box)}
-                      cy={scaleY(point.v, y, box, invert)}
-                      r={activeTime === point.t ? 4.5 : 2.5}
-                    />
-                  ),
-                );
+            const point = line.points.find(
+              (candidate) => candidate.t === activeTime && candidate.v !== null,
+            );
+            return point === undefined || point.v === null ? null : (
+              <circle
+                key={`${line.name}:active`}
+                className={`chart-dot chart-slot-${line.slot % 6}`}
+                cx={scaleX(point.t, range.x, box)}
+                cy={scaleY(point.v, y, box, invert)}
+                r={4.5}
+              />
+            );
           })}
         </g>
       </svg>
