@@ -6,10 +6,13 @@ export function FreshnessBadge({ capturedAt, now }: { capturedAt: string | null;
   if (state === 'missing' || capturedAt === null) {
     return <span className="badge badge-missing">No data</span>;
   }
+  // The word "(stale)" is gone; the age and the colour stay. "3d ago" already
+  // says it, and the badge still carries `badge-stale`, so the styling and
+  // anything asserting on the class are unaffected — this drops a label, not a
+  // state.
   return (
     <span className={`badge badge-${state}`} title={capturedAt}>
       {formatAge(capturedAt, current)}
-      {state === 'stale' ? ' (stale)' : ''}
     </span>
   );
 }
