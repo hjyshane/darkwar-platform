@@ -1,8 +1,10 @@
+import { useMemo } from 'react';
+import { ArrangedTable, type Column } from '../../components/ArrangedTable';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
-import { SortableTh } from '../../components/SortableTh';
 import { TableSearch } from '../../components/TableSearch';
 import { leagueLabel } from '../../lib/arenaLeague';
 import { playerHash, serverHash } from '../../lib/route';
+import type { ColumnSpec } from '../../lib/tableLayout';
 import { TERMS } from '../../lib/terms';
 import type { LineupHero } from '../../lib/troops';
 import { useTableView } from '../../lib/useTableView';
@@ -57,6 +59,22 @@ const SEARCH_FIELDS = [
   'composition',
 ] as const;
 
+/** This table's key in the shared column arrangement. */
+export const TABLE_ID = 'arena';
+
+/** Identity only, for the settings screen. */
+export function arenaColumnSpecs(): ColumnSpec[] {
+  return [
+    { id: 'rank', label: TERMS.rank },
+    { id: 'name', label: TERMS.name, fixed: true },
+    { id: 'alliance', label: TERMS.alliance },
+    { id: 'server', label: TERMS.server },
+    { id: 'score', label: TERMS.score },
+    { id: 'defense', label: TERMS.defensePower },
+    { id: 'lineup', label: TERMS.lineup },
+  ];
+}
+
 export function ArenaTable({
   header,
   entries,
@@ -73,6 +91,72 @@ export function ArenaTable({
     { key: 'rank', direction: 'asc' },
   );
   const weekLabel = new Date(header.week_start).toISOString().slice(0, 10);
+
+  const columns = useMemo<Column<ArenaEntryRow>[]>(
+    () => [
+      {
+        id: 'rank',
+        label: TERMS.rank,
+        sortKey: 'rank',
+        numeric: true,
+        cell: (entry) => entry.rank,
+      },
+      {
+        id: 'name',
+        label: TERMS.name,
+        sortKey: 'name',
+        className: 'label',
+        fixed: true,
+        // Same rule as the cross-server board: a link only where the entry
+        // resolved to a player row.
+        cell: (entry) =>
+          entry.player_id === null ? (
+            (entry.name ?? `UID ${entry.game_uid}`)
+          ) : (
+            <a href={playerHash(entry.player_id)}>{entry.name ?? `UID ${entry.game_uid}`}</a>
+          ),
+      },
+      {
+        id: 'alliance',
+        label: TERMS.alliance,
+        sortKey: 'alliance_code',
+        // Tag first because that is what people say out loud; the full name is
+        // there for the ones nobody knows by tag. Unallied stays an em dash, like
+        // every other unknown in these tables.
+        cell: (entry) => entry.alliance_code ?? entry.alliance_name ?? '—',
+      },
+      {
+        id: 'server',
+        label: TERMS.server,
+        sortKey: 'server_id',
+        numeric: true,
+        cell: (entry) => <a href={serverHash(entry.server_id)}>{entry.server_id}</a>,
+      },
+      {
+        id: 'score',
+        label: TERMS.score,
+        sortKey: 'score',
+        numeric: true,
+        cell: (entry) => (entry.score === null ? '—' : numberFormat.format(entry.score)),
+      },
+      {
+        id: 'defense',
+        label: TERMS.defensePower,
+        sortKey: 'defense_power',
+        numeric: true,
+        cell: (entry) =>
+          entry.defense_power === null ? '—' : numberFormat.format(entry.defense_power),
+      },
+      {
+        // No sortKey: an ordering over compositions would be invented, and this
+        // column is for scanning and searching.
+        id: 'lineup',
+        label: TERMS.lineup,
+        cell: (entry) => <LineupCell heroes={entry.lineup} />,
+      },
+    ],
+    [],
+  );
   return (
     <>
       <p>
@@ -90,72 +174,14 @@ export function ArenaTable({
         value={query}
       />
       <LineupLegend />
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <SortableTh numeric onSort={onSort} sort={sort} sortKey="rank">
-                {TERMS.rank}
-              </SortableTh>
-              <SortableTh className="label" onSort={onSort} sort={sort} sortKey="name">
-                {TERMS.name}
-              </SortableTh>
-              <SortableTh onSort={onSort} sort={sort} sortKey="alliance_code">
-                {TERMS.alliance}
-              </SortableTh>
-              <SortableTh numeric onSort={onSort} sort={sort} sortKey="server_id">
-                {TERMS.server}
-              </SortableTh>
-              <SortableTh numeric onSort={onSort} sort={sort} sortKey="score">
-                {TERMS.score}
-              </SortableTh>
-              <SortableTh numeric onSort={onSort} sort={sort} sortKey="defense_power">
-                {TERMS.defensePower}
-              </SortableTh>
-              {/* Not sortable: an ordering over compositions would be
-                  invented, and this column is for scanning and searching. */}
-              <th scope="col">{TERMS.lineup}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {view.map((entry) => (
-              <tr key={entry.snapshot_id}>
-                <td className="num">{entry.rank}</td>
-                <td className="label">
-                  {/* Same rule as the cross-server board: a link only where
-                      the entry resolved to a player row. */}
-                  {entry.player_id === null ? (
-                    (entry.name ?? `UID ${entry.game_uid}`)
-                  ) : (
-                    <a href={playerHash(entry.player_id)}>
-                      {entry.name ?? `UID ${entry.game_uid}`}
-                    </a>
-                  )}
-                </td>
-                <td>
-                  {/* Tag first because that is what people say out loud;
-                      the full name is there for the ones nobody knows by
-                      tag. Unallied stays an em dash, like every other
-                      unknown in these tables. */}
-                  {entry.alliance_code ?? entry.alliance_name ?? '—'}
-                </td>
-                <td className="num">
-                  <a href={serverHash(entry.server_id)}>{entry.server_id}</a>
-                </td>
-                <td className="num">
-                  {entry.score === null ? '—' : numberFormat.format(entry.score)}
-                </td>
-                <td className="num">
-                  {entry.defense_power === null ? '—' : numberFormat.format(entry.defense_power)}
-                </td>
-                <td>
-                  <LineupCell heroes={entry.lineup} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <ArrangedTable
+        columns={columns}
+        onSort={onSort}
+        rowKey={(entry) => entry.snapshot_id}
+        rows={view}
+        sort={sort}
+        tableId={TABLE_ID}
+      />
       {view.length === 0 && <p className="empty">No arena entry matches “{query}”.</p>}
     </>
   );

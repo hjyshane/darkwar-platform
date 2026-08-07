@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
+import { ArrangedTable, type Column } from '../../components/ArrangedTable';
 import { FavouriteButton } from '../../components/FavouriteButton';
 import { FavouritesFilter } from '../../components/FavouritesFilter';
-import { SortableTh } from '../../components/SortableTh';
 import { TableSearch } from '../../components/TableSearch';
 import { playerHash } from '../../lib/route';
+import type { ColumnSpec } from '../../lib/tableLayout';
 import { TERMS } from '../../lib/terms';
 import { useFavourites } from '../../lib/useFavourites';
 import { useTableView } from '../../lib/useTableView';
@@ -24,6 +25,23 @@ export interface ServerPlayerRow {
 
 const numberFormat = new Intl.NumberFormat('ko-KR');
 const SEARCH_FIELDS = ['name', 'game_uid'] as const;
+
+/** This table's key in the shared column arrangement. */
+export const TABLE_ID = 'server-players';
+
+/** What the settings screen may see of this table: identity only.
+ *
+ * Written out rather than derived from the list inside the component, because
+ * that list is built by a hook out of the signed-in reader's favourites — the
+ * settings screen has no row to build it from and no business calling `cell`. */
+export function serverPlayerColumnSpecs(): ColumnSpec[] {
+  return [
+    { id: 'rank', label: TERMS.rank },
+    { id: 'name', label: TERMS.name, fixed: true },
+    { id: 'power', label: TERMS.power },
+    { id: 'kills', label: TERMS.kills },
+  ];
+}
 
 function formatNumber(value: number | null): string {
   return value === null ? '—' : numberFormat.format(value);
@@ -49,6 +67,57 @@ export function ServerPlayerTable({
     { key: 'rank', direction: 'asc' },
   );
 
+  // Above the early return: hooks cannot be skipped.
+  const columns = useMemo<Column<ServerPlayerRow>[]>(
+    () => [
+      {
+        id: 'rank',
+        label: TERMS.rank,
+        sortKey: 'rank',
+        numeric: true,
+        cell: (row) => row.rank ?? '—',
+      },
+      {
+        id: 'name',
+        label: TERMS.name,
+        sortKey: 'name',
+        className: 'label',
+        // Pinned left and the only thing telling one row of figures from
+        // another, so it cannot be hidden.
+        fixed: true,
+        cell: (row) => (
+          <>
+            {signedIn && (
+              <FavouriteButton
+                id={row.player_id}
+                isFavourite={isFavourite('player', row.player_id)}
+                kind="player"
+                label={row.name ?? `UID ${row.game_uid}`}
+                onToggle={toggle}
+              />
+            )}
+            <a href={playerHash(row.player_id)}>{row.name ?? `UID ${row.game_uid}`}</a>
+          </>
+        ),
+      },
+      {
+        id: 'power',
+        label: TERMS.power,
+        sortKey: 'power',
+        numeric: true,
+        cell: (row) => formatNumber(row.power),
+      },
+      {
+        id: 'kills',
+        label: TERMS.kills,
+        sortKey: 'kills',
+        numeric: true,
+        cell: (row) => formatNumber(row.kills),
+      },
+    ],
+    [signedIn, isFavourite, toggle],
+  );
+
   if (rows.length === 0) {
     return <p className="empty">No player seen on server {serverId} yet.</p>;
   }
@@ -70,47 +139,14 @@ export function ServerPlayerTable({
           />
         )}
       </TableSearch>
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <SortableTh numeric onSort={onSort} sort={sort} sortKey="rank">
-                {TERMS.rank}
-              </SortableTh>
-              <SortableTh className="label" onSort={onSort} sort={sort} sortKey="name">
-                {TERMS.name}
-              </SortableTh>
-              <SortableTh numeric onSort={onSort} sort={sort} sortKey="power">
-                {TERMS.power}
-              </SortableTh>
-              <SortableTh numeric onSort={onSort} sort={sort} sortKey="kills">
-                {TERMS.kills}
-              </SortableTh>
-            </tr>
-          </thead>
-          <tbody>
-            {view.map((row) => (
-              <tr key={row.snapshot_id}>
-                <td className="num">{row.rank ?? '—'}</td>
-                <td className="label">
-                  {signedIn && (
-                    <FavouriteButton
-                      id={row.player_id}
-                      isFavourite={isFavourite('player', row.player_id)}
-                      kind="player"
-                      label={row.name ?? `UID ${row.game_uid}`}
-                      onToggle={toggle}
-                    />
-                  )}
-                  <a href={playerHash(row.player_id)}>{row.name ?? `UID ${row.game_uid}`}</a>
-                </td>
-                <td className="num">{formatNumber(row.power)}</td>
-                <td className="num">{formatNumber(row.kills)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <ArrangedTable
+        columns={columns}
+        onSort={onSort}
+        rowKey={(row) => row.snapshot_id}
+        rows={view}
+        sort={sort}
+        tableId={TABLE_ID}
+      />
       {view.length === 0 && <p className="empty">No player matches “{query}”.</p>}
     </>
   );

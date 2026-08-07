@@ -3,11 +3,12 @@ import { useState } from 'react';
 import { FavouriteButton } from '../../components/FavouriteButton';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
 import { StatTile } from '../../components/StatTile';
-import { playerHash, serverHash } from '../../lib/route';
+import { serverHash } from '../../lib/route';
 import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
 import { useFavourites } from '../../lib/useFavourites';
 import { AllianceCompare } from './AllianceCompare';
+import { AllianceMemberTable } from './AllianceMemberTable';
 import { AllianceTrends } from './AllianceTrends';
 
 /** One alliance: what the game reports about it, and who we have seen in it.
@@ -334,37 +335,7 @@ export function AlliancePage({ allianceId, now }: { allianceId: string; now?: Da
               there are; the names come from a roster capture.
             </p>
           ) : (
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th className="label">{TERMS.name}</th>
-                    <th className="num">{TERMS.hq}</th>
-                    <th className="num">{TERMS.power}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.members.map((member) => (
-                    <tr key={member.playerId ?? `uid:${member.gameUid}`}>
-                      <td className="label">
-                        {/* No link when the uid never resolved to a player row.
-                          They are in the alliance and belong in the count; there
-                          is simply no page to send anybody to. */}
-                        {member.playerId === null ? (
-                          `UID ${member.gameUid}`
-                        ) : (
-                          <a href={playerHash(member.playerId)}>
-                            {member.name ?? `UID ${member.gameUid}`}
-                          </a>
-                        )}
-                      </td>
-                      <td className="num">{member.hqLevel ?? '—'}</td>
-                      <td className="num">{num(member.power) ?? '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <AllianceMemberTable members={data.members} />
           )}
         </section>
       )}
