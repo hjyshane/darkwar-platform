@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, type ReactNode, useMemo, useState } from 'react';
 import { FavouriteButton } from '../../components/FavouriteButton';
 import { FavouritesFilter } from '../../components/FavouritesFilter';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
@@ -10,9 +10,11 @@ import { fieldsOf } from '../../lib/memberFormulas';
 import { GAME_RANKS, isAllowed, usePermissions } from '../../lib/permissions';
 import { playerHash } from '../../lib/route';
 import { supabase } from '../../lib/supabase';
+import { type ColumnSpec, arrangeColumns, columnWidth } from '../../lib/tableLayout';
 import { TERMS } from '../../lib/terms';
-import { useFavourites } from '../../lib/useFavourites';
+import { type FavouriteKind, useFavourites } from '../../lib/useFavourites';
 import { useSession } from '../../lib/useSession';
+import { useTableLayout } from '../../lib/useTableLayout';
 import { useTableView } from '../../lib/useTableView';
 
 export interface RosterRow {
@@ -128,27 +130,36 @@ function RankBadge({
  * text (NFR-011). Zero gets neither colour: it moved by nothing, which is
  * news of a different kind from moving down.
  */
-function GrowthCell({ value, since }: { value: number | null; since: string | null }) {
+/** Growth as text, colour and tooltip — three pieces rather than a cell.
+ *
+ * It used to render its own `<td>`, which is why it could not be one of the
+ * declared columns: the table owns the cell now, so a column contributes what goes
+ * IN one and what it should be called, not the element itself.
+ */
+function growthText(value: number | null): string {
   if (value === null) {
-    return (
-      <td className="num" title="No earlier snapshot to compare against">
-        —
-      </td>
-    );
+    return '—';
   }
   const rounded = Math.round(value * 10) / 10;
-  return (
-    <td
-      className={`num ${rounded > 0 ? 'growth-up' : rounded < 0 ? 'growth-down' : ''}`}
-      // What it actually compared against. The measurement point is fixed
-      // at 02:05 UTC, but the collector may not have run then, so the cell
-      // names the reading it really used rather than implying yesterday.
-      title={since === null ? undefined : `vs ${new Date(since).toISOString().slice(0, 10)}`}
-    >
-      {rounded > 0 ? '+' : ''}
-      {rounded.toFixed(1)}%
-    </td>
-  );
+  return `${rounded > 0 ? '+' : ''}${rounded.toFixed(1)}%`;
+}
+
+function growthClass(value: number | null): string {
+  if (value === null) {
+    return '';
+  }
+  const rounded = Math.round(value * 10) / 10;
+  return rounded > 0 ? 'growth-up' : rounded < 0 ? 'growth-down' : '';
+}
+
+/** What it actually compared against. The measurement point is fixed at 02:05 UTC
+ * but the collector may not have run then, so the cell names the reading it really
+ * used rather than implying yesterday. */
+function growthTitle(value: number | null, since: string | null): string | undefined {
+  if (value === null) {
+    return 'No earlier snapshot to compare against';
+  }
+  return since === null ? undefined : `vs ${new Date(since).toISOString().slice(0, 10)}`;
 }
 
 // Module level so the reference is stable across renders.
@@ -187,14 +198,6 @@ function withFormulas(rows: RosterRow[], formulas: readonly ComputedColumn[]): R
     return { ...row, ...extra } as RosterRow;
   });
 }
-
-/** How many columns the table has before the admin's computed ones.
- *
- * Counted once, here, because a group heading has to span the whole width and a
- * heading that spans the wrong number leaves a cell sitting under it. If a column is
- * added to the header, this changes with it.
- */
-const BASE_COLUMNS = 16;
 
 /** What each in-game rank is called.
  *
@@ -256,6 +259,208 @@ function grouped(rows: readonly RosterRow[]): RankGroup[] {
   }
   return out;
 }
+
+/** What the cells need that the row does not carry. Passed once rather than
+ * captured, so a column's renderer is a plain function and stays testable. */
+interface CellContext {
+  now: Date | undefined;
+  signedIn: boolean;
+  mayRank: boolean;
+  isFavourite: (kind: FavouriteKind, id: string | number) => boolean;
+  toggleFavourite: (kind: FavouriteKind, id: string | number) => void;
+  setRank: (playerId: string, rank: string | null) => void;
+}
+
+interface BaseColumn extends ColumnSpec {
+  /** The key `sortRows` orders by. Every base column is sortable; the id and the
+   * sort key differ only where the shown value is not the stored one. */
+  sortKey: string;
+  className?: string;
+  numeric?: boolean;
+  cell: (row: RosterRow, context: CellContext) => ReactNode;
+  /** Extra class for the cell, when the value decides it — growth is green or red
+   * by its sign, which is a property of the reading rather than of the column. */
+  cellClassName?: (row: RosterRow) => string;
+  cellTitle?: (row: RosterRow) => string | undefined;
+}
+
+/** The members table, as data.
+ *
+ * It was fifteen hand-written `<th>`s and fifteen hand-written `<td>`s, which is
+ * why an admin could not reorder or hide anything: there was nothing to reorder.
+ * Declaring the columns is what lets `arrangeColumns` do its job, and what lets the
+ * next table adopt the same settings screen by declaring its own.
+ *
+ * The reasoning that sat beside each header has come with it, because that is the
+ * part that is expensive to rediscover.
+ */
+/** This table's key in the shared arrangement. A new table picks its own and
+ * needs nothing else. */
+export const TABLE_ID = 'members';
+
+/** What the settings screen is allowed to see of this table: identity, nothing
+ * else. Exported separately from `BASE_COLUMNS` so the admin form cannot reach a
+ * cell renderer — arranging columns is a question about names and order, and a
+ * form that could call `cell()` would need a row to call it with. */
+export function columnSpecs(): ColumnSpec[] {
+  return BASE_COLUMNS.map((column) =>
+    column.fixed === true
+      ? { id: column.id, label: column.label, fixed: true }
+      : { id: column.id, label: column.label },
+  );
+}
+
+const BASE_COLUMNS: BaseColumn[] = [
+  {
+    // Sorted on the SHOWN rank, not on `assigned_rank`: 71 of 94 members have no
+    // assignment, and sorting the stored column would file all of them at the end
+    // regardless of what the last period worked out. R1 < R2 < … < R5
+    // alphabetically, so descending puts the leader first.
+    id: 'rank',
+    label: TERMS.rank,
+    sortKey: 'rank_shown',
+    className: 'pin-rank',
+    cell: (row, context) => (
+      <RankBadge editable={context.mayRank} onSet={context.setRank} row={row} />
+    ),
+  },
+  {
+    // Fixed: the name is how you tell one row from another, and hiding it leaves a
+    // grid of figures belonging to nobody. The favourite star lives inside this
+    // cell because on a phone this is the one pinned to the left.
+    id: 'name',
+    label: TERMS.name,
+    sortKey: 'current_name',
+    className: 'label',
+    fixed: true,
+    cell: (row, context) => (
+      <>
+        {context.signedIn && (
+          <FavouriteButton
+            id={row.player_id}
+            isFavourite={context.isFavourite('player', row.player_id)}
+            kind="player"
+            label={row.current_name ?? 'an unnamed member'}
+            onToggle={context.toggleFavourite}
+          />
+        )}
+        {/* No uid fallback. Every member here has a name, and printing the game uid
+            for one who does not would put an identifier on a page that deliberately
+            leaves it off. The row still links, so the player page can say who. */}
+        <a href={playerHash(row.player_id)}>{row.current_name ?? 'Unnamed'}</a>
+      </>
+    ),
+  },
+  {
+    id: 'hq_level',
+    label: TERMS.hq,
+    sortKey: 'hq_level',
+    numeric: true,
+    cell: (row) => row.hq_level ?? '—',
+  },
+  {
+    id: 'power',
+    label: TERMS.power,
+    sortKey: 'power',
+    numeric: true,
+    cell: (row) => formatNumber(row.power),
+  },
+  {
+    id: 'kills',
+    label: TERMS.kills,
+    sortKey: 'kills',
+    numeric: true,
+    cell: (row) => formatNumber(row.kills),
+  },
+  {
+    // `group-start` marks where the donation family begins, and again where the
+    // duel family does. Five adjacent figures otherwise invite a comparison that
+    // means nothing — a daily donation against a total over four duel rounds.
+    id: 'daily_donation_score',
+    label: TERMS.dailyDonation,
+    sortKey: 'daily_donation_score',
+    className: 'group-start',
+    numeric: true,
+    cell: (row) => formatNumber(row.daily_donation_score),
+  },
+  {
+    // Two donation commands, two columns. The weekly figure is reported by the
+    // game, not summed from the daily one.
+    id: 'weekly_donation_score',
+    label: TERMS.weeklyDonation,
+    sortKey: 'weekly_donation_score',
+    numeric: true,
+    cell: (row) => formatNumber(row.weekly_donation_score),
+  },
+  {
+    // Three boards, three columns. They shared one until 0028, which meant the
+    // figure shown depended on which of the three was inserted last.
+    id: 'duel_daily_score',
+    label: TERMS.duelDaily,
+    sortKey: 'duel_daily_score',
+    className: 'group-start',
+    numeric: true,
+    cell: (row) => formatNumber(row.duel_daily_score),
+  },
+  {
+    id: 'duel_weekly_score',
+    label: TERMS.duelWeekly,
+    sortKey: 'duel_weekly_score',
+    numeric: true,
+    cell: (row) => formatNumber(row.duel_weekly_score),
+  },
+  {
+    id: 'duel_round_score',
+    label: TERMS.duelRound,
+    sortKey: 'duel_round_score',
+    numeric: true,
+    cell: (row) => formatNumber(row.duel_round_score),
+  },
+  {
+    id: 'growth_1d',
+    label: 'Growth (1d)',
+    sortKey: 'growth_1d',
+    numeric: true,
+    cell: (row) => growthText(row.growth_1d),
+    cellClassName: (row) => growthClass(row.growth_1d),
+    cellTitle: (row) => growthTitle(row.growth_1d, row.growth_1d_at),
+  },
+  {
+    id: 'growth_7d',
+    label: 'Growth (1w)',
+    sortKey: 'growth_7d',
+    numeric: true,
+    cell: (row) => growthText(row.growth_7d),
+    cellClassName: (row) => growthClass(row.growth_7d),
+    cellTitle: (row) => growthTitle(row.growth_7d, row.growth_7d_at),
+  },
+  {
+    // Two different facts, deliberately side by side: when the player was last in
+    // the game, and when we last looked. They were conflated until 0024 — Last Seen
+    // was captured_at wearing a name that reads like presence.
+    id: 'last_online_at',
+    label: TERMS.lastOnline,
+    sortKey: 'last_online_at',
+    numeric: true,
+    cell: (row, context) =>
+      formatLastOnline(row.online_state, row.last_online_at, context.now ?? new Date()),
+  },
+  {
+    id: 'last_seen_at',
+    label: TERMS.lastSeen,
+    sortKey: 'last_seen_at',
+    numeric: true,
+    cell: (row, context) => <FreshnessBadge capturedAt={row.last_seen_at} now={context.now} />,
+  },
+  {
+    id: 'rank_score',
+    label: 'Rank score',
+    sortKey: 'rank_score',
+    numeric: true,
+    cell: (row) => (row.rank_score === null ? '—' : row.rank_score.toFixed(1)),
+    cellTitle: (row) => row.computed_rank ?? undefined,
+  },
+];
 
 export interface ComputedColumn {
   id: string;
@@ -346,6 +551,24 @@ export function RosterTable({
   if (rows.length === 0) {
     return <p className="empty">No member data yet.</p>;
   }
+  // The shared arrangement (0-migration: it lives in `app_settings`). Undefined
+  // until the query answers, which `arrangeColumns` reads as "no arrangement" and
+  // renders the declared order — a beat of the default beats a blank table.
+  const layout = useTableLayout(TABLE_ID);
+  const arranged = useMemo(() => arrangeColumns(BASE_COLUMNS, layout) as BaseColumn[], [layout]);
+  const widthStyle = (id: string) => {
+    const width = columnWidth(layout, id);
+    return width === undefined ? undefined : { width: `${width}px` };
+  };
+  const cellContext: CellContext = {
+    now,
+    signedIn,
+    mayRank,
+    isFavourite,
+    toggleFavourite: toggle,
+    setRank: (playerId, rank) => setRank.mutate({ playerId, rank }),
+  };
+
   return (
     <>
       {rankError !== null && <p className="error">{rankError}</p>}
@@ -372,91 +595,31 @@ export function RosterTable({
           position right-aligned Arena's names against the scores. */}
       <div className="table-wrap pinned-rank">
         <table>
+          {/* Widths, when an admin set any. A colgroup rather than a style on every
+              cell: one element per column, and the browser applies it to the whole
+              column including the group heading rows. */}
+          <colgroup>
+            {arranged.map((column) => (
+              <col key={column.id} style={widthStyle(column.id)} />
+            ))}
+            {columns.map((column) => (
+              <col key={column.id} style={widthStyle(column.id)} />
+            ))}
+          </colgroup>
           <thead>
             <tr>
-              {/* Sorted on the SHOWN rank, not on `assigned_rank`: 71 of 94
-                  members have no assignment, and sorting the stored column would
-                  file all of them at the end regardless of what the last period
-                  worked out for them. `rank_shown` is the value in the cell, so
-                  the order matches what the reader is looking at.
-                  R1 < R2 < … < R5 alphabetically, so descending puts the leader
-                  first, which is what a first click on a rank column should do. */}
-              <SortableTh className="pin-rank" onSort={onSort} sort={sort} sortKey="rank_shown">
-                {TERMS.rank}
-              </SortableTh>
-              <SortableTh className="label" onSort={onSort} sort={sort} sortKey="current_name">
-                {TERMS.name}
-              </SortableTh>
-              <SortableTh numeric onSort={onSort} sort={sort} sortKey="hq_level">
-                {TERMS.hq}
-              </SortableTh>
-              <SortableTh numeric onSort={onSort} sort={sort} sortKey="power">
-                {TERMS.power}
-              </SortableTh>
-              <SortableTh numeric onSort={onSort} sort={sort} sortKey="kills">
-                {TERMS.kills}
-              </SortableTh>
-              {/* group-start marks where the donation family begins, and
-                  again where the duel family does. Five adjacent figures
-                  otherwise invite a comparison that means nothing — a daily
-                  donation against a total over four duel rounds. */}
-              <SortableTh
-                className="group-start"
-                numeric
-                onSort={onSort}
-                sort={sort}
-                sortKey="daily_donation_score"
-              >
-                {TERMS.dailyDonation}
-              </SortableTh>
-              {/* Two donation commands, two columns. The weekly figure is
-                  reported by the game, not summed from the daily one. */}
-              <SortableTh numeric onSort={onSort} sort={sort} sortKey="weekly_donation_score">
-                {TERMS.weeklyDonation}
-              </SortableTh>
-              {/* Three boards, three columns. They shared one until 0028,
-                  which meant the figure shown depended on which of the three
-                  happened to be inserted last. */}
-              <SortableTh
-                className="group-start"
-                numeric
-                onSort={onSort}
-                sort={sort}
-                sortKey="duel_daily_score"
-              >
-                {TERMS.duelDaily}
-              </SortableTh>
-              <SortableTh numeric onSort={onSort} sort={sort} sortKey="duel_weekly_score">
-                {TERMS.duelWeekly}
-              </SortableTh>
-              <SortableTh numeric onSort={onSort} sort={sort} sortKey="duel_round_score">
-                {TERMS.duelRound}
-              </SortableTh>
-              {/* Growth sits with the figure it is derived from rather than
-                  at the end: power is the number, these two are which way it
-                  is going, and reading them apart makes neither useful. */}
-              <SortableTh numeric onSort={onSort} sort={sort} sortKey="growth_1d">
-                Growth (1d)
-              </SortableTh>
-              <SortableTh numeric onSort={onSort} sort={sort} sortKey="growth_7d">
-                Growth (1w)
-              </SortableTh>
-              <SortableTh numeric onSort={onSort} sort={sort} sortKey="last_online_at">
-                {TERMS.lastOnline}
-              </SortableTh>
-              <SortableTh numeric onSort={onSort} sort={sort} sortKey="last_seen_at">
-                {TERMS.lastSeen}
-              </SortableTh>
-              {/* The score the rank came from. Next to the derived columns
-                  rather than next to the name, because it is worked out
-                  rather than observed — but before them, because it is the
-                  one the alliance runs on. */}
-              <SortableTh numeric onSort={onSort} sort={sort} sortKey="rank_score">
-                Rank score
-              </SortableTh>
-              {/* Described columns go last: they are derived from the ones
-                  to their left, and putting them there keeps the figures
-                  the game actually reported in one block. */}
+              {arranged.map((column) => (
+                <SortableTh
+                  key={column.id}
+                  className={column.className}
+                  numeric={column.numeric}
+                  onSort={onSort}
+                  sort={sort}
+                  sortKey={column.sortKey}
+                >
+                  {column.label}
+                </SortableTh>
+              ))}
               {columns.map((column) => (
                 <SortableTh key={column.id} numeric onSort={onSort} sort={sort} sortKey={column.id}>
                   {column.label}
@@ -472,12 +635,16 @@ export function RosterTable({
                     stray cell, and it spans every column so nothing lines up under
                     it by accident. */}
                 <tr className="group-row">
-                  <th colSpan={BASE_COLUMNS + columns.length} scope="colgroup">
+                  <th colSpan={arranged.length + columns.length} scope="colgroup">
                     {/* The cell spans every column, so it scrolls sideways with the
                         table and the label leaves the screen. Sticking the LABEL
                         inside it keeps "R4 · officers" in view while the figures
                         scroll past — the cell cannot stick, because it is the thing
-                        being scrolled. */}
+                        being scrolled (see `.group-label`).
+
+                        The span counts the ARRANGED columns, not a fixed number: an
+                        admin can hide columns now, and a colSpan that outlived the
+                        columns it counted would stretch the heading past the table. */}
                     <span className="group-label">
                       {group.label}{' '}
                       <span className="subtle">
@@ -488,62 +655,21 @@ export function RosterTable({
                 </tr>
                 {group.rows.map((row) => (
                   <tr key={row.player_id}>
-                    {/* Inside the name cell, not a column of its own: on a
-                    phone that cell is the one pinned to the left, so the
-                    star stays reachable instead of scrolling away with the
-                    figures. */}
-                    {/* Rank in its own cell, pinned to the left of the name. It used
-                    to sit inside the name cell — see RankBadge — which kept it
-                    visible while scrolling but made it unsortable, and "R3s,
-                    weakest first" is a question this table exists to answer. Both
-                    cells are pinned now, so nothing slid under anything. */}
-                    <td className="pin-rank">
-                      <RankBadge
-                        editable={mayRank}
-                        onSet={(playerId, rank) => setRank.mutate({ playerId, rank })}
-                        row={row}
-                      />
-                    </td>
-                    <td className="label">
-                      {signedIn && (
-                        <FavouriteButton
-                          id={row.player_id}
-                          isFavourite={isFavourite('player', row.player_id)}
-                          kind="player"
-                          label={row.current_name ?? 'an unnamed member'}
-                          onToggle={toggle}
-                        />
-                      )}
-                      {/* No uid fallback here. Every member on this screen has
-                      a name, and printing the game uid for the one who does
-                      not would put an identifier on the page that the rest
-                      of it deliberately leaves off. The row still links, so
-                      the player page can say who it is. */}
-                      <a href={playerHash(row.player_id)}>{row.current_name ?? 'Unnamed'}</a>
-                    </td>
-                    <td className="num">{row.hq_level ?? '—'}</td>
-                    <td className="num">{formatNumber(row.power)}</td>
-                    <td className="num">{formatNumber(row.kills)}</td>
-                    <td className="num group-start">{formatNumber(row.daily_donation_score)}</td>
-                    <td className="num">{formatNumber(row.weekly_donation_score)}</td>
-                    <td className="num group-start">{formatNumber(row.duel_daily_score)}</td>
-                    <td className="num">{formatNumber(row.duel_weekly_score)}</td>
-                    <td className="num">{formatNumber(row.duel_round_score)}</td>
-                    <GrowthCell since={row.growth_1d_at} value={row.growth_1d} />
-                    <GrowthCell since={row.growth_7d_at} value={row.growth_7d} />
-                    {/* Two different facts, deliberately side by side: when
-                    the player was last in the game, and when we last looked.
-                    They were conflated until 0024 — Last Seen was captured_at
-                    wearing a name that reads like presence. */}
-                    <td className="num">
-                      {formatLastOnline(row.online_state, row.last_online_at, now ?? new Date())}
-                    </td>
-                    <td className="num">
-                      <FreshnessBadge capturedAt={row.last_seen_at} now={now} />
-                    </td>
-                    <td className="num" title={row.computed_rank ?? undefined}>
-                      {row.rank_score === null ? '—' : row.rank_score.toFixed(1)}
-                    </td>
+                    {arranged.map((column) => (
+                      <td
+                        className={[
+                          column.numeric === true ? 'num' : '',
+                          column.className ?? '',
+                          column.cellClassName?.(row) ?? '',
+                        ]
+                          .filter(Boolean)
+                          .join(' ')}
+                        key={column.id}
+                        title={column.cellTitle?.(row)}
+                      >
+                        {column.cell(row, cellContext)}
+                      </td>
+                    ))}
                     {columns.map((column) => {
                       const value = (row as unknown as Record<string, unknown>)[column.id];
                       return (

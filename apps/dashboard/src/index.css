@@ -2028,16 +2028,6 @@ form select {
 
 /* A heading row inside the table. Sticky like the header above it, so scrolling
  * through 36 R2s does not lose which block you are in. */
-/* The label inside the group row, pinned to the left edge of the scroll
- * container. The `th` spans every column and therefore scrolls with the table, so
- * the text is what has to stay put — otherwise "R4 · officers" leaves the screen
- * as soon as you scroll to the duel columns. */
-.group-label {
-  display: inline-block;
-  left: var(--space-3);
-  position: sticky;
-}
-
 .group-row th {
   background: var(--bg-hover);
   border-bottom: 1px solid var(--border-strong);
@@ -2050,6 +2040,17 @@ form select {
   text-transform: uppercase;
   top: 0;
   z-index: 1;
+}
+
+/* And the label inside stays put when the table scrolls SIDEWAYS.
+ * The `th` itself cannot do this: it spans every column, so it is already as wide
+ * as the table and sticking it moves nothing. The text is what has to stay, so the
+ * text is what sticks — otherwise you scroll right to read the duel columns and
+ * "R4 · officers" leaves the screen, which is the one thing the grouping was for. */
+.group-row th > .group-label {
+  display: inline-block;
+  left: var(--space-3);
+  position: sticky;
 }
 
 .rank-movement {

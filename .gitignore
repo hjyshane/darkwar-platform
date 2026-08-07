@@ -73,3 +73,6 @@ supabase/.temp/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Agent session logs — local notes, not repo history.
+.claude/logs/
