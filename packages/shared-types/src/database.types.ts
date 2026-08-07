@@ -2205,6 +2205,38 @@ export type Database = {
           },
         ]
       }
+      player_vip: {
+        Row: {
+          observed_at: string
+          player_id: string
+          svip_level: number | null
+          vip_expires_at: string | null
+          vip_level: number | null
+        }
+        Insert: {
+          observed_at: string
+          player_id: string
+          svip_level?: number | null
+          vip_expires_at?: string | null
+          vip_level?: number | null
+        }
+        Update: {
+          observed_at?: string
+          player_id?: string
+          svip_level?: number | null
+          vip_expires_at?: string | null
+          vip_level?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_vip_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: true
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+        ]
+      }
       players: {
         Row: {
           created_at: string
@@ -3043,6 +3075,18 @@ export type Database = {
             referencedColumns: ["server_id"]
           },
         ]
+      }
+      player_subscriptions: {
+        Row: {
+          month_card_expires_at: string | null
+          month_card_observed_at: string | null
+          player_id: string | null
+          svip_level: number | null
+          vip_expires_at: string | null
+          vip_level: number | null
+          vip_observed_at: string | null
+        }
+        Relationships: []
       }
       post_authors: {
         Row: {

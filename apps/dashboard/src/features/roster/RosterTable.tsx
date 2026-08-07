@@ -52,6 +52,13 @@ export interface RosterRow {
   online_state: string | null;
   last_online_at: string | null;
   last_seen_at: string | null;
+  /** What they are paying for. Null for every reader below officer, because the
+   * query returns them no rows at all (0092) — not because the client withheld
+   * it. */
+  month_card_expires_at: string | null;
+  vip_level: number | null;
+  vip_expires_at: string | null;
+  svip_level: number | null;
 }
 
 const numberFormat = new Intl.NumberFormat('ko-KR');
@@ -170,6 +177,19 @@ function growthTitle(value: number | null, since: string | null): string | undef
 // field you can search but cannot see is a way of reading it out one guess
 // at a time.
 const SEARCH_FIELDS = ['current_name', 'assigned_rank', 'computed_rank'] as const;
+
+/** A subscription date, or a dash. Just the day — the hour a pass expires is not
+ * a thing anybody acts on, and it would double the width of the column. */
+function subscriptionDate(value: string | null): string {
+  return value === null ? '—' : value.slice(0, 10);
+}
+
+/** Faded once it has run out. An expired pass is still worth showing — it says
+ * they used to pay — but it is not the same fact as a current one, and the date
+ * alone makes the reader do the arithmetic. */
+function expiryClass(value: string | null): string {
+  return value !== null && new Date(value).getTime() < Date.now() ? 'subtle' : '';
+}
 
 function formatNumber(value: number | null): string {
   // FR-UI-008: unknown is unknown, never zero.
@@ -460,7 +480,36 @@ const BASE_COLUMNS: BaseColumn[] = [
     cell: (row) => (row.rank_score === null ? '—' : row.rank_score.toFixed(1)),
     cellTitle: (row) => row.computed_rank ?? undefined,
   },
+  // Officer and above only, and enforced in SQL rather than here (0092). These
+  // two are left OUT of the table for anybody the query returned nothing to —
+  // see `SUBSCRIPTION_COLUMNS` below.
+  {
+    id: 'month_card',
+    label: 'Monthly pass',
+    sortKey: 'month_card_expires_at',
+    cell: (row) => subscriptionDate(row.month_card_expires_at),
+    cellClassName: (row) => expiryClass(row.month_card_expires_at),
+    cellTitle: (row) => row.month_card_expires_at ?? undefined,
+  },
+  {
+    id: 'vip',
+    label: 'VIP',
+    sortKey: 'vip_level',
+    numeric: true,
+    // SVIP is a separate ladder, so it rides alongside rather than being added
+    // in — "VIP 9 · S2" says two things where "11" would say one wrong one.
+    cell: (row) =>
+      row.vip_level === null
+        ? '—'
+        : `${row.vip_level}${row.svip_level ? ` · S${row.svip_level}` : ''}`,
+    cellClassName: (row) => expiryClass(row.vip_expires_at),
+    cellTitle: (row) =>
+      row.vip_expires_at === null ? undefined : `Until ${row.vip_expires_at.slice(0, 10)}`,
+  },
 ];
+
+/** The columns that only exist for a reader the database answered. */
+const SUBSCRIPTION_COLUMNS = new Set(['month_card', 'vip']);
 
 export interface ComputedColumn {
   id: string;
@@ -555,7 +604,25 @@ export function RosterTable({
   // until the query answers, which `arrangeColumns` reads as "no arrangement" and
   // renders the declared order — a beat of the default beats a blank table.
   const layout = useTableLayout(TABLE_ID);
-  const arranged = useMemo(() => arrangeColumns(BASE_COLUMNS, layout) as BaseColumn[], [layout]);
+  // Whether the database answered this reader about subscriptions at all. Not a
+  // permission check — RLS already made that decision and this cannot override it
+  // (0092). It is presentation: a column of dashes for something the reader may
+  // never see is noise, and hiding it is the difference between "nobody has a
+  // pass" and "this is not for you".
+  const showsSubscriptions = useMemo(
+    () => rows.some((row) => row.month_card_expires_at !== null || row.vip_level !== null),
+    [rows],
+  );
+  const arranged = useMemo(
+    () =>
+      arrangeColumns(
+        showsSubscriptions
+          ? BASE_COLUMNS
+          : BASE_COLUMNS.filter((column) => !SUBSCRIPTION_COLUMNS.has(column.id)),
+        layout,
+      ) as BaseColumn[],
+    [layout, showsSubscriptions],
+  );
   const widthStyle = (id: string) => {
     const width = columnWidth(layout, id);
     return width === undefined ? undefined : { width: `${width}px` };
