@@ -37,6 +37,7 @@ import {
 import { supabase } from './lib/supabase';
 import { useOwnAlliance } from './lib/useOwnAlliance';
 import { useSession } from './lib/useSession';
+import { useSidewaysMouse } from './lib/useSidewaysMouse';
 
 function DataChangeSubscriber() {
   const queryClient = useQueryClient();
@@ -262,6 +263,9 @@ export function SignedOutWall({ email }: { email: string | null | undefined }) {
 const MEMBER_ROLES = new Set(['member', 'officer', 'admin']);
 
 export function App() {
+  // Once, for every table on every screen. See the hook: it is delegated off
+  // `.table-wrap`, so a table added later needs nothing.
+  useSidewaysMouse();
   const hash = useSyncExternalStore(subscribeHash, () => window.location.hash);
   const route = routeFromHash(hash);
   // Where to come back to after signing in.
