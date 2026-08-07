@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
+import { ArrangedTable, type Column } from '../../components/ArrangedTable';
 import { FavouriteButton } from '../../components/FavouriteButton';
 import { FavouritesFilter } from '../../components/FavouritesFilter';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
-import { SortableTh } from '../../components/SortableTh';
 import { TableSearch } from '../../components/TableSearch';
 import { allianceHash, serverHash } from '../../lib/route';
+import type { ColumnSpec } from '../../lib/tableLayout';
 import { TERMS } from '../../lib/terms';
 import { useFavourites } from '../../lib/useFavourites';
 import { useTableView } from '../../lib/useTableView';
@@ -29,6 +30,20 @@ const numberFormat = new Intl.NumberFormat('ko-KR');
 // Both, so "CBFW" finds the alliance whether the user knows it by tag or name.
 const SEARCH_FIELDS = ['name', 'code'] as const;
 
+/** This table's key in the shared column arrangement. */
+export const TABLE_ID = 'alliance-rankings';
+
+/** Identity only, for the settings screen. */
+export function allianceRankingColumnSpecs(): ColumnSpec[] {
+  return [
+    { id: 'name', label: TERMS.alliance, fixed: true },
+    { id: 'server', label: TERMS.server },
+    { id: 'power', label: TERMS.power },
+    { id: 'members', label: TERMS.members_count },
+    { id: 'seen', label: TERMS.lastSeen },
+  ];
+}
+
 export function AllianceRankingTable({
   rows,
   now,
@@ -52,6 +67,66 @@ export function AllianceRankingTable({
     { key: 'power', direction: 'desc' },
   );
 
+  // Above the early return: hooks cannot be skipped.
+  const columns = useMemo<Column<AllianceRankingRow>[]>(
+    () => [
+      {
+        id: 'name',
+        label: TERMS.alliance,
+        sortKey: 'name',
+        className: 'label',
+        // Pinned left and the only thing telling one row from another.
+        fixed: true,
+        cell: (row) => (
+          <>
+            {signedIn && (
+              <FavouriteButton
+                id={row.alliance_id}
+                isFavourite={isFavourite('alliance', row.alliance_id)}
+                kind="alliance"
+                label={row.name ?? row.code ?? row.external_id.slice(0, 8)}
+                onToggle={toggle}
+              />
+            )}
+            <a href={allianceHash(row.alliance_id)}>
+              {row.code ? `[${row.code}] ` : ''}
+              {row.name ?? row.external_id.slice(0, 8)}
+            </a>
+          </>
+        ),
+      },
+      {
+        id: 'server',
+        label: TERMS.server,
+        sortKey: 'server_id',
+        numeric: true,
+        cell: (row) => <a href={serverHash(row.server_id)}>{row.server_id}</a>,
+      },
+      {
+        id: 'power',
+        label: TERMS.power,
+        sortKey: 'power',
+        numeric: true,
+        cell: (row) => (row.power === null ? '—' : numberFormat.format(row.power)),
+      },
+      {
+        id: 'members',
+        label: TERMS.members_count,
+        sortKey: 'member_count',
+        numeric: true,
+        cell: (row) => row.member_count ?? '—',
+      },
+      {
+        id: 'seen',
+        label: TERMS.lastSeen,
+        sortKey: 'captured_at',
+        numeric: true,
+        cell: (row) => <FreshnessBadge capturedAt={row.captured_at} now={now} />,
+      },
+    ],
+    [signedIn, isFavourite, toggle, now],
+  );
+
   if (rows.length === 0) {
     return <p className="empty">No alliance ranking data yet.</p>;
   }
@@ -73,58 +148,14 @@ export function AllianceRankingTable({
           />
         )}
       </TableSearch>
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <SortableTh className="label" onSort={onSort} sort={sort} sortKey="name">
-                {TERMS.alliance}
-              </SortableTh>
-              <SortableTh numeric onSort={onSort} sort={sort} sortKey="server_id">
-                {TERMS.server}
-              </SortableTh>
-              <SortableTh numeric onSort={onSort} sort={sort} sortKey="power">
-                {TERMS.power}
-              </SortableTh>
-              <SortableTh numeric onSort={onSort} sort={sort} sortKey="member_count">
-                {TERMS.members_count}
-              </SortableTh>
-              <SortableTh numeric onSort={onSort} sort={sort} sortKey="captured_at">
-                {TERMS.lastSeen}
-              </SortableTh>
-            </tr>
-          </thead>
-          <tbody>
-            {view.map((row) => (
-              <tr key={row.external_id}>
-                <td className="label">
-                  {signedIn && (
-                    <FavouriteButton
-                      id={row.alliance_id}
-                      isFavourite={isFavourite('alliance', row.alliance_id)}
-                      kind="alliance"
-                      label={row.name ?? row.code ?? row.external_id.slice(0, 8)}
-                      onToggle={toggle}
-                    />
-                  )}
-                  <a href={allianceHash(row.alliance_id)}>
-                    {row.code ? `[${row.code}] ` : ''}
-                    {row.name ?? row.external_id.slice(0, 8)}
-                  </a>
-                </td>
-                <td className="num">
-                  <a href={serverHash(row.server_id)}>{row.server_id}</a>
-                </td>
-                <td className="num">{row.power === null ? '—' : numberFormat.format(row.power)}</td>
-                <td className="num">{row.member_count ?? '—'}</td>
-                <td className="num">
-                  <FreshnessBadge capturedAt={row.captured_at} now={now} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <ArrangedTable
+        columns={columns}
+        onSort={onSort}
+        rowKey={(row) => row.external_id}
+        rows={view}
+        sort={sort}
+        tableId={TABLE_ID}
+      />
       {view.length === 0 && <p className="empty">No alliance matches “{query}”.</p>}
     </>
   );

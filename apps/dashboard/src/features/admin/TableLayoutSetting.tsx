@@ -14,9 +14,26 @@ import {
 } from '../../lib/tableLayout';
 import { useTableLayouts } from '../../lib/useTableLayout';
 import {
+  TABLE_ID as ALLIANCE_MEMBERS_TABLE_ID,
+  allianceMemberColumnSpecs,
+} from '../alliance/AllianceMemberTable';
+import { TABLE_ID as ARENA_TABLE_ID, arenaColumnSpecs } from '../arena/ArenaTable';
+import {
+  TABLE_ID as CROSS_TABLE_ID,
+  crossRankingColumnSpecs,
+} from '../crossRankings/CrossRankingTable';
+import {
+  TABLE_ID as ALLIANCE_RANKING_TABLE_ID,
+  allianceRankingColumnSpecs,
+} from '../rankings/AllianceRankingTable';
+import {
   TABLE_ID as MEMBERS_TABLE_ID,
   columnSpecs as memberColumnSpecs,
 } from '../roster/RosterTable';
+import {
+  TABLE_ID as SERVER_PLAYERS_TABLE_ID,
+  serverPlayerColumnSpecs,
+} from '../server/ServerPlayerTable';
 
 /** Which tables this screen can arrange.
  *
@@ -25,10 +42,11 @@ import {
  * because the screen has to name the tables an admin has NOT arranged as well as
  * the ones they have.
  *
- * Only the members table is on it so far. The others still hand-write their
- * headers, and listing one here before it reads the setting would offer an
- * arrangement that changes nothing — a worse failure than the missing feature,
- * because it looks like it worked.
+ * A table that is NOT here still hand-writes its headers, and listing it before
+ * it reads the setting would offer an arrangement that changes nothing — a worse
+ * failure than the missing feature, because it looks like it worked. The admin
+ * screens are deliberately absent: arranging the collector health table is noise,
+ * not a feature.
  */
 interface ArrangeableTable {
   id: string;
@@ -38,6 +56,19 @@ interface ArrangeableTable {
 
 const TABLES: ArrangeableTable[] = [
   { id: MEMBERS_TABLE_ID, label: 'Members', columns: memberColumnSpecs },
+  {
+    id: ALLIANCE_MEMBERS_TABLE_ID,
+    label: 'Alliance page — members',
+    columns: allianceMemberColumnSpecs,
+  },
+  { id: SERVER_PLAYERS_TABLE_ID, label: 'Server players', columns: serverPlayerColumnSpecs },
+  { id: CROSS_TABLE_ID, label: 'Cross-server rankings', columns: crossRankingColumnSpecs },
+  {
+    id: ALLIANCE_RANKING_TABLE_ID,
+    label: 'Alliance rankings',
+    columns: allianceRankingColumnSpecs,
+  },
+  { id: ARENA_TABLE_ID, label: 'Arena', columns: arenaColumnSpecs },
 ];
 
 /** Column order, visibility and width, for every table at once.
