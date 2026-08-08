@@ -208,93 +208,93 @@ export async function fetchRoster(): Promise<RosterRow[]> {
   const members =
     current === null ? players : players.filter((player) => current.has(player.player_id));
 
-  const { data: contributions, error: contributionError } = await supabase
-    .from('player_contributions')
-    .select(
-      'player_id, daily_donation_score, weekly_donation_score, duel_daily_score, duel_weekly_score, duel_round_score',
-    )
-    .in(
-      'player_id',
-      members.map((player) => player.player_id),
-    );
+  // The six below in ONE wave, not six.
+  //
+  // Every one of them asks the same question — "for these member ids" — and
+  // none reads another's answer, so awaiting them in a line bought nothing
+  // and cost a round trip each. That is the whole bill on this screen: the
+  // database is in us-east-2 and the reader is not, so a request that does no
+  // work at all still takes about 150 ms. Measured against production: a
+  // one-row read of `servers` came back in 101-189 ms, and the heaviest query
+  // on this page in 139 ms. Six in a line is a second of waiting for nothing.
+  //
+  // The roster fetch above stays sequential because these genuinely depend on
+  // it — `members` is what they filter by.
+  const memberIds = members.map((player) => player.player_id);
+  const [
+    { data: contributions, error: contributionError },
+    { data: presence, error: presenceError },
+    { data: growth, error: growthError },
+    { data: recent, error: recentError },
+    { data: ranks, error: rankError },
+    { data: subscriptions, error: subscriptionError },
+  ] = await Promise.all([
+    supabase
+      .from('player_contributions')
+      .select(
+        'player_id, daily_donation_score, weekly_donation_score, duel_daily_score, duel_weekly_score, duel_round_score',
+      )
+      .in('player_id', memberIds),
+    supabase
+      .from('player_presence')
+      .select('player_id, online_state, offline_since, observed_at')
+      .in('player_id', memberIds),
+    // Which way each member's power has moved. A view rather than a fourth
+    // shape to assemble here: the answer is a question about two rows of
+    // player_snapshots, and the database is where that belongs (0049).
+    supabase
+      .from('player_power_growth')
+      .select('player_id, growth_1d, growth_7d, power_1d_at, power_7d_at')
+      .in('player_id', memberIds),
+    // The fallback for members the fixed baselines cannot describe.
+    //
+    // `player_power_growth` measures against 02:05 UTC a day and a week back
+    // (0055), so a member whose first capture was yesterday afternoon has no
+    // 1d baseline and shows a dash — which on a young database is most of the
+    // roster. `player_growth_recent` (0069) compares against the previous
+    // reading whatever the interval was, and carries that reading's timestamp
+    // so the column can say what it measured from.
+    supabase
+      .from('player_growth_recent')
+      .select('player_id, growth_since_last, power_prev_at')
+      .in('player_id', memberIds),
+    // Both halves of a rank — what an admin set and what the last period
+    // worked out — from the one member-only view, so a reader never sees one
+    // without the other (0059).
+    supabase
+      .from('player_current_rank')
+      .select('player_id, assigned_rank, computed_tier, rank_score')
+      .in('player_id', memberIds),
+    // What people are paying for, for officers and admins. A member's request
+    // is filtered to zero rows by RLS (0092) rather than refused, so this is
+    // not an error path — an empty answer IS the answer for most readers, and
+    // the table leaves the columns out when it gets one.
+    supabase
+      .from('player_subscriptions')
+      .select('player_id, month_card_expires_at, vip_level, vip_expires_at, svip_level')
+      .in('player_id', memberIds),
+  ]);
+
+  // Checked after the wave, and each keeps the rule it had. `Promise.all`
+  // changes when these run, not what counts as a failure: three of them are
+  // fatal and three tolerate 42501, because ranks, recent growth and
+  // subscriptions are details on a screen whose point is the roster, and a
+  // reader without the grant should still get the roster.
   if (contributionError) {
     throw new Error(`contribution query failed: ${contributionError.message}`);
   }
-
-  const { data: presence, error: presenceError } = await supabase
-    .from('player_presence')
-    .select('player_id, online_state, offline_since, observed_at')
-    .in(
-      'player_id',
-      members.map((player) => player.player_id),
-    );
   if (presenceError) {
     throw new Error(`presence query failed: ${presenceError.message}`);
   }
-
-  // Which way each member's power has moved. A view rather than a fourth
-  // shape to assemble here: the answer is a question about two rows of
-  // player_snapshots, and the database is where that belongs (0049).
-  const { data: growth, error: growthError } = await supabase
-    .from('player_power_growth')
-    .select('player_id, growth_1d, growth_7d, power_1d_at, power_7d_at')
-    .in(
-      'player_id',
-      members.map((player) => player.player_id),
-    );
   if (growthError) {
     throw new Error(`growth query failed: ${growthError.message}`);
   }
-
-  // The fallback for members the fixed baselines cannot describe.
-  //
-  // `player_power_growth` measures against 02:05 UTC a day and a week back
-  // (0055), so a member whose first capture was yesterday afternoon has no 1d
-  // baseline and shows a dash — which on a young database is most of the
-  // roster. `player_growth_recent` (0069) compares against the previous
-  // reading whatever the interval was, and carries that reading's timestamp so
-  // the column can say what it measured from.
-  const { data: recent, error: recentError } = await supabase
-    .from('player_growth_recent')
-    .select('player_id, growth_since_last, power_prev_at')
-    .in(
-      'player_id',
-      members.map((player) => player.player_id),
-    );
   if (recentError && recentError.code !== '42501') {
     throw new Error(`recent growth query failed: ${recentError.message}`);
   }
-
-  // Both halves of a rank — what an admin set and what the last period
-  // worked out — from the one member-only view, so a reader never sees one
-  // without the other (0059).
-  const { data: ranks, error: rankError } = await supabase
-    .from('player_current_rank')
-    .select('player_id, assigned_rank, computed_tier, rank_score')
-    .in(
-      'player_id',
-      members.map((player) => player.player_id),
-    );
-  // Not fatal. Ranks are member-only, so a logged-out reader gets nothing
-  // here and should still see the roster — the same reason the contribution
-  // columns render as dashes rather than an error.
   if (rankError && rankError.code !== '42501') {
     throw new Error(`rank query failed: ${rankError.message}`);
   }
-
-  // What people are paying for, for officers and admins. A member's request is
-  // filtered to zero rows by RLS (0092) rather than refused, so this is not an
-  // error path — an empty answer IS the answer for most readers, and the table
-  // leaves the columns out when it gets one.
-  const { data: subscriptions, error: subscriptionError } = await supabase
-    .from('player_subscriptions')
-    .select('player_id, month_card_expires_at, vip_level, vip_expires_at, svip_level')
-    .in(
-      'player_id',
-      members.map((player) => player.player_id),
-    );
-  // 42501 is a signed-out reader, who has no grant at all. Also not fatal: the
-  // roster is the point of the screen and this is a detail on it.
   if (subscriptionError && subscriptionError.code !== '42501') {
     throw new Error(`subscription query failed: ${subscriptionError.message}`);
   }
