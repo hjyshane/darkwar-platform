@@ -165,7 +165,17 @@ Then drive it with `playwright-core`, launching with
 
 ## 5. What to actually check
 
-Tabs are `#/`, `#/rankings`, `#/cross-server`, `#/arena`.
+**Read the nav rather than trusting a list here.** This file said four tabs
+for months; there are eight, and the one it was missing — `#/members` — is
+the widest table in the app and the one every sticky-column warning below is
+actually about.
+
+```js
+[...document.querySelectorAll('nav a')].map(a => a.getAttribute('href'))
+```
+
+As of 2026-08-08: `#/`, `#/members`, `#/rankings`, `#/cross-server`,
+`#/arena`, `#/notices`, `#/guides`, and `#/alliance/<id>`.
 
 - **Wait for `table, p.empty` — never `networkidle`.** The Realtime socket
   stays open, so the page never goes idle and the wait times out.
@@ -226,6 +236,17 @@ the fault is the notify trigger, not the socket.
   next line and `current_app_role()` reads `viewer`. Wrap the whole thing in
   `begin; ... commit;`, and resolve any `auth.users` ids BEFORE `set local
   role authenticated` — that role cannot read the table.
+- **A hash change does not mean the page changed.** Setting `location.hash`
+  and then waiting for `main table` returns instantly on the PREVIOUS tab's
+  table, and every measurement after that describes the wrong page. Wait for
+  `main`'s text to differ from what it was, and record each page's `h2` in
+  the result so a stale reading is visible rather than plausible.
+- **Measure the sticky column on a row that has cells.** The members table
+  interleaves group-divider rows with zero `<td>`s, and
+  `querySelector('tbody tr td')` finds the first cell of whichever row comes
+  first. Doing that reported "no sticky body columns, nothing visible when
+  scrolled right" — a bug that does not exist. Pick a row whose `td` count
+  equals the `th` count.
 - **Proving realtime needs the focus confound removed.** The app builds
   `new QueryClient()` with defaults, so `refetchOnWindowFocus` is on and any
   focus event refetches everything — a cell changing after a database write
