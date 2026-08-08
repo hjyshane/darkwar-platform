@@ -3204,6 +3204,7 @@ export type Database = {
       }
       has_permission: { Args: { p_capability: string }; Returns: boolean }
       is_service_request: { Args: never; Returns: boolean }
+      leave_alliance: { Args: never; Returns: undefined }
       linked_player_id: { Args: never; Returns: string }
       rank_period_start: { Args: { ts: string }; Returns: string }
       rank_period_week_ends: {
@@ -3213,6 +3214,10 @@ export type Database = {
       rebuild_rank_period: {
         Args: { p_apply_to_assigned?: boolean; p_period_start: string }
         Returns: number
+      }
+      record_departure: {
+        Args: { p_action: string; p_user: string }
+        Returns: undefined
       }
       redeem_join_code: {
         Args: { p_code: string }
@@ -3237,6 +3242,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      remove_member: { Args: { p_user: string }; Returns: undefined }
       reset_week_start: { Args: { ts: string }; Returns: string }
       resolve_own_alliance: { Args: never; Returns: undefined }
       retention_report: {

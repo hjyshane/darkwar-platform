@@ -160,31 +160,28 @@ export function MembersSetting() {
 
   /** Take someone's access away.
    *
-   * Not a delete. The auth account lives in `auth.users`, which no client may
-   * touch — removing it needs the service key — and deleting the `app_users`
-   * row would only make the next sign-in recreate it as a viewer, which is
-   * where this puts them anyway. So the honest action is: role back to viewer,
-   * character unlinked, and any pending claim refused.
+   * This used to set the role to 'viewer' and null the character, on the
+   * reasoning that deleting the row would only make the next sign-in recreate
+   * it as a viewer. 0094 supersedes that: the demoted row kept `display_name`
+   * and `game_rank`, which is how `players.current_alliance_id` ended up
+   * carrying departed members' badges for good, and nothing anywhere recorded
+   * that the departure had happened.
    *
-   * Unlinking matters as much as the role. 0066 made `player_id` the thing
-   * that opens a member's own history; leaving it set on a revoked account
-   * would keep that door open.
+   * `remove_member()` deletes the row and writes an audit entry carrying the
+   * name, which is the last moment that name is reachable. It refuses three
+   * things this component no longer has to think about: removing yourself
+   * (leaving is its own act, on your own screen), removing an admin when you
+   * are not one, and doing any of it without `members.manage`.
+   *
+   * The auth account is untouched either way. Deleting a login needs the
+   * service key, and "left the alliance" does not mean "account destroyed".
    */
   const revoke = useMutation({
     mutationFn: async (userId: string) => {
-      const { error: updateError, count } = await supabase
-        .from('app_users')
-        .update({ role: 'viewer', player_id: null }, { count: 'exact' })
-        .eq('user_id', userId);
-      if (updateError) {
-        throw new Error(updateError.message);
+      const { error: rpcError } = await supabase.rpc('remove_member', { p_user: userId });
+      if (rpcError) {
+        throw new Error(rpcError.message);
       }
-      if (count === 0) {
-        throw new Error('Nothing was written. Removing a member needs "Manage members".');
-      }
-      // Best effort: a member with no pending claim is the normal case, and
-      // the function raising P0002 for that must not read as a failed removal.
-      await supabase.rpc('reject_player_claim', { p_user: userId });
     },
     onSuccess: () => {
       setFailed(false);

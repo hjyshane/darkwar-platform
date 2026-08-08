@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
 import { useSession } from '../../lib/useSession';
 import { JoinCodeForm } from './JoinCodeForm';
+import { LeaveAllianceForm } from './LeaveAllianceForm';
 import { PlayerClaimForm } from './PlayerClaimForm';
 import { SignUpForm } from './SignUpForm';
 
@@ -95,6 +96,10 @@ export function LoginPage() {
           <button onClick={() => void signOut()} type="button">
             Sign out
           </button>
+          {/* Only once there is something to leave. Offering it to a viewer
+              would be offering to give up access they have not been granted,
+              and `leave_alliance()` returns quietly for that case anyway. */}
+          {session !== undefined && session.role !== 'viewer' && <LeaveAllianceForm />}
         </section>
       </main>
     );
