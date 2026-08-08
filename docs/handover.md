@@ -277,10 +277,55 @@ docstring이 "고장을 한 파일로 가둔다"고 적어 뒀는데, 한 파일
 어느 쪽이 되는지는 확인 안 했다 — **재등록 뒤에는 `live` 디렉터리 파일 수를
 한 번 본다.**
 
+### `live.db` 정리 — 1.58 GB 회수. 다만 **3.5일치를 산 것뿐이다**
+
+**5.23 GB → 3.65 GB.** `sync_outbox`의 `status='sent'` 650,661행 삭제 후 VACUUM.
+`integrity_check` 삭제 전후 모두 `ok`. 백업은 `C:\DW_data\live.db.bak`(5.23 GB)에
+있고 **아직 안 지웠다** — 지우면 그만큼 더 빈다.
+
+**VACUUM만으로는 아무것도 못 줄인다.** 손대기 전 `freelist_count = 3`이었다.
+빈 페이지가 없으니 회수할 것도 없다. 지울 것을 먼저 지워야 VACUUM이 의미를
+갖는다(삭제 후 freelist 381,114).
+
+무엇을 지웠고 왜 안전한가:
+
+| 테이블 | 크기 | 판단 |
+|---|---|---|
+| `raw_observations` | 1.86 GB | **건드리지 않음.** replay/renormalize의 원천이고 대체 불가 |
+| `normalized_rows` | 0.79 GB | 남김. 파서로 재생성 가능하지만 지울 이유가 약함 |
+| `sync_outbox` (sent) | 0.79 GB | **삭제.** 배달 끝난 큐 |
+
+배달된 outbox 행은 클라우드가 이미 갖고 있고, 복구가 필요하면
+`raw_observations`에서 `renormalize`가 전부 다시 만든다 — 이 문서가 실제로 쓰는
+절차다. 잃는 것은 그 행들에 대한 `retry-outbox --already-sent` 지름길뿐이다.
+
+절차: ingest·sync 정지 → `wal_checkpoint(TRUNCATE)` → 백업 → DELETE → VACUUM(45초)
+→ 재기동 → **로그로 진짜 도는지 확인**. capture는 켜둔 채로 해도 된다(파일이
+쌓이고 ingest가 따라잡는다).
+
+### 이건 일회성 문제가 아니다 — 저널 보존 정책이 없다
+
+실측:
+
+```
+span         4.2 days
+observations 630,479  =  148,425/day
+raw payload  1.86 GB  =  0.44 GB/day   (2.9 KB/obs)
+```
+
+**저널은 하루 약 0.5 GB씩 자란다.** 이번에 회수한 1.58 GB는 **3.5일치**다.
+디스크는 166 GB 남아서 급하지 않지만, **아무것도 이걸 줄이지 않는다.**
+0070의 `retention_report()`는 **클라우드 테이블용이지 이 SQLite용이 아니다.**
+
+정할 것: raw 관측을 며칠 보관할지. 클라우드로 이미 sync된 관측의 raw payload는
+파서를 고쳐 다시 돌릴 때만 필요하고, 그 창은 무한하지 않다. 그 창을 정하면
+`ingested_captures`와 같은 모양의 프루너를 붙일 수 있다.
+
 ### 남은 것
 
-1. `live.db`가 **4.94 GB**다. 0070의 `retention_report()`는 아직 아무것도
-   스케줄되지 않았고, 이건 저널(SQLite)이지 클라우드가 아니다. 별건.
+1. **저널 보존 정책** (바로 위). 하루 0.5 GB.
+2. **`C:\DW_data\live.db.bak` 5.23 GB** — 이번 정리의 백업. 수집이 며칠 정상이면
+   지운다.
 3. **반응형·다른 탭은 안 봤다.** 이번에 만진 것이 로그인·어드민 화면이라
    거기만 봤다. 표 가로 스크롤·sticky 열은 2026-08-01 확인이 마지막이다.
 
