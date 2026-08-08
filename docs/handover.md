@@ -126,6 +126,50 @@ PR **#154** / 0095가 `from anon, authenticated`로 명시 revoke해 닫았다.
 **규칙: 이 플랫폼에서 `revoke ... from public`은 함수를 비공개로 만들지 않는다.
 롤을 이름으로 적어야 한다.**
 
+### `anon`에 열린 함수 전수 조사 — 끝났다. 하나 더 나왔다 (0096)
+
+프로덕션에서 `anon`이 실행할 수 있는 함수 29개를 전부 분류했다.
+**가드 없는 writer는 하나뿐이었다.**
+
+`resolve_own_alliance()`가 0032 이후로 **익명 쓰기 엔드포인트**였다. 0095와
+원인이 반대다 — 그건 `public`에서 revoke했는데 플랫폼이 `anon`에 직접 붙인
+것이고, 이건 **revoke를 아예 안 했다.** Postgres는 `CREATE FUNCTION` 시
+PUBLIC에 EXECUTE를 기본 부여하고 `anon`은 PUBLIC이다.
+
+영향은 작다. 인자가 없어서 호출자가 결과를 고를 수 없고, `void`라 읽히는 것도
+없고, 권한 상승도 아니다. 할 수 있는 건 **DB에 쓰기를 일으키고 연결된
+대시보드를 전부 refetch시키는 것**을 원하는 만큼. 닫은 이유는 크기가 아니라
+함수 본문 어디에도 "트리거 전용"이라고 쓰여 있지 않다는 것이다.
+
+PR **#156** / 0096이 `from public, anon, authenticated`로 닫았다. **셋 다
+필요하다** — `public`만으로는 플랫폼 직접 grant를 못 막고(0095), 롤 이름만으로는
+PUBLIC 기본값을 못 막는다(0096).
+
+**나머지 28개는 전부 의도된 것으로 확인했다:**
+
+| 부류 | 개수 | 근거 |
+|---|---|---|
+| 트리거·이벤트 트리거 | 15 | PostgREST가 `trigger` 반환 함수를 노출하지 않는다 |
+| `members.manage` 검사 | 4 | `approve_player_claim`·`reject_player_claim`·`retention_report`·`remove_member` |
+| 멤버 이상 검사 | 2 | `build_rank_period`(42501), `rebuild_rank_period`(첫 문장이 그걸 부른다) |
+| `auth.uid()` null 거부 | 2 | `redeem_join_code`, `leave_alliance` |
+| 호출자 본인으로 한정 | 1 | `linked_player_id()` |
+| 순수 계산 | 4 | 날짜·등급 산술, `is_service_request()` |
+
+`leave_alliance`·`remove_member`가 `anon`에 열린 채로 남은 것은 정상이다.
+**함수를 안전하게 만드는 것은 grant가 아니라 가드다.**
+
+지속되는 산출물은 `57_anon_callable_test`의 1번 단언이다 — **앞으로 추가될**
+함수 중 anon이 부를 수 있고, 쓰고, 누가 부르는지 안 묻는 것이 있으면 실패한다.
+0096을 빼고 reset해서 실제로 빨간불이 뜨는 것까지 확인했다.
+
+다만 그 파일 머리말이 한계 둘을 명시한다. **0095가 고친 부류(호스팅
+프로젝트의 `ALTER DEFAULT PRIVILEGES`)는 로컬에서 테스트가 불가능하다** —
+로컬엔 그 기본 권한이 없어서 단언이 마이그레이션 유무와 무관하게 통과한다.
+그건 `going-public.md`의 `db diff --linked` 절이 담당한다. 그리고 처음에 예시로
+고른 `redeem_join_code`는 **프로덕션에선 anon이 부를 수 있고 로컬에선 아니라서**
+잘못된 선택이었다 — 정확히 같은 함정이다.
+
 ### 남은 것
 
 1. **로그인 상태 화면을 브라우저로 못 봤다.** 로컬 스택의 kong 컨테이너가
@@ -136,10 +180,10 @@ PR **#154** / 0095가 `from anon, authenticated`로 명시 revoke해 닫았다.
    대상이 아니다.** ingest가 이미 읽었다(4,185개). 지울 수 있다.
 3. `live.db`가 **4.94 GB**다. 0070의 `retention_report()`는 아직 아무것도
    스케줄되지 않았고, 이건 저널(SQLite)이지 클라우드가 아니다. 별건.
-4. **`anon`에 열린 다른 함수들을 한 번 훑는다.** `db diff --linked`에
-   `retention_report`·`build_rank_period`·`rebuild_rank_period`·
-   `redeem_join_code`·`reject_player_claim`이 전부 `TO anon`으로 나온다.
-   전부 자체 가드가 있는 것으로 보이지만 **확인한 적은 없다.**
+4. **함수는 훑었지만 뷰와 테이블 grant는 안 훑었다.** `db diff --linked`에
+   `GRANT DELETE, INSERT, UPDATE ON public.<거의 전부> TO anon`이 잔뜩 나온다.
+   RLS가 그 위에 있고 0065가 `anon`의 `public` SELECT를 회수했으므로 실제로
+   막혀 있을 가능성이 높지만, **함수에서 틀렸던 것과 같은 종류의 가정이다.**
 
 ---
 
