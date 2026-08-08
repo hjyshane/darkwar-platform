@@ -44,6 +44,13 @@ _TABLE_ORDER = [
 class SyncConfig:
     supabase_url: str
     secret_key: str
+    # One drain sends at most this many rows, grouped into one request per
+    # target table. 100 was fine while the outbox tracked capture in real
+    # time; it is the wrong shape for catching up. A backlog of 288,471 rows
+    # at 100 per ~13.5s is eleven hours, and the cost per drain is dominated
+    # by the round trips, not the row count — so the batch is the dial that
+    # matters. Kept at 100 by default because that is what every existing
+    # test and deployment assumes; `DW_SYNC_BATCH_SIZE` raises it.
     batch_size: int = 100
     max_attempts: int = 8
     base_backoff_seconds: float = 2.0

@@ -21,7 +21,7 @@ from dw_collector.envfile import load_env_file
 from dw_collector.models import Observation
 from dw_collector.protocol.pcapng import PcapError
 from dw_collector.storage.journal import Journal
-from dw_collector.sync.worker import SyncConfig, SyncWorker
+from dw_collector.sync.worker import DrainStats, SyncConfig, SyncWorker
 
 app = typer.Typer(no_args_is_help=True)
 
@@ -165,16 +165,41 @@ def sync(
     db: Annotated[Path | None, _DB_OPTION] = None,
     url: Annotated[str | None, typer.Option(envvar="SUPABASE_URL")] = None,
     secret_key: Annotated[str | None, typer.Option(envvar="SUPABASE_SECRET_KEY")] = None,
+    batch_size: Annotated[
+        int, typer.Option(envvar="DW_SYNC_BATCH_SIZE", help="rows per drain, across all tables")
+    ] = SyncConfig.batch_size,
+    until_empty: Annotated[
+        bool, typer.Option(help="keep draining until nothing is pending or a drain sends nothing")
+    ] = False,
 ) -> None:
-    """Drain the outbox to Supabase once (S8)."""
+    """Drain the outbox to Supabase once (S8).
+
+    Once, by default: this is the operator's command, and a single drain is
+    what you want when checking that credentials and the journal path are
+    right. `--until-empty` is the other job — clearing a backlog without
+    running the command three thousand times, which is what 288,471 pending
+    rows at 100 per invocation actually asks for.
+    """
     if not url or not secret_key:
         typer.echo("SUPABASE_URL and SUPABASE_SECRET_KEY are required", err=True)
         raise typer.Exit(code=1)
     path = _db_path(db)
     journal = _open_journal(db)
+    total = DrainStats()
     try:
-        worker = SyncWorker(journal, SyncConfig(supabase_url=url, secret_key=secret_key))
-        stats = worker.drain_once()
+        worker = SyncWorker(
+            journal, SyncConfig(supabase_url=url, secret_key=secret_key, batch_size=batch_size)
+        )
+        while True:
+            stats = worker.drain_once()
+            total.sent += stats.sent
+            total.failed += stats.failed
+            # `sent == 0` ends the loop as well as an empty outbox. Rows that
+            # failed are rescheduled with a backoff, so they stay pending and
+            # come back as the same batch — spinning on them would retry
+            # faster than the backoff asks and never terminate.
+            if not until_empty or stats.sent == 0:
+                break
         counts = journal.outbox_counts()
     finally:
         journal.close()
@@ -182,7 +207,7 @@ def sync(
     # fresh, empty journal in whichever checkout you happened to be in —
     # otherwise looks exactly like having nothing to send.
     typer.echo(f"journal={path}")
-    typer.echo(f"sent={stats.sent} failed={stats.failed} outbox={counts}")
+    typer.echo(f"sent={total.sent} failed={total.failed} outbox={counts}")
 
 
 @app.command("journal-summary")
