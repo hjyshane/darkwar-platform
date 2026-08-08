@@ -170,16 +170,82 @@ PUBLIC 기본값을 못 막는다(0096).
 고른 `redeem_join_code`는 **프로덕션에선 anon이 부를 수 있고 로컬에선 아니라서**
 잘못된 선택이었다 — 정확히 같은 함정이다.
 
+### 브라우저 검증 — 했다. realtime이 처음으로 실증됐다
+
+kong 컨테이너가 exit 127로 죽어 있었다. `supabase start`는 매번 "Stopped
+services"만 보고하고 **되살리지 않는다.** `docker start
+supabase_kong_darkwar-platform` 하나로 떴다. 이 스택이 반쯤 죽어 있으면 앞으로도
+그 증상이다 — `docker ps -a`로 exit 코드를 먼저 본다.
+
+실 픽스처 23개 → 3,681행, 로스터 93명, 역할 4개(viewer/member/officer/admin),
+officer에 `members.manage` 부여. `is_own`이 **둘**이었다(합성 시드 + 픽스처) —
+핀을 박아야 한다. 핀은 코드가 아니라 `alliance_id`로 고른다: 둘 다 코드가
+`CBFW`라 코드로 고르면 합성 쪽이 잡힌다.
+
+**어드민 배너 — 그룹마다 다른 문장이 나온다:**
+
+| 그룹 | officer(+members.manage)가 보는 것 |
+|---|---|
+| Access | "**Some of** this group needs the admin role" |
+| Alliance · Display | `"Change dashboard settings"` |
+| Catalogue | `"Edit the hero and pet catalogues"` |
+| Operations | "the admin role" |
+
+admin은 다섯 그룹 어디서도 배너를 안 본다. capability 라벨은 DB의
+`capabilities` 테이블에서 온다. 예전 문구였다면 Access에서 "저장은 admin이
+필요"라고 **틀리게** 말했을 자리다.
+
+콘솔 403 하나는 officer의 `GET /join_codes`이고 **버그가 아니다.** 0021이
+`admin_all`로 잠갔고 authenticated에 SELECT를 준 적이 없다 — 배너가 예고한 바로
+그 거절이다. 섹션은 숨지 않고 에러를 보고한다(AdminPage의 원칙 그대로).
+
+**0093 realtime — 처음으로 실증됐다.** 이전까지는 주장만 있었다.
+
+psql로 클레임을 승인하자 브라우저를 건드리지 않았는데 화면이
+"Waiting for an officer to confirm that you are Member07" →
+**"This account is linked to Member07."** 로 바뀌고 피커가 사라졌다.
+
+그것만으로는 부족하다 — 앱은 `new QueryClient()` 기본값이라
+`refetchOnWindowFocus`가 켜져 있어서 포커스 refetch일 수 있다. 그래서 페이지에
+기록기를 심고 다시 쟀다:
+
+```
+focusEvents: []                                    ← 포커스 이벤트 0
+hidden: true                                       ← 숨김 상태(=focus refetch 불가)
+domChanges: [{ at: 28302, what: "Probe 424242" }]  ← psql로 쓴 마커가 그대로
+```
+
+남은 전송 경로는 소켓뿐이다. `app_users` 토픽이 Members 표까지 닿는 것도 같이
+증명된다.
+
+**탈퇴 — 설계대로 착지한다.** 첫 클릭은 확인만 띄우고, 두 번째에 역할이
+`officer` → `viewer`로 **리로드 없이** 바뀌고 가입코드 입력창이 나타난다.
+로그인은 살아 있다. DB: `app_users` 행 GONE, `player_claims` GONE,
+`auth.users` 1행 유지.
+
+**감사 로그가 두 모양을 구분한다** — 이게 강등 대신 삭제를 택한 이유다:
+
+| | actor |
+|---|---|
+| `app_users.removed` (admin이 강제) | admin uid — **남는다** |
+| `app_users.left` (본인 탈퇴) | `(NULL)` — 그 행이 지워지니 FK가 지운다 |
+
+이름은 양쪽 다 `before->>'display_name'`에 남는다. `record_departure`가 이름이
+닿는 마지막 순간에 쓰기 때문이다.
+
+강제탈퇴는 UI에서 `POST /rpc/remove_member → 204`로 나가고 직후 무효화 refetch가
+따라붙는다.
+
 ### 남은 것
 
-1. **로그인 상태 화면을 브라우저로 못 봤다.** 로컬 스택의 kong 컨테이너가
-   안 떠서 세션을 만들 수 없다. 로그아웃 화면은 렌더 확인했다. 어드민 배너·
-   탈퇴 버튼·클레임 문구는 **단위 테스트로만** 덮여 있다.
-2. **`C:\DW_data\live` 정리.** 재등록 때 dumpcap이 링 번호를 처음부터 다시
+1. **`C:\DW_data\live` 정리.** 재등록 때 dumpcap이 링 번호를 처음부터 다시
    시작해서, 이전 프로세스가 만든 `cap_0xxxx` 2,600여 개가 **새 링의 삭제
    대상이 아니다.** ingest가 이미 읽었다(4,185개). 지울 수 있다.
-3. `live.db`가 **4.94 GB**다. 0070의 `retention_report()`는 아직 아무것도
+2. `live.db`가 **4.94 GB**다. 0070의 `retention_report()`는 아직 아무것도
    스케줄되지 않았고, 이건 저널(SQLite)이지 클라우드가 아니다. 별건.
+3. **반응형·다른 탭은 안 봤다.** 이번에 만진 것이 로그인·어드민 화면이라
+   거기만 봤다. 표 가로 스크롤·sticky 열은 2026-08-01 확인이 마지막이다.
+
 ---
 
 ### 뷰·테이블 grant 전수 조사 — 문 세 개는 모양이 다르다 (0097)
