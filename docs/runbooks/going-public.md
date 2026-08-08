@@ -107,6 +107,45 @@ supabase migration list
 `remote`가 빈 문자열인 줄이 있으면 그게 안 올라간 것이다. `db diff --linked`는
 함수 본문 차이를 항상 잡아주지 않는다.
 
+### push 뒤에 `db diff --linked`도 본다 — 로컬 테스트가 구조적으로 못 보는 것이 있다
+
+```powershell
+supabase db diff --linked --schema public
+```
+
+출력은 **원격에는 있는데 마이그레이션엔 없는 것**이다. 대부분은 플랫폼 잡음이라
+(기본 권한, `rls_auto_enable`, `ensure_rls` 이벤트 트리거) 흘려보게 되는데,
+**그 잡음이 실제로 위험한 한 가지를 숨긴다.**
+
+호스팅 프로젝트에는 이게 걸려 있다:
+
+```sql
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+  GRANT ALL ON ROUTINES TO anon, authenticated, service_role;
+```
+
+**새로 만드는 함수마다 `anon`·`authenticated`에 EXECUTE가 직접 붙는다.**
+`revoke all on function ... from public`은 **직접 붙은 grant를 건드리지 않는다.**
+revoke는 돌고, 성공을 보고하고, 함수는 그대로 열려 있다.
+
+**로컬 스택에는 그 기본 권한이 없다.** 로컬에서 `anon`은 어떤 함수에도 실행
+권한이 없다 — `approve_player_claim`도 마찬가지고, 그것도 `public`에서만
+revoke했다. 그래서 **이 드리프트는 pgTAP으로 잡히지 않는다.** 로컬에서 짠
+"anon은 못 부른다" 테스트는 마이그레이션이 있든 없든 통과한다.
+
+0094가 정확히 이걸 밟았다. `record_departure()`는 자체 권한 검사가 없는 내부
+헬퍼인데 (호출자 둘이 SECURITY DEFINER라 grant가 필요 없다), 프로덕션에서
+`anon`이 부를 수 있었다 — `audit_logs`에 임의의 행을 넣을 수 있는 상태였다.
+0095가 `from anon, authenticated`로 명시 revoke해서 닫았다.
+
+같이 올라간 `leave_alliance()`·`remove_member()`는 안전했고, **그건 grant 때문이
+아니라 각자 첫 줄에서 거부하기 때문이다** (`auth.uid()` null / `members.manage`).
+그 순서가 맞다. 함수의 안전장치는 grant가 아니라 가드다.
+
+**규칙**: 이 플랫폼에서 `revoke ... from public`은 함수를 비공개로 만들지 않는다.
+**롤을 이름으로 적어야 한다.** 새 함수를 올린 뒤에는 `db diff --linked`에
+`GRANT ALL ON FUNCTION public.<새 함수> TO anon`이 있는지 본다.
+
 ### 함수를 올리는 것과 실행하는 것은 다르다
 
 `build_rank_period` 같은 계산 함수는 올라가도 **기존 행을 다시 쓰지 않는다.**
