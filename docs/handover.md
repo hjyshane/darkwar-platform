@@ -180,10 +180,62 @@ PUBLIC 기본값을 못 막는다(0096).
    대상이 아니다.** ingest가 이미 읽었다(4,185개). 지울 수 있다.
 3. `live.db`가 **4.94 GB**다. 0070의 `retention_report()`는 아직 아무것도
    스케줄되지 않았고, 이건 저널(SQLite)이지 클라우드가 아니다. 별건.
-4. **함수는 훑었지만 뷰와 테이블 grant는 안 훑었다.** `db diff --linked`에
-   `GRANT DELETE, INSERT, UPDATE ON public.<거의 전부> TO anon`이 잔뜩 나온다.
-   RLS가 그 위에 있고 0065가 `anon`의 `public` SELECT를 회수했으므로 실제로
-   막혀 있을 가능성이 높지만, **함수에서 틀렸던 것과 같은 종류의 가정이다.**
+---
+
+### 뷰·테이블 grant 전수 조사 — 문 세 개는 모양이 다르다 (0097)
+
+`anon`은 **선언되지 않은 INSERT/UPDATE/DELETE를 66개 관계에** 갖고 있다. 전부
+무력하다. 확인한 것:
+
+| | |
+|---|---|
+| 테이블 47개 중 RLS 꺼진 것 | **0** |
+| 쓰기 정책 23개의 대상 롤 | **전부 `{authenticated}`** — `anon`·`public` 없음 |
+| `anon`의 선언되지 않은 SELECT | **0** (0065의 회수가 유지됨) |
+| `anon`이 읽을 수 있는 뷰 | **0** |
+
+**문 세 개의 차이가 이 조사의 결론이다:**
+
+- **함수엔 RLS가 없다.** `anon` grant가 곧 경계다 — 0095·0096이 그래서 필요했다.
+- **테이블엔 RLS가 있다.** grant가 남아 있어도 정책이 막는다.
+- **뷰엔 둘 다 없다.** 자체 정책이 없고, `security_invoker`가 아니면 원천을
+  **소유자로** 읽는다 — 밑에 깔린 모든 정책을 지나서.
+
+그 셋째에서 하나 나왔다. **`alliance_growth`가 계정만 있으면 누구나 읽을 수
+있었다.** 0073이 만들 때 `with (security_invoker = true)`가 빠졌다:
+
+```
+33행: create view public.alliance_power_history
+34행: with (security_invoker = true) as
+...
+66행: create view public.alliance_growth as        ← with 절 없음
+```
+
+같은 마이그레이션, 30줄 간격, 같은 대상. 판단이 아니라 누락이다. 뷰 기본값이
+`security_invoker = false`라 소유자로 실행됐고, 원천 `alliance_snapshots`는
+`member_read`인데 131행의 `grant select to authenticated`가 결과를 **가입만
+하고 코드는 안 받은 viewer에게까지** 넘겼다. 0081이 `create or replace`로
+다시 낸 것이 reloptions를 보존해 누락도 같이 보존했다.
+
+실측(viewer 세션, 스냅샷 2행):
+
+```
+alliance_snapshots  0    ← RLS 작동
+alliance_growth     1    ← 우회
+```
+
+PR **#158** / 0097이 `alter view ... set (security_invoker = true)`로 고쳤다.
+멤버는 그대로 본다(`alliance_snapshots`를 읽을 수 있으므로). viewer만 못 본다.
+
+`sync_status`는 **의도적으로** `security_invoker = false`다 — 0060이 이유와 함께
+적었고 0065가 참조한다. officer 전용 테이블에서 하트비트 시각 하나만 공개해
+보드가 살아 있는지 말하게 한다. 58번 테스트가 그 하나를 **이름으로** 예외
+처리한다 — 두 번째 예외를 만들려면 누군가 적어야 하게.
+
+지속 산출물은 `58_relation_reach_test`다. 1·2번이 RLS 커버리지와 anon 쓰기 정책,
+4번이 게이트 없는 DEFINER 뷰를 막는다. 3·5번은 **대조군**이다 — 앞 단언들이
+빈 스키마에서 통과하는 것을 막으려고 "찾을 수 있다"를 먼저 증명한다. 0097을
+빼고 reset하면 4번과 8번만 빨간불이 뜬다(확인함).
 
 ---
 
