@@ -32,10 +32,14 @@ def main() -> None:
     if not url or not key:
         raise SystemExit("SUPABASE_URL and SUPABASE_SECRET_KEY are required")
     interval = float(os.environ.get("DW_SYNC_INTERVAL_SECONDS", "10"))
+    batch = int(os.environ.get("DW_SYNC_BATCH_SIZE", str(SyncConfig.batch_size)))
     journal = Journal(Path(os.environ.get("DW_SQLITE_PATH", "./data/collector.db")))
     journal.init_db()
-    worker = SyncWorker(journal, SyncConfig(supabase_url=url, secret_key=key))
-    log.info("sync.start", interval=interval)
+    worker = SyncWorker(journal, SyncConfig(supabase_url=url, secret_key=key, batch_size=batch))
+    # The batch size is logged, not just read: a drain that is keeping up and
+    # a drain that is eleven hours behind produce the same `sent=` lines, and
+    # the only difference visible in the log is how many rows each one moved.
+    log.info("sync.start", interval=interval, batch_size=batch)
     try:
         while True:
             stats = worker.drain_once()

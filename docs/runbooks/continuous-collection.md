@@ -429,20 +429,59 @@ routine이 재접속을 포함해야 하는데, `am force-stop`·`am start`는 �
 
 | 작업 | 명령 |
 |---|---|
-| `DarkWar-Capture` | `dumpcap -i <NPF> -f "tcp port 8680" -w C:\DW_data\live\cap.pcapng -b duration:300 -b files:288 -B 64` |
-| `DarkWar-Ingest` | `uv run dw-collector ingest-dir --dir C:\DW_data\live --interval-seconds 60` |
-| `DarkWar-Sync` | `uv run dw-sync` |
+| `DarkWar-Capture` | `dumpcap -i <NPF> -f "tcp port 8680" -w C:\DW_data\live\cap.pcapng -b duration:60 -b files:1440 -B 64` |
+| `DarkWar-Ingest` | `uv run --no-sync dw-collector ingest-dir --dir C:\DW_data\live --min-age-seconds 20 --interval-seconds 30` |
+| `DarkWar-Sync` | `uv run --no-sync dw-sync` (`DW_SYNC_BATCH_SIZE=1000`) |
 
-5분짜리 파일 288개 = 24시간치. 등록 스크립트는 `C:\DW_data\register-tasks.ps1`에
-있고 **관리자 PowerShell**이 필요하다(작업 등록은 권한이 있어야 한다). 시작은
-권한이 없어도 된다:
+1분짜리 파일 1440개 = 24시간치. 등록 스크립트는 이제 저장소에 있다 —
+[`scripts/windows/register-tasks.ps1`](../../scripts/windows/register-tasks.ps1).
+**관리자 PowerShell**이 필요하다(작업 등록은 권한이 있어야 한다).
 
 ```powershell
-foreach ($n in 'DarkWar-Capture','DarkWar-Ingest','DarkWar-Sync') { Start-ScheduledTask -TaskName $n }
+.\scripts\windows\register-tasks.ps1 -Interface '\Device\NPF_{...}'
 ```
 
-작업 설정에 넣은 것: 실패 시 1분 간격 재시작, **실행 시간 제한 없음**(기본값은
-3일 뒤 죽인다), 중복 실행 방지, 배터리에서도 계속.
+인터페이스는 `& 'C:\Program Files\Wireshark\dumpcap.exe' -D`로 찾거나
+`DW_CAPTURE_NPF_DEVICE`에 넣어 둔다. 스크립트가 등록까지 하고 **띄운 다음 10초
+뒤에 정말 `Running`인지 확인한다** — 아래 「uv가 자기 발등을 찍는다」가 정확히
+"시작은 성공했는데 돌지 않는" 모양이었기 때문이다.
+
+작업 설정에 넣은 것: 로그온 트리거 + **5분 반복(3650일)**, 실패 시 1분 간격
+재시작, **실행 시간 제한 없음**(기본값은 3일 뒤 죽인다), 중복 실행 방지,
+배터리에서도 계속. 되살리는 것은 반복 트리거다 — 재시작 설정은 종료 코드가 0이
+아닐 때만 걸리고, 여기서 죽는 방식은 대체로 0을 남긴다.
+
+### `uv`가 자기 발등을 찍는다 — 2026-08-07 사고의 원인
+
+`DarkWar-Ingest`가 `Ready`인 채로 몇 시간 있었고 outbox가 **288,471행**까지
+밀렸다. 5분 반복 트리거는 정상 작동 중이었다. 매번 살아나서 1초 안에 죽고
+있었을 뿐이다. `ingest.log`에 320줄:
+
+```
+error: failed to remove file `...\.venv\Lib\site-packages\../../Scripts/dw-sync.exe`:
+The process cannot access the file because it is being used by another process. (os error 32)
+```
+
+**`uv run`은 실행 전에 프로젝트 환경을 재동기화하고, 동기화는
+`.venv\Scripts`의 콘솔 스크립트를 다시 쓴다.** 상시 실행 중인 `dw-sync`가
+자기 `dw-sync.exe`를 잡고 있으니, 같은 프로젝트 디렉터리를 쓰는 ingest는
+**sync가 살아 있는 한 절대 못 뜬다.** 간헐적 고장이 아니라 영구 고장이다.
+
+고친 방법은 `uv run --no-sync`다. 의존성 설치는 스케줄된 작업이 몰래 할 일이
+아니다 — 환경 동기화는 register 스크립트가 **전부 멈춘 그 순간에 한 번** 한다.
+의존성을 바꿨으면 register 스크립트를 다시 돌린다.
+
+**같이 드러난 것**: `run-hidden.vbs`가 자식의 종료 코드를 버리고 있어서
+(`shell.Run` 반환값 미사용) wscript가 0으로 끝났다. 그래서 이 실패가
+`LastTaskResult=0`, 즉 성공으로 보였다. 지금은 `WScript.Quit code`로 올린다.
+반복 트리거가 없었다면 이 하나로 무기한 정지였을 것이다.
+
+**진단할 때 헷갈리는 코드 둘**:
+
+| 코드 | 뜻 |
+|---|---|
+| `0x800710E0` | 실행 중이라 `IgnoreNew`가 반복 실행을 거절했다 — **정상** |
+| `0x0` + `Ready` | 방금 죽었을 수도 있다. 로그를 봐야 한다 |
 
 **확인 방법**
 
@@ -452,10 +491,21 @@ Get-ScheduledTask -TaskName "DarkWar-*" | ForEach-Object {
 uv run dw-collector journal-summary --db C:\DW_data\live.db
 ```
 
-`state=Running`, `lastResult=267009`(실행 중)이면 정상이다. 저널의
-`ingested_captures` 표에 파일이 쌓이고 `outbox`의 pending이 0에 가까우면
-끝까지 도는 것이다. **첫 파일은 5분 창이 끝나고 30초가 더 지나야 들어온다** —
-`--min-age-seconds`가 아직 쓰이는 중인 파일을 건드리지 않게 막는다.
+**셋 다 `Running`이어야 한다.** 저널의 `ingested_captures`에 파일이 쌓이고
+`sync_outbox`의 pending이 0에 가까우면 끝까지 도는 것이다. 첫 파일은
+1분 창이 끝나고 20초가 더 지나야 들어온다 — `--min-age-seconds`가 아직 쓰이는
+중인 파일을 건드리지 않게 막는다. 최악 지연은 60+20+30 = **110초**.
+
+`Running`만으로는 부족하다. 진짜 물어야 할 것은 **ingest가 따라잡고 있는가**다:
+
+```powershell
+Get-ChildItem C:\DW_data\live\cap_*.pcapng | Sort-Object Name | Select-Object -Last 1
+uv run --no-sync dw-collector journal-summary --db C:\DW_data\live.db
+```
+
+마지막 캡처 파일 번호와 저널의 마지막 ingest 파일 번호 차이가 **2~3을 넘어서
+계속 벌어지면** ingest가 죽었거나 못 따라가는 것이다. pending이 단조 증가하는
+것도 같은 신호다.
 
 **전원 설정을 확인한다.** 절전이나 최대 절전으로 들어가면 새벽 수집이 끊기고,
 그게 하필 일요일 01:59 UTC 창이면 등급 리포트가 통째로 틀어진다.

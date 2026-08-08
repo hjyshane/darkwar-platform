@@ -108,25 +108,57 @@ export function PlayerClaimForm() {
       return;
     }
     setFailed(false);
-    setMessage('Sent. An officer will confirm it.');
+    // Name the character back, rather than "Sent." The whole risk in this
+    // form is picking the wrong row out of a hundred-name list, and the only
+    // moment that is cheap to notice is right now.
+    setMessage(`Sent: you said you are ${nameOf(chosen) ?? chosen}. An officer will confirm it.`);
     void queryClient.invalidateQueries({ queryKey: ['my-claim'] });
   }
 
+  // The picked name, wherever the claim is in its life. The roster query is
+  // the same one that fills the picker, so a name here cannot disagree with
+  // the option that was clicked.
+  function nameOf(playerId: string): string | null {
+    return players?.find((player) => player.player_id === playerId)?.current_name ?? null;
+  }
+
   if (claim?.status === 'approved') {
-    const name = players?.find((player) => player.player_id === claim.player_id)?.current_name;
+    // The roster may not have arrived yet, and a raw uuid is not an answer to
+    // "who am I linked to". Say the state plainly and let the name fill in.
+    const name = nameOf(claim.player_id);
     return (
       <p className="empty">
-        This account is linked to <strong>{name ?? claim.player_id}</strong>.
+        This account is linked to <strong>{name ?? 'your character'}</strong>
+        {name === null && ' (loading the name…)'}.
       </p>
     );
   }
 
+  // Optimistic only in what it SAYS, never in what it grants. 0066's rule is
+  // that self-service linking must not exist, and it does not: `player_id`
+  // still moves solely inside approve_player_claim(). What was missing was
+  // the member being able to see their own answer without a reload — the
+  // claim row is now a realtime topic (0093), so an officer's decision
+  // arrives here on its own, and until it does this says which character is
+  // waiting rather than leaving the sentence abstract.
+  const pending = claim?.status === 'pending' ? nameOf(claim.player_id) : null;
+
   return (
     <form onSubmit={(event) => void submit(event)}>
       <p className="empty">
-        {claim?.status === 'pending'
-          ? 'Your claim is waiting for an officer to confirm it. Picking again replaces it.'
-          : 'Which character are you? An officer confirms this before it takes effect.'}
+        {claim?.status === 'pending' ? (
+          <>
+            Waiting for an officer to confirm that you are{' '}
+            <strong>{pending ?? 'the character you picked'}</strong>. Picking again replaces it.
+          </>
+        ) : claim?.status === 'rejected' ? (
+          <>
+            An officer did not accept that claim. Pick again — a note saying which character is
+            yours is what usually settles it.
+          </>
+        ) : (
+          'Which character are you? An officer confirms this before it takes effect.'
+        )}
       </p>
       <label>
         Character

@@ -2,8 +2,107 @@
 
 작성 2026-08-01, 갱신 2026-08-06. 다음 세션이 이 문서만 읽고 이어받을 수 있게 쓴다.
 
-> **다음 세션은 바로 아래 「2026-08-06 상태」부터 읽는다.** 그 아래는 배경이고,
+> **다음 세션은 바로 아래 「2026-08-07 상태」부터 읽는다.** 그 아래는 배경이고,
 > 일부는 이미 낡았다.
+
+---
+
+## 2026-08-07 상태 — 수집이 26시간 멈춰 있었다. 원인은 `uv run` 한 줄
+
+브랜치 `task-scheduler-admin-ui-809179`, 커밋 3개. **아직 머지되지 않았다** —
+이게 아래 「지금 당장 할 일」의 이유다.
+
+### 사고: `uv run`이 상시 작업 둘을 서로 죽인다
+
+`DarkWar-Ingest`가 `Ready`인 채로 있었고 outbox가 **288,471행**까지 밀렸다.
+5분 반복 트리거는 정상이었다 — **매번 살아나서 1초 안에 죽고 있었다.**
+
+```
+error: failed to remove file `...\.venv\Lib\site-packages\../../Scripts/dw-sync.exe`:
+The process cannot access the file because it is being used by another process. (os error 32)
+```
+
+`uv run`은 실행 전에 프로젝트 환경을 재동기화하고, 동기화는 `.venv\Scripts`의
+콘솔 스크립트를 다시 쓴다. 상시 실행 중인 `dw-sync`가 자기 `.exe`를 잡고 있으니
+**같은 프로젝트 디렉터리를 쓰는 ingest는 sync가 살아 있는 한 절대 못 뜬다.**
+간헐적이 아니라 영구 고장이다.
+
+고침: `uv run --no-sync`. 환경 동기화는 register 스크립트가 **전부 멈춘 그 순간에
+한 번**만 한다. 의존성을 바꿨으면 register 스크립트를 다시 돌린다.
+
+**같이 드러난 둘**:
+
+1. `run-hidden.vbs`가 자식 종료 코드를 버려서 실패가 `LastTaskResult=0`,
+   즉 **성공으로 기록됐다**. 이제 `WScript.Quit code`.
+2. 스크립트 안의 `schtasks ... 2>&1`. `$ErrorActionPreference='Stop'`에서
+   네이티브 명령의 stderr는 **종료 오류가 된다.** 등록 안 된 작업에
+   `schtasks /end`를 걸자 재등록 도중 스크립트가 죽고 **세 작업이 전부 등록
+   해제된 채로 남았다.** `& $uv sync 2>&1`도 같은 이유로 터졌다(uv는 진행
+   상황을 stderr로 쓴다). **이 저장소의 PowerShell에서 네이티브 명령에
+   `2>&1`을 붙이지 않는다.**
+
+`register-tasks.ps1`은 이제 저장소에 있다 —
+[`scripts/windows/register-tasks.ps1`](../scripts/windows/register-tasks.ps1).
+전에는 `C:\DW_data`에만 있어서 고쳐도 리뷰도 복구도 불가능했다. 등록 뒤
+**띄우고 10초 후에 정말 `Running`인지 다시 본다** — 이 사고가 "시작은 성공,
+실행은 아님"의 모양이었다.
+
+**진단할 때 헷갈리는 코드 둘**: `0x800710E0`은 실행 중이라 `IgnoreNew`가 반복을
+거절한 것으로 **정상**. `0x0` + `Ready`는 방금 죽었을 수도 있으니 로그를 본다.
+
+### sync 배치 — 7.4행/s → 231행/s
+
+`sync`에 배치 옵션이 없었다. `batch_size=100` 하드코딩, drain 1회당 100행.
+288k 백로그가 **11시간**이었다.
+
+`DW_SYNC_BATCH_SIZE`(데몬) + `--batch-size` / `--until-empty`(운영 명령)를 넣었다.
+실측: 배치 1000에서 **231행/s, 31배**. 백로그 251,033행을 16분에 비웠고
+`failed=0`, 현재 pending **0**.
+
+> **아직 안 듣는다.** `run-Sync.cmd`가 `DW_SYNC_BATCH_SIZE=1000`을 넣지만,
+> 상시 작업은 `C:\darkwar-platform`(메인 체크아웃)의 코드를 돌린다. **머지
+> 전까지 sync는 여전히 100행/drain이다.**
+
+### 어드민 셋
+
+- **등급 게이트**는 **capability별**로 했다. `game_rank`가 아니다 — 0045가
+  "게임 R4가 대시보드 편집 권한이 아니다"를 명시적으로 정해 뒀고, 그걸 어기면
+  게임 안 승진이 앱 쓰기 권한이 된다. 테스트가 `game_rank` 사용을 막는다.
+  기존 배너는 `role === 'admin'` 하나를 5개 그룹 전부에 물어보고 "저장은 admin이
+  필요"라고 했는데, **0045 이후로 거짓이었다** — `members.manage`를 받은 officer는
+  멤버 표·권한 그리드·등급 열을 편집할 수 있다.
+  `apps/dashboard/src/lib/adminAccess.ts`에 섹션→요구사항 지도가 있다.
+  요구사항이 두 모양인 이유: `join_codes`(0021)와 `notification_channels`(0076)는
+  아직 정책이 `current_app_role() = 'admin'`을 직접 쓴다. **없는 capability로
+  분장하지 않고 role로 적었다.**
+- **캐릭터 선택**: 승인 규칙(0066)은 그대로. `player_claims`·`app_users`에
+  notify 트리거가 **아예 없어서** officer 승인이 화면에 도달할 경로가 없었다
+  (0093이 추가). 문구는 캐릭터 이름을 되읽어 준다 — 100명 목록에서 잘못 고르는
+  것이 이 폼의 유일한 실제 위험이고, 싸게 알아챌 순간이 그때다. rejected가
+  중립 질문으로 떨어지던 것도 고쳤다(같은 클레임을 다시 내게 만들었다).
+- **탈퇴·강제탈퇴**: `created_by` 하나가 아니라 **NO ACTION FK 9개**였다.
+  전부 `set null`. **MembersSetting의 기존 `revoke`(viewer로 강등)를 대체한다** —
+  강등된 행은 `display_name`·`game_rank`를 유지해서 `players.current_alliance_id`와
+  같은 종류의 버그였고, 탈퇴 사실이 어디에도 안 남았다. `record_departure()`가
+  이름이 닿는 마지막 순간에 감사 행을 쓴다. `leave_alliance()`는 강등으로는
+  애초에 못 만든다 — `app_users`는 `members.manage`로 쓰는데 떠나는 사람에겐
+  그게 없다. **마지막 admin은 못 나간다.** pgTAP 19건, 픽스처는 일부러 지저분하게
+  (초대·감사·공지·가이드·설정) — 새 계정으로 짠 테스트는 이 버그를 못 잡는다.
+
+### 지금 당장 할 일
+
+1. **이 브랜치를 머지한다.** 머지 전까지 sync는 100행/drain이고, `--no-sync`
+   수정은 `C:\DW_data`의 `.cmd` 파일에만 들어 있다(register 스크립트가 썼다).
+   **저장소 이력과 실제 기계가 갈라져 있는 상태다.**
+2. **머지 뒤 register 스크립트를 다시 돌린다** (`uv sync`를 다시 하고,
+   그때 `DW_SYNC_BATCH_SIZE`가 실제로 먹기 시작한다).
+3. **0093·0094를 클라우드에 올린다.** `supabase db push --include-all`,
+   그 전에 `supabase migration list`로 `remote=''`를 확인한다.
+4. **`C:\DW_data\live` 정리.** 재등록 때 dumpcap이 링 번호를 처음부터 다시
+   시작해서, 이전 프로세스가 만든 `cap_0xxxx` 2,600여 개가 **새 링의 삭제
+   대상이 아니다.** 저장된 파일은 ingest가 이미 읽었다(4,185개). 지울 수 있다.
+5. `live.db`가 **4.94 GB**다. 0070의 `retention_report()`는 아직 아무것도
+   스케줄되지 않았고, 이건 저널(SQLite)이지 클라우드가 아니다. 별건.
 
 ---
 
