@@ -13,6 +13,7 @@ import os
 import time
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from dw_collector.cli import _ready_captures, app
@@ -39,6 +40,40 @@ def test_the_file_still_being_written_is_left_alone(tmp_path: Path) -> None:
     ready = _ready_captures(tmp_path, minimum_age_seconds=30)
 
     assert [p.name for p in ready] == ["old.pcapng"]
+
+
+def test_a_file_deleted_mid_scan_does_not_kill_the_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The ring deletes its oldest file on every rotation once it is full,
+    and this directory is rescanned every 30 seconds, so a file vanishing
+    between the listing and the stat is normal rather than exceptional.
+
+    It used to raise FileNotFoundError, and `_ready_captures` runs OUTSIDE
+    the per-file `try` in the loop — so the whole process died. A collector
+    that goes quiet once its ring fills is the failure `ingest-dir` exists
+    to avoid. Found by a manual cleanup; the ring would have got there on
+    its own about a day later.
+    """
+    _touch(tmp_path / "keep-a.pcapng", age_seconds=300)
+    doomed = _touch(tmp_path / "doomed.pcapng", age_seconds=200)
+    _touch(tmp_path / "keep-b.pcapng", age_seconds=100)
+
+    real_stat = Path.stat
+
+    def vanishing(self: Path, *args: object, **kwargs: object) -> os.stat_result:
+        if self.name == doomed.name:
+            raise FileNotFoundError(2, "The system cannot find the file specified")
+        return real_stat(self, *args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(Path, "stat", vanishing)
+
+    ready = _ready_captures(tmp_path, minimum_age_seconds=30)
+
+    # The survivors are still returned, still in order. Skipping the whole
+    # scan would be almost as bad as crashing: the files that are there go
+    # unread until the next poll, every poll.
+    assert [p.name for p in ready] == ["keep-a.pcapng", "keep-b.pcapng"]
 
 
 def test_files_are_offered_oldest_first(tmp_path: Path) -> None:

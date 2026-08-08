@@ -480,14 +480,33 @@ def _ready_captures(directory: Path, minimum_age_seconds: float) -> list[Path]:
     it would ingest a truncated tail and then mark it done. Age is the test
     rather than "skip the newest", because a stopped dumpcap leaves its last
     file complete and that one should still be read.
+
+    A file may vanish between the listing and the stat, and that is normal
+    rather than exceptional: `-b files:1440` means dumpcap deletes its oldest
+    file on every rotation once the ring is full, and this directory is
+    rescanned every 30 seconds. The two collide by design.
+
+    It used to raise FileNotFoundError out of the comprehension, and since
+    this runs OUTSIDE the per-file `try` in the loop below, that killed the
+    whole process — the collector going quiet with a full ring, which is the
+    exact failure `ingest-dir` was written to avoid. It was found early by a
+    manual cleanup deleting old captures; the ring would have reached it on
+    its own about a day later.
+
+    One stat per path rather than two, which also closes the second race: the
+    old code stat'd once to filter and again to sort, so a file could survive
+    the first call and be gone by the second.
     """
     now = time.time()
-    ready = [
-        path
-        for path in directory.glob("*.pcapng")
-        if now - path.stat().st_mtime >= minimum_age_seconds
-    ]
-    return sorted(ready, key=lambda p: p.stat().st_mtime)
+    aged: list[tuple[float, Path]] = []
+    for path in directory.glob("*.pcapng"):
+        try:
+            mtime = path.stat().st_mtime
+        except OSError:
+            continue
+        if now - mtime >= minimum_age_seconds:
+            aged.append((mtime, path))
+    return [path for _, path in sorted(aged, key=lambda pair: pair[0])]
 
 
 @app.command("ingest-dir")
