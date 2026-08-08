@@ -8,7 +8,7 @@ import sqlite3
 import time
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Annotated
 
@@ -208,6 +208,72 @@ def sync(
     # otherwise looks exactly like having nothing to send.
     typer.echo(f"journal={path}")
     typer.echo(f"sent={total.sent} failed={total.failed} outbox={counts}")
+
+
+@app.command("prune-journal")
+def prune_journal(
+    db: Annotated[Path | None, _DB_OPTION] = None,
+    keep_days: Annotated[
+        int, typer.Option(help="keep observations captured within this many days")
+    ] = 30,
+    confirm: Annotated[bool, typer.Option(help="actually delete; otherwise only counts")] = False,
+    vacuum: Annotated[
+        bool, typer.Option(help="rewrite the file afterwards to give the pages back")
+    ] = False,
+) -> None:
+    """Drop journal history the collector can no longer act on.
+
+    Nothing else shrinks this file and it grows 0.92 GB a day. A first manual
+    pass reclaimed 1.58 GB, which is under two days of growth — the point of
+    having a command is that it can be run again without anybody rediscovering
+    which tables are safe.
+
+    Thirty days by default because the raw payload's remaining job is letting
+    a fixed parser be re-run over old traffic, and a month is a plausible time
+    to notice a parser is wrong. Shorten it if the disk gets tight; the cost
+    is how far back a correction can reach, not how much of the dashboard
+    works.
+
+    Counts by default. `--confirm` deletes, `--vacuum` gives the space back —
+    they are separate because deleting is quick and safe to do while the
+    collector runs, and vacuuming rewrites the whole file and wants the
+    writers stopped:
+
+        schtasks /end /tn DarkWar-Ingest
+        schtasks /end /tn DarkWar-Sync
+        uv run --no-sync dw-collector prune-journal --db C:\\DW_data\\live.db --confirm --vacuum
+    """
+    cutoff = datetime.now(tz=UTC) - timedelta(days=keep_days)
+    path = _db_path(db)
+    journal = _open_journal(db)
+    try:
+        report = journal.prune(older_than=cutoff, confirm=confirm)
+        if confirm and vacuum:
+            journal.vacuum()
+        counts = journal.outbox_counts()
+    finally:
+        journal.close()
+
+    typer.echo(f"journal={path}")
+    typer.echo(f"cutoff={cutoff.isoformat()} (keep {keep_days}d)")
+    verb = "removed" if confirm else "would remove"
+    typer.echo(f"{verb}: {report.observations} observations, {report.normalized_rows} rows")
+    typer.echo(f"{verb}: {report.delivered_outbox} delivered outbox entries")
+    if report.held_back:
+        # Old enough to go, kept because their rows never reached Supabase.
+        # Deleting them would strand outbox entries whose source is gone.
+        typer.echo(
+            f"held back: {report.held_back} observations still have undelivered rows"
+            " — run sync before pruning again"
+        )
+    typer.echo(f"outbox={counts}")
+    if not confirm:
+        typer.echo("nothing was deleted; pass --confirm")
+    elif not vacuum:
+        # The manual pass learned this the hard way: freelist_count was 3, so
+        # vacuuming without deleting first had reclaimed nothing, and deleting
+        # without vacuuming afterwards reclaims nothing either.
+        typer.echo("the file is the same size until --vacuum; the pages are on the free list")
 
 
 @app.command("journal-summary")
