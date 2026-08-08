@@ -3059,6 +3059,28 @@ export type Database = {
           server_id: number | null
           source_command: string | null
         }
+        Insert: {
+          board_size?: never
+          captured_at?: string | null
+          hq_level?: number | null
+          kills?: number | null
+          player_id?: string | null
+          power?: number | null
+          rank?: number | null
+          server_id?: number | null
+          source_command?: string | null
+        }
+        Update: {
+          board_size?: never
+          captured_at?: string | null
+          hq_level?: number | null
+          kills?: number | null
+          player_id?: string | null
+          power?: number | null
+          rank?: number | null
+          server_id?: number | null
+          source_command?: string | null
+        }
         Relationships: [
           {
             foreignKeyName: "player_snapshots_player_id_fkey"
