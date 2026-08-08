@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
+import { canWriteAnything, describe, missingIn } from '../../lib/adminAccess';
 import { fieldsOf } from '../../lib/memberFormulas';
+import { usePermissions } from '../../lib/permissions';
 import { ADMIN_GROUPS, type AdminGroup, adminHash } from '../../lib/route';
 import { useSession } from '../../lib/useSession';
 import { fetchRoster } from '../roster/RosterPanel';
@@ -31,10 +33,20 @@ import { TableLayoutSetting } from './TableLayoutSetting';
  * database said rather than hiding the control and leaving a non-admin
  * wondering. Telling someone why they cannot do a thing beats pretending the
  * thing does not exist.
+ *
+ * What that courtesy says is now per group. It used to be one sentence —
+ * "saving needs an admin" — asked once for all five, and it had been wrong
+ * since 0045 turned permissions into data: an officer holding
+ * `members.manage` may edit members, the permission grid and the rank
+ * column, and was told they could not. `lib/adminAccess.ts` holds the map of
+ * section to requirement and why each one is shaped the way it is.
  */
 export function AdminPage({ group }: { group: AdminGroup }) {
   const { data: session } = useSession();
-  const isAdmin = session?.role === 'admin';
+  const { data: permissions } = usePermissions();
+  const role = session?.role;
+  const grants = permissions?.grants;
+  const missing = missingIn(group, role, grants);
 
   return (
     <main>
@@ -42,13 +54,22 @@ export function AdminPage({ group }: { group: AdminGroup }) {
         <h2 id="admin-heading">Settings</h2>
         {session?.email == null ? (
           <p className="empty">
-            <a href="#/login">Sign in</a> as an admin to change these.
+            <a href="#/login">Sign in</a> to change these.
           </p>
         ) : (
-          !isAdmin && (
+          missing.length > 0 && (
             <p className="empty">
-              You are signed in as <strong>{session.role}</strong>. Reading these is fine; saving
-              needs an admin, and the database will refuse it rather than this page.
+              You are signed in as <strong>{role}</strong>.{' '}
+              {canWriteAnything(group, role, grants)
+                ? 'Some of this group needs '
+                : 'Changing anything here needs '}
+              {missing.map((requirement, index) => (
+                <span key={describe(requirement, permissions?.capabilities)}>
+                  {index > 0 && (index === missing.length - 1 ? ' and ' : ', ')}
+                  <strong>{describe(requirement, permissions?.capabilities)}</strong>
+                </span>
+              ))}
+              . Reading is fine, and the database refuses the write rather than this page.
             </p>
           )
         )}

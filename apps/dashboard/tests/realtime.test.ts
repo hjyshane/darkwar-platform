@@ -63,3 +63,11 @@ test('a permission change reaches the screens that gate on it', () => {
   // ungrey without reloading.
   expect(queryKeysForTopic('role_permissions')).toEqual([['permissions'], ['session']]);
 });
+
+test('a decided claim reaches the member who filed it', () => {
+  // Both halves, because the decision lands in two tables: the claim row
+  // says "approved" and app_users carries the link. Watching only the first
+  // leaves the member's own session reporting no character.
+  expect(queryKeysForTopic('player_claims')).toEqual([['my-claim'], ['player-claims']]);
+  expect(queryKeysForTopic('app_users')).toEqual([['session'], ['my-claim'], ['members-admin']]);
+});

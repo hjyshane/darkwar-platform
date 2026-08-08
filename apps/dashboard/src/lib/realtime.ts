@@ -35,6 +35,14 @@ const TOPIC_QUERY_KEYS: Record<string, readonly (readonly string[])[]> = {
   // Not data about the game at all — what the database will let a role do.
   // A control greyed out on the strength of the old answer has to ungrey.
   role_permissions: [['permissions'], ['session']],
+  // An officer deciding a claim, reaching the member who filed it. Without
+  // this the member's screen kept saying "waiting for an officer" after the
+  // officer had already answered, and the only way out was a reload.
+  player_claims: [['my-claim'], ['player-claims']],
+  // Where the decision lands: approve_player_claim() sets `player_id` here,
+  // and `useSession` reads this table for the role. Covers the promotion
+  // case too — a role change used to need a sign-out to be believed.
+  app_users: [['session'], ['my-claim'], ['members-admin']],
   // Not a snapshot table, but the same problem: an admin changing which
   // figures the overview shows has to reach the readers looking at it.
   app_settings: [
