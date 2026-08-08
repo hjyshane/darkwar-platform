@@ -89,20 +89,57 @@ The process cannot access the file because it is being used by another process. 
   그게 없다. **마지막 admin은 못 나간다.** pgTAP 19건, 픽스처는 일부러 지저분하게
   (초대·감사·공지·가이드·설정) — 새 계정으로 짠 테스트는 이 버그를 못 잡는다.
 
-### 지금 당장 할 일
+### 끝난 것 (같은 날 이어서)
 
-1. **이 브랜치를 머지한다.** 머지 전까지 sync는 100행/drain이고, `--no-sync`
-   수정은 `C:\DW_data`의 `.cmd` 파일에만 들어 있다(register 스크립트가 썼다).
-   **저장소 이력과 실제 기계가 갈라져 있는 상태다.**
-2. **머지 뒤 register 스크립트를 다시 돌린다** (`uv sync`를 다시 하고,
-   그때 `DW_SYNC_BATCH_SIZE`가 실제로 먹기 시작한다).
-3. **0093·0094를 클라우드에 올린다.** `supabase db push --include-all`,
-   그 전에 `supabase migration list`로 `remote=''`를 확인한다.
-4. **`C:\DW_data\live` 정리.** 재등록 때 dumpcap이 링 번호를 처음부터 다시
+PR **#153** 머지(`a250aaf`), register 스크립트 재실행 — `sync.start
+batch_size=1000`이 로그에 뜨고 ingest가 sync와 **동시에** 돈다(`os error 32`
+0건). 0093·0094 클라우드 적용 완료.
+
+### 그리고 그 push가 결함 하나를 드러냈다 — 0095
+
+`db push` 뒤에 `db diff --linked`를 돌렸더니 이게 있었다:
+
+```
+GRANT ALL ON FUNCTION public.record_departure(uuid, text) TO anon;
+```
+
+호스팅 프로젝트에는 `ALTER DEFAULT PRIVILEGES ... GRANT ALL ON ROUTINES TO
+anon, authenticated`가 걸려 있다. **새 함수마다 그 두 롤에 EXECUTE가 직접
+붙고**, `revoke ... from public`은 직접 붙은 grant를 안 건드린다. revoke는
+돌고 성공을 보고하고 함수는 열려 있었다. `record_departure()`는 자체 권한
+검사가 없어서(호출자가 SECURITY DEFINER라 grant가 필요 없다) **익명 요청이
+`audit_logs`에 임의 행을 넣을 수 있었다.**
+
+PR **#154** / 0095가 `from anon, authenticated`로 명시 revoke해 닫았다.
+프로덕션 재확인: `record_departure`는 이제 `service_role`만.
+
+`leave_alliance()`·`remove_member()`는 여전히 `anon`에 열려 있고 **그래도
+안전하다** — 각자 첫 줄에서 거부한다(`auth.uid()` null / `members.manage`).
+`approve_player_claim`도 같은 상태의 기존 함수다. 그 순서가 맞다: 함수를
+안전하게 만드는 것은 grant가 아니라 가드다.
+
+**로컬 pgTAP은 이걸 구조적으로 못 잡는다.** 로컬 스택엔 그 기본 권한이 없어서
+`anon`은 어떤 함수에도 실행 권한이 없다. "anon은 못 부른다" 테스트는 수정이
+있든 없든 통과한다. 56_leaving_test의 20~21번이 그 사실을 주석에 적고 있고,
+잡는 방법은 `going-public.md`의 `db diff --linked` 절에 넣었다.
+
+**규칙: 이 플랫폼에서 `revoke ... from public`은 함수를 비공개로 만들지 않는다.
+롤을 이름으로 적어야 한다.**
+
+### 남은 것
+
+1. **로그인 상태 화면을 브라우저로 못 봤다.** 로컬 스택의 kong 컨테이너가
+   안 떠서 세션을 만들 수 없다. 로그아웃 화면은 렌더 확인했다. 어드민 배너·
+   탈퇴 버튼·클레임 문구는 **단위 테스트로만** 덮여 있다.
+2. **`C:\DW_data\live` 정리.** 재등록 때 dumpcap이 링 번호를 처음부터 다시
    시작해서, 이전 프로세스가 만든 `cap_0xxxx` 2,600여 개가 **새 링의 삭제
-   대상이 아니다.** 저장된 파일은 ingest가 이미 읽었다(4,185개). 지울 수 있다.
-5. `live.db`가 **4.94 GB**다. 0070의 `retention_report()`는 아직 아무것도
+   대상이 아니다.** ingest가 이미 읽었다(4,185개). 지울 수 있다.
+3. `live.db`가 **4.94 GB**다. 0070의 `retention_report()`는 아직 아무것도
    스케줄되지 않았고, 이건 저널(SQLite)이지 클라우드가 아니다. 별건.
+4. **`anon`에 열린 다른 함수들을 한 번 훑는다.** `db diff --linked`에
+   `retention_report`·`build_rank_period`·`rebuild_rank_period`·
+   `redeem_join_code`·`reject_player_claim`이 전부 `TO anon`으로 나온다.
+   전부 자체 가드가 있는 것으로 보이지만 **확인한 적은 없다.**
 
 ---
 
