@@ -10,7 +10,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(19);
+select plan(22);
 
 insert into auth.users (id, instance_id, aud, role, email)
 values
@@ -153,6 +153,43 @@ select throws_ok(
   '23514',
   'the last admin cannot leave; make somebody else an admin first',
   'the last admin cannot lock everybody out');
+
+-- 20-22. Who may CALL these at all (0095).
+--
+-- READ THIS BEFORE TRUSTING THE TWO BELOW. They cannot fail for the reason
+-- 0095 exists, and pretending otherwise would be worse than not having them.
+--
+-- The hosted project ships `ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN
+-- SCHEMA public GRANT ALL ON ROUTINES TO anon, authenticated`, so every
+-- function created there is granted to those roles directly at creation.
+-- Revoking from `public` does not touch a direct grant to a named role, so
+-- 0094's revoke ran, reported success, and left an unguarded audit-log
+-- writer reachable by an anonymous request.
+--
+-- The LOCAL stack has no such default. `anon` holds execute on nothing here
+-- — not on these, not on `approve_player_claim`, which has only ever been
+-- revoked from `public` either. So both assertions were already true before
+-- 0095, and a run of this file against a fresh local database is no evidence
+-- at all about production.
+--
+-- What they do buy is a floor: a later migration that GRANTS one of these to
+-- anon fails here. The drift that 0095 actually fixes is only visible
+-- against the hosted project, with `supabase db diff --linked` — which is
+-- now a step in the going-public runbook, because it is the only thing that
+-- would have caught this.
+select ok(
+  not has_function_privilege('anon', 'public.record_departure(uuid, text)', 'execute'),
+  'nobody grants record_departure to anon — it has no check of its own');
+select ok(
+  not has_function_privilege('authenticated', 'public.record_departure(uuid, text)', 'execute'),
+  'nor to a signed-in caller; its only callers are SECURITY DEFINER');
+
+-- The other two stay reachable on purpose. Each opens with its own refusal,
+-- which is the right way round: a guard, not a grant, is what makes a
+-- function safe to expose.
+select ok(
+  has_function_privilege('authenticated', 'public.leave_alliance()', 'execute'),
+  'leaving stays callable by anyone signed in — it guards itself');
 
 select * from finish();
 rollback;
