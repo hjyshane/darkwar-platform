@@ -333,6 +333,62 @@ uv run dw-collector sync
 
 ---
 
+## 5-2. 저널이 커졌을 때 (`prune-journal`)
+
+저널은 하루 **0.92 GB**씩 자라고 **아무것도 자동으로 줄이지 않는다.** 급하진
+않다 — 디스크 여유로 약 반년 — 다만 아무도 안 줄인다는 것이 저절로 고쳐지지는
+않는다.
+
+```powershell
+# 무엇이 지워질지 세기만 한다 (안전, 수집 중에 돌려도 된다)
+uv run --no-sync dw-collector prune-journal --db "C:/DW_data/live.db"
+```
+
+숫자가 납득되면 지운다. **VACUUM은 쓰기를 멈추고 한다** — 파일 전체를 다시
+쓰고 5 GB 기준 45초 걸린다.
+
+```powershell
+schtasks /end /tn DarkWar-Ingest
+schtasks /end /tn DarkWar-Sync
+uv run --no-sync dw-collector prune-journal --db "C:/DW_data/live.db" --confirm --vacuum
+foreach ($n in 'DarkWar-Ingest','DarkWar-Sync') { Start-ScheduledTask -TaskName $n }
+```
+
+끝나면 **로그로 진짜 도는지 본다.** 이 작업들은 죽어도 성공처럼 보인 전력이
+있다.
+
+**알아둘 것 넷**
+
+- **`--confirm` 없이는 아무것도 안 지운다.** 0070의 `retention_report()`와 같은
+  모양이고, 이유도 같다 — 숫자를 먼저 보면 계획이 바뀐 적이 있다.
+- **`delete`만으로는 파일이 안 줄어든다.** 페이지가 free list로 갈 뿐이다.
+  반대도 참이다: 지우기 전에 VACUUM해봐야 소용없다(첫 수동 정리 때
+  `freelist_count`가 3이었다).
+- **`held back: N`이 나오면 그 N은 경고다.** 기간이 지났는데도 남긴 관측 수이고,
+  남긴 이유는 그 행들이 아직 클라우드에 안 갔기 때문이다. 이 숫자가 회차마다
+  커지면 **outbox가 안 빠지고 있다는 뜻이다.** 먼저 `sync`를 돌린다.
+- **경로에 따옴표를 씌운다.** `--db C:\DW_data\live.db`를 bash에서 그냥 쓰면
+  백슬래시가 먹혀 `C:DW_datalive.db`라는 **빈 저널이 새로 생기고 전부 0으로
+  보고된다.** 출력 첫 줄 `journal=`이 그걸 잡으라고 있는 것이다.
+
+무엇이 남고 무엇이 가는가:
+
+| | 정책 |
+|---|---|
+| `raw_observations` | **기간 내는 무조건 보존.** 파서를 고쳐 과거 트래픽에 다시 돌리는(`renormalize`) 유일한 원천 |
+| `normalized_rows` | 관측과 함께 간다 (원천이 없으면 재생성도 불가) |
+| `sync_outbox` (`sent`) | 기간 지나면 삭제. 큐이지 기록이 아니고, 클라우드가 갖고 있다 |
+| `sync_outbox` (`pending`/`dead_letter`) | **절대 안 지운다.** 그 관측도 나이와 무관하게 남는다 |
+
+기본 30일인 이유는 raw payload의 남은 용도가 "파서가 틀렸다는 걸 알아채는 데
+걸리는 시간"이기 때문이다. 줄이면 소급 수정이 닿는 범위가 줄 뿐, 대시보드가
+망가지지는 않는다.
+
+**스케줄에 걸지 않았다.** 0070이 클라우드 쪽에서 같은 판단을 했다 — 켜기 전에
+숫자를 먼저 본다.
+
+---
+
 ## 6. 문제가 생겼을 때
 
 | 증상 | 원인 | 해결 |
@@ -345,6 +401,8 @@ uv run dw-collector sync
 | `curl` 응답이 `000` | 일부 서비스만 죽음 | `supabase stop && supabase start` |
 | `docker: command not found` | Docker Desktop이 안 떠 있다 | Docker Desktop을 켜고 다시 |
 | `outbox={'dead_letter': N}` | 여러 번 실패해 포기한 항목 | 원인 고친 뒤 `retry-outbox --dead-letters` |
+| `held back: N` (prune) | 그 관측의 행이 아직 클라우드에 안 갔다 | `sync` 먼저. N이 계속 크면 outbox가 막힌 것 |
+| 저널이 계속 커짐 | 자동으로 줄이는 장치가 없다 | 5-2 `prune-journal` |
 | `rejected > 0` | 프로그램이 못 읽는 데이터 | 개발자에게 알린다(수정 필요) |
 | `git pull`이 `uv.lock` 때문에 멈춤 | 자동 생성 파일 충돌 | 그 파일을 지우고 다시 pull |
 

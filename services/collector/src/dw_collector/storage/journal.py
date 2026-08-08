@@ -74,6 +74,22 @@ class RecordResult:
 
 
 @dataclass(frozen=True)
+class PruneReport:
+    """What a prune removed, or would remove when only counting.
+
+    `held_back` is the one to watch. It counts observations old enough to go
+    that stayed because their rows never reached the cloud, so a number that
+    climbs run after run means the outbox has stopped draining — visible here
+    before it is visible anywhere else.
+    """
+
+    delivered_outbox: int
+    observations: int
+    normalized_rows: int
+    held_back: int
+
+
+@dataclass(frozen=True)
 class OutboxItem:
     id: int
     event_type: str
@@ -348,3 +364,110 @@ class Journal:
     def outbox_counts(self) -> dict[str, int]:
         cur = self.conn.execute("select status, count(*) from sync_outbox group by status")
         return dict(cur.fetchall())
+
+    def prune(self, *, older_than: datetime, confirm: bool = False) -> PruneReport:
+        """Drop journal history the collector can no longer act on.
+
+        Nothing shrinks this file today and it grows 0.92 GB a day, measured
+        over 4.5 days. That is not urgent — 164 GB of disk is about half a
+        year — but "not urgent" and "nobody is doing it" are different things,
+        and the second one does not fix itself.
+
+        WHAT AGE MEANS HERE. The raw payload's only remaining job once its
+        rows are in Supabase is letting a FIXED parser be re-run over old
+        traffic — `renormalize` reads this table, and that is how the 0025 and
+        0029 parsers were applied to history. So the retention window is the
+        answer to "how long might I take to notice a parser is wrong", and it
+        is measured on `captured_at`, the wire clock, not on when the row
+        happened to be written.
+
+        WHAT IT REFUSES. An observation whose rows are still pending or dead
+        lettered stays, however old it is. Deleting it would strand outbox
+        entries whose source no longer exists — data that never reached the
+        cloud and now cannot be rebuilt. Those come back in `held_back` rather
+        than being silently skipped, because a number that keeps growing is
+        how you find out the outbox has stopped draining.
+
+        COUNTS BY DEFAULT, deletes on `confirm`, which is the same shape
+        0070's `retention_report()` chose for the cloud side. Seeing the
+        number first has already changed the plan once.
+
+        `delete` does not shrink the file — SQLite keeps the pages on a free
+        list. `freelist_count` was 3 before the first manual prune, which is
+        why VACUUM alone had reclaimed nothing. Vacuuming is the caller's
+        call because it rewrites the whole file and wants the writers stopped.
+        """
+        cutoff = older_than.isoformat()
+        # Old, and still carrying work that never reached the cloud.
+        held_back_sql = """
+            select distinct n.observation_id
+              from normalized_rows n
+              join sync_outbox o on o.idempotency_key = n.idempotency_key
+             where o.status in ('pending', 'dead_letter')
+        """
+        held_back = self.conn.execute(
+            f"select count(*) from raw_observations"
+            f" where captured_at < ? and observation_id in ({held_back_sql})",
+            (cutoff,),
+        ).fetchone()[0]
+        doomed_sql = f"""
+            select observation_id from raw_observations
+             where captured_at < ? and observation_id not in ({held_back_sql})
+        """
+        observations = self.conn.execute(
+            f"select count(*) from ({doomed_sql})", (cutoff,)
+        ).fetchone()[0]
+        rows = self.conn.execute(
+            f"select count(*) from normalized_rows where observation_id in ({doomed_sql})",
+            (cutoff,),
+        ).fetchone()[0]
+        # Delivered queue entries, whether or not their observation is old
+        # enough to go: the row is in Supabase, and this table is a queue
+        # rather than a record. `retry-outbox --already-sent` loses its
+        # shortcut for these, and `renormalize` rebuilds them from the raw
+        # payload — which is why the raw payload is the thing kept longest.
+        #
+        # On its OWN clock. `created_at` here is when the row was written,
+        # not when the packet was captured; on a live collector they differ
+        # by seconds, and the right question for a delivered queue entry is
+        # how long a resend might still be wanted rather than how old the
+        # traffic was.
+        delivered = self.conn.execute(
+            "select count(*) from sync_outbox where status = 'sent' and created_at < ?",
+            (cutoff,),
+        ).fetchone()[0]
+
+        report = PruneReport(
+            delivered_outbox=delivered,
+            observations=observations,
+            normalized_rows=rows,
+            held_back=held_back,
+        )
+        if not confirm:
+            return report
+
+        with self.conn:
+            # normalized_rows first: it has the foreign key into the table
+            # the next statement empties.
+            self.conn.execute(
+                f"delete from normalized_rows where observation_id in ({doomed_sql})",
+                (cutoff,),
+            )
+            self.conn.execute(
+                f"delete from raw_observations where observation_id in ({doomed_sql})",
+                (cutoff,),
+            )
+            self.conn.execute(
+                "delete from sync_outbox where status = 'sent' and created_at < ?",
+                (cutoff,),
+            )
+        return report
+
+    def vacuum(self) -> None:
+        """Give the freed pages back to the filesystem.
+
+        Separate from `prune` because it rewrites the entire database, wants
+        the writers stopped, and took 45 seconds on a 5 GB journal. Runs
+        outside a transaction; SQLite refuses it inside one.
+        """
+        self.conn.execute("vacuum")
