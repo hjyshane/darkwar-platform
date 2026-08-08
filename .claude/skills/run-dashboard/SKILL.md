@@ -11,11 +11,19 @@ paths. None of that applies on Windows, which is where CLAUDE.md says
 development happens ("Windows-only. No WSL.").
 
 On Windows the stack and data steps are the same commands; what changes is
-the browser. Playwright's Windows install needs no unpacked `.so` files —
-`npx playwright install chromium` outside the repo is the whole of it, and
-`chromium.launch()` finds it without an `executablePath`. **That path has
-not been run here**, so treat the browser section below as the Linux recipe
-it is and expect to shorten it rather than translate it.
+the browser. **Section 4 was never needed** — Claude Code's own Browser pane
+(`preview_start` on the `dashboard` launch config, then `navigate`,
+`read_page`, `form_input`, `javascript_tool`) drives the app with no
+Playwright, no `.deb` unpacking and no `executablePath`. Run 2026-08-08:
+four roles, the admin screens, the claim flow, leaving, and realtime.
+Skip section 4 and use the pane.
+
+**`supabase start` does not restart a dead container.** It prints them under
+"Stopped services" and carries on. kong and vector had been down for three
+days with exit 127 — every REST and auth call failed and the browser check
+was written off as impossible. `docker ps -a` shows the exit code;
+`docker start supabase_kong_darkwar-platform` fixed it in one command.
+Check the containers before concluding anything about the app.
 
 Everything else — `supabase start`, `db reset`, the fixture replay, the
 member session — is platform-neutral.
@@ -204,3 +212,24 @@ the fault is the notify trigger, not the socket.
   app was fine.
 - **Test both directions of a toggle.** Favourites was reported working after
   only "on" was tried.
+- **Two `is_own` alliances after loading fixtures on top of the seed.** The
+  synthetic alliance and the fixture one both carry the code `CBFW`, so a pin
+  written by `where current_code = 'CBFW'` picks the synthetic 20-member one
+  and the roster looks wrong rather than absent. Pin by `alliance_id`.
+- **`psql -c` with several statements is ONE transaction.** A `select` that
+  errors at the end of the batch rolls back the `insert`s before it, and psql
+  still prints `INSERT 0 4` above the error. Four role rows looked seeded and
+  were not. Use `-v ON_ERROR_STOP=1`, one write per invocation, and believe
+  the exit code over the output.
+- **`set local` needs an explicit `begin`.** Under psql's autocommit each
+  statement is its own transaction, so `set_config(..., true)` is gone by the
+  next line and `current_app_role()` reads `viewer`. Wrap the whole thing in
+  `begin; ... commit;`, and resolve any `auth.users` ids BEFORE `set local
+  role authenticated` — that role cannot read the table.
+- **Proving realtime needs the focus confound removed.** The app builds
+  `new QueryClient()` with defaults, so `refetchOnWindowFocus` is on and any
+  focus event refetches everything — a cell changing after a database write
+  is not evidence on its own. Arm a MutationObserver plus listeners for
+  `focus`/`visibilitychange`, write from psql in a background shell, then read
+  both back: a DOM change with an empty focus log and `document.hidden === true`
+  can only have come over the socket.
