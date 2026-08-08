@@ -14,7 +14,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(9);
+select plan(11);
 
 insert into public.collectors (collector_id, name) values
   ('00000000-0000-4000-8000-00000000cf77', 'pushdown probe') on conflict do nothing;
@@ -128,6 +128,26 @@ select is_empty(
         and (c.reloptions is null
              or c.reloptions::text !~ 'security_invoker=(true|on)') $$,
   'all three growth views still read with the caller''s rights');
+
+
+-- 10-11. The component history view, added by 0099 for the same reason.
+--
+-- Its window partitions by observation_id, which the caller never filters on,
+-- so a player filter could not be pushed under it and the plan sorted the
+-- whole table — 56,000 rows to return 560, spilling 7.3 MB to disk. That is
+-- what ran out the statement timeout in production; the Postgres log said
+-- 57014 and the plan said `Sort Method: external merge`.
+--
+-- Asserting on the absence of the window, because the sort only appears once
+-- the table is big enough to exhaust work_mem and this suite's fixture is not.
+select unalike(
+  pg_get_viewdef('public.player_component_power_history'::regclass, true),
+  '%OVER (PARTITION BY%',
+  'player_component_power_history counts its board without a window');
+
+select has_index('public', 'player_component_power_snapshots',
+  'player_component_power_snapshots_observation_idx',
+  'the observation index exists, or board_size scans the table per row');
 
 select * from finish();
 rollback;
