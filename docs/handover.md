@@ -241,9 +241,13 @@ Cross-Server·Arena 모두 빨라짐. **Trends 탭과 멤버 상세 페이지는
 2. **`prune_collector_heartbeats` confirm 실행** — 숫자 보고 결정. 급하지 않다.
 3. **0100·0102의 프로덕션 체감 확인** — 로그인 세션으로 members 3–4초 →
    1–1.5초가 실제인지. `pg_stat_statements`도 같이.
-4. **`db diff --linked` 밀린 1회** — 0101·0102 push 후 grant 확인을 아직 안
-   돌렸다(사용자 사용 시간대라 미룸). 다음 한가할 때 1회. 뷰의 플랫폼 기본
-   grant 부류는 0097이 무력함을 문서화한 종류라 급하지 않다.
+4. ~~`db diff --linked` 밀린 1회~~ — **08-09 오후에 돌렸다. 조치 0건.**
+   이번 세션의 refresh·prune 함수들은 명시 revoke가 프로덕션에서 유지됐고
+   (anon EXECUTE 없음 — 0095류 재발 없음), 새로 보인 grant는 전부 문서화된
+   무해 부류다: 트리거 함수 2개의 anon EXECUTE(0096의 "PostgREST가 노출
+   안 함" 부류), 새 테이블·뷰의 anon 쓰기 grant(0097의 "RLS가 막고 join
+   뷰는 auto-updatable 아님" 부류). `DROP EXTENSION pg_net`은 첫 diff부터
+   있던 플랫폼 베이스라인 노이즈.
 5. **주간 보드 타이밍** — 다음 기회 8/10 (일 01:59 UTC 직전에 주간 보드 열기).
    9시(EDT) 원타임 클라우드 알림 걸어 둠.
 6. **다른 화면 같은 패턴** — Overview/Rankings는 워터폴이 얕아 이득 작음.
