@@ -65,7 +65,45 @@ function DataChangeSubscriber() {
 
 // Exported only so the local look-around build (src/dev) can seed it before
 // render. Nothing in the app reads it from outside this file.
-export const queryClient = new QueryClient();
+//
+// The defaults matter more here than they would elsewhere, because the
+// database is in us-east-2 and the readers are not. Measured against
+// production: a request that does no work at all — one row out of `servers` —
+// takes 101-189 ms. Distance, not work, is what a screen costs now that 0098
+// and 0099 have fixed the plans, and the cheapest request is the one that
+// never leaves.
+//
+// `new QueryClient()` bare meant staleTime 0: every navigation refetched
+// everything it had just fetched. Members -> Rankings -> Members asked the
+// same questions three times.
+export const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // A minute of trust. Nothing here is a live figure — the collector
+      // writes in bursts a minute or more apart, and a snapshot that is 60
+      // seconds old is the same snapshot.
+      //
+      // Safe to be this long ONLY because FR-UI-005 already exists: the UI
+      // subscribes to data_change_notifications and maps topics to query
+      // keys (lib/realtime.ts), so a new capture invalidates the keys it
+      // affects immediately. Staleness here is a floor on how often we ask
+      // unprompted, not a ceiling on how fresh the screen can be.
+      staleTime: 60_000,
+      // Kept longer than staleTime so going back to a screen shows its last
+      // answer at once and revalidates behind it, rather than blanking.
+      gcTime: 10 * 60_000,
+      // Off, for the same reason. Realtime already says when something
+      // changed; refocusing a tab is not evidence that anything did, and on
+      // this connection each refetch is another 150 ms per query. There is a
+      // "Refetch this screen's data" button for when the reader disagrees.
+      refetchOnWindowFocus: false,
+      // Three tries with backoff turns one slow failure into four. The
+      // screens here already render a refusal rather than a crash — a 42501
+      // is an answer, not an error — so retrying mostly delays the message.
+      retry: 1,
+    },
+  },
+});
 
 function subscribeHash(onChange: () => void) {
   window.addEventListener('hashchange', onChange);
