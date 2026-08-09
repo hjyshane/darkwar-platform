@@ -6,7 +6,7 @@
 // which side each neighbour lands on, that an end of the board still occupies
 // its place, and that the list link is present at the bottom rather than only
 // above the title.
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import { expect, test } from 'vitest';
 import { BoardPostPage } from '../src/features/board/BoardPost';
 import { GUIDES } from '../src/features/board/board';

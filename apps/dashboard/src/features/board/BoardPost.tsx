@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
-import { RichText } from '../../components/RichText';
+import { RichText, RichTitle } from '../../components/RichText';
 import { supabase } from '../../lib/supabase';
 import { type BoardConfig, type BoardPost as Post, useMarkRead, useNeighbours } from './board';
 
@@ -143,7 +143,7 @@ export function BoardPostPage({
             under it, so the body starts somewhere. */}
         <header className="post-header">
           <h2>
-            {post.title}
+            <RichTitle title={post.title} />
             {post.pinned && <span className="badge badge-fresh">pinned</span>}
             {post.liveAt === null && <span className="badge badge-missing">draft</span>}
           </h2>
@@ -225,7 +225,9 @@ function PostNav({
       ) : (
         <a className="post-nav-link" href={hrefFor(newer.id)}>
           <span className="post-nav-dir">← Newer</span>
-          <span className="post-nav-title">{newer.title}</span>
+          <span className="post-nav-title">
+            <RichTitle title={newer.title} />
+          </span>
         </a>
       )}
       <a className="post-nav-back" href={backHref}>
@@ -236,7 +238,9 @@ function PostNav({
       ) : (
         <a className="post-nav-link post-nav-right" href={hrefFor(older.id)}>
           <span className="post-nav-dir">Older →</span>
-          <span className="post-nav-title">{older.title}</span>
+          <span className="post-nav-title">
+            <RichTitle title={older.title} />
+          </span>
         </a>
       )}
     </nav>

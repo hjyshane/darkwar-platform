@@ -13,6 +13,7 @@ import pytest
 from dw_collector.notify.compose import (
     BODY_LIMIT,
     TITLE_LIMIT,
+    Message,
     attachment_name,
     clamp,
     departure_message,
@@ -521,3 +522,32 @@ def test_a_notice_carries_a_picture_the_same_way_a_guide_does() -> None:
     )
     assert message.image_url == OURS
     assert "![" not in message.body
+
+
+def test_colour_markers_come_off_before_discord_sees_them() -> None:
+    """The board renders `[text]{red}`; Discord has no colours in an embed.
+
+    Stripping the MARKERS and keeping the WORDS: a channel reading
+    "[Rally at 9]{red}" is worse than one reading "Rally at 9", and the colour
+    was emphasis rather than the message.
+    """
+    payload = discord_payload(
+        Message(
+            channel="notices",
+            event="notice.published",
+            idempotency_key="colour-test",
+            title="[Urgent]{red} rally",
+            body="Be there at [21:00]{mark}, bring [siege]{orange}.",
+        )
+    )
+    embed = payload["embeds"][0]  # type: ignore[index]
+    assert embed["title"] == "Urgent rally"
+    assert embed["description"] == "Be there at 21:00, bring siege."
+
+
+def test_a_wide_image_is_still_lifted_out_of_the_text() -> None:
+    """`{wide}` is a board-only width hint, so the line is still an image here."""
+    text, images = split_images(f"before\n![a map]({OURS}){{wide}}\nafter")
+    assert images == [OURS]
+    assert "wide" not in text
+    assert text == "before\nafter"

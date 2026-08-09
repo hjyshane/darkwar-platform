@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
-import { RichText } from '../../components/RichText';
+import { RichText, RichTitle } from '../../components/RichText';
 import { supabase } from '../../lib/supabase';
 
 /** Notices an admin wrote, on the screen everyone lands on.
@@ -108,7 +108,9 @@ function NoticeDialog({ notice, onClose }: { notice: Announcement; onClose: () =
       onClose={onClose}
       ref={ref}
     >
-      <h3>{notice.title}</h3>
+      <h3>
+        <RichTitle title={notice.title} />
+      </h3>
       <p className="subtle">
         Posted {day.format(new Date(notice.created_at))} UTC
         {windowLabel(notice) && ` · ${windowLabel(notice)}`}
@@ -165,7 +167,9 @@ export function AnnouncementsBlock() {
               onClick={() => setOpen(item.announcement_id)}
               type="button"
             >
-              <span className="notice-title">{item.title}</span>
+              <span className="notice-title">
+                <RichTitle title={item.title} />
+              </span>
               <span className="subtle">{day.format(new Date(item.created_at))}</span>
               {item.pinned && <span className="badge badge-fresh">pinned</span>}
               {item.visibility === 'member' && <span className="badge">alliance</span>}

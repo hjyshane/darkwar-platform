@@ -43,12 +43,30 @@ const SAFE_SCHEMES = ['http://', 'https://'];
  */
 const IMAGE_PREFIX = `${SUPABASE_URL}/storage/v1/object/public/post-images/`;
 
+/** The colours a writer may pick, and nothing else.
+ *
+ * An allowlist of NAMES, not colours: the body would otherwise carry
+ * `#ff0000`, which is unreadable on one of the two themes and impossible to
+ * change later. Each name resolves to a CSS custom property, so a red in dark
+ * mode is the dark theme's red.
+ *
+ * `mark` is the highlighter — a background rather than a text colour, which is
+ * what people reach for when they mean "read this bit".
+ */
+export const COLOUR_NAMES = ['red', 'orange', 'green', 'blue', 'purple', 'grey', 'mark'] as const;
+export type ColourName = (typeof COLOUR_NAMES)[number];
+
+export function isColourName(name: string): name is ColourName {
+  return (COLOUR_NAMES as readonly string[]).includes(name);
+}
+
 export type Inline =
   | { kind: 'text'; text: string }
   | { kind: 'bold'; text: string }
   | { kind: 'italic'; text: string }
   | { kind: 'code'; text: string }
-  | { kind: 'link'; text: string; href: string };
+  | { kind: 'link'; text: string; href: string }
+  | { kind: 'colour'; text: string; colour: ColourName };
 
 /** One bullet, and how deeply it is indented.
  *
@@ -68,7 +86,10 @@ export type Block =
   // A BLOCK, not an inline. An image halfway through a sentence is not what a
   // guide wants, and a block is the shape that can be given a caption and a width
   // without fighting the line box around it.
-  | { kind: 'image'; src: string; alt: string };
+  // `fill` is the AUTHOR's choice of width, made once, rather than a decision
+  // pushed onto every reader. A map or a comparison table is unreadable capped;
+  // a phone screenshot of a chat is not. The reader can still collapse it.
+  | { kind: 'image'; src: string; alt: string; fill: boolean };
 
 /** Whether a link target is one we will render as a link at all. */
 export function isSafeHref(href: string): boolean {
@@ -113,7 +134,14 @@ export function isSafeImageSrc(src: string): boolean {
 // early and the whole thing stays text. Standard markdown has the same limit
 // without escaping, and the failure is in the safe direction: an unparsed link
 // renders as the characters typed rather than as a link to somewhere else.
-const INLINE = /(\*\*(.+?)\*\*|\*(.+?)\*|`([^`]+?)`|\[([^\]]+)\]\(([^)\s]+)\))/;
+// Colour deliberately borrows the link's shape — `[text]{red}` beside
+// `[text](url)` — because it is the same idea (a span with an attribute) and a
+// second bracket idiom would be one more thing to remember. Braces cannot be
+// confused with a link's parentheses, and the name is matched loosely here so
+// an unknown colour falls through to plain text below rather than silently
+// eating the brackets.
+const INLINE =
+  /(\*\*(.+?)\*\*|\*(.+?)\*|`([^`]+?)`|\[([^\]]+)\]\(([^)\s]+)\)|\[([^\]]+)\]\{([a-z]+)\})/;
 
 /** Split one line into runs of text and marked-up spans. */
 export function parseInline(line: string): Inline[] {
@@ -129,7 +157,7 @@ export function parseInline(line: string): Inline[] {
     if (match.index > 0) {
       out.push({ kind: 'text', text: rest.slice(0, match.index) });
     }
-    const [whole, , bold, italic, code, linkText, href] = match;
+    const [whole, , bold, italic, code, linkText, href, colourText, colourName] = match;
     if (bold !== undefined) {
       out.push({ kind: 'bold', text: bold });
     } else if (italic !== undefined) {
@@ -143,6 +171,15 @@ export function parseInline(line: string): Inline[] {
       out.push(
         isSafeHref(href)
           ? { kind: 'link', text: linkText, href: href.trim() }
+          : { kind: 'text', text: whole },
+      );
+    } else if (colourText !== undefined && colourName !== undefined) {
+      // Same rule as an unsafe href: a colour nobody defined keeps its source
+      // text rather than vanishing, so the author sees what they typed instead
+      // of a sentence with a hole in it.
+      out.push(
+        isColourName(colourName)
+          ? { kind: 'colour', text: colourText, colour: colourName }
           : { kind: 'text', text: whole },
       );
     }
@@ -214,12 +251,17 @@ export function parse(body: string): Block[] {
     // An unsafe source falls through to the paragraph below and renders as the
     // characters typed — same rule as an unsafe link href. The author sees their
     // markup instead of wondering where the picture went.
-    const image = /^!\[([^\]]*)\]\(([^)\s]+)\)$/.exec(trimmed.trim());
+    const image = /^!\[([^\]]*)\]\(([^)\s]+)\)(\{wide\})?$/.exec(trimmed.trim());
     const src = image?.[2];
     if (src !== undefined && isSafeImageSrc(src)) {
       flushParagraph();
       flushList();
-      blocks.push({ kind: 'image', src: src.trim(), alt: (image?.[1] ?? '').trim() });
+      blocks.push({
+        kind: 'image',
+        src: src.trim(),
+        alt: (image?.[1] ?? '').trim(),
+        fill: image?.[3] !== undefined,
+      });
       continue;
     }
     const heading = /^(#{2,3})\s+(.*)$/.exec(trimmed);

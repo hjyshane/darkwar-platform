@@ -1916,37 +1916,222 @@ form select {
   gap: var(--space-2);
 }
 
+/* --- emphasis a writer chose ---------------------------------------------- */
+
+/* The named colours from `richText.ts`. Each one is a pair — a light value and
+ * a dark one — because a red picked to read on white is unreadable on the dark
+ * theme, and the writer chose "urgent", not a hex code. */
+:root {
+  --ink-red: #b91c1c;
+  --ink-orange: #b45309;
+  --ink-green: #15803d;
+  --ink-blue: #1d4ed8;
+  --ink-purple: #6d28d9;
+  --ink-grey: #6b7280;
+  --ink-mark-bg: #fef08a;
+  --ink-mark-fg: #1f2937;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink-red: #fca5a5;
+    --ink-orange: #fcd34d;
+    --ink-green: #86efac;
+    --ink-blue: #93c5fd;
+    --ink-purple: #d8b4fe;
+    --ink-grey: #9ca3af;
+    --ink-mark-bg: #78350f;
+    --ink-mark-fg: #fef3c7;
+  }
+}
+
+.ink-red {
+  color: var(--ink-red);
+}
+
+.ink-orange {
+  color: var(--ink-orange);
+}
+
+.ink-green {
+  color: var(--ink-green);
+}
+
+.ink-blue {
+  color: var(--ink-blue);
+}
+
+.ink-purple {
+  color: var(--ink-purple);
+}
+
+.ink-grey {
+  color: var(--ink-grey);
+}
+
+/* The highlighter: a background, which is what people mean by "mark this".
+ * Both halves are set — a background without a foreground inherits whatever the
+ * theme's body colour is, and dark-grey-on-dark-amber is unreadable. */
+.ink-mark {
+  background: var(--ink-mark-bg);
+  border-radius: var(--radius-sm);
+  color: var(--ink-mark-fg);
+  padding: 0 0.15em;
+}
+
 /* --- the markup editor --------------------------------------------------- */
 
 .markup-editor textarea {
-  border-bottom-left-radius: var(--radius-sm);
-  border-bottom-right-radius: var(--radius-sm);
+  border-bottom-left-radius: var(--radius-md);
+  border-bottom-right-radius: var(--radius-md);
   border-top-left-radius: 0;
   border-top-right-radius: 0;
   font-family: var(--font-sans);
-  line-height: 1.5;
+  font-size: var(--text-base);
+  line-height: 1.6;
+  padding: var(--space-4);
   width: 100%;
 }
 
 /* Attached to the top of the textarea, so it reads as part of the box rather
  * than as a floating row of unexplained letters. */
 .markup-toolbar {
+  align-items: center;
   background: var(--bg-raised);
   border: 1px solid var(--border);
   border-bottom: 0;
-  border-top-left-radius: var(--radius-sm);
-  border-top-right-radius: var(--radius-sm);
+  border-top-left-radius: var(--radius-md);
+  border-top-right-radius: var(--radius-md);
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-1);
+  gap: var(--space-2);
   padding: var(--space-2);
 }
 
-.markup-toolbar button {
+/* Buttons that belong together, joined into one segment with hairlines between
+ * them. Nine separate pills in a row read as a wall of unrelated symbols; three
+ * segments read as three kinds of thing. */
+.markup-group {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  display: flex;
+  overflow: hidden;
+}
+
+.markup-group button {
   background: var(--bg);
+  border: 0;
+  border-radius: 0;
+  border-right: 1px solid var(--border);
   font-size: var(--text-sm);
   min-width: 2.25rem;
-  padding: var(--space-1) var(--space-2);
+  padding: var(--space-2);
+}
+
+.markup-group button:last-child {
+  border-right: 0;
+}
+
+.markup-group button:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+/* The swatches say what they do by BEING it: a red A is the red this button
+ * gives you. A row of identical grey buttons labelled "red", "orange" would
+ * make the writer read where they could look. */
+.colour-buttons {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.colour-swatch {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  line-height: 1;
+  min-width: 1.9rem;
+  padding: var(--space-2) 0;
+}
+
+.colour-swatch:hover {
+  border-color: var(--border-strong);
+}
+
+/* --- the emoji palette ----------------------------------------------------- */
+
+.emoji-palette {
+  position: relative;
+}
+
+/* Over the text rather than pushing it down: a panel that reflows the editor
+ * moves the line the writer was looking at. */
+.emoji-grid {
+  background: var(--bg-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 18%);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  left: 0;
+  max-width: min(22rem, 90vw);
+  padding: var(--space-3);
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  z-index: 5;
+}
+
+.emoji-group-name {
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+}
+
+.emoji-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.emoji-row button {
+  background: none;
+  border: 0;
+  border-radius: var(--radius-sm);
+  font-size: 1.25rem;
+  line-height: 1;
+  padding: var(--space-1);
+}
+
+.emoji-row button:hover {
+  background: var(--bg-hover);
+}
+
+/* --- the title field ------------------------------------------------------- */
+
+.title-field input {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  font-size: var(--text-lg, 1.125rem);
+  font-weight: 600;
+  padding: var(--space-3) var(--space-4);
+  width: 100%;
+}
+
+.title-field .markup-toolbar {
+  border-bottom: 0;
+}
+
+/* What the title will look like, at the size it will be. Markers in a box do
+ * not answer "is this readable in red". */
+.title-preview {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  border-top: 0;
+  font-size: var(--text-lg, 1.125rem);
+  font-weight: 600;
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
 }
 
 .markup-preview {
