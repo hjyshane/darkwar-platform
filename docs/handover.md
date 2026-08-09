@@ -116,8 +116,50 @@ timeout으로 죽었고, 사용자가 보고했다.
 시드하고, **member 세션으로** explain analyze — postgres로 재면 게이트가
 one-time filter로 접혀서 아무것도 안 보인다.
 
+### 그리고 0103도 프로덕션에선 실패했다 — 프론트를 8쿼리로 되돌림 (PR #181)
+
+**0103이 로컬 프로덕션 규모 시드에서 14ms인데 프로덕션에선 여전히 statement
+timeout.** 배제한 것: 인스턴스 스로틀 아님(기준 쿼리 92–145ms = 네트워크
+바닥, 363k 테이블 인덱스 읽기 247ms), 인덱스 둘 다 존재, PG 버전 동일(17.6).
+**남은 설명은 프로덕션 플래너가 다른 계획을 고른다는 것뿐인데, 실물 EXPLAIN
+없이는 못 본다.** 취소된 쿼리는 pg_stat_statements에 안 남는다.
+
+SQL 접근이 막혀 있다: pooler-url 파일에 비밀번호 없음, CLI 자격증명은 OS
+키링(안 건드림), 관리 API 토큰도 키링. **다음 세션 1순위: Supabase 대시보드
+SQL 에디터에서 아래를 돌려 계획을 뜬다** (member 세션 시뮬레이션 포함):
+
+```sql
+select set_config('request.jwt.claims',
+  '{"sub":"<member uid>","role":"authenticated"}', false);
+set role authenticated;
+explain (analyze, buffers)
+select * from member_roster order by power desc nulls last limit 100;
+```
+
+그때까지 프론트는 8쿼리 경로(#181). 느리지만(3–4초) 일주일 내내 살아 있던
+모양이다. `member_roster`·`player_component_power_history` 뷰와 테스트
+62·63은 남아 있다 — 0104는 프로덕션 검증 안 됐음을 유의(플레이어 페이지가
+빨라졌는지 확인 필요. 같은 병이라 같은 의심).
+
+**아마 진짜 결말은 읽기 시점 계산을 끝내는 것이다.** 사용자가 정확히 이
+방향을 제안했다: 요약을 로컬(수집기)에서 계산해 올리자. 오늘 밤 타임아웃
+셋 전부 마이크로 인스턴스에서의 read-time 계산이었다. 스케치:
+
+- `member_roster_current` **테이블** (뷰 아님): 멤버당 1행, 로스터 배치가
+  sync로 도착한 뒤 한 번 계산해 upsert (수집기 post-sync 훅 또는 서버 함수
+  — 어느 쪽이든 배치당 1회, 읽기당 0회).
+- 대시보드 멤버 탭 = 그 테이블 인덱스드 SELECT 1개. 플래너 룰렛·RLS 행별
+  비용·뷰 중첩 전 클래스가 사라진다.
+- raw 스냅샷은 그대로 올린다 — replay/renormalize와 히스토리 화면의 원천.
+  "요약만 보내기"로 가면 파서 소급 수정이 죽는다. 무거운 건 raw 저장이
+  아니라 읽기 계산이었다.
+- 등급 스코어링(주기 리빌드)은 이미 이 모양이다(rank_period_snapshots =
+  구체화된 계산 결과). 같은 원칙의 확장.
+
 ### 남은 것
 
+0. **(1순위) 프로덕션 EXPLAIN** — 위 SQL, 대시보드 SQL 에디터에서. 그 결과로
+   0103을 고치거나, 곧장 `member_roster_current` 테이블로 간다.
 1. **`prune-journal` 실행 시점** — 저널이 30일치 넘는 2026-09-03경.
 2. **`prune_collector_heartbeats` confirm 실행** — 숫자 보고 결정. 급하지 않다.
 3. **0100·0102의 프로덕션 체감 확인** — 로그인 세션으로 members 3–4초 →
