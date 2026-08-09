@@ -21,8 +21,12 @@ export interface RosterRow {
   /** The rank the GAME reports, from the member list itself (1-5, R5 being the
    * leader). Distinct from both fields below: `assigned_rank` is what an admin
    * typed and is null for most of the roster, and `computed_rank` is what the
-   * scoring worked out. This is the one the alliance actually runs on, so it is
-   * what the table groups by. */
+   * scoring worked out.
+   *
+   * The table no longer GROUPS by this — it groups by our decision (see
+   * `shownRank`) so the screen reads as the alliance we intend. This is what
+   * that decision is compared AGAINST: where the two disagree, the row is
+   * marked for the officers who can go and change it in the game. */
   member_rank: number | null;
   /** What an admin set, which wins over anything computed. */
   assigned_rank: string | null;
@@ -95,7 +99,7 @@ function RankBadge({
   editable: boolean;
   onSet: (playerId: string, rank: string | null) => void;
 }) {
-  const shown = row.assigned_rank ?? row.computed_rank;
+  const shown = shownRank(row);
   if (!editable) {
     return shown === null ? null : (
       <span
@@ -226,21 +230,48 @@ function withFormulas(rows: RosterRow[], formulas: readonly ComputedColumn[]): R
  * meanings of "R3" in one product is unfortunate and not ours to rename, so the
  * headings say which one this is.
  */
-const RANK_LABELS: Record<number, string> = {
-  5: 'R5 · leader',
-  4: 'R4 · officers',
-  3: 'R3',
-  2: 'R2',
-  1: 'R1',
+const RANK_LABELS: Record<string, string> = {
+  R5: 'R5 · leader',
+  R4: 'R4 · officers',
+  R3: 'R3',
+  R2: 'R2',
+  R1: 'R1',
 };
+
+/** The rank the table actually shows: what an admin assigned, or failing that
+ * what the last period computed. THE one definition — the sort field, the
+ * grouping, the badge and the mismatch check all call this, because the moment
+ * two of them derive it separately is the moment they disagree about it. */
+export function shownRank(row: RosterRow): string | null {
+  return row.assigned_rank ?? row.computed_rank;
+}
+
+/** A row with `shownRank` precomputed as a field, so the sort can order by it. */
+type ShownRow = RosterRow & { rank_shown: string | null };
 
 interface RankGroup {
   key: string;
   label: string;
-  rows: RosterRow[];
+  rows: ShownRow[];
 }
 
-/** The rows split by game rank, highest first.
+/** OUR decision disagrees with the game's member list.
+ *
+ * The point of deciding ranks here is that somebody then goes and sets them
+ * in the game; a row where the two differ is exactly the outstanding work.
+ * Null on either side is not a disagreement — an unranked decision or an
+ * unread roster answer is absence, not conflict.
+ */
+export function rankMismatch(row: RosterRow): boolean {
+  const shown = shownRank(row);
+  return row.member_rank !== null && shown !== null && shown !== `R${row.member_rank}`;
+}
+
+/** The rows split by OUR rank — what an admin assigned, or failing that what the
+ * last period computed — highest first. It used to split by the GAME's rank;
+ * grouping by the decision instead is what makes the table read as "here is the
+ * alliance as we intend it", with the game's disagreement carried per row by the
+ * mismatch marker rather than by the shape of the whole table.
  *
  * SORTING IS PRESERVED INSIDE EACH GROUP. Grouping and sorting would otherwise
  * fight: somebody who sorts by power expects the strongest first, and re-sorting by
@@ -248,34 +279,36 @@ interface RankGroup {
  * group decides where the block sits — "the strongest R4s" is then one glance, which
  * neither arrangement alone gives.
  *
- * Members whose rank nobody has read fall into a group of their own at the bottom
- * rather than being dropped or lumped in with R1. That happens to a logged-out
- * reader, for whom the roster answer is withheld entirely.
+ * Members with no decision at all — nothing assigned, nothing computed — fall
+ * into a group of their own at the bottom rather than being dropped or lumped
+ * in with R1.
  */
-function grouped(rows: readonly RosterRow[]): RankGroup[] {
-  const byRank = new Map<number, RosterRow[]>();
-  const unranked: RosterRow[] = [];
+function grouped(rows: readonly ShownRow[]): RankGroup[] {
+  const byRank = new Map<string, ShownRow[]>();
+  const unranked: ShownRow[] = [];
   for (const row of rows) {
-    if (row.member_rank === null) {
+    if (row.rank_shown === null) {
       unranked.push(row);
       continue;
     }
-    const bucket = byRank.get(row.member_rank);
+    const bucket = byRank.get(row.rank_shown);
     if (bucket === undefined) {
-      byRank.set(row.member_rank, [row]);
+      byRank.set(row.rank_shown, [row]);
     } else {
       bucket.push(row);
     }
   }
+  // 'R1' < 'R2' < … < 'R5' alphabetically, so a reversed compare puts the
+  // leader's group first.
   const out: RankGroup[] = [...byRank.entries()]
-    .sort(([a], [b]) => b - a)
+    .sort(([a], [b]) => b.localeCompare(a))
     .map(([rank, group]) => ({
       key: `rank-${rank}`,
-      label: RANK_LABELS[rank] ?? `R${rank}`,
+      label: RANK_LABELS[rank] ?? rank,
       rows: group,
     }));
   if (unranked.length > 0) {
-    out.push({ key: 'rank-none', label: 'Rank not read', rows: unranked });
+    out.push({ key: 'rank-none', label: 'Rank not decided', rows: unranked });
   }
   return out;
 }
@@ -336,12 +369,26 @@ const BASE_COLUMNS: BaseColumn[] = [
     // assignment, and sorting the stored column would file all of them at the end
     // regardless of what the last period worked out. R1 < R2 < … < R5
     // alphabetically, so descending puts the leader first.
+    //
+    // This column renders for officers and admins only (filtered out in the
+    // component). That is PRESENTATION, not security — the rank figures are
+    // member-readable server-side because the grouping needs them for
+    // everyone — but the decision-and-edit surface is officer business, and a
+    // member staring at a dropdown they cannot use learns nothing good.
     id: 'rank',
     label: TERMS.rank,
     sortKey: 'rank_shown',
     className: 'pin-rank',
     cell: (row, context) => (
-      <RankBadge editable={context.mayRank} onSet={context.setRank} row={row} />
+      <>
+        <RankBadge editable={context.mayRank} onSet={context.setRank} row={row} />
+        {/* The game's dissent, in words next to the decision — the colour on
+            the row is emphasis, never the only carrier (NFR-011). This is the
+            actionable half of the mismatch: what to change it FROM. */}
+        {rankMismatch(row) && (
+          <span className="rank-mismatch-note subtle"> ≠ game R{row.member_rank}</span>
+        )}
+      </>
     ),
   },
   {
@@ -534,6 +581,11 @@ export function RosterTable({
   const queryClient = useQueryClient();
   const [rankError, setRankError] = useState<string | null>(null);
   const mayRank = isAllowed(permissions?.grants, session?.role, 'members.manage');
+  // Whether the rank COLUMN and the mismatch marks render at all: officers and
+  // admins, the people who act on rank decisions. Presentation, not security —
+  // the figures are member-readable server-side because the grouping below
+  // needs them for everyone (see the rank column's comment).
+  const seesRank = session?.role === 'officer' || session?.role === 'admin';
 
   const setRank = useMutation({
     mutationFn: async ({ playerId, rank }: { playerId: string; rank: string | null }) => {
@@ -578,11 +630,10 @@ export function RosterTable({
   // rather than "3 / 50 of everyone".
   const computed = useMemo(() => withFormulas(rows, columns), [rows, columns]);
   // The rank the cell actually shows, as a field, so the column can be sorted on
-  // it. Derived rather than stored: `assigned_rank ?? computed_rank` is already
-  // how RankBadge decides what to print, and duplicating that rule in a sort
-  // comparator is how the two drift apart.
+  // it. Derived through the one shownRank helper — the badge, the grouping and
+  // the mismatch check read the same definition.
   const ranked = useMemo(
-    () => computed.map((row) => ({ ...row, rank_shown: row.assigned_rank ?? row.computed_rank })),
+    () => computed.map((row) => ({ ...row, rank_shown: shownRank(row) })),
     [computed],
   );
   const visible = useMemo(
@@ -613,16 +664,15 @@ export function RosterTable({
     () => rows.some((row) => row.month_card_expires_at !== null || row.vip_level !== null),
     [rows],
   );
-  const arranged = useMemo(
-    () =>
-      arrangeColumns(
-        showsSubscriptions
-          ? BASE_COLUMNS
-          : BASE_COLUMNS.filter((column) => !SUBSCRIPTION_COLUMNS.has(column.id)),
-        layout,
-      ) as BaseColumn[],
-    [layout, showsSubscriptions],
-  );
+  const arranged = useMemo(() => {
+    let base = showsSubscriptions
+      ? BASE_COLUMNS
+      : BASE_COLUMNS.filter((column) => !SUBSCRIPTION_COLUMNS.has(column.id));
+    if (!seesRank) {
+      base = base.filter((column) => column.id !== 'rank');
+    }
+    return arrangeColumns(base, layout) as BaseColumn[];
+  }, [layout, showsSubscriptions, seesRank]);
   const widthStyle = (id: string) => {
     const width = columnWidth(layout, id);
     return width === undefined ? undefined : { width: `${width}px` };
@@ -660,7 +710,10 @@ export function RosterTable({
           every other rule in that stylesheet carries: column positions here have
           already moved twice, and the one place that inferred a column from its
           position right-aligned Arena's names against the scores. */}
-      <div className="table-wrap pinned-rank">
+      {/* `pinned-rank` shifts the name column right by the rank column's width;
+          without the rank column (a member's table) that offset would pin the
+          name over nothing, so the marker leaves with the column. */}
+      <div className={seesRank ? 'table-wrap pinned-rank' : 'table-wrap'}>
         <table>
           {/* Widths, when an admin set any. A colgroup rather than a style on every
               cell: one element per column, and the browser applies it to the whole
@@ -721,7 +774,18 @@ export function RosterTable({
                   </th>
                 </tr>
                 {group.rows.map((row) => (
-                  <tr key={row.player_id}>
+                  <tr
+                    key={row.player_id}
+                    // The mismatch mark is officer business: it exists so
+                    // somebody with the game open can align the game with the
+                    // decision, and for anyone else it is just an accusation.
+                    className={seesRank && rankMismatch(row) ? 'rank-mismatch' : undefined}
+                    title={
+                      seesRank && rankMismatch(row)
+                        ? `In-game R${row.member_rank}, decided ${shownRank(row)} — set it in the game`
+                        : undefined
+                    }
+                  >
                     {arranged.map((column) => (
                       <td
                         className={[
