@@ -1,4 +1,5 @@
 import { Pager } from '../../components/Pager';
+import { RichTitle } from '../../components/RichText';
 import type { BoardPage, BoardPost } from './board';
 
 /** A board: titles, who wrote them, when, and whether you have read them.
@@ -31,7 +32,9 @@ function Row({
   return (
     <tr className={read ? undefined : 'board-unread'}>
       <td className="label">
-        <a href={hrefFor(post.id)}>{post.title}</a>
+        <a href={hrefFor(post.id)}>
+          <RichTitle title={post.title} />
+        </a>
         {post.pinned && <span className="badge badge-fresh">pinned</span>}
         {post.liveAt === null && <span className="badge badge-missing">draft</span>}
         {/* Unread said in words as well as in weight, because bold alone is not

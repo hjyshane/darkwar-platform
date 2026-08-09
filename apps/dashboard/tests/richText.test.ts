@@ -196,7 +196,7 @@ describe('images', () => {
   // guide wants, and a block can be captioned.
   test('a line that is only an image becomes an image block', () => {
     expect(parse(`![a hero line-up](${OURS}/u/1.png)`)).toEqual([
-      { kind: 'image', src: `${OURS}/u/1.png`, alt: 'a hero line-up' },
+      { kind: 'image', src: `${OURS}/u/1.png`, alt: 'a hero line-up', fill: false },
     ]);
   });
 
@@ -204,7 +204,7 @@ describe('images', () => {
   // skips it rather than reading a uuid aloud.
   test('no alt text is empty alt, not a missing field', () => {
     expect(parse(`![](${OURS}/u/1.png)`)).toEqual([
-      { kind: 'image', src: `${OURS}/u/1.png`, alt: '' },
+      { kind: 'image', src: `${OURS}/u/1.png`, alt: '', fill: false },
     ]);
   });
 
@@ -233,4 +233,37 @@ describe('images', () => {
 more`);
     expect(blocks.map((b) => b.kind)).toEqual(['paragraph', 'image', 'paragraph']);
   });
+});
+
+// Colour, added for the boards: a writer needs "read this bit" and the subset
+// had only bold. `[text]{red}` borrows the link's shape on purpose.
+test('a named colour becomes a colour run', () => {
+  expect(parseInline('go [now]{red} please')).toEqual([
+    { kind: 'text', text: 'go ' },
+    { kind: 'colour', text: 'now', colour: 'red' },
+    { kind: 'text', text: ' please' },
+  ]);
+});
+
+test('a colour nobody defined stays the characters that were typed', () => {
+  // Same rule as an unsafe href: the author sees their markup rather than a
+  // sentence with a hole in it, and a typo cannot silently eat words.
+  expect(parseInline('[now]{puce}')).toEqual([{ kind: 'text', text: '[now]{puce}' }]);
+});
+
+test('a link is still a link, not a colour', () => {
+  // The two patterns differ only in their brackets, so this is the case that
+  // catches an alternation written in the wrong order.
+  expect(parseInline('[docs](https://example.com)')).toEqual([
+    { kind: 'link', text: 'docs', href: 'https://example.com' },
+  ]);
+});
+
+// The author's width choice, carried in the markup so it survives a reload and
+// is the same for every reader.
+test('an image is narrow unless the author marked it wide', () => {
+  const narrow = parse(`![map](${OURS}/a.png)`);
+  const wide = parse(`![map](${OURS}/a.png){wide}`);
+  expect(narrow).toEqual([{ kind: 'image', src: `${OURS}/a.png`, alt: 'map', fill: false }]);
+  expect(wide).toEqual([{ kind: 'image', src: `${OURS}/a.png`, alt: 'map', fill: true }]);
 });

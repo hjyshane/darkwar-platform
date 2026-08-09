@@ -2,7 +2,13 @@
 // wrong. Every test here is a case that makes a button feel broken rather than
 // throw anything.
 import { describe, expect, test } from 'vitest';
-import { applyMarkup, insertImage } from '../src/lib/markupActions';
+import {
+  applyColour,
+  applyMarkup,
+  insertImage,
+  insertText,
+  toggleImageWidth,
+} from '../src/lib/markupActions';
 
 describe('bold, italic, code', () => {
   // With nothing selected the caret has to end up BETWEEN the markers. After
@@ -144,5 +150,55 @@ describe('insertImage', () => {
     expect(applied.body.slice(applied.selection.start, applied.selection.end)).toBe(
       'describe the picture',
     );
+  });
+});
+
+// Colour, and the same three behaviours the symmetric wrappers have — a button
+// that only ever adds markers produces `[[a]{red}]{red}` on the second press.
+test('colour wraps the selection', () => {
+  expect(applyColour('rally now', { start: 6, end: 9 }, 'red')).toEqual({
+    body: 'rally [now]{red}',
+    selection: { start: 7, end: 10 },
+  });
+});
+
+test('colour on an already coloured selection takes it off', () => {
+  expect(applyColour('go [now]{red}', { start: 3, end: 13 }, 'red')).toEqual({
+    body: 'go now',
+    selection: { start: 3, end: 6 },
+  });
+});
+
+test('colour with nothing selected leaves a placeholder selected', () => {
+  // Not a caret between markers: `[]{red}` looks like a caret anywhere else, and
+  // the writer cannot see what they are about to affect.
+  expect(applyColour('go ', { start: 3, end: 3 }, 'mark')).toEqual({
+    body: 'go [text]{mark}',
+    selection: { start: 4, end: 8 },
+  });
+});
+
+test('emoji is inserted at the caret and replaces a selection', () => {
+  expect(insertText('go now', { start: 3, end: 6 }, '🔥')).toEqual({
+    body: 'go 🔥',
+    selection: { start: 5, end: 5 },
+  });
+});
+
+// The author's width choice. The caret only has to be ON the image line —
+// pressing the button with the cursor at the end of it is what people do.
+test('wide is toggled on the image line the caret sits in', () => {
+  const body = 'before\n![map](x)\nafter';
+  const on = toggleImageWidth(body, { start: 16, end: 16 });
+  expect(on.body).toBe('before\n![map](x){wide}\nafter');
+  const off = toggleImageWidth(on.body, { start: 10, end: 10 });
+  expect(off.body).toBe(body);
+});
+
+test('wide does nothing to a line that is not an image', () => {
+  const body = 'just a sentence';
+  expect(toggleImageWidth(body, { start: 4, end: 4 })).toEqual({
+    body,
+    selection: { start: 4, end: 4 },
   });
 });

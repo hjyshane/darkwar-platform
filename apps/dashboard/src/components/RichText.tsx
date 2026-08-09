@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { type Block, type Inline, type ListItem, parse } from '../lib/richText';
+import { type Block, type Inline, type ListItem, parse, parseInline } from '../lib/richText';
 import { useSignedImage } from '../lib/signedImage';
 
 /** Render the markup subset from `lib/richText`.
@@ -20,6 +20,11 @@ function InlineRun({ node }: { node: Inline }) {
       return <em>{node.text}</em>;
     case 'code':
       return <code>{node.text}</code>;
+    case 'colour':
+      // A class, never a style attribute: the palette is an allowlist of names
+      // in `richText.ts`, and letting a body choose arbitrary CSS is how a
+      // notice ends up with white text on white.
+      return <span className={`ink ink-${node.colour}`}>{node.text}</span>;
     case 'link':
       // `noreferrer` as well as `noopener`: the alliance's dashboard should not
       // announce itself to whatever a member linked to. External by default
@@ -110,14 +115,14 @@ function NestedList({ items }: { items: ListItem[] }) {
  * screen reader skips it rather than reading a uuid aloud, and an invented
  * description would be worse than none.
  */
-function PostImage({ src, alt }: { src: string; alt: string }) {
+function PostImage({ src, alt, fill }: { src: string; alt: string; fill: boolean }) {
   const { data: signed, isPending, error } = useSignedImage(src);
-  // Collapsed by default and expandable in place. A screenshot is capped so a
-  // tall one does not bury the sentence after it, but the cap made the common
-  // case — a picture somebody wants to actually LOOK at — a thumbnail. Pressing
-  // it lets it take the page's full width and its own height. Per image, not
-  // per page: a guide with six screenshots is read one picture at a time.
-  const [expanded, setExpanded] = useState(false);
+  // Capped by default and expandable in place — a tall phone screenshot should
+  // not bury the sentence after it. `fill` is the author having already decided
+  // this one is worth the width (a map, a table), so it opens expanded. Either
+  // way the reader can toggle it: the state starts where the author put it and
+  // then belongs to whoever is reading.
+  const [expanded, setExpanded] = useState(fill);
 
   if (error) {
     // Said rather than left as a broken frame. A reader who cannot load the
@@ -170,7 +175,7 @@ function BlockNode({ block }: { block: Block }) {
     case 'list':
       return <NestedList items={block.items} />;
     case 'image':
-      return <PostImage alt={block.alt} src={block.src} />;
+      return <PostImage alt={block.alt} fill={block.fill} src={block.src} />;
     default:
       return (
         <p>
@@ -178,6 +183,20 @@ function BlockNode({ block }: { block: Block }) {
         </p>
       );
   }
+}
+
+/** A title, with the same inline markup a paragraph gets.
+ *
+ * Titles are one line, so only the INLINE half of the subset applies — there
+ * is no heading inside a heading and no bullet in a title. `parseInline`
+ * rather than `parse` is what says so.
+ *
+ * Used by the post page and by both board lists, so a title that is bold in
+ * one place is bold in all of them. A title is still plain text in the
+ * database; this is the only thing that reads the markers.
+ */
+export function RichTitle({ title }: { title: string }) {
+  return <Content content={parseInline(title)} />;
 }
 
 export function RichText({ body }: { body: string }) {

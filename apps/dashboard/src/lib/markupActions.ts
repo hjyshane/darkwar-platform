@@ -31,6 +31,79 @@ export interface Applied {
   selection: Selection;
 }
 
+/** Wrap the selection in a colour, or take the colour off.
+ *
+ * Not a `MarkupAction` for the same reason `insertImage` is not: the action
+ * carries a value the buttons do not. Same three behaviours as the symmetric
+ * wrappers, because a colour button that only ever adds `[…]{red}` produces
+ * `[[a]{red}]{red}` on the second press.
+ *
+ * With nothing selected it inserts a placeholder and selects THAT, rather than
+ * leaving the caret between markers: `[]{red}` with the caret in the brackets
+ * looks the same as a caret anywhere else, and the writer cannot see what they
+ * are about to affect.
+ */
+export function applyColour(body: string, selection: Selection, colour: string): Applied {
+  const chosen = body.slice(selection.start, selection.end);
+  const wrapped = /^\[([\s\S]+)\]\{[a-z]+\}$/.exec(chosen);
+  const inner = wrapped?.[1];
+  if (inner !== undefined) {
+    return {
+      body: body.slice(0, selection.start) + inner + body.slice(selection.end),
+      selection: { start: selection.start, end: selection.start + inner.length },
+    };
+  }
+  const text = chosen === '' ? 'text' : chosen;
+  return {
+    body: `${body.slice(0, selection.start)}[${text}]{${colour}}${body.slice(selection.end)}`,
+    selection: { start: selection.start + 1, end: selection.start + 1 + text.length },
+  };
+}
+
+/** Mark the picture the caret is on as full width, or put it back.
+ *
+ * Line-based, because that is what an image is in this subset: `![alt](url)`
+ * alone on its line, with `{wide}` after it when the author wants the column's
+ * full width from the moment the page opens.
+ *
+ * The caret does not have to be inside the markup, only somewhere on the line —
+ * pressing the button with the cursor at the end of an image line is what
+ * people will do, and refusing that would read as the button being broken. If
+ * the line is not an image, nothing happens: silently doing something else to
+ * a paragraph would be worse than doing nothing.
+ */
+const IMAGE_LINE = /^(!\[[^\]]*\]\([^)\s]+\))(\{wide\})?$/;
+
+export function toggleImageWidth(body: string, selection: Selection): Applied {
+  const lineStart = body.lastIndexOf('\n', Math.max(0, selection.start - 1)) + 1;
+  const lineEndRaw = body.indexOf('\n', selection.start);
+  const lineEnd = lineEndRaw === -1 ? body.length : lineEndRaw;
+  const line = body.slice(lineStart, lineEnd);
+  const match = IMAGE_LINE.exec(line.trim());
+  const image = match?.[1];
+  if (image === undefined) {
+    return { body, selection };
+  }
+  const next = match?.[2] === undefined ? `${image}{wide}` : image;
+  return {
+    body: body.slice(0, lineStart) + next + body.slice(lineEnd),
+    selection: { start: lineStart + next.length, end: lineStart + next.length },
+  };
+}
+
+/** Drop a character at the caret. Replaces the selection, like typing does.
+ *
+ * Used by the emoji palette, and nothing about it is emoji-specific — it is
+ * "type this for me", which is what pressing a picture of a face means.
+ */
+export function insertText(body: string, selection: Selection, text: string): Applied {
+  const at = selection.start + text.length;
+  return {
+    body: body.slice(0, selection.start) + text + body.slice(selection.end),
+    selection: { start: at, end: at },
+  };
+}
+
 /** Put an uploaded image into the body, on a line of its own.
  *
  * Not a `MarkupAction`, because it needs a URL and the actions take none — the

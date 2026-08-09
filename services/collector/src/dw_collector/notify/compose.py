@@ -57,7 +57,23 @@ def clamp(text: str, limit: int) -> str:
 # An image line, matching `lib/richText`'s block rule: alone on its line. A
 # comment rather than a string above the assignment, which would look like a
 # docstring and is not one.
-IMAGE_LINE = re.compile(r"^!\[([^\]]*)\]\((\S+)\)$")
+IMAGE_LINE = re.compile(r"^!\[([^\]]*)\]\((\S+?)\)(\{wide\})?$")
+
+# `[text]{red}` on the board is text in a colour. Discord has no colours in an
+# embed description, so the markers come off and the WORDS stay: a channel
+# reading "[Rally at 9]{red}" is worse than one reading "Rally at 9", and the
+# emphasis was never the message.
+#
+# Same for `{wide}` above — a width the board honours and Discord has no notion
+# of. Both are stripped here rather than being kept out of the subset, because
+# the board is where these posts are read and the channel is the copy.
+COLOUR_SPAN = re.compile(r"\[([^\]]+)\]\{[a-z]+\}")
+
+
+def strip_board_only_markup(text: str) -> str:
+    """Take out the markers Discord cannot render, keeping the text."""
+    return COLOUR_SPAN.sub(r"\1", text)
+
 
 ALLOWED_IMAGE_EXTENSIONS = frozenset({"png", "jpg", "jpeg", "webp", "gif"})
 
@@ -116,9 +132,14 @@ def discord_payload(message: Message) -> dict[str, object]:
     An embed rather than plain `content`: the description cap is 4096 against
     content's 2000, and a rank report for 95 members does not fit in 2000.
     """
+    # Stripped at the boundary, not at the source: the row in the database is
+    # what the board renders, and rewriting it on the way out is the only place
+    # that knows Discord is the audience. An embed TITLE renders no markdown at
+    # all, so it loses the colour markers here too — bold asterisks in a title
+    # are Discord's own business and it prints them as typed either way.
     embed: dict[str, object] = {
-        "title": clamp(message.title, TITLE_LIMIT),
-        "description": clamp(message.body, BODY_LIMIT),
+        "title": clamp(strip_board_only_markup(message.title), TITLE_LIMIT),
+        "description": clamp(strip_board_only_markup(message.body), BODY_LIMIT),
     }
     if message.image_url is not None:
         # `attachment://`, NOT the object's own URL.

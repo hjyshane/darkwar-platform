@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useId, useState } from 'react';
-import { MarkupEditor } from '../../components/MarkupEditor';
+import { MarkupEditor, TitleField } from '../../components/MarkupEditor';
 import { noticeHash } from '../../lib/route';
 import { supabase } from '../../lib/supabase';
 import { useSession } from '../../lib/useSession';
@@ -79,9 +79,9 @@ export function NoticeEditor({
       <div className="form-stack">
         <div className="field">
           <label htmlFor={`${formId}-title`}>Title</label>
-          <input
+          <TitleField
             id={`${formId}-title`}
-            onChange={(event) => onChange({ ...draft, title: event.target.value })}
+            onChange={(title) => onChange({ ...draft, title })}
             value={draft.title}
           />
         </div>

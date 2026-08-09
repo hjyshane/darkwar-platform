@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useId, useState } from 'react';
-import { MarkupEditor } from '../../components/MarkupEditor';
+import { MarkupEditor, TitleField } from '../../components/MarkupEditor';
 import { isAllowed, usePermissions } from '../../lib/permissions';
 import { guideHash } from '../../lib/route';
 import { supabase } from '../../lib/supabase';
@@ -77,9 +77,9 @@ export function GuideEditor({
       <div className="form-stack">
         <div className="field">
           <label htmlFor={`${formId}-title`}>Title</label>
-          <input
+          <TitleField
             id={`${formId}-title`}
-            onChange={(event) => onChange({ ...draft, title: event.target.value })}
+            onChange={(title) => onChange({ ...draft, title })}
             value={draft.title}
           />
         </div>
