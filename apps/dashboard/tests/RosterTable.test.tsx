@@ -11,6 +11,37 @@ import { renderWithQuery } from './renderWithQuery';
 
 const NOW = new Date('2026-07-28T12:00:00Z');
 
+/** A member the collector has seen and nothing else knows anything about.
+ * Named so other fixtures can start from it instead of restating twenty-five
+ * nulls. */
+const emptyRow: RosterRow = {
+  member_rank: null,
+  player_id: 'p2',
+  current_name: null,
+  hq_level: null,
+  power: null,
+  kills: null,
+  daily_donation_score: null,
+  weekly_donation_score: null,
+  duel_daily_score: null,
+  duel_weekly_score: null,
+  duel_round_score: null,
+  assigned_rank: null,
+  computed_rank: null,
+  rank_score: null,
+  growth_1d: null,
+  growth_7d: null,
+  growth_1d_at: null,
+  growth_7d_at: null,
+  online_state: null,
+  last_online_at: null,
+  last_seen_at: null,
+  month_card_expires_at: null,
+  vip_level: null,
+  vip_expires_at: null,
+  svip_level: null,
+};
+
 const rows: RosterRow[] = [
   {
     member_rank: 4,
@@ -39,34 +70,19 @@ const rows: RosterRow[] = [
     vip_expires_at: '2026-09-01T00:00:00Z',
     svip_level: 2,
   },
-  {
-    member_rank: null,
-    player_id: 'p2',
-    current_name: null,
-    hq_level: null,
-    power: null,
-    kills: null,
-    daily_donation_score: null,
-    weekly_donation_score: null,
-    duel_daily_score: null,
-    duel_weekly_score: null,
-    duel_round_score: null,
-    assigned_rank: null,
-    computed_rank: null,
-    rank_score: null,
-    growth_1d: null,
-    growth_7d: null,
-    growth_1d_at: null,
-    growth_7d_at: null,
-    online_state: null,
-    last_online_at: null,
-    last_seen_at: null,
-    month_card_expires_at: null,
-    vip_level: null,
-    vip_expires_at: null,
-    svip_level: null,
-  },
+  emptyRow,
 ];
+
+/** Promoted here, not yet in the game: R2 on the member list, R5 by our
+ * decision. The one row where "which rank" has two answers, which is what the
+ * grouping and the mismatch marker are both about. */
+const mismatched: RosterRow = {
+  ...emptyRow,
+  player_id: 'p3',
+  current_name: 'SyntheticPlayer03',
+  member_rank: 2,
+  assigned_rank: 'R5',
+};
 
 /** Every row with nothing to say about subscriptions — what the database hands a
  * member, because RLS filtered the rows away rather than refusing the query. */
@@ -162,27 +178,85 @@ test('growth carries its sign and its direction, and unknown carries neither', (
   ).toBe(2);
 });
 
-// Grouping by the GAME's rank (R5 leader down to R1), which is what the alliance
-// runs on — not `assigned_rank`, which an admin types and which is null for most of
-// the roster.
-test('members are grouped by game rank, highest first', () => {
+// Grouping by OUR rank — assigned if an admin set one, otherwise what the last
+// period computed. It used to group by the GAME's member_rank; the table now reads
+// as "the alliance as we intend it", and the game's disagreement is carried per row
+// by the mismatch marker rather than by the shape of the whole table.
+test('members are grouped by the rank we decided, highest first', () => {
   renderWithQuery(<RosterTable columns={[]} now={NOW} rows={rows} />);
-  const headings = screen.getAllByRole('columnheader', { name: /R[1-5]|Rank not read/ });
+  const headings = screen.getAllByRole('columnheader', { name: /R[1-5]|Rank not decided/ });
   const labels = headings.map((cell) => cell.textContent ?? '');
-  // p1 is R4 and p2 has no rank read, so both groups exist and the ranked one leads.
+  // p1 is assigned R4 and p2 has neither assignment nor computed tier.
   expect(labels[0]).toContain('R4');
-  expect(labels.at(-1)).toContain('Rank not read');
+  expect(labels.at(-1)).toContain('Rank not decided');
 });
 
-// A member whose rank nobody has read is kept, in a group of their own. Dropping
-// them would lose a member from a roster; lumping them into R1 would assert a rank
-// nobody observed. This is what a logged-out reader sees for everybody.
-test('an unread rank is its own group rather than a guess', () => {
+// The distinction the previous test cannot make on its own: p3 is R2 in the game
+// and R5 by our decision, and it is the DECISION that files the row. Grouping by
+// member_rank would put it under R2.
+test('a member we promoted is filed under our rank, not the game s', () => {
+  renderWithQuery(<RosterTable columns={[]} now={NOW} rows={[...rows, mismatched]} />);
+  const heading = screen.getByRole('columnheader', { name: /R5/ });
+  expect(heading.textContent).toContain('1 member');
+});
+
+// A member with no decision at all is kept, in a group of their own. Dropping them
+// would lose a member from a roster; lumping them into R1 would assert a rank
+// nobody decided.
+test('an undecided rank is its own group rather than a guess', () => {
   renderWithQuery(<RosterTable columns={[]} now={NOW} rows={rows} />);
-  const heading = screen.getByRole('columnheader', { name: /Rank not read/ });
+  const heading = screen.getByRole('columnheader', { name: /Rank not decided/ });
   expect(heading).toBeTruthy();
   // And the member is still counted rather than dropped from the roster.
   expect(heading.textContent).toContain('1 member');
+});
+
+/** A reader with a role, without mocking the module: the cache answers the same
+ * useSession the component always calls. */
+function asRole(role: 'member' | 'officer') {
+  return [[['session'], { email: `${role}@test.invalid`, role }]] as const;
+}
+
+// The rank column is where rank decisions are MADE — a dropdown an officer uses
+// while looking at the figures on the same row. A member cannot use it, and a
+// disabled control they can see is a worse answer than a column that is not
+// there. The figures behind it stay member-readable server-side, because the
+// grouping needs them for everybody.
+test('the rank column is for officers and admins, not members', () => {
+  const { unmount } = renderWithQuery(
+    <RosterTable columns={[]} now={NOW} rows={rows} />,
+    asRole('member'),
+  );
+  expect(screen.queryByRole('columnheader', { name: /^Rank$/ })).toBeNull();
+  unmount();
+
+  renderWithQuery(<RosterTable columns={[]} now={NOW} rows={rows} />, asRole('officer'));
+  expect(screen.getByRole('columnheader', { name: /^Rank$/ })).toBeTruthy();
+});
+
+// The mismatch is a to-do: "the game says R2, we decided R5, go change it". It is
+// marked for the people who can act on it and nobody else — and never by colour
+// alone (NFR-011), so the cell prints the game's rank in words too.
+test('a rank mismatch is marked for officers, in words as well as colour', () => {
+  renderWithQuery(
+    <RosterTable columns={[]} now={NOW} rows={[...rows, mismatched]} />,
+    asRole('officer'),
+  );
+  const marked = document.querySelectorAll('tr.rank-mismatch');
+  expect(marked.length).toBe(1);
+  expect(marked[0]?.textContent).toContain('SyntheticPlayer03');
+  expect(marked[0]?.textContent).toContain('≠ game R2');
+  // p1 is R4 both ways — agreement is not a mismatch.
+  expect(document.body.textContent).not.toContain('≠ game R4');
+});
+
+test('a member sees no mismatch marks at all', () => {
+  renderWithQuery(
+    <RosterTable columns={[]} now={NOW} rows={[...rows, mismatched]} />,
+    asRole('member'),
+  );
+  expect(document.querySelectorAll('tr.rank-mismatch').length).toBe(0);
+  expect(document.body.textContent).not.toContain('≠ game');
 });
 
 // The group label sits in its own element so it can stay put while the table

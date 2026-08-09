@@ -2062,6 +2062,23 @@ form select {
   position: sticky;
 }
 
+/* A member whose in-game rank disagrees with the rank we decided. Officers and
+ * admins only — the marker is a to-do ("go set it in the game"), and to anyone
+ * who cannot act on it it would read as an accusation.
+ *
+ * A left edge rather than a filled row: the row already carries growth colours
+ * and a favourite star, and tinting the whole thing would fight both. The
+ * colour is never the only carrier (NFR-011) — the rank cell prints
+ * "≠ game R4" next to the badge, and the row's title says which way round. */
+.rank-mismatch > td:first-child {
+  box-shadow: inset 3px 0 0 var(--warn-fg);
+}
+
+.rank-mismatch-note {
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+
 .rank-movement {
   margin-bottom: var(--space-6);
 }
