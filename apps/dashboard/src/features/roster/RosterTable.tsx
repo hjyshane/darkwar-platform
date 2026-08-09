@@ -52,9 +52,9 @@ export interface RosterRow {
   online_state: string | null;
   last_online_at: string | null;
   last_seen_at: string | null;
-  /** What they are paying for. Null for every reader below officer, because
-   * the view CASE-gates the columns (0092 by way of 0102) — not because the
-   * client withheld them. */
+  /** What they are paying for. Null for every reader below officer, because the
+   * query returns them no rows at all (0092) — not because the client withheld
+   * it. */
   month_card_expires_at: string | null;
   vip_level: number | null;
   vip_expires_at: string | null;
