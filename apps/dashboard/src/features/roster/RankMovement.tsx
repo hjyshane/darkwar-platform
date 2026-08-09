@@ -1,5 +1,4 @@
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
 import { playerHash } from '../../lib/route';
 import { supabase } from '../../lib/supabase';
 
@@ -62,51 +61,17 @@ function Who({ row }: { row: MovementRow }) {
   return <a href={playerHash(row.player_id)}>{row.name ?? row.player_id.slice(0, 8)}</a>;
 }
 
-/** Behind a click, until the view underneath is fixed.
- *
- * `pg_stat_statements` on production, for the exact select below: 64 calls,
- * mean 3,173 ms, max 7,949 ms. The statement timeout is what the reader saw —
- * a 500 on the members screen, every time — and until it fired, every visit
- * to the roster waited on it.
- *
- * The roster is the point of that screen and this is a summary above it, so
- * the summary does not get to hold it up. `enabled` keeps the request from
- * leaving at all while closed; opening it is a decision the reader makes
- * knowing it may be slow.
- *
- * TEMPORARY, and the fix belongs in the view. The same select of SEVEN
- * columns runs in 105 ms against the same rows — it is the nine-column shape
- * that collapses, which points at 0088 rather than at the data. Undo this
- * once that is understood; a summary an officer has to ask for is a worse
- * screen than one that is simply there.
- */
 export function RankMovement() {
-  const [open, setOpen] = useState(false);
   const { data, error, isPending } = useQuery({
     queryKey: ['rank-movement'],
     queryFn: fetchMovement,
-    enabled: open,
   });
 
-  if (!open) {
-    return (
-      <p className="subtle">
-        <button className="link" onClick={() => setOpen(true)} type="button">
-          Show rank changes
-        </button>{' '}
-        — kept out of the way while it is slow to build.
-      </p>
-    );
-  }
-
-  if (isPending) {
-    return <p className="subtle">Working out who moved…</p>;
-  }
-
-  if (error) {
-    // Said out loud now, unlike before. Silence was right when this loaded
-    // unasked; after a click it would read as a broken button.
-    return <p className="error">Could not work out rank changes: {error.message}</p>;
+  if (isPending || error) {
+    // Silent on both. This is a summary above a table that stands on its own, and a
+    // loading line or an error banner above the roster would push the roster down
+    // for something nobody came here for. The error still surfaces in the console.
+    return null;
   }
 
   const rows = data ?? [];
