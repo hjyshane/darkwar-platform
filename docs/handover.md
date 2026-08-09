@@ -156,10 +156,35 @@ select * from member_roster order by power desc nulls last limit 100;
 - 등급 스코어링(주기 리빌드)은 이미 이 모양이다(rank_period_snapshots =
   구체화된 계산 결과). 같은 원칙의 확장.
 
+### 프로덕션 EXPLAIN을 받았고, 사건이 끝났다 (0105, PR #183·#184)
+
+사용자가 대시보드 SQL 에디터에서 계획을 떠 줬다. **13.5초의 12초는
+subscriptions였고, 근본 전제 하나가 뒤집혔다:**
+
+> **호스티드 Supabase에선 DEFINER 뷰가 RLS를 안 벗는다.** 로컬 postgres는
+> superuser라 RLS를 전부 무시한다 — 로컬 측정이 뷰를 미화한 이유 그 자체.
+> 프로덕션 계획엔 테이블마다 `current_app_role()` RLS qual이 살아 있었다.
+
+그 qual들의 기본 선택도가 추정을 1행으로 무너뜨렸고, 플래너가
+`player_subscriptions` FULL JOIN을 Materialize 없이 nested loop 안쪽에 놓고
+**92번 재계산**했다(루프마다 month_cards 3,291행 seq scan × 행별 role 호출).
+LATERAL은 못 고친다 — 그 뷰의 player_id가 FULL JOIN 양쪽의 COALESCE라 필터가
+안 밀린다. 0105가 뷰를 우회해 두 테이블을 **pkey로 직접 조인**.
+
+프로덕션 재실측(사용자 손): **13,521ms → 1,214ms.** 프론트 재전환(#184),
+멤버 첫 로드 3요청 파도 → 1파, 체감 ~1.5초.
+
+수확 둘: (1) **계획 검증은 프로덕션 규모 + `set role authenticated`로도
+부족하다 — 로컬 postgres가 superuser라 RLS가 아예 다르게 돈다.** 로컬에서
+프로덕션과 같은 계획을 보려면 RLS를 강제로 태울 별도 비-owner 롤이 필요하다
+(다음에 뷰 계획 작업하면 먼저 만들 것). (2) 읽기당 1.2초는 여전히 RLS 행별
+비용이 깔린 read-time 계산이다 — 아래 precompute 스케치가 여전히 종착지.
+
 ### 남은 것
 
-0. **(1순위) 프로덕션 EXPLAIN** — 위 SQL, 대시보드 SQL 에디터에서. 그 결과로
-   0103을 고치거나, 곧장 `member_roster_current` 테이블로 간다.
+0. **플레이어 페이지(hero/pet) 프로덕션 확인** — 0104 적용 후 아무도 안
+   확인함. 같은 정정된 전제(RLS 안 벗음)가 적용되므로 board_size 상관
+   서브쿼리의 행별 RLS 비용이 남아 있다. 느리면 같은 처방.
 1. **`prune-journal` 실행 시점** — 저널이 30일치 넘는 2026-09-03경.
 2. **`prune_collector_heartbeats` confirm 실행** — 숫자 보고 결정. 급하지 않다.
 3. **0100·0102의 프로덕션 체감 확인** — 로그인 세션으로 members 3–4초 →
