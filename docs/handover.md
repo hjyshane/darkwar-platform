@@ -89,6 +89,33 @@ CASE로 officer+ 게이트(0092 유지, 멤버는 null). 성장 폴백(0069)과 
 브라우저 실측: 멤버 페이지 요청 8→1, 전 요청 단일 병렬 파, 렌더 동일.
 클라우드 적용·배포 완료(`member_roster` 마커 확인).
 
+### 그리고 0102가 프로덕션에서 한 시간 만에 타임아웃났다 — 0103·0104 (PR #177·#178)
+
+**20행으로 검증하고 363k행에 배포한 것이 사고다.** 멤버 탭이 statement
+timeout으로 죽었고, 사용자가 보고했다.
+
+- **0103**: 0102의 계획이 프로덕션 규모(멤버 스냅샷 363k·player_snapshots
+  43k/7.5k명)에서 (a) `alliance_roster_latest` 경유로 **전 연맹**의 최신 배치를
+  계산(363k 인덱스 엔트리 전부), (b) growth 뷰 둘을 **전 플레이어**에 대해
+  풀 계산 — join의 등가조건은 뷰의 per-player 집계 밑으로 안 밀린다. 로컬
+  hot RAM에서 770ms = 프로덕션 콜드 316MB에서 타임아웃. 수정: own 연맹 최신
+  배치는 (alliance_id, captured_at) 인덱스 하강 스칼라 max(), growth는
+  **LATERAL … limit 1** — limit이 하중을 받는다, 없으면 플래너가 다시
+  de-correlate해서 풀 계산으로 돌아간다(실측). 770ms → 14ms(94명 로스터).
+- **0104**: 같은 병 세 번째 발병처. 플레이어 페이지 hero/pet 추이의
+  `player_component_power_history`가 invoker×RLS라 `current_app_role()`이
+  행마다 + `board_size` 상관 서브쿼리 안 보드 행마다(57보드면 ~5,700회,
+  수집 잘 된 플레이어는 수만 회). DEFINER + InitPlan 게이트로 전환, 접근
+  표(viewer 0행·member는 member 가시성·admin은 +admin 지표·board_size가
+  독자 기준 카운트) 그대로 — 63 테스트가 행 단위로 고정. 193ms → 7ms.
+
+62에 1,000명 규모 픽스처 + "player_snapshots Seq Scan 금지" 계획 핀 추가.
+**교훈은 59가 이미 적어 뒀던 것이다: 계획 속성은 플래너에게 실제 선택지가
+있는 크기에서만 증명된다.** 규모 시드 절차는 이 세션 스크래치에 있었고,
+요지는: 프로덕션 행 수를 `inspect db table-sizes`로 뽑아 같은 자릿수로
+시드하고, **member 세션으로** explain analyze — postgres로 재면 게이트가
+one-time filter로 접혀서 아무것도 안 보인다.
+
 ### 남은 것
 
 1. **`prune-journal` 실행 시점** — 저널이 30일치 넘는 2026-09-03경.
