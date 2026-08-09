@@ -1965,6 +1965,23 @@ form select {
   margin: var(--space-4) 0;
 }
 
+/* The picture is inside a button so it can be expanded in place. The button is
+ * stripped back to nothing — the picture IS the control, and a border or a
+ * background here would draw a second frame around the one the image already
+ * has. */
+.rich-image-button {
+  background: none;
+  border: 0;
+  cursor: zoom-in;
+  display: block;
+  padding: 0;
+  width: 100%;
+}
+
+.rich-image-expanded .rich-image-button {
+  cursor: zoom-out;
+}
+
 .rich-image img {
   background: var(--bg-raised);
   border: 1px solid var(--border);
@@ -1972,10 +1989,22 @@ form select {
   display: block;
   height: auto;
   /* Tall screenshots are the common case from a phone, and one that fills three
-   * screens buries the sentence after it. Click through for the full size. */
+   * screens buries the sentence after it — so a picture is capped until the
+   * reader asks for more. A small one is NOT stretched to the cap: upscaling a
+   * 400px screenshot to 900px makes it blurry, and a blurry screenshot is
+   * harder to read than a small sharp one. */
   max-height: 70vh;
   max-width: 100%;
   object-fit: contain;
+}
+
+/* Expanded: the page's full width, its own height, and no cap. `width: 100%`
+ * rather than `max-width` because filling the column is the point of pressing
+ * it — this is the state a reader chose, so the trade against sharpness is
+ * theirs to make. */
+.rich-image-expanded img {
+  max-height: none;
+  width: 100%;
 }
 
 /* While the signed URL is being minted (0083). A box of roughly the right height,
@@ -1994,6 +2023,147 @@ form select {
   color: var(--fg-muted);
   font-size: var(--text-sm);
   margin-top: var(--space-1);
+}
+
+/* --- a post: masthead and the row under it -------------------------------- */
+
+/* The facts about the post, set apart from the post. A rule underneath is what
+ * makes the body start somewhere: without it the grey meta line was just a
+ * smaller first paragraph. */
+.post-header {
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--space-5);
+  padding-bottom: var(--space-3);
+}
+
+.post-header h2 {
+  margin-bottom: var(--space-2);
+}
+
+.post-meta {
+  align-items: center;
+  color: var(--fg-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: var(--text-sm);
+  /* The gap IS the separator. The old line used " · " between every fact, which
+   * wraps badly on a phone — half a separator ends a line and the next starts
+   * with the other half. */
+  gap: var(--space-2) var(--space-3);
+}
+
+/* The category, given the shape of a label rather than another grey word. It is
+ * the one fact here a reader scans FOR ("is this a war notice or a build
+ * guide?"), so it leads and it looks different. */
+.post-tag {
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--fg);
+  font-size: var(--text-sm);
+  padding: 0 var(--space-2);
+}
+
+.post-author {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.post-edited {
+  font-style: italic;
+}
+
+/* Previous, the list, next — in the order they sit on the board, newest left.
+ * Below the post, because that is where somebody who has finished reading is
+ * looking; the only way back used to be six grey words above the title. */
+.post-nav {
+  align-items: stretch;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+}
+
+.post-nav-link,
+.post-nav-end {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  text-decoration: none;
+}
+
+.post-nav-link:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+}
+
+/* The end of the board reads as an edge, not as a broken link: no hover, no
+ * pointer, and the border says the row still has three places. */
+.post-nav-end {
+  align-items: center;
+  border-style: dashed;
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+  justify-content: center;
+}
+
+.post-nav-right {
+  text-align: right;
+}
+
+.post-nav-dir {
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+}
+
+/* One line of it. A neighbour with a long title should not make the row three
+ * times as tall as the button beside it. */
+.post-nav-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The wide one in the middle, because going back to the list is what most
+ * readers do next. It was a small grey link at the top of the page. */
+.post-nav-back {
+  align-items: center;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex: 0 0 auto;
+  font-weight: 600;
+  justify-content: center;
+  padding: var(--space-2) var(--space-5);
+  text-decoration: none;
+}
+
+.post-nav-back:hover {
+  background: var(--bg-hover);
+}
+
+/* On a phone the three-across row leaves nothing but ellipses. Stacked, the
+ * list link goes first — the neighbours are still reachable by scrolling on. */
+@media (max-width: 40rem) {
+  .post-nav {
+    flex-direction: column;
+  }
+
+  .post-nav-back {
+    order: -1;
+    padding: var(--space-3);
+  }
+
+  .post-nav-right {
+    text-align: left;
+  }
 }
 
 /* --- the boards ---------------------------------------------------------- */
