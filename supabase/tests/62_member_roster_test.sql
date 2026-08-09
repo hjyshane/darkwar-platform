@@ -12,7 +12,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(12);
+select plan(13);
 
 -- People. A member, an officer, a viewer.
 insert into auth.users (id, instance_id, aud, role, email) values
@@ -64,6 +64,13 @@ where a.external_id = 'roster-al-62';
 select is(
   (select is_own from public.alliances where external_id = 'roster-al-62'),
   true, 'control: the unredacted batch marked the alliance as our own');
+
+-- Ours must also be the ONLY own alliance for the duration of this file. The
+-- view answers about one own alliance (as production has one); a dev database
+-- can carry seed alliances marked own, and the view picking one of those
+-- would fail every assertion here for the wrong reason. Rolled back with the
+-- rest.
+update public.alliances set is_own = false where external_id <> 'roster-al-62';
 
 insert into public.player_contributions (player_id, daily_donation_score, weekly_donation_score)
 values (pg_temp.pid(620000000001), 41, 4100);
@@ -158,6 +165,46 @@ select matches(
   pg_get_viewdef('public.member_roster'::regclass),
   'current_app_role',
   'the view asks who is asking');
+
+-- And the plan, at a size where the planner has a real choice (59's rule —
+-- 0102 was verified against twenty rows and timed out on production within
+-- the hour). A thousand filler players with snapshots make de-correlating
+-- the growth laterals visibly attractive: 0102's join shape, and 0103's
+-- laterals WITHOUT their limit-1 fence, both compute the growth views for
+-- every player and show up here as a Seq Scan of player_snapshots. Checked
+-- red against both.
+insert into public.players (game_uid, server_id, current_name)
+select 621000000000 + g, 580, 'Filler' || g from generate_series(1, 1000) g;
+
+insert into public.player_snapshots
+  (observation_id, source_command, parser_version, idempotency_key, captured_at,
+   collector_id, collected_from_server_id, player_id, server_id, game_uid, power, raw)
+select gen_random_uuid(), 'server.rank', 1, 'test:62:fill:' || p.game_uid || ':' || s,
+       now() - (s || ' days')::interval,
+       '00000000-0000-4000-8000-000000630c01', 580,
+       p.player_id, 580, p.game_uid, 1000 * s, '{}'::jsonb
+from public.players p, generate_series(1, 5) s
+where p.current_name like 'Filler%';
+
+analyze public.player_snapshots;
+analyze public.players;
+
+create function pg_temp.plan_for(sql text) returns text language plpgsql as $$
+declare
+  line text;
+  out text := '';
+begin
+  for line in execute 'explain (costs off) ' || sql loop
+    out := out || line || E'\n';
+  end loop;
+  return out;
+end;
+$$;
+
+select unalike(
+  pg_temp.plan_for('select * from public.member_roster'),
+  '%Seq Scan on player_snapshots%',
+  'growth is probed per roster member, never computed for every player');
 
 select * from finish();
 rollback;
