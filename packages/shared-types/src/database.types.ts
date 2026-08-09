@@ -1535,6 +1535,50 @@ export type Database = {
           },
         ]
       }
+      member_roster_current: {
+        Row: {
+          computed_rank: string | null
+          growth_1d: number | null
+          growth_1d_at: string | null
+          growth_7d: number | null
+          growth_7d_at: string | null
+          member_rank: number | null
+          player_id: string
+          rank_score: number | null
+          refreshed_at: string
+        }
+        Insert: {
+          computed_rank?: string | null
+          growth_1d?: number | null
+          growth_1d_at?: string | null
+          growth_7d?: number | null
+          growth_7d_at?: string | null
+          member_rank?: number | null
+          player_id: string
+          rank_score?: number | null
+          refreshed_at?: string
+        }
+        Update: {
+          computed_rank?: string | null
+          growth_1d?: number | null
+          growth_1d_at?: string | null
+          growth_7d?: number | null
+          growth_7d_at?: string | null
+          member_rank?: number | null
+          player_id?: string
+          rank_score?: number | null
+          refreshed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_roster_current_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: true
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+        ]
+      }
       metric_registry: {
         Row: {
           aggregation: string
@@ -2965,9 +3009,9 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "alliance_member_snapshots_player_id_fkey"
+            foreignKeyName: "member_roster_current_player_id_fkey"
             columns: ["player_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "players"
             referencedColumns: ["player_id"]
           },
@@ -3291,6 +3335,7 @@ export type Database = {
         Args: { p_code: string }
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      refresh_member_roster: { Args: never; Returns: undefined }
       reject_player_claim: {
         Args: { p_user: string }
         Returns: {
