@@ -149,6 +149,65 @@ export function useBoard(config: BoardConfig, page: number) {
   });
 }
 
+/** The posts either side of this one, by the order the board lists them in.
+ *
+ * The board is `created_at desc`, so "newer" is the one above this post in the
+ * list and "older" is the one below. Neighbours are found by comparing
+ * timestamps rather than by fetching the list and looking for the index — the
+ * post may be on page four, and downloading four pages to draw two links is the
+ * kind of thing that made the members screen slow.
+ *
+ * PINNING IS IGNORED ON PURPOSE. A pinned post is repeated at the top of the
+ * list, but it keeps its place in time; walking the board should pass each post
+ * once, in the order it was written, rather than revisiting the pinned ones.
+ *
+ * Both queries go out together — they do not depend on each other, and one
+ * round trip across an ocean is the budget for this (0102's lesson).
+ */
+export interface PostNeighbours {
+  newer: { id: string; title: string } | null;
+  older: { id: string; title: string } | null;
+}
+
+export function useNeighbours(config: BoardConfig, postId: string, createdAt: string) {
+  const isGuide = config.table === 'guides';
+  const idColumn = isGuide ? 'guide_id' : 'announcement_id';
+  return useQuery({
+    queryKey: ['board-neighbours', config.table, postId],
+    // The neighbours of a post only change when somebody writes or deletes one,
+    // which is rare enough that refetching them on every visit is waste.
+    staleTime: 5 * 60 * 1000,
+    queryFn: async (): Promise<PostNeighbours> => {
+      const select = `${idColumn}, title, created_at`;
+      const [newer, older] = await Promise.all([
+        supabase
+          .from(config.table)
+          .select(select)
+          .gt('created_at', createdAt)
+          .order('created_at', { ascending: true })
+          .limit(1),
+        supabase
+          .from(config.table)
+          .select(select)
+          .lt('created_at', createdAt)
+          .order('created_at', { ascending: false })
+          .limit(1),
+      ]);
+      // A failure here costs two links, not the post. The reader came to read
+      // the thing they opened; losing the navigation is worth less than an error
+      // page over it.
+      const first = (result: typeof newer): { id: string; title: string } | null => {
+        const row = (result.data ?? [])[0] as unknown as Record<string, unknown> | undefined;
+        if (row === undefined) {
+          return null;
+        }
+        return { id: String(row[idColumn]), title: String(row.title ?? '') };
+      };
+      return { newer: first(newer), older: first(older) };
+    },
+  });
+}
+
 /** Mark a post read, once.
  *
  * `ignore-duplicates` rather than a check-then-insert: opening the same post

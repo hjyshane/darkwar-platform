@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { isAllowed, usePermissions } from '../../lib/permissions';
+import { guideHash } from '../../lib/route';
 import { supabase } from '../../lib/supabase';
 import { useSession } from '../../lib/useSession';
 import { BoardPostPage } from '../board/BoardPost';
@@ -79,6 +80,7 @@ export function GuidePostPage({ guideId }: { guideId: string }) {
       backLabel="All guides"
       config={GUIDES}
       postId={guideId}
+      hrefFor={guideHash}
       tagLabel={categoryLabel}
     >
       {draft !== null ? (

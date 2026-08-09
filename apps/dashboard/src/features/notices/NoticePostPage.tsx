@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { noticeHash } from '../../lib/route';
 import { supabase } from '../../lib/supabase';
 import { useSession } from '../../lib/useSession';
 import { BoardPostPage } from '../board/BoardPost';
@@ -77,6 +78,7 @@ export function NoticePostPage({ noticeId }: { noticeId: string }) {
       backLabel="All notices"
       config={NOTICES}
       postId={noticeId}
+      hrefFor={noticeHash}
       tagLabel={visibilityLabel}
     >
       {draft !== null ? (

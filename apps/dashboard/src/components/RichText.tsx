@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { type Block, type Inline, type ListItem, parse } from '../lib/richText';
 import { useSignedImage } from '../lib/signedImage';
 
@@ -111,6 +112,12 @@ function NestedList({ items }: { items: ListItem[] }) {
  */
 function PostImage({ src, alt }: { src: string; alt: string }) {
   const { data: signed, isPending, error } = useSignedImage(src);
+  // Collapsed by default and expandable in place. A screenshot is capped so a
+  // tall one does not bury the sentence after it, but the cap made the common
+  // case — a picture somebody wants to actually LOOK at — a thumbnail. Pressing
+  // it lets it take the page's full width and its own height. Per image, not
+  // per page: a guide with six screenshots is read one picture at a time.
+  const [expanded, setExpanded] = useState(false);
 
   if (error) {
     // Said rather than left as a broken frame. A reader who cannot load the
@@ -128,8 +135,21 @@ function PostImage({ src, alt }: { src: string; alt: string }) {
     );
   }
   return (
-    <figure className="rich-image">
-      <img alt={alt} loading="lazy" src={signed} />
+    <figure className={expanded ? 'rich-image rich-image-expanded' : 'rich-image'}>
+      {/* A button, not a link with an onClick: this changes what is on the page
+          rather than going anywhere, and a screen reader should be told which.
+          The label says what pressing it does, and it changes with the state —
+          a control whose name is "Expand" while the picture is expanded is
+          worse than no label at all. */}
+      <button
+        aria-expanded={expanded}
+        className="rich-image-button"
+        onClick={() => setExpanded(!expanded)}
+        title={expanded ? 'Shrink back' : 'Fill the page width'}
+        type="button"
+      >
+        <img alt={alt} loading="lazy" src={signed} />
+      </button>
       {alt !== '' && <figcaption>{alt}</figcaption>}
     </figure>
   );
