@@ -180,6 +180,28 @@ LATERAL은 못 고친다 — 그 뷰의 player_id가 FULL JOIN 양쪽의 COALESC
 (다음에 뷰 계획 작업하면 먼저 만들 것). (2) 읽기당 1.2초는 여전히 RLS 행별
 비용이 깔린 read-time 계산이다 — 아래 precompute 스케치가 여전히 종착지.
 
+### precompute 착지 (0106, PR #187) — 읽기 1.2초의 시대가 끝났다
+
+`member_roster_current` 테이블: 로스터 멤버십 + growth + computed rank —
+**member-readable 원천에서만 파생되는 컬럼만** (보안 속성: refresh는 쓰기를
+유발한 호출자로 돌기 때문에, officer 전용 수치가 테이블에 있으면 member발
+refresh가 null로 덮는다). 구독·assigned_rank는 뷰에서 라이브(0105 이후 싼
+pkey probe, admin 등급 수정 즉시 반영).
+
+refresh는 **쓰는 문장 안에서** 돈다 — 세 원천 테이블의 statement 트리거.
+realtime 알림이 도착하기 전에 이미 신선 → staleness 창 없음, 스케줄러 없음,
+수집기 변경 없음(service_role BYPASSRLS라 계획 깨끗). 가드: advisory
+try-lock / 호출자 게이트 / 빈-답 prune 불가. 함정 둘을 밟고 고정했다:
+`clock_timestamp()`를 인라인으로 쓰면 행마다 전진해 prune이 마지막 행 빼고
+다 먹고, `now()`는 트랜잭션 내 고정이라 같은 트랜잭션의 두 번째 refresh가
+prune을 못 한다 — **호출당 1회 변수 캡처**가 정답. own 연맹 선택은 최신
+배치 기준 결정적(개발 DB는 0031이 is_own을 되살려 여럿이라).
+
+프로덕션: service refresh 1회 실측 **219ms**(RTT 포함), 테이블 92행. 뷰
+읽기는 이제 92행 테이블 + pkey probe들 — 수십 ms + RTT. 테스트: 64 신규
+9건(트리거 충전·탈퇴 prune·viewer no-op·빈 가드·anon 차단), 62 무변경 통과,
+스위트 688/688.
+
 ### 남은 것
 
 플레이어 페이지(hero/pet)는 0104 적용 후 사용자가 프로덕션에서 정상 확인함
