@@ -2935,6 +2935,44 @@ export type Database = {
           },
         ]
       }
+      member_roster: {
+        Row: {
+          assigned_rank: string | null
+          computed_rank: string | null
+          current_name: string | null
+          daily_donation_score: number | null
+          duel_daily_score: number | null
+          duel_round_score: number | null
+          duel_weekly_score: number | null
+          growth_1d: number | null
+          growth_1d_at: string | null
+          growth_7d: number | null
+          growth_7d_at: string | null
+          hq_level: number | null
+          kills: number | null
+          last_online_at: string | null
+          last_seen_at: string | null
+          member_rank: number | null
+          month_card_expires_at: string | null
+          online_state: string | null
+          player_id: string | null
+          power: number | null
+          rank_score: number | null
+          svip_level: number | null
+          vip_expires_at: string | null
+          vip_level: number | null
+          weekly_donation_score: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alliance_member_snapshots_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+        ]
+      }
       own_player_ids: {
         Row: {
           player_id: string | null
