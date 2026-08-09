@@ -3228,6 +3228,14 @@ export type Database = {
       is_service_request: { Args: never; Returns: boolean }
       leave_alliance: { Args: never; Returns: undefined }
       linked_player_id: { Args: never; Returns: string }
+      prune_collector_heartbeats: {
+        Args: { p_confirm?: boolean; p_keep?: string }
+        Returns: {
+          cutoff: string
+          deleted: number
+          prunable: number
+        }[]
+      }
       rank_period_start: { Args: { ts: string }; Returns: string }
       rank_period_week_ends: {
         Args: { period_start: string }
