@@ -224,6 +224,48 @@ export type Database = {
           },
         ]
       }
+      alliance_latest_current: {
+        Row: {
+          alliance_id: string | null
+          captured_at: string | null
+          code: string | null
+          external_id: string
+          member_count: number | null
+          name: string | null
+          power: number | null
+          rank: number | null
+          refreshed_at: string
+          server_id: number | null
+          snapshot_id: string
+        }
+        Insert: {
+          alliance_id?: string | null
+          captured_at?: string | null
+          code?: string | null
+          external_id: string
+          member_count?: number | null
+          name?: string | null
+          power?: number | null
+          rank?: number | null
+          refreshed_at?: string
+          server_id?: number | null
+          snapshot_id: string
+        }
+        Update: {
+          alliance_id?: string | null
+          captured_at?: string | null
+          code?: string | null
+          external_id?: string
+          member_count?: number | null
+          name?: string | null
+          power?: number | null
+          rank?: number | null
+          refreshed_at?: string
+          server_id?: number | null
+          snapshot_id?: string
+        }
+        Relationships: []
+      }
       alliance_member_snapshots: {
         Row: {
           alliance_id: string
@@ -2840,22 +2882,31 @@ export type Database = {
           server_id: number | null
           snapshot_id: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "alliance_snapshots_alliance_id_fkey"
-            columns: ["alliance_id"]
-            isOneToOne: false
-            referencedRelation: "alliances"
-            referencedColumns: ["alliance_id"]
-          },
-          {
-            foreignKeyName: "alliance_snapshots_server_id_fkey"
-            columns: ["server_id"]
-            isOneToOne: false
-            referencedRelation: "servers"
-            referencedColumns: ["server_id"]
-          },
-        ]
+        Insert: {
+          alliance_id?: string | null
+          captured_at?: string | null
+          code?: string | null
+          external_id?: string | null
+          member_count?: number | null
+          name?: string | null
+          power?: number | null
+          rank?: number | null
+          server_id?: number | null
+          snapshot_id?: string | null
+        }
+        Update: {
+          alliance_id?: string | null
+          captured_at?: string | null
+          code?: string | null
+          external_id?: string | null
+          member_count?: number | null
+          name?: string | null
+          power?: number | null
+          rank?: number | null
+          server_id?: number | null
+          snapshot_id?: string | null
+        }
+        Relationships: []
       }
       alliance_power_history: {
         Row: {
@@ -3335,6 +3386,7 @@ export type Database = {
         Args: { p_code: string }
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      refresh_alliance_latest: { Args: never; Returns: undefined }
       refresh_member_roster: { Args: never; Returns: undefined }
       reject_player_claim: {
         Args: { p_user: string }

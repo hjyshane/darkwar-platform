@@ -6,7 +6,7 @@ import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
 import { composition } from '../../lib/troops';
 import { type ArenaEntryRow, type ArenaHeader, ArenaTable } from './ArenaTable';
-import { fetchLineups } from './lineups';
+import { narrowHero } from './lineups';
 
 /** The newest snapshot of each league.
  *
@@ -42,10 +42,19 @@ async function fetchBoards(): Promise<ArenaHeader[]> {
 }
 
 async function fetchBoardEntries(snapshotId: string): Promise<ArenaEntryRow[]> {
+  // The lineups ride EMBEDDED in the entries answer rather than fetched in a
+  // second wave. The second wave was a full ocean round trip (~150-400 ms)
+  // that could not leave until this one landed — the same dependent-wave cost
+  // the members screen paid eight times over before 0102-0106. PostgREST
+  // resolves the embed through arena_entry_heroes' entry FK and its index, so
+  // the database does the same indexed reads it did before, in one request.
   const { data: entries, error: entriesError } = await supabase
     .from('arena_entries')
     .select(
-      'snapshot_id, player_id, rank, name, game_uid, server_id, alliance_name, alliance_code, score, defense_power',
+      // One literal, not a concatenation — supabase-js parses this string at
+      // the type level and a `+` degrades every row to an error type (the
+      // 0102 lesson, second sighting).
+      'snapshot_id, player_id, rank, name, game_uid, server_id, alliance_name, alliance_code, score, defense_power, arena_entry_heroes (arena_entry_id, slot, hero_id, troop_class, hero_level, level_synced, star, stage, hero_power, weapon_level, skills, equipment)',
     )
     .eq('arena_snapshot_id', snapshotId)
     .order('rank', { ascending: true });
@@ -53,10 +62,8 @@ async function fetchBoardEntries(snapshotId: string): Promise<ArenaEntryRow[]> {
     throw new Error(`arena entries query failed: ${entriesError.message}`);
   }
 
-  const lineups = await fetchLineups(entries.map((entry) => entry.snapshot_id));
-
-  return entries.map((entry) => {
-    const lineup = lineups.get(entry.snapshot_id) ?? [];
+  return entries.map(({ arena_entry_heroes, ...entry }) => {
+    const lineup = arena_entry_heroes.map(narrowHero);
     return { ...entry, lineup, composition: composition(lineup) };
   });
 }
