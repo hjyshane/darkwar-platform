@@ -202,6 +202,28 @@ prune을 못 한다 — **호출당 1회 변수 캡처**가 정답. own 연맹 �
 9건(트리거 충전·탈퇴 prune·viewer no-op·빈 가드·anon 차단), 62 무변경 통과,
 스위트 688/688.
 
+### 나머지 세 화면 (0107 + arena embed, PR #189) — 화면마다 병이 달랐다
+
+- **Cross-server**: 보드 필터(`source_command`·`metric`)에 **인덱스가 없어서**
+  전환마다 43k/84k 풀스캔+정렬+행별 RLS. 복합 인덱스 2개(필터, captured_at
+  desc, rank — 쿼리 모양 그대로) → 보드당 ~300 인덱스 엔트리. 65의 계획 핀은
+  **600행 픽스처에선 red가 안 됐다** — seq scan이 정당하게 이겨서. 6,000행
+  4커맨드로 키워야 플래너에게 진짜 선택지가 생긴다(59 규칙의 재확인).
+- **Alliance Ranking**: `alliance_latest`가 방문마다 DISTINCT ON으로
+  22,241행 전체를 읽고 role-check — 생존 ~160행을 위해. 0106 기계 그대로
+  `alliance_latest_current`로 이관(게이트·advisory lock·빈-답 방지·시계 1회
+  캡처). **최신 배치에 없는 연맹은 자기 최신 스냅샷을 유지**(원래 DISTINCT ON
+  의미론 — 65가 핀). 뷰 이름·컬럼 유지, Server 페이지 공짜로 동승. 프로덕션
+  실측: refresh 193ms, 읽기 163행 98ms(네트워크 바닥).
+- **Arena**: 프론트만 — lineups 2차 왕복을 PostgREST **embed**로 entries
+  응답에 중첩(기존 entry FK·인덱스 사용). `narrowHero`를 플레이어 페이지
+  경로와 공유해 jsonb 좁히기 드리프트 방지. supabase-js select 문자열은
+  **연결(+) 금지, 한 줄 리터럴** — 타입 파서가 깨진다(0102에 이어 두 번째).
+
+로컬 함정 하나: 65가 회당 12k행을 넣고 롤백해서 dev DB의 player_snapshots가
+블로트되면 **59가 로컬에서만 빨간불**이 된다(플래너가 seq를 고름). CI는
+fresh DB라 무관. 증상 보이면 `vacuum full analyze player_snapshots`.
+
 ### 남은 것
 
 플레이어 페이지(hero/pet)는 0104 적용 후 사용자가 프로덕션에서 정상 확인함
