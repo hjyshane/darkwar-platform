@@ -17,6 +17,28 @@ export function asList<T>(value: unknown, idKey: string): T[] {
   );
 }
 
+/** One raw hero row into the narrowed lineup shape.
+ *
+ * Shared between the two ways hero rows arrive: fetched by entry ids below
+ * (the player page), and embedded inside the entries query itself (the arena
+ * board, since 0107's round-trip diet). The jsonb narrowing must be the same
+ * in both, or the shapes drift.
+ */
+export function narrowHero(row: {
+  skills: unknown;
+  equipment: unknown;
+  [key: string]: unknown;
+}): LineupHero {
+  return {
+    ...row,
+    // skills and equipment are jsonb, so they arrive as `Json` and have to be
+    // narrowed at the boundary rather than asserted through. A shape the
+    // parser did not write reads as absent, not as a crash.
+    skills: asList<LineupSkill>(row.skills, 'skill_id'),
+    equipment: asList<LineupEquipment>(row.equipment, 'equipment_id'),
+  } as LineupHero;
+}
+
 /** The decoded defence lineups for a set of arena entries.
  *
  * Chunked at 100: PostgREST puts an `in.(...)` filter in the URL, and a
@@ -42,14 +64,7 @@ export async function fetchLineups(
       throw new Error(`arena lineup query failed: ${error.message}`);
     }
     for (const row of heroes) {
-      const hero: LineupHero = {
-        ...row,
-        // skills and equipment are jsonb, so they arrive as `Json` and have
-        // to be narrowed at the boundary rather than asserted through. A
-        // shape the parser did not write reads as absent, not as a crash.
-        skills: asList<LineupSkill>(row.skills, 'skill_id'),
-        equipment: asList<LineupEquipment>(row.equipment, 'equipment_id'),
-      };
+      const hero = narrowHero(row);
       const group = lineups.get(row.arena_entry_id);
       if (group === undefined) {
         lineups.set(row.arena_entry_id, [hero]);
