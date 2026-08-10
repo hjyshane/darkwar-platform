@@ -424,7 +424,7 @@ routine이 재접속을 포함해야 하는데, `am force-stop`·`am start`는 �
 「재접속 뒤 영구히 멈춘다」). dumpcap이 파일을 쓰고 `ingest-dir`가 읽는다 —
 파일마다 재조립기가 새로 생기므로 그 고장이 **한 파일로 갇힌다.**
 
-세 프로세스를 작업 스케줄러에 **로그온 시 실행**으로 건다. 서비스가 아닌
+네 프로세스를 작업 스케줄러에 **로그온 시 실행**으로 건다. 서비스가 아닌
 이유는 BlueStacks와 Npcap 캡처 둘 다 데스크톱 세션이 필요해서다.
 
 | 작업 | 명령 |
@@ -432,6 +432,13 @@ routine이 재접속을 포함해야 하는데, `am force-stop`·`am start`는 �
 | `DarkWar-Capture` | `dumpcap -i <NPF> -f "tcp port 8680" -w C:\DW_data\live\cap.pcapng -b duration:60 -b files:1440 -B 64` |
 | `DarkWar-Ingest` | `uv run --no-sync dw-collector ingest-dir --dir C:\DW_data\live --min-age-seconds 20 --interval-seconds 30` |
 | `DarkWar-Sync` | `uv run --no-sync dw-sync` (`DW_SYNC_BATCH_SIZE=1000`) |
+| `DarkWar-Notify` | `uv run --no-sync dw-notify` (`DW_NOTIFY_INTERVAL_SECONDS=300` 기본) |
+
+**`DarkWar-Notify`는 2026-08-09까지 아예 등록돼 있지 않았다.** 그래서 공지든
+가이드든 발행해도 디스코드에 아무것도 안 갔다. 이 프로세스 하나가 "무엇을
+알릴지 계산"과 "실제로 POST" 두 몫을 다 하기 때문에, 없으면 아웃박스가
+채워지지도 비워지지도 않는다. 설정 화면의 **Send test** 버튼도 아웃박스에
+행만 넣으므로 같이 안 갔고, 그래서 증상이 웹훅·라우팅 문제처럼 보였다.
 
 1분짜리 파일 1440개 = 24시간치. 등록 스크립트는 이제 저장소에 있다 —
 [`scripts/windows/register-tasks.ps1`](../../scripts/windows/register-tasks.ps1).

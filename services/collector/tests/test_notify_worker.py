@@ -103,3 +103,35 @@ def test_nothing_is_fetched_when_the_event_is_switched_off() -> None:
     seen: list[httpx.QueryParams] = []
     assert _worker([_notice()], seen).notice_candidates({}) == []
     assert seen == []
+
+
+GUIDES_ON: dict[str, Row] = {"guides": {"enabled": True, "channel": "general"}}
+
+
+def test_a_guide_draft_is_never_even_asked_for() -> None:
+    seen: list[httpx.QueryParams] = []
+    _worker([], seen).guide_candidates(GUIDES_ON)
+    assert "not.is.null" in seen[0].get_list("published_at")
+
+
+def test_the_whole_guide_board_is_not_announced_on_the_first_pass() -> None:
+    """`GUIDE_BACKLOG`, which the notice side carried from the start and this
+    did not.
+
+    `dw-notify` was never registered as a scheduled task, so the outbox sat empty
+    while the board filled up. `enqueue` dedupes against that outbox, so with no
+    window the first pass would treat the twenty most recently published guides
+    as new and post all twenty at once — on whatever day somebody finally
+    scheduled the task.
+
+    Asserted on the QUERY rather than on the returned messages: the window is a
+    server-side filter, so a fake that answers with whatever rows it was handed
+    cannot show it working. The cutoff is checked loosely on purpose — this is
+    pinning "about a week", not the clock.
+    """
+    seen: list[httpx.QueryParams] = []
+    _worker([], seen).guide_candidates(GUIDES_ON)
+    window = [value for value in seen[0].get_list("published_at") if value.startswith("gte.")]
+    assert len(window) == 1
+    cutoff = datetime.fromisoformat(window[0].removeprefix("gte."))
+    assert timedelta(days=6) < datetime.now(UTC) - cutoff < timedelta(days=8)

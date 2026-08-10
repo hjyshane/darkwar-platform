@@ -63,6 +63,21 @@ MAX_ATTEMPTS = 5
 # long enough that switching it on announces what is actually current, short enough
 # that it cannot dump a season of history into the channel.
 NOTICE_BACKLOG = timedelta(days=7)
+# The same bound for guides, and it is not a copy-paste.
+#
+# A guide outlives a notice — that is why they are separate tables — but this
+# window is not about how long a guide stays useful. It is about what counts as
+# NEWS the first time the event is switched on, and by that measure they are the
+# same thing.
+#
+# Without it the first pass posts the twenty most recently published guides at
+# once: `enqueue` dedupes against the outbox, and an outbox that has never seen
+# them treats every one as new. That was not hypothetical — `dw-notify` was never
+# registered as a scheduled task, so the outbox stayed empty while the board
+# filled up, and the flood would have fired on whichever day the task was finally
+# added. The notice side had this guard from the start; the guide side did not,
+# because whoever wrote it assumed the worker had been running all along.
+GUIDE_BACKLOG = timedelta(days=7)
 
 
 @dataclass(frozen=True)
@@ -285,13 +300,24 @@ class NotifyWorker:
         so unlike 0077's four views, this needed no migration. The difference is
         worth remembering: a role check in a view's WHERE clause stops the
         collector, a policy on a table does not.
+
+        AND RECENT, for the reason `notice_candidates` already carried and this
+        did not: the outbox has no memory of the time before the event was
+        switched on, so an unbounded query announces the whole board on the first
+        pass. See `GUIDE_BACKLOG`.
         """
         channel = self._target(routing, "guides")
         if channel is None:
             return []
+        cutoff = filter_value((datetime.now(UTC) - GUIDE_BACKLOG).isoformat())
         rows = self._get(
             "guides?select=guide_id,title,body,category,published_at"
+            # A draft is not a guide yet. Its own filter rather than left to the
+            # window below — `gte` excludes nulls as a side effect, and the rule
+            # that drafts stay private should not rest on a side effect of a
+            # constant somebody may want to tune.
             "&published_at=not.is.null"
+            f"&published_at=gte.{cutoff}"
             "&order=published_at.desc&limit=20"
         )
         return [
