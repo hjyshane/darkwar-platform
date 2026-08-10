@@ -227,6 +227,26 @@ $tasks = @(
         Log  = "$LogDir\sync.log"
         Env  = @{ DW_SYNC_BATCH_SIZE = $SyncBatchSize }
         Match = @('dw-sync', 'run-Sync.cmd')
+    },
+    @{
+        # Missing until now, and that is the whole reason nothing a board
+        # published ever reached Discord. BOTH halves live in this process -
+        # working out what to announce AND posting it - so with no task the
+        # outbox was neither filled nor drained. The settings screen's "Send
+        # test" button only enqueues a row, which is what made the gap look
+        # like a webhook or routing problem rather than a missing process.
+        Name = 'DarkWar-Notify'
+        Exe  = $uv
+        # Its own task rather than folded into dw-sync: an outward-facing POST
+        # to a third party must not be able to stall the path data takes to the
+        # cloud behind it. It sleeps five minutes between passes, so this is a
+        # long-running task like sync, not a periodic one.
+        Args = "$uvRun dw-notify"
+        # The repo root .env is found by walking up from here, the same way
+        # every other entrypoint finds it.
+        Dir  = $Collector
+        Log  = "$LogDir\notify.log"
+        Match = @('dw-notify', 'run-Notify.cmd')
     }
 )
 

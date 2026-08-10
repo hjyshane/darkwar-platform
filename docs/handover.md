@@ -301,6 +301,45 @@ export해 한 벌로 합쳤다. 덤으로 글 페이지의 "draft" 배지와 "Wr
 가이드 쪽은 `isAllowed(..., 'guide.write')`로 이미 옳게 돼 있다 — 고치려면
 그 두 줄을 같은 모양으로 바꾸면 된다.
 
+### 디스코드 알림이 한 번도 안 나갔다 — `dw-notify`가 등록된 적이 없다
+
+사용자가 "공지·가이드 써도 디스코드 봇이 안 올린다"고 해서 팠다. **내 변경과
+무관하고, 처음부터 그랬다.**
+
+근거:
+
+- `scripts/windows/register-tasks.ps1`의 `$tasks`에 Capture·Ingest·Sync 셋뿐.
+- 실제 머신 `Get-ScheduledTask -TaskName 'DarkWar-*'`도 정확히 그 셋(전부
+  Running). `dw-notify` 프로세스도 안 떠 있다.
+- 런북 세 개(`collector-operations`·`collector-setup`·`continuous-collection`)
+  어디에도 `dw-notify`가 안 나온다.
+- `services/collector/src` 안에서 notify 패키지를 import하는 파일은 그 패키지
+  자신뿐 — `dw-sync`도 `dw-jobs`도 안 부른다.
+
+`pyproject.toml`에 엔트리포인트는 있고 워커도 완성돼 있었다. **작업 등록만
+빠져 있었다.** 두 게시판이 동시에 안 되는 이유가 이거다.
+
+증상이 설정 문제처럼 보인 이유: 설정 화면의 **Send test** 버튼도 실제 POST가
+아니라 `notification_outbox`에 행을 넣기만 한다("The collector posts it within
+five minutes"). 워커가 없으면 테스트도 똑같이 조용하다.
+
+**등록 전에 막아둔 것 — 가이드 첫 실행 폭탄.** enqueue와 delivery가 같은
+`run_once` 안에 있어서 쌓인 큐는 없지만, `guide_candidates`는 발행된 가이드
+**최신 20개를 기간 제한 없이** 가져왔다(공지엔 `NOTICE_BACKLOG` 7일이 처음부터
+있었다). 아웃박스가 비어 있으니 enqueue의 중복 제거도 안 걸린다 → 작업 거는
+날 20개가 한꺼번에 채널로 나갈 뻔했다. `GUIDE_BACKLOG = 7일`을 쿼리 필터로
+추가했다. 창은 "가이드가 얼마나 오래 유용한가"가 아니라 "이벤트를 켤 때
+무엇이 뉴스인가"의 문제라서 공지와 같은 값이다.
+
+**그래도 0은 아니다.** 최근 7일 안에 발행한 가이드·공지는 첫 패스에서 나간다.
+이번 주에 게시판 작업을 했으니 몇 개는 있을 것이다.
+
+**설정은 문제가 아니었다.** 사용자가 라우팅·채널 다 제대로 돼 있다고 확인해
+줬다(08-09). 즉 빠진 조각은 스케줄 작업 하나뿐이었고, 등록하면 그날부터
+나가기 시작한다. (`notification_outbox` 실제 내용은 여전히 안 봤다 — 읽기 전용
+프로브가 권한 분류기에 막혔고, 루트 `.env`를 읽고 service key로 REST를
+호출하기 때문이다. 이제 진단에 필요하지 않다.)
+
 ### 남은 것
 
 플레이어 페이지(hero/pet)는 0104 적용 후 사용자가 프로덕션에서 정상 확인함
