@@ -3,6 +3,7 @@ import { useEffect, useSyncExternalStore } from 'react';
 import { RefreshButton } from './components/RefreshButton';
 import { SignOutButton } from './components/SignOutButton';
 import { SyncStatus } from './components/SyncStatus';
+import { ThemeToggle } from './components/ThemeToggle';
 import { AdminPage } from './features/admin/AdminPage';
 import { AlliancePage } from './features/alliance/AlliancePage';
 import { ArenaPanel } from './features/arena/ArenaPanel';
@@ -391,6 +392,10 @@ function Shell({
               sits here for anybody with a session — including a signed-in
               non-member looking at the wall, who otherwise has no way out of it
               at all. */}
+          {/* For everybody, signed in or not. Reading the board is the thing
+              the theme affects, and the signed-out wall is a screen somebody
+              may be staring at for a while too. */}
+          <ThemeToggle />
           {session?.email != null && <SignOutButton email={session.email} />}
         </h1>
         {!standalone && isMember && <Nav allianceId={allianceId} route={route} />}

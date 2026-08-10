@@ -62,8 +62,24 @@
   line-height: 1.5;
 }
 
+/* THE THEME RULE, and every dark block below follows it.
+ *
+ * The machine still decides by default. `data-theme` only appears on <html>
+ * when somebody presses the header toggle, so with no attribute the media
+ * queries behave exactly as they did before the toggle existed.
+ *
+ *   @media (prefers-color-scheme: dark) {
+ *     :root:not([data-theme="light"]) { ... }   <- machine says dark, and
+ *   }                                              the reader has not said light
+ *   :root[data-theme="dark"] { ... }           <- reader said dark
+ *
+ * The two halves are the same declarations written twice, which is the part to
+ * watch: CSS has no way to say "this block, under either condition" when one
+ * condition is a media query. CHANGE ONE AND YOU MUST CHANGE THE OTHER. There
+ * is no light twin, deliberately — the plain `:root` above already is light,
+ * and `:not([data-theme="light"])` is what steps out of its way. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #0b1220;
     --bg-raised: #131c2e;
     --bg-hover: #1b2537;
@@ -88,6 +104,39 @@
   }
 }
 
+:root[data-theme="dark"] {
+  --bg: #0b1220;
+  --bg-raised: #131c2e;
+  --bg-hover: #1b2537;
+  --fg: #e6edf7;
+  --fg-muted: #94a3b8;
+  --border: #24304a;
+  --border-strong: #34405c;
+  --accent: #7aa2f7;
+
+  --ok-bg: #14532d;
+  --ok-fg: #dcfce7;
+  --warn-bg: #78350f;
+  --warn-fg: #fef3c7;
+  --danger-bg: #7f1d1d;
+  --danger-fg: #fee2e2;
+  --info-bg: #1e3a8a;
+  --info-fg: #dbeafe;
+  --neutral-bg: #1e293b;
+  --neutral-fg: #cbd5e1;
+}
+
+/* `color-scheme` follows the choice too, so the scrollbars, form controls and
+ * caret the browser draws itself agree with the page. Without this a reader who
+ * forces light on a dark machine gets dark scrollbars on a white board. */
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
 /* --- base ---------------------------------------------------------------- */
 
 body {
@@ -108,6 +157,21 @@ h1 {
 .app-header {
   border-bottom: 1px solid var(--border);
   margin-bottom: var(--space-6);
+}
+
+/* Quieter than the links beside it. The theme is set once and then left alone,
+ * so it should not compete with Refresh or Sign out for attention — but it is
+ * still a real control, so it keeps a focus ring and a pointer. */
+.theme-toggle {
+  color: var(--fg-muted);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3em;
+  font-size: var(--text-sm);
+}
+
+.theme-toggle:hover {
+  color: var(--fg);
 }
 
 /* A button that has to look like a link: switching to the sign-up form is
@@ -802,7 +866,7 @@ button:focus-visible {
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --grade-1-bg: #7dd3fc;
     --grade-1-fg: #04161c;
     --grade-2-bg: #c084fc;
@@ -812,15 +876,8 @@ button:focus-visible {
   }
 }
 
-:root[data-theme="light"] {
-  --grade-1-bg: #0369a1;
-  --grade-1-fg: #ffffff;
-  --grade-2-bg: #7e22ce;
-  --grade-2-fg: #ffffff;
-  --grade-3-bg: #a16207;
-  --grade-3-fg: #ffffff;
-}
-
+/* The light twin that used to sit here is gone: it existed to out-specify an
+ * unguarded media block, and the guard above does that job now. */
 :root[data-theme="dark"] {
   --grade-1-bg: #7dd3fc;
   --grade-1-fg: #04161c;
@@ -928,13 +985,21 @@ button:focus-visible {
 }
 
 @media (prefers-color-scheme: dark) {
-  .rank-star {
+  :root:not([data-theme="light"]) .rank-star {
     color: #fbbf24;
   }
 
-  .rank-pentagon {
+  :root:not([data-theme="light"]) .rank-pentagon {
     color: #f87171;
   }
+}
+
+:root[data-theme="dark"] .rank-star {
+  color: #fbbf24;
+}
+
+:root[data-theme="dark"] .rank-pentagon {
+  color: #f87171;
 }
 
 /* Gear is four pieces, one per line: at level 100 the number stops meaning
@@ -1004,19 +1069,33 @@ button:focus-visible {
 }
 
 @media (prefers-color-scheme: dark) {
-  .sync-live .sync-dot {
+  :root:not([data-theme="light"]) .sync-live .sync-dot {
     background: #4ade80;
   }
 
-  .sync-stopped,
-  .sync-stopped .sync-dot {
+  :root:not([data-theme="light"]) .sync-stopped,
+  :root:not([data-theme="light"]) .sync-stopped .sync-dot {
     color: #f87171;
     background: revert-layer;
   }
 
-  .sync-stopped .sync-dot {
+  :root:not([data-theme="light"]) .sync-stopped .sync-dot {
     background: #f87171;
   }
+}
+
+:root[data-theme="dark"] .sync-live .sync-dot {
+  background: #4ade80;
+}
+
+:root[data-theme="dark"] .sync-stopped,
+:root[data-theme="dark"] .sync-stopped .sync-dot {
+  color: #f87171;
+  background: revert-layer;
+}
+
+:root[data-theme="dark"] .sync-stopped .sync-dot {
+  background: #f87171;
 }
 
 /* The rank in front of a member's name. Small, so it reads as a label on
@@ -1061,13 +1140,21 @@ select.rank-badge {
 }
 
 @media (prefers-color-scheme: dark) {
-  .growth-up {
+  :root:not([data-theme="light"]) .growth-up {
     color: #4ade80;
   }
 
-  .growth-down {
+  :root:not([data-theme="light"]) .growth-down {
     color: #f87171;
   }
+}
+
+:root[data-theme="dark"] .growth-up {
+  color: #4ade80;
+}
+
+:root[data-theme="dark"] .growth-down {
+  color: #f87171;
 }
 
 /* The list of names a formula may use. Wraps freely — eleven ids is more
@@ -1199,9 +1286,13 @@ select.rank-badge {
 }
 
 @media (prefers-color-scheme: dark) {
-  .chip-weapon-awakened::after {
+  :root:not([data-theme="light"]) .chip-weapon-awakened::after {
     background: #f87171;
   }
+}
+
+:root[data-theme="dark"] .chip-weapon-awakened::after {
+  background: #f87171;
 }
 
 /* The lineup expands in place. `details` rather than a modal: the row stays
@@ -1573,7 +1664,7 @@ form select {
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --chart-1: #60a5fa;
     --chart-2: #f87171;
     --chart-3: #34d399;
@@ -1582,6 +1673,16 @@ form select {
     --chart-6: #22d3ee;
     --chart-grid: #334155;
   }
+}
+
+:root[data-theme="dark"] {
+  --chart-1: #60a5fa;
+  --chart-2: #f87171;
+  --chart-3: #34d399;
+  --chart-4: #fbbf24;
+  --chart-5: #c084fc;
+  --chart-6: #22d3ee;
+  --chart-grid: #334155;
 }
 
 .chart {
@@ -1942,7 +2043,7 @@ form select {
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --ink-red: #fca5a5;
     --ink-orange: #fcd34d;
     --ink-green: #86efac;
@@ -1952,6 +2053,17 @@ form select {
     --ink-mark-bg: #78350f;
     --ink-mark-fg: #fef3c7;
   }
+}
+
+:root[data-theme="dark"] {
+  --ink-red: #fca5a5;
+  --ink-orange: #fcd34d;
+  --ink-green: #86efac;
+  --ink-blue: #93c5fd;
+  --ink-purple: #d8b4fe;
+  --ink-grey: #9ca3af;
+  --ink-mark-bg: #78350f;
+  --ink-mark-fg: #fef3c7;
 }
 
 .ink-red {

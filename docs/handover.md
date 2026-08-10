@@ -363,6 +363,28 @@ five minutes"). 워커가 없으면 테스트도 똑같이 조용하다.
 실패한 첫 시도는 아무것도 안 망가뜨렸다 — 인자 검증(44행)에서 죽고, 정지·해제
 루프는 200행쯤 뒤라 세 작업 다 그대로 Running이었다.
 
+### 테마 토글 (헤더)
+
+헤더에 **Auto / Light / Dark** 버튼. 3단계인 이유: 원래 전부
+`prefers-color-scheme`를 따랐는데 2단 토글이면 한 번 누르는 순간 그 선택이
+영구 고정되고 **기계 설정을 따르던 동작이 사라진다.** `system`이 기본이고 세 번
+누르면 제자리.
+
+CSS 규칙(중요): 다크 블록 8개를 전부
+`@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) ... }`로
+막고 밖에 `:root[data-theme="dark"]` 쌍둥이를 뒀다. **선언이 두 벌이라 한쪽만
+고치면 어긋난다** — CSS로는 "미디어 쿼리 또는 속성"을 한 셀렉터에 못 쓴다.
+라이트 쌍둥이는 없다(기본 `:root`가 이미 라이트, `:not`이 비켜준다). grade
+블록에 있던 `[data-theme="light"]` 사본은 이제 불필요해서 지웠다.
+
+**진입점이 둘이라 한 번 물렸다.** `src/main.tsx`에만 부팅 시 적용을 넣었더니
+룩어라운드 빌드(`src/dev/main.tsx`)에서 버튼은 "Light"인데 화면은 어두웠다.
+두 파일 다 `applyTheme(readTheme())`가 필요하다.
+
+브라우저에서 OS×선택 6조합 전부 확인: 다크 OS + 강제 라이트에서 body·grade·
+chart·ink·`color-scheme`까지 전부 라이트로 넘어간다. 리로드 후에도 유지.
+`theme.test.ts` 9건 추가(487 통과).
+
 ### 남은 것
 
 플레이어 페이지(hero/pet)는 0104 적용 후 사용자가 프로덕션에서 정상 확인함
