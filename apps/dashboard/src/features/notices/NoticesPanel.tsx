@@ -28,6 +28,12 @@ export interface NoticeDraft {
   ends_at: string;
   pinned: boolean;
   visibility: 'public' | 'member';
+  /** Whether this save is the published version. Set by the button that was
+   * pressed rather than held in the form, because publishing is an act. */
+  publish: boolean;
+  /** Carried so re-saving a posted notice keeps its original date rather than
+   * moving it to today, jumping it up the board and re-announcing it. */
+  published_at: string | null;
 }
 
 const EMPTY: NoticeDraft = {
@@ -37,6 +43,8 @@ const EMPTY: NoticeDraft = {
   ends_at: '',
   pinned: false,
   visibility: 'member',
+  publish: false,
+  published_at: null,
 };
 
 export function visibilityLabel(value: string | null): string | null {
@@ -66,7 +74,9 @@ export function NoticeEditor({
 }: {
   draft: NoticeDraft;
   onChange: (next: NoticeDraft) => void;
-  onSave: () => void;
+  /** Save, and say whether this is the posted version. The caller owns the
+   * draft, so the flag comes back rather than being written into it here. */
+  onSave: (publish: boolean) => void;
   onCancel: () => void;
   saving: boolean;
 }) {
@@ -144,14 +154,64 @@ export function NoticeEditor({
           Leave the dates empty for a standing notice. Times are UTC, the same clock the game week
           resets on.
         </p>
+        {/* Posting is a separate ACT from saving, for the reason #196 split the
+            guide editor's one button in two: posting is what reaches Discord,
+            and a notice typed in two sittings must not announce itself twice or
+            announce half of itself. A notice had no draft state at all until
+            0108 — saving WAS posting — so this is the first version of this
+            screen where closing the tab mid-sentence is safe. */}
         <div className="row">
-          <button disabled={saving || draft.title.trim() === ''} onClick={onSave} type="button">
-            {saving ? 'Saving…' : draft.announcement_id === undefined ? 'Post notice' : 'Save'}
-          </button>
+          {draft.published_at === null ? (
+            <>
+              <button
+                disabled={saving || draft.title.trim() === ''}
+                onClick={() => onSave(false)}
+                type="button"
+              >
+                {saving ? 'Saving…' : 'Save draft'}
+              </button>
+              <button
+                className="primary"
+                disabled={saving || draft.title.trim() === ''}
+                onClick={() => onSave(true)}
+                title="On the board, and posted to Discord"
+                type="button"
+              >
+                Post notice
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                className="primary"
+                disabled={saving || draft.title.trim() === ''}
+                onClick={() => onSave(true)}
+                type="button"
+              >
+                {saving ? 'Saving…' : 'Save changes'}
+              </button>
+              {/* Back to a draft. Not a delete — the notice keeps its address
+                  and its text, and comes off the board. Discord keeps whatever
+                  it was already told; nothing here can unsay that. */}
+              {/* "Unpublish" rather than "Unpost", which would match the button
+                  opposite. The guide editor says Unpublish and the two boards
+                  are meant to work the same way; matching the sibling screen is
+                  worth more than matching the verb beside it. */}
+              <button disabled={saving} onClick={() => onSave(false)} type="button">
+                Unpublish
+              </button>
+            </>
+          )}
           <button onClick={onCancel} type="button">
             Cancel
           </button>
         </div>
+        {draft.published_at === null && (
+          <p className="subtle">
+            A draft is visible only to people who may post a notice. Posting puts it on the board
+            and in Discord.
+          </p>
+        )}
       </div>
     </section>
   );
@@ -169,6 +229,10 @@ export function useSaveNotice(onDone: () => void) {
         ends_at: toIso(value.ends_at),
         pinned: value.pinned,
         visibility: value.visibility,
+        // Kept, not restamped, when a posted notice is edited: a new timestamp
+        // would jump it back up the board and give the notifier a new outbox
+        // key, which is a second post to everybody over a corrected typo.
+        published_at: value.publish ? (value.published_at ?? new Date().toISOString()) : null,
       };
       // created_by is stamped by a trigger and never sent from here (0034).
       const { error } =
@@ -221,7 +285,7 @@ export function NoticesPanel() {
           draft={draft}
           onCancel={() => setDraft(null)}
           onChange={setDraft}
-          onSave={() => save.mutate(draft)}
+          onSave={(publish) => save.mutate({ ...draft, publish })}
           saving={save.isPending}
         />
       )}

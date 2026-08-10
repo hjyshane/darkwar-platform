@@ -584,6 +584,7 @@ export type Database = {
           created_by: string | null
           ends_at: string | null
           pinned: boolean
+          published_at: string | null
           starts_at: string | null
           title: string
           updated_at: string
@@ -596,6 +597,7 @@ export type Database = {
           created_by?: string | null
           ends_at?: string | null
           pinned?: boolean
+          published_at?: string | null
           starts_at?: string | null
           title: string
           updated_at?: string
@@ -608,6 +610,7 @@ export type Database = {
           created_by?: string | null
           ends_at?: string | null
           pinned?: boolean
+          published_at?: string | null
           starts_at?: string | null
           title?: string
           updated_at?: string

@@ -15,7 +15,8 @@ export interface BoardPost {
   title: string;
   body: string;
   pinned: boolean;
-  /** When the alliance could first see it. Null for a guide still in draft. */
+  /** When the alliance could first see it. Null for a post still in draft —
+   * either board, since 0108 gave notices the column guides already had. */
   liveAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -34,25 +35,50 @@ export interface BoardConfig {
 export const GUIDES: BoardConfig = { table: 'guides', readColumn: 'guide_id' };
 export const NOTICES: BoardConfig = { table: 'announcements', readColumn: 'announcement_id' };
 
-const GUIDE_COLUMNS =
+/** The columns a post is built from, exported because the post page builds the
+ * same `BoardPost` from the same `toPost` and had its own copy of both lists
+ * until 0108 — at which point the list here gained `published_at` and the one
+ * over there did not, and every notice on its own page read as a draft. One
+ * list per board, in the file that owns the mapping. */
+export const GUIDE_COLUMNS =
   'guide_id, title, body, category, pinned, published_at, created_at, updated_at, created_by';
-const NOTICE_COLUMNS =
-  'announcement_id, title, body, visibility, pinned, starts_at, ends_at, created_at, updated_at, created_by';
+export const NOTICE_COLUMNS =
+  'announcement_id, title, body, visibility, pinned, starts_at, ends_at, published_at, created_at, updated_at, created_by';
 
-/** One row, whichever table it came from. */
-function toPost(config: BoardConfig, row: Record<string, unknown>): BoardPost {
+/** A notice's live moment, or null while it is a draft.
+ *
+ * Two columns rather than one, and the order matters. `published_at` decides
+ * WHETHER it is live — that is 0108's null-is-a-draft rule, the same one guides
+ * have — and `starts_at` decides WHEN, because the date a notice is about is the
+ * date worth showing next to it. A standing notice has no start and falls back to
+ * its publication, which for everything written before 0108 is the timestamp it
+ * used to show anyway.
+ */
+function noticeLiveAt(row: Record<string, unknown>): string | null {
+  const published = (row.published_at as string | null) ?? null;
+  if (published === null) {
+    return null;
+  }
+  return (row.starts_at as string | null) ?? published;
+}
+
+/** One row, whichever table it came from.
+ *
+ * Exported for the post page, which had its own copy of this — and 0108 is how
+ * that was found: the list learned that a notice can be a draft and the copy did
+ * not, so a draft opened at its own address would have read as posted. One
+ * mapping, two callers. */
+export function toPost(config: BoardConfig, row: Record<string, unknown>): BoardPost {
   const isGuide = config.table === 'guides';
   return {
     id: String(isGuide ? row.guide_id : row.announcement_id),
     title: String(row.title ?? ''),
     body: String(row.body ?? ''),
     pinned: row.pinned === true,
-    // A notice has no publish step: it is live from `starts_at`, or from the
-    // moment it was written when that is null. Mapping both to one field is what
-    // lets the list template stay single.
-    liveAt: isGuide
-      ? ((row.published_at as string | null) ?? null)
-      : ((row.starts_at as string | null) ?? (row.created_at as string | null) ?? null),
+    // Both boards publish now, and both say so with the same column. Mapping
+    // them to one field is what lets the list template — and its draft badge —
+    // stay single.
+    liveAt: isGuide ? ((row.published_at as string | null) ?? null) : noticeLiveAt(row),
     createdAt: String(row.created_at ?? ''),
     updatedAt: String(row.updated_at ?? ''),
     createdBy: (row.created_by as string | null) ?? null,

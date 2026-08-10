@@ -47,6 +47,12 @@ async function fetchAnnouncements(): Promise<Announcement[]> {
     .from('announcements')
     .select('announcement_id, title, body, starts_at, ends_at, pinned, visibility, created_at')
     .eq('pinned', true)
+    // Posted, not merely written (0108). RLS already hides a draft from every
+    // reader who cannot write one, so this filter exists for the one reader it
+    // does not hide it from: the admin who wrote it. The landing screen is where
+    // they check the front page looks right, and a pinned half-sentence sitting
+    // on it is exactly what they would be checking for.
+    .not('published_at', 'is', null)
     .or(`ends_at.is.null,ends_at.gt.${nowIso}`)
     .order('starts_at', { ascending: false, nullsFirst: false });
   if (error) {

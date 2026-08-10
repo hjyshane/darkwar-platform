@@ -248,17 +248,58 @@ Cross-Server·Arena 모두 빨라짐. **Trends 탭과 멤버 상세 페이지는
 아니라 사건이고, 체크 해제가 유일한 초안 저장 방법이었던 게 아무도 못 찾는
 기능이었다.
 
-### 다음 세션 후보: 공지(announcements) 초안
+### 공지 초안 (0108) — 위에 적어둔 후보를 실제로 했다
 
-가이드는 `published_at is null` = 초안이지만 **공지엔 초안 개념이 없다** —
-`starts_at`(시작 시각)만 있고, 비워두면 즉시 라이브다. 필요한 것:
+> **아직 프로덕션에 없다.** 로컬 게이트만 전부 통과한 상태다(pnpm
+> check/typecheck/test/build, ruff·mypy·pytest 405, `supabase test db` 699).
+> `supabase db push`는 안 돌렸고, 이 워크트리는 링크가 안 돼 있어서
+> `--workdir C:\darkwar-platform`이 필요하다.
 
-- 마이그레이션: `announcements`에 초안 상태 추가. `starts_at`을 재활용하지
-  말 것 — "미래에 시작"과 "아직 안 쓴 글"은 다른 뜻이고, 미래 시각 공지는
-  이미 정상 기능이다. 가이드와 같은 모양이 맞다면 `published_at timestamptz`
-  추가가 가장 단순하고, 초안은 작성 권한자에게만 보이도록 RLS도 같이.
-- 디스코드 발행 트리거가 초안을 건드리지 않는지 확인(가이드 쪽 규칙 참고).
-- 프론트는 #196의 두-버튼 패턴을 그대로 복사하면 된다.
+`announcements.published_at timestamptz` 추가. `starts_at`은 예정대로 손대지
+않았다. 이제 두 게시판이 같은 컬럼·같은 "null이면 초안" 규칙을 쓴다.
+
+**백필을 `created_at`이 아니라 `coalesce(starts_at, created_at)`으로 했고,
+이건 취향이 아니라 필수다.** 디스코드 아웃박스 키가 `notice:{id}:{live_at}`
+이고 `live_at`이 예전엔 `starts_at ?? created_at`이었다. `created_at`으로
+백필하면 시작 시각이 있는 기존 공지의 키가 바뀌고 — 최근 7일 안에 라이브인
+것들이 **전원에게 두 번째로 발송된다.** 지금 백필은 옛 `live_at`과 문자 그대로
+같은 값이라 키가 하나도 안 움직인다.
+
+RLS: `member_read`에 `published_at is not null` 추가, 초안 전용
+`writer_read_drafts`는 `announcement.write` 기준(0078 가이드와 같은 선 —
+오타 고칠 사람이 아니라 쓰는 사람의 방이다). pgTAP 21이 12 → 15개,
+그중 핵심은 **`announcement.read`를 가진 멤버가 초안을 못 읽는다**는 음성
+검증이다. 전체 699개 통과.
+
+수집기 쪽(`notice_candidates`): 서비스 키는 RLS를 우회하므로 **쿼리가 유일한
+게이트다** — `&published_at=not.is.null`이 없으면 정책이 아무리 맞아도 초안이
+채널로 나간다. `live_at`은 이제 `starts_at`과 `published_at` 중 **나중 것**이다.
+2주 묵힌 초안을 오늘 발행하면 오늘이 뉴스지 2주 전이 아니다(7일 백로그 창에
+걸려 조용히 사라지던 자리). `services/collector/tests/test_notify_worker.py`
+신규 5건 — 이 워커의 후보 선정 경로는 그동안 테스트가 아예 없었다.
+
+프론트는 #196 패턴 그대로: 발행 전 **[Save draft] [Post notice]**, 발행 후
+**[Save changes] [Unpublish]**. 목록의 "draft" 배지는 `BoardList`가 이미
+`liveAt === null`로 그리고 있어서 공짜였다. 오버뷰 블록엔
+`.not('published_at','is',null)`을 따로 걸었다 — RLS가 못 가려주는 유일한
+독자가 **초안을 쓴 관리자 본인**이고, 랜딩 화면이 멀쩡한지 보는 사람이 바로
+그 사람이다.
+
+**작업 중에 걸린 함정 — CLAUDE.md의 "컬럼 바꾸면 저장소 전체를 grep하라"가
+프론트에서도 그대로였다.** `BoardPost.tsx`가 `board.ts`의 컬럼 목록과 행→
+`BoardPost` 매핑을 **복사본으로** 들고 있었다. 목록 쪽만 `published_at`을 배우고
+글 페이지 쪽은 못 배워서, 초안을 자기 주소로 열면 발행된 글로 보일 뻔했다.
+복사본을 지우고 `GUIDE_COLUMNS`·`NOTICE_COLUMNS`·`toPost`를 `board.ts`에서
+export해 한 벌로 합쳤다. 덤으로 글 페이지의 "draft" 배지와 "Written …" 표기가
+공지에도 그냥 붙었다 — 이미 `liveAt === null`로 그리고 있었다.
+
+**남겨둔 것 하나(내가 만든 건 아니지만 이제 더 눈에 띈다):**
+`NoticesPanel`/`NoticePostPage`의 쓰기 게이트는 `session?.role === 'admin'`
+인데 RLS는 `announcement.write` 능력 기준이다. 기본 권한 그리드에선 둘이
+일치해서 지금은 증상이 없다. 권한 그리드에서 officer에게 `announcement.write`
+를 주면 그 officer는 초안이 **목록에 보이는데 편집 버튼이 없는** 상태가 된다.
+가이드 쪽은 `isAllowed(..., 'guide.write')`로 이미 옳게 돼 있다 — 고치려면
+그 두 줄을 같은 모양으로 바꾸면 된다.
 
 ### 남은 것
 

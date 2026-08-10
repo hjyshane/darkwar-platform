@@ -310,6 +310,13 @@ class NotifyWorker:
     def notice_candidates(self, routing: dict[str, Row]) -> list[Message]:
         """Notices that are live and not yet announced.
 
+        PUBLISHED, first of all. 0108 gave notices the drafts guides have had since
+        0078, and a draft is somebody thinking aloud — the whole point of the feature
+        is that saving it does not tell 94 people. The filter is in the QUERY rather
+        than in a policy because the collector holds the service key and the service
+        key bypasses RLS; on this path the `not.is.null` below is the only gate there
+        is.
+
         LIVE, not merely written. A notice whose `starts_at` is next Saturday is
         deliberately not current yet, and announcing it today would have the channel
         disagreeing with the dashboard about when something happens. Expired ones are
@@ -331,20 +338,34 @@ class NotifyWorker:
         current = filter_value(now.isoformat())
         cutoff = (now - NOTICE_BACKLOG).isoformat()
         rows = self._get(
-            "announcements?select=announcement_id,title,body,starts_at,ends_at,created_at"
+            "announcements?select=announcement_id,title,body,starts_at,ends_at,published_at"
+            # A draft is not news.
+            "&published_at=not.is.null"
             # Live: started, or with no start at all; and not yet finished.
             f"&or=(starts_at.is.null,starts_at.lte.{current})"
             f"&or=(ends_at.is.null,ends_at.gte.{current})"
-            "&order=created_at.desc&limit=20"
+            # By publication rather than by writing: the twenty most recently
+            # announced are the twenty this is deciding about, and since 0108
+            # those are not the same twenty as the most recently created.
+            "&order=published_at.desc&limit=20"
         )
         out: list[Message] = []
         for row in rows:
-            # The backlog window is applied HERE rather than in the query, because
-            # PostgREST cannot filter on "starts_at, or created_at when that is
-            # null" — and doing it once in Python beats two filters that can
-            # disagree. ISO strings compare correctly: PostgREST returns every
-            # timestamptz in the same UTC shape.
-            live_at = row.get("starts_at") or row.get("created_at")
+            # When it became news: published AND started, so whichever of the two
+            # happened last. A notice drafted a fortnight ago and published this
+            # morning is news this morning — before 0108 it read as a fortnight
+            # old and the backlog window below would have dropped it. One
+            # published in advance for Saturday is news on Saturday.
+            #
+            # Applied HERE rather than in the query because PostgREST cannot
+            # express "the later of two columns, either of which may be null" —
+            # and doing it once in Python beats two filters that can disagree.
+            # ISO strings compare correctly: PostgREST returns every timestamptz
+            # in the same UTC shape.
+            live_at = max(
+                (value for value in (row.get("starts_at"), row.get("published_at")) if value),
+                default=None,
+            )
             if live_at is None or live_at < cutoff:
                 continue
             out.append(
