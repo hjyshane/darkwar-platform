@@ -692,6 +692,15 @@ button {
   padding: var(--space-2) var(--space-3);
 }
 
+/* The one button in a row that does the thing the row is FOR — publishing a
+ * guide, beside saving it as a draft. Weight and a solid edge rather than a
+ * colour fill: the palette has no brand colour, and inventing one for a single
+ * button would make it the loudest thing on a page of tables. */
+button.primary {
+  border-color: var(--fg);
+  font-weight: 600;
+}
+
 button:hover:not(:disabled) {
   background: var(--bg-hover);
 }
