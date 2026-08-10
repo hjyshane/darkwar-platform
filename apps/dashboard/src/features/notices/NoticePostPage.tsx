@@ -29,7 +29,9 @@ export function NoticePostPage({ noticeId }: { noticeId: string }) {
     queryFn: async (): Promise<NoticeDraft | null> => {
       const { data, error } = await supabase
         .from('announcements')
-        .select('announcement_id, title, body, starts_at, ends_at, pinned, visibility')
+        .select(
+          'announcement_id, title, body, starts_at, ends_at, pinned, visibility, published_at',
+        )
         .eq('announcement_id', noticeId)
         .maybeSingle();
       if (error) {
@@ -46,6 +48,8 @@ export function NoticePostPage({ noticeId }: { noticeId: string }) {
         ends_at: toLocal(data.ends_at),
         pinned: data.pinned,
         visibility: data.visibility === 'public' ? 'public' : 'member',
+        publish: data.published_at !== null,
+        published_at: data.published_at,
       };
     },
   });
@@ -86,7 +90,7 @@ export function NoticePostPage({ noticeId }: { noticeId: string }) {
           draft={draft}
           onCancel={() => setDraft(null)}
           onChange={setDraft}
-          onSave={() => save.mutate(draft)}
+          onSave={(publish) => save.mutate({ ...draft, publish })}
           saving={save.isPending}
         />
       ) : (

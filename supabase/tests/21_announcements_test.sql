@@ -6,7 +6,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(12);
+select plan(15);
 
 insert into auth.users (id, instance_id, aud, role, email)
 values
@@ -25,10 +25,18 @@ create function pg_temp.act_as(who uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', who)::text, true);
 $$;
 
-insert into public.announcements (announcement_id, title, body, visibility)
+-- `published_at` is spelled out on every row since 0108. It has no default, so
+-- a fixture that omits it is a draft — which is the right default for the
+-- column and a trap for a test that means to check ordinary reading.
+insert into public.announcements (announcement_id, title, body, visibility, published_at)
 values
-  ('00000000-0000-4000-8000-0000000a3001', 'Downtime', 'The site is down tonight.', 'public'),
-  ('00000000-0000-4000-8000-0000000a3002', 'Duel plan', 'Hit the hive at 02:00.', 'member');
+  ('00000000-0000-4000-8000-0000000a3001', 'Downtime', 'The site is down tonight.',
+   'public', now()),
+  ('00000000-0000-4000-8000-0000000a3002', 'Duel plan', 'Hit the hive at 02:00.',
+   'member', now()),
+  -- Written and not announced. The row the draft assertions below are about.
+  ('00000000-0000-4000-8000-0000000a3004', 'Half typed', 'TODO finish this',
+   'member', null);
 
 -- Reading. Counted over THIS test's two rows, never over the whole table:
 -- the database it runs against has whatever anyone put there, and an
@@ -39,6 +47,11 @@ create function pg_temp.mine() returns setof public.announcements language sql a
   select * from public.announcements
   where announcement_id in ('00000000-0000-4000-8000-0000000a3001',
                             '00000000-0000-4000-8000-0000000a3002');
+$$;
+
+create function pg_temp.draft() returns setof public.announcements language sql as $$
+  select * from public.announcements
+  where announcement_id = '00000000-0000-4000-8000-0000000a3004';
 $$;
 
 -- Until 0065 a 'public' notice was readable logged out and this asserted
@@ -60,6 +73,12 @@ select is((select count(*) from pg_temp.mine()), 0::bigint,
 select pg_temp.act_as('00000000-0000-4000-8000-0000000ac002');
 select is((select count(*) from pg_temp.mine()), 2::bigint,
   'a member sees both');
+-- 0108. The negative that matters: announcement.read is the capability a
+-- member holds, and it is deliberately not enough for an unfinished notice.
+-- Without this, adding the column would have looked like it worked while
+-- every draft sat on the board being read.
+select is((select count(*) from pg_temp.draft()), 0::bigint,
+  'a member holding announcement.read still cannot read a draft');
 
 -- Writing.
 select throws_ok(
@@ -86,6 +105,10 @@ reset role;
 
 set local role authenticated;
 select pg_temp.act_as('00000000-0000-4000-8000-0000000ac001');
+-- The matching positive, which is 0033's lesson: a draft nobody can read
+-- passes the negative above without the feature working at all.
+select is((select count(*) from pg_temp.draft()), 1::bigint,
+  'somebody who may post a notice reads the drafts');
 select lives_ok(
   $$ insert into public.announcements (announcement_id, title, visibility)
      values ('00000000-0000-4000-8000-0000000a3003', 'Written by admin', 'member') $$,
@@ -121,6 +144,12 @@ select is((select count(*) from public.data_change_notifications
 
 select has_column('public', 'announcements', 'visibility',
   'the author says who may see it, rather than the table deciding');
+
+-- Named rather than inferred from the policies above, so that dropping the
+-- column fails here with a sentence instead of somewhere downstream with a
+-- PostgREST 400.
+select has_column('public', 'announcements', 'published_at',
+  'a notice can be written before it is announced');
 
 select * from finish();
 rollback;

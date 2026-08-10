@@ -368,10 +368,11 @@ def notice_message(
     handling, same "read it on the dashboard" tail. A notice and a guide differ in
     what they are FOR, not in how they travel.
 
-    KEYED ON `live_at` — the notice's own start time, or when it was written if it
-    has none. Fixing a typo leaves that alone, so it does not re-announce; moving
-    the start window is a different announcement and should say so, which is the
-    same distinction `published_at` draws for guides.
+    KEYED ON `live_at` — the later of the notice's start and its publication
+    (0108). Fixing a typo leaves both alone, so it does not re-announce; moving the
+    start window is a different announcement and should say so, and so is
+    unpublishing and publishing again. That is the same distinction `published_at`
+    draws for guides, now drawn from the same column.
 
     NOT keyed on `updated_at`, which would make every correction a fresh post to 94
     people.

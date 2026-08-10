@@ -2,7 +2,15 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { RichText, RichTitle } from '../../components/RichText';
 import { supabase } from '../../lib/supabase';
-import { type BoardConfig, type BoardPost as Post, useMarkRead, useNeighbours } from './board';
+import {
+  type BoardConfig,
+  GUIDE_COLUMNS,
+  NOTICE_COLUMNS,
+  type BoardPost as Post,
+  toPost,
+  useMarkRead,
+  useNeighbours,
+} from './board';
 
 /** One post, on its own page.
  *
@@ -18,11 +26,6 @@ const when = new Intl.DateTimeFormat('en-GB', {
   timeStyle: 'short',
   timeZone: 'UTC',
 });
-
-const GUIDE_COLUMNS =
-  'guide_id, title, body, category, pinned, published_at, created_at, updated_at, created_by';
-const NOTICE_COLUMNS =
-  'announcement_id, title, body, visibility, pinned, starts_at, ends_at, created_at, updated_at, created_by';
 
 export function BoardPostPage({
   config,
@@ -72,19 +75,10 @@ export function BoardPostPage({
       const authors = await supabase.from('post_authors').select('user_id, display_name');
       const createdBy = (record.created_by as string | null) ?? null;
       return {
-        post: {
-          id: postId,
-          title: String(record.title ?? ''),
-          body: String(record.body ?? ''),
-          pinned: record.pinned === true,
-          liveAt: isGuide
-            ? ((record.published_at as string | null) ?? null)
-            : ((record.starts_at as string | null) ?? (record.created_at as string | null) ?? null),
-          createdAt: String(record.created_at ?? ''),
-          updatedAt: String(record.updated_at ?? ''),
-          createdBy,
-          tag: String((isGuide ? record.category : record.visibility) ?? '') || null,
-        } satisfies Post,
+        // The list's own mapping, not a second copy of it. The copy that used to
+        // live here is how a notice draft would have read as posted on its own
+        // page after 0108 — the two drifted the moment one board gained a column.
+        post: toPost(config, record) satisfies Post,
         author:
           createdBy === null
             ? null
