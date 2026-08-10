@@ -16,6 +16,10 @@
 #   .\scripts\windows\register-tasks.ps1 -Interface '\Device\NPF_{...}'
 #
 # Find the interface with:  & 'C:\Program Files\Wireshark\dumpcap.exe' -D
+#
+# On a machine that has been registered before, -Interface is optional: the
+# device name is read back out of the run-Capture.cmd this script wrote, so a
+# re-registration keeps capture on the adapter it is already bound to.
 
 [CmdletBinding()]
 param(
@@ -40,6 +44,28 @@ $identity = [Security.Principal.WindowsPrincipal][Security.Principal.WindowsIden
 if (-not $identity.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     Write-Output 'FAIL: run this from an elevated PowerShell (registering tasks needs it).'
     exit 1
+}
+# Reuse the interface already in use before asking for one.
+#
+# This script WRITES run-Capture.cmd, so the device name in it is the one
+# capture is bound to right now - which is exactly the one a re-registration
+# wants. Requiring the operator to supply it again is how a routine
+# re-registration turns into a choice, and choosing wrong out of `dumpcap -D`
+# rebinds capture to an adapter that never sees the game: dumpcap keeps running,
+# the task reads Running, the log stays quiet, and nothing arrives for hours.
+#
+# An explicit -Interface still wins. This is the fallback, not the default.
+if (-not $Interface) {
+    $previous = Join-Path $ScriptDir 'run-Capture.cmd'
+    if (Test-Path $previous) {
+        $found = Select-String -Path $previous -Pattern '(\\Device\\NPF_\{[0-9A-Fa-f-]+\})' |
+            Select-Object -First 1
+        if ($found) {
+            $Interface = $found.Matches[0].Groups[1].Value
+            Write-Output ('interface: reusing ' + $Interface)
+            Write-Output ('           from ' + $previous + ' - pass -Interface to change it')
+        }
+    }
 }
 if (-not $Interface) {
     Write-Output 'FAIL: no capture interface. Pass -Interface or set DW_CAPTURE_NPF_DEVICE.'
@@ -450,4 +476,7 @@ if ($failed.Count -gt 0) {
     Write-Output ("failed: " + ($failed -join ', '))
     exit 1
 }
-Write-Output 'All three registered and running.'
+# Counted, not spelled out. This said "All three" for one task longer than it
+# was true - dw-notify made it four, and a summary line that disagrees with the
+# check above it is worse than no summary line.
+Write-Output ('All ' + $tasks.Count + ' registered and running.')

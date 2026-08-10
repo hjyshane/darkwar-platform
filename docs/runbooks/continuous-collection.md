@@ -444,6 +444,11 @@ routine이 재접속을 포함해야 하는데, `am force-stop`·`am start`는 �
 [`scripts/windows/register-tasks.ps1`](../../scripts/windows/register-tasks.ps1).
 **관리자 PowerShell**이 필요하다(작업 등록은 권한이 있어야 한다).
 
+한 번이라도 등록된 머신에서는 `-Interface`가 선택이다 — 스크립트가 자기가 쓴
+`run-Capture.cmd`에서 NPF 장치명을 다시 읽어, 지금 캡처가 물려 있는 어댑터를
+그대로 유지한다. `dumpcap -D`에서 새로 고르다 틀리면 캡처가 **조용히** 아무것도
+안 받는다(작업은 `Running`, 로그도 조용). 바꿀 때만 명시적으로 넘긴다.
+
 ```powershell
 .\scripts\windows\register-tasks.ps1 -Interface '\Device\NPF_{...}'
 ```
