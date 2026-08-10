@@ -88,7 +88,7 @@ export function GuidePostPage({ guideId }: { guideId: string }) {
           draft={draft}
           onCancel={() => setDraft(null)}
           onChange={setDraft}
-          onSave={() => save.mutate(draft)}
+          onSave={(publish) => save.mutate({ ...draft, publish })}
           saving={save.isPending}
         />
       ) : (

@@ -66,7 +66,9 @@ export function GuideEditor({
 }: {
   draft: Draft;
   onChange: (next: Draft) => void;
-  onSave: () => void;
+  /** Save, and say whether this is the published version. The caller owns the
+   * draft, so the flag comes back rather than being written into it here. */
+  onSave: (publish: boolean) => void;
   onCancel: () => void;
   saving: boolean;
 }) {
@@ -114,26 +116,64 @@ export function GuideEditor({
             />
             Pin to the top of every page
           </label>
-          {/* Publishing is a separate act from saving, because publishing is what
-              posts to Discord. A guide written over two evenings must not announce
-              itself twice, or announce half of itself. */}
-          <label>
-            <input
-              checked={draft.publish}
-              onChange={(event) => onChange({ ...draft, publish: event.target.checked })}
-              type="checkbox"
-            />
-            Published — visible to the alliance, and posted to Discord
-          </label>
         </div>
+        {/* Publishing is a separate ACT from saving, because publishing is what
+            posts to Discord: a guide written over two evenings must not announce
+            itself twice, or announce half of itself.
+
+            It was a checkbox next to "Pin", above one button called Save. Two
+            things were wrong with that. The checkbox is a state and publishing
+            is an event — you do not tick "announce this to 94 people", you press
+            it. And leaving it unticked was the only way to save work in
+            progress, which is a draft feature nobody could find. Now the button
+            says which of the two you are doing. */}
         <div className="row">
-          <button disabled={saving || draft.title.trim() === ''} onClick={onSave} type="button">
-            {saving ? 'Saving…' : 'Save'}
-          </button>
+          {draft.published_at === null ? (
+            <>
+              <button
+                disabled={saving || draft.title.trim() === ''}
+                onClick={() => onSave(false)}
+                type="button"
+              >
+                {saving ? 'Saving…' : 'Save draft'}
+              </button>
+              <button
+                className="primary"
+                disabled={saving || draft.title.trim() === ''}
+                onClick={() => onSave(true)}
+                title="Visible to the alliance, and posted to Discord"
+                type="button"
+              >
+                Publish
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                className="primary"
+                disabled={saving || draft.title.trim() === ''}
+                onClick={() => onSave(true)}
+                type="button"
+              >
+                {saving ? 'Saving…' : 'Save changes'}
+              </button>
+              {/* Back to a draft. Not a delete — the guide keeps its address and
+                  its text, and stops being on the board. Discord keeps whatever
+                  it was already told; nothing here can unsay that. */}
+              <button disabled={saving} onClick={() => onSave(false)} type="button">
+                Unpublish
+              </button>
+            </>
+          )}
           <button onClick={onCancel} type="button">
             Cancel
           </button>
         </div>
+        {draft.published_at === null && (
+          <p className="subtle">
+            A draft is visible only to people who may write guides. Publishing posts it to Discord.
+          </p>
+        )}
       </div>
     </section>
   );
@@ -200,7 +240,7 @@ export function GuidesPanel() {
           draft={draft}
           onCancel={() => setDraft(null)}
           onChange={setDraft}
-          onSave={() => save.mutate(draft)}
+          onSave={(publish) => save.mutate({ ...draft, publish })}
           saving={save.isPending}
         />
       )}
