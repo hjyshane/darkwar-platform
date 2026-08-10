@@ -250,10 +250,16 @@ Cross-Server·Arena 모두 빨라짐. **Trends 탭과 멤버 상세 페이지는
 
 ### 공지 초안 (0108) — 위에 적어둔 후보를 실제로 했다
 
-> **아직 프로덕션에 없다.** 로컬 게이트만 전부 통과한 상태다(pnpm
-> check/typecheck/test/build, ruff·mypy·pytest 405, `supabase test db` 699).
-> `supabase db push`는 안 돌렸고, 이 워크트리는 링크가 안 돼 있어서
-> `--workdir C:\darkwar-platform`이 필요하다.
+> **프로덕션 적용 완료, 사용자 확인까지 끝났다 (08-09 밤).** 0108 푸시됐고
+> 사용자가 실제로 초안 저장을 돌려봤다 — 잘 된다. 로컬 게이트도 전부 통과했다
+> (pnpm check/typecheck/test/build, ruff·mypy·pytest 405, `supabase test db`
+> 699).
+>
+> 푸시할 때 한 번 헛돌았다: `supabase db push --workdir C:\darkwar-platform`이
+> **"up to date"라고 하고 아무것도 안 했다.** `--workdir`가 메인 체크아웃을
+> 가리키는데 그쪽은 `main`이라 0108이 없었기 때문이다. 링크는 메인에만 있으니
+> 플래그는 맞고, **머지 → `git -C C:\darkwar-platform pull` → push** 순서가
+> 빠지면 에러도 없이 조용히 넘어간다.
 
 `announcements.published_at timestamptz` 추가. `starts_at`은 예정대로 손대지
 않았다. 이제 두 게시판이 같은 컬럼·같은 "null이면 초안" 규칙을 쓴다.
