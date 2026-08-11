@@ -19,6 +19,7 @@ import { Component, type ReactNode, StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App, queryClient } from '../App';
 import '../index.css';
+import { applyTheme, readTheme } from '../lib/theme';
 import { FIXTURES, SESSION, SESSION_KEY } from './fixtures';
 
 /** Dev-only. A fixture of the wrong shape throws inside a component and
@@ -104,6 +105,13 @@ queryClient.getQueryCache().subscribe(() => {
 // twenty seconds those two try the network and fail. The badge keeps its
 // data and only logs; the collector table adds a red line. Left alone rather
 // than papered over — pretending the network succeeded is how a mock starts.
+// The same line `src/main.tsx` runs, and it has to be here too: this file is a
+// SECOND entry point, so anything the real one does before render is missing
+// here unless it is written twice. Without it the header's toggle read "Light"
+// off storage while the page stayed dark — which on a build whose only job is
+// showing what the screens look like is the worst possible place for it.
+applyTheme(readTheme());
+
 const root = document.getElementById('root');
 if (root === null) {
   throw new Error('#root element missing from index.dev.html');

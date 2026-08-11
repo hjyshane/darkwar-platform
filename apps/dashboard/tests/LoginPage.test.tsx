@@ -65,6 +65,33 @@ test('failure is one neutral message', async () => {
   expect(screen.queryByText(/Invalid login/)).toBeNull();
 });
 
+test('signing in does not throw a new account off the page', async () => {
+  // THE REGRESSION. Sign-in used to set `window.location.hash = takeReturnTo()`
+  // the instant the password was accepted, before the role was known. For an
+  // account with no invitation code redeemed that is the members-only wall —
+  // reached one step after signing in, and one step before the form that would
+  // have let them in. Sign up, code, character is meant to be one flow.
+  //
+  // Pins the "stays put" half: no navigation, and the signed-in view is on
+  // screen so the code form has somewhere to appear. The member half — leaving
+  // for the board once the role says there is one — needs a session row and is
+  // not mocked here.
+  // Seeded so the assertion can tell the two behaviours apart. With nothing
+  // remembered, `takeReturnTo()` returns '' and the old code left the hash at
+  // '' too — the test would have passed against the bug it is here to catch.
+  window.sessionStorage.setItem('dw:returnTo', '#/guides');
+  window.location.hash = '';
+  auth.signInWithPassword.mockResolvedValue({ error: null });
+  render(withQueryClient(<LoginPage />));
+
+  fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'new@b.c' } });
+  fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'pw' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
+
+  expect(await screen.findByText(/new@b\.c/)).toBeDefined();
+  expect(window.location.hash).toBe('');
+});
+
 test('an existing session shows who you are and offers sign-out', async () => {
   auth.getSession.mockResolvedValue({
     data: { session: { user: { email: 'admin@test.local' } } },
