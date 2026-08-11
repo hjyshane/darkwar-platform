@@ -18,7 +18,7 @@ import { supabase } from '../../lib/supabase';
  * difference is a project setting, and reading it back from the response is
  * more honest than assuming either.
  */
-export function SignUpForm({ onSignedIn }: { onSignedIn: () => void }) {
+export function SignUpForm({ onSignedIn }: { onSignedIn: (email: string) => void }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -45,7 +45,10 @@ export function SignUpForm({ onSignedIn }: { onSignedIn: () => void }) {
       setMessage('Check your email for a confirmation link, then sign in.');
       return;
     }
-    onSignedIn();
+    // The address goes back with it. The caller shows the signed-in view
+    // straight away rather than waiting for a session round trip, and it needs
+    // something to put in "Signed in as".
+    onSignedIn(data.user?.email ?? email.trim());
   }
 
   return (

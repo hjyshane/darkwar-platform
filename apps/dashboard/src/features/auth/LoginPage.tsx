@@ -29,11 +29,37 @@ export function LoginPage() {
   const { data: session } = useSession();
   const queryClient = useQueryClient();
 
+  // Set by this page's own sign-in and sign-up, so the effect below can tell
+  // "just got in" from "was already signed in and came here on purpose".
+  const [arriving, setArriving] = useState(false);
+
   useEffect(() => {
     void supabase.auth.getSession().then(({ data }) => {
       setSessionEmail(data.session?.user.email ?? null);
     });
   }, []);
+
+  // Leave for the board only once the role says there is a board to see.
+  //
+  // Signing in used to jump to `takeReturnTo()` the instant the password was
+  // accepted. For a brand-new account that meant the members-only wall — while
+  // the invitation-code form it actually needed sat on the page it had just
+  // been thrown off. Sign up, code, character is meant to be one flow and it
+  // was broken in the middle.
+  //
+  // THE DECISION IS MADE ONCE, which is why `arriving` is cleared either way.
+  // Redeeming a code turns a viewer into a member, and if this still fired on
+  // that change it would navigate away from the character picker the moment
+  // the picker appeared — the exact step this is here to protect.
+  useEffect(() => {
+    if (!arriving || session === undefined) {
+      return;
+    }
+    setArriving(false);
+    if (session.role !== 'viewer') {
+      window.location.hash = takeReturnTo();
+    }
+  }, [arriving, session]);
 
   async function signIn(event: React.FormEvent) {
     event.preventDefault();
@@ -47,10 +73,13 @@ export function LoginPage() {
       setError('Sign-in failed.');
       return;
     }
-    // Back to the page they were sent to, if there was one. Empty string is
-    // the overview, which is the right fallback for somebody who came to the
-    // sign-in page directly.
-    window.location.hash = takeReturnTo();
+    // Not straight to `takeReturnTo()`. Where to go depends on what this
+    // account turns out to be, and the role has not arrived yet — the effect
+    // above decides once it has. A member goes back to the page they were sent
+    // to; a viewer stays here, where the invitation code is.
+    setSessionEmail(email.trim());
+    setArriving(true);
+    void queryClient.invalidateQueries();
   }
 
   async function signOut() {
@@ -110,9 +139,16 @@ export function LoginPage() {
       <main>
         <section aria-labelledby="login-heading">
           <h2 id="login-heading">Create an account</h2>
+          {/* Same treatment as signing in. A confirmation-free project hands
+              back a session here, and sending that straight to the board would
+              land a brand-new viewer on the wall — one step after creating the
+              account, and one step before the code that would have let them in. */}
           <SignUpForm
-            onSignedIn={() => {
-              window.location.hash = takeReturnTo();
+            onSignedIn={(signedInEmail) => {
+              setCreating(false);
+              setSessionEmail(signedInEmail);
+              setArriving(true);
+              void queryClient.invalidateQueries();
             }}
           />
           <button onClick={() => setCreating(false)} type="button">

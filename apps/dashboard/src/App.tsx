@@ -307,15 +307,9 @@ export function App() {
   useSidewaysMouse();
   const hash = useSyncExternalStore(subscribeHash, () => window.location.hash);
   const route = routeFromHash(hash);
-  // Where to come back to after signing in.
-  //
-  // Recorded here, on every hash change, rather than from each of the eleven
-  // "Sign in" links — the one that got missed would be the one somebody uses.
-  // Following a link to #/guides while signed out used to end on the overview,
-  // with no way back to the page the link was for.
-  useEffect(() => {
-    rememberReturnTo(hash);
-  }, [hash]);
+  // Where to come back to after signing in is recorded in `Shell`, not here:
+  // it depends on whether the reader was actually stopped by the wall, and the
+  // session query that answers that only exists inside the provider below.
   const serverId = serverIdFromHash(hash);
   const playerId = playerIdFromHash(hash);
   const allianceId = allianceIdFromHash(hash);
@@ -332,6 +326,7 @@ export function App() {
         adminGroup={adminGroup}
         allianceId={allianceId}
         guideId={guideId}
+        hash={hash}
         noticeId={noticeId}
         playerId={playerId}
         route={route}
@@ -351,6 +346,7 @@ function Shell({
   noticeId,
   adminGroup,
   standalone,
+  hash,
 }: {
   route: Route;
   serverId: number | null;
@@ -360,6 +356,8 @@ function Shell({
   noticeId: string | null;
   adminGroup: AdminGroup | null;
   standalone: boolean;
+  /** The raw hash, only so the wall can remember what was asked for. */
+  hash: string;
 }) {
   // Inside the provider, because it is a query. Undefined means "not
   // answered yet" and must not be read as "not a member" — flashing the
@@ -367,6 +365,14 @@ function Shell({
   const { data: session, isPending } = useSession();
   const isMember = session !== undefined && MEMBER_ROLES.has(session.role);
   const walled = !standalone && !isPending && !isMember;
+
+  // Only what the wall actually refused. `walled` is in the dependencies as
+  // well as `hash` because a session can expire without the reader touching
+  // anything — at that moment the page they are sitting on becomes the page
+  // they need bringing back to, and no hash change is coming to notice it.
+  useEffect(() => {
+    rememberReturnTo(hash, walled);
+  }, [hash, walled]);
 
   return (
     <>

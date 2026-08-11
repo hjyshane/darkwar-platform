@@ -25,9 +25,20 @@ function worthReturningTo(hash: string): boolean {
  * Called on every route change rather than from each of the eleven "Sign in"
  * links. Wiring it into the links would mean the one that got missed is the one
  * somebody uses.
+ *
+ * `blocked` IS THE WHOLE POINT, and leaving it out was a bug people felt: this
+ * used to record every route change, including the ones a signed-in member made
+ * quite happily. So the last screen you visited before closing the tab became
+ * the screen you were dumped on at your next sign-in — for anybody who had been
+ * in Settings, that meant signing in and landing on Settings instead of the
+ * board.
+ *
+ * Only a reader who could NOT see the page they asked for needs bringing back
+ * to it. It is a parameter rather than a check at the call site so that the next
+ * caller cannot forget it.
  */
-export function rememberReturnTo(hash: string): void {
-  if (!worthReturningTo(hash)) {
+export function rememberReturnTo(hash: string, blocked: boolean): void {
+  if (!blocked || !worthReturningTo(hash)) {
     return;
   }
   try {
