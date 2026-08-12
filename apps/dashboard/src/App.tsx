@@ -398,11 +398,12 @@ function Shell({
               sits here for anybody with a session — including a signed-in
               non-member looking at the wall, who otherwise has no way out of it
               at all. */}
-          {/* For everybody, signed in or not. Reading the board is the thing
-              the theme affects, and the signed-out wall is a screen somebody
-              may be staring at for a while too. */}
-          <ThemeToggle />
           {session?.email != null && <SignOutButton email={session.email} />}
+          {/* Last, pushed to the right edge (margin-left: auto). For everybody,
+              signed in or not: reading the board is the thing the theme
+              affects, and the signed-out wall is a screen somebody may be
+              staring at for a while too. */}
+          <ThemeToggle />
         </h1>
         {!standalone && isMember && <Nav allianceId={allianceId} route={route} />}
       </header>
