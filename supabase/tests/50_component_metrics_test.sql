@@ -10,7 +10,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(11);
+select plan(13);
 
 -- ------------------------------------------------------------------ the registry
 select is(
@@ -20,8 +20,16 @@ select is(
 
 select is(
   (select count(*) from public.component_metrics where visibility = 'member'),
+  8::bigint,
+  'and the four board metrics plus 0109''s four account components are not');
+
+-- 0109: the other four components of the profile's six-way power decomposition.
+-- Four rows, not six — heroPower/petPower write the existing board metrics.
+select is(
+  (select count(*) from public.component_metrics
+    where family = 'account' and role = 'total' and visibility = 'member'),
   4::bigint,
-  'and the four board metrics are not');
+  'the four account components are member-visible totals');
 
 -- The FK is what replaced 0018's CHECK. Same guarantee, but now the valid set is
 -- data — which is the whole point: a new metric is an insert, not a migration that
@@ -54,6 +62,7 @@ $$;
 
 select pg_temp.reading('hero_power_best', 7554600, 49);
 select pg_temp.reading('migrate_power', 27018313, null);
+select pg_temp.reading('building_power', 79726100, null);
 
 -- An unknown metric is still refused — the FK does what the CHECK did.
 select throws_ok(
@@ -87,6 +96,12 @@ select isnt_empty(
       where metric = 'hero_power_best' $$,
   'a member sees the hero board reading');
 
+-- 0109: an account component from a profile open reaches a member the same way.
+select isnt_empty(
+  $$ select metric from public.player_component_power_history
+      where metric = 'building_power' $$,
+  'a member sees the building power reading');
+
 select is_empty(
   $$ select metric from public.player_component_power_history
       where metric = 'migrate_power' $$,
@@ -96,8 +111,8 @@ select is_empty(
 -- not "the client hides it". The row is absent.
 select is(
   (select count(*) from public.player_component_power_history),
-  1::bigint,
-  'their whole result is the one metric they may see');
+  2::bigint,
+  'their whole result is the two metrics they may see');
 
 -- AN ADMIN.
 select pg_temp.act_as('00000000-0000-4000-8000-0000000da086');
