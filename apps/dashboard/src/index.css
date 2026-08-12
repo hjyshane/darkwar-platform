@@ -159,15 +159,36 @@ h1 {
   margin-bottom: var(--space-6);
 }
 
+/* The header title row is a flex line so the theme toggle can sit at the
+ * right edge without absolute positioning. Wrapping stays allowed for narrow
+ * screens; the toggle's margin-left pushes it to the end of its row. */
+.app-header h1 {
+  align-items: center;
+  column-gap: 0.6em;
+  display: flex;
+  flex-wrap: wrap;
+}
+
 /* Quieter than the links beside it. The theme is set once and then left alone,
  * so it should not compete with Refresh or Sign out for attention — but it is
- * still a real control, so it keeps a focus ring and a pointer. */
+ * still a real control, so it keeps a focus ring and a pointer. An icon-only
+ * button: the h1 it sits in is --text-xl, and the old text label inherited that
+ * size through `.linklike { font: inherit }` and read as a second title. */
 .theme-toggle {
+  background: none;
+  border: none;
+  border-radius: 6px;
   color: var(--fg-muted);
+  cursor: pointer;
   display: inline-flex;
-  align-items: baseline;
-  gap: 0.3em;
-  font-size: var(--text-sm);
+  margin-left: auto;
+  padding: 4px;
+}
+
+.theme-toggle svg {
+  display: block;
+  height: 18px;
+  width: 18px;
 }
 
 .theme-toggle:hover {
