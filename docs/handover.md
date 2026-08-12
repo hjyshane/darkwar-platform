@@ -7,6 +7,50 @@
 
 ---
 
+## 2026-08-12 상태 — 전투력 6분할 파서 (0109, get.new.user.info 1.1.0)
+
+08-11 판정(capture-sweep 마지막 행)의 실행이다. `get.new.user.info`의 여섯
+컴포넌트(building/science/army/hero/modCar/pet)가 `power`에 정확히 합산되는
+것이 20/20으로 확정돼 있었고, 컴포넌트가 `player_detail_snapshots.
+power_components` jsonb에만 앉아 있어서 **차트가 읽는
+`player_component_power_snapshots`엔 한 건도 없었다.**
+
+- **파서 1.1.0**: 프로필 1건 → detail 1행 + 컴포넌트 6행. 메트릭마다 별도
+  idempotency 판별자(get.user.info.multi의 교훈 그대로 — 없으면 두 번째 행부터
+  중복으로 조용히 버려진다). 없는 필드는 행을 안 만든다(null power 행 금지).
+  합 불일치는 detail 행에 기록될 뿐 컴포넌트 행을 막지 않는다.
+- **등록 행은 6개가 아니라 4개다(0109).** `heroPower`/`petPower`는 기존
+  `hero_power_total`/`pet_power_total`에 쓴다 — 0018이 보드 45/79와의 등치를
+  고정했고, hero_power_best 선례처럼 같은 사실의 다른 경로는 `source_command`로
+  구분한다. 신규는 building/science/army/mod_car (family=account, role=total,
+  member 가시). ComponentTrend는 레지스트리 주도라 **프론트 변경 0**.
+- fixture는 S14-PR6 세트가 여섯 필드를 이미 담고 있어 신규 없음. 파서 테스트
+  8건(6행 방출·키 비충돌·부분 방출·불일치 비차단), pgTAP 50이 13건으로
+  (member 가시 8개 카운트, member가 building_power를 뷰로 읽는 양성).
+
+**백필은 머지 후 수집기에서**: `renormalize → retry-outbox --already-sent →
+sync`. 저널의 기존 2,176건이 그때 컴포넌트 행으로 다시 나간다.
+
+### 08-03 기간 리빌드 — 데이터는 있고, 버튼만 안 눌렸다
+
+주간 보드는 **잡혔다**: 08-10 리셋 직전 weekly_donation 01:56 UTC,
+alliance_battle_weekly 01:25 UTC (프로덕션 실측). 그런데 08-03 기간의 v4는
+**08-08에 계산**돼서 week2 컬럼이 95명 전원 null이다. `build_rank_period`는
+서비스 키를 거부하므로(42501) **대시보드 로그인 세션에서 08-03 기간을 골라
+리빌드하는 것은 사용자만 할 수 있다.** 이제 기간이 끝났으니 리빌드 결과는
+불변으로 남는다.
+
+### Docker Desktop이 안 뜨면 — dockerInference 고아 소켓
+
+`starting services: initializing Inference manager: ... dockerInference: The
+file cannot be accessed by the system`으로 엔진이 영영 안 올라오는 상태를
+이번에 밟았다. `%LOCALAPPDATA%\Docker\run\dockerInference`가 지워지지 않는
+고아 AF_UNIX 소켓인데, **파일 삭제는 어떤 방법으로도 안 되고**(del,
+`\\?\` 경로, fsutil 전부 Error 1920) **부모 `run` 디렉터리 rename은 된다.**
+Docker 프로세스 전부 종료 → `run`을 `run.stale`로 rename → 재시작.
+
+---
+
 ## 2026-08-08 상태 — 0088 뷰의 3초가 무엇이었는지 알아냈고, 고쳤다
 
 PR **#172**(뷰 수정 + #171 되돌림), **#173**(하트비트 프루너). 둘 다 머지,
