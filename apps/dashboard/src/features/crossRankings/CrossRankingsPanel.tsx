@@ -36,6 +36,12 @@ export function CrossRankingsPanel() {
   const { data, error, isPending } = useQuery({
     queryKey: ['crossRankings', boardId],
     queryFn: board.fetch,
+    // Longer than the app's 60s default: a board changes only when somebody
+    // opens it in the game, and the 60s default meant flipping between two
+    // boards re-queried each flip a minute after first load — which read as
+    // the toggle itself being slow. Realtime invalidation still applies when
+    // a new capture actually lands.
+    staleTime: 10 * 60_000,
   });
   return (
     <section aria-labelledby="cross-rankings-heading">
