@@ -183,7 +183,17 @@ export function RankReportSetting() {
             contribution readings sit one minute before the game clears each
             week. An arbitrary start puts those readings in the wrong place and
             scores everybody at zero. */}
-        <select onChange={(event) => setChosen(event.target.value)} value={closed.toISOString()}>
+        <select
+          onChange={(event) => {
+            setChosen(event.target.value);
+            // A success or error sentence describes the rebuild of the period
+            // it ran on. Left standing while the reader switches periods, it
+            // reads as that period's result — which is how a 07-20 success
+            // masqueraded as an 08-03 one twice on 2026-08-12.
+            setMessage(null);
+          }}
+          value={closed.toISOString()}
+        >
           {options.map((start) => (
             <option key={start.toISOString()} value={start.toISOString()}>
               {iso(start)} to {iso(rankPeriodEnd(start))}
