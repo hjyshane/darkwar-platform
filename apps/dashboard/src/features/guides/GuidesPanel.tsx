@@ -259,7 +259,6 @@ export function GuidesPanel() {
             }
             hrefFor={guideHash}
             onGo={setPage}
-            tagHeading="Kind"
             tagLabel={categoryLabel}
           />
         )}
