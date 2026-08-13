@@ -83,6 +83,46 @@ describe('LineChart legend isolation', () => {
     expect(container.querySelectorAll('.chart-legend-dimmed')).toHaveLength(0);
   });
 
+  it('draws our own average only while a line is isolated', () => {
+    const withOurs: Series[] = [
+      {
+        name: 'ours',
+        slot: 0,
+        emphasis: true,
+        points: [
+          { t: 1_000, v: 100 },
+          { t: 2_000, v: 300 },
+        ],
+      },
+      {
+        name: 'them',
+        slot: 1,
+        points: [
+          { t: 1_000, v: 500 },
+          { t: 2_000, v: 700 },
+        ],
+      },
+    ];
+    const { container, getAllByRole } = render(
+      <LineChart
+        formatTime={(t) => String(t)}
+        formatValue={(v) => String(v)}
+        label="test chart"
+        series={withOurs}
+      />,
+    );
+    // Nothing while every line is drawn: our own line IS the comparison then.
+    expect(container.querySelector('.chart-own-mean')).toBeNull();
+
+    const legend = getAllByRole('button').filter((b) => b.className.includes('chart-legend'));
+    fireEvent.click(at(legend, 1));
+
+    const mean = container.querySelector('.chart-own-mean');
+    expect(mean).not.toBeNull();
+    // (100 + 300) / 2 — our mean, not the isolated line's.
+    expect(mean?.textContent).toContain('200');
+  });
+
   it('clicking a dimmed entry switches the isolation to it directly', () => {
     const { container, getAllByRole } = draw(3);
     const legend = getAllByRole('button').filter((b) => b.className.includes('chart-legend'));

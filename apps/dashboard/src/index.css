@@ -1868,16 +1868,55 @@ form select {
   color: var(--fg);
 }
 
+/* THE LEGEND SITS ABOVE THE PLOT. It is what you read to know which line is
+ * which, and under a 220px chart on a phone that meant scrolling past the
+ * picture to identify it. Ordered rather than moved in the markup: the caption
+ * still follows the figure it captions for a screen reader, and the visual
+ * order is the one a reader needs. */
+.chart {
+  display: flex;
+  flex-direction: column;
+}
+
+.chart figcaption {
+  order: -1;
+}
+
 /* A legend entry is a button now — click to isolate its line — but it keeps
- * looking like the legend text it always was. The pressed state is said by
- * everyone ELSE dimming, which reads as "the chart narrowed" rather than as a
- * lit toggle. */
+ * looking like the legend text it always was. The dotted underline is the only
+ * thing marking it as pressable; the pressed state is said by everyone ELSE
+ * dimming, which reads as "the chart narrowed" rather than as a lit toggle. */
 .chart-legend {
   background: none;
   border: none;
   cursor: pointer;
   font: inherit;
   padding: 0;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.chart-legend:hover {
+  text-decoration: underline solid;
+}
+
+/* The instruction, quieter than the readings it sits beside. */
+.chart-hint {
+  color: var(--fg-muted);
+  font-style: italic;
+}
+
+/* Our own average, drawn only while one line is isolated: dashed and muted, so
+ * it reads as a reference rather than as a seventh series. */
+.chart-own-mean line {
+  stroke: var(--fg-muted);
+  stroke-dasharray: 4 4;
+  stroke-width: 1;
+}
+
+.chart-own-mean text {
+  fill: var(--fg-muted);
+  font-size: 11px;
 }
 
 .chart-legend-dimmed {

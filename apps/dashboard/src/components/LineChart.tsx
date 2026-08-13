@@ -160,6 +160,26 @@ export function LineChart({
     );
   }
 
+  // OUR OWN AVERAGE, drawn only while one line is isolated.
+  //
+  // Isolating a rival answers "what did they do"; the question underneath it is
+  // "compared to us", and the whole-chart view answers that by having our line
+  // in it. Once everything else is hidden there is nothing left to compare
+  // against, so the emphasised series (`emphasis` is how a caller marks ours)
+  // contributes its mean as a reference. A chart with no emphasised series —
+  // the player pages — gets nothing, which is correct rather than a fallback.
+  const ownValues =
+    isolated === null
+      ? []
+      : series
+          .filter((line) => line.emphasis === true && (line.axis ?? 'left') !== 'right')
+          .flatMap((line) => line.points.map((point) => point.v))
+          .filter((value): value is number => value !== null);
+  const ownMean =
+    ownValues.length > 0
+      ? ownValues.reduce((sum, value) => sum + value, 0) / ownValues.length
+      : null;
+
   return (
     <figure className="chart">
       {/* No tabIndex and no key handler: the slider below is the control. The
@@ -270,6 +290,20 @@ export function LineChart({
               y2={box.height - box.padBottom}
             />
           )}
+          {ownMean !== null && (
+            <g className="chart-own-mean">
+              <line
+                x1={box.padLeft}
+                x2={box.width - box.padRight}
+                y1={scaleY(ownMean, range.y, box, leftInverted)}
+                y2={scaleY(ownMean, range.y, box, leftInverted)}
+              />
+              {/* Named, because a dashed line nobody can identify is noise. */}
+              <text dy="-4" x={box.padLeft + 4} y={scaleY(ownMean, range.y, box, leftInverted)}>
+                our average {formatValue(ownMean)}
+              </text>
+            </g>
+          )}
           {visible.map((line) => {
             const { y, invert } = axisOf(line, range.y);
             return (
@@ -338,6 +372,17 @@ export function LineChart({
               ? (note ?? 'Latest reading — hover the chart, or drag the slider.')
               : formatTime(activeTime)}
           </strong>
+          {/* Said once, in words. The legend entries look like the text they
+              always were, so nothing about them announces that they are now
+              controls — and an interaction nobody discovers is one that does
+              not exist. */}
+          {series.length > 1 && (
+            <span className="chart-hint">
+              {isolated === null
+                ? 'Click a name below to show only that line'
+                : 'Showing one line — click its name again for all of them'}
+            </span>
+          )}
           {series.map((line) => {
             const reading = readingAt(line.points, activeTime);
             const format = (line.axis ?? 'left') === 'right' ? rightFormat : formatValue;
