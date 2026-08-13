@@ -75,13 +75,35 @@ alliance_battle_weekly 01:25 UTC (프로덕션 실측). 그런데 08-03 기간�
 08-12T23:58Z, 97명(2명 신규 측정), week1이 08-10 01:56 최종 보드값
 (기부 91·듀얼 92), R1 17 · R2 35 · R3 29 · 미측정 16.
 
-**남은 작업(0110 후보), 8/17 전 필수**: week2가 들어오는 08-17 01:59 직후
-리빌드가 또 필요한데 그때는 데이터가 더 커져 있다. `EXPLAIN`은 함수 호출을
-Result 노드 하나로만 보여주므로 내부 계획은 로컬 재현이 필요하다 —
-**RLS 강제 비-owner 롤 + 프로덕션 규모 시드**(0105가 적어둔 그 준비물)로
-build_rank_period의 CTE를 하나씩 재서 느린 스캔을 찾고, 인덱스/쿼리 모양으로
-8초 아래로 내린다. 임시 우회는 SQL 에디터에서 타임아웃 풀고 돌리는 위
-네 줄이다(admin uid는 app_users에서).
+**0110으로 같은 날 고쳤다.** 병소 둘: (1) `alliance_member_snapshots`
+(프로덕션 **821,576행** — 08-09의 363k에서 더 컸다) **전 이력 스캔 3벌**
+(roster_start·seen·ranks_at_end)이 행마다 RLS qual을 물었고, (2) `reading`의
+LATERAL 프로브가 `game_uid`로 거르는데 인덱스는 `player_id` 선두뿐이라
+프로브 388회가 각각 104k행 seq scan이었다. 수정: 인덱스
+`(game_uid, contribution_type, captured_at desc)` 추가 + 멤버당 figure 전부를
+LATERAL limit 1 / min() 인덱스 하강 프로브로(0103 처방의 3·4번째 발병처).
+presence의 DISTINCT ON은 통째로 삭제 — 0024부터 플레이어당 1행(pkey)이라
+중복이 있을 수 없는 표를 정렬하고 있었다.
+
+**측정 (로컬, 프로덕션 규모 시드 821k/104k/96k, admin 세션 = authenticated
+롤이라 로컬에서도 RLS 실측):** first_seen 6,435ms → **2.7ms**, rank_at_end
+6,508ms → **2.8ms**, reading 프로브 0.14ms, 함수 end-to-end 50ms(RLS-off
+바닥). 규칙은 무변경 — pgTAP 40/43/44가 답을 고정하고 있고 스위트 701/701.
+
+**벤치 중 나온 발견 둘** (별도 작업으로 뺌):
+
+- **member가 build_rank_period를 부르면 틀린 결과가 쓰인다.** 가드가 member를
+  허용하는데 0066 정책은 member에게 자기 로스터 행만 보여준다(definer도
+  호스티드에선 RLS 유지, 0105). member 세션 프로브는 플레이어당 8,210행을
+  **전부 필터로 제거**하고 빈손으로 돌아왔다 — first_seen/rank가 남들에게
+  null = unmeasured/unranked 오판. 실제 화면은 admin 게이트 뒤라 사고는 없는
+  것으로 보이나, 가드를 officer+로 좁혀야 한다(작업 칩 생성해 둠).
+- 리빌드 화면의 성공/에러 문구가 기간을 바꿔도 남아 있던 것 — 이번에 두 번
+  헷갈리게 한 그 잔상 — 은 0110 PR의 프론트 한 줄로 고쳤다(기간 변경 시
+  클리어).
+
+임시 우회(다시 필요할 일은 없어야 한다): SQL 에디터에서 타임아웃 풀고 위
+네 줄(admin uid는 app_users에서).
 
 ### Docker Desktop이 안 뜨면 — dockerInference 고아 소켓
 
