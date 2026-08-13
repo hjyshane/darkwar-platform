@@ -34,6 +34,11 @@ interface RankRow {
   offline_hours: number | null;
   tier: string | null;
   tier_reason: string | null;
+  /** When this answer was worked out. Shown beside the tier counts: the table
+   * redraws identically when a rebuild lands close to the previous one, and
+   * without a timestamp "nothing changed" and "nothing happened" look the
+   * same — which cost two misread rebuilds on 2026-08-12. */
+  computed_at: string;
 }
 
 const TIER_ORDER: Record<string, number> = { R1: 1, R2: 2, R3: 3 };
@@ -51,7 +56,7 @@ async function fetchPeriod(periodStart: Date): Promise<RankRow[]> {
     // the newest.
     .from('rank_period_latest')
     .select(
-      'player_id, name, donation_total, duel_total, power_growth, activity_score, offline_hours, tier, tier_reason',
+      'player_id, name, donation_total, duel_total, power_growth, activity_score, offline_hours, tier, tier_reason, computed_at',
     )
     .eq('period_start', periodStart.toISOString())
     .order('activity_score', { ascending: false, nullsFirst: false });
@@ -253,6 +258,16 @@ export function RankReportSetting() {
               .sort()
               .map(([tier, count]) => `${tier} ${count}`)
               .join(' · ')}
+            {/* The newest row's timestamp IS the rebuild's: every row a pass
+                writes carries the same computed_at. Without this, a rebuild
+                that lands near the previous one redraws the table identically
+                and reads as a click that did nothing. */}
+            {' · worked out '}
+            {new Date(Math.max(...now.map((row) => Date.parse(row.computed_at))))
+              .toISOString()
+              .slice(0, 16)
+              .replace('T', ' ')}
+            Z
           </span>
         )}
       </div>
