@@ -61,6 +61,29 @@ alliance_battle_weekly 01:25 UTC (프로덕션 실측). 그런데 08-03 기간�
 > **statement timeout이었다** — 화면에 "canceling statement due to statement
 > timeout"이 빨간색으로 떴다. 아래 참조.
 
+### 연맹 비교 탭 타임아웃 — 0110과 같은 병, 다른 처방 (0111, PR #210)
+
+**타임아웃이 두 번 났고 범인이 서로 달랐다.** 화면 에러는 둘 다 "history
+query failed"였지만, #209로 history를 좁힌 뒤에도 계속 죽었다. 실측이 갈랐다:
+history 134ms, **`alliance_growth`는 service key(=RLS 0)로도 2,948ms.**
+
+**LATERAL 처방이 여기선 원리적으로 안 통한다.** 0081의 `scoped` CTE가
+`observation_id` 파티션 **윈도 함수**로 보드 스코프를 정하는데(연맹 랭크는
+크로스서버 보드에서 의미가 다르므로 옳다), 윈도는 바깥 WHERE보다 먼저
+계산돼서 `server_id=580`이 밑으로 못 내려간다. 매 방문 42,722행 전부 스캔해
+40행 남기는 구조였다.
+
+그래서 0106/0107 처방으로 갔다: `alliance_growth_current` 테이블 +
+스냅샷 insert 문장 트리거. 기계는 `alliance_latest_current`와 동일(호출자
+게이트·advisory try-lock·빈-답 prune 불가·시계 1회 캡처). 뷰는 이름·20컬럼
+유지라 프론트·테스트 무변경. **프로덕션 실측 2,948ms → 174ms.**
+
+**교훈: 윈도 함수가 있는 뷰는 필터로 못 구한다 — precompute로 간다.**
+
+#209가 같이 고친 조용한 버그: history의 `order asc + limit 4000`이 **가장
+오래된** 4,000행을 잡아서, 서버가 4천 행을 넘은 뒤로 차트 최신 구간이 과거에
+얼어 있었다.
+
 ### 리빌드 타임아웃 — 해결(한 번), 그리고 0110 작업이 남았다
 
 `rebuild_rank_period('2026-08-03')`이 authenticated 세션에서 **11.9초**
