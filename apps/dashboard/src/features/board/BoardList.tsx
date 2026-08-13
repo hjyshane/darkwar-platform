@@ -29,6 +29,9 @@ function Row({
   tagLabel: (tag: string | null) => string | null;
 }) {
   const tag = tagLabel(post.tag);
+  // Not "Unknown": a post written before 0079, or by an account with no
+  // character linked, has an author we genuinely cannot name.
+  const author = post.createdBy !== null ? authors[post.createdBy] : undefined;
   return (
     <tr className={read ? undefined : 'board-unread'}>
       <td className="label">
@@ -40,17 +43,19 @@ function Row({
         {/* Unread said in words as well as in weight, because bold alone is not
             something everybody can see. */}
         {!read && <span className="badge badge-missing">new</span>}
+        {/* On a phone the meta columns are hidden and this line stands in for
+            them — otherwise the pinned title leaves them a sliver of viewport
+            and every one of them arrives clipped. Desktop hides it in CSS. */}
+        <span className="board-row-meta subtle">
+          {[tag, author, day.format(new Date(post.liveAt ?? post.createdAt))]
+            .filter((part): part is string => part != null)
+            .join(' · ')}
+        </span>
       </td>
       <td>{tag ?? <span className="subtle">—</span>}</td>
-      <td className="label">
-        {post.createdBy !== null && authors[post.createdBy] !== undefined ? (
-          authors[post.createdBy]
-        ) : (
-          // Not "Unknown": a post written before 0079, or by an account with no
-          // character linked, has an author we genuinely cannot name.
-          <span className="subtle">—</span>
-        )}
-      </td>
+      {/* No `label` here: that class pins a cell to the left edge, and two
+          pinned columns ride over each other as soon as the table scrolls. */}
+      <td>{author ?? <span className="subtle">—</span>}</td>
       <td title={post.liveAt ?? post.createdAt}>
         {day.format(new Date(post.liveAt ?? post.createdAt))}
       </td>
@@ -90,16 +95,14 @@ export function BoardList({
   return (
     <>
       <div className="table-wrap">
-        <table>
+        <table className="board-table">
           <thead>
             <tr>
               <th className="label" scope="col">
                 Title
               </th>
               <th scope="col">{tagHeading}</th>
-              <th className="label" scope="col">
-                Author
-              </th>
+              <th scope="col">Author</th>
               <th scope="col">Posted</th>
               <th scope="col">Edited</th>
             </tr>
