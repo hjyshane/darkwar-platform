@@ -51,13 +51,16 @@ select pg_temp.contribute(9100000000000001, 'alliance_battle_weekly', 70000, '20
 select pg_temp.contribute(9100000000000002, 'weekly_donation', 10, '2026-08-03T01:00:00Z');
 select pg_temp.contribute(9100000000000002, 'alliance_battle_weekly', 20, '2026-08-03T01:00:00Z');
 
+-- An officer, not a member (0111): the computation reads the whole roster's
+-- history, and 0066 gives that read to officer/admin only. 66 owns the
+-- refusal tests; this file owns the arithmetic.
 insert into auth.users (id, instance_id, aud, role, email)
 values ('00000000-0000-4000-8000-0000000ab201', '00000000-0000-0000-0000-000000000000',
-        'authenticated', 'authenticated', 'rank-member@test.invalid');
+        'authenticated', 'authenticated', 'rank-officer@test.invalid');
 insert into public.app_users (user_id, role, display_name)
-values ('00000000-0000-4000-8000-0000000ab201', 'member', 'rank member');
+values ('00000000-0000-4000-8000-0000000ab201', 'officer', 'rank officer');
 
--- Membership is required, and the refusal is the function's own.
+-- The role is required, and the refusal is the function's own.
 set local role authenticated;
 select throws_ok(
   $$ select public.build_rank_period('2026-07-27T02:00:00Z') $$,
@@ -68,7 +71,7 @@ select set_config('request.jwt.claims',
   json_build_object('sub', '00000000-0000-4000-8000-0000000ab201')::text, true);
 set local role authenticated;
 select ok(public.build_rank_period('2026-07-27T02:00:00Z') >= 2,
-  'a member can build one, and it covers the alliance');
+  'an officer can build one, and it covers the alliance');
 reset role;
 
 create function pg_temp.row_of(who text) returns public.rank_period_snapshots

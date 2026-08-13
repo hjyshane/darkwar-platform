@@ -50,9 +50,10 @@ values
   ('00000000-0000-4000-8000-0000000c3090', 'R2');
 
 -- The delete, run directly with the same predicate the function carries. The
--- function itself cannot be called here: `build_rank_period` refuses anyone who
--- is not a member, and a pgTAP session has no app_role — which is the subject of
--- its own assertion further down rather than something to work around.
+-- function itself cannot be called here: `build_rank_period` refuses anyone
+-- below officer (0111), and a pgTAP session has no app_role — which is the
+-- subject of its own assertion further down rather than something to work
+-- around.
 create function pg_temp.apply(period timestamptz)
 returns void language sql as $$
   delete from public.player_ranks as pr
@@ -99,12 +100,13 @@ select is(
   'and the cleared one now reads the computed tier');
 
 -- §20.2: the negative case, proved rather than assumed. A pgTAP session has no
--- app_role, so it stands in for anyone who is not a member.
+-- app_role, so it stands in for anyone below officer (0111 — a member session
+-- gets the same refusal, which 66 proves with a real member).
 select throws_ok(
   $$select public.rebuild_rank_period('2026-08-03'::timestamptz, true)$$,
   '42501',
-  'members only',
-  'a non-member cannot rebuild, let alone clear a rank');
+  'officers only',
+  'below officer, no rebuild — let alone clearing a rank');
 
 select is(
   (select count(*) from public.player_ranks),
