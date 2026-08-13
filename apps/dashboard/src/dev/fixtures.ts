@@ -25,6 +25,7 @@ const ALLIANCE = {
 
 const NOW = Date.now();
 const ago = (minutes: number) => new Date(NOW - minutes * 60_000).toISOString();
+const ahead = (days: number) => new Date(NOW + days * 86_400_000).toISOString();
 
 /** One roster row. Deliberately uneven: nulls are the case the UI is most
  *  likely to get wrong, so a third of these figures are unobserved. */
@@ -56,6 +57,13 @@ function member(
     online_state: 'offline',
     last_online_at: ago(180),
     last_seen_at: ago(35),
+    // 0092/0102: the member_roster view CASE-gates these below officer, so
+    // null is also what a member-role reader would see. The overrides below
+    // put a live pass, an expired one and never-observed side by side.
+    month_card_expires_at: null,
+    vip_level: null,
+    vip_expires_at: null,
+    svip_level: null,
     ...over,
   };
 }
@@ -65,11 +73,19 @@ const ROSTER = [
     assigned_rank: 'R5',
     computed_rank: 'R1',
     member_rank: 5,
+    month_card_expires_at: ahead(18),
+    vip_level: 9,
+    vip_expires_at: ahead(100),
   }),
   member(PLAYER.mira, 'Mira', 48_900_000, {
     assigned_rank: 'R4',
     online_state: 'online',
     member_rank: 4,
+    // Ran out — the column fades it rather than hiding it.
+    month_card_expires_at: ago(60 * 24 * 6),
+    vip_level: 7,
+    vip_expires_at: ahead(40),
+    svip_level: 1,
   }),
   // Never observed for contribution: every one of these must render "—",
   // never 0, and must sort last in both directions.
@@ -408,6 +424,14 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
   [
     ['player', PLAYER.shane],
     {
+      // Non-null because the fixture session is an admin; a member's query
+      // returns no row and the whole Subscriptions section stays off (0092).
+      subscription: {
+        month_card_expires_at: ahead(18),
+        vip_level: 9,
+        vip_expires_at: ahead(100),
+        svip_level: null,
+      },
       playerId: PLAYER.shane,
       gameUid: 58001,
       name: 'Shane',
@@ -436,6 +460,14 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
         growth7d: 0.031,
         power1dAt: ago(60 * 26),
         power7dAt: ago(60 * 24 * 7),
+      },
+      // The 0069 fallback. Both fixed baselines above are present, so the
+      // page should NOT render this tile — which is itself worth seeing.
+      recentGrowth: {
+        growthSinceLast: 0.018,
+        powerPrev: 60_100_000,
+        powerPrevAt: ago(60 * 30),
+        powerAt: ago(35),
       },
       componentPower: [
         { metric: 'hero_power', power: 21_400_000, rank: 3 },
@@ -504,6 +536,51 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
         member_rank: 5,
         presence_redacted: false,
         online_state: 'offline',
+      },
+    ],
+  ],
+  // The same captures member-history shows, as player_power_history rows.
+  // Board readings carry a rank; the profile reading (h5, power unread) does
+  // not exist here because that capture never wrote a power row.
+  [
+    ['player-trend', PLAYER.shane],
+    [
+      {
+        captured_at: ago(60 * 72),
+        power: 58_900_000,
+        hq_level: 30,
+        kills: 5_200_000,
+        rank: 34,
+        source_command: 'server.rank',
+        board_size: 100,
+      },
+      {
+        captured_at: ago(60 * 48),
+        power: 60_100_000,
+        hq_level: 30,
+        kills: 5_310_000,
+        rank: 33,
+        source_command: 'server.rank',
+        board_size: 100,
+      },
+      // Read from the profile card, not a board — no rank to carry.
+      {
+        captured_at: ago(60 * 30),
+        power: 60_100_000,
+        hq_level: 30,
+        kills: 5_310_000,
+        rank: null,
+        source_command: 'get.new.user.info',
+        board_size: null,
+      },
+      {
+        captured_at: ago(35),
+        power: 61_200_000,
+        hq_level: 30,
+        kills: 5_400_000,
+        rank: 32,
+        source_command: 'server.rank',
+        board_size: 100,
       },
     ],
   ],
@@ -832,6 +909,64 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
           sort_order: 50,
           source_command: 'get.user.info.multi',
           power: 26_500_000 + step * 140_000,
+          rank: null,
+          unit_name: null,
+          unit_grade: null,
+          board_size: null,
+        },
+        // 0109: the other four components of the profile's six-way power
+        // decomposition. No board behind them — rank and board_size null.
+        {
+          captured_at: at,
+          metric: 'building_power',
+          metric_label: 'Building power',
+          family: 'account',
+          role: 'total',
+          sort_order: 60,
+          source_command: 'get.new.user.info',
+          power: 8_100_000 + step * 60_000,
+          rank: null,
+          unit_name: null,
+          unit_grade: null,
+          board_size: null,
+        },
+        {
+          captured_at: at,
+          metric: 'science_power',
+          metric_label: 'Tech power',
+          family: 'account',
+          role: 'total',
+          sort_order: 70,
+          source_command: 'get.new.user.info',
+          power: 11_200_000 + step * 180_000,
+          rank: null,
+          unit_name: null,
+          unit_grade: null,
+          board_size: null,
+        },
+        {
+          captured_at: at,
+          metric: 'army_power',
+          metric_label: 'Troop power',
+          family: 'account',
+          role: 'total',
+          sort_order: 80,
+          source_command: 'get.new.user.info',
+          power: 33_900_000 + step * 700_000,
+          rank: null,
+          unit_name: null,
+          unit_grade: null,
+          board_size: null,
+        },
+        {
+          captured_at: at,
+          metric: 'mod_car_power',
+          metric_label: 'Vehicle power',
+          family: 'account',
+          role: 'total',
+          sort_order: 90,
+          source_command: 'get.new.user.info',
+          power: 3_800_000 + step * 40_000,
           rank: null,
           unit_name: null,
           unit_grade: null,
