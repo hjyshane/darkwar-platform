@@ -73,8 +73,19 @@ export function LineChart({
   const clipId = useId();
   const [active, setActive] = useState<number | null>(null);
 
-  const left = onAxis(series, 'left');
-  const right = onAxis(series, 'right');
+  // One line, isolated by clicking its legend entry; clicking it again brings
+  // the rest back. Held as the series NAME rather than an index, so a chart
+  // whose series change under it (a sort re-picking alliances) cannot isolate
+  // the wrong line — a stale name just means nothing is isolated.
+  const [only, setOnly] = useState<string | null>(null);
+  const isolated = only !== null && series.some((line) => line.name === only) ? only : null;
+  // Everything the axes, extents and paths see. The legend and the hidden
+  // table deliberately keep ALL series: the legend is how you leave isolation,
+  // and a screen reader should not lose columns because a line is hidden.
+  const visible = isolated === null ? series : series.filter((line) => line.name === isolated);
+
+  const left = onAxis(visible, 'left');
+  const right = onAxis(visible, 'right');
   const rightFormat = formatRight ?? formatValue;
 
   const box = {
@@ -92,9 +103,11 @@ export function LineChart({
     padBottom: 28,
   };
 
-  // One extent per axis. Sharing one would put a 17-billion total and a
-  // 180-million mean on the same scale, which is the whole thing two axes fix.
-  const range = extents(left.length > 0 ? left : series);
+  // One extent per axis, over the VISIBLE lines only — which is what makes
+  // isolating a line rescale the axis to fit it. Sharing one extent would put
+  // a 17-billion total and a 180-million mean on the same scale, which is the
+  // whole thing two axes fix.
+  const range = extents(left.length > 0 ? left : visible);
   const rightRange = right.length > 0 ? extents(right) : null;
   const leftInverted = axisInverted(left);
   const rightInverted = axisInverted(right);
@@ -104,10 +117,13 @@ export function LineChart({
   // caller: every series that is whole is whole, and a chart cannot forget to say
   // so. A single axis of 1 to 2 is where it showed: gridlines 1, 1.5, 2 printed
   // "1", "2", "2".
-  const leftStep = wholeNumbers(left.length > 0 ? left : series) ? 1 : 0;
+  const leftStep = wholeNumbers(left.length > 0 ? left : visible) ? 1 : 0;
   const rightStep = wholeNumbers(right) ? 1 : 0;
-  const times = mergedTimes(series);
-  const activeTime = active === null ? null : (times[active] ?? null);
+  const times = mergedTimes(visible);
+  // Clamped, because isolating a line can shrink the merged timeline while the
+  // cursor index was set against the longer one.
+  const activeIndex = active === null ? null : Math.min(active, times.length - 1);
+  const activeTime = activeIndex === null ? null : (times[activeIndex] ?? null);
 
   // Which axis a line belongs to, resolved once so the path, the dots and the
   // readout cannot disagree about it.
@@ -254,12 +270,12 @@ export function LineChart({
               y2={box.height - box.padBottom}
             />
           )}
-          {series.map((line) => {
+          {visible.map((line) => {
             const { y, invert } = axisOf(line, range.y);
             return (
               <path
                 key={line.name}
-                className={`chart-line chart-slot-${line.slot % 6}${line.emphasis ? ' chart-emphasis' : ''}${(line.axis ?? 'left') === 'right' ? ' chart-right-axis' : ''}`}
+                className={`chart-line chart-slot-${line.slot % 10}${line.emphasis ? ' chart-emphasis' : ''}${(line.axis ?? 'left') === 'right' ? ' chart-right-axis' : ''}`}
                 d={linePath(line.points, range.x, y, box, invert)}
               />
             );
@@ -297,7 +313,7 @@ export function LineChart({
             onChange={(event) => setActive(Number(event.target.value))}
             step={1}
             type="range"
-            value={active ?? 0}
+            value={activeIndex ?? 0}
           />
         </label>
       )}
@@ -325,8 +341,25 @@ export function LineChart({
           {series.map((line) => {
             const reading = readingAt(line.points, activeTime);
             const format = (line.axis ?? 'left') === 'right' ? rightFormat : formatValue;
+            const dimmed = isolated !== null && line.name !== isolated;
             return (
-              <span key={line.name} className={`chart-legend chart-slot-${line.slot % 6}`}>
+              // A BUTTON, because the legend is now the control that isolates a
+              // line: click one to see only it (the axis rescales to fit), click
+              // it again for everybody. The other entries stay rendered and
+              // clickable while dimmed — they are how you switch lines without
+              // going back through "all" first.
+              <button
+                key={line.name}
+                aria-pressed={line.name === isolated}
+                className={`chart-legend chart-slot-${line.slot % 10}${dimmed ? ' chart-legend-dimmed' : ''}`}
+                onClick={() => setOnly((current) => (current === line.name ? null : line.name))}
+                title={
+                  line.name === isolated
+                    ? 'Showing only this line. Press to show every line again.'
+                    : 'Press to show only this line.'
+                }
+                type="button"
+              >
                 {line.name}{' '}
                 {reading === null ? (
                   <span title="Never observed in this range">—</span>
@@ -337,7 +370,7 @@ export function LineChart({
                     ≈{format(reading.v)}
                   </span>
                 )}
-              </span>
+              </button>
             );
           })}
         </span>

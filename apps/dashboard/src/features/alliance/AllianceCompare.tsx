@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { LineChart } from '../../components/LineChart';
 import { SortableTh } from '../../components/SortableTh';
@@ -54,33 +54,47 @@ interface HistoryRow {
  * same colour in a chart whose whole job is telling them apart. */
 const CHART_LINES = 6;
 
-async function fetchCompare(serverId: number) {
-  const [growth, history] = await Promise.all([
-    supabase
-      .from('alliance_growth')
-      .select(
-        'alliance_id, name, code, is_own, member_count, readings, power_first, power_last, power_growth, power_growth_pct, rank_climb, rank_first, rank_last, span_days',
-      )
-      .eq('server_id', serverId)
-      .order('power_last', { ascending: false, nullsFirst: false })
-      .limit(300),
-    supabase
-      .from('alliance_power_history')
-      .select('alliance_id, captured_at, power, name, is_own')
-      .eq('server_id', serverId)
-      .order('captured_at', { ascending: true })
-      .limit(4000),
-  ]);
-  if (growth.error) {
-    throw new Error(`growth query failed: ${growth.error.message}`);
+async function fetchGrowth(serverId: number): Promise<GrowthRow[]> {
+  const { data, error } = await supabase
+    .from('alliance_growth')
+    .select(
+      'alliance_id, name, code, is_own, member_count, readings, power_first, power_last, power_growth, power_growth_pct, rank_climb, rank_first, rank_last, span_days',
+    )
+    .eq('server_id', serverId)
+    .order('power_last', { ascending: false, nullsFirst: false })
+    .limit(300);
+  if (error) {
+    throw new Error(`growth query failed: ${error.message}`);
   }
-  if (history.error) {
-    throw new Error(`history query failed: ${history.error.message}`);
+  return (data ?? []) as GrowthRow[];
+}
+
+/** History for exactly the alliances the chart draws, nothing else.
+ *
+ * This used to be one server-wide fetch beside the growth query, and it died
+ * of statement timeout on 2026-08-12: the invoker view pays a row-level
+ * current_app_role() qual per row (0100's class — and 0097 made this view
+ * invoker deliberately, so DEFINER is not the way out), and the server's
+ * history had grown to 7,201 rows while the growth aggregate ran beside it on
+ * the same micro instance. Filtering on alliance_id turns it into a few index
+ * probes over the ~6 charted alliances.
+ *
+ * The old fetch was also quietly WRONG: `order asc, limit 4000` keeps the
+ * OLDEST 4,000 rows, so once the server passed 4,000 the chart's recent end
+ * froze in the past. Six alliances' complete history fits the same cap with
+ * room to spare.
+ */
+async function fetchHistory(allianceIds: string[]): Promise<HistoryRow[]> {
+  const { data, error } = await supabase
+    .from('alliance_power_history')
+    .select('alliance_id, captured_at, power, name, is_own')
+    .in('alliance_id', allianceIds)
+    .order('captured_at', { ascending: true })
+    .limit(4000);
+  if (error) {
+    throw new Error(`history query failed: ${error.message}`);
   }
-  return {
-    growth: (growth.data ?? []) as GrowthRow[],
-    history: (history.data ?? []) as HistoryRow[],
-  };
+  return (data ?? []) as HistoryRow[];
 }
 
 const compact = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 2 });
@@ -117,31 +131,16 @@ export function AllianceCompare({ serverId }: { serverId: number }) {
   // does not use useTableView (it has no search box), so it carries the same
   // state shape by hand rather than behaving differently from its neighbours.
   const [sort, setSort] = useState<SortState[]>([{ key: 'power_growth_pct', direction: 'desc' }]);
-  const { data, error, isPending } = useQuery({
+  const growth = useQuery({
     queryKey: ['alliance-compare', serverId],
-    queryFn: () => fetchCompare(serverId),
+    queryFn: () => fetchGrowth(serverId),
   });
-
-  if (isPending) {
-    return <p className="empty">Loading…</p>;
-  }
-  if (error) {
-    return <p className="error">Could not load the comparison: {error.message}</p>;
-  }
-
-  const rows = data?.growth ?? [];
-  if (rows.length === 0) {
-    return (
-      <p className="empty">
-        No alliance on server {serverId} has been seen in a captured ranking board yet.
-      </p>
-    );
-  }
 
   // `sortRows` rather than a comparator per column: it already puts unknowns last
   // in BOTH directions, which is the rule that matters here. An alliance seen
   // once has not held still, and sorting its null growth as zero would file it
   // among the alliances that genuinely did not move.
+  const rows = growth.data ?? [];
   const ranked = sortRows(rows, sort);
 
   // The chart takes the top of whatever the table is sorted by, plus us — so
@@ -159,12 +158,38 @@ export function AllianceCompare({ serverId }: { serverId: number }) {
     chosen.unshift(ours);
   }
 
+  // Sorted, so re-ordering the table without changing WHICH alliances are
+  // charted reuses the cached rows instead of asking the database again.
+  const chosenIds = chosen.map((row) => row.alliance_id).sort();
+  const history = useQuery({
+    queryKey: ['alliance-history', serverId, chosenIds],
+    queryFn: () => fetchHistory(chosenIds),
+    enabled: chosenIds.length > 0,
+    // Keep the previous lines on screen while a sort change fetches the new
+    // set — a chart that blanks on every header click reads as broken.
+    placeholderData: keepPreviousData,
+  });
+
+  if (growth.isPending) {
+    return <p className="empty">Loading…</p>;
+  }
+  if (growth.error) {
+    return <p className="error">Could not load the comparison: {growth.error.message}</p>;
+  }
+  if (rows.length === 0) {
+    return (
+      <p className="empty">
+        No alliance on server {serverId} has been seen in a captured ranking board yet.
+      </p>
+    );
+  }
+
   function onSort(key: string, additive: boolean): void {
     setSort((current) => nextSortKeys(current, key, additive));
   }
 
   const byAlliance = new Map<string, HistoryRow[]>();
-  for (const row of data?.history ?? []) {
+  for (const row of history.data ?? []) {
     const bucket = byAlliance.get(row.alliance_id) ?? [];
     bucket.push(row);
     byAlliance.set(row.alliance_id, bucket);
@@ -194,7 +219,11 @@ export function AllianceCompare({ serverId }: { serverId: number }) {
         change which alliances the chart draws
       </p>
 
-      {series.length === 0 ? (
+      {history.error ? (
+        <p className="error">Could not load the history: {history.error.message}</p>
+      ) : history.isPending && chosenIds.length > 0 ? (
+        <p className="empty">Loading the chart…</p>
+      ) : series.length === 0 ? (
         <p className="empty">
           No alliance here has been captured twice yet, so there is nothing to compare. The ranking
           boards are read when somebody opens them, not on a schedule.

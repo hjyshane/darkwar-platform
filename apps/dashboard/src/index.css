@@ -1692,14 +1692,22 @@ form select {
 
 /* --- charts -------------------------------------------------------------- */
 
-/* Six hues, defined once and referenced by SLOT, so a series carries an index
+/* Ten hues, defined once and referenced by SLOT, so a series carries an index
  * and the palette stays a styling decision. Each slot sets only `color`; the
  * line maps that to its stroke and the dot to its fill, which keeps one rule
  * per hue instead of one per hue per shape.
  *
- * Chosen to hold up on both backgrounds and to stay separable in the two common
- * forms of colour blindness — and the chart still never leans on colour alone:
- * the readout names every series in text beside its figure. */
+ * Ten, not six: the player component chart grew to nine possible lines when
+ * the four account power components were promoted (0109), and slot % 6 gave
+ * the seventh line the first line's colour. Chosen to hold up on both
+ * backgrounds and to stay separable in the two common forms of colour
+ * blindness — and the chart still never leans on colour alone: the readout
+ * names every series in text beside its figure.
+ *
+ * REMEMBER THE TWIN (theme rule): these tokens are declared three times —
+ * light on :root, dark under the media query, dark again under
+ * [data-theme="dark"] — and editing one dark block without the other splits
+ * the toggle from the OS preference. */
 :root {
   --chart-1: #1d4ed8;
   --chart-2: #b91c1c;
@@ -1707,6 +1715,10 @@ form select {
   --chart-4: #a16207;
   --chart-5: #7e22ce;
   --chart-6: #0e7490;
+  --chart-7: #be185d;
+  --chart-8: #4d7c0f;
+  --chart-9: #475569;
+  --chart-10: #c2410c;
   --chart-grid: #e2e8f0;
 }
 
@@ -1718,6 +1730,10 @@ form select {
     --chart-4: #fbbf24;
     --chart-5: #c084fc;
     --chart-6: #22d3ee;
+    --chart-7: #f472b6;
+    --chart-8: #a3e635;
+    --chart-9: #94a3b8;
+    --chart-10: #fb923c;
     --chart-grid: #334155;
   }
 }
@@ -1729,6 +1745,10 @@ form select {
   --chart-4: #fbbf24;
   --chart-5: #c084fc;
   --chart-6: #22d3ee;
+  --chart-7: #f472b6;
+  --chart-8: #a3e635;
+  --chart-9: #94a3b8;
+  --chart-10: #fb923c;
   --chart-grid: #334155;
 }
 
@@ -1812,6 +1832,22 @@ form select {
   color: var(--chart-6);
 }
 
+.chart-slot-6 {
+  color: var(--chart-7);
+}
+
+.chart-slot-7 {
+  color: var(--chart-8);
+}
+
+.chart-slot-8 {
+  color: var(--chart-9);
+}
+
+.chart-slot-9 {
+  color: var(--chart-10);
+}
+
 .chart figcaption {
   color: var(--fg-muted);
   font-size: var(--text-sm);
@@ -1830,6 +1866,22 @@ form select {
  * apart. Nothing extra needed here — the slot classes already carry `color`. */
 .chart-readout strong {
   color: var(--fg);
+}
+
+/* A legend entry is a button now — click to isolate its line — but it keeps
+ * looking like the legend text it always was. The pressed state is said by
+ * everyone ELSE dimming, which reads as "the chart narrowed" rather than as a
+ * lit toggle. */
+.chart-legend {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+}
+
+.chart-legend-dimmed {
+  opacity: 0.45;
 }
 
 /* The scrubber. Full width and directly under the plot so the thumb lines up
