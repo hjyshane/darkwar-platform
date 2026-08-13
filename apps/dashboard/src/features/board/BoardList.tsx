@@ -2,11 +2,14 @@ import { Pager } from '../../components/Pager';
 import { RichTitle } from '../../components/RichText';
 import type { BoardPage, BoardPost } from './board';
 
-/** A board: titles, who wrote them, when, and whether you have read them.
+/** A board: titles with their byline underneath, the shape the post page uses.
  *
- * The shape people already know from every forum. It replaced a page that
- * rendered every post's whole body one after another, which meant three guides
- * filled the screen and a fourth was below the fold.
+ * A LIST, NOT A TABLE. The five-column table gave Kind, Author, Posted and
+ * Edited a column each, which read fine on one 1440 screen and clipped on
+ * every phone — and a reader scanning a board is choosing by TITLE, not
+ * comparing dates down a column. Each entry now carries the same meta block
+ * the opened post shows (`post-meta`: tag chip, author, date, edited), so the
+ * list and the post agree about what the facts look like.
  *
  * READ MARKS ARE PER ACCOUNT (0079), so a post opened on a phone is not unread
  * again on a PC. Unread is the emphasised state, not read: the list is for
@@ -33,44 +36,30 @@ function Row({
   // character linked, has an author we genuinely cannot name.
   const author = post.createdBy !== null ? authors[post.createdBy] : undefined;
   return (
-    <tr className={read ? undefined : 'board-unread'}>
-      <td className="label">
-        <a href={hrefFor(post.id)}>
-          <RichTitle title={post.title} />
-        </a>
-        {post.pinned && <span className="badge badge-fresh">pinned</span>}
-        {post.liveAt === null && <span className="badge badge-missing">draft</span>}
-        {/* Unread said in words as well as in weight, because bold alone is not
-            something everybody can see. */}
-        {!read && <span className="badge badge-missing">new</span>}
-        {/* On a phone the meta columns are hidden and this line stands in for
-            them — otherwise the pinned title leaves them a sliver of viewport
-            and every one of them arrives clipped. Desktop hides it in CSS. */}
-        <span className="board-row-meta subtle">
-          {[tag, author, day.format(new Date(post.liveAt ?? post.createdAt))]
-            .filter((part): part is string => part != null)
-            .join(' · ')}
-        </span>
-      </td>
-      <td>{tag ?? <span className="subtle">—</span>}</td>
-      {/* No `label` here: that class pins a cell to the left edge, and two
-          pinned columns ride over each other as soon as the table scrolls. */}
-      <td>{author ?? <span className="subtle">—</span>}</td>
-      <td title={post.liveAt ?? post.createdAt}>
-        {day.format(new Date(post.liveAt ?? post.createdAt))}
-      </td>
-      {/* A plain date, not a FreshnessBadge. The badge exists to say whether
-          OBSERVED data is current, and it colours itself once a reading is old —
-          which beside an edit date reads as though the guide itself had gone off,
-          when all it means is that nobody has had to change it. */}
-      <td title={post.updatedAt}>
-        {post.updatedAt !== post.createdAt ? (
-          day.format(new Date(post.updatedAt))
-        ) : (
-          <span className="subtle">—</span>
+    <li className={read ? undefined : 'board-unread'}>
+      <a href={hrefFor(post.id)}>
+        <RichTitle title={post.title} />
+      </a>
+      {post.pinned && <span className="badge badge-fresh">pinned</span>}
+      {post.liveAt === null && <span className="badge badge-missing">draft</span>}
+      {/* Unread said in words as well as in weight, because bold alone is not
+          something everybody can see. */}
+      {!read && <span className="badge badge-missing">new</span>}
+      {/* The post page's own meta block (`post-meta`), so the list shows the
+          facts in the same clothes the opened post does. */}
+      <div className="post-meta">
+        {tag !== null && <span className="post-tag">{tag}</span>}
+        {author !== undefined && <span className="post-author">{author}</span>}
+        <time dateTime={post.liveAt ?? post.createdAt}>
+          {day.format(new Date(post.liveAt ?? post.createdAt))}
+        </time>
+        {/* Only when it differs, as on the post page: an "edited" stamp on
+            every entry would say nothing. */}
+        {post.updatedAt !== post.createdAt && (
+          <span className="post-edited">edited {day.format(new Date(post.updatedAt))}</span>
         )}
-      </td>
-    </tr>
+      </div>
+    </li>
   );
 }
 
@@ -78,14 +67,12 @@ export function BoardList({
   data,
   hrefFor,
   onGo,
-  tagHeading,
   tagLabel,
   empty,
 }: {
   data: BoardPage;
   hrefFor: (id: string) => string;
   onGo: (page: number) => void;
-  tagHeading: string;
   tagLabel: (tag: string | null) => string | null;
   empty: React.ReactNode;
 }) {
@@ -94,45 +81,30 @@ export function BoardList({
   }
   return (
     <>
-      <div className="table-wrap">
-        <table className="board-table">
-          <thead>
-            <tr>
-              <th className="label" scope="col">
-                Title
-              </th>
-              <th scope="col">{tagHeading}</th>
-              <th scope="col">Author</th>
-              <th scope="col">Posted</th>
-              <th scope="col">Edited</th>
-            </tr>
-          </thead>
-          <tbody>
-            {/* Pinned above the page, and on every page. Sorting them to the top
-                of page one would pin them only for people who never turn a page. */}
-            {data.pinned.map((post) => (
-              <Row
-                key={post.id}
-                authors={data.authors}
-                hrefFor={hrefFor}
-                post={post}
-                read={data.read.has(post.id)}
-                tagLabel={tagLabel}
-              />
-            ))}
-            {data.posts.map((post) => (
-              <Row
-                key={post.id}
-                authors={data.authors}
-                hrefFor={hrefFor}
-                post={post}
-                read={data.read.has(post.id)}
-                tagLabel={tagLabel}
-              />
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <ul className="board-list">
+        {/* Pinned above the page, and on every page. Sorting them to the top
+            of page one would pin them only for people who never turn a page. */}
+        {data.pinned.map((post) => (
+          <Row
+            key={post.id}
+            authors={data.authors}
+            hrefFor={hrefFor}
+            post={post}
+            read={data.read.has(post.id)}
+            tagLabel={tagLabel}
+          />
+        ))}
+        {data.posts.map((post) => (
+          <Row
+            key={post.id}
+            authors={data.authors}
+            hrefFor={hrefFor}
+            post={post}
+            read={data.read.has(post.id)}
+            tagLabel={tagLabel}
+          />
+        ))}
+      </ul>
       <Pager onGo={onGo} page={data.page} pageCount={data.pageCount} />
       <p className="subtle">
         {data.total} post{data.total === 1 ? '' : 's'}

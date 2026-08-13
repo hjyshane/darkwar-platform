@@ -300,7 +300,6 @@ export function NoticesPanel() {
             empty="Nothing posted yet."
             hrefFor={noticeHash}
             onGo={setPage}
-            tagHeading="Who sees it"
             tagLabel={visibilityLabel}
           />
         )}

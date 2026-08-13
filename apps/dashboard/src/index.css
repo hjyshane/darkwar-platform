@@ -551,30 +551,28 @@ tbody tr:hover {
 
 /* --- board lists (notices, guides) ---------------------------------------
  *
- * Five columns fit a desktop. On a phone the pinned Title column left the
- * other four a sliver of viewport, so every one of them arrived clipped —
- * the sticky pin is for tables whose FIGURES overflow, not for a reading
- * list. Below the breakpoint the meta columns disappear and the title cell's
- * own meta line (tag · author · date) stands in for them; with one column
- * left there is no overflow, so the pin and its "more to the right" shadow
- * come off too. */
-.board-table .board-row-meta {
-  display: none;
+ * A list, not a table: every entry is a title with the post page's own
+ * `post-meta` block underneath, so the list and the opened post show the
+ * facts in the same clothes — and there is nothing to clip on a phone,
+ * because there are no columns. The table this replaced pinned its Title
+ * column and left the other four a sliver of every phone viewport. */
+.board-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
-@media (max-width: 640px) {
-  .board-table :is(th, td):nth-child(n + 2) {
-    display: none;
-  }
+.board-list li {
+  border-bottom: 1px solid var(--border);
+  padding: var(--space-3) 0;
+}
 
-  .board-table .board-row-meta {
-    display: block;
-  }
+.board-list li:last-child {
+  border-bottom: none;
+}
 
-  .board-table :is(th, td).label {
-    box-shadow: none;
-    position: static;
-  }
+.board-list .post-meta {
+  margin-top: var(--space-1);
 }
 
 /* Where one family of figures ends and the next begins. The roster carries
@@ -2527,11 +2525,7 @@ form select {
  * have not seen; marking the majority would emphasise nothing. Weight only —
  * a colour would be the sole signal for the "new" badge that sits beside it,
  * and the badge is there because weight alone is not visible to everybody. */
-.board-unread :is(td, th) {
-  font-weight: 600;
-}
-
-.board-unread td.label a {
+.board-unread a {
   font-weight: 700;
 }
 
