@@ -1,4 +1,4 @@
--- 0111: build_rank_period refuses a member, because a member cannot see the
+-- 0112: build_rank_period refuses a member, because a member cannot see the
 -- roster it computes from.
 --
 -- The 0066 policy shows a member only their own alliance_member_snapshots

@@ -1,4 +1,4 @@
--- 0111: build_rank_period needs the whole roster, so members may not run it.
+-- 0112: build_rank_period needs the whole roster, so members may not run it.
 --
 -- 0090 drew the line deliberately: computing touches nothing an admin owns,
 -- so a plain member could run the computing half. That reasoning predates the
@@ -56,7 +56,7 @@ declare
   r3 numeric;
   r2 numeric;
 begin
-  -- Officer and up (0111). The computation reads the whole roster's history,
+  -- Officer and up (0112). The computation reads the whole roster's history,
   -- and 0066 gives that read to officer/admin only — a member session would
   -- compute from its own rows and write wrong tiers for everybody else.
   if public.current_app_role() not in ('officer', 'admin') then
@@ -327,14 +327,14 @@ $$;
 
 comment on function public.build_rank_period(timestamptz) is
   'Scores one fortnight for the own alliance and writes rank_period_snapshots. '
-  'Every per-member figure is an index probe (0110). Officer and up (0111): '
+  'Every per-member figure is an index probe (0110). Officer and up (0112): '
   'the computation needs every member''s snapshot history, 0066 gives that '
   'read to officer/admin only, and RLS holds inside SECURITY DEFINER on '
   'hosted Supabase (0105) — a member call would score the roster from their '
   'own rows alone and write wrong tiers for everyone else.';
 
 -- The wrapper's contract statement changes with it: "the computing half needs
--- neither" was 0090's claim, and it is the claim 0111 retires.
+-- neither" was 0090's claim, and it is the claim 0112 retires.
 comment on function public.rebuild_rank_period(timestamptz, boolean) is
   'Rebuilds a period, and optionally applies it: with p_apply_to_assigned, a '
   'computed R1-R3 replaces a hand-set R1-R3 by clearing the override, so the '
@@ -342,5 +342,5 @@ comment on function public.rebuild_rank_period(timestamptz, boolean) is
   'rebuild wrote — a member it skipped keeps their rank rather than being '
   'judged by an older scoring version that still wears the same period. R4 and '
   'R5 are left alone; the clearing half needs members.manage and an explicit '
-  'yes. The computing half needs officer or admin (0111) — a member session '
+  'yes. The computing half needs officer or admin (0112) — a member session '
   'cannot see the roster history the computation reads.';

@@ -121,7 +121,7 @@ presence의 DISTINCT ON은 통째로 삭제 — 0024부터 플레이어당 1행(
   **전부 필터로 제거**하고 빈손으로 돌아왔다 — first_seen/rank가 남들에게
   null = unmeasured/unranked 오판. 실제 화면은 admin 게이트 뒤라 사고는 없는
   것으로 보인다(프로덕션 08-03 빌드의 티어 분포 R1 17·R2 35·R3 29·미측정 16은
-  member 실행이 남겼을 전원-미측정 모양이 아니다). **0111이 가드를
+  member 실행이 남겼을 전원-미측정 모양이 아니다). **0112가 가드를
   officer/admin으로 좁혀서 닫았다** — 에러 문구도 `officers only`로 바뀌었고,
   `66_rank_build_officer_gate_test`가 member/viewer 거부와 officer 허용을
   고정한다.
@@ -689,7 +689,7 @@ PUBLIC 기본값을 못 막는다(0096).
 |---|---|---|
 | 트리거·이벤트 트리거 | 15 | PostgREST가 `trigger` 반환 함수를 노출하지 않는다 |
 | `members.manage` 검사 | 4 | `approve_player_claim`·`reject_player_claim`·`retention_report`·`remove_member` |
-| 롤 검사 | 2 | `build_rank_period`(42501, 0111부터 officer 이상), `rebuild_rank_period`(첫 문장이 그걸 부른다) |
+| 롤 검사 | 2 | `build_rank_period`(42501, 0112부터 officer 이상), `rebuild_rank_period`(첫 문장이 그걸 부른다) |
 | `auth.uid()` null 거부 | 2 | `redeem_join_code`, `leave_alliance` |
 | 호출자 본인으로 한정 | 1 | `linked_player_id()` |
 | 순수 계산 | 4 | 날짜·등급 산술, `is_service_request()` |
@@ -1122,7 +1122,7 @@ player_ranks               23행뿐 (R4 11 · R5 1 · R3 7 · R2 4)
 2. **리빌드 버튼은 선택된 기간에만 적용된다.** 드롭다운 기본값은 *끝난* 기간 중
    최신(07-20)이다. 진행 중 기간(08-03)을 보려면 골라야 한다. 07-20에 v3를 만들고
    08-03은 v2로 남는 일이 실제로 있었다.
-3. **`build_rank_period`는 서비스 키를 거부한다** (`42501 officers only` — 0111부터
+3. **`build_rank_period`는 서비스 키를 거부한다** (`42501 officers only` — 0112부터
    member 세션도 거부). 스크립트로 리빌드할 수 없다 — officer 이상 로그인 세션이
    필요하다.
 4. **pgTAP에서 `scoring_version`을 고정하면 버전 올릴 때마다 깨진다.**
