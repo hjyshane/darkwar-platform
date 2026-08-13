@@ -75,8 +75,10 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     heading: 'How ranks are decided',
     requires: capability('settings.write'),
   },
-  // build_rank_period() is member-gated and refuses the service key outright;
-  // reading the report needs nothing beyond being signed in.
+  // build_rank_period() is officer-gated (0111) and refuses the service key
+  // outright; reading the report needs nothing beyond being signed in. A
+  // member who reaches the Rebuild button gets the function's own 42501, not
+  // a wrong rebuild.
   { group: 'alliance', id: 'rank-report-heading', heading: 'Rank changes', requires: null },
 
   {
