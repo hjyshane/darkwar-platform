@@ -51,7 +51,7 @@ select pg_temp.contribute(9100000000000001, 'alliance_battle_weekly', 70000, '20
 select pg_temp.contribute(9100000000000002, 'weekly_donation', 10, '2026-08-03T01:00:00Z');
 select pg_temp.contribute(9100000000000002, 'alliance_battle_weekly', 20, '2026-08-03T01:00:00Z');
 
--- An officer, not a member (0111): the computation reads the whole roster's
+-- An officer, not a member (0112): the computation reads the whole roster's
 -- history, and 0066 gives that read to officer/admin only. 66 owns the
 -- refusal tests; this file owns the arithmetic.
 insert into auth.users (id, instance_id, aud, role, email)
