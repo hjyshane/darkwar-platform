@@ -41,6 +41,11 @@ const TOPIC_QUERY_KEYS: Record<string, readonly (readonly string[])[]> = {
   // number was written the moment the comment was, and the trigger to say so
   // already exists.
   post_comments: [['comments'], ['activity-scores']],
+  // The reply alert is written by a trigger on post_comments, so it lands a
+  // moment after the comment does — its own topic rather than riding the
+  // comment's, because the badge has to appear on a screen that is nowhere
+  // near the thread (0117).
+  comment_notifications: [['reply-alerts']],
   // Naming a hero has to reach the arena board that prints the name, not
   // just the admin page where it was typed — and deleting one has to reach
   // it too, so that the board falls back to the id straight away.

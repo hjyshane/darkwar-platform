@@ -28,6 +28,7 @@ export type Route =
   | 'guide'
   | 'notices'
   | 'notice'
+  | 'mine'
   | 'login';
 
 const ROUTES: Record<string, Route> = {
@@ -36,6 +37,7 @@ const ROUTES: Record<string, Route> = {
   '#/cross-server': 'crossRankings',
   '#/arena': 'arena',
   '#/month-cards': 'monthCards',
+  '#/mine': 'mine',
   '#/guides': 'guides',
   '#/notices': 'notices',
   '#/login': 'login',

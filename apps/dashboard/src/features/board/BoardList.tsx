@@ -22,12 +22,17 @@ function Row({
   post,
   hrefFor,
   authors,
+  commentCount,
   read,
   tagLabel,
 }: {
   post: BoardPost;
   hrefFor: (id: string) => string;
   authors: Record<string, string>;
+  /** Live comments on this post (0115). Zero prints nothing — "0" in a column
+   * of counts reads as a measurement, and "nobody has answered" is better said
+   * by the absence of the mark. */
+  commentCount: number;
   read: boolean;
   tagLabel: (tag: string | null) => string | null;
 }) {
@@ -40,6 +45,14 @@ function Row({
       <a href={hrefFor(post.id)}>
         <RichTitle title={post.title} />
       </a>
+      {/* Beside the title, where a reader choosing what to open is already
+          looking — not down in the meta line with the dates. "Is anybody
+          talking about this" is a reason to open a post; the date is not. */}
+      {commentCount > 0 && (
+        <span className="board-comments" title={`${commentCount} comments`}>
+          {commentCount}
+        </span>
+      )}
       {post.pinned && <span className="badge badge-fresh">pinned</span>}
       {post.liveAt === null && <span className="badge badge-missing">draft</span>}
       {/* Unread said in words as well as in weight, because bold alone is not
@@ -88,6 +101,7 @@ export function BoardList({
           <Row
             key={post.id}
             authors={data.authors}
+            commentCount={data.commentCounts[post.id] ?? 0}
             hrefFor={hrefFor}
             post={post}
             read={data.read.has(post.id)}
@@ -98,6 +112,7 @@ export function BoardList({
           <Row
             key={post.id}
             authors={data.authors}
+            commentCount={data.commentCounts[post.id] ?? 0}
             hrefFor={hrefFor}
             post={post}
             read={data.read.has(post.id)}
