@@ -34,6 +34,56 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_events: {
+        Row: {
+          activity_day: string
+          kind: string
+          occurred_at: string
+          user_id: string
+        }
+        Insert: {
+          activity_day?: string
+          kind: string
+          occurred_at?: string
+          user_id: string
+        }
+        Update: {
+          activity_day?: string
+          kind?: string
+          occurred_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "activity_scores"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "activity_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "app_user_directory"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "activity_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "activity_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "post_authors"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       activity_facts: {
         Row: {
           activity_type: string
@@ -223,6 +273,78 @@ export type Database = {
             referencedColumns: ["server_id"]
           },
         ]
+      }
+      alliance_growth_current: {
+        Row: {
+          alliance_id: string
+          code: string | null
+          cross_rank_climb: number | null
+          cross_rank_first: number | null
+          cross_rank_last: number | null
+          first_at: string | null
+          is_own: boolean | null
+          last_at: string | null
+          member_count: number | null
+          name: string | null
+          power_first: number | null
+          power_growth: number | null
+          power_growth_pct: number | null
+          power_last: number | null
+          rank_climb: number | null
+          rank_first: number | null
+          rank_last: number | null
+          readings: number | null
+          refreshed_at: string
+          server_id: number | null
+          span_days: number | null
+        }
+        Insert: {
+          alliance_id: string
+          code?: string | null
+          cross_rank_climb?: number | null
+          cross_rank_first?: number | null
+          cross_rank_last?: number | null
+          first_at?: string | null
+          is_own?: boolean | null
+          last_at?: string | null
+          member_count?: number | null
+          name?: string | null
+          power_first?: number | null
+          power_growth?: number | null
+          power_growth_pct?: number | null
+          power_last?: number | null
+          rank_climb?: number | null
+          rank_first?: number | null
+          rank_last?: number | null
+          readings?: number | null
+          refreshed_at?: string
+          server_id?: number | null
+          span_days?: number | null
+        }
+        Update: {
+          alliance_id?: string
+          code?: string | null
+          cross_rank_climb?: number | null
+          cross_rank_first?: number | null
+          cross_rank_last?: number | null
+          first_at?: string | null
+          is_own?: boolean | null
+          last_at?: string | null
+          member_count?: number | null
+          name?: string | null
+          power_first?: number | null
+          power_growth?: number | null
+          power_growth_pct?: number | null
+          power_last?: number | null
+          rank_climb?: number | null
+          rank_first?: number | null
+          rank_last?: number | null
+          readings?: number | null
+          refreshed_at?: string
+          server_id?: number | null
+          span_days?: number | null
+        }
+        Relationships: []
       }
       alliance_latest_current: {
         Row: {
@@ -1108,6 +1230,13 @@ export type Database = {
             foreignKeyName: "audit_logs_actor_user_id_fkey"
             columns: ["actor_user_id"]
             isOneToOne: false
+            referencedRelation: "activity_scores"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "audit_logs_actor_user_id_fkey"
+            columns: ["actor_user_id"]
+            isOneToOne: false
             referencedRelation: "app_user_directory"
             referencedColumns: ["user_id"]
           },
@@ -1561,6 +1690,13 @@ export type Database = {
             foreignKeyName: "join_codes_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "activity_scores"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "join_codes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "app_user_directory"
             referencedColumns: ["user_id"]
           },
@@ -1806,6 +1942,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "player_claims_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "activity_scores"
+            referencedColumns: ["user_id"]
+          },
           {
             foreignKeyName: "player_claims_decided_by_fkey"
             columns: ["decided_by"]
@@ -2389,6 +2532,92 @@ export type Database = {
           },
         ]
       }
+      post_comments: {
+        Row: {
+          announcement_id: string | null
+          author_user_id: string | null
+          body: string
+          comment_id: string
+          created_at: string
+          deleted_at: string | null
+          guide_id: string | null
+          parent_comment_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          announcement_id?: string | null
+          author_user_id?: string | null
+          body: string
+          comment_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          guide_id?: string | null
+          parent_comment_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          announcement_id?: string | null
+          author_user_id?: string | null
+          body?: string
+          comment_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          guide_id?: string | null
+          parent_comment_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_comments_announcement_id_fkey"
+            columns: ["announcement_id"]
+            isOneToOne: false
+            referencedRelation: "announcements"
+            referencedColumns: ["announcement_id"]
+          },
+          {
+            foreignKeyName: "post_comments_author_user_id_fkey"
+            columns: ["author_user_id"]
+            isOneToOne: false
+            referencedRelation: "activity_scores"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "post_comments_author_user_id_fkey"
+            columns: ["author_user_id"]
+            isOneToOne: false
+            referencedRelation: "app_user_directory"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "post_comments_author_user_id_fkey"
+            columns: ["author_user_id"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "post_comments_author_user_id_fkey"
+            columns: ["author_user_id"]
+            isOneToOne: false
+            referencedRelation: "post_authors"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "post_comments_guide_id_fkey"
+            columns: ["guide_id"]
+            isOneToOne: false
+            referencedRelation: "guides"
+            referencedColumns: ["guide_id"]
+          },
+          {
+            foreignKeyName: "post_comments_parent_comment_id_fkey"
+            columns: ["parent_comment_id"]
+            isOneToOne: false
+            referencedRelation: "post_comments"
+            referencedColumns: ["comment_id"]
+          },
+        ]
+      }
       post_reads: {
         Row: {
           announcement_id: string | null
@@ -2593,6 +2822,13 @@ export type Database = {
             foreignKeyName: "refresh_jobs_requested_by_fkey"
             columns: ["requested_by"]
             isOneToOne: false
+            referencedRelation: "activity_scores"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "refresh_jobs_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
             referencedRelation: "app_user_directory"
             referencedColumns: ["user_id"]
           },
@@ -2779,6 +3015,23 @@ export type Database = {
       }
     }
     Views: {
+      activity_scores: {
+        Row: {
+          alliance_days: number | null
+          comment_count: number | null
+          comment_points: number | null
+          display_name: string | null
+          login_days: number | null
+          login_points: number | null
+          player_days: number | null
+          ranking_points: number | null
+          server_days: number | null
+          total_points: number | null
+          user_id: string | null
+          week_start: string | null
+        }
+        Relationships: []
+      }
       alliance_daily_contribution: {
         Row: {
           alliance_id: string | null
@@ -2855,22 +3108,51 @@ export type Database = {
           server_id: number | null
           span_days: number | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "alliance_snapshots_alliance_id_fkey"
-            columns: ["alliance_id"]
-            isOneToOne: false
-            referencedRelation: "alliances"
-            referencedColumns: ["alliance_id"]
-          },
-          {
-            foreignKeyName: "alliances_server_id_fkey"
-            columns: ["server_id"]
-            isOneToOne: false
-            referencedRelation: "servers"
-            referencedColumns: ["server_id"]
-          },
-        ]
+        Insert: {
+          alliance_id?: string | null
+          code?: string | null
+          cross_rank_climb?: number | null
+          cross_rank_first?: number | null
+          cross_rank_last?: number | null
+          first_at?: string | null
+          is_own?: boolean | null
+          last_at?: string | null
+          member_count?: number | null
+          name?: string | null
+          power_first?: number | null
+          power_growth?: number | null
+          power_growth_pct?: number | null
+          power_last?: number | null
+          rank_climb?: number | null
+          rank_first?: number | null
+          rank_last?: number | null
+          readings?: number | null
+          server_id?: number | null
+          span_days?: number | null
+        }
+        Update: {
+          alliance_id?: string | null
+          code?: string | null
+          cross_rank_climb?: number | null
+          cross_rank_first?: number | null
+          cross_rank_last?: number | null
+          first_at?: string | null
+          is_own?: boolean | null
+          last_at?: string | null
+          member_count?: number | null
+          name?: string | null
+          power_first?: number | null
+          power_growth?: number | null
+          power_growth_pct?: number | null
+          power_last?: number | null
+          rank_climb?: number | null
+          rank_first?: number | null
+          rank_last?: number | null
+          readings?: number | null
+          server_id?: number | null
+          span_days?: number | null
+        }
+        Relationships: []
       }
       alliance_latest: {
         Row: {
@@ -3328,6 +3610,7 @@ export type Database = {
       }
     }
     Functions: {
+      activity_day_of: { Args: { ts: string }; Returns: string }
       approve_player_claim: {
         Args: { p_user: string }
         Returns: {
@@ -3389,6 +3672,7 @@ export type Database = {
         Args: { p_code: string }
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      refresh_alliance_growth: { Args: never; Returns: undefined }
       refresh_alliance_latest: { Args: never; Returns: undefined }
       refresh_member_roster: { Args: never; Returns: undefined }
       reject_player_claim: {

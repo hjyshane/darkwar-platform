@@ -146,8 +146,13 @@ select is(
   2::bigint,
   'and only people who have actually written something appear at all');
 
--- The last resort. An account with neither is still an author, and the board has
--- to put SOMETHING in the column — a blank cell reads as a rendering fault.
+-- The last resort, rewritten by 0113. This used to answer 'Unknown member', on
+-- the reasoning that a blank cell reads as a rendering fault. Comments made that
+-- the wrong trade: a name we cannot resolve now appears beside dozens of names
+-- we can, and calling that person "Unknown member" states something false about
+-- them where a dash states the truth. The view returns null and each surface
+-- prints its own dash — which is what both readers already did when an author
+-- was missing entirely.
 reset role;
 update public.app_users set display_name = null
   where user_id = '00000000-0000-4000-8000-0000000ef079';
@@ -157,8 +162,8 @@ select pg_temp.act_as('00000000-0000-4000-8000-0000000be079');
 select is(
   (select display_name from public.post_authors
     where user_id = '00000000-0000-4000-8000-0000000ef079'),
-  'Unknown member',
-  'an author with neither a character nor a display name is named as unknown');
+  null::text,
+  'an author with neither a character nor a display name is left unnamed');
 
 -- Somebody signed in with no app_users row is not in the alliance.
 select pg_temp.act_as('00000000-0000-4000-8000-0000000de079');

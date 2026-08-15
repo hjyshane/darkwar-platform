@@ -5,6 +5,7 @@ import { usePermissions } from '../../lib/permissions';
 import { ADMIN_GROUPS, type AdminGroup, adminHash } from '../../lib/route';
 import { useSession } from '../../lib/useSession';
 import { fetchRoster } from '../roster/RosterPanel';
+import { ActivitySetting } from './ActivitySetting';
 import { CollectorHealth } from './CollectorHealth';
 import { DepartedSetting } from './DepartedSetting';
 import { DiscoveryInbox } from './DiscoveryInbox';
@@ -118,6 +119,15 @@ function AccessGroup() {
       <section aria-labelledby="departed-heading">
         <h2 id="departed-heading">Left the alliance</h2>
         <DepartedSetting />
+      </section>
+
+      {/* Beside the member table rather than on the roster, for the same
+          reason departures are: this is a record of who is paying attention,
+          and putting it where the whole alliance reads turns a nudge into a
+          public league table of effort. */}
+      <section aria-labelledby="activity-heading">
+        <h2 id="activity-heading">Activity this week</h2>
+        <ActivitySetting />
       </section>
 
       <section aria-labelledby="permissions-heading">

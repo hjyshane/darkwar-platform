@@ -71,3 +71,11 @@ test('a decided claim reaches the member who filed it', () => {
   expect(queryKeysForTopic('player_claims')).toEqual([['my-claim'], ['player-claims']]);
   expect(queryKeysForTopic('app_users')).toEqual([['session'], ['my-claim'], ['members-admin']]);
 });
+
+test('a comment reaches the thread and the activity score', () => {
+  // Two readers of one write. The thread is the obvious one; the score is the
+  // one that gets forgotten, because it reads comments from a screen that is
+  // nowhere near the post (0114). A comment is worth 2 points the moment it
+  // exists, and the admin table should not sit a staleTime behind saying 0.
+  expect(queryKeysForTopic('post_comments')).toEqual([['comments'], ['activity-scores']]);
+});

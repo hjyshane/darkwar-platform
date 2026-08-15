@@ -6,6 +6,11 @@ export type AppRole = 'viewer' | 'member' | 'officer' | 'admin';
 export interface SessionState {
   email: string | null;
   role: AppRole;
+  /** The auth uuid, for the few places that have to name the caller in a row
+   * they are writing — recording activity (0114) is the first. Read from the
+   * session that was already fetched here rather than by a second
+   * `auth.getUser()` round trip at every call site. Null when signed out. */
+  userId: string | null;
 }
 
 /** Who the viewer is, as the database sees it.
@@ -24,8 +29,9 @@ export function useSession() {
     queryFn: async (): Promise<SessionState> => {
       const { data } = await supabase.auth.getSession();
       const email = data.session?.user.email ?? null;
+      const userId = data.session?.user.id ?? null;
       if (email === null) {
-        return { email: null, role: 'viewer' };
+        return { email: null, role: 'viewer', userId: null };
       }
       // A viewer's own row is readable via the self_read policy; no row at
       // all is the normal state for an account nobody has admitted yet.
@@ -37,6 +43,7 @@ export function useSession() {
       const role = rows?.[0]?.role;
       return {
         email,
+        userId,
         role: role === 'member' || role === 'officer' || role === 'admin' ? role : 'viewer',
       };
     },

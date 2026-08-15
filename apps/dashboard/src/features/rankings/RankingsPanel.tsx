@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useRecordActivity } from '../../lib/activity';
 import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
 import { type AllianceRankingRow, AllianceRankingTable } from './AllianceRankingTable';
@@ -30,6 +31,8 @@ async function fetchAllianceRankings(): Promise<AllianceRankingRow[]> {
 }
 
 export function RankingsPanel() {
+  // The alliance board, for the activity score (0114).
+  useRecordActivity('rank_alliance');
   const { data, error, isPending } = useQuery({
     queryKey: ['rankings'],
     queryFn: fetchAllianceRankings,
