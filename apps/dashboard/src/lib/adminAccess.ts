@@ -55,6 +55,16 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
   // join_codes still keys on the role directly (0021), not a capability.
   { group: 'access', id: 'join-codes-heading', heading: 'Invitations', requires: adminOnly },
   { group: 'access', id: 'departed-heading', heading: 'Left the alliance', requires: null },
+  // activity_events, activity_scores -> members.manage. Read-only, but the
+  // requirement is named rather than left null: `null` here means "showing
+  // this to anyone who can reach the page is fine", and a table of who has
+  // been paying attention is not that. The view enforces it either way.
+  {
+    group: 'access',
+    id: 'activity-heading',
+    heading: 'Activity this week',
+    requires: capability('members.manage'),
+  },
   {
     group: 'access',
     id: 'permissions-heading',

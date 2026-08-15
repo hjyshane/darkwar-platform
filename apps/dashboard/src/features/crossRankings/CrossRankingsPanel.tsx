@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
+import { useRecordActivity } from '../../lib/activity';
 import { serverHash } from '../../lib/route';
 import { TERMS } from '../../lib/terms';
 import { CrossRankingTable } from './CrossRankingTable';
@@ -31,6 +32,10 @@ function ServerLinks({ rows }: { rows: readonly { server_id: number | null }[] }
 }
 
 export function CrossRankingsPanel() {
+  // The server board, for the activity score (0114). Once a day whatever the
+  // reader does here: switching between the boards in this panel is reading
+  // one screen, not opening three.
+  useRecordActivity('rank_server');
   const [boardId, setBoardId] = useState<BoardId>('power');
   const board = boardById(boardId);
   const { data, error, isPending } = useQuery({

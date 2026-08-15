@@ -19,6 +19,7 @@ import { PlayerPage } from './features/player/PlayerPage';
 import { RankingsPanel } from './features/rankings/RankingsPanel';
 import { RosterPanel } from './features/roster/RosterPanel';
 import { ServerPage } from './features/server/ServerPage';
+import { useRecordActivity } from './lib/activity';
 import { isAllowed, usePermissions } from './lib/permissions';
 import { queryKeysForTopic, subscribeDataChanges } from './lib/realtime';
 import { rememberReturnTo } from './lib/returnTo';
@@ -373,6 +374,12 @@ function Shell({
   useEffect(() => {
     rememberReturnTo(hash, walled);
   }, [hash, walled]);
+
+  // Signing in scores a point, once a day (0114). Here rather than in the
+  // login form, because most sessions do not pass through that form at all —
+  // the token is restored from storage and the member simply arrives. What is
+  // being counted is "showed up today", which is exactly this moment.
+  useRecordActivity('login');
 
   return (
     <>

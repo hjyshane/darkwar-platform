@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { FavouriteButton } from '../../components/FavouriteButton';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
 import { StatTile } from '../../components/StatTile';
+import { useRecordActivity } from '../../lib/activity';
 import { leagueLabel } from '../../lib/arenaLeague';
 import { formatLastOnline } from '../../lib/freshness';
 import { allianceHash, serverHash } from '../../lib/route';
@@ -302,6 +303,10 @@ const CONTRIBUTION_LABELS: [string, string][] = [
 ];
 
 export function PlayerPage({ playerId, now }: { playerId: string; now?: Date }) {
+  // The player board, for the activity score (0114). Once a day regardless of
+  // how many players are opened — the point is that somebody looked at the
+  // roster's detail today, not how far they browsed.
+  useRecordActivity('rank_player');
   const { signedIn, isFavourite, toggle } = useFavourites();
   const { data, error, isPending } = useQuery({
     queryKey: ['player', playerId],

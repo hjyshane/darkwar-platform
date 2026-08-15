@@ -34,7 +34,13 @@ const TOPIC_QUERY_KEYS: Record<string, readonly (readonly string[])[]> = {
   // Nothing here goes to Discord — 0113 says why, and it is deliberate: the
   // notify worker's backlog windows exist to stop exactly this kind of
   // traffic reaching a channel.
-  post_comments: [['comments']],
+  //
+  // `activity-scores` rides along because a comment is worth 2 points (0114)
+  // and the score is the one screen that reads a comment without being on the
+  // post. Without it the admin table sits a minute behind its own inputs — the
+  // number was written the moment the comment was, and the trigger to say so
+  // already exists.
+  post_comments: [['comments'], ['activity-scores']],
   // Naming a hero has to reach the arena board that prints the name, not
   // just the admin page where it was typed — and deleting one has to reach
   // it too, so that the board falls back to the id straight away.
