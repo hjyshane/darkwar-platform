@@ -1,6 +1,7 @@
 import { Pager } from '../../components/Pager';
 import { RichTitle } from '../../components/RichText';
 import type { BoardPage, BoardPost } from './board';
+import { hotPostIds, topPostId } from './views';
 
 /** A board: titles with their byline underneath, the shape the post page uses.
  *
@@ -23,6 +24,9 @@ function Row({
   hrefFor,
   authors,
   commentCount,
+  viewCount,
+  hot,
+  top,
   read,
   tagLabel,
 }: {
@@ -33,6 +37,13 @@ function Row({
    * of counts reads as a measurement, and "nobody has answered" is better said
    * by the absence of the mark. */
   commentCount: number;
+  /** Opens, all time. Printed beside the comment count; zero prints nothing,
+   * for the same reason a "0" in a column of counts reads as a measurement. */
+  viewCount: number;
+  /** Busy in the last seven days (0119). Decays, unlike `top`. */
+  hot: boolean;
+  /** The most-read post on this board, all time. At most one. */
+  top: boolean;
   read: boolean;
   tagLabel: (tag: string | null) => string | null;
 }) {
@@ -53,6 +64,11 @@ function Row({
           {commentCount}
         </span>
       )}
+      {/* Two tags answering two questions: `top` is the most-read post on the
+          board and changes rarely, `hot` is about this week and decays. A post
+          can be both, and the order puts the rarer one first. */}
+      {top && <span className="badge badge-top">top</span>}
+      {hot && <span className="badge badge-hot">hot</span>}
       {post.pinned && <span className="badge badge-fresh">pinned</span>}
       {post.liveAt === null && <span className="badge badge-missing">draft</span>}
       {/* Unread said in words as well as in weight, because bold alone is not
@@ -66,6 +82,15 @@ function Row({
         <time dateTime={post.liveAt ?? post.createdAt}>
           {day.format(new Date(post.liveAt ?? post.createdAt))}
         </time>
+        {/* Down here with the dates rather than up beside the title: how many
+            people opened something is context once you are already reading the
+            entry, not a reason to pick it out of a list. The comment count is
+            the one that belongs next to the title. */}
+        {viewCount > 0 && (
+          <span className="post-views">
+            {viewCount} view{viewCount === 1 ? '' : 's'}
+          </span>
+        )}
         {/* Only when it differs, as on the post page: an "edited" stamp on
             every entry would say nothing. */}
         {post.updatedAt !== post.createdAt && (
@@ -92,6 +117,12 @@ export function BoardList({
   if (data.posts.length === 0 && data.pinned.length === 0) {
     return <p className="empty">{empty}</p>;
   }
+  // Scored across everything on screen, pinned included: "the most read post"
+  // that skipped the pinned ones would be a different claim from the one the
+  // tag makes.
+  const onScreen = [...data.pinned, ...data.posts].map((post) => post.id);
+  const hot = hotPostIds(data.views, data.commentCounts, onScreen);
+  const top = topPostId(data.views, onScreen);
   return (
     <>
       <ul className="board-list">
@@ -102,10 +133,13 @@ export function BoardList({
             key={post.id}
             authors={data.authors}
             commentCount={data.commentCounts[post.id] ?? 0}
+            hot={hot.has(post.id)}
             hrefFor={hrefFor}
             post={post}
             read={data.read.has(post.id)}
             tagLabel={tagLabel}
+            top={top === post.id}
+            viewCount={data.views[post.id]?.total ?? 0}
           />
         ))}
         {data.posts.map((post) => (
@@ -113,10 +147,13 @@ export function BoardList({
             key={post.id}
             authors={data.authors}
             commentCount={data.commentCounts[post.id] ?? 0}
+            hot={hot.has(post.id)}
             hrefFor={hrefFor}
             post={post}
             read={data.read.has(post.id)}
             tagLabel={tagLabel}
+            top={top === post.id}
+            viewCount={data.views[post.id]?.total ?? 0}
           />
         ))}
       </ul>

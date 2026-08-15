@@ -13,6 +13,7 @@ import {
   useNeighbours,
 } from './board';
 import { useScraps, useToggleScrap } from './scraps';
+import { useRecordView } from './views';
 
 /** One post, on its own page.
  *
@@ -51,6 +52,10 @@ export function BoardPostPage({
   children?: React.ReactNode;
 }) {
   const markRead = useMarkRead(config);
+  // Every open counts (0119), unlike the read mark above which is once per
+  // account. The function refuses viewers and drafts, so this is safe to fire
+  // before we know whether the post loaded.
+  useRecordView(config, postId);
 
   const { data, error, isPending } = useQuery({
     queryKey: ['post', config.table, postId],
