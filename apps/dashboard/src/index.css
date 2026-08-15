@@ -2517,6 +2517,97 @@ form select {
   font-style: italic;
 }
 
+/* The thread under a post.
+ *
+ * ONE COLUMN AT EVERY WIDTH, and no sticky composer. These boards are read on
+ * a phone in the ten minutes before a rally; a side rail or a bar pinned over
+ * the keyboard costs more screen than it saves. The reply indent is the only
+ * horizontal structure here and it stops at one level, which is the same
+ * decision the database enforces (0113).
+ */
+.comments {
+  border-top: 1px solid var(--border);
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+}
+
+.comments h3 {
+  align-items: center;
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+/* The number, not another grey word. "Comments 4" answers the question
+ * somebody scrolling past the post is actually asking. */
+.comment-count {
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  padding: 0 var(--space-2);
+}
+
+.comment-list,
+.comment-replies {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.comment {
+  padding: var(--space-3) 0;
+}
+
+/* Between comments, not around them. A box per comment turns a short thread
+ * into a stack of cards and doubles its height for no added meaning. */
+.comment-list > .comment + .comment {
+  border-top: 1px solid var(--border);
+}
+
+/* The one indent. A rule down the left rather than a wider margin: it says
+ * "these answer that" while costing four pixels of text width instead of
+ * thirty — which on a 360px screen is the difference between a readable reply
+ * and a column of single words. */
+.comment-replies {
+  border-left: 2px solid var(--border);
+  margin-top: var(--space-2);
+  padding-left: var(--space-3);
+}
+
+.comment-body {
+  margin: var(--space-2) 0 0;
+  /* The only formatting a comment needs. Somebody typing a list of times or
+   * co-ordinates gets the line breaks they typed. */
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.comment-deleted {
+  color: var(--fg-muted);
+  font-style: italic;
+  margin: var(--space-2) 0 0;
+}
+
+.comment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.comment-composer {
+  margin-top: var(--space-3);
+}
+
+.comment-composer textarea {
+  box-sizing: border-box;
+  min-height: 4.5rem;
+  resize: vertical;
+  width: 100%;
+}
+
 /* Previous, the list, next — in the order they sit on the board, newest left.
  * Below the post, because that is where somebody who has finished reading is
  * looking; the only way back used to be six grey words above the title. */

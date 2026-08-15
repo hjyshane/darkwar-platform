@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { RichText, RichTitle } from '../../components/RichText';
 import { supabase } from '../../lib/supabase';
+import { Comments } from './PostComments';
 import {
   type BoardConfig,
   GUIDE_COLUMNS,
@@ -165,6 +166,11 @@ export function BoardPostPage({
           <RichText body={post.body} />
         )}
       </article>
+      {/* Between the post and the way out of it. The thread is part of reading
+          this post, so it comes before the previous/list/next row — that row is
+          for somebody who has finished, and a reader who has not seen the
+          comments has not. */}
+      <Comments config={config} postId={post.id} />
       <PostNav
         backHref={backHref}
         backLabel={backLabel}
