@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
-import { RichText, RichTitle } from '../../components/RichText';
+import { RichTitle } from '../../components/RichText';
+import { noticeHash } from '../../lib/route';
 import { supabase } from '../../lib/supabase';
 
 /** Notices an admin wrote, on the screen everyone lands on.
@@ -61,86 +61,11 @@ async function fetchAnnouncements(): Promise<Announcement[]> {
   return data ?? [];
 }
 
-const when = new Intl.DateTimeFormat('en-GB', {
-  dateStyle: 'medium',
-  timeStyle: 'short',
-  timeZone: 'UTC',
-});
-
+// Date only. The to-the-minute format went with the dialog: this block lists
+// notices, and the notice's own page is where the exact time belongs.
 const day = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeZone: 'UTC' });
 
-function windowLabel(a: Announcement): string | null {
-  if (a.starts_at === null && a.ends_at === null) {
-    return null;
-  }
-  const from = a.starts_at ? when.format(new Date(a.starts_at)) : null;
-  const to = a.ends_at ? when.format(new Date(a.ends_at)) : null;
-  // UTC throughout, spelled out. The game week resets at 02:00 UTC and the
-  // alliance spans eight servers' worth of people in different places; a
-  // notice that says "Saturday 2am" in the reader's own zone is the one way
-  // to get everybody there at a different time.
-  if (from && to) {
-    return `${from} – ${to} UTC`;
-  }
-  return from ? `from ${from} UTC` : `until ${to} UTC`;
-}
-
-/** The body of one notice, in a modal.
- *
- * `showModal()` from an effect rather than the `open` attribute: `open` renders a
- * dialog that is visible but NOT modal — no focus trap, no Escape, no backdrop.
- * The two look identical until somebody tries to tab out of it.
- *
- * No click-the-backdrop-to-close. It needs a click handler on the dialog itself,
- * which `lint/a11y/useKeyWithClickEvents` flags and which cannot be suppressed
- * from inside a JSX attribute list. Escape closes it natively and there is a
- * Close button, so the nicety was not worth an unsuppressible warning standing in
- * the build forever.
- */
-function NoticeDialog({ notice, onClose }: { notice: Announcement; onClose: () => void }) {
-  const ref = useRef<HTMLDialogElement>(null);
-
-  useEffect(() => {
-    ref.current?.showModal();
-  }, []);
-
-  return (
-    <dialog
-      className="notice-dialog"
-      // Escape fires `cancel`, and the browser then closes it without telling
-      // React — so the state has to be cleared here or reopening the same notice
-      // does nothing.
-      onCancel={onClose}
-      onClose={onClose}
-      ref={ref}
-    >
-      <h3>
-        <RichTitle title={notice.title} />
-      </h3>
-      <p className="subtle">
-        Posted {day.format(new Date(notice.created_at))} UTC
-        {windowLabel(notice) && ` · ${windowLabel(notice)}`}
-      </p>
-      {/* A small markup subset — bold, italic, code, links, bullets, headings —
-          parsed into React elements by `lib/richText`. Never HTML: nothing hands
-          the body to the DOM as markup, so a `<script>` an author types renders
-          as those characters rather than being stripped by a sanitizer that has
-          to stay ahead of every trick. Link hrefs are allowlisted to http(s).
-          Emoji were always fine; they are just characters. */}
-      {notice.body.trim() !== '' ? (
-        <RichText body={notice.body} />
-      ) : (
-        <p className="empty">This notice has no body — the title is all of it.</p>
-      )}
-      <button onClick={() => ref.current?.close()} type="button">
-        Close
-      </button>
-    </dialog>
-  );
-}
-
 export function AnnouncementsBlock() {
-  const [open, setOpen] = useState<string | null>(null);
   const { data, error, isPending } = useQuery({
     queryKey: ['announcements'],
     queryFn: fetchAnnouncements,
@@ -154,7 +79,6 @@ export function AnnouncementsBlock() {
   }
 
   const notices = data ?? [];
-  const opened = notices.find((item) => item.announcement_id === open) ?? null;
 
   return (
     <section aria-labelledby="announcements-heading">
@@ -166,27 +90,28 @@ export function AnnouncementsBlock() {
             className={item.pinned ? 'notice notice-pinned' : 'notice'}
             key={item.announcement_id}
           >
-            {/* A button, not the li itself: opening a dialog is an action, and a
-                clickable li is invisible to the keyboard. */}
-            <button
-              className="notice-open"
-              onClick={() => setOpen(item.announcement_id)}
-              type="button"
-            >
+            {/* A LINK TO THE NOTICE'S OWN PAGE, not a dialog.
+                This opened a read-only dialog until notices gained comments
+                (0113). The dialog had no thread and no way to reach one, so a
+                member reading the front page — which on a phone is most of
+                them — could see a notice and had nowhere to answer it. The
+                post page is also the only renderer that stays in step with the
+                board; the dialog was a second copy of "how a notice looks",
+                and it has gone with this change. */}
+            <a className="notice-open" href={noticeHash(item.announcement_id)}>
               <span className="notice-title">
                 <RichTitle title={item.title} />
               </span>
               <span className="subtle">{day.format(new Date(item.created_at))}</span>
               {item.pinned && <span className="badge badge-fresh">pinned</span>}
               {item.visibility === 'member' && <span className="badge">alliance</span>}
-            </button>
+            </a>
           </li>
         ))}
       </ul>
       <p className="subtle">
         <a href="#/notices">All notices →</a>
       </p>
-      {opened !== null && <NoticeDialog notice={opened} onClose={() => setOpen(null)} />}
     </section>
   );
 }

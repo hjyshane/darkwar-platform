@@ -187,13 +187,15 @@ export const NAV_TABS: ReadonlyArray<{ route: Route; hash: string; label: string
   // first — the overview answers "how are we doing" before the table
   // answers "who did what".
   { route: 'overview', hash: '#/', label: 'Overview' },
+  // Straight after the overview, because these two are the ones the alliance
+  // reads every day and writes to each other on. Everything below is a board
+  // the game produced; this is what the alliance said about it, and burying
+  // it behind four tables of figures made it the hardest thing to reach on a
+  // phone.
+  { route: 'notices', hash: '#/notices', label: 'Notices' },
+  { route: 'guides', hash: '#/guides', label: 'Guides' },
   { route: 'members', hash: '#/members', label: 'Members' },
   { route: 'rankings', hash: '#/rankings', label: 'Alliance Ranking' },
   { route: 'crossRankings', hash: '#/cross-server', label: 'Cross-Server' },
   { route: 'arena', hash: '#/arena', label: 'Arena' },
-  // Last, because it is the one tab that is not a board the game produced —
-  // everything left of it is observation, and this is what the alliance wrote
-  // about it.
-  { route: 'notices', hash: '#/notices', label: 'Notices' },
-  { route: 'guides', hash: '#/guides', label: 'Guides' },
 ];
