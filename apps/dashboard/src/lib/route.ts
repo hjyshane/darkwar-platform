@@ -28,7 +28,7 @@ export type Route =
   | 'guide'
   | 'notices'
   | 'notice'
-  | 'mine'
+  | 'account'
   | 'login';
 
 const ROUTES: Record<string, Route> = {
@@ -37,7 +37,7 @@ const ROUTES: Record<string, Route> = {
   '#/cross-server': 'crossRankings',
   '#/arena': 'arena',
   '#/month-cards': 'monthCards',
-  '#/mine': 'mine',
+  '#/account': 'account',
   '#/guides': 'guides',
   '#/notices': 'notices',
   '#/login': 'login',
@@ -64,7 +64,13 @@ export const ADMIN_GROUPS: ReadonlyArray<{ group: AdminGroup; label: string }> =
 // disagree. A group this does not name falls through to the landing screen,
 // the same as `#/arena/extra` — an invented address should not silently
 // render Access and look like it worked.
-const ADMIN_HASH = new RegExp(`^#/admin(?:/(${ADMIN_GROUPS.map((g) => g.group).join('|')}))?$`);
+// Two levels now: the group, and optionally which of its sections is open.
+// Each settings group held five stacked panels and every one of them queried
+// on mount; a section at a time means one address per screen, which is also
+// what makes a link to a particular setting possible.
+const ADMIN_HASH = new RegExp(
+  `^#/admin(?:/(${ADMIN_GROUPS.map((g) => g.group).join('|')})(?:/([a-z0-9-]+))?)?$`,
+);
 
 /** The group an `#/admin/...` address names, or null for any other address.
  *
@@ -75,8 +81,18 @@ export function adminGroupFromHash(hash: string): AdminGroup | null {
   return match === null ? null : ((match[1] as AdminGroup | undefined) ?? 'access');
 }
 
-export function adminHash(group: AdminGroup): string {
-  return `#/admin/${group}`;
+/** Which section of the group the address names, or null for "the first one".
+ *
+ * Null rather than a default here on purpose: this file knows the shape of an
+ * address, and which section a group starts with is a fact about the settings
+ * list. `AdminPage` fills it in from there. */
+export function adminSectionFromHash(hash: string): string | null {
+  const match = ADMIN_HASH.exec(hash);
+  return match?.[2] ?? null;
+}
+
+export function adminHash(group: AdminGroup, section?: string): string {
+  return section === undefined ? `#/admin/${group}` : `#/admin/${group}/${section}`;
 }
 
 // The one address that carries a value. Digits only: a server id is a

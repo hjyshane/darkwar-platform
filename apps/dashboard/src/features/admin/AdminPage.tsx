@@ -1,5 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
-import { canWriteAnything, describe, missingIn } from '../../lib/adminAccess';
+import {
+  canWriteAnything,
+  describe,
+  missingIn,
+  sectionSlug,
+  sectionsIn,
+} from '../../lib/adminAccess';
 import { fieldsOf } from '../../lib/memberFormulas';
 import { usePermissions } from '../../lib/permissions';
 import { ADMIN_GROUPS, type AdminGroup, adminHash } from '../../lib/route';
@@ -42,12 +48,20 @@ import { TableLayoutSetting } from './TableLayoutSetting';
  * column, and was told they could not. `lib/adminAccess.ts` holds the map of
  * section to requirement and why each one is shaped the way it is.
  */
-export function AdminPage({ group }: { group: AdminGroup }) {
+export function AdminPage({ group, section }: { group: AdminGroup; section: string | null }) {
   const { data: session } = useSession();
   const { data: permissions } = usePermissions();
   const role = session?.role;
   const grants = permissions?.grants;
   const missing = missingIn(group, role, grants);
+  // One panel per address. Every section in a group used to mount at once,
+  // which meant opening Access ran five screens' worth of queries to read one
+  // of them — and on a phone the answer you wanted was four scrolls down.
+  // An unknown slug falls back to the first section rather than rendering an
+  // empty group, the same way an unknown group falls back to the overview.
+  const sections = sectionsIn(group);
+  const open = sections.find((entry) => sectionSlug(entry) === section) ?? sections[0];
+  const openSlug = open === undefined ? '' : sectionSlug(open);
 
   return (
     <main>
@@ -88,80 +102,111 @@ export function AdminPage({ group }: { group: AdminGroup }) {
             </a>
           ))}
         </nav>
+        {/* The sections of this group, one of which is on screen. Same markup
+            as the group bar above it, so the two selected states cannot drift
+            apart. */}
+        <nav aria-label={`${group} settings`} className="tabs subtabs">
+          {sections.map((entry) => (
+            <a
+              key={entry.id}
+              aria-current={sectionSlug(entry) === openSlug ? 'page' : undefined}
+              className="tab"
+              href={adminHash(group, sectionSlug(entry))}
+            >
+              {entry.heading}
+            </a>
+          ))}
+        </nav>
       </section>
 
-      {group === 'access' && <AccessGroup />}
-      {group === 'alliance' && <AllianceGroup />}
-      {group === 'display' && <DisplayGroup />}
-      {group === 'catalogue' && <CatalogueGroup />}
-      {group === 'operations' && <OperationsGroup />}
+      {group === 'access' && <AccessGroup section={openSlug} />}
+      {group === 'alliance' && <AllianceGroup section={openSlug} />}
+      {group === 'display' && <DisplayGroup section={openSlug} />}
+      {group === 'catalogue' && <CatalogueGroup section={openSlug} />}
+      {group === 'operations' && <OperationsGroup section={openSlug} />}
     </main>
   );
 }
 
 /** Who is in, and what they may do once they are. */
-function AccessGroup() {
+function AccessGroup({ section }: { section: string }) {
   return (
     <>
-      <section aria-labelledby="members-heading">
-        <h2 id="members-heading">Members</h2>
-        <MembersSetting />
-      </section>
+      {section === 'members' && (
+        <section aria-labelledby="members-heading">
+          <h2 id="members-heading">Members</h2>
+          <MembersSetting />
+        </section>
+      )}
 
-      <section aria-labelledby="join-codes-heading">
-        <h2 id="join-codes-heading">Invitations</h2>
-        <JoinCodesSetting />
-      </section>
+      {section === 'join-codes' && (
+        <section aria-labelledby="join-codes-heading">
+          <h2 id="join-codes-heading">Invitations</h2>
+          <JoinCodesSetting />
+        </section>
+      )}
 
       {/* Not on the roster. A departure is administrative tidying-up, and
           showing it where the whole alliance reads the member table turns it
           into an announcement nobody asked for. */}
-      <section aria-labelledby="departed-heading">
-        <h2 id="departed-heading">Left the alliance</h2>
-        <DepartedSetting />
-      </section>
+      {section === 'departed' && (
+        <section aria-labelledby="departed-heading">
+          <h2 id="departed-heading">Left the alliance</h2>
+          <DepartedSetting />
+        </section>
+      )}
 
       {/* Beside the member table rather than on the roster, for the same
           reason departures are: this is a record of who is paying attention,
           and putting it where the whole alliance reads turns a nudge into a
           public league table of effort. */}
-      <section aria-labelledby="activity-heading">
-        <h2 id="activity-heading">Activity this week</h2>
-        <ActivitySetting />
-      </section>
+      {section === 'activity' && (
+        <section aria-labelledby="activity-heading">
+          <h2 id="activity-heading">Activity this week</h2>
+          <ActivitySetting />
+        </section>
+      )}
 
-      <section aria-labelledby="permissions-heading">
-        <h2 id="permissions-heading">Permissions</h2>
-        <PermissionsSetting />
-      </section>
+      {section === 'permissions' && (
+        <section aria-labelledby="permissions-heading">
+          <h2 id="permissions-heading">Permissions</h2>
+          <PermissionsSetting />
+        </section>
+      )}
     </>
   );
 }
 
 /** Facts about our own alliance, and how it grades people. */
-function AllianceGroup() {
+function AllianceGroup({ section }: { section: string }) {
   return (
     <>
-      <section aria-labelledby="own-alliance-heading">
-        <h2 id="own-alliance-heading">Our alliance</h2>
-        <OwnAllianceSetting />
-      </section>
+      {section === 'own-alliance' && (
+        <section aria-labelledby="own-alliance-heading">
+          <h2 id="own-alliance-heading">Our alliance</h2>
+          <OwnAllianceSetting />
+        </section>
+      )}
 
-      <section aria-labelledby="rank-tiers-heading">
-        <h2 id="rank-tiers-heading">How ranks are decided</h2>
-        <RankTiersSetting />
-      </section>
+      {section === 'rank-tiers' && (
+        <section aria-labelledby="rank-tiers-heading">
+          <h2 id="rank-tiers-heading">How ranks are decided</h2>
+          <RankTiersSetting />
+        </section>
+      )}
 
-      <section aria-labelledby="rank-report-heading">
-        <h2 id="rank-report-heading">Rank changes</h2>
-        <RankReportSetting />
-      </section>
+      {section === 'rank-report' && (
+        <section aria-labelledby="rank-report-heading">
+          <h2 id="rank-report-heading">Rank changes</h2>
+          <RankReportSetting />
+        </section>
+      )}
     </>
   );
 }
 
 /** What the dashboard puts in front of everybody else. */
-function DisplayGroup() {
+function DisplayGroup({ section }: { section: string }) {
   // A member formula runs on one member, so the preview needs one. Same
   // query the Members tab runs, so the preview cannot drift from the rows
   // the formula will actually meet. The roster comes back strongest first,
@@ -176,34 +221,42 @@ function DisplayGroup() {
 
   return (
     <>
-      <section aria-labelledby="metrics-heading">
-        <h2 id="metrics-heading">Overview figures</h2>
-        <OverviewMetricsSetting />
-      </section>
+      {section === 'metrics' && (
+        <section aria-labelledby="metrics-heading">
+          <h2 id="metrics-heading">Overview figures</h2>
+          <OverviewMetricsSetting />
+        </section>
+      )}
 
-      <section aria-labelledby="formulas-heading">
-        <h2 id="formulas-heading">Member columns</h2>
-        <FormulaSetting
-          sampleName={sample?.current_name ?? null}
-          values={sample === null ? {} : fieldsOf(sample)}
-        />
-      </section>
+      {section === 'formulas' && (
+        <section aria-labelledby="formulas-heading">
+          <h2 id="formulas-heading">Member columns</h2>
+          <FormulaSetting
+            sampleName={sample?.current_name ?? null}
+            values={sample === null ? {} : fieldsOf(sample)}
+          />
+        </section>
+      )}
 
-      <section aria-labelledby="table-layout-heading">
-        <h2 id="table-layout-heading">Table columns</h2>
-        <TableLayoutSetting />
-      </section>
+      {section === 'table-layout' && (
+        <section aria-labelledby="table-layout-heading">
+          <h2 id="table-layout-heading">Table columns</h2>
+          <TableLayoutSetting />
+        </section>
+      )}
 
       {/* Notices used to be edited here. Writing one is not configuring the
           dashboard, so it moved to the board it appears on (`#/notices`), where
           the draft sits among the notices it will join. */}
-      <section aria-labelledby="notices-heading">
-        <h2 id="notices-heading">Notices</h2>
-        <p className="subtle">
-          Posting and editing notices moved to the <a href="#/notices">Notices board</a>, which
-          shows expired ones too.
-        </p>
-      </section>
+      {section === 'notices' && (
+        <section aria-labelledby="notices-heading">
+          <h2 id="notices-heading">Notices</h2>
+          <p className="subtle">
+            Posting and editing notices moved to the <a href="#/notices">Notices board</a>, which
+            shows expired ones too.
+          </p>
+        </section>
+      )}
     </>
   );
 }
@@ -219,48 +272,58 @@ function DisplayGroup() {
  * and "why did nobody get told" is a question asked next to "is the collector
  * running".
  */
-function OperationsGroup() {
+function OperationsGroup({ section }: { section: string }) {
   return (
     <>
-      <section aria-labelledby="collectors-heading">
-        {/* Not "Collectors": the section holds two tables and the first of
+      {section === 'collectors' && (
+        <section aria-labelledby="collectors-heading">
+          {/* Not "Collectors": the section holds two tables and the first of
             them is already called that, so the same word twice running was
             the first thing visible on the screen. */}
-        <h2 id="collectors-heading">Collector health</h2>
-        <CollectorHealth />
-      </section>
+          <h2 id="collectors-heading">Collector health</h2>
+          <CollectorHealth />
+        </section>
+      )}
 
-      <section aria-labelledby="discovery-heading">
-        <h2 id="discovery-heading">Unrecognized commands</h2>
-        <DiscoveryInbox />
-      </section>
+      {section === 'discovery' && (
+        <section aria-labelledby="discovery-heading">
+          <h2 id="discovery-heading">Unrecognized commands</h2>
+          <DiscoveryInbox />
+        </section>
+      )}
 
       {/* In Operations rather than Access, even though it holds a credential.
           What it configures is the collector's behaviour — the same thing the two
           screens above report on — and an admin looking for "why did nobody get
           told" will look here. */}
-      <section aria-labelledby="notifications-heading">
-        <h2 id="notifications-heading">Discord notifications</h2>
-        <NotificationsSetting />
-      </section>
+      {section === 'notifications' && (
+        <section aria-labelledby="notifications-heading">
+          <h2 id="notifications-heading">Discord notifications</h2>
+          <NotificationsSetting />
+        </section>
+      )}
     </>
   );
 }
 
 /** Reference data somebody types in, not settings that change behaviour —
  *  HeroesSetting's own docstring is what draws this line. */
-function CatalogueGroup() {
+function CatalogueGroup({ section }: { section: string }) {
   return (
     <>
-      <section aria-labelledby="heroes-heading">
-        <h2 id="heroes-heading">Heroes</h2>
-        <HeroesSetting />
-      </section>
+      {section === 'heroes' && (
+        <section aria-labelledby="heroes-heading">
+          <h2 id="heroes-heading">Heroes</h2>
+          <HeroesSetting />
+        </section>
+      )}
 
-      <section aria-labelledby="pets-heading">
-        <h2 id="pets-heading">Pets</h2>
-        <PetsSetting />
-      </section>
+      {section === 'pets' && (
+        <section aria-labelledby="pets-heading">
+          <h2 id="pets-heading">Pets</h2>
+          <PetsSetting />
+        </section>
+      )}
     </>
   );
 }

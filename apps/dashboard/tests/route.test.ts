@@ -6,6 +6,7 @@ import {
   NAV_TABS,
   adminGroupFromHash,
   adminHash,
+  adminSectionFromHash,
   routeFromHash,
   serverHash,
   serverIdFromHash,
@@ -83,10 +84,36 @@ test('bare #/admin is Access, because that address is already in use', () => {
 test('an invented group is not a settings page', () => {
   // Falling back to Access would render a working-looking screen for an
   // address that means nothing, the same trap `#/arena/extra` avoids.
-  for (const hash of ['#/admin/nope', '#/admin/', '#/admin/access/extra', '#/admin/ACCESS']) {
+  for (const hash of ['#/admin/nope', '#/admin/', '#/admin/ACCESS']) {
     expect(routeFromHash(hash)).toBe('overview');
     expect(adminGroupFromHash(hash)).toBeNull();
   }
+});
+
+test('an invented SECTION lands on the group it named', () => {
+  // `#/admin/access/extra` used to be in the list above. The rule narrowed
+  // when settings gained one address per section: the GROUP is still checked
+  // against a real list, but the section is not, because the slugs live in
+  // `adminAccess.ts` alongside the capability each panel needs — and that
+  // file already imports from this one. Validating them here would mean
+  // either a second copy of the list to drift, or a module cycle.
+  //
+  // The failure mode this leaves is mild and the group bar shows it: Access
+  // with its first panel open, which is what `#/admin/access` gives anyway.
+  // An invented GROUP still resolves nowhere.
+  expect(routeFromHash('#/admin/access/extra')).toBe('admin');
+  expect(adminGroupFromHash('#/admin/access/extra')).toBe('access');
+  expect(adminSectionFromHash('#/admin/access/extra')).toBe('extra');
+});
+
+test('a settings address carries its section, and the bare one does not', () => {
+  expect(adminSectionFromHash('#/admin/access/permissions')).toBe('permissions');
+  // Null means "the group's first section" — which section that is belongs to
+  // the settings list, not to the address parser.
+  expect(adminSectionFromHash('#/admin/access')).toBeNull();
+  expect(adminSectionFromHash('#/admin')).toBeNull();
+  expect(adminHash('display', 'formulas')).toBe('#/admin/display/formulas');
+  expect(adminHash('display')).toBe('#/admin/display');
 });
 
 test('the other addresses name no settings group', () => {

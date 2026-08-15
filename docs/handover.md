@@ -7,6 +7,43 @@
 
 ---
 
+## 2026-08-15 상태 (3) — My account 페이지 + 설정 서브탭 (마이그레이션 없음)
+
+**머지 전.** UI 전용, SQL 무변경. `supabase test db` 792/792, vitest 518.
+
+- **`#/mine` → `#/account`, 버튼은 "My account"**, 위치도 헤더의 sign-out 옆
+  (계정 관련 컨트롤 묶음)으로 옮겼다. 탭 6개: Posts / Comments / Favourites /
+  Scraps / My character / Leave.
+- **Favourites는 오버뷰의 `FavouritesBlock`을 그대로 재사용**했다. 같은 행을
+  두 군데서 그리면 어느 한쪽이 먼저 바뀌는 순간 어긋난다.
+- **My character 탭은 `PlayerPage`를 통째로 렌더한다.** 그래서 탭 바가
+  `<main>` 밖에 있다 — PlayerPage가 자기 `<main>`을 들고 오므로 안에 넣으면
+  문서에 `<main>`이 둘이 된다. 실측으로 `main` 1개 확인.
+- **Leave 탭은 `<h2>` 없이 `aria-label`만 준다.** 폼의 버튼이 이미
+  "Leave the alliance"라서 같은 문장을 위에 또 쓰면 강조가 아니라 렌더 오류로
+  읽힌다.
+- **설정은 이제 섹션당 주소 하나** (`#/admin/<group>/<section>`). 전에는 그룹
+  하나 열면 다섯 패널이 전부 마운트돼서 **하나를 읽으려고 다섯 화면 분량의
+  쿼리가 나갔다.** 슬러그는 `id`에서 `-heading`을 뗀 것 — 별도 필드를 두면
+  둘이 어긋날 수 있어서 파생시킨다.
+
+> **`#/admin/access/extra` 규칙이 좁아졌다.** 예전엔 "없는 주소는 아무 데도
+> 안 간다"였는데, 이제 **그룹만 검증하고 섹션은 검증하지 않는다** — 슬러그가
+> `adminAccess.ts`에 있고 그 파일이 이미 `route.ts`를 import하므로, 검증하려면
+> 목록을 복사하거나(드리프트) 모듈 순환을 만들어야 한다. 없는 섹션은 그 그룹의
+> 첫 패널로 떨어지고, 그룹 바가 어디인지 보여준다. **없는 그룹은 여전히 아무
+> 데도 안 간다.** `route.test.ts`에 이유까지 적어 뒀다.
+
+### 함정 추가 — 로컬 더미 admin이 56번을 깨뜨린다
+
+브라우저 검증용 `scout@dev.invalid`를 **admin**으로 심어 두면
+`56_leaving_test`의 19번 "the last admin cannot lock everybody out"이 빨간불이
+된다. admin이 둘이 되어 "마지막"이 아니게 되기 때문이다. 코드 회귀가 아니다 —
+`supabase db reset` 후 792/792. 앞서 적은 47·65·68·69·70의 전역 count 함정과
+같은 부류이고, **이 스위트는 깨끗한 DB를 전제한다**는 규칙의 다섯 번째 사례다.
+
+---
+
 ## 2026-08-15 상태 (2) — 조회수·hot/top·이벤트 보드 (0119~0120)
 
 **머지 전, 프로덕션 미적용.** `supabase test db` **792/792**, vitest 516,
