@@ -5,6 +5,7 @@ import { ReplyAlerts } from './components/ReplyAlerts';
 import { SignOutButton } from './components/SignOutButton';
 import { SyncStatus } from './components/SyncStatus';
 import { ThemeToggle } from './components/ThemeToggle';
+import { AccountPage } from './features/account/AccountPage';
 import { AdminPage } from './features/admin/AdminPage';
 import { AlliancePage } from './features/alliance/AlliancePage';
 import { ArenaPanel } from './features/arena/ArenaPanel';
@@ -12,7 +13,6 @@ import { LoginPage } from './features/auth/LoginPage';
 import { CrossRankingsPanel } from './features/crossRankings/CrossRankingsPanel';
 import { GuidePostPage } from './features/guides/GuidePostPage';
 import { GuidesPanel } from './features/guides/GuidesPanel';
-import { MinePage } from './features/mine/MinePage';
 import { MonthCardsPage } from './features/monthCards/MonthCardsPage';
 import { NoticePostPage } from './features/notices/NoticePostPage';
 import { NoticesPanel } from './features/notices/NoticesPanel';
@@ -30,6 +30,7 @@ import {
   NAV_TABS,
   type Route,
   adminGroupFromHash,
+  adminSectionFromHash,
   allianceHash,
   allianceIdFromHash,
   guideIdFromHash,
@@ -319,6 +320,7 @@ export function App() {
   const guideId = guideIdFromHash(hash);
   const noticeId = noticeIdFromHash(hash);
   const adminGroup = adminGroupFromHash(hash);
+  const adminSection = adminSectionFromHash(hash);
   // Month cards is unlinked on purpose and the sign-in form has no use for
   // a tab bar behind it. A server page keeps the tabs: it is reached FROM
   // one, and taking the way back away would strand the reader.
@@ -327,6 +329,7 @@ export function App() {
     <QueryClientProvider client={queryClient}>
       <Shell
         adminGroup={adminGroup}
+        adminSection={adminSection}
         allianceId={allianceId}
         guideId={guideId}
         hash={hash}
@@ -348,6 +351,7 @@ function Shell({
   guideId,
   noticeId,
   adminGroup,
+  adminSection,
   standalone,
   hash,
 }: {
@@ -358,6 +362,7 @@ function Shell({
   guideId: string | null;
   noticeId: string | null;
   adminGroup: AdminGroup | null;
+  adminSection: string | null;
   standalone: boolean;
   /** The raw hash, only so the wall can remember what was asked for. */
   hash: string;
@@ -407,16 +412,17 @@ function Shell({
               sits here for anybody with a session — including a signed-in
               non-member looking at the wall, who otherwise has no way out of it
               at all. */}
-          {/* Your own things — written posts, comments, scraps. In the header
-              rather than the nav because the nav is alliance data and already
-              wraps on a phone; this is one member's own shelf. Members only:
-              a viewer has nothing to put on it. */}
+          {session?.email != null && <SignOutButton email={session.email} />}
+          {/* Beside the account it belongs to, rather than out with the data
+              controls: posts, comments, favourites, scraps, your character and
+              leaving are all things about YOU, and they read as one cluster
+              next to "signed in as". Members only — a viewer has nothing to
+              put on the shelf. */}
           {isMember && (
-            <a className="header-link" href="#/mine">
-              Mine
+            <a className="header-link" href="#/account">
+              My account
             </a>
           )}
-          {session?.email != null && <SignOutButton email={session.email} />}
           {/* Last, pushed to the right edge (margin-left: auto). For everybody,
               signed in or not: reading the board is the thing the theme
               affects, and the signed-out wall is a screen somebody may be
@@ -437,11 +443,11 @@ function Shell({
       ) : route === 'login' ? (
         <LoginPage />
       ) : route === 'admin' && adminGroup !== null ? (
-        <AdminPage group={adminGroup} />
+        <AdminPage group={adminGroup} section={adminSection} />
       ) : route === 'monthCards' ? (
         <MonthCardsPage />
-      ) : route === 'mine' ? (
-        <MinePage />
+      ) : route === 'account' ? (
+        <AccountPage />
       ) : route === 'guides' ? (
         <GuidesPanel />
       ) : route === 'guide' && guideId !== null ? (

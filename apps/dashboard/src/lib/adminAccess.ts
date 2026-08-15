@@ -41,6 +41,16 @@ export interface AdminSection {
   requires: AdminRequirement | null;
 }
 
+/** The slug an address uses for a section, derived from the heading id it
+ * already carries (`members-heading` -> `members`).
+ *
+ * Derived rather than stored as a second field, so a section cannot end up
+ * with an id and a slug that disagree — the id is already the thing the
+ * `aria-labelledby` on the panel uses. */
+export function sectionSlug(section: AdminSection): string {
+  return section.id.replace(/-heading$/, '');
+}
+
 const capability = (name: string): AdminRequirement => ({ kind: 'capability', capability: name });
 const adminOnly: AdminRequirement = { kind: 'role', role: 'admin' };
 
