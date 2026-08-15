@@ -58,7 +58,7 @@ export type Database = {
             foreignKeyName: "activity_events_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "activity_scores"
+            referencedRelation: "activity_members"
             referencedColumns: ["user_id"]
           },
           {
@@ -1230,7 +1230,7 @@ export type Database = {
             foreignKeyName: "audit_logs_actor_user_id_fkey"
             columns: ["actor_user_id"]
             isOneToOne: false
-            referencedRelation: "activity_scores"
+            referencedRelation: "activity_members"
             referencedColumns: ["user_id"]
           },
           {
@@ -1441,6 +1441,66 @@ export type Database = {
         }
         Relationships: []
       }
+      comment_notifications: {
+        Row: {
+          comment_id: string
+          created_at: string
+          notification_id: string
+          read_at: string | null
+          user_id: string
+        }
+        Insert: {
+          comment_id: string
+          created_at?: string
+          notification_id?: string
+          read_at?: string | null
+          user_id: string
+        }
+        Update: {
+          comment_id?: string
+          created_at?: string
+          notification_id?: string
+          read_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comment_notifications_comment_id_fkey"
+            columns: ["comment_id"]
+            isOneToOne: false
+            referencedRelation: "post_comments"
+            referencedColumns: ["comment_id"]
+          },
+          {
+            foreignKeyName: "comment_notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "activity_members"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "comment_notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "app_user_directory"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "comment_notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "comment_notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "post_authors"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       component_metrics: {
         Row: {
           created_at: string
@@ -1515,24 +1575,30 @@ export type Database = {
       favourites: {
         Row: {
           alliance_id: string | null
+          announcement_id: string | null
           created_at: string
           favourite_id: string
+          guide_id: string | null
           player_id: string | null
           server_id: number | null
           user_id: string
         }
         Insert: {
           alliance_id?: string | null
+          announcement_id?: string | null
           created_at?: string
           favourite_id?: string
+          guide_id?: string | null
           player_id?: string | null
           server_id?: number | null
           user_id: string
         }
         Update: {
           alliance_id?: string | null
+          announcement_id?: string | null
           created_at?: string
           favourite_id?: string
+          guide_id?: string | null
           player_id?: string | null
           server_id?: number | null
           user_id?: string
@@ -1544,6 +1610,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "alliances"
             referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "favourites_announcement_id_fkey"
+            columns: ["announcement_id"]
+            isOneToOne: false
+            referencedRelation: "announcements"
+            referencedColumns: ["announcement_id"]
+          },
+          {
+            foreignKeyName: "favourites_guide_id_fkey"
+            columns: ["guide_id"]
+            isOneToOne: false
+            referencedRelation: "guides"
+            referencedColumns: ["guide_id"]
           },
           {
             foreignKeyName: "favourites_player_id_fkey"
@@ -1690,7 +1770,7 @@ export type Database = {
             foreignKeyName: "join_codes_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
-            referencedRelation: "activity_scores"
+            referencedRelation: "activity_members"
             referencedColumns: ["user_id"]
           },
           {
@@ -1946,7 +2026,7 @@ export type Database = {
             foreignKeyName: "player_claims_decided_by_fkey"
             columns: ["decided_by"]
             isOneToOne: false
-            referencedRelation: "activity_scores"
+            referencedRelation: "activity_members"
             referencedColumns: ["user_id"]
           },
           {
@@ -2578,7 +2658,7 @@ export type Database = {
             foreignKeyName: "post_comments_author_user_id_fkey"
             columns: ["author_user_id"]
             isOneToOne: false
-            referencedRelation: "activity_scores"
+            referencedRelation: "activity_members"
             referencedColumns: ["user_id"]
           },
           {
@@ -2647,6 +2727,42 @@ export type Database = {
           },
           {
             foreignKeyName: "post_reads_guide_id_fkey"
+            columns: ["guide_id"]
+            isOneToOne: false
+            referencedRelation: "guides"
+            referencedColumns: ["guide_id"]
+          },
+        ]
+      }
+      post_views: {
+        Row: {
+          announcement_id: string | null
+          guide_id: string | null
+          view_day: string
+          views: number
+        }
+        Insert: {
+          announcement_id?: string | null
+          guide_id?: string | null
+          view_day: string
+          views?: number
+        }
+        Update: {
+          announcement_id?: string | null
+          guide_id?: string | null
+          view_day?: string
+          views?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_views_announcement_id_fkey"
+            columns: ["announcement_id"]
+            isOneToOne: false
+            referencedRelation: "announcements"
+            referencedColumns: ["announcement_id"]
+          },
+          {
+            foreignKeyName: "post_views_guide_id_fkey"
             columns: ["guide_id"]
             isOneToOne: false
             referencedRelation: "guides"
@@ -2822,7 +2938,7 @@ export type Database = {
             foreignKeyName: "refresh_jobs_requested_by_fkey"
             columns: ["requested_by"]
             isOneToOne: false
-            referencedRelation: "activity_scores"
+            referencedRelation: "activity_members"
             referencedColumns: ["user_id"]
           },
           {
@@ -3015,20 +3131,23 @@ export type Database = {
       }
     }
     Views: {
-      activity_scores: {
+      activity_daily: {
         Row: {
           alliance_days: number | null
           comment_count: number | null
-          comment_points: number | null
-          display_name: string | null
+          day: string | null
           login_days: number | null
-          login_points: number | null
           player_days: number | null
-          ranking_points: number | null
+          points: number | null
           server_days: number | null
-          total_points: number | null
           user_id: string | null
-          week_start: string | null
+        }
+        Relationships: []
+      }
+      activity_members: {
+        Row: {
+          display_name: string | null
+          user_id: string | null
         }
         Relationships: []
       }
@@ -3315,6 +3434,13 @@ export type Database = {
           },
         ]
       }
+      event_scoreboard: {
+        Row: {
+          display_name: string | null
+          points: number | null
+        }
+        Relationships: []
+      }
       member_roster: {
         Row: {
           assigned_rank: string | null
@@ -3535,6 +3661,53 @@ export type Database = {
         }
         Relationships: []
       }
+      post_comment_counts: {
+        Row: {
+          announcement_id: string | null
+          comment_count: number | null
+          guide_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_comments_announcement_id_fkey"
+            columns: ["announcement_id"]
+            isOneToOne: false
+            referencedRelation: "announcements"
+            referencedColumns: ["announcement_id"]
+          },
+          {
+            foreignKeyName: "post_comments_guide_id_fkey"
+            columns: ["guide_id"]
+            isOneToOne: false
+            referencedRelation: "guides"
+            referencedColumns: ["guide_id"]
+          },
+        ]
+      }
+      post_view_stats: {
+        Row: {
+          announcement_id: string | null
+          guide_id: string | null
+          recent_views: number | null
+          total_views: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_views_announcement_id_fkey"
+            columns: ["announcement_id"]
+            isOneToOne: false
+            referencedRelation: "announcements"
+            referencedColumns: ["announcement_id"]
+          },
+          {
+            foreignKeyName: "post_views_guide_id_fkey"
+            columns: ["guide_id"]
+            isOneToOne: false
+            referencedRelation: "guides"
+            referencedColumns: ["guide_id"]
+          },
+        ]
+      }
       rank_period_latest: {
         Row: {
           activity_score: number | null
@@ -3611,6 +3784,16 @@ export type Database = {
     }
     Functions: {
       activity_day_of: { Args: { ts: string }; Returns: string }
+      activity_points: {
+        Args: {
+          p_alliance: number
+          p_comments: number
+          p_logins: number
+          p_player: number
+          p_server: number
+        }
+        Returns: number
+      }
       approve_player_claim: {
         Args: { p_user: string }
         Returns: {
@@ -3666,6 +3849,10 @@ export type Database = {
       }
       record_departure: {
         Args: { p_action: string; p_user: string }
+        Returns: undefined
+      }
+      record_post_view: {
+        Args: { p_announcement_id?: string; p_guide_id?: string }
         Returns: undefined
       }
       redeem_join_code: {

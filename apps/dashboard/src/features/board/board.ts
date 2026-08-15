@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { PAGE_SIZE, pageOf } from '../../lib/pagination';
 import { supabase } from '../../lib/supabase';
+import type { ViewStat } from './views';
 
 /** The two boards, in the one place that knows they are the same shape.
  *
@@ -94,6 +95,13 @@ export interface BoardPage {
   pageCount: number;
   authors: Record<string, string>;
   read: Set<string>;
+  /** Post id to how many live comments it has (0115). Absent means none —
+   * `post_comment_counts` has no row for a post nobody has answered, and the
+   * list prints nothing rather than a zero. */
+  commentCounts: Record<string, number>;
+  /** Post id to opens, all time and in the last seven days (0119). Absent
+   * means nobody has opened it, which the list prints as nothing. */
+  views: Record<string, ViewStat>;
 }
 
 /** One page of a board, with its pinned posts, author names and read marks.
@@ -155,6 +163,15 @@ export function useBoard(config: BoardConfig, page: number) {
       // board whose posts all predate 0079.
       const authors = await supabase.from('post_authors').select('user_id, display_name');
       const reads = await supabase.from('post_reads').select(config.readColumn);
+      // Counted for the whole board rather than for the page on screen: the
+      // view is one row per post that has any comments, which on these boards
+      // is smaller than the page of posts it annotates.
+      const counts = await supabase
+        .from('post_comment_counts')
+        .select(`${config.readColumn}, comment_count`);
+      const views = await supabase
+        .from('post_view_stats')
+        .select(`${config.readColumn}, total_views, recent_views`);
 
       return {
         posts,
@@ -169,6 +186,21 @@ export function useBoard(config: BoardConfig, page: number) {
           (reads.data ?? [])
             .map((row) => (row as Record<string, string | null>)[config.readColumn])
             .filter((value): value is string => value !== null),
+        ),
+        views: Object.fromEntries(
+          (views.data ?? [])
+            .map((row) => row as Record<string, string | number | null>)
+            .filter((row) => row[config.readColumn] !== null)
+            .map((row) => [
+              String(row[config.readColumn]),
+              { total: Number(row.total_views ?? 0), recent: Number(row.recent_views ?? 0) },
+            ]),
+        ),
+        commentCounts: Object.fromEntries(
+          (counts.data ?? [])
+            .map((row) => row as Record<string, string | number | null>)
+            .filter((row) => row[config.readColumn] !== null)
+            .map((row) => [String(row[config.readColumn]), Number(row.comment_count ?? 0)]),
         ),
       };
     },

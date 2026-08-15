@@ -23,6 +23,10 @@ import { supabase } from '../../lib/supabase';
  * edit, and inventing one would create a user the auth system knows nothing
  * about.
  */
+/** Date only. The hour somebody was admitted is not a fact anybody needs,
+ * and a full timestamp in a table this wide costs a column of width. */
+const joined = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeZone: 'UTC' });
+
 interface AppUser {
   user_id: string;
   display_name: string | null;
@@ -35,6 +39,10 @@ interface AppUser {
    * query below ran. */
   email: string | null;
   last_sign_in_at: string | null;
+  /** When the account was admitted. From `app_users.created_at`, which the
+   * directory view (0069) already carried — the row is created by the join
+   * flow, so this is the day somebody actually got in. */
+  created_at: string | null;
 }
 
 /** The fields of an account this screen may write. `email` and
@@ -64,7 +72,7 @@ interface LinkablePlayer {
 async function fetchMembers(): Promise<AppUser[]> {
   const directory = await supabase
     .from('app_user_directory')
-    .select('user_id, display_name, role, game_rank, player_id, email, last_sign_in_at')
+    .select('user_id, display_name, role, game_rank, player_id, email, last_sign_in_at, created_at')
     .order('role')
     .order('display_name', { nullsFirst: false });
   if (directory.error && directory.error.code !== '42501') {
@@ -76,7 +84,7 @@ async function fetchMembers(): Promise<AppUser[]> {
 
   const { data, error } = await supabase
     .from('app_users')
-    .select('user_id, display_name, role, game_rank, player_id')
+    .select('user_id, display_name, role, game_rank, player_id, created_at')
     .order('role')
     .order('display_name', { nullsFirst: false });
   if (error) {
@@ -340,6 +348,10 @@ export function MembersSetting() {
                     another. display_name is whatever the person typed, which
                     is usually nothing. */}
                 <th className="label">Email</th>
+                {/* When they joined. Beside the address rather than at the
+                    end, because "who is new here" is read together with who
+                    they are, not with what they may do. */}
+                <th className="label">Joined</th>
                 <th className="label">Role</th>
                 <th className="label">Rank</th>
                 <th className="label">Player</th>
@@ -360,6 +372,15 @@ export function MembersSetting() {
                       <span className="badge" title="Signed up but has never signed in">
                         never signed in
                       </span>
+                    )}
+                  </td>
+                  <td className="label">
+                    {member.created_at === null ? (
+                      <span className="subtle">—</span>
+                    ) : (
+                      <time dateTime={member.created_at}>
+                        {joined.format(new Date(member.created_at))}
+                      </time>
                     )}
                   </td>
                   <td className="label">

@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useSyncExternalStore } from 'react';
 import { RefreshButton } from './components/RefreshButton';
+import { ReplyAlerts } from './components/ReplyAlerts';
 import { SignOutButton } from './components/SignOutButton';
 import { SyncStatus } from './components/SyncStatus';
 import { ThemeToggle } from './components/ThemeToggle';
@@ -11,6 +12,7 @@ import { LoginPage } from './features/auth/LoginPage';
 import { CrossRankingsPanel } from './features/crossRankings/CrossRankingsPanel';
 import { GuidePostPage } from './features/guides/GuidePostPage';
 import { GuidesPanel } from './features/guides/GuidesPanel';
+import { MinePage } from './features/mine/MinePage';
 import { MonthCardsPage } from './features/monthCards/MonthCardsPage';
 import { NoticePostPage } from './features/notices/NoticePostPage';
 import { NoticesPanel } from './features/notices/NoticesPanel';
@@ -405,6 +407,15 @@ function Shell({
               sits here for anybody with a session — including a signed-in
               non-member looking at the wall, who otherwise has no way out of it
               at all. */}
+          {/* Your own things — written posts, comments, scraps. In the header
+              rather than the nav because the nav is alliance data and already
+              wraps on a phone; this is one member's own shelf. Members only:
+              a viewer has nothing to put on it. */}
+          {isMember && (
+            <a className="header-link" href="#/mine">
+              Mine
+            </a>
+          )}
           {session?.email != null && <SignOutButton email={session.email} />}
           {/* Last, pushed to the right edge (margin-left: auto). For everybody,
               signed in or not: reading the board is the thing the theme
@@ -414,6 +425,9 @@ function Shell({
         </h1>
         {!standalone && isMember && <Nav allianceId={allianceId} route={route} />}
       </header>
+      {/* Above whatever screen the reader came for, because the whole problem
+          it solves is that the answer is somewhere they are not (0117). */}
+      {!standalone && isMember && <ReplyAlerts />}
       {walled ? (
         <SignedOutWall email={session?.email} />
       ) : isPending && !standalone ? (
@@ -426,6 +440,8 @@ function Shell({
         <AdminPage group={adminGroup} />
       ) : route === 'monthCards' ? (
         <MonthCardsPage />
+      ) : route === 'mine' ? (
+        <MinePage />
       ) : route === 'guides' ? (
         <GuidesPanel />
       ) : route === 'guide' && guideId !== null ? (

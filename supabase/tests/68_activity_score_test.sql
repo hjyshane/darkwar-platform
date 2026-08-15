@@ -1,19 +1,22 @@
--- 0114: the activity score counts what happened, once per day, this week.
+-- 0114 + 0118: the activity score counts what happened, once per day, and the
+-- screen totals whatever range it is asked for.
 --
--- The §20.2 negative here is the second assertion: a member reads their own
--- score and nobody else's. It matters more than it looks — a participation
+-- The §20.2 negative is under "WHO MAY READ IT": a member reads their own
+-- activity and nobody else's. It matters more than it looks — a participation
 -- score is a league table of who is paying attention, and publishing it to the
 -- whole alliance turns a nudge into a public ranking of effort that nobody
 -- consented to. `members.manage` sees everybody, and that is the screen it was
--- asked for.
+-- asked for. BOTH views are asserted there, because they gate on different
+-- sources: `activity_daily` on the events, `activity_members` on `app_users`.
 --
--- The rest pins the two rules that make the number mean anything: the daily
--- cap (or the score is farmable by reloading) and the week boundary (or last
--- week's activity props up this week's total).
+-- The rest pins the rules that make the number mean anything: the daily cap
+-- (or the score is farmable by reloading), the 02:00 day boundary (or the hour
+-- before a Monday reset is worth a free login), and one row per day (or no
+-- range but the hard-coded one is answerable at all).
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(18);
+select plan(19);
 
 insert into auth.users (id, instance_id, aud, role, email) values
   ('00000000-0000-4000-8000-0000000a0114', '00000000-0000-0000-0000-000000000000',
@@ -132,18 +135,18 @@ select pg_temp.act_as('00000000-0000-4000-8000-0000000b0114');
 insert into public.post_comments (guide_id, body)
 values ('00000000-0000-4000-8000-000000020114', 'Noted.');
 
--- 1 login + 1 board (0.5) + 1 comment (2) = 3.5
+-- 1 login + 1 board (0.5) + 1 comment (2) = 3.5, all on one day, so one row.
 select is(
-  (select total_points from public.activity_scores
+  (select points from public.activity_daily
     where user_id = '00000000-0000-4000-8000-0000000b0114'),
   3.5::numeric,
   'a login, one board and one comment come to three and a half');
 
 select is(
-  (select comment_points from public.activity_scores
+  (select comment_count from public.activity_daily
     where user_id = '00000000-0000-4000-8000-0000000b0114'),
-  2.0::numeric,
-  'and the comment is worth two of them');
+  1::bigint,
+  'and the comment is counted on the day it was written');
 
 -- THE DELETION RULE this alliance chose: removing a comment takes its points.
 -- This is the whole reason the count is derived from post_comments rather than
@@ -152,18 +155,18 @@ update public.post_comments set deleted_at = now()
  where author_user_id = '00000000-0000-4000-8000-0000000b0114';
 
 select is(
-  (select total_points from public.activity_scores
+  (select points from public.activity_daily
     where user_id = '00000000-0000-4000-8000-0000000b0114'),
   1.5::numeric,
   'deleting the comment takes its two points back');
 
 -- ---------------------------------------------------------------------------
--- THE WEEK BOUNDARY
+-- ONE ROW PER DAY, SO ANY RANGE IS A FILTER (0118)
 -- ---------------------------------------------------------------------------
 
--- Last week's activity is last week's. Inserted as the table owner because the
--- point is to place a row before the current week began, which a member's own
--- client can never do.
+-- Activity from before this week. Inserted as the table owner because the
+-- point is to place a row on an earlier day, which a member's own client can
+-- never do — the generated column takes the day from `occurred_at`.
 reset role;
 insert into public.activity_events (user_id, kind, occurred_at)
 values ('00000000-0000-4000-8000-0000000b0114', 'rank_server',
@@ -171,17 +174,29 @@ values ('00000000-0000-4000-8000-0000000b0114', 'rank_server',
 set local role authenticated;
 select pg_temp.act_as('00000000-0000-4000-8000-0000000b0114');
 
+-- It does not fold into today. That is what makes a range possible at all:
+-- 0114 aggregated the week away, and this member would have had one row.
 select is(
-  (select server_days from public.activity_scores
+  (select count(*) from public.activity_daily
     where user_id = '00000000-0000-4000-8000-0000000b0114'),
-  0::bigint,
-  'an hour before the reset does not count towards this week');
+  2::bigint,
+  'an earlier day is its own row rather than folded into today');
 
+-- ALL TIME is the default the screen uses, and it is simply no filter.
 select is(
-  (select total_points from public.activity_scores
+  (select sum(points) from public.activity_daily
     where user_id = '00000000-0000-4000-8000-0000000b0114'),
+  2.0::numeric,
+  'summed over all time that is two points');
+
+-- THE GAME WEEK IS STILL ONE `where` CLAUSE — 0114's original question did not
+-- become unanswerable, it stopped being the only answer.
+select is(
+  (select coalesce(sum(points), 0) from public.activity_daily
+    where user_id = '00000000-0000-4000-8000-0000000b0114'
+      and day >= public.activity_day_of(public.reset_week_start(now()))),
   1.5::numeric,
-  'and the total is unchanged by it');
+  'and this game week alone is still one and a half');
 
 -- ---------------------------------------------------------------------------
 -- WHO MAY READ IT — the §20.2 negative, and its positive
@@ -205,22 +220,25 @@ select pg_temp.act_as('00000000-0000-4000-8000-0000000b0114');
 -- THE NEGATIVE. A score is a table of who is paying attention; publishing it
 -- to the whole alliance is not what was asked for.
 select is(
-  (select count(*) from public.activity_scores where total_points > 0),
+  (select count(distinct user_id) from public.activity_daily),
   1::bigint,
-  'a member sees a score for themselves and nobody else');
+  'a member sees activity for themselves and nobody else');
 
+-- The name list is gated too, and separately — it reads `app_users` rather
+-- than `activity_events`, so a leak there would expose the roster even with
+-- the daily rows locked down.
 select is(
-  (select count(*) from public.activity_scores),
+  (select count(*) from public.activity_members),
   1::bigint,
   'and cannot even see that the other members exist here');
 
--- And the positive beside it, so the policy is not passing by refusing
--- everybody (0055): the admin sees the same member's real number.
+-- And the positive beside it, so neither view is passing by refusing everybody
+-- (0055): the admin sees the same member's real numbers.
 select pg_temp.act_as('00000000-0000-4000-8000-0000000a0114');
 select is(
-  (select total_points from public.activity_scores
+  (select sum(points) from public.activity_daily
     where user_id = '00000000-0000-4000-8000-0000000b0114'),
-  1.5::numeric,
+  2.0::numeric,
   'somebody who manages members sees everybody''s');
 
 -- Every member appears, including the ones who have done nothing — the screen
@@ -234,7 +252,7 @@ select is(
 -- local dashboard — which is exactly what happened while this was being
 -- written.
 select bag_eq(
-  $$ select user_id from public.activity_scores
+  $$ select user_id from public.activity_members
       where user_id in ('00000000-0000-4000-8000-0000000a0114',
                         '00000000-0000-4000-8000-0000000b0114',
                         '00000000-0000-4000-8000-0000000c0114',

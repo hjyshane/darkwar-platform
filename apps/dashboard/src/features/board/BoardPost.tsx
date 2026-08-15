@@ -12,6 +12,8 @@ import {
   useMarkRead,
   useNeighbours,
 } from './board';
+import { useScraps, useToggleScrap } from './scraps';
+import { useRecordView } from './views';
 
 /** One post, on its own page.
  *
@@ -50,6 +52,10 @@ export function BoardPostPage({
   children?: React.ReactNode;
 }) {
   const markRead = useMarkRead(config);
+  // Every open counts (0119), unlike the read mark above which is once per
+  // account. The function refuses viewers and drafts, so this is safe to fire
+  // before we know whether the post loaded.
+  useRecordView(config, postId);
 
   const { data, error, isPending } = useQuery({
     queryKey: ['post', config.table, postId],
@@ -165,6 +171,7 @@ export function BoardPostPage({
         ) : (
           <RichText body={post.body} />
         )}
+        <ScrapButton config={config} postId={post.id} />
       </article>
       {/* Between the post and the way out of it. The thread is part of reading
           this post, so it comes before the previous/list/next row — that row is
@@ -181,6 +188,45 @@ export function BoardPostPage({
       />
       {children}
     </main>
+  );
+}
+
+/** Keep this post, or stop keeping it (0116).
+ *
+ * Under the body rather than up in the masthead: scrapping is something you
+ * decide once you have read the thing, and the masthead is where somebody
+ * skimming for "is this current" is looking.
+ *
+ * The button says what pressing it will DO, not what the state is — "Scrapped"
+ * as a label on a pressed button reads as a status and gets clicked by people
+ * trying to scrap. `aria-pressed` carries the state for anybody who needs it
+ * announced.
+ */
+function ScrapButton({ config, postId }: { config: BoardConfig; postId: string }) {
+  const { data: scraps } = useScraps();
+  const toggle = useToggleScrap(config);
+  // Undefined while loading is not "not scrapped": showing Scrap and then
+  // flipping it to Remove a beat later is how somebody double-presses and
+  // undoes themselves.
+  if (scraps === undefined) {
+    return null;
+  }
+  const scrapped =
+    config.readColumn === 'guide_id'
+      ? scraps.guideIds.has(postId)
+      : scraps.announcementIds.has(postId);
+  return (
+    <div className="post-scrap">
+      <button
+        aria-pressed={scrapped}
+        disabled={toggle.isPending}
+        onClick={() => toggle.mutate({ postId, scrapped })}
+        type="button"
+      >
+        {scrapped ? 'Remove from scraps' : 'Scrap this'}
+      </button>
+      {toggle.error !== null && <p className="error">{toggle.error.message}</p>}
+    </div>
   );
 }
 

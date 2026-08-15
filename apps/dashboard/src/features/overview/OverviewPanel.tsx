@@ -14,7 +14,9 @@ import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
 import { useSession } from '../../lib/useSession';
 import { AnnouncementsBlock } from './AnnouncementsBlock';
+import { EventScoreboard } from './EventScoreboard';
 import { FavouritesBlock } from './FavouritesBlock';
+import { GuidesBlock } from './GuidesBlock';
 
 /** The landing screen: where the alliance stands, before who did what.
  *
@@ -321,8 +323,14 @@ export function Overview({ now }: { now?: Date }) {
   return (
     <>
       <OverviewPanel now={now} />
-      {/* Notices before shortcuts: one is news and the other is furniture. */}
+      {/* The event first while it is running: it is the thing with a deadline
+          on it, and it removes itself when nobody has scored. */}
+      <EventScoreboard />
+      {/* Notices before shortcuts: one is news and the other is furniture.
+          Both boards show PINNED posts only here — the front page is not a
+          second copy of the list. */}
       <AnnouncementsBlock />
+      <GuidesBlock />
       <FavouritesBlock />
     </>
   );

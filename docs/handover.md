@@ -2,16 +2,124 @@
 
 작성 2026-08-01, 갱신 2026-08-06. 다음 세션이 이 문서만 읽고 이어받을 수 있게 쓴다.
 
-> **다음 세션은 바로 아래 「2026-08-14 상태」부터 읽는다.** 그 아래는 배경이고,
+> **다음 세션은 바로 아래 「2026-08-15 상태」부터 읽는다.** 그 아래는 배경이고,
 > 일부는 이미 낡았다.
+
+---
+
+## 2026-08-15 상태 (2) — 조회수·hot/top·이벤트 보드 (0119~0120)
+
+**머지 전, 프로덕션 미적용.** `supabase test db` **792/792**, vitest 516,
+check/typecheck/build 통과.
+
+- **0119 `post_views`는 포스트×일 1행이다.** 단일 카운터를 원했지만 hot이
+  "최근 7일"이라 **누적 하나로는 창을 못 자른다**. 일별이면 총합도 최근도 다
+  나오고 크기는 posts×days로 묶인다. `record_post_view()` RPC가 유일한 writer —
+  직접 UPDATE를 주면 조회수는 타이핑 가능한 숫자가 된다. **뷰어와 초안은
+  조용히 무시**(에러를 내면 초안 존재가 확인된다).
+- **`post_reads`는 안 건드렸다.** 0079가 "누가 읽었나"를 거부한 결정은 그대로고,
+  이건 사람이 아니라 **열람 횟수**다. 같은 사람이 다시 열면 또 센다.
+- **hot ≠ top.** top은 전체 최다 조회(보드당 1개), hot은 최근 7일
+  `조회 + 댓글×3 ≥ 5`. 실측으로 갈렸다: 40일 전 조회 3회짜리는 둘 다 없고,
+  오늘 12회짜리는 둘 다 붙는다.
+- **0120 `event_scoreboard`는 DEFINER가 맞다** — 0114와 반대다. 스코어보드는
+  전원을 봐야 하므로 invoker면 성립하지 않는다. 게이트는 WHERE의
+  `current_app_role()`(0079 `post_authors`와 같은 모양)이고, 이름과 점수만
+  내보낸다(일별·항목별은 여전히 비공개).
+
+> **`security_invoker`는 상위 DEFINER 뷰가 리셋하지 못한다.** 첫 판은
+> `event_scoreboard`가 `activity_daily`를 읽게 짰는데 **호출자 본인 1행만**
+> 나왔다. invoker는 "나를 부른 뷰의 소유자"가 아니라 **세션 유저**를 뜻하고,
+> 중간에 definer 뷰가 끼어도 그대로다. 베이스 테이블을 직접 읽도록 고쳤고,
+> 가중치는 `activity_points()` 함수로 빼서 두 뷰가 어긋날 수 없게 했다.
+> 자기 테스트가 2명 시드에 1명을 보여줘서 잡혔다.
+
+이벤트 창 `8/15 02:00 ~ 8/23 01:59 UTC`는 **활동일 2026-08-15~2026-08-22와
+정확히 같다** — 점수가 이미 세는 02:00 경계가 이벤트 경계다. 뷰에 하드코딩했다.
+
+**미검증**: 아카이브 버튼은 `Date.now() > 이벤트 종료`라 8/23 전에는 렌더 자체가
+안 된다. 코드 경로만 있고 동작은 안 봤다. 누르면 **초안** 공지가 생긴다(발행이
+디스코드로 나가는 사건이라 자동 발행은 안 한다).
+
+가입 날짜는 마이그레이션이 없다 — `app_user_directory`(0069)가 이미
+`created_at`을 들고 있었다.
+
+---
+
+## 2026-08-15 상태 — 게시판 확장 4종 (0115~0118)
+
+**머지 전, 프로덕션 미적용.** 로컬 게이트 전부 통과
+(`pnpm check/typecheck/test/build` 509, `supabase test db` **774/774**).
+services/ 무변경.
+
+### 0115 댓글 수 · 0116 스크랩 · 0117 답글 알림 · 0118 활동 기간
+
+- **0115 `post_comment_counts`** — 목록에 댓글 수. 캐시 컬럼이 아니라 뷰다:
+  저장 컬럼은 insert·update·soft delete 트리거 3개가 필요하고 그중 하나만
+  틀려도 영영 어긋난다. `security_invoker`라 **초안 댓글 수는 안 새어나간다**
+  (수가 보이면 초안의 존재가 보인다).
+- **0116 스크랩은 `favourites`(0022) 확장이다.** 새 표를 안 만들었다 — 스크랩은
+  "개인 바로가기"이고 그 표가 이미 그거다. `guide_id`/`announcement_id` 두 컬럼 +
+  exactly-one 체크를 **5개짜리로 교체**(추가가 아니라 교체 — 체크를 하나 더 달면
+  둘 다 만족시키는 행이 통과한다). **정책·grant 무변경**이 재사용의 요점이다.
+- **0117 `comment_notifications`** — 트리거가 쓴다. 클라이언트는 부모 댓글
+  작성자를 모를 수도 있고(RLS), 안 보내기로 하면 **남의 알림을 침묵시킨다**.
+  자기 답글엔 안 울리고, 답글 수정은 다시 안 울린다(after insert만).
+  INSERT/DELETE grant 없음 — 위조·임의 삭제 차단, 해제는 `read_at`.
+- **0118 활동 기간** — `activity_scores`(주간 고정)를 **버리고**
+  `activity_daily`(멤버×일 1행) + `activity_members`(이름 목록)로 갈랐다.
+  기본이 전체 기간, 범위는 `day` 필터 하나. **함수(from,to)로 안 갔다** —
+  DEFINER가 돼야 쓸모가 있는데 그게 0105와 0114 사고의 정체다.
+  **UNION ALL이지 FULL JOIN이 아니다**: COALESCE 키는 필터가 밑으로 못
+  내려간다(0105가 못 고친 그 모양).
+
+`activity_members`가 따로 있는 이유: **아무것도 안 한 멤버는 daily에 행이
+없는데, 그 사람들이 바로 이 화면이 찾는 사람들이다.**
+
+### 실측 (로컬, 멤버 세션)
+
+배너 "1 new reply / **Ranger** replied on the guides board", 목록 댓글 수 **2**,
+Mine 탭 Posts(0)·Comments(1)·Scraps(1) 각각 내용 렌더, 스크랩 토글
+`Remove from scraps`↔`Scrap this` 왕복, 활동표 기본 **All time**에서
+Scout 3점·Ranger 2점, `from`을 내일로 주면 **둘 다 0점이되 행은 유지**.
+콘솔의 409(post_reads)·403(join_codes)는 기존 문서화된 것.
+
+### 함정 — psql로 댓글 픽스처를 넣을 때
+
+`set_config('request.jwt.claims', ..., true)`는 **트랜잭션 로컬**이라 psql의
+statement-per-transaction에선 다음 문장에서 이미 없다. 그러면 `auth.uid()`가
+null이고 actor 트리거가 **`author_user_id`를 null로 박는다** — 댓글은 들어가는데
+작성자가 없고, 답글 알림도 "작성자가 떠났다"로 판정돼 조용히 안 생긴다.
+`false`(세션 스코프)로 넣거나 `begin/commit`으로 감쌀 것. pgTAP은 파일 전체가
+한 트랜잭션이라 이 함정이 없다.
+
+### 게시판 컴포저 폭 (0113 후속, 마이그레이션 없음)
+
+댓글 입력칸이 못생기고 좁았던 원인은 두 개였다. (1) 전역 `form input` 규칙은
+`textarea`를 안 잡아서 브라우저 기본 테두리·폰트가 나왔다. (2) **전역
+`form { max-width: 22rem }`** — 로그인 상자용인데 컴포저가 `<form>`이라
+1152px 글 밑에서 352px였다. `width:100%`는 그 352px를 충실히 채우고 있었던 것.
+`.comment-composer { max-width: none }` + `form input`과 같은 상자.
 
 ---
 
 ## 2026-08-14 상태 — 게시판 댓글 (0113) + 활동 점수 (0114)
 
-둘 다 **머지 전이고 프로덕션 미적용**이다. 로컬 게이트는 전부 통과
-(`pnpm check/typecheck/test/build` 503, `supabase test db` **751/751**).
-services/는 안 건드렸으므로 ruff/mypy/pytest 불필요.
+**PR #215 머지(`f935e34`), 프로덕션 적용 완료(08-15), 사용자 확인까지 끝났다.**
+로컬 게이트 전부 통과(`pnpm check/typecheck/test/build` 503,
+`supabase test db` **751/751**). services/는 안 건드렸으므로 ruff/mypy/pytest 불필요.
+
+> **CI는 여전히 과금으로 죽어 있다.** #215에서 `changes`·`guard`가 빨간불인데
+> 로그는 `The job was not started because recent account payments have failed`
+> — 코드 문제가 아니라 **잡이 시작조차 안 된 것**이고 `python`/`db`/`web`은
+> skipping이다. **로컬 게이트가 여전히 유일한 신호다.**
+
+> **db push 직후 게시판이 한 번 죽는다 — PostgREST 스키마 캐시다.** 적용
+> 직후 댓글 영역이 `Could not find the table 'public.post_comments' in the
+> schema cache`로 떴다. 마이그레이션은 정상이고 PostgREST가 새 릴레이션을
+> 아직 모르는 상태다. 보통 1분 안에 스스로 풀리고, 안 풀리면 SQL 에디터에서
+> `NOTIFY pgrst, 'reload schema';`. **새 테이블/뷰를 push할 때마다 나오는
+> 증상이니 push 직후의 404를 마이그레이션 실패로 오진하지 말 것.**
 
 ### 댓글 (0113) — 이름은 계정이 아니라 캐릭터다
 
@@ -86,8 +194,13 @@ exactly-one 체크)이지 `board text + post_id uuid`가 아니다.** 요청은 
 회귀가 아니다 — `supabase db reset` 후 재실행하면 751/751이다. 68번의 멤버
 목록 단언은 이 일을 겪고 전역 count에서 **픽스처 uuid 지정**으로 바꿨다.
 
-머지 후: `git -C C:/darkwar-platform pull` → `supabase db push --workdir
-C:/darkwar-platform` (포워드 슬래시 — 백슬래시는 Git Bash가 먹는다).
+머지 후 절차(이번에 그대로 밟았다): `git -C C:/darkwar-platform pull` →
+`supabase db push --workdir C:/darkwar-platform` (포워드 슬래시 — 백슬래시는
+Git Bash가 먹는다). `--dry-run`이 0113·0114 둘만, seeds·roles 0건으로 나오는
+것을 먼저 확인했다.
+
+**남은 것**: 한가한 시간에 `db diff --linked` 1회(드리프트 확인). 점수는
+백필이 없으므로 표가 당분간 거의 0이다 — 이벤트는 적용 시점부터만 쌓인다.
 
 ---
 
