@@ -2634,9 +2634,32 @@ form select {
   font-size: var(--text-sm);
 }
 
-/* Your own shelf, in the header beside sign-out. */
+/* Your own shelf, in the header beside sign-out.
+ *
+ * Shaped like the buttons it sits between, not like a link. It shipped as a
+ * bare anchor carrying only a font size, which on a phone put small unstyled
+ * text on the second row of a wrapped header between two bordered buttons —
+ * present, on screen, and genuinely easy to miss. A control among controls
+ * should look like one. */
 .header-link {
+  background: var(--bg-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  color: var(--fg);
   font-size: var(--text-sm);
+  line-height: 1.4;
+  padding: var(--space-1) var(--space-2);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.header-link:hover {
+  background: var(--bg-hover);
+}
+
+.header-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 /* The activity range picker (0118). Stacked on a phone, presets above the two
