@@ -2517,6 +2517,157 @@ form select {
   font-style: italic;
 }
 
+/* The comment count beside a title on the board list (0115). A count, not a
+ * label: "12" next to a title reads as "twelve replies" without the word, and
+ * the word is what would push the title onto a second line on a phone. */
+.board-comments {
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+  margin-left: var(--space-2);
+  padding: 0 var(--space-2);
+}
+
+/* Opens, in the meta line with the dates (0119). Muted like the rest of that
+ * row: it is context for an entry you are already reading, not a reason to
+ * pick one out of the list. */
+.post-views {
+  color: var(--fg-muted);
+}
+
+/* The two tags. `top` is the most-read post on the board and changes rarely;
+ * `hot` is this week and decays. Different colours because they mean different
+ * things — one badge in two shades would read as one thing at two strengths. */
+.badge-top {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+}
+
+.badge-hot {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* The event standings (0120). An ordered list that keeps its numbering
+ * visible, because a scoreboard without positions is just a list of names. */
+.event-board {
+  display: grid;
+  gap: var(--space-1);
+  list-style: none;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+}
+
+.event-board li {
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  display: grid;
+  /* Rank, name, points — the points right-aligned so they form a column that
+     can be compared down the list rather than floating after each name. */
+  grid-template-columns: 2.5rem 1fr auto;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+}
+
+.event-rank {
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.event-points {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* Keep this post (0116). Its own row under the body, right-aligned, so it
+ * does not read as part of the post's last paragraph. */
+.post-scrap {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-4);
+}
+
+/* "Somebody answered you" (0117), above whatever screen the reader came for.
+ *
+ * Accented rather than neutral, because it is the one thing on the page that
+ * is ABOUT the reader — but bounded in height and scrollable, so twenty unread
+ * replies cannot push the actual page off the screen. */
+.reply-alerts {
+  background: var(--bg-raised);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-md);
+  margin: 0 0 var(--space-4);
+  max-height: 14rem;
+  overflow-y: auto;
+  padding: var(--space-3);
+}
+
+.reply-alerts-head {
+  align-items: center;
+  display: flex;
+  gap: var(--space-3);
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+}
+
+.reply-alerts ul {
+  display: grid;
+  gap: var(--space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.reply-alerts li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+}
+
+.reply-alerts time {
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+}
+
+/* Your own shelf, in the header beside sign-out. */
+.header-link {
+  font-size: var(--text-sm);
+}
+
+/* The activity range picker (0118). Stacked on a phone, presets above the two
+ * date fields, because a row of five controls wraps into nonsense at 375px. */
+.activity-range {
+  display: grid;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.activity-presets,
+.activity-dates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+}
+
+.activity-dates label {
+  align-items: center;
+  display: flex;
+  font-size: var(--text-sm);
+  gap: var(--space-2);
+}
+
+/* Pressed is the selected range. `aria-pressed` carries it for a screen
+ * reader, and this is the same fact for everybody else. */
+.activity-presets button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 /* The thread under a post.
  *
  * ONE COLUMN AT EVERY WIDTH, and no sticky composer. These boards are read on
@@ -2597,15 +2748,45 @@ form select {
   margin-top: var(--space-2);
 }
 
+/* THE WIDTH LIVES ON THE FORM, NOT THE TEXTAREA. The global `form` rule caps
+ * every form at 22rem because it was written for the sign-in box, and a
+ * composer that inherits it sits at 352px under a 1152px post — which is what
+ * "width: 100%" on the textarea was faithfully filling. A comment box should be
+ * as wide as the post it is about. */
 .comment-composer {
   margin-top: var(--space-3);
+  max-width: none;
 }
 
+/* The same box `form input` gets a few hundred lines up, because a textarea is
+ * not an input and inherited none of it — the composer was rendering with the
+ * browser's default border and default monospace-ish font next to a page that
+ * uses neither.
+ *
+ * `display: block` with `box-sizing: border-box` is what makes the full width
+ * honest: a textarea is inline-block by default, so `width: 100%` leaves a
+ * descender gap under it and the padding would otherwise be added OUTSIDE the
+ * 100%, pushing the right edge past the post it sits under. */
 .comment-composer textarea {
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
   box-sizing: border-box;
+  color: var(--fg);
+  display: block;
+  font: inherit;
   min-height: 4.5rem;
+  padding: var(--space-2) var(--space-3);
+  /* Vertical only. Horizontal dragging would let the box out of the column it
+   * is supposed to match. */
   resize: vertical;
   width: 100%;
+}
+
+.comment-composer textarea:focus-visible {
+  border-color: var(--accent);
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
 }
 
 /* Previous, the list, next — in the order they sit on the board, newest left.
