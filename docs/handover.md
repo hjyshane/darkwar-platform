@@ -7,6 +7,59 @@
 
 ---
 
+## 2026-08-16 상태 (2) — Supabase 린터 대응 (0121)
+
+프로덕션 린터가 ERROR 10 + WARN 56 + INFO 2를 올렸다. **실제로 고친 건 3개**고
+나머지는 린터가 못 보는 것들이다. 다음에 같은 목록을 또 받았을 때 재조사하지
+않도록 판정을 적어 둔다.
+
+### 고친 것
+
+- **`sync_status`에 게이트를 넣었다(0121).** `public`에서 유일하게 "누가
+  묻는지" 안 보던 DEFINER 뷰였다. 0060이 정당화했고 0065가 anon을 뗐지만,
+  **로그인한 viewer 하나가 남아 있었다.** `SyncStatus` 컴포넌트는 member에게만
+  렌더되므로 그 구멍은 기능을 하나도 사지 않았다. 다른 여덟 개와 같은 모양
+  (`current_app_role()` + `is_service_request()`)을 WHERE에 넣었다.
+  → **`58_relation_reach_test`의 예외 명단이 사라졌다.** 예외 없는 규칙은
+  모양을 외울 필요가 없다.
+- **`is_service_request`·`rank_period_start`에 `set search_path = ''`.**
+  둘 다 이미 스키마 정규화된 본문이라 동작 변화는 없다.
+
+> **린트가 경고하는 권한 상승은 이 둘엔 해당 안 된다.** 위험한 건 DEFINER
+> 루틴의 mutable search_path다(호출자가 자기 `reset_week_start`를 심으면
+> 소유자 권한으로 실행된다). **둘 다 INVOKER**라 리다이렉트해 봐야 자기
+> 코드를 자기 권한으로 돌릴 뿐이다. 이건 통일성이지 구멍 막기가 아니다.
+
+> **대가는 인라이닝이다.** Postgres는 SET 절이 붙은 함수를 **절대 인라인하지
+> 않는다.** `is_service_request()`는 뷰 게이트 여덟 곳에 있는데, 그 여덟 곳은
+> 이미 `current_app_role()`(0006부터 SET 있음, 원래 인라인 안 됨)을 부른다.
+> 같은 OR 안의 두 번째 호출이고 테이블을 안 건드리므로 **상수 추가지 행당
+> 스캔이 아니다.** 0100~0107이 문제 삼은 건 후자다.
+
+### 안 고친 것과 이유
+
+- **`anon/authenticated_security_definer_function_executable` (56건)** —
+  `ALTER DEFAULT PRIVILEGES` 베이스라인. 두 부류다: (a) 트리거 함수
+  (`*_set_actor`, `apply_*_summary`, `notify_*`, `rls_auto_enable` …) — 린터는
+  "`/rest/v1/rpc/…`로 호출 가능"이라고 쓰지만 **PostgREST는 trigger 반환
+  함수를 노출하지 않는다.** (b) 내부 가드가 있는 진짜 RPC(`redeem_join_code`,
+  `remove_member`, `build_rank_period` …) — `57_anon_callable_test`가 바로
+  "가드 없는 신규 anon 호출 writer는 실패한다"를 못 박는 파일이다.
+- **`security_definer_view` (9건)** — 0121 이후 **전부 WHERE에 게이트가 있고
+  anon엔 select 권한이 없다.** 린터는 구조만 보고 술어를 못 읽는다.
+  `post_authors`/`app_user_directory`/`event_scoreboard`는 각각 남의
+  `app_users`, `auth.users`, 전원 집계를 읽어야 해서 **DEFINER가 불가피하다.**
+- **`auth_users_exposed`(app_user_directory)** — `has_permission('members.manage')`
+  게이트. 이메일은 그 능력 보유자에게만 간다. `MembersSetting`의 0행 폴백이
+  이 게이트에 의존한다.
+- **`rls_enabled_no_policy`(INFO 2건)** — `internal.raw_observations`,
+  `public.join_code_attempts`. RLS 켜고 정책 없음 = 서비스 키 전용 deny-all,
+  의도대로다.
+- **`auth_leaked_password_protection`** — 코드가 아니라 대시보드 토글
+  (Auth → Password strength). 사람이 켜야 한다.
+
+---
+
 ## 2026-08-16 상태 — 내비게이션 2단 재편 (마이그레이션 없음)
 
 상단 탭: **Overview · CBFW · Notices · Guides · Cross-Server Ranking · Settings**.
