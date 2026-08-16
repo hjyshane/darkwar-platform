@@ -72,6 +72,57 @@ means something when you know exactly what was done while it recorded.
 part people skip.** Whether the same tile returns the same object IDs is exactly
 what decides question 3, and a one-way pan cannot show it.
 
+## Capturing season 2 for a season 3 board
+
+Season 3 is not open yet, so the first captures come off the season 2 map. That
+is worth doing, and it is worth being exact about what it buys.
+
+Spec §14.1 puts these under *per-season configuration*: active event IDs,
+building type IDs, resource types, map bounds and zoom, payload field mapping.
+So:
+
+| season 2 settles this | season 3 must re-confirm this |
+|---|---|
+| the command names | building type ID values |
+| payload structure, field names, types | event IDs |
+| whether object IDs are stable across passes | map bounds and coordinate range |
+| whether an `owner` field arrives | resource types |
+| whether alliance centres are distinct objects | the three centres' actual IDs |
+
+**Structure now, values on season 3 day one.** A type ID table built from season 2
+is a guess about season 3, and must not be written down as anything else. The
+field table this capture produces should say which column came from which season.
+
+Two additions to the file list above, both about making a payload *judgeable*
+rather than merely present:
+
+| file | do this | why |
+|---|---|---|
+| `07_two_buildings_same_type.pcapng` | open two **different** buildings of the same type, then re-open the **first** one | separates fields that identify an object from fields that describe its type — and re-opening proves the ID is stable, the same way the double pan does for the viewport |
+| `08_alliance_centres.pcapng` | open all three alliance centres in order | whether a centre is its own object kind or a season building with a flag, and whether the locked ones report their unlock condition |
+| `09_season_rankings.pcapng` | open the season standings and **scroll to the bottom** | the score board the tab would show, and whether it pages |
+
+A late season 2 board is the best case this capture will ever get: it is fully
+populated, so a field missing here is missing because the server does not send
+it, not because nothing has happened yet. **Scroll it.** The sweep already found
+`rank.get.by.range`, which means ranked lists on this server are fetched in
+ranges — whether the season board does the same only shows once the list is
+pushed past its first page.
+
+For the player-owned season building, open **one owned by a member we already
+have in `players`, and one owned by somebody outside the alliance.** That single
+contrast is what decides question 2: an `owner` field is only useful if it joins
+to a player we know, and a capture containing only strangers cannot show that it
+does.
+
+### Keep a plain log beside the pcaps
+
+One line per file: what was done, and roughly when. A negative result — "the
+command is absent from this file" — only means something when it is known what
+was happening while it recorded. `capture-sweep.md` has one entry that had to be
+retracted for exactly this reason: the handover claimed a capture contained mail
+reception, and it contained none.
+
 ## Reading them
 
 `--discover-only` records the shape of unknown commands into
