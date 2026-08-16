@@ -5,9 +5,9 @@ import { describe, expect, test } from 'vitest';
 import {
   applyColour,
   applyMarkup,
+  cycleImageSize,
   insertImage,
   insertText,
-  toggleImageWidth,
 } from '../src/lib/markupActions';
 
 describe('bold, italic, code', () => {
@@ -185,19 +185,34 @@ test('emoji is inserted at the caret and replaces a selection', () => {
   });
 });
 
-// The author's width choice. The caret only has to be ON the image line —
+// The author's size choice. The caret only has to be ON the image line —
 // pressing the button with the cursor at the end of it is what people do.
-test('wide is toggled on the image line the caret sits in', () => {
+test('the size cycles on the image line the caret sits in, and wraps', () => {
   const body = 'before\n![map](x)\nafter';
-  const on = toggleImageWidth(body, { start: 16, end: 16 });
-  expect(on.body).toBe('before\n![map](x){wide}\nafter');
-  const off = toggleImageWidth(on.body, { start: 10, end: 10 });
-  expect(off.body).toBe(body);
+
+  const wide = cycleImageSize(body, { start: 16, end: 16 });
+  expect(wide.body).toBe('before\n![map](x){wide}\nafter');
+
+  const small = cycleImageSize(wide.body, { start: 10, end: 10 });
+  expect(small.body).toBe('before\n![map](x){small}\nafter');
+
+  // WRAPS. A cycle that stopped at the last size would strand an author who
+  // pressed once too often, with no way back except editing markup by hand.
+  const back = cycleImageSize(small.body, { start: 10, end: 10 });
+  expect(back.body).toBe(body);
 });
 
-test('wide does nothing to a line that is not an image', () => {
+test('the caret may be anywhere on the line, including its end', () => {
+  const body = '![map](x)';
+
+  expect(cycleImageSize(body, { start: body.length, end: body.length }).body).toBe(
+    '![map](x){wide}',
+  );
+});
+
+test('sizing does nothing to a line that is not an image', () => {
   const body = 'just a sentence';
-  expect(toggleImageWidth(body, { start: 4, end: 4 })).toEqual({
+  expect(cycleImageSize(body, { start: 4, end: 4 })).toEqual({
     body,
     selection: { start: 4, end: 4 },
   });

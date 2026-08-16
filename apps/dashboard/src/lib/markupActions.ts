@@ -60,11 +60,15 @@ export function applyColour(body: string, selection: Selection, colour: string):
   };
 }
 
-/** Mark the picture the caret is on as full width, or put it back.
+/** Step the picture the caret is on to the next size.
  *
  * Line-based, because that is what an image is in this subset: `![alt](url)`
- * alone on its line, with `{wide}` after it when the author wants the column's
- * full width from the moment the page opens.
+ * alone on its line, with `{wide}` or `{small}` after it when the author wants
+ * something other than the middle size.
+ *
+ * A CYCLE, NOT A TOGGLE, now that there are three sizes. One button that steps
+ * default → wide → small → default beats three buttons for a thing most posts
+ * never touch, and it wraps, so nobody can get stuck at an end of the range.
  *
  * The caret does not have to be inside the markup, only somewhere on the line —
  * pressing the button with the cursor at the end of an image line is what
@@ -72,9 +76,19 @@ export function applyColour(body: string, selection: Selection, colour: string):
  * the line is not an image, nothing happens: silently doing something else to
  * a paragraph would be worse than doing nothing.
  */
-const IMAGE_LINE = /^(!\[[^\]]*\]\([^)\s]+\))(\{wide\})?$/;
+const IMAGE_LINE = /^(!\[[^\]]*\]\([^)\s]+\))(?:\{(wide|small)\})?$/;
 
-export function toggleImageWidth(body: string, selection: Selection): Applied {
+/** What each size steps to. Written out rather than derived from an index in
+ *  IMAGE_SIZES: the reading order there is small → default → wide, and the
+ *  cycle deliberately does not follow it — the size an author reaches for after
+ *  the default is the big one. */
+const NEXT_MARKER: Record<string, string> = {
+  '': '{wide}',
+  wide: '{small}',
+  small: '',
+};
+
+export function cycleImageSize(body: string, selection: Selection): Applied {
   const lineStart = body.lastIndexOf('\n', Math.max(0, selection.start - 1)) + 1;
   const lineEndRaw = body.indexOf('\n', selection.start);
   const lineEnd = lineEndRaw === -1 ? body.length : lineEndRaw;
@@ -84,7 +98,7 @@ export function toggleImageWidth(body: string, selection: Selection): Applied {
   if (image === undefined) {
     return { body, selection };
   }
-  const next = match?.[2] === undefined ? `${image}{wide}` : image;
+  const next = `${image}${NEXT_MARKER[match?.[2] ?? ''] ?? '{wide}'}`;
   return {
     body: body.slice(0, lineStart) + next + body.slice(lineEnd),
     selection: { start: lineStart + next.length, end: lineStart + next.length },

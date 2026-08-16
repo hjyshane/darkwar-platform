@@ -60,6 +60,25 @@ export function isColourName(name: string): name is ColourName {
   return (COLOUR_NAMES as readonly string[]).includes(name);
 }
 
+/** How big the author asked for a picture to be.
+ *
+ * Three steps, not a number. A width in pixels would be a promise the layout
+ * cannot keep — the same guide is read on a phone and a desktop — and it would
+ * put every author in the business of guessing viewport widths. Three named
+ * sizes each mean something the reader's screen resolves for itself.
+ *
+ * `default` is the unmarked case and stays the common one: capped tall enough
+ * to read, short enough not to bury the sentence after it.
+ */
+export const IMAGE_SIZES = ['small', 'default', 'wide'] as const;
+
+export type ImageSize = (typeof IMAGE_SIZES)[number];
+
+/** The marker the author wrote, or `default` when there was none. */
+export function imageSizeFrom(marker: string | undefined): ImageSize {
+  return marker === 'wide' || marker === 'small' ? marker : 'default';
+}
+
 export type Inline =
   | { kind: 'text'; text: string }
   | { kind: 'bold'; text: string }
@@ -86,10 +105,11 @@ export type Block =
   // A BLOCK, not an inline. An image halfway through a sentence is not what a
   // guide wants, and a block is the shape that can be given a caption and a width
   // without fighting the line box around it.
-  // `fill` is the AUTHOR's choice of width, made once, rather than a decision
-  // pushed onto every reader. A map or a comparison table is unreadable capped;
-  // a phone screenshot of a chat is not. The reader can still collapse it.
-  | { kind: 'image'; src: string; alt: string; fill: boolean };
+  // `size` is the AUTHOR's choice, made once, rather than a decision pushed onto
+  // every reader. A map or a comparison table is unreadable capped; a phone
+  // screenshot of a chat is not; and a single building icon next to a sentence
+  // wants to be smaller than either. The reader can still open any of them.
+  | { kind: 'image'; src: string; alt: string; size: ImageSize };
 
 /** Whether a link target is one we will render as a link at all. */
 export function isSafeHref(href: string): boolean {
@@ -251,7 +271,7 @@ export function parse(body: string): Block[] {
     // An unsafe source falls through to the paragraph below and renders as the
     // characters typed — same rule as an unsafe link href. The author sees their
     // markup instead of wondering where the picture went.
-    const image = /^!\[([^\]]*)\]\(([^)\s]+)\)(\{wide\})?$/.exec(trimmed.trim());
+    const image = /^!\[([^\]]*)\]\(([^)\s]+)\)(?:\{(wide|small)\})?$/.exec(trimmed.trim());
     const src = image?.[2];
     if (src !== undefined && isSafeImageSrc(src)) {
       flushParagraph();
@@ -260,7 +280,11 @@ export function parse(body: string): Block[] {
         kind: 'image',
         src: src.trim(),
         alt: (image?.[1] ?? '').trim(),
-        fill: image?.[3] !== undefined,
+        // An unrecognised word is not a size. `{huge}` leaves the whole line
+        // failing the pattern, so it renders as the characters typed — same
+        // rule as an unsafe href, and the author sees their own markup rather
+        // than a picture that quietly ignored them.
+        size: imageSizeFrom(image?.[3]),
       });
       continue;
     }

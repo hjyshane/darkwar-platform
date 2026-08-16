@@ -5,9 +5,9 @@ import {
   type Selection,
   applyColour,
   applyMarkup,
+  cycleImageSize,
   insertImage,
   insertText,
-  toggleImageWidth,
 } from '../lib/markupActions';
 import { COLOUR_NAMES, type ColourName } from '../lib/richText';
 import { ALLOWED_TYPES, uploadPostImage } from '../lib/uploadImage';
@@ -290,16 +290,18 @@ export function MarkupEditor({
           >
             {uploading ? '⏳ Uploading…' : '🖼 Image'}
           </button>
-          {/* Width is the author's call, not only the reader's. A map or a
+          {/* Size is the author's call, not only the reader's. A map or a
               comparison table is unreadable at thumbnail size, and asking every
               reader to press it is asking 94 people to do what the writer could
-              decide once. Pressing it again puts the picture back. */}
+              decide once. A building icon has the opposite problem.
+              One button that cycles rather than three that do not: most posts
+              never touch this, and it wraps, so nobody gets stuck at an end. */}
           <button
-            onClick={() => edit(toggleImageWidth)}
-            title="Full width — for the picture the caret is on"
+            onClick={() => edit(cycleImageSize)}
+            title="Size of the picture the caret is on — normal, wide, small"
             type="button"
           >
-            ↔ Wide
+            ↔ Size
           </button>
         </div>
         <input
