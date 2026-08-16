@@ -11,6 +11,8 @@
 // column grants, or PostgREST behaviour. It shows layout, typography,
 // spacing, empty states and navigation. Nothing else.
 
+import { calendarRange } from '../lib/calendar';
+
 const PLAYER = {
   shane: '11111111-1111-4111-8111-111111111101',
   mira: '11111111-1111-4111-8111-111111111102',
@@ -222,6 +224,15 @@ const CAPABILITIES = [
   { capability: 'guide.write', label: 'Write a guide', description: '', sort_order: 80 },
   { capability: 'guide.edit', label: 'Edit a guide', description: '', sort_order: 90 },
   { capability: 'guide.delete', label: 'Delete a guide', description: '', sort_order: 100 },
+  // 0124. Members read the calendar; officers write it, because a calendar
+  // only one person can edit is wrong whenever that person is asleep.
+  { capability: 'schedule.view', label: 'See the schedule', description: '', sort_order: 110 },
+  {
+    capability: 'schedule.manage',
+    label: 'Add and change schedule entries',
+    description: '',
+    sort_order: 120,
+  },
 ];
 
 const ROLES = ['viewer', 'member', 'officer', 'admin'] as const;
@@ -343,6 +354,22 @@ function noticeBoard() {
  * "nothing here" state, which is worth looking at too. */
 export const SESSION_KEY = ['session'] as const;
 
+/** The week the calendar opens on, and its query key.
+ *
+ * Derived with the same function the screen uses rather than copied: the key
+ * holds the window's ISO bounds, so anything hand-written stops matching the
+ * moment the week turns over — and a missed key renders as an empty calendar
+ * rather than as an error.
+ */
+const SCHEDULE_RANGE = calendarRange('week', new Date());
+const SCHEDULE_DAYS = SCHEDULE_RANGE.days.map((day) => day.toISOString().slice(0, 10));
+const SCHEDULE_KEY = [
+  'schedule',
+  'events',
+  SCHEDULE_RANGE.start.toISOString(),
+  SCHEDULE_RANGE.end.toISOString(),
+];
+
 /** Held as a stable reference so main.tsx can tell "still the fixture" from
  *  "something replaced it" by identity. */
 export const SESSION = { email: 'you@example.invalid', role: 'admin' };
@@ -369,6 +396,64 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
     },
   ],
   [['sync-status'], { last_heartbeat_at: ago(0.2), is_live: true }],
+
+  // Schedule (0124). THE KEY IS COMPUTED, not written out, because the
+  // calendar's query key carries the window it is looking at and that window
+  // moves with the clock. A hand-typed key was right on the day it was typed
+  // and matched nothing afterwards — the screen then renders its empty state,
+  // which looks exactly like a calendar with nothing on it.
+  [
+    SCHEDULE_KEY,
+    [
+      {
+        schedule_event_id: 'ev-bear',
+        title: 'Bear hunt',
+        body: 'Rally at the south gate. Bring stamina.',
+        category: 'bear',
+        starts_at: `${SCHEDULE_DAYS[2]}T20:00:00+00:00`,
+        ends_at: null,
+        source: 'manual',
+        schedule_reminders: [{ reminder_id: 'r1', minutes_before: 30 }],
+      },
+      {
+        schedule_event_id: 'ev-duel',
+        title: 'Alliance duel',
+        body: null,
+        category: 'duel',
+        starts_at: `${SCHEDULE_DAYS[0]}T02:00:00+00:00`,
+        ends_at: `${SCHEDULE_DAYS[4]}T02:00:00+00:00`,
+        source: 'manual',
+        schedule_reminders: [],
+      },
+      {
+        schedule_event_id: 'ev-reset',
+        title: 'Weekly reset',
+        body: null,
+        category: null,
+        starts_at: `${SCHEDULE_DAYS[0]}T02:00:00+00:00`,
+        ends_at: null,
+        source: 'manual',
+        schedule_reminders: [{ reminder_id: 'r2', minutes_before: 1440 }],
+      },
+    ],
+  ],
+  [
+    ['schedule', 'channels'],
+    ['alarm', 'general'],
+  ],
+  [
+    ['schedule', 'categories'],
+    [
+      { category: 'bear', label: 'Bear hunt', colour: '#c2410c', channel: 'alarm', sort_order: 10 },
+      {
+        category: 'duel',
+        label: 'Alliance duel',
+        colour: '#1d4ed8',
+        channel: null,
+        sort_order: 20,
+      },
+    ],
+  ],
 
   // Overview
   [

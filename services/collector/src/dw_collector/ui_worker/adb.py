@@ -1,14 +1,27 @@
 """ADB adapter. Every call goes through AdbPolicy first — there is no path
 to a device that skips the guard.
 
-Deliberately small: tap, swipe, back, screenshot, and a device listing.
-Nothing here starts, stops, or installs anything; `DISRUPTIVE_COMMANDS`
-would reject those anyway, and this module gives them no shortcut.
+Deliberately small: tap, swipe, back, screenshot, launch, and a device
+listing. Nothing here stops, clears, or installs anything.
+
+`launch` is the one that starts something, and it was added for a cold
+start after a power cut — a machine that boots with nobody in front of it
+has to open the game before any routine can touch it. It is safe for the
+same reason every other call here is: `AdbPolicy.check_target` has already
+refused any serial that is not the configured collector instance, so a
+launch cannot reach the main account's emulator. `monkey` is named in
+`DISRUPTIVE_COMMANDS` alongside `am start` so it takes the audited path
+rather than slipping past a list that exists on purpose.
+
+An earlier version of this docstring said DISRUPTIVE_COMMANDS "would
+reject" a start. It does not — it checks which serial the command is
+aimed at and records it. The guarantee is the target, not the verb.
 """
 
 from __future__ import annotations
 
 import subprocess
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -67,9 +80,56 @@ class AdbClient:
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_bytes(png)
 
+    def launch(self, package: str) -> None:
+        """Bring an app to the foreground by package name.
+
+        `monkey` rather than `am start`, because `am start` needs the launcher
+        ACTIVITY and the activity name is the part that changes between game
+        updates. The package does not. Resolving the activity first would work
+        and would be one more thing to be stale on the morning it matters.
+
+        Returns as soon as the intent is delivered — not when the game is ready.
+        Nothing here can tell the difference, which is why the cold-start routine
+        proves the launch worked by waiting for the login response to arrive on
+        the wire instead of by trusting this call.
+        """
+        self._run(["shell", "monkey", "-p", package, "-c", "android.intent.category.LAUNCHER", "1"])
+
 
 class AdbError(RuntimeError):
     """An adb invocation failed. Not retried: the screen state is unknown."""
+
+
+def wait_for_serial(
+    serial: str,
+    *,
+    timeout_seconds: float = 300.0,
+    executable: str = "adb",
+    sleep: float = 5.0,
+) -> bool:
+    """Block until adb can see `serial`, or give up. True when it appeared.
+
+    For the cold start only. BlueStacks takes a minute or two to come up on a
+    machine that has just booted, and every ADB call before then fails with
+    "device not found" — which reads in the log exactly like a denylisted
+    target, and sent the first version of this looking at the guard.
+
+    `adb wait-for-device` is not used: it waits for ANY device, which is the
+    auto-detection `AdbPolicy` exists to refuse. Polling by serial keeps the
+    rule that automation names its target.
+
+    Five minutes by default. A cold boot that has not produced an emulator in
+    five minutes has a problem no amount of further waiting fixes, and the
+    alert events added alongside this are what should be telling somebody.
+    """
+    deadline = time.monotonic() + timeout_seconds
+    while True:
+        if serial in list_devices(executable):
+            return True
+        if time.monotonic() >= deadline:
+            log.warning("adb.wait_timeout", serial=serial, seconds=timeout_seconds)
+            return False
+        time.sleep(sleep)
 
 
 def list_devices(executable: str = "adb") -> list[str]:

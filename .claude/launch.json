@@ -6,6 +6,13 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "@dw/dashboard", "dev"],
       "port": 5173
+    },
+    {
+      "name": "dashboard-local",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@dw/dashboard", "dev"],
+      "port": 5174,
+      "url": "http://localhost:5174"
     }
   ]
 }
