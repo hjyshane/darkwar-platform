@@ -98,7 +98,11 @@ export function LoginPage() {
     void queryClient.invalidateQueries();
   }
 
-  /** Sign in with Google, which skips the email path entirely.
+  /** Sign in through a provider, which skips the email path entirely.
+   *
+   * DISCORD IS FIRST ON THE SCREEN because the alliance already lives there —
+   * every member has an account, which is not true of Google, and a Hotmail-only
+   * member would otherwise have to make one just to sign in.
    *
    * NO `arriving` DANCE HERE. `signInWithOAuth` navigates the browser away to
    * Google and comes back through `/auth/v1/callback`, so this component is
@@ -111,11 +115,11 @@ export function LoginPage() {
    * rather than throwing, and the message is shown as written: a button that
    * fails silently is worse than one that says why.
    */
-  async function signInWithGoogle() {
+  async function signInWithProvider(provider: 'google' | 'discord') {
     setBusy(true);
     setError(null);
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
+      provider,
       // Back to where the reader actually is, rather than to Site URL's
       // default — the two differ while an old address is still bookmarked.
       options: { redirectTo: window.location.origin },
@@ -213,7 +217,15 @@ export function LoginPage() {
         <button
           className="oauth-button"
           disabled={busy}
-          onClick={() => void signInWithGoogle()}
+          onClick={() => void signInWithProvider('discord')}
+          type="button"
+        >
+          Continue with Discord
+        </button>
+        <button
+          className="oauth-button"
+          disabled={busy}
+          onClick={() => void signInWithProvider('google')}
           type="button"
         >
           Continue with Google
