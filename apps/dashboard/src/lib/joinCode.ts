@@ -52,3 +52,49 @@ export function codeState(
 export function usesLeft(code: { max_uses: number | null; used_count: number }): number | null {
   return code.max_uses === null ? null : Math.max(0, code.max_uses - code.used_count);
 }
+
+/** How many characters each half of a code holds. Exported so the form's two
+ * boxes and this file cannot disagree about where the hyphen goes. */
+export const CODE_GROUP = GROUP;
+
+/** One half of a typed code, cleaned up.
+ *
+ * UPPERCASED, AND THAT IS SAFE RATHER THAN LENIENT: every code ever issued
+ * comes from `generateJoinCode`, whose alphabet is uppercase by construction,
+ * and `redeem_join_code` compares with `=`. So a lowercase code is always a
+ * typing choice, never a different code — folding it costs nothing and saves
+ * the member a failed attempt against a five-try lockout.
+ *
+ * Characters outside the alphabet are dropped rather than rejected. The
+ * hyphen is the reason: somebody pasting or typing `ABCDE-FGHIJ` into the
+ * first box should not be told off, and the confusable pairs the alphabet
+ * excludes (O/0, I/1) are exactly what a person mistypes reading one aloud.
+ */
+export function cleanCodePart(raw: string): string {
+  return [...raw.toUpperCase()]
+    .filter((character) => ALPHABET.includes(character))
+    .join('')
+    .slice(0, CODE_GROUP);
+}
+
+/** The two boxes as the single code the function expects. */
+export function joinCodeFrom(first: string, second: string): string {
+  return `${cleanCodePart(first)}-${cleanCodePart(second)}`;
+}
+
+/** Whether both halves are full, so the form can enable its button. */
+export function isCodeComplete(first: string, second: string): boolean {
+  return cleanCodePart(first).length === CODE_GROUP && cleanCodePart(second).length === CODE_GROUP;
+}
+
+/** Split something pasted into the first box across both halves.
+ *
+ * Pasting the whole code is the common case — it arrives in a Discord message
+ * as `ABCDE-FGHIJ` — and typing it is the fallback, not the other way round.
+ */
+export function splitPastedCode(raw: string): [string, string] {
+  const cleaned = [...raw.toUpperCase()]
+    .filter((character) => ALPHABET.includes(character))
+    .join('');
+  return [cleaned.slice(0, CODE_GROUP), cleaned.slice(CODE_GROUP, CODE_GROUP * 2)];
+}

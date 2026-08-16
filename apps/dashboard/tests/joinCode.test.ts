@@ -3,7 +3,16 @@
 // while the database refuses it — which is worse than not showing a state
 // at all.
 import { expect, test } from 'vitest';
-import { type CodeState, codeState, generateJoinCode, usesLeft } from '../src/lib/joinCode';
+import {
+  type CodeState,
+  cleanCodePart,
+  codeState,
+  generateJoinCode,
+  isCodeComplete,
+  joinCodeFrom,
+  splitPastedCode,
+  usesLeft,
+} from '../src/lib/joinCode';
 
 const NOW = new Date('2026-08-03T12:00:00Z');
 
@@ -73,4 +82,37 @@ test('a generated code is grouped, and long enough to be worth generating', () =
 test('two codes in a row differ', () => {
   const many = new Set(Array.from({ length: 50 }, () => generateJoinCode()));
   expect(many.size).toBe(50);
+});
+
+test('a typed code half is folded to the alphabet it was generated from', () => {
+  // Lowercase is a typing choice, never a different code: every issued code
+  // comes from the uppercase alphabet, and redeem_join_code compares with `=`.
+  expect(cleanCodePart('acdef')).toBe('ACDEF');
+  // Characters the alphabet deliberately excludes are dropped rather than
+  // rejected — O/0 and I/1 are exactly what a person mistypes reading aloud.
+  expect(cleanCodePart('AC-DE')).toBe('ACDE');
+  expect(cleanCodePart('ACDEFGH')).toBe('ACDEF');
+});
+
+test('pasting a whole code fills both halves', () => {
+  // The common case: it arrives in a Discord message as one string.
+  expect(splitPastedCode('ACDEF-GHJKM')).toEqual(['ACDEF', 'GHJKM']);
+  expect(splitPastedCode('acdef-ghjkm')).toEqual(['ACDEF', 'GHJKM']);
+  expect(splitPastedCode('ACDEF')).toEqual(['ACDEF', '']);
+});
+
+test('the two halves rejoin as the string the function expects', () => {
+  expect(joinCodeFrom('acdef', 'ghjkm')).toBe('ACDEF-GHJKM');
+  expect(isCodeComplete('ACDEF', 'GHJKM')).toBe(true);
+  expect(isCodeComplete('ACDE', 'GHJKM')).toBe(false);
+  expect(isCodeComplete('', '')).toBe(false);
+});
+
+test('a generated code survives the round trip through the two boxes', () => {
+  // The assertion that ties the pair together: whatever the generator emits
+  // must come back byte-identical after being split and rejoined, or a member
+  // burns an attempt against a five-try lockout.
+  const generated = generateJoinCode();
+  const [a, b] = splitPastedCode(generated);
+  expect(joinCodeFrom(a, b)).toBe(generated);
 });

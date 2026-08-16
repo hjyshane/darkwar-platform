@@ -7,6 +7,7 @@ import { useSession } from '../../lib/useSession';
 import { LeaveAllianceForm } from '../auth/LeaveAllianceForm';
 import { FavouritesBlock } from '../overview/FavouritesBlock';
 import { PlayerPage } from '../player/PlayerPage';
+import { EmailForm } from './EmailForm';
 import { PasswordForm } from './PasswordForm';
 
 /** Everything that is yours: what you wrote, what you kept, who you are.
@@ -33,7 +34,7 @@ const TABS: ReadonlyArray<[Tab, string]> = [
   // ONE TAB FOR THE THINGS YOU DO TO THE ACCOUNT, as opposed to the four
   // above, which are things you read. Password and leaving were separate tabs
   // for one revision and it read as two settings screens; they are one.
-  ['account', 'Account'],
+  ['account', 'Manage account'],
 ];
 
 interface MinePost {
@@ -323,6 +324,13 @@ export function AccountPage() {
 
         {tab === 'account' && (
           <>
+            {/* Email first: it is the thing people come to check ("which
+                address is this account?") even when they do not change it. */}
+            <section aria-labelledby="email-heading">
+              <h2 id="email-heading">Email</h2>
+              <EmailForm />
+            </section>
+
             <section aria-labelledby="password-heading">
               <h2 id="password-heading">Password</h2>
               <PasswordForm />
