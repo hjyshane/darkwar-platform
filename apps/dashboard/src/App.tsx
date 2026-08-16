@@ -13,6 +13,8 @@ import { LoginPage } from './features/auth/LoginPage';
 import { CrossRankingsPanel } from './features/crossRankings/CrossRankingsPanel';
 import { GuidePostPage } from './features/guides/GuidePostPage';
 import { GuidesPanel } from './features/guides/GuidesPanel';
+import { PrivacyPage } from './features/legal/PrivacyPage';
+import { TermsPage } from './features/legal/TermsPage';
 import { MonthCardsPage } from './features/monthCards/MonthCardsPage';
 import { NoticePostPage } from './features/notices/NoticePostPage';
 import { NoticesPanel } from './features/notices/NoticesPanel';
@@ -37,6 +39,7 @@ import {
   allianceIdFromHash,
   guideIdFromHash,
   isRankingRoute,
+  isStandaloneRoute,
   noticeIdFromHash,
   playerIdFromHash,
   routeFromHash,
@@ -392,6 +395,15 @@ export function SignedOutWall({ email }: { email: string | null | undefined }) {
             <a href="#/login">Sign in</a>
           )}
         </p>
+        {/* The two screens this wall does NOT stand in front of. Somebody
+            stopped here has been told the dashboard is not for them; these are
+            the only pages that can still answer "what would you have done with
+            my email address", which is the question worth answering at exactly
+            this moment. */}
+        <p className="legal-links">
+          <a href="#/terms">Terms of Service</a>
+          <a href="#/privacy">Privacy Policy</a>
+        </p>
       </section>
     </main>
   );
@@ -415,10 +427,10 @@ export function App() {
   const noticeId = noticeIdFromHash(hash);
   const adminGroup = adminGroupFromHash(hash);
   const adminSection = adminSectionFromHash(hash);
-  // Month cards is unlinked on purpose and the sign-in form has no use for
-  // a tab bar behind it. A server page keeps the tabs: it is reached FROM
-  // one, and taking the way back away would strand the reader.
-  const standalone = route === 'login' || route === 'monthCards';
+  // No tab bar, and no wall — see `isStandaloneRoute` for why each of the four
+  // is on that list. A server page is NOT: it is reached FROM the tabs, and
+  // taking the way back away would strand the reader.
+  const standalone = isStandaloneRoute(route);
   return (
     <QueryClientProvider client={queryClient}>
       <Shell
@@ -533,6 +545,10 @@ function Shell({
         </main>
       ) : route === 'login' ? (
         <LoginPage />
+      ) : route === 'terms' ? (
+        <TermsPage />
+      ) : route === 'privacy' ? (
+        <PrivacyPage />
       ) : route === 'admin' && adminGroup !== null ? (
         <AdminPage group={adminGroup} section={adminSection} />
       ) : route === 'monthCards' ? (

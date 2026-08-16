@@ -34,6 +34,20 @@ test('undefined is treated as not signed in', () => {
   expect(screen.getByRole('link', { name: 'Sign in' })).toBeTruthy();
 });
 
+test('the two pages the wall does not stand in front of are linked from it', () => {
+  // Somebody stopped here has just been told the dashboard is not for them.
+  // These are the only screens left that can answer what would have been done
+  // with their email address, and the wall is the last place they will look.
+  render(<SignedOutWall email={null} />);
+
+  expect(screen.getByRole('link', { name: 'Terms of Service' }).getAttribute('href')).toBe(
+    '#/terms',
+  );
+  expect(screen.getByRole('link', { name: 'Privacy Policy' }).getAttribute('href')).toBe(
+    '#/privacy',
+  );
+});
+
 test('the wall never claims anything here is public', () => {
   render(<SignedOutWall email={null} />);
 

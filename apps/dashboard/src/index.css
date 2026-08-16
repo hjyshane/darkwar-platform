@@ -3153,3 +3153,58 @@ form select {
 .provider-discord {
   color: #5865f2;
 }
+
+/* --- legal ---------------------------------------------------------------- */
+
+/* Prose, not a board. `--measure` is 72rem because a table of eleven columns
+ * needs the width; a paragraph read at that width loses the start of the next
+ * line, so these pages get their own, narrower measure. */
+.legal section {
+  max-width: 44rem;
+}
+
+.legal p,
+.legal li {
+  line-height: 1.65;
+}
+
+/* The page has one h2 and a run of h3s under it. Without space above, each
+ * heading reads as belonging to the paragraph it follows rather than the one
+ * it introduces. */
+.legal h3 {
+  font-size: var(--text-base);
+  margin: var(--space-6) 0 var(--space-2);
+}
+
+.legal ul {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3);
+  padding-left: var(--space-4);
+}
+
+.legal-updated {
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+}
+
+/* Also used on the signed-out wall, where it is a plain <p> rather than a
+ * <nav>. Flex with a gap rather than separators typed into the markup, so a
+ * third link is one element and not one element plus a middot. */
+.legal-links {
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+}
+
+/* Under the sign-in form. Quiet on purpose: it has to be present and legible
+ * for Google's and Discord's review, and it must not compete with the button
+ * somebody came to press. */
+.legal-consent {
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+  text-align: center;
+}

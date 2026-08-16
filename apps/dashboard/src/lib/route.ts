@@ -29,6 +29,8 @@ export type Route =
   | 'notices'
   | 'notice'
   | 'account'
+  | 'terms'
+  | 'privacy'
   | 'login';
 
 const ROUTES: Record<string, Route> = {
@@ -40,6 +42,13 @@ const ROUTES: Record<string, Route> = {
   '#/account': 'account',
   '#/guides': 'guides',
   '#/notices': 'notices',
+  // The only two addresses here that a signed-out stranger is MEANT to reach.
+  // Everything else on this list is walled; these are marked standalone in
+  // `App.tsx` so they are not, because Google and Discord fetch them with no
+  // session when approving the sign-in buttons, and because somebody deciding
+  // whether to hand over their email has to be able to read them first.
+  '#/terms': 'terms',
+  '#/privacy': 'privacy',
   '#/login': 'login',
 };
 
@@ -218,4 +227,25 @@ export const RANKING_TABS: ReadonlyArray<{ route: Route; hash: string; label: st
 /** Whether a route sits behind the Cross-Server Ranking tab. */
 export function isRankingRoute(route: Route): boolean {
   return RANKING_TABS.some((tab) => tab.route === route);
+}
+
+/** Screens that render without the tab bar — and without the members-only wall.
+ *
+ * TWO EFFECTS, ONE FLAG, and the second is the one that matters. `App.tsx`
+ * computes `walled` as `!standalone && not a member`, so adding a route here
+ * makes it PUBLIC. That is deliberate for all four:
+ *
+ *   login          the way in; walling it would wall the wall's own link
+ *   monthCards     unlinked rather than hidden; RLS withholds the rows
+ *   terms/privacy  must be readable signed out — Google and Discord fetch
+ *                  them with no session when approving the sign-in buttons,
+ *                  and a person deciding whether to hand over their email
+ *                  address cannot be asked to sign in first to find out what
+ *                  happens to it
+ *
+ * It lives here rather than inline in `App.tsx` so the list can be asserted:
+ * a fifth route added by habit is a screen quietly published.
+ */
+export function isStandaloneRoute(route: Route): boolean {
+  return route === 'login' || route === 'monthCards' || route === 'terms' || route === 'privacy';
 }

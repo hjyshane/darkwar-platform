@@ -9,6 +9,7 @@ import {
   adminHash,
   adminSectionFromHash,
   isRankingRoute,
+  isStandaloneRoute,
   routeFromHash,
   serverHash,
   serverIdFromHash,
@@ -45,6 +46,49 @@ test('the month-card page is not in the navigation', () => {
 
 test('sign-in is an account action, not a screen', () => {
   expect(NAV_TABS.some((tab) => tab.route === 'login')).toBe(false);
+});
+
+test('the legal pages have addresses and are not tabs', () => {
+  expect(routeFromHash('#/terms')).toBe('terms');
+  expect(routeFromHash('#/privacy')).toBe('privacy');
+  // They belong in the footer of the sign-in page and the wall, not in a nav
+  // bar members look at every day.
+  expect(NAV_TABS.some((tab) => tab.route === 'terms' || tab.route === 'privacy')).toBe(false);
+});
+
+test('the legal pages are readable without a session', () => {
+  // Standalone is what carries a screen past the members-only wall. Google and
+  // Discord fetch both addresses with no session when approving the sign-in
+  // buttons; walling either one fails that review silently.
+  expect(isStandaloneRoute('terms')).toBe(true);
+  expect(isStandaloneRoute('privacy')).toBe(true);
+});
+
+test('nothing else has been made public by accident', () => {
+  // The whole list, spelled out. A route added to isStandaloneRoute is a
+  // screen published to strangers, and that should never be a one-word diff
+  // nobody notices.
+  const routes = [
+    'overview',
+    'members',
+    'rankings',
+    'crossRankings',
+    'arena',
+    'server',
+    'player',
+    'alliance',
+    'admin',
+    'monthCards',
+    'guides',
+    'guide',
+    'notices',
+    'notice',
+    'account',
+    'terms',
+    'privacy',
+    'login',
+  ] as const;
+  expect(routes.filter(isStandaloneRoute)).toEqual(['monthCards', 'terms', 'privacy', 'login']);
 });
 
 test('no two tabs share an address', () => {
