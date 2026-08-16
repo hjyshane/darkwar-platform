@@ -1,0 +1,19 @@
+{
+  "name": "@dw/discord-bot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "register": "node --experimental-strip-types scripts/register.ts",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250109.0",
+    "@types/node": "^26.1.2",
+    "vitest": "^3.0.0",
+    "wrangler": "^3.99.0"
+  }
+}
