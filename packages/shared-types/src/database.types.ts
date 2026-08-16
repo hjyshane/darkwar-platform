@@ -3121,6 +3121,7 @@ export type Database = {
           created_by: string | null
           ends_at: string | null
           schedule_event_id: string
+          series_id: string | null
           source: string
           starts_at: string
           title: string
@@ -3133,6 +3134,7 @@ export type Database = {
           created_by?: string | null
           ends_at?: string | null
           schedule_event_id?: string
+          series_id?: string | null
           source?: string
           starts_at: string
           title: string
@@ -3145,6 +3147,7 @@ export type Database = {
           created_by?: string | null
           ends_at?: string | null
           schedule_event_id?: string
+          series_id?: string | null
           source?: string
           starts_at?: string
           title?: string

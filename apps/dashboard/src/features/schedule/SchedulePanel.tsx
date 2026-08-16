@@ -26,6 +26,7 @@ import {
   daysCovered,
   toLocal,
   useDeleteScheduleEvent,
+  useDeleteSeries,
   useSaveScheduleEvent,
   useScheduleCategories,
   useScheduleEvents,
@@ -49,6 +50,8 @@ const EMPTY: ScheduleDraft = {
   starts_at: '',
   ends_at: '',
   reminders: [],
+  repeatEvery: 'week',
+  repeatTimes: 1,
 };
 
 /** Draws in the reader's zone, so an entry stored at 20:00 UTC reads 05:00 to
@@ -67,6 +70,11 @@ function draftFrom(event: ScheduleEvent, zone: string): ScheduleDraft {
     starts_at: toLocal(event.starts_at, zone),
     ends_at: toLocal(event.ends_at, zone),
     reminders: event.schedule_reminders.map((entry) => entry.minutes_before).sort((a, b) => a - b),
+    // Carried so "Delete whole repeat" knows what to remove. Not editable: a
+    // repeat is expanded once, at creation.
+    series_id: event.series_id,
+    repeatEvery: 'week',
+    repeatTimes: 1,
   };
 }
 
@@ -93,6 +101,7 @@ export function SchedulePanel() {
   const { data: categories } = useScheduleCategories();
   const save = useSaveScheduleEvent(zone);
   const remove = useDeleteScheduleEvent();
+  const removeSeries = useDeleteSeries();
 
   const byDay = useMemo(() => {
     const map = new Map<string, ScheduleEvent[]>();
@@ -214,6 +223,14 @@ export function SchedulePanel() {
               ? undefined
               : () => {
                   remove.mutate(draft.schedule_event_id as string);
+                  setDraft(null);
+                }
+          }
+          onDeleteSeries={
+            draft.series_id == null
+              ? undefined
+              : () => {
+                  removeSeries.mutate(draft.series_id as string);
                   setDraft(null);
                 }
           }

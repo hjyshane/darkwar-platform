@@ -25,6 +25,7 @@ export interface ScheduleEvent {
   starts_at: string;
   ends_at: string | null;
   source: string;
+  series_id: string | null;
   schedule_reminders: ScheduleReminder[];
 }
 
@@ -39,7 +40,7 @@ export interface ScheduleCategory {
 const DAY_MS = 86_400_000;
 
 const COLUMNS =
-  'schedule_event_id, title, body, category, starts_at, ends_at, source,' +
+  'schedule_event_id, title, body, category, starts_at, ends_at, source, series_id,' +
   ' schedule_reminders(reminder_id, minutes_before)';
 
 export function useScheduleEvents(range: CalendarRange) {
@@ -103,6 +104,13 @@ export interface ScheduleDraft {
   ends_at: string;
   /** Minutes before the start, one per reminder. */
   reminders: number[];
+  /** How often to repeat, and how many times in total. `times` of 1 is a
+   *  one-off and writes no series id at all. Only read when creating. */
+  repeatEvery: 'day' | 'week';
+  repeatTimes: number;
+  /** Set when this draft came from an entry that belongs to a repeat, so the
+   *  editor can offer to remove the run. Never written by the form. */
+  series_id?: string | null;
 }
 
 /** Both directions now go through the reader's zone.
@@ -114,6 +122,30 @@ export interface ScheduleDraft {
  */
 export function toLocal(iso: string | null, zone: string): string {
   return toInputValue(iso, zone);
+}
+
+/** The wall clocks a repeat produces, in the reader's zone.
+ *
+ * ADDS DAYS TO THE WALL CLOCK, not 24 hours to the instant. "Every Monday at
+ * 20:00" has to stay 20:00 across a clock change; adding 7×24h to the instant
+ * would quietly make it 19:00 for the second half of a series that crosses one.
+ * Server time has no summer time, so this only shows up for somebody who
+ * switched the picker to their own zone — which is exactly the reader least
+ * likely to notice the hour had moved.
+ */
+export function occurrences(startLocal: string, every: 'day' | 'week', times: number): string[] {
+  const step = every === 'week' ? 7 : 1;
+  const [date, clock] = startLocal.split('T');
+  if (date === undefined || clock === undefined) {
+    return [startLocal];
+  }
+  const out: string[] = [];
+  for (let index = 0; index < Math.max(1, times); index += 1) {
+    const at = new Date(`${date}T00:00:00Z`);
+    at.setUTCDate(at.getUTCDate() + index * step);
+    out.push(`${at.toISOString().slice(0, 10)}T${clock}`);
+  }
+  return out;
 }
 
 /** Save an entry and replace its reminders.
@@ -132,31 +164,49 @@ export function useSaveScheduleEvent(zone: string) {
       if (starts === null) {
         throw new Error('An entry needs a start time.');
       }
-      const row = {
+      const common = {
         title: draft.title.trim(),
         body: draft.body.trim() === '' ? null : draft.body.trim(),
         category: draft.category === '' ? null : draft.category,
-        starts_at: starts,
-        ends_at: fromInputValue(draft.ends_at, zone),
       };
+      // A repeat only happens on CREATE. Editing one occurrence edits that
+      // occurrence — re-expanding here would silently replace a series somebody
+      // had already moved two entries of, and there is no undo on this screen.
+      const times =
+        draft.schedule_event_id === undefined ? Math.max(1, Math.min(52, draft.repeatTimes)) : 1;
+      const seriesId = times > 1 ? crypto.randomUUID() : null;
+      const startLocals = occurrences(draft.starts_at, draft.repeatEvery, times);
+      // The end moves with the start, by the same number of days, so a
+      // three-hour window stays three hours on every occurrence.
+      const endLocals =
+        draft.ends_at.trim() === ''
+          ? startLocals.map(() => '')
+          : occurrences(draft.ends_at, draft.repeatEvery, times);
+
+      const rows = startLocals.map((startLocal, index) => ({
+        ...common,
+        starts_at: fromInputValue(startLocal, zone) ?? starts,
+        ends_at: fromInputValue(endLocals[index] ?? '', zone),
+        series_id: seriesId,
+      }));
+
       const saved =
         draft.schedule_event_id === undefined
-          ? await supabase.from('schedule_events').insert(row).select('schedule_event_id').single()
+          ? await supabase.from('schedule_events').insert(rows).select('schedule_event_id')
           : await supabase
               .from('schedule_events')
-              .update(row)
+              .update(rows[0] ?? {})
               .eq('schedule_event_id', draft.schedule_event_id)
-              .select('schedule_event_id')
-              .single();
+              .select('schedule_event_id');
       if (saved.error !== null) {
         throw saved.error;
       }
-      const eventId = saved.data.schedule_event_id;
+      const eventIds = (saved.data ?? []).map((entry) => entry.schedule_event_id);
 
       const wipe = await supabase
         .from('schedule_reminders')
         .delete()
-        .eq('schedule_event_id', eventId);
+        .in('schedule_event_id', eventIds);
       if (wipe.error !== null) {
         throw wipe.error;
       }
@@ -165,16 +215,33 @@ export function useSaveScheduleEvent(zone: string) {
       // database is a worse way to be told about it than simply not having one.
       const minutes = [...new Set(draft.reminders)].filter((value) => value >= 0);
       if (minutes.length > 0) {
+        // One set per occurrence. Each reminder is relative to the entry it
+        // hangs on, so the fourth Monday reminds before the fourth Monday.
         const written = await supabase
           .from('schedule_reminders')
           .insert(
-            minutes.map((minutes_before) => ({ schedule_event_id: eventId, minutes_before })),
+            eventIds.flatMap((schedule_event_id) =>
+              minutes.map((minutes_before) => ({ schedule_event_id, minutes_before })),
+            ),
           );
         if (written.error !== null) {
           throw written.error;
         }
       }
-      return eventId;
+      return eventIds[0] ?? null;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['schedule'] }),
+  });
+}
+
+export function useDeleteSeries() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (seriesId: string) => {
+      const { error } = await supabase.from('schedule_events').delete().eq('series_id', seriesId);
+      if (error !== null) {
+        throw error;
+      }
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['schedule'] }),
   });
