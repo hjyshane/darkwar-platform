@@ -105,6 +105,13 @@ class RoutineRunner:
             )
         elif step.action == "back":
             self.client.back()
+        elif step.action == "launch":
+            # Validated by Step, narrowed here for the same reason as _coord.
+            package = step.package
+            if package is None:  # pragma: no cover - unreachable via Routine.load
+                msg = f"step {step.name!r} is missing package"
+                raise ValueError(msg)
+            self.client.launch(package)
         # "wait" performs nothing; settle_seconds is the whole point of it.
 
     def _stop_requested(self) -> str | None:

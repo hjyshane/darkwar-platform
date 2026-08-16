@@ -20,7 +20,7 @@ import typer
 from dw_collector import normalize as _normalize  # noqa: F401  (registers normalizers)
 from dw_collector.envfile import load_env_file
 from dw_collector.storage.journal import Journal
-from dw_collector.ui_worker.adb import AdbClient, list_devices
+from dw_collector.ui_worker.adb import AdbClient, list_devices, wait_for_serial
 from dw_collector.ui_worker.guard import AdbGuardError, AdbPolicy
 from dw_collector.ui_worker.idle import IdlePolicy
 from dw_collector.ui_worker.routine import Routine
@@ -87,6 +87,10 @@ def run(
     db: Annotated[Path | None, typer.Option("--db", help="SQLite path")] = None,
     adb: Annotated[str, _ADB] = "adb",
     dry_run: Annotated[bool, typer.Option(help="print the taps, touch nothing")] = False,
+    wait_for_device_seconds: Annotated[
+        float,
+        typer.Option(help="wait this long for the serial to appear before starting"),
+    ] = 0.0,
 ) -> None:
     """Walk a routine, stopping at the first step that cannot be verified."""
     policy = AdbPolicy.from_env()
@@ -95,6 +99,16 @@ def run(
     except AdbGuardError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=2) from exc
+
+    # Zero by default: a routine run by hand should fail immediately when the
+    # emulator is not there, rather than appearing to hang. The cold start is
+    # the only caller that passes a value, because it runs seconds after a boot
+    # and BlueStacks is genuinely still starting.
+    if wait_for_device_seconds > 0 and not dry_run:
+        typer.echo(f"waiting up to {wait_for_device_seconds:.0f}s for {target}")
+        if not wait_for_serial(target, timeout_seconds=wait_for_device_seconds, executable=adb):
+            typer.echo(f"{target} never appeared", err=True)
+            raise typer.Exit(code=2)
 
     plan = Routine.load(routine)
     idle = IdlePolicy.from_env()

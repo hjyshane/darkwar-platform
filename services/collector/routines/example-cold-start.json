@@ -1,0 +1,59 @@
+{
+  "name": "example-cold-start",
+  "description": "EXAMPLE ONLY - every x/y is 0 and the package is a placeholder. Both must be replaced with values read off your own emulator (dw-ui-worker screenshot; adb shell pm list packages) before this does anything but abort. What it is for: the machine came back from a power cut with nobody in front of it, BlueStacks has just started, and the game is either closed or sitting on the shelter screen where taps do not land where a routine expects. This opens the game, clears whatever popups the login threw up, and moves to the field so that example-alliance-daily can run afterwards. WHAT IS NOT VERIFIED: the popup steps and the field step declare no expect, because closing a popup and panning the camera produce no response on the wire - there is nothing for the runner to wait for. Only the launch is proven, and it is proven by the login response arriving. If the popups change shape the run still reports ok and the daily routine afterwards is what fails. Check with dw-collector journal-summary after the first real cold start.",
+  "steps": [
+    {
+      "name": "open the game",
+      "action": "launch",
+      "package": "com.example.replace.me",
+      "expect": ["init"],
+      "settle_seconds": 5.0,
+      "timeout_seconds": 240
+    },
+    {
+      "name": "let the loading screen finish",
+      "action": "wait",
+      "settle_seconds": 45.0
+    },
+    {
+      "name": "close popup 1",
+      "action": "tap",
+      "x": 0,
+      "y": 0,
+      "settle_seconds": 2.0
+    },
+    {
+      "name": "close popup 2",
+      "action": "tap",
+      "x": 0,
+      "y": 0,
+      "settle_seconds": 2.0
+    },
+    {
+      "name": "close popup 3",
+      "action": "tap",
+      "x": 0,
+      "y": 0,
+      "settle_seconds": 2.0
+    },
+    {
+      "name": "close popup 4",
+      "action": "tap",
+      "x": 0,
+      "y": 0,
+      "settle_seconds": 2.0
+    },
+    {
+      "name": "leave the shelter for the field",
+      "action": "tap",
+      "x": 0,
+      "y": 0,
+      "settle_seconds": 6.0
+    },
+    {
+      "name": "settle on the field",
+      "action": "wait",
+      "settle_seconds": 10.0
+    }
+  ]
+}

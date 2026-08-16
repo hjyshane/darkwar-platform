@@ -626,7 +626,7 @@ uv run dw-collector journal-summary
 
 ## 꺼졌다 켜질 때
 
-특별히 할 일이 없게 만들어 두었다.
+데이터 쪽은 특별히 할 일이 없게 만들어 두었다.
 
 - 저널은 SQLite 파일이라 프로세스가 죽어도 남는다.
 - `dw-sync`는 다시 뜨면 밀린 outbox부터 비운다.
@@ -635,6 +635,64 @@ uv run dw-collector journal-summary
 - 파서가 좋아진 뒤라면 `dw-collector renormalize`로 **원본 관측을 지금 파서로
   다시** 돌릴 수 있다. idempotency_key가 원본 payload를 해시하므로(§11.2)
   다시 sync해도 중복이 아니라 갱신이다.
+
+**그런데 그것은 프로세스가 다시 뜬 다음의 얘기다.** 정전으로 머신이 꺼졌다
+켜지면 네 작업은 전부 **로그온 시 실행**이라 아무것도 안 뜬다. 실제로 그렇게
+됐다 — 전기는 돌아왔고 컴퓨터는 잠금 화면에 앉아 있었다.
+
+### 정전 뒤 스스로 돌아오게 하는 세 가지
+
+셋 다 필요하고, 소프트웨어로 되는 것은 하나뿐이다.
+
+1. **BIOS: Restore on AC Power Loss = Power On.** 이게 없으면 머신은 그냥
+   꺼져 있다. 코드로 고칠 수 있는 문제가 아니다.
+2. **Windows 자동 로그온** (`netplwiz` 또는 Sysinternals Autologon). 로그온이
+   없으면 트리거가 안 걸린다. 작업이 서비스가 아닌 이유는 위에 적어 뒀다 —
+   BlueStacks와 Npcap 캡처 둘 다 데스크톱 세션이 필요하다.
+3. **`DarkWar-ColdStart` 작업.** 게임을 열고, 로그인 팝업을 닫고, 필드로
+   나간다. 등록은
+   [`scripts/windows/register-cold-start.ps1`](../../scripts/windows/register-cold-start.ps1).
+
+### 콜드 스타트는 반복 트리거가 없다
+
+나머지 네 작업과 정반대다. 그것들은 죽으면 5분 반복 트리거가 되살리는
+장기 실행 프로세스다. 이것은 **좌표를 탭한다.** 5분마다 돌면 아무도 안 보는
+머신에서 게임 화면에 좌표를 계속 눌러댄다. 그래서 로그온에 한 번만 걸고,
+`register-tasks.ps1`의 검사 루프는 반대로 "반복 트리거가 **있어야** 한다"를
+못 박는다. 규칙이 반대라서 파일을 나눴다. 한 파일에 예외를 두지 않는다.
+
+### 좌표는 여전히 저장소에 없다
+
+`services/collector/routines/example-cold-start.json`이 템플릿이고, 좌표는
+0, 패키지는 `com.example.replace.me`다. 실물은 `C:\DW_data\routines\`에 둔다.
+등록 스크립트는 **템플릿 패키지가 남아 있으면 등록을 거부한다** — 좌표 0을
+누르는 콜드 스타트는 없느니만 못하다. 성공했다고 보고하기 때문이다.
+
+패키지명 찾는 법:
+
+```powershell
+adb -s $env:DW_ADB_COLLECTOR_SERIAL shell pm list packages
+```
+
+좌표는 `dw-ui-worker screenshot`으로 읽는다. 등록 전에 반드시 한 번:
+
+```powershell
+uv run dw-ui-worker run --routine C:\DW_data\routines\cold-start.json --dry-run
+```
+
+### 검증되지 않은 부분 — 읽고 넘어가지 말 것
+
+**팝업 닫기와 필드 이동 단계는 `expect`가 없다.** 팝업을 닫거나 카메라를
+움직이는 것은 회선에 아무 응답도 만들지 않으므로 러너가 기다릴 대상이
+없다. 증명되는 것은 **실행 단계 하나뿐**이고, 그것은 로그인 응답 `init`이
+도착하는 것으로 증명된다.
+
+즉 팝업 개수나 위치가 바뀌면 **콜드 스타트는 여전히 `ok`를 보고하고**, 그
+다음에 도는 일상 순회가 대신 실패한다. 첫 실전 콜드 스타트 뒤에는 반드시
+`dw-collector journal-summary`로 실제로 값이 늘었는지 확인한다.
+
+그리고 이 상태를 사람이 지켜보지 않아도 알 수 있게 하는 것이
+[`alerting.md`](alerting.md)의 `data_stalled`다.
 
 ## 남은 위험
 

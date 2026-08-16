@@ -26,6 +26,7 @@ DISRUPTIVE_COMMANDS = frozenset(
         "am force-stop",
         "am kill",
         "am start",
+        "monkey",
         "reboot",
         "emu kill",
         "pm clear",
