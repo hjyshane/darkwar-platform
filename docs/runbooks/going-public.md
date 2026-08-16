@@ -5,7 +5,9 @@
 > 겪은 것은 각 단계의 「실제로 이랬다」에 적었다. 처음 하는 사람 기준으로 쓴
 > 문장은 그대로 뒀다 — 다시 만들 때 같은 순서로 필요하다.
 
-스펙 §21.1의 배포 파이프라인은 **여전히 미룬 항목이다.** 배포는 손으로 한다.
+스펙 §21.1의 배포 파이프라인은 **여전히 미룬 항목이다.** 다만 배포는 손으로
+하지 않는다 — **Cloudflare가 `main` push마다 자동으로 올린다** (6-1절).
+아래 6절의 손 배포는 그 자동 빌드가 고장났을 때의 경로다.
 
 **이 작업은 되돌리기 어렵다.** 한 번 인터넷에 올라간 데이터는 나중에 지워도
 누군가 이미 읽었을 수 있다. 그래서 0단계가 "무엇이 공개되는가"다.
@@ -324,6 +326,11 @@ uv run dw-collector sync --db .\data\fresh.db     # sent=0 까지 반복
 
 ## 6. 대시보드를 띄운다
 
+> **평소에는 이 절을 실행할 일이 없다.** 배포는 Cloudflare가 자동으로 한다
+> (6-1절). 여기는 처음 세울 때와 그 자동 빌드가 고장났을 때의 절차다. 손으로
+> 빌드한다면 아래 두 `VITE_` 변수를 **반드시** 붙인다 — 빼먹으면 로컬 스택을
+> 보는 번들이 프로덕션에 올라간다.
+
 **Supabase는 정적 사이트를 호스팅하지 않는다.** 별도 호스트가 필요하다 —
 Cloudflare Pages, Vercel, Netlify 중 아무거나. 빌드 결과는
 `apps/dashboard/dist`이고 순수 정적이다(해시 라우팅이라 서버 rewrite 설정도
@@ -394,6 +401,55 @@ Cloudflare가 표시하는 시각은 **언제** 빌드했는지만 말하고 **�
 > **urllib로 그냥 받으면 403이다.** User-Agent 헤더를 붙이면 200이 온다.
 > PowerShell의 `Invoke-WebRequest`는 기본으로 붙여 준다.
 
+## 6-1. 그런데 배포는 이미 자동이다 — merge가 곧 릴리스다
+
+> **발견 — 2026-08-16.** 이 문서와 `CLAUDE.md`는 둘 다 "배포는 손으로 한다"고
+> 적고 있었고, 그게 틀렸다. #228을 merge한 직후 확인하니 새 페이지가 이미
+> `https://cbfw.us`에 떠 있었다.
+
+**Cloudflare의 Git 연동(Workers Builds)이 이 저장소에 붙어 있다.** GitHub
+Actions가 아니다 — Actions는 청구 문제로 매 커밋 4초 만에 빨갛게 죽는데도
+배포는 멀쩡히 되고 있었던 이유가 그것이다.
+
+커밋의 check-suite로 확인할 수 있다:
+
+```powershell
+gh api repos/hjyshane/darkwar-platform/commits/<sha>/check-suites `
+  --jq '.check_suites[] | "\(.app.name) \(.conclusion)"'
+```
+
+`Cloudflare Workers and Pages success` 와 `GitHub Actions failure` 가 나란히
+나온다. 실측(2026-08-16): #227·#228·#229의 main 커밋 전부 success이고, PR
+브랜치 커밋에서도 빌드가 돈다. **`main` 커밋의 빌드가 `cbfw.us`를 서빙한다.**
+
+### 그래서 실제로 무엇이 바뀌나
+
+**merge 버튼이 릴리스 버튼이다.** PR을 합치면 1분 안쯤에 프로덕션이 바뀐다.
+의도했든 아니든.
+
+**그리고 그 앞에 게이트가 없다.** Actions가 모든 커밋에서 빨간색이므로,
+`pnpm test`가 깨진 채로 merge해도 아무것도 막지 않는다. §21.1이 여전히 열린
+항목인 이유가 이것이다 — 없는 것은 배포가 아니라 **배포 전 검사**다.
+
+그러니 CLAUDE.md의 로컬 게이트를 **push 전이 아니라 merge 전에** 돌린다:
+
+```
+pnpm check && pnpm typecheck && pnpm test && pnpm build
+uv run ruff check . && uv run ruff format --check . && uv run mypy src && uv run pytest
+supabase test db
+```
+
+### `VITE_` 값은 Cloudflare 쪽에 있다
+
+저장소 어디에도 `VITE_SUPABASE_URL`·`VITE_SUPABASE_PUBLISHABLE_KEY`가 없다
+(`.env`·`.env.local` 둘 다 없음). 빌드 설정에 들어 있고, 그래서 자동 빌드는
+제대로 된 값으로 빌드된다.
+
+**로컬 `pnpm build`는 그렇지 않다.** 값이 없으면 `apps/dashboard/src/lib/env.ts`
+가 로컬 스택 기본값으로 떨어진다 — 그 `dist/`는 `127.0.0.1:54321`을 보고 있고,
+**그대로 `wrangler deploy` 하면 프로덕션이 죽는다.** 6절의 손 배포를 할 때는
+반드시 두 변수를 붙여서 빌드한다.
+
 ## 7. 확인한다 — 로그인하지 않은 브라우저로
 
 배포 주소를 **시크릿 창**에서 연다. 0단계의 표와 맞는지 눈으로 본다.
@@ -423,4 +479,6 @@ curl -i "https://<ref>.supabase.co/rest/v1/players?select=player_id&limit=1" -H 
   할 수 있지만, **사람이 입력한 것**(영웅 이름은 0061이 들고 있으니 괜찮고,
   `app_settings`·`announcements`·`player_ranks.assigned_rank`는 아니다)은
   어디에도 복제본이 없다.
-- **CI에서의 자동 배포는 여전히 만들지 않았다** (§21.1). 지금은 손으로 한다.
+- **§21.1의 배포 파이프라인은 여전히 없다.** 다만 "손으로 한다"는 더 이상
+  사실이 아니다 — 아래 6-1절. Cloudflare가 push마다 빌드해서 올린다. 없는 것은
+  **배포 자체가 아니라 그 앞의 게이트**다.

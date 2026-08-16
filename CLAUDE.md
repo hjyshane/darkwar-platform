@@ -35,7 +35,29 @@ items and §26.1 lists the PCAPs still needed. Their tables are deliberately
 absent from the schema. Do not add them speculatively; fields would be guesses.
 
 Also deferred: PGMQ queues, Supabase Storage, table partitioning, alerting
-(§18.4), the deploy pipeline (§21.1), and Playwright.
+(§18.4), and Playwright.
+
+## Merging to `main` publishes the dashboard
+
+Cloudflare's own Git integration is connected to this repository and builds on
+push — no GitHub Actions involved, which is why this still works while the
+Actions runs fail on billing in four seconds. The build for a `main` commit is
+what serves `https://cbfw.us`. Every merged PR is a production release, within
+about a minute, whether or not anybody meant it as one.
+
+This is NOT the pipeline §21.1 asks for and the spec's item stays open: there
+is no gate in front of it. The Actions run is red on every commit, so nothing
+stops a merge that fails `pnpm test` from going straight out. **The local gate
+is the only gate** — run it before merging, not before pushing.
+
+The build's `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` live in
+Cloudflare's build settings, which is why neither appears in any `.env` here.
+A local `pnpm build` has no such values and falls back to the local stack
+defaults in `apps/dashboard/src/lib/env.ts`; that `dist/` points at
+`127.0.0.1:54321` and must never be deployed by hand.
+
+`docs/runbooks/going-public.md` §6 has the manual `wrangler deploy` path, for
+when the automatic build is what broke.
 
 ## The Observation seam
 
