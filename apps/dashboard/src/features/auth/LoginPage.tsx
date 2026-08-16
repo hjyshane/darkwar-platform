@@ -146,7 +146,7 @@ export function LoginPage() {
   if (sessionEmail) {
     return (
       <main>
-        <section aria-labelledby="login-heading">
+        <section aria-labelledby="login-heading" className="signin-card">
           <h2 id="login-heading">{TERMS.signIn}</h2>
           <p>
             Signed in as {sessionEmail} — <strong>{session?.role ?? 'viewer'}</strong>.
@@ -186,7 +186,7 @@ export function LoginPage() {
   if (creating) {
     return (
       <main>
-        <section aria-labelledby="login-heading">
+        <section aria-labelledby="login-heading" className="signin-card">
           <h2 id="login-heading">Create an account</h2>
           {/* Same treatment as signing in. A confirmation-free project hands
               back a session here, and sending that straight to the board would
@@ -210,7 +210,7 @@ export function LoginPage() {
 
   return (
     <main>
-      <section aria-labelledby="login-heading">
+      <section aria-labelledby="login-heading" className="signin-card">
         <h2 id="login-heading">{TERMS.signIn}</h2>
         <form onSubmit={(event) => void signIn(event)}>
           <label>
