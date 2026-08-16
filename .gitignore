@@ -76,3 +76,9 @@ desktop.ini
 
 # Agent session logs — local notes, not repo history.
 .claude/logs/
+
+# `wrangler dev` writes miniflare state and a bundled copy of the Worker here.
+# Untracked it is merely noise; unignored it also breaks `pnpm check`, because
+# biome lints the generated bundle and finds two dozen violations in code
+# nobody wrote. Both apps with a wrangler.jsonc produce one.
+.wrangler/
