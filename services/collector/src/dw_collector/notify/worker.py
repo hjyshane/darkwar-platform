@@ -30,11 +30,15 @@ import structlog
 from dw_collector.notify.compose import (
     Message,
     attachment_name,
+    claim_message,
     departure_message,
     discord_payload,
     guide_message,
     notice_message,
     rank_period_message,
+    resumed_message,
+    silence_message,
+    waiting_message,
 )
 
 log = structlog.get_logger()
@@ -56,6 +60,27 @@ SETTLE = timedelta(hours=6)
 # Retry-After and 404 when a webhook has been deleted in Discord; retrying the
 # second forever writes an error to the row every interval and never succeeds.
 MAX_ATTEMPTS = 5
+# How long a collector may go without checking in before it is announced.
+#
+# `dw-sync` beats every DW_SYNC_INTERVAL_SECONDS, default 10, and 0060 calls the
+# board stale after one minute of silence. This is deliberately much longer than
+# that: the dashboard badge is for somebody already looking at the screen, and it
+# can flicker without costing anything. A Discord message cannot. Ten minutes is
+# sixty missed beats — past any reboot, Windows update, or router blip, and still
+# inside the hour it takes to care.
+SYNC_SILENCE = timedelta(minutes=10)
+# The same question asked about DATA rather than about the process.
+#
+# This is the failure the capture runbook records and the heartbeat cannot see:
+# the interface name was wrong, dumpcap collected nothing at all, and everything
+# that reports health went on reporting health. `last_packet_at` is the only
+# figure that moved — or rather, the only one that stopped.
+#
+# Two hours, not ten minutes. Game traffic is not a metronome; the client goes
+# quiet when nothing is happening, and the routine only opens screens every so
+# often. Under an hour this alerts on ordinary quiet. The failure it is for
+# lasted overnight.
+PACKET_SILENCE = timedelta(hours=2)
 # How far back a newly switched-on notice event will reach.
 #
 # The outbox has no memory of the time before an event was enabled, so without a
@@ -406,6 +431,198 @@ class NotifyWorker:
             )
         return out
 
+    def claim_candidates(self, routing: dict[str, Row]) -> list[Message]:
+        """Player links waiting on an admin's decision.
+
+        NO BACKLOG WINDOW, unlike guides and notices, and the difference is not an
+        oversight. Those two ask "is this news?", and a fortnight-old notice is
+        not. A claim asks "is this still waiting?" — and one that has been waiting
+        a fortnight is the most overdue thing on the list, not the least. The
+        `status=eq.pending` filter is the window: deciding it removes it.
+
+        `app_users` is fetched separately rather than embedded. `player_claims`
+        points at `auth.users`, not at `app_users`, so there is no foreign key for
+        PostgREST to embed across and asking for one answers 400. `players` IS a
+        real reference and embeds normally.
+        """
+        channel = self._target(routing, "player_claim")
+        if channel is None:
+            return []
+        rows = self._get(
+            "player_claims?select=user_id,player_id,created_at,note,"
+            "players(current_name,game_uid)"
+            "&status=eq.pending&order=created_at&limit=20"
+        )
+        if not rows:
+            return []
+        ids = ",".join(row["user_id"] for row in rows)
+        names = {
+            row["user_id"]: row["display_name"]
+            for row in self._get(f"app_users?select=user_id,display_name&user_id=in.({ids})")
+        }
+        out: list[Message] = []
+        for row in rows:
+            player = row.get("players") or {}
+            out.append(
+                claim_message(
+                    channel=channel,
+                    user_id=row["user_id"],
+                    display_name=names.get(row["user_id"]),
+                    player_name=player.get("current_name"),
+                    game_uid=player.get("game_uid"),
+                    created_at=row["created_at"],
+                    note=row.get("note"),
+                    dashboard_url=self.dashboard_url,
+                )
+            )
+        return out
+
+    def signup_candidates(self, routing: dict[str, Row]) -> list[Message]:
+        """Accounts that signed in and never got a role.
+
+        Reads 0123's view rather than `app_users`, because the row this is looking
+        for does not exist there — `redeem_join_code` is what creates an
+        `app_users` row, so somebody who never redeemed a code is absent from the
+        table rather than present with `role = 'viewer'`. A filter on that role
+        finds nobody, always, and looks like it worked.
+
+        Keyed on the uid ALONE, with no timestamp. Signing out and back in should
+        not re-announce the same stranger, and neither should anything else that
+        touches the row: there is one decision to make about this person, so there
+        is one message. Once they redeem a code they leave the view for good.
+        """
+        channel = self._target(routing, "new_signup")
+        if channel is None:
+            return []
+        rows = self._get(
+            "pending_access?select=user_id,created_at,last_sign_in_at&order=created_at&limit=20"
+        )
+        return [
+            waiting_message(
+                channel=channel,
+                user_id=row["user_id"],
+                created_at=row["created_at"],
+                last_sign_in_at=row.get("last_sign_in_at"),
+                dashboard_url=self.dashboard_url,
+            )
+            for row in rows
+        ]
+
+    def sync_stall_candidates(self, routing: dict[str, Row]) -> list[Message]:
+        """The collector stopped checking in at all."""
+        return self._silence_candidates(
+            routing,
+            event="sync_stalled",
+            column="last_heartbeat_at",
+            threshold=SYNC_SILENCE,
+            what="has stopped checking in.",
+            consequence="Nothing is being collected or synced until it comes back.",
+        )
+
+    def data_stall_candidates(self, routing: dict[str, Row]) -> list[Message]:
+        """The collector is checking in but no longer seeing packets."""
+        return self._silence_candidates(
+            routing,
+            event="data_stalled",
+            column="last_packet_at",
+            threshold=PACKET_SILENCE,
+            what="is running, but has not seen a packet in a long time.",
+            consequence=(
+                "The dashboard will keep showing the last figures it received, "
+                "so this does not look like a fault from the board."
+            ),
+        )
+
+    def _silence_candidates(
+        self,
+        routing: dict[str, Row],
+        *,
+        event: str,
+        column: str,
+        threshold: timedelta,
+        what: str,
+        consequence: str,
+    ) -> list[Message]:
+        """One alarm per outage, one all-clear per alarm.
+
+        THE TWO SILENCES ARE THE SAME SHAPE and differ only in which column stopped
+        moving, so they share this. Keeping them as two events rather than one is
+        about what the reader can do: a dead process needs the machine restarting,
+        a live process seeing nothing needs the capture interface checked. Told as
+        one event, the second reads as the first and gets the wrong fix.
+
+        A collector whose column is NULL is skipped rather than announced. Null
+        means it has never reported — a row registered by a `dw-sync` that has not
+        finished starting, or one left behind by a machine that was retired. That
+        is a configuration state, and an alarm that fires forever about it trains
+        the reader to ignore the channel.
+        """
+        channel = self._target(routing, event)
+        if channel is None:
+            return []
+        now = datetime.now(tz=UTC)
+        out: list[Message] = []
+        for row in self._get(
+            "collectors?select=collector_id,name,last_heartbeat_at,last_packet_at"
+        ):
+            since = row.get(column)
+            if not since:
+                continue
+            collector_id = row["collector_id"]
+            name = row.get("name") or collector_id[:8]
+            if now - datetime.fromisoformat(since) > threshold:
+                out.append(
+                    silence_message(
+                        channel=channel,
+                        event=event,
+                        collector_name=name,
+                        collector_id=collector_id,
+                        since=since,
+                        what=what,
+                        consequence=consequence,
+                    )
+                )
+                continue
+            # Healthy now. If it was ever announced as silent, close that episode.
+            # Re-enqueued on every pass and swallowed by the unique key after the
+            # first — the same bargain `departure_candidates` makes, and for the
+            # same reason: remembering here would need state this process does not
+            # have, and would go wrong exactly once, silently.
+            opened = self._last_silence_since(event, collector_id)
+            if opened is not None:
+                out.append(
+                    resumed_message(
+                        channel=channel,
+                        event=event,
+                        collector_name=name,
+                        collector_id=collector_id,
+                        since=opened,
+                    )
+                )
+        return out
+
+    def _last_silence_since(self, event: str, collector_id: str) -> str | None:
+        """The `since` of the most recent alarm for this collector, if any.
+
+        Read back out of the key rather than kept in a column: the key is already
+        the episode's identity, and a second place to store it is a second place
+        for the two to disagree.
+
+        The prefix is escaped but the trailing `*` is not — that is the wildcard,
+        and encoding it would search for a literal asterisk. Nothing else can match
+        it: an all-clear's key reads `{event}:resumed:…`, so it never begins with
+        `{event}:{uuid}:`.
+        """
+        prefix = f"{event}:{collector_id}:"
+        rows = self._get(
+            "notification_outbox?select=idempotency_key"
+            f"&idempotency_key=like.{filter_value(prefix)}*"
+            "&order=notification_id.desc&limit=1"
+        )
+        if not rows:
+            return None
+        return str(rows[0]["idempotency_key"])[len(prefix) :]
+
     # --------------------------------------------------------------- delivering
 
     def pending(self) -> list[Row]:
@@ -550,6 +767,10 @@ class NotifyWorker:
             self.departure_candidates,
             self.guide_candidates,
             self.notice_candidates,
+            self.claim_candidates,
+            self.signup_candidates,
+            self.sync_stall_candidates,
+            self.data_stall_candidates,
         )
         messages = [message for source in sources for message in source(routing)]
         stats.enqueued = self.enqueue(messages)

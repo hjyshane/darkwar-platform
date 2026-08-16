@@ -394,6 +394,157 @@ def notice_message(
     )
 
 
+def claim_message(
+    *,
+    channel: str,
+    user_id: str,
+    display_name: str | None,
+    player_name: str | None,
+    game_uid: int | None,
+    created_at: str,
+    note: str | None,
+    dashboard_url: str | None,
+) -> Message:
+    """Somebody has asked to be linked to a player, and an admin must decide.
+
+    THE ONLY EVENT HERE THAT DOES NOT COME FROM A CAPTURE. It comes from the
+    website, which is why it matters where the notifier runs: a claim filed while
+    the collector's machine is off is a claim nobody hears about until it comes
+    back. Moving `dw-notify` off that machine is what makes this event honest.
+
+    Keyed on the player as well as the claimant. `player_claims` is keyed by
+    `user_id` alone, so a member who is rejected and then claims a DIFFERENT
+    player updates the same row — keyed on the user alone that second claim would
+    be swallowed as a duplicate of the first, and the admin would never see it.
+    """
+    who = display_name or f"member {user_id[:8]}"
+    whom = player_name or (f"UID {game_uid}" if game_uid is not None else "an unnamed player")
+    lines = [
+        f"**{who}** is asking to be linked to **{whom}**.",
+        "",
+        f"Filed: {created_at[:16].replace('T', ' ')}Z",
+    ]
+    if note:
+        lines.extend(["", f"> {clamp(note.strip(), 500)}"])
+    if dashboard_url:
+        lines.extend(["", f"{dashboard_url.rstrip('/')}/settings"])
+    return Message(
+        channel=channel,
+        event="player_claim",
+        idempotency_key=f"player_claim:{user_id}:{game_uid}:{created_at}",
+        title="Player link requested",
+        body="\n".join(lines),
+    )
+
+
+def waiting_message(
+    *,
+    channel: str,
+    user_id: str,
+    created_at: str,
+    last_sign_in_at: str | None,
+    dashboard_url: str | None,
+) -> Message:
+    """Somebody signed in and got no further.
+
+    They have no `app_users` row, because 0021 only creates one when a join code
+    is redeemed — so they see an empty site, nothing explains why, and until 0123
+    nothing recorded that they had arrived at all.
+
+    NO NAME AND NO EMAIL, and that is the point rather than a limitation. This
+    person is a stranger by definition: they have not proved they belong to the
+    alliance, and an alert about them should not be the thing that publishes their
+    address to a Discord channel. The uid prefix is enough to find them on the
+    members screen, which is where the decision gets made and where the email
+    already lives behind `members.manage`.
+    """
+    lines = [
+        f"Somebody signed in and has no access yet (`{user_id[:8]}`).",
+        "",
+        f"Signed up: {created_at[:16].replace('T', ' ')}Z",
+    ]
+    if last_sign_in_at:
+        lines.append(f"Last sign-in: {last_sign_in_at[:16].replace('T', ' ')}Z")
+    lines.extend(["", "They need a join code before they can see anything."])
+    if dashboard_url:
+        lines.append(f"{dashboard_url.rstrip('/')}/settings")
+    return Message(
+        channel=channel,
+        event="new_signup",
+        idempotency_key=f"new_signup:{user_id}",
+        title="Someone is waiting for access",
+        body="\n".join(lines),
+    )
+
+
+def silence_message(
+    *,
+    channel: str,
+    event: str,
+    collector_name: str,
+    collector_id: str,
+    since: str,
+    what: str,
+    consequence: str,
+) -> Message:
+    """The collector stopped doing something, and nobody is at the keyboard.
+
+    KEYED ON THE EPISODE, not on the hour. `since` is the last timestamp seen
+    before the silence, and it does not move while the silence lasts — so every
+    pass composes the same key and the outbox posts exactly one message per
+    outage. Keyed on "now" instead, a fortnight away would arrive home to four
+    thousand identical messages, and the channel would be useless for the one
+    thing it was added to do.
+
+    `what` and `consequence` rather than one body string: the two silences read
+    almost the same and mean different things, and the difference is the only
+    part worth reading at 3am.
+    """
+    lines = [
+        f"**{collector_name}** {what}",
+        "",
+        f"Last seen: {since[:16].replace('T', ' ')}Z",
+        consequence,
+    ]
+    return Message(
+        channel=channel,
+        event=event,
+        idempotency_key=f"{event}:{collector_id}:{since}",
+        title="Collection stopped",
+        body="\n".join(lines),
+    )
+
+
+def resumed_message(
+    *,
+    channel: str,
+    event: str,
+    collector_name: str,
+    collector_id: str,
+    since: str,
+) -> Message:
+    """The silence above ended.
+
+    Rides the SAME event as the silence it closes, so it cannot be switched off
+    separately. An alert you can enable without its all-clear is a worse alert:
+    the reader is left refreshing a dashboard to find out whether the thing they
+    were told about is still true.
+
+    Keyed on the episode it closes — the same `since` the silence was keyed on —
+    so one outage produces one alarm and one all-clear, whatever happens next.
+    """
+    return Message(
+        channel=channel,
+        event=event,
+        idempotency_key=f"{event}:resumed:{collector_id}:{since}",
+        title="Collection resumed",
+        body=(
+            f"**{collector_name}** is reporting again. "
+            f"The gap started {since[:16].replace('T', ' ')}Z."
+        ),
+    )
+
+
 def wiring_check_message(channel: str) -> Message:
     """What the settings screen's "Send test" button sends.
 

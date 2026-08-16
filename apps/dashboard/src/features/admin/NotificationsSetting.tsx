@@ -74,6 +74,26 @@ const EVENTS: { event: string; label: string; note: string }[] = [
     label: 'Notice posted',
     note: 'A notice, once it is live — one with a start date next Saturday waits until then. Fixing a typo does not post again; moving the start date does. Switching this on reaches back one week only, so it cannot empty months of standing notices into the channel.',
   },
+  {
+    event: 'player_claim',
+    label: 'Player link requested',
+    note: 'One message per member waiting to be linked to a player. No time window, unlike the two above: an old claim is the most overdue one, not the least. Deciding it is what stops it being pending.',
+  },
+  {
+    event: 'new_signup',
+    label: 'Someone waiting for access',
+    note: 'A Discord sign-in that redeemed no join code, so it can see nothing and no table records it. One message per account, ever — signing in again does not repeat it, and redeeming a code ends it. Carries no name or email: they have not proved they belong here yet.',
+  },
+  {
+    event: 'sync_stalled',
+    label: 'Collector stopped checking in',
+    note: 'Ten minutes of silence from a collector, and one more message when it comes back. One alarm per outage, not one per check. Only useful if the notifier runs somewhere other than the collector — on the collector’s own machine, whatever kills one kills the other.',
+  },
+  {
+    event: 'data_stalled',
+    label: 'Collector seeing no packets',
+    note: 'The process is alive and reporting, but two hours have passed without a packet. This is the failure the board cannot show you: the figures simply stop moving while everything on screen still says healthy.',
+  },
 ];
 
 interface Outbox {
