@@ -80,6 +80,11 @@ const EVENTS: { event: string; label: string; note: string }[] = [
     note: 'One message per member waiting to be linked to a player. No time window, unlike the two above: an old claim is the most overdue one, not the least. Deciding it is what stops it being pending.',
   },
   {
+    event: 'schedule_reminder',
+    label: 'Calendar reminder',
+    note: 'Reminders on schedule entries, at the times each entry asks for. The channel picked here is only the fallback — an entry follows its category’s channel, so one board can announce in its own place. A reminder missed while the collector was off is discarded, not sent late: it would announce something that already happened.',
+  },
+  {
     event: 'new_signup',
     label: 'Someone waiting for access',
     note: 'A Discord sign-in that redeemed no join code, so it can see nothing and no table records it. One message per account, ever — signing in again does not repeat it, and redeeming a code ends it. Carries no name or email: they have not proved they belong here yet.',

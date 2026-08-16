@@ -36,6 +36,7 @@ from dw_collector.notify.compose import (
     guide_message,
     notice_message,
     rank_period_message,
+    reminder_message,
     resumed_message,
     silence_message,
     waiting_message,
@@ -69,6 +70,20 @@ MAX_ATTEMPTS = 5
 # sixty missed beats — past any reboot, Windows update, or router blip, and still
 # inside the hour it takes to care.
 SYNC_SILENCE = timedelta(minutes=10)
+# How late a schedule reminder may be and still be worth sending.
+#
+# CANNOT BE ZERO, which is the whole subtlety. This process wakes every
+# DW_NOTIFY_INTERVAL_SECONDS, default 300, so a reminder due at 20:00 is
+# discovered somewhere between 20:00 and 20:05 — by which time it is, strictly,
+# late. A window of zero sends nothing, ever, and looks like a broken feature
+# rather than a policy.
+#
+# Fifteen minutes lets ordinary polling lag through and stops nothing else. The
+# case it deliberately drops is the machine having been off: coming back from a
+# week away must not empty a week of missed reminders into the channel at once,
+# announcing bear hunts that finished on Tuesday. That was the explicit choice —
+# a missed reminder is discarded, not deferred.
+REMINDER_GRACE = timedelta(minutes=15)
 # The same question asked about DATA rather than about the process.
 #
 # This is the failure the capture runbook records and the heartbeat cannot see:
@@ -477,6 +492,43 @@ class NotifyWorker:
             )
         return out
 
+    def reminder_candidates(self, routing: dict[str, Row]) -> list[Message]:
+        """Calendar reminders whose moment has just arrived.
+
+        A WINDOW, not "everything overdue". Every other event here asks the
+        database for all the rows that qualify and lets the outbox decide which
+        are new; that works because their facts stay true. A reminder's does not.
+        Asked without a lower bound, the first pass after the machine comes back
+        from a week off would announce every reminder that fell in that week.
+
+        The channel is the CATEGORY's, and the routing entry's channel is only
+        the fallback. The user keeps one webhook per board in Discord, so the
+        choice belongs to the kind of entry rather than to whoever typed it —
+        and an entry whose category has no channel deliberately says nothing.
+        """
+        default = self._target(routing, "schedule_reminder")
+        if default is None:
+            return []
+        now = datetime.now(tz=UTC)
+        rows = self._get(
+            "schedule_reminders_due?select=reminder_id,title,starts_at,minutes_before,"
+            "category_label,channel"
+            f"&fire_at=lte.{filter_value(now.isoformat())}"
+            f"&fire_at=gte.{filter_value((now - REMINDER_GRACE).isoformat())}"
+            "&order=fire_at&limit=50"
+        )
+        return [
+            reminder_message(
+                channel=row.get("channel") or default,
+                reminder_id=row["reminder_id"],
+                title=row["title"],
+                starts_at=row["starts_at"],
+                minutes_before=row["minutes_before"],
+                category_label=row.get("category_label"),
+            )
+            for row in rows
+        ]
+
     def signup_candidates(self, routing: dict[str, Row]) -> list[Message]:
         """Accounts that signed in and never got a role.
 
@@ -769,6 +821,7 @@ class NotifyWorker:
             self.notice_candidates,
             self.claim_candidates,
             self.signup_candidates,
+            self.reminder_candidates,
             self.sync_stall_candidates,
             self.data_stall_candidates,
         )

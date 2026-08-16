@@ -437,6 +437,40 @@ def claim_message(
     )
 
 
+def reminder_message(
+    *,
+    channel: str,
+    reminder_id: str,
+    title: str,
+    starts_at: str,
+    minutes_before: int,
+    category_label: str | None,
+) -> Message:
+    """A calendar entry is about to start.
+
+    THE ONLY EVENT HERE THAT IS ABOUT A MOMENT RATHER THAN A STATE. Every other
+    one describes something that is true — a member has gone, a collector is
+    silent — and is still true five minutes later, so arriving late costs
+    nothing. This one is about to stop being true. A reminder that turns up after
+    the bear hunt has started is not a late reminder, it is a wrong one.
+
+    That is why the caller asks for a narrow window rather than for everything
+    overdue, and why the key carries `starts_at`: moving the entry is new news
+    and has to be sayable again. Keyed on the reminder alone, an entry pushed
+    back an hour would announce the old time and then stay quiet.
+    """
+    when = starts_at[:16].replace("T", " ")
+    lead = "now" if minutes_before == 0 else f"in {minutes_before} minutes"
+    kind = f"_{category_label}_\n\n" if category_label else ""
+    return Message(
+        channel=channel,
+        event="schedule_reminder",
+        idempotency_key=f"schedule_reminder:{reminder_id}:{starts_at}",
+        title=title,
+        body=f"{kind}Starting {lead} — {when}Z",
+    )
+
+
 def waiting_message(
     *,
     channel: str,

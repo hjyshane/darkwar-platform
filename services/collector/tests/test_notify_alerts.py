@@ -309,3 +309,69 @@ def test_no_recovery_is_sent_for_an_outage_that_was_never_announced() -> None:
         {"collectors": [_collector()], "notification_outbox": []}
     ).sync_stall_candidates(SYNC)
     assert messages == []
+
+
+# ------------------------------------------------------------------- reminders
+
+
+REMINDERS: dict[str, Row] = {"schedule_reminder": {"enabled": True, "channel": "general"}}
+
+
+def _due(**overrides: object) -> Row:
+    row: Row = {
+        "reminder_id": "33333333-3333-4333-8333-333333333333",
+        "title": "Bear 20:00",
+        "starts_at": "2026-08-20T20:00:00+00:00",
+        "minutes_before": 30,
+        "category_label": "Bear hunt",
+        "channel": "alarm",
+    }
+    row.update(overrides)
+    return row
+
+
+def test_a_reminder_goes_to_its_category_channel_not_the_default() -> None:
+    """One webhook per board is the point of the category carrying a channel.
+
+    The routing entry says 'general'; the bear board says 'alarm'. Falling back
+    when there is nothing to fall back FROM would put every board's reminders in
+    one channel, which is the arrangement the categories exist to replace.
+    """
+    messages = _worker({"schedule_reminders_due": [_due()]}).reminder_candidates(REMINDERS)
+    assert messages[0].channel == "alarm"
+
+
+def test_an_uncategorised_entry_falls_back_to_the_settings_channel() -> None:
+    messages = _worker({"schedule_reminders_due": [_due(channel=None)]}).reminder_candidates(
+        REMINDERS
+    )
+    assert messages[0].channel == "general"
+
+
+def test_the_query_asks_for_a_window_and_not_for_everything_overdue() -> None:
+    """THE ONE THAT KEEPS A WEEK AWAY FROM EMPTYING INTO THE CHANNEL.
+
+    Without the lower bound, the first pass after the machine comes back
+    announces every reminder that fell while it was off — bear hunts that ended
+    on Tuesday, arriving on Friday. A reminder is about a moment, and a missed
+    moment is discarded rather than deferred.
+    """
+    seen: list[httpx.URL] = []
+    _worker({"schedule_reminders_due": []}, seen).reminder_candidates(REMINDERS)
+    assert seen[0].params.get("fire_at") is not None
+    assert "gte." in str(seen[0])
+    assert "lte." in str(seen[0])
+
+
+def test_moving_the_entry_makes_the_reminder_sayable_again() -> None:
+    """`starts_at` is in the key on purpose.
+
+    An entry pushed back an hour has already had its old time announced. Keyed on
+    the reminder alone, the correction would be swallowed as a duplicate and the
+    channel would be left holding the wrong time.
+    """
+    first = _worker({"schedule_reminders_due": [_due()]}).reminder_candidates(REMINDERS)
+    moved = _worker(
+        {"schedule_reminders_due": [_due(starts_at="2026-08-20T22:00:00+00:00")]}
+    ).reminder_candidates(REMINDERS)
+    assert first[0].idempotency_key != moved[0].idempotency_key
