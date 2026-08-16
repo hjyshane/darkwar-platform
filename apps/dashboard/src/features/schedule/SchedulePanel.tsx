@@ -9,6 +9,14 @@ import {
   shiftAnchor,
 } from '../../lib/calendar';
 import { isAllowed, usePermissions } from '../../lib/permissions';
+import {
+  readZone,
+  storeZone,
+  zoneLabel,
+  zoneOptions,
+  zonedDayKey,
+  zonedTime,
+} from '../../lib/timezone';
 import { useSession } from '../../lib/useSession';
 import { ScheduleBoards } from './ScheduleBoards';
 import { ScheduleEditor, reminderLabel } from './ScheduleEditor';
@@ -43,28 +51,38 @@ const EMPTY: ScheduleDraft = {
   reminders: [],
 };
 
-function timeOf(iso: string): string {
-  return iso.slice(11, 16);
+/** Draws in the reader's zone, so an entry stored at 20:00 UTC reads 05:00 to
+ *  somebody in Seoul — and, because `zonedDayKey` buckets the cells the same
+ *  way, reads it on the day they would call it. */
+function timeOf(iso: string, zone: string): string {
+  return zonedTime(iso, zone);
 }
 
-function draftFrom(event: ScheduleEvent): ScheduleDraft {
+function draftFrom(event: ScheduleEvent, zone: string): ScheduleDraft {
   return {
     schedule_event_id: event.schedule_event_id,
     title: event.title,
     body: event.body ?? '',
     category: event.category ?? '',
-    starts_at: toLocal(event.starts_at),
-    ends_at: toLocal(event.ends_at),
+    starts_at: toLocal(event.starts_at, zone),
+    ends_at: toLocal(event.ends_at, zone),
     reminders: event.schedule_reminders.map((entry) => entry.minutes_before).sort((a, b) => a - b),
   };
 }
 
 export function SchedulePanel() {
   const [view, setView] = useState<CalendarView>('week');
-  const [anchor, setAnchor] = useState<Date>(() => new Date());
+  // Held as a UTC-midnight Date because that is what `calendarRange` steps
+  // through; it is a DATE LABEL rather than an instant, so no zone applies.
+  const [anchor, setAnchor] = useState<Date>(
+    () => new Date(`${zonedDayKey(new Date().toISOString(), readZone())}T00:00:00Z`),
+  );
   const [draft, setDraft] = useState<ScheduleDraft | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   const [boards, setBoards] = useState(false);
+  // Per browser, not per account: the same person wants a different answer on a
+  // laptop at home and a phone abroad.
+  const [zone, setZone] = useState<string>(() => readZone());
 
   const { data: session } = useSession();
   const { data: permissions } = usePermissions();
@@ -73,13 +91,13 @@ export function SchedulePanel() {
   const range = useMemo(() => calendarRange(view, anchor), [view, anchor]);
   const { data: events, isPending, error } = useScheduleEvents(range);
   const { data: categories } = useScheduleCategories();
-  const save = useSaveScheduleEvent();
+  const save = useSaveScheduleEvent(zone);
   const remove = useDeleteScheduleEvent();
 
   const byDay = useMemo(() => {
     const map = new Map<string, ScheduleEvent[]>();
     for (const event of events ?? []) {
-      for (const key of daysCovered(event)) {
+      for (const key of daysCovered(event, zone)) {
         const bucket = map.get(key);
         if (bucket === undefined) {
           map.set(key, [event]);
@@ -89,14 +107,17 @@ export function SchedulePanel() {
       }
     }
     return map;
-  }, [events]);
+  }, [events, zone]);
 
   const colours = useMemo(
     () => new Map((categories ?? []).map((entry) => [entry.category, entry.colour])),
     [categories],
   );
 
-  const today = dayKey(new Date());
+  // Today in the READER'S zone, which is what "Today" and the highlighted cell
+  // have to mean. `dayKey(new Date())` is today in UTC and is a different day
+  // for nine hours out of every twenty-four in Seoul.
+  const today = zonedDayKey(new Date().toISOString(), zone);
 
   return (
     <section aria-labelledby="schedule-heading">
@@ -124,7 +145,7 @@ export function SchedulePanel() {
           >
             ‹
           </button>
-          <button onClick={() => setAnchor(new Date())} type="button">
+          <button onClick={() => setAnchor(new Date(`${today}T00:00:00Z`))} type="button">
             Today
           </button>
           <button
@@ -135,7 +156,23 @@ export function SchedulePanel() {
             ›
           </button>
         </div>
-        <span className="count">{rangeLabel(view, anchor)} UTC</span>
+        <span className="count">{rangeLabel(view, anchor)}</span>
+        <label className="schedule-zone">
+          <span className="visually-hidden">Select your time zone</span>
+          <select
+            onChange={(e) => {
+              setZone(e.target.value);
+              storeZone(e.target.value);
+            }}
+            value={zone}
+          >
+            {zoneOptions(zone).map((name) => (
+              <option key={name} value={name}>
+                {zoneLabel(name)}
+              </option>
+            ))}
+          </select>
+        </label>
         {mayManage && (
           <>
             <button
@@ -169,6 +206,7 @@ export function SchedulePanel() {
           categories={categories ?? []}
           draft={draft}
           error={save.error === null ? null : (save.error as Error).message}
+          zone={zone}
           onCancel={() => setDraft(null)}
           onChange={setDraft}
           onDelete={
@@ -222,14 +260,14 @@ export function SchedulePanel() {
                       style={colour === null ? undefined : { borderLeftColor: colour }}
                       type="button"
                     >
-                      <span className="schedule-time">{timeOf(event.starts_at)}</span>{' '}
+                      <span className="schedule-time">{timeOf(event.starts_at, zone)}</span>{' '}
                       <span className="schedule-title">{event.title}</span>
                     </button>
                     {open === event.schedule_event_id && (
                       <div className="schedule-detail">
                         <p>
-                          {timeOf(event.starts_at)}
-                          {event.ends_at === null ? '' : ` – ${timeOf(event.ends_at)}`} UTC
+                          {timeOf(event.starts_at, zone)}
+                          {event.ends_at === null ? '' : ` – ${timeOf(event.ends_at, zone)}`}
                         </p>
                         {event.body !== null && <p>{event.body}</p>}
                         <p className="hint">
@@ -244,7 +282,7 @@ export function SchedulePanel() {
                             className="linklike"
                             onClick={() => {
                               setOpen(null);
-                              setDraft(draftFrom(event));
+                              setDraft(draftFrom(event, zone));
                             }}
                             type="button"
                           >

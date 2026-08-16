@@ -41,6 +41,7 @@ export function ScheduleEditor({
   onDelete,
   saving,
   error,
+  zone,
 }: {
   draft: ScheduleDraft;
   categories: ScheduleCategory[];
@@ -51,6 +52,10 @@ export function ScheduleEditor({
   onDelete?: () => void;
   saving: boolean;
   error: string | null;
+  /** The reader's chosen zone. The fields are wall clocks IN IT, and the panel
+   *  converts on the way in and out — so what is typed here is what the typist
+   *  means, and the database still stores an instant. */
+  zone: string;
 }) {
   const formId = useId();
   const chosen = categories.find((entry) => entry.category === draft.category);
@@ -80,7 +85,7 @@ export function ScheduleEditor({
 
         <div className="schedule-row">
           <div className="field">
-            <label htmlFor={`${formId}-starts`}>Starts (UTC)</label>
+            <label htmlFor={`${formId}-starts`}>Starts ({zone})</label>
             <input
               id={`${formId}-starts`}
               onChange={(e) => onChange({ ...draft, starts_at: e.target.value })}
@@ -89,7 +94,7 @@ export function ScheduleEditor({
             />
           </div>
           <div className="field">
-            <label htmlFor={`${formId}-ends`}>Ends (UTC, optional)</label>
+            <label htmlFor={`${formId}-ends`}>Ends ({zone}, optional)</label>
             <input
               id={`${formId}-ends`}
               onChange={(e) => onChange({ ...draft, ends_at: e.target.value })}
@@ -148,6 +153,10 @@ export function ScheduleEditor({
           </p>
           <p className="hint">
             A reminder missed while the collector was offline is discarded, not sent late.
+          </p>
+          <p className="hint">
+            Times are in {zone}. Everyone else sees this entry in their own zone, at the same
+            moment.
           </p>
         </fieldset>
 

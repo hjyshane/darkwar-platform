@@ -3370,3 +3370,7 @@ form select {
 .schedule-board-label {
   font-weight: 600;
 }
+
+.schedule-zone select {
+  font-size: 0.85rem;
+}
