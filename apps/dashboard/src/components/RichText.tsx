@@ -1,5 +1,12 @@
 import { useState } from 'react';
-import { type Block, type Inline, type ListItem, parse, parseInline } from '../lib/richText';
+import {
+  type Block,
+  type ImageSize,
+  type Inline,
+  type ListItem,
+  parse,
+  parseInline,
+} from '../lib/richText';
 import { useSignedImage } from '../lib/signedImage';
 
 /** Render the markup subset from `lib/richText`.
@@ -115,14 +122,32 @@ function NestedList({ items }: { items: ListItem[] }) {
  * screen reader skips it rather than reading a uuid aloud, and an invented
  * description would be worse than none.
  */
-function PostImage({ src, alt, fill }: { src: string; alt: string; fill: boolean }) {
+/** The figure's classes.
+ *
+ * `small` is dropped once the picture is expanded rather than left on beside
+ * `expanded`. Both rules cap the same property at the same specificity, so
+ * which one wins would come down to their order in the stylesheet — and a
+ * thumbnail that refuses to open because somebody reordered a file is the kind
+ * of bug that takes an afternoon.
+ */
+function figureClass(size: ImageSize, expanded: boolean): string {
+  if (expanded) {
+    return 'rich-image rich-image-expanded';
+  }
+  return size === 'small' ? 'rich-image rich-image-small' : 'rich-image';
+}
+
+function PostImage({ src, alt, size }: { src: string; alt: string; size: ImageSize }) {
   const { data: signed, isPending, error } = useSignedImage(src);
   // Capped by default and expandable in place — a tall phone screenshot should
-  // not bury the sentence after it. `fill` is the author having already decided
-  // this one is worth the width (a map, a table), so it opens expanded. Either
-  // way the reader can toggle it: the state starts where the author put it and
-  // then belongs to whoever is reading.
-  const [expanded, setExpanded] = useState(fill);
+  // not bury the sentence after it. `wide` is the author having already decided
+  // this one is worth the width (a map, a table), so it opens expanded; `small`
+  // is the opposite decision, an icon that would be silly at reading size.
+  //
+  // EVERY SIZE STAYS OPENABLE, including small. The author's choice sets where
+  // the picture starts, not what the reader is allowed to see — somebody who
+  // cannot make out a thumbnail should be one press away from the full thing.
+  const [expanded, setExpanded] = useState(size === 'wide');
 
   if (error) {
     // Said rather than left as a broken frame. A reader who cannot load the
@@ -140,7 +165,7 @@ function PostImage({ src, alt, fill }: { src: string; alt: string; fill: boolean
     );
   }
   return (
-    <figure className={expanded ? 'rich-image rich-image-expanded' : 'rich-image'}>
+    <figure className={figureClass(size, expanded)}>
       {/* A button, not a link with an onClick: this changes what is on the page
           rather than going anywhere, and a screen reader should be told which.
           The label says what pressing it does, and it changes with the state —
@@ -175,7 +200,7 @@ function BlockNode({ block }: { block: Block }) {
     case 'list':
       return <NestedList items={block.items} />;
     case 'image':
-      return <PostImage alt={block.alt} fill={block.fill} src={block.src} />;
+      return <PostImage alt={block.alt} size={block.size} src={block.src} />;
     default:
       return (
         <p>

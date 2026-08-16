@@ -2442,6 +2442,20 @@ form select {
   object-fit: contain;
 }
 
+/* `{small}` — an icon, a single building, a thing referred to mid-sentence.
+ *
+ * A rem cap, not vh like the default. The default is about not burying the text
+ * below it, which is a question about the SCREEN; small is about being roughly
+ * thumbnail-sized, which should come out the same on a phone and a desktop.
+ * 70vh on a short laptop window and 70vh on a tall phone differ enormously;
+ * 9rem does not.
+ *
+ * Still not upscaled, for the same reason as the default: a 60px icon stays
+ * 60px rather than being blown up to 9rem and going soft. */
+.rich-image-small img {
+  max-height: 9rem;
+}
+
 /* Expanded: the page's full width, its own height, and no cap. `width: 100%`
  * rather than `max-width` because filling the column is the point of pressing
  * it — this is the state a reader chose, so the trade against sharpness is

@@ -196,7 +196,7 @@ describe('images', () => {
   // guide wants, and a block can be captioned.
   test('a line that is only an image becomes an image block', () => {
     expect(parse(`![a hero line-up](${OURS}/u/1.png)`)).toEqual([
-      { kind: 'image', src: `${OURS}/u/1.png`, alt: 'a hero line-up', fill: false },
+      { kind: 'image', src: `${OURS}/u/1.png`, alt: 'a hero line-up', size: 'default' },
     ]);
   });
 
@@ -204,7 +204,7 @@ describe('images', () => {
   // skips it rather than reading a uuid aloud.
   test('no alt text is empty alt, not a missing field', () => {
     expect(parse(`![](${OURS}/u/1.png)`)).toEqual([
-      { kind: 'image', src: `${OURS}/u/1.png`, alt: '', fill: false },
+      { kind: 'image', src: `${OURS}/u/1.png`, alt: '', size: 'default' },
     ]);
   });
 
@@ -259,11 +259,23 @@ test('a link is still a link, not a colour', () => {
   ]);
 });
 
-// The author's width choice, carried in the markup so it survives a reload and
+// The author's size choice, carried in the markup so it survives a reload and
 // is the same for every reader.
-test('an image is narrow unless the author marked it wide', () => {
-  const narrow = parse(`![map](${OURS}/a.png)`);
+test('an image takes the size the author marked, and the middle one by default', () => {
+  const plain = parse(`![map](${OURS}/a.png)`);
   const wide = parse(`![map](${OURS}/a.png){wide}`);
-  expect(narrow).toEqual([{ kind: 'image', src: `${OURS}/a.png`, alt: 'map', fill: false }]);
-  expect(wide).toEqual([{ kind: 'image', src: `${OURS}/a.png`, alt: 'map', fill: true }]);
+  const small = parse(`![map](${OURS}/a.png){small}`);
+  expect(plain).toEqual([{ kind: 'image', src: `${OURS}/a.png`, alt: 'map', size: 'default' }]);
+  expect(wide).toEqual([{ kind: 'image', src: `${OURS}/a.png`, alt: 'map', size: 'wide' }]);
+  expect(small).toEqual([{ kind: 'image', src: `${OURS}/a.png`, alt: 'map', size: 'small' }]);
+});
+
+test('a size nobody defined is not silently treated as one', () => {
+  // `{huge}` fails the image pattern outright, so the line falls through to a
+  // paragraph and the author sees the characters they typed. Quietly rendering
+  // it at some default size would hide the typo until somebody noticed the
+  // picture was the wrong size on a page they did not write.
+  const blocks = parse(`![map](${OURS}/a.png){huge}`);
+
+  expect(blocks[0]?.kind).toBe('paragraph');
 });
