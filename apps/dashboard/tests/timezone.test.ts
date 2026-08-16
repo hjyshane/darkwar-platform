@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import {
+  SERVER_ZONE,
   fromInputValue,
   toInputValue,
   zoneLabel,
@@ -62,6 +63,35 @@ describe('writing a wall clock back', () => {
   test('an empty field is not a time', () => {
     expect(fromInputValue('', 'Asia/Seoul')).toBeNull();
     expect(fromInputValue('   ', 'Asia/Seoul')).toBeNull();
+  });
+});
+
+describe('server time', () => {
+  test('is UTC minus two, whatever the name looks like', () => {
+    // `Etc/GMT+2` is UTC−2. The sign is inverted in the Etc/ names, so this
+    // assertion is the one thing standing between the calendar and a four-hour
+    // error that would look plausible on every entry.
+    expect(fromInputValue('2026-08-20T20:00', SERVER_ZONE)).toBe('2026-08-20T22:00:00.000Z');
+    expect(zonedTime('2026-08-20T22:00:00+00:00', SERVER_ZONE)).toBe('20:00');
+  });
+
+  test('has no summer time to get wrong', () => {
+    // A fixed offset, unlike every other zone in the list. Worth pinning: if it
+    // ever gained one, every entry would move by an hour twice a year and the
+    // game would not have moved at all.
+    expect(fromInputValue('2026-01-15T12:00', SERVER_ZONE)).toBe('2026-01-15T14:00:00.000Z');
+    expect(fromInputValue('2026-07-15T12:00', SERVER_ZONE)).toBe('2026-07-15T14:00:00.000Z');
+  });
+
+  test('midnight server time is the 02:00 UTC the whole repo is anchored on', () => {
+    // Not decoration. `resetWeekStart` puts the game week at Monday 02:00 UTC
+    // in SQL, Python and TypeScript, and this is why that number is 02:00:
+    // the game resets at midnight, on its own clock.
+    expect(fromInputValue('2026-08-17T00:00', SERVER_ZONE)).toBe('2026-08-17T02:00:00.000Z');
+  });
+
+  test('is named in the picker rather than spelled', () => {
+    expect(zoneLabel(SERVER_ZONE)).toBe('Server time (UTC−2)');
   });
 });
 

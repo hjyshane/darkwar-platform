@@ -18,6 +18,25 @@
 
 const KEY = 'dw-timezone';
 
+/** The clock the GAME shows, and the default for everybody.
+ *
+ * `Etc/GMT+2` is UTC−2. The sign is inverted in the `Etc/` names — POSIX chose
+ * "hours west of Greenwich" and IANA kept it — so this reads backwards and is
+ * right. It is spelled once, here, for that reason.
+ *
+ * DEFAULT RATHER THAN THE BROWSER'S ZONE, which is a deliberate reversal of
+ * what shipped an hour ago. The times on this calendar are copied out of the
+ * game, and the game shows server time; a member reading "20:00" wants that to
+ * be the 20:00 they will see in the client, not a number they have to convert
+ * before they can act on it. Anybody who would rather see their own clock has
+ * the picker, and their choice sticks.
+ *
+ * It also explains the odd constant this repo has carried from the start: the
+ * game week resets at 02:00 UTC, which is midnight server time. The game
+ * resets at midnight; only the write-down was strange.
+ */
+export const SERVER_ZONE = 'Etc/GMT+2';
+
 /** The zone the machine is set to, which is the right default: somebody who
  *  has never touched this setting means "my time". */
 export function browserZone(): string {
@@ -36,6 +55,7 @@ export function browserZone(): string {
  * as the default, added to the list by `zoneOptions`.
  */
 const OFFERED: readonly string[] = [
+  SERVER_ZONE,
   'UTC',
   'Asia/Seoul',
   'Asia/Tokyo',
@@ -70,9 +90,9 @@ export function readZone(): string {
     const stored = localStorage.getItem(KEY);
     // Anything unrecognised — a renamed zone, a hand-edited value — falls back
     // rather than throwing on every format call afterwards.
-    return stored !== null && isZone(stored) ? stored : browserZone();
+    return stored !== null && isZone(stored) ? stored : SERVER_ZONE;
   } catch {
-    return browserZone();
+    return SERVER_ZONE;
   }
 }
 
@@ -196,6 +216,12 @@ export function fromInputValue(value: string, zone: string): string | null {
 
 /** `Asia/Seoul (UTC+9)`, for the picker. */
 export function zoneLabel(zone: string, now: Date = new Date()): string {
+  // Named rather than spelled. "Etc/GMT+2" in a dropdown is a puzzle — it looks
+  // like UTC+2 and is UTC−2 — and nobody picking a clock for a game calendar is
+  // looking for an IANA identifier.
+  if (zone === SERVER_ZONE) {
+    return 'Server time (UTC−2)';
+  }
   const minutes = offsetMs(now, zone) / 60_000;
   if (minutes === 0) {
     return zone === 'UTC' ? 'UTC' : `${zone} (UTC)`;
