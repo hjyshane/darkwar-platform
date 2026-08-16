@@ -7,8 +7,16 @@ test('recent capture is fresh', () => {
   expect(classifyFreshness('2026-07-28T11:30:00Z', NOW)).toBe('fresh');
 });
 
-test('capture older than an hour is stale', () => {
-  expect(classifyFreshness('2026-07-28T10:30:00Z', NOW)).toBe('stale');
+test('a capture from earlier today is still fresh', () => {
+  // The threshold was an hour, and at an hour almost every board on the screen
+  // was amber almost all the time — the routine opens most screens a few times
+  // a day, not hourly. A warning colour that is always on is not a warning.
+  expect(classifyFreshness('2026-07-28T10:30:00Z', NOW)).toBe('fresh');
+  expect(classifyFreshness('2026-07-27T13:00:00Z', NOW)).toBe('fresh');
+});
+
+test('capture older than a day is stale', () => {
+  expect(classifyFreshness('2026-07-27T11:59:00Z', NOW)).toBe('stale');
 });
 
 test('null capture is missing, never zero-aged', () => {
