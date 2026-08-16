@@ -212,25 +212,6 @@ export function LoginPage() {
     <main>
       <section aria-labelledby="login-heading">
         <h2 id="login-heading">{TERMS.signIn}</h2>
-        {/* Above the form, because it is the shorter path and the one that
-            never needs a reset mail — the reason OAuth was wanted at all. */}
-        <button
-          className="oauth-button"
-          disabled={busy}
-          onClick={() => void signInWithProvider('discord')}
-          type="button"
-        >
-          Continue with Discord
-        </button>
-        <button
-          className="oauth-button"
-          disabled={busy}
-          onClick={() => void signInWithProvider('google')}
-          type="button"
-        >
-          Continue with Google
-        </button>
-        <p className="hint">or sign in with an email address</p>
         <form onSubmit={(event) => void signIn(event)}>
           <label>
             Email
@@ -260,11 +241,61 @@ export function LoginPage() {
         {/* The reason this page existed and could not be reached: an
             invitation code needs an account to redeem it, and nothing made
             one. */}
-        <p>
+        {/* THE PROVIDERS ARE ICONS ON THIS LINE, not two full-width buttons
+            above the form. Stacked buttons made signing in look like three
+            competing choices; here the email form is plainly the main path and
+            these sit beside "Create one" as what they are — another way in.
+            The label is on aria-label rather than on screen, so the row stays
+            small without the icons being anonymous to a screen reader. */}
+        <p className="signin-alt">
           No account yet?{' '}
           <button className="linklike" onClick={() => setCreating(true)} type="button">
             Create one
           </button>
+          <span className="signin-providers">
+            <button
+              aria-label="Continue with Discord"
+              className="provider-icon provider-discord"
+              disabled={busy}
+              onClick={() => void signInWithProvider('discord')}
+              title="Continue with Discord"
+              type="button"
+            >
+              <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16">
+                <path
+                  d="M20.3 4.5A19 19 0 0 0 15.6 3l-.3.6a17 17 0 0 1 4.2 1.4 15 15 0 0 0-15 0A17 17 0 0 1 8.7 3.6L8.4 3a19 19 0 0 0-4.7 1.5C.9 8.9.2 13.2.5 17.4a19 19 0 0 0 5.8 3l1.2-1.9a12 12 0 0 1-1.9-.9l.5-.4a13 13 0 0 0 11.8 0l.5.4a12 12 0 0 1-1.9.9l1.2 1.9a19 19 0 0 0 5.8-3c.4-4.9-.7-9.2-3.2-12.9ZM8.3 14.9c-1.1 0-2-1-2-2.3s.9-2.3 2-2.3 2 1 2 2.3-.9 2.3-2 2.3Zm7.4 0c-1.1 0-2-1-2-2.3s.9-2.3 2-2.3 2 1 2 2.3-.9 2.3-2 2.3Z"
+                  fill="currentColor"
+                />
+              </svg>
+            </button>
+            <button
+              aria-label="Continue with Google"
+              className="provider-icon provider-google"
+              disabled={busy}
+              onClick={() => void signInWithProvider('google')}
+              title="Continue with Google"
+              type="button"
+            >
+              <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16">
+                <path
+                  d="M21.6 12.2c0-.7-.1-1.4-.2-2H12v3.9h5.4a4.6 4.6 0 0 1-2 3v2.500h3.2c1.9-1.7 3-4.3 3-7.4Z"
+                  fill="#4285F4"
+                />
+                <path
+                  d="M12 22c2.7 0 4.9-.9 6.6-2.4l-3.2-2.5c-.9.6-2 1-3.4 1-2.6 0-4.8-1.8-5.6-4.1H3.1v2.6A10 10 0 0 0 12 22Z"
+                  fill="#34A853"
+                />
+                <path
+                  d="M6.4 14c-.2-.6-.3-1.3-.3-2s.1-1.4.3-2V7.4H3.1a10 10 0 0 0 0 9.2L6.4 14Z"
+                  fill="#FBBC05"
+                />
+                <path
+                  d="M12 5.9c1.5 0 2.8.5 3.8 1.5l2.8-2.8C16.9 2.9 14.7 2 12 2a10 10 0 0 0-8.9 5.4L6.4 10c.8-2.3 3-4.1 5.6-4.1Z"
+                  fill="#EA4335"
+                />
+              </svg>
+            </button>
+          </span>
         </p>
       </section>
     </main>
