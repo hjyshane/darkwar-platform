@@ -351,7 +351,7 @@ class NotifyWorker:
             return []
         cutoff = filter_value((datetime.now(UTC) - GUIDE_BACKLOG).isoformat())
         rows = self._get(
-            "guides?select=guide_id,title,body,category,published_at"
+            "guides?select=guide_id,title,body,category,published_at,channel"
             # A draft is not a guide yet. Its own filter rather than left to the
             # window below — `gte` excludes nulls as a side effect, and the rule
             # that drafts stay private should not rest on a side effect of a
@@ -362,7 +362,10 @@ class NotifyWorker:
         )
         return [
             guide_message(
-                channel=channel,
+                # The guide's own channel wins; the settings one is the
+                # fallback. 0127 put the column there so a war plan and a
+                # patch note need not share a room.
+                channel=row.get("channel") or channel,
                 guide_id=row["guide_id"],
                 title=row["title"],
                 body=row["body"],
@@ -404,7 +407,7 @@ class NotifyWorker:
         current = filter_value(now.isoformat())
         cutoff = (now - NOTICE_BACKLOG).isoformat()
         rows = self._get(
-            "announcements?select=announcement_id,title,body,starts_at,ends_at,published_at"
+            "announcements?select=announcement_id,title,body,starts_at,ends_at,published_at,channel"
             # A draft is not news.
             "&published_at=not.is.null"
             # Live: started, or with no start at all; and not yet finished.
@@ -436,7 +439,7 @@ class NotifyWorker:
                 continue
             out.append(
                 notice_message(
-                    channel=channel,
+                    channel=row.get("channel") or channel,
                     announcement_id=row["announcement_id"],
                     title=row["title"],
                     body=row["body"] or "",

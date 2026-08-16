@@ -290,30 +290,6 @@ export function daysCovered(event: ScheduleEvent, zone: string): string[] {
   return out;
 }
 
-/** Channel NAMES, from 0125's view.
- *
- * Not `notification_channels`: that table holds the webhook URL and is
- * admin-only including select (0076), so an officer reading it gets an empty
- * list — and an empty list here is a dropdown they cannot fill in, with a
- * foreign key waiting to reject whatever they type instead.
- */
-export function useChannelNames() {
-  return useQuery({
-    queryKey: ['schedule', 'channels'],
-    queryFn: async (): Promise<string[]> => {
-      const { data, error } = await supabase
-        .from('notification_channel_names')
-        .select('channel, enabled')
-        .order('channel');
-      if (error !== null) {
-        throw error;
-      }
-      return (data ?? []).map((row) => row.channel).filter((name): name is string => name !== null);
-    },
-    staleTime: 10 * 60_000,
-  });
-}
-
 export interface CategoryDraft {
   /** Empty for a new board — the key is derived from the label on save and
    *  never changes afterwards, so renaming a board keeps its entries. */

@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useId, useState } from 'react';
+import { ChannelField } from '../../components/ChannelField';
 import { MarkupEditor, TitleField } from '../../components/MarkupEditor';
 import { noticeHash } from '../../lib/route';
 import { supabase } from '../../lib/supabase';
@@ -22,6 +23,8 @@ import { NOTICES, useBoard } from '../board/board';
  */
 export interface NoticeDraft {
   announcement_id?: string;
+  /** Empty means the channel set for notices in settings (0127). */
+  channel: string;
   title: string;
   body: string;
   starts_at: string;
@@ -38,6 +41,7 @@ export interface NoticeDraft {
 
 const EMPTY: NoticeDraft = {
   title: '',
+  channel: '',
   body: '',
   starts_at: '',
   ends_at: '',
@@ -138,6 +142,12 @@ export function NoticeEditor({
             </select>
           </div>
         </div>
+        <ChannelField
+          fallbackLabel="Default for notices"
+          id={`${formId}-channel`}
+          onChange={(channel) => onChange({ ...draft, channel })}
+          value={draft.channel}
+        />
         <div className="field-checks">
           <label>
             <input
@@ -229,6 +239,7 @@ export function useSaveNotice(onDone: () => void) {
         ends_at: toIso(value.ends_at),
         pinned: value.pinned,
         visibility: value.visibility,
+        channel: value.channel === '' ? null : value.channel,
         // Kept, not restamped, when a posted notice is edited: a new timestamp
         // would jump it back up the board and give the notifier a new outbox
         // key, which is a second post to everybody over a corrected typo.
