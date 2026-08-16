@@ -14,7 +14,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(22);
+select plan(26);
 
 insert into auth.users (id, instance_id, aud, role, email) values
   ('00000000-0000-4000-8000-0000000a0115', '00000000-0000-0000-0000-000000000000',
@@ -232,6 +232,74 @@ select throws_ok(
   '42501',
   NULL,
   'and nobody can delete one');
+
+-- ---------------------------------------------------------------------------
+-- 0122 — THE POST'S AUTHOR HEARS ABOUT A TOP-LEVEL COMMENT
+-- ---------------------------------------------------------------------------
+
+-- TheOther comments on the admin's guide. 0117 said nothing here; 0122 tells
+-- the author, which is the more common event by far.
+select pg_temp.act_as('00000000-0000-4000-8000-0000000c0115');
+insert into public.post_comments (comment_id, guide_id, body)
+values ('00000000-0000-4000-8000-000000060115',
+        '00000000-0000-4000-8000-000000010115', 'question for the author');
+
+select pg_temp.act_as('00000000-0000-4000-8000-0000000a0115');
+select is(
+  (select count(*) from public.comment_notifications
+    where comment_id = '00000000-0000-4000-8000-000000060115'),
+  1::bigint,
+  'the guide''s author is told about a comment on it');
+
+-- A REPLY DOES NOT ALSO TELL THE POST'S AUTHOR. On a busy guide that would be
+-- every message in every thread, which is how a badge becomes noise.
+select pg_temp.act_as('00000000-0000-4000-8000-0000000b0115');
+insert into public.post_comments (comment_id, guide_id, parent_comment_id, body)
+values ('00000000-0000-4000-8000-000000070115',
+        '00000000-0000-4000-8000-000000010115',
+        '00000000-0000-4000-8000-000000060115', 'answering the question');
+
+select pg_temp.act_as('00000000-0000-4000-8000-0000000a0115');
+select is(
+  (select count(*) from public.comment_notifications
+    where comment_id = '00000000-0000-4000-8000-000000070115'),
+  0::bigint,
+  'but a reply inside that thread does not — only the person answered');
+
+-- Commenting on your own post notifies nobody, which is the case that would
+-- otherwise fire on every draft an author annotates while writing it.
+insert into public.post_comments (comment_id, guide_id, body)
+values ('00000000-0000-4000-8000-000000080115',
+        '00000000-0000-4000-8000-000000010115', 'note to self');
+
+select is(
+  (select count(*) from public.comment_notifications
+    where comment_id = '00000000-0000-4000-8000-000000080115'),
+  0::bigint,
+  'and commenting on your own post tells nobody');
+
+-- THE DEPARTED-AUTHOR CASE, which is about the COMMENT rather than the
+-- notification. `guides.created_by` references auth.users and survives
+-- `remove_member()`, while `comment_notifications.user_id` references
+-- app_users and does not — so an unguarded insert raises a foreign key
+-- violation inside an AFTER INSERT trigger and takes the whole statement with
+-- it. The member would be told their comment failed, on a post they had
+-- nothing to do with.
+reset role;
+delete from public.app_users where user_id = '00000000-0000-4000-8000-0000000a0115';
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-4000-8000-0000000b0115');
+
+select lives_ok(
+  $$ insert into public.post_comments (guide_id, body)
+     values ('00000000-0000-4000-8000-000000010115', 'author has left') $$,
+  'a comment on a departed author''s post still goes in');
+
+-- Put the admin back; the assertions after this one act as them.
+reset role;
+insert into public.app_users (user_id, role, display_name) values
+  ('00000000-0000-4000-8000-0000000a0115', 'admin', 'TheAdmin');
+set local role authenticated;
 
 -- A notification about a comment that no longer exists has nothing to open.
 --

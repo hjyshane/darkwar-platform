@@ -8,6 +8,16 @@ import { expect, test, vi } from 'vitest';
 import { JoinCodeForm } from '../src/features/auth/JoinCodeForm';
 import { supabase } from '../src/lib/supabase';
 
+/** Fill both halves of the code, the way a member pastes one.
+ *
+ * The form stopped taking the hyphen: it was the character people got wrong,
+ * and a wrong character costs an attempt against a five-try lockout. Typing
+ * into the first box splits a pasted whole code across both.
+ */
+function enterCode(value: string) {
+  fireEvent.change(screen.getByLabelText(/first half/i), { target: { value } });
+}
+
 test('a refused code reads as refused, not as a crash', async () => {
   // null is the refusal. It is not an error, and it is the same answer for
   // every reason a code might not work.
@@ -18,7 +28,7 @@ test('a refused code reads as refused, not as a crash', async () => {
   } as any);
 
   render(<JoinCodeForm onRedeemed={() => {}} />);
-  fireEvent.change(screen.getByLabelText(/invitation code/i), { target: { value: 'NOPE' } });
+  enterCode('ACDEFGHJKM');
   fireEvent.click(screen.getByRole('button', { name: /redeem/i }));
 
   await waitFor(() => {
@@ -36,7 +46,7 @@ test('a refused code does not tell the caller to refetch', async () => {
   } as any);
 
   render(<JoinCodeForm onRedeemed={onRedeemed} />);
-  fireEvent.change(screen.getByLabelText(/invitation code/i), { target: { value: 'NOPE' } });
+  enterCode('ACDEFGHJKM');
   fireEvent.click(screen.getByRole('button', { name: /redeem/i }));
 
   await waitFor(() => expect(screen.getByText('That code is not valid.')).toBeDefined());
@@ -53,7 +63,7 @@ test('the lockout is shown as the server worded it', async () => {
   } as any);
 
   render(<JoinCodeForm onRedeemed={() => {}} />);
-  fireEvent.change(screen.getByLabelText(/invitation code/i), { target: { value: 'NOPE' } });
+  enterCode('ACDEFGHJKM');
   fireEvent.click(screen.getByRole('button', { name: /redeem/i }));
 
   await waitFor(() => {
@@ -72,7 +82,7 @@ test('a redeemed code reports the granted role and tells the caller', async () =
   } as any);
 
   render(<JoinCodeForm onRedeemed={onRedeemed} />);
-  fireEvent.change(screen.getByLabelText(/invitation code/i), { target: { value: 'GOODCODE01' } });
+  enterCode('ACDEFGHJKM');
   fireEvent.click(screen.getByRole('button', { name: /redeem/i }));
 
   await waitFor(() => {
@@ -81,8 +91,10 @@ test('a redeemed code reports the granted role and tells the caller', async () =
   expect(onRedeemed).toHaveBeenCalledOnce();
 });
 
-test('the code is trimmed before it is sent', async () => {
-  // Codes get copied out of chat, and a trailing space is not a wrong code.
+test('a pasted code is cleaned and rejoined before it is sent', async () => {
+  // Codes get copied out of chat. Surrounding space, the hyphen and lowercase
+  // all survive the trip now: the two boxes strip them and put back the one
+  // separator `redeem_join_code` compares against.
   const rpc = vi.spyOn(supabase, 'rpc').mockResolvedValue({
     data: 'member',
     error: null,
@@ -90,12 +102,10 @@ test('the code is trimmed before it is sent', async () => {
   } as any);
 
   render(<JoinCodeForm onRedeemed={() => {}} />);
-  fireEvent.change(screen.getByLabelText(/invitation code/i), {
-    target: { value: '  GOODCODE01 ' },
-  });
+  enterCode('  acdef-ghjkm ');
   fireEvent.click(screen.getByRole('button', { name: /redeem/i }));
 
   await waitFor(() => {
-    expect(rpc).toHaveBeenCalledWith('redeem_join_code', { p_code: 'GOODCODE01' });
+    expect(rpc).toHaveBeenCalledWith('redeem_join_code', { p_code: 'ACDEF-GHJKM' });
   });
 });

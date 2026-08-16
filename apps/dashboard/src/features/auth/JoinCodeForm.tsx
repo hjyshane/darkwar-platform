@@ -1,4 +1,11 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import {
+  CODE_GROUP,
+  cleanCodePart,
+  isCodeComplete,
+  joinCodeFrom,
+  splitPastedCode,
+} from '../../lib/joinCode';
 import { supabase } from '../../lib/supabase';
 
 /** Exchange an invitation code for a role.
@@ -18,7 +25,11 @@ import { supabase } from '../../lib/supabase';
  * An actual error is the lockout, and that one is shown verbatim.
  */
 export function JoinCodeForm({ onRedeemed }: { onRedeemed: () => void }) {
-  const [code, setCode] = useState('');
+  // Two halves rather than one string. The code is dictated and typed by
+  // hand, and the hyphen was a character people either forgot or typed twice.
+  const [first, setFirst] = useState('');
+  const [second, setSecond] = useState('');
+  const secondBox = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
@@ -27,7 +38,9 @@ export function JoinCodeForm({ onRedeemed }: { onRedeemed: () => void }) {
     event.preventDefault();
     setBusy(true);
     setMessage(null);
-    const { data, error } = await supabase.rpc('redeem_join_code', { p_code: code.trim() });
+    const { data, error } = await supabase.rpc('redeem_join_code', {
+      p_code: joinCodeFrom(first, second),
+    });
     setBusy(false);
     if (error) {
       // The only error the function raises is the lockout, and that one is
@@ -43,7 +56,8 @@ export function JoinCodeForm({ onRedeemed }: { onRedeemed: () => void }) {
       return;
     }
     setFailed(false);
-    setCode('');
+    setFirst('');
+    setSecond('');
     setMessage(`You are now ${data}.`);
     onRedeemed();
   }
@@ -54,17 +68,49 @@ export function JoinCodeForm({ onRedeemed }: { onRedeemed: () => void }) {
         This account has no alliance role yet, so alliance-only figures stay hidden. Enter the
         invitation code an officer gave you.
       </p>
-      <label>
-        Invitation code
+      {/* TWO BOXES AND NO HYPHEN. The separator is printed between them
+          instead of typed: it was the one character people got wrong, and a
+          wrong character costs an attempt against a five-try lockout (0021).
+          Lowercase is folded up — every issued code is uppercase by
+          construction, so a lowercase one is a typing choice, not a different
+          code. */}
+      <fieldset className="code-boxes">
+        <legend>Invitation code</legend>
         <input
+          aria-label="Invitation code, first half"
           autoComplete="off"
-          onChange={(event) => setCode(event.target.value)}
-          required
+          inputMode="text"
+          maxLength={CODE_GROUP}
+          onChange={(event) => {
+            const [a, b] = splitPastedCode(event.target.value);
+            setFirst(a);
+            // A pasted whole code fills both, and typing the fifth character
+            // moves on rather than making somebody reach for the mouse.
+            if (b !== '') {
+              setSecond(b);
+              secondBox.current?.focus();
+            } else if (a.length === CODE_GROUP) {
+              secondBox.current?.focus();
+            }
+          }}
           spellCheck={false}
-          value={code}
+          value={first}
         />
-      </label>
-      <button disabled={busy || code.trim() === ''} type="submit">
+        <span aria-hidden="true" className="code-dash">
+          -
+        </span>
+        <input
+          aria-label="Invitation code, second half"
+          autoComplete="off"
+          inputMode="text"
+          maxLength={CODE_GROUP}
+          onChange={(event) => setSecond(cleanCodePart(event.target.value))}
+          ref={secondBox}
+          spellCheck={false}
+          value={second}
+        />
+      </fieldset>
+      <button disabled={busy || !isCodeComplete(first, second)} type="submit">
         {busy ? 'Checking…' : 'Redeem'}
       </button>
       {message && <p className={failed ? 'error' : 'empty'}>{message}</p>}

@@ -169,6 +169,118 @@ revoke했다. 그래서 **이 드리프트는 pgTAP으로 잡히지 않는다.**
 
 실제로 받을 수 있는 주소를 쓰는 편이 낫다.
 
+## 4-1. 메일을 실제로 보낸다 (SMTP)
+
+**증상부터**: 가입한 멤버에게 확인 메일이 안 온다. Supabase 유저 목록엔 있고
+`email_confirmed_at`만 비어 있다. 비밀번호 재설정도 magic link도 같은 경로라
+같이 죽는다.
+
+**원인**: 커스텀 SMTP를 안 붙이면 Supabase 내장 발송기를 쓴다. 이건 **시간당
+몇 통 수준으로 제한**되고 도달률도 나쁘다 — 개발용이지 운영용이 아니다.
+`config.toml`의 `[auth.email.smtp]`는 주석 처리돼 있고, **그 파일은 클라우드
+프로젝트에 닿지도 않는다.** 설정은 대시보드에서 한다.
+
+### 결론부터: 도메인을 사라
+
+대시보드는 `darkwar-platform.hjyshane.workers.dev`에 있다. **workers.dev는 남의
+도메인이라 SPF/DKIM 레코드를 넣을 수 없다.** 그리고 그게 치명적이다.
+
+**남의 도메인 주소(Gmail 등)로는 DKIM 정렬이 불가능하다.** 내가 소유하지 않은
+도메인으로 서명할 수 없기 때문이다. 릴레이는 보내주지만 받는 쪽이 거른다 —
+특히 **Outlook/Hotmail이 제일 엄격하다.** 우리 멤버 중에 hotmail 주소가 있고,
+가입 확인 메일이 스팸함으로 가면 "안 온 것"과 사실상 같다.
+
+도메인은 연 1만~2만원이고 Cloudflare를 이미 쓰고 있으므로 경로가 짧다:
+
+1. **Cloudflare Registrar** 에서 도메인 구매 (원가, 마크업 없음)
+2. **Resend** 에 도메인 등록 → DKIM/SPF 레코드를 준다
+3. **Cloudflare DNS** 에 그 레코드를 붙여넣는다 (같은 계정, 위임 불필요)
+4. Supabase SMTP 설정에 Resend의 host/port/key, 발신자는 `noreply@내도메인`
+5. 덤: Worker에도 그 도메인을 붙이면 대시보드 주소도 `*.workers.dev`를 벗는다
+
+### 도메인 없이 버텨야 한다면 (권장하지 않음)
+
+Brevo·SendGrid의 **단일 발신자 인증(single sender verification)** 은 도메인
+대신 주소 하나만 인증한다. **보내지긴 한다.** 다만 위 이유로 Outlook/Hotmail
+도달률이 나쁘고, 가입 확인 메일에는 치명적이다. 급한 임시방편으로만 쓰고,
+"메일이 안 온다"는 문의가 계속되면 도메인 문제를 의심할 것.
+
+> 무료 한도는 제공자가 자주 바꾼다. **가입 시점에 직접 확인할 것.** Supabase
+> 내장 발송기는 시간당 한 자릿수로, 문서에도 개발용이라고 적혀 있다.
+
+### 절차 (도메인 없는 경우, Brevo 기준)
+
+1. Brevo 가입 → **Senders, Domains & Dedicated IPs → Senders → Add a sender**.
+   받을 수 있는 주소를 넣으면 그 주소로 확인 메일이 온다. 눌러서 인증한다.
+2. **SMTP & API → SMTP** 에서 SMTP key를 만든다. 값은 **한 번만 보인다.**
+3. Supabase 대시보드 → **Authentication → Emails → SMTP Settings** → Enable
+   Custom SMTP:
+
+   | 항목 | 값 |
+   |---|---|
+   | Host | `smtp-relay.brevo.com` |
+   | Port | `587` |
+   | Username | Brevo가 준 SMTP 로그인 (가입 메일과 다를 수 있다) |
+   | Password | 2단계의 SMTP key |
+   | Sender email | 1단계에서 **인증한** 주소 |
+   | Sender name | `Dark War` 등 |
+
+   **Sender email이 인증한 주소와 다르면 조용히 실패한다.** 가장 흔한 실수다.
+
+4. 저장 후 **Authentication → Rate Limits**를 올린다. 내장 발송기 기준의 낮은
+   상한이 남아 있으면 SMTP를 붙여도 여전히 막힌다.
+
+### 비밀은 대시보드에만 둔다
+
+SMTP key는 비밀이다. **`config.toml`에 값을 직접 쓰지 않는다.** 로컬에서 굳이
+쓴다면 `pass = "env(BREVO_SMTP_KEY)"` 형태로만 두고 값은 `.env`에 넣는다 —
+`.gitignore`와 gitleaks가 둘 다 살아 있고 그걸 약하게 만들지 않는다
+(CLAUDE.md). 로컬 메일은 어차피 Mailpit(54324)으로 가므로 대개 설정할 이유가
+없다.
+
+### 확인
+
+1. 시크릿 창에서 새 주소로 가입 → 메일 도착 → 링크 클릭 → Supabase 유저
+   목록에서 `email_confirmed_at`이 찬 것을 본다.
+2. 스팸함도 본다. 단일 발신자 인증은 도메인 인증보다 스팸 판정이 잦다.
+
+### 붙이기 전까지: OAuth가 제일 낫다
+
+**메일 경로 자체를 안 타는 방법이 있다.** Google 로그인을 켜면 주소를 Google이
+보증하므로 확인 메일이 아예 필요 없다 — 가입 즉시 `email_confirmed_at`이 차고,
+SMTP가 죽어 있어도 상관없다.
+
+이 앱과 궁합도 좋다. **실제 경계는 가입 코드(0021)와 역할 부여**이고, OAuth로
+들어와도 여전히 `viewer`라 코드를 넣기 전엔 아무것도 못 본다. 게이트는 하나도
+안 바뀐다.
+
+붙이는 법:
+
+1. Google Cloud Console → OAuth 2.0 클라이언트 ID 생성 (웹 애플리케이션)
+2. 승인된 리디렉션 URI에 `https://<ref>.supabase.co/auth/v1/callback`
+3. Supabase → **Authentication → Sign In / Providers → Google** 에 client ID와
+   secret 입력
+4. **URL Configuration → Site URL** 이 실제 대시보드 주소인지 확인 — 여기가
+   틀리면 로그인 후 엉뚱한 곳으로 돌아온다
+5. `LoginPage.tsx`에 버튼 하나:
+   `supabase.auth.signInWithOAuth({ provider: 'google' })`
+
+기존 비밀번호 계정은 그대로 쓸 수 있다. 다만 **비밀번호 재설정은 여전히 메일
+경로**라 SMTP가 붙기 전까지는 못 쓴다.
+
+### 그래도 손으로 풀어야 한다면
+
+**Authentication → Users → 해당 유저 → ⋯ → Confirm email.** 임시 비밀번호도
+같은 메뉴에서 정하고 **메일이 아닌 경로**(Discord DM 등)로 전달한 뒤 즉시
+바꾸게 한다. 같은 메뉴의 "Send magic link"·"Send password recovery"는 **같은
+죽은 경로를 타므로 소용없다.**
+
+확인 메일을 아예 끄는 것(Authentication → Sign In / Providers → Email →
+Confirm email)도 방어 가능한 임시 수단이다. 이 앱의 실제 경계는 가입 코드
+(0021)와 역할 부여이고, 미확인 계정은 `viewer`라 아무것도 못 본다 — 0121
+이후로는 heartbeat조차. 확인 메일이 지키는 것은 **데이터가 아니라 비밀번호
+복구 경로**이고, 그게 바로 위 4절이 말한 문제다. SMTP를 붙였으면 다시 켠다.
+
 ## 5. 데이터를 옮긴다
 
 로컬 데이터베이스는 클라우드로 자동으로 따라가지 않는다. 저널이 원본이므로
