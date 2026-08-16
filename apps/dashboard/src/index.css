@@ -3080,3 +3080,21 @@ form select {
 .code-dash {
   color: var(--fg-muted);
 }
+
+/* "Somebody is waiting on you", on the account link. Small, top-right, and
+ * carrying no number — the banner below lists them and counts them, and two
+ * places holding the same figure is one place too many. */
+.header-link {
+  position: relative;
+}
+
+.header-dot {
+  background: var(--danger, #dc2626);
+  border-radius: 50%;
+  display: block;
+  height: 0.5rem;
+  position: absolute;
+  right: -0.15rem;
+  top: -0.15rem;
+  width: 0.5rem;
+}

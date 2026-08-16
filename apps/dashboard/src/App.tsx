@@ -24,6 +24,7 @@ import { ServerPage } from './features/server/ServerPage';
 import { useRecordActivity } from './lib/activity';
 import { isAllowed, usePermissions } from './lib/permissions';
 import { queryKeysForTopic, subscribeDataChanges } from './lib/realtime';
+import { useReplyAlerts } from './lib/replyAlerts';
 import { rememberReturnTo } from './lib/returnTo';
 import {
   type AdminGroup,
@@ -205,6 +206,30 @@ function SubNav({ route, allianceId }: { route: Route; allianceId: string | null
         </a>
       ))}
     </nav>
+  );
+}
+
+/** The account link, with a dot when somebody is waiting on you.
+ *
+ * A DOT RATHER THAN A COUNT. The banner below already lists them and says how
+ * many; this only has to answer "is there anything", which is the question
+ * somebody glancing at the header is asking. A number here would be a second
+ * place to keep the same figure correct.
+ *
+ * It reads the same unread query the banner does, so the two cannot disagree —
+ * and clearing one clears the other.
+ */
+function AccountLink() {
+  const { data: alerts } = useReplyAlerts();
+  const waiting = (alerts ?? []).length > 0;
+  return (
+    <a className="header-link" href="#/account">
+      My account
+      {waiting && (
+        // Named for a screen reader, since a coloured dot says nothing to one.
+        <span aria-label="You have unread replies" className="header-dot" role="status" />
+      )}
+    </a>
   );
 }
 
@@ -487,11 +512,7 @@ function Shell({
               leaving are all things about YOU, and they read as one cluster
               next to "signed in as". Members only — a viewer has nothing to
               put on the shelf. */}
-          {isMember && (
-            <a className="header-link" href="#/account">
-              My account
-            </a>
-          )}
+          {isMember && <AccountLink />}
           {/* Last, pushed to the right edge (margin-left: auto). For everybody,
               signed in or not: reading the board is the thing the theme
               affects, and the signed-out wall is a screen somebody may be
