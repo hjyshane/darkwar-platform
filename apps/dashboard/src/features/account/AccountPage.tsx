@@ -7,6 +7,7 @@ import { useSession } from '../../lib/useSession';
 import { LeaveAllianceForm } from '../auth/LeaveAllianceForm';
 import { FavouritesBlock } from '../overview/FavouritesBlock';
 import { PlayerPage } from '../player/PlayerPage';
+import { PasswordForm } from './PasswordForm';
 
 /** Everything that is yours: what you wrote, what you kept, who you are.
  *
@@ -21,7 +22,7 @@ import { PlayerPage } from '../player/PlayerPage';
  */
 const day = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeZone: 'UTC' });
 
-type Tab = 'posts' | 'comments' | 'favourites' | 'scraps' | 'player' | 'leave';
+type Tab = 'posts' | 'comments' | 'favourites' | 'scraps' | 'player' | 'account';
 
 const TABS: ReadonlyArray<[Tab, string]> = [
   ['posts', 'Posts'],
@@ -29,9 +30,10 @@ const TABS: ReadonlyArray<[Tab, string]> = [
   ['favourites', 'Favourites'],
   ['scraps', 'Scraps'],
   ['player', 'My character'],
-  // Last, and deliberately far from the rest: it is the one thing here that
-  // cannot be undone by clicking again.
-  ['leave', 'Leave'],
+  // ONE TAB FOR THE THINGS YOU DO TO THE ACCOUNT, as opposed to the four
+  // above, which are things you read. Password and leaving were separate tabs
+  // for one revision and it read as two settings screens; they are one.
+  ['account', 'Account'],
 ];
 
 interface MinePost {
@@ -319,13 +321,22 @@ export function AccountPage() {
           </ul>
         )}
 
-        {/* Labelled, not headed. The form's own button already says "Leave the
-            alliance", and a heading above it saying the same thing reads as a
-            rendering fault rather than as emphasis. */}
-        {tab === 'leave' && (
-          <section aria-label="Leaving the alliance">
-            <LeaveAllianceForm />
-          </section>
+        {tab === 'account' && (
+          <>
+            <section aria-labelledby="password-heading">
+              <h2 id="password-heading">Password</h2>
+              <PasswordForm />
+            </section>
+
+            {/* LEAVING IS LAST AND UNDER A RULE, because it is the only thing
+                on this page that cannot be undone by clicking again. The form
+                carries its own confirmation; the separation here is so that
+                nobody reaches it while aiming for the password field above. */}
+            <section aria-labelledby="leave-heading" className="account-danger">
+              <h2 id="leave-heading">Leaving</h2>
+              <LeaveAllianceForm />
+            </section>
+          </>
         )}
       </main>
     </>

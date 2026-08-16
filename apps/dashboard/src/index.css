@@ -3046,3 +3046,13 @@ form select {
   border-color: var(--border-strong);
   color: var(--fg);
 }
+
+/* The one irreversible control on the account page, set apart from the
+ * password field above it. A rule and a gap rather than red everything: the
+ * form already confirms, and a screen shouting at somebody who came to change
+ * their password is the wrong emphasis. */
+.account-danger {
+  border-top: 1px solid var(--border);
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+}

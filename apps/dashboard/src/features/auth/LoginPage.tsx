@@ -51,15 +51,31 @@ export function LoginPage() {
   // Redeeming a code turns a viewer into a member, and if this still fired on
   // that change it would navigate away from the character picker the moment
   // the picker appeared — the exact step this is here to protect.
+  // WAIT FOR THE SESSION TO BE THE NEW ONE. `session` is a cached query, and
+  // for somebody who arrived signed out it holds `{email: null, role:
+  // 'viewer'}` until the refetch lands. Acting on that value fired the effect
+  // immediately, cleared `arriving`, took the viewer branch and stayed put —
+  // so signing in left you on the sign-in page even as an admin, with the
+  // refetch arriving a moment later and nothing left to act on it.
+  //
+  // Matching on the address is what makes the wait terminate: `sessionEmail`
+  // is set by the sign-in that started this, so the effect resumes exactly
+  // when the session query is answering about that account.
   useEffect(() => {
-    if (!arriving || session === undefined) {
+    if (!arriving || session === undefined || sessionEmail === null) {
+      return;
+    }
+    if (session.email !== sessionEmail) {
       return;
     }
     setArriving(false);
     if (session.role !== 'viewer') {
-      window.location.hash = takeReturnTo();
+      // `takeReturnTo()` is empty for an ordinary sign-in, and assigning an
+      // empty hash leaves the address at a bare `#`. Naming the overview is
+      // the same destination said out loud.
+      window.location.hash = takeReturnTo() || '#/';
     }
-  }, [arriving, session]);
+  }, [arriving, session, sessionEmail]);
 
   async function signIn(event: React.FormEvent) {
     event.preventDefault();
