@@ -3109,14 +3109,15 @@ form select {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+  /* Centred, not spread. `margin-left: auto` on the icons pushed them to the
+     far right while the sentence stayed left, so on a desktop-width card the
+     two halves of one line sat at opposite ends with a gap between them. */
+  justify-content: center;
 }
 
 .signin-providers {
   display: inline-flex;
   gap: var(--space-2);
-  /* Pushed to the end of the row so the icons align right, away from the
-     sentence they share the line with. */
-  margin-left: auto;
 }
 
 .provider-icon {
