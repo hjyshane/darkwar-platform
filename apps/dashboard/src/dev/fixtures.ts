@@ -438,6 +438,10 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
     ],
   ],
   [
+    ['schedule', 'channels'],
+    ['alarm', 'general'],
+  ],
+  [
     ['schedule', 'categories'],
     [
       { category: 'bear', label: 'Bear hunt', colour: '#c2410c', channel: 'alarm', sort_order: 10 },

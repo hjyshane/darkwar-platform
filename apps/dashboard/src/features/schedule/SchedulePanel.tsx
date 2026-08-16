@@ -10,6 +10,7 @@ import {
 } from '../../lib/calendar';
 import { isAllowed, usePermissions } from '../../lib/permissions';
 import { useSession } from '../../lib/useSession';
+import { ScheduleBoards } from './ScheduleBoards';
 import { ScheduleEditor, reminderLabel } from './ScheduleEditor';
 import {
   type ScheduleDraft,
@@ -63,6 +64,7 @@ export function SchedulePanel() {
   const [anchor, setAnchor] = useState<Date>(() => new Date());
   const [draft, setDraft] = useState<ScheduleDraft | null>(null);
   const [open, setOpen] = useState<string | null>(null);
+  const [boards, setBoards] = useState(false);
 
   const { data: session } = useSession();
   const { data: permissions } = usePermissions();
@@ -135,17 +137,32 @@ export function SchedulePanel() {
         </div>
         <span className="count">{rangeLabel(view, anchor)} UTC</span>
         {mayManage && (
-          <button
-            onClick={() => {
-              setOpen(null);
-              setDraft({ ...EMPTY, starts_at: `${dayKey(range.days[0] ?? new Date())}T20:00` });
-            }}
-            type="button"
-          >
-            New entry
-          </button>
+          <>
+            <button
+              onClick={() => {
+                setOpen(null);
+                setBoards(false);
+                setDraft({ ...EMPTY, starts_at: `${dayKey(range.days[0] ?? new Date())}T20:00` });
+              }}
+              type="button"
+            >
+              New entry
+            </button>
+            <button
+              aria-expanded={boards}
+              onClick={() => {
+                setDraft(null);
+                setBoards(!boards);
+              }}
+              type="button"
+            >
+              Boards
+            </button>
+          </>
         )}
       </div>
+
+      {boards && mayManage && <ScheduleBoards categories={categories ?? []} />}
 
       {draft !== null && (
         <ScheduleEditor

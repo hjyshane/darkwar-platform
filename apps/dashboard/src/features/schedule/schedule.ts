@@ -208,3 +208,104 @@ export function daysCovered(event: ScheduleEvent): string[] {
   }
   return out;
 }
+
+/** Channel NAMES, from 0125's view.
+ *
+ * Not `notification_channels`: that table holds the webhook URL and is
+ * admin-only including select (0076), so an officer reading it gets an empty
+ * list — and an empty list here is a dropdown they cannot fill in, with a
+ * foreign key waiting to reject whatever they type instead.
+ */
+export function useChannelNames() {
+  return useQuery({
+    queryKey: ['schedule', 'channels'],
+    queryFn: async (): Promise<string[]> => {
+      const { data, error } = await supabase
+        .from('notification_channel_names')
+        .select('channel, enabled')
+        .order('channel');
+      if (error !== null) {
+        throw error;
+      }
+      return (data ?? []).map((row) => row.channel).filter((name): name is string => name !== null);
+    },
+    staleTime: 10 * 60_000,
+  });
+}
+
+export interface CategoryDraft {
+  /** Empty for a new board — the key is derived from the label on save and
+   *  never changes afterwards, so renaming a board keeps its entries. */
+  category: string;
+  label: string;
+  colour: string;
+  channel: string;
+  sort_order: number;
+}
+
+/** A key from a label, once.
+ *
+ * The key is a primary key that `schedule_events.category` points at, so
+ * re-deriving it on every rename would orphan every entry already filed under
+ * the old one. Derived rather than typed because nobody adding "Bear hunt"
+ * should have to think about what a slug is — and a collision just gets a
+ * suffix rather than an error about a duplicate key.
+ */
+export function categoryKey(label: string, taken: readonly string[]): string {
+  const base =
+    label
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 40) || 'board';
+  if (!taken.includes(base)) {
+    return base;
+  }
+  for (let suffix = 2; ; suffix += 1) {
+    const candidate = `${base}-${suffix}`;
+    if (!taken.includes(candidate)) {
+      return candidate;
+    }
+  }
+}
+
+export function useSaveCategory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (draft: CategoryDraft) => {
+      const row = {
+        category: draft.category,
+        label: draft.label.trim(),
+        colour: draft.colour.trim() === '' ? null : draft.colour.trim(),
+        channel: draft.channel === '' ? null : draft.channel,
+        sort_order: draft.sort_order,
+      };
+      // Upsert rather than insert-or-update: the key is decided by the caller
+      // before this runs, so there is nothing here to branch on.
+      const { error } = await supabase.from('schedule_categories').upsert(row);
+      if (error !== null) {
+        throw error;
+      }
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['schedule'] }),
+  });
+}
+
+export function useDeleteCategory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (category: string) => {
+      // Entries keep their place on the calendar and lose their board:
+      // `schedule_events.category` is ON DELETE SET NULL. Deleting a board is
+      // not a way to delete a fortnight of entries by accident.
+      const { error } = await supabase
+        .from('schedule_categories')
+        .delete()
+        .eq('category', category);
+      if (error !== null) {
+        throw error;
+      }
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['schedule'] }),
+  });
+}

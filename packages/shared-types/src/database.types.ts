@@ -3101,6 +3101,13 @@ export type Database = {
             foreignKeyName: "schedule_categories_channel_fkey"
             columns: ["channel"]
             isOneToOne: false
+            referencedRelation: "notification_channel_names"
+            referencedColumns: ["channel"]
+          },
+          {
+            foreignKeyName: "schedule_categories_channel_fkey"
+            columns: ["channel"]
+            isOneToOne: false
             referencedRelation: "notification_channels"
             referencedColumns: ["channel"]
           },
@@ -3711,6 +3718,21 @@ export type Database = {
           },
         ]
       }
+      notification_channel_names: {
+        Row: {
+          channel: string | null
+          enabled: boolean | null
+        }
+        Insert: {
+          channel?: string | null
+          enabled?: boolean | null
+        }
+        Update: {
+          channel?: string | null
+          enabled?: boolean | null
+        }
+        Relationships: []
+      }
       own_player_ids: {
         Row: {
           player_id: string | null
@@ -4035,6 +4057,13 @@ export type Database = {
           title: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "schedule_categories_channel_fkey"
+            columns: ["channel"]
+            isOneToOne: false
+            referencedRelation: "notification_channel_names"
+            referencedColumns: ["channel"]
+          },
           {
             foreignKeyName: "schedule_categories_channel_fkey"
             columns: ["channel"]
