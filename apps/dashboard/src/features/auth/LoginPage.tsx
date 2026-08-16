@@ -98,6 +98,35 @@ export function LoginPage() {
     void queryClient.invalidateQueries();
   }
 
+  /** Sign in with Google, which skips the email path entirely.
+   *
+   * NO `arriving` DANCE HERE. `signInWithOAuth` navigates the browser away to
+   * Google and comes back through `/auth/v1/callback`, so this component is
+   * unmounted before a redirect decision could be made — the session is
+   * already established when the app reloads, and the reader lands wherever
+   * the returning URL puts them.
+   *
+   * The provider has to be enabled in Supabase (Authentication → Sign In /
+   * Providers → Google). If it is not, this returns "Unsupported provider"
+   * rather than throwing, and the message is shown as written: a button that
+   * fails silently is worse than one that says why.
+   */
+  async function signInWithGoogle() {
+    setBusy(true);
+    setError(null);
+    const { error: oauthError } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      // Back to where the reader actually is, rather than to Site URL's
+      // default — the two differ while an old address is still bookmarked.
+      options: { redirectTo: window.location.origin },
+    });
+    if (oauthError) {
+      setBusy(false);
+      setError(oauthError.message);
+    }
+    // No `setBusy(false)` on success: the browser is leaving.
+  }
+
   async function signOut() {
     await supabase.auth.signOut();
     setSessionEmail(null);
@@ -179,6 +208,17 @@ export function LoginPage() {
     <main>
       <section aria-labelledby="login-heading">
         <h2 id="login-heading">{TERMS.signIn}</h2>
+        {/* Above the form, because it is the shorter path and the one that
+            never needs a reset mail — the reason OAuth was wanted at all. */}
+        <button
+          className="oauth-button"
+          disabled={busy}
+          onClick={() => void signInWithGoogle()}
+          type="button"
+        >
+          Continue with Google
+        </button>
+        <p className="hint">or sign in with an email address</p>
         <form onSubmit={(event) => void signIn(event)}>
           <label>
             Email
