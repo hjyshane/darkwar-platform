@@ -19,12 +19,33 @@ select plan(11);
 insert into public.collectors (collector_id, name) values
   ('00000000-0000-4000-8000-00000000cf77', 'pushdown probe') on conflict do nothing;
 insert into public.players (game_uid, server_id, current_name)
-select 880000000000 + g, 580, 'Push' || g from generate_series(1, 40) g
+select 880000000000 + g, 580, 'Push' || g from generate_series(1, 400) g
 on conflict do nothing;
 
--- Enough rows, and enough players, that a sequential scan is not simply the
--- cheapest honest plan. The planner will take a seq scan of a handful of rows
--- however the view is written, so a fixture that is too small proves nothing.
+-- 400 players x 12 snapshots. The count is load-bearing and was raised from 40
+-- because the plan is only stable when the index is decisively cheaper, and 40
+-- was not decisive: seq scan 19.00 against bitmap index 26.05, a gap small
+-- enough that the environment decided the winner.
+--
+-- What decided it was index bloat, not table size. Every run of this file
+-- inserts, rolls back, and leaves the pages behind; autovacuum truncates the
+-- heap back to nothing but a btree never returns its pages, so on a database
+-- that has run this suite a few times pg_class says the heap is 13 pages and
+-- player_snapshots_player_captured_idx is 94 — the planner is told the index
+-- is seven times the table it indexes, and picks the seq scan. That is why
+-- the file passed on the run after `supabase db reset` and failed on the next.
+-- ANALYZE below cannot repair it: ANALYZE recomputes heap relpages, and only
+-- VACUUM touches an index's.
+--
+-- What defeats it is selectivity, not row count as such. A bitmap index scan
+-- costs about relpages x selectivity, so holding snapshots-per-player at 12
+-- and multiplying the players divides the index's share while the seq scan
+-- pays for every row: at 400 the plan is 41.59 against a seq scan of roughly
+-- 190, and the margin survives the index growing several times over. Raise the
+-- player count, not the snapshots per player, if it ever narrows again.
+--
+-- Verified to still discriminate: the pre-0098 view definition, run against
+-- this fixture, still plans `Seq Scan on player_snapshots` under its CTE.
 insert into public.player_snapshots
   (observation_id, source_command, parser_version, idempotency_key, captured_at,
    collector_id, collected_from_server_id, player_id, server_id, game_uid, power, raw)
