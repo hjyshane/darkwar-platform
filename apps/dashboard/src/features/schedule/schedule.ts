@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { CalendarRange } from '../../lib/calendar';
 import { supabase } from '../../lib/supabase';
+import { fromInputValue, toInputValue, zonedDayKey } from '../../lib/timezone';
 
 /** Reading and writing the calendar (0124).
  *
@@ -35,13 +36,20 @@ export interface ScheduleCategory {
   sort_order: number;
 }
 
+const DAY_MS = 86_400_000;
+
 const COLUMNS =
   'schedule_event_id, title, body, category, starts_at, ends_at, source,' +
   ' schedule_reminders(reminder_id, minutes_before)';
 
 export function useScheduleEvents(range: CalendarRange) {
-  const start = range.start.toISOString();
-  const end = range.end.toISOString();
+  // ONE DAY WIDER AT EACH END, because the grid's cells are days in the
+  // READER'S zone and this window is in UTC. A reader in Seoul sees Monday
+  // starting nine hours before UTC Monday does, so the first cell reaches back
+  // into what UTC still calls Sunday. Over-fetching a day is a few rows;
+  // getting it wrong is an entry that silently is not drawn.
+  const start = new Date(range.start.getTime() - DAY_MS).toISOString();
+  const end = new Date(range.end.getTime() + DAY_MS).toISOString();
   return useQuery({
     queryKey: ['schedule', 'events', start, end],
     queryFn: async (): Promise<ScheduleEvent[]> => {
@@ -97,12 +105,15 @@ export interface ScheduleDraft {
   reminders: number[];
 }
 
-function toIso(local: string): string | null {
-  return local.trim() === '' ? null : new Date(`${local}:00Z`).toISOString();
-}
-
-export function toLocal(iso: string | null): string {
-  return iso === null ? '' : iso.slice(0, 16);
+/** Both directions now go through the reader's zone.
+ *
+ * They used to be a string slice and a `Z` suffix, which was correct only
+ * because everything on this screen was UTC. An officer in Seoul typing 20:00
+ * into that editor scheduled 20:00 UTC — a reminder at five in the morning
+ * their own time, for an event they had just described as an evening one.
+ */
+export function toLocal(iso: string | null, zone: string): string {
+  return toInputValue(iso, zone);
 }
 
 /** Save an entry and replace its reminders.
@@ -113,11 +124,11 @@ export function toLocal(iso: string | null): string {
  * cheaper to reason about — and it costs nothing, because a reminder has no
  * history worth keeping: `notification_outbox` holds what was actually sent.
  */
-export function useSaveScheduleEvent() {
+export function useSaveScheduleEvent(zone: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (draft: ScheduleDraft) => {
-      const starts = toIso(draft.starts_at);
+      const starts = fromInputValue(draft.starts_at, zone);
       if (starts === null) {
         throw new Error('An entry needs a start time.');
       }
@@ -126,7 +137,7 @@ export function useSaveScheduleEvent() {
         body: draft.body.trim() === '' ? null : draft.body.trim(),
         category: draft.category === '' ? null : draft.category,
         starts_at: starts,
-        ends_at: toIso(draft.ends_at),
+        ends_at: fromInputValue(draft.ends_at, zone),
       };
       const saved =
         draft.schedule_event_id === undefined
@@ -192,19 +203,22 @@ export function useDeleteScheduleEvent() {
  * three-day event is invisible on the two days somebody is actually checking
  * whether they are free.
  */
-export function daysCovered(event: ScheduleEvent): string[] {
-  const start = event.starts_at.slice(0, 10);
+export function daysCovered(event: ScheduleEvent, zone: string): string[] {
+  const start = zonedDayKey(event.starts_at, zone);
   if (event.ends_at === null) {
     return [start];
   }
+  const last = zonedDayKey(event.ends_at, zone);
   const out: string[] = [];
-  const last = new Date(`${event.ends_at.slice(0, 10)}T00:00:00Z`);
-  for (
-    let at = new Date(`${start}T00:00:00Z`);
-    at <= last;
-    at = new Date(at.getTime() + 86_400_000)
-  ) {
-    out.push(at.toISOString().slice(0, 10));
+  // Walked as DATES rather than as instants: the two ends have already been
+  // resolved to days in the reader's zone, and stepping 24 hours through a
+  // clock change would skip or repeat one of them.
+  for (let at = new Date(`${start}T00:00:00Z`); ; at = new Date(at.getTime() + DAY_MS)) {
+    const key = at.toISOString().slice(0, 10);
+    out.push(key);
+    if (key >= last || out.length > 400) {
+      break;
+    }
   }
   return out;
 }

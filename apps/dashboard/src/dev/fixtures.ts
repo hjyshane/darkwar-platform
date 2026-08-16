@@ -363,11 +363,16 @@ export const SESSION_KEY = ['session'] as const;
  */
 const SCHEDULE_RANGE = calendarRange('week', new Date());
 const SCHEDULE_DAYS = SCHEDULE_RANGE.days.map((day) => day.toISOString().slice(0, 10));
+// The hook widens the window by a day at each end, because the grid's cells are
+// days in the READER'S zone while this range is in UTC. The key has to be built
+// the same way or the fixture matches nothing and the screen draws an empty
+// calendar — which looks exactly like a week with nothing on it.
+const SCHEDULE_DAY_MS = 86_400_000;
 const SCHEDULE_KEY = [
   'schedule',
   'events',
-  SCHEDULE_RANGE.start.toISOString(),
-  SCHEDULE_RANGE.end.toISOString(),
+  new Date(SCHEDULE_RANGE.start.getTime() - SCHEDULE_DAY_MS).toISOString(),
+  new Date(SCHEDULE_RANGE.end.getTime() + SCHEDULE_DAY_MS).toISOString(),
 ];
 
 /** Held as a stable reference so main.tsx can tell "still the fixture" from
