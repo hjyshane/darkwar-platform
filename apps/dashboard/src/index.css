@@ -3222,3 +3222,124 @@ form select {
   font-size: var(--text-sm);
   text-align: center;
 }
+
+/* --- Schedule (0124) -------------------------------------------------------
+ *
+ * One grid for all four views. The column count is set inline by the panel
+ * because it is the only value that changes — a day view is a grid of one, and
+ * a second class per view would be three classes that differ in one number.
+ */
+.schedule-toolbar {
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.schedule-nav {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.schedule-grid {
+  display: grid;
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-top: var(--space-3);
+}
+
+.schedule-day {
+  background: var(--bg);
+  padding: var(--space-2);
+  /* Enough that an empty day still reads as a day rather than as a gap, and
+   * short enough that a fortnight fits on a laptop without scrolling. */
+  min-height: 6rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.schedule-today {
+  background: var(--bg-raised);
+}
+
+/* Padding days in the month view are real days and may hold entries, so they
+ * are dimmed rather than emptied. */
+.schedule-outside {
+  opacity: 0.55;
+}
+
+.schedule-daylabel {
+  font-size: 0.8rem;
+  color: var(--fg-muted);
+}
+
+.schedule-entry-button {
+  width: 100%;
+  text-align: left;
+  padding: var(--space-1) var(--space-2);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  /* The category's colour, when it has one. Left border rather than a fill:
+   * a filled block has to win a contrast argument with the text on it in both
+   * themes, and this one does not. */
+  border-left: 3px solid var(--border-strong);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.schedule-entry-button:hover {
+  background: var(--bg-hover);
+}
+
+.schedule-time {
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.schedule-detail {
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+
+.schedule-detail p {
+  margin: 0 0 var(--space-1);
+}
+
+.schedule-editor {
+  margin: var(--space-4) 0;
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-raised);
+}
+
+.schedule-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.schedule-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.schedule-presets .chip[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+}
+
+/* A week of columns does not fit a phone. Below that the grid becomes a list
+ * of days, which is what a phone reader scrolls anyway. */
+@media (max-width: 40rem) {
+  .schedule-grid {
+    grid-template-columns: 1fr !important;
+  }
+}

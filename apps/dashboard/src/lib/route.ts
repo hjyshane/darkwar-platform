@@ -28,6 +28,7 @@ export type Route =
   | 'guide'
   | 'notices'
   | 'notice'
+  | 'schedule'
   | 'account'
   | 'terms'
   | 'privacy'
@@ -42,6 +43,7 @@ const ROUTES: Record<string, Route> = {
   '#/account': 'account',
   '#/guides': 'guides',
   '#/notices': 'notices',
+  '#/schedule': 'schedule',
   // The only two addresses here that a signed-out stranger is MEANT to reach.
   // Everything else on this list is walled; these are marked standalone in
   // `App.tsx` so they are not, because Google and Discord fetch them with no
@@ -200,6 +202,12 @@ export const NAV_TABS: ReadonlyArray<{ route: Route; hash: string; label: string
   // reads every day and writes to each other on. Everything below is a board
   // the game produced; this is what the alliance said about it.
   { route: 'notices', hash: '#/notices', label: 'Notices' },
+  // Beside them for the same reason, and before Guides because it is the one
+  // with a deadline attached: a notice keeps until somebody reads it, a bear
+  // hunt at 20:00 does not. It carries its own capability (0124), so the tab
+  // is filtered in `App.tsx` rather than shown to a viewer who would get an
+  // empty grid.
+  { route: 'schedule', hash: '#/schedule', label: 'Schedule' },
   { route: 'guides', hash: '#/guides', label: 'Guides' },
   // ONE TAB FOR THE THREE CROSS-SERVER BOARDS. They answer the same question
   // about three different subjects — who is ahead, across the group — and as

@@ -22,6 +22,7 @@ import { Overview } from './features/overview/OverviewPanel';
 import { PlayerPage } from './features/player/PlayerPage';
 import { RankingsPanel } from './features/rankings/RankingsPanel';
 import { RosterPanel } from './features/roster/RosterPanel';
+import { SchedulePanel } from './features/schedule/SchedulePanel';
 import { ServerPage } from './features/server/ServerPage';
 import { useRecordActivity } from './lib/activity';
 import { isAllowed, usePermissions } from './lib/permissions';
@@ -245,11 +246,16 @@ function Nav({ route, allianceId }: { route: Route; allianceId: string | null })
   // absent until the query answers, and stays absent if no alliance is pinned
   // rather than linking at `#/alliance/null`.
   //
-  // Nothing is gated here any more. Members and Arena were the two gated tabs
-  // and both are now second-row tabs, so their capability checks moved to
-  // `SubNav` with the tabs themselves — a gate applied where the tab is drawn
-  // rather than in two places.
-  const tabs = NAV_TABS.flatMap((tab) => {
+  // One gate is back, and it is here because Schedule is a TOP-level tab with a
+  // capability (0124) — unlike Members and Arena, whose checks live in `SubNav`
+  // with the second-row tabs they hide. Undefined means the grid has not
+  // answered yet and is treated as "not yet": drawing a tab and taking it away
+  // is worse than one that arrives a beat late. Hiding it withholds nothing —
+  // RLS does that, and somebody who types `#/schedule` gets an empty grid.
+  const mayViewSchedule = useMayView('schedule.view');
+  const tabs = NAV_TABS.filter(
+    (tab) => tab.route !== 'schedule' || mayViewSchedule === true,
+  ).flatMap((tab) => {
     const entry = {
       key: tab.hash,
       href: tab.hash,
@@ -517,6 +523,10 @@ function Shell({
         <GuidePostPage guideId={guideId} />
       ) : route === 'notices' ? (
         <NoticesPanel />
+      ) : route === 'schedule' ? (
+        <main>
+          <SchedulePanel />
+        </main>
       ) : route === 'notice' && noticeId !== null ? (
         <NoticePostPage noticeId={noticeId} />
       ) : route === 'server' && serverId !== null ? (

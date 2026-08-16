@@ -738,7 +738,15 @@ export type Database = {
           updated_at?: string
           visibility?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "announcements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "pending_access"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       app_settings: {
         Row: {
@@ -759,7 +767,15 @@ export type Database = {
           updated_by?: string | null
           value?: Json
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "app_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "pending_access"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       app_users: {
         Row: {
@@ -796,6 +812,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "players"
             referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "app_users_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "pending_access"
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -1639,6 +1662,13 @@ export type Database = {
             referencedRelation: "servers"
             referencedColumns: ["server_id"]
           },
+          {
+            foreignKeyName: "favourites_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "pending_access"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
       guides: {
@@ -1675,7 +1705,15 @@ export type Database = {
           title?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "guides_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "pending_access"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       heroes: {
         Row: {
@@ -1726,7 +1764,15 @@ export type Database = {
           last_failed_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "join_code_attempts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "pending_access"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       join_codes: {
         Row: {
@@ -1922,7 +1968,15 @@ export type Database = {
           updated_by?: string | null
           webhook_url?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "notification_channels_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "pending_access"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       notification_outbox: {
         Row: {
@@ -2056,6 +2110,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "players"
             referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "player_claims_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "pending_access"
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -2417,6 +2478,13 @@ export type Database = {
             referencedRelation: "players"
             referencedColumns: ["player_id"]
           },
+          {
+            foreignKeyName: "player_ranks_set_by_fkey"
+            columns: ["set_by"]
+            isOneToOne: false
+            referencedRelation: "pending_access"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
       player_snapshots: {
@@ -2732,6 +2800,13 @@ export type Database = {
             referencedRelation: "guides"
             referencedColumns: ["guide_id"]
           },
+          {
+            foreignKeyName: "post_reads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "pending_access"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
       post_views: {
@@ -2993,6 +3068,148 @@ export type Database = {
           },
         ]
       }
+      schedule_categories: {
+        Row: {
+          category: string
+          channel: string | null
+          colour: string | null
+          created_at: string
+          label: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          channel?: string | null
+          colour?: string | null
+          created_at?: string
+          label: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          channel?: string | null
+          colour?: string | null
+          created_at?: string
+          label?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedule_categories_channel_fkey"
+            columns: ["channel"]
+            isOneToOne: false
+            referencedRelation: "notification_channels"
+            referencedColumns: ["channel"]
+          },
+        ]
+      }
+      schedule_events: {
+        Row: {
+          body: string | null
+          category: string | null
+          created_at: string
+          created_by: string | null
+          ends_at: string | null
+          schedule_event_id: string
+          source: string
+          starts_at: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          body?: string | null
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          ends_at?: string | null
+          schedule_event_id?: string
+          source?: string
+          starts_at: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string | null
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          ends_at?: string | null
+          schedule_event_id?: string
+          source?: string
+          starts_at?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedule_events_category_fkey"
+            columns: ["category"]
+            isOneToOne: false
+            referencedRelation: "schedule_categories"
+            referencedColumns: ["category"]
+          },
+          {
+            foreignKeyName: "schedule_events_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "activity_members"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "schedule_events_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "app_user_directory"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "schedule_events_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "schedule_events_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "post_authors"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      schedule_reminders: {
+        Row: {
+          created_at: string
+          minutes_before: number
+          reminder_id: string
+          schedule_event_id: string
+        }
+        Insert: {
+          created_at?: string
+          minutes_before: number
+          reminder_id?: string
+          schedule_event_id: string
+        }
+        Update: {
+          created_at?: string
+          minutes_before?: number
+          reminder_id?: string
+          schedule_event_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedule_reminders_schedule_event_id_fkey"
+            columns: ["schedule_event_id"]
+            isOneToOne: false
+            referencedRelation: "schedule_events"
+            referencedColumns: ["schedule_event_id"]
+          },
+        ]
+      }
       schema_observations: {
         Row: {
           collector_id: string | null
@@ -3149,7 +3366,15 @@ export type Database = {
           display_name: string | null
           user_id: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "app_users_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "pending_access"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       alliance_daily_contribution: {
         Row: {
@@ -3432,6 +3657,13 @@ export type Database = {
             referencedRelation: "players"
             referencedColumns: ["player_id"]
           },
+          {
+            foreignKeyName: "app_users_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "pending_access"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
       event_scoreboard: {
@@ -3492,6 +3724,14 @@ export type Database = {
             referencedColumns: ["player_id"]
           },
         ]
+      }
+      pending_access: {
+        Row: {
+          created_at: string | null
+          last_sign_in_at: string | null
+          user_id: string | null
+        }
+        Relationships: []
       }
       player_component_power_history: {
         Row: {
@@ -3659,7 +3899,15 @@ export type Database = {
           display_name: string | null
           user_id: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "app_users_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "pending_access"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       post_comment_counts: {
         Row: {
@@ -3771,6 +4019,42 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "players"
             referencedColumns: ["player_id"]
+          },
+        ]
+      }
+      schedule_reminders_due: {
+        Row: {
+          category: string | null
+          category_label: string | null
+          channel: string | null
+          fire_at: string | null
+          minutes_before: number | null
+          reminder_id: string | null
+          schedule_event_id: string | null
+          starts_at: string | null
+          title: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedule_categories_channel_fkey"
+            columns: ["channel"]
+            isOneToOne: false
+            referencedRelation: "notification_channels"
+            referencedColumns: ["channel"]
+          },
+          {
+            foreignKeyName: "schedule_events_category_fkey"
+            columns: ["category"]
+            isOneToOne: false
+            referencedRelation: "schedule_categories"
+            referencedColumns: ["category"]
+          },
+          {
+            foreignKeyName: "schedule_reminders_schedule_event_id_fkey"
+            columns: ["schedule_event_id"]
+            isOneToOne: false
+            referencedRelation: "schedule_events"
+            referencedColumns: ["schedule_event_id"]
           },
         ]
       }
