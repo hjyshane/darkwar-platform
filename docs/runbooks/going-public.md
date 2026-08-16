@@ -347,6 +347,19 @@ VITE_SUPABASE_PUBLISHABLE_KEY=<Project Settings > API > publishable/anon key>
   지금 `config.toml`은 `http://127.0.0.1:3000`이고, 그대로 두면 로그인 후
   리디렉션이 로컬로 간다.
 
+  **현재 값은 `https://cbfw.us`다** (2026-08-16). Site URL은 리디렉션만
+  정하는 게 아니라 **메일 안의 링크를 만든다** — 가입 확인, 비밀번호 재설정,
+  magic link 전부. 주소를 옮길 때는 SMTP를 붙인 직후가 좋다. 옛 주소로 링크가
+  나가기 전에 끝난다.
+
+- **Redirect URLs**에 `https://cbfw.us/**`를 넣고, 옛
+  `https://darkwar-platform.hjyshane.workers.dev/**`도 당분간 남긴다. 옛
+  주소를 북마크한 사람이 로그인하면 그쪽으로 돌아와야 한다.
+
+- **Google OAuth의 redirect URI는 여기와 무관하다.** 그건
+  `https://<ref>.supabase.co/auth/v1/callback`이고 Supabase 도메인에 묶여
+  있다. 사이트 주소를 바꿔도 Google Cloud Console은 건드리지 않는다.
+
 ### 실제로 이랬다 — Cloudflare Workers 자산, Pages 아님
 
 `apps/dashboard/wrangler.jsonc`가 정적 자산만 서빙한다. Worker 스크립트도
@@ -354,8 +367,19 @@ VITE_SUPABASE_PUBLISHABLE_KEY=<Project Settings > API > publishable/anon key>
 Worker를 두면 인증이 틀릴 수 있는 자리가 하나 더 생긴다. SPA fallback도 없다
 (해시 라우팅).
 
-주소는 `darkwar-platform.hjyshane.workers.dev`다. **`*.pages.dev`는 존재하지
-않는다** — DNS부터 안 뜬다. 이걸 몰라서 한 번 헛짚었다.
+**주소는 이제 `https://cbfw.us`다** (2026-08-16). Cloudflare Registrar에서
+`cbfw.us`를 사고 Workers → Settings → Domains & Routes에서 붙였다. 원래
+주소인 `darkwar-platform.hjyshane.workers.dev`도 그대로 살아 있다.
+
+도메인을 산 이유는 겉모습이 아니라 **메일이다.** 내가 소유하지 않은 도메인
+(Gmail 등)으로는 DKIM 정렬이 안 되고, 그러면 Outlook/Hotmail이 확인 메일을
+거른다 — 자세한 것은 4-1절. 대시보드 주소가 예뻐진 것은 덤이다.
+
+**`*.pages.dev`는 존재하지 않는다** — DNS부터 안 뜬다. 이걸 몰라서 한 번
+헛짚었다. `www.cbfw.us`도 레코드가 없어 응답하지 않는다. 필요하면 Cloudflare에
+`www` CNAME을 추가하면 되고, 없어도 무방하다.
+
+`.env`의 `DW_DASHBOARD_URL`도 같이 옮긴다 — 수집기와 문서가 참조한다.
 
 ### 배포된 것이 무엇인지 확인하는 법 — 날짜가 아니라 마커로
 

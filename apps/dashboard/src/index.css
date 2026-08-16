@@ -3098,3 +3098,12 @@ form select {
   top: -0.15rem;
   width: 0.5rem;
 }
+
+/* "Continue with Google", above the email form. Full width and set apart,
+ * because it is the shorter path of the two and the one that never needs a
+ * reset mail — which is the reason it was added. */
+.oauth-button {
+  display: block;
+  margin-bottom: var(--space-2);
+  width: 100%;
+}
