@@ -315,6 +315,63 @@ PowerShell 창:
 cd C:\darkwar-platform; git pull; cd services\collector; uv sync --extra capture
 ```
 
+### 4-2. 작업 하나만 재시작하기 — `Stop-ScheduledTask`만으로는 안 된다
+
+**2026-08-16에 실제로 겪었다.** 새 알림 이벤트를 머지하고 `dw-notify`만
+재시작하려다 조용히 멈췄다.
+
+`Stop-ScheduledTask`는 **작업의 껍데기(wscript → cmd)만 죽이고 그 아래
+파이썬 워커는 살려둔다.** 확인해보니 이틀 전에 뜬 프로세스 다섯 개가 그대로
+살아 있었다:
+
+```
+uv.exe 14980 / uv.exe 16068 / dw-notify.exe 16836 / python.exe 16888 / python.exe 17008
+전부 2026-08-14 19:24 시작
+```
+
+그 워커가 `notify.log`를 붙잡고 있으므로, 새로 시작한 작업의 `>> notify.log`
+리다이렉트가 **공유 위반으로 실패하고 cmd가 exit 1로 끝난다.** 결과는:
+
+- 작업 상태 `Ready`
+- 로그에 **아무것도 안 남음**
+- "재시작했으니 새 코드가 돌겠지"라고 믿게 됨
+
+`register-tasks.ps1`은 이 함정을 알고 있고 명령줄로 프로세스를 찾아 죽인다
+(`Match` 목록). **작업 하나만 재시작하는 절차가 없었을 뿐이다.** 이 절이 그것이다.
+
+```powershell
+Stop-ScheduledTask -TaskName 'DarkWar-Notify'
+Get-CimInstance Win32_Process |
+  Where-Object { $_.CommandLine -like '*dw-notify*' } |
+  ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+Start-Sleep -Seconds 3
+Start-ScheduledTask -TaskName 'DarkWar-Notify'
+```
+
+작업 이름과 `-like` 패턴만 바꾸면 나머지 셋도 같다. **`dw-sync`는 패턴이
+`*dw-sync*`, 캡처는 `*cap.pcapng*`** — dumpcap은 이름에 작업 이름이 없다.
+
+**반드시 확인한다.** `Running`이 아니면 안 돈 것이고, 로그에 시작 줄이 없으면
+위 함정에 다시 걸린 것이다:
+
+```powershell
+(Get-ScheduledTask -TaskName 'DarkWar-Notify').State
+Get-Content 'C:\DW_data\logs\notify.log' -Tail 3
+```
+
+성공하면 이렇게 보인다:
+
+```
+Running
+2026-08-16 18:25:36 [info     ] notify.start                   interval=300.0
+```
+
+**venv를 다시 만들 필요는 없다.** 패키지가 editable로 설치돼 있어
+(`_editable_impl_dw_collector.pth`) 재시작만으로 새 소스를 읽는다. `uv sync`가
+필요한 것은 **의존성이 바뀐 PR**뿐이고, 그때는 4번처럼 네 작업을 모두 멈춘
+뒤에 해야 한다 — 실행 중인 작업이 `.venv\Scripts`의 exe를 잡고 있으면
+sync가 os error 32로 죽는다.
+
 ---
 
 ## 5. 데이터베이스를 비운 뒤 되살리기
