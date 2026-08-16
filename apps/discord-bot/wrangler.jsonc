@@ -1,0 +1,16 @@
+{
+  // The Discord interactions endpoint. A Worker script, unlike
+  // apps/dashboard/wrangler.jsonc which is static assets and deliberately has
+  // no Worker — see the comment at the top of src/index.ts for why the two
+  // decisions do not conflict.
+  //
+  // DISCORD_PUBLIC_KEY is set with `wrangler secret put DISCORD_PUBLIC_KEY`,
+  // not here. It is not strictly a secret (it verifies signatures, it cannot
+  // create them) but it differs per application and does not belong in git.
+  //
+  // The bot token is NOT here and is never deployed: it is only used by
+  // scripts/register.ts, from a developer machine.
+  "name": "darkwar-discord-bot",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-03"
+}

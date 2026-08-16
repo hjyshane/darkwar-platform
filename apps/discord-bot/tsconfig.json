@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // Node's --experimental-strip-types resolves imports the way Node does:
+    // extensionless relative specifiers do not exist. scripts/register.ts runs
+    // that way, so the bot writes `./thing.ts` throughout and this permits it.
+    "allowImportingTsExtensions": true,
+    "types": ["@cloudflare/workers-types", "node"]
+  },
+  "include": ["src", "tests", "scripts"]
+}
