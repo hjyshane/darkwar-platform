@@ -3104,14 +3104,32 @@ form select {
  * They were two full-width buttons above the form, which made signing in read
  * as three competing choices. The email form is the main path; these are
  * another way in, so they sit inline and quiet. */
+/* THE CARD IS WHAT WAS WRONG, not the row inside it.
+ *
+ * `form` is capped at 22rem by the global rule and left-aligned, but the
+ * section around it is the full page width. So on a desktop the Sign In button
+ * sat at the left edge of the page while anything centred inside the section —
+ * the provider row — centred against 768px and landed far to its right. Two
+ * boxes of different widths, which reads as "pushed to opposite ends".
+ *
+ * Capping the section at the same 22rem and centring it puts everything in one
+ * column: the form fills it, and the row below centres against the same width. */
+.signin-card {
+  margin-inline: auto;
+  max-width: 22rem;
+}
+
+/* Full width, so signing in is the obvious target rather than a small control
+ * tucked against the left edge. */
+.signin-card form button[type="submit"] {
+  width: 100%;
+}
+
 .signin-alt {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
-  /* Centred, not spread. `margin-left: auto` on the icons pushed them to the
-     far right while the sentence stayed left, so on a desktop-width card the
-     two halves of one line sat at opposite ends with a gap between them. */
   justify-content: center;
 }
 
