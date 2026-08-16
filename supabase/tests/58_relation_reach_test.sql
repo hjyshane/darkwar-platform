@@ -19,7 +19,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(8);
+select plan(10);
 
 -- 1. RLS is the boundary under every table, so it has to be on under every
 -- table. The hosted project has an `ensure_rls` event trigger that enables it
@@ -58,16 +58,18 @@ select cmp_ok(
 -- 4. Views that read as their owner, granted to signed-in callers, that never
 -- ask who is asking. Each of these goes past every policy under it.
 --
--- `sync_status` is the one exception and it is deliberate: 0060 wrote
--- `security_invoker = false` with the reason, and 0065 refers to it. It
--- publishes one heartbeat timestamp from an officer-only table so that the
--- board can say whether it is live. Named here rather than pattern-matched,
--- so adding a second exception has to be a decision somebody wrote down.
+-- NO EXCEPTIONS ANY MORE. `sync_status` was named here until 0121: it published
+-- one heartbeat timestamp from officer-only tables and 0060 argued the case,
+-- but the only account the gap actually admitted was a signed-in VIEWER — and
+-- `SyncStatus` never renders for one, so the carve-out bought no feature. 0121
+-- gave it the same WHERE-clause gate the other eight carry.
+--
+-- A rule with no exceptions is one nobody has to remember the shape of. If a
+-- view lands here again, gate it rather than adding a name back.
 select is_empty(
   $$ select c.relname
        from pg_class c join pg_namespace n on n.oid = c.relnamespace
       where n.nspname = 'public' and c.relkind = 'v'
-        and c.relname <> 'sync_status'
         and (c.reloptions is null
              or c.reloptions::text !~ 'security_invoker=(true|on)')
         and has_table_privilege('authenticated', c.oid, 'select')
@@ -85,8 +87,11 @@ values ('00000000-0000-4000-8000-0000000fd001', '00000000-0000-0000-0000-0000000
         'authenticated', 'authenticated', 'reach-viewer@test.invalid');
 insert into public.app_users (user_id, role) values
   ('00000000-0000-4000-8000-0000000fd001', 'viewer');
-insert into public.collectors (collector_id, name) values
-  ('00000000-0000-4000-8000-00000000cf01', 'reach probe');
+-- WITH A HEARTBEAT. Without one, `max(last_heartbeat_at)` is null for
+-- everybody and the sync_status assertion below passes whether the gate is
+-- there or not — which is exactly how it first shipped.
+insert into public.collectors (collector_id, name, last_heartbeat_at) values
+  ('00000000-0000-4000-8000-00000000cf01', 'reach probe', now());
 insert into public.alliances (server_id, external_id, current_name) values
   (580, 'reach-al', 'Reach');
 insert into public.alliance_snapshots
@@ -120,6 +125,36 @@ select is(
 select is(
   (select count(*)::int from public.alliance_growth),
   0, 'and the view over them does not hand it back');
+
+-- 0121, the last carve-out closed. `sync_status` reads officer-only
+-- `collectors` as its owner, and until 0121 it handed the heartbeat to any
+-- signed-in account. A viewer is exactly the account that gap admitted.
+--
+-- The row still comes back — `max()` over nothing is null, so the shape the
+-- component expects is unchanged — but it carries no timestamp.
+select is(
+  (select last_heartbeat_at from public.sync_status),
+  null::timestamptz,
+  'a viewer gets no heartbeat out of sync_status');
+
+-- The positive beside it (0055), and here it is doing real work: a gate that
+-- refused everybody would satisfy the negative above perfectly, and the board
+-- would silently stop saying whether it is live.
+reset role;
+insert into auth.users (id, instance_id, aud, role, email)
+values ('00000000-0000-4000-8000-0000000fd002', '00000000-0000-0000-0000-000000000000',
+        'authenticated', 'authenticated', 'reach-member@test.invalid');
+insert into public.app_users (user_id, role) values
+  ('00000000-0000-4000-8000-0000000fd002', 'member');
+set local role authenticated;
+select set_config('request.jwt.claims',
+                  json_build_object('sub', '00000000-0000-4000-8000-0000000fd002')::text,
+                  true);
+
+select isnt(
+  (select last_heartbeat_at from public.sync_status),
+  null::timestamptz,
+  'while a member still gets the one fact the view exists to publish');
 
 reset role;
 select * from finish();
