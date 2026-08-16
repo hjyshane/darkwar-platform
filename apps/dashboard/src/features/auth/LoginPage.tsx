@@ -297,6 +297,16 @@ export function LoginPage() {
             </button>
           </span>
         </p>
+        {/* Under every way in, including the provider buttons, because it
+            applies to all of them. Google and Discord both require these two
+            addresses to be reachable from the app they approve, and this is
+            the screen their reviewer lands on. Worded as what signing in
+            means rather than as a checkbox: there is no separate consent to
+            record, and a tick box that gates nothing is theatre. */}
+        <p className="legal-consent">
+          Signing in means accepting the <a href="#/terms">Terms of Service</a> and the{' '}
+          <a href="#/privacy">Privacy Policy</a>.
+        </p>
       </section>
     </main>
   );
