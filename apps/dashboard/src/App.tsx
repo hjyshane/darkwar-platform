@@ -356,59 +356,6 @@ function Screen({ route }: { route: Route }) {
   }
 }
 
-/** Everything except the way in.
- *
- * 0065 made every table in the schema member-only, so a signed-out reader
- * does not get an empty dashboard — every query is refused outright (42501)
- * and every panel would render its error state. There is nothing left to
- * show them, so nothing is shown.
- *
- * This is a wall in front of screens whose data is already withheld, not
- * the withholding itself. Anyone can still open the address; they will find
- * this, and the database would refuse them anyway.
- *
- * `viewer` lands here too. Signing up creates a viewer with no rows until an
- * admin admits them or they redeem a join code, and the second sentence is
- * written for that state.
- *
- * Which sentence to show turns on `email`, NOT on the role. useSession
- * collapses signed-out and signed-in-without-a-row into 'viewer' on purpose,
- * because that is what current_app_role() returns for both — correct for
- * explaining what RLS will do, useless for telling the two apart. Branching
- * on the role told every first-time visitor "You are signed in", and made
- * the Sign in link unreachable, since by the time the wall renders the
- * session query has resolved and the role is never undefined.
- */
-export function SignedOutWall({ email }: { email: string | null | undefined }) {
-  return (
-    <main>
-      <section aria-labelledby="wall-heading">
-        <h2 id="wall-heading">Alliance members only</h2>
-        <p>Every screen on this dashboard is for HELLBOUND [CBFW]. Nothing here is public.</p>
-        <p>
-          {email != null ? (
-            <>
-              You are signed in as {email}, but no role has been granted yet. Enter a join code on
-              the <a href="#/login">sign-in page</a>, or ask an admin.
-            </>
-          ) : (
-            <a href="#/login">Sign in</a>
-          )}
-        </p>
-        {/* The two screens this wall does NOT stand in front of. Somebody
-            stopped here has been told the dashboard is not for them; these are
-            the only pages that can still answer "what would you have done with
-            my email address", which is the question worth answering at exactly
-            this moment. */}
-        <p className="legal-links">
-          <a href="#/terms">Terms of Service</a>
-          <a href="#/privacy">Privacy Policy</a>
-        </p>
-      </section>
-    </main>
-  );
-}
-
 const MEMBER_ROLES = new Set(['member', 'officer', 'admin']);
 
 export function App() {
@@ -537,8 +484,17 @@ function Shell({
       {/* Above whatever screen the reader came for, because the whole problem
           it solves is that the answer is somewhere they are not (0117). */}
       {!standalone && isMember && <ReplyAlerts />}
+      {/* THE WALL IS GONE. It said "Alliance members only", explained that
+          nothing here is public, and offered a link to the sign-in page — one
+          screen whose entire content was a signpost to another screen. Every
+          visitor read it once and clicked through.
+          Sending them straight to the sign-in page loses nothing: it carries
+          the Terms and Privacy links the wall carried, and it handles the
+          second state the wall existed for — signed in with no role yet — far
+          better, by putting the join-code box in front of them instead of
+          telling them where to find it. */}
       {walled ? (
-        <SignedOutWall email={session?.email} />
+        <LoginPage />
       ) : isPending && !standalone ? (
         <main>
           <p className="empty">Loading…</p>
