@@ -171,6 +171,27 @@ revoke했다. 그래서 **이 드리프트는 pgTAP으로 잡히지 않는다.**
 
 ## 4-1. 메일을 실제로 보낸다 (SMTP)
 
+> **완료됨 — 2026-08-16.** `cbfw.us`(Cloudflare Registrar, Cloudflare DNS) +
+> Resend + Supabase SMTP. 아래는 그 경로이고, 다시 만들 때 같은 순서로
+> 필요하다. 실제 값:
+>
+> | 항목 | 값 |
+> |---|---|
+> | Host | `smtp.resend.com` |
+> | Port | `587` |
+> | Username | `resend` |
+> | Sender | `noreply@cbfw.us` |
+>
+> DNS는 Resend가 준 네 개(`resend._domainkey` TXT, `send` MX, `send` TXT,
+> `_dmarc` TXT)를 Cloudflare에 그대로 넣었다. Name에 도메인을 덧붙이지 않는
+> 것만 지키면 된다 — Cloudflare가 자동으로 붙인다.
+>
+> **함정: negative caching.** 레코드를 넣기 전에 그 이름을 조회하면 리졸버가
+> "없음"을 SOA minimum(Cloudflare 기본 30분)만큼 캐시한다. 그 상태에서
+> Resend가 verify를 못 하고 "propagation" 안내를 띄우는데, **레코드는 이미
+> 정상이다.** 확인할 때는 권위 있는 쪽(`1.1.1.1`)과 캐시된 쪽(`8.8.8.8`)을
+> 나눠서 물어보면 바로 갈린다. 지우고 다시 넣지 말 것 — 캐시만 새로 심는다.
+
 **증상부터**: 가입한 멤버에게 확인 메일이 안 온다. Supabase 유저 목록엔 있고
 `email_confirmed_at`만 비어 있다. 비밀번호 재설정도 magic link도 같은 경로라
 같이 죽는다.
