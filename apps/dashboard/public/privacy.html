@@ -1,0 +1,88 @@
+<!doctype html>
+<!--
+  GENERATED, and a fallback rather than the page members read.
+
+  The dashboard renders these two from React at #/terms and #/privacy. A hash
+  fragment is never sent to the server, so a reviewer's tool that does not run
+  JavaScript sees only the empty SPA shell — and Google's and Discord's OAuth
+  verification fetch exactly these URLs. This is the same prose at a real path,
+  as plain HTML that needs no script at all.
+
+  DO NOT EDIT BY HAND. Edit the React page; tests/legalStatic.test.tsx compares
+  the two word for word and fails when they drift, and its comment says how to
+  regenerate this file.
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Privacy Policy · Dark War dashboard</title>
+    <meta name="description" content="Privacy Policy for the Dark War dashboard." />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #ffffff;
+        --fg: #0f172a;
+        --fg-muted: #64748b;
+        --border: #e2e8f0;
+        --accent: #1d4ed8;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0b1220;
+          --fg: #e6edf7;
+          --fg-muted: #94a3b8;
+          --border: #1f2a3d;
+          --accent: #93b4ff;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        background: var(--bg);
+        color: var(--fg);
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        line-height: 1.65;
+        margin: 0;
+        padding: 2rem 1rem 4rem;
+      }
+      main {
+        margin: 0 auto;
+        max-width: 44rem;
+      }
+      h2 {
+        font-size: 1.75rem;
+        margin: 0 0 0.75rem;
+      }
+      h3 {
+        font-size: 1rem;
+        margin: 1.5rem 0 0.5rem;
+      }
+      ul {
+        display: grid;
+        gap: 0.5rem;
+        margin: 0 0 0.75rem;
+        padding-left: 1rem;
+      }
+      a {
+        color: var(--accent);
+      }
+      .legal-updated {
+        color: var(--fg-muted);
+        font-size: 0.8125rem;
+      }
+      .legal-links {
+        border-top: 1px solid var(--border);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-top: 1.5rem;
+        padding-top: 1rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="legal"><section aria-labelledby="legal-heading"><h2 id="legal-heading">Privacy Policy</h2><p class="legal-updated">Last updated: 16 August 2026</p><p>This dashboard is run by one person for the HELLBOUND [CBFW] alliance. It is not a business, it sells nothing, and it has no advertising. Nothing collected here is sold, rented, or handed to anyone for marketing.</p><h3>What is stored about you when you sign in</h3><ul><li><strong>Your email address.</strong> Either the one you typed, with a password that is stored hashed and never in readable form, or the address your Google or Discord account reports if you sign in with one of those. Signing in with a provider hands over your email address and an account identifier — nothing else. No contacts, no files, no friend list, no posting on your behalf.</li><li><strong>Your role and alliance membership</strong> — viewer, member, officer or admin, and an optional display name.</li><li><strong>Which in-game character you claim to be</strong>, once you pick one, and who approved that claim.</li><li><strong>What you write</strong>: notices, guides, comments, and any images you upload.</li><li><strong>Your own lists</strong>: which players you have starred, which posts you have read, and how the tables are arranged for you.</li><li><strong>A daily activity record</strong>: the days on which you signed in, posted, or commented. Days, not times or page visits. It exists so the alliance can see who is taking part, and other members can see it.</li><li><strong>Administrative actions</strong>: if you are an administrator, the changes you make are recorded with your account against them. Failed invitation-code attempts are also counted, to stop codes being guessed.</li></ul><h3>What is not collected</h3><p>No analytics, no advertising or tracking cookies, no third-party scripts that report your visit to anyone, no location, no payment details, no device fingerprinting. There is no record of which screens you look at or how long you stay on them.</p><h3>Data about in-game players</h3><p>Most of what this dashboard shows is not about its users at all. It holds observations of the game&#x27;s own public ranking, alliance and arena boards for servers 577–584: character names, power, kills, alliance, headquarters level, rank and similar figures, recorded over time so trends can be drawn. These are captured from the game by a collector run on the operator&#x27;s own PC.</p><p>This includes players who have never signed in here and are not members of the alliance. What is stored is game-account information — the same figures any player can read from the in-game boards — and not real-world identity. Raw network captures stay on the operator&#x27;s machine, are never published, and are not part of this dashboard.</p><p>If you are one of those players and want your figures removed, write to the address below.</p><h3>Who else sees it</h3><ul><li><strong>Other alliance members.</strong> Everything on these screens is visible to signed- in members of the alliance. Treat this as a room your alliance is in, not a private notebook.</li><li><strong>Supabase</strong> hosts the database, the sign-in system and uploaded images. The database is in the United States.</li><li><strong>Cloudflare</strong> serves this page.</li><li><strong>Discord</strong>, when a notice is published to the alliance channel — the notice and any images in it are sent there — and when you choose to sign in with Discord.</li><li><strong>Google</strong>, only if you choose to sign in with Google.</li></ul><p>Nobody else. Data would be disclosed further only if the law required it, and the operator holds nothing of interest to anyone who is not in the alliance.</p><h3>What is kept in your browser</h3><p>Your sign-in token, so you stay signed in; your light or dark theme choice; and how you have arranged the tables. All of it is local storage in your own browser, not tracking cookies, and clearing your browser data removes it.</p><h3>How it is protected</h3><p>Every table refuses to answer a request that is not entitled to it — the database enforces this itself, not just the screens, so an address typed by hand gets nothing a signed-out reader could not already see. Uploaded images sit in a private bucket and are served through short-lived links to signed-in members only.</p><h3>How long it is kept</h3><p>Observed game figures are kept indefinitely: their whole purpose is history, and deleting last month erases the trend. Your posts and comments stay until removed. Leaving the alliance removes your membership, role and display name, and detaches your character claim; it leaves your login able to sign in again, and leaves your starred players and read marks in place so rejoining does not mean starting over.</p><h3>Your choices</h3><p>You can ask what is held about you, ask for it to be corrected, or ask for your login and everything tied to it to be deleted outright. Deletion of the login itself is done by hand, so allow a few days. Leaving the alliance is something you can do yourself, at any time, from your account page.</p><h3>Children</h3><p>This dashboard is not intended for anyone under 14.</p><h3>Changes and contact</h3><p>This policy can change; the date at the top says when it last did. For anything about it — including a request to see or delete your data — write to <a href="mailto:hjyshane@gmail.com">hjyshane@gmail.com</a>.</p><nav aria-label="Related" class="legal-links"><a href="/terms">Terms of Service</a><a href="/privacy">Privacy Policy</a><a href="/#/login">Sign in</a></nav></section></main>
+  </body>
+</html>
