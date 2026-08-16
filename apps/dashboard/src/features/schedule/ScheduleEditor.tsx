@@ -39,6 +39,7 @@ export function ScheduleEditor({
   onSave,
   onCancel,
   onDelete,
+  onDeleteSeries,
   saving,
   error,
   zone,
@@ -50,6 +51,10 @@ export function ScheduleEditor({
   onCancel: () => void;
   /** Absent for a new entry, which has nothing to delete yet. */
   onDelete?: () => void;
+  /** Absent unless this entry came from a repeat. Offered beside the ordinary
+   *  delete rather than instead of it: skipping one Monday and abandoning the
+   *  whole run are different intentions and both are ordinary. */
+  onDeleteSeries?: () => void;
   saving: boolean;
   error: string | null;
   /** The reader's chosen zone. The fields are wall clocks IN IT, and the panel
@@ -129,6 +134,43 @@ export function ScheduleEditor({
           />
         </div>
 
+        {draft.schedule_event_id === undefined && (
+          <fieldset className="field">
+            <legend>Repeat</legend>
+            <div className="schedule-row">
+              <div className="field">
+                <label htmlFor={`${formId}-every`}>Every</label>
+                <select
+                  id={`${formId}-every`}
+                  onChange={(e) =>
+                    onChange({ ...draft, repeatEvery: e.target.value as 'day' | 'week' })
+                  }
+                  value={draft.repeatEvery}
+                >
+                  <option value="week">Week</option>
+                  <option value="day">Day</option>
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor={`${formId}-times`}>Times</label>
+                <input
+                  id={`${formId}-times`}
+                  max={52}
+                  min={1}
+                  onChange={(e) => onChange({ ...draft, repeatTimes: Number(e.target.value) })}
+                  type="number"
+                  value={draft.repeatTimes}
+                />
+              </div>
+            </div>
+            <p className="hint">
+              {draft.repeatTimes > 1
+                ? `Creates ${draft.repeatTimes} separate entries, ${draft.repeatEvery === 'week' ? 'a week' : 'a day'} apart. Each one can be moved or deleted on its own afterwards.`
+                : 'One entry. Set a count above to repeat it.'}
+            </p>
+          </fieldset>
+        )}
+
         <fieldset className="field">
           <legend>Remind Discord</legend>
           <div className="schedule-presets">
@@ -172,6 +214,11 @@ export function ScheduleEditor({
           {onDelete !== undefined && (
             <button className="linklike" onClick={onDelete} type="button">
               Delete
+            </button>
+          )}
+          {onDeleteSeries !== undefined && (
+            <button className="linklike" onClick={onDeleteSeries} type="button">
+              Delete whole repeat
             </button>
           )}
         </div>

@@ -702,6 +702,7 @@ export type Database = {
         Row: {
           announcement_id: string
           body: string
+          channel: string | null
           created_at: string
           created_by: string | null
           ends_at: string | null
@@ -715,6 +716,7 @@ export type Database = {
         Insert: {
           announcement_id?: string
           body?: string
+          channel?: string | null
           created_at?: string
           created_by?: string | null
           ends_at?: string | null
@@ -728,6 +730,7 @@ export type Database = {
         Update: {
           announcement_id?: string
           body?: string
+          channel?: string | null
           created_at?: string
           created_by?: string | null
           ends_at?: string | null
@@ -739,6 +742,20 @@ export type Database = {
           visibility?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "announcements_channel_fkey"
+            columns: ["channel"]
+            isOneToOne: false
+            referencedRelation: "notification_channel_names"
+            referencedColumns: ["channel"]
+          },
+          {
+            foreignKeyName: "announcements_channel_fkey"
+            columns: ["channel"]
+            isOneToOne: false
+            referencedRelation: "notification_channels"
+            referencedColumns: ["channel"]
+          },
           {
             foreignKeyName: "announcements_created_by_fkey"
             columns: ["created_by"]
@@ -1675,6 +1692,7 @@ export type Database = {
         Row: {
           body: string
           category: string
+          channel: string | null
           created_at: string
           created_by: string | null
           guide_id: string
@@ -1686,6 +1704,7 @@ export type Database = {
         Insert: {
           body?: string
           category?: string
+          channel?: string | null
           created_at?: string
           created_by?: string | null
           guide_id?: string
@@ -1697,6 +1716,7 @@ export type Database = {
         Update: {
           body?: string
           category?: string
+          channel?: string | null
           created_at?: string
           created_by?: string | null
           guide_id?: string
@@ -1706,6 +1726,20 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "guides_channel_fkey"
+            columns: ["channel"]
+            isOneToOne: false
+            referencedRelation: "notification_channel_names"
+            referencedColumns: ["channel"]
+          },
+          {
+            foreignKeyName: "guides_channel_fkey"
+            columns: ["channel"]
+            isOneToOne: false
+            referencedRelation: "notification_channels"
+            referencedColumns: ["channel"]
+          },
           {
             foreignKeyName: "guides_created_by_fkey"
             columns: ["created_by"]
@@ -3121,6 +3155,7 @@ export type Database = {
           created_by: string | null
           ends_at: string | null
           schedule_event_id: string
+          series_id: string | null
           source: string
           starts_at: string
           title: string
@@ -3133,6 +3168,7 @@ export type Database = {
           created_by?: string | null
           ends_at?: string | null
           schedule_event_id?: string
+          series_id?: string | null
           source?: string
           starts_at: string
           title: string
@@ -3145,6 +3181,7 @@ export type Database = {
           created_by?: string | null
           ends_at?: string | null
           schedule_event_id?: string
+          series_id?: string | null
           source?: string
           starts_at?: string
           title?: string

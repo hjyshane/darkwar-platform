@@ -9,7 +9,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(6);
+select plan(7);
 
 insert into auth.users (id, instance_id, aud, role, email) values
   ('00000000-0000-4000-8000-0000000cd001', '00000000-0000-0000-0000-000000000000',
@@ -56,14 +56,23 @@ select is(
   'and still gets nothing at all from the table underneath - the view granted '
   'a name, not the credential beside it');
 
+-- 0127 widened this to post writers. An officer holds `guide.write`, so the
+-- assertion above already covers that door; this one covers the other side.
+select is(
+  (select count(*) from public.notification_channel_names
+    where channel = 'alarm'),
+  1::bigint,
+  'and sees it through the post-writer door as well as the schedule one - '
+  'the notice and guide editors need the same list');
+
 -- ------------------------------------------------------------------ the member
 select pg_temp.act_as('00000000-0000-4000-8000-0000000cd002');
 
 select is(
   (select count(*) from public.notification_channel_names),
   0::bigint,
-  'a member sees no channel names - they cannot write a board, so the list '
-  'would only tell them where announcements come from');
+  'a member sees no channel names - they can write neither a post nor a '
+  'board, so the list would only tell them where announcements come from');
 
 reset role;
 

@@ -32,7 +32,7 @@ export function GuidePostPage({ guideId }: { guideId: string }) {
     queryFn: async (): Promise<Draft | null> => {
       const { data, error } = await supabase
         .from('guides')
-        .select('guide_id, title, body, category, pinned, published_at')
+        .select('guide_id, title, body, category, pinned, published_at, channel')
         .eq('guide_id', guideId)
         .maybeSingle();
       if (error) {
@@ -47,6 +47,8 @@ export function GuidePostPage({ guideId }: { guideId: string }) {
         body: data.body,
         category: data.category ?? 'tip',
         pinned: data.pinned,
+        // Carried so editing an unrelated field does not blank the routing.
+        channel: data.channel ?? '',
         publish: data.published_at !== null,
         published_at: data.published_at,
       };

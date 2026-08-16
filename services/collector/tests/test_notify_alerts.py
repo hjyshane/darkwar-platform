@@ -375,3 +375,69 @@ def test_moving_the_entry_makes_the_reminder_sayable_again() -> None:
         {"schedule_reminders_due": [_due(starts_at="2026-08-20T22:00:00+00:00")]}
     ).reminder_candidates(REMINDERS)
     assert first[0].idempotency_key != moved[0].idempotency_key
+
+
+# --------------------------------------------------------------- post routing
+
+
+def test_a_guide_goes_to_its_own_channel_when_it_names_one() -> None:
+    """0127. The settings channel is the default, not the ceiling.
+
+    "Here is the war plan for Saturday" and "the dashboard is down tonight" are
+    both posts and belong in different rooms.
+    """
+    rows = {
+        "guides": [
+            {
+                "guide_id": "g1",
+                "title": "War plan",
+                "body": "Rally at 20:00.",
+                "category": "strategy",
+                "published_at": _ago(hours=1),
+                "channel": "alarm",
+            }
+        ]
+    }
+    routing: dict[str, Row] = {"guides": {"enabled": True, "channel": "general"}}
+    assert _worker(rows).guide_candidates(routing)[0].channel == "alarm"
+
+
+def test_a_guide_without_one_still_follows_the_settings_channel() -> None:
+    rows = {
+        "guides": [
+            {
+                "guide_id": "g1",
+                "title": "Patch note",
+                "body": "",
+                "category": "info",
+                "published_at": _ago(hours=1),
+                "channel": None,
+            }
+        ]
+    }
+    routing: dict[str, Row] = {"guides": {"enabled": True, "channel": "general"}}
+    assert _worker(rows).guide_candidates(routing)[0].channel == "general"
+
+
+def test_a_notice_routes_the_same_way() -> None:
+    """One rule across three features rather than three rules.
+
+    The schedule's boards, guides and notices all read "the row's channel, or
+    the settings one" — worth a test on each, because the fallback is the kind
+    of line that gets copied slightly wrong.
+    """
+    rows = {
+        "announcements": [
+            {
+                "announcement_id": "n1",
+                "title": "Maintenance",
+                "body": "",
+                "starts_at": None,
+                "ends_at": None,
+                "published_at": _ago(hours=1),
+                "channel": "alarm",
+            }
+        ]
+    }
+    routing: dict[str, Row] = {"notices": {"enabled": True, "channel": "general"}}
+    assert _worker(rows).notice_candidates(routing)[0].channel == "alarm"

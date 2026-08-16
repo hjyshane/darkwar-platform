@@ -1,9 +1,9 @@
 import { useId, useState } from 'react';
+import { useChannelNames } from '../../lib/channels';
 import {
   type CategoryDraft,
   type ScheduleCategory,
   categoryKey,
-  useChannelNames,
   useDeleteCategory,
   useSaveCategory,
 } from './schedule';
