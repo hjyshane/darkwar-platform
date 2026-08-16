@@ -7,6 +7,30 @@
 
 ---
 
+## 2026-08-16 상태 — 내비게이션 2단 재편 (마이그레이션 없음)
+
+상단 탭: **Overview · CBFW · Notices · Guides · Cross-Server Ranking · Settings**.
+9개가 휴대폰에서 두 줄로 감기던 걸 6개 한 줄(375px에서 42px 한 줄)로 줄였다.
+
+- **Members는 CBFW의 서브탭**이 됐다. 원래 상단에 있던 이유는 그게 예전 랜딩
+  화면이었기 때문이지, 연맹과 별개여서가 아니다.
+- **Cross-Server Ranking 탭 하나 아래 셋**: Alliance Ranking, **Player Ranking**
+  (`#/cross-server` 이름만 바꿈 — "Cross-Server"는 주제가 아니라 서버 범위를
+  말하고 있었고 두 보드 다 cross-server다), Arena.
+- **주소는 하나도 안 바꿨다.** `#/members`·`#/rankings`·`#/cross-server`·
+  `#/arena` 그대로다. 묶는 건 내비게이션 결정이고, `#/rankings/players` 같은
+  걸로 갈아치우면 이미 공유된 링크만 깨지고 얻는 게 없다. Arena의
+  `arena.view` 게이트(0064)도 라우트 기준이라 그대로 작동한다.
+- **능력 게이트는 `SubNav`로 내려갔다.** members.view/arena.view가 숨기는 탭이
+  이제 2단에 있으므로, 게이트를 탭이 그려지는 곳에 뒀다 —
+  `GATED_ROUTES`(상단용)는 없앴다. 두 군데서 같은 판단을 하지 않는다.
+- 상단 Cross-Server Ranking 탭은 **세 주소 전부에서 선택 상태**를 유지한다.
+  안 그러면 Arena를 여는 순간 거기로 데려다준 탭이 꺼진다.
+- 서브탭이 1개 이하면 줄 자체를 안 그린다(지금 보고 있는 화면만 제안하는 줄은
+  가구다). 남의 연맹 페이지에는 Members 서브탭이 안 붙는다.
+
+---
+
 ## 2026-08-15 상태 (4) — 휴대폰 확인에서 나온 버그 둘 (마이그레이션 없음)
 
 사용자가 프로덕션 휴대폰에서 잡았다. **둘 다 프론트 문제였고, 백엔드·배포·

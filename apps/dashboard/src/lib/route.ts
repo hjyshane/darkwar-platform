@@ -189,13 +189,33 @@ export const NAV_TABS: ReadonlyArray<{ route: Route; hash: string; label: string
   { route: 'overview', hash: '#/', label: 'Overview' },
   // Straight after the overview, because these two are the ones the alliance
   // reads every day and writes to each other on. Everything below is a board
-  // the game produced; this is what the alliance said about it, and burying
-  // it behind four tables of figures made it the hardest thing to reach on a
-  // phone.
+  // the game produced; this is what the alliance said about it.
   { route: 'notices', hash: '#/notices', label: 'Notices' },
   { route: 'guides', hash: '#/guides', label: 'Guides' },
-  { route: 'members', hash: '#/members', label: 'Members' },
+  // ONE TAB FOR THE THREE CROSS-SERVER BOARDS. They answer the same question
+  // about three different subjects — who is ahead, across the group — and as
+  // three top-level tabs they were three quarters of a nav bar that wrapped on
+  // a phone. The tab points at the first of them; `RANKING_TABS` below is what
+  // the second row shows.
+  { route: 'rankings', hash: '#/rankings', label: 'Cross-Server Ranking' },
+];
+
+/** The three boards behind the Cross-Server Ranking tab.
+ *
+ * Their addresses do not change. Grouping them is a navigation decision, and
+ * rewriting `#/cross-server` to `#/rankings/players` would break every link
+ * anybody has already sent and buy nothing — the capability gate on Arena
+ * (0064) keys on the route, not on where the tab sits.
+ */
+export const RANKING_TABS: ReadonlyArray<{ route: Route; hash: string; label: string }> = [
   { route: 'rankings', hash: '#/rankings', label: 'Alliance Ranking' },
-  { route: 'crossRankings', hash: '#/cross-server', label: 'Cross-Server' },
+  // Renamed from "Cross-Server": beside "Alliance Ranking" the old name said
+  // which servers rather than which subject, and both boards are cross-server.
+  { route: 'crossRankings', hash: '#/cross-server', label: 'Player Ranking' },
   { route: 'arena', hash: '#/arena', label: 'Arena' },
 ];
+
+/** Whether a route sits behind the Cross-Server Ranking tab. */
+export function isRankingRoute(route: Route): boolean {
+  return RANKING_TABS.some((tab) => tab.route === route);
+}

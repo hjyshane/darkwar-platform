@@ -28,12 +28,14 @@ import { rememberReturnTo } from './lib/returnTo';
 import {
   type AdminGroup,
   NAV_TABS,
+  RANKING_TABS,
   type Route,
   adminGroupFromHash,
   adminSectionFromHash,
   allianceHash,
   allianceIdFromHash,
   guideIdFromHash,
+  isRankingRoute,
   noticeIdFromHash,
   playerIdFromHash,
   routeFromHash,
@@ -134,35 +136,100 @@ function useMayView(capability: string): boolean | undefined {
   return isAllowed(permissions?.grants, session?.role, capability);
 }
 
-/** Which capability each gated tab needs. A route absent from here is
- * public, which is the default and has to stay the readable case. */
-const GATED_ROUTES: Partial<Record<Route, string>> = {
-  members: 'members.view',
-  arena: 'arena.view',
-};
+/** The second row: which board of the group you are looking at.
+ *
+ * Two groups have one, and they are grouped for different reasons. The three
+ * cross-server boards answer one question about three subjects. Members sits
+ * under our own alliance because it IS our own alliance, listed a row at a
+ * time — it was a top-level tab only because it used to be the landing screen.
+ *
+ * THE CAPABILITY GATES LIVE HERE, with the tabs they hide. Members needs
+ * `members.view` and Arena needs `arena.view` (0063, 0064). Undefined means the
+ * grid has not answered yet and is treated as "not yet" rather than "no":
+ * drawing a tab and taking it away is worse than one that arrives a beat late.
+ * This hides a tab and withholds nothing — RLS does that, and somebody who
+ * types the address gets the screen's own empty state.
+ */
+function SubNav({ route, allianceId }: { route: Route; allianceId: string | null }) {
+  const { data: ownAlliance } = useOwnAlliance();
+  const mayViewMembers = useMayView('members.view');
+  const mayViewArena = useMayView('arena.view');
+
+  const onOwnAlliance =
+    ownAlliance != null &&
+    (route === 'members' || (route === 'alliance' && allianceId === ownAlliance.alliance_id));
+
+  const tabs = isRankingRoute(route)
+    ? RANKING_TABS.filter((tab) => tab.route !== 'arena' || mayViewArena === true).map((tab) => ({
+        key: tab.hash,
+        href: tab.hash,
+        label: tab.label,
+        current: tab.route === route,
+      }))
+    : onOwnAlliance && ownAlliance != null
+      ? [
+          {
+            key: 'alliance',
+            href: allianceHash(ownAlliance.alliance_id),
+            label: 'Alliance',
+            current: route === 'alliance',
+          },
+          ...(mayViewMembers === true
+            ? [
+                {
+                  key: 'members',
+                  href: '#/members',
+                  label: 'Members',
+                  current: route === 'members',
+                },
+              ]
+            : []),
+        ]
+      : [];
+
+  // One tab is not a choice. A second row that offers the screen you are
+  // already on is furniture.
+  if (tabs.length < 2) {
+    return null;
+  }
+  return (
+    <nav aria-label="Section" className="tabs subtabs">
+      {tabs.map((tab) => (
+        <a
+          key={tab.key}
+          aria-current={tab.current ? 'page' : undefined}
+          className="tab"
+          href={tab.href}
+        >
+          {tab.label}
+        </a>
+      ))}
+    </nav>
+  );
+}
 
 function Nav({ route, allianceId }: { route: Route; allianceId: string | null }) {
   const { data: session } = useSession();
   const { data: ownAlliance } = useOwnAlliance();
-  const mayViewMembers = useMayView('members.view');
-  const mayViewArena = useMayView('arena.view');
-  const allowed: Partial<Record<Route, boolean | undefined>> = {
-    members: mayViewMembers,
-    arena: mayViewArena,
-  };
   // Built as a list rather than mapped in place, because one tab is not in
   // NAV_TABS: our own alliance's address carries a uuid that only a query knows,
   // so the static list cannot hold it. It sits immediately right of Overview, is
   // absent until the query answers, and stays absent if no alliance is pinned
   // rather than linking at `#/alliance/null`.
-  const tabs = NAV_TABS.filter(
-    (tab) => !(tab.route in GATED_ROUTES) || allowed[tab.route] === true,
-  ).flatMap((tab) => {
+  //
+  // Nothing is gated here any more. Members and Arena were the two gated tabs
+  // and both are now second-row tabs, so their capability checks moved to
+  // `SubNav` with the tabs themselves — a gate applied where the tab is drawn
+  // rather than in two places.
+  const tabs = NAV_TABS.flatMap((tab) => {
     const entry = {
       key: tab.hash,
       href: tab.hash,
       label: tab.label,
-      current: tab.route === route,
+      // The ranking tab stands for three addresses, so it stays selected on
+      // all of them; otherwise opening Arena would deselect the tab that got
+      // you there.
+      current: tab.route === 'rankings' ? isRankingRoute(route) : tab.route === route,
     };
     if (tab.route !== 'overview' || ownAlliance == null) {
       return [entry];
@@ -173,7 +240,9 @@ function Nav({ route, allianceId }: { route: Route; allianceId: string | null })
         key: 'own-alliance',
         href: allianceHash(ownAlliance.alliance_id),
         label: ownAlliance.code ?? ownAlliance.name ?? 'Our alliance',
-        current: route === 'alliance' && allianceId === ownAlliance.alliance_id,
+        // Members lives under our own alliance now, so the tab covers both.
+        current:
+          route === 'members' || (route === 'alliance' && allianceId === ownAlliance.alliance_id),
       },
     ];
   });
@@ -430,6 +499,7 @@ function Shell({
           <ThemeToggle />
         </h1>
         {!standalone && isMember && <Nav allianceId={allianceId} route={route} />}
+        {!standalone && isMember && <SubNav allianceId={allianceId} route={route} />}
       </header>
       {/* Above whatever screen the reader came for, because the whole problem
           it solves is that the answer is somewhere they are not (0117). */}

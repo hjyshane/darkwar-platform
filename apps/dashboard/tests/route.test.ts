@@ -4,9 +4,11 @@ import { expect, test } from 'vitest';
 import {
   ADMIN_GROUPS,
   NAV_TABS,
+  RANKING_TABS,
   adminGroupFromHash,
   adminHash,
   adminSectionFromHash,
+  isRankingRoute,
   routeFromHash,
   serverHash,
   serverIdFromHash,
@@ -129,4 +131,34 @@ test('no two settings groups share a name', () => {
 test('the other addresses carry no server', () => {
   expect(serverIdFromHash('#/arena')).toBeNull();
   expect(serverIdFromHash('')).toBeNull();
+});
+
+test('every ranking sub-tab address resolves back to the route it claims', () => {
+  // Same check NAV_TABS gets, and it matters more here: these three stopped
+  // being top-level tabs, so a typo would show an empty second row rather than
+  // a missing tab somebody would notice.
+  for (const tab of RANKING_TABS) {
+    expect(routeFromHash(tab.hash)).toBe(tab.route);
+    expect(isRankingRoute(tab.route)).toBe(true);
+  }
+});
+
+test('the ranking tab stands for all three of its boards', () => {
+  // The top-level tab points at Alliance Ranking but stays selected on the
+  // other two — otherwise opening Arena deselects the tab that got you there.
+  expect(NAV_TABS.some((tab) => tab.route === 'rankings')).toBe(true);
+  expect(isRankingRoute('arena')).toBe(true);
+  expect(isRankingRoute('crossRankings')).toBe(true);
+  // And not for anything else, or every screen would light it up.
+  expect(isRankingRoute('overview')).toBe(false);
+  expect(isRankingRoute('members')).toBe(false);
+});
+
+test('members and the ranking boards are no longer top-level tabs', () => {
+  // They moved under our own alliance and under Cross-Server Ranking. Left in
+  // NAV_TABS as well they would appear twice, which is how a nav bar quietly
+  // grows back to nine tabs on a phone.
+  for (const route of ['members', 'crossRankings', 'arena'] as const) {
+    expect(NAV_TABS.some((tab) => tab.route === route)).toBe(false);
+  }
 });
