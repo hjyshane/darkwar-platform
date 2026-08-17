@@ -30,7 +30,7 @@ export function NoticePostPage({ noticeId }: { noticeId: string }) {
       const { data, error } = await supabase
         .from('announcements')
         .select(
-          'announcement_id, title, body, starts_at, ends_at, pinned, visibility, published_at, channel',
+          'announcement_id, title, body, starts_at, ends_at, pinned, visibility, published_at, channels',
         )
         .eq('announcement_id', noticeId)
         .maybeSingle();
@@ -49,7 +49,7 @@ export function NoticePostPage({ noticeId }: { noticeId: string }) {
         pinned: data.pinned,
         visibility: data.visibility === 'public' ? 'public' : 'member',
         // Carried so editing an unrelated field does not blank the routing.
-        channel: data.channel ?? '',
+        channels: data.channels ?? [],
         publish: data.published_at !== null,
         published_at: data.published_at,
       };
