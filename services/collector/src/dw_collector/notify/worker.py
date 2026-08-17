@@ -19,6 +19,7 @@ credential, and nothing in the browser should hold it.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -61,6 +62,20 @@ SETTLE = timedelta(hours=6)
 # Retry-After and 404 when a webhook has been deleted in Discord; retrying the
 # second forever writes an error to the row every interval and never succeeds.
 MAX_ATTEMPTS = 5
+# Events this process no longer owns, because 0130 composes and delivers them
+# inside Postgres instead.
+#
+# `sync_stalled` says "nothing has checked in for ten minutes", and it ran HERE
+# — on the collector. Whatever kills the collector kills this process with it,
+# so the one event that matters most when the machine is down was the one
+# guaranteed not to fire. It now runs on a cron inside the database, where the
+# collector's power supply cannot reach it.
+#
+# BOTH HALVES MOVE, and they have to move together. The unique idempotency key
+# stops a duplicate compose, and nothing stops a duplicate POST except deciding
+# who sends: two deliverers draining one outbox row is two Discord messages.
+# `internal.database_owned_events()` is the same list on the other side.
+DATABASE_OWNED = ("sync_stalled",)
 # How long a collector may go without checking in before it is announced.
 #
 # `dw-sync` beats every DW_SYNC_INTERVAL_SECONDS, default 10, and 0060 calls the
@@ -681,9 +696,11 @@ class NotifyWorker:
     # --------------------------------------------------------------- delivering
 
     def pending(self) -> list[Row]:
+        owned = ",".join(DATABASE_OWNED)
         return self._get(
             "notification_outbox?delivered_at=is.null"
-            f"&attempts=lt.{MAX_ATTEMPTS}&select=*&order=created_at&limit=20"
+            f"&attempts=lt.{MAX_ATTEMPTS}&event=not.in.({owned})"
+            "&select=*&order=created_at&limit=20"
         )
 
     def deliver(self, row: Row, channels: dict[str, str]) -> bool:
@@ -805,19 +822,24 @@ class NotifyWorker:
 
     # --------------------------------------------------------------------- loop
 
-    def run_once(self) -> NotifyStats:
-        stats = NotifyStats()
-        routing = self.routing()
-        # ADDING AN EVENT IS THREE LINES, and this is one of them: a name in
-        # `EVENTS` in the settings screen so an admin can switch it on, a
-        # `*_candidates` method here, and its entry in this tuple. Nothing else in
-        # the worker changes — enqueue, delivery, retries and the outbox are all
-        # event-agnostic already.
-        #
-        # A tuple of bound methods rather than method NAMES: a typo in a string is
-        # found at run time by an event quietly never sending, and a typo here does
-        # not compile.
-        sources = (
+    def sources(self) -> tuple[Callable[[dict[str, Row]], list[Message]], ...]:
+        """Every event this process still composes.
+
+        A METHOD RATHER THAN A LOCAL, since 0130 started moving events into the
+        database: which side owns what is now a fact worth asserting in a test,
+        and a tuple buried in the loop could only be checked by running it.
+
+        ADDING AN EVENT IS THREE LINES, and this is one of them: a name in
+        `EVENTS` in the settings screen so an admin can switch it on, a
+        `*_candidates` method, and its entry here. Nothing else in the worker
+        changes — enqueue, delivery, retries and the outbox are all
+        event-agnostic already.
+
+        Bound methods rather than method NAMES: a typo in a string is found at
+        run time by an event quietly never sending, and a typo here does not
+        compile.
+        """
+        return (
             self.rank_period_candidates,
             self.departure_candidates,
             self.guide_candidates,
@@ -825,9 +847,17 @@ class NotifyWorker:
             self.claim_candidates,
             self.signup_candidates,
             self.reminder_candidates,
-            self.sync_stall_candidates,
+            # sync_stall_candidates is absent: 0130 owns that event. The method
+            # stays, with its tests, because `data_stalled` still runs here and
+            # the two share `_silence_candidates` — and because the next event
+            # to move will want the same shape to copy.
             self.data_stall_candidates,
         )
+
+    def run_once(self) -> NotifyStats:
+        stats = NotifyStats()
+        routing = self.routing()
+        sources = self.sources()
         messages = [message for source in sources for message in source(routing)]
         stats.enqueued = self.enqueue(messages)
 
