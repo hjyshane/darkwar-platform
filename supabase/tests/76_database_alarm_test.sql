@@ -64,11 +64,14 @@ select is(
   'a disabled channel does not count as an attempt');
 
 -- ------------------------------------------------------------------- ownership
+-- 0131 added three more. The list is asserted rather than its length: what
+-- matters is that it is written down on both sides and agrees, because two
+-- deliverers on one row is two Discord messages and only the split by event
+-- stops that. `DATABASE_OWNED` in notify/worker.py is the other copy.
 select is(
   internal.database_owned_events(),
-  array['sync_stalled']::text[],
-  'and this file owns exactly one event - two deliverers on one row is two '
-  'Discord messages, and only the split by event stops that');
+  array['sync_stalled', 'player_claim', 'new_signup', 'schedule_reminder']::text[],
+  'the database owns exactly the events dw-notify skips');
 
 select * from finish();
 rollback;
