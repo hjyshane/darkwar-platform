@@ -23,8 +23,8 @@ import { NOTICES, useBoard } from '../board/board';
  */
 export interface NoticeDraft {
   announcement_id?: string;
-  /** Empty means the channel set for notices in settings (0127). */
-  channel: string;
+  /** Empty means the channel set for notices in settings (0127, 0133). */
+  channels: string[];
   title: string;
   body: string;
   starts_at: string;
@@ -41,7 +41,7 @@ export interface NoticeDraft {
 
 const EMPTY: NoticeDraft = {
   title: '',
-  channel: '',
+  channels: [],
   body: '',
   starts_at: '',
   ends_at: '',
@@ -145,8 +145,8 @@ export function NoticeEditor({
         <ChannelField
           fallbackLabel="Default for notices"
           id={`${formId}-channel`}
-          onChange={(channel) => onChange({ ...draft, channel })}
-          value={draft.channel}
+          onChange={(channels) => onChange({ ...draft, channels })}
+          value={draft.channels}
         />
         <div className="field-checks">
           <label>
@@ -239,7 +239,7 @@ export function useSaveNotice(onDone: () => void) {
         ends_at: toIso(value.ends_at),
         pinned: value.pinned,
         visibility: value.visibility,
-        channel: value.channel === '' ? null : value.channel,
+        channels: value.channels.length === 0 ? null : value.channels,
         // Kept, not restamped, when a posted notice is edited: a new timestamp
         // would jump it back up the board and give the notifier a new outbox
         // key, which is a second post to everybody over a corrected typo.

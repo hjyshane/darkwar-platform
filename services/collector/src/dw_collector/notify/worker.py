@@ -135,6 +135,34 @@ NOTICE_BACKLOG = timedelta(days=7)
 GUIDE_BACKLOG = timedelta(days=7)
 
 
+def targets(row: Row, fallback: str) -> list[str]:
+    """Where one post announces: its own channels, or the settings default.
+
+    0127 gave a post one channel and 0133 made it a list, for the same reason
+    0127 gave: "the dashboard is down tonight" and "here is the war plan for
+    Saturday" are both notices and belong in different rooms — and some belong in
+    two of them at once.
+
+    NULL IS NOT EMPTY. A null list means "wherever this kind of post normally
+    goes", which is what almost every post wants, so it falls back to the
+    settings channel. The column has no empty state — 0133's trigger folds an
+    empty array back to null — but the fallback is written to survive one
+    arriving anyway, because a post that silently announces nowhere is the kind
+    of bug nobody reports.
+
+    DE-DUPLICATED, because the same name twice is the same room twice, and two
+    identical messages in a channel is exactly what the outbox exists to
+    prevent. 0133's trigger already does this on the way in; doing it again here
+    costs nothing and means a row written before that trigger existed cannot
+    post twice.
+    """
+    named = row.get("channels")
+    if not isinstance(named, list):
+        return [fallback]
+    chosen = [name for name in named if isinstance(name, str) and name]
+    return list(dict.fromkeys(chosen)) if chosen else [fallback]
+
+
 @dataclass(frozen=True)
 class NotifyConfig:
     supabase_url: str
@@ -366,7 +394,7 @@ class NotifyWorker:
             return []
         cutoff = filter_value((datetime.now(UTC) - GUIDE_BACKLOG).isoformat())
         rows = self._get(
-            "guides?select=guide_id,title,body,category,published_at,channel"
+            "guides?select=guide_id,title,body,category,published_at,channels"
             # A draft is not a guide yet. Its own filter rather than left to the
             # window below — `gte` excludes nulls as a side effect, and the rule
             # that drafts stay private should not rest on a side effect of a
@@ -377,10 +405,7 @@ class NotifyWorker:
         )
         return [
             guide_message(
-                # The guide's own channel wins; the settings one is the
-                # fallback. 0127 put the column there so a war plan and a
-                # patch note need not share a room.
-                channel=row.get("channel") or channel,
+                channel=target,
                 guide_id=row["guide_id"],
                 title=row["title"],
                 body=row["body"],
@@ -389,6 +414,7 @@ class NotifyWorker:
                 dashboard_url=self.dashboard_url,
             )
             for row in rows
+            for target in targets(row, channel)
         ]
 
     def notice_candidates(self, routing: dict[str, Row]) -> list[Message]:
@@ -422,7 +448,7 @@ class NotifyWorker:
         current = filter_value(now.isoformat())
         cutoff = (now - NOTICE_BACKLOG).isoformat()
         rows = self._get(
-            "announcements?select=announcement_id,title,body,starts_at,ends_at,published_at,channel"
+            "announcements?select=announcement_id,title,body,starts_at,ends_at,published_at,channels"
             # A draft is not news.
             "&published_at=not.is.null"
             # Live: started, or with no start at all; and not yet finished.
@@ -452,15 +478,16 @@ class NotifyWorker:
             )
             if live_at is None or live_at < cutoff:
                 continue
-            out.append(
+            out.extend(
                 notice_message(
-                    channel=row.get("channel") or channel,
+                    channel=target,
                     announcement_id=row["announcement_id"],
                     title=row["title"],
                     body=row["body"] or "",
                     live_at=live_at,
                     dashboard_url=self.dashboard_url,
                 )
+                for target in targets(row, channel)
             )
         return out
 

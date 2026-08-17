@@ -381,10 +381,10 @@ def test_moving_the_entry_makes_the_reminder_sayable_again() -> None:
 
 
 def test_a_guide_goes_to_its_own_channel_when_it_names_one() -> None:
-    """0127. The settings channel is the default, not the ceiling.
+    """0127, and 0133 which made it a list.
 
     "Here is the war plan for Saturday" and "the dashboard is down tonight" are
-    both posts and belong in different rooms.
+    both posts and belong in different rooms — and some belong in two at once.
     """
     rows = {
         "guides": [
@@ -394,12 +394,37 @@ def test_a_guide_goes_to_its_own_channel_when_it_names_one() -> None:
                 "body": "Rally at 20:00.",
                 "category": "strategy",
                 "published_at": _ago(hours=1),
-                "channel": "alarm",
+                "channels": ["alarm"],
             }
         ]
     }
     routing: dict[str, Row] = {"guides": {"enabled": True, "channel": "general"}}
     assert _worker(rows).guide_candidates(routing)[0].channel == "alarm"
+
+
+def test_a_guide_naming_two_channels_reaches_both() -> None:
+    """0133. One post, one message per room.
+
+    Asserted on the CHANNELS rather than on the count, because the failure this
+    guards is the second room going quiet — a shared idempotency key would give
+    two messages here and one Discord post.
+    """
+    rows = {
+        "guides": [
+            {
+                "guide_id": "g1",
+                "title": "War plan",
+                "body": "Rally at 20:00.",
+                "category": "strategy",
+                "published_at": _ago(hours=1),
+                "channels": ["alarm", "general"],
+            }
+        ]
+    }
+    routing: dict[str, Row] = {"guides": {"enabled": True, "channel": "reports"}}
+    messages = _worker(rows).guide_candidates(routing)
+    assert [m.channel for m in messages] == ["alarm", "general"]
+    assert len({m.idempotency_key for m in messages}) == 2
 
 
 def test_a_guide_without_one_still_follows_the_settings_channel() -> None:
@@ -411,7 +436,7 @@ def test_a_guide_without_one_still_follows_the_settings_channel() -> None:
                 "body": "",
                 "category": "info",
                 "published_at": _ago(hours=1),
-                "channel": None,
+                "channels": None,
             }
         ]
     }
@@ -435,7 +460,7 @@ def test_a_notice_routes_the_same_way() -> None:
                 "starts_at": None,
                 "ends_at": None,
                 "published_at": _ago(hours=1),
-                "channel": "alarm",
+                "channels": ["alarm"],
             }
         ]
     }

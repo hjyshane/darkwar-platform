@@ -329,6 +329,12 @@ def guide_message(
     leaves that timestamp alone, so a typo fix does not re-announce. Unpublishing
     and publishing again sets a new one, which is a new publication and worth
     saying — that is the distinction the key exists to make.
+
+    AND ON THE CHANNEL, since 0133 let a guide name several. Without it the
+    second room is silent: the first message inserted takes the key and the rest
+    are dropped as duplicates by the very mechanism meant to stop repeats. 0133
+    re-states the pre-0133 keys in this shape so the change does not re-announce
+    the board.
     """
     kind = {"info": "Information", "strategy": "Strategy", "tip": "Tip"}.get(category, category)
     text, images = split_images(body)
@@ -346,7 +352,7 @@ def guide_message(
     return Message(
         channel=channel,
         event="guides",
-        idempotency_key=f"guide:{guide_id}:{published_at}",
+        idempotency_key=f"guide:{guide_id}:{published_at}:{channel}",
         title=title,
         body="\n".join(lines),
         image_url=images[0] if images else None,
@@ -376,6 +382,10 @@ def notice_message(
 
     NOT keyed on `updated_at`, which would make every correction a fresh post to 94
     people.
+
+    AND ON THE CHANNEL, for the reason `guide_message` gives: since 0133 a notice
+    may name several rooms, and one key for all of them means only the first room
+    hears about it.
     """
     text, images = split_images(body)
     lines = ["_Notice_", "", text.strip()]
@@ -387,7 +397,7 @@ def notice_message(
     return Message(
         channel=channel,
         event="notices",
-        idempotency_key=f"notice:{announcement_id}:{live_at}",
+        idempotency_key=f"notice:{announcement_id}:{live_at}:{channel}",
         title=title,
         body="\n".join(lines),
         image_url=images[0] if images else None,

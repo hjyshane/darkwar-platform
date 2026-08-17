@@ -57,6 +57,18 @@ def _notice(**overrides: object) -> Row:
     return row
 
 
+def _guide(**overrides: object) -> Row:
+    row: Row = {
+        "guide_id": "g1",
+        "title": "Bear hunt",
+        "body": "Gather at 20:00 UTC.",
+        "category": "tip",
+        "published_at": _ago(0),
+    }
+    row.update(overrides)
+    return row
+
+
 def test_a_draft_is_never_even_asked_for() -> None:
     seen: list[httpx.QueryParams] = []
     _worker([], seen).notice_candidates(ROUTING)
@@ -73,7 +85,7 @@ def test_a_notice_held_as_a_draft_is_news_when_it_is_published() -> None:
     """
     published = _ago(0)
     messages = _worker([_notice(published_at=published)]).notice_candidates(ROUTING)
-    assert [m.idempotency_key for m in messages] == [f"notice:n1:{published}"]
+    assert [m.idempotency_key for m in messages] == [f"notice:n1:{published}:general"]
 
 
 def test_a_notice_published_in_advance_is_news_on_the_day_it_starts() -> None:
@@ -86,7 +98,7 @@ def test_a_notice_published_in_advance_is_news_on_the_day_it_starts() -> None:
     """
     starts = _ago(1)
     messages = _worker([_notice(starts_at=starts, published_at=_ago(5))]).notice_candidates(ROUTING)
-    assert [m.idempotency_key for m in messages] == [f"notice:n1:{starts}"]
+    assert [m.idempotency_key for m in messages] == [f"notice:n1:{starts}:general"]
 
 
 def test_a_notice_that_went_live_before_the_window_is_left_alone() -> None:
@@ -135,3 +147,39 @@ def test_the_whole_guide_board_is_not_announced_on_the_first_pass() -> None:
     assert len(window) == 1
     cutoff = datetime.fromisoformat(window[0].removeprefix("gte."))
     assert timedelta(days=6) < datetime.now(UTC) - cutoff < timedelta(days=8)
+
+
+# ------------------------------------------------------------- 0133: two rooms
+
+
+def test_a_notice_naming_two_channels_is_two_messages() -> None:
+    """One post, one message per room.
+
+    The keys must DIFFER, and that is the assertion that matters rather than the
+    count: `enqueue` dedupes on the key with `resolution=ignore-duplicates`, so
+    two messages sharing one key is not two posts with a tidy-up — it is the
+    second room silently never hearing anything, with nothing in the log to say
+    so.
+    """
+    messages = _worker([_notice(channels=["war", "general"])]).notice_candidates(ROUTING)
+    assert [m.channel for m in messages] == ["war", "general"]
+    assert len({m.idempotency_key for m in messages}) == 2
+
+
+def test_a_notice_naming_no_channel_still_goes_to_the_settings_one() -> None:
+    """Null is "wherever notices normally go", not "nowhere".
+
+    Both the missing key and an explicit null, because PostgREST omits neither
+    reliably and a post that announces nowhere is the failure nobody reports.
+    """
+    for row in (_notice(), _notice(channels=None)):
+        messages = _worker([row]).notice_candidates(ROUTING)
+        assert [m.channel for m in messages] == ["general"]
+
+
+def test_the_same_room_named_twice_is_announced_once() -> None:
+    """0133's trigger de-duplicates on the way in; this is the belt for a row
+    written before it existed. Two identical messages in one channel is the
+    outbox's whole reason for being."""
+    messages = _worker([_guide(channels=["war", "war"])]).guide_candidates(GUIDES_ON)
+    assert [m.channel for m in messages] == ["war"]

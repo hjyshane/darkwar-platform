@@ -36,8 +36,8 @@ export function categoryLabel(value: string | null): string | null {
 
 export interface Draft {
   guide_id?: string;
-  /** Empty means the channel set for guides in settings (0127). */
-  channel: string;
+  /** Empty means the channel set for guides in settings (0127, 0133). */
+  channels: string[];
   title: string;
   body: string;
   category: string;
@@ -50,7 +50,7 @@ export interface Draft {
 
 const EMPTY: Draft = {
   title: '',
-  channel: '',
+  channels: [],
   body: '',
   category: 'tip',
   pinned: false,
@@ -114,8 +114,8 @@ export function GuideEditor({
         <ChannelField
           fallbackLabel="Default for guides"
           id={`${formId}-channel`}
-          onChange={(channel) => onChange({ ...draft, channel })}
-          value={draft.channel}
+          onChange={(channels) => onChange({ ...draft, channels })}
+          value={draft.channels}
         />
         <div className="field-checks">
           <label>
@@ -200,7 +200,7 @@ export function useSaveGuide(onDone: () => void) {
         body: value.body,
         category: value.category,
         pinned: value.pinned,
-        channel: value.channel === '' ? null : value.channel,
+        channels: value.channels.length === 0 ? null : value.channels,
         published_at: value.publish ? (value.published_at ?? new Date().toISOString()) : null,
       };
       const { error } =
