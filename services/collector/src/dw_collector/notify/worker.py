@@ -75,7 +75,7 @@ MAX_ATTEMPTS = 5
 # stops a duplicate compose, and nothing stops a duplicate POST except deciding
 # who sends: two deliverers draining one outbox row is two Discord messages.
 # `internal.database_owned_events()` is the same list on the other side.
-DATABASE_OWNED = ("sync_stalled",)
+DATABASE_OWNED = ("sync_stalled", "player_claim", "new_signup", "schedule_reminder")
 # How long a collector may go without checking in before it is announced.
 #
 # `dw-sync` beats every DW_SYNC_INTERVAL_SECONDS, default 10, and 0060 calls the
@@ -844,13 +844,14 @@ class NotifyWorker:
             self.departure_candidates,
             self.guide_candidates,
             self.notice_candidates,
-            self.claim_candidates,
-            self.signup_candidates,
-            self.reminder_candidates,
-            # sync_stall_candidates is absent: 0130 owns that event. The method
-            # stays, with its tests, because `data_stalled` still runs here and
-            # the two share `_silence_candidates` — and because the next event
-            # to move will want the same shape to copy.
+            # 0130 and 0131 moved four events into Postgres: the alarm about
+            # the collector, the two that come from the website, and the
+            # calendar reminders. None of them describes anything the collector
+            # produced, so none of them had any business being unable to fire
+            # when the collector is off. Their `*_candidates` methods stay, with
+            # their tests, because `data_stalled` still runs here and shares
+            # `_silence_candidates` with the one that left — and because the
+            # composing rules are the specification the SQL was written from.
             self.data_stall_candidates,
         )
 

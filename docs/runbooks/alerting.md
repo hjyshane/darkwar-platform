@@ -36,13 +36,27 @@
 
 지금 상태에서 실제로 값을 하는 것:
 
-| 이벤트 | PC에서 돌 때 | 다른 머신으로 옮긴 뒤 |
+**2026-08-17에 네 개가 Postgres 안으로 옮겨갔다(0130·0131).** 이 절이 처음부터
+지적하던 문제는 그것들에 한해 끝났다.
+
+| 이벤트 | 지금 어디서 도나 | PC가 꺼지면 |
 |---|---|---|
-| `player_claim` | PC가 켜져 있을 때만 | 항상 |
-| `new_signup` | PC가 켜져 있을 때만 | 항상 |
-| `schedule_reminder` | **PC가 꺼져 있으면 영구 손실** | 항상 |
-| `sync_stalled` | **이미 옮겼다 (0130)** — Postgres 안에서 돈다 | 해당 없음 |
-| `data_stalled` | 프로세스가 살아 있으면 작동 | 항상 |
+| `sync_stalled` | **Postgres** (0130) | 정상 작동 — 이게 원래 목적 |
+| `player_claim` | **Postgres** (0131) | 정상 작동 |
+| `new_signup` | **Postgres** (0131) | 정상 작동 |
+| `schedule_reminder` | **Postgres** (0131) | 정상 작동 |
+| `data_stalled` | `dw-notify` (PC) | 안 감 |
+| 랭킹·탈퇴·공지·가이드 | `dw-notify` (PC) | 안 감 |
+
+`data_stalled`가 PC에 남은 것은 우연이 아니다. 그것이 잡는 고장은 **프로세스가
+멀쩡히 살아서 아무것도 못 잡는** 상태이고, 그 판정에 필요한 `last_packet_at`은
+살아 있는 수집기가 써 주는 값이다. 나머지 넷과 달리 수집기가 죽으면 알릴 내용
+자체가 없다.
+
+**옮길 때는 양쪽을 같이 고쳐야 한다.** 중복 작성은 `idempotency_key`가 막지만
+**중복 POST는 아무것도 안 막는다.** `internal.database_owned_events()`와
+`notify/worker.py`의 `DATABASE_OWNED`가 같은 목록이어야 하고, 한쪽만 고치면
+같은 메시지가 두 번 간다.
 
 `data_stalled`는 예외적으로 지금도 쓸모가 있다. 그것이 잡는 고장은 **프로세스가
 멀쩡히 살아서 아무것도 안 잡는** 상태이기 때문이다.
