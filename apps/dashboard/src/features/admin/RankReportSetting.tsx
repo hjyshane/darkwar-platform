@@ -79,23 +79,31 @@ export function RankReportSetting() {
   // decision made at the moment the button is pressed.
   const [applyToAssigned, setApplyToAssigned] = useState(false);
 
-  // The period now in progress, and the newest one with a complete fortnight
-  // behind it. That second one is the default to report on.
+  // The period now in progress. It is both the default and the one the Build
+  // button acts on, so the fortnight the alliance is actually living in is the
+  // one that gets built.
   const current = rankPeriodStart(new Date());
-  const newestClosed = new Date(current.getTime() - PERIOD_MS);
 
   // Which period the screen is looking at.
   //
-  // It used to be `newestClosed` and nothing else, and on a young database
-  // that is a screen showing two empty fortnights: the grid is anchored at
-  // 2026-07-27 02:00 UTC, so today the newest CLOSED period is 07-13 — before
-  // this collector existed. Every figure read zero and the dates looked stale,
-  // because they were. The only period with data in it is the one in progress,
-  // and there was no way to ask for it.
+  // It used to be `newestClosed` and nothing else, and on a young database that
+  // is a screen showing two empty fortnights: every figure read zero and the
+  // dates looked stale, because they were. The picker fixed that.
+  //
+  // THE DEFAULT IS NOW THE PERIOD IN PROGRESS, and that changed for a reason
+  // worth writing down. Pressing Build built whatever the screen was pointed
+  // at, and the screen pointed at the newest CLOSED period — so on the morning
+  // a new fortnight opened, Build rebuilt the old one and the Members tab went
+  // on showing the fortnight before that. Nothing was broken and nothing said
+  // so: the movement highlights read from the newest period that EXISTS, and
+  // the new one had never been created by anybody.
+  //
+  // Building a period that has not finished gives a partial answer rather than
+  // a wrong one, and the screen says so below. A stale answer says nothing.
   const [chosen, setChosen] = useState<string | null>(null);
-  const closed = chosen === null ? newestClosed : new Date(chosen);
-  const previous = new Date(closed.getTime() - PERIOD_MS);
-  const inProgress = closed.getTime() === current.getTime();
+  const viewing = chosen === null ? current : new Date(chosen);
+  const previous = new Date(viewing.getTime() - PERIOD_MS);
+  const inProgress = viewing.getTime() === current.getTime();
 
   // Grid boundaries rather than free dates: a period boundary IS a game week
   // boundary, and an arbitrary start puts the two weekly contribution readings
@@ -103,9 +111,9 @@ export function RankReportSetting() {
   const options = recentRankPeriods(new Date(), 6);
 
   const report = useQuery({
-    queryKey: ['rank-report', closed.toISOString()],
+    queryKey: ['rank-report', viewing.toISOString()],
     queryFn: async () => {
-      const [now, before] = await Promise.all([fetchPeriod(closed), fetchPeriod(previous)]);
+      const [now, before] = await Promise.all([fetchPeriod(viewing), fetchPeriod(previous)]);
       return { now, before };
     },
   });
@@ -147,7 +155,7 @@ export function RankReportSetting() {
     },
   });
 
-  const [firstWeek, secondWeek] = rankPeriodWeekEnds(closed);
+  const [firstWeek, secondWeek] = rankPeriodWeekEnds(viewing);
 
   if (report.isPending) {
     return <p className="empty">Loading…</p>;
@@ -197,7 +205,7 @@ export function RankReportSetting() {
             // masqueraded as an 08-03 one twice on 2026-08-12.
             setMessage(null);
           }}
-          value={closed.toISOString()}
+          value={viewing.toISOString()}
         >
           {options.map((start) => (
             <option key={start.toISOString()} value={start.toISOString()}>
@@ -209,7 +217,7 @@ export function RankReportSetting() {
       </label>
 
       <p className="subtle">
-        Period <strong>{iso(closed)}</strong> to <strong>{iso(rankPeriodEnd(closed))}</strong>.
+        Period <strong>{iso(viewing)}</strong> to <strong>{iso(rankPeriodEnd(viewing))}</strong>.
         Contribution and duel were read at {iso(firstWeek)} 01:59Z and {iso(secondWeek)} 01:59Z —
         one minute before the game clears each week — and power at the period's own two boundaries.
       </p>
@@ -230,7 +238,7 @@ export function RankReportSetting() {
       {message && <p className={failed ? 'error' : 'empty'}>{message}</p>}
 
       <div className="row">
-        <button disabled={build.isPending} onClick={() => build.mutate(closed)} type="button">
+        <button disabled={build.isPending} onClick={() => build.mutate(viewing)} type="button">
           {now.length === 0 ? 'Work out this period' : 'Rebuild'}
         </button>
         {/* Off by default, and deliberately not remembered between visits.
