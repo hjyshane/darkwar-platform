@@ -707,20 +707,33 @@ th:has(.sort) {
   white-space: nowrap;
 }
 
-/* FR-UI-008: stale and missing must not look like fresh. */
+/* FR-UI-008: stale and missing must not look like fresh.
+ *
+ * DISTINCT, not alarming. These were green / amber / red, which made a board
+ * nobody had opened since yesterday look like a fault — and with the threshold
+ * at an hour, nearly every board looked like one nearly all the time. Colour
+ * that is always on stops being read.
+ *
+ * Green means "captured within a day, act on it". Grey means "older than that,
+ * check the number before you rely on it". Red is reserved for the collector
+ * actually being down, which the header's SyncStatus says from the heartbeat —
+ * a fact about the machine rather than about the figure. */
 .badge-fresh {
   background: var(--ok-bg);
   color: var(--ok-fg);
 }
 
 .badge-stale {
-  background: var(--warn-bg);
-  color: var(--warn-fg);
+  background: var(--neutral-bg);
+  color: var(--neutral-fg);
 }
 
+/* Never observed. Grey rather than red for the reason 0034 gives about the
+ * monthly pass: "we have never seen this" is not the same as "this is wrong",
+ * and only one of them deserves an alarm colour. */
 .badge-missing {
-  background: var(--danger-bg);
-  color: var(--danger-fg);
+  background: var(--neutral-bg);
+  color: var(--neutral-fg);
 }
 
 /* Monthly pass: "never observed" must not look like "ran out". */

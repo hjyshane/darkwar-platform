@@ -4209,8 +4209,14 @@ export type Database = {
         Args: { p_code: string }
         Returns: Database["public"]["Enums"]["app_role"]
       }
-      refresh_alliance_growth: { Args: never; Returns: undefined }
-      refresh_alliance_latest: { Args: never; Returns: undefined }
+      refresh_alliance_growth: {
+        Args: { p_alliance_ids?: string[] }
+        Returns: undefined
+      }
+      refresh_alliance_latest: {
+        Args: { p_external_ids?: string[] }
+        Returns: undefined
+      }
       refresh_member_roster: { Args: never; Returns: undefined }
       reject_player_claim: {
         Args: { p_user: string }

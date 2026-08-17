@@ -3,7 +3,22 @@
 
 export type Freshness = 'fresh' | 'stale' | 'missing';
 
-const STALE_AFTER_MS = 60 * 60_000;
+// A DAY, not an hour.
+//
+// An hour was right when the only question was "is the collector running": a
+// board an hour old meant something had stopped. It is the wrong question for
+// the reader, who wants to know whether a figure is worth acting on — and a
+// roster captured this morning is worth acting on this evening.
+//
+// The hour-old threshold also painted almost every board amber almost all the
+// time, because the routine opens most screens a few times a day rather than
+// hourly. A warning colour that is always on is not a warning.
+//
+// "Has the collector stopped" is answered properly elsewhere and in red: the
+// SyncStatus badge in the header, from the heartbeat (0060), and the
+// `sync_stalled` Discord alert. Those are about the machine. This is about the
+// figure.
+const STALE_AFTER_MS = 24 * 60 * 60_000;
 
 export function classifyFreshness(capturedAt: string | null, now: Date): Freshness {
   if (capturedAt === null) {

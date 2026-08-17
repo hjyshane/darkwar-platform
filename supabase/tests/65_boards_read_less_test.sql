@@ -127,8 +127,13 @@ select is(
   'NewerStill', 'and the view reads the refreshed table');
 
 -- 7. anon cannot call the refresh.
+--
+-- The signature gained an argument in 0128 — the refresh now takes the external
+-- ids to recompute, so that a write no longer rebuilds the whole table. This
+-- assertion takes an EXACT signature, defaults do not apply to it, and the
+-- zero-argument form no longer exists. The thing being asserted is unchanged.
 select ok(
-  not has_function_privilege('anon', 'public.refresh_alliance_latest()', 'execute'),
+  not has_function_privilege('anon', 'public.refresh_alliance_latest(text[])', 'execute'),
   'anon may not call the refresh');
 
 -- 8. The view stayed invoker — the table''s RLS is the boundary.
