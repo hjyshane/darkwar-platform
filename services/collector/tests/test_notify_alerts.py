@@ -441,3 +441,43 @@ def test_a_notice_routes_the_same_way() -> None:
     }
     routing: dict[str, Row] = {"notices": {"enabled": True, "channel": "general"}}
     assert _worker(rows).notice_candidates(routing)[0].channel == "alarm"
+
+
+# ------------------------------------------------------------- moved to the db
+
+
+def test_the_database_owned_events_are_not_delivered_from_here() -> None:
+    """0130. Two deliverers on one outbox row is two Discord messages.
+
+    The unique key stops a duplicate compose; nothing stops a duplicate POST
+    except deciding who sends. `sync_stalled` moved into Postgres, so this
+    process must stop draining it — and the filter is on the QUERY rather than
+    on the loop, so a row it does not own never even arrives.
+    """
+    seen: list[httpx.URL] = []
+    _worker({}, seen).pending()
+    assert "event" in str(seen[0])
+    assert "not.in.(sync_stalled)" in str(seen[0])
+
+
+def test_sync_stalled_is_no_longer_composed_here_either() -> None:
+    """Enqueue moves with delivery, not after it.
+
+    Left enqueueing, this process would keep writing rows the database is also
+    writing. They would collide on the key and cost nothing — until the day the
+    two rules drift and the same outage is announced under two different keys.
+    """
+    # Both clocks stopped, so the one event that moved and the one that did not
+    # are each in scope. `_collector()` defaults are recent on purpose.
+    stalled = _collector(
+        last_heartbeat_at="2026-08-16T04:05:00+00:00",
+        last_packet_at="2026-08-16T04:05:00+00:00",
+    )
+    worker = _worker({"collectors": [stalled]})
+    routing: dict[str, Row] = {
+        "sync_stalled": {"enabled": True, "channel": "alerts"},
+        "data_stalled": {"enabled": True, "channel": "alerts"},
+    }
+    events = {message.event for source in worker.sources() for message in source(routing)}
+    assert "sync_stalled" not in events
+    assert "data_stalled" in events
