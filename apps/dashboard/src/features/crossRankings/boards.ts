@@ -10,6 +10,7 @@
 import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
 import { latestBatch } from './latestBatch';
+import { latestPerPlayer } from './latestPerPlayer';
 
 export type BoardId =
   | 'power'
@@ -85,21 +86,35 @@ async function fetchComponentBoard(metric: string): Promise<BoardRow[]> {
     .eq('metric', metric)
     .order('captured_at', { ascending: false })
     .order('rank', { ascending: true, nullsFirst: false })
-    .limit(300);
+    // Wide enough to reach past the profile opens that land between boards. A
+    // board is 150 rows and a profile open is one; at the old limit of 300 a
+    // busy hour of profile opens could push the last whole board out of the
+    // window entirely.
+    .limit(1500);
   if (error) {
     throw new Error(`ranking query failed: ${error.message}`);
   }
-  return latestBatch(data).map((row) => ({
-    id: row.snapshot_id,
-    playerId: row.player_id,
-    rank: row.rank,
-    name: row.name,
-    game_uid: row.game_uid,
-    server_id: row.server_id,
-    value: row.power,
-    unit_id: row.unit_id,
-    captured_at: row.captured_at,
-  }));
+  return (
+    latestPerPlayer(data ?? [])
+      // The board's own order, recomputed: the two sources that write these
+      // metrics do not share a rank column — a profile carries no board position
+      // — so ordering by the figure is the only ordering that means the same
+      // thing for every row. `rank` stays whatever the source said, null
+      // included, rather than being invented here.
+      .sort((a, b) => (b.power ?? 0) - (a.power ?? 0))
+      .slice(0, 300)
+      .map((row) => ({
+        id: row.snapshot_id,
+        playerId: row.player_id,
+        rank: row.rank,
+        name: row.name,
+        game_uid: row.game_uid,
+        server_id: row.server_id,
+        value: row.power,
+        unit_id: row.unit_id,
+        captured_at: row.captured_at,
+      }))
+  );
 }
 
 export const BOARDS: readonly Board[] = [
