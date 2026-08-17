@@ -15,7 +15,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(6);
+select plan(7);
 
 insert into public.collectors (collector_id, name, status, version)
 values ('00000000-0000-4000-8000-00000000cd77', 'refresh test', 'offline', 'test')
@@ -100,6 +100,25 @@ select is(
 select lives_ok(
   $$ select public.refresh_alliance_growth(array[]::uuid[]) $$,
   'an empty batch is a no-op rather than a full rebuild');
+
+-- 0129: the write must land even when the summary cannot be computed.
+--
+-- Forced here with the advisory lock the refresh takes -- hold it and the
+-- refresh returns early, which is the same shape as it running out of its
+-- budget. NOT the same code path: the timeout branch is an exception handler
+-- and this is an early return, so what this pins is the guarantee (the row
+-- arrives regardless) rather than the mechanism. The mechanism is what
+-- 2026-08-13 disproved by counter-example -- 11,592 captures rolled back
+-- because a summary took too long -- and it has no test because provoking a
+-- statement timeout inside a trigger from pgTAP is less reliable than the
+-- thing it would be testing.
+select pg_advisory_xact_lock(hashtext('alliance_growth_refresh'));
+
+select lives_ok(
+  $$ select pg_temp.snap('00000000-0000-4000-8000-0000000aa002', 'ext-aa2', 581,
+       '00000000-0000-4000-8000-0000000fb009', '2026-08-19T00:00:00Z', 999, 9) $$,
+  'a capture still lands while the refresh cannot run - the summary is a '
+  'number somebody can see is old, a lost capture is not');
 
 select * from finish();
 rollback;
