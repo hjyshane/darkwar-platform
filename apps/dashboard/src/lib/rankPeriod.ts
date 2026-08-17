@@ -18,6 +18,7 @@ import { resetWeekStart } from './resetWeek';
 const PERIOD_EPOCH = Date.UTC(2026, 7, 3, 2);
 const WEEK_MS = 604_800_000;
 const MINUTE_MS = 60_000;
+const DAY_MS = 24 * 3600 * 1000;
 
 export function rankPeriodStart(ts: Date): Date {
   const week = resetWeekStart(ts).getTime();
@@ -31,6 +32,22 @@ export function rankPeriodStart(ts: Date): Date {
 
 export function rankPeriodEnd(periodStart: Date): Date {
   return new Date(periodStart.getTime() + 2 * WEEK_MS);
+}
+
+/** The last GAME DAY the period covers, for printing.
+ *
+ * `rankPeriodEnd` is the BOUNDARY — the instant the next period begins — and
+ * printing its date reads as if that day were inside this period. The screen
+ * said "3 Aug to 17 Aug", which is a fortnight and a day.
+ *
+ * A WHOLE DAY, not a minute, and the first attempt got this backwards. The
+ * game's day runs 02:00 to 02:00 and is named by the date it STARTS on, so the
+ * period 3 Aug 02:00 → 17 Aug 02:00 does contain the first two hours of the
+ * 17th — but those hours belong to the game day called the 16th. Subtracting a
+ * minute lands at 17 Aug 01:59 and prints "17 Aug", which is the bug.
+ */
+export function rankPeriodLastDay(periodStart: Date): Date {
+  return new Date(rankPeriodEnd(periodStart).getTime() - DAY_MS);
 }
 
 /** The period running now and the ones before it, newest first.

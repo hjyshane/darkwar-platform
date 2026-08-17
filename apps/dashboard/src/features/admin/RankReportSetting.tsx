@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import {
-  rankPeriodEnd,
+  rankPeriodLastDay,
   rankPeriodStart,
   rankPeriodWeekEnds,
   recentRankPeriods,
@@ -43,9 +43,43 @@ interface RankRow {
 
 const TIER_ORDER: Record<string, number> = { R1: 1, R2: 2, R3: 3 };
 
-/** A rank period is a fortnight. Written once rather than as
- * `14 * 24 * 3600 * 1000` at each of the four places that needed it. */
-const PERIOD_MS = 14 * 24 * 3600 * 1000;
+/** The period the Members tab will compare this one against.
+ *
+ * Mirrors `rank_period_movement` (0100): the newest earlier period that was
+ * built under the SAME scoring version. Null when there is none, which is a
+ * first assignment rather than a missing figure.
+ */
+async function fetchPreviousPeriod(periodStart: Date): Promise<Date | null> {
+  const at = periodStart.toISOString();
+  const current = await supabase
+    .from('rank_period_snapshots')
+    .select('scoring_version')
+    .eq('period_start', at)
+    .order('scoring_version', { ascending: false })
+    .limit(1);
+  if (current.error !== null || current.data.length === 0) {
+    return null;
+  }
+  const version = current.data[0]?.scoring_version;
+  if (version === undefined || version === null) {
+    // A period built with no version recorded cannot be matched against one,
+    // and guessing would compare two different scoring rules — the thing 0100
+    // exists to prevent.
+    return null;
+  }
+  const prior = await supabase
+    .from('rank_period_snapshots')
+    .select('period_start')
+    .lt('period_start', at)
+    .eq('scoring_version', version)
+    .order('period_start', { ascending: false })
+    .limit(1);
+  if (prior.error !== null || prior.data.length === 0) {
+    return null;
+  }
+  const found = prior.data[0]?.period_start;
+  return found === undefined ? null : new Date(found);
+}
 
 async function fetchPeriod(periodStart: Date): Promise<RankRow[]> {
   const { data, error } = await supabase
@@ -102,7 +136,6 @@ export function RankReportSetting() {
   // a wrong one, and the screen says so below. A stale answer says nothing.
   const [chosen, setChosen] = useState<string | null>(null);
   const viewing = chosen === null ? current : new Date(chosen);
-  const previous = new Date(viewing.getTime() - PERIOD_MS);
   const inProgress = viewing.getTime() === current.getTime();
 
   // Grid boundaries rather than free dates: a period boundary IS a game week
@@ -113,8 +146,22 @@ export function RankReportSetting() {
   const report = useQuery({
     queryKey: ['rank-report', viewing.toISOString()],
     queryFn: async () => {
-      const [now, before] = await Promise.all([fetchPeriod(viewing), fetchPeriod(previous)]);
-      return { now, before };
+      // ASKED, NOT CALCULATED. This used to be `viewing - 14 days`, and the
+      // Members tab does something else: `rank_period_movement` (0100) takes
+      // the most recent EARLIER period carrying the SAME scoring version,
+      // because subtracting two periods scored by different rules reports the
+      // difference between the rules rather than between the people.
+      //
+      // With a period missing from the grid or built under an older version —
+      // production has both — the two screens then disagree about what
+      // "previous" means and show different tables for the same fortnight.
+      // That was the bug. One rule, and it is the view's.
+      const previousStart = await fetchPreviousPeriod(viewing);
+      const [now, before] = await Promise.all([
+        fetchPeriod(viewing),
+        previousStart === null ? Promise.resolve([]) : fetchPeriod(previousStart),
+      ]);
+      return { now, before, previousStart };
     },
   });
 
@@ -209,7 +256,7 @@ export function RankReportSetting() {
         >
           {options.map((start) => (
             <option key={start.toISOString()} value={start.toISOString()}>
-              {iso(start)} to {iso(rankPeriodEnd(start))}
+              {iso(start)} to {iso(rankPeriodLastDay(start))}
               {start.getTime() === current.getTime() ? ' (in progress)' : ''}
             </option>
           ))}
@@ -217,8 +264,8 @@ export function RankReportSetting() {
       </label>
 
       <p className="subtle">
-        Period <strong>{iso(viewing)}</strong> to <strong>{iso(rankPeriodEnd(viewing))}</strong>.
-        Contribution and duel were read at {iso(firstWeek)} 01:59Z and {iso(secondWeek)} 01:59Z —
+        Period <strong>{iso(viewing)}</strong> to <strong>{iso(rankPeriodLastDay(viewing))}</strong>
+        . Contribution and duel were read at {iso(firstWeek)} 01:59Z and {iso(secondWeek)} 01:59Z —
         one minute before the game clears each week — and power at the period's own two boundaries.
       </p>
 

@@ -1,10 +1,11 @@
 // The two-week grid, against the same vectors the SQL is checked with.
 // Both implementations reading one file is what keeps them from drifting —
 // the game week rule has been kept honest this way since 0001.
-import { expect, test } from 'vitest';
+import { describe, expect, test } from 'vitest';
 import vectors from '../../../protocol-fixtures/rank-period/vectors.json';
 import {
   rankPeriodEnd,
+  rankPeriodLastDay,
   rankPeriodStart,
   rankPeriodWeekEnds,
   recentRankPeriods,
@@ -71,4 +72,24 @@ test('the first entry is the period in progress, not the newest closed one', () 
   const first = periods[0] as Date;
   expect(first.toISOString()).toBe(rankPeriodStart(now).toISOString());
   expect(rankPeriodEnd(first).getTime()).toBeGreaterThan(now.getTime());
+});
+
+describe('rankPeriodLastDay', () => {
+  test('is the day before the boundary, not the boundary', () => {
+    // The screen read "3 Aug to 17 Aug", which is a fortnight and a day: the
+    // 17th at 02:00 is where the NEXT period starts. The last day covered is
+    // the 16th, and printing the boundary's date claimed otherwise.
+    const start = new Date('2026-08-03T02:00:00Z');
+    expect(rankPeriodEnd(start).toISOString().slice(0, 10)).toBe('2026-08-17');
+    expect(rankPeriodLastDay(start).toISOString().slice(0, 10)).toBe('2026-08-16');
+  });
+
+  test('stays inside the period at the 02:00 reset', () => {
+    // Subtracting a whole day would land on 16 Aug 02:00 — the right date by
+    // accident, because the period does not start at midnight. A minute keeps
+    // it unambiguously inside.
+    const start = new Date('2026-08-03T02:00:00Z');
+    expect(rankPeriodLastDay(start).getTime()).toBeLessThan(rankPeriodEnd(start).getTime());
+    expect(rankPeriodLastDay(start).getTime()).toBeGreaterThan(start.getTime());
+  });
 });
