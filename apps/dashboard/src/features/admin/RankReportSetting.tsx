@@ -279,6 +279,14 @@ export function RankReportSetting() {
           This period is still running. Its second weekly reading is on {iso(secondWeek)}, so
           contribution and duel for week two are not in yet — building it now gives a partial
           answer, not a wrong one.
+          <br />
+          {/* Because a button that visibly does nothing reads as broken. 0089
+              exists because "the computed rank did not follow the rebuild" was a
+              real complaint; 0134 makes that deliberately true again for the
+              unfinished period, and the place to say so is next to the button
+              rather than in a migration nobody on this screen can see. */}
+          It will show here, but not on the Members tab or on anybody's player page — those show the
+          last finished fortnight until this one closes on {iso(rankPeriodLastDay(viewing))}.
         </p>
       )}
 
