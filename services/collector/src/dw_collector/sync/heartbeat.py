@@ -85,6 +85,16 @@ def report(
     summary = {
         "status": health.status,
         "version": version,
+        # SENT, AND THEN OVERWRITTEN by a trigger with the database's own `now()`
+        # (0135). Do not remove it: the trigger fires only when this field
+        # actually moved, so this is what tells the database a beat happened
+        # rather than a rename. The value itself is discarded, which is the
+        # point — `sync_status` compares this column against server time, and
+        # this machine's clock drifting made a fresh beat look a minute old.
+        #
+        # `reported_at` on the history row above is deliberately NOT stamped: it
+        # is what this collector thought the time was, and a history that cannot
+        # show a skewed clock cannot diagnose one.
         "last_heartbeat_at": current,
         "last_packet_at": body["last_packet_at"],
         "outbox_depth": health.outbox_depth,
