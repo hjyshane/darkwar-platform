@@ -13,11 +13,19 @@ create extension if not exists pgtap with schema extensions;
 
 select plan(6);
 
+-- The stamp trigger (0135) replaces a supplied heartbeat with server time,
+-- which is exactly what this fixture must not have: a collector that went
+-- silent in the past is the whole subject. Held off for the insert only. This
+-- is the trigger working — a past beat can no longer be written by accident —
+-- so it is switched off deliberately rather than the fixture being reworded
+-- into something that is not a silent collector.
+alter table public.collectors disable trigger stamp_heartbeat;
 insert into public.collectors (collector_id, name, status, version, last_heartbeat_at)
 values
   ('00000000-0000-4000-8000-0000000da001', 'silent-one', 'offline', 'test',
    '2026-08-16T04:05:00Z'),
   ('00000000-0000-4000-8000-0000000da002', 'busy-one', 'healthy', 'test', now());
+alter table public.collectors enable trigger stamp_heartbeat;
 
 insert into public.notification_channels (channel, webhook_url)
 values ('alarm', 'https://discord.test/webhooks/alarm');
