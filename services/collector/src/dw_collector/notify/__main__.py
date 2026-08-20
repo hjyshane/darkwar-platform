@@ -45,12 +45,17 @@ def main() -> None:
     while True:
         try:
             stats = worker.run_once()
-            if stats.enqueued or stats.delivered or stats.failed:
+            # `broken` is in the condition, not just the payload. A pass where
+            # every source raised enqueues nothing and delivers nothing, so on
+            # the other three counters it is indistinguishable from a quiet
+            # night — which is how a two-day outage stayed invisible once.
+            if stats.enqueued or stats.delivered or stats.failed or stats.broken:
                 log.info(
                     "notify.pass",
                     enqueued=stats.enqueued,
                     delivered=stats.delivered,
                     failed=stats.failed,
+                    broken=stats.broken,
                 )
         except Exception as error:
             # Logged and swallowed. This process exists to send messages; if it

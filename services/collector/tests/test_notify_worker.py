@@ -17,6 +17,7 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 
+from dw_collector.notify.compose import Message
 from dw_collector.notify.worker import NotifyConfig, NotifyWorker, Row
 
 ROUTING: dict[str, Row] = {"notices": {"enabled": True, "channel": "general"}}
@@ -183,3 +184,78 @@ def test_the_same_room_named_twice_is_announced_once() -> None:
     outbox's whole reason for being."""
     messages = _worker([_guide(channels=["war", "war"])]).guide_candidates(GUIDES_ON)
     assert [m.channel for m in messages] == ["war"]
+
+
+# ----------------------------------------------------- one bad source, one pass
+#
+# 0133 renamed `guides.channel` to `channels`. The long-lived process kept asking
+# for the old name, PostgREST answered 400, and `guide_candidates` raised on every
+# pass. Because `run_once` composed every source in ONE expression, the first
+# raise took the whole pass with it — so notices, rank periods, departures and
+# `data_stalled` went quiet too, and the delivery loop never ran at all. Two days,
+# and the only trace was `notify.pass_failed` in a log nobody was reading.
+#
+# These pin the blast radius to the source that actually broke.
+
+
+def _message(key: str) -> Message:
+    return Message(
+        channel="general",
+        event="notices",
+        idempotency_key=key,
+        title="Bear hunt",
+        body="Gather at 20:00 UTC.",
+    )
+
+
+def _isolated(worker: NotifyWorker, sources: tuple[object, ...]) -> list[Message]:
+    """Run one pass with the reads stubbed, and report what reached enqueue."""
+    enqueued: list[Message] = []
+    worker.routing = lambda: ROUTING  # type: ignore[method-assign]
+    worker.sources = lambda: sources  # type: ignore[method-assign,assignment,return-value]
+    worker.channels = lambda: {"general": "http://hook.test"}  # type: ignore[method-assign]
+    worker.pending = lambda: []  # type: ignore[method-assign]
+
+    def enqueue(messages: list[Message]) -> int:
+        enqueued.extend(messages)
+        return len(messages)
+
+    worker.enqueue = enqueue  # type: ignore[method-assign]
+    return enqueued
+
+
+def test_a_broken_source_does_not_silence_the_others() -> None:
+    def broken(_routing: dict[str, Row]) -> list[Message]:
+        raise httpx.HTTPError("400 Bad Request: column guides.channel does not exist")
+
+    def working(_routing: dict[str, Row]) -> list[Message]:
+        return [_message("notice:n1")]
+
+    worker = _worker([])
+    enqueued = _isolated(worker, (broken, working))
+    stats = worker.run_once()
+
+    # The working source still composed, which is the whole point.
+    assert [m.idempotency_key for m in enqueued] == ["notice:n1"]
+    assert stats.enqueued == 1
+    assert stats.broken == 1
+
+
+def test_delivery_runs_even_when_every_source_broke() -> None:
+    # Delivery drains the OUTBOX, which holds rows written by earlier passes. It
+    # does not depend on any source, so a pass where composing failed outright
+    # must still post what is already waiting.
+    def broken(_routing: dict[str, Row]) -> list[Message]:
+        raise httpx.HTTPError("400 Bad Request")
+
+    worker = _worker([])
+    _isolated(worker, (broken,))
+    delivered: list[Row] = []
+    worker.pending = lambda: [{"channel": "general", "notification_id": "o1"}]  # type: ignore[method-assign]
+    worker.deliver = lambda row, _channels: bool(delivered.append(row)) or True  # type: ignore[method-assign]
+
+    stats = worker.run_once()
+
+    assert [row["notification_id"] for row in delivered] == ["o1"]
+    assert stats.delivered == 1
+    assert stats.broken == 1
