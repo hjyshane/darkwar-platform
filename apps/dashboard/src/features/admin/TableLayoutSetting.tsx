@@ -31,6 +31,14 @@ import {
   columnSpecs as memberColumnSpecs,
 } from '../roster/RosterTable';
 import {
+  TABLE_ID as SEASON_ALLIANCE_TABLE_ID,
+  seasonAllianceColumnSpecs,
+} from '../season/SeasonAllianceTable';
+import {
+  TABLE_ID as SEASON_FORCE_TABLE_ID,
+  seasonForceColumnSpecs,
+} from '../season/SeasonForceTable';
+import {
   TABLE_ID as SERVER_PLAYERS_TABLE_ID,
   serverPlayerColumnSpecs,
 } from '../server/ServerPlayerTable';
@@ -63,6 +71,12 @@ const TABLES: ArrangeableTable[] = [
   },
   { id: SERVER_PLAYERS_TABLE_ID, label: 'Server players', columns: serverPlayerColumnSpecs },
   { id: CROSS_TABLE_ID, label: 'Cross-server rankings', columns: crossRankingColumnSpecs },
+  {
+    id: SEASON_ALLIANCE_TABLE_ID,
+    label: 'Season — alliance score',
+    columns: seasonAllianceColumnSpecs,
+  },
+  { id: SEASON_FORCE_TABLE_ID, label: 'Season — player force', columns: seasonForceColumnSpecs },
   {
     id: ALLIANCE_RANKING_TABLE_ID,
     label: 'Alliance rankings',

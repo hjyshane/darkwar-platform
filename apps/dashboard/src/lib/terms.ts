@@ -24,6 +24,11 @@ export const TERMS = {
   allianceRanking: 'Alliance Ranking',
   crossServerRanking: 'Cross-Server Ranking',
   arena: 'Arena',
+  // The game's own season vocabulary: `score` on
+  // get.alliance.season.score.rank, `force` on desert.force.server.rank.
+  season: 'Season',
+  seasonScore: 'Season Score',
+  seasonForce: 'Season Force',
   monthlyCard: 'Monthly Card',
   signIn: 'Sign In',
 
@@ -47,6 +52,9 @@ export const TERMS = {
   lastSeen: 'Last Updated', // ours: captured_at / last_seen_at — when we last looked
   defensePower: 'Defense Power', // ours: the `army` blob is a lineup, not a number
   lineup: 'Lineup', // ours: the decoded `army` blob
+  // ours: the board sends oldRank, so the arrow reports the game's own
+  // previous position rather than a diff between two of our captures.
+  movement: 'Move',
   heroId: 'Hero ID',
   petId: 'Pet ID',
 

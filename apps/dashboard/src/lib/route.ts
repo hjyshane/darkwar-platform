@@ -18,6 +18,7 @@ export type Route =
   | 'members'
   | 'rankings'
   | 'crossRankings'
+  | 'season'
   | 'arena'
   | 'server'
   | 'player'
@@ -38,6 +39,7 @@ const ROUTES: Record<string, Route> = {
   '#/members': 'members',
   '#/rankings': 'rankings',
   '#/cross-server': 'crossRankings',
+  '#/season': 'season',
   '#/arena': 'arena',
   '#/month-cards': 'monthCards',
   '#/account': 'account',
@@ -230,6 +232,9 @@ export const RANKING_TABS: ReadonlyArray<{ route: Route; hash: string; label: st
   // which servers rather than which subject, and both boards are cross-server.
   { route: 'crossRankings', hash: '#/cross-server', label: 'Player Ranking' },
   { route: 'arena', hash: '#/arena', label: 'Arena' },
+  // Fourth rather than first: the season boards are a season long, while
+  // the three above are the year-round ones somebody opens daily.
+  { route: 'season', hash: '#/season', label: 'Season' },
 ];
 
 /** Whether a route sits behind the Cross-Server Ranking tab. */
