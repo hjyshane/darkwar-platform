@@ -11,6 +11,21 @@ import { supabase } from './supabase';
  * Shared by three editors now — the schedule's boards, notices and guides —
  * which is why it moved out of the schedule feature. One query key, so opening
  * two of those screens in a session asks once.
+ *
+ * SWITCHED-ON CHANNELS ONLY. The view carries `enabled` precisely so a caller
+ * can ask this, and for a while none of them did: every editor offered the
+ * disabled ones too, and picking one produced a post that announced NOWHERE.
+ * Both deliverers — `NotifyWorker.deliver` and `internal.deliver_owned_alerts`
+ * — look the webhook up with `enabled` in the condition and skip the row when
+ * they find nothing, deliberately, so that a half-configured channel does not
+ * burn the retry budget. Correct on their side; it just means the only place
+ * the mistake can be caught is here, before it is offered.
+ *
+ * Turning a channel OFF does not blank the posts already routed to it. Every
+ * editor keeps a name the row carries but this list does not have — the
+ * checkboxes in `ChannelField`, the extra `<option>` in the schedule's boards —
+ * so the routing survives an unrelated edit and comes back when the channel is
+ * switched on again.
  */
 export function useChannelNames() {
   return useQuery({
@@ -19,6 +34,7 @@ export function useChannelNames() {
       const { data, error } = await supabase
         .from('notification_channel_names')
         .select('channel, enabled')
+        .eq('enabled', true)
         .order('channel');
       if (error !== null) {
         throw error;

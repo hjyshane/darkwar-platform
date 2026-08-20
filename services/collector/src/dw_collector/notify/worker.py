@@ -178,6 +178,9 @@ class NotifyStats:
     enqueued: int = 0
     delivered: int = 0
     failed: int = 0
+    #: Sources that raised on this pass and were skipped. Non-zero is a fault
+    #: even when nothing else moved, which is why `__main__` logs on it.
+    broken: int = 0
 
 
 class NotifyWorker:
@@ -883,12 +886,46 @@ class NotifyWorker:
         )
 
     def run_once(self) -> NotifyStats:
+        """One pass: compose what is new, then post what is waiting.
+
+        EVERY SOURCE IS ISOLATED, and that is the whole point of the try/except
+        rather than a comprehension. This was one expression, so the first source
+        to raise took the pass with it — enqueue for every OTHER event, and the
+        delivery loop below, which does not depend on any source at all.
+
+        It happened. 0133 renamed `guides.channel` to `channels`; the long-lived
+        process was still asking for the old name, PostgREST answered 400, and
+        `guide_candidates` raised on every pass. The visible failure was not
+        "guides stopped announcing" but "the bot went silent" — notices, rank
+        periods, departures and `data_stalled` all stopped too, for two days,
+        because one query in one source named a column that had moved.
+
+        A broken source is a bug to be fixed, not a state to tolerate, so it is
+        COUNTED and logged with the name of the source that broke. What it must
+        not do is take the other events down with it: the blast radius of a
+        schema change should be the thing that changed.
+        """
         stats = NotifyStats()
         routing = self.routing()
-        sources = self.sources()
-        messages = [message for source in sources for message in source(routing)]
+        messages: list[Message] = []
+        for source in self.sources():
+            try:
+                messages.extend(source(routing))
+            except Exception as error:
+                # Named, because "a source failed" costs an hour of reading the
+                # log to work out which one — and the answer is in the traceback
+                # that is about to be discarded.
+                stats.broken += 1
+                log.error(
+                    "notify.source_failed",
+                    source=getattr(source, "__name__", repr(source)),
+                    error=str(error),
+                )
         stats.enqueued = self.enqueue(messages)
 
+        # Outside the loop above on purpose. Delivery drains the outbox, which
+        # holds rows written by earlier passes, so it has work to do even when
+        # every source this pass failed.
         channels = self.channels()
         for row in self.pending():
             if self.deliver(row, channels):
