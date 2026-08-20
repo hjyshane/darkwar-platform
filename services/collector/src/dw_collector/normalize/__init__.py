@@ -6,6 +6,7 @@ from dw_collector.normalize import (
     alliance_donate_rank,
     alliance_rank,
     arena,
+    desert_force_rank,
     fight_report_detail,
     get_al_info,
     get_new_user_info,
@@ -13,6 +14,7 @@ from dw_collector.normalize import (
     kill_rank,
     mail_read_share,
     rank_by_range,
+    season_score_rank,
     server_rank,
 )
 
@@ -22,6 +24,7 @@ __all__ = [
     "alliance_donate_rank",
     "alliance_rank",
     "arena",
+    "desert_force_rank",
     "fight_report_detail",
     "get_al_info",
     "get_new_user_info",
@@ -29,5 +32,6 @@ __all__ = [
     "kill_rank",
     "mail_read_share",
     "rank_by_range",
+    "season_score_rank",
     "server_rank",
 ]
