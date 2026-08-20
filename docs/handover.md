@@ -1,9 +1,110 @@
 # 인수인계
 
-작성 2026-08-01, 갱신 2026-08-06. 다음 세션이 이 문서만 읽고 이어받을 수 있게 쓴다.
+작성 2026-08-01, 갱신 2026-08-20. 다음 세션이 이 문서만 읽고 이어받을 수 있게 쓴다.
 
-> **다음 세션은 바로 아래 「2026-08-16 상태 (3)」부터 읽는다.** 그 아래는 배경이고,
+> **다음 세션은 바로 아래 「2026-08-20 상태 (4)」부터 읽는다.** 그 아래는 배경이고,
 > 일부는 이미 낡았다.
+
+---
+
+## 2026-08-20 상태 (4) — 시즌 3 랭킹 보드 (커밋됨, 머지 안 됨)
+
+브랜치 `season-3-dashboard-ranking-2cb1d7`. 커밋 4개. **`main`에 머지되지
+않았다.**
+
+```
+b0a57e4 feat(dashboard): the season boards get a tab
+d63f93e feat(collector): the two season boards get parsers
+8ee6598 feat(db): the season ranking boards get tables
+1c9f238 docs(season): what the first season 3 capture returned
+```
+
+### 시즌 3이 열렸고, §14의 절반이 풀렸다
+
+`capture-backlog.md` 항목 6이 기다리던 사건이다. 사용자가
+`C:\DW_data\season_tab_map_building.pcapng`(6.3MB)를 찍었고, shape-only로
+읽었다: 관측 127건, 커맨드 25종, rejected 0.
+
+**지금 만들어진 것 — 랭킹 보드 2종만이다.**
+
+| 커맨드 | 테이블 | 파서 |
+|---|---|---|
+| `get.alliance.season.score.rank` (연맹 89행) | `alliance_season_score_snapshots` | `normalize/season_score_rank.py` |
+| `desert.force.server.rank` (개인 149행) | `player_season_force_snapshots` | `normalize/desert_force_rank.py` |
+
+대시보드는 Cross-Server Ranking 탭 아래 네 번째 서브탭 `#/season`.
+
+### 아직 못 만든 것 — 사용자가 처음 요청한 5개 중 3개
+
+처음 요청은 「시즌 현황판 / 맵 / 영토 점유 / 건물 레벨업(연맹원만) / 랭킹」
+이었다. 랭킹 2종만 끝났다. 남은 것과 각각 무엇에 막혀 있는지:
+
+- **맵·영토 점유** — 좌표·타입·uid·`pointId` 조인은 확정됐다. 그러나
+  **type-3(도시) 타일을 한 번도 연 적이 없어서** 도시 payload의 필드
+  (`f3.1` uid, `f3.4` 레벨로 보이는 17~45, `f3.14` 연맹 태그)는 shape 추론일
+  뿐 detail 응답과 대조된 적이 없다. **타일 하나만 열면 확정된다.**
+- **시즌 건물 레벨업 (연맹원만)** — `alBuilding`은 연맹 단위고 개인별 분해가
+  없다. 이 캡처 어디에도 개인 귀속이 없다. `05_collect_or_contribute`와
+  `06_alliance_season_contribution` 캡처가 유일한 경로다(§5.3의 미확정 행).
+- **시즌 현황판** — 위 둘이 재료다.
+
+절차는 `docs/runbooks/season-map-capture.md`에 9개 파일로 정리돼 있고,
+**`04`·`05`·`06`·`09`는 맵이 찬 뒤 2차 패스가 필요하다.** 시즌 초반 보드는
+비어 있어서 "서버가 안 보낸다"와 "아직 아무 일도 안 일어났다"를 한 번의
+캡처로 구분할 수 없기 때문이다.
+
+### 반드시 알아야 할 두 가지 사실
+
+**1. 시즌 그룹은 4개 서버고 577-584의 부분집합이 아니다.** 관측된 serverId는
+580·584·**586·588**이다. `servers`는 577-584만 시드된다. 스냅샷 테이블의 FK를
+일부러 유지했고, sync의 `ensure_servers()`가 586/588을 `server_group='unknown',
+is_tracked=false`로 자동 등록한다(NFR-007). 로컬에서 실제로 동작 확인했다.
+**시즌 소속을 `server_group`과 같다고 가정하지 말 것.**
+
+**2. `force`도 `score`도 power가 아니다.** 관측된 어떤 것도 둘을 연결하지
+않는다. power 컬럼에 쓰면 0018이 서술한 그 오염이다. 컬럼 코멘트와 파서
+독스트링과 화면 하단 안내문 세 곳에 적어 뒀다.
+
+부수 사실: `type 6`은 **도시가 아니라 행군(march)**이다. 탭하면 열리는 쪽이라
+도시처럼 보이지만, 한 uid가 type-3 좌표 **하나**와 흩어진 type-6 좌표 **여러
+개**를 갖는다. 지속 레이어는 type 3·15·7이다.
+
+### 로컬 환경 상태 — 이어받기 전에 읽을 것
+
+- **0136이 로컬 스택에 out-of-band로 적용돼 있다.** 워크트리는 Supabase CLI에
+  링크되지 않아(`--workdir C:\darkwar-platform` 필요) `psql`로 직접 넣었다.
+  `C:\darkwar-platform`에서 `supabase db diff`를 돌리면 이 두 테이블이 drift로
+  보인다. 브랜치가 머지되면 정상화된다.
+- **`supabase db reset`을 함부로 돌리지 말 것.** main 워크트리에는 0136이 없어서
+  리셋하면 사라진다. 다른 세션도 같은 스택을 쓰고 있다.
+- 로컬에 시즌 데이터가 들어가 있다(89 + 149행). 멤버 테스트 계정
+  `season-check@example.test` / `dashboard-check-1`.
+- dev 서버가 5173에 떠 있을 수 있다.
+- `edge_runtime`·`vector` 컨테이너는 죽어 있지만 대시보드에는 무관하다.
+
+### 이 작업 탓이 아닌 것 두 가지
+
+- **`test_sync_live.py` 2건 실패** — `alliance_member_snapshots` 인서트가
+  service_role에서 42501. 트리거 `member_roster_refresh_on_write` →
+  `refresh_member_roster()`가 둘 다 INVOKER인데 후자가 `current_app_role()`을
+  부르고, 0006은 그 EXECUTE를 anon·authenticated에만 준다. 커밋 `b851e99`
+  소행이다. **al.rank가 지금 클라우드로 안 올라가고 있고 경고 로그로만 보인다.**
+  별도 세션에서 작업 중.
+- **pgTAP 4건 실패**(`39_retention`, `50_component_metrics`,
+  `70_views_and_event`, `75_incremental_refresh`) — `test_sync_live`가 넣는
+  901행 픽스처 코퍼스 때문이다. 시즌 행을 전부 지우고 재실행해도 동일하게
+  실패한다. 절대 개수를 세는 단언들이라 깨끗한 DB에서만 통과한다
+  (`14_component_power_test`가 자기 파일에서 고쳤다고 적어 둔 그 취약성이다).
+  아직 이슈로 등록하지 않았다.
+
+### 게이트
+
+`pnpm check` / `typecheck` / `test`(612) / `build` 전부 green.
+새 pgTAP 21/21, `34_no_public_read` clean. 파이썬은 ruff·mypy·pytest 전부 green.
+로컬 라운드트립 failed=0(89+149행, 588 자동 등록).
+
+**머지는 곧 배포다.** `main`에 머지되면 Cloudflare가 1분 안에 `cbfw.us`를
+빌드한다. 게이트는 로컬뿐이다.
 
 ---
 
