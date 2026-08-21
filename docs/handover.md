@@ -32,7 +32,15 @@ d63f93e feat(collector): the two season boards get parsers
 | `get.alliance.season.score.rank` (연맹 89행) | `alliance_season_score_snapshots` | `normalize/season_score_rank.py` |
 | `desert.force.server.rank` (개인 149행) | `player_season_force_snapshots` | `normalize/desert_force_rank.py` |
 
-대시보드는 Cross-Server Ranking 탭 아래 네 번째 서브탭 `#/season`.
+대시보드는 **최상위 탭 「Season 3」**, 주소 `#/season`. CBFW 탭 바로 오른쪽에
+붙는다(`App.tsx`가 자체 연맹 탭을 Overview 직후에 끼워 넣으므로 `NAV_TABS`의
+두 번째 자리가 그 위치다). 처음엔 Cross-Server Ranking의 네 번째 서브탭이었는데,
+거기 세 보드는 1년 내내 서로 비교하며 보는 것이고 시즌은 자기 시계를 가진 별개
+이벤트라 한 줄 아래 묻히면 플레이어 보드의 변종처럼 보였다.
+
+**탭 이름의 "3"은 사람이 관리하는 라벨이다.** 보드 응답에 시즌 식별자가 없고
+(0136이 왜 아무것도 그걸 키로 쓰지 않는지 설명한다) 시즌 4가 되면
+`route.ts`의 `NAV_TABS` 한 줄과 `TERMS.season`을 고쳐야 한다.
 
 ### 아직 못 만든 것 — 사용자가 처음 요청한 5개 중 3개
 

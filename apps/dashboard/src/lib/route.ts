@@ -200,6 +200,20 @@ export const NAV_TABS: ReadonlyArray<{ route: Route; hash: string; label: string
   // first — the overview answers "how are we doing" before the table
   // answers "who did what".
   { route: 'overview', hash: '#/', label: 'Overview' },
+  // Beside our own alliance's tab, which `App.tsx` injects straight after
+  // Overview — so second here puts Season 3 immediately to its right.
+  //
+  // Top level rather than a fourth board under Cross-Server Ranking, where it
+  // started. The three boards there answer "who is ahead" year-round and are
+  // read against each other; a season is a separate thing with its own clock,
+  // and burying it a row down made it look like a variant of the player board
+  // rather than the event the alliance is currently playing.
+  //
+  // NAMED FOR THE SEASON IT SHOWS. The boards carry no season identifier —
+  // 0136 explains why nothing keys on one — so the number here is a label a
+  // human maintains, not a value read from data. Season 4 means editing this
+  // line and `TERMS.season`.
+  { route: 'season', hash: '#/season', label: 'Season 3' },
   // Straight after the overview, because these two are the ones the alliance
   // reads every day and writes to each other on. Everything below is a board
   // the game produced; this is what the alliance said about it.
@@ -232,9 +246,6 @@ export const RANKING_TABS: ReadonlyArray<{ route: Route; hash: string; label: st
   // which servers rather than which subject, and both boards are cross-server.
   { route: 'crossRankings', hash: '#/cross-server', label: 'Player Ranking' },
   { route: 'arena', hash: '#/arena', label: 'Arena' },
-  // Fourth rather than first: the season boards are a season long, while
-  // the three above are the year-round ones somebody opens daily.
-  { route: 'season', hash: '#/season', label: 'Season' },
 ];
 
 /** Whether a route sits behind the Cross-Server Ranking tab. */

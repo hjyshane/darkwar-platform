@@ -26,7 +26,7 @@ export const TERMS = {
   arena: 'Arena',
   // The game's own season vocabulary: `score` on
   // get.alliance.season.score.rank, `force` on desert.force.server.rank.
-  season: 'Season',
+  season: 'Season 3',
   seasonScore: 'Season Score',
   seasonForce: 'Season Force',
   monthlyCard: 'Monthly Card',
