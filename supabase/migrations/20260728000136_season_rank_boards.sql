@@ -100,9 +100,13 @@ create index alliance_season_score_external_captured_idx
 -- was 16 digits and decoded to 580, i.e. this board is server-local even
 -- though the alliance board above is not. Do not assume they share a scope.
 --
--- `force` is a season-specific quantity and is NOT power: the same board
--- carries no power column, and nothing observed ties the two. It must not
--- be written into any power column.
+-- `force` is the season's INFLUENCE figure, and is NOT power: the board
+-- carries no power column and nothing observed ties the two. It must not be
+-- written into any power column.
+--
+-- The column keeps the wire name `force` rather than being called influence,
+-- so a row stays traceable to the payload field that produced it. The
+-- translation to what a reader sees lives in the dashboard's terms file.
 create table public.player_season_force_snapshots (
   snapshot_id uuid primary key default gen_random_uuid(),
   observation_id uuid not null,
@@ -189,8 +193,14 @@ create trigger player_season_force_snapshots_notify
   for each statement execute function public.notify_data_change();
 
 comment on column public.player_season_force_snapshots.force is
-  'Season "force" from desert.force.server.rank. A season-specific quantity, '
-  'not power — nothing observed relates the two. Never write it to a power column.';
+  'INFLUENCE. The wire field is `force` on desert.force.server.rank and the '
+  'column keeps that name for traceability; influence is what it measures. '
+  'Not power — nothing observed relates the two. Never write it to a power column.';
+
+comment on column public.alliance_season_score_snapshots.score is
+  'COAL PRODUCTION. The wire field is `score` on get.alliance.season.score.rank '
+  'and the column keeps that name for traceability; coal production is what it '
+  'measures. Not power, and not comparable with the influence board beside it.';
 
 comment on column public.alliance_season_score_snapshots.previous_rank is
   'The board''s own oldRank. Observed, sent by the server — not derived from '

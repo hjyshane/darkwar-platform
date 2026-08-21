@@ -73,10 +73,10 @@ const TABLES: ArrangeableTable[] = [
   { id: CROSS_TABLE_ID, label: 'Cross-server rankings', columns: crossRankingColumnSpecs },
   {
     id: SEASON_ALLIANCE_TABLE_ID,
-    label: 'Season — alliance score',
+    label: 'Season — coal production',
     columns: seasonAllianceColumnSpecs,
   },
-  { id: SEASON_FORCE_TABLE_ID, label: 'Season — player force', columns: seasonForceColumnSpecs },
+  { id: SEASON_FORCE_TABLE_ID, label: 'Season — influence', columns: seasonForceColumnSpecs },
   {
     id: ALLIANCE_RANKING_TABLE_ID,
     label: 'Alliance rankings',

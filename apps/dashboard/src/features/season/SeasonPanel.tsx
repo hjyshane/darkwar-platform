@@ -78,8 +78,8 @@ export function SeasonPanel() {
           who assumes otherwise will compare them against the power board and
           conclude the data is wrong. */}
       <p className="note">
-        Season score and force are the game's own season figures. Neither is power, and they are not
-        comparable with the cross-server boards.
+        Coal production and influence are the game's own season figures. Neither is power, and
+        neither is comparable with the cross-server boards.
       </p>
     </section>
   );

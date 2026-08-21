@@ -24,11 +24,18 @@ export const TERMS = {
   allianceRanking: 'Alliance Ranking',
   crossServerRanking: 'Cross-Server Ranking',
   arena: 'Arena',
-  // The game's own season vocabulary: `score` on
-  // get.alliance.season.score.rank, `force` on desert.force.server.rank.
+  // Season 3. The WIRE fields are `score` (get.alliance.season.score.rank)
+  // and `force` (desert.force.server.rank), and the columns keep those names
+  // so a row stays traceable to the payload that produced it. What the two
+  // numbers MEASURE is coal production and influence — named by the operator
+  // from the game's own screens, not from a capture, so they belong in the
+  // "ours" category of the provenance note above until a screen is captured.
+  //
+  // This file is the one place that translation lives. Nothing downstream
+  // should hardcode either wording.
   season: 'Season 3',
-  seasonScore: 'Season Score',
-  seasonForce: 'Season Force',
+  seasonScore: 'Coal Production',
+  seasonForce: 'Influence',
   monthlyCard: 'Monthly Card',
   signIn: 'Sign In',
 
