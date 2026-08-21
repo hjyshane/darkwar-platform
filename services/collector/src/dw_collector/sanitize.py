@@ -343,6 +343,94 @@ def sanitize_al_battle_rank_info(payload: dict[str, Any]) -> dict[str, Any]:
     return sanitized
 
 
+def sanitize_alliance_season_score_rank(payload: dict[str, Any]) -> dict[str, Any]:
+    """Season alliance score board (0136).
+
+    One row per alliance, so the per-alliance mapping al.battle.rank.info
+    needed is trivially satisfied — but the mapping is keyed on allianceId
+    rather than on the row index, so the same alliance keeps the same fake
+    identity here and in every other fixture.
+
+    `leader` is a PLAYER's name, not an alliance's. Masked as a person.
+
+    Kept: rank, oldRank, score, power, serverId, country, icon. serverId
+    especially — the board reaches servers outside the tracked group (580,
+    584, 586, 588 in the real response) and that fact is half of what this
+    fixture exists to pin.
+    """
+    entries = payload.get("rankList")
+    if not isinstance(entries, list):
+        return payload
+
+    sanitized = dict(payload)
+    sanitized["rankList"] = [
+        {
+            **e,
+            **(
+                {"allianceId": _fake_alliance_id(str(e["allianceId"]))}
+                if isinstance(e.get("allianceId"), str)
+                else {}
+            ),
+            **({"allianceName": f"Alliance{i:02d}"} if e.get("allianceName") else {}),
+            **({"abbr": f"A{i:02d}"} if e.get("abbr") else {}),
+            **({"leader": f"Leader{i:02d}"} if e.get("leader") else {}),
+        }
+        for i, e in enumerate(entries, start=1)
+    ]
+    # selfScore/selfRank/selfOldRank describe the COLLECTOR's own alliance.
+    # Masked for the same reason server.rank masks selfPower: it is a real
+    # figure about the operator, and no parser reads it.
+    if "selfScore" in sanitized:
+        sanitized["selfScore"] = 1000
+    return sanitized
+
+
+def sanitize_desert_force_server_rank(payload: dict[str, Any]) -> dict[str, Any]:
+    """Season player force board (0136).
+
+    Note the key is `alliancename`, all lower case — the alliance board
+    above spells the same concept `allianceName`. That is the game's
+    inconsistency, not a typo here, and the fixture must preserve it or the
+    parser would be tested against a shape the server never sends.
+
+    No serverId on these entries (0 of 149 in the real response), so the
+    parser decodes the home server from the uid. `_fake_uid` preserves the
+    trailing six digits precisely so that decode still works on the fixture.
+    """
+    entries = payload.get("serverRanking")
+    if not isinstance(entries, list):
+        return payload
+
+    alliances: dict[str, int] = {}
+    for entry in entries:
+        real = entry.get("allianceId")
+        if isinstance(real, str) and real and real not in alliances:
+            alliances[real] = len(alliances) + 1
+
+    def _al(entry: dict[str, Any]) -> int:
+        return alliances.get(str(entry.get("allianceId")), 0)
+
+    sanitized = dict(payload)
+    sanitized["serverRanking"] = [
+        {
+            **e,
+            "uid": _fake_uid(str(e.get("uid", ""))),
+            **({"name": f"Force{i:03d}"} if e.get("name") else {}),
+            **(
+                {"allianceId": _fake_alliance_id(str(e["allianceId"]))}
+                if isinstance(e.get("allianceId"), str) and e["allianceId"]
+                else {}
+            ),
+            **({"alliancename": f"Alliance{_al(e):02d}"} if e.get("alliancename") else {}),
+            **({"abbr": f"A{_al(e):02d}"} if e.get("abbr") else {}),
+        }
+        for i, e in enumerate(entries, start=1)
+    ]
+    if "selfForceValue" in sanitized:
+        sanitized["selfForceValue"] = 1000
+    return sanitized
+
+
 SANITIZERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "rank.get.by.range": sanitize_rank_get_by_range,
     "get.fight.report.detail": sanitize_get_fight_report_detail,
@@ -358,4 +446,6 @@ SANITIZERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "get.user.info.multi": sanitize_get_user_info_multi,
     "server.rank": sanitize_server_rank,
     "user.get.arena.info": sanitize_user_get_arena_info,
+    "get.alliance.season.score.rank": sanitize_alliance_season_score_rank,
+    "desert.force.server.rank": sanitize_desert_force_server_rank,
 }

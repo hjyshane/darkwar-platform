@@ -537,6 +537,107 @@ export type Database = {
           },
         ]
       }
+      alliance_season_score_snapshots: {
+        Row: {
+          alliance_abbr: string | null
+          alliance_external_id: string
+          alliance_id: string | null
+          alliance_name: string | null
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          country: string | null
+          created_at: string
+          idempotency_key: string
+          leader_name: string | null
+          observation_id: string
+          parser_version: string
+          power: number | null
+          previous_rank: number | null
+          rank: number | null
+          raw: Json
+          score: number | null
+          server_id: number
+          snapshot_id: string
+          source_command: string
+        }
+        Insert: {
+          alliance_abbr?: string | null
+          alliance_external_id: string
+          alliance_id?: string | null
+          alliance_name?: string | null
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          country?: string | null
+          created_at?: string
+          idempotency_key: string
+          leader_name?: string | null
+          observation_id: string
+          parser_version: string
+          power?: number | null
+          previous_rank?: number | null
+          rank?: number | null
+          raw?: Json
+          score?: number | null
+          server_id: number
+          snapshot_id?: string
+          source_command: string
+        }
+        Update: {
+          alliance_abbr?: string | null
+          alliance_external_id?: string
+          alliance_id?: string | null
+          alliance_name?: string | null
+          captured_at?: string
+          collected_from_server_id?: number
+          collector_id?: string
+          country?: string | null
+          created_at?: string
+          idempotency_key?: string
+          leader_name?: string | null
+          observation_id?: string
+          parser_version?: string
+          power?: number | null
+          previous_rank?: number | null
+          rank?: number | null
+          raw?: Json
+          score?: number | null
+          server_id?: number
+          snapshot_id?: string
+          source_command?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alliance_season_score_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "alliance_season_score_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "alliance_season_score_snapshots_collector_id_fkey"
+            columns: ["collector_id"]
+            isOneToOne: false
+            referencedRelation: "collectors"
+            referencedColumns: ["collector_id"]
+          },
+          {
+            foreignKeyName: "alliance_season_score_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+        ]
+      }
       alliance_snapshots: {
         Row: {
           alliance_id: string
@@ -2493,6 +2594,104 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "pending_access"
             referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      player_season_force_snapshots: {
+        Row: {
+          alliance_abbr: string | null
+          alliance_external_id: string | null
+          alliance_name: string | null
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          country: string | null
+          created_at: string
+          force: number | null
+          game_uid: number
+          idempotency_key: string
+          name: string | null
+          observation_id: string
+          parser_version: string
+          player_id: string | null
+          rank: number | null
+          raw: Json
+          server_id: number
+          snapshot_id: string
+          source_command: string
+        }
+        Insert: {
+          alliance_abbr?: string | null
+          alliance_external_id?: string | null
+          alliance_name?: string | null
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          country?: string | null
+          created_at?: string
+          force?: number | null
+          game_uid: number
+          idempotency_key: string
+          name?: string | null
+          observation_id: string
+          parser_version: string
+          player_id?: string | null
+          rank?: number | null
+          raw?: Json
+          server_id: number
+          snapshot_id?: string
+          source_command: string
+        }
+        Update: {
+          alliance_abbr?: string | null
+          alliance_external_id?: string | null
+          alliance_name?: string | null
+          captured_at?: string
+          collected_from_server_id?: number
+          collector_id?: string
+          country?: string | null
+          created_at?: string
+          force?: number | null
+          game_uid?: number
+          idempotency_key?: string
+          name?: string | null
+          observation_id?: string
+          parser_version?: string
+          player_id?: string | null
+          rank?: number | null
+          raw?: Json
+          server_id?: number
+          snapshot_id?: string
+          source_command?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_season_force_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "player_season_force_snapshots_collector_id_fkey"
+            columns: ["collector_id"]
+            isOneToOne: false
+            referencedRelation: "collectors"
+            referencedColumns: ["collector_id"]
+          },
+          {
+            foreignKeyName: "player_season_force_snapshots_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "player_season_force_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
           },
         ]
       }

@@ -23,6 +23,7 @@ import { PlayerPage } from './features/player/PlayerPage';
 import { RankingsPanel } from './features/rankings/RankingsPanel';
 import { RosterPanel } from './features/roster/RosterPanel';
 import { SchedulePanel } from './features/schedule/SchedulePanel';
+import { SeasonPanel } from './features/season/SeasonPanel';
 import { ServerPage } from './features/server/ServerPage';
 import { useRecordActivity } from './lib/activity';
 import { isAllowed, usePermissions } from './lib/permissions';
@@ -340,6 +341,11 @@ function Screen({ route }: { route: Route }) {
       return <RankingsPanel />;
     case 'crossRankings':
       return <CrossRankingsPanel />;
+    case 'season':
+      // No capability gate. Both season tables are member-only at the
+      // policy level (0136) and the whole app is walled to members
+      // anyway, so there is no ungated reader to explain an empty board to.
+      return <SeasonPanel />;
     case 'arena':
       // Here the tab and the data agree: 0064 made all four arena tables
       // member-only, so an ungated reader would get an empty board rather
