@@ -315,6 +315,87 @@ Also outstanding:
 - **`buildSpeed` is a float (`4.0`) and `calculateScoreSpeed` an int.** They are
   different quantities; the second is the season score rate and the first is not.
 
+## The map decoded (2026-08-21, from stored observations)
+
+No new capture. `C:\DW_data\live.db` already held **8,016 `world.get.new`
+viewports** and **787 `world.get.detail.new`** from ordinary play — 41,298
+distinct tiles. Everything below was read out of those. This is the second
+time re-reading the journal beat asking for a capture; the first was the
+arena `stage` field.
+
+### Coordinates are the object id
+
+`pointId` **is** the coordinate, packed `x * 1000 + y`.
+
+- `point == pointId` in 543/543 player details
+- decoded x 0..998, y 1..902, and **no y ≥ 1000 in 543 samples**
+- consistent with `maxAreaSize` 1000 on every viewport
+
+So a tile needs no separate coordinate column, and the map/detail join is
+`pointId` on both sides (27/27 in the sweep capture).
+
+### Object types, and which are worth storing
+
+| `f2` | tiles | what it is | how that was established |
+|---|---|---|---|
+| 3 | 1,920 | **player city** | see below — three fields cross-validated |
+| 4 | 7,884 | unidentified; short string + timestamp | not opened |
+| 6 | 2,447 | **marches** | one uid at many scattered coordinates at once |
+| 7 | 19,195 | resource tiles | `f6.6`/`f6.7` amounts |
+| 13 | 671 | unidentified | not opened |
+| 14 | 328 | unidentified | not opened |
+| 15 | 23 | **alliance buildings** | `alBuilding` on open: level, buildSpeed, calculateScoreSpeed |
+| 21 | 8,430 | owner-tagged, movable, fixed spec — **not a levelled building** | see the refutation below |
+| 11, 22, 23, 25, 28, 29 | ≤ 329 each | unidentified | not opened |
+
+### The city tile is fully readable, and that is the useful one
+
+Type 3 carries, per player, at one stable coordinate:
+
+| field | meaning | evidence |
+|---|---|---|
+| `f3.1` | player uid | 16-digit numeric, 1,287 distinct |
+| `f3.14` | **player name** | equals the opened detail's `name` in **288/294** |
+| `f3.4` | **HQ level** | equals the roster's `hq_level` in **349/394** exactly; the rest are ±1–2, which is players levelling between the roster snapshot and the pan |
+
+`f3.14` was first written down here as the alliance tag. **It is not** — it
+matched `name` 288/294 and `afn` 0/294. The earlier reading came from a
+small sample where the values happened to be short.
+
+That makes "where is this member, and what level is their base" answerable
+**from a pan alone**, with no object opened.
+
+### Type 21 is not the season building — refuted twice
+
+It looked ideal: 8,430 tiles, an owner uid at `f101.3`, and `f101.2` in
+1300101..1600501 whose trailing two digits run 1..4 like a level. 2,542 of
+them belong to CBFW across 93 owner uids.
+
+The level reading is wrong, and two independent tests say so:
+
+1. **Keyed on object id, `f101.2` never changed** — 0 of 19,983 objects
+   re-observed across days. A level that never increments is not a level.
+2. **Keyed on coordinate with the owner held fixed**, transitions were
+   symmetric: 457 up against 396 down. Upgrades are monotonic; this is
+   different objects occupying a tile.
+
+563 of these objects also **move**. Whatever type 21 is, it is placeable and
+transient, and its spec is fixed at creation.
+
+`vl` on player details is likewise not a level: **0 in all 507** samples.
+
+### So the per-member SEASON building is still not found
+
+Nothing observed carries a per-player season building with a level.
+`alBuilding` (type 15) has a real `level`, but it is alliance-scoped — the
+three centres, buildId 41000/42000/43000, all level 1, and no per-member
+breakdown. Across 787 opened details there were only **4** of them.
+
+To settle it, open a member's season building on the map while capturing and
+record which `f2` the tile is. The unopened candidates are types 4, 13, 14,
+11, 22, 23, 25 and 29. Until then, "member building level" can only mean the
+**HQ level** above, which is real and available today.
+
 ## What is buildable now, and what is not
 
 `CLAUDE.md` puts season and map under "not being built yet" because the fields
