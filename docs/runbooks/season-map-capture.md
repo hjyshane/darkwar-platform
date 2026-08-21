@@ -205,7 +205,7 @@ Zero rejected: the decoder handled every inbound frame in the file.
 28 viewport responses. Each carries `x`, `y`, `viewLvl`, `maxAreaSize` (1000) and
 `points` — up to 657 entries, 7678 in total, **1189 of them distinct**.
 
-A point is a string of the form `46b:<base64>`. The key is the constant `46b` in
+A point is a string of the form `b64:<base64>`. The key is the constant `b64` in
 all 7678. The base64 decodes to **protobuf**; there is no `.proto`, but the wire
 format is enough to read it.
 
