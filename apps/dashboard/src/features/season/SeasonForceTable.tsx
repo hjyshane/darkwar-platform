@@ -5,7 +5,7 @@ import { playerHash, serverHash } from '../../lib/route';
 import type { ColumnSpec } from '../../lib/tableLayout';
 import { TERMS } from '../../lib/terms';
 import { useTableView } from '../../lib/useTableView';
-import type { SeasonPlayerRow } from './boards';
+import { type SeasonPlayerRow, allianceLabel } from './boards';
 
 const numberFormat = new Intl.NumberFormat('ko-KR');
 
@@ -65,7 +65,7 @@ export function SeasonForceTable({ rows }: { rows: SeasonPlayerRow[] }) {
         // Name only, unlinked: this board carries the alliance's external id
         // but the panel never resolves it, and a ranked player need not be in
         // an alliance at all.
-        cell: (row) => row.allianceName ?? row.abbr ?? '—',
+        cell: (row) => allianceLabel(row.allianceName, row.abbr) ?? '—',
       },
       {
         id: 'server',

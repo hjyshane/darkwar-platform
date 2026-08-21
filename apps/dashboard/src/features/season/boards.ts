@@ -107,6 +107,23 @@ export async function fetchPlayerForceBoard(): Promise<SeasonPlayerRow[]> {
   }));
 }
 
+/** `[TWya] 故人歸` — the tag in brackets, then the name.
+ *
+ * The tag is what members say out loud and what the game shows on a city,
+ * while the full name is what identifies the alliance; showing one without
+ * the other means a reader recognises the row or does not, with no way back.
+ *
+ * Degrades rather than inventing brackets around nothing: name alone when
+ * there is no tag, tag alone when there is no name, and null when neither,
+ * so the caller keeps its own fallback for that case.
+ */
+export function allianceLabel(name: string | null, abbr: string | null): string | null {
+  if (name && abbr) {
+    return `[${abbr}] ${name}`;
+  }
+  return name ?? abbr ?? null;
+}
+
 /** Rank movement, for the arrow the alliance board draws.
  *
  * `previous` is the server's own oldRank (migration 0136), so this reports
