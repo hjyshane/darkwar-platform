@@ -396,6 +396,45 @@ record which `f2` the tile is. The unopened candidates are types 4, 13, 14,
 11, 22, 23, 25 and 29. Until then, "member building level" can only mean the
 **HQ level** above, which is real and available today.
 
+## The season building ids, named (2026-08-22)
+
+`season_buildin2g.pcapng` was captured with the operator naming each click in
+order. Aligning that list against the tiles' `f101.3` names the ids outright —
+no inference beyond the ordering, which the repeats confirm.
+
+| `f101.3` | building | CBFW owners | mean level |
+|---|---|---|---|
+| 857000 | 온실 1 (greenhouse 1) | 79 | 15.1 |
+| 858000 | 온실 2 | 67 | 13.8 |
+| 859000 | 온실 3 | 51 | 14.2 |
+| 860000 | 온실 4 | 38 | 13.5 |
+| 861000 | 온실 5 — needs the pass | 21 | 13.6 |
+| 862000 | 항온연구소 (thermostatic lab) | 79 | 11.5 |
+| 863000 | 전략병영 (strategic barracks) | 21 | 2.1 |
+
+The greenhouse ids run **consecutively 857000-861000 for tiers 1-5**, and the
+owner counts fall monotonically with the tier — 79, 67, 51, 38, 21 — with the
+pass-locked fifth lowest of all. Two independent patterns agreeing with the
+operator's labels is what makes this a reading rather than a guess.
+
+The three **centres** are `alBuilding` (map type 15), not type 6:
+`buildId` 41000 = 연맹 용광로 1, 42000 = 용광로 2, 43000 = 용광로 3.
+
+### Still unnamed, and one of them is a puzzle
+
+Eighteen type-6 ids appear against eleven buildings described in game.
+
+- **851000-856000** (six ids) — every CBFW member has them, at high levels
+  (mean 23-28, max 30). Not named yet; one click each would settle it.
+- **743000, 744000, 745000, 751000, 752000** (five ids) — ~68 owners each,
+  levels 7-16. The journal spans the HOME map as well as the season map, so
+  the likeliest reading is that these are not season buildings at all. That
+  is a hypothesis, not a finding: nothing has been clicked to confirm it.
+
+Until they are named, `season_building_snapshots.building_type_id` stores the
+id untranslated, and any screen should show the number rather than invent a
+name for it.
+
 ## What is buildable now, and what is not
 
 `CLAUDE.md` puts season and map under "not being built yet" because the fields
