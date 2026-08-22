@@ -436,12 +436,21 @@ routine이 재접속을 포함해야 하는데, `am force-stop`·`am start`는 �
 
 ### 스윕 모드
 
+**`dw-console` 창의 `Sweep mode: on/off` 버튼이 제일 쉬운 방법이다.** 누르면 UAC가
+뜨고, 승인하면 아래 스크립트가 대신 돌아간다. 버튼 라벨과 Status 탭의 `Latency`
+줄은 기억한 값이 아니라 `C:\DW_dataun-*.cmd`에서 매번 읽는다 — UAC에서 취소한
+클릭이 켜진 것처럼 보이면 안 되기 때문이다.
+
+터미널에서 직접 할 때는(관리자 PowerShell):
+
 맵을 훑는 동안 화면을 보고 있을 때는 기본 타이밍이 너무 느리다. 등록 스크립트에
 `-Sweep` 스위치가 있다.
 
 ```powershell
-.\scripts\windowsegister-tasks.ps1 -Sweep    # 스윕 시작 전
-.\scripts\windowsegister-tasks.ps1           # 끝나면 원상복구
+.\scripts\windows
+egister-tasks.ps1 -Sweep    # 스윕 시작 전
+.\scripts\windows
+egister-tasks.ps1           # 끝나면 원상복구
 ```
 
 | | rotation | min-age | poll | 최악 지연 |

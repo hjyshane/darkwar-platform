@@ -62,6 +62,7 @@ class Console:
             ("stop", "Stop collection", self._stop_tasks),
             ("web", "Open dashboard", self._open_dashboard),
             ("docker", "Start Docker (local stack)", self._start_docker),
+            ("sweep", "Sweep mode: …", self._toggle_sweep),
         ]
         self.buttons: dict[str, ttk.Button] = {}
         for index, (key, label, command) in enumerate(buttons):
@@ -222,6 +223,7 @@ class Console:
             "Last observation",
             "Outbox",
             "Capture files",
+            "Latency",
         ]
         for index, name in enumerate(rows):
             ttk.Label(frame, text=name, width=18).grid(row=index, column=0, sticky="w", padx=6)
@@ -260,6 +262,23 @@ class Console:
 
     def _start_docker(self) -> None:
         self._spawn(state.start_docker)
+
+    def _toggle_sweep(self) -> None:
+        """Flip the collection timings, via a UAC prompt.
+
+        The mode is read off disk rather than toggled from what the label
+        says, so a click that was cancelled at the prompt leaves the next
+        press doing the same thing rather than the opposite one.
+        """
+        wanted = not state.sweep_state().sweeping
+        self.buttons["sweep"].state(["disabled"])
+        self.buttons["sweep"].config(text="Sweep mode: working…")
+        self._append(
+            "re-registering the three tasks"
+            + (" for a sweep" if wanted else " at the everyday timings")
+            + " - collection stops for a few seconds, and Windows will ask to elevate"
+        )
+        self._spawn(lambda: state.set_sweep(wanted))
 
     def _open_dashboard(self) -> None:
         self._spawn(state.open_dashboard)
@@ -359,6 +378,22 @@ class Console:
             BAD if journal.pending_outbox > 5000 else GOOD,
         )
         self._set("Capture files", str(files), GOOD if files else IDLE)
+
+        # WORST CASE, not typical: this is the number somebody uses to decide
+        # whether the dashboard has caught up with what they just did, and a
+        # typical figure would have them refreshing too early.
+        sweep = state.sweep_state()
+        if not sweep.known:
+            self._set("Latency", "unknown - no registered tasks found", IDLE)
+            self.buttons["sweep"].config(text="Sweep mode: ?")
+        else:
+            self._set(
+                "Latency",
+                f"~{sweep.worst_case}s worst case ({'sweep' if sweep.sweeping else 'everyday'})",
+                GOOD,
+            )
+            self.buttons["sweep"].config(text="Sweep mode: " + ("on" if sweep.sweeping else "off"))
+        self.buttons["sweep"].state(["!disabled"])
 
     def _append(self, text: str) -> None:
         self.log.insert("end", text.rstrip() + "\n")
