@@ -15,6 +15,7 @@ import { GuidePostPage } from './features/guides/GuidePostPage';
 import { GuidesPanel } from './features/guides/GuidesPanel';
 import { PrivacyPage } from './features/legal/PrivacyPage';
 import { TermsPage } from './features/legal/TermsPage';
+import { MapPage } from './features/map/MapPage';
 import { MonthCardsPage } from './features/monthCards/MonthCardsPage';
 import { NoticePostPage } from './features/notices/NoticePostPage';
 import { NoticesPanel } from './features/notices/NoticesPanel';
@@ -43,6 +44,7 @@ import {
   guideIdFromHash,
   isRankingRoute,
   isStandaloneRoute,
+  mapServerIdFromHash,
   noticeIdFromHash,
   playerIdFromHash,
   routeFromHash,
@@ -323,7 +325,7 @@ function Nav({ route, allianceId }: { route: Route; allianceId: string | null })
   );
 }
 
-function Screen({ route }: { route: Route }) {
+function Screen({ route, mapServerId }: { route: Route; mapServerId: number | null }) {
   const mayViewMembers = useMayView('members.view');
   const mayViewArena = useMayView('arena.view');
   switch (route) {
@@ -353,6 +355,11 @@ function Screen({ route }: { route: Route }) {
       // role again — hiding a tab hides it from the eye, not from the address
       // bar, and the underlying view is readable by any member.
       return <Season2Panel />;
+    case 'map':
+      // No capability gate, matching the season boards: world_city_snapshots
+      // is member-only at the policy level and the whole app is walled to
+      // members, so there is no ungated reader to explain an empty map to.
+      return <MapPage serverId={mapServerId} />;
     case 'season':
       // No capability gate. Both season tables are member-only at the
       // policy level (0136) and the whole app is walled to members
@@ -392,6 +399,7 @@ export function App() {
   // it depends on whether the reader was actually stopped by the wall, and the
   // session query that answers that only exists inside the provider below.
   const serverId = serverIdFromHash(hash);
+  const mapServerId = mapServerIdFromHash(hash);
   const playerId = playerIdFromHash(hash);
   const allianceId = allianceIdFromHash(hash);
   const guideId = guideIdFromHash(hash);
@@ -413,6 +421,7 @@ export function App() {
         noticeId={noticeId}
         playerId={playerId}
         route={route}
+        mapServerId={mapServerId}
         serverId={serverId}
         standalone={standalone}
       />
@@ -422,6 +431,7 @@ export function App() {
 
 function Shell({
   route,
+  mapServerId,
   serverId,
   playerId,
   allianceId,
@@ -433,6 +443,7 @@ function Shell({
   hash,
 }: {
   route: Route;
+  mapServerId: number | null;
   serverId: number | null;
   playerId: string | null;
   allianceId: string | null;
@@ -555,7 +566,7 @@ function Shell({
         <AlliancePage allianceId={allianceId} />
       ) : (
         <main>
-          <Screen route={route} />
+          <Screen mapServerId={mapServerId} route={route} />
         </main>
       )}
     </>

@@ -29,7 +29,7 @@ const TOPIC_QUERY_KEYS: Record<string, readonly (readonly string[])[]> = {
   //
   // `player-location` is keyed by player id; naming the prefix reaches
   // whichever player is open, the same trick `player` uses above.
-  world_city_snapshots: [['player-location'], ['player']],
+  world_city_snapshots: [['player-location'], ['player'], ['map']],
   season_building_snapshots: [['seasonBoard']],
   arena_entries: [['arena'], ['player']],
   // Written by an admin rather than the collector, and the only topic here
