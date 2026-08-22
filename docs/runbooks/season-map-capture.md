@@ -211,7 +211,7 @@ format is enough to read it.
 
 | field | meaning | evidence |
 |---|---|---|
-| `f1` | **coordinate**, packed as `x * 1000 + y` | max 610381 → (610, 381) against `maxAreaSize` 1000 |
+| `f1` | **coordinate**, packed as `y * 1000 + (x + 1)` | 610381 → (x 380, y 610) against `maxAreaSize` 1000 |
 | `f2` | **object type** | 10 values: 3, 4, 6, 7, 11, 13, 14, 15, 21, 22 |
 | `f102`, `f103` | server id | 580 in 1189/1189 |
 
@@ -325,7 +325,17 @@ arena `stage` field.
 
 ### Coordinates are the object id
 
-`pointId` **is** the coordinate, packed `x * 1000 + y`.
+`pointId` **is** the coordinate, packed `y * 1000 + (x + 1)` — ROW FIRST, and
+the column is ONE-BASED.
+
+This was read as `x * 1000 + y` until 22 August, and nothing caught it: a
+swapped pair is still a square on the map, still moves when the base moves,
+and still looks like a plausible coordinate. It is just somebody else's
+ground. Two members comparing the dashboard against their own screen found
+it — we said 515,554 where the game said 553,515, and 557,547 where the game
+said 546,557 — and 19,720 stored tiles confirm it: `point_id % 1000` spans
+2..998 while `point_id // 1000` spans 1..997, the same off-by-one at both
+ends of one axis only.
 
 - `point == pointId` in 543/543 player details
 - decoded x 0..998, y 1..902, and **no y ≥ 1000 in 543 samples**
