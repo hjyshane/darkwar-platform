@@ -13,7 +13,7 @@
 # not be reviewed, tested, or recovered. The machine-specific parts are
 # parameters now; everything else is the same script.
 #
-#   .\scripts\windows\register-tasks.ps1 -Interface '\Device\NPF_{...}'
+    #   register-tasks.ps1
 #
 # Find the interface with:  & 'C:\Program Files\Wireshark\dumpcap.exe' -D
 #
@@ -35,8 +35,37 @@ param(
     # Rows per sync drain. 100 kept up with live capture and is eleven hours
     # of catching up after any outage; the cost of a drain is the round trips,
     # not the rows.
-    [int]$SyncBatchSize = 1000
+    [int]$SyncBatchSize = 1000,
+    # SWEEP MODE. Cuts the three timings that decide how long a sighting takes
+    # to reach the dashboard, for a session where somebody is watching the
+    # screen while they pan the map.
+    #
+    # The default is a compromise for running all day. Sweep mode is not: it
+    # writes four times as many capture files and polls three times as often,
+    # which is fine for the half hour of a sweep and wasteful as a permanent
+    # setting. Run it again WITHOUT -Sweep to go back.
+    #
+    #   register-tasks.ps1 -Sweep    # before a sweep
+    #   register-tasks.ps1           # after, to go back
+    #
+    # What it cannot fix: dumpcap only hands over a file it has CLOSED, so the
+    # rotation period is the floor on staleness either way. 15s is as short as
+    # is sensible - below that the per-file reassembler setup starts costing
+    # more than the latency it saves.
+    [switch]$Sweep
 )
+
+# Rotation, min-age and poll. Worst case is their sum, plus the sync loop:
+#   normal  60 + 20 + 30 = 110s
+#   sweep   15 +  5 + 10 =  30s
+$timings = if ($Sweep) {
+    @{ Rotation = 15; MinAge = 5; Poll = 10; Files = 5760 }
+} else {
+    @{ Rotation = 60; MinAge = 20; Poll = 30; Files = 1440 }
+}
+# A day of history either way: quarter the rotation, quadruple the ring.
+# Losing that is how a sweep session silently costs the previous day's
+# capture, which is not a trade anybody asked for.
 
 $ErrorActionPreference = 'Stop'
 
@@ -145,7 +174,7 @@ $vbs = @(
     "' it in an interactive session: a console window still appears and stays."
     "' WScript.Shell.Run with intWindowStyle 0 genuinely has none."
     "'"
-    "' Written by scripts/windows/register-tasks.ps1; edit there, not here."
+    #   register-tasks.ps1
     'Option Explicit'
     'Dim shell, command, code'
     'If WScript.Arguments.Count < 1 Then WScript.Quit 2'
@@ -220,7 +249,7 @@ $tasks = @(
         # Double quotes: these end up in a .cmd file, and cmd treats a single
         # quote as an ordinary character. With single quotes dumpcap saw
         # "8680'" as a separate argument and refused to start.
-        Args = "-i `"$Interface`" -f `"tcp port 8680`" -w `"$CaptureDir\cap.pcapng`" -b duration:60 -b files:1440 -B 64"
+        Args = "-i `"$Interface`" -f `"tcp port 8680`" -w `"$CaptureDir\cap.pcapng`" -b duration:$($timings.Rotation) -b files:$($timings.Files) -B 64"
         Dir  = $CaptureDir
         Log  = "$LogDir\capture.log"
         # Match the WHOLE chain: wscript -> cmd -> uv -> python. The first
@@ -240,7 +269,7 @@ $tasks = @(
         # keeps the file dumpcap is still writing out of the reader; 20s is
         # comfortably past a rotation without adding a minute of lag.
         # Worst case: 60 (rotation) + 20 (min-age) + 30 (poll) = 110s.
-        Args = "$uvRun dw-collector ingest-dir --dir `"$CaptureDir`" --min-age-seconds 20 --interval-seconds 30"
+        Args = "$uvRun dw-collector ingest-dir --dir `"$CaptureDir`" --min-age-seconds $($timings.MinAge) --interval-seconds $($timings.Poll)"
         Dir  = $Collector
         Log  = "$LogDir\ingest.log"
         Match = @('ingest-dir', 'run-Ingest.cmd')
@@ -480,3 +509,19 @@ if ($failed.Count -gt 0) {
 # was true - dw-notify made it four, and a summary line that disagrees with the
 # check above it is worse than no summary line.
 Write-Output ('All ' + $tasks.Count + ' registered and running.')
+
+# Which mode took effect, and the worst-case lag it buys.
+#
+# Printed because the mode is invisible afterwards: the tasks look identical
+# in the scheduler and the only difference is three numbers buried in their
+# arguments. An operator who forgets to run this again without -Sweep leaves
+# the machine writing four times the capture files indefinitely, and nothing
+# on screen would ever say so.
+$worst = $timings.Rotation + $timings.MinAge + $timings.Poll
+if ($Sweep) {
+    Write-Output ('SWEEP MODE: ' + $worst + 's worst case to the dashboard, plus the sync loop.')
+    Write-Output '  Run this again WITHOUT -Sweep when the sweep is done.'
+} else {
+    Write-Output ('Normal mode: ' + $worst + 's worst case to the dashboard, plus the sync loop.')
+    Write-Output '  Use -Sweep before a map sweep for roughly 30s.'
+}
