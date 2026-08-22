@@ -35,14 +35,21 @@ export function MapPage({ serverId }: { serverId: number | null }) {
   // the sighting we hold is a place the player has left and no newer row
   // exists. HQ level survived the move and the tile carries it, which turns
   // "somewhere on 581" into a list short enough to read.
-  const [hqLevel, setHqLevel] = useState<number | null>(null);
+  const [hqMin, setHqMin] = useState<number | null>(null);
+  // Optional upper bound. An industrial tower is 31-35, so "at least" gets
+  // you there and "at most" narrows it when a level's worth is too many.
+  const [hqMax, setHqMax] = useState<number | null>(null);
+  // Clicking a pin picks it out WITHOUT leaving the level view: the whole
+  // point of showing a hundred at once is comparing them, and swapping to a
+  // single-base screen on every click would undo that.
+  const [picked, setPicked] = useState<number | null>(null);
 
   // The address wins on first paint; after that the tabs do. Falling back to
   // the most recently swept server means the tab opens on the ground somebody
   // was actually just looking at.
   const active = chosen ?? serverId ?? servers?.[0]?.serverId ?? null;
   const results = useSightingSearch(active, query);
-  const byLevel = useHqLevelSearch(active, hqLevel);
+  const byLevel = useHqLevelSearch(active, hqMin, hqMax);
   const now = new Date();
 
   if (isPending) {
@@ -77,7 +84,8 @@ export function MapPage({ serverId }: { serverId: number | null }) {
               // A name found on one server means nothing on another.
               setSelected(null);
               setQuery('');
-              setHqLevel(null);
+              setHqMin(null);
+              setHqMax(null);
             }}
             role="tab"
             type="button"
@@ -103,7 +111,8 @@ export function MapPage({ serverId }: { serverId: number | null }) {
           onChange={(event) => {
             setQuery(event.target.value);
             setSelected(null);
-            setHqLevel(null);
+            setHqMin(null);
+            setHqMax(null);
           }}
           placeholder="Name as it appears in game"
           type="search"
@@ -111,22 +120,41 @@ export function MapPage({ serverId }: { serverId: number | null }) {
         />
       </label>
 
-      <label className="map-search">
-        <span>Or every base at an HQ level</span>
-        <input
-          max={99}
-          min={1}
-          onChange={(event) => {
-            const next = Number.parseInt(event.target.value, 10);
-            setHqLevel(Number.isNaN(next) ? null : next);
-            setSelected(null);
-            setQuery('');
-          }}
-          placeholder="e.g. 38"
-          type="number"
-          value={hqLevel ?? ''}
-        />
-      </label>
+      <fieldset className="map-range">
+        <legend>Or every base by HQ level</legend>
+        <label>
+          <span>At least</span>
+          <input
+            max={99}
+            min={1}
+            onChange={(event) => {
+              const next = Number.parseInt(event.target.value, 10);
+              setHqMin(Number.isNaN(next) ? null : next);
+              setPicked(null);
+              setSelected(null);
+              setQuery('');
+            }}
+            placeholder="31"
+            type="number"
+            value={hqMin ?? ''}
+          />
+        </label>
+        <label>
+          <span>At most (optional)</span>
+          <input
+            max={99}
+            min={1}
+            onChange={(event) => {
+              const next = Number.parseInt(event.target.value, 10);
+              setHqMax(Number.isNaN(next) ? null : next);
+              setPicked(null);
+            }}
+            placeholder="35"
+            type="number"
+            value={hqMax ?? ''}
+          />
+        </label>
+      </fieldset>
 
       {query.trim().length > 0 && query.trim().length < MIN_QUERY && (
         <p className="subtle">Keep typing — {MIN_QUERY} characters or more.</p>
@@ -158,24 +186,25 @@ export function MapPage({ serverId }: { serverId: number | null }) {
         </ul>
       )}
 
-      {hqLevel !== null && byLevel.isFetching && <p className="empty">Looking…</p>}
-      {hqLevel !== null && byLevel.error && (
+      {hqMin !== null && byLevel.isFetching && <p className="empty">Looking…</p>}
+      {hqMin !== null && byLevel.error && (
         <p className="error">HQ search failed: {(byLevel.error as Error).message}</p>
       )}
-      {hqLevel !== null &&
+      {hqMin !== null &&
         byLevel.data &&
         selected === null &&
         (byLevel.data.length === 0 ? (
           <p className="empty">
-            No base at HQ {hqLevel} has been swept on server {active}.
+            No base at HQ {hqMin}
+            {hqMax !== null ? `-${hqMax}` : ' or above'} has been swept on server {active}.
           </p>
         ) : (
           <>
             <p className="subtle">
-              {byLevel.data.length} base{byLevel.data.length === 1 ? '' : 's'} at HQ {hqLevel} on
-              server {active}. Each is where it was last SEEN — a base that was destroyed or lost
-              its shield is teleported somewhere random, and a sweep only records the ground it
-              passed over.
+              {byLevel.data.length} base{byLevel.data.length === 1 ? '' : 's'} at HQ {hqMin}
+              {hqMax !== null ? `-${hqMax}` : ' or above'} on server {active}. Each is where it was
+              last SEEN — a base that was destroyed or lost its shield is teleported somewhere
+              random, and a sweep only records the ground it passed over.
             </p>
             <MapCanvas
               calibrate={calibrate}
@@ -183,16 +212,39 @@ export function MapPage({ serverId }: { serverId: number | null }) {
                 at: sighting.at,
                 label: sighting.name ?? formatCoordinate(sighting.at),
                 faded: isStale(sighting, now),
+                highlighted: sighting.gameUid === picked,
               }))}
+              onSelect={(marker) => {
+                // Matched on the coordinate, which is what a pin knows about
+                // itself. Two bases cannot share a square.
+                const hit = byLevel.data?.find(
+                  (s) => s.at.x === marker.at.x && s.at.y === marker.at.y,
+                );
+                setPicked(hit ? hit.gameUid : null);
+              }}
             />
+            {/* BOTH WAYS ROUND. Clicking a pin names it; clicking a name
+                lights its pin and puts the coordinate beside it. Neither
+                leaves this screen, because comparing a level's worth of bases
+                is the whole reason for showing them together — dropping into
+                a single-base view on every click would undo that. */}
             <ul className="map-results">
               {byLevel.data.map((sighting) => (
                 <li key={sighting.gameUid}>
-                  <button onClick={() => setSelected(sighting)} type="button">
+                  <button
+                    className={sighting.gameUid === picked ? 'map-result--on' : undefined}
+                    onClick={() => setPicked(sighting.gameUid === picked ? null : sighting.gameUid)}
+                    type="button"
+                  >
                     <strong>{sighting.name ?? 'unnamed'}</strong>
                     <span className="subtle">
-                      {formatCoordinate(sighting.at)} ·{' '}
+                      {formatCoordinate(sighting.at)}
+                      {/* The level itself, because a RANGE was asked for: a
+                          list of 31-35 that does not say which is which
+                          answers half the question. */}
+                      {sighting.hqLevel !== null && ` · HQ ${sighting.hqLevel}`} ·{' '}
                       {formatLastOnline('offline', sighting.capturedAt, now)}
+                      {sighting.gameUid === picked && ' · shown on the map'}
                     </span>
                   </button>
                 </li>

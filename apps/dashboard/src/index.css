@@ -3560,3 +3560,57 @@ form select {
   width: 9px;
   height: 9px;
 }
+
+/* A pin is a button when it can be picked. The dot stays the target; the
+ * label must not swallow clicks meant for a neighbouring pin. */
+.map-pin--clickable {
+  background: none;
+  border: 0;
+  cursor: pointer;
+  padding: 0;
+}
+
+.map-pin--clickable .map-pin__label {
+  pointer-events: none;
+}
+
+.map-pin--clickable:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* The row whose pin is lit, so the list and the map agree about which one
+ * is being looked at. */
+.map-results button.map-result--on {
+  border-color: var(--accent);
+  background: var(--bg-hover);
+}
+
+/* The HQ range: two small number fields side by side. */
+.map-range {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin: var(--space-4) 0;
+  max-width: 24rem;
+  padding: var(--space-2) var(--space-3) var(--space-3);
+}
+
+.map-range legend {
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+  padding: 0 var(--space-1);
+}
+
+.map-range label {
+  display: flex;
+  flex-direction: column;
+  font-size: var(--text-sm);
+  gap: var(--space-1);
+}
+
+.map-range input {
+  width: 6rem;
+}

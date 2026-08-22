@@ -7,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.15"
+  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -4078,6 +4083,35 @@ export type Database = {
         }
         Relationships: []
       }
+      latest_world_cities: {
+        Row: {
+          captured_at: string | null
+          game_uid: number | null
+          hq_level: number | null
+          name: string | null
+          player_id: string | null
+          point_id: number | null
+          server_id: number | null
+          x: number | null
+          y: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "world_city_snapshots_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "world_city_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+        ]
+      }
       member_roster: {
         Row: {
           assigned_rank: string | null
@@ -4517,20 +4551,10 @@ export type Database = {
       }
       swept_servers: {
         Row: {
-          players: number | null
           server_id: number | null
           swept_at: string | null
-          tiles: number | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "world_city_snapshots_server_id_fkey"
-            columns: ["server_id"]
-            isOneToOne: false
-            referencedRelation: "servers"
-            referencedColumns: ["server_id"]
-          },
-        ]
+        Relationships: []
       }
       sync_status: {
         Row: {
@@ -4846,4 +4870,3 @@ export const Constants = {
     },
   },
 } as const
-

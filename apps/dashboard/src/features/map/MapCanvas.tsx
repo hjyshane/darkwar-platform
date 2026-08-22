@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { type Coordinate, isOnMap, toFraction } from '../../lib/mapProjection';
+import { type Coordinate, formatCoordinate, isOnMap, toFraction } from '../../lib/mapProjection';
 
 /** The picture of the world, and one marker on it.
  *
@@ -76,12 +76,15 @@ export function MapCanvas({
   caption,
   calibrate = false,
   inset = MAP_INSET,
+  onSelect,
 }: {
   markers: readonly MapMarker[];
   caption?: string;
   /** Draw the map's own bounds, to check them against the picture. */
   calibrate?: boolean;
   inset?: MapInset;
+  /** Given, every pin becomes clickable. */
+  onSelect?: (marker: MapMarker) => void;
 }) {
   // An absent image is a normal state, not an error: the feature works
   // without it and says so, rather than showing a broken-image glyph over a
@@ -113,23 +116,43 @@ export function MapCanvas({
         <div className={calibrate ? 'map-plot map-plot--calibrate' : 'map-plot'} style={plotStyle}>
           {drawn.map((marker) => {
             const at = toFraction(marker.at);
-            return (
-              <span
-                className={[
-                  'map-pin',
-                  marker.faded ? 'map-pin--faded' : '',
-                  marker.highlighted ? 'map-pin--on' : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-                key={`${marker.label}:${marker.at.x}:${marker.at.y}`}
-                style={{ left: `${at.left * 100}%`, top: `${at.top * 100}%` }}
-                title={`${marker.label} — ${marker.at.x}, ${marker.at.y}`}
+            const where = formatCoordinate(marker.at);
+            const shown = withLabels || marker.highlighted === true;
+            const className = [
+              'map-pin',
+              marker.faded ? 'map-pin--faded' : '',
+              marker.highlighted ? 'map-pin--on' : '',
+              onSelect ? 'map-pin--clickable' : '',
+            ]
+              .filter(Boolean)
+              .join(' ');
+            // THE COORDINATE IS THE ANSWER, so a picked pin carries it on the
+            // map rather than only in the panel above. Reading a name off the
+            // map and then hunting for the same name in a list to learn where
+            // it is makes the map the slow way round.
+            const label = marker.highlighted ? `${marker.label} · ${where}` : marker.label;
+            const key = `${marker.label}:${marker.at.x}:${marker.at.y}`;
+            const position = { left: `${at.left * 100}%`, top: `${at.top * 100}%` };
+            const title = `${marker.label} — ${where}`;
+
+            // A button only when there is somewhere for the click to go. A
+            // pin that looks pressable and does nothing is worse than a dot.
+            return onSelect ? (
+              <button
+                className={className}
+                key={key}
+                onClick={() => onSelect(marker)}
+                style={position}
+                title={title}
+                type="button"
               >
                 <span className="map-pin__dot" />
-                {(withLabels || marker.highlighted) && (
-                  <span className="map-pin__label">{marker.label}</span>
-                )}
+                {shown && <span className="map-pin__label">{label}</span>}
+              </button>
+            ) : (
+              <span className={className} key={key} style={position} title={title}>
+                <span className="map-pin__dot" />
+                {shown && <span className="map-pin__label">{label}</span>}
               </span>
             );
           })}
