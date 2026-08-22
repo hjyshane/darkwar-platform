@@ -25,7 +25,6 @@ export interface ScannedServer {
   serverId: number;
   /** The newest sighting anywhere on it — when this ground was last read. */
   sweptAt: string;
-  tiles: number;
 }
 
 export interface Sighting {
@@ -41,12 +40,14 @@ export interface Sighting {
 
 /** Servers with any tile at all, newest sweep first.
  *
- * FROM THE VIEW (0140), not from the tiles. Reducing raw rows in the browser
- * needs a limit, an ordered limit keeps the NEWEST rows, and a server swept
- * last week and left alone then falls off the end of that window — the tab
- * would silently stop offering ground it has perfectly good data for. The
- * view aggregates server-side and returns a handful of rows, so there is no
- * limit to get wrong.
+ * FROM THE VIEW (0140, rewritten in 0141), not from the tiles. Reducing raw
+ * rows in the browser needs a limit, an ordered limit keeps the NEWEST rows,
+ * and a server swept last week and left alone then falls off the end of that
+ * window — the tab would silently stop offering ground it has good data for.
+ *
+ * The view returns one row per server from index lookups alone. 0140's first
+ * attempt aggregated over the tile table instead and the tab died on it:
+ * `canceling statement due to statement timeout`.
  *
  * A server nobody has visited has no tiles and so no row: the tab lists what
  * has been READ, never what exists.
@@ -54,7 +55,7 @@ export interface Sighting {
 export async function fetchScannedServers(): Promise<ScannedServer[]> {
   const { data, error } = await supabase
     .from('swept_servers')
-    .select('server_id, tiles, swept_at')
+    .select('server_id, swept_at')
     .order('swept_at', { ascending: false });
   if (error) {
     if (error.code === '42501') {
@@ -63,19 +64,15 @@ export async function fetchScannedServers(): Promise<ScannedServer[]> {
     throw new Error(`scanned servers query failed: ${error.message}`);
   }
   // A view's columns are nullable to the type generator no matter what the
-  // query guarantees — `group by server_id` cannot produce a null one. Dropped
-  // rather than cast: an unusable row should disappear, not become a tab
-  // labelled "null" that queries for nothing.
+  // query guarantees, and the skip scan's recursive step genuinely ends on a
+  // null before the view filters it out. Dropped rather than cast: an
+  // unusable row should disappear, not become a tab labelled "null".
   const rows: ScannedServer[] = [];
   for (const row of data ?? []) {
     if (row.server_id === null || row.swept_at === null) {
       continue;
     }
-    rows.push({
-      serverId: row.server_id,
-      sweptAt: row.swept_at,
-      tiles: Number(row.tiles ?? 0),
-    });
+    rows.push({ serverId: row.server_id, sweptAt: row.swept_at });
   }
   return rows;
 }
