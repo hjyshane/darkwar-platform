@@ -18,7 +18,7 @@ from typing import Any
 from dw_collector.protocol.worldmap import (
     WorldMapDecodeError,
     decode_point,
-    rewrite_city,
+    mask_people,
 )
 
 UID_SUFFIX_LEN = 6
@@ -461,23 +461,27 @@ def sanitize_world_get_new(payload: dict[str, Any]) -> dict[str, Any]:
         return payload
 
     names: dict[str, str] = {}
+
+    def name_for(real: str) -> str:
+        if real not in names:
+            names[real] = f"City{len(names) + 1:03d}"
+        return names[real]
+
     cleaned: list[str | bytes] = []
     for entry in points:
         if not isinstance(entry, (str, bytes)):
             continue
         try:
-            tile = decode_point(entry)
+            # Decoded only to prove it is readable. Every point then goes
+            # through the masker, which finds a person by SHAPE — a city, a
+            # season building and a type-21 object each carry a uid, in
+            # different fields, and only one of them is a city.
+            decode_point(entry)
         except WorldMapDecodeError:
             # A point this build cannot read is dropped rather than copied
-            # through unmasked: it might be a city whose fields moved.
+            # through unmasked: it might be carrying somebody.
             continue
-        if tile.city is None or not tile.city.uid:
-            cleaned.append(entry)
-            continue
-        real = tile.city.uid
-        if real not in names:
-            names[real] = f"City{len(names) + 1:03d}"
-        cleaned.append(rewrite_city(entry, uid=_fake_uid(real), name=names[real]))
+        cleaned.append(mask_people(entry, uid_for=_fake_uid, name_for=name_for))
 
     sanitized = dict(payload)
     sanitized["points"] = cleaned

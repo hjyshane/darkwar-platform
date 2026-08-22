@@ -3472,6 +3472,101 @@ export type Database = {
           },
         ]
       }
+      season_building_snapshots: {
+        Row: {
+          building_type_id: number | null
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at: string
+          game_uid: number
+          idempotency_key: string
+          level: number | null
+          object_id: number | null
+          observation_id: string
+          parser_version: string
+          player_id: string | null
+          point_id: number
+          raw: Json
+          server_id: number
+          snapshot_id: string
+          source_command: string
+          x: number
+          y: number
+        }
+        Insert: {
+          building_type_id?: number | null
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at?: string
+          game_uid: number
+          idempotency_key: string
+          level?: number | null
+          object_id?: number | null
+          observation_id: string
+          parser_version: string
+          player_id?: string | null
+          point_id: number
+          raw?: Json
+          server_id: number
+          snapshot_id?: string
+          source_command: string
+          x: number
+          y: number
+        }
+        Update: {
+          building_type_id?: number | null
+          captured_at?: string
+          collected_from_server_id?: number
+          collector_id?: string
+          created_at?: string
+          game_uid?: number
+          idempotency_key?: string
+          level?: number | null
+          object_id?: number | null
+          observation_id?: string
+          parser_version?: string
+          player_id?: string | null
+          point_id?: number
+          raw?: Json
+          server_id?: number
+          snapshot_id?: string
+          source_command?: string
+          x?: number
+          y?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "season_building_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "season_building_snapshots_collector_id_fkey"
+            columns: ["collector_id"]
+            isOneToOne: false
+            referencedRelation: "collectors"
+            referencedColumns: ["collector_id"]
+          },
+          {
+            foreignKeyName: "season_building_snapshots_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "season_building_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+        ]
+      }
       servers: {
         Row: {
           created_at: string

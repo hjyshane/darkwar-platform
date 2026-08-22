@@ -17,7 +17,7 @@ from dw_collector.protocol.worldmap import (
     WorldMapDecodeError,
     decode_point,
     decode_viewport,
-    rewrite_city,
+    mask_people,
 )
 
 
@@ -155,9 +155,15 @@ def test_rewriting_returns_the_form_it_was_given() -> None:
     )
     as_text = B64_PREFIX + base64.b64encode(body).decode()
 
-    assert isinstance(rewrite_city(body, uid="9" * 16, name="City001"), bytes)
-    assert isinstance(rewrite_city(as_text, uid="9" * 16, name="City001"), str)
-    masked = decode_point(rewrite_city(body, uid="9" * 16, name="City001"))
+    assert isinstance(
+        mask_people(body, uid_for=lambda _: "9" * 16, name_for=lambda _: "City001"), bytes
+    )
+    assert isinstance(
+        mask_people(as_text, uid_for=lambda _: "9" * 16, name_for=lambda _: "City001"), str
+    )
+    masked = decode_point(
+        mask_people(body, uid_for=lambda _: "9" * 16, name_for=lambda _: "City001")
+    )
     assert masked.city is not None
     assert masked.city.uid == "9" * 16
     assert masked.city.name == "City001"

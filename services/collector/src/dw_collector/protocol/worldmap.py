@@ -39,6 +39,16 @@ and the roster's own `hq_level`.
              the values happened to be short
     102,103  server id, 580 on every tile of the sweep
 
+    101      the SEASON BUILDING sub-message, present on type 6
+    101.1    owner uid. Equal to the opened detail's `uid` in 22/22 buildings
+             clicked one by one in `season_building.pcapng`
+    101.2    the object's own id, stable across days
+    101.3    BUILDING TYPE, immutable — 0 changes across 1,720 objects
+             re-observed on more than one day
+    101.4    BUILDING LEVEL. 1,536 increases and ZERO decreases across those
+             same 1,720 objects. Monotonic is what makes it a level, and it
+             is the test type 21 failed three times
+
 WHAT IS DELIBERATELY NOT INTERPRETED. Type 21 carries an owner uid and a
 spec whose trailing digits run 1-4, and it looks like a levelled building.
 It is not: keyed on object id the spec never changed across days (0 of
@@ -47,8 +57,15 @@ transitions were symmetric (457 up, 396 down) where an upgrade is
 monotonic. 563 of those objects also move. Its fields stay raw until
 something opens one.
 
-Type 6 is marches, not cities — one uid appears at one type-3 coordinate
-and at many scattered type-6 ones at the same moment.
+TYPE 6 IS THE MEMBER SEASON BUILDING. It was recorded here as "marches"
+because one uid appears at one type-3 coordinate and at many scattered
+type-6 ones at once — which looked like an army on the move and is in fact
+a player's several buildings, sitting at DIFFERENT alliance centres. A
+capture of 22 buildings clicked one at a time settled it: every clicked tile
+was type 6, every one matched its owner's uid, and they clustered around two
+of the alliance's three centres.
+
+Each player holds several; 554 owners averaged 5.1 buildings, up to 18.
 
 The wire-format primitives below mirror `army.py` rather than importing
 its private helpers. Thirty lines of duplication is the cheaper of the two:
@@ -60,6 +77,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -86,8 +104,17 @@ _CITY_UID = 1
 _CITY_HQ_LEVEL = 4
 _CITY_NAME = 14
 
-#: `f2` of a player's city tile — the only type whose fields are interpreted.
+#: `f2` of a player's city tile.
 CITY_TYPE = 3
+
+#: `f2` of a member's season building. Confirmed by clicking 22 of them.
+SEASON_BUILDING_TYPE = 6
+
+_BUILDING = 101
+_BUILDING_OWNER_UID = 1
+_BUILDING_OBJECT_ID = 2
+_BUILDING_TYPE_ID = 3
+_BUILDING_LEVEL = 4
 
 
 class WorldMapDecodeError(ValueError):
@@ -101,6 +128,22 @@ class City:
     uid: str | None = None
     name: str | None = None
     hq_level: int | None = None
+
+
+@dataclass(frozen=True)
+class SeasonBuilding:
+    """The interpreted part of a type-6 tile.
+
+    `type_id` is the game's own building id and is NOT translated here. The
+    map shows 18 distinct values while the alliance describes eleven
+    buildings, so any naming would be a guess; the id travels as-is and a
+    catalogue can name it once somebody reads the id off the screen.
+    """
+
+    owner_uid: str | None = None
+    object_id: int | None = None
+    type_id: int | None = None
+    level: int | None = None
 
 
 @dataclass(frozen=True)
@@ -118,6 +161,7 @@ class Tile:
     y: int
     server_id: int | None = None
     city: City | None = None
+    building: SeasonBuilding | None = None
     raw: dict[str, Any] = field(default_factory=dict)
 
 
@@ -207,6 +251,19 @@ def _jsonable(value: int | bytes) -> int | str:
     return value if isinstance(value, int) else value.hex()
 
 
+def _building(values: dict[int, list[int | bytes]]) -> SeasonBuilding | None:
+    got = values.get(_BUILDING)
+    if not got or not isinstance(got[0], bytes):
+        return None
+    sub = _fields(got[0])
+    return SeasonBuilding(
+        owner_uid=_text(sub, _BUILDING_OWNER_UID),
+        object_id=_varint(sub, _BUILDING_OBJECT_ID),
+        type_id=_varint(sub, _BUILDING_TYPE_ID),
+        level=_varint(sub, _BUILDING_LEVEL),
+    )
+
+
 def _city(values: dict[int, list[int | bytes]]) -> City | None:
     got = values.get(_CITY)
     if not got or not isinstance(got[0], bytes):
@@ -279,7 +336,45 @@ def _replace_text(buf: bytes, replacements: dict[int, str]) -> bytes:
     return bytes(out)
 
 
-def rewrite_city(entry: str | bytes, *, uid: str, name: str) -> str | bytes:
+#: A player uid is sixteen digits. Used to find one wherever it hides.
+UID_LENGTH = 16
+
+
+def _looks_like_uid(raw: bytes) -> bool:
+    return len(raw) == UID_LENGTH and raw.isdigit()
+
+
+def _mask_uids_anywhere(buf: bytes, uid_for: Callable[[str], str]) -> tuple[bytes, bool]:
+    """Replace every 16-digit numeric string in one sub-message.
+
+    BY SHAPE, NOT BY FIELD NUMBER, and that is deliberate. The owner uid sits
+    at `101.1` on a season building and at `101.3` on a type-21 object, and
+    those same numbers hold an object id and a building type on the other —
+    masking by position would blank a type on one tile and leak a person on
+    the next. Sixteen numeric digits is what a uid is.
+    """
+    out = bytearray()
+    changed = False
+    for number, wire, chunk in _split(buf):
+        if wire == _WIRE_BYTES:
+            body = _fields_body(chunk)
+            if _looks_like_uid(body):
+                payload = uid_for(body.decode("ascii")).encode("ascii")
+                out += _emit_varint((number << 3) | _WIRE_BYTES)
+                out += _emit_varint(len(payload))
+                out += payload
+                changed = True
+                continue
+        out += chunk
+    return bytes(out), changed
+
+
+def mask_people(
+    entry: str | bytes,
+    *,
+    uid_for: Callable[[str], str],
+    name_for: Callable[[str], str],
+) -> str | bytes:
     """A point with the city's uid and name replaced, everything else intact.
 
     This exists for the fixture sanitizer. The alternative was dropping the
@@ -288,23 +383,49 @@ def rewrite_city(entry: str | bytes, *, uid: str, name: str) -> str | bytes:
     the type ids and the field numbering are exactly what a fixture is for,
     and none of them identify anybody.
 
-    A non-city point comes back unchanged rather than raising: a viewport is
-    mostly terrain and resources, and the caller should not have to know
-    which entries carry a person.
+    A point carrying nobody comes back unchanged rather than raising: a
+    viewport is mostly terrain and resources, and the caller should not have
+    to know which entries carry a person.
+
+    THREE TYPES CARRY ONE. The city (type 3) holds a uid and a name; a season
+    building (type 6) and a type-21 object each hold their owner's uid inside
+    the `101` sub-message. An earlier version masked only the city, which
+    would have published every building owner's uid the first time a fixture
+    was taken over ground that had any — the committed one escaped it only
+    because that viewport happened to contain no buildings.
     """
     raw = point_bytes(entry)
     out = bytearray()
     changed = False
     for number, wire, chunk in _split(raw):
-        if number == _CITY and wire == _WIRE_BYTES:
+        if wire == _WIRE_BYTES:
             body = _fields_body(chunk)
-            masked = _replace_text(body, {_CITY_UID: uid, _CITY_NAME: name})
-            out += _emit_varint((_CITY << 3) | _WIRE_BYTES)
-            out += _emit_varint(len(masked))
-            out += masked
-            changed = True
-        else:
-            out += chunk
+            masked: bytes = b""
+            touched = False
+            if number == _CITY:
+                sub = _fields(body)
+                real = _text(sub, _CITY_UID)
+                if real is not None:
+                    masked = _replace_text(
+                        body, {_CITY_UID: uid_for(real), _CITY_NAME: name_for(real)}
+                    )
+                    touched = True
+            else:
+                # EVERY other sub-message, not a named few. Types 13 and 14
+                # keep their owner at `8.1` and `7.1`, and a list of field
+                # numbers is a list that goes stale the next time the game
+                # adds an object type.
+                try:
+                    masked, touched = _mask_uids_anywhere(body, uid_for)
+                except WorldMapDecodeError:
+                    touched = False
+            if touched:
+                out += _emit_varint((number << 3) | _WIRE_BYTES)
+                out += _emit_varint(len(masked))
+                out += masked
+                changed = True
+                continue
+        out += chunk
     if not changed:
         return entry
     # Same form in as out. A sanitizer works on whichever the caller had,
@@ -377,6 +498,7 @@ def decode_point(entry: str | bytes) -> Tile:
         y=point_id % MAP_WIDTH,
         server_id=_varint(top, _SERVER_ID),
         city=_city(top) if object_type == CITY_TYPE else None,
+        building=_building(top) if object_type == SEASON_BUILDING_TYPE else None,
         raw={str(n): [_jsonable(v) for v in vs] for n, vs in top.items()},
     )
 

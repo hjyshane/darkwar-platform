@@ -12,22 +12,75 @@ from dw_collector.normalize import world_map
 from tests.conftest import load_observation
 
 VIEWPORT = "world.get.new/season3_viewport_v1.json"
+# A pan over ground dense with members' season buildings: 256 of them.
+BUILDINGS = "world.get.new/season3_buildings_v1.json"
 
 
 def test_registered() -> None:
     assert registry.get("world.get.new") is world_map.normalize
 
 
-def test_only_cities_are_written() -> None:
-    """657 tiles in, 134 cities out. The other 523 are resources, marches
-    and types nobody has opened, and a row for any of them would be a
-    column full of guesses."""
+def test_cities_and_season_buildings_are_written() -> None:
+    """Two tables from one viewport. Everything else — resources, alliance
+    buildings, the eight types nobody has opened — stays out, because a row
+    for any of them would be a column full of guesses."""
     observation = load_observation(VIEWPORT)
 
     rows = world_map.normalize(observation)
+    tables = {r.target_table for r in rows}
 
-    assert len(rows) == 134
-    assert {r.target_table for r in rows} == {"world_city_snapshots"}
+    assert tables <= {"world_city_snapshots", "season_building_snapshots"}
+    cities = [r for r in rows if r.target_table == "world_city_snapshots"]
+    assert len(cities) == 134
+
+
+def test_a_building_records_a_level_that_only_rises() -> None:
+    """The property that separates a level from a variant id. Type 21 has a
+    lookalike field that failed this three ways; this one passed it with
+    1,536 increases and zero decreases across 1,720 tracked objects."""
+    rows = [
+        r
+        for r in world_map.normalize(load_observation(BUILDINGS))
+        if r.target_table == "season_building_snapshots"
+    ]
+    levels = [r.row["level"] for r in rows if r.row["level"] is not None]
+
+    assert levels
+    assert min(levels) >= 1
+    # Buildings of one type at many levels is the whole point of the board.
+    assert len(set(levels)) > 1
+
+
+def test_a_season_building_carries_its_owner_type_and_level() -> None:
+    """The surface the alliance asked for. Type 6 was labelled marches in
+    this repo until 22 buildings were clicked and every one came back as
+    type 6 matching its owner's uid."""
+    rows = [
+        r
+        for r in world_map.normalize(load_observation(BUILDINGS))
+        if r.target_table == "season_building_snapshots"
+    ]
+
+    assert len(rows) == 256
+    for row in rows:
+        assert row.row["game_uid"] > 0
+        assert row.row["server_id"] == int(str(row.row["game_uid"])[-6:])
+        assert row.row["point_id"] == row.row["x"] * 1000 + row.row["y"]
+        if row.row["level"] is not None:
+            assert row.row["level"] >= 1
+
+
+def test_a_building_is_keyed_by_object_not_by_tile() -> None:
+    """A coordinate can be rebuilt on; an object cannot. Keying on the tile
+    would merge two buildings' histories into one patch of ground."""
+    rows = [
+        r
+        for r in world_map.normalize(load_observation(BUILDINGS))
+        if r.target_table == "season_building_snapshots"
+    ]
+
+    assert len({r.idempotency_key for r in rows}) == len(rows)
+    assert all("building:" in r.idempotency_key for r in rows)
 
 
 def test_the_coordinate_is_stored_unpacked_and_packed() -> None:
