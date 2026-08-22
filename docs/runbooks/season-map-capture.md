@@ -435,6 +435,58 @@ Until they are named, `season_building_snapshots.building_type_id` stores the
 id untranslated, and any screen should show the number rather than invent a
 name for it.
 
+## How map scanning actually behaves (measured 2026-08-22)
+
+### Another server scans without going there
+
+Viewing a server is enough. The journal holds `world.get.new` viewports for
+**twelve servers, 577 to 588**, and the collector account never left 580.
+
+| server | viewports | distinct cities |
+|---|---|---|
+| 580 (home) | 7,478 | 868 |
+| **581** | **345** | **2,440** |
+| 588 | 84 | 221 |
+| 578 | 99 | 287 |
+| the rest | 21-105 each | 12-165 each |
+
+581 is the instructive row: a deliberate sweep of a server nobody lives on
+produced **more cities than the home server has after two and a half weeks of
+incidental play**. Systematic beats continuous.
+
+### Zoom decides whether anything arrives at all
+
+| `viewLvl` | viewports | mean points | tile span per viewport |
+|---|---|---|---|
+| 0 (closest) | 7,178 | 130 | 40 x 24 |
+| **1 (one step out)** | **1,267** | **579** | **140 x 70** |
+| 2 (further out) | 5 | **0** | nothing |
+
+**One step out is the sweet spot and two steps out returns nothing.** At
+`viewLvl` 2 the server sends no `points` at all — the client is drawing from
+something else — so a sweep at that zoom looks productive on screen and
+collects no map data whatever. A pass at `viewLvl` 1 covers roughly six times
+the ground of one at `viewLvl` 0 for four times the payload.
+
+`581server_scan.pcapng` is the cautionary case: 13.6 MB, 514 observations,
+and **zero viewport payloads**. All 10.7 MB of it was `marchInfos` from
+`push.world.march.world.get.new`, which carries marches and no tiles. Its map
+data reached the journal through the continuously running capture instead.
+
+### Seeing part of the map loads part of the map
+
+Points arrive per viewport and are bounded by it — the spans above are
+measured, not assumed. There is no request that returns the whole map, and
+there is no aggregate that fills in unpanned ground. Coverage is therefore a
+property of where the collector has actually looked:
+
+- server 580: 38,246 distinct tiles after 7,478 viewports
+- server 581: 15,815 distinct tiles after 345
+
+Both bounding boxes span the full 0-999 range, so a "percentage of the map"
+figure is misleading — what matters is that a tile is only as fresh as the
+last pass over it, which is exactly what §14.5 asks coverage to be shown for.
+
 ## What is buildable now, and what is not
 
 `CLAUDE.md` puts season and map under "not being built yet" because the fields
