@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { allianceLabel, movement } from './boards';
+import { BUILDING_NAMES, buildingLabel, isNamed } from './buildings';
 
 describe('movement', () => {
   it('reads a smaller rank as an improvement', () => {
@@ -52,5 +53,36 @@ describe('allianceLabel', () => {
 
   it('returns null when neither is known, leaving the fallback to the caller', () => {
     expect(allianceLabel(null, null)).toBeNull();
+  });
+});
+
+describe('building names', () => {
+  it('names every building the grid is willing to show', () => {
+    // The grid renders `columns`, and `columns` only ever holds named ids —
+    // so a label can never come back as a bare number a reader cannot use.
+    for (const id of Object.keys(BUILDING_NAMES).map(Number)) {
+      expect(isNamed(id)).toBe(true);
+      expect(buildingLabel(id)).toBe(BUILDING_NAMES[id]);
+      expect(buildingLabel(id)).not.toMatch(/^\d+$/);
+    }
+  });
+
+  it('refuses last season\u2019s ids', () => {
+    // 743000-856000 were last seen 12-16 August and are frozen at level 30;
+    // 857000-863000 appeared on 17 August and are still moving. The name is
+    // what separates them, so an unnamed id must not pass.
+    for (const stale of [743000, 751000, 851000, 853000, 856000]) {
+      expect(isNamed(stale)).toBe(false);
+    }
+  });
+
+  it('knows the seven season 3 buildings confirmed against a member', () => {
+    // WonderingDuck, read off the game: 온실 1-4 at 19, 온실 5 at 18,
+    // 항온연구소 19, 전략병영 1 — and the ids matched all seven.
+    expect(BUILDING_NAMES[857000]).toBe('온실 1');
+    expect(BUILDING_NAMES[861000]).toBe('온실 5');
+    expect(BUILDING_NAMES[862000]).toBe('항온연구소');
+    expect(BUILDING_NAMES[863000]).toBe('전략병영');
+    expect(Object.keys(BUILDING_NAMES)).toHaveLength(7);
   });
 });

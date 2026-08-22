@@ -94,6 +94,15 @@ export function SeasonPanel() {
         <p className="note">
           A dash means we have not seen that building yet, not that it is unbuilt. Only buildings
           the collector has panned over appear here.
+          {buildings.data && buildings.data.unnamedSeen > 0 && (
+            <>
+              {' '}
+              {buildings.data.unnamedSeen} more building type
+              {buildings.data.unnamedSeen === 1 ? ' is' : 's are'} on the map that we cannot name
+              yet — including last season's, which the game still reports from old sightings. They
+              are left out rather than shown as a number.
+            </>
+          )}
         </p>
       )}
       {/* Said on the screen, not only in the migration. `force` and `score`

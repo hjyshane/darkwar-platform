@@ -487,6 +487,43 @@ Both bounding boxes span the full 0-999 range, so a "percentage of the map"
 figure is misleading — what matters is that a tile is only as fresh as the
 last pass over it, which is exactly what §14.5 asks coverage to be shown for.
 
+## The season boundary is visible in the data (2026-08-22)
+
+The map keeps returning LAST SEASON'S buildings from old observations, and
+nothing in a row says which season it belongs to. The sighting dates do:
+
+| ids | first seen | last seen | levels |
+|---|---|---|---|
+| 743000-856000 (eleven) | 5 Aug | **12-16 Aug** | frozen at 30 |
+| 857000-863000 (seven) | **17-19 Aug** | still moving | 1-19 |
+
+**Season 3 began around 17 August.** Before that boundary the same players
+held a different set of buildings, all long since maxed, and those rows are
+still in the journal because a snapshot table keeps history by design.
+
+Put on one board they are indistinguishable: a member's season 2 warehouse
+at level 30 sits beside their season 3 greenhouse at 19 with nothing to
+separate them, which is exactly what the alliance saw and reported.
+
+### The name is the filter
+
+The dashboard shows a building only if it has a NAME, and last season's ids
+have none. That is not a workaround dressed up — a name is the evidence that
+somebody opened the building and said what it was, and an id nobody has
+named is either last season's or something not yet identified. Neither
+belongs on a board read by 94 people.
+
+Confirmed against a member reading their own screen (WonderingDuck): 온실 1-4
+at level 19, 온실 5 at 18, 항온연구소 at 19, 전략병영 at 1. All seven ids
+matched exactly, which is what promoted the mapping from a reading to a fact.
+
+### Still to identify
+
+The alliance describes ELEVEN season 3 buildings and seven are named. Two of
+the remainder are 터렛 and 방어기지, which nobody in the alliance has built —
+so they have never appeared on the map and cannot be identified from it. They
+will only be nameable once somebody builds one.
+
 ## What is buildable now, and what is not
 
 `CLAUDE.md` puts season and map under "not being built yet" because the fields
