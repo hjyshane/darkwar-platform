@@ -23,6 +23,7 @@ import { PlayerPage } from './features/player/PlayerPage';
 import { RankingsPanel } from './features/rankings/RankingsPanel';
 import { RosterPanel } from './features/roster/RosterPanel';
 import { SchedulePanel } from './features/schedule/SchedulePanel';
+import { Season2Panel } from './features/season/Season2Panel';
 import { SeasonPanel } from './features/season/SeasonPanel';
 import { ServerPage } from './features/server/ServerPage';
 import { useRecordActivity } from './lib/activity';
@@ -254,8 +255,14 @@ function Nav({ route, allianceId }: { route: Route; allianceId: string | null })
   // is worse than one that arrives a beat late. Hiding it withholds nothing —
   // RLS does that, and somebody who types `#/schedule` gets an empty grid.
   const mayViewSchedule = useMayView('schedule.view');
+  // Undefined while the session loads is treated as "not admin": drawing a
+  // tab and taking it away is worse than one that arrives a beat late — the
+  // same rule Schedule follows one line up.
+  const isAdmin = session?.role === 'admin';
   const tabs = NAV_TABS.filter(
-    (tab) => tab.route !== 'schedule' || mayViewSchedule === true,
+    (tab) =>
+      (tab.route !== 'schedule' || mayViewSchedule === true) &&
+      (tab.route !== 'season2' || isAdmin),
   ).flatMap((tab) => {
     const entry = {
       key: tab.hash,
@@ -341,6 +348,11 @@ function Screen({ route }: { route: Route }) {
       return <RankingsPanel />;
     case 'crossRankings':
       return <CrossRankingsPanel />;
+    case 'season2':
+      // The nav hides this from anyone but an admin, and the panel checks the
+      // role again — hiding a tab hides it from the eye, not from the address
+      // bar, and the underlying view is readable by any member.
+      return <Season2Panel />;
     case 'season':
       // No capability gate. Both season tables are member-only at the
       // policy level (0136) and the whole app is walled to members

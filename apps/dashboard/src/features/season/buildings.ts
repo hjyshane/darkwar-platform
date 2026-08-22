@@ -44,42 +44,43 @@ export const SEASON3_BUILDINGS: readonly BuildingKind[] = [
 
 /** Season 2, behind the admin-only tab.
  *
- * EVERY NAME HERE IS PROVISIONAL. The counts came from a person — one
- * Obelisk, five Altars, one Barrack, two Attack, two Defense, eleven in all,
- * which is exactly how many ids there are. WHICH id is which is a guess.
+ * The counts and two of the placements are the alliance's: one Obelisk, five
+ * Altars, one Barrack, two Attack, two Defense — eleven, exactly how many ids
+ * there are — with Obelisk at 743000 and the Altars in the 85x run.
  *
- * The data was asked and declined to answer. In season 3 the five greenhouse
- * tiers gave themselves away as consecutive ids whose owner counts fell with
- * the tier (79, 67, 51, 38, 21). Nothing like that appears here: owner counts
- * run 183, 331, 339, 331, 327 and 167, 153, 210, 197, 24, 168 — no ordering,
- * no decline — and every building is held one per owner, so there is no
- * multiplicity to read either.
+ * WHICH FIVE OF THE SIX 85x IDS ARE ALTARS is the part the data answered.
+ * 855000 is held by 24 owners while the rest of that run have 153-210, and
+ * that is the same signature season 3's top greenhouse tier has: 861000 sits
+ * at 23 owners against 89, 74, 55 and 39 for tiers 1-4, because it needs the
+ * pass. A tier that rare is the last one, so the Altars run 851000-855000 and
+ * 856000 is the odd one out.
  *
- * So the split is structural, not evidential. The ids fall into a set of five
- * (743000-752000) and a contiguous run of six (851000-856000), and the counts
- * fit that shape exactly: five Altars, then Obelisk + Barrack + Attack x2 +
- * Defense x2 makes six. The alternative was to lay the names over the ids in
- * order, which would have straddled 851000 across the two groups and fits
- * worse.
+ * 856000 IS READ AS THE BARRACK by the same shape season 3 has. There the
+ * multi-tier building occupied a run (857000-861000) and the single buildings
+ * sat immediately after it (862000, 863000). 856000 is the single id adjacent
+ * to the Altar run, and it also carries the highest mean level of the six.
  *
- * Display order follows how the alliance listed them, not the ids.
+ * STILL A GUESS: which of the two remaining pairs is Attack and which is
+ * Defense. 744000/745000 and 751000/752000 are two pairs with nothing to tell
+ * them apart, so they are laid down in the order the alliance listed the
+ * names. That is the placement most likely to be wrong.
  *
  * These were last seen between 12 and 16 August, frozen at level 30, while
  * season 3 began around the 17th — which is why they are on their own tab
  * rather than mixed into the board the alliance reads.
  */
 export const SEASON2_BUILDINGS: readonly BuildingKind[] = [
-  { id: 851000, name: 'Obelisk', provisional: true },
-  { id: 743000, name: 'Altar 1', provisional: true },
-  { id: 744000, name: 'Altar 2', provisional: true },
-  { id: 745000, name: 'Altar 3', provisional: true },
-  { id: 751000, name: 'Altar 4', provisional: true },
-  { id: 752000, name: 'Altar 5', provisional: true },
-  { id: 852000, name: 'Barrack', provisional: true },
-  { id: 853000, name: 'Attack 1', provisional: true },
-  { id: 854000, name: 'Attack 2', provisional: true },
-  { id: 855000, name: 'Defense 1', provisional: true },
-  { id: 856000, name: 'Defense 2', provisional: true },
+  { id: 743000, name: 'Obelisk', provisional: true },
+  { id: 851000, name: 'Altar 1', provisional: true },
+  { id: 852000, name: 'Altar 2', provisional: true },
+  { id: 853000, name: 'Altar 3', provisional: true },
+  { id: 854000, name: 'Altar 4', provisional: true },
+  { id: 855000, name: 'Altar 5', provisional: true },
+  { id: 856000, name: 'Barrack', provisional: true },
+  { id: 744000, name: 'Attack 1', provisional: true },
+  { id: 745000, name: 'Attack 2', provisional: true },
+  { id: 751000, name: 'Defense 1', provisional: true },
+  { id: 752000, name: 'Defense 2', provisional: true },
 ];
 
 export type SeasonCatalogue = readonly BuildingKind[];

@@ -3,23 +3,18 @@ import { useState } from 'react';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
 import { useSeasonBuildingAlert } from '../../lib/seasonBuildingAlert';
 import { TERMS } from '../../lib/terms';
-import { useSession } from '../../lib/useSession';
 import { SeasonAllianceTable } from './SeasonAllianceTable';
 import { SeasonBuildingTable } from './SeasonBuildingTable';
 import { SeasonForceTable } from './SeasonForceTable';
 import { type SeasonBoardId, fetchAllianceScoreBoard, fetchPlayerForceBoard } from './boards';
-import { SEASON2_BUILDINGS, SEASON3_BUILDINGS, fetchBuildingGrid } from './buildings';
+import { SEASON3_BUILDINGS, fetchBuildingGrid } from './buildings';
 
 /** Buildings first: it is the board the alliance opens the tab to read, and
  * the two rankings are the ones you go looking for. */
-const BOARD_LABELS: ReadonlyArray<{ id: SeasonBoardId; label: string; adminOnly?: boolean }> = [
+const BOARD_LABELS: ReadonlyArray<{ id: SeasonBoardId; label: string }> = [
   { id: 'buildings', label: TERMS.seasonBuildings },
   { id: 'alliance_score', label: TERMS.seasonScore },
   { id: 'player_force', label: TERMS.seasonForce },
-  // Last season's buildings still arrive from old observations. Nobody in the
-  // alliance needs them and their names are placeholders, so they sit behind
-  // the admin role rather than in front of 94 readers.
-  { id: 'season2_buildings', label: TERMS.season2Buildings, adminOnly: true },
 ];
 
 /** A board changes only when somebody opens it in the game, so the app's 60s
@@ -39,13 +34,7 @@ export function SeasonPanel() {
   // history. No measurement is better than a wrong one; the kind can be
   // added deliberately when season scoring is designed.
   const [boardId, setBoardId] = useState<SeasonBoardId>('buildings');
-  const { data: session } = useSession();
   const { data: alert } = useSeasonBuildingAlert();
-
-  // Undefined while the session loads is treated as "not admin": drawing a
-  // tab and taking it away is worse than one that arrives a beat late.
-  const isAdmin = session?.role === 'admin';
-  const tabs = BOARD_LABELS.filter((tab) => tab.adminOnly !== true || isAdmin);
 
   const alliance = useQuery({
     queryKey: ['seasonBoard', 'alliance_score'],
@@ -65,21 +54,8 @@ export function SeasonPanel() {
     staleTime: STALE_TIME,
     enabled: boardId === 'buildings',
   });
-  const season2 = useQuery({
-    queryKey: ['seasonBoard', 'season2_buildings'],
-    queryFn: () => fetchBuildingGrid(SEASON2_BUILDINGS),
-    staleTime: STALE_TIME,
-    enabled: boardId === 'season2_buildings' && isAdmin,
-  });
-
   const active =
-    boardId === 'alliance_score'
-      ? alliance
-      : boardId === 'player_force'
-        ? players
-        : boardId === 'season2_buildings'
-          ? season2
-          : buildings;
+    boardId === 'alliance_score' ? alliance : boardId === 'player_force' ? players : buildings;
   const capturedAt =
     buildings.data?.capturedAt ?? alliance.data?.[0]?.captured_at ?? players.data?.[0]?.captured_at;
   const alertLevel = alert?.enabled === true ? alert.level : null;
@@ -94,7 +70,7 @@ export function SeasonPanel() {
           table rather than a column. Tabs, not links: all of them live at
           this address. */}
       <div role="tablist" aria-label="Season board">
-        {tabs.map((candidate) => (
+        {BOARD_LABELS.map((candidate) => (
           <button
             key={candidate.id}
             type="button"
@@ -111,11 +87,6 @@ export function SeasonPanel() {
 
       {boardId === 'buildings' && buildings.data && (
         <SeasonBuildingTable grid={buildings.data} alertLevel={alertLevel} />
-      )}
-      {boardId === 'season2_buildings' && season2.data && (
-        // No alert marker on last season: nobody is behind on a season that
-        // has ended, and the names here are placeholders anyway.
-        <SeasonBuildingTable grid={season2.data} alertLevel={null} />
       )}
       {boardId === 'alliance_score' && alliance.data && (
         <SeasonAllianceTable rows={alliance.data} />
@@ -142,14 +113,6 @@ export function SeasonPanel() {
               not name — last season's among them. They are left out rather than shown as a number.
             </>
           )}
-        </p>
-      )}
-      {boardId === 'season2_buildings' && (
-        <p className="note">
-          Season 2, kept for reference. These stopped being observed around 16 August, so the levels
-          are frozen where the season left them. Names marked <strong>*</strong> are placeholders —
-          five names were supplied for eleven buildings, so which id is which is a guess until
-          somebody corrects it.
         </p>
       )}
       {(boardId === 'alliance_score' || boardId === 'player_force') && (
