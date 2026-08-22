@@ -26,6 +26,7 @@ import { PermissionsSetting } from './PermissionsSetting';
 import { PetsSetting } from './PetsSetting';
 import { RankReportSetting } from './RankReportSetting';
 import { RankTiersSetting } from './RankTiersSetting';
+import { SeasonBuildingAlertSetting } from './SeasonBuildingAlertSetting';
 import { TableLayoutSetting } from './TableLayoutSetting';
 
 /** Settings an admin can change without a deploy.
@@ -225,6 +226,13 @@ function DisplayGroup({ section }: { section: string }) {
         <section aria-labelledby="metrics-heading">
           <h2 id="metrics-heading">Overview figures</h2>
           <OverviewMetricsSetting />
+        </section>
+      )}
+
+      {section === 'season-building-alert' && (
+        <section aria-labelledby="season-building-alert-heading">
+          <h2 id="season-building-alert-heading">Season building alert</h2>
+          <SeasonBuildingAlertSetting />
         </section>
       )}
 

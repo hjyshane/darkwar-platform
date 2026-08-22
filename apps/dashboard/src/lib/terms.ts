@@ -37,6 +37,8 @@ export const TERMS = {
   seasonScore: 'Coal Production',
   seasonForce: 'Influence',
   seasonBuildings: 'Buildings',
+  // Admin-only. Last season's buildings still arrive from old sightings.
+  season2Buildings: 'Season 2',
   monthlyCard: 'Monthly Card',
   signIn: 'Sign In',
 

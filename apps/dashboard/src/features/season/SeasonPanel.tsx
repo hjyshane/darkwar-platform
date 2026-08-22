@@ -1,17 +1,25 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
+import { useSeasonBuildingAlert } from '../../lib/seasonBuildingAlert';
 import { TERMS } from '../../lib/terms';
+import { useSession } from '../../lib/useSession';
 import { SeasonAllianceTable } from './SeasonAllianceTable';
 import { SeasonBuildingTable } from './SeasonBuildingTable';
 import { SeasonForceTable } from './SeasonForceTable';
 import { type SeasonBoardId, fetchAllianceScoreBoard, fetchPlayerForceBoard } from './boards';
-import { fetchBuildingGrid } from './buildings';
+import { SEASON2_BUILDINGS, SEASON3_BUILDINGS, fetchBuildingGrid } from './buildings';
 
-const BOARD_LABELS: ReadonlyArray<{ id: SeasonBoardId; label: string }> = [
+/** Buildings first: it is the board the alliance opens the tab to read, and
+ * the two rankings are the ones you go looking for. */
+const BOARD_LABELS: ReadonlyArray<{ id: SeasonBoardId; label: string; adminOnly?: boolean }> = [
+  { id: 'buildings', label: TERMS.seasonBuildings },
   { id: 'alliance_score', label: TERMS.seasonScore },
   { id: 'player_force', label: TERMS.seasonForce },
-  { id: 'buildings', label: TERMS.seasonBuildings },
+  // Last season's buildings still arrive from old observations. Nobody in the
+  // alliance needs them and their names are placeholders, so they sit behind
+  // the admin role rather than in front of 94 readers.
+  { id: 'season2_buildings', label: TERMS.season2Buildings, adminOnly: true },
 ];
 
 /** A board changes only when somebody opens it in the game, so the app's 60s
@@ -30,7 +38,14 @@ export function SeasonPanel() {
   // opens as player-board opens and corrupt a metric that already has
   // history. No measurement is better than a wrong one; the kind can be
   // added deliberately when season scoring is designed.
-  const [boardId, setBoardId] = useState<SeasonBoardId>('alliance_score');
+  const [boardId, setBoardId] = useState<SeasonBoardId>('buildings');
+  const { data: session } = useSession();
+  const { data: alert } = useSeasonBuildingAlert();
+
+  // Undefined while the session loads is treated as "not admin": drawing a
+  // tab and taking it away is worse than one that arrives a beat late.
+  const isAdmin = session?.role === 'admin';
+  const tabs = BOARD_LABELS.filter((tab) => tab.adminOnly !== true || isAdmin);
 
   const alliance = useQuery({
     queryKey: ['seasonBoard', 'alliance_score'],
@@ -46,15 +61,28 @@ export function SeasonPanel() {
   });
   const buildings = useQuery({
     queryKey: ['seasonBoard', 'buildings'],
-    queryFn: fetchBuildingGrid,
+    queryFn: () => fetchBuildingGrid(SEASON3_BUILDINGS),
     staleTime: STALE_TIME,
     enabled: boardId === 'buildings',
   });
+  const season2 = useQuery({
+    queryKey: ['seasonBoard', 'season2_buildings'],
+    queryFn: () => fetchBuildingGrid(SEASON2_BUILDINGS),
+    staleTime: STALE_TIME,
+    enabled: boardId === 'season2_buildings' && isAdmin,
+  });
 
   const active =
-    boardId === 'alliance_score' ? alliance : boardId === 'player_force' ? players : buildings;
+    boardId === 'alliance_score'
+      ? alliance
+      : boardId === 'player_force'
+        ? players
+        : boardId === 'season2_buildings'
+          ? season2
+          : buildings;
   const capturedAt =
-    alliance.data?.[0]?.captured_at ?? players.data?.[0]?.captured_at ?? buildings.data?.capturedAt;
+    buildings.data?.capturedAt ?? alliance.data?.[0]?.captured_at ?? players.data?.[0]?.captured_at;
+  const alertLevel = alert?.enabled === true ? alert.level : null;
 
   return (
     <section aria-labelledby="season-heading">
@@ -62,11 +90,11 @@ export function SeasonPanel() {
         {TERMS.season}
         {capturedAt && <FreshnessBadge capturedAt={capturedAt} />}
       </h2>
-      {/* The two boards rank different subjects, so this switches the whole
-          table rather than a column. Tabs, not links: both live at this
-          address. */}
+      {/* The boards describe different subjects, so this switches the whole
+          table rather than a column. Tabs, not links: all of them live at
+          this address. */}
       <div role="tablist" aria-label="Season board">
-        {BOARD_LABELS.map((candidate) => (
+        {tabs.map((candidate) => (
           <button
             key={candidate.id}
             type="button"
@@ -80,11 +108,20 @@ export function SeasonPanel() {
       </div>
       {active.isPending && <p className="empty">Loading…</p>}
       {active.error && <p className="error">Could not load season board: {active.error.message}</p>}
+
+      {boardId === 'buildings' && buildings.data && (
+        <SeasonBuildingTable grid={buildings.data} alertLevel={alertLevel} />
+      )}
+      {boardId === 'season2_buildings' && season2.data && (
+        // No alert marker on last season: nobody is behind on a season that
+        // has ended, and the names here are placeholders anyway.
+        <SeasonBuildingTable grid={season2.data} alertLevel={null} />
+      )}
       {boardId === 'alliance_score' && alliance.data && (
         <SeasonAllianceTable rows={alliance.data} />
       )}
       {boardId === 'player_force' && players.data && <SeasonForceTable rows={players.data} />}
-      {boardId === 'buildings' && buildings.data && <SeasonBuildingTable grid={buildings.data} />}
+
       {/* The one thing a reader could get badly wrong on this grid. An empty
           cell is a gap in OUR coverage — the collector has not panned over
           that building — and not a member who has built nothing. Saying so
@@ -94,25 +131,37 @@ export function SeasonPanel() {
         <p className="note">
           A dash means we have not seen that building yet, not that it is unbuilt. Only buildings
           the collector has panned over appear here.
-          {buildings.data && buildings.data.unnamedSeen > 0 && (
+          {alertLevel !== null && (
+            <> A ! marks a member holding any building below level {alertLevel}.</>
+          )}
+          {buildings.data !== undefined && buildings.data.unnamedSeen > 0 && (
             <>
               {' '}
               {buildings.data.unnamedSeen} more building type
-              {buildings.data.unnamedSeen === 1 ? ' is' : 's are'} on the map that we cannot name
-              yet — including last season's, which the game still reports from old sightings. They
-              are left out rather than shown as a number.
+              {buildings.data.unnamedSeen === 1 ? ' is' : 's are'} on the map that this board does
+              not name — last season's among them. They are left out rather than shown as a number.
             </>
           )}
         </p>
       )}
-      {/* Said on the screen, not only in the migration. `force` and `score`
-          are the game's own season figures and neither is power — a reader
-          who assumes otherwise will compare them against the power board and
-          conclude the data is wrong. */}
-      <p className="note">
-        Coal production and influence are the game's own season figures. Neither is power, and
-        neither is comparable with the cross-server boards.
-      </p>
+      {boardId === 'season2_buildings' && (
+        <p className="note">
+          Season 2, kept for reference. These stopped being observed around 16 August, so the levels
+          are frozen where the season left them. Names marked <strong>*</strong> are placeholders —
+          five names were supplied for eleven buildings, so which id is which is a guess until
+          somebody corrects it.
+        </p>
+      )}
+      {(boardId === 'alliance_score' || boardId === 'player_force') && (
+        // Said on the screen, not only in the migration. `force` and `score`
+        // are the game's own season figures and neither is power — a reader
+        // who assumes otherwise will compare them against the power board and
+        // conclude the data is wrong.
+        <p className="note">
+          Coal production and influence are the game's own season figures. Neither is power, and
+          neither is comparable with the cross-server boards.
+        </p>
+      )}
     </section>
   );
 }

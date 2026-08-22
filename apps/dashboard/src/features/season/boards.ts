@@ -12,7 +12,7 @@
 import { supabase } from '../../lib/supabase';
 import { latestBatch } from '../crossRankings/latestBatch';
 
-export type SeasonBoardId = 'alliance_score' | 'player_force' | 'buildings';
+export type SeasonBoardId = 'buildings' | 'alliance_score' | 'player_force' | 'season2_buildings';
 
 export interface SeasonAllianceRow {
   id: string;

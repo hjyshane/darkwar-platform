@@ -119,6 +119,12 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     heading: 'Table columns',
     requires: capability('settings.write'),
   },
+  {
+    group: 'display',
+    id: 'season-building-alert-heading',
+    heading: 'Season building alert',
+    requires: capability('settings.write'),
+  },
   { group: 'display', id: 'notices-heading', heading: 'Notices', requires: null },
 
   // heroes, pets -> catalogue.write
