@@ -79,3 +79,21 @@ test('a comment reaches the thread and the activity score', () => {
   // exists, and the admin table should not sit a staleTime behind saying 0.
   expect(queryKeysForTopic('post_comments')).toEqual([['comments'], ['activity-scores']]);
 });
+
+// The sweep is watched WHILE it runs — an officer reads a location off the
+// player page as the collector pans past. Both new tables carry a notify
+// trigger, and without a mapping here those fire into nothing and the page
+// waits out its stale time instead.
+test('a sweep refreshes an open player page', () => {
+  const keys = queryKeysForTopic('world_city_snapshots');
+  expect(keys).toContainEqual(['player-location']);
+  expect(keys).toContainEqual(['player']);
+});
+
+test('season buildings refresh the season boards', () => {
+  expect(queryKeysForTopic('season_building_snapshots')).toContainEqual(['seasonBoard']);
+});
+
+test('a topic nobody maps still says nothing', () => {
+  expect(queryKeysForTopic('world_city_snapshots_typo')).toEqual([]);
+});

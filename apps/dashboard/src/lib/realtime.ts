@@ -21,6 +21,16 @@ const TOPIC_QUERY_KEYS: Record<string, readonly (readonly string[])[]> = {
   player_component_power_snapshots: [['crossRankings'], ['player']],
   player_detail_snapshots: [['roster'], ['player']],
   arena_snapshots: [['arena'], ['player']],
+  // The map. A sweep writes city tiles and season buildings, and both feed
+  // screens somebody is watching WHILE the sweep runs — an officer reads a
+  // location off the player page as the collector pans past. Without these
+  // two lines the notify triggers fire into nothing and the page waits out
+  // its stale time instead.
+  //
+  // `player-location` is keyed by player id; naming the prefix reaches
+  // whichever player is open, the same trick `player` uses above.
+  world_city_snapshots: [['player-location'], ['player']],
+  season_building_snapshots: [['seasonBoard']],
   arena_entries: [['arena'], ['player']],
   // Written by an admin rather than the collector, and the only topic here
   // that fires on delete too — a notice taken down has to disappear.
