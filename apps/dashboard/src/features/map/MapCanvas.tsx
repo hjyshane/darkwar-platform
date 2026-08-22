@@ -7,7 +7,11 @@ import { type Coordinate, isOnMap, toFraction } from '../../lib/mapProjection';
  * dropping a file rather than a rebuild — the map changes when the game
  * changes it, and that should not need a release.
  */
-export const MAP_IMAGE_URL = '/map.png';
+// .webp, and named for what it actually is. The file arrived as
+// `map.png.webp` — browsers sniff the bytes and would have rendered it
+// regardless, which is exactly why a name that lies about its format is
+// worth fixing now rather than the next time somebody opens it.
+export const MAP_IMAGE_URL = '/map.webp';
 
 /** How much of the picture is FRAME rather than map.
  *
@@ -30,11 +34,25 @@ export interface MapInset {
   bottom: number;
 }
 
-/** Placeholder until the real picture is measured. Zero means "the image IS
- * the map", which is right for a cropped picture and wrong for a framed one —
- * so it is deliberately the value that makes a mismatch visible rather than
- * one that half-works. */
-export const MAP_INSET: MapInset = { left: 0, right: 0, top: 0, bottom: 0 };
+/** Measured from `public/map.webp`, which is 3164 x 2664.
+ *
+ * The frame is 55px on all four sides: 0-47 is the outer olive surround,
+ * 49-54 is the dark border line, and the world starts at 55. Read off 41
+ * sample lines across the picture rather than from one row, so a road or a
+ * label crossing a single scanline could not move it — every one of them
+ * agreed on 55.
+ *
+ * That leaves a 3054 x 2554 interior for a 1000 x 1000 grid, so a tile is
+ * 3.05px wide and 2.55px tall. Tiles are NOT square in this picture and are
+ * not meant to be; the projection stretches the grid over the interior, which
+ * is why `toFraction` returns fractions and never pixels.
+ */
+export const MAP_INSET: MapInset = {
+  left: 55 / 3164,
+  right: 55 / 3164,
+  top: 55 / 2664,
+  bottom: 55 / 2664,
+};
 
 export interface MapMarker {
   at: Coordinate;
