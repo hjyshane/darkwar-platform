@@ -104,6 +104,19 @@ describe('season building catalogue', () => {
     }
   });
 
+  it('spells the season 2 counts the alliance gave', () => {
+    // One Obelisk, five Altars, one Barrack, two Attack, two Defense — the
+    // counts came from a person and total exactly the eleven ids. WHICH id
+    // is which is still a guess; the counts are not.
+    const names = SEASON2_BUILDINGS.map((k) => k.name);
+    const startsWith = (p: string) => names.filter((n) => n.startsWith(p)).length;
+    expect(startsWith('Obelisk')).toBe(1);
+    expect(startsWith('Altar')).toBe(5);
+    expect(startsWith('Barrack')).toBe(1);
+    expect(startsWith('Attack')).toBe(2);
+    expect(startsWith('Defense')).toBe(2);
+  });
+
   it('marks every season 2 name as provisional', () => {
     // Five names were given for eleven ids. A placeholder that looks like a
     // fact is worse than an id, so the screen has to be able to say so.
