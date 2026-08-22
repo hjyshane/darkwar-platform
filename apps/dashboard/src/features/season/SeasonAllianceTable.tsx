@@ -5,7 +5,7 @@ import { allianceHash, serverHash } from '../../lib/route';
 import type { ColumnSpec } from '../../lib/tableLayout';
 import { TERMS } from '../../lib/terms';
 import { useTableView } from '../../lib/useTableView';
-import { type SeasonAllianceRow, movement } from './boards';
+import { type SeasonAllianceRow, allianceLabel, movement } from './boards';
 
 const numberFormat = new Intl.NumberFormat('ko-KR');
 
@@ -97,7 +97,7 @@ export function SeasonAllianceTable({ rows }: { rows: SeasonAllianceRow[] }) {
         // untracked season servers. Kept as a branch anyway: alliance_id is
         // nullable, and a link to a page that would 404 is worse than text.
         cell: (row) => {
-          const label = row.name ?? row.abbr ?? `#${row.externalId.slice(0, 8)}`;
+          const label = allianceLabel(row.name, row.abbr) ?? `#${row.externalId.slice(0, 8)}`;
           return row.allianceId === null ? (
             label
           ) : (

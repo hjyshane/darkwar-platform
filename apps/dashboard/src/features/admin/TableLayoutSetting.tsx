@@ -35,6 +35,10 @@ import {
   seasonAllianceColumnSpecs,
 } from '../season/SeasonAllianceTable';
 import {
+  TABLE_ID as SEASON_BUILDING_TABLE_ID,
+  seasonBuildingColumnSpecs,
+} from '../season/SeasonBuildingTable';
+import {
   TABLE_ID as SEASON_FORCE_TABLE_ID,
   seasonForceColumnSpecs,
 } from '../season/SeasonForceTable';
@@ -77,6 +81,11 @@ const TABLES: ArrangeableTable[] = [
     columns: seasonAllianceColumnSpecs,
   },
   { id: SEASON_FORCE_TABLE_ID, label: 'Season — influence', columns: seasonForceColumnSpecs },
+  {
+    id: SEASON_BUILDING_TABLE_ID,
+    label: 'Season — member buildings',
+    columns: seasonBuildingColumnSpecs,
+  },
   {
     id: ALLIANCE_RANKING_TABLE_ID,
     label: 'Alliance rankings',
