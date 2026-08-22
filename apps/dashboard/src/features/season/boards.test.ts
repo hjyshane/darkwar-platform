@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { allianceLabel, movement } from './boards';
-import { BUILDING_NAMES, buildingLabel, isNamed } from './buildings';
+import { SEASON2_BUILDINGS, SEASON3_BUILDINGS } from './buildings';
 
 describe('movement', () => {
   it('reads a smaller rank as an improvement', () => {
@@ -56,33 +56,60 @@ describe('allianceLabel', () => {
   });
 });
 
-describe('building names', () => {
-  it('names every building the grid is willing to show', () => {
-    // The grid renders `columns`, and `columns` only ever holds named ids —
-    // so a label can never come back as a bare number a reader cannot use.
-    for (const id of Object.keys(BUILDING_NAMES).map(Number)) {
-      expect(isNamed(id)).toBe(true);
-      expect(buildingLabel(id)).toBe(BUILDING_NAMES[id]);
-      expect(buildingLabel(id)).not.toMatch(/^\d+$/);
+describe('season building catalogue', () => {
+  const s3 = new Map(SEASON3_BUILDINGS.map((k) => [k.id, k.name]));
+
+  it('names every building it is willing to show', () => {
+    // The grid renders `columns`, and `columns` is filtered from a
+    // catalogue — so a header can never come out as a bare number.
+    for (const kind of [...SEASON3_BUILDINGS, ...SEASON2_BUILDINGS]) {
+      expect(kind.name).not.toMatch(/^\d+$/);
+      expect(kind.name.length).toBeGreaterThan(0);
     }
   });
 
-  it('refuses last season\u2019s ids', () => {
-    // 743000-856000 were last seen 12-16 August and are frozen at level 30;
-    // 857000-863000 appeared on 17 August and are still moving. The name is
-    // what separates them, so an unnamed id must not pass.
+  it('holds the seven season 3 ids confirmed against a member', () => {
+    // WonderingDuck, read off the game: greenhouses 1-4 at 19, 5 at 18,
+    // thermal lab 19, strategic barrack 1 — and the ids matched all seven.
+    expect(s3.get(862000)).toBe('Thermal Lab');
+    expect(s3.get(857000)).toBe('Smart Green House 1');
+    expect(s3.get(861000)).toBe('Smart Green House 5');
+    expect(s3.get(863000)).toBe('Strategic Barrack');
+    expect(SEASON3_BUILDINGS).toHaveLength(7);
+  });
+
+  it('reads lab, then greenhouses, then barrack', () => {
+    // Editorial order, not id order: the ids put the greenhouses first.
+    expect(SEASON3_BUILDINGS.map((k) => k.name)).toEqual([
+      'Thermal Lab',
+      'Smart Green House 1',
+      'Smart Green House 2',
+      'Smart Green House 3',
+      'Smart Green House 4',
+      'Smart Green House 5',
+      'Strategic Barrack',
+    ]);
+  });
+
+  it('keeps the two seasons apart', () => {
+    // The catalogue IS the season filter. An id in both would put a season 2
+    // building on the board the alliance reads.
+    const s2 = new Set(SEASON2_BUILDINGS.map((k) => k.id));
+    for (const kind of SEASON3_BUILDINGS) {
+      expect(s2.has(kind.id)).toBe(false);
+    }
     for (const stale of [743000, 751000, 851000, 853000, 856000]) {
-      expect(isNamed(stale)).toBe(false);
+      expect(s2.has(stale)).toBe(true);
+      expect(s3.has(stale)).toBe(false);
     }
   });
 
-  it('knows the seven season 3 buildings confirmed against a member', () => {
-    // WonderingDuck, read off the game: 온실 1-4 at 19, 온실 5 at 18,
-    // 항온연구소 19, 전략병영 1 — and the ids matched all seven.
-    expect(BUILDING_NAMES[857000]).toBe('온실 1');
-    expect(BUILDING_NAMES[861000]).toBe('온실 5');
-    expect(BUILDING_NAMES[862000]).toBe('항온연구소');
-    expect(BUILDING_NAMES[863000]).toBe('전략병영');
-    expect(Object.keys(BUILDING_NAMES)).toHaveLength(7);
+  it('marks every season 2 name as provisional', () => {
+    // Five names were given for eleven ids. A placeholder that looks like a
+    // fact is worse than an id, so the screen has to be able to say so.
+    for (const kind of SEASON2_BUILDINGS) {
+      expect(kind.provisional).toBe(true);
+    }
+    expect(SEASON2_BUILDINGS).toHaveLength(11);
   });
 });

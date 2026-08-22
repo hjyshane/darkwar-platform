@@ -5,7 +5,7 @@ import { playerHash } from '../../lib/route';
 import type { ColumnSpec } from '../../lib/tableLayout';
 import { TERMS } from '../../lib/terms';
 import { useTableView } from '../../lib/useTableView';
-import { type BuildingGrid, type MemberBuildings, buildingLabel, levelKey } from './buildings';
+import { type BuildingGrid, type MemberBuildings, isBehind, levelKey } from './buildings';
 
 const SEARCH_FIELDS = ['name', 'gameUid'] as const;
 
@@ -21,7 +21,13 @@ export function seasonBuildingColumnSpecs(): ColumnSpec[] {
   ];
 }
 
-export function SeasonBuildingTable({ grid }: { grid: BuildingGrid }) {
+export interface SeasonBuildingTableProps {
+  grid: BuildingGrid;
+  /** Level below which a member is marked, or null to mark nobody. */
+  alertLevel: number | null;
+}
+
+export function SeasonBuildingTable({ grid, alertLevel }: SeasonBuildingTableProps) {
   const { query, setQuery, sort, onSort, view, shown, total } = useTableView(
     grid.members,
     SEARCH_FIELDS,
@@ -36,28 +42,50 @@ export function SeasonBuildingTable({ grid }: { grid: BuildingGrid }) {
         sortKey: 'name',
         className: 'label',
         fixed: true,
-        cell: (row) => <a href={playerHash(row.playerId)}>{row.name ?? `UID ${row.gameUid}`}</a>,
+        cell: (row) => {
+          const behind = alertLevel !== null && isBehind(row, grid.columns, alertLevel);
+          return (
+            <>
+              {behind && (
+                // Text, not colour alone: the mark has to survive a
+                // monochrome screen and a reader who cannot tell the two
+                // colours apart. The title says which level it means, so
+                // nobody has to go and look the setting up.
+                <span
+                  className="behind-mark"
+                  title={`Has a building below level ${alertLevel}`}
+                  aria-label={`Below level ${alertLevel}`}
+                >
+                  !{' '}
+                </span>
+              )}
+              <a href={playerHash(row.playerId)}>{row.name ?? `UID ${row.gameUid}`}</a>
+            </>
+          );
+        },
       },
     ];
-    const buildings: Column<MemberBuildings>[] = grid.columns.map((typeId) => ({
-      id: `b${typeId}`,
-      label: buildingLabel(typeId),
+    const buildings: Column<MemberBuildings>[] = grid.columns.map((kind) => ({
+      id: `b${kind.id}`,
+      // The catalogue's name, always. `columns` only ever holds catalogue
+      // entries, so this can never fall back to a bare id.
+      label: kind.provisional ? `${kind.name}*` : kind.name,
       numeric: true,
       // Sorted by the level in THIS column, so "who is behind on the
       // greenhouse" is one header click rather than a read of the whole grid.
-      sortKey: levelKey(typeId),
+      sortKey: levelKey(kind.id),
       // FR-UI-008 again, and it matters more here than anywhere else on the
       // site: an empty cell means the collector has never panned over that
       // building, NOT that the member has not built it. Rendering 0 would
       // accuse somebody of doing nothing on the strength of a gap in our
       // own coverage.
       cell: (row: MemberBuildings) => {
-        const level = row[levelKey(typeId)];
+        const level = row[levelKey(kind.id)];
         return level === null || level === undefined ? <span className="muted">—</span> : level;
       },
     }));
     return [...identity, ...buildings];
-  }, [grid.columns]);
+  }, [grid.columns, alertLevel]);
 
   if (grid.members.length === 0) {
     return <p className="empty">No season buildings seen for our members yet.</p>;
