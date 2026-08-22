@@ -117,6 +117,23 @@ describe('season building catalogue', () => {
     expect(startsWith('Defense')).toBe(2);
   });
 
+  it('places the two ids the alliance pinned down', () => {
+    const byId = new Map(SEASON2_BUILDINGS.map((k) => [k.id, k.name]));
+    // Told to us outright: Obelisk is 743000 and the Altars are the 85x run.
+    expect(byId.get(743000)).toBe('Obelisk');
+    for (const id of [851000, 852000, 853000, 854000, 855000]) {
+      expect(byId.get(id)).toMatch(/^Altar /);
+    }
+  });
+
+  it('puts the rarest 85x id last among the Altars', () => {
+    // 855000 has 24 owners against 153-210 for the rest of that run — the
+    // same shape as season 3's pass-locked top greenhouse tier. A tier that
+    // rare is the last one.
+    const byId = new Map(SEASON2_BUILDINGS.map((k) => [k.id, k.name]));
+    expect(byId.get(855000)).toBe('Altar 5');
+  });
+
   it('marks every season 2 name as provisional', () => {
     // Five names were given for eleven ids. A placeholder that looks like a
     // fact is worse than an id, so the screen has to be able to say so.

@@ -19,6 +19,7 @@ export type Route =
   | 'rankings'
   | 'crossRankings'
   | 'season'
+  | 'season2'
   | 'arena'
   | 'server'
   | 'player'
@@ -40,6 +41,7 @@ const ROUTES: Record<string, Route> = {
   '#/rankings': 'rankings',
   '#/cross-server': 'crossRankings',
   '#/season': 'season',
+  '#/season2': 'season2',
   '#/arena': 'arena',
   '#/month-cards': 'monthCards',
   '#/account': 'account',
@@ -214,6 +216,12 @@ export const NAV_TABS: ReadonlyArray<{ route: Route; hash: string; label: string
   // human maintains, not a value read from data. Season 4 means editing this
   // line and `TERMS.season`.
   { route: 'season', hash: '#/season', label: 'Season 3' },
+  // Admin only, filtered in `App.tsx` where the session is known. Last
+  // season's buildings are a record rather than a board — the game still
+  // returns them from old sightings, frozen where the season left them — so
+  // they sit beside Season 3 rather than inside it, where a member would
+  // have to work out which of two boards is the live one.
+  { route: 'season2', hash: '#/season2', label: 'Season 2' },
   // Straight after the overview, because these two are the ones the alliance
   // reads every day and writes to each other on. Everything below is a board
   // the game produced; this is what the alliance said about it.
