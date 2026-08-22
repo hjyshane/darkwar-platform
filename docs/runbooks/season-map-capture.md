@@ -524,6 +524,44 @@ the remainder are 터렛 and 방어기지, which nobody in the alliance has buil
 so they have never appeared on the map and cannot be identified from it. They
 will only be nameable once somebody builds one.
 
+## Naming a season's buildings, and what the ids give away
+
+Two seasons have now been named, and the same three signals did the work both
+times. Worth writing down because the next season will need it again.
+
+**1. A labelled capture settles it outright.** Clicking each building in turn
+and saying what it is turns `f101.3` into a table. That is how season 3's
+seven were named, and the mapping was then confirmed against a member reading
+their own screen — greenhouses 1-4 at 19, greenhouse 5 at 18, thermal lab 19,
+strategic barrack 1, all seven ids matching.
+
+**2. A multi-tier building occupies a contiguous run, and its top tier is
+rare.** Season 3's greenhouses ran 857000-861000 with owner counts falling by
+tier — 79, 67, 51, 38, 21 — the last one scarce because it needs the pass.
+That signature is what placed season 2's Altars: 855000 has 24 owners against
+153-210 for the rest of its run, so it is the last Altar and the run is
+851000-855000.
+
+**3. Single buildings sit immediately after the run.** Season 3 put the
+thermal lab and the strategic barrack at 862000 and 863000, straight after
+the greenhouses. By the same shape, season 2's 856000 — the id adjacent to
+the Altar run, and the one with the highest mean level — reads as the
+Barrack.
+
+Where the ids genuinely say nothing, the game's own habits fill in. **The
+attack buff building is usually released before the defence one**, so of two
+otherwise indistinguishable pairs the lower ids are Attack (744000/745000)
+and the higher are Defense (751000/752000). A rule of thumb, not a
+measurement, and marked provisional accordingly.
+
+### What still cannot be named from the map
+
+A building nobody has built has never appeared on a tile. Season 3's **Armed
+Turret** and **Defense Base** are in that position: eleven buildings exist,
+seven are named, two are unbuilt across the whole alliance, and the map has
+no way to show what does not exist. They become nameable the day somebody
+builds one.
+
 ## What is buildable now, and what is not
 
 `CLAUDE.md` puts season and map under "not being built yet" because the fields

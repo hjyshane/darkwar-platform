@@ -14,6 +14,7 @@ import { LineupLegend } from '../arena/LineupLegend';
 import { fetchLineups } from '../arena/lineups';
 import { ComponentTrend } from './ComponentTrend';
 import { MemberHistory } from './MemberHistory';
+import { PlayerLocationNote, PlayerLocationTile } from './PlayerLocationTile';
 import { PlayerTrend } from './PlayerTrend';
 import {
   type PlayerArenaEntry,
@@ -376,7 +377,9 @@ export function PlayerPage({ playerId, now }: { playerId: string; now?: Date }) 
             label={TERMS.lastOnline}
             value={formatLastOnline(data.onlineState, data.offlineSince, now ?? new Date())}
           />
+          <PlayerLocationTile now={now} playerId={data.playerId} />
         </div>
+        <PlayerLocationNote now={now} playerId={data.playerId} />
         <p className="subtle">
           UID {data.gameUid} · {TERMS.lastSeen}{' '}
           <FreshnessBadge capturedAt={data.lastSeenAt} now={now} />

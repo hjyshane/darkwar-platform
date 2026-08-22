@@ -59,6 +59,9 @@ export const TERMS = {
   // the member table called it 'Last Seen', and a reader had no way to know
   // they were the same captured_at — while 'Observed' sat one column away
   // from real presence data and read like it.
+  // ours: where the map last showed this player's city. A sighting, never
+  // a live position — the map is only read where the collector is pointed.
+  location: 'Location',
   lastSeen: 'Last Updated', // ours: captured_at / last_seen_at — when we last looked
   defensePower: 'Defense Power', // ours: the `army` blob is a lineup, not a number
   lineup: 'Lineup', // ours: the decoded `army` blob
