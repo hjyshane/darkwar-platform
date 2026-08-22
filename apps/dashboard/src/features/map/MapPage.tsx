@@ -82,9 +82,8 @@ export function MapPage({ serverId }: { serverId: number | null }) {
         .filter((server) => server.serverId === active)
         .map((server) => (
           <p className="subtle" key={server.serverId}>
-            Server {server.serverId} — {server.tiles.toLocaleString()} tiles read, last swept{' '}
-            {formatLastOnline('offline', server.sweptAt, now)}. Positions are only as recent as that
-            sweep.
+            Server {server.serverId} — last swept {formatLastOnline('offline', server.sweptAt, now)}
+            . Positions are only as recent as that sweep.
           </p>
         ))}
 
