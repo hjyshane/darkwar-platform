@@ -60,10 +60,15 @@ export const SEASON3_BUILDINGS: readonly BuildingKind[] = [
  * sat immediately after it (862000, 863000). 856000 is the single id adjacent
  * to the Altar run, and it also carries the highest mean level of the six.
  *
- * STILL A GUESS: which of the two remaining pairs is Attack and which is
- * Defense. 744000/745000 and 751000/752000 are two pairs with nothing to tell
- * them apart, so they are laid down in the order the alliance listed the
- * names. That is the placement most likely to be wrong.
+ * ATTACK BEFORE DEFENSE, on the alliance's own reading of the game: the
+ * attack buff building is usually released before the defence one, so the
+ * lower pair of ids is the attack pair. 744000/745000 are Attack and
+ * 751000/752000 are Defense. That is a rule of thumb rather than a
+ * measurement — the data has nothing to separate two pairs of the same size
+ * — but it beats the coin-flip it replaced, and it should generalise to
+ * whatever the next season ships.
+ *
+ * None of this matters much. Season 2 is kept for the record, not to act on.
  *
  * These were last seen between 12 and 16 August, frozen at level 30, while
  * season 3 began around the 17th — which is why they are on their own tab
