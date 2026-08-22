@@ -21,8 +21,21 @@ TASKS = ("DarkWar-Capture", "DarkWar-Ingest", "DarkWar-Sync")
 # The collector's own BlueStacks instance. Named, never guessed — the ADB
 # guard refuses to pick a device for the same reason (FR-COL-001).
 COLLECTOR_INSTANCE = "Pie64_3"
-COLLECTOR_SERIAL = "emulator-5584"
+# The title BlueStacks puts on this instance's window. It is what the
+# operator sees, and unlike the port it does not move.
+COLLECTOR_WINDOW = "collector"
 GAME_PACKAGE = "com.readygo.dark.gp"
+
+# BlueStacks REASSIGNS adb ports between instances. This was pinned to
+# emulator-5584 / 127.0.0.1:5585 and the collector's instance moved to 5586,
+# after which every reading said the game was stopped while it was in fact
+# running - the one failure this module exists to prevent. Both odd ports
+# still LISTEN and still answer `adb connect` with "connected", so neither a
+# port check nor a connect proves anything; only the handshake does.
+#
+# The instance is resolved by window title, its ports by owning PID, and the
+# right one by asking it a question. Nothing here is a remembered number.
+ADB_PORTS = range(5555, 5700)
 
 BLUESTACKS_DIR = Path(r"C:\Program Files\BlueStacks_nxt")
 HD_PLAYER = BLUESTACKS_DIR / "HD-Player.exe"
@@ -137,12 +150,107 @@ def emulator_running(title: str = "collector") -> bool:
     return title.lower() in result.stdout.lower()
 
 
-def game_running() -> bool:
-    """Whether the game process exists inside the collector instance."""
+def _hd_player_pid(title: str = COLLECTOR_WINDOW) -> int | None:
+    """The PID of the HD-Player window with this title.
+
+    Title, not instance name: the launcher takes `--instance Pie64_3` but the
+    running process does not carry it anywhere readable, while the title is
+    both readable and the thing the operator recognises.
+    """
+    if shutil.which("tasklist") is None:  # pragma: no cover - Windows only
+        return None
+    result = _run(["tasklist", "/fi", "IMAGENAME eq HD-Player.exe", "/v", "/fo", "csv"])
+    for line in result.stdout.splitlines():
+        if title.lower() not in line.lower():
+            continue
+        # "Image Name","PID","Session Name",...,"Window Title"
+        parts = [p.strip('" ') for p in line.split('","')]
+        if len(parts) > 1 and parts[1].isdigit():
+            return int(parts[1])
+    return None
+
+
+def _listening_ports(pid: int) -> list[int]:
+    """TCP ports this PID is listening on, lowest first."""
+    if shutil.which("netstat") is None:  # pragma: no cover - Windows only
+        return []
+    result = _run(["netstat", "-ano", "-p", "TCP"])
+    ports: list[int] = []
+    for line in result.stdout.splitlines():
+        fields = line.split()
+        if len(fields) < 5 or fields[-1] != str(pid) or "LISTENING" not in fields:
+            continue
+        _, _, port = fields[1].rpartition(":")
+        if port.isdigit():
+            ports.append(int(port))
+    return sorted(ports)
+
+
+# One resolved endpoint, kept so the 3s refresh does not run tasklist and
+# netstat every tick. Cleared the moment adb stops answering on it, which is
+# what makes a moved port self-correcting rather than sticky.
+_adb_target: str | None = None
+
+
+def collector_adb_target(refresh: bool = False) -> str | None:
+    """`127.0.0.1:PORT` for the collector instance, PROVEN to answer.
+
+    Every step is verified rather than assumed. `adb connect` says
+    "connected" to a port that then reports the device offline forever, so
+    the endpoint is only accepted once a shell command has come back from
+    it.
+    """
+    global _adb_target
     if not HD_ADB.exists():
-        return False
-    result = _run([str(HD_ADB), "-s", COLLECTOR_SERIAL, "shell", "pidof", GAME_PACKAGE])
-    return result.returncode == 0 and result.stdout.strip() != ""
+        return None
+    if not refresh and _adb_target is not None:
+        return _adb_target
+    _adb_target = None
+    pid = _hd_player_pid()
+    if pid is None:
+        return None
+    for port in _listening_ports(pid):
+        if port not in ADB_PORTS:
+            continue
+        target = f"127.0.0.1:{port}"
+        _run([str(HD_ADB), "connect", target], timeout=15.0)
+        probe = _run([str(HD_ADB), "-s", target, "shell", "echo", "ok"], timeout=15.0)
+        if probe.returncode == 0 and "ok" in probe.stdout:
+            _adb_target = target
+            return target
+    return None
+
+
+def game_state() -> str:
+    """ "running" | "stopped" | "unreachable".
+
+    THREE ANSWERS, NOT TWO, and the third one is the whole point. This
+    returned a bool, so "the game is not running" and "I could not ask"
+    printed the same word - and when the adb port moved the window said
+    STOPPED for as long as that lasted, while the game was up and being
+    captured the entire time. A status that cannot distinguish those two is
+    worse than no status, because it is believed.
+    """
+    for refresh in (False, True):
+        target = collector_adb_target(refresh=refresh)
+        if target is None:
+            return "unreachable"
+        result = _run([str(HD_ADB), "-s", target, "shell", "pidof", GAME_PACKAGE])
+        if result.returncode == 0:
+            return "running" if result.stdout.strip() else "stopped"
+        # pidof exits nonzero for BOTH "no such process" and "no such
+        # device". Only adb prefixes its own failures with "error:", so that
+        # is what separates a stopped game from an endpoint that has moved.
+        if "error:" not in (result.stderr + result.stdout).lower():
+            return "stopped"
+        # Endpoint went stale - resolve once more, then give up.
+        _clear_adb_target()
+    return "unreachable"
+
+
+def _clear_adb_target() -> None:
+    global _adb_target
+    _adb_target = None
 
 
 def start_tasks() -> list[str]:
@@ -194,12 +302,16 @@ def start_game() -> str:
     """Start Dark War inside the collector instance only."""
     if not HD_ADB.exists():
         return f"not found: {HD_ADB}"
-    _run([str(HD_ADB), "connect", "127.0.0.1:5585"])
+    # Resolved, not hardcoded - and refreshed, because this is the button
+    # somebody presses when things are already not as expected.
+    target = collector_adb_target(refresh=True)
+    if target is None:
+        return f"no adb endpoint answering for the '{COLLECTOR_WINDOW}' instance"
     result = _run(
         [
             str(HD_ADB),
             "-s",
-            COLLECTOR_SERIAL,
+            target,
             "shell",
             "monkey",
             "-p",
