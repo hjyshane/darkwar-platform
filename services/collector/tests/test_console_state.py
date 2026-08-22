@@ -96,13 +96,146 @@ def test_the_collector_instance_is_named_not_guessed() -> None:
     # main account. guard.py refuses to pick a device for automation; a
     # button a person clicks has the same obligation.
     assert state.COLLECTOR_INSTANCE == "Pie64_3"
-    assert state.COLLECTOR_SERIAL == "emulator-5584"
+    assert state.COLLECTOR_WINDOW == "collector"
 
     import inspect
 
     source = inspect.getsource(state.start_emulator)
     assert "COLLECTOR_INSTANCE" in source
     assert "--instance" in source
+
+
+def test_no_adb_endpoint_is_hardcoded_anywhere() -> None:
+    # The bug this replaced: emulator-5584 / 127.0.0.1:5585 were written down,
+    # BlueStacks moved the instance to 5586, and every reading said the game
+    # was stopped while it was running and being captured.
+    #
+    # String LITERALS only, via the AST. The comments deliberately name those
+    # ports to explain the failure, and a grep would fail on the explanation
+    # rather than on a relapse.
+    import ast
+    import inspect
+
+    tree = ast.parse(inspect.getsource(state))
+    literals = [n.value for n in ast.walk(tree) if isinstance(n, ast.Constant)]
+    literals = [v for v in literals if isinstance(v, str)]
+    for text in literals:
+        assert "emulator-55" not in text, f"a serial is pinned again: {text!r}"
+        assert "127.0.0.1:55" not in text, f"a port is pinned again: {text!r}"
+
+
+class _Adb:
+    """Stands in for HD-Adb.exe. Records what was asked, answers as told."""
+
+    def __init__(self, answers: dict[tuple[str, ...], tuple[int, str, str]]) -> None:
+        self.answers = answers
+        self.calls: list[tuple[str, ...]] = []
+
+    def __call__(self, argv: list[str], timeout: float = 20.0):  # type: ignore[no-untyped-def]
+        import subprocess
+
+        key = tuple(a for a in argv[1:] if not a.endswith(".exe"))
+        self.calls.append(key)
+        code, out, err = self.answers.get(key, (0, "", ""))
+        return subprocess.CompletedProcess(argv, code, out, err)
+
+
+def _install(monkeypatch, tmp_path, adb: _Adb, ports: list[int], pid: int | None = 4242) -> None:  # type: ignore[no-untyped-def]
+    fake_adb = tmp_path / "HD-Adb.exe"
+    fake_adb.write_text("", encoding="utf-8")
+    monkeypatch.setattr(state, "HD_ADB", fake_adb)
+    monkeypatch.setattr(state, "_run", adb)
+    monkeypatch.setattr(state, "_hd_player_pid", lambda title=None: pid)
+    monkeypatch.setattr(state, "_listening_ports", lambda _pid: ports)
+    state._clear_adb_target()
+
+
+def test_the_endpoint_is_the_port_that_answers_not_the_first_one(monkeypatch, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    # The real failure: 5585 LISTENS and reports "connected to 127.0.0.1:5585"
+    # while staying offline forever. Only the handshake separates them.
+    adb = _Adb(
+        {
+            ("connect", "127.0.0.1:5585"): (0, "connected to 127.0.0.1:5585", ""),
+            ("-s", "127.0.0.1:5585", "shell", "echo", "ok"): (1, "", "error: device offline"),
+            ("connect", "127.0.0.1:5586"): (0, "connected to 127.0.0.1:5586", ""),
+            ("-s", "127.0.0.1:5586", "shell", "echo", "ok"): (0, "ok", ""),
+        }
+    )
+    _install(monkeypatch, tmp_path, adb, ports=[5585, 5586])
+
+    assert state.collector_adb_target() == "127.0.0.1:5586"
+
+
+def test_a_running_game_reads_as_running(monkeypatch, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    adb = _Adb(
+        {
+            ("-s", "127.0.0.1:5586", "shell", "echo", "ok"): (0, "ok", ""),
+            ("-s", "127.0.0.1:5586", "shell", "pidof", state.GAME_PACKAGE): (0, "4143", ""),
+        }
+    )
+    _install(monkeypatch, tmp_path, adb, ports=[5586])
+
+    assert state.game_state() == "running"
+
+
+def test_a_genuinely_closed_game_reads_as_stopped(monkeypatch, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    # pidof exits 1 with no output when the process is simply not there.
+    adb = _Adb(
+        {
+            ("-s", "127.0.0.1:5586", "shell", "echo", "ok"): (0, "ok", ""),
+            ("-s", "127.0.0.1:5586", "shell", "pidof", state.GAME_PACKAGE): (1, "", ""),
+        }
+    )
+    _install(monkeypatch, tmp_path, adb, ports=[5586])
+
+    assert state.game_state() == "stopped"
+
+
+def test_an_unreachable_emulator_does_not_read_as_stopped(monkeypatch, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    # THE BUG, as a test. Every port refuses the handshake; the answer must
+    # be "I could not ask", never "the game is not running".
+    adb = _Adb(
+        {
+            ("connect", "127.0.0.1:5585"): (0, "connected to 127.0.0.1:5585", ""),
+            ("-s", "127.0.0.1:5585", "shell", "echo", "ok"): (1, "", "error: device offline"),
+        }
+    )
+    _install(monkeypatch, tmp_path, adb, ports=[5585])
+
+    assert state.game_state() == "unreachable"
+
+
+def test_a_moved_port_is_picked_up_without_a_restart(monkeypatch, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    # Cache the old endpoint, then move the instance. The next reading has to
+    # re-resolve on its own - a console that needs restarting to notice is
+    # how the stale port went unseen for so long.
+    adb = _Adb(
+        {
+            ("connect", "127.0.0.1:5586"): (0, "connected", ""),
+            ("-s", "127.0.0.1:5586", "shell", "echo", "ok"): (0, "ok", ""),
+            ("-s", "127.0.0.1:5586", "shell", "pidof", state.GAME_PACKAGE): (0, "4143", ""),
+        }
+    )
+    _install(monkeypatch, tmp_path, adb, ports=[5586])
+    assert state.game_state() == "running"
+
+    moved = _Adb(
+        {
+            ("-s", "127.0.0.1:5586", "shell", "pidof", state.GAME_PACKAGE): (
+                1,
+                "",
+                "error: device '127.0.0.1:5586' not found",
+            ),
+            ("connect", "127.0.0.1:5590"): (0, "connected", ""),
+            ("-s", "127.0.0.1:5590", "shell", "echo", "ok"): (0, "ok", ""),
+            ("-s", "127.0.0.1:5590", "shell", "pidof", state.GAME_PACKAGE): (0, "4143", ""),
+        }
+    )
+    monkeypatch.setattr(state, "_run", moved)
+    monkeypatch.setattr(state, "_listening_ports", lambda _pid: [5590])
+
+    assert state.game_state() == "running"
+    assert state.collector_adb_target() == "127.0.0.1:5590"
 
 
 # --- sweep mode -------------------------------------------------------

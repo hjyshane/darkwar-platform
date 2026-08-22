@@ -316,7 +316,7 @@ class Console:
     def _spawn_refresh(self) -> None:
         def work() -> None:
             emulator = state.emulator_running()
-            game = state.game_running() if emulator else False
+            game = state.game_state() if emulator else "stopped"
             tasks = state.all_task_states()
             journal = state.journal_state(self.journal_path)
             files = len(list(self.capture_dir.glob("*.pcapng"))) if self.capture_dir.exists() else 0
@@ -327,13 +327,20 @@ class Console:
     def _apply(
         self,
         emulator: bool,
-        game: bool,
+        game: str,
         tasks: list[state.TaskState],
         journal: state.JournalState,
         files: int,
     ) -> None:
         self._set("BlueStacks", "running" if emulator else "stopped", GOOD if emulator else BAD)
-        self._set("Dark War", "running" if game else "stopped", GOOD if game else BAD)
+        # "unreachable" is not "stopped". The window said stopped for as long
+        # as a moved adb port lasted, while the game was up and being captured;
+        # naming the third state is the fix, showing it is the point.
+        self._set(
+            "Dark War",
+            {"running": "running", "stopped": "stopped"}.get(game, "cannot reach the emulator"),
+            GOOD if game == "running" else BAD,
+        )
         for task in tasks:
             self._set(task.name, task.status, GOOD if task.healthy else BAD)
 
@@ -345,7 +352,11 @@ class Console:
         self.buttons["collect"].state(["disabled"] if running == len(tasks) else ["!disabled"])
         self.buttons["stop"].state(["disabled"] if running == 0 else ["!disabled"])
         self.buttons["start"].state(["disabled"] if emulator else ["!disabled"])
-        self.buttons["game"].state(["disabled"] if game or not emulator else ["!disabled"])
+        # Offer Start only when the game is genuinely stopped. Pressing it
+        # against an endpoint that cannot be reached just fails.
+        self.buttons["game"].state(
+            ["!disabled"] if emulator and game == "stopped" else ["disabled"]
+        )
 
         # Which .env was read, if any. Without it DW_SQLITE_PATH is unset and
         # the journal falls back to ./data/collector.db, so the window reports
