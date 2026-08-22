@@ -98,14 +98,17 @@ export async function searchSightings(serverId: number, query: string): Promise<
     return [];
   }
   const { data, error } = await supabase
-    .from('world_city_snapshots')
+    // The view (0144) is one row per player. Against the raw table a limit
+    // counts PANS, not people, so a player seen once a while ago falls off
+    // the end and disappears from the answer entirely.
+    .from('latest_world_cities')
     .select('player_id, game_uid, name, server_id, x, y, hq_level, captured_at')
     .eq('server_id', serverId)
     // Escaped: a name containing % or _ would otherwise widen the search
     // rather than narrow it, and names here are player-supplied.
     .ilike('name', `%${term.replace(/[%_\\]/g, '\\$&')}%`)
     .order('captured_at', { ascending: false })
-    .limit(500);
+    .limit(SEARCH_LIMIT);
   if (error) {
     if (error.code === '42501') {
       return [];
@@ -122,20 +125,35 @@ export async function searchSightings(serverId: number, query: string): Promise<
  * player outside the alliance has no player id and would otherwise all
  * collapse into a single null-keyed entry.
  */
-export function newestPerPlayer(
-  rows: ReadonlyArray<{
-    player_id: string | null;
-    game_uid: number | string;
-    name: string | null;
-    server_id: number;
-    x: number;
-    y: number;
-    hq_level: number | null;
-    captured_at: string;
-  }>,
-): Sighting[] {
+/** A row as the VIEW hands it over: every column nullable, because that is
+ * all the type generator can say about a view. `distinct on (server_id,
+ * game_uid)` cannot produce a null key and the table declares x, y and
+ * captured_at not-null, but the types do not know that. */
+export interface TileRow {
+  player_id: string | null;
+  game_uid: number | string | null;
+  name: string | null;
+  server_id: number | null;
+  x: number | null;
+  y: number | null;
+  hq_level: number | null;
+  captured_at: string | null;
+}
+
+export function newestPerPlayer(rows: ReadonlyArray<TileRow>): Sighting[] {
   const newest = new Map<string, Sighting>();
   for (const row of rows) {
+    // Dropped rather than cast: a row without a coordinate is not a place,
+    // and a pin drawn from a coerced null lands at 0,0 and looks real.
+    if (
+      row.game_uid === null ||
+      row.server_id === null ||
+      row.x === null ||
+      row.y === null ||
+      row.captured_at === null
+    ) {
+      continue;
+    }
     const uid = Number(row.game_uid);
     const key = String(uid);
     const seen = newest.get(key);
@@ -170,18 +188,28 @@ export function newestPerPlayer(
  * It is NOT a way to select a kind of structure. HQ runs continuously from
  * 1 to 45 with no cluster separating one sort of thing from another.
  */
-export async function fetchByHqLevel(serverId: number, hqLevel: number): Promise<Sighting[]> {
-  const { data, error } = await supabase
-    .from('world_city_snapshots')
+export const HQ_LIMIT = 500;
+
+export async function fetchByHqLevel(
+  serverId: number,
+  minLevel: number,
+  maxLevel: number | null = null,
+): Promise<Sighting[]> {
+  // AT LEAST, not exactly. An industrial tower sits at 31-35 rather than at
+  // one number, so an exact match asks the reader to try five of them and
+  // remember which they had already done.
+  let request = supabase
+    .from('latest_world_cities')
     .select('player_id, game_uid, name, server_id, x, y, hq_level, captured_at')
     .eq('server_id', serverId)
-    .eq('hq_level', hqLevel)
+    .gte('hq_level', minLevel);
+  if (maxLevel !== null) {
+    request = request.lte('hq_level', maxLevel);
+  }
+  const { data, error } = await request
+    .order('hq_level', { ascending: false })
     .order('captured_at', { ascending: false })
-    // Rows, not players: one player is written once per pan, so this is
-    // reduced below. 0143 indexes (server_id, hq_level, captured_at desc)
-    // because the unindexed form reads every tile the server has, which is
-    // exactly what timed the tab out before.
-    .limit(4000);
+    .limit(HQ_LIMIT);
   if (error) {
     if (error.code === '42501') {
       return [];
@@ -191,11 +219,15 @@ export async function fetchByHqLevel(serverId: number, hqLevel: number): Promise
   return newestPerPlayer(data ?? []);
 }
 
-export function useHqLevelSearch(serverId: number | null, hqLevel: number | null) {
+export function useHqLevelSearch(
+  serverId: number | null,
+  minLevel: number | null,
+  maxLevel: number | null = null,
+) {
   return useQuery({
-    queryKey: ['map', 'hq', serverId, hqLevel],
-    queryFn: () => fetchByHqLevel(serverId as number, hqLevel as number),
-    enabled: serverId !== null && hqLevel !== null,
+    queryKey: ['map', 'hq', serverId, minLevel, maxLevel],
+    queryFn: () => fetchByHqLevel(serverId as number, minLevel as number, maxLevel),
+    enabled: serverId !== null && minLevel !== null,
     staleTime: 60_000,
   });
 }
