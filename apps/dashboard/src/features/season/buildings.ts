@@ -44,27 +44,38 @@ export const SEASON3_BUILDINGS: readonly BuildingKind[] = [
 
 /** Season 2, behind the admin-only tab.
  *
- * EVERY NAME HERE IS PROVISIONAL. Five names were given for eleven ids, so
- * they are spread across the id families in id order — three, two, two, two,
- * two — and numbered within each. The names came from a person; the grouping
- * is my guess about which ids belong together, and it may well be wrong.
+ * EVERY NAME HERE IS PROVISIONAL. The counts came from a person — one
+ * Obelisk, five Altars, one Barrack, two Attack, two Defense, eleven in all,
+ * which is exactly how many ids there are. WHICH id is which is a guess.
  *
- * They carry a `provisional` flag so the screen can say so. A placeholder
- * that looks like a fact is worse than an id: an id at least announces that
- * nobody has named it.
+ * The data was asked and declined to answer. In season 3 the five greenhouse
+ * tiers gave themselves away as consecutive ids whose owner counts fell with
+ * the tier (79, 67, 51, 38, 21). Nothing like that appears here: owner counts
+ * run 183, 331, 339, 331, 327 and 167, 153, 210, 197, 24, 168 — no ordering,
+ * no decline — and every building is held one per owner, so there is no
+ * multiplicity to read either.
+ *
+ * So the split is structural, not evidential. The ids fall into a set of five
+ * (743000-752000) and a contiguous run of six (851000-856000), and the counts
+ * fit that shape exactly: five Altars, then Obelisk + Barrack + Attack x2 +
+ * Defense x2 makes six. The alternative was to lay the names over the ids in
+ * order, which would have straddled 851000 across the two groups and fits
+ * worse.
+ *
+ * Display order follows how the alliance listed them, not the ids.
  *
  * These were last seen between 12 and 16 August, frozen at level 30, while
- * season 3 began around the 17th. That is why they are on their own tab
+ * season 3 began around the 17th — which is why they are on their own tab
  * rather than mixed into the board the alliance reads.
  */
 export const SEASON2_BUILDINGS: readonly BuildingKind[] = [
-  { id: 743000, name: 'Obelisk 1', provisional: true },
-  { id: 744000, name: 'Obelisk 2', provisional: true },
-  { id: 745000, name: 'Obelisk 3', provisional: true },
-  { id: 751000, name: 'Altar 1', provisional: true },
-  { id: 752000, name: 'Altar 2', provisional: true },
-  { id: 851000, name: 'Barrack 1', provisional: true },
-  { id: 852000, name: 'Barrack 2', provisional: true },
+  { id: 851000, name: 'Obelisk', provisional: true },
+  { id: 743000, name: 'Altar 1', provisional: true },
+  { id: 744000, name: 'Altar 2', provisional: true },
+  { id: 745000, name: 'Altar 3', provisional: true },
+  { id: 751000, name: 'Altar 4', provisional: true },
+  { id: 752000, name: 'Altar 5', provisional: true },
+  { id: 852000, name: 'Barrack', provisional: true },
   { id: 853000, name: 'Attack 1', provisional: true },
   { id: 854000, name: 'Attack 2', provisional: true },
   { id: 855000, name: 'Defense 1', provisional: true },
