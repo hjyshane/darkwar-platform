@@ -11,12 +11,13 @@ import base64
 import pytest
 
 from dw_collector.protocol.worldmap import (
+    B64_PREFIX,
     CITY_TYPE,
     MAP_WIDTH,
-    POINT_KEY,
     WorldMapDecodeError,
     decode_point,
     decode_viewport,
+    rewrite_city,
 )
 
 
@@ -51,7 +52,7 @@ def _point(point_id: int, object_type: int, city: bytes | None = None, server: i
     if city is not None:
         body += _bfield(3, city)
     body += _vfield(103, server)
-    return f"{POINT_KEY}:{base64.b64encode(body).decode()}"
+    return B64_PREFIX + base64.b64encode(body).decode()
 
 
 def test_the_coordinate_unpacks_as_x_times_width_plus_y() -> None:
@@ -98,7 +99,7 @@ def test_missing_optional_city_fields_stay_none() -> None:
 def test_server_id_is_read_when_present_and_optional_when_not() -> None:
     assert decode_point(_point(1, 3, server=584)).server_id == 584
     body = _vfield(1, 1) + _vfield(2, 3)
-    bare = f"{POINT_KEY}:{base64.b64encode(body).decode()}"
+    bare = B64_PREFIX + base64.b64encode(body).decode()
     assert decode_point(bare).server_id is None
 
 
@@ -106,18 +107,61 @@ def test_a_point_with_no_coordinate_is_refused() -> None:
     """A tile that cannot say where it is would land at (0, 0) and put a
     stranger's city on the corner of the map."""
     body = _vfield(2, 3)
-    entry = f"{POINT_KEY}:{base64.b64encode(body).decode()}"
+    entry = B64_PREFIX + base64.b64encode(body).decode()
 
     with pytest.raises(WorldMapDecodeError):
         decode_point(entry)
 
 
-def test_an_unexpected_key_is_refused_rather_than_decoded() -> None:
-    """Every observed point carries `b64`. A second key means a second
-    message shape, and decoding it as this one yields plausible nonsense."""
-    body = _vfield(1, 4004) + _vfield(2, 3)
-    with pytest.raises(WorldMapDecodeError):
-        decode_point(f"99z:{base64.b64encode(body).decode()}")
+def test_all_three_serializations_agree() -> None:
+    """The wire form, the journal form and the fixture form are the same
+    bytes written three ways. A reader that knows one of them handles part
+    of the corpus and looks correct while doing it."""
+    body = _vfield(1, 4004) + _vfield(2, CITY_TYPE) + _bfield(3, _city("1190060554000580", "R", 9))
+
+    from_wire = decode_point(body)
+    from_journal = decode_point(B64_PREFIX + base64.b64encode(body).decode())
+    from_fixture = decode_point(base64.urlsafe_b64encode(body).decode())
+
+    assert from_wire == from_journal == from_fixture
+    assert from_wire.city is not None
+    assert from_wire.city.hq_level == 9
+
+
+def test_the_wire_form_is_raw_bytes_not_a_string() -> None:
+    """THE PRODUCTION PATH. Live capture and pcap replay hand over SFS type
+    10 as `bytes`; only a journal or a fixture ever holds the b64: string.
+    An earlier version accepted the string alone and so decoded every stored
+    observation while decoding nothing at all off a socket."""
+    body = (
+        _vfield(1, 491444)
+        + _vfield(2, CITY_TYPE)
+        + _bfield(3, _city("1190060554000580", "Ranger", 35))
+    )
+
+    tile = decode_point(body)
+
+    assert (tile.x, tile.y) == (491, 444)
+    assert tile.city is not None
+    assert tile.city.hq_level == 35
+    # Both forms must agree, or the journal and the socket disagree about
+    # what the same viewport contained.
+    assert decode_point(B64_PREFIX + base64.b64encode(body).decode()) == tile
+
+
+def test_rewriting_returns_the_form_it_was_given() -> None:
+    body = (
+        _vfield(1, 1) + _vfield(2, CITY_TYPE) + _bfield(3, _city("1190060554000580", "Ranger", 35))
+    )
+    as_text = B64_PREFIX + base64.b64encode(body).decode()
+
+    assert isinstance(rewrite_city(body, uid="9" * 16, name="City001"), bytes)
+    assert isinstance(rewrite_city(as_text, uid="9" * 16, name="City001"), str)
+    masked = decode_point(rewrite_city(body, uid="9" * 16, name="City001"))
+    assert masked.city is not None
+    assert masked.city.uid == "9" * 16
+    assert masked.city.name == "City001"
+    assert masked.city.hq_level == 35
 
 
 @pytest.mark.parametrize(
