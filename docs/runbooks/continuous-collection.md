@@ -434,140 +434,33 @@ routine이 재접속을 포함해야 하는데, `am force-stop`·`am start`는 �
 | `DarkWar-Sync` | `uv run --no-sync dw-sync` (`DW_SYNC_BATCH_SIZE=1000`) |
 | `DarkWar-Notify` | `uv run --no-sync dw-notify` (`DW_NOTIFY_INTERVAL_SECONDS=300` 기본) |
 
-### 스윕 모드
+### 지연 시간
 
-**`dw-console` 창의 `Sweep mode: on/off` 버튼이 제일 쉬운 방법이다.** 누르면 UAC가
-뜨고, 승인하면 아래 스크립트가 대신 돌아간다. 버튼 라벨과 Status 탭의 `Latency`
-줄은 기억한 값이 아니라 `C:\DW_dataun-*.cmd`에서 매번 읽는다 — UAC에서 취소한
-클릭이 켜진 것처럼 보이면 안 되기 때문이다.
-
-터미널에서 직접 할 때는(관리자 PowerShell):
-
-맵을 훑는 동안 화면을 보고 있을 때는 기본 타이밍이 너무 느리다. 등록 스크립트에
-`-Sweep` 스위치가 있다.
-
-```powershell
-.\scripts\windows
-egister-tasks.ps1 -Sweep    # 스윕 시작 전
-.\scripts\windows
-egister-tasks.ps1           # 끝나면 원상복구
-```
-
-| | rotation | min-age | poll | 최악 지연 |
-|---|---|---|---|---|
-| 기본 | 60s | 20s | 30s | **110s** |
-| `-Sweep` | 15s | 5s | 10s | **30s** |
-
-여기에 `dw-sync` 루프(기본 10초)가 더 붙는다. 그 뒤는 Realtime이라 즉시다 —
-`world_city_snapshots`와 `season_building_snapshots`가 토픽으로 매핑돼 있어서
-스윕 중에 열어둔 플레이어 페이지가 그 자리에서 갱신된다.
-
-**링 버퍼는 양쪽 다 24시간치다.** rotation을 1/4로 줄이는 대신 파일 수를 4배
-(1440 → 5760)로 올린다. 안 그러면 스윕 한 번에 전날 캡처가 조용히 날아간다.
-
-**끝나면 반드시 되돌릴 것.** 스윕 모드는 캡처 파일을 4배로 쓰고 폴링도 3배
-자주 한다. 30분짜리 세션에는 괜찮지만 상시 설정으로는 낭비다. 스케줄러에서는
-두 모드가 똑같이 보이고 차이는 인자 속 숫자 세 개뿐이라, 스크립트가 끝날 때
-현재 모드와 최악 지연을 출력한다.
-
-**더 빠르게는 안 된다.** dumpcap은 *닫은* 파일만 넘겨주므로 rotation이
-지연의 하한이다. 15초 밑으로 내리면 파일마다 재조립기를 새로 만드는 비용이
-줄어드는 지연보다 커진다. 진짜 실시간은 `dw-capture` 라이브 경로인데, 재접속
-뒤 영구히 멈추는 문제 때문에 애초에 이 구조로 옮겨온 것이다.
-
-**`DarkWar-Notify`는 2026-08-09까지 아예 등록돼 있지 않았다.** 그래서 공지든
-가이드든 발행해도 디스코드에 아무것도 안 갔다. 이 프로세스 하나가 "무엇을
-알릴지 계산"과 "실제로 POST" 두 몫을 다 하기 때문에, 없으면 아웃박스가
-채워지지도 비워지지도 않는다. 설정 화면의 **Send test** 버튼도 아웃박스에
-행만 넣으므로 같이 안 갔고, 그래서 증상이 웹훅·라우팅 문제처럼 보였다.
-
-1분짜리 파일 1440개 = 24시간치. 등록 스크립트는 이제 저장소에 있다 —
-[`scripts/windows/register-tasks.ps1`](../../scripts/windows/register-tasks.ps1).
-**관리자 PowerShell**이 필요하다(작업 등록은 권한이 있어야 한다).
-
-한 번이라도 등록된 머신에서는 `-Interface`가 선택이다 — 스크립트가 자기가 쓴
-`run-Capture.cmd`에서 NPF 장치명을 다시 읽어, 지금 캡처가 물려 있는 어댑터를
-그대로 유지한다. `dumpcap -D`에서 새로 고르다 틀리면 캡처가 **조용히** 아무것도
-안 받는다(작업은 `Running`, 로그도 조용). 바꿀 때만 명시적으로 넘긴다.
-
-```powershell
-.\scripts\windows\register-tasks.ps1 -Interface '\Device\NPF_{...}'
-```
-
-인터페이스는 `& 'C:\Program Files\Wireshark\dumpcap.exe' -D`로 찾거나
-`DW_CAPTURE_NPF_DEVICE`에 넣어 둔다. 스크립트가 등록까지 하고 **띄운 다음 10초
-뒤에 정말 `Running`인지 확인한다** — 아래 「uv가 자기 발등을 찍는다」가 정확히
-"시작은 성공했는데 돌지 않는" 모양이었기 때문이다.
-
-작업 설정에 넣은 것: 로그온 트리거 + **5분 반복(3650일)**, 실패 시 1분 간격
-재시작, **실행 시간 제한 없음**(기본값은 3일 뒤 죽인다), 중복 실행 방지,
-배터리에서도 계속. 되살리는 것은 반복 트리거다 — 재시작 설정은 종료 코드가 0이
-아닐 때만 걸리고, 여기서 죽는 방식은 대체로 0을 남긴다.
-
-### `uv`가 자기 발등을 찍는다 — 2026-08-07 사고의 원인
-
-`DarkWar-Ingest`가 `Ready`인 채로 몇 시간 있었고 outbox가 **288,471행**까지
-밀렸다. 5분 반복 트리거는 정상 작동 중이었다. 매번 살아나서 1초 안에 죽고
-있었을 뿐이다. `ingest.log`에 320줄:
+대시보드에 반영되기까지 **최악 30초** + sync 루프(약 10초).
 
 ```
-error: failed to remove file `...\.venv\Lib\site-packages\../../Scripts/dw-sync.exe`:
-The process cannot access the file because it is being used by another process. (os error 32)
+dumpcap 회전 15s + ingest min-age 5s + poll 10s = 30s
 ```
 
-**`uv run`은 실행 전에 프로젝트 환경을 재동기화하고, 동기화는
-`.venv\Scripts`의 콘솔 스크립트를 다시 쓴다.** 상시 실행 중인 `dw-sync`가
-자기 `dw-sync.exe`를 잡고 있으니, 같은 프로젝트 디렉터리를 쓰는 ingest는
-**sync가 살아 있는 한 절대 못 뜬다.** 간헐적 고장이 아니라 영구 고장이다.
+**모드 없음. 항상 이 타이밍임.** 예전엔 60/20/30을 평상시로 두고 `-Sweep`으로
+빠르게 바꾸는 토글이 있었는데, "빠르게 상시로 돌리면 낭비"라는 전제가 틀렸음.
+재본 결과:
 
-고친 방법은 `uv run --no-sync`다. 의존성 설치는 스케줄된 작업이 몰래 할 일이
-아니다 — 환경 동기화는 register 스크립트가 **전부 멈춘 그 순간에 한 번** 한다.
-의존성을 바꿨으면 register 스크립트를 다시 돌린다.
+- 캡처 총 바이트는 **동일** — 회전을 1/4로 줄이면 파일이 4개로 쪼개질 뿐임
+- 파일 1개 ingest 비용 약 0.05초 (실제 6개 = 캡처 6분치가 기동 포함 1.48초)
+- 폴링마다 디렉터리 스캔 0.35초 / 8,948파일 → 10초 폴링에서 duty cycle 4%
 
-**같이 드러난 것**: `run-hidden.vbs`가 자식의 종료 코드를 버리고 있어서
-(`shell.Run` 반환값 미사용) wscript가 0으로 끝났다. 그래서 이 실패가
-`LastTaskResult=0`, 즉 성공으로 보였다. 지금은 `WScript.Quit code`로 올린다.
-반복 트리거가 없었다면 이 하나로 무기한 정지였을 것이다.
+반면 토글은 UAC와 전체 재등록을 요구했고, 2026-08-22에 중간에 실패하면서
+수집을 통째로 내렸음. 급할 때 손이 안 닿는 모드는 없느니만 못함.
 
-**진단할 때 헷갈리는 코드 둘**:
+**맵만 빠르게는 구조적으로 불가능함.** dumpcap은 *닫은* 파일만 넘기므로 회전
+주기가 지연의 바닥이고, 캡처는 소켓 하나에 명령은 스트림 안쪽이라 BPF로 명령을
+가려낼 수 없음. 바닥은 모든 명령이 공유함.
 
-| 코드 | 뜻 |
-|---|---|
-| `0x800710E0` | 실행 중이라 `IgnoreNew`가 반복 실행을 거절했다 — **정상** |
-| `0x0` + `Ready` | 방금 죽었을 수도 있다. 로그를 봐야 한다 |
-
-**확인 방법**
-
-```powershell
-Get-ScheduledTask -TaskName "DarkWar-*" | ForEach-Object {
-    "$($_.TaskName) $($_.State) $((Get-ScheduledTaskInfo $_.TaskName).LastTaskResult)" }
-uv run dw-collector journal-summary --db C:\DW_data\live.db
-```
-
-**셋 다 `Running`이어야 한다.** 저널의 `ingested_captures`에 파일이 쌓이고
-`sync_outbox`의 pending이 0에 가까우면 끝까지 도는 것이다. 첫 파일은
-1분 창이 끝나고 20초가 더 지나야 들어온다 — `--min-age-seconds`가 아직 쓰이는
-중인 파일을 건드리지 않게 막는다. 최악 지연은 60+20+30 = **110초**.
-
-`Running`만으로는 부족하다. 진짜 물어야 할 것은 **ingest가 따라잡고 있는가**다:
-
-```powershell
-Get-ChildItem C:\DW_data\live\cap_*.pcapng | Sort-Object Name | Select-Object -Last 1
-uv run --no-sync dw-collector journal-summary --db C:\DW_data\live.db
-```
-
-마지막 캡처 파일 번호와 저널의 마지막 ingest 파일 번호 차이가 **2~3을 넘어서
-계속 벌어지면** ingest가 죽었거나 못 따라가는 것이다. pending이 단조 증가하는
-것도 같은 신호다.
-
-**전원 설정을 확인한다.** 절전이나 최대 절전으로 들어가면 새벽 수집이 끊기고,
-그게 하필 일요일 01:59 UTC 창이면 등급 리포트가 통째로 틀어진다.
-
-**남은 것은 ADB 순회다.** 위 셋은 화면을 열지 않는다 — 사람이 게임을 하는 동안
-흐르는 트래픽만 줍는다. 순회가 붙어야 무인이 된다. 그리고 순회를 짜려면 먼저
-로스터를 무엇이 유발하는지 알아야 한다(아래).
-
----
+다만 **outbox에서는 맵이 먼저 나감** — `world_city_snapshots`와
+`season_building_snapshots`가 큐 앞으로 감. 평소엔 한 배치에 다 빠져서 의미가
+없고, 밀렸을 때만 효과가 있음. 정전 뒤 288,471행이 쌓였을 때 스윕한 위치가 그
+뒤에 줄 서 있었던 게 이게 존재하는 이유임. 종류 안에서는 FIFO라 굶는 건 없음.
 
 ## 무엇이 상시로 돌아야 하나
 

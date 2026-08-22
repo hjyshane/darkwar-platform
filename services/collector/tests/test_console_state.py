@@ -238,7 +238,7 @@ def test_a_moved_port_is_picked_up_without_a_restart(monkeypatch, tmp_path) -> N
     assert state.collector_adb_target() == "127.0.0.1:5590"
 
 
-# --- sweep mode -------------------------------------------------------
+# --- pipeline timings -------------------------------------------------------
 
 
 def _wrappers(directory: Path, rotation: int, min_age: int, poll: int) -> None:
@@ -263,19 +263,19 @@ def _wrappers(directory: Path, rotation: int, min_age: int, poll: int) -> None:
 def test_the_everyday_timings_read_back_as_not_sweeping(tmp_path: Path) -> None:
     _wrappers(tmp_path, rotation=60, min_age=20, poll=30)
 
-    reading = state.sweep_state(tmp_path, registered=True)
+    reading = state.pipeline_timings(tmp_path, registered=True)
 
     assert reading.known is True
-    assert reading.sweeping is False
+    assert reading.rotation != 15
     assert reading.worst_case == 110
 
 
 def test_the_sweep_timings_read_back_as_sweeping(tmp_path: Path) -> None:
     _wrappers(tmp_path, rotation=15, min_age=5, poll=10)
 
-    reading = state.sweep_state(tmp_path, registered=True)
+    reading = state.pipeline_timings(tmp_path, registered=True)
 
-    assert reading.sweeping is True
+    assert reading.rotation == 15
     assert reading.worst_case == 30
 
 
@@ -284,48 +284,22 @@ def test_no_registered_tasks_reads_as_unknown_not_as_everyday(tmp_path: Path) ->
     # has registered the tasks on this machine; reporting that as the default
     # mode would put a latency figure on screen for a collector that is not
     # running at all.
-    reading = state.sweep_state(tmp_path, registered=True)
+    reading = state.pipeline_timings(tmp_path, registered=True)
 
     assert reading.known is False
-    assert reading.sweeping is False
+    assert reading.rotation != 15
     assert reading.worst_case is None
 
 
 def test_a_half_written_wrapper_pair_does_not_invent_a_worst_case(tmp_path: Path) -> None:
     (tmp_path / "run-Capture.cmd").write_text("-b duration:15 -b files:5760", encoding="utf-8")
 
-    reading = state.sweep_state(tmp_path, registered=True)
+    reading = state.pipeline_timings(tmp_path, registered=True)
 
-    assert reading.sweeping is True
+    assert reading.rotation == 15
     # Rotation alone is not the answer, and printing it as one would be wrong
     # by the two terms that are missing.
     assert reading.worst_case is None
-
-
-def test_the_toggle_asks_for_elevation_and_waits(tmp_path: Path) -> None:
-    script = tmp_path / "register-tasks.ps1"
-    argv = state.sweep_command(enabled=True, script=script)
-    command = argv[-1]
-
-    # RunAs is the whole point: the window is not elevated and registering
-    # a scheduled task is.
-    assert "-Verb RunAs" in command
-    # Without -Wait the caller cannot tell a refused prompt from a success.
-    assert "-Wait" in command
-    assert "'-Sweep'" in command
-    assert str(script) in command
-
-
-def test_going_back_to_everyday_passes_no_sweep_switch(tmp_path: Path) -> None:
-    command = state.sweep_command(enabled=False, script=tmp_path / "register-tasks.ps1")[-1]
-
-    assert "Sweep" not in command
-
-
-def test_a_missing_register_script_is_reported_rather_than_run(tmp_path: Path) -> None:
-    message = state.set_sweep(True, script=tmp_path / "nope.ps1")
-
-    assert "not found" in message
 
 
 def test_a_stale_wrapper_is_not_a_running_pipeline(tmp_path: Path) -> None:
@@ -335,17 +309,17 @@ def test_a_stale_wrapper_is_not_a_running_pipeline(tmp_path: Path) -> None:
     # what timings, never whether anything is running.
     _wrappers(tmp_path, rotation=15, min_age=5, poll=10)
 
-    reading = state.sweep_state(tmp_path, registered=False)
+    reading = state.pipeline_timings(tmp_path, registered=False)
 
     assert reading.known is False
-    assert reading.sweeping is False
+    assert reading.rotation != 15
     assert reading.worst_case is None
 
 
 def test_registered_tasks_do_read_their_wrappers(tmp_path: Path) -> None:
     _wrappers(tmp_path, rotation=15, min_age=5, poll=10)
 
-    reading = state.sweep_state(tmp_path, registered=True)
+    reading = state.pipeline_timings(tmp_path, registered=True)
 
-    assert reading.sweeping is True
+    assert reading.rotation == 15
     assert reading.worst_case == 30

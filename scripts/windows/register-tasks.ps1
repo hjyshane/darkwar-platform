@@ -13,8 +13,6 @@
 # not be reviewed, tested, or recovered. The machine-specific parts are
 # parameters now; everything else is the same script.
 #
-    #   register-tasks.ps1
-#
 # Find the interface with:  & 'C:\Program Files\Wireshark\dumpcap.exe' -D
 #
 # On a machine that has been registered before, -Interface is optional: the
@@ -35,36 +33,36 @@ param(
     # Rows per sync drain. 100 kept up with live capture and is eleven hours
     # of catching up after any outage; the cost of a drain is the round trips,
     # not the rows.
-    [int]$SyncBatchSize = 1000,
-    # SWEEP MODE. Cuts the three timings that decide how long a sighting takes
-    # to reach the dashboard, for a session where somebody is watching the
-    # screen while they pan the map.
-    #
-    # The default is a compromise for running all day. Sweep mode is not: it
-    # writes four times as many capture files and polls three times as often,
-    # which is fine for the half hour of a sweep and wasteful as a permanent
-    # setting. Run it again WITHOUT -Sweep to go back.
-    #
-    #   register-tasks.ps1 -Sweep    # before a sweep
-    #   register-tasks.ps1           # after, to go back
-    #
-    # What it cannot fix: dumpcap only hands over a file it has CLOSED, so the
-    # rotation period is the floor on staleness either way. 15s is as short as
-    # is sensible - below that the per-file reassembler setup starts costing
-    # more than the latency it saves.
-    [switch]$Sweep
+    [int]$SyncBatchSize = 1000
 )
 
 # Rotation, min-age and poll. Worst case is their sum, plus the sync loop:
-#   normal  60 + 20 + 30 = 110s
-#   sweep   15 +  5 + 10 =  30s
-$timings = if ($Sweep) {
-    @{ Rotation = 15; MinAge = 5; Poll = 10; Files = 5760 }
-} else {
-    @{ Rotation = 60; MinAge = 20; Poll = 30; Files = 1440 }
-}
-# A day of history either way: quarter the rotation, quadruple the ring.
-# Losing that is how a sweep session silently costs the previous day's
+#
+#   15 + 5 + 10 = 30s
+#
+# ONE SET OF TIMINGS, NOT TWO. These used to be the "sweep" half of a toggle,
+# with 60/20/30 as the everyday default, on the assumption that running fast
+# all the time was wasteful. That assumption was never measured and it was
+# wrong:
+#
+#   * the total bytes captured are IDENTICAL - quartering the rotation makes
+#     four files where there was one, not four times the data
+#   * ingesting one file costs about 0.05s: six real files, a full six
+#     minutes of capture, took 1.48s wall including process startup
+#   * the per-poll directory scan is 0.35s against 8,948 files, so a 10s
+#     poll runs at a 4% duty cycle
+#
+# Against that, the toggle cost a UAC prompt, a full re-registration of every
+# task, and on 22 August it took collection down completely when it failed
+# partway. A mode nobody can reach in a hurry is worse than no mode.
+#
+# What this still cannot fix: dumpcap only hands over a file it has CLOSED,
+# so the rotation period is the floor on staleness. Capture is one socket and
+# commands are inside the stream, so there is no way to make map traffic
+# specifically faster - the floor is shared by everything.
+$timings = @{ Rotation = 15; MinAge = 5; Poll = 10; Files = 5760 }
+# 5760 files at 15s is a day of history, the same day the old 1440 at 60s
+# held. Losing that is how a fast rotation silently costs the previous day's
 # capture, which is not a trade anybody asked for.
 
 $ErrorActionPreference = 'Stop'
@@ -528,18 +526,9 @@ if ($failed.Count -gt 0) {
 # check above it is worse than no summary line.
 Write-Output ('All ' + $tasks.Count + ' registered and running.')
 
-# Which mode took effect, and the worst-case lag it buys.
-#
-# Printed because the mode is invisible afterwards: the tasks look identical
-# in the scheduler and the only difference is three numbers buried in their
-# arguments. An operator who forgets to run this again without -Sweep leaves
-# the machine writing four times the capture files indefinitely, and nothing
-# on screen would ever say so.
+# The latency the timings buy, printed because it is otherwise invisible:
+# the tasks look identical in the scheduler and the difference lives inside
+# their arguments.
 $worst = $timings.Rotation + $timings.MinAge + $timings.Poll
-if ($Sweep) {
-    Write-Output ('SWEEP MODE: ' + $worst + 's worst case to the dashboard, plus the sync loop.')
-    Write-Output '  Run this again WITHOUT -Sweep when the sweep is done.'
-} else {
-    Write-Output ('Normal mode: ' + $worst + 's worst case to the dashboard, plus the sync loop.')
-    Write-Output '  Use -Sweep before a map sweep for roughly 30s.'
-}
+Write-Output ''
+Write-Output ("Worst case to the dashboard: " + $worst + "s, plus the sync loop.")

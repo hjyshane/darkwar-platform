@@ -62,7 +62,6 @@ class Console:
             ("stop", "Stop collection", self._stop_tasks),
             ("web", "Open dashboard", self._open_dashboard),
             ("docker", "Start Docker (local stack)", self._start_docker),
-            ("sweep", "Sweep mode: …", self._toggle_sweep),
         ]
         self.buttons: dict[str, ttk.Button] = {}
         for index, (key, label, command) in enumerate(buttons):
@@ -108,7 +107,7 @@ class Console:
         Capture does not start here — it is already running, and a Start that
         implied otherwise would misdescribe the machine. What this marks is a
         boundary, so "I opened six profiles" becomes a number, and Stop spends
-        the ~110s pipeline delay on purpose instead of leaving it to be
+        the ~30s pipeline delay on purpose instead of leaving it to be
         wondered about.
         """
         bar = ttk.Frame(root)
@@ -263,23 +262,6 @@ class Console:
     def _start_docker(self) -> None:
         self._spawn(state.start_docker)
 
-    def _toggle_sweep(self) -> None:
-        """Flip the collection timings, via a UAC prompt.
-
-        The mode is read off disk rather than toggled from what the label
-        says, so a click that was cancelled at the prompt leaves the next
-        press doing the same thing rather than the opposite one.
-        """
-        wanted = not state.sweep_state().sweeping
-        self.buttons["sweep"].state(["disabled"])
-        self.buttons["sweep"].config(text="Sweep mode: working…")
-        self._append(
-            "re-registering the three tasks"
-            + (" for a sweep" if wanted else " at the everyday timings")
-            + " - collection stops for a few seconds, and Windows will ask to elevate"
-        )
-        self._spawn(lambda: state.set_sweep(wanted))
-
     def _open_dashboard(self) -> None:
         self._spawn(state.open_dashboard)
 
@@ -394,21 +376,18 @@ class Console:
         # whether the dashboard has caught up with what they just did, and a
         # typical figure would have them refreshing too early.
         # `registered` from the states this refresh already fetched on its own
-        # thread. Letting sweep_state() work it out would run schtasks three
+        # thread. Letting pipeline_timings() work it out would run schtasks three
         # more times per tick, on the UI thread — and schtasks is exactly what
         # hung while diagnosing a stopped collector.
-        sweep = state.sweep_state(registered=any(task.status != "Missing" for task in tasks))
-        if not sweep.known:
+        timings = state.pipeline_timings(registered=any(task.status != "Missing" for task in tasks))
+        if not timings.known:
             self._set("Latency", "unknown - no registered tasks found", IDLE)
-            self.buttons["sweep"].config(text="Sweep mode: ?")
         else:
             self._set(
                 "Latency",
-                f"~{sweep.worst_case}s worst case ({'sweep' if sweep.sweeping else 'everyday'})",
+                f"~{timings.worst_case}s worst case",
                 GOOD,
             )
-            self.buttons["sweep"].config(text="Sweep mode: " + ("on" if sweep.sweeping else "off"))
-        self.buttons["sweep"].state(["!disabled"])
 
     def _append(self, text: str) -> None:
         self.log.insert("end", text.rstrip() + "\n")
