@@ -434,6 +434,47 @@ routine이 재접속을 포함해야 하는데, `am force-stop`·`am start`는 �
 | `DarkWar-Sync` | `uv run --no-sync dw-sync` (`DW_SYNC_BATCH_SIZE=1000`) |
 | `DarkWar-Notify` | `uv run --no-sync dw-notify` (`DW_NOTIFY_INTERVAL_SECONDS=300` 기본) |
 
+### 스윕 모드
+
+**`dw-console` 창의 `Sweep mode: on/off` 버튼이 제일 쉬운 방법이다.** 누르면 UAC가
+뜨고, 승인하면 아래 스크립트가 대신 돌아간다. 버튼 라벨과 Status 탭의 `Latency`
+줄은 기억한 값이 아니라 `C:\DW_dataun-*.cmd`에서 매번 읽는다 — UAC에서 취소한
+클릭이 켜진 것처럼 보이면 안 되기 때문이다.
+
+터미널에서 직접 할 때는(관리자 PowerShell):
+
+맵을 훑는 동안 화면을 보고 있을 때는 기본 타이밍이 너무 느리다. 등록 스크립트에
+`-Sweep` 스위치가 있다.
+
+```powershell
+.\scripts\windows
+egister-tasks.ps1 -Sweep    # 스윕 시작 전
+.\scripts\windows
+egister-tasks.ps1           # 끝나면 원상복구
+```
+
+| | rotation | min-age | poll | 최악 지연 |
+|---|---|---|---|---|
+| 기본 | 60s | 20s | 30s | **110s** |
+| `-Sweep` | 15s | 5s | 10s | **30s** |
+
+여기에 `dw-sync` 루프(기본 10초)가 더 붙는다. 그 뒤는 Realtime이라 즉시다 —
+`world_city_snapshots`와 `season_building_snapshots`가 토픽으로 매핑돼 있어서
+스윕 중에 열어둔 플레이어 페이지가 그 자리에서 갱신된다.
+
+**링 버퍼는 양쪽 다 24시간치다.** rotation을 1/4로 줄이는 대신 파일 수를 4배
+(1440 → 5760)로 올린다. 안 그러면 스윕 한 번에 전날 캡처가 조용히 날아간다.
+
+**끝나면 반드시 되돌릴 것.** 스윕 모드는 캡처 파일을 4배로 쓰고 폴링도 3배
+자주 한다. 30분짜리 세션에는 괜찮지만 상시 설정으로는 낭비다. 스케줄러에서는
+두 모드가 똑같이 보이고 차이는 인자 속 숫자 세 개뿐이라, 스크립트가 끝날 때
+현재 모드와 최악 지연을 출력한다.
+
+**더 빠르게는 안 된다.** dumpcap은 *닫은* 파일만 넘겨주므로 rotation이
+지연의 하한이다. 15초 밑으로 내리면 파일마다 재조립기를 새로 만드는 비용이
+줄어드는 지연보다 커진다. 진짜 실시간은 `dw-capture` 라이브 경로인데, 재접속
+뒤 영구히 멈추는 문제 때문에 애초에 이 구조로 옮겨온 것이다.
+
 **`DarkWar-Notify`는 2026-08-09까지 아예 등록돼 있지 않았다.** 그래서 공지든
 가이드든 발행해도 디스코드에 아무것도 안 갔다. 이 프로세스 하나가 "무엇을
 알릴지 계산"과 "실제로 POST" 두 몫을 다 하기 때문에, 없으면 아웃박스가

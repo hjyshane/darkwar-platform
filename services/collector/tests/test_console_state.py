@@ -103,3 +103,93 @@ def test_the_collector_instance_is_named_not_guessed() -> None:
     source = inspect.getsource(state.start_emulator)
     assert "COLLECTOR_INSTANCE" in source
     assert "--instance" in source
+
+
+# --- sweep mode -------------------------------------------------------
+
+
+def _wrappers(directory: Path, rotation: int, min_age: int, poll: int) -> None:
+    """What register-tasks.ps1 leaves in $ScriptDir, near enough to parse."""
+    (directory / "run-Capture.cmd").write_text(
+        "@echo off\n"
+        + r'"C:\Program Files\Wireshark\dumpcap.exe" -i "\Device\NPF_{X}" -f "tcp port 8680" '
+        + r'-w "C:\DW_data\live\cap.pcapng" '
+        + f"-b duration:{rotation} -b files:1440 -B 64 "
+        + r'>> "C:\DW_data\logs\capture.log" 2>&1'
+        + "\n",
+        encoding="utf-8",
+    )
+    (directory / "run-Ingest.cmd").write_text(
+        "@echo off\n"
+        + r'"uv.exe" run --no-sync dw-collector ingest-dir --dir "C:\DW_data\live" '
+        + f"--min-age-seconds {min_age} --interval-seconds {poll}\n",
+        encoding="utf-8",
+    )
+
+
+def test_the_everyday_timings_read_back_as_not_sweeping(tmp_path: Path) -> None:
+    _wrappers(tmp_path, rotation=60, min_age=20, poll=30)
+
+    reading = state.sweep_state(tmp_path)
+
+    assert reading.known is True
+    assert reading.sweeping is False
+    assert reading.worst_case == 110
+
+
+def test_the_sweep_timings_read_back_as_sweeping(tmp_path: Path) -> None:
+    _wrappers(tmp_path, rotation=15, min_age=5, poll=10)
+
+    reading = state.sweep_state(tmp_path)
+
+    assert reading.sweeping is True
+    assert reading.worst_case == 30
+
+
+def test_no_registered_tasks_reads_as_unknown_not_as_everyday(tmp_path: Path) -> None:
+    # The distinction the window depends on. An absent wrapper means nobody
+    # has registered the tasks on this machine; reporting that as the default
+    # mode would put a latency figure on screen for a collector that is not
+    # running at all.
+    reading = state.sweep_state(tmp_path)
+
+    assert reading.known is False
+    assert reading.sweeping is False
+    assert reading.worst_case is None
+
+
+def test_a_half_written_wrapper_pair_does_not_invent_a_worst_case(tmp_path: Path) -> None:
+    (tmp_path / "run-Capture.cmd").write_text("-b duration:15 -b files:5760", encoding="utf-8")
+
+    reading = state.sweep_state(tmp_path)
+
+    assert reading.sweeping is True
+    # Rotation alone is not the answer, and printing it as one would be wrong
+    # by the two terms that are missing.
+    assert reading.worst_case is None
+
+
+def test_the_toggle_asks_for_elevation_and_waits(tmp_path: Path) -> None:
+    script = tmp_path / "register-tasks.ps1"
+    argv = state.sweep_command(enabled=True, script=script)
+    command = argv[-1]
+
+    # RunAs is the whole point: the window is not elevated and registering
+    # a scheduled task is.
+    assert "-Verb RunAs" in command
+    # Without -Wait the caller cannot tell a refused prompt from a success.
+    assert "-Wait" in command
+    assert "'-Sweep'" in command
+    assert str(script) in command
+
+
+def test_going_back_to_everyday_passes_no_sweep_switch(tmp_path: Path) -> None:
+    command = state.sweep_command(enabled=False, script=tmp_path / "register-tasks.ps1")[-1]
+
+    assert "Sweep" not in command
+
+
+def test_a_missing_register_script_is_reported_rather_than_run(tmp_path: Path) -> None:
+    message = state.set_sweep(True, script=tmp_path / "nope.ps1")
+
+    assert "not found" in message

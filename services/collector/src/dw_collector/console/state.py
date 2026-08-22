@@ -213,3 +213,130 @@ def start_game() -> str:
     if result.returncode != 0:
         return f"failed: {result.stderr.strip() or result.stdout.strip()}"
     return f"{GAME_PACKAGE} launch requested"
+
+
+# --- sweep mode -------------------------------------------------------
+#
+# The three timings that decide how long a sighting takes to reach the
+# dashboard live in the scheduled tasks' arguments, which is why changing
+# them means re-registering rather than editing a setting. That is also why
+# this needs elevation: everything else in this window runs as the operator.
+
+SWEEP_ROTATION = 15
+NORMAL_ROTATION = 60
+
+# Where register-tasks.ps1 writes the .cmd wrappers it registers ($ScriptDir).
+SCRIPT_DIR = Path(os.environ.get("DW_SCRIPT_DIR", r"C:\DW_data"))
+REGISTER_SCRIPT = Path(
+    os.environ.get("DW_REGISTER_SCRIPT", r"C:\darkwar-platform\scripts\windows\register-tasks.ps1")
+)
+
+
+@dataclass(frozen=True)
+class SweepState:
+    """The timings actually registered, not the ones we last asked for.
+
+    Read from the generated wrappers rather than kept in memory, for the
+    same reason every other reading here is: the window is opened when
+    something is already wrong, and a mode remembered from a click that
+    silently failed would be the one thing it must not report.
+    """
+
+    rotation: int | None = None
+    min_age: int | None = None
+    poll: int | None = None
+
+    @property
+    def known(self) -> bool:
+        return self.rotation is not None
+
+    @property
+    def sweeping(self) -> bool:
+        return self.rotation == SWEEP_ROTATION
+
+    @property
+    def worst_case(self) -> int | None:
+        """Rotation plus min-age plus poll. The sync loop is on top of this."""
+        if self.rotation is None or self.min_age is None or self.poll is None:
+            return None
+        return self.rotation + self.min_age + self.poll
+
+
+def _number_after(text: str, marker: str) -> int | None:
+    """The integer following `marker`, or None. Deliberately forgiving: an
+    unreadable wrapper means "unknown", never a wrong number."""
+    _, separator, tail = text.partition(marker)
+    if not separator:
+        return None
+    digits = ""
+    for char in tail.lstrip():
+        if not char.isdigit():
+            break
+        digits += char
+    return int(digits) if digits else None
+
+
+def sweep_state(script_dir: Path | None = None) -> SweepState:
+    directory = script_dir or SCRIPT_DIR
+    rotation = min_age = poll = None
+    try:
+        capture = (directory / "run-Capture.cmd").read_text(encoding="utf-8", errors="replace")
+        rotation = _number_after(capture, "duration:")
+    except OSError:
+        pass
+    try:
+        ingest = (directory / "run-Ingest.cmd").read_text(encoding="utf-8", errors="replace")
+        min_age = _number_after(ingest, "--min-age-seconds")
+        poll = _number_after(ingest, "--interval-seconds")
+    except OSError:
+        pass
+    return SweepState(rotation=rotation, min_age=min_age, poll=poll)
+
+
+def sweep_command(enabled: bool, script: Path | None = None) -> list[str]:
+    """The argv that re-registers the tasks in the requested mode.
+
+    Two levels of PowerShell because this window is NOT elevated and
+    registering tasks is: the outer one only exists to raise the UAC prompt
+    that the inner, elevated one runs behind. `-Wait` so the caller learns
+    the outcome rather than guessing from a process that has already exited.
+    """
+    path = str(script or REGISTER_SCRIPT).replace("'", "''")
+    inner = ["'-NoProfile'", "'-ExecutionPolicy'", "'Bypass'", "'-File'", f"'{path}'"]
+    if enabled:
+        inner.append("'-Sweep'")
+    return [
+        "powershell",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Start-Process -FilePath powershell -Verb RunAs -Wait -WindowStyle Hidden "
+        "-ArgumentList " + ",".join(inner),
+    ]
+
+
+def set_sweep(enabled: bool, script: Path | None = None) -> str:
+    """Re-register the three tasks at the sweep or the everyday timings.
+
+    COLLECTION STOPS FOR A FEW SECONDS. The script tears the tasks down and
+    builds them back, which is the only way to change arguments that live in
+    a registered action. That is acceptable for a deliberate mode change and
+    is why this is a button somebody presses, not something that happens on
+    a schedule.
+    """
+    target = script or REGISTER_SCRIPT
+    if not target.exists():
+        return f"not found: {target}"
+    wanted = "sweep" if enabled else "normal"
+    result = _run(sweep_command(enabled, target), timeout=300.0)
+    if result.returncode != 0:
+        # A refused UAC prompt lands here, and is the likeliest cause.
+        detail = result.stderr.strip() or result.stdout.strip() or "cancelled at the UAC prompt"
+        return f"{wanted} mode failed: {detail}"
+    now = sweep_state()
+    if now.sweeping != enabled:
+        # The script verifies its own work and can report FAIL per task while
+        # still exiting 0, so trust the wrappers on disk over the exit code.
+        return f"{wanted} mode did not take effect - check the register output"
+    return f"{wanted} mode active - worst case {now.worst_case}s plus the sync loop"
