@@ -4515,6 +4515,23 @@ export type Database = {
           },
         ]
       }
+      swept_servers: {
+        Row: {
+          players: number | null
+          server_id: number | null
+          swept_at: string | null
+          tiles: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "world_city_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+        ]
+      }
       sync_status: {
         Row: {
           is_live: boolean | null

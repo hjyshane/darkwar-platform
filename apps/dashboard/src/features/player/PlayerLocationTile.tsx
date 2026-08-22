@@ -1,8 +1,11 @@
+import { useState } from 'react';
 import { StatTile } from '../../components/StatTile';
 import { formatLastOnline } from '../../lib/freshness';
+import { formatCoordinate } from '../../lib/mapProjection';
 import { serverHash } from '../../lib/route';
 import { TERMS } from '../../lib/terms';
-import { type LocationState, formatCoordinate, stateOf, usePlayerLocation } from './playerLocation';
+import { MapCanvas } from '../map/MapCanvas';
+import { type LocationState, stateOf, usePlayerLocation } from './playerLocation';
 
 /** Where this player was last seen on the map.
  *
@@ -26,10 +29,22 @@ function label(state: LocationState): string {
   }
 }
 
-export function PlayerLocationTile({ playerId, now }: { playerId: string; now?: Date }) {
+export function PlayerLocationTile({
+  playerId,
+  now,
+  onToggleMap,
+  mapOpen,
+}: {
+  playerId: string;
+  now?: Date;
+  /** Absent when there is no map to open, which keeps the tile a tile. */
+  onToggleMap?: () => void;
+  mapOpen?: boolean;
+}) {
   const { data, isPending } = usePlayerLocation(playerId);
   const at = now ?? new Date();
   const state = stateOf(data ?? null, at);
+  const hasPlace = state.kind !== 'unknown';
 
   return (
     <StatTile
@@ -46,7 +61,25 @@ export function PlayerLocationTile({ playerId, now }: { playerId: string; now?: 
               ? 'stale'
               : `server ${state.at.serverId}`
       }
-      value={isPending ? '…' : label(state)}
+      value={
+        isPending ? (
+          '…'
+        ) : hasPlace && onToggleMap ? (
+          // The coordinate IS the control. A separate "show map" button would
+          // be a second thing to find; the number is what somebody is already
+          // looking at when they want to see where it is.
+          <button
+            aria-expanded={mapOpen === true}
+            className="linklike"
+            onClick={onToggleMap}
+            type="button"
+          >
+            {label(state)}
+          </button>
+        ) : (
+          label(state)
+        )
+      }
     />
   );
 }
@@ -86,4 +119,50 @@ export function PlayerLocationNote({ playerId, now }: { playerId: string; now?: 
       collector is pointed, so a server has to be visited before anyone on it has a position.
     </p>
   );
+}
+
+/** The map itself, under the tiles, once somebody asks for it.
+ *
+ * Not rendered until it is opened: the picture is a whole image download, and
+ * most visits to a player page are not about where they are.
+ */
+export function PlayerLocationMap({ playerId, now }: { playerId: string; now?: Date }) {
+  const { data } = usePlayerLocation(playerId);
+  const at = now ?? new Date();
+  const state = stateOf(data ?? null, at);
+
+  if (state.kind === 'unknown') {
+    return null;
+  }
+  return (
+    <MapCanvas
+      caption={
+        state.kind === 'stale'
+          ? `Where they were ${formatLastOnline('offline', state.at.capturedAt, at)}, on server ${state.at.serverId}.`
+          : `Server ${state.at.serverId}, as of the last sweep over that ground.`
+      }
+      markers={[
+        {
+          at: state.at,
+          label: formatCoordinate(state.at),
+          faded: state.kind === 'stale',
+        },
+      ]}
+    />
+  );
+}
+
+/** Whether this player has a place to show at all — so the page knows
+ * whether to offer the toggle. */
+export function usePlayerHasLocation(playerId: string, now?: Date): boolean {
+  const { data } = usePlayerLocation(playerId);
+  return stateOf(data ?? null, now ?? new Date()).kind !== 'unknown';
+}
+
+// The map needs its own state, but it belongs to the page rather than to any
+// one of these components: the coordinate that opens it and the picture that
+// opens are siblings.
+export function useMapDisclosure() {
+  const [open, setOpen] = useState(false);
+  return { open, toggle: () => setOpen((was) => !was) };
 }

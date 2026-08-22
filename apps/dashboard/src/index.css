@@ -3387,3 +3387,156 @@ form select {
 .schedule-zone select {
   font-size: 0.85rem;
 }
+
+/* --- map ------------------------------------------------------------------ */
+
+.map-canvas {
+  margin: var(--space-4) 0;
+}
+
+/* The picture, at its own aspect ratio. The plot inside is positioned
+ * against THIS box, so the frame around the map stays out of the sums. */
+.map-frame {
+  position: relative;
+  width: 100%;
+  max-width: 900px;
+  line-height: 0;
+}
+
+.map-frame__image {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Without a picture there is nothing to give the box a height, so it falls
+ * back to the map's own shape and a grid — the markers are still in the
+ * right place relative to each other. */
+.map-frame--empty {
+  aspect-ratio: 1 / 1;
+  background: var(--bg-raised);
+  background-image: linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 10% 10%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+/* The playable world: inset from the picture's edges by however much of it
+ * is border. Every marker is a percentage of THIS, never of the image. */
+.map-plot {
+  position: absolute;
+}
+
+/* The ruler. Only ever on deliberately — if this outline does not sit on the
+ * inside of the map's border, the inset is wrong and every marker is out by
+ * the difference. */
+.map-plot--calibrate {
+  outline: 2px dashed var(--accent);
+  outline-offset: 0;
+}
+
+.map-pin {
+  position: absolute;
+  /* The coordinate is the CENTRE of the pin, not its corner: a pin hung
+   * below-right of its point names the wrong tile at this zoom. */
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.map-pin--faded {
+  opacity: 0.55;
+}
+
+.map-pin__dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+}
+
+.map-pin__label {
+  margin-top: var(--space-1);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--fg);
+  font-size: var(--text-sm);
+  padding: 1px var(--space-1);
+  white-space: nowrap;
+}
+
+.map-edge {
+  position: absolute;
+  background: var(--bg);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  color: var(--fg);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  padding: 0 var(--space-1);
+}
+
+.map-edge--tl {
+  left: 0;
+  top: 0;
+}
+
+.map-edge--br {
+  right: 0;
+  bottom: 0;
+}
+
+.map-search {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: var(--space-4) 0;
+  max-width: 24rem;
+}
+
+.map-results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  list-style: none;
+  margin: 0 0 var(--space-4);
+  padding: 0;
+}
+
+.map-results button {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  font: inherit;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  width: 100%;
+}
+
+.map-results button:hover {
+  background: var(--bg-hover);
+}
+
+.map-selected {
+  margin: var(--space-4) 0 var(--space-2);
+}
+
+.map-calibrate {
+  align-items: center;
+  color: var(--fg-muted);
+  display: flex;
+  font-size: var(--text-sm);
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}

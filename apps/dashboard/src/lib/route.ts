@@ -20,6 +20,7 @@ export type Route =
   | 'crossRankings'
   | 'season'
   | 'season2'
+  | 'map'
   | 'arena'
   | 'server'
   | 'player'
@@ -42,6 +43,7 @@ const ROUTES: Record<string, Route> = {
   '#/cross-server': 'crossRankings',
   '#/season': 'season',
   '#/season2': 'season2',
+  '#/map': 'map',
   '#/arena': 'arena',
   '#/month-cards': 'monthCards',
   '#/account': 'account',
@@ -115,6 +117,10 @@ export function adminHash(group: AdminGroup, section?: string): string {
 // reaching a query.
 const SERVER_HASH = /^#\/server\/(\d+)$/;
 
+// `#/map` opens on the most recently swept server; `#/map/581` opens on one,
+// so a link can point somebody at the ground being fought over this week.
+const MAP_HASH = /^#\/map(?:\/(\d+))?$/;
+
 // A player and an alliance are addressed by their uuid rather than a name:
 // names change (player_names exists for that reason) and are not unique
 // across servers. Matched strictly, so a malformed id falls through to the
@@ -133,6 +139,9 @@ export function routeFromHash(hash: string): Route {
   }
   if (SERVER_HASH.test(hash)) {
     return 'server';
+  }
+  if (MAP_HASH.test(hash)) {
+    return 'map';
   }
   if (PLAYER_HASH.test(hash)) {
     return 'player';
@@ -193,6 +202,16 @@ export function serverHash(serverId: number): string {
   return `#/server/${serverId}`;
 }
 
+/** The server a `#/map/581` address names, or null for bare `#/map`. */
+export function mapServerIdFromHash(hash: string): number | null {
+  const match = MAP_HASH.exec(hash);
+  return match?.[1] === undefined ? null : Number(match[1]);
+}
+
+export function mapHash(serverId?: number): string {
+  return serverId === undefined ? '#/map' : `#/map/${serverId}`;
+}
+
 /** Tabs shown in the nav, in order. Excludes month-cards (unlinked above)
  *  and login, which is an account action rather than a screen. */
 export const NAV_TABS: ReadonlyArray<{ route: Route; hash: string; label: string }> = [
@@ -222,6 +241,11 @@ export const NAV_TABS: ReadonlyArray<{ route: Route; hash: string; label: string
   // they sit beside Season 3 rather than inside it, where a member would
   // have to work out which of two boards is the live one.
   { route: 'season2', hash: '#/season2', label: 'Season 2' },
+  // Beside the season boards because it answers the same week's question:
+  // the server we duel is the server that gets swept, and the map is where
+  // that sweep is read. One player at a time, which is why it is a screen
+  // rather than a panel on the server page.
+  { route: 'map', hash: '#/map', label: 'Map' },
   // Straight after the overview, because these two are the ones the alliance
   // reads every day and writes to each other on. Everything below is a board
   // the game produced; this is what the alliance said about it.

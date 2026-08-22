@@ -14,7 +14,13 @@ import { LineupLegend } from '../arena/LineupLegend';
 import { fetchLineups } from '../arena/lineups';
 import { ComponentTrend } from './ComponentTrend';
 import { MemberHistory } from './MemberHistory';
-import { PlayerLocationNote, PlayerLocationTile } from './PlayerLocationTile';
+import {
+  PlayerLocationMap,
+  PlayerLocationNote,
+  PlayerLocationTile,
+  useMapDisclosure,
+  usePlayerHasLocation,
+} from './PlayerLocationTile';
 import { PlayerTrend } from './PlayerTrend';
 import {
   type PlayerArenaEntry,
@@ -313,6 +319,12 @@ export function PlayerPage({ playerId, now }: { playerId: string; now?: Date }) 
     queryKey: ['player', playerId],
     queryFn: () => fetchPlayer(playerId),
   });
+  // Above the early returns because hooks cannot be conditional, and keyed on
+  // the prop rather than on `data` for the same reason. The toggle is only
+  // handed to the tile when there is somewhere to show, so the coordinate
+  // does not become a button that opens an empty map.
+  const map = useMapDisclosure();
+  const hasLocation = usePlayerHasLocation(playerId, now);
 
   if (isPending) {
     return (
@@ -377,9 +389,15 @@ export function PlayerPage({ playerId, now }: { playerId: string; now?: Date }) 
             label={TERMS.lastOnline}
             value={formatLastOnline(data.onlineState, data.offlineSince, now ?? new Date())}
           />
-          <PlayerLocationTile now={now} playerId={data.playerId} />
+          <PlayerLocationTile
+            mapOpen={map.open}
+            now={now}
+            onToggleMap={hasLocation ? map.toggle : undefined}
+            playerId={data.playerId}
+          />
         </div>
         <PlayerLocationNote now={now} playerId={data.playerId} />
+        {map.open && <PlayerLocationMap now={now} playerId={data.playerId} />}
         <p className="subtle">
           UID {data.gameUid} · {TERMS.lastSeen}{' '}
           <FreshnessBadge capturedAt={data.lastSeenAt} now={now} />

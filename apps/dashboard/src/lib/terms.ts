@@ -62,6 +62,7 @@ export const TERMS = {
   // ours: where the map last showed this player's city. A sighting, never
   // a live position — the map is only read where the collector is pointed.
   location: 'Location',
+  map: 'Map',
   lastSeen: 'Last Updated', // ours: captured_at / last_seen_at — when we last looked
   defensePower: 'Defense Power', // ours: the `army` blob is a lineup, not a number
   lineup: 'Lineup', // ours: the decoded `army` blob

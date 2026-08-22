@@ -1,8 +1,14 @@
+import type { ReactNode } from 'react';
 /** One figure with the noun it belongs to.
  *
- * `value` is a STRING the caller has already formatted, not a number this
- * decides how to render. Whether 4,350,390 should read as "4.35M" depends on
- * what it counts, and the tile is the wrong place to guess.
+ * `value` is ALREADY FORMATTED by the caller, not a number this decides how
+ * to render. Whether 4,350,390 should read as "4.35M" depends on what it
+ * counts, and the tile is the wrong place to guess.
+ *
+ * A node rather than a string only so a figure can also be a control — the
+ * player page hangs its map on the coordinate, because the number is what
+ * somebody is already looking at when they want to see where it is. That is
+ * the exception; passing a raw number here is still the caller's bug.
  *
  * Proportional figures here, deliberately, while table cells use
  * tabular-nums: tabular gives every digit the width of a zero, which keeps a
@@ -29,7 +35,7 @@ export function StatTile({
   /** Sentence case, no trailing colon. */
   label: string;
   /** Already formatted, or null when we have not observed it. */
-  value: string | null;
+  value: ReactNode;
   /** What the figure is OF, when the label alone would overclaim. */
   note?: string;
   /** Exactly one tile per screen may be the hero. */
