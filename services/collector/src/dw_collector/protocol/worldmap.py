@@ -494,8 +494,26 @@ def decode_point(entry: str | bytes) -> Tile:
     return Tile(
         point_id=point_id,
         object_type=object_type,
-        x=point_id // MAP_WIDTH,
-        y=point_id % MAP_WIDTH,
+        # ROW FIRST, AND THE COLUMN IS ONE-BASED: the packing is
+        # `y * 1000 + (x + 1)`, not `x * 1000 + y`.
+        #
+        # Both halves of that were wrong until 22 August, and neither showed
+        # up as an error. A swapped pair still lands on the map, still moves
+        # when the base moves, and still looks like a plausible coordinate —
+        # it is simply somebody else's square. Two members read their own
+        # position off the game and both differed the same way:
+        #
+        #   we said 515, 554   the game said 553, 515
+        #   we said 557, 547   the game said 546, 557
+        #
+        # Corroborated across 19,720 stored tiles rather than on two samples.
+        # Cities sit roughly symmetrically about the middle, so the two
+        # components should span similar ranges; instead `point_id % 1000`
+        # ran 2..998 while `point_id // 1000` ran 1..997 — the same off-by-one
+        # at BOTH ends of one axis only, which is what a 1-based column looks
+        # like from the outside.
+        x=(point_id % MAP_WIDTH) - 1,
+        y=point_id // MAP_WIDTH,
         server_id=_varint(top, _SERVER_ID),
         city=_city(top) if object_type == CITY_TYPE else None,
         building=_building(top) if object_type == SEASON_BUILDING_TYPE else None,

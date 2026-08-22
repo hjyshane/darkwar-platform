@@ -1,13 +1,20 @@
 from __future__ import annotations
 
 import sqlite3
+import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
 
+from dw_collector.models import NormalizedRow, Observation
 from dw_collector.normalize import al_rank
 from dw_collector.storage.journal import Journal
 from tests.conftest import load_observation
+
+
+def _other_observation(base: Observation) -> Observation:
+    """A second observation, so the two records are not one replayed row."""
+    return base.model_copy(update={"observation_id": uuid.uuid4()})
 
 
 def _counts(journal: Journal) -> tuple[int, int, int]:
@@ -118,3 +125,41 @@ def test_watermark_does_not_move_for_a_replayed_observation(journal: Journal) ->
 
     assert journal.watermark() == once
     assert journal.commands_after(once) == set()
+
+
+def _tile_row(table: str, key: str) -> NormalizedRow:
+    return NormalizedRow(target_table=table, idempotency_key=key, row={"k": key})
+
+
+def test_map_rows_leave_the_outbox_ahead_of_a_backlog(journal: Journal) -> None:
+    """A position is read while somebody is deciding where to march.
+
+    Order only matters when the queue is long — a steady state drains in one
+    batch either way. After an outage there were 288,471 rows waiting and a
+    sweep's positions sat behind every one of them; that is the case this is
+    for.
+    """
+    # The backlog is recorded FIRST, so plain FIFO would put all of it ahead.
+    backlog = load_observation("al.rank/cbfw_roster_v1.json")
+    journal.record(backlog, [_tile_row("alliance_member_snapshots", f"m:{n}") for n in range(50)])
+    journal.record(_other_observation(backlog), [_tile_row("world_city_snapshots", "tile:491444")])
+
+    first = journal.pending_outbox(limit=5)[0]
+
+    assert first.event_type == "snapshot.world_city_snapshots"
+
+
+def test_expediting_does_not_starve_or_reorder_within_a_class(journal: Journal) -> None:
+    # Same kind keeps the order it was written, and the backlog still drains:
+    # it is queued behind the map rows, not dropped.
+    backlog = load_observation("al.rank/cbfw_roster_v1.json")
+    journal.record(backlog, [_tile_row("alliance_member_snapshots", f"m:{n}") for n in range(3)])
+    journal.record(
+        _other_observation(backlog),
+        [_tile_row("world_city_snapshots", f"tile:{n}") for n in range(2)],
+    )
+
+    keys = [item.payload.idempotency_key for item in journal.pending_outbox(limit=99)]
+
+    assert keys[:2] == ["tile:0", "tile:1"]
+    assert keys[2:] == ["m:0", "m:1", "m:2"]

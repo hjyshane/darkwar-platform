@@ -55,14 +55,33 @@ def _point(point_id: int, object_type: int, city: bytes | None = None, server: i
     return B64_PREFIX + base64.b64encode(body).decode()
 
 
-def test_the_coordinate_unpacks_as_x_times_width_plus_y() -> None:
-    # 610381 was the largest seen in a real sweep; maxAreaSize is 1000 on
-    # every viewport, which is what makes this packing the right reading.
+def test_the_coordinate_unpacks_as_row_first_with_a_one_based_column() -> None:
+    # `y * 1000 + (x + 1)`, so 610381 is row 610, column 380.
     tile = decode_point(_point(610381, 7))
 
     assert tile.point_id == 610381
-    assert (tile.x, tile.y) == (610, 381)
+    assert (tile.x, tile.y) == (380, 610)
     assert MAP_WIDTH == 1000
+
+
+def test_the_two_positions_members_read_off_their_own_screens() -> None:
+    """The ground truth this packing was corrected against.
+
+    Both halves were wrong at once until 22 August — the components were
+    swapped AND the column is one-based — and neither showed as an error. A
+    swapped pair is still on the map and still moves with the base; it is
+    just somebody else's square. These two pairs are the only thing that
+    would have caught it, so they are pinned here by name.
+    """
+    assert (decode_point(_point(515554, 7)).x, decode_point(_point(515554, 7)).y) == (553, 515)
+    assert (decode_point(_point(557547, 7)).x, decode_point(_point(557547, 7)).y) == (546, 557)
+
+
+def test_the_column_is_one_based_at_the_low_edge() -> None:
+    # Column 1 in the packing is x = 0, the left edge of the map. Reading it
+    # without the offset put every tile one square to the right.
+    assert decode_point(_point(500001, 7)).x == 0
+    assert decode_point(_point(500001, 7)).y == 500
 
 
 def test_a_city_carries_uid_name_and_hq_level() -> None:
@@ -73,7 +92,7 @@ def test_a_city_carries_uid_name_and_hq_level() -> None:
     assert tile.city.uid == "1190060554000580"
     assert tile.city.name == "Ranger"
     assert tile.city.hq_level == 35
-    assert (tile.x, tile.y) == (491, 444)
+    assert (tile.x, tile.y) == (443, 491)
 
 
 def test_a_non_city_type_is_not_given_city_fields() -> None:
@@ -141,7 +160,7 @@ def test_the_wire_form_is_raw_bytes_not_a_string() -> None:
 
     tile = decode_point(body)
 
-    assert (tile.x, tile.y) == (491, 444)
+    assert (tile.x, tile.y) == (443, 491)
     assert tile.city is not None
     assert tile.city.hq_level == 35
     # Both forms must agree, or the journal and the socket disagree about

@@ -65,7 +65,7 @@ def test_a_season_building_carries_its_owner_type_and_level() -> None:
     for row in rows:
         assert row.row["game_uid"] > 0
         assert row.row["server_id"] == int(str(row.row["game_uid"])[-6:])
-        assert row.row["point_id"] == row.row["x"] * 1000 + row.row["y"]
+        assert row.row["point_id"] == row.row["y"] * 1000 + row.row["x"] + 1
         if row.row["level"] is not None:
             assert row.row["level"] >= 1
 
@@ -84,10 +84,18 @@ def test_a_building_is_keyed_by_object_not_by_tile() -> None:
 
 
 def test_the_coordinate_is_stored_unpacked_and_packed() -> None:
+    """ROW FIRST, COLUMN ONE-BASED: `point_id = y * 1000 + (x + 1)`.
+
+    The invariant was written the other way round and held for months
+    because it is self-consistent — the normalizer and the test agreed with
+    each other and both disagreed with the game. Only two members reading
+    their own coordinates off screen caught it.
+    """
     rows = world_map.normalize(load_observation(VIEWPORT))
 
     for row in rows:
-        assert row.row["point_id"] == row.row["x"] * 1000 + row.row["y"]
+        assert row.row["point_id"] == row.row["y"] * 1000 + row.row["x"] + 1
+        assert 0 <= row.row["x"] < 1000
         assert 0 <= row.row["y"] < 1000
 
 
