@@ -16,9 +16,9 @@ import sys
 import threading
 import tkinter as tk
 from pathlib import Path
-from tkinter import scrolledtext, ttk
+from tkinter import filedialog, scrolledtext, ttk
 
-from dw_collector.console import logs, session, state
+from dw_collector.console import find, logs, session, state
 from dw_collector.envfile import load_env_file
 
 REFRESH_MS = 3000
@@ -87,6 +87,10 @@ class Console:
         session_tab = ttk.Frame(notebook)
         notebook.add(session_tab, text="Session")
         self._build_session(session_tab)
+
+        find_tab = ttk.Frame(notebook)
+        notebook.add(find_tab, text="Find")
+        self._build_find(find_tab)
 
         self.log_views: dict[str, scrolledtext.ScrolledText] = {}
         for name in self.tails:
@@ -208,6 +212,100 @@ class Console:
         self.session_view.insert(
             "end", "\n".join(f"  {command:34} {n:5}" for command, n in rows.items()) + "\n"
         )
+
+    def _build_find(self, root: tk.Misc) -> None:
+        """Where was this player, in this capture file.
+
+        Here rather than on the dashboard for two reasons that both matter. A
+        raw PCAP carries the capturing account's uid and session signature, so
+        an upload box would put a live credential in cloud storage. And a
+        browser cannot decode a pcapng at all — the file would travel to the
+        cloud and back to reach a decoder that is already on this machine.
+        """
+        bar = ttk.Frame(root)
+        bar.pack(fill="x", padx=10, pady=(8, 4))
+        ttk.Button(bar, text="Choose capture…", command=self._find_pick).grid(row=0, column=0)
+        self.find_file = tk.Label(bar, text="no file chosen", anchor="w", fg=IDLE)
+        self.find_file.grid(row=0, column=1, padx=10, sticky="w")
+
+        entry_row = ttk.Frame(root)
+        entry_row.pack(fill="x", padx=10, pady=(0, 4))
+        ttk.Label(entry_row, text="UID or name").grid(row=0, column=0)
+        self.find_entry = ttk.Entry(entry_row, width=28)
+        self.find_entry.grid(row=0, column=1, padx=6)
+        self.find_entry.bind("<Return>", lambda _event: self._find_run())
+        self.find_button = ttk.Button(entry_row, text="Find", command=self._find_run)
+        self.find_button.grid(row=0, column=2)
+
+        ttk.Label(
+            root,
+            text=(
+                "A UID is the handle: sixteen digits that do not change. Names carry emoji\n"
+                "and lookalike characters, and the player worth hunting is the one whose\n"
+                "name will not paste cleanly. Nothing here is written to the journal."
+            ),
+            justify="left",
+        ).pack(anchor="w", padx=10, pady=(0, 6))
+
+        self.find_view = scrolledtext.ScrolledText(root, wrap="word", height=16)
+        self.find_view.pack(fill="both", expand=True, padx=10, pady=(0, 8))
+        self.find_path: Path | None = None
+
+    def _find_pick(self) -> None:
+        chosen = filedialog.askopenfilename(
+            title="Capture to search",
+            filetypes=[("Captures", "*.pcapng *.pcap"), ("All files", "*.*")],
+        )
+        if not chosen:
+            return
+        self.find_path = Path(chosen)
+        self.find_file.config(text=self.find_path.name, fg=GOOD)
+
+    def _find_run(self) -> None:
+        needle = self.find_entry.get().strip()
+        path = self.find_path
+        if path is None:
+            self._find_say("Choose a capture first.")
+            return
+        if not needle:
+            self._find_say("Type a UID, or a piece of a name.")
+            return
+        self.find_button.state(["disabled"])
+        self._find_say(f"reading {path.name}…")
+
+        def work() -> str:
+            scan = find.search(path, needle)
+            self.root.after(0, lambda: self._find_done(scan, needle))
+            return f"searched {path.name}"
+
+        self._spawn(work)
+
+    def _find_done(self, scan: find.Scan, needle: str) -> None:
+        self.find_button.state(["!disabled"])
+        lines = [f"{scan.tiles} tile(s) in this capture, covering {scan.covers}.", ""]
+        if scan.matches:
+            for hit in scan.matches:
+                where = f"{hit.x}, {hit.y}"
+                level = f" - HQ {hit.hq_level}" if hit.hq_level is not None else ""
+                lines.append(
+                    f"  {hit.name or 'unnamed'}  at {where}  server {hit.server_id}{level}"
+                )
+                lines.append(f"    uid {hit.game_uid}")
+        else:
+            # NOT FOUND IS TWO DIFFERENT ANSWERS and the box says which. A
+            # capture that never passed over the ground cannot report who is
+            # standing on it, and silence there reads as "they moved" when it
+            # only means "we did not look".
+            lines.append(f"  nothing matching {needle!r} in this capture.")
+            lines.append("")
+            lines.append("  This capture only read the box above. If the base you want was")
+            lines.append("  outside it, the capture cannot say anything about it either way -")
+            lines.append("  pan over that ground and capture again.")
+        self._find_say("\n".join(lines))
+
+    def _find_say(self, text: str) -> None:
+        self.find_view.delete("1.0", "end")
+        self.find_view.insert("end", text + "\n")
 
     def _build_status(self, root: tk.Misc) -> None:
         frame = ttk.LabelFrame(root, text="Status")

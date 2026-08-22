@@ -35,7 +35,11 @@ from dw_collector.protocol.worldmap import (
 )
 from dw_collector.registry import register
 
-PARSER_VERSION = "1.0.0"
+# 1.1.0: the coordinate unpacking was wrong in two ways at once - the two
+# halves of point_id were swapped, and the column half is one-based. Rows
+# written before this carry each other's axes; 0142 repairs them in place from
+# point_id, which is stored raw for exactly this reason.
+PARSER_VERSION = "1.1.0"
 
 _UID_SERVER_SUFFIX = 6
 

@@ -181,14 +181,29 @@ class Journal:
                     duplicate += 1
         return RecordResult(raw_inserted, inserted, duplicate)
 
+    #: Rows somebody is watching for, sent ahead of the rest of the queue.
+    #:
+    #: A position is read while somebody is panning the map and deciding
+    #: where to march; a roster row is read tomorrow. Both are FIFO among
+    #: themselves, so nothing is starved — this only decides which of two
+    #: rows that are BOTH waiting goes first.
+    #:
+    #: It matters exactly when the queue is long. A steady state drains in
+    #: one batch and the order is irrelevant; after an outage there were
+    #: 288,471 rows waiting, and a sweep's positions sat behind every one of
+    #: them. That is the case this exists for.
+    EXPEDITED = ("snapshot.world_city_snapshots", "snapshot.season_building_snapshots")
+
     def pending_outbox(self, now: datetime | None = None, limit: int = 100) -> list[OutboxItem]:
         cutoff = (now or datetime.now(tz=UTC)).isoformat()
         cur = self.conn.execute(
             "select id, event_type, entity_key, payload_json, idempotency_key, attempt_count"
             " from sync_outbox"
             " where status = 'pending' and next_attempt_at <= ?"
-            " order by id limit ?",
-            (cutoff, limit),
+            # `id` second, so each class stays in the order it was written.
+            " order by case when event_type in (?, ?) then 0 else 1 end, id"
+            " limit ?",
+            (cutoff, *self.EXPEDITED, limit),
         )
         return [
             OutboxItem(
