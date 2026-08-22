@@ -320,9 +320,22 @@ $failed = @()
 # which is the normal first-run case, and which killed this script partway
 # through a re-registration, leaving all three tasks unregistered and
 # collection down until it was run again.
+# STOP HERE, UNREGISTER LATER. Stopping is recoverable - the five-minute
+# repetition starts a stopped task again by itself - and it is all that the
+# uv sync below actually needs, since what breaks that is a running process
+# holding its .exe open. Unregistering is NOT recoverable: nothing restarts a
+# task that no longer exists.
+#
+# This script used to unregister here, and twice that has taken collection
+# down. Once when uv's stderr aborted the run (see the note above the sync),
+# and again on 22 August when a sweep-mode toggle failed after this point and
+# left all four tasks gone - capture included - with the console still
+# reporting the mode it read from a wrapper file that was never rewritten.
+#
+# So the destructive step now sits immediately before the registration that
+# undoes it, and everything that can fail happens first.
 foreach ($task in $tasks) {
     Stop-ScheduledTask -TaskName $task.Name -ErrorAction SilentlyContinue
-    Unregister-ScheduledTask -TaskName $task.Name -Confirm:$false -ErrorAction SilentlyContinue
 }
 
 # Then kill what /end left behind.
@@ -425,10 +438,15 @@ foreach ($task in $tasks) {
     $action = New-HiddenAction -Name ($name -replace 'DarkWar-', '') -Exe $task.Exe `
         -TaskArgs $task.Args -Dir $task.Dir -Log $task.Log -Env $taskEnv
     try {
+        # The only destructive moment, and it is one statement away from the
+        # registration that replaces it. Everything that can fail - the
+        # interface, the venv sync, writing this wrapper - is already done.
+        Unregister-ScheduledTask -TaskName $name -Confirm:$false -ErrorAction SilentlyContinue
         Register-ScheduledTask -TaskName $name -Action $action -Trigger $trigger `
             -Settings $settings -Description 'Dark War continuous collection' -ErrorAction Stop | Out-Null
     } catch {
         Write-Output ("FAIL " + $name + " : " + $_.Exception.Message)
+        Write-Output ("      " + $name + " IS NOT REGISTERED - that part of collection is down.")
         $failed += $name
     }
 }

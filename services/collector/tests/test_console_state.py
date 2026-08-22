@@ -263,7 +263,7 @@ def _wrappers(directory: Path, rotation: int, min_age: int, poll: int) -> None:
 def test_the_everyday_timings_read_back_as_not_sweeping(tmp_path: Path) -> None:
     _wrappers(tmp_path, rotation=60, min_age=20, poll=30)
 
-    reading = state.sweep_state(tmp_path)
+    reading = state.sweep_state(tmp_path, registered=True)
 
     assert reading.known is True
     assert reading.sweeping is False
@@ -273,7 +273,7 @@ def test_the_everyday_timings_read_back_as_not_sweeping(tmp_path: Path) -> None:
 def test_the_sweep_timings_read_back_as_sweeping(tmp_path: Path) -> None:
     _wrappers(tmp_path, rotation=15, min_age=5, poll=10)
 
-    reading = state.sweep_state(tmp_path)
+    reading = state.sweep_state(tmp_path, registered=True)
 
     assert reading.sweeping is True
     assert reading.worst_case == 30
@@ -284,7 +284,7 @@ def test_no_registered_tasks_reads_as_unknown_not_as_everyday(tmp_path: Path) ->
     # has registered the tasks on this machine; reporting that as the default
     # mode would put a latency figure on screen for a collector that is not
     # running at all.
-    reading = state.sweep_state(tmp_path)
+    reading = state.sweep_state(tmp_path, registered=True)
 
     assert reading.known is False
     assert reading.sweeping is False
@@ -294,7 +294,7 @@ def test_no_registered_tasks_reads_as_unknown_not_as_everyday(tmp_path: Path) ->
 def test_a_half_written_wrapper_pair_does_not_invent_a_worst_case(tmp_path: Path) -> None:
     (tmp_path / "run-Capture.cmd").write_text("-b duration:15 -b files:5760", encoding="utf-8")
 
-    reading = state.sweep_state(tmp_path)
+    reading = state.sweep_state(tmp_path, registered=True)
 
     assert reading.sweeping is True
     # Rotation alone is not the answer, and printing it as one would be wrong
@@ -326,3 +326,26 @@ def test_a_missing_register_script_is_reported_rather_than_run(tmp_path: Path) -
     message = state.set_sweep(True, script=tmp_path / "nope.ps1")
 
     assert "not found" in message
+
+
+def test_a_stale_wrapper_is_not_a_running_pipeline(tmp_path: Path) -> None:
+    # 22 August: a failed sweep toggle unregistered all four tasks and left the
+    # wrappers untouched, so the window went on reporting "sweep, ~30s worst
+    # case" for a pipeline that was not running at all. The wrappers say at
+    # what timings, never whether anything is running.
+    _wrappers(tmp_path, rotation=15, min_age=5, poll=10)
+
+    reading = state.sweep_state(tmp_path, registered=False)
+
+    assert reading.known is False
+    assert reading.sweeping is False
+    assert reading.worst_case is None
+
+
+def test_registered_tasks_do_read_their_wrappers(tmp_path: Path) -> None:
+    _wrappers(tmp_path, rotation=15, min_age=5, poll=10)
+
+    reading = state.sweep_state(tmp_path, registered=True)
+
+    assert reading.sweeping is True
+    assert reading.worst_case == 30
