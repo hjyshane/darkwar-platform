@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { MAP_IMAGE_URL, MAP_INSET } from './MapCanvas';
+import { LABEL_LIMIT, MAP_IMAGE_URL, MAP_INSET } from './MapCanvas';
 
 // The picture the inset was measured against. If a new map is dropped in at a
 // different size these numbers are wrong, and the calibration toggle is how
@@ -59,4 +59,12 @@ test('a tile is wider than it is tall in this picture, and that is fine', () => 
   expect(tileWidth).toBeCloseTo(3.054, 3);
   expect(tileHeight).toBeCloseTo(2.554, 3);
   expect(tileWidth).toBeGreaterThan(tileHeight);
+});
+
+test('labels are dropped once the map is crowded', () => {
+  // A hundred name tags on a 900px map overlap into a grey mass and hide the
+  // dots, which are the part carrying the information. The list beside the
+  // map does the naming instead.
+  expect(LABEL_LIMIT).toBeGreaterThan(1);
+  expect(LABEL_LIMIT).toBeLessThan(30);
 });

@@ -7,6 +7,7 @@ import {
   MIN_QUERY,
   type Sighting,
   isStale,
+  useHqLevelSearch,
   useScannedServers,
   useSightingSearch,
 } from './mapLocations';
@@ -29,12 +30,19 @@ export function MapPage({ serverId }: { serverId: number | null }) {
   // the picture will be replaced when the game changes the map, and the
   // alignment has to be checkable then without a rebuild.
   const [calibrate, setCalibrate] = useState(false);
+  // A base that was destroyed, or whose shield dropped, is teleported
+  // somewhere random, and a sweep only records the ground it passed over — so
+  // the sighting we hold is a place the player has left and no newer row
+  // exists. HQ level survived the move and the tile carries it, which turns
+  // "somewhere on 581" into a list short enough to read.
+  const [hqLevel, setHqLevel] = useState<number | null>(null);
 
   // The address wins on first paint; after that the tabs do. Falling back to
   // the most recently swept server means the tab opens on the ground somebody
   // was actually just looking at.
   const active = chosen ?? serverId ?? servers?.[0]?.serverId ?? null;
   const results = useSightingSearch(active, query);
+  const byLevel = useHqLevelSearch(active, hqLevel);
   const now = new Date();
 
   if (isPending) {
@@ -69,6 +77,7 @@ export function MapPage({ serverId }: { serverId: number | null }) {
               // A name found on one server means nothing on another.
               setSelected(null);
               setQuery('');
+              setHqLevel(null);
             }}
             role="tab"
             type="button"
@@ -94,10 +103,28 @@ export function MapPage({ serverId }: { serverId: number | null }) {
           onChange={(event) => {
             setQuery(event.target.value);
             setSelected(null);
+            setHqLevel(null);
           }}
           placeholder="Name as it appears in game"
           type="search"
           value={query}
+        />
+      </label>
+
+      <label className="map-search">
+        <span>Or every base at an HQ level</span>
+        <input
+          max={99}
+          min={1}
+          onChange={(event) => {
+            const next = Number.parseInt(event.target.value, 10);
+            setHqLevel(Number.isNaN(next) ? null : next);
+            setSelected(null);
+            setQuery('');
+          }}
+          placeholder="e.g. 38"
+          type="number"
+          value={hqLevel ?? ''}
         />
       </label>
 
@@ -131,6 +158,49 @@ export function MapPage({ serverId }: { serverId: number | null }) {
         </ul>
       )}
 
+      {hqLevel !== null && byLevel.isFetching && <p className="empty">Looking…</p>}
+      {hqLevel !== null && byLevel.error && (
+        <p className="error">HQ search failed: {(byLevel.error as Error).message}</p>
+      )}
+      {hqLevel !== null &&
+        byLevel.data &&
+        selected === null &&
+        (byLevel.data.length === 0 ? (
+          <p className="empty">
+            No base at HQ {hqLevel} has been swept on server {active}.
+          </p>
+        ) : (
+          <>
+            <p className="subtle">
+              {byLevel.data.length} base{byLevel.data.length === 1 ? '' : 's'} at HQ {hqLevel} on
+              server {active}. Each is where it was last SEEN — a base that was destroyed or lost
+              its shield is teleported somewhere random, and a sweep only records the ground it
+              passed over.
+            </p>
+            <MapCanvas
+              calibrate={calibrate}
+              markers={byLevel.data.map((sighting) => ({
+                at: sighting.at,
+                label: sighting.name ?? formatCoordinate(sighting.at),
+                faded: isStale(sighting, now),
+              }))}
+            />
+            <ul className="map-results">
+              {byLevel.data.map((sighting) => (
+                <li key={sighting.gameUid}>
+                  <button onClick={() => setSelected(sighting)} type="button">
+                    <strong>{sighting.name ?? 'unnamed'}</strong>
+                    <span className="subtle">
+                      {formatCoordinate(sighting.at)} ·{' '}
+                      {formatLastOnline('offline', sighting.capturedAt, now)}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </>
+        ))}
+
       {selected !== null && (
         <>
           <p className="map-selected">
@@ -139,7 +209,7 @@ export function MapPage({ serverId }: { serverId: number | null }) {
             {formatLastOnline('offline', selected.capturedAt, now)}
             {isStale(selected, now) && ' — older than a day, treat it as where they were'}{' '}
             <button className="linklike" onClick={() => setSelected(null)} type="button">
-              back to results
+              back to the list
             </button>
           </p>
           <label className="map-calibrate">
