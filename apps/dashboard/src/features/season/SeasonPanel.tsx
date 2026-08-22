@@ -3,12 +3,15 @@ import { useState } from 'react';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
 import { TERMS } from '../../lib/terms';
 import { SeasonAllianceTable } from './SeasonAllianceTable';
+import { SeasonBuildingTable } from './SeasonBuildingTable';
 import { SeasonForceTable } from './SeasonForceTable';
 import { type SeasonBoardId, fetchAllianceScoreBoard, fetchPlayerForceBoard } from './boards';
+import { fetchBuildingGrid } from './buildings';
 
 const BOARD_LABELS: ReadonlyArray<{ id: SeasonBoardId; label: string }> = [
   { id: 'alliance_score', label: TERMS.seasonScore },
   { id: 'player_force', label: TERMS.seasonForce },
+  { id: 'buildings', label: TERMS.seasonBuildings },
 ];
 
 /** A board changes only when somebody opens it in the game, so the app's 60s
@@ -41,9 +44,17 @@ export function SeasonPanel() {
     staleTime: STALE_TIME,
     enabled: boardId === 'player_force',
   });
+  const buildings = useQuery({
+    queryKey: ['seasonBoard', 'buildings'],
+    queryFn: fetchBuildingGrid,
+    staleTime: STALE_TIME,
+    enabled: boardId === 'buildings',
+  });
 
-  const active = boardId === 'alliance_score' ? alliance : players;
-  const capturedAt = alliance.data?.[0]?.captured_at ?? players.data?.[0]?.captured_at;
+  const active =
+    boardId === 'alliance_score' ? alliance : boardId === 'player_force' ? players : buildings;
+  const capturedAt =
+    alliance.data?.[0]?.captured_at ?? players.data?.[0]?.captured_at ?? buildings.data?.capturedAt;
 
   return (
     <section aria-labelledby="season-heading">
@@ -73,6 +84,18 @@ export function SeasonPanel() {
         <SeasonAllianceTable rows={alliance.data} />
       )}
       {boardId === 'player_force' && players.data && <SeasonForceTable rows={players.data} />}
+      {boardId === 'buildings' && buildings.data && <SeasonBuildingTable grid={buildings.data} />}
+      {/* The one thing a reader could get badly wrong on this grid. An empty
+          cell is a gap in OUR coverage — the collector has not panned over
+          that building — and not a member who has built nothing. Saying so
+          on the screen because the distinction is invisible in a table of
+          numbers. */}
+      {boardId === 'buildings' && (
+        <p className="note">
+          A dash means we have not seen that building yet, not that it is unbuilt. Only buildings
+          the collector has panned over appear here.
+        </p>
+      )}
       {/* Said on the screen, not only in the migration. `force` and `score`
           are the game's own season figures and neither is power — a reader
           who assumes otherwise will compare them against the power board and

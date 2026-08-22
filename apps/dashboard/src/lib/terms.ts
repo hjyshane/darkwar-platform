@@ -36,6 +36,7 @@ export const TERMS = {
   season: 'Season 3',
   seasonScore: 'Coal Production',
   seasonForce: 'Influence',
+  seasonBuildings: 'Buildings',
   monthlyCard: 'Monthly Card',
   signIn: 'Sign In',
 

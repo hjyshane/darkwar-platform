@@ -4116,6 +4116,36 @@ export type Database = {
           },
         ]
       }
+      member_season_buildings: {
+        Row: {
+          building_type_id: number | null
+          captured_at: string | null
+          current_name: string | null
+          game_uid: number | null
+          level: number | null
+          object_id: number | null
+          player_id: string | null
+          server_id: number | null
+          x: number | null
+          y: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "season_building_snapshots_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "season_building_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+        ]
+      }
       notification_channel_names: {
         Row: {
           channel: string | null
