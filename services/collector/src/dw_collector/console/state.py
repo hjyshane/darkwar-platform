@@ -327,32 +327,20 @@ def start_game() -> str:
     return f"{GAME_PACKAGE} launch requested"
 
 
-# --- sweep mode -------------------------------------------------------
+# --- pipeline timings -------------------------------------------------
 #
-# The three timings that decide how long a sighting takes to reach the
-# dashboard live in the scheduled tasks' arguments, which is why changing
-# them means re-registering rather than editing a setting. That is also why
-# this needs elevation: everything else in this window runs as the operator.
+# How long a sighting takes to reach the dashboard. The three numbers live in
+# the scheduled tasks' arguments, so this reads them out of the wrappers
+# register-tasks.ps1 generated rather than repeating them here — a number
+# repeated in two places is a number that will disagree with itself.
 
-SWEEP_ROTATION = 15
-NORMAL_ROTATION = 60
-
-# Where register-tasks.ps1 writes the .cmd wrappers it registers ($ScriptDir).
+#: Where register-tasks.ps1 writes the .cmd wrappers it registers ($ScriptDir).
 SCRIPT_DIR = Path(os.environ.get("DW_SCRIPT_DIR", r"C:\DW_data"))
-REGISTER_SCRIPT = Path(
-    os.environ.get("DW_REGISTER_SCRIPT", r"C:\darkwar-platform\scripts\windows\register-tasks.ps1")
-)
 
 
 @dataclass(frozen=True)
-class SweepState:
-    """The timings actually registered, not the ones we last asked for.
-
-    Read from the generated wrappers rather than kept in memory, for the
-    same reason every other reading here is: the window is opened when
-    something is already wrong, and a mode remembered from a click that
-    silently failed would be the one thing it must not report.
-    """
+class Timings:
+    """The timings actually registered, not the ones we last asked for."""
 
     rotation: int | None = None
     min_age: int | None = None
@@ -361,10 +349,6 @@ class SweepState:
     @property
     def known(self) -> bool:
         return self.rotation is not None
-
-    @property
-    def sweeping(self) -> bool:
-        return self.rotation == SWEEP_ROTATION
 
     @property
     def worst_case(self) -> int | None:
@@ -388,24 +372,24 @@ def _number_after(text: str, marker: str) -> int | None:
     return int(digits) if digits else None
 
 
-def sweep_state(script_dir: Path | None = None, registered: bool | None = None) -> SweepState:
-    """The timings in the registered wrappers — if anything is registered.
+def pipeline_timings(script_dir: Path | None = None, registered: bool | None = None) -> Timings:
+    """The registered timings — if anything is registered.
 
     THE WRAPPER OUTLIVES THE TASK. `register-tasks.ps1` writes these .cmd
     files and then registers tasks that run them; unregister the tasks and the
-    files stay exactly as they were. On 22 August a failed sweep toggle left
-    all four tasks gone and this still read "sweep, ~30s worst case" off a
-    stale wrapper, which is the most misleading thing it could have said: the
+    files stay exactly as they were. On 22 August a failed re-registration
+    left all four tasks gone and this still reported a worst case off a stale
+    wrapper, which is the most misleading thing it could have said: the
     latency of a pipeline that was not running at all.
 
     So the wrappers answer "at what timings", never "is it running". The task
-    states answer that, and without them there is no mode to report.
+    states answer that, and without them there is no latency to report.
     """
     directory = script_dir or SCRIPT_DIR
     if registered is None:
         registered = any(task_state(name).status != "Missing" for name in TASKS)
     if not registered:
-        return SweepState()
+        return Timings()
     rotation = min_age = poll = None
     try:
         capture = (directory / "run-Capture.cmd").read_text(encoding="utf-8", errors="replace")
@@ -418,53 +402,4 @@ def sweep_state(script_dir: Path | None = None, registered: bool | None = None) 
         poll = _number_after(ingest, "--interval-seconds")
     except OSError:
         pass
-    return SweepState(rotation=rotation, min_age=min_age, poll=poll)
-
-
-def sweep_command(enabled: bool, script: Path | None = None) -> list[str]:
-    """The argv that re-registers the tasks in the requested mode.
-
-    Two levels of PowerShell because this window is NOT elevated and
-    registering tasks is: the outer one only exists to raise the UAC prompt
-    that the inner, elevated one runs behind. `-Wait` so the caller learns
-    the outcome rather than guessing from a process that has already exited.
-    """
-    path = str(script or REGISTER_SCRIPT).replace("'", "''")
-    inner = ["'-NoProfile'", "'-ExecutionPolicy'", "'Bypass'", "'-File'", f"'{path}'"]
-    if enabled:
-        inner.append("'-Sweep'")
-    return [
-        "powershell",
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-Command",
-        "Start-Process -FilePath powershell -Verb RunAs -Wait -WindowStyle Hidden "
-        "-ArgumentList " + ",".join(inner),
-    ]
-
-
-def set_sweep(enabled: bool, script: Path | None = None) -> str:
-    """Re-register the three tasks at the sweep or the everyday timings.
-
-    COLLECTION STOPS FOR A FEW SECONDS. The script tears the tasks down and
-    builds them back, which is the only way to change arguments that live in
-    a registered action. That is acceptable for a deliberate mode change and
-    is why this is a button somebody presses, not something that happens on
-    a schedule.
-    """
-    target = script or REGISTER_SCRIPT
-    if not target.exists():
-        return f"not found: {target}"
-    wanted = "sweep" if enabled else "normal"
-    result = _run(sweep_command(enabled, target), timeout=300.0)
-    if result.returncode != 0:
-        # A refused UAC prompt lands here, and is the likeliest cause.
-        detail = result.stderr.strip() or result.stdout.strip() or "cancelled at the UAC prompt"
-        return f"{wanted} mode failed: {detail}"
-    now = sweep_state()
-    if now.sweeping != enabled:
-        # The script verifies its own work and can report FAIL per task while
-        # still exiting 0, so trust the wrappers on disk over the exit code.
-        return f"{wanted} mode did not take effect - check the register output"
-    return f"{wanted} mode active - worst case {now.worst_case}s plus the sync loop"
+    return Timings(rotation=rotation, min_age=min_age, poll=poll)
