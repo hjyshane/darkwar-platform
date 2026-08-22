@@ -393,7 +393,11 @@ class Console:
         # WORST CASE, not typical: this is the number somebody uses to decide
         # whether the dashboard has caught up with what they just did, and a
         # typical figure would have them refreshing too early.
-        sweep = state.sweep_state()
+        # `registered` from the states this refresh already fetched on its own
+        # thread. Letting sweep_state() work it out would run schtasks three
+        # more times per tick, on the UI thread — and schtasks is exactly what
+        # hung while diagnosing a stopped collector.
+        sweep = state.sweep_state(registered=any(task.status != "Missing" for task in tasks))
         if not sweep.known:
             self._set("Latency", "unknown - no registered tasks found", IDLE)
             self.buttons["sweep"].config(text="Sweep mode: ?")

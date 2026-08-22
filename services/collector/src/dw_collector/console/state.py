@@ -388,8 +388,24 @@ def _number_after(text: str, marker: str) -> int | None:
     return int(digits) if digits else None
 
 
-def sweep_state(script_dir: Path | None = None) -> SweepState:
+def sweep_state(script_dir: Path | None = None, registered: bool | None = None) -> SweepState:
+    """The timings in the registered wrappers — if anything is registered.
+
+    THE WRAPPER OUTLIVES THE TASK. `register-tasks.ps1` writes these .cmd
+    files and then registers tasks that run them; unregister the tasks and the
+    files stay exactly as they were. On 22 August a failed sweep toggle left
+    all four tasks gone and this still read "sweep, ~30s worst case" off a
+    stale wrapper, which is the most misleading thing it could have said: the
+    latency of a pipeline that was not running at all.
+
+    So the wrappers answer "at what timings", never "is it running". The task
+    states answer that, and without them there is no mode to report.
+    """
     directory = script_dir or SCRIPT_DIR
+    if registered is None:
+        registered = any(task_state(name).status != "Missing" for name in TASKS)
+    if not registered:
+        return SweepState()
     rotation = min_age = poll = None
     try:
         capture = (directory / "run-Capture.cmd").read_text(encoding="utf-8", errors="replace")
