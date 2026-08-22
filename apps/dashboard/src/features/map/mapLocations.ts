@@ -155,6 +155,51 @@ export function newestPerPlayer(
   return [...newest.values()].sort((a, b) => b.capturedAt.localeCompare(a.capturedAt));
 }
 
+/** Every base on one server at a given HQ level, newest sighting each.
+ *
+ * FOR A BASE THAT MOVED WITHOUT US SEEING IT. Destroy a base, or let its
+ * shield drop, and the game teleports it somewhere random; the sighting we
+ * hold is then a place the player has left, and waiting does not fix it —
+ * a sweep records only the ground it passed over, so a base that landed
+ * outside that ground has no newer row at all.
+ *
+ * HQ level is something that survived the move, and the tile carries it, so
+ * this turns "somewhere on 581" into a list short enough to read. The
+ * biggest (server, level) pair observed is 121 players; most are far fewer.
+ *
+ * It is NOT a way to select a kind of structure. HQ runs continuously from
+ * 1 to 45 with no cluster separating one sort of thing from another.
+ */
+export async function fetchByHqLevel(serverId: number, hqLevel: number): Promise<Sighting[]> {
+  const { data, error } = await supabase
+    .from('world_city_snapshots')
+    .select('player_id, game_uid, name, server_id, x, y, hq_level, captured_at')
+    .eq('server_id', serverId)
+    .eq('hq_level', hqLevel)
+    .order('captured_at', { ascending: false })
+    // Rows, not players: one player is written once per pan, so this is
+    // reduced below. 0143 indexes (server_id, hq_level, captured_at desc)
+    // because the unindexed form reads every tile the server has, which is
+    // exactly what timed the tab out before.
+    .limit(4000);
+  if (error) {
+    if (error.code === '42501') {
+      return [];
+    }
+    throw new Error(`hq level query failed: ${error.message}`);
+  }
+  return newestPerPlayer(data ?? []);
+}
+
+export function useHqLevelSearch(serverId: number | null, hqLevel: number | null) {
+  return useQuery({
+    queryKey: ['map', 'hq', serverId, hqLevel],
+    queryFn: () => fetchByHqLevel(serverId as number, hqLevel as number),
+    enabled: serverId !== null && hqLevel !== null,
+    staleTime: 60_000,
+  });
+}
+
 export function useSightingSearch(serverId: number | null, query: string) {
   const ready = serverId !== null && query.trim().length >= MIN_QUERY;
   return useQuery({

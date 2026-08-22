@@ -3540,3 +3540,23 @@ form select {
   gap: var(--space-2);
   margin-bottom: var(--space-2);
 }
+
+/* One pin picked out of a crowd. Bigger and on top, because the point of
+ * clicking a name in the list is to find its dot among a hundred others. */
+.map-pin--on {
+  z-index: 2;
+}
+
+.map-pin--on .map-pin__dot {
+  width: 16px;
+  height: 16px;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--bg), 0 0 0 6px var(--accent);
+}
+
+/* Smaller dots when the map is showing a whole HQ level: at a hundred pins
+ * the default size merges into a blob. */
+.map-plot .map-pin:not(.map-pin--on) .map-pin__dot {
+  width: 9px;
+  height: 9px;
+}

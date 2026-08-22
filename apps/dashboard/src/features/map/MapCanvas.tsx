@@ -59,7 +59,17 @@ export interface MapMarker {
   label: string;
   /** Drawn dimmer, for a sighting too old to trust. */
   faded?: boolean;
+  /** Picked out of a crowd — the one the reader clicked. */
+  highlighted?: boolean;
 }
+
+/** Above this many pins the labels are dropped.
+ *
+ * A hundred name tags on a 900px map overlap into a grey mass and hide the
+ * dots underneath, which are the part that carries the information. The list
+ * beside the map does the naming instead; clicking a row highlights its pin.
+ */
+export const LABEL_LIMIT = 8;
 
 export function MapCanvas({
   markers,
@@ -78,6 +88,7 @@ export function MapCanvas({
   // marker that is in the right place.
   const [hasImage, setHasImage] = useState(true);
   const drawn = markers.filter((marker) => isOnMap(marker.at));
+  const withLabels = drawn.length <= LABEL_LIMIT;
 
   // The plot is the INNER rectangle. Markers are placed as fractions of it,
   // never of the image, which is what keeps the frame out of the arithmetic.
@@ -104,12 +115,21 @@ export function MapCanvas({
             const at = toFraction(marker.at);
             return (
               <span
-                className={marker.faded ? 'map-pin map-pin--faded' : 'map-pin'}
+                className={[
+                  'map-pin',
+                  marker.faded ? 'map-pin--faded' : '',
+                  marker.highlighted ? 'map-pin--on' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
                 key={`${marker.label}:${marker.at.x}:${marker.at.y}`}
                 style={{ left: `${at.left * 100}%`, top: `${at.top * 100}%` }}
+                title={`${marker.label} — ${marker.at.x}, ${marker.at.y}`}
               >
                 <span className="map-pin__dot" />
-                <span className="map-pin__label">{marker.label}</span>
+                {(withLabels || marker.highlighted) && (
+                  <span className="map-pin__label">{marker.label}</span>
+                )}
               </span>
             );
           })}
