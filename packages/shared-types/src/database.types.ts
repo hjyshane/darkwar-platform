@@ -3564,6 +3564,98 @@ export type Database = {
           },
         ]
       }
+      world_city_snapshots: {
+        Row: {
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at: string
+          game_uid: number
+          hq_level: number | null
+          idempotency_key: string
+          name: string | null
+          observation_id: string
+          parser_version: string
+          player_id: string | null
+          point_id: number
+          raw: Json
+          server_id: number
+          snapshot_id: string
+          source_command: string
+          x: number
+          y: number
+        }
+        Insert: {
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at?: string
+          game_uid: number
+          hq_level?: number | null
+          idempotency_key: string
+          name?: string | null
+          observation_id: string
+          parser_version: string
+          player_id?: string | null
+          point_id: number
+          raw?: Json
+          server_id: number
+          snapshot_id?: string
+          source_command: string
+          x: number
+          y: number
+        }
+        Update: {
+          captured_at?: string
+          collected_from_server_id?: number
+          collector_id?: string
+          created_at?: string
+          game_uid?: number
+          hq_level?: number | null
+          idempotency_key?: string
+          name?: string | null
+          observation_id?: string
+          parser_version?: string
+          player_id?: string | null
+          point_id?: number
+          raw?: Json
+          server_id?: number
+          snapshot_id?: string
+          source_command?: string
+          x?: number
+          y?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "world_city_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "world_city_snapshots_collector_id_fkey"
+            columns: ["collector_id"]
+            isOneToOne: false
+            referencedRelation: "collectors"
+            referencedColumns: ["collector_id"]
+          },
+          {
+            foreignKeyName: "world_city_snapshots_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "world_city_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+        ]
+      }
     }
     Views: {
       activity_daily: {

@@ -16,6 +16,7 @@ from dw_collector.normalize import (
     rank_by_range,
     season_score_rank,
     server_rank,
+    world_map,
 )
 
 __all__ = [
@@ -34,4 +35,5 @@ __all__ = [
     "rank_by_range",
     "season_score_rank",
     "server_rank",
+    "world_map",
 ]

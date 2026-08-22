@@ -31,6 +31,7 @@ _TABLE_ORDER = [
     "player_detail_snapshots",
     "player_component_power_snapshots",
     "player_season_force_snapshots",
+    "world_city_snapshots",
     "alliance_snapshots",
     "alliance_season_score_snapshots",
     "alliance_member_snapshots",
