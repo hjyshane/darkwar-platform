@@ -14,7 +14,6 @@ import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
 import { useSession } from '../../lib/useSession';
 import { AnnouncementsBlock } from './AnnouncementsBlock';
-import { EventScoreboard } from './EventScoreboard';
 import { FavouritesBlock } from './FavouritesBlock';
 import { GuidesBlock } from './GuidesBlock';
 
@@ -323,9 +322,13 @@ export function Overview({ now }: { now?: Date }) {
   return (
     <>
       <OverviewPanel now={now} />
-      {/* The event first while it is running: it is the thing with a deadline
-          on it, and it removes itself when nobody has scored. */}
-      <EventScoreboard />
+      {/* The 15-23 August event is over, so its scoreboard is off the landing
+          screen. Unmounted rather than deleted: `EventScoreboard.tsx` still
+          holds the window, the standings query and the post-the-results
+          button. Bringing the next event back is two lines — import it again
+          and render it here — plus new dates in that file. A finished
+          scoreboard at the top of the front page is furniture that outstayed
+          its deadline. */}
       {/* Notices before shortcuts: one is news and the other is furniture.
           Both boards show PINNED posts only here — the front page is not a
           second copy of the list. */}
