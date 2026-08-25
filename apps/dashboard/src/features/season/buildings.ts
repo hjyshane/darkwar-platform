@@ -120,11 +120,43 @@ export interface BuildingGrid {
    * than listed: the number is a prompt to go and identify them, the ids
    * themselves would be noise to a reader. */
   unnamedSeen: number;
+  /** How many members the roster holds, or null when it could not be read.
+   *
+   * SO THE SCREEN CAN SAY WHAT IT IS NOT SHOWING. This board displayed 67 of
+   * 84 members and looked complete; a reader had to count the alliance by
+   * hand to notice. A member with no building observed is a normal state —
+   * the collector has not panned over their plot — but it is not the same
+   * fact as "they have nothing built", and only the total makes the
+   * difference visible. */
+  rosterTotal: number | null;
 }
 
-const EMPTY: BuildingGrid = { members: [], columns: [], capturedAt: null, unnamedSeen: 0 };
+const EMPTY: BuildingGrid = {
+  members: [],
+  columns: [],
+  capturedAt: null,
+  unnamedSeen: 0,
+  rosterTotal: null,
+};
+
+/** How many members the roster holds, without fetching them.
+ *
+ * head + count, so the answer is a header rather than rows — immune to the
+ * 1,000-row cap that hid members from this board in the first place, and
+ * free enough to ask on every load.
+ */
+async function fetchRosterTotal(): Promise<number | null> {
+  const { count, error } = await supabase
+    .from('member_roster')
+    .select('player_id', { count: 'exact', head: true });
+  // Null rather than zero on failure: "we could not read the roster" must not
+  // render as "the alliance is empty", which would make the board look
+  // complete for the wrong reason.
+  return error ? null : (count ?? null);
+}
 
 export async function fetchBuildingGrid(catalogue: SeasonCatalogue): Promise<BuildingGrid> {
+  const rosterTotal = await fetchRosterTotal();
   const { data, error } = await supabase
     // ONE ROW PER MEMBER (0147), not one per building.
     //
@@ -213,6 +245,7 @@ export async function fetchBuildingGrid(catalogue: SeasonCatalogue): Promise<Bui
     columns,
     capturedAt: newest,
     unnamedSeen: unnamed.size,
+    rosterTotal,
   };
 }
 
@@ -225,6 +258,20 @@ export function totalLevels(member: MemberBuildings, ids: readonly number[]): nu
     total += member[levelKey(id)] ?? 0;
   }
   return total;
+}
+
+/** How many roster members the board cannot show, or null when unknown.
+ *
+ * Split out of the component so the arithmetic is testable and so the
+ * "unknown" case cannot be confused with zero: a roster we failed to read
+ * must not render as a complete board, which is the failure this whole line
+ * of work started from.
+ */
+export function membersMissing(grid: BuildingGrid): number | null {
+  if (grid.rosterTotal === null) {
+    return null;
+  }
+  return Math.max(0, grid.rosterTotal - grid.members.length);
 }
 
 /** Whether a member has any building below the alert level.

@@ -109,6 +109,33 @@ export function SeasonBuildingTable({ grid, alertLevel }: SeasonBuildingTablePro
         tableId={TABLE_ID}
       />
       {view.length === 0 && <p className="empty">No member matches “{query}”.</p>}
+      <MissingMembers grid={grid} />
     </>
+  );
+}
+
+/** What the board is NOT showing.
+ *
+ * This table displayed 67 of 84 members and looked finished; a reader had to
+ * count the alliance by hand to notice. Two different facts were arriving as
+ * one — a member with nothing built, and a member whose plot the collector
+ * has never panned over — and the screen distinguished neither.
+ *
+ * The number is only worth printing when it is not zero: a line saying "84 of
+ * 84" on every visit is noise that trains people to skip the line, which is
+ * exactly the line that has to be read on the day it says 67.
+ */
+function MissingMembers({ grid }: { grid: BuildingGrid }) {
+  const total = grid.rosterTotal;
+  if (total === null || total <= grid.members.length) {
+    return null;
+  }
+  const missing = total - grid.members.length;
+  return (
+    <p className="subtle">
+      Showing {grid.members.length} of {total} members. {missing} {missing === 1 ? 'has' : 'have'}{' '}
+      no building observed yet — the map is only read where the collector is pointed, so this is a
+      gap in our coverage rather than a report about them.
+    </p>
   );
 }
