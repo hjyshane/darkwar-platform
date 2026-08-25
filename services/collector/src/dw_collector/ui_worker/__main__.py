@@ -409,7 +409,7 @@ def sweep(
     # was doing so while the machine was still in use.
     if idle is not None:
         deadline = time.monotonic() + wait_for_idle_seconds
-        state = idle.evaluate()
+        state = idle.contends()
         if not state.is_idle:
             typer.echo(
                 f"waiting up to {wait_for_idle_seconds:.0f}s for the machine to go idle"
@@ -417,7 +417,7 @@ def sweep(
             )
         while not state.is_idle and time.monotonic() < deadline:
             time.sleep(5.0)
-            state = idle.evaluate()
+            state = idle.contends()
         if not state.is_idle:
             typer.echo(f"still in use after {wait_for_idle_seconds:.0f}s: {state.reason}", err=True)
             journal.close()
@@ -468,12 +468,13 @@ def sweep(
             if policy.kill_switch_engaged():
                 typer.echo(f"\nkill switch engaged after {done} swipes", err=True)
                 break
-            # A sweep runs for half an hour, which is long enough that the
-            # operator will come back to the machine partway through. Their
-            # input and the sweep's would fight over the same screen, and the
-            # sweep would win — so it yields.
+            # A sweep runs for half an hour, long enough that the operator
+            # comes back partway through. `contends` rather than `evaluate`:
+            # the fight is over the emulator's window, not the machine, and
+            # gating on the whole machine going quiet made the sweep
+            # unrunnable — six minutes of probe, seven swipes, "idle 0s".
             if idle is not None:
-                state = idle.evaluate()
+                state = idle.contends()
                 if not state.is_idle:
                     typer.echo(f"\nstopped after {done} swipes: {state.reason}")
                     break

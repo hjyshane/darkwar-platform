@@ -169,6 +169,71 @@ class IdlePolicy:
             return None
         return cls(minimum_idle_seconds=seconds, probe=default_probe())
 
+    def contends(self) -> IdleState:
+        """Whether the operator is at the EMULATOR, not merely at the machine.
+
+        `evaluate` gates on the whole machine going quiet, which is right for
+        a routine: it runs for a minute, a mistimed tap opens the wrong
+        screen, and waiting costs nothing.
+
+        A SWEEP IS A DIFFERENT BARGAIN. It runs for half an hour and drives
+        exactly one window, so a keystroke in a terminal or a browser does not
+        contend with it — but under `evaluate` it stops the sweep dead. That
+        made the sweep unrunnable in practice: the first full attempt waited
+        for idle, measured both axes over six minutes, managed seven swipes,
+        and quit on "idle 0s". The operator cannot both leave the machine
+        untouched for half an hour and watch the run.
+
+        So this asks the narrower question the sweep actually cares about: is
+        the emulator in the foreground. If it is, the operator is playing and
+        the sweep yields, because then they really are fighting over one
+        screen.
+
+        `is_idle` here means "the sweep may proceed", not "the machine is
+        quiet". An unavailable measurement still refuses, exactly as in
+        `evaluate`: not being able to look is not permission.
+        """
+        if self.probe is None:
+            return IdleState(
+                idle_seconds=0.0,
+                foreground_title="",
+                foreground_process="",
+                is_idle=False,
+                reason=(
+                    "idle detection is configured but unavailable on this platform;"
+                    " refusing rather than assuming the operator is away"
+                ),
+            )
+        try:
+            seconds = self.probe.idle_seconds()
+            title, process = self.probe.foreground()
+        except IdleUnavailableError as exc:
+            return IdleState(
+                idle_seconds=0.0,
+                foreground_title="",
+                foreground_process="",
+                is_idle=False,
+                reason=f"could not measure idleness ({exc})",
+            )
+
+        combined = f"{title} {process}".lower()
+        protected = next((term for term in self.protected_terms if term in combined), None)
+        if protected is not None and seconds < self.minimum_idle_seconds:
+            return IdleState(
+                idle_seconds=seconds,
+                foreground_title=title,
+                foreground_process=process,
+                is_idle=False,
+                reason=f"the emulator is in use ({protected}), idle {seconds:.0f}s",
+            )
+        return IdleState(
+            idle_seconds=seconds,
+            foreground_title=title,
+            foreground_process=process,
+            is_idle=True,
+            reason=f"emulator not in the foreground (idle {seconds:.0f}s)",
+        )
+
     def evaluate(self) -> IdleState:
         if self.probe is None:
             return IdleState(
