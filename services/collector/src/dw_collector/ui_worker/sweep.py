@@ -110,6 +110,16 @@ VIEW_TILES_Y = 140
 #: somebody cannot find a player who was there all along.
 OVERLAP = 0.2
 
+#: How much shorter than measured to assume each swipe travels, when working
+#: out how many of them a row takes.
+#:
+#: The measurement is only good to about the ~19-tile quantum of the pan
+#: request, and the error is not symmetric in cost: an over-estimate plans too
+#: few swipes and leaves a strip at the end of the row that nothing reads,
+#: while an under-estimate spends its extra swipes against the wall, where
+#: they move nothing and cost seconds. So the plan takes the pessimistic view.
+ROW_MARGIN = 0.25
+
 
 @dataclass(frozen=True)
 class Swipe:
@@ -348,8 +358,28 @@ def plan_from_probe(
     down_span = (y1 - y0 + 1) if down_axis == "y" else (x1 - x0 + 1)
 
     step_down = view_down * (1 - OVERLAP)
-    rows = max(1, -(-down_span // int(step_down)))
-    per_row = max(1, -(-along_span // int(per_swipe_along)))
+    # MORE ROWS, NOT LONGER STEPS. The same shortfall applies between rows,
+    # but the fix is not the same: widening the step to compensate would push
+    # neighbouring rows further apart than a viewport is tall, which opens
+    # horizontal bands — precisely what OVERLAP exists to prevent. A step that
+    # lands short is harmless, it only overlaps more. What it costs is REACH:
+    # nine rows that each fall a quarter short cover 756 tiles of a
+    # 1000-tile map and never visit the last 250.
+    #
+    # So the step stays as measured and the row COUNT takes the margin.
+    rows = max(1, -(-down_span // max(1, int(step_down * (1 - ROW_MARGIN)))))
+    # PLAN EACH ROW AS IF EVERY SWIPE FELL SHORT, for the same reason the
+    # homing does. Over-running a row costs a few swipes against the wall at
+    # the far end, where they move nothing; under-running leaves ground that
+    # nothing ever reads, and the sweep says it finished either way.
+    #
+    # THE FIRST FULL SWEEP LANDED AT 91% AND THIS IS WHY. Its 37 uncovered
+    # cells were not an unfinished tail — they clustered at LOW x on some rows
+    # and HIGH x on others, alternating, which is the signature of rows
+    # falling short at whichever end they were running towards. The measured
+    # tiles-per-swipe is only good to about the 19-tile request quantum, and
+    # an over-estimate turns straight into a strip at the end of every row.
+    per_row = max(1, -(-along_span // max(1, int(per_swipe_along * (1 - ROW_MARGIN)))))
     down_swipes = max(1, round(step_down / per_swipe_down))
 
     # Dragging is the opposite of walking: to move the VIEW forward the finger

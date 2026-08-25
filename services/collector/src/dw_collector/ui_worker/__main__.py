@@ -22,6 +22,7 @@ import typer
 from dw_collector import normalize as _normalize  # noqa: F401  (registers normalizers)
 from dw_collector.envfile import load_env_file
 from dw_collector.storage.journal import Journal
+from dw_collector.ui_worker import gaps as gaps_mod
 from dw_collector.ui_worker import probe as probe_mod
 from dw_collector.ui_worker import sweep as sweep_mod
 from dw_collector.ui_worker import zoom as zoom_mod
@@ -370,6 +371,10 @@ def sweep(
     wait_for_idle_seconds: Annotated[
         float, typer.Option(help="wait this long for the operator to stop using the machine")
     ] = 900.0,
+    fill_gaps: Annotated[
+        int | None,
+        typer.Option(help="sweep only what this server's map is still missing, not the whole map"),
+    ] = None,
 ) -> None:
     """Sweep the map the collector is currently on, then say what it covered.
 
@@ -443,25 +448,57 @@ def sweep(
             typer.echo(f"\nNOT SWEEPABLE: {exc}", err=True)
             raise typer.Exit(code=1) from exc
 
-        plan = sweep_mod.plan_from_probe(
-            result.horizontal.tiles_per_pixel,
-            result.vertical.tiles_per_pixel,
-            result.horizontal.axis,
-            # WHERE THE CAMERA ACTUALLY IS. The route marches one way along
-            # its rows and one way down them, so it only sweeps the map if it
-            # starts at the corner it marches away from; from the position
-            # the probe reported here once, the same 466 swipes would have
-            # covered 72 of 400 cells and spent the rest against an edge.
-            start=(result.at_x, result.at_y),
-            screen_width=screen_width,
-            screen_height=screen_height,
-        )
-        route = plan.swipes if max_swipes is None else plan.swipes[:max_swipes]
+        targets: list[sweep_mod.SweepPlan] = []
+        if fill_gaps:
+            # A SECOND PASS IS CHEAPER THAN A SAFER FIRST ONE. Covering the
+            # measurement's spread up front needs a row margin of 0.5, about
+            # 1,900 swipes and two hours per server. The first real sweep
+            # instead reached 91% in 991, and its 37 missed cells group into
+            # regions worth 39% of the map — so converging costs far less
+            # than guaranteeing.
+            missed = gaps_mod.missing_cells(journal.conn, fill_gaps)
+            found = gaps_mod.regions(missed)
+            typer.echo(
+                f"\n{len(missed)} cells never covered on {fill_gaps}, in {len(found)} regions"
+            )
+            for region in found:
+                targets.append(
+                    sweep_mod.plan_from_probe(
+                        result.horizontal.tiles_per_pixel,
+                        result.vertical.tiles_per_pixel,
+                        result.horizontal.axis,
+                        start=(result.at_x, result.at_y),
+                        screen_width=screen_width,
+                        screen_height=screen_height,
+                        region=(region.x0, region.x1, region.y0, region.y1),
+                    )
+                )
+        else:
+            targets.append(
+                sweep_mod.plan_from_probe(
+                    result.horizontal.tiles_per_pixel,
+                    result.vertical.tiles_per_pixel,
+                    result.horizontal.axis,
+                    # WHERE THE CAMERA ACTUALLY IS. The route marches one way
+                    # along its rows and one way down them, so it only sweeps
+                    # the map if it starts at the corner it marches away from;
+                    # from the position the probe reported here once, the same
+                    # 466 swipes would have covered 72 of 400 cells and spent
+                    # the rest against an edge.
+                    start=(result.at_x, result.at_y),
+                    screen_width=screen_width,
+                    screen_height=screen_height,
+                )
+            )
+
+        plan = targets[0]
+        every = [s for target in targets for s in target.swipes]
+        route = every if max_swipes is None else every[:max_swipes]
         minutes = len(route) * (settle_seconds + 0.6) / 60
         typer.echo(
-            f"\nplan: {plan.homing} swipes to reach the corner from"
-            f" {result.at_x},{result.at_y}, then {plan.rows} rows x {plan.per_row}"
-            f" = {len(plan.swipes)} total ({len(route)} to run, about {minutes:.0f} min)"
+            f"\nplan: {len(targets)} route(s) from {result.at_x},{result.at_y},"
+            f" first is {plan.homing} homing + {plan.rows} rows x {plan.per_row}"
+            f" — {len(every)} swipes total ({len(route)} to run, about {minutes:.0f} min)"
         )
 
         for index, step in enumerate(route, start=1):

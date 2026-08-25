@@ -69,12 +69,22 @@ def test_the_whole_map_is_covered_along_the_row() -> None:
     assert plan.per_row * plan.tiles_per_swipe_along >= sweep.MAP_SIZE
 
 
-def test_rows_step_by_a_viewport_less_the_overlap() -> None:
-    """Along a row the limit is how far a swipe goes; DOWN the rows it is how
-    tall a viewport is, which is the only place the overlap matters."""
+def test_there_are_more_rows_than_the_step_arithmetic_needs() -> None:
+    """Down the rows the limit is how tall a viewport is — 1000 / (140 * 0.8)
+    is nine — but the step is measured, and a step that lands short costs
+    REACH: nine rows each falling a quarter short cover 756 tiles of a
+    1000-tile map and never visit the last 250.
+
+    Widening the step instead would push neighbouring rows further apart than
+    a viewport is tall and open horizontal bands, which is what OVERLAP exists
+    to prevent. So the step stays as measured and the COUNT takes the margin.
+    """
     plan = _plan()
 
-    assert plan.rows == 9  # 1000 / (140 * 0.8)
+    assert plan.rows > 9
+    assert plan.rows * sweep.VIEW_TILES_Y * (1 - sweep.OVERLAP) * (1 - sweep.ROW_MARGIN) >= (
+        sweep.MAP_SIZE
+    )
 
 
 def test_every_other_row_runs_backwards() -> None:
