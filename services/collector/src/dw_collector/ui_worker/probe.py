@@ -43,9 +43,20 @@ from dw_collector.storage.journal import Journal
 from dw_collector.ui_worker.sweep import MAP_COMMAND
 
 #: How many swipes to average over. One is inside the ~19-tile quantum and
-#: says almost nothing; four moves far enough that the quantum is a rounding
-#: error, and still costs under a minute.
-PROBE_SWIPES = 4
+#: says almost nothing.
+#:
+#: FOUR WAS NOT ENOUGH. Three consecutive live runs agreed on both axes and
+#: both signs — the thing a plan cannot be wrong about — but their magnitudes
+#: ranged over a factor of two: horizontal 0.0238, 0.0238, 0.0356; vertical
+#: -0.0375, -0.0238, -0.0488. That is the quantum, not the device: four
+#: swipes travel about 80 tiles, so a 19-tile step in or out of the last
+#: request is a quarter of the measurement.
+#:
+#: Eight travels about 160 and halves that to an eighth. It matters in one
+#: direction in particular: an over-estimate plans FEWER swipes per row than
+#: the row needs, and the shortfall lands as an unswept strip at the far end
+#: — 0.0356 planned 34 swipes per row where 0.0238 planned 50.
+PROBE_SWIPES = 8
 
 #: The zoom the sweep runs at. 0 returns ~76 tiles per pan and 2 returns
 #: NOTHING, so this is the only useful one and a probe that finds anything

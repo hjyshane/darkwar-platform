@@ -229,15 +229,21 @@ def _measure(
             )
             raise typer.Exit(code=1)
 
-    # STEP AWAY FROM THE WALL BEFORE MEASURING. The probe swipes one way, four
-    # times, because it is measuring a sign and cannot cancel itself out. A
-    # camera against the edge of the world does not move, so those four swipes
-    # emit nothing and the probe reads it as "the map is not on screen" — which
-    # is what happened, with the camera at 987,184 because the previous sweep
-    # had left it in the corner. Two swipes back from each edge cost seconds
-    # and cannot be mistaken for anything.
+    # STEP AWAY FROM THE WALL BEFORE MEASURING. The probe swipes one way,
+    # repeatedly, because it is measuring a SIGN and so cannot cancel itself
+    # out. A camera against the edge of the world does not move, so those
+    # swipes emit nothing and the probe reads it as "the map is not on
+    # screen" — which is what happened, with the camera at 987,184 because
+    # the previous sweep had left it in the corner.
+    #
+    # The retreat is as long as the probe's own run, and in the opposite
+    # direction on each axis, so the probe has a full measurement's worth of
+    # room ahead of it. Sized rather than fixed: at PROBE_SWIPES 4 a pair
+    # sufficed, at 8 the probe travels twice as far and would have run into
+    # the wall it had just stepped away from.
     cx, cy = centre
-    for dx, dy in ((-300, 0), (-300, 0), (0, -300), (0, -300)):
+    retreat = [(-300, 0)] * probe_mod.PROBE_SWIPES + [(0, -300)] * probe_mod.PROBE_SWIPES
+    for dx, dy in retreat:
         client.swipe(
             int(cx + dx / 2), int(cy + dy / 2), int(cx - dx / 2), int(cy - dy / 2), duration_ms=1200
         )
