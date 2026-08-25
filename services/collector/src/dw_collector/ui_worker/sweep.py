@@ -256,6 +256,106 @@ def build_routine(
     )
 
 
+@dataclass(frozen=True)
+class SweepPlan:
+    """A sweep as the swipes it actually takes, not as the pans it wants.
+
+    THE DISTINCTION IS THE POINT. `build_routine` above plans one swipe per
+    pan, which assumes a swipe can travel a whole step. On the real device it
+    cannot: the step between pans is 56 tiles and the longest swipe that fits
+    on a 1080-wide screen moves about 21. Planning one-to-one would leave two
+    thirds of every step uncovered while the routine reported every step
+    verified — the silent-gap failure again, one level up from the constants
+    that caused it last time.
+
+    So the unit here is the swipe, and a step is however many of them it
+    takes.
+    """
+
+    swipes: list[Swipe]
+    rows: int
+    per_row: int
+    #: Which map axis the rows run along, and which one they step down.
+    along_axis: str
+    down_axis: str
+    tiles_per_swipe_along: float
+    tiles_per_swipe_down: float
+
+
+def plan_from_probe(
+    horizontal_tiles_per_pixel: float,
+    vertical_tiles_per_pixel: float,
+    along_axis: str,
+    *,
+    screen_width: int = 1080,
+    screen_height: int = 1920,
+    centre: tuple[int, int] | None = None,
+    reach: float = 0.8,
+    region: tuple[int, int, int, int] | None = None,
+) -> SweepPlan:
+    """Turn a measured device into the swipes that cover a region.
+
+    Rows run along whichever map axis the HORIZONTAL screen swipe drives,
+    because that is measured rather than assumed — a device where it drives
+    the other one gets its rows the other way round and nothing else changes.
+
+    Rows step down by a viewport's worth less the overlap. Along a row the
+    step is simply as far as one swipe goes: at ~21 tiles against a 71-tile
+    viewport, consecutive pans overlap by two thirds. That is far more overlap
+    than needed and it is not worth optimising away — the swipe length is the
+    hard limit, and the alternative to redundant coverage here is no coverage.
+    """
+    cx = screen_width // 2 if centre is None else centre[0]
+    cy = int(screen_height * 0.47) if centre is None else centre[1]
+    reach_x = int(screen_width * reach / 2)
+    reach_y = int(screen_height * reach / 2)
+
+    down_axis = "y" if along_axis == "x" else "x"
+    view_down = VIEW_TILES_Y if down_axis == "y" else VIEW_TILES_X
+
+    per_swipe_along = abs(horizontal_tiles_per_pixel) * reach_x * 2
+    per_swipe_down = abs(vertical_tiles_per_pixel) * reach_y * 2
+    if per_swipe_along <= 0 or per_swipe_down <= 0:
+        msg = "a measured swipe that moves nothing cannot be planned from"
+        raise ValueError(msg)
+
+    x0, x1, y0, y1 = region or (0, MAP_SIZE - 1, 0, MAP_SIZE - 1)
+    along_span = (x1 - x0 + 1) if along_axis == "x" else (y1 - y0 + 1)
+    down_span = (y1 - y0 + 1) if down_axis == "y" else (x1 - x0 + 1)
+
+    step_down = view_down * (1 - OVERLAP)
+    rows = max(1, -(-down_span // int(step_down)))
+    per_row = max(1, -(-along_span // int(per_swipe_along)))
+    down_swipes = max(1, round(step_down / per_swipe_down))
+
+    # Dragging is the opposite of walking: to move the VIEW forward the finger
+    # travels backward. Getting this inverted produces a sweep that runs off
+    # the edge of the world on its first row and never recovers, which looks
+    # exactly like a sweep that is working.
+    forward = Swipe(cx + reach_x, cy, cx - reach_x, cy)
+    backward = Swipe(cx - reach_x, cy, cx + reach_x, cy)
+    downward = Swipe(cx, cy + reach_y, cx, cy - reach_y)
+
+    swipes: list[Swipe] = []
+    for row in range(rows):
+        # BOUSTROPHEDON: every other row runs back the way it came. A raster
+        # order would carry the view the full width of the map between rows,
+        # which at nine rows is more travel than the sweep itself.
+        swipes.extend([forward if row % 2 == 0 else backward] * per_row)
+        if row < rows - 1:
+            swipes.extend([downward] * down_swipes)
+
+    return SweepPlan(
+        swipes=swipes,
+        rows=rows,
+        per_row=per_row,
+        along_axis=along_axis,
+        down_axis=down_axis,
+        tiles_per_swipe_along=per_swipe_along,
+        tiles_per_swipe_down=per_swipe_down,
+    )
+
+
 def covered(seen: list[tuple[int, int]]) -> tuple[int, int, int, int] | None:
     """The box a set of observed tiles actually covers.
 
