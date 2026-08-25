@@ -280,6 +280,10 @@ class SweepPlan:
     down_axis: str
     tiles_per_swipe_along: float
     tiles_per_swipe_down: float
+    #: Swipes spent getting to the corner the route starts from, before any
+    #: sweeping happens. Reported so a run that spends most of its budget
+    #: travelling is visible rather than merely slow.
+    homing: int
 
 
 def plan_from_probe(
@@ -289,6 +293,7 @@ def plan_from_probe(
     *,
     screen_width: int = 1080,
     screen_height: int = 1920,
+    start: tuple[int, int],
     centre: tuple[int, int] | None = None,
     reach: float = 0.8,
     region: tuple[int, int, int, int] | None = None,
@@ -304,6 +309,25 @@ def plan_from_probe(
     viewport, consecutive pans overlap by two thirds. That is far more overlap
     than needed and it is not worth optimising away — the swipe length is the
     hard limit, and the alternative to redundant coverage here is no coverage.
+
+    `start` IS WHERE THE CAMERA ACTUALLY IS, and this function had no such
+    parameter until somebody asked what it assumed. It assumed the camera
+    began in the corner the sweep marches away from. The rows only ever run
+    one way and the steps only ever go one way, so from anywhere else the
+    route reaches the far corner early and spends the rest of its swipes
+    pushing against the edge. Walked from the position the last live probe
+    reported, 466 swipes covered 72 of 400 cells; from dead centre, 200; only
+    from that one corner, all 400.
+
+    Nothing caught it because the assumption was not written down anywhere to
+    be disagreed with — the planner had no notion of position at all, and the
+    tests agreed with it about a map whose origin was wherever the sweep
+    happened to begin. The same shape as the coordinate bug: self-consistent,
+    and consistently wrong.
+
+    So the route now begins by driving to that corner from where the camera
+    is. The probe already measures the position; this just stops throwing it
+    away.
     """
     cx = screen_width // 2 if centre is None else centre[0]
     cy = int(screen_height * 0.47) if centre is None else centre[1]
@@ -335,8 +359,25 @@ def plan_from_probe(
     forward = Swipe(cx + reach_x, cy, cx - reach_x, cy)
     backward = Swipe(cx - reach_x, cy, cx + reach_x, cy)
     downward = Swipe(cx, cy + reach_y, cx, cy - reach_y)
+    upward = Swipe(cx, cy - reach_y, cx, cy + reach_y)
 
-    swipes: list[Swipe] = []
+    # DRIVE TO THE CORNER THE ROUTE STARTS FROM. The rows run one way and the
+    # steps go one way, so the route is only a sweep of the map when it begins
+    # where the map does. From anywhere else it reaches the far corner early
+    # and pushes against the edge for the rest of its swipes.
+    #
+    # A quarter more than the arithmetic says, because the edge is a hard stop:
+    # arriving early costs a few no-op swipes, arriving short leaves a strip
+    # nothing ever reads. The measured tiles-per-swipe is only good to about
+    # the ~19-tile quantum anyway, which is most of one swipe.
+    start_along, start_down = start if along_axis == "x" else (start[1], start[0])
+    along_origin = x0 if along_axis == "x" else y0
+    down_end = y1 if down_axis == "y" else x1
+    homing: list[Swipe] = []
+    homing += [backward] * int(max(0.0, start_along - along_origin) / per_swipe_along * 1.25 + 1)
+    homing += [upward] * int(max(0.0, down_end - start_down) / per_swipe_down * 1.25 + 1)
+
+    swipes: list[Swipe] = list(homing)
     for row in range(rows):
         # BOUSTROPHEDON: every other row runs back the way it came. A raster
         # order would carry the view the full width of the map between rows,
@@ -353,6 +394,7 @@ def plan_from_probe(
         down_axis=down_axis,
         tiles_per_swipe_along=per_swipe_along,
         tiles_per_swipe_down=per_swipe_down,
+        homing=len(homing),
     )
 
 

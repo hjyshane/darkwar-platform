@@ -168,12 +168,80 @@ def _measure(
     wrong, and collect not one tile.
     """
     if set_zoom:
-        typer.echo(f"{target}: clamping to max zoom out, then one step in")
-        for _ in range(3):
+        # CLAMP, STEP IN, AND CHECK. zoom.py has always said this is the only
+        # way to reach a known zoom, and the first implementation clamped and
+        # stepped in exactly once without checking. It worked three runs in a
+        # row and then did not: one gesture is worth an unknown number of the
+        # game's own zoom steps, so from some starting zooms a single step in
+        # leaves the map at viewLvl 2 — where the game draws a normal-looking
+        # map and the server sends no tiles at all.
+        #
+        # The check is the same signal the sweep runs on: swipe, and see
+        # whether a pan comes back. At viewLvl 2 none does.
+        #
+        # THERE AND BACK, on both axes, because "no pan" has a second cause
+        # that looks identical: a camera pinned against the edge of the world
+        # does not move, so it emits nothing however good the zoom is. The
+        # first version of this check swiped one way, found nothing, and
+        # blamed the zoom — while the real reason was that the previous
+        # sweep had left the camera in the corner. Four swipes that cancel
+        # out cannot all be against an edge.
+        typer.echo(f"{target}: clamping to max zoom out")
+        for _ in range(4):
             zoom_mod.send(adb, policy, target, zoom_mod.out_script(screen, centre, 300))
             time.sleep(1.5)
-        zoom_mod.send(adb, policy, target, zoom_mod.in_script(screen, centre, 300))
-        time.sleep(4.0)
+        cx, cy = centre
+        for attempt in range(1, 9):
+            # SMALL STEPS. A full-spread pinch is worth an unknown number of
+            # the game's own zoom steps, and stepping in with one went past
+            # the world map entirely and into the player's base — where there
+            # is no map, so no pan, which looks exactly like being zoomed too
+            # far OUT. Both ends of the range report the same silence.
+            #
+            # Clamping out is the one state that can be reached without
+            # counting, so the walk starts there and creeps in: the FIRST
+            # zoom that answers with a pan is viewLvl 1, because 2 is silent
+            # and 0 is further in still.
+            zoom_mod.send(adb, policy, target, zoom_mod.pinch_script(screen, centre, 200, 260))
+            time.sleep(3.0)
+            mark = journal.watermark()
+            since = datetime.now(UTC)
+            for dx, dy in ((300, 0), (-300, 0), (0, 300), (0, -300)):
+                client.swipe(
+                    int(cx + dx / 2),
+                    int(cy + dy / 2),
+                    int(cx - dx / 2),
+                    int(cy - dy / 2),
+                    duration_ms=1200,
+                )
+                time.sleep(1.5)
+            found = probe_mod.settled(journal, mark, since, want=1, timeout=90.0)
+            levels = [v.view_lvl for v in found]
+            typer.echo(f"  step in {attempt}: pans={len(found)} viewLvl={levels}")
+            if probe_mod.SWEEP_VIEW_LEVEL in levels:
+                break
+        else:
+            typer.echo(
+                "no zoom between max-out and eight steps in returned a tile."
+                " Either the world map is not the screen that is open, or"
+                " dw-capture is not running — both look like this.",
+                err=True,
+            )
+            raise typer.Exit(code=1)
+
+    # STEP AWAY FROM THE WALL BEFORE MEASURING. The probe swipes one way, four
+    # times, because it is measuring a sign and cannot cancel itself out. A
+    # camera against the edge of the world does not move, so those four swipes
+    # emit nothing and the probe reads it as "the map is not on screen" — which
+    # is what happened, with the camera at 987,184 because the previous sweep
+    # had left it in the corner. Two swipes back from each edge cost seconds
+    # and cannot be mistaken for anything.
+    cx, cy = centre
+    for dx, dy in ((-300, 0), (-300, 0), (0, -300), (0, -300)):
+        client.swipe(
+            int(cx + dx / 2), int(cy + dy / 2), int(cx - dx / 2), int(cy - dy / 2), duration_ms=1200
+        )
+        time.sleep(1.5)
 
     measured: dict[str, probe_mod.AxisEffect] = {}
     last: probe_mod.Viewport | None = None
@@ -345,14 +413,21 @@ def sweep(
             result.horizontal.tiles_per_pixel,
             result.vertical.tiles_per_pixel,
             result.horizontal.axis,
+            # WHERE THE CAMERA ACTUALLY IS. The route marches one way along
+            # its rows and one way down them, so it only sweeps the map if it
+            # starts at the corner it marches away from; from the position
+            # the probe reported here once, the same 466 swipes would have
+            # covered 72 of 400 cells and spent the rest against an edge.
+            start=(result.at_x, result.at_y),
             screen_width=screen_width,
             screen_height=screen_height,
         )
         route = plan.swipes if max_swipes is None else plan.swipes[:max_swipes]
         minutes = len(route) * (settle_seconds + 0.6) / 60
         typer.echo(
-            f"\nplan: {plan.rows} rows x {plan.per_row} swipes"
-            f" = {len(plan.swipes)} ({len(route)} to run, about {minutes:.0f} min)"
+            f"\nplan: {plan.homing} swipes to reach the corner from"
+            f" {result.at_x},{result.at_y}, then {plan.rows} rows x {plan.per_row}"
+            f" = {len(plan.swipes)} total ({len(route)} to run, about {minutes:.0f} min)"
         )
 
         for index, step in enumerate(route, start=1):
