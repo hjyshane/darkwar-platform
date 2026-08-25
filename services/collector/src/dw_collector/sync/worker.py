@@ -33,6 +33,11 @@ _TABLE_ORDER = [
     "player_season_force_snapshots",
     "world_city_snapshots",
     "season_building_snapshots",
+    # Coverage: where the camera looked. It carries no player refs, so it
+    # could sit anywhere in this order; it is named rather than left to fall
+    # through because an unlisted table sorts last by accident rather than by
+    # intent, and the next one added might not survive that.
+    "world_viewport_snapshots",
     "alliance_snapshots",
     "alliance_season_score_snapshots",
     "alliance_member_snapshots",
