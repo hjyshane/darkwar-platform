@@ -44,6 +44,16 @@ class AdbPolicy:
     collector_serial: str | None
     denylist: frozenset[str]
     kill_switch_file: Path | None = None
+    #: True when the serials were enumerated from the machine rather than
+    #: read from a file.
+    #:
+    #: THIS EXISTS TO KEEP ONE DISTINCTION. An empty denylist means two
+    #: opposite things. From a file it means nobody listed the main account,
+    #: which must be refused. From an enumeration it means the machine was
+    #: examined and the collector is the only emulator running — a finding,
+    #: and a safe one. Collapsing them would let a resolution that returned
+    #: nothing at all pass as "nothing to deny".
+    enumerated: bool = False
 
     @classmethod
     def from_env(cls, env: dict[str, str] | None = None) -> AdbPolicy:
@@ -54,6 +64,44 @@ class AdbPolicy:
             collector_serial=(source.get("DW_ADB_COLLECTOR_SERIAL") or "").strip() or None,
             denylist=frozenset(item.strip() for item in raw_denylist.split(",") if item.strip()),
             kill_switch_file=Path(kill_file) if kill_file else None,
+        )
+
+    @classmethod
+    def resolved(
+        cls,
+        adb: str,
+        env: dict[str, str] | None = None,
+        *,
+        collector_title: str = "collector",
+    ) -> AdbPolicy:
+        """Like `from_env`, but the serials are read off the machine.
+
+        WHY NOT THE FILE. Both env values were stale in a way that disarmed
+        this guard without erroring: the collector serial named
+        `emulator-5584`, which no longer exists, and the denylist named four
+        more `emulator-55xx` while every live instance answers as
+        `127.0.0.1:PORT`. Nothing matched anything, so the check that keeps
+        automation off the main account was comparing strings that could
+        never appear. BlueStacks moved the collector 5586 -> 5585 across one
+        reboot, so any file naming a port is a file that goes wrong later.
+
+        The kill switch still comes from the environment: it is a deliberate
+        act by an operator, not a property of the machine.
+
+        NOTHING IS RELAXED. An ambiguous or failed resolution yields None and
+        an empty denylist, and `check_target` refuses on both.
+        """
+        from dw_collector.ui_worker import instances
+
+        found = instances.resolve(adb, collector_title=collector_title)
+        serial, denied = instances.collector_and_others(found, collector_title=collector_title)
+        source = env if env is not None else dict(os.environ)
+        kill_file = source.get("DW_UI_KILL_SWITCH_FILE")
+        return cls(
+            collector_serial=serial,
+            denylist=denied,
+            kill_switch_file=Path(kill_file) if kill_file else None,
+            enumerated=True,
         )
 
     def kill_switch_engaged(self) -> bool:
@@ -77,7 +125,11 @@ class AdbPolicy:
             )
             raise AdbGuardError(msg)
 
-        if not self.denylist:
+        # An empty denylist is only acceptable when the machine was actually
+        # examined and no other emulator was found. From a file it means
+        # nobody listed the main account, which is the case FR-COL-010 is
+        # about.
+        if not self.denylist and not self.enumerated:
             msg = (
                 "DW_ADB_DENYLIST_SERIALS is empty; the main account's serials must be"
                 " listed before any automation runs (FR-COL-010)"
