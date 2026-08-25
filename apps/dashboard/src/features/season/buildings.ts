@@ -126,11 +126,18 @@ const EMPTY: BuildingGrid = { members: [], columns: [], capturedAt: null, unname
 
 export async function fetchBuildingGrid(catalogue: SeasonCatalogue): Promise<BuildingGrid> {
   const { data, error } = await supabase
-    .from('member_season_buildings')
-    .select('player_id, current_name, game_uid, building_type_id, level, captured_at')
-    // A hundred members times eighteen types is the ceiling, and the view is
-    // already reduced to one row per pair.
-    .limit(3000);
+    // ONE ROW PER MEMBER (0147), not one per building.
+    //
+    // PostgREST caps a response at 1,000 rows and ignores a larger limit. The
+    // per-building view returns about eighteen rows each, so 84 members were
+    // 1,198 rows, the last 198 were cut, and the members inside them
+    // disappeared from the board without a word — it showed 67 of 84 and
+    // looked complete. Folding the buildings server-side makes the row count
+    // the member count, so the cap is nowhere near and a generous-looking
+    // limit cannot quietly reintroduce it.
+    .from('member_season_buildings_by_member')
+    .select('player_id, current_name, game_uid, levels, oldest_seen, newest_seen')
+    .limit(500);
   if (error) {
     // A viewer gets nothing from the view's own gate rather than an error
     // page — the same shape the roster uses.
@@ -147,36 +154,45 @@ export async function fetchBuildingGrid(catalogue: SeasonCatalogue): Promise<Bui
   let newest: string | null = null;
 
   for (const row of data ?? []) {
-    if (row.player_id === null || row.building_type_id === null) {
+    if (row.player_id === null) {
       continue;
     }
-    if (!known.has(row.building_type_id)) {
-      // Another season's building, or one nobody has identified. The
-      // catalogue IS the season filter — see the note on SEASON2_BUILDINGS.
-      unnamed.add(row.building_type_id);
+    // `levels` is a jsonb object of building_type_id -> level, so its keys
+    // are strings. Parsed back to numbers because the catalogue is keyed on
+    // the id the game uses.
+    const levels = (row.levels ?? {}) as Record<string, number | null>;
+    const member = {
+      playerId: row.player_id,
+      name: row.current_name,
+      gameUid: Number(row.game_uid ?? 0),
+      oldestSeen: row.oldest_seen,
+    } as MemberBuildings;
+
+    let anyKnown = false;
+    for (const [key, level] of Object.entries(levels)) {
+      const typeId = Number(key);
+      if (!Number.isFinite(typeId)) {
+        continue;
+      }
+      if (!known.has(typeId)) {
+        // Another season's building, or one nobody has identified. The
+        // catalogue IS the season filter — see the note on SEASON2_BUILDINGS.
+        unnamed.add(typeId);
+        continue;
+      }
+      present.add(typeId);
+      member[levelKey(typeId)] = level;
+      anyKnown = true;
+    }
+    // A member whose only buildings belong to another season does not belong
+    // on this season's board.
+    if (!anyKnown) {
       continue;
     }
-    present.add(row.building_type_id);
-    if (row.captured_at !== null && (newest === null || row.captured_at > newest)) {
-      newest = row.captured_at;
+    if (row.newest_seen !== null && (newest === null || row.newest_seen > newest)) {
+      newest = row.newest_seen;
     }
-    let member = byMember.get(row.player_id);
-    if (member === undefined) {
-      member = {
-        playerId: row.player_id,
-        name: row.current_name,
-        gameUid: Number(row.game_uid ?? 0),
-        oldestSeen: null,
-      } as MemberBuildings;
-      byMember.set(row.player_id, member);
-    }
-    member[levelKey(row.building_type_id)] = row.level;
-    if (
-      row.captured_at !== null &&
-      (member.oldestSeen === null || row.captured_at < member.oldestSeen)
-    ) {
-      member.oldestSeen = row.captured_at;
-    }
+    byMember.set(row.player_id, member);
   }
 
   const columns = catalogue.filter((kind) => present.has(kind.id));
