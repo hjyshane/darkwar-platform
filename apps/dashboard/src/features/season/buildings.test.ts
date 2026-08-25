@@ -1,5 +1,27 @@
 import { expect, test } from 'vitest';
-import { SEASON2_BUILDINGS, SEASON3_BUILDINGS, isBehind, levelKey } from './buildings';
+import type { BuildingGrid } from './buildings';
+import {
+  SEASON2_BUILDINGS,
+  SEASON3_BUILDINGS,
+  isBehind,
+  levelKey,
+  membersMissing,
+} from './buildings';
+
+function grid(members: number, rosterTotal: number | null): BuildingGrid {
+  return {
+    members: Array.from({ length: members }, (_, index) => ({
+      playerId: `p${index}`,
+      name: `m${index}`,
+      gameUid: index,
+      oldestSeen: null,
+    })) as BuildingGrid['members'],
+    columns: [],
+    capturedAt: null,
+    unnamedSeen: 0,
+    rosterTotal,
+  };
+}
 
 test('a member is not flagged behind on a building nobody has seen', () => {
   // An absent level means the collector never panned over it. Flagging that
@@ -44,4 +66,22 @@ test('every catalogue entry is named, never a bare id', () => {
     expect(kind.name.trim()).not.toBe('');
     expect(kind.name).not.toMatch(/^\d+$/);
   }
+});
+
+test('the board counts the members it cannot show', () => {
+  // The bug that started this: 67 of 84 displayed, and nothing said so.
+  expect(membersMissing(grid(67, 84))).toBe(17);
+  expect(membersMissing(grid(84, 84))).toBe(0);
+});
+
+test('an unreadable roster is unknown, never zero', () => {
+  // Zero would render as a complete board, which is exactly the wrong
+  // reassurance — the same shape as reporting "not scanned" as "not there".
+  expect(membersMissing(grid(67, null))).toBeNull();
+});
+
+test('more members than the roster does not report a negative', () => {
+  // Possible while the roster snapshot lags a departure. "-2 have no
+  // building observed" is nonsense on a screen.
+  expect(membersMissing(grid(86, 84))).toBe(0);
 });
