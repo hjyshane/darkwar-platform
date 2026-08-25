@@ -85,6 +85,23 @@ typed column only after it has been observed consistently.
   `server.rank` response captured from 580 contains players from all eight
   servers. Provenance goes in `collector_id` / `collected_from_server_id`.
 - **`server_id` leads hot indexes.** The group grows to 12/16/32/64 servers.
+- **Membership comes from `alliance_roster_latest`, never from
+  `players.current_alliance_id`.** That column is a LAST KNOWN alliance: every
+  writer since 0008 sets it with `coalesce(s.alliance_id, p.current_alliance_id)`
+  and nothing anywhere clears it, so joining is recorded and leaving never is.
+  It named 94 players for a roster of 84. That is not a bug to fix — never
+  clearing is what stops an empty roster snapshot from erasing the alliance —
+  but it makes the name a lie, and a new query that trusts it inherits every
+  departure since the beginning. The overview (0008 comment) and `member_roster`
+  (0102) already join through the roster view; 0139 did not and quietly carried
+  ex-members onto the season board until 0146.
+- **A query that feeds a screen counting PEOPLE must return one row per
+  person.** PostgREST caps responses at 1,000 rows and ignores a larger
+  `.limit()`, so a row-per-detail query drops whole entities in silence: the
+  building board showed 67 of 84 members and looked complete. Fold the detail
+  server-side (`jsonb_object_agg`, `distinct on`) so the row count is the
+  entity count — 0144 and 0147 both exist for this. A bigger limit is not a
+  fix; it does nothing.
 - Timestamps are `timestamptz` UTC. The game week resets Monday 02:00 UTC, and
   that rule is implemented in SQL, Python, and TypeScript — all three consume
   one shared test-vector fixture, so change them together.
