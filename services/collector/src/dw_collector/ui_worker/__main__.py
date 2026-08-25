@@ -361,6 +361,9 @@ def sweep(
     ] = None,
     settle_seconds: Annotated[float, typer.Option(help="pause after each swipe")] = 3.0,
     check_every: Annotated[int, typer.Option(help="re-check the map this often, in swipes")] = 25,
+    wait_for_idle_seconds: Annotated[
+        float, typer.Option(help="wait this long for the operator to stop using the machine")
+    ] = 900.0,
 ) -> None:
     """Sweep the map the collector is currently on, then say what it covered.
 
@@ -389,6 +392,31 @@ def sweep(
     since = datetime.now(UTC)
     done = 0
     seen: list[probe_mod.Viewport] = []
+
+    # WAIT FOR THE MACHINE, DO NOT REFUSE IT. The idle gate is there so a
+    # half-hour sweep yields when the operator comes back — but checked before
+    # the first swipe it can never pass, because the operator has just typed
+    # the command that started it. The first real run measured both axes over
+    # five minutes and then quit having swiped nothing: "idle 34s < 60s".
+    #
+    # Waiting also covers the probe, which drives the device just as hard and
+    # was doing so while the machine was still in use.
+    if idle is not None:
+        deadline = time.monotonic() + wait_for_idle_seconds
+        state = idle.evaluate()
+        if not state.is_idle:
+            typer.echo(
+                f"waiting up to {wait_for_idle_seconds:.0f}s for the machine to go idle"
+                f" ({state.reason})"
+            )
+        while not state.is_idle and time.monotonic() < deadline:
+            time.sleep(5.0)
+            state = idle.evaluate()
+        if not state.is_idle:
+            typer.echo(f"still in use after {wait_for_idle_seconds:.0f}s: {state.reason}", err=True)
+            journal.close()
+            raise typer.Exit(code=1)
+
     try:
         result = _measure(
             adb=adb,
