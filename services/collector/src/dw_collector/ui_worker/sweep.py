@@ -10,19 +10,27 @@ works for "open the alliance screen" — six steps. Covering a 1000x1000 map
 takes about a hundred pans, and a hundred hand-written swipe coordinates is
 not a file anybody will keep correct.
 
-WHY IT ZOOMS OUT FIRST. Measured over 560 real viewports: at the zoom the
-game opens on, one screen covers about 38x22 tiles, which needs roughly 1,180
-pans for the world. One step out covers 116x141, which needs about a hundred.
-That single step is the difference between a sweep that is worth automating
-and one that is not. `viewLvl` 2 returns no points at all, so 1 is the widest
-useful zoom and there is nothing further to gain.
+WHY IT ZOOMS OUT FIRST. Measured across 92 request/response pairs: at the
+zoom the game opens on (`viewLvl` 0) one screen returns 23x40 tiles and about
+76 of them, which needs roughly 1,100 pans for the world. `viewLvl` 1 returns
+71x141 and about 647, which needs 162. That single step is the difference
+between a sweep worth automating and one that is not.
+
+`viewLvl` 2 RETURNS NOTHING — 15 requests, zero points every time. The game
+still draws a map, so an operator zoomed all the way out sees a normal screen
+while the server sends no tiles at all. A sweep that ran there would report
+success and collect nothing, which is why the routine sets the zoom rather
+than trusting where it was left.
 
 WHAT THIS CANNOT DO is know where the map is looking when it starts. A swipe
 moves the view by a distance in PIXELS; the game reports position in TILES,
-and the ratio between them is a property of the device and the zoom. So the
-plan is expressed in swipes-from-here, and `tiles_per_swipe` has to be
-measured once on the machine that runs it — `dw-ui-worker sweep --calibrate`
-does that by panning once and reading how far the world moved.
+and the ratio between them is a property of the device and the zoom — the
+viewport is 71x141 tiles on a 1080x1920 screen, which is 1:1.99 against the
+screen's 1:1.78, so the tiles are not square on screen and the ratio cannot
+be derived from the resolution. So the plan is expressed in swipes-from-here,
+and `tiles_per_swipe` has to be measured once on the machine that runs it —
+`dw-ui-worker sweep --calibrate` pans once and reads how far the world moved.
+
 """
 
 from __future__ import annotations
@@ -38,12 +46,21 @@ MAP_COMMAND = "world.get.new"
 #: Tiles per side of the world.
 MAP_SIZE = 1000
 
-#: What one screen covers at viewLvl 1, from 560 observed viewports: the
-#: widest were 141 x 138 and the p90 was 116 x 70. The conservative pair is
-#: used deliberately — planning with the widest seen would leave unswept
-#: strips wherever a viewport came back smaller than its best case.
-VIEW_TILES_X = 100
-VIEW_TILES_Y = 60
+#: What one viewport covers at viewLvl 1, measured from 47 responses decoded
+#: with the current decoder: X was 71 in every single one — median, p90 and
+#: max alike — and Y was 140 or 141. This is a fixed window the server
+#: chooses, not something that varies with what is on screen, which is why
+#: there is no spread to be conservative about.
+#:
+#: THESE READ 100 x 60 AND BOTH WERE WRONG. They came from viewports decoded
+#: before the coordinate fix, when the packing was believed to be
+#: `x * 1000 + y`, so the axes were transposed: the old "116 x 70" is this
+#: 71 x 141 seen sideways. The shape mattered more than the size. Planning a
+#: 100-wide window against a 71-wide one leaves 29% of every row unobserved
+#: while the sweep reports success — the same silent-gap failure OVERLAP
+#: exists to prevent, introduced by the constant meant to prevent it.
+VIEW_TILES_X = 71
+VIEW_TILES_Y = 140
 
 #: Fraction of a screen to leave overlapping between neighbouring pans.
 #: Swipes have momentum and do not travel exactly the same distance twice, so
