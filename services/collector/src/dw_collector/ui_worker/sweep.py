@@ -22,15 +22,56 @@ while the server sends no tiles at all. A sweep that ran there would report
 success and collect nothing, which is why the routine sets the zoom rather
 than trusting where it was left.
 
-WHAT THIS CANNOT DO is know where the map is looking when it starts. A swipe
-moves the view by a distance in PIXELS; the game reports position in TILES,
-and the ratio between them is a property of the device and the zoom — the
-viewport is 71x141 tiles on a 1080x1920 screen, which is 1:1.99 against the
-screen's 1:1.78, so the tiles are not square on screen and the ratio cannot
-be derived from the resolution. So the plan is expressed in swipes-from-here,
-and `tiles_per_swipe` has to be measured once on the machine that runs it —
-`dw-ui-worker sweep --calibrate` pans once and reads how far the world moved.
+A swipe moves the view by a distance in PIXELS while the game reports
+position in TILES, and the ratio cannot be derived from the resolution: the
+viewport is 71x141 tiles on a 1080x1920 screen, 1:1.99 against the screen's
+1:1.78. So it has to be measured on the machine.
 
+THAT MEASUREMENT WAS ATTEMPTED ON THE LIVE COLLECTOR AND DOES NOT WORK.
+Recorded here because the obvious approach — "pan once, read how far the
+world moved" — looks correct and fails quietly, so the next person to try it
+should know what they are walking into.
+
+Two things defeat it, and they compound:
+
+  THE POSITION SIGNAL IS COARSE. `world.get.new` is not emitted as the
+  camera moves; it is emitted when the camera has drifted far enough that
+  the client wants more tiles. Across 117 consecutive viewLvl 1 pairs the
+  nonzero jumps cluster hard on 19-22 tiles, and in a clean run of eight
+  graded swipes EVERY delta was a multiple of about 19: +19,-2 / +19,0 /
+  +19,0 / +17,-19 / 0,-21 / 0,-19. A 300px swipe and a 700px swipe both
+  report "19". The signal cannot resolve a swipe.
+
+  THE ZOOM GESTURE PANS. Pinch is two fingers moving symmetrically about a
+  centre, but the game takes the residual as a drag: clamping to max zoom
+  and stepping back in moved the camera from (566,341) to (956,86). So the
+  displacement being measured is the swipe plus however far setting the zoom
+  dragged, and the two cannot be separated after the fact.
+
+The consequence is that two consecutive careful runs disagreed about
+something as basic as WHICH AXIS a horizontal swipe moves — one said map Y,
+the next said map X. Not noise in a constant; the sign of the mapping was
+unresolved.
+
+SO DO NOT PLAN COVERAGE ON A MEASURED CONSTANT. Verify it instead. The
+sweep already stores every tile it sees, which makes coverage a question the
+database can answer: swipe with generous overlap, then ask which regions
+have no fresh tiles and sweep those. That needs neither the pixel ratio nor
+the axis mapping, is immune to fling and momentum and emulator lag, and
+turns this repo's recurring failure — reporting success while silently
+missing rows — into a number somebody can look at.
+
+WHAT DID CALIBRATE, and is worth keeping:
+
+  The request's `x,y` IS the centre of the returned tiles, exactly: median
+  error 0.0 tiles over 72 viewports. So a stored viewport needs no separate
+  record of where the camera was.
+
+  Zoom can be driven without root. `/dev/input/event4` is "BlueStacks
+  Virtual Touch", crw-rw---- root:input, and adb's `shell` user is in group
+  input. It reports ABS_MT_POSITION_X/Y but no ABS_MT_SLOT, so multitouch is
+  protocol A: per finger a position pair then SYN_MT_REPORT, and SYN_REPORT
+  to close the frame. A pinch built that way reliably changes viewLvl.
 """
 
 from __future__ import annotations
