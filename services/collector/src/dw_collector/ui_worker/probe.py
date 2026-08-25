@@ -182,7 +182,7 @@ class Probe:
                 raise ProbeError(msg)
 
 
-def _settled(
+def settled(
     journal: Journal, mark: int, since: datetime, want: int, timeout: float
 ) -> list[Viewport]:
     """Wait for the journal to show the pans a probe just caused.
