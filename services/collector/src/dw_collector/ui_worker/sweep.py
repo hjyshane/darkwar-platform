@@ -27,12 +27,11 @@ position in TILES, and the ratio cannot be derived from the resolution: the
 viewport is 71x141 tiles on a 1080x1920 screen, 1:1.99 against the screen's
 1:1.78. So it has to be measured on the machine.
 
-THAT MEASUREMENT WAS ATTEMPTED ON THE LIVE COLLECTOR AND DOES NOT WORK.
-Recorded here because the obvious approach — "pan once, read how far the
-world moved" — looks correct and fails quietly, so the next person to try it
-should know what they are walking into.
+MEASURING IT TOOK THREE ATTEMPTS AND THE FIRST TWO DIAGNOSES WERE WRONG,
+which is worth the space because each failure looked like the answer.
 
-Two things defeat it, and they compound:
+The naive form — "pan once, read how far the world moved" — genuinely does
+not work, for two reasons that compound:
 
   THE POSITION SIGNAL IS COARSE. `world.get.new` is not emitted as the
   camera moves; it is emitted when the camera has drifted far enough that
@@ -48,18 +47,26 @@ Two things defeat it, and they compound:
   displacement being measured is the swipe plus however far setting the zoom
   dragged, and the two cannot be separated after the fact.
 
-The consequence is that two consecutive careful runs disagreed about
+The consequence was that two consecutive careful runs disagreed about
 something as basic as WHICH AXIS a horizontal swipe moves — one said map Y,
-the next said map X. Not noise in a constant; the sign of the mapping was
-unresolved.
+the next said map X. Averaging several swipes, after the zoom is already set,
+settles both of those: `probe.py` does that and has since agreed on axis and
+sign every run.
 
-SO DO NOT PLAN COVERAGE ON A MEASURED CONSTANT. Verify it instead. The
-sweep already stores every tile it sees, which makes coverage a question the
-database can answer: swipe with generous overlap, then ask which regions
-have no fresh tiles and sweep those. That needs neither the pixel ratio nor
-the axis mapping, is immune to fling and momentum and emulator lag, and
-turns this repo's recurring failure — reporting success while silently
-missing rows — into a number somebody can look at.
+WHAT DID NOT SETTLE WAS THE MAGNITUDE, and the reason was not either of the
+above. It ranged over six times — 0.0059 to 0.0356 tiles/px — and doubling
+the swipe count did nothing, because `probe.settled` was returning as soon as
+the first two pans had been journalled while the rest were still arriving.
+Every one of those figures was a fraction of a journey read at an arbitrary
+point. Waiting for the stream to go quiet took the same eight swipes from a
+reported 38 tiles to 133.
+
+SO THE MEASUREMENT IS USABLE, AND STILL NOT TRUSTED ON ITS OWN. The sweep
+stores every tile it sees, which makes coverage a question the database can
+answer: swipe with generous overlap, then ask which regions have no fresh
+tiles and sweep those. That is what turns this repo's recurring failure —
+reporting success while silently missing rows — into a number somebody can
+look at, and it is what carried 580 from 69% to 91% to 99%.
 
 WHAT DID CALIBRATE, and is worth keeping:
 
@@ -373,12 +380,16 @@ def plan_from_probe(
     # the far end, where they move nothing; under-running leaves ground that
     # nothing ever reads, and the sweep says it finished either way.
     #
-    # THE FIRST FULL SWEEP LANDED AT 91% AND THIS IS WHY. Its 37 uncovered
-    # cells were not an unfinished tail — they clustered at LOW x on some rows
-    # and HIGH x on others, alternating, which is the signature of rows
-    # falling short at whichever end they were running towards. The measured
-    # tiles-per-swipe is only good to about the 19-tile request quantum, and
-    # an over-estimate turns straight into a strip at the end of every row.
+    # THAT REASONING WAS ONCE ATTACHED TO THE WRONG CAUSE, and the correction
+    # is worth keeping. The first full sweep landed at 91% with its 37 missed
+    # cells alternating between low and high x, and this margin was widened
+    # blaming an OVER-estimate of tiles-per-swipe. An over-estimate would
+    # indeed shorten rows — but every measurement taken on this device was an
+    # UNDER-estimate, because `settled` returned before the pan stream had
+    # finished arriving, and under-estimating plans MORE swipes per row, not
+    # fewer. The real fault was that a truncated measurement gave a different
+    # plan every run; probe.settled fixed it, and the margin stays only
+    # because it is cheap and points the safe way.
     per_row = max(1, -(-along_span // max(1, int(per_swipe_along * (1 - ROW_MARGIN)))))
     down_swipes = max(1, round(step_down / per_swipe_down))
 
