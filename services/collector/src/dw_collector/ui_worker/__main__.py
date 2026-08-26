@@ -149,77 +149,56 @@ def _resolve(adb: str) -> tuple[AdbPolicy, str]:
     return policy, target
 
 
-def _reach_sweep_zoom(
+#: Step-ins from a clamped-out map before the zoom is expected to be right.
+#:
+#: Measured, not chosen: every live run has reached viewLvl 1 on the third,
+#: with the first two silent because viewLvl 2 returns no tiles. Sending all
+#: three without checking between them is what lets the whole setup cost ONE
+#: journal wait instead of three.
+ZOOM_STEPS = 3
+
+
+def _blind_zoom(
     *,
     adb: str,
     policy: AdbPolicy,
     target: str,
-    journal: Journal,
     client: AdbClient,
     screen: zoom_mod.Screen,
     centre: tuple[float, float],
+    steps: int = ZOOM_STEPS,
     label: str = "",
-) -> probe_mod.Viewport | None:
-    """Drive the map to the one zoom that returns tiles. None if it cannot.
+) -> None:
+    """Clamp out, then step in `steps` times WITHOUT looking in between.
 
-    CLAMP, STEP IN, AND CHECK. zoom.py has always said this is the only way to
-    reach a known zoom, and the first implementation clamped and stepped in
-    once without checking. It worked three runs in a row and then did not: one
-    gesture is worth an unknown number of the game's own zoom steps, so from
-    some starting zooms a single step in leaves the map at viewLvl 2 — where
-    the game draws a normal-looking map and the server sends no tiles at all.
+    CLAMP, STEP IN, AND CHECK — but check once at the end rather than after
+    every step. The checking is what costs: a look at the journal is 40-90
+    seconds because capture writes it that far behind the wire, and the old
+    walk paid that up to three times before the probe had even started.
 
-    The check is the same signal the sweep runs on: swipe, and see whether a
-    pan comes back. At viewLvl 2 none does.
+    Sending the steps blind is safe because the sequence is not a guess.
+    Clamping out is reachable without counting, and from there every live run
+    has landed on viewLvl 1 at the third step, the first two being silent
+    because viewLvl 2 returns no tiles at all. The single read afterwards
+    still confirms it, and still refuses if it did not happen.
 
-    THERE AND BACK, on both axes, because "no pan" has a second cause that
-    looks identical: a camera pinned against the edge of the world does not
-    move, so it emits nothing however good the zoom is. The first version
-    swiped one way, found nothing, and blamed the zoom — while the real reason
-    was that the previous sweep had left the camera in the corner. Four swipes
-    that cancel out cannot all be against an edge.
-
-    Returns the last viewport seen, so the caller learns the camera's position
-    as well as the zoom. That matters because THIS FUNCTION MOVES THE CAMERA:
-    the pinch leaves a residual the game takes as a drag, and a caller that
-    had a route planned from the old position no longer does.
+    A couple of swipes after each step keep the camera moving so the client
+    keeps asking for tiles; without them a step that DID reach a usable zoom
+    would emit nothing and read as a step that did not.
     """
     prefix = f"{label}: " if label else ""
-    typer.echo(f"{prefix}{target}: clamping to max zoom out")
+    typer.echo(f"{prefix}{target}: clamping out, then {steps} steps in")
     for _ in range(4):
         zoom_mod.send(adb, policy, target, zoom_mod.out_script(screen, centre, 300))
-        time.sleep(1.5)
+        time.sleep(1.0)
     cx, cy = centre
-    for attempt in range(1, 9):
-        # SMALL STEPS. A full-spread pinch is worth an unknown number of the
-        # game's own zoom steps, and stepping in with one went past the world
-        # map entirely and into the player's base — where there is no map, so
-        # no pan, which looks exactly like being zoomed too far OUT. Both ends
-        # of the range report the same silence.
-        #
-        # Clamping out is the one state reachable without counting, so the walk
-        # starts there and creeps in: the FIRST zoom that answers with a pan is
-        # viewLvl 1, because 2 is silent and 0 is further in still.
+    for _ in range(steps):
         zoom_mod.send(adb, policy, target, zoom_mod.pinch_script(screen, centre, 200, 260))
-        time.sleep(3.0)
-        mark = journal.watermark()
-        since = datetime.now(UTC)
-        for dx, dy in ((300, 0), (-300, 0), (0, 300), (0, -300)):
-            client.swipe(
-                int(cx + dx / 2),
-                int(cy + dy / 2),
-                int(cx - dx / 2),
-                int(cy - dy / 2),
-                duration_ms=1200,
-            )
-            time.sleep(1.5)
-        found = probe_mod.settled(journal, mark, since, want=1, timeout=150.0)
-        levels = [v.view_lvl for v in found]
-        typer.echo(f"  {prefix}step in {attempt}: pans={len(found)} viewLvl={levels}")
-        for viewport in reversed(found):
-            if viewport.view_lvl == probe_mod.SWEEP_VIEW_LEVEL:
-                return viewport
-    return None
+        time.sleep(2.0)
+        # There and back, so a camera against an edge still moves one way.
+        for dx in (300, -300):
+            client.swipe(int(cx + dx / 2), int(cy), int(cx - dx / 2), int(cy), duration_ms=1200)
+            time.sleep(1.0)
 
 
 def _measure(
@@ -233,60 +212,52 @@ def _measure(
     centre: tuple[float, float],
     pixels: int,
     set_zoom: bool,
+    swipe_ms: int = 1200,
 ) -> probe_mod.Probe:
-    """Set the zoom if asked, then measure both axes. Shared by both commands.
+    """Set the zoom and measure both axes, for ONE journal wait.
 
-    A sweep is not offered a way to skip this. Skipping is how the silent
+    The old shape asked the journal after every zoom step and after each probe
+    axis — five waits at 40-90 seconds each, four to nine minutes before a
+    single sweeping swipe. The waits were the cost, not the gestures.
+
+    They are also all reads of the SAME stream. So everything is sent first
+    and read once at the end, split by wall clock: the zoom steps, then the
+    horizontal probe, then the vertical one. `captured_at` is wire time, which
+    is what those boundaries are in.
+
+    A sweep is still not offered a way to skip this. Skipping is how the silent
     failures get back in: a route planned from last week's numbers, run on a
     map somebody left at viewLvl 2, would swipe the whole way, see nothing go
     wrong, and collect not one tile.
     """
-    if set_zoom and (
-        _reach_sweep_zoom(
-            adb=adb,
-            policy=policy,
-            target=target,
-            journal=journal,
-            client=client,
-            screen=screen,
-            centre=centre,
+    mark = journal.watermark()
+    since = datetime.now(UTC)
+
+    if set_zoom:
+        _blind_zoom(
+            adb=adb, policy=policy, target=target, client=client, screen=screen, centre=centre
         )
-        is None
-    ):
-        typer.echo(
-            "no zoom between max-out and eight steps in returned a tile."
-            " Either the world map is not the screen that is open, or"
-            " dw-capture is not running — both look like this.",
-            err=True,
-        )
-        raise typer.Exit(code=1)
 
     # STEP AWAY FROM THE WALL BEFORE MEASURING. The probe swipes one way,
     # repeatedly, because it is measuring a SIGN and so cannot cancel itself
     # out. A camera against the edge of the world does not move, so those
     # swipes emit nothing and the probe reads it as "the map is not on
-    # screen" — which is what happened, with the camera at 987,184 because
-    # the previous sweep had left it in the corner.
-    #
-    # The retreat is as long as the probe's own run, and in the opposite
-    # direction on each axis, so the probe has a full measurement's worth of
-    # room ahead of it. Sized rather than fixed: at PROBE_SWIPES 4 a pair
-    # sufficed, at 8 the probe travels twice as far and would have run into
-    # the wall it had just stepped away from.
+    # screen" — which is what happened once, with the camera at 987,184
+    # because the previous sweep had left it in the corner.
     cx, cy = centre
-    retreat = [(-300, 0)] * probe_mod.PROBE_SWIPES + [(0, -300)] * probe_mod.PROBE_SWIPES
-    for dx, dy in retreat:
+    for dx, dy in [(-300, 0)] * probe_mod.PROBE_SWIPES + [(0, -300)] * probe_mod.PROBE_SWIPES:
         client.swipe(
-            int(cx + dx / 2), int(cy + dy / 2), int(cx - dx / 2), int(cy - dy / 2), duration_ms=1200
+            int(cx + dx / 2),
+            int(cy + dy / 2),
+            int(cx - dx / 2),
+            int(cy - dy / 2),
+            duration_ms=swipe_ms,
         )
-        time.sleep(1.5)
+        time.sleep(0.8)
 
-    measured: dict[str, probe_mod.AxisEffect] = {}
-    last: probe_mod.Viewport | None = None
+    bounds: dict[str, tuple[datetime, datetime]] = {}
     for name, delta in (("horizontal", (pixels, 0)), ("vertical", (0, pixels))):
-        mark = journal.watermark()
-        since = datetime.now(UTC)
-        cx, cy = centre
+        opened = datetime.now(UTC)
         typer.echo(f"{name}: {probe_mod.PROBE_SWIPES} swipes of {pixels}px")
         for _ in range(probe_mod.PROBE_SWIPES):
             client.swipe(
@@ -294,30 +265,37 @@ def _measure(
                 int(cy + delta[1] / 2),
                 int(cx - delta[0] / 2),
                 int(cy - delta[1] / 2),
-                duration_ms=1200,
+                duration_ms=swipe_ms,
             )
-            time.sleep(3.0)
-        typer.echo("  waiting for the journal to catch up")
-        # want=2 is a floor to start looking, not a reason to stop; `settled`
-        # keeps waiting until the pan stream goes quiet. Eight swipes emit
-        # about eight pans over several capture windows, and reading only
-        # the first two measured a sixth of the journey.
-        seen = probe_mod.settled(journal, mark, since, want=2, timeout=240.0)
-        if len(seen) < 2:
+            time.sleep(1.2)
+        bounds[name] = (opened, datetime.now(UTC))
+
+    typer.echo("waiting for the journal, once")
+    stream = probe_mod.settled(journal, mark, since, want=2, timeout=300.0)
+    if len(stream) < 2:
+        typer.echo(
+            f"only {len(stream)} pan(s) reached the journal; is dw-capture running"
+            " and is the world map the screen that is open?",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+    measured: dict[str, probe_mod.AxisEffect] = {}
+    for name, (opened, closed) in bounds.items():
+        window = [v for v in stream if opened <= v.at <= closed]
+        if len(window) < 2:
             typer.echo(
-                f"  only {len(seen)} pan(s) reached the journal; is dw-capture running"
-                " and is the map on screen?",
+                f"{name}: {len(window)} pan(s) in its window — not enough to measure from",
                 err=True,
             )
             raise typer.Exit(code=1)
-        measured[name] = probe_mod.effect_of(seen[0], seen[-1], pixels, probe_mod.PROBE_SWIPES)
-        last = seen[-1]
+        measured[name] = probe_mod.effect_of(window[0], window[-1], pixels, probe_mod.PROBE_SWIPES)
         typer.echo(
-            f"  {seen[0].x},{seen[0].y} -> {seen[-1].x},{seen[-1].y}"
-            f"  viewLvl={seen[-1].view_lvl}  objects={seen[-1].objects}"
+            f"  {name}: {window[0].x},{window[0].y} -> {window[-1].x},{window[-1].y}"
+            f"  viewLvl={window[-1].view_lvl}  pans={len(window)}"
         )
 
-    assert last is not None
+    last = stream[-1]
     return probe_mod.Probe(
         horizontal=measured["horizontal"],
         vertical=measured["vertical"],
@@ -414,6 +392,16 @@ def sweep(
         int,
         typer.Option(help="stop once the clock passes this minute of the hour, for the :58 macro"),
     ] = 55,
+    swipe_ms: Annotated[
+        int,
+        typer.Option(
+            help="how long each swipe takes; shorter is a fling and travels further per swipe"
+        ),
+    ] = 1200,
+    region: Annotated[
+        str | None,
+        typer.Option(help="sweep only this box, as x0,x1,y0,y1 — e.g. 400,700,300,600"),
+    ] = None,
 ) -> None:
     """Sweep the map the collector is currently on, then say what it covered.
 
@@ -478,6 +466,7 @@ def sweep(
             centre=centre,
             pixels=400,
             set_zoom=True,
+            swipe_ms=swipe_ms,
         )
         typer.echo("")
         _report(result)
@@ -488,6 +477,21 @@ def sweep(
             raise typer.Exit(code=1) from exc
 
         targets: list[tuple[tuple[int, int, int, int] | None, sweep_mod.SweepPlan]] = []
+        box: tuple[int, int, int, int] | None = None
+        if region is not None:
+            # A WHOLE MAP DOES NOT FIT IN FIVE MINUTES and pretending otherwise
+            # is how a partial sweep gets read as a complete one. 162 pans is
+            # the floor for 1000x1000 at a 71x140 viewport, and that is with
+            # perfect packing; the budget buys about two thirds of it. Naming a
+            # box is how a five-minute answer becomes a complete one about the
+            # ground that matters.
+            try:
+                x0, x1, y0, y1 = (int(part) for part in region.split(","))
+            except ValueError as exc:
+                typer.echo(f"--region wants x0,x1,y0,y1 — got {region!r}", err=True)
+                raise typer.Exit(code=2) from exc
+            box = (x0, x1, y0, y1)
+            typer.echo(f"region: x {x0}..{x1}  y {y0}..{y1}")
         if fill_gaps:
             # A CELL IS COVERED BY ONE VIEWPORT, NOT BY A SWEEP. The coverage
             # view asks whether some pan's window contained the cell's centre,
@@ -542,7 +546,7 @@ def sweep(
                     hop_since = datetime.now(UTC)
                     for step in hop:
                         client.swipe(
-                            step.from_x, step.from_y, step.to_x, step.to_y, duration_ms=1200
+                            step.from_x, step.from_y, step.to_x, step.to_y, duration_ms=swipe_ms
                         )
                         done += 1
                         time.sleep(settle_seconds)
@@ -575,6 +579,7 @@ def sweep(
                         start=(result.at_x, result.at_y),
                         screen_width=screen_width,
                         screen_height=screen_height,
+                        region=box,
                     ),
                 )
             )
@@ -633,7 +638,7 @@ def sweep(
                 if not state.is_idle:
                     typer.echo(f"\nstopped after {done} swipes: {state.reason}")
                     break
-            client.swipe(step.from_x, step.from_y, step.to_x, step.to_y, duration_ms=1200)
+            client.swipe(step.from_x, step.from_y, step.to_x, step.to_y, duration_ms=swipe_ms)
             done += 1
             time.sleep(settle_seconds)
             if index % check_every == 0:
@@ -652,23 +657,39 @@ def sweep(
                     # can simply be corrected.
                     needs_rezoom = False
                     typer.echo("\n  resetting the zoom and re-planning this region")
-                    landed = _reach_sweep_zoom(
-                        adb=adb,
-                        policy=policy,
-                        target=target,
-                        journal=journal,
-                        client=client,
-                        screen=screen,
-                        centre=centre,
-                        label="re-zoom",
-                    )
-                    if landed is None:
+                    # The zoom walk is not separable from the measurement any
+                    # more: both are answered by one read of the same stream.
+                    # Re-measuring here is not waste — the camera has moved and
+                    # the zoom has changed, so the numbers are stale anyway.
+                    try:
+                        again = _measure(
+                            adb=adb,
+                            policy=policy,
+                            target=target,
+                            journal=journal,
+                            client=client,
+                            screen=screen,
+                            centre=centre,
+                            pixels=400,
+                            set_zoom=True,
+                            swipe_ms=swipe_ms,
+                        )
+                        again.check()
+                    except (typer.Exit, probe_mod.ProbeError):
                         typer.echo(
                             f"\ncould not get back to a zoom that returns tiles;"
                             f" stopping after {done} swipes rather than sweeping blind",
                             err=True,
                         )
                         break
+                    result = again
+                    landed = probe_mod.Viewport(
+                        at=datetime.now(UTC),
+                        x=again.at_x,
+                        y=again.at_y,
+                        view_lvl=again.view_lvl,
+                        objects=0,
+                    )
                     # RE-PLAN, DO NOT JUST CONTINUE. Setting the zoom pans the
                     # camera — that is what pinch does here — so the rest of a
                     # route planned from the old position would sweep the
