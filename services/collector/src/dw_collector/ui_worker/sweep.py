@@ -509,3 +509,71 @@ def covered(seen: list[tuple[int, int]]) -> tuple[int, int, int, int] | None:
     xs = [x for x, _ in seen]
     ys = [y for _, y in seen]
     return (min(xs), max(xs), min(ys), max(ys))
+
+
+#: How close a viewport centre must land to a cell centre for the coverage
+#: view to count that cell as read. The measured half-extents of one viewLvl 1
+#: viewport — see migration 0148, which applies the same test in SQL.
+REACH_X = 35
+REACH_Y = 70
+
+
+def approach(
+    start: tuple[int, int],
+    target: tuple[int, int],
+    horizontal_tiles_per_pixel: float,
+    vertical_tiles_per_pixel: float,
+    along_axis: str,
+    *,
+    screen_width: int = 1080,
+    screen_height: int = 1920,
+    reach: float = 0.8,
+) -> list[Swipe]:
+    """Swipes that put the camera on a point, rather than sweep a box.
+
+    A CELL IS COVERED BY ONE VIEWPORT, NOT BY A SWEEP. `world_sweep_coverage`
+    asks whether some pan's window contained the cell's centre, and a window
+    is 71 x 140 tiles — so filling a gap is arriving somewhere, once, within
+    35 tiles across and 70 down. Anything more is a tool too large for the
+    job, and three passes proved how that goes: the box gets padded, the
+    padding needs a margin, the margin needs the landing point, and each
+    correction opens the next while the same three cells stay unread.
+
+    So this does the small thing. No rows, no boustrophedon, no overlap: work
+    out how far away the target is on each axis and swipe that far. The
+    tolerance is wide enough that arriving approximately is arriving —
+    70 tiles down is two and a half swipes of slack.
+    """
+    per_swipe_x = abs(horizontal_tiles_per_pixel) * int(screen_width * reach / 2) * 2
+    per_swipe_y = abs(vertical_tiles_per_pixel) * int(screen_height * reach / 2) * 2
+    if per_swipe_x <= 0 or per_swipe_y <= 0:
+        msg = "a measured swipe that moves nothing cannot be planned from"
+        raise ValueError(msg)
+    # Which screen axis drives which map axis is measured, never assumed.
+    if along_axis == "x":
+        per_map_x, per_map_y = per_swipe_x, per_swipe_y
+    else:
+        per_map_x, per_map_y = per_swipe_y, per_swipe_x
+
+    cx = screen_width // 2
+    cy = int(screen_height * 0.47)
+    reach_x = int(screen_width * reach / 2)
+    reach_y = int(screen_height * reach / 2)
+    forward = Swipe(cx + reach_x, cy, cx - reach_x, cy)
+    backward = Swipe(cx - reach_x, cy, cx + reach_x, cy)
+    downward = Swipe(cx, cy + reach_y, cx, cy - reach_y)
+    upward = Swipe(cx, cy - reach_y, cx, cy + reach_y)
+
+    swipes: list[Swipe] = []
+    for distance, per_swipe, tolerance, positive, negative in (
+        (target[0] - start[0], per_map_x, REACH_X, forward, backward),
+        (target[1] - start[1], per_map_y, REACH_Y, upward, downward),
+    ):
+        if abs(distance) <= tolerance:
+            continue
+        # Round rather than pad. Overshooting a point is as bad as falling
+        # short of it, which is what makes this simpler than a box.
+        swipes += [positive if distance > 0 else negative] * max(
+            1, round(abs(distance) / per_swipe)
+        )
+    return swipes

@@ -489,32 +489,54 @@ def sweep(
 
         targets: list[tuple[tuple[int, int, int, int] | None, sweep_mod.SweepPlan]] = []
         if fill_gaps:
-            # A SECOND PASS IS CHEAPER THAN A SAFER FIRST ONE. Covering the
-            # measurement's spread up front needs a row margin of 0.5, about
-            # 1,900 swipes and two hours per server. The first real sweep
-            # instead reached 91% in 991, and its 37 missed cells group into
-            # regions worth 39% of the map — so converging costs far less
-            # than guaranteeing.
-            missed = gaps_mod.missing_cells(journal.conn, fill_gaps)
-            found = gaps_mod.regions(missed)
-            typer.echo(
-                f"\n{len(missed)} cells never covered on {fill_gaps}, in {len(found)} regions"
-            )
-            for region in found:
+            # A CELL IS COVERED BY ONE VIEWPORT, NOT BY A SWEEP. The coverage
+            # view asks whether some pan's window contained the cell's centre,
+            # and the window is 71 x 140 tiles — so filling a gap is arriving
+            # somewhere once, within 35 tiles across and 70 down.
+            #
+            # This used to plan a padded box and sweep it, and three passes
+            # showed how that goes: the box needs padding, the padding needs a
+            # margin, the margin needs the landing point, and each correction
+            # opened the next while the same cells stayed unread. The last one
+            # ran 105 swipes over y 25..974 for two regions inside y 550..949
+            # and gained one cell.
+            missed = sorted(gaps_mod.missing_cells(journal.conn, fill_gaps))
+            typer.echo(f"\n{len(missed)} cells never covered on {fill_gaps}")
+            at = (result.at_x, result.at_y)
+            for gx, gy in missed:
+                point = (
+                    gx * gaps_mod.CELL + gaps_mod.CELL // 2,
+                    gy * gaps_mod.CELL + gaps_mod.CELL // 2,
+                )
+                hop = sweep_mod.approach(
+                    at,
+                    point,
+                    result.horizontal.tiles_per_pixel,
+                    result.vertical.tiles_per_pixel,
+                    result.horizontal.axis,
+                    screen_width=screen_width,
+                    screen_height=screen_height,
+                )
+                typer.echo(f"  {point[0]},{point[1]}: {len(hop)} swipes")
                 targets.append(
                     (
-                        (region.x0, region.x1, region.y0, region.y1),
-                        sweep_mod.plan_from_probe(
-                            result.horizontal.tiles_per_pixel,
-                            result.vertical.tiles_per_pixel,
-                            result.horizontal.axis,
-                            start=(result.at_x, result.at_y),
-                            screen_width=screen_width,
-                            screen_height=screen_height,
-                            region=(region.x0, region.x1, region.y0, region.y1),
+                        None,
+                        sweep_mod.SweepPlan(
+                            swipes=hop,
+                            rows=1,
+                            per_row=len(hop),
+                            along_axis=result.horizontal.axis,
+                            down_axis="y" if result.horizontal.axis == "x" else "x",
+                            tiles_per_swipe_along=0.0,
+                            tiles_per_swipe_down=0.0,
+                            homing=len(hop),
                         ),
                     )
                 )
+                # Each hop starts where the last one aimed, so the route walks
+                # the gaps in order instead of returning to the probe's
+                # position between every one.
+                at = point
         else:
             targets.append(
                 (
