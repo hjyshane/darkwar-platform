@@ -171,6 +171,13 @@ class Calibration:
         )
 
 
+def _signed(run: list[Swipe], towards: Swipe, per_swipe: float) -> float:
+    """How far a homing run carries the view, positive in `towards`'s sense."""
+    if not run:
+        return 0.0
+    return len(run) * per_swipe * (1.0 if run[0] == towards else -1.0)
+
+
 def _clamp(value: float, limit: float) -> float:
     return max(-limit, min(limit, value))
 
@@ -374,7 +381,6 @@ def plan_from_probe(
     # 1000-tile map and never visit the last 250.
     #
     # So the step stays as measured and the row COUNT takes the margin.
-    rows = max(1, -(-down_span // max(1, int(step_down * (1 - ROW_MARGIN)))))
     # PLAN EACH ROW AS IF EVERY SWIPE FELL SHORT, for the same reason the
     # homing does. Over-running a row costs a few swipes against the wall at
     # the far end, where they move nothing; under-running leaves ground that
@@ -390,7 +396,6 @@ def plan_from_probe(
     # fewer. The real fault was that a truncated measurement gave a different
     # plan every run; probe.settled fixed it, and the margin stays only
     # because it is cheap and points the safe way.
-    per_row = max(1, -(-along_span // max(1, int(per_swipe_along * (1 - ROW_MARGIN)))))
     down_swipes = max(1, round(step_down / per_swipe_down))
 
     # Dragging is the opposite of walking: to move the VIEW forward the finger
@@ -411,12 +416,65 @@ def plan_from_probe(
     # arriving early costs a few no-op swipes, arriving short leaves a strip
     # nothing ever reads. The measured tiles-per-swipe is only good to about
     # the ~19-tile quantum anyway, which is most of one swipe.
+    # IT HAS TO TRAVEL IN WHICHEVER DIRECTION THE CORNER IS. This clamped the
+    # distance at zero and only ever emitted backward and upward swipes, which
+    # is correct for the whole map — the camera is always inside it, so the
+    # origin corner is always back and up — and silently wrong for a REGION,
+    # which the camera can be short of as easily as past.
+    #
+    # That is not theoretical: a gap pass planned 60 swipes for two small
+    # regions, ran all 60 without interruption, and covered not one new cell.
+    # The camera sat at x 494 while the region began at x 600, so the homing
+    # collapsed to a single swipe the wrong way and the rows swept a box
+    # shifted a hundred tiles off the ground they were aimed at — reporting
+    # every swipe done, which is the failure this file keeps circling.
     start_along, start_down = start if along_axis == "x" else (start[1], start[0])
     along_origin = x0 if along_axis == "x" else y0
     down_end = y1 if down_axis == "y" else x1
+
+    def _travel(distance: float, per_swipe: float, towards: Swipe, away: Swipe) -> list[Swipe]:
+        # ERR TOWARDS THE SIDE THE ROWS COME FROM. The approach cannot land
+        # exactly — the measurement is good to about the ~19-tile quantum,
+        # most of one swipe — so it has to miss on the safe side, and which
+        # side is safe depends on the direction of travel.
+        #
+        # Going the same way the rows will go, an overshoot lands PAST the
+        # corner and that ground is never revisited. Going the other way, an
+        # overshoot merely starts early and the first row sweeps over it.
+        #
+        # A single 1.25 in both directions was the bug: from x 0 towards a
+        # region beginning at x 600 it travelled 750 tiles and started a
+        # hundred and fifty tiles inside the region, leaving its near half
+        # unread while every swipe reported done.
+        margin = 1.25 if distance > 0 else 0.8
+        count = max(1, int(abs(distance) / per_swipe * margin + 1))
+        return [towards if distance > 0 else away] * count
+
     homing: list[Swipe] = []
-    homing += [backward] * int(max(0.0, start_along - along_origin) / per_swipe_along * 1.25 + 1)
-    homing += [upward] * int(max(0.0, down_end - start_down) / per_swipe_down * 1.25 + 1)
+    along_travel = _travel(start_along - along_origin, per_swipe_along, backward, forward)
+    down_travel = _travel(down_end - start_down, per_swipe_down, upward, downward)
+    homing += along_travel
+    homing += down_travel
+
+    # SIZE THE ROUTE FROM WHERE HOMING LANDS, NOT FROM THE REGION. The approach
+    # deliberately misses on the safe side, and the miss is a fraction of the
+    # distance travelled — which for a small region far from the camera is
+    # larger than the region itself. Counting rows from the region's own height
+    # then spends the first ones above it and runs out before the bottom.
+    #
+    # That was a real 6-of-9: a region 150 tiles tall, approached from 217
+    # below, overshot its top by 66 and got two rows for a span that had become
+    # 216.
+    along_landing = start_along - _signed(along_travel, backward, per_swipe_along)
+    down_landing = start_down + _signed(down_travel, upward, per_swipe_down)
+    along_reach = abs(x1 - along_landing) if along_axis == "x" else abs(y1 - along_landing)
+    down_reach = abs(down_landing - (y0 if down_axis == "y" else x0))
+
+    rows = max(1, -(-int(max(down_span, down_reach)) // max(1, int(step_down * (1 - ROW_MARGIN)))))
+    per_row = max(
+        1,
+        -(-int(max(along_span, along_reach)) // max(1, int(per_swipe_along * (1 - ROW_MARGIN)))),
+    )
 
     swipes: list[Swipe] = list(homing)
     for row in range(rows):

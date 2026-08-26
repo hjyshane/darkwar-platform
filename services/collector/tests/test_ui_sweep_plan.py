@@ -172,13 +172,67 @@ def test_homing_costs_what_the_distance_costs() -> None:
     far = sweep.plan_from_probe(H, V, "x", start=(999, 0))
 
     assert near.homing < far.homing
-    assert far.homing == len(far.swipes) - len(near.swipes) + near.homing
 
 
-def test_the_route_after_homing_does_not_depend_on_where_it_started() -> None:
-    """Only the approach differs. If the sweep itself changed shape with the
-    start, a partial run would cover different ground each night."""
-    a = sweep.plan_from_probe(H, V, "x", start=(690, 188))
-    b = sweep.plan_from_probe(H, V, "x", start=(500, 500))
+def test_the_route_is_sized_from_where_homing_lands() -> None:
+    """This once asserted the opposite — that the sweeping part was identical
+    whatever the start — and that invariant was the 6-of-9.
 
-    assert a.swipes[a.homing :] == b.swipes[b.homing :]
+    The approach deliberately misses on the safe side and the miss scales with
+    the distance travelled, so a small region approached from far away is
+    overshot by more than its own height. Sizing the route from the region
+    then spends its first rows outside and runs out before the far edge. The
+    route has to be as long as the ground actually left in front of it.
+    """
+    box = (800, 949, 550, 699)
+    near = sweep.plan_from_probe(H, V, "x", start=(820, 690), region=box)
+    far = sweep.plan_from_probe(H, V, "x", start=(100, 100), region=box)
+
+    assert far.rows >= near.rows
+    assert _region_cells_covered(_walk(far, (100, 100)), box) == _region_cell_count(box)
+
+
+def _region_cells_covered(path: list[tuple[float, float]], box: tuple[int, int, int, int]) -> int:
+    x0, x1, y0, y1 = box
+    return sum(
+        1
+        for cx in range(x0 + 25, x1, 50)
+        for cy in range(y0 + 25, y1, 50)
+        if any(abs(cx - px) <= 35 and abs(cy - py) <= 70 for px, py in path)
+    )
+
+
+def _region_cell_count(box: tuple[int, int, int, int]) -> int:
+    x0, x1, y0, y1 = box
+    return len(range(x0 + 25, x1, 50)) * len(range(y0 + 25, y1, 50))
+
+
+def test_a_region_is_reached_from_either_side_of_it() -> None:
+    """THE BUG THIS PINS. Homing clamped its distance at zero and only ever
+    emitted backward and upward swipes — correct for the whole map, where the
+    camera is always inside it and the origin is always back and up, and
+    silently wrong for a REGION, which the camera can be short of.
+
+    A gap pass planned 60 swipes for two small regions, ran all 60 without
+    interruption, and covered not one new cell: the camera sat at x 494 while
+    the region began at x 600, so the rows swept a box shifted a hundred tiles
+    off the ground they were aimed at.
+    """
+    box = (600, 799, 750, 949)
+    for start in [(494, 482), (900, 900), (0, 0), (999, 999), (700, 850)]:
+        plan = sweep.plan_from_probe(H, V, "x", start=start, region=box)
+
+        covered = _region_cells_covered(_walk(plan, start), box)
+
+        assert covered == _region_cell_count(box), f"missed part of {box} starting from {start}"
+
+
+def test_homing_points_at_the_region_not_at_the_map() -> None:
+    """From the far side of a region the approach reverses. If it did not, the
+    plan would be identical wherever the camera was, which is exactly how the
+    60-swipe run managed to report success over the wrong ground."""
+    box = (600, 799, 750, 949)
+    from_left = sweep.plan_from_probe(H, V, "x", start=(100, 850), region=box)
+    from_right = sweep.plan_from_probe(H, V, "x", start=(950, 850), region=box)
+
+    assert from_left.swipes[0] != from_right.swipes[0]
