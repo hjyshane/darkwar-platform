@@ -213,7 +213,7 @@ def _reach_sweep_zoom(
                 duration_ms=1200,
             )
             time.sleep(1.5)
-        found = probe_mod.settled(journal, mark, since, want=1, timeout=90.0)
+        found = probe_mod.settled(journal, mark, since, want=1, timeout=150.0)
         levels = [v.view_lvl for v in found]
         typer.echo(f"  {prefix}step in {attempt}: pans={len(found)} viewLvl={levels}")
         for viewport in reversed(found):
@@ -298,7 +298,11 @@ def _measure(
             )
             time.sleep(3.0)
         typer.echo("  waiting for the journal to catch up")
-        seen = probe_mod.settled(journal, mark, since, want=2, timeout=150.0)
+        # want=2 is a floor to start looking, not a reason to stop; `settled`
+        # keeps waiting until the pan stream goes quiet. Eight swipes emit
+        # about eight pans over several capture windows, and reading only
+        # the first two measured a sixth of the journey.
+        seen = probe_mod.settled(journal, mark, since, want=2, timeout=240.0)
         if len(seen) < 2:
             typer.echo(
                 f"  only {len(seen)} pan(s) reached the journal; is dw-capture running"

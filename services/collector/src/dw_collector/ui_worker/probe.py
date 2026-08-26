@@ -235,22 +235,49 @@ class Probe:
                 raise ProbeError(msg)
 
 
+#: How long the pan stream must stop growing before it counts as complete.
+#:
+#: Capture writes the journal tens of seconds behind the wire, and the pans
+#: from one probe arrive over several of those windows. Twelve seconds is
+#: comfortably longer than one capture file's rotation, so a gap that long
+#: means the stream has ended rather than paused.
+QUIET_SECONDS = 12.0
+
+
 def settled(
     journal: Journal, mark: int, since: datetime, want: int, timeout: float
 ) -> list[Viewport]:
-    """Wait for the journal to show the pans a probe just caused.
+    """Wait for the journal to show ALL the pans a probe caused, not the first.
 
     NOT INSTANT, and the delay is structural rather than a tuning problem:
     dumpcap closes a capture file on a timer and the reader follows it, so a
-    packet is journalled some tens of seconds after it was on the wire. The
-    probe waits that out once per sweep instead of pretending the journal is
-    live.
+    packet is journalled some tens of seconds after it was on the wire.
+
+    THIS RETURNED AS SOON AS `want` PANS HAD ARRIVED, AND THAT WAS THE BUG
+    BEHIND EVERY MAGNITUDE PROBLEM ON THIS PATH. Eight swipes travel about 160
+    tiles and emit roughly eight pans, but they reach the journal over several
+    capture windows; polling with `want=2` returned the moment the first two
+    landed, so `effect_of(seen[0], seen[-1])` measured one quantum of a
+    journey that was still arriving.
+
+    That is why the measured tiles-per-pixel ranged over SIX TIMES across runs
+    — 0.0059 to 0.0356 — and why doubling PROBE_SWIPES did not settle it: the
+    spread was never the quantum, it was a truncated stream read at an
+    arbitrary point. Reading the same swipes a minute later would have given a
+    different answer, which is the property a measurement must not have.
+
+    So `want` is now a floor to start looking, not a reason to stop: the wait
+    continues until the stream has been QUIET for long enough to be over.
     """
     deadline = time.monotonic() + timeout
     seen: list[Viewport] = []
+    last_growth = time.monotonic()
     while time.monotonic() < deadline:
-        seen = parse_viewports(journal.payloads_after(mark, MAP_COMMAND, since))
-        if len(seen) >= want:
+        fresh = parse_viewports(journal.payloads_after(mark, MAP_COMMAND, since))
+        if len(fresh) > len(seen):
+            seen = fresh
+            last_growth = time.monotonic()
+        elif seen and len(seen) >= want and time.monotonic() - last_growth >= QUIET_SECONDS:
             return seen
         time.sleep(2.0)
     return seen

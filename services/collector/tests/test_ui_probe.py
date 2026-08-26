@@ -200,3 +200,63 @@ def test_the_probe_reports_where_the_camera_ended_up() -> None:
 
     probe.check()
     assert (probe.at_x, probe.at_y) == (956, 86)
+
+
+class _TrickleJournal:
+    """A journal whose pans arrive over several polls, like capture does.
+
+    Capture writes the journal tens of seconds behind the wire and one probe's
+    pans land across several capture windows, so the stream a poll sees is
+    almost never the whole of it.
+    """
+
+    def __init__(self, total: int, per_poll: int) -> None:
+        self._all = [
+            (AT, json.dumps({"x": 400 + i * 20, "y": 500, "viewLvl": 1, "points": ["a"]}))
+            for i in range(total)
+        ]
+        self._per_poll = per_poll
+        self.polls = 0
+
+    def payloads_after(self, mark: int, command: str, since: object = None) -> list:  # type: ignore[type-arg]
+        self.polls += 1
+        return self._all[: min(len(self._all), self.polls * self._per_poll)]
+
+
+def test_settled_waits_for_the_whole_stream_not_the_first_arrivals(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """THE BUG BEHIND EVERY MAGNITUDE PROBLEM ON THIS PATH.
+
+    Returning as soon as `want` pans had arrived measured one quantum of a
+    journey that was still being written, which is why tiles-per-pixel ranged
+    over six times across runs — 0.0059 to 0.0356 — and why doubling the swipe
+    count did not settle it. Reading the same swipes a minute later gave a
+    different answer, which is the property a measurement must not have.
+    """
+    monkeypatch.setattr(probe_mod.time, "sleep", lambda _: None)
+    journal = _TrickleJournal(total=8, per_poll=2)
+
+    got = probe_mod.settled(journal, 0, AT, want=2, timeout=60.0)  # type: ignore[arg-type]
+
+    assert len(got) == 8
+    assert got[-1].x - got[0].x == 140
+
+
+def test_settled_gives_up_rather_than_hanging(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """A stream that never goes quiet must still end the wait; the caller
+    decides whether what arrived is enough."""
+    monkeypatch.setattr(probe_mod.time, "sleep", lambda _: None)
+
+    class _Endless:
+        def __init__(self) -> None:
+            self.n = 0
+
+        def payloads_after(self, mark: int, command: str, since: object = None) -> list:  # type: ignore[type-arg]
+            self.n += 1
+            return [
+                (AT, json.dumps({"x": 400 + i, "y": 500, "viewLvl": 1, "points": ["a"]}))
+                for i in range(self.n)
+            ]
+
+    got = probe_mod.settled(_Endless(), 0, AT, want=2, timeout=0.01)  # type: ignore[arg-type]
+
+    assert isinstance(got, list)
