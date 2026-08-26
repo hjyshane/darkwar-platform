@@ -13,6 +13,7 @@ from datetime import UTC, datetime
 
 import pytest
 
+from dw_collector.ui_worker import probe as probe_mod
 from dw_collector.ui_worker.probe import (
     SWEEP_VIEW_LEVEL,
     AxisEffect,
@@ -31,8 +32,10 @@ def _payload(**kwargs: object) -> tuple[datetime, str]:
     return (AT, json.dumps(body))
 
 
-def _clean(axis: str, tpp: float) -> AxisEffect:
-    return AxisEffect(axis=axis, tiles_per_pixel=tpp, cross_tiles_per_pixel=0.0)
+def _clean(axis: str, tpp: float, moved: float = 160.0) -> AxisEffect:
+    # 160 tiles is what eight 400px swipes cover on the live collector — well
+    # clear of the pan signal's own step, which is the point of `moved`.
+    return AxisEffect(axis=axis, tiles_per_pixel=tpp, cross_tiles_per_pixel=0.0, tiles_moved=moved)
 
 
 def test_a_payload_without_a_centre_is_dropped_not_defaulted() -> None:
@@ -125,7 +128,9 @@ def test_axes_that_are_not_aligned_refuse_rather_than_drift() -> None:
     ever disagrees — an isometric projection, a rotated map — the sweep must
     say so, not plan rows that wander off their line."""
     probe = Probe(
-        horizontal=AxisEffect(axis="y", tiles_per_pixel=0.05, cross_tiles_per_pixel=0.04),
+        horizontal=AxisEffect(
+            axis="y", tiles_per_pixel=0.05, cross_tiles_per_pixel=0.04, tiles_moved=160.0
+        ),
         vertical=_clean("x", 0.05),
         view_lvl=SWEEP_VIEW_LEVEL,
         at_x=500,
@@ -136,10 +141,43 @@ def test_axes_that_are_not_aligned_refuse_rather_than_drift() -> None:
         probe.check()
 
 
+def test_a_measurement_at_the_resolution_floor_is_refused() -> None:
+    """A LIVE PROBE RETURNED 0.0059 tiles/px — a fifth of every other run —
+    because the camera moved 19 tiles over eight swipes. That is one quantum
+    of the pan signal: not a small measurement, an absent one. It was believed
+    and planned 2,332 swipes and 140 minutes where a real one plans ~700."""
+    probe = Probe(
+        horizontal=_clean("x", 0.0059, moved=19.0),
+        vertical=_clean("y", -0.0356),
+        view_lvl=SWEEP_VIEW_LEVEL,
+        at_x=500,
+        at_y=500,
+    )
+
+    with pytest.raises(ProbeError, match="resolution floor"):
+        probe.check()
+
+
+def test_a_travel_of_several_quanta_is_accepted() -> None:
+    probe = Probe(
+        horizontal=_clean("x", 0.05, moved=probe_mod.PAN_QUANTUM * 4),
+        vertical=_clean("y", -0.05),
+        view_lvl=SWEEP_VIEW_LEVEL,
+        at_x=500,
+        at_y=500,
+    )
+
+    probe.check()
+
+
 def test_a_well_behaved_probe_passes() -> None:
     probe = Probe(
-        horizontal=AxisEffect(axis="y", tiles_per_pixel=0.05, cross_tiles_per_pixel=0.002),
-        vertical=AxisEffect(axis="x", tiles_per_pixel=-0.05, cross_tiles_per_pixel=-0.001),
+        horizontal=AxisEffect(
+            axis="y", tiles_per_pixel=0.05, cross_tiles_per_pixel=0.002, tiles_moved=160.0
+        ),
+        vertical=AxisEffect(
+            axis="x", tiles_per_pixel=-0.05, cross_tiles_per_pixel=-0.001, tiles_moved=160.0
+        ),
         view_lvl=SWEEP_VIEW_LEVEL,
         at_x=446,
         at_y=494,

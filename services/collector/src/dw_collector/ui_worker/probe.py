@@ -63,6 +63,25 @@ PROBE_SWIPES = 8
 #: else has found a reason to stop rather than a number to use.
 SWEEP_VIEW_LEVEL = 1
 
+#: The step the pan signal moves in. `world.get.new` fires when the camera has
+#: drifted far enough to want more tiles, and across 117 consecutive viewLvl 1
+#: pairs the nonzero jumps cluster on 19-22.
+PAN_QUANTUM = 19
+
+#: How many of those steps a probe must actually travel before its ratio means
+#: anything.
+#:
+#: A LIVE PROBE ONCE RETURNED 0.0059 tiles/px — a fifth of every other
+#: measurement — because the camera moved 19 tiles over eight swipes. That is
+#: exactly one quantum: the reading is the resolution floor, indistinguishable
+#: from "barely moved", and a ratio computed from it is not a small number but
+#: an absent one. It was believed anyway, and planned a route of 2,332 swipes
+#: and 140 minutes where a real measurement plans about 700.
+#:
+#: Three is enough to tell a measurement from a floor without rejecting a
+#: genuinely slow device: eight swipes that move anything at all clear it.
+MIN_TRAVEL_QUANTA = 3
+
 
 class ProbeError(RuntimeError):
     """The device did not answer well enough to plan a sweep from."""
@@ -93,6 +112,11 @@ class AxisEffect:
     #: zero means this model is wrong for this device, and silently planning
     #: with it would produce a sweep that drifts diagonally off its rows.
     cross_tiles_per_pixel: float
+    #: Total tiles the camera moved on the dominant axis over the whole probe.
+    #: Kept because a RATIO cannot say whether it was measured from anything:
+    #: 19 tiles over eight swipes and 160 over eight are both a number, and
+    #: only one of them means something. See `MIN_TRAVEL_QUANTA`.
+    tiles_moved: float = 0.0
 
     @property
     def clean(self) -> bool:
@@ -144,8 +168,18 @@ def effect_of(first: Viewport, last: Viewport, pixels: int, swipes: int) -> Axis
     dx = (last.x - first.x) / travelled
     dy = (last.y - first.y) / travelled
     if abs(last.x - first.x) >= abs(last.y - first.y):
-        return AxisEffect(axis="x", tiles_per_pixel=dx, cross_tiles_per_pixel=dy)
-    return AxisEffect(axis="y", tiles_per_pixel=dy, cross_tiles_per_pixel=dx)
+        return AxisEffect(
+            axis="x",
+            tiles_per_pixel=dx,
+            cross_tiles_per_pixel=dy,
+            tiles_moved=abs(last.x - first.x),
+        )
+    return AxisEffect(
+        axis="y",
+        tiles_per_pixel=dy,
+        cross_tiles_per_pixel=dx,
+        tiles_moved=abs(last.y - first.y),
+    )
 
 
 @dataclass(frozen=True)
@@ -182,6 +216,14 @@ class Probe:
         for name, effect in (("horizontal", self.horizontal), ("vertical", self.vertical)):
             if effect.tiles_per_pixel == 0:
                 msg = f"{name} swipes moved the map not at all; is the map on screen?"
+                raise ProbeError(msg)
+            if effect.tiles_moved < PAN_QUANTUM * MIN_TRAVEL_QUANTA:
+                msg = (
+                    f"{name} swipes moved the map only {effect.tiles_moved:.0f} tiles,"
+                    f" within {PAN_QUANTUM * MIN_TRAVEL_QUANTA} of the pan signal's own"
+                    f" {PAN_QUANTUM}-tile step; that is the resolution floor, not a"
+                    " measurement. Is the camera against an edge?"
+                )
                 raise ProbeError(msg)
             if not effect.clean:
                 msg = (
