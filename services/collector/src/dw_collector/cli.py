@@ -161,6 +161,106 @@ def renormalize(
 
 
 @app.command()
+def backfill(
+    command: Annotated[str, typer.Option(help="only replay observations from this command")],
+    db: Annotated[Path | None, _DB_OPTION] = None,
+    table: Annotated[
+        str | None,
+        typer.Option(
+            help="keep only rows for this table; everything else the replay found is discarded"
+        ),
+    ] = None,
+    limit: Annotated[int | None, typer.Option(help="stop after this many observations")] = None,
+) -> None:
+    """Replay ONE command's observations through today's parsers, in place.
+
+    For when a parser learns to emit a row it did not emit before and the
+    history is already journalled. `world.get.new` gained a coverage row in
+    0148; three weeks of pans were sitting in the journal with everything
+    that row needs, so the map did not have to be swept again to know where
+    it had already been looked at.
+
+    WHY THIS AND NOT `renormalize`. That command rebuilds a WHOLE journal
+    into a new one, which is right when a parser's output has changed and the
+    old output must not be trusted. Here nothing existing changed — a table
+    was added — and the live journal is 29 GB. Copying it to add one row per
+    pan is not proportionate, and the copy would immediately be stale against
+    a journal that is still being written.
+
+    IN PLACE IS SAFE HERE, and only here, because `Journal.record` inserts or
+    ignores on the idempotency key: rows that already exist are untouched, so
+    the only possible effect is rows that did not exist appearing. That in
+    turn depends on keys hashing the RAW payload rather than the normalized
+    row (§11.2) — a parser version bump does not move them, which is what
+    `test_key_survives_a_parser_version_bump` pins. If that ever stops being
+    true this command starts duplicating history instead of completing it.
+
+    Scoped to one command deliberately. "Replay everything in place" is a
+    much larger promise and would need the separate-journal treatment.
+
+    `--table` EXISTS BECAUSE THE FIRST RUN WITHOUT IT WAS A SURPRISE. A
+    hundred `world.get.new` observations were expected to add a hundred
+    coverage rows; they added 6,475. The oldest pans in the journal predate
+    migration 0137, so they had never had city rows written at all, and the
+    replay produced those too. That data is real and recovering it is
+    legitimate — but it is a different decision from filling in coverage, an
+    order of magnitude more rows, and it lands on a micro instance through
+    the outbox. Naming the table keeps a backfill to the thing it was run
+    for; recovering the rest stays available and deliberate.
+    """
+    journal = _open_journal(db)
+    seen = written = rejected = 0
+    try:
+        if command not in set(registry.known_commands()):
+            typer.echo(f"no parser registered for {command!r}", err=True)
+            raise typer.Exit(code=1)
+        sql = (
+            "select observation_id, collector_id, source_command, captured_at,"
+            " collected_from_server_id, payload_json from raw_observations"
+            " where source_command = ? order by captured_at"
+        )
+        params: tuple[object, ...] = (command,)
+        if limit is not None:
+            sql += " limit ?"
+            params = (command, limit)
+        # The journal's own connection: this reads and writes the live file,
+        # which is the point — see the docstring for why that is safe.
+        for (
+            observation_id,
+            collector_id,
+            cmd,
+            captured_at,
+            server_id,
+            payload,
+        ) in journal.conn.execute(sql, params).fetchall():
+            seen += 1
+            try:
+                observation = Observation(
+                    observation_id=observation_id,
+                    collector_id=collector_id,
+                    source_command=cmd,
+                    captured_at=captured_at,
+                    collected_from_server_id=server_id,
+                    payload=json.loads(payload),
+                )
+                rows = pipeline.process(observation)
+            except (json.JSONDecodeError, ValidationError, pipeline.UnknownCommandError):
+                # One unreadable payload must not stop the rest, same as
+                # renormalize.
+                rejected += 1
+                continue
+            if table is not None:
+                rows = [row for row in rows if row.target_table == table]
+            written += journal.record(observation, rows).rows_inserted
+    finally:
+        journal.close()
+    typer.echo(
+        f"backfill command={command} table={table or 'all'}"
+        f" observations={seen} new-rows={written} rejected={rejected}"
+    )
+
+
+@app.command()
 def sync(
     db: Annotated[Path | None, _DB_OPTION] = None,
     url: Annotated[str | None, typer.Option(envvar="SUPABASE_URL")] = None,

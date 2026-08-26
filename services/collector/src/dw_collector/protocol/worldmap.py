@@ -21,11 +21,22 @@ journal, cross-checked against two things the viewport cannot say on its
 own — `world.get.detail.new`, which returns an opened object as plain JSON,
 and the roster's own `hq_level`.
 
-    1        THE COORDINATE, packed `x * 1000 + y`. `world.get.detail.new`
-             returns `point` and `pointId` and they are equal in 543/543;
-             both equal this field for every opened tile (27/27). Decoded y
-             never reached 1000 in 543 samples and every viewport reports
-             `maxAreaSize` 1000
+    1        THE COORDINATE, packed `y * 1000 + x + 1` — row first, column
+             one-based. `world.get.detail.new` returns `point` and `pointId`
+             and they are equal in 543/543; both equal this field for every
+             opened tile (27/27). Every viewport reports `maxAreaSize` 1000.
+
+             THIS LINE READ `x * 1000 + y` FOR MONTHS and the decoder agreed
+             with it, so every stored tile had its axes swapped and its
+             column off by one. Two sightings the operator could check by
+             eye caught it; the axis ranges confirmed it, since a square map
+             should make them symmetric and instead `% 1000` ran 2..998
+             while `// 1000` ran 1..997. Migration 0142 repaired the rows,
+             0145 repaired what the un-restarted writers wrote after it.
+
+             ANYTHING MEASURED BEFORE THAT FIX HAS ITS AXES TRANSPOSED,
+             including numbers quoted in other modules' docstrings. Re-derive
+             rather than trusting a figure of this vintage.
     2        object type. 14 seen: 3, 4, 6, 7, 11, 13, 14, 15, 21, 22, 23,
              25, 28, 29
     3        the CITY sub-message, present on type 3 only

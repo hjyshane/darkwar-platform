@@ -16,6 +16,17 @@ VIEWPORT = "world.get.new/season3_viewport_v1.json"
 BUILDINGS = "world.get.new/season3_buildings_v1.json"
 
 
+#: A viewport now also writes one row about ITSELF — where the camera looked
+#: — and that row has no uid, no coordinate and no player. The assertions
+#: about tiles want the tiles, so they say so rather than assuming every row
+#: in the list is one.
+TILE_TABLES = {"world_city_snapshots", "season_building_snapshots"}
+
+
+def tile_rows(observation: object) -> list:  # type: ignore[type-arg]
+    return [r for r in world_map.normalize(observation) if r.target_table in TILE_TABLES]  # type: ignore[arg-type]
+
+
 def test_registered() -> None:
     assert registry.get("world.get.new") is world_map.normalize
 
@@ -29,7 +40,11 @@ def test_cities_and_season_buildings_are_written() -> None:
     rows = world_map.normalize(observation)
     tables = {r.target_table for r in rows}
 
-    assert tables <= {"world_city_snapshots", "season_building_snapshots"}
+    assert tables <= {
+        "world_city_snapshots",
+        "season_building_snapshots",
+        "world_viewport_snapshots",
+    }
     cities = [r for r in rows if r.target_table == "world_city_snapshots"]
     assert len(cities) == 134
 
@@ -91,7 +106,7 @@ def test_the_coordinate_is_stored_unpacked_and_packed() -> None:
     each other and both disagreed with the game. Only two members reading
     their own coordinates off screen caught it.
     """
-    rows = world_map.normalize(load_observation(VIEWPORT))
+    rows = tile_rows(load_observation(VIEWPORT))
 
     for row in rows:
         assert row.row["point_id"] == row.row["y"] * 1000 + row.row["x"] + 1
@@ -102,7 +117,7 @@ def test_the_coordinate_is_stored_unpacked_and_packed() -> None:
 def test_every_city_carries_a_uid_and_its_server() -> None:
     """server_id is the SUBJECT's, decoded from the uid — the map reaches
     servers outside the tracked group just as the season boards do."""
-    rows = world_map.normalize(load_observation(VIEWPORT))
+    rows = tile_rows(load_observation(VIEWPORT))
 
     for row in rows:
         uid = str(row.row["game_uid"])
@@ -111,7 +126,7 @@ def test_every_city_carries_a_uid_and_its_server() -> None:
 
 
 def test_hq_level_is_kept_where_the_tile_carries_one() -> None:
-    rows = world_map.normalize(load_observation(VIEWPORT))
+    rows = [r for r in tile_rows(load_observation(VIEWPORT)) if "hq_level" in r.row]
     levels = [r.row["hq_level"] for r in rows if r.row["hq_level"] is not None]
 
     assert levels, "the fixture should carry HQ levels"
@@ -121,7 +136,7 @@ def test_hq_level_is_kept_where_the_tile_carries_one() -> None:
 
 
 def test_each_row_carries_the_player_ref_sync_needs() -> None:
-    rows = world_map.normalize(load_observation(VIEWPORT))
+    rows = tile_rows(load_observation(VIEWPORT))
 
     ref = rows[0].entity_refs["player"]
     assert ref["game_uid"] == rows[0].row["game_uid"]
@@ -136,12 +151,56 @@ def test_two_tiles_do_not_collide_on_one_key() -> None:
     assert len({r.idempotency_key for r in rows}) == len(rows)
 
 
-def test_a_viewport_with_no_points_yields_no_rows() -> None:
-    observation = load_observation(VIEWPORT)
-    empty = observation.model_copy(update={"payload": {"points": []}})
+def test_a_viewport_with_no_points_still_records_that_it_looked() -> None:
+    """THIS ASSERTION USED TO BE THE OPPOSITE, and the old one was the bug.
 
-    assert world_map.normalize(empty) == []
+    Empty ground is most of the map and it produces no city row, so "no rows
+    here" meant either "never swept" or "swept, nobody lives there" with
+    nothing to tell them apart. A sweeper reading that would re-walk the empty
+    half of the world forever and never learn it was empty.
+    """
+    observation = load_observation(VIEWPORT)
+    empty = observation.model_copy(update={"payload": {**observation.payload, "points": []}})
+
+    rows = world_map.normalize(empty)
+
+    assert [r.target_table for r in rows] == ["world_viewport_snapshots"]
+    assert rows[0].row["object_count"] == 0
+    # No objects means no box. The covered region comes from the centre and
+    # the measured half-extents, never from where the objects happened to be.
+    assert rows[0].row["min_x"] is None
+
+
+def test_a_viewport_that_does_not_say_where_it_looked_records_nothing() -> None:
+    """A centre is the whole point of the row. Defaulting a missing one to
+    0,0 would mark the map's corner swept on the strength of a payload that
+    never mentioned it."""
+    observation = load_observation(VIEWPORT)
+
     assert world_map.normalize(observation.model_copy(update={"payload": {}})) == []
+
+
+def test_the_viewport_row_carries_the_camera_and_the_zoom() -> None:
+    """viewLvl is stored because 2 returns no tiles at all while the game
+    still draws a normal map — a sweep that ran there would look successful
+    and cover nothing, and this column is how that gets caught afterwards."""
+    observation = load_observation(VIEWPORT)
+
+    viewport = next(
+        r for r in world_map.normalize(observation) if r.target_table == "world_viewport_snapshots"
+    )
+
+    assert viewport.row["center_x"] == observation.payload["x"]
+    assert viewport.row["center_y"] == observation.payload["y"]
+    assert viewport.row["view_lvl"] == observation.payload["viewLvl"]
+    # The MAP's server, not a server decoded from some city's uid.
+    assert viewport.row["server_id"] == observation.payload["serverId"]
+
+
+def test_one_viewport_row_per_response() -> None:
+    rows = world_map.normalize(load_observation(VIEWPORT))
+
+    assert len([r for r in rows if r.target_table == "world_viewport_snapshots"]) == 1
 
 
 def test_a_malformed_point_is_skipped_without_losing_the_viewport() -> None:
@@ -153,7 +212,7 @@ def test_a_malformed_point_is_skipped_without_losing_the_viewport() -> None:
         update={"payload": {**observation.payload, "points": ["!!!not-a-point!!!", *points]}}
     )
 
-    assert len(world_map.normalize(broken)) == 134
+    assert len(tile_rows(broken)) == 134
 
 
 def test_a_city_without_a_usable_uid_is_dropped_not_guessed() -> None:

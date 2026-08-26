@@ -10,19 +10,75 @@ works for "open the alliance screen" — six steps. Covering a 1000x1000 map
 takes about a hundred pans, and a hundred hand-written swipe coordinates is
 not a file anybody will keep correct.
 
-WHY IT ZOOMS OUT FIRST. Measured over 560 real viewports: at the zoom the
-game opens on, one screen covers about 38x22 tiles, which needs roughly 1,180
-pans for the world. One step out covers 116x141, which needs about a hundred.
-That single step is the difference between a sweep that is worth automating
-and one that is not. `viewLvl` 2 returns no points at all, so 1 is the widest
-useful zoom and there is nothing further to gain.
+WHY IT ZOOMS OUT FIRST. Measured across 92 request/response pairs: at the
+zoom the game opens on (`viewLvl` 0) one screen returns 23x40 tiles and about
+76 of them, which needs roughly 1,100 pans for the world. `viewLvl` 1 returns
+71x141 and about 647, which needs 162. That single step is the difference
+between a sweep worth automating and one that is not.
 
-WHAT THIS CANNOT DO is know where the map is looking when it starts. A swipe
-moves the view by a distance in PIXELS; the game reports position in TILES,
-and the ratio between them is a property of the device and the zoom. So the
-plan is expressed in swipes-from-here, and `tiles_per_swipe` has to be
-measured once on the machine that runs it — `dw-ui-worker sweep --calibrate`
-does that by panning once and reading how far the world moved.
+`viewLvl` 2 RETURNS NOTHING — 15 requests, zero points every time. The game
+still draws a map, so an operator zoomed all the way out sees a normal screen
+while the server sends no tiles at all. A sweep that ran there would report
+success and collect nothing, which is why the routine sets the zoom rather
+than trusting where it was left.
+
+A swipe moves the view by a distance in PIXELS while the game reports
+position in TILES, and the ratio cannot be derived from the resolution: the
+viewport is 71x141 tiles on a 1080x1920 screen, 1:1.99 against the screen's
+1:1.78. So it has to be measured on the machine.
+
+MEASURING IT TOOK THREE ATTEMPTS AND THE FIRST TWO DIAGNOSES WERE WRONG,
+which is worth the space because each failure looked like the answer.
+
+The naive form — "pan once, read how far the world moved" — genuinely does
+not work, for two reasons that compound:
+
+  THE POSITION SIGNAL IS COARSE. `world.get.new` is not emitted as the
+  camera moves; it is emitted when the camera has drifted far enough that
+  the client wants more tiles. Across 117 consecutive viewLvl 1 pairs the
+  nonzero jumps cluster hard on 19-22 tiles, and in a clean run of eight
+  graded swipes EVERY delta was a multiple of about 19: +19,-2 / +19,0 /
+  +19,0 / +17,-19 / 0,-21 / 0,-19. A 300px swipe and a 700px swipe both
+  report "19". The signal cannot resolve a swipe.
+
+  THE ZOOM GESTURE PANS. Pinch is two fingers moving symmetrically about a
+  centre, but the game takes the residual as a drag: clamping to max zoom
+  and stepping back in moved the camera from (566,341) to (956,86). So the
+  displacement being measured is the swipe plus however far setting the zoom
+  dragged, and the two cannot be separated after the fact.
+
+The consequence was that two consecutive careful runs disagreed about
+something as basic as WHICH AXIS a horizontal swipe moves — one said map Y,
+the next said map X. Averaging several swipes, after the zoom is already set,
+settles both of those: `probe.py` does that and has since agreed on axis and
+sign every run.
+
+WHAT DID NOT SETTLE WAS THE MAGNITUDE, and the reason was not either of the
+above. It ranged over six times — 0.0059 to 0.0356 tiles/px — and doubling
+the swipe count did nothing, because `probe.settled` was returning as soon as
+the first two pans had been journalled while the rest were still arriving.
+Every one of those figures was a fraction of a journey read at an arbitrary
+point. Waiting for the stream to go quiet took the same eight swipes from a
+reported 38 tiles to 133.
+
+SO THE MEASUREMENT IS USABLE, AND STILL NOT TRUSTED ON ITS OWN. The sweep
+stores every tile it sees, which makes coverage a question the database can
+answer: swipe with generous overlap, then ask which regions have no fresh
+tiles and sweep those. That is what turns this repo's recurring failure —
+reporting success while silently missing rows — into a number somebody can
+look at, and it is what carried 580 from 69% to 91% to 99%.
+
+WHAT DID CALIBRATE, and is worth keeping:
+
+  The request's `x,y` IS the centre of the returned tiles, exactly: median
+  error 0.0 tiles over 72 viewports. So a stored viewport needs no separate
+  record of where the camera was.
+
+  Zoom can be driven without root. `/dev/input/event4` is "BlueStacks
+  Virtual Touch", crw-rw---- root:input, and adb's `shell` user is in group
+  input. It reports ABS_MT_POSITION_X/Y but no ABS_MT_SLOT, so multitouch is
+  protocol A: per finger a position pair then SYN_MT_REPORT, and SYN_REPORT
+  to close the frame. A pinch built that way reliably changes viewLvl.
 """
 
 from __future__ import annotations
@@ -38,12 +94,21 @@ MAP_COMMAND = "world.get.new"
 #: Tiles per side of the world.
 MAP_SIZE = 1000
 
-#: What one screen covers at viewLvl 1, from 560 observed viewports: the
-#: widest were 141 x 138 and the p90 was 116 x 70. The conservative pair is
-#: used deliberately — planning with the widest seen would leave unswept
-#: strips wherever a viewport came back smaller than its best case.
-VIEW_TILES_X = 100
-VIEW_TILES_Y = 60
+#: What one viewport covers at viewLvl 1, measured from 47 responses decoded
+#: with the current decoder: X was 71 in every single one — median, p90 and
+#: max alike — and Y was 140 or 141. This is a fixed window the server
+#: chooses, not something that varies with what is on screen, which is why
+#: there is no spread to be conservative about.
+#:
+#: THESE READ 100 x 60 AND BOTH WERE WRONG. They came from viewports decoded
+#: before the coordinate fix, when the packing was believed to be
+#: `x * 1000 + y`, so the axes were transposed: the old "116 x 70" is this
+#: 71 x 141 seen sideways. The shape mattered more than the size. Planning a
+#: 100-wide window against a 71-wide one leaves 29% of every row unobserved
+#: while the sweep reports success — the same silent-gap failure OVERLAP
+#: exists to prevent, introduced by the constant meant to prevent it.
+VIEW_TILES_X = 71
+VIEW_TILES_Y = 140
 
 #: Fraction of a screen to leave overlapping between neighbouring pans.
 #: Swipes have momentum and do not travel exactly the same distance twice, so
@@ -51,6 +116,16 @@ VIEW_TILES_Y = 60
 #: about a quarter more pans and removes the failure that is invisible until
 #: somebody cannot find a player who was there all along.
 OVERLAP = 0.2
+
+#: How much shorter than measured to assume each swipe travels, when working
+#: out how many of them a row takes.
+#:
+#: The measurement is only good to about the ~19-tile quantum of the pan
+#: request, and the error is not symmetric in cost: an over-estimate plans too
+#: few swipes and leaves a strip at the end of the row that nothing reads,
+#: while an under-estimate spends its extra swipes against the wall, where
+#: they move nothing and cost seconds. So the plan takes the pessimistic view.
+ROW_MARGIN = 0.25
 
 
 @dataclass(frozen=True)
@@ -94,6 +169,13 @@ class Calibration:
             to_x=self.centre_x + int(dx),
             to_y=self.centre_y + int(dy),
         )
+
+
+def _signed(run: list[Swipe], towards: Swipe, per_swipe: float) -> float:
+    """How far a homing run carries the view, positive in `towards`'s sense."""
+    if not run:
+        return 0.0
+    return len(run) * per_swipe * (1.0 if run[0] == towards else -1.0)
 
 
 def _clamp(value: float, limit: float) -> float:
@@ -198,6 +280,223 @@ def build_routine(
     )
 
 
+@dataclass(frozen=True)
+class SweepPlan:
+    """A sweep as the swipes it actually takes, not as the pans it wants.
+
+    THE DISTINCTION IS THE POINT. `build_routine` above plans one swipe per
+    pan, which assumes a swipe can travel a whole step. On the real device it
+    cannot: the step between pans is 56 tiles and the longest swipe that fits
+    on a 1080-wide screen moves about 21. Planning one-to-one would leave two
+    thirds of every step uncovered while the routine reported every step
+    verified — the silent-gap failure again, one level up from the constants
+    that caused it last time.
+
+    So the unit here is the swipe, and a step is however many of them it
+    takes.
+    """
+
+    swipes: list[Swipe]
+    rows: int
+    per_row: int
+    #: Which map axis the rows run along, and which one they step down.
+    along_axis: str
+    down_axis: str
+    tiles_per_swipe_along: float
+    tiles_per_swipe_down: float
+    #: Swipes spent getting to the corner the route starts from, before any
+    #: sweeping happens. Reported so a run that spends most of its budget
+    #: travelling is visible rather than merely slow.
+    homing: int
+
+
+def plan_from_probe(
+    horizontal_tiles_per_pixel: float,
+    vertical_tiles_per_pixel: float,
+    along_axis: str,
+    *,
+    screen_width: int = 1080,
+    screen_height: int = 1920,
+    start: tuple[int, int],
+    centre: tuple[int, int] | None = None,
+    reach: float = 0.8,
+    region: tuple[int, int, int, int] | None = None,
+) -> SweepPlan:
+    """Turn a measured device into the swipes that cover a region.
+
+    Rows run along whichever map axis the HORIZONTAL screen swipe drives,
+    because that is measured rather than assumed — a device where it drives
+    the other one gets its rows the other way round and nothing else changes.
+
+    Rows step down by a viewport's worth less the overlap. Along a row the
+    step is simply as far as one swipe goes: at ~21 tiles against a 71-tile
+    viewport, consecutive pans overlap by two thirds. That is far more overlap
+    than needed and it is not worth optimising away — the swipe length is the
+    hard limit, and the alternative to redundant coverage here is no coverage.
+
+    `start` IS WHERE THE CAMERA ACTUALLY IS, and this function had no such
+    parameter until somebody asked what it assumed. It assumed the camera
+    began in the corner the sweep marches away from. The rows only ever run
+    one way and the steps only ever go one way, so from anywhere else the
+    route reaches the far corner early and spends the rest of its swipes
+    pushing against the edge. Walked from the position the last live probe
+    reported, 466 swipes covered 72 of 400 cells; from dead centre, 200; only
+    from that one corner, all 400.
+
+    Nothing caught it because the assumption was not written down anywhere to
+    be disagreed with — the planner had no notion of position at all, and the
+    tests agreed with it about a map whose origin was wherever the sweep
+    happened to begin. The same shape as the coordinate bug: self-consistent,
+    and consistently wrong.
+
+    So the route now begins by driving to that corner from where the camera
+    is. The probe already measures the position; this just stops throwing it
+    away.
+    """
+    cx = screen_width // 2 if centre is None else centre[0]
+    cy = int(screen_height * 0.47) if centre is None else centre[1]
+    reach_x = int(screen_width * reach / 2)
+    reach_y = int(screen_height * reach / 2)
+
+    down_axis = "y" if along_axis == "x" else "x"
+    view_down = VIEW_TILES_Y if down_axis == "y" else VIEW_TILES_X
+
+    per_swipe_along = abs(horizontal_tiles_per_pixel) * reach_x * 2
+    per_swipe_down = abs(vertical_tiles_per_pixel) * reach_y * 2
+    if per_swipe_along <= 0 or per_swipe_down <= 0:
+        msg = "a measured swipe that moves nothing cannot be planned from"
+        raise ValueError(msg)
+
+    x0, x1, y0, y1 = region or (0, MAP_SIZE - 1, 0, MAP_SIZE - 1)
+    along_span = (x1 - x0 + 1) if along_axis == "x" else (y1 - y0 + 1)
+    down_span = (y1 - y0 + 1) if down_axis == "y" else (x1 - x0 + 1)
+
+    step_down = view_down * (1 - OVERLAP)
+    # MORE ROWS, NOT LONGER STEPS. The same shortfall applies between rows,
+    # but the fix is not the same: widening the step to compensate would push
+    # neighbouring rows further apart than a viewport is tall, which opens
+    # horizontal bands — precisely what OVERLAP exists to prevent. A step that
+    # lands short is harmless, it only overlaps more. What it costs is REACH:
+    # nine rows that each fall a quarter short cover 756 tiles of a
+    # 1000-tile map and never visit the last 250.
+    #
+    # So the step stays as measured and the row COUNT takes the margin.
+    # PLAN EACH ROW AS IF EVERY SWIPE FELL SHORT, for the same reason the
+    # homing does. Over-running a row costs a few swipes against the wall at
+    # the far end, where they move nothing; under-running leaves ground that
+    # nothing ever reads, and the sweep says it finished either way.
+    #
+    # THAT REASONING WAS ONCE ATTACHED TO THE WRONG CAUSE, and the correction
+    # is worth keeping. The first full sweep landed at 91% with its 37 missed
+    # cells alternating between low and high x, and this margin was widened
+    # blaming an OVER-estimate of tiles-per-swipe. An over-estimate would
+    # indeed shorten rows — but every measurement taken on this device was an
+    # UNDER-estimate, because `settled` returned before the pan stream had
+    # finished arriving, and under-estimating plans MORE swipes per row, not
+    # fewer. The real fault was that a truncated measurement gave a different
+    # plan every run; probe.settled fixed it, and the margin stays only
+    # because it is cheap and points the safe way.
+    down_swipes = max(1, round(step_down / per_swipe_down))
+
+    # Dragging is the opposite of walking: to move the VIEW forward the finger
+    # travels backward. Getting this inverted produces a sweep that runs off
+    # the edge of the world on its first row and never recovers, which looks
+    # exactly like a sweep that is working.
+    forward = Swipe(cx + reach_x, cy, cx - reach_x, cy)
+    backward = Swipe(cx - reach_x, cy, cx + reach_x, cy)
+    downward = Swipe(cx, cy + reach_y, cx, cy - reach_y)
+    upward = Swipe(cx, cy - reach_y, cx, cy + reach_y)
+
+    # DRIVE TO THE CORNER THE ROUTE STARTS FROM. The rows run one way and the
+    # steps go one way, so the route is only a sweep of the map when it begins
+    # where the map does. From anywhere else it reaches the far corner early
+    # and pushes against the edge for the rest of its swipes.
+    #
+    # A quarter more than the arithmetic says, because the edge is a hard stop:
+    # arriving early costs a few no-op swipes, arriving short leaves a strip
+    # nothing ever reads. The measured tiles-per-swipe is only good to about
+    # the ~19-tile quantum anyway, which is most of one swipe.
+    # IT HAS TO TRAVEL IN WHICHEVER DIRECTION THE CORNER IS. This clamped the
+    # distance at zero and only ever emitted backward and upward swipes, which
+    # is correct for the whole map — the camera is always inside it, so the
+    # origin corner is always back and up — and silently wrong for a REGION,
+    # which the camera can be short of as easily as past.
+    #
+    # That is not theoretical: a gap pass planned 60 swipes for two small
+    # regions, ran all 60 without interruption, and covered not one new cell.
+    # The camera sat at x 494 while the region began at x 600, so the homing
+    # collapsed to a single swipe the wrong way and the rows swept a box
+    # shifted a hundred tiles off the ground they were aimed at — reporting
+    # every swipe done, which is the failure this file keeps circling.
+    start_along, start_down = start if along_axis == "x" else (start[1], start[0])
+    along_origin = x0 if along_axis == "x" else y0
+    down_end = y1 if down_axis == "y" else x1
+
+    def _travel(distance: float, per_swipe: float, towards: Swipe, away: Swipe) -> list[Swipe]:
+        # ERR TOWARDS THE SIDE THE ROWS COME FROM. The approach cannot land
+        # exactly — the measurement is good to about the ~19-tile quantum,
+        # most of one swipe — so it has to miss on the safe side, and which
+        # side is safe depends on the direction of travel.
+        #
+        # Going the same way the rows will go, an overshoot lands PAST the
+        # corner and that ground is never revisited. Going the other way, an
+        # overshoot merely starts early and the first row sweeps over it.
+        #
+        # A single 1.25 in both directions was the bug: from x 0 towards a
+        # region beginning at x 600 it travelled 750 tiles and started a
+        # hundred and fifty tiles inside the region, leaving its near half
+        # unread while every swipe reported done.
+        margin = 1.25 if distance > 0 else 0.8
+        count = max(1, int(abs(distance) / per_swipe * margin + 1))
+        return [towards if distance > 0 else away] * count
+
+    homing: list[Swipe] = []
+    along_travel = _travel(start_along - along_origin, per_swipe_along, backward, forward)
+    down_travel = _travel(down_end - start_down, per_swipe_down, upward, downward)
+    homing += along_travel
+    homing += down_travel
+
+    # SIZE THE ROUTE FROM WHERE HOMING LANDS, NOT FROM THE REGION. The approach
+    # deliberately misses on the safe side, and the miss is a fraction of the
+    # distance travelled — which for a small region far from the camera is
+    # larger than the region itself. Counting rows from the region's own height
+    # then spends the first ones above it and runs out before the bottom.
+    #
+    # That was a real 6-of-9: a region 150 tiles tall, approached from 217
+    # below, overshot its top by 66 and got two rows for a span that had become
+    # 216.
+    along_landing = start_along - _signed(along_travel, backward, per_swipe_along)
+    down_landing = start_down + _signed(down_travel, upward, per_swipe_down)
+    along_reach = abs(x1 - along_landing) if along_axis == "x" else abs(y1 - along_landing)
+    down_reach = abs(down_landing - (y0 if down_axis == "y" else x0))
+
+    rows = max(1, -(-int(max(down_span, down_reach)) // max(1, int(step_down * (1 - ROW_MARGIN)))))
+    per_row = max(
+        1,
+        -(-int(max(along_span, along_reach)) // max(1, int(per_swipe_along * (1 - ROW_MARGIN)))),
+    )
+
+    swipes: list[Swipe] = list(homing)
+    for row in range(rows):
+        # BOUSTROPHEDON: every other row runs back the way it came. A raster
+        # order would carry the view the full width of the map between rows,
+        # which at nine rows is more travel than the sweep itself.
+        swipes.extend([forward if row % 2 == 0 else backward] * per_row)
+        if row < rows - 1:
+            swipes.extend([downward] * down_swipes)
+
+    return SweepPlan(
+        swipes=swipes,
+        rows=rows,
+        per_row=per_row,
+        along_axis=along_axis,
+        down_axis=down_axis,
+        tiles_per_swipe_along=per_swipe_along,
+        tiles_per_swipe_down=per_swipe_down,
+        homing=len(homing),
+    )
+
+
 def covered(seen: list[tuple[int, int]]) -> tuple[int, int, int, int] | None:
     """The box a set of observed tiles actually covers.
 
@@ -210,3 +509,71 @@ def covered(seen: list[tuple[int, int]]) -> tuple[int, int, int, int] | None:
     xs = [x for x, _ in seen]
     ys = [y for _, y in seen]
     return (min(xs), max(xs), min(ys), max(ys))
+
+
+#: How close a viewport centre must land to a cell centre for the coverage
+#: view to count that cell as read. The measured half-extents of one viewLvl 1
+#: viewport — see migration 0148, which applies the same test in SQL.
+REACH_X = 35
+REACH_Y = 70
+
+
+def approach(
+    start: tuple[int, int],
+    target: tuple[int, int],
+    horizontal_tiles_per_pixel: float,
+    vertical_tiles_per_pixel: float,
+    along_axis: str,
+    *,
+    screen_width: int = 1080,
+    screen_height: int = 1920,
+    reach: float = 0.8,
+) -> list[Swipe]:
+    """Swipes that put the camera on a point, rather than sweep a box.
+
+    A CELL IS COVERED BY ONE VIEWPORT, NOT BY A SWEEP. `world_sweep_coverage`
+    asks whether some pan's window contained the cell's centre, and a window
+    is 71 x 140 tiles — so filling a gap is arriving somewhere, once, within
+    35 tiles across and 70 down. Anything more is a tool too large for the
+    job, and three passes proved how that goes: the box gets padded, the
+    padding needs a margin, the margin needs the landing point, and each
+    correction opens the next while the same three cells stay unread.
+
+    So this does the small thing. No rows, no boustrophedon, no overlap: work
+    out how far away the target is on each axis and swipe that far. The
+    tolerance is wide enough that arriving approximately is arriving —
+    70 tiles down is two and a half swipes of slack.
+    """
+    per_swipe_x = abs(horizontal_tiles_per_pixel) * int(screen_width * reach / 2) * 2
+    per_swipe_y = abs(vertical_tiles_per_pixel) * int(screen_height * reach / 2) * 2
+    if per_swipe_x <= 0 or per_swipe_y <= 0:
+        msg = "a measured swipe that moves nothing cannot be planned from"
+        raise ValueError(msg)
+    # Which screen axis drives which map axis is measured, never assumed.
+    if along_axis == "x":
+        per_map_x, per_map_y = per_swipe_x, per_swipe_y
+    else:
+        per_map_x, per_map_y = per_swipe_y, per_swipe_x
+
+    cx = screen_width // 2
+    cy = int(screen_height * 0.47)
+    reach_x = int(screen_width * reach / 2)
+    reach_y = int(screen_height * reach / 2)
+    forward = Swipe(cx + reach_x, cy, cx - reach_x, cy)
+    backward = Swipe(cx - reach_x, cy, cx + reach_x, cy)
+    downward = Swipe(cx, cy + reach_y, cx, cy - reach_y)
+    upward = Swipe(cx, cy - reach_y, cx, cy + reach_y)
+
+    swipes: list[Swipe] = []
+    for distance, per_swipe, tolerance, positive, negative in (
+        (target[0] - start[0], per_map_x, REACH_X, forward, backward),
+        (target[1] - start[1], per_map_y, REACH_Y, upward, downward),
+    ):
+        if abs(distance) <= tolerance:
+            continue
+        # Round rather than pad. Overshooting a point is as bad as falling
+        # short of it, which is what makes this simpler than a box.
+        swipes += [positive if distance > 0 else negative] * max(
+            1, round(abs(distance) / per_swipe)
+        )
+    return swipes

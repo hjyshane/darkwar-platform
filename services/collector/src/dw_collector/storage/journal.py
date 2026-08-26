@@ -330,6 +330,40 @@ class Journal:
             )
         return {str(r[0]) for r in cur.fetchall()}
 
+    def payloads_after(
+        self, mark: int, command: str, since: datetime | None = None
+    ) -> list[tuple[datetime, str]]:
+        """Like `commands_after`, but the payloads and in arrival order.
+
+        `commands_after` answers "did this land"; this answers "and what did
+        it say". The sweep needs the second: a pan proves nothing by
+        existing, since the game reports a viewport at every zoom and returns
+        no tiles at all at `viewLvl` 2. Where the camera ended up and at what
+        zoom are both in the response.
+
+        BOTH CLOCKS, for the same reason `commands_after` needs both. Capture
+        is not instantaneous, so a pan the game sent before the swipe reaches
+        the journal after it and satisfies a rowid-only test. Crediting a
+        swipe with the previous swipe's late response is precisely how a
+        measurement of "how far did that move" comes out wrong — and it is
+        already on record here, as the board sweep that reported eight
+        alliances verified having opened two.
+        """
+        if since is None:
+            cur = self.conn.execute(
+                "select captured_at, payload_json from raw_observations"
+                " where rowid > ? and source_command = ? order by rowid",
+                (mark, command),
+            )
+        else:
+            cur = self.conn.execute(
+                "select captured_at, payload_json from raw_observations"
+                " where rowid > ? and source_command = ? and captured_at >= ?"
+                " order by rowid",
+                (mark, command, since.isoformat()),
+            )
+        return [(datetime.fromisoformat(str(r[0])), str(r[1])) for r in cur.fetchall()]
+
     def raw_payloads(self, command: str) -> list[tuple[datetime, str]]:
         """(observation time, payload JSON) for one command, oldest first.
 

@@ -1,4 +1,5 @@
-"""world.get.new → world_city_snapshots + season_building_snapshots.
+"""world.get.new → world_viewport_snapshots + world_city_snapshots
++ season_building_snapshots.
 
 A viewport of up to 657 tiles, of which only the player cities are written.
 `protocol/worldmap.py` holds the wire format and the evidence for each
@@ -39,7 +40,9 @@ from dw_collector.registry import register
 # halves of point_id were swapped, and the column half is one-based. Rows
 # written before this carry each other's axes; 0142 repairs them in place from
 # point_id, which is stored raw for exactly this reason.
-PARSER_VERSION = "1.1.0"
+# 1.2.0: emits a world_viewport_snapshots row per response, so coverage can be
+# asked of the map. `renormalize` backfills it from journalled observations.
+PARSER_VERSION = "1.2.0"
 
 _UID_SERVER_SUFFIX = 6
 
@@ -72,12 +75,71 @@ def _usable_uid(uid: str | None) -> bool:
     return uid is not None and uid.isdigit() and len(uid) > _UID_SERVER_SUFFIX
 
 
+def _viewport_row(observation: Observation, tiles: list[Tile], bucket: str) -> NormalizedRow | None:
+    """Where the camera looked, which the city rows cannot say.
+
+    A viewport writes a row per CITY, so ground with nobody on it writes
+    nothing and "no rows here" means either "never swept" or "swept, empty".
+    A sweeper cannot tell those apart, so it would re-walk the empty half of
+    the map forever. This row is the difference.
+
+    Everything needed is in the response itself — it echoes `x`, `y`,
+    `viewLvl` and `serverId` — so this needs no correlation with the request
+    and `renormalize` reconstructs the whole coverage history from
+    observations already journalled.
+    """
+    payload = observation.payload
+    center_x, center_y = payload.get("x"), payload.get("y")
+    server_id = payload.get("serverId")
+    if not isinstance(center_x, int) or not isinstance(center_y, int):
+        return None
+    if not isinstance(server_id, int):
+        return None
+
+    xs = [tile.x for tile in tiles]
+    ys = [tile.y for tile in tiles]
+    view_lvl = payload.get("viewLvl")
+    return NormalizedRow(
+        target_table="world_viewport_snapshots",
+        idempotency_key=idempotency_key(observation, "viewport", bucket),
+        row={
+            "observation_id": str(observation.observation_id),
+            "source_command": observation.source_command,
+            "parser_version": PARSER_VERSION,
+            "captured_at": observation.captured_at.isoformat(),
+            "collector_id": str(observation.collector_id),
+            "collected_from_server_id": observation.collected_from_server_id,
+            "raw": {},
+            # The MAP's server, from the response's own field. Unlike a city,
+            # whose server comes from its uid, the ground being looked at
+            # belongs to exactly one server and the response names it.
+            "server_id": server_id,
+            "center_x": center_x,
+            "center_y": center_y,
+            "view_lvl": view_lvl if isinstance(view_lvl, int) else None,
+            # The box the OBJECTS fell in, not the box the camera saw:
+            # `points` carries objects only, so over empty ground this is much
+            # smaller than the window. Stored so the coverage view's assumed
+            # half-extents can be audited rather than trusted.
+            "object_count": len(tiles),
+            "min_x": min(xs) if xs else None,
+            "max_x": max(xs) if xs else None,
+            "min_y": min(ys) if ys else None,
+            "max_y": max(ys) if ys else None,
+        },
+    )
+
+
 @register("world.get.new")
 def normalize(observation: Observation) -> list[NormalizedRow]:
     bucket = observation.captured_at.date().isoformat()
 
+    tiles = decode_viewport(observation.payload)
     rows: list[NormalizedRow] = []
-    for tile in decode_viewport(observation.payload):
+    viewport = _viewport_row(observation, tiles, bucket)
+    if viewport is not None:
+        rows.append(viewport)
+    for tile in tiles:
         building = tile.building
         if tile.object_type == SEASON_BUILDING_TYPE and building is not None:
             uid = building.owner_uid
