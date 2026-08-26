@@ -731,6 +731,49 @@ def sweep(
     )
 
 
+@app.command()
+def coverage(
+    server: Annotated[int, typer.Argument(help="which server's map to report on")],
+    db: Annotated[Path | None, typer.Option("--db")] = None,
+) -> None:
+    """What of a server's map has been read, from the journal.
+
+    FOR SWEEPING BY HAND, which is faster than this tool can swipe. A person
+    dragging a mouse covers a screen a second; a scripted swipe is 1.2 seconds
+    of drag plus a settle. The 162 pans a map needs are about three minutes by
+    hand against twenty-five by automation.
+
+    What hand-sweeping cannot do is tell you what you missed, and that is the
+    whole failure this path exists to prevent — ground nobody read looks
+    exactly like ground with nobody on it. Capture takes the panning either
+    way, since dumpcap filters on the port for the whole adapter rather than
+    on one emulator, so this reads the same journal the automation writes.
+
+    Local, so it works before sync has caught up.
+    """
+    path = db or Path(os.environ.get("DW_SQLITE_PATH", "./data/collector.db"))
+    journal = Journal(path)
+    journal.init_db()
+    try:
+        missed = gaps_mod.missing_cells(journal.conn, server)
+    finally:
+        journal.close()
+
+    total = gaps_mod.GRID * gaps_mod.GRID
+    typer.echo(f"server {server}: {total - len(missed)}/{total} cells read")
+    if not missed:
+        typer.echo("nothing missing")
+        return
+    typer.echo("")
+    for gy in range(gaps_mod.GRID - 1, -1, -1):
+        row = "".join("." if (gx, gy) not in missed else "X" for gx in range(gaps_mod.GRID))
+        typer.echo(f"  y{gy * gaps_mod.CELL:>4} {row}")
+    typer.echo("")
+    typer.echo(f"  X = never read. {len(gaps_mod.regions(missed))} patches:")
+    for box in gaps_mod.regions(missed)[:8]:
+        typer.echo(f"    x {box.x0}..{box.x1}  y {box.y0}..{box.y1}")
+
+
 def main() -> None:
     app()
 
