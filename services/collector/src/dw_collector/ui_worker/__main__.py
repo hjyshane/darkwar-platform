@@ -500,43 +500,64 @@ def sweep(
             # opened the next while the same cells stayed unread. The last one
             # ran 105 swipes over y 25..974 for two regions inside y 550..949
             # and gained one cell.
+            #
+            # AND IT LOOKS AT WHERE IT LANDED. Open-loop hops assumed each one
+            # arrived and chained from the target rather than the position, so
+            # a systematic error compounded: a run aimed at three cells landed
+            # +111 tiles off in x on two of them while y was out by 0 and -5.
+            # The horizontal measurement is still low by about a third, which
+            # no amount of arithmetic here can know — but one look at the
+            # journal can.
             missed = sorted(gaps_mod.missing_cells(journal.conn, fill_gaps))
             typer.echo(f"\n{len(missed)} cells never covered on {fill_gaps}")
-            at = (result.at_x, result.at_y)
+            filled = 0
             for gx, gy in missed:
                 point = (
                     gx * gaps_mod.CELL + gaps_mod.CELL // 2,
                     gy * gaps_mod.CELL + gaps_mod.CELL // 2,
                 )
-                hop = sweep_mod.approach(
-                    at,
-                    point,
-                    result.horizontal.tiles_per_pixel,
-                    result.vertical.tiles_per_pixel,
-                    result.horizontal.axis,
-                    screen_width=screen_width,
-                    screen_height=screen_height,
-                )
-                typer.echo(f"  {point[0]},{point[1]}: {len(hop)} swipes")
-                targets.append(
-                    (
-                        None,
-                        sweep_mod.SweepPlan(
-                            swipes=hop,
-                            rows=1,
-                            per_row=len(hop),
-                            along_axis=result.horizontal.axis,
-                            down_axis="y" if result.horizontal.axis == "x" else "x",
-                            tiles_per_swipe_along=0.0,
-                            tiles_per_swipe_down=0.0,
-                            homing=len(hop),
-                        ),
+                at = (result.at_x, result.at_y)
+                for attempt in range(1, 4):
+                    if (
+                        abs(at[0] - point[0]) <= sweep_mod.REACH_X
+                        and abs(at[1] - point[1]) <= sweep_mod.REACH_Y
+                    ):
+                        typer.echo(f"  {point[0]},{point[1]}: reached (at {at[0]},{at[1]})")
+                        filled += 1
+                        break
+                    hop = sweep_mod.approach(
+                        at,
+                        point,
+                        result.horizontal.tiles_per_pixel,
+                        result.vertical.tiles_per_pixel,
+                        result.horizontal.axis,
+                        screen_width=screen_width,
+                        screen_height=screen_height,
                     )
-                )
-                # Each hop starts where the last one aimed, so the route walks
-                # the gaps in order instead of returning to the probe's
-                # position between every one.
-                at = point
+                    typer.echo(
+                        f"  {point[0]},{point[1]}: try {attempt} from {at[0]},{at[1]}"
+                        f" — {len(hop)} swipes"
+                    )
+                    mark = journal.watermark()
+                    hop_since = datetime.now(UTC)
+                    for step in hop:
+                        client.swipe(
+                            step.from_x, step.from_y, step.to_x, step.to_y, duration_ms=1200
+                        )
+                        done += 1
+                        time.sleep(settle_seconds)
+                    arrived = probe_mod.settled(journal, mark, hop_since, want=1, timeout=150.0)
+                    if not arrived:
+                        typer.echo("    no pan came back; giving up on this cell", err=True)
+                        break
+                    at = (arrived[-1].x, arrived[-1].y)
+            typer.echo(f"\nswipes={done} reached {filled}/{len(missed)} cells")
+            typer.echo(
+                "world_sweep_coverage has the verdict once sync catches up;"
+                " reaching a cell's centre is what makes it covered."
+            )
+            journal.close()
+            return
         else:
             targets.append(
                 (
