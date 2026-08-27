@@ -19,7 +19,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(14);
+select plan(17);
 
 insert into public.collectors (collector_id, name, status, version)
 values ('00000000-0000-4000-8000-00000000cd01', 'departure test', 'offline', 'test')
@@ -43,6 +43,14 @@ $$;
 insert into public.alliances (alliance_id, server_id, external_id, current_name, current_code, member_count)
 values ('00000000-0000-4000-8000-00000000ad01', 580, 'deadbeefdeadbeefdeadbeefdeadbe01',
         'DEPARTURE TEST', 'DEP', 3);
+
+-- An alliance nobody has captured a roster for. 0150 drives both views from
+-- `alliances` instead of from the snapshots, so this row is the one that
+-- would leak through as a phantom — a member with a null captured_at, or a
+-- departure from a batch that does not exist.
+insert into public.alliances (alliance_id, server_id, external_id, current_name, current_code, member_count)
+values ('00000000-0000-4000-8000-00000000ad02', 580, 'deadbeefdeadbeefdeadbeefdeadbe02',
+        'NEVER CAPTURED', 'NIL', 4);
 
 -- Batch one: all three present.
 insert into public.alliance_member_snapshots
@@ -117,6 +125,27 @@ select bag_eq(
      where alliance_id = '00000000-0000-4000-8000-00000000ad01' $$,
   $$ values (333000580::bigint) $$,
   'the one absent from it is a departure');
+
+-- An alliance with no capture at all is absent, not present-and-empty: both
+-- views inner-join their newest batch, and 0150's LATERAL max() returns null
+-- for it rather than no row.
+select is_empty(
+  $$ select game_uid from public.alliance_roster_latest
+     where alliance_id = '00000000-0000-4000-8000-00000000ad02' $$,
+  'an alliance never captured has no roster rows');
+select is_empty(
+  $$ select game_uid from public.alliance_departures
+     where alliance_id = '00000000-0000-4000-8000-00000000ad02' $$,
+  'and nobody has departed it');
+
+-- observed_members counts the NEWEST BATCH, not the history: five rows have
+-- been captured for this alliance across two batches, and the newest holds
+-- two. Everything snapshot_complete decides rests on that number being the
+-- batch rather than the archive.
+select is(
+  (select distinct observed_members from public.alliance_roster_latest
+    where alliance_id = '00000000-0000-4000-8000-00000000ad01'),
+  2::bigint, 'observed_members is the size of the newest batch');
 
 -- One row per member, not one per capture. The view is membership, not the
 -- time series 0066 closed: 'Stays' was seen in both batches and appears once.
