@@ -9,7 +9,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(9);
+select plan(11);
 
 insert into public.collectors (collector_id, name, status, version)
 values ('00000000-0000-4000-8000-00000000cc81', 'scope test', 'offline', 'test')
@@ -70,6 +70,21 @@ select pg_temp.reading('00000000-0000-4000-8000-00000000b104', '2026-08-12T05:03
 select pg_temp.reading('00000000-0000-4000-8000-00000000b104', '2026-08-12T05:03:00Z',
   '00000000-0000-4000-8000-0000000a3081', 581, 1, 5200);
 
+-- TWO READINGS AT ONE INSTANT. Both boards opened close enough together that
+-- the captures share a captured_at, and only observation_id separates them.
+-- 0153 derives board_scope and board_size per OBSERVATION through a lateral;
+-- keyed on anything coarser — captured_at being the obvious wrong choice —
+-- these four rows fold into one board of four spanning two servers, and every
+-- server-board reading in the archive silently becomes cross-server.
+select pg_temp.reading('00000000-0000-4000-8000-00000000b105', '2026-08-19T05:00:00Z',
+  '00000000-0000-4000-8000-0000000a1081', 580, 1, 1300);
+select pg_temp.reading('00000000-0000-4000-8000-00000000b105', '2026-08-19T05:00:00Z',
+  '00000000-0000-4000-8000-0000000a2081', 580, 2, 700);
+select pg_temp.reading('00000000-0000-4000-8000-00000000b106', '2026-08-19T05:00:00Z',
+  '00000000-0000-4000-8000-0000000a1081', 580, 5, 1300);
+select pg_temp.reading('00000000-0000-4000-8000-00000000b106', '2026-08-19T05:00:00Z',
+  '00000000-0000-4000-8000-0000000a3081', 581, 1, 5300);
+
 set local role authenticated;
 select pg_temp.act_as('00000000-0000-4000-8000-0000000be081');
 
@@ -112,6 +127,21 @@ select is(
       and captured_at between '2026-08-05T04:00:00Z' and '2026-08-05T06:00:00Z'),
   2::bigint,
   'and the two are now separable');
+
+-- The instant both boards were read. One reading is 580-only, the other spans
+-- 580 and 581, and they share a captured_at.
+select is(
+  (select count(distinct board_scope) from public.alliance_power_history
+    where alliance_id = '00000000-0000-4000-8000-0000000a1081'
+      and captured_at = '2026-08-19T05:00:00Z'),
+  2::bigint,
+  'two readings at one instant stay two boards');
+select is(
+  (select max(board_size) from public.alliance_power_history
+    where alliance_id = '00000000-0000-4000-8000-0000000a1081'
+      and captured_at = '2026-08-19T05:00:00Z'),
+  2::bigint,
+  'and each is sized by its own reading, not by the instant');
 
 -- ----------------------------------------------------------------- the growth
 -- Server board: 2nd, then 1st. One place climbed, not six.
