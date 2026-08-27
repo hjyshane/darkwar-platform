@@ -1,10 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import { FormulaError, evaluateFormula, parseFormula } from '../../lib/formula';
 import { MEMBER_FIELD_IDS, MEMBER_FORMULAS_KEY } from '../../lib/memberFormulas';
 import { resolveFormulas } from '../../lib/overviewMetrics';
 import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
 import { useSession } from '../../lib/useSession';
+import { CurrentPeriodTable } from './CurrentPeriodTable';
 import { RankMovement } from './RankMovement';
 import { type ComputedColumn, type RosterRow, RosterTable } from './RosterTable';
 
@@ -135,7 +137,7 @@ export async function fetchRoster(): Promise<RosterRow[]> {
       // the type level and a `+` degrades every row to an error type. No
       // game_uid, same reasoning as before 0102: the column is off the screen
       // and out of the search fields, so the view does not even expose it.
-      'player_id, current_name, hq_level, power, kills, last_seen_at, member_rank, daily_donation_score, weekly_donation_score, duel_daily_score, duel_weekly_score, duel_round_score, assigned_rank, computed_rank, rank_score, growth_1d, growth_7d, growth_1d_at, growth_7d_at, online_state, last_online_at, month_card_expires_at, vip_level, vip_expires_at, svip_level',
+      'player_id, current_name, hq_level, power, kills, last_seen_at, member_rank, daily_donation_score, weekly_donation_score, duel_daily_score, duel_weekly_score, duel_round_score, assigned_rank, computed_rank, rank_score, growth_1d, growth_7d, growth_1d_at, growth_7d_at, online_state, last_online_at, month_card_expires_at, vip_level, vip_expires_at, svip_level, below_minimum',
     )
     .order('power', { ascending: false, nullsFirst: false })
     .limit(100);
@@ -151,6 +153,10 @@ export async function fetchRoster(): Promise<RosterRow[]> {
 }
 
 export function RosterPanel() {
+  // Which board is on screen. Component state: it is a way of looking, not a
+  // setting — and the settled table is the default because it is the one that
+  // carries a decision.
+  const [tab, setTab] = useState<'settled' | 'running'>('settled');
   const { data, error, isPending } = useQuery({ queryKey: ['roster'], queryFn: fetchRoster });
   const { data: columns } = useQuery({
     queryKey: ['member-formulas'],
@@ -184,9 +190,40 @@ export function RosterPanel() {
           for and the table below answers "where does everybody stand". Renders
           nothing at all for a reader who cannot see rank figures. */}
       <RankMovement />
-      {isPending && <p className="empty">Loading…</p>}
-      {error && <p className="error">Could not load members: {error.message}</p>}
-      {data && <RosterTable columns={columns ?? []} rows={data} />}
+
+      {/* Two boards, because they answer two questions and are made of
+          different material. The members table carries the rank and score of
+          the last FINISHED fortnight — the answer in force, which 0134 keeps
+          steady until a period closes. The other tab is the fortnight now
+          running, as raw weekly readings, for "am I above the line this week"
+          — a question asked on a Wednesday, which the settled answer cannot
+          reach. */}
+      <div className="row">
+        <button
+          className={tab === 'settled' ? 'active' : ''}
+          onClick={() => setTab('settled')}
+          type="button"
+        >
+          Last ranking
+        </button>
+        <button
+          className={tab === 'running' ? 'active' : ''}
+          onClick={() => setTab('running')}
+          type="button"
+        >
+          This ranking · weekly
+        </button>
+      </div>
+
+      {tab === 'running' ? (
+        <CurrentPeriodTable />
+      ) : (
+        <>
+          {isPending && <p className="empty">Loading…</p>}
+          {error && <p className="error">Could not load members: {error.message}</p>}
+          {data && <RosterTable columns={columns ?? []} rows={data} />}
+        </>
+      )}
     </section>
   );
 }

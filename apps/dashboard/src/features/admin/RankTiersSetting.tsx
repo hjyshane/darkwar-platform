@@ -57,12 +57,29 @@ const METHODS = [
   },
 ] as const;
 
+/** The floor, under the relative scoring (0155).
+ *
+ * The score itself is relative — percentiles inside the alliance — so it can
+ * only say who did more than whom, never whether anybody did enough. These are
+ * the numbers the alliance says out loud, and missing one costs a tier step.
+ *
+ * WEEKLY, NOT DAILY. The daily boards are only as present as the collector's
+ * day, and a member nobody captured on a Tuesday would be indistinguishable
+ * from one who did nothing — so a daily floor demotes people for our own gaps.
+ */
+interface Minimums {
+  enabled: boolean;
+  donation_weekly: number;
+  duel_weekly: number;
+}
+
 interface Tiers {
   r3_percent: number;
   r2_percent: number;
   offline_hours: number;
   normalisation: string;
   weights: { donation: number; duel: number; power_growth: number };
+  minimums: Minimums;
 }
 
 const FALLBACK: Tiers = {
@@ -71,6 +88,9 @@ const FALLBACK: Tiers = {
   offline_hours: 48,
   normalisation: 'percentile',
   weights: { donation: 0.4, duel: 0.6, power_growth: 0 },
+  // Off, with no numbers. A floor that shipped with a default would demote
+  // people for a rule the alliance never agreed.
+  minimums: { enabled: false, donation_weekly: 0, duel_weekly: 0 },
 };
 
 async function fetchTiers(): Promise<Tiers> {
@@ -82,7 +102,16 @@ async function fetchTiers(): Promise<Tiers> {
   if (error) {
     throw new Error(`tier settings query failed: ${error.message}`);
   }
-  return { ...FALLBACK, ...((data?.value as Partial<Tiers> | null) ?? {}) };
+  const stored = (data?.value as Partial<Tiers> | null) ?? {};
+  // The nested objects are merged by hand: a spread replaces `minimums`
+  // wholesale, so a setting saved before 0155 would arrive with the key
+  // missing and every field undefined rather than falling back.
+  return {
+    ...FALLBACK,
+    ...stored,
+    weights: { ...FALLBACK.weights, ...(stored.weights ?? {}) },
+    minimums: { ...FALLBACK.minimums, ...(stored.minimums ?? {}) },
+  };
 }
 
 export function RankTiersSetting() {
@@ -241,6 +270,64 @@ export function RankTiersSetting() {
             onChange={(event) => setDraft({ ...draft, offline_hours: Number(event.target.value) })}
             type="number"
             value={draft.offline_hours}
+          />
+        </label>
+
+        <p className="subtle">
+          <strong>Weekly minimums.</strong> The score above is relative — it says who did more than
+          whom, never whether anybody did enough. A member whose weekly donation or duel reading
+          comes in under these drops one rank (R3 → R2, R2 → R1) and is marked in red on the members
+          table. R1 has nothing below it in the game, so an R1 keeps the rank and the mark.
+          <br />
+          Weekly, not daily, and on purpose: a daily figure is only as present as the collector's
+          day, so a daily floor would demote people for our own gaps. A week with no reading is
+          never counted as a miss either — week two of a running fortnight has not happened yet.
+        </p>
+
+        <label htmlFor="minimums-enabled">
+          <input
+            checked={draft.minimums.enabled}
+            id="minimums-enabled"
+            onChange={(event) =>
+              setDraft({
+                ...draft,
+                minimums: { ...draft.minimums, enabled: event.target.checked },
+              })
+            }
+            type="checkbox"
+          />
+          Apply the minimums below
+        </label>
+
+        <label htmlFor="min-donation">
+          Weekly donation minimum <span className="subtle">(0 = no floor)</span>
+          <input
+            id="min-donation"
+            min="0"
+            onChange={(event) =>
+              setDraft({
+                ...draft,
+                minimums: { ...draft.minimums, donation_weekly: Number(event.target.value) },
+              })
+            }
+            type="number"
+            value={draft.minimums.donation_weekly}
+          />
+        </label>
+
+        <label htmlFor="min-duel">
+          Weekly duel minimum <span className="subtle">(0 = no floor)</span>
+          <input
+            id="min-duel"
+            min="0"
+            onChange={(event) =>
+              setDraft({
+                ...draft,
+                minimums: { ...draft.minimums, duel_weekly: Number(event.target.value) },
+              })
+            }
+            type="number"
+            value={draft.minimums.duel_weekly}
           />
         </label>
 

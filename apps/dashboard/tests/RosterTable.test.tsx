@@ -16,6 +16,7 @@ const NOW = new Date('2026-07-28T12:00:00Z');
  * nulls. */
 const emptyRow: RosterRow = {
   member_rank: null,
+  below_minimum: null,
   player_id: 'p2',
   current_name: null,
   hq_level: null,
@@ -45,6 +46,7 @@ const emptyRow: RosterRow = {
 const rows: RosterRow[] = [
   {
     member_rank: 4,
+    below_minimum: false,
     player_id: 'p1',
     current_name: 'SyntheticPlayer01',
     hq_level: 21,
