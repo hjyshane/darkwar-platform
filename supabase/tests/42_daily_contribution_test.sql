@@ -7,7 +7,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(9);
+select plan(10);
 
 insert into public.collectors (collector_id, name, status, version)
 values ('00000000-0000-4000-8000-00000000cc74', 'daily test', 'offline', 'test')
@@ -71,6 +71,15 @@ select pg_temp.donate(9400000000000001, 'alliance_battle_daily', 900, '2026-08-0
 -- al.battle.rank.info comes back with 189 rows for an alliance of 94, because
 -- the board is cross-alliance. This uid was never in our roster.
 select pg_temp.donate(9499999999999999, 'alliance_battle_daily', 500000, '2026-08-04T20:00:00Z');
+
+-- ------------------------------------------------------------ the one who left
+-- Seen in an OLDER batch and absent from the newest, so they are not on the
+-- roster any more. Their donation still belongs to the day they made it: this
+-- is a history, and re-attributing the past by today's membership would move
+-- last month's numbers every time somebody leaves. Their own game day, so the
+-- totals above are untouched.
+select pg_temp.roster(9400000000000003, '2026-08-01T05:00:00Z');
+select pg_temp.donate(9400000000000003, 'daily_donation', 70, '2026-08-10T10:00:00Z');
 
 set local role authenticated;
 
@@ -144,6 +153,16 @@ select isnt(
       and kind = 'alliance_battle_daily'),
   500900::numeric,
   'so a stranger on the same board contributes nothing to our total');
+
+-- Membership here is everyone EVER seen, not the current roster (0151). A
+-- departed member's old day still reads as the alliance's day.
+select is(
+  (select total from public.alliance_daily_contribution
+    where alliance_id = '00000000-0000-4000-8000-0000000ab074'
+      and kind = 'daily_donation'
+      and game_day = '2026-08-10T02:00:00Z'::timestamptz),
+  70::numeric,
+  'a departed member''s contribution stays in the day they made it');
 
 reset role;
 
