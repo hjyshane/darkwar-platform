@@ -3,10 +3,71 @@ import type { BuildingGrid } from './buildings';
 import {
   SEASON2_BUILDINGS,
   SEASON3_BUILDINGS,
+  buildingsBehind,
   isBehind,
   levelKey,
   membersMissing,
 } from './buildings';
+
+const LAB = { id: 862000, name: 'Thermal Lab' };
+const HOUSE = { id: 857000, name: 'Smart Green House 1' };
+
+/** A member with the levels given, and nothing else known about them. */
+function member(levels: Record<number, number | null>) {
+  const row: Record<string, unknown> = {
+    playerId: 'p',
+    name: 'Somebody',
+    gameUid: 1,
+    oldestSeen: null,
+  };
+  for (const [id, level] of Object.entries(levels)) {
+    row[levelKey(Number(id))] = level;
+  }
+  return row as never;
+}
+
+// 0158. One level for every building marked the whole alliance for the
+// building nobody had started, so the floor is now per building — and a
+// building with no floor set is not judged at all.
+test('a building with no floor set is never behind', () => {
+  const row = member({ 862000: 3, 857000: 20 });
+  // Only the greenhouse has a floor, and it clears it. The lab at 3 is not
+  // judged, because nobody said it should be.
+  expect(buildingsBehind(row, [LAB, HOUSE], new Map([[857000, 19]]))).toEqual([]);
+});
+
+test('only the building under its own floor is named', () => {
+  const row = member({ 862000: 3, 857000: 20 });
+  const behind = buildingsBehind(
+    row,
+    [LAB, HOUSE],
+    new Map([
+      [862000, 19],
+      [857000, 19],
+    ]),
+  );
+  expect(behind.map((kind) => kind.id)).toEqual([862000]);
+});
+
+test('two floors can be missed at once', () => {
+  const row = member({ 862000: 3, 857000: 4 });
+  const behind = buildingsBehind(
+    row,
+    [LAB, HOUSE],
+    new Map([
+      [862000, 19],
+      [857000, 19],
+    ]),
+  );
+  expect(behind.map((kind) => kind.id)).toEqual([862000, 857000]);
+});
+
+// The rule that predates the per-building floors and outlives them: an empty
+// cell is a gap in OUR coverage, not a member who built nothing.
+test('an unseen building is not behind, whatever the floor', () => {
+  const row = member({ 862000: null });
+  expect(buildingsBehind(row, [LAB], new Map([[862000, 19]]))).toEqual([]);
+});
 
 function grid(members: number, rosterTotal: number | null): BuildingGrid {
   return {
@@ -35,7 +96,9 @@ test('a member is not flagged behind on a building nobody has seen', () => {
     [levelKey(862000)]: null,
   } as never;
 
-  expect(isBehind(member, [{ id: 862000, name: 'Thermal Lab' }], 10)).toBe(false);
+  expect(isBehind(member, [{ id: 862000, name: 'Thermal Lab' }], new Map([[862000, 10]]))).toBe(
+    false,
+  );
 });
 
 test('a member below the level IS flagged', () => {
@@ -47,7 +110,9 @@ test('a member below the level IS flagged', () => {
     [levelKey(862000)]: 4,
   } as never;
 
-  expect(isBehind(member, [{ id: 862000, name: 'Thermal Lab' }], 10)).toBe(true);
+  expect(isBehind(member, [{ id: 862000, name: 'Thermal Lab' }], new Map([[862000, 10]]))).toBe(
+    true,
+  );
 });
 
 test('the two catalogues do not share an id', () => {

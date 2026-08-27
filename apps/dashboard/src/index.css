@@ -1217,6 +1217,55 @@ select.rank-badge {
   color: #f87171;
 }
 
+/* Behind on a season building (0158). This was bare text with no rule of its
+ * own, which is why nobody could see it: a lone "!" in a column of names
+ * reads as punctuation. A filled badge instead — the glyph stays, so the mark
+ * survives a monochrome screen and a reader who cannot separate the hues,
+ * and the title says which building and which level. */
+.behind-mark {
+  background: var(--danger-fg);
+  border-radius: 999px;
+  color: #fff;
+  display: inline-block;
+  font-size: 0.72em;
+  font-weight: 700;
+  line-height: 1.35em;
+  margin-right: 0.4em;
+  min-width: 1.35em;
+  text-align: center;
+  vertical-align: middle;
+}
+
+/* The cell that earned it. A row is seven columns wide, and marking only the
+ * name leaves the reader hunting for the building that is short. */
+.cell-behind {
+  background: color-mix(in srgb, var(--danger-fg) 16%, transparent);
+  border-radius: 0.35em;
+  color: var(--danger-fg);
+  font-weight: 600;
+  padding: 0.1em 0.4em;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .behind-mark {
+    background: #f87171;
+    color: #1a1a1a;
+  }
+
+  :root:not([data-theme="light"]) .cell-behind {
+    color: #f87171;
+  }
+}
+
+:root[data-theme="dark"] .behind-mark {
+  background: #f87171;
+  color: #1a1a1a;
+}
+
+:root[data-theme="dark"] .cell-behind {
+  color: #f87171;
+}
+
 /* Under the alliance's weekly floor (0155). A dot rather than a whole red
  * row: the row still has to be read, and colouring all of it makes the
  * numbers inside it harder to compare against everybody else's. The title
