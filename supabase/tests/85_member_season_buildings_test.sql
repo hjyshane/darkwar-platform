@@ -10,7 +10,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(9);
+select plan(13);
 
 select has_column('public', 'member_season_buildings', c.col,
   'member_season_buildings has ' || c.col)
@@ -39,15 +39,16 @@ $$;
 insert into public.member_roster_current (player_id)
 values (pg_temp.pid(850000000001));
 
-create function pg_temp.sb(key text, uid bigint, lvl int) returns void
-language sql as $$
+create function pg_temp.sb(key text, uid bigint, lvl int,
+                          at timestamptz default '2026-08-22T09:25:00Z')
+returns void language sql as $$
   insert into public.season_building_snapshots
     (observation_id, source_command, parser_version, idempotency_key,
      captured_at, collector_id, collected_from_server_id, server_id,
      player_id, game_uid, object_id, point_id, x, y, building_type_id, level)
   values
     ('00000000-0000-4000-8000-00000000f851', 'world.get.new', 'test',
-     key, '2026-08-22T09:25:00Z', '00000000-0000-4000-8000-000000000c01',
+     key, at, '00000000-0000-4000-8000-000000000c01',
      580, 580, pg_temp.pid(uid), uid, uid, 593383, 593, 383, 859000, lvl);
 $$;
 
@@ -73,6 +74,40 @@ select is(
   (select count(*)::int from public.member_season_buildings_by_member),
   (select count(distinct player_id)::int from public.member_season_buildings),
   'the folded view returns one row per member');
+
+-- 0154: the fold is computed when the collector writes, by a statement
+-- trigger, so the row above exists without anyone calling refresh.
+select is(
+  (select levels -> '859000' from public.player_season_buildings_current
+    where player_id = pg_temp.pid(850000000001)),
+  to_jsonb(17),
+  'the write filled the precomputed row');
+
+-- A LATER capture raises it.
+select pg_temp.sb('t:msb:3', 850000000001, 18, '2026-08-23T09:25:00Z');
+select is(
+  (select levels -> '859000' from public.player_season_buildings_current
+    where player_id = pg_temp.pid(850000000001)),
+  to_jsonb(18),
+  'a newer capture raises the stored level');
+
+-- An EARLIER one does not lower it. The refresh recomputes the player from the
+-- snapshots rather than merging what just arrived, which is the only version
+-- of this that survives a replay: 0138 established that level is monotonic
+-- per building, so a lower number is always the older reading, and a merge
+-- would let a backfill walk the whole board downwards.
+select pg_temp.sb('t:msb:4', 850000000001, 12, '2026-08-20T09:25:00Z');
+select is(
+  (select levels -> '859000' from public.player_season_buildings_current
+    where player_id = pg_temp.pid(850000000001)),
+  to_jsonb(18),
+  'an out-of-order older capture does not lower it');
+
+set local role anon;
+select throws_ok(
+  $$ select levels from public.player_season_buildings_current $$,
+  '42501', null, 'anon reads no precomputed buildings');
+reset role;
 
 -- The view is security_invoker, so a viewer is stopped by the underlying
 -- table's own policy rather than by anything written here.
