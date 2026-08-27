@@ -7,6 +7,7 @@ import {
   fetchAlert,
 } from '../../lib/seasonBuildingAlert';
 import { supabase } from '../../lib/supabase';
+import { SEASON3_BUILDINGS } from '../season/buildings';
 
 /** The threshold behind the "!" on the season building board.
  *
@@ -72,41 +73,82 @@ export function SeasonBuildingAlertSetting() {
   return (
     <div className="setting">
       <p className="note">
-        Members holding any building below this level get a <strong>!</strong> before their name on
-        the season building board. A building nobody has seen yet is not counted as behind — an
-        empty cell means the collector has not panned over it, not that it is unbuilt.
+        A level per building. Members under one get a <strong>!</strong> before their name on the
+        season building board, and the number itself is marked in the column that is short. Leave a
+        building empty and it is not judged at all — which is how you say "the lab is what matters
+        this week". A building nobody has seen yet is never counted as behind: an empty cell means
+        the collector has not panned over it, not that it is unbuilt.
       </p>
 
-      <label htmlFor="season-alert-level">
-        Level
-        <input
-          id="season-alert-level"
-          type="number"
-          min={1}
-          max={99}
-          value={current.level}
-          onChange={(event) => {
-            const next = Number.parseInt(event.target.value, 10);
-            setDraft({ ...current, level: Number.isFinite(next) ? next : current.level });
-          }}
-        />
-      </label>
+      {current.legacyLevel !== null && (
+        // Said out loud rather than migrated silently: the number came from
+        // the old one-level-for-everything setting, and saving here replaces
+        // it with whatever is in the boxes below.
+        <p className="empty">
+          The old single level of <strong>{current.legacyLevel}</strong> is still in force for every
+          building. Setting any level below and saving replaces it.
+        </p>
+      )}
 
       <label htmlFor="season-alert-enabled">
         <input
-          id="season-alert-enabled"
-          type="checkbox"
           checked={current.enabled}
+          id="season-alert-enabled"
           onChange={(event) => setDraft({ ...current, enabled: event.target.checked })}
+          type="checkbox"
         />
-        Mark members who are below it
+        Mark members who are below these levels
       </label>
 
-      <button
-        type="button"
-        onClick={() => save.mutate(current)}
-        disabled={save.isPending || current.level < 1}
-      >
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th className="label">Building</th>
+              <th className="num">Level</th>
+            </tr>
+          </thead>
+          <tbody>
+            {SEASON3_BUILDINGS.map((kind) => {
+              const key = String(kind.id);
+              const value = current.perBuilding[key];
+              return (
+                <tr key={kind.id}>
+                  <td className="label">
+                    <label htmlFor={`season-floor-${kind.id}`}>{kind.name}</label>
+                  </td>
+                  <td className="num">
+                    <input
+                      id={`season-floor-${kind.id}`}
+                      max={99}
+                      min={1}
+                      onChange={(event) => {
+                        const next = Number.parseInt(event.target.value, 10);
+                        const perBuilding = { ...current.perBuilding };
+                        // An emptied box removes the floor rather than
+                        // storing a zero: "not judged" and "must be above
+                        // nothing" are the same on screen and different in
+                        // the setting, and only one of them survives an edit.
+                        if (Number.isFinite(next) && next > 0) {
+                          perBuilding[key] = next;
+                        } else {
+                          delete perBuilding[key];
+                        }
+                        setDraft({ ...current, perBuilding, legacyLevel: null });
+                      }}
+                      placeholder="—"
+                      type="number"
+                      value={value ?? ''}
+                    />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <button disabled={save.isPending} onClick={() => save.mutate(current)} type="button">
         {save.isPending ? 'Saving…' : 'Save'}
       </button>
 

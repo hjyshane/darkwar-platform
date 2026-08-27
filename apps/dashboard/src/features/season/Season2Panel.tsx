@@ -5,6 +5,9 @@ import { useSession } from '../../lib/useSession';
 import { SeasonBuildingTable } from './SeasonBuildingTable';
 import { SEASON2_BUILDINGS, fetchBuildingGrid } from './buildings';
 
+/** Shared and frozen, so the table's memo does not see a new map each render. */
+const NO_FLOORS: ReadonlyMap<number, number> = new Map();
+
 /** Last season's buildings, on their own screen.
  *
  * They are not a board the alliance reads. The game still returns them from
@@ -54,8 +57,8 @@ export function Season2Panel() {
       </h2>
       {isPending && <p className="empty">Loading…</p>}
       {error && <p className="error">Could not load season 2: {(error as Error).message}</p>}
-      {/* No alert marker: nobody is behind on a season that has ended. */}
-      {data && <SeasonBuildingTable grid={data} alertLevel={null} />}
+      {/* No floors at all: nobody is behind on a season that has ended. */}
+      {data && <SeasonBuildingTable floors={NO_FLOORS} grid={data} />}
       <p className="note">
         Season 2, kept for reference. These stopped being observed around 16 August, so the levels
         are frozen where the season left them. Names marked <strong>*</strong> are placeholders: the

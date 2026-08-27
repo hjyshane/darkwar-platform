@@ -284,10 +284,29 @@ export function membersMissing(grid: BuildingGrid): number | null {
 export function isBehind(
   member: MemberBuildings,
   columns: readonly BuildingKind[],
-  level: number,
+  floors: ReadonlyMap<number, number>,
 ): boolean {
-  return columns.some((kind) => {
+  return buildingsBehind(member, columns, floors).length > 0;
+}
+
+/** Which of this member's buildings are under their own floor.
+ *
+ * Per building rather than one level for all of them (0158): the lab and the
+ * barrack are not levelled on the same schedule as the greenhouses, so a
+ * single floor either marks everybody for the building nobody has started or
+ * sits low enough to mark nobody. A building with no floor set is not judged.
+ */
+export function buildingsBehind(
+  member: MemberBuildings,
+  columns: readonly BuildingKind[],
+  floors: ReadonlyMap<number, number>,
+): BuildingKind[] {
+  return columns.filter((kind) => {
+    const floor = floors.get(kind.id);
+    if (floor === undefined) {
+      return false;
+    }
     const seen = member[levelKey(kind.id)];
-    return seen !== null && seen !== undefined && seen < level;
+    return seen !== null && seen !== undefined && seen < floor;
   });
 }

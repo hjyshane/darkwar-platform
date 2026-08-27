@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
-import { useSeasonBuildingAlert } from '../../lib/seasonBuildingAlert';
+import { floorsFor, useSeasonBuildingAlert } from '../../lib/seasonBuildingAlert';
 import { TERMS } from '../../lib/terms';
 import { SeasonAllianceTable } from './SeasonAllianceTable';
 import { SeasonBuildingTable } from './SeasonBuildingTable';
@@ -58,7 +58,14 @@ export function SeasonPanel() {
     boardId === 'alliance_score' ? alliance : boardId === 'player_force' ? players : buildings;
   const capturedAt =
     buildings.data?.capturedAt ?? alliance.data?.[0]?.captured_at ?? players.data?.[0]?.captured_at;
-  const alertLevel = alert?.enabled === true ? alert.level : null;
+  // Per building (0158), against the catalogue this board is rendering — so a
+  // level saved under the old single-number setting still lands on exactly
+  // the buildings it used to judge.
+  //
+  // Memoised because the table keys its column memo on this: a fresh Map every
+  // render would rebuild seven columns on every keystroke in the search box.
+  const columns = buildings.data?.columns;
+  const floors = useMemo(() => floorsFor(alert, columns ?? []), [alert, columns]);
 
   return (
     <section aria-labelledby="season-heading">
@@ -86,7 +93,7 @@ export function SeasonPanel() {
       {active.error && <p className="error">Could not load season board: {active.error.message}</p>}
 
       {boardId === 'buildings' && buildings.data && (
-        <SeasonBuildingTable grid={buildings.data} alertLevel={alertLevel} />
+        <SeasonBuildingTable floors={floors} grid={buildings.data} />
       )}
       {boardId === 'alliance_score' && alliance.data && (
         <SeasonAllianceTable rows={alliance.data} />
@@ -102,8 +109,17 @@ export function SeasonPanel() {
         <p className="note">
           A dash means we have not seen that building yet, not that it is unbuilt. Only buildings
           the collector has panned over appear here.
-          {alertLevel !== null && (
-            <> A ! marks a member holding any building below level {alertLevel}.</>
+          {floors.size > 0 && (
+            <>
+              {' '}
+              A <span className="behind-mark">!</span> marks a member under one of the levels the
+              alliance set, and the number itself is marked in the column that is short:{' '}
+              {buildings.data?.columns
+                .filter((kind) => floors.has(kind.id))
+                .map((kind) => `${kind.name} ${floors.get(kind.id)}`)
+                .join(', ')}
+              .
+            </>
           )}
           {buildings.data !== undefined && buildings.data.unnamedSeen > 0 && (
             <>

@@ -5,7 +5,7 @@ import { playerHash } from '../../lib/route';
 import type { ColumnSpec } from '../../lib/tableLayout';
 import { TERMS } from '../../lib/terms';
 import { useTableView } from '../../lib/useTableView';
-import { type BuildingGrid, type MemberBuildings, isBehind, levelKey } from './buildings';
+import { type BuildingGrid, type MemberBuildings, buildingsBehind, levelKey } from './buildings';
 
 const SEARCH_FIELDS = ['name', 'gameUid'] as const;
 
@@ -23,11 +23,12 @@ export function seasonBuildingColumnSpecs(): ColumnSpec[] {
 
 export interface SeasonBuildingTableProps {
   grid: BuildingGrid;
-  /** Level below which a member is marked, or null to mark nobody. */
-  alertLevel: number | null;
+  /** Building type id → the level below which THAT building is behind. A
+   * building missing from the map is not judged; an empty map marks nobody. */
+  floors: ReadonlyMap<number, number>;
 }
 
-export function SeasonBuildingTable({ grid, alertLevel }: SeasonBuildingTableProps) {
+export function SeasonBuildingTable({ grid, floors }: SeasonBuildingTableProps) {
   const { query, setQuery, sort, onSort, view, shown, total } = useTableView(
     grid.members,
     SEARCH_FIELDS,
@@ -43,20 +44,19 @@ export function SeasonBuildingTable({ grid, alertLevel }: SeasonBuildingTablePro
         className: 'label',
         fixed: true,
         cell: (row) => {
-          const behind = alertLevel !== null && isBehind(row, grid.columns, alertLevel);
+          const short = buildingsBehind(row, grid.columns, floors);
+          // Which buildings, and what each was supposed to reach. The old
+          // mark could only say "something is below 10", which left the
+          // reader to find it by eye across seven columns.
+          const why = short.map((kind) => `${kind.name} < ${floors.get(kind.id) ?? 0}`).join(', ');
           return (
             <>
-              {behind && (
-                // Text, not colour alone: the mark has to survive a
-                // monochrome screen and a reader who cannot tell the two
-                // colours apart. The title says which level it means, so
-                // nobody has to go and look the setting up.
-                <span
-                  className="behind-mark"
-                  title={`Has a building below level ${alertLevel}`}
-                  aria-label={`Below level ${alertLevel}`}
-                >
-                  !{' '}
+              {short.length > 0 && (
+                // Text inside the badge, not colour alone: the mark has to
+                // survive a monochrome screen and a reader who cannot tell
+                // the two colours apart.
+                <span aria-label={`Behind: ${why}`} className="behind-mark" title={why}>
+                  !
                 </span>
               )}
               <a href={playerHash(row.playerId)}>{row.name ?? `UID ${row.gameUid}`}</a>
@@ -81,11 +81,24 @@ export function SeasonBuildingTable({ grid, alertLevel }: SeasonBuildingTablePro
       // own coverage.
       cell: (row: MemberBuildings) => {
         const level = row[levelKey(kind.id)];
-        return level === null || level === undefined ? <span className="muted">—</span> : level;
+        if (level === null || level === undefined) {
+          return <span className="muted">—</span>;
+        }
+        const floor = floors.get(kind.id);
+        // The cell itself, not only the name. A row marked at the far left
+        // and seven columns wide makes the reader hunt for the building that
+        // earned the mark; marking the number says it where it is read.
+        return floor !== undefined && level < floor ? (
+          <span className="cell-behind" title={`Below ${floor}`}>
+            {level}
+          </span>
+        ) : (
+          level
+        );
       },
     }));
     return [...identity, ...buildings];
-  }, [grid.columns, alertLevel]);
+  }, [grid.columns, floors]);
 
   if (grid.members.length === 0) {
     return <p className="empty">No season buildings seen for our members yet.</p>;
