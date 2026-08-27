@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.15"
+    PostgrestVersion: "14.17"
   }
   graphql_public: {
     Tables: {
@@ -152,6 +152,20 @@ export type Database = {
             foreignKeyName: "activity_facts_alliance_id_fkey"
             columns: ["alliance_id"]
             isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "activity_facts_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "activity_facts_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
             referencedRelation: "alliances"
             referencedColumns: ["alliance_id"]
           },
@@ -246,6 +260,20 @@ export type Database = {
             foreignKeyName: "alliance_contribution_snapshots_alliance_id_fkey"
             columns: ["alliance_id"]
             isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "alliance_contribution_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "alliance_contribution_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
             referencedRelation: "alliances"
             referencedColumns: ["alliance_id"]
           },
@@ -254,6 +282,13 @@ export type Database = {
             columns: ["collected_from_server_id"]
             isOneToOne: false
             referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "alliance_contribution_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
             referencedColumns: ["server_id"]
           },
           {
@@ -275,6 +310,13 @@ export type Database = {
             columns: ["server_id"]
             isOneToOne: false
             referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "alliance_contribution_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
             referencedColumns: ["server_id"]
           },
         ]
@@ -474,6 +516,20 @@ export type Database = {
             foreignKeyName: "alliance_member_snapshots_alliance_id_fkey"
             columns: ["alliance_id"]
             isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "alliance_member_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "alliance_member_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
             referencedRelation: "alliances"
             referencedColumns: ["alliance_id"]
           },
@@ -482,6 +538,13 @@ export type Database = {
             columns: ["collected_from_server_id"]
             isOneToOne: false
             referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "alliance_member_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
             referencedColumns: ["server_id"]
           },
           {
@@ -503,6 +566,13 @@ export type Database = {
             columns: ["server_id"]
             isOneToOne: false
             referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "alliance_member_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
             referencedColumns: ["server_id"]
           },
         ]
@@ -533,6 +603,20 @@ export type Database = {
           name?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "alliance_names_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "alliance_names_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
           {
             foreignKeyName: "alliance_names_alliance_id_fkey"
             columns: ["alliance_id"]
@@ -617,6 +701,20 @@ export type Database = {
             foreignKeyName: "alliance_season_score_snapshots_alliance_id_fkey"
             columns: ["alliance_id"]
             isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "alliance_season_score_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "alliance_season_score_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
             referencedRelation: "alliances"
             referencedColumns: ["alliance_id"]
           },
@@ -625,6 +723,13 @@ export type Database = {
             columns: ["collected_from_server_id"]
             isOneToOne: false
             referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "alliance_season_score_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
             referencedColumns: ["server_id"]
           },
           {
@@ -639,6 +744,13 @@ export type Database = {
             columns: ["server_id"]
             isOneToOne: false
             referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "alliance_season_score_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
             referencedColumns: ["server_id"]
           },
         ]
@@ -712,6 +824,20 @@ export type Database = {
             foreignKeyName: "alliance_snapshots_alliance_id_fkey"
             columns: ["alliance_id"]
             isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "alliance_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "alliance_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
             referencedRelation: "alliances"
             referencedColumns: ["alliance_id"]
           },
@@ -720,6 +846,13 @@ export type Database = {
             columns: ["collected_from_server_id"]
             isOneToOne: false
             referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "alliance_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
             referencedColumns: ["server_id"]
           },
           {
@@ -734,6 +867,13 @@ export type Database = {
             columns: ["server_id"]
             isOneToOne: false
             referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "alliance_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
             referencedColumns: ["server_id"]
           },
         ]
@@ -800,6 +940,13 @@ export type Database = {
             columns: ["server_id"]
             isOneToOne: false
             referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "alliances_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
             referencedColumns: ["server_id"]
           },
         ]
@@ -1014,6 +1161,13 @@ export type Database = {
             referencedColumns: ["server_id"]
           },
           {
+            foreignKeyName: "arena_entries_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+          {
             foreignKeyName: "arena_entries_collector_id_fkey"
             columns: ["collector_id"]
             isOneToOne: false
@@ -1032,6 +1186,13 @@ export type Database = {
             columns: ["server_id"]
             isOneToOne: false
             referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "arena_entries_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
             referencedColumns: ["server_id"]
           },
         ]
@@ -1149,6 +1310,13 @@ export type Database = {
             referencedColumns: ["server_id"]
           },
           {
+            foreignKeyName: "arena_entry_heroes_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+          {
             foreignKeyName: "arena_entry_heroes_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
@@ -1160,6 +1328,13 @@ export type Database = {
             columns: ["server_id"]
             isOneToOne: false
             referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "arena_entry_heroes_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
             referencedColumns: ["server_id"]
           },
         ]
@@ -1228,6 +1403,13 @@ export type Database = {
             referencedColumns: ["server_id"]
           },
           {
+            foreignKeyName: "arena_matches_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+          {
             foreignKeyName: "arena_matches_collector_id_fkey"
             columns: ["collector_id"]
             isOneToOne: false
@@ -1246,6 +1428,13 @@ export type Database = {
             columns: ["server_id"]
             isOneToOne: false
             referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "arena_matches_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
             referencedColumns: ["server_id"]
           },
         ]
@@ -1308,6 +1497,13 @@ export type Database = {
             referencedColumns: ["server_id"]
           },
           {
+            foreignKeyName: "arena_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+          {
             foreignKeyName: "arena_snapshots_collector_id_fkey"
             columns: ["collector_id"]
             isOneToOne: false
@@ -1319,6 +1515,13 @@ export type Database = {
             columns: ["server_id"]
             isOneToOne: false
             referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "arena_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
             referencedColumns: ["server_id"]
           },
         ]
@@ -1458,6 +1661,13 @@ export type Database = {
             columns: ["collected_from_server_id"]
             isOneToOne: false
             referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "battle_report_ingests_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
             referencedColumns: ["server_id"]
           },
           {
@@ -1702,6 +1912,13 @@ export type Database = {
             referencedRelation: "servers"
             referencedColumns: ["server_id"]
           },
+          {
+            foreignKeyName: "data_change_notifications_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
         ]
       }
       favourites: {
@@ -1740,6 +1957,20 @@ export type Database = {
             foreignKeyName: "favourites_alliance_id_fkey"
             columns: ["alliance_id"]
             isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "favourites_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "favourites_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
             referencedRelation: "alliances"
             referencedColumns: ["alliance_id"]
           },
@@ -1769,6 +2000,13 @@ export type Database = {
             columns: ["server_id"]
             isOneToOne: false
             referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "favourites_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
             referencedColumns: ["server_id"]
           },
           {
@@ -1956,6 +2194,7 @@ export type Database = {
       }
       member_roster_current: {
         Row: {
+          below_minimum: boolean
           computed_rank: string | null
           growth_1d: number | null
           growth_1d_at: string | null
@@ -1967,6 +2206,7 @@ export type Database = {
           refreshed_at: string
         }
         Insert: {
+          below_minimum?: boolean
           computed_rank?: string | null
           growth_1d?: number | null
           growth_1d_at?: string | null
@@ -1978,6 +2218,7 @@ export type Database = {
           refreshed_at?: string
         }
         Update: {
+          below_minimum?: boolean
           computed_rank?: string | null
           growth_1d?: number | null
           growth_1d_at?: string | null
@@ -2314,6 +2555,13 @@ export type Database = {
             referencedColumns: ["server_id"]
           },
           {
+            foreignKeyName: "player_component_power_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+          {
             foreignKeyName: "player_component_power_snapshots_collector_id_fkey"
             columns: ["collector_id"]
             isOneToOne: false
@@ -2339,6 +2587,13 @@ export type Database = {
             columns: ["server_id"]
             isOneToOne: false
             referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "player_component_power_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
             referencedColumns: ["server_id"]
           },
         ]
@@ -2457,6 +2712,13 @@ export type Database = {
             referencedColumns: ["server_id"]
           },
           {
+            foreignKeyName: "player_detail_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+          {
             foreignKeyName: "player_detail_snapshots_collector_id_fkey"
             columns: ["collector_id"]
             isOneToOne: false
@@ -2475,6 +2737,13 @@ export type Database = {
             columns: ["server_id"]
             isOneToOne: false
             referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "player_detail_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
             referencedColumns: ["server_id"]
           },
         ]
@@ -2602,6 +2871,58 @@ export type Database = {
           },
         ]
       }
+      player_season_buildings_current: {
+        Row: {
+          game_uid: number
+          levels: Json
+          newest_seen: string | null
+          oldest_seen: string | null
+          player_id: string
+          refreshed_at: string
+          server_id: number
+        }
+        Insert: {
+          game_uid: number
+          levels?: Json
+          newest_seen?: string | null
+          oldest_seen?: string | null
+          player_id: string
+          refreshed_at?: string
+          server_id: number
+        }
+        Update: {
+          game_uid?: number
+          levels?: Json
+          newest_seen?: string | null
+          oldest_seen?: string | null
+          player_id?: string
+          refreshed_at?: string
+          server_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_season_buildings_current_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: true
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "player_season_buildings_current_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "player_season_buildings_current_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+        ]
+      }
       player_season_force_snapshots: {
         Row: {
           alliance_abbr: string | null
@@ -2678,6 +2999,13 @@ export type Database = {
             referencedColumns: ["server_id"]
           },
           {
+            foreignKeyName: "player_season_force_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+          {
             foreignKeyName: "player_season_force_snapshots_collector_id_fkey"
             columns: ["collector_id"]
             isOneToOne: false
@@ -2696,6 +3024,13 @@ export type Database = {
             columns: ["server_id"]
             isOneToOne: false
             referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "player_season_force_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
             referencedColumns: ["server_id"]
           },
         ]
@@ -2776,6 +3111,13 @@ export type Database = {
             referencedColumns: ["server_id"]
           },
           {
+            foreignKeyName: "player_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+          {
             foreignKeyName: "player_snapshots_collector_id_fkey"
             columns: ["collector_id"]
             isOneToOne: false
@@ -2794,6 +3136,13 @@ export type Database = {
             columns: ["server_id"]
             isOneToOne: false
             referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "player_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
             referencedColumns: ["server_id"]
           },
         ]
@@ -2881,6 +3230,20 @@ export type Database = {
             foreignKeyName: "players_current_alliance_id_fkey"
             columns: ["current_alliance_id"]
             isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "players_current_alliance_id_fkey"
+            columns: ["current_alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "players_current_alliance_id_fkey"
+            columns: ["current_alliance_id"]
+            isOneToOne: false
             referencedRelation: "alliances"
             referencedColumns: ["alliance_id"]
           },
@@ -2889,6 +3252,13 @@ export type Database = {
             columns: ["server_id"]
             isOneToOne: false
             referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "players_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
             referencedColumns: ["server_id"]
           },
         ]
@@ -3061,6 +3431,7 @@ export type Database = {
       rank_period_snapshots: {
         Row: {
           activity_score: number | null
+          below_minimum: boolean
           computed_at: string
           donation_pct: number | null
           donation_total: number | null
@@ -3076,6 +3447,7 @@ export type Database = {
           duel_week2_at: string | null
           game_uid: number
           growth_pct: number | null
+          minimum_missed: string | null
           name: string | null
           offline_hours: number | null
           period_start: string
@@ -3092,6 +3464,7 @@ export type Database = {
         }
         Insert: {
           activity_score?: number | null
+          below_minimum?: boolean
           computed_at?: string
           donation_pct?: number | null
           donation_total?: number | null
@@ -3107,6 +3480,7 @@ export type Database = {
           duel_week2_at?: string | null
           game_uid: number
           growth_pct?: number | null
+          minimum_missed?: string | null
           name?: string | null
           offline_hours?: number | null
           period_start: string
@@ -3123,6 +3497,7 @@ export type Database = {
         }
         Update: {
           activity_score?: number | null
+          below_minimum?: boolean
           computed_at?: string
           donation_pct?: number | null
           donation_total?: number | null
@@ -3138,6 +3513,7 @@ export type Database = {
           duel_week2_at?: string | null
           game_uid?: number
           growth_pct?: number | null
+          minimum_missed?: string | null
           name?: string | null
           offline_hours?: number | null
           period_start?: string
@@ -3550,6 +3926,13 @@ export type Database = {
             referencedColumns: ["server_id"]
           },
           {
+            foreignKeyName: "season_building_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+          {
             foreignKeyName: "season_building_snapshots_collector_id_fkey"
             columns: ["collector_id"]
             isOneToOne: false
@@ -3568,6 +3951,13 @@ export type Database = {
             columns: ["server_id"]
             isOneToOne: false
             referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "season_building_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
             referencedColumns: ["server_id"]
           },
         ]
@@ -3606,6 +3996,13 @@ export type Database = {
             columns: ["merged_into_server_id"]
             isOneToOne: false
             referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "servers_merged_into_server_id_fkey"
+            columns: ["merged_into_server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
             referencedColumns: ["server_id"]
           },
         ]
@@ -3734,6 +4131,13 @@ export type Database = {
             referencedColumns: ["server_id"]
           },
           {
+            foreignKeyName: "world_city_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+          {
             foreignKeyName: "world_city_snapshots_collector_id_fkey"
             columns: ["collector_id"]
             isOneToOne: false
@@ -3752,6 +4156,115 @@ export type Database = {
             columns: ["server_id"]
             isOneToOne: false
             referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "world_city_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+        ]
+      }
+      world_viewport_snapshots: {
+        Row: {
+          captured_at: string
+          center_x: number
+          center_y: number
+          collected_from_server_id: number
+          collector_id: string
+          created_at: string
+          idempotency_key: string
+          max_x: number | null
+          max_y: number | null
+          min_x: number | null
+          min_y: number | null
+          object_count: number
+          observation_id: string
+          parser_version: string
+          raw: Json
+          server_id: number
+          snapshot_id: string
+          source_command: string
+          view_lvl: number | null
+        }
+        Insert: {
+          captured_at: string
+          center_x: number
+          center_y: number
+          collected_from_server_id: number
+          collector_id: string
+          created_at?: string
+          idempotency_key: string
+          max_x?: number | null
+          max_y?: number | null
+          min_x?: number | null
+          min_y?: number | null
+          object_count?: number
+          observation_id: string
+          parser_version: string
+          raw?: Json
+          server_id: number
+          snapshot_id?: string
+          source_command: string
+          view_lvl?: number | null
+        }
+        Update: {
+          captured_at?: string
+          center_x?: number
+          center_y?: number
+          collected_from_server_id?: number
+          collector_id?: string
+          created_at?: string
+          idempotency_key?: string
+          max_x?: number | null
+          max_y?: number | null
+          min_x?: number | null
+          min_y?: number | null
+          object_count?: number
+          observation_id?: string
+          parser_version?: string
+          raw?: Json
+          server_id?: number
+          snapshot_id?: string
+          source_command?: string
+          view_lvl?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "world_viewport_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "world_viewport_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "world_viewport_snapshots_collector_id_fkey"
+            columns: ["collector_id"]
+            isOneToOne: false
+            referencedRelation: "collectors"
+            referencedColumns: ["collector_id"]
+          },
+          {
+            foreignKeyName: "world_viewport_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "world_viewport_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
             referencedColumns: ["server_id"]
           },
         ]
@@ -3797,15 +4310,7 @@ export type Database = {
           readings: number | null
           total: number | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "alliance_member_snapshots_alliance_id_fkey"
-            columns: ["alliance_id"]
-            isOneToOne: false
-            referencedRelation: "alliances"
-            referencedColumns: ["alliance_id"]
-          },
-        ]
+        Relationships: []
       }
       alliance_departures: {
         Row: {
@@ -3823,13 +4328,6 @@ export type Database = {
           roster_captured_at: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "alliance_member_snapshots_alliance_id_fkey"
-            columns: ["alliance_id"]
-            isOneToOne: false
-            referencedRelation: "alliances"
-            referencedColumns: ["alliance_id"]
-          },
           {
             foreignKeyName: "alliance_member_snapshots_player_id_fkey"
             columns: ["player_id"]
@@ -3966,6 +4464,20 @@ export type Database = {
             foreignKeyName: "alliance_snapshots_alliance_id_fkey"
             columns: ["alliance_id"]
             isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "alliance_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "alliance_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
             referencedRelation: "alliances"
             referencedColumns: ["alliance_id"]
           },
@@ -3974,6 +4486,13 @@ export type Database = {
             columns: ["server_id"]
             isOneToOne: false
             referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "alliance_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
             referencedColumns: ["server_id"]
           },
         ]
@@ -3997,6 +4516,20 @@ export type Database = {
           total_power: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "alliance_member_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "alliance_member_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
           {
             foreignKeyName: "alliance_member_snapshots_alliance_id_fkey"
             columns: ["alliance_id"]
@@ -4028,6 +4561,20 @@ export type Database = {
             foreignKeyName: "alliance_member_snapshots_alliance_id_fkey"
             columns: ["alliance_id"]
             isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "alliance_member_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "alliance_member_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
             referencedRelation: "alliances"
             referencedColumns: ["alliance_id"]
           },
@@ -4043,6 +4590,13 @@ export type Database = {
             columns: ["server_id"]
             isOneToOne: false
             referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "alliance_member_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
             referencedColumns: ["server_id"]
           },
         ]
@@ -4110,11 +4664,45 @@ export type Database = {
             referencedRelation: "servers"
             referencedColumns: ["server_id"]
           },
+          {
+            foreignKeyName: "world_city_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+        ]
+      }
+      member_current_period_contribution: {
+        Row: {
+          current_name: string | null
+          donation_total: number | null
+          donation_week1: number | null
+          donation_week2: number | null
+          duel_total: number | null
+          duel_week1: number | null
+          duel_week2: number | null
+          game_uid: number | null
+          newest_reading_at: string | null
+          period_start: string | null
+          player_id: string | null
+          week1_end: string | null
+          week2_end: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_roster_current_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: true
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
         ]
       }
       member_roster: {
         Row: {
           assigned_rank: string | null
+          below_minimum: boolean | null
           computed_rank: string | null
           current_name: string | null
           daily_donation_score: number | null
@@ -4178,6 +4766,13 @@ export type Database = {
             referencedRelation: "servers"
             referencedColumns: ["server_id"]
           },
+          {
+            foreignKeyName: "season_building_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
         ]
       }
       member_season_buildings_by_member: {
@@ -4192,11 +4787,25 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "season_building_snapshots_player_id_fkey"
+            foreignKeyName: "player_season_buildings_current_player_id_fkey"
             columns: ["player_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "players"
             referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "player_season_buildings_current_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "player_season_buildings_current_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
           },
         ]
       }
@@ -4277,16 +4886,25 @@ export type Database = {
             referencedRelation: "servers"
             referencedColumns: ["server_id"]
           },
+          {
+            foreignKeyName: "player_component_power_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
         ]
       }
       player_current_rank: {
         Row: {
           assigned_rank: string | null
+          below_minimum: boolean | null
           computed_reason: string | null
           computed_tier: string | null
           donation_pct: number | null
           duel_pct: number | null
           growth_pct: number | null
+          minimum_missed: string | null
           period_start: string | null
           player_id: string | null
           rank_score: number | null
@@ -4384,6 +5002,13 @@ export type Database = {
             referencedRelation: "servers"
             referencedColumns: ["server_id"]
           },
+          {
+            foreignKeyName: "player_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
         ]
       }
       player_subscriptions: {
@@ -4463,6 +5088,7 @@ export type Database = {
       rank_period_latest: {
         Row: {
           activity_score: number | null
+          below_minimum: boolean | null
           computed_at: string | null
           donation_pct: number | null
           donation_total: number | null
@@ -4478,6 +5104,7 @@ export type Database = {
           duel_week2_at: string | null
           game_uid: number | null
           growth_pct: number | null
+          minimum_missed: string | null
           name: string | null
           offline_hours: number | null
           period_start: string | null
@@ -4583,6 +5210,20 @@ export type Database = {
         }
         Relationships: []
       }
+      world_sweep_coverage: {
+        Row: {
+          cell_size: number | null
+          cells_never_seen: number | null
+          cells_seen: number | null
+          cells_total: number | null
+          gaps: Json | null
+          newest_seen_at: string | null
+          oldest_seen_at: string | null
+          seen_cells: Json | null
+          server_id: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       activity_day_of: { Args: { ts: string }; Returns: string }
@@ -4670,6 +5311,10 @@ export type Database = {
         Returns: undefined
       }
       refresh_member_roster: { Args: never; Returns: undefined }
+      refresh_player_season_buildings: {
+        Args: { p_players?: string[] }
+        Returns: undefined
+      }
       reject_player_claim: {
         Args: { p_user: string }
         Returns: {
@@ -4704,6 +5349,13 @@ export type Database = {
         }[]
       }
       tier_rank: { Args: { p_tier: string }; Returns: number }
+      world_viewport_half_extent: {
+        Args: never
+        Returns: {
+          half_x: number
+          half_y: number
+        }[]
+      }
     }
     Enums: {
       app_role:

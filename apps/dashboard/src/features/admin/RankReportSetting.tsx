@@ -34,6 +34,10 @@ interface RankRow {
   offline_hours: number | null;
   tier: string | null;
   tier_reason: string | null;
+  /** 0155: a week that WAS read came in under the alliance floor. Recorded for
+   * everyone, including the officers and newcomers it cannot demote. */
+  below_minimum: boolean | null;
+  minimum_missed: string | null;
   /** When this answer was worked out. Shown beside the tier counts: the table
    * redraws identically when a rebuild lands close to the previous one, and
    * without a timestamp "nothing changed" and "nothing happened" look the
@@ -90,7 +94,7 @@ async function fetchPeriod(periodStart: Date): Promise<RankRow[]> {
     // the newest.
     .from('rank_period_latest')
     .select(
-      'player_id, name, donation_total, duel_total, power_growth, activity_score, offline_hours, tier, tier_reason, computed_at',
+      'player_id, name, donation_total, duel_total, power_growth, activity_score, offline_hours, tier, tier_reason, below_minimum, minimum_missed, computed_at',
     )
     .eq('period_start', periodStart.toISOString())
     .order('activity_score', { ascending: false, nullsFirst: false });
@@ -112,6 +116,9 @@ export function RankReportSetting() {
   // stored setting: it deletes something a person typed, so it should be a
   // decision made at the moment the button is pressed.
   const [applyToAssigned, setApplyToAssigned] = useState(false);
+  // Tier changes, or the whole roster with its score movement. Component state:
+  // it is a way of looking at one answer, not a property of the answer.
+  const [showAll, setShowAll] = useState(false);
 
   // The period now in progress. It is both the default and the one the Build
   // button acts on, so the fortnight the alliance is actually living in is the
@@ -228,6 +235,17 @@ export function RankReportSetting() {
       return r - l || (right.activity_score ?? 0) - (left.activity_score ?? 0);
     });
 
+  // Everyone, by score. A TIER change is a step over a percentile boundary, so
+  // a member can gain fifteen points and still read as "no change" — which is
+  // most of the alliance most of the time, and exactly the movement an officer
+  // wants to see before deciding anything. The tier list stays the default
+  // because it is the list that produces a decision; this one is the evidence
+  // behind it.
+  const everyone = [...now].sort(
+    (left, right) => (right.activity_score ?? -1) - (left.activity_score ?? -1),
+  );
+  const rows = showAll ? everyone : changed;
+
   const counts = now.reduce<Record<string, number>>((acc, row) => {
     const tier = row.tier ?? '—';
     acc[tier] = (acc[tier] ?? 0) + 1;
@@ -335,18 +353,37 @@ export function RankReportSetting() {
         )}
       </div>
 
+      {now.length > 0 && (
+        <div className="row">
+          <button
+            className={showAll ? '' : 'active'}
+            onClick={() => setShowAll(false)}
+            type="button"
+          >
+            Rank changes ({changed.length})
+          </button>
+          <button
+            className={showAll ? 'active' : ''}
+            onClick={() => setShowAll(true)}
+            type="button"
+          >
+            Everyone ({everyone.length})
+          </button>
+        </div>
+      )}
+
       {now.length === 0 ? (
         <p className="empty">
           Nothing worked out for this period yet. Building it reads the captures that fall inside it
           — if the collector did not run near the two week endings, the figures will be short by
           however much it missed.
         </p>
-      ) : before.length === 0 ? (
+      ) : !showAll && before.length === 0 ? (
         <p className="empty">
           No previous period to compare against, so every rank here is a first assignment rather
-          than a change.
+          than a change. Everyone still lists this period's scores.
         </p>
-      ) : changed.length === 0 ? (
+      ) : rows.length === 0 ? (
         <p className="empty">Nobody changed rank this period.</p>
       ) : (
         <div className="table-wrap">
@@ -363,17 +400,45 @@ export function RankReportSetting() {
               </tr>
             </thead>
             <tbody>
-              {changed.map((row) => {
-                const was = beforeByPlayer.get(row.player_id)?.tier ?? '—';
+              {rows.map((row) => {
+                const previous = beforeByPlayer.get(row.player_id);
+                const was = previous?.tier ?? '—';
+                const moved = row.tier != null && was !== '—' && was !== row.tier;
                 const up = (TIER_ORDER[row.tier ?? ''] ?? 0) > (TIER_ORDER[was] ?? 0);
+                // Null on either side is not a delta of zero — a member with no
+                // score last period has not stood still, they were unmeasured.
+                const delta =
+                  row.activity_score === null || (previous?.activity_score ?? null) === null
+                    ? null
+                    : row.activity_score - (previous?.activity_score as number);
                 return (
                   <tr key={row.player_id}>
-                    <td className="label">{row.name ?? row.player_id.slice(0, 8)}</td>
-                    <td className={`label ${up ? 'growth-up' : 'growth-down'}`}>
-                      {was} → {row.tier}
+                    <td className="label">
+                      {row.below_minimum === true && (
+                        // The demotion is already in the tier; this says WHY,
+                        // and says it to the person who has to defend it.
+                        <span
+                          aria-label={`Below the weekly ${row.minimum_missed ?? ''} minimum`}
+                          className="below-minimum"
+                          title={`Below the weekly ${row.minimum_missed ?? 'minimum'}`}
+                        >
+                          ●
+                        </span>
+                      )}
+                      {row.name ?? row.player_id.slice(0, 8)}
+                    </td>
+                    <td className={`label ${moved ? (up ? 'growth-up' : 'growth-down') : ''}`}>
+                      {moved ? `${was} → ${row.tier}` : (row.tier ?? '—')}
                     </td>
                     <td className="num">
                       {row.activity_score === null ? '—' : row.activity_score.toFixed(1)}
+                      {delta !== null && Math.abs(delta) >= 0.05 && (
+                        <span className={delta > 0 ? 'growth-up' : 'growth-down'}>
+                          {' '}
+                          {delta > 0 ? '+' : ''}
+                          {delta.toFixed(1)}
+                        </span>
+                      )}
                     </td>
                     <td className="num">{row.donation_total?.toLocaleString('ko-KR') ?? '—'}</td>
                     <td className="num">{row.duel_total?.toLocaleString('ko-KR') ?? '—'}</td>
@@ -385,7 +450,9 @@ export function RankReportSetting() {
                           demoted will ask which one it was. */}
                       {row.tier_reason === 'offline'
                         ? `offline ${Math.round(row.offline_hours ?? 0)}h`
-                        : 'score'}
+                        : row.below_minimum === true
+                          ? `under weekly ${row.minimum_missed ?? 'minimum'}`
+                          : 'score'}
                     </td>
                   </tr>
                 );

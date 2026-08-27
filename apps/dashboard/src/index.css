@@ -1217,6 +1217,28 @@ select.rank-badge {
   color: #f87171;
 }
 
+/* Under the alliance's weekly floor (0155). A dot rather than a whole red
+ * row: the row still has to be read, and colouring all of it makes the
+ * numbers inside it harder to compare against everybody else's. The title
+ * and aria-label carry which floor was missed, so the colour is emphasis
+ * rather than the message. */
+.below-minimum {
+  color: var(--danger-fg);
+  font-size: 0.75em;
+  margin-right: 0.35em;
+  vertical-align: middle;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .below-minimum {
+    color: #f87171;
+  }
+}
+
+:root[data-theme="dark"] .below-minimum {
+  color: #f87171;
+}
+
 /* The list of names a formula may use. Wraps freely — eleven ids is more
  * than a line and fewer than a table wants. */
 .metric-picker {

@@ -36,6 +36,10 @@ export interface RosterRow {
   /** The score that rank came from. A rank on its own is an assertion; this
    * is what makes it arguable. */
   rank_score: number | null;
+  /** 0155: a weekly donation or duel reading in the period that is in force
+   * came in under the alliance minimum, so the rank above was stepped down
+   * once. False for everyone while the minimums are switched off. */
+  below_minimum: boolean | null;
   /** Power at the most recent 02:05 UTC against the same point a day and a
    * week earlier (0051). Null where there is no earlier snapshot to compare
    * with — which is not the same as 0% and must not render as one. */
@@ -524,8 +528,28 @@ const BASE_COLUMNS: BaseColumn[] = [
     label: 'Rank score',
     sortKey: 'rank_score',
     numeric: true,
-    cell: (row) => (row.rank_score === null ? '—' : row.rank_score.toFixed(1)),
-    cellTitle: (row) => row.computed_rank ?? undefined,
+    // The dot sits on the SCORE rather than the name because that is the
+    // number it explains: the tier beside it has already been stepped down
+    // (0155), and without the mark the member reads as having simply scored
+    // less than they did.
+    cell: (row) => (
+      <>
+        {row.below_minimum === true && (
+          <span
+            aria-label="Below the alliance weekly minimum"
+            className="below-minimum"
+            title="Below the alliance weekly minimum — rank dropped one step"
+          >
+            ●
+          </span>
+        )}
+        {row.rank_score === null ? '—' : row.rank_score.toFixed(1)}
+      </>
+    ),
+    cellTitle: (row) =>
+      row.below_minimum === true
+        ? `${row.computed_rank ?? '—'} · below the weekly minimum`
+        : (row.computed_rank ?? undefined),
   },
   // Officer and above only, and enforced in SQL rather than here (0092). These
   // two are left OUT of the table for anybody the query returned nothing to —
