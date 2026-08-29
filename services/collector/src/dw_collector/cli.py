@@ -12,6 +12,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Annotated
 
+import httpx
 import typer
 from pydantic import ValidationError
 
@@ -258,6 +259,82 @@ def backfill(
         f"backfill command={command} table={table or 'all'}"
         f" observations={seen} new-rows={written} rejected={rejected}"
     )
+
+
+@app.command("unnamed-heroes")
+def unnamed_heroes(
+    url: Annotated[str | None, typer.Option(envvar="SUPABASE_URL")] = None,
+    secret_key: Annotated[str | None, typer.Option(envvar="SUPABASE_SECRET_KEY")] = None,
+) -> None:
+    """Hero ids seen in a lineup that the catalogue does not name.
+
+    HERO NAMES ARE NOT ON THE WIRE. The server sends a localisation key
+    (`"name": "483491"`) and the client resolves it from the APK, so somebody
+    types every hero name into the admin page by hand. A hero the game adds is
+    therefore invisible until a person notices the id and names it, and the
+    only signal that one exists is a number appearing in an arena lineup.
+
+    This is that signal, asked for on purpose. It was worked out twice by hand
+    before it was written down, and both times the hand version got it wrong
+    the same way: paging a sample of a 536,391-row table without an ORDER BY
+    and reading "two distinct ids" off twenty thousand arbitrary rows. Asking
+    the database for the ids it does NOT have is one request and cannot be
+    fooled that way.
+
+    Reads Supabase, not the journal, because the catalogue only exists there —
+    so this answers after sync has run, not the moment a scan finishes.
+    """
+    if not url or not secret_key:
+        typer.echo("SUPABASE_URL and SUPABASE_SECRET_KEY are required", err=True)
+        raise typer.Exit(code=2)
+
+    headers = {"apikey": secret_key, "Authorization": f"Bearer {secret_key}"}
+    with httpx.Client(base_url=url.rstrip("/"), headers=headers, timeout=60.0) as client:
+        known = client.get("/rest/v1/heroes", params={"select": "hero_id", "limit": 500})
+        known.raise_for_status()
+        ids = sorted(row["hero_id"] for row in known.json())
+        if not ids:
+            typer.echo("the hero catalogue is empty; nothing to compare against", err=True)
+            raise typer.Exit(code=1)
+
+        seen = client.get(
+            "/rest/v1/arena_entry_heroes",
+            params={
+                "select": "hero_id,captured_at,star,hero_level",
+                "hero_id": f"not.in.({','.join(str(i) for i in ids)})",
+                # An ORDER BY the filter can descend. Ordering by hero_id
+                # instead returned nothing at all against the same filter,
+                # which is the shape of a statement timeout rather than an
+                # empty answer — and it looked like good news.
+                "order": "captured_at.desc",
+                "limit": "1000",
+            },
+        )
+        seen.raise_for_status()
+        rows = seen.json()
+
+    typer.echo(f"{len(ids)} heroes catalogued")
+    if not rows:
+        typer.echo("every hero id seen in a lineup is already named")
+        return
+
+    found: dict[int, dict[str, object]] = {}
+    for row in rows:
+        entry = found.setdefault(row["hero_id"], {"rows": 0, "newest": "", "star": 0, "level": 0})
+        entry["rows"] = int(entry["rows"]) + 1  # type: ignore[call-overload]
+        entry["newest"] = max(str(entry["newest"]), str(row.get("captured_at") or ""))
+        entry["star"] = max(int(entry["star"]), int(row.get("star") or 0))  # type: ignore[call-overload]
+        entry["level"] = max(int(entry["level"]), int(row.get("hero_level") or 0))  # type: ignore[call-overload]
+
+    typer.echo(f"{len(found)} id(s) seen in a lineup and NOT in the catalogue:")
+    for hero_id, entry in sorted(found.items()):
+        typer.echo(
+            f"  {hero_id:>6}  {entry['rows']:>4} rows  "
+            f"newest {str(entry['newest'])[:16]}  "
+            f"max star {entry['star']}  max level {entry['level']}"
+        )
+    typer.echo("")
+    typer.echo("Add them on the admin page's Heroes tab; the name has to be typed.")
 
 
 @app.command()
