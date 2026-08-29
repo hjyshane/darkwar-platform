@@ -5,7 +5,14 @@ import { playerHash } from '../../lib/route';
 import type { ColumnSpec } from '../../lib/tableLayout';
 import { TERMS } from '../../lib/terms';
 import { useTableView } from '../../lib/useTableView';
-import { type BuildingGrid, type MemberBuildings, buildingsBehind, levelKey } from './buildings';
+import {
+  type BuildingGrid,
+  DEFAULT_STALL_HOURS,
+  type MemberBuildings,
+  buildingsBehind,
+  levelKey,
+  stallOf,
+} from './buildings';
 
 const SEARCH_FIELDS = ['name', 'gameUid'] as const;
 
@@ -36,6 +43,11 @@ export function SeasonBuildingTable({ grid, floors }: SeasonBuildingTableProps) 
   );
 
   const columns = useMemo<Column<MemberBuildings>[]>(() => {
+    // ONE CLOCK FOR THE WHOLE GRID, taken here rather than per cell: two
+    // cells rendered either side of a threshold would otherwise disagree
+    // about the same building. It moves when the data does, which is what
+    // `capturedAt` is doing in the dependency list.
+    const now = new Date();
     const identity: Column<MemberBuildings>[] = [
       {
         id: 'name',
@@ -85,11 +97,34 @@ export function SeasonBuildingTable({ grid, floors }: SeasonBuildingTableProps) 
           return <span className="muted">—</span>;
         }
         const floor = floors.get(kind.id);
+        const behind = floor !== undefined && level < floor;
+        // BEHIND AND STALLED ARE DIFFERENT QUESTIONS. Behind is "lower than
+        // the floor we set"; stalled is "has not moved in a while". A member
+        // can be well ahead and stopped, or behind and climbing fast, and the
+        // second is the one worth chasing between kill days.
+        const stall = stallOf(row, kind, now);
+        const hours = kind.stallHours ?? DEFAULT_STALL_HOURS;
+        const title = [
+          behind ? `Below ${floor}` : null,
+          stall === 'stalled' ? `No change in ${hours}h` : null,
+          // Said out loud rather than left blank: a cell nobody has looked at
+          // recently is not a verdict, and the reader should not read one.
+          stall === 'unobserved' ? 'Not seen in the last 48h' : null,
+        ]
+          .filter(Boolean)
+          .join(' · ');
+        const classes = [
+          behind ? 'cell-behind' : null,
+          stall === 'stalled' ? 'cell-stalled' : null,
+          stall === 'unobserved' ? 'cell-unseen' : null,
+        ]
+          .filter(Boolean)
+          .join(' ');
         // The cell itself, not only the name. A row marked at the far left
         // and seven columns wide makes the reader hunt for the building that
         // earned the mark; marking the number says it where it is read.
-        return floor !== undefined && level < floor ? (
-          <span className="cell-behind" title={`Below ${floor}`}>
+        return classes ? (
+          <span className={classes} title={title || undefined}>
             {level}
           </span>
         ) : (
@@ -98,7 +133,7 @@ export function SeasonBuildingTable({ grid, floors }: SeasonBuildingTableProps) 
       },
     }));
     return [...identity, ...buildings];
-  }, [grid.columns, floors]);
+  }, [grid.columns, grid.capturedAt, floors]);
 
   if (grid.members.length === 0) {
     return <p className="empty">No season buildings seen for our members yet.</p>;
