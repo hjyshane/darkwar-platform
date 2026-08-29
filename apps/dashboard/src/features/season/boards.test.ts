@@ -75,10 +75,28 @@ describe('season building catalogue', () => {
     expect(s3.get(857000)).toBe('Smart Green House 1');
     expect(s3.get(861000)).toBe('Smart Green House 5');
     expect(s3.get(863000)).toBe('Strategic Barrack');
-    expect(SEASON3_BUILDINGS).toHaveLength(7);
+    for (const id of [857000, 858000, 859000, 860000, 861000, 862000, 863000]) {
+      expect(SEASON3_BUILDINGS.find((k) => k.id === id)?.provisional).toBeUndefined();
+    }
   });
 
-  it('reads lab, then greenhouses, then barrack', () => {
+  it('marks the four ids nobody has opened as provisional', () => {
+    // THIS TEST USED TO BE `toHaveLength(7)`, which said "these are all of
+    // them" when what it meant was "these are the confirmed ones". The sweeps
+    // then turned up 864000-867000 and the assertion failed for being
+    // outgrown rather than for being wrong.
+    //
+    // The distinction it was really protecting is confirmed against guessed:
+    // the seven above were checked by a member reading their own screen,
+    // while nobody has opened a turret or a base, so world.get.detail.new has
+    // never returned a name for these four and the attack-before-defense
+    // ordering is all that assigns them.
+    for (const id of [864000, 865000, 866000, 867000]) {
+      expect(SEASON3_BUILDINGS.find((k) => k.id === id)?.provisional).toBe(true);
+    }
+  });
+
+  it('reads lab, then greenhouses, then barrack, then what defends them', () => {
     // Editorial order, not id order: the ids put the greenhouses first.
     expect(SEASON3_BUILDINGS.map((k) => k.name)).toEqual([
       'Thermal Lab',
@@ -88,6 +106,10 @@ describe('season building catalogue', () => {
       'Smart Green House 4',
       'Smart Green House 5',
       'Strategic Barrack',
+      'Armed Turret 1',
+      'Armed Turret 2',
+      'Defense Base 1',
+      'Defense Base 2',
     ]);
   });
 

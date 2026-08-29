@@ -7,6 +7,8 @@ import {
   isBehind,
   levelKey,
   membersMissing,
+  stallOf,
+  stalledCount,
 } from './buildings';
 
 const LAB = { id: 862000, name: 'Thermal Lab' };
@@ -149,4 +151,79 @@ test('more members than the roster does not report a negative', () => {
   // Possible while the roster snapshot lags a departure. "-2 have no
   // building observed" is nonsense on a screen.
   expect(membersMissing(grid(86, 84))).toBe(0);
+});
+
+const NOW = new Date('2026-08-29T12:00:00Z');
+
+/** A member with one building at `level`, first seen at `since`, last observed
+ * at `seen`. */
+function watched(typeId: number, level: number | null, since: string | null, seen: string | null) {
+  return {
+    playerId: 'p',
+    name: 'Somebody',
+    gameUid: 1,
+    oldestSeen: null,
+    levelSince: { [typeId]: since },
+    seenAt: { [typeId]: seen },
+    [levelKey(typeId)]: level,
+  } as never;
+}
+
+test('a level that has not moved inside the window is stalled', () => {
+  const member = watched(862000, 12, '2026-08-26T12:00:00Z', '2026-08-29T11:00:00Z');
+
+  expect(stallOf(member, { id: 862000, name: 'Thermal Lab' }, NOW)).toBe('stalled');
+});
+
+test('a level that moved recently is not', () => {
+  const member = watched(862000, 12, '2026-08-29T06:00:00Z', '2026-08-29T11:00:00Z');
+
+  expect(stallOf(member, { id: 862000, name: 'Thermal Lab' }, NOW)).toBe('moving');
+});
+
+test('a building nobody has looked at recently is unobserved, never stalled', () => {
+  // THE DISTINCTION THIS EXISTS FOR. The level has not changed in a week, but
+  // neither has anybody swept it — calling that a stall accuses a member on
+  // the strength of a gap in our own map coverage. On the live data 749 of
+  // 1,251 cells are in exactly this state against 156 genuinely unchanged, so
+  // collapsing the two would make the board mostly wrong.
+  const member = watched(862000, 12, '2026-08-20T12:00:00Z', '2026-08-25T12:00:00Z');
+
+  expect(stallOf(member, { id: 862000, name: 'Thermal Lab' }, NOW)).toBe('unobserved');
+});
+
+test('a building nobody has built is neither', () => {
+  const member = watched(862000, null, null, null);
+
+  expect(stallOf(member, { id: 862000, name: 'Thermal Lab' }, NOW)).toBe('unbuilt');
+});
+
+test('a run older than the view window counts as stalled, not unknown', () => {
+  // The view searches 30 days for the start of the current level; past that it
+  // stores null. Null there means "longer ago than we look", which is older
+  // than any threshold worth setting — so it is a stall, and treating it as
+  // unknown would hide the members who have been stopped the longest.
+  const member = watched(862000, 12, null, '2026-08-29T11:00:00Z');
+
+  expect(stallOf(member, { id: 862000, name: 'Thermal Lab' }, NOW)).toBe('stalled');
+});
+
+test('each building carries its own window', () => {
+  // Build times grow with the level, so two days is a long pause on a
+  // greenhouse and barely a start on a late thermal lab.
+  const member = watched(862000, 12, '2026-08-26T12:00:00Z', '2026-08-29T11:00:00Z');
+
+  expect(stallOf(member, { id: 862000, name: 'Lab', stallHours: 120 }, NOW)).toBe('moving');
+  expect(stallOf(member, { id: 862000, name: 'Lab', stallHours: 24 }, NOW)).toBe('stalled');
+});
+
+test('the stalled count reads a whole row at once', () => {
+  const member = {
+    ...(watched(862000, 12, '2026-08-20T12:00:00Z', '2026-08-29T11:00:00Z') as object),
+    levelSince: { 862000: '2026-08-20T12:00:00Z', 857000: '2026-08-29T09:00:00Z' },
+    seenAt: { 862000: '2026-08-29T11:00:00Z', 857000: '2026-08-29T11:00:00Z' },
+    [levelKey(857000)]: 4,
+  } as never;
+
+  expect(stalledCount(member, SEASON3_BUILDINGS, NOW)).toBe(1);
 });

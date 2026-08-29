@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.17"
+    PostgrestVersion: "14.5"
   }
   graphql_public: {
     Tables: {
@@ -2874,29 +2874,35 @@ export type Database = {
       player_season_buildings_current: {
         Row: {
           game_uid: number
+          level_since: Json
           levels: Json
           newest_seen: string | null
           oldest_seen: string | null
           player_id: string
           refreshed_at: string
+          seen_at: Json
           server_id: number
         }
         Insert: {
           game_uid: number
+          level_since?: Json
           levels?: Json
           newest_seen?: string | null
           oldest_seen?: string | null
           player_id: string
           refreshed_at?: string
+          seen_at?: Json
           server_id: number
         }
         Update: {
           game_uid?: number
+          level_since?: Json
           levels?: Json
           newest_seen?: string | null
           oldest_seen?: string | null
           player_id?: string
           refreshed_at?: string
+          seen_at?: Json
           server_id?: number
         }
         Relationships: [
@@ -4779,10 +4785,12 @@ export type Database = {
         Row: {
           current_name: string | null
           game_uid: number | null
+          level_since: Json | null
           levels: Json | null
           newest_seen: string | null
           oldest_seen: string | null
           player_id: string | null
+          seen_at: Json | null
           server_id: number | null
         }
         Relationships: [

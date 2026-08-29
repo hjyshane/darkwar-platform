@@ -14,7 +14,34 @@ export interface BuildingKind {
   name: string;
   /** True while the name is a placeholder somebody has yet to correct. */
   provisional?: boolean;
+  /** Hours a level may sit unchanged before the board calls it stalled.
+   *
+   * PER BUILDING because the game's build times are not uniform and grow with
+   * the level: two days is a long pause on a greenhouse and barely a start on
+   * a late thermal lab. A single number across the board would either cry
+   * wolf on the slow ones or say nothing about the fast ones.
+   *
+   * Absent means DEFAULT_STALL_HOURS. Changing one is a code edit and a
+   * deploy, which takes about a minute here and is the right weight for a
+   * number that moves once a season — a settings table would need a UI, a
+   * migration and an audit trail to carry the same fact. */
+  stallHours?: number;
 }
+
+/** How long a level may sit unchanged before it counts as stalled.
+ *
+ * Two days is what the alliance asks between kill days: a member who has not
+ * moved since the last one is either finished for the week or gone. */
+export const DEFAULT_STALL_HOURS = 48;
+
+/** How stale an observation may be before the board stops judging at all.
+ *
+ * A CELL NOBODY HAS LOOKED AT IS NOT STALLED. Without this the board would
+ * accuse whoever the sweep happened to miss, which is the same mistake as
+ * reading unswept ground as empty ground — and on the current data it would
+ * be the majority verdict: 749 of the 1,251 cells have no sighting inside two
+ * days, against 156 genuinely unchanged. */
+export const OBSERVATION_WINDOW_HOURS = 48;
 
 /** Season 3, in the order the alliance reads them.
  *
@@ -27,10 +54,23 @@ export interface BuildingKind {
  * barrack 1. All seven ids matched exactly, which is what turned the mapping
  * from a reading into a fact.
  *
- * ARMED TURRET AND DEFENSE BASE HAVE NO ID YET. Nobody in the alliance has
- * built either, so neither has ever appeared on the map and neither can be
- * identified from it. They are named in this comment rather than left out of
- * the story, and they will get a row the day somebody builds one.
+ * ARMED TURRET AND DEFENSE BASE ARRIVED, which is what this comment used to
+ * say would happen the day somebody built one. The sweeps turned up four ids
+ * nothing had claimed — 864000-867000, continuing the season 3 run — across
+ * 1,717 rows, newest 29 August.
+ *
+ * THE PAIRING IS MEASURED: 864000 and 865000 reach level 8 while 866000 and
+ * 867000 stop at 5 and 4. Two pairs, and the split is in the levels rather
+ * than in the numbering.
+ *
+ * WHICH PAIR IS WHICH IS NOT MEASURED. It is the attack-before-defense rule
+ * of thumb season 2 records below, and it is a rule of thumb: nobody has
+ * opened one, so `world.get.detail.new` has never returned a name for these
+ * ids and the mapping rests on the lower pair being the attacking one.
+ *
+ * That is why all four are provisional and the seven above are not — those
+ * were checked against a member reading their own screen, and these have not
+ * been. One person opening an Armed Turret settles it.
  */
 export const SEASON3_BUILDINGS: readonly BuildingKind[] = [
   { id: 862000, name: 'Thermal Lab' },
@@ -40,6 +80,10 @@ export const SEASON3_BUILDINGS: readonly BuildingKind[] = [
   { id: 860000, name: 'Smart Green House 4' },
   { id: 861000, name: 'Smart Green House 5' },
   { id: 863000, name: 'Strategic Barrack' },
+  { id: 864000, name: 'Armed Turret 1', provisional: true },
+  { id: 865000, name: 'Armed Turret 2', provisional: true },
+  { id: 866000, name: 'Defense Base 1', provisional: true },
+  { id: 867000, name: 'Defense Base 2', provisional: true },
 ];
 
 /** Season 2, behind the admin-only tab.
@@ -105,7 +149,64 @@ export type MemberBuildings = {
   /** The OLDEST sighting among this member's buildings: a row is only as
    * fresh as its stalest cell, and one pan sees part of a plot. */
   oldestSeen: string | null;
+  /** typeId -> when the current level was first seen, or null past the 30-day
+   * window the view searches. */
+  levelSince: Record<number, string | null>;
+  /** typeId -> when that building was last observed at all. */
+  seenAt: Record<number, string | null>;
 } & BuildingLevels;
+
+export type StallVerdict = 'moving' | 'stalled' | 'unobserved' | 'unbuilt';
+
+/** Whether a member's building has stopped moving, or we simply have not looked.
+ *
+ * THREE ANSWERS, NOT TWO. "Not moving" and "not observed" are different
+ * claims, and collapsing them puts an accusation on a gap in our own map
+ * coverage. The board has made this mistake in other shapes twice — a level
+ * absent because nobody swept, ground empty because nobody lives there — and
+ * both times the cure was to keep the third answer.
+ */
+export function stallOf(member: MemberBuildings, kind: BuildingKind, now: Date): StallVerdict {
+  const level = member[levelKey(kind.id)];
+  if (level === null || level === undefined) {
+    return 'unbuilt';
+  }
+  const seen = member.seenAt[kind.id];
+  if (!seen || hoursSince(seen, now) > OBSERVATION_WINDOW_HOURS) {
+    return 'unobserved';
+  }
+  const since = member.levelSince[kind.id];
+  // Null means the run started before the view's window, which is older than
+  // any threshold worth setting — so it is stalled, not unknown.
+  const held =
+    since === null || since === undefined ? Number.POSITIVE_INFINITY : hoursSince(since, now);
+  return held >= (kind.stallHours ?? DEFAULT_STALL_HOURS) ? 'stalled' : 'moving';
+}
+
+function hoursSince(iso: string, now: Date): number {
+  return (now.getTime() - new Date(iso).getTime()) / 3_600_000;
+}
+
+/** How many of a member's built buildings have stopped, for a whole-row read. */
+export function stalledCount(
+  member: MemberBuildings,
+  catalogue: SeasonCatalogue,
+  now: Date,
+): number {
+  return catalogue.filter((kind) => stallOf(member, kind, now) === 'stalled').length;
+}
+
+/** jsonb keys are strings; the catalogue is keyed on the id the game uses. */
+function numericKeys(raw: unknown): Record<number, string | null> {
+  const out: Record<number, string | null> = {};
+  for (const [key, value] of Object.entries((raw ?? {}) as Record<string, string | null>)) {
+    const id = Number(key);
+    if (Number.isFinite(id)) {
+      out[id] = value;
+    }
+  }
+  return out;
+}
 
 export function levelKey(typeId: number): `b${number}` {
   return `b${typeId}`;
@@ -168,7 +269,9 @@ export async function fetchBuildingGrid(catalogue: SeasonCatalogue): Promise<Bui
     // the member count, so the cap is nowhere near and a generous-looking
     // limit cannot quietly reintroduce it.
     .from('member_season_buildings_by_member')
-    .select('player_id, current_name, game_uid, levels, oldest_seen, newest_seen')
+    .select(
+      'player_id, current_name, game_uid, levels, oldest_seen, newest_seen, level_since, seen_at',
+    )
     .limit(500);
   if (error) {
     // A viewer gets nothing from the view's own gate rather than an error
@@ -198,6 +301,8 @@ export async function fetchBuildingGrid(catalogue: SeasonCatalogue): Promise<Bui
       name: row.current_name,
       gameUid: Number(row.game_uid ?? 0),
       oldestSeen: row.oldest_seen,
+      levelSince: numericKeys(row.level_since),
+      seenAt: numericKeys(row.seen_at),
     } as MemberBuildings;
 
     let anyKnown = false;

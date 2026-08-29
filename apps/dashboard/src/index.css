@@ -1266,6 +1266,27 @@ select.rank-badge {
   color: #f87171;
 }
 
+/* A level that has not moved inside its building's own window (0158).
+ *
+ * UNDERLINE RATHER THAN COLOUR, and deliberately not red: a cell can be both
+ * behind and stalled, and two colours fighting over one number says neither.
+ * Behind keeps the colour it has always had; stalled adds a mark that reads on
+ * top of it, and on a monochrome screen. The `title` carries the hours. */
+.cell-stalled {
+  text-decoration: underline wavy currentColor 0.08em;
+  text-underline-offset: 0.25em;
+}
+
+/* Nobody has looked at this building recently, so the board is not judging it.
+ *
+ * DIMMED, NOT MARKED. The number is still true — it is what we last saw — but
+ * "has not moved" cannot be claimed about ground the sweep has not passed
+ * over, and on the current data that is the majority of cells. Making it look
+ * like a verdict is the mistake this whole board keeps being fixed for. */
+.cell-unseen {
+  opacity: 0.55;
+}
+
 /* Under the alliance's weekly floor (0155). A dot rather than a whole red
  * row: the row still has to be read, and colouring all of it makes the
  * numbers inside it harder to compare against everybody else's. The title
