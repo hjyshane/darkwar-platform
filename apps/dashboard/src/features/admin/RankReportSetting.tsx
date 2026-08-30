@@ -38,6 +38,13 @@ interface RankRow {
    * everyone, including the officers and newcomers it cannot demote. */
   below_minimum: boolean | null;
   minimum_missed: string | null;
+  /** 0159: the season building's level as it stood at the END of this period,
+   * and the points it moved the score by. Null level means no sighting at or
+   * before then — a gap in the sweep, never a penalty. Both are absent from
+   * every period scored before version 6, which is why the column hides
+   * itself rather than printing a row of dashes. */
+  lab_level: number | null;
+  lab_adjustment: number | null;
   /** When this answer was worked out. Shown beside the tier counts: the table
    * redraws identically when a rebuild lands close to the previous one, and
    * without a timestamp "nothing changed" and "nothing happened" look the
@@ -94,7 +101,7 @@ async function fetchPeriod(periodStart: Date): Promise<RankRow[]> {
     // the newest.
     .from('rank_period_latest')
     .select(
-      'player_id, name, donation_total, duel_total, power_growth, activity_score, offline_hours, tier, tier_reason, below_minimum, minimum_missed, computed_at',
+      'player_id, name, donation_total, duel_total, power_growth, activity_score, offline_hours, tier, tier_reason, below_minimum, minimum_missed, lab_level, lab_adjustment, computed_at',
     )
     .eq('period_start', periodStart.toISOString())
     .order('activity_score', { ascending: false, nullsFirst: false });
@@ -246,6 +253,15 @@ export function RankReportSetting() {
   );
   const rows = showAll ? everyone : changed;
 
+  // The season column appears only for a period the season rule actually
+  // touched. Judged on the WHOLE period (`now`), not on the filtered `rows`,
+  // so the column does not come and go as the "show everyone" toggle moves.
+  //
+  // Between seasons — and for every period scored before version 6 — this is
+  // a column of dashes that says nothing, and a report an officer has to
+  // defend a demotion from is the wrong place for one.
+  const showsLab = now.some((row) => row.lab_level !== null || (row.lab_adjustment ?? 0) !== 0);
+
   const counts = now.reduce<Record<string, number>>((acc, row) => {
     const tier = row.tier ?? '—';
     acc[tier] = (acc[tier] ?? 0) + 1;
@@ -396,6 +412,7 @@ export function RankReportSetting() {
                 <th className="num">Donation</th>
                 <th className="num">Duel</th>
                 <th className="num">Power</th>
+                {showsLab && <th className="num">Season</th>}
                 <th className="label">Why</th>
               </tr>
             </thead>
@@ -445,6 +462,25 @@ export function RankReportSetting() {
                     <td className={`num ${(row.power_growth ?? 0) < 0 ? 'growth-down' : ''}`}>
                       {row.power_growth === null ? '—' : `${row.power_growth.toFixed(1)}%`}
                     </td>
+                    {showsLab && (
+                      <td className="num">
+                        {/* The level and what it cost, together. The level
+                            alone does not say whether it mattered, and the
+                            points alone do not say what to go and build. */}
+                        {row.lab_level === null ? '—' : row.lab_level}
+                        {(row.lab_adjustment ?? 0) !== 0 && (
+                          <span
+                            className={
+                              (row.lab_adjustment as number) > 0 ? 'growth-up' : 'growth-down'
+                            }
+                          >
+                            {' '}
+                            {(row.lab_adjustment as number) > 0 ? '+' : ''}
+                            {row.lab_adjustment}
+                          </span>
+                        )}
+                      </td>
+                    )}
                     <td className="label">
                       {/* Away is not the same as idle, and the person being
                           demoted will ask which one it was. */}
@@ -452,7 +488,11 @@ export function RankReportSetting() {
                         ? `offline ${Math.round(row.offline_hours ?? 0)}h`
                         : row.below_minimum === true
                           ? `under weekly ${row.minimum_missed ?? 'minimum'}`
-                          : 'score'}
+                          : (row.lab_adjustment ?? 0) !== 0
+                            ? `score, season building ${
+                                (row.lab_adjustment as number) > 0 ? '+' : ''
+                              }${row.lab_adjustment}`
+                            : 'score'}
                     </td>
                   </tr>
                 );

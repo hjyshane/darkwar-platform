@@ -3453,6 +3453,8 @@ export type Database = {
           duel_week2_at: string | null
           game_uid: number
           growth_pct: number | null
+          lab_adjustment: number
+          lab_level: number | null
           minimum_missed: string | null
           name: string | null
           offline_hours: number | null
@@ -3486,6 +3488,8 @@ export type Database = {
           duel_week2_at?: string | null
           game_uid: number
           growth_pct?: number | null
+          lab_adjustment?: number
+          lab_level?: number | null
           minimum_missed?: string | null
           name?: string | null
           offline_hours?: number | null
@@ -3519,6 +3523,8 @@ export type Database = {
           duel_week2_at?: string | null
           game_uid?: number
           growth_pct?: number | null
+          lab_adjustment?: number
+          lab_level?: number | null
           minimum_missed?: string | null
           name?: string | null
           offline_hours?: number | null
@@ -5112,6 +5118,8 @@ export type Database = {
           duel_week2_at: string | null
           game_uid: number | null
           growth_pct: number | null
+          lab_adjustment: number | null
+          lab_level: number | null
           minimum_missed: string | null
           name: string | null
           offline_hours: number | null
