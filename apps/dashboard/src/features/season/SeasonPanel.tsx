@@ -6,15 +6,23 @@ import { TERMS } from '../../lib/terms';
 import { SeasonAllianceTable } from './SeasonAllianceTable';
 import { SeasonBuildingTable } from './SeasonBuildingTable';
 import { SeasonForceTable } from './SeasonForceTable';
+import { SeasonWaitCalculator } from './SeasonWaitCalculator';
 import { type SeasonBoardId, fetchAllianceScoreBoard, fetchPlayerForceBoard } from './boards';
 import { SEASON3_BUILDINGS, fetchBuildingGrid } from './buildings';
 
+/** The calculator is not a board — it queries nothing and is fed by hand — so
+ * it is a tab id of its own rather than a fourth `SeasonBoardId`. Keeping it
+ * out of that union is what stops it from ever being handed to a fetcher. */
+type SeasonTabId = SeasonBoardId | 'calculator';
+
 /** Buildings first: it is the board the alliance opens the tab to read, and
- * the two rankings are the ones you go looking for. */
-const BOARD_LABELS: ReadonlyArray<{ id: SeasonBoardId; label: string }> = [
+ * the two rankings are the ones you go looking for. The calculator is last —
+ * it is a tool you go to deliberately, not something you read. */
+const BOARD_LABELS: ReadonlyArray<{ id: SeasonTabId; label: string }> = [
   { id: 'buildings', label: TERMS.seasonBuildings },
   { id: 'alliance_score', label: TERMS.seasonScore },
   { id: 'player_force', label: TERMS.seasonForce },
+  { id: 'calculator', label: TERMS.seasonCalculator },
 ];
 
 /** A board changes only when somebody opens it in the game, so the app's 60s
@@ -33,7 +41,7 @@ export function SeasonPanel() {
   // opens as player-board opens and corrupt a metric that already has
   // history. No measurement is better than a wrong one; the kind can be
   // added deliberately when season scoring is designed.
-  const [boardId, setBoardId] = useState<SeasonBoardId>('buildings');
+  const [boardId, setBoardId] = useState<SeasonTabId>('buildings');
   const { data: alert } = useSeasonBuildingAlert();
 
   const alliance = useQuery({
@@ -54,8 +62,16 @@ export function SeasonPanel() {
     staleTime: STALE_TIME,
     enabled: boardId === 'buildings',
   });
+  // The calculator has no query, so it has no pending or error state to
+  // report — `active` stays undefined and both banners below stay off.
   const active =
-    boardId === 'alliance_score' ? alliance : boardId === 'player_force' ? players : buildings;
+    boardId === 'alliance_score'
+      ? alliance
+      : boardId === 'player_force'
+        ? players
+        : boardId === 'buildings'
+          ? buildings
+          : undefined;
   const capturedAt =
     buildings.data?.capturedAt ?? alliance.data?.[0]?.captured_at ?? players.data?.[0]?.captured_at;
   // Per building (0158), against the catalogue this board is rendering — so a
@@ -71,7 +87,10 @@ export function SeasonPanel() {
     <section aria-labelledby="season-heading">
       <h2 id="season-heading">
         {TERMS.season}
-        {capturedAt && <FreshnessBadge capturedAt={capturedAt} />}
+        {/* Not on the calculator: the badge dates a capture, and that tab
+            has no captured figure on it. Leaving it up would date numbers the
+            reader typed themselves. */}
+        {capturedAt && boardId !== 'calculator' && <FreshnessBadge capturedAt={capturedAt} />}
       </h2>
       {/* The boards describe different subjects, so this switches the whole
           table rather than a column. Tabs, not links: all of them live at
@@ -89,8 +108,10 @@ export function SeasonPanel() {
           </button>
         ))}
       </div>
-      {active.isPending && <p className="empty">Loading…</p>}
-      {active.error && <p className="error">Could not load season board: {active.error.message}</p>}
+      {active?.isPending && <p className="empty">Loading…</p>}
+      {active?.error && (
+        <p className="error">Could not load season board: {active.error.message}</p>
+      )}
 
       {boardId === 'buildings' && buildings.data && (
         <SeasonBuildingTable floors={floors} grid={buildings.data} />
@@ -99,6 +120,7 @@ export function SeasonPanel() {
         <SeasonAllianceTable rows={alliance.data} />
       )}
       {boardId === 'player_force' && players.data && <SeasonForceTable rows={players.data} />}
+      {boardId === 'calculator' && <SeasonWaitCalculator />}
 
       {/* The one thing a reader could get badly wrong on this grid. An empty
           cell is a gap in OUR coverage — the collector has not panned over
