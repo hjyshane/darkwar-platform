@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
+import { SEASON3_BUILDINGS } from '../../features/season/buildings';
+import { labAdjustment, parseSeasonLab, seasonLabApplies } from '../../lib/seasonLab';
 import { supabase } from '../../lib/supabase';
 
 /** How the score is mixed, and where the rank boundaries fall.
@@ -73,6 +75,29 @@ interface Minimums {
   duel_weekly: number;
 }
 
+/** The season rule (0159).
+ *
+ * Between seasons the alliance is scored on donation, duel and power growth,
+ * which is every part of the game EXCEPT the one a season actually asks for.
+ * Inside a window, one season building moves the score: below `low` costs
+ * `penalty` points, `high` or above earns `bonus`, and the tier cuts are
+ * untouched — the adjusted score goes through the same percentiles, so this
+ * changes who is where and never how many are there.
+ *
+ * The building id is a setting rather than a constant because next season is
+ * a different building, and this should be a form then rather than a deploy.
+ */
+interface SeasonLabSetting {
+  enabled: boolean;
+  starts_at: string;
+  ends_at: string;
+  building_id: number | null;
+  low: number;
+  high: number;
+  penalty: number;
+  bonus: number;
+}
+
 interface Tiers {
   r3_percent: number;
   r2_percent: number;
@@ -80,6 +105,7 @@ interface Tiers {
   normalisation: string;
   weights: { donation: number; duel: number; power_growth: number };
   minimums: Minimums;
+  season_lab: SeasonLabSetting;
 }
 
 const FALLBACK: Tiers = {
@@ -91,6 +117,18 @@ const FALLBACK: Tiers = {
   // Off, with no numbers. A floor that shipped with a default would demote
   // people for a rule the alliance never agreed.
   minimums: { enabled: false, donation_weekly: 0, duel_weekly: 0 },
+  // Off, with no dates and no sizes, for the same reason: a season rule that
+  // shipped with defaults would move people for a rule nobody agreed.
+  season_lab: {
+    enabled: false,
+    starts_at: '',
+    ends_at: '',
+    building_id: null,
+    low: 0,
+    high: 0,
+    penalty: 0,
+    bonus: 0,
+  },
 };
 
 async function fetchTiers(): Promise<Tiers> {
@@ -111,6 +149,7 @@ async function fetchTiers(): Promise<Tiers> {
     ...stored,
     weights: { ...FALLBACK.weights, ...(stored.weights ?? {}) },
     minimums: { ...FALLBACK.minimums, ...(stored.minimums ?? {}) },
+    season_lab: { ...FALLBACK.season_lab, ...(stored.season_lab ?? {}) },
   };
 }
 
@@ -330,6 +369,142 @@ export function RankTiersSetting() {
             value={draft.minimums.duel_weekly}
           />
         </label>
+
+        <p className="subtle">
+          <strong>Season building.</strong> Between seasons the score is donation, duel and power
+          growth — every part of the game except the one a season actually asks for. Inside the
+          window below, one season building moves the score: under the low level costs points, at or
+          above the high level earns them, and everyone in between is scored exactly as now. The
+          tier cuts do not change, so this moves who is where and never how many are there.
+          <br />
+          The period's START decides which rule it gets, so a fortnight that opened before the
+          season keeps the old scoring even if it ends inside one. A level nobody has swept costs
+          nothing — an empty cell on the building board is a gap in our coverage, not a member who
+          built nothing.
+        </p>
+
+        <label htmlFor="lab-enabled">
+          <input
+            checked={draft.season_lab.enabled}
+            id="lab-enabled"
+            onChange={(event) =>
+              setDraft({
+                ...draft,
+                season_lab: { ...draft.season_lab, enabled: event.target.checked },
+              })
+            }
+            type="checkbox"
+          />
+          Apply the season rule below
+        </label>
+
+        <label htmlFor="lab-building">
+          Which building
+          <select
+            id="lab-building"
+            onChange={(event) =>
+              setDraft({
+                ...draft,
+                season_lab: {
+                  ...draft.season_lab,
+                  building_id: event.target.value === '' ? null : Number(event.target.value),
+                },
+              })
+            }
+            value={draft.season_lab.building_id ?? ''}
+          >
+            <option value="">— none chosen —</option>
+            {SEASON3_BUILDINGS.map((kind) => (
+              <option key={kind.id} value={kind.id}>
+                {kind.name}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        {/* `datetime-local` has no zone, and every timestamp in this app is
+            UTC. Typing the instant in full is uglier than a picker and is the
+            only way the number saved is the number meant — the game's own week
+            turns at 02:00 UTC, which is the boundary these dates sit on. */}
+        <label htmlFor="lab-starts">
+          Season starts (UTC, e.g. 2026-09-10T02:00:00Z)
+          <input
+            id="lab-starts"
+            onChange={(event) =>
+              setDraft({
+                ...draft,
+                season_lab: { ...draft.season_lab, starts_at: event.target.value },
+              })
+            }
+            placeholder="2026-09-10T02:00:00Z"
+            value={draft.season_lab.starts_at}
+          />
+        </label>
+        <label htmlFor="lab-ends">
+          Season ends (UTC) — a period opening exactly then is already outside
+          <input
+            id="lab-ends"
+            onChange={(event) =>
+              setDraft({
+                ...draft,
+                season_lab: { ...draft.season_lab, ends_at: event.target.value },
+              })
+            }
+            placeholder="2026-11-10T02:00:00Z"
+            value={draft.season_lab.ends_at}
+          />
+        </label>
+
+        {(
+          [
+            ['low', 'Level under which the penalty applies', '(0 = no penalty side)'],
+            ['high', 'Level at or above which the bonus applies', '(0 = no bonus side)'],
+            ['penalty', 'Points taken off under the low level', '(0 = moves nobody)'],
+            ['bonus', 'Points added at or above the high level', '(0 = moves nobody)'],
+          ] as const
+        ).map(([key, label, hint]) => (
+          <label htmlFor={`lab-${key}`} key={key}>
+            {label} <span className="subtle">{hint}</span>
+            <input
+              id={`lab-${key}`}
+              min="0"
+              onChange={(event) =>
+                setDraft({
+                  ...draft,
+                  season_lab: { ...draft.season_lab, [key]: Number(event.target.value) },
+                })
+              }
+              type="number"
+              value={draft.season_lab[key]}
+            />
+          </label>
+        ))}
+
+        {/* What the numbers above actually do, computed by the same functions
+            the scorer's rule is mirrored in. A settings page that only
+            described itself would drift from the arithmetic the first time
+            either changed. */}
+        <p className="subtle">
+          {seasonLabApplies(parseSeasonLab({ season_lab: draft.season_lab }), new Date()) ? (
+            <>
+              A fortnight opening today is scored by the season rule. A member at level{' '}
+              {Math.max(0, draft.season_lab.low - 1)} would score{' '}
+              {labAdjustment(
+                Math.max(0, draft.season_lab.low - 1),
+                parseSeasonLab({ season_lab: draft.season_lab }),
+              )}{' '}
+              and one at level {draft.season_lab.high} would score +
+              {labAdjustment(
+                draft.season_lab.high,
+                parseSeasonLab({ season_lab: draft.season_lab }),
+              )}
+              , out of 100.
+            </>
+          ) : (
+            'A fortnight opening today is scored the ordinary way — the season window is off, ' +
+            'unset, or does not contain today.'
+          )}
+        </p>
 
         <div className="row">
           <button disabled={save.isPending} onClick={() => save.mutate(draft)} type="button">
