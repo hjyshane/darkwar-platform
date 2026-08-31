@@ -5280,6 +5280,7 @@ export type Database = {
           player_rows: number
         }[]
       }
+      announce_rank_period: { Args: never; Returns: string }
       build_rank_period: { Args: { p_period_start: string }; Returns: number }
       current_app_role: {
         Args: never
