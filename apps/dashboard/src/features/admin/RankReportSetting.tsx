@@ -217,6 +217,36 @@ export function RankReportSetting() {
     },
   });
 
+  // Sending is separate from building on purpose, and manual on purpose. The
+  // message names people who were demoted; nobody should learn they dropped a
+  // tier because a rebuild happened to run. An officer presses Build, reads the
+  // table, and only then decides to post it.
+  const announce = useMutation({
+    mutationFn: async () => {
+      // The function composes the message server-side and picks the channel
+      // from the notification routing. The browser deliberately cannot say what
+      // gets posted: 0076 allows a browser to insert only `event = 'test'`, so
+      // that nothing can put arbitrary words into the alliance channel over the
+      // collector's name.
+      const { data, error } = await supabase.rpc('announce_rank_period');
+      if (error) {
+        throw new Error(error.message);
+      }
+      return data as string;
+    },
+    onSuccess: (outcome) => {
+      setFailed(false);
+      // The function reports what it decided — queued, already sent, switched
+      // off, nothing finished yet. All four are ordinary outcomes and none of
+      // them is an error, so they read the same way.
+      setMessage(outcome);
+    },
+    onError: (mutationError: Error) => {
+      setFailed(true);
+      setMessage(mutationError.message);
+    },
+  });
+
   const build = useMutation({
     mutationFn: async (periodStart: Date) => {
       // `rebuild_rank_period`, not `build_rank_period` (0090). The wrapper is
@@ -367,6 +397,13 @@ export function RankReportSetting() {
       <div className="row">
         <button disabled={build.isPending} onClick={() => build.mutate(viewing)} type="button">
           {now.length === 0 ? 'Work out this period' : 'Rebuild'}
+        </button>
+        {/* Always the newest FINISHED period, whatever the picker is showing,
+            because that is the period `rank_period_movement` describes — and
+            0100 keeps the "previous period of the same version" rule in one
+            place. The function says so when the two disagree. */}
+        <button disabled={announce.isPending} onClick={() => announce.mutate()} type="button">
+          {announce.isPending ? 'Sending…' : 'Send to Discord'}
         </button>
         {/* Off by default, and deliberately not remembered between visits.
             Ticking it DELETES the hand-set rank of everyone the period could
