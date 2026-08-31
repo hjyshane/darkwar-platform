@@ -5253,6 +5253,7 @@ export type Database = {
         }
         Returns: number
       }
+      announce_rank_period: { Args: never; Returns: string }
       approve_player_claim: {
         Args: { p_user: string }
         Returns: {
@@ -5280,7 +5281,6 @@ export type Database = {
           player_rows: number
         }[]
       }
-      announce_rank_period: { Args: never; Returns: string }
       build_rank_period: { Args: { p_period_start: string }; Returns: number }
       current_app_role: {
         Args: never
