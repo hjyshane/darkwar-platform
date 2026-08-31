@@ -24,7 +24,7 @@ import { supabase } from '../../lib/supabase';
  * because a capture that syncs late makes the answer better, and the
  * function is idempotent by design.
  */
-interface RankRow {
+export interface RankRow {
   player_id: string;
   name: string | null;
   donation_total: number | null;
@@ -53,6 +53,44 @@ interface RankRow {
 }
 
 const TIER_ORDER: Record<string, number> = { R1: 1, R2: 2, R3: 3 };
+
+/** The Why column, in the words an officer would use.
+ *
+ * IT USED TO PRINT 'score' FOR EVERYTHING IT DID NOT RECOGNISE. Only `offline`
+ * and the minimums were special-cased, so the two reasons that produce a BLANK
+ * tier — an officer who is measured but not ranked (0072), and a newcomer with
+ * less than a fortnight of history — both came out as "score" beside an empty
+ * rank and an empty figure. On the 2026-08-17 period that was fourteen of
+ * ninety-six rows claiming a score nobody had computed.
+ *
+ * The reasons are matched by PREFIX rather than in full, so rewording the
+ * sentence in a later migration degrades to showing the migration's own text
+ * instead of silently falling back to "score" again. The scorer's wording is
+ * the fallback, never a guess.
+ */
+export function whyLabel(row: RankRow): string {
+  const reason = row.tier_reason ?? '';
+  if (reason === 'offline') {
+    return `offline ${Math.round(row.offline_hours ?? 0)}h`;
+  }
+  if (row.below_minimum === true) {
+    return `under weekly ${row.minimum_missed ?? 'minimum'}`;
+  }
+  if (reason.startsWith('not measured')) {
+    return 'joined too recently to score';
+  }
+  if (reason.startsWith('measured but not ranked')) {
+    return 'officer — measured, not ranked';
+  }
+  if (reason.startsWith('nothing was captured')) {
+    return 'nothing captured this period';
+  }
+  const lab = row.lab_adjustment ?? 0;
+  if (lab !== 0) {
+    return `score, season building ${lab > 0 ? '+' : ''}${lab}`;
+  }
+  return reason === '' ? 'score' : reason;
+}
 
 /** The period the Members tab will compare this one against.
  *
@@ -484,15 +522,7 @@ export function RankReportSetting() {
                     <td className="label">
                       {/* Away is not the same as idle, and the person being
                           demoted will ask which one it was. */}
-                      {row.tier_reason === 'offline'
-                        ? `offline ${Math.round(row.offline_hours ?? 0)}h`
-                        : row.below_minimum === true
-                          ? `under weekly ${row.minimum_missed ?? 'minimum'}`
-                          : (row.lab_adjustment ?? 0) !== 0
-                            ? `score, season building ${
-                                (row.lab_adjustment as number) > 0 ? '+' : ''
-                              }${row.lab_adjustment}`
-                            : 'score'}
+                      {whyLabel(row)}
                     </td>
                   </tr>
                 );
