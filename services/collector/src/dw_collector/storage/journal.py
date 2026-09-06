@@ -65,6 +65,13 @@ create index if not exists sync_outbox_pending_idx
 -- of its `target_table` bucket since `id` is autoincrement — cheap per row,
 -- paid on the production collector's write path forever for a benefit only
 -- the desktop reader uses today.
+--
+-- THIS IS NOT FREE THE FIRST TIME. `init_db()` runs this `executescript` on
+-- every collector process start, and `create index if not exists` still has
+-- to build the index the first time it sees an existing journal that
+-- predates it. That build is synchronous, and this table grows ~0.92 GB/day
+-- (see `prune()`'s docstring) — on an already-large journal, that first
+-- start can pause for real time with nothing printed. IT IS NOT A HANG.
 create index if not exists normalized_rows_target_table_idx
   on normalized_rows (target_table, id);
 

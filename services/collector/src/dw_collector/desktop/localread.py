@@ -161,6 +161,11 @@ def newest_per_player(found: list[Tile]) -> list[Tile]:
 #: miss on every real search, and an unbounded leak of dead connections and
 #: their folded lists, in the same dict. Keying on the file the connection is
 #: attached to survives exactly the churn that broke the old key.
+#:
+#: THIS CACHE DOES HAVE A DELETER TO WORRY ABOUT: `Journal.prune()` deletes
+#: from `normalized_rows`. The key still holds — see `_freshness_key` for the
+#: actual reasoning — but that reasoning is about autoincrement `id` never
+#: being reused, not about nothing here ever deleting a row.
 _FOLD_CACHE: dict[str, tuple[tuple[int, int], list[Tile]]] = {}
 
 #: `ThreadingHTTPServer` (`sidecar.py`) means two searches can land at once.
@@ -192,10 +197,29 @@ def _freshness_key(conn: sqlite3.Connection) -> tuple[int, int]:
     COVERING INDEX read against `normalized_rows_target_table_idx
     (target_table, id)` — measured at ~25ms against a 300k-row benchmark
     journal, two orders of magnitude under the ~4s full fold it guards, so
-    running it on every keystroke is cheap. A new sighting always bumps at
-    least one of `max(id)` or `count(*)`; nothing in this codebase deletes or
-    rewrites a `normalized_rows` row in place, so this pair cannot go stale
-    while looking unchanged — there is no writer this cache would miss.
+    running it on every keystroke is cheap.
+
+    `JOURNAL.PRUNE()` DOES DELETE FROM `normalized_rows` — an earlier version
+    of this docstring claimed nothing in this codebase deletes or rewrites a
+    row in place, as the reason this pair can't go stale while looking
+    unchanged. That was false the day `prune()` shipped, and it is exactly
+    the kind of premise the next person would reason from without checking.
+
+    The reasoning that actually holds is less obvious, which is probably why
+    it wasn't written down the first time. `record()` is INSERT-ONLY
+    (`insert or ignore`) — there is no `UPDATE` of `normalized_rows` anywhere
+    in this codebase. `target_table` is fixed at insert time and never
+    changes after. `id` is `integer primary key autoincrement`, and SQLite's
+    autoincrement NEVER REUSES an id, including after a delete. Put those
+    three together: for any one fixed value of `max(id)`, the set of
+    surviving world-city rows at or below it can only ever shrink as
+    `prune()` deletes, never grow back — the only way `count(*)` rises again
+    is for `max(id)` to rise past it first, which means new rows arrived.
+    So the pair `(max(id), count(*))` can never return to a value it held
+    before while the rows behind it differ; a delete moves `count(*)` down
+    without ever letting `max(id)` revisit a pairing it already reported.
+    That is what a freshness key has to guarantee, and it is a property of
+    autoincrement and insert-only writes, not of nobody deleting anything.
     """
     row = conn.execute(
         "select coalesce(max(id), 0), count(*) from normalized_rows where target_table = ?",

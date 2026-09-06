@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -605,3 +606,95 @@ def test_two_journals_do_not_share_a_fold(tmp_path: Path) -> None:
 
     assert [tile.game_uid for tile in found_first] == [11]
     assert [tile.game_uid for tile in found_second] == [22]
+
+
+def test_deleting_rows_invalidates_the_fold(tmp_path: Path) -> None:
+    """`Journal.prune` DOES delete from normalized_rows.
+
+    The cache's freshness key survives that only because `id` is
+    autoincrement and never reused, so a delete moves `count` without
+    `max(id)` ever revisiting an old pairing. This pins that reasoning: a
+    base that has been pruned away must stop being reported.
+    """
+    journal = _journal(tmp_path)
+    _write_tile(
+        journal,
+        observation_id="obs-old",
+        captured_at="2020-01-01T00:00:00+00:00",
+        game_uid=1,
+        name="PRUNED",
+    )
+    _write_tile(
+        journal,
+        observation_id="obs-new",
+        captured_at="2026-09-01T10:00:00+00:00",
+        game_uid=2,
+        name="SURVIVOR",
+    )
+
+    before = localread.search(journal.conn, "runed") + localread.search(journal.conn, "urvivor")
+    assert len(before) == 2
+
+    # Real deletion, through the real deleter. `obs-old`'s captured_at is
+    # old enough to be doomed and it has no sync_outbox entry, so nothing
+    # holds it back (see `prune`'s `held_back` docstring).
+    report = journal.prune(older_than=datetime(2025, 1, 1, tzinfo=UTC), confirm=True)
+    assert report.observations == 1
+    assert report.normalized_rows == 1
+    assert report.held_back == 0
+
+    pruned = localread.search(journal.conn, "runed")
+    survivor = localread.search(journal.conn, "urvivor")
+    journal.close()
+
+    assert pruned == []
+    assert len(survivor) == 1
+    assert survivor[0].game_uid == 2
+
+
+def test_two_sightings_sharing_a_timestamp_resolve_the_same_way_every_time(
+    tmp_path: Path,
+) -> None:
+    """The tie-break, through real SQL rather than a hand-built list.
+
+    Every other tie-break test calls `newest_per_player` directly, so none
+    of them would notice if `_SELECT`'s ordering changed underneath them —
+    and it did change, from `captured_at, n.id` to `n.id` alone.
+    """
+    journal = _journal(tmp_path)
+    same_time = "2026-09-01T10:00:00+00:00"
+    # Inserted first, so it gets the lower `n.id` and, per `_SELECT`'s
+    # `order by n.id`, is the "first entry" that `newest_per_player` keeps
+    # on an exact tie.
+    _write_tile(
+        journal,
+        observation_id="obs-a",
+        captured_at=same_time,
+        game_uid=9,
+        name="TIED",
+        x=100,
+        y=200,
+    )
+    _write_tile(
+        journal,
+        observation_id="obs-b",
+        captured_at=same_time,
+        game_uid=9,
+        name="TIED",
+        x=140,
+        y=260,
+    )
+
+    first = localread.search(journal.conn, "tied")
+    # Cleared BY HAND rather than relying on the autouse fixture: that
+    # fixture only clears between tests, and this assertion needs a second,
+    # genuinely fresh fold inside this one test to prove the winner is
+    # reproduced from the same SQL ordering rather than served from cache.
+    localread._FOLD_CACHE.clear()
+    second = localread.search(journal.conn, "tied")
+    journal.close()
+
+    assert len(first) == 1
+    assert len(second) == 1
+    assert (first[0].x, first[0].y) == (100, 200)
+    assert (second[0].x, second[0].y) == (100, 200)
