@@ -340,3 +340,57 @@ def test_the_same_uid_on_two_servers_stays_two_players(tmp_path: Path) -> None:
     newest = localread.newest_per_player(localread.tiles(journal.conn))
     journal.close()
     assert len(newest) == 2
+
+
+def test_the_fold_compares_times_rather_than_trusting_arrival_order() -> None:
+    """An implementation that just let the last entry win would pass every
+    journal-backed test here, because `tiles()` returns rows oldest-first.
+    Only handing the function a reversed list tells the two apart."""
+    old = localread.Tile(
+        game_uid=7,
+        server_id=581,
+        name="ERHA",
+        x=100,
+        y=200,
+        hq_level=34,
+        captured_at="2026-09-01T10:00:00+00:00",
+    )
+    new = localread.Tile(
+        game_uid=7,
+        server_id=581,
+        name="ERHA",
+        x=140,
+        y=260,
+        hq_level=34,
+        captured_at="2026-09-02T10:00:00+00:00",
+    )
+    assert localread.newest_per_player([new, old]) == [new]
+    assert localread.newest_per_player([old, new]) == [new]
+
+
+def test_the_fold_returns_players_newest_first() -> None:
+    """The docstring promises an order and nothing checked it.
+
+    The map draws these in the order it gets them, so a reversed list puts
+    the stalest sighting at the top of the screen.
+    """
+    older = localread.Tile(
+        game_uid=1,
+        server_id=581,
+        name="OLDER",
+        x=1,
+        y=1,
+        hq_level=None,
+        captured_at="2026-09-01T10:00:00+00:00",
+    )
+    newer = localread.Tile(
+        game_uid=2,
+        server_id=581,
+        name="NEWER",
+        x=2,
+        y=2,
+        hq_level=None,
+        captured_at="2026-09-03T10:00:00+00:00",
+    )
+    folded = localread.newest_per_player([older, newer])
+    assert [tile.game_uid for tile in folded] == [2, 1]

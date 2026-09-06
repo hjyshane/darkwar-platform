@@ -32,14 +32,26 @@ class Tile:
     x: int
     y: int
     hq_level: int | None
+    #: COMPARED AND SORTED AS A STRING, which is safe only because there is
+    #: exactly one writer: `Journal.record` stores `isoformat()` of a value a
+    #: pydantic validator has already forced to tz-aware UTC, so every row is
+    #: `...+00:00` and never `...Z`. A second writer emitting a different
+    #: shape would break every fold in this module without raising anything.
     captured_at: str
 
 
+# ORDERED SO THE FOLD IS DETERMINISTIC. Without it, two sightings sharing a
+# timestamp come back in whatever order the join plan produces, and
+# `newest_per_player` breaks that tie by keeping whichever it saw first —
+# which would make the answer depend on a decision SQLite never promised to
+# make the same way twice. `n.id` settles the case where even the timestamps
+# match.
 _SELECT = """
 select n.row_json, r.captured_at
 from normalized_rows n
 join raw_observations r on r.observation_id = n.observation_id
 where n.target_table = ?
+order by r.captured_at, n.id
 """
 
 
@@ -106,6 +118,12 @@ def newest_per_player(found: list[Tile]) -> list[Tile]:
     map contains players from eight servers, and the same uid can appear on
     two of them — folding on uid alone would silently discard one of two real
     players.
+
+    ON AN EXACT TIE the first entry wins, and `_SELECT` orders by
+    `(captured_at, n.id)` so "first" is a defined thing rather than whatever
+    the join plan felt like. Two sightings sharing a timestamp are the same
+    sweep seeing one base twice, so either is correct — but it must be the
+    same one every run, or a base appears to jitter between two coordinates.
     """
     newest: dict[tuple[int, int], Tile] = {}
     for tile in found:
