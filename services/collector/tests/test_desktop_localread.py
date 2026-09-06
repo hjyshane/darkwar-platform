@@ -7,10 +7,26 @@ a journal by hand and assert on what comes back out.
 from __future__ import annotations
 
 import json
+import sqlite3
 from pathlib import Path
+
+import pytest
 
 from dw_collector.desktop import localread
 from dw_collector.storage.journal import Journal
+
+
+@pytest.fixture(autouse=True)
+def _clear_fold_cache() -> None:
+    """Isolate tests from each other's cache state.
+
+    `_FOLD_CACHE` is now keyed on the journal FILE, not on a `tmp_path`
+    fixture, so two tests could in principle collide on a reused path — and
+    the tests below that assert on `len(_FOLD_CACHE)` need to know they are
+    counting only their own entries, not ones left behind by whatever test
+    ran before them in the same process.
+    """
+    localread._FOLD_CACHE.clear()
 
 
 def _journal(tmp_path: Path) -> Journal:
@@ -528,3 +544,64 @@ def test_the_fold_cache_invalidates_when_new_rows_arrive(tmp_path: Path) -> None
 
     assert len(second) == 1
     assert (second[0].x, second[0].y) == (555, 777)
+
+
+def test_the_cache_survives_a_new_connection_to_the_same_journal(
+    tmp_path: Path,
+) -> None:
+    """THE BUG THIS CACHE WAS BORN WITH.
+
+    The sidecar opens a fresh connection per request and closes it, so a
+    cache keyed on the connection object missed every single time while
+    still growing an entry per request. Keyed on the file, a second
+    connection to the same journal reuses the fold.
+
+    THIS REACHES INTO `localread._FOLD_CACHE`, A PRIVATE NAME, on purpose:
+    the bug it pins was invisible from `search`'s return value alone — a
+    connection-keyed cache and a file-keyed one answer every query the same
+    way, they just disagree about how much work it took to get there. That
+    is exactly why it shipped.
+    """
+    journal_path = tmp_path / "collector.db"
+    journal = Journal(journal_path)
+    journal.init_db()
+    journal.close()
+
+    first = sqlite3.connect(journal_path)
+    localread.search(first, "erha")
+    first.close()
+
+    before = len(localread._FOLD_CACHE)
+    second = sqlite3.connect(journal_path)
+    localread.search(second, "erha")
+    second.close()
+
+    # One entry for one journal, no matter how many connections asked.
+    assert len(localread._FOLD_CACHE) == before == 1
+
+
+def test_two_journals_do_not_share_a_fold(tmp_path: Path) -> None:
+    """Keying on a file means the key has to actually distinguish files."""
+    first_path = tmp_path / "one.db"
+    second_path = tmp_path / "two.db"
+    for path, uid in ((first_path, 11), (second_path, 22)):
+        journal = Journal(path)
+        journal.init_db()
+        _write_tile(
+            journal,
+            observation_id="obs-1",
+            captured_at="2026-09-01T10:00:00+00:00",
+            game_uid=uid,
+            name="ERHA",
+        )
+        journal.close()
+
+    first = sqlite3.connect(first_path)
+    second = sqlite3.connect(second_path)
+    found_first = localread.search(first, "erha")
+    found_second = localread.search(second, "erha")
+    first.close()
+    second.close()
+
+    assert [tile.game_uid for tile in found_first] == [11]
+    assert [tile.game_uid for tile in found_second] == [22]

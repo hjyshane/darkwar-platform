@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import threading
 from dataclasses import dataclass
 
 from dw_collector.console.find import matches
@@ -148,16 +149,40 @@ def newest_per_player(found: list[Tile]) -> list[Tile]:
     return sorted(newest.values(), key=lambda t: t.captured_at, reverse=True)
 
 
-# CACHE, KEYED ON THE CONNECTION OBJECT ITSELF, not on a path or id shared
-# across journals. `sqlite3.Connection` hashes by identity, so two different
-# journals — two `tmp_path` fixtures in a test run, or a scratch journal from
-# `console.find.search` opened right after the real one closes — never share
-# an entry even if their freshness probes happen to coincide (e.g. both
-# empty, both `(0, 0)`). Holding the connection as a dict key also keeps it
-# alive, which is what stops a later, unrelated connection from being handed
-# a stale fold under a reused `id()` — CPython cannot reuse the address of an
-# object this module still references.
-_FOLD_CACHE: dict[sqlite3.Connection, tuple[tuple[int, int], list[Tile]]] = {}
+#: One folded snapshot per journal file, and the freshness key it was built
+#: from.
+#:
+#: KEYED ON THE FILE, NOT THE CONNECTION, and that is the whole point. The
+#: sidecar opens a fresh connection for every request and closes it again —
+#: which is deliberate, because it is how the collector's newest writes get
+#: seen and how a lock stays short (Task 8) — so a cache keyed on the
+#: connection object would miss every single time while still growing a
+#: dictionary entry per request that nothing ever removes: a guaranteed cache
+#: miss on every real search, and an unbounded leak of dead connections and
+#: their folded lists, in the same dict. Keying on the file the connection is
+#: attached to survives exactly the churn that broke the old key.
+_FOLD_CACHE: dict[str, tuple[tuple[int, int], list[Tile]]] = {}
+
+#: `ThreadingHTTPServer` (`sidecar.py`) means two searches can land at once.
+#: The dict itself is not the risk — CPython's GIL makes single dict
+#: operations atomic — but the read-compare-fold-store sequence below is not
+#: a single operation, and without a lock two requests racing a cold cache
+#: could both decide to fold and then stomp each other's store.
+_FOLD_LOCK = threading.Lock()
+
+
+def _journal_file(conn: sqlite3.Connection) -> str:
+    """The path this connection is reading, as SQLite itself reports it.
+
+    Asking the connection rather than taking a path argument keeps `search`'s
+    signature honest: it reads whatever it was handed, and the cache key
+    follows from that rather than from something a caller could get wrong by
+    passing a different path than the one the connection actually opened.
+    """
+    for _, name, file in conn.execute("pragma database_list").fetchall():
+        if name == "main":
+            return str(file)
+    return ""
 
 
 def _freshness_key(conn: sqlite3.Connection) -> tuple[int, int]:
@@ -189,12 +214,29 @@ def _folded(conn: sqlite3.Connection) -> list[Tile]:
     caches — `tiles`/`newest_per_player` themselves stay uncached and are
     still called fresh by anyone using them directly.
     """
+    path = _journal_file(conn)
+    if not path:
+        # AN IN-MEMORY DATABASE REPORTS AN EMPTY FILE PATH. Every `:memory:`
+        # connection would then collide on the same `""` key and serve each
+        # other's folded list — a test database answering with another
+        # test's rows. Skip the cache entirely rather than risk that; the
+        # desktop app this cache exists for always reads a real file on disk.
+        return newest_per_player(tiles(conn))
+
     key = _freshness_key(conn)
-    cached = _FOLD_CACHE.get(conn)
-    if cached is not None and cached[0] == key:
-        return cached[1]
+    with _FOLD_LOCK:
+        cached = _FOLD_CACHE.get(path)
+        if cached is not None and cached[0] == key:
+            return cached[1]
+
+    # FOLDED OUTSIDE THE LOCK. The fold is seconds long on a cold cache, and
+    # holding the lock across it would serialise every concurrent search
+    # behind whichever request got there first. Two requests racing a cold
+    # cache can both decide to fold — that duplicates the work, it does not
+    # produce a wrong answer, since both are folding the same journal.
     folded = newest_per_player(tiles(conn))
-    _FOLD_CACHE[conn] = (key, folded)
+    with _FOLD_LOCK:
+        _FOLD_CACHE[path] = (key, folded)
     return folded
 
 

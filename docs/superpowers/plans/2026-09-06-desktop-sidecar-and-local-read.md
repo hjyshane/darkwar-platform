@@ -680,13 +680,25 @@ trigger is Task 8**, which wires it to a live input. It must land before then.
   whether that belongs here or in Task 8.
   — Added here: index + ORDER BY alone left `search()` at ~4s median on the
   300k-row benchmark, far over the 250ms "don't bother" bar, so a cache was
-  needed by the decision rule. Cached the fold, keyed on a `(max(id),
-  count(*))` freshness probe (~25ms, a covering-index read) scoped per
-  `sqlite3.Connection`. Warm-cache `search()`: ~4s → ~0.023s median (a cold
-  fold after new rows land is still ~3-4s, same as before — the cache only
-  helps the steady state between keystrokes, which is the case Task 8
-  creates). Debouncing in the UI is still a Task 8 concern; not addressed
-  here.
+  needed by the decision rule. First cut cached the fold keyed on the
+  `sqlite3.Connection` object, with a `(max(id), count(*))` freshness probe
+  (~25ms, a covering-index read) — measured against a benchmark that reused
+  one connection across both calls, giving a warm `search()` of ~4s →
+  ~0.023s. **That number never happened in the shipped app**: `sidecar.py`'s
+  `do_GET` opens a fresh connection per request and closes it in a `finally`,
+  so a cache keyed on the connection object was a guaranteed miss on every
+  real search, while still growing one dead entry per request with nothing
+  ever removing it. Fixed by keying `_FOLD_CACHE` on the journal *file*
+  (`pragma database_list`'s `main` entry) instead of the connection, so the
+  fold survives across the per-request connections the sidecar actually
+  opens. Re-measured **through actual HTTP requests against `sidecar.serve`**
+  on a fresh 300k-row benchmark journal, second request on a brand-new
+  connection exactly as production makes one: cold ~1.59s, warm ~0.08s —
+  and after 10 requests through 10 different connections,
+  `len(localread._FOLD_CACHE) == 1`, not 10. An in-memory (`:memory:`)
+  connection reports no file and skips the cache entirely rather than share
+  one entry across unrelated in-memory databases. Debouncing in the UI is
+  still a Task 8 concern; not addressed here.
 
 ### Task 4: The sidecar's HTTP surface
 
