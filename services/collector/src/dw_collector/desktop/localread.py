@@ -92,3 +92,26 @@ def _tile(raw: str, captured_at: str) -> Tile | None:
         # parsers not yet written. One unreadable row must not take out the
         # whole screen.
         return None
+
+
+def newest_per_player(found: list[Tile]) -> list[Tile]:
+    """One entry per player per server, at the newest sighting.
+
+    The local equivalent of the `latest_world_cities` view. A sweep writes a
+    row per tile per pan and pans overlap, so a single base arrives many
+    times; and a base that was destroyed or lost its shield is teleported, so
+    the OLDEST sighting is an address the player has left.
+
+    KEYED ON (server_id, game_uid), NOT uid alone. A viewport of one server's
+    map contains players from eight servers, and the same uid can appear on
+    two of them — folding on uid alone would silently discard one of two real
+    players.
+    """
+    newest: dict[tuple[int, int], Tile] = {}
+    for tile in found:
+        key = (tile.server_id, tile.game_uid)
+        seen = newest.get(key)
+        if seen is not None and seen.captured_at >= tile.captured_at:
+            continue
+        newest[key] = tile
+    return sorted(newest.values(), key=lambda t: t.captured_at, reverse=True)

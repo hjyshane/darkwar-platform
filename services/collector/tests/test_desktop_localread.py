@@ -287,3 +287,56 @@ def test_one_observation_holds_many_tiles(tmp_path: Path) -> None:
     # All three share the observation's time, because that is where the time
     # lives.
     assert {tile.captured_at for tile in found} == {"2026-09-01T10:00:00+00:00"}
+
+
+def test_one_row_per_player_at_the_newest_sighting(tmp_path: Path) -> None:
+    """A sweep writes a row per tile per pan, and pans overlap.
+
+    One base near the edge of a sweep is written once per viewport that
+    caught it. Four rows for one tile reads as four findings.
+    """
+    journal = _journal(tmp_path)
+    _write_tile(
+        journal,
+        observation_id="obs-old",
+        captured_at="2026-09-01T10:00:00+00:00",
+        game_uid=7,
+        x=100,
+        y=200,
+    )
+    _write_tile(
+        journal,
+        observation_id="obs-new",
+        captured_at="2026-09-02T10:00:00+00:00",
+        game_uid=7,
+        x=140,
+        y=260,
+    )
+    newest = localread.newest_per_player(localread.tiles(journal.conn))
+    journal.close()
+
+    assert len(newest) == 1
+    # The base moved. The newest sighting is the answer, not the first one.
+    assert (newest[0].x, newest[0].y) == (140, 260)
+
+
+def test_the_same_uid_on_two_servers_stays_two_players(tmp_path: Path) -> None:
+    # Keyed on (server_id, game_uid), matching latest_world_cities.
+    journal = _journal(tmp_path)
+    _write_tile(
+        journal,
+        observation_id="obs-a",
+        captured_at="2026-09-01T10:00:00+00:00",
+        game_uid=7,
+        server_id=580,
+    )
+    _write_tile(
+        journal,
+        observation_id="obs-b",
+        captured_at="2026-09-01T10:00:00+00:00",
+        game_uid=7,
+        server_id=581,
+    )
+    newest = localread.newest_per_player(localread.tiles(journal.conn))
+    journal.close()
+    assert len(newest) == 2
