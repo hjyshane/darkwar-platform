@@ -14,7 +14,10 @@ broken on somebody else's machine.
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
+import sys
+import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -188,3 +191,56 @@ class Handler(BaseHTTPRequestHandler):
 def serve(journal_path: Path, *, port: int = 0) -> ThreadingHTTPServer:
     """A started server. The caller owns `serve_forever` and shutdown."""
     return _Server((HOST, port), journal_path)
+
+
+def _stop_when_stdin_closes(httpd: ThreadingHTTPServer) -> None:
+    """Shut down once the parent's pipe reaches EOF.
+
+    THE PIPE CLOSING IS THE DEATH SIGNAL. Rust kills this process on a clean
+    exit, and that covers the ordinary close; this is the other half, for
+    every path Rust never reaches — a panic, or the window being killed from
+    Task Manager. Without it the window disappears and a Python process
+    keeps running, holding the journal open, with nothing on screen to say
+    so.
+
+    Rust holds this pipe open and deliberately never writes to it, so the
+    read below blocks forever until the parent goes away.
+    """
+    if sys.stdin is None:
+        # No pipe to watch. Only reachable when something starts this
+        # without stdin at all, in which case Rust is not the parent and the
+        # guard has nothing to guard.
+        return
+    try:
+        while sys.stdin.readline():
+            pass
+    except (OSError, ValueError):
+        # A closed or invalidated handle means the same thing as EOF.
+        pass
+    # From another thread on purpose: `shutdown` deadlocks if called on the
+    # thread running `serve_forever`.
+    httpd.shutdown()
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = sys.argv[1:] if argv is None else list(argv)
+    journal_path = (
+        Path(args[0]) if args else Path(os.environ.get("DW_SQLITE_PATH", "./data/collector.db"))
+    )
+
+    httpd = serve(journal_path, port=0)
+    # FIRST LINE, WITH NOTHING BEFORE IT. Rust reads exactly one line to
+    # learn the port, so anything printed earlier is read as the port and
+    # the window never finds the sidecar.
+    print(f"PORT {httpd.server_address[1]}", flush=True)
+
+    threading.Thread(target=_stop_when_stdin_closes, args=(httpd,), daemon=True).start()
+    try:
+        httpd.serve_forever()
+    finally:
+        httpd.server_close()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

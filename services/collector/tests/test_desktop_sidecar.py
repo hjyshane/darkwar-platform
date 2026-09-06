@@ -7,6 +7,9 @@ the security property comes from the port never leaving the machine.
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
+import time
 import urllib.error
 import urllib.request
 from collections.abc import Iterator
@@ -219,3 +222,67 @@ def test_a_journal_with_its_schema_is_ready(tmp_path: Path) -> None:
 
     assert body["ok"] is True
     assert body["state"] == sidecar.READY
+
+
+def test_closing_stdin_stops_the_process(tmp_path: Path) -> None:
+    """THE ORPHAN GUARD.
+
+    If Rust dies without cleaning up — a panic, or being killed from Task
+    Manager — the only thing left telling this process anything is its own
+    stdin reaching EOF. A sidecar that ignores that keeps holding the
+    journal open with no window attached, which is the same shape as the
+    phantom scheduled task this repo has already chased once.
+    """
+    journal_path = tmp_path / "collector.db"
+    journal = Journal(journal_path)
+    journal.init_db()
+    journal.close()
+
+    child = subprocess.Popen(
+        [sys.executable, "-m", "dw_collector.desktop.sidecar", str(journal_path)],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        text=True,
+    )
+    assert child.stdout is not None
+    announced = child.stdout.readline().strip()
+    assert announced.startswith("PORT ")
+
+    assert child.stdin is not None
+    child.stdin.close()
+
+    # Generous, because process teardown on Windows is not instant.
+    for _ in range(50):
+        if child.poll() is not None:
+            break
+        time.sleep(0.1)
+    if child.poll() is None:
+        child.kill()
+        child.wait(timeout=10)
+        pytest.fail("sidecar outlived its parent's stdin")
+
+
+def test_the_port_is_announced_on_the_first_line(tmp_path: Path) -> None:
+    """Rust reads exactly ONE line to learn where to connect, so nothing may
+    be printed before it — not a banner, not a warning, not a log line."""
+    journal_path = tmp_path / "collector.db"
+    journal = Journal(journal_path)
+    journal.init_db()
+    journal.close()
+
+    child = subprocess.Popen(
+        [sys.executable, "-m", "dw_collector.desktop.sidecar", str(journal_path)],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        text=True,
+    )
+    assert child.stdout is not None
+    port = int(child.stdout.readline().strip().removeprefix("PORT "))
+    assert 1024 < port < 65536
+
+    with urllib.request.urlopen(f"http://127.0.0.1:{port}/health") as response:
+        assert json.loads(response.read())["ok"] is True
+
+    assert child.stdin is not None
+    child.stdin.close()
+    child.wait(timeout=10)

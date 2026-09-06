@@ -25,6 +25,9 @@ dw-jobs = "dw_collector.jobs.__main__:main"
 dw-ui-worker = "dw_collector.ui_worker.__main__:main"
 dw-console = "dw_collector.console.__main__:main"
 dw-notify = "dw_collector.notify.__main__:main"
+# The desktop app's Python half. Packaged by PyInstaller, started and stopped
+# by the Tauri window — never run by a person.
+dw-sidecar = "dw_collector.desktop.sidecar:main"
 
 [dependency-groups]
 dev = [
