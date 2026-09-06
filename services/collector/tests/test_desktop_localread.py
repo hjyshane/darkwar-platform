@@ -172,3 +172,118 @@ def test_only_world_city_rows_are_read(tmp_path: Path) -> None:
     found = localread.tiles(journal.conn)
     journal.close()
     assert found == []
+
+
+def test_a_payload_that_is_not_an_object_is_skipped(tmp_path: Path) -> None:
+    """Valid JSON, wrong shape.
+
+    This one gets past `json.loads` and dies on `.get` instead, which is a
+    different exception in a different place from a decode failure — and it
+    is the one a parser change is most likely to introduce.
+    """
+    journal = _journal(tmp_path)
+    _write_tile(
+        journal,
+        observation_id="obs-good",
+        captured_at="2026-09-01T10:00:00+00:00",
+        game_uid=1,
+    )
+    journal.conn.execute(
+        "insert into raw_observations "
+        "(observation_id, collector_id, source_command, captured_at, "
+        " collected_from_server_id, payload_json, created_at) "
+        "values ('obs-shaped-wrong', 'c', 'world.get.new', 't', 580, '{}', 't')"
+    )
+    journal.conn.execute(
+        "insert into normalized_rows "
+        "(observation_id, target_table, idempotency_key, row_json, created_at) "
+        "values ('obs-shaped-wrong', ?, 'shaped-wrong', ?, 't')",
+        (localread.WORLD_CITY, json.dumps({"row": "oops"})),
+    )
+    journal.conn.commit()
+
+    found = localread.tiles(journal.conn)
+    journal.close()
+    assert len(found) == 1
+
+
+def test_a_coordinate_that_is_not_a_number_is_skipped(tmp_path: Path) -> None:
+    """Present, non-null, and still not a coordinate.
+
+    The None checks pass and `int()` is what fails, one line further on.
+    """
+    journal = _journal(tmp_path)
+    _write_tile(
+        journal,
+        observation_id="obs-good",
+        captured_at="2026-09-01T10:00:00+00:00",
+        game_uid=1,
+    )
+    journal.conn.execute(
+        "insert into raw_observations "
+        "(observation_id, collector_id, source_command, captured_at, "
+        " collected_from_server_id, payload_json, created_at) "
+        "values ('obs-not-a-number', 'c', 'world.get.new', 't', 580, '{}', 't')"
+    )
+    journal.conn.execute(
+        "insert into normalized_rows "
+        "(observation_id, target_table, idempotency_key, row_json, created_at) "
+        "values ('obs-not-a-number', ?, 'not-a-number', ?, 't')",
+        (
+            localread.WORLD_CITY,
+            json.dumps({"row": {"game_uid": 2, "server_id": 581, "x": "abc", "y": 5}}),
+        ),
+    )
+    journal.conn.commit()
+
+    found = localread.tiles(journal.conn)
+    journal.close()
+    assert len(found) == 1
+
+
+def test_one_observation_holds_many_tiles(tmp_path: Path) -> None:
+    """The ordinary case, and the fixtures above never exercise it.
+
+    One `world.get.new` response is a viewport, and a viewport is thousands
+    of tiles — so the join is one-to-many and every real capture depends on
+    it being read that way.
+    """
+    journal = _journal(tmp_path)
+    journal.conn.execute(
+        "insert into raw_observations "
+        "(observation_id, collector_id, source_command, captured_at, "
+        " collected_from_server_id, payload_json, created_at) "
+        "values ('obs-1', 'c', 'world.get.new', "
+        "'2026-09-01T10:00:00+00:00', 580, '{}', 't')"
+    )
+    for uid in (11, 12, 13):
+        journal.conn.execute(
+            "insert into normalized_rows "
+            "(observation_id, target_table, idempotency_key, row_json, created_at) "
+            "values ('obs-1', ?, ?, ?, 't')",
+            (
+                localread.WORLD_CITY,
+                f"tile-{uid}",
+                json.dumps(
+                    {
+                        "row": {
+                            "game_uid": uid,
+                            "server_id": 581,
+                            "name": None,
+                            "x": uid,
+                            "y": uid,
+                            "hq_level": None,
+                        }
+                    }
+                ),
+            ),
+        )
+    journal.conn.commit()
+
+    found = localread.tiles(journal.conn)
+    journal.close()
+
+    assert len(found) == 3
+    # All three share the observation's time, because that is where the time
+    # lives.
+    assert {tile.captured_at for tile in found} == {"2026-09-01T10:00:00+00:00"}

@@ -44,30 +44,51 @@ where n.target_table = ?
 
 
 def tiles(conn: sqlite3.Connection) -> list[Tile]:
-    """Every world-city sighting in the journal, one entry per row written."""
+    """Every world-city sighting in the journal, one entry per row written.
+
+    DELIBERATELY NOT FOLDED to one row per player. A caller drawing pins
+    wants the newest sighting per base and should say so; a caller measuring
+    what ground was covered wants every sighting there is. Folding here
+    would quietly deny the second caller its answer.
+    """
     found: list[Tile] = []
     for raw, captured_at in conn.execute(_SELECT, (WORLD_CITY,)).fetchall():
-        try:
-            row = json.loads(raw)["row"]
-        except (ValueError, KeyError, TypeError):
-            # A journal is written by a parser that changes over time. One
-            # unreadable row must not take out the whole screen.
-            continue
+        tile = _tile(raw, captured_at)
+        if tile is not None:
+            found.append(tile)
+    return found
+
+
+def _tile(raw: str, captured_at: str) -> Tile | None:
+    """One journal row as a `Tile`, or None when it cannot be read as one.
+
+    THE WHOLE PARSE IS GUARDED, not merely the JSON decode, and the
+    difference is not theoretical. A `row_json` that holds valid JSON but
+    something other than an object gets past `json.loads` and raises
+    `AttributeError` on `.get`; a coordinate stored as a non-numeric string
+    gets past the None checks and raises `ValueError` on `int()`. Either
+    one, left unguarded, takes every other row in the journal down with it —
+    which is precisely what this module exists to promise it will not do.
+    """
+    try:
+        row = json.loads(raw)["row"]
         x, y = row.get("x"), row.get("y")
         uid, server_id = row.get("game_uid"), row.get("server_id")
         if x is None or y is None or uid is None or server_id is None:
             # Dropped rather than coerced: a pin drawn from a null lands at
             # 0,0 and looks like a real answer.
-            continue
-        found.append(
-            Tile(
-                game_uid=int(uid),
-                server_id=int(server_id),
-                name=row.get("name"),
-                x=int(x),
-                y=int(y),
-                hq_level=row.get("hq_level"),
-                captured_at=captured_at,
-            )
+            return None
+        return Tile(
+            game_uid=int(uid),
+            server_id=int(server_id),
+            name=row.get("name"),
+            x=int(x),
+            y=int(y),
+            hq_level=row.get("hq_level"),
+            captured_at=captured_at,
         )
-    return found
+    except (ValueError, KeyError, TypeError, AttributeError):
+        # A journal is written by a parser that changes over time, and by
+        # parsers not yet written. One unreadable row must not take out the
+        # whole screen.
+        return None
