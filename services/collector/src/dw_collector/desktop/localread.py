@@ -18,6 +18,8 @@ import json
 import sqlite3
 from dataclasses import dataclass
 
+from dw_collector.console.find import matches
+
 #: The one target table this module reads so far.
 WORLD_CITY = "world_city_snapshots"
 
@@ -133,3 +135,23 @@ def newest_per_player(found: list[Tile]) -> list[Tile]:
             continue
         newest[key] = tile
     return sorted(newest.values(), key=lambda t: t.captured_at, reverse=True)
+
+
+def search(conn: sqlite3.Connection, needle: str, *, limit: int = 25) -> list[Tile]:
+    """Players matching `needle`, newest sighting first.
+
+    THE ORDER OF OPERATIONS IS THE POINT, and this repo has already paid for
+    getting it wrong one layer up: a row-per-detail query behind a limit
+    showed 67 of 84 members and looked complete. Folding happens before the
+    limit, because limiting first lets one heavily-swept base spend the whole
+    budget and the players behind it do not arrive stale — they do not
+    arrive, and nothing on screen says so.
+
+    Matching is `console.find.matches` rather than a second copy of the rule,
+    so the app and the console cannot disagree about whether six digits of a
+    uid are a match. They are not: the last six are the server, so a
+    substring match on them returns everybody on that server.
+    """
+    return [
+        tile for tile in newest_per_player(tiles(conn)) if matches(needle, tile.name, tile.game_uid)
+    ][:limit]

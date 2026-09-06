@@ -394,3 +394,67 @@ def test_the_fold_returns_players_newest_first() -> None:
     )
     folded = localread.newest_per_player([older, newer])
     assert [tile.game_uid for tile in folded] == [2, 1]
+
+
+def test_a_uid_matches_whole_and_a_name_matches_loosely(tmp_path: Path) -> None:
+    journal = _journal(tmp_path)
+    _write_tile(
+        journal,
+        observation_id="obs-1",
+        captured_at="2026-09-01T10:00:00+00:00",
+        game_uid=1190060554000581,
+        name="ERHA SANGMAIMA",
+    )
+    by_uid = localread.search(journal.conn, "1190060554000581")
+    by_name = localread.search(journal.conn, "sangmai")
+    # The last six digits of a uid are the server. A substring match would
+    # return every player on 581 — the opposite of narrowing.
+    by_suffix = localread.search(journal.conn, "000581")
+    journal.close()
+
+    assert len(by_uid) == 1
+    assert len(by_name) == 1
+    assert by_suffix == []
+
+
+def test_the_limit_counts_players_not_sightings(tmp_path: Path) -> None:
+    """THE TRAP THIS REPO HAS ALREADY PAID FOR, one level down.
+
+    Limiting before folding lets one heavily-swept base eat the whole
+    budget, and the other players do not come back late or stale — they are
+    absent. Fold first, then limit.
+    """
+    journal = _journal(tmp_path)
+    for pan in range(5):
+        _write_tile(
+            journal,
+            observation_id=f"obs-noisy-{pan}",
+            captured_at=f"2026-09-0{pan + 1}T10:00:00+00:00",
+            game_uid=1,
+            name="NOISY",
+        )
+    _write_tile(
+        journal,
+        observation_id="obs-quiet",
+        captured_at="2026-09-01T10:00:00+00:00",
+        game_uid=2,
+        name="NOISY TOO",
+    )
+    found = localread.search(journal.conn, "noisy", limit=2)
+    journal.close()
+
+    assert {tile.game_uid for tile in found} == {1, 2}
+
+
+def test_an_empty_needle_returns_nothing(tmp_path: Path) -> None:
+    # Otherwise an empty box returns the entire journal.
+    journal = _journal(tmp_path)
+    _write_tile(
+        journal,
+        observation_id="obs-1",
+        captured_at="2026-09-01T10:00:00+00:00",
+        game_uid=1,
+    )
+    assert localread.search(journal.conn, "") == []
+    assert localread.search(journal.conn, "   ") == []
+    journal.close()
