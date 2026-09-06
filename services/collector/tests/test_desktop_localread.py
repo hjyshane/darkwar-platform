@@ -423,6 +423,14 @@ def test_the_limit_counts_players_not_sightings(tmp_path: Path) -> None:
     Limiting before folding lets one heavily-swept base eat the whole
     budget, and the other players do not come back late or stale — they are
     absent. Fold first, then limit.
+
+    ASSERTING THE UID SET IS NOT ENOUGH, and an earlier version of this test
+    did only that. With these fixtures a naive limit-before-fold returns the
+    same two uids, because the first two rows happen to be one of each — so
+    the test passed under exactly the bug it exists to catch. What separates
+    the two implementations is WHICH sighting of the noisy player survives:
+    folding first keeps its newest, limiting first keeps whichever row the
+    limit happened to reach.
     """
     journal = _journal(tmp_path)
     for pan in range(5):
@@ -444,6 +452,9 @@ def test_the_limit_counts_players_not_sightings(tmp_path: Path) -> None:
     journal.close()
 
     assert {tile.game_uid for tile in found} == {1, 2}
+    kept = {tile.game_uid: tile.captured_at for tile in found}
+    assert kept[1] == "2026-09-05T10:00:00+00:00"
+    assert kept[2] == "2026-09-01T10:00:00+00:00"
 
 
 def test_an_empty_needle_returns_nothing(tmp_path: Path) -> None:
