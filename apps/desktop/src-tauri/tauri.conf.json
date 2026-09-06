@@ -1,0 +1,17 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Dark War",
+  "version": "0.0.0",
+  "identifier": "us.cbfw.darkwar.desktop",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "pnpm dev",
+    "beforeBuildCommand": "pnpm build"
+  },
+  "app": {
+    "windows": [{ "title": "Dark War", "width": 1100, "height": 750 }],
+    "security": { "csp": null }
+  },
+  "bundle": { "active": true, "targets": ["nsis"] }
+}
