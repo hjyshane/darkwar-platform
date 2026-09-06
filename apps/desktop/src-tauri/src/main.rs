@@ -175,10 +175,27 @@ fn main() {
                 if let Some(state) = app.try_state::<Sidecar>() {
                     if let Ok(mut held) = state.child.lock() {
                         if let Some(mut child) = held.take() {
-                            #[cfg(windows)]
-                            kill_tree(child.id());
-                            #[cfg(not(windows))]
-                            let _ = child.kill();
+                            // A PID is only meaningful while the process behind it
+                            // is still alive — Windows recycles them, and does so
+                            // eagerly enough that reuse is not some once-a-decade
+                            // fluke. If the bootloader had already crashed on its
+                            // own before we got here, killing by its old PID could
+                            // reach whatever unrelated process the OS had since
+                            // handed that number to, tree and all. `try_wait` is
+                            // the check: it tells us whether there is still
+                            // something of ours behind the PID before we act on
+                            // it, and reaps the child in the process, which is why
+                            // the `wait` below never blocks on a corpse.
+                            match child.try_wait() {
+                                Ok(None) => {
+                                    #[cfg(windows)]
+                                    kill_tree(child.id());
+                                    #[cfg(not(windows))]
+                                    let _ = child.kill();
+                                }
+                                Ok(Some(_)) => {}
+                                Err(_) => {}
+                            }
                             let _ = child.wait();
                         }
                     }

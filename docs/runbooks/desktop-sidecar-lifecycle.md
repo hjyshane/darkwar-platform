@@ -124,3 +124,28 @@ handler):
 No survivors in any case, checked both by `tasklist | findstr /i dw-sidecar`
 and by enumerating the full `dw-desktop.exe` / `dw-sidecar*.exe` process tree
 with `Get-CimInstance Win32_Process`.
+
+**2026-09-06, later the same day — `try_wait` guard added to `ExitRequested`:**
+a review finding pointed out that the handler killed by PID unconditionally,
+with no check that the bootloader was still the thing behind that PID. The
+window needed the bootloader to have already died independently, on its own,
+*and* Windows to have handed the exact number to something else, *and* both
+before the app quit — narrow, but this repo has hit stale-identifier bugs on
+this same shape twice before (a scheduled task reporting `Running` with
+nothing behind it, a stale BlueStacks adb port still answering connect), so
+the guard went in: `child.try_wait()` before `kill_tree`, killing only on
+`Ok(None)`.
+
+Re-ran case 1 (normal close, the one this guard sits directly in the path
+of) to confirm it didn't regress the thing it's supposed to protect. Process
+shape matched the table above exactly: `dw-desktop.exe` parent, bootloader
+child, inner interpreter grandchild, confirmed via
+`Get-CimInstance Win32_Process -Filter "Name LIKE 'dw-%'"` before closing.
+Hit the sidecar directly over HTTP first (`/health`, then `/find?q=a`
+against the seeded journal) to confirm it was actually serving before the
+close — both returned as expected. Closed the window gracefully (`taskkill`
+without `/F`, which sends `WM_CLOSE` to the top-level window — the same
+signal the OS sends when the X button is clicked) and re-checked
+`tasklist | findstr /i dw-sidecar` immediately after: nothing left, bootloader
+and inner interpreter both gone. Clean — `try_wait` correctly found the child
+still running and let `kill_tree` proceed exactly as before.
