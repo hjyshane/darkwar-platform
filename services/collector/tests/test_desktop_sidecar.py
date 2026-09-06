@@ -7,6 +7,7 @@ the security property comes from the port never leaving the machine.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import time
@@ -286,3 +287,34 @@ def test_the_port_is_announced_on_the_first_line(tmp_path: Path) -> None:
     assert child.stdin is not None
     child.stdin.close()
     child.wait(timeout=10)
+
+
+def test_the_journal_path_can_come_from_the_environment(tmp_path: Path) -> None:
+    """Rust passes the path as an argument, but `DW_SQLITE_PATH` is how the
+    rest of the collector is configured, and it is the only way to run this
+    by hand against a real journal. An untested fallback is one that quietly
+    points at `./data/collector.db` forever.
+    """
+    journal_path = tmp_path / "collector.db"
+    journal = Journal(journal_path)
+    journal.init_db()
+    journal.close()
+
+    child = subprocess.Popen(
+        [sys.executable, "-m", "dw_collector.desktop.sidecar"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        text=True,
+        env={**os.environ, "DW_SQLITE_PATH": str(journal_path)},
+    )
+    try:
+        assert child.stdout is not None
+        port = int(child.stdout.readline().strip().removeprefix("PORT "))
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/health") as response:
+            body = json.loads(response.read())
+        assert body["journal"] == str(journal_path)
+        assert body["state"] == sidecar.READY
+    finally:
+        assert child.stdin is not None
+        child.stdin.close()
+        child.wait(timeout=10)

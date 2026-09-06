@@ -223,6 +223,12 @@ def _stop_when_stdin_closes(httpd: ThreadingHTTPServer) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Run the sidecar until the parent goes away.
+
+    The journal path comes from the command line when Rust starts this, and
+    from `DW_SQLITE_PATH` when a person does — the same variable the rest of
+    the collector already reads.
+    """
     args = sys.argv[1:] if argv is None else list(argv)
     journal_path = (
         Path(args[0]) if args else Path(os.environ.get("DW_SQLITE_PATH", "./data/collector.db"))
@@ -237,6 +243,11 @@ def main(argv: list[str] | None = None) -> int:
     threading.Thread(target=_stop_when_stdin_closes, args=(httpd,), daemon=True).start()
     try:
         httpd.serve_forever()
+    except KeyboardInterrupt:
+        # Only reachable when a person is running this by hand. The guard
+        # thread is the normal way out, and it exits 0 — an interrupt is the
+        # same intent typed differently, so it should not look like a crash.
+        pass
     finally:
         httpd.server_close()
     return 0
