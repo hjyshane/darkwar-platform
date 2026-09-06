@@ -13,5 +13,9 @@
     "windows": [{ "title": "Dark War", "width": 1100, "height": 750 }],
     "security": { "csp": null }
   },
-  "bundle": { "active": true, "targets": ["nsis"] }
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "externalBin": ["binaries/dw-sidecar"]
+  }
 }
