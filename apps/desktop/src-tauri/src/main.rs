@@ -132,6 +132,26 @@ async fn health(state: tauri::State<'_, Sidecar>) -> Result<serde_json::Value, S
         .map_err(|e| e.to_string())
 }
 
+/// Kill the sidecar by process tree, not by PID alone.
+///
+/// `dw-sidecar.exe` is a PyInstaller onefile build: the `Child` we hold is
+/// its bootloader, which re-execs a second, real Python process to actually
+/// serve `/find`. The two are not in a Windows Job Object together, so
+/// `Child::kill` only reaches the bootloader and leaves the inner process
+/// orphaned and still serving — confirmed empirically (see
+/// `docs/runbooks/desktop-sidecar-lifecycle.md`). `taskkill /F /T` walks the
+/// process tree recorded at creation time and reaches both.
+#[cfg(windows)]
+fn kill_tree(pid: u32) {
+    let mut command = Command::new("taskkill");
+    command.args(["/F", "/T", "/PID", &pid.to_string()]);
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+    let _ = command.status();
+}
+
 fn main() {
     tauri::Builder::default()
         .setup(|app| {
@@ -144,6 +164,25 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![find, health])
-        .run(tauri::generate_context!())
-        .expect("failed to start the Dark War window");
+        .build(tauri::generate_context!())
+        .expect("failed to start the Dark War window")
+        .run(|app, event| {
+            // The ordinary path. The sidecar's own stdin guard covers what
+            // this never reaches — a panic here, or being killed from Task
+            // Manager — because Rust holding that pipe open is the only
+            // thing telling the sidecar we are still alive.
+            if let tauri::RunEvent::ExitRequested { .. } = event {
+                if let Some(state) = app.try_state::<Sidecar>() {
+                    if let Ok(mut held) = state.child.lock() {
+                        if let Some(mut child) = held.take() {
+                            #[cfg(windows)]
+                            kill_tree(child.id());
+                            #[cfg(not(windows))]
+                            let _ = child.kill();
+                            let _ = child.wait();
+                        }
+                    }
+                }
+            }
+        });
 }
