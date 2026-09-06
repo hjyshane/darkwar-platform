@@ -41,6 +41,9 @@ dist/
 build/
 # PyInstaller regenerates this on every build-console.ps1 run.
 *.spec
+# ...except the sidecar's, which is hand-authored (console=True, excludes)
+# and committed on purpose rather than regenerated from CLI flags.
+!services/collector/dw-sidecar.spec
 
 # ---------------------------------------------------------------------------
 # Node / TypeScript

@@ -36,6 +36,7 @@ dev = [
     "syrupy>=4.8",
     "mypy>=1.13",
     "ruff>=0.8",
+    "pyinstaller>=6.11",
 ]
 
 [build-system]
@@ -50,7 +51,9 @@ packages = ["src/dw_collector"]
 line-length = 100
 target-version = "py312"
 # legacy/ is quarantined. It is never linted, formatted, or type-checked.
-extend-exclude = ["../../legacy"]
+# *.spec files use PyInstaller's injected globals (Analysis, PYZ, EXE), which
+# ruff cannot see and would flag as F821 undefined name.
+extend-exclude = ["../../legacy", "*.spec"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "UP", "B", "SIM", "PTH", "RUF"]
