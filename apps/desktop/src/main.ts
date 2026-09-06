@@ -75,7 +75,15 @@ needleEl?.addEventListener('keydown', (event) => {
 async function waitForReader(): Promise<void> {
   // The window is up before the reader is, now, so it has to say which.
   // "starting" and "never going to start" look identical if we say nothing.
-  for (let attempt = 0; attempt < 100; attempt += 1) {
+  //
+  // AND IT NEVER STOPS ASKING. A first run unpacks a PyInstaller bundle with
+  // antivirus reading every byte of it, which can take far longer than feels
+  // reasonable. A loop that gave up after ten seconds would leave the reader
+  // running and answering while the window claimed it had not started —
+  // recoverable only by quitting and reopening, for the one case where the
+  // user has done nothing wrong.
+  let attempt = 0;
+  for (;;) {
     try {
       const state = await invoke<{ state: string; message?: string }>('status');
       if (state.state === 'ready') {
@@ -90,10 +98,17 @@ async function waitForReader(): Promise<void> {
       say(statusEl, `could not ask about the reader: ${String(error)}`);
       return;
     }
-    say(statusEl, 'starting the reader…');
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    // Ten seconds of asking often, then keep asking quietly.
+    const slow = attempt >= 100;
+    say(
+      statusEl,
+      slow
+        ? 'still starting the reader — the first run is slow while antivirus reads it'
+        : 'starting the reader…',
+    );
+    attempt += 1;
+    await new Promise((resolve) => setTimeout(resolve, slow ? 1000 : 100));
   }
-  say(statusEl, 'the reader is taking longer than expected to start');
 }
 
 void waitForReader();

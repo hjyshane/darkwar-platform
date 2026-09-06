@@ -223,9 +223,23 @@ fn main() {
     // Something for support to ask for when the window never appears at all.
     // A release build has no console, so without this a panic before the
     // window exists leaves literally no trace on the user's machine.
+    // APPENDED, NOT OVERWRITTEN, and stamped. The interesting crash is
+    // usually the first one, and a user who reopens the app before anybody
+    // looks would otherwise erase the only evidence of it.
     std::panic::set_hook(Box::new(|info| {
+        use std::io::Write;
         let path = std::env::temp_dir().join("dark-war-crash.txt");
-        let _ = std::fs::write(&path, format!("{info}\n"));
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|since| since.as_secs())
+            .unwrap_or(0);
+        if let Ok(mut file) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&path)
+        {
+            let _ = writeln!(file, "[{stamp}] {info}");
+        }
     }));
 
     tauri::Builder::default()
@@ -244,6 +258,16 @@ fn main() {
                 let outcome = start(journal);
                 if let Some(state) = handle.try_state::<Sidecar>() {
                     if let Ok(mut held) = state.0.lock() {
+                        // THIS CAN LAND AFTER THE WINDOW HAS ALREADY CLOSED,
+                        // writing a live `Child` into state the exit handler
+                        // has finished reading — so `kill_tree` below never
+                        // runs for a sidecar started that late. That gap is
+                        // known and accepted, not overlooked: the process
+                        // exiting closes every handle it owns, including this
+                        // child's stdin, and the sidecar's own EOF guard
+                        // takes it down within a few seconds. Do not "fix"
+                        // this into a shutdown handshake; the pipe already is
+                        // one.
                         *held = outcome;
                     }
                 }
