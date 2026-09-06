@@ -132,3 +132,90 @@ def test_a_real_tile_comes_back_through_the_endpoint(tmp_path: Path) -> None:
     assert hit["gameUid"] == "1190060554000581"
     assert (hit["x"], hit["y"]) == (310, 622)
     assert hit["capturedAt"] == "2026-09-01T10:00:00+00:00"
+
+
+def test_a_missing_journal_is_reported_and_not_created(tmp_path: Path) -> None:
+    """The state every new install starts in.
+
+    And the file must still not exist afterwards: `sqlite3.connect` creates
+    one, so an endpoint that connects before checking turns a wrong path
+    into a permanent empty journal.
+    """
+    missing = tmp_path / "not-here.db"
+    httpd = sidecar.serve(missing, port=0)
+    Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        url = f"http://127.0.0.1:{httpd.server_address[1]}"
+        with urllib.request.urlopen(f"{url}/health") as response:
+            body = json.loads(response.read())
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+    assert body["ok"] is False
+    assert body["state"] == sidecar.NO_JOURNAL
+    assert not missing.exists()
+
+
+def test_find_on_a_missing_journal_answers_rather_than_dropping(
+    tmp_path: Path,
+) -> None:
+    """It used to send NOTHING — the client saw the socket close, with a
+    traceback on a stderr nobody reads. A fresh install hits this first."""
+    missing = tmp_path / "not-here.db"
+    httpd = sidecar.serve(missing, port=0)
+    Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        url = f"http://127.0.0.1:{httpd.server_address[1]}/find?q=erha"
+        with pytest.raises(urllib.error.HTTPError) as raised:
+            urllib.request.urlopen(url)
+        code = raised.value.code
+        body = json.loads(raised.value.read())
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+    assert code == 503
+    assert body["state"] == sidecar.NO_JOURNAL
+    assert not missing.exists()
+
+
+def test_a_file_that_is_not_a_journal_is_unreadable_not_empty(
+    tmp_path: Path,
+) -> None:
+    """An empty result and an unopenable file must not look the same."""
+    impostor = tmp_path / "collector.db"
+    impostor.write_text("this is not a database", encoding="utf-8")
+
+    httpd = sidecar.serve(impostor, port=0)
+    Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        url = f"http://127.0.0.1:{httpd.server_address[1]}"
+        with urllib.request.urlopen(f"{url}/health") as response:
+            body = json.loads(response.read())
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+    assert body["ok"] is False
+    assert body["state"] == sidecar.UNREADABLE
+
+
+def test_a_journal_with_its_schema_is_ready(tmp_path: Path) -> None:
+    journal_path = tmp_path / "collector.db"
+    journal = Journal(journal_path)
+    journal.init_db()
+    journal.close()
+
+    httpd = sidecar.serve(journal_path, port=0)
+    Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        url = f"http://127.0.0.1:{httpd.server_address[1]}"
+        with urllib.request.urlopen(f"{url}/health") as response:
+            body = json.loads(response.read())
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+    assert body["ok"] is True
+    assert body["state"] == sidecar.READY

@@ -24,6 +24,38 @@ from dw_collector.desktop import localread
 
 HOST = "127.0.0.1"
 
+#: What `/health` found when it looked. The window shows a different sentence
+#: for each, because they need different things from the user: start the
+#: collector, or fix the path.
+READY = "ready"
+NO_JOURNAL = "no-journal"
+UNREADABLE = "unreadable"
+
+
+def journal_state(journal_path: Path) -> str:
+    """Whether the journal is there and readable — WITHOUT creating it.
+
+    THE EXISTENCE CHECK HAS TO COME FIRST. `sqlite3.connect` creates a
+    missing file rather than failing, so a read endpoint that connects
+    optimistically leaves a 0-byte database behind at whatever path it was
+    pointed at, and every later run finds that file and reports an empty
+    journal instead of a missing one. The typo becomes permanent and stops
+    looking like a typo.
+    """
+    if not journal_path.exists():
+        return NO_JOURNAL
+    conn = sqlite3.connect(journal_path)
+    try:
+        conn.execute("select 1 from normalized_rows limit 1").fetchone()
+    except sqlite3.DatabaseError:
+        # A file that is not a journal, or one written by a version that did
+        # not have this table yet. Either way the window must say so rather
+        # than show an empty result that looks like an answer.
+        return UNREADABLE
+    finally:
+        conn.close()
+    return READY
+
 
 def tile_json(
     *,
@@ -88,9 +120,19 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
         if parsed.path == "/health":
-            # Naming the journal makes "no data yet" distinguishable from
-            # "pointed at the wrong file", and only the second is fixable.
-            self._send(200, {"ok": True, "journal": str(self.server.journal_path)})
+            # Naming the journal AND saying what was found there is the
+            # whole point: "no data yet" and "pointed at the wrong file"
+            # look identical from the window, and only the second is
+            # something the user can fix.
+            state = journal_state(self.server.journal_path)
+            self._send(
+                200,
+                {
+                    "ok": state == READY,
+                    "state": state,
+                    "journal": str(self.server.journal_path),
+                },
+            )
             return
         if parsed.path != "/find":
             self._send(404, {"error": "no such endpoint"})
@@ -102,9 +144,26 @@ class Handler(BaseHTTPRequestHandler):
             self._send(400, {"error": "no uid or name given"})
             return
 
+        state = journal_state(self.server.journal_path)
+        if state != READY:
+            # 503 rather than 500: nothing is wrong with the request. THE
+            # FIRST RUN OF A FRESH INSTALL IS EXACTLY THIS CASE, and it has
+            # to arrive as a sentence the window can show — not as a dropped
+            # connection and a traceback on a stderr nobody is reading.
+            self._send(503, {"error": "no journal to search yet", "state": state})
+            return
+
         conn = sqlite3.connect(self.server.journal_path)
         try:
             found = localread.search(conn, needle)
+        except sqlite3.DatabaseError as exc:
+            # Between the check above and this query the file can be locked
+            # by the collector writing to it, or turn out to be corrupt.
+            self._send(
+                503,
+                {"error": f"could not read the journal: {exc}", "state": UNREADABLE},
+            )
+            return
         finally:
             conn.close()
         self._send(
