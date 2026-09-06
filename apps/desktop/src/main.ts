@@ -71,4 +71,29 @@ needleEl?.addEventListener('keydown', (event) => {
     void search();
   }
 });
-void showHealth();
+
+async function waitForReader(): Promise<void> {
+  // The window is up before the reader is, now, so it has to say which.
+  // "starting" and "never going to start" look identical if we say nothing.
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    try {
+      const state = await invoke<{ state: string; message?: string }>('status');
+      if (state.state === 'ready') {
+        await showHealth();
+        return;
+      }
+      if (state.state === 'failed') {
+        say(statusEl, state.message ?? 'the reader did not start');
+        return;
+      }
+    } catch (error) {
+      say(statusEl, `could not ask about the reader: ${String(error)}`);
+      return;
+    }
+    say(statusEl, 'starting the reader…');
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  say(statusEl, 'the reader is taking longer than expected to start');
+}
+
+void waitForReader();

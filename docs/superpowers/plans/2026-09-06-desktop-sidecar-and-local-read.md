@@ -1764,7 +1764,7 @@ git commit -m "feat(desktop): kill the sidecar with the window, and prove it"
 fail *silently* for someone who cannot read a stack trace, which is the whole
 audience.
 
-- [ ] **The port wait can hang the app with no UI at all.** `start()` does a
+- [x] **The port wait can hang the app with no UI at all.** `start()` does a
   blocking `read_line` with no timeout, inside `.setup()`, on the main
   thread — so if the sidecar starts but never prints (wrong exe, a
   PyInstaller unpack stall, antivirus holding the binary), the event loop is
@@ -1773,12 +1773,23 @@ audience.
   spawning the sidecar and its blocking read on a background thread, and
   updating the UI when the port arrives or fails. If a synchronous wait is
   kept instead, bound it (read on a thread, `recv_timeout` on a channel).
-- [ ] **`.expect()` panics are invisible in release.** `windows_subsystem =
+  Done: `setup()` now only manages a `Sidecar(Mutex<Status>)` in `Starting`
+  state and returns immediately; the blocking `connect()` runs on a spawned
+  thread and the window's `waitForReader()` polls the new `status` command
+  every 100ms until it settles to `ready` or `failed`.
+- [x] **`.expect()` panics are invisible in release.** `windows_subsystem =
   "windows"` means no console, so a missing `dw-sidecar.exe` panics to a
   stderr that goes nowhere and the process just vanishes. Convert those to
   `Result`s surfaced in the window itself (which the fix above makes
   possible), or install a `std::panic::set_hook` showing a native message
   box before any of it runs.
+  Done: every `.expect()` in `sidecar_path()`/`start()` became a `Result`
+  with a readable message stored as `Status::Failed`, plus a
+  `std::panic::set_hook` that writes `%TEMP%\dark-war-crash.txt` for a panic
+  before the window exists. Verified against a release build with the
+  sidecar binary removed: the window opened and showed "could not start the
+  reader at ...dw-sidecar.exe: The system cannot find the file specified.
+  (os error 2)".
 
 ## Carried forward, found during execution
 
