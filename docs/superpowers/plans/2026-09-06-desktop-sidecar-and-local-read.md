@@ -653,18 +653,40 @@ There is **no index on `normalized_rows.target_table`** — `journal.py`'s
 This is fine today because nothing calls `search()` on a keystroke. **The
 trigger is Task 8**, which wires it to a live input. It must land before then.
 
-- [ ] Add `create index if not exists normalized_rows_target_table_idx on
+- [x] Add `create index if not exists normalized_rows_target_table_idx on
   normalized_rows (target_table)` to `_SCHEMA` in
   `services/collector/src/dw_collector/storage/journal.py`. Consider
   `(target_table, observation_id)` to make the join covering. **Note this
   touches the schema the production collector also writes**, so weigh the
   write cost of an extra index against the read win, and say which you chose
   and why.
-- [ ] Guard `limit` in `search()`: `limit=-1` currently returns "all but the
-  last match" silently. `if limit <= 0: return []`.
-- [ ] Consider debouncing in the UI and caching `newest_per_player(tiles())`
+  — Measured on a benchmark journal (300k `world_city_snapshots` rows + 50k
+  other-table rows, 154.6 MB): baseline `EXPLAIN QUERY PLAN` was `SCAN n` +
+  `USE TEMP B-TREE FOR ORDER BY`. Chose **`(target_table, id)`** (not
+  `observation_id`): `target_table` alone gets a `SEARCH` instead of a scan
+  even at ~86% selectivity, and trailing `id` — combined with changing
+  `_SELECT`'s `order by r.captured_at, n.id` to `order by n.id` alone (still
+  deterministic; see code comments) — lets the index satisfy the ORDER BY too,
+  removing the temp-B-tree step from the plan entirely. SQL fetch time:
+  2.78s → 2.50s median (the remaining cost is the 300k-row join into
+  `raw_observations`, which no index on `normalized_rows` can remove).
+  Costs one extra B-tree append per `record()` insert on the production
+  collector, always sequential since `id` is autoincrement.
+- [x] Guard `limit` in `search()`: `limit=-1` currently returns "all but the
+  last match" silently. `if limit <= 0: return []`. — Done, plus a
+  regression test (`test_a_limit_of_zero_or_less_returns_nothing`).
+- [x] Consider debouncing in the UI and caching `newest_per_player(tiles())`
   between keystrokes, since the journal only grows between refreshes. Decide
   whether that belongs here or in Task 8.
+  — Added here: index + ORDER BY alone left `search()` at ~4s median on the
+  300k-row benchmark, far over the 250ms "don't bother" bar, so a cache was
+  needed by the decision rule. Cached the fold, keyed on a `(max(id),
+  count(*))` freshness probe (~25ms, a covering-index read) scoped per
+  `sqlite3.Connection`. Warm-cache `search()`: ~4s → ~0.023s median (a cold
+  fold after new rows land is still ~3-4s, same as before — the cache only
+  helps the steady state between keystrokes, which is the case Task 8
+  creates). Debouncing in the UI is still a Task 8 concern; not addressed
+  here.
 
 ### Task 4: The sidecar's HTTP surface
 

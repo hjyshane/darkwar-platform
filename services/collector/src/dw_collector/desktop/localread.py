@@ -42,18 +42,24 @@ class Tile:
     captured_at: str
 
 
-# ORDERED SO THE FOLD IS DETERMINISTIC. Without it, two sightings sharing a
-# timestamp come back in whatever order the join plan produces, and
-# `newest_per_player` breaks that tie by keeping whichever it saw first —
-# which would make the answer depend on a decision SQLite never promised to
-# make the same way twice. `n.id` settles the case where even the timestamps
-# match.
+# ORDERED SO THE FOLD IS DETERMINISTIC — by `n.id` ALONE, not by
+# `r.captured_at`. `id` is autoincrement, so it is already a total,
+# monotonic, insertion order: sorting by it settles every tie
+# `newest_per_player` can face, including two sightings sharing a
+# `captured_at`, without needing a second sort key. Ordering on a column from
+# the *joined* table (`r.captured_at`) would force SQLite into a TEMP B-TREE
+# sort on the whole result; ordering on `n.id`, which leads the
+# `normalized_rows_target_table_idx (target_table, id)` index, lets the index
+# itself hand rows back in this order — measured on a 300k-row benchmark
+# journal, this removed the `USE TEMP B-TREE FOR ORDER BY` step from `EXPLAIN
+# QUERY PLAN` entirely. This is NOT "sorted by capture time" — a caller that
+# wants chronological order must sort the result itself.
 _SELECT = """
 select n.row_json, r.captured_at
 from normalized_rows n
 join raw_observations r on r.observation_id = n.observation_id
 where n.target_table = ?
-order by r.captured_at, n.id
+order by n.id
 """
 
 
@@ -121,11 +127,16 @@ def newest_per_player(found: list[Tile]) -> list[Tile]:
     two of them — folding on uid alone would silently discard one of two real
     players.
 
-    ON AN EXACT TIE the first entry wins, and `_SELECT` orders by
-    `(captured_at, n.id)` so "first" is a defined thing rather than whatever
-    the join plan felt like. Two sightings sharing a timestamp are the same
-    sweep seeing one base twice, so either is correct — but it must be the
-    same one every run, or a base appears to jitter between two coordinates.
+    ON AN EXACT TIE the first entry wins, and `_SELECT` orders by `n.id`
+    alone (insertion order) so "first" is a defined thing rather than
+    whatever the join plan felt like. Among rows sharing a `captured_at`,
+    ordering by `n.id` still puts them in ascending-`id` relative order —
+    the same tie-break `(captured_at, n.id)` used to give explicitly — so the
+    winner of a tie is unchanged from before; only the ordering of
+    *non-tied* rows (which never mattered for this fold) is different now.
+    Two sightings sharing a timestamp are the same sweep seeing one base
+    twice, so either is correct — but it must be the same one every run, or
+    a base appears to jitter between two coordinates.
     """
     newest: dict[tuple[int, int], Tile] = {}
     for tile in found:
@@ -135,6 +146,56 @@ def newest_per_player(found: list[Tile]) -> list[Tile]:
             continue
         newest[key] = tile
     return sorted(newest.values(), key=lambda t: t.captured_at, reverse=True)
+
+
+# CACHE, KEYED ON THE CONNECTION OBJECT ITSELF, not on a path or id shared
+# across journals. `sqlite3.Connection` hashes by identity, so two different
+# journals — two `tmp_path` fixtures in a test run, or a scratch journal from
+# `console.find.search` opened right after the real one closes — never share
+# an entry even if their freshness probes happen to coincide (e.g. both
+# empty, both `(0, 0)`). Holding the connection as a dict key also keeps it
+# alive, which is what stops a later, unrelated connection from being handed
+# a stale fold under a reused `id()` — CPython cannot reuse the address of an
+# object this module still references.
+_FOLD_CACHE: dict[sqlite3.Connection, tuple[tuple[int, int], list[Tile]]] = {}
+
+
+def _freshness_key(conn: sqlite3.Connection) -> tuple[int, int]:
+    """Cheap stand-in for "has anything changed since the last fold".
+
+    `(max(id), count(*))` over the `world_city_snapshots` rows is a
+    COVERING INDEX read against `normalized_rows_target_table_idx
+    (target_table, id)` — measured at ~25ms against a 300k-row benchmark
+    journal, two orders of magnitude under the ~4s full fold it guards, so
+    running it on every keystroke is cheap. A new sighting always bumps at
+    least one of `max(id)` or `count(*)`; nothing in this codebase deletes or
+    rewrites a `normalized_rows` row in place, so this pair cannot go stale
+    while looking unchanged — there is no writer this cache would miss.
+    """
+    row = conn.execute(
+        "select coalesce(max(id), 0), count(*) from normalized_rows where target_table = ?",
+        (WORLD_CITY,),
+    ).fetchone()
+    return (int(row[0]), int(row[1]))
+
+
+def _folded(conn: sqlite3.Connection) -> list[Tile]:
+    """`newest_per_player(tiles(conn))`, recomputed only when the journal grew.
+
+    A DESKTOP SEARCH BOX, NOT A REPORT: `search` exists to sit behind a
+    keystroke (Task 8), and the journal between two keystrokes is overwhelmingly
+    likely to be exactly what it was a moment ago. Folding is the expensive
+    step (a full scan-and-parse of every sighting), so it is the step this
+    caches — `tiles`/`newest_per_player` themselves stay uncached and are
+    still called fresh by anyone using them directly.
+    """
+    key = _freshness_key(conn)
+    cached = _FOLD_CACHE.get(conn)
+    if cached is not None and cached[0] == key:
+        return cached[1]
+    folded = newest_per_player(tiles(conn))
+    _FOLD_CACHE[conn] = (key, folded)
+    return folded
 
 
 def search(conn: sqlite3.Connection, needle: str, *, limit: int = 25) -> list[Tile]:
@@ -152,6 +213,9 @@ def search(conn: sqlite3.Connection, needle: str, *, limit: int = 25) -> list[Ti
     uid are a match. They are not: the last six are the server, so a
     substring match on them returns everybody on that server.
     """
-    return [
-        tile for tile in newest_per_player(tiles(conn)) if matches(needle, tile.name, tile.game_uid)
-    ][:limit]
+    if limit <= 0:
+        # A negative limit slices from the end and returns "all but the last
+        # few" — a plausible-looking answer to a question nobody asked. Zero
+        # and below mean "no room for results", which is an empty list.
+        return []
+    return [tile for tile in _folded(conn) if matches(needle, tile.name, tile.game_uid)][:limit]

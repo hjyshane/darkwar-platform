@@ -469,3 +469,62 @@ def test_an_empty_needle_returns_nothing(tmp_path: Path) -> None:
     assert localread.search(journal.conn, "") == []
     assert localread.search(journal.conn, "   ") == []
     journal.close()
+
+
+def test_a_limit_of_zero_or_less_returns_nothing(tmp_path: Path) -> None:
+    """A negative slice returns all-but-the-last, which looks like an answer."""
+    journal = _journal(tmp_path)
+    _write_tile(
+        journal,
+        observation_id="obs-1",
+        captured_at="2026-09-01T10:00:00+00:00",
+        game_uid=1,
+        name="ERHA",
+    )
+    assert localread.search(journal.conn, "erha", limit=0) == []
+    assert localread.search(journal.conn, "erha", limit=-1) == []
+    # Sanity: it does return something with a sane limit.
+    assert len(localread.search(journal.conn, "erha", limit=1)) == 1
+    journal.close()
+
+
+def test_the_fold_cache_invalidates_when_new_rows_arrive(tmp_path: Path) -> None:
+    """A cache that serves a stale answer about where a player is is worse
+    than a slow one.
+
+    Task 3b's fold cache is keyed on `(max(id), count(*))` for
+    `world_city_snapshots`, so any newly-recorded sighting changes the key
+    and forces a fresh fold — this pins that a second search on the same
+    connection sees a base that moved, rather than replaying the first
+    answer.
+    """
+    journal = _journal(tmp_path)
+    _write_tile(
+        journal,
+        observation_id="obs-1",
+        captured_at="2026-09-01T10:00:00+00:00",
+        game_uid=1,
+        name="ERHA",
+        x=100,
+        y=200,
+    )
+    first = localread.search(journal.conn, "erha")
+    assert len(first) == 1
+    assert (first[0].x, first[0].y) == (100, 200)
+
+    # The base was found again somewhere else, later — a real move, not a
+    # duplicate sighting of the same spot.
+    _write_tile(
+        journal,
+        observation_id="obs-2",
+        captured_at="2026-09-02T10:00:00+00:00",
+        game_uid=1,
+        name="ERHA",
+        x=555,
+        y=777,
+    )
+    second = localread.search(journal.conn, "erha")
+    journal.close()
+
+    assert len(second) == 1
+    assert (second[0].x, second[0].y) == (555, 777)
