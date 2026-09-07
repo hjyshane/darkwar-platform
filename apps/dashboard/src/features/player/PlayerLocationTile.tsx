@@ -1,7 +1,7 @@
+import { formatCoordinate } from '@dw/ui';
 import { useState } from 'react';
 import { StatTile } from '../../components/StatTile';
 import { formatLastOnline } from '../../lib/freshness';
-import { formatCoordinate } from '../../lib/mapProjection';
 import { serverHash } from '../../lib/route';
 import { TERMS } from '../../lib/terms';
 import { MapCanvas } from '../map/MapCanvas';

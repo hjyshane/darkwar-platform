@@ -20,6 +20,9 @@ importers:
       '@dw/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
+      '@dw/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       '@supabase/supabase-js':
         specifier: ^2.47.0
         version: 2.111.0
@@ -94,6 +97,12 @@ importers:
       zod:
         specifier: ^3.24.0
         version: 3.25.76
+
+  packages/ui:
+    devDependencies:
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.7(@types/node@26.1.2)(jsdom@25.0.1)
 
 packages:
 

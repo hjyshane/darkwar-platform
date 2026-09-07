@@ -1,6 +1,6 @@
+import { formatCoordinate } from '@dw/ui';
 import { useState } from 'react';
 import { formatLastOnline } from '../../lib/freshness';
-import { formatCoordinate } from '../../lib/mapProjection';
 import { TERMS } from '../../lib/terms';
 import { MapCanvas } from './MapCanvas';
 import {

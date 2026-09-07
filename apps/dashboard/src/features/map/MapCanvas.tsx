@@ -1,5 +1,5 @@
+import { type Coordinate, formatCoordinate, isOnMap, toFraction } from '@dw/ui';
 import { useState } from 'react';
-import { type Coordinate, formatCoordinate, isOnMap, toFraction } from '../../lib/mapProjection';
 
 /** The picture of the world, and one marker on it.
  *
