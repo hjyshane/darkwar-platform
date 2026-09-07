@@ -6,6 +6,7 @@ the security property comes from the port never leaving the machine.
 
 from __future__ import annotations
 
+import http.client
 import json
 import os
 import subprocess
@@ -14,8 +15,10 @@ import time
 import urllib.error
 import urllib.request
 from collections.abc import Iterator
+from dataclasses import dataclass
 from pathlib import Path
 from threading import Thread
+from urllib.parse import urlparse
 
 import pytest
 
@@ -38,6 +41,315 @@ def base(tmp_path: Path) -> Iterator[str]:
     finally:
         httpd.shutdown()
         httpd.server_close()
+
+
+@dataclass
+class _SidecarWithSettings:
+    """Like `base`, but exposes the settings file path too, for tests that
+    need to seed or inspect it directly rather than only round-trip HTTP."""
+
+    url: str
+    settings_path: Path
+
+
+@pytest.fixture
+def settings_sidecar(tmp_path: Path) -> Iterator[_SidecarWithSettings]:
+    journal_path = tmp_path / "collector.db"
+    journal = Journal(journal_path)
+    journal.init_db()
+    journal.close()
+
+    settings_path = tmp_path / "settings.json"
+    httpd = sidecar.serve(journal_path, settings_path, port=0)
+    Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        yield _SidecarWithSettings(
+            url=f"http://127.0.0.1:{httpd.server_address[1]}", settings_path=settings_path
+        )
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+
+def _put_settings(url: str, payload: dict[str, object]) -> tuple[int, dict[str, object]]:
+    """PUT `payload` to `{url}/settings` and return `(status, body)` even on
+    a 4xx — `urlopen` raises `HTTPError` for those, and every caller here
+    wants the body either way."""
+    request = urllib.request.Request(
+        f"{url}/settings",
+        data=json.dumps(payload).encode("utf-8"),
+        method="PUT",
+        headers={"Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(request) as response:
+            return response.status, json.loads(response.read())
+    except urllib.error.HTTPError as exc:
+        return exc.code, json.loads(exc.read())
+
+
+def test_get_settings_returns_camelcase_defaults(settings_sidecar: _SidecarWithSettings) -> None:
+    with urllib.request.urlopen(f"{settings_sidecar.url}/settings") as response:
+        body = json.loads(response.read())
+    assert body == {
+        "journalPath": "",
+        "captureDir": "",
+        "interface": "",
+        "dumpcapPath": "",
+        "serverId": 580,
+        "gamePort": 8680,
+        "collectorId": "",
+    }
+
+
+def test_get_settings_applies_the_environment_over_the_file(
+    settings_sidecar: _SidecarWithSettings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`/settings` must show what the sidecar will actually use, and the
+    environment always wins over the file — same rule as `settings.load`."""
+    settings_sidecar.settings_path.write_text(json.dumps({"server_id": 581}), encoding="utf-8")
+    monkeypatch.setenv("DW_COLLECTOR_SERVER_ID", "584")
+    with urllib.request.urlopen(f"{settings_sidecar.url}/settings") as response:
+        body = json.loads(response.read())
+    assert body["serverId"] == 584
+
+
+def test_put_settings_saves_and_echoes_back_what_was_saved(
+    settings_sidecar: _SidecarWithSettings,
+) -> None:
+    status, body = _put_settings(
+        settings_sidecar.url, {"journalPath": "C:/data/collector.db", "serverId": 581}
+    )
+    assert status == 200
+    assert body["journalPath"] == "C:/data/collector.db"
+    assert body["serverId"] == 581
+    # And it actually landed on disk, not just in the response.
+    on_disk = json.loads(settings_sidecar.settings_path.read_text(encoding="utf-8"))
+    assert on_disk["journal_path"] == "C:/data/collector.db"
+    assert on_disk["server_id"] == 581
+
+
+def test_put_settings_ignores_unknown_fields(settings_sidecar: _SidecarWithSettings) -> None:
+    """A newer window must be able to talk to an older sidecar — the same
+    reason `settings.load` ignores an unknown key from the file."""
+    status, body = _put_settings(
+        settings_sidecar.url, {"serverId": 583, "someFutureField": "whatever"}
+    )
+    assert status == 200
+    assert body["serverId"] == 583
+    assert "someFutureField" not in body
+
+
+def test_put_settings_never_writes_the_collector_id(
+    settings_sidecar: _SidecarWithSettings,
+) -> None:
+    """THE COLLECTOR ID IS NOT EDITABLE FROM THE WIRE.
+
+    It is one of five components hashed into the journal's unique
+    `idempotency_key` (see `settings.ensure_collector_id`). If a `PUT` could
+    change it, a stale value cached in the window, or a settings file synced
+    from another machine, would silently re-key every row the collector has
+    ever written — turning a journal full of correctly-deduplicated history
+    into a pile of "new" duplicates on the very next capture. `PUT` must
+    preserve whatever collector id is already on disk no matter what the
+    request body asks for.
+    """
+    settings_sidecar.settings_path.write_text(
+        json.dumps({"collector_id": "original-id"}), encoding="utf-8"
+    )
+
+    status, body = _put_settings(
+        settings_sidecar.url, {"collectorId": "attacker-supplied-id", "serverId": 582}
+    )
+
+    assert status == 200
+    assert body["collectorId"] == "original-id"
+    assert body["serverId"] == 582
+    on_disk = json.loads(settings_sidecar.settings_path.read_text(encoding="utf-8"))
+    assert on_disk["collector_id"] == "original-id"
+
+
+def test_put_settings_rejects_a_body_that_is_not_json(
+    settings_sidecar: _SidecarWithSettings,
+) -> None:
+    request = urllib.request.Request(
+        f"{settings_sidecar.url}/settings", data=b"not json at all", method="PUT"
+    )
+    with pytest.raises(urllib.error.HTTPError) as raised:
+        urllib.request.urlopen(request)
+    assert raised.value.code == 400
+    assert "error" in json.loads(raised.value.read())
+
+
+def test_put_settings_rejects_json_that_is_not_an_object(
+    settings_sidecar: _SidecarWithSettings,
+) -> None:
+    request = urllib.request.Request(
+        f"{settings_sidecar.url}/settings",
+        data=json.dumps([1, 2, 3]).encode("utf-8"),
+        method="PUT",
+    )
+    with pytest.raises(urllib.error.HTTPError) as raised:
+        urllib.request.urlopen(request)
+    assert raised.value.code == 400
+
+
+def test_put_settings_rejects_a_missing_content_length(
+    settings_sidecar: _SidecarWithSettings,
+) -> None:
+    """A malformed body must be a 400 with a sentence, never a dropped
+    connection — the same standard `/find` already meets."""
+    parsed = urlparse(settings_sidecar.url)
+    assert parsed.hostname is not None
+    assert parsed.port is not None
+    conn = http.client.HTTPConnection(parsed.hostname, parsed.port)
+    try:
+        conn.putrequest("PUT", "/settings", skip_host=True)
+        conn.endheaders()
+        response = conn.getresponse()
+        body = json.loads(response.read())
+        assert response.status == 400
+        assert "error" in body
+    finally:
+        conn.close()
+
+
+def test_put_settings_rejects_a_body_over_the_cap(
+    settings_sidecar: _SidecarWithSettings,
+) -> None:
+    oversized = "x" * 200_000
+    request = urllib.request.Request(
+        f"{settings_sidecar.url}/settings",
+        data=json.dumps({"journalPath": oversized}).encode("utf-8"),
+        method="PUT",
+    )
+    with pytest.raises(urllib.error.HTTPError) as raised:
+        urllib.request.urlopen(request)
+    assert raised.value.code == 400
+
+
+def _fake_completed(
+    *, returncode: int, stdout: bytes = b"", stderr: bytes = b""
+) -> subprocess.CompletedProcess[bytes]:
+    return subprocess.CompletedProcess(
+        args=["dumpcap", "-D"], returncode=returncode, stdout=stdout, stderr=stderr
+    )
+
+
+def test_adapters_no_dumpcap_is_200_not_an_error(tmp_path: Path) -> None:
+    """A first run with no Npcap installed is a normal state the settings
+    screen must be able to render, not a fetch failure."""
+    journal_path = tmp_path / "collector.db"
+    journal = Journal(journal_path)
+    journal.init_db()
+    journal.close()
+
+    httpd = sidecar.serve(
+        journal_path, tmp_path / "settings.json", port=0, find_dumpcap=lambda: None
+    )
+    Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        url = f"http://127.0.0.1:{httpd.server_address[1]}/adapters"
+        with urllib.request.urlopen(url) as response:
+            status = response.status
+            body = json.loads(response.read())
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+    assert status == 200
+    assert body == {"state": "no-dumpcap", "adapters": [], "detail": ""}
+
+
+def test_adapters_ready_lists_devices_from_a_fake_dumpcap(tmp_path: Path) -> None:
+    journal_path = tmp_path / "collector.db"
+    journal = Journal(journal_path)
+    journal.init_db()
+    journal.close()
+
+    stdout = rb"1. \Device\NPF_{GUID} (Wi-Fi)" + b"\n"
+    httpd = sidecar.serve(
+        journal_path,
+        tmp_path / "settings.json",
+        port=0,
+        find_dumpcap=lambda: "fake-dumpcap",
+        probe_run=lambda *args, **kwargs: _fake_completed(returncode=0, stdout=stdout),
+    )
+    Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        url = f"http://127.0.0.1:{httpd.server_address[1]}/adapters"
+        with urllib.request.urlopen(url) as response:
+            status = response.status
+            body = json.loads(response.read())
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+    assert status == 200
+    assert body == {
+        "state": "ready",
+        "adapters": [{"device": r"\Device\NPF_{GUID}", "label": "Wi-Fi"}],
+        "detail": "",
+    }
+
+
+def test_adapters_failed_is_200_and_carries_dumpcaps_own_words(tmp_path: Path) -> None:
+    """200, not 500 — dumpcap failing is a normal outcome the screen has to
+    show (Npcap missing, a driver refusal, ...), not a sidecar bug. WE DO
+    NOT GUESS AT THE CAUSE; the message is dumpcap's own, verbatim."""
+    journal_path = tmp_path / "collector.db"
+    journal = Journal(journal_path)
+    journal.init_db()
+    journal.close()
+
+    httpd = sidecar.serve(
+        journal_path,
+        tmp_path / "settings.json",
+        port=0,
+        find_dumpcap=lambda: "fake-dumpcap",
+        probe_run=lambda *args, **kwargs: _fake_completed(
+            returncode=1, stderr=b"Npcap is not installed"
+        ),
+    )
+    Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        url = f"http://127.0.0.1:{httpd.server_address[1]}/adapters"
+        with urllib.request.urlopen(url) as response:
+            status = response.status
+            body = json.loads(response.read())
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+    assert status == 200
+    assert body == {"state": "failed", "adapters": [], "detail": "Npcap is not installed"}
+
+
+def test_adapters_no_adapters_when_dumpcap_lists_none(tmp_path: Path) -> None:
+    journal_path = tmp_path / "collector.db"
+    journal = Journal(journal_path)
+    journal.init_db()
+    journal.close()
+
+    httpd = sidecar.serve(
+        journal_path,
+        tmp_path / "settings.json",
+        port=0,
+        find_dumpcap=lambda: "fake-dumpcap",
+        probe_run=lambda *args, **kwargs: _fake_completed(returncode=0, stdout=b""),
+    )
+    Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        url = f"http://127.0.0.1:{httpd.server_address[1]}/adapters"
+        with urllib.request.urlopen(url) as response:
+            status = response.status
+            body = json.loads(response.read())
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+    assert status == 200
+    assert body == {"state": "no-adapters", "adapters": [], "detail": ""}
 
 
 def test_health_says_which_journal_it_opened(base: str) -> None:

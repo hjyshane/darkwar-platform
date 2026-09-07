@@ -16,14 +16,17 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+import subprocess
 import sys
 import threading
+from collections.abc import Callable
+from dataclasses import asdict, replace
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
-from dw_collector.desktop import localread
+from dw_collector.desktop import adapters, localread, settings
 
 HOST = "127.0.0.1"
 
@@ -88,6 +91,87 @@ def tile_json(
     }
 
 
+#: `Settings` field names paired with the camelCase key that crosses the
+#: wire, in the same spirit as `tile_json`. One list drives both directions
+#: (`_settings_to_camel` and `_settings_fields_from_body`) so the two can
+#: never drift apart into mismatched key names.
+_SETTINGS_WIRE_FIELDS: tuple[tuple[str, str], ...] = (
+    ("journal_path", "journalPath"),
+    ("capture_dir", "captureDir"),
+    ("interface", "interface"),
+    ("dumpcap_path", "dumpcapPath"),
+    ("server_id", "serverId"),
+    ("game_port", "gamePort"),
+    ("collector_id", "collectorId"),
+)
+
+#: PUT /settings' Content-Length cap. A handful of paths and two small ints
+#: never approaches this; a body anywhere near it is not a settings payload —
+#: it is a bug or a hung client — and it is cheaper to refuse it up front
+#: than to buffer it into memory first.
+_MAX_SETTINGS_BODY = 64 * 1024
+
+
+def _settings_to_camel(value: settings.Settings) -> dict[str, Any]:
+    """`value` as the camelCase JSON the window expects back."""
+    data = asdict(value)
+    return {camel: data[snake] for snake, camel in _SETTINGS_WIRE_FIELDS}
+
+
+def _str_field(body: dict[str, Any], camel_key: str, default: str) -> str:
+    """`body[camel_key]` if it is actually a string, else `default`.
+
+    A wrong-typed or absent field falls back rather than raising — this is
+    a background merge onto whatever the file already holds, not a strict
+    schema-validation endpoint, and an unknown or malformed field must not
+    take the sidecar down any more than an unknown file key does in
+    `settings._from_file`.
+    """
+    value = body.get(camel_key, default)
+    return value if isinstance(value, str) else default
+
+
+def _int_field(body: dict[str, Any], camel_key: str, default: int) -> int:
+    """`body[camel_key]` if it is actually an `int`, else `default`.
+
+    `bool` is an `int` subclass in Python, so `isinstance(True, int)` is
+    true — but a `serverId` of `true` is exactly as wrong as one of
+    `"581"`, so it is rejected the same way, not let through because of the
+    subclass rule. Same reasoning as `settings._from_file`.
+    """
+    value = body.get(camel_key, default)
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value
+    return default
+
+
+def _merge_settings_body(current: settings.Settings, body: dict[str, Any]) -> settings.Settings:
+    """`current` with the body's known, correctly-typed fields overlaid.
+
+    THE FIELDS ARE APPLIED ONE BY ONE, NOT VIA A SPLATTED DICT — the exact
+    trap `settings.load`'s own docstring calls out: a dict of mixed
+    `str | int` values loses the per-field type `dataclasses.replace` needs
+    to check under `mypy --strict`. Naming each field here keeps the string
+    fields strings and the int fields ints all the way through.
+
+    `collector_id` IS NEVER READ FROM `body`, on purpose — no `_field` call
+    for it exists above. It is one of five components hashed into the
+    journal's `idempotency_key` (see `settings.ensure_collector_id`); letting
+    a value from the wire reach `replace` here would let the window silently
+    re-key the entire dedup history. See `Handler.do_PUT` for why `current`
+    is what supplies it instead.
+    """
+    return replace(
+        current,
+        journal_path=_str_field(body, "journalPath", current.journal_path),
+        capture_dir=_str_field(body, "captureDir", current.capture_dir),
+        interface=_str_field(body, "interface", current.interface),
+        dumpcap_path=_str_field(body, "dumpcapPath", current.dumpcap_path),
+        server_id=_int_field(body, "serverId", current.server_id),
+        game_port=_int_field(body, "gamePort", current.game_port),
+    )
+
+
 class _Server(ThreadingHTTPServer):
     """Carries the journal path so the handler can read it off `self.server`.
 
@@ -96,9 +180,24 @@ class _Server(ThreadingHTTPServer):
     already threads through to every handler instance has no such problem.
     """
 
-    def __init__(self, address: tuple[str, int], journal_path: Path) -> None:
+    def __init__(
+        self,
+        address: tuple[str, int],
+        journal_path: Path,
+        settings_path: Path,
+        *,
+        find_dumpcap: Callable[[], str | None] = adapters.find_dumpcap,
+        probe_run: Callable[..., subprocess.CompletedProcess[bytes]] = subprocess.run,
+    ) -> None:
         super().__init__(address, Handler)
         self.journal_path = journal_path
+        self.settings_path = settings_path
+        # Injected so `/adapters` is testable without Wireshark installed —
+        # tests supply a fake `find_dumpcap`/`probe_run` pair instead of
+        # exercising a real subprocess. Production callers never pass these;
+        # the defaults are the real functions `adapters.py` already exposes.
+        self.find_dumpcap = find_dumpcap
+        self.probe_run = probe_run
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -134,6 +233,32 @@ class Handler(BaseHTTPRequestHandler):
                     "ok": state == READY,
                     "state": state,
                     "journal": str(self.server.journal_path),
+                },
+            )
+            return
+        if parsed.path == "/settings":
+            # THE ENVIRONMENT MUST WIN HERE, same as everywhere else in this
+            # app: what the window shows has to match what the sidecar will
+            # actually use, and `main()` resolves the journal path the same
+            # way — through `DW_SQLITE_PATH`, not just the file.
+            value = settings.load(self.server.settings_path, environ=os.environ)
+            self._send(200, _settings_to_camel(value))
+            return
+        if parsed.path == "/adapters":
+            # EVERY STATE HERE IS 200, including "no-dumpcap" and "failed".
+            # A first run with no Npcap installed is a normal condition the
+            # settings screen has to render, not a fetch failure — the HTTP
+            # status answers "did the sidecar work", not "is a driver
+            # installed".
+            result = adapters.probe(self.server.find_dumpcap(), run=self.server.probe_run)
+            self._send(
+                200,
+                {
+                    "state": result.state,
+                    "adapters": [
+                        {"device": device, "label": label} for device, label in result.adapters
+                    ],
+                    "detail": result.detail,
                 },
             )
             return
@@ -187,10 +312,105 @@ class Handler(BaseHTTPRequestHandler):
             },
         )
 
+    def _read_json_object(self, max_bytes: int) -> dict[str, Any] | None:
+        """The request body as a JSON object, or `None` after already
+        sending a 400 with a sentence describing what was wrong.
 
-def serve(journal_path: Path, *, port: int = 0) -> ThreadingHTTPServer:
-    """A started server. The caller owns `serve_forever` and shutdown."""
-    return _Server((HOST, port), journal_path)
+        THIS MUST NEVER DROP THE CONNECTION. `/find`'s standard is a 400 and
+        a reason, never a closed socket with a traceback on a stderr nobody
+        reads — a malformed `PUT` body has to meet the same bar: not JSON at
+        all, JSON that is not an object, a missing `Content-Length`, or a
+        body bigger than any real settings payload could be.
+        """
+        raw_length = self.headers.get("Content-Length")
+        if raw_length is None:
+            # WITHOUT THIS CHECK, `self.rfile.read(length)` BELOW WOULD NEED
+            # A LENGTH TO READ. There is no length-less body framing this
+            # handler understands (no chunked transfer support), so a
+            # request that omits the header is refused outright rather than
+            # guessed at.
+            self._send(400, {"error": "missing Content-Length"})
+            return None
+        try:
+            length = int(raw_length)
+        except ValueError:
+            self._send(400, {"error": "invalid Content-Length"})
+            return None
+        if length < 0 or length > max_bytes:
+            self._send(400, {"error": f"body too large (max {max_bytes} bytes)"})
+            return None
+
+        raw_body = self.rfile.read(length)
+        try:
+            text = raw_body.decode("utf-8")
+        except UnicodeDecodeError:
+            self._send(400, {"error": "body is not valid UTF-8"})
+            return None
+        try:
+            parsed_body = json.loads(text)
+        except json.JSONDecodeError:
+            self._send(400, {"error": "body is not valid JSON"})
+            return None
+        if not isinstance(parsed_body, dict):
+            self._send(400, {"error": "body must be a JSON object"})
+            return None
+        return parsed_body
+
+    def do_PUT(self) -> None:
+        parsed = urlparse(self.path)
+        if parsed.path != "/settings":
+            self._send(404, {"error": "no such endpoint"})
+            return
+
+        body = self._read_json_object(_MAX_SETTINGS_BODY)
+        if body is None:
+            # `_read_json_object` already sent the 400 and said why.
+            return
+
+        # MERGED ONTO THE FILE, NOT ONTO WHAT `load` WOULD RETURN. Loading
+        # with an empty `environ` is exactly `settings.load`'s own idiom for
+        # "the file only, no environment" (see `test_desktop_settings.py`).
+        # Merging onto a real `os.environ`-applied value would let an
+        # environment variable on THIS machine get baked into the file the
+        # next time anyone touches Settings from the window — precisely the
+        # trap `ensure_collector_id` was already checked for: the file must
+        # only ever record what a person (or the window) actually chose to
+        # persist, never what the environment happened to be supplying today.
+        current = settings.load(self.server.settings_path, environ={})
+        merged = _merge_settings_body(current, body)
+        settings.save(self.server.settings_path, merged)
+        # Echoing back exactly what was written — not a fresh `load()` with
+        # the environment applied — so the window never has to guess what
+        # is actually on disk.
+        self._send(200, _settings_to_camel(merged))
+
+
+def serve(
+    journal_path: Path,
+    settings_path: Path | None = None,
+    *,
+    port: int = 0,
+    find_dumpcap: Callable[[], str | None] = adapters.find_dumpcap,
+    probe_run: Callable[..., subprocess.CompletedProcess[bytes]] = subprocess.run,
+) -> ThreadingHTTPServer:
+    """A started server. The caller owns `serve_forever` and shutdown.
+
+    `settings_path` DEFAULTS NEXT TO THE JOURNAL rather than making every
+    caller invent one — callers that only care about `/health` and `/find`
+    (every one of them written before this task) keep calling
+    `serve(journal_path, port=0)` unchanged and still get an isolated
+    `settings.json` for free.
+    """
+    resolved_settings_path = (
+        settings_path if settings_path is not None else journal_path.with_name("settings.json")
+    )
+    return _Server(
+        (HOST, port),
+        journal_path,
+        resolved_settings_path,
+        find_dumpcap=find_dumpcap,
+        probe_run=probe_run,
+    )
 
 
 def _stop_when_stdin_closes(httpd: ThreadingHTTPServer) -> None:
