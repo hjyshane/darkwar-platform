@@ -1,6 +1,7 @@
 import { type MapMarker, formatCoordinate } from '@dw/ui';
 import { invoke } from '@tauri-apps/api/core';
 import { createMapView, renderMarkers } from './mapView';
+import { ViewRegistry } from './views';
 
 interface Tile {
   gameUid: string;
@@ -18,6 +19,13 @@ const goEl = document.querySelector<HTMLButtonElement>('#go');
 const outEl = document.querySelector<HTMLPreElement>('#out');
 const mapRootEl = document.querySelector<HTMLDivElement>('#map-root');
 
+// The map is NOT registered with the view registry below. There is no
+// "map" tab — it is nested inside, and always rendered with, the search
+// view, exactly as it was before this refactor. Giving it its own registry
+// entry would mean either a third tab that does not exist today (out of
+// scope — see CLAUDE.md, no new screen in this task) or showing it outside
+// of any tab click, which the registry has no hook for. So it stays a
+// plain child of #map-root, mounted once at module load, same as before.
 if (mapRootEl !== null) {
   mapRootEl.appendChild(createMapView());
 }
@@ -221,20 +229,28 @@ function stopStatusPolling(): void {
   }
 }
 
-function showSearchView(): void {
-  stopStatusPolling();
-  viewSettingsEl?.setAttribute('hidden', '');
-  viewSearchEl?.removeAttribute('hidden');
+// Search and settings are the two tab-switched screens. The settings status
+// poll used to be started/stopped by hand in showSettingsView/showSearchView
+// — easy to forget once more screens copy this pattern. Now it is settings'
+// own onEnter/onExit, so it is impossible to switch away from settings
+// without stopping the poll, regardless of which other view is shown next.
+const views = new ViewRegistry();
+
+if (viewSearchEl !== null && viewSettingsEl !== null) {
+  views.register({ id: 'search', el: viewSearchEl });
+  views.register({
+    id: 'settings',
+    el: viewSettingsEl,
+    onEnter: () => {
+      void loadSettingsView();
+    },
+    onExit: stopStatusPolling,
+  });
+  views.show('search');
 }
 
-function showSettingsView(): void {
-  viewSearchEl?.setAttribute('hidden', '');
-  viewSettingsEl?.removeAttribute('hidden');
-  void loadSettingsView();
-}
-
-tabSearchEl?.addEventListener('click', showSearchView);
-tabSettingsEl?.addEventListener('click', showSettingsView);
+tabSearchEl?.addEventListener('click', () => views.show('search'));
+tabSettingsEl?.addEventListener('click', () => views.show('settings'));
 
 function labeledRow(labelText: string, control: HTMLElement): HTMLDivElement {
   const row = document.createElement('div');
@@ -507,7 +523,10 @@ async function loadSettingsView(): Promise<void> {
   await refreshCaptureStatus(captureSummaryEl, captureStderrEl, ingestErrorEl);
 
   // Poll while this view is open so files/rows climb visibly. Stopped by
-  // `showSearchView` when the player switches away.
+  // the settings view's onExit (see ViewRegistry, above) when the player
+  // switches away. Also stopped-and-restarted here, since a save
+  // re-invokes loadSettingsView while settings is still the active view —
+  // show() only runs onExit when actually leaving the view.
   stopStatusPolling();
   statusPollHandle = window.setInterval(() => {
     void refreshCaptureStatus(captureSummaryEl, captureStderrEl, ingestErrorEl);
