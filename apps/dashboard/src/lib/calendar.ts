@@ -8,8 +8,9 @@
 //
 // WEEKS START ON MONDAY, taken from `resetWeekStart` rather than worked out
 // again here. The game week turns over Monday 02:00 UTC and that rule already
-// exists three times over one shared fixture; a fourth copy is exactly what
-// CLAUDE.md warns about.
+// exists three times over one shared fixture (now four, with `@dw/game-clock`
+// replacing this app's own copy); a fifth copy is exactly what CLAUDE.md warns
+// about.
 //
 // The 02:00 part is deliberately dropped once the Monday is known. Grid cells
 // are whole UTC days, because a cell running 02:00 to 02:00 files a 01:00 event
@@ -18,7 +19,7 @@
 // draws therefore holds the same Monday as the game week; an entry in the first
 // two hours of it belongs to the previous game week and is drawn here anyway.
 
-import { resetWeekStart } from './resetWeek';
+import { resetWeekStart } from '@dw/game-clock';
 
 export type CalendarView = 'day' | 'week' | 'fortnight' | 'month';
 

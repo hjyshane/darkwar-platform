@@ -8,6 +8,7 @@
 // else's input arriving on our screen, same as the roster and profile
 // screens. `tauri.conf.json` still has `csp: null`, so there is no second
 // line of defence behind this rule.
+import { resetWeekStart } from '@dw/game-clock';
 import { invoke } from '@tauri-apps/api/core';
 
 interface ArenaHero {
@@ -85,31 +86,14 @@ export function formatAge(capturedAt: string, now: Date): string {
 
 // --- Game week boundary --------------------------------------------------
 //
-// Monday 02:00 UTC, implemented three times already: SQL (`reset_week_start`
-// in migrations), Python (`dw_collector.resetweek.reset_week_start`), and
-// TypeScript (`apps/dashboard/src/lib/resetWeek.ts`) — all three consume
+// Monday 02:00 UTC, implemented three times: SQL (`reset_week_start` in
+// migrations), Python (`dw_collector.resetweek.reset_week_start`), and
+// TypeScript (`resetWeekStart` in `@dw/game-clock`, shared by this app and
+// `apps/dashboard`) — all three consume
 // `protocol-fixtures/reset-week/vectors.json` and must change together (see
-// CLAUDE.md). THIS IS A FOURTH COPY, scoped to this desktop screen only: the
-// desktop app is a separate Vite project with no shared package that
-// already carries the function (`packages/ui` does not, and touching
-// `apps/dashboard` is out of scope for this task — see CLAUDE.md's "Scope"
-// section). If the reset rule ever changes, this copy has to change with
-// the other three.
-const RESET_HOUR_UTC = 2;
-const HOUR_MS = 3_600_000;
-
-function resetWeekStart(ts: Date): Date {
-  const shifted = new Date(ts.getTime() - RESET_HOUR_UTC * HOUR_MS);
-  const mondayOffset = (shifted.getUTCDay() + 6) % 7;
-  return new Date(
-    Date.UTC(
-      shifted.getUTCFullYear(),
-      shifted.getUTCMonth(),
-      shifted.getUTCDate() - mondayOffset,
-      RESET_HOUR_UTC,
-    ),
-  );
-}
+// CLAUDE.md). This screen used to carry a fourth, free-floating copy scoped
+// to itself; it now imports the same implementation `apps/dashboard` does,
+// so there is exactly one TypeScript copy again.
 
 /** Whether `weekStart` (the server's own week boundary, carried on the
  * arena header — see `sidecar.arena_board_json`) is THIS machine's current

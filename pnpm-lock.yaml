@@ -17,6 +17,9 @@ importers:
 
   apps/dashboard:
     dependencies:
+      '@dw/game-clock':
+        specifier: workspace:*
+        version: link:../../packages/game-clock
       '@dw/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
@@ -63,6 +66,9 @@ importers:
 
   apps/desktop:
     dependencies:
+      '@dw/game-clock':
+        specifier: workspace:*
+        version: link:../../packages/game-clock
       '@dw/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -100,6 +106,12 @@ importers:
       wrangler:
         specifier: ^3.99.0
         version: 3.114.17(@cloudflare/workers-types@4.20260702.1)
+
+  packages/game-clock:
+    devDependencies:
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.7(@types/node@26.1.2)(jsdom@25.0.1)
 
   packages/shared-types:
     dependencies:

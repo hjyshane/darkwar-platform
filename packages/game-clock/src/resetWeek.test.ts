@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { expect, test } from 'vitest';
-import { resetWeekStart } from '../src/lib/resetWeek';
+import { resetWeekStart } from './resetWeek';
 
 interface Vector {
   name: string;
@@ -10,7 +10,7 @@ interface Vector {
   expected: string;
 }
 
-// vitest runs with cwd = apps/dashboard (pnpm runs scripts in the package).
+// vitest runs with cwd = packages/game-clock (pnpm runs scripts in the package).
 const { vectors } = JSON.parse(
   readFileSync(resolve(process.cwd(), '../../protocol-fixtures/reset-week/vectors.json'), 'utf-8'),
 ) as { vectors: Vector[] };
