@@ -185,6 +185,93 @@ async fn health(state: tauri::State<'_, Sidecar>) -> Result<serde_json::Value, S
         .map_err(|e| e.to_string())
 }
 
+/// Turn a sidecar response into `Ok(body)` on 2xx, or `Err(sentence)`
+/// otherwise — the same rule `find` already applies, pulled out once these
+/// settings/capture commands all need it too. A non-JSON or unreadable body
+/// still surfaces as a string rather than panicking, since a sidecar that
+/// answers with something unexpected is exactly the case the window has to
+/// show, not choke on.
+async fn ok_or_sidecar_error(
+    response: reqwest::Response,
+    fallback: &str,
+) -> Result<serde_json::Value, String> {
+    let status = response.status();
+    let body = response
+        .json::<serde_json::Value>()
+        .await
+        .map_err(|e| e.to_string())?;
+    if !status.is_success() {
+        let said = body
+            .get("error")
+            .and_then(|value| value.as_str())
+            .unwrap_or(fallback);
+        return Err(said.to_string());
+    }
+    Ok(body)
+}
+
+#[tauri::command]
+async fn get_settings(state: tauri::State<'_, Sidecar>) -> Result<serde_json::Value, String> {
+    let port = port_of(&state)?;
+    let url = format!("http://127.0.0.1:{}/settings", port);
+    let response = reqwest::get(&url).await.map_err(|e| e.to_string())?;
+    ok_or_sidecar_error(response, "the sidecar refused to read settings").await
+}
+
+/// `settings` is whatever camelCase object the settings screen built —
+/// `collectorId` is never sent, matching the sidecar's own refusal to accept
+/// it (see `sidecar._merge_settings_body`'s docstring on why).
+#[tauri::command]
+async fn save_settings(
+    state: tauri::State<'_, Sidecar>,
+    settings: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let port = port_of(&state)?;
+    let url = format!("http://127.0.0.1:{}/settings", port);
+    let client = reqwest::Client::new();
+    let response = client
+        .put(&url)
+        .json(&settings)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    ok_or_sidecar_error(response, "the sidecar refused to save settings").await
+}
+
+#[tauri::command]
+async fn get_adapters(state: tauri::State<'_, Sidecar>) -> Result<serde_json::Value, String> {
+    let port = port_of(&state)?;
+    let url = format!("http://127.0.0.1:{}/adapters", port);
+    let response = reqwest::get(&url).await.map_err(|e| e.to_string())?;
+    ok_or_sidecar_error(response, "could not list capture adapters").await
+}
+
+#[tauri::command]
+async fn capture_start(state: tauri::State<'_, Sidecar>) -> Result<serde_json::Value, String> {
+    let port = port_of(&state)?;
+    let url = format!("http://127.0.0.1:{}/capture/start", port);
+    let client = reqwest::Client::new();
+    let response = client.post(&url).send().await.map_err(|e| e.to_string())?;
+    ok_or_sidecar_error(response, "could not start capture").await
+}
+
+#[tauri::command]
+async fn capture_stop(state: tauri::State<'_, Sidecar>) -> Result<serde_json::Value, String> {
+    let port = port_of(&state)?;
+    let url = format!("http://127.0.0.1:{}/capture/stop", port);
+    let client = reqwest::Client::new();
+    let response = client.post(&url).send().await.map_err(|e| e.to_string())?;
+    ok_or_sidecar_error(response, "could not stop capture").await
+}
+
+#[tauri::command]
+async fn capture_status(state: tauri::State<'_, Sidecar>) -> Result<serde_json::Value, String> {
+    let port = port_of(&state)?;
+    let url = format!("http://127.0.0.1:{}/capture/status", port);
+    let response = reqwest::get(&url).await.map_err(|e| e.to_string())?;
+    ok_or_sidecar_error(response, "could not read capture status").await
+}
+
 /// What the window should say while it waits, or after it stops waiting.
 #[tauri::command]
 fn status(state: tauri::State<'_, Sidecar>) -> Result<serde_json::Value, String> {
@@ -274,7 +361,17 @@ fn main() {
             });
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![find, health, status])
+        .invoke_handler(tauri::generate_handler![
+            find,
+            health,
+            status,
+            get_settings,
+            save_settings,
+            get_adapters,
+            capture_start,
+            capture_stop,
+            capture_status
+        ])
         .build(tauri::generate_context!())
         .expect("failed to start the Dark War window")
         .run(|app, event| {

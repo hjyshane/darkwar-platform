@@ -7,10 +7,19 @@
   <body>
     <main>
       <h1>Dark War</h1>
-      <p id="status">starting…</p>
-      <input id="needle" placeholder="UID, or part of a name" />
-      <button id="go" type="button">Find</button>
-      <pre id="out"></pre>
+      <nav>
+        <button id="tab-search" type="button">Search</button>
+        <button id="tab-settings" type="button">Settings</button>
+      </nav>
+      <section id="view-search">
+        <p id="status">starting…</p>
+        <input id="needle" placeholder="UID, or part of a name" />
+        <button id="go" type="button">Find</button>
+        <pre id="out"></pre>
+      </section>
+      <section id="view-settings" hidden>
+        <div id="settings-root"></div>
+      </section>
     </main>
     <script type="module" src="/src/main.ts"></script>
   </body>
