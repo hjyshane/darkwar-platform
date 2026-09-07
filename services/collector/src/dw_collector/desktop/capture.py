@@ -106,6 +106,13 @@ _INGEST_MIN_AGE_SECONDS = 30.0
 #: `journal.ingested_captures()`, not by how recently the loop last looked.
 _INGEST_POLL_SECONDS = 5.0
 
+#: How long `_stop_ingest_loop` waits for the ingest thread to end on its
+#: own before giving up and treating it as still-running. A module-level
+#: constant (rather than a literal inline) purely so tests can monkeypatch
+#: it down to make a "the join times out" test fast instead of waiting out
+#: the real five seconds — production behaviour is unchanged either way.
+_INGEST_STOP_JOIN_TIMEOUT_SECONDS = 5.0
+
 
 def _default_journal_factory(path: Path) -> Journal:
     """The real journal factory `Supervisor` uses.
@@ -207,11 +214,33 @@ class IngestStatus:
     wedged reassembler, a wrong capture filter, or a full disk can all leave
     dumpcap looking perfectly healthy while nothing new ever lands in the
     journal.
+
+    `state` is the second half of that same problem (Finding 2): before
+    this, a dead ingest thread and a live one with nothing new to ingest
+    were indistinguishable — both just left the counters below unchanged.
+    A frozen `files_seen`/`files_ingested` no longer has to mean "nothing
+    to do"; it can now mean "nobody is looking anymore", and `state` plus
+    `error` say which.
     """
 
+    #: - "idle": no `journal_path` configured, or a session has not started
+    #:   (this run's counters are meaningless in either case)
+    #: - "running": the ingest thread is alive and looping — whether or not
+    #:   the current pass has found anything new is visible from whether
+    #:   `files_seen`/`files_ingested` are still moving between polls
+    #: - "stopping": `stop()`'s join timed out and the previous thread is
+    #:   still winding down (Finding 1's guard) — a new `start()` will keep
+    #:   refusing to spawn a second ingest thread until it actually exits
+    #: - "stopped": `stop()` completed and the thread was reaped normally
+    #: - "died": the thread ended from an exception `_ingest_once` does not
+    #:   already treat as a per-file failure — see `error` for what it was
+    state: str = "idle"
     files_seen: int = 0
     files_ingested: int = 0
     rows_written: int = 0
+    #: `f"{type(exc).__name__}: {exc}"` for the exception that produced
+    #: `state == "died"`. Empty for every other state.
+    error: str = ""
 
 
 @dataclass(frozen=True)
@@ -322,6 +351,10 @@ class Supervisor:
         self._ingest_files_seen = 0
         self._ingest_files_ingested = 0
         self._ingest_rows_written = 0
+        # Finding 2: same lock as the counters above. "idle" until the
+        # first `_start_ingest_loop` — see `IngestStatus.state`.
+        self._ingest_state = "idle"
+        self._ingest_error = ""
 
     def start(self, interface: str, capture_dir: Path, *, game_port: int) -> CaptureStatus:
         """Start capture, creating `capture_dir` if it does not exist yet.
@@ -529,6 +562,8 @@ class Supervisor:
             self._ingest_files_seen = 0
             self._ingest_files_ingested = 0
             self._ingest_rows_written = 0
+            self._ingest_state = "running"
+            self._ingest_error = ""
         self._ingest_stop.clear()
         self._ingest_thread = threading.Thread(
             target=self._ingest_loop,
@@ -542,10 +577,43 @@ class Supervisor:
         """Stop the ingest thread, best-effort — the same "signal, wait
         briefly, move on" shape `stop()` already uses for the dumpcap child
         itself. Safe to call when nothing is running.
+
+        CRITICAL (Finding 1): `self._ingest_thread` is cleared ONLY when
+        `join` actually reaped the thread. Clearing it unconditionally — the
+        old code did exactly that — is an invitation to start a second
+        writer: `_start_ingest_loop`'s only guard against spawning twice is
+        `self._ingest_thread is not None and self._ingest_thread.is_alive()`,
+        so wiping the reference while the thread is still running makes that
+        guard see nothing, and a following `start()` (a slow first pass over
+        a full ring easily outlasts this join's timeout — `_ingest_stop` used
+        to only be checked between whole passes, never mid-backlog, see
+        `_ingest_once`) spawns a SECOND `Journal(..., single_writer_thread=
+        True)` against the very file the first thread is still writing.
+        There is no crash to announce this: WAL mode is on but nothing here
+        sets a `busy_timeout` (see `Journal.__init__`), so the new writer's
+        first colliding write raises `sqlite3.OperationalError` — silently,
+        inside a background thread, in a case `_ingest_once` used to not
+        even catch (Finding 1 also widens that to `sqlite3.DatabaseError`,
+        `OperationalError`'s parent — it is NOT an `OSError`, despite
+        sounding like one). Meanwhile both threads share and stomp on the
+        same `_ingest_files_seen`/`_ingest_files_ingested`/
+        `_ingest_rows_written` counters, which the new `_start_ingest_loop`
+        call has just reset to zero out from under the straggler. Keeping
+        the reference here — reporting `state="stopping"` instead of
+        quietly forgetting the old thread — is what keeps that guard
+        working; see `IngestStatus.state`.
         """
         self._ingest_stop.set()
-        if self._ingest_thread is not None:
-            self._ingest_thread.join(timeout=5)
+        if self._ingest_thread is None:
+            return
+        self._ingest_thread.join(timeout=_INGEST_STOP_JOIN_TIMEOUT_SECONDS)
+        if self._ingest_thread.is_alive():
+            # Still running after the timeout. Leave `self._ingest_thread`
+            # set — see the docstring above for why clearing it here is the
+            # bug, not a simplification of it.
+            with self._ingest_status_lock:
+                self._ingest_state = "stopping"
+            return
         self._ingest_thread = None
 
     def _ingest_status(self) -> IngestStatus:
@@ -554,9 +622,11 @@ class Supervisor:
         touches (see `_ingest_loop`)."""
         with self._ingest_status_lock:
             return IngestStatus(
+                state=self._ingest_state,
                 files_seen=self._ingest_files_seen,
                 files_ingested=self._ingest_files_ingested,
                 rows_written=self._ingest_rows_written,
+                error=self._ingest_error,
             )
 
     def _ingest_loop(self, journal_path: Path, capture_dir: Path, game_port: int) -> None:
@@ -575,12 +645,34 @@ class Supervisor:
         it must open its own connection or take on this same lock
         discipline — see `Journal.__init__`'s own warning about exactly
         this failure mode.
+
+        Finding 2: `_ingest_once` already handles the failure modes it
+        knows about (a corrupt capture, a locked journal — see there)
+        without raising past this point. The `except Exception` below is
+        the catch-all for everything it does not: before this, anything
+        else killed the thread with nothing recorded anywhere, and
+        `status()` could not tell that apart from "nothing new to ingest
+        yet" — both just left the counters unchanged. Recording
+        `state="died"` plus the exception text BEFORE returning is what
+        makes that visible instead of a permanently frozen, unexplained
+        counter. Deliberately broad: this is an unattended background
+        thread meant to run for a multi-hour capture session, and there is
+        no way to enumerate every failure it might hit over that time.
         """
         journal = self._journal_factory(journal_path)
         try:
             while True:
-                self._ingest_once(journal, capture_dir, game_port)
+                try:
+                    self._ingest_once(journal, capture_dir, game_port)
+                except Exception as exc:
+                    with self._ingest_status_lock:
+                        self._ingest_state = "died"
+                        self._ingest_error = f"{type(exc).__name__}: {exc}"
+                    log.exception("dw_capture.ingest_loop_died")
+                    return
                 if self._ingest_stop.wait(self._ingest_poll_seconds):
+                    with self._ingest_status_lock:
+                        self._ingest_state = "stopped"
                     return
         finally:
             journal.close()
@@ -595,6 +687,13 @@ class Supervisor:
         way, so it is never retried — a truncated file never becomes valid,
         and retrying it every poll would lose everything after it instead
         of costing just this one.
+
+        Checks `self._ingest_stop` between files, not only between whole
+        passes (Finding 1): `_ingest_loop` used to only look at
+        `_ingest_stop` once this whole method returned, so a real backlog —
+        the first run against an already-full ring — could take far longer
+        than `_stop_ingest_loop`'s join timeout, and a stop request would
+        sit unanswered for the entire pass instead of landing between files.
         """
         try:
             done = journal.ingested_captures()
@@ -607,6 +706,8 @@ class Supervisor:
             if path.name not in done
         ]
         for pcap in pending:
+            if self._ingest_stop.is_set():
+                return
             with self._ingest_status_lock:
                 self._ingest_files_seen += 1
             fallback = datetime.now(tz=UTC)
@@ -620,7 +721,16 @@ class Supervisor:
                     discover_only=False,
                     fallback=fallback,
                 )
-            except (PcapError, OSError, ValueError):
+            except (PcapError, OSError, ValueError, sqlite3.DatabaseError):
+                # `sqlite3.DatabaseError` added for Finding 1:
+                # `sqlite3.OperationalError` (e.g. "database is locked") is
+                # a `DatabaseError` subclass, NOT an `OSError`, despite
+                # sounding like one — an `except OSError` alone lets it
+                # right past this handler and into `_ingest_loop`'s
+                # catch-all, which would kill this entire ingest session
+                # over what should cost, at most, this one file. Catching
+                # the parent class also covers disk-full and corruption for
+                # the same reason.
                 journal.mark_capture_ingested(pcap.name, 0)
                 log.warning(f"dw_capture.unreadable_capture: {pcap.name}", exc_info=True)
                 continue

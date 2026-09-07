@@ -20,6 +20,7 @@ above run everywhere, including Linux CI.
 from __future__ import annotations
 
 import os
+import sqlite3
 import subprocess
 import sys
 import threading
@@ -30,6 +31,7 @@ from pathlib import Path
 import pytest
 
 from dw_collector.desktop import capture
+from dw_collector.ingest import ScanResult
 from dw_collector.storage.journal import Journal
 from tests.test_protocol import ENVELOPE, _pcapng, _tcp_packet, frame
 
@@ -552,3 +554,198 @@ def test_start_and_stop_drive_the_ingest_loop_end_to_end(tmp_path: Path) -> None
 
     assert supervisor.status().state == "stopped"
     assert supervisor.status().ingest.files_ingested == 1
+
+
+# --- Finding 1 (CRITICAL): stop() must never orphan a live ingest thread --
+#
+# `_stop_ingest_loop` used to clear `self._ingest_thread` unconditionally
+# after `join`, including when the join timed out and the thread was still
+# running. That let a following `start()` (`_start_ingest_loop`'s only guard
+# is `self._ingest_thread is not None and self._ingest_thread.is_alive()`)
+# spawn a SECOND ingest thread — a second `Journal(...,
+# single_writer_thread=True)` — against the same file the first thread is
+# still writing.
+
+
+def test_a_still_alive_thread_after_stop_join_timeout_is_not_forgotten(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """THE TEST THAT MATTERS MOST. Simulates a `stop()` whose join times out
+    by making one ingest pass block on an event this test controls, rather
+    than waiting out a real multi-second backlog. `_INGEST_STOP_JOIN_TIMEOUT_SECONDS`
+    is patched down so this proves the same thing without waiting out the
+    real (5s) production timeout.
+    """
+    monkeypatch.setattr(capture, "_INGEST_STOP_JOIN_TIMEOUT_SECONDS", 0.2)
+
+    capture_dir = tmp_path / "captures"
+    capture_dir.mkdir()
+    _write_capture(capture_dir / "cap_00001.pcapng", age_seconds=600, valid=True)
+    journal_path = tmp_path / "journal.db"
+
+    entered = threading.Event()
+    release = threading.Event()
+
+    def blocking_ingest_capture(*args: object, **kwargs: object) -> ScanResult:
+        entered.set()
+        release.wait(timeout=15)
+        return ScanResult(ingested=1, discovered=0, rejected=0, commands={})
+
+    supervisor = capture.Supervisor(
+        dumpcap=sys.executable,
+        build_argv=_stub_argv,
+        journal_path=journal_path,
+        ingest_poll_seconds=0.05,
+        ingest_capture=blocking_ingest_capture,
+    )
+    try:
+        supervisor._start_ingest_loop(capture_dir, _GAME_PORT)
+        assert entered.wait(timeout=5), "ingest pass never started"
+        stuck_thread = supervisor._ingest_thread
+        assert stuck_thread is not None
+
+        # stop() must return (its own join times out per the patched
+        # constant above) without forgetting the still-running thread.
+        supervisor._stop_ingest_loop()
+        assert supervisor._ingest_thread is stuck_thread, (
+            "the still-running thread's reference was cleared by a timed-out "
+            "stop() — this is the bug: a following start() now believes "
+            "nothing is running"
+        )
+        assert supervisor._ingest_thread.is_alive()
+        assert supervisor.status().ingest.state == "stopping"
+
+        # THE ASSERTION THAT MATTERS: start() must refuse to spawn a second
+        # ingest thread while the first one is still alive.
+        supervisor._start_ingest_loop(capture_dir, _GAME_PORT)
+        assert supervisor._ingest_thread is stuck_thread, (
+            "a second ingest thread was spawned while the first was still "
+            "alive — two writers landed on the same journal"
+        )
+    finally:
+        release.set()
+        stuck = supervisor._ingest_thread
+        if stuck is not None:
+            stuck.join(timeout=10)
+
+
+def test_stop_interrupts_a_slow_pass_between_files_not_after_it(tmp_path: Path) -> None:
+    """Finding 1's second half: a stop signal must be reachable mid-backlog,
+    not only between whole passes. Three files, each taking about a second
+    to "ingest"; stopping partway through the pass must return in roughly
+    one file's time, never the whole pass.
+    """
+    capture_dir = tmp_path / "captures"
+    capture_dir.mkdir()
+    for i in range(3):
+        _write_capture(capture_dir / f"cap_{i:05d}.pcapng", age_seconds=600, valid=True)
+    journal_path = tmp_path / "journal.db"
+
+    per_file_seconds = 1.0
+
+    def slow_ingest_capture(*args: object, **kwargs: object) -> ScanResult:
+        time.sleep(per_file_seconds)
+        return ScanResult(ingested=1, discovered=0, rejected=0, commands={})
+
+    supervisor = capture.Supervisor(
+        dumpcap=sys.executable,
+        build_argv=_stub_argv,
+        journal_path=journal_path,
+        ingest_poll_seconds=0.05,
+        ingest_capture=slow_ingest_capture,
+    )
+    try:
+        supervisor._start_ingest_loop(capture_dir, _GAME_PORT)
+        assert _wait_until(lambda: supervisor.status().ingest.files_seen >= 1)
+
+        started = time.monotonic()
+        supervisor._stop_ingest_loop()
+        elapsed = time.monotonic() - started
+
+        # Bounded well under "wait for all three files" (~3s): at most one
+        # in-flight file plus the is_set() check at the top of the next
+        # iteration — never the rest of the backlog.
+        assert elapsed < per_file_seconds * 2, (
+            f"stop() took {elapsed:.2f}s — it waited out more than one file, "
+            "the mid-backlog stop check did not fire"
+        )
+    finally:
+        supervisor._ingest_stop.set()
+        thread = supervisor._ingest_thread
+        if thread is not None:
+            thread.join(timeout=10)
+
+
+def test_operational_error_from_ingest_is_caught_and_the_loop_survives(
+    tmp_path: Path,
+) -> None:
+    """`sqlite3.OperationalError` (e.g. "database is locked") is a
+    `DatabaseError`, not an `OSError` — the old `except (PcapError, OSError,
+    ValueError)` in `_ingest_once` did not catch it, so it would have killed
+    the whole ingest session over one file. It must cost only that file.
+    """
+    capture_dir = tmp_path / "captures"
+    capture_dir.mkdir()
+    _write_capture(capture_dir / "a_locked.pcapng", age_seconds=600, valid=True)
+    _write_capture(capture_dir / "b_good.pcapng", age_seconds=500, valid=True)
+    journal_path = tmp_path / "journal.db"
+
+    def flaky_ingest_capture(journal: Journal, pcap: Path, **kwargs: object) -> ScanResult:
+        if pcap.name == "a_locked.pcapng":
+            raise sqlite3.OperationalError("database is locked")
+        return ScanResult(ingested=1, discovered=0, rejected=0, commands={})
+
+    supervisor = capture.Supervisor(
+        dumpcap=sys.executable,
+        build_argv=_stub_argv,
+        journal_path=journal_path,
+        ingest_poll_seconds=0.05,
+        ingest_capture=flaky_ingest_capture,
+    )
+    try:
+        supervisor._start_ingest_loop(capture_dir, _GAME_PORT)
+        assert _wait_until(lambda: supervisor.status().ingest.files_ingested == 1, timeout=5)
+        status = supervisor.status()
+        assert status.ingest.state == "running", "an OperationalError must not kill the loop"
+        assert status.ingest.files_seen == 2
+        assert status.ingest.files_ingested == 1
+        assert supervisor._ingest_thread is not None
+        assert supervisor._ingest_thread.is_alive()
+    finally:
+        supervisor._stop_ingest_loop()
+
+
+def test_an_unexpected_exception_is_recorded_and_visible_through_status(
+    tmp_path: Path,
+) -> None:
+    """Finding 2: an exception `_ingest_once` does not already treat as a
+    per-file failure used to kill the thread with nothing recorded anywhere
+    — `status()` could not tell that apart from "nothing new to ingest yet".
+    """
+    capture_dir = tmp_path / "captures"
+    capture_dir.mkdir()
+    _write_capture(capture_dir / "cap_00001.pcapng", age_seconds=600, valid=True)
+    journal_path = tmp_path / "journal.db"
+
+    def exploding_ready_captures(directory: Path, minimum_age_seconds: float) -> list[Path]:
+        raise RuntimeError("boom: unexpected failure")
+
+    supervisor = capture.Supervisor(
+        dumpcap=sys.executable,
+        build_argv=_stub_argv,
+        journal_path=journal_path,
+        ingest_poll_seconds=0.05,
+        ready_captures=exploding_ready_captures,
+    )
+    try:
+        supervisor._start_ingest_loop(capture_dir, _GAME_PORT)
+        assert _wait_until(lambda: supervisor.status().ingest.state == "died", timeout=5)
+        status = supervisor.status()
+        assert "RuntimeError" in status.ingest.error
+        assert "boom: unexpected failure" in status.ingest.error
+
+        thread = supervisor._ingest_thread
+        assert thread is not None
+        assert _wait_until(lambda: not thread.is_alive(), timeout=5)
+    finally:
+        supervisor._stop_ingest_loop()
