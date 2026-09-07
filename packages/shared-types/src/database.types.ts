@@ -5282,6 +5282,25 @@ export type Database = {
         }[]
       }
       build_rank_period: { Args: { p_period_start: string }; Returns: number }
+      claim_player: {
+        Args: { p_player_id: string }
+        Returns: {
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          note: string | null
+          player_id: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "player_claims"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       current_app_role: {
         Args: never
         Returns: Database["public"]["Enums"]["app_role"]
