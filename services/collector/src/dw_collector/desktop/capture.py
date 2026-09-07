@@ -40,12 +40,15 @@ of an unnecessary `/T`.
 
 from __future__ import annotations
 
+import collections
 import contextlib
 import subprocess
 import sys
+import threading
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import IO
 
 #: register-tasks.ps1's ring buffer for `DarkWar-Capture`, read out of
 #: `$timings` and the literal `-B 64` on its `$tasks` entry (line ~250)
@@ -63,6 +66,17 @@ _RING_BUFFER_MIB = 64
 #: The file dumpcap writes inside the capture directory — also literal from
 #: register-tasks.ps1 (`$CaptureDir\cap.pcapng`).
 _CAPTURE_FILENAME = "cap.pcapng"
+
+#: Maximum stderr lines retained from the running child. THIS IS NOT A LOG
+#: FILE, it is a crash note — dumpcap runs for hours, and a child that is
+#: chatty or endlessly re-erroring must never be allowed to grow this
+#: process's memory without bound just because we chose to keep its stderr
+#: around. `collections.deque(maxlen=...)` evicts the oldest lines once full,
+#: which is the right trade here: the message that actually explains a
+#: failure is almost always the last thing the child wrote before it gave
+#: up, not the first. A few thousand lines is generous for that and still
+#: bounded regardless of how long the process runs or how much it writes.
+_STDERR_BUFFER_LINES = 4000
 
 
 def ring_argv(dumpcap: str, interface: str, capture_dir: Path, *, game_port: int) -> list[str]:
@@ -141,11 +155,14 @@ class CaptureStatus:
     state: str
     pid: int | None = None
     returncode: int | None = None
-    #: dumpcap's own stderr, verbatim, once the process has exited. WE DO NOT
-    #: GUESS AT THE CAUSE, same reasoning as `adapters.Probe.detail`: a bad
-    #: interface, a missing Npcap driver, and a permissions refusal all fail
-    #: differently, and dumpcap's own words are the only thing that tells a
-    #: player which one happened.
+    #: dumpcap's own stderr, verbatim (subject to `_STDERR_BUFFER_LINES`),
+    #: once the process has exited. WE DO NOT GUESS AT THE CAUSE, same
+    #: reasoning as `adapters.Probe.detail`: a bad interface, a missing
+    #: Npcap driver, and a permissions refusal all fail differently, and
+    #: dumpcap's own words are the only thing that tells a player which one
+    #: happened. This is read from a background-drained buffer, never from
+    #: the live pipe, and is cached so a second call sees the same text —
+    #: see `Supervisor._drain_stderr` and `Supervisor.status`.
     stderr: str = ""
 
 
@@ -176,6 +193,32 @@ class Supervisor:
         self._build_argv = build_argv
         self._kill_tree = kill_tree
         self._process: subprocess.Popen[bytes] | None = None
+        # GUARD (Finding 2): serializes the check-then-act in `start()` and
+        # the whole of `stop()`. The window used to be "one client today",
+        # but Task 6 puts this Supervisor behind a `ThreadingHTTPServer`,
+        # where two overlapping Start requests hit this exact race —
+        # reproduced at 8 threads calling `start()` concurrently producing 7
+        # distinct PIDs, all writing to the same ring directory. A second
+        # `dumpcap` on that directory does not queue behind the first, it
+        # corrupts the capture. RLock (not Lock) because `start()` calls
+        # `self.status()` while still holding it, and `status()` itself does
+        # NOT take this lock — see the comment in `status()` for why that is
+        # safe.
+        self._lock = threading.RLock()
+        # Finding 1's buffer: filled by a background thread (`_drain_stderr`,
+        # started in `start()`), read by `status()`. Never read from the
+        # live pipe outside that thread again.
+        self._stderr_buffer: collections.deque[str] = collections.deque(maxlen=_STDERR_BUFFER_LINES)
+        # Guards `_stderr_buffer` only — separate from `_lock` because the
+        # drain thread appends to it continuously for the life of the child,
+        # independent of whatever `start()`/`stop()` are doing.
+        self._stderr_buffer_lock = threading.Lock()
+        # Finding 4: the terminal status (state="failed"/"stopped" with
+        # returncode/stderr) of the last process, captured by `stop()` when
+        # it finds the child already dead — see `stop()`. `None` means "no
+        # captured terminal status", in which case `status()` falls back to
+        # the plain default of "stopped".
+        self._last_status: CaptureStatus | None = None
 
     def start(self, interface: str, capture_dir: Path, *, game_port: int) -> CaptureStatus:
         """Start capture, creating `capture_dir` if it does not exist yet.
@@ -194,61 +237,158 @@ class Supervisor:
             raise ValueError(
                 "no capture interface configured — pick one in settings before starting capture"
             )
-        if self._process is not None and self._process.poll() is None:
+        with self._lock:
+            if self._process is not None and self._process.poll() is None:
+                return self.status()
+
+            capture_dir.mkdir(parents=True, exist_ok=True)
+            argv = self._build_argv(self._dumpcap, interface, capture_dir, game_port)
+            # stdout is discarded (dumpcap's ordinary progress goes nowhere
+            # useful for a player), but stderr is piped and kept — see
+            # `CaptureStatus.stderr` and the module docstring's "do not
+            # swallow dumpcap's stderr" reasoning.
+            process = self._popen(
+                argv,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+                creationflags=_CREATION_FLAGS,
+            )
+            self._process = process
+            self._last_status = None
+            with self._stderr_buffer_lock:
+                self._stderr_buffer.clear()
+            if process.stderr is not None:
+                # DAEMON THREAD (Finding 1): an undrained `subprocess.PIPE`
+                # is not a diagnostic channel, it is a deadlock with a
+                # plausible excuse. The OS pipe buffer is small (~64 KiB is
+                # typical); once dumpcap fills it, dumpcap's own `write()`
+                # call to stderr blocks until someone reads the other end —
+                # and nothing did, since `status()` used to read `stderr`
+                # only after the process had already exited. A stub writing
+                # a few hundred KB reproduced this: it wedged for the whole
+                # observation window while `poll()` kept returning `None`
+                # and `status()` kept saying `state="running"`. dumpcap runs
+                # for hours; it will get there. Draining continuously here
+                # means the pipe is never allowed to fill, so the child can
+                # never block on it, and `status()`/`stop()` read the
+                # buffer this fills, never the pipe.
+                threading.Thread(
+                    target=self._drain_stderr,
+                    args=(process.stderr,),
+                    daemon=True,
+                    name="dw-capture-stderr-drain",
+                ).start()
             return self.status()
 
-        capture_dir.mkdir(parents=True, exist_ok=True)
-        argv = self._build_argv(self._dumpcap, interface, capture_dir, game_port)
-        # stdout is discarded (dumpcap's ordinary progress goes nowhere
-        # useful for a player), but stderr is piped and kept — see
-        # `CaptureStatus.stderr` and the module docstring's "do not swallow
-        # dumpcap's stderr" reasoning.
-        self._process = self._popen(
-            argv,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE,
-            creationflags=_CREATION_FLAGS,
-        )
-        return self.status()
-
     def stop(self) -> None:
-        """Stop capture. A no-op, not an error, when nothing is running."""
-        if self._process is None:
-            return
-        # GUARD: only kill while this PID is still known to be ours.
-        # `main.rs`'s `ExitRequested` handler calls `child.try_wait()` before
-        # `kill_tree` and kills only on `Ok(None)` (still running), because
-        # Windows recycles process ids and a PID killed on the strength of a
-        # stale reference can reach whatever the OS has since handed that
-        # number to. `Popen.poll()` is the Python equivalent: `None` means
-        # still running; anything else means it already exited on its own,
-        # and this PID must not be acted on again.
-        if self._process.poll() is not None:
+        """Stop capture. A no-op, not an error, when nothing is running.
+
+        Holds `self._lock` for the same reason `start()` does: this must not
+        interleave with a concurrent `start()` deciding whether a process is
+        already running.
+        """
+        with self._lock:
+            if self._process is None:
+                return
+            # GUARD: only kill while this PID is still known to be ours.
+            # `main.rs`'s `ExitRequested` handler calls `child.try_wait()`
+            # before `kill_tree` and kills only on `Ok(None)` (still
+            # running), because Windows recycles process ids and a PID
+            # killed on the strength of a stale reference can reach whatever
+            # the OS has since handed that number to. `Popen.poll()` is the
+            # Python equivalent: `None` means still running; anything else
+            # means it already exited on its own, and this PID must not be
+            # acted on again.
+            returncode = self._process.poll()
+            if returncode is not None:
+                # Finding 4: the child already failed before Stop was ever
+                # pressed. Capture its terminal status BEFORE clearing
+                # `self._process` — the old code cleared it here with no
+                # record kept, so a following `status()` call (with no
+                # `status()` call having happened in between, exactly the
+                # "press Stop after a crash" sequence) fell through to the
+                # `self._process is None` branch and reported a plain
+                # "stopped", silently discarding the crash and telling the
+                # player capture ended normally.
+                self._last_status = self._status_from_buffer(returncode)
+                self._process = None
+                return
+            pid = self._process.pid
+            self._kill_tree(pid)
+            # Best-effort beyond this point: the tree kill was already
+            # issued, and a stop button must not hang the app waiting on a
+            # process that refuses to die.
+            with contextlib.suppress(subprocess.TimeoutExpired):
+                self._process.wait(timeout=5)
             self._process = None
-            return
-        pid = self._process.pid
-        self._kill_tree(pid)
-        # Best-effort beyond this point: the tree kill was already issued,
-        # and a stop button must not hang the app waiting on a process that
-        # refuses to die.
-        with contextlib.suppress(subprocess.TimeoutExpired):
-            self._process.wait(timeout=5)
-        self._process = None
+            # This was a deliberate stop, not a crash — leave `_last_status`
+            # unset (rather than recording the kill's own returncode, which
+            # can look failure-shaped) so a following `status()` reports the
+            # plain "stopped" default.
+            self._last_status = None
 
     def status(self) -> CaptureStatus:
         """The current state, including dumpcap's stderr once it has exited.
 
-        Reading `stderr` only after the process has exited (`poll()` is not
-        `None`) is deliberate: reading a live pipe with nothing written to it
-        yet would block, and this call must never do that while capture is
-        healthy and running.
+        Does NOT take `self._lock`. This is deliberately a plain, wait-free
+        read: the harm a concurrent `start()`/`stop()` could do to a racing
+        `status()` call is a stale snapshot for one poll cycle (still
+        running vs. just stopped) — cosmetic, and self-correcting on the
+        next poll. That is a completely different order of problem from
+        Finding 2, where a torn check-then-act spawns a second `dumpcap`
+        onto the same ring directory and corrupts the capture. Serializing
+        every UI status poll behind `start()`/`stop()` would buy nothing
+        here and cost latency on what is meant to be a cheap, frequent call.
+
+        Never reads `self._process.stderr` directly (Finding 1) — that pipe
+        is drained continuously by a background thread into
+        `self._stderr_buffer`, which this reads instead. See
+        `_drain_stderr` and `_status_from_buffer`.
         """
         if self._process is None:
+            if self._last_status is not None:
+                return self._last_status
             return CaptureStatus(state="stopped")
         returncode = self._process.poll()
         if returncode is None:
             return CaptureStatus(state="running", pid=self._process.pid)
-        raw_stderr = self._process.stderr.read() if self._process.stderr is not None else b""
-        text = raw_stderr.decode("utf-8", errors="replace").strip()
+        return self._status_from_buffer(returncode)
+
+    def _status_from_buffer(self, returncode: int) -> CaptureStatus:
+        """Build the terminal `CaptureStatus` for an exited process.
+
+        Finding 3: reads `self._stderr_buffer`, never the pipe, and never
+        drains or clears anything it reads — the buffer is cleared only by
+        the next `start()` (see there). That makes this idempotent: calling
+        `status()` twice after exit, or calling it from `stop()`'s
+        already-dead branch and then again from a following `status()`,
+        both see the same text instead of the second call finding an
+        already-drained pipe and reporting an empty reason.
+        """
+        with self._stderr_buffer_lock:
+            text = "\n".join(self._stderr_buffer).strip()
         state = "stopped" if returncode == 0 else "failed"
         return CaptureStatus(state=state, returncode=returncode, stderr=text)
+
+    def _drain_stderr(self, pipe: IO[bytes]) -> None:
+        """Continuously read `pipe` into `self._stderr_buffer` so the child
+        can never block on a full stderr pipe.
+
+        THIS IS THE FIX FOR FINDING 1: an undrained pipe is not a
+        diagnostic channel, it is a deadlock with a plausible excuse. Runs
+        as a daemon thread for the life of the child (started once per
+        `start()`), reading line by line until the pipe closes (the child
+        exiting closes its end, which makes `readline()` return `b""` and
+        ends this loop on its own — no explicit stop signal needed).
+        """
+        try:
+            for raw_line in iter(pipe.readline, b""):
+                line = raw_line.decode("utf-8", errors="replace").rstrip("\r\n")
+                with self._stderr_buffer_lock:
+                    self._stderr_buffer.append(line)
+        except (ValueError, OSError):
+            # The pipe was torn down out from under us — e.g. `stop()`
+            # killed the process while this thread was mid-read. Not this
+            # thread's job to report that; `stop()`/`status()` already
+            # handle the process's exit from their own side.
+            pass

@@ -21,7 +21,9 @@ from __future__ import annotations
 
 import subprocess
 import sys
+import threading
 import time
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -48,6 +50,31 @@ def _stub_argv(dumpcap: str, interface: str, capture_dir: Path, game_port: int) 
 
 def _stub_supervisor() -> capture.Supervisor:
     return capture.Supervisor(dumpcap=sys.executable, build_argv=_stub_argv)
+
+
+def _stderr_flood_argv(marker_path: Path) -> Callable[[str, str, Path, int], list[str]]:
+    """A `build_argv` whose stub writes ~320 KB to stderr — comfortably past
+    a typical 64 KiB OS pipe buffer — then touches `marker_path` and sleeps.
+
+    The marker only appears if the child's stderr writes actually complete,
+    which only happens if something is draining the pipe as it fills. That
+    turns "did the fix work" into a file-existence check instead of
+    something that can only be observed by hanging forever.
+    """
+    marker = marker_path.as_posix()
+    script = (
+        "import sys, time\n"
+        "for _ in range(8000):\n"
+        "    sys.stderr.write('x' * 40 + chr(10))\n"
+        "sys.stderr.flush()\n"
+        f"open({marker!r}, 'w').close()\n"
+        "time.sleep(30)\n"
+    )
+
+    def build_argv(dumpcap: str, interface: str, capture_dir: Path, game_port: int) -> list[str]:
+        return [dumpcap, "-c", script]
+
+    return build_argv
 
 
 def _pid_alive(pid: int) -> bool:
@@ -183,3 +210,139 @@ def test_start_refuses_an_empty_interface_without_spawning(tmp_path: Path) -> No
     # too - nothing about starting should have happened.
     assert not capture_dir.exists()
     assert supervisor.status().state == "stopped"
+
+
+# --- Findings 1-4: stderr deadlock, concurrent start, stale/lost reason --
+
+
+@_WINDOWS_ONLY
+def test_start_drains_stderr_so_a_chatty_child_never_wedges(tmp_path: Path) -> None:
+    """Finding 1 (CRITICAL): an unread `subprocess.PIPE` has a small OS
+    buffer (~64 KiB typical); once a child fills it, the child's own
+    `write()` call blocks until someone reads the other end. Before the fix,
+    nothing read `stderr` until the process exited, so a child writing
+    enough would block forever mid-write - never reaching the marker file
+    below - while `poll()` kept returning `None` and `status()` kept saying
+    "running". That is silent, permanent capture loss dressed up as health.
+
+    Polling for the marker with a bounded deadline (not an unbounded wait)
+    means a regression fails this test loudly instead of hanging the suite.
+    """
+    marker = tmp_path / "wrote-all-of-it"
+    supervisor = capture.Supervisor(dumpcap=sys.executable, build_argv=_stderr_flood_argv(marker))
+    try:
+        status = supervisor.start(r"\Device\NPF_test", tmp_path, game_port=8680)
+        pid = status.pid
+        assert pid is not None
+
+        deadline = time.monotonic() + 15.0
+        while time.monotonic() < deadline and not marker.exists():
+            time.sleep(0.2)
+        assert marker.exists(), (
+            "child never finished writing its stderr volume - it is wedged "
+            "on a full pipe buffer, exactly the Finding 1 deadlock"
+        )
+
+        # Still alive and still reported as running: the volume did not
+        # wedge the process, and status() never touched the live pipe.
+        assert _pid_alive(pid)
+        assert supervisor.status().state == "running"
+    finally:
+        supervisor.stop()
+
+
+@_WINDOWS_ONLY
+def test_concurrent_start_spawns_exactly_one_process(tmp_path: Path) -> None:
+    """Finding 2 (CRITICAL): the check-then-act in `start()` had no lock.
+    Reproduced at 8 threads calling `start()` -> 7 distinct PIDs, all
+    writing to the same ring directory. Task 6 puts this Supervisor behind a
+    `ThreadingHTTPServer`, where two overlapping Start requests are exactly
+    this race.
+    """
+    supervisor = _stub_supervisor()
+    thread_count = 8
+    pids: list[int | None] = [None] * thread_count
+    barrier = threading.Barrier(thread_count)
+
+    def call_start(index: int) -> None:
+        barrier.wait(timeout=10)
+        result = supervisor.start(r"\Device\NPF_test", tmp_path, game_port=8680)
+        pids[index] = result.pid
+
+    threads = [threading.Thread(target=call_start, args=(i,)) for i in range(thread_count)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=15)
+        assert not thread.is_alive(), "a start() call never returned - possible lock deadlock"
+
+    try:
+        assert all(pid is not None for pid in pids), pids
+        assert len({pid for pid in pids}) == 1, f"expected exactly one pid, got {pids}"
+    finally:
+        supervisor.stop()
+        assert supervisor.status().state == "stopped"
+
+
+@_WINDOWS_ONLY
+def test_status_reports_stderr_on_every_call_after_exit(tmp_path: Path) -> None:
+    """Finding 3: `status()` used to drain the live pipe itself
+    (`self._process.stderr.read()`), so a second call after exit saw an
+    already-empty pipe and returned "". A UI polling on a timer would watch
+    the failure reason disappear on its next tick.
+    """
+
+    def build_argv(dumpcap: str, interface: str, capture_dir: Path, game_port: int) -> list[str]:
+        return [dumpcap, "-c", "import sys; sys.stderr.write('boom'); sys.exit(1)"]
+
+    supervisor = capture.Supervisor(dumpcap=sys.executable, build_argv=build_argv)
+    try:
+        supervisor.start(r"\Device\NPF_test", tmp_path, game_port=8680)
+        deadline = time.monotonic() + 10.0
+        while time.monotonic() < deadline and supervisor.status().state == "running":
+            time.sleep(0.1)
+
+        first = supervisor.status()
+        second = supervisor.status()
+        assert first.state == "failed"
+        assert "boom" in first.stderr
+        assert second.state == "failed"
+        assert "boom" in second.stderr
+    finally:
+        supervisor.stop()
+
+
+@_WINDOWS_ONLY
+def test_stop_after_a_crash_still_reports_failed(tmp_path: Path) -> None:
+    """Finding 4: if the child already died before Stop was pressed,
+    `stop()` used to clear the process reference unconditionally, so a
+    following `status()` (with no intervening `status()` call - exactly a
+    player pressing Stop after a crash) reported a plain "stopped" and the
+    crash detail was gone.
+    """
+
+    def build_argv(dumpcap: str, interface: str, capture_dir: Path, game_port: int) -> list[str]:
+        return [
+            dumpcap,
+            "-c",
+            "import sys, time\ntime.sleep(0.3)\nsys.stderr.write('dumpcap died')\nsys.exit(1)\n",
+        ]
+
+    supervisor = capture.Supervisor(dumpcap=sys.executable, build_argv=build_argv)
+    status = supervisor.start(r"\Device\NPF_test", tmp_path, game_port=8680)
+    assert status.state == "running"
+    pid = status.pid
+    assert pid is not None
+
+    # Let the child actually crash, with NO status() call in between - that
+    # is the exact sequence Finding 4 is about.
+    deadline = time.monotonic() + 10.0
+    while time.monotonic() < deadline and _pid_alive(pid):
+        time.sleep(0.1)
+    assert not _pid_alive(pid), "child never exited - test script is wrong, not the fix"
+
+    supervisor.stop()
+
+    final = supervisor.status()
+    assert final.state == "failed"
+    assert "dumpcap died" in final.stderr
