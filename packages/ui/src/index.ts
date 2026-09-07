@@ -8,3 +8,6 @@ export {
   isOnMap,
   formatCoordinate,
 } from './mapProjection';
+
+export type { MapInset, MapMarker, LayoutMarkersOptions, PositionedMarker } from './mapLayout';
+export { MAP_IMAGE_URL, MAP_INSET, LABEL_LIMIT, layoutMarkers } from './mapLayout';
