@@ -1,4 +1,6 @@
+import { type MapMarker, formatCoordinate } from '@dw/ui';
 import { invoke } from '@tauri-apps/api/core';
+import { createMapView, renderMarkers } from './mapView';
 
 interface Tile {
   gameUid: string;
@@ -14,6 +16,11 @@ const statusEl = document.querySelector<HTMLParagraphElement>('#status');
 const needleEl = document.querySelector<HTMLInputElement>('#needle');
 const goEl = document.querySelector<HTMLButtonElement>('#go');
 const outEl = document.querySelector<HTMLPreElement>('#out');
+const mapRootEl = document.querySelector<HTMLDivElement>('#map-root');
+
+if (mapRootEl !== null) {
+  mapRootEl.appendChild(createMapView());
+}
 
 function say(target: HTMLElement | null, text: string): void {
   // TEXTCONTENT, NEVER innerHTML. Everything below came out of the journal,
@@ -58,9 +65,19 @@ async function search(): Promise<void> {
         ? `nothing matching ${typed}`
         : answer.matches.map(line).join('\n'),
     );
+    // The text list stays — it carries the uid and the capture time, which a
+    // pin on the map does not. The map is the second, complementary view.
+    renderMarkers(answer.matches.map(tileToMarker));
   } catch (error) {
     say(outEl, String(error));
   }
+}
+
+function tileToMarker(tile: Tile): MapMarker {
+  return {
+    at: { x: tile.x, y: tile.y },
+    label: tile.name ?? formatCoordinate({ x: tile.x, y: tile.y }),
+  };
 }
 
 goEl?.addEventListener('click', () => {

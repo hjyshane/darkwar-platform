@@ -63,6 +63,9 @@ importers:
 
   apps/desktop:
     dependencies:
+      '@dw/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       '@tauri-apps/api':
         specifier: ^2.11.1
         version: 2.11.1
