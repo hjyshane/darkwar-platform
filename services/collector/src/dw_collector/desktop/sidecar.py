@@ -267,6 +267,13 @@ def _merge_settings_body(current: settings.Settings, body: dict[str, Any]) -> se
     a value from the wire reach `replace` here would let the window silently
     re-key the entire dedup history. See `Handler.do_PUT` for why `current`
     is what supplies it instead.
+
+    `journal_path` IS ACCEPTED HERE AND SAVED TO DISK LIKE ANY OTHER FIELD —
+    but saving it is not the same as USING it. The one journal path any
+    `Supervisor`, `/health`, or `/find` in this process ever touches is
+    `_Server.journal_path`, fixed at process start; see that attribute's
+    docstring for why a `PUT` here can only ever take effect on the sidecar's
+    NEXT launch, never on whatever is already running.
     """
     return replace(
         current,
@@ -277,6 +284,24 @@ def _merge_settings_body(current: settings.Settings, body: dict[str, Any]) -> se
         server_id=_int_field(body, "serverId", current.server_id),
         game_port=_int_field(body, "gamePort", current.game_port),
     )
+
+
+def _default_supervisor_factory(dumpcap: str, journal_path: Path) -> capture.Supervisor:
+    """The real factory `serve()`/`_Server` use in production.
+
+    THIS IS THE FIX for "files climb, rows never do": before this, production
+    called `capture.Supervisor` directly as the factory, and
+    `Supervisor.__init__`'s default is `journal_path=None` — which is exactly
+    what tells `Supervisor._start_ingest_loop` never to start the ingest
+    thread at all. dumpcap ran, the ring rotated, `files` climbed, and the
+    `Supervisor` `Handler._get_or_create_supervisor` handed back had no path
+    to ever read one of those files into. Passing `journal_path=journal_path`
+    through here is the entire fix — `capture.py`'s ingest loop, its
+    `init_db()` on first use (`_default_journal_factory`), and its
+    single-writer-thread discipline already worked correctly the moment a
+    path actually arrived.
+    """
+    return capture.Supervisor(dumpcap, journal_path=journal_path)
 
 
 class _Server(ThreadingHTTPServer):
@@ -295,9 +320,32 @@ class _Server(ThreadingHTTPServer):
         *,
         find_dumpcap: Callable[[], str | None] = adapters.find_dumpcap,
         probe_run: Callable[..., subprocess.CompletedProcess[bytes]] = subprocess.run,
-        supervisor_factory: Callable[[str], capture.Supervisor] = capture.Supervisor,
+        supervisor_factory: Callable[[str, Path], capture.Supervisor] = _default_supervisor_factory,
     ) -> None:
         super().__init__(address, Handler)
+        # FIXED FOR THE LIFE OF THIS PROCESS. `/health`, `/find`,
+        # `/capture/status`'s row count, and — via `supervisor_factory` below
+        # — the one journal the capture `Supervisor`'s ingest thread is ever
+        # given all read this SAME attribute, never `Settings.journal_path`
+        # (the field `PUT /settings` can rewrite in `settings.json` at any
+        # time, including while a capture is running). That is the answer to
+        # "what happens when the journal path changes while running": NOTHING
+        # happens to anything already live in this process. A `PUT` that
+        # changes `journalPath` still saves to disk and is honoured the NEXT
+        # time the sidecar starts — it can never reach a `Supervisor` or a
+        # `/find` connection this process already opened. The alternative
+        # (re-pointing a running ingest thread at a different file mid-
+        # capture) is precisely the silent half-switch this task calls out as
+        # unacceptable: the old `Supervisor` connection would keep writing
+        # the old file while `/find` started reading a different one, and
+        # nothing downstream would ever be told the two had diverged.
+        # Refusing the `PUT` outright while a capture is running was the
+        # other honest option; this one was chosen because `PUT /settings`
+        # already has no idea whether a capture is running (it does not touch
+        # `self.supervisor`), and teaching it to check would add a second
+        # code path that has to agree with `Supervisor.status()` forever
+        # after, for a field a player only ever needs to change between
+        # sessions.
         self.journal_path = journal_path
         self.settings_path = settings_path
         # Injected so `/adapters` is testable without Wireshark installed —
@@ -317,7 +365,11 @@ class _Server(ThreadingHTTPServer):
         # has a `dumpcap` path to hand it. `supervisor_factory` is injected
         # the same way `find_dumpcap`/`probe_run` are: tests pass one that
         # ignores the resolved `dumpcap` argument and returns a `Supervisor`
-        # pointed at a stub executable instead of a real `dumpcap.exe`.
+        # pointed at a stub executable instead of a real `dumpcap.exe`. It
+        # takes `self.journal_path` too — `(dumpcap, journal_path) ->
+        # Supervisor` — which is what lets `_get_or_create_supervisor` wire
+        # the one journal this server ever names into the Supervisor's
+        # ingest loop; see `_default_supervisor_factory`.
         self.supervisor_factory = supervisor_factory
         self.supervisor: capture.Supervisor | None = None
         # Guards ONLY the lazy creation above — two overlapping `POST
@@ -648,10 +700,23 @@ class Handler(BaseHTTPRequestHandler):
         time a `dumpcap` path is actually known. See `_Server.__init__` for
         why this cannot happen any earlier, and why the lock around it is
         not optional.
+
+        `self.server.journal_path` IS PASSED HERE, NOT `effective.journal_path`
+        FROM SETTINGS. That is the fix for the gap this task closes — without
+        it the factory builds a `Supervisor(journal_path=None)`, which is
+        production's default for "no ingest thread at all" (see
+        `capture.Supervisor.__init__`). It is also `_Server.__init__`'s
+        documented answer to what a `PUT /settings` journal-path change does
+        to a running capture: nothing, until this process restarts — the
+        Supervisor this method builds is bound to whichever path was true
+        when THIS process started, forever, the same as `/health` and
+        `/find` already are.
         """
         with self.server.supervisor_lock:
             if self.server.supervisor is None:
-                self.server.supervisor = self.server.supervisor_factory(dumpcap_path)
+                self.server.supervisor = self.server.supervisor_factory(
+                    dumpcap_path, self.server.journal_path
+                )
             return self.server.supervisor
 
     def do_POST(self) -> None:
@@ -738,7 +803,7 @@ def serve(
     port: int = 0,
     find_dumpcap: Callable[[], str | None] = adapters.find_dumpcap,
     probe_run: Callable[..., subprocess.CompletedProcess[bytes]] = subprocess.run,
-    supervisor_factory: Callable[[str], capture.Supervisor] = capture.Supervisor,
+    supervisor_factory: Callable[[str, Path], capture.Supervisor] = _default_supervisor_factory,
 ) -> _Server:
     """A started server. The caller owns `serve_forever` and shutdown.
 

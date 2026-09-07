@@ -24,6 +24,7 @@ import pytest
 
 from dw_collector.desktop import capture, sidecar
 from dw_collector.storage.journal import Journal
+from tests.test_protocol import ENVELOPE, _pcapng, _tcp_packet, frame
 
 _WINDOWS_ONLY = pytest.mark.skipif(
     sys.platform != "win32",
@@ -140,12 +141,21 @@ def _stub_capture_argv(
     return [dumpcap, "-c", _SLEEP_SCRIPT]
 
 
-def _capture_supervisor_factory(dumpcap_path: str) -> capture.Supervisor:
+def _capture_supervisor_factory(dumpcap_path: str, journal_path: Path) -> capture.Supervisor:
     """Ignores the resolved `dumpcap_path` and points the supervisor at
     `sys.executable` running a sleep script instead — proves real
     spawn/status/stop behaviour through the sidecar without Npcap or a real
-    `dumpcap.exe` anywhere near the test."""
-    return capture.Supervisor(dumpcap=sys.executable, build_argv=_stub_capture_argv)
+    `dumpcap.exe` anywhere near the test.
+
+    `journal_path` is passed straight through to `Supervisor`, the same way
+    `_default_supervisor_factory` in production does — this is the signature
+    `_Server.supervisor_factory` requires post-wiring, and passing it through
+    (rather than dropping it) is what lets the ingest loop actually run for
+    every test that uses this fixture, not just the ones added for this gap.
+    """
+    return capture.Supervisor(
+        dumpcap=sys.executable, build_argv=_stub_capture_argv, journal_path=journal_path
+    )
 
 
 @pytest.fixture
@@ -1001,8 +1011,10 @@ from dw_collector.desktop import sidecar, capture
 def build_argv(dumpcap, interface, capture_dir, game_port):
     return [dumpcap, "-c", "import time; time.sleep(30)"]
 
-def supervisor_factory(dumpcap):
-    return capture.Supervisor(dumpcap=sys.executable, build_argv=build_argv)
+def supervisor_factory(dumpcap, journal_path):
+    return capture.Supervisor(
+        dumpcap=sys.executable, build_argv=build_argv, journal_path=journal_path
+    )
 
 httpd = sidecar.serve(Path(sys.argv[1]), supervisor_factory=supervisor_factory, port=0)
 print(f"PORT {httpd.server_address[1]}", flush=True)
@@ -1087,6 +1099,202 @@ def test_closing_stdin_stops_the_capture_supervisor_too(tmp_path: Path) -> None:
         if child.poll() is None:
             child.kill()
             child.wait(timeout=10)
+
+
+#: `Settings.game_port`'s default (8680) — matched here rather than
+#: hardcoded independently, so a fixture packet's TCP source port always
+#: agrees with what `_handle_capture_start` will actually filter for.
+_END_TO_END_GAME_PORT = 8680
+
+
+def _write_ready_capture(path: Path, *, age_seconds: float = 600.0) -> None:
+    """A `.pcapng` fixture `_ready_captures` will treat as closed, holding
+    one real decodable `al.rank` event — the same machinery
+    `test_desktop_capture.py`'s own `_write_capture` and `test_protocol.py`
+    use to prove pcapng decoding, reused here rather than inventing bytes.
+    """
+    packet = _tcp_packet(frame(ENVELOPE), sport=_END_TO_END_GAME_PORT, dport=50000, seq=1)
+    path.write_bytes(_pcapng([packet]))
+    when = time.time() - age_seconds
+    os.utime(path, (when, when))
+
+
+def _wait_for_rows(url: str, *, timeout: float = 10.0) -> dict[str, object]:
+    """Poll `/capture/status` until `rows` leaves zero or `timeout` elapses.
+
+    Bounded, per the task's "explicit timeout" requirement — a wedged ingest
+    thread must fail this test loudly within `timeout` seconds, never hang
+    the suite.
+    """
+    deadline = time.monotonic() + timeout
+    body: dict[str, object] = {}
+    while time.monotonic() < deadline:
+        _, body = _get(url, "/capture/status")
+        rows = body.get("rows")
+        if isinstance(rows, int) and rows > 0:
+            return body
+        time.sleep(0.1)
+    return body
+
+
+@_WINDOWS_ONLY
+def test_capture_start_ingests_a_ready_capture_end_to_end(
+    capture_sidecar: _SidecarWithSettings, tmp_path: Path
+) -> None:
+    """THE TEST THAT MATTERS.
+
+    Before this task, `Handler._get_or_create_supervisor` built the
+    production `Supervisor` with no `journal_path` at all —
+    `Supervisor.__init__`'s default — which is exactly what tells
+    `Supervisor._start_ingest_loop` never to start the ingest thread. dumpcap
+    ran, the ring rotated, `files` climbed, and NOT ONE ROW EVER REACHED THE
+    JOURNAL: a player would watch this look healthy for hours and get
+    nothing. This drives the whole path through the REAL
+    `POST /capture/start` endpoint (not `Supervisor` directly, the way
+    `test_desktop_capture.py`'s own end-to-end test does) with a ready
+    `.pcapng` fixture already sitting in the capture directory, and proves
+    `rows` actually leaves zero and `ingest.state` reaches `"running"`.
+
+    See this task's mutation test (reverting `_get_or_create_supervisor`'s
+    `journal_path` argument to `None`) for proof this test actually fails
+    without the fix.
+    """
+    capture_dir = tmp_path / "captures"
+    capture_dir.mkdir()
+    _write_ready_capture(capture_dir / "cap_00001.pcapng")
+
+    _put_settings(
+        capture_sidecar.url,
+        {
+            "interface": r"\Device\NPF_test",
+            "captureDir": str(capture_dir),
+            "dumpcapPath": "stub-dumpcap.exe",
+            "gamePort": _END_TO_END_GAME_PORT,
+        },
+    )
+
+    status, start_body = _post(capture_sidecar.url, "/capture/start")
+    assert status == 200
+    assert start_body["capture"]["state"] == "running"  # type: ignore[index]
+
+    status_body = _wait_for_rows(capture_sidecar.url)
+    rows = status_body.get("rows")
+    assert isinstance(rows, int) and rows > 0, (
+        "rows never left zero — the ingest thread never ran, exactly the "
+        f"gap this task exists to close (last status: {status_body!r})"
+    )
+    assert status_body["ingest"]["state"] == "running"  # type: ignore[index]
+
+
+@_WINDOWS_ONLY
+def test_capture_start_creates_the_journal_when_it_does_not_exist_yet(
+    tmp_path: Path,
+) -> None:
+    """A FRESH INSTALL HAS NO JOURNAL FILE YET.
+
+    Starting capture before the journal exists must create it, not fail — a
+    previous bug in exactly this spot made every first ingest fail with "no
+    such table" (see `capture._default_journal_factory`'s `init_db()` call,
+    which is what makes this work). This proves it end-to-end through the
+    sidecar, rather than trusting the docstring: no `Journal(...).init_db()`
+    is ever called by this test.
+    """
+    journal_path = tmp_path / "collector.db"
+    assert not journal_path.exists()
+
+    capture_dir = tmp_path / "captures"
+    capture_dir.mkdir()
+    _write_ready_capture(capture_dir / "cap_00001.pcapng")
+
+    settings_path = tmp_path / "settings.json"
+    httpd = sidecar.serve(
+        journal_path,
+        settings_path,
+        port=0,
+        find_dumpcap=lambda: None,
+        supervisor_factory=_capture_supervisor_factory,
+    )
+    Thread(target=httpd.serve_forever, daemon=True).start()
+    url = f"http://127.0.0.1:{httpd.server_address[1]}"
+    try:
+        _put_settings(
+            url,
+            {
+                "interface": r"\Device\NPF_test",
+                "captureDir": str(capture_dir),
+                "dumpcapPath": "stub-dumpcap.exe",
+                "gamePort": _END_TO_END_GAME_PORT,
+            },
+        )
+        status, start_body = _post(url, "/capture/start")
+        assert status == 200
+        assert start_body["capture"]["state"] == "running"  # type: ignore[index]
+
+        status_body = _wait_for_rows(url)
+        rows = status_body.get("rows")
+        assert isinstance(rows, int) and rows > 0, (
+            f"rows never left zero on a fresh install (last status: {status_body!r})"
+        )
+        assert journal_path.exists()
+    finally:
+        if httpd.supervisor is not None:
+            httpd.supervisor.stop()
+        httpd.shutdown()
+        httpd.server_close()
+
+
+@_WINDOWS_ONLY
+def test_put_settings_journal_path_change_does_not_affect_a_running_capture(
+    capture_sidecar: _SidecarWithSettings, tmp_path: Path
+) -> None:
+    """DECISION: a `journalPath` moved by `PUT /settings` while a capture is
+    running takes effect on the sidecar's NEXT launch, never on this one.
+
+    See `_Server.journal_path`'s docstring for why (in short: `/health`,
+    `/find`, and the capture `Supervisor` all read that one fixed attribute,
+    never `Settings.journal_path` — so there is nothing here that COULD
+    half-switch mid-capture). This proves it: move the path while rows are
+    already landing, and confirm the new path is saved to disk but never
+    created or written to by this process, while the original journal
+    (the one `/health` still names) keeps being the one in use.
+    """
+    capture_dir = tmp_path / "captures"
+    capture_dir.mkdir()
+    _write_ready_capture(capture_dir / "cap_00001.pcapng")
+
+    _put_settings(
+        capture_sidecar.url,
+        {
+            "interface": r"\Device\NPF_test",
+            "captureDir": str(capture_dir),
+            "dumpcapPath": "stub-dumpcap.exe",
+            "gamePort": _END_TO_END_GAME_PORT,
+        },
+    )
+    status, start_body = _post(capture_sidecar.url, "/capture/start")
+    assert status == 200
+    assert start_body["capture"]["state"] == "running"  # type: ignore[index]
+
+    status_body = _wait_for_rows(capture_sidecar.url)
+    rows = status_body.get("rows")
+    assert isinstance(rows, int) and rows > 0
+
+    elsewhere = tmp_path / "elsewhere.db"
+    put_status, put_body = _put_settings(capture_sidecar.url, {"journalPath": str(elsewhere)})
+    assert put_status == 200
+    assert put_body["journalPath"] == str(elsewhere)
+    # It DID save to disk — a `PUT` is never silently dropped...
+    on_disk = json.loads(capture_sidecar.settings_path.read_text(encoding="utf-8"))
+    assert on_disk["journal_path"] == str(elsewhere)
+    # ...but this running process must never create or touch that file.
+    assert not elsewhere.exists()
+
+    # `/health` still names the ORIGINAL journal — nothing in this process
+    # ever re-pointed at the new path.
+    health_status, health_body = _get(capture_sidecar.url, "/health")
+    assert health_status == 200
+    assert health_body["journal"] != str(elsewhere)
+    assert health_body["ok"] is True
 
 
 def test_the_journal_path_can_come_from_the_environment(tmp_path: Path) -> None:
