@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
-from dw_collector.desktop import adapters, localread, settings
+from dw_collector.desktop import adapters, capture, localread, settings
 
 HOST = "127.0.0.1"
 
@@ -61,6 +61,95 @@ def journal_state(journal_path: Path) -> str:
     finally:
         conn.close()
     return READY
+
+
+def _count_pcapng_files(capture_dir: str) -> int:
+    """How many `.pcapng` files sit in `capture_dir` right now.
+
+    A DIRECTORY LISTING, NOT A QUERY. Cost is proportional to the number of
+    files dumpcap's ring buffer ever holds at once — capped at
+    `capture._RING_FILES` (5760) — never to how much data any one of them
+    contains, which is what makes this cheap enough to answer on every poll
+    of `/capture/status`.
+
+    An unconfigured or missing directory is zero files, not an error —
+    `/capture/status` must answer 200 on a fresh install same as everywhere
+    else in this module.
+    """
+    if not capture_dir:
+        return 0
+    path = Path(capture_dir)
+    if not path.is_dir():
+        return 0
+    return sum(1 for _ in path.glob("*.pcapng"))
+
+
+def _cheap_row_count(journal_path: Path) -> int:
+    """How many rows the journal holds, counted from `raw_observations`.
+
+    NOT `select count(*)`. `/capture/status` is meant to be polled on a
+    timer, and `raw_observations` can hold six figures — a full-table count
+    on every poll is exactly the kind of cost that compounds under polling.
+    `max(rowid)` answers from the rowid b-tree alone (a rightmost descent),
+    no table scan, which is the same reasoning `Journal.watermark` already
+    uses this table and this column for. `raw_observations` rather than
+    `normalized_rows`: it is the one row every observation starts as, where
+    `normalized_rows` can hold several derived rows per observation and
+    would inflate the count without telling a player anything about how
+    much has actually come in.
+
+    This is a proxy, not an exact count — it would overcount against a
+    journal `cli.py`'s `prune` command has ever trimmed, since a deleted row
+    lowers the true count but not the highest rowid ever issued. Nothing
+    that prunes runs against a player's desktop journal, and a slightly
+    stale number on a screen that only cares whether it is moving is a fine
+    trade for an index-only read on every poll.
+
+    A missing or unreadable journal counts as zero rather than raising —
+    `/capture/status` must answer 200 always, same as `journal_state`.
+    """
+    if not journal_path.exists():
+        return 0
+    try:
+        conn = sqlite3.connect(journal_path)
+    except sqlite3.DatabaseError:
+        return 0
+    try:
+        cur = conn.execute("select coalesce(max(rowid), 0) from raw_observations")
+        return int(cur.fetchone()[0])
+    except sqlite3.DatabaseError:
+        return 0
+    finally:
+        conn.close()
+
+
+def capture_status_json(status: capture.CaptureStatus, *, files: int, rows: int) -> dict[str, Any]:
+    """`status`, plus how much has actually landed, as the window reads it.
+
+    `files`/`rows` answer a different question than `status.state`: a
+    capture pointed at the wrong adapter can sit at `state="running"` for
+    hours and never produce anything a player would call data. See
+    `capture.IngestStatus`'s own docstring for the same distinction one
+    layer down — "dumpcap is running" and "data is arriving" are different
+    questions, and only the second one tells a player it is working.
+    """
+    return {
+        "capture": {
+            "state": status.state,
+            "pid": status.pid,
+            "returncode": status.returncode,
+            "stderr": status.stderr,
+        },
+        "ingest": {
+            "state": status.ingest.state,
+            "filesSeen": status.ingest.files_seen,
+            "filesIngested": status.ingest.files_ingested,
+            "rowsWritten": status.ingest.rows_written,
+            "error": status.ingest.error,
+        },
+        "files": files,
+        "rows": rows,
+    }
 
 
 def tile_json(
@@ -206,6 +295,7 @@ class _Server(ThreadingHTTPServer):
         *,
         find_dumpcap: Callable[[], str | None] = adapters.find_dumpcap,
         probe_run: Callable[..., subprocess.CompletedProcess[bytes]] = subprocess.run,
+        supervisor_factory: Callable[[str], capture.Supervisor] = capture.Supervisor,
     ) -> None:
         super().__init__(address, Handler)
         self.journal_path = journal_path
@@ -216,6 +306,30 @@ class _Server(ThreadingHTTPServer):
         # the defaults are the real functions `adapters.py` already exposes.
         self.find_dumpcap = find_dumpcap
         self.probe_run = probe_run
+        # THE SUPERVISOR IS OWNED HERE, THE SAME WAY THE JOURNAL AND SETTINGS
+        # PATHS ARE — one instance for the life of this process, no
+        # module-level global. It cannot be built eagerly in this
+        # constructor: which `dumpcap` to spawn depends on `settings.json`
+        # (or a probe of `PATH`), and that can change — or simply not exist
+        # yet on a fresh install — long after the server starts. So this
+        # starts `None` and `Handler._get_or_create_supervisor` builds the
+        # one real instance lazily, the first time `/capture/start` actually
+        # has a `dumpcap` path to hand it. `supervisor_factory` is injected
+        # the same way `find_dumpcap`/`probe_run` are: tests pass one that
+        # ignores the resolved `dumpcap` argument and returns a `Supervisor`
+        # pointed at a stub executable instead of a real `dumpcap.exe`.
+        self.supervisor_factory = supervisor_factory
+        self.supervisor: capture.Supervisor | None = None
+        # Guards ONLY the lazy creation above — two overlapping `POST
+        # /capture/start` requests both seeing `self.supervisor is None`
+        # would otherwise create two distinct `Supervisor` instances, each
+        # with its own "nothing running yet" state, and each would then
+        # happily spawn its own `dumpcap` onto the same ring directory. That
+        # is Finding 2 from `capture.py`, one layer up — see
+        # `Supervisor.start`'s own lock for why a single shared instance is
+        # not enough on its own; this lock is what guarantees there IS only
+        # a single shared instance for that one to serialize against.
+        self.supervisor_lock = threading.Lock()
         # ONE LOCK, SHARED ACROSS EVERY REQUEST. `ThreadingHTTPServer` hands
         # each connection its own thread and its own `Handler` instance, but
         # `settings.json` is one file on disk shared by all of them. Only one
@@ -307,6 +421,12 @@ class Handler(BaseHTTPRequestHandler):
                     "detail": result.detail,
                 },
             )
+            return
+        if parsed.path == "/capture/status":
+            # ALWAYS 200, same reasoning as `/adapters` above: a stopped or
+            # never-started capture is a normal state the settings screen
+            # has to render every time it loads, not a fetch failure.
+            self._send_capture_status()
             return
         if parsed.path != "/find":
             self._send(404, {"error": "no such endpoint"})
@@ -490,6 +610,126 @@ class Handler(BaseHTTPRequestHandler):
         payload["pinnedByEnvironment"] = _pinned_by_environment(merged, effective)
         self._send(200, payload)
 
+    def _drain_request_body(self) -> None:
+        """Read and discard whatever body accompanies this request, if any.
+
+        Same desync `_read_json_object` guards against on `PUT /settings`:
+        `protocol_version` is HTTP/1.1, so the connection is reused, and
+        unread bytes become the start of the next request. Neither capture
+        endpoint takes a body, but nothing stops a caller from sending
+        `fetch(url, {method: "POST", body: "{}"})` anyway — drained and
+        ignored either way, never parsed.
+        """
+        raw_length = self.headers.get("Content-Length")
+        if raw_length is None:
+            return
+        try:
+            length = int(raw_length)
+        except ValueError:
+            return
+        if length > 0:
+            self.rfile.read(length)
+
+    def _send_capture_status(self) -> None:
+        """200, always — the shape `/capture/start` and `/capture/stop`
+        answer with too, per their own docstrings."""
+        status = (
+            self.server.supervisor.status()
+            if self.server.supervisor is not None
+            else capture.CaptureStatus(state="stopped")
+        )
+        effective = settings.load(self.server.settings_path, environ=os.environ)
+        files = _count_pcapng_files(effective.capture_dir)
+        rows = _cheap_row_count(self.server.journal_path)
+        self._send(200, capture_status_json(status, files=files, rows=rows))
+
+    def _get_or_create_supervisor(self, dumpcap_path: str) -> capture.Supervisor:
+        """The one `Supervisor` this server will ever use, built the first
+        time a `dumpcap` path is actually known. See `_Server.__init__` for
+        why this cannot happen any earlier, and why the lock around it is
+        not optional.
+        """
+        with self.server.supervisor_lock:
+            if self.server.supervisor is None:
+                self.server.supervisor = self.server.supervisor_factory(dumpcap_path)
+            return self.server.supervisor
+
+    def do_POST(self) -> None:
+        self._drain_request_body()
+        parsed = urlparse(self.path)
+        if parsed.path == "/capture/start":
+            self._handle_capture_start()
+            return
+        if parsed.path == "/capture/stop":
+            self._handle_capture_stop()
+            return
+        self.close_connection = True
+        self._send(404, {"error": "no such endpoint"})
+
+    def _handle_capture_start(self) -> None:
+        """Start capture against the CURRENT effective settings.
+
+        Every refusal here is a 400 with a full sentence, checked and
+        answered BEFORE anything is spawned — never a bare error code, and
+        never a `dumpcap` launched on a configuration already known to be
+        bad. The window shows these strings verbatim to somebody who cannot
+        read a stack trace, so each one names exactly what is missing and,
+        where there is one, the fix.
+        """
+        effective = settings.load(self.server.settings_path, environ=os.environ)
+        if not effective.interface:
+            # A fresh install's state: no adapter has been picked yet, and
+            # `dumpcap -i ""` is nonsense `Supervisor.start` would otherwise
+            # have to reject one layer down, after already being asked to
+            # spawn.
+            self._send(
+                400,
+                {
+                    "error": "No capture interface is configured. Pick one on "
+                    "the settings screen before starting capture."
+                },
+            )
+            return
+        dumpcap_path = effective.dumpcap_path or self.server.find_dumpcap()
+        if not dumpcap_path:
+            # Say what is actually missing — the driver, not a path — same
+            # reasoning as `/adapters`' "no-dumpcap" state.
+            self._send(
+                400,
+                {"error": "dumpcap was not found. Install Npcap or Wireshark, then try again."},
+            )
+            return
+        if not effective.capture_dir:
+            self._send(
+                400,
+                {
+                    "error": "No capture directory is configured. Choose one on "
+                    "the settings screen before starting capture."
+                },
+            )
+            return
+
+        supervisor = self._get_or_create_supervisor(dumpcap_path)
+        try:
+            supervisor.start(
+                effective.interface, Path(effective.capture_dir), game_port=effective.game_port
+            )
+        except ValueError as exc:
+            # `Supervisor.start`'s own guard (an empty interface) — not
+            # reachable given the check above, but caught rather than left
+            # to surface as an unhandled 500 if that ever changes.
+            self._send(400, {"error": str(exc)})
+            return
+        self._send_capture_status()
+
+    def _handle_capture_stop(self) -> None:
+        """Stop capture. A stop when nothing is running is 200, not an
+        error — see `capture.Supervisor.stop`'s own docstring; a player
+        pressing Stop twice has done nothing wrong."""
+        if self.server.supervisor is not None:
+            self.server.supervisor.stop()
+        self._send_capture_status()
+
 
 def serve(
     journal_path: Path,
@@ -498,7 +738,8 @@ def serve(
     port: int = 0,
     find_dumpcap: Callable[[], str | None] = adapters.find_dumpcap,
     probe_run: Callable[..., subprocess.CompletedProcess[bytes]] = subprocess.run,
-) -> ThreadingHTTPServer:
+    supervisor_factory: Callable[[str], capture.Supervisor] = capture.Supervisor,
+) -> _Server:
     """A started server. The caller owns `serve_forever` and shutdown.
 
     `settings_path` DEFAULTS NEXT TO THE JOURNAL rather than making every
@@ -506,6 +747,11 @@ def serve(
     (every one of them written before this task) keep calling
     `serve(journal_path, port=0)` unchanged and still get an isolated
     `settings.json` for free.
+
+    Returns `_Server`, not the bare `ThreadingHTTPServer` this used to
+    declare — every caller already gets one back in practice, and
+    `_stop_when_stdin_closes` needs the narrower type to reach
+    `.supervisor` without a cast.
     """
     resolved_settings_path = (
         settings_path if settings_path is not None else journal_path.with_name("settings.json")
@@ -516,10 +762,34 @@ def serve(
         resolved_settings_path,
         find_dumpcap=find_dumpcap,
         probe_run=probe_run,
+        supervisor_factory=supervisor_factory,
     )
 
 
-def _stop_when_stdin_closes(httpd: ThreadingHTTPServer) -> None:
+def _stop_capture(httpd: _Server) -> None:
+    """Stop whatever `dumpcap` child this server's `Supervisor` owns, if one
+    was ever started.
+
+    THE ORPHAN GUARD, ONE LEVEL FURTHER DOWN. `docs/runbooks/desktop-sidecar-
+    lifecycle.md` already covers Rust dying without cleaning up this
+    process; this is the same failure shape one hop lower. `dumpcap` is now
+    a child of THIS process, not of Rust, so a sidecar that exits without
+    stopping it leaves a capture running with no window and nothing reading
+    its files — the exact orphan this whole guard exists to prevent, just
+    one process further from the surface.
+
+    Called from every path that ends this process — see `main`'s `finally`
+    and `_stop_when_stdin_closes` below — so a crash, an interrupt, and the
+    ordinary stdin-EOF shutdown all reach it. `Supervisor.stop()` is already
+    a safe no-op when nothing is running, so calling this more than once (as
+    `_stop_when_stdin_closes` and `main`'s `finally` both do on the ordinary
+    shutdown path) costs nothing.
+    """
+    if httpd.supervisor is not None:
+        httpd.supervisor.stop()
+
+
+def _stop_when_stdin_closes(httpd: _Server) -> None:
     """Shut down once the parent's pipe reaches EOF.
 
     THE PIPE CLOSING IS THE DEATH SIGNAL. Rust kills this process on a clean
@@ -543,6 +813,13 @@ def _stop_when_stdin_closes(httpd: ThreadingHTTPServer) -> None:
     except (OSError, ValueError):
         # A closed or invalidated handle means the same thing as EOF.
         pass
+    # STOP DUMPCAP BEFORE SHUTTING THE SERVER DOWN, NOT AFTER. This thread
+    # already knows the parent is gone; there is no reason to wait for
+    # `serve_forever` to notice and unwind into `main`'s `finally` before
+    # killing a capture that is, by definition, orphaned the moment this
+    # line runs. `main`'s `finally` still calls this again as a backstop for
+    # every OTHER way the process can end — see `_stop_capture`.
+    _stop_capture(httpd)
     # From another thread on purpose: `shutdown` deadlocks if called on the
     # thread running `serve_forever`.
     httpd.shutdown()
@@ -575,6 +852,13 @@ def main(argv: list[str] | None = None) -> int:
         # same intent typed differently, so it should not look like a crash.
         pass
     finally:
+        # THE BACKSTOP. Every path out of this function — the ordinary
+        # stdin-EOF shutdown, a `KeyboardInterrupt`, or any exception
+        # `serve_forever` does not swallow — runs this `finally` on the way
+        # out, which is what makes it the one place guaranteed to catch
+        # whatever `_stop_when_stdin_closes` did not already handle. See
+        # `_stop_capture`.
+        _stop_capture(httpd)
         httpd.server_close()
     return 0
 

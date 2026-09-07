@@ -22,8 +22,13 @@ from urllib.parse import urlparse
 
 import pytest
 
-from dw_collector.desktop import sidecar
+from dw_collector.desktop import capture, sidecar
 from dw_collector.storage.journal import Journal
+
+_WINDOWS_ONLY = pytest.mark.skipif(
+    sys.platform != "win32",
+    reason="spawns a real process and confirms it is gone via taskkill/tasklist",
+)
 
 
 @pytest.fixture
@@ -86,6 +91,94 @@ def _put_settings(url: str, payload: dict[str, object]) -> tuple[int, dict[str, 
             return response.status, json.loads(response.read())
     except urllib.error.HTTPError as exc:
         return exc.code, json.loads(exc.read())
+
+
+def _post(url: str, path: str) -> tuple[int, dict[str, object]]:
+    """POST to `{url}{path}` with no body and return `(status, body)` even on
+    a 4xx, same reasoning as `_put_settings`."""
+    request = urllib.request.Request(f"{url}{path}", method="POST")
+    try:
+        with urllib.request.urlopen(request, timeout=10) as response:
+            return response.status, json.loads(response.read())
+    except urllib.error.HTTPError as exc:
+        return exc.code, json.loads(exc.read())
+
+
+def _get(url: str, path: str) -> tuple[int, dict[str, object]]:
+    try:
+        with urllib.request.urlopen(f"{url}{path}", timeout=10) as response:
+            return response.status, json.loads(response.read())
+    except urllib.error.HTTPError as exc:
+        return exc.code, json.loads(exc.read())
+
+
+def _pid_alive(pid: int) -> bool:
+    """Whether `pid` still exists, via `tasklist` — the same check
+    `test_desktop_capture.py` uses for the same reason: no `psutil`
+    dependency, and this proves a REAL kill, not a mocked one."""
+    result = subprocess.run(
+        ["tasklist", "/FI", f"PID eq {pid}"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return str(pid) in result.stdout
+
+
+#: A stub `dumpcap` argv: sleeps long enough to observe "running" and "a
+#: stop/EOF actually ends it" without racing the test. Mirrors
+#: `test_desktop_capture.py`'s own `_SLEEP_SCRIPT`/`_stub_argv` — this file
+#: needs its own copy rather than importing theirs, since the whole point is
+#: proving the SIDECAR's wiring, not reaching into another test module's
+#: private helpers.
+_SLEEP_SCRIPT = "import time; time.sleep(30)"
+
+
+def _stub_capture_argv(
+    dumpcap: str, interface: str, capture_dir: Path, game_port: int
+) -> list[str]:
+    return [dumpcap, "-c", _SLEEP_SCRIPT]
+
+
+def _capture_supervisor_factory(dumpcap_path: str) -> capture.Supervisor:
+    """Ignores the resolved `dumpcap_path` and points the supervisor at
+    `sys.executable` running a sleep script instead — proves real
+    spawn/status/stop behaviour through the sidecar without Npcap or a real
+    `dumpcap.exe` anywhere near the test."""
+    return capture.Supervisor(dumpcap=sys.executable, build_argv=_stub_capture_argv)
+
+
+@pytest.fixture
+def capture_sidecar(tmp_path: Path) -> Iterator[_SidecarWithSettings]:
+    """A sidecar wired for `/capture/*`, with `find_dumpcap` forced to
+    `None` so "no dumpcap found" is deterministic regardless of whether the
+    machine running the suite actually has Wireshark installed — production
+    code never controls that, so a test relying on it not being there would
+    be testing the test machine, not the sidecar.
+    """
+    journal_path = tmp_path / "collector.db"
+    journal = Journal(journal_path)
+    journal.init_db()
+    journal.close()
+
+    settings_path = tmp_path / "settings.json"
+    httpd = sidecar.serve(
+        journal_path,
+        settings_path,
+        port=0,
+        find_dumpcap=lambda: None,
+        supervisor_factory=_capture_supervisor_factory,
+    )
+    Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        yield _SidecarWithSettings(
+            url=f"http://127.0.0.1:{httpd.server_address[1]}", settings_path=settings_path
+        )
+    finally:
+        if httpd.supervisor is not None:
+            httpd.supervisor.stop()
+        httpd.shutdown()
+        httpd.server_close()
 
 
 def test_get_settings_returns_camelcase_defaults(settings_sidecar: _SidecarWithSettings) -> None:
@@ -723,6 +816,277 @@ def test_the_port_is_announced_on_the_first_line(tmp_path: Path) -> None:
     assert child.stdin is not None
     child.stdin.close()
     child.wait(timeout=10)
+
+
+def test_capture_status_json_shape() -> None:
+    """Pure function, no server — same idiom as `tile_json`'s own test."""
+    status = capture.CaptureStatus(
+        state="failed",
+        pid=123,
+        returncode=1,
+        stderr="boom",
+        ingest=capture.IngestStatus(
+            state="died", files_seen=2, files_ingested=1, rows_written=5, error="RuntimeError: x"
+        ),
+    )
+    body = sidecar.capture_status_json(status, files=3, rows=42)
+    assert body == {
+        "capture": {"state": "failed", "pid": 123, "returncode": 1, "stderr": "boom"},
+        "ingest": {
+            "state": "died",
+            "filesSeen": 2,
+            "filesIngested": 1,
+            "rowsWritten": 5,
+            "error": "RuntimeError: x",
+        },
+        "files": 3,
+        "rows": 42,
+    }
+
+
+def test_count_pcapng_files_counts_only_pcapng(tmp_path: Path) -> None:
+    (tmp_path / "cap_1.pcapng").write_bytes(b"")
+    (tmp_path / "cap_2.pcapng").write_bytes(b"")
+    (tmp_path / "notes.txt").write_bytes(b"")
+    assert sidecar._count_pcapng_files(str(tmp_path)) == 2
+
+
+def test_count_pcapng_files_is_zero_for_unconfigured_or_missing_dir(tmp_path: Path) -> None:
+    assert sidecar._count_pcapng_files("") == 0
+    assert sidecar._count_pcapng_files(str(tmp_path / "does-not-exist")) == 0
+
+
+def test_cheap_row_count_counts_raw_observations(tmp_path: Path) -> None:
+    journal_path = tmp_path / "collector.db"
+    journal = Journal(journal_path)
+    journal.init_db()
+    journal.conn.execute(
+        "insert into raw_observations "
+        "(observation_id, collector_id, source_command, captured_at, "
+        " collected_from_server_id, payload_json, created_at) "
+        "values ('obs-1', 'c', 'world.get.new', "
+        "'2026-09-01T10:00:00+00:00', 580, '{}', 't')"
+    )
+    journal.conn.commit()
+    journal.close()
+    assert sidecar._cheap_row_count(journal_path) == 1
+
+
+def test_cheap_row_count_is_zero_for_a_missing_journal(tmp_path: Path) -> None:
+    assert sidecar._cheap_row_count(tmp_path / "not-here.db") == 0
+
+
+def test_capture_status_before_anything_starts(capture_sidecar: _SidecarWithSettings) -> None:
+    status, body = _get(capture_sidecar.url, "/capture/status")
+    assert status == 200
+    assert set(body) == {"capture", "ingest", "files", "rows"}
+    assert set(body["capture"]) == {"state", "pid", "returncode", "stderr"}  # type: ignore[arg-type]
+    assert set(body["ingest"]) == {  # type: ignore[arg-type]
+        "state",
+        "filesSeen",
+        "filesIngested",
+        "rowsWritten",
+        "error",
+    }
+    assert body["capture"]["state"] == "stopped"  # type: ignore[index]
+    assert body["files"] == 0
+    assert body["rows"] == 0
+
+
+def test_capture_stop_when_nothing_started_is_200_not_an_error(
+    capture_sidecar: _SidecarWithSettings,
+) -> None:
+    """A player pressing Stop twice — or before ever pressing Start — has
+    done nothing wrong."""
+    status, body = _post(capture_sidecar.url, "/capture/stop")
+    assert status == 200
+    assert body["capture"]["state"] == "stopped"  # type: ignore[index]
+
+    status, body = _post(capture_sidecar.url, "/capture/stop")
+    assert status == 200
+    assert body["capture"]["state"] == "stopped"  # type: ignore[index]
+
+
+def test_capture_start_refuses_an_empty_interface(capture_sidecar: _SidecarWithSettings) -> None:
+    """A fresh install's state: no adapter has been picked yet."""
+    status, body = _post(capture_sidecar.url, "/capture/start")
+    assert status == 400
+    assert "interface" in str(body["error"]).lower()
+
+
+def test_capture_start_refuses_when_dumpcap_cannot_be_found(
+    capture_sidecar: _SidecarWithSettings,
+) -> None:
+    _put_settings(capture_sidecar.url, {"interface": r"\Device\NPF_test"})
+    status, body = _post(capture_sidecar.url, "/capture/start")
+    assert status == 400
+    assert "dumpcap" in str(body["error"]).lower()
+
+
+def test_capture_start_refuses_an_empty_capture_directory(
+    capture_sidecar: _SidecarWithSettings,
+) -> None:
+    _put_settings(
+        capture_sidecar.url,
+        {"interface": r"\Device\NPF_test", "dumpcapPath": "stub-dumpcap.exe"},
+    )
+    status, body = _post(capture_sidecar.url, "/capture/start")
+    assert status == 400
+    assert "directory" in str(body["error"]).lower()
+
+
+@_WINDOWS_ONLY
+def test_capture_start_never_spawns_on_a_refused_configuration(
+    capture_sidecar: _SidecarWithSettings,
+) -> None:
+    """None of the three refusals may leave a `Supervisor` behind, spawned
+    or not — a bad configuration must never even create one."""
+    status, _ = _post(capture_sidecar.url, "/capture/start")
+    assert status == 400
+    status, body = _get(capture_sidecar.url, "/capture/status")
+    assert body["capture"]["state"] == "stopped"  # type: ignore[index]
+    assert body["capture"]["pid"] is None  # type: ignore[index]
+
+
+@_WINDOWS_ONLY
+def test_capture_start_status_stop_round_trip(
+    capture_sidecar: _SidecarWithSettings, tmp_path: Path
+) -> None:
+    _put_settings(
+        capture_sidecar.url,
+        {
+            "interface": r"\Device\NPF_test",
+            "captureDir": str(tmp_path / "captures"),
+            "dumpcapPath": "stub-dumpcap.exe",
+        },
+    )
+
+    status, start_body = _post(capture_sidecar.url, "/capture/start")
+    assert status == 200
+    assert start_body["capture"]["state"] == "running"  # type: ignore[index]
+    pid = start_body["capture"]["pid"]  # type: ignore[index]
+    assert pid is not None
+    assert _pid_alive(pid)
+
+    status, status_body = _get(capture_sidecar.url, "/capture/status")
+    assert status == 200
+    assert status_body["capture"]["state"] == "running"  # type: ignore[index]
+    assert status_body["capture"]["pid"] == pid  # type: ignore[index]
+
+    status, stop_body = _post(capture_sidecar.url, "/capture/stop")
+    assert status == 200
+    assert stop_body["capture"]["state"] == "stopped"  # type: ignore[index]
+
+    deadline = time.monotonic() + 5.0
+    while time.monotonic() < deadline and _pid_alive(pid):
+        time.sleep(0.2)
+    assert not _pid_alive(pid)
+
+    # Pressing Stop again afterward is still 200, not an error.
+    status, body = _post(capture_sidecar.url, "/capture/stop")
+    assert status == 200
+    assert body["capture"]["state"] == "stopped"  # type: ignore[index]
+
+
+#: The lifetime-test child process: a minimal stand-in for `main()` that
+#: takes a `supervisor_factory` the real entrypoint has no way to accept
+#: from the command line. It calls the exact same private functions `main()`
+#: does (`sidecar._stop_when_stdin_closes`, `sidecar._stop_capture`) so this
+#: proves the real wiring, not a reimplementation of it.
+_LIFETIME_TEST_SCRIPT = """
+import sys, threading
+from pathlib import Path
+from dw_collector.desktop import sidecar, capture
+
+def build_argv(dumpcap, interface, capture_dir, game_port):
+    return [dumpcap, "-c", "import time; time.sleep(30)"]
+
+def supervisor_factory(dumpcap):
+    return capture.Supervisor(dumpcap=sys.executable, build_argv=build_argv)
+
+httpd = sidecar.serve(Path(sys.argv[1]), supervisor_factory=supervisor_factory, port=0)
+print(f"PORT {httpd.server_address[1]}", flush=True)
+threading.Thread(target=sidecar._stop_when_stdin_closes, args=(httpd,), daemon=True).start()
+try:
+    httpd.serve_forever()
+finally:
+    sidecar._stop_capture(httpd)
+    httpd.server_close()
+"""
+
+
+@_WINDOWS_ONLY
+def test_closing_stdin_stops_the_capture_supervisor_too(tmp_path: Path) -> None:
+    """THE TEST THAT MATTERS MOST.
+
+    The lifetime chain is window -> sidecar -> dumpcap. `test_closing_stdin_
+    stops_the_process` above already proves the sidecar tears down its own
+    HTTP server on stdin EOF — but before this task that guard never reached
+    a `dumpcap` child the sidecar had since started. If Rust died badly
+    while a capture was running, the sidecar would exit and `dumpcap` would
+    be left running with nothing on screen and nothing reading its files —
+    the same orphan `docs/runbooks/desktop-sidecar-lifecycle.md` already
+    documents fixing once, one process further down.
+
+    This starts a (stubbed) capture through the REAL `/capture/start`
+    endpoint, closes the sidecar's stdin exactly the way a dead Rust parent
+    would, and confirms the capture CHILD process — not just the sidecar
+    itself — is actually gone afterward.
+    """
+    journal_path = tmp_path / "collector.db"
+    journal = Journal(journal_path)
+    journal.init_db()
+    journal.close()
+
+    child = subprocess.Popen(
+        [sys.executable, "-c", _LIFETIME_TEST_SCRIPT, str(journal_path)],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        assert child.stdout is not None
+        announced = child.stdout.readline().strip()
+        assert announced.startswith("PORT ")
+        port = int(announced.removeprefix("PORT "))
+        base = f"http://127.0.0.1:{port}"
+
+        _put_settings(
+            base,
+            {
+                "interface": r"\Device\NPF_test",
+                "captureDir": str(tmp_path / "captures"),
+                "dumpcapPath": "stub-dumpcap.exe",
+            },
+        )
+        status, body = _post(base, "/capture/start")
+        assert status == 200
+        assert body["capture"]["state"] == "running"  # type: ignore[index]
+        capture_pid = body["capture"]["pid"]  # type: ignore[index]
+        assert capture_pid is not None
+        assert _pid_alive(capture_pid), "the stub capture child never started"
+
+        assert child.stdin is not None
+        child.stdin.close()
+
+        # Generous: process teardown on Windows is not instant, same
+        # reasoning as `test_closing_stdin_stops_the_process`.
+        deadline = time.monotonic() + 15.0
+        while time.monotonic() < deadline and child.poll() is None:
+            time.sleep(0.1)
+        assert child.poll() is not None, "sidecar outlived its parent's stdin"
+
+        deadline = time.monotonic() + 5.0
+        while time.monotonic() < deadline and _pid_alive(capture_pid):
+            time.sleep(0.2)
+        assert not _pid_alive(capture_pid), (
+            "the sidecar exited but left its dumpcap child running behind — "
+            "exactly the orphan this task exists to close"
+        )
+    finally:
+        if child.poll() is None:
+            child.kill()
+            child.wait(timeout=10)
 
 
 def test_the_journal_path_can_come_from_the_environment(tmp_path: Path) -> None:
