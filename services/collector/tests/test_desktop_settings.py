@@ -86,3 +86,43 @@ def test_a_non_numeric_environment_value_does_not_take_the_app_down(
         tmp_path / "settings.json", environ={"DW_COLLECTOR_SERVER_ID": "not-a-number"}
     )
     assert loaded.server_id == 580
+
+
+def test_a_file_that_parses_but_holds_the_wrong_types_falls_back(
+    tmp_path: Path,
+) -> None:
+    """A FILE THAT PARSES IS NOT A FILE THAT IS USABLE.
+
+    Dataclasses do not check types, so `{"server_id": "581"}` would sail
+    through as a string and only fail later, inside a capture argument,
+    a long way from the file that caused it.
+    """
+    path = tmp_path / "settings.json"
+    path.write_text(
+        json.dumps({"server_id": "581", "game_port": None, "capture_dir": 7}),
+        encoding="utf-8",
+    )
+    loaded = settings.load(path, environ={})
+    assert loaded.server_id == 580
+    assert loaded.game_port == 8680
+    assert loaded.capture_dir == ""
+
+
+def test_a_good_value_beside_a_bad_one_still_survives(tmp_path: Path) -> None:
+    # Falling back must be per field, not "throw the whole file away".
+    path = tmp_path / "settings.json"
+    path.write_text(
+        json.dumps({"server_id": "nonsense", "capture_dir": "C:/keep-me"}),
+        encoding="utf-8",
+    )
+    loaded = settings.load(path, environ={})
+    assert loaded.server_id == 580
+    assert loaded.capture_dir == "C:/keep-me"
+
+
+def test_the_capture_port_can_come_from_the_environment(tmp_path: Path) -> None:
+    # DW_CAPTURE_PORT already exists and is read by capture/__main__.py; a
+    # settings file that ignored it would disagree with the collector this
+    # repo already runs.
+    loaded = settings.load(tmp_path / "settings.json", environ={"DW_CAPTURE_PORT": "9001"})
+    assert loaded.game_port == 9001

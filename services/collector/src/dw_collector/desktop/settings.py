@@ -51,6 +51,12 @@ class Settings:
 #: `TypeError` the day a newer version of the app adds a field.
 _FIELD_NAMES = {f.name for f in fields(Settings)}
 
+#: The two fields typed `int` on `Settings`, versus everything else typed
+#: `str`. Dataclasses do not check constructor argument types, so this is the
+#: only thing standing between a hand-edited file and a `str`/`None` reaching
+#: `server_id` or `game_port`.
+_INT_FIELD_NAMES = {"server_id", "game_port"}
+
 
 def load(path: Path, *, environ: Mapping[str, str]) -> Settings:
     """The file, then the environment on top of it — never the other way.
@@ -68,8 +74,10 @@ def load(path: Path, *, environ: Mapping[str, str]) -> Settings:
     Each environment variable below is verified against the code that
     actually reads it, not guessed: `DW_SQLITE_PATH` in `cli.py`,
     `DW_CAPTURE_DIR` in `console/__main__.py`, `DW_CAPTURE_NPF_DEVICE` in
-    `scripts/windows/register-tasks.ps1`, and `DW_COLLECTOR_SERVER_ID` /
-    `DW_COLLECTOR_ID` in `capture/__main__.py`.
+    `scripts/windows/register-tasks.ps1`, `DW_COLLECTOR_SERVER_ID` /
+    `DW_COLLECTOR_ID` in `capture/__main__.py`, and `DW_CAPTURE_PORT` (also
+    `capture/__main__.py`) for `game_port`. `dumpcap_path` has no `DW_*`
+    lever of its own — nothing reads one today, so do not go looking for it.
     """
     value = _from_file(path)
     journal_path = environ.get("DW_SQLITE_PATH", value.journal_path)
@@ -77,6 +85,7 @@ def load(path: Path, *, environ: Mapping[str, str]) -> Settings:
     interface = environ.get("DW_CAPTURE_NPF_DEVICE", value.interface)
     collector_id = environ.get("DW_COLLECTOR_ID", value.collector_id)
     server_id = _int_env(environ, "DW_COLLECTOR_SERVER_ID", value.server_id)
+    game_port = _int_env(environ, "DW_CAPTURE_PORT", value.game_port)
     return replace(
         value,
         journal_path=journal_path,
@@ -84,6 +93,7 @@ def load(path: Path, *, environ: Mapping[str, str]) -> Settings:
         interface=interface,
         collector_id=collector_id,
         server_id=server_id,
+        game_port=game_port,
     )
 
 
@@ -125,6 +135,26 @@ def _from_file(path: Path) -> Settings:
     # Filtered to known fields so a file written by a later version (with a
     # field this version has never heard of) does not blow up TypeError.
     known = {key: value for key, value in data.items() if key in _FIELD_NAMES}
+    # A FILE THAT PARSES IS NOT A FILE THAT IS USABLE. `json.loads` only
+    # proves the bytes were valid JSON — `{"server_id": "581"}` parses fine
+    # and hands back the *string* `"581"`, and dataclasses do not check
+    # constructor argument types, so `Settings(**known)` would happily wrap
+    # that string (or a `null` that decodes to `None`) into `Settings`. The
+    # failure would then surface far from here, inside a capture or ingest
+    # argument that expected an `int`, long after this file is out of sight.
+    # Filtering per field (rather than discarding the whole file) keeps a
+    # good value next to a bad one — see the "beside" test below.
+    for key in list(known):
+        loaded_value = known[key]
+        if key in _INT_FIELD_NAMES:
+            # `bool` is a subclass of `int` in Python, so `isinstance(True,
+            # int)` is true — but a `server_id` or `game_port` of `true`/
+            # `false` is exactly as wrong as one of `"581"`, so it is
+            # rejected too, not let through because of the subclass rule.
+            if not isinstance(loaded_value, int) or isinstance(loaded_value, bool):
+                del known[key]
+        elif not isinstance(loaded_value, str):
+            del known[key]
     try:
         return Settings(**known)
     except TypeError:
