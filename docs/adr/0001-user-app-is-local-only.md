@@ -58,6 +58,51 @@ full dashboard over one account's own observations rather than a map with
 extras. Scope is bounded by what that account looked at, not by what the
 parsers can decode.
 
+**Amendment, 2026-09-07 — rank boards and server statistics were cut from
+phase 5, and the reasons are schema-shaped, not scope-shaped:**
+
+- `server.rank` and `kill.rank` are routine commands to *see* — a member
+  opens a rank tab and the collector observes it like anything else — but
+  each response only returns the window the observing account's own request
+  happened to cover. A local board built from that would be a stale, partial
+  mirror of something the player already saw once in game, and no amount of
+  later capture makes it complete or keeps it fresh: there is no way for one
+  account's play to sweep every page of a board it doesn't administer. The
+  dashboard's cross-server rank boards work because they aggregate one
+  collector's sweeps across all eight servers; a lone local capture has no
+  equivalent to aggregate.
+- `rank.get.by.range` was considered and **rejected outright**, not merely
+  deferred — `docs/runbooks/capture-sweep.md:130` records the verdict
+  (거절/rejected): its `power` field means a different thing per ranking
+  `type` and reconciles with none of them — the same player's own capture
+  showed four different `power` values (66.5M / 7.09M / 4.73M / 1.93M)
+  against a real total power of 314M, and even the four summed together
+  don't reach the total. Writing this into `player_snapshots.power` would
+  contaminate real power readings with a quarter of a different metric. This
+  is a schema defect in the command itself, not a coverage gap a future
+  capture could close — nothing here should quietly reintroduce it as "just
+  one more metric".
+- Server statistics need every alliance and every player on a server, which
+  is structurally the same problem: no single account's play produces that,
+  no matter how long it captures.
+- Season boards are cross-alliance for the same reason, and
+  `docs/runbooks/season-map-capture.md:588` records that per-member season
+  building attribution (thermal lab / greenhouse levels, contribution to the
+  season score) has never been observed at all, by any capture, ever — there
+  is nothing to build a local screen out of even in principle.
+
+What phase 5 actually built instead — profile, alliance roster, arena
+bracket — is documented in `docs/runbooks/local-screens.md`, including the
+two non-obvious per-screen folds (profile's per-field newest-non-null merge,
+roster's newest-snapshot-membership rule) and why each is shaped the way it
+is.
+
+A fourth copy of the Monday-02:00-UTC week-reset rule turned up while closing
+this phase (the arena screen had its own free-floating copy). It is now
+consolidated into `packages/game-clock`, alongside the SQL and Python
+implementations `CLAUDE.md` already asks to be kept in sync — one TypeScript
+copy again, not two.
+
 **Four: the window and the collector are one lifetime.** Tauri means two
 processes, and the failure that matters is the window closing while the
 Python half keeps running — an orphaned process still capturing packets.
