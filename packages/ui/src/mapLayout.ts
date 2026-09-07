@@ -18,6 +18,15 @@ import { type Coordinate, formatCoordinate, isOnMap, toFraction } from './mapPro
 // worth fixing now rather than the next time somebody opens it.
 export const MAP_IMAGE_URL = '/map.webp';
 
+/** The natural size `public/map.webp` was measured at when `MAP_INSET` below
+ * was derived. Nothing loads the picture and checks this automatically —
+ * that check lives at the call site that actually has an `<img>` (or
+ * equivalent) element to read `naturalWidth`/`naturalHeight` from, once it
+ * loads. It exists so that check has a fixed expectation to compare against,
+ * instead of a second copy of the literals 3164 and 2664. */
+export const MAP_IMAGE_WIDTH = 3164;
+export const MAP_IMAGE_HEIGHT = 2664;
+
 /** How much of the picture is FRAME rather than map.
  *
  * THE MAP DOES NOT START AT THE IMAGE'S CORNER. The picture has a green

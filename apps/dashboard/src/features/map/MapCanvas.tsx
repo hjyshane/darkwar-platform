@@ -1,12 +1,14 @@
 import {
   LABEL_LIMIT,
+  MAP_IMAGE_HEIGHT,
   MAP_IMAGE_URL,
+  MAP_IMAGE_WIDTH,
   MAP_INSET,
   type MapInset,
   type MapMarker,
   layoutMarkers,
 } from '@dw/ui';
-import { useState } from 'react';
+import { type SyntheticEvent, useState } from 'react';
 
 // The layout maths (position, label rules, classes, title) lives in
 // @dw/ui's mapLayout — shared with the desktop app, which draws this same
@@ -22,6 +24,12 @@ export function MapCanvas({
   caption,
   calibrate = false,
   inset = MAP_INSET,
+  // Vite serves this from `public/` at a root-relative path; Tauri's
+  // webview (apps/desktop, Task 5) resolves that differently, so the URL is
+  // a parameter rather than baked in. Defaulting to MAP_IMAGE_URL means the
+  // dashboard resolves exactly what it always has — nothing here changes
+  // unless a caller explicitly passes its own.
+  imageUrl = MAP_IMAGE_URL,
   onSelect,
 }: {
   markers: readonly MapMarker[];
@@ -29,6 +37,10 @@ export function MapCanvas({
   /** Draw the map's own bounds, to check them against the picture. */
   calibrate?: boolean;
   inset?: MapInset;
+  /** Where to load the map picture from. Defaults to `MAP_IMAGE_URL`
+   * (Vite's `public/` root); pass a different value where that resolution
+   * does not apply. */
+  imageUrl?: string;
   /** Given, every pin becomes clickable. */
   onSelect?: (marker: MapMarker) => void;
 }) {
@@ -36,7 +48,35 @@ export function MapCanvas({
   // without it and says so, rather than showing a broken-image glyph over a
   // marker that is in the right place.
   const [hasImage, setHasImage] = useState(true);
+  // Set only when the loaded picture's own size disagrees with the size
+  // MAP_INSET was measured against — see `checkImageSize` below for why this
+  // is a banner and not a thrown error or a blanked map.
+  const [sizeWarning, setSizeWarning] = useState<string | null>(null);
   const positioned = layoutMarkers(markers, { clickable: onSelect !== undefined });
+
+  // The comment on MAP_INSET says plainly that the picture will be replaced
+  // when the game changes the map, and that every pin silently moves when it
+  // is. This is where the picture's real size becomes known, so this is
+  // where that gets checked — once, on load, against the size MAP_INSET was
+  // measured against.
+  //
+  // A thrown error or a blanked map would be impossible to miss too, but
+  // would also take the map away from every player the moment someone drops
+  // in a new picture, before anyone has had a chance to remeasure MAP_INSET.
+  // A loud, standing banner is visible to whoever replaced the picture (and
+  // stays visible until they fix it) without taking the map away from a
+  // player who did nothing wrong — the map keeps rendering underneath it,
+  // pins included, on the (possibly now-wrong) fractions it already has.
+  function checkImageSize(event: SyntheticEvent<HTMLImageElement>) {
+    const { naturalWidth, naturalHeight } = event.currentTarget;
+    if (naturalWidth === MAP_IMAGE_WIDTH && naturalHeight === MAP_IMAGE_HEIGHT) {
+      setSizeWarning(null);
+      return;
+    }
+    const message = `Map picture is ${naturalWidth}x${naturalHeight}, but MAP_INSET (packages/ui/src/mapLayout.ts) was measured against ${MAP_IMAGE_WIDTH}x${MAP_IMAGE_HEIGHT} — every pin is off until MAP_INSET is remeasured against this picture (turn on \`calibrate\`).`;
+    console.error(message);
+    setSizeWarning(message);
+  }
 
   // The plot is the INNER rectangle. Markers are placed as fractions of it,
   // never of the image, which is what keeps the frame out of the arithmetic.
@@ -55,7 +95,8 @@ export function MapCanvas({
             alt="World map"
             className="map-frame__image"
             onError={() => setHasImage(false)}
-            src={MAP_IMAGE_URL}
+            onLoad={checkImageSize}
+            src={imageUrl}
           />
         )}
         <div className={calibrate ? 'map-plot map-plot--calibrate' : 'map-plot'} style={plotStyle}>
@@ -96,6 +137,11 @@ export function MapCanvas({
         <figcaption className="subtle">
           No map picture yet — positions are drawn on the grid. Drop the image at{' '}
           <code>apps/dashboard/public/map.png</code> and it appears behind them.
+        </figcaption>
+      )}
+      {sizeWarning && (
+        <figcaption className="map-size-warning" role="alert">
+          {sizeWarning}
         </figcaption>
       )}
       {caption && <figcaption className="subtle">{caption}</figcaption>}

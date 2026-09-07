@@ -1,0 +1,174 @@
+/* Map rendering styles — shared between the dashboard (React, MapCanvas.tsx)
+ * and the desktop app (plain DOM, no React, Task 5). Both draw the same
+ * markup shape: a `.map-frame` holding the picture, a `.map-plot` inset
+ * inside it, and `.map-pin` elements positioned as percentages of the plot.
+ *
+ * Every custom property here also has a literal fallback
+ * (`var(--accent, #1d4ed8)`), because the desktop app defines none of the
+ * dashboard's design tokens. The dashboard keeps defining its own tokens in
+ * its own index.css, so for the dashboard the fallback never activates — the
+ * real variable always wins per the CSS `var()` spec — and its appearance is
+ * unchanged. Fallback literals were copied from the `:root` (light-mode)
+ * values in apps/dashboard/src/index.css at the time of this move:
+ *   --space-1: 0.25rem   --space-4: 1rem
+ *   --radius-sm: 0.25rem --radius-md: 0.5rem
+ *   --text-sm: 0.8125rem
+ *   --bg: #ffffff        --bg-raised: #f8fafc
+ *   --fg: #0f172a        --border: #e2e8f0
+ *   --accent: #1d4ed8
+ */
+
+.map-canvas {
+  margin: var(--space-4, 1rem) 0;
+}
+
+/* The picture, at its own aspect ratio. The plot inside is positioned
+ * against THIS box, so the frame around the map stays out of the sums. */
+.map-frame {
+  position: relative;
+  width: 100%;
+  max-width: 900px;
+  line-height: 0;
+}
+
+.map-frame__image {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Without a picture there is nothing to give the box a height, so it falls
+ * back to the map's own shape and a grid — the markers are still in the
+ * right place relative to each other. */
+.map-frame--empty {
+  aspect-ratio: 1 / 1;
+  background: var(--bg-raised, #f8fafc);
+  background-image: linear-gradient(var(--border, #e2e8f0) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border, #e2e8f0) 1px, transparent 1px);
+  background-size: 10% 10%;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: var(--radius-md, 0.5rem);
+}
+
+/* The playable world: inset from the picture's edges by however much of it
+ * is border. Every marker is a percentage of THIS, never of the image. */
+.map-plot {
+  position: absolute;
+}
+
+/* The ruler. Only ever on deliberately — if this outline does not sit on the
+ * inside of the map's border, the inset is wrong and every marker is out by
+ * the difference. */
+.map-plot--calibrate {
+  outline: 2px dashed var(--accent, #1d4ed8);
+  outline-offset: 0;
+}
+
+.map-pin {
+  position: absolute;
+  /* The coordinate is the CENTRE of the pin, not its corner: a pin hung
+   * below-right of its point names the wrong tile at this zoom. */
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.map-pin--faded {
+  opacity: 0.55;
+}
+
+.map-pin__dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent, #1d4ed8);
+  box-shadow: 0 0 0 2px var(--bg, #ffffff), 0 0 0 4px var(--accent, #1d4ed8);
+}
+
+.map-pin__label {
+  margin-top: var(--space-1, 0.25rem);
+  background: var(--bg, #ffffff);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: var(--radius-sm, 0.25rem);
+  color: var(--fg, #0f172a);
+  font-size: var(--text-sm, 0.8125rem);
+  padding: 1px var(--space-1, 0.25rem);
+  white-space: nowrap;
+}
+
+.map-edge {
+  position: absolute;
+  background: var(--bg, #ffffff);
+  border: 1px solid var(--accent, #1d4ed8);
+  border-radius: var(--radius-sm, 0.25rem);
+  color: var(--fg, #0f172a);
+  font-size: var(--text-sm, 0.8125rem);
+  line-height: 1.4;
+  padding: 0 var(--space-1, 0.25rem);
+}
+
+.map-edge--tl {
+  left: 0;
+  top: 0;
+}
+
+.map-edge--br {
+  right: 0;
+  bottom: 0;
+}
+
+/* One pin picked out of a crowd. Bigger and on top, because the point of
+ * clicking a name in the list is to find its dot among a hundred others. */
+.map-pin--on {
+  z-index: 2;
+}
+
+.map-pin--on .map-pin__dot {
+  width: 16px;
+  height: 16px;
+  background: var(--accent, #1d4ed8);
+  box-shadow: 0 0 0 3px var(--bg, #ffffff), 0 0 0 6px var(--accent, #1d4ed8);
+}
+
+/* Smaller dots when the map is showing a whole HQ level: at a hundred pins
+ * the default size merges into a blob. */
+.map-plot .map-pin:not(.map-pin--on) .map-pin__dot {
+  width: 9px;
+  height: 9px;
+}
+
+/* A pin is a button when it can be picked. The dot stays the target; the
+ * label must not swallow clicks meant for a neighbouring pin. */
+.map-pin--clickable {
+  background: none;
+  border: 0;
+  cursor: pointer;
+  padding: 0;
+}
+
+.map-pin--clickable .map-pin__label {
+  pointer-events: none;
+}
+
+.map-pin--clickable:focus-visible {
+  outline: 2px solid var(--accent, #1d4ed8);
+  outline-offset: 2px;
+}
+
+/* Loud on purpose (Part 3 of the mapProjection/@dw/ui move): the picture was
+ * replaced with one of a different size than MAP_INSET was measured against,
+ * so every pin is now off by an unknown amount. This must be impossible for
+ * whoever replaced the picture to miss, but must not blank the map for a
+ * player who did nothing wrong — the map keeps rendering underneath it. */
+.map-size-warning {
+  background: #fef2f2;
+  border: 2px solid #dc2626;
+  border-radius: var(--radius-md, 0.5rem);
+  color: #7f1d1d;
+  font-weight: 600;
+  margin: var(--space-1, 0.25rem) 0 var(--space-4, 1rem);
+  padding: var(--space-2, 0.5rem) var(--space-3, 0.75rem);
+}

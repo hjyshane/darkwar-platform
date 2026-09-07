@@ -10,4 +10,11 @@ export {
 } from './mapProjection';
 
 export type { MapInset, MapMarker, LayoutMarkersOptions, PositionedMarker } from './mapLayout';
-export { MAP_IMAGE_URL, MAP_INSET, LABEL_LIMIT, layoutMarkers } from './mapLayout';
+export {
+  MAP_IMAGE_URL,
+  MAP_IMAGE_WIDTH,
+  MAP_IMAGE_HEIGHT,
+  MAP_INSET,
+  LABEL_LIMIT,
+  layoutMarkers,
+} from './mapLayout';
