@@ -17,4 +17,5 @@ export {
   MAP_INSET,
   LABEL_LIMIT,
   layoutMarkers,
+  checkMapImageSize,
 } from './mapLayout';

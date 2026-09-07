@@ -1,11 +1,10 @@
 import {
   LABEL_LIMIT,
-  MAP_IMAGE_HEIGHT,
   MAP_IMAGE_URL,
-  MAP_IMAGE_WIDTH,
   MAP_INSET,
   type MapInset,
   type MapMarker,
+  checkMapImageSize,
   layoutMarkers,
 } from '@dw/ui';
 import { type SyntheticEvent, useState } from 'react';
@@ -58,7 +57,9 @@ export function MapCanvas({
   // when the game changes the map, and that every pin silently moves when it
   // is. This is where the picture's real size becomes known, so this is
   // where that gets checked — once, on load, against the size MAP_INSET was
-  // measured against.
+  // measured against. The comparison and its wording live in @dw/ui's
+  // checkMapImageSize (shared with the desktop app's mapView.ts); this
+  // component only decides what to do with the result.
   //
   // A thrown error or a blanked map would be impossible to miss too, but
   // would also take the map away from every player the moment someone drops
@@ -69,12 +70,10 @@ export function MapCanvas({
   // pins included, on the (possibly now-wrong) fractions it already has.
   function checkImageSize(event: SyntheticEvent<HTMLImageElement>) {
     const { naturalWidth, naturalHeight } = event.currentTarget;
-    if (naturalWidth === MAP_IMAGE_WIDTH && naturalHeight === MAP_IMAGE_HEIGHT) {
-      setSizeWarning(null);
-      return;
+    const message = checkMapImageSize(naturalWidth, naturalHeight);
+    if (message !== null) {
+      console.error(message);
     }
-    const message = `Map picture is ${naturalWidth}x${naturalHeight}, but MAP_INSET (packages/ui/src/mapLayout.ts) was measured against ${MAP_IMAGE_WIDTH}x${MAP_IMAGE_HEIGHT} — every pin is off until MAP_INSET is remeasured against this picture (turn on \`calibrate\`).`;
-    console.error(message);
     setSizeWarning(message);
   }
 

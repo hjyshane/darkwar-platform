@@ -6,7 +6,15 @@ import { MapCanvas } from './MapCanvas';
  * specific 3164x2664 picture, and nothing checked the picture actually
  * loaded was that size. These tests pin the guard added on the image's
  * `load` event — kept in a separate file from MapCanvas.test.tsx, which the
- * task requires stay untouched. */
+ * task requires stay untouched.
+ *
+ * The comparison itself (and its wording) has since moved to @dw/ui's
+ * checkMapImageSize, shared with the desktop app's mapView.ts, and is
+ * covered directly there in packages/ui/src/mapImageSize.test.ts. What stays
+ * worth testing at this level is the rendering behaviour around it: the
+ * banner appears and clears at the right times, the map keeps drawing pins
+ * underneath a mismatch instead of blanking, and the mismatch is still
+ * logged loudly via console.error. */
 
 afterEach(cleanup);
 

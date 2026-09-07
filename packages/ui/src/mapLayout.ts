@@ -73,6 +73,29 @@ export const MAP_INSET: MapInset = {
   bottom: 55 / 2664,
 };
 
+/** Checks a loaded picture's real size against the size `MAP_INSET` was
+ * measured against, and returns the exact complaint text if they disagree —
+ * or `null` if the picture is the size it should be.
+ *
+ * This used to be reimplemented at each call site (the dashboard's React
+ * `MapCanvas` and the desktop app's plain-DOM `mapView`), which meant the
+ * comparison and its wording could drift apart — the two renderers could
+ * end up disagreeing about whether a replaced picture even deserves a
+ * warning. The decision and the message belong in exactly one place; each
+ * renderer only decides where to put the resulting text (JSX vs a DOM
+ * node's `textContent`).
+ *
+ * Framework-free on purpose: nothing here knows about React state, DOM
+ * nodes, or Tauri's webview — it takes the two numbers a `load` handler
+ * already has and hands back text or nothing.
+ */
+export function checkMapImageSize(naturalWidth: number, naturalHeight: number): string | null {
+  if (naturalWidth === MAP_IMAGE_WIDTH && naturalHeight === MAP_IMAGE_HEIGHT) {
+    return null;
+  }
+  return `Map picture is ${naturalWidth}x${naturalHeight}, but MAP_INSET (packages/ui/src/mapLayout.ts) was measured against ${MAP_IMAGE_WIDTH}x${MAP_IMAGE_HEIGHT} — every pin is off until MAP_INSET is remeasured against this picture.`;
+}
+
 export interface MapMarker {
   at: Coordinate;
   label: string;

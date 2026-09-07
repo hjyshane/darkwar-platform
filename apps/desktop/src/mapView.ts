@@ -9,13 +9,7 @@
 // `tauri.conf.json` has `csp: null`, so there is no second line of defence
 // behind that rule.
 import '@dw/ui/map.css';
-import {
-  MAP_IMAGE_HEIGHT,
-  MAP_IMAGE_WIDTH,
-  MAP_INSET,
-  type MapMarker,
-  layoutMarkers,
-} from '@dw/ui';
+import { MAP_INSET, type MapMarker, checkMapImageSize, layoutMarkers } from '@dw/ui';
 
 // Vite serves this from apps/desktop/public/ at a root-relative path, same
 // as the dashboard's own public/map.webp — but it is a SEPARATE copy (see
@@ -76,21 +70,26 @@ export function createMapView(): HTMLElement {
 
 // The comment on MAP_INSET (packages/ui/src/mapLayout.ts) says plainly that
 // the picture will be replaced when the game changes the map, and that every
-// pin silently moves when it is. Same check MapCanvas.tsx runs on `onLoad`,
-// against the same two constants — a loud standing banner rather than a
-// thrown error or a blanked map, so the map (and its pins, however wrong)
-// keeps rendering underneath it for a player who did nothing wrong.
+// pin silently moves when it is. The comparison and its wording live in
+// @dw/ui's checkMapImageSize — the same function MapCanvas.tsx calls on its
+// own `onLoad` — so this only decides where the resulting text goes: a loud
+// standing banner rather than a thrown error or a blanked map, so the map
+// (and its pins, however wrong) keeps rendering underneath it for a player
+// who did nothing wrong.
 function checkImageSize(naturalWidth: number, naturalHeight: number): void {
   if (warningEl === null) {
     return;
   }
-  if (naturalWidth === MAP_IMAGE_WIDTH && naturalHeight === MAP_IMAGE_HEIGHT) {
+  const message = checkMapImageSize(naturalWidth, naturalHeight);
+  if (message === null) {
     warningEl.hidden = true;
     warningEl.textContent = '';
     return;
   }
-  const message = `Map picture is ${naturalWidth}x${naturalHeight}, but MAP_INSET (packages/ui/src/mapLayout.ts) was measured against ${MAP_IMAGE_WIDTH}x${MAP_IMAGE_HEIGHT} — every pin is off until MAP_INSET is remeasured against this picture.`;
   console.error(message);
+  // TEXTCONTENT ONLY — see the file-level note: this text can originate from
+  // a picture dropped in by whoever replaced it, not from a player, but the
+  // module-wide rule is textContent everywhere regardless.
   warningEl.textContent = message;
   warningEl.hidden = false;
 }
