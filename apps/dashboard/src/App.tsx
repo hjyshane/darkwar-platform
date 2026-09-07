@@ -28,6 +28,7 @@ import { Season2Panel } from './features/season/Season2Panel';
 import { SeasonPanel } from './features/season/SeasonPanel';
 import { ServerPage } from './features/server/ServerPage';
 import { useRecordActivity } from './lib/activity';
+import { mayOpenSettings } from './lib/adminAccess';
 import { isAllowed, usePermissions } from './lib/permissions';
 import { queryKeysForTopic, subscribeDataChanges } from './lib/realtime';
 import { useReplyAlerts } from './lib/replyAlerts';
@@ -541,7 +542,25 @@ function Shell({
       ) : route === 'privacy' ? (
         <PrivacyPage />
       ) : route === 'admin' && adminGroup !== null ? (
-        <AdminPage group={adminGroup} section={adminSection} />
+        // A floor on the whole area, not a boundary: RLS refuses every write
+        // whatever renders here. What it stops is a signed-in account with no
+        // role being shown five groups of alliance settings and reading that
+        // as "I am nearly in". The one thing they can do is redeem a code, and
+        // that is on the sign-in page.
+        mayOpenSettings(session?.role) ? (
+          <AdminPage group={adminGroup} section={adminSection} />
+        ) : (
+          <main>
+            <section aria-labelledby="admin-closed-heading">
+              <h2 id="admin-closed-heading">Nothing here is yours</h2>
+              <p className="empty">
+                Settings are for alliance members. You are signed in as{' '}
+                <strong>{session?.role ?? 'viewer'}</strong>.{' '}
+                <a href="#/login">Redeem a join code</a> to be admitted.
+              </p>
+            </section>
+          </main>
+        )
       ) : route === 'monthCards' ? (
         <MonthCardsPage />
       ) : route === 'account' ? (

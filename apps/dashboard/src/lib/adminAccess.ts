@@ -246,3 +246,36 @@ export function canWriteAnything(
     (section) => section.requires !== null && holds(section.requires, role, grants),
   );
 }
+
+/** Who may open the settings area at all.
+ *
+ * Member and above. Not a boundary — RLS is, and every section below already
+ * reports what the database said — but a `viewer` who types `#/admin` was
+ * being shown five groups of forms for an alliance they have not been admitted
+ * to, and reading that screen as "I am nearly in" is a fair reading of it.
+ * A signed-in account with no role yet has one thing to do, and it is on the
+ * sign-in page, not here.
+ */
+export function mayOpenSettings(role: AppRole | null | undefined): boolean {
+  return role === 'member' || role === 'officer' || role === 'admin';
+}
+
+/** The sections of a group this reader may actually use.
+ *
+ * A section with no requirement is usable by anyone who got this far: those
+ * are the read-only screens — who left, the rank report, where notices moved —
+ * and they are the reason a group stays visible when its forms are not.
+ *
+ * This DOES remove things, unlike `canWriteAnything`, which only marks them.
+ * The difference is what the two answer: that one says "is any of this yours",
+ * used to word a sentence; this one decides whether a form is drawn. Drawing a
+ * form nobody may submit is what made the settings screen look operable to a
+ * reader who could change nothing in it.
+ */
+export function usableSectionsIn(
+  group: AdminGroup,
+  role: AppRole | null | undefined,
+  grants: readonly RolePermission[] | undefined,
+): readonly AdminSection[] {
+  return sectionsIn(group).filter((section) => holds(section.requires, role, grants));
+}
