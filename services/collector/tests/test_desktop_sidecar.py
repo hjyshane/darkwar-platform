@@ -1101,6 +1101,202 @@ def test_player_detail_endpoint_on_a_missing_journal_answers_rather_than_droppin
     assert not missing.exists()
 
 
+def _write_roster_row(
+    journal_path: Path,
+    *,
+    observation_id: str,
+    captured_at: str,
+    game_uid: int,
+    server_id: int = 581,
+    name: str | None = "ERHA",
+    member_rank: int | None = 3,
+    hq_level: int | None = 30,
+    power: int | None = 1_000_000,
+    kills: int | None = 100,
+    presence_redacted: bool = False,
+    online_state: str | None = "online",
+    offline_since: str | None = None,
+) -> None:
+    """One `alliance_member_snapshots` sighting, as `al_rank.normalize` would
+    have left it — same shape `test_desktop_localread.py`'s own
+    `_write_roster_row` fixture uses, so this endpoint is exercised against
+    the same ground truth the projection's own tests are."""
+    journal = Journal(journal_path)
+    journal.conn.execute(
+        "insert or ignore into raw_observations "
+        "(observation_id, collector_id, source_command, captured_at, "
+        " collected_from_server_id, payload_json, created_at) "
+        "values (?, ?, ?, ?, ?, ?, ?)",
+        (
+            observation_id,
+            "00000000-0000-4000-8000-00000000c777",
+            "al.rank",
+            captured_at,
+            580,
+            "{}",
+            captured_at,
+        ),
+    )
+    row = {
+        "row": {
+            "observation_id": observation_id,
+            "server_id": server_id,
+            "game_uid": game_uid,
+            "name": name,
+            "member_rank": member_rank,
+            "hq_level": hq_level,
+            "power": power,
+            "kills": kills,
+            "presence_redacted": presence_redacted,
+            "month_card_expires_at": None,
+            "online_state": online_state,
+            "offline_since": offline_since,
+        }
+    }
+    journal.conn.execute(
+        "insert into normalized_rows "
+        "(observation_id, target_table, idempotency_key, row_json, created_at) "
+        "values (?, ?, ?, ?, ?)",
+        (
+            observation_id,
+            "alliance_member_snapshots",
+            f"{observation_id}-{game_uid}",
+            json.dumps(row),
+            captured_at,
+        ),
+    )
+    journal.conn.commit()
+    journal.close()
+
+
+def test_roster_returns_an_empty_roster_for_an_empty_journal(base: str) -> None:
+    with urllib.request.urlopen(f"{base}/roster") as response:
+        body = json.loads(response.read())
+    assert body == {"capturedAt": None, "presenceRedacted": False, "members": []}
+
+
+def test_roster_on_a_missing_journal_answers_rather_than_dropping(tmp_path: Path) -> None:
+    missing = tmp_path / "not-here.db"
+    httpd = sidecar.serve(missing, port=0)
+    Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        url = f"http://127.0.0.1:{httpd.server_address[1]}/roster"
+        with pytest.raises(urllib.error.HTTPError) as raised:
+            urllib.request.urlopen(url)
+        code = raised.value.code
+        body = json.loads(raised.value.read())
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+    assert code == 503
+    assert body["state"] == sidecar.NO_JOURNAL
+    assert not missing.exists()
+
+
+def test_a_roster_member_uid_crosses_as_a_string_so_it_cannot_round() -> None:
+    """Same reasoning as the player and tile analogues: sixteen digits, one
+    order of magnitude from `Number.MAX_SAFE_INTEGER`."""
+    from dw_collector.desktop.localread import RosterEntry
+
+    entry = RosterEntry(
+        observation_id="obs-1",
+        server_id=581,
+        game_uid=1190060554000581,
+        name="ERHA",
+        member_rank=1,
+        hq_level=34,
+        power=1_000_000,
+        kills=500,
+        presence_redacted=False,
+        online_state="online",
+        offline_since=None,
+        month_card_expires_at=None,
+        captured_at="2026-09-01T10:00:00+00:00",
+    )
+    body = sidecar.roster_member_json(entry)
+    assert body["gameUid"] == "1190060554000581"
+    assert json.loads(json.dumps(body))["gameUid"] == "1190060554000581"
+
+
+def test_roster_endpoint_shows_the_departed_member_gone_through_the_wire(
+    tmp_path: Path,
+) -> None:
+    """End to end: the departed-member rule, proven through the actual HTTP
+    response rather than only the projection's own unit tests — the same
+    kind of gap `test_a_real_player_profile_comes_back_merged_through_players_endpoint`
+    closes for the per-field merge rule."""
+    journal_path = tmp_path / "collector.db"
+    journal = Journal(journal_path)
+    journal.init_db()
+    journal.close()
+
+    for uid, name in ((1, "ALPHA"), (2, "BRAVO"), (3, "CHARLIE")):
+        _write_roster_row(
+            journal_path,
+            observation_id="obs-old",
+            captured_at="2026-09-01T10:00:00+00:00",
+            game_uid=uid,
+            name=name,
+        )
+    for uid, name in ((1, "ALPHA"), (2, "BRAVO")):
+        _write_roster_row(
+            journal_path,
+            observation_id="obs-new",
+            captured_at="2026-09-05T10:00:00+00:00",
+            game_uid=uid,
+            name=name,
+        )
+
+    httpd = sidecar.serve(journal_path, port=0)
+    Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        url = f"http://127.0.0.1:{httpd.server_address[1]}/roster"
+        with urllib.request.urlopen(url) as response:
+            body = json.loads(response.read())
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+    names = {member["name"] for member in body["members"]}
+    assert names == {"ALPHA", "BRAVO"}
+    assert "CHARLIE" not in names
+    assert body["capturedAt"] == "2026-09-05T10:00:00+00:00"
+    assert body["presenceRedacted"] is False
+
+
+def test_roster_endpoint_surfaces_presence_redacted_at_the_roster_level(
+    tmp_path: Path,
+) -> None:
+    journal_path = tmp_path / "collector.db"
+    journal = Journal(journal_path)
+    journal.init_db()
+    journal.close()
+
+    _write_roster_row(
+        journal_path,
+        observation_id="obs-1",
+        captured_at="2026-09-01T10:00:00+00:00",
+        game_uid=1,
+        presence_redacted=True,
+        online_state=None,
+        offline_since=None,
+    )
+
+    httpd = sidecar.serve(journal_path, port=0)
+    Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        url = f"http://127.0.0.1:{httpd.server_address[1]}/roster"
+        with urllib.request.urlopen(url) as response:
+            body = json.loads(response.read())
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+    assert body["presenceRedacted"] is True
+    assert body["members"][0]["onlineState"] is None
+
+
 def test_closing_stdin_stops_the_process(tmp_path: Path) -> None:
     """THE ORPHAN GUARD.
 

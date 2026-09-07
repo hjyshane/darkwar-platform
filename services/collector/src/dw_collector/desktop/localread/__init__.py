@@ -14,7 +14,11 @@ as before.
   incompatible null fields. Start there for the merge-rule reasoning.
 - `player_detail.py` — the single-writer `player_detail_snapshots` power
   breakdown, kept separate from `players.py` on purpose (see its docstring).
-- `_shared.py` — the SQL and cache plumbing all three of the above share.
+- `roster.py` — `alliance_member_snapshots`, folded to the newest COMPLETE
+  snapshot (grouped by `observation_id`, not by member) so a departed member
+  is absent rather than carried over forever. Start there for why this fold
+  is shaped differently from every other projection in this package.
+- `_shared.py` — the SQL and cache plumbing all of the above share.
 """
 
 from __future__ import annotations
@@ -34,6 +38,14 @@ from .players import (
     player_snapshots,
     search_players,
 )
+from .roster import (
+    _ROSTER_FOLD_CACHE,
+    ALLIANCE_MEMBER_SNAPSHOTS,
+    RosterEntry,
+    newest_roster,
+    roster,
+    roster_entries,
+)
 from .tiles import (
     _FOLD_CACHE,
     WORLD_CITY,
@@ -44,24 +56,30 @@ from .tiles import (
 )
 
 __all__ = [
+    "ALLIANCE_MEMBER_SNAPSHOTS",
     "PLAYER_DETAIL",
     "PLAYER_SNAPSHOTS",
     "WORLD_CITY",
-    # The two fold caches are re-exported for the same reason the flat module
-    # exposed `_FOLD_CACHE`: tests reach in to clear or count entries in it
-    # directly, to pin cache behaviour the return value of `search` alone
-    # cannot distinguish (see test_desktop_localread.py).
+    # The three fold caches are re-exported for the same reason the flat
+    # module exposed `_FOLD_CACHE`: tests reach in to clear or count entries
+    # in them directly, to pin cache behaviour the return value of `search`
+    # alone cannot distinguish (see test_desktop_localread.py).
     "_FOLD_CACHE",
     "_PLAYER_FOLD_CACHE",
+    "_ROSTER_FOLD_CACHE",
     "PlayerDetail",
     "PlayerProfile",
     "PlayerSnapshot",
+    "RosterEntry",
     "Tile",
     "merge_player_snapshots",
     "newest_detail_per_player",
     "newest_per_player",
+    "newest_roster",
     "player_details",
     "player_snapshots",
+    "roster",
+    "roster_entries",
     "search",
     "search_players",
     "tiles",

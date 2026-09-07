@@ -233,6 +233,54 @@ def player_detail_json(detail: localread.PlayerDetail) -> dict[str, Any]:
     }
 
 
+def roster_member_json(entry: localread.RosterEntry) -> dict[str, Any]:
+    """One roster member as the window reads it.
+
+    THE UID IS A STRING, always — same reasoning as `tile_json` and
+    `player_json`.
+
+    `presenceRedacted` IS NOT A COLUMN. It crosses on the wire (the window
+    needs the fact to decide what to render), but see `roster_json` for why
+    it is also lifted to the roster level rather than left as a bare
+    per-member boolean the window would have to interpret on its own.
+    `onlineState`/`offlineSince` cross exactly as `RosterEntry` carries
+    them — both null on every member when the snapshot is redacted (see
+    `roster.py`'s module docstring), never coerced into a guessed state.
+    """
+    return {
+        "gameUid": str(entry.game_uid),
+        "serverId": entry.server_id,
+        "name": entry.name,
+        "memberRank": entry.member_rank,
+        "hqLevel": entry.hq_level,
+        "power": entry.power,
+        "kills": entry.kills,
+        "onlineState": entry.online_state,
+        "offlineSince": entry.offline_since,
+        "monthCardExpiresAt": entry.month_card_expires_at,
+    }
+
+
+def roster_json(entries: list[localread.RosterEntry]) -> dict[str, Any]:
+    """The current alliance roster as the window reads it.
+
+    `capturedAt` AND `presenceRedacted` ARE LIFTED TO THIS LEVEL, not left as
+    per-member fields. Every member in `entries` comes from the same
+    `al.rank` call (`newest_roster` groups by `observation_id` — see
+    `roster.py`), so both facts are already identical across every row; a
+    roster is exactly as fresh as the last time the player opened that
+    screen in game, and `presenceRedacted` describes the SNAPSHOT the game
+    chose to redact, not any one member. An empty roster (nothing captured
+    yet) has no shared timestamp to report, so `capturedAt` is null rather
+    than an invented empty string a window might mistake for "just now".
+    """
+    return {
+        "capturedAt": entries[0].captured_at if entries else None,
+        "presenceRedacted": entries[0].presence_redacted if entries else False,
+        "members": [roster_member_json(entry) for entry in entries],
+    }
+
+
 def _player_by_uid(conn: sqlite3.Connection, uid: int) -> localread.PlayerProfile | None:
     """The one profile carrying exactly `uid`, or None if never seen.
 
@@ -481,7 +529,7 @@ class _Server(ThreadingHTTPServer):
 
 
 class Handler(BaseHTTPRequestHandler):
-    """GET /health, GET /find?q=, GET /players?q=, and GET /player/<uid>."""
+    """GET /health, GET /find?q=, GET /players?q=, GET /player/<uid>, and GET /roster."""
 
     protocol_version = "HTTP/1.1"
     server_version = "dw-sidecar"
@@ -571,6 +619,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         if parsed.path.startswith("/player/"):
             self._handle_player_detail(parsed.path[len("/player/") :])
+            return
+        if parsed.path == "/roster":
+            self._handle_roster()
             return
 
         if parsed.path != "/find":
@@ -694,6 +745,33 @@ class Handler(BaseHTTPRequestHandler):
                 "detail": player_detail_json(detail) if detail is not None else None,
             },
         )
+
+    def _handle_roster(self) -> None:
+        """`GET /roster` — the current alliance roster, newest snapshot only.
+
+        FOLLOWS `/players` EXACTLY for the journal-state check, the fresh
+        connection per request, and the closed-in-`finally` — see
+        `_handle_players_search`. UNLIKE `/players` THIS TAKES NO QUERY: a
+        roster is one fixed set of rows, not a search box, so there is
+        nothing here to filter on.
+        """
+        state = journal_state(self.server.journal_path)
+        if state != READY:
+            self._send(503, {"error": "no journal to read yet", "state": state})
+            return
+
+        conn = sqlite3.connect(self.server.journal_path)
+        try:
+            entries = localread.roster(conn)
+        except sqlite3.DatabaseError as exc:
+            self._send(
+                503,
+                {"error": f"could not read the journal: {exc}", "state": UNREADABLE},
+            )
+            return
+        finally:
+            conn.close()
+        self._send(200, roster_json(entries))
 
     def _read_json_object(self, max_bytes: int) -> dict[str, Any] | None:
         """The request body as a JSON object, or `None` after already

@@ -25,11 +25,13 @@ def _clear_fold_cache() -> None:
     fixture, so two tests could in principle collide on a reused path — and
     the tests below that assert on `len(_FOLD_CACHE)` need to know they are
     counting only their own entries, not ones left behind by whatever test
-    ran before them in the same process. `_PLAYER_FOLD_CACHE` is the same
-    cache pattern for `players.py` and needs the same isolation.
+    ran before them in the same process. `_PLAYER_FOLD_CACHE` and
+    `_ROSTER_FOLD_CACHE` are the same cache pattern for `players.py` and
+    `roster.py` and need the same isolation.
     """
     localread._FOLD_CACHE.clear()
     localread._PLAYER_FOLD_CACHE.clear()
+    localread._ROSTER_FOLD_CACHE.clear()
 
 
 def _journal(tmp_path: Path) -> Journal:
@@ -1407,3 +1409,465 @@ def test_newest_detail_per_player_keeps_the_latest_profile_open(tmp_path: Path) 
     assert len(newest) == 1
     assert newest[0].power_total == 200
     assert newest[0].components_sum_matches is False
+
+
+# --------------------------------------------------------------------------
+# Alliance roster (Task 4): alliance_member_snapshots, folded to the newest
+# COMPLETE snapshot rather than a per-member union. See
+# dw_collector.desktop.localread.roster's module docstring for why this fold
+# is grouped by observation_id instead of by member, and for what
+# presence_redacted means.
+# --------------------------------------------------------------------------
+
+
+def _write_roster_row(
+    journal: Journal,
+    *,
+    observation_id: str,
+    captured_at: str,
+    game_uid: int,
+    server_id: int = 581,
+    name: str | None = "ERHA",
+    member_rank: int | None = 3,
+    hq_level: int | None = 30,
+    power: int | None = 1_000_000,
+    kills: int | None = 100,
+    presence_redacted: bool = False,
+    online_state: str | None = "online",
+    offline_since: str | None = None,
+    month_card_expires_at: str | None = None,
+) -> None:
+    """One `alliance_member_snapshots` sighting, as `al_rank.normalize` would have left it."""
+    journal.conn.execute(
+        "insert or ignore into raw_observations "
+        "(observation_id, collector_id, source_command, captured_at, "
+        " collected_from_server_id, payload_json, created_at) "
+        "values (?, ?, ?, ?, ?, ?, ?)",
+        (
+            observation_id,
+            "00000000-0000-4000-8000-00000000c777",
+            "al.rank",
+            captured_at,
+            580,
+            "{}",
+            captured_at,
+        ),
+    )
+    row = {
+        "row": {
+            "observation_id": observation_id,
+            "source_command": "al.rank",
+            "parser_version": "1.1.0",
+            "captured_at": captured_at,
+            "collector_id": "00000000-0000-4000-8000-00000000c777",
+            "collected_from_server_id": 580,
+            "raw": {},
+            "server_id": server_id,
+            "game_uid": game_uid,
+            "name": name,
+            "member_rank": member_rank,
+            "hq_level": hq_level,
+            "power": power,
+            "kills": kills,
+            "presence_redacted": presence_redacted,
+            "month_card_expires_at": month_card_expires_at,
+            "online_state": online_state,
+            "offline_since": offline_since,
+        }
+    }
+    journal.conn.execute(
+        "insert into normalized_rows "
+        "(observation_id, target_table, idempotency_key, row_json, created_at) "
+        "values (?, ?, ?, ?, ?)",
+        (
+            observation_id,
+            localread.ALLIANCE_MEMBER_SNAPSHOTS,
+            f"{observation_id}-{game_uid}",
+            json.dumps(row),
+            captured_at,
+        ),
+    )
+    journal.conn.commit()
+
+
+def test_a_roster_entry_comes_back_typed_with_its_capture_time(tmp_path: Path) -> None:
+    journal = _journal(tmp_path)
+    _write_roster_row(
+        journal,
+        observation_id="obs-1",
+        captured_at="2026-09-01T10:00:00+00:00",
+        game_uid=1190060554000581,
+        member_rank=2,
+        hq_level=35,
+        power=9_000_000,
+        kills=1500,
+    )
+    found = localread.roster_entries(journal.conn)
+    journal.close()
+
+    assert len(found) == 1
+    entry = found[0]
+    assert entry.observation_id == "obs-1"
+    assert entry.game_uid == 1190060554000581
+    assert entry.server_id == 581
+    assert entry.member_rank == 2
+    assert entry.hq_level == 35
+    assert entry.power == 9_000_000
+    assert entry.kills == 1500
+    assert entry.presence_redacted is False
+    assert entry.captured_at == "2026-09-01T10:00:00+00:00"
+
+
+def test_only_roster_rows_are_read(tmp_path: Path) -> None:
+    # The journal holds many target tables in one place.
+    journal = _journal(tmp_path)
+    _write_tile(
+        journal,
+        observation_id="obs-1",
+        captured_at="2026-09-01T10:00:00+00:00",
+        game_uid=5,
+    )
+    found = localread.roster_entries(journal.conn)
+    journal.close()
+    assert found == []
+
+
+def test_a_roster_row_that_is_not_json_is_skipped_rather_than_crashing(tmp_path: Path) -> None:
+    journal = _journal(tmp_path)
+    _write_roster_row(
+        journal,
+        observation_id="obs-1",
+        captured_at="2026-09-01T10:00:00+00:00",
+        game_uid=1,
+    )
+    journal.conn.execute(
+        "insert into raw_observations "
+        "(observation_id, collector_id, source_command, captured_at, "
+        " collected_from_server_id, payload_json, created_at) "
+        "values ('obs-2', 'c', 'al.rank', 't', 580, '{}', 't')"
+    )
+    journal.conn.execute(
+        "insert into normalized_rows "
+        "(observation_id, target_table, idempotency_key, row_json, created_at) "
+        "values ('obs-2', ?, 'bad', 'not json at all', 't')",
+        (localread.ALLIANCE_MEMBER_SNAPSHOTS,),
+    )
+    journal.conn.commit()
+
+    found = localread.roster_entries(journal.conn)
+    journal.close()
+    assert len(found) == 1
+
+
+def test_a_roster_payload_that_is_not_an_object_is_skipped(tmp_path: Path) -> None:
+    journal = _journal(tmp_path)
+    _write_roster_row(
+        journal,
+        observation_id="obs-good",
+        captured_at="2026-09-01T10:00:00+00:00",
+        game_uid=1,
+    )
+    journal.conn.execute(
+        "insert into raw_observations "
+        "(observation_id, collector_id, source_command, captured_at, "
+        " collected_from_server_id, payload_json, created_at) "
+        "values ('obs-shaped-wrong', 'c', 'al.rank', 't', 580, '{}', 't')"
+    )
+    journal.conn.execute(
+        "insert into normalized_rows "
+        "(observation_id, target_table, idempotency_key, row_json, created_at) "
+        "values ('obs-shaped-wrong', ?, 'shaped-wrong', ?, 't')",
+        (localread.ALLIANCE_MEMBER_SNAPSHOTS, json.dumps({"row": "oops"})),
+    )
+    journal.conn.commit()
+
+    found = localread.roster_entries(journal.conn)
+    journal.close()
+    assert len(found) == 1
+
+
+def test_rows_without_observation_id_game_uid_or_server_id_are_dropped_not_coerced(
+    tmp_path: Path,
+) -> None:
+    """A row that cannot be grouped into any snapshot, or filed under uid 0,
+    would either be lost from every fold or silently merge with an unrelated
+    row missing the same field."""
+    journal = _journal(tmp_path)
+    journal.conn.execute(
+        "insert into raw_observations "
+        "(observation_id, collector_id, source_command, captured_at, "
+        " collected_from_server_id, payload_json, created_at) "
+        "values ('obs-1', 'c', 'al.rank', 't', 580, '{}', 't')"
+    )
+    missing_cases = {
+        "no-observation-id": {"game_uid": 5, "server_id": 581, "presence_redacted": False},
+        "no-game-uid": {
+            "observation_id": "obs-1",
+            "server_id": 581,
+            "presence_redacted": False,
+        },
+        "no-server-id": {
+            "observation_id": "obs-1",
+            "game_uid": 5,
+            "presence_redacted": False,
+        },
+    }
+    for key, row in missing_cases.items():
+        journal.conn.execute(
+            "insert into normalized_rows "
+            "(observation_id, target_table, idempotency_key, row_json, created_at) "
+            "values ('obs-1', ?, ?, ?, 't')",
+            (localread.ALLIANCE_MEMBER_SNAPSHOTS, key, json.dumps({"row": row})),
+        )
+    journal.conn.commit()
+
+    found = localread.roster_entries(journal.conn)
+    journal.close()
+    assert found == []
+
+
+def test_a_non_bool_presence_redacted_is_dropped_not_coerced(tmp_path: Path) -> None:
+    """`al_rank.normalize` always writes a real bool here — a row where this
+    is missing or the wrong type is exactly the shape drift the guard exists
+    to catch, and is the one field this module cannot afford to guess at
+    (see the module docstring)."""
+    journal = _journal(tmp_path)
+    journal.conn.execute(
+        "insert into raw_observations "
+        "(observation_id, collector_id, source_command, captured_at, "
+        " collected_from_server_id, payload_json, created_at) "
+        "values ('obs-1', 'c', 'al.rank', 't', 580, '{}', 't')"
+    )
+    journal.conn.execute(
+        "insert into normalized_rows "
+        "(observation_id, target_table, idempotency_key, row_json, created_at) "
+        "values ('obs-1', ?, 'k', ?, 't')",
+        (
+            localread.ALLIANCE_MEMBER_SNAPSHOTS,
+            json.dumps(
+                {
+                    "row": {
+                        "observation_id": "obs-1",
+                        "game_uid": 5,
+                        "server_id": 581,
+                        "presence_redacted": "no",
+                    }
+                }
+            ),
+        ),
+    )
+    journal.conn.commit()
+
+    found = localread.roster_entries(journal.conn)
+    journal.close()
+    assert found == []
+
+
+def test_the_departed_member_is_absent_from_the_newest_roster(tmp_path: Path) -> None:
+    """THE TRAP THIS TASK EXISTS TO NOT FALL INTO.
+
+    The first al.rank call sees three members; a later call sees only two of
+    them — CHARLIE left the alliance in between. The roster must show the
+    second call's membership exactly, never the union of both: CHARLIE is
+    not "stale" or flagged, just absent, matching what the game's own roster
+    screen would show.
+    """
+    journal = _journal(tmp_path)
+    for uid, name in ((1, "ALPHA"), (2, "BRAVO"), (3, "CHARLIE")):
+        _write_roster_row(
+            journal,
+            observation_id="obs-old",
+            captured_at="2026-09-01T10:00:00+00:00",
+            game_uid=uid,
+            name=name,
+        )
+    for uid, name in ((1, "ALPHA"), (2, "BRAVO")):
+        _write_roster_row(
+            journal,
+            observation_id="obs-new",
+            captured_at="2026-09-05T10:00:00+00:00",
+            game_uid=uid,
+            name=name,
+        )
+
+    current = localread.roster(journal.conn)
+    journal.close()
+
+    assert {entry.game_uid for entry in current} == {1, 2}
+    assert {entry.name for entry in current} == {"ALPHA", "BRAVO"}
+    assert all(entry.game_uid != 3 for entry in current)
+
+
+def test_a_naive_per_member_fold_would_have_kept_the_departed_member(tmp_path: Path) -> None:
+    """Pins the trap itself, not just the fix: folding `roster_entries` the
+    way `players.merge_player_snapshots` folds `player_snapshots` — newest
+    row per member key — DOES keep CHARLIE, because CHARLIE's only row is
+    still the newest row ever seen for that uid. `newest_roster`'s
+    observation_id grouping is what the difference between this test and
+    the one above actually demonstrates."""
+    journal = _journal(tmp_path)
+    for uid, name in ((1, "ALPHA"), (2, "BRAVO"), (3, "CHARLIE")):
+        _write_roster_row(
+            journal,
+            observation_id="obs-old",
+            captured_at="2026-09-01T10:00:00+00:00",
+            game_uid=uid,
+            name=name,
+        )
+    for uid, name in ((1, "ALPHA"), (2, "BRAVO")):
+        _write_roster_row(
+            journal,
+            observation_id="obs-new",
+            captured_at="2026-09-05T10:00:00+00:00",
+            game_uid=uid,
+            name=name,
+        )
+
+    entries = localread.roster_entries(journal.conn)
+    journal.close()
+
+    naive_newest_per_member: dict[int, str] = {}
+    for entry in entries:
+        naive_newest_per_member[entry.game_uid] = entry.captured_at
+    assert set(naive_newest_per_member) == {1, 2, 3}
+
+
+def test_newest_roster_compares_times_rather_than_trusting_arrival_order() -> None:
+    """An implementation that just let the last group win would pass every
+    journal-backed test here, because `roster_entries` returns rows
+    oldest-first. Only handing the function a reversed list tells the two
+    apart."""
+    old = localread.RosterEntry(
+        observation_id="obs-old",
+        server_id=581,
+        game_uid=1,
+        name="ALPHA",
+        member_rank=1,
+        hq_level=30,
+        power=1_000_000,
+        kills=10,
+        presence_redacted=False,
+        online_state="online",
+        offline_since=None,
+        month_card_expires_at=None,
+        captured_at="2026-09-01T10:00:00+00:00",
+    )
+    new = localread.RosterEntry(
+        observation_id="obs-new",
+        server_id=581,
+        game_uid=1,
+        name="ALPHA",
+        member_rank=1,
+        hq_level=31,
+        power=2_000_000,
+        kills=20,
+        presence_redacted=False,
+        online_state="offline",
+        offline_since="2026-09-05T00:00:00+00:00",
+        month_card_expires_at=None,
+        captured_at="2026-09-05T10:00:00+00:00",
+    )
+    assert localread.newest_roster([new, old]) == [new]
+    assert localread.newest_roster([old, new]) == [new]
+
+
+def test_newest_roster_tie_breaks_on_insertion_order_when_captured_at_ties(
+    tmp_path: Path,
+) -> None:
+    """Two snapshots claiming the exact same captured_at is not something a
+    real capture should produce, but the fold must still answer
+    deterministically — through the real SQL ordering, not by whichever
+    dict-iteration order Python happens to pick."""
+    journal = _journal(tmp_path)
+    same_time = "2026-09-01T10:00:00+00:00"
+    _write_roster_row(
+        journal, observation_id="obs-a", captured_at=same_time, game_uid=1, name="FIRST"
+    )
+    _write_roster_row(
+        journal, observation_id="obs-b", captured_at=same_time, game_uid=2, name="SECOND"
+    )
+
+    current = localread.roster(journal.conn)
+    journal.close()
+
+    # obs-b was inserted after obs-a (a higher n.id), so it wins the tie.
+    assert {entry.game_uid for entry in current} == {2}
+    assert current[0].name == "SECOND"
+
+
+def test_an_empty_journal_returns_no_roster(tmp_path: Path) -> None:
+    journal = _journal(tmp_path)
+    assert localread.roster(journal.conn) == []
+    assert localread.roster_entries(journal.conn) == []
+    journal.close()
+
+
+def test_presence_redacted_is_forwarded_and_online_state_stays_null_when_redacted(
+    tmp_path: Path,
+) -> None:
+    """See roster.py's module docstring: `presence_redacted=True` means the
+    game faked every member online with a zeroed offLineTime, so
+    `online_state`/`offline_since` are already null on that same row — this
+    pins that the read forwards both facts exactly, rather than coercing the
+    redaction flag away or inventing an online state that was never real."""
+    journal = _journal(tmp_path)
+    _write_roster_row(
+        journal,
+        observation_id="obs-1",
+        captured_at="2026-09-01T10:00:00+00:00",
+        game_uid=1,
+        presence_redacted=True,
+        online_state=None,
+        offline_since=None,
+    )
+    found = localread.roster(journal.conn)
+    journal.close()
+    assert found[0].presence_redacted is True
+    assert found[0].online_state is None
+    assert found[0].offline_since is None
+
+
+def test_the_roster_fold_cache_invalidates_when_a_new_snapshot_arrives(tmp_path: Path) -> None:
+    """A cache that keeps showing a departed member as present is worse than
+    a slow one."""
+    journal = _journal(tmp_path)
+    _write_roster_row(
+        journal,
+        observation_id="obs-old",
+        captured_at="2026-09-01T10:00:00+00:00",
+        game_uid=1,
+        name="ALPHA",
+    )
+    first = localread.roster(journal.conn)
+    assert {entry.game_uid for entry in first} == {1}
+
+    _write_roster_row(
+        journal,
+        observation_id="obs-new",
+        captured_at="2026-09-02T10:00:00+00:00",
+        game_uid=2,
+        name="BRAVO",
+    )
+    second = localread.roster(journal.conn)
+    journal.close()
+
+    assert {entry.game_uid for entry in second} == {2}
+
+
+def test_the_roster_cache_is_keyed_on_the_file_not_the_connection(tmp_path: Path) -> None:
+    """The same bug `_FOLD_CACHE` was born with, one projection over."""
+    journal_path = tmp_path / "collector.db"
+    journal = Journal(journal_path)
+    journal.init_db()
+    journal.close()
+
+    first = sqlite3.connect(journal_path)
+    localread.roster(first)
+    first.close()
+
+    before = len(localread._ROSTER_FOLD_CACHE)
+    second = sqlite3.connect(journal_path)
+    localread.roster(second)
+    second.close()
+
+    assert len(localread._ROSTER_FOLD_CACHE) == before == 1

@@ -2,6 +2,7 @@ import { type MapMarker, formatCoordinate } from '@dw/ui';
 import { invoke } from '@tauri-apps/api/core';
 import { createMapView, renderMarkers } from './mapView';
 import { createProfileView } from './profileView';
+import { createRosterView } from './rosterView';
 import { ViewRegistry } from './views';
 
 interface Tile {
@@ -207,11 +208,14 @@ const ENV_VAR_NAMES: Record<string, string> = {
 
 const tabSearchEl = document.querySelector<HTMLButtonElement>('#tab-search');
 const tabProfileEl = document.querySelector<HTMLButtonElement>('#tab-profile');
+const tabRosterEl = document.querySelector<HTMLButtonElement>('#tab-roster');
 const tabSettingsEl = document.querySelector<HTMLButtonElement>('#tab-settings');
 const viewSearchEl = document.querySelector<HTMLElement>('#view-search');
 const viewProfileEl = document.querySelector<HTMLElement>('#view-profile');
+const viewRosterEl = document.querySelector<HTMLElement>('#view-roster');
 const viewSettingsEl = document.querySelector<HTMLElement>('#view-settings');
 const profileRootEl = document.querySelector<HTMLDivElement>('#profile-root');
+const rosterRootEl = document.querySelector<HTMLDivElement>('#roster-root');
 const settingsRootEl = document.querySelector<HTMLDivElement>('#settings-root');
 
 // Mounted once at module load, same as the map (see the note above) — the
@@ -219,6 +223,15 @@ const settingsRootEl = document.querySelector<HTMLDivElement>('#settings-root');
 // there is nothing for onEnter/onExit to start or stop here.
 if (profileRootEl !== null) {
   profileRootEl.appendChild(createProfileView());
+}
+
+// The roster view, unlike the map and the profile screen, DOES need an
+// onEnter hook — see its registration below. It is mounted once here (its
+// `load()` is called from the view registration, not at mount time) so the
+// element exists before `views.register` can reference it.
+const rosterView = createRosterView();
+if (rosterRootEl !== null) {
+  rosterRootEl.appendChild(rosterView.el);
 }
 
 let statusPollHandle: number | undefined;
@@ -247,9 +260,25 @@ function stopStatusPolling(): void {
 // without stopping the poll, regardless of which other view is shown next.
 const views = new ViewRegistry();
 
-if (viewSearchEl !== null && viewProfileEl !== null && viewSettingsEl !== null) {
+if (
+  viewSearchEl !== null &&
+  viewProfileEl !== null &&
+  viewRosterEl !== null &&
+  viewSettingsEl !== null
+) {
   views.register({ id: 'search', el: viewSearchEl });
   views.register({ id: 'profile', el: viewProfileEl });
+  views.register({
+    id: 'roster',
+    el: viewRosterEl,
+    // Reloaded every time the tab is entered, not just once at startup — a
+    // roster is exactly as fresh as the last time the player opened that
+    // screen in game, and reopening THIS screen is exactly when a fresher
+    // capture might already be sitting in the journal.
+    onEnter: () => {
+      void rosterView.load();
+    },
+  });
   views.register({
     id: 'settings',
     el: viewSettingsEl,
@@ -263,6 +292,7 @@ if (viewSearchEl !== null && viewProfileEl !== null && viewSettingsEl !== null) 
 
 tabSearchEl?.addEventListener('click', () => views.show('search'));
 tabProfileEl?.addEventListener('click', () => views.show('profile'));
+tabRosterEl?.addEventListener('click', () => views.show('roster'));
 tabSettingsEl?.addEventListener('click', () => views.show('settings'));
 
 function labeledRow(labelText: string, control: HTMLElement): HTMLDivElement {

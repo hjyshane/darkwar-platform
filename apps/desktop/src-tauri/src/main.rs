@@ -233,6 +233,14 @@ async fn player_detail(
 }
 
 #[tauri::command]
+async fn get_roster(state: tauri::State<'_, Sidecar>) -> Result<serde_json::Value, String> {
+    let port = port_of(&state)?;
+    let url = format!("http://127.0.0.1:{}/roster", port);
+    let response = reqwest::get(&url).await.map_err(|e| e.to_string())?;
+    ok_or_sidecar_error(response, "the sidecar refused to read the roster").await
+}
+
+#[tauri::command]
 async fn get_settings(state: tauri::State<'_, Sidecar>) -> Result<serde_json::Value, String> {
     let port = port_of(&state)?;
     let url = format!("http://127.0.0.1:{}/settings", port);
@@ -389,6 +397,7 @@ fn main() {
             status,
             find_players,
             player_detail,
+            get_roster,
             get_settings,
             save_settings,
             get_adapters,
