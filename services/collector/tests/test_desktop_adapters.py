@@ -135,35 +135,84 @@ def test_find_dumpcap_falls_back_to_path() -> None:
     assert calls == ["dumpcap"]
 
 
-def test_npcap_state_with_no_executable() -> None:
-    assert adapters.npcap_state(None, []) == "no-dumpcap"
-
-
-def test_npcap_state_with_an_executable_but_no_adapters() -> None:
-    assert adapters.npcap_state("C:/Program Files/Wireshark/dumpcap.exe", []) == "no-adapters"
-
-
-def test_npcap_state_ready() -> None:
-    found = [("\\Device\\NPF_Loopback", "Adapter for loopback traffic capture")]
-    assert adapters.npcap_state("C:/Program Files/Wireshark/dumpcap.exe", found) == "ready"
+def test_parse_interfaces_falls_back_to_the_device_string_for_an_empty_label() -> None:
+    # `1. \Device\NPF_Foo ()` is real dumpcap output, not malformed. Skipping
+    # it would drop a real, selectable adapter; a blank label would make an
+    # unpickable row in the dropdown. Falling back to the device string keeps
+    # the adapter selectable.
+    device = "\\Device\\NPF_{AAAAAAAA-0000-0000-0000-0000000000ff}"
+    raw = f"5. {device} ()\n"
+    result = adapters.parse_interfaces(raw)
+    assert (device, device) in result
 
 
 class _FakeCompletedProcess:
-    def __init__(self, stdout: bytes) -> None:
+    def __init__(self, stdout: bytes = b"", stderr: bytes = b"", returncode: int = 0) -> None:
         self.stdout = stdout
+        self.stderr = stderr
+        self.returncode = returncode
 
 
-def test_list_interfaces_does_not_need_npcap_to_be_tested() -> None:
+def test_probe_with_no_dumpcap_does_not_call_run() -> None:
+    def fake_run(*_args: object, **_kwargs: object) -> _FakeCompletedProcess:
+        raise AssertionError("run must not be called when dumpcap is None")
+
+    result = adapters.probe(None, run=fake_run)
+    assert result.state == "no-dumpcap"
+    assert result.adapters == ()
+    assert result.detail == ""
+
+
+def test_probe_reports_a_nonzero_exit_as_failed_with_dumpcaps_own_words() -> None:
+    # This is the case the old boolean-only check could not tell apart from
+    # "no adapters": dumpcap ran and told us why it failed, and that stderr
+    # text — not a diagnosis invented here — is what the settings screen
+    # should show. Npcap missing, a driver that did not start, and a
+    # permissions refusal all produce different stderr text and none of them
+    # can be told apart from a hardcoded string match.
+    def fake_run(*_args: object, **_kwargs: object) -> _FakeCompletedProcess:
+        return _FakeCompletedProcess(
+            stderr=b"dumpcap: There are no interfaces on which a capture can be done",
+            returncode=1,
+        )
+
+    result = adapters.probe("C:/Program Files/Wireshark/dumpcap.exe", run=fake_run)
+    assert result.state == "failed"
+    assert "There are no interfaces on which a capture can be done" in result.detail
+    assert result.adapters == ()
+
+
+def test_probe_caps_a_very_long_stderr() -> None:
+    def fake_run(*_args: object, **_kwargs: object) -> _FakeCompletedProcess:
+        return _FakeCompletedProcess(stderr=b"x" * 10_000, returncode=1)
+
+    result = adapters.probe("C:/Program Files/Wireshark/dumpcap.exe", run=fake_run)
+    assert result.state == "failed"
+    assert len(result.detail) == adapters._DETAIL_MAX_CHARS
+
+
+def test_probe_with_a_zero_exit_and_empty_output_is_no_adapters_not_failed() -> None:
+    def fake_run(*_args: object, **_kwargs: object) -> _FakeCompletedProcess:
+        return _FakeCompletedProcess(stdout=b"", returncode=0)
+
+    result = adapters.probe("C:/Program Files/Wireshark/dumpcap.exe", run=fake_run)
+    assert result.state == "no-adapters"
+    assert result.adapters == ()
+    assert result.detail == ""
+
+
+def test_probe_ready_does_not_need_npcap_to_be_tested() -> None:
     """`run` is injected — this proves the parsing/decoding path without
     Npcap, dumpcap, or a real subprocess anywhere near the test."""
     calls: list[list[str]] = []
 
     def fake_run(args: list[str], **_kwargs: object) -> _FakeCompletedProcess:
         calls.append(args)
-        return _FakeCompletedProcess(FIXTURE.encode("utf-8"))
+        return _FakeCompletedProcess(stdout=FIXTURE.encode("utf-8"), returncode=0)
 
-    result = adapters.list_interfaces("C:\\Program Files\\Wireshark\\dumpcap.exe", run=fake_run)
+    result = adapters.probe("C:\\Program Files\\Wireshark\\dumpcap.exe", run=fake_run)
     assert calls == [["C:\\Program Files\\Wireshark\\dumpcap.exe", "-D"]]
-    assert ("\\Device\\NPF_Loopback", "Adapter for loopback traffic capture") in result
-    labels = [label for _, label in result]
+    assert result.state == "ready"
+    assert ("\\Device\\NPF_Loopback", "Adapter for loopback traffic capture") in result.adapters
+    labels = [label for _, label in result.adapters]
     assert KOREAN_ETHERNET_LABEL in labels

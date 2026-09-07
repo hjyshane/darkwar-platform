@@ -17,6 +17,7 @@ import shutil
 import subprocess
 import sys
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 
 #: The only path this repo has ever actually used — hardcoded as the
@@ -31,7 +32,9 @@ DUMPCAP_CANDIDATES: tuple[str, ...] = (
 
 #: A device token always starts with this literal prefix; `\S+` is safe to
 #: stop at the first space because neither a GUID (`{...}`) nor the literal
-#: name `Loopback` ever contains one.
+#: name `Loopback` ever contains one. That is an ASSUMPTION about dumpcap's
+#: token grammar, not a proven invariant — nothing has observed dumpcap emit
+#: a device token containing whitespace, but nothing rules it out either.
 _DEVICE_RE = re.compile(r"(\\Device\\NPF_\S+)")
 
 # CREATE_NO_WINDOW, matching apps/desktop/src-tauri/src/main.rs's
@@ -90,7 +93,13 @@ def parse_interfaces(raw: str) -> list[tuple[str, str]]:
         label = _label_in_outer_parens(remainder, paren_start)
         if label is None:
             continue
-        result.append((device, label))
+        # An empty label — `1. \Device\NPF_Foo ()` — is real dumpcap output,
+        # not malformed. Falling back to the device string (rather than
+        # skipping the line) keeps the adapter selectable: an unlabeled
+        # adapter that exists is still better than one silently dropped from
+        # the dropdown, and the device string is at least something to look
+        # at.
+        result.append((device, label or device))
     return result
 
 
@@ -115,23 +124,62 @@ def _label_in_outer_parens(text: str, open_index: int) -> str | None:
     return None
 
 
-def list_interfaces(
-    dumpcap: str,
+#: How much of dumpcap's stderr to keep in `Probe.detail`. Generous enough
+#: for any real dumpcap error message, capped so a runaway or corrupted
+#: stream cannot fill a settings-screen dialog with unbounded text.
+_DETAIL_MAX_CHARS = 400
+
+
+@dataclass(frozen=True)
+class Probe:
+    """What asking dumpcap for adapters actually produced.
+
+    `dumpcap.exe` existing on disk (see `find_dumpcap`) says nothing about
+    whether the Npcap capture driver is installed — they are separate
+    installs, and only actually running `dumpcap -D` tells them apart. This
+    is that result, kept as data rather than collapsed into a guess, so the
+    settings screen can tell a player the right next step instead of a
+    plausible-sounding wrong one.
+    """
+
+    #: "ready" | "no-dumpcap" | "failed" | "no-adapters"
+    state: str
+    adapters: tuple[tuple[str, str], ...] = ()
+    #: What dumpcap said when it failed, verbatim and untranslated. WE DO NOT
+    #: GUESS AT THE CAUSE. Npcap missing, a driver that did not start, and a
+    #: permissions refusal all come back differently and none of them can be
+    #: tested from here — so the screen shows dumpcap's own words rather than
+    #: a diagnosis this code invented.
+    detail: str = ""
+
+
+def probe(
+    dumpcap: str | None,
     *,
     run: Callable[..., subprocess.CompletedProcess[bytes]] = subprocess.run,
-) -> list[tuple[str, str]]:
-    """Every adapter `dumpcap -D` reports, as `(device, label)` pairs.
+) -> Probe:
+    """Ask dumpcap for its adapters and report what actually happened.
 
     `run` is injected so this is testable without Npcap installed — tests
     feed it a fake `CompletedProcess` built from a fixture, never a real
-    subprocess.
+    subprocess. `dumpcap is None` short-circuits before touching `run` at
+    all: there is nothing to execute.
     """
+    if dumpcap is None:
+        return Probe(state="no-dumpcap")
+
     completed = run(
         [dumpcap, "-D"],
         capture_output=True,
         check=False,
         **_RUN_KWARGS,
     )
+    if completed.returncode != 0:
+        # Same UTF-8-with-replacement reasoning as stdout below: stderr comes
+        # through the same pipe, under the same codepage assumption.
+        detail = completed.stderr.decode("utf-8", errors="replace").strip()
+        return Probe(state="failed", detail=detail[:_DETAIL_MAX_CHARS])
+
     # Decoded as UTF-8 with replacement, NOT the Windows console codepage
     # (cp949 for Korean, cp1252 otherwise). This call captures dumpcap's
     # stdout through a pipe rather than a real console, and Wireshark's CLI
@@ -145,18 +193,7 @@ def list_interfaces(
     # this assumption, a label degrades to `?` characters in a dropdown
     # instead of taking the settings screen down.
     raw = completed.stdout.decode("utf-8", errors="replace")
-    return parse_interfaces(raw)
-
-
-def npcap_state(dumpcap: str | None, adapters: list[tuple[str, str]]) -> str:
-    """One of `"ready"`, `"no-dumpcap"`, `"no-adapters"`.
-
-    Nothing in this repo has ever checked for Npcap before now — this is
-    the first thing that tells "not installed" apart from "installed but
-    the adapter list came back empty" apart from "everything is fine".
-    """
-    if dumpcap is None:
-        return "no-dumpcap"
-    if not adapters:
-        return "no-adapters"
-    return "ready"
+    parsed = tuple(parse_interfaces(raw))
+    if not parsed:
+        return Probe(state="no-adapters")
+    return Probe(state="ready", adapters=parsed)
