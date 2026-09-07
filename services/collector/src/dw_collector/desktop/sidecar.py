@@ -24,7 +24,7 @@ from dataclasses import asdict, replace
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import ParseResult, parse_qs, urlparse
 
 from dw_collector.desktop import adapters, capture, localread, settings
 
@@ -178,6 +178,92 @@ def tile_json(
         "hqLevel": hq_level,
         "capturedAt": captured_at,
     }
+
+
+def player_json(profile: localread.PlayerProfile) -> dict[str, Any]:
+    """One player profile as the window reads it.
+
+    THE UID IS A STRING, always — same reasoning as `tile_json`: a sixteen
+    digit uid is one order of magnitude from `Number.MAX_SAFE_INTEGER`, and
+    a uid that rounds is a different player, not a typo anyone would spot.
+
+    `capturedAt` IS THE NEWEST OF ANY CONTRIBUTING SIGHTING — exactly what
+    `PlayerProfile.captured_at` already means (see `players.py`'s
+    docstrings). It answers "when did we last see this player at all", not
+    "when was this exact combination of fields true together" — no such
+    single moment necessarily exists once fields are sourced from three
+    different commands (`kill.rank`, `server.rank`,
+    `get.user.info.multi`), each reporting on a different subset of them.
+    A per-field `capturedAt` would be more honest about that gap, but it
+    would also hand the screen six more ambiguous timestamps for the one
+    question a player showing up here actually asks — "how stale is what
+    I'm looking at" — so this crosses the one number that answers that,
+    and this comment is where that choice is made explicit rather than
+    silently picking one of two equally defensible shapes.
+    """
+    return {
+        "gameUid": str(profile.game_uid),
+        "serverId": profile.server_id,
+        "name": profile.name,
+        "allianceExternalId": profile.alliance_external_id,
+        "hqLevel": profile.hq_level,
+        "power": profile.power,
+        "kills": profile.kills,
+        "rank": profile.rank,
+        "capturedAt": profile.captured_at,
+    }
+
+
+def player_detail_json(detail: localread.PlayerDetail) -> dict[str, Any]:
+    """One power breakdown as the window reads it.
+
+    `componentsSumMatches` CROSSES EXACTLY AS `PlayerDetail` CARRIES IT —
+    `null` for "too few components were present to check", `false` for
+    "the six components did not sum to `powerTotal`", never silently
+    coerced to a boolean. Presenting `powerTotal` alone, with the
+    disagreement dropped on the floor, would show an unverified number as
+    if it were exact — the whole reason this projection exists as its own
+    table instead of a field on `PlayerProfile` (see `player_detail.py`).
+    """
+    return {
+        "powerTotal": detail.power_total,
+        "powerComponents": detail.power_components,
+        "componentsSumMatches": detail.components_sum_matches,
+        "capturedAt": detail.captured_at,
+    }
+
+
+def _player_by_uid(conn: sqlite3.Connection, uid: int) -> localread.PlayerProfile | None:
+    """The one profile carrying exactly `uid`, or None if never seen.
+
+    `search_players` matches a digit needle WHOLE (see
+    `console.find.matches`), so passing the uid straight through finds
+    only profiles carrying that exact uid, never a substring hit. A small
+    limit is passed rather than the fold's default: sixteen-digit game
+    uids already encode the server they belong to (the trailing digits
+    equal `server_id` in every capture seen so far), so two profiles
+    sharing one exact uid across two different servers is not a case this
+    journal is expected to produce — but the limit still guards against
+    pulling the whole fold for a caller that only ever wants one row.
+    """
+    found = localread.search_players(conn, str(uid), limit=5)
+    return found[0] if found else None
+
+
+def _detail_for(
+    conn: sqlite3.Connection, *, server_id: int, game_uid: int
+) -> localread.PlayerDetail | None:
+    """The newest power breakdown for one (server_id, game_uid), or None.
+
+    `player_detail_snapshots` has no fold cache of its own (see
+    `player_detail.py` — a single writer never needed one), so this folds
+    fresh on every call, same as every other direct caller of
+    `newest_detail_per_player`.
+    """
+    for detail in localread.newest_detail_per_player(localread.player_details(conn)):
+        if detail.server_id == server_id and detail.game_uid == game_uid:
+            return detail
+    return None
 
 
 #: `Settings` field names paired with the camelCase key that crosses the
@@ -395,7 +481,7 @@ class _Server(ThreadingHTTPServer):
 
 
 class Handler(BaseHTTPRequestHandler):
-    """GET /health and GET /find?q=<uid or name>."""
+    """GET /health, GET /find?q=, GET /players?q=, and GET /player/<uid>."""
 
     protocol_version = "HTTP/1.1"
     server_version = "dw-sidecar"
@@ -480,6 +566,13 @@ class Handler(BaseHTTPRequestHandler):
             # has to render every time it loads, not a fetch failure.
             self._send_capture_status()
             return
+        if parsed.path == "/players":
+            self._handle_players_search(parsed)
+            return
+        if parsed.path.startswith("/player/"):
+            self._handle_player_detail(parsed.path[len("/player/") :])
+            return
+
         if parsed.path != "/find":
             self._send(404, {"error": "no such endpoint"})
             return
@@ -527,6 +620,78 @@ class Handler(BaseHTTPRequestHandler):
                     )
                     for tile in found
                 ]
+            },
+        )
+
+    def _handle_players_search(self, parsed: ParseResult) -> None:
+        """`GET /players?q=<uid or name>` — the player-search analogue of `/find`.
+
+        FOLLOWS `/find` EXACTLY: same empty-needle 400, same journal-state
+        503, same fresh-connection-per-request, same closed-in-`finally`.
+        """
+        needle = (parse_qs(parsed.query).get("q") or [""])[0].strip()
+        if not needle:
+            self._send(400, {"error": "no uid or name given"})
+            return
+
+        state = journal_state(self.server.journal_path)
+        if state != READY:
+            self._send(503, {"error": "no journal to search yet", "state": state})
+            return
+
+        conn = sqlite3.connect(self.server.journal_path)
+        try:
+            found = localread.search_players(conn, needle)
+        except sqlite3.DatabaseError as exc:
+            self._send(
+                503,
+                {"error": f"could not read the journal: {exc}", "state": UNREADABLE},
+            )
+            return
+        finally:
+            conn.close()
+        self._send(200, {"matches": [player_json(profile) for profile in found]})
+
+    def _handle_player_detail(self, raw_uid: str) -> None:
+        """`GET /player/<uid>` — one profile, plus its power breakdown if any.
+
+        THE PATH SEGMENT MUST BE ALL DIGITS. A uid is never anything else on
+        the wire (see `player_json`), so a non-numeric segment is refused
+        with a 400 rather than silently treated as a name — this endpoint
+        takes a uid, not a search box.
+        """
+        raw_uid = raw_uid.strip()
+        if not raw_uid or not raw_uid.isdigit():
+            self._send(400, {"error": "the uid in the path must be a whole number"})
+            return
+        uid = int(raw_uid)
+
+        state = journal_state(self.server.journal_path)
+        if state != READY:
+            self._send(503, {"error": "no journal to search yet", "state": state})
+            return
+
+        conn = sqlite3.connect(self.server.journal_path)
+        try:
+            profile = _player_by_uid(conn, uid)
+            if profile is None:
+                self._send(404, {"error": f"no profile has been seen for uid {uid}"})
+                return
+            detail = _detail_for(conn, server_id=profile.server_id, game_uid=profile.game_uid)
+        except sqlite3.DatabaseError as exc:
+            self._send(
+                503,
+                {"error": f"could not read the journal: {exc}", "state": UNREADABLE},
+            )
+            return
+        finally:
+            conn.close()
+
+        self._send(
+            200,
+            {
+                "profile": player_json(profile),
+                "detail": player_detail_json(detail) if detail is not None else None,
             },
         )
 

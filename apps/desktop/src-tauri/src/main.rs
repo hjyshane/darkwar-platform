@@ -211,6 +211,28 @@ async fn ok_or_sidecar_error(
 }
 
 #[tauri::command]
+async fn find_players(
+    state: tauri::State<'_, Sidecar>,
+    needle: String,
+) -> Result<serde_json::Value, String> {
+    let port = port_of(&state)?;
+    let url = format!("http://127.0.0.1:{}/players?q={}", port, encoded(&needle));
+    let response = reqwest::get(&url).await.map_err(|e| e.to_string())?;
+    ok_or_sidecar_error(response, "the sidecar refused the player search").await
+}
+
+#[tauri::command]
+async fn player_detail(
+    state: tauri::State<'_, Sidecar>,
+    uid: String,
+) -> Result<serde_json::Value, String> {
+    let port = port_of(&state)?;
+    let url = format!("http://127.0.0.1:{}/player/{}", port, encoded(&uid));
+    let response = reqwest::get(&url).await.map_err(|e| e.to_string())?;
+    ok_or_sidecar_error(response, "the sidecar could not find that profile").await
+}
+
+#[tauri::command]
 async fn get_settings(state: tauri::State<'_, Sidecar>) -> Result<serde_json::Value, String> {
     let port = port_of(&state)?;
     let url = format!("http://127.0.0.1:{}/settings", port);
@@ -365,6 +387,8 @@ fn main() {
             find,
             health,
             status,
+            find_players,
+            player_detail,
             get_settings,
             save_settings,
             get_adapters,

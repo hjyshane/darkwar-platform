@@ -1,6 +1,7 @@
 import { type MapMarker, formatCoordinate } from '@dw/ui';
 import { invoke } from '@tauri-apps/api/core';
 import { createMapView, renderMarkers } from './mapView';
+import { createProfileView } from './profileView';
 import { ViewRegistry } from './views';
 
 interface Tile {
@@ -205,10 +206,20 @@ const ENV_VAR_NAMES: Record<string, string> = {
 };
 
 const tabSearchEl = document.querySelector<HTMLButtonElement>('#tab-search');
+const tabProfileEl = document.querySelector<HTMLButtonElement>('#tab-profile');
 const tabSettingsEl = document.querySelector<HTMLButtonElement>('#tab-settings');
 const viewSearchEl = document.querySelector<HTMLElement>('#view-search');
+const viewProfileEl = document.querySelector<HTMLElement>('#view-profile');
 const viewSettingsEl = document.querySelector<HTMLElement>('#view-settings');
+const profileRootEl = document.querySelector<HTMLDivElement>('#profile-root');
 const settingsRootEl = document.querySelector<HTMLDivElement>('#settings-root');
+
+// Mounted once at module load, same as the map (see the note above) — the
+// profile view manages its own search box and detail panel internally, so
+// there is nothing for onEnter/onExit to start or stop here.
+if (profileRootEl !== null) {
+  profileRootEl.appendChild(createProfileView());
+}
 
 let statusPollHandle: number | undefined;
 let settingsLoadToken = 0;
@@ -236,8 +247,9 @@ function stopStatusPolling(): void {
 // without stopping the poll, regardless of which other view is shown next.
 const views = new ViewRegistry();
 
-if (viewSearchEl !== null && viewSettingsEl !== null) {
+if (viewSearchEl !== null && viewProfileEl !== null && viewSettingsEl !== null) {
   views.register({ id: 'search', el: viewSearchEl });
+  views.register({ id: 'profile', el: viewProfileEl });
   views.register({
     id: 'settings',
     el: viewSettingsEl,
@@ -250,6 +262,7 @@ if (viewSearchEl !== null && viewSettingsEl !== null) {
 }
 
 tabSearchEl?.addEventListener('click', () => views.show('search'));
+tabProfileEl?.addEventListener('click', () => views.show('profile'));
 tabSettingsEl?.addEventListener('click', () => views.show('settings'));
 
 function labeledRow(labelText: string, control: HTMLElement): HTMLDivElement {

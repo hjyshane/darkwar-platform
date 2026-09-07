@@ -764,6 +764,343 @@ def test_a_journal_with_its_schema_is_ready(tmp_path: Path) -> None:
     assert body["state"] == sidecar.READY
 
 
+def _write_player_row(
+    journal_path: Path,
+    *,
+    observation_id: str,
+    captured_at: str,
+    game_uid: int,
+    source_command: str = "kill.rank",
+    server_id: int = 581,
+    name: str | None = "ERHA",
+    alliance_external_id: str | None = None,
+    hq_level: int | None = None,
+    power: int | None = None,
+    kills: int | None = None,
+    rank: int | None = None,
+) -> None:
+    """One `player_snapshots` sighting, as one command's normalizer would
+    have left it — same row shape `test_desktop_localread.py`'s own
+    `_write_player_row` fixture uses, so this endpoint is exercised against
+    the same ground truth the projection's own tests are."""
+    journal = Journal(journal_path)
+    journal.conn.execute(
+        "insert or ignore into raw_observations "
+        "(observation_id, collector_id, source_command, captured_at, "
+        " collected_from_server_id, payload_json, created_at) "
+        "values (?, ?, ?, ?, ?, ?, ?)",
+        (
+            observation_id,
+            "00000000-0000-4000-8000-00000000c777",
+            source_command,
+            captured_at,
+            580,
+            "{}",
+            captured_at,
+        ),
+    )
+    row = {
+        "row": {
+            "game_uid": game_uid,
+            "server_id": server_id,
+            "name": name,
+            "alliance_external_id": alliance_external_id,
+            "hq_level": hq_level,
+            "power": power,
+            "kills": kills,
+            "rank": rank,
+        }
+    }
+    journal.conn.execute(
+        "insert into normalized_rows "
+        "(observation_id, target_table, idempotency_key, row_json, created_at) "
+        "values (?, ?, ?, ?, ?)",
+        (
+            observation_id,
+            "player_snapshots",
+            f"{observation_id}-{game_uid}",
+            json.dumps(row),
+            captured_at,
+        ),
+    )
+    journal.conn.commit()
+    journal.close()
+
+
+def _write_player_detail_row(
+    journal_path: Path,
+    *,
+    observation_id: str,
+    captured_at: str,
+    game_uid: int,
+    server_id: int = 581,
+    power_total: int | None = 100,
+    power_components: dict[str, int] | None = None,
+    components_sum_matches: bool | None = True,
+) -> None:
+    """One `player_detail_snapshots` row, as `get.new.user.info` would have
+    left it — same shape as `test_desktop_localread.py`'s own fixture."""
+    journal = Journal(journal_path)
+    journal.conn.execute(
+        "insert or ignore into raw_observations "
+        "(observation_id, collector_id, source_command, captured_at, "
+        " collected_from_server_id, payload_json, created_at) "
+        "values (?, ?, ?, ?, ?, ?, ?)",
+        (
+            observation_id,
+            "00000000-0000-4000-8000-00000000c777",
+            "get.new.user.info",
+            captured_at,
+            580,
+            "{}",
+            captured_at,
+        ),
+    )
+    row = {
+        "row": {
+            "game_uid": game_uid,
+            "server_id": server_id,
+            "power_total": power_total,
+            "power_components": power_components if power_components is not None else {},
+            "components_sum_matches": components_sum_matches,
+        }
+    }
+    journal.conn.execute(
+        "insert into normalized_rows "
+        "(observation_id, target_table, idempotency_key, row_json, created_at) "
+        "values (?, ?, ?, ?, ?)",
+        (
+            observation_id,
+            "player_detail_snapshots",
+            f"{observation_id}-detail-{game_uid}",
+            json.dumps(row),
+            captured_at,
+        ),
+    )
+    journal.conn.commit()
+    journal.close()
+
+
+def test_players_returns_an_empty_list_for_an_empty_journal(base: str) -> None:
+    with urllib.request.urlopen(f"{base}/players?q=erha") as response:
+        body = json.loads(response.read())
+    assert body["matches"] == []
+
+
+def test_players_an_empty_needle_is_refused(base: str) -> None:
+    with pytest.raises(urllib.error.HTTPError) as raised:
+        urllib.request.urlopen(f"{base}/players?q=%20")
+    assert raised.value.code == 400
+
+
+def test_players_on_a_missing_journal_answers_rather_than_dropping(
+    tmp_path: Path,
+) -> None:
+    missing = tmp_path / "not-here.db"
+    httpd = sidecar.serve(missing, port=0)
+    Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        url = f"http://127.0.0.1:{httpd.server_address[1]}/players?q=erha"
+        with pytest.raises(urllib.error.HTTPError) as raised:
+            urllib.request.urlopen(url)
+        code = raised.value.code
+        body = json.loads(raised.value.read())
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+    assert code == 503
+    assert body["state"] == sidecar.NO_JOURNAL
+    assert not missing.exists()
+
+
+def test_a_player_uid_crosses_as_a_string_so_it_cannot_round() -> None:
+    """Same reasoning as `test_a_uid_crosses_as_a_string_so_it_cannot_round`
+    for tiles: sixteen digits, one order of magnitude from
+    `Number.MAX_SAFE_INTEGER`."""
+    from dw_collector.desktop.localread import PlayerProfile
+
+    profile = PlayerProfile(
+        game_uid=1190060554000581,
+        server_id=581,
+        name="ERHA",
+        alliance_external_id=None,
+        hq_level=34,
+        power=1_000_000,
+        kills=500,
+        rank=3,
+        captured_at="2026-09-01T10:00:00+00:00",
+    )
+    body = sidecar.player_json(profile)
+    assert body["gameUid"] == "1190060554000581"
+    assert json.loads(json.dumps(body))["gameUid"] == "1190060554000581"
+
+
+def test_a_real_player_profile_comes_back_merged_through_players_endpoint(
+    tmp_path: Path,
+) -> None:
+    """End to end: two commands' sightings, merged into one profile, out
+    through JSON — proving the per-field merge rule survives the wire."""
+    journal_path = tmp_path / "collector.db"
+    journal = Journal(journal_path)
+    journal.init_db()
+    journal.close()
+
+    _write_player_row(
+        journal_path,
+        observation_id="obs-1",
+        captured_at="2026-09-01T10:00:00+00:00",
+        game_uid=1190060554000581,
+        source_command="kill.rank",
+        kills=500,
+        rank=3,
+    )
+    _write_player_row(
+        journal_path,
+        observation_id="obs-2",
+        captured_at="2026-09-01T11:00:00+00:00",
+        game_uid=1190060554000581,
+        source_command="server.rank",
+        hq_level=34,
+        power=1_000_000,
+    )
+
+    httpd = sidecar.serve(journal_path, port=0)
+    Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        url = f"http://127.0.0.1:{httpd.server_address[1]}/players?q=erha"
+        with urllib.request.urlopen(url) as response:
+            body = json.loads(response.read())
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+    assert len(body["matches"]) == 1
+    hit = body["matches"][0]
+    assert hit["gameUid"] == "1190060554000581"
+    # The merge rule: newest non-null value per field, independently — the
+    # kills/rank from obs-1 survive even though obs-2 (the newer row) never
+    # reports them, and captured_at is the newest sighting of EITHER kind.
+    assert hit["kills"] == 500
+    assert hit["rank"] == 3
+    assert hit["hqLevel"] == 34
+    assert hit["power"] == 1_000_000
+    assert hit["capturedAt"] == "2026-09-01T11:00:00+00:00"
+
+
+def test_player_detail_endpoint_returns_profile_and_detail(tmp_path: Path) -> None:
+    journal_path = tmp_path / "collector.db"
+    journal = Journal(journal_path)
+    journal.init_db()
+    journal.close()
+
+    _write_player_row(
+        journal_path,
+        observation_id="obs-1",
+        captured_at="2026-09-01T10:00:00+00:00",
+        game_uid=1190060554000581,
+        source_command="kill.rank",
+        kills=500,
+        rank=3,
+    )
+    _write_player_detail_row(
+        journal_path,
+        observation_id="obs-2",
+        captured_at="2026-09-01T11:00:00+00:00",
+        game_uid=1190060554000581,
+        power_total=100,
+        power_components={"armyPower": 40, "buildingPower": 60},
+        components_sum_matches=True,
+    )
+
+    httpd = sidecar.serve(journal_path, port=0)
+    Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        url = f"http://127.0.0.1:{httpd.server_address[1]}/player/1190060554000581"
+        with urllib.request.urlopen(url) as response:
+            body = json.loads(response.read())
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+    assert body["profile"]["gameUid"] == "1190060554000581"
+    assert body["profile"]["kills"] == 500
+    assert body["detail"] is not None
+    assert body["detail"]["powerTotal"] == 100
+    assert body["detail"]["powerComponents"] == {"armyPower": 40, "buildingPower": 60}
+    assert body["detail"]["componentsSumMatches"] is True
+
+
+def test_player_detail_endpoint_reports_a_mismatched_sum_rather_than_hiding_it(
+    tmp_path: Path,
+) -> None:
+    journal_path = tmp_path / "collector.db"
+    journal = Journal(journal_path)
+    journal.init_db()
+    journal.close()
+
+    _write_player_row(
+        journal_path,
+        observation_id="obs-1",
+        captured_at="2026-09-01T10:00:00+00:00",
+        game_uid=1190060554000581,
+    )
+    _write_player_detail_row(
+        journal_path,
+        observation_id="obs-2",
+        captured_at="2026-09-01T11:00:00+00:00",
+        game_uid=1190060554000581,
+        power_total=100,
+        power_components={"armyPower": 40},
+        components_sum_matches=False,
+    )
+
+    httpd = sidecar.serve(journal_path, port=0)
+    Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        url = f"http://127.0.0.1:{httpd.server_address[1]}/player/1190060554000581"
+        with urllib.request.urlopen(url) as response:
+            body = json.loads(response.read())
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+    assert body["detail"]["componentsSumMatches"] is False
+
+
+def test_player_detail_endpoint_is_a_404_for_an_unseen_uid(base: str) -> None:
+    with pytest.raises(urllib.error.HTTPError) as raised:
+        urllib.request.urlopen(f"{base}/player/1190060554000581")
+    assert raised.value.code == 404
+
+
+def test_player_detail_endpoint_is_a_400_for_a_non_numeric_uid(base: str) -> None:
+    with pytest.raises(urllib.error.HTTPError) as raised:
+        urllib.request.urlopen(f"{base}/player/not-a-uid")
+    assert raised.value.code == 400
+
+
+def test_player_detail_endpoint_on_a_missing_journal_answers_rather_than_dropping(
+    tmp_path: Path,
+) -> None:
+    missing = tmp_path / "not-here.db"
+    httpd = sidecar.serve(missing, port=0)
+    Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        url = f"http://127.0.0.1:{httpd.server_address[1]}/player/1190060554000581"
+        with pytest.raises(urllib.error.HTTPError) as raised:
+            urllib.request.urlopen(url)
+        code = raised.value.code
+        body = json.loads(raised.value.read())
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+    assert code == 503
+    assert body["state"] == sidecar.NO_JOURNAL
+    assert not missing.exists()
+
+
 def test_closing_stdin_stops_the_process(tmp_path: Path) -> None:
     """THE ORPHAN GUARD.
 
