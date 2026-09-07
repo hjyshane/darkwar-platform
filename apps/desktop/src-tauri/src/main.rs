@@ -240,6 +240,24 @@ async fn get_roster(state: tauri::State<'_, Sidecar>) -> Result<serde_json::Valu
     ok_or_sidecar_error(response, "the sidecar refused to read the roster").await
 }
 
+/// `league`, when given, is passed through as `?league=` unencoded — it is
+/// always a small integer typed by our own screen (see `arenaView.ts`'s
+/// `LEAGUE_LABELS`), never free text a player entered, so it needs none of
+/// `find`'s percent-encoding.
+#[tauri::command]
+async fn get_arena(
+    state: tauri::State<'_, Sidecar>,
+    league: Option<i64>,
+) -> Result<serde_json::Value, String> {
+    let port = port_of(&state)?;
+    let url = match league {
+        Some(value) => format!("http://127.0.0.1:{}/arena?league={}", port, value),
+        None => format!("http://127.0.0.1:{}/arena", port),
+    };
+    let response = reqwest::get(&url).await.map_err(|e| e.to_string())?;
+    ok_or_sidecar_error(response, "the sidecar refused to read the arena bracket").await
+}
+
 #[tauri::command]
 async fn get_settings(state: tauri::State<'_, Sidecar>) -> Result<serde_json::Value, String> {
     let port = port_of(&state)?;
@@ -398,6 +416,7 @@ fn main() {
             find_players,
             player_detail,
             get_roster,
+            get_arena,
             get_settings,
             save_settings,
             get_adapters,

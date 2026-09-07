@@ -281,6 +281,76 @@ def roster_json(entries: list[localread.RosterEntry]) -> dict[str, Any]:
     }
 
 
+def arena_hero_json(hero: localread.ArenaHero) -> dict[str, Any]:
+    """One defence-lineup hero as the window reads it.
+
+    NO UID HERE — a hero row carries no player identity of its own, only
+    `arena_entry_id` (the join key, already spent joining this hero into its
+    entry — see `arena.py`'s module docstring). `heroId` is the game's own
+    hero catalogue id, not a player uid, so it crosses as a plain number.
+    """
+    return {
+        "heroId": hero.hero_id,
+        "slot": hero.slot,
+        "troopClass": hero.troop_class,
+        "heroLevel": hero.hero_level,
+        "levelSynced": hero.level_synced,
+        "star": hero.star,
+        "stage": hero.stage,
+        "heroPower": hero.hero_power,
+        "weaponLevel": hero.weapon_level,
+    }
+
+
+def arena_entry_json(entry: localread.ArenaEntry) -> dict[str, Any]:
+    """One bracket placement as the window reads it.
+
+    THE UID IS A STRING, always — same reasoning as `tile_json` and
+    `player_json`: sixteen digits, one order of magnitude from
+    `Number.MAX_SAFE_INTEGER`.
+
+    `heroes` IS AN EMPTY LIST, NOT ABSENT, for an entry whose lineup never
+    decoded — see `arena.py`'s module docstring. The window still gets a
+    real (possibly empty) array to render, never a missing key it would
+    have to guess the meaning of.
+    """
+    return {
+        "gameUid": str(entry.game_uid),
+        "serverId": entry.server_id,
+        "name": entry.name,
+        "rank": entry.rank,
+        "score": entry.score,
+        "defensePower": entry.defense_power,
+        "allianceName": entry.alliance_name,
+        "allianceCode": entry.alliance_code,
+        "heroes": [arena_hero_json(hero) for hero in entry.heroes],
+    }
+
+
+def arena_board_json(board: localread.ArenaBoard) -> dict[str, Any]:
+    """One league's bracket, at its own newest snapshot, as the window reads it.
+
+    `weekStart` AND `capturedAt` BOTH CROSS — `weekStart` is the game's own
+    week boundary (the server's `startTime`, see `normalize.arena`), and
+    `capturedAt` is when THIS collector actually saw it. They can legitimately
+    differ (a week captured a day after it started), and the window needs
+    both to say whether what it is showing is this week's board and how
+    stale the capture itself is — see `arenaView.ts`.
+    """
+    return {
+        "league": board.header.league,
+        "weekStart": board.header.week_start,
+        "capturedAt": board.header.captured_at,
+        "entryCount": board.header.entry_count,
+        "entries": [arena_entry_json(entry) for entry in board.entries],
+    }
+
+
+def arena_json(boards: list[localread.ArenaBoard]) -> dict[str, Any]:
+    """Every league's bracket as the window reads it — see `arena_board_json`."""
+    return {"boards": [arena_board_json(board) for board in boards]}
+
+
 def _player_by_uid(conn: sqlite3.Connection, uid: int) -> localread.PlayerProfile | None:
     """The one profile carrying exactly `uid`, or None if never seen.
 
@@ -529,7 +599,8 @@ class _Server(ThreadingHTTPServer):
 
 
 class Handler(BaseHTTPRequestHandler):
-    """GET /health, GET /find?q=, GET /players?q=, GET /player/<uid>, and GET /roster."""
+    """GET /health, GET /find?q=, GET /players?q=, GET /player/<uid>, GET /roster,
+    and GET /arena?league=."""
 
     protocol_version = "HTTP/1.1"
     server_version = "dw-sidecar"
@@ -622,6 +693,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         if parsed.path == "/roster":
             self._handle_roster()
+            return
+        if parsed.path == "/arena":
+            self._handle_arena(parsed)
             return
 
         if parsed.path != "/find":
@@ -772,6 +846,54 @@ class Handler(BaseHTTPRequestHandler):
         finally:
             conn.close()
         self._send(200, roster_json(entries))
+
+    def _handle_arena(self, parsed: ParseResult) -> None:
+        """`GET /arena`, optionally `?league=<n>` — every league's bracket,
+        each at its own newest snapshot.
+
+        FOLLOWS `/roster` FOR THE JOURNAL-STATE CHECK, the fresh connection
+        per request, and the closed-in-`finally` — see `_handle_roster`.
+        UNLIKE `/roster` THIS TAKES ONE OPTIONAL QUERY PARAMETER: Gold and
+        Silver are both real boards (see `arena.py`'s module docstring), and
+        a screen showing only one of them needs a way to ask for just that
+        one rather than filtering the whole list itself.
+
+        `league` MUST BE A WHOLE NUMBER WHEN GIVEN. A non-numeric value is
+        refused with a 400 rather than silently matching nothing — the same
+        rule `_handle_player_detail`'s uid path segment already follows.
+        """
+        # Empty string, not None, stands for "no league given" — same idiom
+        # `/find`'s and `/players`' needle parsing already uses, which keeps
+        # `parse_qs`'s `dict[str, list[str]]` return type intact instead of
+        # mixing in a `None` default.
+        league_param = (parse_qs(parsed.query).get("league") or [""])[0].strip()
+        league: int | None = None
+        if league_param != "":
+            digits = league_param[1:] if league_param[:1] == "-" else league_param
+            if not digits.isdigit():
+                self._send(400, {"error": "league must be a whole number"})
+                return
+            league = int(league_param)
+
+        state = journal_state(self.server.journal_path)
+        if state != READY:
+            self._send(503, {"error": "no journal to read yet", "state": state})
+            return
+
+        conn = sqlite3.connect(self.server.journal_path)
+        try:
+            boards = localread.arena(conn)
+        except sqlite3.DatabaseError as exc:
+            self._send(
+                503,
+                {"error": f"could not read the journal: {exc}", "state": UNREADABLE},
+            )
+            return
+        finally:
+            conn.close()
+        if league is not None:
+            boards = [board for board in boards if board.header.league == league]
+        self._send(200, arena_json(boards))
 
     def _read_json_object(self, max_bytes: int) -> dict[str, Any] | None:
         """The request body as a JSON object, or `None` after already

@@ -1,5 +1,6 @@
 import { type MapMarker, formatCoordinate } from '@dw/ui';
 import { invoke } from '@tauri-apps/api/core';
+import { createArenaView } from './arenaView';
 import { createMapView, renderMarkers } from './mapView';
 import { createProfileView } from './profileView';
 import { createRosterView } from './rosterView';
@@ -209,13 +210,16 @@ const ENV_VAR_NAMES: Record<string, string> = {
 const tabSearchEl = document.querySelector<HTMLButtonElement>('#tab-search');
 const tabProfileEl = document.querySelector<HTMLButtonElement>('#tab-profile');
 const tabRosterEl = document.querySelector<HTMLButtonElement>('#tab-roster');
+const tabArenaEl = document.querySelector<HTMLButtonElement>('#tab-arena');
 const tabSettingsEl = document.querySelector<HTMLButtonElement>('#tab-settings');
 const viewSearchEl = document.querySelector<HTMLElement>('#view-search');
 const viewProfileEl = document.querySelector<HTMLElement>('#view-profile');
 const viewRosterEl = document.querySelector<HTMLElement>('#view-roster');
+const viewArenaEl = document.querySelector<HTMLElement>('#view-arena');
 const viewSettingsEl = document.querySelector<HTMLElement>('#view-settings');
 const profileRootEl = document.querySelector<HTMLDivElement>('#profile-root');
 const rosterRootEl = document.querySelector<HTMLDivElement>('#roster-root');
+const arenaRootEl = document.querySelector<HTMLDivElement>('#arena-root');
 const settingsRootEl = document.querySelector<HTMLDivElement>('#settings-root');
 
 // Mounted once at module load, same as the map (see the note above) — the
@@ -232,6 +236,14 @@ if (profileRootEl !== null) {
 const rosterView = createRosterView();
 if (rosterRootEl !== null) {
   rosterRootEl.appendChild(rosterView.el);
+}
+
+// The arena view, same shape as the roster view above — it also needs an
+// onEnter hook (see its registration below), so it too is mounted here
+// before `views.register` can reference its element.
+const arenaView = createArenaView();
+if (arenaRootEl !== null) {
+  arenaRootEl.appendChild(arenaView.el);
 }
 
 let statusPollHandle: number | undefined;
@@ -264,6 +276,7 @@ if (
   viewSearchEl !== null &&
   viewProfileEl !== null &&
   viewRosterEl !== null &&
+  viewArenaEl !== null &&
   viewSettingsEl !== null
 ) {
   views.register({ id: 'search', el: viewSearchEl });
@@ -280,6 +293,16 @@ if (
     },
   });
   views.register({
+    id: 'arena',
+    el: viewArenaEl,
+    // Same reasoning as roster's onEnter above — an arena bracket is
+    // exactly as fresh as the last time the player opened that screen in
+    // game.
+    onEnter: () => {
+      void arenaView.load();
+    },
+  });
+  views.register({
     id: 'settings',
     el: viewSettingsEl,
     onEnter: () => {
@@ -293,6 +316,7 @@ if (
 tabSearchEl?.addEventListener('click', () => views.show('search'));
 tabProfileEl?.addEventListener('click', () => views.show('profile'));
 tabRosterEl?.addEventListener('click', () => views.show('roster'));
+tabArenaEl?.addEventListener('click', () => views.show('arena'));
 tabSettingsEl?.addEventListener('click', () => views.show('settings'));
 
 function labeledRow(labelText: string, control: HTMLElement): HTMLDivElement {
