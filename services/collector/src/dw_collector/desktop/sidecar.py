@@ -118,6 +118,24 @@ def _settings_to_camel(value: settings.Settings) -> dict[str, Any]:
     return {camel: data[snake] for snake, camel in _SETTINGS_WIRE_FIELDS}
 
 
+def _pinned_by_environment(file_only: settings.Settings, effective: settings.Settings) -> list[str]:
+    """camelCase field names where `effective` differs from `file_only`.
+
+    A field only ends up different here because `settings.load` let an
+    environment variable win over the file for it — that is the ONLY thing
+    that can make these two diverge, since `effective` is `file_only` with
+    the environment applied on top. The window uses this list to tell a
+    player "this is set by your environment" instead of silently reverting
+    whatever they just typed, which is exactly the confusing behavior this
+    field exists to explain.
+    """
+    file_data = asdict(file_only)
+    effective_data = asdict(effective)
+    return [
+        camel for snake, camel in _SETTINGS_WIRE_FIELDS if file_data[snake] != effective_data[snake]
+    ]
+
+
 def _str_field(body: dict[str, Any], camel_key: str, default: str) -> str:
     """`body[camel_key]` if it is actually a string, else `default`.
 
@@ -198,6 +216,16 @@ class _Server(ThreadingHTTPServer):
         # the defaults are the real functions `adapters.py` already exposes.
         self.find_dumpcap = find_dumpcap
         self.probe_run = probe_run
+        # ONE LOCK, SHARED ACROSS EVERY REQUEST. `ThreadingHTTPServer` hands
+        # each connection its own thread and its own `Handler` instance, but
+        # `settings.json` is one file on disk shared by all of them. Only one
+        # client (the window) exists today, but it is entirely capable of
+        # firing two `PUT`s close together (a fast double-save, a retry after
+        # a slow response) — and without a lock around the load-merge-save,
+        # the second read can happen before the first write lands, silently
+        # dropping whatever the first `PUT` changed. The lock is held across
+        # the whole read-modify-write, not just the write.
+        self.settings_lock = threading.Lock()
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -216,6 +244,17 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(raw)))
+        if self.close_connection:
+            # SETTING `close_connection` ALONE TELLS THE CLIENT NOTHING. It
+            # only stops THIS SERVER from reading another request off the
+            # socket after this one — a client that still believes this is
+            # a live HTTP/1.1 keep-alive connection (every caller here,
+            # `http.client` included) will happily try to send its next
+            # request down the same socket and get a raw connection reset
+            # instead of an HTTP response. `Connection: close` is what lets
+            # a well-behaved client notice and open a fresh connection
+            # instead of hitting that.
+            self.send_header("Connection", "close")
         self.end_headers()
         self.wfile.write(raw)
 
@@ -241,8 +280,15 @@ class Handler(BaseHTTPRequestHandler):
             # app: what the window shows has to match what the sidecar will
             # actually use, and `main()` resolves the journal path the same
             # way — through `DW_SQLITE_PATH`, not just the file.
-            value = settings.load(self.server.settings_path, environ=os.environ)
-            self._send(200, _settings_to_camel(value))
+            file_only = settings.load(self.server.settings_path, environ={})
+            effective = settings.load(self.server.settings_path, environ=os.environ)
+            payload = _settings_to_camel(effective)
+            # `pinnedByEnvironment` names the fields an environment variable
+            # is currently overriding, so the window can say so instead of
+            # letting the field just look like it silently ignored the
+            # player when it inevitably reverts on the next fetch.
+            payload["pinnedByEnvironment"] = _pinned_by_environment(file_only, effective)
+            self._send(200, payload)
             return
         if parsed.path == "/adapters":
             # EVERY STATE HERE IS 200, including "no-dumpcap" and "failed".
@@ -321,6 +367,25 @@ class Handler(BaseHTTPRequestHandler):
         reads — a malformed `PUT` body has to meet the same bar: not JSON at
         all, JSON that is not an object, a missing `Content-Length`, or a
         body bigger than any real settings payload could be.
+
+        NOT DROPPING THE CONNECTION IS NOT THE SAME AS KEEPING IT ALIVE,
+        THOUGH. `protocol_version` is HTTP/1.1, so unless told otherwise the
+        socket is reused for the NEXT request too. Three of the branches
+        below answer with a 400 before ever reading the declared body off
+        the wire — we don't know how many bytes to read (no/invalid
+        `Content-Length`), or we know and deliberately refuse to buffer that
+        many (over the cap). In every one of those cases the body's bytes
+        are still sitting unread in the socket, and the next thing read from
+        it — the START OF THE FOLLOWING REQUEST — gets those leftover bytes
+        prepended instead. The failure then shows up on a request that did
+        nothing wrong (a `/health` poll, say), which is what makes this
+        expensive to diagnose: nothing here looks broken, the NEXT caller
+        does. `self.close_connection = True` on those three paths is what
+        keeps a refused body from becoming garbage on someone else's
+        request; the later failures below (bad UTF-8, bad JSON, not an
+        object) happen only after `self.rfile.read(length)` has already
+        consumed exactly the declared body, so the socket is still in sync
+        and does not need this.
         """
         raw_length = self.headers.get("Content-Length")
         if raw_length is None:
@@ -328,15 +393,29 @@ class Handler(BaseHTTPRequestHandler):
             # A LENGTH TO READ. There is no length-less body framing this
             # handler understands (no chunked transfer support), so a
             # request that omits the header is refused outright rather than
-            # guessed at.
+            # guessed at. There is no length to read BY, either — whatever
+            # body bytes the client sent are unread and about to poison the
+            # next request on this connection unless it is closed now.
+            self.close_connection = True
             self._send(400, {"error": "missing Content-Length"})
             return None
         try:
             length = int(raw_length)
         except ValueError:
+            # An unparseable header means the declared length is unknown, so
+            # — same as the missing-header case above — there is no correct
+            # number of bytes to drain before answering. Close rather than
+            # guess.
+            self.close_connection = True
             self._send(400, {"error": "invalid Content-Length"})
             return None
         if length < 0 or length > max_bytes:
+            # The length IS known here, but reading it just to throw it away
+            # would defeat the point of refusing it before buffering. That
+            # means these bytes are left on the wire, so the connection must
+            # close — a 400 that leaves bytes behind is worse than the
+            # dropped connection this whole method exists to avoid.
+            self.close_connection = True
             self._send(400, {"error": f"body too large (max {max_bytes} bytes)"})
             return None
 
@@ -359,30 +438,57 @@ class Handler(BaseHTTPRequestHandler):
     def do_PUT(self) -> None:
         parsed = urlparse(self.path)
         if parsed.path != "/settings":
+            # THE BODY IS STILL SITTING UNREAD ON THE WIRE HERE. This branch
+            # answers before even looking at `Content-Length`, so a `PUT`
+            # with a body aimed at any other path leaves that body to be
+            # read as the start of the next request on this HTTP/1.1
+            # connection — the same desync `_read_json_object` guards
+            # against, just one step earlier.
+            self.close_connection = True
             self._send(404, {"error": "no such endpoint"})
             return
 
         body = self._read_json_object(_MAX_SETTINGS_BODY)
         if body is None:
-            # `_read_json_object` already sent the 400 and said why.
+            # `_read_json_object` already sent the 400, said why, and closed
+            # the connection itself where the body was left unread.
             return
 
-        # MERGED ONTO THE FILE, NOT ONTO WHAT `load` WOULD RETURN. Loading
-        # with an empty `environ` is exactly `settings.load`'s own idiom for
-        # "the file only, no environment" (see `test_desktop_settings.py`).
-        # Merging onto a real `os.environ`-applied value would let an
-        # environment variable on THIS machine get baked into the file the
-        # next time anyone touches Settings from the window — precisely the
-        # trap `ensure_collector_id` was already checked for: the file must
-        # only ever record what a person (or the window) actually chose to
-        # persist, never what the environment happened to be supplying today.
-        current = settings.load(self.server.settings_path, environ={})
-        merged = _merge_settings_body(current, body)
-        settings.save(self.server.settings_path, merged)
-        # Echoing back exactly what was written — not a fresh `load()` with
-        # the environment applied — so the window never has to guess what
-        # is actually on disk.
-        self._send(200, _settings_to_camel(merged))
+        # ONE LOCK ACROSS THE WHOLE READ-MODIFY-WRITE. `ThreadingHTTPServer`
+        # runs each connection on its own thread, and without this two
+        # concurrent `PUT`s can interleave: both read the same "current",
+        # both merge their own change onto it, and whichever writes second
+        # wins outright — the first edit is gone with no error anywhere.
+        # See `_Server.__init__` for why one client today does not make this
+        # unnecessary.
+        with self.server.settings_lock:
+            # MERGED ONTO THE FILE, NOT ONTO WHAT `load` WOULD RETURN. Loading
+            # with an empty `environ` is exactly `settings.load`'s own idiom
+            # for "the file only, no environment" (see
+            # `test_desktop_settings.py`). Merging onto a real
+            # `os.environ`-applied value would let an environment variable on
+            # THIS machine get baked into the file the next time anyone
+            # touches Settings from the window — precisely the trap
+            # `ensure_collector_id` was already checked for: the file must
+            # only ever record what a person (or the window) actually chose
+            # to persist, never what the environment happened to be
+            # supplying today.
+            current = settings.load(self.server.settings_path, environ={})
+            merged = _merge_settings_body(current, body)
+            settings.save(self.server.settings_path, merged)
+        # THE RESPONSE IS THE EFFECTIVE SETTINGS, NOT THE FILE-ONLY ONES —
+        # deliberately different from what was just written to disk. If
+        # `DW_CAPTURE_DIR` (or any other overridable field) is set on this
+        # machine, echoing back the bare file would show the player their
+        # own edit, and then the very next `GET /settings` (which already
+        # applies the environment) would show it reverted with no
+        # explanation. Answering with what the sidecar will ACTUALLY use —
+        # same as `GET` — means what the window shows after saving is what
+        # it will show on the next fetch too.
+        effective = settings.load(self.server.settings_path, environ=os.environ)
+        payload = _settings_to_camel(effective)
+        payload["pinnedByEnvironment"] = _pinned_by_environment(merged, effective)
+        self._send(200, payload)
 
 
 def serve(

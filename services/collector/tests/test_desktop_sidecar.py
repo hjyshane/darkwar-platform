@@ -99,6 +99,7 @@ def test_get_settings_returns_camelcase_defaults(settings_sidecar: _SidecarWithS
         "serverId": 580,
         "gamePort": 8680,
         "collectorId": "",
+        "pinnedByEnvironment": [],
     }
 
 
@@ -112,6 +113,25 @@ def test_get_settings_applies_the_environment_over_the_file(
     with urllib.request.urlopen(f"{settings_sidecar.url}/settings") as response:
         body = json.loads(response.read())
     assert body["serverId"] == 584
+
+
+def test_get_settings_pins_nothing_when_the_environment_is_unset(
+    settings_sidecar: _SidecarWithSettings,
+) -> None:
+    with urllib.request.urlopen(f"{settings_sidecar.url}/settings") as response:
+        body = json.loads(response.read())
+    assert body["pinnedByEnvironment"] == []
+
+
+def test_get_settings_pins_the_field_the_environment_overrides(
+    settings_sidecar: _SidecarWithSettings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """So the window can say "this is set by your environment" instead of
+    letting the field just look like it silently ignores the player."""
+    monkeypatch.setenv("DW_CAPTURE_DIR", "C:/captures")
+    with urllib.request.urlopen(f"{settings_sidecar.url}/settings") as response:
+        body = json.loads(response.read())
+    assert body["pinnedByEnvironment"] == ["captureDir"]
 
 
 def test_put_settings_saves_and_echoes_back_what_was_saved(
@@ -169,6 +189,51 @@ def test_put_settings_never_writes_the_collector_id(
     assert on_disk["collector_id"] == "original-id"
 
 
+def test_put_settings_response_reflects_the_environment_not_just_the_file(
+    settings_sidecar: _SidecarWithSettings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """THE PLAYER MUST NOT WATCH THEIR OWN EDIT REVERT.
+
+    `GET /settings` already applies the environment on top of the file. If
+    `PUT`'s response echoed the file alone, a player on a machine with
+    `DW_CAPTURE_DIR` set would save, see their typed value for a heartbeat,
+    then have the very next fetch show something else with no explanation.
+    Answering with the same effective (environment-applied) view `GET` uses
+    means what the window shows right after saving is what it will keep
+    showing.
+    """
+    monkeypatch.setenv("DW_CAPTURE_DIR", "C:/env-capture-dir")
+    status, body = _put_settings(settings_sidecar.url, {"serverId": 581})
+    assert status == 200
+    assert body["captureDir"] == "C:/env-capture-dir"
+    assert body["pinnedByEnvironment"] == ["captureDir"]
+
+
+def test_put_settings_never_bakes_the_environment_into_the_file(
+    settings_sidecar: _SidecarWithSettings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """THE FILE MUST NEVER RECORD WHAT THE ENVIRONMENT WAS SUPPLYING TODAY.
+
+    This is the property the whole endpoint is built around — `do_PUT` loads
+    the current file with `environ={}` and merges onto THAT, never onto the
+    environment-applied view, precisely so an environment variable on this
+    machine can never get written into `settings.json` for every future
+    machine that reads it. Until now that guarantee was proven only by a
+    comment and a manual experiment; this reads the file back off disk,
+    not just the HTTP response, so a regression that merges onto the wrong
+    base cannot hide behind a response that merely looks right.
+    """
+    monkeypatch.setenv("DW_CAPTURE_DIR", "C:/env-only-capture-dir")
+    monkeypatch.setenv("DW_COLLECTOR_SERVER_ID", "999")
+
+    status, _ = _put_settings(settings_sidecar.url, {"journalPath": "C:/data/collector.db"})
+    assert status == 200
+
+    on_disk_text = settings_sidecar.settings_path.read_text(encoding="utf-8")
+    assert "C:/env-only-capture-dir" not in on_disk_text
+    assert "999" not in on_disk_text
+
+
 def test_put_settings_rejects_a_body_that_is_not_json(
     settings_sidecar: _SidecarWithSettings,
 ) -> None:
@@ -178,7 +243,8 @@ def test_put_settings_rejects_a_body_that_is_not_json(
     with pytest.raises(urllib.error.HTTPError) as raised:
         urllib.request.urlopen(request)
     assert raised.value.code == 400
-    assert "error" in json.loads(raised.value.read())
+    body = json.loads(raised.value.read())
+    assert body.get("error")
 
 
 def test_put_settings_rejects_json_that_is_not_an_object(
@@ -192,6 +258,8 @@ def test_put_settings_rejects_json_that_is_not_an_object(
     with pytest.raises(urllib.error.HTTPError) as raised:
         urllib.request.urlopen(request)
     assert raised.value.code == 400
+    body = json.loads(raised.value.read())
+    assert body.get("error")
 
 
 def test_put_settings_rejects_a_missing_content_length(
@@ -209,7 +277,7 @@ def test_put_settings_rejects_a_missing_content_length(
         response = conn.getresponse()
         body = json.loads(response.read())
         assert response.status == 400
-        assert "error" in body
+        assert body.get("error")
     finally:
         conn.close()
 
@@ -226,6 +294,62 @@ def test_put_settings_rejects_a_body_over_the_cap(
     with pytest.raises(urllib.error.HTTPError) as raised:
         urllib.request.urlopen(request)
     assert raised.value.code == 400
+    body = json.loads(raised.value.read())
+    assert body.get("error")
+
+
+def test_a_refused_put_does_not_poison_the_next_request(base: str) -> None:
+    """A 400 THAT LEAVES BYTES IN THE SOCKET IS WORSE THAN A DROPPED ONE.
+
+    `protocol_version` is HTTP/1.1, so the connection is reused. An error
+    path that answers without draining the body leaves the rest of it to be
+    read as the start of the NEXT request — and the failure then lands on a
+    request that did nothing wrong, which is what makes it expensive to find.
+    """
+    parsed = urlparse(base)
+    assert parsed.hostname is not None
+    assert parsed.port is not None
+
+    # Case 1: oversized body. `http.client` computes Content-Length itself,
+    # so this exercises the "known length, refused before reading it" path.
+    conn = http.client.HTTPConnection(parsed.hostname, parsed.port)
+    try:
+        oversized = json.dumps({"journalPath": "x" * 200_000}).encode("utf-8")
+        conn.request("PUT", "/settings", body=oversized)
+        refusal = conn.getresponse()
+        assert refusal.status == 400
+        refusal.read()
+
+        # SAME `HTTPConnection` OBJECT. If the sidecar left the connection
+        # looking alive without saying so, this either reads a poisoned
+        # response (a stray `414` from the leftover bytes, or garbage) or
+        # blows up outright. A server that closed the connection AND said
+        # so via `Connection: close` lets `http.client` reconnect on its own
+        # and this just works.
+        conn.request("GET", "/health")
+        follow_up = conn.getresponse()
+        follow_up_body = json.loads(follow_up.read())
+        assert follow_up.status == 200
+        assert "ok" in follow_up_body
+    finally:
+        conn.close()
+
+    # Case 2: no Content-Length at all — the "unknown length" path.
+    conn = http.client.HTTPConnection(parsed.hostname, parsed.port)
+    try:
+        conn.putrequest("PUT", "/settings", skip_host=True)
+        conn.endheaders()
+        refusal = conn.getresponse()
+        assert refusal.status == 400
+        refusal.read()
+
+        conn.request("GET", "/health")
+        follow_up = conn.getresponse()
+        follow_up_body = json.loads(follow_up.read())
+        assert follow_up.status == 200
+        assert "ok" in follow_up_body
+    finally:
+        conn.close()
 
 
 def _fake_completed(
