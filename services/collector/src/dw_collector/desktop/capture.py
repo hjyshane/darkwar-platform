@@ -42,13 +42,23 @@ from __future__ import annotations
 
 import collections
 import contextlib
+import logging
+import sqlite3
 import subprocess
 import sys
 import threading
+import uuid
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import IO
+
+from dw_collector.ingest import ScanResult, _ingest_capture, _ready_captures
+from dw_collector.protocol.pcapng import PcapError
+from dw_collector.storage.journal import Journal
+
+log = logging.getLogger(__name__)
 
 #: register-tasks.ps1's ring buffer for `DarkWar-Capture`, read out of
 #: `$timings` and the literal `-B 64` on its `$tasks` entry (line ~250)
@@ -77,6 +87,46 @@ _CAPTURE_FILENAME = "cap.pcapng"
 #: up, not the first. A few thousand lines is generous for that and still
 #: bounded regardless of how long the process runs or how much it writes.
 _STDERR_BUFFER_LINES = 4000
+
+#: Fallback collector id used only when nothing configures a real one via
+#: `Supervisor`'s `collector_id` parameter — mirrors the same fallback
+#: `cli.py`'s commands fall back to via `DW_COLLECTOR_ID`. Not a credential:
+#: see `desktop/settings.ensure_collector_id`.
+_DEFAULT_COLLECTOR_ID = uuid.UUID("00000000-0000-4000-8000-00000000c777")
+
+#: How long a capture file must sit untouched before the ingest loop reads
+#: it. `_ready_captures`' own threshold, reused here so both paths agree on
+#: what "closed" means — matches `cli.py`'s `ingest-dir` command default.
+_INGEST_MIN_AGE_SECONDS = 30.0
+
+#: How often the ingest loop rescans the capture directory. Independent of
+#: dumpcap's own rotation (`_ROTATION_SECONDS` above) — a slower poll only
+#: means a closed file sits a little longer before it is read, never that
+#: one is missed, because "pending" is decided by `_ready_captures` plus
+#: `journal.ingested_captures()`, not by how recently the loop last looked.
+_INGEST_POLL_SECONDS = 5.0
+
+
+def _default_journal_factory(path: Path) -> Journal:
+    """The real journal factory `Supervisor` uses.
+
+    `single_writer_thread=True`: every read and write against the Journal
+    this opens happens on the ingest thread (`Supervisor._ingest_loop`) and
+    NOWHERE ELSE — not `status()`, not `start()`/`stop()`. See
+    `Journal.__init__`'s own docstring on why a second writer is exactly
+    the failure this must avoid, and `capture/__main__.py` for the
+    precedent it follows (that Journal is opened on the main thread and
+    written from `SegmentPump`'s one worker thread; this one is simpler —
+    opened and used entirely on the one ingest thread instead).
+
+    `init_db()` runs here too — same as `cli.py`'s own `_open_journal` — so
+    a first-run journal that does not exist yet (or one missing the
+    `ingested_captures` table) is created before anything tries to query
+    it, rather than failing the first `_ingest_once` with "no such table".
+    """
+    journal = Journal(path, single_writer_thread=True)
+    journal.init_db()
+    return journal
 
 
 def ring_argv(dumpcap: str, interface: str, capture_dir: Path, *, game_port: int) -> list[str]:
@@ -148,6 +198,23 @@ def _kill_tree(pid: int) -> None:
 
 
 @dataclass(frozen=True)
+class IngestStatus:
+    """What the ingest loop has read into the journal so far this run.
+
+    Reported separately from `CaptureStatus.state` on purpose: "dumpcap is
+    running" and "data is actually arriving" are different questions, and a
+    player watching the settings screen only cares about the second one — a
+    wedged reassembler, a wrong capture filter, or a full disk can all leave
+    dumpcap looking perfectly healthy while nothing new ever lands in the
+    journal.
+    """
+
+    files_seen: int = 0
+    files_ingested: int = 0
+    rows_written: int = 0
+
+
+@dataclass(frozen=True)
 class CaptureStatus:
     """What asking the supervisor for capture state actually produced."""
 
@@ -164,6 +231,10 @@ class CaptureStatus:
     #: the live pipe, and is cached so a second call sees the same text —
     #: see `Supervisor._drain_stderr` and `Supervisor.status`.
     stderr: str = ""
+    #: See `IngestStatus`. Always present; stays all zeros when no
+    #: `journal_path` was configured on `Supervisor` — every caller before
+    #: this task.
+    ingest: IngestStatus = field(default_factory=IngestStatus)
 
 
 class Supervisor:
@@ -187,6 +258,17 @@ class Supervisor:
         popen: Callable[..., subprocess.Popen[bytes]] = subprocess.Popen,
         build_argv: Callable[[str, str, Path, int], list[str]] = _default_argv,
         kill_tree: Callable[[int], None] = _kill_tree,
+        # INGEST LOOP (opt-in). `journal_path is None` — the default, and
+        # every caller of `Supervisor` before this task — means the ingest
+        # thread never starts and `status().ingest` stays all zeros.
+        journal_path: Path | None = None,
+        collector_id: uuid.UUID = _DEFAULT_COLLECTOR_ID,
+        collected_from_server: int = 580,
+        ingest_min_age_seconds: float = _INGEST_MIN_AGE_SECONDS,
+        ingest_poll_seconds: float = _INGEST_POLL_SECONDS,
+        journal_factory: Callable[[Path], Journal] = _default_journal_factory,
+        ingest_capture: Callable[..., ScanResult] = _ingest_capture,
+        ready_captures: Callable[[Path, float], list[Path]] = _ready_captures,
     ) -> None:
         self._dumpcap = dumpcap
         self._popen = popen
@@ -219,6 +301,27 @@ class Supervisor:
         # captured terminal status", in which case `status()` falls back to
         # the plain default of "stopped".
         self._last_status: CaptureStatus | None = None
+
+        # INGEST LOOP state. `self._journal_path` gates everything below —
+        # see `_start_ingest_loop`.
+        self._journal_path = journal_path
+        self._collector_id = collector_id
+        self._collected_from_server = collected_from_server
+        self._ingest_min_age_seconds = ingest_min_age_seconds
+        self._ingest_poll_seconds = ingest_poll_seconds
+        self._journal_factory = journal_factory
+        self._ingest_capture = ingest_capture
+        self._ready_captures = ready_captures
+        self._ingest_thread: threading.Thread | None = None
+        self._ingest_stop = threading.Event()
+        # Guards the three counters only — same split as
+        # `_stderr_buffer_lock` versus `self._lock`: the ingest thread
+        # updates these continuously for the life of a capture session,
+        # independent of whatever `start()`/`stop()` are doing.
+        self._ingest_status_lock = threading.Lock()
+        self._ingest_files_seen = 0
+        self._ingest_files_ingested = 0
+        self._ingest_rows_written = 0
 
     def start(self, interface: str, capture_dir: Path, *, game_port: int) -> CaptureStatus:
         """Start capture, creating `capture_dir` if it does not exist yet.
@@ -278,6 +381,7 @@ class Supervisor:
                     daemon=True,
                     name="dw-capture-stderr-drain",
                 ).start()
+            self._start_ingest_loop(capture_dir, game_port)
             return self.status()
 
     def stop(self) -> None:
@@ -288,6 +392,10 @@ class Supervisor:
         already running.
         """
         with self._lock:
+            # Stopped alongside dumpcap regardless of which branch below is
+            # taken — including the "nothing running" one, where this is a
+            # safe no-op. See `_stop_ingest_loop`.
+            self._stop_ingest_loop()
             if self._process is None:
                 return
             # GUARD: only kill while this PID is still known to be ours.
@@ -344,15 +452,21 @@ class Supervisor:
         is drained continuously by a background thread into
         `self._stderr_buffer`, which this reads instead. See
         `_drain_stderr` and `_status_from_buffer`.
+
+        `ingest` is layered on afterward via `dataclasses.replace`, read
+        under its own lock (`_ingest_status`) the same wait-free way as
+        everything else here — it never touches the ingest thread's journal
+        connection.
         """
+        ingest = self._ingest_status()
         if self._process is None:
             if self._last_status is not None:
-                return self._last_status
-            return CaptureStatus(state="stopped")
+                return replace(self._last_status, ingest=ingest)
+            return CaptureStatus(state="stopped", ingest=ingest)
         returncode = self._process.poll()
         if returncode is None:
-            return CaptureStatus(state="running", pid=self._process.pid)
-        return self._status_from_buffer(returncode)
+            return CaptureStatus(state="running", pid=self._process.pid, ingest=ingest)
+        return replace(self._status_from_buffer(returncode), ingest=ingest)
 
     def _status_from_buffer(self, returncode: int) -> CaptureStatus:
         """Build the terminal `CaptureStatus` for an exited process.
@@ -392,3 +506,125 @@ class Supervisor:
             # thread's job to report that; `stop()`/`status()` already
             # handle the process's exit from their own side.
             pass
+
+    # --- ingest loop --------------------------------------------------
+
+    def _start_ingest_loop(self, capture_dir: Path, game_port: int) -> None:
+        """Start the ingest daemon thread for this capture session, if a
+        journal path is configured and one is not already running.
+
+        Called from inside `start()`'s `self._lock` — the same guard that
+        already serializes the stderr-drain thread's own start against a
+        concurrent `start()` call (Finding 2). Counters reset here: each
+        freshly spawned `dumpcap` session gets its own "seen this run"
+        answer, the same way `self._stderr_buffer` is cleared on every
+        `start()`.
+        """
+        journal_path = self._journal_path
+        if journal_path is None:
+            return
+        if self._ingest_thread is not None and self._ingest_thread.is_alive():
+            return
+        with self._ingest_status_lock:
+            self._ingest_files_seen = 0
+            self._ingest_files_ingested = 0
+            self._ingest_rows_written = 0
+        self._ingest_stop.clear()
+        self._ingest_thread = threading.Thread(
+            target=self._ingest_loop,
+            args=(journal_path, capture_dir, game_port),
+            daemon=True,
+            name="dw-capture-ingest",
+        )
+        self._ingest_thread.start()
+
+    def _stop_ingest_loop(self) -> None:
+        """Stop the ingest thread, best-effort — the same "signal, wait
+        briefly, move on" shape `stop()` already uses for the dumpcap child
+        itself. Safe to call when nothing is running.
+        """
+        self._ingest_stop.set()
+        if self._ingest_thread is not None:
+            self._ingest_thread.join(timeout=5)
+        self._ingest_thread = None
+
+    def _ingest_status(self) -> IngestStatus:
+        """The ingest counters, read under their own lock — never through
+        the journal connection itself, which only the ingest thread ever
+        touches (see `_ingest_loop`)."""
+        with self._ingest_status_lock:
+            return IngestStatus(
+                files_seen=self._ingest_files_seen,
+                files_ingested=self._ingest_files_ingested,
+                rows_written=self._ingest_rows_written,
+            )
+
+    def _ingest_loop(self, journal_path: Path, capture_dir: Path, game_port: int) -> None:
+        """The ingest thread's entire body.
+
+        THE ONE JOURNAL WRITER. `journal_path` is opened here, ON THIS
+        THREAD, by `self._journal_factory` (`single_writer_thread=True` by
+        default — see `_default_journal_factory`), and every call into it —
+        `journal.ingested_captures()`, `_ingest_capture`'s own
+        `journal.record()`, `journal.mark_capture_ingested()` — happens on
+        this same thread for the rest of its life. `status()` never reads
+        this connection; it reads `self._ingest_files_seen` and friends
+        under `self._ingest_status_lock` instead (`_ingest_status`), the
+        same split `_drain_stderr`/`_status_from_buffer` already use for
+        dumpcap's stderr. If a second writer is ever added to this journal,
+        it must open its own connection or take on this same lock
+        discipline — see `Journal.__init__`'s own warning about exactly
+        this failure mode.
+        """
+        journal = self._journal_factory(journal_path)
+        try:
+            while True:
+                self._ingest_once(journal, capture_dir, game_port)
+                if self._ingest_stop.wait(self._ingest_poll_seconds):
+                    return
+        finally:
+            journal.close()
+
+    def _ingest_once(self, journal: Journal, capture_dir: Path, game_port: int) -> None:
+        """One scan-and-ingest pass over `capture_dir`.
+
+        A file that fails to parse must not end the session — exactly
+        `ingest-dir`'s own reasoning (see `dw_collector.ingest`): one
+        corrupt ring file is allowed to cost that one file, never the rest
+        of a night's collection. Marked ingested with zero events either
+        way, so it is never retried — a truncated file never becomes valid,
+        and retrying it every poll would lose everything after it instead
+        of costing just this one.
+        """
+        try:
+            done = journal.ingested_captures()
+        except sqlite3.DatabaseError:
+            log.warning("dw_capture.ingest_journal_unavailable", exc_info=True)
+            return
+        pending = [
+            path
+            for path in self._ready_captures(capture_dir, self._ingest_min_age_seconds)
+            if path.name not in done
+        ]
+        for pcap in pending:
+            with self._ingest_status_lock:
+                self._ingest_files_seen += 1
+            fallback = datetime.now(tz=UTC)
+            try:
+                result = self._ingest_capture(
+                    journal,
+                    pcap,
+                    collector_id=self._collector_id,
+                    collected_from_server=self._collected_from_server,
+                    port=game_port,
+                    discover_only=False,
+                    fallback=fallback,
+                )
+            except (PcapError, OSError, ValueError):
+                journal.mark_capture_ingested(pcap.name, 0)
+                log.warning(f"dw_capture.unreadable_capture: {pcap.name}", exc_info=True)
+                continue
+            journal.mark_capture_ingested(pcap.name, result.events)
+            with self._ingest_status_lock:
+                self._ingest_files_ingested += 1
+                self._ingest_rows_written += result.events

@@ -19,6 +19,7 @@ above run everywhere, including Linux CI.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 import threading
@@ -29,6 +30,8 @@ from pathlib import Path
 import pytest
 
 from dw_collector.desktop import capture
+from dw_collector.storage.journal import Journal
+from tests.test_protocol import ENVELOPE, _pcapng, _tcp_packet, frame
 
 _WINDOWS_ONLY = pytest.mark.skipif(
     sys.platform != "win32",
@@ -346,3 +349,206 @@ def test_stop_after_a_crash_still_reports_failed(tmp_path: Path) -> None:
     final = supervisor.status()
     assert final.state == "failed"
     assert "dumpcap died" in final.stderr
+
+
+# --- ingest loop: closed capture files -> journal -----------------------
+#
+# These exercise `_start_ingest_loop` / `_stop_ingest_loop` / `status().ingest`
+# directly rather than through a real `dumpcap` child: the ingest mechanism
+# itself needs no subprocess, no Windows, and no `taskkill`, so — unlike most
+# of the `Supervisor` tests above — it runs on Linux CI too. One end-to-end
+# test below (`test_start_and_stop_drive_the_ingest_loop_end_to_end`) proves
+# the wiring through the real `start()`/`stop()` entrypoints as well, the
+# same way the Finding 1-4 tests above prove their own fixes end-to-end.
+
+_GAME_PORT = 8680
+
+
+def _write_capture(path: Path, *, age_seconds: float, valid: bool) -> None:
+    """A capture file `_ready_captures` will consider closed once
+    `age_seconds` has elapsed. `valid=True` builds one real inbound
+    `al.rank` event with the same machinery `test_protocol.py` uses to
+    prove pcapng decoding — reused here rather than inventing bytes, so a
+    "good" fixture in this file is provably decodable the same way theirs
+    is. `valid=False` writes the same garbage `test_ingest_dir.py` already
+    uses for its own "unreadable file" tests.
+    """
+    if valid:
+        packet = _tcp_packet(frame(ENVELOPE), sport=_GAME_PORT, dport=50000, seq=1)
+        path.write_bytes(_pcapng([packet]))
+    else:
+        path.write_bytes(b"not a real capture")
+    when = time.time() - age_seconds
+    os.utime(path, (when, when))
+
+
+def _ingest_supervisor(
+    journal_path: Path, *, poll_seconds: float = 0.05, min_age_seconds: float = 30.0
+) -> capture.Supervisor:
+    """A `Supervisor` configured for the ingest loop but never actually
+    spawning `dumpcap` — tests call `_start_ingest_loop`/`_stop_ingest_loop`
+    directly rather than `start()`/`stop()`."""
+    return capture.Supervisor(
+        dumpcap=sys.executable,
+        build_argv=_stub_argv,
+        journal_path=journal_path,
+        ingest_min_age_seconds=min_age_seconds,
+        ingest_poll_seconds=poll_seconds,
+    )
+
+
+def _wait_until(predicate: Callable[[], bool], *, timeout: float = 10.0) -> bool:
+    """Poll `predicate` until it is true or `timeout` elapses. Bounded, so a
+    stalled loop fails this assertion loudly instead of hanging the suite."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if predicate():
+            return True
+        time.sleep(0.05)
+    return predicate()
+
+
+def test_status_without_a_journal_path_reports_zeroed_ingest_counts() -> None:
+    # Every caller of `Supervisor` before this task never passes
+    # `journal_path` — the ingest loop must stay entirely inert for them.
+    supervisor = _stub_supervisor()
+    assert supervisor.status().ingest == capture.IngestStatus()
+
+
+def test_a_ready_file_is_ingested_and_recorded(tmp_path: Path) -> None:
+    capture_dir = tmp_path / "captures"
+    capture_dir.mkdir()
+    _write_capture(capture_dir / "cap_00001.pcapng", age_seconds=600, valid=True)
+    journal_path = tmp_path / "journal.db"
+
+    supervisor = _ingest_supervisor(journal_path)
+    supervisor._start_ingest_loop(capture_dir, _GAME_PORT)
+    try:
+        assert _wait_until(lambda: supervisor.status().ingest.files_ingested == 1)
+        status = supervisor.status()
+        assert status.ingest.files_seen == 1
+        assert status.ingest.files_ingested == 1
+        assert status.ingest.rows_written == 1
+    finally:
+        supervisor._stop_ingest_loop()
+
+    journal = Journal(journal_path)
+    try:
+        assert journal.ingested_captures() == {"cap_00001.pcapng"}
+        rows = journal.conn.execute("select count(1) from raw_observations").fetchone()
+        assert rows == (1,)
+    finally:
+        journal.close()
+
+
+def test_running_the_loop_twice_does_not_double_count(tmp_path: Path) -> None:
+    # Mirrors `test_ingest_dir.py`'s `test_a_second_run_does_not_re_read_the_ring`,
+    # but for two separate ingest-loop sessions against the same journal
+    # rather than two `ingest-dir` invocations.
+    capture_dir = tmp_path / "captures"
+    capture_dir.mkdir()
+    _write_capture(capture_dir / "cap_00001.pcapng", age_seconds=600, valid=True)
+    journal_path = tmp_path / "journal.db"
+
+    first = _ingest_supervisor(journal_path)
+    first._start_ingest_loop(capture_dir, _GAME_PORT)
+    try:
+        assert _wait_until(lambda: first.status().ingest.files_ingested == 1)
+    finally:
+        first._stop_ingest_loop()
+
+    second = _ingest_supervisor(journal_path)
+    second._start_ingest_loop(capture_dir, _GAME_PORT)
+    try:
+        # Nothing pending this time — give it several poll cycles to prove
+        # that, rather than a single instantaneous check.
+        time.sleep(0.3)
+        assert second.status().ingest.files_ingested == 0
+        assert second.status().ingest.files_seen == 0
+    finally:
+        second._stop_ingest_loop()
+
+    journal = Journal(journal_path)
+    try:
+        rows = journal.conn.execute("select count(1) from raw_observations").fetchone()
+        assert rows == (1,), "the same file must not be ingested twice across separate runs"
+    finally:
+        journal.close()
+
+
+def test_a_file_younger_than_min_age_is_skipped(tmp_path: Path) -> None:
+    capture_dir = tmp_path / "captures"
+    capture_dir.mkdir()
+    _write_capture(capture_dir / "current.pcapng", age_seconds=1, valid=True)
+    journal_path = tmp_path / "journal.db"
+
+    supervisor = _ingest_supervisor(journal_path, min_age_seconds=30.0)
+    supervisor._start_ingest_loop(capture_dir, _GAME_PORT)
+    try:
+        time.sleep(0.3)  # several poll cycles at ingest_poll_seconds=0.05
+        status = supervisor.status()
+        assert status.ingest.files_seen == 0
+        assert status.ingest.files_ingested == 0
+    finally:
+        supervisor._stop_ingest_loop()
+
+
+def test_a_corrupt_file_does_not_stop_the_loop_and_a_good_file_still_lands(
+    tmp_path: Path,
+) -> None:
+    capture_dir = tmp_path / "captures"
+    capture_dir.mkdir()
+    _write_capture(capture_dir / "a_junk.pcapng", age_seconds=600, valid=False)
+    _write_capture(capture_dir / "b_good.pcapng", age_seconds=500, valid=True)
+    journal_path = tmp_path / "journal.db"
+
+    supervisor = _ingest_supervisor(journal_path)
+    supervisor._start_ingest_loop(capture_dir, _GAME_PORT)
+    try:
+        assert _wait_until(lambda: supervisor.status().ingest.files_ingested == 1)
+        status = supervisor.status()
+        assert status.ingest.files_seen == 2
+        assert status.ingest.files_ingested == 1
+    finally:
+        supervisor._stop_ingest_loop()
+
+    journal = Journal(journal_path)
+    try:
+        # Both marked done — the junk file is never retried (see
+        # `Supervisor._ingest_once`), and the good one landed for real.
+        assert journal.ingested_captures() == {"a_junk.pcapng", "b_good.pcapng"}
+        rows = journal.conn.execute("select count(1) from raw_observations").fetchone()
+        assert rows == (1,)
+    finally:
+        journal.close()
+
+
+@_WINDOWS_ONLY
+def test_start_and_stop_drive_the_ingest_loop_end_to_end(tmp_path: Path) -> None:
+    """The tests above call `_start_ingest_loop`/`_stop_ingest_loop`
+    directly, which needs no subprocess and runs on Linux CI too. This one
+    proves the same mechanism through the real public `start()`/`stop()`
+    entrypoints — `start()` spawns dumpcap (stubbed) AND starts the ingest
+    thread together; `stop()` ends both — the same way the Finding 1-4
+    tests above prove their fixes end-to-end rather than unit-by-unit.
+    """
+    capture_dir = tmp_path / "captures"
+    capture_dir.mkdir()
+    _write_capture(capture_dir / "cap_00001.pcapng", age_seconds=600, valid=True)
+    journal_path = tmp_path / "journal.db"
+
+    supervisor = capture.Supervisor(
+        dumpcap=sys.executable,
+        build_argv=_stub_argv,
+        journal_path=journal_path,
+        ingest_poll_seconds=0.05,
+    )
+    try:
+        status = supervisor.start(r"\Device\NPF_test", capture_dir, game_port=_GAME_PORT)
+        assert status.state == "running"
+        assert _wait_until(lambda: supervisor.status().ingest.files_ingested == 1)
+    finally:
+        supervisor.stop()
+
+    assert supervisor.status().state == "stopped"
+    assert supervisor.status().ingest.files_ingested == 1
