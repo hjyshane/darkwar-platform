@@ -13,6 +13,7 @@ import { LoginPage } from './features/auth/LoginPage';
 import { CrossRankingsPanel } from './features/crossRankings/CrossRankingsPanel';
 import { GuidePostPage } from './features/guides/GuidePostPage';
 import { GuidesPanel } from './features/guides/GuidesPanel';
+import { HivePage } from './features/hive/HivePage';
 import { PrivacyPage } from './features/legal/PrivacyPage';
 import { TermsPage } from './features/legal/TermsPage';
 import { MapPage } from './features/map/MapPage';
@@ -360,6 +361,13 @@ function Screen({ route, mapServerId }: { route: Route; mapServerId: number | nu
       // is member-only at the policy level and the whole app is walled to
       // members, so there is no ungated reader to explain an empty map to.
       return <MapPage serverId={mapServerId} />;
+    case 'hive':
+      // No capability gate on the TAB, and that is the point of the screen:
+      // every member has to be able to read the tile they are being sent to.
+      // The writing half is gated inside the page on `hive.plan`, which is a
+      // capability rather than a role for 0045's reason — who may plan a hive
+      // move is exactly the kind of thing an alliance changes its mind about.
+      return <HivePage />;
     case 'season':
       // No capability gate. Both season tables are member-only at the
       // policy level (0136) and the whole app is walled to members
