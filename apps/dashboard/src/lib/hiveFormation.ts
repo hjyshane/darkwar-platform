@@ -35,6 +35,57 @@ export const BASE_RADIUS = (BASE_SPAN - 1) / 2;
 export const CENTRE_MIN = MAP_MIN + BASE_RADIUS;
 export const CENTRE_MAX = MAP_MAX - BASE_RADIUS;
 
+/** The structure that sits on the anchor, and its footprint in tiles.
+ *
+ * NOT A BASE, AND NOT 3x3. Frankie stands in the middle of the hive and is
+ * FOUR tiles east-west by three north-south, so the ground it needs is not
+ * the ground a member needs and the difference is a whole column. A formation
+ * drawn as if the centre were 3x3 leaves one column of Frankie's footprint
+ * with somebody's base already on it, and that is found out in game.
+ *
+ * WHERE THE ANCHOR SITS INSIDE IT is the part that cannot be derived. Four is
+ * even, so there is no middle column — the anchor is whichever tile the game
+ * prints as Frankie's coordinate, and that is a fact about the game rather
+ * than about geometry. Until it has been read off a screen this assumes the
+ * WEST of the two middle columns, which puts the footprint one tile west and
+ * two tiles east of the anchor.
+ *
+ * If the game says otherwise it is this one line: shift the x range. The grid
+ * draws the twelve reserved tiles precisely so the mismatch is visible before
+ * anybody teleports rather than after.
+ */
+export const CENTRE_SPAN = { x: 4, y: 3 } as const;
+
+/** The offsets Frankie covers, relative to the anchor. Inclusive. */
+export const CENTRE_BOX = { x0: -1, x1: 2, y0: -1, y1: 1 } as const;
+
+/** Frankie's twelve tiles on the map, for drawing. */
+export function centreFootprint(anchor: Coordinate): FootprintBox {
+  return {
+    x0: anchor.x + CENTRE_BOX.x0,
+    x1: anchor.x + CENTRE_BOX.x1,
+    y0: anchor.y + CENTRE_BOX.y0,
+    y1: anchor.y + CENTRE_BOX.y1,
+  };
+}
+
+/** Whether a base at this offset would stand on Frankie.
+ *
+ * PURE IN THE OFFSETS, which is what makes it checkable while a formation is
+ * being drawn: the anchor is the origin of both, so it cancels. A base at `dx`
+ * covers dx-1..dx+1, and that meets Frankie's span when the two ranges
+ * intersect on BOTH axes — the same test as base against base, with a
+ * different box on one side.
+ */
+export function overlapsCentre(offset: Offset): boolean {
+  return (
+    offset.dx + BASE_RADIUS >= CENTRE_BOX.x0 &&
+    offset.dx - BASE_RADIUS <= CENTRE_BOX.x1 &&
+    offset.dy + BASE_RADIUS >= CENTRE_BOX.y0 &&
+    offset.dy - BASE_RADIUS <= CENTRE_BOX.y1
+  );
+}
+
 /** An offset from a formation's anchor, in tiles. What is stored. */
 export interface Offset {
   dx: number;
@@ -205,6 +256,37 @@ export function readingOrder(a: Offset, b: Offset): number {
   return b.dy - a.dy || a.dx - b.dx;
 }
 
+/** How many rings out from Frankie a base sits. Zero would be on top of it.
+ *
+ * Measured from the FOOTPRINT, not from the anchor. Frankie is four wide and
+ * three tall, so the anchor is not its middle and a distance measured from
+ * the anchor would call the base two tiles west of it closer than the base
+ * two tiles east — which is a fact about where the coordinate is printed
+ * rather than about the hive.
+ *
+ * Divided by the pitch so a ring is a ring of BASES rather than of tiles: the
+ * bases packed against Frankie are ring 1, the ones behind them ring 2. That
+ * is the thing an officer means by "inner layer".
+ */
+export function ringOf(offset: Offset): number {
+  const gapX = Math.max(CENTRE_BOX.x0 - offset.dx, offset.dx - CENTRE_BOX.x1, 0);
+  const gapY = Math.max(CENTRE_BOX.y0 - offset.dy, offset.dy - CENTRE_BOX.y1, 0);
+  return Math.max(Math.ceil(gapX / BASE_SPAN), Math.ceil(gapY / BASE_SPAN));
+}
+
+/** Fill order: innermost ring first, reading order inside a ring.
+ *
+ * THE INNER RING IS THE ONE THAT MATTERS, so it is the one that gets filled
+ * first — the members handed a tile before the formation runs out of people
+ * are the ones standing against Frankie. Reading order breaks the tie inside
+ * a ring rather than an angle, because the printed list has to be checkable
+ * against the picture with one finger, and "north row first, west to east" is
+ * how somebody reads a screen.
+ */
+export function ringOrder(a: Offset, b: Offset): number {
+  return ringOf(a) - ringOf(b) || readingOrder(a, b);
+}
+
 export interface AssignableSlot {
   slotId: string;
   ordinal: number;
@@ -276,10 +358,10 @@ export function sortMembers(
   });
 }
 
-/** Slots in the order they get filled: the planner's numbering, then reading
- * order for everything they left at zero. */
+/** Slots in the order they get filled: the planner's numbering, then ring
+ * order for everything they left at zero — innermost first. */
 export function sortSlots<T extends AssignableSlot>(slots: readonly T[]): T[] {
-  return [...slots].sort((a, b) => a.ordinal - b.ordinal || readingOrder(a, b));
+  return [...slots].sort((a, b) => a.ordinal - b.ordinal || ringOrder(a, b));
 }
 
 export interface AutoAssignResult {

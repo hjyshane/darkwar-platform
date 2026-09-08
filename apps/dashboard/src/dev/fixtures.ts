@@ -426,16 +426,18 @@ const HIVE_MEMBERS = [
   { playerId: PLAYER.dex, name: 'Dex', power: null, hqLevel: null, memberRank: 1 },
 ];
 
+// A ring around Frankie rather than a block: the centre four-by-three is its
+// ground and nothing may stand on it, so the old fixture's middle tile is
+// gone and the east column has moved out to clear the wider footprint.
 const HIVE_SLOTS = [
   { dx: -3, dy: 3 },
   { dx: 0, dy: 3 },
-  { dx: 3, dy: 3 },
+  { dx: 4, dy: 3 },
   { dx: -3, dy: 0 },
-  { dx: 0, dy: 0 },
-  { dx: 3, dy: 0 },
+  { dx: 4, dy: 0 },
   { dx: -3, dy: -3 },
   { dx: 0, dy: -3 },
-  { dx: 3, dy: -3 },
+  { dx: 4, dy: -3 },
 ].map((offset, index) => ({
   slotId: `slot-${index + 1}`,
   ordinal: index + 1,

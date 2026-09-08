@@ -1,12 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { formatCoordinate } from '../../lib/mapProjection';
+import { type Coordinate, formatCoordinate } from '../../lib/mapProjection';
 import { isAllowed, usePermissions } from '../../lib/permissions';
 import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
 import { useSession } from '../../lib/useSession';
 import { FormationEditor } from './FormationEditor';
-import { type GridBase, TileGrid, windowAround } from './TileGrid';
+import { type GridBase, TileGrid, ZOOM_STEPS, windowAround, zoomStep } from './TileGrid';
 import {
   type BoardSlot,
   type Formation,
@@ -231,7 +231,12 @@ function Overview({
   const [copied, setCopied] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const anchor = { x: formation.anchorX, y: formation.anchorY };
-  const view = windowAround(anchor, 14);
+  // The read-only grid zooms too. A member checking their own tile against
+  // the shape wants to get close to it, and the officer's editor is not on
+  // their screen at all.
+  const [zoom, setZoom] = useState<number>(14);
+  const [centre, setCentre] = useState<Coordinate | null>(null);
+  const view = windowAround(centre ?? anchor, zoom);
   const bases: GridBase[] = board.map((slot) => ({
     key: slot.slotId,
     at: { x: slot.x, y: slot.y },
@@ -278,7 +283,33 @@ function Overview({
         </p>
       )}
 
-      <TileGrid anchor={anchor} bases={bases} window={view} />
+      <TileGrid
+        anchor={anchor}
+        bases={bases}
+        onZoom={(direction, at) => {
+          setZoom(zoomStep(zoom, direction));
+          setCentre(at);
+        }}
+        window={view}
+      />
+      <fieldset className="hive-zoom">
+        <legend>Zoom</legend>
+        {ZOOM_STEPS.map((step) => (
+          <button
+            aria-pressed={step === zoom}
+            key={step}
+            onClick={() => setZoom(step)}
+            type="button"
+          >
+            {step * 2 + 1} tiles
+          </button>
+        ))}
+        {centre !== null && (
+          <button onClick={() => setCentre(null)} type="button">
+            Back to the anchor
+          </button>
+        )}
+      </fieldset>
 
       <div className="hive-actions">
         <button

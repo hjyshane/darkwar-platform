@@ -5,15 +5,20 @@ import {
   BASE_SPAN,
   CENTRE_MAX,
   CENTRE_MIN,
+  CENTRE_SPAN,
   autoAssign,
   basesOverlap,
   blockOffsets,
   canPlace,
   centreFitsOnMap,
+  centreFootprint,
   coversTile,
   firstOverlap,
   footprintOf,
+  overlapsCentre,
+  ringOf,
   ringOffsets,
+  ringOrder,
   sortMembers,
 } from './hiveFormation';
 
@@ -206,4 +211,78 @@ test('the same member pinned twice is placed once, not saved twice', () => {
 
   expect(placed.filter((id) => id === 'p-strong')).toHaveLength(1);
   expect(new Set(placed).size).toBe(placed.length);
+});
+
+test('Frankie is four tiles east-west and three north-south', () => {
+  // Not 3x3. The centre of the hive is a different structure to a member's
+  // base, and the difference is a whole column.
+  expect(CENTRE_SPAN).toEqual({ x: 4, y: 3 });
+
+  const box = centreFootprint({ x: 500, y: 500 });
+
+  expect(box.x1 - box.x0 + 1).toBe(4);
+  expect(box.y1 - box.y0 + 1).toBe(3);
+});
+
+test('a base on the anchor stands on Frankie', () => {
+  expect(overlapsCentre({ dx: 0, dy: 0 })).toBe(true);
+});
+
+test('the reserved ground is wider to the east than a 3x3 centre would be', () => {
+  // The asymmetry IS the point: four is even, so the anchor is not in the
+  // middle of it, and a formation drawn for a 3x3 centre leaves one of these
+  // columns occupied.
+  expect(overlapsCentre({ dx: 3, dy: 0 })).toBe(true);
+  expect(overlapsCentre({ dx: -3, dy: 0 })).toBe(false);
+  expect(overlapsCentre({ dx: 4, dy: 0 })).toBe(false);
+});
+
+test('clear of Frankie on either axis is clear', () => {
+  expect(overlapsCentre({ dx: 0, dy: 3 })).toBe(false);
+  expect(overlapsCentre({ dx: 0, dy: -3 })).toBe(false);
+  expect(overlapsCentre({ dx: 0, dy: 2 })).toBe(true);
+});
+
+test('a packed block still has bases that would stand on Frankie', () => {
+  // Which is why the editor filters the generated shape rather than trusting
+  // it: a 5x5 block centred on the anchor puts its middle base right on top.
+  const clashing = blockOffsets(5, 5).filter(overlapsCentre);
+
+  expect(clashing.length).toBeGreaterThan(0);
+  expect(clashing).toContainEqual({ dx: 0, dy: 0 });
+});
+
+test('a ring is a ring of bases, counted out from Frankie', () => {
+  // Packed against the footprint is ring 1; the row behind it is ring 2.
+  expect(ringOf({ dx: 4, dy: 0 })).toBe(1);
+  expect(ringOf({ dx: 7, dy: 0 })).toBe(2);
+  expect(ringOf({ dx: 0, dy: 3 })).toBe(1);
+  expect(ringOf({ dx: 0, dy: 6 })).toBe(2);
+});
+
+test('the ring is measured from the footprint, not from the anchor', () => {
+  // Frankie is four wide and the anchor is not its middle, so east and west
+  // are NOT symmetric about the anchor — and the ring must follow the
+  // structure rather than the printed coordinate.
+  expect(ringOf({ dx: 4, dy: 0 })).toBe(ringOf({ dx: -3, dy: 0 }));
+});
+
+test('filling runs innermost ring first', () => {
+  const outer = { dx: 0, dy: 6 };
+  const inner = { dx: 0, dy: 3 };
+
+  expect(ringOrder(inner, outer)).toBeLessThan(0);
+});
+
+test('auto-assignment gives the inner ring to the strongest', () => {
+  // The whole reason the order matters: whoever is handed a tile first is
+  // standing against Frankie.
+  const slots: AssignableSlot[] = [
+    { slotId: 'outer', ordinal: 0, dx: 0, dy: 6 },
+    { slotId: 'inner', ordinal: 0, dx: 0, dy: 3 },
+  ];
+  const result = autoAssign(slots, MEMBERS, { order: 'power' });
+
+  expect(result.assignments.get('inner')).toBe('p-strong');
+  expect(result.assignments.get('outer')).toBe('p-mid');
 });

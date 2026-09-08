@@ -3727,15 +3727,33 @@ form select {
   margin: 0;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
-  background-color: var(--bg-raised);
-  background-image: linear-gradient(var(--border) 1px, transparent 1px),
+  /* Held in a custom property because the hover rule below has to repeat it,
+   * and two copies of a gradient are two chances to change one of them. */
+  --grid-lines: linear-gradient(var(--border) 1px, transparent 1px),
     linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-color: var(--bg-raised);
+  background-image: var(--grid-lines);
   background-size: calc(100% / var(--tiles)) calc(100% / var(--tiles));
   /* The grid lines start at the top-left corner, which is where tile
    * (xMin, yMax) starts — the same corner `tileCorner` measures from. */
   background-position: 0 0;
   overflow: hidden;
   cursor: crosshair;
+}
+
+/* THE GRID IS A BUTTON, AND `button:hover` USES THE `background` SHORTHAND.
+ *
+ * A shorthand resets every longhand it covers, so `background: var(--bg-hover)`
+ * set `background-image: none` — and every line vanished the moment the
+ * pointer entered the map. The squares are the whole point of this control;
+ * losing them on hover means losing them exactly while somebody is using it.
+ *
+ * Restated rather than fought with `!important`, and specific enough to win:
+ * `button:hover:not(:disabled)` is (0,2,1) and plain `.tile-grid` is (0,1,0).
+ */
+button.tile-grid:hover:not(:disabled) {
+  background-color: var(--bg-raised);
+  background-image: var(--grid-lines);
 }
 
 .tile-grid--busy {
@@ -3759,6 +3777,21 @@ form select {
 .tile-grid__seen--ours {
   background: var(--info-bg);
   border-color: var(--info-fg);
+}
+
+/* The ground Frankie needs: four tiles east-west by three north-south.
+ *
+ * Outlined rather than filled, and drawn UNDER the bases, because it is a
+ * reservation rather than an object anybody placed. Four is even, so the
+ * anchor is not in the middle of it — the rectangle being visible is how a
+ * wrong assumption about which column the game prints gets caught before
+ * eighty people teleport around it. */
+.tile-grid__centre {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px solid var(--warn-fg);
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--warn-bg) 55%, transparent);
 }
 
 .tile-grid__anchor {
@@ -3800,6 +3833,42 @@ form select {
   background: color-mix(in srgb, var(--danger-fg) 35%, transparent);
   border-color: var(--danger-fg);
   border-style: dashed;
+}
+
+/* Pick-up-able. `grab` rather than `crosshair`, so the two things a press can
+ * do — place a tile, move a base — say which is which before the press. */
+.tile-grid__base--draggable {
+  cursor: grab;
+}
+
+/* The base being carried. Faded rather than hidden: it is still where it is
+ * until the drop lands, and hiding it would read as already moved. */
+.tile-grid__base--carried {
+  opacity: 0.35;
+}
+
+/* Where it would land. Dashed and empty so it reads as a proposal rather than
+ * as a base that is already there. */
+.tile-grid__ghost {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px dashed var(--accent);
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  pointer-events: none;
+}
+
+/* Refused, and said BEFORE the drop rather than by the drop doing nothing.
+ * Never colour alone (NFR-011): the shape is a barred box and the editor
+ * prints the reason in words under the grid. */
+.tile-grid__ghost--blocked {
+  border-color: var(--danger-fg);
+  border-style: solid;
+  background: repeating-linear-gradient(
+    45deg,
+    color-mix(in srgb, var(--danger-fg) 22%, transparent) 0 6px,
+    transparent 6px 12px
+  );
 }
 
 .tile-grid__caption {

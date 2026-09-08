@@ -4,6 +4,7 @@ import {
   type AssignOrder,
   type AssignableMember,
   BASE_SPAN,
+  CENTRE_SPAN,
   type Offset,
   absoluteOf,
   assignOrderLabel,
@@ -13,42 +14,56 @@ import {
   centreFitsOnMap,
   coversTile,
   offsetKey,
-  readingOrder,
+  overlapsCentre,
   ringOffsets,
+  ringOrder,
   sortSlots,
 } from '../../lib/hiveFormation';
 import { type Coordinate, formatCoordinate } from '../../lib/mapProjection';
-import { type GridBase, type GridSighting, TileGrid, windowAround } from './TileGrid';
+import {
+  type GridBase,
+  type GridSighting,
+  TileGrid,
+  ZOOM_STEPS,
+  windowAround,
+  zoomStep,
+} from './TileGrid';
 import {
   type BoardSlot,
   type Formation,
+  fetchBoard,
   saveAssignments,
   saveLayout,
   updateFormation,
   useOccupiedTiles,
 } from './hiveFormations';
 
-/** A tile in the draft, before it has ever been saved and has an id. */
+/** A tile in the draft, before it has ever been saved and has an id.
+ *
+ * IT CARRIES ITS MEMBER, which a saved slot does by having an id an
+ * assignment points at. A draft tile has no id — it is identified by where it
+ * is — so moving one would otherwise leave the member behind on ground that
+ * no longer exists. Dragging a base means "move this person", and the name
+ * has to travel with the square both on screen and through the save. */
 interface DraftSlot extends Offset {
   ordinal: number;
   label: string;
+  playerId: string | null;
 }
 
 const ORDERS: readonly AssignOrder[] = ['power', 'hq', 'rank', 'name'];
-
-/** How far either side of the centre the window reaches, in tiles.
- *
- * The middle value shows a nine-wide hive with room around it, which is what
- * this is used at; the wide one is for finding somewhere to put it, and the
- * close one for the last tile of an awkward corner.
- */
-const ZOOMS = [8, 14, 22, 34] as const;
 
 function draftFromBoard(slots: readonly BoardSlot[]): Map<string, DraftSlot> {
   return new Map(
     slots.map((slot) => [
       offsetKey(slot),
-      { dx: slot.dx, dy: slot.dy, ordinal: slot.ordinal, label: slot.label },
+      {
+        dx: slot.dx,
+        dy: slot.dy,
+        ordinal: slot.ordinal,
+        label: slot.label,
+        playerId: slot.playerId,
+      },
     ]),
   );
 }
@@ -132,19 +147,54 @@ export function FormationEditor({
     yMax: view.yMax,
   });
 
+  /** Save the shape, then put everybody back on it.
+   *
+   * TWO CALLS, AND THE SECOND IS THE POINT. `save_hive_formation_layout`
+   * deletes the tiles that moved and inserts new ones — it has to, because a
+   * shape shifted by one tile overlaps its own previous version — so the rows
+   * an assignment pointed at are gone, and their slot ids with them. Without
+   * this, dragging a base silently unassigned its member, and so did nudging
+   * a whole block.
+   *
+   * The draft carries each member with their square, so once the layout lands
+   * the board is read back and everybody is put on the tile they were drawn
+   * on. `assign_hive_formation_slots` replaces the whole map in one
+   * transaction, which is what makes re-applying safe rather than eighty
+   * updates that can half-fail.
+   *
+   * A member whose tile was deleted outright has nowhere to go back to, and
+   * is reported rather than quietly dropped.
+   */
   const layoutSave = useMutation({
-    mutationFn: () =>
-      saveLayout(
+    mutationFn: async () => {
+      const wanted = [...draft.values()]
+        .sort(ringOrder)
+        .map((slot, index) => ({ ...slot, ordinal: index + 1 }));
+      const summary = await saveLayout(formation.formationId, wanted);
+      const carried = new Map(
+        wanted.flatMap((slot) =>
+          slot.playerId === null ? [] : [[offsetKey(slot), slot.playerId] as const],
+        ),
+      );
+      const saved = await fetchBoard(formation.formationId);
+      await saveAssignments(
         formation.formationId,
-        [...draft.values()]
-          .sort(readingOrder)
-          .map((slot, index) => ({ ...slot, ordinal: index + 1 })),
-      ),
-    onSuccess: (summary) => {
+        saved.map((slot) => ({
+          slot_id: slot.slotId,
+          player_id: carried.get(offsetKey(slot)) ?? null,
+        })),
+      );
+      return { summary, restored: carried.size };
+    },
+    onSuccess: ({ summary, restored }) => {
+      // `unassigned` counts what the layout call dropped; `restored` counts
+      // what was put back. Only the difference is a member who actually lost
+      // their place, and only that is worth saying out loud.
+      const lost = Math.max(summary.unassigned - restored, 0);
       setRefusal(
-        summary.unassigned === 0
+        lost === 0
           ? null
-          : `Saved. ${summary.unassigned} member${summary.unassigned === 1 ? '' : 's'} lost a tile, because the tile they were on is gone.`,
+          : `Saved. ${lost} member${lost === 1 ? '' : 's'} lost a tile, because the tile they were on is gone.`,
       );
       void queryClient.invalidateQueries({ queryKey: ['hive'] });
     },
@@ -198,6 +248,12 @@ export function FormationEditor({
       );
       return;
     }
+    if (overlapsCentre(candidate)) {
+      setRefusal(
+        `Frankie stands there. The centre is ${CENTRE_SPAN.x}x${CENTRE_SPAN.y} tiles, not ${BASE_SPAN}x${BASE_SPAN} — the shaded rectangle is the ground it needs.`,
+      );
+      return;
+    }
     if (!canPlace(drawn, candidate)) {
       const clash = drawn.find(
         (slot) =>
@@ -216,7 +272,51 @@ export function FormationEditor({
     // The ordinal here is a placeholder: `layoutSave` renumbers the whole
     // formation by reading order, and `numbering` above shows that rather
     // than this. Using `draft.size + 1` would repeat after a removal.
-    next.set(offsetKey(candidate), { ...candidate, ordinal: draft.size + 1, label: '' });
+    next.set(offsetKey(candidate), {
+      ...candidate,
+      ordinal: draft.size + 1,
+      label: '',
+      playerId: null,
+    });
+    setDraft(next);
+    setRefusal(null);
+  }
+
+  /** Whether the base standing on `from` could stand on `to` instead.
+   *
+   * The moved base is taken OUT of the comparison, or it would always clash
+   * with itself: a one-tile nudge leaves the old and new footprints
+   * overlapping, and every drag would be refused. */
+  function canMove(from: Coordinate, to: Coordinate): boolean {
+    const moving: Offset = { dx: from.x - anchor.x, dy: from.y - anchor.y };
+    const landing: Offset = { dx: to.x - anchor.x, dy: to.y - anchor.y };
+    if (!centreFitsOnMap(to) || overlapsCentre(landing)) {
+      return false;
+    }
+    const others = drawn.filter((slot) => offsetKey(slot) !== offsetKey(moving));
+    return canPlace(others, landing);
+  }
+
+  /** Put a dragged base down. The grid has already refused an invalid drop,
+   * and this refuses it again — the two are cheap and the grid's answer is a
+   * frame old by the time the pointer comes up. */
+  function move(from: Coordinate, to: Coordinate) {
+    const moving: Offset = { dx: from.x - anchor.x, dy: from.y - anchor.y };
+    const landing: Offset = { dx: to.x - anchor.x, dy: to.y - anchor.y };
+    const held = draft.get(offsetKey(moving));
+    if (held === undefined || !canMove(from, to)) {
+      return;
+    }
+    const next = new Map(draft);
+    next.delete(offsetKey(moving));
+    // The label rides along; the ordinal does not, because the save renumbers
+    // by ring and a moved base may well have changed ring.
+    next.set(offsetKey(landing), {
+      ...landing,
+      ordinal: held.ordinal,
+      label: held.label,
+      playerId: held.playerId,
+    });
     setDraft(next);
     setRefusal(null);
   }
@@ -228,22 +328,29 @@ export function FormationEditor({
    * comparing the result against what they meant to draw. */
   function generate(shape: 'block' | 'ring', columns: number, rows: number) {
     const offsets = shape === 'block' ? blockOffsets(columns, rows) : ringOffsets(columns, rows);
-    const usable = offsets.filter((offset) => centreFitsOnMap(absoluteOf(anchor, offset)));
+    // TWO REASONS A GENERATED TILE IS DROPPED, and they are worth telling
+    // apart: one is the edge of the world and the other is Frankie. A block
+    // centred on the anchor always puts a base on top of it, so the second
+    // number is never zero and reads as normal rather than as a fault.
+    const onMap = offsets.filter((offset) => centreFitsOnMap(absoluteOf(anchor, offset)));
+    const usable = onMap.filter((offset) => !overlapsCentre(offset));
     setDraft(
       new Map(
         [...usable]
-          .sort(readingOrder)
+          .sort(ringOrder)
           .map((offset, index) => [
             offsetKey(offset),
-            { ...offset, ordinal: index + 1, label: '' },
+            { ...offset, ordinal: index + 1, label: '', playerId: null },
           ]),
       ),
     );
-    setRefusal(
-      usable.length === offsets.length
-        ? null
-        : `${offsets.length - usable.length} tiles were dropped: they fell off the edge of the map from this anchor.`,
-    );
+    const offMap = offsets.length - onMap.length;
+    const onFrankie = onMap.length - usable.length;
+    const notes = [
+      offMap > 0 ? `${offMap} fell off the edge of the map` : '',
+      onFrankie > 0 ? `${onFrankie} would have stood on Frankie` : '',
+    ].filter(Boolean);
+    setRefusal(notes.length === 0 ? null : `${usable.length} tiles drawn — ${notes.join(', ')}.`);
   }
 
   const byId = new Map(members.map((member) => [member.playerId, member]));
@@ -251,23 +358,33 @@ export function FormationEditor({
   const unplaced = members.filter((member) => !placedIds.has(member.playerId));
   const ordered = sortSlots(slots);
 
-  // NUMBERED BY READING ORDER, WHICH IS WHAT THE SAVE WRITES. The draft holds
-  // whatever ordinal a tile was given when it was placed, and after a few
-  // removals those repeat — two tiles both captioned "10" is how this was
-  // found. The saved numbering is the reading order (north row first, west to
-  // east), so showing anything else here would be a number that changes the
-  // moment it is saved.
+  // NUMBERED BY RING, INNERMOST FIRST, which is what the save writes and what
+  // auto-assignment then follows. The draft holds whatever ordinal a tile was
+  // given when it was placed, and after a few removals those repeat — two
+  // tiles both captioned "10" is how that was found — so the caption has to
+  // come from the order the save will impose rather than from the draft.
+  //
+  // Ring order rather than reading order because the inner layer is the one
+  // that matters: the members handed a tile before the formation runs out of
+  // people are the ones standing against Frankie.
   //
   // The column itself can still hold a planner's own numbering; nothing in
   // this editor offers a way to type one yet, so nothing pretends to.
   const numbering = new Map(
-    [...drawn].sort(readingOrder).map((slot, index) => [offsetKey(slot), index + 1] as const),
+    [...drawn].sort(ringOrder).map((slot, index) => [offsetKey(slot), index + 1] as const),
   );
 
   const bases: GridBase[] = drawn.map((slot) => {
     const at = absoluteOf(anchor, slot);
     const savedSlot = slots.find((row) => row.dx === slot.dx && row.dy === slot.dy);
-    const assigned = savedSlot === undefined ? undefined : assignments.get(savedSlot.slotId);
+    // FROM THE DRAFT FIRST. A tile that has been dragged has no saved slot to
+    // look up any more, and falling back to the number made the member's name
+    // vanish the instant the base was picked up — which reads as "I have just
+    // deleted this person" rather than "I have moved them".
+    const assigned =
+      slot.playerId ??
+      (savedSlot === undefined ? undefined : assignments.get(savedSlot.slotId)) ??
+      undefined;
     return {
       key: offsetKey(slot),
       at,
@@ -296,7 +413,17 @@ export function FormationEditor({
             anchor={anchor}
             bases={bases}
             busy={layoutSave.isPending}
+            canMoveTo={canMove}
+            onMove={move}
             onPick={pick}
+            onZoom={(direction, at) => {
+              // RE-CENTRE ON THE TILE UNDER THE POINTER. Zooming about the
+              // window's own centre slides whatever you were looking at away
+              // from the cursor, which at four steps means hunting for it
+              // again on every notch.
+              setZoom(zoomStep(zoom, direction));
+              setCentre(at);
+            }}
             sightings={sightings}
             window={view}
           />
@@ -308,7 +435,7 @@ export function FormationEditor({
           </p>
           <fieldset className="hive-zoom">
             <legend>Zoom</legend>
-            {ZOOMS.map((step) => (
+            {ZOOM_STEPS.map((step) => (
               <button
                 aria-pressed={step === zoom}
                 key={step}
@@ -454,8 +581,10 @@ export function FormationEditor({
             </button>
           </div>
           <p className="subtle">
-            A pinned tile keeps its member when you fill the rest — place the few whose position
-            matters, pin them, and let everybody else fall in around them.
+            Filling runs from the inside out: the innermost ring against Frankie is handed out
+            first, so whoever sorts highest above stands closest. A pinned tile keeps its member
+            when you fill the rest — place the few whose position matters, pin them, and let
+            everybody else fall in around them.
             {unplaced.length > 0 && (
               <>
                 {' '}
