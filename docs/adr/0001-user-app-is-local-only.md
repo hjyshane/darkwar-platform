@@ -236,6 +236,32 @@ if it is going to.
 6. **Packaging and first run.** Npcap detection, wizard, installer,
    distribution.
 
+**Amendment, 2026-09-07 — phase 6 shipped an installer, not signing or
+auto-update, and that split was deliberate:**
+
+What actually got built: an app icon and bundle metadata (publisher,
+homepage, short description), a CSP locked down to `'self'` plus the local
+sidecar's `ipc://`/`http://ipc.localhost` origins, a version number carried
+in the three places Tauri, Cargo, and the frontend package each need it, a
+first run that lands on settings rather than an empty map, and a working
+per-user NSIS installer — proven by actually installing it, confirming the
+reader connects and the screens render, uninstalling, and confirming the
+journal at `%APPDATA%\us.cbfw.darkwar.desktop\collector.db` survives that
+uninstall. `docs/runbooks/releasing-the-desktop-app.md` is the full
+procedure, including what a player should be told about SmartScreen and
+antivirus before they download.
+
+**Signing and auto-update were cut from this phase, on purpose, not
+forgotten.** A certificate is $200–400/year and identity-verified — that
+verification is what a wide-audience distributor needs, and it buys nothing
+extra for a tool being handed, with explanation, to a known group of eight
+servers' worth of players. Auto-update needs the signing story to exist
+first (Tauri's updater plugin wants a signed artifact) and a place to host
+the update manifest, neither of which is worth standing up until signing
+itself is worth doing. Both are revisited in the runbook's closing section
+rather than re-derived from scratch if the group this app serves outgrows
+the assumption above.
+
 ## Not in scope
 
 Per-user Supabase auth, opt-in sweep sharing back to `cbfw.us`, and any
