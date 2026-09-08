@@ -96,16 +96,26 @@ select pg_temp.act_as('00000000-0000-4000-8000-0000000ad074');
 
 -- And the positive half, because a gate that refuses everybody passes every
 -- negative test ever written (0055).
+-- THREE, and the third is the leaver's. 0151 added them to this fixture --
+-- deliberately, to pin down that a departure does not re-attribute history --
+-- and left this count at two, so the file failed here and then DIED on the
+-- next assertion, whose scalar subquery suddenly matched two days. Counting
+-- the rows is also the only thing asserting the leaver is still in the board
+-- at all, which is the property 0151 exists to protect.
 select is(
   (select count(*) from public.alliance_daily_contribution
     where alliance_id = '00000000-0000-4000-8000-0000000ab074'),
-  2::bigint,
-  'a member reads one row per game day per kind — two kinds, one day each');
+  3::bigint,
+  'one row per game day per kind: two kinds for the members, plus the leaver''s own day');
 
 -- 23:00 on the 5th and 01:00 on the 6th are the SAME game day, so both members
 -- land in one row and it totals 150.
+-- `min`, not a bare scalar select: there are two donation days now (the
+-- leaver donated on the 10th) and a scalar subquery over both is an error,
+-- not a failure -- it aborts the transaction and takes the remaining eight
+-- assertions with it. The earliest day is still the one this proves.
 select is(
-  (select game_day from public.alliance_daily_contribution
+  (select min(game_day) from public.alliance_daily_contribution
     where alliance_id = '00000000-0000-4000-8000-0000000ab074'
       and kind = 'daily_donation'),
   '2026-08-05T02:00:00Z'::timestamptz,
@@ -113,13 +123,15 @@ select is(
 select is(
   (select total from public.alliance_daily_contribution
     where alliance_id = '00000000-0000-4000-8000-0000000ab074'
-      and kind = 'daily_donation'),
+      and kind = 'daily_donation'
+      and game_day = '2026-08-05T02:00:00Z'),
   150::numeric,
   'and both members'' donations land in that one day rather than in two');
 select is(
   (select members_counted from public.alliance_daily_contribution
     where alliance_id = '00000000-0000-4000-8000-0000000ab074'
-      and kind = 'daily_donation'),
+      and kind = 'daily_donation'
+      and game_day = '2026-08-05T02:00:00Z'),
   2::bigint,
   'counted as two members, which is what makes the average mean anything');
 

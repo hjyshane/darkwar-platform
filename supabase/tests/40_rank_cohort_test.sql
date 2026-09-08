@@ -67,6 +67,28 @@ select pg_temp.roster(9200000000000003, '00000000-0000-4000-8000-0000000cb103', 
 select pg_temp.roster(9200000000000004, '00000000-0000-4000-8000-0000000cb104', 2,
   '2026-08-04T02:00:00Z');
 
+-- AND THE ROSTER AS IT STANDS NOW, which is a different question to when each
+-- of them joined.
+--
+-- Since 0161 the member list comes from `alliance_roster_latest`: the batch
+-- sharing the newest captured_at for the alliance, and only that batch. The
+-- four calls above are a JOIN HISTORY -- three seen in June, one first seen in
+-- August -- and read as a roster they say the alliance has exactly one member,
+-- because 2026-08-04 is the newest instant and Newcomer is the only row in it.
+-- The build scored one person and five assertions read NULL.
+--
+-- So the history stays (the cohort rule is computed from it) and a current
+-- capture holding all four is added on top. That is also what the collector
+-- actually produces: every sweep writes the whole roster, not the difference.
+select pg_temp.roster(9200000000000001, '00000000-0000-4000-8000-0000000cb101', 2,
+  '2026-08-20T02:00:00Z');
+select pg_temp.roster(9200000000000002, '00000000-0000-4000-8000-0000000cb102', 2,
+  '2026-08-20T02:00:00Z');
+select pg_temp.roster(9200000000000003, '00000000-0000-4000-8000-0000000cb103', 4,
+  '2026-08-20T02:00:00Z');
+select pg_temp.roster(9200000000000004, '00000000-0000-4000-8000-0000000cb104', 2,
+  '2026-08-20T02:00:00Z');
+
 create function pg_temp.contribute(uid bigint, amount bigint, at timestamptz)
 returns void language sql as $$
   insert into public.alliance_contribution_snapshots (
@@ -133,8 +155,14 @@ select isnt((pg_temp.row_of('Officer')).donation_total, null,
 -- a fact about the join date and nothing else.
 select is((pg_temp.row_of('Newcomer')).tier, null,
   'somebody we watched join this fortnight gets no tier');
+-- 0164 reworded this. It used to say "joined within the last two weeks",
+-- which was the rule as 0072 wrote it -- and that rule excluded anyone first
+-- seen in the PREVIOUS fortnight as well as this one, leaving four current
+-- members unscorable a fortnight at a time. The wording followed the fix.
+-- Only this test pinned the string; `whyLabel` in the dashboard matches on the
+-- 'not measured' prefix, so the screen was never wrong about it.
 select is((pg_temp.row_of('Newcomer')).tier_reason,
-  'not measured: joined within the last two weeks', 'and the row says why');
+  'not measured: joined during this period', 'and the row says why');
 select is((pg_temp.row_of('Newcomer')).activity_score, null,
   'and no activity score either — that is the difference from an officer');
 

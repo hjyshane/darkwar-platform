@@ -151,10 +151,14 @@ select is(
   1,
   'rank_climb measures the server board only');
 
+-- Two, because the cross-server fixture has THREE readings (7th, 6th, 5th)
+-- where the server one has two. That is what makes this assertion worth
+-- writing: while both figures read 1 the test could not tell "its own figure"
+-- from "the same figure copied", and it passed either way.
 select is(
   (select cross_rank_climb from public.alliance_growth
     where alliance_id = '00000000-0000-4000-8000-0000000a1081'),
-  1,
+  2,
   'and the cross-server board gets its own figure');
 
 -- Before 0081 this was `rank_first(1) - rank_last(6) = -5`: an alliance that had

@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.5"
-  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -2137,6 +2132,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "hive_formation_slots_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "pending_access"
+            referencedColumns: ["user_id"]
+          },
+          {
             foreignKeyName: "hive_formation_slots_formation_id_fkey"
             columns: ["formation_id"]
             isOneToOne: false
@@ -2191,10 +2193,24 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "hive_formations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "pending_access"
+            referencedColumns: ["user_id"]
+          },
+          {
             foreignKeyName: "hive_formations_server_id_fkey"
             columns: ["server_id"]
             isOneToOne: false
             referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "hive_formations_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
             referencedColumns: ["server_id"]
           },
         ]
@@ -4782,6 +4798,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "hive_formation_slots_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "pending_access"
+            referencedColumns: ["user_id"]
+          },
+          {
             foreignKeyName: "hive_formation_slots_formation_id_fkey"
             columns: ["formation_id"]
             isOneToOne: false
@@ -4794,6 +4817,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "players"
             referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "hive_formations_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "hive_formations_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
           },
         ]
       }
@@ -5733,3 +5770,4 @@ export const Constants = {
     },
   },
 } as const
+
