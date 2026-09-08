@@ -66,6 +66,11 @@ export const TERMS = {
   // a live position — the map is only read where the collector is pointed.
   location: 'Location',
   map: 'Map',
+  // ours. The game has no screen for this — a hive is a shape the alliance
+  // agrees on in chat, and "hive" is what the alliance calls it. Nothing in
+  // any payload names it, which is why it sits in the ours category with
+  // Location and Last Seen rather than beside the field names above.
+  hive: 'Hive Formation',
   lastSeen: 'Last Updated', // ours: captured_at / last_seen_at — when we last looked
   defensePower: 'Defense Power', // ours: the `army` blob is a lineup, not a number
   lineup: 'Lineup', // ours: the decoded `army` blob

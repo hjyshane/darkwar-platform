@@ -12,13 +12,15 @@
 --
 -- If you are reading this because CI failed on a new table: that is the
 -- test doing its job, not an obstacle. Give the table a member policy and
--- do not grant SELECT to anon. If the table genuinely must be public, say
+-- grant anon nothing — not SELECT, and not the write privileges Supabase's
+-- default privileges hand out at CREATE time unless a migration has revoked
+-- them (0065 revoked SELECT only; 0168 revoked the rest). If the table genuinely must be public, say
 -- so out loud — add it to the ALLOWED list below with the reason, so that
 -- "this one is public" is a sentence somebody wrote rather than an omission.
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(6);
+select plan(7);
 
 -- Nothing is allowed to be public today. The list exists so that a future
 -- exception has an obvious home and has to be argued for in a diff.
@@ -32,6 +34,33 @@ select is_empty(
         and has_table_privilege('anon', c.oid, 'SELECT')
         and c.relname not in (select relname from allowed_public) $$,
   'no table, view or matview in public is readable by anon');
+
+-- READABLE IS NOT THE WHOLE QUESTION, and asking only that is how ninety-five
+-- relations sat carrying anon INSERT, UPDATE and DELETE for a month with this
+-- file green.
+--
+-- 0065 revoked SELECT from the default privileges. Supabase's default grants
+-- anon four privileges, so revoking one left three, and every table and view
+-- created afterwards inherited them at CREATE time. 0168 revoked the rest and
+-- closed the default; this is the assertion that would have caught it, and
+-- that catches the next one.
+--
+-- Nothing was actually writable — RLS is on every table, no policy names anon
+-- (asserted below), and the single owner-rights updatable view revokes anon by
+-- name (0125). A grant with no policy behind it writes nothing. It is a
+-- missing rail rather than an open door, which is exactly the kind of thing a
+-- schema-wide test exists to hold.
+select is_empty(
+  $$ select n.nspname || '.' || c.relname || ' (' || p.privilege_type || ')'
+       from pg_class c
+       join pg_namespace n on n.oid = c.relnamespace
+       join information_schema.role_table_grants p
+         on p.table_schema = n.nspname and p.table_name = c.relname
+      where n.nspname = 'public'
+        and c.relkind in ('r', 'v', 'm', 'p', 'f')
+        and p.grantee = 'anon'
+        and c.relname not in (select relname from allowed_public) $$,
+  'anon holds no privilege of any kind on anything in public');
 
 -- The grant is one lever and the policy is the other. A policy naming anon
 -- does nothing while the grant is revoked, but it states an intention that

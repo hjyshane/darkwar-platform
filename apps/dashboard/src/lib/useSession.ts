@@ -11,6 +11,16 @@ export interface SessionState {
    * session that was already fetched here rather than by a second
    * `auth.getUser()` round trip at every call site. Null when signed out. */
   userId: string | null;
+  /** The character this account is, or null when nobody has linked it.
+   *
+   * Only an admin can set this (0066: `approve_player_claim` is the one
+   * writer), so it is a fact about the account rather than something the
+   * client asserts. It rides along on the row this hook already reads,
+   * because the alternative is every screen that wants to say "this one is
+   * yours" doing its own lookup — and the hive board is the first screen
+   * where that sentence is the point rather than a nicety.
+   */
+  playerId: string | null;
 }
 
 /** Who the viewer is, as the database sees it.
@@ -31,19 +41,21 @@ export function useSession() {
       const email = data.session?.user.email ?? null;
       const userId = data.session?.user.id ?? null;
       if (email === null) {
-        return { email: null, role: 'viewer', userId: null };
+        return { email: null, role: 'viewer', userId: null, playerId: null };
       }
       // A viewer's own row is readable via the self_read policy; no row at
       // all is the normal state for an account nobody has admitted yet.
       const { data: rows } = await supabase
         .from('app_users')
-        .select('role')
+        .select('role, player_id')
         .eq('user_id', data.session?.user.id ?? '')
         .limit(1);
-      const role = rows?.[0]?.role;
+      const row = rows?.[0];
+      const role = row?.role;
       return {
         email,
         userId,
+        playerId: row?.player_id ?? null,
         role: role === 'member' || role === 'officer' || role === 'admin' ? role : 'viewer',
       };
     },

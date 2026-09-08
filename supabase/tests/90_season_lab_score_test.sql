@@ -141,13 +141,25 @@ values ('rank_tiers', jsonb_build_object(
     'bonus', 10)))
 on conflict (key) do update set value = excluded.value;
 
+-- Through `rank_period_latest`, not the table with a version pinned.
+--
+-- It said `scoring_version = 6` and stopped meaning anything the moment 0161
+-- wrote 7 and 0164 wrote 8: nine assertions failing with `have: NULL` for two
+-- changes that have nothing to do with the season lab. 40 and 43 carry the
+-- same note. Nothing in this file is about which version is current — it is
+-- about which LEVEL the score was judged on.
+--
+-- Worth knowing why the NULLs were not all visible: assertion 7 expects null
+-- and passed throughout, because a missing row and an unswept member look
+-- identical through this helper. A version pin does not only break
+-- assertions, it quietly satisfies the ones that test for absence.
 create function pg_temp.adj(pid uuid, period timestamptz) returns numeric language sql as $$
-  select lab_adjustment from public.rank_period_snapshots
-  where player_id = pid and period_start = period and scoring_version = 6;
+  select lab_adjustment from public.rank_period_latest
+  where player_id = pid and period_start = period;
 $$;
 create function pg_temp.lvl(pid uuid, period timestamptz) returns int language sql as $$
-  select lab_level from public.rank_period_snapshots
-  where player_id = pid and period_start = period and scoring_version = 6;
+  select lab_level from public.rank_period_latest
+  where player_id = pid and period_start = period;
 $$;
 
 set local role authenticated;
@@ -188,8 +200,8 @@ select is(pg_temp.adj('00000000-0000-4000-8000-0000000cb905', pg_temp.in_season(
 -- by penalty + bonus and nothing else — the contributions are identical.
 select is(
   (select round(max(activity_score) - min(activity_score))
-   from public.rank_period_snapshots
-   where period_start = pg_temp.in_season() and scoring_version = 6
+   from public.rank_period_latest
+   where period_start = pg_temp.in_season()
      and player_id in ('00000000-0000-4000-8000-0000000cb902',
                        '00000000-0000-4000-8000-0000000cb903')),
   10::numeric,
