@@ -6,8 +6,10 @@
 //
 // TEXTCONTENT ONLY. A pin's label and title come from a player's own name,
 // read out of the journal — somebody else's input arriving on our screen.
-// `tauri.conf.json` has `csp: null`, so there is no second line of defence
-// behind that rule.
+// See `main.ts`'s CSP comment for the second line of defence behind that
+// rule, and specifically for why this file's `element.style.left/top/
+// right/bottom` calls below are the one thing that CSP still has to leave
+// loose (`style-src 'unsafe-inline'` in `tauri.conf.json`).
 import '@dw/ui/map.css';
 import { MAP_INSET, type MapMarker, checkMapImageSize, layoutMarkers } from '@dw/ui';
 

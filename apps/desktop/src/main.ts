@@ -6,6 +6,86 @@ import { createProfileView } from './profileView';
 import { createRosterView } from './rosterView';
 import { ViewRegistry } from './views';
 
+// --- Content Security Policy -----------------------------------------
+//
+// `tauri.conf.json`'s `app.security.csp` used to be `null` — no policy at
+// all. It is now set, and this is the one place the reasoning for every
+// directive lives; the other view files (mapView.ts, profileView.ts,
+// rosterView.ts, arenaView.ts) point back here rather than repeating it.
+// `textContent` (see `say()` below, and the same rule in every other view
+// file) is still the FIRST line of defence — every string on every screen
+// came from somewhere that is not us: a player's own name, `dumpcap`'s own
+// error text, an adapter label read off this machine. The CSP is the
+// second line, for the day a `textContent` call gets missed or a dependency
+// silently starts building markup instead of nodes.
+//
+// The same object appears twice in `tauri.conf.json`: `csp` (the shipped
+// policy) and `devCsp` (applied only under `tauri dev`) — both were checked
+// against all six screens; see `docs/handover.md`/the commit that added this
+// for the record of that check. They are identical except `devCsp`'s
+// `connect-src`, see below.
+//
+//   default-src 'self'
+//     The fallback for every fetch destination not named below —
+//     font-src, media-src, worker-src, manifest-src. This app uses none of
+//     those (no custom fonts, no audio/video, no web workers, no manifest),
+//     so leaving them unlisted and covered by the tightest possible
+//     default closes all of them at once instead of writing four more
+//     `'none'` lines that would say the same thing.
+//
+//   script-src 'self'
+//     Every screen is a plain-DOM TypeScript module reached only through
+//     `index.html`'s single `<script type="module" src="/src/main.ts">` and
+//     its imports — there is no inline `<script>` anywhere and nothing is
+//     loaded from a CDN. Tauri injects its own IPC bootstrap script with a
+//     hash it computes at compile time, so this app's policy does not need
+//     to name it.
+//
+//   style-src 'self' 'unsafe-inline'
+//     `'self'` covers `@dw/ui/map.css`, bundled by Vite. `'unsafe-inline'`
+//     is the one directive left loose on purpose: `mapView.ts` positions
+//     the plot inset and every pin with `element.style.left/top/right/
+//     bottom`, set from percentages computed at render time from search
+//     results — exactly what CSP calls an inline style, and a continuous,
+//     unbounded number, so there is no fixed value to hash or nonce ahead
+//     of time. REMOVING THIS would mean rewriting pin/plot positioning to
+//     go through the CSSOM instead — a single `<style>` sheet mutated with
+//     `sheet.insertRule`/`cssRule.style.setProperty`, which CSP does not
+//     treat as "inline" — which is a real option but is out of scope for
+//     this task (see CLAUDE.md: only the CSP itself, no behaviour changes).
+//
+//   img-src 'self'
+//     The only image this app ever loads is `/map.webp` (see
+//     `DESKTOP_MAP_IMAGE_URL` in mapView.ts), served from the app's own
+//     origin in both dev and the release build — never a remote URL. No
+//     need for `data:`/`blob:`/the `asset:`/`http://asset.localhost`
+//     scheme; those exist for apps that load images through Tauri's
+//     `convertFileSrc`, which this app never calls.
+//
+//   connect-src 'self' ipc: http://ipc.localhost
+//     `ipc: http://ipc.localhost` is what every `invoke()` call below
+//     actually goes over — this is Tauri v2's own IPC transport, not
+//     optional (https://v2.tauri.app/security/csp/, and confirmed against
+//     Tauri's default generated policy). `'self'` is kept because Vite's
+//     dev client posts its HMR traffic back to the page's own origin
+//     (`ws://localhost:1420`), and CSP's `'self'` for `connect-src` matches
+//     a same-origin WebSocket as well as http(s); the release build has no
+//     HMR client and performs no `fetch` from the webview at all (every
+//     sidecar call is Rust-side `reqwest`, see `src-tauri/src/main.rs`), so
+//     `'self'` is inert there. `devCsp` additionally lists
+//     `ws://localhost:1420` explicitly, belt-and-suspenders, since it only
+//     ever ships to a developer's machine, never to a player's.
+//
+//   object-src 'none' / base-uri 'none' / form-action 'none' /
+//   frame-ancestors 'none'
+//     None of `<object>`/`<embed>`/`<applet>`, a `<base>` tag, a native
+//     `<form>` submission (every screen submits through `invoke()`, never
+//     an HTML form — there is no `<form>` element anywhere in this app), or
+//     being framed by something else is ever needed here. `object-src`
+//     would already be closed by `default-src`, but `base-uri`,
+//     `form-action`, and `frame-ancestors` do NOT inherit from `default-src`
+//     — they do nothing unless named explicitly, so they are named.
+
 interface Tile {
   gameUid: string;
   serverId: number;
@@ -36,8 +116,8 @@ if (mapRootEl !== null) {
 function say(target: HTMLElement | null, text: string): void {
   // TEXTCONTENT, NEVER innerHTML. Everything below came out of the journal,
   // and a player's name is chosen by that player — it is somebody else's
-  // input arriving on our screen. `csp: null` means there is no second line
-  // of defence behind this.
+  // input arriving on our screen. This is still the first line of defence;
+  // see the CSP comment at the top of this file for the second.
   if (target !== null) {
     target.textContent = text;
   }
@@ -146,11 +226,11 @@ void waitForReader();
 // Everything a player can see here came from somewhere that is not us:
 // adapter labels came out of `dumpcap -D` (this machine has Korean adapter
 // names), dumpcap's stderr came from a process, and the sidecar's own error
-// sentences are strings built around whatever the player typed. `csp: null`
-// (see `tauri.conf.json`) means there is no second line of defence — every
-// one of those has to land on screen through `textContent`, never through
+// sentences are strings built around whatever the player typed. Every one of
+// those has to land on screen through `textContent`, never through
 // `innerHTML`/`outerHTML`/`insertAdjacentHTML`/a template string turned into
-// markup.
+// markup — see the CSP comment at the top of this file for the second line
+// of defence behind that rule.
 
 interface SettingsPayload {
   journalPath: string;

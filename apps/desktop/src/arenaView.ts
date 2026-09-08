@@ -6,8 +6,8 @@
 // insertAdjacentHTML, or a template string turned into markup. A bracket
 // entry's name and alliance tag are chosen by other players — somebody
 // else's input arriving on our screen, same as the roster and profile
-// screens. `tauri.conf.json` still has `csp: null`, so there is no second
-// line of defence behind this rule.
+// screens. See `main.ts`'s CSP comment for the second line of defence
+// behind this rule.
 import { resetWeekStart } from '@dw/game-clock';
 import { invoke } from '@tauri-apps/api/core';
 

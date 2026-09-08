@@ -7,8 +7,8 @@
 // name, alliance tag, and the sidecar's own error sentences all came from
 // somewhere that is not us — a name is chosen by another player, and an
 // error string is built around whatever was typed into the search box.
-// `tauri.conf.json` still has `csp: null`, so there is no second line of
-// defence behind this rule.
+// See `main.ts`'s CSP comment for the second line of defence behind this
+// rule.
 import { invoke } from '@tauri-apps/api/core';
 
 interface PlayerSummary {

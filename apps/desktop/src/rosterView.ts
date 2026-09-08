@@ -5,8 +5,8 @@
 // TEXTCONTENT ONLY, EVERYWHERE IN THIS FILE. No innerHTML, outerHTML,
 // insertAdjacentHTML, or a template string turned into markup. A member's
 // name is chosen by that player — somebody else's input arriving on our
-// screen. `tauri.conf.json` still has `csp: null`, so there is no second
-// line of defence behind this rule.
+// screen. See `main.ts`'s CSP comment for the second line of defence
+// behind this rule.
 import { invoke } from '@tauri-apps/api/core';
 
 interface RosterMember {
