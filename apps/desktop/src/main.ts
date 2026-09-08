@@ -123,17 +123,71 @@ function say(target: HTMLElement | null, text: string): void {
   }
 }
 
-async function showHealth(): Promise<void> {
+interface HealthPayload {
+  ok: boolean;
+  state: string;
+  journal: string;
+}
+
+/// Set right before routing to the settings tab on startup because the
+/// install looks fresh (see `maybeLandOnSettings`), and shown once by
+/// `loadSettingsView` the next time it renders. `null` the rest of the
+/// time — switching to Settings by hand never sets this, so the note never
+/// appears outside the one moment it explains.
+let firstRunNote: string | null = null;
+
+/// Fetches `/health` and updates the search tab's status line. Returns the
+/// payload (or `null` on failure) so `waitForReader` can reuse the same
+/// answer to decide whether this looks like a fresh install, instead of
+/// asking the sidecar the same question twice.
+async function showHealth(): Promise<HealthPayload | null> {
   try {
-    const state = await invoke<{ ok: boolean; state: string; journal: string }>('health');
+    const state = await invoke<HealthPayload>('health');
     say(
       statusEl,
       state.ok
         ? `reading ${state.journal}`
         : `no journal yet at ${state.journal} — run the collector first`,
     );
+    return state;
   } catch (error) {
     say(statusEl, `could not reach the reader: ${String(error)}`);
+    return null;
+  }
+}
+
+/// A brand-new install has no journal AND no capture adapter chosen — a
+/// search box over a permanently empty result is not a useful first screen,
+/// so this routes to Settings instead, once, right after startup.
+///
+/// BOTH CONDITIONS, NOT EITHER. A journal with no adapter configured yet
+/// (capture was run once, on another adapter, in another data directory)
+/// is a normal, already-configured install that happens to have nothing to
+/// search — that stays on Search. `get_settings`'s `interface` field is
+/// already the EFFECTIVE value (file, then environment on top — see
+/// `settings.load` on the Python side), so a machine with
+/// `DW_CAPTURE_NPF_DEVICE` set is never mistaken for unconfigured here.
+///
+/// A ONE-TIME CHECK, NOT A WIZARD: this only ever runs once, right after
+/// the reader answers `ready`. Switching tabs by hand afterwards — search
+/// to settings, settings back to search — never re-triggers it.
+async function maybeLandOnSettings(health: HealthPayload | null): Promise<void> {
+  if (health === null || health.state !== 'no-journal') {
+    return;
+  }
+  try {
+    const settings = await invoke<{ interface: string }>('get_settings');
+    if (settings.interface === '') {
+      firstRunNote =
+        "This looks like a fresh install — there's no journal yet and no capture adapter " +
+        'chosen, so Settings opened first instead of an empty Search. Pick a capture ' +
+        'adapter below, then start capture to begin collecting data.';
+      views.show('settings');
+    }
+  } catch {
+    // Could not reach the sidecar to ask about settings — stay on the
+    // search tab (its own status line already explains what showHealth()
+    // found) rather than guessing at a state this could not confirm.
   }
 }
 
@@ -195,7 +249,8 @@ async function waitForReader(): Promise<void> {
     try {
       const state = await invoke<{ state: string; message?: string }>('status');
       if (state.state === 'ready') {
-        await showHealth();
+        const health = await showHealth();
+        await maybeLandOnSettings(health);
         return;
       }
       if (state.state === 'failed') {
@@ -445,8 +500,10 @@ function buildAdapterField(
     const row = labeledRow('Capture adapter', select);
     row.appendChild(
       noteEl(
-        'Npcap is not installed, so dumpcap cannot see any adapters. Install Npcap ' +
-          '(it ships with Wireshark, https://npcap.com) and reopen this screen.',
+        'This app reads the game over your network connection, which needs a packet-capture ' +
+          'driver called Npcap — it is not installed on this PC yet. Download and install it ' +
+          'from https://npcap.com (installing Wireshark also installs it), then come back to ' +
+          'this screen and pick your network adapter below.',
       ),
     );
     return row;
@@ -569,6 +626,14 @@ async function loadSettingsView(): Promise<void> {
       noteEl(`Could not read settings: ${settingsError ?? 'unknown error'}`),
     );
     return;
+  }
+
+  // Shown once, the one time `maybeLandOnSettings` routed here on startup —
+  // cleared immediately after so re-entering this tab by hand never shows a
+  // stale "this is why you're here" explanation.
+  if (firstRunNote !== null) {
+    settingsRootEl.appendChild(noteEl(firstRunNote));
+    firstRunNote = null;
   }
 
   const pinned = new Set(settings.pinnedByEnvironment);
