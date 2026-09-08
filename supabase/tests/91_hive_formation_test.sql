@@ -48,11 +48,35 @@ insert into public.players (player_id, server_id, game_uid, current_name, power)
   ('00000000-0000-4000-8000-00000000f101', 580, 9110000000000101, 'Alpha', 90),
   ('00000000-0000-4000-8000-00000000f102', 580, 9110000000000102, 'Bravo', 80),
   ('00000000-0000-4000-8000-00000000f103', 580, 9110000000000103, 'Leaver', 70);
+
 -- Alpha and Bravo are on the newest roster; Leaver is not, which is what
 -- `still_a_member` has to notice.
-insert into public.alliance_member_snapshots (alliance_id, player_id, captured_at) values
-  ('00000000-0000-4000-8000-00000000f001', '00000000-0000-4000-8000-00000000f101', now()),
-  ('00000000-0000-4000-8000-00000000f001', '00000000-0000-4000-8000-00000000f102', now());
+--
+-- WRITTEN AS A REAL SNAPSHOT BATCH, columns and all. Every snapshot table
+-- here carries observation_id, source_command, parser_version,
+-- idempotency_key and captured_at, and every one of them is NOT NULL — a
+-- three-column insert is not a shortcut, it is a row the table refuses. The
+-- collector row exists because collector_id is a foreign key (0004).
+--
+-- One batch, one captured_at: `alliance_roster_latest` takes the newest
+-- instant per alliance and returns every row sharing it, so two members
+-- written a microsecond apart would leave the first one off the roster and
+-- quietly turn assertion 26 into a tautology.
+insert into public.collectors (collector_id, name)
+values ('00000000-0000-4000-8000-00000000f0c1', 'hive probe');
+insert into public.alliance_member_snapshots
+  (observation_id, source_command, parser_version, idempotency_key, captured_at,
+   collector_id, collected_from_server_id, alliance_id, server_id, player_id,
+   game_uid, name, member_rank, hq_level, power, presence_redacted)
+select '00000000-0000-4000-8000-00000000f0b1', 'al.rank', 'test',
+       'test:91:roster:' || v.game_uid, '2026-09-01T10:00:00Z',
+       '00000000-0000-4000-8000-00000000f0c1', 580,
+       '00000000-0000-4000-8000-00000000f001', 580, v.player_id,
+       v.game_uid, v.name, 3, 30, v.power, false
+from (values
+    ('00000000-0000-4000-8000-00000000f101'::uuid, 9110000000000101::bigint, 'Alpha', 90::bigint),
+    ('00000000-0000-4000-8000-00000000f102'::uuid, 9110000000000102::bigint, 'Bravo', 80::bigint)
+  ) as v(player_id, game_uid, name, power);
 
 -- The three readers, set up here rather than beside the RLS assertions
 -- because the two write functions gate on `has_permission`, which reads the
