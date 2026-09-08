@@ -201,5 +201,5 @@ select is(pg_temp.adj('00000000-0000-4000-8000-0000000cb901', pg_temp.before_sea
 select is(pg_temp.lvl('00000000-0000-4000-8000-0000000cb901', pg_temp.before_season()), null::int,
   'and records no level, because the probe never runs outside a window');
 
-select finish();
+select * from finish();
 rollback;
