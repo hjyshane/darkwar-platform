@@ -78,11 +78,18 @@ select lives_ok(
   $$ select public.build_rank_period(public.rank_period_start(now())) $$,
   'the period in progress builds');
 
-create function pg_temp.row_of(who text) returns public.rank_period_snapshots
+-- Through `rank_period_latest`, not the table with a version pinned.
+--
+-- It said `scoring_version = 4` and went on saying it while the formula moved
+-- to 5 (0155), 6 (0159), 7 (0161) and 8 (0164) — six assertions failing with
+-- `have: NULL` for four changes that had nothing to do with absence. 40 wrote
+-- this same note after the same thing happened at version 3, and pinning it
+-- again here is how it happened twice. The version is not what this file is
+-- about; the offline window is.
+create function pg_temp.row_of(who text) returns public.rank_period_latest
 language sql as $$
-  select * from public.rank_period_snapshots
-  where period_start = public.rank_period_start(now()) and name = who
-    and scoring_version = 4;
+  select * from public.rank_period_latest
+  where period_start = public.rank_period_start(now()) and name = who;
 $$;
 
 -- Two hours away reads as two hours, give or take the second the test takes.
@@ -108,8 +115,8 @@ select cmp_ok(
 -- The consequence that made this worth a migration: the default cut is 48 hours,
 -- so exactly one of these two should be demoted for absence.
 select is(
-  (select count(*) from public.rank_period_snapshots
-    where period_start = public.rank_period_start(now()) and scoring_version = 4
+  (select count(*) from public.rank_period_latest
+    where period_start = public.rank_period_start(now())
       and name in ('JustLeft', 'LongGone') and tier_reason = 'offline'),
   1::bigint,
   'so one of the two is demoted for absence and the other is not');

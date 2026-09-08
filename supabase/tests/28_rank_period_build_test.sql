@@ -32,6 +32,35 @@ values
   ('00000000-0000-4000-8000-0000000ab102', 580, 9100000000000002, 'Quiet',
    '00000000-0000-4000-8000-0000000ab001');
 
+-- THE ROSTER, which is where membership comes from since 0161.
+--
+-- This fixture used to name its members through `players.current_alliance_id`
+-- alone, and that was enough while the build joined on it. 0161 moved the
+-- membership source to `alliance_roster_latest` -- because that column is a
+-- LAST KNOWN alliance nothing ever clears, and it was scoring 96 people for a
+-- roster of 82 -- and this file went on describing a two-member alliance that
+-- the build could no longer see. It wrote nothing, and seven assertions read
+-- NULL.
+--
+-- ONE captured_at for both rows. `alliance_roster_latest` takes the newest
+-- instant per alliance and returns the rows that share it, so two members
+-- written a moment apart are not a roster of two, they are a roster of one.
+--
+-- Well before the period, so neither is a witnessed newcomer (0072, and 0164
+-- for what "joined during the period" now means).
+insert into public.alliance_member_snapshots
+  (observation_id, source_command, parser_version, idempotency_key, captured_at,
+   collector_id, collected_from_server_id, alliance_id, server_id, player_id,
+   game_uid, name, member_rank, presence_redacted)
+select gen_random_uuid(), 'al.rank', 'test', 'rank:roster:' || v.game_uid,
+       '2026-06-01T02:00:00Z', '00000000-0000-4000-8000-000000000c01', 580,
+       '00000000-0000-4000-8000-0000000ab001', 580, v.player_id, v.game_uid,
+       v.name, 2, false
+from (values
+    ('00000000-0000-4000-8000-0000000ab101'::uuid, 9100000000000001::bigint, 'Busy'),
+    ('00000000-0000-4000-8000-0000000ab102'::uuid, 9100000000000002::bigint, 'Quiet')
+  ) as v(player_id, game_uid, name);
+
 create function pg_temp.contribute(uid bigint, kind text, amount bigint, at timestamptz)
 returns void language sql as $$
   insert into public.alliance_contribution_snapshots (
