@@ -1,5 +1,5 @@
+import { MAP_MAX } from '@dw/ui';
 import { expect, test } from 'vitest';
-import { MAP_MAX } from '../../lib/mapProjection';
 import { tileAtFraction, tileCorner, windowAround } from './TileGrid';
 
 test('a window is centred on the tile it was given', () => {

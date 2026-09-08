@@ -14,8 +14,8 @@
 // there too — that is belt and braces on purpose, because the cost of being
 // wrong is paid in teleport items by people who did what they were told.
 
-import { MAP_MAX, MAP_MIN } from './mapProjection';
-import type { Coordinate } from './mapProjection';
+import { MAP_MAX, MAP_MIN } from '@dw/ui';
+import type { Coordinate } from '@dw/ui';
 
 /** Tiles a base occupies on each side. */
 export const BASE_SPAN = 3;

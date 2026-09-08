@@ -1,6 +1,6 @@
+import { formatCoordinate } from '@dw/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { formatCoordinate } from '../../lib/mapProjection';
 import { isAllowed, usePermissions } from '../../lib/permissions';
 import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
