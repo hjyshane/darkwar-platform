@@ -40,15 +40,28 @@ Also deferred: PGMQ queues, Supabase Storage, table partitioning, alerting
 ## Merging to `main` publishes the dashboard
 
 Cloudflare's own Git integration is connected to this repository and builds on
-push — no GitHub Actions involved, which is why this still works while the
-Actions runs fail on billing in four seconds. The build for a `main` commit is
-what serves `https://cbfw.us`. Every merged PR is a production release, within
-about a minute, whether or not anybody meant it as one.
+push — no GitHub Actions involved, which is why this kept working through the
+months the Actions runs died on billing in four seconds. The build for a `main`
+commit is what serves `https://cbfw.us`. Every merged PR is a production
+release, within about a minute, whether or not anybody meant it as one.
 
 This is NOT the pipeline §21.1 asks for and the spec's item stays open: there
-is no gate in front of it. The Actions run is red on every commit, so nothing
-stops a merge that fails `pnpm test` from going straight out. **The local gate
-is the only gate** — run it before merging, not before pushing.
+is still no gate in FRONT of it. Nothing stops a merge from going straight out.
+
+**Actions runs again, though, and that changes what the red means.** On
+2026-09-08 the workflow ran end to end for the first time in months, and the
+`db` job did what it is for: it applied every migration to an empty database,
+ran the whole pgTAP suite, and compared the committed types against the schema.
+It found ten rotted test files and one real gap in 0065 — all on `main`, none
+of them from the branch that surfaced them.
+
+So the old advice ("the Actions run is red on every commit, the local gate is
+the only gate") is retired, and with a warning attached: it was true for long
+enough that red stopped carrying information, which is exactly how ten failures
+accumulated unlooked-at. **Read the db job before merging.** The local gate
+still runs first and still catches most things, but it cannot run
+`supabase test db` on a machine without Docker — `scripts/pgtap/run.sh` is the
+stand-in for that, and CI is what confirms it.
 
 The build's `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` live in
 Cloudflare's build settings, which is why neither appears in any `.env` here.
@@ -144,7 +157,13 @@ uv run ruff check . && uv run ruff format --check . && uv run mypy src && uv run
 supabase test db
 ```
 
-Two traps this repo has already hit:
+`supabase test db` needs Docker. Where there is none, `scripts/pgtap/run.sh`
+applies the whole migration chain to a plain PostgreSQL 16 and runs the suite —
+it is how the ten rotted test files of 2026-09-08 were diagnosed. Its own header
+lists the files where it disagrees with CI and why; a NEW failure there is worth
+believing, a DISAGREEMENT with CI is the harness's fault first.
+
+Traps this repo has already hit:
 
 - **`RAISE EXCEPTION` rolls back everything the function wrote in that call.**
   A throttle that records a failed attempt and then raises erases its own
@@ -152,6 +171,17 @@ Two traps this repo has already hit:
 - **Changing a column means grepping the whole repo**, `supabase/` included.
   Checking only `apps/` and `services/` left a pgTAP file pointing at columns
   that had moved.
+- **Never pin `scoring_version` in a test.** Read `rank_period_latest`. Pinning
+  it has broken the suite three times — at versions 3, 4 and 6 — and each time
+  the symptom was a handful of assertions reading `have: NULL` for a change that
+  had nothing to do with them.
+- **A null-expecting assertion passes when the row is missing.** Two of those
+  sat green for a month while the rows they described had vanished. When a
+  fixture stops producing rows, the failures you see are not the whole count.
+- **One `captured_at` per roster batch in a fixture.**
+  `alliance_roster_latest` returns the rows sharing the newest instant, so two
+  members written a moment apart are a roster of ONE. Three test files have
+  been caught by this.
 
 ## Judging a command before promoting it
 
