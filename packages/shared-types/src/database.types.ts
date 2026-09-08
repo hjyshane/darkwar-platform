@@ -2095,6 +2095,110 @@ export type Database = {
         }
         Relationships: []
       }
+      hive_formation_slots: {
+        Row: {
+          assigned_at: string | null
+          assigned_by: string | null
+          created_at: string
+          dx: number
+          dy: number
+          formation_id: string
+          label: string
+          ordinal: number
+          player_id: string | null
+          slot_id: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          created_at?: string
+          dx: number
+          dy: number
+          formation_id: string
+          label?: string
+          ordinal?: number
+          player_id?: string | null
+          slot_id?: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          created_at?: string
+          dx?: number
+          dy?: number
+          formation_id?: string
+          label?: string
+          ordinal?: number
+          player_id?: string | null
+          slot_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hive_formation_slots_formation_id_fkey"
+            columns: ["formation_id"]
+            isOneToOne: false
+            referencedRelation: "hive_formations"
+            referencedColumns: ["formation_id"]
+          },
+          {
+            foreignKeyName: "hive_formation_slots_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+        ]
+      }
+      hive_formations: {
+        Row: {
+          anchor_x: number
+          anchor_y: number
+          created_at: string
+          created_by: string | null
+          formation_id: string
+          is_active: boolean
+          name: string
+          note: string
+          server_id: number
+          updated_at: string
+        }
+        Insert: {
+          anchor_x: number
+          anchor_y: number
+          created_at?: string
+          created_by?: string | null
+          formation_id?: string
+          is_active?: boolean
+          name: string
+          note?: string
+          server_id: number
+          updated_at?: string
+        }
+        Update: {
+          anchor_x?: number
+          anchor_y?: number
+          created_at?: string
+          created_by?: string | null
+          formation_id?: string
+          is_active?: boolean
+          name?: string
+          note?: string
+          server_id?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hive_formations_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+        ]
+      }
       join_code_attempts: {
         Row: {
           failed_count: number
@@ -4649,6 +4753,50 @@ export type Database = {
         }
         Relationships: []
       }
+      hive_formation_board: {
+        Row: {
+          anchor_x: number | null
+          anchor_y: number | null
+          assigned_at: string | null
+          assigned_by: string | null
+          created_at: string | null
+          dx: number | null
+          dy: number | null
+          formation_id: string | null
+          formation_name: string | null
+          game_uid: number | null
+          hq_level: number | null
+          is_active: boolean | null
+          label: string | null
+          ordinal: number | null
+          player_id: string | null
+          player_name: string | null
+          point_id: number | null
+          power: number | null
+          server_id: number | null
+          slot_id: string | null
+          still_a_member: boolean | null
+          updated_at: string | null
+          x: number | null
+          y: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hive_formation_slots_formation_id_fkey"
+            columns: ["formation_id"]
+            isOneToOne: false
+            referencedRelation: "hive_formations"
+            referencedColumns: ["formation_id"]
+          },
+          {
+            foreignKeyName: "hive_formation_slots_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+        ]
+      }
       latest_world_cities: {
         Row: {
           captured_at: string | null
@@ -5273,6 +5421,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      assign_hive_formation_slots: {
+        Args: { p_assignments: Json; p_formation_id: string }
+        Returns: Json
+      }
       backfill_month_card_from_raw: {
         Args: never
         Returns: {
@@ -5365,7 +5517,29 @@ export type Database = {
           rows: number
         }[]
       }
+      save_hive_formation_layout: {
+        Args: { p_formation_id: string; p_slots: Json }
+        Returns: Json
+      }
       tier_rank: { Args: { p_tier: string }; Returns: number }
+      world_cities_in_box: {
+        Args: {
+          p_server_id: number
+          p_x_max: number
+          p_x_min: number
+          p_y_max: number
+          p_y_min: number
+        }
+        Returns: {
+          captured_at: string
+          game_uid: number
+          hq_level: number
+          name: string
+          player_id: string
+          x: number
+          y: number
+        }[]
+      }
       world_viewport_half_extent: {
         Args: never
         Returns: {

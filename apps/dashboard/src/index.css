@@ -3706,3 +3706,239 @@ form select {
 .map-range input {
   width: 6rem;
 }
+
+/* --- hive formation ------------------------------------------------------- */
+
+/* The tile grid: a window onto a few dozen squares, close enough to click one.
+ *
+ * THE SQUARES ARE A BACKGROUND, NOT ELEMENTS. A 45-tile window is two
+ * thousand of them and drawing each as a node makes every pan a two-thousand
+ * node re-render for a picture that is only ever lines. `--tiles` is set by
+ * the component and is the one number the whole grid is built from, so the
+ * lines cannot drift out of step with where the bases are drawn.
+ */
+.tile-grid {
+  position: relative;
+  display: block;
+  width: 100%;
+  max-width: 720px;
+  aspect-ratio: 1 / 1;
+  padding: 0;
+  margin: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-raised);
+  background-image: linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: calc(100% / var(--tiles)) calc(100% / var(--tiles));
+  /* The grid lines start at the top-left corner, which is where tile
+   * (xMin, yMax) starts — the same corner `tileCorner` measures from. */
+  background-position: 0 0;
+  overflow: hidden;
+  cursor: crosshair;
+}
+
+.tile-grid--busy {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+/* Where the map last saw somebody. Drawn UNDER the plan and deliberately
+ * quiet: it is a hint about ground that may be taken, not a wall. A base that
+ * was destroyed or lost its shield has been teleported somewhere random, so
+ * treating these as authoritative would block tiles that are genuinely free. */
+.tile-grid__seen {
+  position: absolute;
+  background: var(--neutral-bg);
+  border: 1px solid var(--border-strong);
+  opacity: 0.7;
+}
+
+/* One of ours already standing there is a different fact to a stranger: it
+ * usually means the hive is already half moved. */
+.tile-grid__seen--ours {
+  background: var(--info-bg);
+  border-color: var(--info-fg);
+}
+
+.tile-grid__anchor {
+  position: absolute;
+  background: var(--accent);
+  outline: 2px solid var(--bg);
+}
+
+/* A planned base: three tiles by three, which is what makes the spacing on
+ * screen the real spacing in game. */
+.tile-grid__base {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+  border: 1px solid var(--accent);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.tile-grid__base--on {
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
+  border-width: 2px;
+}
+
+/* The reader's own tile. Never colour alone (NFR-011) — the page says "Your
+ * tile" in words above the picture; this only makes it findable. */
+.tile-grid__base--own {
+  background: color-mix(in srgb, var(--ok-fg) 45%, transparent);
+  border-color: var(--ok-fg);
+  border-width: 2px;
+}
+
+/* Assigned to somebody who has left the roster. Nobody is coming to stand
+ * here, and the list above says so in words. */
+.tile-grid__base--stale {
+  background: color-mix(in srgb, var(--danger-fg) 35%, transparent);
+  border-color: var(--danger-fg);
+  border-style: dashed;
+}
+
+.tile-grid__caption {
+  font-size: 0.55rem;
+  line-height: 1;
+  color: var(--fg);
+  text-align: center;
+  padding: 1px;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.hive-editor {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+  align-items: flex-start;
+  margin: var(--space-4) 0;
+}
+
+.hive-editor__map {
+  flex: 1 1 420px;
+  min-width: 0;
+}
+
+.hive-editor__controls {
+  flex: 1 1 280px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.hive-editor__controls fieldset {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  margin: 0;
+}
+
+.hive-zoom,
+.hive-shapes,
+.hive-actions,
+.hive-assign,
+.hive-picker,
+.hive-coordinate {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: flex-end;
+  margin: var(--space-3) 0;
+}
+
+.hive-coordinate label,
+.hive-picker label,
+.hive-assign label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+}
+
+.hive-coordinate input {
+  width: 6rem;
+}
+
+/* A fieldset because it is a group of controls with a name, which is what a
+ * fieldset is — a div with role="group" is the same thing spelled worse. Its
+ * chrome is reset because the border and legend box are wrong here: the
+ * group sits under the map as a row of buttons, not as a panel. */
+.hive-zoom {
+  border: 0;
+  padding: 0;
+}
+
+.hive-zoom legend {
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+  padding: 0;
+}
+
+.hive-zoom button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.hive-count {
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+}
+
+/* The one line a member came for. Loud on purpose: this is read once, on a
+ * phone, in the thirty seconds before somebody presses teleport. */
+.hive-mine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  margin: var(--space-4) 0;
+  background: var(--ok-bg);
+  color: var(--ok-fg);
+  border-radius: var(--radius-md);
+}
+
+.hive-mine strong code {
+  font-size: var(--text-xl);
+}
+
+/* A draft is not an instruction. Somebody teleporting off a plan that is not
+ * live yet is exactly the mistake this screen exists to stop. */
+.hive-mine__draft {
+  flex-basis: 100%;
+  font-size: var(--text-sm);
+  color: var(--warn-fg);
+  background: var(--warn-bg);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+}
+
+/* The half that gets pasted into chat. Monospaced so the coordinates line up
+ * in a column somebody can check against the picture. */
+.hive-list {
+  max-height: 20rem;
+  overflow: auto;
+  padding: var(--space-3);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+}
+
+.hive-new {
+  margin: var(--space-4) 0;
+}
+
+.hive-table code {
+  font-size: var(--text-base);
+}
