@@ -3,7 +3,12 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(14);
+-- Sixteen, not fourteen: the `has_column` below is one assertion PER NAME in
+-- its array, and the array grew by two (view_lvl and object_count) without
+-- the plan following. pgTAP reports that as "planned 14 but ran 16" and fails
+-- the file even though every assertion in it passes — which is exactly how it
+-- sat unnoticed while nothing ran the suite.
+select plan(16);
 
 -- The camera, and the zoom. Without a centre the row cannot say what ground
 -- it covered; without view_lvl a sweep that ran at the dead zoom cannot be

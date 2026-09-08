@@ -193,6 +193,12 @@ const CROSS_ROWS = [
 const CAPABILITIES = [
   { capability: 'members.view', label: 'See the Members screen', description: '', sort_order: 5 },
   {
+    capability: 'hive.plan',
+    label: 'Plan a hive formation',
+    description: 'Draw the tiles of a hive or rally formation and assign members to them.',
+    sort_order: 110,
+  },
+  {
     capability: 'members.manage',
     label: 'Manage members',
     description: "Set a member's role and alliance rank, and edit this permission grid.",
@@ -392,7 +398,86 @@ const SCHEDULE_KEY = [
 
 /** Held as a stable reference so main.tsx can tell "still the fixture" from
  *  "something replaced it" by identity. */
-export const SESSION = { email: 'you@example.invalid', role: 'admin' };
+/** One formation and the tiles under it, for the look-around build.
+ *
+ * Offsets rather than coordinates, the way 0165 stores them: the board
+ * fixture has to carry x and y as well because the VIEW computes those, and
+ * a fixture that computed them differently would hide exactly the bug that
+ * matters. `anchor + offset` is done here by hand, once, so the two agree.
+ */
+export const HIVE_FORMATION_ID = '11111111-1111-4111-8111-1111111111f1';
+
+const HIVE_ANCHOR = { x: 512, y: 388 };
+
+const HIVE_FORMATIONS = [
+  {
+    formationId: HIVE_FORMATION_ID,
+    name: 'Hive move 09-12',
+    serverId: 580,
+    anchorX: HIVE_ANCHOR.x,
+    anchorY: HIVE_ANCHOR.y,
+    note: '',
+    isActive: true,
+    updatedAt: ago(90),
+  },
+  {
+    formationId: '11111111-1111-4111-8111-1111111111f2',
+    name: 'Bear rally (draft)',
+    serverId: 580,
+    anchorX: 500,
+    anchorY: 500,
+    note: '',
+    isActive: false,
+    updatedAt: ago(60 * 30),
+  },
+];
+
+const HIVE_MEMBERS = [
+  { playerId: PLAYER.shane, name: 'Shane', power: 61_200_000, hqLevel: 30, memberRank: 5 },
+  { playerId: PLAYER.mira, name: 'Mira', power: 48_000_000, hqLevel: 29, memberRank: 4 },
+  { playerId: PLAYER.kova, name: 'Kova', power: 39_500_000, hqLevel: 28, memberRank: 3 },
+  // No power read yet, which is the case the ordering is most likely to get
+  // wrong — it must sort LAST rather than first.
+  { playerId: PLAYER.dex, name: 'Dex', power: null, hqLevel: null, memberRank: 1 },
+];
+
+const HIVE_SLOTS = [
+  { dx: -3, dy: 3 },
+  { dx: 0, dy: 3 },
+  { dx: 3, dy: 3 },
+  { dx: -3, dy: 0 },
+  { dx: 0, dy: 0 },
+  { dx: 3, dy: 0 },
+  { dx: -3, dy: -3 },
+  { dx: 0, dy: -3 },
+  { dx: 3, dy: -3 },
+].map((offset, index) => ({
+  slotId: `slot-${index + 1}`,
+  ordinal: index + 1,
+  label: index === 4 ? 'flag' : '',
+  dx: offset.dx,
+  dy: offset.dy,
+  x: HIVE_ANCHOR.x + offset.dx,
+  y: HIVE_ANCHOR.y + offset.dy,
+  playerId: [PLAYER.shane, PLAYER.mira, PLAYER.kova, PLAYER.dex][index] ?? null,
+  playerName: ['Shane', 'Mira', 'Kova', 'Dex'][index] ?? null,
+  hqLevel: 30,
+  power: 61_200_000,
+  // The third tile is somebody who has left: an assignment nobody is coming
+  // to stand on, and the one state the board has to say out loud.
+  stillAMember: index === 2 ? false : index < 4 ? true : null,
+  assignedAt: index < 4 ? ago(90) : null,
+}));
+
+export const SESSION = {
+  email: 'you@example.invalid',
+  role: 'admin',
+  userId: '33333333-3333-4333-8333-333333333301',
+  // The linked character. Without it the hive board cannot say which tile is
+  // yours, which is the one line that screen exists to print — an unlinked
+  // account is a real state and worth seeing too, but not the default one.
+  playerId: PLAYER.shane,
+};
 
 export const FIXTURES: [readonly unknown[], unknown][] = [
   [SESSION_KEY, SESSION],
@@ -528,6 +613,18 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
     ['overview-metrics-admin'],
     { tiles: ['alliance_power', 'members', 'online', 'weekly_donation'] },
   ],
+
+  // Hive formation. A 3x3 block on a three-tile pitch — small enough to read
+  // at a glance and big enough that a wrong pitch would be obvious, since
+  // every base would be sitting on its neighbour.
+  [
+    ['hive', 'servers'],
+    [580, 581],
+  ],
+  [['hive', 'formations', null], HIVE_FORMATIONS],
+  [['hive', 'formations', 580], HIVE_FORMATIONS],
+  [['hive', 'board', HIVE_FORMATION_ID], HIVE_SLOTS],
+  [['hive', 'members'], HIVE_MEMBERS],
 
   // Members
   [['roster'], ROSTER],

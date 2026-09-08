@@ -21,6 +21,7 @@ export type Route =
   | 'season'
   | 'season2'
   | 'map'
+  | 'hive'
   | 'arena'
   | 'server'
   | 'player'
@@ -44,6 +45,7 @@ const ROUTES: Record<string, Route> = {
   '#/season': 'season',
   '#/season2': 'season2',
   '#/map': 'map',
+  '#/hive': 'hive',
   '#/arena': 'arena',
   '#/month-cards': 'monthCards',
   '#/account': 'account',
@@ -246,6 +248,16 @@ export const NAV_TABS: ReadonlyArray<{ route: Route; hash: string; label: string
   // that sweep is read. One player at a time, which is why it is a screen
   // rather than a panel on the server page.
   { route: 'map', hash: '#/map', label: 'Map' },
+  // Next to the map because it is the map used for something rather than
+  // read: the same coordinates, the same sightings underneath, but a plan
+  // being written on top of them instead of a position being looked up.
+  //
+  // TOP LEVEL RATHER THAN A PANEL UNDER MAP, and the reason is who reads it.
+  // The map tab answers an officer's question — where is this one player.
+  // This one answers every member's question on the day of a hive move —
+  // where do I go — and burying that a click inside a screen about somebody
+  // else's location is how eighty people end up asking in chat instead.
+  { route: 'hive', hash: '#/hive', label: 'Hive' },
   // Straight after the overview, because these two are the ones the alliance
   // reads every day and writes to each other on. Everything below is a board
   // the game produced; this is what the alliance said about it.

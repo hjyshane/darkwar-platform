@@ -30,6 +30,16 @@ const TOPIC_QUERY_KEYS: Record<string, readonly (readonly string[])[]> = {
   // `player-location` is keyed by player id; naming the prefix reaches
   // whichever player is open, the same trick `player` uses above.
   world_city_snapshots: [['player-location'], ['player'], ['map']],
+  // Written by an officer rather than the collector, and watched by everybody
+  // at once: a hive move is the one moment when the whole alliance has the
+  // same screen open. A member refreshing to find out whether their tile has
+  // moved is the failure this avoids — and the last-second adjustment is
+  // exactly the one that has to reach them.
+  //
+  // One topic for both tables (0165 puts the same trigger on each): the tiles
+  // and the assignments feed the same screen, and a reader has no use for
+  // knowing which of the two changed.
+  hive_formations: [['hive']],
   season_building_snapshots: [['seasonBoard']],
   arena_entries: [['arena'], ['player']],
   // Written by an admin rather than the collector, and the only topic here
