@@ -10,6 +10,7 @@ import {
   BASE_SPAN,
   type FootprintBox,
   type TileColour,
+  boxBetween,
   footprintOf,
 } from '../../lib/hiveFormation';
 import { type Coordinate, MAP_MAX, MAP_MIN, formatCoordinate } from '../../lib/mapProjection';
@@ -174,6 +175,18 @@ interface Drag {
   allowed: boolean;
 }
 
+/** The centre a pan step lands on, kept on the map.
+ *
+ * CLAMPED TO THE MAP, NOT TO THE WINDOW. `windowAround` already slides a
+ * window that would hang off an edge, so an unclamped centre would go on
+ * counting past 999 while the picture stopped moving — and the officer would
+ * then have to drag the same distance back before anything happened.
+ */
+export function pannedCentre(from: Coordinate, byX: number, byY: number): Coordinate {
+  const onMap = (value: number) => Math.min(MAP_MAX, Math.max(MAP_MIN, value));
+  return { x: onMap(from.x + byX), y: onMap(from.y + byY) };
+}
+
 /** An inclusive tile box as a percentage rectangle. */
 function rectStyle(window: GridWindow, box: FootprintBox) {
   const corner = tileCorner(window, { x: box.x0, y: box.y1 });
@@ -192,6 +205,8 @@ export function TileGrid({
   sightings = [],
   onPick,
   onMove,
+  onRegion,
+  onPan,
   canMoveTo,
   onZoom,
   busy = false,
@@ -207,6 +222,26 @@ export function TileGrid({
   /** Given, a base can be picked up and put down somewhere else. Without it
    * pressing a base and moving does nothing, which is the read-only grid. */
   onMove?: (from: Coordinate, to: Coordinate) => void;
+  /** Given, a drag sweeps out a rectangle of tiles instead of carrying a
+   * base, and the box is reported on release.
+   *
+   * TAKES OVER THE DRAG RATHER THAN SHARING IT. One pointer gesture cannot
+   * mean both "carry this base" and "sweep this area" — whichever the grid
+   * guessed would be wrong half the time, on a press that looks identical
+   * either way. So this is a MODE the parent switches into, and while it is
+   * on, bases stay where they are.
+   */
+  onRegion?: (box: FootprintBox) => void;
+  /** Given, holding ctrl (or the middle button) and dragging slides the view.
+   * Reported as a step in TILES since the last call, so the caller adds it to
+   * its centre rather than tracking where the gesture began.
+   *
+   * A MODIFIER RATHER THAN A MODE, because panning is the one thing an
+   * officer does WHILE doing something else — halfway through drawing a wing
+   * of the hive, to see where it is going. A mode would mean leaving the tool
+   * they are using and coming back to it, every time they wanted to look.
+   */
+  onPan?: (byX: number, byY: number) => void;
   /** Whether the base now on `from` may land on `to`. Asked on every tile the
    * pointer crosses, so the square under the cursor can say no BEFORE the
    * drop rather than the drop being silently ignored. */
@@ -223,12 +258,96 @@ export function TileGrid({
   const roomForCaptions = view.across <= 45;
 
   const [drag, setDrag] = useState<Drag | null>(null);
+  const [region, setRegion] = useState<{ from: Coordinate; to: Coordinate } | null>(null);
+  // Where the last whole-tile step was emitted from, in client pixels. Held
+  // rather than the gesture's origin so the steps accumulate without drift:
+  // a pan of forty tiles is forty deltas, not one growing subtraction.
+  const [pan, setPan] = useState<{ x: number; y: number; moved: boolean } | null>(null);
   const surfaceRef = useRef<HTMLElement | null>(null);
   // A completed drag must not also fire the click that follows pointerup.
   // A ref rather than state: it is read and cleared inside the very next
   // event, and a re-render in between would be a frame of the wrong thing.
   const swallowClick = useRef(false);
-  const draggable = onMove !== undefined;
+  const sweeping = onRegion !== undefined;
+  const pannable = onPan !== undefined;
+
+  /** Where each carried tile would land.
+   *
+   * The dragged tile alone when nothing is selected, and the whole selection
+   * when the drag began on one of its members — the same rule pointerdown
+   * used to decide it was a group drag in the first place.
+   */
+  function ghostsFor(current: Drag) {
+    const byX = current.to.x - current.from.x;
+    const byY = current.to.y - current.from.y;
+    const held = baseUnder(current.from);
+    const group =
+      held?.selected === true ? bases.filter((base) => base.selected === true) : [held ?? null];
+    return group.flatMap((base) =>
+      base === null
+        ? []
+        : [
+            {
+              key: base.key,
+              at: { x: base.at.x + byX, y: base.at.y + byY },
+              spanX: base.spanX ?? BASE_SPAN,
+              spanY: base.spanY ?? BASE_SPAN,
+            },
+          ],
+    );
+  }
+
+  /** The base whose footprint covers a tile, if any. */
+  const baseUnder = (tile: Coordinate) =>
+    bases.find((base) => {
+      const box = footprintOf(base.at, base.spanX ?? BASE_SPAN, base.spanY ?? BASE_SPAN);
+      return tile.x >= box.x0 && tile.x <= box.x1 && tile.y >= box.y0 && tile.y <= box.y1;
+    });
+
+  /** Whether this press is asking to slide the view rather than to draw.
+   *
+   * Ctrl or the middle button, and checked BEFORE everything else — a press
+   * that means "pan" must not also carry a base or start a sweep, and the
+   * modifier is the only thing that distinguishes them. */
+  const isPanGesture = (event: ReactPointerEvent<HTMLElement>) =>
+    pannable && (event.ctrlKey || event.metaKey || event.button === 1);
+
+  function beginPan(event: ReactPointerEvent<HTMLElement>) {
+    // The middle button scrolls the page on Windows unless the press itself
+    // is taken.
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setPan({ x: event.clientX, y: event.clientY, moved: false });
+  }
+
+  function stepPan(event: ReactPointerEvent<HTMLElement>) {
+    if (pan === null) {
+      return;
+    }
+    const box = event.currentTarget.getBoundingClientRect();
+    const cell = box.width / view.across;
+    if (cell === 0) {
+      return;
+    }
+    // Whole tiles only. A sub-tile pan would have to move the grid's
+    // background by fractions of a cell to show anything, and the window this
+    // draws is defined in tiles — so the picture would not change until the
+    // step landed anyway, just later and less evenly.
+    const stepX = Math.round((event.clientX - pan.x) / cell);
+    const stepY = Math.round((event.clientY - pan.y) / cell);
+    if (stepX === 0 && stepY === 0) {
+      return;
+    }
+    // THE CONTENT FOLLOWS THE POINTER, which inverts x and does NOT invert y.
+    // Dragging right shows ground further west, so the centre moves west;
+    // dragging down shows ground further north, and map y counts upward while
+    // the screen counts downward — the two flips cancel and the sign stays
+    // positive.
+    onPan?.(-stepX, stepY);
+    setPan({ x: pan.x + stepX * cell, y: pan.y + stepY * cell, moved: true });
+  }
+  // Base dragging is off while sweeping: one gesture, one meaning.
+  const draggable = onMove !== undefined && !sweeping;
 
   // WHEEL ZOOM NEEDS A NON-PASSIVE LISTENER, which React's onWheel is not.
   // Without preventDefault the page scrolls at the same time and the map
@@ -289,20 +408,36 @@ export function TileGrid({
         style={boxStyle(view, anchor, 1)}
         title={`Anchor — ${formatCoordinate(anchor)}`}
       />
+      {/* THE AREA BEING SWEPT. Without it a drag across forty tiles is
+          invisible until it lands, and the officer is aiming at nothing. */}
+      {region !== null && (
+        <span
+          className="tile-grid__region"
+          style={rectStyle(view, boxBetween(region.from, region.to))}
+        />
+      )}
       {/* WHERE IT WOULD LAND, drawn while the pointer is down. Without it the
           only feedback is the base jumping on release, and a refused drop
           looks identical to a drag that did not register. */}
-      {drag?.moved === true && (
-        <span
-          className={
-            drag.allowed ? 'tile-grid__ghost' : 'tile-grid__ghost tile-grid__ghost--blocked'
-          }
-          style={boxStyle(view, drag.to, drag.spanX, drag.spanY)}
-        />
-      )}
+      {/* EVERY TILE THAT WOULD MOVE, not just the one under the pointer. A
+          group drag showing one ghost says nothing about where the other
+          nineteen land, which is the only question the officer has. */}
+      {drag?.moved === true &&
+        ghostsFor(drag).map((ghost) => (
+          <span
+            className={
+              drag.allowed ? 'tile-grid__ghost' : 'tile-grid__ghost tile-grid__ghost--blocked'
+            }
+            key={ghost.key}
+            style={boxStyle(view, ghost.at, ghost.spanX, ghost.spanY)}
+          />
+        ))}
       {bases.map((base) => {
         const carried =
-          drag?.moved === true && base.at.x === drag.from.x && base.at.y === drag.from.y;
+          drag?.moved === true &&
+          (base.selected === true && baseUnder(drag.from)?.selected === true
+            ? true
+            : base.at.x === drag.from.x && base.at.y === drag.from.y);
         const className = [
           'tile-grid__base',
           base.structure ? 'tile-grid__base--structure' : '',
@@ -338,8 +473,20 @@ export function TileGrid({
 
   if (onPick === undefined) {
     return (
+      // NO MODIFIER NEEDED HERE. On the read-only map a drag has nothing else
+      // it could mean, so plain dragging pans and ctrl still works — the
+      // editor needs ctrl only because a bare drag there already carries a
+      // base or sweeps an area.
       <div
-        className="tile-grid"
+        className={pan !== null ? 'tile-grid tile-grid--panning' : 'tile-grid'}
+        onPointerCancel={() => setPan(null)}
+        onPointerDown={(event) => {
+          if (pannable && (event.button === 0 || event.button === 1)) {
+            beginPan(event);
+          }
+        }}
+        onPointerMove={stepPan}
+        onPointerUp={() => setPan(null)}
         ref={surfaceRef as RefObject<HTMLDivElement>}
         style={{ '--tiles': view.across } as CSSProperties}
       >
@@ -357,16 +504,29 @@ export function TileGrid({
     // presses arrive with `detail === 0` and are ignored rather than
     // silently placing a base in the middle.
     <button
-      aria-label={
-        draggable
-          ? 'Pick a tile, or drag a base to move it. The coordinate boxes beside the map place one without a pointer.'
-          : 'Pick a tile. The coordinate boxes beside the map do the same without a pointer.'
-      }
-      className={busy ? 'tile-grid tile-grid--busy' : 'tile-grid'}
+      aria-label={[
+        sweeping
+          ? 'Drag out an area of tiles.'
+          : draggable
+            ? 'Pick a tile, or drag a base to move it.'
+            : 'Pick a tile.',
+        pannable ? 'Hold ctrl and drag, or drag with the middle button, to slide the map.' : '',
+        'The coordinate boxes beside the map do the same without a pointer.',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      className={[
+        'tile-grid',
+        busy ? 'tile-grid--busy' : '',
+        sweeping ? 'tile-grid--sweeping' : '',
+        pan !== null ? 'tile-grid--panning' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
       onClick={(event) => {
         // The drag already did the work and the browser fires a click after
         // the pointerup that ended it. Without this, dropping a base also
-        // removes it.
+        // removes it, and sweeping an area also toggles the tile underneath.
         if (swallowClick.current) {
           swallowClick.current = false;
           return;
@@ -379,8 +539,49 @@ export function TileGrid({
           onPick(tile);
         }
       }}
-      onPointerCancel={() => setDrag(null)}
+      onPointerCancel={() => {
+        setDrag(null);
+        setRegion(null);
+        setPan(null);
+      }}
       onPointerDown={(event) => {
+        if (isPanGesture(event)) {
+          beginPan(event);
+          return;
+        }
+        if (sweeping) {
+          if (event.button !== 0) {
+            return;
+          }
+          const corner = tileUnder(event);
+          if (corner === null) {
+            return;
+          }
+          // A PRESS ON SOMETHING ALREADY SELECTED CARRIES IT, and everything
+          // else selected with it. That is the one gesture a selection needs
+          // beyond making one, and it stays unambiguous because it can only
+          // begin on ground the officer has already picked out — in a tool
+          // where nothing is selected (marking, erasing) this never fires.
+          const held = baseUnder(corner);
+          if (held?.selected === true && onMove !== undefined) {
+            event.currentTarget.setPointerCapture(event.pointerId);
+            setDrag({
+              from: held.at,
+              to: held.at,
+              spanX: held.spanX ?? BASE_SPAN,
+              spanY: held.spanY ?? BASE_SPAN,
+              moved: false,
+              allowed: true,
+            });
+            return;
+          }
+          // Captured for the same reason a base drag is: a sweep that starts
+          // in the middle and ends past the edge of the grid is the normal
+          // way to select everything down to a corner.
+          event.currentTarget.setPointerCapture(event.pointerId);
+          setRegion({ from: corner, to: corner });
+          return;
+        }
         // A press on a base MIGHT be the start of a drag. Whether it is one
         // is not known until the pointer moves, so nothing happens yet — the
         // click handler above still owns a press that goes nowhere.
@@ -391,10 +592,7 @@ export function TileGrid({
         if (tile === null) {
           return;
         }
-        const held = bases.find((base) => {
-          const box = footprintOf(base.at, base.spanX ?? BASE_SPAN, base.spanY ?? BASE_SPAN);
-          return tile.x >= box.x0 && tile.x <= box.x1 && tile.y >= box.y0 && tile.y <= box.y1;
-        });
+        const held = baseUnder(tile);
         // A structure is ground rather than somebody's place, and dragging
         // the hive's centre by accident is not a thing anybody means to do.
         if (held === undefined || held.structure === true) {
@@ -414,6 +612,18 @@ export function TileGrid({
         });
       }}
       onPointerMove={(event) => {
+        if (pan !== null) {
+          stepPan(event);
+          return;
+        }
+        if (region !== null) {
+          const corner = tileUnder(event);
+          if (corner === null || (corner.x === region.to.x && corner.y === region.to.y)) {
+            return;
+          }
+          setRegion({ ...region, to: corner });
+          return;
+        }
         if (drag === null) {
           return;
         }
@@ -436,6 +646,24 @@ export function TileGrid({
         setDrag({ ...drag, to: tile, moved, allowed });
       }}
       onPointerUp={(event) => {
+        if (pan !== null) {
+          // A ctrl-press that never moved is not a click on a tile either —
+          // it is a pan the officer thought better of.
+          swallowClick.current = true;
+          setPan(null);
+          return;
+        }
+        if (region !== null) {
+          const corner = tileUnder(event) ?? region.to;
+          setRegion(null);
+          // A press and release on one tile is a box of one — a marker on
+          // that square — so there is no threshold here and nothing to
+          // forward to the click handler. Swallowed so the click does not
+          // then toggle the same tile straight back off.
+          swallowClick.current = true;
+          onRegion?.(boxBetween(region.from, corner));
+          return;
+        }
         if (drag === null) {
           return;
         }

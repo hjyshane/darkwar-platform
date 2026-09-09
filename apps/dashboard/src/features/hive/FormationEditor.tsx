@@ -5,6 +5,8 @@ import {
   type AssignableMember,
   BASE_SPAN,
   FRANKIE,
+  type FootprintBox,
+  MAX_TILES,
   type Offset,
   type SizedOffset,
   TILE_COLOURS,
@@ -14,13 +16,19 @@ import {
   assignOrderLabel,
   autoAssign,
   blockOffsets,
+  boxArea,
+  canMoveGroup,
   canPlace,
   footprintOf,
+  freeTilesIn,
   offsetKey,
+  outlineTilesIn,
   ringOffsets,
   ringOrderAround,
+  shiftedBy,
   sortSlots,
   tileFitsOnMap,
+  tileInsideBox,
   tilesOverlap,
 } from '../../lib/hiveFormation';
 import { type Coordinate, formatCoordinate } from '../../lib/mapProjection';
@@ -29,6 +37,7 @@ import {
   type GridSighting,
   TileGrid,
   ZOOM_STEPS,
+  pannedCentre,
   windowAround,
   zoomStep,
 } from './TileGrid';
@@ -91,6 +100,9 @@ interface Brush {
    * back and relabel ground an officer has already sent people to. */
   label: string;
 }
+
+/** What a drag does. Clicking a tile places or removes one in every mode. */
+type Tool = 'draw' | 'mark' | 'outline' | 'erase' | 'select';
 
 const ORDERS: readonly AssignOrder[] = ['power', 'hq', 'rank', 'name'];
 
@@ -221,6 +233,15 @@ export function FormationEditor({
   // from the brush, so the only thing left to type is what it is called.
   const [featureName, setFeatureName] = useState('');
   const [templateName, setTemplateName] = useState('');
+  // What a drag on the map means. One gesture cannot mean two things, so
+  // carrying a base and sweeping out an area are modes rather than a guess
+  // about intent — see TileGrid's `onRegion`.
+  const [tool, setTool] = useState<Tool>('draw');
+  // The tiles a box-select picked out, by offset key. Kept as keys rather
+  // than as slots so a selected tile that then MOVES stays selected under its
+  // new key — the group drag rewrites the whole set, and holding stale slot
+  // objects would leave the selection pointing at ground nobody is on.
+  const [selection, setSelection] = useState<ReadonlySet<string>>(new Set());
   const [order, setOrder] = useState<AssignOrder>('power');
   // slot id -> player id. Seeded from what is saved, so opening the screen
   // and saving without touching anything is a no-op rather than a wipe.
@@ -513,6 +534,161 @@ export function FormationEditor({
     setRefusal(null);
   }
 
+  /** Fill a swept box with 1x1 markers, or take the markers back out.
+   *
+   * FILLS AROUND WHAT IS THERE, never through it — `freeTilesIn` skips ground
+   * another tile already holds, so sweeping a strip beside the hive marks the
+   * gaps between the bases rather than being refused for touching one.
+   *
+   * The markers take the BRUSH'S colour and caption, which is what makes the
+   * catalogue worth having: click 'Keep clear', then sweep. The brush's SIZE
+   * is deliberately ignored — a marker says "this square is spoken for", and
+   * nothing bigger than a square can say that about an irregular gap.
+   */
+  function sweep(box: FootprintBox) {
+    if (tool === 'select') {
+      // FULLY INSIDE, not merely touched. A box that grabbed everything it
+      // clipped would take half a hive off a drag that overshot by a tile,
+      // and the officer would then move or delete tiles they never saw
+      // themselves select.
+      const picked = drawn.filter((slot) => tileInsideBox(absoluteOf(anchor, slot), box));
+      setSelection(new Set(picked.map(offsetKey)));
+      setRefusal(
+        picked.length === 0
+          ? 'Nothing is completely inside that box, so nothing is selected.'
+          : null,
+      );
+      return;
+    }
+
+    if (tool === 'erase') {
+      const next = new Map(draft);
+      let removed = 0;
+      for (const [key, slot] of draft) {
+        // The exact inverse of what marking put down, and nothing else. A
+        // sweep that also swallowed bases would delete people's places on a
+        // gesture meant to tidy up markers, and the drag reads the same
+        // either way.
+        if (slot.kind !== 'structure' || slot.spanX !== 1 || slot.spanY !== 1) {
+          continue;
+        }
+        if (tileInsideBox(absoluteOf(anchor, slot), box)) {
+          next.delete(key);
+          removed += 1;
+        }
+      }
+      setDraft(next);
+      setRefusal(removed === 0 ? 'Nothing to erase in that area — it holds no 1x1 markers.' : null);
+      return;
+    }
+
+    // A BOUNDARY IS A LINE. Filling a 40x40 area to record where it ends is
+    // 1,600 markers against 156, and the fill would eat the whole tile budget
+    // to say the same thing.
+    const free =
+      tool === 'outline' ? outlineTilesIn(box, anchor, drawn) : freeTilesIn(box, anchor, drawn);
+    if (free.length === 0) {
+      setRefusal(
+        tool === 'outline'
+          ? `Every tile on the edge of those ${boxArea(box)} is already spoken for.`
+          : `Every one of those ${boxArea(box)} tiles is already spoken for.`,
+      );
+      return;
+    }
+    // THE CEILING IS THE BOARD QUERY'S, not a view about hive size. Past 500
+    // tiles `fetchBoard` returns fewer rows without saying so, and the
+    // formation would read as complete while missing whatever fell off the
+    // end. A sweep is the first gesture here that can add hundreds at once.
+    if (draft.size + free.length > MAX_TILES) {
+      setRefusal(
+        `That area needs ${free.length} markers and only ${MAX_TILES - draft.size} will fit — a formation stops being readable past ${MAX_TILES} tiles.`,
+      );
+      return;
+    }
+    const next = new Map(draft);
+    let ordinal = draft.size;
+    for (const tile of free) {
+      ordinal += 1;
+      next.set(offsetKey(tile), {
+        ...tile,
+        ordinal,
+        label: brush.label,
+        kind: 'structure',
+        colour: brush.colour ?? 'red',
+        playerId: null,
+      });
+    }
+    setDraft(next);
+    setRefusal(null);
+  }
+
+  /** Shift every selected tile by the same whole number of tiles.
+   *
+   * REBUILT WHOLE RATHER THAN EDITED IN PLACE. The draft is keyed by offset,
+   * so moving a group one tile east would have each tile land on the key of
+   * its neighbour while that neighbour is still there — the same reason the
+   * database cannot take a formation piecewise, in a Map instead of a table.
+   * Emptying the moved tiles out first and putting them all back is the only
+   * order that has no invalid halfway state.
+   *
+   * The selection follows the tiles to their new keys, so a group can be
+   * nudged twice without reselecting it.
+   */
+  function moveSelection(byX: number, byY: number) {
+    if (byX === 0 && byY === 0) {
+      return;
+    }
+    if (!canMoveGroup(drawn, selection, byX, byY, anchor)) {
+      setRefusal(
+        `Those ${selection.size} tiles cannot all move there — something is in the way, or the group would run off the map.`,
+      );
+      return;
+    }
+    const next = new Map(draft);
+    const landed = new Set<string>();
+    for (const key of selection) {
+      next.delete(key);
+    }
+    for (const key of selection) {
+      const held = draft.get(key);
+      if (held === undefined) {
+        continue;
+      }
+      const landing = shiftedBy(held, byX, byY);
+      next.set(offsetKey(landing), landing);
+      landed.add(offsetKey(landing));
+    }
+    setDraft(next);
+    setSelection(landed);
+    setRefusal(null);
+  }
+
+  /** Take every selected tile out of the draft. */
+  function deleteSelection() {
+    if (selection.size === 0) {
+      return;
+    }
+    const next = new Map(draft);
+    let people = 0;
+    for (const key of selection) {
+      // A base that had somebody on it is the one deletion worth counting:
+      // the officer is about to lose that assignment and the tile it named,
+      // and neither is visible once the square is gone.
+      if (next.get(key)?.playerId != null) {
+        people += 1;
+      }
+      next.delete(key);
+    }
+    const removed = selection.size;
+    setDraft(next);
+    setSelection(new Set());
+    setRefusal(
+      people === 0
+        ? null
+        : `Removed ${removed} tiles, ${people} of which had somebody standing on them.`,
+    );
+  }
+
   /** Whether the base standing on `from` could stand on `to` instead.
    *
    * The moved base is taken OUT of the comparison, or it would always clash
@@ -522,6 +698,12 @@ export function FormationEditor({
     const held = draft.get(offsetKey({ dx: from.x - anchor.x, dy: from.y - anchor.y }));
     if (held === undefined) {
       return false;
+    }
+    // A press that began on a selected tile carries the whole selection, so
+    // the question is whether the GROUP fits — asked of the same set the drop
+    // will move, or the grid would green-light a drop the drop then refuses.
+    if (selection.has(offsetKey(held))) {
+      return canMoveGroup(drawn, selection, to.x - from.x, to.y - from.y, anchor);
     }
     const landing: SizedOffset = {
       dx: to.x - anchor.x,
@@ -543,6 +725,10 @@ export function FormationEditor({
     const moving: Offset = { dx: from.x - anchor.x, dy: from.y - anchor.y };
     const held = draft.get(offsetKey(moving));
     if (held === undefined || !canMove(from, to)) {
+      return;
+    }
+    if (selection.has(offsetKey(held))) {
+      moveSelection(to.x - from.x, to.y - from.y);
       return;
     }
     const landing: SizedOffset = {
@@ -660,6 +846,7 @@ export function FormationEditor({
     return {
       key: offsetKey(slot),
       at,
+      selected: selection.has(offsetKey(slot)),
       spanX: slot.spanX,
       spanY: slot.spanY,
       structure: slot.kind === 'structure',
@@ -694,6 +881,8 @@ export function FormationEditor({
             canMoveTo={canMove}
             onMove={move}
             onPick={pick}
+            onPan={(byX, byY) => setCentre((from) => pannedCentre(from, byX, byY))}
+            onRegion={tool === 'draw' ? undefined : sweep}
             onZoom={(direction, at) => {
               // RE-CENTRE ON THE TILE UNDER THE POINTER. Zooming about the
               // window's own centre slides whatever you were looking at away
@@ -707,9 +896,11 @@ export function FormationEditor({
           />
           <p className="subtle">
             Click free ground to place a base, click a base to take it away. Each one is {BASE_SPAN}
-            x{BASE_SPAN} tiles and the coordinate is the middle. Shaded squares are where the map
-            last SAW somebody — a base that was destroyed or lost its shield has been teleported
-            somewhere random, so treat them as a hint and not as a wall.
+            x{BASE_SPAN} tiles and the coordinate is the middle. Hold <kbd>ctrl</kbd> and drag — or
+            drag with the middle button — to slide the map without drawing anything; the wheel
+            zooms. Shaded squares are where the map last SAW somebody — a base that was destroyed or
+            lost its shield has been teleported somewhere random, so treat them as a hint and not as
+            a wall.
           </p>
           <fieldset className="hive-zoom">
             <legend>Zoom</legend>
@@ -752,6 +943,101 @@ export function FormationEditor({
               onSubmit={setCentre}
               submitLabel="Go there"
             />
+          </fieldset>
+
+          <fieldset className="hive-tools">
+            <legend>What a drag does</legend>
+            <p className="subtle">
+              Clicking a tile places or removes one in every mode. This is only about the drag,
+              because one gesture cannot mean two things: while an area tool is on, bases stay where
+              they are.
+            </p>
+            <div className="hive-shapes">
+              {(
+                [
+                  ['draw', 'Move a base', 'Drag a base to carry it somewhere else.'],
+                  [
+                    'mark',
+                    'Fill an area',
+                    'Drag out a rectangle and fill every free tile in it with a 1x1 marker, in the brush\u2019s colour and caption. Goes around whatever is already drawn.',
+                  ],
+                  [
+                    'outline',
+                    'Draw a boundary',
+                    'Drag out a rectangle and mark only its EDGE. What a boundary needs, at a fraction of the tiles a fill would spend.',
+                  ],
+                  [
+                    'erase',
+                    'Erase an area',
+                    'Drag out a rectangle and take its 1x1 markers back out. Bases are left alone.',
+                  ],
+                  [
+                    'select',
+                    'Select',
+                    'Drag out a rectangle to pick out everything completely inside it, then drag any of them to move the whole group, or remove them together.',
+                  ],
+                ] as const
+              ).map(([value, label, hint]) => (
+                <button
+                  aria-pressed={tool === value}
+                  key={value}
+                  onClick={() => {
+                    setTool(value);
+                    // A selection that outlived its tool would still be
+                    // carried by a drag, in a mode whose drag means something
+                    // else entirely.
+                    if (value !== 'select') {
+                      setSelection(new Set());
+                    }
+                    setRefusal(null);
+                  }}
+                  title={hint}
+                  type="button"
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {tool === 'select' && (
+              <div className="hive-selection">
+                <p className="subtle">
+                  {selection.size === 0
+                    ? 'Nothing selected. Drag a box around the tiles you want.'
+                    : `${selection.size} tile${selection.size === 1 ? '' : 's'} selected — drag any of them to move the group, or nudge it a tile at a time.`}
+                </p>
+                {selection.size > 0 && (
+                  <div className="hive-shapes">
+                    {/* A TILE AT A TIME, for the last step of lining a block up
+                        against a boundary. A drag cannot reliably land on one
+                        tile at this zoom, and the coordinate boxes move the
+                        anchor rather than a selection. */}
+                    {(
+                      [
+                        ['\u2190', -1, 0],
+                        ['\u2192', 1, 0],
+                        ['\u2191', 0, 1],
+                        ['\u2193', 0, -1],
+                      ] as const
+                    ).map(([glyph, byX, byY]) => (
+                      <button
+                        aria-label={`Nudge the selection ${glyph}`}
+                        key={glyph}
+                        onClick={() => moveSelection(byX, byY)}
+                        type="button"
+                      >
+                        {glyph}
+                      </button>
+                    ))}
+                    <button onClick={() => setSelection(new Set())} type="button">
+                      Deselect
+                    </button>
+                    <button className="hive-remove" onClick={deleteSelection} type="button">
+                      Remove {selection.size} tile{selection.size === 1 ? '' : 's'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </fieldset>
 
           <fieldset>

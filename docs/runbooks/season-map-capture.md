@@ -430,6 +430,58 @@ operator's labels is what makes this a reading rather than a guess.
 The three **centres** are `alBuilding` (map type 15), not type 6:
 `buildId` 41000 = 연맹 용광로 1, 42000 = 용광로 2, 43000 = 용광로 3.
 
+## What the hive planner can draw, and what it cannot (2026-09-09)
+
+Asked whether the map's own features could be shown behind a hive formation —
+specifically the **city zones (level 1-6)** and the **three alliance centres**.
+Measured against the two committed `world.get.new` fixtures rather than
+recalled: 657 tiles on the home map at (431,476) and 265 on the season map at
+(8,7).
+
+### The alliance centre is already on the wire, and already decoded
+
+Type 15 carries the alliance outright. Decoding `f101` on the home-map fixture:
+
+| field | value |
+|---|---|
+| 2 | 43000 — the `buildId`, one of the three centres named above |
+| 5 | `CBFW` — alliance tag |
+| 6 | `95deb37d1a0b4b8ba575ba3a3f324dac` |
+| 7 | 1600000 |
+| 10 | `HELLBOUND` — alliance name |
+| 11 | `8;8;2;8` — the emblem, on the same reading as the flag string |
+
+The season-map fixture carries the same tag and name at `buildId` **41000**, so
+the `buildId` is what tells the three centres apart and not their coordinates.
+
+**It reaches `Tile.raw` today and is thrown away in normalize/world_map.py**,
+which `continue`s on anything that is not type 3 or type 6. Nothing needs
+decoding work — a writer and a table are the whole job, and the fields above
+are observed rather than guessed.
+
+Worth saying plainly, since this file has been wrong about a type before: the
+table above says type 6 is marches, and `protocol/worldmap.py` corrects that to
+the member season building with the evidence for it. Where they disagree the
+parser is newer. Today's scan agrees with the parser — the tiles carrying a uid
+and a destination point id are type **7**, not 6.
+
+### The city zone level is NOT in any payload we hold
+
+Every object type was scanned for a field whose observed values fall in 1..6,
+which is what a zone level looks like from the outside. **There is exactly one
+such field in 922 tiles**, and it is not a zone: `f3.23.2` inside the player
+city sub-message, taking values 1 (77 tiles) and 3 (45) — two states, not six
+levels.
+
+That is the expected answer rather than a surprising one. Zones are geography:
+they never change, so a server has no reason to re-send them with every
+viewport, and they are almost certainly client-side map data.
+
+**So a zone overlay cannot be built from capture, and no amount of sweeping
+will produce one.** The cheap path is the honest one: the boundaries are
+readable off the game by eye, entered once by hand, and drawn as a static
+layer. Ten rectangles typed in beats a protocol hunt that has nothing to find.
+
 ### Still unnamed, and one of them is a puzzle
 
 Eighteen type-6 ids appear against eleven buildings described in game.
