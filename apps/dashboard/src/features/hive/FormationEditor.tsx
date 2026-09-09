@@ -17,12 +17,15 @@ import {
   autoAssign,
   blockOffsets,
   boxArea,
+  canMoveGroup,
   canPlace,
   footprintOf,
   freeTilesIn,
   offsetKey,
+  outlineTilesIn,
   ringOffsets,
   ringOrderAround,
+  shiftedBy,
   sortSlots,
   tileFitsOnMap,
   tileInsideBox,
@@ -99,7 +102,7 @@ interface Brush {
 }
 
 /** What a drag does. Clicking a tile places or removes one in every mode. */
-type Tool = 'draw' | 'mark' | 'erase';
+type Tool = 'draw' | 'mark' | 'outline' | 'erase' | 'select';
 
 const ORDERS: readonly AssignOrder[] = ['power', 'hq', 'rank', 'name'];
 
@@ -234,6 +237,11 @@ export function FormationEditor({
   // carrying a base and sweeping out an area are modes rather than a guess
   // about intent — see TileGrid's `onRegion`.
   const [tool, setTool] = useState<Tool>('draw');
+  // The tiles a box-select picked out, by offset key. Kept as keys rather
+  // than as slots so a selected tile that then MOVES stays selected under its
+  // new key — the group drag rewrites the whole set, and holding stale slot
+  // objects would leave the selection pointing at ground nobody is on.
+  const [selection, setSelection] = useState<ReadonlySet<string>>(new Set());
   const [order, setOrder] = useState<AssignOrder>('power');
   // slot id -> player id. Seeded from what is saved, so opening the screen
   // and saving without touching anything is a no-op rather than a wipe.
@@ -538,6 +546,21 @@ export function FormationEditor({
    * nothing bigger than a square can say that about an irregular gap.
    */
   function sweep(box: FootprintBox) {
+    if (tool === 'select') {
+      // FULLY INSIDE, not merely touched. A box that grabbed everything it
+      // clipped would take half a hive off a drag that overshot by a tile,
+      // and the officer would then move or delete tiles they never saw
+      // themselves select.
+      const picked = drawn.filter((slot) => tileInsideBox(absoluteOf(anchor, slot), box));
+      setSelection(new Set(picked.map(offsetKey)));
+      setRefusal(
+        picked.length === 0
+          ? 'Nothing is completely inside that box, so nothing is selected.'
+          : null,
+      );
+      return;
+    }
+
     if (tool === 'erase') {
       const next = new Map(draft);
       let removed = 0;
@@ -559,9 +582,17 @@ export function FormationEditor({
       return;
     }
 
-    const free = freeTilesIn(box, anchor, drawn);
+    // A BOUNDARY IS A LINE. Filling a 40x40 area to record where it ends is
+    // 1,600 markers against 156, and the fill would eat the whole tile budget
+    // to say the same thing.
+    const free =
+      tool === 'outline' ? outlineTilesIn(box, anchor, drawn) : freeTilesIn(box, anchor, drawn);
     if (free.length === 0) {
-      setRefusal(`Every one of those ${boxArea(box)} tiles is already spoken for.`);
+      setRefusal(
+        tool === 'outline'
+          ? `Every tile on the edge of those ${boxArea(box)} is already spoken for.`
+          : `Every one of those ${boxArea(box)} tiles is already spoken for.`,
+      );
       return;
     }
     // THE CEILING IS THE BOARD QUERY'S, not a view about hive size. Past 500
@@ -591,6 +622,73 @@ export function FormationEditor({
     setRefusal(null);
   }
 
+  /** Shift every selected tile by the same whole number of tiles.
+   *
+   * REBUILT WHOLE RATHER THAN EDITED IN PLACE. The draft is keyed by offset,
+   * so moving a group one tile east would have each tile land on the key of
+   * its neighbour while that neighbour is still there — the same reason the
+   * database cannot take a formation piecewise, in a Map instead of a table.
+   * Emptying the moved tiles out first and putting them all back is the only
+   * order that has no invalid halfway state.
+   *
+   * The selection follows the tiles to their new keys, so a group can be
+   * nudged twice without reselecting it.
+   */
+  function moveSelection(byX: number, byY: number) {
+    if (byX === 0 && byY === 0) {
+      return;
+    }
+    if (!canMoveGroup(drawn, selection, byX, byY, anchor)) {
+      setRefusal(
+        `Those ${selection.size} tiles cannot all move there — something is in the way, or the group would run off the map.`,
+      );
+      return;
+    }
+    const next = new Map(draft);
+    const landed = new Set<string>();
+    for (const key of selection) {
+      next.delete(key);
+    }
+    for (const key of selection) {
+      const held = draft.get(key);
+      if (held === undefined) {
+        continue;
+      }
+      const landing = shiftedBy(held, byX, byY);
+      next.set(offsetKey(landing), landing);
+      landed.add(offsetKey(landing));
+    }
+    setDraft(next);
+    setSelection(landed);
+    setRefusal(null);
+  }
+
+  /** Take every selected tile out of the draft. */
+  function deleteSelection() {
+    if (selection.size === 0) {
+      return;
+    }
+    const next = new Map(draft);
+    let people = 0;
+    for (const key of selection) {
+      // A base that had somebody on it is the one deletion worth counting:
+      // the officer is about to lose that assignment and the tile it named,
+      // and neither is visible once the square is gone.
+      if (next.get(key)?.playerId != null) {
+        people += 1;
+      }
+      next.delete(key);
+    }
+    const removed = selection.size;
+    setDraft(next);
+    setSelection(new Set());
+    setRefusal(
+      people === 0
+        ? null
+        : `Removed ${removed} tiles, ${people} of which had somebody standing on them.`,
+    );
+  }
+
   /** Whether the base standing on `from` could stand on `to` instead.
    *
    * The moved base is taken OUT of the comparison, or it would always clash
@@ -600,6 +698,12 @@ export function FormationEditor({
     const held = draft.get(offsetKey({ dx: from.x - anchor.x, dy: from.y - anchor.y }));
     if (held === undefined) {
       return false;
+    }
+    // A press that began on a selected tile carries the whole selection, so
+    // the question is whether the GROUP fits — asked of the same set the drop
+    // will move, or the grid would green-light a drop the drop then refuses.
+    if (selection.has(offsetKey(held))) {
+      return canMoveGroup(drawn, selection, to.x - from.x, to.y - from.y, anchor);
     }
     const landing: SizedOffset = {
       dx: to.x - anchor.x,
@@ -621,6 +725,10 @@ export function FormationEditor({
     const moving: Offset = { dx: from.x - anchor.x, dy: from.y - anchor.y };
     const held = draft.get(offsetKey(moving));
     if (held === undefined || !canMove(from, to)) {
+      return;
+    }
+    if (selection.has(offsetKey(held))) {
+      moveSelection(to.x - from.x, to.y - from.y);
       return;
     }
     const landing: SizedOffset = {
@@ -738,6 +846,7 @@ export function FormationEditor({
     return {
       key: offsetKey(slot),
       at,
+      selected: selection.has(offsetKey(slot)),
       spanX: slot.spanX,
       spanY: slot.spanY,
       structure: slot.kind === 'structure',
@@ -849,13 +958,23 @@ export function FormationEditor({
                   ['draw', 'Move a base', 'Drag a base to carry it somewhere else.'],
                   [
                     'mark',
-                    'Mark an area',
+                    'Fill an area',
                     'Drag out a rectangle and fill every free tile in it with a 1x1 marker, in the brush\u2019s colour and caption. Goes around whatever is already drawn.',
+                  ],
+                  [
+                    'outline',
+                    'Draw a boundary',
+                    'Drag out a rectangle and mark only its EDGE. What a boundary needs, at a fraction of the tiles a fill would spend.',
                   ],
                   [
                     'erase',
                     'Erase an area',
                     'Drag out a rectangle and take its 1x1 markers back out. Bases are left alone.',
+                  ],
+                  [
+                    'select',
+                    'Select',
+                    'Drag out a rectangle to pick out everything completely inside it, then drag any of them to move the whole group, or remove them together.',
                   ],
                 ] as const
               ).map(([value, label, hint]) => (
@@ -864,6 +983,12 @@ export function FormationEditor({
                   key={value}
                   onClick={() => {
                     setTool(value);
+                    // A selection that outlived its tool would still be
+                    // carried by a drag, in a mode whose drag means something
+                    // else entirely.
+                    if (value !== 'select') {
+                      setSelection(new Set());
+                    }
                     setRefusal(null);
                   }}
                   title={hint}
@@ -873,6 +998,46 @@ export function FormationEditor({
                 </button>
               ))}
             </div>
+            {tool === 'select' && (
+              <div className="hive-selection">
+                <p className="subtle">
+                  {selection.size === 0
+                    ? 'Nothing selected. Drag a box around the tiles you want.'
+                    : `${selection.size} tile${selection.size === 1 ? '' : 's'} selected — drag any of them to move the group, or nudge it a tile at a time.`}
+                </p>
+                {selection.size > 0 && (
+                  <div className="hive-shapes">
+                    {/* A TILE AT A TIME, for the last step of lining a block up
+                        against a boundary. A drag cannot reliably land on one
+                        tile at this zoom, and the coordinate boxes move the
+                        anchor rather than a selection. */}
+                    {(
+                      [
+                        ['\u2190', -1, 0],
+                        ['\u2192', 1, 0],
+                        ['\u2191', 0, 1],
+                        ['\u2193', 0, -1],
+                      ] as const
+                    ).map(([glyph, byX, byY]) => (
+                      <button
+                        aria-label={`Nudge the selection ${glyph}`}
+                        key={glyph}
+                        onClick={() => moveSelection(byX, byY)}
+                        type="button"
+                      >
+                        {glyph}
+                      </button>
+                    ))}
+                    <button onClick={() => setSelection(new Set())} type="button">
+                      Deselect
+                    </button>
+                    <button className="hive-remove" onClick={deleteSelection} type="button">
+                      Remove {selection.size} tile{selection.size === 1 ? '' : 's'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </fieldset>
 
           <fieldset>

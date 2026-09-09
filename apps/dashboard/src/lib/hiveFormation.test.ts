@@ -12,15 +12,19 @@ import {
   blockOffsets,
   boxArea,
   boxBetween,
+  canMoveGroup,
   canPlace,
   centreFitsOnMap,
   coversTile,
   firstOverlap,
   footprintOf,
   freeTilesIn,
+  offsetKey,
+  outlineTilesIn,
   ringOf,
   ringOffsets,
   ringOrderAround,
+  shiftedBy,
   sortMembers,
   spanLow,
   tileFitsOnMap,
@@ -363,4 +367,82 @@ test('a fill stops at the edge of the map instead of running off it', () => {
   expect(boxArea(boxBetween({ x: -2, y: -2 }, { x: 1, y: 1 }))).toBe(16);
   expect(corner).toHaveLength(4);
   expect(corner.every((tile) => tile.dx >= 0 && tile.dy >= 0)).toBe(true);
+});
+
+// Drawing a boundary rather than filling it in.
+
+test('an outline is the edge only, and the middle is left alone', () => {
+  // 5x5 = 25 tiles; its edge is 16.
+  const box = boxBetween({ x: 498, y: 498 }, { x: 502, y: 502 });
+
+  expect(freeTilesIn(box, ANCHOR, [])).toHaveLength(25);
+  expect(outlineTilesIn(box, ANCHOR, [])).toHaveLength(16);
+});
+
+test('a thin box is all edge rather than a broken ring', () => {
+  // Two tiles across has no middle to leave out, so nothing may go missing.
+  const thin = boxBetween({ x: 500, y: 500 }, { x: 501, y: 509 });
+
+  expect(outlineTilesIn(thin, ANCHOR, [])).toHaveLength(20);
+  expect(outlineTilesIn(thin, ANCHOR, [])).toHaveLength(freeTilesIn(thin, ANCHOR, []).length);
+});
+
+test('an outline goes around what is already drawn, like a fill does', () => {
+  const base: SizedOffset = { dx: -2, dy: 0, spanX: BASE_SPAN, spanY: BASE_SPAN };
+  const box = boxBetween({ x: 497, y: 498 }, { x: 502, y: 502 });
+  const edge = outlineTilesIn(box, ANCHOR, [base]);
+
+  expect(edge.every((tile) => canPlace([base], tile))).toBe(true);
+  expect(edge.length).toBeLessThan(outlineTilesIn(box, ANCHOR, []).length);
+});
+
+// Moving several tiles at once.
+
+const GROUP: SizedOffset[] = [
+  { dx: 0, dy: 0, spanX: BASE_SPAN, spanY: BASE_SPAN },
+  { dx: 3, dy: 0, spanX: BASE_SPAN, spanY: BASE_SPAN },
+  { dx: 6, dy: 0, spanX: BASE_SPAN, spanY: BASE_SPAN },
+];
+
+test('a group does not collide with its own old positions', () => {
+  // The trap a single drag hits too: nudging one tile east leaves the old and
+  // new footprints overlapping, so a naive check refuses every move.
+  const all = new Set(GROUP.map(offsetKey));
+
+  expect(canMoveGroup(GROUP, all, 1, 0, ANCHOR)).toBe(true);
+});
+
+test('a moving group still collides with what stays put', () => {
+  const parked: SizedOffset = { dx: 0, dy: 4, spanX: BASE_SPAN, spanY: BASE_SPAN };
+  const tiles = [...GROUP, parked];
+  const moving = new Set(GROUP.map(offsetKey));
+
+  // Three tiles north puts the first of the group onto the parked one.
+  expect(canMoveGroup(tiles, moving, 0, 3, ANCHOR)).toBe(false);
+  // Far enough south and nothing is in the way.
+  expect(canMoveGroup(tiles, moving, 0, -3, ANCHOR)).toBe(true);
+});
+
+test('a group cannot be walked off the edge of the map', () => {
+  const moving = new Set(GROUP.map(offsetKey));
+
+  expect(canMoveGroup(GROUP, moving, -600, 0, ANCHOR)).toBe(false);
+});
+
+test('shifting keeps everything else about a tile', () => {
+  const tile: SizedOffset & { kind: string } = {
+    dx: 1,
+    dy: 2,
+    spanX: 6,
+    spanY: 4,
+    kind: 'structure',
+  };
+
+  expect(shiftedBy(tile, -3, 5)).toEqual({
+    dx: -2,
+    dy: 7,
+    spanX: 6,
+    spanY: 4,
+    kind: 'structure',
+  });
 });

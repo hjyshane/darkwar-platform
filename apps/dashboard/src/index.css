@@ -3819,8 +3819,15 @@ button.tile-grid:hover:not(:disabled) {
   overflow: hidden;
 }
 
+/* SELECTED, AS AN OUTLINE RATHER THAN A FILL. The per-tile colour rules are
+ * declared after this block and set `background`, so a background here would
+ * be overwritten on exactly the tiles most likely to be selected — the
+ * officer's own coloured buildings. An outline is not a property any of them
+ * touch, and it also reads as "picked out" rather than "recoloured", which is
+ * what a selection is. */
 .tile-grid__base--on {
-  background: color-mix(in srgb, var(--accent) 55%, transparent);
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
   border-width: 2px;
 }
 
@@ -4213,6 +4220,20 @@ button.tile-grid:hover:not(:disabled) {
 .hive-tools button[aria-pressed="true"] {
   border-color: var(--accent);
   color: var(--accent);
+}
+
+.hive-selection {
+  margin-top: var(--space-3);
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-2);
+}
+
+/* The one button here that loses work. Edged rather than filled, for the
+ * reason `button.primary` is: the palette has no brand colour and a solid
+ * red block would be the loudest thing on a page of tables. */
+.hive-remove {
+  border-color: var(--danger-fg);
+  color: var(--danger-fg);
 }
 
 .hive-count {

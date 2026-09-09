@@ -282,6 +282,62 @@ export function freeTilesIn(
   return free;
 }
 
+/** The free 1x1 tiles on a box's EDGE, as offsets from the anchor.
+ *
+ * A BOUNDARY IS A LINE, NOT A FILL. Marking where a zone or a building
+ * footprint ends means four sides, and filling the middle costs hundreds of
+ * markers to say the same thing — a 40x40 area is 1,600 tiles filled against
+ * 156 outlined, and the fill would eat the formation's whole tile budget to
+ * record one edge.
+ *
+ * A box one or two tiles thick is all edge, and comes back whole rather than
+ * as a degenerate ring.
+ */
+export function outlineTilesIn(
+  box: FootprintBox,
+  anchor: Coordinate,
+  taken: readonly SizedOffset[],
+): SizedOffset[] {
+  const onEdge = (x: number, y: number) =>
+    x === box.x0 || x === box.x1 || y === box.y0 || y === box.y1;
+  return freeTilesIn(box, anchor, taken).filter((tile) =>
+    onEdge(tile.dx + anchor.x, tile.dy + anchor.y),
+  );
+}
+
+/** The same offset shifted by a whole number of tiles. */
+export function shiftedBy<T extends Offset>(offset: T, byX: number, byY: number): T {
+  return { ...offset, dx: offset.dx + byX, dy: offset.dy + byY };
+}
+
+/** Whether a whole group of tiles can move together by (byX, byY).
+ *
+ * THE GROUP IS COMPARED AGAINST EVERYTHING IT IS NOT, and against nothing it
+ * is. Members of a moving group cannot clash with each other — they keep
+ * their spacing, so if they fitted before they fit after — but they WOULD
+ * clash with their own old positions, which is the same trap a single base
+ * drag hits: a one-tile nudge leaves old and new footprints overlapping, and
+ * every move would be refused for colliding with itself.
+ */
+export function canMoveGroup(
+  tiles: readonly SizedOffset[],
+  moving: ReadonlySet<string>,
+  byX: number,
+  byY: number,
+  anchor: Coordinate,
+): boolean {
+  const stayingPut = tiles.filter((tile) => !moving.has(offsetKey(tile)));
+  return tiles
+    .filter((tile) => moving.has(offsetKey(tile)))
+    .every((tile) => {
+      const landing = shiftedBy(tile, byX, byY);
+      return (
+        tileFitsOnMap(absoluteOf(anchor, landing), landing.spanX, landing.spanY) &&
+        canPlace(stayingPut, landing)
+      );
+    });
+}
+
 /** A rectangular block of bases, packed as tightly as 3x3 footprints allow.
  *
  * THE PITCH IS BASE_SPAN, NOT ONE. A block drawn on the map's own grid would

@@ -271,6 +271,39 @@ export function TileGrid({
   const sweeping = onRegion !== undefined;
   const pannable = onPan !== undefined;
 
+  /** Where each carried tile would land.
+   *
+   * The dragged tile alone when nothing is selected, and the whole selection
+   * when the drag began on one of its members — the same rule pointerdown
+   * used to decide it was a group drag in the first place.
+   */
+  function ghostsFor(current: Drag) {
+    const byX = current.to.x - current.from.x;
+    const byY = current.to.y - current.from.y;
+    const held = baseUnder(current.from);
+    const group =
+      held?.selected === true ? bases.filter((base) => base.selected === true) : [held ?? null];
+    return group.flatMap((base) =>
+      base === null
+        ? []
+        : [
+            {
+              key: base.key,
+              at: { x: base.at.x + byX, y: base.at.y + byY },
+              spanX: base.spanX ?? BASE_SPAN,
+              spanY: base.spanY ?? BASE_SPAN,
+            },
+          ],
+    );
+  }
+
+  /** The base whose footprint covers a tile, if any. */
+  const baseUnder = (tile: Coordinate) =>
+    bases.find((base) => {
+      const box = footprintOf(base.at, base.spanX ?? BASE_SPAN, base.spanY ?? BASE_SPAN);
+      return tile.x >= box.x0 && tile.x <= box.x1 && tile.y >= box.y0 && tile.y <= box.y1;
+    });
+
   /** Whether this press is asking to slide the view rather than to draw.
    *
    * Ctrl or the middle button, and checked BEFORE everything else — a press
@@ -386,17 +419,25 @@ export function TileGrid({
       {/* WHERE IT WOULD LAND, drawn while the pointer is down. Without it the
           only feedback is the base jumping on release, and a refused drop
           looks identical to a drag that did not register. */}
-      {drag?.moved === true && (
-        <span
-          className={
-            drag.allowed ? 'tile-grid__ghost' : 'tile-grid__ghost tile-grid__ghost--blocked'
-          }
-          style={boxStyle(view, drag.to, drag.spanX, drag.spanY)}
-        />
-      )}
+      {/* EVERY TILE THAT WOULD MOVE, not just the one under the pointer. A
+          group drag showing one ghost says nothing about where the other
+          nineteen land, which is the only question the officer has. */}
+      {drag?.moved === true &&
+        ghostsFor(drag).map((ghost) => (
+          <span
+            className={
+              drag.allowed ? 'tile-grid__ghost' : 'tile-grid__ghost tile-grid__ghost--blocked'
+            }
+            key={ghost.key}
+            style={boxStyle(view, ghost.at, ghost.spanX, ghost.spanY)}
+          />
+        ))}
       {bases.map((base) => {
         const carried =
-          drag?.moved === true && base.at.x === drag.from.x && base.at.y === drag.from.y;
+          drag?.moved === true &&
+          (base.selected === true && baseUnder(drag.from)?.selected === true
+            ? true
+            : base.at.x === drag.from.x && base.at.y === drag.from.y);
         const className = [
           'tile-grid__base',
           base.structure ? 'tile-grid__base--structure' : '',
@@ -516,6 +557,24 @@ export function TileGrid({
           if (corner === null) {
             return;
           }
+          // A PRESS ON SOMETHING ALREADY SELECTED CARRIES IT, and everything
+          // else selected with it. That is the one gesture a selection needs
+          // beyond making one, and it stays unambiguous because it can only
+          // begin on ground the officer has already picked out — in a tool
+          // where nothing is selected (marking, erasing) this never fires.
+          const held = baseUnder(corner);
+          if (held?.selected === true && onMove !== undefined) {
+            event.currentTarget.setPointerCapture(event.pointerId);
+            setDrag({
+              from: held.at,
+              to: held.at,
+              spanX: held.spanX ?? BASE_SPAN,
+              spanY: held.spanY ?? BASE_SPAN,
+              moved: false,
+              allowed: true,
+            });
+            return;
+          }
           // Captured for the same reason a base drag is: a sweep that starts
           // in the middle and ends past the edge of the grid is the normal
           // way to select everything down to a corner.
@@ -533,10 +592,7 @@ export function TileGrid({
         if (tile === null) {
           return;
         }
-        const held = bases.find((base) => {
-          const box = footprintOf(base.at, base.spanX ?? BASE_SPAN, base.spanY ?? BASE_SPAN);
-          return tile.x >= box.x0 && tile.x <= box.x1 && tile.y >= box.y0 && tile.y <= box.y1;
-        });
+        const held = baseUnder(tile);
         // A structure is ground rather than somebody's place, and dragging
         // the hive's centre by accident is not a thing anybody means to do.
         if (held === undefined || held.structure === true) {
