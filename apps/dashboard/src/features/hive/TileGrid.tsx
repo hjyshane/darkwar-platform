@@ -262,7 +262,14 @@ export function TileGrid({
   // Where the last whole-tile step was emitted from, in client pixels. Held
   // rather than the gesture's origin so the steps accumulate without drift:
   // a pan of forty tiles is forty deltas, not one growing subtraction.
-  const [pan, setPan] = useState<{ x: number; y: number; moved: boolean } | null>(null);
+  const [pan, setPan] = useState<{
+    x: number;
+    y: number;
+    moved: boolean;
+    /** Started by ctrl or the middle button rather than by a press on empty
+     * ground. Decides what a press that never moved means on release. */
+    viaModifier: boolean;
+  } | null>(null);
   const surfaceRef = useRef<HTMLElement | null>(null);
   // A completed drag must not also fire the click that follows pointerup.
   // A ref rather than state: it is read and cleared inside the very next
@@ -312,12 +319,12 @@ export function TileGrid({
   const isPanGesture = (event: ReactPointerEvent<HTMLElement>) =>
     pannable && (event.ctrlKey || event.metaKey || event.button === 1);
 
-  function beginPan(event: ReactPointerEvent<HTMLElement>) {
+  function beginPan(event: ReactPointerEvent<HTMLElement>, viaModifier: boolean) {
     // The middle button scrolls the page on Windows unless the press itself
     // is taken.
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
-    setPan({ x: event.clientX, y: event.clientY, moved: false });
+    setPan({ x: event.clientX, y: event.clientY, moved: false, viaModifier });
   }
 
   function stepPan(event: ReactPointerEvent<HTMLElement>) {
@@ -344,7 +351,7 @@ export function TileGrid({
     // the screen counts downward — the two flips cancel and the sign stays
     // positive.
     onPan?.(-stepX, stepY);
-    setPan({ x: pan.x + stepX * cell, y: pan.y + stepY * cell, moved: true });
+    setPan({ ...pan, x: pan.x + stepX * cell, y: pan.y + stepY * cell, moved: true });
   }
   // Base dragging is off while sweeping: one gesture, one meaning.
   const draggable = onMove !== undefined && !sweeping;
@@ -482,7 +489,7 @@ export function TileGrid({
         onPointerCancel={() => setPan(null)}
         onPointerDown={(event) => {
           if (pannable && (event.button === 0 || event.button === 1)) {
-            beginPan(event);
+            beginPan(event, false);
           }
         }}
         onPointerMove={stepPan}
@@ -510,7 +517,11 @@ export function TileGrid({
           : draggable
             ? 'Pick a tile, or drag a base to move it.'
             : 'Pick a tile.',
-        pannable ? 'Hold ctrl and drag, or drag with the middle button, to slide the map.' : '',
+        pannable
+          ? sweeping
+            ? 'Hold ctrl and drag, or drag with the middle button, to slide the map.'
+            : 'Drag from empty ground, or hold ctrl, to slide the map.'
+          : '',
         'The coordinate boxes beside the map do the same without a pointer.',
       ]
         .filter(Boolean)
@@ -546,7 +557,7 @@ export function TileGrid({
       }}
       onPointerDown={(event) => {
         if (isPanGesture(event)) {
-          beginPan(event);
+          beginPan(event, true);
           return;
         }
         if (sweeping) {
@@ -596,6 +607,18 @@ export function TileGrid({
         // A structure is ground rather than somebody's place, and dragging
         // the hive's centre by accident is not a thing anybody means to do.
         if (held === undefined || held.structure === true) {
+          // NOTHING TO CARRY, SO THE DRAG CAN MEAN THE MAP. A drag that starts
+          // on empty ground had no meaning here at all — clicking places a
+          // tile, and dragging did nothing — so panning costs nothing and is
+          // what everybody tries first. The two starts are disjoint: on a base
+          // the drag carries it, off one it slides the view, and neither has
+          // to guess.
+          //
+          // Only where a drag is otherwise idle. In an area tool the same
+          // press is the sweep, which is why ctrl still exists above.
+          if (pannable) {
+            beginPan(event, false);
+          }
           return;
         }
         // Captured so the drag survives the pointer leaving the grid, which
@@ -647,9 +670,15 @@ export function TileGrid({
       }}
       onPointerUp={(event) => {
         if (pan !== null) {
-          // A ctrl-press that never moved is not a click on a tile either —
-          // it is a pan the officer thought better of.
-          swallowClick.current = true;
+          // A PRESS THAT NEVER MOVED IS STILL A CLICK, and that distinction is
+          // the whole reason `viaModifier` is carried. Plain-drag panning
+          // starts on the same press that places a tile, so swallowing it
+          // unconditionally would stop clicking on empty ground from working
+          // at all. A ctrl-press is different: it was never going to place
+          // anything, so it is swallowed whether it moved or not.
+          if (pan.moved || pan.viaModifier) {
+            swallowClick.current = true;
+          }
           setPan(null);
           return;
         }
