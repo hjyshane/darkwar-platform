@@ -522,3 +522,118 @@ export async function deleteMapFeature(featureId: string): Promise<void> {
     throw new Error(error.message);
   }
 }
+
+/** A saved shape: offsets with no anchor, no server and nobody on them.
+ *
+ * APPLYING ONE IS A DRAFT EDIT, NOT A WRITE. A template has no anchor, so
+ * whether its tiles fit the map is a question only the formation it lands on
+ * can answer (0172). Loading it into the draft is what lets the officer see
+ * where it falls, move the anchor if it hangs off the edge, and only then
+ * save through the same layout call every other edit goes through.
+ */
+export interface FormationTemplate {
+  templateId: string;
+  name: string;
+  note: string;
+  tiles: number;
+  bases: number;
+  structures: number;
+  updatedAt: string | null;
+}
+
+export async function fetchTemplates(): Promise<FormationTemplate[]> {
+  const { data, error } = await supabase
+    .from('hive_formation_template_list')
+    // ONE ROW PER TEMPLATE. The counts are folded in server-side, so the
+    // number of rows here is the number of shapes — a join to the tiles
+    // would put a big shape over PostgREST's cap and drop a whole template.
+    .select('template_id, name, note, tiles, bases, structures, updated_at')
+    .order('name')
+    .limit(200);
+  if (error) {
+    if (emptyOnRefusal(error.code)) {
+      return [];
+    }
+    throw new Error(`saved shape query failed: ${error.message}`);
+  }
+  const templates: FormationTemplate[] = [];
+  for (const row of data ?? []) {
+    // A view's columns are all nullable to the type generator. A shape with
+    // no id is not a shape anybody can load.
+    if (row.template_id === null) {
+      continue;
+    }
+    templates.push({
+      templateId: row.template_id,
+      name: row.name ?? '',
+      note: row.note ?? '',
+      tiles: row.tiles ?? 0,
+      bases: row.bases ?? 0,
+      structures: row.structures ?? 0,
+      updatedAt: row.updated_at,
+    });
+  }
+  return templates;
+}
+
+export function useTemplates() {
+  return useQuery({
+    queryKey: ['hive', 'templates'],
+    queryFn: fetchTemplates,
+    staleTime: 5 * 60_000,
+  });
+}
+
+/** The tiles of one saved shape, in the same form the editor drafts in. */
+export async function fetchTemplateTiles(templateId: string): Promise<LayoutTile[]> {
+  const { data, error } = await supabase
+    .from('hive_formation_template_slots')
+    .select('dx, dy, span_x, span_y, kind, colour, label, ordinal')
+    .eq('template_id', templateId)
+    .order('ordinal')
+    .limit(500);
+  if (error) {
+    throw new Error(`saved shape query failed: ${error.message}`);
+  }
+  return (data ?? []).map((row) => ({
+    dx: row.dx,
+    dy: row.dy,
+    span_x: row.span_x,
+    span_y: row.span_y,
+    kind: row.kind === 'structure' ? 'structure' : 'base',
+    colour: (row.colour ?? null) as TileColour | null,
+    label: row.label,
+    ordinal: row.ordinal,
+  }));
+}
+
+/** Store a drawn shape under a name, replacing whatever was under it.
+ *
+ * Through the RPC for the reason every multi-tile write is: the exclusion
+ * constraint makes the halfway states of a rewrite invalid, so the unit of
+ * writing is the whole shape in one transaction. */
+export async function saveTemplate(
+  name: string,
+  note: string,
+  tiles: readonly LayoutTile[],
+): Promise<string> {
+  const { data, error } = await supabase.rpc('save_hive_formation_template', {
+    p_name: name,
+    p_note: note,
+    p_slots: tiles as unknown as never,
+  });
+  if (error) {
+    throw new Error(error.message);
+  }
+  return data as string;
+}
+
+export async function deleteTemplate(templateId: string): Promise<void> {
+  const { error } = await supabase
+    .from('hive_formation_templates')
+    .delete()
+    .eq('template_id', templateId);
+  if (error) {
+    throw new Error(error.message);
+  }
+}

@@ -44,6 +44,9 @@ const TOPIC_QUERY_KEYS: Record<string, readonly (readonly string[])[]> = {
   // somebody names a building, which is a different moment for a different
   // reason, and a rename has no business refetching eighty assignments.
   hive_map_features: [['hive', 'features']],
+  // And a saved shape is a third thing again: it belongs to no map and no
+  // week, so naming one reaches the picker and nothing else.
+  hive_formation_templates: [['hive', 'templates']],
   season_building_snapshots: [['seasonBoard']],
   arena_entries: [['arena'], ['player']],
   // Written by an admin rather than the collector, and the only topic here

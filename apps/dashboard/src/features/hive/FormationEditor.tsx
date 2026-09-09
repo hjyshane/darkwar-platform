@@ -35,15 +35,21 @@ import {
 import {
   type BoardSlot,
   type Formation,
+  type FormationTemplate,
+  type LayoutTile,
   type MapFeature,
   createMapFeature,
   deleteMapFeature,
+  deleteTemplate,
   fetchBoard,
+  fetchTemplateTiles,
   saveAssignments,
   saveLayout,
+  saveTemplate,
   updateFormation,
   useMapFeatures,
   useOccupiedTiles,
+  useTemplates,
 } from './hiveFormations';
 
 /** A tile in the draft, before it has ever been saved and has an id.
@@ -105,6 +111,46 @@ function draftFromBoard(slots: readonly BoardSlot[]): Map<string, DraftSlot> {
       },
     ]),
   );
+}
+
+/** A saved shape, turned back into a draft.
+ *
+ * EVERY TILE LANDS EMPTY, and that is not an oversight. A template carries
+ * nobody (0172) because a shape saved a fortnight ago naming who stood where
+ * is a stale roster in a new place — the member it names may have left, which
+ * is the whole reason the board has a `still_a_member` flag. Filling the shape
+ * is auto-assignment's job, from the roster as it is today.
+ */
+export function draftFromTiles(tiles: readonly LayoutTile[]): Map<string, DraftSlot> {
+  return new Map(
+    tiles.map((tile) => [
+      offsetKey(tile),
+      {
+        dx: tile.dx,
+        dy: tile.dy,
+        spanX: tile.span_x,
+        spanY: tile.span_y,
+        kind: tile.kind,
+        colour: tile.colour,
+        ordinal: tile.ordinal,
+        label: tile.label,
+        playerId: null,
+      },
+    ]),
+  );
+}
+
+/** How much of a saved shape would hang off the edge from this anchor.
+ *
+ * ASKED BEFORE THE SAVE REFUSES IT. The database checks each footprint
+ * against the map's edge when the layout is written, and its message names
+ * one tile; a shape loaded onto an anchor near a corner can have thirty in
+ * that state. Counting them here is what lets the screen say move the anchor
+ * rather than name a tile and stop.
+ */
+export function tilesOffMap(anchor: Coordinate, tiles: readonly LayoutTile[]): number {
+  return tiles.filter((tile) => !tileFitsOnMap(absoluteOf(anchor, tile), tile.span_x, tile.span_y))
+    .length;
 }
 
 function sameLayout(a: Map<string, DraftSlot>, b: Map<string, DraftSlot>): boolean {
@@ -174,6 +220,7 @@ export function FormationEditor({
   // A shape being added to the catalogue takes its size, kind and colour
   // from the brush, so the only thing left to type is what it is called.
   const [featureName, setFeatureName] = useState('');
+  const [templateName, setTemplateName] = useState('');
   const [order, setOrder] = useState<AssignOrder>('power');
   // slot id -> player id. Seeded from what is saved, so opening the screen
   // and saving without touching anything is a no-op rather than a wipe.
@@ -196,6 +243,39 @@ export function FormationEditor({
   const structures = drawn.filter((slot) => slot.kind === 'structure');
   const byRing = ringOrderAround(structures);
   const dirty = !sameLayout(draft, saved);
+
+  /** The draft in the order it will be numbered.
+   *
+   * ONE ORDERING, USED BY BOTH THINGS THAT WRITE THE DRAFT OUT. The ordinal
+   * drives who is handed a tile first, so a shape saved as a template has to
+   * be numbered by the same rule the formation is — otherwise loading a saved
+   * shape back would quietly reorder the fill, and the innermost ring would
+   * stop being the one that gets the strongest members.
+   *
+   * Structures come after bases: ground is never handed to anybody.
+   */
+  function orderedDraft(): (LayoutTile & { playerId: string | null })[] {
+    return [...draft.values()]
+      .sort((a, b) => (a.kind === b.kind ? byRing(a, b) : a.kind === 'base' ? -1 : 1))
+      .map((slot, index) => ({
+        dx: slot.dx,
+        dy: slot.dy,
+        ordinal: index + 1,
+        label: slot.label,
+        span_x: slot.spanX,
+        span_y: slot.spanY,
+        kind: slot.kind,
+        colour: slot.colour,
+        playerId: slot.playerId,
+      }));
+  }
+
+  /** The same list with the members stripped off — what actually goes on the
+   * wire, to the layout call and to a saved shape alike. A template that
+   * remembered who stood where would be a stale roster in a new place. */
+  function layoutForSave(): LayoutTile[] {
+    return orderedDraft().map(({ playerId: _ignored, ...tile }) => tile);
+  }
 
   // The sightings under the window. Advisory only — see `fetchOccupiedTiles`:
   // a base that was destroyed or lost its shield has been teleported
@@ -227,25 +307,8 @@ export function FormationEditor({
    */
   const layoutSave = useMutation({
     mutationFn: async () => {
-      // Structures are numbered too, but after the bases: the ordinal drives
-      // who gets handed a tile first, and ground is never handed to anybody.
-      const wanted = [...draft.values()]
-        .sort((a, b) => (a.kind === b.kind ? byRing(a, b) : a.kind === 'base' ? -1 : 1))
-        .map((slot, index) => ({
-          dx: slot.dx,
-          dy: slot.dy,
-          ordinal: index + 1,
-          label: slot.label,
-          span_x: slot.spanX,
-          span_y: slot.spanY,
-          kind: slot.kind,
-          colour: slot.colour,
-          playerId: slot.playerId,
-        }));
-      const summary = await saveLayout(
-        formation.formationId,
-        wanted.map(({ playerId: _ignored, ...tile }) => tile),
-      );
+      const wanted = orderedDraft();
+      const summary = await saveLayout(formation.formationId, layoutForSave());
       const carried = new Map(
         wanted.flatMap((slot) =>
           slot.playerId === null ? [] : [[offsetKey(slot), slot.playerId] as const],
@@ -350,6 +413,52 @@ export function FormationEditor({
     });
     setRefusal(null);
   }
+
+  // Saved shapes (0172). Anchor-independent and server-independent, so this
+  // list is the same wherever the officer is standing.
+  const templates = useTemplates();
+
+  const templateSave = useMutation({
+    mutationFn: (name: string) => saveTemplate(name, '', layoutForSave()),
+    onSuccess: () => {
+      setTemplateName('');
+      setRefusal(null);
+      void queryClient.invalidateQueries({ queryKey: ['hive', 'templates'] });
+    },
+    onError: (error: Error) => setRefusal(error.message),
+  });
+
+  const templateRemove = useMutation({
+    mutationFn: (templateId: string) => deleteTemplate(templateId),
+    onSuccess: () => {
+      setRefusal(null);
+      void queryClient.invalidateQueries({ queryKey: ['hive', 'templates'] });
+    },
+    onError: (error: Error) => setRefusal(error.message),
+  });
+
+  /** Load a saved shape into the DRAFT, replacing what is drawn.
+   *
+   * Not a write, and that is the whole design. A template has no anchor, so
+   * whether its tiles fit the map is a question only this formation can
+   * answer — the officer sees where it lands, moves the anchor if part of it
+   * hangs off the edge, and saves through the same layout call as always.
+   * Saving it here instead would refuse the whole shape with a message about
+   * a tile they cannot yet see.
+   */
+  const templateLoad = useMutation({
+    mutationFn: (template: FormationTemplate) => fetchTemplateTiles(template.templateId),
+    onSuccess: (tiles) => {
+      setDraft(draftFromTiles(tiles));
+      const offMap = tilesOffMap(anchor, tiles);
+      setRefusal(
+        offMap === 0
+          ? null
+          : `${offMap} of ${tiles.length} tiles fall off the edge of the map from this anchor. Move the anchor before saving.`,
+      );
+    },
+    onError: (error: Error) => setRefusal(error.message),
+  });
 
   /** A click on the grid. On a base it removes it; on free ground it adds one.
    *
@@ -777,6 +886,80 @@ export function FormationEditor({
               </label>
               <button disabled={featureName.trim() === '' || featureAdd.isPending} type="submit">
                 Add to list
+              </button>
+            </form>
+          </fieldset>
+
+          <fieldset>
+            <legend>Saved shapes</legend>
+            <p className="subtle">
+              A shape is offsets from the anchor, so a saved one carries no map and nobody standing
+              on it — the same hive fits any anchor on any server. Loading one replaces what is
+              drawn but writes nothing: move the anchor until it sits where you want, then save.
+            </p>
+            {templates.isError ? <p className="error">Could not load the saved shapes.</p> : null}
+            <div className="hive-features">
+              {(templates.data ?? []).map((template) => (
+                <span className="hive-feature" key={template.templateId}>
+                  <button
+                    className="hive-feature__load"
+                    disabled={templateLoad.isPending}
+                    onClick={() => templateLoad.mutate(template)}
+                    title={template.note === '' ? undefined : template.note}
+                    type="button"
+                  >
+                    {template.name} · {template.bases} base{template.bases === 1 ? '' : 's'}
+                    {template.structures === 0 ? '' : ` + ${template.structures}`}
+                  </button>
+                  <button
+                    aria-label={`Delete the saved shape ${template.name}`}
+                    className="hive-feature__drop"
+                    disabled={templateRemove.isPending}
+                    onClick={() => templateRemove.mutate(template.templateId)}
+                    type="button"
+                  >
+                    x
+                  </button>
+                </span>
+              ))}
+              {templates.isSuccess && templates.data.length === 0 ? (
+                <span className="subtle">Nothing saved yet.</span>
+              ) : null}
+            </div>
+            <form
+              className="hive-feature-add"
+              onSubmit={(event) => {
+                event.preventDefault();
+                const name = templateName.trim();
+                if (name !== '') {
+                  templateSave.mutate(name);
+                }
+              }}
+            >
+              <label>
+                <span>
+                  Save the {draft.size} tile{draft.size === 1 ? '' : 's'} drawn as
+                </span>
+                <input
+                  maxLength={60}
+                  onChange={(event) => setTemplateName(event.target.value)}
+                  placeholder="Bear rally"
+                  value={templateName}
+                />
+              </label>
+              {/* Saving under a name already used REPLACES that shape, which is
+                  what an officer correcting three tiles means. Said out loud
+                  because it is the one thing here that can lose work. */}
+              <button
+                disabled={draft.size === 0 || templateName.trim() === '' || templateSave.isPending}
+                type="submit"
+              >
+                {(templates.data ?? []).some(
+                  (template) =>
+                    template.name.trim().toLowerCase() === templateName.trim().toLowerCase(),
+                )
+                  ? 'Replace saved shape'
+                  : 'Save shape'}
               </button>
             </form>
           </fieldset>

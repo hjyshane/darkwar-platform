@@ -13,7 +13,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(47);
+select plan(59);
 
 -- The board's columns. `x` and `y` are the whole point — the instruction a
 -- member reads — and `still_a_member` is what stops a fortnight-old plan
@@ -64,6 +64,32 @@ select is(
       and confrelid = 'public.hive_formation_slots'::regclass),
   0,
   'a placed tile does not point back at the catalogue it was loaded from');
+
+-- 0172: A SAVED SHAPE IS CHECKED BY THE SAME RULE THE MAP IS. A template
+-- whose tiles overlap cannot be applied, and the officer would find that out
+-- at the moment they tried to save the formation rather than the moment they
+-- saved the shape. The two constraints differ only in which id column groups
+-- them, so substituting that name is the whole of the comparison — any drift
+-- in the footprint arithmetic shows up here.
+select is(
+  replace(
+    (select pg_get_constraintdef(oid) from pg_constraint
+      where conrelid = 'public.hive_formation_template_slots'::regclass
+        and conname = 'hive_template_slots_do_not_overlap'),
+    'template_id', 'formation_id'),
+  (select pg_get_constraintdef(oid) from pg_constraint
+    where conrelid = 'public.hive_formation_slots'::regclass
+      and conname = 'hive_slots_do_not_overlap'),
+  'a saved shape is checked by the same overlap rule a formation is');
+
+-- A TEMPLATE REMEMBERS NO PEOPLE. A shape saved a fortnight ago naming who
+-- stood where is a stale roster in a new place — 0166's still_a_member flag
+-- exists because a fortnight is long enough for somebody to leave. Filling
+-- the shape is auto-assignment's job, from the roster as it is today.
+select hasnt_column('public', 'hive_formation_template_slots', 'player_id',
+  'a saved shape carries nobody');
+select hasnt_column('public', 'hive_formation_templates', 'server_id',
+  'nor the map it happened to be drawn on');
 
 update public.alliances set is_own = false where is_own;
 insert into public.alliances (alliance_id, server_id, external_id, current_name, is_own)
@@ -434,6 +460,63 @@ select pg_temp.act_as('00000000-0000-4000-8000-00000000f301');
 select is(
   (select count(*)::int from public.hive_map_features), 0,
   'and a signed-in stranger reads none of it');
+
+-- Saved shapes (0172). Back to the officer: the catalogue block above
+-- finished as the signed-in stranger, and a save that fails on permission
+-- here would abort the transaction rather than fail one assertion.
+select pg_temp.act_as('00000000-0000-4000-8000-00000000f303');
+select is(
+  public.save_hive_formation_template('Bear rally', 'tight pack',
+    '[{"dx":0,"dy":0,"span_x":4,"span_y":3,"kind":"structure","colour":"amber"},
+      {"dx":-4,"dy":0},{"dx":4,"dy":0}]'::jsonb) is not null,
+  true,
+  'an officer lifts the shape out of the formation and names it');
+
+select is(
+  (select tiles from public.hive_formation_template_list where name = 'Bear rally'),
+  3,
+  'the list counts the shape without joining its tiles, so a big one cannot drop off it');
+
+select is(
+  (select structures from public.hive_formation_template_list where name = 'Bear rally'),
+  1,
+  'and knows which of them is ground rather than a place for somebody');
+
+-- Saving 'Bear rally' again is a CORRECTION, not a second shape with a name
+-- the officer would then have to tell apart. The trap this pins is a save
+-- that appends: the second call's tiles would overlap the first's and the
+-- exclusion constraint would refuse it, so the officer would be told their
+-- own shape clashes with itself.
+select lives_ok(
+  $$ select public.save_hive_formation_template('  bear rally  ', null,
+       '[{"dx":0,"dy":0},{"dx":3,"dy":0}]'::jsonb) $$,
+  'saving it again under the same name corrects the shape rather than adding one');
+
+select is(
+  (select count(*)::int from public.hive_formation_templates), 1,
+  'so there is still one shape called Bear rally, with the new tiles');
+
+select throws_ok(
+  $$ select public.save_hive_formation_template('Bad shape', null,
+       '[{"dx":0,"dy":0},{"dx":1,"dy":0}]'::jsonb) $$,
+  '23514', null,
+  'a shape whose own tiles overlap is refused when it is SAVED, not when it is used');
+
+select pg_temp.act_as('00000000-0000-4000-8000-00000000f302');
+select isnt(
+  (select count(*)::int from public.hive_formation_template_list), 0,
+  'a member reads the shapes their plan was drawn from');
+
+select throws_ok(
+  $$ select public.save_hive_formation_template('Member shape', null,
+       '[{"dx":0,"dy":0}]'::jsonb) $$,
+  '42501', null,
+  'but cannot save one');
+
+select pg_temp.act_as('00000000-0000-4000-8000-00000000f301');
+select is(
+  (select count(*)::int from public.hive_formation_template_list), 0,
+  'and a signed-in stranger reads no shape at all');
 
 reset role;
 

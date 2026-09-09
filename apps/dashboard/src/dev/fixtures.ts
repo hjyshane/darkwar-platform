@@ -653,6 +653,32 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
     ],
   ],
 
+  // Saved shapes. Two, because one cannot show that the picker distinguishes
+  // them, and the counts differ so a hardcoded 'n tiles' would be visible.
+  [
+    ['hive', 'templates'],
+    [
+      {
+        templateId: '66666666-6666-4666-8666-666666666601',
+        name: 'Bear rally',
+        note: 'Tight pack, gate facing east.',
+        tiles: 9,
+        bases: 8,
+        structures: 1,
+        updatedAt: ago(2880),
+      },
+      {
+        templateId: '66666666-6666-4666-8666-666666666602',
+        name: 'Wide hive',
+        note: '',
+        tiles: 25,
+        bases: 25,
+        structures: 0,
+        updatedAt: ago(14400),
+      },
+    ],
+  ],
+
   // Members
   [['roster'], ROSTER],
   [['member-formulas'], []],

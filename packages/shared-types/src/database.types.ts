@@ -2166,6 +2166,95 @@ export type Database = {
           },
         ]
       }
+      hive_formation_template_slots: {
+        Row: {
+          colour: string | null
+          dx: number
+          dy: number
+          kind: string
+          label: string
+          ordinal: number
+          span_x: number
+          span_y: number
+          template_id: string
+          template_slot_id: string
+        }
+        Insert: {
+          colour?: string | null
+          dx: number
+          dy: number
+          kind?: string
+          label?: string
+          ordinal?: number
+          span_x?: number
+          span_y?: number
+          template_id: string
+          template_slot_id?: string
+        }
+        Update: {
+          colour?: string | null
+          dx?: number
+          dy?: number
+          kind?: string
+          label?: string
+          ordinal?: number
+          span_x?: number
+          span_y?: number
+          template_id?: string
+          template_slot_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hive_formation_template_slots_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "hive_formation_template_list"
+            referencedColumns: ["template_id"]
+          },
+          {
+            foreignKeyName: "hive_formation_template_slots_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "hive_formation_templates"
+            referencedColumns: ["template_id"]
+          },
+        ]
+      }
+      hive_formation_templates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          name: string
+          note: string
+          template_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          name: string
+          note?: string
+          template_id?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          name?: string
+          note?: string
+          template_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hive_formation_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "pending_access"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       hive_formations: {
         Row: {
           anchor_x: number
@@ -4900,6 +4989,19 @@ export type Database = {
           },
         ]
       }
+      hive_formation_template_list: {
+        Row: {
+          bases: number | null
+          created_at: string | null
+          name: string | null
+          note: string | null
+          structures: number | null
+          template_id: string | null
+          tiles: number | null
+          updated_at: string | null
+        }
+        Relationships: []
+      }
       latest_world_cities: {
         Row: {
           captured_at: string | null
@@ -5623,6 +5725,10 @@ export type Database = {
       save_hive_formation_layout: {
         Args: { p_formation_id: string; p_slots: Json }
         Returns: Json
+      }
+      save_hive_formation_template: {
+        Args: { p_name: string; p_note: string; p_slots: Json }
+        Returns: string
       }
       tier_rank: { Args: { p_tier: string }; Returns: number }
       world_cities_in_box: {

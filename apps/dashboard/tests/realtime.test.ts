@@ -61,6 +61,7 @@ test('the catalogue of shapes is not on the formation topic', () => {
   // comment.
   expect(queryKeysForTopic('hive_formations')).toEqual([['hive']]);
   expect(queryKeysForTopic('hive_map_features')).toEqual([['hive', 'features']]);
+  expect(queryKeysForTopic('hive_formation_templates')).toEqual([['hive', 'templates']]);
 });
 
 test('unknown topics invalidate nothing', () => {
