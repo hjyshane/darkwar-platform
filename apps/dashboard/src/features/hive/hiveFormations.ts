@@ -13,7 +13,12 @@
 // straight at the table, because there is no halfway state to protect.
 
 import { useQuery } from '@tanstack/react-query';
-import type { AssignableMember, AssignableSlot } from '../../lib/hiveFormation';
+import type {
+  AssignableMember,
+  AssignableSlot,
+  TileColour,
+  TileKind,
+} from '../../lib/hiveFormation';
 import { supabase } from '../../lib/supabase';
 
 export interface Formation {
@@ -30,6 +35,13 @@ export interface Formation {
 /** One tile of a formation, with the member standing on it. */
 export interface BoardSlot extends AssignableSlot {
   label: string;
+  /** Tiles east-west and north-south. A base is 3x3; Frankie is 4x3; a marker
+   * is 1x1. Since 0169 the size is on the row rather than assumed. */
+  spanX: number;
+  spanY: number;
+  /** Ground or a person. A structure never carries a member. */
+  kind: TileKind;
+  colour: TileColour | null;
   /** The instruction: where this member teleports to. */
   x: number;
   y: number;
@@ -109,7 +121,7 @@ export async function fetchBoard(formationId: string): Promise<BoardSlot[]> {
   const { data, error } = await supabase
     .from('hive_formation_board')
     .select(
-      'slot_id, ordinal, label, dx, dy, x, y, player_id, player_name, hq_level, power, still_a_member, assigned_at',
+      'slot_id, ordinal, label, dx, dy, x, y, span_x, span_y, kind, colour, player_id, player_name, hq_level, power, still_a_member, assigned_at',
     )
     .eq('formation_id', formationId)
     .order('ordinal')
@@ -139,6 +151,10 @@ export async function fetchBoard(formationId: string): Promise<BoardSlot[]> {
       slotId: row.slot_id,
       ordinal: row.ordinal ?? 0,
       label: row.label ?? '',
+      spanX: row.span_x ?? 3,
+      spanY: row.span_y ?? 3,
+      kind: row.kind === 'structure' ? 'structure' : 'base',
+      colour: (row.colour ?? null) as TileColour | null,
       dx: row.dx,
       dy: row.dy,
       x: row.x,
@@ -265,9 +281,20 @@ export interface LayoutSummary {
   unassigned: number;
 }
 
+export interface LayoutTile {
+  dx: number;
+  dy: number;
+  ordinal: number;
+  label: string;
+  span_x: number;
+  span_y: number;
+  kind: TileKind;
+  colour: TileColour | null;
+}
+
 export async function saveLayout(
   formationId: string,
-  slots: ReadonlyArray<{ dx: number; dy: number; ordinal: number; label: string }>,
+  slots: readonly LayoutTile[],
 ): Promise<LayoutSummary> {
   const { data, error } = await supabase.rpc('save_hive_formation_layout', {
     p_formation_id: formationId,

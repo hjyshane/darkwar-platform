@@ -5,22 +5,32 @@ import {
   BASE_SPAN,
   CENTRE_MAX,
   CENTRE_MIN,
-  CENTRE_SPAN,
+  FRANKIE,
+  type SizedOffset,
   autoAssign,
   basesOverlap,
   blockOffsets,
   canPlace,
   centreFitsOnMap,
-  centreFootprint,
   coversTile,
   firstOverlap,
   footprintOf,
-  overlapsCentre,
   ringOf,
   ringOffsets,
-  ringOrder,
+  ringOrderAround,
   sortMembers,
+  spanLow,
+  tileFitsOnMap,
+  tilesOverlap,
 } from './hiveFormation';
+
+/** A 3x3 tile at an offset — the shape most of these cases are about. */
+const base = (dx: number, dy: number): SizedOffset => ({
+  dx,
+  dy,
+  spanX: BASE_SPAN,
+  spanY: BASE_SPAN,
+});
 
 test('a base covers the eight tiles around its centre', () => {
   expect(footprintOf({ x: 500, y: 500 })).toEqual({ x0: 499, x1: 501, y0: 499, y1: 501 });
@@ -63,9 +73,9 @@ test('a block is packed on a three-tile pitch and centred on the anchor', () => 
   const offsets = blockOffsets(3, 3);
 
   expect(offsets).toHaveLength(9);
-  expect(offsets).toContainEqual({ dx: 0, dy: 0 });
-  expect(offsets).toContainEqual({ dx: -3, dy: 3 });
-  expect(offsets).toContainEqual({ dx: 3, dy: -3 });
+  expect(offsets).toContainEqual(base(0, 0));
+  expect(offsets).toContainEqual(base(-3, 3));
+  expect(offsets).toContainEqual(base(3, -3));
   // The property that matters more than any particular offset: a generated
   // block must never contain a pair that shares ground.
   expect(firstOverlap(offsets)).toBeNull();
@@ -82,7 +92,7 @@ test('a ring is a block with the middle left clear', () => {
   const ring = ringOffsets(3, 3);
 
   expect(ring).toHaveLength(8);
-  expect(ring).not.toContainEqual({ dx: 0, dy: 0 });
+  expect(ring).not.toContainEqual(base(0, 0));
   expect(firstOverlap(ring)).toBeNull();
 });
 
@@ -93,23 +103,16 @@ test('a ring too small to be hollow falls back to a block', () => {
 test('firstOverlap names the pair rather than answering yes', () => {
   // The editor has to be able to point at something. "This layout is
   // invalid" sends an officer hunting through eighty tiles.
-  const clash = firstOverlap([
-    { dx: 0, dy: 0 },
-    { dx: 6, dy: 0 },
-    { dx: 5, dy: 1 },
-  ]);
+  const clash = firstOverlap([base(0, 0), base(6, 0), base(5, 1)]);
 
-  expect(clash).toEqual([
-    { dx: 6, dy: 0 },
-    { dx: 5, dy: 1 },
-  ]);
+  expect(clash).toEqual([base(6, 0), base(5, 1)]);
 });
 
 test('canPlace refuses a tile that would touch an existing base', () => {
-  const drawn = [{ dx: 0, dy: 0 }];
+  const drawn = [base(0, 0)];
 
-  expect(canPlace(drawn, { dx: 2, dy: 2 })).toBe(false);
-  expect(canPlace(drawn, { dx: 3, dy: 0 })).toBe(true);
+  expect(canPlace(drawn, base(2, 2))).toBe(false);
+  expect(canPlace(drawn, base(3, 0))).toBe(true);
 });
 
 const SLOTS: AssignableSlot[] = [
@@ -213,65 +216,86 @@ test('the same member pinned twice is placed once, not saved twice', () => {
   expect(new Set(placed).size).toBe(placed.length);
 });
 
-test('Frankie is four tiles east-west and three north-south', () => {
-  // Not 3x3. The centre of the hive is a different structure to a member's
-  // base, and the difference is a whole column.
-  expect(CENTRE_SPAN).toEqual({ x: 4, y: 3 });
+test('a coordinate sits in the middle of an odd span and west of an even one', () => {
+  // The one rule for where a coordinate lives in its footprint, because an
+  // even span has no middle. The database computes the same thing with
+  // integer division (0169).
+  expect(spanLow(500, 3)).toBe(499);
+  expect(spanLow(500, 4)).toBe(499);
+  expect(spanLow(500, 1)).toBe(500);
+});
 
-  const box = centreFootprint({ x: 500, y: 500 });
+test('Frankie is four east-west by three north-south', () => {
+  const box = footprintOf({ x: 500, y: 500 }, FRANKIE.spanX, FRANKIE.spanY);
 
   expect(box.x1 - box.x0 + 1).toBe(4);
   expect(box.y1 - box.y0 + 1).toBe(3);
+  // Asymmetric about the coordinate, which is the whole reason the rule above
+  // has to be written down rather than assumed.
+  expect(box.x0).toBe(499);
+  expect(box.x1).toBe(502);
 });
 
-test('a base on the anchor stands on Frankie', () => {
-  expect(overlapsCentre({ dx: 0, dy: 0 })).toBe(true);
+test('three apart is not far enough from something four wide', () => {
+  // The case where the per-tile rule DISAGREES with the old constant. Under
+  // "centres three apart" this was legal; the footprints share a column.
+  const frankie: SizedOffset = { dx: 0, dy: 0, spanX: 4, spanY: 3 };
+
+  expect(tilesOverlap(frankie, base(3, 0))).toBe(true);
+  expect(tilesOverlap(frankie, base(4, 0))).toBe(false);
+  // And it is not symmetric: three tiles WEST is clear.
+  expect(tilesOverlap(frankie, base(-3, 0))).toBe(false);
 });
 
-test('the reserved ground is wider to the east than a 3x3 centre would be', () => {
-  // The asymmetry IS the point: four is even, so the anchor is not in the
-  // middle of it, and a formation drawn for a 3x3 centre leaves one of these
-  // columns occupied.
-  expect(overlapsCentre({ dx: 3, dy: 0 })).toBe(true);
-  expect(overlapsCentre({ dx: -3, dy: 0 })).toBe(false);
-  expect(overlapsCentre({ dx: 4, dy: 0 })).toBe(false);
+test('a 1x1 marker fits in a gap a base cannot', () => {
+  // Two bases four apart leave a single free column between them: x=2. A
+  // 1x1 fits it exactly; a 3x3 centred there would reach into both.
+  const drawn = [base(0, 0), base(4, 0)];
+  const marker: SizedOffset = { dx: 2, dy: 0, spanX: 1, spanY: 1 };
+
+  expect(canPlace(drawn, marker)).toBe(true);
+  expect(canPlace(drawn, base(2, 0))).toBe(false);
 });
 
-test('clear of Frankie on either axis is clear', () => {
-  expect(overlapsCentre({ dx: 0, dy: 3 })).toBe(false);
-  expect(overlapsCentre({ dx: 0, dy: -3 })).toBe(false);
-  expect(overlapsCentre({ dx: 0, dy: 2 })).toBe(true);
+test('fitting on the map is a question about the footprint, not the coordinate', () => {
+  // A 1x1 may stand on column 0; a 3x3 may not, and a 4-wide one needs two
+  // columns to its east.
+  expect(tileFitsOnMap({ x: 0, y: 0 }, 1, 1)).toBe(true);
+  expect(tileFitsOnMap({ x: 0, y: 0 }, 3, 3)).toBe(false);
+  expect(tileFitsOnMap({ x: 998, y: 500 }, 4, 3)).toBe(false);
+  expect(tileFitsOnMap({ x: 997, y: 500 }, 4, 3)).toBe(true);
 });
 
-test('a packed block still has bases that would stand on Frankie', () => {
-  // Which is why the editor filters the generated shape rather than trusting
-  // it: a 5x5 block centred on the anchor puts its middle base right on top.
-  const clashing = blockOffsets(5, 5).filter(overlapsCentre);
+const FRANKIE_AT_CENTRE: SizedOffset[] = [
+  { dx: 0, dy: 0, spanX: FRANKIE.spanX, spanY: FRANKIE.spanY },
+];
 
-  expect(clashing.length).toBeGreaterThan(0);
-  expect(clashing).toContainEqual({ dx: 0, dy: 0 });
-});
-
-test('a ring is a ring of bases, counted out from Frankie', () => {
+test('a ring is a ring of bases, counted out from the structure', () => {
   // Packed against the footprint is ring 1; the row behind it is ring 2.
-  expect(ringOf({ dx: 4, dy: 0 })).toBe(1);
-  expect(ringOf({ dx: 7, dy: 0 })).toBe(2);
-  expect(ringOf({ dx: 0, dy: 3 })).toBe(1);
-  expect(ringOf({ dx: 0, dy: 6 })).toBe(2);
+  expect(ringOf({ dx: 4, dy: 0 }, FRANKIE_AT_CENTRE)).toBe(1);
+  expect(ringOf({ dx: 7, dy: 0 }, FRANKIE_AT_CENTRE)).toBe(2);
+  expect(ringOf({ dx: 0, dy: 3 }, FRANKIE_AT_CENTRE)).toBe(1);
+  expect(ringOf({ dx: 0, dy: 6 }, FRANKIE_AT_CENTRE)).toBe(2);
 });
 
 test('the ring is measured from the footprint, not from the anchor', () => {
   // Frankie is four wide and the anchor is not its middle, so east and west
-  // are NOT symmetric about the anchor — and the ring must follow the
-  // structure rather than the printed coordinate.
-  expect(ringOf({ dx: 4, dy: 0 })).toBe(ringOf({ dx: -3, dy: 0 }));
+  // are NOT symmetric about the anchor — the ring must follow the structure
+  // rather than the printed coordinate.
+  expect(ringOf({ dx: 4, dy: 0 }, FRANKIE_AT_CENTRE)).toBe(
+    ringOf({ dx: -3, dy: 0 }, FRANKIE_AT_CENTRE),
+  );
+});
+
+test('with no structure drawn the anchor tile is what rings are measured from', () => {
+  expect(ringOf({ dx: 3, dy: 0 })).toBe(1);
+  expect(ringOf({ dx: 3, dy: 0 })).toBe(ringOf({ dx: -3, dy: 0 }));
 });
 
 test('filling runs innermost ring first', () => {
-  const outer = { dx: 0, dy: 6 };
-  const inner = { dx: 0, dy: 3 };
+  const order = ringOrderAround(FRANKIE_AT_CENTRE);
 
-  expect(ringOrder(inner, outer)).toBeLessThan(0);
+  expect(order({ dx: 0, dy: 3 }, { dx: 0, dy: 6 })).toBeLessThan(0);
 });
 
 test('auto-assignment gives the inner ring to the strongest', () => {

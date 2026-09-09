@@ -430,6 +430,9 @@ const HIVE_MEMBERS = [
 // ground and nothing may stand on it, so the old fixture's middle tile is
 // gone and the east column has moved out to clear the wider footprint.
 const HIVE_SLOTS = [
+  // Frankie first: a 4x3 structure on the anchor. Since 0169 it is an
+  // ordinary tile with a size, which is why it sits in the same list.
+  { dx: 0, dy: 0, spanX: 4, spanY: 3, kind: 'structure' as const, colour: 'amber' as const },
   { dx: -3, dy: 3 },
   { dx: 0, dy: 3 },
   { dx: 4, dy: 3 },
@@ -437,23 +440,30 @@ const HIVE_SLOTS = [
   { dx: 4, dy: 0 },
   { dx: -3, dy: -3 },
   { dx: 0, dy: -3 },
-  { dx: 4, dy: -3 },
+  // A 1x1 marker, to see the smallest tile beside the biggest.
+  { dx: 4, dy: -3, spanX: 1, spanY: 1, kind: 'structure' as const, colour: 'red' as const },
 ].map((offset, index) => ({
   slotId: `slot-${index + 1}`,
   ordinal: index + 1,
-  label: index === 4 ? 'flag' : '',
+  label: offset.kind === 'structure' ? (offset.spanX === 1 ? 'keep clear' : 'Frankie') : '',
   dx: offset.dx,
   dy: offset.dy,
+  spanX: offset.spanX ?? 3,
+  spanY: offset.spanY ?? 3,
+  kind: offset.kind ?? ('base' as const),
+  colour: offset.colour ?? null,
   x: HIVE_ANCHOR.x + offset.dx,
   y: HIVE_ANCHOR.y + offset.dy,
-  playerId: [PLAYER.shane, PLAYER.mira, PLAYER.kova, PLAYER.dex][index] ?? null,
-  playerName: ['Shane', 'Mira', 'Kova', 'Dex'][index] ?? null,
+  playerId:
+    offset.kind === 'structure'
+      ? null
+      : ([PLAYER.shane, PLAYER.mira, PLAYER.kova, PLAYER.dex][index - 1] ?? null),
+  playerName:
+    offset.kind === 'structure' ? null : (['Shane', 'Mira', 'Kova', 'Dex'][index - 1] ?? null),
   hqLevel: 30,
   power: 61_200_000,
-  // The third tile is somebody who has left: an assignment nobody is coming
-  // to stand on, and the one state the board has to say out loud.
-  stillAMember: index === 2 ? false : index < 4 ? true : null,
-  assignedAt: index < 4 ? ago(90) : null,
+  stillAMember: index === 3 ? false : index >= 1 && index <= 4 ? true : null,
+  assignedAt: index >= 1 && index <= 4 ? ago(90) : null,
 }));
 
 export const SESSION = {

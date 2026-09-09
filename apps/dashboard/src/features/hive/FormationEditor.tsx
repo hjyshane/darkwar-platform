@@ -4,20 +4,24 @@ import {
   type AssignOrder,
   type AssignableMember,
   BASE_SPAN,
-  CENTRE_SPAN,
+  FRANKIE,
   type Offset,
+  type SizedOffset,
+  TILE_COLOURS,
+  type TileColour,
+  type TileKind,
   absoluteOf,
   assignOrderLabel,
   autoAssign,
   blockOffsets,
   canPlace,
-  centreFitsOnMap,
-  coversTile,
+  footprintOf,
   offsetKey,
-  overlapsCentre,
   ringOffsets,
-  ringOrder,
+  ringOrderAround,
   sortSlots,
+  tileFitsOnMap,
+  tilesOverlap,
 } from '../../lib/hiveFormation';
 import { type Coordinate, formatCoordinate } from '../../lib/mapProjection';
 import {
@@ -45,10 +49,33 @@ import {
  * is — so moving one would otherwise leave the member behind on ground that
  * no longer exists. Dragging a base means "move this person", and the name
  * has to travel with the square both on screen and through the save. */
-interface DraftSlot extends Offset {
+interface DraftSlot extends SizedOffset {
   ordinal: number;
   label: string;
+  kind: TileKind;
+  colour: TileColour | null;
   playerId: string | null;
+}
+
+/** A typed span, or the one already there. A half-typed box must not silently
+ * become a 1x1 the next click then places. */
+function clampSpan(typed: string, fallback: number): number {
+  const value = Number.parseInt(typed, 10);
+  return Number.isNaN(value) ? fallback : Math.min(32, Math.max(1, value));
+}
+
+/** What the next click puts down.
+ *
+ * A BRUSH RATHER THAN A MODE. Size, kind and colour are the three things a
+ * tile has beyond its position, so they are chosen once and then clicked out
+ * — which is also why 3x3 stays the default: it is what almost every click
+ * places, and the officer only touches this to draw a structure or a marker.
+ */
+interface Brush {
+  spanX: number;
+  spanY: number;
+  kind: TileKind;
+  colour: TileColour | null;
 }
 
 const ORDERS: readonly AssignOrder[] = ['power', 'hq', 'rank', 'name'];
@@ -60,6 +87,10 @@ function draftFromBoard(slots: readonly BoardSlot[]): Map<string, DraftSlot> {
       {
         dx: slot.dx,
         dy: slot.dy,
+        spanX: slot.spanX,
+        spanY: slot.spanY,
+        kind: slot.kind,
+        colour: slot.colour,
         ordinal: slot.ordinal,
         label: slot.label,
         playerId: slot.playerId,
@@ -74,7 +105,15 @@ function sameLayout(a: Map<string, DraftSlot>, b: Map<string, DraftSlot>): boole
   }
   for (const [key, slot] of a) {
     const other = b.get(key);
-    if (other === undefined || other.ordinal !== slot.ordinal || other.label !== slot.label) {
+    if (
+      other === undefined ||
+      other.ordinal !== slot.ordinal ||
+      other.label !== slot.label ||
+      other.spanX !== slot.spanX ||
+      other.spanY !== slot.spanY ||
+      other.kind !== slot.kind ||
+      other.colour !== slot.colour
+    ) {
       return false;
     }
   }
@@ -116,6 +155,13 @@ export function FormationEditor({
   const [centre, setCentre] = useState<Coordinate>({ x: formation.anchorX, y: formation.anchorY });
   const [zoom, setZoom] = useState<number>(14);
   const [refusal, setRefusal] = useState<string | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
+  const [brush, setBrush] = useState<Brush>({
+    spanX: BASE_SPAN,
+    spanY: BASE_SPAN,
+    kind: 'base',
+    colour: null,
+  });
   const [order, setOrder] = useState<AssignOrder>('power');
   // slot id -> player id. Seeded from what is saved, so opening the screen
   // and saving without touching anything is a no-op rather than a wipe.
@@ -135,6 +181,8 @@ export function FormationEditor({
   const anchor: Coordinate = { x: formation.anchorX, y: formation.anchorY };
   const view = windowAround(centre, zoom);
   const drawn = [...draft.values()];
+  const structures = drawn.filter((slot) => slot.kind === 'structure');
+  const byRing = ringOrderAround(structures);
   const dirty = !sameLayout(draft, saved);
 
   // The sightings under the window. Advisory only — see `fetchOccupiedTiles`:
@@ -167,10 +215,25 @@ export function FormationEditor({
    */
   const layoutSave = useMutation({
     mutationFn: async () => {
+      // Structures are numbered too, but after the bases: the ordinal drives
+      // who gets handed a tile first, and ground is never handed to anybody.
       const wanted = [...draft.values()]
-        .sort(ringOrder)
-        .map((slot, index) => ({ ...slot, ordinal: index + 1 }));
-      const summary = await saveLayout(formation.formationId, wanted);
+        .sort((a, b) => (a.kind === b.kind ? byRing(a, b) : a.kind === 'base' ? -1 : 1))
+        .map((slot, index) => ({
+          dx: slot.dx,
+          dy: slot.dy,
+          ordinal: index + 1,
+          label: slot.label,
+          span_x: slot.spanX,
+          span_y: slot.spanY,
+          kind: slot.kind,
+          colour: slot.colour,
+          playerId: slot.playerId,
+        }));
+      const summary = await saveLayout(
+        formation.formationId,
+        wanted.map(({ playerId: _ignored, ...tile }) => tile),
+      );
       const carried = new Map(
         wanted.flatMap((slot) =>
           slot.playerId === null ? [] : [[offsetKey(slot), slot.playerId] as const],
@@ -233,7 +296,10 @@ export function FormationEditor({
    * leaves an officer looking for which of eighty neighbours is in the way,
    * and at this zoom the offending base may be off screen. */
   function pick(tile: Coordinate) {
-    const hit = drawn.find((slot) => coversTile(absoluteOf(anchor, slot), tile));
+    const hit = drawn.find((slot) => {
+      const box = footprintOf(absoluteOf(anchor, slot), slot.spanX, slot.spanY);
+      return tile.x >= box.x0 && tile.x <= box.x1 && tile.y >= box.y0 && tile.y <= box.y1;
+    });
     if (hit !== undefined) {
       const next = new Map(draft);
       next.delete(offsetKey(hit));
@@ -241,41 +307,36 @@ export function FormationEditor({
       setRefusal(null);
       return;
     }
-    const candidate: Offset = { dx: tile.x - anchor.x, dy: tile.y - anchor.y };
-    if (!centreFitsOnMap(tile)) {
+    const candidate: SizedOffset = {
+      dx: tile.x - anchor.x,
+      dy: tile.y - anchor.y,
+      spanX: brush.spanX,
+      spanY: brush.spanY,
+    };
+    if (!tileFitsOnMap(tile, brush.spanX, brush.spanY)) {
       setRefusal(
-        `A base centred on ${formatCoordinate(tile)} would need tiles off the edge of the map — its ${BASE_SPAN}x${BASE_SPAN} footprint does not fit.`,
-      );
-      return;
-    }
-    if (overlapsCentre(candidate)) {
-      setRefusal(
-        `Frankie stands there. The centre is ${CENTRE_SPAN.x}x${CENTRE_SPAN.y} tiles, not ${BASE_SPAN}x${BASE_SPAN} — the shaded rectangle is the ground it needs.`,
+        `A ${brush.spanX}x${brush.spanY} tile centred on ${formatCoordinate(tile)} would need ground off the edge of the map.`,
       );
       return;
     }
     if (!canPlace(drawn, candidate)) {
-      const clash = drawn.find(
-        (slot) =>
-          coversTile(absoluteOf(anchor, slot), tile) ||
-          (Math.abs(slot.dx - candidate.dx) < BASE_SPAN &&
-            Math.abs(slot.dy - candidate.dy) < BASE_SPAN),
-      );
+      const clash = drawn.find((slot) => tilesOverlap(slot, candidate));
       setRefusal(
         clash === undefined
-          ? 'That tile is taken.'
-          : `A base there would share ground with the one at ${formatCoordinate(absoluteOf(anchor, clash))}. Centres need three tiles between them.`,
+          ? 'That ground is taken.'
+          : `That would share ground with the ${clash.spanX}x${clash.spanY} tile at ${formatCoordinate(absoluteOf(anchor, clash))}.`,
       );
       return;
     }
     const next = new Map(draft);
-    // The ordinal here is a placeholder: `layoutSave` renumbers the whole
-    // formation by reading order, and `numbering` above shows that rather
-    // than this. Using `draft.size + 1` would repeat after a removal.
+    // The ordinal here is a placeholder: the save renumbers the whole
+    // formation, and `numbering` shows that rather than this.
     next.set(offsetKey(candidate), {
       ...candidate,
       ordinal: draft.size + 1,
       label: '',
+      kind: brush.kind,
+      colour: brush.colour,
       playerId: null,
     });
     setDraft(next);
@@ -288,12 +349,20 @@ export function FormationEditor({
    * with itself: a one-tile nudge leaves the old and new footprints
    * overlapping, and every drag would be refused. */
   function canMove(from: Coordinate, to: Coordinate): boolean {
-    const moving: Offset = { dx: from.x - anchor.x, dy: from.y - anchor.y };
-    const landing: Offset = { dx: to.x - anchor.x, dy: to.y - anchor.y };
-    if (!centreFitsOnMap(to) || overlapsCentre(landing)) {
+    const held = draft.get(offsetKey({ dx: from.x - anchor.x, dy: from.y - anchor.y }));
+    if (held === undefined) {
       return false;
     }
-    const others = drawn.filter((slot) => offsetKey(slot) !== offsetKey(moving));
+    const landing: SizedOffset = {
+      dx: to.x - anchor.x,
+      dy: to.y - anchor.y,
+      spanX: held.spanX,
+      spanY: held.spanY,
+    };
+    if (!tileFitsOnMap(to, held.spanX, held.spanY)) {
+      return false;
+    }
+    const others = drawn.filter((slot) => offsetKey(slot) !== offsetKey(held));
     return canPlace(others, landing);
   }
 
@@ -302,21 +371,21 @@ export function FormationEditor({
    * frame old by the time the pointer comes up. */
   function move(from: Coordinate, to: Coordinate) {
     const moving: Offset = { dx: from.x - anchor.x, dy: from.y - anchor.y };
-    const landing: Offset = { dx: to.x - anchor.x, dy: to.y - anchor.y };
     const held = draft.get(offsetKey(moving));
     if (held === undefined || !canMove(from, to)) {
       return;
     }
+    const landing: SizedOffset = {
+      dx: to.x - anchor.x,
+      dy: to.y - anchor.y,
+      spanX: held.spanX,
+      spanY: held.spanY,
+    };
     const next = new Map(draft);
     next.delete(offsetKey(moving));
-    // The label rides along; the ordinal does not, because the save renumbers
-    // by ring and a moved base may well have changed ring.
-    next.set(offsetKey(landing), {
-      ...landing,
-      ordinal: held.ordinal,
-      label: held.label,
-      playerId: held.playerId,
-    });
+    // Everything but the position rides along; the ordinal is renumbered by
+    // the save anyway, and a moved base may well have changed ring.
+    next.set(offsetKey(landing), { ...held, ...landing });
     setDraft(next);
     setRefusal(null);
   }
@@ -328,35 +397,65 @@ export function FormationEditor({
    * comparing the result against what they meant to draw. */
   function generate(shape: 'block' | 'ring', columns: number, rows: number) {
     const offsets = shape === 'block' ? blockOffsets(columns, rows) : ringOffsets(columns, rows);
-    // TWO REASONS A GENERATED TILE IS DROPPED, and they are worth telling
-    // apart: one is the edge of the world and the other is Frankie. A block
-    // centred on the anchor always puts a base on top of it, so the second
-    // number is never zero and reads as normal rather than as a fault.
-    const onMap = offsets.filter((offset) => centreFitsOnMap(absoluteOf(anchor, offset)));
-    const usable = onMap.filter((offset) => !overlapsCentre(offset));
+    // FRANKIE FIRST, then everything that fits around it. It is an ordinary
+    // tile with a size since 0169, so "keep the bases off the centre" is the
+    // same overlap test as everywhere else rather than a special case.
+    const frankie: DraftSlot = {
+      dx: 0,
+      dy: 0,
+      spanX: FRANKIE.spanX,
+      spanY: FRANKIE.spanY,
+      kind: 'structure',
+      colour: 'amber',
+      ordinal: 0,
+      label: 'Frankie',
+      playerId: null,
+    };
+    // TWO REASONS A GENERATED TILE IS DROPPED, worth telling apart: one is the
+    // edge of the world and the other is the centre. A block centred on the
+    // anchor always puts a base on Frankie, so the second number is never zero
+    // and reads as normal rather than as a fault.
+    const onMap = offsets.filter((offset) =>
+      tileFitsOnMap(absoluteOf(anchor, offset), offset.spanX, offset.spanY),
+    );
+    const usable = onMap.filter((offset) => !tilesOverlap(frankie, offset));
     setDraft(
-      new Map(
-        [...usable]
-          .sort(ringOrder)
-          .map((offset, index) => [
-            offsetKey(offset),
-            { ...offset, ordinal: index + 1, label: '', playerId: null },
-          ]),
-      ),
+      new Map([
+        [offsetKey(frankie), frankie],
+        ...[...usable].sort(byRing).map(
+          (offset, index) =>
+            [
+              offsetKey(offset),
+              {
+                ...offset,
+                ordinal: index + 1,
+                label: '',
+                kind: 'base' as TileKind,
+                colour: null,
+                playerId: null,
+              },
+            ] as const,
+        ),
+      ]),
     );
     const offMap = offsets.length - onMap.length;
-    const onFrankie = onMap.length - usable.length;
+    const onCentre = onMap.length - usable.length;
     const notes = [
       offMap > 0 ? `${offMap} fell off the edge of the map` : '',
-      onFrankie > 0 ? `${onFrankie} would have stood on Frankie` : '',
+      onCentre > 0 ? `${onCentre} would have stood on Frankie` : '',
     ].filter(Boolean);
-    setRefusal(notes.length === 0 ? null : `${usable.length} tiles drawn — ${notes.join(', ')}.`);
+    setRefusal(notes.length === 0 ? null : `${usable.length} bases drawn — ${notes.join(', ')}.`);
   }
 
   const byId = new Map(members.map((member) => [member.playerId, member]));
   const placedIds = new Set(assignments.values());
   const unplaced = members.filter((member) => !placedIds.has(member.playerId));
-  const ordered = sortSlots(slots);
+  // Structures hold ground rather than people, so they are not in the
+  // assignment table at all — the database refuses a player on one anyway.
+  const ordered = sortSlots(
+    slots.filter((slot) => slot.kind === 'base'),
+    structures,
+  );
 
   // NUMBERED BY RING, INNERMOST FIRST, which is what the save writes and what
   // auto-assignment then follows. The draft holds whatever ordinal a tile was
@@ -371,7 +470,10 @@ export function FormationEditor({
   // The column itself can still hold a planner's own numbering; nothing in
   // this editor offers a way to type one yet, so nothing pretends to.
   const numbering = new Map(
-    [...drawn].sort(ringOrder).map((slot, index) => [offsetKey(slot), index + 1] as const),
+    [...drawn]
+      .filter((slot) => slot.kind === 'base')
+      .sort(byRing)
+      .map((slot, index) => [offsetKey(slot), index + 1] as const),
   );
 
   const bases: GridBase[] = drawn.map((slot) => {
@@ -388,10 +490,16 @@ export function FormationEditor({
     return {
       key: offsetKey(slot),
       at,
+      spanX: slot.spanX,
+      spanY: slot.spanY,
+      structure: slot.kind === 'structure',
+      colour: slot.colour,
       caption:
-        assigned === undefined
-          ? String(numbering.get(offsetKey(slot)) ?? '?')
-          : (byId.get(assigned)?.name ?? '?'),
+        slot.kind === 'structure'
+          ? slot.label
+          : assigned === undefined
+            ? String(numbering.get(offsetKey(slot)) ?? '?')
+            : (byId.get(assigned)?.name ?? '?'),
       own: assigned !== undefined && assigned === ownPlayerId,
       stale: savedSlot?.stillAMember === false,
     };
@@ -474,6 +582,112 @@ export function FormationEditor({
               onSubmit={setCentre}
               submitLabel="Go there"
             />
+          </fieldset>
+
+          <fieldset>
+            <legend>What a click puts down</legend>
+            <p className="subtle">
+              A member's base is {BASE_SPAN}x{BASE_SPAN}. A structure is ground that is spoken for —
+              Frankie at {FRANKIE.spanX}x{FRANKIE.spanY}, an alliance building, or a 1x1 marker on a
+              tile to keep clear. Nothing may overlap anything, whatever size each of them is.
+            </p>
+            <div className="hive-brush">
+              <label>
+                <span>Wide</span>
+                <input
+                  max={32}
+                  min={1}
+                  onChange={(event) =>
+                    setBrush({ ...brush, spanX: clampSpan(event.target.value, brush.spanX) })
+                  }
+                  type="number"
+                  value={brush.spanX}
+                />
+              </label>
+              <label>
+                <span>Tall</span>
+                <input
+                  max={32}
+                  min={1}
+                  onChange={(event) =>
+                    setBrush({ ...brush, spanY: clampSpan(event.target.value, brush.spanY) })
+                  }
+                  type="number"
+                  value={brush.spanY}
+                />
+              </label>
+              <label>
+                <span>Kind</span>
+                <select
+                  onChange={(event) => setBrush({ ...brush, kind: event.target.value as TileKind })}
+                  value={brush.kind}
+                >
+                  <option value="base">Member base</option>
+                  <option value="structure">Structure / marker</option>
+                </select>
+              </label>
+            </div>
+            <fieldset className="hive-swatches">
+              <legend>Colour</legend>
+              <button
+                aria-pressed={brush.colour === null}
+                className="hive-swatch"
+                onClick={() => setBrush({ ...brush, colour: null })}
+                type="button"
+              >
+                default
+              </button>
+              {TILE_COLOURS.map((colour) => (
+                <button
+                  aria-label={colour}
+                  aria-pressed={brush.colour === colour}
+                  className={`hive-swatch hive-swatch--${colour}`}
+                  key={colour}
+                  onClick={() => setBrush({ ...brush, colour })}
+                  type="button"
+                />
+              ))}
+            </fieldset>
+            <div className="hive-shapes">
+              {[
+                {
+                  label: `Base ${BASE_SPAN}x${BASE_SPAN}`,
+                  spanX: BASE_SPAN,
+                  spanY: BASE_SPAN,
+                  kind: 'base' as TileKind,
+                  colour: null,
+                },
+                {
+                  label: `Frankie ${FRANKIE.spanX}x${FRANKIE.spanY}`,
+                  spanX: FRANKIE.spanX,
+                  spanY: FRANKIE.spanY,
+                  kind: 'structure' as TileKind,
+                  colour: 'amber' as TileColour,
+                },
+                {
+                  label: 'Marker 1x1',
+                  spanX: 1,
+                  spanY: 1,
+                  kind: 'structure' as TileKind,
+                  colour: 'red' as TileColour,
+                },
+              ].map((preset) => (
+                <button
+                  key={preset.label}
+                  onClick={() =>
+                    setBrush({
+                      spanX: preset.spanX,
+                      spanY: preset.spanY,
+                      kind: preset.kind,
+                      colour: preset.colour,
+                    })
+                  }
+                  type="button"
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
           </fieldset>
 
           <fieldset>
@@ -611,7 +825,25 @@ export function FormationEditor({
                   <tr key={slot.slotId}>
                     <td>{slot.ordinal}</td>
                     <td>
-                      <code>{formatCoordinate({ x: slot.x, y: slot.y })}</code>
+                      {/* THE COORDINATE IS WHAT GETS HANDED OVER, so it is one
+                          press away from the clipboard. The dashboard cannot
+                          drive the game — a web page has no way to reach
+                          BlueStacks — so pasting into the teleport box is the
+                          shortest honest path from this table to the map. */}
+                      <button
+                        className="linklike"
+                        onClick={() => {
+                          void navigator.clipboard?.writeText(
+                            formatCoordinate({ x: slot.x, y: slot.y }),
+                          );
+                          setCopied(slot.slotId);
+                        }}
+                        title="Copy this coordinate"
+                        type="button"
+                      >
+                        <code>{formatCoordinate({ x: slot.x, y: slot.y })}</code>
+                        {copied === slot.slotId ? ' ✓' : ''}
+                      </button>
                     </td>
                     <td>{slot.label}</td>
                     <td>
@@ -705,7 +937,7 @@ function CoordinateInput({
     setY(String(at.y));
   }
   const parsed = { x: Number.parseInt(x, 10), y: Number.parseInt(y, 10) };
-  const usable = centreFitsOnMap(parsed);
+  const usable = tileFitsOnMap(parsed, BASE_SPAN, BASE_SPAN);
   return (
     <div className="hive-coordinate">
       <label>

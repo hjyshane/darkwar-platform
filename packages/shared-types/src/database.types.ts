@@ -2094,40 +2094,52 @@ export type Database = {
         Row: {
           assigned_at: string | null
           assigned_by: string | null
+          colour: string | null
           created_at: string
           dx: number
           dy: number
           formation_id: string
+          kind: string
           label: string
           ordinal: number
           player_id: string | null
           slot_id: string
+          span_x: number
+          span_y: number
           updated_at: string
         }
         Insert: {
           assigned_at?: string | null
           assigned_by?: string | null
+          colour?: string | null
           created_at?: string
           dx: number
           dy: number
           formation_id: string
+          kind?: string
           label?: string
           ordinal?: number
           player_id?: string | null
           slot_id?: string
+          span_x?: number
+          span_y?: number
           updated_at?: string
         }
         Update: {
           assigned_at?: string | null
           assigned_by?: string | null
+          colour?: string | null
           created_at?: string
           dx?: number
           dy?: number
           formation_id?: string
+          kind?: string
           label?: string
           ordinal?: number
           player_id?: string | null
           slot_id?: string
+          span_x?: number
+          span_y?: number
           updated_at?: string
         }
         Relationships: [
@@ -4775,6 +4787,7 @@ export type Database = {
           anchor_y: number | null
           assigned_at: string | null
           assigned_by: string | null
+          colour: string | null
           created_at: string | null
           dx: number | null
           dy: number | null
@@ -4783,6 +4796,7 @@ export type Database = {
           game_uid: number | null
           hq_level: number | null
           is_active: boolean | null
+          kind: string | null
           label: string | null
           ordinal: number | null
           player_id: string | null
@@ -4791,6 +4805,8 @@ export type Database = {
           power: number | null
           server_id: number | null
           slot_id: string | null
+          span_x: number | null
+          span_y: number | null
           still_a_member: boolean | null
           updated_at: string | null
           x: number | null

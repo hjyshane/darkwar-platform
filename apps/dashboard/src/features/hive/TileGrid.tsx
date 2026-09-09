@@ -8,10 +8,9 @@ import {
 } from 'react';
 import {
   BASE_SPAN,
-  CENTRE_SPAN,
   type FootprintBox,
-  centreFootprint,
-  coversTile,
+  type TileColour,
+  footprintOf,
 } from '../../lib/hiveFormation';
 import { type Coordinate, MAP_MAX, MAP_MIN, formatCoordinate } from '../../lib/mapProjection';
 
@@ -92,6 +91,14 @@ export function tileAtFraction(window: GridWindow, left: number, top: number): C
 export interface GridBase {
   key: string;
   at: Coordinate;
+  /** Tiles east-west and north-south. A base is 3x3, Frankie 4x3, a marker
+   * 1x1 — the grid draws whatever it is told rather than assuming. */
+  spanX?: number;
+  spanY?: number;
+  /** Ground rather than a person: drawn as an outline, and never dimmed as
+   * "carried" because a structure is not somebody's place. */
+  structure?: boolean;
+  colour?: TileColour | null;
   /** Shown inside the footprint when there is room — a number, or a name. */
   caption?: string;
   selected?: boolean;
@@ -111,18 +118,14 @@ export interface GridSighting {
   ours?: boolean;
 }
 
-function boxStyle(window: GridWindow, at: Coordinate, span: number) {
-  const size = span / window.across;
-  const corner = tileCorner(window, {
-    x: at.x - (span - 1) / 2,
-    y: at.y + (span - 1) / 2,
-  });
-  return {
-    left: `${corner.left * 100}%`,
-    top: `${corner.top * 100}%`,
-    width: `${size * 100}%`,
-    height: `${size * 100}%`,
-  };
+/** A tile of any size as a percentage rectangle.
+ *
+ * Goes through `footprintOf` rather than doing its own arithmetic, so where a
+ * coordinate sits inside an even span is decided in ONE place — and the
+ * picture cannot disagree with the constraint about which tiles are covered.
+ */
+function boxStyle(window: GridWindow, at: Coordinate, spanX: number, spanY = spanX) {
+  return rectStyle(window, footprintOf(at, spanX, spanY));
 }
 
 /** How wide the window can be, in tiles either side of the centre.
@@ -160,6 +163,9 @@ interface Drag {
   /** The base being carried, by the tile it started on. */
   from: Coordinate;
   to: Coordinate;
+  /** Its size, so the ghost is the shape that will actually land. */
+  spanX: number;
+  spanY: number;
   /** False while the pointer is still inside the threshold: the press has not
    * become a drag yet and releasing here is still a click. */
   moved: boolean;
@@ -168,8 +174,7 @@ interface Drag {
   allowed: boolean;
 }
 
-/** An inclusive tile box as a percentage rectangle. `boxStyle` assumes a
- * square centred on a tile; Frankie is four by three and neither. */
+/** An inclusive tile box as a percentage rectangle. */
 function rectStyle(window: GridWindow, box: FootprintBox) {
   const corner = tileCorner(window, { x: box.x0, y: box.y1 });
   return {
@@ -279,16 +284,6 @@ export function TileGrid({
           title={`${sighting.name ?? 'unnamed'} was last seen at ${formatCoordinate(sighting.at)}`}
         />
       ))}
-      {/* THE GROUND FRANKIE NEEDS, all twelve tiles of it. Drawn rather than
-          merely enforced because four is an even number: the anchor is not in
-          the middle of it, and which column it sits in is a fact about the
-          game. Seeing the rectangle against the map is how a wrong assumption
-          is caught before eighty people teleport around it. */}
-      <span
-        className="tile-grid__centre"
-        style={rectStyle(view, centreFootprint(anchor))}
-        title={`Frankie stands here — ${CENTRE_SPAN.x}x${CENTRE_SPAN.y} tiles around ${formatCoordinate(anchor)}`}
-      />
       <span
         className="tile-grid__anchor"
         style={boxStyle(view, anchor, 1)}
@@ -302,7 +297,7 @@ export function TileGrid({
           className={
             drag.allowed ? 'tile-grid__ghost' : 'tile-grid__ghost tile-grid__ghost--blocked'
           }
-          style={boxStyle(view, drag.to, BASE_SPAN)}
+          style={boxStyle(view, drag.to, drag.spanX, drag.spanY)}
         />
       )}
       {bases.map((base) => {
@@ -310,6 +305,8 @@ export function TileGrid({
           drag?.moved === true && base.at.x === drag.from.x && base.at.y === drag.from.y;
         const className = [
           'tile-grid__base',
+          base.structure ? 'tile-grid__base--structure' : '',
+          base.colour == null ? '' : `tile-grid__base--${base.colour}`,
           base.selected ? 'tile-grid__base--on' : '',
           base.own ? 'tile-grid__base--own' : '',
           base.stale ? 'tile-grid__base--stale' : '',
@@ -322,7 +319,7 @@ export function TileGrid({
           <span
             className={className}
             key={base.key}
-            style={boxStyle(view, base.at, BASE_SPAN)}
+            style={boxStyle(view, base.at, base.spanX ?? BASE_SPAN, base.spanY ?? BASE_SPAN)}
             title={`${base.caption ?? ''} ${formatCoordinate(base.at)}`.trim()}
           >
             {roomForCaptions && base.caption !== undefined && (
@@ -386,18 +383,30 @@ export function TileGrid({
           return;
         }
         const tile = tileUnder(event);
-        if (tile === null || !bases.some((base) => coversTile(base.at, tile))) {
+        if (tile === null) {
           return;
         }
-        const held = bases.find((base) => coversTile(base.at, tile));
-        if (held === undefined) {
+        const held = bases.find((base) => {
+          const box = footprintOf(base.at, base.spanX ?? BASE_SPAN, base.spanY ?? BASE_SPAN);
+          return tile.x >= box.x0 && tile.x <= box.x1 && tile.y >= box.y0 && tile.y <= box.y1;
+        });
+        // A structure is ground rather than somebody's place, and dragging
+        // the hive's centre by accident is not a thing anybody means to do.
+        if (held === undefined || held.structure === true) {
           return;
         }
         // Captured so the drag survives the pointer leaving the grid, which
         // it does constantly near the edges — without this a base dropped
         // half off the window is just lost.
         event.currentTarget.setPointerCapture(event.pointerId);
-        setDrag({ from: held.at, to: held.at, moved: false, allowed: true });
+        setDrag({
+          from: held.at,
+          to: held.at,
+          spanX: held.spanX ?? BASE_SPAN,
+          spanY: held.spanY ?? BASE_SPAN,
+          moved: false,
+          allowed: true,
+        });
       }}
       onPointerMove={(event) => {
         if (drag === null) {
@@ -419,7 +428,7 @@ export function TileGrid({
         if (drag.moved === moved && drag.to.x === tile.x && drag.to.y === tile.y) {
           return;
         }
-        setDrag({ from: drag.from, to: tile, moved, allowed });
+        setDrag({ ...drag, to: tile, moved, allowed });
       }}
       onPointerUp={(event) => {
         if (drag === null) {

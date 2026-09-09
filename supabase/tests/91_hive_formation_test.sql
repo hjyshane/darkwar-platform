@@ -13,7 +13,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(31);
+select plan(37);
 
 -- The board's columns. `x` and `y` are the whole point — the instruction a
 -- member reads — and `still_a_member` is what stops a fortnight-old plan
@@ -273,6 +273,61 @@ select is(
     where formation_id = '00000000-0000-4000-8000-00000000f201' and dx = 3),
   false,
   'a tile assigned to somebody off the newest roster is flagged');
+
+-- ---------------------------------------------------------------- 0169/0170
+-- A TILE IS WHATEVER SIZE IT IS, and the constraint reads it off the row.
+--
+-- These are the cases where the answer CHANGED. Under the old constant the
+-- rule was "centres three apart"; now it is "these two footprints intersect",
+-- and the two disagree the moment a tile is not 3x3.
+select public.save_hive_formation_layout(
+  '00000000-0000-4000-8000-00000000f201',
+  '[{"dx":0,"dy":0,"span_x":4,"span_y":3,"kind":"structure","label":"Frankie"}]'::jsonb);
+
+select is(
+  (select span_x || 'x' || span_y || ' ' || kind from public.hive_formation_board
+    where formation_id = '00000000-0000-4000-8000-00000000f201' and dx = 0),
+  '4x3 structure',
+  'a tile carries its own size and what it is for');
+
+-- Frankie at dx 0 with span 4 covers -1..2. A base at dx 3 covers 2..4, so
+-- they share the column at 2 — and the OLD rule would have allowed it,
+-- because the centres are three apart.
+select throws_ok(
+  $$ insert into public.hive_formation_slots (formation_id, dx, dy)
+     values ('00000000-0000-4000-8000-00000000f201', 3, 0) $$,
+  '23P01', null,
+  'three apart is no longer far enough when the neighbour is four wide');
+
+select lives_ok(
+  $$ insert into public.hive_formation_slots (formation_id, dx, dy)
+     values ('00000000-0000-4000-8000-00000000f201', 4, 0) $$,
+  'four apart clears a four-wide neighbour');
+
+-- A 1x1 marker covers one tile, so it fits in the gap a 3x3 could not.
+select lives_ok(
+  $$ insert into public.hive_formation_slots
+       (formation_id, dx, dy, span_x, span_y, kind, colour)
+     values ('00000000-0000-4000-8000-00000000f201', 2, 3, 1, 1, 'structure', 'red') $$,
+  'a 1x1 marker fits where a base would not');
+
+-- Ground is not a person.
+select throws_ok(
+  $$ update public.hive_formation_slots
+        set player_id = '00000000-0000-4000-8000-00000000f101'
+      where formation_id = '00000000-0000-4000-8000-00000000f201'
+        and dx = 0 and dy = 0 $$,
+  '23514', null,
+  'a structure cannot be assigned to anybody');
+
+-- The edge test now asks about the FOOTPRINT rather than about the centre, so
+-- a 1x1 may sit where a 3x3 may not. The anchor is at 600 after the move
+-- above, so dx -600 puts this tile on column 0.
+select lives_ok(
+  $$ insert into public.hive_formation_slots
+       (formation_id, dx, dy, span_x, span_y, kind)
+     values ('00000000-0000-4000-8000-00000000f201', -600, 10, 1, 1, 'structure') $$,
+  'a 1x1 may stand on the very edge of the map, which a 3x3 may not');
 
 -- §20.2: the negative half, through RLS rather than through the screen.
 set local role authenticated;
