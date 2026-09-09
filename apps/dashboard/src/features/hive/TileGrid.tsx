@@ -10,6 +10,7 @@ import {
   BASE_SPAN,
   type FootprintBox,
   type TileColour,
+  boxBetween,
   footprintOf,
 } from '../../lib/hiveFormation';
 import { type Coordinate, MAP_MAX, MAP_MIN, formatCoordinate } from '../../lib/mapProjection';
@@ -192,6 +193,7 @@ export function TileGrid({
   sightings = [],
   onPick,
   onMove,
+  onRegion,
   canMoveTo,
   onZoom,
   busy = false,
@@ -207,6 +209,16 @@ export function TileGrid({
   /** Given, a base can be picked up and put down somewhere else. Without it
    * pressing a base and moving does nothing, which is the read-only grid. */
   onMove?: (from: Coordinate, to: Coordinate) => void;
+  /** Given, a drag sweeps out a rectangle of tiles instead of carrying a
+   * base, and the box is reported on release.
+   *
+   * TAKES OVER THE DRAG RATHER THAN SHARING IT. One pointer gesture cannot
+   * mean both "carry this base" and "sweep this area" — whichever the grid
+   * guessed would be wrong half the time, on a press that looks identical
+   * either way. So this is a MODE the parent switches into, and while it is
+   * on, bases stay where they are.
+   */
+  onRegion?: (box: FootprintBox) => void;
   /** Whether the base now on `from` may land on `to`. Asked on every tile the
    * pointer crosses, so the square under the cursor can say no BEFORE the
    * drop rather than the drop being silently ignored. */
@@ -223,12 +235,15 @@ export function TileGrid({
   const roomForCaptions = view.across <= 45;
 
   const [drag, setDrag] = useState<Drag | null>(null);
+  const [region, setRegion] = useState<{ from: Coordinate; to: Coordinate } | null>(null);
   const surfaceRef = useRef<HTMLElement | null>(null);
   // A completed drag must not also fire the click that follows pointerup.
   // A ref rather than state: it is read and cleared inside the very next
   // event, and a re-render in between would be a frame of the wrong thing.
   const swallowClick = useRef(false);
-  const draggable = onMove !== undefined;
+  const sweeping = onRegion !== undefined;
+  // Base dragging is off while sweeping: one gesture, one meaning.
+  const draggable = onMove !== undefined && !sweeping;
 
   // WHEEL ZOOM NEEDS A NON-PASSIVE LISTENER, which React's onWheel is not.
   // Without preventDefault the page scrolls at the same time and the map
@@ -289,6 +304,14 @@ export function TileGrid({
         style={boxStyle(view, anchor, 1)}
         title={`Anchor — ${formatCoordinate(anchor)}`}
       />
+      {/* THE AREA BEING SWEPT. Without it a drag across forty tiles is
+          invisible until it lands, and the officer is aiming at nothing. */}
+      {region !== null && (
+        <span
+          className="tile-grid__region"
+          style={rectStyle(view, boxBetween(region.from, region.to))}
+        />
+      )}
       {/* WHERE IT WOULD LAND, drawn while the pointer is down. Without it the
           only feedback is the base jumping on release, and a refused drop
           looks identical to a drag that did not register. */}
@@ -358,15 +381,19 @@ export function TileGrid({
     // silently placing a base in the middle.
     <button
       aria-label={
-        draggable
-          ? 'Pick a tile, or drag a base to move it. The coordinate boxes beside the map place one without a pointer.'
-          : 'Pick a tile. The coordinate boxes beside the map do the same without a pointer.'
+        sweeping
+          ? 'Drag out an area of tiles. The coordinate boxes beside the map place one tile at a time without a pointer.'
+          : draggable
+            ? 'Pick a tile, or drag a base to move it. The coordinate boxes beside the map place one without a pointer.'
+            : 'Pick a tile. The coordinate boxes beside the map do the same without a pointer.'
       }
-      className={busy ? 'tile-grid tile-grid--busy' : 'tile-grid'}
+      className={['tile-grid', busy ? 'tile-grid--busy' : '', sweeping ? 'tile-grid--sweeping' : '']
+        .filter(Boolean)
+        .join(' ')}
       onClick={(event) => {
         // The drag already did the work and the browser fires a click after
         // the pointerup that ended it. Without this, dropping a base also
-        // removes it.
+        // removes it, and sweeping an area also toggles the tile underneath.
         if (swallowClick.current) {
           swallowClick.current = false;
           return;
@@ -379,8 +406,26 @@ export function TileGrid({
           onPick(tile);
         }
       }}
-      onPointerCancel={() => setDrag(null)}
+      onPointerCancel={() => {
+        setDrag(null);
+        setRegion(null);
+      }}
       onPointerDown={(event) => {
+        if (sweeping) {
+          if (event.button !== 0) {
+            return;
+          }
+          const corner = tileUnder(event);
+          if (corner === null) {
+            return;
+          }
+          // Captured for the same reason a base drag is: a sweep that starts
+          // in the middle and ends past the edge of the grid is the normal
+          // way to select everything down to a corner.
+          event.currentTarget.setPointerCapture(event.pointerId);
+          setRegion({ from: corner, to: corner });
+          return;
+        }
         // A press on a base MIGHT be the start of a drag. Whether it is one
         // is not known until the pointer moves, so nothing happens yet — the
         // click handler above still owns a press that goes nowhere.
@@ -414,6 +459,14 @@ export function TileGrid({
         });
       }}
       onPointerMove={(event) => {
+        if (region !== null) {
+          const corner = tileUnder(event);
+          if (corner === null || (corner.x === region.to.x && corner.y === region.to.y)) {
+            return;
+          }
+          setRegion({ ...region, to: corner });
+          return;
+        }
         if (drag === null) {
           return;
         }
@@ -436,6 +489,17 @@ export function TileGrid({
         setDrag({ ...drag, to: tile, moved, allowed });
       }}
       onPointerUp={(event) => {
+        if (region !== null) {
+          const corner = tileUnder(event) ?? region.to;
+          setRegion(null);
+          // A press and release on one tile is a box of one — a marker on
+          // that square — so there is no threshold here and nothing to
+          // forward to the click handler. Swallowed so the click does not
+          // then toggle the same tile straight back off.
+          swallowClick.current = true;
+          onRegion?.(boxBetween(region.from, corner));
+          return;
+        }
         if (drag === null) {
           return;
         }

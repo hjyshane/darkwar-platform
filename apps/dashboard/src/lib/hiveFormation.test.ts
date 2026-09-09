@@ -10,11 +10,14 @@ import {
   autoAssign,
   basesOverlap,
   blockOffsets,
+  boxArea,
+  boxBetween,
   canPlace,
   centreFitsOnMap,
   coversTile,
   firstOverlap,
   footprintOf,
+  freeTilesIn,
   ringOf,
   ringOffsets,
   ringOrderAround,
@@ -309,4 +312,55 @@ test('auto-assignment gives the inner ring to the strongest', () => {
 
   expect(result.assignments.get('inner')).toBe('p-strong');
   expect(result.assignments.get('outer')).toBe('p-mid');
+});
+
+// Dragging an area out and filling it with markers.
+
+/** Middle of the map, so nothing here is accidentally testing the edge. */
+const ANCHOR = { x: 500, y: 500 };
+
+test('a box is the same box whichever corner the drag started from', () => {
+  // Three of the four drag directions produce a "backwards" pair, and an
+  // unsorted box would come out empty for all three.
+  const forward = boxBetween({ x: 10, y: 10 }, { x: 12, y: 13 });
+
+  expect(forward).toEqual({ x0: 10, x1: 12, y0: 10, y1: 13 });
+  expect(boxBetween({ x: 12, y: 13 }, { x: 10, y: 10 })).toEqual(forward);
+  expect(boxBetween({ x: 12, y: 10 }, { x: 10, y: 13 })).toEqual(forward);
+  expect(boxBetween({ x: 10, y: 13 }, { x: 12, y: 10 })).toEqual(forward);
+});
+
+test('a box is inclusive on all four sides', () => {
+  // A press and release on one tile is a box of one, not of none.
+  expect(boxArea(boxBetween({ x: 5, y: 5 }, { x: 5, y: 5 }))).toBe(1);
+  expect(boxArea(boxBetween({ x: 10, y: 10 }, { x: 12, y: 13 }))).toBe(12);
+});
+
+test('an empty box fills every tile in it', () => {
+  const filled = freeTilesIn(boxBetween({ x: 500, y: 500 }, { x: 502, y: 501 }), ANCHOR, []);
+
+  expect(filled).toHaveLength(6);
+  expect(filled.every((tile) => tile.spanX === 1 && tile.spanY === 1)).toBe(true);
+});
+
+test('filling goes AROUND what is already drawn rather than being refused', () => {
+  // The reason this is a fill and not one big rectangle: an officer marking a
+  // strip beside a hive is drawing next to bases, and one rectangle would be
+  // refused outright the moment a single one fell inside the drag.
+  const base: SizedOffset = { dx: 1, dy: 0, spanX: BASE_SPAN, spanY: BASE_SPAN };
+  const filled = freeTilesIn(boxBetween({ x: 499, y: 499 }, { x: 503, y: 501 }), ANCHOR, [base]);
+
+  // 15 tiles in the box, 9 of them under the 3x3 centred on 501,500.
+  expect(filled).toHaveLength(6);
+  expect(filled.every((tile) => canPlace([base], tile))).toBe(true);
+});
+
+test('a fill stops at the edge of the map instead of running off it', () => {
+  // Dragged past the corner, which is easy to do: the drag is clamped to the
+  // window, and the window slides rather than shrinking near an edge.
+  const corner = freeTilesIn(boxBetween({ x: -2, y: -2 }, { x: 1, y: 1 }), { x: 0, y: 0 }, []);
+
+  expect(boxArea(boxBetween({ x: -2, y: -2 }, { x: 1, y: 1 }))).toBe(16);
+  expect(corner).toHaveLength(4);
+  expect(corner.every((tile) => tile.dx >= 0 && tile.dy >= 0)).toBe(true);
 });

@@ -5,6 +5,8 @@ import {
   type AssignableMember,
   BASE_SPAN,
   FRANKIE,
+  type FootprintBox,
+  MAX_TILES,
   type Offset,
   type SizedOffset,
   TILE_COLOURS,
@@ -14,13 +16,16 @@ import {
   assignOrderLabel,
   autoAssign,
   blockOffsets,
+  boxArea,
   canPlace,
   footprintOf,
+  freeTilesIn,
   offsetKey,
   ringOffsets,
   ringOrderAround,
   sortSlots,
   tileFitsOnMap,
+  tileInsideBox,
   tilesOverlap,
 } from '../../lib/hiveFormation';
 import { type Coordinate, formatCoordinate } from '../../lib/mapProjection';
@@ -91,6 +96,9 @@ interface Brush {
    * back and relabel ground an officer has already sent people to. */
   label: string;
 }
+
+/** What a drag does. Clicking a tile places or removes one in every mode. */
+type Tool = 'draw' | 'mark' | 'erase';
 
 const ORDERS: readonly AssignOrder[] = ['power', 'hq', 'rank', 'name'];
 
@@ -221,6 +229,10 @@ export function FormationEditor({
   // from the brush, so the only thing left to type is what it is called.
   const [featureName, setFeatureName] = useState('');
   const [templateName, setTemplateName] = useState('');
+  // What a drag on the map means. One gesture cannot mean two things, so
+  // carrying a base and sweeping out an area are modes rather than a guess
+  // about intent — see TileGrid's `onRegion`.
+  const [tool, setTool] = useState<Tool>('draw');
   const [order, setOrder] = useState<AssignOrder>('power');
   // slot id -> player id. Seeded from what is saved, so opening the screen
   // and saving without touching anything is a no-op rather than a wipe.
@@ -513,6 +525,71 @@ export function FormationEditor({
     setRefusal(null);
   }
 
+  /** Fill a swept box with 1x1 markers, or take the markers back out.
+   *
+   * FILLS AROUND WHAT IS THERE, never through it — `freeTilesIn` skips ground
+   * another tile already holds, so sweeping a strip beside the hive marks the
+   * gaps between the bases rather than being refused for touching one.
+   *
+   * The markers take the BRUSH'S colour and caption, which is what makes the
+   * catalogue worth having: click 'Keep clear', then sweep. The brush's SIZE
+   * is deliberately ignored — a marker says "this square is spoken for", and
+   * nothing bigger than a square can say that about an irregular gap.
+   */
+  function sweep(box: FootprintBox) {
+    if (tool === 'erase') {
+      const next = new Map(draft);
+      let removed = 0;
+      for (const [key, slot] of draft) {
+        // The exact inverse of what marking put down, and nothing else. A
+        // sweep that also swallowed bases would delete people's places on a
+        // gesture meant to tidy up markers, and the drag reads the same
+        // either way.
+        if (slot.kind !== 'structure' || slot.spanX !== 1 || slot.spanY !== 1) {
+          continue;
+        }
+        if (tileInsideBox(absoluteOf(anchor, slot), box)) {
+          next.delete(key);
+          removed += 1;
+        }
+      }
+      setDraft(next);
+      setRefusal(removed === 0 ? 'Nothing to erase in that area — it holds no 1x1 markers.' : null);
+      return;
+    }
+
+    const free = freeTilesIn(box, anchor, drawn);
+    if (free.length === 0) {
+      setRefusal(`Every one of those ${boxArea(box)} tiles is already spoken for.`);
+      return;
+    }
+    // THE CEILING IS THE BOARD QUERY'S, not a view about hive size. Past 500
+    // tiles `fetchBoard` returns fewer rows without saying so, and the
+    // formation would read as complete while missing whatever fell off the
+    // end. A sweep is the first gesture here that can add hundreds at once.
+    if (draft.size + free.length > MAX_TILES) {
+      setRefusal(
+        `That area needs ${free.length} markers and only ${MAX_TILES - draft.size} will fit — a formation stops being readable past ${MAX_TILES} tiles.`,
+      );
+      return;
+    }
+    const next = new Map(draft);
+    let ordinal = draft.size;
+    for (const tile of free) {
+      ordinal += 1;
+      next.set(offsetKey(tile), {
+        ...tile,
+        ordinal,
+        label: brush.label,
+        kind: 'structure',
+        colour: brush.colour ?? 'red',
+        playerId: null,
+      });
+    }
+    setDraft(next);
+    setRefusal(null);
+  }
+
   /** Whether the base standing on `from` could stand on `to` instead.
    *
    * The moved base is taken OUT of the comparison, or it would always clash
@@ -694,6 +771,7 @@ export function FormationEditor({
             canMoveTo={canMove}
             onMove={move}
             onPick={pick}
+            onRegion={tool === 'draw' ? undefined : sweep}
             onZoom={(direction, at) => {
               // RE-CENTRE ON THE TILE UNDER THE POINTER. Zooming about the
               // window's own centre slides whatever you were looking at away
@@ -752,6 +830,45 @@ export function FormationEditor({
               onSubmit={setCentre}
               submitLabel="Go there"
             />
+          </fieldset>
+
+          <fieldset className="hive-tools">
+            <legend>What a drag does</legend>
+            <p className="subtle">
+              Clicking a tile places or removes one in every mode. This is only about the drag,
+              because one gesture cannot mean two things: while an area tool is on, bases stay where
+              they are.
+            </p>
+            <div className="hive-shapes">
+              {(
+                [
+                  ['draw', 'Move a base', 'Drag a base to carry it somewhere else.'],
+                  [
+                    'mark',
+                    'Mark an area',
+                    'Drag out a rectangle and fill every free tile in it with a 1x1 marker, in the brush\u2019s colour and caption. Goes around whatever is already drawn.',
+                  ],
+                  [
+                    'erase',
+                    'Erase an area',
+                    'Drag out a rectangle and take its 1x1 markers back out. Bases are left alone.',
+                  ],
+                ] as const
+              ).map(([value, label, hint]) => (
+                <button
+                  aria-pressed={tool === value}
+                  key={value}
+                  onClick={() => {
+                    setTool(value);
+                    setRefusal(null);
+                  }}
+                  title={hint}
+                  type="button"
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </fieldset>
 
           <fieldset>

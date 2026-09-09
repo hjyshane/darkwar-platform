@@ -4162,6 +4162,32 @@ button.tile-grid:hover:not(:disabled) {
   color: var(--fg-muted);
 }
 
+/* THE AREA BEING SWEPT, while the pointer is down. Dashed and filled rather
+ * than outlined: a hairline rectangle over a grid of hairlines is invisible,
+ * which is the state this is here to fix. */
+.tile-grid__region {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px dashed var(--accent);
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* A crosshair says "this drag draws" the way `grab` says "this drag carries".
+ * Set on the surface AND on the bases, because a base's own `grab` cursor
+ * would otherwise go on promising a move that this mode has turned off. */
+.tile-grid--sweeping,
+.tile-grid--sweeping .tile-grid__base {
+  cursor: crosshair;
+}
+
+.hive-tools button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .hive-count {
   font-size: var(--text-sm);
   color: var(--fg-muted);

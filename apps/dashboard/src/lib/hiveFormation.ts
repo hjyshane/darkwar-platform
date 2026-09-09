@@ -206,6 +206,82 @@ export function canPlace(tiles: readonly SizedOffset[], candidate: SizedOffset):
   return !tiles.some((other) => tilesOverlap(other, candidate));
 }
 
+/** The most tiles one formation may hold.
+ *
+ * NOT AN OPINION ABOUT HIVE SIZE — it is what the board query can carry.
+ * `fetchBoard` asks PostgREST for 500 rows, and PostgREST answers a bigger
+ * request by silently returning fewer rather than by failing. A formation
+ * past this would look complete and be missing tiles, which is the exact
+ * failure the one-row-per-entity rule exists to prevent. Dragging out an area
+ * is the first thing here that can add hundreds of tiles in one gesture, so
+ * it is the first thing that has to know the ceiling.
+ */
+export const MAX_TILES = 500;
+
+/** The inclusive box two corner tiles span, in either drag direction.
+ *
+ * A drag names two opposite corners and nothing says which is which: pulling
+ * up-and-left is as normal as down-and-right. Sorting here is what stops
+ * three of the four directions producing an empty box.
+ */
+export function boxBetween(a: Coordinate, b: Coordinate): FootprintBox {
+  return {
+    x0: Math.min(a.x, b.x),
+    x1: Math.max(a.x, b.x),
+    y0: Math.min(a.y, b.y),
+    y1: Math.max(a.y, b.y),
+  };
+}
+
+/** How many tiles a box covers. */
+export function boxArea(box: FootprintBox): number {
+  return (box.x1 - box.x0 + 1) * (box.y1 - box.y0 + 1);
+}
+
+/** Whether a tile's whole footprint sits inside a box. */
+export function tileInsideBox(at: Coordinate, box: FootprintBox, spanX = 1, spanY = 1): boolean {
+  const foot = footprintOf(at, spanX, spanY);
+  return foot.x0 >= box.x0 && foot.x1 <= box.x1 && foot.y0 >= box.y0 && foot.y1 <= box.y1;
+}
+
+/** Every free 1x1 tile inside a dragged box, as offsets from the anchor.
+ *
+ * FILLS AROUND WHAT IS ALREADY THERE rather than refusing the whole box. An
+ * officer dragging out a strip to keep clear is drawing on ground that
+ * usually has something on it already — the hive it runs beside is the reason
+ * the strip exists. Placing one rectangle would be one row instead of a
+ * hundred, but it would be refused outright the moment a single base fell
+ * inside it, and the officer would have to shrink the drag until it fitted
+ * between the bases rather than around them.
+ *
+ * 1x1 because a marker means "this square is spoken for" and nothing larger
+ * can say that about an irregular gap.
+ */
+export function freeTilesIn(
+  box: FootprintBox,
+  anchor: Coordinate,
+  taken: readonly SizedOffset[],
+): SizedOffset[] {
+  const free: SizedOffset[] = [];
+  for (let y = box.y0; y <= box.y1; y += 1) {
+    for (let x = box.x0; x <= box.x1; x += 1) {
+      if (x < MAP_MIN || x > MAP_MAX || y < MAP_MIN || y > MAP_MAX) {
+        continue;
+      }
+      const candidate: SizedOffset = {
+        dx: x - anchor.x,
+        dy: y - anchor.y,
+        spanX: 1,
+        spanY: 1,
+      };
+      if (canPlace(taken, candidate)) {
+        free.push(candidate);
+      }
+    }
+  }
+  return free;
+}
+
 /** A rectangular block of bases, packed as tightly as 3x3 footprints allow.
  *
  * THE PITCH IS BASE_SPAN, NOT ONE. A block drawn on the map's own grid would
