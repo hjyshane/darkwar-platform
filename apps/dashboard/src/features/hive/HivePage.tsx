@@ -6,7 +6,14 @@ import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
 import { useSession } from '../../lib/useSession';
 import { FormationEditor } from './FormationEditor';
-import { type GridBase, TileGrid, ZOOM_STEPS, windowAround, zoomStep } from './TileGrid';
+import {
+  type GridBase,
+  TileGrid,
+  ZOOM_STEPS,
+  pannedCentre,
+  windowAround,
+  zoomStep,
+} from './TileGrid';
 import {
   type BoardSlot,
   type Formation,
@@ -286,12 +293,18 @@ function Overview({
       <TileGrid
         anchor={anchor}
         bases={bases}
+        // `centre` is null until somebody looks somewhere other than the
+        // anchor, so the first pan step has to start from the anchor rather
+        // than from nothing — otherwise the view jumps to 0,0 on the first
+        // tile of the drag.
+        onPan={(byX, byY) => setCentre((from) => pannedCentre(from ?? anchor, byX, byY))}
         onZoom={(direction, at) => {
           setZoom(zoomStep(zoom, direction));
           setCentre(at);
         }}
         window={view}
       />
+      <p className="subtle">Drag the map to slide it. The wheel zooms.</p>
       <fieldset className="hive-zoom">
         <legend>Zoom</legend>
         {ZOOM_STEPS.map((step) => (

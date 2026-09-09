@@ -34,6 +34,7 @@ import {
   type GridSighting,
   TileGrid,
   ZOOM_STEPS,
+  pannedCentre,
   windowAround,
   zoomStep,
 } from './TileGrid';
@@ -771,6 +772,7 @@ export function FormationEditor({
             canMoveTo={canMove}
             onMove={move}
             onPick={pick}
+            onPan={(byX, byY) => setCentre((from) => pannedCentre(from, byX, byY))}
             onRegion={tool === 'draw' ? undefined : sweep}
             onZoom={(direction, at) => {
               // RE-CENTRE ON THE TILE UNDER THE POINTER. Zooming about the
@@ -785,9 +787,11 @@ export function FormationEditor({
           />
           <p className="subtle">
             Click free ground to place a base, click a base to take it away. Each one is {BASE_SPAN}
-            x{BASE_SPAN} tiles and the coordinate is the middle. Shaded squares are where the map
-            last SAW somebody — a base that was destroyed or lost its shield has been teleported
-            somewhere random, so treat them as a hint and not as a wall.
+            x{BASE_SPAN} tiles and the coordinate is the middle. Hold <kbd>ctrl</kbd> and drag — or
+            drag with the middle button — to slide the map without drawing anything; the wheel
+            zooms. Shaded squares are where the map last SAW somebody — a base that was destroyed or
+            lost its shield has been teleported somewhere random, so treat them as a hint and not as
+            a wall.
           </p>
           <fieldset className="hive-zoom">
             <legend>Zoom</legend>

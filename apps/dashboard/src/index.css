@@ -1755,6 +1755,19 @@ code {
   letter-spacing: 0.04em;
 }
 
+/* A key to press, not a value to read. Given an edge so it does not read as
+ * `code` — the two appear in the same sentence on the hive screen, where one
+ * is a coordinate and the other is the ctrl key. */
+kbd {
+  font-family: inherit;
+  font-size: 0.9em;
+  border: 1px solid var(--border-strong);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-sm);
+  padding: 0 0.35em;
+  white-space: nowrap;
+}
+
 .issued {
   background: var(--ok-bg);
   border-radius: var(--radius-md);
@@ -3731,29 +3744,36 @@ form select {
    * and two copies of a gradient are two chances to change one of them. */
   --grid-lines: linear-gradient(var(--border) 1px, transparent 1px),
     linear-gradient(90deg, var(--border) 1px, transparent 1px);
-  background-color: var(--bg-raised);
-  background-image: var(--grid-lines);
-  background-size: calc(100% / var(--tiles)) calc(100% / var(--tiles));
-  /* The grid lines start at the top-left corner, which is where tile
-   * (xMin, yMax) starts — the same corner `tileCorner` measures from. */
-  background-position: 0 0;
   overflow: hidden;
   cursor: crosshair;
 }
 
 /* THE GRID IS A BUTTON, AND `button:hover` USES THE `background` SHORTHAND.
  *
- * A shorthand resets every longhand it covers, so `background: var(--bg-hover)`
- * set `background-image: none` — and every line vanished the moment the
- * pointer entered the map. The squares are the whole point of this control;
- * losing them on hover means losing them exactly while somebody is using it.
+ * A shorthand resets EVERY longhand it covers, so `background: var(--bg-hover)`
+ * wipes background-image, background-size and background-position together —
+ * and the squares are the whole point of this control, so losing them on hover
+ * means losing them exactly while somebody is using it.
  *
- * Restated rather than fought with `!important`, and specific enough to win:
- * `button:hover:not(:disabled)` is (0,2,1) and plain `.tile-grid` is (0,1,0).
+ * ONE BLOCK, TWO SELECTORS, and that shape is the fix rather than a tidy-up.
+ * The first attempt restated only the colour and the image on hover and left
+ * background-size behind, so the gradient fell back to `auto` — one line down
+ * the left, one across the top, and a grid that still looked like it had
+ * vanished. Splitting the paint across two blocks is what made it possible to
+ * restore three quarters of it; keeping it in one makes a partial restore
+ * impossible to write.
+ *
+ * Specific enough to win: `button:hover:not(:disabled)` is (0,2,1), and the
+ * hover half of this selector is (0,3,1).
  */
+.tile-grid,
 button.tile-grid:hover:not(:disabled) {
   background-color: var(--bg-raised);
   background-image: var(--grid-lines);
+  background-size: calc(100% / var(--tiles)) calc(100% / var(--tiles));
+  /* The grid lines start at the top-left corner, which is where tile
+   * (xMin, yMax) starts — the same corner `tileCorner` measures from. */
+  background-position: 0 0;
 }
 
 .tile-grid--busy {
@@ -4181,6 +4201,13 @@ button.tile-grid:hover:not(:disabled) {
 .tile-grid--sweeping,
 .tile-grid--sweeping .tile-grid__base {
   cursor: crosshair;
+}
+
+/* Only once the pan has actually started. A `grabbing` cursor the moment ctrl
+ * goes down would say the map is being held before anybody has held it. */
+.tile-grid--panning,
+.tile-grid--panning .tile-grid__base {
+  cursor: grabbing;
 }
 
 .hive-tools button[aria-pressed="true"] {
