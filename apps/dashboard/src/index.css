@@ -4072,6 +4072,96 @@ button.tile-grid:hover:not(:disabled) {
   background: #db2777;
 }
 
+/* The catalogue (0171): the shapes this alliance draws over and over.
+ *
+ * A chip is TWO buttons — load, and drop from the list — rather than one
+ * button with a delete mode, because the destructive one has to be the one
+ * you have to aim at. The dot of colour is the same argument the swatches
+ * make: 'Depot 6x4' in teal is read as a shape, 'Depot 6x4 (teal)' is read
+ * as a sentence. */
+.hive-features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  margin: var(--space-3) 0;
+}
+
+.hive-feature {
+  display: inline-flex;
+  align-items: stretch;
+}
+
+.hive-feature__load {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* The dot, not the button. A whole button in --danger-fg would read as a
+ * warning about pressing it. */
+.hive-feature__load::before {
+  content: "";
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--border);
+}
+
+.hive-feature__load--slate::before {
+  background: var(--fg-muted);
+}
+.hive-feature__load--red::before {
+  background: var(--danger-fg);
+}
+.hive-feature__load--amber::before {
+  background: var(--warn-fg);
+}
+.hive-feature__load--green::before {
+  background: var(--ok-fg);
+}
+.hive-feature__load--teal::before {
+  background: #0d9488;
+}
+.hive-feature__load--blue::before {
+  background: var(--accent);
+}
+.hive-feature__load--violet::before {
+  background: #7c3aed;
+}
+.hive-feature__load--pink::before {
+  background: #db2777;
+}
+
+.hive-feature__drop {
+  border-left: 0;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  padding-inline: var(--space-2);
+  color: var(--fg-muted);
+}
+
+.hive-feature__drop:hover:not(:disabled) {
+  color: var(--danger-fg);
+}
+
+.hive-feature-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: flex-end;
+}
+
+.hive-feature-add label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+}
+
 .hive-count {
   font-size: var(--text-sm);
   color: var(--fg-muted);

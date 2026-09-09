@@ -604,6 +604,54 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
   [['hive', 'formations', 580], HIVE_FORMATIONS],
   [['hive', 'board', HIVE_FORMATION_ID], HIVE_SLOTS],
   [['hive', 'members'], HIVE_MEMBERS],
+  // The catalogue the brush loads from. The three 0171 seeds, plus one an
+  // officer would have added — a 6x4 is the case that shows the chip is
+  // reading the row's own size rather than printing 3x3 at everything.
+  [
+    ['hive', 'features'],
+    [
+      {
+        featureId: '55555555-5555-4555-8555-555555555501',
+        name: 'Member base',
+        spanX: 3,
+        spanY: 3,
+        kind: 'base',
+        colour: null,
+        note: 'The default. One member stands here.',
+        sortOrder: 10,
+      },
+      {
+        featureId: '55555555-5555-4555-8555-555555555502',
+        name: 'Frankie',
+        spanX: 4,
+        spanY: 3,
+        kind: 'structure',
+        colour: 'amber',
+        note: 'Four wide, three tall, on the anchor.',
+        sortOrder: 20,
+      },
+      {
+        featureId: '55555555-5555-4555-8555-555555555503',
+        name: 'Keep clear',
+        spanX: 1,
+        spanY: 1,
+        kind: 'structure',
+        colour: 'red',
+        note: 'One tile nobody may build on.',
+        sortOrder: 30,
+      },
+      {
+        featureId: '55555555-5555-4555-8555-555555555504',
+        name: 'Depot',
+        spanX: 6,
+        spanY: 4,
+        kind: 'structure',
+        colour: 'teal',
+        note: '',
+        sortOrder: 40,
+      },
+    ],
+  ],
 
   // Members
   [['roster'], ROSTER],

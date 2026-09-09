@@ -2227,6 +2227,56 @@ export type Database = {
           },
         ]
       }
+      hive_map_features: {
+        Row: {
+          colour: string | null
+          created_at: string
+          created_by: string | null
+          feature_id: string
+          kind: string
+          name: string
+          note: string
+          sort_order: number
+          span_x: number
+          span_y: number
+          updated_at: string
+        }
+        Insert: {
+          colour?: string | null
+          created_at?: string
+          created_by?: string | null
+          feature_id?: string
+          kind?: string
+          name: string
+          note?: string
+          sort_order?: number
+          span_x?: number
+          span_y?: number
+          updated_at?: string
+        }
+        Update: {
+          colour?: string | null
+          created_at?: string
+          created_by?: string | null
+          feature_id?: string
+          kind?: string
+          name?: string
+          note?: string
+          sort_order?: number
+          span_x?: number
+          span_y?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hive_map_features_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "pending_access"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       join_code_attempts: {
         Row: {
           failed_count: number

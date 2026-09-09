@@ -430,3 +430,95 @@ export async function makeActive(formationId: string, serverId: number): Promise
   }
   await updateFormation(formationId, { isActive: true });
 }
+
+/** A reusable shape for the editor's brush: a name and a size, nothing else.
+ *
+ * NO POSITION AND NO SERVER — 0171 says why at length. The short version is
+ * that a catalogue entry is a fact about the game ('an alliance HQ is 3x3'),
+ * while where this alliance's HQ stands is a fact about one formation on one
+ * map, and that lives in the slots table with every other placed tile.
+ */
+export interface MapFeature {
+  featureId: string;
+  name: string;
+  spanX: number;
+  spanY: number;
+  kind: TileKind;
+  colour: TileColour | null;
+  note: string;
+  sortOrder: number;
+}
+
+export async function fetchMapFeatures(): Promise<MapFeature[]> {
+  const { data, error } = await supabase
+    .from('hive_map_features')
+    .select('feature_id, name, span_x, span_y, kind, colour, note, sort_order')
+    .order('sort_order')
+    .order('name')
+    .limit(200);
+  if (error) {
+    if (emptyOnRefusal(error.code)) {
+      return [];
+    }
+    throw new Error(`map feature query failed: ${error.message}`);
+  }
+  return (data ?? []).map((row) => ({
+    featureId: row.feature_id,
+    name: row.name,
+    spanX: row.span_x,
+    spanY: row.span_y,
+    kind: row.kind === 'structure' ? 'structure' : 'base',
+    colour: (row.colour ?? null) as TileColour | null,
+    note: row.note,
+    sortOrder: row.sort_order,
+  }));
+}
+
+export function useMapFeatures() {
+  return useQuery({
+    queryKey: ['hive', 'features'],
+    queryFn: fetchMapFeatures,
+    // A list of building sizes changes when somebody adds a building, which
+    // is roughly never. The realtime topic is what makes an addition appear;
+    // this only decides how long after a reload it is trusted.
+    staleTime: 10 * 60_000,
+  });
+}
+
+/** One row, not a batch. Unlike a layout there is no halfway state to
+ * protect: naming a shape cannot make any other row invalid, so this goes
+ * straight at the table rather than through an RPC. */
+export async function createMapFeature(input: {
+  name: string;
+  spanX: number;
+  spanY: number;
+  kind: TileKind;
+  colour: TileColour | null;
+  note?: string;
+}): Promise<void> {
+  const { error } = await supabase.from('hive_map_features').insert({
+    name: input.name,
+    span_x: input.spanX,
+    span_y: input.spanY,
+    kind: input.kind,
+    colour: input.colour,
+    note: input.note ?? '',
+  });
+  if (error) {
+    // 0171's unique index is on lower(btrim(name)), so the same building
+    // entered twice with different capitalisation lands here. The database's
+    // own message names an index nobody outside this file has heard of.
+    throw new Error(
+      error.code === '23505'
+        ? `There is already something called "${input.name}" in the list.`
+        : error.message,
+    );
+  }
+}
+
+export async function deleteMapFeature(featureId: string): Promise<void> {
+  const { error } = await supabase.from('hive_map_features').delete().eq('feature_id', featureId);
+  if (error) {
+    throw new Error(error.message);
+  }
+}

@@ -40,6 +40,10 @@ const TOPIC_QUERY_KEYS: Record<string, readonly (readonly string[])[]> = {
   // and the assignments feed the same screen, and a reader has no use for
   // knowing which of the two changed.
   hive_formations: [['hive']],
+  // The catalogue of shapes (0171) is NOT on that topic. It changes when
+  // somebody names a building, which is a different moment for a different
+  // reason, and a rename has no business refetching eighty assignments.
+  hive_map_features: [['hive', 'features']],
   season_building_snapshots: [['seasonBoard']],
   arena_entries: [['arena'], ['player']],
   // Written by an admin rather than the collector, and the only topic here

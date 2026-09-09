@@ -13,7 +13,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(37);
+select plan(47);
 
 -- The board's columns. `x` and `y` are the whole point — the instruction a
 -- member reads — and `still_a_member` is what stops a fortnight-old plan
@@ -40,6 +40,30 @@ select is(
     pg_get_viewdef('public.hive_formation_board'::regclass)),
   0,
   'still_a_member is not read from the last-known alliance column');
+
+-- 0171'S CATALOGUE MAY ONLY HOLD SHAPES A SLOT WILL ACCEPT. The colour list
+-- is written out in both tables rather than shared as a domain (0171 says
+-- why), so the thing that keeps them one list is this assertion. Both
+-- constraints are on a column called `colour`, so a matching pair is
+-- textually identical and a drifted pair is not.
+select is(
+  (select pg_get_constraintdef(oid) from pg_constraint
+    where conrelid = 'public.hive_map_features'::regclass
+      and contype = 'c'
+      and pg_get_constraintdef(oid) like '%colour%'),
+  (select pg_get_constraintdef(oid) from pg_constraint
+    where conrelid = 'public.hive_formation_slots'::regclass
+      and contype = 'c'
+      and pg_get_constraintdef(oid) like '%colour%'),
+  'a catalogue entry cannot carry a colour a slot would refuse');
+
+select is(
+  (select count(*)::int from pg_constraint
+    where conrelid = 'public.hive_map_features'::regclass
+      and contype = 'f'
+      and confrelid = 'public.hive_formation_slots'::regclass),
+  0,
+  'a placed tile does not point back at the catalogue it was loaded from');
 
 update public.alliances set is_own = false where is_own;
 insert into public.alliances (alliance_id, server_id, external_id, current_name, is_own)
@@ -364,6 +388,52 @@ select lives_ok(
        '00000000-0000-4000-8000-00000000f201',
        '[{"dx":0,"dy":0,"ordinal":1}]'::jsonb) $$,
   'an officer can — the gate sits between member and officer');
+
+-- The catalogue (0171). Same split as the formation itself: an officer
+-- curates it, a member reads it, a stranger does not.
+select is(
+  (select count(*)::int from public.hive_map_features), 3,
+  'an officer opening the editor finds a list rather than an empty box');
+
+select throws_ok(
+  $$ insert into public.hive_map_features (name, span_x, span_y)
+     values ('  frankie  ', 4, 3) $$,
+  '23505', null,
+  'the same building cannot be entered twice under a different capitalisation');
+
+select throws_ok(
+  $$ insert into public.hive_map_features (name, colour) values ('Depot', 'puce') $$,
+  '23514', null,
+  'nor in a colour no tile can be drawn in');
+
+select lives_ok(
+  $$ insert into public.hive_map_features (name, span_x, span_y, colour)
+     values ('Depot', 6, 4, 'teal') $$,
+  'an officer adds the shapes their own map has');
+
+-- The catalogue is a list of sizes, NOT a list of placements: adding a 6x4
+-- entry must not have put a 6x4 anywhere. This is the assertion that would
+-- fail if somebody later wired the catalogue to write slots directly.
+select is(
+  (select count(*)::int from public.hive_formation_slots
+    where span_x = 6 and span_y = 4),
+  0,
+  'naming a shape does not put one on the map');
+
+select pg_temp.act_as('00000000-0000-4000-8000-00000000f302');
+select isnt(
+  (select count(*)::int from public.hive_map_features), 0,
+  'a member reads the catalogue their tile labels came from');
+
+select throws_ok(
+  $$ insert into public.hive_map_features (name) values ('Member idea') $$,
+  '42501', null,
+  'but does not curate it');
+
+select pg_temp.act_as('00000000-0000-4000-8000-00000000f301');
+select is(
+  (select count(*)::int from public.hive_map_features), 0,
+  'and a signed-in stranger reads none of it');
 
 reset role;
 

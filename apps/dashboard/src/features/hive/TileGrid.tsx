@@ -311,7 +311,12 @@ export function TileGrid({
           base.own ? 'tile-grid__base--own' : '',
           base.stale ? 'tile-grid__base--stale' : '',
           carried ? 'tile-grid__base--carried' : '',
-          draggable ? 'tile-grid__base--draggable' : '',
+          // Only what a press can actually pick up. The pointerdown handler
+          // below refuses to drag a structure — it is ground, not somebody's
+          // place — and a `grab` cursor on Frankie promised a drag that never
+          // started. Cheap to get wrong now that most structures are the
+          // officer's own buildings rather than the one hardcoded centre.
+          draggable && base.structure !== true ? 'tile-grid__base--draggable' : '',
         ]
           .filter(Boolean)
           .join(' ');

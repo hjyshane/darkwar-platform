@@ -35,10 +35,14 @@ import {
 import {
   type BoardSlot,
   type Formation,
+  type MapFeature,
+  createMapFeature,
+  deleteMapFeature,
   fetchBoard,
   saveAssignments,
   saveLayout,
   updateFormation,
+  useMapFeatures,
   useOccupiedTiles,
 } from './hiveFormations';
 
@@ -76,6 +80,10 @@ interface Brush {
   spanY: number;
   kind: TileKind;
   colour: TileColour | null;
+  /** Written onto the tile as its caption when the brush came from the
+   * catalogue. COPIED, not referenced: renaming 'Depot' later must not go
+   * back and relabel ground an officer has already sent people to. */
+  label: string;
 }
 
 const ORDERS: readonly AssignOrder[] = ['power', 'hq', 'rank', 'name'];
@@ -161,7 +169,11 @@ export function FormationEditor({
     spanY: BASE_SPAN,
     kind: 'base',
     colour: null,
+    label: '',
   });
+  // A shape being added to the catalogue takes its size, kind and colour
+  // from the brush, so the only thing left to type is what it is called.
+  const [featureName, setFeatureName] = useState('');
   const [order, setOrder] = useState<AssignOrder>('power');
   // slot id -> player id. Seeded from what is saved, so opening the screen
   // and saving without touching anything is a no-op rather than a wipe.
@@ -290,6 +302,55 @@ export function FormationEditor({
     onError: (error: Error) => setRefusal(error.message),
   });
 
+  // The catalogue the brush is loaded from (0171). Read here rather than
+  // passed in: it belongs to the editor, is the same on every server, and
+  // nothing above this screen has a use for it.
+  const features = useMapFeatures();
+
+  const featureAdd = useMutation({
+    mutationFn: (name: string) =>
+      createMapFeature({
+        name,
+        spanX: brush.spanX,
+        spanY: brush.spanY,
+        kind: brush.kind,
+        colour: brush.colour,
+      }),
+    onSuccess: () => {
+      setFeatureName('');
+      setRefusal(null);
+      void queryClient.invalidateQueries({ queryKey: ['hive', 'features'] });
+    },
+    onError: (error: Error) => setRefusal(error.message),
+  });
+
+  const featureRemove = useMutation({
+    mutationFn: (featureId: string) => deleteMapFeature(featureId),
+    onSuccess: () => {
+      setRefusal(null);
+      void queryClient.invalidateQueries({ queryKey: ['hive', 'features'] });
+    },
+    onError: (error: Error) => setRefusal(error.message),
+  });
+
+  /** Load a catalogue entry into the brush.
+   *
+   * The entry is COPIED into the brush, and the brush is copied onto the
+   * tile. Nothing that gets drawn holds a reference back here, which is what
+   * lets the list be tidied without a formation changing under the eighty
+   * people already reading it.
+   */
+  function loadFeature(feature: MapFeature) {
+    setBrush({
+      spanX: feature.spanX,
+      spanY: feature.spanY,
+      kind: feature.kind,
+      colour: feature.colour,
+      label: feature.name,
+    });
+    setRefusal(null);
+  }
+
   /** A click on the grid. On a base it removes it; on free ground it adds one.
    *
    * The refusal is spelled out with the OTHER tile named. "Cannot place here"
@@ -334,7 +395,7 @@ export function FormationEditor({
     next.set(offsetKey(candidate), {
       ...candidate,
       ordinal: draft.size + 1,
-      label: '',
+      label: brush.label,
       kind: brush.kind,
       colour: brush.colour,
       playerId: null,
@@ -648,46 +709,76 @@ export function FormationEditor({
                 />
               ))}
             </fieldset>
-            <div className="hive-shapes">
-              {[
-                {
-                  label: `Base ${BASE_SPAN}x${BASE_SPAN}`,
-                  spanX: BASE_SPAN,
-                  spanY: BASE_SPAN,
-                  kind: 'base' as TileKind,
-                  colour: null,
-                },
-                {
-                  label: `Frankie ${FRANKIE.spanX}x${FRANKIE.spanY}`,
-                  spanX: FRANKIE.spanX,
-                  spanY: FRANKIE.spanY,
-                  kind: 'structure' as TileKind,
-                  colour: 'amber' as TileColour,
-                },
-                {
-                  label: 'Marker 1x1',
-                  spanX: 1,
-                  spanY: 1,
-                  kind: 'structure' as TileKind,
-                  colour: 'red' as TileColour,
-                },
-              ].map((preset) => (
-                <button
-                  key={preset.label}
-                  onClick={() =>
-                    setBrush({
-                      spanX: preset.spanX,
-                      spanY: preset.spanY,
-                      kind: preset.kind,
-                      colour: preset.colour,
-                    })
-                  }
-                  type="button"
-                >
-                  {preset.label}
-                </button>
+          </fieldset>
+
+          <fieldset>
+            <legend>Things on the map</legend>
+            <p className="subtle">
+              The shapes this alliance draws more than once, kept as a list rather than retyped.
+              Clicking one loads its size, kind and colour into the brush and captions the tile with
+              its name — a copy, so tidying the list later never changes a formation already sent
+              out.
+            </p>
+            {features.isError ? (
+              <p className="error">Could not load the list of map features.</p>
+            ) : null}
+            <div className="hive-features">
+              {(features.data ?? []).map((feature) => (
+                <span className="hive-feature" key={feature.featureId}>
+                  <button
+                    className={
+                      feature.colour === null
+                        ? 'hive-feature__load'
+                        : `hive-feature__load hive-feature__load--${feature.colour}`
+                    }
+                    onClick={() => loadFeature(feature)}
+                    title={feature.note === '' ? undefined : feature.note}
+                    type="button"
+                  >
+                    {feature.name} {feature.spanX}x{feature.spanY}
+                  </button>
+                  <button
+                    aria-label={`Remove ${feature.name} from the list`}
+                    className="hive-feature__drop"
+                    disabled={featureRemove.isPending}
+                    onClick={() => featureRemove.mutate(feature.featureId)}
+                    type="button"
+                  >
+                    x
+                  </button>
+                </span>
               ))}
+              {features.isSuccess && features.data.length === 0 ? (
+                <span className="subtle">Nothing in the list yet.</span>
+              ) : null}
             </div>
+            <form
+              className="hive-feature-add"
+              onSubmit={(event) => {
+                event.preventDefault();
+                const name = featureName.trim();
+                if (name !== '') {
+                  featureAdd.mutate(name);
+                }
+              }}
+            >
+              <label>
+                <span>
+                  Add the brush ({brush.spanX}x{brush.spanY}
+                  {brush.kind === 'structure' ? ', structure' : ''}
+                  {brush.colour === null ? '' : `, ${brush.colour}`}) as
+                </span>
+                <input
+                  maxLength={40}
+                  onChange={(event) => setFeatureName(event.target.value)}
+                  placeholder="Alliance HQ"
+                  value={featureName}
+                />
+              </label>
+              <button disabled={featureName.trim() === '' || featureAdd.isPending} type="submit">
+                Add to list
+              </button>
+            </form>
           </fieldset>
 
           <fieldset>
