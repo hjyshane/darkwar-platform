@@ -3727,15 +3727,33 @@ form select {
   margin: 0;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
-  background-color: var(--bg-raised);
-  background-image: linear-gradient(var(--border) 1px, transparent 1px),
+  /* Held in a custom property because the hover rule below has to repeat it,
+   * and two copies of a gradient are two chances to change one of them. */
+  --grid-lines: linear-gradient(var(--border) 1px, transparent 1px),
     linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-color: var(--bg-raised);
+  background-image: var(--grid-lines);
   background-size: calc(100% / var(--tiles)) calc(100% / var(--tiles));
   /* The grid lines start at the top-left corner, which is where tile
    * (xMin, yMax) starts — the same corner `tileCorner` measures from. */
   background-position: 0 0;
   overflow: hidden;
   cursor: crosshair;
+}
+
+/* THE GRID IS A BUTTON, AND `button:hover` USES THE `background` SHORTHAND.
+ *
+ * A shorthand resets every longhand it covers, so `background: var(--bg-hover)`
+ * set `background-image: none` — and every line vanished the moment the
+ * pointer entered the map. The squares are the whole point of this control;
+ * losing them on hover means losing them exactly while somebody is using it.
+ *
+ * Restated rather than fought with `!important`, and specific enough to win:
+ * `button:hover:not(:disabled)` is (0,2,1) and plain `.tile-grid` is (0,1,0).
+ */
+button.tile-grid:hover:not(:disabled) {
+  background-color: var(--bg-raised);
+  background-image: var(--grid-lines);
 }
 
 .tile-grid--busy {
@@ -3800,6 +3818,95 @@ form select {
   background: color-mix(in srgb, var(--danger-fg) 35%, transparent);
   border-color: var(--danger-fg);
   border-style: dashed;
+}
+
+/* Pick-up-able. `grab` rather than `crosshair`, so the two things a press can
+ * do — place a tile, move a base — say which is which before the press. */
+.tile-grid__base--draggable {
+  cursor: grab;
+}
+
+/* The base being carried. Faded rather than hidden: it is still where it is
+ * until the drop lands, and hiding it would read as already moved. */
+.tile-grid__base--carried {
+  opacity: 0.35;
+}
+
+/* Where it would land. Dashed and empty so it reads as a proposal rather than
+ * as a base that is already there. */
+.tile-grid__ghost {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px dashed var(--accent);
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  pointer-events: none;
+}
+
+/* GROUND, NOT A PERSON. A structure — Frankie, an alliance building, a 1x1
+ * marker on a tile to keep clear — is drawn as an outline over a wash rather
+ * than as a solid block, so a formation reads as "these are the members and
+ * this is what they are standing around" at a glance.
+ *
+ * Since 0169 it is an ordinary tile with a size, which is why it shares
+ * `.tile-grid__base` and only overrides the fill. */
+.tile-grid__base--structure {
+  background: color-mix(in srgb, var(--warn-bg) 55%, transparent);
+  border-color: var(--warn-fg);
+  border-width: 2px;
+  border-style: dashed;
+}
+
+/* The colours a tile may be given.
+ *
+ * TOKENS, NOT VALUES. The column stores 'red', not a hex, so the theme keeps
+ * deciding what red is and a colour picked in light mode is still legible in
+ * dark. Colour is never the only signal either (NFR-011) — the tile carries
+ * its label and the list beside the map carries its name. */
+.tile-grid__base--slate {
+  background: color-mix(in srgb, var(--fg-muted) 35%, transparent);
+  border-color: var(--fg-muted);
+}
+.tile-grid__base--red {
+  background: color-mix(in srgb, var(--danger-fg) 35%, transparent);
+  border-color: var(--danger-fg);
+}
+.tile-grid__base--amber {
+  background: color-mix(in srgb, var(--warn-fg) 32%, transparent);
+  border-color: var(--warn-fg);
+}
+.tile-grid__base--green {
+  background: color-mix(in srgb, var(--ok-fg) 35%, transparent);
+  border-color: var(--ok-fg);
+}
+.tile-grid__base--teal {
+  background: color-mix(in srgb, #0d9488 40%, transparent);
+  border-color: #0f766e;
+}
+.tile-grid__base--blue {
+  background: color-mix(in srgb, var(--accent) 32%, transparent);
+  border-color: var(--accent);
+}
+.tile-grid__base--violet {
+  background: color-mix(in srgb, #7c3aed 35%, transparent);
+  border-color: #6d28d9;
+}
+.tile-grid__base--pink {
+  background: color-mix(in srgb, #db2777 35%, transparent);
+  border-color: #be185d;
+}
+
+/* Refused, and said BEFORE the drop rather than by the drop doing nothing.
+ * Never colour alone (NFR-011): the shape is a barred box and the editor
+ * prints the reason in words under the grid. */
+.tile-grid__ghost--blocked {
+  border-color: var(--danger-fg);
+  border-style: solid;
+  background: repeating-linear-gradient(
+    45deg,
+    color-mix(in srgb, var(--danger-fg) 22%, transparent) 0 6px,
+    transparent 6px 12px
+  );
 }
 
 .tile-grid__caption {
@@ -3887,6 +3994,172 @@ form select {
 .hive-zoom button[aria-pressed="true"] {
   border-color: var(--accent);
   color: var(--accent);
+}
+
+/* The brush: what the next click puts down. */
+.hive-brush {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: flex-end;
+}
+
+.hive-brush label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+}
+
+.hive-brush input {
+  width: 4.5rem;
+}
+
+.hive-swatches {
+  border: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: var(--space-2) 0;
+}
+
+/* A swatch says what it does by BEING it, which is the same argument the
+ * markup toolbar's colour buttons make: a row of identical grey buttons
+ * labelled "red", "amber" would make the reader read where they could look. */
+.hive-swatches legend {
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+  padding: 0;
+}
+
+.hive-swatch {
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  font-size: 0.6rem;
+}
+
+.hive-swatch[aria-pressed="true"] {
+  outline: 2px solid var(--fg);
+  outline-offset: 1px;
+}
+
+.hive-swatch--slate {
+  background: var(--fg-muted);
+}
+.hive-swatch--red {
+  background: var(--danger-fg);
+}
+.hive-swatch--amber {
+  background: var(--warn-fg);
+}
+.hive-swatch--green {
+  background: var(--ok-fg);
+}
+.hive-swatch--teal {
+  background: #0d9488;
+}
+.hive-swatch--blue {
+  background: var(--accent);
+}
+.hive-swatch--violet {
+  background: #7c3aed;
+}
+.hive-swatch--pink {
+  background: #db2777;
+}
+
+/* The catalogue (0171): the shapes this alliance draws over and over.
+ *
+ * A chip is TWO buttons — load, and drop from the list — rather than one
+ * button with a delete mode, because the destructive one has to be the one
+ * you have to aim at. The dot of colour is the same argument the swatches
+ * make: 'Depot 6x4' in teal is read as a shape, 'Depot 6x4 (teal)' is read
+ * as a sentence. */
+.hive-features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  margin: var(--space-3) 0;
+}
+
+.hive-feature {
+  display: inline-flex;
+  align-items: stretch;
+}
+
+.hive-feature__load {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* The dot, not the button. A whole button in --danger-fg would read as a
+ * warning about pressing it. */
+.hive-feature__load::before {
+  content: "";
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--border);
+}
+
+.hive-feature__load--slate::before {
+  background: var(--fg-muted);
+}
+.hive-feature__load--red::before {
+  background: var(--danger-fg);
+}
+.hive-feature__load--amber::before {
+  background: var(--warn-fg);
+}
+.hive-feature__load--green::before {
+  background: var(--ok-fg);
+}
+.hive-feature__load--teal::before {
+  background: #0d9488;
+}
+.hive-feature__load--blue::before {
+  background: var(--accent);
+}
+.hive-feature__load--violet::before {
+  background: #7c3aed;
+}
+.hive-feature__load--pink::before {
+  background: #db2777;
+}
+
+.hive-feature__drop {
+  border-left: 0;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  padding-inline: var(--space-2);
+  color: var(--fg-muted);
+}
+
+.hive-feature__drop:hover:not(:disabled) {
+  color: var(--danger-fg);
+}
+
+.hive-feature-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: flex-end;
+}
+
+.hive-feature-add label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
 }
 
 .hive-count {

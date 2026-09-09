@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { MAP_MAX } from '../../lib/mapProjection';
-import { tileAtFraction, tileCorner, windowAround } from './TileGrid';
+import { ZOOM_STEPS, tileAtFraction, tileCorner, windowAround, zoomStep } from './TileGrid';
 
 test('a window is centred on the tile it was given', () => {
   const view = windowAround({ x: 500, y: 500 }, 10);
@@ -60,4 +60,19 @@ test('a click outside the grid is clamped rather than invented', () => {
 
   expect(tileAtFraction(view, -0.5, -0.5)).toEqual({ x: 490, y: 510 });
   expect(tileAtFraction(view, 1.5, 1.5)).toEqual({ x: 510, y: 490 });
+});
+
+test('wheeling in gets closer, which is fewer tiles', () => {
+  // The list runs outward, so "closer" is a lower index. Backwards here makes
+  // the wheel do the opposite of every other map and throws nothing.
+  expect(zoomStep(14, 1)).toBeLessThan(14);
+  expect(zoomStep(14, -1)).toBeGreaterThan(14);
+});
+
+test('zoom stops at both ends rather than wrapping', () => {
+  const closest = ZOOM_STEPS.at(0) ?? 0;
+  const widest = ZOOM_STEPS.at(-1) ?? 0;
+
+  expect(zoomStep(closest, 1)).toBe(closest);
+  expect(zoomStep(widest, -1)).toBe(widest);
 });

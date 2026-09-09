@@ -1,5 +1,17 @@
-import type { CSSProperties } from 'react';
-import { BASE_SPAN } from '../../lib/hiveFormation';
+import {
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+  type RefObject,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
+import {
+  BASE_SPAN,
+  type FootprintBox,
+  type TileColour,
+  footprintOf,
+} from '../../lib/hiveFormation';
 import { type Coordinate, MAP_MAX, MAP_MIN, formatCoordinate } from '../../lib/mapProjection';
 
 // A few dozen tiles, close enough to click one.
@@ -79,6 +91,14 @@ export function tileAtFraction(window: GridWindow, left: number, top: number): C
 export interface GridBase {
   key: string;
   at: Coordinate;
+  /** Tiles east-west and north-south. A base is 3x3, Frankie 4x3, a marker
+   * 1x1 — the grid draws whatever it is told rather than assuming. */
+  spanX?: number;
+  spanY?: number;
+  /** Ground rather than a person: drawn as an outline, and never dimmed as
+   * "carried" because a structure is not somebody's place. */
+  structure?: boolean;
+  colour?: TileColour | null;
   /** Shown inside the footprint when there is room — a number, or a name. */
   caption?: string;
   selected?: boolean;
@@ -98,17 +118,70 @@ export interface GridSighting {
   ours?: boolean;
 }
 
-function boxStyle(window: GridWindow, at: Coordinate, span: number) {
-  const size = span / window.across;
-  const corner = tileCorner(window, {
-    x: at.x - (span - 1) / 2,
-    y: at.y + (span - 1) / 2,
-  });
+/** A tile of any size as a percentage rectangle.
+ *
+ * Goes through `footprintOf` rather than doing its own arithmetic, so where a
+ * coordinate sits inside an even span is decided in ONE place — and the
+ * picture cannot disagree with the constraint about which tiles are covered.
+ */
+function boxStyle(window: GridWindow, at: Coordinate, spanX: number, spanY = spanX) {
+  return rectStyle(window, footprintOf(at, spanX, spanY));
+}
+
+/** How wide the window can be, in tiles either side of the centre.
+ *
+ * Shared by both grids so the member's picture and the officer's editor zoom
+ * through the same steps — and so "45 tiles" means one thing in the app. The
+ * middle two are where a hive is drawn; the widest is for finding somewhere
+ * to put it and the closest for the last tile of an awkward corner.
+ */
+export const ZOOM_STEPS = [8, 14, 22, 34] as const;
+
+/** The step one notch in or out from `radius`, clamped at both ends.
+ *
+ * `direction` is +1 for CLOSER, which is a smaller radius and therefore a
+ * lower index — the list runs outward. Getting that backwards does not throw;
+ * it just makes the wheel do the opposite of what every map does, which is
+ * how it was found.
+ */
+export function zoomStep(radius: number, direction: number): number {
+  const index = ZOOM_STEPS.indexOf(radius as (typeof ZOOM_STEPS)[number]);
+  const from = index === -1 ? 1 : index;
+  return ZOOM_STEPS[Math.min(ZOOM_STEPS.length - 1, Math.max(0, from - direction))] ?? radius;
+}
+
+/** How far the pointer must travel before a press becomes a drag.
+ *
+ * In TILES, not pixels, so it scales with the zoom: at 69 tiles across a
+ * quarter-tile is three pixels and every click would jitter into a one-tile
+ * move. Below this a press is a click and does what a click did before —
+ * which is what keeps "click a base to remove it" working now that pressing
+ * a base also starts a drag. */
+const DRAG_THRESHOLD_TILES = 0.4;
+
+interface Drag {
+  /** The base being carried, by the tile it started on. */
+  from: Coordinate;
+  to: Coordinate;
+  /** Its size, so the ghost is the shape that will actually land. */
+  spanX: number;
+  spanY: number;
+  /** False while the pointer is still inside the threshold: the press has not
+   * become a drag yet and releasing here is still a click. */
+  moved: boolean;
+  /** Whether dropping here is allowed. The grid does not know the rule — the
+   * parent owns overlap — so this is whatever `canMoveTo` said. */
+  allowed: boolean;
+}
+
+/** An inclusive tile box as a percentage rectangle. */
+function rectStyle(window: GridWindow, box: FootprintBox) {
+  const corner = tileCorner(window, { x: box.x0, y: box.y1 });
   return {
     left: `${corner.left * 100}%`,
     top: `${corner.top * 100}%`,
-    width: `${size * 100}%`,
-    height: `${size * 100}%`,
+    width: `${((box.x1 - box.x0 + 1) / window.across) * 100}%`,
+    height: `${((box.y1 - box.y0 + 1) / window.across) * 100}%`,
   };
 }
 
@@ -118,6 +191,9 @@ export function TileGrid({
   bases,
   sightings = [],
   onPick,
+  onMove,
+  canMoveTo,
+  onZoom,
   busy = false,
 }: {
   window: GridWindow;
@@ -128,12 +204,75 @@ export function TileGrid({
   sightings?: readonly GridSighting[];
   /** Given, clicking a tile reports it. Absent, the grid is a picture. */
   onPick?: (tile: Coordinate) => void;
+  /** Given, a base can be picked up and put down somewhere else. Without it
+   * pressing a base and moving does nothing, which is the read-only grid. */
+  onMove?: (from: Coordinate, to: Coordinate) => void;
+  /** Whether the base now on `from` may land on `to`. Asked on every tile the
+   * pointer crosses, so the square under the cursor can say no BEFORE the
+   * drop rather than the drop being silently ignored. */
+  canMoveTo?: (from: Coordinate, to: Coordinate) => boolean;
+  /** Given, the wheel zooms. `direction` is +1 to go closer, and `at` is the
+   * tile under the pointer — the caller re-centres on it so the square being
+   * looked at stays under the cursor instead of sliding away. */
+  onZoom?: (direction: number, at: Coordinate) => void;
   busy?: boolean;
 }) {
   // Captions are dropped once a tile is too small to hold one. The same rule
   // MapCanvas follows with its labels: text that overlaps into a grey mass
   // hides the squares underneath, which are the part carrying the answer.
   const roomForCaptions = view.across <= 45;
+
+  const [drag, setDrag] = useState<Drag | null>(null);
+  const surfaceRef = useRef<HTMLElement | null>(null);
+  // A completed drag must not also fire the click that follows pointerup.
+  // A ref rather than state: it is read and cleared inside the very next
+  // event, and a re-render in between would be a frame of the wrong thing.
+  const swallowClick = useRef(false);
+  const draggable = onMove !== undefined;
+
+  // WHEEL ZOOM NEEDS A NON-PASSIVE LISTENER, which React's onWheel is not.
+  // Without preventDefault the page scrolls at the same time and the map
+  // leaves the screen while you are trying to look closer at it — so the
+  // handler is attached by hand, and removed with the element.
+  //
+  // The dependency list is the whole closure it reads. `onZoom` is redefined
+  // every render by the parent, which is why this re-attaches rather than
+  // capturing a stale `view`.
+  useEffect(() => {
+    const element = surfaceRef.current;
+    const zoom = onZoom;
+    if (element === null || zoom === undefined) {
+      return;
+    }
+    const wheel = (event: WheelEvent) => {
+      event.preventDefault();
+      const box = element.getBoundingClientRect();
+      if (box.width === 0 || box.height === 0) {
+        return;
+      }
+      const at = tileAtFraction(
+        view,
+        (event.clientX - box.left) / box.width,
+        (event.clientY - box.top) / box.height,
+      );
+      zoom(event.deltaY < 0 ? 1 : -1, at);
+    };
+    element.addEventListener('wheel', wheel, { passive: false });
+    return () => element.removeEventListener('wheel', wheel);
+  }, [onZoom, view]);
+
+  /** The tile under a pointer event, or null when the box has no size yet. */
+  function tileUnder(event: ReactPointerEvent<HTMLElement>): Coordinate | null {
+    const box = event.currentTarget.getBoundingClientRect();
+    if (box.width === 0 || box.height === 0) {
+      return null;
+    }
+    return tileAtFraction(
+      view,
+      (event.clientX - box.left) / box.width,
+      (event.clientY - box.top) / box.height,
+    );
+  }
 
   const surface = (
     <>
@@ -150,12 +289,34 @@ export function TileGrid({
         style={boxStyle(view, anchor, 1)}
         title={`Anchor — ${formatCoordinate(anchor)}`}
       />
+      {/* WHERE IT WOULD LAND, drawn while the pointer is down. Without it the
+          only feedback is the base jumping on release, and a refused drop
+          looks identical to a drag that did not register. */}
+      {drag?.moved === true && (
+        <span
+          className={
+            drag.allowed ? 'tile-grid__ghost' : 'tile-grid__ghost tile-grid__ghost--blocked'
+          }
+          style={boxStyle(view, drag.to, drag.spanX, drag.spanY)}
+        />
+      )}
       {bases.map((base) => {
+        const carried =
+          drag?.moved === true && base.at.x === drag.from.x && base.at.y === drag.from.y;
         const className = [
           'tile-grid__base',
+          base.structure ? 'tile-grid__base--structure' : '',
+          base.colour == null ? '' : `tile-grid__base--${base.colour}`,
           base.selected ? 'tile-grid__base--on' : '',
           base.own ? 'tile-grid__base--own' : '',
           base.stale ? 'tile-grid__base--stale' : '',
+          carried ? 'tile-grid__base--carried' : '',
+          // Only what a press can actually pick up. The pointerdown handler
+          // below refuses to drag a structure — it is ground, not somebody's
+          // place — and a `grab` cursor on Frankie promised a drag that never
+          // started. Cheap to get wrong now that most structures are the
+          // officer's own buildings rather than the one hardcoded centre.
+          draggable && base.structure !== true ? 'tile-grid__base--draggable' : '',
         ]
           .filter(Boolean)
           .join(' ');
@@ -163,7 +324,7 @@ export function TileGrid({
           <span
             className={className}
             key={base.key}
-            style={boxStyle(view, base.at, BASE_SPAN)}
+            style={boxStyle(view, base.at, base.spanX ?? BASE_SPAN, base.spanY ?? BASE_SPAN)}
             title={`${base.caption ?? ''} ${formatCoordinate(base.at)}`.trim()}
           >
             {roomForCaptions && base.caption !== undefined && (
@@ -177,7 +338,11 @@ export function TileGrid({
 
   if (onPick === undefined) {
     return (
-      <div className="tile-grid" style={{ '--tiles': view.across } as CSSProperties}>
+      <div
+        className="tile-grid"
+        ref={surfaceRef as RefObject<HTMLDivElement>}
+        style={{ '--tiles': view.across } as CSSProperties}
+      >
         {surface}
       </div>
     );
@@ -192,24 +357,101 @@ export function TileGrid({
     // presses arrive with `detail === 0` and are ignored rather than
     // silently placing a base in the middle.
     <button
-      aria-label="Pick a tile. The coordinate boxes beside the map do the same without a pointer."
+      aria-label={
+        draggable
+          ? 'Pick a tile, or drag a base to move it. The coordinate boxes beside the map place one without a pointer.'
+          : 'Pick a tile. The coordinate boxes beside the map do the same without a pointer.'
+      }
       className={busy ? 'tile-grid tile-grid--busy' : 'tile-grid'}
       onClick={(event) => {
+        // The drag already did the work and the browser fires a click after
+        // the pointerup that ended it. Without this, dropping a base also
+        // removes it.
+        if (swallowClick.current) {
+          swallowClick.current = false;
+          return;
+        }
         if (event.detail === 0) {
           return;
         }
-        const box = event.currentTarget.getBoundingClientRect();
-        if (box.width === 0 || box.height === 0) {
+        const tile = tileUnder(event as unknown as ReactPointerEvent<HTMLElement>);
+        if (tile !== null) {
+          onPick(tile);
+        }
+      }}
+      onPointerCancel={() => setDrag(null)}
+      onPointerDown={(event) => {
+        // A press on a base MIGHT be the start of a drag. Whether it is one
+        // is not known until the pointer moves, so nothing happens yet — the
+        // click handler above still owns a press that goes nowhere.
+        if (!draggable || event.button !== 0) {
           return;
         }
-        onPick(
-          tileAtFraction(
-            view,
-            (event.clientX - box.left) / box.width,
-            (event.clientY - box.top) / box.height,
-          ),
-        );
+        const tile = tileUnder(event);
+        if (tile === null) {
+          return;
+        }
+        const held = bases.find((base) => {
+          const box = footprintOf(base.at, base.spanX ?? BASE_SPAN, base.spanY ?? BASE_SPAN);
+          return tile.x >= box.x0 && tile.x <= box.x1 && tile.y >= box.y0 && tile.y <= box.y1;
+        });
+        // A structure is ground rather than somebody's place, and dragging
+        // the hive's centre by accident is not a thing anybody means to do.
+        if (held === undefined || held.structure === true) {
+          return;
+        }
+        // Captured so the drag survives the pointer leaving the grid, which
+        // it does constantly near the edges — without this a base dropped
+        // half off the window is just lost.
+        event.currentTarget.setPointerCapture(event.pointerId);
+        setDrag({
+          from: held.at,
+          to: held.at,
+          spanX: held.spanX ?? BASE_SPAN,
+          spanY: held.spanY ?? BASE_SPAN,
+          moved: false,
+          allowed: true,
+        });
       }}
+      onPointerMove={(event) => {
+        if (drag === null) {
+          return;
+        }
+        const tile = tileUnder(event);
+        if (tile === null) {
+          return;
+        }
+        // THE THRESHOLD IS IN TILES. A press that wanders three pixels is a
+        // click, and at 69 tiles across three pixels is a whole square.
+        const far =
+          Math.abs(tile.x - drag.from.x) + Math.abs(tile.y - drag.from.y) >= DRAG_THRESHOLD_TILES;
+        const moved = drag.moved || far;
+        if (!moved) {
+          return;
+        }
+        const allowed = canMoveTo === undefined || canMoveTo(drag.from, tile);
+        if (drag.moved === moved && drag.to.x === tile.x && drag.to.y === tile.y) {
+          return;
+        }
+        setDrag({ ...drag, to: tile, moved, allowed });
+      }}
+      onPointerUp={(event) => {
+        if (drag === null) {
+          return;
+        }
+        setDrag(null);
+        if (!drag.moved) {
+          // Never left the tile it started on: still a click, and the click
+          // handler is about to run.
+          return;
+        }
+        swallowClick.current = true;
+        const tile = tileUnder(event) ?? drag.to;
+        if (drag.allowed && (tile.x !== drag.from.x || tile.y !== drag.from.y)) {
+          onMove?.(drag.from, tile);
+        }
+      }}
+      ref={surfaceRef as RefObject<HTMLButtonElement>}
       style={{ '--tiles': view.across } as CSSProperties}
       type="button"
     >
