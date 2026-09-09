@@ -896,8 +896,8 @@ export function FormationEditor({
           />
           <p className="subtle">
             Click free ground to place a base, click a base to take it away. Each one is {BASE_SPAN}
-            x{BASE_SPAN} tiles and the coordinate is the middle. Hold <kbd>ctrl</kbd> and drag — or
-            drag with the middle button — to slide the map without drawing anything; the wheel
+            x{BASE_SPAN} tiles and the coordinate is the middle. Drag from empty ground to slide the
+            map — or hold <kbd>ctrl</kbd>, which works while an area tool is on too. The wheel
             zooms. Shaded squares are where the map last SAW somebody — a base that was destroyed or
             lost its shield has been teleported somewhere random, so treat them as a hint and not as
             a wall.
