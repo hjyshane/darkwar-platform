@@ -53,6 +53,17 @@ test('naming a hero reaches every board that prints the name', () => {
   expect(queryKeysForTopic('pets')).toEqual([['pets'], ['pets-admin'], ['crossRankings']]);
 });
 
+test('the catalogue of shapes is not on the formation topic', () => {
+  // A formation change reaches everybody reading their tile; a catalogue
+  // change reaches the officer's brush and nothing else. Riding one topic
+  // would refetch eighty assignments every time somebody named a building —
+  // and would keep working, which is why it needs an assertion rather than a
+  // comment.
+  expect(queryKeysForTopic('hive_formations')).toEqual([['hive']]);
+  expect(queryKeysForTopic('hive_map_features')).toEqual([['hive', 'features']]);
+  expect(queryKeysForTopic('hive_formation_templates')).toEqual([['hive', 'templates']]);
+});
+
 test('unknown topics invalidate nothing', () => {
   expect(queryKeysForTopic('battle_report_ingests')).toEqual([]);
 });
