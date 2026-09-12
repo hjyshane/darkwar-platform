@@ -5,17 +5,39 @@ import {
   BASE_SPAN,
   CENTRE_MAX,
   CENTRE_MIN,
+  FRANKIE,
+  type SizedOffset,
   autoAssign,
   basesOverlap,
   blockOffsets,
+  boxArea,
+  boxBetween,
+  canMoveGroup,
   canPlace,
   centreFitsOnMap,
   coversTile,
   firstOverlap,
   footprintOf,
+  freeTilesIn,
+  offsetKey,
+  outlineTilesIn,
+  ringOf,
   ringOffsets,
+  ringOrderAround,
+  shiftedBy,
   sortMembers,
+  spanLow,
+  tileFitsOnMap,
+  tilesOverlap,
 } from './hiveFormation';
+
+/** A 3x3 tile at an offset — the shape most of these cases are about. */
+const base = (dx: number, dy: number): SizedOffset => ({
+  dx,
+  dy,
+  spanX: BASE_SPAN,
+  spanY: BASE_SPAN,
+});
 
 test('a base covers the eight tiles around its centre', () => {
   expect(footprintOf({ x: 500, y: 500 })).toEqual({ x0: 499, x1: 501, y0: 499, y1: 501 });
@@ -58,9 +80,9 @@ test('a block is packed on a three-tile pitch and centred on the anchor', () => 
   const offsets = blockOffsets(3, 3);
 
   expect(offsets).toHaveLength(9);
-  expect(offsets).toContainEqual({ dx: 0, dy: 0 });
-  expect(offsets).toContainEqual({ dx: -3, dy: 3 });
-  expect(offsets).toContainEqual({ dx: 3, dy: -3 });
+  expect(offsets).toContainEqual(base(0, 0));
+  expect(offsets).toContainEqual(base(-3, 3));
+  expect(offsets).toContainEqual(base(3, -3));
   // The property that matters more than any particular offset: a generated
   // block must never contain a pair that shares ground.
   expect(firstOverlap(offsets)).toBeNull();
@@ -77,7 +99,7 @@ test('a ring is a block with the middle left clear', () => {
   const ring = ringOffsets(3, 3);
 
   expect(ring).toHaveLength(8);
-  expect(ring).not.toContainEqual({ dx: 0, dy: 0 });
+  expect(ring).not.toContainEqual(base(0, 0));
   expect(firstOverlap(ring)).toBeNull();
 });
 
@@ -88,23 +110,16 @@ test('a ring too small to be hollow falls back to a block', () => {
 test('firstOverlap names the pair rather than answering yes', () => {
   // The editor has to be able to point at something. "This layout is
   // invalid" sends an officer hunting through eighty tiles.
-  const clash = firstOverlap([
-    { dx: 0, dy: 0 },
-    { dx: 6, dy: 0 },
-    { dx: 5, dy: 1 },
-  ]);
+  const clash = firstOverlap([base(0, 0), base(6, 0), base(5, 1)]);
 
-  expect(clash).toEqual([
-    { dx: 6, dy: 0 },
-    { dx: 5, dy: 1 },
-  ]);
+  expect(clash).toEqual([base(6, 0), base(5, 1)]);
 });
 
 test('canPlace refuses a tile that would touch an existing base', () => {
-  const drawn = [{ dx: 0, dy: 0 }];
+  const drawn = [base(0, 0)];
 
-  expect(canPlace(drawn, { dx: 2, dy: 2 })).toBe(false);
-  expect(canPlace(drawn, { dx: 3, dy: 0 })).toBe(true);
+  expect(canPlace(drawn, base(2, 2))).toBe(false);
+  expect(canPlace(drawn, base(3, 0))).toBe(true);
 });
 
 const SLOTS: AssignableSlot[] = [
@@ -206,4 +221,228 @@ test('the same member pinned twice is placed once, not saved twice', () => {
 
   expect(placed.filter((id) => id === 'p-strong')).toHaveLength(1);
   expect(new Set(placed).size).toBe(placed.length);
+});
+
+test('a coordinate sits in the middle of an odd span and west of an even one', () => {
+  // The one rule for where a coordinate lives in its footprint, because an
+  // even span has no middle. The database computes the same thing with
+  // integer division (0169).
+  expect(spanLow(500, 3)).toBe(499);
+  expect(spanLow(500, 4)).toBe(499);
+  expect(spanLow(500, 1)).toBe(500);
+});
+
+test('Frankie is four east-west by three north-south', () => {
+  const box = footprintOf({ x: 500, y: 500 }, FRANKIE.spanX, FRANKIE.spanY);
+
+  expect(box.x1 - box.x0 + 1).toBe(4);
+  expect(box.y1 - box.y0 + 1).toBe(3);
+  // Asymmetric about the coordinate, which is the whole reason the rule above
+  // has to be written down rather than assumed.
+  expect(box.x0).toBe(499);
+  expect(box.x1).toBe(502);
+});
+
+test('three apart is not far enough from something four wide', () => {
+  // The case where the per-tile rule DISAGREES with the old constant. Under
+  // "centres three apart" this was legal; the footprints share a column.
+  const frankie: SizedOffset = { dx: 0, dy: 0, spanX: 4, spanY: 3 };
+
+  expect(tilesOverlap(frankie, base(3, 0))).toBe(true);
+  expect(tilesOverlap(frankie, base(4, 0))).toBe(false);
+  // And it is not symmetric: three tiles WEST is clear.
+  expect(tilesOverlap(frankie, base(-3, 0))).toBe(false);
+});
+
+test('a 1x1 marker fits in a gap a base cannot', () => {
+  // Two bases four apart leave a single free column between them: x=2. A
+  // 1x1 fits it exactly; a 3x3 centred there would reach into both.
+  const drawn = [base(0, 0), base(4, 0)];
+  const marker: SizedOffset = { dx: 2, dy: 0, spanX: 1, spanY: 1 };
+
+  expect(canPlace(drawn, marker)).toBe(true);
+  expect(canPlace(drawn, base(2, 0))).toBe(false);
+});
+
+test('fitting on the map is a question about the footprint, not the coordinate', () => {
+  // A 1x1 may stand on column 0; a 3x3 may not, and a 4-wide one needs two
+  // columns to its east.
+  expect(tileFitsOnMap({ x: 0, y: 0 }, 1, 1)).toBe(true);
+  expect(tileFitsOnMap({ x: 0, y: 0 }, 3, 3)).toBe(false);
+  expect(tileFitsOnMap({ x: 998, y: 500 }, 4, 3)).toBe(false);
+  expect(tileFitsOnMap({ x: 997, y: 500 }, 4, 3)).toBe(true);
+});
+
+const FRANKIE_AT_CENTRE: SizedOffset[] = [
+  { dx: 0, dy: 0, spanX: FRANKIE.spanX, spanY: FRANKIE.spanY },
+];
+
+test('a ring is a ring of bases, counted out from the structure', () => {
+  // Packed against the footprint is ring 1; the row behind it is ring 2.
+  expect(ringOf({ dx: 4, dy: 0 }, FRANKIE_AT_CENTRE)).toBe(1);
+  expect(ringOf({ dx: 7, dy: 0 }, FRANKIE_AT_CENTRE)).toBe(2);
+  expect(ringOf({ dx: 0, dy: 3 }, FRANKIE_AT_CENTRE)).toBe(1);
+  expect(ringOf({ dx: 0, dy: 6 }, FRANKIE_AT_CENTRE)).toBe(2);
+});
+
+test('the ring is measured from the footprint, not from the anchor', () => {
+  // Frankie is four wide and the anchor is not its middle, so east and west
+  // are NOT symmetric about the anchor — the ring must follow the structure
+  // rather than the printed coordinate.
+  expect(ringOf({ dx: 4, dy: 0 }, FRANKIE_AT_CENTRE)).toBe(
+    ringOf({ dx: -3, dy: 0 }, FRANKIE_AT_CENTRE),
+  );
+});
+
+test('with no structure drawn the anchor tile is what rings are measured from', () => {
+  expect(ringOf({ dx: 3, dy: 0 })).toBe(1);
+  expect(ringOf({ dx: 3, dy: 0 })).toBe(ringOf({ dx: -3, dy: 0 }));
+});
+
+test('filling runs innermost ring first', () => {
+  const order = ringOrderAround(FRANKIE_AT_CENTRE);
+
+  expect(order({ dx: 0, dy: 3 }, { dx: 0, dy: 6 })).toBeLessThan(0);
+});
+
+test('auto-assignment gives the inner ring to the strongest', () => {
+  // The whole reason the order matters: whoever is handed a tile first is
+  // standing against Frankie.
+  const slots: AssignableSlot[] = [
+    { slotId: 'outer', ordinal: 0, dx: 0, dy: 6 },
+    { slotId: 'inner', ordinal: 0, dx: 0, dy: 3 },
+  ];
+  const result = autoAssign(slots, MEMBERS, { order: 'power' });
+
+  expect(result.assignments.get('inner')).toBe('p-strong');
+  expect(result.assignments.get('outer')).toBe('p-mid');
+});
+
+// Dragging an area out and filling it with markers.
+
+/** Middle of the map, so nothing here is accidentally testing the edge. */
+const ANCHOR = { x: 500, y: 500 };
+
+test('a box is the same box whichever corner the drag started from', () => {
+  // Three of the four drag directions produce a "backwards" pair, and an
+  // unsorted box would come out empty for all three.
+  const forward = boxBetween({ x: 10, y: 10 }, { x: 12, y: 13 });
+
+  expect(forward).toEqual({ x0: 10, x1: 12, y0: 10, y1: 13 });
+  expect(boxBetween({ x: 12, y: 13 }, { x: 10, y: 10 })).toEqual(forward);
+  expect(boxBetween({ x: 12, y: 10 }, { x: 10, y: 13 })).toEqual(forward);
+  expect(boxBetween({ x: 10, y: 13 }, { x: 12, y: 10 })).toEqual(forward);
+});
+
+test('a box is inclusive on all four sides', () => {
+  // A press and release on one tile is a box of one, not of none.
+  expect(boxArea(boxBetween({ x: 5, y: 5 }, { x: 5, y: 5 }))).toBe(1);
+  expect(boxArea(boxBetween({ x: 10, y: 10 }, { x: 12, y: 13 }))).toBe(12);
+});
+
+test('an empty box fills every tile in it', () => {
+  const filled = freeTilesIn(boxBetween({ x: 500, y: 500 }, { x: 502, y: 501 }), ANCHOR, []);
+
+  expect(filled).toHaveLength(6);
+  expect(filled.every((tile) => tile.spanX === 1 && tile.spanY === 1)).toBe(true);
+});
+
+test('filling goes AROUND what is already drawn rather than being refused', () => {
+  // The reason this is a fill and not one big rectangle: an officer marking a
+  // strip beside a hive is drawing next to bases, and one rectangle would be
+  // refused outright the moment a single one fell inside the drag.
+  const base: SizedOffset = { dx: 1, dy: 0, spanX: BASE_SPAN, spanY: BASE_SPAN };
+  const filled = freeTilesIn(boxBetween({ x: 499, y: 499 }, { x: 503, y: 501 }), ANCHOR, [base]);
+
+  // 15 tiles in the box, 9 of them under the 3x3 centred on 501,500.
+  expect(filled).toHaveLength(6);
+  expect(filled.every((tile) => canPlace([base], tile))).toBe(true);
+});
+
+test('a fill stops at the edge of the map instead of running off it', () => {
+  // Dragged past the corner, which is easy to do: the drag is clamped to the
+  // window, and the window slides rather than shrinking near an edge.
+  const corner = freeTilesIn(boxBetween({ x: -2, y: -2 }, { x: 1, y: 1 }), { x: 0, y: 0 }, []);
+
+  expect(boxArea(boxBetween({ x: -2, y: -2 }, { x: 1, y: 1 }))).toBe(16);
+  expect(corner).toHaveLength(4);
+  expect(corner.every((tile) => tile.dx >= 0 && tile.dy >= 0)).toBe(true);
+});
+
+// Drawing a boundary rather than filling it in.
+
+test('an outline is the edge only, and the middle is left alone', () => {
+  // 5x5 = 25 tiles; its edge is 16.
+  const box = boxBetween({ x: 498, y: 498 }, { x: 502, y: 502 });
+
+  expect(freeTilesIn(box, ANCHOR, [])).toHaveLength(25);
+  expect(outlineTilesIn(box, ANCHOR, [])).toHaveLength(16);
+});
+
+test('a thin box is all edge rather than a broken ring', () => {
+  // Two tiles across has no middle to leave out, so nothing may go missing.
+  const thin = boxBetween({ x: 500, y: 500 }, { x: 501, y: 509 });
+
+  expect(outlineTilesIn(thin, ANCHOR, [])).toHaveLength(20);
+  expect(outlineTilesIn(thin, ANCHOR, [])).toHaveLength(freeTilesIn(thin, ANCHOR, []).length);
+});
+
+test('an outline goes around what is already drawn, like a fill does', () => {
+  const base: SizedOffset = { dx: -2, dy: 0, spanX: BASE_SPAN, spanY: BASE_SPAN };
+  const box = boxBetween({ x: 497, y: 498 }, { x: 502, y: 502 });
+  const edge = outlineTilesIn(box, ANCHOR, [base]);
+
+  expect(edge.every((tile) => canPlace([base], tile))).toBe(true);
+  expect(edge.length).toBeLessThan(outlineTilesIn(box, ANCHOR, []).length);
+});
+
+// Moving several tiles at once.
+
+const GROUP: SizedOffset[] = [
+  { dx: 0, dy: 0, spanX: BASE_SPAN, spanY: BASE_SPAN },
+  { dx: 3, dy: 0, spanX: BASE_SPAN, spanY: BASE_SPAN },
+  { dx: 6, dy: 0, spanX: BASE_SPAN, spanY: BASE_SPAN },
+];
+
+test('a group does not collide with its own old positions', () => {
+  // The trap a single drag hits too: nudging one tile east leaves the old and
+  // new footprints overlapping, so a naive check refuses every move.
+  const all = new Set(GROUP.map(offsetKey));
+
+  expect(canMoveGroup(GROUP, all, 1, 0, ANCHOR)).toBe(true);
+});
+
+test('a moving group still collides with what stays put', () => {
+  const parked: SizedOffset = { dx: 0, dy: 4, spanX: BASE_SPAN, spanY: BASE_SPAN };
+  const tiles = [...GROUP, parked];
+  const moving = new Set(GROUP.map(offsetKey));
+
+  // Three tiles north puts the first of the group onto the parked one.
+  expect(canMoveGroup(tiles, moving, 0, 3, ANCHOR)).toBe(false);
+  // Far enough south and nothing is in the way.
+  expect(canMoveGroup(tiles, moving, 0, -3, ANCHOR)).toBe(true);
+});
+
+test('a group cannot be walked off the edge of the map', () => {
+  const moving = new Set(GROUP.map(offsetKey));
+
+  expect(canMoveGroup(GROUP, moving, -600, 0, ANCHOR)).toBe(false);
+});
+
+test('shifting keeps everything else about a tile', () => {
+  const tile: SizedOffset & { kind: string } = {
+    dx: 1,
+    dy: 2,
+    spanX: 6,
+    spanY: 4,
+    kind: 'structure',
+  };
+
+  expect(shiftedBy(tile, -3, 5)).toEqual({
+    dx: -2,
+    dy: 7,
+    spanX: 6,
+    spanY: 4,
+    kind: 'structure',
+  });
 });

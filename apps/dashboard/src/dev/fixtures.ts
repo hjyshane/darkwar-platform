@@ -441,32 +441,44 @@ const HIVE_MEMBERS = [
   { playerId: PLAYER.dex, name: 'Dex', power: null, hqLevel: null, memberRank: 1 },
 ];
 
+// A ring around Frankie rather than a block: the centre four-by-three is its
+// ground and nothing may stand on it, so the old fixture's middle tile is
+// gone and the east column has moved out to clear the wider footprint.
 const HIVE_SLOTS = [
+  // Frankie first: a 4x3 structure on the anchor. Since 0169 it is an
+  // ordinary tile with a size, which is why it sits in the same list.
+  { dx: 0, dy: 0, spanX: 4, spanY: 3, kind: 'structure' as const, colour: 'amber' as const },
   { dx: -3, dy: 3 },
   { dx: 0, dy: 3 },
-  { dx: 3, dy: 3 },
+  { dx: 4, dy: 3 },
   { dx: -3, dy: 0 },
-  { dx: 0, dy: 0 },
-  { dx: 3, dy: 0 },
+  { dx: 4, dy: 0 },
   { dx: -3, dy: -3 },
   { dx: 0, dy: -3 },
-  { dx: 3, dy: -3 },
+  // A 1x1 marker, to see the smallest tile beside the biggest.
+  { dx: 4, dy: -3, spanX: 1, spanY: 1, kind: 'structure' as const, colour: 'red' as const },
 ].map((offset, index) => ({
   slotId: `slot-${index + 1}`,
   ordinal: index + 1,
-  label: index === 4 ? 'flag' : '',
+  label: offset.kind === 'structure' ? (offset.spanX === 1 ? 'keep clear' : 'Frankie') : '',
   dx: offset.dx,
   dy: offset.dy,
+  spanX: offset.spanX ?? 3,
+  spanY: offset.spanY ?? 3,
+  kind: offset.kind ?? ('base' as const),
+  colour: offset.colour ?? null,
   x: HIVE_ANCHOR.x + offset.dx,
   y: HIVE_ANCHOR.y + offset.dy,
-  playerId: [PLAYER.shane, PLAYER.mira, PLAYER.kova, PLAYER.dex][index] ?? null,
-  playerName: ['Shane', 'Mira', 'Kova', 'Dex'][index] ?? null,
+  playerId:
+    offset.kind === 'structure'
+      ? null
+      : ([PLAYER.shane, PLAYER.mira, PLAYER.kova, PLAYER.dex][index - 1] ?? null),
+  playerName:
+    offset.kind === 'structure' ? null : (['Shane', 'Mira', 'Kova', 'Dex'][index - 1] ?? null),
   hqLevel: 30,
   power: 61_200_000,
-  // The third tile is somebody who has left: an assignment nobody is coming
-  // to stand on, and the one state the board has to say out loud.
-  stillAMember: index === 2 ? false : index < 4 ? true : null,
-  assignedAt: index < 4 ? ago(90) : null,
+  stillAMember: index === 3 ? false : index >= 1 && index <= 4 ? true : null,
+  assignedAt: index >= 1 && index <= 4 ? ago(90) : null,
 }));
 
 export const SESSION = {
@@ -625,6 +637,80 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
   [['hive', 'formations', 580], HIVE_FORMATIONS],
   [['hive', 'board', HIVE_FORMATION_ID], HIVE_SLOTS],
   [['hive', 'members'], HIVE_MEMBERS],
+  // The catalogue the brush loads from. The three 0171 seeds, plus one an
+  // officer would have added — a 6x4 is the case that shows the chip is
+  // reading the row's own size rather than printing 3x3 at everything.
+  [
+    ['hive', 'features'],
+    [
+      {
+        featureId: '55555555-5555-4555-8555-555555555501',
+        name: 'Member base',
+        spanX: 3,
+        spanY: 3,
+        kind: 'base',
+        colour: null,
+        note: 'The default. One member stands here.',
+        sortOrder: 10,
+      },
+      {
+        featureId: '55555555-5555-4555-8555-555555555502',
+        name: 'Frankie',
+        spanX: 4,
+        spanY: 3,
+        kind: 'structure',
+        colour: 'amber',
+        note: 'Four wide, three tall, on the anchor.',
+        sortOrder: 20,
+      },
+      {
+        featureId: '55555555-5555-4555-8555-555555555503',
+        name: 'Keep clear',
+        spanX: 1,
+        spanY: 1,
+        kind: 'structure',
+        colour: 'red',
+        note: 'One tile nobody may build on.',
+        sortOrder: 30,
+      },
+      {
+        featureId: '55555555-5555-4555-8555-555555555504',
+        name: 'Depot',
+        spanX: 6,
+        spanY: 4,
+        kind: 'structure',
+        colour: 'teal',
+        note: '',
+        sortOrder: 40,
+      },
+    ],
+  ],
+
+  // Saved shapes. Two, because one cannot show that the picker distinguishes
+  // them, and the counts differ so a hardcoded 'n tiles' would be visible.
+  [
+    ['hive', 'templates'],
+    [
+      {
+        templateId: '66666666-6666-4666-8666-666666666601',
+        name: 'Bear rally',
+        note: 'Tight pack, gate facing east.',
+        tiles: 9,
+        bases: 8,
+        structures: 1,
+        updatedAt: ago(2880),
+      },
+      {
+        templateId: '66666666-6666-4666-8666-666666666602',
+        name: 'Wide hive',
+        note: '',
+        tiles: 25,
+        bases: 25,
+        structures: 0,
+        updatedAt: ago(14400),
+      },
+    ],
+  ],
 
   // Members
   [['roster'], ROSTER],

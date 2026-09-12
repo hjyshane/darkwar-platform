@@ -2094,40 +2094,52 @@ export type Database = {
         Row: {
           assigned_at: string | null
           assigned_by: string | null
+          colour: string | null
           created_at: string
           dx: number
           dy: number
           formation_id: string
+          kind: string
           label: string
           ordinal: number
           player_id: string | null
           slot_id: string
+          span_x: number
+          span_y: number
           updated_at: string
         }
         Insert: {
           assigned_at?: string | null
           assigned_by?: string | null
+          colour?: string | null
           created_at?: string
           dx: number
           dy: number
           formation_id: string
+          kind?: string
           label?: string
           ordinal?: number
           player_id?: string | null
           slot_id?: string
+          span_x?: number
+          span_y?: number
           updated_at?: string
         }
         Update: {
           assigned_at?: string | null
           assigned_by?: string | null
+          colour?: string | null
           created_at?: string
           dx?: number
           dy?: number
           formation_id?: string
+          kind?: string
           label?: string
           ordinal?: number
           player_id?: string | null
           slot_id?: string
+          span_x?: number
+          span_y?: number
           updated_at?: string
         }
         Relationships: [
@@ -2151,6 +2163,95 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "players"
             referencedColumns: ["player_id"]
+          },
+        ]
+      }
+      hive_formation_template_slots: {
+        Row: {
+          colour: string | null
+          dx: number
+          dy: number
+          kind: string
+          label: string
+          ordinal: number
+          span_x: number
+          span_y: number
+          template_id: string
+          template_slot_id: string
+        }
+        Insert: {
+          colour?: string | null
+          dx: number
+          dy: number
+          kind?: string
+          label?: string
+          ordinal?: number
+          span_x?: number
+          span_y?: number
+          template_id: string
+          template_slot_id?: string
+        }
+        Update: {
+          colour?: string | null
+          dx?: number
+          dy?: number
+          kind?: string
+          label?: string
+          ordinal?: number
+          span_x?: number
+          span_y?: number
+          template_id?: string
+          template_slot_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hive_formation_template_slots_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "hive_formation_template_list"
+            referencedColumns: ["template_id"]
+          },
+          {
+            foreignKeyName: "hive_formation_template_slots_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "hive_formation_templates"
+            referencedColumns: ["template_id"]
+          },
+        ]
+      }
+      hive_formation_templates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          name: string
+          note: string
+          template_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          name: string
+          note?: string
+          template_id?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          name?: string
+          note?: string
+          template_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hive_formation_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "pending_access"
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -2212,6 +2313,56 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "world_sweep_coverage"
             referencedColumns: ["server_id"]
+          },
+        ]
+      }
+      hive_map_features: {
+        Row: {
+          colour: string | null
+          created_at: string
+          created_by: string | null
+          feature_id: string
+          kind: string
+          name: string
+          note: string
+          sort_order: number
+          span_x: number
+          span_y: number
+          updated_at: string
+        }
+        Insert: {
+          colour?: string | null
+          created_at?: string
+          created_by?: string | null
+          feature_id?: string
+          kind?: string
+          name: string
+          note?: string
+          sort_order?: number
+          span_x?: number
+          span_y?: number
+          updated_at?: string
+        }
+        Update: {
+          colour?: string | null
+          created_at?: string
+          created_by?: string | null
+          feature_id?: string
+          kind?: string
+          name?: string
+          note?: string
+          sort_order?: number
+          span_x?: number
+          span_y?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hive_map_features_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "pending_access"
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -4775,6 +4926,7 @@ export type Database = {
           anchor_y: number | null
           assigned_at: string | null
           assigned_by: string | null
+          colour: string | null
           created_at: string | null
           dx: number | null
           dy: number | null
@@ -4783,6 +4935,7 @@ export type Database = {
           game_uid: number | null
           hq_level: number | null
           is_active: boolean | null
+          kind: string | null
           label: string | null
           ordinal: number | null
           player_id: string | null
@@ -4791,6 +4944,8 @@ export type Database = {
           power: number | null
           server_id: number | null
           slot_id: string | null
+          span_x: number | null
+          span_y: number | null
           still_a_member: boolean | null
           updated_at: string | null
           x: number | null
@@ -4833,6 +4988,19 @@ export type Database = {
             referencedColumns: ["server_id"]
           },
         ]
+      }
+      hive_formation_template_list: {
+        Row: {
+          bases: number | null
+          created_at: string | null
+          name: string | null
+          note: string | null
+          structures: number | null
+          template_id: string | null
+          tiles: number | null
+          updated_at: string | null
+        }
+        Relationships: []
       }
       latest_world_cities: {
         Row: {
@@ -5557,6 +5725,10 @@ export type Database = {
       save_hive_formation_layout: {
         Args: { p_formation_id: string; p_slots: Json }
         Returns: Json
+      }
+      save_hive_formation_template: {
+        Args: { p_name: string; p_note: string; p_slots: Json }
+        Returns: string
       }
       tier_rank: { Args: { p_tier: string }; Returns: number }
       world_cities_in_box: {

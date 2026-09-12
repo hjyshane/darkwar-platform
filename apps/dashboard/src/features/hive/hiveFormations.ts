@@ -13,7 +13,12 @@
 // straight at the table, because there is no halfway state to protect.
 
 import { useQuery } from '@tanstack/react-query';
-import type { AssignableMember, AssignableSlot } from '../../lib/hiveFormation';
+import type {
+  AssignableMember,
+  AssignableSlot,
+  TileColour,
+  TileKind,
+} from '../../lib/hiveFormation';
 import { supabase } from '../../lib/supabase';
 
 export interface Formation {
@@ -30,6 +35,13 @@ export interface Formation {
 /** One tile of a formation, with the member standing on it. */
 export interface BoardSlot extends AssignableSlot {
   label: string;
+  /** Tiles east-west and north-south. A base is 3x3; Frankie is 4x3; a marker
+   * is 1x1. Since 0169 the size is on the row rather than assumed. */
+  spanX: number;
+  spanY: number;
+  /** Ground or a person. A structure never carries a member. */
+  kind: TileKind;
+  colour: TileColour | null;
   /** The instruction: where this member teleports to. */
   x: number;
   y: number;
@@ -109,7 +121,7 @@ export async function fetchBoard(formationId: string): Promise<BoardSlot[]> {
   const { data, error } = await supabase
     .from('hive_formation_board')
     .select(
-      'slot_id, ordinal, label, dx, dy, x, y, player_id, player_name, hq_level, power, still_a_member, assigned_at',
+      'slot_id, ordinal, label, dx, dy, x, y, span_x, span_y, kind, colour, player_id, player_name, hq_level, power, still_a_member, assigned_at',
     )
     .eq('formation_id', formationId)
     .order('ordinal')
@@ -139,6 +151,10 @@ export async function fetchBoard(formationId: string): Promise<BoardSlot[]> {
       slotId: row.slot_id,
       ordinal: row.ordinal ?? 0,
       label: row.label ?? '',
+      spanX: row.span_x ?? 3,
+      spanY: row.span_y ?? 3,
+      kind: row.kind === 'structure' ? 'structure' : 'base',
+      colour: (row.colour ?? null) as TileColour | null,
       dx: row.dx,
       dy: row.dy,
       x: row.x,
@@ -265,9 +281,20 @@ export interface LayoutSummary {
   unassigned: number;
 }
 
+export interface LayoutTile {
+  dx: number;
+  dy: number;
+  ordinal: number;
+  label: string;
+  span_x: number;
+  span_y: number;
+  kind: TileKind;
+  colour: TileColour | null;
+}
+
 export async function saveLayout(
   formationId: string,
-  slots: ReadonlyArray<{ dx: number; dy: number; ordinal: number; label: string }>,
+  slots: readonly LayoutTile[],
 ): Promise<LayoutSummary> {
   const { data, error } = await supabase.rpc('save_hive_formation_layout', {
     p_formation_id: formationId,
@@ -402,4 +429,211 @@ export async function makeActive(formationId: string, serverId: number): Promise
     throw new Error(standDown.message);
   }
   await updateFormation(formationId, { isActive: true });
+}
+
+/** A reusable shape for the editor's brush: a name and a size, nothing else.
+ *
+ * NO POSITION AND NO SERVER — 0171 says why at length. The short version is
+ * that a catalogue entry is a fact about the game ('an alliance HQ is 3x3'),
+ * while where this alliance's HQ stands is a fact about one formation on one
+ * map, and that lives in the slots table with every other placed tile.
+ */
+export interface MapFeature {
+  featureId: string;
+  name: string;
+  spanX: number;
+  spanY: number;
+  kind: TileKind;
+  colour: TileColour | null;
+  note: string;
+  sortOrder: number;
+}
+
+export async function fetchMapFeatures(): Promise<MapFeature[]> {
+  const { data, error } = await supabase
+    .from('hive_map_features')
+    .select('feature_id, name, span_x, span_y, kind, colour, note, sort_order')
+    .order('sort_order')
+    .order('name')
+    .limit(200);
+  if (error) {
+    if (emptyOnRefusal(error.code)) {
+      return [];
+    }
+    throw new Error(`map feature query failed: ${error.message}`);
+  }
+  return (data ?? []).map((row) => ({
+    featureId: row.feature_id,
+    name: row.name,
+    spanX: row.span_x,
+    spanY: row.span_y,
+    kind: row.kind === 'structure' ? 'structure' : 'base',
+    colour: (row.colour ?? null) as TileColour | null,
+    note: row.note,
+    sortOrder: row.sort_order,
+  }));
+}
+
+export function useMapFeatures() {
+  return useQuery({
+    queryKey: ['hive', 'features'],
+    queryFn: fetchMapFeatures,
+    // A list of building sizes changes when somebody adds a building, which
+    // is roughly never. The realtime topic is what makes an addition appear;
+    // this only decides how long after a reload it is trusted.
+    staleTime: 10 * 60_000,
+  });
+}
+
+/** One row, not a batch. Unlike a layout there is no halfway state to
+ * protect: naming a shape cannot make any other row invalid, so this goes
+ * straight at the table rather than through an RPC. */
+export async function createMapFeature(input: {
+  name: string;
+  spanX: number;
+  spanY: number;
+  kind: TileKind;
+  colour: TileColour | null;
+  note?: string;
+}): Promise<void> {
+  const { error } = await supabase.from('hive_map_features').insert({
+    name: input.name,
+    span_x: input.spanX,
+    span_y: input.spanY,
+    kind: input.kind,
+    colour: input.colour,
+    note: input.note ?? '',
+  });
+  if (error) {
+    // 0171's unique index is on lower(btrim(name)), so the same building
+    // entered twice with different capitalisation lands here. The database's
+    // own message names an index nobody outside this file has heard of.
+    throw new Error(
+      error.code === '23505'
+        ? `There is already something called "${input.name}" in the list.`
+        : error.message,
+    );
+  }
+}
+
+export async function deleteMapFeature(featureId: string): Promise<void> {
+  const { error } = await supabase.from('hive_map_features').delete().eq('feature_id', featureId);
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+/** A saved shape: offsets with no anchor, no server and nobody on them.
+ *
+ * APPLYING ONE IS A DRAFT EDIT, NOT A WRITE. A template has no anchor, so
+ * whether its tiles fit the map is a question only the formation it lands on
+ * can answer (0172). Loading it into the draft is what lets the officer see
+ * where it falls, move the anchor if it hangs off the edge, and only then
+ * save through the same layout call every other edit goes through.
+ */
+export interface FormationTemplate {
+  templateId: string;
+  name: string;
+  note: string;
+  tiles: number;
+  bases: number;
+  structures: number;
+  updatedAt: string | null;
+}
+
+export async function fetchTemplates(): Promise<FormationTemplate[]> {
+  const { data, error } = await supabase
+    .from('hive_formation_template_list')
+    // ONE ROW PER TEMPLATE. The counts are folded in server-side, so the
+    // number of rows here is the number of shapes — a join to the tiles
+    // would put a big shape over PostgREST's cap and drop a whole template.
+    .select('template_id, name, note, tiles, bases, structures, updated_at')
+    .order('name')
+    .limit(200);
+  if (error) {
+    if (emptyOnRefusal(error.code)) {
+      return [];
+    }
+    throw new Error(`saved shape query failed: ${error.message}`);
+  }
+  const templates: FormationTemplate[] = [];
+  for (const row of data ?? []) {
+    // A view's columns are all nullable to the type generator. A shape with
+    // no id is not a shape anybody can load.
+    if (row.template_id === null) {
+      continue;
+    }
+    templates.push({
+      templateId: row.template_id,
+      name: row.name ?? '',
+      note: row.note ?? '',
+      tiles: row.tiles ?? 0,
+      bases: row.bases ?? 0,
+      structures: row.structures ?? 0,
+      updatedAt: row.updated_at,
+    });
+  }
+  return templates;
+}
+
+export function useTemplates() {
+  return useQuery({
+    queryKey: ['hive', 'templates'],
+    queryFn: fetchTemplates,
+    staleTime: 5 * 60_000,
+  });
+}
+
+/** The tiles of one saved shape, in the same form the editor drafts in. */
+export async function fetchTemplateTiles(templateId: string): Promise<LayoutTile[]> {
+  const { data, error } = await supabase
+    .from('hive_formation_template_slots')
+    .select('dx, dy, span_x, span_y, kind, colour, label, ordinal')
+    .eq('template_id', templateId)
+    .order('ordinal')
+    .limit(500);
+  if (error) {
+    throw new Error(`saved shape query failed: ${error.message}`);
+  }
+  return (data ?? []).map((row) => ({
+    dx: row.dx,
+    dy: row.dy,
+    span_x: row.span_x,
+    span_y: row.span_y,
+    kind: row.kind === 'structure' ? 'structure' : 'base',
+    colour: (row.colour ?? null) as TileColour | null,
+    label: row.label,
+    ordinal: row.ordinal,
+  }));
+}
+
+/** Store a drawn shape under a name, replacing whatever was under it.
+ *
+ * Through the RPC for the reason every multi-tile write is: the exclusion
+ * constraint makes the halfway states of a rewrite invalid, so the unit of
+ * writing is the whole shape in one transaction. */
+export async function saveTemplate(
+  name: string,
+  note: string,
+  tiles: readonly LayoutTile[],
+): Promise<string> {
+  const { data, error } = await supabase.rpc('save_hive_formation_template', {
+    p_name: name,
+    p_note: note,
+    p_slots: tiles as unknown as never,
+  });
+  if (error) {
+    throw new Error(error.message);
+  }
+  return data as string;
+}
+
+export async function deleteTemplate(templateId: string): Promise<void> {
+  const { error } = await supabase
+    .from('hive_formation_templates')
+    .delete()
+    .eq('template_id', templateId);
+  if (error) {
+    throw new Error(error.message);
+  }
 }

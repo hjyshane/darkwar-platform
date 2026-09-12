@@ -16,7 +16,7 @@
     "test": "pnpm -r test",
     "db:reset": "supabase db reset",
     "db:test": "supabase test db",
-    "db:types": "supabase gen types typescript --local > packages/shared-types/src/database.types.ts"
+    "db:types": "node scripts/db-types.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
