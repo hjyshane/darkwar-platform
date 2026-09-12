@@ -92,7 +92,16 @@ def matches(needle: str, name: str | None, game_uid: int) -> bool:
 
 def search(pcap: Path, needle: str, *, port: int = 8680) -> Scan:
     """Decode a capture and return the tiles matching `needle`."""
-    from dw_collector.cli import _ingest_capture
+    # NOT `from dw_collector.cli import _ingest_capture` — cli.py imports
+    # typer and httpx at module level, and the packaged desktop sidecar
+    # excludes both (dw-sidecar.spec). `desktop/localread.py` imports
+    # `console.find.matches` (a different name) into that sidecar, so this
+    # module already ships inside it; a lazy import of `cli` from here would
+    # have worked today only because nothing yet calls `search()` from the
+    # packaged app, and would have failed with ModuleNotFoundError the first
+    # time something did. `dw_collector.ingest` holds the same function with
+    # neither dependency — see its module docstring.
+    from dw_collector.ingest import _ingest_capture
 
     with tempfile.TemporaryDirectory(prefix=SCRATCH_PREFIX) as scratch:
         journal = Journal(Path(scratch) / "scan.db")

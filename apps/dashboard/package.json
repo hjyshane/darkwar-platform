@@ -11,7 +11,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@dw/game-clock": "workspace:*",
     "@dw/shared-types": "workspace:*",
+    "@dw/ui": "workspace:*",
     "@supabase/supabase-js": "^2.47.0",
     "@tanstack/react-query": "^5.62.0",
     "react": "^19.0.0",

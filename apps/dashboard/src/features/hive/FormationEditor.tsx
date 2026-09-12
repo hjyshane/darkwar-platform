@@ -1,3 +1,4 @@
+import { type Coordinate, formatCoordinate } from '@dw/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import {
@@ -31,7 +32,6 @@ import {
   tileInsideBox,
   tilesOverlap,
 } from '../../lib/hiveFormation';
-import { type Coordinate, formatCoordinate } from '../../lib/mapProjection';
 import {
   type GridBase,
   type GridSighting,

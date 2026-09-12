@@ -54,6 +54,27 @@ create table if not exists sync_outbox (
 create index if not exists sync_outbox_pending_idx
   on sync_outbox (status, next_attempt_at);
 
+-- `desktop.localread.search` folds every world_city_snapshots sighting ever
+-- recorded (Task 3b): without this, that query is a full SCAN of
+-- normalized_rows plus a TEMP B-TREE sort. `target_table` alone gets SQLite
+-- to SEARCH the index instead of scanning even though world_city_snapshots
+-- is most of the table (poor selectivity, but still cheaper than a scan);
+-- trailing `id` lets `_SELECT`'s `order by n.id` come out of the index
+-- already sorted, so SQLite drops the sort step entirely. Costs every
+-- `record()` insert one more B-tree page write, always an append at the end
+-- of its `target_table` bucket since `id` is autoincrement — cheap per row,
+-- paid on the production collector's write path forever for a benefit only
+-- the desktop reader uses today.
+--
+-- THIS IS NOT FREE THE FIRST TIME. `init_db()` runs this `executescript` on
+-- every collector process start, and `create index if not exists` still has
+-- to build the index the first time it sees an existing journal that
+-- predates it. That build is synchronous, and this table grows ~0.92 GB/day
+-- (see `prune()`'s docstring) — on an already-large journal, that first
+-- start can pause for real time with nothing printed. IT IS NOT A HANG.
+create index if not exists normalized_rows_target_table_idx
+  on normalized_rows (target_table, id);
+
 -- Which capture files ingest-dir has already read. Re-reading one is safe
 -- (idempotency_key hashes the raw payload, so a replay updates rather than
 -- duplicates) but it is wasted work, and on a ring buffer of 288 files it

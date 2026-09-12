@@ -7,7 +7,6 @@ import os
 import sqlite3
 import time
 import uuid
-from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Annotated
@@ -19,6 +18,7 @@ from pydantic import ValidationError
 from dw_collector import normalize as _normalize  # noqa: F401  (registers normalizers)
 from dw_collector import pipeline, registry
 from dw_collector.envfile import load_env_file
+from dw_collector.ingest import _ingest_capture, _ready_captures
 from dw_collector.models import Observation
 from dw_collector.protocol.pcapng import PcapError
 from dw_collector.storage.journal import Journal
@@ -648,108 +648,6 @@ def scan_capture(
         f"ingested={result.ingested} discovered={result.discovered}"
         f" rejected={result.rejected} commands={len(result.commands)}"
     )
-
-
-@dataclass(frozen=True)
-class _ScanResult:
-    ingested: int
-    discovered: int
-    rejected: int
-    commands: dict[str, int]
-
-    @property
-    def events(self) -> int:
-        return self.ingested + self.discovered
-
-
-def _ingest_capture(
-    journal: Journal,
-    pcap: Path,
-    *,
-    collector_id: uuid.UUID,
-    collected_from_server: int,
-    port: int,
-    discover_only: bool,
-    fallback: datetime,
-) -> _ScanResult:
-    """One capture file through the pipeline. Shared by scan-capture and
-    ingest-dir so the continuous path cannot drift from the one that has
-    been used by hand all along."""
-    import uuid as _uuid
-
-    from dw_collector import pipeline
-    from dw_collector.protocol.pcapng import iter_extension_events
-
-    ingested = discovered = rejected = 0
-    commands: dict[str, int] = {}
-    for index, event in enumerate(iter_extension_events(pcap, port=port)):
-        if event.direction != "inbound":
-            continue
-        known = registry.get(event.command) is not None
-        if discover_only and known:
-            continue
-        observation = Observation(
-            # The file name is part of the id, and dumpcap's ring buffer gives
-            # every file a distinct name, so two files never collide. Replays
-            # of the SAME file are harmless anyway: idempotency_key hashes the
-            # raw payload (§11.2), so re-ingesting updates rather than copies.
-            observation_id=_uuid.uuid5(
-                _uuid.NAMESPACE_URL, f"dw-scan:{pcap.name}:{index}:{event.command}"
-            ),
-            collector_id=collector_id,
-            source_command=event.command,
-            captured_at=event.captured_at or fallback,
-            collected_from_server_id=collected_from_server,
-            payload=dict(event.payload),
-        )
-        try:
-            rows = pipeline.observe(observation)
-        except ValidationError:
-            rejected += 1
-            continue
-        journal.record(observation, rows)
-        commands[event.command] = commands.get(event.command, 0) + 1
-        if known:
-            ingested += 1
-        else:
-            discovered += 1
-    return _ScanResult(ingested, discovered, rejected, commands)
-
-
-def _ready_captures(directory: Path, minimum_age_seconds: float) -> list[Path]:
-    """Capture files dumpcap has finished with, oldest first.
-
-    The newest file in a ring buffer is the one being written, and reading
-    it would ingest a truncated tail and then mark it done. Age is the test
-    rather than "skip the newest", because a stopped dumpcap leaves its last
-    file complete and that one should still be read.
-
-    A file may vanish between the listing and the stat, and that is normal
-    rather than exceptional: `-b files:1440` means dumpcap deletes its oldest
-    file on every rotation once the ring is full, and this directory is
-    rescanned every 30 seconds. The two collide by design.
-
-    It used to raise FileNotFoundError out of the comprehension, and since
-    this runs OUTSIDE the per-file `try` in the loop below, that killed the
-    whole process — the collector going quiet with a full ring, which is the
-    exact failure `ingest-dir` was written to avoid. It was found early by a
-    manual cleanup deleting old captures; the ring would have reached it on
-    its own about a day later.
-
-    One stat per path rather than two, which also closes the second race: the
-    old code stat'd once to filter and again to sort, so a file could survive
-    the first call and be gone by the second.
-    """
-    now = time.time()
-    aged: list[tuple[float, Path]] = []
-    for path in directory.glob("*.pcapng"):
-        try:
-            mtime = path.stat().st_mtime
-        except OSError:
-            continue
-        if now - mtime >= minimum_age_seconds:
-            aged.append((mtime, path))
-    return [path for _, path in sorted(aged, key=lambda pair: pair[0])]
 
 
 @app.command("ingest-dir")

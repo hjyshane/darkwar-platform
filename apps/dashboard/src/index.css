@@ -1,3 +1,13 @@
+/* @import must come before any other rule (CSS spec) or it is silently
+ * ignored — this is why it is the very first thing in the file rather than
+ * inline where the moved rules used to live. Map rendering rules
+ * (.map-canvas, .map-frame, .map-plot, .map-pin, .map-edge, and friends)
+ * live in @dw/ui's map.css, shared with the desktop app (Task 5). This app
+ * keeps defining --accent, --bg, --border, etc. below, so its own values
+ * still win over that stylesheet's fallbacks and the map's appearance here
+ * is unchanged. */
+@import "@dw/ui/map.css";
+
 /* Design tokens.
  *
  * Everything visual resolves to a custom property here, so a colour or a
@@ -3495,107 +3505,14 @@ form select {
 
 /* --- map ------------------------------------------------------------------ */
 
-.map-canvas {
-  margin: var(--space-4) 0;
-}
-
-/* The picture, at its own aspect ratio. The plot inside is positioned
- * against THIS box, so the frame around the map stays out of the sums. */
-.map-frame {
-  position: relative;
-  width: 100%;
-  max-width: 900px;
-  line-height: 0;
-}
-
-.map-frame__image {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-
-/* Without a picture there is nothing to give the box a height, so it falls
- * back to the map's own shape and a grid — the markers are still in the
- * right place relative to each other. */
-.map-frame--empty {
-  aspect-ratio: 1 / 1;
-  background: var(--bg-raised);
-  background-image: linear-gradient(var(--border) 1px, transparent 1px),
-    linear-gradient(90deg, var(--border) 1px, transparent 1px);
-  background-size: 10% 10%;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-}
-
-/* The playable world: inset from the picture's edges by however much of it
- * is border. Every marker is a percentage of THIS, never of the image. */
-.map-plot {
-  position: absolute;
-}
-
-/* The ruler. Only ever on deliberately — if this outline does not sit on the
- * inside of the map's border, the inset is wrong and every marker is out by
- * the difference. */
-.map-plot--calibrate {
-  outline: 2px dashed var(--accent);
-  outline-offset: 0;
-}
-
-.map-pin {
-  position: absolute;
-  /* The coordinate is the CENTRE of the pin, not its corner: a pin hung
-   * below-right of its point names the wrong tile at this zoom. */
-  transform: translate(-50%, -50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  line-height: 1;
-  pointer-events: none;
-}
-
-.map-pin--faded {
-  opacity: 0.55;
-}
-
-.map-pin__dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
-}
-
-.map-pin__label {
-  margin-top: var(--space-1);
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--fg);
-  font-size: var(--text-sm);
-  padding: 1px var(--space-1);
-  white-space: nowrap;
-}
-
-.map-edge {
-  position: absolute;
-  background: var(--bg);
-  border: 1px solid var(--accent);
-  border-radius: var(--radius-sm);
-  color: var(--fg);
-  font-size: var(--text-sm);
-  line-height: 1.4;
-  padding: 0 var(--space-1);
-}
-
-.map-edge--tl {
-  left: 0;
-  top: 0;
-}
-
-.map-edge--br {
-  right: 0;
-  bottom: 0;
-}
+/* The rendering rules for the picture, plot, pins, and calibration edges
+ * moved to @dw/ui's map.css (imported at the top of this file — an @import
+ * must precede every other rule or it is silently dropped). This app keeps
+ * defining --accent, --bg, --border, etc. below, so its own values still win
+ * over that stylesheet's fallbacks and the map's appearance here is
+ * unchanged. Everything below this comment is dashboard-only UI (the search
+ * box, results list, HQ range filter) that has no desktop equivalent yet and
+ * stays here. */
 
 .map-search {
   display: flex;
@@ -3644,44 +3561,6 @@ form select {
   font-size: var(--text-sm);
   gap: var(--space-2);
   margin-bottom: var(--space-2);
-}
-
-/* One pin picked out of a crowd. Bigger and on top, because the point of
- * clicking a name in the list is to find its dot among a hundred others. */
-.map-pin--on {
-  z-index: 2;
-}
-
-.map-pin--on .map-pin__dot {
-  width: 16px;
-  height: 16px;
-  background: var(--accent);
-  box-shadow: 0 0 0 3px var(--bg), 0 0 0 6px var(--accent);
-}
-
-/* Smaller dots when the map is showing a whole HQ level: at a hundred pins
- * the default size merges into a blob. */
-.map-plot .map-pin:not(.map-pin--on) .map-pin__dot {
-  width: 9px;
-  height: 9px;
-}
-
-/* A pin is a button when it can be picked. The dot stays the target; the
- * label must not swallow clicks meant for a neighbouring pin. */
-.map-pin--clickable {
-  background: none;
-  border: 0;
-  cursor: pointer;
-  padding: 0;
-}
-
-.map-pin--clickable .map-pin__label {
-  pointer-events: none;
-}
-
-.map-pin--clickable:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
 }
 
 /* The row whose pin is lit, so the list and the map agree about which one

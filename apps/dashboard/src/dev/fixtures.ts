@@ -360,6 +360,21 @@ function noticeBoard() {
  * "nothing here" state, which is worth looking at too. */
 export const SESSION_KEY = ['session'] as const;
 
+/** The map (Task 6, season-3-calculator plan). ONE PLAYER, ONE COORDINATE,
+ * MATCHING THE DESKTOP APP'S SEEDED JOURNAL FIXTURE EXACTLY — the whole
+ * point of this phase is that the two apps agree on where a pin lands, and
+ * that can only be checked by pointing both renderers at the same tile:
+ * ERHA SANGMAIMA at 310,622 on server 581, uid 1190060554000581 (see
+ * services/collector/tests/test_desktop_sidecar.py and
+ * docs/runbooks/map-agreement.md).
+ *
+ * useSightingSearch's query key carries the trimmed search text, so the
+ * fixture only answers a search for exactly "erha" — MapPage.tsx's own
+ * MIN_QUERY (2 chars) is satisfied by that. useScannedServers needs server
+ * 581 to appear as swept or the tab never offers it. */
+const MAP_SERVER_ID = 581;
+const MAP_SEARCH_TERM = 'erha';
+
 /** The week the calendar opens on, and its query key.
  *
  * Derived with the same function the screen uses rather than copied: the key
@@ -498,6 +513,24 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
     },
   ],
   [['sync-status'], { last_heartbeat_at: ago(0.2), is_live: true }],
+
+  // Map (Task 6). See MAP_SERVER_ID/MAP_SEARCH_TERM above for why these two
+  // keys are the ones useScannedServers/useSightingSearch will ask for.
+  [['map', 'servers'], [{ serverId: MAP_SERVER_ID, sweptAt: ago(20) }]],
+  [
+    ['map', 'search', MAP_SERVER_ID, MAP_SEARCH_TERM],
+    [
+      {
+        playerId: null,
+        gameUid: 1190060554000581,
+        name: 'ERHA SANGMAIMA',
+        serverId: MAP_SERVER_ID,
+        at: { x: 310, y: 622 },
+        hqLevel: 34,
+        capturedAt: ago(20),
+      },
+    ],
+  ],
 
   // Schedule (0124). THE KEY IS COMPUTED, not written out, because the
   // calendar's query key carries the window it is looking at and that window

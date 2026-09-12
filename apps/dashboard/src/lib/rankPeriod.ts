@@ -1,4 +1,4 @@
-import { resetWeekStart } from './resetWeek';
+import { resetWeekStart } from '@dw/game-clock';
 
 /** The two-week period ranks are decided over.
  *

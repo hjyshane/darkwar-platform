@@ -1,3 +1,4 @@
+import { type Coordinate, MAP_MAX, MAP_MIN, formatCoordinate } from '@dw/ui';
 import {
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
@@ -13,7 +14,6 @@ import {
   boxBetween,
   footprintOf,
 } from '../../lib/hiveFormation';
-import { type Coordinate, MAP_MAX, MAP_MIN, formatCoordinate } from '../../lib/mapProjection';
 
 // A few dozen tiles, close enough to click one.
 //

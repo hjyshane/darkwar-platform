@@ -3,7 +3,7 @@
   "consumers": [
     "supabase/tests/04_reset_week_test.sql (vectors inlined — keep in sync by hand until an automated check exists)",
     "services/collector (pytest, from P2)",
-    "apps/dashboard (vitest, from P3)"
+    "packages/game-clock (vitest) — consumed by apps/dashboard and apps/desktop"
   ],
   "vectors": [
     {

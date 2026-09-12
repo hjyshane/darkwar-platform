@@ -1,5 +1,5 @@
+import { MAP_MAX } from '@dw/ui';
 import { expect, test } from 'vitest';
-import { MAP_MAX } from '../../lib/mapProjection';
 import {
   ZOOM_STEPS,
   pannedCentre,

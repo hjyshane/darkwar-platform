@@ -6,8 +6,8 @@
 // question is always "where is this one person", so the search is the gate
 // and the map is the answer.
 
+import type { Coordinate } from '@dw/ui';
 import { useQuery } from '@tanstack/react-query';
-import type { Coordinate } from '../../lib/mapProjection';
 import { supabase } from '../../lib/supabase';
 
 /** How old a sighting may be before the map stops calling it current.
