@@ -4,7 +4,7 @@ import {
   describe,
   missingIn,
   sectionSlug,
-  sectionsIn,
+  usableSectionsIn,
 } from '../../lib/adminAccess';
 import { fieldsOf } from '../../lib/memberFormulas';
 import { usePermissions } from '../../lib/permissions';
@@ -60,7 +60,11 @@ export function AdminPage({ group, section }: { group: AdminGroup; section: stri
   // of them — and on a phone the answer you wanted was four scrolls down.
   // An unknown slug falls back to the first section rather than rendering an
   // empty group, the same way an unknown group falls back to the overview.
-  const sections = sectionsIn(group);
+  // The sections this reader may use, not every section the group has. A form
+  // nobody may submit is what made this screen look operable to somebody who
+  // could change nothing in it — the courtesy sentence above says why they are
+  // absent, and the database would refuse the write regardless.
+  const sections = usableSectionsIn(group, role, grants);
   const open = sections.find((entry) => sectionSlug(entry) === section) ?? sections[0];
   const openSlug = open === undefined ? '' : sectionSlug(open);
 
@@ -120,11 +124,22 @@ export function AdminPage({ group, section }: { group: AdminGroup; section: stri
         </nav>
       </section>
 
-      {group === 'access' && <AccessGroup section={openSlug} />}
-      {group === 'alliance' && <AllianceGroup section={openSlug} />}
-      {group === 'display' && <DisplayGroup section={openSlug} />}
-      {group === 'catalogue' && <CatalogueGroup section={openSlug} />}
-      {group === 'operations' && <OperationsGroup section={openSlug} />}
+      {sections.length === 0 && (
+        <section aria-labelledby="admin-none-heading">
+          <h2 id="admin-none-heading">Nothing here is yours</h2>
+          <p className="empty">
+            Every part of this group needs a permission you do not hold, so there is nothing to
+            draw. The other groups are still listed above — some of them may have a screen you can
+            read.
+          </p>
+        </section>
+      )}
+
+      {sections.length > 0 && group === 'access' && <AccessGroup section={openSlug} />}
+      {sections.length > 0 && group === 'alliance' && <AllianceGroup section={openSlug} />}
+      {sections.length > 0 && group === 'display' && <DisplayGroup section={openSlug} />}
+      {sections.length > 0 && group === 'catalogue' && <CatalogueGroup section={openSlug} />}
+      {sections.length > 0 && group === 'operations' && <OperationsGroup section={openSlug} />}
     </main>
   );
 }

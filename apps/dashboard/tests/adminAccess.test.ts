@@ -4,8 +4,10 @@ import {
   canWriteAnything,
   describe as describeRequirement,
   holds,
+  mayOpenSettings,
   missingIn,
   sectionsIn,
+  usableSectionsIn,
 } from '../src/lib/adminAccess';
 import type { RolePermission } from '../src/lib/permissions';
 import { ADMIN_GROUPS } from '../src/lib/route';
@@ -164,5 +166,52 @@ group('describe', () => {
 
   test('a role requirement says so plainly', () => {
     expect(describeRequirement({ kind: 'role', role: 'admin' }, [])).toBe('the admin role');
+  });
+});
+
+group('who may open settings at all', () => {
+  test('member and above', () => {
+    expect(mayOpenSettings('member')).toBe(true);
+    expect(mayOpenSettings('officer')).toBe(true);
+    expect(mayOpenSettings('admin')).toBe(true);
+  });
+
+  // The case that prompted this: an account signed in with no role saw five
+  // groups of alliance settings and read it as "I am nearly in".
+  test('a viewer and a session that has not answered do not', () => {
+    expect(mayOpenSettings('viewer')).toBe(false);
+    expect(mayOpenSettings(undefined)).toBe(false);
+    expect(mayOpenSettings(null)).toBe(false);
+  });
+});
+
+group('the sections a reader may use', () => {
+  test('an admin gets every section of a group', () => {
+    for (const { group: name } of ADMIN_GROUPS) {
+      expect(usableSectionsIn(name, 'admin', SEEDED)).toHaveLength(sectionsIn(name).length);
+    }
+  });
+
+  // The distinction this function exists for: a form nobody may submit is not
+  // drawn, while the read-only screens in the same group still are.
+  test('a member keeps the read-only screens and loses the forms', () => {
+    const usable = usableSectionsIn('display', 'member', SEEDED);
+    expect(usable.length).toBeGreaterThan(0);
+    expect(usable.length).toBeLessThan(sectionsIn('display').length);
+    expect(usable.every((section) => section.requires === null)).toBe(true);
+  });
+
+  test('an officer who manages members gets those sections and not the rest', () => {
+    const usable = usableSectionsIn('access', 'officer', OFFICER_MANAGES_MEMBERS);
+    const ids = usable.map((section) => section.id);
+    expect(ids).toContain('members-heading' as string);
+    // Invitations are admin-only, so that one stays out even for this officer —
+    // holding members.manage is not the same as holding the role.
+    expect(ids).not.toContain('join-codes-heading' as string);
+    expect(usable.some((section) => section.requires?.kind === 'role')).toBe(false);
+  });
+
+  test('a group with nothing usable comes back empty rather than partly drawn', () => {
+    expect(usableSectionsIn('catalogue', 'member', SEEDED)).toHaveLength(0);
   });
 });

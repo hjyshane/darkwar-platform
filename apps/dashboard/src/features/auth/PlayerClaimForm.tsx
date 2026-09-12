@@ -70,7 +70,6 @@ export function PlayerClaimForm() {
   const { data: players } = useQuery({ queryKey: ['claimable'], queryFn: fetchClaimablePlayers });
   const { data: claim } = useQuery({ queryKey: ['my-claim'], queryFn: fetchMyClaim });
   const [playerId, setPlayerId] = useState('');
-  const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
@@ -88,19 +87,12 @@ export function PlayerClaimForm() {
     }
     setBusy(true);
     setMessage(null);
-    // Upsert, because the table holds one row per account: someone who
-    // picked the wrong character says so again rather than filing a second
-    // claim for an admin to reconcile. `status` returns to pending, which is
-    // deliberate — a changed answer has not been decided.
-    const { error } = await supabase.from('player_claims').upsert(
-      {
-        user_id: userId,
-        player_id: chosen,
-        note: note.trim() === '' ? null : note.trim(),
-        status: 'pending',
-      },
-      { onConflict: 'user_id' },
-    );
+    // `claim_player` rather than an insert into `player_claims` (0165). The
+    // link now happens in the same call, and it has to: writing the row from
+    // here could never touch `app_users`, which is what a claim is actually
+    // for. The function also refuses a character another account already
+    // holds, which this form cannot check — it cannot read who holds what.
+    const { error } = await supabase.rpc('claim_player', { p_player_id: chosen });
     setBusy(false);
     if (error) {
       setFailed(true);
@@ -111,8 +103,10 @@ export function PlayerClaimForm() {
     // Name the character back, rather than "Sent." The whole risk in this
     // form is picking the wrong row out of a hundred-name list, and the only
     // moment that is cheap to notice is right now.
-    setMessage(`Sent: you said you are ${nameOf(chosen) ?? chosen}. An officer will confirm it.`);
-    void queryClient.invalidateQueries({ queryKey: ['my-claim'] });
+    setMessage(`You are ${nameOf(chosen) ?? chosen}. Pick again if that is wrong.`);
+    // Everything, not just the claim: the link changes what this account may
+    // read of its own history, and the screens showing it are not this one.
+    void queryClient.invalidateQueries();
   }
 
   // The picked name, wherever the claim is in its life. The roster query is
@@ -134,13 +128,10 @@ export function PlayerClaimForm() {
     );
   }
 
-  // Optimistic only in what it SAYS, never in what it grants. 0066's rule is
-  // that self-service linking must not exist, and it does not: `player_id`
-  // still moves solely inside approve_player_claim(). What was missing was
-  // the member being able to see their own answer without a reload — the
-  // claim row is now a realtime topic (0093), so an officer's decision
-  // arrives here on its own, and until it does this says which character is
-  // waiting rather than leaving the sentence abstract.
+  // A pending row is now history rather than a state this form produces
+  // (0165): claiming links you in the same call. One can still be here — filed
+  // by an older client before the change, or by somebody the function refused —
+  // and it is still worth naming, because picking again is what clears it.
   const pending = claim?.status === 'pending' ? nameOf(claim.player_id) : null;
 
   return (
@@ -148,16 +139,16 @@ export function PlayerClaimForm() {
       <p className="empty">
         {claim?.status === 'pending' ? (
           <>
-            Waiting for an officer to confirm that you are{' '}
-            <strong>{pending ?? 'the character you picked'}</strong>. Picking again replaces it.
+            An older claim says you are <strong>{pending ?? 'the character you picked'}</strong>,
+            and it was never settled. Picking again replaces it and takes effect immediately.
           </>
         ) : claim?.status === 'rejected' ? (
           <>
-            An officer did not accept that claim. Pick again — a note saying which character is
-            yours is what usually settles it.
+            An officer did not accept that claim. Pick again — it takes effect immediately now, so
+            choose carefully.
           </>
         ) : (
-          'Which character are you? An officer confirms this before it takes effect.'
+          'Which character are you? This takes effect as soon as you pick, and an admin can move it later.'
         )}
       </p>
       <label>
@@ -175,16 +166,8 @@ export function PlayerClaimForm() {
           ))}
         </select>
       </label>
-      <label>
-        Note (optional)
-        <input
-          onChange={(event) => setNote(event.target.value)}
-          placeholder="Anything that helps an officer recognise you"
-          value={note}
-        />
-      </label>
       <button disabled={busy || (playerId || claim?.player_id || '') === ''} type="submit">
-        {busy ? 'Sending…' : 'Send claim'}
+        {busy ? 'Linking…' : 'This is me'}
       </button>
       {message && <p className={failed ? 'error' : 'empty'}>{message}</p>}
     </form>
