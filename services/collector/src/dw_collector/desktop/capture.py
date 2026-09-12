@@ -192,16 +192,22 @@ def _kill_tree(pid: int) -> None:
     when dumpcap really is one process; it is only insurance for the case
     where it is not.
     """
-    if sys.platform != "win32":
+    # if/else rather than a guard clause that returns early: mypy prunes the
+    # arm that cannot run on the platform it is checking and says nothing, but
+    # a guard whose condition is statically TRUE makes everything after the
+    # return dead code — and `warn_unreachable` is on, so whichever form is
+    # written as the guard turns red on the other platform. Windows-only dev
+    # and Linux-only CI means both get checked.
+    if sys.platform == "win32":
+        subprocess.run(
+            ["taskkill", "/F", "/T", "/PID", str(pid)],
+            check=False,
+            creationflags=_CREATION_FLAGS,
+        )
+    else:
         # No POSIX build of this app exists. This branch exists only so the
         # module imports and its pure functions run under Linux CI.
         subprocess.run(["kill", "-9", str(pid)], check=False)  # pragma: no cover
-        return
-    subprocess.run(
-        ["taskkill", "/F", "/T", "/PID", str(pid)],
-        check=False,
-        creationflags=_CREATION_FLAGS,
-    )
 
 
 @dataclass(frozen=True)
