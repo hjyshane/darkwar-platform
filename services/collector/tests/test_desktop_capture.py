@@ -97,12 +97,20 @@ def _pid_alive(pid: int) -> bool:
 
 
 def test_ring_argv_produces_exactly_the_expected_list() -> None:
+    capture_dir = Path(r"C:\DW_data\live")
     argv = capture.ring_argv(
         r"C:\Program Files\Wireshark\dumpcap.exe",
         r"\Device\NPF_{AAAAAAAA-0000-0000-0000-000000000001}",
-        Path(r"C:\DW_data\live"),
+        capture_dir,
         game_port=8680,
     )
+    # Every other element is a literal, but `-w`'s is the one `ring_argv`
+    # builds with `Path` arithmetic, so its separator is the CHECKING
+    # platform's: a backslash on Windows, a forward slash under Linux CI,
+    # where `Path` is a PosixPath and the whole Windows path is one filename.
+    # Spelling it here the way the code spells it keeps the exact-list
+    # assertion without pinning it to the separator of the machine that
+    # happened to write the test.
     assert argv == [
         r"C:\Program Files\Wireshark\dumpcap.exe",
         "-i",
@@ -110,7 +118,7 @@ def test_ring_argv_produces_exactly_the_expected_list() -> None:
         "-f",
         "tcp port 8680",
         "-w",
-        r"C:\DW_data\live\cap.pcapng",
+        str(capture_dir / "cap.pcapng"),
         "-b",
         "duration:15",
         "-b",
