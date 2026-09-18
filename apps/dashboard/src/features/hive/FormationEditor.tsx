@@ -22,6 +22,7 @@ import {
   canPlace,
   footprintOf,
   freeTilesIn,
+  isMemberBase,
   offsetKey,
   outlineTilesIn,
   ringOffsets,
@@ -273,11 +274,15 @@ export function FormationEditor({
    * shape back would quietly reorder the fill, and the innermost ring would
    * stop being the one that gets the strongest members.
    *
-   * Structures come after bases: ground is never handed to anybody.
+   * Member bases come first, everything else after: ground is never handed
+   * to anybody, and numbering the people's tiles 1..n with nothing in
+   * between is what keeps the table's # matching the caption on the map.
    */
   function orderedDraft(): (LayoutTile & { playerId: string | null })[] {
     return [...draft.values()]
-      .sort((a, b) => (a.kind === b.kind ? byRing(a, b) : a.kind === 'base' ? -1 : 1))
+      .sort((a, b) =>
+        isMemberBase(a) === isMemberBase(b) ? byRing(a, b) : isMemberBase(a) ? -1 : 1,
+      )
       .map((slot, index) => ({
         dx: slot.dx,
         dy: slot.dy,
@@ -807,12 +812,10 @@ export function FormationEditor({
   const byId = new Map(members.map((member) => [member.playerId, member]));
   const placedIds = new Set(assignments.values());
   const unplaced = members.filter((member) => !placedIds.has(member.playerId));
-  // Structures hold ground rather than people, so they are not in the
-  // assignment table at all — the database refuses a player on one anyway.
-  const ordered = sortSlots(
-    slots.filter((slot) => slot.kind === 'base'),
-    structures,
-  );
+  // Only tiles a member's city can stand on. Structures hold ground rather
+  // than people — the database refuses a player on one anyway — and a
+  // base-kind tile that is not 3x3 is a drawing, not a place to send anybody.
+  const ordered = sortSlots(slots.filter(isMemberBase), structures);
 
   // NUMBERED BY RING, INNERMOST FIRST, which is what the save writes and what
   // auto-assignment then follows. The draft holds whatever ordinal a tile was
@@ -828,7 +831,7 @@ export function FormationEditor({
   // this editor offers a way to type one yet, so nothing pretends to.
   const numbering = new Map(
     [...drawn]
-      .filter((slot) => slot.kind === 'base')
+      .filter(isMemberBase)
       .sort(byRing)
       .map((slot, index) => [offsetKey(slot), index + 1] as const),
   );
@@ -852,12 +855,13 @@ export function FormationEditor({
       spanY: slot.spanY,
       structure: slot.kind === 'structure',
       colour: slot.colour,
-      caption:
-        slot.kind === 'structure'
-          ? slot.label
-          : assigned === undefined
-            ? String(numbering.get(offsetKey(slot)) ?? '?')
-            : (byId.get(assigned)?.name ?? '?'),
+      // Anything that is not a member's base is captioned like ground: it has
+      // no number in the table, so a "?" would read as a missing person.
+      caption: !isMemberBase(slot)
+        ? slot.label
+        : assigned === undefined
+          ? String(numbering.get(offsetKey(slot)) ?? '?')
+          : (byId.get(assigned)?.name ?? '?'),
       own: assigned !== undefined && assigned === ownPlayerId,
       stale: savedSlot?.stillAMember === false,
     };
@@ -1312,8 +1316,10 @@ export function FormationEditor({
           assign anybody to yet — and assigning eighty people to ground that is about to move is how
           a plan goes out wrong.
         </p>
-      ) : slots.length === 0 ? (
-        <p className="empty">Draw some tiles above and save them.</p>
+      ) : ordered.length === 0 ? (
+        <p className="empty">
+          No member bases yet. Place some {BASE_SPAN}x{BASE_SPAN} bases above and save them.
+        </p>
       ) : (
         <>
           <div className="hive-assign">

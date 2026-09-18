@@ -41,6 +41,21 @@ export const CENTRE_MAX = MAP_MAX - BASE_RADIUS;
  * the same shape and mean opposite things. */
 export type TileKind = 'base' | 'structure';
 
+/** Whether a tile is somewhere a member can be sent: a base, and base-sized.
+ *
+ * BOTH, because neither alone is enough. Kind keeps out a 3x3 alliance
+ * building (see TileKind); size keeps out a 1x1 or 2x2 clicked down while the
+ * brush still said "base", which no member's city can stand on and which
+ * would otherwise take a row, and a person, from the assignment table.
+ */
+export function isMemberBase(tile: {
+  kind: TileKind;
+  spanX: number;
+  spanY: number;
+}): boolean {
+  return tile.kind === 'base' && tile.spanX === BASE_SPAN && tile.spanY === BASE_SPAN;
+}
+
 /** The colours a tile may be given. Tokens rather than CSS values, so the
  * stylesheet keeps deciding what the theme's red is — a hex here would not
  * change with the theme and could not be checked for contrast. */
