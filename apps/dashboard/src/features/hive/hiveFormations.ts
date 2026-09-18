@@ -102,6 +102,35 @@ export async function fetchFormations(serverId: number | null): Promise<Formatio
   }));
 }
 
+/** What PostgREST will hand back in one response, whatever a query asks for. */
+const PAGE_ROWS = 1000;
+
+/** Every row of a query, one PostgREST page at a time.
+ *
+ * A formation's tiles are one row each and a sweep can put down thousands, so
+ * a single request — capped at 1,000 and silent about it — would return a
+ * board that looks complete and is missing its tail. `page` must order by
+ * something unique, or rows can repeat or vanish across the page boundary.
+ */
+export async function everyPage<T>(
+  page: (
+    from: number,
+    to: number,
+  ) => PromiseLike<{ data: T[] | null; error: { code: string; message: string } | null }>,
+): Promise<{ data: T[]; error: { code: string; message: string } | null }> {
+  const rows: T[] = [];
+  for (let from = 0; ; from += PAGE_ROWS) {
+    const { data, error } = await page(from, from + PAGE_ROWS - 1);
+    if (error) {
+      return { data: rows, error };
+    }
+    rows.push(...(data ?? []));
+    if ((data ?? []).length < PAGE_ROWS) {
+      return { data: rows, error: null };
+    }
+  }
+}
+
 export function useFormations(serverId: number | null) {
   return useQuery({
     queryKey: ['hive', 'formations', serverId],
@@ -118,14 +147,19 @@ export function useFormations(serverId: number | null) {
  * shape drops whole entities in silence rather than truncating visibly.
  */
 export async function fetchBoard(formationId: string): Promise<BoardSlot[]> {
-  const { data, error } = await supabase
-    .from('hive_formation_board')
-    .select(
-      'slot_id, ordinal, label, dx, dy, x, y, span_x, span_y, kind, colour, player_id, player_name, hq_level, power, still_a_member, assigned_at',
-    )
-    .eq('formation_id', formationId)
-    .order('ordinal')
-    .limit(500);
+  // Ordinals are not unique — a sweep and a hand-placed tile can share one —
+  // so slot_id breaks the tie that paging needs broken.
+  const { data, error } = await everyPage((from, to) =>
+    supabase
+      .from('hive_formation_board')
+      .select(
+        'slot_id, ordinal, label, dx, dy, x, y, span_x, span_y, kind, colour, player_id, player_name, hq_level, power, still_a_member, assigned_at',
+      )
+      .eq('formation_id', formationId)
+      .order('ordinal')
+      .order('slot_id')
+      .range(from, to),
+  );
   if (error) {
     if (emptyOnRefusal(error.code)) {
       return [];
@@ -586,12 +620,18 @@ export function useTemplates() {
 
 /** The tiles of one saved shape, in the same form the editor drafts in. */
 export async function fetchTemplateTiles(templateId: string): Promise<LayoutTile[]> {
-  const { data, error } = await supabase
-    .from('hive_formation_template_slots')
-    .select('dx, dy, span_x, span_y, kind, colour, label, ordinal')
-    .eq('template_id', templateId)
-    .order('ordinal')
-    .limit(500);
+  // 0172's exclusion constraint means no two tiles of a shape share an
+  // offset, so dy, dx is the tiebreak paging needs under a non-unique ordinal.
+  const { data, error } = await everyPage((from, to) =>
+    supabase
+      .from('hive_formation_template_slots')
+      .select('dx, dy, span_x, span_y, kind, colour, label, ordinal')
+      .eq('template_id', templateId)
+      .order('ordinal')
+      .order('dy')
+      .order('dx')
+      .range(from, to),
+  );
   if (error) {
     throw new Error(`saved shape query failed: ${error.message}`);
   }

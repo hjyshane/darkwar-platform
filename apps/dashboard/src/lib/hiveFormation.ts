@@ -208,15 +208,14 @@ export function canPlace(tiles: readonly SizedOffset[], candidate: SizedOffset):
 
 /** The most tiles one formation may hold.
  *
- * NOT AN OPINION ABOUT HIVE SIZE — it is what the board query can carry.
- * `fetchBoard` asks PostgREST for 500 rows, and PostgREST answers a bigger
- * request by silently returning fewer rather than by failing. A formation
- * past this would look complete and be missing tiles, which is the exact
- * failure the one-row-per-entity rule exists to prevent. Dragging out an area
- * is the first thing here that can add hundreds of tiles in one gesture, so
- * it is the first thing that has to know the ceiling.
+ * A GUARD AGAINST A RUNAWAY DRAG, not a limit of the storage. It used to be
+ * 500 because `fetchBoard` read the board in one request; it now pages, so
+ * nothing downstream loses tiles past any count. What is left to stop is a
+ * fill swept across half the map by accident — 200x200 is 40,000 markers the
+ * editor would have to draw and the save would have to carry in one payload.
+ * A whole hive with its walls and zones marked fits many times over.
  */
-export const MAX_TILES = 500;
+export const MAX_TILES = 5000;
 
 /** The inclusive box two corner tiles span, in either drag direction.
  *

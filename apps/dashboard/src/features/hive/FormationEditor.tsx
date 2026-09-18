@@ -595,13 +595,14 @@ export function FormationEditor({
       );
       return;
     }
-    // THE CEILING IS THE BOARD QUERY'S, not a view about hive size. Past 500
-    // tiles `fetchBoard` returns fewer rows without saying so, and the
-    // formation would read as complete while missing whatever fell off the
-    // end. A sweep is the first gesture here that can add hundreds at once.
+    // A sweep is the one gesture here that can add thousands at once, so it is
+    // the one that checks the ceiling (see MAX_TILES for why it exists).
     if (draft.size + free.length > MAX_TILES) {
+      const room = Math.max(0, MAX_TILES - draft.size);
       setRefusal(
-        `That area needs ${free.length} markers and only ${MAX_TILES - draft.size} will fit — a formation stops being readable past ${MAX_TILES} tiles.`,
+        room === 0
+          ? `This formation already holds ${draft.size} tiles, the most one can — erase some before marking more.`
+          : `That area needs ${free.length} markers and only ${room} more fit under the ${MAX_TILES}-tile limit — drag a smaller area, or use Draw a boundary.`,
       );
       return;
     }
