@@ -1,6 +1,7 @@
 import { type Coordinate, MAP_MAX, MAP_MIN, formatCoordinate } from '@dw/ui';
 import {
   type CSSProperties,
+  type ReactNode,
   type PointerEvent as ReactPointerEvent,
   type RefObject,
   useEffect,
@@ -86,6 +87,66 @@ export function tileAtFraction(window: GridWindow, left: number, top: number): C
     x: Math.min(window.xMax, Math.max(window.xMin, window.xMin + column)),
     y: Math.min(window.yMax, Math.max(window.yMin, window.yMax - row)),
   };
+}
+
+/** Steps an axis may count in. Round numbers only, so a label reads as a
+ * coordinate to type rather than a value to work out. */
+const TICK_STEPS = [1, 2, 5, 10, 20, 25, 50, 100] as const;
+
+/** Most labels along one side before they crowd into each other on a phone. */
+const MAX_TICKS = 10;
+
+/** The coordinates one axis labels, between `min` and `max` inclusive.
+ *
+ * Multiples of the step rather than every nth tile from the edge, so panning
+ * one tile does not relabel the whole axis — 480 stays 480 and slides along
+ * under the pointer, the way the ground does.
+ */
+export function axisTicks(min: number, max: number): number[] {
+  const across = max - min + 1;
+  const step = TICK_STEPS.find((candidate) => across / candidate <= MAX_TICKS) ?? 100;
+  const ticks: number[] = [];
+  for (let value = Math.ceil(min / step) * step; value <= max; value += step) {
+    ticks.push(value);
+  }
+  return ticks;
+}
+
+/** The labelled edges around a grid.
+ *
+ * OUTSIDE THE GRID ELEMENT, NOT INSIDE IT. Every click is projected from the
+ * grid's own box (`tileUnder`), so anything drawn within that box would shift
+ * the projection or sit on top of tiles somebody is trying to click.
+ *
+ * Each label is centred on its tile, not on a grid line: a tile is a square
+ * with a coordinate, and a label on the line between 480 and 481 names neither.
+ */
+function AxisFrame({ view, children }: { view: GridWindow; children: ReactNode }) {
+  return (
+    <div className="tile-frame">
+      <span aria-hidden="true" className="tile-frame__title tile-frame__title--y">
+        Y
+      </span>
+      <div aria-hidden="true" className="tile-frame__axis tile-frame__axis--y">
+        {axisTicks(view.yMin, view.yMax).map((y) => (
+          <span key={y} style={{ top: `${((view.yMax - y + 0.5) / view.across) * 100}%` }}>
+            {y}
+          </span>
+        ))}
+      </div>
+      {children}
+      <div aria-hidden="true" className="tile-frame__axis tile-frame__axis--x">
+        {axisTicks(view.xMin, view.xMax).map((x) => (
+          <span key={x} style={{ left: `${((x - view.xMin + 0.5) / view.across) * 100}%` }}>
+            {x}
+          </span>
+        ))}
+      </div>
+      <span aria-hidden="true" className="tile-frame__title tile-frame__title--x">
+        X
+      </span>
+    </div>
+  );
 }
 
 /** A base drawn on the grid. */
@@ -480,239 +541,243 @@ export function TileGrid({
 
   if (onPick === undefined) {
     return (
-      // NO MODIFIER NEEDED HERE. On the read-only map a drag has nothing else
-      // it could mean, so plain dragging pans and ctrl still works — the
-      // editor needs ctrl only because a bare drag there already carries a
-      // base or sweeps an area.
-      <div
-        className={pan !== null ? 'tile-grid tile-grid--panning' : 'tile-grid'}
-        onPointerCancel={() => setPan(null)}
-        onPointerDown={(event) => {
-          if (pannable && (event.button === 0 || event.button === 1)) {
-            beginPan(event, false);
-          }
-        }}
-        onPointerMove={stepPan}
-        onPointerUp={() => setPan(null)}
-        ref={surfaceRef as RefObject<HTMLDivElement>}
-        style={{ '--tiles': view.across } as CSSProperties}
-      >
-        {surface}
-      </div>
+      <AxisFrame view={view}>
+        {/* NO MODIFIER NEEDED HERE. On the read-only map a drag has nothing
+            else it could mean, so plain dragging pans and ctrl still works —
+            the editor needs ctrl only because a bare drag there already
+            carries a base or sweeps an area. */}
+        <div
+          className={pan !== null ? 'tile-grid tile-grid--panning' : 'tile-grid'}
+          onPointerCancel={() => setPan(null)}
+          onPointerDown={(event) => {
+            if (pannable && (event.button === 0 || event.button === 1)) {
+              beginPan(event, false);
+            }
+          }}
+          onPointerMove={stepPan}
+          onPointerUp={() => setPan(null)}
+          ref={surfaceRef as RefObject<HTMLDivElement>}
+          style={{ '--tiles': view.across } as CSSProperties}
+        >
+          {surface}
+        </div>
+      </AxisFrame>
     );
   }
 
+  // A BUTTON, NOT A DIV WITH A CLICK. The whole surface is one target and
+  // what happens depends on which tile the pointer was over, so there is
+  // nothing smaller to make focusable. Keyboard use is not served by
+  // pressing this — Enter has no pointer position — which is why the page
+  // carries a coordinate box beside the grid that does the same job. Those
+  // presses arrive with `detail === 0` and are ignored rather than
+  // silently placing a base in the middle.
   return (
-    // A BUTTON, NOT A DIV WITH A CLICK. The whole surface is one target and
-    // what happens depends on which tile the pointer was over, so there is
-    // nothing smaller to make focusable. Keyboard use is not served by
-    // pressing this — Enter has no pointer position — which is why the page
-    // carries a coordinate box beside the grid that does the same job. Those
-    // presses arrive with `detail === 0` and are ignored rather than
-    // silently placing a base in the middle.
-    <button
-      aria-label={[
-        sweeping
-          ? 'Drag out an area of tiles.'
-          : draggable
-            ? 'Pick a tile, or drag a base to move it.'
-            : 'Pick a tile.',
-        pannable
-          ? sweeping
-            ? 'Hold ctrl and drag, or drag with the middle button, to slide the map.'
-            : 'Drag from empty ground, or hold ctrl, to slide the map.'
-          : '',
-        'The coordinate boxes beside the map do the same without a pointer.',
-      ]
-        .filter(Boolean)
-        .join(' ')}
-      className={[
-        'tile-grid',
-        busy ? 'tile-grid--busy' : '',
-        sweeping ? 'tile-grid--sweeping' : '',
-        pan !== null ? 'tile-grid--panning' : '',
-      ]
-        .filter(Boolean)
-        .join(' ')}
-      onClick={(event) => {
-        // The drag already did the work and the browser fires a click after
-        // the pointerup that ended it. Without this, dropping a base also
-        // removes it, and sweeping an area also toggles the tile underneath.
-        if (swallowClick.current) {
-          swallowClick.current = false;
-          return;
-        }
-        if (event.detail === 0) {
-          return;
-        }
-        const tile = tileUnder(event as unknown as ReactPointerEvent<HTMLElement>);
-        if (tile !== null) {
-          onPick(tile);
-        }
-      }}
-      onPointerCancel={() => {
-        setDrag(null);
-        setRegion(null);
-        setPan(null);
-      }}
-      onPointerDown={(event) => {
-        if (isPanGesture(event)) {
-          beginPan(event, true);
-          return;
-        }
-        if (sweeping) {
-          if (event.button !== 0) {
+    <AxisFrame view={view}>
+      <button
+        aria-label={[
+          sweeping
+            ? 'Drag out an area of tiles.'
+            : draggable
+              ? 'Pick a tile, or drag a base to move it.'
+              : 'Pick a tile.',
+          pannable
+            ? sweeping
+              ? 'Hold ctrl and drag, or drag with the middle button, to slide the map.'
+              : 'Drag from empty ground, or hold ctrl, to slide the map.'
+            : '',
+          'The coordinate boxes beside the map do the same without a pointer.',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        className={[
+          'tile-grid',
+          busy ? 'tile-grid--busy' : '',
+          sweeping ? 'tile-grid--sweeping' : '',
+          pan !== null ? 'tile-grid--panning' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        onClick={(event) => {
+          // The drag already did the work and the browser fires a click after
+          // the pointerup that ended it. Without this, dropping a base also
+          // removes it, and sweeping an area also toggles the tile underneath.
+          if (swallowClick.current) {
+            swallowClick.current = false;
             return;
           }
-          const corner = tileUnder(event);
-          if (corner === null) {
+          if (event.detail === 0) {
             return;
           }
-          // A PRESS ON SOMETHING ALREADY SELECTED CARRIES IT, and everything
-          // else selected with it. That is the one gesture a selection needs
-          // beyond making one, and it stays unambiguous because it can only
-          // begin on ground the officer has already picked out — in a tool
-          // where nothing is selected (marking, erasing) this never fires.
-          const held = baseUnder(corner);
-          if (held?.selected === true && onMove !== undefined) {
-            event.currentTarget.setPointerCapture(event.pointerId);
-            setDrag({
-              from: held.at,
-              to: held.at,
-              spanX: held.spanX ?? BASE_SPAN,
-              spanY: held.spanY ?? BASE_SPAN,
-              moved: false,
-              allowed: true,
-            });
-            return;
+          const tile = tileUnder(event as unknown as ReactPointerEvent<HTMLElement>);
+          if (tile !== null) {
+            onPick(tile);
           }
-          // Captured for the same reason a base drag is: a sweep that starts
-          // in the middle and ends past the edge of the grid is the normal
-          // way to select everything down to a corner.
-          event.currentTarget.setPointerCapture(event.pointerId);
-          setRegion({ from: corner, to: corner });
-          return;
-        }
-        // A press on a base MIGHT be the start of a drag. Whether it is one
-        // is not known until the pointer moves, so nothing happens yet — the
-        // click handler above still owns a press that goes nowhere.
-        if (!draggable || event.button !== 0) {
-          return;
-        }
-        const tile = tileUnder(event);
-        if (tile === null) {
-          return;
-        }
-        const held = baseUnder(tile);
-        // A structure is ground rather than somebody's place, and dragging
-        // the hive's centre by accident is not a thing anybody means to do.
-        if (held === undefined || held.structure === true) {
-          // NOTHING TO CARRY, SO THE DRAG CAN MEAN THE MAP. A drag that starts
-          // on empty ground had no meaning here at all — clicking places a
-          // tile, and dragging did nothing — so panning costs nothing and is
-          // what everybody tries first. The two starts are disjoint: on a base
-          // the drag carries it, off one it slides the view, and neither has
-          // to guess.
-          //
-          // Only where a drag is otherwise idle. In an area tool the same
-          // press is the sweep, which is why ctrl still exists above.
-          if (pannable) {
-            beginPan(event, false);
-          }
-          return;
-        }
-        // Captured so the drag survives the pointer leaving the grid, which
-        // it does constantly near the edges — without this a base dropped
-        // half off the window is just lost.
-        event.currentTarget.setPointerCapture(event.pointerId);
-        setDrag({
-          from: held.at,
-          to: held.at,
-          spanX: held.spanX ?? BASE_SPAN,
-          spanY: held.spanY ?? BASE_SPAN,
-          moved: false,
-          allowed: true,
-        });
-      }}
-      onPointerMove={(event) => {
-        if (pan !== null) {
-          stepPan(event);
-          return;
-        }
-        if (region !== null) {
-          const corner = tileUnder(event);
-          if (corner === null || (corner.x === region.to.x && corner.y === region.to.y)) {
-            return;
-          }
-          setRegion({ ...region, to: corner });
-          return;
-        }
-        if (drag === null) {
-          return;
-        }
-        const tile = tileUnder(event);
-        if (tile === null) {
-          return;
-        }
-        // THE THRESHOLD IS IN TILES. A press that wanders three pixels is a
-        // click, and at 69 tiles across three pixels is a whole square.
-        const far =
-          Math.abs(tile.x - drag.from.x) + Math.abs(tile.y - drag.from.y) >= DRAG_THRESHOLD_TILES;
-        const moved = drag.moved || far;
-        if (!moved) {
-          return;
-        }
-        const allowed = canMoveTo === undefined || canMoveTo(drag.from, tile);
-        if (drag.moved === moved && drag.to.x === tile.x && drag.to.y === tile.y) {
-          return;
-        }
-        setDrag({ ...drag, to: tile, moved, allowed });
-      }}
-      onPointerUp={(event) => {
-        if (pan !== null) {
-          // A PRESS THAT NEVER MOVED IS STILL A CLICK, and that distinction is
-          // the whole reason `viaModifier` is carried. Plain-drag panning
-          // starts on the same press that places a tile, so swallowing it
-          // unconditionally would stop clicking on empty ground from working
-          // at all. A ctrl-press is different: it was never going to place
-          // anything, so it is swallowed whether it moved or not.
-          if (pan.moved || pan.viaModifier) {
-            swallowClick.current = true;
-          }
-          setPan(null);
-          return;
-        }
-        if (region !== null) {
-          const corner = tileUnder(event) ?? region.to;
+        }}
+        onPointerCancel={() => {
+          setDrag(null);
           setRegion(null);
-          // A press and release on one tile is a box of one — a marker on
-          // that square — so there is no threshold here and nothing to
-          // forward to the click handler. Swallowed so the click does not
-          // then toggle the same tile straight back off.
+          setPan(null);
+        }}
+        onPointerDown={(event) => {
+          if (isPanGesture(event)) {
+            beginPan(event, true);
+            return;
+          }
+          if (sweeping) {
+            if (event.button !== 0) {
+              return;
+            }
+            const corner = tileUnder(event);
+            if (corner === null) {
+              return;
+            }
+            // A PRESS ON SOMETHING ALREADY SELECTED CARRIES IT, and everything
+            // else selected with it. That is the one gesture a selection needs
+            // beyond making one, and it stays unambiguous because it can only
+            // begin on ground the officer has already picked out — in a tool
+            // where nothing is selected (marking, erasing) this never fires.
+            const held = baseUnder(corner);
+            if (held?.selected === true && onMove !== undefined) {
+              event.currentTarget.setPointerCapture(event.pointerId);
+              setDrag({
+                from: held.at,
+                to: held.at,
+                spanX: held.spanX ?? BASE_SPAN,
+                spanY: held.spanY ?? BASE_SPAN,
+                moved: false,
+                allowed: true,
+              });
+              return;
+            }
+            // Captured for the same reason a base drag is: a sweep that starts
+            // in the middle and ends past the edge of the grid is the normal
+            // way to select everything down to a corner.
+            event.currentTarget.setPointerCapture(event.pointerId);
+            setRegion({ from: corner, to: corner });
+            return;
+          }
+          // A press on a base MIGHT be the start of a drag. Whether it is one
+          // is not known until the pointer moves, so nothing happens yet — the
+          // click handler above still owns a press that goes nowhere.
+          if (!draggable || event.button !== 0) {
+            return;
+          }
+          const tile = tileUnder(event);
+          if (tile === null) {
+            return;
+          }
+          const held = baseUnder(tile);
+          // A structure is ground rather than somebody's place, and dragging
+          // the hive's centre by accident is not a thing anybody means to do.
+          if (held === undefined || held.structure === true) {
+            // NOTHING TO CARRY, SO THE DRAG CAN MEAN THE MAP. A drag that starts
+            // on empty ground had no meaning here at all — clicking places a
+            // tile, and dragging did nothing — so panning costs nothing and is
+            // what everybody tries first. The two starts are disjoint: on a base
+            // the drag carries it, off one it slides the view, and neither has
+            // to guess.
+            //
+            // Only where a drag is otherwise idle. In an area tool the same
+            // press is the sweep, which is why ctrl still exists above.
+            if (pannable) {
+              beginPan(event, false);
+            }
+            return;
+          }
+          // Captured so the drag survives the pointer leaving the grid, which
+          // it does constantly near the edges — without this a base dropped
+          // half off the window is just lost.
+          event.currentTarget.setPointerCapture(event.pointerId);
+          setDrag({
+            from: held.at,
+            to: held.at,
+            spanX: held.spanX ?? BASE_SPAN,
+            spanY: held.spanY ?? BASE_SPAN,
+            moved: false,
+            allowed: true,
+          });
+        }}
+        onPointerMove={(event) => {
+          if (pan !== null) {
+            stepPan(event);
+            return;
+          }
+          if (region !== null) {
+            const corner = tileUnder(event);
+            if (corner === null || (corner.x === region.to.x && corner.y === region.to.y)) {
+              return;
+            }
+            setRegion({ ...region, to: corner });
+            return;
+          }
+          if (drag === null) {
+            return;
+          }
+          const tile = tileUnder(event);
+          if (tile === null) {
+            return;
+          }
+          // THE THRESHOLD IS IN TILES. A press that wanders three pixels is a
+          // click, and at 69 tiles across three pixels is a whole square.
+          const far =
+            Math.abs(tile.x - drag.from.x) + Math.abs(tile.y - drag.from.y) >= DRAG_THRESHOLD_TILES;
+          const moved = drag.moved || far;
+          if (!moved) {
+            return;
+          }
+          const allowed = canMoveTo === undefined || canMoveTo(drag.from, tile);
+          if (drag.moved === moved && drag.to.x === tile.x && drag.to.y === tile.y) {
+            return;
+          }
+          setDrag({ ...drag, to: tile, moved, allowed });
+        }}
+        onPointerUp={(event) => {
+          if (pan !== null) {
+            // A PRESS THAT NEVER MOVED IS STILL A CLICK, and that distinction is
+            // the whole reason `viaModifier` is carried. Plain-drag panning
+            // starts on the same press that places a tile, so swallowing it
+            // unconditionally would stop clicking on empty ground from working
+            // at all. A ctrl-press is different: it was never going to place
+            // anything, so it is swallowed whether it moved or not.
+            if (pan.moved || pan.viaModifier) {
+              swallowClick.current = true;
+            }
+            setPan(null);
+            return;
+          }
+          if (region !== null) {
+            const corner = tileUnder(event) ?? region.to;
+            setRegion(null);
+            // A press and release on one tile is a box of one — a marker on
+            // that square — so there is no threshold here and nothing to
+            // forward to the click handler. Swallowed so the click does not
+            // then toggle the same tile straight back off.
+            swallowClick.current = true;
+            onRegion?.(boxBetween(region.from, corner));
+            return;
+          }
+          if (drag === null) {
+            return;
+          }
+          setDrag(null);
+          if (!drag.moved) {
+            // Never left the tile it started on: still a click, and the click
+            // handler is about to run.
+            return;
+          }
           swallowClick.current = true;
-          onRegion?.(boxBetween(region.from, corner));
-          return;
-        }
-        if (drag === null) {
-          return;
-        }
-        setDrag(null);
-        if (!drag.moved) {
-          // Never left the tile it started on: still a click, and the click
-          // handler is about to run.
-          return;
-        }
-        swallowClick.current = true;
-        const tile = tileUnder(event) ?? drag.to;
-        if (drag.allowed && (tile.x !== drag.from.x || tile.y !== drag.from.y)) {
-          onMove?.(drag.from, tile);
-        }
-      }}
-      ref={surfaceRef as RefObject<HTMLButtonElement>}
-      style={{ '--tiles': view.across } as CSSProperties}
-      type="button"
-    >
-      {surface}
-    </button>
+          const tile = tileUnder(event) ?? drag.to;
+          if (drag.allowed && (tile.x !== drag.from.x || tile.y !== drag.from.y)) {
+            onMove?.(drag.from, tile);
+          }
+        }}
+        ref={surfaceRef as RefObject<HTMLButtonElement>}
+        style={{ '--tiles': view.across } as CSSProperties}
+        type="button"
+      >
+        {surface}
+      </button>
+    </AxisFrame>
   );
 }

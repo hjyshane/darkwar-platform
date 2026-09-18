@@ -3609,6 +3609,76 @@ form select {
  * the component and is the one number the whole grid is built from, so the
  * lines cannot drift out of step with where the bases are drawn.
  */
+/* The grid with its coordinates round it: Y title and labels on the left, X
+ * labels and title underneath. The 720px cap lives on the grid's COLUMN so
+ * the x labels are laid out across exactly the width the tiles are. */
+.tile-frame {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 720px);
+  grid-template-rows: auto auto auto;
+  column-gap: 4px;
+  width: 100%;
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-muted);
+}
+
+.tile-frame > .tile-grid {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+.tile-frame__title {
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+.tile-frame__title--y {
+  grid-column: 1;
+  grid-row: 1;
+  align-self: center;
+}
+
+.tile-frame__title--x {
+  grid-column: 3;
+  grid-row: 3;
+  justify-self: center;
+}
+
+.tile-frame__axis {
+  position: relative;
+}
+
+.tile-frame__axis > span {
+  position: absolute;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+/* Wide enough for the widest label, 999. A width taken from the labels
+ * themselves would change as the view pans and nudge the whole grid sideways. */
+.tile-frame__axis--y {
+  grid-column: 2;
+  grid-row: 1;
+  width: 3ch;
+}
+
+.tile-frame__axis--y > span {
+  right: 0;
+  transform: translateY(-50%);
+}
+
+.tile-frame__axis--x {
+  grid-column: 3;
+  grid-row: 2;
+  height: 1.4em;
+}
+
+.tile-frame__axis--x > span {
+  top: 0.25em;
+  transform: translateX(-50%);
+}
+
 .tile-grid {
   position: relative;
   display: block;

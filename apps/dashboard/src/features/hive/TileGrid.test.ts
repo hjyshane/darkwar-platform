@@ -2,12 +2,38 @@ import { MAP_MAX } from '@dw/ui';
 import { expect, test } from 'vitest';
 import {
   ZOOM_STEPS,
+  axisTicks,
   pannedCentre,
   tileAtFraction,
   tileCorner,
   windowAround,
   zoomStep,
 } from './TileGrid';
+
+test('axis labels are round coordinates, never more than ten per side', () => {
+  expect(axisTicks(492, 508)).toEqual([492, 494, 496, 498, 500, 502, 504, 506, 508]);
+  expect(axisTicks(466, 534)).toEqual([470, 480, 490, 500, 510, 520, 530]);
+  for (const radius of ZOOM_STEPS) {
+    const view = windowAround({ x: 500, y: 500 }, radius);
+    const ticks = axisTicks(view.xMin, view.xMax);
+    expect(ticks.length).toBeGreaterThan(2);
+    expect(ticks.length).toBeLessThanOrEqual(10);
+  }
+});
+
+test('panning one tile does not relabel the axis', () => {
+  // Multiples of the step, not every nth tile from the edge: the same ground
+  // keeps the same label as it slides.
+  expect(axisTicks(467, 535)).toEqual(axisTicks(466, 534));
+});
+
+test('axis labels stay inside the window at the map edge', () => {
+  const view = windowAround({ x: MAP_MAX, y: 0 }, 8);
+  for (const tick of axisTicks(view.xMin, view.xMax)) {
+    expect(tick).toBeGreaterThanOrEqual(view.xMin);
+    expect(tick).toBeLessThanOrEqual(view.xMax);
+  }
+});
 
 test('a window is centred on the tile it was given', () => {
   const view = windowAround({ x: 500, y: 500 }, 10);
