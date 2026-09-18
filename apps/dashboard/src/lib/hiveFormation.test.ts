@@ -19,6 +19,7 @@ import {
   firstOverlap,
   footprintOf,
   freeTilesIn,
+  isMemberBase,
   offsetKey,
   outlineTilesIn,
   ringOf,
@@ -445,4 +446,14 @@ test('shifting keeps everything else about a tile', () => {
     spanY: 4,
     kind: 'structure',
   });
+});
+
+test('only a base-sized base is somewhere to send a member', () => {
+  expect(isMemberBase({ kind: 'base', spanX: BASE_SPAN, spanY: BASE_SPAN })).toBe(true);
+  // Clicked down with the brush still on "base" at a marker's size.
+  expect(isMemberBase({ kind: 'base', spanX: 1, spanY: 1 })).toBe(false);
+  expect(isMemberBase({ kind: 'base', spanX: 2, spanY: 2 })).toBe(false);
+  expect(isMemberBase({ kind: 'base', spanX: 3, spanY: 4 })).toBe(false);
+  // Same shape as a base, opposite meaning.
+  expect(isMemberBase({ kind: 'structure', spanX: BASE_SPAN, spanY: BASE_SPAN })).toBe(false);
 });

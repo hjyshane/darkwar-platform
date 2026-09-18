@@ -41,6 +41,21 @@ export const CENTRE_MAX = MAP_MAX - BASE_RADIUS;
  * the same shape and mean opposite things. */
 export type TileKind = 'base' | 'structure';
 
+/** Whether a tile is somewhere a member can be sent: a base, and base-sized.
+ *
+ * BOTH, because neither alone is enough. Kind keeps out a 3x3 alliance
+ * building (see TileKind); size keeps out a 1x1 or 2x2 clicked down while the
+ * brush still said "base", which no member's city can stand on and which
+ * would otherwise take a row, and a person, from the assignment table.
+ */
+export function isMemberBase(tile: {
+  kind: TileKind;
+  spanX: number;
+  spanY: number;
+}): boolean {
+  return tile.kind === 'base' && tile.spanX === BASE_SPAN && tile.spanY === BASE_SPAN;
+}
+
 /** The colours a tile may be given. Tokens rather than CSS values, so the
  * stylesheet keeps deciding what the theme's red is — a hex here would not
  * change with the theme and could not be checked for contrast. */
@@ -208,15 +223,14 @@ export function canPlace(tiles: readonly SizedOffset[], candidate: SizedOffset):
 
 /** The most tiles one formation may hold.
  *
- * NOT AN OPINION ABOUT HIVE SIZE — it is what the board query can carry.
- * `fetchBoard` asks PostgREST for 500 rows, and PostgREST answers a bigger
- * request by silently returning fewer rather than by failing. A formation
- * past this would look complete and be missing tiles, which is the exact
- * failure the one-row-per-entity rule exists to prevent. Dragging out an area
- * is the first thing here that can add hundreds of tiles in one gesture, so
- * it is the first thing that has to know the ceiling.
+ * A GUARD AGAINST A RUNAWAY DRAG, not a limit of the storage. It used to be
+ * 500 because `fetchBoard` read the board in one request; it now pages, so
+ * nothing downstream loses tiles past any count. What is left to stop is a
+ * fill swept across half the map by accident — 200x200 is 40,000 markers the
+ * editor would have to draw and the save would have to carry in one payload.
+ * A whole hive with its walls and zones marked fits many times over.
  */
-export const MAX_TILES = 500;
+export const MAX_TILES = 5000;
 
 /** The inclusive box two corner tiles span, in either drag direction.
  *
