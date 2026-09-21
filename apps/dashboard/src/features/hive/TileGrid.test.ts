@@ -10,7 +10,11 @@ import {
   zoomStep,
 } from './TileGrid';
 
-test('axis labels are round coordinates, never more than ten per side', () => {
+test('unmeasured, an axis falls back to round coordinates and at most ten', () => {
+  // Ten is what the frame assumes for its FIRST paint, before the width it
+  // budgets from has been measured — deliberately the value that used to be
+  // fixed, so a frame rendered early is never denser than what it settles on.
+
   expect(axisTicks(492, 508)).toEqual([492, 494, 496, 498, 500, 502, 504, 506, 508]);
   expect(axisTicks(466, 534)).toEqual([470, 480, 490, 500, 510, 520, 530]);
   for (const radius of ZOOM_STEPS) {
@@ -127,4 +131,36 @@ test('panning to a corner and back again lands where it started', () => {
   const corner = pannedCentre({ x: 500, y: 500 }, -500, -500);
   expect(corner).toEqual({ x: 0, y: 0 });
   expect(pannedCentre(corner, 500, 500)).toEqual({ x: 500, y: 500 });
+});
+
+// How many labels an axis is allowed, which the frame works out from its own
+// measured width rather than from a constant.
+
+test('a wider axis is labelled more finely, and a narrow one stays readable', () => {
+  // The same 45-tile window. A 720px grid affords 24 labels and gets every
+  // second tile; a 322px phone affords 10 and falls back to every fifth.
+  const wide = axisTicks(478, 522, 24);
+  const narrow = axisTicks(478, 522, 10);
+
+  expect(wide.length).toBeGreaterThan(narrow.length);
+  expect(wide.every((tick) => tick % 2 === 0)).toBe(true);
+  expect(narrow.every((tick) => tick % 5 === 0)).toBe(true);
+});
+
+test('the budget is a ceiling, never a target', () => {
+  // Seventeen tiles and room for 24 labels: every tile gets one, and the axis
+  // does not invent ticks between them to use the budget up.
+  expect(axisTicks(492, 508, 24)).toEqual([
+    492, 493, 494, 495, 496, 497, 498, 499, 500, 501, 502, 503, 504, 505, 506, 507, 508,
+  ]);
+});
+
+test('a budget of two still yields round numbers rather than the two edges', () => {
+  // The floor the frame clamps to. Labels stay multiples of a step, so they
+  // read as coordinates to type rather than as wherever the window happens to
+  // start.
+  const ticks = axisTicks(466, 534, 2);
+
+  expect(ticks.length).toBeGreaterThan(0);
+  expect(ticks.every((tick) => tick % 50 === 0)).toBe(true);
 });

@@ -836,7 +836,24 @@ export function FormationEditor({
       .map((slot, index) => [offsetKey(slot), index + 1] as const),
   );
 
-  const bases: GridBase[] = drawn.map((slot) => {
+  // ONLY WHAT IS ON SCREEN. Every drawn tile used to become an absolutely
+  // positioned element whether or not the window showed it, so a formation of
+  // a few thousand markers re-rendered all of them on every pan step — one
+  // drag across a 4,694-tile layout took 1.7 seconds, and the tile limit was
+  // really a limit on how much the editor could redraw sixty times a second.
+  //
+  // Culled here rather than inside the grid because everything else on this
+  // screen is counted over the WHOLE formation: the numbering, the assignment
+  // table and the ring order all read `drawn`, and none of them may change
+  // because somebody scrolled. This affects the picture and nothing else.
+  const onScreen = drawn.filter((slot) => {
+    const foot = footprintOf(absoluteOf(anchor, slot), slot.spanX, slot.spanY);
+    return (
+      foot.x1 >= view.xMin && foot.x0 <= view.xMax && foot.y1 >= view.yMin && foot.y0 <= view.yMax
+    );
+  });
+
+  const bases: GridBase[] = onScreen.map((slot) => {
     const at = absoluteOf(anchor, slot);
     const savedSlot = slots.find((row) => row.dx === slot.dx && row.dy === slot.dy);
     // FROM THE DRAFT FIRST. A tile that has been dragged has no saved slot to
@@ -1386,11 +1403,19 @@ export function FormationEditor({
               </tr>
             </thead>
             <tbody>
-              {ordered.map((slot) => {
+              {ordered.map((slot, index) => {
                 const chosen = assignments.get(slot.slotId) ?? '';
                 return (
                   <tr key={slot.slotId}>
-                    <td>{slot.ordinal}</td>
+                    {/* COUNTED DOWN THIS TABLE, not read off the row.
+                        `ordinal` numbers every tile in the formation,
+                        structures included, so a formation whose first tile is
+                        Frankie started this column at 2 and ran to 8 for seven
+                        bases — which reads as "the structures are in my list"
+                        even though they are not. The caption on the map has
+                        always counted member bases alone, and this is the same
+                        count, so the two now cannot disagree. */}
+                    <td>{index + 1}</td>
                     <td>
                       {/* THE COORDINATE IS WHAT GETS HANDED OVER, so it is one
                           press away from the clipboard. The dashboard cannot
