@@ -93,8 +93,49 @@ export function tileAtFraction(window: GridWindow, left: number, top: number): C
  * coordinate to type rather than a value to work out. */
 const TICK_STEPS = [1, 2, 5, 10, 20, 25, 50, 100] as const;
 
-/** Most labels along one side before they crowd into each other on a phone. */
-const MAX_TICKS = 10;
+/** Labels to assume before the grid has been measured.
+ *
+ * Only ever used for the first paint. Deliberately the old fixed value, so a
+ * frame rendered before the measurement lands is never denser than what used
+ * to ship — a label budget guessed too high would show a collided axis and
+ * then tidy itself, which looks like a bug.
+ */
+const TICKS_UNMEASURED = 10;
+
+/** Pixels to allow per label on the X axis.
+ *
+ * THE X AXIS IS THE TIGHT ONE. Its labels sit side by side and "515" is about
+ * three characters wide; the Y axis stacks them a line apart and fits far
+ * more, which is why the two get different budgets below.
+ *
+ * A fixed COUNT cannot serve both a 720px grid and a 322px phone: sixteen
+ * labels leaves 28px of air on the desktop and 0.7px on the phone. Measured,
+ * both get as many labels as they can actually hold.
+ */
+const X_LABEL_PX = 30;
+
+/** Pixels per label going down. A line of text, plus air. */
+const Y_LABEL_PX = 22;
+
+/** The element's width in CSS pixels, or 0 until it has been measured. */
+function useMeasuredWidth(): [RefObject<HTMLDivElement | null>, number] {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    const element = ref.current;
+    // jsdom has no ResizeObserver, and a test that renders this should get the
+    // unmeasured fallback rather than a crash.
+    if (element === null || typeof ResizeObserver === 'undefined') {
+      return;
+    }
+    const observer = new ResizeObserver((entries) => {
+      setWidth(entries[0]?.contentRect.width ?? 0);
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+  return [ref, width];
+}
 
 /** The coordinates one axis labels, between `min` and `max` inclusive.
  *
@@ -102,9 +143,9 @@ const MAX_TICKS = 10;
  * one tile does not relabel the whole axis — 480 stays 480 and slides along
  * under the pointer, the way the ground does.
  */
-export function axisTicks(min: number, max: number): number[] {
+export function axisTicks(min: number, max: number, maxTicks = TICKS_UNMEASURED): number[] {
   const across = max - min + 1;
-  const step = TICK_STEPS.find((candidate) => across / candidate <= MAX_TICKS) ?? 100;
+  const step = TICK_STEPS.find((candidate) => across / candidate <= maxTicks) ?? 100;
   const ticks: number[] = [];
   for (let value = Math.ceil(min / step) * step; value <= max; value += step) {
     ticks.push(value);
@@ -122,21 +163,32 @@ export function axisTicks(min: number, max: number): number[] {
  * with a coordinate, and a label on the line between 480 and 481 names neither.
  */
 function AxisFrame({ view, children }: { view: GridWindow; children: ReactNode }) {
+  // MEASURED ON THE X AXIS ITSELF, not on the frame around it. The frame is
+  // full width while the grid column is capped at 720px, so on a wide screen
+  // the frame is the wrong number — measuring it budgeted 23 labels into the
+  // space for 15 and left 10px between them. The x axis shares the grid's
+  // column, so its width IS the width the labels are laid out across.
+  const [axisRef, width] = useMeasuredWidth();
+  // The grid is square, so that width is also the height the Y labels stack
+  // down. One measurement, two spacings.
+  const budget = (perLabel: number) =>
+    width === 0 ? TICKS_UNMEASURED : Math.max(2, Math.floor(width / perLabel));
+
   return (
     <div className="tile-frame">
       <span aria-hidden="true" className="tile-frame__title tile-frame__title--y">
         Y
       </span>
       <div aria-hidden="true" className="tile-frame__axis tile-frame__axis--y">
-        {axisTicks(view.yMin, view.yMax).map((y) => (
+        {axisTicks(view.yMin, view.yMax, budget(Y_LABEL_PX)).map((y) => (
           <span key={y} style={{ top: `${((view.yMax - y + 0.5) / view.across) * 100}%` }}>
             {y}
           </span>
         ))}
       </div>
       {children}
-      <div aria-hidden="true" className="tile-frame__axis tile-frame__axis--x">
-        {axisTicks(view.xMin, view.xMax).map((x) => (
+      <div aria-hidden="true" className="tile-frame__axis tile-frame__axis--x" ref={axisRef}>
+        {axisTicks(view.xMin, view.xMax, budget(X_LABEL_PX)).map((x) => (
           <span key={x} style={{ left: `${((x - view.xMin + 0.5) / view.across) * 100}%` }}>
             {x}
           </span>

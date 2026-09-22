@@ -230,7 +230,7 @@ export function canPlace(tiles: readonly SizedOffset[], candidate: SizedOffset):
  * editor would have to draw and the save would have to carry in one payload.
  * A whole hive with its walls and zones marked fits many times over.
  */
-export const MAX_TILES = 5000;
+export const MAX_TILES = 20000;
 
 /** The inclusive box two corner tiles span, in either drag direction.
  *

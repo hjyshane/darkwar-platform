@@ -13,7 +13,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(59);
+select plan(61);
 
 -- The board's columns. `x` and `y` are the whole point — the instruction a
 -- member reads — and `still_a_member` is what stops a fortnight-old plan
@@ -414,6 +414,42 @@ select lives_ok(
        '00000000-0000-4000-8000-00000000f201',
        '[{"dx":0,"dy":0,"ordinal":1}]'::jsonb) $$,
   'an officer can — the gate sits between member and officer');
+
+-- 0173: PAST THE THRESHOLD THE GUARANTEE IS UNCHANGED, only the wording.
+--
+-- The friendly pre-check that names two overlapping coordinates is quadratic,
+-- so above 1,000 tiles it is skipped and the exclusion constraint refuses the
+-- write instead. The thing that must not change is that it IS still refused —
+-- a layout big enough to skip the check must not become a layout allowed to
+-- overlap. Two tiles on the same offset, hidden in a layout of 1,002.
+select throws_ok(
+  $$ select public.save_hive_formation_layout(
+       '00000000-0000-4000-8000-00000000f201',
+       (select jsonb_agg(jsonb_build_object('dx', i % 40 * 2, 'dy', i / 40 * 2,
+                                            'span_x', 1, 'span_y', 1))
+          from generate_series(0, 1000) as i)
+       -- A 3x3 centred on 1,1 covers 0..2 on both axes, so it sits on top of
+       -- the 1x1 tiles at 0,0 and 2,0 and 0,2 and 2,2.
+       --
+       -- NOT a repeated offset, which was the first thing tried and does not
+       -- test this: the function matches the payload against what is already
+       -- stored, so two entries for one offset collapse into a single row and
+       -- nothing overlaps in the result. The clash has to be between two
+       -- DIFFERENT offsets whose footprints meet.
+       || jsonb_build_array(jsonb_build_object('dx', 1, 'dy', 1,
+                                               'span_x', 3, 'span_y', 3))) $$,
+  '23P01', null,
+  'a layout too big for the friendly message is still refused when it overlaps');
+
+-- And one that does NOT overlap, at the same size, goes in. Without this the
+-- assertion above would pass just as well if every large layout were rejected.
+select lives_ok(
+  $$ select public.save_hive_formation_layout(
+       '00000000-0000-4000-8000-00000000f201',
+       (select jsonb_agg(jsonb_build_object('dx', i % 40 * 2 - 40, 'dy', i / 40 * 2 - 40,
+                                            'span_x', 1, 'span_y', 1))
+          from generate_series(0, 1001) as i)) $$,
+  'while a large layout that does not overlap is saved');
 
 -- The catalogue (0171). Same split as the formation itself: an officer
 -- curates it, a member reads it, a stranger does not.
