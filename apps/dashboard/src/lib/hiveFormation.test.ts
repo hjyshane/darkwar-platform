@@ -457,3 +457,29 @@ test('only a base-sized base is somewhere to send a member', () => {
   // Same shape as a base, opposite meaning.
   expect(isMemberBase({ kind: 'structure', spanX: BASE_SPAN, spanY: BASE_SPAN })).toBe(false);
 });
+
+// Rings are measured around the CENTRE, not around whatever structure happens
+// to be nearest.
+
+test('a boundary marker far from the hive does not become a ring centre', () => {
+  // Since the area tools shipped, every "keep clear" tile and every boundary
+  // line is a structure. Measuring the ring as "distance to the nearest
+  // structure" then made a base beside a boundary marker read as ring 1 no
+  // matter how far it sat from Frankie — so the fill stopped starting in the
+  // middle and started wherever the officer had last drawn a line.
+  const frankie: SizedOffset = { dx: 0, dy: 0, spanX: FRANKIE.spanX, spanY: FRANKIE.spanY };
+  const boundary: SizedOffset = { dx: 40, dy: 40, spanX: 1, spanY: 1 };
+
+  const beside = { dx: 0, dy: 3 }; // hard against Frankie
+  const outer = { dx: 39, dy: 40 }; // far away, but hard against the marker
+
+  expect(ringOf(beside, [frankie, boundary])).toBeLessThan(ringOf(outer, [frankie, boundary]));
+});
+
+test('the fill still starts in the middle when boundaries are drawn', () => {
+  const frankie: SizedOffset = { dx: 0, dy: 0, spanX: FRANKIE.spanX, spanY: FRANKIE.spanY };
+  const boundary: SizedOffset = { dx: 40, dy: 40, spanX: 1, spanY: 1 };
+  const order = ringOrderAround([frankie, boundary]);
+
+  expect(order({ dx: 0, dy: 3 }, { dx: 39, dy: 40 })).toBeLessThan(0);
+});

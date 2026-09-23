@@ -4185,6 +4185,32 @@ button.tile-grid:hover:not(:disabled) {
   color: var(--danger-fg);
 }
 
+/* Who has nowhere to stand. Collapsed, because on a formation drawn too small
+ * this is most of the roster and the count is the headline; open, it is the
+ * list the officer has to act on. */
+.hive-unplaced {
+  margin: var(--space-3) 0;
+  font-size: var(--text-sm);
+}
+
+.hive-unplaced summary {
+  cursor: pointer;
+  color: var(--warn-fg);
+}
+
+.hive-unplaced ul {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-4);
+  columns: 3;
+  color: var(--fg-muted);
+}
+
+@media (max-width: 720px) {
+  .hive-unplaced ul {
+    columns: 1;
+  }
+}
+
 .hive-count {
   font-size: var(--text-sm);
   color: var(--fg-muted);

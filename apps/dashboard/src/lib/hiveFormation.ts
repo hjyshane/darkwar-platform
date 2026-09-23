@@ -429,26 +429,42 @@ export function readingOrder(a: Offset, b: Offset): number {
   return b.dy - a.dy || a.dx - b.dx;
 }
 
+/** The structures that ARE the middle of the formation.
+ *
+ * Only the ones standing on the anchor, which in practice means Frankie.
+ *
+ * THIS USED TO BE EVERY STRUCTURE, and that was right exactly as long as
+ * Frankie was the only one. Since the area tools shipped, every boundary line
+ * and every "keep clear" tile is a structure too, so "distance to the nearest
+ * structure" stopped meaning "distance from the middle": a base drawn beside a
+ * boundary marker at the far edge of the map measured as ring 1, and the fill
+ * that is supposed to spiral out from the centre started wherever a line had
+ * last been drawn.
+ */
+function coresOf(structures: readonly SizedOffset[]): FootprintBox[] {
+  const onAnchor = structures
+    .map((tile) => footprintOf({ x: tile.dx, y: tile.dy }, tile.spanX, tile.spanY))
+    .filter((box) => box.x0 <= 0 && box.x1 >= 0 && box.y0 <= 0 && box.y1 >= 0);
+  // Nothing on the anchor — an officer who drew bases and no centrepiece —
+  // so the anchor tile itself is the middle.
+  return onAnchor.length > 0 ? onAnchor : [{ x0: 0, x1: 0, y0: 0, y1: 0 }];
+}
+
 /** How many rings out from the middle of the formation a tile sits.
  *
- * MEASURED FROM THE STRUCTURES, not from the anchor. Frankie is four wide, so
- * the anchor is not its middle, and a distance measured from the anchor calls
- * the base two tiles west closer than the base two tiles east — a fact about
- * where the coordinate is printed rather than about the hive. With no
- * structure drawn there is nothing to measure from and the anchor tile itself
- * is the fallback.
+ * MEASURED FROM WHAT STANDS ON THE ANCHOR, not from the anchor tile alone.
+ * Frankie is four wide, so the anchor is not its middle, and a distance
+ * measured from the anchor calls the base two tiles west closer than the base
+ * two tiles east — a fact about where the coordinate is printed rather than
+ * about the hive.
  *
  * Divided by the pitch so a ring is a ring of BASES rather than of tiles: the
  * bases packed against Frankie are ring 1, the ones behind them ring 2. That
  * is what an officer means by "inner layer".
  */
 export function ringOf(offset: Offset, structures: readonly SizedOffset[] = []): number {
-  const cores =
-    structures.length > 0
-      ? structures.map((tile) => footprintOf({ x: tile.dx, y: tile.dy }, tile.spanX, tile.spanY))
-      : [{ x0: 0, x1: 0, y0: 0, y1: 0 }];
   let closest = Number.POSITIVE_INFINITY;
-  for (const core of cores) {
+  for (const core of coresOf(structures)) {
     const gapX = Math.max(core.x0 - offset.dx, offset.dx - core.x1, 0);
     const gapY = Math.max(core.y0 - offset.dy, offset.dy - core.y1, 0);
     closest = Math.min(closest, Math.max(Math.ceil(gapX / BASE_SPAN), Math.ceil(gapY / BASE_SPAN)));
