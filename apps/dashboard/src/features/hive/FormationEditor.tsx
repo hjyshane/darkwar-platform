@@ -288,6 +288,13 @@ export function FormationEditor({
   const structures = drawn.filter((slot) => slot.kind === 'structure');
   const byRing = ringOrderAround(structures);
   const dirty = !sameLayout(draft, saved);
+  // Whether anybody has been moved since the board was read. The shape and
+  // the people are saved by two different calls, and one button now covers
+  // both, so it has to know which of them actually has something to write.
+  const assignmentsDirty =
+    slots.length > 0 &&
+    slots.some((slot) => (assignments.get(slot.slotId) ?? null) !== slot.playerId);
+  const unsaved = dirty || assignmentsDirty;
 
   /** The draft in the order it will be numbered.
    *
@@ -508,6 +515,27 @@ export function FormationEditor({
     },
     onError: (error: Error) => setRefusal(error.message),
   });
+
+  /** Save whatever is unsaved, in the order the data allows.
+   *
+   * ONE BUTTON, TWO CALLS UNDERNEATH, and the order is not a preference. A
+   * tile has no id until it has been written, so the people can only be
+   * pinned to tiles that already exist — which is why this used to be two
+   * buttons an officer had to press in the right order, and why pressing the
+   * wrong one first looked like it had done nothing.
+   *
+   * `layoutSave` already carries each member along with the square they are
+   * standing on and re-applies them once the tiles have ids, so when the
+   * shape has changed it saves both and there is nothing left for the second
+   * call to do. When only the people have changed there is no shape to write.
+   */
+  function saveEverything() {
+    if (dirty) {
+      layoutSave.mutate();
+      return;
+    }
+    assignmentSave.mutate();
+  }
 
   /** A click on the grid. On a base it removes it; on free ground it adds one.
    *
@@ -1334,11 +1362,20 @@ export function FormationEditor({
 
           <div className="hive-actions">
             <button
-              disabled={!dirty || layoutSave.isPending}
-              onClick={() => layoutSave.mutate()}
+              className="primary"
+              disabled={!unsaved || layoutSave.isPending || assignmentSave.isPending}
+              onClick={saveEverything}
               type="button"
             >
-              {layoutSave.isPending ? 'Saving…' : 'Save the shape'}
+              {layoutSave.isPending || assignmentSave.isPending
+                ? 'Saving…'
+                : !unsaved
+                  ? 'Saved'
+                  : dirty && assignmentsDirty
+                    ? 'Save the shape and the people'
+                    : dirty
+                      ? 'Save the shape'
+                      : 'Save who goes where'}
             </button>
             <button disabled={!dirty} onClick={() => setDraft(saved)} type="button">
               Discard changes
@@ -1393,19 +1430,13 @@ export function FormationEditor({
             <button onClick={() => setAssignments(new Map())} type="button">
               Empty every tile
             </button>
-            <button
-              disabled={assignmentSave.isPending}
-              onClick={() => assignmentSave.mutate()}
-              type="button"
-            >
-              {assignmentSave.isPending ? 'Saving…' : 'Save who goes where'}
-            </button>
           </div>
           <p className="subtle">
             Filling runs from the inside out: the innermost ring against Frankie is handed out
-            first, so whoever sorts highest above stands closest. A pinned tile keeps its member
-            when you fill the rest — place the few whose position matters, pin them, and let
-            everybody else fall in around them.
+            first, so whoever sorts highest above stands closest. Choosing somebody by hand pins
+            them, so a later fill leaves them where you put them — place the few whose position
+            matters and let everybody else fall in around them. Nothing here is written until you
+            press <strong>Save</strong> above, which saves the shape and the people together.
           </p>
           {/* NAMED, NOT COUNTED. "6 members not placed" is the one number an
               officer cannot act on: the next thing they do is work out WHO,
