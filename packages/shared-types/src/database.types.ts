@@ -2102,6 +2102,7 @@ export type Database = {
           kind: string
           label: string
           ordinal: number
+          pinned: boolean
           player_id: string | null
           slot_id: string
           span_x: number
@@ -2119,6 +2120,7 @@ export type Database = {
           kind?: string
           label?: string
           ordinal?: number
+          pinned?: boolean
           player_id?: string | null
           slot_id?: string
           span_x?: number
@@ -2136,6 +2138,7 @@ export type Database = {
           kind?: string
           label?: string
           ordinal?: number
+          pinned?: boolean
           player_id?: string | null
           slot_id?: string
           span_x?: number
@@ -4938,6 +4941,7 @@ export type Database = {
           kind: string | null
           label: string | null
           ordinal: number | null
+          pinned: boolean | null
           player_id: string | null
           player_name: string | null
           point_id: number | null

@@ -287,6 +287,10 @@ export function FormationEditor({
   // objects would leave the selection pointing at ground nobody is on.
   const [selection, setSelection] = useState<ReadonlySet<string>>(new Set());
   const [order, setOrder] = useState<AssignOrder>('power');
+  // How the table is STACKED, which is not how the tiles are handed out.
+  // Alphabetical by default: the list is read to find a person far more often
+  // than to walk the fill, and the fill order is still the `#` column.
+  const [tableSort, setTableSort] = useState<'name' | 'tile'>('name');
   // slot id -> player id. Seeded from what is saved, so opening the screen
   // and saving without touching anything is a no-op rather than a wipe.
   const [assignments, setAssignments] = useState<Map<string, string>>(new Map());
@@ -308,7 +312,21 @@ export function FormationEditor({
     // moved tile is deleted and reinserted under a new id), or somebody else
     // is standing on it now, in which case the pin is a plan for a placement
     // that no longer exists.
-    setPinned((was) => survivingPins(was, slots));
+    // FROM THE ROW, not from what this browser happened to remember (0174).
+    // A reload used to lose every pin; the board now carries them, so the
+    // officer who set them last is the one this agrees with.
+    //
+    // Merged with what is held here rather than replaced outright, because a
+    // pin set since the last save has not reached the row yet and dropping it
+    // on the refetch would be the old bug in a new place.
+    setPinned((was) => {
+      const fromBoard = new Map(
+        slots.flatMap((slot) =>
+          slot.pinned && slot.playerId !== null ? [[slot.slotId, slot.playerId] as const] : [],
+        ),
+      );
+      return new Map([...survivingPins(was, slots), ...fromBoard]);
+    });
   }
 
   const anchor: Coordinate = { x: formation.anchorX, y: formation.anchorY };
@@ -390,6 +408,13 @@ export function FormationEditor({
    * A member whose tile was deleted outright has nowhere to go back to, and
    * is reported rather than quietly dropped.
    */
+  // Pins keyed by WHERE the tile is rather than by its id, for the one save
+  // that destroys ids: a moved tile is deleted and reinserted, so an id-keyed
+  // pin would not survive the round trip even though the tile plainly did.
+  const pinnedOffsets = new Set(
+    slots.flatMap((slot) => (pinned.has(slot.slotId) ? [offsetKey(slot)] : [])),
+  );
+
   const layoutSave = useMutation({
     mutationFn: async () => {
       const wanted = orderedDraft();
@@ -405,6 +430,10 @@ export function FormationEditor({
         saved.map((slot) => ({
           slot_id: slot.slotId,
           player_id: carried.get(offsetKey(slot)) ?? null,
+          // The tile may have been deleted and reinserted under a new id by
+          // the layout save, so the pin is looked up by where it IS rather
+          // than by the id it used to have.
+          pinned: pinnedOffsets.has(offsetKey(slot)),
         })),
       );
       return { summary, restored: carried.size };
@@ -431,6 +460,7 @@ export function FormationEditor({
         slots.map((slot) => ({
           slot_id: slot.slotId,
           player_id: assignments.get(slot.slotId) ?? null,
+          pinned: pinned.has(slot.slotId),
         })),
       ),
     onSuccess: () => {
@@ -895,7 +925,38 @@ export function FormationEditor({
   // Only tiles a member's city can stand on. Structures hold ground rather
   // than people — the database refuses a player on one anyway — and a
   // base-kind tile that is not 3x3 is a drawing, not a place to send anybody.
-  const ordered = sortSlots(slots.filter(isMemberBase), structures);
+  // FILL ORDER FIRST, ALWAYS, whatever the table is then sorted by. The `#`
+  // column and the number captioned on the map both come from this, so the
+  // two cannot disagree because somebody changed how the list is stacked.
+  const byFillOrder = sortSlots(slots.filter(isMemberBase), structures);
+  const fillNumber = new Map(byFillOrder.map((slot, index) => [slot.slotId, index + 1] as const));
+
+  /** A→Z on the member standing there, with the empty tiles after them.
+   *
+   * Empty last rather than first or scattered: they sort together under no
+   * name at all, and an officer reading down for a person wants the people.
+   * Ties and empties fall back to fill order so the list is stable.
+   */
+  function byMemberName(a: BoardSlot, b: BoardSlot): number {
+    const nameOf = (slot: BoardSlot) => {
+      const player = assignments.get(slot.slotId);
+      return player === undefined ? null : (byId.get(player)?.name ?? null);
+    };
+    const left = nameOf(a);
+    const right = nameOf(b);
+    if (left === null || right === null) {
+      return left === right ? 0 : left === null ? 1 : -1;
+    }
+    return left.localeCompare(right) || 0;
+  }
+
+  const ordered =
+    tableSort === 'name'
+      ? [...byFillOrder].sort(
+          (a, b) =>
+            byMemberName(a, b) || (fillNumber.get(a.slotId) ?? 0) - (fillNumber.get(b.slotId) ?? 0),
+        )
+      : byFillOrder;
 
   /** Pin every filled tile whose member matches, on top of what is pinned.
    *
@@ -1534,6 +1595,22 @@ export function FormationEditor({
               </ul>
             </details>
           )}
+          <div className="hive-assign">
+            <label>
+              <span>Sort the list by</span>
+              <select
+                onChange={(event) => setTableSort(event.target.value as 'name' | 'tile')}
+                value={tableSort}
+              >
+                <option value="name">Member name (A–Z)</option>
+                <option value="tile">Tile order (innermost first)</option>
+              </select>
+            </label>
+            {/* THE TWO ORDERS ARE DIFFERENT QUESTIONS. Reading down for a
+                person wants the alphabet; checking that the middle went to
+                the right people wants the fill. `#` is the fill number in
+                both, so neither view can lie about which tile is which. */}
+          </div>
           <table className="table hive-table">
             <thead>
               <tr>
@@ -1546,11 +1623,39 @@ export function FormationEditor({
                 <th>Teleport to</th>
                 <th>Note</th>
                 <th>Member</th>
-                <th>Pin</th>
+                <th>
+                  {/* THE HEADER IS WHERE PEOPLE LOOK FOR SELECT-ALL, whatever
+                      buttons sit above the table. Indeterminate when some are
+                      pinned, so the box reports the state rather than only
+                      offering an action. */}
+                  <input
+                    aria-label={
+                      pinned.size === pinnableCount && pinnableCount > 0
+                        ? 'Unpin every tile'
+                        : 'Pin every filled tile'
+                    }
+                    checked={pinnableCount > 0 && pinned.size === pinnableCount}
+                    disabled={pinnableCount === 0}
+                    onChange={(event) => {
+                      if (event.target.checked) {
+                        pinWhere(() => true);
+                      } else {
+                        setPinned(new Map());
+                      }
+                    }}
+                    ref={(box) => {
+                      if (box !== null) {
+                        box.indeterminate = pinned.size > 0 && pinned.size < pinnableCount;
+                      }
+                    }}
+                    type="checkbox"
+                  />{' '}
+                  Pin
+                </th>
               </tr>
             </thead>
             <tbody>
-              {ordered.map((slot, index) => {
+              {ordered.map((slot) => {
                 const chosen = assignments.get(slot.slotId) ?? '';
                 return (
                   <tr key={slot.slotId}>
@@ -1562,7 +1667,7 @@ export function FormationEditor({
                         even though they are not. The caption on the map has
                         always counted member bases alone, and this is the same
                         count, so the two now cannot disagree. */}
-                    <td>{index + 1}</td>
+                    <td>{fillNumber.get(slot.slotId) ?? '?'}</td>
                     <td>{ringOf(slot, structures)}</td>
                     <td>
                       {/* THE COORDINATE IS WHAT GETS HANDED OVER, so it is one

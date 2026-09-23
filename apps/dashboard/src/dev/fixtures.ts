@@ -477,6 +477,7 @@ const HIVE_SLOTS = [
     offset.kind === 'structure' ? null : (['Shane', 'Mira', 'Kova', 'Dex'][index - 1] ?? null),
   hqLevel: 30,
   power: 61_200_000,
+  pinned: false,
   stillAMember: index === 3 ? false : index >= 1 && index <= 4 ? true : null,
   assignedAt: index >= 1 && index <= 4 ? ago(90) : null,
 }));

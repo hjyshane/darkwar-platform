@@ -13,7 +13,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(61);
+select plan(67);
 
 -- The board's columns. `x` and `y` are the whole point — the instruction a
 -- member reads — and `still_a_member` is what stops a fortnight-old plan
@@ -414,6 +414,59 @@ select lives_ok(
        '00000000-0000-4000-8000-00000000f201',
        '[{"dx":0,"dy":0,"ordinal":1}]'::jsonb) $$,
   'an officer can — the gate sits between member and officer');
+
+-- 0174: a pin belongs to the plan, not to the browser it was clicked in.
+
+select has_column('public', 'hive_formation_board', 'pinned',
+  'the board hands the pin back, so a reload does not lose it');
+
+-- A PIN PROTECTS A PLACEMENT, so an empty tile cannot hold one. Left settable
+-- it would sit there as a trap for whoever is auto-assigned to that tile next.
+select throws_ok(
+  $$ update public.hive_formation_slots set pinned = true
+      where formation_id = '00000000-0000-4000-8000-00000000f201'
+        and player_id is null $$,
+  '23514', null,
+  'a tile with nobody on it cannot be pinned');
+
+-- Written through the RPC, which is the only way the app ever writes one.
+select lives_ok(
+  $$ select public.assign_hive_formation_slots(
+       '00000000-0000-4000-8000-00000000f201',
+       (select jsonb_agg(jsonb_build_object(
+                 'slot_id', s.slot_id,
+                 'player_id', '00000000-0000-4000-8000-00000000f101'::uuid,
+                 'pinned', true))
+          from (select slot_id from public.hive_formation_slots
+                 where formation_id = '00000000-0000-4000-8000-00000000f201'
+                 order by slot_id limit 1) s)) $$,
+  'an officer pins somebody through the same call that places them');
+
+select is(
+  (select count(*)::int from public.hive_formation_slots
+    where formation_id = '00000000-0000-4000-8000-00000000f201' and pinned),
+  1,
+  'and the pin is on the row afterwards, not in a browser somewhere');
+
+-- THE INVERSE, because a pin that cannot be let go is worse than none. The
+-- same call with pinned omitted reads as false: this replaces a formation's
+-- assignments wholesale, and a pin nobody sent is a pin nobody wants.
+select lives_ok(
+  $$ select public.assign_hive_formation_slots(
+       '00000000-0000-4000-8000-00000000f201',
+       (select jsonb_agg(jsonb_build_object(
+                 'slot_id', s.slot_id,
+                 'player_id', '00000000-0000-4000-8000-00000000f101'::uuid))
+          from (select slot_id from public.hive_formation_slots
+                 where formation_id = '00000000-0000-4000-8000-00000000f201'
+                 order by slot_id limit 1) s)) $$,
+  'the same call with pinned left out is accepted');
+
+select is(
+  (select count(*)::int from public.hive_formation_slots
+    where formation_id = '00000000-0000-4000-8000-00000000f201' and pinned),
+  0,
+  'and letting it out of the payload lets the pin go');
 
 -- 0173: PAST THE THRESHOLD THE GUARANTEE IS UNCHANGED, only the wording.
 --
