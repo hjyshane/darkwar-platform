@@ -7,7 +7,7 @@
 // save — by a message naming one tile out of thirty.
 
 import { describe, expect, test } from 'vitest';
-import { draftFromTiles, tilesOffMap } from './FormationEditor';
+import { draftFromTiles, survivingPins, tilesOffMap } from './FormationEditor';
 import type { LayoutTile } from './hiveFormations';
 
 function tile(over: Partial<LayoutTile> = {}): LayoutTile {
@@ -83,5 +83,48 @@ describe('tilesOffMap', () => {
     // The east edge: a 1x1 on 999 is on the map, a 4-wide one needs 999..1002.
     expect(tilesOffMap({ x: 999, y: 500 }, [tile({ span_x: 1, span_y: 1 })])).toBe(0);
     expect(tilesOffMap({ x: 999, y: 500 }, [tile({ span_x: 4, span_y: 3 })])).toBe(1);
+  });
+});
+
+// Pins across a save.
+
+const slot = (slotId: string, playerId: string | null) => ({ slotId, playerId });
+
+describe('survivingPins', () => {
+  test('a pin on an unchanged tile survives the re-read', () => {
+    // The bug: every save re-reads the board, and every pin was dropped at
+    // that moment — so pinning twenty people and pressing Save lost all twenty.
+    const kept = survivingPins(new Map([['a', 'shane']]), [slot('a', 'shane')]);
+
+    expect([...kept]).toEqual([['a', 'shane']]);
+  });
+
+  test('a pin on a tile that no longer exists is dropped', () => {
+    // A moved tile is deleted and reinserted under a new id, so its pin has
+    // nothing to point at.
+    expect(survivingPins(new Map([['gone', 'shane']]), [slot('a', 'shane')]).size).toBe(0);
+  });
+
+  test('a pin is dropped when somebody else is standing there now', () => {
+    // The pin named a placement, not a tile. Keeping it would hold the tile
+    // for a person who is no longer on it.
+    expect(survivingPins(new Map([['a', 'shane']]), [slot('a', 'mira')]).size).toBe(0);
+  });
+
+  test('a pin is dropped when the tile has been emptied', () => {
+    expect(survivingPins(new Map([['a', 'shane']]), [slot('a', null)]).size).toBe(0);
+  });
+
+  test('the surviving pins are the intersection, not all or nothing', () => {
+    const kept = survivingPins(
+      new Map([
+        ['a', 'shane'],
+        ['b', 'mira'],
+        ['c', 'kova'],
+      ]),
+      [slot('a', 'shane'), slot('b', 'dex'), slot('c', 'kova')],
+    );
+
+    expect([...kept.keys()].sort()).toEqual(['a', 'c']);
   });
 });
