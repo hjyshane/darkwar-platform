@@ -25,9 +25,11 @@ import {
   isMemberBase,
   offsetKey,
   outlineTilesIn,
+  ringOf,
   ringOffsets,
   ringOrderAround,
   shiftedBy,
+  sortMembers,
   sortSlots,
   tileFitsOnMap,
   tileInsideBox,
@@ -100,6 +102,27 @@ interface Brush {
    * catalogue. COPIED, not referenced: renaming 'Depot' later must not go
    * back and relabel ground an officer has already sent people to. */
   label: string;
+}
+
+/** A member as one line: who they are, how senior, how strong.
+ *
+ * The inner ring is picked by hand, and the question being answered while the
+ * dropdown is open is "who are my R4s" — which a bare name cannot answer and
+ * which sent the officer off to the roster tab to find out.
+ *
+ * Power is abbreviated because the exact figure is not the point here; the
+ * ordering is, and three significant figures is enough to see it.
+ */
+function memberLabel(member: AssignableMember): string {
+  const rank = member.memberRank === null ? '' : `R${member.memberRank}`;
+  const power =
+    member.power === null
+      ? ''
+      : member.power >= 1_000_000
+        ? `${(member.power / 1_000_000).toFixed(1)}M`
+        : `${Math.round(member.power / 1000)}k`;
+  const extra = [rank, power].filter(Boolean).join(' · ');
+  return extra === '' ? (member.name ?? 'unnamed') : `${member.name ?? 'unnamed'} (${extra})`;
 }
 
 /** What a drag does. Clicking a tile places or removes one in every mode. */
@@ -265,6 +288,13 @@ export function FormationEditor({
   const structures = drawn.filter((slot) => slot.kind === 'structure');
   const byRing = ringOrderAround(structures);
   const dirty = !sameLayout(draft, saved);
+  // Whether anybody has been moved since the board was read. The shape and
+  // the people are saved by two different calls, and one button now covers
+  // both, so it has to know which of them actually has something to write.
+  const assignmentsDirty =
+    slots.length > 0 &&
+    slots.some((slot) => (assignments.get(slot.slotId) ?? null) !== slot.playerId);
+  const unsaved = dirty || assignmentsDirty;
 
   /** The draft in the order it will be numbered.
    *
@@ -485,6 +515,27 @@ export function FormationEditor({
     },
     onError: (error: Error) => setRefusal(error.message),
   });
+
+  /** Save whatever is unsaved, in the order the data allows.
+   *
+   * ONE BUTTON, TWO CALLS UNDERNEATH, and the order is not a preference. A
+   * tile has no id until it has been written, so the people can only be
+   * pinned to tiles that already exist — which is why this used to be two
+   * buttons an officer had to press in the right order, and why pressing the
+   * wrong one first looked like it had done nothing.
+   *
+   * `layoutSave` already carries each member along with the square they are
+   * standing on and re-applies them once the tiles have ids, so when the
+   * shape has changed it saves both and there is nothing left for the second
+   * call to do. When only the people have changed there is no shape to write.
+   */
+  function saveEverything() {
+    if (dirty) {
+      layoutSave.mutate();
+      return;
+    }
+    assignmentSave.mutate();
+  }
 
   /** A click on the grid. On a base it removes it; on free ground it adds one.
    *
@@ -1311,11 +1362,20 @@ export function FormationEditor({
 
           <div className="hive-actions">
             <button
-              disabled={!dirty || layoutSave.isPending}
-              onClick={() => layoutSave.mutate()}
+              className="primary"
+              disabled={!unsaved || layoutSave.isPending || assignmentSave.isPending}
+              onClick={saveEverything}
               type="button"
             >
-              {layoutSave.isPending ? 'Saving…' : 'Save the shape'}
+              {layoutSave.isPending || assignmentSave.isPending
+                ? 'Saving…'
+                : !unsaved
+                  ? 'Saved'
+                  : dirty && assignmentsDirty
+                    ? 'Save the shape and the people'
+                    : dirty
+                      ? 'Save the shape'
+                      : 'Save who goes where'}
             </button>
             <button disabled={!dirty} onClick={() => setDraft(saved)} type="button">
               Discard changes
@@ -1370,32 +1430,41 @@ export function FormationEditor({
             <button onClick={() => setAssignments(new Map())} type="button">
               Empty every tile
             </button>
-            <button
-              disabled={assignmentSave.isPending}
-              onClick={() => assignmentSave.mutate()}
-              type="button"
-            >
-              {assignmentSave.isPending ? 'Saving…' : 'Save who goes where'}
-            </button>
           </div>
           <p className="subtle">
             Filling runs from the inside out: the innermost ring against Frankie is handed out
-            first, so whoever sorts highest above stands closest. A pinned tile keeps its member
-            when you fill the rest — place the few whose position matters, pin them, and let
-            everybody else fall in around them.
-            {unplaced.length > 0 && (
-              <>
-                {' '}
-                <strong>
-                  {unplaced.length} member{unplaced.length === 1 ? '' : 's'} not placed.
-                </strong>
-              </>
-            )}
+            first, so whoever sorts highest above stands closest. Choosing somebody by hand pins
+            them, so a later fill leaves them where you put them — place the few whose position
+            matters and let everybody else fall in around them. Nothing here is written until you
+            press <strong>Save</strong> above, which saves the shape and the people together.
           </p>
+          {/* NAMED, NOT COUNTED. "6 members not placed" is the one number an
+              officer cannot act on: the next thing they do is work out WHO,
+              and the roster is eighty names long. */}
+          {unplaced.length > 0 && (
+            <details className="hive-unplaced">
+              <summary>
+                <strong>
+                  {unplaced.length} member{unplaced.length === 1 ? '' : 's'} not placed
+                </strong>{' '}
+                — nobody has told them where to go
+              </summary>
+              <ul>
+                {sortMembers(unplaced, order).map((member) => (
+                  <li key={member.playerId}>{memberLabel(member)}</li>
+                ))}
+              </ul>
+            </details>
+          )}
           <table className="table hive-table">
             <thead>
               <tr>
                 <th>#</th>
+                {/* WHICH LAYER, because "the first layer is the leaders" is
+                    how a hive is actually planned and the table had no way to
+                    say where ring 1 ended. The rows are already in ring order;
+                    this only names what the order is. */}
+                <th>Ring</th>
                 <th>Teleport to</th>
                 <th>Note</th>
                 <th>Member</th>
@@ -1416,6 +1485,7 @@ export function FormationEditor({
                         always counted member bases alone, and this is the same
                         count, so the two now cannot disagree. */}
                     <td>{index + 1}</td>
+                    <td>{ringOf(slot, structures)}</td>
                     <td>
                       {/* THE COORDINATE IS WHAT GETS HANDED OVER, so it is one
                           press away from the clipboard. The dashboard cannot
@@ -1468,9 +1538,13 @@ export function FormationEditor({
                         value={chosen}
                       >
                         <option value="">— empty —</option>
+                        {/* RANK AND POWER IN THE OPTION, because the inner
+                            ring is picked by hand and "who are my R4s" is the
+                            question being answered while the list is open.
+                            A name alone made that a separate lookup. */}
                         {members.map((member) => (
                           <option key={member.playerId} value={member.playerId}>
-                            {member.name ?? 'unnamed'}
+                            {memberLabel(member)}
                           </option>
                         ))}
                       </select>
