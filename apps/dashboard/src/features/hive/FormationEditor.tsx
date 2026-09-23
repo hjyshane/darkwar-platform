@@ -104,6 +104,26 @@ interface Brush {
   label: string;
 }
 
+/** The pins still worth keeping once the board has been re-read.
+ *
+ * EVERY SAVE RE-READS THE BOARD, and this used to be the moment every pin was
+ * thrown away — so an officer who had pinned twenty people found them all
+ * loose again the instant they pressed Save, which is the opposite of what a
+ * pin is for.
+ *
+ * A pin is dropped only where it has stopped meaning anything: the tile is
+ * gone — a moved tile is deleted and reinserted under a new id, so a pin on it
+ * cannot follow — or somebody else is standing there now, which makes the pin
+ * a plan for a placement that no longer exists.
+ */
+export function survivingPins(
+  pinned: ReadonlyMap<string, string>,
+  slots: readonly { slotId: string; playerId: string | null }[],
+): Map<string, string> {
+  const live = new Map(slots.map((slot) => [slot.slotId, slot.playerId]));
+  return new Map([...pinned].filter(([slotId, playerId]) => live.get(slotId) === playerId));
+}
+
 /** A member as one line: who they are, how senior, how strong.
  *
  * The inner ring is picked by hand, and the question being answered while the
@@ -279,7 +299,16 @@ export function FormationEditor({
         slots.flatMap((slot) => (slot.playerId === null ? [] : [[slot.slotId, slot.playerId]])),
       ),
     );
-    setPinned(new Map());
+    // PINS SURVIVE THE REFETCH, which is the whole reason they were being
+    // lost: every save re-reads the board, and wiping them here meant an
+    // officer who had pinned twenty people found them all loose again the
+    // moment they pressed Save.
+    //
+    // Dropped only where they no longer mean anything — the tile is gone (a
+    // moved tile is deleted and reinserted under a new id), or somebody else
+    // is standing on it now, in which case the pin is a plan for a placement
+    // that no longer exists.
+    setPinned((was) => survivingPins(was, slots));
   }
 
   const anchor: Coordinate = { x: formation.anchorX, y: formation.anchorY };
@@ -868,6 +897,29 @@ export function FormationEditor({
   // base-kind tile that is not 3x3 is a drawing, not a place to send anybody.
   const ordered = sortSlots(slots.filter(isMemberBase), structures);
 
+  /** Pin every filled tile whose member matches, on top of what is pinned.
+   *
+   * ADDITIVE, never a replacement. "Pin the R4s and up" after hand-pinning
+   * three people means four groups pinned, not the three thrown away — and
+   * there is a separate control for letting everybody go, which is the only
+   * place anyone means to lose a pin.
+   */
+  function pinWhere(matches: (member: AssignableMember) => boolean) {
+    const pins = new Map(pinned);
+    for (const [slotId, playerId] of assignments) {
+      const member = byId.get(playerId);
+      if (member !== undefined && matches(member)) {
+        pins.set(slotId, playerId);
+      }
+    }
+    setPinned(pins);
+  }
+
+  /** How many of the filled tiles are pinned, for the controls to report. */
+  const pinnableCount = [...assignments.keys()].filter((slotId) =>
+    ordered.some((slot) => slot.slotId === slotId),
+  ).length;
+
   // NUMBERED BY RING, INNERMOST FIRST, which is what the save writes and what
   // auto-assignment then follows. The draft holds whatever ordinal a tile was
   // given when it was placed, and after a few removals those repeat — two
@@ -1429,6 +1481,32 @@ export function FormationEditor({
             </button>
             <button onClick={() => setAssignments(new Map())} type="button">
               Empty every tile
+            </button>
+          </div>
+          {/* PINS IN GROUPS, because the reason to pin is almost never one
+              person. "The leaders stay where I put them" is one decision about
+              a dozen tiles, and it was a dozen checkbox clicks down a table
+              that does not say who is senior. */}
+          <div className="hive-assign hive-pins">
+            <span className="subtle">
+              {pinned.size} of {pinnableCount} filled tile{pinnableCount === 1 ? '' : 's'} pinned
+            </span>
+            <button
+              disabled={pinnableCount === 0}
+              onClick={() => pinWhere(() => true)}
+              type="button"
+            >
+              Pin every filled tile
+            </button>
+            <button
+              disabled={pinnableCount === 0}
+              onClick={() => pinWhere((member) => (member.memberRank ?? 0) >= 4)}
+              type="button"
+            >
+              Pin R4 and R5
+            </button>
+            <button disabled={pinned.size === 0} onClick={() => setPinned(new Map())} type="button">
+              Unpin everything
             </button>
           </div>
           <p className="subtle">
