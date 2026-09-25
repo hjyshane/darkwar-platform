@@ -1,6 +1,7 @@
-import { type Coordinate, formatCoordinate } from '@dw/ui';
+import type { Coordinate } from '@dw/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { formatTeleport } from '../../lib/hiveFormation';
 import { isAllowed, usePermissions } from '../../lib/permissions';
 import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
@@ -19,6 +20,7 @@ import {
   type Formation,
   createFormation,
   deleteFormation,
+  handoutList,
   makeActive,
   useAssignableMembers,
   useBoard,
@@ -204,7 +206,7 @@ function MyTile({
     <p className="hive-mine">
       <span>Your tile in {formation.name}</span>
       <strong>
-        <code>{formatCoordinate({ x: mine.x, y: mine.y })}</code>
+        <code>{formatTeleport({ x: mine.x, y: mine.y })}</code>
       </strong>
       {mine.label !== '' && <span>{mine.label}</span>}
       {!formation.isActive && (
@@ -264,19 +266,14 @@ function Overview({
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['hive'] }),
   });
 
-  const text = board
-    .map(
-      (slot) =>
-        `${slot.ordinal}. ${slot.playerName ?? '(nobody)'} → ${formatCoordinate({ x: slot.x, y: slot.y })}${slot.label === '' ? '' : ` (${slot.label})`}`,
-    )
-    .join('\n');
+  const text = handoutList(board);
   const departed = board.filter((slot) => slot.departedName !== null);
 
   return (
     <>
       <p className="subtle">
         {formation.isActive ? 'Live plan' : 'Draft'} on server {formation.serverId}, anchored at{' '}
-        <code>{formatCoordinate(anchor)}</code>. {board.length} tile
+        <code>{formatTeleport(anchor)}</code>. {board.length} tile
         {board.length === 1 ? '' : 's'}, {board.filter((slot) => slot.playerId !== null).length}{' '}
         filled.
       </p>

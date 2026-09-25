@@ -1,4 +1,4 @@
-import { type Coordinate, formatCoordinate } from '@dw/ui';
+import type { Coordinate } from '@dw/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import {
@@ -21,6 +21,7 @@ import {
   canMoveGroup,
   canPlace,
   footprintOf,
+  formatTeleport,
   freeTilesIn,
   isMemberBase,
   offsetKey,
@@ -161,7 +162,7 @@ export function dropTarget(
   if (!tileFitsOnMap(at, BASE_SPAN, BASE_SPAN)) {
     return {
       kind: 'refused',
-      reason: `A base centred on ${formatCoordinate(at)} would need ground off the edge of the map.`,
+      reason: `A base centred on ${formatTeleport(at)} would need ground off the edge of the map.`,
     };
   }
   if (!canPlace(drawn, tile)) {
@@ -171,7 +172,7 @@ export function dropTarget(
       reason:
         clash === undefined
           ? 'That ground is taken.'
-          : `A base there would share ground with the tile at ${formatCoordinate(absoluteOf(anchor, clash))}. Drop them on a base, or on free ground.`,
+          : `A base there would share ground with the tile at ${formatTeleport(absoluteOf(anchor, clash))}. Drop them on a base, or on free ground.`,
     };
   }
   return { kind: 'new', tile };
@@ -220,6 +221,32 @@ export function survivingPins(
 ): Map<string, string> {
   const live = new Map(slots.map((slot) => [slot.slotId, slot.playerId]));
   return new Map([...pinned].filter(([slotId, playerId]) => live.get(slotId) === playerId));
+}
+
+/** The draft with every selected tile given a colour.
+ *
+ * RECOLOURING IS NOT REPLACING. A click on a tile takes it out, so the only
+ * way to change a base's colour used to be to delete it and put a new one
+ * down — which loses the member standing on it, their pin, and the slot id
+ * that ties the row in the table to the square on the map. Painting keeps all
+ * three: it is the same tile, in a different colour.
+ *
+ * Keyed by offset, like everything else in the draft, so a tile that has
+ * never been saved paints exactly like one that has.
+ */
+export function paintedTiles(
+  draft: ReadonlyMap<string, DraftSlot>,
+  selection: ReadonlySet<string>,
+  colour: TileColour | null,
+): Map<string, DraftSlot> {
+  const next = new Map(draft);
+  for (const key of selection) {
+    const held = next.get(key);
+    if (held !== undefined && held.colour !== colour) {
+      next.set(key, { ...held, colour });
+    }
+  }
+  return next;
 }
 
 /** A member as one line: who they are, how senior, how strong.
@@ -707,7 +734,7 @@ export function FormationEditor({
     };
     if (!tileFitsOnMap(tile, brush.spanX, brush.spanY)) {
       setRefusal(
-        `A ${brush.spanX}x${brush.spanY} tile centred on ${formatCoordinate(tile)} would need ground off the edge of the map.`,
+        `A ${brush.spanX}x${brush.spanY} tile centred on ${formatTeleport(tile)} would need ground off the edge of the map.`,
       );
       return;
     }
@@ -716,7 +743,7 @@ export function FormationEditor({
       setRefusal(
         clash === undefined
           ? 'That ground is taken.'
-          : `That would share ground with the ${clash.spanX}x${clash.spanY} tile at ${formatCoordinate(absoluteOf(anchor, clash))}.`,
+          : `That would share ground with the ${clash.spanX}x${clash.spanY} tile at ${formatTeleport(absoluteOf(anchor, clash))}.`,
       );
       return;
     }
@@ -890,6 +917,19 @@ export function FormationEditor({
         ? null
         : `Removed ${removed} tiles, ${people} of which had somebody standing on them.`,
     );
+  }
+
+  /** Give every selected tile a colour, keeping the tiles themselves. */
+  function paintSelection(colour: TileColour | null) {
+    if (selection.size === 0) {
+      return;
+    }
+    setDraft(paintedTiles(draft, selection, colour));
+    // The selection is deliberately KEPT. Picking a colour is a thing you do
+    // by eye — put it on, look at it against the rest of the hive, try the
+    // next one — and dropping the selection after the first swatch would make
+    // every one of those tries start with the box drag again.
+    setRefusal(null);
   }
 
   /** Whether the base standing on `from` could stand on `to` instead.
@@ -1210,13 +1250,15 @@ export function FormationEditor({
               same decision made by pointing at it. The dropdown stays for
               keyboards and phones, which HTML drag and drop does not reach. */}
           <ul aria-label="Members to place" className="hive-palette">
-            {[
-              ...sortMembers(unplaced, order),
-              ...sortMembers(
-                members.filter((member) => placedIds.has(member.playerId)),
-                order,
-              ),
-            ].map((member) => (
+            {/* ALPHABETICAL, ALWAYS, AND ONE LIST. This is not a plan, it is
+                an index: you come to it knowing the name you want and you have
+                to find it. It used to follow the fill order — power, by
+                default — and put the unplaced ahead of the placed, so a name's
+                position depended both on a dropdown elsewhere on the page and
+                on whether that member had been dealt with yet. Looking one up
+                meant reading all eighty. The placed are still greyed, which is
+                what that split was for; they just no longer move. */}
+            {sortMembers(members, 'name').map((member) => (
               <li
                 className={
                   placedIds.has(member.playerId)
@@ -1342,7 +1384,7 @@ export function FormationEditor({
                   [
                     'select',
                     'Select',
-                    'Drag out a rectangle to pick out everything completely inside it, then drag any of them to move the whole group, or remove them together.',
+                    'Drag out a rectangle to pick out everything completely inside it, then drag any of them to move the whole group, recolour them, or remove them together.',
                   ],
                 ] as const
               ).map(([value, label, hint]) => (
@@ -1370,8 +1412,8 @@ export function FormationEditor({
               <div className="hive-selection">
                 <p className="subtle">
                   {selection.size === 0
-                    ? 'Nothing selected. Drag a box around the tiles you want.'
-                    : `${selection.size} tile${selection.size === 1 ? '' : 's'} selected — drag any of them to move the group, or nudge it a tile at a time.`}
+                    ? 'Nothing selected. Drag a box around the tiles you want — one base counts, so this is also how a single tile gets a new colour.'
+                    : `${selection.size} tile${selection.size === 1 ? '' : 's'} selected — drag any of them to move the group, nudge it a tile at a time, or paint it.`}
                 </p>
                 {selection.size > 0 && (
                   <div className="hive-shapes">
@@ -1403,6 +1445,35 @@ export function FormationEditor({
                       Remove {selection.size} tile{selection.size === 1 ? '' : 's'}
                     </button>
                   </div>
+                )}
+                {/* PAINTING, RATHER THAN PUTTING A NEW TILE DOWN. The brush's
+                    colour only ever applied to tiles being placed, and a click
+                    on a placed one removes it — so recolouring a base meant
+                    deleting it, which takes the member on it, their pin and
+                    the slot id with it. These swatches change the colour of
+                    tiles that are already there and touch nothing else. */}
+                {selection.size > 0 && (
+                  <fieldset className="hive-swatches">
+                    <legend>
+                      Paint {selection.size} tile{selection.size === 1 ? '' : 's'}
+                    </legend>
+                    <button
+                      className="hive-swatch"
+                      onClick={() => paintSelection(null)}
+                      type="button"
+                    >
+                      default
+                    </button>
+                    {TILE_COLOURS.map((colour) => (
+                      <button
+                        aria-label={`Paint the selection ${colour}`}
+                        className={`hive-swatch hive-swatch--${colour}`}
+                        key={colour}
+                        onClick={() => paintSelection(colour)}
+                        type="button"
+                      />
+                    ))}
+                  </fieldset>
                 )}
               </div>
             )}
@@ -1855,20 +1926,21 @@ export function FormationEditor({
                       {/* THE COORDINATE IS WHAT GETS HANDED OVER, so it is one
                           press away from the clipboard. The dashboard cannot
                           drive the game — a web page has no way to reach
-                          BlueStacks — so pasting into the teleport box is the
-                          shortest honest path from this table to the map. */}
+                          BlueStacks — so what it copies is written the way the
+                          game writes a coordinate, `[X:n Y:n]`, which alliance
+                          chat turns back into a place you can tap. */}
                       <button
                         className="linklike"
                         onClick={() => {
                           void navigator.clipboard?.writeText(
-                            formatCoordinate({ x: slot.x, y: slot.y }),
+                            formatTeleport({ x: slot.x, y: slot.y }),
                           );
                           setCopied(slot.slotId);
                         }}
                         title="Copy this coordinate"
                         type="button"
                       >
-                        <code>{formatCoordinate({ x: slot.x, y: slot.y })}</code>
+                        <code>{formatTeleport({ x: slot.x, y: slot.y })}</code>
                         {copied === slot.slotId ? ' ✓' : ''}
                       </button>
                     </td>
