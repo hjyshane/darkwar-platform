@@ -45,6 +45,9 @@ async function fetchCollectors(): Promise<CollectorRow[]> {
     .select(
       'collector_id, name, status, version, last_heartbeat_at, last_packet_at, last_sync_at, outbox_depth',
     )
+    // The row typed-in data is attributed to (0176). It is not a machine and
+    // never checks in, so listing it would read as a collector that is down.
+    .neq('name', 'manual entry')
     .order('name');
   if (error) {
     throw new Error(error.message);

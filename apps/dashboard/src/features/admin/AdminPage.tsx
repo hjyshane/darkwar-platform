@@ -18,6 +18,8 @@ import { DiscoveryInbox } from './DiscoveryInbox';
 import { FormulaSetting } from './FormulaSetting';
 import { HeroesSetting } from './HeroesSetting';
 import { JoinCodesSetting } from './JoinCodesSetting';
+import { ManualRosterSetting } from './ManualRosterSetting';
+import { ManualScoresSetting } from './ManualScoresSetting';
 import { MembersSetting } from './MembersSetting';
 import { NotificationsSetting } from './NotificationsSetting';
 import { OverviewMetricsSetting } from './OverviewMetricsSetting';
@@ -215,6 +217,20 @@ function AllianceGroup({ section }: { section: string }) {
         <section aria-labelledby="rank-report-heading">
           <h2 id="rank-report-heading">Rank changes</h2>
           <RankReportSetting />
+        </section>
+      )}
+
+      {section === 'manual-scores' && (
+        <section aria-labelledby="manual-scores-heading">
+          <h2 id="manual-scores-heading">Scores by hand</h2>
+          <ManualScoresSetting />
+        </section>
+      )}
+
+      {section === 'manual-roster' && (
+        <section aria-labelledby="manual-roster-heading">
+          <h2 id="manual-roster-heading">Roster by hand</h2>
+          <ManualRosterSetting />
         </section>
       )}
     </>
