@@ -288,6 +288,11 @@ interface Drag {
   allowed: boolean;
 }
 
+/** What a member dragged out of the editor's list carries: their player id,
+ * under a type of our own so a file or a link dragged onto the map is not
+ * mistaken for somebody. */
+export const MEMBER_DRAG_TYPE = 'application/x-dw-member';
+
 /** The centre a pan step lands on, kept on the map.
  *
  * CLAMPED TO THE MAP, NOT TO THE WINDOW. `windowAround` already slides a
@@ -322,6 +327,8 @@ export function TileGrid({
   onPan,
   canMoveTo,
   onZoom,
+  onDropMember,
+  canDropAt,
   busy = false,
 }: {
   window: GridWindow;
@@ -363,6 +370,13 @@ export function TileGrid({
    * tile under the pointer — the caller re-centres on it so the square being
    * looked at stays under the cursor instead of sliding away. */
   onZoom?: (direction: number, at: Coordinate) => void;
+  /** Given, a member dragged from a list (MEMBER_DRAG_TYPE) can be dropped on
+   * a tile, which is reported with their player id. The parent decides what a
+   * drop there means — a new base, or the base already standing there. */
+  onDropMember?: (playerId: string, at: Coordinate) => void;
+  /** Whether a member dropped on `at` would land, asked as the pointer moves
+   * so the square under it can say no before the drop. */
+  canDropAt?: (at: Coordinate) => boolean;
   busy?: boolean;
 }) {
   // Captions are dropped once a tile is too small to hold one. The same rule
@@ -372,6 +386,9 @@ export function TileGrid({
 
   const [drag, setDrag] = useState<Drag | null>(null);
   const [region, setRegion] = useState<{ from: Coordinate; to: Coordinate } | null>(null);
+  // Where a member being dragged in from the list would land, while they are
+  // over the grid.
+  const [incoming, setIncoming] = useState<{ at: Coordinate; allowed: boolean } | null>(null);
   // Where the last whole-tile step was emitted from, in client pixels. Held
   // rather than the gesture's origin so the steps accumulate without drift:
   // a pan of forty tiles is forty deltas, not one growing subtraction.
@@ -500,8 +517,14 @@ export function TileGrid({
     return () => element.removeEventListener('wheel', wheel);
   }, [onZoom, view]);
 
-  /** The tile under a pointer event, or null when the box has no size yet. */
-  function tileUnder(event: ReactPointerEvent<HTMLElement>): Coordinate | null {
+  /** The tile under a pointer event, or null when the box has no size yet.
+   * Any event with a position will do — a drag from the member list is not a
+   * pointer event, and it has to land on the same tile a click would. */
+  function tileUnder(event: {
+    clientX: number;
+    clientY: number;
+    currentTarget: HTMLElement;
+  }): Coordinate | null {
     const box = event.currentTarget.getBoundingClientRect();
     if (box.width === 0 || box.height === 0) {
       return null;
@@ -552,6 +575,24 @@ export function TileGrid({
             style={boxStyle(view, ghost.at, ghost.spanX, ghost.spanY)}
           />
         ))}
+      {/* WHERE AN INCOMING MEMBER WOULD STAND: the base they would take over,
+          or the new 3x3 that would be drawn for them. */}
+      {incoming !== null &&
+        (() => {
+          const onto = baseUnder(incoming.at);
+          const ghost =
+            onto !== undefined && onto.structure !== true
+              ? { at: onto.at, spanX: onto.spanX ?? BASE_SPAN, spanY: onto.spanY ?? BASE_SPAN }
+              : { at: incoming.at, spanX: BASE_SPAN, spanY: BASE_SPAN };
+          return (
+            <span
+              className={
+                incoming.allowed ? 'tile-grid__ghost' : 'tile-grid__ghost tile-grid__ghost--blocked'
+              }
+              style={boxStyle(view, ghost.at, ghost.spanX, ghost.spanY)}
+            />
+          );
+        })()}
       {bases.map((base) => {
         const carried =
           drag?.moved === true &&
@@ -664,6 +705,35 @@ export function TileGrid({
           const tile = tileUnder(event as unknown as ReactPointerEvent<HTMLElement>);
           if (tile !== null) {
             onPick(tile);
+          }
+        }}
+        onDragLeave={() => setIncoming(null)}
+        onDragOver={(event) => {
+          if (onDropMember === undefined || !event.dataTransfer.types.includes(MEMBER_DRAG_TYPE)) {
+            return;
+          }
+          // Accepting the drop at all is what preventDefault means here.
+          event.preventDefault();
+          const at = tileUnder(event);
+          if (at === null) {
+            return;
+          }
+          const allowed = canDropAt === undefined || canDropAt(at);
+          event.dataTransfer.dropEffect = allowed ? 'move' : 'none';
+          if (incoming?.at.x !== at.x || incoming.at.y !== at.y || incoming.allowed !== allowed) {
+            setIncoming({ at, allowed });
+          }
+        }}
+        onDrop={(event) => {
+          const playerId = event.dataTransfer.getData(MEMBER_DRAG_TYPE);
+          setIncoming(null);
+          if (onDropMember === undefined || playerId === '') {
+            return;
+          }
+          event.preventDefault();
+          const at = tileUnder(event);
+          if (at !== null) {
+            onDropMember(playerId, at);
           }
         }}
         onPointerCancel={() => {

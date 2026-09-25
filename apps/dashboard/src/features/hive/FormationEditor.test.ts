@@ -7,7 +7,14 @@
 // save — by a message naming one tile out of thirty.
 
 import { describe, expect, test } from 'vitest';
-import { draftFromTiles, placementsOf, survivingPins, tilesOffMap } from './FormationEditor';
+import {
+  type DraftSlot,
+  draftFromTiles,
+  dropTarget,
+  placementsOf,
+  survivingPins,
+  tilesOffMap,
+} from './FormationEditor';
 import type { LayoutTile } from './hiveFormations';
 
 function tile(over: Partial<LayoutTile> = {}): LayoutTile {
@@ -182,5 +189,64 @@ describe('placementsOf', () => {
     );
 
     expect(placed.get('0,0')).toEqual({ playerId: 'mira', pinned: false });
+  });
+});
+
+// Dropping a member from the list onto the map.
+
+function drafted(over: Partial<DraftSlot> = {}): DraftSlot {
+  return {
+    dx: 0,
+    dy: 0,
+    spanX: 3,
+    spanY: 3,
+    ordinal: 1,
+    label: '',
+    kind: 'base',
+    colour: null,
+    slotId: 'a',
+    ...over,
+  };
+}
+
+describe('dropTarget', () => {
+  const anchor = { x: 500, y: 500 };
+
+  test('onto a member base, anywhere in its footprint, hands them that base', () => {
+    // The base at 500,500 covers 499..501; the corner is still that base.
+    expect(dropTarget([drafted()], anchor, { x: 501, y: 499 })).toEqual({
+      kind: 'onto',
+      key: '0,0',
+    });
+  });
+
+  test('on free ground it draws a new 3x3 centred where it was dropped', () => {
+    expect(dropTarget([drafted()], anchor, { x: 506, y: 500 })).toEqual({
+      kind: 'new',
+      tile: { dx: 6, dy: 0, spanX: 3, spanY: 3 },
+    });
+  });
+
+  test('a new base may touch its neighbour but not share ground with it', () => {
+    // 503 covers 502..504, flush against 499..501: a packed hive.
+    expect(dropTarget([drafted()], anchor, { x: 503, y: 500 }).kind).toBe('new');
+    // 502 would cover 501..503 and overlap it.
+    expect(dropTarget([drafted()], anchor, { x: 502, y: 500 }).kind).toBe('refused');
+  });
+
+  test('nobody can be dropped on a structure', () => {
+    const frankie = drafted({ kind: 'structure', spanX: 4, label: 'Frankie' });
+    const target = dropTarget([frankie], anchor, { x: 500, y: 500 });
+    expect(target.kind).toBe('refused');
+    expect(target.kind === 'refused' && target.reason).toContain('Frankie');
+  });
+
+  test('nor on a base-kind tile that is not a 3x3 member base', () => {
+    // A 1x1 drawn with the base brush is a drawing, not a place to send anybody.
+    expect(dropTarget([drafted({ spanX: 1, spanY: 1 })], anchor, anchor).kind).toBe('refused');
+  });
+
+  test('nor where the new base would hang off the map', () => {
+    expect(dropTarget([], anchor, { x: 0, y: 500 }).kind).toBe('refused');
   });
 });
