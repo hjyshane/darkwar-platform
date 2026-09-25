@@ -13,11 +13,12 @@
 // straight at the table, because there is no halfway state to protect.
 
 import { useQuery } from '@tanstack/react-query';
-import type {
-  AssignableMember,
-  AssignableSlot,
-  TileColour,
-  TileKind,
+import {
+  type AssignableMember,
+  type AssignableSlot,
+  type TileColour,
+  type TileKind,
+  formatTeleport,
 } from '../../lib/hiveFormation';
 import { supabase } from '../../lib/supabase';
 
@@ -94,6 +95,31 @@ export function vacateDeparted(slot: BoardSlot): BoardSlot {
     stillAMember: null,
     departedName: slot.playerName ?? '?',
   };
+}
+
+/** The formation as a list to hand out: one line per member, who and where.
+ *
+ * WRITTEN FOR THE PERSON READING IT, not for the officer who drew it. It is
+ * pasted into alliance chat, where `[X:n Y:n]` becomes a coordinate the reader
+ * can tap, and where everybody is scanning it for one line — their own. So:
+ *
+ * - by name, because that is what the reader is looking for. The board's own
+ *   order is by tile, which is the right order for checking that the middle
+ *   went to the right people and the wrong one for finding yourself in eighty
+ *   lines.
+ * - empty tiles left out. A tile with nobody on it has nobody to tell, and on
+ *   a half-planned hive they were most of the list.
+ *
+ * The ordinal and the label went with them: the ordinal numbers a tile nobody
+ * outside the editor counts, and the label is the catalogue name copied onto
+ * the slot, so it said "Member base" on every line.
+ */
+export function handoutList(board: readonly BoardSlot[]): string {
+  return board
+    .filter((slot) => slot.playerName !== null)
+    .sort((a, b) => (a.playerName ?? '').localeCompare(b.playerName ?? ''))
+    .map((slot) => `${slot.playerName} ${formatTeleport({ x: slot.x, y: slot.y })}`)
+    .join('\n');
 }
 
 export interface OccupiedTile {

@@ -20,6 +20,7 @@ import {
   type Formation,
   createFormation,
   deleteFormation,
+  handoutList,
   makeActive,
   useAssignableMembers,
   useBoard,
@@ -265,15 +266,7 @@ function Overview({
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['hive'] }),
   });
 
-  // A NAME AND A PLACE, AND NOTHING ELSE. This list is pasted into alliance
-  // chat, where `[X:n Y:n]` becomes a coordinate the reader can tap. Every
-  // other thing the line used to carry was for the officer who wrote it, not
-  // for the member reading it: the ordinal is a number for a tile nobody else
-  // counts, and the label is the catalogue name copied onto the slot, which
-  // for a member's base says "Member base" on all eighty lines.
-  const text = board
-    .map((slot) => `${slot.playerName ?? '(nobody)'} ${formatTeleport({ x: slot.x, y: slot.y })}`)
-    .join('\n');
+  const text = handoutList(board);
   const departed = board.filter((slot) => slot.departedName !== null);
 
   return (

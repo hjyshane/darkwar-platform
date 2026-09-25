@@ -5,7 +5,7 @@
 // whole with its last 200 tiles missing.
 
 import { describe, expect, test } from 'vitest';
-import { type BoardSlot, everyPage, vacateDeparted } from './hiveFormations';
+import { type BoardSlot, everyPage, handoutList, vacateDeparted } from './hiveFormations';
 
 function table(rows: number) {
   const all = Array.from({ length: rows }, (_, i) => i);
@@ -115,5 +115,51 @@ describe('vacateDeparted', () => {
   test('an empty tile is left alone', () => {
     const slot = boardSlot({ playerId: null, playerName: null, pinned: false, stillAMember: null });
     expect(vacateDeparted(slot)).toBe(slot);
+  });
+});
+
+// The list an officer pastes into alliance chat.
+
+describe('handoutList', () => {
+  const board = [
+    boardSlot({ slotId: 'a', ordinal: 1, playerName: 'Shane', x: 509, y: 391 }),
+    boardSlot({ slotId: 'b', ordinal: 2, playerName: null, playerId: null, x: 512, y: 388 }),
+    boardSlot({ slotId: 'c', ordinal: 3, playerName: 'Dex', x: 516, y: 385 }),
+    boardSlot({ slotId: 'd', ordinal: 4, playerName: 'Mira', x: 512, y: 391 }),
+  ];
+
+  test('one line per member, by name', () => {
+    // The board's own order is by tile, which is the order for checking the
+    // middle went to the right people — not for eighty people each finding
+    // the one line that is theirs.
+    expect(handoutList(board)).toBe('Dex [X:516 Y:385]\nMira [X:512 Y:391]\nShane [X:509 Y:391]');
+  });
+
+  test('a tile with nobody on it is left out', () => {
+    // It has nobody to tell, and on a half-planned hive they were most of
+    // the list.
+    expect(handoutList(board)).not.toContain('512 Y:388');
+    expect(handoutList(board).split('\n')).toHaveLength(3);
+  });
+
+  test('no ordinal and no label, whatever the tile carries', () => {
+    // The label is the catalogue name copied onto the slot, so it read
+    // "Member base" on every line of the list.
+    const line = handoutList([boardSlot({ ordinal: 7, label: 'Member base', playerName: 'Ruth' })]);
+
+    expect(line).toBe('Ruth [X:512 Y:388]');
+  });
+
+  test('a board with nobody placed on it is empty, not a list of blanks', () => {
+    expect(handoutList([boardSlot({ playerId: null, playerName: null })])).toBe('');
+  });
+
+  test('the board it was given is not reordered', () => {
+    // `.sort` is in place, and the same array draws the picture above the
+    // list — sorting it there would have shuffled the map's numbering.
+    const given = [...board];
+    handoutList(given);
+
+    expect(given.map((slot) => slot.slotId)).toEqual(['a', 'b', 'c', 'd']);
   });
 });
