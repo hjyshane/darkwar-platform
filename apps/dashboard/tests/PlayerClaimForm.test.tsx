@@ -40,7 +40,7 @@ test('a pending claim names the character it is waiting on', async () => {
   // picking the wrong row, and the person who can catch that is the one
   // reading this line.
   renderForm({ claim: { player_id: 'p-2', status: 'pending', note: null } });
-  const waiting = await screen.findByText(/Waiting for an officer to confirm/);
+  const waiting = await screen.findByText(/An older claim says you are/);
   expect(waiting.textContent).toContain('VINA ăn cướp');
 });
 
@@ -49,7 +49,7 @@ test('a pending claim still says something before the roster arrives', async () 
   // means no name to print. A raw uuid is not an answer to "who did I say I
   // was"; saying nothing at all is worse.
   renderForm({ claim: { player_id: 'p-2', status: 'pending', note: null }, roster: [] });
-  const waiting = await screen.findByText(/Waiting for an officer to confirm/);
+  const waiting = await screen.findByText(/An older claim says you are/);
   expect(waiting.textContent).toContain('the character you picked');
   expect(waiting.textContent).not.toContain('p-2');
 });
@@ -60,7 +60,7 @@ test('a rejected claim says so and leaves the form usable', async () => {
   // same one again and an officer rejects it again.
   renderForm({ claim: { player_id: 'p-1', status: 'rejected', note: null } });
   expect(await screen.findByText(/did not accept that claim/)).toBeDefined();
-  expect(screen.getByRole('button', { name: /send claim/i })).toBeDefined();
+  expect(screen.getByRole('button', { name: /this is me/i })).toBeDefined();
 });
 
 test('an approved claim shows the character rather than its id', async () => {
@@ -76,12 +76,17 @@ test('an approved claim with no roster yet does not print a uuid at somebody', a
   expect(linked.textContent).not.toContain('p-1');
 });
 
-test('the form never offers to link an account by itself', async () => {
-  // 0066: self-service linking must not exist. The only write this form
-  // makes is a pending claim; if a control ever appears that says otherwise,
-  // this is the test that should stop it.
+test('the form says the link is immediate, and does not promise an approver', async () => {
+  // This reverses 0066. Self-service linking now exists on purpose (0165), and
+  // the sentence has to match: a member who is told an officer will confirm it
+  // waits for a confirmation that already happened. The old test pinned the
+  // opposite claim, which is why it is rewritten rather than deleted — the rule
+  // changed, not the coverage.
   const { container } = renderForm({ claim: null });
   await screen.findByText(/Which character are you\?/);
-  expect(container.textContent).toContain('An officer confirms this');
+  expect(container.textContent).toContain('takes effect as soon as you pick');
+  expect(container.textContent).not.toContain('officer');
+  // One button, still: the note field went with the approver who read it.
   expect(container.querySelectorAll('button')).toHaveLength(1);
+  expect(container.querySelectorAll('input')).toHaveLength(0);
 });
