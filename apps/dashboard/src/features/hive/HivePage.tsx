@@ -1,6 +1,7 @@
-import { type Coordinate, formatCoordinate } from '@dw/ui';
+import type { Coordinate } from '@dw/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { formatTeleport } from '../../lib/hiveFormation';
 import { isAllowed, usePermissions } from '../../lib/permissions';
 import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
@@ -204,7 +205,7 @@ function MyTile({
     <p className="hive-mine">
       <span>Your tile in {formation.name}</span>
       <strong>
-        <code>{formatCoordinate({ x: mine.x, y: mine.y })}</code>
+        <code>{formatTeleport({ x: mine.x, y: mine.y })}</code>
       </strong>
       {mine.label !== '' && <span>{mine.label}</span>}
       {!formation.isActive && (
@@ -264,11 +265,14 @@ function Overview({
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['hive'] }),
   });
 
+  // A NAME AND A PLACE, AND NOTHING ELSE. This list is pasted into alliance
+  // chat, where `[X:n Y:n]` becomes a coordinate the reader can tap. Every
+  // other thing the line used to carry was for the officer who wrote it, not
+  // for the member reading it: the ordinal is a number for a tile nobody else
+  // counts, and the label is the catalogue name copied onto the slot, which
+  // for a member's base says "Member base" on all eighty lines.
   const text = board
-    .map(
-      (slot) =>
-        `${slot.ordinal}. ${slot.playerName ?? '(nobody)'} → ${formatCoordinate({ x: slot.x, y: slot.y })}${slot.label === '' ? '' : ` (${slot.label})`}`,
-    )
+    .map((slot) => `${slot.playerName ?? '(nobody)'} ${formatTeleport({ x: slot.x, y: slot.y })}`)
     .join('\n');
   const departed = board.filter((slot) => slot.departedName !== null);
 
@@ -276,7 +280,7 @@ function Overview({
     <>
       <p className="subtle">
         {formation.isActive ? 'Live plan' : 'Draft'} on server {formation.serverId}, anchored at{' '}
-        <code>{formatCoordinate(anchor)}</code>. {board.length} tile
+        <code>{formatTeleport(anchor)}</code>. {board.length} tile
         {board.length === 1 ? '' : 's'}, {board.filter((slot) => slot.playerId !== null).length}{' '}
         filled.
       </p>

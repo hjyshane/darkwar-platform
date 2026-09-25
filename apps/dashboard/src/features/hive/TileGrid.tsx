@@ -1,4 +1,4 @@
-import { type Coordinate, MAP_MAX, MAP_MIN, formatCoordinate } from '@dw/ui';
+import { type Coordinate, MAP_MAX, MAP_MIN } from '@dw/ui';
 import {
   type CSSProperties,
   type ReactNode,
@@ -14,6 +14,7 @@ import {
   type TileColour,
   boxBetween,
   footprintOf,
+  formatTeleport,
 } from '../../lib/hiveFormation';
 
 // A few dozen tiles, close enough to click one.
@@ -543,13 +544,13 @@ export function TileGrid({
           className={sighting.ours ? 'tile-grid__seen tile-grid__seen--ours' : 'tile-grid__seen'}
           key={sighting.key}
           style={boxStyle(view, sighting.at, BASE_SPAN)}
-          title={`${sighting.name ?? 'unnamed'} was last seen at ${formatCoordinate(sighting.at)}`}
+          title={`${sighting.name ?? 'unnamed'} was last seen at ${formatTeleport(sighting.at)}`}
         />
       ))}
       <span
         className="tile-grid__anchor"
         style={boxStyle(view, anchor, 1)}
-        title={`Anchor — ${formatCoordinate(anchor)}`}
+        title={`Anchor — ${formatTeleport(anchor)}`}
       />
       {/* THE AREA BEING SWEPT. Without it a drag across forty tiles is
           invisible until it lands, and the officer is aiming at nothing. */}
@@ -621,7 +622,7 @@ export function TileGrid({
             className={className}
             key={base.key}
             style={boxStyle(view, base.at, base.spanX ?? BASE_SPAN, base.spanY ?? BASE_SPAN)}
-            title={`${base.caption ?? ''} ${formatCoordinate(base.at)}`.trim()}
+            title={`${base.caption ?? ''} ${formatTeleport(base.at)}`.trim()}
           >
             {roomForCaptions && base.caption !== undefined && (
               <span className="tile-grid__caption">{base.caption}</span>

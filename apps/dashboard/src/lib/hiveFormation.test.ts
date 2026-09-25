@@ -18,6 +18,7 @@ import {
   coversTile,
   firstOverlap,
   footprintOf,
+  formatTeleport,
   freeTilesIn,
   isMemberBase,
   offsetKey,
@@ -482,4 +483,16 @@ test('the fill still starts in the middle when boundaries are drawn', () => {
   const order = ringOrderAround([frankie, boundary]);
 
   expect(order({ dx: 0, dy: 3 }, { dx: 39, dy: 40 })).toBeLessThan(0);
+});
+
+// The game writes a coordinate with its two fields named, and alliance chat
+// turns that spelling back into a place you can tap. Everything the hive tab
+// puts on screen or on the clipboard is retyped or pasted somewhere, so it is
+// written that way rather than as a bare pair.
+test('a teleport coordinate names its two fields', () => {
+  expect(formatTeleport({ x: 491, y: 444 })).toBe('[X:491 Y:444]');
+});
+
+test('and is not rounded, padded or reordered', () => {
+  expect(formatTeleport({ x: 7, y: 1200 })).toBe('[X:7 Y:1200]');
 });

@@ -176,6 +176,22 @@ export function absoluteOf(anchor: Coordinate, offset: Offset): Coordinate {
   return { x: anchor.x + offset.dx, y: anchor.y + offset.dy };
 }
 
+/** A coordinate written the way the game's teleport box writes it.
+ *
+ * NOT `formatCoordinate`, which stays `491, 444` everywhere else in the
+ * dashboard. A hive coordinate is not read, it is RETYPED — into the teleport
+ * box, or pasted into alliance chat for eighty people to retype — and the
+ * game labels its two fields X and Y. A bare pair has to be matched to those
+ * labels by the reader, every time, and the cost of getting them the wrong
+ * way round is a teleport item spent landing somewhere else.
+ *
+ * Hive-local on purpose: the player pages show a coordinate to be looked at,
+ * and `491, 444` reads better in a sentence.
+ */
+export function formatTeleport(at: Coordinate): string {
+  return `[X:${at.x} Y:${at.y}]`;
+}
+
 /** The key an offset is held under while a layout is being drawn.
  *
  * A slot has no id until it has been saved, and the editor has to be able to

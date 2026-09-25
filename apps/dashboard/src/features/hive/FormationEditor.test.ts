@@ -11,6 +11,7 @@ import {
   type DraftSlot,
   draftFromTiles,
   dropTarget,
+  paintedTiles,
   placementsOf,
   survivingPins,
   tilesOffMap,
@@ -208,6 +209,51 @@ function drafted(over: Partial<DraftSlot> = {}): DraftSlot {
     ...over,
   };
 }
+
+describe('paintedTiles', () => {
+  const draft = new Map([
+    ['0,0', drafted({ slotId: 'a', colour: null })],
+    ['3,0', drafted({ dx: 3, slotId: 'b', colour: 'amber' })],
+    ['6,0', drafted({ dx: 6, slotId: 'c', colour: null })],
+  ]);
+
+  test('a selected tile keeps its identity and changes only its colour', () => {
+    // THE POINT OF THE WHOLE FEATURE. Recolouring used to mean deleting the
+    // base and drawing a new one, which loses the slot id — and with it the
+    // member on that tile and their pin.
+    const painted = paintedTiles(draft, new Set(['0,0']), 'red');
+    const tile = painted.get('0,0');
+
+    expect(tile?.colour).toBe('red');
+    expect(tile?.slotId).toBe('a');
+    expect(tile?.dx).toBe(0);
+    expect(painted.size).toBe(3);
+  });
+
+  test('every selected tile is painted, whatever colour it was', () => {
+    const painted = paintedTiles(draft, new Set(['0,0', '3,0']), 'teal');
+
+    expect(painted.get('0,0')?.colour).toBe('teal');
+    expect(painted.get('3,0')?.colour).toBe('teal');
+  });
+
+  test('an unselected tile is left alone', () => {
+    const painted = paintedTiles(draft, new Set(['0,0']), 'red');
+
+    expect(painted.get('3,0')?.colour).toBe('amber');
+    expect(painted.get('6,0')?.colour).toBe(null);
+  });
+
+  test('null paints back to the default', () => {
+    expect(paintedTiles(draft, new Set(['3,0']), null).get('3,0')?.colour).toBe(null);
+  });
+
+  test('a key that is not in the draft paints nothing', () => {
+    // The selection is kept across a paint so it can be tried in three
+    // colours, which means it can outlive a tile the officer then deletes.
+    expect(paintedTiles(draft, new Set(['99,99']), 'red').size).toBe(3);
+  });
+});
 
 describe('dropTarget', () => {
   const anchor = { x: 500, y: 500 };
