@@ -64,19 +64,49 @@ import {
   useTemplates,
 } from './hiveFormations';
 
-/** A tile in the draft, before it has ever been saved and has an id.
+/** A tile in the draft, identified by where it is.
  *
- * IT CARRIES ITS MEMBER, which a saved slot does by having an id an
- * assignment points at. A draft tile has no id — it is identified by where it
- * is — so moving one would otherwise leave the member behind on ground that
- * no longer exists. Dragging a base means "move this person", and the name
- * has to travel with the square both on screen and through the save. */
+ * IT CARRIES THE ID OF THE SAVED SLOT IT CAME FROM, and through that its
+ * member. Who stands where lives in ONE place — `assignments`, keyed by slot
+ * id — and a moved tile finds its member there by the id it brought along.
+ *
+ * It used to carry the member itself, copied from the board when the draft
+ * was read. That copy was the saved state, so a member handed a tile by Fill
+ * or the dropdown was not on it: drag the base and the caption fell back to a
+ * number, and saving the moved shape put the OLD occupant back — or nobody.
+ * Two copies of one fact, and the one that travelled was the stale one.
+ *
+ * Null for a tile drawn since the board was read, which has nobody on it yet.
+ */
 interface DraftSlot extends SizedOffset {
   ordinal: number;
   label: string;
   kind: TileKind;
   colour: TileColour | null;
-  playerId: string | null;
+  slotId: string | null;
+}
+
+/** Where everybody ends up once a draft is written out, by the offset they
+ * will stand on.
+ *
+ * Read through each tile's slot id rather than by position, which is the
+ * point: a base that was dragged is somewhere its slot never was, and a
+ * position-keyed lookup finds nobody there. The same goes for its pin — a pin
+ * is a decision about a person, and the person moved with the square.
+ */
+export function placementsOf(
+  tiles: readonly (Offset & { slotId: string | null })[],
+  assignments: ReadonlyMap<string, string>,
+  pinned: ReadonlyMap<string, string>,
+): Map<string, { playerId: string; pinned: boolean }> {
+  return new Map(
+    tiles.flatMap((tile) => {
+      const playerId = tile.slotId === null ? undefined : assignments.get(tile.slotId);
+      return playerId === undefined || tile.slotId === null
+        ? []
+        : [[offsetKey(tile), { playerId, pinned: pinned.get(tile.slotId) === playerId }] as const];
+    }),
+  );
 }
 
 /** A typed span, or the one already there. A half-typed box must not silently
@@ -163,7 +193,7 @@ function draftFromBoard(slots: readonly BoardSlot[]): Map<string, DraftSlot> {
         colour: slot.colour,
         ordinal: slot.ordinal,
         label: slot.label,
-        playerId: slot.playerId,
+        slotId: slot.slotId,
       },
     ]),
   );
@@ -190,7 +220,7 @@ export function draftFromTiles(tiles: readonly LayoutTile[]): Map<string, DraftS
         colour: tile.colour,
         ordinal: tile.ordinal,
         label: tile.label,
-        playerId: null,
+        slotId: null,
       },
     ]),
   );
@@ -355,7 +385,7 @@ export function FormationEditor({
    * to anybody, and numbering the people's tiles 1..n with nothing in
    * between is what keeps the table's # matching the caption on the map.
    */
-  function orderedDraft(): (LayoutTile & { playerId: string | null })[] {
+  function orderedDraft(): (LayoutTile & { slotId: string | null })[] {
     return [...draft.values()]
       .sort((a, b) =>
         isMemberBase(a) === isMemberBase(b) ? byRing(a, b) : isMemberBase(a) ? -1 : 1,
@@ -369,7 +399,7 @@ export function FormationEditor({
         span_y: slot.spanY,
         kind: slot.kind,
         colour: slot.colour,
-        playerId: slot.playerId,
+        slotId: slot.slotId,
       }));
   }
 
@@ -377,7 +407,7 @@ export function FormationEditor({
    * wire, to the layout call and to a saved shape alike. A template that
    * remembered who stood where would be a stale roster in a new place. */
   function layoutForSave(): LayoutTile[] {
-    return orderedDraft().map(({ playerId: _ignored, ...tile }) => tile);
+    return orderedDraft().map(({ slotId: _ignored, ...tile }) => tile);
   }
 
   // The sightings under the window. Advisory only — see `fetchOccupiedTiles`:
@@ -399,41 +429,29 @@ export function FormationEditor({
    * this, dragging a base silently unassigned its member, and so did nudging
    * a whole block.
    *
-   * The draft carries each member with their square, so once the layout lands
-   * the board is read back and everybody is put on the tile they were drawn
-   * on. `assign_hive_formation_slots` replaces the whole map in one
+   * Each draft tile carries the id of the slot it came from, so once the
+   * layout lands the board is read back and everybody is put on the tile they
+   * were drawn on — including a member handed that tile since the last save. `assign_hive_formation_slots` replaces the whole map in one
    * transaction, which is what makes re-applying safe rather than eighty
    * updates that can half-fail.
    *
    * A member whose tile was deleted outright has nowhere to go back to, and
    * is reported rather than quietly dropped.
    */
-  // Pins keyed by WHERE the tile is rather than by its id, for the one save
-  // that destroys ids: a moved tile is deleted and reinserted, so an id-keyed
-  // pin would not survive the round trip even though the tile plainly did.
-  const pinnedOffsets = new Set(
-    slots.flatMap((slot) => (pinned.has(slot.slotId) ? [offsetKey(slot)] : [])),
-  );
-
   const layoutSave = useMutation({
     mutationFn: async () => {
-      const wanted = orderedDraft();
+      // Worked out BEFORE the layout call, while the old slot ids still mean
+      // something: a moved tile is deleted and reinserted under a new id, so
+      // afterwards the only thing that still finds it is where it now stands.
+      const carried = placementsOf(orderedDraft(), assignments, pinned);
       const summary = await saveLayout(formation.formationId, layoutForSave());
-      const carried = new Map(
-        wanted.flatMap((slot) =>
-          slot.playerId === null ? [] : [[offsetKey(slot), slot.playerId] as const],
-        ),
-      );
       const saved = await fetchBoard(formation.formationId);
       await saveAssignments(
         formation.formationId,
         saved.map((slot) => ({
           slot_id: slot.slotId,
-          player_id: carried.get(offsetKey(slot)) ?? null,
-          // The tile may have been deleted and reinserted under a new id by
-          // the layout save, so the pin is looked up by where it IS rather
-          // than by the id it used to have.
-          pinned: pinnedOffsets.has(offsetKey(slot)),
+          player_id: carried.get(offsetKey(slot))?.playerId ?? null,
+          pinned: carried.get(offsetKey(slot))?.pinned ?? false,
         })),
       );
       return { summary, restored: carried.size };
@@ -643,7 +661,7 @@ export function FormationEditor({
       label: brush.label,
       kind: brush.kind,
       colour: brush.colour,
-      playerId: null,
+      slotId: null,
     });
     setDraft(next);
     setRefusal(null);
@@ -731,7 +749,7 @@ export function FormationEditor({
         label: brush.label,
         kind: 'structure',
         colour: brush.colour ?? 'red',
-        playerId: null,
+        slotId: null,
       });
     }
     setDraft(next);
@@ -790,7 +808,8 @@ export function FormationEditor({
       // A base that had somebody on it is the one deletion worth counting:
       // the officer is about to lose that assignment and the tile it named,
       // and neither is visible once the square is gone.
-      if (next.get(key)?.playerId != null) {
+      const slotId = next.get(key)?.slotId;
+      if (slotId != null && assignments.has(slotId)) {
         people += 1;
       }
       next.delete(key);
@@ -855,8 +874,9 @@ export function FormationEditor({
     };
     const next = new Map(draft);
     next.delete(offsetKey(moving));
-    // Everything but the position rides along; the ordinal is renumbered by
-    // the save anyway, and a moved base may well have changed ring.
+    // Everything but the position rides along — the slot id with it, which is
+    // what keeps the member on the square. The ordinal is renumbered by the
+    // save anyway, and a moved base may well have changed ring.
     next.set(offsetKey(landing), { ...held, ...landing });
     setDraft(next);
     setRefusal(null);
@@ -881,7 +901,7 @@ export function FormationEditor({
       colour: 'amber',
       ordinal: 0,
       label: 'Frankie',
-      playerId: null,
+      slotId: null,
     };
     // TWO REASONS A GENERATED TILE IS DROPPED, worth telling apart: one is the
     // edge of the world and the other is the centre. A block centred on the
@@ -904,7 +924,7 @@ export function FormationEditor({
                 label: '',
                 kind: 'base' as TileKind,
                 colour: null,
-                playerId: null,
+                slotId: null,
               },
             ] as const,
         ),
@@ -1019,15 +1039,14 @@ export function FormationEditor({
 
   const bases: GridBase[] = onScreen.map((slot) => {
     const at = absoluteOf(anchor, slot);
-    const savedSlot = slots.find((row) => row.dx === slot.dx && row.dy === slot.dy);
-    // FROM THE DRAFT FIRST. A tile that has been dragged has no saved slot to
-    // look up any more, and falling back to the number made the member's name
-    // vanish the instant the base was picked up — which reads as "I have just
-    // deleted this person" rather than "I have moved them".
-    const assigned =
-      slot.playerId ??
-      (savedSlot === undefined ? undefined : assignments.get(savedSlot.slotId)) ??
-      undefined;
+    // BY THE SLOT THE TILE CAME FROM, not by where it stands now. A dragged
+    // base is somewhere its slot never was, and looking the member up by
+    // position made their name vanish the instant it was put down — which
+    // reads as "I have just deleted this person" rather than "I have moved
+    // them".
+    const savedSlot =
+      slot.slotId === null ? undefined : slots.find((row) => row.slotId === slot.slotId);
+    const assigned = slot.slotId === null ? undefined : assignments.get(slot.slotId);
     return {
       key: offsetKey(slot),
       at,

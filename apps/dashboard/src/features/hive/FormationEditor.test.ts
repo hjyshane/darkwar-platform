@@ -7,7 +7,7 @@
 // save — by a message naming one tile out of thirty.
 
 import { describe, expect, test } from 'vitest';
-import { draftFromTiles, survivingPins, tilesOffMap } from './FormationEditor';
+import { draftFromTiles, placementsOf, survivingPins, tilesOffMap } from './FormationEditor';
 import type { LayoutTile } from './hiveFormations';
 
 function tile(over: Partial<LayoutTile> = {}): LayoutTile {
@@ -31,7 +31,8 @@ describe('draftFromTiles', () => {
       tile({ dx: 3, dy: 0, kind: 'structure', colour: 'amber' }),
     ]);
     expect(draft.size).toBe(2);
-    expect([...draft.values()].every((slot) => slot.playerId === null)).toBe(true);
+    // No slot behind any of them, so there is nobody for them to carry.
+    expect([...draft.values()].every((slot) => slot.slotId === null)).toBe(true);
   });
 
   test('the size, kind, colour and caption come back with it', () => {
@@ -126,5 +127,60 @@ describe('survivingPins', () => {
     );
 
     expect([...kept.keys()].sort()).toEqual(['a', 'c']);
+  });
+});
+
+// Who stands where once a draft is written out.
+
+describe('placementsOf', () => {
+  test('a dragged base keeps a member handed to it since the last save', () => {
+    // The bug: the draft carried the SAVED occupant, so a member put on a tile
+    // by Fill or the dropdown was not on it. Dragging the base left a bare
+    // number at the new spot, and saving put nobody there.
+    const moved = [{ dx: 6, dy: 0, slotId: 'a' }];
+    const placed = placementsOf(moved, new Map([['a', 'shane']]), new Map());
+
+    expect([...placed]).toEqual([['6,0', { playerId: 'shane', pinned: false }]]);
+  });
+
+  test('the pin moves with the member', () => {
+    const moved = [{ dx: 6, dy: 0, slotId: 'a' }];
+    const placed = placementsOf(moved, new Map([['a', 'shane']]), new Map([['a', 'shane']]));
+
+    expect(placed.get('6,0')).toEqual({ playerId: 'shane', pinned: true });
+  });
+
+  test('two bases swapped keep their own people', () => {
+    // Keyed by position this is exactly the case that goes wrong: each tile
+    // now stands where the other's slot used to be.
+    const swapped = [
+      { dx: 3, dy: 0, slotId: 'a' },
+      { dx: 0, dy: 0, slotId: 'b' },
+    ];
+    const placed = placementsOf(
+      swapped,
+      new Map([
+        ['a', 'shane'],
+        ['b', 'mira'],
+      ]),
+      new Map(),
+    );
+
+    expect(placed.get('3,0')?.playerId).toBe('shane');
+    expect(placed.get('0,0')?.playerId).toBe('mira');
+  });
+
+  test('a tile drawn since the last save has nobody on it', () => {
+    expect(placementsOf([{ dx: 0, dy: 0, slotId: null }], new Map(), new Map()).size).toBe(0);
+  });
+
+  test('a stale pin for somebody who has since been moved off is not carried', () => {
+    const placed = placementsOf(
+      [{ dx: 0, dy: 0, slotId: 'a' }],
+      new Map([['a', 'mira']]),
+      new Map([['a', 'shane']]),
+    );
+
+    expect(placed.get('0,0')).toEqual({ playerId: 'mira', pinned: false });
   });
 });
