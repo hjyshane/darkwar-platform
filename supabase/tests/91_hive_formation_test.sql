@@ -13,7 +13,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(67);
+select plan(70);
 
 -- The board's columns. `x` and `y` are the whole point — the instruction a
 -- member reads — and `still_a_member` is what stops a fortnight-old plan
@@ -467,6 +467,56 @@ select is(
     where formation_id = '00000000-0000-4000-8000-00000000f201' and pinned),
   0,
   'and letting it out of the payload lets the pin go');
+
+-- 0177: A PINNED TILE CAN BE EMPTIED. Both writers used to empty the tile in
+-- one statement and clear its pin in a later one; the check constraint is
+-- tested row by row, so the emptying statement itself was refused with
+-- 23514. Pinned first, then emptied — through each writer in turn.
+
+select public.assign_hive_formation_slots(
+    '00000000-0000-4000-8000-00000000f201',
+    (select jsonb_agg(jsonb_build_object(
+              'slot_id', s.slot_id,
+              'player_id', '00000000-0000-4000-8000-00000000f101'::uuid,
+              'pinned', true))
+       from (select slot_id from public.hive_formation_slots
+              where formation_id = '00000000-0000-4000-8000-00000000f201'
+              order by slot_id limit 1) s));
+select lives_ok(
+  $$ select public.assign_hive_formation_slots(
+       '00000000-0000-4000-8000-00000000f201',
+       (select jsonb_agg(jsonb_build_object('slot_id', s.slot_id, 'player_id', null))
+          from (select slot_id from public.hive_formation_slots
+                 where formation_id = '00000000-0000-4000-8000-00000000f201'
+                 order by slot_id limit 1) s)) $$,
+  'a pinned member can be taken off their tile');
+select is(
+  (select count(*)::int from public.hive_formation_slots
+    where formation_id = '00000000-0000-4000-8000-00000000f201'
+      and (pinned or player_id is not null)),
+  0,
+  'and the tile is left empty and unpinned');
+
+-- The layout writer empties a tile that stops being a base.
+select public.assign_hive_formation_slots(
+    '00000000-0000-4000-8000-00000000f201',
+    (select jsonb_agg(jsonb_build_object(
+              'slot_id', s.slot_id,
+              'player_id', '00000000-0000-4000-8000-00000000f101'::uuid,
+              'pinned', true))
+       from (select slot_id from public.hive_formation_slots
+              where formation_id = '00000000-0000-4000-8000-00000000f201'
+              order by slot_id limit 1) s));
+select lives_ok(
+  $$ select public.save_hive_formation_layout(
+       '00000000-0000-4000-8000-00000000f201',
+       (select jsonb_agg(jsonb_build_object(
+                 'dx', s.dx, 'dy', s.dy, 'ordinal', s.ordinal, 'label', s.label,
+                 'span_x', s.span_x, 'span_y', s.span_y, 'colour', s.colour,
+                 'kind', case when s.pinned then 'structure' else s.kind end))
+          from public.hive_formation_slots s
+         where s.formation_id = '00000000-0000-4000-8000-00000000f201')) $$,
+  'a pinned base can be turned into a structure');
 
 -- 0173: PAST THE THRESHOLD THE GUARANTEE IS UNCHANGED, only the wording.
 --
