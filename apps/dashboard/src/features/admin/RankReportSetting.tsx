@@ -92,6 +92,42 @@ export function whyLabel(row: RankRow): string {
   return reason === '' ? 'score' : reason;
 }
 
+/** What went wrong with Rebuild or Send, in the words an officer can act on.
+ *
+ * ONE ERROR IS NOT LIKE THE OTHERS. `canceling statement due to statement
+ * timeout` says the database ran out of time, not that the answer is wrong or
+ * that the officer did anything they should not have — and printing it raw
+ * reads as a broken button, which is how it was reported on 2026-09-15.
+ * Pressing Rebuild again straight away worked, and wrote the period.
+ *
+ * It is not a slow query with a hot spot to fix, which is why this is a
+ * sentence rather than a migration. `build_rank_period` (0164) is ONE
+ * statement doing roughly 650 index probes for 81 members — two per member on
+ * `alliance_member_snapshots`, four on `alliance_contribution_snapshots`,
+ * three on `player_snapshots` and `season_building_snapshots`. Every one of
+ * them measures sub-millisecond against production, including the worst case
+ * (the members with no season building at all, whose probe walks their whole
+ * history). There is no slack, and the instance the collector writes to all
+ * day occasionally takes enough of it to cross the 8 second cap.
+ *
+ * The statement is rolled back whole, so "nothing was written" is a fact and
+ * not a reassurance: a timed-out Rebuild leaves the previous answer standing,
+ * and a timed-out Send posts nothing.
+ *
+ * Matched on the SQLSTATE first (57014 is query_canceled) and on the text only
+ * as a fallback, because the code is the part that will not be reworded.
+ */
+export function rpcFailureMessage(error: { code?: string | null; message: string }): string {
+  const timedOut = error.code === '57014' || error.message.includes('statement timeout');
+  if (!timedOut) {
+    return error.message;
+  }
+  return (
+    'The database ran out of time — it was busy, not broken. Nothing was written, ' +
+    'so nothing has changed. Press the button again.'
+  );
+}
+
 /** The period the Members tab will compare this one against.
  *
  * Mirrors `rank_period_movement` (0100): the newest earlier period that was
@@ -230,7 +266,7 @@ export function RankReportSetting() {
       // collector's name.
       const { data, error } = await supabase.rpc('announce_rank_period');
       if (error) {
-        throw new Error(error.message);
+        throw new Error(rpcFailureMessage(error));
       }
       return data as string;
     },
@@ -257,7 +293,7 @@ export function RankReportSetting() {
         p_apply_to_assigned: applyToAssigned,
       });
       if (error) {
-        throw new Error(error.message);
+        throw new Error(rpcFailureMessage(error));
       }
     },
     onSuccess: () => {
