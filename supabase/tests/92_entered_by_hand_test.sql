@@ -31,8 +31,8 @@ insert into public.players (player_id, server_id, game_uid, current_name, power,
 insert into public.collectors (collector_id, name)
 values ('00000000-0000-4000-8000-00000000e0c1', 'manual probe');
 
--- One batch, one captured_at (see CLAUDE.md). Alpha's power in the batch is
--- deliberately older than the 90 on `players`.
+-- One batch, one captured_at (see CLAUDE.md). Alpha is 50 in it; the update
+-- after it plays a server-rank reading that has since seen 90.
 insert into public.alliance_member_snapshots
   (observation_id, source_command, parser_version, idempotency_key, captured_at,
    collector_id, collected_from_server_id, alliance_id, server_id, player_id,
@@ -46,6 +46,14 @@ from (values
     ('00000000-0000-4000-8000-00000000e101'::uuid, 9220000000000101::bigint, 'Alpha', 4, 50::bigint),
     ('00000000-0000-4000-8000-00000000e102'::uuid, 9220000000000102::bigint, 'Bravo', 3, 80::bigint)
   ) as v(player_id, game_uid, name, member_rank, power);
+
+-- AFTER the batch, which is the order it happens in: the roster summary
+-- (0030) writes the batch's 50 onto `players` as it lands, and a later
+-- reading from elsewhere is what makes `players` fresher than the batch.
+-- Set before it, the 90 is simply overwritten and there is nothing fresher
+-- for a copied row to take.
+update public.players set power = 90
+ where player_id = '00000000-0000-4000-8000-00000000e101';
 
 insert into auth.users (id, instance_id, aud, role, email) values
   ('00000000-0000-4000-8000-00000000e302', '00000000-0000-0000-0000-000000000000',
