@@ -1,4 +1,4 @@
--- 0165: what a self-service claim may and may not do.
+-- 0175: what a self-service claim may and may not do.
 --
 -- §20.2 wants the negative case proved rather than assumed, and this function
 -- deliberately loosens 0066's rule that an account cannot link itself to a

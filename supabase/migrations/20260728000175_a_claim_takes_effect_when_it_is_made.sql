@@ -1,4 +1,10 @@
--- 0165: saying which character you are links you to it, now.
+-- 0175: saying which character you are links you to it, now.
+--
+-- Renumbered from 0165, which it was written as on a branch cut before the
+-- hive work took that number. Two files with one version stop `supabase
+-- start` at the second (schema_migrations is keyed on it), and against the
+-- hosted project the version already reads as applied, so `db push` would
+-- have skipped this file for good.
 --
 -- 0068 built claims as a REQUEST an admin decides, and 0066's rule behind it
 -- was that self-service linking would make the gate decorative. That gate was
