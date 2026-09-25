@@ -49,6 +49,12 @@ export interface BoardSlot extends AssignableSlot {
   playerName: string | null;
   hqLevel: number | null;
   power: number | null;
+  /** Settled: the next auto-fill leaves this member where they are.
+   *
+   * On the row rather than in the browser (0174), so it survives a reload and
+   * the other officers planning the same move can see it. Always false on an
+   * empty tile — a pin protects a placement, and there is none. */
+  pinned: boolean;
   /** False when the assigned member is off the newest roster. Null when the
    * tile is empty — nobody has left, because nobody was sent. */
   stillAMember: boolean | null;
@@ -153,7 +159,7 @@ export async function fetchBoard(formationId: string): Promise<BoardSlot[]> {
     supabase
       .from('hive_formation_board')
       .select(
-        'slot_id, ordinal, label, dx, dy, x, y, span_x, span_y, kind, colour, player_id, player_name, hq_level, power, still_a_member, assigned_at',
+        'slot_id, ordinal, label, dx, dy, x, y, span_x, span_y, kind, colour, pinned, player_id, player_name, hq_level, power, still_a_member, assigned_at',
       )
       .eq('formation_id', formationId)
       .order('ordinal')
@@ -197,6 +203,7 @@ export async function fetchBoard(formationId: string): Promise<BoardSlot[]> {
       playerName: row.player_name,
       hqLevel: row.hq_level,
       power: row.power === null ? null : Number(row.power),
+      pinned: row.pinned === true,
       stillAMember: row.still_a_member,
       assignedAt: row.assigned_at,
     });
@@ -355,7 +362,7 @@ export interface AssignmentSummary {
 
 export async function saveAssignments(
   formationId: string,
-  assignments: ReadonlyArray<{ slot_id: string; player_id: string | null }>,
+  assignments: ReadonlyArray<{ slot_id: string; player_id: string | null; pinned: boolean }>,
 ): Promise<AssignmentSummary> {
   const { data, error } = await supabase.rpc('assign_hive_formation_slots', {
     p_formation_id: formationId,
