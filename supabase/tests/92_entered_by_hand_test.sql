@@ -15,6 +15,14 @@ select plan(37);
 update public.alliances set is_own = false where is_own;
 insert into public.alliances (alliance_id, server_id, external_id, current_name, is_own, member_count)
 values ('00000000-0000-4000-8000-00000000e001', 580, 'ext-manual', 'ManualTest', true, 2);
+-- PINNED, not just flagged. Without a pin, resolve_own_alliance (0032)
+-- re-derives `is_own` from every alliance whose roster was ever seen
+-- unredacted — the seed's included — the moment the batch below lands, and
+-- set_roster_membership rightly refuses to guess between two.
+delete from public.app_settings where key = 'own_alliance';
+insert into public.app_settings (key, value)
+values ('own_alliance', '{"alliance_id": "00000000-0000-4000-8000-00000000e001"}');
+select public.resolve_own_alliance();
 insert into public.players (player_id, server_id, game_uid, current_name, power, hq_level) values
   ('00000000-0000-4000-8000-00000000e101', 580, 9220000000000101, 'Alpha', 90, 30),
   ('00000000-0000-4000-8000-00000000e102', 580, 9220000000000102, 'Bravo', 80, 29),
