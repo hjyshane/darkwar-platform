@@ -87,7 +87,7 @@ export function PlayerClaimForm() {
     }
     setBusy(true);
     setMessage(null);
-    // `claim_player` rather than an insert into `player_claims` (0165). The
+    // `claim_player` rather than an insert into `player_claims` (0175). The
     // link now happens in the same call, and it has to: writing the row from
     // here could never touch `app_users`, which is what a claim is actually
     // for. The function also refuses a character another account already
@@ -129,7 +129,7 @@ export function PlayerClaimForm() {
   }
 
   // A pending row is now history rather than a state this form produces
-  // (0165): claiming links you in the same call. One can still be here — filed
+  // (0175): claiming links you in the same call. One can still be here — filed
   // by an older client before the change, or by somebody the function refused —
   // and it is still worth naming, because picking again is what clears it.
   const pending = claim?.status === 'pending' ? nameOf(claim.player_id) : null;

@@ -156,6 +156,17 @@ jobs:
         run: |
           curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz | tar xz gitleaks
           ./gitleaks git --no-banner --redact
+      # The version is the key of supabase_migrations.schema_migrations. Two
+      # files sharing one stop `supabase start` at the second, and against the
+      # hosted project the second reads as already applied, so `db push`
+      # skips it without a word. #255 merged a 0165 on top of the hive's 0165.
+      - name: Reject two migrations with one version
+        run: |
+          dupes=$(ls supabase/migrations | sed -E 's/_.*//' | sort | uniq -d)
+          if [ -n "$dupes" ]; then
+            echo "::error::migration versions used twice: $dupes"
+            exit 1
+          fi
       # Matches import STATEMENTS only. The previous pattern was
       # `(from|import)[^\n]*legacy`, which also matched prose — every
       # promoted parser's docstring says "promoted from legacy/v0.4.1",
