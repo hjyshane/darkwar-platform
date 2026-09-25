@@ -100,6 +100,21 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
   // member who reaches the Rebuild button gets the function's own 42501, not
   // a wrong rebuild.
   { group: 'alliance', id: 'rank-report-heading', heading: 'Rank changes', requires: null },
+  // enter_weekly_scores(), set_roster_membership() -> data.enter (0176).
+  // Officers hold it: the collector going down is not something to route
+  // through an admin.
+  {
+    group: 'alliance',
+    id: 'manual-scores-heading',
+    heading: 'Scores by hand',
+    requires: capability('data.enter'),
+  },
+  {
+    group: 'alliance',
+    id: 'manual-roster-heading',
+    heading: 'Roster by hand',
+    requires: capability('data.enter'),
+  },
 
   {
     group: 'display',

@@ -5666,6 +5666,10 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      enter_weekly_scores: {
+        Args: { p_entries: Json; p_week_start: string }
+        Returns: number
+      }
       has_permission: { Args: { p_capability: string }; Returns: boolean }
       is_service_request: { Args: never; Returns: boolean }
       leave_alliance: { Args: never; Returns: undefined }
@@ -5753,7 +5757,22 @@ export type Database = {
         Args: { p_name: string; p_note: string; p_slots: Json }
         Returns: string
       }
+      set_roster_membership: {
+        Args: { p_member: boolean; p_player_id: string }
+        Returns: number
+      }
       tier_rank: { Args: { p_tier: string }; Returns: number }
+      week_scores: {
+        Args: { p_week_start: string }
+        Returns: {
+          current_name: string
+          donation: number
+          donation_typed: boolean
+          duel: number
+          duel_typed: boolean
+          player_id: string
+        }[]
+      }
       world_cities_in_box: {
         Args: {
           p_server_id: number

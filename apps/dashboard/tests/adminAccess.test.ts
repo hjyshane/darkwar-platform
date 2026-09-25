@@ -17,9 +17,11 @@ const SEEDED: RolePermission[] = [
   { role: 'admin', capability: 'members.manage', allowed: true },
   { role: 'admin', capability: 'settings.write', allowed: true },
   { role: 'admin', capability: 'catalogue.write', allowed: true },
+  { role: 'admin', capability: 'data.enter', allowed: true },
   { role: 'officer', capability: 'members.manage', allowed: false },
   { role: 'officer', capability: 'settings.write', allowed: false },
   { role: 'officer', capability: 'catalogue.write', allowed: false },
+  { role: 'officer', capability: 'data.enter', allowed: true },
 ];
 
 /** The grant that motivated all of this: officers approve player claims, so
@@ -61,6 +63,7 @@ group('the section map', () => {
       'guide.write',
       'guide.edit',
       'guide.delete',
+      'data.enter',
     ]);
     for (const section of ADMIN_SECTIONS) {
       if (section.requires?.kind === 'capability') {

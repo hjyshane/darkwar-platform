@@ -11,6 +11,7 @@
 // column grants, or PostgREST behaviour. It shows layout, typography,
 // spacing, empty states and navigation. Nothing else.
 
+import { recentWeeks } from '../features/admin/ManualScoresSetting';
 import { vacateDeparted } from '../features/hive/hiveFormations';
 import { calendarRange } from '../lib/calendar';
 
@@ -193,6 +194,12 @@ const CROSS_ROWS = [
 
 const CAPABILITIES = [
   { capability: 'members.view', label: 'See the Members screen', description: '', sort_order: 5 },
+  {
+    capability: 'data.enter',
+    label: 'Enter data by hand',
+    description: 'Type in weekly scores and roster changes for weeks the collector could not run.',
+    sort_order: 120,
+  },
   {
     capability: 'hive.plan',
     label: 'Plan a hive formation',
@@ -1016,6 +1023,37 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
   [['admin-own-alliance'], { alliance_id: ALLIANCE.ours, current_name: 'HELLBOUND' }],
   [['rank-tiers'], []],
   [['rank-report'], []],
+  // One of each state the entry screen draws: captured (no box), typed (a
+  // box to correct it), and nothing yet.
+  [
+    ['week-scores', recentWeeks(new Date(), 1)[0]],
+    [
+      {
+        player_id: PLAYER.dex,
+        current_name: 'Dex',
+        duel: null,
+        duel_typed: null,
+        donation: null,
+        donation_typed: null,
+      },
+      {
+        player_id: PLAYER.mira,
+        current_name: 'Mira',
+        duel: 1_850_000,
+        duel_typed: true,
+        donation: null,
+        donation_typed: null,
+      },
+      {
+        player_id: PLAYER.shane,
+        current_name: 'Shane',
+        duel: 2_400_000,
+        duel_typed: false,
+        donation: 91_000,
+        donation_typed: false,
+      },
+    ],
+  ],
 
   // The overview's notice block. PINNED ONLY now — the rest are on the Notices
   // board — so a fixture of unpinned rows would show an empty block and look
