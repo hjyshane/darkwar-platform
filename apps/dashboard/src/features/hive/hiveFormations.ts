@@ -59,6 +59,41 @@ export interface BoardSlot extends AssignableSlot {
    * tile is empty — nobody has left, because nobody was sent. */
   stillAMember: boolean | null;
   assignedAt: string | null;
+  /** Who was on this tile before they left the alliance, for the screen to
+   * say so. The tile itself reads as empty — see `vacateDeparted`. */
+  departedName: string | null;
+}
+
+/** A member who has left gives their tile up, as far as every screen is
+ * concerned.
+ *
+ * THE TILE READS AS EMPTY THE MOMENT THE ROSTER SAYS THEY ARE GONE, rather
+ * than holding them until an officer notices. Held, the tile was a "?" in the
+ * editor — they are not in the member list any more, so there is no name to
+ * put there — that Fill would not touch, because it looked taken.
+ *
+ * Emptied here, on the way in, and not only in the editor: the members' map,
+ * the tile count and the copied list all read the same board, and a tile the
+ * editor treats as free must not tell everybody else that somebody is coming.
+ *
+ * The row keeps the old member until the next save of the assignments, which
+ * writes the empty tile back. If they rejoin first, the roster says so and
+ * they are simply back where they were.
+ */
+export function vacateDeparted(slot: BoardSlot): BoardSlot {
+  if (slot.stillAMember !== false) {
+    return slot;
+  }
+  return {
+    ...slot,
+    playerId: null,
+    playerName: null,
+    hqLevel: null,
+    power: null,
+    pinned: false,
+    stillAMember: null,
+    departedName: slot.playerName ?? '?',
+  };
 }
 
 export interface OccupiedTile {
@@ -187,26 +222,29 @@ export async function fetchBoard(formationId: string): Promise<BoardSlot[]> {
     ) {
       continue;
     }
-    slots.push({
-      slotId: row.slot_id,
-      ordinal: row.ordinal ?? 0,
-      label: row.label ?? '',
-      spanX: row.span_x ?? 3,
-      spanY: row.span_y ?? 3,
-      kind: row.kind === 'structure' ? 'structure' : 'base',
-      colour: (row.colour ?? null) as TileColour | null,
-      dx: row.dx,
-      dy: row.dy,
-      x: row.x,
-      y: row.y,
-      playerId: row.player_id,
-      playerName: row.player_name,
-      hqLevel: row.hq_level,
-      power: row.power === null ? null : Number(row.power),
-      pinned: row.pinned === true,
-      stillAMember: row.still_a_member,
-      assignedAt: row.assigned_at,
-    });
+    slots.push(
+      vacateDeparted({
+        slotId: row.slot_id,
+        ordinal: row.ordinal ?? 0,
+        label: row.label ?? '',
+        spanX: row.span_x ?? 3,
+        spanY: row.span_y ?? 3,
+        kind: row.kind === 'structure' ? 'structure' : 'base',
+        colour: (row.colour ?? null) as TileColour | null,
+        dx: row.dx,
+        dy: row.dy,
+        x: row.x,
+        y: row.y,
+        playerId: row.player_id,
+        playerName: row.player_name,
+        hqLevel: row.hq_level,
+        power: row.power === null ? null : Number(row.power),
+        pinned: row.pinned === true,
+        stillAMember: row.still_a_member,
+        assignedAt: row.assigned_at,
+        departedName: null,
+      }),
+    );
   }
   return slots;
 }

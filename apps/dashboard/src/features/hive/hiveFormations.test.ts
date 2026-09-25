@@ -5,7 +5,7 @@
 // whole with its last 200 tiles missing.
 
 import { describe, expect, test } from 'vitest';
-import { everyPage } from './hiveFormations';
+import { type BoardSlot, everyPage, vacateDeparted } from './hiveFormations';
 
 function table(rows: number) {
   const all = Array.from({ length: rows }, (_, i) => i);
@@ -56,5 +56,64 @@ describe('everyPage', () => {
     });
     expect(error?.code).toBe('57014');
     expect(data).toHaveLength(1000);
+  });
+});
+
+// A member who left gives their tile up.
+
+function boardSlot(over: Partial<BoardSlot> = {}): BoardSlot {
+  return {
+    slotId: 'a',
+    ordinal: 1,
+    label: '',
+    spanX: 3,
+    spanY: 3,
+    kind: 'base',
+    colour: null,
+    dx: 0,
+    dy: 0,
+    x: 512,
+    y: 388,
+    playerId: 'kova',
+    playerName: 'Kova',
+    hqLevel: 30,
+    power: 39_500_000,
+    pinned: true,
+    stillAMember: false,
+    assignedAt: null,
+    departedName: null,
+    ...over,
+  };
+}
+
+describe('vacateDeparted', () => {
+  test('a member off the roster leaves an empty tile, not a "?"', () => {
+    // The bug: the tile kept a member the editor no longer had a name for,
+    // and Fill would not touch it because it looked taken.
+    const slot = vacateDeparted(boardSlot());
+
+    expect(slot.playerId).toBeNull();
+    expect(slot.playerName).toBeNull();
+    expect(slot.stillAMember).toBeNull();
+  });
+
+  test('their pin goes with them', () => {
+    // A pin on an empty tile is refused by the database (0174), and would
+    // stop the next Fill from using the tile.
+    expect(vacateDeparted(boardSlot()).pinned).toBe(false);
+  });
+
+  test('who left is kept for the screen to say', () => {
+    expect(vacateDeparted(boardSlot()).departedName).toBe('Kova');
+  });
+
+  test('a member still on the roster is left exactly where they are', () => {
+    const slot = boardSlot({ stillAMember: true });
+    expect(vacateDeparted(slot)).toBe(slot);
+  });
+
+  test('an empty tile is left alone', () => {
+    const slot = boardSlot({ playerId: null, playerName: null, pinned: false, stillAMember: null });
+    expect(vacateDeparted(slot)).toBe(slot);
   });
 });

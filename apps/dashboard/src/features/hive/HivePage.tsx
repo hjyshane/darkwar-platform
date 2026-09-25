@@ -253,7 +253,6 @@ function Overview({
     // this is what lets somebody check it against the shape before they
     // teleport, which is the whole reason the picture is here.
     own: ownPlayerId !== null && slot.playerId === ownPlayerId,
-    stale: slot.stillAMember === false,
   }));
 
   const stand = useMutation({
@@ -271,7 +270,7 @@ function Overview({
         `${slot.ordinal}. ${slot.playerName ?? '(nobody)'} → ${formatCoordinate({ x: slot.x, y: slot.y })}${slot.label === '' ? '' : ` (${slot.label})`}`,
     )
     .join('\n');
-  const departed = board.filter((slot) => slot.stillAMember === false);
+  const departed = board.filter((slot) => slot.departedName !== null);
 
   return (
     <>
@@ -283,10 +282,9 @@ function Overview({
       </p>
 
       {departed.length > 0 && (
-        <p className="error">
-          {departed.length} tile{departed.length === 1 ? ' is' : 's are'} assigned to somebody who
-          is no longer on the roster ({departed.map((slot) => slot.playerName ?? '?').join(', ')}).
-          Nobody is coming to stand there.
+        <p className="subtle">
+          {departed.length} tile{departed.length === 1 ? ' is' : 's are'} empty again because the
+          member left the alliance ({departed.map((slot) => slot.departedName).join(', ')}).
         </p>
       )}
 
