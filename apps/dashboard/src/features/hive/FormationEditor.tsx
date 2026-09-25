@@ -1044,8 +1044,6 @@ export function FormationEditor({
     // position made their name vanish the instant it was put down — which
     // reads as "I have just deleted this person" rather than "I have moved
     // them".
-    const savedSlot =
-      slot.slotId === null ? undefined : slots.find((row) => row.slotId === slot.slotId);
     const assigned = slot.slotId === null ? undefined : assignments.get(slot.slotId);
     return {
       key: offsetKey(slot),
@@ -1063,7 +1061,6 @@ export function FormationEditor({
           ? String(numbering.get(offsetKey(slot)) ?? '?')
           : (byId.get(assigned)?.name ?? '?'),
       own: assigned !== undefined && assigned === ownPlayerId,
-      stale: savedSlot?.stillAMember === false,
     };
   });
 

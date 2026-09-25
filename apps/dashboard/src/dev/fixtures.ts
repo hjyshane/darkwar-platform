@@ -11,6 +11,7 @@
 // column grants, or PostgREST behaviour. It shows layout, typography,
 // spacing, empty states and navigation. Nothing else.
 
+import { vacateDeparted } from '../features/hive/hiveFormations';
 import { calendarRange } from '../lib/calendar';
 
 const PLAYER = {
@@ -435,7 +436,8 @@ const HIVE_FORMATIONS = [
 const HIVE_MEMBERS = [
   { playerId: PLAYER.shane, name: 'Shane', power: 61_200_000, hqLevel: 30, memberRank: 5 },
   { playerId: PLAYER.mira, name: 'Mira', power: 48_000_000, hqLevel: 29, memberRank: 4 },
-  { playerId: PLAYER.kova, name: 'Kova', power: 39_500_000, hqLevel: 28, memberRank: 3 },
+  // Not Kova: the board below has them off the roster, and `member_roster`
+  // is the roster, so a member who left is not somebody Fill can hand a tile.
   // No power read yet, which is the case the ordering is most likely to get
   // wrong — it must sort LAST rather than first.
   { playerId: PLAYER.dex, name: 'Dex', power: null, hqLevel: null, memberRank: 1 },
@@ -457,30 +459,35 @@ const HIVE_SLOTS = [
   { dx: 0, dy: -3 },
   // A 1x1 marker, to see the smallest tile beside the biggest.
   { dx: 4, dy: -3, spanX: 1, spanY: 1, kind: 'structure' as const, colour: 'red' as const },
-].map((offset, index) => ({
-  slotId: `slot-${index + 1}`,
-  ordinal: index + 1,
-  label: offset.kind === 'structure' ? (offset.spanX === 1 ? 'keep clear' : 'Frankie') : '',
-  dx: offset.dx,
-  dy: offset.dy,
-  spanX: offset.spanX ?? 3,
-  spanY: offset.spanY ?? 3,
-  kind: offset.kind ?? ('base' as const),
-  colour: offset.colour ?? null,
-  x: HIVE_ANCHOR.x + offset.dx,
-  y: HIVE_ANCHOR.y + offset.dy,
-  playerId:
-    offset.kind === 'structure'
-      ? null
-      : ([PLAYER.shane, PLAYER.mira, PLAYER.kova, PLAYER.dex][index - 1] ?? null),
-  playerName:
-    offset.kind === 'structure' ? null : (['Shane', 'Mira', 'Kova', 'Dex'][index - 1] ?? null),
-  hqLevel: 30,
-  power: 61_200_000,
-  pinned: false,
-  stillAMember: index === 3 ? false : index >= 1 && index <= 4 ? true : null,
-  assignedAt: index >= 1 && index <= 4 ? ago(90) : null,
-}));
+]
+  .map((offset, index) => ({
+    slotId: `slot-${index + 1}`,
+    ordinal: index + 1,
+    label: offset.kind === 'structure' ? (offset.spanX === 1 ? 'keep clear' : 'Frankie') : '',
+    dx: offset.dx,
+    dy: offset.dy,
+    spanX: offset.spanX ?? 3,
+    spanY: offset.spanY ?? 3,
+    kind: offset.kind ?? ('base' as const),
+    colour: offset.colour ?? null,
+    x: HIVE_ANCHOR.x + offset.dx,
+    y: HIVE_ANCHOR.y + offset.dy,
+    playerId:
+      offset.kind === 'structure'
+        ? null
+        : ([PLAYER.shane, PLAYER.mira, PLAYER.kova, PLAYER.dex][index - 1] ?? null),
+    playerName:
+      offset.kind === 'structure' ? null : (['Shane', 'Mira', 'Kova', 'Dex'][index - 1] ?? null),
+    hqLevel: 30,
+    power: 61_200_000,
+    pinned: false,
+    stillAMember: index === 3 ? false : index >= 1 && index <= 4 ? true : null,
+    assignedAt: index >= 1 && index <= 4 ? ago(90) : null,
+    departedName: null,
+    // Through the same step the real read takes, so Kova (who has left) shows
+    // here the way a departed member shows on the live board: as an empty tile.
+  }))
+  .map(vacateDeparted);
 
 export const SESSION = {
   email: 'you@example.invalid',
