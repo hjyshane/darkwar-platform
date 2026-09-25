@@ -4211,6 +4211,38 @@ button.tile-grid:hover:not(:disabled) {
   }
 }
 
+/* The members an officer drags onto the editor's map. Unplaced first and at
+ * full strength; placed ones stay draggable (to move them) but step back. */
+.hive-palette {
+  list-style: none;
+  padding: 0;
+  margin-top: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  max-height: 7.5rem;
+  overflow-y: auto;
+  margin-bottom: var(--space-2);
+}
+
+.hive-palette__member {
+  padding: 2px var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: var(--text-sm);
+  cursor: grab;
+  user-select: none;
+  background: var(--bg-raised);
+}
+
+.hive-palette__member:active {
+  cursor: grabbing;
+}
+
+.hive-palette__member--placed {
+  opacity: 0.5;
+}
+
 .hive-count {
   font-size: var(--text-sm);
   color: var(--fg-muted);

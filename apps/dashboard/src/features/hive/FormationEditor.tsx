@@ -38,6 +38,7 @@ import {
 import {
   type GridBase,
   type GridSighting,
+  MEMBER_DRAG_TYPE,
   TileGrid,
   ZOOM_STEPS,
   pannedCentre,
@@ -78,7 +79,7 @@ import {
  *
  * Null for a tile drawn since the board was read, which has nobody on it yet.
  */
-interface DraftSlot extends SizedOffset {
+export interface DraftSlot extends SizedOffset {
   ordinal: number;
   label: string;
   kind: TileKind;
@@ -107,6 +108,73 @@ export function placementsOf(
         : [[offsetKey(tile), { playerId, pinned: pinned.get(tile.slotId) === playerId }] as const];
     }),
   );
+}
+
+/** A slot id for a tile that has not been saved yet.
+ *
+ * `assignments` is keyed by slot id, and a base drawn by dropping somebody on
+ * empty ground has none until the layout is written. A stand-in lets the
+ * member ride on it like any other tile — `placementsOf` reads it by that key
+ * and the save maps it to the real id by where the tile stands. The prefix is
+ * what tells one apart from an id the database gave out.
+ */
+function draftSlotId(): string {
+  return `draft:${crypto.randomUUID()}`;
+}
+
+/** What dropping a member on a tile would do.
+ *
+ * ONTO A MEMBER'S BASE, it hands them that base. ON FREE GROUND, it draws a
+ * new 3x3 for them there, centred on the tile under the pointer, exactly as a
+ * click would. Anything else — a structure, ground a new base would overlap,
+ * the edge of the map — is refused, with the reason the officer needs to aim
+ * again.
+ */
+export type DropTarget =
+  | { kind: 'onto'; key: string }
+  | { kind: 'new'; tile: SizedOffset }
+  | { kind: 'refused'; reason: string };
+
+export function dropTarget(
+  drawn: readonly DraftSlot[],
+  anchor: Coordinate,
+  at: Coordinate,
+): DropTarget {
+  const hit = drawn.find((slot) => {
+    const box = footprintOf(absoluteOf(anchor, slot), slot.spanX, slot.spanY);
+    return at.x >= box.x0 && at.x <= box.x1 && at.y >= box.y0 && at.y <= box.y1;
+  });
+  if (hit !== undefined) {
+    return isMemberBase(hit)
+      ? { kind: 'onto', key: offsetKey(hit) }
+      : {
+          kind: 'refused',
+          reason: `${hit.label === '' ? 'That tile' : hit.label} is ground, not a base — nobody can stand on it.`,
+        };
+  }
+  const tile: SizedOffset = {
+    dx: at.x - anchor.x,
+    dy: at.y - anchor.y,
+    spanX: BASE_SPAN,
+    spanY: BASE_SPAN,
+  };
+  if (!tileFitsOnMap(at, BASE_SPAN, BASE_SPAN)) {
+    return {
+      kind: 'refused',
+      reason: `A base centred on ${formatCoordinate(at)} would need ground off the edge of the map.`,
+    };
+  }
+  if (!canPlace(drawn, tile)) {
+    const clash = drawn.find((slot) => tilesOverlap(slot, tile));
+    return {
+      kind: 'refused',
+      reason:
+        clash === undefined
+          ? 'That ground is taken.'
+          : `A base there would share ground with the tile at ${formatCoordinate(absoluteOf(anchor, clash))}. Drop them on a base, or on free ground.`,
+    };
+  }
+  return { kind: 'new', tile };
 }
 
 /** A typed span, or the one already there. A half-typed box must not silently
@@ -939,8 +1007,68 @@ export function FormationEditor({
     setRefusal(notes.length === 0 ? null : `${usable.length} bases drawn — ${notes.join(', ')}.`);
   }
 
+  /** A member dropped on the map from the list above it.
+   *
+   * THE SAME DECISION AS THE DROPDOWN, reached by pointing instead of
+   * scrolling: the member is taken off wherever they were, put on this tile,
+   * and pinned — choosing somebody by hand is a pin, or the next Fill would
+   * quietly move them. Whoever stood on the tile before goes back to the list.
+   */
+  function dropMember(playerId: string, at: Coordinate) {
+    const target = dropTarget(drawn, anchor, at);
+    if (target.kind === 'refused') {
+      setRefusal(target.reason);
+      return;
+    }
+    if (target.kind === 'new' && draft.size + 1 > MAX_TILES) {
+      setRefusal(`This formation already holds ${draft.size} tiles, the most one can.`);
+      return;
+    }
+    const next = new Map(draft);
+    let slotId: string;
+    if (target.kind === 'onto') {
+      const held = draft.get(target.key);
+      if (held === undefined) {
+        return;
+      }
+      slotId = held.slotId ?? draftSlotId();
+      if (held.slotId === null) {
+        next.set(target.key, { ...held, slotId });
+      }
+    } else {
+      slotId = draftSlotId();
+      next.set(offsetKey(target.tile), {
+        ...target.tile,
+        ordinal: draft.size + 1,
+        label: '',
+        kind: 'base',
+        colour: null,
+        slotId,
+      });
+    }
+    const placed = new Map(
+      [...assignments].filter(([key, id]) => id !== playerId && liveSlotIds.has(key)),
+    );
+    const pins = new Map([...pinned].filter(([, id]) => id !== playerId));
+    placed.set(slotId, playerId);
+    pins.set(slotId, playerId);
+    setDraft(next);
+    setAssignments(placed);
+    setPinned(pins);
+    setRefusal(null);
+  }
+
   const byId = new Map(members.map((member) => [member.playerId, member]));
-  const placedIds = new Set(assignments.values());
+  // Only assignments that still point at a tile. A stand-in id outlives its
+  // tile when the tile is taken away again before a save, and counting it
+  // would leave that member looking placed while standing nowhere.
+  const liveSlotIds = new Set([
+    ...slots.map((slot) => slot.slotId),
+    ...drawn.flatMap((slot) => (slot.slotId === null ? [] : [slot.slotId])),
+  ]);
+  const placedIds = new Set(
+    [...assignments].flatMap(([slotId, playerId]) => (liveSlotIds.has(slotId) ? [playerId] : [])),
+  );
   const unplaced = members.filter((member) => !placedIds.has(member.playerId));
   // Only tiles a member's city can stand on. Structures hold ground rather
   // than people — the database refuses a player on one anyway — and a
@@ -1076,11 +1204,48 @@ export function FormationEditor({
     <>
       <div className="hive-editor">
         <div className="hive-editor__map">
+          {/* THE PEOPLE, WHERE THE GROUND IS. Placing a member used to mean
+              finding their tile's row in the table below and scrolling a
+              dropdown of eighty names; dragging them onto the square is the
+              same decision made by pointing at it. The dropdown stays for
+              keyboards and phones, which HTML drag and drop does not reach. */}
+          <ul aria-label="Members to place" className="hive-palette">
+            {[
+              ...sortMembers(unplaced, order),
+              ...sortMembers(
+                members.filter((member) => placedIds.has(member.playerId)),
+                order,
+              ),
+            ].map((member) => (
+              <li
+                className={
+                  placedIds.has(member.playerId)
+                    ? 'hive-palette__member hive-palette__member--placed'
+                    : 'hive-palette__member'
+                }
+                draggable
+                key={member.playerId}
+                onDragStart={(event) => {
+                  event.dataTransfer.setData(MEMBER_DRAG_TYPE, member.playerId);
+                  event.dataTransfer.effectAllowed = 'move';
+                }}
+                title={
+                  placedIds.has(member.playerId)
+                    ? `${memberLabel(member)} — placed; drop them somewhere else to move them`
+                    : `${memberLabel(member)} — drag onto the map`
+                }
+              >
+                {member.name ?? 'unnamed'}
+              </li>
+            ))}
+          </ul>
           <TileGrid
             anchor={anchor}
             bases={bases}
             busy={layoutSave.isPending}
+            canDropAt={(at) => dropTarget(drawn, anchor, at).kind !== 'refused'}
             canMoveTo={canMove}
+            onDropMember={dropMember}
             onMove={move}
             onPick={pick}
             onPan={(byX, byY) => setCentre((from) => pannedCentre(from, byX, byY))}
@@ -1097,12 +1262,13 @@ export function FormationEditor({
             window={view}
           />
           <p className="subtle">
-            Click free ground to place a base, click a base to take it away. Each one is {BASE_SPAN}
-            x{BASE_SPAN} tiles and the coordinate is the middle. Drag from empty ground to slide the
-            map — or hold <kbd>ctrl</kbd>, which works while an area tool is on too. The wheel
-            zooms. Shaded squares are where the map last SAW somebody — a base that was destroyed or
-            lost its shield has been teleported somewhere random, so treat them as a hint and not as
-            a wall.
+            Drag a name from the list above onto the map: on free ground it draws their base there,
+            on a base it puts them on it. Click free ground to place a base, click a base to take it
+            away. Each one is {BASE_SPAN}x{BASE_SPAN} tiles and the coordinate is the middle. Drag
+            from empty ground to slide the map — or hold <kbd>ctrl</kbd>, which works while an area
+            tool is on too. The wheel zooms. Shaded squares are where the map last SAW somebody — a
+            base that was destroyed or lost its shield has been teleported somewhere random, so
+            treat them as a hint and not as a wall.
           </p>
           <fieldset className="hive-zoom">
             <legend>Zoom</legend>
@@ -1518,9 +1684,9 @@ export function FormationEditor({
       <h3>Who goes where</h3>
       {dirty ? (
         <p className="empty">
-          Save the shape first. A tile has no identity until it is saved, so there is nothing to
-          assign anybody to yet — and assigning eighty people to ground that is about to move is how
-          a plan goes out wrong.
+          This list comes back once the shape is saved — it reads the saved tiles, and some of these
+          are not saved yet. Until then, drag names from above the map onto the bases; Save keeps
+          them where they were dropped.
         </p>
       ) : ordered.length === 0 ? (
         <p className="empty">
