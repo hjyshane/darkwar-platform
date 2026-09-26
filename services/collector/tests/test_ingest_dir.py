@@ -148,6 +148,42 @@ def test_an_unreadable_file_is_not_retried_forever(tmp_path: Path) -> None:
     assert "done: 0 file(s)" in second.output
 
 
+def test_delete_ingested_unlinks_what_was_journalled(tmp_path: Path) -> None:
+    # The ring assumption failed in practice: dumpcap's `-b files:` cap only
+    # deletes files from ITS OWN run, so restarts accumulated 69,000 files
+    # and every poll stat'd all of them. Once a file's events are in the
+    # journal it has no second job — and it carries the session signature.
+    directory = tmp_path / "captures"
+    directory.mkdir()
+    _touch(directory / "a_junk.pcapng", age_seconds=600)
+    _touch(directory / "current.pcapng", age_seconds=1)
+    db = tmp_path / "journal.db"
+
+    result = runner.invoke(
+        app, ["ingest-dir", "--dir", str(directory), "--db", str(db), "--delete-ingested"]
+    )
+
+    assert result.exit_code == 0, result.output
+    # The journalled (here: unreadable, marked done) file is gone; the file
+    # dumpcap is still writing is not touched.
+    assert not (directory / "a_junk.pcapng").exists()
+    assert (directory / "current.pcapng").exists()
+
+
+def test_without_the_flag_ingested_files_stay(tmp_path: Path) -> None:
+    # Deleting somebody's captures is opt-in, not a side effect of ingesting
+    # them: scan-capture style directories are also fed through this command.
+    directory = tmp_path / "captures"
+    directory.mkdir()
+    _touch(directory / "a_junk.pcapng", age_seconds=600)
+    db = tmp_path / "journal.db"
+
+    result = runner.invoke(app, ["ingest-dir", "--dir", str(directory), "--db", str(db)])
+
+    assert result.exit_code == 0, result.output
+    assert (directory / "a_junk.pcapng").exists()
+
+
 def test_a_real_capture_yields_its_roster(tmp_path: Path) -> None:
     # The value this whole path exists to produce. Skipped where the capture
     # is absent, because it holds a UID and session signature and stays out

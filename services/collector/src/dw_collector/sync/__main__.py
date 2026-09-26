@@ -20,8 +20,19 @@ log = structlog.get_logger()
 
 
 def _last_packet_at(journal: Journal) -> datetime | None:
-    """Newest journalled observation — the collector's proof of life."""
-    row = journal.conn.execute("select max(captured_at) from raw_observations").fetchone()
+    """Newest journalled observation — the collector's proof of life.
+
+    By rowid, not `max(captured_at)`: captured_at is unindexed, so the max
+    was a full scan of the journal's biggest table EVERY heartbeat — a third
+    of a core, forever, once the table reached a few million rows. The last
+    row WRITTEN is also the more honest proof of life: a replay of old
+    traffic writes old captured_at values, and what the heartbeat is really
+    asserting is that the journal is still being written, which is the same
+    rowid reasoning `watermark()` documents.
+    """
+    row = journal.conn.execute(
+        "select captured_at from raw_observations order by rowid desc limit 1"
+    ).fetchone()
     return datetime.fromisoformat(row[0]) if row and row[0] else None
 
 

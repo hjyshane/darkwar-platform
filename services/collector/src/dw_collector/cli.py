@@ -650,6 +650,21 @@ def scan_capture(
     )
 
 
+def _discard_capture(pcap: Path, *, wanted: bool) -> None:
+    """Unlink an ingested capture, tolerating whoever got there first.
+
+    An unlink that fails is reported and NOT retried: the file's name is
+    already in the done set, so every later poll skips it either way, and
+    the failure mode is a stray file rather than a stalled loop.
+    """
+    if not wanted:
+        return
+    try:
+        pcap.unlink()
+    except OSError as exc:
+        typer.echo(f"{pcap.name}  kept: {exc}", err=True)
+
+
 @app.command("ingest-dir")
 def ingest_dir(
     directory: Annotated[Path, typer.Option("--dir", exists=True, file_okay=False)],
@@ -662,6 +677,13 @@ def ingest_dir(
     interval_seconds: Annotated[
         float, typer.Option(help="0 runs once and exits; otherwise poll forever")
     ] = 0.0,
+    delete_ingested: Annotated[
+        bool,
+        typer.Option(
+            "--delete-ingested",
+            help="unlink a capture file once its events are journalled",
+        ),
+    ] = False,
 ) -> None:
     """Ingest pcapng files a capture engine leaves in a directory.
 
@@ -673,14 +695,27 @@ def ingest_dir(
 
     Files already read are recorded in the journal, so restarting does not
     re-read the ring.
+
+    `--delete-ingested` exists because the ring assumption failed in
+    practice: dumpcap's `-b files:` cap only deletes what DUMPCAP wrote in
+    THIS run, so restarts leave the previous run's files behind forever, and
+    the live directory reached 69,000 files. Every one of them was stat'd on
+    every poll, which is where a third of a core went. The journal is the
+    record; a capture file that is in it has no second job, and it carries
+    the session signature besides.
     """
     collector_id = uuid.UUID(
         os.environ.get("DW_COLLECTOR_ID", "00000000-0000-4000-8000-00000000c777")
     )
     journal = _open_journal(db)
     try:
+        # Read ONCE, then maintained in memory. This poll loop is the only
+        # writer of ingested_captures for its directory, so re-fetching the
+        # whole table every tick only ever re-read what this process itself
+        # had just written — at 130,000 names, that query and the set built
+        # from it were most of the loop's idle cost.
+        done = journal.ingested_captures()
         while True:
-            done = journal.ingested_captures()
             pending = [p for p in _ready_captures(directory, min_age_seconds) if p.name not in done]
             for pcap in pending:
                 fallback = datetime.now(tz=UTC)
@@ -702,9 +737,16 @@ def ingest_dir(
                     # valid, and retrying it every poll would lose
                     # everything after it instead of just that window.
                     journal.mark_capture_ingested(pcap.name, 0)
+                    done.add(pcap.name)
+                    _discard_capture(pcap, wanted=delete_ingested)
                     typer.echo(f"{pcap.name}  UNREADABLE {exc}", err=True)
                     continue
                 journal.mark_capture_ingested(pcap.name, result.events)
+                done.add(pcap.name)
+                # Only after the mark is committed: a deleted-but-unmarked
+                # file would be data lost, a marked-but-undeleted one is just
+                # a file the next poll skips.
+                _discard_capture(pcap, wanted=delete_ingested)
                 typer.echo(
                     f"{pcap.name}  ingested={result.ingested} discovered={result.discovered}"
                     f" rejected={result.rejected} commands={len(result.commands)}"

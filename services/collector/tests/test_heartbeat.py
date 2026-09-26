@@ -64,3 +64,37 @@ def test_report_writes_history_and_summary(journal: Journal) -> None:
     assert calls[1][1] == "/rest/v1/collectors"
     assert calls[1][2]["status"] == "healthy"
     assert calls[1][2]["last_heartbeat_at"] == NOW.isoformat()
+
+
+def test_proof_of_life_is_the_last_row_written(journal: Journal) -> None:
+    """`_last_packet_at` reads the newest ROW, not `max(captured_at)`.
+
+    The max was a full scan of an unindexed column on the journal's biggest
+    table, every heartbeat — a third of a core once the table passed a few
+    million rows. Rowid order is also the more honest claim: a replay writes
+    OLD captured_at values, and what the heartbeat asserts is that the
+    journal is still being written now.
+    """
+    from dw_collector.sync.__main__ import _last_packet_at
+
+    def observe(observation_id: str, captured_at: datetime) -> None:
+        journal.conn.execute(
+            "insert into raw_observations values (?, ?, ?, ?, ?, ?, ?)",
+            (
+                observation_id,
+                COLLECTOR,
+                "server.rank",
+                captured_at.isoformat(),
+                580,
+                "{}",
+                NOW.isoformat(),
+            ),
+        )
+
+    assert _last_packet_at(journal) is None
+    observe("11111111-1111-4111-8111-111111111101", NOW)
+    # A replay: written later, captured earlier.
+    observe("11111111-1111-4111-8111-111111111102", NOW - timedelta(days=30))
+    journal.conn.commit()
+
+    assert _last_packet_at(journal) == NOW - timedelta(days=30)
