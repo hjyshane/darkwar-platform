@@ -43,6 +43,8 @@ class Console:
         self.journal_path = Path(os.environ.get("DW_SQLITE_PATH", "./data/collector.db"))
         self.capture_dir = Path(os.environ.get("DW_CAPTURE_DIR", r"C:\DW_data\live"))
         self.session: session.Session | None = None
+        # The refresh in flight, if any — see _spawn_refresh.
+        self._refreshing: threading.Thread | None = None
 
         self._build_actions(root)
         self.tails = logs.tails()
@@ -394,6 +396,17 @@ class Console:
             view.see("end")
 
     def _spawn_refresh(self) -> None:
+        # AT MOST ONE IN FLIGHT. Each tick used to start a fresh thread
+        # unconditionally, so any refresh slower than the tick — a journal
+        # query against a busy disk was enough — meant the next tick piled a
+        # second one on, and each stacked refresh made the disk busier and
+        # every refresh slower. The console did not just feel slow on a slow
+        # machine; it was what was slowing the machine. A tick that finds the
+        # last refresh still running now shows the previous answer for three
+        # more seconds, which is what it was doing anyway, minus the pile-up.
+        if self._refreshing is not None and self._refreshing.is_alive():
+            return
+
         def work() -> None:
             emulator = state.emulator_running()
             game = state.game_state() if emulator else "stopped"
@@ -402,7 +415,8 @@ class Console:
             files = len(list(self.capture_dir.glob("*.pcapng"))) if self.capture_dir.exists() else 0
             self.root.after(0, lambda: self._apply(emulator, game, tasks, journal, files))
 
-        threading.Thread(target=work, daemon=True).start()
+        self._refreshing = threading.Thread(target=work, daemon=True)
+        self._refreshing.start()
 
     def _apply(
         self,

@@ -120,18 +120,29 @@ def counts(session: Session) -> dict[str, int]:
     return {str(command): int(n) for command, n in rows}
 
 
-def _outbox(session: Session) -> tuple[int, int]:
+def _outbox_status(session: Session, status: str) -> int:
+    """One status counted off its index prefix.
+
+    Deliberately NOT the whole `group by status` picture: this is called
+    every two seconds while the drain is watched, and counting 'sent' means
+    walking every delivered entry the journal still holds — millions of
+    index entries per poll on the production journal. The drain loop only
+    ever asks about 'pending', which is a few hundred rows; 'sent' is asked
+    once, for the receipt, after the waiting is over.
+    """
     try:
         conn = _read_only(session.journal_path)
     except sqlite3.Error:
-        return 0, 0
+        return 0
     try:
-        rows = dict(conn.execute("select status, count(1) from sync_outbox group by 1").fetchall())
+        row = conn.execute(
+            "select count(1) from sync_outbox where status = ?", (status,)
+        ).fetchone()
     except sqlite3.Error:
-        return 0, 0
+        return 0
     finally:
         conn.close()
-    return int(rows.get("pending", 0)), int(rows.get("sent", 0))
+    return int(row[0])
 
 
 def _newest_capture(directory: Path) -> str | None:
@@ -213,11 +224,13 @@ def finish(
 
     progress("waiting for sync to drain the outbox")
     deadline = time.monotonic() + DRAIN_TIMEOUT_SECONDS
-    pending, sent = _outbox(session)
+    pending = _outbox_status(session, "pending")
     while pending > 0 and time.monotonic() < deadline:
         time.sleep(POLL_SECONDS)
-        pending, sent = _outbox(session)
+        pending = _outbox_status(session, "pending")
         progress(f"{pending:,} rows still to send")
+    # Once, for the receipt — see _outbox_status for why not per poll.
+    sent = _outbox_status(session, "sent")
 
     report.commands = counts(session)
     report.observations = sum(report.commands.values())
