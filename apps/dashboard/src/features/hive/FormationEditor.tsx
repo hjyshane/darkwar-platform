@@ -388,6 +388,19 @@ export function FormationEditor({
   }
 
   const [centre, setCentre] = useState<Coordinate>({ x: formation.anchorX, y: formation.anchorY });
+  // The same reset the draft gets above. The centre is seeded from the anchor
+  // once, so moving the anchor used to leave the view on the OLD ground while
+  // the marker and every tile — all offsets from the anchor — jumped away to
+  // the new one, and the officer had to drag around looking for their own
+  // formation. Following the anchor is what the seed already promised.
+  const [anchorFor, setAnchorFor] = useState<Coordinate>({
+    x: formation.anchorX,
+    y: formation.anchorY,
+  });
+  if (anchorFor.x !== formation.anchorX || anchorFor.y !== formation.anchorY) {
+    setAnchorFor({ x: formation.anchorX, y: formation.anchorY });
+    setCentre({ x: formation.anchorX, y: formation.anchorY });
+  }
   const [zoom, setZoom] = useState<number>(14);
   const [refusal, setRefusal] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
