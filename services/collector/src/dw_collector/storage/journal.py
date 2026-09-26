@@ -468,28 +468,45 @@ class Journal:
         call because it rewrites the whole file and wants the writers stopped.
         """
         cutoff = older_than.isoformat()
+        # MATERIALIZED, NOT INLINED. The first shape of this function wove
+        # `not in (subquery)` into every count and delete, and on a 47 GB
+        # journal (7.8M observations, 13.5M rows) the planner re-ran the
+        # subquery often enough that thirteen hours of CPU moved the WAL by
+        # nothing — it had to be killed, and being one transaction, the kill
+        # took the whole night's work with it. Temp tables pin the plan: the
+        # held-back set is built once off the outbox's status index, the old
+        # observations are classified in ONE pass over raw_observations, and
+        # everything after probes those two small sets.
+        #
         # Old, and still carrying work that never reached the cloud.
-        held_back_sql = """
-            select distinct n.observation_id
-              from normalized_rows n
-              join sync_outbox o on o.idempotency_key = n.idempotency_key
-             where o.status in ('pending', 'dead_letter')
-        """
-        held_back = self.conn.execute(
-            f"select count(*) from raw_observations"
-            f" where captured_at < ? and observation_id in ({held_back_sql})",
+        self.conn.execute("drop table if exists temp._prune_held")
+        self.conn.execute(
+            """
+            create temp table _prune_held as
+              select distinct n.observation_id
+                from sync_outbox o
+                join normalized_rows n on n.idempotency_key = o.idempotency_key
+               where o.status in ('pending', 'dead_letter')
+            """
+        )
+        self.conn.execute("create unique index _prune_held_idx on _prune_held (observation_id)")
+        self.conn.execute("drop table if exists temp._prune_old")
+        self.conn.execute(
+            """
+            create temp table _prune_old as
+              select observation_id,
+                     observation_id in (select observation_id from _prune_held) as held
+                from raw_observations
+               where captured_at < ?
+            """,
             (cutoff,),
-        ).fetchone()[0]
-        doomed_sql = f"""
-            select observation_id from raw_observations
-             where captured_at < ? and observation_id not in ({held_back_sql})
-        """
-        observations = self.conn.execute(
-            f"select count(*) from ({doomed_sql})", (cutoff,)
-        ).fetchone()[0]
+        )
+        self.conn.execute("create index _prune_old_held_idx on _prune_old (held)")
+        held_back = self.conn.execute("select count(*) from _prune_old where held").fetchone()[0]
+        doomed_sql = "select observation_id from _prune_old where not held"
+        observations = self.conn.execute(f"select count(*) from ({doomed_sql})").fetchone()[0]
         rows = self.conn.execute(
-            f"select count(*) from normalized_rows where observation_id in ({doomed_sql})",
-            (cutoff,),
+            f"select count(*) from normalized_rows where observation_id in ({doomed_sql})"
         ).fetchone()[0]
         # Delivered queue entries, whether or not their observation is old
         # enough to go: the row is in Supabase, and this table is a queue
@@ -513,24 +530,40 @@ class Journal:
             normalized_rows=rows,
             held_back=held_back,
         )
+
+        # Connection-scoped, so on the CLI they die with the process — but
+        # the desktop sidecar prunes on a connection that lives for days, and
+        # a parked seven-million-row temp table is not a reasonable souvenir.
+        def _cleanup() -> None:
+            self.conn.execute("drop table if exists temp._prune_old")
+            self.conn.execute("drop table if exists temp._prune_held")
+
         if not confirm:
+            _cleanup()
             return report
 
+        # ONE TRANSACTION PER TABLE, not one for the lot. The doomed set is
+        # frozen in the temp table, so the three deletes cannot disagree about
+        # membership — and a prune interrupted after the first commit has
+        # still pruned that table, instead of rolling thirteen hours back to
+        # zero the way the single-transaction version did. The order is the
+        # only constraint: normalized_rows first, it has the foreign key into
+        # the table the next statement empties, and an interruption between
+        # the two leaves raw observations without rows — which `renormalize`
+        # rebuilds, unlike the reverse, which would strand rows whose source
+        # is gone.
         with self.conn:
-            # normalized_rows first: it has the foreign key into the table
-            # the next statement empties.
+            self.conn.execute(f"delete from normalized_rows where observation_id in ({doomed_sql})")
+        with self.conn:
             self.conn.execute(
-                f"delete from normalized_rows where observation_id in ({doomed_sql})",
-                (cutoff,),
+                f"delete from raw_observations where observation_id in ({doomed_sql})"
             )
-            self.conn.execute(
-                f"delete from raw_observations where observation_id in ({doomed_sql})",
-                (cutoff,),
-            )
+        with self.conn:
             self.conn.execute(
                 "delete from sync_outbox where status = 'sent' and created_at < ?",
                 (cutoff,),
             )
+        _cleanup()
         return report
 
     def vacuum(self) -> None:
