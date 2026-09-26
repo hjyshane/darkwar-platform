@@ -65,6 +65,32 @@ def test_counts_and_freshness_come_from_the_journal(tmp_path: Path) -> None:
     assert age is not None and age < 60
 
 
+def test_slow_totals_are_remembered_between_refreshes(tmp_path: Path) -> None:
+    """The totals (observations, commands, sent) are re-read on a clock, not
+    per refresh: on the production journal they were three full scans of a
+    47 GB table every three seconds, and opening the console saturated the
+    disk. A total up to a minute stale is the documented behaviour; the
+    liveness figures next to it stay per-refresh.
+    """
+    path = tmp_path / "journal.db"
+    journal = Journal(path)
+    journal.init_db()
+    journal.record(_observation("al.rank"), [])
+
+    first = state.journal_state(path)
+    journal.record(_observation("server.rank"), [])
+    journal.close()
+    cached = state.journal_state(path)
+    fresh = state.journal_state(path, slow_ttl_seconds=0)
+
+    assert first.observations == 1
+    # Within the TTL the total is the remembered one...
+    assert cached.observations == 1
+    # ...and asking with the clock expired sees the new row.
+    assert fresh.observations == 2
+    assert fresh.commands == 2
+
+
 def test_freshness_is_none_rather_than_zero_when_nothing_arrived(tmp_path: Path) -> None:
     # Zero would read as "just now", which is the opposite of the truth and
     # exactly the reading that would have hidden the 18.7 hours.

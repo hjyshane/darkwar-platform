@@ -11,6 +11,7 @@ import os
 import shutil
 import sqlite3
 import subprocess
+import time
 import webbrowser
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -99,9 +100,28 @@ class JournalState:
         return (datetime.now(tz=UTC) - self.last_observation).total_seconds()
 
 
-def journal_state(path: Path) -> JournalState:
+# The slow-moving journal figures, remembered per journal between refreshes.
+# (when read, observations, distinct commands, sent outbox entries)
+_SLOW_TTL_SECONDS = 60.0
+_slow_figures: dict[Path, tuple[float, int, int, int]] = {}
+
+
+def journal_state(path: Path, *, slow_ttl_seconds: float = _SLOW_TTL_SECONDS) -> JournalState:
     """Read-only, and tolerant: the journal may not exist yet, and it is
-    being written by another process while this reads it."""
+    being written by another process while this reads it.
+
+    TWO SPEEDS OF QUESTION, and the refresh loop must only pay for the fast
+    one. "Is the collector alive" is the newest row and the pending queue —
+    both indexed, both microseconds. "How big is the journal" is a count of
+    everything ever captured, and on the 47 GB production journal the old
+    shape of this function answered it with three full scans of the fattest
+    table EVERY three-second refresh (`count(distinct source_command)` and
+    `max(created_at)` have no index to run on). Opening the console saturated
+    the disk, which read as the whole machine being slow — because it was.
+    The totals move by fractions of a percent a minute, so they are re-read
+    on a clock instead, and a console that shows a 60-second-old total is
+    telling the truth it claims to.
+    """
     if not path.exists():
         return JournalState(path, exists=False)
     try:
@@ -109,14 +129,27 @@ def journal_state(path: Path) -> JournalState:
     except sqlite3.Error:
         return JournalState(path, exists=True)
     try:
-        observations = conn.execute("select count(1) from raw_observations").fetchone()[0]
-        commands = conn.execute(
-            "select count(distinct source_command) from raw_observations"
+        # Every refresh: the liveness pair, off indexes.
+        pending = conn.execute(
+            "select count(1) from sync_outbox where status = 'pending'"
         ).fetchone()[0]
-        outbox = dict(
-            conn.execute("select status, count(1) from sync_outbox group by 1").fetchall()
-        )
-        latest = conn.execute("select max(created_at) from raw_observations").fetchone()[0]
+        newest = conn.execute(
+            "select created_at from raw_observations order by rowid desc limit 1"
+        ).fetchone()
+        latest = newest[0] if newest else None
+
+        cached = _slow_figures.get(path)
+        if cached is not None and time.monotonic() - cached[0] < slow_ttl_seconds:
+            _, observations, commands, sent = cached
+        else:
+            observations = conn.execute("select count(1) from raw_observations").fetchone()[0]
+            commands = conn.execute(
+                "select count(distinct source_command) from raw_observations"
+            ).fetchone()[0]
+            sent = conn.execute(
+                "select count(1) from sync_outbox where status = 'sent'"
+            ).fetchone()[0]
+            _slow_figures[path] = (time.monotonic(), int(observations), int(commands), int(sent))
     except sqlite3.Error:
         # A table that does not exist yet is not an error worth showing; an
         # empty journal reads the same as a fresh one.
@@ -135,8 +168,8 @@ def journal_state(path: Path) -> JournalState:
         exists=True,
         observations=int(observations),
         commands=int(commands),
-        pending_outbox=int(outbox.get("pending", 0)),
-        sent_outbox=int(outbox.get("sent", 0)),
+        pending_outbox=int(pending),
+        sent_outbox=int(sent),
         last_observation=last,
     )
 
