@@ -138,9 +138,16 @@ export function HivePage() {
             </label>
           </div>
 
+          {/* Keyed by the formation so switching plans starts the view over.
+              The grid's centre and zoom are component state; without the key
+              a pan on one formation left the view parked on that ground when
+              the picker (or a promotion) swapped the formation underneath,
+              and the new plan appeared to have no bases until you dragged
+              back to wherever its anchor was. */}
           <Overview
             board={board.data ?? []}
             formation={formation}
+            key={formation.formationId}
             mayPlan={mayPlan}
             ownPlayerId={session?.playerId ?? null}
           />
@@ -155,9 +162,15 @@ export function HivePage() {
         />
       )}
 
+      {/* Keyed for the same reason as Overview — and here the unkeyed version
+          only LOOKED right: switching formations usually unmounted the editor
+          through the `board.isPending` gate below, but a board already in the
+          query cache skips the pending state, and the editor then kept the
+          previous formation's centre, zoom, tool and selection. */}
       {mayPlan && formation !== null && !board.isPending && (
         <FormationEditor
           formation={formation}
+          key={formation.formationId}
           members={members.data ?? []}
           ownPlayerId={session?.playerId ?? null}
           slots={board.data ?? []}
