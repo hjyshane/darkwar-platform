@@ -49,6 +49,35 @@ def test_counting_is_the_default(journal: Journal) -> None:
     assert journal.conn.execute("select count(*) from raw_observations").fetchone()[0] == 1
 
 
+def test_prune_runs_twice_on_one_connection(journal: Journal) -> None:
+    """The doomed set now lives in temp tables (the inlined subqueries were
+    re-executed per row and a 47 GB journal spent thirteen hours getting
+    nowhere), and temp tables are per-connection state: a count followed by a
+    confirm, or a second prune after more traffic, must rebuild them rather
+    than trip over the last run's leftovers. The desktop sidecar prunes on a
+    connection that lives for days, so this is the normal case, not an edge.
+    """
+    _load(journal, captured_at=_ancient())
+    journal.mark_sent([item.id for item in journal.pending_outbox(limit=500)])
+    window = datetime.now(tz=UTC) - timedelta(days=30)
+
+    counted = journal.prune(older_than=window)
+    journal.prune(older_than=window, confirm=True)
+    # New old traffic after the first confirm — the rebuilt set must see it.
+    _load(journal, captured_at=_ancient() + timedelta(days=1))
+    journal.mark_sent([item.id for item in journal.pending_outbox(limit=500)])
+    second = journal.prune(older_than=window, confirm=True)
+
+    assert counted.observations == 1
+    assert second.observations == 1
+    assert journal.conn.execute("select count(*) from raw_observations").fetchone()[0] == 0
+    # And nothing parked on the connection afterwards.
+    leftovers = journal.conn.execute(
+        "select name from sqlite_temp_master where type = 'table' and name like '_prune%'"
+    ).fetchall()
+    assert leftovers == []
+
+
 def _age_outbox(journal: Journal, when: datetime) -> None:
     """The outbox has its own clock.
 
