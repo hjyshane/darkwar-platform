@@ -163,3 +163,21 @@ def test_expediting_does_not_starve_or_reorder_within_a_class(journal: Journal) 
 
     assert keys[:2] == ["tile:0", "tile:1"]
     assert keys[2:] == ["m:0", "m:1", "m:2"]
+
+
+def test_the_foreign_key_check_runs_on_an_index(journal: Journal) -> None:
+    """`pragma foreign_keys=on` checks normalized_rows for children on every
+    raw_observations delete, and without an index on the key column that is
+    a full child-table scan PER DELETED ROW — prune's second delete on the
+    production journal (5.9M parents, 13.5M children) would never finish.
+    Asserted through the query plan rather than the index's existence, since
+    the plan is the thing the deletes actually depend on.
+    """
+    plan = " ".join(
+        str(row[-1])
+        for row in journal.conn.execute(
+            "explain query plan select 1 from normalized_rows where observation_id = 'x'"
+        )
+    )
+
+    assert "normalized_rows_observation_idx" in plan

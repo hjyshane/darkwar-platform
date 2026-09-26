@@ -75,6 +75,18 @@ create index if not exists sync_outbox_pending_idx
 create index if not exists normalized_rows_target_table_idx
   on normalized_rows (target_table, id);
 
+-- `pragma foreign_keys=on` makes EVERY delete from raw_observations check
+-- normalized_rows for surviving children, and without an index on the
+-- foreign key column that check is a full scan of the child table PER
+-- DELETED PARENT ROW. Invisible on the write path — inserts add children
+-- after their parent — and invisible in tests, whose journals hold dozens
+-- of rows; on the production journal it turned prune's second delete
+-- (5.9M parents times a 13.5M-row scan each) into a job that would outlive the
+-- machine. The same first-build warning as the index above applies, and
+-- harder: this one's first build reads all of normalized_rows.
+create index if not exists normalized_rows_observation_idx
+  on normalized_rows (observation_id);
+
 -- Which capture files ingest-dir has already read. Re-reading one is safe
 -- (idempotency_key hashes the raw payload, so a replay updates rather than
 -- duplicates) but it is wasted work, and on a ring buffer of 288 files it
