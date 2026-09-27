@@ -1,11 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { StatTile } from '../../components/StatTile';
 import { BattleMembersTable } from './BattleMembersTable';
 import {
   type Battle,
   fetchBattleMembers,
   fetchBattleOpponents,
+  fetchMemberMisses,
   noShows,
   opponentAsMember,
 } from './data';
@@ -45,6 +46,17 @@ export function BattleDetail({ battle }: { battle: Battle }) {
     staleTime: STALE_TIME,
     enabled: showOpponent,
   });
+  // The whole alliance's tally, not this battle's: one query shared by every
+  // battle that is opened, keyed on the alliance.
+  const tally = useQuery({
+    queryKey: ['blackMoney', 'misses', battle.alliance_external_id],
+    queryFn: () => fetchMemberMisses(battle.alliance_external_id),
+    staleTime: STALE_TIME,
+  });
+  const misses = useMemo(
+    () => new Map((tally.data ?? []).map((row) => [row.game_uid, row])),
+    [tally.data],
+  );
   const absent = noShows(members.data ?? []);
 
   return (
@@ -81,7 +93,12 @@ export function BattleDetail({ battle }: { battle: Battle }) {
       {members.error && (
         <p className="error">Could not load the members: {members.error.message}</p>
       )}
-      {members.data && <BattleMembersTable members={members.data} />}
+      {members.data && <BattleMembersTable members={members.data} misses={misses} />}
+      <p className="note">
+        Starter miss and Sub miss count every battle since the 2026-09-27 event in which the member
+        was listed in that role and is not in the battle report — shown as misses out of those
+        battles. Battles whose report has not been captured do not count either way.
+      </p>
 
       {battle.report_seen && (
         <p>

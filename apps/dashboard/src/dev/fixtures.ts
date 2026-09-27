@@ -748,6 +748,39 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
     ],
   ],
   [
+    ['blackMoney', 'misses', 'ours'],
+    [
+      {
+        game_uid: 9101000000000580,
+        starter_misses: 0,
+        substitute_misses: 0,
+        starter_battles: 2,
+        substitute_battles: 0,
+      },
+      {
+        game_uid: 9102000000000580,
+        starter_misses: 1,
+        substitute_misses: 0,
+        starter_battles: 2,
+        substitute_battles: 0,
+      },
+      {
+        game_uid: 9103000000000580,
+        starter_misses: 0,
+        substitute_misses: 1,
+        starter_battles: 0,
+        substitute_battles: 2,
+      },
+      {
+        game_uid: 9104000000000580,
+        starter_misses: 2,
+        substitute_misses: 0,
+        starter_battles: 2,
+        substitute_battles: 0,
+      },
+    ],
+  ],
+  [
     ['blackMoney', 'opponents', '2026-09-27T12:50:00Z', 2],
     [
       {

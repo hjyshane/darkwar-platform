@@ -5470,6 +5470,18 @@ export type Database = {
           },
         ]
       }
+      black_money_member_misses: {
+        Row: {
+          alliance_external_id: string | null
+          game_uid: number | null
+          player_id: string | null
+          starter_battles: number | null
+          starter_misses: number | null
+          substitute_battles: number | null
+          substitute_misses: number | null
+        }
+        Relationships: []
+      }
       event_scoreboard: {
         Row: {
           display_name: string | null

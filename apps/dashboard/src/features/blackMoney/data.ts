@@ -143,6 +143,29 @@ export function opponentAsMember(o: BattleOpponent): BattleMember {
   };
 }
 
+/** How often one member was listed and did not play, since the 2026-09-27
+ * event (0183). Only battles with a captured report count either way. */
+export interface MemberMisses {
+  game_uid: number;
+  starter_misses: number;
+  substitute_misses: number;
+  starter_battles: number;
+  substitute_battles: number;
+}
+
+/** The whole alliance's tally, one row per person — well under 1,000. */
+export async function fetchMemberMisses(allianceExternalId: string): Promise<MemberMisses[]> {
+  const { data, error } = await supabase
+    .from('black_money_member_misses')
+    .select('game_uid, starter_misses, substitute_misses, starter_battles, substitute_battles')
+    .eq('alliance_external_id', allianceExternalId)
+    .limit(1000);
+  if (error) {
+    throw new Error(`misses query failed: ${error.message}`);
+  }
+  return (data ?? []) as MemberMisses[];
+}
+
 /** Every battle, newest first. ~2 per event since 2026-04 — far under 1,000. */
 export async function fetchBattles(): Promise<Battle[]> {
   const { data, error } = await supabase

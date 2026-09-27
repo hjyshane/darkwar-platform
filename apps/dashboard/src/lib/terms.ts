@@ -58,6 +58,10 @@ export const TERMS = {
   blackMoneyFirstOccupy: 'First Occupy',
   blackMoneyCollect: 'Collect',
   blackMoneyEscort: 'Escort',
+  // ours: counted since the 2026-09-27 event (0183) — listed, then absent
+  // from the battle report.
+  blackMoneyStarterMisses: 'Starter miss',
+  blackMoneySubMisses: 'Sub miss',
   signIn: 'Sign In',
 
   // Columns
