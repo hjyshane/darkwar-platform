@@ -143,10 +143,11 @@ export function BlackMoneyPage() {
       {events.length > 0 && (
         <p className="note">
           Open a team to see who was listed and who played. The list is the last signup reading
-          taken before the battle ended. Scores come from the battle report mail, which the game
-          sends only to players of that battle — so a team none of our accounts played on has no
-          report, and who played is unknown rather than nobody. The team score is the battle&apos;s
-          own points and is not the sum of the players&apos; scores.
+          taken before the battle ended. Scores come from the battle report, which every member gets
+          as alliance mail; until one of our accounts loads it into the collector, who played is
+          unknown rather than nobody. An older report is further down the mailbox — scrolling to it
+          is enough to capture it. The team score is the battle&apos;s own points and is not the sum
+          of the players&apos; scores.
         </p>
       )}
     </section>

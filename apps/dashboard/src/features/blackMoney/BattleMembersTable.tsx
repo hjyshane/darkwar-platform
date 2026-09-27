@@ -13,6 +13,8 @@ const SEARCH_FIELDS = ['name', 'game_uid'] as const;
 
 /** This table's key in the shared column arrangement. */
 export const TABLE_ID = 'black-money-members';
+/** The opposing side's table: the same figures, none of our list's columns. */
+export const OPPONENT_TABLE_ID = 'black-money-opponents';
 
 export function blackMoneyColumnSpecs(): ColumnSpec[] {
   return [
@@ -46,7 +48,15 @@ function playedLabel(played: boolean | null): string {
  * before absent before unknown. */
 type Row = BattleMember & { slotOrder: number; playedOrder: number };
 
-export function BattleMembersTable({ members }: { members: BattleMember[] }) {
+export function BattleMembersTable({
+  members,
+  side = 'ours',
+}: {
+  members: BattleMember[];
+  /** 'theirs' drops Slot and Played: our signup list says nothing about
+   * another alliance, and everyone in their half of the report played. */
+  side?: 'ours' | 'theirs';
+}) {
   const rows = useMemo<Row[]>(
     () =>
       members.map((m) => ({
@@ -110,6 +120,10 @@ export function BattleMembersTable({ members }: { members: BattleMember[] }) {
       part('escort', TERMS.blackMoneyEscort, 'escort_score'),
     ];
   }, []);
+  const shownColumns = useMemo(
+    () => (side === 'ours' ? columns : columns.filter((c) => c.id !== 'slot' && c.id !== 'played')),
+    [columns, side],
+  );
 
   if (rows.length === 0) {
     return <p className="empty">Nobody is on the list or in a report for this battle.</p>;
@@ -125,12 +139,12 @@ export function BattleMembersTable({ members }: { members: BattleMember[] }) {
         value={query}
       />
       <ArrangedTable
-        columns={columns}
+        columns={shownColumns}
         onSort={onSort}
         rowKey={(row) => String(row.game_uid)}
         rows={view}
         sort={sort}
-        tableId={TABLE_ID}
+        tableId={side === 'ours' ? TABLE_ID : OPPONENT_TABLE_ID}
       />
       {view.length === 0 && <p className="empty">No member matches “{query}”.</p>}
     </>
