@@ -12,6 +12,7 @@
 // spacing, empty states and navigation. Nothing else.
 
 import { recentWeeks } from '../features/admin/ManualScoresSetting';
+import type { BoardPage } from '../features/board/board';
 import { vacateDeparted } from '../features/hive/hiveFormations';
 import { calendarRange } from '../lib/calendar';
 
@@ -301,13 +302,13 @@ function guidePost(index: number, read: boolean) {
       // the Edited column carry a badge rather than a dash.
       updatedAt: index % 4 === 0 ? ago(60 * 3) : ago(60 * 24 * (index + 1)),
       createdBy: index % 3 === 0 ? PLAYER.shane : index % 3 === 1 ? PLAYER.mira : null,
-      tag: (['tip', 'strategy', 'info'] as const)[index % 3],
+      tag: (['tip', 'strategy', 'info'] as const)[index % 3] ?? null,
     },
     read,
   };
 }
 
-function guideBoard(page: number) {
+function guideBoard(page: number): BoardPage {
   const total = 22;
   const all = Array.from({ length: total }, (_, index) => guidePost(index, index % 3 !== 0));
   const slice = all.slice((page - 1) * 20, (page - 1) * 20 + 20);
@@ -331,10 +332,22 @@ function guideBoard(page: number) {
     pageCount: 2,
     authors: AUTHORS,
     read: new Set(all.filter((entry) => entry.read).map((entry) => entry.post.id)),
+    // Sparse on purpose, as the real views are: a post nobody has answered or
+    // opened has no entry at all. Enough here to put a "top" on the pinned
+    // post and a "hot" on one busy thread.
+    commentCounts: {
+      '33333333-3333-4333-8333-333333333301': 2,
+      '33333333-3333-4333-8333-333333333304': 1,
+    },
+    views: {
+      '33333333-3333-4333-8333-333333333399': { total: 41, recent: 3 },
+      '33333333-3333-4333-8333-333333333301': { total: 12, recent: 4 },
+      '33333333-3333-4333-8333-333333333302': { total: 3, recent: 0 },
+    },
   };
 }
 
-function noticeBoard() {
+function noticeBoard(): BoardPage {
   const post = (index: number, title: string, pinned: boolean, visibility: string) => ({
     id: `44444444-4444-4444-8444-4444444444${String(index).padStart(2, '0')}`,
     title,
@@ -359,6 +372,11 @@ function noticeBoard() {
     pageCount: 1,
     authors: AUTHORS,
     read: new Set<string>(),
+    commentCounts: { '44444444-4444-4444-8444-444444444405': 1 },
+    views: {
+      '44444444-4444-4444-8444-444444444401': { total: 19, recent: 2 },
+      '44444444-4444-4444-8444-444444444402': { total: 7, recent: 7 },
+    },
   };
 }
 
