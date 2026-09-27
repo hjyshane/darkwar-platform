@@ -55,12 +55,15 @@ async function fetchComponents(playerId: string): Promise<ComponentRow[]> {
       'captured_at, metric, metric_label, family, role, sort_order, power, rank, unit_name, unit_grade, board_size, source_command',
     )
     .eq('player_id', playerId)
-    .order('captured_at', { ascending: true })
-    .limit(4000);
+    // Newest first, then reversed: `asc + limit` keeps the OLDEST rows, so a
+    // long history froze the chart's recent end in the past. 1000 is
+    // PostgREST's own ceiling — a larger limit is silently ignored.
+    .order('captured_at', { ascending: false })
+    .limit(1000);
   if (error) {
     throw new Error(`component power query failed: ${error.message}`);
   }
-  return (data ?? []) as ComponentRow[];
+  return ((data ?? []) as ComponentRow[]).reverse();
 }
 
 const compact = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 2 });

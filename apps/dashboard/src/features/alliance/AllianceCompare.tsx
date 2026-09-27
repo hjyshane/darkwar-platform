@@ -79,22 +79,32 @@ async function fetchGrowth(serverId: number): Promise<GrowthRow[]> {
  * the same micro instance. Filtering on alliance_id turns it into a few index
  * probes over the ~6 charted alliances.
  *
- * The old fetch was also quietly WRONG: `order asc, limit 4000` keeps the
- * OLDEST 4,000 rows, so once the server passed 4,000 the chart's recent end
- * froze in the past. Six alliances' complete history fits the same cap with
- * room to spare.
+ * The fetch after that was still WRONG twice over. `order asc, limit 4000`
+ * keeps the OLDEST rows, so the recent end froze in the past; and PostgREST
+ * caps a response at 1,000 whatever the limit says, so six alliances shared
+ * 1,000 rows between them — CBFW alone had 1,071 readings by 2026-09-27.
+ * One request per alliance, newest first and reversed, gives each line its
+ * own 1,000 most recent readings.
  */
 async function fetchHistory(allianceIds: string[]): Promise<HistoryRow[]> {
-  const { data, error } = await supabase
-    .from('alliance_power_history')
-    .select('alliance_id, captured_at, power, name, is_own')
-    .in('alliance_id', allianceIds)
-    .order('captured_at', { ascending: true })
-    .limit(4000);
-  if (error) {
-    throw new Error(`history query failed: ${error.message}`);
+  const perAlliance = await Promise.all(
+    allianceIds.map((allianceId) =>
+      supabase
+        .from('alliance_power_history')
+        .select('alliance_id, captured_at, power, name, is_own')
+        .eq('alliance_id', allianceId)
+        .order('captured_at', { ascending: false })
+        .limit(1000),
+    ),
+  );
+  const rows: HistoryRow[] = [];
+  for (const { data, error } of perAlliance) {
+    if (error) {
+      throw new Error(`history query failed: ${error.message}`);
+    }
+    rows.push(...((data ?? []) as HistoryRow[]).reverse());
   }
-  return (data ?? []) as HistoryRow[];
+  return rows;
 }
 
 const compact = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 2 });

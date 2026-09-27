@@ -73,16 +73,19 @@ async function fetchTrends(allianceId: string) {
       .from('alliance_power_history')
       .select('captured_at, server_id, power, rank, member_count, board_scope, board_size')
       .eq('alliance_id', allianceId)
-      .order('captured_at', { ascending: true })
-      .limit(500),
+      // Newest first, then reversed: `asc + limit` keeps the OLDEST rows, so a
+      // long history froze the chart's recent end in the past. 1000 is
+      // PostgREST's own ceiling — a larger limit is silently ignored.
+      .order('captured_at', { ascending: false })
+      .limit(1000),
     supabase
       .from('alliance_roster_history')
       .select(
         'captured_at, observed_members, expected_members, snapshot_complete, total_power, avg_power, median_power, avg_hq_level, members_at_hq35, officers',
       )
       .eq('alliance_id', allianceId)
-      .order('captured_at', { ascending: true })
-      .limit(2000),
+      .order('captured_at', { ascending: false })
+      .limit(1000),
     // Daily totals from 0074, which does the three things that are easy to get
     // wrong — the 02:00 UTC day boundary, taking the day's LARGEST reading rather
     // than summing readings of an accumulating board, and restricting to our own
@@ -91,7 +94,7 @@ async function fetchTrends(allianceId: string) {
       .from('alliance_daily_contribution')
       .select('game_day, kind, total, members_counted, readings')
       .eq('alliance_id', allianceId)
-      .order('game_day', { ascending: true })
+      .order('game_day', { ascending: false })
       .limit(1000),
   ]);
   if (board.error) {
@@ -104,9 +107,9 @@ async function fetchTrends(allianceId: string) {
     throw new Error(`daily contribution failed: ${daily.error.message}`);
   }
   return {
-    board: (board.data ?? []) as BoardPoint[],
-    roster: (roster.data ?? []) as RosterPoint[],
-    daily: (daily.data ?? []) as DailyPoint[],
+    board: ((board.data ?? []) as BoardPoint[]).reverse(),
+    roster: ((roster.data ?? []) as RosterPoint[]).reverse(),
+    daily: ((daily.data ?? []) as DailyPoint[]).reverse(),
   };
 }
 

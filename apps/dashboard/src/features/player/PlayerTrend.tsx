@@ -41,12 +41,15 @@ async function fetchTrend(playerId: string): Promise<TrendRow[]> {
     .from('player_power_history')
     .select('captured_at, power, hq_level, kills, rank, source_command, board_size')
     .eq('player_id', playerId)
-    .order('captured_at', { ascending: true })
-    .limit(500);
+    // Newest first, then reversed: `asc + limit` keeps the OLDEST rows, so a
+    // long history froze the chart's recent end in the past. 1000 is
+    // PostgREST's own ceiling — a larger limit is silently ignored.
+    .order('captured_at', { ascending: false })
+    .limit(1000);
   if (error) {
     throw new Error(`history query failed: ${error.message}`);
   }
-  return (data ?? []) as TrendRow[];
+  return ((data ?? []) as TrendRow[]).reverse();
 }
 
 const compact = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 2 });
