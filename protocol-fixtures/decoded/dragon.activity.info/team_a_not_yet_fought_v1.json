@@ -1,0 +1,107 @@
+{
+  "observation_id": "0b82cb55-e56f-59e3-acf6-3ad816f3a126",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "dragon.activity.info",
+  "captured_at": "2026-09-27T13:07:09.241244Z",
+  "collected_from_server_id": 580,
+  "payload": {
+    "_id": 208,
+    "_time": 3,
+    "alCreateTime": 1775280429402,
+    "alRank": 1,
+    "assigned": 1,
+    "battleWillingness": 1,
+    "battleWillingness2": 1,
+    "selfTeamIndex": 2,
+    "teamArr": [
+      {
+        "battlePeriod": 3,
+        "battleServerId": 9035,
+        "matchResult": 1,
+        "teamIndex": 1,
+        "timeInfo": {
+          "battleOpenTime": 1790543100000,
+          "endTime": 1790545800000,
+          "prepTime": 1790542800000
+        },
+        "vsInfoArr": [
+          {
+            "abbr": "A01",
+            "allianceId": "f8516dc0aa8fbaeee1998d518e36e478",
+            "icon": "8;8;2;8",
+            "mainNum": 20,
+            "name": "Alliance01",
+            "powerful": 0,
+            "serverId": 580,
+            "side": 0,
+            "strength": 167262721
+          },
+          {
+            "abbr": "A02",
+            "allianceId": "2b7e5f5d1e81bfe166eb97842a6826e4",
+            "icon": "3;5;2;8",
+            "mainNum": 20,
+            "name": "Alliance02",
+            "powerful": 0,
+            "serverId": 588,
+            "side": 1,
+            "strength": 52065239
+          }
+        ],
+        "worldId": 5
+      },
+      {
+        "battlePeriod": 2,
+        "battleServerId": 9039,
+        "matchResult": 1,
+        "resultInfo": [
+          {
+            "allianceId": "f8516dc0aa8fbaeee1998d518e36e478",
+            "result": 1,
+            "score": 382529,
+            "userNum": 21
+          },
+          {
+            "allianceId": "0039d7db5c9da6534e96f22ee5cdd10b",
+            "result": 2,
+            "score": 284451,
+            "userNum": 22
+          }
+        ],
+        "teamIndex": 2,
+        "timeInfo": {
+          "battleOpenTime": 1790510700000,
+          "endTime": 1790513400000,
+          "prepTime": 1790510400000
+        },
+        "vsInfoArr": [
+          {
+            "abbr": "A01",
+            "allianceId": "f8516dc0aa8fbaeee1998d518e36e478",
+            "icon": "8;8;2;8",
+            "mainNum": 20,
+            "name": "Alliance01",
+            "powerful": 0,
+            "serverId": 580,
+            "side": 0,
+            "strength": 47867127
+          },
+          {
+            "abbr": "A03",
+            "allianceId": "0039d7db5c9da6534e96f22ee5cdd10b",
+            "icon": "1;7;6;6",
+            "mainNum": 20,
+            "name": "Alliance03",
+            "powerful": 0,
+            "serverId": 581,
+            "side": 1,
+            "strength": 41292821
+          }
+        ],
+        "worldId": 8
+      }
+    ],
+    "timeIndexRecord": "1;2"
+  },
+  "schema_version": 1
+}

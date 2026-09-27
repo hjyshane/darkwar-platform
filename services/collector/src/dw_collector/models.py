@@ -100,7 +100,12 @@ def idempotency_key(observation: Observation, entity_scope: str, time_bucket: st
 
 
 def entry_idempotency_key(
-    observation: Observation, entity_scope: str, time_bucket: str, raw_entry: dict[str, Any]
+    observation: Observation,
+    entity_scope: str,
+    time_bucket: str,
+    raw_entry: dict[str, Any],
+    *,
+    key_command: str | None = None,
 ) -> str:
     """The §11.2 key with the hash taken over ONE raw entry of the payload.
 
@@ -112,11 +117,16 @@ def entry_idempotency_key(
 
     Still the RAW decoded entry, never the normalized row, so a parser
     version bump keeps every key it had.
+
+    `key_command` names the key's namespace when one fact reaches us by more
+    than one command: a battle report is fetched with the inbox
+    (chat.get.system.mails) or pushed as it arrives (push.mail), and both
+    must land on the same key or every score is stored twice.
     """
     return ":".join(
         [
             str(observation.collector_id),
-            observation.source_command,
+            key_command or observation.source_command,
             entity_scope,
             time_bucket,
             payload_hash(raw_entry),
