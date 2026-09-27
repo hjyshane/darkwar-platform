@@ -4297,7 +4297,7 @@ button.tile-grid:hover:not(:disabled) {
   font-size: var(--text-base);
 }
 
-/* Black Money. Win and loss carry a glyph and a word as well as a colour, so
+/* Black Gold. Win and loss carry a glyph and a word as well as a colour, so
  * the colour only reinforces what is already written. Both tokens have dark
  * values, so neither needs its own dark rule. */
 .badge-win {

@@ -47,6 +47,9 @@ const ROUTES: Record<string, Route> = {
   '#/season2': 'season2',
   '#/map': 'map',
   '#/hive': 'hive',
+  '#/black-gold': 'blackMoney',
+  // The address it shipped under on 2026-09-27, before the name was
+  // corrected. Kept so the links sent that day still land.
   '#/black-money': 'blackMoney',
   '#/arena': 'arena',
   '#/month-cards': 'monthCards',
@@ -235,7 +238,7 @@ export interface NavTab {
  *   overview   the landing screen, and the cross-server boards read against it
  *   alliance   our own alliance: its page, its roster, and the hive plan
  *   map        on its own: one player at a time, and nothing else is like it
- *   events     the scheduled things — season, Black Money, the calendar
+ *   events     the scheduled things — season, Black Gold, the calendar
  *   boards     what the alliance writes to itself: notices and guides
  */
 export type NavSection = 'overview' | 'alliance' | 'map' | 'events' | 'boards';
@@ -273,7 +276,7 @@ export const ALLIANCE_TABS: ReadonlyArray<NavTab> = [
 export const EVENT_TABS: ReadonlyArray<NavTab> = [
   { route: 'season', hash: '#/season', label: 'Season 3' },
   { route: 'season2', hash: '#/season2', label: 'Season 2' },
-  { route: 'blackMoney', hash: '#/black-money', label: 'Black Money' },
+  { route: 'blackMoney', hash: '#/black-gold', label: 'Black Gold' },
   { route: 'schedule', hash: '#/schedule', label: 'Schedule' },
 ];
 

@@ -85,7 +85,7 @@ const TABLES: ArrangeableTable[] = [
     columns: seasonAllianceColumnSpecs,
   },
   { id: SEASON_FORCE_TABLE_ID, label: 'Season — influence', columns: seasonForceColumnSpecs },
-  { id: BLACK_MONEY_TABLE_ID, label: 'Black Money — members', columns: blackMoneyColumnSpecs },
+  { id: BLACK_MONEY_TABLE_ID, label: 'Black Gold — members', columns: blackMoneyColumnSpecs },
   {
     id: SEASON_BUILDING_TABLE_ID,
     label: 'Season — member buildings',

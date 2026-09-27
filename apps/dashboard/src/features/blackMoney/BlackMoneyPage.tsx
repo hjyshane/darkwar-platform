@@ -65,7 +65,7 @@ export function BlackMoneyPage() {
         <p className="error">Could not load the battles: {battles.error.message}</p>
       )}
       {battles.data && events.length === 0 && (
-        <p className="empty">No Black Money battle has been captured yet.</p>
+        <p className="empty">No Black Gold battle has been captured yet.</p>
       )}
 
       {events.length > 0 && (

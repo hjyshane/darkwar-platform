@@ -251,6 +251,8 @@ test('did not move any address', () => {
     '#/hive': 'hive',
     '#/season': 'season',
     '#/season2': 'season2',
+    '#/black-gold': 'blackMoney',
+    // The first address, kept as an alias for links sent before the rename.
     '#/black-money': 'blackMoney',
     '#/schedule': 'schedule',
     '#/notices': 'notices',
