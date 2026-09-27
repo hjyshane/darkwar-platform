@@ -21,7 +21,8 @@ export interface Battle {
   starters: number | null;
   substitutes: number | null;
   players_scored: number | null;
-  /** Whether a battle report was captured — without one, "played" is unknown. */
+  /** Whether its battle report has been captured yet. Every member receives
+   * it (alliance mail); without it, "played" is unknown. */
   report_seen: boolean | null;
 }
 
@@ -32,7 +33,7 @@ export interface BattleMember {
   name: string | null;
   /** Null when they played without being on the signup list. */
   slot: 'starter' | 'substitute' | null;
-  /** Null when no report was captured for the battle. */
+  /** Null while the battle's report is not yet captured. */
   played: boolean | null;
   score: number | null;
   kill_score: number | null;
@@ -87,6 +88,59 @@ export function noShows(members: BattleMember[]): BattleMember[] {
 
 export function battleKey(battle: Pick<Battle, 'battle_ended_at' | 'team_index'>): string {
   return `${battle.battle_ended_at}|${battle.team_index}`;
+}
+
+/** One opposing player in one battle, from `black_money_battle_opponents` (0182). */
+export interface BattleOpponent {
+  game_uid: number;
+  player_id: string | null;
+  name: string | null;
+  server_id: number | null;
+  opponent_abbr: string | null;
+  score: number | null;
+  kill_score: number | null;
+  occupy_score: number | null;
+  first_occupy_score: number | null;
+  collect_score: number | null;
+  escort_score: number | null;
+}
+
+/** The other side of one battle, from the same report ours comes from. */
+export async function fetchBattleOpponents(
+  battle: Pick<Battle, 'alliance_external_id' | 'battle_ended_at' | 'team_index'>,
+): Promise<BattleOpponent[]> {
+  const { data, error } = await supabase
+    .from('black_money_battle_opponents')
+    .select(
+      'game_uid, player_id, name, server_id, opponent_abbr, score, kill_score, occupy_score, first_occupy_score, collect_score, escort_score',
+    )
+    .eq('alliance_external_id', battle.alliance_external_id)
+    .eq('battle_ended_at', battle.battle_ended_at)
+    .eq('team_index', battle.team_index)
+    .order('score', { ascending: false, nullsFirst: false })
+    .limit(1000);
+  if (error) {
+    throw new Error(`opponents query failed: ${error.message}`);
+  }
+  return (data ?? []) as BattleOpponent[];
+}
+
+/** An opposing player in the member table's shape: never on our list, and
+ * in the report, so present. */
+export function opponentAsMember(o: BattleOpponent): BattleMember {
+  return {
+    game_uid: o.game_uid,
+    player_id: o.player_id,
+    name: o.name,
+    slot: null,
+    played: true,
+    score: o.score,
+    kill_score: o.kill_score,
+    occupy_score: o.occupy_score,
+    first_occupy_score: o.first_occupy_score,
+    collect_score: o.collect_score,
+    escort_score: o.escort_score,
+  };
 }
 
 /** Every battle, newest first. ~2 per event since 2026-04 — far under 1,000. */

@@ -1,8 +1,14 @@
 """chat.get.system.mails → black_money_score_snapshots.
 
-The per-player Black Money scores exist in one place: the battle report
-the game mails to every participant a few minutes after the battle. It is
-system mail type 147. Every other type in the inbox is ignored here.
+The per-player Black Gold scores exist in one place: the battle report
+the game sends a few minutes after the battle. It is system mail type 147,
+and it is ALLIANCE mail — every member receives both teams' reports,
+played or not (confirmed 2026-09-27; this docstring first said only the
+players did, which was wrong). Every other type in the inbox is ignored.
+
+What limits coverage is the inbox, not delivery: the list is fetched newest
+first, twenty at a time, and a report reaches the collector only when
+somebody's scrolling brings its page in.
 
 The report's body is a JSON STRING (`contentsLocal`). Its `obj.scoreInfo`
 holds both sides of the battle, and each side's `userArr` lists every
@@ -10,7 +16,7 @@ player who ENTERED with their uid, total score and its five parts. So the
 list is the team's actual turnout: 21 players for team B today, where
 dragon.battle.history said userNum 21.
 
-The same battle reaches every participant under a different mail uid. The
+The same battle reaches every member under a different mail uid. The
 capture is machine-wide, so two of our accounts opening their inboxes put
 the same report into the journal twice — it has already happened, for the
 09-13 team A battle. The key is therefore the report's content, not the

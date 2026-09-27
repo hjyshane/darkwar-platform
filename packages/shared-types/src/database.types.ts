@@ -5369,6 +5369,48 @@ export type Database = {
         }
         Relationships: []
       }
+      black_money_battle_opponents: {
+        Row: {
+          alliance_external_id: string | null
+          battle_ended_at: string | null
+          collect_score: number | null
+          escort_score: number | null
+          first_occupy_score: number | null
+          game_uid: number | null
+          kill_score: number | null
+          name: string | null
+          occupy_score: number | null
+          opponent_abbr: string | null
+          opponent_alliance_external_id: string | null
+          player_id: string | null
+          score: number | null
+          server_id: number | null
+          team_index: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "black_money_score_snapshots_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "black_money_score_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "black_money_score_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+        ]
+      }
       black_money_battles: {
         Row: {
           alliance_external_id: string | null

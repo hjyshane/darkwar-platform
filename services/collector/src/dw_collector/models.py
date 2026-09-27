@@ -111,7 +111,7 @@ def entry_idempotency_key(
 
     For responses that repeat an immutable fact inside a changing envelope.
     A finished battle comes back unchanged in every `dragon.battle.history`
-    response, and one battle report reaches every participant's inbox under
+    response, and one battle report reaches every member's inbox under
     a different mail uid — hashing the whole response would mint a new key
     each time and store the same fact once per screen open or per recipient.
 
