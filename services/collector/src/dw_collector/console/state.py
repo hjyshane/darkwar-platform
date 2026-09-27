@@ -106,6 +106,23 @@ _SLOW_TTL_SECONDS = 60.0
 _slow_figures: dict[Path, tuple[float, int, int, int]] = {}
 
 
+def age_label(seconds: float) -> str:
+    """An age a person can read at a glance.
+
+    The status row printed raw seconds, which works for the healthy case
+    (last packet 40s ago) and turns into a puzzle exactly when somebody is
+    trying to judge how bad things are — "26,065s ago" is seven hours,
+    but nobody standing at this window should have to do that division.
+    """
+    if seconds < 60:
+        return f"{seconds:.0f}s ago"
+    if seconds < 3600:
+        return f"{seconds / 60:.0f}m ago"
+    if seconds < 86400:
+        return f"{seconds / 3600:.1f}h ago"
+    return f"{seconds / 86400:.1f}d ago"
+
+
 def journal_state(path: Path, *, slow_ttl_seconds: float = _SLOW_TTL_SECONDS) -> JournalState:
     """Read-only, and tolerant: the journal may not exist yet, and it is
     being written by another process while this reads it.

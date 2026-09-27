@@ -576,7 +576,7 @@ class Console:
         else:
             # Five minutes is the ingest lag plus slack; below that, quiet
             # means the game is quiet rather than the collector being dead.
-            self._set("Last observation", f"{age:,.0f}s ago", GOOD if age < 400 else BAD)
+            self._set("Last observation", state.age_label(age), GOOD if age < 400 else BAD)
         self._set(
             "Outbox",
             f"{journal.pending_outbox:,} pending · {journal.sent_outbox:,} sent",

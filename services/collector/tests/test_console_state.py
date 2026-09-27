@@ -368,3 +368,12 @@ def test_the_writer_kill_pattern_spares_the_console_itself() -> None:
     ):
         assert pattern.search(survivor), survivor
     assert pattern.search(r"C:\x\.venv\Scripts\dw-console.exe") is None
+
+
+def test_age_reads_like_a_person_says_it() -> None:
+    # "26,065s ago" is seven hours, and nobody at the status window should
+    # have to do that division while deciding how bad things are.
+    assert state.age_label(42) == "42s ago"
+    assert state.age_label(420) == "7m ago"
+    assert state.age_label(26_065) == "7.2h ago"
+    assert state.age_label(200_000) == "2.3d ago"
