@@ -1,0 +1,8 @@
+{
+  "file": "live.db",
+  "sha256": "not applicable — extracted from the live collector journal, not a PCAP",
+  "location": "outside the repo (C:\\DW_data\\live.db)",
+  "captured_at_approx": "2026-09-14T01:31:04Z .. 2026-09-27T13:08:25Z",
+  "note": "Black Money (wire name `dragon`). Extracted from raw_observations because the live ring buffer deletes each PCAP once it is ingested. Journal observation ids: signup 15b10a1d-47dc-5e3a-a5ce-ef1f5603f8ce (09-27 13:07, 71 members); history 50220ced-9a01-5413-9037-a0a60e504891 (09-27 13:08, 25 battles); report pages 3a187a53-e443-5799-ac61-18b45f229c90 (09-27 team B, collector's inbox), 2964daf8-f8c4-5fdb-8807-e83c98adfe82 (09-13 team A, collector's inbox) and 19144a2e-64c4-58e9-a01d-a7a6e5627947 (the same 09-13 report in a second account's inbox — the capture is machine-wide). Mail pages are cut down to type-147 reports only; every other mail type is dropped, not masked. Sanitized by sanitize_dragon_assign_player_info, sanitize_dragon_battle_history and sanitize_chat_get_system_mails: uids remapped with the server suffix kept, player names numbered, alliance ids md5-mapped, alliance names and tags numbered per payload. Verified against the source payloads: 0 of 268 real uids, names, tags and alliance ids survive.",
+  "commands_extracted": ["dragon.assign.player.info", "dragon.battle.history", "chat.get.system.mails"]
+}

@@ -488,7 +488,161 @@ def sanitize_world_get_new(payload: dict[str, Any]) -> dict[str, Any]:
     return sanitized
 
 
+def _alliance_masker() -> Callable[[str | None], int]:
+    """Number alliances by first appearance, so one real alliance keeps one
+    fake identity within a payload and two different ones never merge."""
+    seen: dict[str, int] = {}
+
+    def number(real: str | None) -> int:
+        key = real or ""
+        if key not in seen:
+            seen[key] = len(seen) + 1
+        return seen[key]
+
+    return number
+
+
+def sanitize_dragon_assign_player_info(payload: dict[str, Any]) -> dict[str, Any]:
+    """Black Money signup list (the game calls the event `dragon`).
+
+    Every member of the collector's alliance, with the team and slot the
+    officers put them in. Masked: uid (server suffix kept, D-1) and name.
+    `abbr` is the member's OWN alliance tag, which is the collector's — one
+    tag for the whole list — and is replaced like any alliance identity.
+
+    Kept: power, level, joinTime, state, teamIndex, timeIndexRecord and both
+    battleWillingness flags. Those ARE the signup, and the fixture exists to
+    pin how the game encodes it.
+    """
+    users = payload.get("users")
+    if not isinstance(users, list):
+        return payload
+
+    alliance = _alliance_masker()
+    sanitized = dict(payload)
+    sanitized["users"] = [
+        {
+            **u,
+            "uid": _fake_uid(str(u.get("uid", ""))),
+            **({"name": f"Member{i:02d}"} if u.get("name") else {}),
+            **({"abbr": f"A{alliance(u['abbr']):02d}"} if u.get("abbr") else {}),
+        }
+        for i, u in enumerate(users, start=1)
+    ]
+    return sanitized
+
+
+def sanitize_dragon_battle_history(payload: dict[str, Any]) -> dict[str, Any]:
+    """Black Money battle history: one entry per team per event.
+
+    `enemyAllianceId` on the real response is OUR alliance id on every
+    entry that carries it — the game's bug, not ours. The same md5 mapping is applied to
+    both fields, so the fixture keeps that equality and the parser's refusal
+    to trust the field stays testable.
+    """
+    entries = payload.get("historyArr")
+    if not isinstance(entries, list):
+        return payload
+
+    alliance = _alliance_masker()
+
+    def masked(e: dict[str, Any]) -> dict[str, Any]:
+        clean = dict(e)
+        for field in ("allianceId", "enemyAllianceId"):
+            if isinstance(clean.get(field), str) and clean[field]:
+                clean[field] = _fake_alliance_id(clean[field])
+        if clean.get("name"):
+            n = alliance(clean["name"])
+            clean["name"] = f"Alliance{n:02d}"
+            if clean.get("abbr"):
+                clean["abbr"] = f"A{n:02d}"
+        if clean.get("enemyName"):
+            n = alliance(clean["enemyName"])
+            clean["enemyName"] = f"Alliance{n:02d}"
+            if clean.get("enemyAbbr"):
+                clean["enemyAbbr"] = f"A{n:02d}"
+        return clean
+
+    sanitized = dict(payload)
+    sanitized["historyArr"] = [masked(e) for e in entries]
+    return sanitized
+
+
+# The one system-mail type a parser reads. Everything else in the inbox —
+# rally reports, deliveries, the collector's own reward mail — is dropped
+# from a fixture rather than masked: none of it is needed to pin the report's
+# shape, and each type would need its own proof that nothing personal survives.
+BLACK_MONEY_REPORT_MAIL_TYPE = 147
+
+
+def sanitize_chat_get_system_mails(payload: dict[str, Any]) -> dict[str, Any]:
+    """A page of the collector's system inbox, cut down to Black Money
+    battle reports and masked.
+
+    A report's body is a JSON STRING (`contentsLocal`) holding both sides of
+    the battle: alliance id, name and tag per side, and every participant's
+    uid and name. All of those are masked, and the string is re-encoded the
+    way the server sends it, so the parser still has to decode it.
+
+    `toUser` is the collector's own uid and is remapped like any other.
+    Mail uids, timestamps, dialog ids and every score stay as decoded.
+    """
+    mails = payload.get("msg")
+    if not isinstance(mails, list):
+        return payload
+
+    alliance = _alliance_masker()
+    player_names: dict[str, str] = {}
+
+    def player_name(uid: str) -> str:
+        if uid not in player_names:
+            player_names[uid] = f"Player{len(player_names) + 1:03d}"
+        return player_names[uid]
+
+    def masked_side(side: dict[str, Any]) -> dict[str, Any]:
+        clean = dict(side)
+        n = alliance(str(side.get("allianceId")))
+        if isinstance(clean.get("allianceId"), str):
+            clean["allianceId"] = _fake_alliance_id(clean["allianceId"])
+        if clean.get("name"):
+            clean["name"] = f"Alliance{n:02d}"
+        if clean.get("abbr"):
+            clean["abbr"] = f"A{n:02d}"
+        clean["userArr"] = [
+            {
+                **u,
+                "uid": _fake_uid(str(u.get("uid", ""))),
+                **({"name": player_name(str(u.get("uid")))} if u.get("name") else {}),
+                **({"abbr": f"A{n:02d}"} if u.get("abbr") else {}),
+            }
+            for u in side.get("userArr", [])
+        ]
+        return clean
+
+    kept = []
+    for mail in mails:
+        if mail.get("type") != BLACK_MONEY_REPORT_MAIL_TYPE:
+            continue
+        clean = dict(mail)
+        if clean.get("toUser"):
+            clean["toUser"] = _fake_uid(str(clean["toUser"]))
+        body = json.loads(clean["contentsLocal"])
+        obj = body.get("obj", {})
+        if isinstance(obj.get("allianceId"), str):
+            obj["allianceId"] = _fake_alliance_id(obj["allianceId"])
+        obj["scoreInfo"] = [masked_side(s) for s in obj.get("scoreInfo", [])]
+        clean["contentsLocal"] = json.dumps(body, ensure_ascii=False, separators=(",", ":"))
+        kept.append(clean)
+
+    sanitized = dict(payload)
+    sanitized["msg"] = kept
+    return sanitized
+
+
 SANITIZERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
+    "dragon.assign.player.info": sanitize_dragon_assign_player_info,
+    "dragon.battle.history": sanitize_dragon_battle_history,
+    "chat.get.system.mails": sanitize_chat_get_system_mails,
     "rank.get.by.range": sanitize_rank_get_by_range,
     "get.fight.report.detail": sanitize_get_fight_report_detail,
     "mail.read.share": sanitize_mail_read_share,
