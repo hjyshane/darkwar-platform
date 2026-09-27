@@ -656,3 +656,47 @@ export function autoAssign(
 
   return { assignments, unplaced: queue.slice(next), empty };
 }
+
+/** Fill numbers for a formation's member bases, innermost ring first, keyed by
+ * offset.
+ *
+ * MEMBER BASES ONLY. A number on a tile says "somebody goes here, in this
+ * order"; on Frankie, an alliance building or a boundary marker it reads as a
+ * missing person. One function for the editor and the members' picture so
+ * the "7" an officer points at is the "7" everybody else sees.
+ */
+export function memberNumbering(
+  tiles: readonly (SizedOffset & { kind: TileKind })[],
+): Map<string, number> {
+  const structures = tiles.filter((tile) => tile.kind === 'structure');
+  return new Map(
+    tiles
+      .filter(isMemberBase)
+      .sort(ringOrderAround(structures))
+      .map((tile, index) => [offsetKey(tile), index + 1] as const),
+  );
+}
+
+/** What is written inside a tile on the map, if anything.
+ *
+ * - A member base: whoever stands on it, or its fill number while empty. Not
+ *   its label — the catalogue's "Member base" entry stamps that on every base
+ *   it draws, and eighty tiles reading "Member base" say nothing.
+ * - Anything else: its label (Frankie, "keep clear"), or nothing. Never a
+ *   number, and never a "?" — ground has no place in the fill.
+ *
+ * Whether there is ROOM for the caption is the grid's call, not this one's.
+ */
+export function tileCaption(
+  tile: { kind: TileKind; spanX: number; spanY: number; label: string },
+  name: string | null | undefined,
+  fillNumber: number | undefined,
+): string | undefined {
+  if (!isMemberBase(tile)) {
+    return tile.label.trim() === '' ? undefined : tile.label;
+  }
+  if (name != null) {
+    return name;
+  }
+  return fillNumber === undefined ? '?' : String(fillNumber);
+}
