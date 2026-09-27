@@ -415,11 +415,15 @@ export function FormationEditor({
   slots,
   members,
   ownPlayerId,
+  half,
 }: {
   formation: Formation;
   slots: readonly BoardSlot[];
   members: readonly AssignableMember[];
   ownPlayerId: string | null;
+  /** Which half is on screen. Both stay mounted — they share one unsaved
+   * draft and one Save — and the other is only hidden. */
+  half: 'shape' | 'people';
 }) {
   const queryClient = useQueryClient();
   const saved = useMemo(() => draftFromBoard(slots), [slots]);
@@ -1326,9 +1330,35 @@ export function FormationEditor({
     ours: tile.playerId !== null && ourIds.has(tile.playerId),
   }));
 
+  // On both tabs: the shape and the people are saved together, and making
+  // somebody switch tabs to press Save is how a fill gets left unsaved.
+  const saveActions = (
+    <div className="hive-actions">
+      <button
+        className="primary"
+        disabled={!unsaved || layoutSave.isPending || assignmentSave.isPending}
+        onClick={saveEverything}
+        type="button"
+      >
+        {layoutSave.isPending || assignmentSave.isPending
+          ? 'Saving…'
+          : !unsaved
+            ? 'Saved'
+            : dirty && assignmentsDirty
+              ? 'Save the shape and the people'
+              : dirty
+                ? 'Save the shape'
+                : 'Save who goes where'}
+      </button>
+      <button disabled={!dirty} onClick={() => setDraft(saved)} type="button">
+        Discard changes
+      </button>
+    </div>
+  );
+
   return (
     <>
-      <div className="hive-editor">
+      <div className="hive-editor" hidden={half !== 'shape'}>
         <div className="hive-editor__map">
           {/* THE PEOPLE, WHERE THE GROUND IS. Placing a member used to mean
               finding their tile's row in the table below and scrolling a
@@ -1815,193 +1845,178 @@ export function FormationEditor({
             )}
           </p>
 
-          <div className="hive-actions">
-            <button
-              className="primary"
-              disabled={!unsaved || layoutSave.isPending || assignmentSave.isPending}
-              onClick={saveEverything}
-              type="button"
-            >
-              {layoutSave.isPending || assignmentSave.isPending
-                ? 'Saving…'
-                : !unsaved
-                  ? 'Saved'
-                  : dirty && assignmentsDirty
-                    ? 'Save the shape and the people'
-                    : dirty
-                      ? 'Save the shape'
-                      : 'Save who goes where'}
-            </button>
-            <button disabled={!dirty} onClick={() => setDraft(saved)} type="button">
-              Discard changes
-            </button>
-          </div>
+          {saveActions}
         </div>
       </div>
 
       {refusal !== null && <p className="error">{refusal}</p>}
 
-      <h3>Who goes where</h3>
-      {dirty ? (
-        <p className="empty">
-          This list comes back once the shape is saved — it reads the saved tiles, and some of these
-          are not saved yet. Until then, drag names from above the map onto the bases; Save keeps
-          them where they were dropped.
-        </p>
-      ) : ordered.length === 0 ? (
-        <p className="empty">
-          No member bases yet. Place some {BASE_SPAN}x{BASE_SPAN} bases above and save them.
-        </p>
-      ) : (
-        <>
-          <div className="hive-assign">
-            <label>
-              <span>Fill in order of</span>
-              <select
-                onChange={(event) => setOrder(event.target.value as AssignOrder)}
-                value={order}
+      <div hidden={half !== 'people'}>
+        {saveActions}
+        {dirty ? (
+          <p className="empty">
+            This list comes back once the shape is saved — it reads the saved tiles, and some of
+            these are not saved yet. Until then, drag names from the list on the Draw the shape tab
+            onto the bases; Save keeps them where they were dropped.
+          </p>
+        ) : ordered.length === 0 ? (
+          <p className="empty">
+            No member bases yet. Place some {BASE_SPAN}x{BASE_SPAN} bases above and save them.
+          </p>
+        ) : (
+          <>
+            <div className="hive-assign">
+              <label>
+                <span>Fill in order of</span>
+                <select
+                  onChange={(event) => setOrder(event.target.value as AssignOrder)}
+                  value={order}
+                >
+                  {ORDERS.map((option) => (
+                    <option key={option} value={option}>
+                      {assignOrderLabel(option)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                onClick={() => {
+                  const result = autoAssign(ordered, members, { order, pinned });
+                  setAssignments(result.assignments);
+                  setRefusal(
+                    result.unplaced.length === 0
+                      ? null
+                      : `${result.unplaced.length} member${result.unplaced.length === 1 ? ' has' : 's have'} no tile: the formation is smaller than the roster.`,
+                  );
+                }}
+                type="button"
               >
-                {ORDERS.map((option) => (
-                  <option key={option} value={option}>
-                    {assignOrderLabel(option)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button
-              onClick={() => {
-                const result = autoAssign(ordered, members, { order, pinned });
-                setAssignments(result.assignments);
-                setRefusal(
-                  result.unplaced.length === 0
-                    ? null
-                    : `${result.unplaced.length} member${result.unplaced.length === 1 ? ' has' : 's have'} no tile: the formation is smaller than the roster.`,
-                );
-              }}
-              type="button"
-            >
-              Fill the empty tiles
-            </button>
-            <button onClick={() => setAssignments(new Map())} type="button">
-              Empty every tile
-            </button>
-          </div>
-          {/* PINS IN GROUPS, because the reason to pin is almost never one
+                Fill the empty tiles
+              </button>
+              <button onClick={() => setAssignments(new Map())} type="button">
+                Empty every tile
+              </button>
+            </div>
+            {/* PINS IN GROUPS, because the reason to pin is almost never one
               person. "The leaders stay where I put them" is one decision about
               a dozen tiles, and it was a dozen checkbox clicks down a table
               that does not say who is senior. */}
-          <div className="hive-assign hive-pins">
-            <span className="subtle">
-              {pinned.size} of {pinnableCount} filled tile{pinnableCount === 1 ? '' : 's'} pinned
-            </span>
-            <button
-              disabled={pinnableCount === 0}
-              onClick={() => pinWhere(() => true)}
-              type="button"
-            >
-              Pin every filled tile
-            </button>
-            <button
-              disabled={pinnableCount === 0}
-              onClick={() => pinWhere((member) => (member.memberRank ?? 0) >= 4)}
-              type="button"
-            >
-              Pin R4 and R5
-            </button>
-            <button disabled={pinned.size === 0} onClick={() => setPinned(new Map())} type="button">
-              Unpin everything
-            </button>
-          </div>
-          <p className="subtle">
-            Filling runs from the inside out: the innermost ring against Frankie is handed out
-            first, so whoever sorts highest above stands closest. Choosing somebody by hand pins
-            them, so a later fill leaves them where you put them — place the few whose position
-            matters and let everybody else fall in around them. Nothing here is written until you
-            press <strong>Save</strong> above, which saves the shape and the people together.
-          </p>
-          {/* NAMED, NOT COUNTED. "6 members not placed" is the one number an
+            <div className="hive-assign hive-pins">
+              <span className="subtle">
+                {pinned.size} of {pinnableCount} filled tile{pinnableCount === 1 ? '' : 's'} pinned
+              </span>
+              <button
+                disabled={pinnableCount === 0}
+                onClick={() => pinWhere(() => true)}
+                type="button"
+              >
+                Pin every filled tile
+              </button>
+              <button
+                disabled={pinnableCount === 0}
+                onClick={() => pinWhere((member) => (member.memberRank ?? 0) >= 4)}
+                type="button"
+              >
+                Pin R4 and R5
+              </button>
+              <button
+                disabled={pinned.size === 0}
+                onClick={() => setPinned(new Map())}
+                type="button"
+              >
+                Unpin everything
+              </button>
+            </div>
+            <p className="subtle">
+              Filling runs from the inside out: the innermost ring against Frankie is handed out
+              first, so whoever sorts highest above stands closest. Choosing somebody by hand pins
+              them, so a later fill leaves them where you put them — place the few whose position
+              matters and let everybody else fall in around them. Nothing here is written until you
+              press <strong>Save</strong> above, which saves the shape and the people together.
+            </p>
+            {/* NAMED, NOT COUNTED. "6 members not placed" is the one number an
               officer cannot act on: the next thing they do is work out WHO,
               and the roster is eighty names long. */}
-          {unplaced.length > 0 && (
-            <details className="hive-unplaced">
-              <summary>
-                <strong>
-                  {unplaced.length} member{unplaced.length === 1 ? '' : 's'} not placed
-                </strong>{' '}
-                — nobody has told them where to go
-              </summary>
-              <ul>
-                {sortMembers(unplaced, order).map((member) => (
-                  <li key={member.playerId}>{memberLabel(member)}</li>
-                ))}
-              </ul>
-            </details>
-          )}
-          <div className="hive-assign">
-            <label>
-              <span>Sort the list by</span>
-              <select
-                onChange={(event) => setTableSort(event.target.value as 'name' | 'tile')}
-                value={tableSort}
-              >
-                <option value="name">Member name (A–Z)</option>
-                <option value="tile">Tile order (innermost first)</option>
-              </select>
-            </label>
-            {/* THE TWO ORDERS ARE DIFFERENT QUESTIONS. Reading down for a
+            {unplaced.length > 0 && (
+              <details className="hive-unplaced">
+                <summary>
+                  <strong>
+                    {unplaced.length} member{unplaced.length === 1 ? '' : 's'} not placed
+                  </strong>{' '}
+                  — nobody has told them where to go
+                </summary>
+                <ul>
+                  {sortMembers(unplaced, order).map((member) => (
+                    <li key={member.playerId}>{memberLabel(member)}</li>
+                  ))}
+                </ul>
+              </details>
+            )}
+            <div className="hive-assign">
+              <label>
+                <span>Sort the list by</span>
+                <select
+                  onChange={(event) => setTableSort(event.target.value as 'name' | 'tile')}
+                  value={tableSort}
+                >
+                  <option value="name">Member name (A–Z)</option>
+                  <option value="tile">Tile order (innermost first)</option>
+                </select>
+              </label>
+              {/* THE TWO ORDERS ARE DIFFERENT QUESTIONS. Reading down for a
                 person wants the alphabet; checking that the middle went to
                 the right people wants the fill. `#` is the fill number in
                 both, so neither view can lie about which tile is which. */}
-          </div>
-          <table className="table hive-table">
-            <thead>
-              <tr>
-                <th>#</th>
-                {/* WHICH LAYER, because "the first layer is the leaders" is
+            </div>
+            <table className="table hive-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  {/* WHICH LAYER, because "the first layer is the leaders" is
                     how a hive is actually planned and the table had no way to
                     say where ring 1 ended. The rows are already in ring order;
                     this only names what the order is. */}
-                <th>Ring</th>
-                <th>Teleport to</th>
-                <th>Note</th>
-                <th>Member</th>
-                <th>
-                  {/* THE HEADER IS WHERE PEOPLE LOOK FOR SELECT-ALL, whatever
+                  <th>Ring</th>
+                  <th>Teleport to</th>
+                  <th>Note</th>
+                  <th>Member</th>
+                  <th>
+                    {/* THE HEADER IS WHERE PEOPLE LOOK FOR SELECT-ALL, whatever
                       buttons sit above the table. Indeterminate when some are
                       pinned, so the box reports the state rather than only
                       offering an action. */}
-                  <input
-                    aria-label={
-                      pinned.size === pinnableCount && pinnableCount > 0
-                        ? 'Unpin every tile'
-                        : 'Pin every filled tile'
-                    }
-                    checked={pinnableCount > 0 && pinned.size === pinnableCount}
-                    disabled={pinnableCount === 0}
-                    onChange={(event) => {
-                      if (event.target.checked) {
-                        pinWhere(() => true);
-                      } else {
-                        setPinned(new Map());
+                    <input
+                      aria-label={
+                        pinned.size === pinnableCount && pinnableCount > 0
+                          ? 'Unpin every tile'
+                          : 'Pin every filled tile'
                       }
-                    }}
-                    ref={(box) => {
-                      if (box !== null) {
-                        box.indeterminate = pinned.size > 0 && pinned.size < pinnableCount;
-                      }
-                    }}
-                    type="checkbox"
-                  />{' '}
-                  Pin
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {ordered.map((slot) => {
-                const chosen = assignments.get(slot.slotId) ?? '';
-                return (
-                  <tr key={slot.slotId}>
-                    {/* COUNTED DOWN THIS TABLE, not read off the row.
+                      checked={pinnableCount > 0 && pinned.size === pinnableCount}
+                      disabled={pinnableCount === 0}
+                      onChange={(event) => {
+                        if (event.target.checked) {
+                          pinWhere(() => true);
+                        } else {
+                          setPinned(new Map());
+                        }
+                      }}
+                      ref={(box) => {
+                        if (box !== null) {
+                          box.indeterminate = pinned.size > 0 && pinned.size < pinnableCount;
+                        }
+                      }}
+                      type="checkbox"
+                    />{' '}
+                    Pin
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {ordered.map((slot) => {
+                  const chosen = assignments.get(slot.slotId) ?? '';
+                  return (
+                    <tr key={slot.slotId}>
+                      {/* COUNTED DOWN THIS TABLE, not read off the row.
                         `ordinal` numbers every tile in the formation,
                         structures included, so a formation whose first tile is
                         Frankie started this column at 2 and ran to 8 for seven
@@ -2009,96 +2024,97 @@ export function FormationEditor({
                         even though they are not. The caption on the map has
                         always counted member bases alone, and this is the same
                         count, so the two now cannot disagree. */}
-                    <td>{fillNumber.get(slot.slotId) ?? '?'}</td>
-                    <td>{ringOf(slot, structures)}</td>
-                    <td>
-                      {/* THE COORDINATE IS WHAT GETS HANDED OVER, so it is one
+                      <td>{fillNumber.get(slot.slotId) ?? '?'}</td>
+                      <td>{ringOf(slot, structures)}</td>
+                      <td>
+                        {/* THE COORDINATE IS WHAT GETS HANDED OVER, so it is one
                           press away from the clipboard. The dashboard cannot
                           drive the game — a web page has no way to reach
                           BlueStacks — so what it copies is written the way the
                           game writes a coordinate, `[X:n Y:n]`, which alliance
                           chat turns back into a place you can tap. */}
-                      <button
-                        className="linklike"
-                        onClick={() => {
-                          void navigator.clipboard?.writeText(
-                            formatTeleport({ x: slot.x, y: slot.y }),
-                          );
-                          setCopied(slot.slotId);
-                        }}
-                        title="Copy this coordinate"
-                        type="button"
-                      >
-                        <code>{formatTeleport({ x: slot.x, y: slot.y })}</code>
-                        {copied === slot.slotId ? ' ✓' : ''}
-                      </button>
-                    </td>
-                    <td>{slot.label}</td>
-                    <td>
-                      <select
-                        onChange={(event) => {
-                          const next = new Map(assignments);
-                          const pins = new Map(pinned);
-                          if (event.target.value === '') {
-                            next.delete(slot.slotId);
-                            pins.delete(slot.slotId);
-                          } else {
-                            // Removed from wherever they were: the save
-                            // refuses one member on two tiles, and finding
-                            // that out from a database error message is a
-                            // worse way to learn it.
-                            for (const [key, value] of next) {
-                              if (value === event.target.value) {
-                                next.delete(key);
-                                pins.delete(key);
+                        <button
+                          className="linklike"
+                          onClick={() => {
+                            void navigator.clipboard?.writeText(
+                              formatTeleport({ x: slot.x, y: slot.y }),
+                            );
+                            setCopied(slot.slotId);
+                          }}
+                          title="Copy this coordinate"
+                          type="button"
+                        >
+                          <code>{formatTeleport({ x: slot.x, y: slot.y })}</code>
+                          {copied === slot.slotId ? ' ✓' : ''}
+                        </button>
+                      </td>
+                      <td>{slot.label}</td>
+                      <td>
+                        <select
+                          onChange={(event) => {
+                            const next = new Map(assignments);
+                            const pins = new Map(pinned);
+                            if (event.target.value === '') {
+                              next.delete(slot.slotId);
+                              pins.delete(slot.slotId);
+                            } else {
+                              // Removed from wherever they were: the save
+                              // refuses one member on two tiles, and finding
+                              // that out from a database error message is a
+                              // worse way to learn it.
+                              for (const [key, value] of next) {
+                                if (value === event.target.value) {
+                                  next.delete(key);
+                                  pins.delete(key);
+                                }
                               }
+                              next.set(slot.slotId, event.target.value);
+                              // Choosing somebody by hand IS a pin. Otherwise
+                              // the next fill would quietly undo it.
+                              pins.set(slot.slotId, event.target.value);
                             }
-                            next.set(slot.slotId, event.target.value);
-                            // Choosing somebody by hand IS a pin. Otherwise
-                            // the next fill would quietly undo it.
-                            pins.set(slot.slotId, event.target.value);
-                          }
-                          setAssignments(next);
-                          setPinned(pins);
-                        }}
-                        value={chosen}
-                      >
-                        <option value="">— empty —</option>
-                        {/* RANK AND POWER IN THE OPTION, because the inner
+                            setAssignments(next);
+                            setPinned(pins);
+                          }}
+                          value={chosen}
+                        >
+                          <option value="">— empty —</option>
+                          {/* RANK AND POWER IN THE OPTION, because the inner
                             ring is picked by hand and "who are my R4s" is the
                             question being answered while the list is open.
                             A name alone made that a separate lookup. */}
-                        {members.map((member) => (
-                          <option key={member.playerId} value={member.playerId}>
-                            {memberLabel(member)}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td>
-                      <input
-                        aria-label={`Pin tile ${slot.ordinal}`}
-                        checked={pinned.has(slot.slotId)}
-                        disabled={chosen === ''}
-                        onChange={(event) => {
-                          const pins = new Map(pinned);
-                          if (event.target.checked && chosen !== '') {
-                            pins.set(slot.slotId, chosen);
-                          } else {
-                            pins.delete(slot.slotId);
-                          }
-                          setPinned(pins);
-                        }}
-                        type="checkbox"
-                      />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </>
-      )}
+                          {members.map((member) => (
+                            <option key={member.playerId} value={member.playerId}>
+                              {memberLabel(member)}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td>
+                        <input
+                          aria-label={`Pin tile ${slot.ordinal}`}
+                          checked={pinned.has(slot.slotId)}
+                          disabled={chosen === ''}
+                          onChange={(event) => {
+                            const pins = new Map(pinned);
+                            if (event.target.checked && chosen !== '') {
+                              pins.set(slot.slotId, chosen);
+                            } else {
+                              pins.delete(slot.slotId);
+                            }
+                            setPinned(pins);
+                          }}
+                          type="checkbox"
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </>
+        )}
+      </div>
     </>
   );
 }

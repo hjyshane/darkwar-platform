@@ -3916,6 +3916,47 @@ button.tile-grid:hover:not(:disabled) {
   pointer-events: none;
 }
 
+/* The editor's two halves are hidden with the attribute, not unmounted (they
+ * hold the unsaved draft), and `display: flex` below would otherwise beat the
+ * user agent's `[hidden] { display: none }`. */
+.hive-editor[hidden] {
+  display: none;
+}
+
+/* The live plan: map and pasteable list. Stacked by default, which is right
+ * for a phone; side by side once the map has reached its 720px cap and the
+ * list would otherwise sit a whole map's height below it. */
+.hive-overview {
+  display: grid;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.hive-overview__map {
+  min-width: 0;
+}
+
+@media (min-width: 1100px) {
+  .hive-overview {
+    grid-template-columns: minmax(0, 720px) minmax(16rem, 1fr);
+  }
+
+  /* Held beside the map while the page scrolls, and as tall as the screen
+   * allows rather than 20rem: this column has nothing under it. */
+  .hive-overview__list {
+    position: sticky;
+    top: var(--space-4);
+  }
+
+  .hive-overview__list .hive-list {
+    max-height: calc(100vh - 10rem);
+  }
+
+  .hive-overview__list .hive-actions {
+    margin-top: 0;
+  }
+}
+
 .hive-editor {
   display: flex;
   flex-wrap: wrap;
