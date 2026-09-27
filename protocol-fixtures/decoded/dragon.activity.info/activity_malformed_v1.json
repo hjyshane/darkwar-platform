@@ -5,9 +5,7 @@
   "captured_at": "2026-09-27T22:00:00+00:00",
   "collected_from_server_id": 580,
   "payload": {
-    "teamArr": [
-      { "teamIndex": 1, "vsInfoArr": [] }
-    ]
+    "teamArr": [{ "teamIndex": 1, "vsInfoArr": [] }]
   },
   "schema_version": 1
 }
