@@ -19,6 +19,10 @@ import {
 } from '../alliance/AllianceMemberTable';
 import { TABLE_ID as ARENA_TABLE_ID, arenaColumnSpecs } from '../arena/ArenaTable';
 import {
+  TABLE_ID as BLACK_MONEY_TABLE_ID,
+  blackMoneyColumnSpecs,
+} from '../blackMoney/BattleMembersTable';
+import {
   TABLE_ID as CROSS_TABLE_ID,
   crossRankingColumnSpecs,
 } from '../crossRankings/CrossRankingTable';
@@ -81,6 +85,7 @@ const TABLES: ArrangeableTable[] = [
     columns: seasonAllianceColumnSpecs,
   },
   { id: SEASON_FORCE_TABLE_ID, label: 'Season — influence', columns: seasonForceColumnSpecs },
+  { id: BLACK_MONEY_TABLE_ID, label: 'Black Money — members', columns: blackMoneyColumnSpecs },
   {
     id: SEASON_BUILDING_TABLE_ID,
     label: 'Season — member buildings',
