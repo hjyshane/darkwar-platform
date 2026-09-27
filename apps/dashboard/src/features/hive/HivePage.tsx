@@ -1,7 +1,14 @@
 import type { Coordinate } from '@dw/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { formatTeleport } from '../../lib/hiveFormation';
+import {
+  footprintOf,
+  formatTeleport,
+  isMemberBase,
+  memberNumbering,
+  offsetKey,
+  tileCaption,
+} from '../../lib/hiveFormation';
 import { isAllowed, usePermissions } from '../../lib/permissions';
 import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
@@ -13,6 +20,7 @@ import {
   ZOOM_STEPS,
   pannedCentre,
   windowAround,
+  windowFitting,
   zoomStep,
 } from './TileGrid';
 import {
@@ -253,16 +261,35 @@ function Overview({
   const [copied, setCopied] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const anchor = { x: formation.anchorX, y: formation.anchorY };
-  // The read-only grid zooms too. A member checking their own tile against
-  // the shape wants to get close to it, and the officer's editor is not on
-  // their screen at all.
-  const [zoom, setZoom] = useState<number>(14);
+  // OPENS ON THE WHOLE FORMATION. Both are null until the member zooms or
+  // drags; until then the window is whatever shows every tile, so nobody has
+  // to pan to find where they stand. The read-only grid still zooms and pans —
+  // a member checking their own square wants to get close to it.
+  const [zoom, setZoom] = useState<number | null>(null);
   const [centre, setCentre] = useState<Coordinate | null>(null);
-  const view = windowAround(centre ?? anchor, zoom);
+  // Fitted to the MEMBERS' BASES, not to every tile: a boundary drawn round a
+  // wide area would otherwise zoom the picture out until the names it exists
+  // to show were too small to print. Everything drawn, when nobody is placed.
+  const fitted = (tiles: readonly BoardSlot[]) =>
+    windowFitting(
+      tiles.map((slot) => footprintOf({ x: slot.x, y: slot.y }, slot.spanX, slot.spanY)),
+    );
+  const home = fitted(board.filter(isMemberBase)) ??
+    fitted(board) ?? { centre: anchor, radius: 14 };
+  const radius = zoom ?? home.radius;
+  const view = windowAround(centre ?? home.centre, radius);
+  // The editor's numbering, so the "7" an officer calls out is the "7" here.
+  const numbering = memberNumbering(board);
   const bases: GridBase[] = board.map((slot) => ({
     key: slot.slotId,
     at: { x: slot.x, y: slot.y },
-    caption: slot.playerName ?? String(slot.ordinal),
+    // Drawn as what it is. Frankie was a 3x3 base numbered "1" here, and a
+    // boundary marker a numbered base, because none of this was passed.
+    spanX: slot.spanX,
+    spanY: slot.spanY,
+    structure: slot.kind === 'structure',
+    colour: slot.colour,
+    caption: tileCaption(slot, slot.playerName, numbering.get(offsetKey(slot))),
     // THE READER'S OWN TILE, on the grid every member sees rather than only
     // in the editor. The line above the picture already says the coordinate;
     // this is what lets somebody check it against the shape before they
@@ -301,18 +328,20 @@ function Overview({
       <TileGrid
         anchor={anchor}
         bases={bases}
-        // `centre` is null until somebody looks somewhere other than the
-        // anchor, so the first pan step has to start from the anchor rather
-        // than from nothing — otherwise the view jumps to 0,0 on the first
-        // tile of the drag.
-        onPan={(byX, byY) => setCentre((from) => pannedCentre(from ?? anchor, byX, byY))}
+        // `centre` is null until somebody looks somewhere else, so the first
+        // pan step has to start from the fitted centre rather than from
+        // nothing — otherwise the view jumps to 0,0 on the first tile of the
+        // drag.
+        onPan={(byX, byY) => setCentre((from) => pannedCentre(from ?? home.centre, byX, byY))}
         onZoom={(direction, at) => {
-          setZoom(zoomStep(zoom, direction));
+          setZoom(zoomStep(radius, direction));
           setCentre(at);
         }}
         window={view}
       />
-      <p className="subtle">Drag the map to slide it. The wheel zooms.</p>
+      <p className="subtle">
+        Drag the map to slide it. Hold <kbd>ctrl</kbd> and use the wheel to zoom.
+      </p>
       <fieldset className="hive-zoom">
         <legend>Zoom</legend>
         {ZOOM_STEPS.map((step) => (
@@ -325,11 +354,16 @@ function Overview({
             {step * 2 + 1} tiles
           </button>
         ))}
-        {centre !== null && (
-          <button onClick={() => setCentre(null)} type="button">
-            Back to the anchor
-          </button>
-        )}
+        <button
+          aria-pressed={zoom === null && centre === null}
+          onClick={() => {
+            setZoom(null);
+            setCentre(null);
+          }}
+          type="button"
+        >
+          Whole plan
+        </button>
       </fieldset>
 
       <div className="hive-actions">
