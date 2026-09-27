@@ -1,0 +1,11 @@
+{
+  "observation_id": "00000000-0000-4000-8000-00000000c805",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "dragon.activity.info",
+  "captured_at": "2026-09-27T22:00:00+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "teamArr": [{ "teamIndex": 1, "vsInfoArr": [] }]
+  },
+  "schema_version": 1
+}

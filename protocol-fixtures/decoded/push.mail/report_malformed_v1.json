@@ -1,0 +1,14 @@
+{
+  "observation_id": "00000000-0000-4000-8000-00000000c804",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "push.mail",
+  "captured_at": "2026-09-27T21:53:00+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "uid": "1",
+    "type": 147,
+    "sendTime": 1790546015618,
+    "contentsLocal": "{not json"
+  },
+  "schema_version": 1
+}

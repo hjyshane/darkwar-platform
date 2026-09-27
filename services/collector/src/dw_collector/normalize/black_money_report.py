@@ -36,6 +36,7 @@ log = structlog.get_logger()
 
 PARSER_VERSION = "1.0.0"
 REPORT_MAIL_TYPE = 147
+REPORT_KEY_COMMAND = "chat.get.system.mails"
 
 
 class _Player(BaseModel):
@@ -103,23 +104,42 @@ def normalize(observation: Observation) -> list[NormalizedRow]:
     page = _Page.model_validate(observation.payload)
     rows: list[NormalizedRow] = []
     for raw_mail in page.mails:
-        if raw_mail.get("type") != REPORT_MAIL_TYPE:
-            continue
-        # A bad report is skipped, not raised. This command is the whole
-        # system inbox, and ingest journals nothing for an observation whose
-        # normalizer raises — then deletes the pcap. One odd type-147 mail
-        # would otherwise take the raw page, and every good report on it,
-        # with it. The page is still journaled raw, so a fixed parser can
-        # replay the skipped report later.
-        try:
-            rows.extend(_report_rows(observation, _Mail.model_validate(raw_mail)))
-        except ValidationError as exc:
-            log.warning(
-                "black_money_report.skipped",
-                mail_uid=raw_mail.get("uid"),
-                errors=exc.error_count(),
-            )
+        rows.extend(_mail_rows(observation, raw_mail))
     return rows
+
+
+@register("push.mail")
+def normalize_pushed(observation: Observation) -> list[NormalizedRow]:
+    """A mail pushed as it arrives, one mail per response.
+
+    Observed 2026-09-27: team A's report reached the collector this way at
+    21:53, four minutes after its battle ended, while the game was open —
+    the inbox list was never fetched, so without this it was never read.
+
+    push.mail also carries player-to-player mail (§6.2's identity link is
+    waiting on it). Nothing but a type-147 report is read here, and nothing
+    else is written: every other mail stays in the journal, raw.
+    """
+    return _mail_rows(observation, observation.payload)
+
+
+def _mail_rows(observation: Observation, raw_mail: dict[str, Any]) -> list[NormalizedRow]:
+    if raw_mail.get("type") != REPORT_MAIL_TYPE:
+        return []
+    # A bad report is skipped, not raised. Ingest journals nothing for an
+    # observation whose normalizer raises — then deletes the pcap — so for
+    # the inbox page one odd type-147 mail would take the raw page, and every
+    # good report on it, with it. Skipped reports stay in the journal raw,
+    # for a fixed parser to replay.
+    try:
+        return _report_rows(observation, _Mail.model_validate(raw_mail))
+    except ValidationError as exc:
+        log.warning(
+            "black_money_report.skipped",
+            mail_uid=raw_mail.get("uid"),
+            errors=exc.error_count(),
+        )
+        return []
 
 
 def _report_rows(observation: Observation, mail: _Mail) -> list[NormalizedRow]:
@@ -150,6 +170,10 @@ def _report_rows(observation: Observation, mail: _Mail) -> list[NormalizedRow]:
                 f"report:{game_uid}",
                 side.alliance_id,
                 report_hash_basis,
+                # One namespace whichever command delivered the report, so a
+                # pushed copy and a fetched copy land on the same key. It is
+                # the inbox's, because the rows keyed first were keyed there.
+                key_command=REPORT_KEY_COMMAND,
             )
             rows.append(
                 NormalizedRow(

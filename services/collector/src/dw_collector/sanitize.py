@@ -639,7 +639,57 @@ def sanitize_chat_get_system_mails(payload: dict[str, Any]) -> dict[str, Any]:
     return sanitized
 
 
+def sanitize_push_mail(payload: dict[str, Any]) -> dict[str, Any]:
+    """One pushed mail. A Black Gold report is masked exactly as it is on the
+    inbox page. ANY OTHER MAIL keeps its type and uid and nothing else:
+    push.mail carries player-to-player messages, and no fixture may hold one.
+    """
+    if payload.get("type") != BLACK_MONEY_REPORT_MAIL_TYPE:
+        return {"type": payload.get("type"), "uid": payload.get("uid")}
+    page: list[dict[str, Any]] = sanitize_chat_get_system_mails({"msg": [payload]})["msg"]
+    return page[0]
+
+
+def sanitize_dragon_activity_info(payload: dict[str, Any]) -> dict[str, Any]:
+    """The current Black Gold event: both teams, their matchups and, once
+    fought, the results. One real alliance maps to one fake identity across
+    the matchup AND the result rows, so the parser's "ours is the alliance in
+    every matchup" rule still has something to find."""
+    teams = payload.get("teamArr")
+    if not isinstance(teams, list):
+        return payload
+
+    alliance = _alliance_masker()
+
+    def masked_side(side: dict[str, Any]) -> dict[str, Any]:
+        clean = dict(side)
+        n = alliance(str(side.get("allianceId")))
+        if isinstance(clean.get("allianceId"), str):
+            clean["allianceId"] = _fake_alliance_id(clean["allianceId"])
+        if clean.get("name"):
+            clean["name"] = f"Alliance{n:02d}"
+        if clean.get("abbr"):
+            clean["abbr"] = f"A{n:02d}"
+        return clean
+
+    def masked_team(team: dict[str, Any]) -> dict[str, Any]:
+        clean = dict(team)
+        clean["vsInfoArr"] = [masked_side(s) for s in team.get("vsInfoArr", [])]
+        if isinstance(team.get("resultInfo"), list):
+            clean["resultInfo"] = [
+                {**r, "allianceId": _fake_alliance_id(str(r.get("allianceId")))}
+                for r in team["resultInfo"]
+            ]
+        return clean
+
+    sanitized = dict(payload)
+    sanitized["teamArr"] = [masked_team(t) for t in teams]
+    return sanitized
+
+
 SANITIZERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
+    "push.mail": sanitize_push_mail,
+    "dragon.activity.info": sanitize_dragon_activity_info,
     "dragon.assign.player.info": sanitize_dragon_assign_player_info,
     "dragon.battle.history": sanitize_dragon_battle_history,
     "chat.get.system.mails": sanitize_chat_get_system_mails,
