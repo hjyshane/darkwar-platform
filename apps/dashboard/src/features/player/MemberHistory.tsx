@@ -39,12 +39,15 @@ async function fetchHistory(playerId: string): Promise<HistoryRow[]> {
     .eq('player_id', playerId)
     // Oldest first: collapseHistory reasons forwards, because "when did this
     // become true" is a question about the earliest row of a run.
-    .order('captured_at', { ascending: true })
+    // Newest first, then reversed: `asc + limit` keeps the OLDEST rows, so a
+    // long history froze the chart's recent end in the past. 1000 is
+    // PostgREST's own ceiling — a larger limit is silently ignored.
+    .order('captured_at', { ascending: false })
     .limit(1000);
   if (error) {
     throw new Error(`history query failed: ${error.message}`);
   }
-  return (data ?? []) as HistoryRow[];
+  return ((data ?? []) as HistoryRow[]).reverse();
 }
 
 /** How many changes the section shows before it needs asking. Enough to see a
