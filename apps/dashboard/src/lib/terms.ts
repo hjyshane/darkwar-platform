@@ -43,8 +43,9 @@ export const TERMS = {
   // Admin-only. Last season's buildings still arrive from old sightings.
   season2Buildings: 'Season 2',
   monthlyCard: 'Monthly Card',
-  // The event's on-screen name. On the wire it is `dragon` (0178).
-  blackMoney: 'Black Money',
+  // The event's on-screen name. On the wire it is `dragon`; the tables and
+  // this key say black_money, the name it was first known by (0178).
+  blackMoney: 'Black Gold',
   // ours: the signup list's `state` (1 starter, 2 substitute) read as a slot.
   blackMoneySlot: 'Slot',
   // ours: whether the player is in the battle report — the game shows no

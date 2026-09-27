@@ -47,6 +47,9 @@ const ROUTES: Record<string, Route> = {
   '#/season2': 'season2',
   '#/map': 'map',
   '#/hive': 'hive',
+  '#/black-gold': 'blackMoney',
+  // The address it shipped under on 2026-09-27, before the name was
+  // corrected. Kept so the links sent that day still land.
   '#/black-money': 'blackMoney',
   '#/arena': 'arena',
   '#/month-cards': 'monthCards',
@@ -216,74 +219,106 @@ export function mapHash(serverId?: number): string {
   return serverId === undefined ? '#/map' : `#/map/${serverId}`;
 }
 
-/** Tabs shown in the nav, in order. Excludes month-cards (unlinked above)
- *  and login, which is an account action rather than a screen. */
-export const NAV_TABS: ReadonlyArray<{ route: Route; hash: string; label: string }> = [
-  // `#/` is the overview, and Members moved to its own address. The roster
-  // was the landing screen because it was the first screen that existed,
-  // not because a hundred rows of figures is what you want to be handed
-  // first — the overview answers "how are we doing" before the table
-  // answers "who did what".
+/** A tab in any of the navigation rows. Month-cards is in none of them
+ * (unlinked above), and login is an account action rather than a screen. */
+export interface NavTab {
+  route: Route;
+  hash: string;
+  label: string;
+}
+
+/** Which top-level tab a screen sits under.
+ *
+ * FIVE TOP TABS, each a group with its own second row, because fourteen
+ * top-level tabs wrapped to three lines on a phone and put a board nobody opens
+ * weekly beside the ones read every day. The addresses did not move — every
+ * link anybody has already sent still lands on the same screen — only where
+ * the tab for it sits.
+ *
+ *   overview   the landing screen, and the cross-server boards read against it
+ *   alliance   our own alliance: its page, its roster, and the hive plan
+ *   map        on its own: one player at a time, and nothing else is like it
+ *   events     the scheduled things — season, Black Gold, the calendar
+ *   boards     what the alliance writes to itself: notices and guides
+ */
+export type NavSection = 'overview' | 'alliance' | 'map' | 'events' | 'boards';
+
+/** The top row. Our own alliance's tab is not here — its address carries a
+ * uuid only a query knows — and `App.tsx` injects it straight after Overview. */
+export const NAV_TABS: ReadonlyArray<NavTab & { section: NavSection }> = [
+  { route: 'overview', hash: '#/', label: 'Overview', section: 'overview' },
+  { route: 'map', hash: '#/map', label: 'Map', section: 'map' },
+  // Points at Season 3 because that is the live one; Season 2 is admin-only
+  // and Schedule needs a capability, so neither is safe as the default.
+  { route: 'season', hash: '#/season', label: 'Events', section: 'events' },
+  { route: 'notices', hash: '#/notices', label: 'Boards', section: 'boards' },
+];
+
+/** Overview's second row. The landing screen stays the landing screen; the
+ * cross-server boards moved under it because they answer its question — how
+ * are we doing — across the whole group rather than for us alone. */
+export const OVERVIEW_TABS: ReadonlyArray<NavTab> = [
   { route: 'overview', hash: '#/', label: 'Overview' },
-  // Beside our own alliance's tab, which `App.tsx` injects straight after
-  // Overview — so second here puts Season 3 immediately to its right.
-  //
-  // Top level rather than a fourth board under Cross-Server Ranking, where it
-  // started. The three boards there answer "who is ahead" year-round and are
-  // read against each other; a season is a separate thing with its own clock,
-  // and burying it a row down made it look like a variant of the player board
-  // rather than the event the alliance is currently playing.
-  //
-  // NAMED FOR THE SEASON IT SHOWS. The boards carry no season identifier —
-  // 0136 explains why nothing keys on one — so the number here is a label a
-  // human maintains, not a value read from data. Season 4 means editing this
-  // line and `TERMS.season`.
-  { route: 'season', hash: '#/season', label: 'Season 3' },
-  // Admin only, filtered in `App.tsx` where the session is known. Last
-  // season's buildings are a record rather than a board — the game still
-  // returns them from old sightings, frozen where the season left them — so
-  // they sit beside Season 3 rather than inside it, where a member would
-  // have to work out which of two boards is the live one.
-  { route: 'season2', hash: '#/season2', label: 'Season 2' },
-  // Beside the season boards because it answers the same week's question:
-  // the server we duel is the server that gets swept, and the map is where
-  // that sweep is read. One player at a time, which is why it is a screen
-  // rather than a panel on the server page.
-  { route: 'map', hash: '#/map', label: 'Map' },
-  // Next to the map because it is the map used for something rather than
-  // read: the same coordinates, the same sightings underneath, but a plan
-  // being written on top of them instead of a position being looked up.
-  //
-  // TOP LEVEL RATHER THAN A PANEL UNDER MAP, and the reason is who reads it.
-  // The map tab answers an officer's question — where is this one player.
-  // This one answers every member's question on the day of a hive move —
-  // where do I go — and burying that a click inside a screen about somebody
-  // else's location is how eighty people end up asking in chat instead.
-  { route: 'hive', hash: '#/hive', label: 'Hive' },
-  // Beside Hive: both are the screens a member opens on an event day to see
-  // where they stand. Every member can read it — the signup list is already
-  // visible to all of them in the game's event tab (0178).
-  { route: 'blackMoney', hash: '#/black-money', label: 'Black Money' },
-  // Straight after the overview, because these two are the ones the alliance
-  // reads every day and writes to each other on. Everything below is a board
-  // the game produced; this is what the alliance said about it.
-  { route: 'notices', hash: '#/notices', label: 'Notices' },
-  // Beside them for the same reason, and before Guides because it is the one
-  // with a deadline attached: a notice keeps until somebody reads it, a bear
-  // hunt at 20:00 does not. It carries its own capability (0124), so the tab
-  // is filtered in `App.tsx` rather than shown to a viewer who would get an
-  // empty grid.
-  { route: 'schedule', hash: '#/schedule', label: 'Schedule' },
-  { route: 'guides', hash: '#/guides', label: 'Guides' },
-  // ONE TAB FOR THE THREE CROSS-SERVER BOARDS. They answer the same question
-  // about three different subjects — who is ahead, across the group — and as
-  // three top-level tabs they were three quarters of a nav bar that wrapped on
-  // a phone. The tab points at the first of them; `RANKING_TABS` below is what
-  // the second row shows.
   { route: 'rankings', hash: '#/rankings', label: 'Cross-Server Ranking' },
 ];
 
-/** The three boards behind the Cross-Server Ranking tab.
+/** Our alliance's second row, after the alliance page itself (whose address
+ * needs the uuid, so `App.tsx` puts it first). Hive moved here: it is our
+ * alliance's plan, drawn on the map, read by every member on move day. */
+export const ALLIANCE_TABS: ReadonlyArray<NavTab> = [
+  { route: 'members', hash: '#/members', label: 'Members' },
+  { route: 'hive', hash: '#/hive', label: 'Hive' },
+];
+
+/** Events' second row. Season 2 is filtered to admins and Schedule to the
+ * `schedule.view` capability in `App.tsx`, where the session is known. Each
+ * screen keeps its own in-page tabs — Season 3's four boards among them. */
+export const EVENT_TABS: ReadonlyArray<NavTab> = [
+  { route: 'season', hash: '#/season', label: 'Season 3' },
+  { route: 'season2', hash: '#/season2', label: 'Season 2' },
+  { route: 'blackMoney', hash: '#/black-gold', label: 'Black Gold' },
+  { route: 'schedule', hash: '#/schedule', label: 'Schedule' },
+];
+
+/** Boards' second row: what the alliance writes for itself. */
+export const BOARD_TABS: ReadonlyArray<NavTab> = [
+  { route: 'notices', hash: '#/notices', label: 'Notices' },
+  { route: 'guides', hash: '#/guides', label: 'Guides' },
+];
+
+/** The top tab a route belongs to, or null for screens that belong to none
+ * (a player, another alliance, a server, settings, the account page).
+ *
+ * Our own alliance's page is decided by the caller, which knows the uuid; a
+ * plain `alliance` route here is somebody else's. */
+export function navSection(route: Route): NavSection | null {
+  switch (route) {
+    case 'overview':
+    case 'rankings':
+    case 'crossRankings':
+    case 'arena':
+      return 'overview';
+    case 'members':
+    case 'hive':
+      return 'alliance';
+    case 'map':
+      return 'map';
+    case 'season':
+    case 'season2':
+    case 'blackMoney':
+    case 'schedule':
+      return 'events';
+    case 'notices':
+    case 'notice':
+    case 'guides':
+    case 'guide':
+      return 'boards';
+    default:
+      return null;
+  }
+}
+
+/** The three boards behind Cross-Server Ranking — a third row, under Overview's.
  *
  * Their addresses do not change. Grouping them is a navigation decision, and
  * rewriting `#/cross-server` to `#/rankings/players` would break every link

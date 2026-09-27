@@ -1,39 +1,46 @@
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
-import { StatTile } from '../../components/StatTile';
+import { Fragment, useState } from 'react';
 import { TERMS } from '../../lib/terms';
-import { BattleMembersTable } from './BattleMembersTable';
+import { BattleDetail, STALE_TIME, num } from './BattleDetail';
 import {
   type Battle,
   battleKey,
-  fetchBattleMembers,
   fetchBattles,
   groupEvents,
-  noShows,
   outcome,
   serverClock,
   teamLabel,
 } from './data';
 
-const numberFormat = new Intl.NumberFormat('ko-KR');
+/** The table's column count, for the detail row that spans all of it. */
+const COLUMNS = 6;
 
-function num(value: number | null | undefined): string {
-  return value === null || value === undefined ? '—' : numberFormat.format(value);
-}
-
-/** Results arrive once per event, a fortnight apart, so the app's 60s default
- * would only re-ask a question whose answer has not moved. Realtime
- * invalidation still applies when a capture lands. */
-const STALE_TIME = 10 * 60_000;
-
-function resultLabel(battle: Battle): string {
+function ResultBadge({ battle }: { battle: Battle }) {
   const o = outcome(battle);
-  return o === 'win' ? 'Won' : o === 'loss' ? 'Lost' : '—';
+  if (o === 'unknown') return <span className="muted">—</span>;
+  // Glyph AND word, not colour alone: the colour reinforces what is written.
+  return o === 'win' ? (
+    <span className="badge badge-win">✓ Win</span>
+  ) : (
+    <span className="badge badge-loss">✗ Loss</span>
+  );
 }
 
 function opponent(battle: Battle): string {
-  if (battle.enemy_name === null) return 'unknown opponent';
+  if (battle.enemy_name === null) return '—';
   return battle.enemy_abbr ? `[${battle.enemy_abbr}] ${battle.enemy_name}` : battle.enemy_name;
+}
+
+/** Ours first and strong, theirs after and quiet — the same order and weight
+ * on every row, so the eye learns which side is which once. */
+function Score({ battle }: { battle: Battle }) {
+  return (
+    <span className="bm-score">
+      <strong className="bm-score-ours">{num(battle.score)}</strong>
+      <span className="bm-score-sep"> : </span>
+      <span className="muted">{num(battle.enemy_score)}</span>
+    </span>
+  );
 }
 
 export function BlackMoneyPage() {
@@ -42,20 +49,12 @@ export function BlackMoneyPage() {
     queryFn: fetchBattles,
     staleTime: STALE_TIME,
   });
-  const [chosenKey, setChosenKey] = useState<string | null>(null);
+  // One battle open at a time. Opening the detail IN the table, under the row
+  // that was clicked, is the point: below the table it read as nothing having
+  // happened, because what changed was off the bottom of the screen.
+  const [openKey, setOpenKey] = useState<string | null>(null);
 
   const events = groupEvents(battles.data ?? []);
-  const chosen =
-    (battles.data ?? []).find((b) => battleKey(b) === chosenKey) ?? events[0]?.teams[0] ?? null;
-
-  const members = useQuery({
-    queryKey: ['blackMoney', 'members', chosen?.battle_ended_at, chosen?.team_index],
-    queryFn: () => fetchBattleMembers(chosen as Battle),
-    staleTime: STALE_TIME,
-    enabled: chosen !== null,
-  });
-
-  const absent = noShows(members.data ?? []);
 
   return (
     <section aria-labelledby="black-money-heading">
@@ -66,21 +65,22 @@ export function BlackMoneyPage() {
         <p className="error">Could not load the battles: {battles.error.message}</p>
       )}
       {battles.data && events.length === 0 && (
-        <p className="empty">No Black Money battle has been captured yet.</p>
+        <p className="empty">No Black Gold battle has been captured yet.</p>
       )}
 
       {events.length > 0 && (
         // The same scroll container ArrangedTable uses, so a narrow screen
         // scrolls the table rather than the page.
         <div className="table-wrap">
-          <table className="compact">
+          <table className="compact bm-events">
             <thead>
               <tr>
                 <th scope="col">Event</th>
                 <th scope="col">Team</th>
                 <th scope="col">Result</th>
+                <th scope="col">Opponent</th>
                 <th scope="col" className="numeric">
-                  Score
+                  Score <span className="muted">(us : them)</span>
                 </th>
                 <th scope="col" className="numeric">
                   Entered
@@ -89,97 +89,66 @@ export function BlackMoneyPage() {
             </thead>
             <tbody>
               {events.map((event) =>
-                event.teams.map((battle, index) => (
-                  <tr
-                    key={battleKey(battle)}
-                    aria-current={chosen !== null && battleKey(battle) === battleKey(chosen)}
-                  >
-                    {index === 0 && <th rowSpan={event.teams.length}>{event.day}</th>}
-                    <td className="label">
-                      <button type="button" onClick={() => setChosenKey(battleKey(battle))}>
-                        {teamLabel(battle.team_index)}
-                      </button>{' '}
-                      <span className="muted">{serverClock(battle.battle_ended_at)}</span>
-                    </td>
-                    <td className="label">
-                      {resultLabel(battle)} vs {opponent(battle)}
-                    </td>
-                    <td className="numeric">
-                      {num(battle.score)} – {num(battle.enemy_score)}
-                    </td>
-                    <td className="numeric">
-                      {num(battle.user_num)} / {num(battle.max_user_num)}
-                    </td>
-                  </tr>
-                )),
+                event.teams.map((battle, index) => {
+                  const key = battleKey(battle);
+                  const open = key === openKey;
+                  return (
+                    <Fragment key={key}>
+                      <tr className={open ? 'bm-row bm-row-open' : 'bm-row'}>
+                        {/* The day on the event's first row only. Not a
+                            rowSpan: an open detail row spans the full width,
+                            and a spanning date cell would cut into it. */}
+                        <th scope="row">{index === 0 ? event.day : ''}</th>
+                        <td className="label">
+                          <button
+                            type="button"
+                            className="bm-toggle"
+                            aria-expanded={open}
+                            onClick={() => setOpenKey(open ? null : key)}
+                          >
+                            <span aria-hidden="true">{open ? '▾' : '▸'}</span>{' '}
+                            {teamLabel(battle.team_index)}
+                          </button>{' '}
+                          <span className="muted">{serverClock(battle.battle_ended_at)}</span>
+                        </td>
+                        <td>
+                          <ResultBadge battle={battle} />
+                        </td>
+                        {/* Not `.label`: that class pins a cell to the left edge, and
+                            only the team — what identifies the row — should be. */}
+                        <td>{opponent(battle)}</td>
+                        <td className="numeric">
+                          <Score battle={battle} />
+                        </td>
+                        <td className="numeric">
+                          {num(battle.user_num)} / {num(battle.max_user_num)}
+                        </td>
+                      </tr>
+                      {open && (
+                        <tr className="bm-detail-row">
+                          <td colSpan={COLUMNS}>
+                            <BattleDetail battle={battle} />
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                }),
               )}
             </tbody>
           </table>
         </div>
       )}
 
-      {chosen !== null && (
-        <>
-          <h3>
-            {teamLabel(chosen.team_index)} · {serverClock(chosen.battle_ended_at)}{' '}
-            {zonedDayOf(events, chosen)}
-          </h3>
-          <div className="stats">
-            <StatTile hero label="Result" value={resultLabel(chosen)} note={opponent(chosen)} />
-            <StatTile
-              label="Team score"
-              value={`${num(chosen.score)} – ${num(chosen.enemy_score)}`}
-              note="battle points, not the sum of player scores"
-            />
-            <StatTile
-              label="Entered"
-              value={num(chosen.user_num)}
-              note={`of ${num(chosen.max_user_num)} starter places`}
-            />
-            <StatTile
-              label="On the list"
-              value={
-                chosen.signup_read_at === null
-                  ? '—'
-                  : `${num(chosen.starters)} + ${num(chosen.substitutes)}`
-              }
-              note={
-                chosen.signup_read_at === null
-                  ? 'no signup reading before this battle'
-                  : 'starters + substitutes'
-              }
-            />
-            <StatTile
-              label="Did not play"
-              value={chosen.report_seen ? num(absent.length) : '—'}
-              note={
-                chosen.report_seen
-                  ? 'listed, but not in the battle report'
-                  : 'no battle report captured'
-              }
-            />
-          </div>
-
-          {members.isPending && <p className="empty">Loading…</p>}
-          {members.error && (
-            <p className="error">Could not load the members: {members.error.message}</p>
-          )}
-          {members.data && <BattleMembersTable members={members.data} />}
-
-          <p className="note">
-            The list is the last signup reading taken before the battle ended. Scores come from the
-            battle report mail, which the game sends only to players of that battle — so a team none
-            of our accounts played on has no report, and who played is unknown rather than nobody.
-            The team score is the battle&apos;s own points and is not the sum of the players&apos;
-            scores.
-          </p>
-        </>
+      {events.length > 0 && (
+        <p className="note">
+          Open a team to see who was listed and who played. The list is the last signup reading
+          taken before the battle ended. Scores come from the battle report mail, which the game
+          sends only to players of that battle — so a team none of our accounts played on has no
+          report, and who played is unknown rather than nobody. The team score is the battle&apos;s
+          own points and is not the sum of the players&apos; scores.
+        </p>
       )}
     </section>
   );
-}
-
-function zonedDayOf(events: ReturnType<typeof groupEvents>, battle: Battle): string {
-  const event = events.find((e) => e.teams.some((t) => battleKey(t) === battleKey(battle)));
-  return event ? `· ${event.day}` : '';
 }

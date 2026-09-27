@@ -3,13 +3,18 @@
 import { expect, test } from 'vitest';
 import {
   ADMIN_GROUPS,
+  ALLIANCE_TABS,
+  BOARD_TABS,
+  EVENT_TABS,
   NAV_TABS,
+  OVERVIEW_TABS,
   RANKING_TABS,
   adminGroupFromHash,
   adminHash,
   adminSectionFromHash,
   isRankingRoute,
   isStandaloneRoute,
+  navSection,
   routeFromHash,
   serverHash,
   serverIdFromHash,
@@ -187,10 +192,12 @@ test('every ranking sub-tab address resolves back to the route it claims', () =>
   }
 });
 
-test('the ranking tab stands for all three of its boards', () => {
-  // The top-level tab points at Alliance Ranking but stays selected on the
-  // other two — otherwise opening Arena deselects the tab that got you there.
-  expect(NAV_TABS.some((tab) => tab.route === 'rankings')).toBe(true);
+test('cross-server ranking stands for all three of its boards, under Overview', () => {
+  // It moved from the top row to Overview's second row, and it still stays
+  // selected on all three boards — otherwise opening Arena deselects the tab
+  // that got you there.
+  expect(NAV_TABS.some((tab) => tab.route === 'rankings')).toBe(false);
+  expect(OVERVIEW_TABS.some((tab) => tab.route === 'rankings')).toBe(true);
   expect(isRankingRoute('arena')).toBe(true);
   expect(isRankingRoute('crossRankings')).toBe(true);
   // And not for anything else, or every screen would light it up.
@@ -205,4 +212,65 @@ test('members and the ranking boards are no longer top-level tabs', () => {
   for (const route of ['members', 'crossRankings', 'arena'] as const) {
     expect(NAV_TABS.some((tab) => tab.route === route)).toBe(false);
   }
+});
+
+test('keeps the landing screen at the bare address', () => {
+  expect(routeFromHash('')).toBe('overview');
+  expect(routeFromHash('#/')).toBe('overview');
+  expect(NAV_TABS[0]).toMatchObject({ route: 'overview', hash: '#/' });
+});
+
+test('files every second-row screen under the top tab that shows the row', () => {
+  const rows = [
+    ['overview', OVERVIEW_TABS],
+    ['overview', RANKING_TABS],
+    ['alliance', ALLIANCE_TABS],
+    ['events', EVENT_TABS],
+    ['boards', BOARD_TABS],
+  ] as const;
+  for (const [section, tabs] of rows) {
+    for (const tab of tabs) {
+      expect([tab.route, navSection(tab.route)]).toEqual([tab.route, section]);
+    }
+  }
+});
+
+test('points each top tab at a screen inside its own section', () => {
+  for (const tab of NAV_TABS) {
+    expect(navSection(tab.route)).toBe(tab.section);
+  }
+});
+
+test('did not move any address', () => {
+  // Links already sent around must still land where they did.
+  const expected: Record<string, string> = {
+    '#/rankings': 'rankings',
+    '#/cross-server': 'crossRankings',
+    '#/arena': 'arena',
+    '#/members': 'members',
+    '#/hive': 'hive',
+    '#/season': 'season',
+    '#/season2': 'season2',
+    '#/black-gold': 'blackMoney',
+    // The first address, kept as an alias for links sent before the rename.
+    '#/black-money': 'blackMoney',
+    '#/schedule': 'schedule',
+    '#/notices': 'notices',
+    '#/guides': 'guides',
+    '#/map': 'map',
+  };
+  for (const [hash, route] of Object.entries(expected)) {
+    expect(routeFromHash(hash)).toBe(route);
+  }
+});
+
+test('keeps a single notice or guide under Boards', () => {
+  expect(navSection('notice')).toBe('boards');
+  expect(navSection('guide')).toBe('boards');
+});
+
+test('leaves screens about one subject out of every section', () => {
+  expect(navSection('player')).toBeNull();
+  expect(navSection('server')).toBeNull();
+  expect(navSection('admin')).toBeNull();
 });
