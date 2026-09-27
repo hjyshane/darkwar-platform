@@ -43,6 +43,20 @@ export const TERMS = {
   // Admin-only. Last season's buildings still arrive from old sightings.
   season2Buildings: 'Season 2',
   monthlyCard: 'Monthly Card',
+  // The event's on-screen name. On the wire it is `dragon` (0178).
+  blackMoney: 'Black Money',
+  // ours: the signup list's `state` (1 starter, 2 substitute) read as a slot.
+  blackMoneySlot: 'Slot',
+  // ours: whether the player is in the battle report — the game shows no
+  // attendance column, only the report's player list.
+  blackMoneyPlayed: 'Played',
+  // The battle report's five score parts: killScore, occupyScore,
+  // firstOccupyScore, collectScore, escortScore.
+  blackMoneyKill: 'Kills',
+  blackMoneyOccupy: 'Occupy',
+  blackMoneyFirstOccupy: 'First Occupy',
+  blackMoneyCollect: 'Collect',
+  blackMoneyEscort: 'Escort',
   signIn: 'Sign In',
 
   // Columns

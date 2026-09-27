@@ -22,6 +22,7 @@ export type Route =
   | 'season2'
   | 'map'
   | 'hive'
+  | 'blackMoney'
   | 'arena'
   | 'server'
   | 'player'
@@ -46,6 +47,7 @@ const ROUTES: Record<string, Route> = {
   '#/season2': 'season2',
   '#/map': 'map',
   '#/hive': 'hive',
+  '#/black-money': 'blackMoney',
   '#/arena': 'arena',
   '#/month-cards': 'monthCards',
   '#/account': 'account',
@@ -258,6 +260,10 @@ export const NAV_TABS: ReadonlyArray<{ route: Route; hash: string; label: string
   // where do I go — and burying that a click inside a screen about somebody
   // else's location is how eighty people end up asking in chat instead.
   { route: 'hive', hash: '#/hive', label: 'Hive' },
+  // Beside Hive: both are the screens a member opens on an event day to see
+  // where they stand. Every member can read it — the signup list is already
+  // visible to all of them in the game's event tab (0178).
+  { route: 'blackMoney', hash: '#/black-money', label: 'Black Money' },
   // Straight after the overview, because these two are the ones the alliance
   // reads every day and writes to each other on. Everything below is a board
   // the game produced; this is what the alliance said about it.

@@ -10,6 +10,7 @@ import { AdminPage } from './features/admin/AdminPage';
 import { AlliancePage } from './features/alliance/AlliancePage';
 import { ArenaPanel } from './features/arena/ArenaPanel';
 import { LoginPage } from './features/auth/LoginPage';
+import { BlackMoneyPage } from './features/blackMoney/BlackMoneyPage';
 import { CrossRankingsPanel } from './features/crossRankings/CrossRankingsPanel';
 import { GuidePostPage } from './features/guides/GuidePostPage';
 import { GuidesPanel } from './features/guides/GuidesPanel';
@@ -369,6 +370,11 @@ function Screen({ route, mapServerId }: { route: Route; mapServerId: number | nu
       // capability rather than a role for 0045's reason — who may plan a hive
       // move is exactly the kind of thing an alliance changes its mind about.
       return <HivePage />;
+    case 'blackMoney':
+      // No capability gate, like the season boards: the three tables under it
+      // are member-only at the policy level (0178) and the app is walled to
+      // members, so there is no ungated reader to explain an empty page to.
+      return <BlackMoneyPage />;
     case 'season':
       // No capability gate. Both season tables are member-only at the
       // policy level (0136) and the whole app is walled to members

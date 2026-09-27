@@ -5350,6 +5350,84 @@ export type Database = {
           },
         ]
       }
+      black_money_battle_members: {
+        Row: {
+          alliance_external_id: string | null
+          battle_ended_at: string | null
+          collect_score: number | null
+          escort_score: number | null
+          first_occupy_score: number | null
+          game_uid: number | null
+          kill_score: number | null
+          name: string | null
+          occupy_score: number | null
+          played: boolean | null
+          player_id: string | null
+          score: number | null
+          slot: string | null
+          team_index: number | null
+        }
+        Relationships: []
+      }
+      black_money_battles: {
+        Row: {
+          alliance_external_id: string | null
+          alliance_id: string | null
+          battle_ended_at: string | null
+          enemy_abbr: string | null
+          enemy_name: string | null
+          enemy_score: number | null
+          enemy_user_num: number | null
+          max_user_num: number | null
+          players_scored: number | null
+          report_seen: boolean | null
+          score: number | null
+          server_id: number | null
+          signup_read_at: string | null
+          starters: number | null
+          state: number | null
+          substitutes: number | null
+          team_index: number | null
+          user_num: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "black_money_battle_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "black_money_battle_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "black_money_battle_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "black_money_battle_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "black_money_battle_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+        ]
+      }
       event_scoreboard: {
         Row: {
           display_name: string | null
