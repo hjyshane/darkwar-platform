@@ -180,6 +180,30 @@ export type Database = {
           },
         ]
       }
+      alliance_board_readings: {
+        Row: {
+          board_size: number
+          counted_at: string
+          max_server_id: number
+          min_server_id: number
+          observation_id: string
+        }
+        Insert: {
+          board_size: number
+          counted_at?: string
+          max_server_id: number
+          min_server_id: number
+          observation_id: string
+        }
+        Update: {
+          board_size?: number
+          counted_at?: string
+          max_server_id?: number
+          min_server_id?: number
+          observation_id?: string
+        }
+        Relationships: []
+      }
       alliance_contribution_snapshots: {
         Row: {
           alliance_code: string | null
