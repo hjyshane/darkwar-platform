@@ -15,11 +15,13 @@ import queue
 import sys
 import threading
 import tkinter as tk
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from tkinter import filedialog, scrolledtext, ttk
+from tkinter import filedialog, messagebox, scrolledtext, ttk
 
 from dw_collector.console import find, logs, session, state
 from dw_collector.envfile import load_env_file
+from dw_collector.storage.journal import Journal, PruneReport
 
 REFRESH_MS = 3000
 LOG_TAIL_BYTES = 8192
@@ -64,12 +66,22 @@ class Console:
             ("stop", "Stop collection", self._stop_tasks),
             ("web", "Open dashboard", self._open_dashboard),
             ("docker", "Start Docker (local stack)", self._start_docker),
+            ("prune", "Prune journal…", self._prune_journal),
         ]
         self.buttons: dict[str, ttk.Button] = {}
         for index, (key, label, command) in enumerate(buttons):
             button = ttk.Button(frame, text=label, command=command, width=22)
             button.grid(row=index // 3, column=index % 3, padx=5, pady=5)
             self.buttons[key] = button
+        # Next to its button, because the window is the retention policy's
+        # only other reader: the CLI default is 30, this box remembers that
+        # the operator runs it at 14.
+        keep = ttk.Frame(frame)
+        keep.grid(row=2, column=1, padx=5, pady=5, sticky="w")
+        ttk.Label(keep, text="keep days").grid(row=0, column=0, padx=(0, 4))
+        self.prune_days = ttk.Entry(keep, width=5)
+        self.prune_days.insert(0, "14")
+        self.prune_days.grid(row=0, column=1)
 
     def _build_tabs(self, root: tk.Tk) -> None:
         """One window, tabs instead of three console windows.
@@ -364,6 +376,94 @@ class Console:
 
     def _open_dashboard(self) -> None:
         self._spawn(state.open_dashboard)
+
+    # --- prune ------------------------------------------------------------
+
+    def _prune_journal(self) -> None:
+        """Count first, then ask, then delete — the CLI's shape, with the
+        counting on a thread so the window stays alive while a big journal
+        is scanned. The 48 GB journal that motivated this took ten minutes
+        just to count.
+        """
+        try:
+            days = int(self.prune_days.get().strip())
+        except ValueError:
+            self._append("prune: keep days must be a number")
+            return
+        if days < 1:
+            self._append("prune: keep at least one day")
+            return
+        self.buttons["prune"].state(["disabled"])
+        cutoff = datetime.now(tz=UTC) - timedelta(days=days)
+
+        def count_work() -> str:
+            try:
+                # init_db so a journal predating an index gets it built here,
+                # under a progress line, rather than as a silent stall later.
+                self.messages.put("prune: reading the journal (a first run may build an index)")
+                journal = Journal(self.journal_path)
+                journal.init_db()
+                try:
+                    report = journal.prune(older_than=cutoff)
+                finally:
+                    journal.close()
+            except Exception:
+                # _spawn prints the failure; the button must not stay dead.
+                self.root.after(0, lambda: self.buttons["prune"].state(["!disabled"]))
+                raise
+            self.root.after(0, lambda: self._prune_confirm(cutoff, days, report))
+            return (
+                f"prune would remove {report.observations:,} observations,"
+                f" {report.normalized_rows:,} rows,"
+                f" {report.delivered_outbox:,} delivered outbox entries"
+            )
+
+        self._spawn(count_work)
+
+    def _prune_confirm(self, cutoff: datetime, days: int, report: PruneReport) -> None:
+        held = (
+            f"\n\n{report.held_back:,} old observations stay: their rows have not"
+            " reached the cloud yet. Run sync first if that number looks wrong."
+            if report.held_back
+            else ""
+        )
+        agreed = messagebox.askyesno(
+            "Prune journal",
+            f"Delete everything captured more than {days} days ago?\n\n"
+            f"  {report.observations:,} observations\n"
+            f"  {report.normalized_rows:,} normalized rows\n"
+            f"  {report.delivered_outbox:,} delivered outbox entries\n\n"
+            "Collection stops while the space is reclaimed and restarts"
+            f" by itself afterwards.{held}",
+        )
+        if not agreed:
+            self.buttons["prune"].state(["!disabled"])
+            self._append("prune: cancelled")
+            return
+
+        def work() -> str:
+            self.messages.put(state.stop_journal_writers())
+            try:
+                journal = Journal(self.journal_path)
+                journal.init_db()
+                try:
+                    self.messages.put("prune: deleting")
+                    journal.prune(older_than=cutoff, confirm=True)
+                    self.messages.put("prune: vacuum — rewriting the file, this is the slow part")
+                    journal.vacuum()
+                finally:
+                    journal.close()
+            finally:
+                # Both run even when the prune failed: a journal that kept
+                # its history is a nuisance, a collector that silently
+                # stopped collecting is an outage — and a dead button hides
+                # the retry.
+                self.messages.put(state.start_journal_writers())
+                self.root.after(0, lambda: self.buttons["prune"].state(["!disabled"]))
+            size = self.journal_path.stat().st_size / 1024**3
+            return f"prune: done — the journal is {size:.2f} GB"
+
+        self._spawn(work)
 
     # --- refresh --------------------------------------------------------
 
