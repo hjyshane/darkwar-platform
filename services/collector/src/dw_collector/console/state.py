@@ -294,6 +294,50 @@ def stop_tasks() -> list[str]:
     return [_run(["schtasks", "/end", "/tn", name]).stdout.strip() for name in TASKS]
 
 
+# Everything holding a connection to the journal. Notify is not in TASKS —
+# the collect buttons do not own it — but a vacuum cannot run while ANY
+# connection is open, and notify keeps one for days.
+JOURNAL_WRITERS = ("DarkWar-Ingest", "DarkWar-Sync", "DarkWar-Notify")
+
+# What the writers' surviving processes look like on a command line. The
+# launcher chain is wscript -> cmd -> uv -> dw-X.exe -> venv python -> base
+# python, and `schtasks /end` reaches only the first link — measured, not
+# assumed: the whole python chain survived it, still polling, while Task
+# Scheduler reported the tasks stopped. Deliberately NOT matching
+# 'dw-console', which is the process this very function runs in.
+_WRITER_CMDLINE = "dw-sync|ingest-dir|dw-notify|run-(Ingest|Sync|Notify)"
+
+
+def stop_journal_writers() -> str:
+    """Stop the journal's writers and mean it.
+
+    schtasks first so Task Scheduler agrees, then the survivors by command
+    line, because a vacuum that starts while one orphaned python still holds
+    its connection fails with 'database is locked' after the operator
+    already agreed to the downtime.
+    """
+    for name in JOURNAL_WRITERS:
+        _run(["schtasks", "/end", "/tn", name])
+    _run(
+        [
+            "powershell",
+            "-NoProfile",
+            "-Command",
+            "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match '"
+            + _WRITER_CMDLINE
+            + "' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force"
+            " -ErrorAction SilentlyContinue }",
+        ]
+    )
+    return "collection stopped for the prune"
+
+
+def start_journal_writers() -> str:
+    for name in JOURNAL_WRITERS:
+        _run(["schtasks", "/run", "/tn", name])
+    return "collection restarted"
+
+
 DASHBOARD_URL = "https://darkwar-platform.hjyshane.workers.dev"
 
 

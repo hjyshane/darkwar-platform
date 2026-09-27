@@ -349,3 +349,22 @@ def test_registered_tasks_do_read_their_wrappers(tmp_path: Path) -> None:
 
     assert reading.rotation == 15
     assert reading.worst_case == 30
+
+
+def test_the_writer_kill_pattern_spares_the_console_itself() -> None:
+    """stop_journal_writers kills survivors by command line, and the one
+    process guaranteed to be running that code is dw-console. The launcher
+    chain's names must match; the console's must not.
+    """
+    import re
+
+    pattern = re.compile(state._WRITER_CMDLINE)
+
+    for survivor in (
+        r"C:\x\.venv\Scripts\dw-sync.exe",
+        r'python.exe "C:\x\dw-notify.exe"',
+        r"dw-collector.exe ingest-dir --dir C:\DW_data\live",
+        r'cmd /c ""C:\DW_data\run-Ingest.cmd""',
+    ):
+        assert pattern.search(survivor), survivor
+    assert pattern.search(r"C:\x\.venv\Scripts\dw-console.exe") is None
