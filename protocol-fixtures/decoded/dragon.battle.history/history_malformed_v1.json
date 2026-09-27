@@ -1,0 +1,17 @@
+{
+  "observation_id": "00000000-0000-4000-8000-00000000c802",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "dragon.battle.history",
+  "captured_at": "2026-09-27T13:00:00+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "historyArr": [
+      {
+        "allianceId": "00000000000000000000000000000000",
+        "teamIndex": 1,
+        "score": 1
+      }
+    ]
+  },
+  "schema_version": 1
+}

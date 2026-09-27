@@ -99,6 +99,31 @@ def idempotency_key(observation: Observation, entity_scope: str, time_bucket: st
     )
 
 
+def entry_idempotency_key(
+    observation: Observation, entity_scope: str, time_bucket: str, raw_entry: dict[str, Any]
+) -> str:
+    """The §11.2 key with the hash taken over ONE raw entry of the payload.
+
+    For responses that repeat an immutable fact inside a changing envelope.
+    A finished battle comes back unchanged in every `dragon.battle.history`
+    response, and one battle report reaches every participant's inbox under
+    a different mail uid — hashing the whole response would mint a new key
+    each time and store the same fact once per screen open or per recipient.
+
+    Still the RAW decoded entry, never the normalized row, so a parser
+    version bump keeps every key it had.
+    """
+    return ":".join(
+        [
+            str(observation.collector_id),
+            observation.source_command,
+            entity_scope,
+            time_bucket,
+            payload_hash(raw_entry),
+        ]
+    )
+
+
 def stable_uuid(key: str) -> uuid.UUID:
     """Deterministic UUID for client-generated primary keys.
 

@@ -1,0 +1,18 @@
+{
+  "observation_id": "00000000-0000-4000-8000-00000000c803",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "chat.get.system.mails",
+  "captured_at": "2026-09-27T13:00:00+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "msg": [
+      {
+        "uid": "1",
+        "type": 147,
+        "sendTime": 1790513645900,
+        "contentsLocal": "{\"obj\":{\"scoreInfo\":[{\"allianceId\":\"00000000000000000000000000000000\",\"userArr\":[{\"uid\":\"nope\",\"score\":1}]}]}}"
+      }
+    ]
+  },
+  "schema_version": 1
+}

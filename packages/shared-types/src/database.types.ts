@@ -1674,6 +1674,416 @@ export type Database = {
           },
         ]
       }
+      black_money_battle_snapshots: {
+        Row: {
+          alliance_external_id: string
+          alliance_id: string | null
+          battle_ended_at: string
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at: string
+          enemy_abbr: string | null
+          enemy_name: string | null
+          enemy_score: number | null
+          enemy_team_index: number | null
+          enemy_user_num: number | null
+          idempotency_key: string
+          max_user_num: number | null
+          observation_id: string
+          parser_version: string
+          raw: Json
+          score: number | null
+          server_id: number
+          side: number | null
+          snapshot_id: string
+          source_command: string
+          state: number | null
+          team_index: number
+          user_num: number | null
+        }
+        Insert: {
+          alliance_external_id: string
+          alliance_id?: string | null
+          battle_ended_at: string
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at?: string
+          enemy_abbr?: string | null
+          enemy_name?: string | null
+          enemy_score?: number | null
+          enemy_team_index?: number | null
+          enemy_user_num?: number | null
+          idempotency_key: string
+          max_user_num?: number | null
+          observation_id: string
+          parser_version: string
+          raw?: Json
+          score?: number | null
+          server_id: number
+          side?: number | null
+          snapshot_id?: string
+          source_command: string
+          state?: number | null
+          team_index: number
+          user_num?: number | null
+        }
+        Update: {
+          alliance_external_id?: string
+          alliance_id?: string | null
+          battle_ended_at?: string
+          captured_at?: string
+          collected_from_server_id?: number
+          collector_id?: string
+          created_at?: string
+          enemy_abbr?: string | null
+          enemy_name?: string | null
+          enemy_score?: number | null
+          enemy_team_index?: number | null
+          enemy_user_num?: number | null
+          idempotency_key?: string
+          max_user_num?: number | null
+          observation_id?: string
+          parser_version?: string
+          raw?: Json
+          score?: number | null
+          server_id?: number
+          side?: number | null
+          snapshot_id?: string
+          source_command?: string
+          state?: number | null
+          team_index?: number
+          user_num?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "black_money_battle_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "black_money_battle_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "black_money_battle_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "black_money_battle_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "black_money_battle_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "black_money_battle_snapshots_collector_id_fkey"
+            columns: ["collector_id"]
+            isOneToOne: false
+            referencedRelation: "collectors"
+            referencedColumns: ["collector_id"]
+          },
+          {
+            foreignKeyName: "black_money_battle_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "black_money_battle_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+        ]
+      }
+      black_money_score_snapshots: {
+        Row: {
+          alliance_abbr: string | null
+          alliance_external_id: string
+          alliance_id: string | null
+          captured_at: string
+          collect_score: number | null
+          collected_from_server_id: number
+          collector_id: string
+          created_at: string
+          escort_score: number | null
+          first_occupy_score: number | null
+          game_uid: number
+          idempotency_key: string
+          kill_score: number | null
+          name: string | null
+          observation_id: string
+          occupy_score: number | null
+          parser_version: string
+          player_id: string | null
+          raw: Json
+          reported_at: string
+          score: number | null
+          server_id: number
+          side: number | null
+          snapshot_id: string
+          source_command: string
+          win: number | null
+        }
+        Insert: {
+          alliance_abbr?: string | null
+          alliance_external_id: string
+          alliance_id?: string | null
+          captured_at: string
+          collect_score?: number | null
+          collected_from_server_id: number
+          collector_id: string
+          created_at?: string
+          escort_score?: number | null
+          first_occupy_score?: number | null
+          game_uid: number
+          idempotency_key: string
+          kill_score?: number | null
+          name?: string | null
+          observation_id: string
+          occupy_score?: number | null
+          parser_version: string
+          player_id?: string | null
+          raw?: Json
+          reported_at: string
+          score?: number | null
+          server_id: number
+          side?: number | null
+          snapshot_id?: string
+          source_command: string
+          win?: number | null
+        }
+        Update: {
+          alliance_abbr?: string | null
+          alliance_external_id?: string
+          alliance_id?: string | null
+          captured_at?: string
+          collect_score?: number | null
+          collected_from_server_id?: number
+          collector_id?: string
+          created_at?: string
+          escort_score?: number | null
+          first_occupy_score?: number | null
+          game_uid?: number
+          idempotency_key?: string
+          kill_score?: number | null
+          name?: string | null
+          observation_id?: string
+          occupy_score?: number | null
+          parser_version?: string
+          player_id?: string | null
+          raw?: Json
+          reported_at?: string
+          score?: number | null
+          server_id?: number
+          side?: number | null
+          snapshot_id?: string
+          source_command?: string
+          win?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "black_money_score_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "black_money_score_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "black_money_score_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "black_money_score_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "black_money_score_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "black_money_score_snapshots_collector_id_fkey"
+            columns: ["collector_id"]
+            isOneToOne: false
+            referencedRelation: "collectors"
+            referencedColumns: ["collector_id"]
+          },
+          {
+            foreignKeyName: "black_money_score_snapshots_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "black_money_score_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "black_money_score_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+        ]
+      }
+      black_money_signup_snapshots: {
+        Row: {
+          alliance_abbr: string | null
+          battle_willingness: number | null
+          battle_willingness2: number | null
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at: string
+          game_uid: number
+          idempotency_key: string
+          level: number | null
+          name: string | null
+          observation_id: string
+          parser_version: string
+          player_id: string | null
+          power: number | null
+          raw: Json
+          server_id: number
+          snapshot_id: string
+          source_command: string
+          state: number | null
+          team_index: number | null
+          time_index_record: string | null
+        }
+        Insert: {
+          alliance_abbr?: string | null
+          battle_willingness?: number | null
+          battle_willingness2?: number | null
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at?: string
+          game_uid: number
+          idempotency_key: string
+          level?: number | null
+          name?: string | null
+          observation_id: string
+          parser_version: string
+          player_id?: string | null
+          power?: number | null
+          raw?: Json
+          server_id: number
+          snapshot_id?: string
+          source_command: string
+          state?: number | null
+          team_index?: number | null
+          time_index_record?: string | null
+        }
+        Update: {
+          alliance_abbr?: string | null
+          battle_willingness?: number | null
+          battle_willingness2?: number | null
+          captured_at?: string
+          collected_from_server_id?: number
+          collector_id?: string
+          created_at?: string
+          game_uid?: number
+          idempotency_key?: string
+          level?: number | null
+          name?: string | null
+          observation_id?: string
+          parser_version?: string
+          player_id?: string | null
+          power?: number | null
+          raw?: Json
+          server_id?: number
+          snapshot_id?: string
+          source_command?: string
+          state?: number | null
+          team_index?: number | null
+          time_index_record?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "black_money_signup_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "black_money_signup_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "black_money_signup_snapshots_collector_id_fkey"
+            columns: ["collector_id"]
+            isOneToOne: false
+            referencedRelation: "collectors"
+            referencedColumns: ["collector_id"]
+          },
+          {
+            foreignKeyName: "black_money_signup_snapshots_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "black_money_signup_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "black_money_signup_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+        ]
+      }
       capabilities: {
         Row: {
           capability: string
