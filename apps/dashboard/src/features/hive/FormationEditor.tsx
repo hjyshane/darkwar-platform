@@ -334,6 +334,52 @@ export function tilesOffMap(anchor: Coordinate, tiles: readonly LayoutTile[]): n
     .length;
 }
 
+/** Whether every tile of a drawn shape stays on the map with the anchor on
+ * `anchor`. The draft's counterpart of `tilesOffMap`, asked before an anchor
+ * move is sent so the officer is told where they are aiming rather than handed
+ * the database's refusal naming one tile afterwards. */
+export function formationFitsAt(anchor: Coordinate, tiles: readonly SizedOffset[]): boolean {
+  return tiles.every((tile) => tileFitsOnMap(absoluteOf(anchor, tile), tile.spanX, tile.spanY));
+}
+
+/** Whether a refetched board is the SAME saved shape, tile for tile.
+ *
+ * The board's rows carry each tile's absolute x and y, which the view works
+ * out from the anchor — so moving the anchor hands back new rows for a layout
+ * that has not changed at all. Judged by identity, that refetch looked like
+ * somebody else's save and threw the draft away: a template loaded to be
+ * positioned, the documented reason to move the anchor, vanished the moment
+ * the anchor moved. Offsets, sizes, labels AND slot ids have to agree; a save
+ * deletes and reinserts, so new ids mean new rows even for an identical
+ * shape, and a draft holding the old ids would assign people to tiles that
+ * no longer exist. */
+export function sameSavedShape(a: Map<string, DraftSlot>, b: Map<string, DraftSlot>): boolean {
+  if (!sameLayout(a, b)) {
+    return false;
+  }
+  for (const [key, slot] of a) {
+    if (b.get(key)?.slotId !== slot.slotId) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/** Whether two reads of the board put the same people on the same tiles, pins
+ * included. The assignment half's version of `sameSavedShape`, for the same
+ * refetch: an anchor move rewrites every row's coordinates and nobody's
+ * place, so it must not reset who the officer has been moving around. */
+export function sameOccupancy(a: readonly BoardSlot[], b: readonly BoardSlot[]): boolean {
+  if (a.length !== b.length) {
+    return false;
+  }
+  const before = new Map(a.map((slot) => [slot.slotId, slot]));
+  return b.every((slot) => {
+    const was = before.get(slot.slotId);
+    return was !== undefined && was.playerId === slot.playerId && was.pinned === slot.pinned;
+  });
+}
+
 function sameLayout(a: Map<string, DraftSlot>, b: Map<string, DraftSlot>): boolean {
   if (a.size !== b.size) {
     return false;
@@ -384,7 +430,10 @@ export function FormationEditor({
   const [draft, setDraft] = useState<Map<string, DraftSlot>>(saved);
   if (draftFor !== saved) {
     setDraftFor(saved);
-    setDraft(saved);
+    // Not on an anchor move — see sameSavedShape.
+    if (!sameSavedShape(draftFor, saved)) {
+      setDraft(saved);
+    }
   }
 
   const [centre, setCentre] = useState<Coordinate>({ x: formation.anchorX, y: formation.anchorY });
@@ -401,6 +450,11 @@ export function FormationEditor({
     setAnchorFor({ x: formation.anchorX, y: formation.anchorY });
     setCentre({ x: formation.anchorX, y: formation.anchorY });
   }
+  // WHERE THE ANCHOR IS GOING, while the write is in flight. The view is sent
+  // to the new ground at once; without this the formation stayed behind at the
+  // old anchor until the board refetched, so for a moment the officer was
+  // looking at empty ground and the move read as having failed.
+  const [pendingAnchor, setPendingAnchor] = useState<Coordinate | null>(null);
   const [zoom, setZoom] = useState<number>(14);
   const [refusal, setRefusal] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
@@ -434,7 +488,10 @@ export function FormationEditor({
   const [assignments, setAssignments] = useState<Map<string, string>>(new Map());
   const [assignmentsFor, setAssignmentsFor] = useState<readonly BoardSlot[]>([]);
   const [pinned, setPinned] = useState<Map<string, string>>(new Map());
-  if (assignmentsFor !== slots) {
+  // Not on an anchor move either — see sameOccupancy.
+  if (assignmentsFor !== slots && sameOccupancy(assignmentsFor, slots)) {
+    setAssignmentsFor(slots);
+  } else if (assignmentsFor !== slots) {
     setAssignmentsFor(slots);
     setAssignments(
       new Map(
@@ -467,7 +524,7 @@ export function FormationEditor({
     });
   }
 
-  const anchor: Coordinate = { x: formation.anchorX, y: formation.anchorY };
+  const anchor: Coordinate = pendingAnchor ?? { x: formation.anchorX, y: formation.anchorY };
   const view = windowAround(centre, zoom);
   const drawn = [...draft.values()];
   const structures = drawn.filter((slot) => slot.kind === 'structure');
@@ -599,12 +656,28 @@ export function FormationEditor({
   const anchorMove = useMutation({
     mutationFn: (to: Coordinate) =>
       updateFormation(formation.formationId, { anchorX: to.x, anchorY: to.y }),
+    // RETURNED, not fired and forgotten: the mutation stays pending until the
+    // board has been re-read, so `pendingAnchor` is let go only once the
+    // formation it stood in for has arrived — never a frame on the old ground.
     onSuccess: () => {
       setRefusal(null);
-      void queryClient.invalidateQueries({ queryKey: ['hive'] });
+      return queryClient.invalidateQueries({ queryKey: ['hive'] });
     },
     onError: (error: Error) => setRefusal(error.message),
   });
+
+  /** Move the whole formation: the typed box and the dragged anchor both end
+   * here, so the two cannot disagree about what a move does. */
+  function moveAnchor(to: Coordinate) {
+    const from = anchor;
+    setPendingAnchor(to);
+    setCentre(to);
+    anchorMove.mutate(to, {
+      onSettled: () => setPendingAnchor(null),
+      // Refused: the formation never moved, so neither should the view.
+      onError: () => setCentre(from),
+    });
+  }
 
   // The catalogue the brush is loaded from (0171). Read here rather than
   // passed in: it belongs to the editor, is the same on every server, and
@@ -1300,8 +1373,10 @@ export function FormationEditor({
             busy={layoutSave.isPending}
             canDropAt={(at) => dropTarget(drawn, anchor, at).kind !== 'refused'}
             canMoveTo={canMove}
+            canAnchorAt={(to) => formationFitsAt(to, drawn)}
             onDropMember={dropMember}
             onMove={move}
+            onMoveAnchor={anchorMove.isPending ? undefined : moveAnchor}
             onPick={pick}
             onPan={(byX, byY) => setCentre((from) => pannedCentre(from, byX, byY))}
             onRegion={tool === 'draw' ? undefined : sweep}
@@ -1347,14 +1422,15 @@ export function FormationEditor({
               Every tile is stored as an offset from here, so moving the anchor moves the whole
               formation and cannot change its shape.
             </p>
+            <p className="subtle">Or drag the anchor square on the map — every tile follows it.</p>
             <CoordinateInput
               at={anchor}
+              busy={anchorMove.isPending}
+              fits={(to) => formationFitsAt(to, drawn)}
               label="Anchor"
-              onSubmit={(to) => {
-                anchorMove.mutate(to);
-                setCentre(to);
-              }}
+              onSubmit={moveAnchor}
               submitLabel="Move formation"
+              whyNot="From there part of the formation would run off the map."
             />
           </fieldset>
 
@@ -2038,11 +2114,23 @@ function CoordinateInput({
   label,
   onSubmit,
   submitLabel,
+  fits,
+  whyNot,
+  busy = false,
 }: {
   at: Coordinate;
   label: string;
   onSubmit: (to: Coordinate) => void;
   submitLabel: string;
+  /** Whether a coordinate is somewhere this box may send. Defaults to "a base
+   * fits there", which is right for looking; moving the anchor has to ask
+   * about the whole formation, or the button offers a move the database then
+   * refuses. */
+  fits?: (to: Coordinate) => boolean;
+  /** Said under the box when the numbers are real but `fits` says no, so a
+   * greyed button is not the only answer. */
+  whyNot?: string;
+  busy?: boolean;
 }) {
   const [x, setX] = useState(String(at.x));
   const [y, setY] = useState(String(at.y));
@@ -2052,10 +2140,22 @@ function CoordinateInput({
     setX(String(at.x));
     setY(String(at.y));
   }
-  const parsed = { x: Number.parseInt(x, 10), y: Number.parseInt(y, 10) };
-  const usable = tileFitsOnMap(parsed, BASE_SPAN, BASE_SPAN);
+  const parsed = parseCoordinate(x, y);
+  const onMap = parsed !== null && tileFitsOnMap(parsed, BASE_SPAN, BASE_SPAN);
+  const usable = parsed !== null && onMap && (fits === undefined || fits(parsed));
+  const unchanged = parsed !== null && parsed.x === at.x && parsed.y === at.y;
+  // A FORM, so Enter in either box sends it. It was a bare button, and typing
+  // a coordinate then pressing Enter — what everybody does — did nothing.
   return (
-    <div className="hive-coordinate">
+    <form
+      className="hive-coordinate"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (usable && !busy && !unchanged) {
+          onSubmit(parsed);
+        }
+      }}
+    >
       <label>
         <span>{label} x</span>
         <input inputMode="numeric" onChange={(event) => setX(event.target.value)} value={x} />
@@ -2064,9 +2164,22 @@ function CoordinateInput({
         <span>y</span>
         <input inputMode="numeric" onChange={(event) => setY(event.target.value)} value={y} />
       </label>
-      <button disabled={!usable} onClick={() => onSubmit(parsed)} type="button">
-        {submitLabel}
+      <button disabled={!usable || busy || unchanged} type="submit">
+        {busy ? 'Moving…' : submitLabel}
       </button>
-    </div>
+      {onMap && !usable && whyNot !== undefined && <p className="hive-coordinate__why">{whyNot}</p>}
+    </form>
   );
+}
+
+/** Two typed numbers as a coordinate, or null unless both are whole numbers.
+ *
+ * STRICTER THAN parseInt, which reads "51O" as 51 and "5 12" as 5 — a typo
+ * then moved the whole formation somewhere nobody typed. */
+export function parseCoordinate(x: string, y: string): Coordinate | null {
+  const whole = /^\s*\d+\s*$/;
+  if (!whole.test(x) || !whole.test(y)) {
+    return null;
+  }
+  return { x: Number(x), y: Number(y) };
 }

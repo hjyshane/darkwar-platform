@@ -307,6 +307,28 @@ export function pannedCentre(from: Coordinate, byX: number, byY: number): Coordi
 }
 
 /** An inclusive tile box as a percentage rectangle. */
+/** Where a tile lands when the anchor goes from `from` to `to`: every tile is
+ * an offset from the anchor, so it moves by exactly what the anchor did. */
+export function shiftedAt(at: Coordinate, from: Coordinate, to: Coordinate): Coordinate {
+  return { x: at.x + to.x - from.x, y: at.y + to.y - from.y };
+}
+
+/** Whether a press on `tile` picks up the anchor rather than what is under it.
+ *
+ * Only on the anchor's own square, and only when nobody is standing there — a
+ * person's base on the anchor is theirs to drag. Ground (a structure such as
+ * Frankie) does not count as somebody, which is the usual case: Frankie is
+ * drawn centred on the anchor. */
+export function grabsAnchor(
+  tile: Coordinate,
+  anchor: Coordinate,
+  held: Pick<GridBase, 'structure'> | undefined,
+): boolean {
+  return (
+    tile.x === anchor.x && tile.y === anchor.y && (held === undefined || held.structure === true)
+  );
+}
+
 function rectStyle(window: GridWindow, box: FootprintBox) {
   const corner = tileCorner(window, { x: box.x0, y: box.y1 });
   return {
@@ -330,6 +352,8 @@ export function TileGrid({
   onZoom,
   onDropMember,
   canDropAt,
+  onMoveAnchor,
+  canAnchorAt,
   busy = false,
 }: {
   window: GridWindow;
@@ -378,6 +402,18 @@ export function TileGrid({
   /** Whether a member dropped on `at` would land, asked as the pointer moves
    * so the square under it can say no before the drop. */
   canDropAt?: (at: Coordinate) => boolean;
+  /** Given, pressing the anchor's own square and dragging carries the WHOLE
+   * formation, reported on release as the anchor's new coordinate.
+   *
+   * THE ANCHOR SQUARE AND NOTHING ELSE. Frankie sits on it and a drag on
+   * Frankie still slides the map, as it always has — only the one tile the
+   * offsets are measured from means "move all of it", and it is drawn on top
+   * so that tile is what the pointer finds. A base standing on the anchor
+   * keeps it: dragging a person is the more common thing to mean. */
+  onMoveAnchor?: (to: Coordinate) => void;
+  /** Whether the whole formation fits with the anchor on `to`. Asked while
+   * dragging so the ghosts can refuse before the drop. */
+  canAnchorAt?: (to: Coordinate) => boolean;
   busy?: boolean;
 }) {
   // Captions are dropped once a tile is too small to hold one. The same rule
@@ -390,6 +426,12 @@ export function TileGrid({
   // Where a member being dragged in from the list would land, while they are
   // over the grid.
   const [incoming, setIncoming] = useState<{ at: Coordinate; allowed: boolean } | null>(null);
+  // The anchor being carried: where it would land, and whether it may.
+  const [anchorDrag, setAnchorDrag] = useState<{
+    to: Coordinate;
+    moved: boolean;
+    allowed: boolean;
+  } | null>(null);
   // Where the last whole-tile step was emitted from, in client pixels. Held
   // rather than the gesture's origin so the steps accumulate without drift:
   // a pan of forty tiles is forty deltas, not one growing subtraction.
@@ -486,6 +528,9 @@ export function TileGrid({
   }
   // Base dragging is off while sweeping: one gesture, one meaning.
   const draggable = onMove !== undefined && !sweeping;
+  // The same rule for the anchor: an area tool owns every press, the anchor's
+  // square included, so carrying the formation is a draw-mode gesture.
+  const anchorGrabbable = onMoveAnchor !== undefined && !sweeping;
 
   // WHEEL ZOOM NEEDS A NON-PASSIVE LISTENER, which React's onWheel is not.
   // Without preventDefault the page scrolls at the same time and the map
@@ -548,10 +593,34 @@ export function TileGrid({
         />
       ))}
       <span
-        className="tile-grid__anchor"
-        style={boxStyle(view, anchor, 1)}
-        title={`Anchor — ${formatTeleport(anchor)}`}
+        className={
+          anchorGrabbable ? 'tile-grid__anchor tile-grid__anchor--grab' : 'tile-grid__anchor'
+        }
+        style={boxStyle(view, anchorDrag?.moved === true ? anchorDrag.to : anchor, 1)}
+        title={
+          anchorGrabbable
+            ? `Anchor — ${formatTeleport(anchor)}. Drag it to move the whole formation.`
+            : `Anchor — ${formatTeleport(anchor)}`
+        }
       />
+      {/* THE WHOLE FORMATION WHERE IT WOULD LAND. Moving the anchor moves
+          every tile, so every tile gets a ghost — one ghost would say nothing
+          about whether the far wing runs off the map. */}
+      {anchorDrag?.moved === true &&
+        bases.map((base) => (
+          <span
+            className={
+              anchorDrag.allowed ? 'tile-grid__ghost' : 'tile-grid__ghost tile-grid__ghost--blocked'
+            }
+            key={`anchor-ghost-${base.key}`}
+            style={boxStyle(
+              view,
+              shiftedAt(base.at, anchor, anchorDrag.to),
+              base.spanX ?? BASE_SPAN,
+              base.spanY ?? BASE_SPAN,
+            )}
+          />
+        ))}
       {/* THE AREA BEING SWEPT. Without it a drag across forty tiles is
           invisible until it lands, and the officer is aiming at nothing. */}
       {region !== null && (
@@ -596,10 +665,11 @@ export function TileGrid({
         })()}
       {bases.map((base) => {
         const carried =
-          drag?.moved === true &&
-          (base.selected === true && baseUnder(drag.from)?.selected === true
-            ? true
-            : base.at.x === drag.from.x && base.at.y === drag.from.y);
+          anchorDrag?.moved === true ||
+          (drag?.moved === true &&
+            (base.selected === true && baseUnder(drag.from)?.selected === true
+              ? true
+              : base.at.x === drag.from.x && base.at.y === drag.from.y));
         const className = [
           'tile-grid__base',
           base.structure ? 'tile-grid__base--structure' : '',
@@ -675,6 +745,7 @@ export function TileGrid({
             : draggable
               ? 'Pick a tile, or drag a base to move it.'
               : 'Pick a tile.',
+          anchorGrabbable ? 'Drag the anchor square to move the whole formation.' : '',
           pannable
             ? sweeping
               ? 'Hold ctrl and drag, or drag with the middle button, to slide the map.'
@@ -689,6 +760,7 @@ export function TileGrid({
           busy ? 'tile-grid--busy' : '',
           sweeping ? 'tile-grid--sweeping' : '',
           pan !== null ? 'tile-grid--panning' : '',
+          anchorDrag?.moved === true ? 'tile-grid--carrying-anchor' : '',
         ]
           .filter(Boolean)
           .join(' ')}
@@ -741,6 +813,7 @@ export function TileGrid({
           setDrag(null);
           setRegion(null);
           setPan(null);
+          setAnchorDrag(null);
         }}
         onPointerDown={(event) => {
           if (isPanGesture(event)) {
@@ -780,10 +853,7 @@ export function TileGrid({
             setRegion({ from: corner, to: corner });
             return;
           }
-          // A press on a base MIGHT be the start of a drag. Whether it is one
-          // is not known until the pointer moves, so nothing happens yet — the
-          // click handler above still owns a press that goes nowhere.
-          if (!draggable || event.button !== 0) {
+          if (event.button !== 0) {
             return;
           }
           const tile = tileUnder(event);
@@ -791,6 +861,21 @@ export function TileGrid({
             return;
           }
           const held = baseUnder(tile);
+          // THE ANCHOR FIRST, because Frankie is drawn over it and the
+          // structure rule below would otherwise turn this press into a pan.
+          // Like a base drag, nothing moves until the pointer does: a press
+          // that goes nowhere is still a click on that square.
+          if (anchorGrabbable && grabsAnchor(tile, anchor, held)) {
+            event.currentTarget.setPointerCapture(event.pointerId);
+            setAnchorDrag({ to: anchor, moved: false, allowed: true });
+            return;
+          }
+          // A press on a base MIGHT be the start of a drag. Whether it is one
+          // is not known until the pointer moves, so nothing happens yet — the
+          // click handler above still owns a press that goes nowhere.
+          if (!draggable) {
+            return;
+          }
           // A structure is ground rather than somebody's place, and dragging
           // the hive's centre by accident is not a thing anybody means to do.
           if (held === undefined || held.structure === true) {
@@ -832,6 +917,18 @@ export function TileGrid({
               return;
             }
             setRegion({ ...region, to: corner });
+            return;
+          }
+          if (anchorDrag !== null) {
+            const tile = tileUnder(event);
+            if (tile === null || (tile.x === anchorDrag.to.x && tile.y === anchorDrag.to.y)) {
+              return;
+            }
+            // Whole tiles, so leaving the anchor's square at all is past the
+            // threshold — and coming back to it is a drag to nowhere, not a
+            // click, once it has left.
+            const allowed = canAnchorAt === undefined || canAnchorAt(tile);
+            setAnchorDrag({ to: tile, moved: true, allowed });
             return;
           }
           if (drag === null) {
@@ -878,6 +975,18 @@ export function TileGrid({
             // then toggle the same tile straight back off.
             swallowClick.current = true;
             onRegion?.(boxBetween(region.from, corner));
+            return;
+          }
+          if (anchorDrag !== null) {
+            setAnchorDrag(null);
+            if (!anchorDrag.moved) {
+              return;
+            }
+            swallowClick.current = true;
+            const to = anchorDrag.to;
+            if (anchorDrag.allowed && (to.x !== anchor.x || to.y !== anchor.y)) {
+              onMoveAnchor?.(to);
+            }
             return;
           }
           if (drag === null) {
