@@ -261,8 +261,40 @@ export const ZOOM_STEPS = [8, 14, 22, 34] as const;
  */
 export function zoomStep(radius: number, direction: number): number {
   const index = ZOOM_STEPS.indexOf(radius as (typeof ZOOM_STEPS)[number]);
-  const from = index === -1 ? 1 : index;
-  return ZOOM_STEPS[Math.min(ZOOM_STEPS.length - 1, Math.max(0, from - direction))] ?? radius;
+  if (index === -1) {
+    // OFF THE LADDER: a window fitted to a formation has whatever radius the
+    // formation needed. One notch goes to the nearest step in the direction
+    // asked, so "closer" is never a jump outward to the ladder's default.
+    const closer = [...ZOOM_STEPS].reverse().find((step) => step < radius);
+    const wider = ZOOM_STEPS.find((step) => step > radius);
+    return (direction > 0 ? closer : wider) ?? radius;
+  }
+  return ZOOM_STEPS[Math.min(ZOOM_STEPS.length - 1, Math.max(0, index - direction))] ?? radius;
+}
+
+/** The window that shows every footprint whole, with a margin round it.
+ *
+ * For the members' picture, which is there to be looked at rather than
+ * worked in: it opens on the WHOLE formation instead of a fixed zoom round the
+ * anchor, which on an eighty-base hive showed the middle and left everybody
+ * past the second ring to be panned for. Never closer than the nearest zoom
+ * step, so a formation of three bases is not blown up to fill the screen.
+ * Null for nothing drawn — the caller keeps its own default.
+ */
+export function windowFitting(
+  boxes: readonly FootprintBox[],
+  margin = 2,
+): { centre: Coordinate; radius: number } | null {
+  if (boxes.length === 0) {
+    return null;
+  }
+  const x0 = Math.min(...boxes.map((box) => box.x0));
+  const x1 = Math.max(...boxes.map((box) => box.x1));
+  const y0 = Math.min(...boxes.map((box) => box.y0));
+  const y1 = Math.max(...boxes.map((box) => box.y1));
+  const centre = { x: Math.floor((x0 + x1) / 2), y: Math.floor((y0 + y1) / 2) };
+  const reach = Math.max(centre.x - x0, x1 - centre.x, centre.y - y0, y1 - centre.y);
+  return { centre, radius: Math.max(ZOOM_STEPS[0], reach + margin) };
 }
 
 /** How far the pointer must travel before a press becomes a drag.
@@ -391,7 +423,7 @@ export function TileGrid({
    * pointer crosses, so the square under the cursor can say no BEFORE the
    * drop rather than the drop being silently ignored. */
   canMoveTo?: (from: Coordinate, to: Coordinate) => boolean;
-  /** Given, the wheel zooms. `direction` is +1 to go closer, and `at` is the
+  /** Given, ctrl + wheel (or a pinch) zooms. `direction` is +1 to go closer, and `at` is the
    * tile under the pointer — the caller re-centres on it so the square being
    * looked at stays under the cursor instead of sliding away. */
   onZoom?: (direction: number, at: Coordinate) => void;
@@ -416,10 +448,12 @@ export function TileGrid({
   canAnchorAt?: (to: Coordinate) => boolean;
   busy?: boolean;
 }) {
-  // Captions are dropped once a tile is too small to hold one. The same rule
-  // MapCanvas follows with its labels: text that overlaps into a grey mass
-  // hides the squares underneath, which are the part carrying the answer.
-  const roomForCaptions = view.across <= 45;
+  // Captions are dropped once a tile is too small to hold one. Up to the
+  // widest zoom step, not 45 across as it was: a caption is clipped to its own
+  // footprint and footprints never overlap, so names cannot run together into
+  // the grey mass MapCanvas guards against — and hiding them meant a member
+  // zoomed out to see the whole hive could find nobody but themselves.
+  const roomForCaptions = view.across <= Math.max(...ZOOM_STEPS) * 2 + 1;
 
   const [drag, setDrag] = useState<Drag | null>(null);
   const [region, setRegion] = useState<{ from: Coordinate; to: Coordinate } | null>(null);
@@ -532,10 +566,14 @@ export function TileGrid({
   // square included, so carrying the formation is a draw-mode gesture.
   const anchorGrabbable = onMoveAnchor !== undefined && !sweeping;
 
-  // WHEEL ZOOM NEEDS A NON-PASSIVE LISTENER, which React's onWheel is not.
-  // Without preventDefault the page scrolls at the same time and the map
-  // leaves the screen while you are trying to look closer at it — so the
-  // handler is attached by hand, and removed with the element.
+  // CTRL + WHEEL ZOOMS; A BARE WHEEL SCROLLS THE PAGE. The map is most of the
+  // screen, so a bare-wheel zoom trapped anybody scrolling past it — the page
+  // stopped and the map zoomed instead. Ctrl is also what a trackpad pinch
+  // arrives as, so pinching still zooms.
+  //
+  // A NON-PASSIVE LISTENER, which React's onWheel is not: ctrl + wheel is the
+  // browser's own page zoom, and only preventDefault on a non-passive handler
+  // keeps it from zooming the whole page while the map zooms too.
   //
   // The dependency list is the whole closure it reads. `onZoom` is redefined
   // every render by the parent, which is why this re-attaches rather than
@@ -547,6 +585,9 @@ export function TileGrid({
       return;
     }
     const wheel = (event: WheelEvent) => {
+      if (!(event.ctrlKey || event.metaKey)) {
+        return;
+      }
       event.preventDefault();
       const box = element.getBoundingClientRect();
       if (box.width === 0 || box.height === 0) {
@@ -694,9 +735,15 @@ export function TileGrid({
             style={boxStyle(view, base.at, base.spanX ?? BASE_SPAN, base.spanY ?? BASE_SPAN)}
             title={`${base.caption ?? ''} ${formatTeleport(base.at)}`.trim()}
           >
-            {roomForCaptions && base.caption !== undefined && (
-              <span className="tile-grid__caption">{base.caption}</span>
-            )}
+            {/* NOT ON A ONE-TILE STRIP. A boundary is a line of 1x1 markers
+                and reads by its colour; a caption squeezed into one square is
+                a clipped letter repeated all round the edge. The label is
+                still in the title for whoever hovers. */}
+            {roomForCaptions &&
+              base.caption !== undefined &&
+              Math.min(base.spanX ?? BASE_SPAN, base.spanY ?? BASE_SPAN) > 1 && (
+                <span className="tile-grid__caption">{base.caption}</span>
+              )}
           </span>
         );
       })}

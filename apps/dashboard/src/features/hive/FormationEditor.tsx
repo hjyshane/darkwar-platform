@@ -24,6 +24,7 @@ import {
   formatTeleport,
   freeTilesIn,
   isMemberBase,
+  memberNumbering,
   offsetKey,
   outlineTilesIn,
   ringOf,
@@ -32,6 +33,7 @@ import {
   shiftedBy,
   sortMembers,
   sortSlots,
+  tileCaption,
   tileFitsOnMap,
   tileInsideBox,
   tilesOverlap,
@@ -1271,12 +1273,7 @@ export function FormationEditor({
   //
   // The column itself can still hold a planner's own numbering; nothing in
   // this editor offers a way to type one yet, so nothing pretends to.
-  const numbering = new Map(
-    [...drawn]
-      .filter(isMemberBase)
-      .sort(byRing)
-      .map((slot, index) => [offsetKey(slot), index + 1] as const),
-  );
+  const numbering = memberNumbering(drawn);
 
   // ONLY WHAT IS ON SCREEN. Every drawn tile used to become an absolutely
   // positioned element whether or not the window showed it, so a formation of
@@ -1311,13 +1308,11 @@ export function FormationEditor({
       spanY: slot.spanY,
       structure: slot.kind === 'structure',
       colour: slot.colour,
-      // Anything that is not a member's base is captioned like ground: it has
-      // no number in the table, so a "?" would read as a missing person.
-      caption: !isMemberBase(slot)
-        ? slot.label
-        : assigned === undefined
-          ? String(numbering.get(offsetKey(slot)) ?? '?')
-          : (byId.get(assigned)?.name ?? '?'),
+      caption: tileCaption(
+        slot,
+        assigned === undefined ? undefined : (byId.get(assigned)?.name ?? '?'),
+        numbering.get(offsetKey(slot)),
+      ),
       own: assigned !== undefined && assigned === ownPlayerId,
     };
   });
@@ -1426,9 +1421,9 @@ export function FormationEditor({
             on a base it puts them on it. Click free ground to place a base, click a base to take it
             away. Each one is {BASE_SPAN}x{BASE_SPAN} tiles and the coordinate is the middle. Drag
             from empty ground to slide the map — or hold <kbd>ctrl</kbd>, which works while an area
-            tool is on too. The wheel zooms. Shaded squares are where the map last SAW somebody — a
-            base that was destroyed or lost its shield has been teleported somewhere random, so
-            treat them as a hint and not as a wall.
+            tool is on too. Hold <kbd>ctrl</kbd> and use the wheel to zoom. Shaded squares are where
+            the map last SAW somebody — a base that was destroyed or lost its shield has been
+            teleported somewhere random, so treat them as a hint and not as a wall.
           </p>
           <fieldset className="hive-zoom">
             <legend>Zoom</legend>
