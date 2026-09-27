@@ -3616,6 +3616,12 @@ form select {
   display: grid;
   grid-template-columns: auto auto minmax(0, 720px);
   grid-template-rows: auto auto auto;
+  /* PACKED TO THE START, NOT STRETCHED. The frame is full width while the grid
+   * column stops at 720px, and the default `normal` hands the leftover to the
+   * two `auto` columns — at 1920px that was 330px of air between the Y labels
+   * and the tiles they name. Packed, the label columns stay as wide as their
+   * labels and the grid column still grows to its cap first. */
+  justify-content: start;
   column-gap: 4px;
   width: 100%;
   font-size: 0.7rem;
@@ -3752,6 +3758,19 @@ button.tile-grid:hover:not(:disabled) {
   position: absolute;
   background: var(--accent);
   outline: 2px solid var(--bg);
+}
+
+/* Lifted over the structure drawn round it (Frankie), or the structure takes
+ * the hover and the cursor never says the square can be picked up. */
+.tile-grid__anchor--grab {
+  z-index: 1;
+  cursor: grab;
+}
+
+.tile-grid--carrying-anchor,
+.tile-grid--carrying-anchor .tile-grid__base,
+.tile-grid--carrying-anchor .tile-grid__anchor {
+  cursor: grabbing;
 }
 
 /* A planned base: three tiles by three, which is what makes the spacing on
@@ -3950,6 +3969,13 @@ button.tile-grid:hover:not(:disabled) {
 
 .hive-coordinate input {
   width: 6rem;
+}
+
+.hive-coordinate__why {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--danger-fg);
 }
 
 /* A fieldset because it is a group of controls with a name, which is what a
