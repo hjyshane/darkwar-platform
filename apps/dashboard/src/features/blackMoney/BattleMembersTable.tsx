@@ -5,7 +5,7 @@ import { playerHash } from '../../lib/route';
 import type { ColumnSpec } from '../../lib/tableLayout';
 import { TERMS } from '../../lib/terms';
 import { useTableView } from '../../lib/useTableView';
-import type { BattleMember } from './data';
+import type { BattleMember, MemberMisses } from './data';
 
 const numberFormat = new Intl.NumberFormat('ko-KR');
 
@@ -21,6 +21,8 @@ export function blackMoneyColumnSpecs(): ColumnSpec[] {
     { id: 'name', label: TERMS.name, fixed: true },
     { id: 'slot', label: TERMS.blackMoneySlot },
     { id: 'played', label: TERMS.blackMoneyPlayed },
+    { id: 'starterMisses', label: TERMS.blackMoneyStarterMisses },
+    { id: 'subMisses', label: TERMS.blackMoneySubMisses },
     { id: 'score', label: TERMS.score },
     { id: 'kill', label: TERMS.blackMoneyKill },
     { id: 'occupy', label: TERMS.blackMoneyOccupy },
@@ -35,6 +37,18 @@ function formatNumber(value: number | null): string {
   return value === null ? '—' : numberFormat.format(value);
 }
 
+/** Columns about our signup list and our tally — meaningless for the other side. */
+const OURS_ONLY = new Set(['slot', 'played', 'starterMisses', 'subMisses']);
+
+/** A miss count out of the reported battles it could have happened in. A
+ * member never listed in that role since the tally began reads as a dash,
+ * not a zero: no chance to miss is not a clean record. */
+function missCell(misses: number | null, battles: number | undefined) {
+  if (misses === null || battles === undefined || battles === 0) return '—';
+  const text = `${misses} / ${battles}`;
+  return misses > 0 ? <span className="behind-mark">{text}</span> : text;
+}
+
 function slotLabel(slot: BattleMember['slot']): string {
   return slot === 'starter' ? 'Starter' : slot === 'substitute' ? 'Substitute' : 'Not listed';
 }
@@ -46,13 +60,23 @@ function playedLabel(played: boolean | null): string {
 /** Numeric sort keys for the two text columns, so sorting groups them in the
  * order a reader scans: starters, then substitutes, then unlisted; played
  * before absent before unknown. */
-type Row = BattleMember & { slotOrder: number; playedOrder: number };
+type Row = BattleMember & {
+  slotOrder: number;
+  playedOrder: number;
+  /** Null when the member has no reported battle since the tally began. */
+  starterMisses: number | null;
+  subMisses: number | null;
+  tally: MemberMisses | null;
+};
 
 export function BattleMembersTable({
   members,
   side = 'ours',
+  misses,
 }: {
   members: BattleMember[];
+  /** The alliance's miss tally, keyed by game uid. Ours only. */
+  misses?: ReadonlyMap<number, MemberMisses>;
   /** 'theirs' drops Slot and Played: our signup list says nothing about
    * another alliance, and everyone in their half of the report played. */
   side?: 'ours' | 'theirs';
@@ -63,8 +87,11 @@ export function BattleMembersTable({
         ...m,
         slotOrder: m.slot === 'starter' ? 0 : m.slot === 'substitute' ? 1 : 2,
         playedOrder: m.played === true ? 0 : m.played === false ? 1 : 2,
+        starterMisses: misses?.get(m.game_uid)?.starter_misses ?? null,
+        subMisses: misses?.get(m.game_uid)?.substitute_misses ?? null,
+        tally: misses?.get(m.game_uid) ?? null,
       })),
-    [members],
+    [members, misses],
   );
   const { query, setQuery, sort, onSort, view, shown, total } = useTableView(rows, SEARCH_FIELDS, {
     key: 'score',
@@ -112,6 +139,21 @@ export function BattleMembersTable({
             playedLabel(row.played)
           ),
       },
+      {
+        id: 'starterMisses',
+        label: TERMS.blackMoneyStarterMisses,
+        sortKey: 'starterMisses',
+        numeric: true,
+        // "1 / 2": missed one of the two reported battles they started on.
+        cell: (row) => missCell(row.starterMisses, row.tally?.starter_battles),
+      },
+      {
+        id: 'subMisses',
+        label: TERMS.blackMoneySubMisses,
+        sortKey: 'subMisses',
+        numeric: true,
+        cell: (row) => missCell(row.subMisses, row.tally?.substitute_battles),
+      },
       part('score', TERMS.score, 'score'),
       part('kill', TERMS.blackMoneyKill, 'kill_score'),
       part('occupy', TERMS.blackMoneyOccupy, 'occupy_score'),
@@ -121,7 +163,7 @@ export function BattleMembersTable({
     ];
   }, []);
   const shownColumns = useMemo(
-    () => (side === 'ours' ? columns : columns.filter((c) => c.id !== 'slot' && c.id !== 'played')),
+    () => (side === 'ours' ? columns : columns.filter((c) => !OURS_ONLY.has(c.id))),
     [columns, side],
   );
 
