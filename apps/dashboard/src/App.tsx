@@ -36,8 +36,12 @@ import { queryKeysForTopic, subscribeDataChanges } from './lib/realtime';
 import { useReplyAlerts } from './lib/replyAlerts';
 import { rememberReturnTo } from './lib/returnTo';
 import {
+  ALLIANCE_TABS,
   type AdminGroup,
+  BOARD_TABS,
+  EVENT_TABS,
   NAV_TABS,
+  OVERVIEW_TABS,
   RANKING_TABS,
   type Route,
   adminGroupFromHash,
@@ -48,6 +52,7 @@ import {
   isRankingRoute,
   isStandaloneRoute,
   mapServerIdFromHash,
+  navSection,
   noticeIdFromHash,
   playerIdFromHash,
   routeFromHash,
@@ -163,60 +168,122 @@ function useMayView(capability: string): boolean | undefined {
  * types the address gets the screen's own empty state.
  */
 function SubNav({ route, allianceId }: { route: Route; allianceId: string | null }) {
+  const { data: session } = useSession();
   const { data: ownAlliance } = useOwnAlliance();
   const mayViewMembers = useMayView('members.view');
   const mayViewArena = useMayView('arena.view');
+  const mayViewSchedule = useMayView('schedule.view');
+  const isAdmin = session?.role === 'admin';
 
   const onOwnAlliance =
-    ownAlliance != null &&
-    (route === 'members' || (route === 'alliance' && allianceId === ownAlliance.alliance_id));
+    ownAlliance != null && route === 'alliance' && allianceId === ownAlliance.alliance_id;
+  const section = onOwnAlliance ? 'alliance' : navSection(route);
 
-  const tabs = isRankingRoute(route)
-    ? RANKING_TABS.filter((tab) => tab.route !== 'arena' || mayViewArena === true).map((tab) => ({
+  type Row = { key: string; href: string; label: string; current: boolean }[];
+  const rows: { label: string; tabs: Row }[] = [];
+
+  if (section === 'overview') {
+    rows.push({
+      label: 'Overview section',
+      tabs: OVERVIEW_TABS.map((tab) => ({
+        key: tab.hash,
+        href: tab.hash,
+        label: tab.label,
+        // Cross-Server Ranking stands for three boards, so it stays selected
+        // on all of them.
+        current: tab.route === 'rankings' ? isRankingRoute(route) : tab.route === route,
+      })),
+    });
+    if (isRankingRoute(route)) {
+      rows.push({
+        label: 'Board',
+        tabs: RANKING_TABS.filter((tab) => tab.route !== 'arena' || mayViewArena === true).map(
+          (tab) => ({
+            key: tab.hash,
+            href: tab.hash,
+            label: tab.label,
+            current: tab.route === route,
+          }),
+        ),
+      });
+    }
+  } else if (section === 'alliance') {
+    rows.push({
+      label: 'Alliance section',
+      tabs: [
+        ...(ownAlliance != null
+          ? [
+              {
+                key: 'alliance',
+                href: allianceHash(ownAlliance.alliance_id),
+                label: 'Alliance',
+                current: onOwnAlliance,
+              },
+            ]
+          : []),
+        ...ALLIANCE_TABS.filter((tab) => tab.route !== 'members' || mayViewMembers === true).map(
+          (tab) => ({
+            key: tab.hash,
+            href: tab.hash,
+            label: tab.label,
+            current: tab.route === route,
+          }),
+        ),
+      ],
+    });
+  } else if (section === 'events') {
+    rows.push({
+      label: 'Events section',
+      tabs: EVENT_TABS.filter(
+        (tab) =>
+          (tab.route !== 'schedule' || mayViewSchedule === true) &&
+          (tab.route !== 'season2' || isAdmin),
+      ).map((tab) => ({
         key: tab.hash,
         href: tab.hash,
         label: tab.label,
         current: tab.route === route,
-      }))
-    : onOwnAlliance && ownAlliance != null
-      ? [
-          {
-            key: 'alliance',
-            href: allianceHash(ownAlliance.alliance_id),
-            label: 'Alliance',
-            current: route === 'alliance',
-          },
-          ...(mayViewMembers === true
-            ? [
-                {
-                  key: 'members',
-                  href: '#/members',
-                  label: 'Members',
-                  current: route === 'members',
-                },
-              ]
-            : []),
-        ]
-      : [];
+      })),
+    });
+  } else if (section === 'boards') {
+    rows.push({
+      label: 'Boards section',
+      tabs: BOARD_TABS.map((tab) => ({
+        key: tab.hash,
+        href: tab.hash,
+        label: tab.label,
+        // A single notice or guide is still that board.
+        current:
+          tab.route === 'notices'
+            ? route === 'notices' || route === 'notice'
+            : route === 'guides' || route === 'guide',
+      })),
+    });
+  }
 
-  // One tab is not a choice. A second row that offers the screen you are
+  // One tab is not a choice. A row that offers only the screen you are
   // already on is furniture.
-  if (tabs.length < 2) {
+  const shown = rows.filter((row) => row.tabs.length >= 2);
+  if (shown.length === 0) {
     return null;
   }
   return (
-    <nav aria-label="Section" className="tabs subtabs">
-      {tabs.map((tab) => (
-        <a
-          key={tab.key}
-          aria-current={tab.current ? 'page' : undefined}
-          className="tab"
-          href={tab.href}
-        >
-          {tab.label}
-        </a>
+    <>
+      {shown.map((row) => (
+        <nav key={row.label} aria-label={row.label} className="tabs subtabs">
+          {row.tabs.map((tab) => (
+            <a
+              key={tab.key}
+              aria-current={tab.current ? 'page' : undefined}
+              className="tab"
+              href={tab.href}
+            >
+              {tab.label}
+            </a>
+          ))}
+        </nav>
       ))}
-    </nav>
+    </>
   );
 }
 
@@ -259,24 +326,19 @@ function Nav({ route, allianceId }: { route: Route; allianceId: string | null })
   // answered yet and is treated as "not yet": drawing a tab and taking it away
   // is worse than one that arrives a beat late. Hiding it withholds nothing —
   // RLS does that, and somebody who types `#/schedule` gets an empty grid.
-  const mayViewSchedule = useMayView('schedule.view');
-  // Undefined while the session loads is treated as "not admin": drawing a
-  // tab and taking it away is worse than one that arrives a beat late — the
-  // same rule Schedule follows one line up.
-  const isAdmin = session?.role === 'admin';
-  const tabs = NAV_TABS.filter(
-    (tab) =>
-      (tab.route !== 'schedule' || mayViewSchedule === true) &&
-      (tab.route !== 'season2' || isAdmin),
-  ).flatMap((tab) => {
+  const onOwnAlliance =
+    ownAlliance != null &&
+    (navSection(route) === 'alliance' ||
+      (route === 'alliance' && allianceId === ownAlliance.alliance_id));
+  const section = onOwnAlliance ? 'alliance' : navSection(route);
+  const tabs = NAV_TABS.flatMap((tab) => {
     const entry = {
       key: tab.hash,
       href: tab.hash,
       label: tab.label,
-      // The ranking tab stands for three addresses, so it stays selected on
-      // all of them; otherwise opening Arena would deselect the tab that got
-      // you there.
-      current: tab.route === 'rankings' ? isRankingRoute(route) : tab.route === route,
+      // A top tab stands for its whole section, so it stays selected on
+      // every screen in it; otherwise opening Arena would deselect Overview.
+      current: tab.section === section,
     };
     if (tab.route !== 'overview' || ownAlliance == null) {
       return [entry];
@@ -287,9 +349,7 @@ function Nav({ route, allianceId }: { route: Route; allianceId: string | null })
         key: 'own-alliance',
         href: allianceHash(ownAlliance.alliance_id),
         label: ownAlliance.code ?? ownAlliance.name ?? 'Our alliance',
-        // Members lives under our own alliance now, so the tab covers both.
-        current:
-          route === 'members' || (route === 'alliance' && allianceId === ownAlliance.alliance_id),
+        current: section === 'alliance',
       },
     ];
   });
