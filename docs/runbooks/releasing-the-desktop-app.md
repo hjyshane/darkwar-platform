@@ -71,6 +71,25 @@ already commented at the top of `dw-sidecar.spec`:
   capture to the shipped app, this spec file's `excludes` list is where that
   decision gets revisited, not silently overridden.
 
+### 2b. dw-console has the same trap, on the collector box
+
+The operator runs `services/collector/dist/dw-console.exe` — a frozen
+`dw-console.spec` build, not `uv run dw-console` — so a change under
+`dw_collector/console/` that merges without a rebuild is invisible: the
+prune button spent its first day merged but absent from the window the
+operator actually opens. Every console change ends with
+
+```
+cd services/collector
+uv run --no-sync pyinstaller dw-console.spec --noconfirm
+```
+
+(`uv pip install pyinstaller` first if the venv lacks it; it is a build
+tool, deliberately not a project dependency) and a console restart. The
+exe stays out of git — `dist/` is ignored — so "is it current" is answered
+by its timestamp against the newest commit touching `console/`, nothing
+else.
+
 ### 3. Build
 
 ```
