@@ -6476,6 +6476,7 @@ export type Database = {
       approve_player_claim: {
         Args: { p_user: string }
         Returns: {
+          alliance_id: string | null
           created_at: string
           decided_at: string | null
           decided_by: string | null
@@ -6508,6 +6509,7 @@ export type Database = {
       claim_player: {
         Args: { p_player_id: string }
         Returns: {
+          alliance_id: string | null
           created_at: string
           decided_at: string | null
           decided_by: string | null
@@ -6683,6 +6685,7 @@ export type Database = {
       reject_player_claim: {
         Args: { p_user: string }
         Returns: {
+          alliance_id: string | null
           created_at: string
           decided_at: string | null
           decided_by: string | null
