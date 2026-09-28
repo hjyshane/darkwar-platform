@@ -30,6 +30,9 @@
 -- Discord routing is per alliance too, but the notifier has to learn which
 -- alliance each event belongs to first; that is its own change.
 
+-- MEMBERSHIPS THAT COUNT are those of alliances still ours (0193): one left
+-- behind by a re-pin must not block a removal, a leave, or the fallback.
+
 -- ---------------------------------------------------------------------------
 -- 1. Settings.
 
@@ -143,7 +146,9 @@ as $$
                   where m.user_id = p_user and m.alliance_id = public.active_alliance())
       -- An account with no membership anywhere (a viewer, or every account on
       -- an unpinned install) belongs to the primary alliance's screen.
-      or (not exists (select 1 from public.alliance_memberships m where m.user_id = p_user)
+      or (not exists (select 1 from public.alliance_memberships m
+                        join public.alliances oa on oa.alliance_id = m.alliance_id and oa.is_own
+                       where m.user_id = p_user)
           and public.primary_own_alliance() is not distinct from public.active_alliance())
 $$;
 
@@ -214,11 +219,14 @@ begin
 
   -- DELETE: leaving (yourself) or removal (somebody else).
   if v_target = v_uid then
-    if (select count(*) from public.alliance_memberships where user_id = v_uid) > 1 then
+    if (select count(*) from public.alliance_memberships m
+          join public.alliances oa on oa.alliance_id = m.alliance_id and oa.is_own
+         where m.user_id = v_uid) > 1 then
       raise exception 'you are in more than one alliance; leave this one instead'
         using errcode = '42501';
     end if;
   elsif exists (select 1 from public.alliance_memberships m
+                 join public.alliances oa on oa.alliance_id = m.alliance_id and oa.is_own
                  where m.user_id = v_target
                    and m.alliance_id is distinct from v_active) then
     raise exception 'that account also belongs to another alliance; remove it from this one instead'
@@ -257,7 +265,9 @@ select
   a.last_sign_in_at,
   case
     when u.role = 'admin' then 'admin'::public.app_role
-    when exists (select 1 from public.alliance_memberships x where x.user_id = u.user_id)
+    when exists (select 1 from public.alliance_memberships x
+                  join public.alliances oa on oa.alliance_id = x.alliance_id and oa.is_own
+                 where x.user_id = u.user_id)
       then coalesce(
         (select m.role from public.alliance_memberships m
           where m.user_id = u.user_id and m.alliance_id = public.active_alliance()),
@@ -268,6 +278,7 @@ select
   -- has to mean "from this alliance" (set_membership), not remove_member,
   -- which the guard refuses for exactly that account.
   (select count(*)::int from public.alliance_memberships x
+    join public.alliances oa on oa.alliance_id = x.alliance_id and oa.is_own
     where x.user_id = u.user_id
       and x.alliance_id is distinct from public.active_alliance()) as other_alliances
 from public.app_users u
@@ -339,7 +350,9 @@ begin
 
   -- One alliance or none: leaving it is leaving, and 0094 already says what
   -- that means (the departure is recorded, the last admin cannot go).
-  if (select count(*) from public.alliance_memberships where user_id = v_uid) <= 1 then
+  if (select count(*) from public.alliance_memberships m
+        join public.alliances oa on oa.alliance_id = m.alliance_id and oa.is_own
+       where m.user_id = v_uid) <= 1 then
     perform public.leave_alliance();
     return;
   end if;
