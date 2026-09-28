@@ -18,6 +18,7 @@ import { HivePage } from './features/hive/HivePage';
 import { PrivacyPage } from './features/legal/PrivacyPage';
 import { TermsPage } from './features/legal/TermsPage';
 import { MapPage } from './features/map/MapPage';
+import { MigrationPage } from './features/migration/MigrationPage';
 import { MonthCardsPage } from './features/monthCards/MonthCardsPage';
 import { NoticePostPage } from './features/notices/NoticePostPage';
 import { NoticesPanel } from './features/notices/NoticesPanel';
@@ -413,6 +414,11 @@ function Screen({ route, mapServerId }: { route: Route; mapServerId: number | nu
       return <RankingsPanel />;
     case 'crossRankings':
       return <CrossRankingsPanel />;
+    case 'migration':
+      // No capability gate, like the season boards: every snapshot the board
+      // folds is member-only at the policy level (0186 reads them as the
+      // caller), and the app is walled to members.
+      return <MigrationPage />;
     case 'season2':
       // The nav hides this from anyone but an admin, and the panel checks the
       // role again — hiding a tab hides it from the eye, not from the address

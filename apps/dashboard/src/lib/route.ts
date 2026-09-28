@@ -18,6 +18,7 @@ export type Route =
   | 'members'
   | 'rankings'
   | 'crossRankings'
+  | 'migration'
   | 'season'
   | 'season2'
   | 'map'
@@ -43,6 +44,7 @@ const ROUTES: Record<string, Route> = {
   '#/members': 'members',
   '#/rankings': 'rankings',
   '#/cross-server': 'crossRankings',
+  '#/migration': 'migration',
   '#/season': 'season',
   '#/season2': 'season2',
   '#/map': 'map',
@@ -260,6 +262,9 @@ export const NAV_TABS: ReadonlyArray<NavTab & { section: NavSection }> = [
 export const OVERVIEW_TABS: ReadonlyArray<NavTab> = [
   { route: 'overview', hash: '#/', label: 'Overview' },
   { route: 'rankings', hash: '#/rankings', label: 'Cross-Server Ranking' },
+  // Beside the rankings because it asks the same group-wide question, read
+  // across one instant: who went where when the servers opened to moves.
+  { route: 'migration', hash: '#/migration', label: 'Migration' },
 ];
 
 /** Our alliance's second row, after the alliance page itself (whose address
@@ -297,6 +302,7 @@ export function navSection(route: Route): NavSection | null {
     case 'rankings':
     case 'crossRankings':
     case 'arena':
+    case 'migration':
       return 'overview';
     case 'members':
     case 'hive':
