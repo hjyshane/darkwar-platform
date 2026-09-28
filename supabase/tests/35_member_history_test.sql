@@ -73,9 +73,14 @@ select has_column('public', 'app_users', 'player_id',
 
 -- The link is not self-service. This is the assertion the whole design
 -- rests on: if a member could write this column they could claim anybody.
+--
+-- PERMISSIVE only. A restrictive policy (0195's alliance_scope) can only take
+-- access away — it is ANDed onto the permissive ones — so it is never a write
+-- path, and counting it here would read a tightening as a hole.
 select is(
   (select count(*)::int from pg_policies
     where schemaname = 'public' and tablename = 'app_users'
+      and permissive = 'PERMISSIVE'
       and cmd in ('ALL', 'UPDATE')
       and qual not like '%has_permission%'),
   0, 'every write path on app_users goes through a capability');
