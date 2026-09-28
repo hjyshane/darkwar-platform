@@ -42,7 +42,11 @@ const from = vi.hoisted(() => {
   }));
 });
 
-vi.mock('../src/lib/supabase', () => ({ supabase: { auth, from } }));
+// useSession asks current_app_role() for the role (0193); the row it still
+// reads carries only player_id.
+const rpc = vi.hoisted(() => vi.fn(async () => ({ data: 'member', error: null })));
+
+vi.mock('../src/lib/supabase', () => ({ supabase: { auth, from, rpc } }));
 
 import { useFavourites } from '../src/lib/useFavourites';
 

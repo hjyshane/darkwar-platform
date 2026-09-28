@@ -25,7 +25,7 @@ export interface SessionState {
 
 /** Who the viewer is, as the database sees it.
  *
- * `role` comes from app_users, not from anything the client asserts — the
+ * `role` comes from current_app_role(), not from anything the client asserts — the
  * same value RLS uses. It is here to EXPLAIN what is visible, never to
  * decide it: hiding a panel because the role looks low would be decoration,
  * since the rows are already filtered server-side either way.
@@ -45,13 +45,19 @@ export function useSession() {
       }
       // A viewer's own row is readable via the self_read policy; no row at
       // all is the normal state for an account nobody has admitted yet.
-      const { data: rows } = await supabase
-        .from('app_users')
-        .select('role, player_id')
-        .eq('user_id', data.session?.user.id ?? '')
-        .limit(1);
+      //
+      // The role is asked of current_app_role() rather than read off the
+      // row: since 0193 it is the role in the alliance being viewed, which
+      // the row cannot know. Same function every policy calls.
+      const [{ data: rows }, { data: role }] = await Promise.all([
+        supabase
+          .from('app_users')
+          .select('player_id')
+          .eq('user_id', data.session?.user.id ?? '')
+          .limit(1),
+        supabase.rpc('current_app_role'),
+      ]);
       const row = rows?.[0];
-      const role = row?.role;
       return {
         email,
         userId,
