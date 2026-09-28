@@ -5043,7 +5043,7 @@ export type Database = {
           {
             foreignKeyName: "user_players_player_id_fkey"
             columns: ["player_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "players"
             referencedColumns: ["player_id"]
           },
