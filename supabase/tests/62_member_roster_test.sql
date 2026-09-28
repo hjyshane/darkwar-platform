@@ -33,6 +33,13 @@ insert into public.app_users (user_id, role) values
 -- control assertion below exists so a wrong flag fails loudly instead.
 insert into public.collectors (collector_id, name) values
   ('00000000-0000-4000-8000-000000630c01', 'roster probe');
+-- The evidence too, not just the flag (0196). The roster below re-runs
+-- resolve_own_alliance, which on an unpinned database re-marks every alliance
+-- whose roster was ever seen unredacted, the seed's included — so "the only
+-- one marked ours" was not true, and the old `is_own limit 1` landed on this
+-- file's alliance by row order alone. Now the roster cache is per alliance and RLS shows one.
+update public.alliances set is_own = false, roster_unredacted_seen = false
+where is_own or roster_unredacted_seen;
 insert into public.alliances (server_id, external_id, current_name) values
   (580, 'roster-al-62', 'RosterProbe');
 
