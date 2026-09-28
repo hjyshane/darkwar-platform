@@ -180,8 +180,14 @@ security definer
 set search_path = ''
 as $$
 begin
-  -- No user behind the request: the collector, dw-notify, cron, a migration.
-  if (select auth.uid()) is null then
+  -- Only a browser request is judged: PostgREST runs those under
+  -- `set local role authenticated` (or anon). The collector, dw-notify, cron
+  -- and migrations are not, and neither is an owner connection that happens
+  -- to carry a user's claims from earlier in the same transaction — which is
+  -- how a pgTAP fixture looks after `reset role`. The `role` setting is not
+  -- changed by SECURITY DEFINER, so this still sees the caller's.
+  if (select auth.uid()) is null
+     or coalesce(current_setting('role', true), 'none') not in ('authenticated', 'anon') then
     return;
   end if;
   if coalesce(p_alliance, public.primary_own_alliance())
