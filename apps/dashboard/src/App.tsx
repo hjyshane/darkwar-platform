@@ -175,6 +175,7 @@ function SubNav({ route, allianceId }: { route: Route; allianceId: string | null
   const mayViewArena = useMayView('arena.view');
   const mayViewSchedule = useMayView('schedule.view');
   const isAdmin = session?.role === 'admin';
+  const isOfficer = isAdmin || session?.role === 'officer';
 
   const onOwnAlliance =
     ownAlliance != null && route === 'alliance' && allianceId === ownAlliance.alliance_id;
@@ -186,7 +187,7 @@ function SubNav({ route, allianceId }: { route: Route; allianceId: string | null
   if (section === 'overview') {
     rows.push({
       label: 'Overview section',
-      tabs: OVERVIEW_TABS.map((tab) => ({
+      tabs: OVERVIEW_TABS.filter((tab) => tab.route !== 'migration' || isOfficer).map((tab) => ({
         key: tab.hash,
         href: tab.hash,
         label: tab.label,
@@ -390,6 +391,8 @@ function Nav({ route, allianceId }: { route: Route; allianceId: string | null })
 }
 
 function Screen({ route, mapServerId }: { route: Route; mapServerId: number | null }) {
+  const { data: session } = useSession();
+  const isOfficer = session?.role === 'officer' || session?.role === 'admin';
   const mayViewMembers = useMayView('members.view');
   const mayViewArena = useMayView('arena.view');
   switch (route) {
@@ -415,9 +418,17 @@ function Screen({ route, mapServerId }: { route: Route; mapServerId: number | nu
     case 'crossRankings':
       return <CrossRankingsPanel />;
     case 'migration':
-      // No capability gate, like the season boards: every snapshot the board
-      // folds is member-only at the policy level (0186 reads them as the
-      // caller), and the app is walled to members.
+      // Officers and admins only (0191), as a role, like the roster history
+      // the board folds (0066): who moved is read off the alliance rosters,
+      // and those are own-or-officer. RLS returns a member nothing; this says
+      // why rather than drawing an empty board.
+      if (!isOfficer) {
+        return (
+          <p className="empty">
+            The migration board is kept for officers: it is read off the alliance rosters.
+          </p>
+        );
+      }
       return <MigrationPage />;
     case 'season2':
       // The nav hides this from anyone but an admin, and the panel checks the

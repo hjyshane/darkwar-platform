@@ -3778,6 +3778,7 @@ export type Database = {
       }
       player_snapshots: {
         Row: {
+          alliance_abbr: string | null
           alliance_external_id: string | null
           captured_at: string
           collected_from_server_id: number
@@ -3800,6 +3801,7 @@ export type Database = {
           source_command: string
         }
         Insert: {
+          alliance_abbr?: string | null
           alliance_external_id?: string | null
           captured_at: string
           collected_from_server_id: number
@@ -3822,6 +3824,7 @@ export type Database = {
           source_command: string
         }
         Update: {
+          alliance_abbr?: string | null
           alliance_external_id?: string | null
           captured_at?: string
           collected_from_server_id?: number

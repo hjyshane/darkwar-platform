@@ -4,7 +4,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(30);
+select plan(31);
 
 -- Dates sit in 2027 so nothing the seed or another fixture wrote falls on
 -- either side of the event.
@@ -122,9 +122,12 @@ insert into public.migration_events (event_id, name, baseline_at, settled_at) va
   ('00000000-0000-4000-8000-00000000e102', 'late settle', '2027-01-10T00:00:00Z', '2027-01-21T12:00:00Z'),
   ('00000000-0000-4000-8000-00000000e103', 'live', '2027-01-10T00:00:00Z', null);
 
+-- By the player_id the fixture gave each letter. Not by players.current_name:
+-- the snapshot triggers overwrite it with the snapshot's name ('n' || uid).
 create function pg_temp.status(ev uuid, who text) returns text language sql as $$
-  select p.status from public.migration_people(ev) p where p.name = 'n' || (
-    select game_uid from public.players where current_name = who)::text;
+  select p.status from public.migration_people(ev) p
+   where p.player_id = ('00000000-0000-4000-8000-00000000e00'
+                        || (ascii(who) - ascii('A') + 1)::text)::uuid;
 $$;
 
 -- People.
@@ -244,14 +247,20 @@ select is_empty(
   'a signed-in request with no member role reads nothing');
 select set_config('request.jwt.claims',
   json_build_object('sub', '00000000-0000-4000-8000-00000000e301')::text, true);
-select is((select count(*)::int
-             from public.migration_people('00000000-0000-4000-8000-00000000e101')), 8,
-  'a member reads the board');
+-- 0191: officers and admins only. The rosters under it are own-or-officer
+-- (0066), so a member would otherwise get the power board's people and
+-- none of the roster's.
+select is_empty(
+  $$ select * from public.migration_people('00000000-0000-4000-8000-00000000e101') $$,
+  'a member reads nothing, rather than the power board without the rosters');
 select throws_ok(
   $$ insert into public.migration_events (name, baseline_at) values ('x', now()) $$,
   '42501', null, 'a member cannot add a migration');
 select set_config('request.jwt.claims',
   json_build_object('sub', '00000000-0000-4000-8000-00000000e302')::text, true);
+select is((select count(*)::int
+             from public.migration_people('00000000-0000-4000-8000-00000000e101')), 8,
+  'an officer reads the whole board, rosters included');
 select lives_ok(
   $$ insert into public.migration_events (name, baseline_at) values ('x', now()) $$,
   'an officer can add a migration');
