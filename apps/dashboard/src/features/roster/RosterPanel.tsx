@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { getActiveAlliance } from '../../lib/activeAlliance';
 import { FormulaError, evaluateFormula, parseFormula } from '../../lib/formula';
 import { MEMBER_FIELD_IDS, MEMBER_FORMULAS_KEY } from '../../lib/memberFormulas';
 import { resolveFormulas } from '../../lib/overviewMetrics';
@@ -67,6 +68,12 @@ export type DepartureRow = {
  * these two — the id has to come first and be passed as a filter.
  */
 async function fetchOwnAllianceId(): Promise<string | null> {
+  // The alliance being viewed, when one is chosen (0193). The lookup below
+  // is the single-alliance answer, and it takes the first of several.
+  const viewed = getActiveAlliance();
+  if (viewed !== null) {
+    return viewed;
+  }
   const { data, error } = await supabase
     .from('alliances')
     .select('alliance_id')

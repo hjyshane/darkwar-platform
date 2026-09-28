@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
 import { StatTile } from '../../components/StatTile';
+import { getActiveAlliance } from '../../lib/activeAlliance';
 import { FormulaError, evaluateFormula, parseFormula } from '../../lib/formula';
 import {
   type FormulaMetric,
@@ -58,7 +59,12 @@ export async function fetchSummary(): Promise<OverviewSummary> {
   // the game reports for the whole roster, ours is the sum of the members a
   // capture has seen. Reporting the game's number beside a member count that
   // came from somewhere else would put two different populations in one row.
-  const ids = alliances.map((row) => row.alliance_id);
+  // The alliance being viewed, when one is chosen and is ours. Its member
+  // figures are the only ones RLS returns (0196), so summing the alliance
+  // totals over every own alliance would put two populations in one row.
+  const viewed = getActiveAlliance();
+  const scoped = alliances.filter((row) => viewed === null || row.alliance_id === viewed);
+  const ids = (scoped.length > 0 ? scoped : alliances).map((row) => row.alliance_id);
   const noMatch = ['00000000-0000-0000-0000-000000000000'];
 
   // Who counts as a member. Two sources, and the roster wins where there is one.

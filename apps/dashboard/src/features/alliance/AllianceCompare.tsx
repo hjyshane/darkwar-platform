@@ -2,6 +2,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { LineChart } from '../../components/LineChart';
 import { SortableTh } from '../../components/SortableTh';
+import { isViewedAlliance } from '../../lib/activeAlliance';
 import { allianceHash } from '../../lib/route';
 import type { Series } from '../../lib/series';
 import { supabase } from '../../lib/supabase';
@@ -162,7 +163,10 @@ export function AllianceCompare({ serverId }: { serverId: number }) {
   // no second query and no id threaded through the page. Ours displaces the last
   // of the six rather than becoming a seventh line, because a seventh would
   // repeat a hue in a chart whose whole job is telling the lines apart.
-  const ours = ranked.find((row) => row.is_own && row.readings > 1);
+  // The alliance being viewed, when two are ours: one highlighted line.
+  const ours = ranked.find(
+    (row) => isViewedAlliance(row.alliance_id, row.is_own) && row.readings > 1,
+  );
   if (ours !== undefined && !chosen.some((row) => row.alliance_id === ours.alliance_id)) {
     chosen.pop();
     chosen.unshift(ours);
@@ -211,7 +215,7 @@ export function AllianceCompare({ serverId }: { serverId: number }) {
     // shows on the board anyway. The table below carries both.
     name: shortName(row),
     slot: index,
-    emphasis: row.is_own,
+    emphasis: isViewedAlliance(row.alliance_id, row.is_own),
     points: (byAlliance.get(row.alliance_id) ?? []).map((point) => ({
       t: Date.parse(point.captured_at),
       v: point.power,

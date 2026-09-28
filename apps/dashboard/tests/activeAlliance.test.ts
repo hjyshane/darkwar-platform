@@ -2,7 +2,12 @@
 // is about. No header must mean the plain request — a single-alliance install
 // and a signed-out visitor never choose, and must not send an empty value.
 import { afterEach, expect, test, vi } from 'vitest';
-import { fetchWithAlliance, getActiveAlliance, setActiveAlliance } from '../src/lib/activeAlliance';
+import {
+  fetchWithAlliance,
+  getActiveAlliance,
+  isViewedAlliance,
+  setActiveAlliance,
+} from '../src/lib/activeAlliance';
 
 const fetchSpy = vi.fn(
   async (_input: RequestInfo | URL, _init?: RequestInit) => new Response('{}'),
@@ -34,4 +39,18 @@ test('the choice survives a reload through localStorage', () => {
     '00000000-0000-4000-8000-00000000a002',
   );
   expect(getActiveAlliance()).toBe('00000000-0000-4000-8000-00000000a002');
+});
+
+test('"ours" means one of ours AND the one being viewed', () => {
+  // Nothing chosen: a single-alliance install or a signed-out visitor, where
+  // is_own is the whole answer, as it was before two alliances could be ours.
+  expect(isViewedAlliance('a', true)).toBe(true);
+  expect(isViewedAlliance('a', false)).toBe(false);
+
+  setActiveAlliance('b');
+  expect(isViewedAlliance('b', true)).toBe(true);
+  // The other own alliance: its member data is withheld now, so its page must
+  // not offer those blocks, and a chart must not highlight it as ours.
+  expect(isViewedAlliance('a', true)).toBe(false);
+  expect(isViewedAlliance('b', false)).toBe(false);
 });
