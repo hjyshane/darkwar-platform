@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { APP_ROLES, type AppRole, GAME_RANKS } from '../../lib/permissions';
 import { supabase } from '../../lib/supabase';
+import { useActiveAlliance } from '../../lib/useMyAlliances';
+import { useSession } from '../../lib/useSession';
 
 /** Who has signed in, what role they hold, and where they sit in the
  * alliance.
@@ -43,6 +45,30 @@ interface AppUser {
    * directory view (0069) already carried — the row is created by the join
    * flow, so this is the day somebody actually got in. */
   created_at: string | null;
+  /** What the account is in the alliance being viewed (0195). Admin is
+   * global and reads 'admin' in every alliance. */
+  alliance_role: AppRole;
+  /** How many OTHER alliances the account belongs to. Non-zero means Remove
+   * takes them out of this alliance only. */
+  other_alliances: number;
+}
+
+/** Someone who signed up and has not been let in yet (0195 waiting_to_join). */
+interface Waiting {
+  user_id: string;
+  email: string;
+  created_at: string;
+}
+
+async function fetchWaiting(): Promise<Waiting[]> {
+  const { data, error } = await supabase.rpc('waiting_to_join');
+  if (error) {
+    if (error.code === '42501') {
+      return [];
+    }
+    throw new Error(`waiting list query failed: ${error.message}`);
+  }
+  return data ?? [];
 }
 
 /** The fields of an account this screen may write. `email` and
@@ -72,7 +98,9 @@ interface LinkablePlayer {
 async function fetchMembers(): Promise<AppUser[]> {
   const directory = await supabase
     .from('app_user_directory')
-    .select('user_id, display_name, role, game_rank, player_id, email, last_sign_in_at, created_at')
+    .select(
+      'user_id, display_name, role, game_rank, player_id, email, last_sign_in_at, created_at, alliance_role, other_alliances',
+    )
     .order('role')
     .order('display_name', { nullsFirst: false });
   if (directory.error && directory.error.code !== '42501') {
@@ -90,7 +118,13 @@ async function fetchMembers(): Promise<AppUser[]> {
   if (error) {
     throw new Error(`member query failed: ${error.message}`);
   }
-  return (data ?? []).map((row) => ({ ...row, email: null, last_sign_in_at: null })) as AppUser[];
+  return (data ?? []).map((row) => ({
+    ...row,
+    email: null,
+    last_sign_in_at: null,
+    alliance_role: row.role,
+    other_alliances: 0,
+  })) as AppUser[];
 }
 
 /** Our own alliance's players, for the link picker.
@@ -150,6 +184,12 @@ async function fetchPendingClaims(): Promise<PendingClaim[]> {
 
 export function MembersSetting() {
   const queryClient = useQueryClient();
+  const { data: session } = useSession();
+  const { active } = useActiveAlliance();
+  // Null on an install with no pinned alliance: the per-alliance RPCs have
+  // nothing to act on, and the screen writes app_users as it always did.
+  const activeId = active?.alliance_id ?? null;
+  const isAdmin = session?.role === 'admin';
   const [message, setMessage] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -164,6 +204,84 @@ export function MembersSetting() {
   const { data: claims } = useQuery({
     queryKey: ['player-claims'],
     queryFn: fetchPendingClaims,
+  });
+  const { data: waiting } = useQuery({ queryKey: ['waiting-to-join'], queryFn: fetchWaiting });
+
+  function afterMembershipChange(text: string) {
+    setFailed(false);
+    setMessage(text);
+    void queryClient.invalidateQueries({ queryKey: ['members-admin'] });
+    void queryClient.invalidateQueries({ queryKey: ['waiting-to-join'] });
+    void queryClient.invalidateQueries({ queryKey: ['session'] });
+    void queryClient.invalidateQueries({ queryKey: ['member-history'] });
+  }
+
+  /** Set somebody's role IN THE ALLIANCE BEING VIEWED (0193 set_membership).
+   *
+   * Admin is the exception, because it is global: granting it writes
+   * app_users.role, and taking it away first drops them to viewer there and
+   * then gives them the chosen role here. Only an admin can do either — the
+   * database refuses everybody else (0195); this only avoids offering it.
+   */
+  const setRole = useMutation({
+    mutationFn: async (next: { member: AppUser; role: AppRole }) => {
+      const write = async (patch: AppUserPatch) => {
+        const { error: updateError } = await supabase
+          .from('app_users')
+          .update(patch)
+          .eq('user_id', next.member.user_id);
+        if (updateError) {
+          throw new Error(updateError.message);
+        }
+      };
+      if (next.role === 'admin') {
+        await write({ role: 'admin' });
+        return;
+      }
+      if (activeId === null) {
+        await write({ role: next.role });
+        return;
+      }
+      if (next.member.alliance_role === 'admin') {
+        await write({ role: 'viewer' });
+      }
+      const { error: rpcError } = await supabase.rpc('set_membership', {
+        p_user: next.member.user_id,
+        p_alliance: activeId,
+        // Null revokes. The generated Args type cannot say an enum argument
+        // may be null, so it is told.
+        p_role: (next.role === 'viewer' ? null : next.role) as AppRole,
+      });
+      if (rpcError) {
+        throw new Error(rpcError.message);
+      }
+    },
+    onSuccess: () => afterMembershipChange('Saved.'),
+    onError: (mutationError: Error) => {
+      setFailed(true);
+      setMessage(mutationError.message);
+    },
+  });
+
+  const letIn = useMutation({
+    mutationFn: async (userId: string) => {
+      if (activeId === null) {
+        throw new Error('No alliance is pinned yet, so there is nothing to let them into.');
+      }
+      const { error: rpcError } = await supabase.rpc('set_membership', {
+        p_user: userId,
+        p_alliance: activeId,
+        p_role: 'member',
+      });
+      if (rpcError) {
+        throw new Error(rpcError.message);
+      }
+    },
+    onSuccess: () => afterMembershipChange('Let in as a member.'),
+    onError: (mutationError: Error) => {
+      setFailed(true);
+      setMessage(mutationError.message);
+    },
   });
 
   /** Take someone's access away.
@@ -185,8 +303,22 @@ export function MembersSetting() {
    * service key, and "left the alliance" does not mean "account destroyed".
    */
   const revoke = useMutation({
-    mutationFn: async (userId: string) => {
-      const { error: rpcError } = await supabase.rpc('remove_member', { p_user: userId });
+    mutationFn: async (member: AppUser) => {
+      // Somebody who also belongs to another alliance is taken out of this
+      // one only; remove_member would take the whole account, and 0195
+      // refuses it for exactly them.
+      if (member.other_alliances > 0 && activeId !== null) {
+        const { error: rpcError } = await supabase.rpc('set_membership', {
+          p_user: member.user_id,
+          p_alliance: activeId,
+          p_role: null as unknown as AppRole,
+        });
+        if (rpcError) {
+          throw new Error(rpcError.message);
+        }
+        return;
+      }
+      const { error: rpcError } = await supabase.rpc('remove_member', { p_user: member.user_id });
       if (rpcError) {
         throw new Error(rpcError.message);
       }
@@ -284,6 +416,45 @@ export function MembersSetting() {
       </p>
 
       {message && <p className={failed ? 'error' : 'empty'}>{message}</p>}
+
+      {(waiting ?? []).length > 0 && (
+        <section aria-labelledby="member-waiting">
+          <h3 id="member-waiting">Waiting to join</h3>
+          <p className="subtle">
+            Signed up and asked for {active?.code ?? 'this alliance'}, with no invitation code.
+          </p>
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Email</th>
+                <th scope="col">Signed up</th>
+                <th scope="col">Decide</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(waiting ?? []).map((person) => (
+                <tr key={person.user_id}>
+                  <td className="label">{person.email}</td>
+                  <td className="label">
+                    <time dateTime={person.created_at}>
+                      {joined.format(new Date(person.created_at))}
+                    </time>
+                  </td>
+                  <td>
+                    <button
+                      disabled={letIn.isPending}
+                      onClick={() => letIn.mutate(person.user_id)}
+                      type="button"
+                    >
+                      Let in
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
 
       {(claims ?? []).length > 0 && (
         <section aria-labelledby="member-claims">
@@ -386,16 +557,18 @@ export function MembersSetting() {
                   <td className="label">
                     <select
                       aria-label={`Role for ${member.display_name ?? member.user_id}`}
-                      disabled={save.isPending}
+                      disabled={setRole.isPending || (member.alliance_role === 'admin' && !isAdmin)}
                       onChange={(event) =>
-                        save.mutate({
-                          userId: member.user_id,
-                          patch: { role: event.target.value as AppRole },
-                        })
+                        setRole.mutate({ member, role: event.target.value as AppRole })
                       }
-                      value={member.role}
+                      value={member.alliance_role}
                     >
-                      {APP_ROLES.map((role) => (
+                      {/* Admin is offered only to an admin: the database refuses
+                          anyone else (0195), and a choice that always fails is
+                          not a choice. */}
+                      {APP_ROLES.filter(
+                        (role) => role !== 'admin' || isAdmin || member.alliance_role === 'admin',
+                      ).map((role) => (
                         <option key={role} value={role}>
                           {role}
                         </option>
@@ -447,16 +620,20 @@ export function MembersSetting() {
                   <td>
                     {/* Already a viewer: there is nothing left to take, and a
                         button that would do nothing should not offer to. */}
-                    {member.role === 'viewer' ? (
+                    {member.alliance_role === 'viewer' ? (
                       <span className="subtle">—</span>
                     ) : (
                       <button
                         disabled={revoke.isPending}
-                        onClick={() => revoke.mutate(member.user_id)}
-                        title="Set the account back to viewer and unlink its character"
+                        onClick={() => revoke.mutate(member)}
+                        title={
+                          member.other_alliances > 0
+                            ? 'Take them out of this alliance; their other alliance keeps them'
+                            : 'Remove the account and unlink its character'
+                        }
                         type="button"
                       >
-                        Remove
+                        {member.other_alliances > 0 ? 'Remove from this alliance' : 'Remove'}
                       </button>
                     )}
                   </td>

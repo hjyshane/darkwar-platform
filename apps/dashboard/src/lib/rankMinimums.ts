@@ -49,18 +49,15 @@ export function parseMinimums(value: unknown): RankMinimums {
 }
 
 export async function fetchMinimums(): Promise<RankMinimums> {
-  const { data, error } = await supabase
-    .from('app_settings')
-    .select('value')
-    .eq('key', TIERS_SETTING_KEY)
-    .maybeSingle();
+  // The alliance being viewed (0195), falling back to app_settings.
+  const { data, error } = await supabase.rpc('alliance_setting', { p_key: TIERS_SETTING_KEY });
   if (error) {
     if (error.code === '42501') {
       return NO_MINIMUMS;
     }
     throw new Error(`rank minimum setting query failed: ${error.message}`);
   }
-  return parseMinimums(data?.value);
+  return parseMinimums(data);
 }
 
 export function useRankMinimums() {

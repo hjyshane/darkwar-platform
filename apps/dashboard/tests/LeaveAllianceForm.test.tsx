@@ -49,7 +49,7 @@ test('cancelling leaves nothing called', async () => {
   expect(screen.getByRole('button', { name: 'Leave the alliance' })).toBeDefined();
 });
 
-test('the second click calls leave_alliance and nothing else', async () => {
+test('the second click calls leave_active_alliance and nothing else', async () => {
   // Never a direct write to app_users: that table is gated on
   // members.manage, which the person leaving does not have, so a form that
   // tried it would fail for everybody it is meant for.
@@ -62,8 +62,9 @@ test('the second click calls leave_alliance and nothing else', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Leave the alliance' }));
   fireEvent.click(screen.getByRole('button', { name: /Yes, leave/ }));
 
-  await waitFor(() => expect(rpc).toHaveBeenCalledWith('leave_alliance'));
-  await screen.findByText(/You are signed in as a viewer now/);
+  // 0195: leaving means the alliance being viewed; in only one, it is leave_alliance().
+  await waitFor(() => expect(rpc).toHaveBeenCalledWith('leave_active_alliance'));
+  await screen.findByText(/You have left this alliance/);
 });
 
 test('the last-admin refusal is shown, not swallowed', async () => {
