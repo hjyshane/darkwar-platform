@@ -4427,3 +4427,29 @@ button.tile-grid:hover:not(:disabled) {
 .bm-detail .stats {
   margin-top: 0;
 }
+
+/* --- server migration (0186) ----------------------------------------------- */
+
+.migration-bar,
+.migration-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: end;
+  margin-bottom: var(--space-4);
+}
+
+.migration-form label {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.migration-toggle {
+  display: inline-block;
+  margin-bottom: var(--space-3);
+}
+
+/* A mover's row reads as the point of the board; the rest stay ordinary. */
+.table-wrap .migration-moved > :is(th, td) {
+  background: var(--bg-raised);
+}

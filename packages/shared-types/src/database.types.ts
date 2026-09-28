@@ -2998,6 +2998,33 @@ export type Database = {
         }
         Relationships: []
       }
+      migration_events: {
+        Row: {
+          baseline_at: string
+          created_at: string
+          created_by: string | null
+          event_id: string
+          name: string
+          settled_at: string | null
+        }
+        Insert: {
+          baseline_at: string
+          created_at?: string
+          created_by?: string | null
+          event_id?: string
+          name: string
+          settled_at?: string | null
+        }
+        Update: {
+          baseline_at?: string
+          created_at?: string
+          created_by?: string | null
+          event_id?: string
+          name?: string
+          settled_at?: string | null
+        }
+        Relationships: []
+      }
       notification_channels: {
         Row: {
           channel: string
@@ -6240,6 +6267,107 @@ export type Database = {
       is_service_request: { Args: never; Returns: boolean }
       leave_alliance: { Args: never; Returns: undefined }
       linked_player_id: { Args: never; Returns: string }
+      migration_alliances: {
+        Args: { p_event_id: string }
+        Returns: {
+          after_server_id: number
+          before_server_id: number
+          board_members_after: number
+          board_members_before: number
+          board_power_after: number
+          board_power_before: number
+          code: string
+          external_id: string
+          joined: number
+          left_alliance: number
+          left_by_moving: number
+          members_after: number
+          members_before: number
+          name: string
+          roster_after_at: string
+          roster_before_at: string
+          roster_power_after: number
+          roster_power_before: number
+          stayed: number
+        }[]
+      }
+      migration_flows: {
+        Args: { p_event_id: string }
+        Returns: {
+          from_server_id: number
+          movers: number
+          power: number
+          to_server_id: number
+          top_movers: number
+        }[]
+      }
+      migration_people: {
+        Args: { p_event_id: string }
+        Returns: {
+          after_alliance: string
+          after_at: string
+          after_power: number
+          after_rank: number
+          after_server_id: number
+          before_alliance: string
+          before_at: string
+          before_power: number
+          before_rank: number
+          before_server_id: number
+          game_uid: number
+          home_server_id: number
+          name: string
+          player_id: string
+          status: string
+        }[]
+      }
+      migration_roster_reads: {
+        Args: { p_event_id: string }
+        Returns: {
+          after_at: string
+          before_at: string
+          external_id: string
+        }[]
+      }
+      migration_servers: {
+        Args: { p_event_id: string }
+        Returns: {
+          appeared: number
+          moved_in: number
+          moved_out: number
+          power_in: number
+          power_out: number
+          server_id: number
+          stayed: number
+          top_after: number
+          top_before: number
+          top_power_after: number
+          top_power_before: number
+          tracked_after: number
+          tracked_before: number
+          unseen_after: number
+        }[]
+      }
+      migration_top_board: {
+        Args: { p_event_id: string }
+        Returns: {
+          after_alliance: string
+          after_at: string
+          after_power: number
+          after_rank: number
+          after_server_id: number
+          before_alliance: string
+          before_at: string
+          before_power: number
+          before_rank: number
+          before_server_id: number
+          game_uid: number
+          home_server_id: number
+          name: string
+          player_id: string
+          status: string
+        }[]
+      }
       prune_collector_heartbeats: {
         Args: { p_confirm?: boolean; p_keep?: string }
         Returns: {

@@ -433,6 +433,55 @@ const SCHEDULE_KEY = [
  */
 export const HIVE_FORMATION_ID = '11111111-1111-4111-8111-1111111111f1';
 
+const MIGRATION_ID = '11111111-1111-4111-8111-1111111111e1';
+
+function migrationServer(serverId: number, counts: Record<string, number>) {
+  return {
+    server_id: serverId,
+    tracked_before: 0,
+    tracked_after: 0,
+    stayed: 0,
+    moved_out: 0,
+    moved_in: 0,
+    unseen_after: 0,
+    appeared: 0,
+    power_out: 0,
+    power_in: 0,
+    top_before: 0,
+    top_after: 0,
+    top_power_before: 0,
+    top_power_after: 0,
+    ...counts,
+  };
+}
+
+function migrationPerson(
+  n: number,
+  name: string,
+  status: string,
+  [before, after]: [number | null, number | null],
+  [powerBefore, powerAfter]: [number | null, number | null],
+  [rankBefore, rankAfter]: [number | null, number | null],
+) {
+  return {
+    game_uid: 9_000_000_000_000_000 + n * 1_000_000 + (before ?? after ?? 580),
+    player_id: Object.values(PLAYER)[n - 1],
+    name,
+    home_server_id: before ?? after ?? 580,
+    status,
+    before_server_id: before,
+    before_power: powerBefore,
+    before_alliance: before === null ? null : 'OUR',
+    before_rank: rankBefore,
+    before_at: before === null ? null : ago(4400),
+    after_server_id: after,
+    after_power: powerAfter,
+    after_alliance: after === null ? null : 'OUR',
+    after_rank: rankAfter,
+    after_at: after === null ? null : ago(60),
+  };
+}
+
 const HIVE_ANCHOR = { x: 512, y: 388 };
 
 const HIVE_FORMATIONS = [
@@ -982,6 +1031,123 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
 
   // Arena — no board captured, which is a real and common state worth seeing.
   [['arena', 'boards'], []],
+
+  // Server migration — one event, window open (settled_at null), a few moves.
+  [
+    ['migration', 'events'],
+    [{ event_id: MIGRATION_ID, name: 'Migration 1', baseline_at: ago(4320), settled_at: null }],
+  ],
+  [
+    ['migration', 'servers', MIGRATION_ID],
+    [
+      migrationServer(580, {
+        tracked_before: 96,
+        tracked_after: 88,
+        stayed: 84,
+        moved_out: 6,
+        moved_in: 1,
+        unseen_after: 6,
+        appeared: 3,
+        power_out: 2_900_000_000,
+        power_in: 410_000_000,
+        top_before: 24,
+        top_after: 21,
+        top_power_before: 14_800_000_000,
+        top_power_after: 13_100_000_000,
+      }),
+      migrationServer(581, {
+        tracked_before: 20,
+        tracked_after: 27,
+        stayed: 18,
+        moved_in: 5,
+        unseen_after: 2,
+        appeared: 4,
+        power_in: 2_400_000_000,
+        top_before: 19,
+        top_after: 23,
+        top_power_before: 11_200_000_000,
+        top_power_after: 13_900_000_000,
+      }),
+      migrationServer(584, {
+        tracked_before: 14,
+        tracked_after: 12,
+        stayed: 11,
+        moved_out: 1,
+        moved_in: 1,
+        unseen_after: 2,
+        power_out: 410_000_000,
+        power_in: 500_000_000,
+        top_before: 17,
+        top_after: 17,
+        top_power_before: 9_600_000_000,
+        top_power_after: 9_700_000_000,
+      }),
+    ],
+  ],
+  [
+    ['migration', 'flows', MIGRATION_ID],
+    [
+      { from_server_id: 580, to_server_id: 581, movers: 5, top_movers: 3, power: 2_400_000_000 },
+      { from_server_id: 580, to_server_id: 584, movers: 1, top_movers: 1, power: 500_000_000 },
+      { from_server_id: 584, to_server_id: 580, movers: 1, top_movers: 0, power: 410_000_000 },
+    ],
+  ],
+  [
+    ['migration', 'top', MIGRATION_ID],
+    [
+      migrationPerson(1, 'Mira', 'moved', [580, 581], [1_160_000_000, 1_190_000_000], [1, 1]),
+      migrationPerson(2, 'Kova', 'stayed', [580, 580], [990_000_000, 1_010_000_000], [2, 2]),
+      migrationPerson(3, 'Dex', 'unseen_after', [584, null], [870_000_000, null], [3, null]),
+      migrationPerson(4, 'Shane', 'appeared', [null, 581], [null, 800_000_000], [null, 4]),
+    ],
+  ],
+  [
+    ['migration', 'alliances', MIGRATION_ID],
+    [
+      {
+        external_id: 'aaaa0000000000000000000000000001',
+        name: 'Our Alliance',
+        code: 'OUR',
+        before_server_id: 580,
+        after_server_id: 580,
+        roster_before_at: ago(4400),
+        roster_after_at: ago(60),
+        members_before: 94,
+        members_after: 90,
+        roster_power_before: 38_000_000_000,
+        roster_power_after: 36_500_000_000,
+        stayed: 86,
+        left_alliance: 8,
+        left_by_moving: 5,
+        joined: 4,
+        board_power_before: 38_100_000_000,
+        board_power_after: 36_600_000_000,
+        board_members_before: 94,
+        board_members_after: 90,
+      },
+      {
+        external_id: 'aaaa0000000000000000000000000002',
+        name: 'Rival',
+        code: 'RVL',
+        before_server_id: 580,
+        after_server_id: 581,
+        roster_before_at: ago(5000),
+        roster_after_at: null,
+        members_before: 88,
+        members_after: null,
+        roster_power_before: 30_000_000_000,
+        roster_power_after: null,
+        stayed: null,
+        left_alliance: null,
+        left_by_moving: null,
+        joined: null,
+        board_power_before: 30_200_000_000,
+        board_power_after: 31_000_000_000,
+        board_members_before: 88,
+        board_members_after: 91,
+      },
+    ],
+  ],
 
   // Detail pages, ids matching the roster above so links work.
   [
