@@ -26,6 +26,7 @@ import {
   ringOf,
   ringOffsets,
   ringOrderAround,
+  searchMembers,
   shiftedBy,
   sortMembers,
   spanLow,
@@ -495,4 +496,39 @@ test('a teleport coordinate names its two fields', () => {
 
 test('and is not rounded, padded or reordered', () => {
   expect(formatTeleport({ x: 7, y: 1200 })).toBe('[X:7 Y:1200]');
+});
+
+// The palette's search box: an officer types part of a name they already know.
+const named = (playerId: string, name: string | null): AssignableMember => ({
+  playerId,
+  name,
+  power: null,
+  hqLevel: null,
+  memberRank: null,
+});
+const roster = [
+  named('p-1', 'Guaplee'),
+  named('p-2', 'Gigglybits'),
+  named('p-3', 'Thắng'),
+  named('p-4', null),
+  named('p-5', '늑대'),
+];
+
+test('an empty or blank search keeps everybody, in the order given', () => {
+  expect(searchMembers(roster, '').map((m) => m.playerId)).toEqual(roster.map((m) => m.playerId));
+  expect(searchMembers(roster, '   ')).toHaveLength(roster.length);
+});
+
+test('search matches any part of the name, ignoring case', () => {
+  expect(searchMembers(roster, 'GG').map((m) => m.playerId)).toEqual(['p-2']);
+  expect(searchMembers(roster, 'g').map((m) => m.playerId)).toEqual(['p-1', 'p-2', 'p-3']);
+});
+
+test('search ignores accents, so a plain keyboard finds an accented name', () => {
+  expect(searchMembers(roster, 'thang').map((m) => m.playerId)).toEqual(['p-3']);
+});
+
+test('search finds Hangul, and never matches a member with no name', () => {
+  expect(searchMembers(roster, '늑').map((m) => m.playerId)).toEqual(['p-5']);
+  expect(searchMembers(roster, 'unnamed')).toEqual([]);
 });

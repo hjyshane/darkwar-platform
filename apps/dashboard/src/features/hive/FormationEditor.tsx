@@ -30,6 +30,7 @@ import {
   ringOf,
   ringOffsets,
   ringOrderAround,
+  searchMembers,
   shiftedBy,
   sortMembers,
   sortSlots,
@@ -494,6 +495,7 @@ export function FormationEditor({
   const [assignments, setAssignments] = useState<Map<string, string>>(new Map());
   const [assignmentsFor, setAssignmentsFor] = useState<readonly BoardSlot[]>([]);
   const [pinned, setPinned] = useState<Map<string, string>>(new Map());
+  const [memberQuery, setMemberQuery] = useState('');
   // Not on an anchor move either — see sameOccupancy.
   if (assignmentsFor !== slots && sameOccupancy(assignmentsFor, slots)) {
     setAssignmentsFor(slots);
@@ -1202,6 +1204,7 @@ export function FormationEditor({
     [...assignments].flatMap(([slotId, playerId]) => (liveSlotIds.has(slotId) ? [playerId] : [])),
   );
   const unplaced = members.filter((member) => !placedIds.has(member.playerId));
+  const paletteMembers = searchMembers(sortMembers(members, 'name'), memberQuery);
   // Only tiles a member's city can stand on. Structures hold ground rather
   // than people — the database refuses a player on one anyway — and a
   // base-kind tile that is not 3x3 is a drawing, not a place to send anybody.
@@ -1360,6 +1363,28 @@ export function FormationEditor({
               dropdown of eighty names; dragging them onto the square is the
               same decision made by pointing at it. The dropdown stays for
               keyboards and phones, which HTML drag and drop does not reach. */}
+          {/* A SEARCH, because the list is an index and eighty chips is still
+              a lot of reading. It filters what is shown and nothing else:
+              clearing it brings everyone back in the same order. */}
+          <div className="hive-palette-search">
+            <input
+              aria-label="Find a member"
+              onChange={(event) => setMemberQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  setMemberQuery('');
+                }
+              }}
+              placeholder="Find a member…"
+              type="search"
+              value={memberQuery}
+            />
+            <span className="hive-count">
+              {memberQuery.trim() === ''
+                ? `${unplaced.length} of ${members.length} not placed`
+                : `${paletteMembers.length} of ${members.length} shown`}
+            </span>
+          </div>
           <ul aria-label="Members to place" className="hive-palette">
             {/* ALPHABETICAL, ALWAYS, AND ONE LIST. This is not a plan, it is
                 an index: you come to it knowing the name you want and you have
@@ -1369,7 +1394,10 @@ export function FormationEditor({
                 on whether that member had been dealt with yet. Looking one up
                 meant reading all eighty. The placed are still greyed, which is
                 what that split was for; they just no longer move. */}
-            {sortMembers(members, 'name').map((member) => (
+            {paletteMembers.length === 0 && (
+              <li className="subtle">Nobody on the roster matches “{memberQuery.trim()}”.</li>
+            )}
+            {paletteMembers.map((member) => (
               <li
                 className={
                   placedIds.has(member.playerId)
