@@ -848,6 +848,59 @@ export type Database = {
           },
         ]
       }
+      alliance_settings: {
+        Row: {
+          alliance_id: string
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          alliance_id: string
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value: Json
+        }
+        Update: {
+          alliance_id?: string
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alliance_settings_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "alliance_settings_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "alliance_settings_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "alliance_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "pending_access"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       alliance_snapshots: {
         Row: {
           alliance_id: string
@@ -5673,12 +5726,14 @@ export type Database = {
       }
       app_user_directory: {
         Row: {
+          alliance_role: Database["public"]["Enums"]["app_role"] | null
           created_at: string | null
           display_name: string | null
           email: string | null
           email_confirmed_at: string | null
           game_rank: string | null
           last_sign_in_at: string | null
+          other_alliances: number | null
           player_id: string | null
           role: Database["public"]["Enums"]["app_role"] | null
           user_id: string | null
@@ -6516,6 +6571,7 @@ export type Database = {
       }
     }
     Functions: {
+      account_in_view: { Args: { p_user: string }; Returns: boolean }
       active_alliance: { Args: never; Returns: string }
       activity_day_of: { Args: { ts: string }; Returns: string }
       activity_points: {
@@ -6527,6 +6583,10 @@ export type Database = {
           p_server: number
         }
         Returns: number
+      }
+      alliance_setting: {
+        Args: { p_alliance?: string; p_key: string }
+        Returns: Json
       }
       announce_rank_period: { Args: never; Returns: string }
       approve_player_claim: {
@@ -6601,6 +6661,7 @@ export type Database = {
           server_id: number
         }[]
       }
+      leave_active_alliance: { Args: never; Returns: undefined }
       leave_alliance: { Args: never; Returns: undefined }
       linked_player_id: { Args: never; Returns: string }
       linked_player_ids: { Args: never; Returns: string[] }
@@ -6796,6 +6857,10 @@ export type Database = {
           rows: number
         }[]
       }
+      save_alliance_setting: {
+        Args: { p_key: string; p_value: Json }
+        Returns: undefined
+      }
       save_hive_formation_layout: {
         Args: { p_formation_id: string; p_slots: Json }
         Returns: Json
@@ -6818,6 +6883,16 @@ export type Database = {
       }
       tier_rank: { Args: { p_tier: string }; Returns: number }
       unlink_player: { Args: { p_player_id: string }; Returns: undefined }
+      waiting_to_join: {
+        Args: never
+        Returns: {
+          created_at: string
+          email: string
+          last_sign_in_at: string
+          requested_alliance_id: string
+          user_id: string
+        }[]
+      }
       week_scores: {
         Args: { p_week_start: string }
         Returns: {

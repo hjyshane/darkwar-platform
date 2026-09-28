@@ -85,6 +85,10 @@ only the people waiting for the alliance they are viewing.
    `alliance_id = active_alliance()`; inserts take it from the active alliance.
    Per-alliance settings (app_settings gains alliance scope for the keys listed
    above; notification_channels keyed by alliance).
+   *Done as 3a (0194, content scoping) and 3b (0195, members screen,
+   app_users guards, `alliance_settings` for `rank_tiers`).* Discord routing
+   per alliance is split out: the notifier must first learn which alliance
+   each event belongs to.
 4. **Derived tables partition.** rank_period_snapshots, member_roster_current,
    player_ranks, alliance_board_readings, black_money_signup_snapshots and the
    `is_own` views gain / group by `alliance_id`. Events tab toggle.
