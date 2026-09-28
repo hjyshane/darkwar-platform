@@ -96,9 +96,9 @@ select is(
   array['ch bravo notice'],
   'an admin viewing Bravo sees Bravo''s board');
 select is(
-  (select array_agg(code order by code) from public.join_codes where code like 'CH-%'),
-  array['CH-BRAVO'],
-  'and Bravo''s join codes');
+  (select array_agg(name order by name) from public.hive_formations where name like 'ch %'),
+  array['ch bravo plan'],
+  'and Bravo''s hive plans (join_codes is not granted to authenticated locally, 0021)');
 
 -- 8. Children follow their parent.
 select is((select count(*)::int from public.hive_formation_slots
