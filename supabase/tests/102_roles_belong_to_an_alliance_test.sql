@@ -6,7 +6,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(29);
+select plan(31);
 
 -- Fixtures ------------------------------------------------------------------
 
@@ -247,6 +247,21 @@ select is(
   (select count(*)::int from public.pending_access),
   0,
   'a member without members.manage sees nobody waiting');
+
+-- A stranded membership ------------------------------------------------------
+
+-- 30-31. A re-pin leaves memberships behind in an alliance that is no longer
+-- ours (the mirror put them wherever was primary at the time). Such a row
+-- must neither become the alliance on screen nor switch off the legacy role.
+reset role;
+insert into public.alliance_memberships (user_id, alliance_id, role)
+values ('00000000-0000-4000-8000-0000000c2001', '00000000-0000-4000-8000-0000000c1003', 'member');
+set local role authenticated;
+select pg_temp.as_user('00000000-0000-4000-8000-0000000c2001', null);
+select is(public.active_alliance(), '00000000-0000-4000-8000-0000000c1001'::uuid,
+  'a membership of an alliance no longer ours is not where the account lands');
+select is(public.current_app_role()::text, 'member',
+  'and it does not turn the legacy member into a viewer');
 
 reset role;
 select * from finish();

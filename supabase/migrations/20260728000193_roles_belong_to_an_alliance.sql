@@ -14,8 +14,8 @@
 -- "your role in the active alliance":
 --
 --   admin / service roles   global, straight from app_users, as before
---   has memberships         the membership in the active alliance, or viewer
---   has none                app_users.role, as before
+--   in an own alliance      the membership in the active alliance, or viewer
+--   in none of ours         app_users.role, as before
 --
 -- The last line is the compatibility line. A fresh install with nothing
 -- pinned has no memberships at all (0192's mirror needs a pin to know where
@@ -158,10 +158,14 @@ begin
                 where user_id = v_uid and alliance_id = v_primary) then
       return v_primary;
     end if;
-    select alliance_id into v_pick
-    from public.alliance_memberships
-    where user_id = v_uid
-    order by created_at, alliance_id
+    -- Only a membership of an alliance that is STILL ours. One left behind by
+    -- a re-pin (0192's mirror put it in whatever was primary at the time)
+    -- would otherwise make an alliance we no longer have the one on screen.
+    select m.alliance_id into v_pick
+    from public.alliance_memberships m
+    join public.alliances a on a.alliance_id = m.alliance_id and a.is_own
+    where m.user_id = v_uid
+    order by m.created_at, m.alliance_id
     limit 1;
     if v_pick is not null then
       return v_pick;
@@ -191,7 +195,12 @@ as $$
   select coalesce(
     (select case
               when u.role in ('admin', 'collector_service', 'analyst_service') then u.role
+              -- Memberships of alliances that are still ours. One stranded by a
+              -- re-pin must not switch off the legacy fallback and leave the
+              -- account a viewer everywhere.
               when exists (select 1 from public.alliance_memberships m
+                             join public.alliances a
+                               on a.alliance_id = m.alliance_id and a.is_own
                             where m.user_id = u.user_id)
                 then coalesce(
                   (select m.role from public.alliance_memberships m
@@ -208,7 +217,7 @@ $$;
 comment on function public.current_app_role() is
   'The caller''s role for this request. Admin and the service roles are '
   'global. Otherwise the membership role in active_alliance(), or viewer if '
-  'the caller belongs elsewhere only. An account with no memberships at all '
+  'the caller belongs elsewhere only. An account with no membership in an alliance that is still ours '
   'falls back to app_users.role, which is every account on an install with '
   'no pinned alliance.';
 
