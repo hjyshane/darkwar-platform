@@ -146,7 +146,7 @@ select is(
   'an officer of Bravo does');
 
 -- 10. The announcement has one Discord channel, so only the primary uses it.
-select like(public.announce_rank_period(), '%per-alliance Discord routing%',
+select alike(public.announce_rank_period(), '%per-alliance Discord routing%',
   'Bravo''s rank announcement waits for per-alliance routing');
 
 -- Entering the roster by hand ---------------------------------------------------
