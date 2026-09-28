@@ -122,9 +122,12 @@ insert into public.migration_events (event_id, name, baseline_at, settled_at) va
   ('00000000-0000-4000-8000-00000000e102', 'late settle', '2027-01-10T00:00:00Z', '2027-01-21T12:00:00Z'),
   ('00000000-0000-4000-8000-00000000e103', 'live', '2027-01-10T00:00:00Z', null);
 
+-- By the player_id the fixture gave each letter. Not by players.current_name:
+-- the snapshot triggers overwrite it with the snapshot's name ('n' || uid).
 create function pg_temp.status(ev uuid, who text) returns text language sql as $$
-  select p.status from public.migration_people(ev) p where p.name = 'n' || (
-    select game_uid from public.players where current_name = who)::text;
+  select p.status from public.migration_people(ev) p
+   where p.player_id = ('00000000-0000-4000-8000-00000000e00'
+                        || (ascii(who) - ascii('A') + 1)::text)::uuid;
 $$;
 
 -- People.
