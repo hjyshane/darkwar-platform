@@ -35,6 +35,14 @@ import {
   useFormations,
 } from './hiveFormations';
 
+type HiveTab = 'plan' | 'shape' | 'people';
+
+const HIVE_TABS: readonly { id: HiveTab; label: string }[] = [
+  { id: 'plan', label: 'Plan' },
+  { id: 'shape', label: 'Draw the shape' },
+  { id: 'people', label: 'Who goes where' },
+];
+
 /** Where each member is told to put their base.
  *
  * THE PROBLEM IS NOT THAT PEOPLE WON'T LINE UP, IT IS THAT THEY CANNOT. A
@@ -81,6 +89,7 @@ export function HivePage() {
   );
 
   const [chosenFormation, setChosenFormation] = useState<string | null>(null);
+  const [tab, setTab] = useState<HiveTab>('plan');
   const active = formations.find((formation) => formation.isActive) ?? formations[0] ?? null;
   const formation =
     formations.find((candidate) => candidate.formationId === chosenFormation) ?? active;
@@ -148,23 +157,46 @@ export function HivePage() {
             </label>
           </div>
 
+          {/* THREE VIEWS, NOT ONE PAGE. The live plan, the drawing tools and
+              the eighty-row assignment table used to stand one under another,
+              so an officer reached the table by scrolling past two maps and
+              every control, and back up again to save. Members never see the
+              tabs: the plan is all they have. */}
+          {mayPlan && (
+            <div aria-label="Hive view" role="tablist">
+              {HIVE_TABS.map((candidate) => (
+                <button
+                  aria-selected={candidate.id === tab}
+                  key={candidate.id}
+                  onClick={() => setTab(candidate.id)}
+                  role="tab"
+                  type="button"
+                >
+                  {candidate.label}
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* Keyed by the formation so switching plans starts the view over.
               The grid's centre and zoom are component state; without the key
               a pan on one formation left the view parked on that ground when
               the picker (or a promotion) swapped the formation underneath,
               and the new plan appeared to have no bases until you dragged
               back to wherever its anchor was. */}
-          <Overview
-            board={board.data ?? []}
-            formation={formation}
-            key={formation.formationId}
-            mayPlan={mayPlan}
-            ownPlayerId={session?.playerId ?? null}
-          />
+          {(!mayPlan || tab === 'plan') && (
+            <Overview
+              board={board.data ?? []}
+              formation={formation}
+              key={formation.formationId}
+              mayPlan={mayPlan}
+              ownPlayerId={session?.playerId ?? null}
+            />
+          )}
         </>
       )}
 
-      {mayPlan && serverId !== null && (
+      {mayPlan && serverId !== null && (formation === null || tab === 'shape') && (
         <NewFormation
           onCreated={setChosenFormation}
           serverId={serverId}
@@ -176,15 +208,22 @@ export function HivePage() {
           only LOOKED right: switching formations usually unmounted the editor
           through the `board.isPending` gate below, but a board already in the
           query cache skips the pending state, and the editor then kept the
-          previous formation's centre, zoom, tool and selection. */}
+          previous formation's centre, zoom, tool and selection.
+
+          HIDDEN, NOT UNMOUNTED, on the plan tab: the editor holds the unsaved
+          draft, and looking at the live plan for a moment must not throw away
+          twenty minutes of drawing. */}
       {mayPlan && formation !== null && !board.isPending && (
-        <FormationEditor
-          formation={formation}
-          key={formation.formationId}
-          members={members.data ?? []}
-          ownPlayerId={session?.playerId ?? null}
-          slots={board.data ?? []}
-        />
+        <div hidden={tab === 'plan'}>
+          <FormationEditor
+            formation={formation}
+            key={formation.formationId}
+            members={members.data ?? []}
+            ownPlayerId={session?.playerId ?? null}
+            slots={board.data ?? []}
+            half={tab === 'people' ? 'people' : 'shape'}
+          />
+        </div>
       )}
     </section>
   );
@@ -325,59 +364,112 @@ function Overview({
         </p>
       )}
 
-      <TileGrid
-        anchor={anchor}
-        bases={bases}
-        // `centre` is null until somebody looks somewhere else, so the first
-        // pan step has to start from the fitted centre rather than from
-        // nothing — otherwise the view jumps to 0,0 on the first tile of the
-        // drag.
-        onPan={(byX, byY) => setCentre((from) => pannedCentre(from ?? home.centre, byX, byY))}
-        onZoom={(direction, at) => {
-          setZoom(zoomStep(radius, direction));
-          setCentre(at);
-        }}
-        window={view}
-      />
-      <p className="subtle">
-        Drag the map to slide it. Hold <kbd>ctrl</kbd> and use the wheel to zoom.
-      </p>
-      <fieldset className="hive-zoom">
-        <legend>Zoom</legend>
-        {ZOOM_STEPS.map((step) => (
-          <button
-            aria-pressed={step === zoom}
-            key={step}
-            onClick={() => setZoom(step)}
-            type="button"
-          >
-            {step * 2 + 1} tiles
-          </button>
-        ))}
-        <button
-          aria-pressed={zoom === null && centre === null}
-          onClick={() => {
-            setZoom(null);
-            setCentre(null);
-          }}
-          type="button"
-        >
-          Whole plan
-        </button>
-      </fieldset>
+      {/* THE LIST BESIDE THE MAP when there is room for both. Stacked, the
+          list sits a map's height below the picture it describes, and checking
+          one against the other means scrolling between them; side by side it
+          is one glance. A narrow window keeps the stack — the list under the
+          map is still the right order for a phone. */}
+      <div className="hive-overview">
+        <div className="hive-overview__map">
+          <TileGrid
+            anchor={anchor}
+            bases={bases}
+            // `centre` is null until somebody looks somewhere else, so the first
+            // pan step has to start from the fitted centre rather than from
+            // nothing — otherwise the view jumps to 0,0 on the first tile of the
+            // drag.
+            onPan={(byX, byY) => setCentre((from) => pannedCentre(from ?? home.centre, byX, byY))}
+            onZoom={(direction, at) => {
+              setZoom(zoomStep(radius, direction));
+              setCentre(at);
+            }}
+            window={view}
+          />
+          <p className="subtle">
+            Drag the map to slide it. Hold <kbd>ctrl</kbd> and use the wheel to zoom.
+          </p>
+          <fieldset className="hive-zoom">
+            <legend>Zoom</legend>
+            {ZOOM_STEPS.map((step) => (
+              <button
+                aria-pressed={step === zoom}
+                key={step}
+                onClick={() => setZoom(step)}
+                type="button"
+              >
+                {step * 2 + 1} tiles
+              </button>
+            ))}
+            <button
+              aria-pressed={zoom === null && centre === null}
+              onClick={() => {
+                setZoom(null);
+                setCentre(null);
+              }}
+              type="button"
+            >
+              Whole plan
+            </button>
+          </fieldset>
+        </div>
 
+        <div className="hive-overview__list">
+          <OverviewActions
+            board={board}
+            confirming={confirming}
+            copied={copied}
+            formation={formation}
+            mayPlan={mayPlan}
+            onCancel={() => setConfirming(false)}
+            onCopy={() => {
+              void navigator.clipboard?.writeText(text);
+              setCopied(true);
+            }}
+            onDelete={() => (confirming ? remove.mutate() : setConfirming(true))}
+            onStand={() => stand.mutate()}
+            removing={remove.isPending}
+            standing={stand.isPending}
+          />
+          {board.length > 0 && <pre className="hive-list">{text}</pre>}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function OverviewActions({
+  board,
+  confirming,
+  copied,
+  formation,
+  mayPlan,
+  onCancel,
+  onCopy,
+  onDelete,
+  onStand,
+  removing,
+  standing,
+}: {
+  board: readonly BoardSlot[];
+  confirming: boolean;
+  copied: boolean;
+  formation: Formation;
+  mayPlan: boolean;
+  onCancel: () => void;
+  onCopy: () => void;
+  onDelete: () => void;
+  onStand: () => void;
+  removing: boolean;
+  standing: boolean;
+}) {
+  return (
+    <>
       <div className="hive-actions">
-        <button
-          onClick={() => {
-            void navigator.clipboard?.writeText(text);
-            setCopied(true);
-          }}
-          type="button"
-        >
+        <button onClick={onCopy} type="button">
           {copied ? 'Copied' : 'Copy the list'}
         </button>
         {mayPlan && !formation.isActive && (
-          <button disabled={stand.isPending} onClick={() => stand.mutate()} type="button">
+          <button disabled={standing} onClick={onStand} type="button">
             Make this the live plan
           </button>
         )}
@@ -386,26 +478,20 @@ function Overview({
             to recover them from, and this button sits next to one that only
             copies text. */}
         {mayPlan && (
-          <button
-            disabled={remove.isPending}
-            onClick={() => (confirming ? remove.mutate() : setConfirming(true))}
-            type="button"
-          >
-            {remove.isPending
+          <button disabled={removing} onClick={onDelete} type="button">
+            {removing
               ? 'Deleting…'
               : confirming
                 ? `Really delete ${formation.name} and its ${board.length} tiles?`
                 : 'Delete this formation'}
           </button>
         )}
-        {confirming && !remove.isPending && (
-          <button onClick={() => setConfirming(false)} type="button">
+        {confirming && !removing && (
+          <button onClick={onCancel} type="button">
             Keep it
           </button>
         )}
       </div>
-
-      {board.length > 0 && <pre className="hive-list">{text}</pre>}
     </>
   );
 }
