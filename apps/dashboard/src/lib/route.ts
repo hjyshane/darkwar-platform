@@ -264,6 +264,7 @@ export const OVERVIEW_TABS: ReadonlyArray<NavTab> = [
   { route: 'rankings', hash: '#/rankings', label: 'Cross-Server Ranking' },
   // Beside the rankings because it asks the same group-wide question, read
   // across one instant: who went where when the servers opened to moves.
+  // Filtered to officers and admins in `App.tsx` (0191).
   { route: 'migration', hash: '#/migration', label: 'Migration' },
 ];
 

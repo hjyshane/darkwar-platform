@@ -1,4 +1,4 @@
--- 0191: the power board's alliance prefix is a column members may read.
+-- 0191: the migration board is for officers, and reads the prefix it is allowed to.
 --
 -- 0186's migration_people is security invoker and read the prefix as
 -- `raw ->> 'abbr'`. Members are not granted `raw` — 0016 closed it because
@@ -200,3 +200,22 @@ as $$
   left join board b on b.player_id = r.player_id
   where r.before_at is not null or r.after_at is not null;
 $$;
+
+-- The board is for officers and admins.
+--
+-- 0186 opened migration_events to members and read everything else as the
+-- caller, assuming the snapshots underneath were member-only. The rosters
+-- are not: 0066 made alliance_member_snapshots own-or-officer, so a member
+-- was handed the power board's people and silently none of the roster's —
+-- a board that looks complete and is not. Rather than widen 0066 through a
+-- definer, the board is drawn at the same line the rosters are.
+--
+-- Every function here starts from migration_events, so closing its read
+-- closes the board: a member's call returns no rows rather than a partial
+-- set. Enumerated roles, not a capability, for 0066's reason — this is a
+-- property of the data, not a switch on the settings grid.
+drop policy member_read on public.migration_events;
+
+create policy officer_read on public.migration_events
+  for select to authenticated
+  using ((select public.current_app_role()) in ('officer', 'admin'));
