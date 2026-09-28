@@ -175,8 +175,13 @@ declare
   v_target uuid := coalesce(new.user_id, old.user_id);
   v_active uuid;
 begin
-  -- Service key, cron, migrations: not a person, not this guard's business.
-  if v_uid is null then
+  -- Only a browser request (PostgREST's `set local role authenticated`) is
+  -- judged. Service key, cron, migrations and owner connections are not a
+  -- person — including an owner connection still carrying a user's claims
+  -- from earlier in the transaction, which is what 69_board_extras does after
+  -- `reset role`. SECURITY DEFINER does not change the `role` setting.
+  if v_uid is null
+     or coalesce(current_setting('role', true), 'none') not in ('authenticated', 'anon') then
     return coalesce(new, old);
   end if;
   v_admin := public.current_app_role() = 'admin';
