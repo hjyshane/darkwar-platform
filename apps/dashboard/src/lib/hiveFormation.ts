@@ -574,6 +574,27 @@ export function sortMembers(
   });
 }
 
+/** Folded for matching: lower case, accents off. "Thắng" is typed "thang"
+ * on the keyboards this alliance uses, and a search that needs the accent
+ * finds nobody. Hangul has no combining marks to lose and passes through. */
+function folded(text: string): string {
+  return text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+}
+
+/** The members whose name contains `query`, in the order given. A blank
+ * query is no filter. A member with no name never matches: "unnamed" is the
+ * palette's caption for them, not something they are called. */
+export function searchMembers(
+  members: readonly AssignableMember[],
+  query: string,
+): AssignableMember[] {
+  const needle = folded(query.trim());
+  if (needle === '') {
+    return [...members];
+  }
+  return members.filter((member) => member.name !== null && folded(member.name).includes(needle));
+}
+
 /** Slots in the order they get filled: the planner's numbering, then ring
  * order for everything they left at zero — innermost first. */
 export function sortSlots<T extends AssignableSlot>(

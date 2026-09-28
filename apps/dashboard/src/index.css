@@ -4287,9 +4287,26 @@ button.tile-grid:hover:not(:disabled) {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-1);
-  max-height: 7.5rem;
+  /* About eight rows of chips: most of an eighty-member roster at once on a
+   * desktop. Was 7.5rem, three rows, which made the list a thing you
+   * scrolled inside; the search above it covers the rest. */
+  max-height: 16rem;
   overflow-y: auto;
   margin-bottom: var(--space-2);
+  align-content: flex-start;
+}
+
+.hive-palette-search {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.hive-palette-search input {
+  flex: 1 1 12rem;
+  max-width: 20rem;
 }
 
 .hive-palette__member {
