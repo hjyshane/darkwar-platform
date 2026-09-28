@@ -3149,6 +3149,7 @@ export type Database = {
       }
       member_roster_current: {
         Row: {
+          alliance_id: string | null
           below_minimum: boolean
           computed_rank: string | null
           growth_1d: number | null
@@ -3161,6 +3162,7 @@ export type Database = {
           refreshed_at: string
         }
         Insert: {
+          alliance_id?: string | null
           below_minimum?: boolean
           computed_rank?: string | null
           growth_1d?: number | null
@@ -3173,6 +3175,7 @@ export type Database = {
           refreshed_at?: string
         }
         Update: {
+          alliance_id?: string | null
           below_minimum?: boolean
           computed_rank?: string | null
           growth_1d?: number | null
@@ -3185,6 +3188,27 @@ export type Database = {
           refreshed_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "member_roster_current_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "member_roster_current_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "member_roster_current_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
           {
             foreignKeyName: "member_roster_current_player_id_fkey"
             columns: ["player_id"]
@@ -3843,24 +3867,48 @@ export type Database = {
       }
       player_ranks: {
         Row: {
+          alliance_id: string | null
           assigned_rank: string
           player_id: string
           set_by: string | null
           updated_at: string
         }
         Insert: {
+          alliance_id?: string | null
           assigned_rank: string
           player_id: string
           set_by?: string | null
           updated_at?: string
         }
         Update: {
+          alliance_id?: string | null
           assigned_rank?: string
           player_id?: string
           set_by?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "player_ranks_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "player_ranks_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "player_ranks_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
           {
             foreignKeyName: "player_ranks_player_id_fkey"
             columns: ["player_id"]
@@ -4446,6 +4494,7 @@ export type Database = {
       rank_period_snapshots: {
         Row: {
           activity_score: number | null
+          alliance_id: string | null
           below_minimum: boolean
           computed_at: string
           donation_pct: number | null
@@ -4481,6 +4530,7 @@ export type Database = {
         }
         Insert: {
           activity_score?: number | null
+          alliance_id?: string | null
           below_minimum?: boolean
           computed_at?: string
           donation_pct?: number | null
@@ -4516,6 +4566,7 @@ export type Database = {
         }
         Update: {
           activity_score?: number | null
+          alliance_id?: string | null
           below_minimum?: boolean
           computed_at?: string
           donation_pct?: number | null
@@ -4550,6 +4601,27 @@ export type Database = {
           tier_reason?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "rank_period_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "rank_period_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "rank_period_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
           {
             foreignKeyName: "rank_period_snapshots_player_id_fkey"
             columns: ["player_id"]
