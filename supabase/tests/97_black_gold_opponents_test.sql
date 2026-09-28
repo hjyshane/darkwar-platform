@@ -5,6 +5,13 @@ create extension if not exists pgtap with schema extensions;
 
 select plan(6);
 
+-- The other side is on 588, outside the tracked group. Production registers
+-- it the way sync's ensure_servers() does before the rows arrive; the
+-- migrations seed only 577-584.
+insert into public.servers (server_id, server_group, is_tracked)
+values (588, 'unknown', false)
+on conflict (server_id) do nothing;
+
 insert into public.black_money_battle_snapshots
   (observation_id, source_command, parser_version, idempotency_key, captured_at,
    collector_id, collected_from_server_id, server_id, alliance_external_id,
