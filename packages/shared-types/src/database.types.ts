@@ -596,6 +596,80 @@ export type Database = {
           },
         ]
       }
+      alliance_memberships: {
+        Row: {
+          alliance_id: string
+          created_at: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          alliance_id: string
+          created_at?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          alliance_id?: string
+          created_at?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alliance_memberships_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "alliance_memberships_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "alliance_memberships_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "alliance_memberships_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "activity_members"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "alliance_memberships_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "app_user_directory"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "alliance_memberships_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "alliance_memberships_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "post_authors"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       alliance_names: {
         Row: {
           alliance_id: string
@@ -972,6 +1046,7 @@ export type Database = {
       }
       announcements: {
         Row: {
+          alliance_id: string | null
           announcement_id: string
           body: string
           channels: string[] | null
@@ -986,6 +1061,7 @@ export type Database = {
           visibility: string
         }
         Insert: {
+          alliance_id?: string | null
           announcement_id?: string
           body?: string
           channels?: string[] | null
@@ -1000,6 +1076,7 @@ export type Database = {
           visibility?: string
         }
         Update: {
+          alliance_id?: string | null
           announcement_id?: string
           body?: string
           channels?: string[] | null
@@ -1014,6 +1091,27 @@ export type Database = {
           visibility?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "announcements_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "announcements_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "announcements_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
           {
             foreignKeyName: "announcements_created_by_fkey"
             columns: ["created_by"]
@@ -2449,6 +2547,7 @@ export type Database = {
       }
       guides: {
         Row: {
+          alliance_id: string | null
           body: string
           category: string
           channels: string[] | null
@@ -2461,6 +2560,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          alliance_id?: string | null
           body?: string
           category?: string
           channels?: string[] | null
@@ -2473,6 +2573,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          alliance_id?: string | null
           body?: string
           category?: string
           channels?: string[] | null
@@ -2485,6 +2586,27 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "guides_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "guides_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "guides_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
           {
             foreignKeyName: "guides_created_by_fkey"
             columns: ["created_by"]
@@ -2659,6 +2781,7 @@ export type Database = {
       }
       hive_formation_templates: {
         Row: {
+          alliance_id: string | null
           created_at: string
           created_by: string | null
           name: string
@@ -2667,6 +2790,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          alliance_id?: string | null
           created_at?: string
           created_by?: string | null
           name: string
@@ -2675,6 +2799,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          alliance_id?: string | null
           created_at?: string
           created_by?: string | null
           name?: string
@@ -2683,6 +2808,27 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "hive_formation_templates_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "hive_formation_templates_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "hive_formation_templates_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
           {
             foreignKeyName: "hive_formation_templates_created_by_fkey"
             columns: ["created_by"]
@@ -2694,6 +2840,7 @@ export type Database = {
       }
       hive_formations: {
         Row: {
+          alliance_id: string | null
           anchor_x: number
           anchor_y: number
           created_at: string
@@ -2706,6 +2853,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          alliance_id?: string | null
           anchor_x: number
           anchor_y: number
           created_at?: string
@@ -2718,6 +2866,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          alliance_id?: string | null
           anchor_x?: number
           anchor_y?: number
           created_at?: string
@@ -2730,6 +2879,27 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "hive_formations_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "hive_formations_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "hive_formations_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
           {
             foreignKeyName: "hive_formations_created_by_fkey"
             columns: ["created_by"]
@@ -2834,6 +3004,7 @@ export type Database = {
       }
       join_codes: {
         Row: {
+          alliance_id: string | null
           code: string
           code_id: string
           created_at: string
@@ -2846,6 +3017,7 @@ export type Database = {
           used_count: number
         }
         Insert: {
+          alliance_id?: string | null
           code: string
           code_id?: string
           created_at?: string
@@ -2858,6 +3030,7 @@ export type Database = {
           used_count?: number
         }
         Update: {
+          alliance_id?: string | null
           code?: string
           code_id?: string
           created_at?: string
@@ -2870,6 +3043,27 @@ export type Database = {
           used_count?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "join_codes_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "join_codes_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "join_codes_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
           {
             foreignKeyName: "join_codes_created_by_fkey"
             columns: ["created_by"]
@@ -3137,6 +3331,7 @@ export type Database = {
       }
       player_claims: {
         Row: {
+          alliance_id: string | null
           created_at: string
           decided_at: string | null
           decided_by: string | null
@@ -3147,6 +3342,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          alliance_id?: string | null
           created_at?: string
           decided_at?: string | null
           decided_by?: string | null
@@ -3157,6 +3353,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          alliance_id?: string | null
           created_at?: string
           decided_at?: string | null
           decided_by?: string | null
@@ -3167,6 +3364,27 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "player_claims_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "player_claims_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "player_claims_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
           {
             foreignKeyName: "player_claims_decided_by_fkey"
             columns: ["decided_by"]
@@ -4409,6 +4627,7 @@ export type Database = {
       }
       schedule_categories: {
         Row: {
+          alliance_id: string | null
           category: string
           channel: string | null
           colour: string | null
@@ -4418,6 +4637,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          alliance_id?: string | null
           category: string
           channel?: string | null
           colour?: string | null
@@ -4427,6 +4647,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          alliance_id?: string | null
           category?: string
           channel?: string | null
           colour?: string | null
@@ -4436,6 +4657,27 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "schedule_categories_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "schedule_categories_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "schedule_categories_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
           {
             foreignKeyName: "schedule_categories_channel_fkey"
             columns: ["channel"]
@@ -4454,6 +4696,7 @@ export type Database = {
       }
       schedule_events: {
         Row: {
+          alliance_id: string | null
           body: string | null
           category: string | null
           created_at: string
@@ -4467,6 +4710,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          alliance_id?: string | null
           body?: string | null
           category?: string | null
           created_at?: string
@@ -4480,6 +4724,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          alliance_id?: string | null
           body?: string | null
           category?: string | null
           created_at?: string
@@ -4493,6 +4738,27 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "schedule_events_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "schedule_events_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "schedule_events_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
           {
             foreignKeyName: "schedule_events_category_fkey"
             columns: ["category"]
@@ -6371,6 +6637,7 @@ export type Database = {
           status: string
         }[]
       }
+      primary_own_alliance: { Args: never; Returns: string }
       prune_collector_heartbeats: {
         Args: { p_confirm?: boolean; p_keep?: string }
         Returns: {
