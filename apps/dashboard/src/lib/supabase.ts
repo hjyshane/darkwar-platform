@@ -1,5 +1,6 @@
 import type { Database } from '@dw/shared-types';
 import { createClient } from '@supabase/supabase-js';
+import { fetchWithAlliance } from './activeAlliance';
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from './env';
 
 /**
@@ -52,4 +53,6 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     autoRefreshToken: true,
     detectSessionInUrl: true,
   },
+  // Every request says which of our alliances it is about; see activeAlliance.ts.
+  global: { fetch: fetchWithAlliance },
 });

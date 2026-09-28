@@ -5,6 +5,8 @@ import { beforeEach, expect, test, vi } from 'vitest';
 
 const auth = vi.hoisted(() => ({
   getSession: vi.fn(),
+  // The alliance picker reads the request already on the account.
+  getUser: vi.fn(async () => ({ data: { user: null } })),
   signInWithPassword: vi.fn(),
   signOut: vi.fn(),
 }));
@@ -13,7 +15,15 @@ const auth = vi.hoisted(() => ({
 // database has them at.
 const from = vi.hoisted(() => vi.fn());
 
-vi.mock('../src/lib/supabase', () => ({ supabase: { auth, from } }));
+// The role comes from current_app_role() since 0193; the alliance picker asks
+// joinable_alliances(), and one alliance (or none) means it shows nothing.
+const rpc = vi.hoisted(() =>
+  vi.fn(async (fn: string) =>
+    fn === 'current_app_role' ? { data: 'viewer', error: null } : { data: [], error: null },
+  ),
+);
+
+vi.mock('../src/lib/supabase', () => ({ supabase: { auth, from, rpc } }));
 
 import { LoginPage } from '../src/features/auth/LoginPage';
 import { routeFromHash } from '../src/lib/route';
