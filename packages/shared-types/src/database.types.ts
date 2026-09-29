@@ -6758,6 +6758,10 @@ export type Database = {
         Args: { p_players?: string[] }
         Returns: undefined
       }
+      refuse_other_alliance: {
+        Args: { p_alliance: string }
+        Returns: undefined
+      }
       reject_player_claim: {
         Args: { p_user: string }
         Returns: {
