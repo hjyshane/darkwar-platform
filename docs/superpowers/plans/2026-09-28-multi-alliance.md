@@ -176,9 +176,11 @@ alliance on screen, and the page says which one.
   `(role, capability, alliance_id)`.
 - `app_settings` is written directly only by an admin or while viewing the
   primary; any other alliance writes through `save_alliance_setting`.
-- Not split: "Activity this week" counts (`activity_events` has no alliance)
-  — the people listed are the alliance's, the counts are what they did
-  anywhere on the dashboard.
+- Members and activity (0201): the Members list follows the viewed alliance
+  for admins too (admin accounts are listed everywhere). Activity is recorded
+  in the alliance on screen (`activity_events.alliance_id`), a comment counts
+  in its post's alliance, and the activity list names the alliance's members
+  by their role there. Everything before 0201 is CBFW's.
 
 Each phase: pgTAP (RLS negative test per scoped table, §20.2), local gate,
 `scripts/pgtap/run.sh`, then read the CI `db` job before merging.

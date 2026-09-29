@@ -76,9 +76,11 @@ select pg_temp.as_user('00000000-0000-4000-8000-0000000e2002', null);
 select is(pg_temp.fixture_names(), array['ms admin', 'ms both', 'ms member a', 'ms off a'],
   'an officer of Alpha lists Alpha''s');
 select pg_temp.as_user('00000000-0000-4000-8000-0000000e2001', '00000000-0000-4000-8000-0000000e1002');
+-- 0201: an admin viewing Bravo lists Bravo's accounts (and admins, who are
+-- global) — not the whole install.
 select is(pg_temp.fixture_names(),
-  array['ms admin', 'ms both', 'ms member a', 'ms off a', 'ms off b'],
-  'an admin lists every account');
+  array['ms admin', 'ms both', 'ms off b'],
+  'an admin lists the accounts of the alliance on screen');
 
 -- 4. And says what each is in the alliance on screen.
 select is(
