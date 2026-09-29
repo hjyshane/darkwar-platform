@@ -102,14 +102,11 @@ as $$
     false)
 $$;
 
--- Reading: the alliance on screen's grid and the defaults. anon has no
--- alliance to be on, so the defaults only.
+-- Reading: the alliance on screen's grid and the defaults. (anon reads
+-- nothing here: 0168 took its grant.)
 create policy alliance_scope_read on public.role_permissions as restrictive
   for select to authenticated
   using (alliance_id is null or alliance_id = (select public.active_alliance()));
-create policy defaults_only on public.role_permissions as restrictive
-  for select to anon
-  using (alliance_id is null);
 
 -- Writing: the alliance on screen's rows only. The defaults are written by
 -- migrations, not from a browser.

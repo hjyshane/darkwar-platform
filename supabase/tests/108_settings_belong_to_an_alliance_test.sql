@@ -177,12 +177,9 @@ select is(
     where key = 'own_alliance'),
   2, 'an officer of the primary cannot rewrite the pin list');
 
--- 17. anon reads the defaults only.
-set local role anon;
-select is(
-  (select count(*)::int from public.role_permissions where alliance_id is not null),
-  0, 'anon sees no alliance''s grid');
-reset role;
+-- 17. anon reads no grid at all (0168), per-alliance or default.
+select ok(not has_table_privilege('anon', 'public.role_permissions', 'select'),
+  'anon holds no read on the permission grid');
 
 select * from finish();
 rollback;
