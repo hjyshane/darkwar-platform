@@ -37,23 +37,47 @@ export type Database = {
       activity_events: {
         Row: {
           activity_day: string
+          alliance_id: string | null
           kind: string
           occurred_at: string
           user_id: string
         }
         Insert: {
           activity_day?: string
+          alliance_id?: string | null
           kind: string
           occurred_at?: string
           user_id: string
         }
         Update: {
           activity_day?: string
+          alliance_id?: string | null
           kind?: string
           occurred_at?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "activity_events_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "activity_events_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "activity_events_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
           {
             foreignKeyName: "activity_events_user_id_fkey"
             columns: ["user_id"]
@@ -6725,6 +6749,10 @@ export type Database = {
           p_server: number
         }
         Returns: number
+      }
+      alliance_role_of: {
+        Args: { p_user: string }
+        Returns: Database["public"]["Enums"]["app_role"]
       }
       alliance_setting: {
         Args: { p_alliance?: string; p_key: string }
