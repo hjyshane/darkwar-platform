@@ -31,10 +31,10 @@
 # task: pass the BlueStacks instance that account runs in and its window title.
 #
 #   .\scripts\windows\register-cold-start.ps1 -Routine 'C:\DW_data\routines\cold-start-ace.json' `
-#       -Instance 'Pie64_5' -Window lostideas
+#       -Instance 'Pie64_5' -Window lostidas
 #
-# That registers DarkWar-ColdStart-lostideas beside DarkWar-ColdStart, with its
-# own log and launcher, and runs the routine with --instance lostideas. The
+# That registers DarkWar-ColdStart-lostidas beside DarkWar-ColdStart, with its
+# own log and launcher, and runs the routine with --instance lostidas. The
 # window must be in instances.COLLECTOR_WINDOWS or the worker refuses it.
 #
 # The routine is device data and is NOT in the repo; `services/collector/

@@ -126,19 +126,19 @@ one alliance is pinned. The switch is the pin, and it is an admin's click.
    officers a code. Or let them sign up, pick it, and **Let in** from Members.
 6. Its officers set its rank tiers and build a period while viewing it.
 
-### The second alliance's scanner (ACE → BlueStacks window `lostideas`)
+### The second alliance's scanner (ACE → BlueStacks window `lostidas`)
 
-Capture is machine-wide, so anything opened in the `lostideas` window is
+Capture is machine-wide, so anything opened in the `lostidas` window is
 recorded with no setup. Automation drives exactly one window per run, chosen
 by title from `instances.COLLECTOR_WINDOWS` (`collector` → CBFW,
-`lostideas` → ACE); every other window, the main account's included, is
+`lostidas` → ACE); every other window, the main account's included, is
 denied for that run, and a title off the list is refused outright.
 
-- By hand: `uv run dw-ui-worker --instance lostideas run --routine <ace.json>`
+- By hand: `uv run dw-ui-worker --instance lostidas run --routine <ace.json>`
   (also `probe`, `sweep`, `screenshot`, `devices`; or set `DW_UI_INSTANCE`).
-- Queued: a `run_routine` job with `payload.instance = "lostideas"`.
+- Queued: a `run_routine` job with `payload.instance = "lostidas"`.
 - At logon: `register-cold-start.ps1 -Routine <ace.json> -Instance <Pie64_N>
-  -Window lostideas` registers `DarkWar-ColdStart-lostideas` beside the
+  -Window lostidas` registers `DarkWar-ColdStart-lostidas` beside the
   existing task.
 - Not yet: `dw-console` still manages only the `collector` instance.
 

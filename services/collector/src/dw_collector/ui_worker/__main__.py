@@ -46,7 +46,7 @@ _ADB = typer.Option("--adb", envvar="DW_ADB_EXECUTABLE", help="path to adb execu
 #:
 #: None means "as before": run/screenshot/devices take the serial from the
 #: environment, and probe/sweep resolve the window titled "collector". Naming
-#: one (`--instance lostideas`, or DW_UI_INSTANCE) resolves THAT window by
+#: one (`--instance lostidas`, or DW_UI_INSTANCE) resolves THAT window by
 #: title for every command, and AdbPolicy.resolved refuses any title not in
 #: instances.COLLECTOR_WINDOWS — so this can never be pointed at the main
 #: account.
@@ -60,7 +60,7 @@ def _bootstrap(
         typer.Option(
             "--instance",
             envvar="DW_UI_INSTANCE",
-            help="scanning window to drive (collector, lostideas); default: as configured",
+            help="scanning window to drive (collector, lostidas); default: as configured",
         ),
     ] = None,
 ) -> None:

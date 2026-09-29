@@ -45,15 +45,15 @@ COLLECTOR_WINDOW = "collector"
 #: edit here, in review, never a flag somebody types.
 COLLECTOR_WINDOWS: dict[str, str] = {
     COLLECTOR_WINDOW: "CBFW",
-    "lostideas": "ACE",
+    "lostidas": "ACE",
 }
 
 
 def automatable(title: str) -> str:
     """The allowlisted window title for `title`, or ValueError.
 
-    Normalised the way `_is_collector` compares, so "LostIdeas " and
-    "lostideas" name the same window.
+    Normalised the way `_is_collector` compares, so "LostIdas " and
+    "lostidas" name the same window.
     """
     key = title.strip().lower()
     if key not in COLLECTOR_WINDOWS:
