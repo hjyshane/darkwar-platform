@@ -27,6 +27,16 @@
 #
 #   .\scripts\windows\register-cold-start.ps1 -Routine 'C:\DW_data\routines\cold-start.json'
 #
+# A SECOND SCANNING ACCOUNT (two own alliances, migration 0192) gets its own
+# task: pass the BlueStacks instance that account runs in and its window title.
+#
+#   .\scripts\windows\register-cold-start.ps1 -Routine 'C:\DW_data\routines\cold-start-ace.json' `
+#       -Instance 'Pie64_5' -Window lostideas
+#
+# That registers DarkWar-ColdStart-lostideas beside DarkWar-ColdStart, with its
+# own log and launcher, and runs the routine with --instance lostideas. The
+# window must be in instances.COLLECTOR_WINDOWS or the worker refuses it.
+#
 # The routine is device data and is NOT in the repo; `services/collector/
 # routines/example-cold-start.json` is the template to copy and fill in. This
 # script refuses to register a routine that still holds the template's
@@ -42,6 +52,9 @@ param(
     # 'Pie64' and 'Nougat64' are the usual names. Not guessed from the running
     # process, because guessing here starts the wrong emulator.
     [string]$Instance   = 'Pie64',
+    # The scanning window's title, for a second scanning account. Empty means
+    # the original task, driving the collector exactly as before.
+    [string]$Window     = '',
     [string]$LogDir     = 'C:\DW_data\logs',
     [string]$ScriptDir  = 'C:\DW_data',
     [string]$Collector  = 'C:\darkwar-platform\services\collector',
@@ -100,9 +113,17 @@ $uv = (Get-Command uv).Source
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 New-Item -ItemType Directory -Force -Path $ScriptDir | Out-Null
 
-$name   = 'DarkWar-ColdStart'
-$log    = Join-Path $LogDir 'cold-start.log'
-$script = Join-Path $ScriptDir 'run-ColdStart.cmd'
+# One task per scanning window, so registering the second never replaces the
+# first. Plain-title suffix: it becomes a task name and a file name.
+if ($Window -and ($Window -notmatch '^[A-Za-z0-9_-]+$')) {
+    Write-Output ('FAIL: -Window must be a plain title, got ' + $Window)
+    exit 1
+}
+$suffix      = if ($Window) { '-' + $Window } else { '' }
+$name        = 'DarkWar-ColdStart' + $suffix
+$log         = Join-Path $LogDir ('cold-start' + $suffix + '.log')
+$script      = Join-Path $ScriptDir ('run-ColdStart' + $suffix + '.cmd')
+$instanceArg = if ($Window) { ' --instance ' + $Window } else { '' }
 
 # --no-sync for the reason register-tasks.ps1 documents at length: `uv run`
 # re-syncs the environment, syncing rewrites .venv\Scripts, and dw-sync is
@@ -120,7 +141,7 @@ $body = @(
     ('echo [%date% %time%] cold start >> "' + $log + '"')
     ('start "" "' + $BlueStacks + '" --instance ' + $Instance)
     ('cd /d "' + $Collector + '"')
-    ('"' + $uv + '" run --no-sync dw-ui-worker run --routine "' + $Routine +
+    ('"' + $uv + '" run --no-sync dw-ui-worker' + $instanceArg + ' run --routine "' + $Routine +
         '" --wait-for-device-seconds ' + $WaitSeconds + ' >> "' + $log + '" 2>&1')
 )
 [IO.File]::WriteAllLines($script, $body, [Text.UTF8Encoding]::new($false))
@@ -179,5 +200,5 @@ Write-Output ('     log     ' + $log)
 # to establish about a new routine is whether those coordinates are right.
 Write-Output ''
 Write-Output 'Not started. Check the routine first, without touching the emulator:'
-Write-Output ('  uv run dw-ui-worker run --routine "' + $Routine + '" --dry-run')
+Write-Output ('  uv run dw-ui-worker' + $instanceArg + ' run --routine "' + $Routine + '" --dry-run')
 Write-Output 'Then let it run for real by logging off and on, and read the log above.'

@@ -16,6 +16,7 @@ A job cannot reach a screen by a route a human operator could not.
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from pathlib import Path
 
 from dw_collector.jobs.worker import Job, JobOutcome
@@ -44,12 +45,34 @@ class RoutineExecutor:
         policy: AdbPolicy,
         idle: IdlePolicy | None = None,
         adb: str = "adb",
+        resolve_policy: Callable[[str, str], AdbPolicy] | None = None,
     ) -> None:
         self.routines_dir = routines_dir
         self.journal = journal
         self.policy = policy
         self.idle = idle
         self.adb = adb
+        # (adb, window title) -> policy for that scanning window. Injected in
+        # tests; the real one reads the machine.
+        self.resolve_policy = resolve_policy or (
+            lambda adb, title: AdbPolicy.resolved(adb, collector_title=title)
+        )
+
+    def policy_for(self, instance: object) -> AdbPolicy:
+        """The policy a job runs under.
+
+        No `payload.instance`: the collector as configured, exactly as before.
+        One named: that scanning window, resolved by title — two own alliances
+        mean two scanning accounts (0192). AdbPolicy.resolved refuses any title
+        not in instances.COLLECTOR_WINDOWS, so a row cannot aim a routine at
+        the main account by naming its window.
+        """
+        if instance is None:
+            return self.policy
+        if not isinstance(instance, str) or not instance.strip():
+            msg = f"payload.instance is not a window title: {instance!r}"
+            raise AdbGuardError(msg)
+        return self.resolve_policy(self.adb, instance)
 
     def resolve_routine(self, name: object) -> Path:
         """Name → path inside `routines_dir`, or ValueError."""
@@ -93,10 +116,11 @@ class RoutineExecutor:
             return JobOutcome(ok=False, error=str(exc), permanent=True)
 
         try:
+            policy = self.policy_for(job.payload.get("instance"))
             # check_target, not collector_serial directly: it is the call that
             # rejects an unset serial, an empty denylist, and the kill switch.
-            target = self.policy.check_target(self.policy.collector_serial)
-            client = AdbClient(policy=self.policy, serial=target, executable=self.adb)
+            target = policy.check_target(policy.collector_serial)
+            client = AdbClient(policy=policy, serial=target, executable=self.adb)
             report = RoutineRunner(client, self.journal, idle=self.idle).run(plan)
         except AdbGuardError as exc:
             # Misconfiguration, not a flaky device: retrying every 30s until

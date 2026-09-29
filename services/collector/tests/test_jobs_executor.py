@@ -165,3 +165,55 @@ def test_a_valid_name_resolves_inside_the_directory(
 ) -> None:
     path = _executor(routines, journal, policy).resolve_routine("alliance-daily")
     assert path == (routines / "alliance-daily.json").resolve()
+
+
+# --- payload.instance: a second scanning account ------------------------------
+
+
+def test_a_job_can_name_a_scanning_window(
+    routines: Path, journal: Journal, policy: AdbPolicy
+) -> None:
+    """Two own alliances, two scanning accounts. A job naming `lostideas` is
+    resolved for that window, not run on the configured collector."""
+    asked: list[tuple[str, str]] = []
+
+    def resolver(adb: str, title: str) -> AdbPolicy:
+        asked.append((adb, title))
+        # Unresolvable on purpose: the test is about WHICH window was asked
+        # for, and a refusal keeps it from reaching adb.
+        return AdbPolicy(collector_serial=None, denylist=frozenset(), enumerated=True)
+
+    executor = RoutineExecutor(
+        routines_dir=routines, journal=journal, policy=policy, resolve_policy=resolver
+    )
+    outcome = executor(_job(routine="alliance-daily", instance="lostideas"))
+
+    assert asked == [("adb", "lostideas")]
+    assert outcome.permanent
+    assert "guard refused" in str(outcome.error)
+
+
+def test_a_job_without_an_instance_keeps_the_configured_collector(
+    routines: Path, journal: Journal, policy: AdbPolicy
+) -> None:
+    def resolver(adb: str, title: str) -> AdbPolicy:
+        raise AssertionError("a job with no instance must not resolve a window")
+
+    executor = RoutineExecutor(
+        routines_dir=routines, journal=journal, policy=policy, resolve_policy=resolver
+    )
+    assert executor.policy_for(None) is policy
+
+
+def test_a_job_cannot_name_the_main_account(
+    routines: Path, journal: Journal, policy: AdbPolicy
+) -> None:
+    """The real resolver: the allowlist refuses before the machine is read, and
+    a refusal is permanent — retrying will not make that window a scanner."""
+    outcome = _executor(routines, journal, policy)(
+        _job(routine="alliance-daily", instance="wonderedoffduck")
+    )
+
+    assert not outcome.ok
+    assert outcome.permanent
+    assert "not a scanning instance" in str(outcome.error)

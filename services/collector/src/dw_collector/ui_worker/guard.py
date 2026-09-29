@@ -90,8 +90,19 @@ class AdbPolicy:
 
         NOTHING IS RELAXED. An ambiguous or failed resolution yields None and
         an empty denylist, and `check_target` refuses on both.
+
+        WHICH WINDOW is an argument (two scanning accounts, one per own
+        alliance), so it is checked against `instances.COLLECTOR_WINDOWS`
+        first. A title off that list — the main account's, a typo — raises
+        here, before the machine is even examined. Every OTHER instance,
+        the other scanner included, is still on the denylist for this run.
         """
         from dw_collector.ui_worker import instances
+
+        try:
+            collector_title = instances.automatable(collector_title)
+        except ValueError as exc:
+            raise AdbGuardError(str(exc)) from exc
 
         found = instances.resolve(adb, collector_title=collector_title)
         serial, denied = instances.collector_and_others(found, collector_title=collector_title)

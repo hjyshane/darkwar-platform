@@ -118,3 +118,37 @@ def test_the_old_configuration_notation_is_recognisable() -> None:
     # other. The denylist simply never matched.
     assert instances.looks_like_a_port("127.0.0.1:5585")
     assert not instances.looks_like_a_port("emulator-5584")
+
+
+# --- a second scanning account -------------------------------------------------
+
+LOSTIDEAS = instances.Instance(title="lostideas", pid=4, endpoint="127.0.0.1:5595")
+
+
+def test_only_listed_windows_are_automatable() -> None:
+    """A window title reaches the guard as an argument now, and an argument can
+    name the main account. The list is what stops that."""
+    assert instances.automatable("collector") == "collector"
+    assert instances.automatable(" LostIdeas ") == "lostideas"
+    with pytest.raises(ValueError, match="not a scanning instance"):
+        instances.automatable("wonderedoffduck")
+
+
+def test_driving_lostideas_denies_the_collector_and_the_main_account() -> None:
+    serial, denied = instances.collector_and_others(
+        [COLLECTOR, MAIN, LOSTIDEAS], collector_title="lostideas"
+    )
+
+    assert serial == LOSTIDEAS.endpoint
+    assert denied == frozenset({COLLECTOR.endpoint, MAIN.endpoint})
+
+
+def test_a_title_off_the_list_is_refused_before_the_machine_is_read(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def must_not_run(*_args: object, **_kwargs: object) -> list[instances.Instance]:
+        raise AssertionError("resolved the machine for a window that is not allowed")
+
+    monkeypatch.setattr(instances, "resolve", must_not_run)
+    with pytest.raises(AdbGuardError, match="not a scanning instance"):
+        AdbPolicy.resolved("adb", collector_title="wonderedoffduck")

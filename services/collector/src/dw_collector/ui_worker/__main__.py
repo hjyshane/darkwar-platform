@@ -42,9 +42,42 @@ _SERIAL = typer.Option("--serial", help="target serial; must equal DW_ADB_COLLEC
 _ADB = typer.Option("--adb", envvar="DW_ADB_EXECUTABLE", help="path to adb executable")
 
 
+#: Which scanning window this invocation drives, when one was named.
+#:
+#: None means "as before": run/screenshot/devices take the serial from the
+#: environment, and probe/sweep resolve the window titled "collector". Naming
+#: one (`--instance lostideas`, or DW_UI_INSTANCE) resolves THAT window by
+#: title for every command, and AdbPolicy.resolved refuses any title not in
+#: instances.COLLECTOR_WINDOWS — so this can never be pointed at the main
+#: account.
+_instance: str | None = None
+
+
 @app.callback()
-def _bootstrap() -> None:
+def _bootstrap(
+    instance: Annotated[
+        str | None,
+        typer.Option(
+            "--instance",
+            envvar="DW_UI_INSTANCE",
+            help="scanning window to drive (collector, lostideas); default: as configured",
+        ),
+    ] = None,
+) -> None:
+    global _instance
     load_env_file()
+    _instance = instance.strip() if instance and instance.strip() else None
+
+
+def _policy_for_serial_commands(adb: str) -> AdbPolicy:
+    """run/screenshot/devices: the environment's serial, unless a window was named."""
+    if _instance is None:
+        return AdbPolicy.from_env()
+    try:
+        return AdbPolicy.resolved(adb, collector_title=_instance)
+    except AdbGuardError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=2) from exc
 
 
 @app.command()
@@ -55,7 +88,7 @@ def devices(adb: Annotated[str, _ADB] = "adb") -> None:
     finds the collector serial without guessing, and how a misconfigured
     denylist surfaces before a routine runs rather than during one.
     """
-    policy = AdbPolicy.from_env()
+    policy = _policy_for_serial_commands(adb)
     found = list_devices(adb)
     typer.echo(f"adb sees {len(found)} device(s):")
     for serial in found:
@@ -76,7 +109,7 @@ def screenshot(
     adb: Annotated[str, _ADB] = "adb",
 ) -> None:
     """Pull a screenshot so routine coordinates can be read off a real screen."""
-    policy = AdbPolicy.from_env()
+    policy = _policy_for_serial_commands(adb)
     try:
         target = policy.check_target(serial or policy.collector_serial)
     except AdbGuardError as exc:
@@ -99,12 +132,30 @@ def run(
     ] = 0.0,
 ) -> None:
     """Walk a routine, stopping at the first step that cannot be verified."""
-    policy = AdbPolicy.from_env()
-    try:
-        target = policy.check_target(serial or policy.collector_serial)
-    except AdbGuardError as exc:
-        typer.echo(str(exc), err=True)
-        raise typer.Exit(code=2) from exc
+    if _instance is not None and wait_for_device_seconds > 0 and not dry_run:
+        # A NAMED WINDOW IS FOUND BY LOOKING, so at a cold boot it is simply
+        # not there yet — resolving once would refuse seconds after logon. Look
+        # again until the wait runs out. Every attempt is the full guarded
+        # resolution; nothing is cached across attempts or relaxed by waiting.
+        typer.echo(f"waiting up to {wait_for_device_seconds:.0f}s for window {_instance!r}")
+        deadline = time.monotonic() + wait_for_device_seconds
+        while True:
+            policy = _policy_for_serial_commands(adb)
+            try:
+                target = policy.check_target(serial or policy.collector_serial)
+                break
+            except AdbGuardError as exc:
+                if time.monotonic() >= deadline:
+                    typer.echo(f"window {_instance!r} never became reachable: {exc}", err=True)
+                    raise typer.Exit(code=2) from exc
+                time.sleep(10)
+    else:
+        policy = _policy_for_serial_commands(adb)
+        try:
+            target = policy.check_target(serial or policy.collector_serial)
+        except AdbGuardError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=2) from exc
 
     # Zero by default: a routine run by hand should fail immediately when the
     # emulator is not there, rather than appearing to hang. The cold start is
@@ -140,8 +191,8 @@ def run(
 
 
 def _resolve(adb: str) -> tuple[AdbPolicy, str]:
-    policy = AdbPolicy.resolved(adb)
     try:
+        policy = AdbPolicy.resolved(adb, collector_title=_instance or "collector")
         target = policy.check_target(policy.collector_serial)
     except AdbGuardError as exc:
         typer.echo(str(exc), err=True)

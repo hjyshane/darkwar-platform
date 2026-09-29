@@ -35,6 +35,34 @@ from dataclasses import dataclass
 #: port, this is chosen by the operator and does not move.
 COLLECTOR_WINDOW = "collector"
 
+#: EVERY window automation may drive, and the alliance it scans for.
+#:
+#: Two own alliances (the multi-alliance plan, 0192) means two scanning
+#: accounts, each logged in on its own BlueStacks instance. A title reaches
+#: the guard as an argument now, and an argument can be anything — including
+#: the main account's window. This list is what stops that: a title not on it
+#: is refused before any instance is even looked up. Adding a scanner is an
+#: edit here, in review, never a flag somebody types.
+COLLECTOR_WINDOWS: dict[str, str] = {
+    COLLECTOR_WINDOW: "CBFW",
+    "lostideas": "ACE",
+}
+
+
+def automatable(title: str) -> str:
+    """The allowlisted window title for `title`, or ValueError.
+
+    Normalised the way `_is_collector` compares, so "LostIdeas " and
+    "lostideas" name the same window.
+    """
+    key = title.strip().lower()
+    if key not in COLLECTOR_WINDOWS:
+        allowed = ", ".join(sorted(COLLECTOR_WINDOWS))
+        msg = f"window {title!r} is not a scanning instance (allowed: {allowed})"
+        raise ValueError(msg)
+    return key
+
+
 #: Ports an emulator's adb may live on. Wide, because the point is not to
 #: guess which one — it is to ask each candidate and believe the answer.
 ADB_PORTS = range(5555, 5700)
