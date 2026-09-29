@@ -106,9 +106,11 @@ select
 from public.app_users u
 join auth.users a on a.id = u.user_id
 where public.has_permission('members.manage')
-  -- Admin accounts are listed in every alliance: the role is global. Every
-  -- other account only where it belongs — for an admin viewing it as well.
-  and (u.role = 'admin' or public.account_in_view(u.user_id));
+  -- Every account only where it belongs — for an admin viewing it as well.
+  -- Admin accounts are listed in every alliance TO AN ADMIN (the role is
+  -- global); an officer sees them only where they belong, as before (0195).
+  and ((u.role = 'admin' and public.current_app_role() = 'admin')
+       or public.account_in_view(u.user_id));
 
 create or replace view public.activity_daily with (security_invoker = true) as
 with sources as (
@@ -171,8 +173,8 @@ left join public.players p on p.player_id = u.player_id
 -- A viewer can do none of the four things, so a row of zeroes against their
 -- name is noise (0114 drew the same line).
 -- The alliance on screen's members, by their role THERE: somebody who is an
--- officer of ACE and nothing in CBFW has app_users.role 'viewer'. Admins are
--- global, so listed everywhere.
-where u.role = 'admin'
+-- officer of ACE and nothing in CBFW has app_users.role 'viewer'. Admin
+-- accounts are listed everywhere to an admin, as in the directory.
+where (u.role = 'admin' and public.current_app_role() = 'admin')
    or (public.account_in_view(u.user_id)
        and public.alliance_role_of(u.user_id) in ('member', 'officer'));
