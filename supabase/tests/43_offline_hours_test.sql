@@ -27,7 +27,13 @@ create function pg_temp.act_as(who uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', who)::text, true);
 $$;
 
-update public.alliances set is_own = false where is_own;
+-- The evidence too, not just the flag (0196). The first roster below re-runs
+-- resolve_own_alliance, which on an unpinned database re-marks every alliance
+-- whose roster was ever seen unredacted, the seed's included — so "the only
+-- one marked ours" was not true, and the old `is_own limit 1` landed on this
+-- file's alliance by row order alone. Now the build takes one alliance by rule.
+update public.alliances set is_own = false, roster_unredacted_seen = false
+where is_own or roster_unredacted_seen;
 insert into public.alliances (alliance_id, server_id, external_id, current_name, is_own)
 values ('00000000-0000-4000-8000-0000000ab075', 580, 'ext-offline', 'OfflineTest', true);
 

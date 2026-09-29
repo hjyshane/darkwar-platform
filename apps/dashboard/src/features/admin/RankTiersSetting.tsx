@@ -132,15 +132,13 @@ const FALLBACK: Tiers = {
 };
 
 async function fetchTiers(): Promise<Tiers> {
-  const { data, error } = await supabase
-    .from('app_settings')
-    .select('value')
-    .eq('key', 'rank_tiers')
-    .maybeSingle();
+  // Per alliance since 0195: the alliance being viewed, falling back to
+  // app_settings (which is also the primary alliance's own value).
+  const { data, error } = await supabase.rpc('alliance_setting', { p_key: 'rank_tiers' });
   if (error) {
     throw new Error(`tier settings query failed: ${error.message}`);
   }
-  const stored = (data?.value as Partial<Tiers> | null) ?? {};
+  const stored = (data as Partial<Tiers> | null) ?? {};
   // The nested objects are merged by hand: a spread replaces `minimums`
   // wholesale, so a setting saved before 0155 would arrive with the key
   // missing and every field undefined rather than falling back.
@@ -168,9 +166,10 @@ export function RankTiersSetting() {
 
   const save = useMutation({
     mutationFn: async (next: Tiers) => {
-      const { error: writeError } = await supabase
-        .from('app_settings')
-        .upsert({ key: 'rank_tiers', value: next as unknown as never });
+      const { error: writeError } = await supabase.rpc('save_alliance_setting', {
+        p_key: 'rank_tiers',
+        p_value: next as unknown as never,
+      });
       if (writeError) {
         throw new Error(writeError.message);
       }

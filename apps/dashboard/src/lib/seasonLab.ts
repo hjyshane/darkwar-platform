@@ -107,18 +107,15 @@ export function labAdjustment(level: number | null, config: SeasonLab): number {
 }
 
 export async function fetchSeasonLab(): Promise<SeasonLab> {
-  const { data, error } = await supabase
-    .from('app_settings')
-    .select('value')
-    .eq('key', TIERS_SETTING_KEY)
-    .maybeSingle();
+  // The alliance being viewed (0195), falling back to app_settings.
+  const { data, error } = await supabase.rpc('alliance_setting', { p_key: TIERS_SETTING_KEY });
   if (error) {
     if (error.code === '42501') {
       return NO_SEASON_LAB;
     }
     throw new Error(`season building setting query failed: ${error.message}`);
   }
-  return parseSeasonLab(data?.value);
+  return parseSeasonLab(data);
 }
 
 export function useSeasonLab() {

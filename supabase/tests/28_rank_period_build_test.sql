@@ -19,7 +19,13 @@ select plan(11);
 -- seed marks one too — leaving it in put 114 members in the period and made
 -- "this member gave nearly everything" read 0.09%. Rolled back with the
 -- rest of the transaction.
-update public.alliances set is_own = false where is_own;
+-- The evidence too, not just the flag (0196). The first roster below re-runs
+-- resolve_own_alliance, which on an unpinned database re-marks every alliance
+-- whose roster was ever seen unredacted, the seed's included — so "the only
+-- one marked ours" was not true, and the old `is_own limit 1` landed on this
+-- file's alliance by row order alone. Now the build takes one alliance by rule.
+update public.alliances set is_own = false, roster_unredacted_seen = false
+where is_own or roster_unredacted_seen;
 
 -- A member of our own alliance, with contributions in each of the period's
 -- two weeks so the windows can be told apart.

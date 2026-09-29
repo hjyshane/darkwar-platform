@@ -27,7 +27,7 @@ export function LeaveAllianceForm() {
 
   const leave = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.rpc('leave_alliance');
+      const { error } = await supabase.rpc('leave_active_alliance');
       if (error) {
         throw new Error(error.message);
       }
@@ -35,7 +35,7 @@ export function LeaveAllianceForm() {
     onSuccess: () => {
       setFailed(false);
       setConfirming(false);
-      setMessage('Done. You are signed in as a viewer now.');
+      setMessage('Done. You have left this alliance; any other alliance you are in is unchanged.');
       // Everything cached was computed under the old role, and most of it is
       // about to come back empty — the same reason redeeming a code
       // invalidates the lot.
