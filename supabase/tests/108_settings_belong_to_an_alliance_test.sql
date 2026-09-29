@@ -3,7 +3,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(17);
+select plan(18);
 
 insert into public.alliances (alliance_id, server_id, external_id, current_name, current_code)
 values
