@@ -15,14 +15,12 @@
 # exclusively inside plpgsql bodies that nothing in the suite executes, so the
 # two `create extension` lines are skipped and the rest is untouched.
 #
-# KNOWN DISAGREEMENTS WITH CI, as of 2026-09-08. These fail here and pass
-# there, and they are this harness's fault rather than the schema's:
-#
-#   02, 12, 15, 16, 35   auth.users lacks raw_app_meta_data
-#   49                   storage.objects grants differ
-#   30, 67-70            `authenticated` default privileges are approximated
-#
-# Anything else failing is worth believing.
+# KNOWN DISAGREEMENTS WITH CI: none as of 2026-09-29. The 2026-09-08 list
+# (auth.users columns, storage grants, `authenticated` default privileges,
+# service_role's BYPASSRLS) was closed in supabase-stub.sql, and run.py on
+# Windows agrees with CI on every file. The server must run in UTC: three
+# files (27, 42, 51) test the 02:00 UTC game day. Anything failing is worth
+# believing.
 set -euo pipefail
 
 repo=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
@@ -63,7 +61,9 @@ apply "$work/stage/seed.sql"
 echo "schema applied — $(ls "$work"/stage/2026*.sql | wc -l) migrations"
 
 failed=0
-for f in $(ls "$work"/stage/[0-9][0-9]_*.sql | sort); do
+# Every test file, the three-digit ones too: a two-digit glob here silently
+# skipped 100+ for as long as they existed.
+for f in $(ls "$work"/stage/[0-9]*_test.sql | sort -V); do
   out=$(as_pg "$psql_opts -d dw -q -f $f" 2>&1 | grep -E '^ *not ok|^psql.*ERROR|Looks like' || true)
   if [ -n "$out" ]; then
     failed=$((failed + 1)); printf '\n── %s\n%s\n' "$(basename "$f" .sql)" "$out"
