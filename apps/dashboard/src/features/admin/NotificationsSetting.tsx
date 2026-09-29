@@ -118,7 +118,9 @@ async function fetchAll() {
       .from('notification_channels')
       .select('channel, webhook_url, enabled, last_delivered_at, last_error')
       .order('channel'),
-    supabase.from('app_settings').select('value').eq('key', 'discord_notifications').maybeSingle(),
+    // The alliance being viewed (0199): its own routing, which for any alliance
+    // but the primary starts empty rather than inheriting the primary's rooms.
+    supabase.rpc('alliance_setting', { p_key: 'discord_notifications' }),
     supabase
       .from('notification_outbox')
       .select(
@@ -138,7 +140,7 @@ async function fetchAll() {
   }
   return {
     channels: (channels.data ?? []) as Channel[],
-    routing: ((settings.data?.value ?? {}) as Routing) ?? {},
+    routing: ((settings.data ?? {}) as Routing) ?? {},
     outbox: (outbox.data ?? []) as Outbox[],
   };
 }
@@ -216,9 +218,12 @@ export function NotificationsSetting() {
 
   const saveRouting = useMutation({
     mutationFn: async (next: Routing) => {
-      const { error: routingError } = await supabase
-        .from('app_settings')
-        .upsert({ key: 'discord_notifications', value: next });
+      // Per alliance since 0199: the primary's lands in app_settings, anybody
+      // else's in their own row — the database decides which.
+      const { error: routingError } = await supabase.rpc('save_alliance_setting', {
+        p_key: 'discord_notifications',
+        p_value: next as unknown as never,
+      });
       if (routingError) {
         throw new Error(routingError.message);
       }
@@ -269,6 +274,13 @@ export function NotificationsSetting() {
         The collector does the posting, not this page — nothing here sends anything on its own, and
         a queued message goes out within five minutes. The webhook URL is stored where only an admin
         can read it, which is why it is not with the other settings.
+      </p>
+      <p className="subtle">
+        <strong>Per alliance.</strong> The channels and routing below are the ones for the alliance
+        you are viewing — switch alliance at the top to set up the other one. Channel names are
+        unique across both, so name them apart (for example <code>ace-reports</code>). A newly added
+        alliance starts with everything off. Collector alerts (sync or data stalled) follow the
+        primary alliance's routing.
       </p>
 
       {message !== null && <p className={failed ? 'error' : 'empty'}>{message}</p>}

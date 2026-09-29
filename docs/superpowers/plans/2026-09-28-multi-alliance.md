@@ -142,8 +142,19 @@ denied for that run, and a title off the list is refused outright.
   existing task.
 - Not yet: `dw-console` still manages only the `collector` instance.
 
-Still per-install, not per-alliance: Discord routing and the rank-period
-announcement (primary only), the overview formulas and the permission grid.
+### Discord per alliance (0199)
+
+Each alliance has its own webhooks (`notification_channels.alliance_id`) and
+its own routing: the primary's in `app_settings`, anybody else's in
+`alliance_settings`, never inherited. Notices, guides, reminders, claims,
+sign-ups (by the alliance asked for), departures and the rank-period
+announcement go by their alliance's routing. Collector alerts (sync/data
+stalled) stay on the primary's. Channel names are unique across the install.
+Set up ACE's under Settings → Notifications while viewing ACE.
+
+Still per-install, not per-alliance: the overview formulas and the permission
+grid. Known limit: schedule board keys (`schedule_categories.category`) are
+install-wide, so two alliances cannot both have a board with the same key.
 
 Each phase: pgTAP (RLS negative test per scoped table, §20.2), local gate,
 `scripts/pgtap/run.sh`, then read the CI `db` job before merging.

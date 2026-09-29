@@ -3298,6 +3298,7 @@ export type Database = {
       }
       notification_channels: {
         Row: {
+          alliance_id: string | null
           channel: string
           created_at: string
           enabled: boolean
@@ -3308,6 +3309,7 @@ export type Database = {
           webhook_url: string
         }
         Insert: {
+          alliance_id?: string | null
           channel: string
           created_at?: string
           enabled?: boolean
@@ -3318,6 +3320,7 @@ export type Database = {
           webhook_url: string
         }
         Update: {
+          alliance_id?: string | null
           channel?: string
           created_at?: string
           enabled?: boolean
@@ -3328,6 +3331,27 @@ export type Database = {
           webhook_url?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "notification_channels_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "notification_channels_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "notification_channels_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
           {
             foreignKeyName: "notification_channels_updated_by_fkey"
             columns: ["updated_by"]
@@ -6572,6 +6596,7 @@ export type Database = {
       }
       schedule_reminders_due: {
         Row: {
+          alliance_id: string | null
           category: string | null
           category_label: string | null
           channel: string | null
@@ -6596,6 +6621,27 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "notification_channels"
             referencedColumns: ["channel"]
+          },
+          {
+            foreignKeyName: "schedule_events_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "schedule_events_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "schedule_events_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
           },
           {
             foreignKeyName: "schedule_events_category_fkey"
@@ -6722,7 +6768,10 @@ export type Database = {
         Args: { p_entries: Json; p_week_start: string }
         Returns: number
       }
-      freeze_alliance_settings: { Args: never; Returns: undefined }
+      freeze_alliance_settings: {
+        Args: { p_old_primary?: string }
+        Returns: undefined
+      }
       has_permission: { Args: { p_capability: string }; Returns: boolean }
       is_service_request: { Args: never; Returns: boolean }
       joinable_alliances: {
