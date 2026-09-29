@@ -127,25 +127,30 @@ export function PlayerClaimForm() {
           later.
         </p>
       )}
-      <form onSubmit={add}>
-        <label>
-          {mine !== undefined && mine.length > 0 ? 'Add another character' : 'Character'}
-          <select onChange={(event) => setPlayerId(event.target.value)} required value={playerId}>
-            <option value="">Choose…</option>
-            {(players ?? [])
-              .filter((player) => !linked.has(player.player_id))
-              .map((player) => (
-                <option key={player.player_id} value={player.player_id}>
-                  {player.current_name ?? player.player_id}
-                  {player.code ? ` [${player.code}]` : ''}
-                </option>
-              ))}
-          </select>
-        </label>
-        <button disabled={busy || playerId === ''} type="submit">
-          {busy ? 'Linking…' : 'This is me'}
-        </button>
-      </form>
+      {/* One character per account on this screen (decided 2026-09-29): the
+          form is for linking the first, and is gone once one is linked. The
+          database still accepts several (0193) — this only stops offering. */}
+      {(mine === undefined || mine.length === 0) && (
+        <form onSubmit={add}>
+          <label>
+            Character
+            <select onChange={(event) => setPlayerId(event.target.value)} required value={playerId}>
+              <option value="">Choose…</option>
+              {(players ?? [])
+                .filter((player) => !linked.has(player.player_id))
+                .map((player) => (
+                  <option key={player.player_id} value={player.player_id}>
+                    {player.current_name ?? player.player_id}
+                    {player.code ? ` [${player.code}]` : ''}
+                  </option>
+                ))}
+            </select>
+          </label>
+          <button disabled={busy || playerId === ''} type="submit">
+            {busy ? 'Linking…' : 'This is me'}
+          </button>
+        </form>
+      )}
       {message && <p className={failed ? 'error' : 'empty'}>{message}</p>}
     </div>
   );

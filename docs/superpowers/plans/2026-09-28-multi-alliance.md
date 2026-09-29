@@ -152,8 +152,8 @@ announcement go by their alliance's routing. Collector alerts (sync/data
 stalled) stay on the primary's. Channel names are unique across the install.
 Set up ACE's under Settings → Notifications while viewing ACE.
 
-Known limit: schedule board keys (`schedule_categories.category`) are
-install-wide, so two alliances cannot both have a board with the same key.
+Schedule board keys are per alliance since 0203: the key is
+`(alliance_id, category)` and an entry refers to its board by both.
 
 ### Settings per alliance (0200, decided 2026-09-29)
 
