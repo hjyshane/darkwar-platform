@@ -785,8 +785,8 @@ th:has(.sort) {
   margin-left: auto;
 }
 
-/* Which of your alliances you are viewing. Segmented, so the choice reads as
- * one control with a current value rather than as more screens in the bar. */
+/* Which of your alliances you are viewing, right beside the page title.
+ * Segmented, so the choice reads as one control with a current value. */
 .alliance-switch {
   align-self: center;
   border: 1px solid var(--border);
@@ -802,7 +802,11 @@ th:has(.sort) {
   border-radius: 999px;
   color: var(--fg-muted);
   cursor: pointer;
+  /* It sits inside the page's <h1> (beside the title). The page font, but
+   * not the heading's weight — the title is the heading, this is a control. */
+  font-family: inherit;
   font-size: var(--text-sm);
+  font-weight: 500;
   padding: var(--space-1) var(--space-3);
   white-space: nowrap;
 }

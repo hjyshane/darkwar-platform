@@ -315,11 +315,20 @@ function AccountLink() {
   );
 }
 
+function HeaderAllianceSwitcher() {
+  const { alliances, active, switchTo } = useActiveAlliance();
+  return (
+    <AllianceSwitcher
+      alliances={alliances}
+      activeId={active?.alliance_id ?? null}
+      onSwitch={switchTo}
+    />
+  );
+}
+
 function Nav({ route, allianceId }: { route: Route; allianceId: string | null }) {
   const { data: session } = useSession();
   const { data: ownAlliance } = useOwnAlliance();
-  const { alliances, active, switchTo } = useActiveAlliance();
-  const hasSwitcher = alliances.length > 1;
   // Built as a list rather than mapped in place, because one tab is not in
   // NAV_TABS: our own alliance's address carries a uuid that only a query knows,
   // so the static list cannot hold it. It sits immediately right of Overview, is
@@ -382,22 +391,12 @@ function Nav({ route, allianceId }: { route: Route; allianceId: string | null })
           boundary — RLS is, and #/admin renders for anyone who types it —
           but there is no reason to put a settings screen in front of people
           who cannot save anything on it. */}
-      {/* First of the right-hand group when shown, so it takes the push. */}
-      <AllianceSwitcher
-        alliances={alliances}
-        activeId={active?.alliance_id ?? null}
-        onSwitch={switchTo}
-        className="tab-end"
-      />
       {session?.role === 'admin' && (
-        <a className={hasSwitcher ? 'tab' : 'tab tab-end'} href="#/admin">
+        <a className="tab tab-end" href="#/admin">
           Settings
         </a>
       )}
-      <a
-        className={session?.role === 'admin' || hasSwitcher ? 'tab' : 'tab tab-end'}
-        href="#/login"
-      >
+      <a className={session?.role === 'admin' ? 'tab' : 'tab tab-end'} href="#/login">
         {session?.email ? `Signed in · ${session.role}` : 'Sign in'}
       </a>
     </nav>
@@ -594,6 +593,10 @@ function Shell({
           <a className="app-home" href="#/">
             Dark War dashboard
           </a>
+          {/* Right beside the title: which alliance the whole board is showing
+              is the first thing to know about every screen under it. Renders
+              only for someone with more than one alliance to choose from. */}
+          <HeaderAllianceSwitcher />
           {/* In the title rather than on a panel: it is about the whole
               board, not one table's data. Only for members — it reads
               sync_status, which 0065 closed like everything else. */}
