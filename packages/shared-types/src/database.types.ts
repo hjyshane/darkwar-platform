@@ -6922,11 +6922,11 @@ export type Database = {
           server_id: number
         }[]
       }
-      primary_own_alliance: { Args: never; Returns: string }
       notification_channel_alliance: {
         Args: { p_channel: string }
         Returns: string
       }
+      primary_own_alliance: { Args: never; Returns: string }
       prune_collector_heartbeats: {
         Args: { p_confirm?: boolean; p_keep?: string }
         Returns: {
