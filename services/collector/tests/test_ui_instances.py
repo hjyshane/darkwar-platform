@@ -122,24 +122,24 @@ def test_the_old_configuration_notation_is_recognisable() -> None:
 
 # --- a second scanning account -------------------------------------------------
 
-LOSTIDEAS = instances.Instance(title="lostideas", pid=4, endpoint="127.0.0.1:5595")
+LOSTIDAS = instances.Instance(title="lostidas", pid=4, endpoint="127.0.0.1:5595")
 
 
 def test_only_listed_windows_are_automatable() -> None:
     """A window title reaches the guard as an argument now, and an argument can
     name the main account. The list is what stops that."""
     assert instances.automatable("collector") == "collector"
-    assert instances.automatable(" LostIdeas ") == "lostideas"
+    assert instances.automatable(" LostIdas ") == "lostidas"
     with pytest.raises(ValueError, match="not a scanning instance"):
         instances.automatable("wonderedoffduck")
 
 
-def test_driving_lostideas_denies_the_collector_and_the_main_account() -> None:
+def test_driving_lostidas_denies_the_collector_and_the_main_account() -> None:
     serial, denied = instances.collector_and_others(
-        [COLLECTOR, MAIN, LOSTIDEAS], collector_title="lostideas"
+        [COLLECTOR, MAIN, LOSTIDAS], collector_title="lostidas"
     )
 
-    assert serial == LOSTIDEAS.endpoint
+    assert serial == LOSTIDAS.endpoint
     assert denied == frozenset({COLLECTOR.endpoint, MAIN.endpoint})
 
 

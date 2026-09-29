@@ -173,7 +173,7 @@ def test_a_valid_name_resolves_inside_the_directory(
 def test_a_job_can_name_a_scanning_window(
     routines: Path, journal: Journal, policy: AdbPolicy
 ) -> None:
-    """Two own alliances, two scanning accounts. A job naming `lostideas` is
+    """Two own alliances, two scanning accounts. A job naming `lostidas` is
     resolved for that window, not run on the configured collector."""
     asked: list[tuple[str, str]] = []
 
@@ -186,9 +186,9 @@ def test_a_job_can_name_a_scanning_window(
     executor = RoutineExecutor(
         routines_dir=routines, journal=journal, policy=policy, resolve_policy=resolver
     )
-    outcome = executor(_job(routine="alliance-daily", instance="lostideas"))
+    outcome = executor(_job(routine="alliance-daily", instance="lostidas"))
 
-    assert asked == [("adb", "lostideas")]
+    assert asked == [("adb", "lostidas")]
     assert outcome.permanent
     assert "guard refused" in str(outcome.error)
 
