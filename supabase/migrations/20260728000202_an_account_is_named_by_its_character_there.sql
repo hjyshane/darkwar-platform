@@ -55,3 +55,9 @@ from public.app_users u
 where (u.role = 'admin' and public.current_app_role() = 'admin')
    or (public.account_in_view(u.user_id)
        and public.alliance_role_of(u.user_id) in ('member', 'officer'));
+
+-- Without the join the view is simple enough to be auto-updatable, and
+-- production's copy carries ALL for authenticated (default-privilege drift;
+-- 0118 granted SELECT). A list to read is not a way to write app_users.
+revoke insert, update, delete, truncate, references, trigger
+  on public.activity_members from anon, authenticated;

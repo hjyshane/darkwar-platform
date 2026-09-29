@@ -3,7 +3,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(4);
+select plan(5);
 
 update public.alliances set is_own = false, roster_unredacted_seen = false
  where is_own or roster_unredacted_seen;
@@ -74,6 +74,11 @@ select is(pg_temp.name_of('00000000-0000-4000-8000-0000000ba101'), 'an admin acc
 select is(pg_temp.name_of('00000000-0000-4000-8000-0000000ba102'), 'an both char b',
   'and the member of both shows their Bravo character');
 reset role;
+
+-- 5. The list is read-only, whatever the default privileges handed out.
+select ok(not has_table_privilege('authenticated', 'public.activity_members', 'update')
+          and not has_table_privilege('authenticated', 'public.activity_members', 'delete'),
+  'nobody signed in can write app_users through the activity list');
 
 select * from finish();
 rollback;

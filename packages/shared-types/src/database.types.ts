@@ -5556,6 +5556,14 @@ export type Database = {
           display_name: string | null
           user_id: string | null
         }
+        Insert: {
+          display_name?: never
+          user_id?: string | null
+        }
+        Update: {
+          display_name?: never
+          user_id?: string | null
+        }
         Relationships: [
           {
             foreignKeyName: "app_users_user_id_fkey"
