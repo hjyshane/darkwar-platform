@@ -6722,6 +6722,7 @@ export type Database = {
         Args: { p_entries: Json; p_week_start: string }
         Returns: number
       }
+      freeze_alliance_settings: { Args: never; Returns: undefined }
       has_permission: { Args: { p_capability: string }; Returns: boolean }
       is_service_request: { Args: never; Returns: boolean }
       joinable_alliances: {
