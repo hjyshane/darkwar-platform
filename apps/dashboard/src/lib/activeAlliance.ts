@@ -45,6 +45,21 @@ export function setActiveAlliance(allianceId: string | null): void {
   }
 }
 
+/** Whether an alliance is "ours" on this screen: one of our alliances AND the
+ * one being viewed.
+ *
+ * `is_own` alone stopped meaning that once two alliances can be ours: the
+ * other alliance's page would offer blocks whose data RLS now withholds, and
+ * a chart would highlight two lines as "ours". With nothing chosen (a
+ * single-alliance install, a signed-out visitor) it is `is_own`, as before.
+ */
+export function isViewedAlliance(allianceId: string | null | undefined, isOwn: boolean): boolean {
+  if (!isOwn) {
+    return false;
+  }
+  return current === null || allianceId === current;
+}
+
 /** The fetch every Supabase request goes through: the plain one, plus the
  * header when an alliance has been chosen. */
 export function fetchWithAlliance(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {

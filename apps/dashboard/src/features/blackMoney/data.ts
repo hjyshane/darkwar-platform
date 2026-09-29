@@ -1,3 +1,4 @@
+import { getActiveAlliance } from '../../lib/activeAlliance';
 import { supabase } from '../../lib/supabase';
 import { SERVER_ZONE, zonedDayKey, zonedTime } from '../../lib/timezone';
 
@@ -168,13 +169,21 @@ export async function fetchMemberMisses(allianceExternalId: string): Promise<Mem
 
 /** Every battle, newest first. ~2 per event since 2026-04 — far under 1,000. */
 export async function fetchBattles(): Promise<Battle[]> {
-  const { data, error } = await supabase
+  let query = supabase
     .from('black_money_battles')
     .select(
       'alliance_external_id, battle_ended_at, team_index, state, score, user_num, max_user_num, enemy_name, enemy_abbr, enemy_score, enemy_user_num, signup_read_at, starters, substitutes, players_scored, report_seen',
-    )
-    .order('battle_ended_at', { ascending: false })
-    .limit(1000);
+    );
+  // The alliance being viewed. A CLIENT filter, not a boundary: the battle
+  // tables are member-readable across our alliances (0178), and scoping them
+  // in RLS would also hide the enemy rows the opponents view reads from the
+  // same table. A battle the collector could not tie to an alliance stays in,
+  // because there is no way to say whose it is.
+  const viewed = getActiveAlliance();
+  if (viewed !== null) {
+    query = query.or(`alliance_id.eq.${viewed},alliance_id.is.null`);
+  }
+  const { data, error } = await query.order('battle_ended_at', { ascending: false }).limit(1000);
   if (error) {
     throw new Error(`battles query failed: ${error.message}`);
   }

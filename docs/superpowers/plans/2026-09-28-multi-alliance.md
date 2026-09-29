@@ -92,6 +92,13 @@ only the people waiting for the alliance they are viewing.
 4. **Derived tables partition.** rank_period_snapshots, member_roster_current,
    player_ranks, alliance_board_readings, black_money_signup_snapshots and the
    `is_own` views gain / group by `alliance_id`. Events tab toggle.
+   *Done as 4a (0196: roster cache, rank build, rank tables, manual roster,
+   hive board) and 4b (dashboard: "ours" = own AND viewed; overview and
+   roster follow the viewed alliance; Black Money filtered client-side).*
+   Events decision (2026-09-28): **own alliance only** — the Events toggle is
+   the alliance switcher, shown to admins and to members of both. Black Money
+   tables stay member-readable across alliances (as before); RLS scoping them
+   would also hide the enemy rows the opponents view reads.
 5. **Pin the second alliance.** OwnAllianceSetting becomes a list. Only now is
    a second `is_own` row possible.
 

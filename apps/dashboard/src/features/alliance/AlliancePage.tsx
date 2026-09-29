@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { FavouriteButton } from '../../components/FavouriteButton';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
 import { StatTile } from '../../components/StatTile';
+import { isViewedAlliance } from '../../lib/activeAlliance';
 import { serverHash } from '../../lib/route';
 import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
@@ -133,7 +134,9 @@ async function fetchAlliance(allianceId: string): Promise<AllianceDetail | null>
     serverId: alliance.server_id,
     power: alliance.power,
     memberCount: alliance.member_count,
-    isOwn: alliance.is_own,
+    // Ours AND the one being viewed: the other own alliance's member data
+    // is withheld by RLS now, so its page must not offer those blocks.
+    isOwn: isViewedAlliance(alliance.alliance_id, alliance.is_own),
     rosterUnredactedSeen: alliance.roster_unredacted_seen,
     lastSeenAt: alliance.last_seen_at,
     members:

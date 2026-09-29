@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { FavouriteButton } from '../../components/FavouriteButton';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
 import { StatTile } from '../../components/StatTile';
+import { isViewedAlliance } from '../../lib/activeAlliance';
 import { useRecordActivity } from '../../lib/activity';
 import { leagueLabel } from '../../lib/arenaLeague';
 import { formatLastOnline } from '../../lib/freshness';
@@ -247,7 +248,7 @@ async function fetchPlayer(playerId: string): Promise<PlayerDetail | null> {
     allianceId: alliance.data?.alliance_id ?? null,
     allianceName: alliance.data?.current_name ?? null,
     allianceCode: alliance.data?.current_code ?? null,
-    isOwnAlliance: alliance.data?.is_own ?? false,
+    isOwnAlliance: isViewedAlliance(alliance.data?.alliance_id, alliance.data?.is_own ?? false),
     hqLevel: player.hq_level,
     power: player.power,
     kills: player.kills,
