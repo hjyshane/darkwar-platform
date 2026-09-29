@@ -6738,6 +6738,7 @@ export type Database = {
     }
     Functions: {
       account_in_view: { Args: { p_user: string }; Returns: boolean }
+      account_name_in_view: { Args: { p_user: string }; Returns: string }
       active_alliance: { Args: never; Returns: string }
       activity_day_of: { Args: { ts: string }; Returns: string }
       activity_points: {
