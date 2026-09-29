@@ -96,7 +96,7 @@ only the people waiting for the alliance they are viewing.
    hive board) and 4b (dashboard: "ours" = own AND viewed; overview and
    roster follow the viewed alliance; Black Money filtered client-side).*
    Events decision (2026-09-28): **own alliance only** — the Events toggle is
-   the alliance switcher, shown to admins and to members of both. Black Money
+   the alliance switcher, shown to admins only (2026-09-29). Black Money
    tables stay member-readable across alliances (as before); RLS scoping them
    would also hide the enemy rows the opponents view reads.
 5. **Pin the second alliance.** OwnAllianceSetting becomes a list. Only now is
