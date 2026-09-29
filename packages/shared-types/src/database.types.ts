@@ -4747,24 +4747,48 @@ export type Database = {
       }
       role_permissions: {
         Row: {
+          alliance_id: string | null
           allowed: boolean
           capability: string
           role: Database["public"]["Enums"]["app_role"]
           updated_at: string
         }
         Insert: {
+          alliance_id?: string | null
           allowed?: boolean
           capability: string
           role: Database["public"]["Enums"]["app_role"]
           updated_at?: string
         }
         Update: {
+          alliance_id?: string | null
           allowed?: boolean
           capability?: string
           role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "role_permissions_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "role_permissions_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "role_permissions_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
           {
             foreignKeyName: "role_permissions_capability_fkey"
             columns: ["capability"]
@@ -6897,6 +6921,10 @@ export type Database = {
           role: Database["public"]["Enums"]["app_role"]
           server_id: number
         }[]
+      }
+      notification_channel_alliance: {
+        Args: { p_channel: string }
+        Returns: string
       }
       primary_own_alliance: { Args: never; Returns: string }
       prune_collector_heartbeats: {

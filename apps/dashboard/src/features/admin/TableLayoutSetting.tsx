@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { supabase } from '../../lib/supabase';
+import { saveAllianceSetting } from '../../lib/allianceSetting';
 import {
   type ColumnSpec,
   MAX_COLUMN_WIDTH,
@@ -136,12 +136,7 @@ export function TableLayoutSetting() {
           value[tableId] = layout;
         }
       }
-      const { error: writeError } = await supabase
-        .from('app_settings')
-        .upsert({ key: TABLE_LAYOUT_KEY, value });
-      if (writeError) {
-        throw new Error(writeError.message);
-      }
+      await saveAllianceSetting(TABLE_LAYOUT_KEY, value);
     },
     onSuccess: () => {
       setFailed(false);

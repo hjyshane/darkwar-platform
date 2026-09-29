@@ -152,9 +152,33 @@ announcement go by their alliance's routing. Collector alerts (sync/data
 stalled) stay on the primary's. Channel names are unique across the install.
 Set up ACE's under Settings → Notifications while viewing ACE.
 
-Still per-install, not per-alliance: the overview formulas and the permission
-grid. Known limit: schedule board keys (`schedule_categories.category`) are
+Known limit: schedule board keys (`schedule_categories.category`) are
 install-wide, so two alliances cannot both have a board with the same key.
+
+### Settings per alliance (0200, decided 2026-09-29)
+
+Only the catalogue is shared. Everything else under Settings follows the
+alliance on screen, and the page says which one.
+
+- **Per alliance:** Access (members, invitations, departures, activity,
+  permission grid), Alliance (rank tiers, rank changes, scores and roster by
+  hand), Display (overview figures, member columns, table columns, season
+  building alert), Operations (Discord: webhooks, routing, delivery log).
+- **Shared** (the old Catalogue group, same `#/admin/catalogue` address):
+  heroes, pets, and the install itself — which alliances are pinned (admin
+  only), collector health, unrecognized commands. One set of machines
+  collects for every alliance, so there is nothing per-alliance to show.
+- The permission grid is one full grid per pinned alliance
+  (`role_permissions.alliance_id`). Rows with no alliance are defaults: a new
+  capability seeded by a migration is copied to every pinned alliance as it
+  is inserted, and a newly pinned alliance starts with a copy of the
+  primary's grid. A seed must use `on conflict do nothing` or name
+  `(role, capability, alliance_id)`.
+- `app_settings` is written directly only by an admin or while viewing the
+  primary; any other alliance writes through `save_alliance_setting`.
+- Not split: "Activity this week" counts (`activity_events` has no alliance)
+  — the people listed are the alliance's, the counts are what they did
+  anywhere on the dashboard.
 
 Each phase: pgTAP (RLS negative test per scoped table, §20.2), local gate,
 `scripts/pgtap/run.sh`, then read the CI `db` job before merging.

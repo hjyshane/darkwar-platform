@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
+import { fetchAllianceSetting, saveAllianceSetting } from '../../lib/allianceSetting';
 import { DEFAULT_METRICS, METRIC_CATALOGUE, resolveMetrics } from '../../lib/overviewMetrics';
-import { supabase } from '../../lib/supabase';
 
 /** Which figures the overview shows, and in what order.
  *
@@ -27,17 +27,9 @@ import { supabase } from '../../lib/supabase';
  * So this now matches OverviewPanel exactly: catalogue tiles only.
  */
 async function fetchChosen(): Promise<{ tiles: string[] }> {
-  const { data, error } = await supabase
-    .from('app_settings')
-    .select('key, value')
-    .in('key', ['overview_metrics']);
-  if (error) {
-    throw new Error(`metric setting query failed: ${error.message}`);
-  }
-  const byKey = new Map((data ?? []).map((row) => [row.key, row.value]));
-  const tiles = resolveMetrics(
-    (byKey.get('overview_metrics') as { tiles?: unknown } | undefined)?.tiles,
-  );
+  // The alliance on screen's choice (0200).
+  const value = await fetchAllianceSetting('overview_metrics');
+  const tiles = resolveMetrics((value as { tiles?: unknown } | null)?.tiles);
   return { tiles };
 }
 
@@ -62,12 +54,7 @@ export function OverviewMetricsSetting() {
 
   const save = useMutation({
     mutationFn: async (tiles: string[]) => {
-      const { error: writeError } = await supabase
-        .from('app_settings')
-        .upsert({ key: 'overview_metrics', value: { tiles } });
-      if (writeError) {
-        throw new Error(writeError.message);
-      }
+      await saveAllianceSetting('overview_metrics', { tiles });
     },
     onSuccess: () => {
       setFailed(false);

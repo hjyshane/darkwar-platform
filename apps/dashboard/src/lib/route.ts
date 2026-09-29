@@ -82,8 +82,10 @@ export const ADMIN_GROUPS: ReadonlyArray<{ group: AdminGroup; label: string }> =
   { group: 'access', label: 'Access' },
   { group: 'alliance', label: 'Alliance' },
   { group: 'display', label: 'Display' },
-  { group: 'catalogue', label: 'Catalogue' },
   { group: 'operations', label: 'Operations' },
+  // The id stays `catalogue` so old links keep working; since 0200 it holds
+  // everything every alliance shares, the catalogue included.
+  { group: 'catalogue', label: 'Shared' },
 ];
 
 // Built from the list above so a new group is one edit, not two that can

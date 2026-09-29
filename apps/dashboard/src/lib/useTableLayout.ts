@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from './supabase';
+import { fetchAllianceSetting } from './allianceSetting';
 import { TABLE_LAYOUT_KEY, type TableLayout, type TableLayouts } from './tableLayout';
 
 /** The shared column arrangement, for every table at once.
@@ -21,18 +21,8 @@ export function useTableLayouts() {
     // most screens.
     staleTime: 5 * 60 * 1000,
     queryFn: async (): Promise<TableLayouts> => {
-      const { data, error } = await supabase
-        .from('app_settings')
-        .select('value')
-        .eq('key', TABLE_LAYOUT_KEY)
-        .maybeSingle();
-      if (error) {
-        if (error.code === '42501') {
-          return {};
-        }
-        throw new Error(`table layout query failed: ${error.message}`);
-      }
-      const value = data?.value;
+      // The alliance on screen's arrangement (0200).
+      const value = await fetchAllianceSetting(TABLE_LAYOUT_KEY);
       return value !== null && typeof value === 'object' ? (value as TableLayouts) : {};
     },
   });

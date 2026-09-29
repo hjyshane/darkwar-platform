@@ -44,7 +44,7 @@ export async function fetchPermissions(): Promise<{
       .from('capabilities')
       .select('capability, label, description, sort_order')
       .order('sort_order'),
-    supabase.from('role_permissions').select('role, capability, allowed'),
+    supabase.from('role_permissions').select('role, capability, allowed, alliance_id'),
   ]);
   if (caps.error) {
     throw new Error(`capability query failed: ${caps.error.message}`);
@@ -54,8 +54,33 @@ export async function fetchPermissions(): Promise<{
   }
   return {
     capabilities: (caps.data ?? []) as Capability[],
-    grants: (grants.data ?? []) as RolePermission[],
+    grants: effectiveGrants(grants.data ?? []),
   };
+}
+
+/** One row per role and capability: the alliance on screen's own where it has
+ *  one, the default where it does not (0200).
+ *
+ * RLS already narrows the read to that alliance's grid and the defaults, so
+ * both can come back for the same cell, and they can disagree — the defaults
+ * are only what a new alliance started with. The same rule has_permission
+ * applies in the database. */
+export function effectiveGrants(
+  rows: ReadonlyArray<RolePermission & { alliance_id: string | null }>,
+): RolePermission[] {
+  const byCell = new Map<string, RolePermission & { alliance_id: string | null }>();
+  for (const row of rows) {
+    const key = `${row.role}|${row.capability}`;
+    const held = byCell.get(key);
+    if (held === undefined || (held.alliance_id === null && row.alliance_id !== null)) {
+      byCell.set(key, row);
+    }
+  }
+  return [...byCell.values()].map(({ role, capability, allowed }) => ({
+    role,
+    capability,
+    allowed,
+  }));
 }
 
 export function usePermissions() {

@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
 import { StatTile } from '../../components/StatTile';
 import { getActiveAlliance } from '../../lib/activeAlliance';
+import { fetchAllianceSetting } from '../../lib/allianceSetting';
 import { FormulaError, evaluateFormula, parseFormula } from '../../lib/formula';
 import {
   type FormulaMetric,
@@ -186,20 +187,14 @@ export interface ChosenTiles {
 }
 
 async function fetchChosenMetrics(): Promise<ChosenTiles> {
-  const { data, error } = await supabase
-    .from('app_settings')
-    .select('key, value')
-    .in('key', ['overview_metrics']);
-  if (error) {
-    throw new Error(`metric setting query failed: ${error.message}`);
-  }
-  const byKey = new Map((data ?? []).map((row) => [row.key, row.value]));
+  // The alliance on screen's choice (0200); the shared row when signed out.
+  const value = await fetchAllianceSetting('overview_metrics');
   // No formulas here any more: a formula runs on a member and lands as a
   // column on the Members table (0048). What was a tile saying one number
   // for all 93 of them is now 93 numbers.
   const formulas: FormulaMetric[] = [];
   const tiles = resolveMetrics(
-    (byKey.get('overview_metrics') as { tiles?: unknown } | undefined)?.tiles,
+    (value as { tiles?: unknown } | null)?.tiles,
     formulas.map((formula) => formula.id),
   );
   return { tiles, formulas };
