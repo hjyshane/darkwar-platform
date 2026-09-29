@@ -187,6 +187,12 @@ class NotifyWorker:
     def __init__(self, config: NotifyConfig) -> None:
         self.config = config
         self.dashboard_url = config.dashboard_url
+        # Per-alliance routing (0199), refreshed once per pass by
+        # `load_alliance_routing`. Until it has loaded, only rows that name no
+        # alliance are routed — never a guess about whose room a row belongs in.
+        self._routing_loaded = False
+        self._primary: str | None = None
+        self._alliance_routing: dict[str, dict[str, Row]] = {}
         self.rest = f"{config.supabase_url.rstrip('/')}/rest/v1"
         self.client = httpx.Client(
             timeout=30.0,
@@ -222,6 +228,52 @@ class NotifyWorker:
         """Enabled channel name → webhook URL."""
         rows = self._get("notification_channels?enabled=is.true&select=channel,webhook_url")
         return {row["channel"]: row["webhook_url"] for row in rows}
+
+    def load_alliance_routing(self) -> None:
+        """Which alliance is primary, and every other own alliance's routing.
+
+        0199 made Discord routing per alliance. The primary's is still the
+        `app_settings` blob `routing()` reads; any other alliance's is its own row
+        in `alliance_settings`, and it is NOT inherited — an alliance with no
+        routing of its own sends nothing, rather than into the primary's rooms.
+        """
+        pin = self._get("app_settings?key=eq.own_alliance&select=value")
+        self._primary = first_pinned(pin[0].get("value") if pin else None)
+        per: dict[str, dict[str, Row]] = {}
+        for row in self._get(
+            "alliance_settings?key=eq.discord_notifications&select=alliance_id,value"
+        ):
+            alliance_id, value = row.get("alliance_id"), row.get("value")
+            if isinstance(alliance_id, str) and isinstance(value, dict):
+                per[alliance_id] = value
+        self._alliance_routing = per
+        self._routing_loaded = True
+
+    def _routing_for(self, routing: dict[str, Row], alliance_id: object) -> dict[str, Row]:
+        """The routing that applies to a row of `alliance_id`.
+
+        The primary's (`routing`) for the primary, for a row naming no alliance,
+        and for an install with nothing pinned. Anybody else's own, or nothing.
+        Before the per-alliance routing has loaded, a row that names an alliance
+        is not routed at all: a skipped pass costs one pass, a guess costs a
+        message in the other alliance's Discord.
+        """
+        if alliance_id is None:
+            return routing
+        if not self._routing_loaded:
+            return {}
+        if self._primary is None or alliance_id == self._primary:
+            return routing
+        return self._alliance_routing.get(str(alliance_id), {})
+
+    def _target_for(self, routing: dict[str, Row], event: str, alliance_id: object) -> str | None:
+        return self._target(self._routing_for(routing, alliance_id), event)
+
+    def _anyone_wants(self, routing: dict[str, Row], event: str) -> bool:
+        """Whether any alliance has `event` on — the cheap check before a fetch."""
+        if self._target(routing, event) is not None:
+            return True
+        return any(self._target(r, event) is not None for r in self._alliance_routing.values())
 
     def _target(self, routing: dict[str, Row], event: str) -> str | None:
         """The channel an event should go to, or None when it is switched off."""
@@ -266,47 +318,66 @@ class NotifyWorker:
         return len(written) if isinstance(written, list) else 0
 
     def rank_period_candidates(self, routing: dict[str, Row]) -> list[Message]:
-        """The newest built period, if its version has not been announced.
+        """Each own alliance's newest built period, if not yet announced.
 
-        Reads `rank_period_snapshots` rather than `rank_period_latest`, because the
-        version is the thing being keyed on and the view hides all but the newest.
+        PER ALLIANCE since 0196/0199: each alliance builds its own periods and
+        has its own Discord, so the newest period is asked for per alliance and
+        announced by that alliance's routing. Reads `rank_period_snapshots`
+        rather than `rank_period_latest`, because the version is the thing being
+        keyed on and the view hides all but the newest.
         """
-        channel = self._target(routing, "rank_period")
-        if channel is None:
+        if not self._anyone_wants(routing, "rank_period"):
             return []
-
-        newest = self._get(
-            "rank_period_snapshots?select=period_start,scoring_version"
-            "&order=period_start.desc,scoring_version.desc&limit=1"
-        )
-        if not newest:
-            return []
-        period_start = newest[0]["period_start"]
-        version = newest[0]["scoring_version"]
-
-        rows = self._get(
-            "rank_period_snapshots?select=player_id,name,tier,tier_reason"
-            f"&period_start=eq.{filter_value(period_start)}"
-            f"&scoring_version=eq.{version}&limit=500"
-        )
-        # The previous period at ITS newest version, which is what the dashboard
-        # compares against too.
-        previous_rows = self._get(
-            "rank_period_latest?select=player_id,name,tier"
-            f"&period_start=lt.{filter_value(period_start)}"
-            "&order=period_start.desc&limit=500"
-        )
-        period_end = _add_days(period_start, PERIOD_DAYS)
-        return [
-            rank_period_message(
-                channel=channel,
-                period_start=period_start,
-                period_end=period_end,
-                scoring_version=version,
-                rows=rows,
-                previous=previous_rows,
-            )
+        own = [
+            row["alliance_id"]
+            for row in self._get("alliances?is_own=is.true&select=alliance_id")
+            if isinstance(row.get("alliance_id"), str)
         ]
+        messages: list[Message] = []
+        for alliance_id in own:
+            channel = self._target_for(routing, "rank_period", alliance_id)
+            if channel is None:
+                continue
+            mine = f"&alliance_id=eq.{alliance_id}"
+            newest = self._get(
+                "rank_period_snapshots?select=period_start,scoring_version"
+                f"{mine}&order=period_start.desc,scoring_version.desc&limit=1"
+            )
+            if not newest:
+                continue
+            period_start = newest[0]["period_start"]
+            version = newest[0]["scoring_version"]
+            rows = self._get(
+                "rank_period_snapshots?select=player_id,name,tier,tier_reason"
+                f"{mine}&period_start=eq.{filter_value(period_start)}"
+                f"&scoring_version=eq.{version}&limit=500"
+            )
+            # The previous period at ITS newest version, which is what the
+            # dashboard compares against too — asked of this alliance's rows.
+            earlier = self._get(
+                "rank_period_snapshots?select=player_id,name,tier,period_start,scoring_version"
+                f"{mine}&period_start=lt.{filter_value(period_start)}"
+                "&order=period_start.desc,scoring_version.desc&limit=500"
+            )
+            previous_rows = [
+                row
+                for row in earlier
+                if earlier
+                and row["period_start"] == earlier[0]["period_start"]
+                and row["scoring_version"] == earlier[0]["scoring_version"]
+            ]
+            messages.append(
+                rank_period_message(
+                    channel=channel,
+                    period_start=period_start,
+                    period_end=_add_days(period_start, PERIOD_DAYS),
+                    scoring_version=version,
+                    rows=rows,
+                    previous=previous_rows,
+                    alliance_key=None if alliance_id == self._primary else alliance_id,
+                )
+            )
+        return messages
 
     def departure_candidates(self, routing: dict[str, Row]) -> list[Message]:
         """Departures from OUR alliance that a complete capture confirms.
@@ -335,8 +406,7 @@ class NotifyWorker:
         Filtering on a remembered high-water mark would need state this process
         does not have, and would go wrong exactly once, silently.
         """
-        channel = self._target(routing, "departures")
-        if channel is None:
+        if not self._anyone_wants(routing, "departures"):
             return []
         # THE COLUMN NAMES ARE 0067's, not invented ones. It asked for `name`,
         # `power` and `snapshot_complete` at first — the view calls them
@@ -373,6 +443,8 @@ class NotifyWorker:
                 confirmed=row["confirmed"],
             )
             for row in rows
+            # Each alliance's departures go by that alliance's routing (0199).
+            if (channel := self._target_for(routing, "departures", row["alliance_id"]))
         ]
 
     def guide_candidates(self, routing: dict[str, Row]) -> list[Message]:
@@ -392,12 +464,11 @@ class NotifyWorker:
         switched on, so an unbounded query announces the whole board on the first
         pass. See `GUIDE_BACKLOG`.
         """
-        channel = self._target(routing, "guides")
-        if channel is None:
+        if not self._anyone_wants(routing, "guides"):
             return []
         cutoff = filter_value((datetime.now(UTC) - GUIDE_BACKLOG).isoformat())
         rows = self._get(
-            "guides?select=guide_id,title,body,category,published_at,channels"
+            "guides?select=guide_id,title,body,category,published_at,channels,alliance_id"
             # A draft is not a guide yet. Its own filter rather than left to the
             # window below — `gte` excludes nulls as a side effect, and the rule
             # that drafts stay private should not rest on a side effect of a
@@ -417,7 +488,11 @@ class NotifyWorker:
                 dashboard_url=self.dashboard_url,
             )
             for row in rows
-            for target in targets(row, channel)
+            # The guide's alliance decides whether it is announced at all and
+            # where by default (0199); its own `channels` are already that
+            # alliance's (0199's trigger refuses anybody else's).
+            if (fallback := self._target_for(routing, "guides", row.get("alliance_id")))
+            for target in targets(row, fallback)
         ]
 
     def notice_candidates(self, routing: dict[str, Row]) -> list[Message]:
@@ -444,14 +519,13 @@ class NotifyWorker:
         No settling delay, unlike departures. A notice is a deliberate act by a
         person; there is nothing to confirm.
         """
-        channel = self._target(routing, "notices")
-        if channel is None:
+        if not self._anyone_wants(routing, "notices"):
             return []
         now = datetime.now(UTC)
         current = filter_value(now.isoformat())
         cutoff = (now - NOTICE_BACKLOG).isoformat()
         rows = self._get(
-            "announcements?select=announcement_id,title,body,starts_at,ends_at,published_at,channels"
+            "announcements?select=announcement_id,title,body,starts_at,ends_at,published_at,channels,alliance_id"
             # A draft is not news.
             "&published_at=not.is.null"
             # Live: started, or with no start at all; and not yet finished.
@@ -480,6 +554,11 @@ class NotifyWorker:
                 default=None,
             )
             if live_at is None or live_at < cutoff:
+                continue
+            # The notice's alliance decides whether it is announced and where by
+            # default (0199); its own `channels` are already that alliance's.
+            channel = self._target_for(routing, "notices", row.get("alliance_id"))
+            if channel is None:
                 continue
             out.extend(
                 notice_message(
@@ -907,6 +986,14 @@ class NotifyWorker:
         """
         stats = NotifyStats()
         routing = self.routing()
+        try:
+            self.load_alliance_routing()
+        except Exception as error:
+            # Counted like a broken source. Rows that name an alliance are then
+            # not routed this pass (see `_routing_for`) — late, not misdirected.
+            self._routing_loaded = False
+            stats.broken += 1
+            log.error("notify.alliance_routing_failed", error=str(error))
         messages: list[Message] = []
         for source in self.sources():
             try:
@@ -933,6 +1020,18 @@ class NotifyWorker:
             else:
                 stats.failed += 1
         return stats
+
+
+def first_pinned(value: object) -> str | None:
+    """The primary alliance from the `own_alliance` setting, in either shape
+    (0192's `alliance_ids` list, or the single `alliance_id` before it)."""
+    if not isinstance(value, dict):
+        return None
+    ids = value.get("alliance_ids")
+    if isinstance(ids, list) and ids and isinstance(ids[0], str):
+        return ids[0]
+    single = value.get("alliance_id")
+    return single if isinstance(single, str) else None
 
 
 def filter_value(value: str) -> str:

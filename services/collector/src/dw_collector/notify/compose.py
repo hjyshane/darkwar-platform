@@ -165,8 +165,14 @@ def rank_period_message(
     scoring_version: int,
     rows: list[Row],
     previous: list[Row] | None = None,
+    alliance_key: str | None = None,
 ) -> Message:
     """A summary of one built rank period.
+
+    `alliance_key` is set for any alliance but the primary (0199): each own
+    alliance builds its own periods, and two alliances announcing the same
+    fortnight are two announcements. The primary keeps the key it always had,
+    so nothing already sent is sent again.
 
     The key carries the scoring VERSION as well as the period. Rebuilding a period
     under the same version produces the same answer, so it must not post again;
@@ -213,7 +219,10 @@ def rank_period_message(
     return Message(
         channel=channel,
         event="rank_period",
-        idempotency_key=f"rank_period:{period_start[:10]}:{scoring_version}",
+        idempotency_key=(
+            f"rank_period:{period_start[:10]}:{scoring_version}"
+            + (f":{alliance_key}" if alliance_key else "")
+        ),
         title="Rank period built",
         body="\n".join(lines),
     )
