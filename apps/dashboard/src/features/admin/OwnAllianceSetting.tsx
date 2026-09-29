@@ -68,6 +68,98 @@ async function fetchAlliances(): Promise<{ rows: AllianceRow[]; pinned: string[]
   return { rows: alliances.data ?? [], pinned: readPinned(setting.data?.value) };
 }
 
+interface FoundAlliance {
+  alliance_id: string;
+  current_name: string | null;
+  current_code: string | null;
+  server_id: number;
+  member_count: number | null;
+}
+
+/** Keep what can safely sit inside a PostgREST `or=(...)` filter: letters
+ * (any script — alliance names are not ASCII), digits and spaces. Commas,
+ * parentheses and dots would change the filter's meaning. */
+export function searchTerm(raw: string): string {
+  return raw.replace(/[^\p{L}\p{N} ]/gu, '').trim();
+}
+
+/** Find ANY alliance the collector has seen, to pin it.
+ *
+ * The table below lists only alliances already ours or whose roster was seen
+ * from inside, which is the right list for "which one is ours" and the wrong
+ * one for adding a second: the collector account is usually not a member of
+ * it, so it never appears there. */
+function PinAnotherAlliance({
+  pinned,
+  onPin,
+  busy,
+}: {
+  pinned: string[];
+  onPin: (allianceId: string) => void;
+  busy: boolean;
+}) {
+  const [raw, setRaw] = useState('');
+  const term = searchTerm(raw);
+  const { data: found, isFetching } = useQuery({
+    queryKey: ['admin-alliance-search', term],
+    enabled: term.length >= 2,
+    queryFn: async (): Promise<FoundAlliance[]> => {
+      const { data, error } = await supabase
+        .from('alliances')
+        .select('alliance_id, current_name, current_code, server_id, member_count')
+        .or(`current_code.ilike.*${term}*,current_name.ilike.*${term}*`)
+        .order('member_count', { ascending: false, nullsFirst: false })
+        .limit(10);
+      if (error) {
+        throw new Error(`alliance search failed: ${error.message}`);
+      }
+      return data ?? [];
+    },
+  });
+
+  return (
+    <div>
+      <label>
+        Pin another alliance
+        <input
+          onChange={(event) => setRaw(event.target.value)}
+          placeholder="Tag or name, e.g. CBFW"
+          type="search"
+          value={raw}
+        />
+      </label>
+      {term.length >= 2 && !isFetching && (found ?? []).length === 0 && (
+        <p className="empty">
+          No alliance by that tag or name has been seen. The collector has to capture it once.
+        </p>
+      )}
+      {(found ?? []).length > 0 && (
+        <ul className="linked-players">
+          {(found ?? []).map((row) => (
+            <li key={row.alliance_id}>
+              {row.current_code ? `[${row.current_code}] ` : ''}
+              {row.current_name ?? row.alliance_id.slice(0, 8)} · server {row.server_id}
+              {row.member_count !== null && ` · ${row.member_count} members`}{' '}
+              {pinned.includes(row.alliance_id) ? (
+                <span className="badge badge-fresh">pinned</span>
+              ) : (
+                <button
+                  className="linklike"
+                  disabled={busy}
+                  onClick={() => onPin(row.alliance_id)}
+                  type="button"
+                >
+                  {pinned.length === 0 ? 'pin this' : 'pin as well'}
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 export function OwnAllianceSetting() {
   const queryClient = useQueryClient();
   const [message, setMessage] = useState<string | null>(null);
@@ -142,6 +234,12 @@ export function OwnAllianceSetting() {
       </p>
 
       {message && <p className={failed ? 'error' : 'empty'}>{message}</p>}
+
+      <PinAnotherAlliance
+        busy={save.isPending}
+        onPin={(allianceId) => save.mutate([...pinned, allianceId])}
+        pinned={pinned}
+      />
 
       {rows.length === 0 ? (
         <p className="empty">No alliance has been observed yet. Capture a roster first.</p>
