@@ -4,6 +4,7 @@ import { takeReturnTo } from '../../lib/returnTo';
 import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
 import { useSession } from '../../lib/useSession';
+import { AllianceRequestForm } from './AllianceRequestForm';
 import { JoinCodeForm } from './JoinCodeForm';
 import { LeaveAllianceForm } from './LeaveAllianceForm';
 import { PlayerClaimForm } from './PlayerClaimForm';
@@ -161,14 +162,21 @@ export function LoginPage() {
               be labelling something with nothing above it. */}
           {session?.role === 'viewer' && (
             <>
+              <AllianceRequestForm />
               <h3>Enter your invitation code</h3>
               <JoinCodeForm onRedeemed={() => refreshSession()} />
             </>
           )}
           {session !== undefined && session.role !== 'viewer' && (
             <>
-              <h3>Which character are you?</h3>
+              <h3>Which characters are you?</h3>
               <PlayerClaimForm />
+              {/* A code is per alliance (0193), so a member of one can still
+                  be invited into the other with the same account. */}
+              <details>
+                <summary>Invited to another of our alliances?</summary>
+                <JoinCodeForm onRedeemed={() => refreshSession()} />
+              </details>
             </>
           )}
           <button onClick={() => void signOut()} type="button">

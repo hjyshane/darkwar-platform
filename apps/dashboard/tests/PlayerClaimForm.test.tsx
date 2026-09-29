@@ -1,28 +1,28 @@
-// What the member can see about their own claim, at each stage of it.
+// What the member can see about their own characters.
 //
-// The rule this must never break is 0066's: `app_users.player_id` moves only
-// inside approve_player_claim(), so nothing here grants anything. Everything
-// below is about the SENTENCE — a member who has just picked a character out
-// of a hundred-name list needs to read that name back, and a member waiting
-// on an officer needs the screen to say which character is waiting rather
-// than "your claim".
+// Since 0193 an account is any number of characters — one per alliance, or
+// alts — and each character belongs to at most one account. Linking is
+// immediate (0175), so the screen is a list of who you are plus a picker to
+// add another; the rules below are about the SENTENCES: a name read back,
+// never a uuid printed at somebody, and no promise of an approver.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { expect, test } from 'vitest';
 import { PlayerClaimForm } from '../src/features/auth/PlayerClaimForm';
 
 const ROSTER = [
-  { player_id: 'p-1', current_name: 'Bored101' },
-  { player_id: 'p-2', current_name: 'VINA ăn cướp' },
+  { player_id: 'p-1', current_name: 'Bored101', code: 'CBFW' },
+  { player_id: 'p-2', current_name: 'VINA ăn cướp', code: 'CBFW' },
+  { player_id: 'p-3', current_name: 'AltInBravo', code: 'BRV' },
 ];
 
 function renderForm(options: {
-  claim?: { player_id: string; status: string; note: string | null } | null;
+  mine?: { player_id: string; current_name: string | null }[];
   roster?: typeof ROSTER;
 }) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   client.setQueryData(['claimable'], options.roster ?? ROSTER);
-  client.setQueryData(['my-claim'], options.claim ?? null);
+  client.setQueryData(['my-players'], options.mine ?? []);
   return render(
     <QueryClientProvider client={client}>
       <PlayerClaimForm />
@@ -30,63 +30,46 @@ function renderForm(options: {
   );
 }
 
-test('an undecided account is asked the question, not shown a status', async () => {
-  renderForm({ claim: null });
-  expect(await screen.findByText(/Which character are you\?/)).toBeDefined();
-});
-
-test('a pending claim names the character it is waiting on', async () => {
-  // "Your claim is waiting" was true and useless. The failure it hides is
-  // picking the wrong row, and the person who can catch that is the one
-  // reading this line.
-  renderForm({ claim: { player_id: 'p-2', status: 'pending', note: null } });
-  const waiting = await screen.findByText(/An older claim says you are/);
-  expect(waiting.textContent).toContain('VINA ăn cướp');
-});
-
-test('a pending claim still says something before the roster arrives', async () => {
-  // The picker and the name come from the same query, so an empty roster
-  // means no name to print. A raw uuid is not an answer to "who did I say I
-  // was"; saying nothing at all is worse.
-  renderForm({ claim: { player_id: 'p-2', status: 'pending', note: null }, roster: [] });
-  const waiting = await screen.findByText(/An older claim says you are/);
-  expect(waiting.textContent).toContain('the character you picked');
-  expect(waiting.textContent).not.toContain('p-2');
-});
-
-test('a rejected claim says so and leaves the form usable', async () => {
-  // It used to fall through to the neutral "Which character are you?", which
-  // reads as the claim never having been filed — so the member files the
-  // same one again and an officer rejects it again.
-  renderForm({ claim: { player_id: 'p-1', status: 'rejected', note: null } });
-  expect(await screen.findByText(/did not accept that claim/)).toBeDefined();
-  expect(screen.getByRole('button', { name: /this is me/i })).toBeDefined();
-});
-
-test('an approved claim shows the character rather than its id', async () => {
-  renderForm({ claim: { player_id: 'p-1', status: 'approved', note: null } });
-  const linked = await screen.findByText(/This account is linked to/);
-  expect(linked.textContent).toContain('Bored101');
-});
-
-test('an approved claim with no roster yet does not print a uuid at somebody', async () => {
-  renderForm({ claim: { player_id: 'p-1', status: 'approved', note: null }, roster: [] });
-  const linked = await screen.findByText(/This account is linked to/);
-  expect(linked.textContent).toContain('your character');
-  expect(linked.textContent).not.toContain('p-1');
-});
-
-test('the form says the link is immediate, and does not promise an approver', async () => {
-  // This reverses 0066. Self-service linking now exists on purpose (0165), and
-  // the sentence has to match: a member who is told an officer will confirm it
-  // waits for a confirmation that already happened. The old test pinned the
-  // opposite claim, which is why it is rewritten rather than deleted — the rule
-  // changed, not the coverage.
-  const { container } = renderForm({ claim: null });
-  await screen.findByText(/Which character are you\?/);
+test('an account with no character is asked, and told it is immediate', async () => {
+  const { container } = renderForm({ mine: [] });
+  expect(await screen.findByText(/No character linked yet/)).toBeDefined();
   expect(container.textContent).toContain('takes effect as soon as you pick');
+  // This reverses 0066 on purpose (0175): a member told an officer will
+  // confirm it waits for a confirmation that already happened.
   expect(container.textContent).not.toContain('officer');
-  // One button, still: the note field went with the approver who read it.
-  expect(container.querySelectorAll('button')).toHaveLength(1);
-  expect(container.querySelectorAll('input')).toHaveLength(0);
+});
+
+test('an account with two characters lists both, and says which it is shown as', async () => {
+  renderForm({
+    mine: [
+      { player_id: 'p-1', current_name: 'Bored101' },
+      { player_id: 'p-3', current_name: 'AltInBravo' },
+    ],
+  });
+  const list = await screen.findByRole('list');
+  const items = within(list).getAllByRole('listitem');
+  expect(items).toHaveLength(2);
+  expect(items[0]?.textContent).toContain('Bored101');
+  expect(items[0]?.textContent).toContain('shown as');
+  expect(items[1]?.textContent).toContain('AltInBravo');
+  expect(items[1]?.textContent).not.toContain('shown as');
+  expect(within(list).getAllByRole('button', { name: 'Remove' })).toHaveLength(2);
+});
+
+test('the picker offers only characters not already yours, with their alliance', async () => {
+  renderForm({ mine: [{ player_id: 'p-1', current_name: 'Bored101' }] });
+  const select = await screen.findByLabelText('Add another character');
+  const options = within(select)
+    .getAllByRole('option')
+    .map((o) => o.textContent);
+  expect(options).not.toContain('Bored101 [CBFW]');
+  expect(options).toContain('VINA ăn cướp [CBFW]');
+  expect(options).toContain('AltInBravo [BRV]');
+});
+
+test('a linked character with no name does not print a uuid at somebody', async () => {
+  renderForm({ mine: [{ player_id: 'p-9', current_name: null }], roster: [] });
+  const list = await screen.findByRole('list');
+  expect(list.textContent).toContain('no name yet');
+  expect(list.textContent).not.toContain('p-9');
 });

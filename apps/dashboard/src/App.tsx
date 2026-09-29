@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useSyncExternalStore } from 'react';
+import { AllianceSwitcher } from './components/AllianceSwitcher';
 import { RefreshButton } from './components/RefreshButton';
 import { ReplyAlerts } from './components/ReplyAlerts';
 import { SignOutButton } from './components/SignOutButton';
@@ -60,6 +61,7 @@ import {
   serverIdFromHash,
 } from './lib/route';
 import { supabase } from './lib/supabase';
+import { useActiveAlliance } from './lib/useMyAlliances';
 import { useOwnAlliance } from './lib/useOwnAlliance';
 import { useSession } from './lib/useSession';
 import { useSidewaysMouse } from './lib/useSidewaysMouse';
@@ -316,6 +318,8 @@ function AccountLink() {
 function Nav({ route, allianceId }: { route: Route; allianceId: string | null }) {
   const { data: session } = useSession();
   const { data: ownAlliance } = useOwnAlliance();
+  const { alliances, active, switchTo } = useActiveAlliance();
+  const hasSwitcher = alliances.length > 1;
   // Built as a list rather than mapped in place, because one tab is not in
   // NAV_TABS: our own alliance's address carries a uuid that only a query knows,
   // so the static list cannot hold it. It sits immediately right of Overview, is
@@ -378,12 +382,22 @@ function Nav({ route, allianceId }: { route: Route; allianceId: string | null })
           boundary — RLS is, and #/admin renders for anyone who types it —
           but there is no reason to put a settings screen in front of people
           who cannot save anything on it. */}
+      {/* First of the right-hand group when shown, so it takes the push. */}
+      <AllianceSwitcher
+        alliances={alliances}
+        activeId={active?.alliance_id ?? null}
+        onSwitch={switchTo}
+        className="tab-end"
+      />
       {session?.role === 'admin' && (
-        <a className="tab tab-end" href="#/admin">
+        <a className={hasSwitcher ? 'tab' : 'tab tab-end'} href="#/admin">
           Settings
         </a>
       )}
-      <a className={session?.role === 'admin' ? 'tab' : 'tab tab-end'} href="#/login">
+      <a
+        className={session?.role === 'admin' || hasSwitcher ? 'tab' : 'tab tab-end'}
+        href="#/login"
+      >
         {session?.email ? `Signed in · ${session.role}` : 'Sign in'}
       </a>
     </nav>
@@ -418,7 +432,7 @@ function Screen({ route, mapServerId }: { route: Route; mapServerId: number | nu
     case 'crossRankings':
       return <CrossRankingsPanel />;
     case 'migration':
-      // Officers and admins only (0191), as a role, like the roster history
+      // Officers and admins only (0195), as a role, like the roster history
       // the board folds (0066): who moved is read off the alliance rosters,
       // and those are own-or-officer. RLS returns a member nothing; this says
       // why rather than drawing an empty board.

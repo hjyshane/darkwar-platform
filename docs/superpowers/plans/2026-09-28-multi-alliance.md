@@ -52,6 +52,22 @@ from reading B by sending B's header (they would be `viewer` there).
 
 Service role bypasses RLS; the collector and dw-notify are unaffected.
 
+## Players (decided 2026-09-28)
+
+One account (one email) may be any number of players — a character per
+alliance, or alts in one. Each player belongs to at most one account.
+`user_players` is the truth; `app_users.player_id` stays as the display
+player (six views name authors through it) and is mirrored into
+`user_players` by trigger.
+
+## Sign-up
+
+The alliance is picked on the first signed-in screen, not the sign-up form:
+the list comes from `joinable_alliances()`, and 0168 keeps `anon` holding
+nothing. The pick goes in the account's own auth metadata (a request, not a
+grant); `pending_access.requested_alliance_id` shows it, and an officer sees
+only the people waiting for the alliance they are viewing.
+
 ## Phases
 
 1. **Schema, no behaviour change.** Plural pin (`alliance_ids`, legacy

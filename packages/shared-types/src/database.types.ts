@@ -5023,6 +5023,60 @@ export type Database = {
           },
         ]
       }
+      user_players: {
+        Row: {
+          created_at: string
+          player_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          player_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          player_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_players_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: true
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "user_players_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "activity_members"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "user_players_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "app_user_directory"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "user_players_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "user_players_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "post_authors"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       workflow_runs: {
         Row: {
           collector_id: string
@@ -6075,6 +6129,7 @@ export type Database = {
         Row: {
           created_at: string | null
           last_sign_in_at: string | null
+          requested_alliance_id: string | null
           user_id: string | null
         }
         Relationships: []
@@ -6461,6 +6516,7 @@ export type Database = {
       }
     }
     Functions: {
+      active_alliance: { Args: never; Returns: string }
       activity_day_of: { Args: { ts: string }; Returns: string }
       activity_points: {
         Args: {
@@ -6536,8 +6592,18 @@ export type Database = {
       }
       has_permission: { Args: { p_capability: string }; Returns: boolean }
       is_service_request: { Args: never; Returns: boolean }
+      joinable_alliances: {
+        Args: never
+        Returns: {
+          alliance_id: string
+          code: string
+          name: string
+          server_id: number
+        }[]
+      }
       leave_alliance: { Args: never; Returns: undefined }
       linked_player_id: { Args: never; Returns: string }
+      linked_player_ids: { Args: never; Returns: string[] }
       migration_alliances: {
         Args: { p_event_id: string }
         Returns: {
@@ -6639,6 +6705,16 @@ export type Database = {
           status: string
         }[]
       }
+      my_alliances: {
+        Args: never
+        Returns: {
+          alliance_id: string
+          code: string
+          name: string
+          role: Database["public"]["Enums"]["app_role"]
+          server_id: number
+        }[]
+      }
       primary_own_alliance: { Args: never; Returns: string }
       prune_collector_heartbeats: {
         Args: { p_confirm?: boolean; p_keep?: string }
@@ -6724,11 +6800,20 @@ export type Database = {
         Args: { p_name: string; p_note: string; p_slots: Json }
         Returns: string
       }
+      set_membership: {
+        Args: {
+          p_alliance: string
+          p_role: Database["public"]["Enums"]["app_role"]
+          p_user: string
+        }
+        Returns: undefined
+      }
       set_roster_membership: {
         Args: { p_member: boolean; p_player_id: string }
         Returns: number
       }
       tier_rank: { Args: { p_tier: string }; Returns: number }
+      unlink_player: { Args: { p_player_id: string }; Returns: undefined }
       week_scores: {
         Args: { p_week_start: string }
         Returns: {

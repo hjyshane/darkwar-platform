@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from './supabase';
+import { useActiveAlliance } from './useMyAlliances';
 
 /** Which alliance is ours, for anybody who may see it.
  *
@@ -17,9 +18,22 @@ export interface OwnAlliance {
   code: string | null;
 }
 
-export function useOwnAlliance() {
+/** The alliance whose tab is shown: the one being viewed when the account
+ * belongs to any (0193), else the first own alliance, which is what a
+ * signed-out visitor and every single-alliance install have always seen. */
+export function useOwnAlliance(): { data: OwnAlliance | null | undefined } {
+  const { active } = useActiveAlliance();
+  const fallback = useFirstOwnAlliance(active === null);
+  if (active !== null) {
+    return { data: { alliance_id: active.alliance_id, name: active.name, code: active.code } };
+  }
+  return { data: fallback.data };
+}
+
+function useFirstOwnAlliance(enabled: boolean) {
   return useQuery({
     queryKey: ['own-alliance'],
+    enabled,
     // It names a tab, so it is asked for on every screen. It changes when an
     // admin re-pins the alliance, which is approximately never.
     staleTime: 5 * 60 * 1000,
