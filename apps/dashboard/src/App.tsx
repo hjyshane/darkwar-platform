@@ -315,8 +315,19 @@ function AccountLink() {
   );
 }
 
+/** The alliance toggle, for admins only (decided 2026-09-29).
+ *
+ * Everybody else sees the one alliance they belong to. It used to show for
+ * anybody in two alliances as well; nobody but an admin is, and the rule is
+ * that an account lives in its own alliance. The database is the boundary
+ * either way — active_alliance() never honours an alliance the caller is not
+ * in — so this is about what the header offers, not what can be read. */
 function HeaderAllianceSwitcher() {
+  const { data: session } = useSession();
   const { alliances, active, switchTo } = useActiveAlliance();
+  if (session?.role !== 'admin') {
+    return null;
+  }
   return (
     <AllianceSwitcher
       alliances={alliances}
