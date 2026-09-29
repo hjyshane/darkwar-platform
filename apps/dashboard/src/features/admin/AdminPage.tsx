@@ -9,6 +9,7 @@ import {
 import { fieldsOf } from '../../lib/memberFormulas';
 import { usePermissions } from '../../lib/permissions';
 import { ADMIN_GROUPS, type AdminGroup, adminHash } from '../../lib/route';
+import { useActiveAlliance } from '../../lib/useMyAlliances';
 import { useSession } from '../../lib/useSession';
 import { fetchRoster } from '../roster/RosterPanel';
 import { ActivitySetting } from './ActivitySetting';
@@ -54,6 +55,7 @@ import { TableLayoutSetting } from './TableLayoutSetting';
 export function AdminPage({ group, section }: { group: AdminGroup; section: string | null }) {
   const { data: session } = useSession();
   const { data: permissions } = usePermissions();
+  const { active } = useActiveAlliance();
   const role = session?.role;
   const grants = permissions?.grants;
   const missing = missingIn(group, role, grants);
@@ -74,6 +76,23 @@ export function AdminPage({ group, section }: { group: AdminGroup; section: stri
     <main>
       <section aria-labelledby="admin-heading">
         <h2 id="admin-heading">Settings</h2>
+        {/* Which alliance these are for (0200). Every group but Shared follows
+            the alliance on screen, and with two pinned the same screen showed
+            one alliance's grid and the other's columns. Named here so nobody
+            has to remember which way the switcher is set. */}
+        {active !== null && (
+          <p className="subtle">
+            {group === 'catalogue' ? (
+              <>These are shared by every alliance.</>
+            ) : (
+              <>
+                For <strong>{active.name}</strong> only. Switch alliance at the top to change
+                another's; <a href={adminHash('catalogue')}>Shared</a> holds what every alliance has
+                in common.
+              </>
+            )}
+          </p>
+        )}
         {session?.email == null ? (
           <p className="empty">
             <a href="#/login">Sign in</a> to change these.
@@ -199,13 +218,6 @@ function AccessGroup({ section }: { section: string }) {
 function AllianceGroup({ section }: { section: string }) {
   return (
     <>
-      {section === 'own-alliance' && (
-        <section aria-labelledby="own-alliance-heading">
-          <h2 id="own-alliance-heading">Our alliance</h2>
-          <OwnAllianceSetting />
-        </section>
-      )}
-
       {section === 'rank-tiers' && (
         <section aria-labelledby="rank-tiers-heading">
           <h2 id="rank-tiers-heading">How ranks are decided</h2>
@@ -300,41 +312,16 @@ function DisplayGroup({ section }: { section: string }) {
   );
 }
 
-/** What the machinery underneath is doing, and the one thing it takes orders on.
- *
- * The first two screens are read-only: the collector writes those tables with
- * the service key and there is no cloud-side control that would change them, so
- * they answer questions rather than offering buttons.
- *
- * Notifications is the exception, and it belongs here rather than in Access even
- * though it holds a credential — what it configures is the collector's behaviour,
- * and "why did nobody get told" is a question asked next to "is the collector
- * running".
+/** The alliance on screen's Discord: its webhooks, its routing and what was
+ *  sent. Collector health and unrecognized commands used to sit here too; they
+ *  describe the one set of machines every alliance shares, so since 0200 they
+ *  are under Shared.
  */
 function OperationsGroup({ section }: { section: string }) {
   return (
     <>
-      {section === 'collectors' && (
-        <section aria-labelledby="collectors-heading">
-          {/* Not "Collectors": the section holds two tables and the first of
-            them is already called that, so the same word twice running was
-            the first thing visible on the screen. */}
-          <h2 id="collectors-heading">Collector health</h2>
-          <CollectorHealth />
-        </section>
-      )}
-
-      {section === 'discovery' && (
-        <section aria-labelledby="discovery-heading">
-          <h2 id="discovery-heading">Unrecognized commands</h2>
-          <DiscoveryInbox />
-        </section>
-      )}
-
-      {/* In Operations rather than Access, even though it holds a credential.
-          What it configures is the collector's behaviour — the same thing the two
-          screens above report on — and an admin looking for "why did nobody get
-          told" will look here. */}
+      {/* In Operations rather than Access, even though it holds a credential:
+          what it configures is the collector's behaviour. */}
       {section === 'notifications' && (
         <section aria-labelledby="notifications-heading">
           <h2 id="notifications-heading">Discord notifications</h2>
@@ -345,8 +332,10 @@ function OperationsGroup({ section }: { section: string }) {
   );
 }
 
-/** Reference data somebody types in, not settings that change behaviour —
- *  HeroesSetting's own docstring is what draws this line. */
+/** What every alliance shares (0200): the catalogue — reference data somebody
+ *  types in, not settings that change behaviour, as HeroesSetting's own
+ *  docstring draws the line — and the install itself: which alliances are
+ *  ours, and the one set of machines collecting for all of them. */
 function CatalogueGroup({ section }: { section: string }) {
   return (
     <>
@@ -361,6 +350,30 @@ function CatalogueGroup({ section }: { section: string }) {
         <section aria-labelledby="pets-heading">
           <h2 id="pets-heading">Pets</h2>
           <PetsSetting />
+        </section>
+      )}
+
+      {section === 'own-alliance' && (
+        <section aria-labelledby="own-alliance-heading">
+          <h2 id="own-alliance-heading">Our alliances</h2>
+          <OwnAllianceSetting />
+        </section>
+      )}
+
+      {section === 'collectors' && (
+        <section aria-labelledby="collectors-heading">
+          {/* Not "Collectors": the section holds two tables and the first of
+            them is already called that, so the same word twice running was
+            the first thing visible on the screen. */}
+          <h2 id="collectors-heading">Collector health</h2>
+          <CollectorHealth />
+        </section>
+      )}
+
+      {section === 'discovery' && (
+        <section aria-labelledby="discovery-heading">
+          <h2 id="discovery-heading">Unrecognized commands</h2>
+          <DiscoveryInbox />
         </section>
       )}
     </>

@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useId, useState } from 'react';
+import { fetchAllianceSetting, saveAllianceSetting } from '../../lib/allianceSetting';
 import { FormulaError, evaluateFormula, parseFormula, referencedNames } from '../../lib/formula';
 import { MEMBER_FIELDS, MEMBER_FIELD_IDS, MEMBER_FORMULAS_KEY } from '../../lib/memberFormulas';
 import { FORMULA_PREFIX, type FormulaMetric, resolveFormulas } from '../../lib/overviewMetrics';
-import { supabase } from '../../lib/supabase';
 
 /** Columns an admin describes rather than picks.
  *
@@ -24,15 +24,9 @@ import { supabase } from '../../lib/supabase';
 const KNOWN = MEMBER_FIELD_IDS;
 
 async function fetchFormulas(): Promise<FormulaMetric[]> {
-  const { data, error } = await supabase
-    .from('app_settings')
-    .select('value')
-    .eq('key', MEMBER_FORMULAS_KEY)
-    .maybeSingle();
-  if (error) {
-    throw new Error(`formula query failed: ${error.message}`);
-  }
-  return resolveFormulas((data?.value as { formulas?: unknown } | null)?.formulas);
+  // The alliance on screen's columns (0200).
+  const value = await fetchAllianceSetting(MEMBER_FORMULAS_KEY);
+  return resolveFormulas((value as { formulas?: unknown } | null)?.formulas);
 }
 
 export function FormulaSetting({
@@ -58,18 +52,9 @@ export function FormulaSetting({
 
   const save = useMutation({
     mutationFn: async (formulas: FormulaMetric[]) => {
-      const { error: writeError } = await supabase
-        .from('app_settings')
-        // The generated Json type does not know FormulaMetric; the shape is
-        // whatever resolveFormulas will accept back, which is what the read
-        // side actually enforces.
-        .upsert({
-          key: MEMBER_FORMULAS_KEY,
-          value: { formulas } as unknown as Record<string, never>,
-        });
-      if (writeError) {
-        throw new Error(writeError.message);
-      }
+      // The shape is whatever resolveFormulas will accept back, which is
+      // what the read side actually enforces.
+      await saveAllianceSetting(MEMBER_FORMULAS_KEY, { formulas });
     },
     onSuccess: () => {
       setFailed(false);

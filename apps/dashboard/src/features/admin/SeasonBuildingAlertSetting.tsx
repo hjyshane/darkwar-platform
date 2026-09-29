@@ -1,12 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
+import { saveAllianceSetting } from '../../lib/allianceSetting';
 import {
   ALERT_SETTING_KEY,
   DEFAULT_ALERT,
   type SeasonBuildingAlert,
   fetchAlert,
 } from '../../lib/seasonBuildingAlert';
-import { supabase } from '../../lib/supabase';
 import { SEASON3_BUILDINGS } from '../season/buildings';
 
 /** The threshold behind the "!" on the season building board.
@@ -38,15 +38,7 @@ export function SeasonBuildingAlertSetting() {
 
   const save = useMutation({
     mutationFn: async (next: SeasonBuildingAlert) => {
-      const { error: writeError } = await supabase
-        .from('app_settings')
-        // `value` is jsonb, typed as Json by the generated types; the
-        // setting is a plain object of a number and a boolean, which is
-        // Json, but the interface does not carry an index signature.
-        .upsert({ key: ALERT_SETTING_KEY, value: { ...next } });
-      if (writeError) {
-        throw new Error(writeError.message);
-      }
+      await saveAllianceSetting(ALERT_SETTING_KEY, { ...next });
     },
     onSuccess: () => {
       setFailed(false);

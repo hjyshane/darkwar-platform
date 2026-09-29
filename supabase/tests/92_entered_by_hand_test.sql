@@ -89,7 +89,7 @@ select ok(
   'data.enter is a registered capability');
 select is(
   (select array_agg(role::text order by role) from public.role_permissions
-    where capability = 'data.enter' and allowed),
+    where capability = 'data.enter' and allowed and alliance_id is null),
   array['officer', 'admin'],
   'only officers and admins may type data in');
 

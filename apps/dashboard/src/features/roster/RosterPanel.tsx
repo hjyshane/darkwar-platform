@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { getActiveAlliance } from '../../lib/activeAlliance';
+import { fetchAllianceSetting } from '../../lib/allianceSetting';
 import { FormulaError, evaluateFormula, parseFormula } from '../../lib/formula';
 import { MEMBER_FIELD_IDS, MEMBER_FORMULAS_KEY } from '../../lib/memberFormulas';
 import { resolveFormulas } from '../../lib/overviewMetrics';
@@ -19,34 +20,26 @@ import { type ComputedColumn, type RosterRow, RosterTable } from './RosterTable'
  * so a bad expression costs its own column and not the whole table.
  */
 async function fetchMemberColumns(): Promise<ComputedColumn[]> {
-  const { data, error } = await supabase
-    .from('app_settings')
-    .select('value')
-    .eq('key', MEMBER_FORMULAS_KEY)
-    .maybeSingle();
-  if (error) {
-    throw new Error(`member formula query failed: ${error.message}`);
-  }
-  return resolveFormulas((data?.value as { formulas?: unknown } | null)?.formulas).flatMap(
-    (formula) => {
-      try {
-        const tree = parseFormula(formula.expression, MEMBER_FIELD_IDS);
-        return [
-          {
-            id: formula.id,
-            label: formula.label,
-            compact: formula.compact,
-            evaluate: (values: Record<string, number | null>) => evaluateFormula(tree, values),
-          },
-        ];
-      } catch (parseError) {
-        if (parseError instanceof FormulaError) {
-          return [];
-        }
-        throw parseError;
+  // The alliance on screen's columns (0200).
+  const value = await fetchAllianceSetting(MEMBER_FORMULAS_KEY);
+  return resolveFormulas((value as { formulas?: unknown } | null)?.formulas).flatMap((formula) => {
+    try {
+      const tree = parseFormula(formula.expression, MEMBER_FIELD_IDS);
+      return [
+        {
+          id: formula.id,
+          label: formula.label,
+          compact: formula.compact,
+          evaluate: (values: Record<string, number | null>) => evaluateFormula(tree, values),
+        },
+      ];
+    } catch (parseError) {
+      if (parseError instanceof FormulaError) {
+        return [];
       }
-    },
-  );
+      throw parseError;
+    }
+  });
 }
 
 export type DepartureRow = {
@@ -67,7 +60,7 @@ export type DepartureRow = {
  * foreign key to it. A view has none, so PostgREST cannot embed against
  * these two — the id has to come first and be passed as a filter.
  */
-async function fetchOwnAllianceId(): Promise<string | null> {
+export async function fetchOwnAllianceId(): Promise<string | null> {
   // The alliance being viewed, when one is chosen (0193). The lookup below
   // is the single-alliance answer, and it takes the first of several.
   const viewed = getActiveAlliance();

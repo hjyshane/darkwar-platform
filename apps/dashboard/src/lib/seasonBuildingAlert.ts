@@ -20,7 +20,7 @@
 // what makes the marks worth reading.
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from './supabase';
+import { fetchAllianceSetting } from './allianceSetting';
 
 export const ALERT_SETTING_KEY = 'season_building_alert';
 
@@ -109,20 +109,9 @@ export function floorsFor(
 }
 
 export async function fetchAlert(): Promise<SeasonBuildingAlert> {
-  const { data, error } = await supabase
-    .from('app_settings')
-    .select('value')
-    .eq('key', ALERT_SETTING_KEY)
-    .maybeSingle();
-  if (error) {
-    // A reader without the grant gets the default rather than an error page:
-    // the marker is a convenience, not the point of the screen.
-    if (error.code === '42501') {
-      return DEFAULT_ALERT;
-    }
-    throw new Error(`building alert setting query failed: ${error.message}`);
-  }
-  return parseAlert(data?.value);
+  // The alliance on screen's alert (0200). A reader who may not read it gets
+  // null, and so the default: the marker is a convenience, not the point.
+  return parseAlert(await fetchAllianceSetting(ALERT_SETTING_KEY));
 }
 
 export function useSeasonBuildingAlert() {

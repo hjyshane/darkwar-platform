@@ -82,13 +82,7 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     requires: capability('members.manage'),
   },
 
-  // app_settings -> settings.write
-  {
-    group: 'alliance',
-    id: 'own-alliance-heading',
-    heading: 'Our alliance',
-    requires: capability('settings.write'),
-  },
+  // alliance_setting('rank_tiers') -> settings.write, in the alliance on screen
   {
     group: 'alliance',
     id: 'rank-tiers-heading',
@@ -142,6 +136,9 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
   },
   { group: 'display', id: 'notices-heading', heading: 'Notices', requires: null },
 
+  // SHARED BY EVERY ALLIANCE (0200) — the group id is still `catalogue`.
+  // Everything above follows the alliance on screen; everything below is the
+  // same whichever one that is. The catalogue is a fact about the game.
   // heroes, pets -> catalogue.write
   {
     group: 'catalogue',
@@ -156,16 +153,22 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     requires: capability('catalogue.write'),
   },
 
+  // Which alliances are ours: the install, not any one of them. An admin's,
+  // because it decides whose data every other screen shows.
+  { group: 'catalogue', id: 'own-alliance-heading', heading: 'Our alliances', requires: adminOnly },
   // The collector writes these with the service key; there is no cloud-side
-  // control, so they answer questions rather than offering buttons.
-  { group: 'operations', id: 'collectors-heading', heading: 'Collector health', requires: null },
+  // control, so they answer questions rather than offering buttons. One set of
+  // machines captures for every alliance.
+  { group: 'catalogue', id: 'collectors-heading', heading: 'Collector health', requires: null },
   {
-    group: 'operations',
+    group: 'catalogue',
     id: 'discovery-heading',
     heading: 'Unrecognized commands',
     requires: null,
   },
-  // notification_channels: admin_all, on the role.
+
+  // notification_channels: admin_all, on the role; scoped to the alliance on
+  // screen (0199), and so is its delivery log (0200).
   {
     group: 'operations',
     id: 'notifications-heading',

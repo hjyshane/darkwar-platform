@@ -143,14 +143,19 @@ group('what a group tells you', () => {
   test('a group with no writable section at all still reports honestly', () => {
     const officer = OFFICER_MANAGES_MEMBERS;
     expect(canWriteAnything('catalogue', 'officer', officer)).toBe(false);
+    // Shared (id `catalogue`): the catalogue, and the pin list an admin keeps.
     expect(missingIn('catalogue', 'officer', officer)).toEqual([
       { kind: 'capability', capability: 'catalogue.write' },
+      { kind: 'role', role: 'admin' },
     ]);
   });
 
   test('sections that only read are never listed as missing', () => {
-    // Operations is three sections, two of them read-only.
-    expect(missingIn('operations', 'member', SEEDED)).toEqual([{ kind: 'role', role: 'admin' }]);
+    // Shared holds two read-only screens beside the ones that need a grant.
+    expect(missingIn('catalogue', 'member', SEEDED)).toEqual([
+      { kind: 'capability', capability: 'catalogue.write' },
+      { kind: 'role', role: 'admin' },
+    ]);
   });
 });
 
@@ -215,6 +220,14 @@ group('the sections a reader may use', () => {
   });
 
   test('a group with nothing usable comes back empty rather than partly drawn', () => {
-    expect(usableSectionsIn('catalogue', 'member', SEEDED)).toHaveLength(0);
+    // Operations is Discord alone since 0200, and Discord is an admin's.
+    expect(usableSectionsIn('operations', 'member', SEEDED)).toHaveLength(0);
+  });
+
+  test('the shared screens that only read stay open to a member', () => {
+    expect(usableSectionsIn('catalogue', 'member', SEEDED).map((s) => s.heading)).toEqual([
+      'Collector health',
+      'Unrecognized commands',
+    ]);
   });
 });

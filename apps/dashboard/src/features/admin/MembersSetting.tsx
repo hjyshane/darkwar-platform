@@ -4,6 +4,7 @@ import { APP_ROLES, type AppRole, GAME_RANKS } from '../../lib/permissions';
 import { supabase } from '../../lib/supabase';
 import { useActiveAlliance } from '../../lib/useMyAlliances';
 import { useSession } from '../../lib/useSession';
+import { fetchOwnAllianceId } from '../roster/RosterPanel';
 
 /** Who has signed in, what role they hold, and where they sit in the
  * alliance.
@@ -138,12 +139,17 @@ async function fetchMembers(): Promise<AppUser[]> {
  * 557 strangers is not a picker.
  */
 async function fetchLinkablePlayers(): Promise<LinkablePlayer[]> {
-  const { data, error } = await supabase
+  // The alliance on screen's, not every alliance of ours: with two pinned, a
+  // picker of both rosters let an officer of one link a player of the other.
+  const allianceId = await fetchOwnAllianceId();
+  let query = supabase
     .from('players')
     .select('player_id, current_name, alliances!players_current_alliance_id_fkey!inner(is_own)')
-    .eq('alliances.is_own', true)
-    .order('current_name', { nullsFirst: false })
-    .limit(200);
+    .eq('alliances.is_own', true);
+  if (allianceId !== null) {
+    query = query.eq('current_alliance_id', allianceId);
+  }
+  const { data, error } = await query.order('current_name', { nullsFirst: false }).limit(200);
   if (error) {
     throw new Error(`player query failed: ${error.message}`);
   }
