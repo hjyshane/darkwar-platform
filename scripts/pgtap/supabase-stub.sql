@@ -1,9 +1,9 @@
 -- A local stand-in for what Supabase provides before the first migration runs.
 --
 -- FOR A MACHINE WITH NO DOCKER. `supabase test db` needs the whole stack; this
--- needs PostgreSQL 16 and pgTAP and nothing else, and it is how the ten pgTAP
+-- needs PostgreSQL (17, as CI) and pgTAP and nothing else, and it is how the ten pgTAP
 -- failures of 2026-09-08 were diagnosed after a month of nobody being able to
--- run the suite at all. See `run.sh` beside this file.
+-- run the suite at all. See `run.py` (Windows) and `run.sh` beside this file.
 --
 -- WHAT IT IS NOT. It is not the hosted schema and it is not the CLI's local
 -- stack. It approximates the surface the migrations touch — auth, storage, the
@@ -30,14 +30,18 @@ begin
   end loop;
 end $$;
 grant usage on schema public, auth, storage, extensions to anon, authenticated, service_role;
+-- Supabase's service_role skips RLS entirely; the tests that write as it
+-- (93, 95) count on that.
+alter role service_role bypassrls;
 
 create table auth.users (
   id uuid primary key default gen_random_uuid(),
   instance_id uuid, aud text, role text, email text,
-  raw_user_meta_data jsonb, created_at timestamptz default now(),
+  raw_user_meta_data jsonb, raw_app_meta_data jsonb, created_at timestamptz default now(),
   email_confirmed_at timestamptz, last_sign_in_at timestamptz,
   encrypted_password text, confirmed_at timestamptz, updated_at timestamptz default now(),
-  banned_until timestamptz, deleted_at timestamptz, is_anonymous boolean default false
+  banned_until timestamptz, deleted_at timestamptz, is_anonymous boolean default false,
+  is_super_admin boolean, confirmation_token text, recovery_token text
 );
 create function auth.uid() returns uuid language sql stable as $$
   select nullif(current_setting('request.jwt.claims', true)::jsonb ->> 'sub', '')::uuid $$;
@@ -54,6 +58,8 @@ create table storage.objects (
   id uuid primary key default gen_random_uuid(), bucket_id text references storage.buckets(id),
   name text, owner uuid, created_at timestamptz default now(), metadata jsonb);
 alter table storage.objects enable row level security;
+-- The storage API's roles reach the tables; the policies decide (49).
+grant all on storage.objects, storage.buckets to anon, authenticated, service_role;
 create function storage.foldername(name text) returns text[] language sql immutable as $$
   select string_to_array(name, '/') $$;
 
@@ -61,9 +67,13 @@ create function cron.schedule(job_name text, schedule text, command text)
   returns bigint language sql as $$ select 0::bigint $$;
 create function cron.unschedule(job_name text) returns boolean language sql as $$ select true $$;
 
--- What Supabase ships, and the thing 0065 only half-revoked. The exact set
--- matters: CI counts three surviving privileges on a view created after 0065,
--- which is INSERT/UPDATE/DELETE — i.e. the default grants the PostgREST four
--- rather than ALL.
+-- What the CLI stack's migration role hands out by default, and the thing
+-- 0065 only half-revoked. The exact set matters: CI counts three surviving
+-- privileges on a view created after 0065 (anon's INSERT/UPDATE/DELETE).
+-- `authenticated` gets NOTHING by default there: every table grants it what it
+-- needs explicitly, and five tests (30, 67, 68, 69, 70) prove a privilege is
+-- absent. Granting it here made those five fail locally and pass in CI.
+-- (Production differs: its authenticated does hold DELETE on post_comments.
+-- No delete policy exists there, so it removes nothing, but it is drift.)
 alter default privileges in schema public
-  grant select, insert, update, delete on tables to anon, authenticated, service_role;
+  grant select, insert, update, delete on tables to anon, service_role;

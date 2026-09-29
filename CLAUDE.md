@@ -157,11 +157,14 @@ uv run ruff check . && uv run ruff format --check . && uv run mypy src && uv run
 supabase test db
 ```
 
-`supabase test db` needs Docker. Where there is none, `scripts/pgtap/run.sh`
-applies the whole migration chain to a plain PostgreSQL 16 and runs the suite —
-it is how the ten rotted test files of 2026-09-08 were diagnosed. Its own header
-lists the files where it disagrees with CI and why; a NEW failure there is worth
-believing, a DISAGREEMENT with CI is the harness's fault first.
+`supabase test db` needs Docker. On this Windows machine run
+`pnpm db:test:local` (`scripts/pgtap/run.py`): a throwaway PostgreSQL 17 from
+scoop (`postgresql17`, with pgTAP copied into its `share/extension`), the whole
+migration chain, every test file — about 45 seconds, and as of 2026-09-29 it
+agrees with CI on all 110 files. Run it before pushing any migration; CI is
+the backstop, not the first run. `scripts/pgtap/run.sh` is its Linux twin.
+A NEW failure there is worth believing; a DISAGREEMENT with CI is the stub's
+fault first (`supabase-stub.sql` says what it approximates).
 
 Traps this repo has already hit:
 
