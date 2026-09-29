@@ -102,5 +102,32 @@ only the people waiting for the alliance they are viewing.
 5. **Pin the second alliance.** OwnAllianceSetting becomes a list. Only now is
    a second `is_own` row possible.
 
+   *Done (0197 + the pin screen).* Changing the pin list freezes each
+   non-primary alliance's per-alliance settings and moves a promoted
+   primary's own values into the shared row, so no pin change moves anybody's
+   numbers.
+
+## Turning it on
+
+Merging the stack changes nothing anyone sees — every phase is a no-op while
+one alliance is pinned. The switch is the pin, and it is an admin's click.
+
+1. Merge #304 → #305 → #306 → #308 → #310 → #311 → phase 5, in order, each
+   after its CI `db` job is green (re-target each to `main` as its base
+   merges). Each merge deploys the dashboard.
+2. Push the migrations to production yourself (`supabase db push --workdir
+   C:\darkwar-platform`; the assistant cannot). Check `supabase migration list`
+   shows 0192–0197 applied and nothing out of order.
+3. Smoke test with one pin, signed in as a member: role label, alliance tab,
+   roster, boards, schedule, hive, rank report — all as before.
+4. Settings → Our alliance → **pin as well** on the second alliance. It starts
+   with a copy of the primary's rank tiers.
+5. Settings → Join codes, while viewing the new alliance (switcher), issue its
+   officers a code. Or let them sign up, pick it, and **Let in** from Members.
+6. Its officers set its rank tiers and build a period while viewing it.
+
+Still per-install, not per-alliance: Discord routing and the rank-period
+announcement (primary only), the overview formulas and the permission grid.
+
 Each phase: pgTAP (RLS negative test per scoped table, §20.2), local gate,
 `scripts/pgtap/run.sh`, then read the CI `db` job before merging.

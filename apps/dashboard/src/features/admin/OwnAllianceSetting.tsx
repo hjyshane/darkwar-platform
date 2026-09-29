@@ -3,7 +3,8 @@ import { useState } from 'react';
 import { allianceHash } from '../../lib/route';
 import { supabase } from '../../lib/supabase';
 
-/** Which alliance the dashboard treats as ours.
+/** Which alliances the dashboard treats as ours (phase 5 of the
+ * multi-alliance plan: more than one may be pinned; the first is PRIMARY).
  *
  * Two facts, kept apart on purpose (0032), and this screen shows both
  * because the interesting case is when they disagree:
@@ -31,7 +32,20 @@ interface AllianceRow {
   roster_unredacted_seen: boolean;
 }
 
-async function fetchAlliances(): Promise<{ rows: AllianceRow[]; pinned: string | null }> {
+/** The pinned list, in order. Reads both shapes: `{alliance_ids: [...]}` since
+ * 0192, and the single `{alliance_id}` every earlier save wrote. */
+export function readPinned(value: unknown): string[] {
+  if (value === null || typeof value !== 'object') {
+    return [];
+  }
+  const v = value as { alliance_ids?: unknown; alliance_id?: unknown };
+  if (Array.isArray(v.alliance_ids)) {
+    return v.alliance_ids.filter((id): id is string => typeof id === 'string');
+  }
+  return typeof v.alliance_id === 'string' ? [v.alliance_id] : [];
+}
+
+async function fetchAlliances(): Promise<{ rows: AllianceRow[]; pinned: string[] }> {
   const [alliances, setting] = await Promise.all([
     supabase
       .from('alliances')
@@ -51,8 +65,7 @@ async function fetchAlliances(): Promise<{ rows: AllianceRow[]; pinned: string |
   if (setting.error) {
     throw new Error(`settings query failed: ${setting.error.message}`);
   }
-  const value = setting.data?.value as { alliance_id?: string } | null | undefined;
-  return { rows: alliances.data ?? [], pinned: value?.alliance_id ?? null };
+  return { rows: alliances.data ?? [], pinned: readPinned(setting.data?.value) };
 }
 
 export function OwnAllianceSetting() {
@@ -66,8 +79,10 @@ export function OwnAllianceSetting() {
   });
 
   const save = useMutation({
-    mutationFn: async (allianceId: string | null) => {
-      if (allianceId === null) {
+    // The whole list, in order. Empty clears the pin and hands the decision
+    // back to the evidence. Always written in the list shape.
+    mutationFn: async (next: string[]) => {
+      if (next.length === 0) {
         const { error: deleteError } = await supabase
           .from('app_settings')
           .delete()
@@ -81,14 +96,14 @@ export function OwnAllianceSetting() {
       // deliberately not sent here.
       const { error: upsertError } = await supabase
         .from('app_settings')
-        .upsert({ key: 'own_alliance', value: { alliance_id: allianceId } });
+        .upsert({ key: 'own_alliance', value: { alliance_ids: next } });
       if (upsertError) {
         throw new Error(upsertError.message);
       }
     },
-    onSuccess: (_result, allianceId) => {
+    onSuccess: (_result, next) => {
       setFailed(false);
-      setMessage(allianceId === null ? 'Pin cleared — back to the evidence.' : 'Saved.');
+      setMessage(next.length === 0 ? 'Pin cleared — back to the evidence.' : 'Saved.');
       // is_own is recomputed by a trigger, so every screen that reads it is
       // now stale, not just this one.
       void queryClient.invalidateQueries();
@@ -109,12 +124,21 @@ export function OwnAllianceSetting() {
   }
 
   const rows = data?.rows ?? [];
+  const pinned = data?.pinned ?? [];
   return (
     <>
       <p className="subtle">
         The dashboard treats an alliance as ours when a roster capture showed real presence for it —
         the game hides presence for alliances you are not in. Pin one to say so outright; the pin
         wins, and the evidence column keeps showing what was actually observed.
+      </p>
+      <p className="subtle">
+        Pin more than one to run several alliances side by side: each gets its own members, boards,
+        schedule, hive plans and rank settings, and people switch between the ones they belong to.
+        The first is the <strong>primary</strong>. It keeps the shared settings slot (its rank tiers
+        are the ones every other alliance starts from), the role column older screens still write,
+        and — until Discord routing is per alliance — the only rank-period announcement. Change the
+        primary deliberately.
       </p>
 
       {message && <p className={failed ? 'error' : 'empty'}>{message}</p>}
@@ -132,6 +156,7 @@ export function OwnAllianceSetting() {
                 <th className="num">Evidence</th>
                 <th className="num">In use</th>
                 <th className="num">Pin</th>
+                <th className="num">Order</th>
               </tr>
             </thead>
             <tbody>
@@ -156,25 +181,44 @@ export function OwnAllianceSetting() {
                     {row.is_own && <span className="badge badge-fresh">ours</span>}
                   </td>
                   <td className="num">
-                    {data?.pinned === row.alliance_id ? (
+                    {pinned.includes(row.alliance_id) ? (
                       <button
                         className="linklike"
                         disabled={save.isPending}
-                        onClick={() => save.mutate(null)}
+                        onClick={() => save.mutate(pinned.filter((id) => id !== row.alliance_id))}
                         type="button"
                       >
-                        clear pin
+                        {pinned.length === 1 ? 'clear pin' : 'unpin'}
                       </button>
                     ) : (
                       <button
                         className="linklike"
                         disabled={save.isPending}
-                        onClick={() => save.mutate(row.alliance_id)}
+                        onClick={() => save.mutate([...pinned, row.alliance_id])}
                         type="button"
                       >
-                        pin this
+                        {pinned.length === 0 ? 'pin this' : 'pin as well'}
                       </button>
                     )}
+                  </td>
+                  <td className="num">
+                    {pinned[0] === row.alliance_id ? (
+                      <span className="badge badge-fresh">primary</span>
+                    ) : pinned.includes(row.alliance_id) ? (
+                      <button
+                        className="linklike"
+                        disabled={save.isPending}
+                        onClick={() =>
+                          save.mutate([
+                            row.alliance_id,
+                            ...pinned.filter((id) => id !== row.alliance_id),
+                          ])
+                        }
+                        type="button"
+                      >
+                        make primary
+                      </button>
+                    ) : null}
                   </td>
                 </tr>
               ))}
@@ -183,9 +227,11 @@ export function OwnAllianceSetting() {
         </div>
       )}
 
-      {data?.pinned !== null && data?.pinned !== undefined && (
+      {pinned.length > 0 && (
         <p className="subtle">
-          A pin is set. Clear it to go back to deciding from what the rosters show.
+          {pinned.length === 1
+            ? 'A pin is set. Clear it to go back to deciding from what the rosters show.'
+            : `${pinned.length} alliances are pinned. Unpinning one takes it off the switcher; its data stays.`}
         </p>
       )}
     </>
