@@ -4958,10 +4958,10 @@ export type Database = {
           },
           {
             foreignKeyName: "schedule_events_category_fkey"
-            columns: ["category"]
+            columns: ["alliance_id", "category"]
             isOneToOne: false
             referencedRelation: "schedule_categories"
-            referencedColumns: ["category"]
+            referencedColumns: ["alliance_id", "category"]
           },
           {
             foreignKeyName: "schedule_events_created_by_fkey"
@@ -6701,10 +6701,10 @@ export type Database = {
           },
           {
             foreignKeyName: "schedule_events_category_fkey"
-            columns: ["category"]
+            columns: ["alliance_id", "category"]
             isOneToOne: false
             referencedRelation: "schedule_categories"
-            referencedColumns: ["category"]
+            referencedColumns: ["alliance_id", "category"]
           },
           {
             foreignKeyName: "schedule_reminders_schedule_event_id_fkey"

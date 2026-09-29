@@ -56,13 +56,19 @@ test('an account with two characters lists both, and says which it is shown as',
   expect(within(list).getAllByRole('button', { name: 'Remove' })).toHaveLength(2);
 });
 
-test('the picker offers only characters not already yours, with their alliance', async () => {
+test('an account with a character linked is not offered another', async () => {
   renderForm({ mine: [{ player_id: 'p-1', current_name: 'Bored101' }] });
-  const select = await screen.findByLabelText('Add another character');
+  await screen.findByText('Bored101');
+  expect(screen.queryByRole('combobox')).toBeNull();
+  expect(screen.queryByRole('button', { name: 'This is me' })).toBeNull();
+});
+
+test('the first-link picker names each character with its alliance', async () => {
+  renderForm({ mine: [] });
+  const select = await screen.findByLabelText('Character');
   const options = within(select)
     .getAllByRole('option')
     .map((o) => o.textContent);
-  expect(options).not.toContain('Bored101 [CBFW]');
   expect(options).toContain('VINA ăn cướp [CBFW]');
   expect(options).toContain('AltInBravo [BRV]');
 });

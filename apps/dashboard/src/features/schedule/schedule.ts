@@ -338,8 +338,12 @@ export function useSaveCategory() {
         sort_order: draft.sort_order,
       };
       // Upsert rather than insert-or-update: the key is decided by the caller
-      // before this runs, so there is nothing here to branch on.
-      const { error } = await supabase.from('schedule_categories').upsert(row);
+      // before this runs, so there is nothing here to branch on. The key is
+      // per alliance (0203); alliance_id is left to its default, the alliance
+      // on screen, which is also what RLS allows.
+      const { error } = await supabase
+        .from('schedule_categories')
+        .upsert(row, { onConflict: 'alliance_id,category' });
       if (error !== null) {
         throw error;
       }
