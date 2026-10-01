@@ -144,6 +144,25 @@ class SyncWorker:
         )
         return str(created[0]["alliance_id"])
 
+    def find_alliance(self, external_id: str) -> tuple[str, int] | None:
+        """(alliance_id, server_id) of the alliance this id already names.
+
+        For a payload that names an alliance but not its server — the Black
+        Money history — where the capture's server label is a guess. The id
+        is a 32-hex string, so the only way it names two rows is the same
+        alliance seen before and after a migration; the one seen last wins.
+        """
+        found = self._get_one(
+            "alliances",
+            {
+                "external_id": f"eq.{external_id}",
+                "select": "alliance_id,server_id",
+                "order": "last_seen_at.desc.nullslast",
+                "limit": "1",
+            },
+        )
+        return None if found is None else (str(found["alliance_id"]), int(found["server_id"]))
+
     def ensure_servers(self, server_ids: set[int]) -> None:
         """Register servers we have never seen, untracked.
 
@@ -228,6 +247,7 @@ class SyncWorker:
 
     def _resolve_rows(self, items: list[OutboxItem]) -> list[dict[str, Any]]:
         alliance_ids: dict[tuple[int, str], str] = {}
+        known_alliances: dict[str, tuple[str, int] | None] = {}
         player_refs: list[dict[str, Any]] = []
         for item in items:
             if "player" in item.payload.entity_refs:
@@ -260,10 +280,21 @@ class SyncWorker:
             refs = item.payload.entity_refs
             if "alliance" in refs:
                 ref = refs["alliance"]
-                key = (int(ref["server_id"]), str(ref["external_id"]))
-                if key not in alliance_ids:
-                    alliance_ids[key] = self.ensure_alliance(ref)
-                row["alliance_id"] = alliance_ids[key]
+                external_id = str(ref["external_id"])
+                if ref.get("server_id_is_fallback") and external_id not in known_alliances:
+                    known_alliances[external_id] = self.find_alliance(external_id)
+                known = (
+                    known_alliances.get(external_id) if ref.get("server_id_is_fallback") else None
+                )
+                if known is not None:
+                    # The guessed server must not mint a second alliance
+                    # under the same id, and the row follows the alliance.
+                    row["alliance_id"], row["server_id"] = known
+                else:
+                    key = (int(ref["server_id"]), external_id)
+                    if key not in alliance_ids:
+                        alliance_ids[key] = self.ensure_alliance(ref)
+                    row["alliance_id"] = alliance_ids[key]
             if "player" in refs:
                 row["player_id"] = players.get(int(refs["player"]["game_uid"]))
             rows.append(row)

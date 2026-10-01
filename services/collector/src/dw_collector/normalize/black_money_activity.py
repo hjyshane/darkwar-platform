@@ -32,6 +32,13 @@ teams that cannot be told, and nothing is written rather than guessing.
 
 Unlike the history, this names the opponent by its REAL alliance id; the
 history's enemyAllianceId repeats our own (0178). It is kept in `raw`.
+
+WHOSE SERVER. Our side's own `serverId`, not the server the capture was
+labelled with. Capture is machine-wide and ingest stamps every file with one
+server (580 by default), so ACE's scanner on 578 logging in wrote ACE's
+results as 580's — and, since alliances are keyed by (server, id), under a
+second ACE that exists only on 580. The label is the fallback for a side
+that carries no serverId.
 """
 
 from __future__ import annotations
@@ -44,7 +51,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from dw_collector.models import NormalizedRow, Observation, entry_idempotency_key, stable_uuid
 from dw_collector.registry import register
 
-PARSER_VERSION = "1.0.0"
+PARSER_VERSION = "1.1.0"
 # dragon.activity.info's `result` → the history's `state`.
 STATE_FROM_RESULT = {1: 2, 2: 3}
 
@@ -105,7 +112,6 @@ def normalize(observation: Observation) -> list[NormalizedRow]:
     ours = our_alliance(payload.teams)
     if ours is None:
         return []
-    server_id = observation.collected_from_server_id
 
     rows: list[NormalizedRow] = []
     for team, raw in zip(payload.teams, raw_teams, strict=True):
@@ -117,6 +123,9 @@ def normalize(observation: Observation) -> list[NormalizedRow]:
         their_result = next((r for r in team.results if r.alliance_id != ours), None)
         if us is None or our_result is None:
             continue
+        server_id = (
+            us.server_id if us.server_id is not None else observation.collected_from_server_id
+        )
         ended_at = datetime.fromtimestamp(team.time_info.end_time / 1000, tz=UTC)
         key = entry_idempotency_key(
             observation, f"battle:{ours}:{team.team_index}", ended_at.isoformat(), raw
@@ -152,7 +161,7 @@ def normalize(observation: Observation) -> list[NormalizedRow]:
                 },
                 entity_refs={
                     "alliance": {
-                        "server_id": us.server_id or server_id,
+                        "server_id": server_id,
                         "external_id": ours,
                         "name": us.name,
                         "code": us.abbr,

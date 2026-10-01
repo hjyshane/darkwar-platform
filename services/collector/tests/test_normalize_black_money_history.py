@@ -73,10 +73,13 @@ def test_a_missing_enemy_name_is_kept_as_null() -> None:
     assert nameless[0]["enemy_score"] is not None
 
 
-def test_subject_server_is_where_it_was_observed() -> None:
+def test_the_capture_label_is_marked_as_a_guess() -> None:
+    """No server in the payload: the label is written, and the ref says it
+    is a fallback so sync can put the row on its alliance's real server."""
     rows = black_money_history.normalize(load_observation(HISTORY))
 
     assert {r.row["server_id"] for r in rows} == {580}
+    assert all(r.entity_refs["alliance"]["server_id_is_fallback"] for r in rows)
 
 
 def test_a_battle_keeps_its_key_across_screen_opens() -> None:

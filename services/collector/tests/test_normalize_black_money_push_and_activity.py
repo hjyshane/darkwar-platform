@@ -127,6 +127,46 @@ def test_ours_is_the_alliance_in_every_matchup() -> None:
         assert len(opponents) == 1
 
 
+def test_the_server_is_our_sides_own_not_the_capture_label() -> None:
+    """Capture is machine-wide and ingest labels every file 580, so ACE's
+    scanner on 578 logging in must still put ACE's results on 578."""
+    observation = load_observation(FOUGHT)
+    teams = [
+        {
+            **team,
+            "vsInfoArr": [
+                {**side, "serverId": 578} if side["serverId"] == 580 else side
+                for side in team["vsInfoArr"]
+            ],
+        }
+        for team in observation.payload["teamArr"]
+    ]
+    on_578 = observation.model_copy(update={"payload": {**observation.payload, "teamArr": teams}})
+
+    rows = black_money_activity.normalize(on_578)
+
+    assert observation.collected_from_server_id == 580
+    assert {r.row["server_id"] for r in rows} == {578}
+    assert {r.entity_refs["alliance"]["server_id"] for r in rows} == {578}
+    assert {r.row["collected_from_server_id"] for r in rows} == {580}
+
+
+def test_a_side_without_a_server_falls_back_to_the_label() -> None:
+    observation = load_observation(FOUGHT)
+    teams = [
+        {
+            **team,
+            "vsInfoArr": [
+                {k: v for k, v in side.items() if k != "serverId"} for side in team["vsInfoArr"]
+            ],
+        }
+        for team in observation.payload["teamArr"]
+    ]
+    bare = observation.model_copy(update={"payload": {**observation.payload, "teamArr": teams}})
+
+    assert {r.row["server_id"] for r in black_money_activity.normalize(bare)} == {580}
+
+
 def test_one_team_cannot_say_which_alliance_is_ours() -> None:
     observation = load_observation(FOUGHT)
     one_team = observation.model_copy(
