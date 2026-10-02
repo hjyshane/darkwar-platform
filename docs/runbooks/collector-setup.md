@@ -14,6 +14,9 @@ Desktop이 내부적으로 WSL2를 쓴다 — 거기서 타이핑하지 않는�
 | **Windows** `C:\darkwar-platform` | `dw-capture`, `dw-collector sync` | Npcap이 Windows 전용이고, SQLite 저널이 로컬 디스크에 있어야 한다 |
 | **Windows** `C:\darkwar-platform` | `supabase` 마이그레이션·pgTAP, `pnpm dev`, pytest | 창을 나누면 저널과 `.env`가 두 벌이 된다 |
 
+Windows PC를 쓸 수 없을 때(여행 중) 맥에서 캡처 파일을 떠서 올리는 수동 경로는
+[mac-capture.md](mac-capture.md)에 따로 있다.
+
 **캡처는 WSL에서 원리적으로 불가능하다.** Npcap이 Windows 전용인 것에 더해,
 WSL2는 자기만의 가상 랜카드(`172.19.160.1`)를 쓰는 별도 네트워크다. 게임은
 Windows의 실제 랜카드(`192.168.86.30`)로 통신하므로 WSL에서는 그 트래픽이 보이지
