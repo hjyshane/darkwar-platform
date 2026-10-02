@@ -4464,6 +4464,23 @@ button.tile-grid:hover:not(:disabled) {
   margin-top: 0;
 }
 
+/* --- participation (0204) ------------------------------------------------- */
+
+/* How many of the read weeks a total is made of, on its own line under the
+ * figure so every row breaks in the same place. */
+.participation-sub {
+  display: block;
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+
+/* The three ticks for one member: a group for assistive tech, not a box. */
+.attendance-marks {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
 /* --- server migration (0186) ----------------------------------------------- */
 
 .migration-bar,

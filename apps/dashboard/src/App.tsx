@@ -24,6 +24,7 @@ import { MonthCardsPage } from './features/monthCards/MonthCardsPage';
 import { NoticePostPage } from './features/notices/NoticePostPage';
 import { NoticesPanel } from './features/notices/NoticesPanel';
 import { Overview } from './features/overview/OverviewPanel';
+import { ParticipationPage } from './features/participation/ParticipationPage';
 import { PlayerPage } from './features/player/PlayerPage';
 import { RankingsPanel } from './features/rankings/RankingsPanel';
 import { RosterPanel } from './features/roster/RosterPanel';
@@ -476,6 +477,11 @@ function Screen({ route, mapServerId }: { route: Route; mapServerId: number | nu
       // are member-only at the policy level (0178) and the app is walled to
       // members, so there is no ungated reader to explain an empty page to.
       return <BlackMoneyPage />;
+    case 'participation':
+      // No capability gate, for Black Gold's reason: every source under it is
+      // member-only at the policy level (0204's report is security invoker),
+      // and recording is gated inside the page on `data.enter`.
+      return <ParticipationPage />;
     case 'season':
       // No capability gate. Both season tables are member-only at the
       // policy level (0136) and the whole app is walled to members

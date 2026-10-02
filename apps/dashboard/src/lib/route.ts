@@ -35,6 +35,7 @@ export type Route =
   | 'notices'
   | 'notice'
   | 'schedule'
+  | 'participation'
   | 'account'
   | 'terms'
   | 'privacy'
@@ -59,6 +60,7 @@ const ROUTES: Record<string, Route> = {
   '#/guides': 'guides',
   '#/notices': 'notices',
   '#/schedule': 'schedule',
+  '#/participation': 'participation',
   // The only two addresses here that a signed-out stranger is MEANT to reach.
   // Everything else on this list is walled; these are marked standalone in
   // `App.tsx` so they are not, because Google and Discord fetch them with no
@@ -285,6 +287,10 @@ export const EVENT_TABS: ReadonlyArray<NavTab> = [
   { route: 'season', hash: '#/season', label: 'Season 3' },
   { route: 'season2', hash: '#/season2', label: 'Season 2' },
   { route: 'blackMoney', hash: '#/black-gold', label: 'Black Gold' },
+  // Every member against every event above, plus the ones only an officer
+  // can record (0204). Member-only at the policy level, like the boards it
+  // folds, so no capability gate.
+  { route: 'participation', hash: '#/participation', label: 'Participation' },
   { route: 'schedule', hash: '#/schedule', label: 'Schedule' },
 ];
 
@@ -315,6 +321,7 @@ export function navSection(route: Route): NavSection | null {
     case 'season':
     case 'season2':
     case 'blackMoney':
+    case 'participation':
     case 'schedule':
       return 'events';
     case 'notices':
