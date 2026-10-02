@@ -523,6 +523,8 @@ uv run --no-sync dw-collector survey `
 
 ## 명령 한눈에
 
+레포 전체(pnpm, supabase, 배포 포함)의 명령은 [`commands.md`](commands.md)에 모아 두었다.
+
 | 명령 | 어디서 | 무엇을 |
 |---|---|---|
 | `dw-capture` | Windows | 라이브 수집 (Ctrl+C로 중지) |
