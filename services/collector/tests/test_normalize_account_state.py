@@ -56,6 +56,15 @@ def test_levels_are_maps_of_id_to_level() -> None:
         assert all(isinstance(level, int) for level in row.row[field].values())
 
 
+def test_research_tree_is_a_map_of_research_to_level() -> None:
+    (row,) = account_state.normalize(load_observation(LOGIN))
+    science = row.row["science"]
+
+    assert len(science) == 8
+    assert science["1409300"] == 1
+    assert science["1810200"] == 10
+
+
 def test_hero_gear_keeps_who_wears_it() -> None:
     (row,) = account_state.normalize(load_observation(LOGIN))
 
@@ -85,6 +94,7 @@ def test_raw_is_only_what_the_parser_reads() -> None:
         "hero_equips",
         "hero_intensify",
         "mod_car_equips",
+        "science",
     }
     assert row.row["raw"]["user"] == {"uid": "9473022442000580", "serverId": 580}
     assert "someone@example.com" not in str(row.row)

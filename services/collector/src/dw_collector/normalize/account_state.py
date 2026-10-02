@@ -19,13 +19,16 @@ collector's:
 - `heroEquips[]`: `equipId`, `level`, `promote` always ints; `heroId` absent
   on gear nobody is wearing (5,335 of 5,927 carry it) — absence kept as null.
 - `heroIntensifys[]` and `modCarEquipArr[]`: always int pairs.
+- `science_new[]`: the research tree, `{itemId, level}` int pairs, itemId
+  unique within a login (136 to 248 entries as research opens up).
 
 PRIVACY. The rest of `init` is a whole account: linked sign-in names, mail
 state, chat shields, formations, purchase history. `raw` here is therefore
 NOT the full payload — it is exactly the subset this parser reads, so the
 cloud never holds more than the planner shows. The idempotency key still
 hashes the full decoded payload (§11.2), which never leaves the journal.
-The table is readable only by the member who claimed the character (0205).
+The table is readable by the member who claimed the character and by
+admins (0205).
 """
 
 from __future__ import annotations
@@ -116,6 +119,7 @@ def account_state(payload: dict[str, Any]) -> dict[str, Any]:
         "hero_equips": hero_equips,
         "hero_intensify": _pairs(_entries(payload, "heroIntensifys"), "heroId", "lv"),
         "mod_car_equips": _pairs(_entries(payload, "modCarEquipArr"), "equipId", "lv"),
+        "science": _pairs(_entries(payload, "science_new"), "itemId", "level"),
     }
 
 

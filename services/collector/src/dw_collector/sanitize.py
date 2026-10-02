@@ -698,6 +698,7 @@ _INIT_FIELDS: dict[str, tuple[str, ...]] = {
     "heroEquips": ("equipId", "heroId", "level", "promote"),
     "heroIntensifys": ("heroId", "lv"),
     "modCarEquipArr": ("equipId", "lv"),
+    "science_new": ("itemId", "level"),
 }
 
 

@@ -51,6 +51,7 @@ export type Database = {
           parser_version: string
           player_id: string | null
           raw: Json
+          science: Json
           server_id: number
           snapshot_id: string
           source_command: string
@@ -71,6 +72,7 @@ export type Database = {
           parser_version: string
           player_id?: string | null
           raw?: Json
+          science?: Json
           server_id: number
           snapshot_id?: string
           source_command: string
@@ -91,6 +93,7 @@ export type Database = {
           parser_version?: string
           player_id?: string | null
           raw?: Json
+          science?: Json
           server_id?: number
           snapshot_id?: string
           source_command?: string
@@ -5741,6 +5744,7 @@ export type Database = {
           items: Json | null
           mod_car_equips: Json | null
           player_id: string | null
+          science: Json | null
           server_id: number | null
         }
         Relationships: [
