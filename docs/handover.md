@@ -1,6 +1,6 @@
 # 인수인계
 
-작성 2026-08-01, 갱신 2026-09-25. 다음 세션이 이 문서만 읽고 이어받을 수 있게 쓴다.
+작성 2026-08-01, 갱신 2026-10-02. 다음 세션이 이 문서만 읽고 이어받을 수 있게 쓴다.
 
 > **다음 세션은 바로 아래 「2026-09-25 상태 (15)」부터 읽는다.** 그 아래는 배경이고,
 > 일부는 이미 낡았다.
@@ -27,9 +27,19 @@
   `docs/capture-backlog.md` §5-b.
 - 시즌 시작은 2026-08-17 02:00 UTC로 고정(`periods.ts`의 `SEASON_START`,
   듀얼 라운드 앵커와 같다). `season_lab.starts_at`은 건물 규칙 시작일이라 쓰지 않았다.
-- 테스트: `supabase/tests/109_who_took_part_test.sql` (44개) — **Mac에서 작성,
-  로컬 미실행**. CI db 잡이 첫 실행이다. 실데이터로는 한 번도 안 돌았다 — 시즌
-  전체 범위의 응답 시간도 프로드에서 처음 재게 된다.
+- 테스트: `supabase/tests/109_who_took_part_test.sql` (44개). Mac에서 작성해 로컬로는
+  못 돌렸고, **#328의 CI db 잡에서 처음 실행해 통과했다**(전체 마이그레이션 체인 +
+  pgTAP 전체 + 타입 비교). #328은 머지됐고 대시보드는 cbfw.us에 배포됐다.
+- **운영 DB 반영은 확인 안 됐다.** 대시보드 배포는 머지로 자동이지만 마이그레이션은
+  아니다. `supabase migration list --linked`에서 0204의 remote 칸이 비어 있으면
+  `supabase db push` → `supabase db diff --linked`(`going-public.md`). 그 전까지
+  운영의 Participation 탭은 "Could not load participation" 오류를 낸다.
+- 실데이터로는 한 번도 안 돌았다. 시즌 전체 범위의 응답 시간도 운영에서 처음 재게
+  된다. 느리면 일간 탐침(멤버 × 날 × 보드 2개, 시즌이면 약 1만 회)이 먼저 의심된다.
+- **손으로 넣는 다섯 이벤트를 이미 모은 데이터로 채울 수 있는지**는
+  `dw-collector survey`(#329, `collector-operations.md` §5-3)로 본다. 레포 문서와
+  픽스처만으로는 다섯 다 "관찰된 적 없음"이었다. Windows의 `live.db`와 탐색 pcap에
+  돌린 결과는 아직 없다. **`prune-journal --confirm`보다 먼저 돌린다.**
 
 ---
 
