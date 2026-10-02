@@ -687,7 +687,52 @@ def sanitize_dragon_activity_info(payload: dict[str, Any]) -> dict[str, Any]:
     return sanitized
 
 
+# Enough of each list to exercise the parser; a whole account's inventory is
+# not needed to prove the shape, and is more of an account than a fixture
+# should carry.
+_INIT_LIST_LIMIT = 8
+
+_INIT_FIELDS: dict[str, tuple[str, ...]] = {
+    "items": ("itemId", "count"),
+    "building_new": ("bId", "lv"),
+    "heroEquips": ("equipId", "heroId", "level", "promote"),
+    "heroIntensifys": ("heroId", "lv"),
+    "modCarEquipArr": ("equipId", "lv"),
+    "science_new": ("itemId", "level"),
+}
+
+
+def sanitize_init(payload: dict[str, Any]) -> dict[str, Any]:
+    """The login response, cut down to what the account_state parser reads.
+
+    Everything else in `init` — linked sign-in names, mail, chat, purchase
+    state, formations — is dropped outright rather than masked: nothing reads
+    it, so there is no shape to preserve. The uid keeps its server suffix
+    and the character's name is replaced.
+    """
+    raw_user = payload.get("user")
+    user: dict[str, Any] = raw_user if isinstance(raw_user, dict) else {}
+    clean: dict[str, Any] = {
+        "user": {
+            "uid": _fake_uid(str(user.get("uid", ""))),
+            "serverId": user.get("serverId"),
+            "name": "Player01",
+        }
+    }
+    for key, fields in _INIT_FIELDS.items():
+        entries = payload.get(key)
+        if not isinstance(entries, list):
+            continue
+        clean[key] = [
+            {field: entry[field] for field in fields if field in entry}
+            for entry in entries[:_INIT_LIST_LIMIT]
+            if isinstance(entry, dict)
+        ]
+    return clean
+
+
 SANITIZERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
+    "init": sanitize_init,
     "push.mail": sanitize_push_mail,
     "dragon.activity.info": sanitize_dragon_activity_info,
     "dragon.assign.player.info": sanitize_dragon_assign_player_info,

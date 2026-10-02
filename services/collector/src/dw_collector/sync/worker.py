@@ -30,6 +30,8 @@ _TABLE_ORDER = [
     "player_snapshots",
     "player_detail_snapshots",
     "player_component_power_snapshots",
+    # The logged-in account's own inventory and levels (0205). One player ref.
+    "account_state_snapshots",
     "player_season_force_snapshots",
     "world_city_snapshots",
     "season_building_snapshots",

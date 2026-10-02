@@ -34,6 +34,115 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_state_snapshots: {
+        Row: {
+          buildings: Json
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at: string
+          game_uid: number
+          hero_equips: Json
+          hero_intensify: Json
+          idempotency_key: string
+          items: Json
+          mod_car_equips: Json
+          observation_id: string
+          parser_version: string
+          player_id: string | null
+          raw: Json
+          science: Json
+          server_id: number
+          snapshot_id: string
+          source_command: string
+        }
+        Insert: {
+          buildings?: Json
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at?: string
+          game_uid: number
+          hero_equips?: Json
+          hero_intensify?: Json
+          idempotency_key: string
+          items?: Json
+          mod_car_equips?: Json
+          observation_id: string
+          parser_version: string
+          player_id?: string | null
+          raw?: Json
+          science?: Json
+          server_id: number
+          snapshot_id?: string
+          source_command: string
+        }
+        Update: {
+          buildings?: Json
+          captured_at?: string
+          collected_from_server_id?: number
+          collector_id?: string
+          created_at?: string
+          game_uid?: number
+          hero_equips?: Json
+          hero_intensify?: Json
+          idempotency_key?: string
+          items?: Json
+          mod_car_equips?: Json
+          observation_id?: string
+          parser_version?: string
+          player_id?: string | null
+          raw?: Json
+          science?: Json
+          server_id?: number
+          snapshot_id?: string
+          source_command?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_state_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "account_state_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "account_state_snapshots_collector_id_fkey"
+            columns: ["collector_id"]
+            isOneToOne: false
+            referencedRelation: "collectors"
+            referencedColumns: ["collector_id"]
+          },
+          {
+            foreignKeyName: "account_state_snapshots_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "account_state_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "account_state_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+        ]
+      }
       activity_events: {
         Row: {
           activity_day: string
@@ -5625,6 +5734,43 @@ export type Database = {
       }
     }
     Views: {
+      account_state_latest: {
+        Row: {
+          buildings: Json | null
+          captured_at: string | null
+          game_uid: number | null
+          hero_equips: Json | null
+          hero_intensify: Json | null
+          items: Json | null
+          mod_car_equips: Json | null
+          player_id: string | null
+          science: Json | null
+          server_id: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_state_snapshots_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "account_state_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "account_state_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+        ]
+      }
       activity_daily: {
         Row: {
           alliance_days: number | null

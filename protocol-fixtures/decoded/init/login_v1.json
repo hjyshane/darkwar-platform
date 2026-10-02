@@ -1,0 +1,227 @@
+{
+  "observation_id": "da957dd0-29fd-54a0-9a6e-de7108ff391c",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "init",
+  "captured_at": "2026-07-30T18:33:47.776080Z",
+  "collected_from_server_id": 580,
+  "payload": {
+    "user": {
+      "uid": "9473022442000580",
+      "serverId": 580,
+      "name": "Player01"
+    },
+    "items": [
+      {
+        "itemId": "200202",
+        "count": 11
+      },
+      {
+        "itemId": "300001",
+        "count": 1398
+      },
+      {
+        "itemId": "241755",
+        "count": 1
+      },
+      {
+        "itemId": "210502",
+        "count": 9
+      },
+      {
+        "itemId": "210883",
+        "count": 5
+      },
+      {
+        "itemId": "310007",
+        "count": 6
+      },
+      {
+        "itemId": "200221",
+        "count": 518
+      },
+      {
+        "itemId": "300015",
+        "count": 85
+      }
+    ],
+    "building_new": [
+      {
+        "bId": 437000,
+        "lv": 1
+      },
+      {
+        "bId": 427000,
+        "lv": 1
+      },
+      {
+        "bId": 786000,
+        "lv": 24
+      },
+      {
+        "bId": 775000,
+        "lv": 30
+      },
+      {
+        "bId": 830000,
+        "lv": 1
+      },
+      {
+        "bId": 808000,
+        "lv": 10
+      },
+      {
+        "bId": 780000,
+        "lv": 10
+      },
+      {
+        "bId": 782000,
+        "lv": 30
+      }
+    ],
+    "heroEquips": [
+      {
+        "equipId": 410400,
+        "heroId": 11001,
+        "level": 100,
+        "promote": 7
+      },
+      {
+        "equipId": 410400,
+        "heroId": 1006,
+        "level": 50,
+        "promote": 0
+      },
+      {
+        "equipId": 410100,
+        "heroId": 1004,
+        "level": 100,
+        "promote": 11
+      },
+      {
+        "equipId": 410400,
+        "heroId": 40001,
+        "level": 100,
+        "promote": 11
+      },
+      {
+        "equipId": 310400,
+        "heroId": 1019,
+        "level": 0,
+        "promote": 0
+      },
+      {
+        "equipId": 310400,
+        "heroId": 12001,
+        "level": 0,
+        "promote": 0
+      },
+      {
+        "equipId": 410300,
+        "heroId": 1017,
+        "level": 50,
+        "promote": 1
+      },
+      {
+        "equipId": 410100,
+        "heroId": 21001,
+        "level": 100,
+        "promote": 11
+      }
+    ],
+    "heroIntensifys": [
+      {
+        "heroId": 12001,
+        "lv": 56
+      },
+      {
+        "heroId": 32001,
+        "lv": 25
+      },
+      {
+        "heroId": 33001,
+        "lv": 40
+      },
+      {
+        "heroId": 1002,
+        "lv": 41
+      },
+      {
+        "heroId": 1003,
+        "lv": 3
+      },
+      {
+        "heroId": 1006,
+        "lv": 44
+      },
+      {
+        "heroId": 1007,
+        "lv": 23
+      },
+      {
+        "heroId": 1008,
+        "lv": 33
+      }
+    ],
+    "modCarEquipArr": [
+      {
+        "equipId": 1,
+        "lv": 28
+      },
+      {
+        "equipId": 2,
+        "lv": 28
+      },
+      {
+        "equipId": 3,
+        "lv": 27
+      },
+      {
+        "equipId": 4,
+        "lv": 27
+      },
+      {
+        "equipId": 5,
+        "lv": 27
+      },
+      {
+        "equipId": 6,
+        "lv": 27
+      }
+    ],
+    "science_new": [
+      {
+        "itemId": 1409300,
+        "level": 1
+      },
+      {
+        "itemId": 1309200,
+        "level": 2
+      },
+      {
+        "itemId": 1810200,
+        "level": 10
+      },
+      {
+        "itemId": 808200,
+        "level": 5
+      },
+      {
+        "itemId": 2407200,
+        "level": 10
+      },
+      {
+        "itemId": 804100,
+        "level": 4
+      },
+      {
+        "itemId": 1411100,
+        "level": 1
+      },
+      {
+        "itemId": 1202200,
+        "level": 3
+      }
+    ]
+  },
+  "schema_version": 1
+}
