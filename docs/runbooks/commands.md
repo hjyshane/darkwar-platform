@@ -5,8 +5,9 @@
 `dw-collector` CLI(`cli.py`), 그리고 각 런북이다. 자세한 절차와 이유는 각 줄에
 적어 둔 런북에 있다 — 이 문서는 색인이지 절차서가 아니다.
 
-**[W]** = Windows에서만 된다(캡처, Docker, 작업 스케줄러). 이 Mac에는 Docker,
-Supabase CLI, `uv`가 없어서 1절의 pnpm 명령과 `dev:local`까지만 쓸 수 있다.
+**[W]** = Windows에서만 된다(캡처, Docker, 작업 스케줄러). 맥은 2026-10-02부터
+Docker 없이 나머지를 다 한다 — pgTAP, 수집기 점검, `supabase db push`, `sync`.
+설치와 맥에서 안 되는 것은 [`mac-setup.md`](mac-setup.md).
 
 명령이나 옵션이 바뀌면 이 문서도 같이 고친다. 옵션 전체는 `--help`가 정답이다:
 `uv run dw-collector <명령> --help`.
@@ -26,7 +27,7 @@ Supabase CLI, `uv`가 없어서 1절의 pnpm 명령과 `dev:local`까지만 쓸 
 | `pnpm build` | 빌드. **로컬 `dist/`는 `127.0.0.1:54321`을 가리키므로 손으로 배포하면 안 된다** |
 | `pnpm db:types` | 로컬 스택에서 `packages/shared-types/src/database.types.ts` 재생성. 로컬 전용, `--linked` 금지(`scripts/db-types.mjs` 머리말) |
 | `pnpm db:reset` / `pnpm db:test` | `supabase db reset` / `supabase test db` 단축 **[W]** |
-| `pnpm db:test:local` | Docker 없이 pgTAP 전체(`scripts/pgtap/run.py`, scoop의 `postgresql17` + pgTAP). 약 45초 **[W]** |
+| `pnpm db:test:local` | Docker 없이 pgTAP 전체(`scripts/pgtap/run.py`). Windows는 scoop의 `postgresql17`(약 45초), 맥은 `PGBIN`의 `~/.local/opt/postgresql-17`(약 8초) |
 
 커밋 전 점검 (CLAUDE.md):
 
@@ -40,7 +41,7 @@ pnpm check && pnpm typecheck && pnpm test && pnpm build
 
 | 명령 | 하는 일 |
 |---|---|
-| `uv sync --extra capture` | 의존성 설치(캡처용 scapy 포함). `git pull` 뒤에 **[W]** |
+| `uv sync --extra capture` | 의존성 설치(캡처용 scapy 포함). `git pull` 뒤에 **[W]** — 맥은 그냥 `uv sync` |
 | `uv run ruff check .` / `uv run ruff format --check .` | 린트 / 포맷 검사 |
 | `uv run mypy src` | 타입 검사(strict) |
 | `uv run pytest` | 테스트 |

@@ -3754,11 +3754,15 @@ id 접두사로는 병종을 알 수 없다(`33001`·`33003`은 라이더인데 
 
 ## Mac 도구 설치 메모
 
-Windows에는 해당 없지만 기록해둔다.
+**2026-10-02부터 `docs/runbooks/mac-setup.md`가 정본이다** — Node 22, uv +
+Python 3.12, PostgreSQL 17 + pgTAP, Supabase CLI를 관리자 권한 없이 홈 폴더에
+설치했고, 맥에서도 pgTAP 전체가 돈다. 아래는 그 전 기록이다.
 
 - Homebrew가 `admin` 소유라 `npm -g`가 EACCES → `npm config set prefix ~/.local`
 - Node 26에는 corepack이 없다(25부터 제거) → `npm i -g pnpm@9.15.0`
-- `uv`는 PyPI에서 `~/Library/Python/3.14/bin`로 설치
+  (지금은 Node 22가 `~/.local/bin`에서 먼저 잡히고, pnpm은 그 위에서 돈다)
+- `uv`는 PyPI에서 `~/Library/Python/3.14/bin`로 설치 (지금은 `~/.local/bin`의
+  공식 설치본)
 
 ---
 
@@ -3801,7 +3805,8 @@ uv run ruff check . && uv run ruff format --check . && uv run mypy src && uv run
 ```
 
 **pgTAP은 로컬에서 돌려야 한다.** Mac에는 Supabase 스택이 없어 `db` 잡이
-유일한 사각지대였고, 실제로 두 번 진짜 버그를 잡았다.
+유일한 사각지대였고, 실제로 두 번 진짜 버그를 잡았다. (2026-10-02부터 맥에서도
+`pnpm db:test:local`이 돈다 — `mac-setup.md`.)
 
 - 컬럼을 옮기고 `supabase/tests/`를 grep하지 않아 테스트 7개가 깨졌다
 - **`RAISE EXCEPTION`은 그 호출에서 함수가 쓴 것을 전부 롤백한다.** 실패

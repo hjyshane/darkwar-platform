@@ -18,8 +18,8 @@ Windows의 `dw-capture`·`dw-ui-worker`·데스크톱 앱은 맥에서 돌지 �
 
 ## 사전 준비 (맥에서 1회)
 
-1. **저장소와 도구** — `uv`, 저장소 클론. 설치 메모는 `docs/handover.md`의
-   "Mac 도구 설치 메모"에 있다. 캡처 extra(scapy)는 필요 없다:
+1. **저장소와 도구** — `uv`, 저장소 클론. 설치는 `docs/runbooks/mac-setup.md`
+   (관리자 권한 없이, Docker 없이). 캡처 extra(scapy)는 필요 없다:
 
    ```bash
    cd ~/darkwar-platform/services/collector && uv sync
