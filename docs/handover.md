@@ -7,6 +7,32 @@
 
 ---
 
+## 2026-10-02 — 참여 보고서 (0204, Events → Participation)
+
+멤버 한 명당 한 줄, 시즌 / 듀얼 라운드 / 주 단위로 모든 이벤트 참여를 본다.
+`public.member_participation(p_from, p_to)` 하나가 접어서 준다(security invoker,
+`member_roster_current`의 alliance_scope가 보고 있는 연맹으로 좁힌다).
+
+- **캐처 열**: 듀얼·기부(일간 = 점수 낸 날 / 보드를 읽은 날, 주간 = 합계),
+  Black Gold(출전 / 명단, 리포트가 캐처된 전투만), 시즌 건물(범위 안에서 본
+  레벨 상승 — 맵 스윕이 드문드문이라 하한값).
+- **"읽은 날"은 연맹 기준**이다. 현재 멤버 누구든 그날 보드에 있으면 읽은 날.
+  아무도 안 읽은 날은 분모에서 빠지므로 캡처 공백이 멤버 탓이 되지 않는다.
+  **읽은 날 보드에 없는 멤버는 "보드에 없음"으로 세고 0점으로 보지 않는다** —
+  일간 보드가 0점 멤버까지 다 싣는지는 아직 확인 안 됐다.
+- **손으로 넣는 열**: Capital Clash, Server Clash, Frankie, Ice Pit, Furnace Fury.
+  캡처가 없어서 임원(`data.enter`)이 날짜별로 출석/결석/미기록을 체크한다
+  (`event_attendance`, `record_event_attendance`). 이벤트 목록은
+  `attendance_event_kinds` — 다음 이벤트는 insert 한 줄. 캡처 쪽은
+  `docs/capture-backlog.md` §5-b.
+- 시즌 시작은 2026-08-17 02:00 UTC로 고정(`periods.ts`의 `SEASON_START`,
+  듀얼 라운드 앵커와 같다). `season_lab.starts_at`은 건물 규칙 시작일이라 쓰지 않았다.
+- 테스트: `supabase/tests/109_who_took_part_test.sql` (44개) — **Mac에서 작성,
+  로컬 미실행**. CI db 잡이 첫 실행이다. 실데이터로는 한 번도 안 돌았다 — 시즌
+  전체 범위의 응답 시간도 프로드에서 처음 재게 된다.
+
+---
+
 ## 2026-09-27 — 듀얼 주간 빈 주는 라운드 총합으로 자동 계산된다 (0184)
 
 주간 듀얼 탭은 누가 열어야만 캡처된다. 09-14 주는 0건, 09-21 주(week2)만 있었다.

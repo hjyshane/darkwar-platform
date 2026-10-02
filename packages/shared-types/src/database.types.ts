@@ -1720,6 +1720,27 @@ export type Database = {
           },
         ]
       }
+      attendance_event_kinds: {
+        Row: {
+          captured: boolean
+          kind: string
+          label: string
+          sort_order: number
+        }
+        Insert: {
+          captured?: boolean
+          kind: string
+          label: string
+          sort_order?: number
+        }
+        Update: {
+          captured?: boolean
+          kind?: string
+          label?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
       audit_logs: {
         Row: {
           action: string
@@ -2522,6 +2543,72 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "world_sweep_coverage"
             referencedColumns: ["server_id"]
+          },
+        ]
+      }
+      event_attendance: {
+        Row: {
+          alliance_id: string | null
+          attended: boolean
+          entered_at: string
+          entered_by: string | null
+          held_on: string
+          kind: string
+          player_id: string
+        }
+        Insert: {
+          alliance_id?: string | null
+          attended: boolean
+          entered_at?: string
+          entered_by?: string | null
+          held_on: string
+          kind: string
+          player_id: string
+        }
+        Update: {
+          alliance_id?: string | null
+          attended?: boolean
+          entered_at?: string
+          entered_by?: string | null
+          held_on?: string
+          kind?: string
+          player_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_attendance_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "event_attendance_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "event_attendance_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "event_attendance_kind_fkey"
+            columns: ["kind"]
+            isOneToOne: false
+            referencedRelation: "attendance_event_kinds"
+            referencedColumns: ["kind"]
+          },
+          {
+            foreignKeyName: "event_attendance_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
           },
         ]
       }
@@ -6848,6 +6935,35 @@ export type Database = {
       leave_alliance: { Args: never; Returns: undefined }
       linked_player_id: { Args: never; Returns: string }
       linked_player_ids: { Args: never; Returns: string[] }
+      member_participation: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          black_gold_listed: number
+          black_gold_played: number
+          black_gold_starter_missed: number
+          black_gold_substitute_missed: number
+          current_name: string
+          donation_days_on_board: number
+          donation_days_read: number
+          donation_days_scored: number
+          donation_total: number
+          donation_weeks_on_board: number
+          donation_weeks_read: number
+          donation_weeks_scored: number
+          duel_days_on_board: number
+          duel_days_read: number
+          duel_days_scored: number
+          duel_total: number
+          duel_weeks_on_board: number
+          duel_weeks_read: number
+          duel_weeks_scored: number
+          game_uid: number
+          member_rank: number
+          player_id: string
+          season_levels_gained: number
+          typed_events: Json
+        }[]
+      }
       migration_alliances: {
         Args: { p_event_id: string }
         Returns: {
@@ -6984,6 +7100,10 @@ export type Database = {
       record_departure: {
         Args: { p_action: string; p_user: string }
         Returns: undefined
+      }
+      record_event_attendance: {
+        Args: { p_entries: Json; p_held_on: string; p_kind: string }
+        Returns: number
       }
       record_post_view: {
         Args: { p_announcement_id?: string; p_guide_id?: string }

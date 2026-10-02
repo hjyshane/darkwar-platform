@@ -14,6 +14,7 @@
 import { recentWeeks } from '../features/admin/ManualScoresSetting';
 import type { BoardPage } from '../features/board/board';
 import { vacateDeparted } from '../features/hive/hiveFormations';
+import { gameDate, seasonPeriod } from '../features/participation/periods';
 import { calendarRange } from '../lib/calendar';
 
 const PLAYER = {
@@ -563,6 +564,110 @@ const HIVE_SLOTS = [
   }))
   .map(vacateDeparted);
 
+/** The participation report (0204), for the season so far — the range the
+ *  page opens on, computed by the same function so the key matches.
+ *
+ *  Four members, four different shapes: Shane takes part in everything, Mira
+ *  is under half on duel days and missed Black Gold, Kova has never been read
+ *  on any board (every captured cell must be a dash, not 0), and Dex was never
+ *  listed for Black Gold. Typed events are uneven too: Frankie has a member
+ *  nobody ticked, and Ice Pit and Furnace Fury were never held. */
+const PARTICIPATION_RANGE = seasonPeriod(new Date());
+
+function participation(
+  playerId: string,
+  name: string,
+  memberRank: number | null,
+  over: Record<string, unknown> = {},
+) {
+  return {
+    player_id: playerId,
+    current_name: name,
+    game_uid: 9100000000000580,
+    member_rank: memberRank,
+    duel_days_read: 38,
+    duel_days_on_board: 37,
+    duel_days_scored: 35,
+    duel_weeks_read: 6,
+    duel_weeks_on_board: 6,
+    duel_weeks_scored: 6,
+    duel_total: 8_420_000,
+    donation_days_read: 41,
+    donation_days_on_board: 41,
+    donation_days_scored: 40,
+    donation_weeks_read: 7,
+    donation_weeks_on_board: 7,
+    donation_weeks_scored: 7,
+    donation_total: 5_960_000,
+    black_gold_listed: 4,
+    black_gold_played: 4,
+    black_gold_starter_missed: 0,
+    black_gold_substitute_missed: 0,
+    season_levels_gained: 6,
+    typed_events: {
+      capital_clash: { held: 2, attended: 2, missed: 0 },
+      server_clash: { held: 1, attended: 1, missed: 0 },
+      frankie: { held: 3, attended: 3, missed: 0 },
+    },
+    ...over,
+  };
+}
+
+const PARTICIPATION_ROWS = [
+  participation(PLAYER.shane, 'Shane', 5),
+  participation(PLAYER.mira, 'Mira', 4, {
+    duel_days_on_board: 30,
+    duel_days_scored: 14,
+    duel_total: 2_310_000,
+    duel_weeks_scored: 5,
+    donation_days_scored: 33,
+    black_gold_listed: 4,
+    black_gold_played: 2,
+    black_gold_starter_missed: 1,
+    black_gold_substitute_missed: 1,
+    season_levels_gained: 0,
+    typed_events: {
+      capital_clash: { held: 2, attended: 1, missed: 1 },
+      server_clash: { held: 1, attended: 0, missed: 1 },
+      frankie: { held: 3, attended: 1, missed: 0 },
+    },
+  }),
+  participation(PLAYER.kova, 'Kova', 1, {
+    duel_days_on_board: 0,
+    duel_days_scored: 0,
+    duel_weeks_on_board: 0,
+    duel_weeks_scored: 0,
+    duel_total: null,
+    donation_days_on_board: 0,
+    donation_days_scored: 0,
+    donation_weeks_on_board: 0,
+    donation_weeks_scored: 0,
+    donation_total: null,
+    black_gold_listed: 0,
+    black_gold_played: 0,
+    season_levels_gained: null,
+    typed_events: {
+      capital_clash: { held: 2, attended: 0, missed: 2 },
+      server_clash: { held: 1, attended: 0, missed: 0 },
+      frankie: { held: 3, attended: 0, missed: 3 },
+    },
+  }),
+  participation(PLAYER.dex, 'Dex', null, {
+    duel_days_scored: 29,
+    black_gold_listed: 0,
+    black_gold_played: 0,
+    season_levels_gained: 2,
+  }),
+];
+
+const ATTENDANCE_KINDS = [
+  { kind: 'capital_clash', label: 'Capital Clash', sort_order: 10, captured: false },
+  { kind: 'server_clash', label: 'Server Clash', sort_order: 20, captured: false },
+  { kind: 'frankie', label: 'Frankie', sort_order: 30, captured: false },
+  { kind: 'ice_pit', label: 'Ice Pit', sort_order: 40, captured: false },
+  { kind: 'furnace_fury', label: 'Furnace Fury', sort_order: 50, captured: false },
+];
+
 export const SESSION = {
   email: 'you@example.invalid',
   role: 'admin',
@@ -576,6 +681,16 @@ export const SESSION = {
 export const FIXTURES: [readonly unknown[], unknown][] = [
   [SESSION_KEY, SESSION],
   [['permissions'], { capabilities: CAPABILITIES, grants: GRANTS }],
+  [['participation', PARTICIPATION_RANGE.from, PARTICIPATION_RANGE.to], PARTICIPATION_ROWS],
+  [['attendance-kinds'], ATTENDANCE_KINDS],
+  // Today's Capital Clash, half ticked: the form opens on it.
+  [
+    ['event-attendance', 'capital_clash', gameDate(new Date())],
+    new Map([
+      [PLAYER.shane, true],
+      [PLAYER.mira, false],
+    ]),
+  ],
   // Rows as the table stores them — one row per starred thing, two of its
   // three id columns null. useFavourites maps over this directly.
   [
