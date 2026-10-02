@@ -1,4 +1,4 @@
-"""Run the pgTAP suite against a throwaway PostgreSQL, on Windows or Linux.
+"""Run the pgTAP suite against a throwaway PostgreSQL, on Windows, macOS or Linux.
 
 run.sh's twin for the machine this project is developed on: no Docker, no
 WSL, so `supabase test db` cannot run and run.sh (su, unix sockets) cannot
@@ -11,7 +11,9 @@ runs the three-digit files too (100+).
 
 Needs PostgreSQL 17 binaries (CI's major version) with pgTAP installed into
 share/extension. PGBIN points at the bin directory; otherwise the scoop
-install is tried, then PATH.
+install is tried, then PATH. On the Mac that is the PostgreSQL taken out of
+Postgres.app into ~/.local/opt/postgresql-17, which ~/.zshrc exports as PGBIN
+(docs/runbooks/mac-setup.md) — about 8 seconds there.
 
     python scripts/pgtap/run.py              # everything
     python scripts/pgtap/run.py 104 108      # only tests whose name starts so

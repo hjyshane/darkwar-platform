@@ -162,7 +162,9 @@ supabase test db
 scoop (`postgresql17`, with pgTAP copied into its `share/extension`), the whole
 migration chain, every test file — about 45 seconds, and as of 2026-09-29 it
 agrees with CI on all 110 files. Run it before pushing any migration; CI is
-the backstop, not the first run. `scripts/pgtap/run.sh` is its Linux twin.
+the backstop, not the first run. It runs on the Mac too, with `PGBIN` at a
+PostgreSQL 17 + pgTAP in the home folder (`docs/runbooks/mac-setup.md`; no
+Docker, no admin) — about 8 seconds. `scripts/pgtap/run.sh` is its Linux twin.
 A NEW failure there is worth believing; a DISAGREEMENT with CI is the stub's
 fault first (`supabase-stub.sql` says what it approximates).
 
