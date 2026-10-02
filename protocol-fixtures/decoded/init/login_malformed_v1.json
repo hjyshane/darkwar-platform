@@ -1,0 +1,12 @@
+{
+  "observation_id": "00000000-0000-4000-8000-00000000c901",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "init",
+  "captured_at": "2026-10-02T03:12:00+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "user": { "uid": "not-a-uid", "serverId": 580 },
+    "items": [{ "itemId": "200202", "count": 3 }]
+  },
+  "schema_version": 1
+}

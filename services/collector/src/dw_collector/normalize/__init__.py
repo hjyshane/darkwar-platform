@@ -1,6 +1,7 @@
 """Normalizers register themselves on import."""
 
 from dw_collector.normalize import (
+    account_state,
     al_rank,
     alliance_battle_rank,
     alliance_donate_rank,
@@ -24,6 +25,7 @@ from dw_collector.normalize import (
 )
 
 __all__ = [
+    "account_state",
     "al_rank",
     "alliance_battle_rank",
     "alliance_donate_rank",
