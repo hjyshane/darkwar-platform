@@ -28,8 +28,12 @@ Two traps in the payload:
   enemy name, tag or id. Kept with those two null rather than dropped: the
   rest of it is still a fact.
 
-No server field: the history describes the collector's own alliance, so
-the subject's server is the one it was observed from.
+No server field. The server the capture was labelled with is only a guess:
+capture is machine-wide and ingest stamps every file with one server, so a
+history opened by ACE's scanner on 578 arrives labelled 580. The alliance
+ref says so (`server_id_is_fallback`), and sync puts the row on the server
+of the alliance that id already names, if Supabase knows one — the label is
+used only for an alliance never seen anywhere else.
 """
 
 from __future__ import annotations
@@ -42,7 +46,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from dw_collector.models import NormalizedRow, Observation, entry_idempotency_key, stable_uuid
 from dw_collector.registry import register
 
-PARSER_VERSION = "1.0.0"
+PARSER_VERSION = "1.1.0"
 
 
 class _Battle(BaseModel):
@@ -122,6 +126,7 @@ def normalize(observation: Observation) -> list[NormalizedRow]:
                         "external_id": battle.alliance_id,
                         "name": battle.name,
                         "code": battle.abbr,
+                        "server_id_is_fallback": True,
                     },
                 },
             )

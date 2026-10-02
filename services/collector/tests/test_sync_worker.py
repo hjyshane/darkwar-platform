@@ -222,3 +222,40 @@ def test_unknown_servers_are_registered_untracked(journal: Journal) -> None:
     created = [s for s in fake.entities["servers"] if s.get("server_group") == "unknown"]
     assert [s["server_id"] for s in created] == [586]
     assert created[0]["is_tracked"] is False
+
+
+def _history_journal(journal: Journal) -> Journal:
+    from dw_collector.normalize import black_money_history
+
+    history = load_observation("dragon.battle.history/history_v1.json")
+    journal.record(history, black_money_history.normalize(history))
+    return journal
+
+
+def test_black_money_history_follows_its_alliances_server(journal: Journal) -> None:
+    """A history opened by ACE's scanner on 578 arrives labelled 580. It must
+    land on the ACE Supabase already knows, not mint a second one on 580."""
+    fake = FakeSupabase()
+    external_id = "f8516dc0aa8fbaeee1998d518e36e478"
+    fake.entities["alliances"].append(
+        {"alliance_id": "ace-578", "server_id": 578, "external_id": external_id}
+    )
+
+    stats = _worker(_history_journal(journal), fake).drain_once()
+
+    assert stats.failed == 0
+    rows = fake.upserted["black_money_battle_snapshots"]
+    assert len(rows) == 25
+    assert {(r["alliance_id"], r["server_id"]) for r in rows} == {("ace-578", 578)}
+    assert {r["collected_from_server_id"] for r in rows} == {580}
+    assert len(fake.entities["alliances"]) == 1
+
+
+def test_black_money_history_of_an_unseen_alliance_uses_the_label(journal: Journal) -> None:
+    fake = FakeSupabase()
+
+    stats = _worker(_history_journal(journal), fake).drain_once()
+
+    assert stats.failed == 0
+    assert [(a["server_id"]) for a in fake.entities["alliances"]] == [580]
+    assert {r["server_id"] for r in fake.upserted["black_money_battle_snapshots"]} == {580}
