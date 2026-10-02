@@ -1,8 +1,10 @@
-"""Offline pcapng reading + minimal TCP parsing + directional reassembly.
+"""Offline capture reading + minimal TCP parsing + directional reassembly.
 
 Pure stdlib (no scapy): this is the offline path for fixture extraction and
-capture replay. Ethernet + IPv4 + TCP only — exactly what BlueStacks
-traffic looks like.
+capture replay. Reads pcapng and classic pcap, any link type in
+`linklayer.SUPPORTED_LINKTYPES`, IPv4 or IPv6, TCP only. BlueStacks on
+Windows is always Ethernet + IPv4; the rest exists for captures taken on a
+Mac (docs/runbooks/mac-capture.md).
 """
 
 from __future__ import annotations
@@ -12,13 +14,18 @@ import struct
 from collections import defaultdict
 from collections.abc import Iterator
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from dw_collector.protocol.frames import (
     SmartFoxFrame,
     SmartFoxStreamDecoder,
     extract_extension_event,
+)
+from dw_collector.protocol.linklayer import (
+    LINKTYPE_ETHERNET,
+    SUPPORTED_LINKTYPES,
+    network_packet,
 )
 from dw_collector.protocol.sfs import SfsValue
 
@@ -69,11 +76,74 @@ class PcapngPacket:
 
     captured_at: datetime
     data: bytes
+    linktype: int = LINKTYPE_ETHERNET
+
+
+# Classic pcap magic, as the first four bytes appear on disk:
+# (byte order, divisor for the fractional-seconds field).
+_CLASSIC_MAGIC: dict[bytes, tuple[str, int]] = {
+    b"\xd4\xc3\xb2\xa1": ("<", 1_000_000),
+    b"\xa1\xb2\xc3\xd4": (">", 1_000_000),
+    b"\x4d\x3c\xb2\xa1": ("<", 1_000_000_000),
+    b"\xa1\xb2\x3c\x4d": (">", 1_000_000_000),
+}
 
 
 def read_pcapng_records(path: Path) -> list[PcapngPacket]:
-    """Packets with their capture timestamps, from every Ethernet interface."""
+    """Packets with their capture timestamps and link types.
+
+    Despite the name, classic pcap is read too: `tcpdump -w` on macOS writes
+    it by default, and nothing about a capture's contents depends on which
+    of the two containers it came in.
+
+    Packets on an interface whose link type is not supported are skipped
+    rather than fatal — a Mac `-i any` capture mixes interfaces, and one
+    unusual one should not cost the rest. A file in which EVERY packet was
+    skipped raises instead, naming the link types, because "0 events" from a
+    capture someone took by hand would otherwise look like a quiet session.
+    """
     data = path.read_bytes()
+    classic = _CLASSIC_MAGIC.get(data[:4])
+    packets = _read_classic(data, *classic) if classic else _read_pcapng(data)
+    supported = [p for p in packets if p.linktype in SUPPORTED_LINKTYPES]
+    if packets and not supported:
+        types = ", ".join(str(t) for t in sorted({p.linktype for p in packets}))
+        raise PcapError(f"unsupported link type {types}")
+    return supported
+
+
+def _read_classic(data: bytes, endian: str, divisor: int) -> list[PcapngPacket]:
+    """Classic pcap: a 24-byte global header, then (16-byte header + frame)*.
+
+    A truncated final record ends the read instead of failing it. A capture
+    taken by hand is stopped by hand, and losing a whole session to the
+    last few bytes of a killed tcpdump is the worse outcome.
+    """
+    if len(data) < 24:
+        raise PcapError("truncated pcap header")
+    # The upper bits of the link-type field carry FCS flags (pcap spec 4).
+    linktype = int(struct.unpack_from(endian + "I", data, 20)[0]) & 0xFFFF
+    epoch = datetime(1970, 1, 1, tzinfo=UTC)
+    packets: list[PcapngPacket] = []
+    offset = 24
+    while offset + 16 <= len(data):
+        seconds, fraction, captured_length, _ = struct.unpack_from(endian + "IIII", data, offset)
+        start = offset + 16
+        if start + captured_length > len(data):
+            break
+        micros = fraction * 1_000_000 // divisor
+        packets.append(
+            PcapngPacket(
+                captured_at=epoch + timedelta(seconds=seconds, microseconds=micros),
+                data=data[start : start + captured_length],
+                linktype=linktype,
+            )
+        )
+        offset = start + captured_length
+    return packets
+
+
+def _read_pcapng(data: bytes) -> list[PcapngPacket]:
     offset = 0
     endian = "<"
     interfaces: list[tuple[int, float]] = []
@@ -109,13 +179,12 @@ def read_pcapng_records(path: Path) -> list[PcapngPacket]:
             if interface_id >= len(interfaces):
                 raise PcapError("unknown pcapng interface")
             linktype, divisor = interfaces[interface_id]
-            if linktype != 1:
-                raise PcapError("only Ethernet pcapng is supported")
             ticks = (ts_high << 32) | ts_low
             packets.append(
                 PcapngPacket(
                     captured_at=datetime.fromtimestamp(ticks / divisor, tz=UTC),
                     data=body[20 : 20 + captured_length],
+                    linktype=linktype,
                 )
             )
 
@@ -139,36 +208,79 @@ class TcpSegment:
     payload: bytes
 
 
-def parse_tcp(packet: bytes) -> TcpSegment | None:
-    """Ethernet (optionally VLAN-tagged) → IPv4 → TCP, else None."""
-    if len(packet) < 14:
+_IPPROTO_TCP = 6
+# IPv6 extension headers that can sit between the fixed header and TCP and
+# are safe to walk past. Fragments (44) are not: a fragment is not a whole
+# segment, and the game's traffic never fragments anyway.
+_IPV6_SKIPPABLE = frozenset({0, 43, 60})
+_IPV6_AH = 51
+
+
+def parse_tcp(packet: bytes, linktype: int = LINKTYPE_ETHERNET) -> TcpSegment | None:
+    """Link layer → IPv4 or IPv6 → TCP, else None."""
+    ip_data = network_packet(packet, linktype)
+    if ip_data is None:
         return None
+    version = ip_data[0] >> 4
+    if version == 4:
+        return _tcp_over_ipv4(ip_data)
+    if version == 6:
+        return _tcp_over_ipv6(ip_data)
+    return None
 
-    ether_type = int(struct.unpack("!H", packet[12:14])[0])
-    offset = 14
-    if ether_type in (0x8100, 0x88A8):
-        if len(packet) < 18:
-            return None
-        ether_type = int(struct.unpack("!H", packet[16:18])[0])
-        offset = 18
 
-    if ether_type != 0x0800 or len(packet) < offset + 20:
+def _tcp_over_ipv4(ip_data: bytes) -> TcpSegment | None:
+    if len(ip_data) < 20:
         return None
-
-    ip_data = packet[offset:]
     ihl = (ip_data[0] & 0x0F) * 4
     total_length = int(struct.unpack("!H", ip_data[2:4])[0])
-    if ip_data[9] != 6 or len(ip_data) < ihl + 20:
+    if ip_data[9] != _IPPROTO_TCP or len(ip_data) < ihl + 20:
         return None
+    # Zero means the capture saw the packet before segmentation offload
+    # filled the length in; the bytes on hand are then the whole packet.
+    end = total_length if total_length else len(ip_data)
+    return _tcp_segment(
+        ip_data[ihl:end],
+        str(ipaddress.IPv4Address(ip_data[12:16])),
+        str(ipaddress.IPv4Address(ip_data[16:20])),
+    )
 
-    tcp_data = ip_data[ihl:]
+
+def _tcp_over_ipv6(ip_data: bytes) -> TcpSegment | None:
+    if len(ip_data) < 40:
+        return None
+    payload_length = int(struct.unpack("!H", ip_data[4:6])[0])
+    next_header = ip_data[6]
+    offset = 40
+    while next_header != _IPPROTO_TCP:
+        if len(ip_data) < offset + 8:
+            return None
+        if next_header in _IPV6_SKIPPABLE:
+            length = (ip_data[offset + 1] + 1) * 8
+        elif next_header == _IPV6_AH:
+            length = (ip_data[offset + 1] + 2) * 4
+        else:
+            return None
+        next_header = ip_data[offset]
+        offset += length
+    end = 40 + payload_length if payload_length else len(ip_data)
+    return _tcp_segment(
+        ip_data[offset:end],
+        str(ipaddress.IPv6Address(ip_data[8:24])),
+        str(ipaddress.IPv6Address(ip_data[24:40])),
+    )
+
+
+def _tcp_segment(tcp_data: bytes, source_ip: str, destination_ip: str) -> TcpSegment | None:
+    if len(tcp_data) < 20:
+        return None
     source_port, destination_port, sequence = struct.unpack("!HHI", tcp_data[:8])
     tcp_header_length = ((tcp_data[12] >> 4) & 0x0F) * 4
-    payload = tcp_data[tcp_header_length : total_length - ihl]
+    payload = tcp_data[tcp_header_length:]
 
     return TcpSegment(
-        source_ip=str(ipaddress.IPv4Address(ip_data[12:16])),
-        destination_ip=str(ipaddress.IPv4Address(ip_data[16:20])),
+        source_ip=source_ip,
+        destination_ip=destination_ip,
         source_port=int(source_port),
         destination_port=int(destination_port),
         sequence=int(sequence),
@@ -279,7 +391,7 @@ def iter_extension_events(path: Path, port: int = 8680) -> Iterator[ExtensionEve
         TCPDirectionReassembler
     )
     for record in read_pcapng_records(path):
-        segment = parse_tcp(record.data)
+        segment = parse_tcp(record.data, record.linktype)
         if segment is None or not segment.payload:
             continue
         if port not in (segment.source_port, segment.destination_port):

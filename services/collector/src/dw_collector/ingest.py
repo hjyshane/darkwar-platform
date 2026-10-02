@@ -132,7 +132,9 @@ def _ready_captures(directory: Path, minimum_age_seconds: float) -> list[Path]:
     """
     now = time.time()
     aged: list[tuple[float, Path]] = []
-    for path in directory.glob("*.pcapng"):
+    # .pcap as well: tcpdump on a Mac writes classic pcap, and the reader
+    # takes either. dumpcap's ring on Windows only ever writes .pcapng.
+    for path in (*directory.glob("*.pcapng"), *directory.glob("*.pcap")):
         try:
             mtime = path.stat().st_mtime
         except OSError:

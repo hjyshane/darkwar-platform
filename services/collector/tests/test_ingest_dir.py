@@ -92,11 +92,23 @@ def test_files_are_offered_oldest_first(tmp_path: Path) -> None:
 def test_non_captures_are_ignored(tmp_path: Path) -> None:
     _touch(tmp_path / "keep.pcapng", age_seconds=600)
     _touch(tmp_path / "notes.txt", age_seconds=600)
-    _touch(tmp_path / "old-style.pcap", age_seconds=600)
+    _touch(tmp_path / "keep.pcapng.part", age_seconds=600)
 
     ready = _ready_captures(tmp_path, minimum_age_seconds=30)
 
     assert [p.name for p in ready] == ["keep.pcapng"]
+
+
+def test_classic_pcap_files_are_captures_too(tmp_path: Path) -> None:
+    # tcpdump on a Mac writes classic pcap. These used to be skipped because
+    # the reader could not open them; now it can, and a folder of them is
+    # what a capture taken by hand on a trip looks like.
+    _touch(tmp_path / "trip-1.pcap", age_seconds=300)
+    _touch(tmp_path / "trip-2.pcapng", age_seconds=200)
+
+    ready = _ready_captures(tmp_path, minimum_age_seconds=30)
+
+    assert [p.name for p in ready] == ["trip-1.pcap", "trip-2.pcapng"]
 
 
 def test_a_second_run_does_not_re_read_the_ring(tmp_path: Path) -> None:
