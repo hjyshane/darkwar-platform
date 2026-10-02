@@ -446,6 +446,50 @@ foreach ($n in 'DarkWar-Ingest','DarkWar-Sync') { Start-ScheduledTask -TaskName 
 
 ---
 
+## 5-3. 이미 모은 것으로 무엇을 채울 수 있나 (`survey`)
+
+참여 보고서(0204)의 다섯 이벤트처럼 **캡처한 적 없다고 여긴 것**이 사실은
+저널이나 옛 pcap 안에 파서 없이 들어 있는지 보는 명령이다. **읽기만 한다** —
+저널은 `mode=ro`로 열고(마이그레이션도 인덱스 생성도 안 한다), pcap은
+디코드만 하고 수집하지 않는다. 그래서 수집이 도는 중에 돌려도 된다.
+
+**`prune-journal --confirm`보다 먼저 돌린다.** 지우고 나면 그 기간은 다시 못 본다.
+
+```powershell
+cd C:\darkwar-platform\services\collector
+uv run --no-sync dw-collector survey `
+  --journal "C:/DW_data/live.db" `
+  --pcap "C:/DW_data/discovery" `
+  --out "C:/DW_data/survey/survey.md" `
+  --samples-dir "C:/DW_data/survey/samples"
+```
+
+- `--journal`, `--pcap`은 **여러 번** 줄 수 있다. 옛 `collector.db`, `probe.db`,
+  탐색 pcap(`all_walkethrough.pcapng`, `re-capture.pcapng`, 시즌 pcap)을 다 넣는다.
+  `--pcap`에 폴더를 주면 안의 `.pcap`/`.pcapng`를 전부 읽는다.
+- 저널은 행 전체를 **한 번** 훑는다(명령별 인덱스가 없다). 수십 GB면 몇 분 걸린다.
+- **경로는 따옴표 + 슬래시.** 5-2와 같은 함정이다.
+
+**보고서 읽는 법** (`survey.md`)
+
+- 맨 위 `Roster:` 줄이 기준 명단이다. 가장 많이 읽힌 `al.rank`의 연맹으로
+  자동으로 고른다. 다른 연맹이면 `--alliance-id <32자리>`로 지정한다.
+- **LEAD** = 파서 없는 명령이나 메일 타입 중에서, 한 목록에 **우리 멤버 uid가 5명
+  이상** 들어 있는 것. 멤버별로 채울 수 있는 후보다.
+- 메일은 `mail:type=N`으로 타입별로 따로 센다. 147(Black Gold)만 파서가 있다.
+  같은 메일이 여러 페이지에 나와도 한 번만 센다.
+- `keywords`는 문자열에서 이벤트 이름(capital, frank, furnace 등)을 찾은
+  횟수다. 단서일 뿐 증거가 아니다.
+- 아래쪽 "Sources with a parser" 표의 `first`가 **그 명령의 과거를 어디까지
+  다시 돌릴 수 있는지**다.
+
+**`samples/`에는 원본 payload가 그대로 있다.** 이름과 uid가 들어 있으니 레포
+안으로 옮기지 않는다. 판정은 `docs/runbooks/capture-sweep.md`에 적고, 승격은 늘
+하던 대로 한 파서에 한 PR로 한다(정제한 픽스처 + 리플레이 테스트). 승격한
+다음에는 `backfill --command <명령>`으로 저널에 남은 과거 기록을 채운다.
+
+---
+
 ## 6. 문제가 생겼을 때
 
 | 증상 | 원인 | 해결 |
@@ -487,6 +531,7 @@ foreach ($n in 'DarkWar-Ingest','DarkWar-Sync') { Start-ScheduledTask -TaskName 
 | `dw-collector journal-summary` | 어디서나 | 저장소에 뭐가 있는지 |
 | `dw-collector retry-outbox` | Windows | 실패/전송분을 다시 대기로 |
 | `dw-collector scan-capture --pcap X --db Y` | 어디서나 | pcap 파일 읽기 |
+| `dw-collector survey --journal X --pcap Y --out Z` | 어디서나 | 파서 없는 데이터 중 멤버별로 채울 후보 찾기 (읽기만, 5-3) |
 | `dw-collector extract-fixture` | 어디서나 | pcap → 테스트용 살균 자료 |
 | `dw-collector replay --fixture X` | 어디서나 | 자료 1개 통과시키기 |
 | `dw-collector init-db` | 어디서나 | 저장소 파일 만들기 |

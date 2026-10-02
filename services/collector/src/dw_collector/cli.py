@@ -650,6 +650,75 @@ def scan_capture(
     )
 
 
+@app.command("survey")
+def survey(
+    out: Annotated[Path, typer.Option("--out", help="report file (markdown), outside the repo")],
+    journal: Annotated[
+        list[Path] | None,
+        typer.Option("--journal", exists=True, dir_okay=False, help="journal to read; repeatable"),
+    ] = None,
+    pcap: Annotated[
+        list[Path] | None,
+        typer.Option("--pcap", exists=True, help="capture file or directory; repeatable"),
+    ] = None,
+    alliance_id: Annotated[
+        str | None,
+        typer.Option(help="judge leads against this alliance's roster (default: most-read)"),
+    ] = None,
+    samples_dir: Annotated[
+        Path | None,
+        typer.Option(help="also write the newest raw payloads per unparsed source here"),
+    ] = None,
+    samples_per_source: Annotated[int, typer.Option()] = 3,
+    max_per_source: Annotated[
+        int, typer.Option(help="decode at most this many payloads per source")
+    ] = 2000,
+    port: Annotated[int, typer.Option()] = 8680,
+) -> None:
+    """Find what already-captured data could backfill, per member. Read only.
+
+    Reads journals (opened read-only, never migrated) and captures (decoded,
+    never ingested), and ranks every command and mail type without a parser
+    by how many of our members' uids it carries. See survey.py.
+    """
+    from dw_collector.survey import (
+        Survey,
+        capture_files,
+        iter_capture,
+        iter_journal,
+        render_report,
+        write_samples,
+    )
+
+    journals = journal or []
+    captures = capture_files(pcap or [])
+    if not journals and not captures:
+        raise typer.BadParameter("give at least one --journal or --pcap")
+
+    found = Survey(
+        max_per_source=max_per_source,
+        samples_per_source=samples_per_source if samples_dir is not None else 0,
+    )
+    for path in journals:
+        typer.echo(f"reading {path} ...")
+        for command, captured_at, payload_json in iter_journal(path):
+            found.add(command, captured_at, payload_json)
+    for path in captures:
+        typer.echo(f"decoding {path.name} ...")
+        try:
+            for command, captured_at, payload_json in iter_capture(path, port):
+                found.add(command, captured_at, payload_json)
+        except PcapError as exc:
+            typer.echo(f"{path.name}  skipped: {exc}", err=True)
+
+    inputs = [str(p) for p in journals] + [p.name for p in captures]
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(render_report(found, inputs=inputs, alliance_id=alliance_id), encoding="utf-8")
+    typer.echo(f"scanned={found.scanned} sources={len(found.sources)} report={out}")
+    if samples_dir is not None:
+        typer.echo(f"samples={write_samples(found, samples_dir)} in {samples_dir}")
+
+
 def _discard_capture(pcap: Path, *, wanted: bool) -> None:
     """Unlink an ingested capture, tolerating whoever got there first.
 
