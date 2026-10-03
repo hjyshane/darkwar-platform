@@ -1,0 +1,42 @@
+{
+  "observation_id": "00000000-0000-4000-8000-00000000e002",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "user.get.shop.info",
+  "captured_at": "2026-09-29T04:31:02+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "_id": 2003,
+    "shopInfo": [
+      {
+        "currency": "1;15",
+        "currency_num": 400,
+        "discount": 0.0,
+        "goods": "230100",
+        "goods_num": 1,
+        "id": 100001,
+        "shop_id": 1
+      },
+      {
+        "currency": "1;15",
+        "currency_num": 80,
+        "discount": 80.0,
+        "goods": "230101",
+        "goods_num": 20,
+        "id": 100002,
+        "shop_id": 1
+      },
+      {
+        "currency": "1;15",
+        "currency_num": 300,
+        "discount": 0.0,
+        "resource": "24;10000",
+        "goods_num": 1,
+        "id": 100003,
+        "shop_id": 1
+      },
+      { "currency": "1;15", "goods": "230102", "id": 100004 }
+    ],
+    "type": 3
+  },
+  "schema_version": 1
+}

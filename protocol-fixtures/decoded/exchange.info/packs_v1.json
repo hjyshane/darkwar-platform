@@ -1,0 +1,40 @@
+{
+  "observation_id": "00000000-0000-4000-8000-00000000e001",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "exchange.info",
+  "captured_at": "2026-09-27T22:30:37+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "_id": 379,
+    "exchange": [
+      {
+        "bought": false,
+        "dollar": "4.99",
+        "end": 1790560799000,
+        "gold_doller": "500",
+        "id": "240806011",
+        "item": "230110;10|210892;100|222003;5",
+        "name": "321400",
+        "percent": "1200",
+        "reward": "105100;1",
+        "start": 1790474400000,
+        "type": "16"
+      },
+      {
+        "buy_times": 1,
+        "dollar": "0.99",
+        "gold_doller": "100",
+        "id": "9001",
+        "name": "320001",
+        "percent": "100",
+        "resource": "15;100|13;1000",
+        "type": "5"
+      },
+      { "dollar": "free", "id": "9002" },
+      { "dollar": "1.99", "id": "not-a-number" }
+    ],
+    "exchange_gift": [],
+    "paySwitch": true
+  },
+  "schema_version": 1
+}

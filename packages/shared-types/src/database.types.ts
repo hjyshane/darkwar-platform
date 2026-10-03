@@ -3117,6 +3117,41 @@ export type Database = {
           },
         ]
       }
+      game_item_values: {
+        Row: {
+          item_id: string
+          note: string | null
+          rubies: number
+          source: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          item_id: string
+          note?: string | null
+          rubies: number
+          source: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          item_id?: string
+          note?: string | null
+          rubies?: number
+          source?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_item_values_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "pending_access"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       game_items: {
         Row: {
           icon: string | null
@@ -3167,6 +3202,28 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      game_strings: {
+        Row: {
+          en: string | null
+          ko: string | null
+          string_key: string
+          updated_at: string
+        }
+        Insert: {
+          en?: string | null
+          ko?: string | null
+          string_key: string
+          updated_at?: string
+        }
+        Update: {
+          en?: string | null
+          ko?: string | null
+          string_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+        ]
       }
       game_upgrade_steps: {
         Row: {
@@ -5802,6 +5859,213 @@ export type Database = {
           },
         ]
       }
+      shop_listing_snapshots: {
+        Row: {
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at: string
+          currency_id: string | null
+          currency_kind: number | null
+          discount: number | null
+          idempotency_key: string
+          item_id: string | null
+          listing_id: string
+          observation_id: string
+          parser_version: string
+          price: number
+          qty: number
+          raw: Json
+          server_id: number
+          shop_type: number
+          snapshot_id: string
+          source_command: string
+        }
+        Insert: {
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at?: string
+          currency_id?: string | null
+          currency_kind?: number | null
+          discount?: number | null
+          idempotency_key: string
+          item_id?: string | null
+          listing_id: string
+          observation_id: string
+          parser_version: string
+          price: number
+          qty?: number
+          raw?: Json
+          server_id: number
+          shop_type: number
+          snapshot_id?: string
+          source_command: string
+        }
+        Update: {
+          captured_at?: string
+          collected_from_server_id?: number
+          collector_id?: string
+          created_at?: string
+          currency_id?: string | null
+          currency_kind?: number | null
+          discount?: number | null
+          idempotency_key?: string
+          item_id?: string | null
+          listing_id?: string
+          observation_id?: string
+          parser_version?: string
+          price?: number
+          qty?: number
+          raw?: Json
+          server_id?: number
+          shop_type?: number
+          snapshot_id?: string
+          source_command?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_listing_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "shop_listing_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "shop_listing_snapshots_collector_id_fkey"
+            columns: ["collector_id"]
+            isOneToOne: false
+            referencedRelation: "collectors"
+            referencedColumns: ["collector_id"]
+          },
+          {
+            foreignKeyName: "shop_listing_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "shop_listing_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+        ]
+      }
+      shop_pack_snapshots: {
+        Row: {
+          captured_at: string
+          claimed_percent: number | null
+          collected_from_server_id: number
+          collector_id: string
+          created_at: string
+          dollars: number
+          ends_at: string | null
+          idempotency_key: string
+          items: Json
+          name_key: string | null
+          observation_id: string
+          pack_id: string
+          pack_type: string | null
+          parser_version: string
+          raw: Json
+          rubies: number
+          server_id: number
+          snapshot_id: string
+          source_command: string
+          starts_at: string | null
+        }
+        Insert: {
+          captured_at: string
+          claimed_percent?: number | null
+          collected_from_server_id: number
+          collector_id: string
+          created_at?: string
+          dollars: number
+          ends_at?: string | null
+          idempotency_key: string
+          items?: Json
+          name_key?: string | null
+          observation_id: string
+          pack_id: string
+          pack_type?: string | null
+          parser_version: string
+          raw?: Json
+          rubies?: number
+          server_id: number
+          snapshot_id?: string
+          source_command: string
+          starts_at?: string | null
+        }
+        Update: {
+          captured_at?: string
+          claimed_percent?: number | null
+          collected_from_server_id?: number
+          collector_id?: string
+          created_at?: string
+          dollars?: number
+          ends_at?: string | null
+          idempotency_key?: string
+          items?: Json
+          name_key?: string | null
+          observation_id?: string
+          pack_id?: string
+          pack_type?: string | null
+          parser_version?: string
+          raw?: Json
+          rubies?: number
+          server_id?: number
+          snapshot_id?: string
+          source_command?: string
+          starts_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_pack_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "shop_pack_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "shop_pack_snapshots_collector_id_fkey"
+            columns: ["collector_id"]
+            isOneToOne: false
+            referencedRelation: "collectors"
+            referencedColumns: ["collector_id"]
+          },
+          {
+            foreignKeyName: "shop_pack_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "shop_pack_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+        ]
+      }
       user_players: {
         Row: {
           created_at: string
@@ -7362,6 +7626,43 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "schedule_events"
             referencedColumns: ["schedule_event_id"]
+          },
+        ]
+      }
+      shop_pack_value: {
+        Row: {
+          captured_at: string | null
+          claimed_percent: number | null
+          contents: Json | null
+          dollars: number | null
+          ends_at: string | null
+          item_rubies: number | null
+          name: string | null
+          name_key: string | null
+          name_ko: string | null
+          pack_id: string | null
+          pack_type: string | null
+          rubies: number | null
+          server_id: number | null
+          starts_at: string | null
+          unvalued_items: number | null
+          value_dollars: number | null
+          value_ratio: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_pack_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "shop_pack_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
           },
         ]
       }
