@@ -4506,3 +4506,36 @@ button.tile-grid:hover:not(:disabled) {
 .table-wrap .migration-moved > :is(th, td) {
   background: var(--bg-raised);
 }
+
+/* Game calendar (0208). An event the game sent only as an id reads as
+   unfinished, so it is set apart from the named ones. */
+.calendar-section {
+  margin-block: 1rem;
+}
+.calendar-section > summary {
+  cursor: pointer;
+}
+.calendar-heading {
+  display: inline;
+}
+.calendar-count,
+.calendar-unnamed {
+  color: var(--fg-muted);
+}
+.calendar-unnamed {
+  font-style: italic;
+}
+.calendar-name-button {
+  margin-left: 0.5rem;
+  padding: 0 0.4rem;
+  font-size: 0.85em;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--accent);
+  cursor: pointer;
+}
+.calendar-name-button:hover,
+.calendar-name-button:focus-visible {
+  border-color: var(--accent);
+}

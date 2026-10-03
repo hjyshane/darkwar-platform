@@ -12,6 +12,7 @@ import { AlliancePage } from './features/alliance/AlliancePage';
 import { ArenaPanel } from './features/arena/ArenaPanel';
 import { LoginPage } from './features/auth/LoginPage';
 import { BlackMoneyPage } from './features/blackMoney/BlackMoneyPage';
+import { CalendarPage } from './features/calendar/CalendarPage';
 import { CrossRankingsPanel } from './features/crossRankings/CrossRankingsPanel';
 import { GuidePostPage } from './features/guides/GuidePostPage';
 import { GuidesPanel } from './features/guides/GuidesPanel';
@@ -482,6 +483,11 @@ function Screen({ route, mapServerId }: { route: Route; mapServerId: number | nu
       // member-only at the policy level (0204's report is security invoker),
       // and recording is gated inside the page on `data.enter`.
       return <ParticipationPage />;
+    case 'calendar':
+      // No capability gate, for the same reason: the calendar is member-only at
+      // the policy level (0208), and naming events is gated by RLS to officers
+      // and admins, which the page mirrors to decide whether to offer it.
+      return <CalendarPage />;
     case 'season':
       // No capability gate. Both season tables are member-only at the
       // policy level (0136) and the whole app is walled to members

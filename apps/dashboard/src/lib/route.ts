@@ -36,6 +36,7 @@ export type Route =
   | 'notice'
   | 'schedule'
   | 'participation'
+  | 'calendar'
   | 'account'
   | 'terms'
   | 'privacy'
@@ -61,6 +62,7 @@ const ROUTES: Record<string, Route> = {
   '#/notices': 'notices',
   '#/schedule': 'schedule',
   '#/participation': 'participation',
+  '#/calendar': 'calendar',
   // The only two addresses here that a signed-out stranger is MEANT to reach.
   // Everything else on this list is walled; these are marked standalone in
   // `App.tsx` so they are not, because Google and Discord fetch them with no
@@ -291,6 +293,9 @@ export const EVENT_TABS: ReadonlyArray<NavTab> = [
   // can record (0204). Member-only at the policy level, like the boards it
   // folds, so no capability gate.
   { route: 'participation', hash: '#/participation', label: 'Participation' },
+  // What the game itself has announced (0208), next to what the alliance
+  // planned (Schedule). Member-only at the policy level, so no gate.
+  { route: 'calendar', hash: '#/calendar', label: 'Game calendar' },
   { route: 'schedule', hash: '#/schedule', label: 'Schedule' },
 ];
 
@@ -322,6 +327,7 @@ export function navSection(route: Route): NavSection | null {
     case 'season2':
     case 'blackMoney':
     case 'participation':
+    case 'calendar':
     case 'schedule':
       return 'events';
     case 'notices':
