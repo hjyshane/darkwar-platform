@@ -37,6 +37,7 @@ export type Route =
   | 'schedule'
   | 'participation'
   | 'calendar'
+  | 'shopValue'
   | 'account'
   | 'terms'
   | 'privacy'
@@ -63,6 +64,7 @@ const ROUTES: Record<string, Route> = {
   '#/schedule': 'schedule',
   '#/participation': 'participation',
   '#/calendar': 'calendar',
+  '#/shop-value': 'shopValue',
   // The only two addresses here that a signed-out stranger is MEANT to reach.
   // Everything else on this list is walled; these are marked standalone in
   // `App.tsx` so they are not, because Google and Discord fetch them with no
@@ -247,7 +249,7 @@ export interface NavTab {
  *   alliance   our own alliance: its page, roster, hive plan, season boards,
  *              Black Gold and participation
  *   map        on its own: one player at a time, and nothing else is like it
- *   events     what the game has announced: the calendar (Schedule archived)
+ *   events     what the game offers: the calendar and the shops (Schedule archived)
  *   boards     what the alliance writes to itself: notices and guides
  */
 export type NavSection = 'overview' | 'alliance' | 'map' | 'events' | 'boards';
@@ -301,6 +303,9 @@ export const ALLIANCE_TABS: ReadonlyArray<NavTab> = [
  * and nothing it holds is lost; it just has no tab. */
 export const EVENT_TABS: ReadonlyArray<NavTab> = [
   { route: 'calendar', hash: '#/calendar', label: 'Game calendar' },
+  // What packs and Ruby-shop entries are worth (0215). Member-only at the
+  // policy level, so no gate.
+  { route: 'shopValue', hash: '#/shop-value', label: 'Shop value' },
 ];
 
 /** Boards' second row: what the alliance writes for itself. */
@@ -332,6 +337,7 @@ export function navSection(route: Route): NavSection | null {
     case 'map':
       return 'map';
     case 'calendar':
+    case 'shopValue':
     case 'schedule':
       return 'events';
     case 'notices':

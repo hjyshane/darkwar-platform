@@ -4874,3 +4874,42 @@ button.tile-grid:hover:not(:disabled) {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Shop value (0215): an expandable pack row and the basis of each value. */
+.link-button {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.link-button:hover {
+  text-decoration: underline;
+}
+.link-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.pack-contents > td {
+  background: var(--bg-raised);
+  padding: 0.25rem 0.5rem 0.5rem 1.5rem;
+}
+.value-source {
+  font-size: 0.75em;
+  border-radius: 4px;
+  padding: 0 0.35rem;
+}
+.value-source-game {
+  background: var(--ok-bg);
+  color: var(--ok-fg);
+}
+.value-source-estimated {
+  background: var(--warn-bg);
+  color: var(--warn-fg);
+}
+.value-source-officer {
+  background: var(--info-bg);
+  color: var(--info-fg);
+}
