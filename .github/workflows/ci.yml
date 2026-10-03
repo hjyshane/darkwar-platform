@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
   pull_request:
+  # The Run workflow button: a release without a commit, for when the deploy
+  # itself is what needs proving (a new token) or redoing. Builds and checks
+  # the dashboard exactly as a merge would, then deploys main.
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -85,7 +89,7 @@ jobs:
   web:
     runs-on: ubuntu-latest
     needs: changes
-    if: needs.changes.outputs.web == 'true'
+    if: needs.changes.outputs.web == 'true' || github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -160,9 +164,9 @@ jobs:
     # need would otherwise skip this job too. Every need is still checked.
     if: >-
       !cancelled()
-      && github.event_name == 'push'
       && github.ref == 'refs/heads/main'
-      && needs.changes.outputs.web == 'true'
+      && ((github.event_name == 'push' && needs.changes.outputs.web == 'true')
+          || github.event_name == 'workflow_dispatch')
       && needs.web.result == 'success'
       && needs.guard.result == 'success'
       && (needs.db.result == 'success' || needs.db.result == 'skipped')

@@ -496,7 +496,9 @@ gh variable set VITE_SUPABASE_PUBLISHABLE_KEY --body "<publishable key>"
 
 ### 확인
 
-다음 대시보드 merge 후 Actions의 `deploy` 잡이 초록이고 마지막 단계가
+설정 직후에는 커밋 없이 바로 시험한다 — Actions → CI → **Run workflow**
+(branch `main`), 또는 `gh workflow run CI --ref main`. 대시보드를 검사·빌드한
+뒤 배포까지 한다. 평소에는 대시보드 merge 후 Actions의 `deploy` 잡이 초록이고 마지막 단계가
 `cbfw.us serves assets/index-….js`를 찍으면 끝이다. 빨간 이유가 "Set the
 VITE_… repository variables"면 3번, 인증 오류면 1·2번이다.
 
