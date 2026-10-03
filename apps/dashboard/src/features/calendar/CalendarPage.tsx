@@ -2,8 +2,10 @@
 // the collector saw (0208). Not the alliance's schedule boards — those are
 // what officers plan; this is what the game has announced.
 //
-// Two views, the month first: a grid of server days with each event a bar,
-// and a list that searches by name and by day. Both filter by category
+// Four views, the week first: week, day and month draw every event as a bar
+// grouped by category (nothing folded); the day adds the four-hour blocks
+// Survival Preparedness turns over on; the list searches by name and by day.
+// All filter by category
 // (0211) — major fights, recurring, season, events, passes, premium — read
 // from the game's own activity types. Season events end with the season
 // (endWithSeason). Every time is server time, UTC−2.
@@ -11,8 +13,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useSession } from '../../lib/useSession';
+import { DayView } from './DayView';
 import { ListView } from './ListView';
 import { MonthView } from './MonthView';
+import { WeekView } from './WeekView';
 import {
   CATEGORIES,
   CATEGORY_LABELS,
@@ -22,13 +26,21 @@ import {
   fetchCalendar,
   inCategory,
   search,
+  serverDay,
   serverWhen,
 } from './data';
 
 /** The calendar changes when somebody logs in, not by the minute. */
 const STALE_TIME = 5 * 60_000;
 
-type View = 'month' | 'list';
+type View = 'week' | 'day' | 'month' | 'list';
+
+const VIEWS: ReadonlyArray<[View, string]> = [
+  ['month', 'Monthly'],
+  ['week', 'Weekly'],
+  ['day', 'Daily'],
+  ['list', 'List'],
+];
 
 export function CalendarPage() {
   const { data: session } = useSession();
@@ -39,7 +51,10 @@ export function CalendarPage() {
     staleTime: STALE_TIME,
   });
   const [now] = useState(() => new Date());
-  const [view, setView] = useState<View>('month');
+  const [view, setView] = useState<View>('week');
+  const today = serverDay(now.toISOString());
+  // The server day the week, day and month views are on.
+  const [focus, setFocus] = useState(today);
   const [shown, setShown] = useState<ReadonlySet<Category>>(DEFAULT_SHOWN);
   const [text, setText] = useState('');
   const [day, setDay] = useState('');
@@ -62,6 +77,10 @@ export function CalendarPage() {
     () => search(onServer, { text, day, shown }),
     [onServer, text, day, shown],
   );
+  const openDay = (picked: string) => {
+    setFocus(picked);
+    setView('day');
+  };
   const toggle = (category: Category) =>
     setShown((current) => {
       const next = new Set(current);
@@ -109,7 +128,7 @@ export function CalendarPage() {
 
       <div className="row calendar-controls">
         <div role="tablist" aria-label="View">
-          {(['month', 'list'] as const).map((value) => (
+          {VIEWS.map(([value, label]) => (
             <button
               aria-selected={view === value}
               key={value}
@@ -117,7 +136,7 @@ export function CalendarPage() {
               role="tab"
               type="button"
             >
-              {value === 'month' ? 'Calendar' : 'List'}
+              {label}
             </button>
           ))}
         </div>
@@ -152,16 +171,31 @@ export function CalendarPage() {
         )}
       </div>
 
+      {view !== 'list' && (
+        <p className="subtle calendar-legend">
+          {CATEGORIES.filter((value) => shown.has(value)).map((value) => (
+            <span
+              className={`calendar-bar calendar-cat-${value} calendar-bar-start calendar-bar-end calendar-legend-chip`}
+              key={value}
+            >
+              {CATEGORY_LABELS[value]}
+            </span>
+          ))}
+          Bars run from the first to the last server day (UTC−2). Pick a date to open that day.
+        </p>
+      )}
       {view === 'month' ? (
         <MonthView
+          day={focus}
           events={inMonth}
-          now={now}
-          shown={CATEGORIES.filter((value) => shown.has(value))}
-          onPickDay={(picked) => {
-            setDay(picked);
-            setView('list');
-          }}
+          onDay={setFocus}
+          onPickDay={openDay}
+          today={today}
         />
+      ) : view === 'week' ? (
+        <WeekView day={focus} events={inMonth} onDay={setFocus} onPickDay={openDay} today={today} />
+      ) : view === 'day' ? (
+        <DayView day={focus} events={inMonth} now={now} onDay={setFocus} today={today} />
       ) : (
         <>
           <div className="row calendar-search">
