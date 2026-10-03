@@ -34,8 +34,11 @@ export interface PackValue {
   item_rubies: number;
   unvalued_items: number;
   contents: PackItem[];
-  value_dollars: number;
+  /** Null for a pack whose contents the pack list does not carry — battle
+   * passes, growth passes, login gifts (0216). */
+  value_dollars: number | null;
   value_ratio: number | null;
+  contents_listed: boolean;
 }
 
 export interface ListingValue {
@@ -55,13 +58,24 @@ export interface ListingValue {
 }
 
 export interface ItemValue {
+  /** The game's item code: the key, never edited. */
   item_id: string;
   rubies: number;
   source: ValueSource;
   note: string | null;
   updated_at: string;
+  /** What the page shows: an officer's correction, else the game's name. */
   name: string | null;
+  /** The game's own name, and whether an officer has replaced it. */
+  game_name: string | null;
+  renamed: boolean;
   name_ko: string | null;
+}
+
+/** How an item reads wherever it is listed: its name, never its code. The
+ * code is for the tooltip. */
+export function itemLabel(item: { name: string | null }): string {
+  return item.name ?? 'Unnamed item';
 }
 
 /** Ruby-shop types: 1 is the full-price shop, 2 and 3 the discount shops. */
@@ -143,7 +157,18 @@ export async function fetchItemValues(): Promise<ItemValue[]> {
   }
   const values = data ?? [];
   const names = new Map<string, { name: string | null; name_ko: string | null }>();
+  const renamed = new Map<string, string>();
   const ids = values.map((row) => row.item_id);
+  const { data: fixes, error: fixError } = await supabase
+    .from('game_item_names')
+    .select('item_id, name')
+    .limit(1000);
+  if (fixError) {
+    throw new Error(fixError.message);
+  }
+  for (const fix of fixes ?? []) {
+    renamed.set(fix.item_id, fix.name);
+  }
   for (let i = 0; i < ids.length; i += 200) {
     const { data: items, error: nameError } = await supabase
       .from('game_items')
@@ -156,12 +181,18 @@ export async function fetchItemValues(): Promise<ItemValue[]> {
       names.set(item.item_id, { name: item.name, name_ko: item.name_ko });
     }
   }
-  return values.map((row) => ({
-    ...(row as Omit<ItemValue, 'name' | 'name_ko'>),
-    source: row.source as ValueSource,
-    name: names.get(row.item_id)?.name ?? null,
-    name_ko: names.get(row.item_id)?.name_ko ?? null,
-  }));
+  return values.map((row) => {
+    const gameName = names.get(row.item_id)?.name ?? null;
+    const fixed = renamed.get(row.item_id);
+    return {
+      ...(row as Omit<ItemValue, 'name' | 'game_name' | 'renamed' | 'name_ko'>),
+      source: row.source as ValueSource,
+      name: fixed ?? gameName,
+      game_name: gameName,
+      renamed: fixed !== undefined,
+      name_ko: names.get(row.item_id)?.name_ko ?? null,
+    };
+  });
 }
 
 /** Set an item's value; the database marks it the officer's (0215). */
@@ -175,6 +206,62 @@ export async function saveItemValue(itemId: string, rubies: number, note: string
   if (error) {
     throw new Error(
       error.code === '42501' ? 'Only officers and admins can set values.' : error.message,
+    );
+  }
+}
+
+/** One offer as the page lists it: packs with the same name, price, rubies
+ * and contents under one row. The game lists one offer under many ids —
+ * a battle pass per tier (26 ids for Legend Battle Pass), a daily deal per
+ * slot (14 for Treasure of the Day) — and they read as duplicates. Packs that
+ * differ in a single item stay apart: that is a real choice. */
+export interface PackGroup extends PackValue {
+  offers: number;
+  pack_ids: string[];
+  /** Share of the value resting on estimates, for sorting. */
+  estimated: number;
+}
+
+function contentsKey(pack: PackValue): string {
+  return pack.contents
+    .map((item) => `${item.id}:${item.qty}`)
+    .sort()
+    .join(',');
+}
+
+export function groupPacks(packs: ReadonlyArray<PackValue>): PackGroup[] {
+  const groups = new Map<string, PackGroup>();
+  for (const pack of packs) {
+    const key = `${pack.name}|${pack.dollars}|${pack.rubies}|${contentsKey(pack)}`;
+    const held = groups.get(key);
+    if (held === undefined) {
+      groups.set(key, {
+        ...pack,
+        offers: 1,
+        pack_ids: [pack.pack_id],
+        estimated: estimatedShare(pack),
+      });
+    } else {
+      held.offers += 1;
+      held.pack_ids.push(pack.pack_id);
+    }
+  }
+  return [...groups.values()];
+}
+
+/** Correct an item's name, or clear the correction (empty) to show the
+ * game's name again. The item code is the key and is never changed. */
+export async function saveItemName(itemId: string, name: string): Promise<void> {
+  const trimmed = name.trim();
+  const { error } =
+    trimmed === ''
+      ? await supabase.from('game_item_names').delete().eq('item_id', itemId)
+      : await supabase
+          .from('game_item_names')
+          .upsert({ item_id: itemId, name: trimmed }, { onConflict: 'item_id' });
+  if (error) {
+    throw new Error(
+      error.code === '42501' ? 'Only officers and admins can rename items.' : error.message,
     );
   }
 }

@@ -988,11 +988,15 @@ def game_values(
             (pack_from_row(row) for row in newest.values()),
             game_prices(assets, vip_as_zero=False),
         )
-        officer = {
+        existing = _fetch_all(client, "game_item_values", "item_id,source")
+        officer = {row["item_id"] for row in existing if row["source"] == "officer"}
+        # An estimate this run no longer makes must go, or it stays forever:
+        # the rule tightened in 0216 and left Land Expansion at 7,625 rubies.
+        stale = sorted(
             row["item_id"]
-            for row in _fetch_all(client, "game_item_values", "item_id,source")
-            if row["source"] == "officer"
-        }
+            for row in existing
+            if row["source"] == "estimated" and row["item_id"] not in estimated
+        )
         values = [
             {
                 "item_id": item_id,
@@ -1010,11 +1014,20 @@ def game_values(
         names = pack_names(assets, (row["name_key"] for row in newest.values() if row["name_key"]))
         typer.echo(
             f"packs={len(newest)} game={len(prices)} estimated={len(estimated)}"
-            f" kept-officer={len(officer)} pack-names={len(names)}"
+            f" kept-officer={len(officer)} stale-estimates={len(stale)} pack-names={len(names)}"
         )
         if dry_run:
             return
         upload.upsert_rows(client, "game_item_values", values, "item_id")
+        for start in range(0, len(stale), 100):
+            resp = client.delete(
+                "/rest/v1/game_item_values",
+                params={
+                    "item_id": f"in.({','.join(stale[start : start + 100])})",
+                    "source": "eq.estimated",
+                },
+            )
+            resp.raise_for_status()
         upload.upsert_rows(client, "game_strings", names, "string_key")
     typer.echo("written")
 
