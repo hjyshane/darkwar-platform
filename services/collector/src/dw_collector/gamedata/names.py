@@ -84,10 +84,7 @@ def classify(activity_id: str, kind: int | None, name: str) -> str:
     ):
         return "season"
     lowered = name.lower()
-    if (
-        kind in PASS_TYPES
-        or (kind in SHOP_TYPES and any(word in lowered for word in PASS_WORDS))
-    ):
+    if kind in PASS_TYPES or (kind in SHOP_TYPES and any(word in lowered for word in PASS_WORDS)):
         return "pass"
     if kind in SHOP_TYPES:
         return "premium"
