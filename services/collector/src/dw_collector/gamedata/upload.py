@@ -74,9 +74,15 @@ def fill_hero_names(client: httpx.Client, names: Mapping[int, str]) -> tuple[int
     has never seen is added with it. Returns (written, kept)."""
     resp = client.get("/rest/v1/heroes", params={"select": "hero_id,name", "limit": 2000})
     resp.raise_for_status()
-    typed = {int(row["hero_id"]) for row in resp.json() if row.get("name")}
+    existing = resp.json()
+    typed = {int(row["hero_id"]) for row in existing if row.get("name")}
+    # Names are unique in the catalogue (heroes_name_key, on lower(name)). A
+    # name already on another hero stays where an admin put it.
+    taken = {str(row["name"]).lower(): int(row["hero_id"]) for row in existing if row.get("name")}
     rows = [
-        {"hero_id": hid, "name": name} for hid, name in sorted(names.items()) if hid not in typed
+        {"hero_id": hid, "name": name}
+        for hid, name in sorted(names.items())
+        if hid not in typed and taken.get(name.lower(), hid) == hid
     ]
     upsert_rows(client, "heroes", rows, "hero_id")
     return len(rows), len(typed & set(names))
