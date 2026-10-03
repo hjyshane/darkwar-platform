@@ -41,6 +41,10 @@ export interface ParticipationRow {
   black_gold_starter_missed: number;
   black_gold_substitute_missed: number;
   season_levels_gained: number | null;
+  /** The Watchtower (main building, 1-55) at the end of the range, and
+   * levels gained in it — null when no reading falls inside it (0214). */
+  watchtower_level: number | null;
+  watchtower_gained: number | null;
   typed_events: Record<string, TypedTally>;
 }
 
@@ -175,6 +179,7 @@ export type SortKey =
   | 'donation_total'
   | 'black_gold'
   | 'buildings'
+  | 'watchtower'
   | `typed:${string}`;
 
 /** The figure a column sorts by. Null is "nothing to judge" and sorts last
@@ -195,6 +200,8 @@ export function sortValue(row: ParticipationRow, key: SortKey): number | string 
       return share(row.black_gold_played, row.black_gold_listed);
     case 'buildings':
       return row.season_levels_gained;
+    case 'watchtower':
+      return row.watchtower_gained;
     default: {
       const tally = row.typed_events[key.slice('typed:'.length)];
       return tally === undefined ? null : share(tally.attended, tally.held);

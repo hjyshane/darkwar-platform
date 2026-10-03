@@ -26,6 +26,8 @@ function row(name: string, over: Partial<ParticipationRow> = {}): ParticipationR
     black_gold_starter_missed: 0,
     black_gold_substitute_missed: 0,
     season_levels_gained: 3,
+    watchtower_level: 30,
+    watchtower_gained: 1,
     typed_events: { frankie: { held: 2, attended: 1, missed: 1 } },
     ...over,
   };

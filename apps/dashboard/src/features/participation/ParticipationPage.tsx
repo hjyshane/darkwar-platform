@@ -150,6 +150,27 @@ function TypedCell({ tally }: { tally: TypedTally | undefined }) {
   );
 }
 
+/** Watchtower level now, and levels gained in the range when it was read. */
+function WatchtowerCell({ row }: { row: ParticipationRow }) {
+  if (row.watchtower_level === null) {
+    return <td className="num muted">—</td>;
+  }
+  return (
+    <td
+      className="num"
+      title="Watchtower (main building) level at the end of the range, and levels gained inside it. No gain shown when nobody read the member in the range."
+    >
+      Lv {row.watchtower_level}
+      {row.watchtower_gained !== null && (
+        <span className={row.watchtower_gained > 0 ? undefined : 'muted'}>
+          {' '}
+          (+{row.watchtower_gained})
+        </span>
+      )}
+    </td>
+  );
+}
+
 function Summary({ rows, kinds }: { rows: ParticipationRow[]; kinds: EventKind[] }) {
   const first = rows[0];
   if (first === undefined) return null;
@@ -319,9 +340,14 @@ export function ParticipationPage() {
                     </SortableTh>
                   )}
                   {board === 'season' && (
-                    <SortableTh numeric onSort={onSort} sort={sort} sortKey="buildings">
-                      Season buildings
-                    </SortableTh>
+                    <>
+                      <SortableTh numeric onSort={onSort} sort={sort} sortKey="buildings">
+                        Season buildings
+                      </SortableTh>
+                      <SortableTh numeric onSort={onSort} sort={sort} sortKey="watchtower">
+                        Watchtower
+                      </SortableTh>
+                    </>
                   )}
                   {boardKinds.map((eventKind) => (
                     <SortableTh
@@ -378,16 +404,19 @@ export function ParticipationPage() {
                     )}
                     {board === 'event' && <BlackGoldCell row={row} />}
                     {board === 'season' && (
-                      <td
-                        className="num"
-                        title="Season building levels gained in this range, as far as our map sweeps have seen."
-                      >
-                        {row.season_levels_gained === null ? (
-                          <span className="muted">—</span>
-                        ) : (
-                          `+${row.season_levels_gained}`
-                        )}
-                      </td>
+                      <>
+                        <td
+                          className="num"
+                          title="Season building levels gained in this range, as far as our map sweeps have seen."
+                        >
+                          {row.season_levels_gained === null ? (
+                            <span className="muted">—</span>
+                          ) : (
+                            `+${row.season_levels_gained}`
+                          )}
+                        </td>
+                        <WatchtowerCell row={row} />
+                      </>
                     )}
                     {boardKinds.map((eventKind) => (
                       <TypedCell key={eventKind.kind} tally={row.typed_events[eventKind.kind]} />

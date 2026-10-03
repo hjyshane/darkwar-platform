@@ -7526,6 +7526,8 @@ export type Database = {
           player_id: string
           season_levels_gained: number
           typed_events: Json
+          watchtower_gained: number
+          watchtower_level: number
         }[]
       }
       migration_alliances: {
