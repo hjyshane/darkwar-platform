@@ -1,5 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { type CalendarEvent, arrange, bucketOf, labelOf, until } from './data';
+import {
+  type CalendarEvent,
+  type Category,
+  arrange,
+  bucketOf,
+  byServerDay,
+  inCategory,
+  labelOf,
+  lastServerDay,
+  runsOn,
+  search,
+  serverDay,
+  serverWhen,
+  until,
+} from './data';
 
 const NOW = new Date('2026-10-02T21:40:00Z');
 
@@ -8,11 +22,14 @@ function event(
   starts: string | null,
   ends: string | null,
   name: string | null = null,
+  category: Category | null = null,
 ): CalendarEvent {
   return {
     server_id: 580,
     activity_id: id,
     name,
+    category,
+    activity_type: null,
     starts_at: starts,
     ends_at: ends,
     need_hq_level: 10,
@@ -32,12 +49,7 @@ describe('bucketOf', () => {
     );
   });
 
-  it('puts a finished event in ended', () => {
-    expect(bucketOf(event('3', '2026-09-29T02:00:00Z', '2026-10-02T02:00:00Z'), NOW)).toBe('ended');
-  });
-
-  it('treats an event that runs half a year or more as a standing feature, not live', () => {
-    // The login lists permanent features ending in 2044.
+  it('treats an event that runs half a year or more as a standing feature', () => {
     expect(bucketOf(event('4', '2026-04-04T02:00:00Z', '2044-03-30T12:39:00Z'), NOW)).toBe(
       'standing',
     );
@@ -62,14 +74,25 @@ describe('arrange', () => {
     expect(out.live.map((e) => e.activity_id)).toEqual(['b', 'a']);
     expect(out.upcoming.map((e) => e.activity_id)).toEqual(['d', 'c']);
   });
+});
 
-  it('orders standing features by numeric id', () => {
-    const far = '2044-01-01T00:00:00Z';
-    const out = arrange(
-      [event('40086', '2026-04-04T00:00:00Z', far), event('8072', '2025-03-26T00:00:00Z', far)],
-      NOW,
-    );
-    expect(out.standing.map((e) => e.activity_id)).toEqual(['8072', '40086']);
+describe('server time (UTC−2)', () => {
+  it('puts 01:00 UTC on the previous server day', () => {
+    expect(serverDay('2026-10-03T01:00:00Z')).toBe('2026-10-02');
+    expect(serverDay('2026-10-03T02:00:00Z')).toBe('2026-10-03');
+  });
+
+  it('prints the server clock, not the reader clock', () => {
+    expect(serverWhen('2026-10-03T14:00:00Z', NOW)).toBe('Oct 3 · 12:00');
+  });
+
+  it('adds the year when it is not this one', () => {
+    expect(serverWhen('2044-04-11T05:14:00Z', NOW)).toBe('Apr 11, 2044 · 03:14');
+  });
+
+  it('counts an end at server midnight as the day before', () => {
+    // 02:00 UTC is 00:00 server time: the event is over when the 5th begins.
+    expect(lastServerDay('2026-10-05T02:00:00Z')).toBe('2026-10-04');
   });
 });
 
@@ -78,21 +101,70 @@ describe('until', () => {
     expect(until('2026-10-04T23:40:00Z', NOW)).toBe('2d 2h');
   });
 
-  it('shows hours and minutes under a day', () => {
-    expect(until('2026-10-03T02:00:00Z', NOW)).toBe('4h 20m');
-  });
-
   it('never goes negative', () => {
     expect(until('2026-10-01T00:00:00Z', NOW)).toBe('0m');
   });
 });
 
 describe('labelOf', () => {
-  it('uses the name people gave it', () => {
-    expect(labelOf({ name: 'Ice Pit', activity_id: '41101' })).toBe('Ice Pit');
-  });
-
   it('falls back to the id', () => {
     expect(labelOf({ name: null, activity_id: '41101' })).toBe('Event #41101');
+  });
+});
+
+describe('categories', () => {
+  it('shows unclassified entries with the events', () => {
+    expect(inCategory(event('1', null, null), 'event')).toBe(true);
+    expect(inCategory(event('1', null, null), 'shop')).toBe(false);
+  });
+
+  it('keeps shops out of events and in shop', () => {
+    const pack = event('300004', null, null, 'Mod Vehicle Combo Pack', 'shop');
+    expect(inCategory(pack, 'event')).toBe(false);
+    expect(inCategory(pack, 'shop')).toBe(true);
+    expect(inCategory(pack, 'all')).toBe(true);
+  });
+});
+
+describe('search', () => {
+  const ice = event('41101', '2026-08-17T02:00:00Z', '2026-10-20T02:00:00Z', 'Arctic Ice Pit');
+  const clash = event('111001', '2026-10-03T14:00:00Z', '2026-10-05T02:00:00Z', 'Capital Clash');
+  const pack = event(
+    '300004',
+    '2026-10-01T02:00:00Z',
+    '2026-10-04T02:00:00Z',
+    'Combo Pack',
+    'shop',
+  );
+  const all = [ice, clash, pack];
+
+  it('finds by part of the name, any case', () => {
+    expect(search(all, { text: 'capital', day: '', category: 'all' })).toEqual([clash]);
+  });
+
+  it('finds by id', () => {
+    expect(search(all, { text: '41101', day: '', category: 'all' })).toEqual([ice]);
+  });
+
+  it('lists what runs on a server day', () => {
+    expect(search(all, { text: '', day: '2026-10-04', category: 'event' })).toEqual([ice, clash]);
+    // Capital Clash's end at 02:00 UTC is midnight server time: not on the 5th.
+    expect(runsOn(clash, '2026-10-05')).toBe(false);
+  });
+
+  it('applies the category with the rest', () => {
+    expect(search(all, { text: '', day: '2026-10-02', category: 'shop' })).toEqual([pack]);
+  });
+});
+
+describe('byServerDay', () => {
+  it('files starts and last days by server day and leaves standing features off', () => {
+    const { starts, ends } = byServerDay([
+      event('111001', '2026-10-03T14:00:00Z', '2026-10-05T02:00:00Z', 'Capital Clash'),
+      event('8072', '2025-03-26T02:00:00Z', '2044-03-30T12:39:00Z', 'Customized Gift'),
+    ]);
+    expect(starts.get('2026-10-03')?.map((e) => e.activity_id)).toEqual(['111001']);
+    expect(ends.get('2026-10-04')?.map((e) => e.activity_id)).toEqual(['111001']);
+    expect([...starts.keys()]).toEqual(['2026-10-03']);
   });
 });

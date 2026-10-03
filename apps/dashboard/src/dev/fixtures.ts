@@ -693,6 +693,8 @@ function calendarEvent(
     server_id: 580,
     activity_id: id,
     name,
+    category: null,
+    activity_type: null,
     starts_at: startsDays === null ? null : ahead(startsDays),
     ends_at: endsDays === null ? null : ahead(endsDays),
     need_hq_level: hq,
@@ -700,7 +702,8 @@ function calendarEvent(
     seen_at: CALENDAR_SEEN,
   };
 }
-const CALENDAR_ROWS = [
+const CALENDAR_SHOPS = new Set(['8072', '40739', '300004']);
+const CALENDAR_ROWS_RAW = [
   calendarEvent('41101', -47, 17, 'Ice Pit'),
   calendarEvent('700001', -47, 9, 'Season 3'),
   calendarEvent('40741', -47, 2),
@@ -713,8 +716,14 @@ const CALENDAR_ROWS = [
   calendarEvent('492000', -5, -0.1),
   calendarEvent('40086', -182, 6400, null, 11),
   calendarEvent('8072', -556, 6400, null, 8),
+  calendarEvent('300004', -1.5, 1.2, 'Mod Vehicle Combo Pack', 8),
+  calendarEvent('40739', -47, 9, "Bob's Supply Shack"),
   calendarEvent('30000', null, null, null, 6),
 ];
+const CALENDAR_ROWS = CALENDAR_ROWS_RAW.map((row) => ({
+  ...row,
+  category: CALENDAR_SHOPS.has(row.activity_id) ? 'shop' : 'event',
+}));
 
 export const FIXTURES: [readonly unknown[], unknown][] = [
   [['event-calendar'], CALENDAR_ROWS],
