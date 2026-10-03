@@ -13,6 +13,7 @@ import {
   serverDay,
   serverWhen,
   until,
+  weekBars,
 } from './data';
 
 const NOW = new Date('2026-10-02T21:40:00Z');
@@ -166,5 +167,48 @@ describe('byServerDay', () => {
     expect(starts.get('2026-10-03')?.map((e) => e.activity_id)).toEqual(['111001']);
     expect(ends.get('2026-10-04')?.map((e) => e.activity_id)).toEqual(['111001']);
     expect([...starts.keys()]).toEqual(['2026-10-03']);
+  });
+});
+
+describe('weekBars', () => {
+  const week = [
+    '2026-09-28',
+    '2026-09-29',
+    '2026-09-30',
+    '2026-10-01',
+    '2026-10-02',
+    '2026-10-03',
+    '2026-10-04',
+  ];
+
+  it('clips an event to the week and says which ends are real', () => {
+    // Runs 09-21 .. 10-01 (ends at 02:00 UTC on 10-02 = midnight server time).
+    const [bar] = weekBars([event('a', '2026-09-21T02:00:00Z', '2026-10-02T02:00:00Z')], week);
+    expect(bar).toMatchObject({ start: 0, end: 3, startsHere: false, endsHere: true, lane: 0 });
+  });
+
+  it('packs bars that do not overlap into one lane and the rest below', () => {
+    const bars = weekBars(
+      [
+        event('long', '2026-09-28T02:00:00Z', '2026-10-05T02:00:00Z'),
+        event('mon', '2026-09-28T02:00:00Z', '2026-09-29T02:00:00Z'),
+        event('fri', '2026-10-02T02:00:00Z', '2026-10-03T02:00:00Z'),
+      ],
+      week,
+    );
+    const lane = Object.fromEntries(bars.map((b) => [b.event.activity_id, b.lane]));
+    expect(lane).toEqual({ long: 0, mon: 1, fri: 1 });
+  });
+
+  it('leaves out events outside the week and standing features', () => {
+    expect(
+      weekBars(
+        [
+          event('later', '2026-10-06T02:00:00Z', '2026-10-08T02:00:00Z'),
+          event('forever', '2026-04-04T02:00:00Z', '2044-03-30T12:39:00Z'),
+        ],
+        week,
+      ),
+    ).toEqual([]);
   });
 });

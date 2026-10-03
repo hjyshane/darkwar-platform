@@ -227,3 +227,65 @@ export async function saveEventName(
     );
   }
 }
+
+/** One event's bar within one week of the month grid. Columns are 0..6,
+ * Monday first; `lane` is the row it is drawn on so bars never overlap. */
+export interface WeekBar {
+  event: CalendarEvent;
+  start: number;
+  end: number;
+  lane: number;
+  /** The event really starts / ends inside this week (round that end). */
+  startsHere: boolean;
+  endsHere: boolean;
+}
+
+/** Lay out one week: every event that runs on any of its seven server days,
+ * clipped to the week, packed into the fewest lanes. Longer bars first, then
+ * earlier ones, so a week-long event takes the top lane and short ones fill
+ * the gaps under it. Standing features are left off — a bar across every
+ * week is not news. */
+export function weekBars(events: ReadonlyArray<CalendarEvent>, week: string[]): WeekBar[] {
+  const first = week[0];
+  const last = week[week.length - 1];
+  if (first === undefined || last === undefined) {
+    return [];
+  }
+  const spans: Omit<WeekBar, 'lane'>[] = [];
+  for (const event of events) {
+    if (event.starts_at === null || event.ends_at === null) {
+      continue;
+    }
+    if (Date.parse(event.ends_at) - Date.parse(event.starts_at) >= STANDING_AFTER_MS) {
+      continue;
+    }
+    const from = serverDay(event.starts_at);
+    const to = lastServerDay(event.ends_at);
+    if (to < first || from > last) {
+      continue;
+    }
+    const start = from < first ? 0 : week.indexOf(from);
+    const end = to > last ? week.length - 1 : week.indexOf(to);
+    if (start < 0 || end < 0 || end < start) {
+      continue;
+    }
+    spans.push({ event, start, end, startsHere: from >= first, endsHere: to <= last });
+  }
+  spans.sort(
+    (a, b) =>
+      b.end - b.start - (a.end - a.start) ||
+      a.start - b.start ||
+      a.event.activity_id.localeCompare(b.event.activity_id),
+  );
+  const lanes: number[] = []; // last column taken in each lane
+  return spans.map((span) => {
+    let lane = lanes.findIndex((taken) => taken < span.start);
+    if (lane === -1) {
+      lane = lanes.length;
+      lanes.push(span.end);
+    } else {
+      lanes[lane] = span.end;
+    }
+    return { ...span, lane };
+  });
+}
