@@ -26,10 +26,12 @@ import {
   groupPacks,
   isLive,
   itemLabel,
+  loadHidden,
   money,
   ratioLabel,
   saveItemName,
   saveItemValue,
+  storeHidden,
 } from './data';
 
 const STALE_TIME = 5 * 60_000;
@@ -99,12 +101,22 @@ function InlineValue({ itemId, rubies }: { itemId: string; rubies: number | null
   );
 }
 
-function PackRow({ pack, mayEdit }: { pack: PackGroup; mayEdit: boolean }) {
+function PackRow({
+  pack,
+  mayEdit,
+  hidden,
+  onToggleHidden,
+}: {
+  pack: PackGroup;
+  mayEdit: boolean;
+  hidden: boolean;
+  onToggleHidden: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const estimated = pack.estimated;
   return (
     <>
-      <tr>
+      <tr className={hidden ? 'pack-hidden' : undefined}>
         <td className="label">
           <button
             aria-expanded={open}
@@ -152,10 +164,21 @@ function PackRow({ pack, mayEdit }: { pack: PackGroup; mayEdit: boolean }) {
           {pack.claimed_percent === null ? '—' : `${pack.claimed_percent}%`}
         </td>
         <td className="num muted">{pack.offers}</td>
+        <td>
+          <button
+            aria-label={hidden ? `Show ${pack.name} again` : `Hide ${pack.name}`}
+            className="link-button muted"
+            onClick={onToggleHidden}
+            title={hidden ? 'Show this offer again' : 'Hide this offer (this browser only)'}
+            type="button"
+          >
+            {hidden ? 'unhide' : 'hide'}
+          </button>
+        </td>
       </tr>
       {open && (
         <tr className="pack-contents">
-          <td colSpan={9}>
+          <td colSpan={10}>
             <table className="compact">
               <tbody>
                 <tr>
@@ -199,7 +222,20 @@ function PacksTab({ now, mayEdit }: { now: Date; mayEdit: boolean }) {
   const [price, setPrice] = useState<string>('all');
   const [sort, setSort] = useState<SortState>({ key: 'value_ratio', direction: 'desc' });
   const onSort = (key: string) => setSort(nextSort(sort, key));
-  const shown = useMemo(() => {
+  const [hidden, setHidden] = useState<ReadonlySet<string>>(loadHidden);
+  const [showHidden, setShowHidden] = useState(false);
+  const toggleHidden = (key: string) =>
+    setHidden((current) => {
+      const next = new Set(current);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      storeHidden(next);
+      return next;
+    });
+  const grouped = useMemo(() => {
     const rows = (packs.data ?? []).filter(
       (pack) =>
         pack.dollars > 0 &&
@@ -208,6 +244,8 @@ function PacksTab({ now, mayEdit }: { now: Date; mayEdit: boolean }) {
     );
     return sortRows(groupPacks(rows), sort);
   }, [packs.data, filter, price, now, sort]);
+  const hiddenHere = grouped.filter((pack) => hidden.has(pack.key)).length;
+  const shown = showHidden ? grouped : grouped.filter((pack) => !hidden.has(pack.key));
   const prices = useMemo(
     () =>
       [...new Set((packs.data ?? []).map((pack) => pack.dollars.toFixed(2)))]
@@ -247,6 +285,16 @@ function PacksTab({ now, mayEdit }: { now: Date; mayEdit: boolean }) {
             ))}
           </select>
         </label>
+        {hiddenHere > 0 && (
+          <label>
+            <input
+              checked={showHidden}
+              onChange={(e) => setShowHidden(e.target.checked)}
+              type="checkbox"
+            />{' '}
+            Show hidden ({hiddenHere})
+          </label>
+        )}
         <span className="subtle">{shown.length} offers. Click a heading to sort.</span>
       </div>
       <div className="table-wrap">
@@ -280,11 +328,20 @@ function PacksTab({ now, mayEdit }: { now: Date; mayEdit: boolean }) {
               <SortableTh numeric onSort={onSort} sort={sort} sortKey="offers">
                 Offers
               </SortableTh>
+              <th scope="col">
+                <span className="visually-hidden">Hide</span>
+              </th>
             </tr>
           </thead>
           <tbody>
             {shown.map((pack) => (
-              <PackRow key={pack.pack_ids.join(',')} mayEdit={mayEdit} pack={pack} />
+              <PackRow
+                hidden={hidden.has(pack.key)}
+                key={pack.key}
+                mayEdit={mayEdit}
+                onToggleHidden={() => toggleHidden(pack.key)}
+                pack={pack}
+              />
             ))}
           </tbody>
         </table>

@@ -122,3 +122,26 @@ def test_copies_of_one_pack_do_not_estimate_the_item_unique_to_them() -> None:
     ]
 
     assert estimate(copies, known) == {}
+
+
+def test_variants_differing_only_in_a_one_off_item_are_still_copies() -> None:
+    """Wartime Investment: five variants, each with Land Expansion and one item
+    no other pack holds. Those packs cannot be split, so Land Expansion stays
+    unvalued instead of taking the whole claim."""
+    known = {"1": 100.0}
+    variants = [
+        Pack(
+            dollars=4.99,
+            rubies=500,
+            claimed_percent=8000,
+            items=(("1", 10), ("land", 5), (f"oneoff{i}", 1)),
+        )
+        for i in range(5)
+    ]
+    # A real two-composition item alongside, to show the rest still solves.
+    variants += [
+        Pack(dollars=0.99, rubies=100, claimed_percent=1000, items=(("1", 4), ("2", 10))),
+        Pack(dollars=0.99, rubies=0, claimed_percent=600, items=(("1", 1), ("2", 10))),
+    ]
+
+    assert estimate(variants, known) == {"2": 50.0}
