@@ -216,6 +216,9 @@ export async function saveItemValue(itemId: string, rubies: number, note: string
  * slot (14 for Treasure of the Day) — and they read as duplicates. Packs that
  * differ in a single item stay apart: that is a real choice. */
 export interface PackGroup extends PackValue {
+  /** Name, price, rubies and contents: stable across reads and new ids, so
+   * a hidden offer stays hidden when the game reissues it. */
+  key: string;
   offers: number;
   pack_ids: string[];
   /** Share of the value resting on estimates, for sorting. */
@@ -237,6 +240,7 @@ export function groupPacks(packs: ReadonlyArray<PackValue>): PackGroup[] {
     if (held === undefined) {
       groups.set(key, {
         ...pack,
+        key,
         offers: 1,
         pack_ids: [pack.pack_id],
         estimated: estimatedShare(pack),
@@ -263,5 +267,27 @@ export async function saveItemName(itemId: string, name: string): Promise<void> 
     throw new Error(
       error.code === '42501' ? 'Only officers and admins can rename items.' : error.message,
     );
+  }
+}
+
+const HIDDEN_KEY = 'shop-value-hidden';
+
+/** Offers this browser has hidden. Per viewer, and only a convenience: a
+ * private window or cleared storage simply shows everything again. */
+export function loadHidden(): Set<string> {
+  try {
+    const raw = window.localStorage.getItem(HIDDEN_KEY);
+    const parsed: unknown = raw === null ? [] : JSON.parse(raw);
+    return new Set(Array.isArray(parsed) ? parsed.filter((v) => typeof v === 'string') : []);
+  } catch {
+    return new Set();
+  }
+}
+
+export function storeHidden(hidden: ReadonlySet<string>): void {
+  try {
+    window.localStorage.setItem(HIDDEN_KEY, JSON.stringify([...hidden]));
+  } catch {
+    // Storage blocked: hiding still works until the page is reloaded.
   }
 }

@@ -125,20 +125,40 @@ def estimate(packs: Iterable[Pack], known: Mapping[str, float]) -> dict[str, flo
         # independent claim; an identical copy is not.
         shapes.append(frozenset(pack.items))
         targets.append(remaining / claimed)
-    compositions: dict[str, set[frozenset[tuple[str, float]]]] = {}
-    for row, shape in zip(rows, shapes, strict=True):
-        for item_id in row:
-            compositions.setdefault(item_id, set()).add(shape)
-    items = sorted(
-        item_id for item_id, shapes in compositions.items() if len(shapes) >= MIN_COMPOSITIONS
-    )
+    # Fixed point. A pack is usable only if every unknown in it can be
+    # estimated: an item it alone holds would otherwise hand its share of the
+    # claim to the others. And an item is estimable only if usable packs
+    # show it in two different compositions — compared on what is being
+    # solved, so variants that differ only in an unusable item are copies.
+    # Wartime Investment's five variants each add one item no other pack has;
+    # without this, Land Expansion took the whole 8000% claim (2026-10-03).
+    candidates = {item_id for row in rows for item_id in row}
+    while True:
+        usable = [i for i, row in enumerate(rows) if set(row) <= candidates]
+        compositions: dict[str, set[frozenset[tuple[str, float]]]] = {}
+        for i in usable:
+            shape = frozenset(
+                (item_id, qty)
+                for item_id, qty in shapes[i]
+                if item_id in candidates or item_id in known
+            )
+            for item_id in rows[i]:
+                compositions.setdefault(item_id, set()).add(shape)
+        narrowed = {
+            item_id for item_id, seen in compositions.items() if len(seen) >= MIN_COMPOSITIONS
+        }
+        if narrowed == candidates:
+            break
+        candidates = narrowed
+    items = sorted(candidates)
     index = {item_id: j for j, item_id in enumerate(items)}
     columns: list[dict[int, float]] = [{} for _ in items]
-    for i, row in enumerate(rows):
-        for item_id, value in row.items():
-            if item_id in index:
-                columns[index[item_id]][i] = value
-    solved = _nnls(columns, targets)
+    kept: list[float] = []
+    for row_number, i in enumerate(usable):
+        for item_id, value in rows[i].items():
+            columns[index[item_id]][row_number] = value
+        kept.append(targets[i])
+    solved = _nnls(columns, kept)
     return {item_id: round(solved[j], 2) for item_id, j in index.items()}
 
 
