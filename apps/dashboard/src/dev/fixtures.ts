@@ -663,9 +663,9 @@ const PARTICIPATION_ROWS = [
 const ATTENDANCE_KINDS = [
   { kind: 'capital_clash', label: 'Capital Clash', sort_order: 10, captured: false },
   { kind: 'server_clash', label: 'Server Clash', sort_order: 20, captured: false },
-  { kind: 'frankie', label: 'Frankie', sort_order: 30, captured: false },
+  { kind: 'frankie', label: 'Bio-Mutant', sort_order: 30, captured: false },
   { kind: 'ice_pit', label: 'Ice Pit', sort_order: 40, captured: false },
-  { kind: 'furnace_fury', label: 'Furnace Fury', sort_order: 50, captured: false },
+  { kind: 'furnace_fury', label: 'Furnace Fury', sort_order: 50, captured: true },
 ];
 
 export const SESSION = {
@@ -746,6 +746,14 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
   [['permissions'], { capabilities: CAPABILITIES, grants: GRANTS }],
   [['participation', PARTICIPATION_RANGE.from, PARTICIPATION_RANGE.to], PARTICIPATION_ROWS],
   [['attendance-kinds'], ATTENDANCE_KINDS],
+  // The days 0212 declares for the event the recorder opens on.
+  [
+    ['attendance-days', 'capital_clash'],
+    [
+      { held_on: gameDate(new Date()), note: null },
+      { held_on: '2026-09-19', note: null },
+    ],
+  ],
   // Today's Capital Clash, half ticked: the form opens on it.
   [
     ['event-attendance', 'capital_clash', gameDate(new Date())],

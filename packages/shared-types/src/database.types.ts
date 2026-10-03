@@ -1829,6 +1829,56 @@ export type Database = {
           },
         ]
       }
+      attendance_event_days: {
+        Row: {
+          alliance_id: string | null
+          held_on: string
+          kind: string
+          note: string | null
+        }
+        Insert: {
+          alliance_id?: string | null
+          held_on: string
+          kind: string
+          note?: string | null
+        }
+        Update: {
+          alliance_id?: string | null
+          held_on?: string
+          kind?: string
+          note?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_event_days_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "attendance_event_days_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "attendance_event_days_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "attendance_event_days_kind_fkey"
+            columns: ["kind"]
+            isOneToOne: false
+            referencedRelation: "attendance_event_kinds"
+            referencedColumns: ["kind"]
+          },
+        ]
+      }
       attendance_event_kinds: {
         Row: {
           captured: boolean
@@ -2934,6 +2984,133 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "pending_access"
             referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      furnace_fury_scores: {
+        Row: {
+          alliance_external_id: string
+          alliance_id: string | null
+          attacker: boolean | null
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at: string
+          game_uid: number
+          held_on: string
+          idempotency_key: string
+          observation_id: string
+          parser_version: string
+          player_id: string | null
+          raw: Json
+          score: number | null
+          server_id: number
+          snapshot_id: string
+          source_command: string
+        }
+        Insert: {
+          alliance_external_id: string
+          alliance_id?: string | null
+          attacker?: boolean | null
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at?: string
+          game_uid: number
+          held_on: string
+          idempotency_key: string
+          observation_id: string
+          parser_version: string
+          player_id?: string | null
+          raw?: Json
+          score?: number | null
+          server_id: number
+          snapshot_id?: string
+          source_command: string
+        }
+        Update: {
+          alliance_external_id?: string
+          alliance_id?: string | null
+          attacker?: boolean | null
+          captured_at?: string
+          collected_from_server_id?: number
+          collector_id?: string
+          created_at?: string
+          game_uid?: number
+          held_on?: string
+          idempotency_key?: string
+          observation_id?: string
+          parser_version?: string
+          player_id?: string | null
+          raw?: Json
+          score?: number | null
+          server_id?: number
+          snapshot_id?: string
+          source_command?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "furnace_fury_scores_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "furnace_fury_scores_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "furnace_fury_scores_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "furnace_fury_scores_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "furnace_fury_scores_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "furnace_fury_scores_collector_id_fkey"
+            columns: ["collector_id"]
+            isOneToOne: false
+            referencedRelation: "collectors"
+            referencedColumns: ["collector_id"]
+          },
+          {
+            foreignKeyName: "furnace_fury_scores_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "furnace_fury_scores_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "furnace_fury_scores_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
           },
         ]
       }

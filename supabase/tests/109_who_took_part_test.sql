@@ -11,6 +11,9 @@ select plan(44);
 
 -- ---------------------------------------------------------------- set-up
 
+-- The held days 0212 declares fall in this week; this file tests ticks alone.
+delete from public.attendance_event_days;
+
 update public.alliances set is_own = false where is_own;
 insert into public.alliances (alliance_id, server_id, external_id, current_name, is_own, member_count)
 values

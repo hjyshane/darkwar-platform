@@ -74,6 +74,27 @@ export async function fetchEventKinds(): Promise<EventKind[]> {
   return (data ?? []) as EventKind[];
 }
 
+/** One day an event was held (0212), with the level or outcome if known. */
+export interface EventDay {
+  held_on: string;
+  note: string | null;
+}
+
+/** The days one event was held, newest first: declared in 0212 or by later
+ * migrations. A day an officer ticks counts as held whether or not it is here. */
+export async function fetchEventDays(kind: string): Promise<EventDay[]> {
+  const { data, error } = await supabase
+    .from('attendance_event_days')
+    .select('held_on, note')
+    .eq('kind', kind)
+    .order('held_on', { ascending: false })
+    .limit(400);
+  if (error) {
+    throw new Error(`event days query failed: ${error.message}`);
+  }
+  return (data ?? []) as EventDay[];
+}
+
 /** What is on record for one event on one day: player_id → attended. */
 export async function fetchAttendance(kind: string, heldOn: string): Promise<Map<string, boolean>> {
   const { data, error } = await supabase

@@ -1,4 +1,6 @@
-// Ticking who took part in an event nobody captures (0204).
+// Ticking who took part in an event (0204). Most events are captured by
+// nobody; Furnace Fury is read from its member board (0212), and a tick here
+// overrides the board for that member and day.
 //
 // One event, one game day, every current member: present, absent, or not
 // recorded. Only what changed is sent, so correcting one member does not
@@ -12,6 +14,7 @@ import {
   type ParticipationRow,
   changedEntries,
   fetchAttendance,
+  fetchEventDays,
   recordAttendance,
 } from './data';
 import { gameDate } from './periods';
@@ -44,6 +47,11 @@ export function AttendanceRecorder({
     enabled: kind !== '' && heldOn !== '',
   });
   const onRecord = stored.data ?? new Map<string, boolean>();
+  const days = useQuery({
+    queryKey: ['attendance-days', kind],
+    queryFn: () => fetchEventDays(kind),
+    enabled: kind !== '',
+  });
 
   function markOf(playerId: string): Mark {
     return draft.has(playerId) ? (draft.get(playerId) ?? null) : (onRecord.get(playerId) ?? null);
@@ -82,9 +90,9 @@ export function AttendanceRecorder({
     <section aria-labelledby="attendance-heading">
       <h3 id="attendance-heading">Record attendance</h3>
       <p className="subtle">
-        For events the collector does not capture. Pick the event and the game day it was held, tick
-        each member, and save. Leaving somebody on — means not recorded, which the report shows as a
-        gap rather than an absence.
+        Pick the event and the game day it was held, tick each member, and save. Leaving somebody on
+        — means not recorded, which the report shows as a gap rather than an absence. Furnace Fury
+        is read from its member board; a tick here overrides the board for that member.
       </p>
       <div className="row">
         <label>
@@ -104,6 +112,27 @@ export function AttendanceRecorder({
             ))}
           </select>
         </label>
+        {(days.data ?? []).length > 0 && (
+          <label>
+            Held{' '}
+            <select
+              onChange={(event) => {
+                setHeldOn(event.target.value);
+                setDraft(new Map());
+                setNote(null);
+              }}
+              value={days.data?.some((day) => day.held_on === heldOn) ? heldOn : ''}
+            >
+              <option value="">Pick a day…</option>
+              {days.data?.map((day) => (
+                <option key={day.held_on} value={day.held_on}>
+                  {day.held_on}
+                  {day.note ? ` · ${day.note}` : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <label>
           Held on (game day){' '}
           <input

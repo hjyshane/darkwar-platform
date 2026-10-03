@@ -1,0 +1,51 @@
+{
+  "observation_id": "00000000-0000-4000-8000-00000000f001",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "al.fight.act.member.score",
+  "captured_at": "2026-09-29T22:10:42+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "_id": 143,
+    "_time": 1,
+    "alInfo": {
+      "abbr": "TST",
+      "alIcon": "8;8;2;8",
+      "alName": "Test Alliance",
+      "allianceId": "0000000000000000000000000000a580",
+      "attack": 1,
+      "serverId": 580
+    },
+    "memberScores": [
+      {
+        "country": "US",
+        "headSkinId": 20022,
+        "name": "Alpha",
+        "pic": "",
+        "picVer": 6,
+        "score": 4455500,
+        "sex": 0,
+        "uid": "1000000001000580"
+      },
+      {
+        "country": "CZ",
+        "headSkinId": 20022,
+        "name": "Bravo",
+        "pic": "",
+        "picVer": 2,
+        "score": 29164800,
+        "sex": 2,
+        "uid": "1000000002000580"
+      },
+      {
+        "country": "KR",
+        "name": "Charlie",
+        "pic": "",
+        "picVer": 9,
+        "score": 0,
+        "sex": 2,
+        "uid": "1000000003000581"
+      }
+    ]
+  },
+  "schema_version": 1
+}

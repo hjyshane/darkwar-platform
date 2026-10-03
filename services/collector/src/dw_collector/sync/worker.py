@@ -53,6 +53,8 @@ _TABLE_ORDER = [
     "black_money_signup_snapshots",
     "black_money_battle_snapshots",
     "black_money_score_snapshots",
+    # Furnace Fury member boards (0212): a player and an alliance each.
+    "furnace_fury_scores",
     "battle_report_ingests",
     "activity_facts",
 ]
