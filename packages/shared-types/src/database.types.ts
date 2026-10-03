@@ -2931,6 +2931,93 @@ export type Database = {
           },
         ]
       }
+      game_items: {
+        Row: {
+          icon: string | null
+          item_id: string
+          item_type: number | null
+          name: string | null
+          name_ko: string | null
+          quality: number | null
+          updated_at: string
+        }
+        Insert: {
+          icon?: string | null
+          item_id: string
+          item_type?: number | null
+          name?: string | null
+          name_ko?: string | null
+          quality?: number | null
+          updated_at?: string
+        }
+        Update: {
+          icon?: string | null
+          item_id?: string
+          item_type?: number | null
+          name?: string | null
+          name_ko?: string | null
+          quality?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      game_resources: {
+        Row: {
+          name: string | null
+          name_ko: string | null
+          resource_id: number
+          updated_at: string
+        }
+        Insert: {
+          name?: string | null
+          name_ko?: string | null
+          resource_id: number
+          updated_at?: string
+        }
+        Update: {
+          name?: string | null
+          name_ko?: string | null
+          resource_id?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      game_upgrade_steps: {
+        Row: {
+          costs: Json
+          kind: string
+          level: number
+          name: string | null
+          name_ko: string | null
+          power: number | null
+          seconds: number | null
+          subject_id: string
+          updated_at: string
+        }
+        Insert: {
+          costs?: Json
+          kind: string
+          level: number
+          name?: string | null
+          name_ko?: string | null
+          power?: number | null
+          seconds?: number | null
+          subject_id: string
+          updated_at?: string
+        }
+        Update: {
+          costs?: Json
+          kind?: string
+          level?: number
+          name?: string | null
+          name_ko?: string | null
+          power?: number | null
+          seconds?: number | null
+          subject_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       guides: {
         Row: {
           alliance_id: string | null

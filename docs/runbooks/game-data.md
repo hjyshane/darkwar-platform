@@ -21,8 +21,10 @@
   - 번들 맨 앞에 `UnityRaw` 8바이트가 붙어 있다. 떼면 평범한 UnityFS 번들이다.
   - 바이트코드 시그니처 `\x1bLua` 뒤에 `\x03` 한 바이트가 끼어 있다. 빼면 표준 Lua 5.4다.
 - `files/config.db`(146MB)는 설정이 아니라 채팅·유저 캐시다. 쓸모없다.
-- 이건 **패치로 내려받은** 번들뿐이다. APK 안 기본 테이블에만 있는 항목은 여기서
-  안 나올 수 있다(이벤트는 캘린더 70개 중 67개가 여기서 나왔다).
+- `AssetBundles`에 있는 건 **패치로 내려받은** 번들뿐이다(테이블 이름 a~g 일부).
+  **전체 테이블(463개)은 APK의 `split_install_time_pack.apk`(약 2GB) 안**
+  `assets/AssetBundles/datatable_*.bundle` 34개(약 36MB)에 있다. 건물·연구·개조차·
+  펫 업그레이드 비용과 아이템 사전은 여기서 나온다. 순서는 **기본 → 패치**(패치가 덮어씀).
 
 ## 절차
 
@@ -55,6 +57,34 @@
    `written=N unchanged=M kept-officer-names=K`. 임원이 직접 입력한 이름
    (`updated_by`가 있는 행)은 **절대 덮어쓰지 않는다.** 이 도구가 쓴 행(`updated_by`
    null, `note`에 출처 표기)은 게임이 이름을 바꾸면 다음 실행에서 갱신된다.
+
+4. 기본 팩에서 전체 테이블 꺼내기(2GB를 통째로 받지 않는다). 기기의 `unzip -p`는
+   파일 끝에 `unzip: invalid zip magic 00000000\n`(34바이트)을 붙여 내보내므로 잘라낸다.
+
+   ```bash
+   A="C:/Program Files/BlueStacks_nxt/HD-Adb.exe"
+   P=$("$A" -s emulator-5554 shell pm path com.readygo.dark.gp | grep install_time_pack | cut -d: -f2 | tr -d '\r')
+   mkdir -p C:/DW_data/gamedata/base && cd C:/DW_data/gamedata/base
+   for e in $("$A" -s emulator-5554 shell "unzip -l '$P'" | awk '{print $4}' | grep -E '^assets/AssetBundles/datatable_.*\.bundle$' | tr -d '\r'); do
+     "$A" -s emulator-5554 exec-out "unzip -p '$P' '$e'" > "$(basename $e)"
+   done
+   python -c "import glob;t=b'unzip: invalid zip magic 00000000\n';[open(f,'wb').write(d[:-len(t)]) for f in glob.glob('*.bundle') for d in [open(f,'rb').read()] if d.endswith(t)]"
+   ```
+
+   크기가 `unzip -l` 목록과 정확히 같아야 한다.
+
+5. 아이템·자원 이름과 업그레이드 비용 올리기(0209):
+
+   ```powershell
+   uv run dw-collector game-catalog --bundles C:/DW_data/gamedata/base --bundles C:/DW_data/gamedata/bundles
+   ```
+
+   `items=1869 resources=24 steps=16106 {building, research, vehicle_part, pet}`.
+   게임 데이터라 덮어쓴다(사람이 고칠 칸이 없다). 영웅 이름도 채운다(`aps_new_heroes`) —
+   관리자가 입력한 이름은 그대로 두고 빈 칸과 처음 보는 영웅만 채운다(2026-10-03 대조:
+   입력된 31명 전원 게임 이름과 일치). 영웅 장비 비용은 아직 없다 — 승급은 Power Core
+   (`ds_equip_promote`)로 확인됐지만 레벨업 재료(`ds_equip_upgrade.stone_upgrade_cost`)가
+   어떤 아이템인지 테이블에 없다.
 
 ## 언제 다시 돌리나
 

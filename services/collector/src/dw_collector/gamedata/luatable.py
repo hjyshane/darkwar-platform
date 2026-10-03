@@ -56,11 +56,20 @@ def repair_header(data: bytes) -> bytes:
     return data
 
 
-def _plain(value: Any) -> Any:
+def _plain(value: Any, depth: int = 0) -> Any:
+    """Lua values as Python ones. A nested table — some cells hold one, a
+    cost list or a level curve — becomes a list when its keys run 1..n and a
+    dict otherwise."""
     if isinstance(value, bytes):
         return value.decode("utf-8", "replace")
     if isinstance(value, float) and value.is_integer():
         return int(value)
+    if hasattr(value, "items") and depth < 8:
+        items = [(_plain(k, depth + 1), _plain(v, depth + 1)) for k, v in value.items()]
+        keys = [k for k, _ in items]
+        if keys == list(range(1, len(keys) + 1)):
+            return [v for _, v in items]
+        return {str(k): v for k, v in items}
     return value
 
 
