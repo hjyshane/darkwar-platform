@@ -678,7 +678,46 @@ export const SESSION = {
   playerId: PLAYER.shane,
 };
 
+/** The game calendar (0208): what one login saw. Real ids from the 10-02
+ *  capture, two named by an officer and the rest still bare, which is what
+ *  the page looks like on its first day. */
+const CALENDAR_SEEN = ago(25);
+function calendarEvent(
+  id: string,
+  startsDays: number | null,
+  endsDays: number | null,
+  name: string | null = null,
+  hq = 10,
+) {
+  return {
+    server_id: 580,
+    activity_id: id,
+    name,
+    starts_at: startsDays === null ? null : ahead(startsDays),
+    ends_at: endsDays === null ? null : ahead(endsDays),
+    need_hq_level: hq,
+    sub_type: null,
+    seen_at: CALENDAR_SEEN,
+  };
+}
+const CALENDAR_ROWS = [
+  calendarEvent('41101', -47, 17, 'Ice Pit'),
+  calendarEvent('700001', -47, 9, 'Season 3'),
+  calendarEvent('40741', -47, 2),
+  calendarEvent('55001', -5, 0.9),
+  calendarEvent('400047', -12, 1.9, null, 7),
+  calendarEvent('111001', 0.5, 2),
+  calendarEvent('80002', 2, 9),
+  calendarEvent('104000', 9, 30),
+  calendarEvent('97001', 13, 20, null, 8),
+  calendarEvent('492000', -5, -0.1),
+  calendarEvent('40086', -182, 6400, null, 11),
+  calendarEvent('8072', -556, 6400, null, 8),
+  calendarEvent('30000', null, null, null, 6),
+];
+
 export const FIXTURES: [readonly unknown[], unknown][] = [
+  [['event-calendar'], CALENDAR_ROWS],
   [SESSION_KEY, SESSION],
   [['permissions'], { capabilities: CAPABILITIES, grants: GRANTS }],
   [['participation', PARTICIPATION_RANGE.from, PARTICIPATION_RANGE.to], PARTICIPATION_ROWS],
