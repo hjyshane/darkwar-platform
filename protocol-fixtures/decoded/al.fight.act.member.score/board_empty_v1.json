@@ -6,7 +6,11 @@
   "collected_from_server_id": 580,
   "payload": {
     "_id": 9,
-    "alInfo": {"abbr": "TST", "alName": "Test Alliance", "allianceId": "0000000000000000000000000000a580"}
+    "alInfo": {
+      "abbr": "TST",
+      "alName": "Test Alliance",
+      "allianceId": "0000000000000000000000000000a580"
+    }
   },
   "schema_version": 1
 }

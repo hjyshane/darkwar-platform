@@ -5,8 +5,8 @@
   "captured_at": "2026-09-29T22:10:42+00:00",
   "collected_from_server_id": 580,
   "payload": {
-    "alInfo": {"allianceId": "0000000000000000000000000000a580"},
-    "memberScores": [{"uid": "nope", "score": 1}]
+    "alInfo": { "allianceId": "0000000000000000000000000000a580" },
+    "memberScores": [{ "uid": "nope", "score": 1 }]
   },
   "schema_version": 1
 }

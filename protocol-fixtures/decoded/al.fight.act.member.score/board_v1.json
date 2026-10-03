@@ -16,9 +16,35 @@
       "serverId": 580
     },
     "memberScores": [
-      {"country": "US", "headSkinId": 20022, "name": "Alpha", "pic": "", "picVer": 6, "score": 4455500, "sex": 0, "uid": "1000000001000580"},
-      {"country": "CZ", "headSkinId": 20022, "name": "Bravo", "pic": "", "picVer": 2, "score": 29164800, "sex": 2, "uid": "1000000002000580"},
-      {"country": "KR", "name": "Charlie", "pic": "", "picVer": 9, "score": 0, "sex": 2, "uid": "1000000003000581"}
+      {
+        "country": "US",
+        "headSkinId": 20022,
+        "name": "Alpha",
+        "pic": "",
+        "picVer": 6,
+        "score": 4455500,
+        "sex": 0,
+        "uid": "1000000001000580"
+      },
+      {
+        "country": "CZ",
+        "headSkinId": 20022,
+        "name": "Bravo",
+        "pic": "",
+        "picVer": 2,
+        "score": 29164800,
+        "sex": 2,
+        "uid": "1000000002000580"
+      },
+      {
+        "country": "KR",
+        "name": "Charlie",
+        "pic": "",
+        "picVer": 9,
+        "score": 0,
+        "sex": 2,
+        "uid": "1000000003000581"
+      }
     ]
   },
   "schema_version": 1
