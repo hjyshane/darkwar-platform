@@ -80,8 +80,11 @@
    ```
 
    `items=1869 resources=24 steps=16106 {building, research, vehicle_part, pet}`.
-   게임 데이터라 덮어쓴다(사람이 고칠 칸이 없다). 영웅 장비 비용은 아직 없다 —
-   장비 id → 슬롯·등급 매핑을 먼저 확인해야 한다.
+   게임 데이터라 덮어쓴다(사람이 고칠 칸이 없다). 영웅 이름도 채운다(`aps_new_heroes`) —
+   관리자가 입력한 이름은 그대로 두고 빈 칸과 처음 보는 영웅만 채운다(2026-10-03 대조:
+   입력된 31명 전원 게임 이름과 일치). 영웅 장비 비용은 아직 없다 — 승급은 Power Core
+   (`ds_equip_promote`)로 확인됐지만 레벨업 재료(`ds_equip_upgrade.stone_upgrade_cost`)가
+   어떤 아이템인지 테이블에 없다.
 
 ## 언제 다시 돌리나
 

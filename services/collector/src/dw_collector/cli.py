@@ -902,10 +902,14 @@ def game_catalog(
         assets.update(read_dir(folder))
     catalog = Catalog(assets)
     items, resources, steps = catalog.items(), catalog.resources(), list(catalog.steps())
+    heroes = catalog.hero_names()
     kinds: dict[str, int] = {}
     for step in steps:
         kinds[step["kind"]] = kinds.get(step["kind"], 0) + 1
-    typer.echo(f"items={len(items)} resources={len(resources)} steps={len(steps)} {kinds}")
+    typer.echo(
+        f"items={len(items)} resources={len(resources)} steps={len(steps)} {kinds}"
+        f" heroes={len(heroes)}"
+    )
     if dry_run:
         return
     if not url or not secret_key:
@@ -916,7 +920,8 @@ def game_catalog(
         upload.upsert_rows(client, "game_items", items, "item_id")
         upload.upsert_rows(client, "game_resources", resources, "resource_id")
         upload.upsert_rows(client, "game_upgrade_steps", steps, "kind,subject_id,level")
-    typer.echo("written")
+        named, kept = upload.fill_hero_names(client, heroes)
+    typer.echo(f"written; heroes named={named} kept-admin-names={kept}")
 
 
 if __name__ == "__main__":

@@ -220,3 +220,33 @@ def test_string_costs_split_on_bar_and_semicolon() -> None:
     assert (steps["vehicle_part"]["subject_id"], steps["vehicle_part"]["level"]) == ("1", 27)
     assert steps["pet"]["costs"] == [{"type": "item", "id": "330001", "amount": 2475}]
     assert steps["pet"]["subject_id"] == "3"
+
+
+def test_hero_names_fill_only_what_nobody_typed() -> None:
+    """The game's name fills a null or a hero the catalogue has never seen;
+    a name an admin typed stays, even where the game spells it differently."""
+    import json
+
+    import httpx
+
+    from dw_collector.gamedata.upload import fill_hero_names
+
+    sent: list[list[dict[str, object]]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET":
+            return httpx.Response(
+                200,
+                json=[
+                    {"hero_id": 12001, "name": "Barnett (typed)"},
+                    {"hero_id": 21001, "name": None},
+                ],
+            )
+        sent.append(json.loads(request.content))
+        return httpx.Response(201)
+
+    client = httpx.Client(base_url="http://test", transport=httpx.MockTransport(handler))
+    written, kept = fill_hero_names(client, {12001: "Barnett", 21001: "Tristan", 40002: "Liz"})
+
+    assert (written, kept) == (2, 1)
+    assert sent == [[{"hero_id": 21001, "name": "Tristan"}, {"hero_id": 40002, "name": "Liz"}]]

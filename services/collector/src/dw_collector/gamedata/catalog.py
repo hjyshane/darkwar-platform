@@ -113,6 +113,16 @@ class Catalog:
             out.append({"resource_id": rid, "name": name, "name_ko": name_ko})
         return out
 
+    def hero_names(self) -> dict[int, str]:
+        """hero id → English name, from `aps_new_heroes` (12001 → Barnett)."""
+        out: dict[int, str] = {}
+        for hero_id, row in self._rows("aps_new_heroes").items():
+            hid = _int(hero_id)
+            name, _ = self._names(row.get("name"))
+            if hid is not None and name:
+                out[hid] = name
+        return out
+
     def steps(self) -> Iterator[Row]:
         yield from self._building_steps()
         yield from self._research_steps()
