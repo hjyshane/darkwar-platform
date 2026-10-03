@@ -828,5 +828,50 @@ def ingest_dir(
         journal.close()
 
 
+@app.command("game-names")
+def game_names(
+    bundles: Annotated[
+        Path,
+        typer.Option(
+            "--bundles",
+            envvar="DW_GAMEDATA_DIR",
+            exists=True,
+            file_okay=False,
+            help="the AssetBundles folder copied off the device",
+        ),
+    ],
+    language: Annotated[str, typer.Option(help="localisation folder name")] = "English",
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="print, write nothing")] = False,
+    url: Annotated[str | None, typer.Option(envvar="SUPABASE_URL")] = None,
+    secret_key: Annotated[str | None, typer.Option(envvar="SUPABASE_SECRET_KEY")] = None,
+) -> None:
+    """Name every event from the game client's own tables (0208).
+
+    The server sends events as numbers; the client names them from its
+    datatables. This reads those (docs/runbooks/game-data.md) and fills
+    event_names. A name an officer typed is never overwritten. Needs the
+    `gamedata` extra.
+    """
+    from dw_collector.gamedata import event_names, read_dir, upload
+
+    names = event_names(read_dir(bundles), language)
+    typer.echo(f"{len(names)} named events in the client's tables ({language})")
+    if dry_run:
+        for activity_id, name in sorted(names.items(), key=lambda item: int(item[0])):
+            typer.echo(f"{activity_id:>10}  {name}")
+        return
+    if not url or not secret_key:
+        typer.echo("SUPABASE_URL and SUPABASE_SECRET_KEY are required", err=True)
+        raise typer.Exit(code=2)
+    headers = {"apikey": secret_key, "Authorization": f"Bearer {secret_key}"}
+    with httpx.Client(base_url=url.rstrip("/"), headers=headers, timeout=60.0) as client:
+        result = upload.plan(upload.fetch_existing(client), names)
+        upload.upsert(client, result.to_write)
+    typer.echo(
+        f"written={len(result.to_write)} unchanged={result.unchanged}"
+        f" kept-officer-names={result.kept_human}"
+    )
+
+
 if __name__ == "__main__":
     app()
