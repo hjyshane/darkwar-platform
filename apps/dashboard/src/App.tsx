@@ -33,6 +33,7 @@ import { SchedulePanel } from './features/schedule/SchedulePanel';
 import { Season2Panel } from './features/season/Season2Panel';
 import { SeasonPanel } from './features/season/SeasonPanel';
 import { ServerPage } from './features/server/ServerPage';
+import { ShopValuePage } from './features/shopValue/ShopValuePage';
 import { useRecordActivity } from './lib/activity';
 import { mayOpenSettings } from './lib/adminAccess';
 import { isAllowed, usePermissions } from './lib/permissions';
@@ -480,6 +481,10 @@ function Screen({ route, mapServerId }: { route: Route; mapServerId: number | nu
       // member-only at the policy level (0204's report is security invoker),
       // and recording is gated inside the page on `data.enter`.
       return <ParticipationPage />;
+    case 'shopValue':
+      // No capability gate: every table behind it is member-only at the policy
+      // level (0215), and editing values is gated by RLS to officers and admins.
+      return <ShopValuePage />;
     case 'calendar':
       // No capability gate, for the same reason: the calendar is member-only at
       // the policy level (0208), and naming events is gated by RLS to officers
