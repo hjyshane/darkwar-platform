@@ -9,7 +9,7 @@ import time
 import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import httpx
 import typer
@@ -923,6 +923,100 @@ def game_catalog(
         upload.upsert_rows(client, "game_upgrade_steps", steps, "kind,subject_id,level")
         named, kept = upload.fill_hero_names(client, heroes)
     typer.echo(f"written; heroes named={named} kept-admin-names={kept}")
+
+
+def _fetch_all(client: httpx.Client, table: str, select: str) -> list[dict[str, Any]]:
+    """Every row of a table, a page at a time: PostgREST stops at 1,000."""
+    rows: list[dict[str, Any]] = []
+    page = 1000
+    while True:
+        resp = client.get(
+            f"/rest/v1/{table}",
+            params={"select": select, "limit": page, "offset": len(rows)},
+        )
+        resp.raise_for_status()
+        batch = resp.json()
+        rows.extend(batch)
+        if len(batch) < page:
+            return rows
+
+
+@app.command("game-values")
+def game_values(
+    bundles: Annotated[
+        list[Path],
+        typer.Option(
+            "--bundles",
+            exists=True,
+            file_okay=False,
+            help="AssetBundles folders, base first; a later folder's tables win",
+        ),
+    ],
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="count, write nothing")] = False,
+    url: Annotated[str | None, typer.Option(envvar="SUPABASE_URL")] = None,
+    secret_key: Annotated[str | None, typer.Option(envvar="SUPABASE_SECRET_KEY")] = None,
+) -> None:
+    """Item values in rubies, and pack names, for the pack report (0215).
+
+    Game prices from the client, VIP Points at 0, and estimates back-solved
+    from the packs the collector has synced. An officer's value is never
+    overwritten. Needs the `gamedata` extra.
+    """
+    from dw_collector.gamedata import read_dir, upload
+    from dw_collector.gamedata.values import estimate, game_prices, pack_from_row, pack_names
+
+    if not url or not secret_key:
+        typer.echo("SUPABASE_URL and SUPABASE_SECRET_KEY are required", err=True)
+        raise typer.Exit(code=2)
+    assets: dict[str, bytes] = {}
+    for folder in bundles:
+        assets.update(read_dir(folder))
+    prices = game_prices(assets)
+    headers = {"apikey": secret_key, "Authorization": f"Bearer {secret_key}"}
+    with httpx.Client(base_url=url.rstrip("/"), headers=headers, timeout=120.0) as client:
+        snapshots = _fetch_all(
+            client,
+            "shop_pack_snapshots",
+            "pack_id,name_key,dollars,rubies,claimed_percent,items,captured_at",
+        )
+        newest: dict[str, dict[str, Any]] = {}
+        for row in snapshots:
+            held = newest.get(row["pack_id"])
+            if held is None or row["captured_at"] > held["captured_at"]:
+                newest[row["pack_id"]] = row
+        estimated = estimate(
+            (pack_from_row(row) for row in newest.values()),
+            game_prices(assets, vip_as_zero=False),
+        )
+        officer = {
+            row["item_id"]
+            for row in _fetch_all(client, "game_item_values", "item_id,source")
+            if row["source"] == "officer"
+        }
+        values = [
+            {
+                "item_id": item_id,
+                "rubies": rubies,
+                "source": "game",
+                "note": "VIP Points count as 0" if rubies == 0 else None,
+            }
+            for item_id, rubies in prices.items()
+            if item_id not in officer
+        ] + [
+            {"item_id": item_id, "rubies": rubies, "source": "estimated", "note": None}
+            for item_id, rubies in estimated.items()
+            if item_id not in officer
+        ]
+        names = pack_names(assets, (row["name_key"] for row in newest.values() if row["name_key"]))
+        typer.echo(
+            f"packs={len(newest)} game={len(prices)} estimated={len(estimated)}"
+            f" kept-officer={len(officer)} pack-names={len(names)}"
+        )
+        if dry_run:
+            return
+        upload.upsert_rows(client, "game_item_values", values, "item_id")
+        upload.upsert_rows(client, "game_strings", names, "string_key")
+    typer.echo("written")
 
 
 if __name__ == "__main__":

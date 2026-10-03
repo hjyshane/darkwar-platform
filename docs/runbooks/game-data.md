@@ -86,6 +86,24 @@
    (`ds_equip_promote`)로 확인됐지만 레벨업 재료(`ds_equip_upgrade.stone_upgrade_cost`)가
    어떤 아이템인지 테이블에 없다.
 
+6. 아이템 가치(루비)와 팩 이름 올리기(0215). **팩이 먼저 동기화돼 있어야 한다** —
+   `exchange.info`가 잡힌 뒤(상점·팩 화면을 한 번 열면 온다), 수집기가 `shop_pack_snapshots`로 올린 다음:
+
+   ```powershell
+   uv run --no-sync --with "UnityPy>=1.25" --with "lupa>=2.8" dw-collector game-values --bundles C:/DW_data/gamedata/base --bundles C:/DW_data/gamedata/bundles
+   ```
+
+   세 출처, 위가 이긴다:
+   - **officer** — 대시보드에서 임원·관리자가 고친 값. 이 명령은 절대 덮어쓰지 않는다.
+   - **game** — `goods.price`. 루비 상점(상점 타입 1) 정가와 모든 품목에서 같다(2026-10-03 대조).
+     **VIP 포인트는 0**(사용자 결정 2026-10-03: 보너스지 가치가 아니다).
+   - **estimated** — 루비 상점에 없는 품목(Power Core, Precision Part, Design Blueprint …)은
+     팩들의 게임 주장 가치(`percent`)에서 역산한다. game 가격 품목은 고정하고, 남은 품목만
+     비음수 최소제곱으로 푼다(VIP 포인트는 여기선 게임 가격으로 — 게임 주장에 포함돼 있으니까).
+     오차 중앙값 4%, 팩 2개 미만에 나온 품목은 추정하지 않는다. 그래서 '추정'으로 표시하고 임원이 고친다.
+
+   1 루비 = $0.0099 (루비만 든 팩이 전부 $0.99당 100).
+
 ## 언제 다시 돌리나
 
 게임 업데이트 뒤. `AssetBundles/*.version` 파일이 바뀌었으면 1~3을 다시 한다.
