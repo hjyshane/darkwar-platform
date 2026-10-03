@@ -3222,8 +3222,7 @@ export type Database = {
           string_key?: string
           updated_at?: string
         }
-        Relationships: [
-        ]
+        Relationships: []
       }
       game_upgrade_steps: {
         Row: {
