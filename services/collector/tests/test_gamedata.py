@@ -17,6 +17,7 @@ from dw_collector.gamedata import (
     repair_header,
     strip_prefix,
 )
+from dw_collector.gamedata.names import EventName
 from dw_collector.gamedata.upload import NOTE, plan
 
 ACTIVITY_PANEL = """
@@ -24,13 +25,17 @@ return {
   data = {
     [41101] = { 41101, 2, '200501' },
     [80002] = { 80002, 4, '200502' },
+    [300004] = { 300004, 274, '200503' },
     [99999] = { 99999, 1, '999999' },
   },
   index = { id = { 1, 'int' }, type = { 2, 'int' }, name = { 3, 'string' } },
 }
 """
 
-STRINGS_EN = "200501=Arctic Ice Pit\n200502=Black Gold Battlefield\nnot a line\n"
+STRINGS_EN = (
+    "200501=Arctic Ice Pit\n200502=Black Gold Battlefield\n200503=Mod Vehicle Combo Pack\n"
+    "not a line\n"
+)
 STRINGS_KO = "200501=극지 얼음 구덩이\n"
 
 
@@ -73,7 +78,12 @@ def test_localisation_reads_one_language_across_slices() -> None:
     english = localisation(assets, "English")
     korean = localisation(assets, "Korean")
 
-    assert english == {"200501": "Arctic Ice Pit", "200502": "Black Gold Battlefield", "7": "Arena"}
+    assert english == {
+        "200501": "Arctic Ice Pit",
+        "200502": "Black Gold Battlefield",
+        "200503": "Mod Vehicle Combo Pack",
+        "7": "Arena",
+    }
     assert korean == {"200501": "극지 얼음 구덩이"}
 
 
@@ -82,13 +92,25 @@ def test_event_names_follow_the_client_two_lookups() -> None:
     string is left out rather than named after its key."""
     names = event_names(_assets(_client_bytecode(ACTIVITY_PANEL)))
 
-    assert names == {"41101": "Arctic Ice Pit", "80002": "Black Gold Battlefield"}
+    assert {k: v.name for k, v in names.items()} == {
+        "41101": "Arctic Ice Pit",
+        "80002": "Black Gold Battlefield",
+        "300004": "Mod Vehicle Combo Pack",
+    }
+
+
+def test_a_pack_is_a_shop_and_a_battle_is_an_event() -> None:
+    """The category comes from the activity type, not the in-game tab."""
+    names = event_names(_assets(_client_bytecode(ACTIVITY_PANEL)))
+
+    assert (names["300004"].activity_type, names["300004"].category) == (274, "shop")
+    assert (names["80002"].activity_type, names["80002"].category) == (4, "event")
 
 
 def test_names_come_in_the_language_asked_for() -> None:
     names = event_names(_assets(_client_bytecode(ACTIVITY_PANEL)), "Korean")
 
-    assert names == {"41101": "극지 얼음 구덩이"}
+    assert {k: v.name for k, v in names.items()} == {"41101": "극지 얼음 구덩이"}
 
 
 def test_a_chunk_that_reaches_for_os_fails_instead_of_running() -> None:
@@ -99,28 +121,74 @@ def test_a_chunk_that_reaches_for_os_fails_instead_of_running() -> None:
         decode(_client_bytecode("return os.time()"), "hostile")
 
 
-def test_plan_writes_new_names() -> None:
-    result = plan([], {"41101": "Arctic Ice Pit"})
-
-    assert result.to_write == [{"activity_id": "41101", "name": "Arctic Ice Pit", "note": NOTE}]
+def _named(name: str, kind: int = 2, category: str = "event") -> EventName:
+    return EventName(name, kind, category)
 
 
-def test_plan_never_overwrites_an_officers_name() -> None:
-    existing = [{"activity_id": "41101", "name": "Ice Pit", "updated_by": "user-uuid"}]
+def test_plan_writes_new_names_with_their_category() -> None:
+    result = plan([], {"300004": _named("Mod Vehicle Combo Pack", 274, "shop")})
 
-    result = plan(existing, {"41101": "Arctic Ice Pit"})
+    assert result.to_write == [
+        {
+            "activity_id": "300004",
+            "name": "Mod Vehicle Combo Pack",
+            "note": NOTE,
+            "activity_type": 274,
+            "category": "shop",
+        }
+    ]
+
+
+def test_plan_never_overwrites_an_officers_name_or_category() -> None:
+    existing = [
+        {
+            "activity_id": "41101",
+            "name": "Ice Pit",
+            "updated_by": "u",
+            "activity_type": 2,
+            "category": "shop",
+        }
+    ]
+
+    result = plan(existing, {"41101": _named("Arctic Ice Pit")})
 
     assert result.to_write == []
+    assert result.to_classify == []
     assert result.kept_human == 1
 
 
-def test_plan_refreshes_its_own_names_and_skips_unchanged_ones() -> None:
+def test_plan_fills_the_game_facts_on_an_officers_row() -> None:
+    """Named before categories existed: the type and a category are added,
+    the name is not touched."""
+    existing = [{"activity_id": "41101", "name": "Ice Pit", "updated_by": "u"}]
+
+    result = plan(existing, {"41101": _named("Arctic Ice Pit", 2, "event")})
+
+    assert result.to_classify == [{"activity_id": "41101", "activity_type": 2, "category": "event"}]
+
+
+def test_plan_refreshes_its_own_rows_and_skips_unchanged_ones() -> None:
     existing = [
-        {"activity_id": "41101", "name": "Old Ice Pit", "updated_by": None},
-        {"activity_id": "80002", "name": "Black Gold Battlefield", "updated_by": None},
+        {
+            "activity_id": "41101",
+            "name": "Old Ice Pit",
+            "updated_by": None,
+            "activity_type": 2,
+            "category": "event",
+        },
+        {
+            "activity_id": "80002",
+            "name": "Black Gold Battlefield",
+            "updated_by": None,
+            "activity_type": 4,
+            "category": "event",
+        },
     ]
 
-    result = plan(existing, {"41101": "Arctic Ice Pit", "80002": "Black Gold Battlefield"})
+    result = plan(
+        existing,
+        {"41101": _named("Arctic Ice Pit"), "80002": _named("Black Gold Battlefield", 4)},
+    )
 
     assert [row["activity_id"] for row in result.to_write] == ["41101"]
     assert result.unchanged == 1

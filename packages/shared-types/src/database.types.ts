@@ -2724,6 +2724,8 @@ export type Database = {
       event_names: {
         Row: {
           activity_id: string
+          activity_type: number | null
+          category: string | null
           name: string
           note: string | null
           updated_at: string
@@ -2731,6 +2733,8 @@ export type Database = {
         }
         Insert: {
           activity_id: string
+          activity_type?: number | null
+          category?: string | null
           name: string
           note?: string | null
           updated_at?: string
@@ -2738,6 +2742,8 @@ export type Database = {
         }
         Update: {
           activity_id?: string
+          activity_type?: number | null
+          category?: string | null
           name?: string
           note?: string | null
           updated_at?: string
@@ -6475,6 +6481,8 @@ export type Database = {
       event_schedule_current: {
         Row: {
           activity_id: string | null
+          activity_type: number | null
+          category: string | null
           detail: Json | null
           ends_at: string | null
           name: string | null

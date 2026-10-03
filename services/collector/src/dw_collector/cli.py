@@ -857,8 +857,8 @@ def game_names(
     names = event_names(read_dir(bundles), language)
     typer.echo(f"{len(names)} named events in the client's tables ({language})")
     if dry_run:
-        for activity_id, name in sorted(names.items(), key=lambda item: int(item[0])):
-            typer.echo(f"{activity_id:>10}  {name}")
+        for activity_id, event in sorted(names.items(), key=lambda item: int(item[0])):
+            typer.echo(f"{activity_id:>10}  {event.category:<5}  {event.name}")
         return
     if not url or not secret_key:
         typer.echo("SUPABASE_URL and SUPABASE_SECRET_KEY are required", err=True)
@@ -867,9 +867,10 @@ def game_names(
     with httpx.Client(base_url=url.rstrip("/"), headers=headers, timeout=60.0) as client:
         result = upload.plan(upload.fetch_existing(client), names)
         upload.upsert(client, result.to_write)
+        upload.classify(client, result.to_classify)
     typer.echo(
         f"written={len(result.to_write)} unchanged={result.unchanged}"
-        f" kept-officer-names={result.kept_human}"
+        f" kept-officer-names={result.kept_human} classified={len(result.to_classify)}"
     )
 
 

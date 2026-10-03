@@ -4539,3 +4539,83 @@ button.tile-grid:hover:not(:disabled) {
 .calendar-name-button:focus-visible {
   border-color: var(--accent);
 }
+
+/* Game calendar views (0210): the toggles, the month cells, and shop entries
+   set apart from events. */
+.calendar-controls {
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-block: 0.75rem;
+}
+.calendar-toggle {
+  display: inline-flex;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.calendar-toggle > button {
+  background: none;
+  border: 0;
+  border-right: 1px solid var(--border);
+  padding: 0.3rem 0.75rem;
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+.calendar-toggle > button:last-child {
+  border-right: 0;
+}
+.calendar-toggle > button.calendar-toggle-on {
+  color: var(--accent);
+  font-weight: 600;
+}
+.calendar-toggle > button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.calendar-month-nav {
+  align-items: center;
+  gap: 1rem;
+}
+.calendar-month-title {
+  margin: 0;
+}
+.calendar-day {
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.calendar-chip {
+  font-size: 0.78em;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.calendar-chip-shop,
+.calendar-shop-tag {
+  color: var(--fg-muted);
+}
+.calendar-shop-tag {
+  margin-left: 0.4rem;
+  font-size: 0.75em;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0 0.3rem;
+}
+.calendar-more {
+  font-size: 0.75em;
+  color: var(--fg-muted);
+}
+.calendar-search {
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-block: 0.5rem 0.75rem;
+}
+.calendar-search input[type="search"] {
+  min-width: 0;
+  flex: 1 1 14rem;
+}

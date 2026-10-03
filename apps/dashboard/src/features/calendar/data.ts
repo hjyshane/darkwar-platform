@@ -1,10 +1,15 @@
-// The server's in-game event calendar (0208) and the names people give it.
+// The server's in-game event calendar (0208) and what people and the game's
+// own tables call each event (event_names, 0210).
 //
-// The game sends ids and times, never names. An event nobody has named yet
-// shows by its id; officers and admins name it in place, and that name is
-// what everyone sees from then on.
+// EVERY TIME HERE IS SERVER TIME (UTC−2). The game's day turns over at
+// midnight server time, and that is the clock members plan against — an
+// event that "ends Saturday" ends at Saturday's server midnight whatever the
+// reader's own clock says.
 
 import { supabase } from '../../lib/supabase';
+import { SERVER_ZONE, zonedDayKey, zonedTime } from '../../lib/timezone';
+
+export type Category = 'event' | 'shop';
 
 /** One row of `event_schedule_current`: one event on the newest calendar the
  * collector saw for that server. */
@@ -12,6 +17,8 @@ export interface CalendarEvent {
   server_id: number;
   activity_id: string;
   name: string | null;
+  category: Category | null;
+  activity_type: number | null;
   starts_at: string | null;
   ends_at: string | null;
   need_hq_level: number | null;
@@ -20,12 +27,13 @@ export interface CalendarEvent {
 }
 
 export type Bucket = 'live' | 'upcoming' | 'ended' | 'standing' | 'untimed';
+export type CategoryFilter = Category | 'all';
 
 /** An event that runs this long is part of the game, not an event on the
  * calendar — the login lists them with ends in 2044 and beyond. */
 const STANDING_AFTER_MS = 180 * 24 * 60 * 60 * 1000;
 
-/** Which part of the page an event belongs in, as of `now`.
+/** Which part of the list an event belongs in, as of `now`.
  *
  * `standing` before `live`: a permanent feature is technically running, but
  * listing it among this week's events buries the ones that end on Sunday. */
@@ -86,15 +94,105 @@ export function until(target: string, now: Date): string {
   return `${mins}m`;
 }
 
-/** The name to show: what people called it, or its id. */
+/** The name to show: what the game or an officer called it, or its id. */
 export function labelOf(event: Pick<CalendarEvent, 'name' | 'activity_id'>): string {
   return event.name ?? `Event #${event.activity_id}`;
+}
+
+/** `2026-10-03` — the server-time day an instant falls on. */
+export function serverDay(iso: string): string {
+  return zonedDayKey(iso, SERVER_ZONE);
+}
+
+/** `Oct 3 · 12:00`, in server time — with the year when it is not this one,
+ * so a standing feature ending in 2044 does not read as next April. */
+export function serverWhen(iso: string | null, now: Date = new Date()): string {
+  if (iso === null) {
+    return '—';
+  }
+  const [year, month, day] = serverDay(iso).split('-').map(Number);
+  const name = new Date(Date.UTC(2000, (month ?? 1) - 1, 1)).toLocaleString('en', {
+    month: 'short',
+    timeZone: 'UTC',
+  });
+  const thisYear = Number(serverDay(now.toISOString()).slice(0, 4));
+  const yearPart = year === thisYear ? '' : `, ${year}`;
+  return `${name} ${day}${yearPart} · ${zonedTime(iso, SERVER_ZONE)}`;
+}
+
+/** The last server day an event runs on. An end at exactly midnight belongs
+ * to the day before: the event is over by the time that day starts. */
+export function lastServerDay(endsAt: string): string {
+  return serverDay(new Date(Date.parse(endsAt) - 1).toISOString());
+}
+
+/** Unclassified events show with the events: most of the calendar is play. */
+export function inCategory(event: CalendarEvent, filter: CategoryFilter): boolean {
+  if (filter === 'all') {
+    return true;
+  }
+  return (event.category ?? 'event') === filter;
+}
+
+/** Whether the event runs at some point during server day `day`. */
+export function runsOn(event: CalendarEvent, day: string): boolean {
+  if (event.starts_at === null || event.ends_at === null) {
+    return false;
+  }
+  return serverDay(event.starts_at) <= day && day <= lastServerDay(event.ends_at);
+}
+
+export interface Search {
+  text: string;
+  /** `YYYY-MM-DD` server day, or '' for any. */
+  day: string;
+  category: CategoryFilter;
+}
+
+/** The list's filter: name contains the text (or the id does), the event runs
+ * on the day, and it is in the category. */
+export function search(events: ReadonlyArray<CalendarEvent>, query: Search): CalendarEvent[] {
+  const text = query.text.trim().toLowerCase();
+  return events.filter(
+    (event) =>
+      inCategory(event, query.category) &&
+      (text === '' ||
+        labelOf(event).toLowerCase().includes(text) ||
+        event.activity_id.includes(text)) &&
+      (query.day === '' || runsOn(event, query.day)),
+  );
+}
+
+/** For the month grid: which events start and which end on each server day.
+ * Standing features are left off — a bar that never ends is not news. */
+export function byServerDay(events: ReadonlyArray<CalendarEvent>): {
+  starts: Map<string, CalendarEvent[]>;
+  ends: Map<string, CalendarEvent[]>;
+} {
+  const starts = new Map<string, CalendarEvent[]>();
+  const ends = new Map<string, CalendarEvent[]>();
+  const push = (map: Map<string, CalendarEvent[]>, key: string, event: CalendarEvent) => {
+    map.set(key, [...(map.get(key) ?? []), event]);
+  };
+  for (const event of events) {
+    if (event.starts_at === null || event.ends_at === null) {
+      continue;
+    }
+    if (Date.parse(event.ends_at) - Date.parse(event.starts_at) >= STANDING_AFTER_MS) {
+      continue;
+    }
+    push(starts, serverDay(event.starts_at), event);
+    push(ends, lastServerDay(event.ends_at), event);
+  }
+  return { starts, ends };
 }
 
 export async function fetchCalendar(): Promise<CalendarEvent[]> {
   const { data, error } = await supabase
     .from('event_schedule_current')
-    .select('server_id, activity_id, name, starts_at, ends_at, need_hq_level, sub_type, seen_at');
+    .select(
+      'server_id, activity_id, name, category, activity_type, starts_at, ends_at, need_hq_level, sub_type, seen_at',
+    );
   if (error) {
     if (error.code === '42501') {
       return [];
@@ -102,19 +200,27 @@ export async function fetchCalendar(): Promise<CalendarEvent[]> {
     throw new Error(error.message);
   }
   return (data ?? []).filter(
-    (row): row is CalendarEvent => row.activity_id !== null && row.server_id !== null,
+    (row) => row.activity_id !== null && row.server_id !== null,
   ) as CalendarEvent[];
 }
 
-/** Name an event, or clear the name with an empty string. */
-export async function saveEventName(activityId: string, name: string): Promise<void> {
+/** Name an event and say whether it is an event or a shop. An empty name
+ * removes the row, category with it. */
+export async function saveEventName(
+  activityId: string,
+  name: string,
+  category: Category,
+): Promise<void> {
   const trimmed = name.trim();
   const { error } =
     trimmed === ''
       ? await supabase.from('event_names').delete().eq('activity_id', activityId)
       : await supabase
           .from('event_names')
-          .upsert({ activity_id: activityId, name: trimmed }, { onConflict: 'activity_id' });
+          .upsert(
+            { activity_id: activityId, name: trimmed, category },
+            { onConflict: 'activity_id' },
+          );
   if (error) {
     throw new Error(
       error.code === '42501' ? 'Only officers and admins can name events.' : error.message,
