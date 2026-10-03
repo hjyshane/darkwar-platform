@@ -244,9 +244,10 @@ export interface NavTab {
  * the tab for it sits.
  *
  *   overview   the landing screen, and the cross-server boards read against it
- *   alliance   our own alliance: its page, its roster, and the hive plan
+ *   alliance   our own alliance: its page, roster, hive plan, season boards,
+ *              Black Gold and participation
  *   map        on its own: one player at a time, and nothing else is like it
- *   events     the scheduled things — season, Black Gold, the calendar
+ *   events     what the game has announced: the calendar (Schedule archived)
  *   boards     what the alliance writes to itself: notices and guides
  */
 export type NavSection = 'overview' | 'alliance' | 'map' | 'events' | 'boards';
@@ -256,9 +257,9 @@ export type NavSection = 'overview' | 'alliance' | 'map' | 'events' | 'boards';
 export const NAV_TABS: ReadonlyArray<NavTab & { section: NavSection }> = [
   { route: 'overview', hash: '#/', label: 'Overview', section: 'overview' },
   { route: 'map', hash: '#/map', label: 'Map', section: 'map' },
-  // Points at Season 3 because that is the live one; Season 2 is admin-only
-  // and Schedule needs a capability, so neither is safe as the default.
-  { route: 'season', hash: '#/season', label: 'Events', section: 'events' },
+  // The game's own calendar: the alliance's events moved under its own tab
+  // (2026-10-03), and the Schedule board is archived.
+  { route: 'calendar', hash: '#/calendar', label: 'Events', section: 'events' },
   { route: 'notices', hash: '#/notices', label: 'Boards', section: 'boards' },
 ];
 
@@ -276,27 +277,30 @@ export const OVERVIEW_TABS: ReadonlyArray<NavTab> = [
 
 /** Our alliance's second row, after the alliance page itself (whose address
  * needs the uuid, so `App.tsx` puts it first). Hive moved here: it is our
- * alliance's plan, drawn on the map, read by every member on move day. */
+ * alliance's plan, drawn on the map, read by every member on move day.
+ *
+ * The season boards, Black Gold and Participation moved here from Events on
+ * 2026-10-03: they are how OUR members did, which is this tab's question.
+ * Season 2 is filtered to admins in `App.tsx`. Each screen keeps its own
+ * in-page tabs — Season 3's four boards among them. */
 export const ALLIANCE_TABS: ReadonlyArray<NavTab> = [
   { route: 'members', hash: '#/members', label: 'Members' },
   { route: 'hive', hash: '#/hive', label: 'Hive' },
-];
-
-/** Events' second row. Season 2 is filtered to admins and Schedule to the
- * `schedule.view` capability in `App.tsx`, where the session is known. Each
- * screen keeps its own in-page tabs — Season 3's four boards among them. */
-export const EVENT_TABS: ReadonlyArray<NavTab> = [
   { route: 'season', hash: '#/season', label: 'Season 3' },
   { route: 'season2', hash: '#/season2', label: 'Season 2' },
   { route: 'blackMoney', hash: '#/black-gold', label: 'Black Gold' },
-  // Every member against every event above, plus the ones only an officer
-  // can record (0204). Member-only at the policy level, like the boards it
-  // folds, so no capability gate.
+  // Every member against every event, plus the ones only an officer can
+  // record (0204). Member-only at the policy level, so no capability gate.
   { route: 'participation', hash: '#/participation', label: 'Participation' },
-  // What the game itself has announced (0208), next to what the alliance
-  // planned (Schedule). Member-only at the policy level, so no gate.
+];
+
+/** Events' second row: what the game itself has announced (0208).
+ *
+ * SCHEDULE IS ARCHIVED (2026-10-03): the game calendar replaced it. Its
+ * address still opens it for anybody with `schedule.view`, so no link breaks
+ * and nothing it holds is lost; it just has no tab. */
+export const EVENT_TABS: ReadonlyArray<NavTab> = [
   { route: 'calendar', hash: '#/calendar', label: 'Game calendar' },
-  { route: 'schedule', hash: '#/schedule', label: 'Schedule' },
 ];
 
 /** Boards' second row: what the alliance writes for itself. */
@@ -320,13 +324,13 @@ export function navSection(route: Route): NavSection | null {
       return 'overview';
     case 'members':
     case 'hive':
-      return 'alliance';
-    case 'map':
-      return 'map';
     case 'season':
     case 'season2':
     case 'blackMoney':
     case 'participation':
+      return 'alliance';
+    case 'map':
+      return 'map';
     case 'calendar':
     case 'schedule':
       return 'events';

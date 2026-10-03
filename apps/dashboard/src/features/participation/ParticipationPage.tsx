@@ -32,6 +32,16 @@ import { type Period, type PeriodKind, roundPeriods, seasonPeriod, weekPeriods }
 /** A season of readings changes when a sweep lands, not by the minute. */
 const STALE_TIME = 5 * 60_000;
 
+/** The report's tabs (2026-10-03): the everyday boards, the alliance's
+ * events, and the season's own. Which event sits where is the event's
+ * `board` (0213); buildings are season progress. */
+type Board = 'daily' | 'event' | 'season';
+const BOARDS: ReadonlyArray<[Board, string]> = [
+  ['daily', 'Daily'],
+  ['event', 'Events'],
+  ['season', 'Season events'],
+];
+
 const KIND_LABELS: ReadonlyArray<[PeriodKind, string]> = [
   ['season', 'Season'],
   ['round', 'Duel round'],
@@ -180,6 +190,7 @@ export function ParticipationPage() {
         : season;
 
   const [sort, setSort] = useState<SortState>({ key: 'name', direction: 'asc' });
+  const [board, setBoard] = useState<Board>('daily');
 
   const { data: session } = useSession();
   const { data: permissions } = usePermissions();
@@ -198,6 +209,7 @@ export function ParticipationPage() {
 
   const rows = report.data ?? [];
   const eventKinds = kinds.data ?? [];
+  const boardKinds = eventKinds.filter((eventKind) => eventKind.board === board);
   const ordered = sortRows(rows, sort.key as SortKey, sort.direction === 'desc');
   const onSort = (key: string) => setSort(nextSort(sort, key));
 
@@ -265,6 +277,19 @@ export function ParticipationPage() {
       {rows.length > 0 && (
         <>
           <Summary kinds={eventKinds} rows={rows} />
+          <div aria-label="Report" className="row" role="tablist">
+            {BOARDS.map(([id, label]) => (
+              <button
+                aria-selected={board === id}
+                key={id}
+                onClick={() => setBoard(id)}
+                role="tab"
+                type="button"
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <div className="table-wrap">
             <table className="compact">
               <thead>
@@ -272,25 +297,33 @@ export function ParticipationPage() {
                   <SortableTh className="label" onSort={onSort} sort={sort} sortKey="name">
                     Member
                   </SortableTh>
-                  <SortableTh numeric onSort={onSort} sort={sort} sortKey="duel_days">
-                    Duel days
-                  </SortableTh>
-                  <SortableTh numeric onSort={onSort} sort={sort} sortKey="duel_total">
-                    Duel total
-                  </SortableTh>
-                  <SortableTh numeric onSort={onSort} sort={sort} sortKey="donation_days">
-                    Donation days
-                  </SortableTh>
-                  <SortableTh numeric onSort={onSort} sort={sort} sortKey="donation_total">
-                    Donation total
-                  </SortableTh>
-                  <SortableTh numeric onSort={onSort} sort={sort} sortKey="black_gold">
-                    Black Gold
-                  </SortableTh>
-                  <SortableTh numeric onSort={onSort} sort={sort} sortKey="buildings">
-                    Buildings
-                  </SortableTh>
-                  {eventKinds.map((eventKind) => (
+                  {board === 'daily' && (
+                    <>
+                      <SortableTh numeric onSort={onSort} sort={sort} sortKey="duel_days">
+                        Duel days
+                      </SortableTh>
+                      <SortableTh numeric onSort={onSort} sort={sort} sortKey="duel_total">
+                        Duel total
+                      </SortableTh>
+                      <SortableTh numeric onSort={onSort} sort={sort} sortKey="donation_days">
+                        Donation days
+                      </SortableTh>
+                      <SortableTh numeric onSort={onSort} sort={sort} sortKey="donation_total">
+                        Donation total
+                      </SortableTh>
+                    </>
+                  )}
+                  {board === 'event' && (
+                    <SortableTh numeric onSort={onSort} sort={sort} sortKey="black_gold">
+                      Black Gold
+                    </SortableTh>
+                  )}
+                  {board === 'season' && (
+                    <SortableTh numeric onSort={onSort} sort={sort} sortKey="buildings">
+                      Season buildings
+                    </SortableTh>
+                  )}
+                  {boardKinds.map((eventKind) => (
                     <SortableTh
                       key={eventKind.kind}
                       numeric
@@ -317,40 +350,46 @@ export function ParticipationPage() {
                         {row.current_name ?? row.player_id.slice(0, 8)}
                       </a>
                     </td>
-                    <DaysCell
-                      onBoard={row.duel_days_on_board}
-                      read={row.duel_days_read}
-                      scored={row.duel_days_scored}
-                      unit="day"
-                    />
-                    <TotalCell
-                      onBoard={row.duel_weeks_on_board}
-                      read={row.duel_weeks_read}
-                      total={row.duel_total}
-                    />
-                    <DaysCell
-                      onBoard={row.donation_days_on_board}
-                      read={row.donation_days_read}
-                      scored={row.donation_days_scored}
-                      unit="day"
-                    />
-                    <TotalCell
-                      onBoard={row.donation_weeks_on_board}
-                      read={row.donation_weeks_read}
-                      total={row.donation_total}
-                    />
-                    <BlackGoldCell row={row} />
-                    <td
-                      className="num"
-                      title="Season building levels gained in this range, as far as our map sweeps have seen."
-                    >
-                      {row.season_levels_gained === null ? (
-                        <span className="muted">—</span>
-                      ) : (
-                        `+${row.season_levels_gained}`
-                      )}
-                    </td>
-                    {eventKinds.map((eventKind) => (
+                    {board === 'daily' && (
+                      <>
+                        <DaysCell
+                          onBoard={row.duel_days_on_board}
+                          read={row.duel_days_read}
+                          scored={row.duel_days_scored}
+                          unit="day"
+                        />
+                        <TotalCell
+                          onBoard={row.duel_weeks_on_board}
+                          read={row.duel_weeks_read}
+                          total={row.duel_total}
+                        />
+                        <DaysCell
+                          onBoard={row.donation_days_on_board}
+                          read={row.donation_days_read}
+                          scored={row.donation_days_scored}
+                          unit="day"
+                        />
+                        <TotalCell
+                          onBoard={row.donation_weeks_on_board}
+                          read={row.donation_weeks_read}
+                          total={row.donation_total}
+                        />
+                      </>
+                    )}
+                    {board === 'event' && <BlackGoldCell row={row} />}
+                    {board === 'season' && (
+                      <td
+                        className="num"
+                        title="Season building levels gained in this range, as far as our map sweeps have seen."
+                      >
+                        {row.season_levels_gained === null ? (
+                          <span className="muted">—</span>
+                        ) : (
+                          `+${row.season_levels_gained}`
+                        )}
+                      </td>
+                    )}
+                    {boardKinds.map((eventKind) => (
                       <TypedCell key={eventKind.kind} tally={row.typed_events[eventKind.kind]} />
                     ))}
                   </tr>
@@ -361,12 +400,13 @@ export function ParticipationPage() {
 
           <p className="note">
             Days and events read <strong>scored / read</strong>: the days the board was read for the
-            alliance, and how many of them the member scored on. A day nobody captured is left out,
-            so a gap in our capture never counts against anybody; a dash means there was nothing to
-            judge. ● marks under half. Black Gold is played / listed, from battles whose report was
-            captured. Buildings are levels gained as far as our map sweeps have seen. Columns marked
-            ✎ are ticked by officers, not captured, and ?N is event days nobody ticked this member
-            for. Hover a cell for the detail.
+            alliance, and how many of them the member scored on. Duel days are Monday to Saturday:
+            the duel does not run on Sunday. A day nobody captured is left out, so a gap in our
+            capture never counts against anybody; a dash means there was nothing to judge. ● marks
+            under half. Black Gold is played / listed, from battles whose report was captured.
+            Buildings are levels gained as far as our map sweeps have seen. Columns marked ✎ are
+            ticked by officers, not captured, and ?N is event days nobody ticked this member for.
+            Hover a cell for the detail.
           </p>
         </>
       )}

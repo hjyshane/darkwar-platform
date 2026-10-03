@@ -177,7 +177,6 @@ function SubNav({ route, allianceId }: { route: Route; allianceId: string | null
   const { data: ownAlliance } = useOwnAlliance();
   const mayViewMembers = useMayView('members.view');
   const mayViewArena = useMayView('arena.view');
-  const mayViewSchedule = useMayView('schedule.view');
   const isAdmin = session?.role === 'admin';
   const isOfficer = isAdmin || session?.role === 'officer';
 
@@ -227,24 +226,22 @@ function SubNav({ route, allianceId }: { route: Route; allianceId: string | null
               },
             ]
           : []),
-        ...ALLIANCE_TABS.filter((tab) => tab.route !== 'members' || mayViewMembers === true).map(
-          (tab) => ({
-            key: tab.hash,
-            href: tab.hash,
-            label: tab.label,
-            current: tab.route === route,
-          }),
-        ),
+        ...ALLIANCE_TABS.filter(
+          (tab) =>
+            (tab.route !== 'members' || mayViewMembers === true) &&
+            (tab.route !== 'season2' || isAdmin),
+        ).map((tab) => ({
+          key: tab.hash,
+          href: tab.hash,
+          label: tab.label,
+          current: tab.route === route,
+        })),
       ],
     });
   } else if (section === 'events') {
     rows.push({
       label: 'Events section',
-      tabs: EVENT_TABS.filter(
-        (tab) =>
-          (tab.route !== 'schedule' || mayViewSchedule === true) &&
-          (tab.route !== 'season2' || isAdmin),
-      ).map((tab) => ({
+      tabs: EVENT_TABS.map((tab) => ({
         key: tab.hash,
         href: tab.hash,
         label: tab.label,

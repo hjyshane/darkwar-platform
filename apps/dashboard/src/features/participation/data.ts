@@ -49,6 +49,8 @@ export interface EventKind {
   label: string;
   sort_order: number;
   captured: boolean;
+  /** Which tab of the report the event sits on (0213). */
+  board: 'event' | 'season';
 }
 
 /** One member per row, so a whole alliance is far under PostgREST's 1,000. */
@@ -66,7 +68,7 @@ export async function fetchParticipation(from: string, to: string): Promise<Part
 export async function fetchEventKinds(): Promise<EventKind[]> {
   const { data, error } = await supabase
     .from('attendance_event_kinds')
-    .select('kind, label, sort_order, captured')
+    .select('kind, label, sort_order, captured, board')
     .order('sort_order');
   if (error) {
     throw new Error(`event list query failed: ${error.message}`);
