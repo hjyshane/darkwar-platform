@@ -604,6 +604,8 @@ function participation(
     black_gold_starter_missed: 0,
     black_gold_substitute_missed: 0,
     season_levels_gained: 6,
+    watchtower_level: 34,
+    watchtower_gained: 2,
     typed_events: {
       capital_clash: { held: 2, attended: 2, missed: 0 },
       server_clash: { held: 1, attended: 1, missed: 0 },
@@ -626,6 +628,8 @@ const PARTICIPATION_ROWS = [
     black_gold_starter_missed: 1,
     black_gold_substitute_missed: 1,
     season_levels_gained: 0,
+    watchtower_level: 31,
+    watchtower_gained: 0,
     typed_events: {
       capital_clash: { held: 2, attended: 1, missed: 1 },
       server_clash: { held: 1, attended: 0, missed: 1 },
@@ -646,6 +650,8 @@ const PARTICIPATION_ROWS = [
     black_gold_listed: 0,
     black_gold_played: 0,
     season_levels_gained: null,
+    watchtower_level: 29,
+    watchtower_gained: null,
     typed_events: {
       capital_clash: { held: 2, attended: 0, missed: 2 },
       server_clash: { held: 1, attended: 0, missed: 0 },
@@ -657,6 +663,8 @@ const PARTICIPATION_ROWS = [
     black_gold_listed: 0,
     black_gold_played: 0,
     season_levels_gained: 2,
+    watchtower_level: 27,
+    watchtower_gained: 1,
   }),
 ];
 
