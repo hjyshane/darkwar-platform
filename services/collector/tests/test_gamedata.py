@@ -124,3 +124,99 @@ def test_plan_refreshes_its_own_names_and_skips_unchanged_ones() -> None:
 
     assert [row["activity_id"] for row in result.to_write] == ["41101"]
     assert result.unchanged == 1
+
+
+# --- the catalogue (0209) -----------------------------------------------------
+
+CATALOGUE_TABLES = {
+    "goods": """return { data = {
+        [253042] = { 253042, '300001', 5 },
+        [200040] = { 200040, '300002', 4 } },
+      index = { id = {1,'int'}, name = {2,'string'}, color = {3,'int'} } }""",
+    "aps_resources": """return { data = { [25] = { 25, '300003' }, [12] = { 12, '300004' } },
+      index = { id = {1,'int'}, name = {2,'string'} } }""",
+    "building": """return { data = {
+        [727079] = { 727079, '300005',
+                     { {25, 0}, {12, 11400}, {26, 0} }, { {253042, 30} },
+                     1267465, 285090 } },
+      index = { id = {1,'int'}, name = {2,'string'}, cost_consume = {3,'table'},
+                item = {4,'table'}, time = {5,'int'}, power = {6,'int'} } }""",
+    "aps_science": """return { data = {
+        [1108102] = { 1108102, 1108100, 2, '300006',
+                      { {14, 94060000} }, { {200036, 4700} }, 423000 } },
+      index = { id = {1,'int'}, science_id = {2,'int'}, level = {3,'int'}, name = {4,'string'},
+                research_need = {5,'table'}, goods_need = {6,'table'}, time = {7,'int'} } }""",
+    "car_equip": """return { data = { [1027] = { 1027, 1, 27, '200040;540|200041;110', '300007' } },
+      index = { id = {1,'int'}, slot = {2,'int'}, level = {3,'int'},
+                cost = {4,'string'}, name = {5,'string'} } }""",
+    "pet_levelup": """return { data = { [226] = { 226, 3, 26, '330001;2475' } },
+      index = { id = {1,'int'}, rarity = {2,'int'}, level = {3,'int'},
+                cost_levelup = {4,'string'} } }""",
+}
+CATALOGUE_EN = (
+    "300001=Precision Part\n300002=Titanium Alloy\n300003=Wood\n300004=Iron\n"
+    "300006=Field Formation\n300007=Gun\n"
+)
+CATALOGUE_KO = "300001=정밀 부품\n"
+
+
+def _catalogue():  # type: ignore[no-untyped-def]
+    from dw_collector.gamedata.catalog import Catalog
+
+    base = "assets/main/datatable"
+    assets = {
+        f"{base}/luatxt/luadatatable/{name}.bytes": _client_bytecode(src)
+        for name, src in CATALOGUE_TABLES.items()
+    }
+    assets[f"{base}/localization/english/dictionaries/dialog_1.txt"] = CATALOGUE_EN.encode()
+    assets[f"{base}/localization/korean/dictionaries/dialog_1.txt"] = CATALOGUE_KO.encode()
+    return Catalog(assets)
+
+
+def test_items_carry_both_languages_and_quality() -> None:
+    items = {row["item_id"]: row for row in _catalogue().items()}
+
+    assert items["253042"]["name"] == "Precision Part"
+    assert items["253042"]["name_ko"] == "정밀 부품"
+    assert items["253042"]["quality"] == 5
+    assert items["200040"]["name_ko"] is None
+
+
+def test_a_building_row_splits_into_type_and_level() -> None:
+    (step,) = [s for s in _catalogue().steps() if s["kind"] == "building"]
+
+    assert (step["subject_id"], step["level"]) == ("727000", 79)
+    assert step["seconds"] == 1267465
+    assert step["power"] == 285090
+
+
+def test_costs_say_whether_they_are_resources_or_items_and_drop_zeros() -> None:
+    """Resource 25 and item 25 are different things; a zero is no cost."""
+    (step,) = [s for s in _catalogue().steps() if s["kind"] == "building"]
+
+    assert step["costs"] == [
+        {"type": "resource", "id": "12", "amount": 11400},
+        {"type": "item", "id": "253042", "amount": 30},
+    ]
+
+
+def test_research_is_keyed_by_science_id_and_level() -> None:
+    (step,) = [s for s in _catalogue().steps() if s["kind"] == "research"]
+
+    assert (step["subject_id"], step["level"], step["name"]) == ("1108100", 2, "Field Formation")
+    assert step["costs"] == [
+        {"type": "resource", "id": "14", "amount": 94060000},
+        {"type": "item", "id": "200036", "amount": 4700},
+    ]
+
+
+def test_string_costs_split_on_bar_and_semicolon() -> None:
+    steps = {s["kind"]: s for s in _catalogue().steps()}
+
+    assert steps["vehicle_part"]["costs"] == [
+        {"type": "item", "id": "200040", "amount": 540},
+        {"type": "item", "id": "200041", "amount": 110},
+    ]
+    assert (steps["vehicle_part"]["subject_id"], steps["vehicle_part"]["level"]) == ("1", 27)
+    assert steps["pet"]["costs"] == [{"type": "item", "id": "330001", "amount": 2475}]
+    assert steps["pet"]["subject_id"] == "3"

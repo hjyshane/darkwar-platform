@@ -66,3 +66,24 @@ def upsert(client: httpx.Client, rows: list[dict[str, str]]) -> None:
         headers={"Prefer": "resolution=merge-duplicates,return=minimal"},
     )
     resp.raise_for_status()
+
+
+# PostgREST takes a large body, but a 16,000-row upsert in one statement
+# holds its locks for the whole of it on a micro instance members are using.
+BATCH = 1000
+
+
+def upsert_rows(
+    client: httpx.Client, table: str, rows: list[dict[str, Any]], on_conflict: str
+) -> int:
+    """Upsert in batches; returns rows sent. The catalogue is the game's, so
+    a later run overwrites in place — there is nobody's edit to preserve."""
+    for start in range(0, len(rows), BATCH):
+        resp = client.post(
+            f"/rest/v1/{table}",
+            params={"on_conflict": on_conflict},
+            json=rows[start : start + BATCH],
+            headers={"Prefer": "resolution=merge-duplicates,return=minimal"},
+        )
+        resp.raise_for_status()
+    return len(rows)

@@ -873,5 +873,51 @@ def game_names(
     )
 
 
+@app.command("game-catalog")
+def game_catalog(
+    bundles: Annotated[
+        list[Path],
+        typer.Option(
+            "--bundles",
+            exists=True,
+            file_okay=False,
+            help="AssetBundles folders, base first; a later folder's tables win",
+        ),
+    ],
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="count, write nothing")] = False,
+    url: Annotated[str | None, typer.Option(envvar="SUPABASE_URL")] = None,
+    secret_key: Annotated[str | None, typer.Option(envvar="SUPABASE_SECRET_KEY")] = None,
+) -> None:
+    """Item and resource names and every upgrade cost, from the client (0209).
+
+    Pass the base pack's bundles and then the downloaded patch bundles, in that
+    order, so a patched table replaces the shipped one
+    (docs/runbooks/game-data.md). Needs the `gamedata` extra.
+    """
+    from dw_collector.gamedata import read_dir, upload
+    from dw_collector.gamedata.catalog import Catalog
+
+    assets: dict[str, bytes] = {}
+    for folder in bundles:
+        assets.update(read_dir(folder))
+    catalog = Catalog(assets)
+    items, resources, steps = catalog.items(), catalog.resources(), list(catalog.steps())
+    kinds: dict[str, int] = {}
+    for step in steps:
+        kinds[step["kind"]] = kinds.get(step["kind"], 0) + 1
+    typer.echo(f"items={len(items)} resources={len(resources)} steps={len(steps)} {kinds}")
+    if dry_run:
+        return
+    if not url or not secret_key:
+        typer.echo("SUPABASE_URL and SUPABASE_SECRET_KEY are required", err=True)
+        raise typer.Exit(code=2)
+    headers = {"apikey": secret_key, "Authorization": f"Bearer {secret_key}"}
+    with httpx.Client(base_url=url.rstrip("/"), headers=headers, timeout=120.0) as client:
+        upload.upsert_rows(client, "game_items", items, "item_id")
+        upload.upsert_rows(client, "game_resources", resources, "resource_id")
+        upload.upsert_rows(client, "game_upgrade_steps", steps, "kind,subject_id,level")
+    typer.echo("written")
+
+
 if __name__ == "__main__":
     app()
