@@ -771,6 +771,7 @@ const SHOP_PACKS = [
     unvalued_items: 0,
     value_dollars: 55.94,
     value_ratio: 11.21,
+    contents_listed: true,
     contents: [
       {
         id: '230110',
@@ -799,6 +800,7 @@ const SHOP_PACKS = [
     unvalued_items: 1,
     value_dollars: 79.2,
     value_ratio: 3.96,
+    contents_listed: true,
     contents: [
       {
         id: '230100',
@@ -841,8 +843,28 @@ const SHOP_PACKS = [
     unvalued_items: 0,
     value_dollars: 0.99,
     value_ratio: 1,
+    contents_listed: true,
     contents: [],
   },
+  // A battle pass: listed under one id per tier, contents not in the pack list.
+  ...['300000000', '300000001', '300000002'].map((id) => ({
+    server_id: 580,
+    pack_id: id,
+    name: 'Legend Battle Pass',
+    name_ko: null,
+    dollars: 19.99,
+    rubies: 0,
+    claimed_percent: 5400,
+    starts_at: null,
+    ends_at: null,
+    captured_at: ago(30),
+    item_rubies: 0,
+    unvalued_items: 0,
+    value_dollars: null,
+    value_ratio: null,
+    contents: [],
+    contents_listed: false,
+  })),
 ];
 const SHOP_LISTINGS = [
   {
@@ -880,6 +902,44 @@ const SHOP_LISTINGS = [
 export const FIXTURES: [readonly unknown[], unknown][] = [
   [['shop-packs'], SHOP_PACKS],
   [['shop-listings'], SHOP_LISTINGS],
+  [
+    ['shop-values'],
+    [
+      {
+        item_id: '230110',
+        rubies: 461,
+        source: 'estimated',
+        note: null,
+        updated_at: ago(60),
+        name: 'Power Core',
+        game_name: 'Power Core',
+        renamed: false,
+        name_ko: '파워 코어',
+      },
+      {
+        item_id: '230100',
+        rubies: 400,
+        source: 'game',
+        note: null,
+        updated_at: ago(60),
+        name: 'Prime Recruitment Ticket',
+        game_name: 'Prime Recruitment Ticket',
+        renamed: false,
+        name_ko: null,
+      },
+      {
+        item_id: '210892',
+        rubies: 5,
+        source: 'officer',
+        note: 'checked in game',
+        updated_at: ago(5),
+        name: '5-min Speedup',
+        game_name: null,
+        renamed: true,
+        name_ko: null,
+      },
+    ],
+  ],
   [['event-calendar'], CALENDAR_ROWS],
   [SESSION_KEY, SESSION],
   [['permissions'], { capabilities: CAPABILITIES, grants: GRANTS }],

@@ -3117,6 +3117,35 @@ export type Database = {
           },
         ]
       }
+      game_item_names: {
+        Row: {
+          item_id: string
+          name: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          item_id: string
+          name: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          item_id?: string
+          name?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_item_names_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "pending_access"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       game_item_values: {
         Row: {
           item_id: string
@@ -7666,6 +7695,7 @@ export type Database = {
           captured_at: string | null
           claimed_percent: number | null
           contents: Json | null
+          contents_listed: boolean | null
           dollars: number | null
           ends_at: string | null
           item_rubies: number | null

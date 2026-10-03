@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { type PackItem, byValue, dollarsOf, estimatedShare, isLive, ratioLabel } from './data';
+import {
+  type PackItem,
+  type PackValue,
+  byValue,
+  dollarsOf,
+  estimatedShare,
+  groupPacks,
+  isLive,
+  ratioLabel,
+} from './data';
 
 const NOW = new Date('2026-10-03T12:00:00Z');
 
@@ -57,5 +66,44 @@ describe('value', () => {
       ],
     });
     expect(share).toBe(0.25);
+  });
+});
+
+function pack(id: string, name: string, contents: PackItem[], rubies = 0): PackValue {
+  return {
+    server_id: 580,
+    pack_id: id,
+    name,
+    name_ko: null,
+    dollars: 4.99,
+    rubies,
+    claimed_percent: null,
+    starts_at: null,
+    ends_at: null,
+    captured_at: '2026-10-03T00:00:00Z',
+    item_rubies: 0,
+    unvalued_items: 0,
+    contents,
+    value_dollars: null,
+    value_ratio: null,
+    contents_listed: contents.length > 0 || rubies > 0,
+  };
+}
+
+describe('groupPacks', () => {
+  it('folds one offer listed under many ids into one row', () => {
+    const tiers = ['1', '2', '3'].map((id) => pack(id, 'Legend Battle Pass', []));
+    const groups = groupPacks(tiers);
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.offers).toBe(3);
+    expect(groups[0]?.pack_ids).toEqual(['1', '2', '3']);
+  });
+
+  it('keeps packs that differ in an item apart', () => {
+    const groups = groupPacks([
+      pack('a', 'Wartime Investment', [item('gear', 1, null, null)], 500),
+      pack('b', 'Wartime Investment', [item('bandage', 1, null, null)], 500),
+    ]);
+    expect(groups).toHaveLength(2);
   });
 });

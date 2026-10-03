@@ -30,9 +30,12 @@ from dw_collector.gamedata.luatable import decode
 from dw_collector.gamedata.names import datatable_bytes, localisation
 
 DOLLARS_PER_RUBY = 0.99 / 100
-# An estimate needs the item in at least this many packs; one pack says
-# nothing about how its value splits between the items in it.
-MIN_PACKS = 2
+# An estimate needs the item in packs of at least this many different
+# compositions. Five copies of one pack (Wartime Investment, 2026-10-03) say
+# no more than one: the item unique to them takes the whole of their claim —
+# Land Expansion came out at 7,625 rubies from an 8000% claim. Left unvalued,
+# the pack shows the gap instead of a ratio built on it.
+MIN_COMPOSITIONS = 2
 _SWEEPS = 3000
 
 
@@ -98,8 +101,10 @@ def _nnls(columns: list[dict[int, float]], targets: list[float]) -> list[float]:
 
 def estimate(packs: Iterable[Pack], known: Mapping[str, float]) -> dict[str, float]:
     """Rubies per unit for items `known` does not price, from the packs'
-    claimed values. Items in fewer than MIN_PACKS usable packs are left out."""
+    claimed values. Items seen in fewer than MIN_COMPOSITIONS different pack
+    compositions are left out."""
     rows: list[dict[str, float]] = []
+    shapes: list[frozenset[tuple[str, float]]] = []
     targets: list[float] = []
     for pack in packs:
         if pack.dollars <= 0 or pack.claimed_percent <= 0 or not pack.items:
@@ -116,12 +121,17 @@ def estimate(packs: Iterable[Pack], known: Mapping[str, float]) -> dict[str, flo
             continue
         # Relative error: a $99 pack and a $0.99 pack count alike.
         rows.append({item_id: qty / claimed for item_id, qty in unknown.items()})
+        # Items and quantities: the same items in other amounts is a second,
+        # independent claim; an identical copy is not.
+        shapes.append(frozenset(pack.items))
         targets.append(remaining / claimed)
-    seen: dict[str, int] = {}
-    for row in rows:
+    compositions: dict[str, set[frozenset[tuple[str, float]]]] = {}
+    for row, shape in zip(rows, shapes, strict=True):
         for item_id in row:
-            seen[item_id] = seen.get(item_id, 0) + 1
-    items = sorted(item_id for item_id, n in seen.items() if n >= MIN_PACKS)
+            compositions.setdefault(item_id, set()).add(shape)
+    items = sorted(
+        item_id for item_id, shapes in compositions.items() if len(shapes) >= MIN_COMPOSITIONS
+    )
     index = {item_id: j for j, item_id in enumerate(items)}
     columns: list[dict[int, float]] = [{} for _ in items]
     for i, row in enumerate(rows):

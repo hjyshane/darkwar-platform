@@ -110,3 +110,15 @@ def test_a_standing_pack_far_in_the_future_does_not_break_the_read() -> None:
     observation.payload["exchange"][0]["end"] = 4102444800000000  # year ~132,000
 
     assert shop.normalize_packs(observation)[0].row["ends_at"] is None
+
+
+def test_copies_of_one_pack_do_not_estimate_the_item_unique_to_them() -> None:
+    """Five copies of one composition give one claim, not five: the item only
+    they hold would take all of it (Land Expansion, 2026-10-03)."""
+    known = {"1": 100.0}
+    copies = [
+        Pack(dollars=4.99, rubies=500, claimed_percent=8000, items=(("1", 10), ("land", 5)))
+        for _ in range(5)
+    ]
+
+    assert estimate(copies, known) == {}
