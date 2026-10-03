@@ -450,6 +450,59 @@ supabase test db
 **그대로 `wrangler deploy` 하면 프로덕션이 죽는다.** 6절의 손 배포를 할 때는
 반드시 두 변수를 붙여서 빌드한다.
 
+## 6-2. 배포를 GitHub Actions로 옮긴다 (2026-10-03)
+
+> **6-1은 과거형이다.** 2026-10월 Cloudflare 자동 빌드가 #342·#343·#344에서
+> "Initializing build environment"에 멈추거나 0초 만에 실패했고, 매번 손으로
+> 배포했다. 그래서 배포를 `ci.yml`의 `deploy` 잡으로 옮겼다.
+
+**`deploy` 잡은 `main` push에서만, 그리고 앞 검사가 통과했을 때만 돈다:**
+`web`(check·typecheck·test·build) 성공, `guard` 성공, `db`는 성공 또는
+건너뜀(마이그레이션이 안 바뀐 커밋). 대시보드가 안 바뀐 커밋(`web` 필터가
+false)은 배포하지 않는다. §21.1이 요구한 "배포 앞의 게이트"가 이것이다.
+
+잡이 하는 일: 저장소 변수로 빌드 → 번들에 `127.0.0.1:54321`이 있으면 중단 →
+`wrangler deploy` → `https://cbfw.us`가 방금 빌드한 `index-*.js`를 서빙하는지
+최대 1분 확인.
+
+### 한 번만 하는 설정 (사람이 한다)
+
+1. **Cloudflare API 토큰.** dash.cloudflare.com → My Profile → API Tokens →
+   Create Token → **"Edit Cloudflare Workers"** 템플릿. Account Resources는 이
+   계정 하나, Zone Resources는 `cbfw.us`(커스텀 도메인 라우트 때문). 만든 값은
+   한 번만 보이니 바로 2번에 넣는다.
+2. **GitHub 시크릿 두 개** (Settings → Secrets and variables → Actions →
+   Secrets):
+   - `CLOUDFLARE_API_TOKEN` — 1번 토큰
+   - `CLOUDFLARE_ACCOUNT_ID` — Cloudflare 대시보드 Workers & Pages 오른쪽의
+     Account ID
+3. **GitHub 변수 두 개** (같은 화면의 **Variables** 탭 — 시크릿이 아니다. 어차피
+   번들에 그대로 박히는 공개값이다):
+   - `VITE_SUPABASE_URL` — `https://<ref>.supabase.co`
+   - `VITE_SUPABASE_PUBLISHABLE_KEY` — publishable 키. **service_role/secret
+     키를 넣지 않는다** (6절 경고).
+4. **Cloudflare 자동 빌드를 끈다.** Workers & Pages → darkwar-platform →
+   Settings → Build → Git repository의 연결 해제(또는 production branch 빌드
+   끄기). 안 끄면 두 쪽이 같은 Worker에 번갈아 배포한다.
+
+```powershell
+gh secret set CLOUDFLARE_API_TOKEN
+gh secret set CLOUDFLARE_ACCOUNT_ID
+gh variable set VITE_SUPABASE_URL --body "https://<ref>.supabase.co"
+gh variable set VITE_SUPABASE_PUBLISHABLE_KEY --body "<publishable key>"
+```
+
+(`gh secret set`은 값을 프롬프트로 받는다 — 셸 기록에 남지 않는다.)
+
+### 확인
+
+다음 대시보드 merge 후 Actions의 `deploy` 잡이 초록이고 마지막 단계가
+`cbfw.us serves assets/index-….js`를 찍으면 끝이다. 빨간 이유가 "Set the
+VITE_… repository variables"면 3번, 인증 오류면 1·2번이다.
+
+**잡이 고장났을 때**는 6절의 손 배포가 여전히 비상구다 — 두 `VITE_` 값을 붙여
+빌드하고 `apps/dashboard`에서 `npx wrangler@latest deploy`.
+
 ## 7. 확인한다 — 로그인하지 않은 브라우저로
 
 배포 주소를 **시크릿 창**에서 연다. 0단계의 표와 맞는지 눈으로 본다.

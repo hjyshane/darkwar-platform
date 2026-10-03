@@ -39,14 +39,19 @@ Also deferred: PGMQ queues, Supabase Storage, table partitioning, alerting
 
 ## Merging to `main` publishes the dashboard
 
-Cloudflare's own Git integration is connected to this repository and builds on
-push — no GitHub Actions involved, which is why this kept working through the
-months the Actions runs died on billing in four seconds. The build for a `main`
-commit is what serves `https://cbfw.us`. Every merged PR is a production
-release, within about a minute, whether or not anybody meant it as one.
+**Since 2026-10-03 the `deploy` job in `ci.yml` publishes it.** On a push to
+`main` that touched the dashboard, and only after `web`, `guard` and (when it
+ran) `db` passed, it builds with the `VITE_SUPABASE_*` repository variables,
+refuses a bundle pointing at the local stack, runs `wrangler deploy`, and
+checks that `https://cbfw.us` serves the new `index-*.js`. Every merged
+dashboard PR is still a production release within a few minutes — but a red
+check now stops it. That is the gate §21.1 asked for.
 
-This is NOT the pipeline §21.1 asks for and the spec's item stays open: there
-is still no gate in FRONT of it. Nothing stops a merge from going straight out.
+Before that, Cloudflare's own Git integration built every push with no gate at
+all, which is why releases kept working through the months Actions died on
+billing. It started hanging or failing in 0 seconds in October 2026 (#342 to
+#344), and it must be switched off once the deploy job's secrets are set, or
+the two race. Setup: `docs/runbooks/going-public.md` §6-2.
 
 **Actions runs again, though, and that changes what the red means.** On
 2026-09-08 the workflow ran end to end for the first time in months, and the
@@ -63,14 +68,15 @@ still runs first and still catches most things, but it cannot run
 `supabase test db` on a machine without Docker — `scripts/pgtap/run.sh` is the
 stand-in for that, and CI is what confirms it.
 
-The build's `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` live in
-Cloudflare's build settings, which is why neither appears in any `.env` here.
-A local `pnpm build` has no such values and falls back to the local stack
-defaults in `apps/dashboard/src/lib/env.ts`; that `dist/` points at
-`127.0.0.1:54321` and must never be deployed by hand.
+The build's `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` are GitHub
+repository variables (public values: they ship in the bundle), which is why
+neither appears in any `.env` here. A local `pnpm build` has no such values and
+falls back to the local stack defaults in `apps/dashboard/src/lib/env.ts`; that
+`dist/` points at `127.0.0.1:54321` and must never be deployed by hand. The
+deploy job refuses such a bundle.
 
 `docs/runbooks/going-public.md` §6 has the manual `wrangler deploy` path, for
-when the automatic build is what broke.
+when the deploy job is what broke.
 
 ## The Observation seam
 

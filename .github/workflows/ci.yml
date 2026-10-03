@@ -142,6 +142,90 @@ jobs:
           git --no-pager diff -- packages/shared-types/src/database.types.ts
           exit 1
 
+  # The dashboard's production release, from here and nowhere else.
+  #
+  # Cloudflare's own Git integration (Workers Builds) built every main commit
+  # until 2026-10: then it hung at "Initializing build environment" or failed
+  # in 0 seconds on #342, #343 and #344, and each release went out by hand.
+  # It also never had a gate — a merge went live whatever CI said. This job
+  # deploys only after the checks a dashboard change can break have passed,
+  # and only when the dashboard could have changed.
+  #
+  # Turn the Cloudflare integration's automatic builds OFF when this is set up
+  # (docs/runbooks/going-public.md §6-2), or the two race to publish.
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [changes, web, db, guard]
+    # !cancelled(): `db` is skipped when no migration changed, and a skipped
+    # need would otherwise skip this job too. Every need is still checked.
+    if: >-
+      !cancelled()
+      && github.event_name == 'push'
+      && github.ref == 'refs/heads/main'
+      && needs.changes.outputs.web == 'true'
+      && needs.web.result == 'success'
+      && needs.guard.result == 'success'
+      && (needs.db.result == 'success' || needs.db.result == 'skipped')
+    # One release at a time, in merge order; never cancel one half-way.
+    concurrency:
+      group: deploy-dashboard
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    environment:
+      name: production
+      url: https://cbfw.us
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      # Repository VARIABLES, not secrets: both end up in the shipped
+      # JavaScript anyway. Without them the build silently falls back to the
+      # local stack (src/lib/env.ts) and a bundle pointing at 127.0.0.1 would
+      # go live, so their absence stops the job instead.
+      - name: Build
+        working-directory: apps/dashboard
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          if [ -z "$VITE_SUPABASE_URL" ] || [ -z "$VITE_SUPABASE_PUBLISHABLE_KEY" ]; then
+            echo "::error::Set the VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY repository variables."
+            exit 1
+          fi
+          pnpm build
+          if grep -rq '127.0.0.1:54321' dist/assets; then
+            echo "::error::The bundle points at the local Supabase stack; refusing to deploy it."
+            exit 1
+          fi
+      - name: Deploy
+        uses: cloudflare/wrangler-action@v4.1.3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '4.147.0'
+          workingDirectory: apps/dashboard
+          command: deploy
+      # The release is what https://cbfw.us serves, not what wrangler said.
+      - name: Confirm the live page serves this build
+        working-directory: apps/dashboard
+        run: |
+          want=$(grep -o 'assets/index-[^"]*\.js' dist/index.html | head -1)
+          for attempt in 1 2 3 4 5 6; do
+            live=$(curl -sf https://cbfw.us/ | grep -o 'assets/index-[^"]*\.js' | head -1 || true)
+            if [ "$live" = "$want" ]; then
+              echo "cbfw.us serves $want"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::cbfw.us serves '$live', expected '$want'."
+          exit 1
+
   guard:
     runs-on: ubuntu-latest
     steps:
