@@ -4,7 +4,16 @@
 
 import { useMemo } from 'react';
 import { EventName } from './EventName';
-import { type Bucket, type CalendarEvent, arrange, serverWhen, until } from './data';
+import {
+  type Bucket,
+  CATEGORIES,
+  CATEGORY_LABELS,
+  type CalendarEvent,
+  arrange,
+  categoryOf,
+  serverWhen,
+  until,
+} from './data';
 
 const SECTIONS: ReadonlyArray<{ bucket: Bucket; title: string; blurb: string; open: boolean }> = [
   { bucket: 'live', title: 'Running now', blurb: 'Soonest to end first.', open: true },
@@ -83,7 +92,9 @@ function EventTable({
   );
 }
 
-export function ListView({
+/** One category's events: the day table when a day is picked, otherwise the
+ * running / coming / ended sections. */
+function CategoryList({
   events,
   day,
   now,
@@ -95,19 +106,8 @@ export function ListView({
   mayName: boolean;
 }) {
   const arranged = useMemo(() => arrange(events, now), [events, now]);
-
-  if (events.length === 0) {
-    return <p className="empty">Nothing matches. Clear the search or pick another day.</p>;
-  }
   if (day !== '') {
-    return (
-      <section aria-label={`Running on ${day}`}>
-        <h3>
-          Running on {day} <span className="calendar-count">({events.length})</span>
-        </h3>
-        <EventTable countdown={null} events={events} mayName={mayName} now={now} />
-      </section>
-    );
+    return <EventTable countdown={null} events={events} mayName={mayName} now={now} />;
   }
   return (
     <>
@@ -119,9 +119,9 @@ export function ListView({
         return (
           <details className="calendar-section" key={bucket} open={open}>
             <summary>
-              <h3 className="calendar-heading">
+              <h4 className="calendar-heading">
                 {title} <span className="calendar-count">({list.length})</span>
-              </h3>
+              </h4>
             </summary>
             <p className="subtle">{blurb}</p>
             <EventTable
@@ -131,6 +131,48 @@ export function ListView({
               now={now}
             />
           </details>
+        );
+      })}
+    </>
+  );
+}
+
+/** The list, one group per category, each in its own colour. Unclassified
+ * entries sit with the events (categoryOf). */
+export function ListView({
+  events,
+  day,
+  now,
+  mayName,
+}: {
+  events: CalendarEvent[];
+  day: string;
+  now: Date;
+  mayName: boolean;
+}) {
+  if (events.length === 0) {
+    return <p className="empty">Nothing matches. Clear the search or pick another day.</p>;
+  }
+  return (
+    <>
+      {day !== '' && <h3>Running on {day}</h3>}
+      {CATEGORIES.map((category) => {
+        const title = CATEGORY_LABELS[category];
+        const list = events.filter((event) => categoryOf(event) === category);
+        if (list.length === 0) {
+          return null;
+        }
+        return (
+          <section
+            aria-label={title}
+            className={`calendar-group calendar-cat-${category}`}
+            key={category}
+          >
+            <h3 className="calendar-group-title">
+              {title} <span className="calendar-count">({list.length})</span>
+            </h3>
+            <CategoryList day={day} events={list} mayName={mayName} now={now} />
+          </section>
         );
       })}
     </>

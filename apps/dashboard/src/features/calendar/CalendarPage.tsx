@@ -2,28 +2,33 @@
 // the collector saw (0208). Not the alliance's schedule boards — those are
 // what officers plan; this is what the game has announced.
 //
-// Two views, the month first: a grid of server days showing what starts and
-// what ends, and a list that searches by name and by day. Both filter to
-// events (play) or shop entries (passes, packs, shops, gacha), from the
-// game's own activity types (0210). Every time is server time, UTC−2.
+// Two views, the month first: a grid of server days with each event a bar,
+// and a list that searches by name and by day. Both filter by category
+// (0211) — major fights, recurring, season, events, passes, premium — read
+// from the game's own activity types. Season events end with the season
+// (endWithSeason). Every time is server time, UTC−2.
 
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useSession } from '../../lib/useSession';
 import { ListView } from './ListView';
 import { MonthView } from './MonthView';
-import { type CategoryFilter, fetchCalendar, inCategory, search, serverWhen } from './data';
+import {
+  CATEGORIES,
+  CATEGORY_LABELS,
+  type Category,
+  DEFAULT_SHOWN,
+  endWithSeason,
+  fetchCalendar,
+  inCategory,
+  search,
+  serverWhen,
+} from './data';
 
 /** The calendar changes when somebody logs in, not by the minute. */
 const STALE_TIME = 5 * 60_000;
 
 type View = 'month' | 'list';
-
-const CATEGORIES: ReadonlyArray<{ value: CategoryFilter; label: string }> = [
-  { value: 'event', label: 'Events' },
-  { value: 'shop', label: 'Shop & passes' },
-  { value: 'all', label: 'All' },
-];
 
 export function CalendarPage() {
   const { data: session } = useSession();
@@ -35,7 +40,7 @@ export function CalendarPage() {
   });
   const [now] = useState(() => new Date());
   const [view, setView] = useState<View>('month');
-  const [category, setCategory] = useState<CategoryFilter>('event');
+  const [shown, setShown] = useState<ReadonlySet<Category>>(DEFAULT_SHOWN);
   const [text, setText] = useState('');
   const [day, setDay] = useState('');
 
@@ -44,19 +49,29 @@ export function CalendarPage() {
     [calendar.data],
   );
   const [server, setServer] = useState<number | null>(null);
-  const shown = server ?? servers[0] ?? null;
+  const serverShown = server ?? servers[0] ?? null;
   const onServer = useMemo(
-    () => (calendar.data ?? []).filter((event) => event.server_id === shown),
-    [calendar.data, shown],
+    () => endWithSeason((calendar.data ?? []).filter((event) => event.server_id === serverShown)),
+    [calendar.data, serverShown],
   );
   const inMonth = useMemo(
-    () => onServer.filter((event) => inCategory(event, category)),
-    [onServer, category],
+    () => onServer.filter((event) => inCategory(event, shown)),
+    [onServer, shown],
   );
   const listed = useMemo(
-    () => search(onServer, { text, day, category }),
-    [onServer, text, day, category],
+    () => search(onServer, { text, day, shown }),
+    [onServer, text, day, shown],
   );
+  const toggle = (category: Category) =>
+    setShown((current) => {
+      const next = new Set(current);
+      if (next.has(category)) {
+        next.delete(category);
+      } else {
+        next.add(category);
+      }
+      return next;
+    });
 
   if (calendar.isPending) {
     return (
@@ -108,15 +123,15 @@ export function CalendarPage() {
         </div>
         <fieldset className="calendar-toggle">
           <legend className="visually-hidden">Show</legend>
-          {CATEGORIES.map(({ value, label }) => (
+          {CATEGORIES.map((value) => (
             <button
-              aria-pressed={category === value}
-              className={category === value ? 'calendar-toggle-on' : undefined}
+              aria-pressed={shown.has(value)}
+              className={shown.has(value) ? `calendar-toggle-on calendar-cat-${value}` : undefined}
               key={value}
-              onClick={() => setCategory(value)}
+              onClick={() => toggle(value)}
               type="button"
             >
-              {label}
+              {CATEGORY_LABELS[value]}
             </button>
           ))}
         </fieldset>
@@ -125,7 +140,7 @@ export function CalendarPage() {
             Server{' '}
             <select
               onChange={(change) => setServer(Number(change.target.value))}
-              value={shown ?? ''}
+              value={serverShown ?? ''}
             >
               {servers.map((id) => (
                 <option key={id} value={id}>
@@ -141,6 +156,7 @@ export function CalendarPage() {
         <MonthView
           events={inMonth}
           now={now}
+          shown={CATEGORIES.filter((value) => shown.has(value))}
           onPickDay={(picked) => {
             setDay(picked);
             setView('list');

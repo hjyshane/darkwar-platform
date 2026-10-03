@@ -15,14 +15,14 @@ values (gen_random_uuid(), 'init', '1.0.0', 'es-test:1', now(),
     {"id": "300004", "startTime": 1790906400000, "endTime": 1791165600000}]');
 insert into public.event_names (activity_id, name, activity_type, category) values
   ('111001', 'Capital Clash', 54, 'event'),
-  ('300004', 'Mod Vehicle Combo Pack', 274, 'shop');
+  ('300004', 'Mod Vehicle Combo Pack', 274, 'premium');
 
 -- 1-2. The view carries the category and the type.
 select is((select category from public.event_schedule_current where activity_id = '300004'),
-  'shop', 'a pack is a shop entry');
+  'premium', 'a pack is a premium entry');
 select is((select activity_type from public.event_schedule_current where activity_id = '111001'),
   54, 'the activity type rides along');
--- 3. Only the two categories exist.
+-- 3. Only the known categories exist (0211).
 select throws_ok(
   $$ update public.event_names set category = 'gacha' where activity_id = '300004' $$,
   '23514', null, 'an unknown category is refused');

@@ -702,7 +702,21 @@ function calendarEvent(
     seen_at: CALENDAR_SEEN,
   };
 }
-const CALENDAR_SHOPS = new Set(['8072', '40739', '300004']);
+/** Category and activity type by id, as `game-names` writes them (0211).
+ *  104000 is the Season Celebration: Ice Pit is cut off at its start. */
+const CALENDAR_KINDS: Record<string, [string, number]> = {
+  '41101': ['season', 126],
+  '700001': ['season', 225],
+  '55001': ['recurring', 111],
+  '111001': ['major', 54],
+  '80002': ['major', 71],
+  '104000': ['season', 131],
+  '492000': ['season', 1008],
+  '8072': ['premium', 27],
+  '300004': ['premium', 274],
+  '40739': ['premium', 20],
+  '40086': ['pass', 27],
+};
 const CALENDAR_ROWS_RAW = [
   calendarEvent('41101', -47, 17, 'Ice Pit'),
   calendarEvent('700001', -47, 9, 'Season 3'),
@@ -722,7 +736,8 @@ const CALENDAR_ROWS_RAW = [
 ];
 const CALENDAR_ROWS = CALENDAR_ROWS_RAW.map((row) => ({
   ...row,
-  category: CALENDAR_SHOPS.has(row.activity_id) ? 'shop' : 'event',
+  category: CALENDAR_KINDS[row.activity_id]?.[0] ?? 'event',
+  activity_type: CALENDAR_KINDS[row.activity_id]?.[1] ?? null,
 }));
 
 export const FIXTURES: [readonly unknown[], unknown][] = [

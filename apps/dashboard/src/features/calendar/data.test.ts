@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
+  CATEGORIES,
   type CalendarEvent,
   type Category,
   arrange,
   bucketOf,
   byServerDay,
+  endWithSeason,
   inCategory,
+  knownCategory,
   labelOf,
   lastServerDay,
   runsOn,
@@ -13,9 +16,11 @@ import {
   serverDay,
   serverWhen,
   until,
+  weekBars,
 } from './data';
 
 const NOW = new Date('2026-10-02T21:40:00Z');
+const EVERY = new Set(CATEGORIES);
 
 function event(
   id: string,
@@ -23,13 +28,14 @@ function event(
   ends: string | null,
   name: string | null = null,
   category: Category | null = null,
+  activityType: number | null = null,
 ): CalendarEvent {
   return {
     server_id: 580,
     activity_id: id,
     name,
     category,
-    activity_type: null,
+    activity_type: activityType,
     starts_at: starts,
     ends_at: ends,
     need_hq_level: 10,
@@ -114,15 +120,64 @@ describe('labelOf', () => {
 
 describe('categories', () => {
   it('shows unclassified entries with the events', () => {
-    expect(inCategory(event('1', null, null), 'event')).toBe(true);
-    expect(inCategory(event('1', null, null), 'shop')).toBe(false);
+    expect(inCategory(event('1', null, null), new Set(['event']))).toBe(true);
+    expect(inCategory(event('1', null, null), new Set(['premium']))).toBe(false);
   });
 
-  it('keeps shops out of events and in shop', () => {
-    const pack = event('300004', null, null, 'Mod Vehicle Combo Pack', 'shop');
-    expect(inCategory(pack, 'event')).toBe(false);
-    expect(inCategory(pack, 'shop')).toBe(true);
-    expect(inCategory(pack, 'all')).toBe(true);
+  it('shows a category only while it is picked', () => {
+    const pack = event('300004', null, null, 'Mod Vehicle Combo Pack', 'premium');
+    expect(inCategory(pack, new Set(['event', 'major']))).toBe(false);
+    expect(inCategory(pack, new Set(['premium']))).toBe(true);
+  });
+
+  it('reads the old shop category as premium and drops what it does not know', () => {
+    expect(knownCategory('shop')).toBe('premium');
+    expect(knownCategory('season')).toBe('season');
+    expect(knownCategory('gacha')).toBeNull();
+    expect(knownCategory(null)).toBeNull();
+  });
+});
+
+describe('endWithSeason', () => {
+  // The finale (Season Celebration, type 131) starts 10-12 00:00 server time.
+  const finale = event(
+    '104000',
+    '2026-10-12T02:00:00Z',
+    '2026-11-02T02:00:00Z',
+    null,
+    'season',
+    131,
+  );
+  const icePit = event(
+    '41101',
+    '2026-08-17T02:00:00Z',
+    '2026-10-20T02:00:00Z',
+    null,
+    'season',
+    126,
+  );
+
+  it('cuts a season event off when the finale starts', () => {
+    const [cut] = endWithSeason([icePit, finale]);
+    expect(cut?.ends_at).toBe('2026-10-12T02:00:00Z');
+  });
+
+  it('leaves the finale, the season passes and other categories alone', () => {
+    const pass = event('70030', '2026-08-17T02:00:00Z', '2026-10-16T02:00:00Z', null, 'season', 45);
+    const clash = event(
+      '111001',
+      '2026-10-10T14:00:00Z',
+      '2026-10-14T02:00:00Z',
+      null,
+      'major',
+      54,
+    );
+    const out = endWithSeason([finale, pass, clash]);
+    expect(out.map((e) => e.ends_at)).toEqual([finale.ends_at, pass.ends_at, clash.ends_at]);
+  });
+
+  it('changes nothing when no finale is listed', () => {
+    expect(endWithSeason([icePit])).toEqual([icePit]);
   });
 });
 
@@ -134,26 +189,31 @@ describe('search', () => {
     '2026-10-01T02:00:00Z',
     '2026-10-04T02:00:00Z',
     'Combo Pack',
-    'shop',
+    'premium',
   );
   const all = [ice, clash, pack];
 
   it('finds by part of the name, any case', () => {
-    expect(search(all, { text: 'capital', day: '', category: 'all' })).toEqual([clash]);
+    expect(search(all, { text: 'capital', day: '', shown: EVERY })).toEqual([clash]);
   });
 
   it('finds by id', () => {
-    expect(search(all, { text: '41101', day: '', category: 'all' })).toEqual([ice]);
+    expect(search(all, { text: '41101', day: '', shown: EVERY })).toEqual([ice]);
   });
 
   it('lists what runs on a server day', () => {
-    expect(search(all, { text: '', day: '2026-10-04', category: 'event' })).toEqual([ice, clash]);
+    expect(search(all, { text: '', day: '2026-10-04', shown: new Set(['event']) })).toEqual([
+      ice,
+      clash,
+    ]);
     // Capital Clash's end at 02:00 UTC is midnight server time: not on the 5th.
     expect(runsOn(clash, '2026-10-05')).toBe(false);
   });
 
   it('applies the category with the rest', () => {
-    expect(search(all, { text: '', day: '2026-10-02', category: 'shop' })).toEqual([pack]);
+    expect(search(all, { text: '', day: '2026-10-02', shown: new Set(['premium']) })).toEqual([
+      pack,
+    ]);
   });
 });
 
@@ -166,5 +226,70 @@ describe('byServerDay', () => {
     expect(starts.get('2026-10-03')?.map((e) => e.activity_id)).toEqual(['111001']);
     expect(ends.get('2026-10-04')?.map((e) => e.activity_id)).toEqual(['111001']);
     expect([...starts.keys()]).toEqual(['2026-10-03']);
+  });
+});
+
+describe('weekBars', () => {
+  const week = [
+    '2026-09-28',
+    '2026-09-29',
+    '2026-09-30',
+    '2026-10-01',
+    '2026-10-02',
+    '2026-10-03',
+    '2026-10-04',
+  ];
+
+  it('clips an event to the week and says which ends are real', () => {
+    // Runs 09-21 .. 10-01 (ends at 02:00 UTC on 10-02 = midnight server time).
+    const [bar] = weekBars([event('a', '2026-09-21T02:00:00Z', '2026-10-02T02:00:00Z')], week);
+    expect(bar).toMatchObject({ start: 0, end: 3, startsHere: false, endsHere: true, lane: 0 });
+  });
+
+  it('packs bars that do not overlap into one lane and the rest below', () => {
+    const bars = weekBars(
+      [
+        event('long', '2026-09-28T02:00:00Z', '2026-10-05T02:00:00Z'),
+        event('mon', '2026-09-28T02:00:00Z', '2026-09-29T02:00:00Z'),
+        event('fri', '2026-10-02T02:00:00Z', '2026-10-03T02:00:00Z'),
+      ],
+      week,
+    );
+    const lane = Object.fromEntries(bars.map((b) => [b.event.activity_id, b.lane]));
+    expect(lane).toEqual({ long: 0, mon: 1, fri: 1 });
+  });
+
+  it('leaves out events outside the week and standing features', () => {
+    expect(
+      weekBars(
+        [
+          event('later', '2026-10-06T02:00:00Z', '2026-10-08T02:00:00Z'),
+          event('forever', '2026-04-04T02:00:00Z', '2044-03-30T12:39:00Z'),
+        ],
+        week,
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe('weekBars ordering', () => {
+  it('puts the major fights in the top lane', () => {
+    const week = [
+      '2026-09-28',
+      '2026-09-29',
+      '2026-09-30',
+      '2026-10-01',
+      '2026-10-02',
+      '2026-10-03',
+      '2026-10-04',
+    ];
+    const bars = weekBars(
+      [
+        event('long', '2026-09-28T02:00:00Z', '2026-10-05T02:00:00Z'),
+        event('clash', '2026-10-03T02:00:00Z', '2026-10-04T02:00:00Z', null, 'major'),
+      ],
+      week,
+    );
+    expect(bars.find((b) => b.event.activity_id === 'clash')?.lane).toBe(0);
   });
 });

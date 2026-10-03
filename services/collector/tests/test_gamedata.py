@@ -17,7 +17,7 @@ from dw_collector.gamedata import (
     repair_header,
     strip_prefix,
 )
-from dw_collector.gamedata.names import EventName
+from dw_collector.gamedata.names import EventName, classify
 from dw_collector.gamedata.upload import NOTE, plan
 
 ACTIVITY_PANEL = """
@@ -99,12 +99,52 @@ def test_event_names_follow_the_client_two_lookups() -> None:
     }
 
 
-def test_a_pack_is_a_shop_and_a_battle_is_an_event() -> None:
+def test_a_pack_is_premium_and_a_battle_is_an_event() -> None:
     """The category comes from the activity type, not the in-game tab."""
     names = event_names(_assets(_client_bytecode(ACTIVITY_PANEL)))
 
-    assert (names["300004"].activity_type, names["300004"].category) == (274, "shop")
+    assert (names["300004"].activity_type, names["300004"].category) == (274, "premium")
     assert (names["80002"].activity_type, names["80002"].category) == (4, "event")
+
+
+def test_the_category_is_read_from_the_english_name() -> None:
+    """A Korean run classifies like an English one."""
+    names = event_names(_assets(_client_bytecode(ACTIVITY_PANEL)), "Korean")
+
+    assert names["41101"].category == "event"
+
+
+@pytest.mark.parametrize(
+    ("activity_id", "kind", "name", "category"),
+    [
+        ("111001", 54, "Capital Clash", "major"),
+        ("80002", 71, "Black Gold Battlefield", "major"),
+        ("111401", 210, "Bio-Mutant", "major"),
+        ("55000", 14, "Alliance Duel", "recurring"),
+        ("4000401", 23, "Tyrant-C Comes", "recurring"),
+        ("4009603", 18, "Tyrant-V Comes", "recurring"),
+        ("50004", 119, "Survival Preparedness", "recurring"),
+        ("41101", 126, "Arctic Ice Pit", "season"),
+        ("40724", 239, "Endless Night", "season"),
+        ("40735", 25, "Arctic Veins", "season"),
+        ("492000", 1008, "Frozen Rescue", "season"),
+        ("70030", 45, "Season Pass", "season"),
+        ("104012", 250, "Celebration Shop", "season"),
+        ("104024", 20, "Survivor Market", "season"),
+        ("104001", 40, "Celebration Trial", "season"),
+        ("2010", 288, "Custom Weekly Pass", "pass"),
+        ("2008", 109, "Event Monthly Pass", "pass"),
+        ("40514", 20, "Industrial Surge", "pass"),
+        ("590007", 27, "Equipment Battle Pass", "pass"),
+        ("1", 27, "Rise of Industry", "pass"),
+        ("600001", 27, "Catherine's Gift", "premium"),
+        ("300004", 274, "Mod Vehicle Combo Pack", "premium"),
+        ("55513", 18, "Wrath of King Scorpion", "event"),
+        ("9001", 2, "Shadow Calls", "event"),
+    ],
+)
+def test_calendar_categories(activity_id: str, kind: int, name: str, category: str) -> None:
+    assert classify(activity_id, kind, name) == category
 
 
 def test_names_come_in_the_language_asked_for() -> None:
@@ -126,7 +166,7 @@ def _named(name: str, kind: int = 2, category: str = "event") -> EventName:
 
 
 def test_plan_writes_new_names_with_their_category() -> None:
-    result = plan([], {"300004": _named("Mod Vehicle Combo Pack", 274, "shop")})
+    result = plan([], {"300004": _named("Mod Vehicle Combo Pack", 274, "premium")})
 
     assert result.to_write == [
         {
@@ -134,7 +174,7 @@ def test_plan_writes_new_names_with_their_category() -> None:
             "name": "Mod Vehicle Combo Pack",
             "note": NOTE,
             "activity_type": 274,
-            "category": "shop",
+            "category": "premium",
         }
     ]
 
@@ -146,7 +186,7 @@ def test_plan_never_overwrites_an_officers_name_or_category() -> None:
             "name": "Ice Pit",
             "updated_by": "u",
             "activity_type": 2,
-            "category": "shop",
+            "category": "premium",
         }
     ]
 

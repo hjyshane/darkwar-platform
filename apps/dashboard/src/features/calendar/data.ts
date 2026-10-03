@@ -9,7 +9,26 @@
 import { supabase } from '../../lib/supabase';
 import { SERVER_ZONE, zonedDayKey, zonedTime } from '../../lib/timezone';
 
-export type Category = 'event' | 'shop';
+/** The calendar's categories (0211), in the order they are listed. */
+export const CATEGORIES = ['major', 'recurring', 'season', 'event', 'pass', 'premium'] as const;
+export type Category = (typeof CATEGORIES)[number];
+
+export const CATEGORY_LABELS: Record<Category, string> = {
+  major: 'Major events',
+  recurring: 'Recurring',
+  season: 'Season',
+  event: 'Events',
+  pass: 'Event passes',
+  premium: 'Premium',
+};
+
+/** Shown until the reader picks: everything that is played, nothing to buy. */
+export const DEFAULT_SHOWN: ReadonlySet<Category> = new Set([
+  'major',
+  'recurring',
+  'season',
+  'event',
+]);
 
 /** One row of `event_schedule_current`: one event on the newest calendar the
  * collector saw for that server. */
@@ -27,7 +46,6 @@ export interface CalendarEvent {
 }
 
 export type Bucket = 'live' | 'upcoming' | 'ended' | 'standing' | 'untimed';
-export type CategoryFilter = Category | 'all';
 
 /** An event that runs this long is part of the game, not an event on the
  * calendar — the login lists them with ends in 2044 and beyond. */
@@ -126,12 +144,56 @@ export function lastServerDay(endsAt: string): string {
   return serverDay(new Date(Date.parse(endsAt) - 1).toISOString());
 }
 
-/** Unclassified events show with the events: most of the calendar is play. */
-export function inCategory(event: CalendarEvent, filter: CategoryFilter): boolean {
-  if (filter === 'all') {
-    return true;
+/** Unclassified events count as events: most of the calendar is play. */
+export function categoryOf(event: Pick<CalendarEvent, 'category'>): Category {
+  return event.category ?? 'event';
+}
+
+export function inCategory(event: CalendarEvent, shown: ReadonlySet<Category>): boolean {
+  return shown.has(categoryOf(event));
+}
+
+/** activity_panel.type of Season Celebration, the finale: it starts the
+ * moment the season proper ends. */
+const SEASON_FINALE_TYPE = 131;
+/** Season Pass and Season Weekly Pass: still claimable after the season. */
+const SEASON_PASS_TYPES: ReadonlySet<number> = new Set([45, 46]);
+
+/** When the season proper ends: the earliest start of its finale on this
+ * calendar, or null when no finale is listed. */
+export function seasonEnd(events: ReadonlyArray<CalendarEvent>): string | null {
+  let end: string | null = null;
+  for (const event of events) {
+    if (event.activity_type === SEASON_FINALE_TYPE && event.starts_at !== null) {
+      if (end === null || Date.parse(event.starts_at) < Date.parse(end)) {
+        end = event.starts_at;
+      }
+    }
   }
-  return (event.category ?? 'event') === filter;
+  return end;
+}
+
+/** Season events end with the season. The server lists some past it — Arctic
+ * Ice Pit runs to 10-20 though the season ends 10-12 — and they are gone in
+ * the game when the finale starts. So a season event that started before the
+ * finale is cut off at the finale's start. The finale's own events and the
+ * season passes keep their dates. */
+export function endWithSeason(events: ReadonlyArray<CalendarEvent>): CalendarEvent[] {
+  const end = seasonEnd(events);
+  if (end === null) {
+    return [...events];
+  }
+  const cut = Date.parse(end);
+  return events.map((event) =>
+    categoryOf(event) === 'season' &&
+    !SEASON_PASS_TYPES.has(event.activity_type ?? -1) &&
+    event.starts_at !== null &&
+    event.ends_at !== null &&
+    Date.parse(event.starts_at) < cut &&
+    Date.parse(event.ends_at) > cut
+      ? { ...event, ends_at: end }
+      : event,
+  );
 }
 
 /** Whether the event runs at some point during server day `day`. */
@@ -146,7 +208,7 @@ export interface Search {
   text: string;
   /** `YYYY-MM-DD` server day, or '' for any. */
   day: string;
-  category: CategoryFilter;
+  shown: ReadonlySet<Category>;
 }
 
 /** The list's filter: name contains the text (or the id does), the event runs
@@ -155,7 +217,7 @@ export function search(events: ReadonlyArray<CalendarEvent>, query: Search): Cal
   const text = query.text.trim().toLowerCase();
   return events.filter(
     (event) =>
-      inCategory(event, query.category) &&
+      inCategory(event, query.shown) &&
       (text === '' ||
         labelOf(event).toLowerCase().includes(text) ||
         event.activity_id.includes(text)) &&
@@ -199,13 +261,22 @@ export async function fetchCalendar(): Promise<CalendarEvent[]> {
     }
     throw new Error(error.message);
   }
-  return (data ?? []).filter(
-    (row) => row.activity_id !== null && row.server_id !== null,
-  ) as CalendarEvent[];
+  return (data ?? [])
+    .filter((row) => row.activity_id !== null && row.server_id !== null)
+    .map((row) => ({ ...row, category: knownCategory(row.category) })) as CalendarEvent[];
 }
 
-/** Name an event and say whether it is an event or a shop. An empty name
- * removes the row, category with it. */
+/** A category the dashboard knows, or null. 'shop' (0210) became 'premium'
+ * in 0211; until that migration is applied the old value still arrives. */
+export function knownCategory(value: string | null): Category | null {
+  if (value === 'shop') {
+    return 'premium';
+  }
+  return (CATEGORIES as ReadonlyArray<string>).includes(value ?? '') ? (value as Category) : null;
+}
+
+/** Name an event and put it in a category. An empty name removes the row,
+ * category with it. */
 export async function saveEventName(
   activityId: string,
   name: string,
@@ -226,4 +297,68 @@ export async function saveEventName(
       error.code === '42501' ? 'Only officers and admins can name events.' : error.message,
     );
   }
+}
+
+/** One event's bar within one week of the month grid. Columns are 0..6,
+ * Monday first; `lane` is the row it is drawn on so bars never overlap. */
+export interface WeekBar {
+  event: CalendarEvent;
+  start: number;
+  end: number;
+  lane: number;
+  /** The event really starts / ends inside this week (round that end). */
+  startsHere: boolean;
+  endsHere: boolean;
+}
+
+/** Lay out one week: every event that runs on any of its seven server days,
+ * clipped to the week, packed into the fewest lanes. Major fights first, so
+ * they are never behind "+N more"; then longer bars, then earlier ones, so a
+ * week-long event takes the top lane and short ones fill the gaps under it. Standing features are left off — a bar across every
+ * week is not news. */
+export function weekBars(events: ReadonlyArray<CalendarEvent>, week: string[]): WeekBar[] {
+  const first = week[0];
+  const last = week[week.length - 1];
+  if (first === undefined || last === undefined) {
+    return [];
+  }
+  const spans: Omit<WeekBar, 'lane'>[] = [];
+  for (const event of events) {
+    if (event.starts_at === null || event.ends_at === null) {
+      continue;
+    }
+    if (Date.parse(event.ends_at) - Date.parse(event.starts_at) >= STANDING_AFTER_MS) {
+      continue;
+    }
+    const from = serverDay(event.starts_at);
+    const to = lastServerDay(event.ends_at);
+    if (to < first || from > last) {
+      continue;
+    }
+    const start = from < first ? 0 : week.indexOf(from);
+    const end = to > last ? week.length - 1 : week.indexOf(to);
+    if (start < 0 || end < 0 || end < start) {
+      continue;
+    }
+    spans.push({ event, start, end, startsHere: from >= first, endsHere: to <= last });
+  }
+  const major = (span: Omit<WeekBar, 'lane'>) => (categoryOf(span.event) === 'major' ? 1 : 0);
+  spans.sort(
+    (a, b) =>
+      major(b) - major(a) ||
+      b.end - b.start - (a.end - a.start) ||
+      a.start - b.start ||
+      a.event.activity_id.localeCompare(b.event.activity_id),
+  );
+  const lanes: number[] = []; // last column taken in each lane
+  return spans.map((span) => {
+    let lane = lanes.findIndex((taken) => taken < span.start);
+    if (lane === -1) {
+      lane = lanes.length;
+      lanes.push(span.end);
+    } else {
+      lanes[lane] = span.end;
+    }
+    return { ...span, lane };
+  });
 }
