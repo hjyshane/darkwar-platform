@@ -3,10 +3,14 @@ import {
   CATEGORIES,
   type CalendarEvent,
   type Category,
+  addDays,
   arrange,
   bucketOf,
   byServerDay,
+  changesIn,
+  dayBlocks,
   endWithSeason,
+  groupedWeekBars,
   inCategory,
   knownCategory,
   labelOf,
@@ -291,5 +295,62 @@ describe('weekBars ordering', () => {
       week,
     );
     expect(bars.find((b) => b.event.activity_id === 'clash')?.lane).toBe(0);
+  });
+});
+
+describe('groupedWeekBars', () => {
+  const week = [
+    '2026-09-28',
+    '2026-09-29',
+    '2026-09-30',
+    '2026-10-01',
+    '2026-10-02',
+    '2026-10-03',
+    '2026-10-04',
+  ];
+
+  it('groups by category in filter order, each with its own lanes', () => {
+    const groups = groupedWeekBars(
+      [
+        event('ev', '2026-09-28T02:00:00Z', '2026-10-05T02:00:00Z', null, 'event'),
+        event('clash', '2026-10-03T02:00:00Z', '2026-10-04T02:00:00Z', null, 'major'),
+        event('duel', '2026-09-28T02:00:00Z', '2026-10-04T02:00:00Z', null, 'recurring'),
+        event('ev2', '2026-09-29T02:00:00Z', '2026-09-30T02:00:00Z', null, 'event'),
+      ],
+      week,
+    );
+    expect(groups.map((g) => [g.category, g.lanes])).toEqual([
+      ['major', 1],
+      ['recurring', 1],
+      ['event', 2],
+    ]);
+  });
+});
+
+describe('the day in four-hour blocks', () => {
+  it('starts at server midnight, 02:00 UTC, and runs six blocks', () => {
+    const blocks = dayBlocks('2026-10-03');
+    expect(blocks).toHaveLength(6);
+    expect(blocks[0]?.from).toBe('2026-10-03T02:00:00.000Z');
+    expect(blocks[5]?.to).toBe('2026-10-04T02:00:00.000Z');
+  });
+
+  it('lists what starts or ends inside a block, not what runs through it', () => {
+    const clash = event('clash', '2026-10-03T14:00:00Z', '2026-10-05T02:00:00Z');
+    const through = event('ice', '2026-09-01T02:00:00Z', '2026-10-20T02:00:00Z');
+    const pack = event('pack', '2026-10-01T02:00:00Z', '2026-10-03T06:00:00Z');
+    // 12:00-16:00 server time is 14:00-18:00 UTC.
+    expect(
+      changesIn([clash, through, pack], '2026-10-03T14:00:00Z', '2026-10-03T18:00:00Z'),
+    ).toEqual([{ event: clash, edge: 'starts' }]);
+    // An end exactly at a block's close belongs to that block.
+    expect(changesIn([pack], '2026-10-03T02:00:00Z', '2026-10-03T06:00:00Z')).toEqual([
+      { event: pack, edge: 'ends' },
+    ]);
+  });
+
+  it('steps days across a month end', () => {
+    expect(addDays('2026-09-30', 1)).toBe('2026-10-01');
+    expect(addDays('2026-10-01', -1)).toBe('2026-09-30');
   });
 });

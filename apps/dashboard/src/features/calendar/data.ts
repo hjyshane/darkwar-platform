@@ -362,3 +362,83 @@ export function weekBars(events: ReadonlyArray<CalendarEvent>, week: string[]): 
     return { ...span, lane };
   });
 }
+
+/** One category's bars within a week: its own lanes, numbered from 0. */
+export interface WeekGroup {
+  category: Category;
+  bars: WeekBar[];
+  lanes: number;
+}
+
+/** A week's bars grouped by category, in CATEGORIES order, each group packed
+ * into its own lanes. Empty categories are left out. Nothing is cut: the
+ * calendar has room for every lane, so no "+N more". */
+export function groupedWeekBars(events: ReadonlyArray<CalendarEvent>, week: string[]): WeekGroup[] {
+  const groups: WeekGroup[] = [];
+  for (const category of CATEGORIES) {
+    const bars = weekBars(
+      events.filter((event) => categoryOf(event) === category),
+      week,
+    );
+    if (bars.length > 0) {
+      groups.push({
+        category,
+        bars,
+        lanes: bars.reduce((most, bar) => Math.max(most, bar.lane + 1), 0),
+      });
+    }
+  }
+  return groups;
+}
+
+/** Survival Preparedness turns over every four hours from server midnight. */
+export const PREP_BLOCK_HOURS = 4;
+
+/** The six four-hour blocks of server day `day` (`YYYY-MM-DD`), as UTC
+ * instants. Server midnight is 02:00 UTC (UTC−2). */
+export function dayBlocks(day: string): { index: number; from: string; to: string }[] {
+  const midnight = Date.parse(`${day}T02:00:00Z`);
+  return Array.from({ length: 24 / PREP_BLOCK_HOURS }, (_, index) => ({
+    index,
+    from: new Date(midnight + index * PREP_BLOCK_HOURS * 3_600_000).toISOString(),
+    to: new Date(midnight + (index + 1) * PREP_BLOCK_HOURS * 3_600_000).toISOString(),
+  }));
+}
+
+/** Events that start or end inside [from, to) — what changes in that block.
+ * An event running straight through the block is on the all-day list. */
+export function changesIn(
+  events: ReadonlyArray<CalendarEvent>,
+  from: string,
+  to: string,
+): { event: CalendarEvent; edge: 'starts' | 'ends' }[] {
+  const lo = Date.parse(from);
+  const hi = Date.parse(to);
+  const out: { event: CalendarEvent; edge: 'starts' | 'ends' }[] = [];
+  for (const event of events) {
+    if (event.starts_at === null || event.ends_at === null) {
+      continue;
+    }
+    if (Date.parse(event.ends_at) - Date.parse(event.starts_at) >= STANDING_AFTER_MS) {
+      continue;
+    }
+    const start = Date.parse(event.starts_at);
+    const end = Date.parse(event.ends_at);
+    if (start >= lo && start < hi) {
+      out.push({ event, edge: 'starts' });
+    }
+    if (end > lo && end <= hi) {
+      out.push({ event, edge: 'ends' });
+    }
+  }
+  return out.sort(
+    (a, b) =>
+      Date.parse((a.edge === 'starts' ? a.event.starts_at : a.event.ends_at) ?? '') -
+      Date.parse((b.edge === 'starts' ? b.event.starts_at : b.event.ends_at) ?? ''),
+  );
+}
+
+/** `YYYY-MM-DD` plus `days` days. */
+export function addDays(day: string, days: number): string {
+  return new Date(Date.parse(`${day}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
+}
