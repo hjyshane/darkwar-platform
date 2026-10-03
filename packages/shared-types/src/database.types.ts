@@ -2743,7 +2743,15 @@ export type Database = {
           updated_at?: string
           updated_by?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "event_names_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "pending_access"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       event_schedule_snapshots: {
         Row: {
@@ -7196,10 +7204,7 @@ export type Database = {
         Args: { p_entries: Json; p_week_start: string }
         Returns: number
       }
-      epoch_ms_to_timestamptz: {
-        Args: { p_ms: Json }
-        Returns: string
-      }
+      epoch_ms_to_timestamptz: { Args: { p_ms: Json }; Returns: string }
       freeze_alliance_settings: {
         Args: { p_old_primary?: string }
         Returns: undefined
