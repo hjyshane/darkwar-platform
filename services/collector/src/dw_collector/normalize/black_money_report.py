@@ -4,7 +4,8 @@ The per-player Black Gold scores exist in one place: the battle report
 the game sends a few minutes after the battle. It is system mail type 147,
 and it is ALLIANCE mail — every member receives both teams' reports,
 played or not (confirmed 2026-09-27; this docstring first said only the
-players did, which was wrong). Every other type in the inbox is ignored.
+players did, which was wrong). Scout and battle reports on the same page
+are kept undecoded by report_mail.py; every other type is ignored.
 
 What limits coverage is the inbox, not delivery: the list is fetched newest
 first, twenty at a time, and a report reaches the collector only when
@@ -35,6 +36,7 @@ import structlog
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from dw_collector.models import NormalizedRow, Observation, entry_idempotency_key, stable_uuid
+from dw_collector.normalize import report_mail
 from dw_collector.normalize.black_money_signup import home_server
 from dw_collector.registry import register
 
@@ -111,6 +113,8 @@ def normalize(observation: Observation) -> list[NormalizedRow]:
     rows: list[NormalizedRow] = []
     for raw_mail in page.mails:
         rows.extend(_mail_rows(observation, raw_mail))
+        # Scout and battle reports ride the same inbox page (report_mail.py).
+        rows.extend(report_mail.ingest_rows(observation, raw_mail))
     return rows
 
 
@@ -123,10 +127,14 @@ def normalize_pushed(observation: Observation) -> list[NormalizedRow]:
     the inbox list was never fetched, so without this it was never read.
 
     push.mail also carries player-to-player mail (§6.2's identity link is
-    waiting on it). Nothing but a type-147 report is read here, and nothing
-    else is written: every other mail stays in the journal, raw.
+    waiting on it). A type-147 report is read here, and a scout or battle
+    report is kept undecoded (report_mail.py); every other mail stays in the
+    journal, raw.
     """
-    return _mail_rows(observation, observation.payload)
+    return [
+        *_mail_rows(observation, observation.payload),
+        *report_mail.ingest_rows(observation, observation.payload),
+    ]
 
 
 def _mail_rows(observation: Observation, raw_mail: dict[str, Any]) -> list[NormalizedRow]:
