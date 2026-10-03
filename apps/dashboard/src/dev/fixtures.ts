@@ -661,11 +661,17 @@ const PARTICIPATION_ROWS = [
 ];
 
 const ATTENDANCE_KINDS = [
-  { kind: 'capital_clash', label: 'Capital Clash', sort_order: 10, captured: false },
-  { kind: 'server_clash', label: 'Server Clash', sort_order: 20, captured: false },
-  { kind: 'frankie', label: 'Bio-Mutant', sort_order: 30, captured: false },
-  { kind: 'ice_pit', label: 'Ice Pit', sort_order: 40, captured: false },
-  { kind: 'furnace_fury', label: 'Furnace Fury', sort_order: 50, captured: true },
+  {
+    kind: 'capital_clash',
+    label: 'Capital Clash',
+    sort_order: 10,
+    captured: false,
+    board: 'event',
+  },
+  { kind: 'server_clash', label: 'Server Clash', sort_order: 20, captured: false, board: 'event' },
+  { kind: 'frankie', label: 'Bio-Mutant', sort_order: 30, captured: false, board: 'event' },
+  { kind: 'ice_pit', label: 'Ice Pit', sort_order: 40, captured: false, board: 'season' },
+  { kind: 'furnace_fury', label: 'Furnace Fury', sort_order: 50, captured: true, board: 'season' },
 ];
 
 export const SESSION = {

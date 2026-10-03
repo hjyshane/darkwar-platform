@@ -80,20 +80,18 @@ describe('season building catalogue', () => {
     }
   });
 
-  it('marks the four ids nobody has opened as provisional', () => {
-    // THIS TEST USED TO BE `toHaveLength(7)`, which said "these are all of
-    // them" when what it meant was "these are the confirmed ones". The sweeps
-    // then turned up 864000-867000 and the assertion failed for being
-    // outgrown rather than for being wrong.
-    //
-    // The distinction it was really protecting is confirmed against guessed:
-    // the seven above were checked by a member reading their own screen,
-    // while nobody has opened a turret or a base, so world.get.detail.new has
-    // never returned a name for these four and the attack-before-defense
-    // ordering is all that assigns them.
-    for (const id of [864000, 865000, 866000, 867000]) {
-      expect(SEASON3_BUILDINGS.find((k) => k.id === id)?.provisional).toBe(true);
-    }
+  it('names every season 3 building from the game itself', () => {
+    // These four were provisional, assigned by an attack-before-defense guess
+    // that had 865000 as a second turret. The client's own building table
+    // (2026-10-03) names them: the pairs are tiers, not sides.
+    const named = Object.fromEntries(SEASON3_BUILDINGS.map((k) => [k.id, k.name]));
+    expect([named[864000], named[865000], named[866000], named[867000]]).toEqual([
+      'Armed Turret 1',
+      'Defensive Base 1',
+      'Armed Turret 2',
+      'Defensive Base 2',
+    ]);
+    expect(SEASON3_BUILDINGS.some((k) => k.provisional)).toBe(false);
   });
 
   it('reads lab, then greenhouses, then barrack, then what defends them', () => {
@@ -108,8 +106,8 @@ describe('season building catalogue', () => {
       'Strategic Barrack',
       'Armed Turret 1',
       'Armed Turret 2',
-      'Defense Base 1',
-      'Defense Base 2',
+      'Defensive Base 1',
+      'Defensive Base 2',
     ]);
   });
 

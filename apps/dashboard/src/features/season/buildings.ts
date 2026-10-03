@@ -63,14 +63,10 @@ export const OBSERVATION_WINDOW_HOURS = 48;
  * 867000 stop at 5 and 4. Two pairs, and the split is in the levels rather
  * than in the numbering.
  *
- * WHICH PAIR IS WHICH IS NOT MEASURED. It is the attack-before-defense rule
- * of thumb season 2 records below, and it is a rule of thumb: nobody has
- * opened one, so `world.get.detail.new` has never returned a name for these
- * ids and the mapping rests on the lower pair being the attacking one.
- *
- * That is why all four are provisional and the seven above are not — those
- * were checked against a member reading their own screen, and these have not
- * been. One person opening an Armed Turret settles it.
+ * THE NAMES ARE THE GAME'S OWN (2026-10-03), from the client's `building`
+ * table: 864000 Armed Turret I, 865000 Defensive Base I, 866000 Armed Turret
+ * II, 867000 Defensive Base II. So the pairs are tiers, not sides — the
+ * attack-before-defense guess this replaced had 865000 as a second turret.
  */
 export const SEASON3_BUILDINGS: readonly BuildingKind[] = [
   { id: 862000, name: 'Thermal Lab' },
@@ -80,10 +76,10 @@ export const SEASON3_BUILDINGS: readonly BuildingKind[] = [
   { id: 860000, name: 'Smart Green House 4' },
   { id: 861000, name: 'Smart Green House 5' },
   { id: 863000, name: 'Strategic Barrack' },
-  { id: 864000, name: 'Armed Turret 1', provisional: true },
-  { id: 865000, name: 'Armed Turret 2', provisional: true },
-  { id: 866000, name: 'Defense Base 1', provisional: true },
-  { id: 867000, name: 'Defense Base 2', provisional: true },
+  { id: 864000, name: 'Armed Turret 1' },
+  { id: 866000, name: 'Armed Turret 2' },
+  { id: 865000, name: 'Defensive Base 1' },
+  { id: 867000, name: 'Defensive Base 2' },
 ];
 
 /** Season 2, behind the admin-only tab.

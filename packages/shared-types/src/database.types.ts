@@ -1881,18 +1881,21 @@ export type Database = {
       }
       attendance_event_kinds: {
         Row: {
+          board: string
           captured: boolean
           kind: string
           label: string
           sort_order: number
         }
         Insert: {
+          board?: string
           captured?: boolean
           kind: string
           label: string
           sort_order?: number
         }
         Update: {
+          board?: string
           captured?: boolean
           kind?: string
           label?: string
