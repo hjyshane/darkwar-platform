@@ -32,6 +32,8 @@ _TABLE_ORDER = [
     "player_component_power_snapshots",
     # The logged-in account's own inventory and levels (0205). One player ref.
     "account_state_snapshots",
+    # The server's event calendar from the same login (0208). No refs.
+    "event_schedule_snapshots",
     "player_season_force_snapshots",
     "world_city_snapshots",
     "season_building_snapshots",

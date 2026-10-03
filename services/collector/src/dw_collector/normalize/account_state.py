@@ -28,7 +28,8 @@ NOT the full payload — it is exactly the subset this parser reads, so the
 cloud never holds more than the planner shows. The idempotency key still
 hashes the full decoded payload (§11.2), which never leaves the journal.
 The table is readable by the member who claimed the character and by
-admins (0205).
+admins (0205). The event calendar in the same response is a separate,
+alliance-readable row (event_schedule.py).
 """
 
 from __future__ import annotations
@@ -38,6 +39,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from dw_collector.models import NormalizedRow, Observation, idempotency_key
+from dw_collector.normalize.event_schedule import schedule_rows
 from dw_collector.registry import register
 
 PARSER_VERSION = "1.0.0"
@@ -130,7 +132,7 @@ def normalize(observation: Observation) -> list[NormalizedRow]:
     server_id = payload.user.server_id
     state = account_state(observation.payload)
 
-    return [
+    rows = [
         NormalizedRow(
             target_table="account_state_snapshots",
             idempotency_key=idempotency_key(
@@ -157,3 +159,6 @@ def normalize(observation: Observation) -> list[NormalizedRow]:
             },
         )
     ]
+    # The same response carries the server's event calendar (event_schedule.py).
+    rows.extend(schedule_rows(observation, server_id))
+    return rows

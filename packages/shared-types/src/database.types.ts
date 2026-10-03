@@ -2721,6 +2721,111 @@ export type Database = {
           },
         ]
       }
+      event_names: {
+        Row: {
+          activity_id: string
+          name: string
+          note: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          activity_id: string
+          name: string
+          note?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          activity_id?: string
+          name?: string
+          note?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      event_schedule_snapshots: {
+        Row: {
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at: string
+          events: Json
+          idempotency_key: string
+          observation_id: string
+          parser_version: string
+          raw: Json
+          server_id: number
+          snapshot_id: string
+          source_command: string
+        }
+        Insert: {
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at?: string
+          events?: Json
+          idempotency_key: string
+          observation_id: string
+          parser_version: string
+          raw?: Json
+          server_id: number
+          snapshot_id?: string
+          source_command: string
+        }
+        Update: {
+          captured_at?: string
+          collected_from_server_id?: number
+          collector_id?: string
+          created_at?: string
+          events?: Json
+          idempotency_key?: string
+          observation_id?: string
+          parser_version?: string
+          raw?: Json
+          server_id?: number
+          snapshot_id?: string
+          source_command?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_schedule_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "event_schedule_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "event_schedule_snapshots_collector_id_fkey"
+            columns: ["collector_id"]
+            isOneToOne: false
+            referencedRelation: "collectors"
+            referencedColumns: ["collector_id"]
+          },
+          {
+            foreignKeyName: "event_schedule_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "event_schedule_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+        ]
+      }
       favourites: {
         Row: {
           alliance_id: string | null
@@ -6272,6 +6377,35 @@ export type Database = {
         }
         Relationships: []
       }
+      event_schedule_current: {
+        Row: {
+          activity_id: string | null
+          detail: Json | null
+          ends_at: string | null
+          name: string | null
+          need_hq_level: number | null
+          seen_at: string | null
+          server_id: number | null
+          starts_at: string | null
+          sub_type: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_schedule_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "event_schedule_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+        ]
+      }
       event_scoreboard: {
         Row: {
           display_name: string | null
@@ -7061,6 +7195,10 @@ export type Database = {
       enter_weekly_scores: {
         Args: { p_entries: Json; p_week_start: string }
         Returns: number
+      }
+      epoch_ms_to_timestamptz: {
+        Args: { p_ms: Json }
+        Returns: string
       }
       freeze_alliance_settings: {
         Args: { p_old_primary?: string }
