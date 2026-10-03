@@ -4582,28 +4582,53 @@ button.tile-grid:hover:not(:disabled) {
 .calendar-month-title {
   margin: 0;
 }
-.calendar-chip {
-  font-size: 0.78em;
-  line-height: 1.35;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  margin-block: 1px;
-  padding: 0 0.3rem;
-  border-left: 3px solid transparent;
-  border-radius: 3px;
+/* One colour pair per calendar category (0211). Bars, legend chips, tags and
+   list groups all read --cat-bg / --cat-fg from the category class, so a
+   category's colour is set once here. Season and premium have no status pair
+   of their own and get one, defined for both themes. */
+:root {
+  --cal-season-bg: #cffafe;
+  --cal-season-fg: #155e75;
+  --cal-premium-bg: #ede9fe;
+  --cal-premium-fg: #5b21b6;
 }
-/* Events in the info pair, shop entries in the warn pair: both pairs are
-   defined for light and dark, so the distinction holds in either theme. */
-.calendar-chip-event {
-  background: var(--info-bg);
-  color: var(--info-fg);
-  border-left-color: var(--info-fg);
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --cal-season-bg: #164e63;
+    --cal-season-fg: #cffafe;
+    --cal-premium-bg: #4c1d95;
+    --cal-premium-fg: #ede9fe;
+  }
 }
-.calendar-chip-shop {
-  background: var(--warn-bg);
-  color: var(--warn-fg);
-  border-left-color: var(--warn-fg);
+:root[data-theme="dark"] {
+  --cal-season-bg: #164e63;
+  --cal-season-fg: #cffafe;
+  --cal-premium-bg: #4c1d95;
+  --cal-premium-fg: #ede9fe;
+}
+.calendar-cat-major {
+  --cat-bg: var(--danger-bg);
+  --cat-fg: var(--danger-fg);
+}
+.calendar-cat-recurring {
+  --cat-bg: var(--neutral-bg);
+  --cat-fg: var(--neutral-fg);
+}
+.calendar-cat-season {
+  --cat-bg: var(--cal-season-bg);
+  --cat-fg: var(--cal-season-fg);
+}
+.calendar-cat-event {
+  --cat-bg: var(--info-bg);
+  --cat-fg: var(--info-fg);
+}
+.calendar-cat-pass {
+  --cat-bg: var(--warn-bg);
+  --cat-fg: var(--warn-fg);
+}
+.calendar-cat-premium {
+  --cat-bg: var(--cal-premium-bg);
+  --cat-fg: var(--cal-premium-fg);
 }
 .calendar-legend {
   display: flex;
@@ -4613,14 +4638,6 @@ button.tile-grid:hover:not(:disabled) {
 }
 .calendar-legend-chip {
   display: inline-block;
-}
-.calendar-shop-tag {
-  margin-left: 0.4rem;
-  font-size: 0.75em;
-  border-radius: 4px;
-  padding: 0 0.35rem;
-  background: var(--warn-bg);
-  color: var(--warn-fg);
 }
 .calendar-more,
 .calendar-date-button {
@@ -4650,19 +4667,11 @@ button.tile-grid:hover:not(:disabled) {
 .calendar-group {
   margin-block: 1.25rem;
   padding-left: 0.75rem;
-  border-left: 4px solid var(--info-fg);
-}
-.calendar-group-shop {
-  border-left-color: var(--warn-fg);
+  border-left: 4px solid var(--cat-fg);
 }
 .calendar-group-title {
   margin-block: 0 0.5rem;
-}
-.calendar-group-event .calendar-group-title {
-  color: var(--info-fg);
-}
-.calendar-group-shop .calendar-group-title {
-  color: var(--warn-fg);
+  color: var(--cat-fg);
 }
 .calendar-search {
   flex-wrap: wrap;
@@ -4745,18 +4754,22 @@ button.tile-grid:hover:not(:disabled) {
   border-top-right-radius: 4px;
   border-bottom-right-radius: 4px;
 }
-.calendar-bar-event {
-  background: var(--info-bg);
-  color: var(--info-fg);
-  box-shadow: inset 3px 0 0 var(--info-fg);
+.calendar-bar {
+  background: var(--cat-bg);
+  color: var(--cat-fg);
 }
-.calendar-bar-shop {
-  background: var(--warn-bg);
-  color: var(--warn-fg);
-  box-shadow: inset 3px 0 0 var(--warn-fg);
+.calendar-bar-start {
+  box-shadow: inset 3px 0 0 var(--cat-fg);
 }
-.calendar-bar:not(.calendar-bar-start) {
-  box-shadow: none;
+/* The big fights stand out: solid, bold, outlined. */
+.calendar-bar.calendar-cat-major {
+  background: var(--cat-fg);
+  color: var(--cat-bg);
+  font-weight: 700;
+}
+.calendar-toggle > button.calendar-toggle-on[class*="calendar-cat-"] {
+  background: var(--cat-bg);
+  color: var(--cat-fg);
 }
 .calendar-week .calendar-more {
   position: relative;

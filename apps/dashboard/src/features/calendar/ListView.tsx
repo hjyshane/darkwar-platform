@@ -6,10 +6,11 @@ import { useMemo } from 'react';
 import { EventName } from './EventName';
 import {
   type Bucket,
+  CATEGORIES,
+  CATEGORY_LABELS,
   type CalendarEvent,
-  type Category,
   arrange,
-  inCategory,
+  categoryOf,
   serverWhen,
   until,
 } from './data';
@@ -136,13 +137,8 @@ function CategoryList({
   );
 }
 
-const GROUPS: ReadonlyArray<{ category: Category; title: string }> = [
-  { category: 'event', title: 'Events' },
-  { category: 'shop', title: 'Shop & passes' },
-];
-
 /** The list, one group per category, each in its own colour. Unclassified
- * entries sit with the events (inCategory). */
+ * entries sit with the events (categoryOf). */
 export function ListView({
   events,
   day,
@@ -160,15 +156,16 @@ export function ListView({
   return (
     <>
       {day !== '' && <h3>Running on {day}</h3>}
-      {GROUPS.map(({ category, title }) => {
-        const list = events.filter((event) => inCategory(event, category));
+      {CATEGORIES.map((category) => {
+        const title = CATEGORY_LABELS[category];
+        const list = events.filter((event) => categoryOf(event) === category);
         if (list.length === 0) {
           return null;
         }
         return (
           <section
             aria-label={title}
-            className={`calendar-group calendar-group-${category}`}
+            className={`calendar-group calendar-cat-${category}`}
             key={category}
           >
             <h3 className="calendar-group-title">

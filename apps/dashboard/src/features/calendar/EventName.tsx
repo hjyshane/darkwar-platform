@@ -1,10 +1,18 @@
 // An event's name, and for officers and admins the form that renames it and
-// says whether it is an event or a shop. RLS is the gate (0208); this only
+// puts it in a category. RLS is the gate (0208); this only
 // decides whether to offer the form.
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { type CalendarEvent, type Category, labelOf, saveEventName } from './data';
+import {
+  CATEGORIES,
+  CATEGORY_LABELS,
+  type CalendarEvent,
+  type Category,
+  categoryOf,
+  labelOf,
+  saveEventName,
+} from './data';
 
 export function EventName({ event, mayName }: { event: CalendarEvent; mayName: boolean }) {
   const queryClient = useQueryClient();
@@ -24,14 +32,11 @@ export function EventName({ event, mayName }: { event: CalendarEvent; mayName: b
         <span className={event.name === null ? 'calendar-unnamed' : undefined}>
           {labelOf(event)}
         </span>
-        {event.category === 'shop' && <span className="calendar-shop-tag">Shop</span>}
         {mayName && (
           <button
             aria-label={`Edit ${labelOf(event)}`}
             className="calendar-name-button"
-            onClick={() =>
-              setDraft({ name: event.name ?? '', category: event.category ?? 'event' })
-            }
+            onClick={() => setDraft({ name: event.name ?? '', category: categoryOf(event) })}
             type="button"
           >
             {event.name === null ? 'Name it' : 'Edit'}
@@ -57,12 +62,15 @@ export function EventName({ event, mayName }: { event: CalendarEvent; mayName: b
           value={draft.name}
         />
         <select
-          aria-label="Event or shop"
+          aria-label="Category"
           onChange={(change) => setDraft({ ...draft, category: change.target.value as Category })}
           value={draft.category}
         >
-          <option value="event">Event</option>
-          <option value="shop">Shop / pass / pack</option>
+          {CATEGORIES.map((value) => (
+            <option key={value} value={value}>
+              {CATEGORY_LABELS[value]}
+            </option>
+          ))}
         </select>
         <button disabled={save.isPending} type="submit">
           Save
