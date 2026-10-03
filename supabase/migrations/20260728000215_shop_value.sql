@@ -216,3 +216,44 @@ comment on view public.shop_pack_value is
 
 revoke all on public.shop_pack_value from anon;
 grant select on public.shop_pack_value to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Every Ruby-shop entry as last seen, valued. Only entries priced in rubies
+-- (currency "1;15") can be compared with a ruby value; the other shops spend
+-- their own tokens. One row per entry per server: about 40.
+
+create view public.shop_listing_value
+with (security_invoker = true)
+as
+with latest as (
+  select distinct on (s.server_id, s.shop_type, s.listing_id) s.*
+    from public.shop_listing_snapshots s
+   where s.currency_kind = 1 and s.currency_id = '15'
+   order by s.server_id, s.shop_type, s.listing_id, s.captured_at desc
+)
+select
+  l.server_id,
+  l.shop_type,
+  l.listing_id,
+  l.item_id,
+  gi.name,
+  gi.name_ko,
+  l.qty,
+  l.price,
+  l.discount,
+  l.captured_at,
+  v.rubies as unit_rubies,
+  v.source as value_source,
+  case when v.rubies is not null and l.price > 0
+       then round(l.qty * v.rubies / l.price, 2)
+  end as value_ratio
+from latest l
+left join public.game_item_values v on v.item_id = l.item_id
+left join public.game_items gi on gi.item_id = l.item_id;
+
+comment on view public.shop_listing_value is
+  'Every Ruby-shop entry as last seen per server, with the item''s ruby value '
+  'and value_ratio = qty x value / price (0215).';
+
+revoke all on public.shop_listing_value from anon;
+grant select on public.shop_listing_value to authenticated;

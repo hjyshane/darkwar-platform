@@ -7629,6 +7629,39 @@ export type Database = {
           },
         ]
       }
+      shop_listing_value: {
+        Row: {
+          captured_at: string | null
+          discount: number | null
+          item_id: string | null
+          listing_id: string | null
+          name: string | null
+          name_ko: string | null
+          price: number | null
+          qty: number | null
+          server_id: number | null
+          shop_type: number | null
+          unit_rubies: number | null
+          value_ratio: number | null
+          value_source: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_listing_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "shop_listing_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+        ]
+      }
       shop_pack_value: {
         Row: {
           captured_at: string | null

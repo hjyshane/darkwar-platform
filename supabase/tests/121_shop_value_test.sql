@@ -2,7 +2,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(11);
+select plan(13);
 
 insert into public.collectors (collector_id, name)
 values ('00000000-0000-4000-8000-0000000ee001', 'shop-value-test');
@@ -27,6 +27,19 @@ set local role service_role;
 insert into public.game_item_values (item_id, rubies, source) values ('990001', 100, 'game');
 reset role;
 
+-- Two Ruby-shop reads of one entry (the newer 50% off), and a token shop.
+insert into public.shop_listing_snapshots
+  (observation_id, source_command, parser_version, idempotency_key, captured_at,
+   collector_id, collected_from_server_id, server_id, shop_type, listing_id, item_id, qty,
+   currency_kind, currency_id, price, discount)
+values
+  (gen_random_uuid(), 'user.get.shop.info', '1.0.0', 'sl:old', now() - interval '2 days',
+   '00000000-0000-4000-8000-0000000ee001', 580, 580, 2, 'l1', '990001', 2, 1, '15', 200, 0),
+  (gen_random_uuid(), 'user.get.shop.info', '1.0.0', 'sl:new', now() - interval '1 day',
+   '00000000-0000-4000-8000-0000000ee001', 580, 580, 2, 'l1', '990001', 2, 1, '15', 100, 50),
+  (gen_random_uuid(), 'user.get.shop.info', '1.0.0', 'sl:tok', now() - interval '1 day',
+   '00000000-0000-4000-8000-0000000ee001', 580, 580, 19, 'l2', '990001', 1, 2, '252039', 10, 0);
+
 -- 1-5. The newest read, valued: 500 + 10 x 100 = 1,500 rubies = $14.85.
 select is((select rubies from public.shop_pack_value where pack_id = 'p1'), 500,
   'the newest read of a pack is the one shown');
@@ -42,7 +55,14 @@ select is((select unvalued_items from public.shop_pack_value where pack_id = 'p1
 select is((select name from public.shop_pack_value where pack_id = 'p1'), 'Test Pack',
   'the pack is named from its key');
 
--- 7-8. An officer's value becomes theirs; a member cannot write one.
+-- 7-8. A Ruby-shop entry, newest read, against the item's value; token
+-- shops are not compared.
+select is((select value_ratio from public.shop_listing_value where listing_id = 'l1'), 2.00,
+  'two of a 100-ruby item for 100 rubies is twice the value');
+select ok(not exists (select 1 from public.shop_listing_value where listing_id = 'l2'),
+  'a shop that takes tokens is not on the ruby comparison');
+
+-- An officer's value becomes theirs; a member cannot write one.
 insert into auth.users (id, instance_id, aud, role, email) values
   ('00000000-0000-4000-8000-0000000ee101', '00000000-0000-0000-0000-000000000000',
    'authenticated', 'authenticated', 'sv-officer@test.invalid'),
