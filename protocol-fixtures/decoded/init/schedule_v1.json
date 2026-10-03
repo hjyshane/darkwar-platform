@@ -1,0 +1,50 @@
+{
+  "observation_id": "00000000-0000-4000-8000-00000000c911",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "init",
+  "captured_at": "2026-10-02T21:40:09+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "user": { "uid": "9473022442000580", "serverId": 580, "name": "Player01" },
+    "activity": [
+      {
+        "id": "80002",
+        "startTime": 1791165600000,
+        "endTime": 1791770400000,
+        "needMainCityLevel": 10,
+        "battleOpenTime": 1791684000000,
+        "startSignUpTime": 1791338400000,
+        "stopSignUpTime": 1791511200000
+      },
+      {
+        "id": "41101",
+        "startTime": 1787364000000,
+        "endTime": 1792461600000,
+        "needMainCityLevel": 10,
+        "activity_opentime": "3-7;3",
+        "icecave_opentime": "1;1;720|2;3;720|3;5;720",
+        "preview_opentime": "2;6"
+      },
+      {
+        "id": "40739",
+        "startTime": 1787364000000,
+        "endTime": 1791770400000,
+        "needMainCityLevel": 10,
+        "subType": 5,
+        "exchangeRecord": [{ "id": 7, "num": 3 }]
+      },
+      {
+        "id": "4009603",
+        "startTime": 1790906400000,
+        "endTime": 1790992800000,
+        "needMainCityLevel": 10,
+        "taskConfigStr": "10030121|10030122|10030123",
+        "taskList": [{ "taskId": 10030121, "progress": 2 }],
+        "finish": 1,
+        "finishTime": 1790950000000
+      },
+      { "id": "30000", "needMainCityLevel": 6 }
+    ]
+  },
+  "schema_version": 1
+}
