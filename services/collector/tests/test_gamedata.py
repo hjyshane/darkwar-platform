@@ -246,7 +246,34 @@ def test_hero_names_fill_only_what_nobody_typed() -> None:
         return httpx.Response(201)
 
     client = httpx.Client(base_url="http://test", transport=httpx.MockTransport(handler))
-    written, kept = fill_hero_names(client, {12001: "Barnett", 21001: "Tristan", 40002: "Liz"})
+    written, kept = fill_hero_names(
+        client,
+        {12001: "Barnett", 21001: "Tristan", 40002: "Liz", 50001: "barnett (TYPED)"},
+    )
 
+    # 50001's name is already 12001's, case-insensitively: left alone.
     assert (written, kept) == (2, 1)
     assert sent == [[{"hero_id": 21001, "name": "Tristan"}, {"hero_id": 40002, "name": "Liz"}]]
+
+
+def test_hero_names_keep_only_playable_heroes_with_one_name() -> None:
+    from dw_collector.gamedata.catalog import Catalog
+
+    base = "assets/main/datatable"
+    table = """return { data = {
+        [121] = { 121, '400001' }, [122] = { 122, '400001' },
+        [12001] = { 12001, '400002' }, [1007] = { 1007, '400003' },
+        [99998] = { 99998, '400003' }, [30001] = { 30001, '400004' },
+        [30002] = { 30002, '400004' } },
+      index = { id = {1,'int'}, name = {2,'string'} } }"""
+    strings = "400001=Elite Zombie\n400002=Barnett\n400003=Bob\n400004=Twin\n"
+    catalog = Catalog(
+        {
+            f"{base}/luatxt/luadatatable/aps_new_heroes.bytes": _client_bytecode(table),
+            f"{base}/localization/english/dictionaries/dialog_1.txt": strings.encode(),
+        }
+    )
+
+    # Monsters (<1000) and the 99998 test copy are out; Bob keeps 1007;
+    # "Twin" names two playable ids, so neither is guessed.
+    assert catalog.hero_names() == {12001: "Barnett", 1007: "Bob"}

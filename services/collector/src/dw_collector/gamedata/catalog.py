@@ -35,6 +35,9 @@ from dw_collector.gamedata.names import datatable_bytes, localisation
 
 Row = dict[str, Any]
 
+# Hero ids that are playable heroes, inclusive (see Catalog.hero_names).
+PLAYABLE_HEROES = (1000, 89999)
+
 
 def _int(value: Any) -> int | None:
     if isinstance(value, bool):
@@ -114,14 +117,24 @@ class Catalog:
         return out
 
     def hero_names(self) -> dict[int, str]:
-        """hero id → English name, from `aps_new_heroes` (12001 → Barnett)."""
-        out: dict[int, str] = {}
+        """hero id → English name, from `aps_new_heroes` (12001 → Barnett).
+
+        The table also holds monsters and NPC units — Zombie, Elite Zombie,
+        Judy, one row per tier, all under 1000 — and test copies above 90000
+        (Bob 99998, Selena 99999). Playable heroes are 1000..89999. A name the
+        game gives to more than one of those is left out rather than guessed:
+        the catalogue keeps one hero per name (heroes_name_key).
+        """
+        found: dict[int, str] = {}
         for hero_id, row in self._rows("aps_new_heroes").items():
             hid = _int(hero_id)
             name, _ = self._names(row.get("name"))
-            if hid is not None and name:
-                out[hid] = name
-        return out
+            if hid is not None and name and PLAYABLE_HEROES[0] <= hid <= PLAYABLE_HEROES[1]:
+                found[hid] = name
+        uses: dict[str, int] = {}
+        for name in found.values():
+            uses[name.lower()] = uses.get(name.lower(), 0) + 1
+        return {hid: name for hid, name in found.items() if uses[name.lower()] == 1}
 
     def steps(self) -> Iterator[Row]:
         yield from self._building_steps()
