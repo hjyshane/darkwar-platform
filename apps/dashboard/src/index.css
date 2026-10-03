@@ -3835,12 +3835,32 @@ button.tile-grid:hover:not(:disabled) {
   border-width: 2px;
 }
 
-/* The reader's own tile. Never colour alone (NFR-011) — the page says "Your
- * tile" in words above the picture; this only makes it findable. */
+/* THE READER'S OWN TILE, AS A RING AROUND IT RATHER THAN A FILL — the same
+ * argument `--on` makes directly above, and for a worse failure. This was a
+ * `background` and a `border-color`, and every per-tile colour rule below sets
+ * both: a member whose base an officer had painted saw NO marker at all, just
+ * one more violet square among eighty. Worse than nothing, a base painted
+ * green came out identical to the old highlight, so every green tile looked
+ * like yours.
+ *
+ * `outline` is the one property none of those rules touch, so the ring holds
+ * whatever colour the tile is given. Thicker than the selection's and sitting
+ * further out, so the two are still telling apart where both apply; declared
+ * after `--on`, which settles a tile that is somehow both.
+ *
+ * No fill or border is set here on purpose. A declaration that the colour
+ * rules would silently win is how this broke, and one marker that always holds
+ * beats two that disagree. `z-index` is the ring's own: an offset outline is
+ * drawn OUTSIDE the tile, bases sit edge to edge, and without it the next tile
+ * in document order paints over the side they share.
+ *
+ * Never colour alone (NFR-011): the gap between ring and border is a shape no
+ * other tile has, the square is captioned with the reader's own name, and the
+ * line above the picture says "Your tile" and gives the coordinate. */
 .tile-grid__base--own {
-  background: color-mix(in srgb, var(--ok-fg) 45%, transparent);
-  border-color: var(--ok-fg);
-  border-width: 2px;
+  outline: 3px solid var(--ok-fg);
+  outline-offset: 2px;
+  z-index: 1;
 }
 
 /* Assigned to somebody who has left the roster. Nobody is coming to stand

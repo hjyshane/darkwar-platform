@@ -525,7 +525,11 @@ const HIVE_SLOTS = [
   // Frankie first: a 4x3 structure on the anchor. Since 0169 it is an
   // ordinary tile with a size, which is why it sits in the same list.
   { dx: 0, dy: 0, spanX: 4, spanY: 3, kind: 'structure' as const, colour: 'amber' as const },
-  { dx: -3, dy: 3 },
+  // COLOURED, AND IT IS THE READER'S OWN. An officer can paint a member's base
+  // now, and no fixture tile had been, which is why nobody saw that the colour
+  // rules were overwriting the own-tile marker: on this square the ring and
+  // the paint have to be legible at the same time.
+  { dx: -3, dy: 3, colour: 'violet' as const },
   { dx: 0, dy: 3 },
   { dx: 4, dy: 3 },
   { dx: -3, dy: 0 },
