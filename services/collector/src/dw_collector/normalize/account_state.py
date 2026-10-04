@@ -42,7 +42,7 @@ from dw_collector.models import NormalizedRow, Observation, idempotency_key
 from dw_collector.normalize.event_schedule import schedule_rows
 from dw_collector.registry import register
 
-PARSER_VERSION = "1.1.0"
+PARSER_VERSION = "1.2.0"
 
 
 class _User(BaseModel):
@@ -124,7 +124,34 @@ def account_state(payload: dict[str, Any]) -> dict[str, Any]:
         "science": _pairs(_entries(payload, "science_new"), "itemId", "level"),
         "effects": _effects(payload.get("effect")),
         "timed_effects": _timed(payload.get("status")),
+        "resources": _resources(payload.get("resource")),
     }
+
+
+# `resource` keys -> the game's resource ids (aps_resources), which is what
+# every cost in game_upgrade_steps names. `coal` is what the game shows as
+# Wood: it sits beside iron and electricity at ~7.1B and grows at their rate,
+# while `wood` reads 0 (confirmed by the user in game, 2026-10-04). The rest
+# of the block — flint, oil, water, people, pvePoint — no cost uses.
+RESOURCE_IDS: dict[str, str] = {
+    "coal": "25",
+    "iron": "12",
+    "electricity": "26",
+    "food": "24",
+    "money": "14",
+}
+
+
+def _resources(value: Any) -> dict[str, int]:
+    """`resource`: the account's stock at login, by game resource id."""
+    if not isinstance(value, dict):
+        return {}
+    out: dict[str, int] = {}
+    for key, resource_id in RESOURCE_IDS.items():
+        amount = _int(value.get(key))
+        if amount is not None:
+            out[resource_id] = amount
+    return out
 
 
 def _effects(value: Any) -> dict[str, float]:
