@@ -249,6 +249,9 @@ CATALOGUE_TABLES = {
                 type = {6,'int'}, para1 = {7,'string'} } }""",
     "heroes_exclusive_equip": """return { data = { [40006000] = { 40006000, '300014' } },
       index = { id = {1,'int'}, name = {2,'string'} } }""",
+    "heroes_levelup": """return { data = {
+        [20] = { 20, 45000 }, [21] = { 21, 45000 }, [22] = { 22, 45000 } },
+      index = { id = {1,'int'}, exp = {2,'int'} } }""",
     "aps_new_heroes": """return { data = { [1017] = { 1017, '300013' } },
       index = { id = {1,'int'}, name = {2,'string'} } }""",
     "aps_resources": """return { data = { [25] = { 25, '300003' }, [12] = { 12, '300004' } },
@@ -420,3 +423,12 @@ def test_equipment_fragments_take_the_equipment_name() -> None:
     items = {row["item_id"]: row for row in _catalogue().items()}
 
     assert items["253074"]["name"] == "Night Owl Fragments"
+
+
+def test_hero_levels_cost_food_by_the_level_reached() -> None:
+    """heroes_levelup row L is the experience from L to L+1, paid in Food."""
+    steps = {s["level"]: s for s in _catalogue().steps() if s["kind"] == "hero"}
+
+    assert sorted(steps) == [21, 22]  # row 22 has no level 23 to reach
+    assert steps[21]["costs"] == [{"type": "resource", "id": "24", "amount": 45000}]
+    assert steps[21]["subject_id"] == "hero"
