@@ -27,6 +27,7 @@ import {
   isLive,
   itemLabel,
   loadHidden,
+  matchesPack,
   money,
   ratioLabel,
   saveItemName,
@@ -220,6 +221,7 @@ function PacksTab({ now, mayEdit }: { now: Date; mayEdit: boolean }) {
   const packs = useQuery({ queryKey: ['shop-packs'], queryFn: fetchPacks, staleTime: STALE_TIME });
   const [filter, setFilter] = useState<PackFilter>('live');
   const [price, setPrice] = useState<string>('all');
+  const [text, setText] = useState('');
   const [sort, setSort] = useState<SortState>({ key: 'value_ratio', direction: 'desc' });
   const onSort = (key: string) => setSort(nextSort(sort, key));
   const [hidden, setHidden] = useState<ReadonlySet<string>>(loadHidden);
@@ -240,10 +242,11 @@ function PacksTab({ now, mayEdit }: { now: Date; mayEdit: boolean }) {
       (pack) =>
         pack.dollars > 0 &&
         (filter === 'all' || isLive(pack, now)) &&
-        (price === 'all' || pack.dollars.toFixed(2) === price),
+        (price === 'all' || pack.dollars.toFixed(2) === price) &&
+        matchesPack(pack, text),
     );
     return sortRows(groupPacks(rows), sort);
-  }, [packs.data, filter, price, now, sort]);
+  }, [packs.data, filter, price, now, sort, text]);
   const hiddenHere = grouped.filter((pack) => hidden.has(pack.key)).length;
   const shown = showHidden ? grouped : grouped.filter((pack) => !hidden.has(pack.key));
   const prices = useMemo(
@@ -274,6 +277,13 @@ function PacksTab({ now, mayEdit }: { now: Date; mayEdit: boolean }) {
             <option value="all">Every pack seen</option>
           </select>
         </label>
+        <input
+          aria-label="Search packs"
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Search a pack or an item in it"
+          type="search"
+          value={text}
+        />
         <label>
           Price{' '}
           <select onChange={(e) => setPrice(e.target.value)} value={price}>
