@@ -4,7 +4,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(9);
+select plan(10);
 
 insert into public.collectors (collector_id, name)
 values ('00000000-0000-4000-8000-0000000ce001', 'planner-tabs-test');
@@ -32,6 +32,10 @@ values
   (gen_random_uuid(), 'init', '1.3.0', 'ce-test:1', '2026-10-04 03:00+00',
    '00000000-0000-4000-8000-0000000ce001', 580, 580,
    '00000000-0000-4000-8000-0000000ce201', 9280000000000580, '{"40002": 42}');
+insert into public.game_upgrade_steps (kind, subject_id, level, name, costs, tier) values
+  ('building', '999000', 2, 'Campfire', '[]', null),
+  ('building', '999000', 30, 'Watchtower', '[]', null),
+  ('building', '999000', 35, 'Industrial Watchtower', '[]', 1);
 insert into public.game_research_tabs (tab_id, name, sort_order, servers)
 values (1007, 'Battle', 7, '[[565, 9999]]');
 
@@ -56,6 +60,10 @@ select is((select name from public.game_research_tabs where tab_id = 1007), 'Bat
 select is((select max_level from public.game_upgrade_subjects
             where kind = 'exclusive' and subject_id = '40002'), 1,
   'a member reads the subject summary');
+-- 3c. A building is named by its highest level outside a tier.
+select is((select name from public.game_upgrade_subjects
+            where kind = 'building' and subject_id = '999000'), 'Watchtower',
+  'a tiered building takes its last untiered name');
 -- 4. But cannot write them.
 select throws_ok(
   $$ insert into public.game_research_tabs (tab_id, name) values (1, 'x') $$,
