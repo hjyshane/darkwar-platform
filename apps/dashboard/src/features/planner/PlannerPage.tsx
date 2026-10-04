@@ -198,6 +198,11 @@ export function PlannerPage() {
     costReduction: 0,
   });
   const [stockEdits, setStockEdits] = useState<Record<string, number>>({});
+  // What the game screen shows, where it differs from the login's total: the
+  // in-game research speed reads 180% for WonderingDuck and 90% for
+  // MyPreciousBot where `effect` sums to 171.51 and 82.01 (2026-10-04) — the
+  // screen adds something the login does not carry.
+  const [shown, setShown] = useState<Partial<Buffs>>({});
 
   const now = Date.now();
   const activeTimed = (account?.timedEffects ?? []).filter((t) => t.end > now);
@@ -207,11 +212,18 @@ export function PlannerPage() {
         activeTimed.filter((_, i) => timedOn.has(i)),
       )
     : null;
-  const buffs: Buffs | null = base
+  const yours: Buffs | null = base
     ? {
-        constructionSpeed: base.constructionSpeed + extra.constructionSpeed,
-        researchSpeed: base.researchSpeed + extra.researchSpeed,
-        costReduction: base.costReduction + extra.costReduction,
+        constructionSpeed: shown.constructionSpeed ?? base.constructionSpeed,
+        researchSpeed: shown.researchSpeed ?? base.researchSpeed,
+        costReduction: shown.costReduction ?? base.costReduction,
+      }
+    : null;
+  const buffs: Buffs | null = yours
+    ? {
+        constructionSpeed: yours.constructionSpeed + extra.constructionSpeed,
+        researchSpeed: yours.researchSpeed + extra.researchSpeed,
+        costReduction: yours.costReduction + extra.costReduction,
       }
     : null;
 
@@ -281,6 +293,7 @@ export function PlannerPage() {
                 setTargets([]);
                 setStockEdits({});
                 setTimedOn(new Set());
+                setShown({});
               }}
               value={account.playerId}
             >
@@ -297,10 +310,27 @@ export function PlannerPage() {
       <section aria-labelledby="planner-buffs">
         <h3 id="planner-buffs">Buffs</h3>
         <p className="subtle">
-          From the login: construction speed {base?.constructionSpeed}%, research speed{' '}
-          {base?.researchSpeed}%, construction cost −{base?.costReduction}%. Add a presidential or
-          emergency-project buff on top:
+          Your buffs, as the game shows them. Each starts at the login's total; if the game's own
+          screen says something else, type that.
         </p>
+        <div className="row">
+          <BuffInput
+            label={`Construction speed (login ${base?.constructionSpeed})`}
+            onChange={(v) => setShown({ ...shown, constructionSpeed: v })}
+            value={yours?.constructionSpeed ?? 0}
+          />
+          <BuffInput
+            label={`Research speed (login ${base?.researchSpeed})`}
+            onChange={(v) => setShown({ ...shown, researchSpeed: v })}
+            value={yours?.researchSpeed ?? 0}
+          />
+          <BuffInput
+            label={`Construction cost reduction (login ${base?.costReduction})`}
+            onChange={(v) => setShown({ ...shown, costReduction: v })}
+            value={yours?.costReduction ?? 0}
+          />
+        </div>
+        <p className="subtle">On top, for a presidential or emergency-project buff:</p>
         <div className="row">
           <BuffInput
             label="+ construction speed"
