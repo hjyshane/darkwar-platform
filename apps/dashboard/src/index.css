@@ -5087,3 +5087,110 @@ button.tile-grid:hover:not(:disabled) {
   margin: 0;
   padding: 0;
 }
+
+.rarity-tag {
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  padding: 0 var(--space-1);
+}
+
+.rarity-tag.rarity-1 {
+  background: #fde68a;
+  color: #713f12;
+}
+
+.rarity-tag.rarity-2 {
+  background: #e9d5ff;
+  color: #581c87;
+}
+
+.rarity-tag.rarity-3 {
+  background: #bfdbfe;
+  color: #1e3a8a;
+}
+
+.rank,
+.rank-row {
+  align-items: center;
+  display: inline-flex;
+  gap: 1px;
+}
+
+.rank-shape .rank-on {
+  fill: #f59e0b;
+}
+
+.rank-pentagon .rank-on {
+  fill: #a855f7;
+}
+
+.rank-shape .rank-off {
+  fill: var(--bg-hover);
+}
+
+.rank-shape .rank-outline {
+  fill: none;
+  stroke: var(--border-strong);
+  stroke-width: 1;
+}
+
+.level-target {
+  align-items: center;
+  color: var(--accent);
+  display: inline-flex;
+  gap: var(--space-1);
+}
+
+.planner-card-row dt.gear-quality-5 {
+  color: #d97706;
+}
+
+.planner-card-row dt.gear-quality-4 {
+  color: #9333ea;
+}
+
+.planner-card-row dt.gear-quality-3 {
+  color: #2563eb;
+}
+
+.planner-stock summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.planner-stock summary h3 {
+  display: inline;
+}
+
+.planner-stock-group h4 {
+  margin: var(--space-3) 0 var(--space-2);
+}
+
+.planner-stock-grid {
+  display: grid;
+  gap: var(--space-1) var(--space-4);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr));
+}
+
+.planner-stock-item {
+  align-items: center;
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: 1fr auto 7.5rem;
+}
+
+.planner-stock-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.planner-stock-figure {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.planner-stock-item input {
+  width: 100%;
+}

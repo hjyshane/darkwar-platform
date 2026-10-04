@@ -10,7 +10,9 @@
 // "promote" stages, an exclusive weapon its hero's list.
 
 import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import { LevelPicker } from './LevelPicker';
+import { GearPromote, WeaponRank, gearPromoteText, weaponText } from './RankGlyphs';
 import type { Account } from './accounts';
 import { fetchCatalogSubjects, fetchHeroInfo } from './data';
 import type { Tiers } from './levels';
@@ -26,10 +28,20 @@ interface HeroCardsProps {
 
 const NO_TIERS: Tiers = new Map();
 
+/** aps_new_heroes.rarity, as the game colours it. 1 is the yellow top tier
+ * (Katrina, Francis, Selwyn); 2 and 3 are read off which heroes sit there. */
+const RARITY_LABELS: Readonly<Record<number, string>> = { 1: 'Yellow', 2: 'Purple', 3: 'Blue' };
+
+function rarityLabel(rarity: number | undefined): string {
+  if (rarity === undefined) return 'Unknown';
+  return RARITY_LABELS[rarity] ?? `Rarity ${rarity}`;
+}
+
 type Gear = Account['heroGear'][number];
 
 export function HeroCards({ account, targets, onSet, onEdit }: HeroCardsProps) {
   const editing = onEdit !== undefined;
+  const [rarityFilter, setRarityFilter] = useState<number | undefined | 'all'>('all');
   const info = useQuery({
     queryKey: ['planner-heroes', account.playerId, editing],
     queryFn: () => fetchHeroInfo(account, editing),
@@ -52,13 +64,18 @@ export function HeroCards({ account, targets, onSet, onEdit }: HeroCardsProps) {
   if (maxima.isError) return <p className="error">{maxima.error.message}</p>;
 
   const ids = editing ? [...info.data.names.keys()] : Object.keys(account.heroLevels);
-  const heroes = ids
+  // Yellow first, and within a rarity the newest hero (the highest id) first:
+  // the heroes a player is still raising.
+  const all = ids
     .map((id) => ({
       id,
       level: account.heroLevels[id] ?? 0,
       name: info.data.names.get(id) ?? `Hero ${id}`,
+      rarity: info.data.rarity.get(id),
     }))
-    .sort((a, b) => b.level - a.level || a.name.localeCompare(b.name));
+    .sort((a, b) => (a.rarity ?? 99) - (b.rarity ?? 99) || Number(b.id) - Number(a.id));
+  const rarities = [...new Set(all.map((h) => h.rarity))].sort((a, b) => (a ?? 99) - (b ?? 99));
+  const heroes = all.filter((h) => rarityFilter === 'all' || h.rarity === rarityFilter);
   const maxOf = (subject: string) => maxima.data.get(subject) ?? 0;
 
   const edit = (patch: Partial<Account>) => onEdit?.({ ...account, ...patch });
@@ -66,174 +83,211 @@ export function HeroCards({ account, targets, onSet, onEdit }: HeroCardsProps) {
     edit({ heroGear: account.heroGear.map((g, i) => (i === index ? { ...g, ...patch } : g)) });
 
   return (
-    <div className="planner-cards">
-      {heroes.map((hero) => {
-        const gear = account.heroGear
-          .map((g, index) => ({ ...g, index }))
-          .filter((g) => String(g.heroId) === hero.id);
-        const weaponMax = info.data.exclusives.get(hero.id);
-        const weapon = account.heroExclusives[hero.id] ?? 0;
-        return (
-          <article className="planner-card" key={hero.id}>
-            <h4>{hero.name}</h4>
-            <dl>
-              <div className="planner-card-row">
-                <dt>Level</dt>
-                <dd>
-                  <LevelPicker
-                    current={hero.level}
-                    label={`${hero.name} level`}
-                    max={maxOf('hero')}
-                    onChange={(to) =>
-                      onSet({
-                        kind: 'hero',
-                        subject: hero.id,
-                        name: hero.name,
-                        from: hero.level,
-                        to,
-                      })
-                    }
-                    onCurrent={
-                      editing
-                        ? (level) =>
-                            edit({ heroLevels: { ...account.heroLevels, [hero.id]: level } })
-                        : undefined
-                    }
-                    subject="hero"
-                    target={targets.get(targetKey('hero', hero.id))?.to}
-                    tiers={NO_TIERS}
-                  />
-                </dd>
-              </div>
-              {gear.map((g) => {
-                const piece = info.data.gear.get(g.equipId);
-                const quality = piece?.quality ?? 0;
-                const subject = `${g.index}:${g.equipId}:${quality}`;
-                const held = targets.get(targetKey('hero_gear', subject));
-                const name = `${hero.name} · ${piece?.name ?? `Gear ${g.equipId}`}`;
-                const set = (to: number, stageTo: number) =>
-                  onSet({
-                    kind: 'hero_gear',
-                    subject,
-                    name,
-                    from: g.level,
-                    to,
-                    stageFrom: g.promote,
-                    stageTo,
-                  });
-                return (
-                  <div className="planner-card-row" key={subject}>
-                    <dt>
-                      {piece?.name ?? `Gear ${g.equipId}`}
-                      {editing && (
-                        <button
-                          aria-label={`Take off ${name}`}
-                          className="link-button"
-                          onClick={() =>
-                            edit({ heroGear: account.heroGear.filter((_, i) => i !== g.index) })
-                          }
-                          type="button"
-                        >
-                          {' '}
-                          ✕
-                        </button>
-                      )}
-                    </dt>
-                    <dd>
-                      <LevelPicker
-                        current={g.level}
-                        label={`${name} level`}
-                        max={maxOf(`level:q${quality}`)}
-                        onChange={(to) => set(to, held?.stageTo ?? g.promote)}
-                        onCurrent={editing ? (level) => setGear(g.index, { level }) : undefined}
-                        subject={`level:q${quality}`}
-                        target={held?.to}
-                        tiers={NO_TIERS}
-                      />
-                      <span className="subtle"> stage </span>
-                      <LevelPicker
-                        current={g.promote}
-                        label={`${name} stage`}
-                        max={maxOf('promote')}
-                        onChange={(stageTo) => set(held?.to ?? g.level, stageTo)}
-                        onCurrent={editing ? (promote) => setGear(g.index, { promote }) : undefined}
-                        subject="promote"
-                        target={held?.stageTo}
-                        tiers={NO_TIERS}
-                      />
-                    </dd>
-                  </div>
-                );
-              })}
-              {editing && (
+    <>
+      <div aria-label="Hero rarity" className="planner-tabs" role="tablist">
+        <button
+          aria-selected={rarityFilter === 'all'}
+          onClick={() => setRarityFilter('all')}
+          role="tab"
+          type="button"
+        >
+          All ({all.length})
+        </button>
+        {rarities.map((r) => (
+          <button
+            aria-selected={rarityFilter === r}
+            className={r === undefined ? undefined : `rarity-${r}`}
+            key={r ?? 'none'}
+            onClick={() => setRarityFilter(r)}
+            role="tab"
+            type="button"
+          >
+            {rarityLabel(r)} ({all.filter((h) => h.rarity === r).length})
+          </button>
+        ))}
+      </div>
+      <div className="planner-cards">
+        {heroes.map((hero) => {
+          const gear = account.heroGear
+            .map((g, index) => ({ ...g, index }))
+            .filter((g) => String(g.heroId) === hero.id);
+          const weaponMax = info.data.exclusives.get(hero.id);
+          const weapon = account.heroExclusives[hero.id] ?? 0;
+          return (
+            <article className="planner-card" key={hero.id}>
+              <h4>
+                {hero.name}{' '}
+                <span className={`rarity-tag rarity-${hero.rarity ?? 'none'}`}>
+                  {rarityLabel(hero.rarity)}
+                </span>
+              </h4>
+              <dl>
                 <div className="planner-card-row">
-                  <dt>Add gear</dt>
-                  <dd>
-                    <select
-                      aria-label={`Add gear to ${hero.name}`}
-                      onChange={(e) => {
-                        const equipId = Number(e.target.value);
-                        if (!equipId) return;
-                        edit({
-                          heroGear: [
-                            ...account.heroGear,
-                            { equipId, heroId: Number(hero.id), level: 0, promote: 0 },
-                          ],
-                        });
-                      }}
-                      value=""
-                    >
-                      <option value="">Pick a piece…</option>
-                      {[...info.data.gear.entries()]
-                        .sort(
-                          (a, b) =>
-                            b[1].quality - a[1].quality || a[1].name.localeCompare(b[1].name),
-                        )
-                        .map(([equipId, piece]) => (
-                          <option key={equipId} value={equipId}>
-                            {piece.name}
-                          </option>
-                        ))}
-                    </select>
-                  </dd>
-                </div>
-              )}
-              {weaponMax !== undefined && (
-                <div className="planner-card-row">
-                  <dt>Exclusive weapon</dt>
+                  <dt>Level</dt>
                   <dd>
                     <LevelPicker
-                      current={weapon}
-                      label={`${hero.name} exclusive weapon`}
-                      max={weaponMax}
+                      current={hero.level}
+                      label={`${hero.name} level`}
+                      max={maxOf('hero')}
                       onChange={(to) =>
                         onSet({
-                          kind: 'exclusive',
+                          kind: 'hero',
                           subject: hero.id,
-                          name: `${hero.name} · exclusive weapon`,
-                          from: weapon,
+                          name: hero.name,
+                          from: hero.level,
                           to,
                         })
                       }
                       onCurrent={
                         editing
                           ? (level) =>
-                              edit({
-                                heroExclusives: { ...account.heroExclusives, [hero.id]: level },
-                              })
+                              edit({ heroLevels: { ...account.heroLevels, [hero.id]: level } })
                           : undefined
                       }
-                      subject={hero.id}
-                      target={targets.get(targetKey('exclusive', hero.id))?.to}
+                      subject="hero"
+                      target={targets.get(targetKey('hero', hero.id))?.to}
                       tiers={NO_TIERS}
                     />
                   </dd>
                 </div>
-              )}
-            </dl>
-          </article>
-        );
-      })}
-    </div>
+                {gear.map((g) => {
+                  const piece = info.data.gear.get(g.equipId);
+                  const quality = piece?.quality ?? 0;
+                  const subject = `${g.index}:${g.equipId}:${quality}`;
+                  const held = targets.get(targetKey('hero_gear', subject));
+                  const name = `${hero.name} · ${piece?.name ?? `Gear ${g.equipId}`}`;
+                  const set = (to: number, stageTo: number) =>
+                    onSet({
+                      kind: 'hero_gear',
+                      subject,
+                      name,
+                      from: g.level,
+                      to,
+                      stageFrom: g.promote,
+                      stageTo,
+                    });
+                  return (
+                    <div className="planner-card-row" key={subject}>
+                      <dt className={`gear-quality-${quality}`}>
+                        {piece?.name ?? `Gear ${g.equipId}`}
+                        {editing && (
+                          <button
+                            aria-label={`Take off ${name}`}
+                            className="link-button"
+                            onClick={() =>
+                              edit({ heroGear: account.heroGear.filter((_, i) => i !== g.index) })
+                            }
+                            type="button"
+                          >
+                            {' '}
+                            ✕
+                          </button>
+                        )}
+                      </dt>
+                      <dd>
+                        <LevelPicker
+                          current={g.level}
+                          label={`${name} level`}
+                          max={maxOf(`level:q${quality}`)}
+                          onChange={(to) => set(to, held?.stageTo ?? g.promote)}
+                          onCurrent={editing ? (level) => setGear(g.index, { level }) : undefined}
+                          subject={`level:q${quality}`}
+                          target={held?.to}
+                          tiers={NO_TIERS}
+                        />
+                        {/* Past 100 the game shows stage-ups and awakening, not a level. */}
+                        {g.level >= 100 && (
+                          <LevelPicker
+                            current={g.promote}
+                            glyph={(promote) => <GearPromote promote={promote} />}
+                            label={`${name} stage`}
+                            max={maxOf('promote')}
+                            onChange={(stageTo) => set(held?.to ?? g.level, stageTo)}
+                            onCurrent={
+                              editing ? (promote) => setGear(g.index, { promote }) : undefined
+                            }
+                            subject="promote"
+                            target={held?.stageTo}
+                            text={gearPromoteText}
+                            tiers={NO_TIERS}
+                          />
+                        )}
+                      </dd>
+                    </div>
+                  );
+                })}
+                {editing && (
+                  <div className="planner-card-row">
+                    <dt>Add gear</dt>
+                    <dd>
+                      <select
+                        aria-label={`Add gear to ${hero.name}`}
+                        onChange={(e) => {
+                          const equipId = Number(e.target.value);
+                          if (!equipId) return;
+                          edit({
+                            heroGear: [
+                              ...account.heroGear,
+                              { equipId, heroId: Number(hero.id), level: 0, promote: 0 },
+                            ],
+                          });
+                        }}
+                        value=""
+                      >
+                        <option value="">Pick a piece…</option>
+                        {[...info.data.gear.entries()]
+                          .sort(
+                            (a, b) =>
+                              b[1].quality - a[1].quality || a[1].name.localeCompare(b[1].name),
+                          )
+                          .map(([equipId, piece]) => (
+                            <option key={equipId} value={equipId}>
+                              {piece.name}
+                            </option>
+                          ))}
+                      </select>
+                    </dd>
+                  </div>
+                )}
+                {weaponMax !== undefined && (
+                  <div className="planner-card-row">
+                    <dt>Exclusive weapon</dt>
+                    <dd>
+                      <LevelPicker
+                        current={weapon}
+                        glyph={(level) => <WeaponRank level={level} />}
+                        label={`${hero.name} exclusive weapon`}
+                        max={weaponMax}
+                        onChange={(to) =>
+                          onSet({
+                            kind: 'exclusive',
+                            subject: hero.id,
+                            name: `${hero.name} · exclusive weapon`,
+                            from: weapon,
+                            to,
+                          })
+                        }
+                        onCurrent={
+                          editing
+                            ? (level) =>
+                                edit({
+                                  heroExclusives: { ...account.heroExclusives, [hero.id]: level },
+                                })
+                            : undefined
+                        }
+                        subject={hero.id}
+                        target={targets.get(targetKey('exclusive', hero.id))?.to}
+                        text={weaponText}
+                        tiers={NO_TIERS}
+                      />
+                    </dd>
+                  </div>
+                )}
+              </dl>
+            </article>
+          );
+        })}
+      </div>
+    </>
   );
 }

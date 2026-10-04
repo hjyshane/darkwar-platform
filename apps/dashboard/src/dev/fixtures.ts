@@ -982,6 +982,36 @@ const PLANNER_BOOK = new Map([
 export const FIXTURES: [readonly unknown[], unknown][] = [
   [['planner-accounts'], [PLANNER_ACCOUNT]],
   [
+    ['planner-materials'],
+    [
+      { type: 'resource', id: '25', kinds: ['building'] },
+      { type: 'resource', id: '12', kinds: ['building', 'research'] },
+      { type: 'resource', id: '26', kinds: ['building'] },
+      { type: 'resource', id: '24', kinds: ['hero'] },
+      { type: 'resource', id: '14', kinds: ['research'] },
+      { type: 'item', id: '253042', kinds: ['building'] },
+      { type: 'item', id: '230104', kinds: ['hero_gear'] },
+      { type: 'item', id: '253070', kinds: ['exclusive'] },
+    ],
+  ],
+  [
+    ['planner-names', '253042,230104,253070'],
+    {
+      items: new Map([
+        ['253042', 'Precision Part'],
+        ['230104', 'Boost Ore'],
+        ['253070', 'Pyro Pup Fragments'],
+      ]),
+      resources: new Map([
+        ['25', 'Wood'],
+        ['12', 'Iron'],
+        ['26', 'Electricity'],
+        ['24', 'Food'],
+        ['14', 'Coin'],
+      ]),
+    },
+  ],
+  [
     ['planner-enterable'],
     [{ playerId: '11111111-1111-4111-8111-111111111102', name: 'Player02', serverId: 580 }],
   ],
@@ -1007,6 +1037,11 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
         [410200, { name: 'D5-Armor', quality: 5, slot: 2 }],
       ]),
       exclusives: new Map([['40002', 52]]),
+      rarity: new Map([
+        ['40002', 1],
+        ['1017', 2],
+        ['1002', 2],
+      ]),
     },
   ],
   [
@@ -1058,6 +1093,11 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
         [410200, { name: 'D5-Armor', quality: 5, slot: 2 }],
       ]),
       exclusives: new Map([['40002', 52]]),
+      rarity: new Map([
+        ['40002', 1],
+        ['1017', 2],
+        ['1002', 2],
+      ]),
     },
   ],
   [

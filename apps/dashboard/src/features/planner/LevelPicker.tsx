@@ -3,6 +3,7 @@
 // clears the target. On an account entered by hand the current level is an
 // input too (`onCurrent`).
 
+import type { ReactNode } from 'react';
 import { type Tiers, levelLabel, levelText } from './levels';
 
 interface LevelPickerProps {
@@ -17,6 +18,10 @@ interface LevelPickerProps {
   onChange: (to: number) => void;
   /** Set on a hand-entered account: the current level becomes editable. */
   onCurrent?: (level: number) => void;
+  /** Draw a level the way the game does (weapon stars, gear awakening)
+   * instead of as a number, and name it in the dropdown. */
+  glyph?: (level: number) => ReactNode;
+  text?: (level: number) => string;
 }
 
 export function LevelPicker({
@@ -28,7 +33,10 @@ export function LevelPicker({
   tiers,
   onChange,
   onCurrent,
+  glyph,
+  text,
 }: LevelPickerProps) {
+  const optionText = text ?? ((level: number) => levelText(tiers, subject, level));
   const now = levelLabel(tiers, subject, current);
   const levels: number[] = [];
   for (let level = current; level <= Math.max(current, max); level += 1) levels.push(level);
@@ -48,8 +56,12 @@ export function LevelPicker({
             type="number"
             value={current}
           />
-          {now.sub !== null && <small className="level-sub">{now.main}</small>}
+          {glyph
+            ? glyph(current)
+            : now.sub !== null && <small className="level-sub">{now.main}</small>}
         </span>
+      ) : glyph ? (
+        <span className="level-now">{glyph(current)}</span>
       ) : (
         <span className="level-now">
           {now.main}
@@ -66,10 +78,13 @@ export function LevelPicker({
         >
           {levels.map((level) => (
             <option key={level} value={level}>
-              {level === current ? '—' : `→ ${levelText(tiers, subject, level)}`}
+              {level === current ? '—' : `→ ${optionText(level)}`}
             </option>
           ))}
         </select>
+      )}
+      {glyph && raised && target !== undefined && (
+        <span className="level-target">→ {glyph(target)}</span>
       )}
     </span>
   );

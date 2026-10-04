@@ -23,6 +23,7 @@ import { Breakdown } from './Breakdown';
 import { BuildingPicker } from './BuildingPicker';
 import { HeroCards } from './HeroCards';
 import { ResearchPicker } from './ResearchPicker';
+import { StockPanel } from './StockPanel';
 import { type Account, blankAccount, fetchAccounts, saveManual } from './accounts';
 import { fetchMaterialNames, fetchTiers, loadBook } from './data';
 import { levelText } from './levels';
@@ -249,6 +250,12 @@ export function PlannerPage() {
         />
       )}
 
+      <StockPanel
+        edited={manual ? new Set() : new Set(Object.keys(stockEdits))}
+        have={have}
+        onHave={setHave}
+      />
+
       <section aria-labelledby="planner-buffs">
         <h3 id="planner-buffs">Buffs</h3>
         {manual ? (
@@ -428,14 +435,12 @@ export function PlannerPage() {
                 goalNames={goalNames}
                 have={have}
                 nameOf={nameOf}
-                onHave={setHave}
                 steps={planned.steps}
                 tiers={tierMap}
               />
               <p className="note">
-                Items and resources on hand come from the login; type over any figure that has
-                changed since. Construction cost reduction applies to building resources, not to
-                items such as Precision Parts.
+                Have is the Stock list at the top; change a figure there. Construction cost
+                reduction applies to building resources, not to items such as Precision Parts.
               </p>
             </>
           )}
