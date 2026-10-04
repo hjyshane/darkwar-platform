@@ -34,6 +34,56 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_state_manual: {
+        Row: {
+          buildings: Json
+          effects: Json
+          hero_equips: Json
+          hero_exclusives: Json
+          hero_intensify: Json
+          items: Json
+          player_id: string
+          resources: Json
+          science: Json
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          buildings?: Json
+          effects?: Json
+          hero_equips?: Json
+          hero_exclusives?: Json
+          hero_intensify?: Json
+          items?: Json
+          player_id: string
+          resources?: Json
+          science?: Json
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          buildings?: Json
+          effects?: Json
+          hero_equips?: Json
+          hero_exclusives?: Json
+          hero_intensify?: Json
+          items?: Json
+          player_id?: string
+          resources?: Json
+          science?: Json
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_state_manual_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: true
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+        ]
+      }
       account_state_snapshots: {
         Row: {
           buildings: Json
@@ -7928,6 +7978,7 @@ export type Database = {
         }[]
       }
       build_rank_period: { Args: { p_period_start: string }; Returns: number }
+      can_enter_account: { Args: { p_player_id: string }; Returns: boolean }
       claim_player: {
         Args: { p_player_id: string }
         Returns: {

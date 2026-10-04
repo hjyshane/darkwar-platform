@@ -1,4 +1,5 @@
-// Every building the account has, its level now, and a target to pick.
+// Every building the account has, its level now, and a target to pick. On
+// an account entered by hand, every building the game has, levels editable.
 
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -12,13 +13,15 @@ interface PickerProps {
   tiers: Tiers;
   targets: ReadonlyMap<string, Target>;
   onSet: (target: Target) => void;
+  onCurrent?: (subject: string, level: number) => void;
 }
 
-export function BuildingPicker({ levels, tiers, targets, onSet }: PickerProps) {
-  const ids = Object.keys(levels);
+export function BuildingPicker({ levels, tiers, targets, onSet, onCurrent }: PickerProps) {
+  // By hand, every building is offered; from a login, the ones it has.
+  const ids = onCurrent ? [] : Object.keys(levels);
   const subjects = useQuery({
-    queryKey: ['planner-catalog', 'building', ids.join(',')],
-    queryFn: () => fetchCatalogSubjects('building', { subjects: ids }),
+    queryKey: ['planner-catalog', 'building', onCurrent ? '*' : ids.join(',')],
+    queryFn: () => fetchCatalogSubjects('building', onCurrent ? {} : { subjects: ids }),
     staleTime: 60 * 60_000,
   });
   const [filter, setFilter] = useState('');
@@ -60,6 +63,7 @@ export function BuildingPicker({ levels, tiers, targets, onSet }: PickerProps) {
                       current={current}
                       label={s.name}
                       max={s.maxLevel}
+                      onCurrent={onCurrent && ((level) => onCurrent(s.subject, level))}
                       onChange={(to) =>
                         onSet({
                           kind: 'building',

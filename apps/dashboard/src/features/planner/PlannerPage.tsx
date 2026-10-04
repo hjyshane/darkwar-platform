@@ -6,21 +6,27 @@
 // levels, stock and buffs come from the account's newest login (0205,
 // 0219, 0221, 0222). Every buff and every stock figure can be overwritten
 // here: a presidential buff, an emergency project, or stock that has moved
-// since. Nothing typed here is saved.
+// since. Nothing typed over a login is saved.
+//
+// A character the collector never sees log in is entered by hand (0223):
+// its levels now become inputs in every list, its buffs and stock are its
+// own, and Save writes them for next time.
 //
 // Picking happens where the thing lives: buildings in a list, research under
 // the game's research tabs, heroes on cards with their gear and exclusive
 // weapon. Each pick replaces the last one for the same thing.
 
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
+import { AccountBar, ManualBanner } from './AccountBar';
 import { Breakdown } from './Breakdown';
 import { BuildingPicker } from './BuildingPicker';
 import { HeroCards } from './HeroCards';
 import { ResearchPicker } from './ResearchPicker';
-import { fetchAccounts, fetchMaterialNames, fetchTiers, loadBook } from './data';
+import { type Account, blankAccount, fetchAccounts, saveManual } from './accounts';
+import { fetchMaterialNames, fetchTiers, loadBook } from './data';
 import { levelText } from './levels';
-import { type Buffs, buffsFrom, plan, totals } from './plan';
+import { type Buffs, EFFECT_IDS, buffsFrom, plan, totals } from './plan';
 import { type Target, goalsOf, withTarget } from './targets';
 
 type Section = 'building' | 'research' | 'heroes';
@@ -63,7 +69,24 @@ export function PlannerPage() {
     staleTime: 60 * 60_000,
   });
   const [playerId, setPlayerId] = useState<string | null>(null);
-  const account = (accounts.data ?? []).find((a) => a.playerId === playerId) ?? accounts.data?.[0];
+  // The unsaved working copy of a hand-entered account, if it has changed.
+  const [draft, setDraft] = useState<Account | null>(null);
+  const listed = accounts.data ?? [];
+  const chosen =
+    listed.find((a) => a.playerId === playerId) ??
+    (draft?.playerId === playerId ? draft : undefined) ??
+    listed[0];
+  const account = draft && chosen && draft.playerId === chosen.playerId ? draft : chosen;
+  const manual = account?.source === 'manual';
+  const dirty = manual && draft !== null && draft.playerId === account?.playerId;
+  const queryClient = useQueryClient();
+  const save = useMutation({
+    mutationFn: saveManual,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['planner-accounts'] });
+      setDraft(null);
+    },
+  });
 
   const [section, setSection] = useState<Section>('building');
   const [targets, setTargets] = useState<ReadonlyMap<string, Target>>(new Map());
@@ -95,7 +118,13 @@ export function PlannerPage() {
   const { goals, names: goalNames } = useMemo(() => goalsOf(targets.values()), [targets]);
   const levels = useMemo(() => new Map(Object.entries(account?.buildings ?? {})), [account]);
   const book = useQuery({
-    queryKey: ['planner-book', account?.playerId, JSON.stringify(goals), withPrereqs],
+    queryKey: [
+      'planner-book',
+      account?.playerId,
+      JSON.stringify(goals),
+      JSON.stringify(account?.buildings ?? {}),
+      withPrereqs,
+    ],
     queryFn: () => loadBook(goals, levels, withPrereqs),
     enabled: account !== undefined && goals.length > 0,
   });
@@ -121,30 +150,71 @@ export function PlannerPage() {
         <p className="error">Could not load accounts: {accounts.error.message}</p>
       </main>
     );
+  const switchTo = (id: string) => {
+    setPlayerId(id);
+    setTargets(new Map());
+    setStockEdits({});
+    setTimedOn(new Set());
+    setDraft(null);
+    save.reset();
+  };
+  const bar = (
+    <AccountBar
+      accounts={listed}
+      current={account}
+      onPick={switchTo}
+      onStart={(who) => {
+        switchTo(who.playerId);
+        setDraft(blankAccount(who.playerId, who.name, who.serverId));
+      }}
+    />
+  );
   if (!account) {
     return (
       <main>
         <h2>Material planner</h2>
         <p className="empty">
-          No account to plan for. Link your character on your account page; its levels, items and
-          buffs arrive with its next login the collector sees.
+          No account to plan for yet. A character's levels, items and buffs arrive with its next
+          login the collector sees — or enter them by hand:
         </p>
+        {bar}
       </main>
     );
   }
 
-  const tierMap = tiers.data ?? new Map();
-  const set = (target: Target) => setTargets((cur) => withTarget(cur, target));
-  const remove = (key: string) =>
+  const edit = (next: Account) => setDraft(next);
+  const dropTarget = (key: string) =>
     setTargets((cur) => {
       const next = new Map(cur);
       next.delete(key);
       return next;
     });
+  const levelEditor = (field: 'buildings' | 'science', kind: 'building' | 'research') =>
+    manual
+      ? (subject: string, level: number) => {
+          edit({ ...account, [field]: { ...account[field], [subject]: level } });
+          dropTarget(`${kind}:${subject}`);
+        }
+      : undefined;
+
+  const tierMap = tiers.data ?? new Map();
+  const set = (target: Target) => setTargets((cur) => withTarget(cur, target));
+  const remove = dropTarget;
   const have = (type: string, id: string) =>
-    stockEdits[`${type}:${id}`] ??
+    (manual ? undefined : stockEdits[`${type}:${id}`]) ??
     (type === 'item' ? account.items[id] : account.resources[id]) ??
     0;
+  const setHave = (type: string, id: string, amount: number) => {
+    if (!manual) {
+      setStockEdits({ ...stockEdits, [`${type}:${id}`]: amount });
+    } else if (type === 'item') {
+      edit({ ...account, items: { ...account.items, [id]: amount } });
+    } else {
+      edit({ ...account, resources: { ...account.resources, [id]: amount } });
+    }
+  };
+  const setEffect = (id: string, value: number) =>
+    edit({ ...account, effects: { ...account.effects, [id]: value } });
   const nameOf = (type: string, id: string) =>
     (type === 'item' ? names.data?.items.get(id) : names.data?.resources.get(id)) ??
     `${type} ${id}`;
@@ -154,42 +224,65 @@ export function PlannerPage() {
   return (
     <main>
       <h2>Material planner</h2>
-      <p className="subtle">
-        Costs are the game's own. Levels, stock and buffs are {account.name}'s, from the login the
-        collector saw at {account.capturedAt.slice(0, 16).replace('T', ' ')} UTC. Change any buff or
-        stock figure below; nothing here is saved.
-      </p>
+      {manual ? (
+        <p className="subtle">Costs are the game's own.</p>
+      ) : (
+        <p className="subtle">
+          Costs are the game's own. Levels, stock and buffs are {account.name}'s, from the login the
+          collector saw at {account.capturedAt.slice(0, 16).replace('T', ' ')} UTC. Change any buff
+          or stock figure below; nothing here is saved.
+        </p>
+      )}
 
-      {(accounts.data ?? []).length > 1 && (
-        <div className="row">
-          <label>
-            Account{' '}
-            <select
-              onChange={(e) => {
-                setPlayerId(e.target.value);
-                setTargets(new Map());
-                setStockEdits({});
-                setTimedOn(new Set());
-              }}
-              value={account.playerId}
-            >
-              {(accounts.data ?? []).map((a) => (
-                <option key={a.playerId} value={a.playerId}>
-                  {a.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+      {bar}
+      {manual && (
+        <ManualBanner
+          account={account}
+          dirty={dirty}
+          error={save.error ? save.error.message : null}
+          onDiscard={() => {
+            setDraft(null);
+            if (!listed.some((a) => a.playerId === account.playerId)) setPlayerId(null);
+          }}
+          onSave={() => save.mutate(account)}
+          saving={save.isPending}
+        />
       )}
 
       <section aria-labelledby="planner-buffs">
         <h3 id="planner-buffs">Buffs</h3>
-        <p className="subtle">
-          From the login: construction speed {base?.constructionSpeed}%, research speed{' '}
-          {base?.researchSpeed}%, construction cost −{base?.costReduction}%. Add a presidential or
-          emergency-project buff on top:
-        </p>
+        {manual ? (
+          <>
+            <p className="subtle">
+              The totals the game shows under Detail → Develop (research, buildings, pets and the
+              rest added up):
+            </p>
+            <div className="row">
+              <BuffInput
+                label="construction speed"
+                onChange={(v) => setEffect(EFFECT_IDS.constructionSpeed, v)}
+                value={account.effects[EFFECT_IDS.constructionSpeed] ?? 0}
+              />
+              <BuffInput
+                label="research speed"
+                onChange={(v) => setEffect(EFFECT_IDS.researchSpeed, v)}
+                value={account.effects[EFFECT_IDS.researchSpeed] ?? 0}
+              />
+              <BuffInput
+                label="construction cost reduction"
+                onChange={(v) => setEffect(EFFECT_IDS.costReduction, v)}
+                value={account.effects[EFFECT_IDS.costReduction] ?? 0}
+              />
+            </div>
+            <p className="subtle">And a presidential or emergency-project buff on top:</p>
+          </>
+        ) : (
+          <p className="subtle">
+            From the login: construction speed {base?.constructionSpeed}%, research speed{' '}
+            {base?.researchSpeed}%, construction cost −{base?.costReduction}%. Add a presidential or
+            emergency-project buff on top:
+          </p>
+        )}
         <div className="row">
           <BuffInput
             label="+ construction speed"
@@ -251,6 +344,7 @@ export function PlannerPage() {
           {section === 'building' && (
             <BuildingPicker
               levels={account.buildings}
+              onCurrent={levelEditor('buildings', 'building')}
               onSet={set}
               targets={targets}
               tiers={tierMap}
@@ -260,12 +354,35 @@ export function PlannerPage() {
             <ResearchPicker
               account={account}
               levels={account.science}
+              onCurrent={levelEditor('science', 'research')}
               onSet={set}
               targets={targets}
               tiers={tierMap}
             />
           )}
-          {section === 'heroes' && <HeroCards account={account} onSet={set} targets={targets} />}
+          {section === 'heroes' && (
+            <HeroCards
+              account={account}
+              onEdit={
+                manual
+                  ? (next) => {
+                      // A changed level now makes old targets on heroes wrong.
+                      setTargets(
+                        (cur) =>
+                          new Map(
+                            [...cur].filter(
+                              ([, t]) => !['hero', 'hero_gear', 'exclusive'].includes(t.kind),
+                            ),
+                          ),
+                      );
+                      edit(next);
+                    }
+                  : undefined
+              }
+              onSet={set}
+              targets={targets}
+            />
+          )}
         </div>
 
         {targets.size > 0 && (
@@ -311,9 +428,7 @@ export function PlannerPage() {
                 goalNames={goalNames}
                 have={have}
                 nameOf={nameOf}
-                onHave={(type, id, amount) =>
-                  setStockEdits({ ...stockEdits, [`${type}:${id}`]: amount })
-                }
+                onHave={setHave}
                 steps={planned.steps}
                 tiers={tierMap}
               />

@@ -1,92 +1,16 @@
 // Reading what the planner needs: the accounts the reader may plan for, the
 // cost steps, and names for everything it lists.
 //
-// ACCOUNTS are account_state_latest rows the reader can see: their own
-// characters, or every one for an admin (0205). Each carries its levels,
-// inventory, resources and buffs from its newest login (0219, 0221).
+// Accounts themselves are accounts.ts.
 //
 // STEPS are loaded per (kind, subject) and only for the levels a goal
 // spans — never a whole kind, which for buildings is ten thousand rows past
 // PostgREST's 1,000-row cap.
 
 import { supabase } from '../../lib/supabase';
+import type { Account } from './accounts';
 import { type Tiers, tiersFrom } from './levels';
 import { type Goal, type Kind, type Step, type StepBook, bookKey, plan } from './plan';
-
-export interface Account {
-  playerId: string;
-  name: string;
-  serverId: number | null;
-  capturedAt: string;
-  buildings: Record<string, number>;
-  science: Record<string, number>;
-  heroLevels: Record<string, number>;
-  heroGear: { equipId: number; heroId: number | null; level: number; promote: number }[];
-  /** Exclusive weapon level by hero id (0222). */
-  heroExclusives: Record<string, number>;
-  items: Record<string, number>;
-  /** Resource stock by game resource id (0221); empty before parser 1.2.0. */
-  resources: Record<string, number>;
-  effects: Record<string, number>;
-  timedEffects: {
-    state: number | null;
-    effect: number;
-    value: number;
-    start: number | null;
-    end: number;
-  }[];
-}
-
-function asRecord(value: unknown): Record<string, number> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, number>)
-    : {};
-}
-
-function asList<T>(value: unknown): T[] {
-  return Array.isArray(value) ? (value as T[]) : [];
-}
-
-export async function fetchAccounts(): Promise<Account[]> {
-  const { data, error } = await supabase
-    .from('account_state_latest')
-    .select(
-      'player_id, server_id, captured_at, buildings, science, hero_intensify, hero_equips, hero_exclusives, items, resources, effects, timed_effects',
-    );
-  if (error) {
-    throw new Error(error.message);
-  }
-  const rows = (data ?? []).filter((row) => row.player_id !== null);
-  const ids = rows.map((row) => row.player_id as string);
-  const names = new Map<string, string>();
-  if (ids.length > 0) {
-    const { data: players, error: nameError } = await supabase
-      .from('players')
-      .select('player_id, current_name')
-      .in('player_id', ids);
-    if (nameError) {
-      throw new Error(nameError.message);
-    }
-    for (const p of players ?? []) {
-      names.set(p.player_id, p.current_name ?? p.player_id.slice(0, 8));
-    }
-  }
-  return rows.map((row) => ({
-    playerId: row.player_id as string,
-    name: names.get(row.player_id as string) ?? (row.player_id as string).slice(0, 8),
-    serverId: row.server_id,
-    capturedAt: row.captured_at ?? '',
-    buildings: asRecord(row.buildings),
-    science: asRecord(row.science),
-    heroLevels: asRecord(row.hero_intensify),
-    heroGear: asList(row.hero_equips),
-    heroExclusives: asRecord(row.hero_exclusives),
-    items: asRecord(row.items),
-    resources: asRecord(row.resources),
-    effects: asRecord(row.effects),
-    timedEffects: asList(row.timed_effects),
-  }));
-}
 
 /** Steps of one subject between two levels (exclusive, inclusive). */
 async function fetchSteps(kind: Kind, subject: string, from: number, to: number): Promise<Step[]> {
@@ -258,18 +182,20 @@ export interface HeroInfo {
 
 /** Names for the hero cards: heroes, the gear they wear, and which heroes
  * have an exclusive weapon at all. */
-export async function fetchHeroInfo(account: Account): Promise<HeroInfo> {
+export async function fetchHeroInfo(account: Account, everything: boolean): Promise<HeroInfo> {
   const heroIds = Object.keys(account.heroLevels).map(Number);
   const gearIds = account.heroGear.map((g) => g.equipId);
+  // By hand, every named hero and every gear piece is offered (47 and 60);
+  // from a login, only what the account has.
+  const heroQuery = supabase.from('heroes').select('hero_id, name');
+  const gearQuery = supabase.from('game_hero_gear').select('equip_id, name, quality, slot');
   const [heroes, gear, exclusives] = await Promise.all([
-    supabase
-      .from('heroes')
-      .select('hero_id, name')
-      .in('hero_id', heroIds.length > 0 ? heroIds : [-1]),
-    supabase
-      .from('game_hero_gear')
-      .select('equip_id, name, quality, slot')
-      .in('equip_id', gearIds.length > 0 ? gearIds : [-1]),
+    everything
+      ? heroQuery.not('name', 'is', null)
+      : heroQuery.in('hero_id', heroIds.length > 0 ? heroIds : [-1]),
+    everything
+      ? gearQuery.not('name', 'is', null)
+      : gearQuery.in('equip_id', gearIds.length > 0 ? gearIds : [-1]),
     fetchCatalogSubjects('exclusive', {}),
   ]);
   if (heroes.error) throw new Error(heroes.error.message);

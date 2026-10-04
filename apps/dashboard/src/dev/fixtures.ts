@@ -911,6 +911,7 @@ const PLANNER_ACCOUNT = {
   playerId: PLANNER_ID,
   name: 'WonderingDuck',
   serverId: 580,
+  source: 'login',
   capturedAt: '2026-10-04T01:13:20Z',
   buildings: { '400000': 55, '402000': 55, '424000': 55 },
   science: { '1601100': 12 },
@@ -972,6 +973,34 @@ const PLANNER_BOOK = new Map([
 export const FIXTURES: [readonly unknown[], unknown][] = [
   [['planner-accounts'], [PLANNER_ACCOUNT]],
   [
+    ['planner-enterable'],
+    [{ playerId: '11111111-1111-4111-8111-111111111102', name: 'Player02', serverId: 580 }],
+  ],
+  [
+    ['planner-catalog', 'building', '*'],
+    [
+      { subject: '400000', name: 'Watchtower', maxLevel: 80, category: null },
+      { subject: '402000', name: 'Alliance Hall', maxLevel: 80, category: null },
+      { subject: '403000', name: 'Research Center', maxLevel: 80, category: null },
+      { subject: '424000', name: 'Fighter Camp', maxLevel: 80, category: null },
+    ],
+  ],
+  [
+    ['planner-heroes', '11111111-1111-4111-8111-111111111102', true],
+    {
+      names: new Map([
+        ['40002', 'Pyro Pup'],
+        ['1017', 'Mia'],
+        ['1002', 'Kane'],
+      ]),
+      gear: new Map([
+        [410100, { name: 'D5-Slayer', quality: 5, slot: 1 }],
+        [410200, { name: 'D5-Armor', quality: 5, slot: 2 }],
+      ]),
+      exclusives: new Map([['40002', 52]]),
+    },
+  ],
+  [
     ['planner-tiers'],
     new Map([
       [
@@ -1009,7 +1038,7 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
     ],
   ],
   [
-    ['planner-heroes', PLANNER_ID],
+    ['planner-heroes', PLANNER_ID, false],
     {
       names: new Map([
         ['40002', 'Pyro Pup'],

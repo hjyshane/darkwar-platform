@@ -5,7 +5,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { LevelPicker } from './LevelPicker';
-import { type Account, fetchCatalogSubjects, fetchResearchTabs } from './data';
+import type { Account } from './accounts';
+import { fetchCatalogSubjects, fetchResearchTabs } from './data';
 import type { Tiers } from './levels';
 import { type Target, targetKey } from './targets';
 
@@ -15,9 +16,10 @@ interface PickerProps {
   tiers: Tiers;
   targets: ReadonlyMap<string, Target>;
   onSet: (target: Target) => void;
+  onCurrent?: (subject: string, level: number) => void;
 }
 
-export function ResearchPicker({ account, levels, tiers, targets, onSet }: PickerProps) {
+export function ResearchPicker({ account, levels, tiers, targets, onSet, onCurrent }: PickerProps) {
   const tabs = useQuery({
     queryKey: ['planner-research-tabs', account.serverId],
     queryFn: () => fetchResearchTabs(account.serverId),
@@ -83,6 +85,7 @@ export function ResearchPicker({ account, levels, tiers, targets, onSet }: Picke
                         current={current}
                         label={s.name}
                         max={s.maxLevel}
+                        onCurrent={onCurrent && ((level) => onCurrent(s.subject, level))}
                         onChange={(to) =>
                           onSet({
                             kind: 'research',
