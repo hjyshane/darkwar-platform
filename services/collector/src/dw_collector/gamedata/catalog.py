@@ -41,6 +41,9 @@ PLAYABLE_HEROES = (1000, 89999)
 EXCLUSIVE_EQUIP_FRAGMENT = 215
 # Hero experience is bought with Food, one for one.
 FOOD_RESOURCE = "24"
+# Hero gear levels are bought with Boost Ore ("a powerful crystal, used to
+# enhance hero equipment").
+BOOST_ORE = "230104"
 
 
 def _int(value: Any) -> int | None:
@@ -189,6 +192,7 @@ class Catalog:
         yield from self._vehicle_steps()
         yield from self._pet_steps()
         yield from self._hero_steps()
+        yield from self._hero_gear_steps()
 
     def _step(
         self,
@@ -294,5 +298,46 @@ class Catalog:
                 level + 1,
                 [{"type": "resource", "id": FOOD_RESOURCE, "amount": exp}],
             )
+            if step:
+                yield step
+
+    def _hero_gear_steps(self) -> Iterator[Row]:
+        """Hero gear, in the two tracks the game runs (user, 2026-10-03).
+
+        LEVELS (`ds_equip_upgrade`): one Boost Ore cost per level in
+        `stone_upgrade_cost`, as many as the quality's highest level (60 for
+        purple, 100 for orange). Every slot of a quality has the same list, so
+        the subject is the quality: "level:q5". Entry i takes level i to i+1.
+
+        STAGES (`ds_equip_promote`), after level 100: rows at levels 0-9 are
+        the ten stage-ups (Power Core only), and from level 10 the awakening —
+        Power Core and Boost Ore, with DX-Blueprint every fifth step. A row's
+        level is where it starts; the top row is empty. Subject "promote".
+
+        Both are stored by the level reached, like every other step.
+        """
+        seen: set[str] = set()
+        for row in self._rows("ds_equip_upgrade").values():
+            quality = _int(row.get("quality"))
+            ore = [_int(v) for v in str(row.get("stone_upgrade_cost", "")).split(";")]
+            subject = f"level:q{quality}"
+            if quality is None or subject in seen:
+                continue
+            seen.add(subject)
+            for index, amount in enumerate(ore):
+                if amount:
+                    step = self._step(
+                        "hero_gear",
+                        subject,
+                        index + 1,
+                        [{"type": "item", "id": BOOST_ORE, "amount": amount}],
+                    )
+                    if step:
+                        yield step
+        for row in self._rows("ds_equip_promote").values():
+            costs = _spec(row.get("cost_goods"))
+            if not costs:
+                continue
+            step = self._step("hero_gear", "promote", (_int(row.get("level")) or 0) + 1, costs)
             if step:
                 yield step

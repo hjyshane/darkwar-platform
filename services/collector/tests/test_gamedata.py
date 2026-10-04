@@ -249,6 +249,15 @@ CATALOGUE_TABLES = {
                 type = {6,'int'}, para1 = {7,'string'} } }""",
     "heroes_exclusive_equip": """return { data = { [40006000] = { 40006000, '300014' } },
       index = { id = {1,'int'}, name = {2,'string'} } }""",
+    "ds_equip_upgrade": """return { data = {
+        [1001] = { 1001, 3, '10;20;30' }, [1002] = { 1002, 3, '10;20;30' } },
+      index = { id = {1,'int'}, quality = {2,'int'}, stone_upgrade_cost = {3,'string'} } }""",
+    "ds_equip_promote": """return { data = {
+        [1] = { 1, nil, '230110;10' },
+        [11] = { 11, 10, '230110;100|230113;10' },
+        [12] = { 12, 11, '230104;15000|230110;50' },
+        [37] = { 37, 36, '' } },
+      index = { id = {1,'int'}, level = {2,'int'}, cost_goods = {3,'string'} } }""",
     "heroes_levelup": """return { data = {
         [20] = { 20, 45000 }, [21] = { 21, 45000 }, [22] = { 22, 45000 } },
       index = { id = {1,'int'}, exp = {2,'int'} } }""",
@@ -432,3 +441,30 @@ def test_hero_levels_cost_food_by_the_level_reached() -> None:
     assert sorted(steps) == [21, 22]  # row 22 has no level 23 to reach
     assert steps[21]["costs"] == [{"type": "resource", "id": "24", "amount": 45000}]
     assert steps[21]["subject_id"] == "hero"
+
+
+def test_hero_gear_levels_cost_boost_ore_per_quality() -> None:
+    """One Boost Ore list per gear quality; entry i takes level i to i+1."""
+    steps = [s for s in _catalogue().steps() if s["kind"] == "hero_gear"]
+    levels = {s["level"]: s["costs"] for s in steps if s["subject_id"] == "level:q3"}
+
+    assert levels == {
+        1: [{"type": "item", "id": "230104", "amount": 10}],
+        2: [{"type": "item", "id": "230104", "amount": 20}],
+        3: [{"type": "item", "id": "230104", "amount": 30}],
+    }
+
+
+def test_hero_gear_stages_cost_cores_then_ore_and_blueprints() -> None:
+    """Stage-ups are Power Core; awakening adds Boost Ore, and DX-Blueprint
+    every fifth step. The empty top row is not a step."""
+    promote = {
+        s["level"]: s["costs"]
+        for s in _catalogue().steps()
+        if s["kind"] == "hero_gear" and s["subject_id"] == "promote"
+    }
+
+    assert sorted(promote) == [1, 11, 12]
+    assert promote[1] == [{"type": "item", "id": "230110", "amount": 10}]
+    assert {c["id"] for c in promote[11]} == {"230110", "230113"}
+    assert {c["id"] for c in promote[12]} == {"230104", "230110"}
