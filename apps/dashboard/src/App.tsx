@@ -26,6 +26,7 @@ import { NoticePostPage } from './features/notices/NoticePostPage';
 import { NoticesPanel } from './features/notices/NoticesPanel';
 import { Overview } from './features/overview/OverviewPanel';
 import { ParticipationPage } from './features/participation/ParticipationPage';
+import { PlannerPage } from './features/planner/PlannerPage';
 import { PlayerPage } from './features/player/PlayerPage';
 import { RankingsPanel } from './features/rankings/RankingsPanel';
 import { RosterPanel } from './features/roster/RosterPanel';
@@ -476,6 +477,10 @@ function Screen({ route, mapServerId }: { route: Route; mapServerId: number | nu
       // are member-only at the policy level (0178) and the app is walled to
       // members, so there is no ungated reader to explain an empty page to.
       return <BlackMoneyPage />;
+    case 'planner':
+      // Owner-or-admin at the policy level (0205): a member sees only their own
+      // characters, so no capability gate.
+      return <PlannerPage />;
     case 'participation':
       // No capability gate, for Black Gold's reason: every source under it is
       // member-only at the policy level (0204's report is security invoker),

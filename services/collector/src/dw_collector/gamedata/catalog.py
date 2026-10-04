@@ -68,6 +68,18 @@ def _pairs(value: Any, kind: str) -> list[Row]:
     return out
 
 
+def _requirements(value: Any) -> list[Row]:
+    """`building` column: [[402000, 30], ...] -> [{"subject": "402000",
+    "level": 30}]. The level is the one the other building must be at."""
+    out: list[Row] = []
+    for pair in value if isinstance(value, list) else []:
+        if isinstance(pair, list) and len(pair) >= 2:
+            subject, level = _int(pair[0]), _int(pair[1])
+            if subject is not None and level is not None:
+                out.append({"subject": str(subject), "level": level})
+    return out
+
+
 def _spec(value: Any, kind: str = "item") -> list[Row]:
     """ "id;amount|id;amount" → cost entries."""
     out: list[Row] = []
@@ -166,6 +178,26 @@ class Catalog:
             out.append({"resource_id": rid, "name": name, "name_ko": name_ko})
         return out
 
+    def hero_gear(self) -> list[Row]:
+        """Hero gear by equipId (`ds_equip`): 410100 D5-Slayer, quality 5.
+        An account's gear is an equipId; the quality picks its cost list."""
+        out = []
+        for equip_id, row in self._rows("ds_equip").items():
+            eid = _int(equip_id)
+            if eid is None:
+                continue
+            name, name_ko = self._names(row.get("name"))
+            out.append(
+                {
+                    "equip_id": eid,
+                    "name": name,
+                    "name_ko": name_ko,
+                    "quality": _int(row.get("quality")),
+                    "slot": _int(row.get("slot")),
+                }
+            )
+        return out
+
     def effects(self) -> list[Row]:
         """Effect ids the server sums per account (init.effect) and the names
         the client shows for them: 30070 Construction Speed, 30421 Reduce
@@ -223,6 +255,7 @@ class Catalog:
         name_key: Any = None,
         seconds: Any = None,
         power: Any = None,
+        requires: list[Row] | None = None,
     ) -> Row | None:
         lvl = _int(level)
         if lvl is None or subject in (None, ""):
@@ -237,21 +270,32 @@ class Catalog:
             "costs": costs,
             "seconds": _int(seconds),
             "power": _int(power),
+            "requires": requires or [],
         }
 
     def _building_steps(self) -> Iterator[Row]:
-        for row_id, row in self._rows("building").items():
+        """By the level REACHED, like every other step. A `building` row is
+        the building at level L and what it takes to go on to L+1: its
+        cost_consume, item, time and the buildings it needs (`building`,
+        [[402000, 30], ...] — Watchtower 30 needs Alliance Hall 30 and Fighter
+        Camp 30, as the user's table says). So the step to L+1 carries row L's
+        cost and requirements and row L+1's name and power, and the top row,
+        with nothing after it, is no step."""
+        rows = self._rows("building")
+        for row_id, row in rows.items():
             full = _int(row_id)
-            if full is None:
+            following = rows.get(str(full + 1)) if full is not None else None
+            if full is None or following is None:
                 continue
             step = self._step(
                 "building",
                 full // 1000 * 1000,
-                full % 1000,
+                full % 1000 + 1,
                 _pairs(row.get("cost_consume"), "resource") + _pairs(row.get("item"), "item"),
-                row.get("name"),
+                following.get("name"),
                 row.get("time"),
-                row.get("power"),
+                following.get("power"),
+                _requirements(row.get("building")),
             )
             if step:
                 yield step
@@ -272,29 +316,45 @@ class Catalog:
                 yield step
 
     def _vehicle_steps(self) -> Iterator[Row]:
-        for row in self._rows("car_equip").values():
+        """Level reached: a `car_equip` row is the part at level L (from 0)
+        and the cost to go on to L+1; the top row has none."""
+        rows = self._rows("car_equip")
+        by_level = {(_int(r.get("slot")), _int(r.get("level"))): r for r in rows.values()}
+        for (slot, level), row in by_level.items():
+            following = by_level.get((slot, (level or 0) + 1)) if level is not None else None
+            costs = _spec(row.get("cost"))
+            if following is None or not costs:
+                continue
             step = self._step(
                 "vehicle_part",
-                row.get("slot"),
-                row.get("level"),
-                _spec(row.get("cost")),
-                row.get("name"),
+                slot,
+                (level or 0) + 1,
+                costs,
+                following.get("name"),
                 None,
-                row.get("power"),
+                following.get("power"),
             )
             if step:
                 yield step
 
     def _pet_steps(self) -> Iterator[Row]:
-        for row in self._rows("pet_levelup").values():
+        """Level reached: a `pet_levelup` row is the pet at level L and the
+        cost to go on to L+1; the top row (100) has none."""
+        rows = self._rows("pet_levelup")
+        by_level = {(_int(r.get("rarity")), _int(r.get("level"))): r for r in rows.values()}
+        for (rarity, level), row in by_level.items():
+            following = by_level.get((rarity, (level or 0) + 1)) if level is not None else None
+            costs = _spec(row.get("cost_levelup"))
+            if following is None or not costs:
+                continue
             step = self._step(
                 "pet",
-                row.get("rarity"),
-                row.get("level"),
-                _spec(row.get("cost_levelup")),
+                rarity,
+                (level or 0) + 1,
+                costs,
                 None,
                 None,
-                row.get("power_levelup"),
+                following.get("power_levelup"),
             )
             if step:
                 yield step

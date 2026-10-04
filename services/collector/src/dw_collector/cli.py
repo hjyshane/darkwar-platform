@@ -904,13 +904,14 @@ def game_catalog(
     catalog = Catalog(assets)
     items, resources, steps = catalog.items(), catalog.resources(), list(catalog.steps())
     effects = catalog.effects()
+    gear = catalog.hero_gear()
     heroes = catalog.hero_names()
     kinds: dict[str, int] = {}
     for step in steps:
         kinds[step["kind"]] = kinds.get(step["kind"], 0) + 1
     typer.echo(
         f"items={len(items)} resources={len(resources)} steps={len(steps)} {kinds}"
-        f" heroes={len(heroes)} effects={len(effects)}"
+        f" heroes={len(heroes)} effects={len(effects)} gear={len(gear)}"
     )
     if dry_run:
         return
@@ -923,6 +924,7 @@ def game_catalog(
         upload.upsert_rows(client, "game_resources", resources, "resource_id")
         upload.upsert_rows(client, "game_upgrade_steps", steps, "kind,subject_id,level")
         upload.upsert_rows(client, "game_effects", effects, "effect_id")
+        upload.upsert_rows(client, "game_hero_gear", gear, "equip_id")
         named, kept = upload.fill_hero_names(client, heroes)
     typer.echo(f"written; heroes named={named} kept-admin-names={kept}")
 

@@ -3147,6 +3147,33 @@ export type Database = {
         }
         Relationships: []
       }
+      game_hero_gear: {
+        Row: {
+          equip_id: number
+          name: string | null
+          name_ko: string | null
+          quality: number | null
+          slot: number | null
+          updated_at: string
+        }
+        Insert: {
+          equip_id: number
+          name?: string | null
+          name_ko?: string | null
+          quality?: number | null
+          slot?: number | null
+          updated_at?: string
+        }
+        Update: {
+          equip_id?: number
+          name?: string | null
+          name_ko?: string | null
+          quality?: number | null
+          slot?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       game_item_names: {
         Row: {
           item_id: string
@@ -3291,6 +3318,7 @@ export type Database = {
           name: string | null
           name_ko: string | null
           power: number | null
+          requires: Json
           seconds: number | null
           subject_id: string
           updated_at: string
@@ -3302,6 +3330,7 @@ export type Database = {
           name?: string | null
           name_ko?: string | null
           power?: number | null
+          requires?: Json
           seconds?: number | null
           subject_id: string
           updated_at?: string
@@ -3313,6 +3342,7 @@ export type Database = {
           name?: string | null
           name_ko?: string | null
           power?: number | null
+          requires?: Json
           seconds?: number | null
           subject_id?: string
           updated_at?: string

@@ -258,6 +258,8 @@ CATALOGUE_TABLES = {
         [12] = { 12, 11, '230104;15000|230110;50' },
         [37] = { 37, 36, '' } },
       index = { id = {1,'int'}, level = {2,'int'}, cost_goods = {3,'string'} } }""",
+    "ds_equip": """return { data = { [410100] = { 410100, '300016', 5, 1 } },
+      index = { id = {1,'int'}, name = {2,'string'}, quality = {3,'int'}, slot = {4,'int'} } }""",
     "effect_num_des": """return { data = { [30070] = { 30070, '300015', 0 } },
       index = { id = {1,'int'}, des = {2,'string'}, is_minus = {3,'int'} } }""",
     "heroes_levelup": """return { data = {
@@ -270,18 +272,22 @@ CATALOGUE_TABLES = {
     "building": """return { data = {
         [727079] = { 727079, '300005',
                      { {25, 0}, {12, 11400}, {26, 0} }, { {253042, 30} },
-                     1267465, 285090 } },
+                     1267465, 285090, { {402000, 79}, {424000, 79} } },
+        [727080] = { 727080, '300005', {}, {}, 0, 290000, {} } },
       index = { id = {1,'int'}, name = {2,'string'}, cost_consume = {3,'table'},
-                item = {4,'table'}, time = {5,'int'}, power = {6,'int'} } }""",
+                item = {4,'table'}, time = {5,'int'}, power = {6,'int'},
+                building = {7,'table'} } }""",
     "aps_science": """return { data = {
         [1108102] = { 1108102, 1108100, 2, '300006',
                       { {14, 94060000} }, { {200036, 4700} }, 423000 } },
       index = { id = {1,'int'}, science_id = {2,'int'}, level = {3,'int'}, name = {4,'string'},
                 research_need = {5,'table'}, goods_need = {6,'table'}, time = {7,'int'} } }""",
-    "car_equip": """return { data = { [1027] = { 1027, 1, 27, '200040;540|200041;110', '300007' } },
+    "car_equip": """return { data = { [1027] = { 1027, 1, 27, '200040;540|200041;110', '300007' },
+        [1028] = { 1028, 1, 28, '', '300007' } },
       index = { id = {1,'int'}, slot = {2,'int'}, level = {3,'int'},
                 cost = {4,'string'}, name = {5,'string'} } }""",
-    "pet_levelup": """return { data = { [226] = { 226, 3, 26, '330001;2475' } },
+    "pet_levelup": """return { data = { [226] = { 226, 3, 26, '330001;2475' },
+        [227] = { 227, 3, 27, '' } },
       index = { id = {1,'int'}, rarity = {2,'int'}, level = {3,'int'},
                 cost_levelup = {4,'string'} } }""",
 }
@@ -289,6 +295,7 @@ CATALOGUE_EN = (
     "300001=Precision Part\n300002=Titanium Alloy\n300003=Wood\n300004=Iron\n"
     "300006=Field Formation\n300007=Gun\n300010={0} Coins\n300011={0} VIP Points\n"
     "300012={0} Fragments\n300013=Mia\n300014=Night Owl\n300015=Construction Speed\n"
+    "300016=D5-Slayer\n"
 )
 CATALOGUE_KO = "300001=정밀 부품\n300010=코인 {0}\n"
 
@@ -318,9 +325,15 @@ def test_items_carry_both_languages_and_quality() -> None:
 def test_a_building_row_splits_into_type_and_level() -> None:
     (step,) = [s for s in _catalogue().steps() if s["kind"] == "building"]
 
-    assert (step["subject_id"], step["level"]) == ("727000", 79)
+    # Row 79 holds the cost of going on to 80: stored as the step that
+    # reaches 80, with row 80's power and row 79's time and requirements.
+    assert (step["subject_id"], step["level"]) == ("727000", 80)
     assert step["seconds"] == 1267465
-    assert step["power"] == 285090
+    assert step["power"] == 290000
+    assert step["requires"] == [
+        {"subject": "402000", "level": 79},
+        {"subject": "424000", "level": 79},
+    ]
 
 
 def test_costs_say_whether_they_are_resources_or_items_and_drop_zeros() -> None:
@@ -350,9 +363,10 @@ def test_string_costs_split_on_bar_and_semicolon() -> None:
         {"type": "item", "id": "200040", "amount": 540},
         {"type": "item", "id": "200041", "amount": 110},
     ]
-    assert (steps["vehicle_part"]["subject_id"], steps["vehicle_part"]["level"]) == ("1", 27)
+    # Row 27's cost takes the part to 28; the empty top row is no step.
+    assert (steps["vehicle_part"]["subject_id"], steps["vehicle_part"]["level"]) == ("1", 28)
     assert steps["pet"]["costs"] == [{"type": "item", "id": "330001", "amount": 2475}]
-    assert steps["pet"]["subject_id"] == "3"
+    assert (steps["pet"]["subject_id"], steps["pet"]["level"]) == ("3", 27)
 
 
 def test_hero_names_fill_only_what_nobody_typed() -> None:
@@ -480,4 +494,16 @@ def test_effects_are_named_from_the_client() -> None:
         "name": "Construction Speed",
         "name_ko": None,
         "is_minus": False,
+    }
+
+
+def test_hero_gear_is_named_with_its_quality() -> None:
+    (gear,) = _catalogue().hero_gear()
+
+    assert gear == {
+        "equip_id": 410100,
+        "name": "D5-Slayer",
+        "name_ko": None,
+        "quality": 5,
+        "slot": 1,
     }
