@@ -200,7 +200,6 @@ function PackRow({
                   <tr key={item.id}>
                     <td className="label">
                       <span title={`Item code ${item.id}`}>{itemLabel(item)}</span>
-                      {item.name_ko && <span className="muted"> · {item.name_ko}</span>}
                     </td>
                     <td className="num">×{item.qty.toLocaleString('en')}</td>
                     <td className="num">
@@ -488,7 +487,6 @@ function ValueRow({ item, mayEdit }: { item: ItemValue; mayEdit: boolean }) {
                 ✎
               </span>
             )}
-            {item.name_ko && <span className="muted"> · {item.name_ko}</span>}
           </>
         ) : (
           <input
