@@ -910,11 +910,17 @@ const PLANNER_ID = '11111111-1111-4111-8111-111111111101';
 const PLANNER_ACCOUNT = {
   playerId: PLANNER_ID,
   name: 'WonderingDuck',
+  serverId: 580,
   capturedAt: '2026-10-04T01:13:20Z',
   buildings: { '400000': 55, '402000': 55, '424000': 55 },
-  science: {},
-  heroLevels: {},
-  heroGear: [],
+  science: { '1601100': 12 },
+  heroLevels: { '40002': 108, '1017': 97 },
+  heroGear: [
+    { equipId: 410100, heroId: 40002, level: 100, promote: 3 },
+    { equipId: 410200, heroId: 40002, level: 88, promote: 0 },
+    { equipId: 410100, heroId: 1017, level: 60, promote: 0 },
+  ],
+  heroExclusives: { '40002': 42 },
   items: { '253042': 2586 },
   resources: {
     '25': 7162671974,
@@ -945,6 +951,7 @@ const plannerStep = (
   ],
   seconds: 2000000,
   requires,
+  tier: subject === '400000' ? 5 : null,
 });
 const PLANNER_BOOK = new Map([
   [
@@ -965,11 +972,63 @@ const PLANNER_BOOK = new Map([
 export const FIXTURES: [readonly unknown[], unknown][] = [
   [['planner-accounts'], [PLANNER_ACCOUNT]],
   [
-    ['planner-subjects', PLANNER_ID, 'building'],
+    ['planner-tiers'],
+    new Map([
+      [
+        '400000',
+        new Map([
+          [55, 5],
+          [56, 5],
+          [60, 6],
+          [80, 10],
+        ]),
+      ],
+    ]),
+  ],
+  [
+    ['planner-catalog', 'building', '400000,402000,424000'],
     [
-      { subject: '400000', name: 'Watchtower', current: 55 },
-      { subject: '402000', name: 'Alliance Hall', current: 55 },
+      { subject: '400000', name: 'Watchtower', maxLevel: 80, category: null },
+      { subject: '402000', name: 'Alliance Hall', maxLevel: 80, category: null },
+      { subject: '424000', name: 'Fighter Camp', maxLevel: 80, category: null },
     ],
+  ],
+  [
+    ['planner-research-tabs', 580],
+    [
+      { tabId: 1003, name: 'New Home' },
+      { tabId: 1007, name: 'Battle' },
+      { tabId: 23, name: 'Battle Strategy' },
+    ],
+  ],
+  [
+    ['planner-catalog', 'research', 1003],
+    [
+      { subject: '1601100', name: 'Field Formation', maxLevel: 20, category: 1003 },
+      { subject: '1601200', name: 'Assault Drill', maxLevel: 10, category: 1003 },
+    ],
+  ],
+  [
+    ['planner-heroes', PLANNER_ID],
+    {
+      names: new Map([
+        ['40002', 'Pyro Pup'],
+        ['1017', 'Mia'],
+      ]),
+      gear: new Map([
+        [410100, { name: 'D5-Slayer', quality: 5, slot: 1 }],
+        [410200, { name: 'D5-Armor', quality: 5, slot: 2 }],
+      ]),
+      exclusives: new Map([['40002', 52]]),
+    },
+  ],
+  [
+    ['planner-catalog', 'hero-maxima'],
+    new Map([
+      ['hero', 200],
+      ['level:q5', 100],
+      ['promote', 36],
+    ]),
   ],
   [
     [

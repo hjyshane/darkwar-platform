@@ -4,7 +4,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(7);
+select plan(9);
 
 insert into public.collectors (collector_id, name)
 values ('00000000-0000-4000-8000-0000000ce001', 'planner-tabs-test');
@@ -52,6 +52,10 @@ select is((select (hero_exclusives ->> '40002')::int from public.account_state_l
 -- 3. A member reads tab names.
 select is((select name from public.game_research_tabs where tab_id = 1007), 'Battle',
   'a member reads research tab names');
+-- 3b. Subjects summarise their steps: highest level and first name.
+select is((select max_level from public.game_upgrade_subjects
+            where kind = 'exclusive' and subject_id = '40002'), 1,
+  'a member reads the subject summary');
 -- 4. But cannot write them.
 select throws_ok(
   $$ insert into public.game_research_tabs (tab_id, name) values (1, 'x') $$,
@@ -68,6 +72,9 @@ reset role;
 -- 6. Anon reads no tabs.
 select ok(not has_table_privilege('anon', 'public.game_research_tabs', 'select'),
   'anon has no read on research tabs');
+-- 6b. Nor the subject summary.
+select ok(not has_table_privilege('anon', 'public.game_upgrade_subjects', 'select'),
+  'anon has no read on the subject summary');
 -- 7. Authenticated holds select only (hosted default grants give ALL).
 select ok(not has_table_privilege('authenticated', 'public.game_research_tabs', 'truncate'),
   'authenticated cannot truncate research tabs');

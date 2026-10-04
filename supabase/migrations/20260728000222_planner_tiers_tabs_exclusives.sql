@@ -74,3 +74,23 @@ select distinct on (s.player_id)
 from public.account_state_snapshots s
 where s.player_id is not null
 order by s.player_id, s.captured_at desc;
+
+-- One row per upgradeable thing: its name, highest level and tab, so the
+-- planner's pickers list subjects without pulling every step (17k rows, far
+-- past PostgREST's 1,000). The name is the first step's: "Watchtower", not
+-- the "Industrial Watchtower" its later levels are called.
+create view public.game_upgrade_subjects
+with (security_invoker = true) as
+select
+  s.kind,
+  s.subject_id,
+  max(s.level) as max_level,
+  min(s.category) as category,
+  (array_agg(s.name order by s.level) filter (where s.name is not null))[1] as name,
+  (array_agg(s.name_ko order by s.level) filter (where s.name_ko is not null))[1] as name_ko
+from public.game_upgrade_steps s
+group by s.kind, s.subject_id;
+
+revoke all on public.game_upgrade_subjects from anon, authenticated;
+grant select on public.game_upgrade_subjects to authenticated;
+grant select on public.game_upgrade_subjects to service_role;

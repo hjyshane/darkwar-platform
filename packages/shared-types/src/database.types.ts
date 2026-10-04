@@ -7091,6 +7091,17 @@ export type Database = {
         }
         Relationships: []
       }
+      game_upgrade_subjects: {
+        Row: {
+          category: number | null
+          kind: string | null
+          max_level: number | null
+          name: string | null
+          name_ko: string | null
+          subject_id: string | null
+        }
+        Relationships: []
+      }
       hive_formation_board: {
         Row: {
           anchor_x: number | null

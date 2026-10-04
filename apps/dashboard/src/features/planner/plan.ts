@@ -12,7 +12,7 @@
 // Construction speed and cost reduction act on buildings, research speed on
 // research; hero levels and gear have no time and no discount.
 
-export type Kind = 'building' | 'research' | 'hero' | 'hero_gear';
+export type Kind = 'building' | 'research' | 'hero' | 'hero_gear' | 'exclusive';
 
 export interface Cost {
   type: 'resource' | 'item';
@@ -61,6 +61,9 @@ export interface PlannedStep {
   step: Step;
   /** True when no goal asked for it: a prerequisite the plan pulled in. */
   prerequisite: boolean;
+  /** Index of the goal that asked for it, or of the goal whose step needed
+   * it when it is a prerequisite. */
+  goal: number;
 }
 
 export interface Plan {
@@ -96,6 +99,7 @@ export function plan(
     to: number,
     prerequisite: boolean,
     depth: number,
+    goal: number,
   ) => {
     const known = book.get(bookKey(kind, subject));
     if (known === undefined) {
@@ -116,22 +120,22 @@ export function plan(
         for (const need of step.requires) {
           const have = reached.get(need.subject) ?? 0;
           if (have < need.level) {
-            climb('building', need.subject, have, need.level, true, depth + 1);
+            climb('building', need.subject, have, need.level, true, depth + 1, goal);
           }
         }
       }
-      steps.push({ step, prerequisite });
+      steps.push({ step, prerequisite, goal });
       if (kind === 'building') {
         reached.set(subject, Math.max(reached.get(subject) ?? 0, level));
       }
     }
   };
 
-  for (const goal of goals) {
+  goals.forEach((goal, index) => {
     const from =
       goal.kind === 'building' ? Math.max(goal.from, reached.get(goal.subject) ?? 0) : goal.from;
-    climb(goal.kind, goal.subject, from, goal.to, false, 0);
-  }
+    climb(goal.kind, goal.subject, from, goal.to, false, 0, index);
+  });
   return { steps, missing: [...missing].sort(), gaps };
 }
 
@@ -219,4 +223,51 @@ export function buffsFrom(
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
+}
+
+export interface StepGroup {
+  /** `goal:<index>` for what a goal asked for, `pre:<subject>` for a
+   * building pulled in first. */
+  key: string;
+  goal: number;
+  prerequisite: boolean;
+  kind: Kind;
+  subject: string;
+  name: string | null;
+  /** The level before the first step, and the highest level reached. */
+  from: number;
+  to: number;
+  steps: PlannedStep[];
+}
+
+/** A plan split the way "What it takes" shows it: one group per goal, and
+ * one per building a goal needed first, in the order they are first met.
+ * Two gear pieces of one quality share a cost list (subject) but stay two
+ * groups, because they are two goals. */
+export function groupSteps(steps: ReadonlyArray<PlannedStep>): StepGroup[] {
+  const groups = new Map<string, StepGroup>();
+  for (const planned of steps) {
+    const { step, prerequisite, goal } = planned;
+    const key = prerequisite ? `pre:${step.subject_id}` : `goal:${goal}`;
+    const held = groups.get(key);
+    if (held) {
+      held.steps.push(planned);
+      held.from = Math.min(held.from, step.level - 1);
+      held.to = Math.max(held.to, step.level);
+      held.name = held.name ?? step.name;
+    } else {
+      groups.set(key, {
+        key,
+        goal,
+        prerequisite,
+        kind: step.kind,
+        subject: step.subject_id,
+        name: step.name,
+        from: step.level - 1,
+        to: step.level,
+        steps: [planned],
+      });
+    }
+  }
+  return [...groups.values()];
 }
