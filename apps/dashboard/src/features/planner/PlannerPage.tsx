@@ -4,7 +4,7 @@
 //
 // Costs are the game's own (game_upgrade_steps, by the level reached);
 // levels, stock and buffs come from the account's newest login (0205,
-// 0219). Every buff and every stock figure can be overwritten here: a
+// 0219, 0221). Every buff and every stock figure can be overwritten here: a
 // presidential buff, an emergency project, or resources the login does not
 // list. Nothing typed here is saved.
 
@@ -257,7 +257,9 @@ export function PlannerPage() {
   }
 
   const have = (type: string, id: string) =>
-    stockEdits[`${type}:${id}`] ?? (type === 'item' ? (account.items[id] ?? 0) : 0);
+    stockEdits[`${type}:${id}`] ??
+    (type === 'item' ? account.items[id] : account.resources[id]) ??
+    0;
   const nameOf = (type: string, id: string) =>
     (type === 'item' ? names.data?.items.get(id) : names.data?.resources.get(id)) ??
     `${type} ${id}`;
@@ -266,7 +268,7 @@ export function PlannerPage() {
     <main>
       <h2>Material planner</h2>
       <p className="subtle">
-        Costs are the game's own. Levels, items and buffs are {account.name}'s, from the login the
+        Costs are the game's own. Levels, stock and buffs are {account.name}'s, from the login the
         collector saw at {account.capturedAt.slice(0, 16).replace('T', ' ')} UTC. Change any buff or
         stock figure below; nothing here is saved.
       </p>
@@ -477,9 +479,9 @@ export function PlannerPage() {
                 </table>
               </div>
               <p className="note">
-                Items on hand come from the login; resources (wood, iron, electricity, food) are not
-                in it, so type what you hold. Construction cost reduction applies to building
-                resources, not to items such as Precision Parts.
+                Items and resources on hand come from the login; type over any figure that has
+                changed since. Construction cost reduction applies to building resources, not to
+                items such as Precision Parts.
               </p>
             </>
           )}

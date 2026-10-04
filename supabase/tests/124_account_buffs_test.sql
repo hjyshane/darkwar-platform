@@ -1,9 +1,10 @@
 -- 0219: an account's buffs ride with its state — the owner and admins read
 -- them, another member does not — and effect names are member-readable.
+-- 0221: resource stock rides the same way.
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(6);
+select plan(8);
 
 insert into public.collectors (collector_id, name)
 values ('00000000-0000-4000-8000-0000000bf001', 'account-buffs-test');
@@ -27,13 +28,14 @@ on conflict do nothing;
 insert into public.account_state_snapshots
   (observation_id, source_command, parser_version, idempotency_key, captured_at,
    collector_id, collected_from_server_id, server_id, player_id, game_uid,
-   effects, timed_effects)
+   effects, timed_effects, resources)
 values
   (gen_random_uuid(), 'init', '1.1.0', 'bf-test:1', '2026-10-03 23:00+00',
    '00000000-0000-4000-8000-0000000bf001', 580, 580,
    '00000000-0000-4000-8000-0000000bf201', 9270000000000580,
    '{"30070": 73.14, "30421": 14.5}',
-   '[{"effect": 30070, "value": 50, "start": 1790992800000, "end": 1791079200000}]');
+   '[{"effect": 30070, "value": 50, "start": 1790992800000, "end": 1791079200000}]',
+   '{"25": 7162671974, "12": 7213108138}');
 insert into public.game_effects (effect_id, name) values (30070, 'Construction Speed');
 
 set local role authenticated;
@@ -47,6 +49,9 @@ select is((select (effects ->> '30070')::numeric from public.account_state_lates
 select is((select jsonb_array_length(timed_effects) from public.account_state_latest
             where player_id = '00000000-0000-4000-8000-0000000bf201'), 1,
   'and their timed buffs');
+select is((select (resources ->> '25')::bigint from public.account_state_latest
+            where player_id = '00000000-0000-4000-8000-0000000bf201'), 7162671974::bigint,
+  'and their resource stock (0221)');
 -- 3. Effect names are readable by members.
 select is((select name from public.game_effects where effect_id = 30070), 'Construction Speed',
   'a member reads effect names');
@@ -57,6 +62,10 @@ select set_config('request.jwt.claims',
 select is((select count(*)::int from public.account_state_latest
             where player_id = '00000000-0000-4000-8000-0000000bf201'), 0,
   'another member does not read the owner''s buffs');
+select is((select count(*)::int from public.account_state_snapshots
+            where player_id = '00000000-0000-4000-8000-0000000bf201'
+              and resources <> '{}'::jsonb), 0,
+  'nor the owner''s resource stock in the snapshot table');
 -- 5. Nor write effect names.
 select throws_ok(
   $$ insert into public.game_effects (effect_id, name) values (1, 'x') $$,

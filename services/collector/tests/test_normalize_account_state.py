@@ -97,6 +97,7 @@ def test_raw_is_only_what_the_parser_reads() -> None:
         "science",
         "effects",
         "timed_effects",
+        "resources",
     }
     assert row.row["raw"]["user"] == {"uid": "9473022442000580", "serverId": 580}
     assert "someone@example.com" not in str(row.row)
@@ -206,3 +207,25 @@ def test_timed_buffs_keep_their_window_and_flags_are_dropped() -> None:
             "end": 1791079200000,
         },
     ]
+
+
+def test_resources_are_keyed_by_game_resource_id() -> None:
+    """`resource` names stock by key; costs name it by resource id. `coal`
+    is the game's Wood (25); `wood` itself reads 0 and is not a cost."""
+    (row,) = account_state.normalize(load_observation(LOGIN))
+
+    assert row.row["resources"] == {
+        "25": 7162671974,
+        "12": 7213108138,
+        "26": 7099720892,
+        "24": 144921608,
+        "14": 6276060532,
+    }
+
+
+def test_missing_or_malformed_resources_are_empty() -> None:
+    observation = load_observation(LOGIN)
+    for value in (None, [], {"coal": "lots", "iron": True}):
+        payload = {**observation.payload, "resource": value}
+        (row,) = account_state.normalize(observation.model_copy(update={"payload": payload}))
+        assert row.row["resources"] == {}

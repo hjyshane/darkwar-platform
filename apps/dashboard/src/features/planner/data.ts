@@ -3,7 +3,7 @@
 //
 // ACCOUNTS are account_state_latest rows the reader can see: their own
 // characters, or every one for an admin (0205). Each carries its levels,
-// inventory and buffs from its newest login (0219).
+// inventory, resources and buffs from its newest login (0219, 0221).
 //
 // STEPS are loaded per (kind, subject) and only for the levels a goal
 // spans — never a whole kind, which for buildings is ten thousand rows past
@@ -21,6 +21,8 @@ export interface Account {
   heroLevels: Record<string, number>;
   heroGear: { equipId: number; heroId: number | null; level: number; promote: number }[];
   items: Record<string, number>;
+  /** Resource stock by game resource id (0221); empty before parser 1.2.0. */
+  resources: Record<string, number>;
   effects: Record<string, number>;
   timedEffects: {
     state: number | null;
@@ -45,7 +47,7 @@ export async function fetchAccounts(): Promise<Account[]> {
   const { data, error } = await supabase
     .from('account_state_latest')
     .select(
-      'player_id, captured_at, buildings, science, hero_intensify, hero_equips, items, effects, timed_effects',
+      'player_id, captured_at, buildings, science, hero_intensify, hero_equips, items, resources, effects, timed_effects',
     );
   if (error) {
     throw new Error(error.message);
@@ -74,6 +76,7 @@ export async function fetchAccounts(): Promise<Account[]> {
     heroLevels: asRecord(row.hero_intensify),
     heroGear: asList(row.hero_equips),
     items: asRecord(row.items),
+    resources: asRecord(row.resources),
     effects: asRecord(row.effects),
     timedEffects: asList(row.timed_effects),
   }));

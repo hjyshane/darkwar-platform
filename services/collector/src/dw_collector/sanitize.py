@@ -733,6 +733,9 @@ def sanitize_init(payload: dict[str, Any]) -> dict[str, Any]:
     # The server's buff totals: effect id -> number, nothing personal.
     if isinstance(payload.get("effect"), dict):
         clean["effect"] = dict(payload["effect"])
+    # Resource stock: key -> amount, nothing personal.
+    if isinstance(payload.get("resource"), dict):
+        clean["resource"] = dict(payload["resource"])
     return clean
 
 

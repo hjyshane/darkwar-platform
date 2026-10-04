@@ -228,6 +228,21 @@
       "30421": 14.5,
       "not-an-id": 1
     },
+    "resource": {
+      "coal": 7162671974,
+      "db_timezone_offset": 1791079327,
+      "electricity": 7099720892,
+      "flint": 26512741,
+      "food": 144921608,
+      "iron": 7213108138,
+      "metal": 75,
+      "money": 6276060532,
+      "oil": 653316,
+      "people": 10,
+      "pvePoint": 0,
+      "water": 4000,
+      "wood": 0
+    },
     "status": [
       {
         "effNum": 30070,

@@ -52,6 +52,7 @@ export type Database = {
           parser_version: string
           player_id: string | null
           raw: Json
+          resources: Json
           science: Json
           server_id: number
           snapshot_id: string
@@ -75,6 +76,7 @@ export type Database = {
           parser_version: string
           player_id?: string | null
           raw?: Json
+          resources?: Json
           science?: Json
           server_id: number
           snapshot_id?: string
@@ -98,6 +100,7 @@ export type Database = {
           parser_version?: string
           player_id?: string | null
           raw?: Json
+          resources?: Json
           science?: Json
           server_id?: number
           snapshot_id?: string
@@ -6483,6 +6486,7 @@ export type Database = {
           items: Json | null
           mod_car_equips: Json | null
           player_id: string | null
+          resources: Json | null
           science: Json | null
           server_id: number | null
           timed_effects: Json | null
