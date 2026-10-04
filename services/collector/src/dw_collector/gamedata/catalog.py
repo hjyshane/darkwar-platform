@@ -21,8 +21,12 @@ Kinds, and how each table names a step:
 - vehicle_part  `car_equip`: slot + level, cost "item;amount|..."
 - pet           `pet_levelup`: rarity + level, cost_levelup "item;amount|..."
 
-Hero gear is not here yet: its costs are keyed by slot and quality, and the
-captured gear is keyed by equipment id, so it needs a mapping verified first.
+- hero          `heroes_levelup`: Food per level
+- hero_gear     `ds_equip_upgrade` / `ds_equip_promote`: subject = cost list
+- exclusive     `heroes_exclusive_equip`: hero id + level, fragments
+
+Buildings carry `tier` (industry tier, Watchtower 35+) and research
+`category` (the research screen's tab).
 """
 
 from __future__ import annotations
@@ -198,6 +202,33 @@ class Catalog:
             )
         return out
 
+    def research_tabs(self) -> list[Row]:
+        """The research screen's tabs (`aps_science_tab`): name, order, and
+        the servers that see each. Servers 1-564 and 565+ have different
+        trees (Develop / Economy vs New Home / Shelter Building); a tab with
+        no server range is shown everywhere."""
+        out = []
+        for tab_id, row in self._rows("aps_science_tab").items():
+            tid = _int(tab_id)
+            if tid is None:
+                continue
+            name, name_ko = self._names(row.get("name"))
+            servers = [
+                [_int(r[0]), _int(r[1])]
+                for r in (row.get("server") if isinstance(row.get("server"), list) else [])
+                if isinstance(r, list) and len(r) >= 2
+            ]
+            out.append(
+                {
+                    "tab_id": tid,
+                    "name": name,
+                    "name_ko": name_ko,
+                    "sort_order": _int(row.get("order")),
+                    "servers": servers,
+                }
+            )
+        return out
+
     def effects(self) -> list[Row]:
         """Effect ids the server sums per account (init.effect) and the names
         the client shows for them: 30070 Construction Speed, 30421 Reduce
@@ -245,6 +276,7 @@ class Catalog:
         yield from self._pet_steps()
         yield from self._hero_steps()
         yield from self._hero_gear_steps()
+        yield from self._exclusive_steps()
 
     def _step(
         self,
@@ -256,6 +288,8 @@ class Catalog:
         seconds: Any = None,
         power: Any = None,
         requires: list[Row] | None = None,
+        tier: Any = None,
+        category: Any = None,
     ) -> Row | None:
         lvl = _int(level)
         if lvl is None or subject in (None, ""):
@@ -271,6 +305,8 @@ class Catalog:
             "seconds": _int(seconds),
             "power": _int(power),
             "requires": requires or [],
+            "tier": _int(tier),
+            "category": _int(category),
         }
 
     def _building_steps(self) -> Iterator[Row]:
@@ -296,6 +332,9 @@ class Catalog:
                 row.get("time"),
                 following.get("power"),
                 _requirements(row.get("building")),
+                # Industry tier of the level reached: Watchtower 35-39 is
+                # "Industry Lv.1", 40-44 Lv.2 ... 80 Lv.10. Only it has one.
+                following.get("industry_level"),
             )
             if step:
                 yield step
@@ -311,6 +350,8 @@ class Catalog:
                 row.get("name"),
                 row.get("time"),
                 row.get("power"),
+                # The research screen's tab (aps_science_tab).
+                category=row.get("tab"),
             )
             if step:
                 yield step
@@ -419,5 +460,26 @@ class Catalog:
             if not costs:
                 continue
             step = self._step("hero_gear", "promote", (_int(row.get("level")) or 0) + 1, costs)
+            if step:
+                yield step
+
+    def _exclusive_steps(self) -> Iterator[Row]:
+        """Exclusive weapons (`heroes_exclusive_equip`): one row per hero
+        (`group`) and level 0-52, each holding the fragments to go on to the
+        next level (`cost_item` x `cost_num`; the top row is empty). Stored by
+        the level reached, subject the hero id — Pyro Pup (hero 40002) level
+        1 costs row 0's 10 fragments."""
+        for row in self._rows("heroes_exclusive_equip").values():
+            item, amount = _int(row.get("cost_item")), _int(row.get("cost_num"))
+            level = _int(row.get("level"))
+            if item is None or not amount or level is None:
+                continue
+            step = self._step(
+                "exclusive",
+                row.get("group"),
+                level + 1,
+                [{"type": "item", "id": str(item), "amount": amount}],
+                row.get("name"),
+            )
             if step:
                 yield step

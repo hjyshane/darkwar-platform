@@ -228,6 +228,18 @@
       "30421": 14.5,
       "not-an-id": 1
     },
+    "heroEquipUniques": [
+      {
+        "equipId": 40002,
+        "heroId": 40002,
+        "level": 42
+      },
+      {
+        "equipId": 33003,
+        "heroId": 33003,
+        "level": 22
+      }
+    ],
     "resource": {
       "coal": 7162671974,
       "db_timezone_offset": 1791079327,

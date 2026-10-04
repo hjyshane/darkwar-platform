@@ -699,6 +699,7 @@ _INIT_FIELDS: dict[str, tuple[str, ...]] = {
     "heroIntensifys": ("heroId", "lv"),
     "modCarEquipArr": ("equipId", "lv"),
     "science_new": ("itemId", "level"),
+    "heroEquipUniques": ("equipId", "heroId", "level"),
     # Timed buffs (account_state._timed): no identity in them.
     "status": ("effNum", "effVal", "startTime", "endTime", "stateId"),
 }

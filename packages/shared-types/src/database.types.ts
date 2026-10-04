@@ -44,6 +44,7 @@ export type Database = {
           effects: Json
           game_uid: number
           hero_equips: Json
+          hero_exclusives: Json
           hero_intensify: Json
           idempotency_key: string
           items: Json
@@ -68,6 +69,7 @@ export type Database = {
           effects?: Json
           game_uid: number
           hero_equips?: Json
+          hero_exclusives?: Json
           hero_intensify?: Json
           idempotency_key: string
           items?: Json
@@ -92,6 +94,7 @@ export type Database = {
           effects?: Json
           game_uid?: number
           hero_equips?: Json
+          hero_exclusives?: Json
           hero_intensify?: Json
           idempotency_key?: string
           items?: Json
@@ -3271,6 +3274,33 @@ export type Database = {
         }
         Relationships: []
       }
+      game_research_tabs: {
+        Row: {
+          name: string | null
+          name_ko: string | null
+          servers: Json
+          sort_order: number | null
+          tab_id: number
+          updated_at: string
+        }
+        Insert: {
+          name?: string | null
+          name_ko?: string | null
+          servers?: Json
+          sort_order?: number | null
+          tab_id: number
+          updated_at?: string
+        }
+        Update: {
+          name?: string | null
+          name_ko?: string | null
+          servers?: Json
+          sort_order?: number | null
+          tab_id?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       game_resources: {
         Row: {
           name: string | null
@@ -3315,6 +3345,7 @@ export type Database = {
       }
       game_upgrade_steps: {
         Row: {
+          category: number | null
           costs: Json
           kind: string
           level: number
@@ -3324,9 +3355,11 @@ export type Database = {
           requires: Json
           seconds: number | null
           subject_id: string
+          tier: number | null
           updated_at: string
         }
         Insert: {
+          category?: number | null
           costs?: Json
           kind: string
           level: number
@@ -3336,9 +3369,11 @@ export type Database = {
           requires?: Json
           seconds?: number | null
           subject_id: string
+          tier?: number | null
           updated_at?: string
         }
         Update: {
+          category?: number | null
           costs?: Json
           kind?: string
           level?: number
@@ -3348,6 +3383,7 @@ export type Database = {
           requires?: Json
           seconds?: number | null
           subject_id?: string
+          tier?: number | null
           updated_at?: string
         }
         Relationships: []
@@ -6482,6 +6518,7 @@ export type Database = {
           effects: Json | null
           game_uid: number | null
           hero_equips: Json | null
+          hero_exclusives: Json | null
           hero_intensify: Json | null
           items: Json | null
           mod_car_equips: Json | null
