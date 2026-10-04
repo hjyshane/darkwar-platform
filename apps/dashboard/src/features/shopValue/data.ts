@@ -135,10 +135,12 @@ export function estimatedShare(pack: Pick<PackValue, 'rubies' | 'contents'>): nu
   return total > 0 ? estimated / total : 0;
 }
 
-/** What a pack-name correction is keyed by (0225): the name_key every id
- * and reissue of one offer shares, or the id for a pack without one. */
-export function packKey(pack: { name_key: string | null; pack_id: string }): string {
-  return pack.name_key ?? `pack:${pack.pack_id}`;
+/** What a pack-name correction is keyed by (0227): the offer itself — its
+ * name key (or id), price, rubies and contents. Every id one offer is listed
+ * under, and its reissues, share it; two packs that only share a name (each
+ * VIP level's VIP Exclusive) do not. */
+export function packKey(pack: PackValue | Omit<PackValue, 'game_name' | 'renamed'>): string {
+  return `${pack.name_key ?? `pack:${pack.pack_id}`}|${pack.dollars}|${pack.rubies}|${contentsKey(pack)}`;
 }
 
 export async function fetchPacks(): Promise<PackValue[]> {
@@ -252,9 +254,12 @@ export interface PackGroup extends PackValue {
   pack_ids: string[];
   /** Share of the value resting on estimates, for sorting. */
   estimated: number;
+  /** Every rename key among its packs: one, unless two name keys read the
+   * same in English. A rename is saved under all of them. */
+  rename_keys: string[];
 }
 
-function contentsKey(pack: PackValue): string {
+function contentsKey(pack: Pick<PackValue, 'contents'>): string {
   return pack.contents
     .map((item) => `${item.id}:${item.qty}`)
     .sort()
@@ -275,10 +280,13 @@ export function groupPacks(packs: ReadonlyArray<PackValue>): PackGroup[] {
         offers: 1,
         pack_ids: [pack.pack_id],
         estimated: estimatedShare(pack),
+        rename_keys: [packKey(pack)],
       });
     } else {
       held.offers += 1;
       held.pack_ids.push(pack.pack_id);
+      const key = packKey(pack);
+      if (!held.rename_keys.includes(key)) held.rename_keys.push(key);
     }
   }
   return [...groups.values()];
@@ -303,14 +311,15 @@ export async function saveItemName(itemId: string, name: string): Promise<void> 
 
 /** Correct a pack's name, or clear the correction (empty) to show the
  * game's name again (0225). */
-export async function savePackName(key: string, name: string): Promise<void> {
+export async function savePackName(keys: string[], name: string): Promise<void> {
   const trimmed = name.trim();
   const { error } =
     trimmed === ''
-      ? await supabase.from('game_pack_names').delete().eq('pack_key', key)
-      : await supabase
-          .from('game_pack_names')
-          .upsert({ pack_key: key, name: trimmed }, { onConflict: 'pack_key' });
+      ? await supabase.from('game_pack_names').delete().in('pack_key', keys)
+      : await supabase.from('game_pack_names').upsert(
+          keys.map((key) => ({ pack_key: key, name: trimmed })),
+          { onConflict: 'pack_key' },
+        );
   if (error) {
     throw new Error(
       error.code === '42501' ? 'Only officers and admins can rename packs.' : error.message,
