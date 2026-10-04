@@ -88,12 +88,33 @@ class Catalog:
         en, ko = self.en.get(k), self.ko.get(k)
         return (en.strip() or None) if en else None, (ko.strip() or None) if ko else None
 
+    def _templated(self, row: Mapping[str, Any]) -> tuple[str | None, str | None]:
+        """Names the client builds from a template and a number.
+
+        About 200 goods — resource crates, speedups, VIP points — have no
+        `name`, or a name with a "{0}" in it, and carry `name_value` instead:
+        {"180101": "10,000"} is the template key and the number to put in it,
+        which the client shows as "10,000 Coins" / "코인 10,000"."""
+        filled = row.get("name_value")
+        if not isinstance(filled, dict) or not filled:
+            return None, None
+        key, value = next(iter(filled.items()))
+        en, ko = self._names(key)
+        return (
+            en.replace("{0}", str(value)) if en else None,
+            ko.replace("{0}", str(value)) if ko else None,
+        )
+
     def items(self) -> list[Row]:
         out = []
         for item_id, row in self._rows("goods").items():
             if not item_id.isdigit():
                 continue
             name, name_ko = self._names(row.get("name"))
+            if name is None or "{0}" in name:
+                templated, templated_ko = self._templated(row)
+                name = templated or name
+                name_ko = templated_ko or name_ko
             out.append(
                 {
                     "item_id": item_id,

@@ -239,8 +239,11 @@ def test_plan_refreshes_its_own_rows_and_skips_unchanged_ones() -> None:
 CATALOGUE_TABLES = {
     "goods": """return { data = {
         [253042] = { 253042, '300001', 5 },
-        [200040] = { 200040, '300002', 4 } },
-      index = { id = {1,'int'}, name = {2,'string'}, color = {3,'int'} } }""",
+        [200040] = { 200040, '300002', 4 },
+        [210872] = { 210872, '', 2, { ['300010'] = '10,000' } },
+        [222003] = { 222003, '300011', 2, { ['300011'] = '100' } } },
+      index = { id = {1,'int'}, name = {2,'string'}, color = {3,'int'},
+                name_value = {4,'table'} } }""",
     "aps_resources": """return { data = { [25] = { 25, '300003' }, [12] = { 12, '300004' } },
       index = { id = {1,'int'}, name = {2,'string'} } }""",
     "building": """return { data = {
@@ -263,9 +266,9 @@ CATALOGUE_TABLES = {
 }
 CATALOGUE_EN = (
     "300001=Precision Part\n300002=Titanium Alloy\n300003=Wood\n300004=Iron\n"
-    "300006=Field Formation\n300007=Gun\n"
+    "300006=Field Formation\n300007=Gun\n300010={0} Coins\n300011={0} VIP Points\n"
 )
-CATALOGUE_KO = "300001=정밀 부품\n"
+CATALOGUE_KO = "300001=정밀 부품\n300010=코인 {0}\n"
 
 
 def _catalogue():  # type: ignore[no-untyped-def]
@@ -385,3 +388,12 @@ def test_hero_names_keep_only_playable_heroes_with_one_name() -> None:
     # Monsters (<1000) and the 99998 test copy are out; Bob keeps 1007;
     # "Twin" names two playable ids, so neither is guessed.
     assert catalog.hero_names() == {12001: "Barnett", 1007: "Bob"}
+
+
+def test_items_named_by_template_take_their_number() -> None:
+    """Resource crates, speedups and VIP points are named "{0} Coins" plus
+    a number in `name_value`, not by a plain name."""
+    items = {row["item_id"]: row for row in _catalogue().items()}
+
+    assert (items["210872"]["name"], items["210872"]["name_ko"]) == ("10,000 Coins", "코인 10,000")
+    assert items["222003"]["name"] == "100 VIP Points"
