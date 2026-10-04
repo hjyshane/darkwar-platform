@@ -3324,6 +3324,27 @@ export type Database = {
         }
         Relationships: []
       }
+      game_pack_names: {
+        Row: {
+          name: string
+          pack_key: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          name: string
+          pack_key: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          name?: string
+          pack_key?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       game_research_tabs: {
         Row: {
           name: string | null

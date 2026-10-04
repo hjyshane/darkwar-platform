@@ -763,7 +763,10 @@ const SHOP_PACKS = [
   {
     server_id: 580,
     pack_id: '240806011',
+    name_key: '240806011',
     name: 'Power Core Pack',
+    game_name: 'Power Core Pack',
+    renamed: false,
     name_ko: '파워 코어 팩',
     dollars: 4.99,
     rubies: 500,
@@ -792,7 +795,10 @@ const SHOP_PACKS = [
   {
     server_id: 580,
     pack_id: '300001',
-    name: 'Hero Growth Pack',
+    name_key: '300001',
+    name: 'Doomsday Key Pack',
+    game_name: 'Hero Growth Pack',
+    renamed: true,
     name_ko: null,
     dollars: 19.99,
     rubies: 2000,
@@ -835,7 +841,10 @@ const SHOP_PACKS = [
   {
     server_id: 580,
     pack_id: '9001',
+    name_key: '9001',
     name: 'Ruby Pack',
+    game_name: 'Ruby Pack',
+    renamed: false,
     name_ko: null,
     dollars: 0.99,
     rubies: 100,
