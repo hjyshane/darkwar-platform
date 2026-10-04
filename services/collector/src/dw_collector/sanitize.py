@@ -699,6 +699,8 @@ _INIT_FIELDS: dict[str, tuple[str, ...]] = {
     "heroIntensifys": ("heroId", "lv"),
     "modCarEquipArr": ("equipId", "lv"),
     "science_new": ("itemId", "level"),
+    # Timed buffs (account_state._timed): no identity in them.
+    "status": ("effNum", "effVal", "startTime", "endTime", "stateId"),
 }
 
 
@@ -728,6 +730,9 @@ def sanitize_init(payload: dict[str, Any]) -> dict[str, Any]:
             for entry in entries[:_INIT_LIST_LIMIT]
             if isinstance(entry, dict)
         ]
+    # The server's buff totals: effect id -> number, nothing personal.
+    if isinstance(payload.get("effect"), dict):
+        clean["effect"] = dict(payload["effect"])
     return clean
 
 

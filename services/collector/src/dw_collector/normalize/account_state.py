@@ -42,7 +42,7 @@ from dw_collector.models import NormalizedRow, Observation, idempotency_key
 from dw_collector.normalize.event_schedule import schedule_rows
 from dw_collector.registry import register
 
-PARSER_VERSION = "1.0.0"
+PARSER_VERSION = "1.1.0"
 
 
 class _User(BaseModel):
@@ -122,7 +122,50 @@ def account_state(payload: dict[str, Any]) -> dict[str, Any]:
         "hero_intensify": _pairs(_entries(payload, "heroIntensifys"), "heroId", "lv"),
         "mod_car_equips": _pairs(_entries(payload, "modCarEquipArr"), "equipId", "lv"),
         "science": _pairs(_entries(payload, "science_new"), "itemId", "level"),
+        "effects": _effects(payload.get("effect")),
+        "timed_effects": _timed(payload.get("status")),
     }
+
+
+def _effects(value: Any) -> dict[str, float]:
+    """`effect`: the server's own totals per effect id — research, buildings,
+    pets and the rest already added up (30070 Construction Speed 73.14,
+    30421 Reduce Construction Cost 14.5). Timed buffs are NOT in it: healing
+    speed read 90 here while a +200 timed buff was running (2026-10-03)."""
+    if not isinstance(value, dict):
+        return {}
+    out: dict[str, float] = {}
+    for key, amount in value.items():
+        if str(key).isdigit() and isinstance(amount, int | float) and not isinstance(amount, bool):
+            out[str(key)] = float(amount)
+    return out
+
+
+def _timed(value: Any) -> list[dict[str, Any]]:
+    """`status`: buffs with a window (presidential, emergency projects,
+    event boosts) — effect id, value and start/end in epoch ms. A status
+    without an end is a flag, not a buff, and is left out."""
+    out: list[dict[str, Any]] = []
+    for entry in value if isinstance(value, list) else []:
+        if not isinstance(entry, dict):
+            continue
+        effect, amount, end = (
+            _int(entry.get("effNum")),
+            entry.get("effVal"),
+            _int(entry.get("endTime")),
+        )
+        if effect is None or end is None or not isinstance(amount, int | float):
+            continue
+        out.append(
+            {
+                "state": _int(entry.get("stateId")),
+                "effect": effect,
+                "value": float(amount),
+                "start": _int(entry.get("startTime")),
+                "end": end,
+            }
+        )
+    return out
 
 
 @register("init")

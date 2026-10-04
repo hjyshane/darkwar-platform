@@ -166,6 +166,26 @@ class Catalog:
             out.append({"resource_id": rid, "name": name, "name_ko": name_ko})
         return out
 
+    def effects(self) -> list[Row]:
+        """Effect ids the server sums per account (init.effect) and the names
+        the client shows for them: 30070 Construction Speed, 30421 Reduce
+        Construction Cost. From `effect_num_des`."""
+        out = []
+        for effect_id, row in self._rows("effect_num_des").items():
+            eid = _int(effect_id)
+            if eid is None:
+                continue
+            name, name_ko = self._names(row.get("des"))
+            out.append(
+                {
+                    "effect_id": eid,
+                    "name": name,
+                    "name_ko": name_ko,
+                    "is_minus": bool(_int(row.get("is_minus"))),
+                }
+            )
+        return out
+
     def hero_names(self) -> dict[int, str]:
         """hero id → English name, from `aps_new_heroes` (12001 → Barnett).
 
