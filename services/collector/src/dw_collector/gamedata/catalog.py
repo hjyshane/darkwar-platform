@@ -39,6 +39,8 @@ Row = dict[str, Any]
 PLAYABLE_HEROES = (1000, 89999)
 # goods.type of an exclusive equipment's fragments: para1 is the equipment.
 EXCLUSIVE_EQUIP_FRAGMENT = 215
+# Hero experience is bought with Food, one for one.
+FOOD_RESOURCE = "24"
 
 
 def _int(value: Any) -> int | None:
@@ -186,6 +188,7 @@ class Catalog:
         yield from self._research_steps()
         yield from self._vehicle_steps()
         yield from self._pet_steps()
+        yield from self._hero_steps()
 
     def _step(
         self,
@@ -268,6 +271,28 @@ class Catalog:
                 None,
                 None,
                 row.get("power_levelup"),
+            )
+            if step:
+                yield step
+
+    def _hero_steps(self) -> Iterator[Row]:
+        """Hero levels, paid in Food (resource 24): `heroes_levelup` row L
+        holds the experience from L to L+1, and a hero's experience is
+        Food one for one. Stored by the level reached, like every other step:
+        level 21 costs row 20's 45,000. Matched against the user's own table
+        on 2026-10-03 — exact from level 2 to 170, except where theirs rounds
+        (level 38: 4.2M against the game's 4,270,000)."""
+        rows = self._rows("heroes_levelup")
+        for level_id, row in rows.items():
+            level = _int(level_id)
+            exp = _int(row.get("exp"))
+            if level is None or not exp or str(level + 1) not in rows:
+                continue
+            step = self._step(
+                "hero",
+                "hero",
+                level + 1,
+                [{"type": "resource", "id": FOOD_RESOURCE, "amount": exp}],
             )
             if step:
                 yield step
