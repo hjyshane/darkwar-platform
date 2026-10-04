@@ -159,7 +159,14 @@ def by_text(
     *,
     noisy: bool,
 ) -> None:
-    """Strings matching `pattern`, then the rows that point at them."""
+    """Strings matching `pattern`, then the rows that point at them.
+
+    COLLAPSED BY (table, field, string), because the raw form is unreadable.
+    One `desc` shared by every one of a monster's 2,000 rows printed 2,000
+    identical paragraphs, and the one row that mattered — the Tundra Titan's —
+    was somewhere in the middle of it. The ids are what the reader came for, so
+    they are kept; the paragraph is printed once.
+    """
     matcher = re.compile(pattern, re.IGNORECASE)
     keys = {key: value for key, value in text.items() if matcher.search(value)}
     if not keys:
@@ -167,25 +174,67 @@ def by_text(
         return
     print(f"{len(keys)} matching string(s):")
     for key, value in sorted(keys.items(), key=lambda item: int(item[0])):
-        print(f"  {key:>10}  {value}")
+        print(f"  {key:>10}  {clipped(value)}")
 
     print("\nRows pointing at them — the row's own id is the answer:")
-    found = 0
+    # (table, field, localisation key) → the row ids that use it.
+    groups: dict[tuple[str, str, str], list[str]] = {}
     for table, rows in each_table(assets, names, noisy=noisy):
         for row_id, row in rows.items():
-            used = {
-                field: keys[key]
-                for field, value in row.items()
-                if (key := as_key(value)) is not None and key in keys
-            }
-            if not used:
-                continue
-            found += 1
-            print(f"\n== {table}  id={row_id}")
-            for field, value in used.items():
-                print(f"   {field} = {row[field]} → {value}")
-    if found == 0:
+            for field, value in row.items():
+                key = as_key(value)
+                if key is not None and key in keys:
+                    groups.setdefault((table, field, key), []).append(row_id)
+    if not groups:
         print("  (none — the string exists but no table in these bundles points at it)")
+        return
+    for (table, field, key), ids in sorted(groups.items()):
+        print(f"\n== {table}.{field} = {key} → {clipped(keys[key])}")
+        print(f"   {len(ids)} row(s): {summarised(ids)}")
+
+
+def clipped(value: str, limit: int = 110) -> str:
+    """One line, short enough to scan. The full string is a key away."""
+    flat = " ".join(value.split())
+    return flat if len(flat) <= limit else f"{flat[:limit]}…"
+
+
+def summarised(ids: list[str], show: int = 8) -> str:
+    """The ids, or the ends of a long run of them.
+
+    A thousand ids is not a list anybody reads, but WHICH ids is still the
+    answer, so the first and last few are kept rather than a bare count.
+    """
+    if len(ids) <= show:
+        return ", ".join(ids)
+    return f"{', '.join(ids[: show - 2])} … {', '.join(ids[-2:])}"
+
+
+# The client ships 463 tables; the device's AssetBundles folder holds only the
+# ones a patch has replaced (docs/runbooks/game-data.md).
+EVERY_TABLE = 463
+
+
+def warn_if_patches_only(names: list[str]) -> None:
+    """Say so when this is the patch folder rather than the whole client.
+
+    THE FAILURE THIS EXISTS FOR IS SILENT. A sweep of 49 tables prints a
+    confident "no table holds that id" and looks like an answer, when what it
+    means is that 414 tables were never opened. The giveaway is the alphabet:
+    the device's folder carried only names from a to g, so anything later could
+    not have been found whether it was there or not.
+    """
+    if len(names) >= EVERY_TABLE:
+        return
+    first, last = names[0][:1], names[-1][:1]
+    print(
+        f"  WARNING: {len(names)} of about {EVERY_TABLE} tables, names {first} to {last}.\n"
+        "  This looks like the patch bundles alone. The rest are in the APK's\n"
+        "  split_install_time_pack.apk (docs/runbooks/game-data.md); pass that\n"
+        "  folder as a first --bundles or an id you do not find may simply be\n"
+        "  in a table that was never opened.",
+        file=sys.stderr,
+    )
 
 
 def main() -> int:
@@ -219,9 +268,11 @@ def main() -> int:
 
     text = localisation(assets, args.language)
     names = table_names(assets)
-    print(f"{len(names)} datatables, {len(text)} {args.language} strings\n", file=sys.stderr)
+    print(f"{len(names)} datatables, {len(text)} {args.language} strings", file=sys.stderr)
     if not names:
         parser.error("no datatables in those bundles — is this the right folder?")
+    warn_if_patches_only(names)
+    print(file=sys.stderr)
 
     noisy = not args.quiet
     if args.grep:
