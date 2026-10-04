@@ -5048,3 +5048,20 @@ button.tile-grid:hover:not(:disabled) {
   margin: var(--space-3) 0;
   padding: 0;
 }
+
+.level-input {
+  text-align: right;
+  width: 4.5rem;
+}
+
+.planner-manual {
+  align-items: center;
+  background: var(--warn-bg);
+  border-radius: var(--radius-md);
+  color: var(--warn-fg);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin: var(--space-3) 0;
+  padding: var(--space-2) var(--space-3);
+}
