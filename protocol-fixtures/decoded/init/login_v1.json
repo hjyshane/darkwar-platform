@@ -221,6 +221,26 @@
         "itemId": 1202200,
         "level": 3
       }
+    ],
+    "effect": {
+      "30070": 73.14,
+      "30071": 82.01,
+      "30421": 14.5,
+      "not-an-id": 1
+    },
+    "status": [
+      {
+        "effNum": 30070,
+        "effVal": 50.0,
+        "startTime": 1790992800000,
+        "endTime": 1791079200000,
+        "stateId": 500196
+      },
+      {
+        "effNum": 40012,
+        "effVal": 1.0,
+        "stateId": 500007
+      }
     ]
   },
   "schema_version": 1

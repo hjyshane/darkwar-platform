@@ -258,6 +258,8 @@ CATALOGUE_TABLES = {
         [12] = { 12, 11, '230104;15000|230110;50' },
         [37] = { 37, 36, '' } },
       index = { id = {1,'int'}, level = {2,'int'}, cost_goods = {3,'string'} } }""",
+    "effect_num_des": """return { data = { [30070] = { 30070, '300015', 0 } },
+      index = { id = {1,'int'}, des = {2,'string'}, is_minus = {3,'int'} } }""",
     "heroes_levelup": """return { data = {
         [20] = { 20, 45000 }, [21] = { 21, 45000 }, [22] = { 22, 45000 } },
       index = { id = {1,'int'}, exp = {2,'int'} } }""",
@@ -286,7 +288,7 @@ CATALOGUE_TABLES = {
 CATALOGUE_EN = (
     "300001=Precision Part\n300002=Titanium Alloy\n300003=Wood\n300004=Iron\n"
     "300006=Field Formation\n300007=Gun\n300010={0} Coins\n300011={0} VIP Points\n"
-    "300012={0} Fragments\n300013=Mia\n300014=Night Owl\n"
+    "300012={0} Fragments\n300013=Mia\n300014=Night Owl\n300015=Construction Speed\n"
 )
 CATALOGUE_KO = "300001=정밀 부품\n300010=코인 {0}\n"
 
@@ -468,3 +470,14 @@ def test_hero_gear_stages_cost_cores_then_ore_and_blueprints() -> None:
     assert promote[1] == [{"type": "item", "id": "230110", "amount": 10}]
     assert {c["id"] for c in promote[11]} == {"230110", "230113"}
     assert {c["id"] for c in promote[12]} == {"230104", "230110"}
+
+
+def test_effects_are_named_from_the_client() -> None:
+    (effect,) = _catalogue().effects()
+
+    assert effect == {
+        "effect_id": 30070,
+        "name": "Construction Speed",
+        "name_ko": None,
+        "is_minus": False,
+    }

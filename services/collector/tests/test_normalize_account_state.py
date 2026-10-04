@@ -95,6 +95,8 @@ def test_raw_is_only_what_the_parser_reads() -> None:
         "hero_intensify",
         "mod_car_equips",
         "science",
+        "effects",
+        "timed_effects",
     }
     assert row.row["raw"]["user"] == {"uid": "9473022442000580", "serverId": 580}
     assert "someone@example.com" not in str(row.row)
@@ -180,3 +182,27 @@ def test_no_activity_facts() -> None:
     rows = pipeline.process(load_observation(LOGIN))
 
     assert {r.target_table for r in rows} == {"account_state_snapshots"}
+
+
+def test_buffs_are_the_servers_own_totals() -> None:
+    """`effect` is already summed by the server — research, buildings, pets.
+    Non-numeric keys are dropped."""
+    (row,) = account_state.normalize(load_observation(LOGIN))
+
+    assert row.row["effects"] == {"30070": 73.14, "30071": 82.01, "30421": 14.5}
+
+
+def test_timed_buffs_keep_their_window_and_flags_are_dropped() -> None:
+    """`status` with an end is a timed buff (presidential, emergency project);
+    one without is a flag."""
+    (row,) = account_state.normalize(load_observation(LOGIN))
+
+    assert row.row["timed_effects"] == [
+        {
+            "state": 500196,
+            "effect": 30070,
+            "value": 50.0,
+            "start": 1790992800000,
+            "end": 1791079200000,
+        },
+    ]

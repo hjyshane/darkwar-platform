@@ -41,6 +41,7 @@ export type Database = {
           collected_from_server_id: number
           collector_id: string
           created_at: string
+          effects: Json
           game_uid: number
           hero_equips: Json
           hero_intensify: Json
@@ -55,6 +56,7 @@ export type Database = {
           server_id: number
           snapshot_id: string
           source_command: string
+          timed_effects: Json
         }
         Insert: {
           buildings?: Json
@@ -62,6 +64,7 @@ export type Database = {
           collected_from_server_id: number
           collector_id: string
           created_at?: string
+          effects?: Json
           game_uid: number
           hero_equips?: Json
           hero_intensify?: Json
@@ -76,6 +79,7 @@ export type Database = {
           server_id: number
           snapshot_id?: string
           source_command: string
+          timed_effects?: Json
         }
         Update: {
           buildings?: Json
@@ -83,6 +87,7 @@ export type Database = {
           collected_from_server_id?: number
           collector_id?: string
           created_at?: string
+          effects?: Json
           game_uid?: number
           hero_equips?: Json
           hero_intensify?: Json
@@ -97,6 +102,7 @@ export type Database = {
           server_id?: number
           snapshot_id?: string
           source_command?: string
+          timed_effects?: Json
         }
         Relationships: [
           {
@@ -3116,6 +3122,30 @@ export type Database = {
             referencedColumns: ["server_id"]
           },
         ]
+      }
+      game_effects: {
+        Row: {
+          effect_id: number
+          is_minus: boolean
+          name: string | null
+          name_ko: string | null
+          updated_at: string
+        }
+        Insert: {
+          effect_id: number
+          is_minus?: boolean
+          name?: string | null
+          name_ko?: string | null
+          updated_at?: string
+        }
+        Update: {
+          effect_id?: number
+          is_minus?: boolean
+          name?: string | null
+          name_ko?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       game_item_names: {
         Row: {
@@ -6416,6 +6446,7 @@ export type Database = {
         Row: {
           buildings: Json | null
           captured_at: string | null
+          effects: Json | null
           game_uid: number | null
           hero_equips: Json | null
           hero_intensify: Json | null
@@ -6424,6 +6455,7 @@ export type Database = {
           player_id: string | null
           science: Json | null
           server_id: number | null
+          timed_effects: Json | null
         }
         Relationships: [
           {
