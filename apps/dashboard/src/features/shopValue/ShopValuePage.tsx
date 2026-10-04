@@ -15,6 +15,7 @@ import { SortableTh } from '../../components/SortableTh';
 import { type SortState, nextSort, sortRows } from '../../lib/tableControls';
 import { useSession } from '../../lib/useSession';
 import { PackRename } from './PackRename';
+import { UnnamedTab } from './UnnamedTab';
 import {
   type ItemValue,
   type PackFilter,
@@ -38,11 +39,12 @@ import {
 
 const STALE_TIME = 5 * 60_000;
 
-type Tab = 'packs' | 'shop' | 'values';
+type Tab = 'packs' | 'shop' | 'values' | 'unnamed';
 const TABS: ReadonlyArray<[Tab, string]> = [
   ['packs', 'Packs'],
   ['shop', 'Ruby shop'],
   ['values', 'Item values'],
+  ['unnamed', 'Unnamed'],
 ];
 
 const SOURCE_LABELS = { officer: 'officer', game: 'game', estimated: 'estimated' } as const;
@@ -200,7 +202,6 @@ function PackRow({
                   <tr key={item.id}>
                     <td className="label">
                       <span title={`Item code ${item.id}`}>{itemLabel(item)}</span>
-                      {item.name_ko && <span className="muted"> · {item.name_ko}</span>}
                     </td>
                     <td className="num">×{item.qty.toLocaleString('en')}</td>
                     <td className="num">
@@ -488,7 +489,6 @@ function ValueRow({ item, mayEdit }: { item: ItemValue; mayEdit: boolean }) {
                 ✎
               </span>
             )}
-            {item.name_ko && <span className="muted"> · {item.name_ko}</span>}
           </>
         ) : (
           <input
@@ -688,6 +688,7 @@ export function ShopValuePage() {
       {tab === 'packs' && <PacksTab mayEdit={mayEdit} now={now} />}
       {tab === 'shop' && <ShopTab />}
       {tab === 'values' && <ValuesTab mayEdit={mayEdit} />}
+      {tab === 'unnamed' && <UnnamedTab mayEdit={mayEdit} />}
     </main>
   );
 }
