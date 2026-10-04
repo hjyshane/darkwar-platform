@@ -8237,6 +8237,10 @@ export type Database = {
         Returns: undefined
       }
       refresh_member_roster: { Args: never; Returns: undefined }
+      refresh_member_roster_players: {
+        Args: { p_players: string[] }
+        Returns: undefined
+      }
       refresh_player_season_buildings: {
         Args: { p_players?: string[] }
         Returns: undefined
