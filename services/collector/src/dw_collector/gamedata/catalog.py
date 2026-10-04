@@ -37,6 +37,8 @@ Row = dict[str, Any]
 
 # Hero ids that are playable heroes, inclusive (see Catalog.hero_names).
 PLAYABLE_HEROES = (1000, 89999)
+# goods.type of an exclusive equipment's fragments: para1 is the equipment.
+EXCLUSIVE_EQUIP_FRAGMENT = 215
 
 
 def _int(value: Any) -> int | None:
@@ -79,7 +81,7 @@ class Catalog:
         self._assets = assets
         self.en = localisation(assets, "English")
         self.ko = localisation(assets, "Korean")
-        self._heroes: dict[str, Row] | None = None
+        self._tables: dict[str, dict[str, Row]] = {}
 
     def _rows(self, table: str) -> dict[str, Row]:
         return decode(datatable_bytes(self._assets, table), table).rows
@@ -106,15 +108,15 @@ class Catalog:
             ko.replace("{0}", str(value)) if ko else None,
         )
 
-    def _hero(self, hero_id: Any) -> tuple[str | None, str | None]:
-        """A hero's name in both languages, from `aps_new_heroes` (read once).
-        A client without that table names no fragments rather than failing."""
-        if self._heroes is None:
+    def _lookup(self, table: str, row_id: Any) -> tuple[str | None, str | None]:
+        """A row's name in both languages, the table read once. A client
+        without the table names nothing from it rather than failing."""
+        if table not in self._tables:
             try:
-                self._heroes = self._rows("aps_new_heroes")
+                self._tables[table] = self._rows(table)
             except KeyError:
-                self._heroes = {}
-        row = self._heroes.get(str(hero_id).strip())
+                self._tables[table] = {}
+        row = self._tables[table].get(str(row_id).strip())
         return self._names(row.get("name")) if row else (None, None)
 
     def items(self) -> list[Row]:
@@ -128,11 +130,15 @@ class Catalog:
                 name = templated or name
                 name_ko = templated_ko or name_ko
             if name is not None and "{0}" in name:
-                # Hero fragments: "{0} Fragments" with the hero's id in para2.
-                hero_en, hero_ko = self._hero(row.get("para2"))
-                if hero_en:
-                    name = name.replace("{0}", hero_en)
-                    name_ko = name_ko.replace("{0}", hero_ko or hero_en) if name_ko else None
+                # Fragments name their owner by id: a hero in para2 (type 93),
+                # an exclusive equipment in para1 (type 215).
+                if _int(row.get("type")) == EXCLUSIVE_EQUIP_FRAGMENT:
+                    owner_en, owner_ko = self._lookup("heroes_exclusive_equip", row.get("para1"))
+                else:
+                    owner_en, owner_ko = self._lookup("aps_new_heroes", row.get("para2"))
+                if owner_en:
+                    name = name.replace("{0}", owner_en)
+                    name_ko = name_ko.replace("{0}", owner_ko or owner_en) if name_ko else None
             out.append(
                 {
                     "item_id": item_id,

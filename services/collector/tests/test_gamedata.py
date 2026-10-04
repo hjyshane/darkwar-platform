@@ -242,9 +242,13 @@ CATALOGUE_TABLES = {
         [200040] = { 200040, '300002', 4 },
         [210872] = { 210872, '', 2, { ['300010'] = '10,000' } },
         [222003] = { 222003, '300011', 2, { ['300011'] = '100' } },
-        [210305] = { 210305, '300012', 4, nil, '1017' } },
+        [210305] = { 210305, '300012', 4, nil, '1017', 93 },
+        [253074] = { 253074, '300012', 4, nil, '253094', 215, '40006000' } },
       index = { id = {1,'int'}, name = {2,'string'}, color = {3,'int'},
-                name_value = {4,'table'}, para2 = {5,'string'} } }""",
+                name_value = {4,'table'}, para2 = {5,'string'},
+                type = {6,'int'}, para1 = {7,'string'} } }""",
+    "heroes_exclusive_equip": """return { data = { [40006000] = { 40006000, '300014' } },
+      index = { id = {1,'int'}, name = {2,'string'} } }""",
     "aps_new_heroes": """return { data = { [1017] = { 1017, '300013' } },
       index = { id = {1,'int'}, name = {2,'string'} } }""",
     "aps_resources": """return { data = { [25] = { 25, '300003' }, [12] = { 12, '300004' } },
@@ -270,7 +274,7 @@ CATALOGUE_TABLES = {
 CATALOGUE_EN = (
     "300001=Precision Part\n300002=Titanium Alloy\n300003=Wood\n300004=Iron\n"
     "300006=Field Formation\n300007=Gun\n300010={0} Coins\n300011={0} VIP Points\n"
-    "300012={0} Fragments\n300013=Mia\n"
+    "300012={0} Fragments\n300013=Mia\n300014=Night Owl\n"
 )
 CATALOGUE_KO = "300001=정밀 부품\n300010=코인 {0}\n"
 
@@ -408,3 +412,11 @@ def test_hero_fragments_take_the_hero_name() -> None:
     items = {row["item_id"]: row for row in _catalogue().items()}
 
     assert items["210305"]["name"] == "Mia Fragments"
+
+
+def test_equipment_fragments_take_the_equipment_name() -> None:
+    """Type 215 names its exclusive equipment in para1; para2 is only the
+    universal fragment it converts into."""
+    items = {row["item_id"]: row for row in _catalogue().items()}
+
+    assert items["253074"]["name"] == "Night Owl Fragments"
