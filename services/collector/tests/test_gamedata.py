@@ -241,9 +241,12 @@ CATALOGUE_TABLES = {
         [253042] = { 253042, '300001', 5 },
         [200040] = { 200040, '300002', 4 },
         [210872] = { 210872, '', 2, { ['300010'] = '10,000' } },
-        [222003] = { 222003, '300011', 2, { ['300011'] = '100' } } },
+        [222003] = { 222003, '300011', 2, { ['300011'] = '100' } },
+        [210305] = { 210305, '300012', 4, nil, '1017' } },
       index = { id = {1,'int'}, name = {2,'string'}, color = {3,'int'},
-                name_value = {4,'table'} } }""",
+                name_value = {4,'table'}, para2 = {5,'string'} } }""",
+    "aps_new_heroes": """return { data = { [1017] = { 1017, '300013' } },
+      index = { id = {1,'int'}, name = {2,'string'} } }""",
     "aps_resources": """return { data = { [25] = { 25, '300003' }, [12] = { 12, '300004' } },
       index = { id = {1,'int'}, name = {2,'string'} } }""",
     "building": """return { data = {
@@ -267,6 +270,7 @@ CATALOGUE_TABLES = {
 CATALOGUE_EN = (
     "300001=Precision Part\n300002=Titanium Alloy\n300003=Wood\n300004=Iron\n"
     "300006=Field Formation\n300007=Gun\n300010={0} Coins\n300011={0} VIP Points\n"
+    "300012={0} Fragments\n300013=Mia\n"
 )
 CATALOGUE_KO = "300001=정밀 부품\n300010=코인 {0}\n"
 
@@ -397,3 +401,10 @@ def test_items_named_by_template_take_their_number() -> None:
 
     assert (items["210872"]["name"], items["210872"]["name_ko"]) == ("10,000 Coins", "코인 10,000")
     assert items["222003"]["name"] == "100 VIP Points"
+
+
+def test_hero_fragments_take_the_hero_name() -> None:
+    """ "{0} Fragments" carries the hero's id in para2 (210305 -> 1017)."""
+    items = {row["item_id"]: row for row in _catalogue().items()}
+
+    assert items["210305"]["name"] == "Mia Fragments"

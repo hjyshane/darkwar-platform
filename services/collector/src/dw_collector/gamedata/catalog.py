@@ -79,6 +79,7 @@ class Catalog:
         self._assets = assets
         self.en = localisation(assets, "English")
         self.ko = localisation(assets, "Korean")
+        self._heroes: dict[str, Row] | None = None
 
     def _rows(self, table: str) -> dict[str, Row]:
         return decode(datatable_bytes(self._assets, table), table).rows
@@ -105,6 +106,17 @@ class Catalog:
             ko.replace("{0}", str(value)) if ko else None,
         )
 
+    def _hero(self, hero_id: Any) -> tuple[str | None, str | None]:
+        """A hero's name in both languages, from `aps_new_heroes` (read once).
+        A client without that table names no fragments rather than failing."""
+        if self._heroes is None:
+            try:
+                self._heroes = self._rows("aps_new_heroes")
+            except KeyError:
+                self._heroes = {}
+        row = self._heroes.get(str(hero_id).strip())
+        return self._names(row.get("name")) if row else (None, None)
+
     def items(self) -> list[Row]:
         out = []
         for item_id, row in self._rows("goods").items():
@@ -115,6 +127,12 @@ class Catalog:
                 templated, templated_ko = self._templated(row)
                 name = templated or name
                 name_ko = templated_ko or name_ko
+            if name is not None and "{0}" in name:
+                # Hero fragments: "{0} Fragments" with the hero's id in para2.
+                hero_en, hero_ko = self._hero(row.get("para2"))
+                if hero_en:
+                    name = name.replace("{0}", hero_en)
+                    name_ko = name_ko.replace("{0}", hero_ko or hero_en) if name_ko else None
             out.append(
                 {
                     "item_id": item_id,
