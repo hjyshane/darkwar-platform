@@ -213,9 +213,10 @@ class Catalog:
             if tid is None:
                 continue
             name, name_ko = self._names(row.get("name"))
+            ranges = row.get("server")
             servers = [
                 [_int(r[0]), _int(r[1])]
-                for r in (row.get("server") if isinstance(row.get("server"), list) else [])
+                for r in (ranges if isinstance(ranges, list) else [])
                 if isinstance(r, list) and len(r) >= 2
             ]
             out.append(
