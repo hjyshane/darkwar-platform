@@ -11,6 +11,8 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { heroGradeName } from '../../lib/heroes';
+import { troopClassName } from '../../lib/troops';
 import { LevelPicker } from './LevelPicker';
 import { GearPromote, WeaponRank, gearPromoteText, weaponText } from './RankGlyphs';
 import type { Account } from './accounts';
@@ -28,20 +30,12 @@ interface HeroCardsProps {
 
 const NO_TIERS: Tiers = new Map();
 
-/** aps_new_heroes.rarity, as the game colours it. 1 is the yellow top tier
- * (Katrina, Francis, Selwyn); 2 and 3 are read off which heroes sit there. */
-const RARITY_LABELS: Readonly<Record<number, string>> = { 1: 'Yellow', 2: 'Purple', 3: 'Blue' };
-
-function rarityLabel(rarity: number | undefined): string {
-  if (rarity === undefined) return 'Unknown';
-  return RARITY_LABELS[rarity] ?? `Rarity ${rarity}`;
-}
-
 type Gear = Account['heroGear'][number];
 
 export function HeroCards({ account, targets, onSet, onEdit }: HeroCardsProps) {
   const editing = onEdit !== undefined;
-  const [rarityFilter, setRarityFilter] = useState<number | undefined | 'all'>('all');
+  const [gradeFilter, setGradeFilter] = useState<number | undefined | 'all'>('all');
+  const [classFilter, setClassFilter] = useState<number | undefined | 'all'>('all');
   const info = useQuery({
     queryKey: ['planner-heroes', account.playerId, editing],
     queryFn: () => fetchHeroInfo(account, editing),
@@ -64,18 +58,26 @@ export function HeroCards({ account, targets, onSet, onEdit }: HeroCardsProps) {
   if (maxima.isError) return <p className="error">{maxima.error.message}</p>;
 
   const ids = editing ? [...info.data.names.keys()] : Object.keys(account.heroLevels);
-  // Yellow first, and within a rarity the newest hero (the highest id) first:
-  // the heroes a player is still raising.
+  // By the hero catalogue's grade (heroes.grade, the admin page; 3 yellow,
+  // 2 purple, 1 blue — the same grade Arena shows), yellow first, and within
+  // a grade the newest hero (the highest id) first: the heroes a player is
+  // still raising. A hero nobody has graded comes last.
   const all = ids
     .map((id) => ({
       id,
       level: account.heroLevels[id] ?? 0,
       name: info.data.names.get(id) ?? `Hero ${id}`,
-      rarity: info.data.rarity.get(id),
+      grade: info.data.grade.get(id),
+      troopClass: info.data.troopClass.get(id),
     }))
-    .sort((a, b) => (a.rarity ?? 99) - (b.rarity ?? 99) || Number(b.id) - Number(a.id));
-  const rarities = [...new Set(all.map((h) => h.rarity))].sort((a, b) => (a ?? 99) - (b ?? 99));
-  const heroes = all.filter((h) => rarityFilter === 'all' || h.rarity === rarityFilter);
+    .sort((a, b) => (b.grade ?? 0) - (a.grade ?? 0) || Number(b.id) - Number(a.id));
+  const grades = [...new Set(all.map((h) => h.grade))].sort((a, b) => (b ?? 0) - (a ?? 0));
+  const classes = [...new Set(all.map((h) => h.troopClass))].sort((a, b) => (a ?? 99) - (b ?? 99));
+  const heroes = all.filter(
+    (h) =>
+      (gradeFilter === 'all' || h.grade === gradeFilter) &&
+      (classFilter === 'all' || h.troopClass === classFilter),
+  );
   const maxOf = (subject: string) => maxima.data.get(subject) ?? 0;
 
   const edit = (patch: Partial<Account>) => onEdit?.({ ...account, ...patch });
@@ -84,25 +86,47 @@ export function HeroCards({ account, targets, onSet, onEdit }: HeroCardsProps) {
 
   return (
     <>
-      <div aria-label="Hero rarity" className="planner-tabs" role="tablist">
+      <div aria-label="Hero grade" className="planner-tabs" role="tablist">
         <button
-          aria-selected={rarityFilter === 'all'}
-          onClick={() => setRarityFilter('all')}
+          aria-selected={gradeFilter === 'all'}
+          onClick={() => setGradeFilter('all')}
           role="tab"
           type="button"
         >
           All ({all.length})
         </button>
-        {rarities.map((r) => (
+        {grades.map((r) => (
           <button
-            aria-selected={rarityFilter === r}
-            className={r === undefined ? undefined : `rarity-${r}`}
+            aria-selected={gradeFilter === r}
+            className={r === undefined ? undefined : `chip-grade-${r}`}
             key={r ?? 'none'}
-            onClick={() => setRarityFilter(r)}
+            onClick={() => setGradeFilter(r)}
             role="tab"
             type="button"
           >
-            {rarityLabel(r)} ({all.filter((h) => h.rarity === r).length})
+            {heroGradeName(r ?? null)} ({all.filter((h) => h.grade === r).length})
+          </button>
+        ))}
+      </div>
+      <div aria-label="Hero class" className="planner-tabs" role="tablist">
+        <button
+          aria-selected={classFilter === 'all'}
+          onClick={() => setClassFilter('all')}
+          role="tab"
+          type="button"
+        >
+          All classes
+        </button>
+        {classes.map((c) => (
+          <button
+            aria-selected={classFilter === c}
+            key={c ?? 'none'}
+            onClick={() => setClassFilter(c)}
+            role="tab"
+            type="button"
+          >
+            {c === undefined ? 'Class not set' : troopClassName(c)} (
+            {all.filter((h) => h.troopClass === c).length})
           </button>
         ))}
       </div>
@@ -117,8 +141,8 @@ export function HeroCards({ account, targets, onSet, onEdit }: HeroCardsProps) {
             <article className="planner-card" key={hero.id}>
               <h4>
                 {hero.name}{' '}
-                <span className={`rarity-tag rarity-${hero.rarity ?? 'none'}`}>
-                  {rarityLabel(hero.rarity)}
+                <span className={`rarity-tag chip-grade-${hero.grade ?? 'unknown'}`}>
+                  {heroGradeName(hero.grade ?? null)}
                 </span>
               </h4>
               <dl>

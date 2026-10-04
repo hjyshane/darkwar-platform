@@ -5095,21 +5095,6 @@ button.tile-grid:hover:not(:disabled) {
   padding: 0 var(--space-1);
 }
 
-.rarity-tag.rarity-1 {
-  background: #fde68a;
-  color: #713f12;
-}
-
-.rarity-tag.rarity-2 {
-  background: #e9d5ff;
-  color: #581c87;
-}
-
-.rarity-tag.rarity-3 {
-  background: #bfdbfe;
-  color: #1e3a8a;
-}
-
 .rank,
 .rank-row {
   align-items: center;

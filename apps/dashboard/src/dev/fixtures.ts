@@ -1037,10 +1037,14 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
         [410200, { name: 'D5-Armor', quality: 5, slot: 2 }],
       ]),
       exclusives: new Map([['40002', 52]]),
-      rarity: new Map([
-        ['40002', 1],
+      grade: new Map([
+        ['40002', 3],
         ['1017', 2],
-        ['1002', 2],
+        ['1002', 1],
+      ]),
+      troopClass: new Map([
+        ['40002', 2],
+        ['1017', 1],
       ]),
     },
   ],
@@ -1093,10 +1097,14 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
         [410200, { name: 'D5-Armor', quality: 5, slot: 2 }],
       ]),
       exclusives: new Map([['40002', 52]]),
-      rarity: new Map([
-        ['40002', 1],
+      grade: new Map([
+        ['40002', 3],
         ['1017', 2],
-        ['1002', 2],
+        ['1002', 1],
+      ]),
+      troopClass: new Map([
+        ['40002', 2],
+        ['1017', 1],
       ]),
     },
   ],
