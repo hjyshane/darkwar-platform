@@ -21,12 +21,11 @@ export function PackRename({ pack }: { pack: PackValue }) {
     return (
       <button
         aria-label={`Rename ${pack.name}`}
-        className="link-button muted"
+        className="link-button muted pack-rename-button"
         onClick={() => setDraft(pack.renamed ? pack.name : '')}
         title={pack.renamed ? `Game name: ${pack.game_name}` : 'Rename this pack'}
         type="button"
       >
-        {' '}
         rename
       </button>
     );

@@ -5066,6 +5066,11 @@ button.tile-grid:hover:not(:disabled) {
   padding: var(--space-2) var(--space-3);
 }
 
+.pack-rename-button {
+  font-size: var(--text-sm);
+  margin-left: var(--space-3);
+}
+
 .pack-rename {
   display: inline-flex;
   flex-wrap: wrap;
