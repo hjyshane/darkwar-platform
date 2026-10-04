@@ -4936,3 +4936,115 @@ button.tile-grid:hover:not(:disabled) {
 .pack-hidden > td {
   opacity: 0.45;
 }
+
+/* --- material planner ------------------------------------------------------ */
+
+.planner-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-bottom: var(--space-3);
+}
+
+.planner-tabs [role="tab"] {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-3);
+}
+
+.planner-tabs [role="tab"][aria-selected="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+}
+
+.planner-picker {
+  max-height: 32rem;
+  overflow-y: auto;
+}
+
+.planner-filter {
+  margin-bottom: var(--space-2);
+  max-width: 20rem;
+  width: 100%;
+}
+
+.planner-cards {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 21rem), 1fr));
+  margin-bottom: var(--space-4);
+}
+
+.planner-card {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+}
+
+.planner-card h4 {
+  margin: 0 0 var(--space-2);
+}
+
+.planner-card dl {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+}
+
+.planner-card-row {
+  align-items: center;
+  display: flex;
+  gap: var(--space-2);
+  justify-content: space-between;
+}
+
+.planner-card-row dt {
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.planner-card-row dd {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  justify-content: flex-end;
+  margin: 0;
+}
+
+.level-picker {
+  align-items: baseline;
+  display: inline-flex;
+  gap: var(--space-2);
+}
+
+.level-now {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  min-width: 2.5rem;
+  text-align: right;
+}
+
+.level-sub {
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  margin-left: var(--space-1);
+}
+
+.level-picker-raised select {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.planner-chosen {
+  list-style: none;
+  margin: var(--space-3) 0;
+  padding: 0;
+}

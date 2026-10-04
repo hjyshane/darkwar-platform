@@ -247,8 +247,6 @@ CATALOGUE_TABLES = {
       index = { id = {1,'int'}, name = {2,'string'}, color = {3,'int'},
                 name_value = {4,'table'}, para2 = {5,'string'},
                 type = {6,'int'}, para1 = {7,'string'} } }""",
-    "heroes_exclusive_equip": """return { data = { [40006000] = { 40006000, '300014' } },
-      index = { id = {1,'int'}, name = {2,'string'} } }""",
     "ds_equip_upgrade": """return { data = {
         [1001] = { 1001, 3, '10;20;30' }, [1002] = { 1002, 3, '10;20;30' } },
       index = { id = {1,'int'}, quality = {2,'int'}, stone_upgrade_cost = {3,'string'} } }""",
@@ -272,16 +270,29 @@ CATALOGUE_TABLES = {
     "building": """return { data = {
         [727079] = { 727079, '300005',
                      { {25, 0}, {12, 11400}, {26, 0} }, { {253042, 30} },
-                     1267465, 285090, { {402000, 79}, {424000, 79} } },
-        [727080] = { 727080, '300005', {}, {}, 0, 290000, {} } },
+                     1267465, 285090, { {402000, 79}, {424000, 79} }, '9' },
+        [727080] = { 727080, '300005', {}, {}, 0, 290000, {}, '10' } },
       index = { id = {1,'int'}, name = {2,'string'}, cost_consume = {3,'table'},
                 item = {4,'table'}, time = {5,'int'}, power = {6,'int'},
-                building = {7,'table'} } }""",
+                building = {7,'table'}, industry_level = {8,'string'} } }""",
     "aps_science": """return { data = {
         [1108102] = { 1108102, 1108100, 2, '300006',
-                      { {14, 94060000} }, { {200036, 4700} }, 423000 } },
+                      { {14, 94060000} }, { {200036, 4700} }, 423000, 1007 } },
       index = { id = {1,'int'}, science_id = {2,'int'}, level = {3,'int'}, name = {4,'string'},
-                research_need = {5,'table'}, goods_need = {6,'table'}, time = {7,'int'} } }""",
+                research_need = {5,'table'}, goods_need = {6,'table'}, time = {7,'int'},
+                tab = {8,'int'} } }""",
+    "aps_science_tab": """return { data = {
+        [1007] = { 1007, '300017', 7, { {565, 9999} } },
+        [23] = { 23, '300018', 9, {} } },
+      index = { id = {1,'int'}, name = {2,'string'}, order = {3,'int'},
+                server = {4,'table'} } }""",
+    "heroes_exclusive_equip": """return { data = {
+        [40002000] = { 40002000, 40002, 0, '300019', 253070, '10' },
+        [40002001] = { 40002001, 40002, 1, '300019', 253070, '1' },
+        [40002052] = { 40002052, 40002, 52, '300019', 253070, '' },
+        [40006000] = { 40006000, 40006, 52, '300014', 253074, '' } },
+      index = { id = {1,'int'}, group = {2,'int'}, level = {3,'int'}, name = {4,'string'},
+                cost_item = {5,'int'}, cost_num = {6,'string'} } }""",
     "car_equip": """return { data = { [1027] = { 1027, 1, 27, '200040;540|200041;110', '300007' },
         [1028] = { 1028, 1, 28, '', '300007' } },
       index = { id = {1,'int'}, slot = {2,'int'}, level = {3,'int'},
@@ -295,7 +306,7 @@ CATALOGUE_EN = (
     "300001=Precision Part\n300002=Titanium Alloy\n300003=Wood\n300004=Iron\n"
     "300006=Field Formation\n300007=Gun\n300010={0} Coins\n300011={0} VIP Points\n"
     "300012={0} Fragments\n300013=Mia\n300014=Night Owl\n300015=Construction Speed\n"
-    "300016=D5-Slayer\n"
+    "300016=D5-Slayer\n300017=Battle\n300018=Battle Strategy\n300019=Pyro Pup\n"
 )
 CATALOGUE_KO = "300001=정밀 부품\n300010=코인 {0}\n"
 
@@ -507,3 +518,44 @@ def test_hero_gear_is_named_with_its_quality() -> None:
         "quality": 5,
         "slot": 1,
     }
+
+
+def test_a_building_step_carries_the_industry_tier_of_the_level_reached() -> None:
+    (step,) = [s for s in _catalogue().steps() if s["kind"] == "building"]
+
+    # Row 79 is tier 9; the step reaches 80, which is tier 10.
+    assert step["tier"] == 10
+    assert step["category"] is None
+
+
+def test_a_research_step_carries_its_tab() -> None:
+    (step,) = [s for s in _catalogue().steps() if s["kind"] == "research"]
+
+    assert step["category"] == 1007
+    assert step["tier"] is None
+
+
+def test_research_tabs_keep_order_and_servers() -> None:
+    tabs = {t["tab_id"]: t for t in _catalogue().research_tabs()}
+
+    assert tabs[1007] == {
+        "tab_id": 1007,
+        "name": "Battle",
+        "name_ko": None,
+        "sort_order": 7,
+        "servers": [[565, 9999]],
+    }
+    assert tabs[23]["servers"] == []
+
+
+def test_exclusive_weapon_steps_are_fragments_by_level_reached() -> None:
+    steps = sorted(
+        (s for s in _catalogue().steps() if s["kind"] == "exclusive"), key=lambda s: s["level"]
+    )
+
+    # Row 0's 10 fragments buy level 1; the empty top row is no step.
+    assert [(s["subject_id"], s["level"], s["costs"]) for s in steps] == [
+        ("40002", 1, [{"type": "item", "id": "253070", "amount": 10}]),
+        ("40002", 2, [{"type": "item", "id": "253070", "amount": 1}]),
+    ]
+    assert steps[0]["name"] == "Pyro Pup"

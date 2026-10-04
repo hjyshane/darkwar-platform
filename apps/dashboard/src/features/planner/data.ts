@@ -10,16 +10,20 @@
 // PostgREST's 1,000-row cap.
 
 import { supabase } from '../../lib/supabase';
+import { type Tiers, tiersFrom } from './levels';
 import { type Goal, type Kind, type Step, type StepBook, bookKey, plan } from './plan';
 
 export interface Account {
   playerId: string;
   name: string;
+  serverId: number | null;
   capturedAt: string;
   buildings: Record<string, number>;
   science: Record<string, number>;
   heroLevels: Record<string, number>;
   heroGear: { equipId: number; heroId: number | null; level: number; promote: number }[];
+  /** Exclusive weapon level by hero id (0222). */
+  heroExclusives: Record<string, number>;
   items: Record<string, number>;
   /** Resource stock by game resource id (0221); empty before parser 1.2.0. */
   resources: Record<string, number>;
@@ -47,7 +51,7 @@ export async function fetchAccounts(): Promise<Account[]> {
   const { data, error } = await supabase
     .from('account_state_latest')
     .select(
-      'player_id, captured_at, buildings, science, hero_intensify, hero_equips, items, resources, effects, timed_effects',
+      'player_id, server_id, captured_at, buildings, science, hero_intensify, hero_equips, hero_exclusives, items, resources, effects, timed_effects',
     );
   if (error) {
     throw new Error(error.message);
@@ -70,11 +74,13 @@ export async function fetchAccounts(): Promise<Account[]> {
   return rows.map((row) => ({
     playerId: row.player_id as string,
     name: names.get(row.player_id as string) ?? (row.player_id as string).slice(0, 8),
+    serverId: row.server_id,
     capturedAt: row.captured_at ?? '',
     buildings: asRecord(row.buildings),
     science: asRecord(row.science),
     heroLevels: asRecord(row.hero_intensify),
     heroGear: asList(row.hero_equips),
+    heroExclusives: asRecord(row.hero_exclusives),
     items: asRecord(row.items),
     resources: asRecord(row.resources),
     effects: asRecord(row.effects),
@@ -86,7 +92,7 @@ export async function fetchAccounts(): Promise<Account[]> {
 async function fetchSteps(kind: Kind, subject: string, from: number, to: number): Promise<Step[]> {
   const { data, error } = await supabase
     .from('game_upgrade_steps')
-    .select('kind, subject_id, level, name, costs, seconds, requires')
+    .select('kind, subject_id, level, name, costs, seconds, requires, tier')
     .eq('kind', kind)
     .eq('subject_id', subject)
     .gt('level', from)
@@ -172,62 +178,112 @@ export async function fetchMaterialNames(itemIds: string[]): Promise<Names> {
   return { items, resources };
 }
 
-export interface SubjectOption {
+export interface Subject {
   subject: string;
   name: string;
-  current: number;
+  maxLevel: number;
+  category: number | null;
 }
 
-/** What the goal picker lists for one kind, with the account's level. Names
- * come from the subject's first step (buildings, research), the heroes table
- * (heroes) or game_hero_gear (gear). */
-export async function fetchSubjects(kind: Kind, account: Account): Promise<SubjectOption[]> {
-  if (kind === 'hero_gear') {
-    const ids = account.heroGear.map((g) => g.equipId);
-    const { data, error } = await supabase
-      .from('game_hero_gear')
-      .select('equip_id, name, quality')
-      .in('equip_id', ids.length > 0 ? ids : [-1]);
-    if (error) throw new Error(error.message);
-    const byId = new Map((data ?? []).map((g) => [g.equip_id, g]));
-    return account.heroGear.map((g, index) => {
-      const info = byId.get(g.equipId);
-      return {
-        // index keeps two copies of one piece apart; quality picks the list.
-        subject: `${index}:${g.equipId}:${info?.quality ?? 0}`,
-        name: `${info?.name ?? `Gear ${g.equipId}`} (hero ${g.heroId ?? '—'})`,
-        current: g.level,
-      };
-    });
-  }
-  if (kind === 'hero') {
-    const ids = Object.keys(account.heroLevels).map(Number);
-    const { data, error } = await supabase
+/** Upgradeable things of one kind, from the per-subject summary (0222):
+ * every research of a tab, or the named subjects. Never a whole kind of
+ * buildings or research at once — research alone is hundreds of subjects. */
+export async function fetchCatalogSubjects(
+  kind: Kind,
+  filter: { category?: number; subjects?: string[] },
+): Promise<Subject[]> {
+  let query = supabase
+    .from('game_upgrade_subjects')
+    .select('subject_id, name, max_level, category')
+    .eq('kind', kind);
+  if (filter.category !== undefined) query = query.eq('category', filter.category);
+  if (filter.subjects !== undefined)
+    query = query.in('subject_id', filter.subjects.length > 0 ? filter.subjects : ['-']);
+  const { data, error } = await query.limit(1000);
+  if (error) throw new Error(error.message);
+  return (data ?? [])
+    .filter((row) => row.subject_id !== null)
+    .map((row) => ({
+      subject: row.subject_id as string,
+      name: row.name ?? `#${row.subject_id}`,
+      maxLevel: row.max_level ?? 0,
+      category: row.category,
+    }));
+}
+
+/** Levels the game shows as an industry tier (Watchtower 35+). */
+export async function fetchTiers(): Promise<Tiers> {
+  const { data, error } = await supabase
+    .from('game_upgrade_steps')
+    .select('subject_id, level, tier')
+    .eq('kind', 'building')
+    .not('tier', 'is', null)
+    .limit(1000);
+  if (error) throw new Error(error.message);
+  return tiersFrom(
+    (data ?? []).map((r) => ({ subject_id: r.subject_id, level: r.level, tier: r.tier as number })),
+  );
+}
+
+export interface ResearchTab {
+  tabId: number;
+  name: string;
+}
+
+/** The research screen's tabs this server sees, in the game's order. */
+export async function fetchResearchTabs(serverId: number | null): Promise<ResearchTab[]> {
+  const { data, error } = await supabase
+    .from('game_research_tabs')
+    .select('tab_id, name, sort_order, servers');
+  if (error) throw new Error(error.message);
+  const sees = (servers: unknown) => {
+    const ranges = Array.isArray(servers) ? (servers as [number, number][]) : [];
+    return (
+      ranges.length === 0 ||
+      (serverId !== null && ranges.some(([lo, hi]) => serverId >= lo && serverId <= hi))
+    );
+  };
+  return (data ?? [])
+    .filter((t) => sees(t.servers))
+    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.tab_id - b.tab_id)
+    .map((t) => ({ tabId: t.tab_id, name: t.name ?? `Tab ${t.tab_id}` }));
+}
+
+export interface HeroInfo {
+  names: Map<string, string>;
+  gear: Map<number, { name: string; quality: number; slot: number | null }>;
+  /** Hero ids that have an exclusive weapon, with its highest level. */
+  exclusives: Map<string, number>;
+}
+
+/** Names for the hero cards: heroes, the gear they wear, and which heroes
+ * have an exclusive weapon at all. */
+export async function fetchHeroInfo(account: Account): Promise<HeroInfo> {
+  const heroIds = Object.keys(account.heroLevels).map(Number);
+  const gearIds = account.heroGear.map((g) => g.equipId);
+  const [heroes, gear, exclusives] = await Promise.all([
+    supabase
       .from('heroes')
       .select('hero_id, name')
-      .in('hero_id', ids.length > 0 ? ids : [-1]);
-    if (error) throw new Error(error.message);
-    const names = new Map((data ?? []).map((h) => [String(h.hero_id), h.name]));
-    return Object.entries(account.heroLevels)
-      .map(([id, level]) => ({ subject: id, name: names.get(id) ?? `Hero ${id}`, current: level }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }
-  const levels = kind === 'building' ? account.buildings : account.science;
-  const subjects = Object.keys(levels);
-  const names = new Map<string, string>();
-  for (let i = 0; i < subjects.length; i += 150) {
-    const { data, error } = await supabase
-      .from('game_upgrade_steps')
-      .select('subject_id, name')
-      .eq('kind', kind)
-      .in('subject_id', subjects.slice(i, i + 150))
-      .eq('level', kind === 'building' ? 2 : 1);
-    if (error) throw new Error(error.message);
-    for (const row of data ?? []) {
-      if (row.name) names.set(row.subject_id, row.name);
-    }
-  }
-  return subjects
-    .map((s) => ({ subject: s, name: names.get(s) ?? `#${s}`, current: levels[s] ?? 0 }))
-    .sort((a, b) => a.name.localeCompare(b.name));
+      .in('hero_id', heroIds.length > 0 ? heroIds : [-1]),
+    supabase
+      .from('game_hero_gear')
+      .select('equip_id, name, quality, slot')
+      .in('equip_id', gearIds.length > 0 ? gearIds : [-1]),
+    fetchCatalogSubjects('exclusive', {}),
+  ]);
+  if (heroes.error) throw new Error(heroes.error.message);
+  if (gear.error) throw new Error(gear.error.message);
+  return {
+    names: new Map(
+      (heroes.data ?? []).map((h) => [String(h.hero_id), h.name ?? `Hero ${h.hero_id}`]),
+    ),
+    gear: new Map(
+      (gear.data ?? []).map((g) => [
+        g.equip_id,
+        { name: g.name ?? `Gear ${g.equip_id}`, quality: g.quality ?? 0, slot: g.slot },
+      ]),
+    ),
+    exclusives: new Map(exclusives.map((e) => [e.subject, e.maxLevel])),
+  };
 }

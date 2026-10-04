@@ -21,6 +21,8 @@ collector's:
 - `heroIntensifys[]` and `modCarEquipArr[]`: always int pairs.
 - `science_new[]`: the research tree, `{itemId, level}` int pairs, itemId
   unique within a login (136 to 248 entries as research opens up).
+- `heroEquipUniques[]`: exclusive weapons, `heroId` and `level` ints (9 on
+  the main account, 2026-10-04); `equipId` equals `heroId`.
 
 PRIVACY. The rest of `init` is a whole account: linked sign-in names, mail
 state, chat shields, formations, purchase history. `raw` here is therefore
@@ -42,7 +44,7 @@ from dw_collector.models import NormalizedRow, Observation, idempotency_key
 from dw_collector.normalize.event_schedule import schedule_rows
 from dw_collector.registry import register
 
-PARSER_VERSION = "1.2.0"
+PARSER_VERSION = "1.3.0"
 
 
 class _User(BaseModel):
@@ -122,6 +124,8 @@ def account_state(payload: dict[str, Any]) -> dict[str, Any]:
         "hero_intensify": _pairs(_entries(payload, "heroIntensifys"), "heroId", "lv"),
         "mod_car_equips": _pairs(_entries(payload, "modCarEquipArr"), "equipId", "lv"),
         "science": _pairs(_entries(payload, "science_new"), "itemId", "level"),
+        # Exclusive weapons, one per hero that has one: heroId -> level.
+        "hero_exclusives": _pairs(_entries(payload, "heroEquipUniques"), "heroId", "level"),
         "effects": _effects(payload.get("effect")),
         "timed_effects": _timed(payload.get("status")),
         "resources": _resources(payload.get("resource")),

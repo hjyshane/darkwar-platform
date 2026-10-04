@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { type Step, type StepBook, bookKey, buffsFrom, duration, plan, totals } from './plan';
+import {
+  type Step,
+  type StepBook,
+  bookKey,
+  buffsFrom,
+  duration,
+  groupSteps,
+  plan,
+  totals,
+} from './plan';
 
 function step(
   subject: string,
@@ -108,7 +117,7 @@ describe('totals', () => {
 
   it('matches the user table: 7d23h at +73.14% is 4d15h', () => {
     const t = totals(
-      [{ step: { ...step('400000', 31, 180), seconds: 689184 }, prerequisite: false }],
+      [{ step: { ...step('400000', 31, 180), seconds: 689184 }, prerequisite: false, goal: 0 }],
       { constructionSpeed: 73.14, researchSpeed: 0, costReduction: 0 },
     );
     expect(duration(t.buildSeconds)).toBe('4d 15h');
@@ -121,5 +130,44 @@ describe('buffsFrom', () => {
       { effect: 30070, value: 50 },
     ]);
     expect(b).toEqual({ constructionSpeed: 206.16, researchSpeed: 171.51, costReduction: 20 });
+  });
+});
+
+describe('groupSteps', () => {
+  it('splits a plan into each goal and each building needed first', () => {
+    const out = plan(
+      [
+        { kind: 'building', subject: '400000', from: 30, to: 32 },
+        { kind: 'building', subject: '402000', from: 31, to: 32 },
+      ],
+      BOOK,
+      LEVELS,
+    );
+    const groups = groupSteps(out.steps);
+
+    expect(groups.map((g) => [g.key, g.from, g.to, g.prerequisite])).toEqual([
+      ['pre:402000', 30, 31, true],
+      ['goal:0', 30, 32, false],
+      ['goal:1', 31, 32, false],
+    ]);
+    // A prerequisite remembers which goal needed it.
+    expect(groups[0]?.goal).toBe(0);
+  });
+
+  it('keeps two goals on one cost list apart', () => {
+    const gear = book(
+      step('level:q5', 1, 1, [], 'hero_gear'),
+      step('level:q5', 2, 1, [], 'hero_gear'),
+    );
+    const out = plan(
+      [
+        { kind: 'hero_gear', subject: 'level:q5', from: 0, to: 2 },
+        { kind: 'hero_gear', subject: 'level:q5', from: 1, to: 2 },
+      ],
+      gear,
+      new Map(),
+    );
+
+    expect(groupSteps(out.steps).map((g) => g.steps.length)).toEqual([2, 1]);
   });
 });

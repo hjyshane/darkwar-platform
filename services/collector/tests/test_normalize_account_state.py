@@ -98,6 +98,7 @@ def test_raw_is_only_what_the_parser_reads() -> None:
         "effects",
         "timed_effects",
         "resources",
+        "hero_exclusives",
     }
     assert row.row["raw"]["user"] == {"uid": "9473022442000580", "serverId": 580}
     assert "someone@example.com" not in str(row.row)
@@ -229,3 +230,9 @@ def test_missing_or_malformed_resources_are_empty() -> None:
         payload = {**observation.payload, "resource": value}
         (row,) = account_state.normalize(observation.model_copy(update={"payload": payload}))
         assert row.row["resources"] == {}
+
+
+def test_exclusive_weapons_are_levels_by_hero() -> None:
+    (row,) = account_state.normalize(load_observation(LOGIN))
+
+    assert row.row["hero_exclusives"] == {"40002": 42, "33003": 22}
