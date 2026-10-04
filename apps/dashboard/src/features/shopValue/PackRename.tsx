@@ -1,16 +1,17 @@
 // Rename a pack (0225): officers and admins only. The name is saved under
-// the pack's name key, so every id and reissue of that offer reads the same;
-// an empty name puts the game's back.
+// the offer's key (0227) — name key, price, rubies and contents — so every id
+// and reissue of that offer reads the same, and another pack that only shares
+// its name does not; an empty name puts the game's back.
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { type PackValue, packKey, savePackName } from './data';
+import { type PackGroup, savePackName } from './data';
 
-export function PackRename({ pack }: { pack: PackValue }) {
+export function PackRename({ pack }: { pack: PackGroup }) {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<string | null>(null);
   const save = useMutation({
-    mutationFn: (name: string) => savePackName(packKey(pack), name),
+    mutationFn: (name: string) => savePackName(pack.rename_keys, name),
     onSuccess: () => {
       setDraft(null);
       void queryClient.invalidateQueries({ queryKey: ['shop-packs'] });

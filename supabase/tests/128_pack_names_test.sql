@@ -3,7 +3,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(6);
+select plan(7);
 
 insert into auth.users (id, instance_id, aud, role, email) values
   ('00000000-0000-4000-8000-0000000e0101', '00000000-0000-0000-0000-000000000000',
@@ -23,6 +23,12 @@ select set_config('request.jwt.claims',
 select lives_ok(
   $$ insert into public.game_pack_names (pack_key, name) values ('580123', 'Doomsday Key Pack') $$,
   'an officer renames a pack');
+
+-- 1b. 0227: a rename is keyed by the whole offer, contents included.
+select lives_ok(
+  $$ insert into public.game_pack_names (pack_key, name)
+     values ('320204|4.99|0|' || repeat('230110:10,', 40), 'VIP Exclusive 3') $$,
+  'a per-offer key with its contents fits');
 
 -- 2. A member reads it.
 select set_config('request.jwt.claims',

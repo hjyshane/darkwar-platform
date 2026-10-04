@@ -144,8 +144,20 @@ describe('matchesPack', () => {
 });
 
 describe('packKey', () => {
-  it('keys a rename by the name key, or by the id without one', () => {
-    expect(packKey({ name_key: '580123', pack_id: '9' })).toBe('580123');
-    expect(packKey({ name_key: null, pack_id: '9' })).toBe('pack:9');
+  it('keys a rename by the offer, so same-name packs with different contents stay apart', () => {
+    const vip3 = pack('1', 'VIP Exclusive', [item('a', 10, 1, 'game')]);
+    const vip4 = pack('2', 'VIP Exclusive', [item('a', 20, 1, 'game')]);
+    expect(packKey(vip3)).not.toBe(packKey(vip4));
+  });
+
+  it('gives the ids of one offer the same key', () => {
+    const tier1 = pack('1', 'Legend Battle Pass', []);
+    const tier2 = pack('2', 'Legend Battle Pass', []);
+    expect(packKey(tier1)).toBe(packKey(tier2));
+    expect(groupPacks([tier1, tier2])[0]?.rename_keys).toEqual([packKey(tier1)]);
+  });
+
+  it('falls back to the id for a pack without a name key', () => {
+    expect(packKey({ ...pack('9', 'Pack #9', []), name_key: null })).toMatch(/^pack:9\|/);
   });
 });
