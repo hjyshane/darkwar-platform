@@ -270,6 +270,21 @@ class Catalog:
             uses[name.lower()] = uses.get(name.lower(), 0) + 1
         return {hid: name for hid, name in found.items() if uses[name.lower()] == 1}
 
+    def hero_rarity(self) -> list[Row]:
+        """hero id → rarity, from `aps_new_heroes`: 1 is the top tier the game
+        shows in yellow (Katrina, Francis, Selwyn), larger numbers lower. The
+        planner lists heroes by it, newest first within a rarity (0229)."""
+        out = []
+        for hero_id, row in self._rows("aps_new_heroes").items():
+            hid, rarity = _int(hero_id), _int(row.get("rarity"))
+            if (
+                hid is not None
+                and rarity is not None
+                and PLAYABLE_HEROES[0] <= hid <= PLAYABLE_HEROES[1]
+            ):
+                out.append({"hero_id": hid, "rarity": rarity})
+        return out
+
     def steps(self) -> Iterator[Row]:
         yield from self._building_steps()
         yield from self._research_steps()

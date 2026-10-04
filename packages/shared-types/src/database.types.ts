@@ -3230,6 +3230,24 @@ export type Database = {
         }
         Relationships: []
       }
+      game_hero_rarity: {
+        Row: {
+          hero_id: number
+          rarity: number
+          updated_at: string
+        }
+        Insert: {
+          hero_id: number
+          rarity: number
+          updated_at?: string
+        }
+        Update: {
+          hero_id?: number
+          rarity?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       game_item_names: {
         Row: {
           item_id: string
@@ -7159,6 +7177,14 @@ export type Database = {
         Row: {
           display_name: string | null
           points: number | null
+        }
+        Relationships: []
+      }
+      game_upgrade_materials: {
+        Row: {
+          id: string | null
+          kinds: string[] | null
+          type: string | null
         }
         Relationships: []
       }

@@ -263,8 +263,9 @@ CATALOGUE_TABLES = {
     "heroes_levelup": """return { data = {
         [20] = { 20, 45000 }, [21] = { 21, 45000 }, [22] = { 22, 45000 } },
       index = { id = {1,'int'}, exp = {2,'int'} } }""",
-    "aps_new_heroes": """return { data = { [1017] = { 1017, '300013' } },
-      index = { id = {1,'int'}, name = {2,'string'} } }""",
+    "aps_new_heroes": """return { data = { [1017] = { 1017, '300013', 2 },
+        [40015] = { 40015, nil, 1 }, [500] = { 500, nil, 1 } },
+      index = { id = {1,'int'}, name = {2,'string'}, rarity = {3,'int'} } }""",
     "aps_resources": """return { data = { [25] = { 25, '300003' }, [12] = { 12, '300004' } },
       index = { id = {1,'int'}, name = {2,'string'} } }""",
     "building": """return { data = {
@@ -559,3 +560,10 @@ def test_exclusive_weapon_steps_are_fragments_by_level_reached() -> None:
         ("40002", 2, [{"type": "item", "id": "253070", "amount": 1}]),
     ]
     assert steps[0]["name"] == "Pyro Pup"
+
+
+def test_hero_rarity_covers_playable_heroes_only() -> None:
+    rarity = {r["hero_id"]: r["rarity"] for r in _catalogue().hero_rarity()}
+
+    # 500 is a monster, not a hero; a hero needs no name to have a rarity.
+    assert rarity == {1017: 2, 40015: 1}
