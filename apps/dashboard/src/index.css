@@ -5081,3 +5081,9 @@ button.tile-grid:hover:not(:disabled) {
 .pack-rename input {
   width: 16rem;
 }
+
+.unnamed-seen {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}

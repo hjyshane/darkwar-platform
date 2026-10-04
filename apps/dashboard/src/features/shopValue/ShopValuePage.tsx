@@ -15,6 +15,7 @@ import { SortableTh } from '../../components/SortableTh';
 import { type SortState, nextSort, sortRows } from '../../lib/tableControls';
 import { useSession } from '../../lib/useSession';
 import { PackRename } from './PackRename';
+import { UnnamedTab } from './UnnamedTab';
 import {
   type ItemValue,
   type PackFilter,
@@ -38,11 +39,12 @@ import {
 
 const STALE_TIME = 5 * 60_000;
 
-type Tab = 'packs' | 'shop' | 'values';
+type Tab = 'packs' | 'shop' | 'values' | 'unnamed';
 const TABS: ReadonlyArray<[Tab, string]> = [
   ['packs', 'Packs'],
   ['shop', 'Ruby shop'],
   ['values', 'Item values'],
+  ['unnamed', 'Unnamed'],
 ];
 
 const SOURCE_LABELS = { officer: 'officer', game: 'game', estimated: 'estimated' } as const;
@@ -686,6 +688,7 @@ export function ShopValuePage() {
       {tab === 'packs' && <PacksTab mayEdit={mayEdit} now={now} />}
       {tab === 'shop' && <ShopTab />}
       {tab === 'values' && <ValuesTab mayEdit={mayEdit} />}
+      {tab === 'unnamed' && <UnnamedTab mayEdit={mayEdit} />}
     </main>
   );
 }
