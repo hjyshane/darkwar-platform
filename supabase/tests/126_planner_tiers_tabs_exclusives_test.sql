@@ -35,7 +35,9 @@ values
 insert into public.game_upgrade_steps (kind, subject_id, level, name, costs, tier) values
   ('building', '999000', 2, 'Campfire', '[]', null),
   ('building', '999000', 30, 'Watchtower', '[]', null),
-  ('building', '999000', 35, 'Industrial Watchtower', '[]', 1);
+  ('building', '999000', 35, 'Industrial Watchtower', '[]', 1),
+  -- The client's row past the last tier has no tier either (0224).
+  ('building', '999000', 81, 'Industrial Watchtower', '[]', null);
 insert into public.game_research_tabs (tab_id, name, sort_order, servers)
 values (1007, 'Battle', 7, '[[565, 9999]]');
 
@@ -60,7 +62,7 @@ select is((select name from public.game_research_tabs where tab_id = 1007), 'Bat
 select is((select max_level from public.game_upgrade_subjects
             where kind = 'exclusive' and subject_id = '40002'), 1,
   'a member reads the subject summary');
--- 3c. A building is named by its highest level outside a tier.
+-- 3c. A building is named by its highest level before its tiers start.
 select is((select name from public.game_upgrade_subjects
             where kind = 'building' and subject_id = '999000'), 'Watchtower',
   'a tiered building takes its last untiered name');
