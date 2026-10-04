@@ -5065,3 +5065,14 @@ button.tile-grid:hover:not(:disabled) {
   margin: var(--space-3) 0;
   padding: var(--space-2) var(--space-3);
 }
+
+.pack-rename {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-left: var(--space-2);
+}
+
+.pack-rename input {
+  width: 16rem;
+}

@@ -8,6 +8,7 @@ import {
   groupPacks,
   isLive,
   matchesPack,
+  packKey,
   ratioLabel,
 } from './data';
 
@@ -74,7 +75,10 @@ function pack(id: string, name: string, contents: PackItem[], rubies = 0): PackV
   return {
     server_id: 580,
     pack_id: id,
+    name_key: `key-${name}`,
     name,
+    game_name: name,
+    renamed: false,
     name_ko: null,
     dollars: 4.99,
     rubies,
@@ -92,6 +96,12 @@ function pack(id: string, name: string, contents: PackItem[], rubies = 0): PackV
 }
 
 describe('groupPacks', () => {
+  it('groups by the game name, so a rename never splits an offer', () => {
+    const renamed = { ...pack('2', 'Pack #2', []), name: 'Doomsday Key Pack', renamed: true };
+    const groups = groupPacks([pack('1', 'Pack #2', []), renamed]);
+    expect(groups).toHaveLength(1);
+  });
+
   it('folds one offer listed under many ids into one row', () => {
     const tiers = ['1', '2', '3'].map((id) => pack(id, 'Legend Battle Pass', []));
     const groups = groupPacks(tiers);
@@ -130,5 +140,12 @@ describe('matchesPack', () => {
 
   it('matches everything when empty', () => {
     expect(matchesPack(core, '  ')).toBe(true);
+  });
+});
+
+describe('packKey', () => {
+  it('keys a rename by the name key, or by the id without one', () => {
+    expect(packKey({ name_key: '580123', pack_id: '9' })).toBe('580123');
+    expect(packKey({ name_key: null, pack_id: '9' })).toBe('pack:9');
   });
 });

@@ -14,6 +14,7 @@ import { useMemo, useState } from 'react';
 import { SortableTh } from '../../components/SortableTh';
 import { type SortState, nextSort, sortRows } from '../../lib/tableControls';
 import { useSession } from '../../lib/useSession';
+import { PackRename } from './PackRename';
 import {
   type ItemValue,
   type PackFilter,
@@ -127,6 +128,12 @@ function PackRow({
           >
             {open ? '▾' : '▸'} {pack.name}
           </button>
+          {pack.renamed && (
+            <span className="muted" title={`Game name: ${pack.game_name}`}>
+              {' '}
+              ✎
+            </span>
+          )}
           {pack.offers > 1 && (
             <span
               className="muted"
@@ -136,6 +143,7 @@ function PackRow({
               ×{pack.offers} offers
             </span>
           )}
+          {mayEdit && <PackRename pack={pack} />}
         </td>
         <td className="num">{money(pack.dollars)}</td>
         {pack.contents_listed ? (

@@ -23,7 +23,13 @@ export interface PackItem {
 export interface PackValue {
   server_id: number;
   pack_id: string;
+  /** The game's string key for the name; null when the client has none. */
+  name_key: string | null;
+  /** What the page shows: an officer's correction, else the game's name. */
   name: string;
+  /** The game's own name ("Pack #<id>" when it has none), for grouping. */
+  game_name: string;
+  renamed: boolean;
   name_ko: string | null;
   dollars: number;
   rubies: number;
@@ -129,12 +135,35 @@ export function estimatedShare(pack: Pick<PackValue, 'rubies' | 'contents'>): nu
   return total > 0 ? estimated / total : 0;
 }
 
+/** What a pack-name correction is keyed by (0225): the name_key every id
+ * and reissue of one offer shares, or the id for a pack without one. */
+export function packKey(pack: { name_key: string | null; pack_id: string }): string {
+  return pack.name_key ?? `pack:${pack.pack_id}`;
+}
+
 export async function fetchPacks(): Promise<PackValue[]> {
-  const { data, error } = await supabase.from('shop_pack_value').select('*');
-  if (error) {
-    throw new Error(error.message);
+  const [packs, fixes] = await Promise.all([
+    supabase.from('shop_pack_value').select('*'),
+    supabase.from('game_pack_names').select('pack_key, name'),
+  ]);
+  if (packs.error) {
+    throw new Error(packs.error.message);
   }
-  return (data ?? []) as unknown as PackValue[];
+  if (fixes.error) {
+    throw new Error(fixes.error.message);
+  }
+  const renamed = new Map((fixes.data ?? []).map((f) => [f.pack_key, f.name]));
+  return ((packs.data ?? []) as unknown as Omit<PackValue, 'game_name' | 'renamed'>[]).map(
+    (pack) => {
+      const fixed = renamed.get(packKey(pack));
+      return {
+        ...pack,
+        name: fixed ?? pack.name,
+        game_name: pack.name,
+        renamed: fixed !== undefined,
+      };
+    },
+  );
 }
 
 export async function fetchListings(): Promise<ListingValue[]> {
@@ -235,7 +264,9 @@ function contentsKey(pack: PackValue): string {
 export function groupPacks(packs: ReadonlyArray<PackValue>): PackGroup[] {
   const groups = new Map<string, PackGroup>();
   for (const pack of packs) {
-    const key = `${pack.name}|${pack.dollars}|${pack.rubies}|${contentsKey(pack)}`;
+    // The game's name, not a correction: renaming must not split, merge or
+    // un-hide an offer.
+    const key = `${pack.game_name}|${pack.dollars}|${pack.rubies}|${contentsKey(pack)}`;
     const held = groups.get(key);
     if (held === undefined) {
       groups.set(key, {
@@ -266,6 +297,23 @@ export async function saveItemName(itemId: string, name: string): Promise<void> 
   if (error) {
     throw new Error(
       error.code === '42501' ? 'Only officers and admins can rename items.' : error.message,
+    );
+  }
+}
+
+/** Correct a pack's name, or clear the correction (empty) to show the
+ * game's name again (0225). */
+export async function savePackName(key: string, name: string): Promise<void> {
+  const trimmed = name.trim();
+  const { error } =
+    trimmed === ''
+      ? await supabase.from('game_pack_names').delete().eq('pack_key', key)
+      : await supabase
+          .from('game_pack_names')
+          .upsert({ pack_key: key, name: trimmed }, { onConflict: 'pack_key' });
+  if (error) {
+    throw new Error(
+      error.code === '42501' ? 'Only officers and admins can rename packs.' : error.message,
     );
   }
 }
@@ -301,6 +349,7 @@ export function matchesPack(pack: PackValue, text: string): boolean {
   }
   return (
     pack.name.toLowerCase().includes(needle) ||
+    pack.game_name.toLowerCase().includes(needle) ||
     (pack.name_ko ?? '').includes(needle) ||
     pack.pack_id === needle ||
     pack.contents.some(
