@@ -7,6 +7,7 @@ import {
   estimatedShare,
   groupPacks,
   isLive,
+  matchesPack,
   ratioLabel,
 } from './data';
 
@@ -105,5 +106,29 @@ describe('groupPacks', () => {
       pack('b', 'Wartime Investment', [item('bandage', 1, null, null)], 500),
     ]);
     expect(groups).toHaveLength(2);
+  });
+});
+
+describe('matchesPack', () => {
+  const core = pack('240806011', 'Power Core Pack', [
+    {
+      id: '230110',
+      qty: 10,
+      name: 'Power Core',
+      name_ko: '파워 코어',
+      rubies: 461,
+      source: 'estimated',
+    },
+  ]);
+
+  it('finds a pack by its name, an item in it, or its id', () => {
+    expect(matchesPack(core, 'core pack')).toBe(true);
+    expect(matchesPack(core, '파워')).toBe(true);
+    expect(matchesPack(core, '240806011')).toBe(true);
+    expect(matchesPack(core, 'blueprint')).toBe(false);
+  });
+
+  it('matches everything when empty', () => {
+    expect(matchesPack(core, '  ')).toBe(true);
   });
 });

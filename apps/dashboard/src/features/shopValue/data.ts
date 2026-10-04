@@ -291,3 +291,21 @@ export function storeHidden(hidden: ReadonlySet<string>): void {
     // Storage blocked: hiding still works until the page is reloaded.
   }
 }
+
+/** The pack search: the pack's name (English or Korean), any item inside it
+ * by name, or a pack id. Case-insensitive; empty matches everything. */
+export function matchesPack(pack: PackValue, text: string): boolean {
+  const needle = text.trim().toLowerCase();
+  if (needle === '') {
+    return true;
+  }
+  return (
+    pack.name.toLowerCase().includes(needle) ||
+    (pack.name_ko ?? '').includes(needle) ||
+    pack.pack_id === needle ||
+    pack.contents.some(
+      (item) =>
+        (item.name ?? '').toLowerCase().includes(needle) || (item.name_ko ?? '').includes(needle),
+    )
+  );
+}
