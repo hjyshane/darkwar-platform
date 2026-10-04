@@ -18,8 +18,15 @@ from tests.conftest import load_observation
 class FakeSupabase:
     """Just enough PostgREST: entity GET/POST plus snapshot upserts."""
 
-    def __init__(self, fail_tables: set[str] | None = None) -> None:
+    def __init__(
+        self,
+        fail_tables: set[str] | None = None,
+        timeout_above: dict[str, int] | None = None,
+    ) -> None:
         self.fail_tables = fail_tables or set()
+        # table -> largest request that finishes inside the statement timeout
+        self.timeout_above = timeout_above or {}
+        self.requests: dict[str, list[int]] = {}
         self.entities: dict[str, list[dict[str, Any]]] = {
             "collectors": [],
             "alliances": [],
@@ -40,6 +47,15 @@ class FakeSupabase:
             return httpx.Response(201, json=created)
         if table in self.fail_tables:
             return httpx.Response(500, json={"message": "injected failure"})
+        self.requests.setdefault(table, []).append(len(rows))
+        if len(rows) > self.timeout_above.get(table, len(rows)):
+            return httpx.Response(
+                500,
+                json={
+                    "code": "57014",
+                    "message": "canceling statement due to statement timeout",
+                },
+            )
         self.upserted.setdefault(table, []).extend(rows)
         return httpx.Response(201, json=[])
 
@@ -259,3 +275,27 @@ def test_black_money_history_of_an_unseen_alliance_uses_the_label(journal: Journ
     assert stats.failed == 0
     assert [(a["server_id"]) for a in fake.entities["alliances"]] == [580]
     assert {r["server_id"] for r in fake.upserted["black_money_battle_snapshots"]} == {580}
+
+
+def test_a_timed_out_batch_is_split_until_it_fits(journal: Journal) -> None:
+    """57014 is the request's size, not its rows: halve and send again."""
+    fake = FakeSupabase(timeout_above={"alliance_member_snapshots": 30})
+    worker = _worker(_loaded_journal(journal), fake)
+
+    stats = worker.drain_once()
+
+    assert stats.failed == 0
+    assert journal.outbox_counts() == {"sent": 694}
+    assert len(fake.upserted["alliance_member_snapshots"]) == 93
+    # 93 -> 46 + 47 -> four of 23/24, all under 30.
+    assert max(n for n in fake.requests["alliance_member_snapshots"] if n <= 30) <= 30
+
+
+def test_a_timeout_that_splitting_cannot_fix_still_fails(journal: Journal) -> None:
+    fake = FakeSupabase(timeout_above={"alliance_member_snapshots": 0})
+    worker = _worker(_loaded_journal(journal), fake)
+
+    stats = worker.drain_once()
+
+    assert stats.failed == 93
+    assert "alliance_member_snapshots" not in fake.upserted

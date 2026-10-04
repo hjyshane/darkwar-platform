@@ -87,6 +87,17 @@ class DrainStats:
     tables: dict[str, int] = field(default_factory=dict)
 
 
+# PostgreSQL's statement_timeout. On the hosted instance it is 8 s, and what
+# trips it is the size of the request — a 1,000-row insert fires statement
+# triggers over all of it — not anything wrong with the rows. 30,586 season
+# building rows and 4,782 roster rows dead-lettered on it before this
+# (2026-10-04). A timed-out statement rolls back whole, and every upsert here
+# is idempotent, so the halves are simply sent again.
+STATEMENT_TIMEOUT = "57014"
+# Below this a timeout is not about size any more; fail it like any error.
+MIN_SPLIT_ROWS = 10
+
+
 class SyncError(Exception):
     pass
 
@@ -328,14 +339,26 @@ class SyncWorker:
             "ignore-duplicates" if conflict_target == "idempotency_key" else "merge-duplicates"
         )
         for group in groups.values():
-            resp = self.client.post(
-                f"/rest/v1/{table}",
-                params={"on_conflict": conflict_target},
-                json=group,
-                headers={"Prefer": f"resolution={resolution},return=minimal"},
-            )
-            if resp.status_code >= 400:
-                raise SyncError(f"{table}: HTTP {resp.status_code}: {resp.text[:300]}")
+            self._post_rows(table, group, conflict_target, resolution)
+
+    def _post_rows(
+        self, table: str, rows: list[dict[str, Any]], conflict_target: str, resolution: str
+    ) -> None:
+        resp = self.client.post(
+            f"/rest/v1/{table}",
+            params={"on_conflict": conflict_target},
+            json=rows,
+            headers={"Prefer": f"resolution={resolution},return=minimal"},
+        )
+        if resp.status_code < 400:
+            return
+        if STATEMENT_TIMEOUT in resp.text and len(rows) > MIN_SPLIT_ROWS:
+            half = len(rows) // 2
+            log.info("sync.batch_split", table=table, rows=len(rows))
+            self._post_rows(table, rows[:half], conflict_target, resolution)
+            self._post_rows(table, rows[half:], conflict_target, resolution)
+            return
+        raise SyncError(f"{table}: HTTP {resp.status_code}: {resp.text[:300]}")
 
     def drain_once(self, now: datetime | None = None) -> DrainStats:
         stats = DrainStats()
