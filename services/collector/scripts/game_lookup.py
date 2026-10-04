@@ -237,10 +237,53 @@ def warn_if_patches_only(names: list[str]) -> None:
     )
 
 
+def list_tables(names: list[str], pattern: str) -> None:
+    """The table names matching a regex.
+
+    ABSENCE IS EVIDENCE, and it was not reachable before. With all 463 tables
+    loaded, "no table is called anything like boss" says the client does not
+    hold the thing being hunted — which is a real answer, and the one that
+    stops a search going round again.
+    """
+    matcher = re.compile(pattern, re.IGNORECASE)
+    hits = [name for name in names if matcher.search(name)]
+    print(f"{len(hits)} of {len(names)} table names match {pattern!r}:")
+    for name in hits:
+        print(f"  {name}")
+    if not hits:
+        print("  (none — the client ships no table named anything like that)")
+
+
+def dump_table(
+    assets: Mapping[str, bytes], text: Mapping[str, str], table: str, limit: int
+) -> None:
+    """Every row of one table, with its text resolved.
+
+    Once a table is identified, the question stops being "where is this id"
+    and becomes "what ids does this table have" — which `--id` and `--grep`
+    cannot answer, because both need you to already know what you are after.
+    """
+    try:
+        rows = decode(datatable_bytes(assets, table), table).rows
+    except KeyError:
+        print(f"No table called {table!r}. Try --list to find its real name.")
+        return
+    print(f"{table}: {len(rows)} row(s), columns {sorted({c for r in rows.values() for c in r})}")
+    for index, (row_id, row) in enumerate(rows.items()):
+        if index >= limit:
+            print(f"\n  … {len(rows) - limit} more; raise --rows to see them")
+            break
+        named = named_fields(row, text)
+        print(f"\n== {table}  id={row_id}")
+        for field, value in named.items():
+            print(f"   {field} = {row[field]} → {clipped(value)}")
+        print(f"   row: {row}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Look an unnamed game id up in the client's datatables.",
-        epilog='e.g. --grep "tundra|titan|ice pit"   or   --id 107',
+        epilog='e.g. --grep "tundra|titan|ice pit"   or   --id 107   or   --list boss',
     )
     parser.add_argument(
         "--bundles",
@@ -252,11 +295,14 @@ def main() -> int:
     parser.add_argument("--language", default="English", help="localisation folder name")
     parser.add_argument("--id", action="append", default=[], help="a row id to look up; repeatable")
     parser.add_argument("--grep", help="a regex to match localised strings against")
+    parser.add_argument("--list", help="a regex to match TABLE NAMES against")
+    parser.add_argument("--table", help="dump every row of this table")
+    parser.add_argument("--rows", type=int, default=40, help="rows --table prints (default 40)")
     parser.add_argument("--quiet", action="store_true", help="no progress on stderr")
     args = parser.parse_args()
 
-    if not args.id and not args.grep:
-        parser.error("give --id, --grep, or both")
+    if not any([args.id, args.grep, args.list, args.table]):
+        parser.error("give at least one of --id, --grep, --list, --table")
 
     assets: dict[str, bytes] = {}
     for folder in args.bundles:
@@ -274,13 +320,23 @@ def main() -> int:
     warn_if_patches_only(names)
     print(file=sys.stderr)
 
+    # Cheapest first: --list and --table open one table or none, while --grep
+    # and --id decode all 463. Somebody running every flag at once should see
+    # the quick answers before the sweep starts.
     noisy = not args.quiet
-    if args.grep:
-        by_text(assets, names, text, args.grep, noisy=noisy)
-    if args.id:
-        if args.grep:
+    printed = False
+    for ran, run in (
+        (args.list, lambda: list_tables(names, args.list)),
+        (args.table, lambda: dump_table(assets, text, args.table, args.rows)),
+        (args.grep, lambda: by_text(assets, names, text, args.grep, noisy=noisy)),
+        (args.id, lambda: by_id(assets, names, text, [str(x) for x in args.id], noisy=noisy)),
+    ):
+        if not ran:
+            continue
+        if printed:
             print("\n" + "-" * 60)
-        by_id(assets, names, text, [str(one) for one in args.id], noisy=noisy)
+        run()
+        printed = True
     return 0
 
 
