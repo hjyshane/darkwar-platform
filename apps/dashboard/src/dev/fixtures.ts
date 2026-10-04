@@ -899,7 +899,87 @@ const SHOP_LISTINGS = [
   },
 ];
 
+/** The material planner (item 4): one account, and the plan for Watchtower
+ *  55 -> 56, which needs Alliance Hall 55 (already met) and Fighter Camp 56
+ *  (pulled in as a prerequisite). */
+const PLANNER_ID = '11111111-1111-4111-8111-111111111101';
+const PLANNER_ACCOUNT = {
+  playerId: PLANNER_ID,
+  name: 'WonderingDuck',
+  capturedAt: '2026-10-04T01:13:20Z',
+  buildings: { '400000': 55, '402000': 55, '424000': 55 },
+  science: {},
+  heroLevels: {},
+  heroGear: [],
+  items: { '253042': 2586 },
+  effects: { '30070': 156.16, '30071': 171.51, '30421': 20 },
+  timedEffects: [],
+};
+const plannerStep = (
+  subject: string,
+  level: number,
+  name: string,
+  parts: number,
+  requires: unknown[],
+) => ({
+  kind: 'building',
+  subject_id: subject,
+  level,
+  name,
+  costs: [
+    { type: 'resource', id: '25', amount: 150000000 },
+    { type: 'resource', id: '12', amount: 150000000 },
+    { type: 'resource', id: '26', amount: 150000000 },
+    { type: 'item', id: '253042', amount: parts },
+  ],
+  seconds: 2000000,
+  requires,
+});
+const PLANNER_BOOK = new Map([
+  [
+    'building:400000',
+    new Map([
+      [
+        56,
+        plannerStep('400000', 56, 'Watchtower', 320, [
+          { subject: '402000', level: 55 },
+          { subject: '424000', level: 56 },
+        ]),
+      ],
+    ]),
+  ],
+  ['building:424000', new Map([[56, plannerStep('424000', 56, 'Fighter Camp', 140, [])]])],
+]);
+
 export const FIXTURES: [readonly unknown[], unknown][] = [
+  [['planner-accounts'], [PLANNER_ACCOUNT]],
+  [
+    ['planner-subjects', PLANNER_ID, 'building'],
+    [
+      { subject: '400000', name: 'Watchtower', current: 55 },
+      { subject: '402000', name: 'Alliance Hall', current: 55 },
+    ],
+  ],
+  [
+    [
+      'planner-book',
+      PLANNER_ID,
+      JSON.stringify([{ kind: 'building', subject: '400000', from: 55, to: 56 }]),
+      true,
+    ],
+    PLANNER_BOOK,
+  ],
+  [
+    ['planner-names', '253042'],
+    {
+      items: new Map([['253042', 'Precision Part']]),
+      resources: new Map([
+        ['25', 'Wood'],
+        ['12', 'Iron'],
+        ['26', 'Electricity'],
+      ]),
+    },
+  ],
   [['shop-packs'], SHOP_PACKS],
   [['shop-listings'], SHOP_LISTINGS],
   [

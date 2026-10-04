@@ -36,6 +36,7 @@ export type Route =
   | 'notice'
   | 'schedule'
   | 'participation'
+  | 'planner'
   | 'calendar'
   | 'shopValue'
   | 'account'
@@ -63,6 +64,7 @@ const ROUTES: Record<string, Route> = {
   '#/notices': 'notices',
   '#/schedule': 'schedule',
   '#/participation': 'participation',
+  '#/planner': 'planner',
   '#/calendar': 'calendar',
   '#/shop-value': 'shopValue',
   // The only two addresses here that a signed-out stranger is MEANT to reach.
@@ -294,6 +296,9 @@ export const ALLIANCE_TABS: ReadonlyArray<NavTab> = [
   // Every member against every event, plus the ones only an officer can
   // record (0204). Member-only at the policy level, so no capability gate.
   { route: 'participation', hash: '#/participation', label: 'Participation' },
+  // What raising a building, research, hero or gear costs one of your own
+  // accounts after its buffs (item 4). Account state is owner-or-admin (0205).
+  { route: 'planner', hash: '#/planner', label: 'Planner' },
 ];
 
 /** Events' second row: what the game itself has announced (0208).
@@ -333,6 +338,7 @@ export function navSection(route: Route): NavSection | null {
     case 'season2':
     case 'blackMoney':
     case 'participation':
+    case 'planner':
       return 'alliance';
     case 'map':
       return 'map';
