@@ -5318,3 +5318,57 @@ button.tile-grid:hover:not(:disabled) {
 .chart-flow .chart figcaption {
   flex-grow: 1;
 }
+
+/* My character: squads side by side, a hero to a line (0236). */
+.squad-grid {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
+}
+
+.squad-grid h3 {
+  margin: 0 0 var(--space-2);
+}
+
+.squad-list {
+  display: grid;
+  gap: var(--space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.squad-hero {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+}
+
+.squad-hero-name {
+  flex: 1 1 8rem;
+  min-width: 0;
+}
+
+.squad-gear {
+  display: flex;
+  flex-basis: 100%;
+  flex-wrap: wrap;
+  font-size: var(--text-sm);
+  gap: var(--space-1) var(--space-3);
+  padding-inline-start: calc(36px + var(--space-2));
+}
+
+.squad-gear-piece {
+  align-items: center;
+  display: inline-flex;
+  gap: 2px;
+}
+
+.squad-bench summary {
+  cursor: pointer;
+}
+
+.squad-bench summary h3 {
+  display: inline;
+}

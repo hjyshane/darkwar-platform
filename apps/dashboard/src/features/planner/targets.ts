@@ -14,7 +14,8 @@ export interface Target {
   name: string;
   from: number;
   to: number;
-  /** Hero gear only: current and target stage (stage-up, then awakening). */
+  /** Hero gear: current and target stage (stage-up, then awakening).
+   * Pet: stageFrom is the breakthrough already reached. */
   stageFrom?: number;
   stageTo?: number;
 }
@@ -56,6 +57,16 @@ export function goalsOf(targets: Iterable<Target>): { goals: Goal[]; names: stri
           { kind: 'hero_gear', subject: 'promote', from: t.stageFrom ?? 0, to: t.stageTo ?? 0 },
           `${t.name} (stages)`,
         );
+    } else if (t.kind === 'pet') {
+      // subject `<petId>:<rarity>`; the costs are the rarity's.
+      const rarity = t.subject.split(':')[1] ?? '0';
+      add({ kind: 'pet', subject: rarity, from: t.from, to: t.to }, t.name);
+      for (const level of breakthroughsCrossed(t.from, t.to, t.stageFrom ?? 0)) {
+        add(
+          { kind: 'pet_break', subject: rarity, from: level - 1, to: level },
+          `${t.name} (breakthrough ${level})`,
+        );
+      }
     } else if (t.kind === 'hero') {
       add({ kind: 'hero', subject: 'hero', from: t.from, to: t.to }, t.name);
     } else if (t.to > t.from) {
@@ -63,4 +74,15 @@ export function goalsOf(targets: Iterable<Target>): { goals: Goal[]; names: stri
     }
   }
   return { goals, names };
+}
+
+/** The breakthroughs a pet needs on the way from `from` to `to`: every tenth
+ * level it has to pass and has not broken through yet. Reaching a cap is
+ * free; going past it is not. */
+export function breakthroughsCrossed(from: number, to: number, reached: number): number[] {
+  const out: number[] = [];
+  for (let level = Math.ceil(Math.max(from, 1) / 10) * 10; level < to; level += 10) {
+    if (level > reached) out.push(level);
+  }
+  return out;
 }

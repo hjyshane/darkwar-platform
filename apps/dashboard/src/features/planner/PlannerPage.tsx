@@ -24,17 +24,20 @@ import { BuildingPicker } from './BuildingPicker';
 import { HeroCards } from './HeroCards';
 import { ResearchPicker } from './ResearchPicker';
 import { StockPanel } from './StockPanel';
+import { PetPicker, VehiclePicker } from './VehiclePetPickers';
 import { type Account, blankAccount, fetchAccounts, saveManual } from './accounts';
 import { fetchMaterialNames, fetchTiers, loadBook } from './data';
 import { levelText } from './levels';
 import { type Buffs, EFFECT_IDS, buffsFrom, plan, totals } from './plan';
 import { type Target, goalsOf, withTarget } from './targets';
 
-type Section = 'building' | 'research' | 'heroes';
+type Section = 'building' | 'research' | 'heroes' | 'vehicle' | 'pets';
 const SECTIONS: ReadonlyArray<[Section, string]> = [
   ['building', 'Buildings'],
   ['research', 'Research'],
   ['heroes', 'Heroes'],
+  ['vehicle', 'Vehicle'],
+  ['pets', 'Pets'],
 ];
 
 function BuffInput({
@@ -367,6 +370,10 @@ export function PlannerPage() {
               tiers={tierMap}
             />
           )}
+          {section === 'vehicle' && (
+            <VehiclePicker account={account} onSet={set} targets={targets} />
+          )}
+          {section === 'pets' && <PetPicker account={account} onSet={set} targets={targets} />}
           {section === 'heroes' && (
             <HeroCards
               account={account}

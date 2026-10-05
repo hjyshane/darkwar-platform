@@ -25,6 +25,17 @@ export interface Account {
   heroTrained: string[];
   /** March squads 1-4, each its hero ids in slot order (0236). */
   heroSquads: { index: number; heroes: string[] }[];
+  /** The vehicle's level and exp, and its parts' set level (0237). */
+  vehicle: { level?: number; exp?: number; suit_level?: number };
+  /** Vehicle part levels by slot (mod_car_equips). */
+  vehicleParts: Record<string, number>;
+  /** Pets: level, breakthrough reached, training by attribute (0237). */
+  pets: {
+    petId: number;
+    level: number;
+    breakthrough: number;
+    training: Record<string, number>;
+  }[];
   heroGear: { equipId: number; heroId: number | null; level: number; promote: number }[];
   /** Exclusive weapon level by hero id (0222). */
   heroExclusives: Record<string, number>;
@@ -77,7 +88,7 @@ export async function fetchAccounts(): Promise<Account[]> {
     supabase
       .from('account_state_latest')
       .select(
-        'player_id, server_id, captured_at, buildings, science, hero_intensify, hero_levels, hero_trained, hero_squads, hero_equips, hero_exclusives, items, resources, effects, timed_effects',
+        'player_id, server_id, captured_at, buildings, science, hero_intensify, hero_levels, hero_trained, hero_squads, mod_car_equips, vehicle, pets, hero_equips, hero_exclusives, items, resources, effects, timed_effects',
       ),
     supabase.from('account_state_manual').select('*'),
   ]);
@@ -108,6 +119,19 @@ export async function fetchAccounts(): Promise<Account[]> {
     heroSquads: asList<{ index: number; heroes: number[] }>(row.hero_squads).map((s) => ({
       index: s.index,
       heroes: (s.heroes ?? []).map(String),
+    })),
+    vehicle: asRecord(row.vehicle),
+    vehicleParts: asRecord(row.mod_car_equips),
+    pets: asList<{
+      pet_id: number;
+      level: number;
+      breakthrough: number;
+      training: Record<string, number>;
+    }>(row.pets).map((p) => ({
+      petId: p.pet_id,
+      level: p.level,
+      breakthrough: p.breakthrough ?? 0,
+      training: p.training ?? {},
     })),
     heroGear: asList(row.hero_equips),
     heroExclusives: asRecord(row.hero_exclusives),
@@ -148,6 +172,9 @@ export function blankAccount(
     heroLevels: {},
     heroTrained: [],
     heroSquads: [],
+    vehicle: {},
+    vehicleParts: {},
+    pets: [],
     heroGear: [],
     heroExclusives: {},
     items: {},

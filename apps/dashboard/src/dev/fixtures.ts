@@ -931,6 +931,12 @@ const PLANNER_ACCOUNT = {
     { index: 1, heroes: ['40002'] },
     { index: 2, heroes: [] },
   ],
+  vehicle: { level: 279, exp: 1200, suit_level: 27 },
+  vehicleParts: { '1': 35, '2': 34 },
+  pets: [
+    { petId: 106, level: 83, breakthrough: 80, training: { '1': 161, '2': 150 } },
+    { petId: 101, level: 60, breakthrough: 60, training: {} },
+  ],
   heroGear: [
     { equipId: 410100, heroId: 40002, level: 100, promote: 24 },
     { equipId: 410200, heroId: 40002, level: 88, promote: 0 },
@@ -2196,9 +2202,61 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
   ],
 
   // Admin — Catalogue
-  [['heroes'], []],
+  [
+    ['heroes'],
+    new Map([
+      [40002, { hero_id: 40002, name: 'Pyro Pup', troop_class: 1, grade: 3, notes: '' }],
+      [1017, { hero_id: 1017, name: 'Mia', troop_class: 2, grade: 2, notes: '' }],
+    ]),
+  ],
   [['heroes-admin'], []],
-  [['pets'], []],
+  [
+    ['pets'],
+    new Map([
+      [101, { pet_id: 101, name: 'Owlet', notes: '', rarity: 1 }],
+      [106, { pet_id: 106, name: 'Rex', notes: '', rarity: 4 }],
+    ]),
+  ],
+  [
+    ['planner-catalog', 'vehicle', 'maxima'],
+    new Map([['0', { subject: '0', name: 'Vehicle', maxLevel: 500, category: null }]]),
+  ],
+  [
+    ['planner-catalog', 'vehicle_part', 'maxima'],
+    new Map([
+      ['1', { subject: '1', name: 'Engine', maxLevel: 66, category: null }],
+      ['2', { subject: '2', name: 'Armor', maxLevel: 66, category: null }],
+    ]),
+  ],
+  [
+    ['planner-catalog', 'pet', 'maxima'],
+    new Map([
+      ['1', { subject: '1', name: null, maxLevel: 60, category: null }],
+      ['4', { subject: '4', name: null, maxLevel: 100, category: null }],
+    ]),
+  ],
+  [
+    ['account-state', PLAYER.shane],
+    {
+      capturedAt: '2026-10-05T19:20:34Z',
+      heroLevels: { '40002': 108, '1017': 97, '1016': 40 },
+      squads: [
+        { index: 1, heroes: [40002, 1017] },
+        { index: 2, heroes: [] },
+      ],
+      gear: [
+        { equipId: 410100, heroId: 40002, level: 100, promote: 24 },
+        { equipId: 410200, heroId: 40002, level: 88, promote: 0 },
+      ],
+      exclusives: { '40002': 42 },
+      vehicleParts: { '1': 35, '2': 34 },
+      vehicle: { level: 279, exp: 1200, suit_level: 27 },
+      pets: [
+        { pet_id: 101, level: 60, breakthrough: 60, training: { '1': 90, '2': 80 } },
+        { pet_id: 106, level: 83, breakthrough: 80, training: { '1': 161, '2': 150 } },
+      ],
+    },
+  ],
   [['pets-admin'], []],
 
   // Admin — Operations

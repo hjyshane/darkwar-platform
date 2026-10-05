@@ -12,7 +12,16 @@
 // Construction speed and cost reduction act on buildings, research speed on
 // research; hero levels and gear have no time and no discount.
 
-export type Kind = 'building' | 'research' | 'hero' | 'hero_gear' | 'exclusive';
+export type Kind =
+  | 'building'
+  | 'research'
+  | 'hero'
+  | 'hero_gear'
+  | 'exclusive'
+  | 'vehicle'
+  | 'vehicle_part'
+  | 'pet'
+  | 'pet_break';
 
 export interface Cost {
   type: 'resource' | 'item';
