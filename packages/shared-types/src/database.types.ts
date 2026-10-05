@@ -3236,6 +3236,51 @@ export type Database = {
         }
         Relationships: []
       }
+      game_icon_refs: {
+        Row: {
+          icon_key: string
+          kind: string
+          ref_id: string
+          updated_at: string
+        }
+        Insert: {
+          icon_key: string
+          kind: string
+          ref_id: string
+          updated_at?: string
+        }
+        Update: {
+          icon_key?: string
+          kind?: string
+          ref_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      game_icons: {
+        Row: {
+          height: number
+          icon_key: string
+          image: string
+          updated_at: string
+          width: number
+        }
+        Insert: {
+          height: number
+          icon_key: string
+          image: string
+          updated_at?: string
+          width: number
+        }
+        Update: {
+          height?: number
+          icon_key?: string
+          image?: string
+          updated_at?: string
+          width?: number
+        }
+        Relationships: []
+      }
       game_item_names: {
         Row: {
           item_id: string

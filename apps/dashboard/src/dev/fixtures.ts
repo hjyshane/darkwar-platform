@@ -980,7 +980,24 @@ const PLANNER_BOOK = new Map([
   ['building:424000', new Map([[56, plannerStep('424000', 56, 'Fighter Camp', 140, [])]])],
 ]);
 
+/** Placeholder art: a coloured disc. The real icons are the game's and are
+ * never committed; this only shows where they sit. */
+const PLACEHOLDER_ICON = (colour: string) =>
+  `data:image/svg+xml,${encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="${colour}"/></svg>`,
+  )}`;
+
 export const FIXTURES: [readonly unknown[], unknown][] = [
+  [
+    ['game-icons', 'hero'],
+    new Map([
+      ['40002', PLACEHOLDER_ICON('#f59e0b')],
+      ['1017', PLACEHOLDER_ICON('#a855f7')],
+    ]),
+  ],
+  [['game-icons', 'gear'], new Map([['410100', PLACEHOLDER_ICON('#64748b')]])],
+  [['game-icons', 'exclusive'], new Map([['40002', PLACEHOLDER_ICON('#ef4444')]])],
+  [['game-icons', 'item'], new Map([['253042', PLACEHOLDER_ICON('#22c55e')]])],
   [['planner-accounts'], [PLANNER_ACCOUNT]],
   [
     ['planner-materials'],
