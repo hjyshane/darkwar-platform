@@ -926,6 +926,10 @@ const PLANNER_ACCOUNT = {
   science: { '1601100': 12 },
   heroLevels: { '40002': 108, '1017': 97 },
   heroTrained: ['1017'],
+  heroSquads: [
+    { index: 1, heroes: ['40002'] },
+    { index: 2, heroes: [] },
+  ],
   heroGear: [
     { equipId: 410100, heroId: 40002, level: 100, promote: 3 },
     { equipId: 410200, heroId: 40002, level: 88, promote: 0 },

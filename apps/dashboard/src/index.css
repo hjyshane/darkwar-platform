@@ -4958,9 +4958,10 @@ button.tile-grid:hover:not(:disabled) {
   color: var(--bg);
 }
 
+/* No scroll pane of its own (user 2026-10-05: a scroll inside a scroll
+ * inside a scroll). The page scrolls; the picker is as tall as it is. */
 .planner-picker {
-  max-height: 32rem;
-  overflow-y: auto;
+  margin-bottom: var(--space-3);
 }
 
 .planner-filter {

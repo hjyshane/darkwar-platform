@@ -101,6 +101,7 @@ def test_raw_is_only_what_the_parser_reads() -> None:
         "hero_exclusives",
         "hero_levels",
         "hero_trained",
+        "hero_squads",
     }
     assert row.row["raw"]["user"] == {"uid": "9473022442000580", "serverId": 580}
     assert "someone@example.com" not in str(row.row)
@@ -266,3 +267,25 @@ def test_no_hero_level_means_nothing_to_sync_to() -> None:
 
     assert row.row["hero_levels"] == {}
     assert row.row["hero_trained"] == []
+
+
+def test_squads_are_hero_ids_in_slot_order() -> None:
+    """army_formation names heroes by instance uuid; the row carries hero ids,
+    ordered by slot. `tempHeroes` is a leftover: an empty squad stays empty."""
+    (row,) = account_state.normalize(load_observation(LOGIN))
+
+    assert row.row["hero_squads"] == [
+        {"index": 1, "heroes": [40005, 40002, 40001]},
+        {"index": 2, "heroes": [40004, 21001]},
+        # 777 is no hero's uuid: skipped, not guessed.
+        {"index": 3, "heroes": [1016]},
+        {"index": 4, "heroes": []},
+    ]
+
+
+def test_no_formations_is_no_squads() -> None:
+    observation = load_observation(LOGIN)
+    payload = {k: v for k, v in observation.payload.items() if k != "army_formation"}
+    (row,) = account_state.normalize(observation.model_copy(update={"payload": payload}))
+
+    assert row.row["hero_squads"] == []

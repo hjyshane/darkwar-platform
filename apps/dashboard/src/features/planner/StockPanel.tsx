@@ -64,6 +64,26 @@ interface StockPanelProps {
   edited: ReadonlySet<string>;
 }
 
+// Closed until opened, and remembered (user 2026-10-05: the list pushed
+// the rest of the planner down). Browser storage can be refused.
+const OPEN_KEY = 'planner-stock-open';
+
+function readOpen(): boolean {
+  try {
+    return localStorage.getItem(OPEN_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function storeOpen(open: boolean): void {
+  try {
+    localStorage.setItem(OPEN_KEY, open ? '1' : '0');
+  } catch {
+    // Not remembered; the panel still works.
+  }
+}
+
 export function StockPanel({ have, onHave, edited }: StockPanelProps) {
   const materials = useQuery({
     queryKey: ['planner-materials'],
@@ -78,6 +98,8 @@ export function StockPanel({ have, onHave, edited }: StockPanelProps) {
     staleTime: 60 * 60_000,
   });
   const [filter, setFilter] = useState('');
+  const [group, setGroup] = useState<string | null>(null);
+  const [open, setOpen] = useState(readOpen);
   const itemIcons = useItemIcons(itemIds);
   const resourceIcons = useIcons('resource');
 
@@ -101,16 +123,41 @@ export function StockPanel({ have, onHave, edited }: StockPanelProps) {
     for (const m of rows) placed.add(`${m.type}:${m.id}`);
     return [label, rows] as const;
   }).filter(([, rows]) => rows.length > 0);
+  const shownGroup = sections.find(([label]) => label === group)?.[0] ?? sections[0]?.[0] ?? null;
 
   return (
-    <details className="planner-stock" open>
+    <details
+      className="planner-stock"
+      onToggle={(e) => {
+        setOpen(e.currentTarget.open);
+        storeOpen(e.currentTarget.open);
+      }}
+      open={open}
+    >
       <summary>
         <h3>Stock</h3>
         <span className="subtle">
           {' '}
-          everything an upgrade costs, and how much you hold — change any figure
+          {open ? 'hide' : 'show'} — everything an upgrade costs, and how much you hold
         </span>
       </summary>
+      {/* A tab per category; a search looks through all of them. */}
+      <div aria-label="Stock category" className="planner-tabs" role="tablist">
+        {sections.map(([label, rows]) => (
+          <button
+            aria-selected={needle === '' && label === shownGroup}
+            key={label}
+            onClick={() => {
+              setGroup(label);
+              setFilter('');
+            }}
+            role="tab"
+            type="button"
+          >
+            {label} ({rows.length})
+          </button>
+        ))}
+      </div>
       <input
         aria-label="Find a material"
         className="planner-filter"
@@ -119,43 +166,45 @@ export function StockPanel({ have, onHave, edited }: StockPanelProps) {
         type="search"
         value={filter}
       />
-      {sections.map(([label, rows]) => (
-        <section className="planner-stock-group" key={label}>
-          <h4>{label}</h4>
-          <div className="planner-stock-grid">
-            {rows.map((m) => {
-              const key = `${m.type}:${m.id}`;
-              const held = have(m.type, m.id);
-              return (
-                <label className="planner-stock-item" key={key}>
-                  <span className="planner-stock-name">
-                    <GameIcon
-                      src={(m.type === 'item' ? itemIcons : resourceIcons).data?.get(m.id)}
+      {sections
+        .filter(([label]) => needle !== '' || label === shownGroup)
+        .map(([label, rows]) => (
+          <section className="planner-stock-group" key={label}>
+            {needle !== '' && <h4>{label}</h4>}
+            <div className="planner-stock-grid">
+              {rows.map((m) => {
+                const key = `${m.type}:${m.id}`;
+                const held = have(m.type, m.id);
+                return (
+                  <label className="planner-stock-item" key={key}>
+                    <span className="planner-stock-name">
+                      <GameIcon
+                        src={(m.type === 'item' ? itemIcons : resourceIcons).data?.get(m.id)}
+                      />
+                      {nameOf(m)}
+                      {edited.has(key) && (
+                        <span className="muted" title="Typed over the login's figure">
+                          {' '}
+                          ✎
+                        </span>
+                      )}
+                    </span>
+                    <span className="planner-stock-figure" title={exact(held)}>
+                      {short(held)}
+                    </span>
+                    <input
+                      aria-label={`Have ${nameOf(m)}`}
+                      min={0}
+                      onChange={(e) => onHave(m.type, m.id, Number(e.target.value) || 0)}
+                      type="number"
+                      value={held}
                     />
-                    {nameOf(m)}
-                    {edited.has(key) && (
-                      <span className="muted" title="Typed over the login's figure">
-                        {' '}
-                        ✎
-                      </span>
-                    )}
-                  </span>
-                  <span className="planner-stock-figure" title={exact(held)}>
-                    {short(held)}
-                  </span>
-                  <input
-                    aria-label={`Have ${nameOf(m)}`}
-                    min={0}
-                    onChange={(e) => onHave(m.type, m.id, Number(e.target.value) || 0)}
-                    type="number"
-                    value={held}
-                  />
-                </label>
-              );
-            })}
-          </div>
-        </section>
-      ))}
+                  </label>
+                );
+              })}
+            </div>
+          </section>
+        ))}
     </details>
   );
 }
