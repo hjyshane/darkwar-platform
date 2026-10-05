@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { ChartFlow } from '../../components/ChartFlow';
 import { FavouriteButton } from '../../components/FavouriteButton';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
 import { StatTile } from '../../components/StatTile';
@@ -10,7 +11,7 @@ import { TERMS } from '../../lib/terms';
 import { useFavourites } from '../../lib/useFavourites';
 import { AllianceCompare } from './AllianceCompare';
 import { AllianceMemberTable } from './AllianceMemberTable';
-import { AllianceTrends } from './AllianceTrends';
+import { AllianceTrends, type TrendPart } from './AllianceTrends';
 
 /** One alliance: what the game reports about it, and who we have seen in it.
  *
@@ -177,12 +178,15 @@ async function fetchAlliance(allianceId: string): Promise<AllianceDetail | null>
 /** The three questions this page answers, in the order they get asked: who is
  * in it, how has it moved, how does it compare. Members first because that is
  * what the page has always opened on and a link from elsewhere expects it. */
-type View = 'members' | 'trends' | 'compare';
+type View = 'members' | TrendPart | 'compare' | 'names';
 
 const VIEWS: { view: View; label: string }[] = [
   { view: 'members', label: 'Members' },
-  { view: 'trends', label: 'Trends' },
+  { view: 'board', label: 'Ranking' },
+  { view: 'power', label: 'Power and towers' },
+  { view: 'activity', label: 'Activity' },
   { view: 'compare', label: 'Against the server' },
+  { view: 'names', label: 'Also known as' },
 ];
 
 const plain = new Intl.NumberFormat('ko-KR');
@@ -298,7 +302,11 @@ export function AlliancePage({ allianceId, now }: { allianceId: string; now?: Da
           three panels. The markup and `aria-current` match the main nav so the
           selected state cannot look different from the rest of the app. */}
       <nav aria-label="Alliance views" className="tabs subtabs">
-        {VIEWS.map((entry) => (
+        {VIEWS.filter(
+          (entry) =>
+            (entry.view !== 'names' || data.pastNames.length > 0) &&
+            (entry.view !== 'activity' || data.isOwn),
+        ).map((entry) => (
           <button
             key={entry.view}
             aria-current={entry.view === view ? 'page' : undefined}
@@ -311,10 +319,14 @@ export function AlliancePage({ allianceId, now }: { allianceId: string; now?: Da
         ))}
       </nav>
 
-      {view === 'trends' && (
+      {(view === 'board' || view === 'power' || view === 'activity') && (
         <section aria-labelledby="alliance-trends">
-          <h2 id="alliance-trends">Trends</h2>
-          <AllianceTrends allianceId={data.allianceId} isOwn={data.isOwn} />
+          <h2 className="visually-hidden" id="alliance-trends">
+            Trends
+          </h2>
+          <ChartFlow>
+            <AllianceTrends allianceId={data.allianceId} isOwn={data.isOwn} part={view} />
+          </ChartFlow>
         </section>
       )}
 
@@ -343,7 +355,7 @@ export function AlliancePage({ allianceId, now }: { allianceId: string; now?: Da
         </section>
       )}
 
-      {view === 'members' && data.pastNames.length > 0 && (
+      {view === 'names' && data.pastNames.length > 0 && (
         <section aria-labelledby="alliance-names">
           <h2 id="alliance-names">Also known as</h2>
           {/* The player page has shown player_names since it existed and the

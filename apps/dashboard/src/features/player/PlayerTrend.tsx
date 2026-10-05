@@ -218,7 +218,6 @@ export function PlayerTrend({ playerId }: { playerId: string }) {
 
           One axis each, because the boards are the same size today but measure
           unrelated things — sharing a scale invites reading one against the other. */}
-      <h4>On the ranking boards</h4>
       {powerRank === null && killRank === null ? (
         <p className="empty">
           No ranking board has placed this player yet. Their power and kills above came from a

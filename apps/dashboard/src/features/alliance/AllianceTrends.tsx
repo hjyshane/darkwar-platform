@@ -278,7 +278,19 @@ function dailySeries(
   };
 }
 
-export function AllianceTrends({ allianceId, isOwn }: { allianceId: string; isOwn: boolean }) {
+/** Which block of the trends a tab shows (user 2026-10-05: one tab per
+ * block rather than a scroll through all three). */
+export type TrendPart = 'board' | 'power' | 'activity';
+
+export function AllianceTrends({
+  allianceId,
+  isOwn,
+  part,
+}: {
+  allianceId: string;
+  isOwn: boolean;
+  part: TrendPart;
+}) {
   const { data, error, isPending } = useQuery({
     queryKey: ['alliance-trends', allianceId],
     queryFn: () => fetchTrends(allianceId),
@@ -330,35 +342,38 @@ export function AllianceTrends({ allianceId, isOwn }: { allianceId: string; isOw
           rather than beside power: it is a small integer against a figure in the
           billions, and one axis cannot show both — the rank line would sit flat
           on the floor. */}
-      <h3>On the ranking board</h3>
-      {board.length === 0 ? (
-        <p className="empty">
-          This alliance has never appeared in a captured ranking board, so there is nothing to plot.
-        </p>
-      ) : board.length === 1 ? (
-        <p className="empty">
-          One sighting, on {day(Date.parse(board[0]?.captured_at ?? ''))}. A second is what makes a
-          trend — the boards are captured when somebody opens them, not on a schedule.
-        </p>
-      ) : (
+      {part === 'board' && (
         <>
-          {/* Members ride along with power rather than with rank. They belong to
+          <h3>On the ranking board</h3>
+          {board.length === 0 ? (
+            <p className="empty">
+              This alliance has never appeared in a captured ranking board, so there is nothing to
+              plot.
+            </p>
+          ) : board.length === 1 ? (
+            <p className="empty">
+              One sighting, on {day(Date.parse(board[0]?.captured_at ?? ''))}. A second is what
+              makes a trend — the boards are captured when somebody opens them, not on a schedule.
+            </p>
+          ) : (
+            <>
+              {/* Members ride along with power rather than with rank. They belong to
               either — the board reports both — but the rank chart has only two
               axes and both are now spoken for, and power-and-size is the more
               useful pairing anyway: it says whether the alliance grew because
               members grew or because members arrived. */}
-          <LineChart
-            formatRight={wholeValue}
-            formatTime={moment}
-            formatValue={bigValue}
-            label="Alliance power and member count as the ranking board reported them"
-            note="Captured when somebody opens the board, so the gaps are ours and not theirs. Members are the dashed line on the right — power rising while that line is flat is the members themselves growing."
-            series={[
-              column(board, (row) => row.power, 'Power', 0),
-              { ...column(board, (row) => row.member_count, 'Members', 5), axis: 'right' },
-            ]}
-          />
-          {/* Rank drawn UPSIDE DOWN. Rank 6 beats rank 9, so an ordinary axis
+              <LineChart
+                formatRight={wholeValue}
+                formatTime={moment}
+                formatValue={bigValue}
+                label="Alliance power and member count as the ranking board reported them"
+                note="Captured when somebody opens the board, so the gaps are ours and not theirs. Members are the dashed line on the right — power rising while that line is flat is the members themselves growing."
+                series={[
+                  column(board, (row) => row.power, 'Power', 0),
+                  { ...column(board, (row) => row.member_count, 'Members', 5), axis: 'right' },
+                ]}
+              />
+              {/* Rank drawn UPSIDE DOWN. Rank 6 beats rank 9, so an ordinary axis
               makes improvement point downwards and gets misread by everybody
               exactly once.
 
@@ -373,131 +388,138 @@ export function AllianceTrends({ allianceId, isOwn }: { allianceId: string; isOw
               lines in the same inch of chart, where the shape of neither can be
               read. Each axis now spans its own board, so what you see is movement
               within that board — which is the only movement that means anything. */}
-          <LineChart
-            formatRight={wholeValue}
-            formatTime={moment}
-            formatValue={wholeValue}
-            label="Board rank over time, one line per board"
-            note={`The rank axis is inverted, so climbing is a line going UP. ${scopeNote(board)}`}
-            series={rankSeries(board)}
-          />
+              <LineChart
+                formatRight={wholeValue}
+                formatTime={moment}
+                formatValue={wholeValue}
+                label="Board rank over time, one line per board"
+                note={`The rank axis is inverted, so climbing is a line going UP. ${scopeNote(board)}`}
+                series={rankSeries(board)}
+              />
+            </>
+          )}
         </>
       )}
 
       {/* Everything below needs the member list opened, which we can only do for
           our own alliance. Saying so beats an empty section that reads as a
           collector that has not run. */}
-      {usable.length === 0 || latest === null || first === null ? (
-        <p className="empty">
-          Per-member figures — power spread, tower levels, activity — need the alliance's own member
-          list, which can only be opened from inside it.{' '}
-          {all.length > 0 &&
-            `${all.length} capture${all.length === 1 ? '' : 's'} of this roster exist but every one was cut short, and a mean over the top of a list the game sorts by power is not a mean over the alliance.`}
-        </p>
-      ) : (
-        <>
-          <div className="stats">
-            <StatTile
-              hero
-              label="Total power"
-              note={`over ${usable.length} complete capture${usable.length === 1 ? '' : 's'}`}
-              value={latest.total_power === null ? null : bigValue(latest.total_power)}
-            />
-            <StatTile
-              label="Since the first capture"
-              note={`since ${day(Date.parse(first.captured_at))}`}
-              tone={
-                powerChange === null
-                  ? undefined
-                  : powerChange > 0
-                    ? 'up'
-                    : powerChange < 0
-                      ? 'down'
-                      : 'flat'
-              }
-              value={
-                powerChange === null
-                  ? null
-                  : `${powerChange > 0 ? '+' : ''}${powerChange.toFixed(1)}%`
-              }
-            />
-            <StatTile
-              label="Mean tower level"
-              note={
-                hqChange === null
-                  ? undefined
-                  : `${hqChange > 0 ? '+' : ''}${hqChange.toFixed(2)} since the first capture`
-              }
-              value={latest.avg_hq_level === null ? null : levelValue(latest.avg_hq_level)}
-            />
-            {/* "Tower 35+", not "At tower 35": the figure counts hq_level >= 35
+      {part === 'power' &&
+        (usable.length === 0 || latest === null || first === null ? (
+          <p className="empty">
+            Per-member figures — power spread, tower levels, activity — need the alliance's own
+            member list, which can only be opened from inside it.{' '}
+            {all.length > 0 &&
+              `${all.length} capture${all.length === 1 ? '' : 's'} of this roster exist but every one was cut short, and a mean over the top of a list the game sorts by power is not a mean over the alliance.`}
+          </p>
+        ) : (
+          <>
+            <div className="stats">
+              <StatTile
+                hero
+                label="Total power"
+                note={`over ${usable.length} complete capture${usable.length === 1 ? '' : 's'}`}
+                value={latest.total_power === null ? null : bigValue(latest.total_power)}
+              />
+              <StatTile
+                label="Since the first capture"
+                note={`since ${day(Date.parse(first.captured_at))}`}
+                tone={
+                  powerChange === null
+                    ? undefined
+                    : powerChange > 0
+                      ? 'up'
+                      : powerChange < 0
+                        ? 'down'
+                        : 'flat'
+                }
+                value={
+                  powerChange === null
+                    ? null
+                    : `${powerChange > 0 ? '+' : ''}${powerChange.toFixed(1)}%`
+                }
+              />
+              <StatTile
+                label="Mean tower level"
+                note={
+                  hqChange === null
+                    ? undefined
+                    : `${hqChange > 0 ? '+' : ''}${hqChange.toFixed(2)} since the first capture`
+                }
+                value={latest.avg_hq_level === null ? null : levelValue(latest.avg_hq_level)}
+              />
+              {/* "Tower 35+", not "At tower 35": the figure counts hq_level >= 35
                 (0073), and the old wording read as exactly 35 — which would make
                 it fall as people levelled past it. */}
-            <StatTile
-              label="Tower 35 or higher"
-              note={`of ${latest.observed_members} members seen`}
-              value={plain.format(latest.members_at_hq35)}
-            />
-          </div>
+              <StatTile
+                label="Tower 35 or higher"
+                note={`of ${latest.observed_members} members seen`}
+                value={plain.format(latest.members_at_hq35)}
+              />
+            </div>
 
-          {dropped > 0 && (
-            // Said, not hidden. A reader who knows the collector ran 180 times
-            // and counts 140 points will otherwise assume something is broken.
-            <p className="subtle">
-              {dropped} capture{dropped === 1 ? '' : 's'} left out of the charts below: each saw
-              fewer members than the game reports, so it was cut short rather than finished.
-              Averaging one beside a whole batch would put a step in the line that nothing in the
-              alliance caused.
-            </p>
-          )}
+            {dropped > 0 && (
+              // Said, not hidden. A reader who knows the collector ran 180 times
+              // and counts 140 points will otherwise assume something is broken.
+              <p className="subtle">
+                {dropped} capture{dropped === 1 ? '' : 's'} left out of the charts below: each saw
+                fewer members than the game reports, so it was cut short rather than finished.
+                Averaging one beside a whole batch would put a step in the line that nothing in the
+                alliance caused.
+              </p>
+            )}
 
-          <h3>Power, member by member</h3>
-          {/* Total on the left, per-member on the right. 17 billion against 180
+            <div className="chart-cell">
+              <h3>Power, member by member</h3>
+              {/* Total on the left, per-member on the right. 17 billion against 180
               million is a hundredfold gap: on one axis the mean and the median
               lie on top of each other along the floor, and those two are the
               interesting pair — the total moves when somebody joins, the median
               only when members actually grow. */}
-          <LineChart
-            formatRight={bigValue}
-            formatTime={moment}
-            formatValue={bigValue}
-            label="Alliance power over time: total on the left, mean and median per member on the right"
-            note="The total moves with the roster size. The dashed pair is per member, on its own scale — that is where growth shows."
-            series={[
-              column(usable, (row) => row.total_power, 'Total', 0),
-              { ...column(usable, (row) => row.avg_power, 'Mean', 1), axis: 'right' },
-              { ...column(usable, (row) => row.median_power, 'Median', 2), axis: 'right' },
-            ]}
-          />
+              <LineChart
+                formatRight={bigValue}
+                formatTime={moment}
+                formatValue={bigValue}
+                label="Alliance power over time: total on the left, mean and median per member on the right"
+                note="The total moves with the roster size. The dashed pair is per member, on its own scale — that is where growth shows."
+                series={[
+                  column(usable, (row) => row.total_power, 'Total', 0),
+                  { ...column(usable, (row) => row.avg_power, 'Mean', 1), axis: 'right' },
+                  { ...column(usable, (row) => row.median_power, 'Median', 2), axis: 'right' },
+                ]}
+              />
+            </div>
 
-          <h3>Tower levels</h3>
-          {/* Forward-filled, and only these two series are. A tower is never
+            <div className="chart-cell">
+              <h3>Tower levels</h3>
+              {/* Forward-filled, and only these two series are. A tower is never
               demolished, so a capture that did not carry the level is a gap in
               our reading rather than a fall — holding the last value is closer to
               the truth than breaking the line. Power and rank get no such
               treatment: both can genuinely drop. */}
-          <LineChart
-            formatRight={wholeValue}
-            formatTime={moment}
-            formatValue={levelValue}
-            label="Mean tower level and how many members have reached level 35"
-            note="Levels never fall, so a capture missing the figure holds the last one. The dashed line counts members whose tower is level 35 or higher, on the right."
-            series={[
-              filled(column(usable, (row) => row.avg_hq_level, 'Mean level', 2)),
-              {
-                ...filled(column(usable, (row) => row.members_at_hq35, 'Tower 35+', 3)),
-                axis: 'right',
-              },
-            ]}
-          />
-        </>
-      )}
+              <LineChart
+                formatRight={wholeValue}
+                formatTime={moment}
+                formatValue={levelValue}
+                label="Mean tower level and how many members have reached level 35"
+                note="Levels never fall, so a capture missing the figure holds the last one. The dashed line counts members whose tower is level 35 or higher, on the right."
+                series={[
+                  filled(column(usable, (row) => row.avg_hq_level, 'Mean level', 2)),
+                  {
+                    ...filled(column(usable, (row) => row.members_at_hq35, 'Tower 35+', 3)),
+                    axis: 'right',
+                  },
+                ]}
+              />
+            </div>
+          </>
+        ))}
 
       {/* Ours only, and not because of a permission. `rank_period_snapshots` is
           scored from contribution and duel boards, which exist for our members
           and nobody else — the rows come back unfiltered by alliance, so drawing
           them on a stranger's page would put OUR activity under THEIR name. */}
-      {isOwn && (
+      {part === 'activity' && isOwn && (
         <>
           <h3>Activity</h3>
           {dailyDays === 0 ? (

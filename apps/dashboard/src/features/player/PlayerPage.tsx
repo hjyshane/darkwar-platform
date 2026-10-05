@@ -1,4 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { ChartFlow } from '../../components/ChartFlow';
 import { FavouriteButton } from '../../components/FavouriteButton';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
 import { StatTile } from '../../components/StatTile';
@@ -310,7 +312,10 @@ const CONTRIBUTION_LABELS: [string, string][] = [
   ['duel_round_score', TERMS.duelRound],
 ];
 
+type View = 'growth' | 'heroes' | 'arena' | 'alliance' | 'names';
+
 export function PlayerPage({ playerId, now }: { playerId: string; now?: Date }) {
+  const [chosen, setChosen] = useState<View>('growth');
   // The player board, for the activity score (0114). Once a day regardless of
   // how many players are opened — the point is that somebody looked at the
   // roster's detail today, not how far they browsed.
@@ -353,6 +358,19 @@ export function PlayerPage({ playerId, now }: { playerId: string; now?: Date }) 
   }
 
   const label = data.name ?? `UID ${data.gameUid}`;
+  // One tab per block, so the page is the header and one thing rather than
+  // a scroll through all of them (user 2026-10-05). A tab with nothing to
+  // show is not offered.
+  const views: { view: View; label: string }[] = [
+    { view: 'growth', label: 'Growth' },
+    ...(data.componentPower.length > 0
+      ? [{ view: 'heroes' as const, label: 'Heroes and pets' }]
+      : []),
+    ...(data.arena.length > 0 ? [{ view: 'arena' as const, label: TERMS.arena }] : []),
+    ...(data.isOwnAlliance ? [{ view: 'alliance' as const, label: 'In the alliance' }] : []),
+    ...(data.pastNames.length > 0 ? [{ view: 'names' as const, label: 'Also known as' }] : []),
+  ];
+  const view = views.some((entry) => entry.view === chosen) ? chosen : 'growth';
   return (
     <main>
       <section aria-labelledby="player-heading">
@@ -412,7 +430,21 @@ export function PlayerPage({ playerId, now }: { playerId: string; now?: Date }) 
        * on a player from another alliance promises something signing in
        * would not deliver — those figures do not exist for them, and never
        * will. */}
-      {data.isOwnAlliance && (
+      <nav aria-label="Player views" className="tabs subtabs">
+        {views.map((entry) => (
+          <button
+            aria-current={entry.view === view ? 'page' : undefined}
+            className="tab"
+            key={entry.view}
+            onClick={() => setChosen(entry.view)}
+            type="button"
+          >
+            {entry.label}
+          </button>
+        ))}
+      </nav>
+
+      {view === 'alliance' && data.isOwnAlliance && (
         <>
           <section aria-labelledby="player-contribution">
             <h2 id="player-contribution">Contribution</h2>
@@ -528,12 +560,16 @@ export function PlayerPage({ playerId, now }: { playerId: string; now?: Date }) 
           and do not exist for anybody else; this one is built on the ranking
           boards, which list every player on the server. Somebody browsing a
           rival's profile gets a growth trend here and nothing else on the page. */}
-      <section aria-labelledby="player-trend">
-        <h2 id="player-trend">Growth</h2>
-        <PlayerTrend playerId={data.playerId} />
-      </section>
+      {view === 'growth' && (
+        <section aria-labelledby="player-trend">
+          <h2 id="player-trend">Growth</h2>
+          <ChartFlow>
+            <PlayerTrend playerId={data.playerId} />
+          </ChartFlow>
+        </section>
+      )}
 
-      {data.componentPower.length > 0 && (
+      {view === 'heroes' && data.componentPower.length > 0 && (
         <section aria-labelledby="player-component">
           {/* Not "Power breakdown". These four are hero and pet boards, and their
               sum is nothing like the player's total power — a reader who took the
@@ -553,11 +589,13 @@ export function PlayerPage({ playerId, now }: { playerId: string; now?: Date }) 
           </div>
           {/* The tiles are the newest reading; this is the shape. Hero power moves
               in steps when a threshold is crossed, which no single figure shows. */}
-          <ComponentTrend playerId={data.playerId} />
+          <ChartFlow>
+            <ComponentTrend playerId={data.playerId} />
+          </ChartFlow>
         </section>
       )}
 
-      {data.arena.length > 0 && (
+      {view === 'arena' && data.arena.length > 0 && (
         <section aria-labelledby="player-arena">
           <h2 id="player-arena">{TERMS.arena}</h2>
           {data.arena.map((entry) => (
@@ -596,7 +634,7 @@ export function PlayerPage({ playerId, now }: { playerId: string; now?: Date }) 
         </section>
       )}
 
-      {data.pastNames.length > 0 && (
+      {view === 'names' && data.pastNames.length > 0 && (
         <section aria-labelledby="player-names">
           <h2 id="player-names">Also known as</h2>
           {/* The reason player_names exists: a name is not an identity, and
