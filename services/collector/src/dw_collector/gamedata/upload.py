@@ -135,6 +135,14 @@ def set_hero_grades(client: httpx.Client, grades: Mapping[int, int]) -> int:
     return upsert_rows(client, "heroes", rows, "hero_id")
 
 
+def set_pet_rarities(client: httpx.Client, rarities: Mapping[int, int]) -> int:
+    """Write each pet's rarity from the game (pets.rarity, 0237): what its
+    level and breakthrough costs are keyed by. A pet the catalogue lacks is
+    added; names and notes are never touched. Returns rows written."""
+    rows = [{"pet_id": pid, "rarity": r} for pid, r in sorted(rarities.items())]
+    return upsert_rows(client, "pets", rows, "pet_id")
+
+
 # PostgREST takes a large body, but a 16,000-row upsert in one statement
 # holds its locks for the whole of it on a micro instance members are using.
 BATCH = 1000

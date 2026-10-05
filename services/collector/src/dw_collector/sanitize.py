@@ -753,6 +753,27 @@ def sanitize_init(payload: dict[str, Any]) -> dict[str, Any]:
             for f in formations
             if isinstance(f, dict)
         ]
+    # Vehicle and pets (0237): levels and training only.
+    if isinstance(payload.get("userModCar"), dict):
+        car = payload["userModCar"]
+        clean["userModCar"] = {k: car[k] for k in ("level", "exp") if k in car}
+    if isinstance(payload.get("modCarEquipSuit"), dict):
+        clean["modCarEquipSuit"] = {"level": payload["modCarEquipSuit"].get("level")}
+    if isinstance(payload.get("petsArr"), list):
+        clean["petsArr"] = [
+            {
+                "petId": p.get("petId"),
+                "level": p.get("level"),
+                "breakthroughLevel": p.get("breakthroughLevel"),
+                "refiningAttrs": [
+                    {"attrId": r.get("attrId"), "value": r.get("value")}
+                    for r in p.get("refiningAttrs") or []
+                    if isinstance(r, dict)
+                ],
+            }
+            for p in payload["petsArr"][:_INIT_LIST_LIMIT]
+            if isinstance(p, dict)
+        ]
     # The server's buff totals: effect id -> number, nothing personal.
     if isinstance(payload.get("effect"), dict):
         clean["effect"] = dict(payload["effect"])

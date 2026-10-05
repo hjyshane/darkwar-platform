@@ -347,7 +347,9 @@ class Catalog:
         yield from self._building_steps()
         yield from self._research_steps()
         yield from self._vehicle_steps()
+        yield from self._vehicle_level_steps()
         yield from self._pet_steps()
+        yield from self._pet_break_steps()
         yield from self._hero_steps()
         yield from self._hero_gear_steps()
         yield from self._exclusive_steps()
@@ -451,6 +453,46 @@ class Catalog:
             )
             if step:
                 yield step
+
+    def _vehicle_level_steps(self) -> Iterator[Row]:
+        """The vehicle's own level (0237), subject "0": a `car_modify_new` row
+        is the vehicle at level L. Each use of `cost` (Gear) adds `add_exp`,
+        and `exp` is what level L needs to go on, so the step to L+1 costs
+        cost x ceil(exp / add_exp): 3 x 35 Gear at level 1. The top row
+        (500, exp 0) is no step."""
+        for row in self._rows("car_modify_new").values():
+            level, exp, add = _int(row.get("level")), _int(row.get("exp")), _int(row.get("add_exp"))
+            costs = _spec(row.get("cost"))
+            if level is None or not exp or not add or not costs:
+                continue
+            uses = -(-exp // add)
+            scaled = [{**c, "amount": c["amount"] * uses} for c in costs]
+            step = self._step("vehicle", 0, level + 1, scaled, None, None, row.get("power"))
+            if step:
+                yield step
+
+    def _pet_break_steps(self) -> Iterator[Row]:
+        """Pet breakthroughs (0237), subject the pet's rarity like `pet`: a
+        `pet_levelup` row with `breakthrough` 1 is the cap at level L, and
+        `cost_break` lifts it. Stored at level L — a breakthrough stays at its
+        level; it opens the levels after it (rarity 4: 10, 20 ... 100)."""
+        for row in self._rows("pet_levelup").values():
+            costs = _spec(row.get("cost_break"))
+            if str(row.get("breakthrough") or "") != "1" or not costs:
+                continue
+            step = self._step("pet_break", row.get("rarity"), row.get("level"), costs)
+            if step:
+                yield step
+
+    def pet_rarities(self) -> dict[int, int]:
+        """pet id -> rarity (1-4), the subject of its level and breakthrough
+        costs (0237)."""
+        out: dict[int, int] = {}
+        for pet_id, row in self._rows("pet").items():
+            pid, rarity = _int(pet_id), _int(row.get("rarity"))
+            if pid is not None and rarity is not None:
+                out[pid] = rarity
+        return out
 
     def _pet_steps(self) -> Iterator[Row]:
         """Level reached: a `pet_levelup` row is the pet at level L and the

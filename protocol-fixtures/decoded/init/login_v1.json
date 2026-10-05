@@ -379,6 +379,40 @@
           }
         ]
       }
+    ],
+    "userModCar": {
+      "level": 279,
+      "exp": 1200
+    },
+    "modCarEquipSuit": {
+      "level": 27
+    },
+    "petsArr": [
+      {
+        "petId": 106,
+        "level": 60,
+        "breakthroughLevel": 60,
+        "refiningAttrs": [
+          {
+            "attrId": 1,
+            "value": 161
+          },
+          {
+            "attrId": 2,
+            "value": 150
+          }
+        ]
+      },
+      {
+        "petId": 101,
+        "level": 45,
+        "breakthroughLevel": 40,
+        "refiningAttrs": []
+      },
+      {
+        "petId": "x",
+        "level": 1
+      }
     ]
   },
   "schema_version": 1
