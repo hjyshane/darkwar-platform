@@ -290,7 +290,7 @@ function PacksTab({ now, mayEdit }: { now: Date; mayEdit: boolean }) {
           Show{' '}
           <select onChange={(e) => setFilter(e.target.value as PackFilter)} value={filter}>
             <option value="live">On sale now</option>
-            <option value="all">Every pack seen</option>
+            <option value="all">Every pack seen (incl. no longer sold)</option>
           </select>
         </label>
         <input

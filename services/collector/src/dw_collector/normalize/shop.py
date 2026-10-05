@@ -24,7 +24,7 @@ from typing import Any
 from dw_collector.models import NormalizedRow, Observation, entry_idempotency_key, stable_uuid
 from dw_collector.registry import register
 
-PARSER_VERSION = "1.0.0"
+PARSER_VERSION = "1.1.0"
 RUBY_RESOURCE = "15"
 _ACCOUNT_FIELDS = frozenset({"bought", "buys", "buy_times", "chooseRecord"})
 
@@ -125,7 +125,28 @@ def normalize_packs(observation: Observation) -> list[NormalizedRow]:
                 },
             )
         )
+    if rows:
+        rows.append(_catalog_row(observation, [r.row["pack_id"] for r in rows]))
     return rows
+
+
+def _catalog_row(observation: Observation, pack_ids: list[str]) -> NormalizedRow:
+    """Which packs this capture listed (0235). A pack row is keyed by its
+    content, so an unchanged pack is never written again and its captured_at
+    stays where it was first seen; only this row says what the server offers
+    NOW. Every exchange.info capture is the account's whole catalog (381 of
+    381 entries inside their start-end window on 2026-10-05). One row per
+    capture: the key carries the capture time."""
+    ids = sorted(set(pack_ids), key=lambda p: (len(p), p))
+    key = entry_idempotency_key(
+        observation, "pack-catalog", observation.captured_at.isoformat(), {"ids": ids}
+    )
+    base = _base(observation, {}, key)
+    return NormalizedRow(
+        target_table="shop_pack_catalogs",
+        idempotency_key=key,
+        row={**base, "pack_ids": ids},
+    )
 
 
 @register("user.get.shop.info")

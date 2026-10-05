@@ -57,6 +57,8 @@ _TABLE_ORDER = [
     "furnace_fury_scores",
     # Packs and shop entries (0215). No refs.
     "shop_pack_snapshots",
+    # Which packs a capture listed (0235). No refs.
+    "shop_pack_catalogs",
     "shop_listing_snapshots",
     "battle_report_ingests",
     "activity_facts",

@@ -3,6 +3,7 @@ import {
   type PackItem,
   type PackValue,
   byValue,
+  catalogSets,
   dollarsOf,
   estimatedShare,
   groupPacks,
@@ -24,6 +25,14 @@ function item(
 }
 
 describe('isLive', () => {
+  it('is gone once the newest catalog leaves it out, whatever its window', () => {
+    const window = { starts_at: '2026-10-01T00:00:00Z', ends_at: null };
+    expect(isLive({ ...window, listed: false }, NOW)).toBe(false);
+    expect(isLive({ ...window, listed: true }, NOW)).toBe(true);
+    // No catalog recorded yet for the server: the window decides.
+    expect(isLive({ ...window, listed: null }, NOW)).toBe(true);
+  });
+
   it('is on sale between its start and its end', () => {
     expect(
       isLive({ starts_at: '2026-10-01T00:00:00Z', ends_at: '2026-10-05T00:00:00Z' }, NOW),
@@ -92,6 +101,7 @@ function pack(id: string, name: string, contents: PackItem[], rubies = 0): PackV
     value_dollars: null,
     value_ratio: null,
     contents_listed: contents.length > 0 || rubies > 0,
+    listed: null,
   };
 }
 
@@ -159,5 +169,18 @@ describe('packKey', () => {
 
   it('falls back to the id for a pack without a name key', () => {
     expect(packKey({ ...pack('9', 'Pack #9', []), name_key: null })).toMatch(/^pack:9\|/);
+  });
+});
+
+describe('catalogSets', () => {
+  it('maps each server to the pack ids its newest catalog listed', () => {
+    const sets = catalogSets([
+      { server_id: 580, pack_ids: ['9001', '240806011'] },
+      { server_id: 581, pack_ids: null },
+      { server_id: null, pack_ids: ['1'] },
+    ]);
+    expect([...sets.keys()]).toEqual([580]);
+    expect(sets.get(580)?.has('9001')).toBe(true);
+    expect(sets.get(580)?.has('1')).toBe(false);
   });
 });

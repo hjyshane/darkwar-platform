@@ -45,6 +45,9 @@ export interface PackValue {
   value_dollars: number | null;
   value_ratio: number | null;
   contents_listed: boolean;
+  /** In the server's newest shop catalog (0235); null before any catalog
+   * was recorded for the server, when the time window alone decides. */
+  listed: boolean | null;
 }
 
 export interface ListingValue {
@@ -93,8 +96,16 @@ export const SHOP_LABELS: Record<number, string> = {
 
 export type PackFilter = 'live' | 'all';
 
-/** On sale at `now`: started, and not ended (a missing end is open). */
-export function isLive(pack: Pick<PackValue, 'starts_at' | 'ends_at'>, now: Date): boolean {
+/** On sale at `now`: in the server's newest catalog, started, and not
+ * ended (a missing end is open). A pack the newest catalog left out is gone
+ * whatever its window says. */
+export function isLive(
+  pack: Pick<PackValue, 'starts_at' | 'ends_at'> & { listed?: boolean | null },
+  now: Date,
+): boolean {
+  if (pack.listed === false) {
+    return false;
+  }
   const t = now.getTime();
   const started = pack.starts_at === null || Date.parse(pack.starts_at) <= t;
   const open = pack.ends_at === null || Date.parse(pack.ends_at) > t;
@@ -139,15 +150,36 @@ export function estimatedShare(pack: Pick<PackValue, 'rubies' | 'contents'>): nu
  * name key (or id), price, rubies and contents. Every id one offer is listed
  * under, and its reissues, share it; two packs that only share a name (each
  * VIP level's VIP Exclusive) do not. */
-export function packKey(pack: PackValue | Omit<PackValue, 'game_name' | 'renamed'>): string {
+export function packKey(
+  pack: PackValue | Omit<PackValue, 'game_name' | 'renamed' | 'listed'>,
+): string {
   return `${pack.name_key ?? `pack:${pack.pack_id}`}|${pack.dollars}|${pack.rubies}|${contentsKey(pack)}`;
 }
 
+/** Each server's newest catalog as a set of pack ids (0235). Content-keyed
+ * pack rows keep every pack ever seen; this says which the shop lists now. */
+export function catalogSets(
+  rows: ReadonlyArray<{ server_id: number | null; pack_ids: unknown }>,
+): Map<number, Set<string>> {
+  const sets = new Map<number, Set<string>>();
+  for (const row of rows) {
+    if (row.server_id !== null && Array.isArray(row.pack_ids)) {
+      sets.set(row.server_id, new Set(row.pack_ids.map(String)));
+    }
+  }
+  return sets;
+}
+
 export async function fetchPacks(): Promise<PackValue[]> {
-  const [packs, fixes] = await Promise.all([
+  const [packs, fixes, catalogs] = await Promise.all([
     supabase.from('shop_pack_value').select('*'),
     supabase.from('game_pack_names').select('pack_key, name'),
+    supabase.from('shop_pack_catalog_latest').select('server_id, pack_ids'),
   ]);
+  if (catalogs.error) {
+    throw new Error(catalogs.error.message);
+  }
+  const listedOn = catalogSets(catalogs.data ?? []);
   if (packs.error) {
     throw new Error(packs.error.message);
   }
@@ -155,17 +187,19 @@ export async function fetchPacks(): Promise<PackValue[]> {
     throw new Error(fixes.error.message);
   }
   const renamed = new Map((fixes.data ?? []).map((f) => [f.pack_key, f.name]));
-  return ((packs.data ?? []) as unknown as Omit<PackValue, 'game_name' | 'renamed'>[]).map(
-    (pack) => {
-      const fixed = renamed.get(packKey(pack));
-      return {
-        ...pack,
-        name: fixed ?? pack.name,
-        game_name: pack.name,
-        renamed: fixed !== undefined,
-      };
-    },
-  );
+  return (
+    (packs.data ?? []) as unknown as Omit<PackValue, 'game_name' | 'renamed' | 'listed'>[]
+  ).map((pack) => {
+    const fixed = renamed.get(packKey(pack));
+    const catalog = listedOn.get(pack.server_id);
+    return {
+      ...pack,
+      listed: catalog ? catalog.has(pack.pack_id) : null,
+      name: fixed ?? pack.name,
+      game_name: pack.name,
+      renamed: fixed !== undefined,
+    };
+  });
 }
 
 export async function fetchListings(): Promise<ListingValue[]> {
