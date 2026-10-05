@@ -128,6 +128,16 @@
         "promote": 11
       }
     ],
+    "userHero": [
+      { "heroId": 40005, "lev": 131 },
+      { "heroId": 40002, "lev": 131 },
+      { "heroId": 40001, "lev": 130 },
+      { "heroId": 21001, "lev": 130 },
+      { "heroId": 40004, "lev": 130 },
+      { "heroId": 1016, "lev": 40 },
+      { "heroId": 40006 },
+      { "heroId": 12001 }
+    ],
     "heroIntensifys": [
       {
         "heroId": 12001,

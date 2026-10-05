@@ -21,6 +21,8 @@ export interface Account {
   buildings: Record<string, number>;
   science: Record<string, number>;
   heroLevels: Record<string, number>;
+  /** Heroes the Training Center holds at the synced level (0231). */
+  heroTrained: string[];
   heroGear: { equipId: number; heroId: number | null; level: number; promote: number }[];
   /** Exclusive weapon level by hero id (0222). */
   heroExclusives: Record<string, number>;
@@ -73,7 +75,7 @@ export async function fetchAccounts(): Promise<Account[]> {
     supabase
       .from('account_state_latest')
       .select(
-        'player_id, server_id, captured_at, buildings, science, hero_intensify, hero_equips, hero_exclusives, items, resources, effects, timed_effects',
+        'player_id, server_id, captured_at, buildings, science, hero_intensify, hero_levels, hero_trained, hero_equips, hero_exclusives, items, resources, effects, timed_effects',
       ),
     supabase.from('account_state_manual').select('*'),
   ]);
@@ -94,7 +96,13 @@ export async function fetchAccounts(): Promise<Account[]> {
     capturedAt: row.captured_at ?? '',
     buildings: asRecord(row.buildings),
     science: asRecord(row.science),
-    heroLevels: asRecord(row.hero_intensify),
+    // userHero levels from parser 1.4.0 (0231). An older login has only
+    // hero_intensify, which is not the level, but it is all there is.
+    heroLevels:
+      Object.keys(asRecord(row.hero_levels)).length > 0
+        ? asRecord(row.hero_levels)
+        : asRecord(row.hero_intensify),
+    heroTrained: asList<string>(row.hero_trained),
     heroGear: asList(row.hero_equips),
     heroExclusives: asRecord(row.hero_exclusives),
     items: asRecord(row.items),
@@ -132,6 +140,7 @@ export function blankAccount(
     buildings: {},
     science: {},
     heroLevels: {},
+    heroTrained: [],
     heroGear: [],
     heroExclusives: {},
     items: {},

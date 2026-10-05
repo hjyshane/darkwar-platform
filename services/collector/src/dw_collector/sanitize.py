@@ -697,6 +697,8 @@ _INIT_FIELDS: dict[str, tuple[str, ...]] = {
     "building_new": ("bId", "lv"),
     "heroEquips": ("equipId", "heroId", "level", "promote"),
     "heroIntensifys": ("heroId", "lv"),
+    # Hero levels: heroId and lev only; stats, skills and uuids stay behind.
+    "userHero": ("heroId", "lev"),
     "modCarEquipArr": ("equipId", "lv"),
     "science_new": ("itemId", "level"),
     "heroEquipUniques": ("equipId", "heroId", "level"),
