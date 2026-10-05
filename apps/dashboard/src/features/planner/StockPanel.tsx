@@ -20,10 +20,23 @@ interface Material {
 
 // Held but never an upgrade cost the planner adds up, so not in
 // game_upgrade_materials (user, 2026-10-05): hero fragments (item type 93,
-// one per hero), the universal hero fragments (62), and the Universal
-// Exclusive Equipment Fragment.
+// one per hero), the universal hero fragments (62), and the items below,
+// each with the group it belongs in.
 const HERO_FRAGMENT_TYPES = ['93', '62'];
-const UNIVERSAL_WEAPON_FRAGMENT = '253094';
+const EXTRA_ITEMS: Record<string, string> = {
+  '253094': 'exclusive', // Universal Exclusive Equipment Fragment
+  '200022': 'vehicle_part', // Chip
+  '300003': 'vehicle_part', // Common Chip Material
+  '300004': 'vehicle_part', // Advanced Chip Material
+  '300005': 'vehicle_part', // Chip Star-Up EXP Card (Small)
+  '300006': 'vehicle_part', // Chip Star-Up EXP Card (Big)
+  '300017': 'vehicle_part', // Chip Star-Up EXP Card
+  '300030': 'vehicle_part', // Chip Star-Up EXP Card (Big)
+  '330002': 'pet', // Nutrient Potion
+  '330003': 'pet', // Potential Chip
+  '330004': 'pet', // Standard Training Protocol
+  '330005': 'pet', // Advanced Training Protocol
+};
 
 async function fetchMaterials(): Promise<Material[]> {
   const [costs, extra] = await Promise.all([
@@ -31,7 +44,9 @@ async function fetchMaterials(): Promise<Material[]> {
     supabase
       .from('game_items')
       .select('item_id, item_type, name')
-      .or(`item_type.in.(${HERO_FRAGMENT_TYPES.join(',')}),item_id.eq.${UNIVERSAL_WEAPON_FRAGMENT}`)
+      .or(
+        `item_type.in.(${HERO_FRAGMENT_TYPES.join(',')}),item_id.in.(${Object.keys(EXTRA_ITEMS).join(',')})`,
+      )
       .limit(1000),
   ]);
   if (costs.error) throw new Error(costs.error.message);
@@ -47,7 +62,7 @@ async function fetchMaterials(): Promise<Material[]> {
     materials.push({
       type: 'item',
       id: row.item_id,
-      kinds: [row.item_id === UNIVERSAL_WEAPON_FRAGMENT ? 'exclusive' : 'hero_fragment'],
+      kinds: [EXTRA_ITEMS[row.item_id] ?? 'hero_fragment'],
     });
   }
   return materials;
