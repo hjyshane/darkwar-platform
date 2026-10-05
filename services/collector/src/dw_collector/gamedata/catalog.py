@@ -41,6 +41,17 @@ Row = dict[str, Any]
 
 # Hero ids that are playable heroes, inclusive (see Catalog.hero_names).
 PLAYABLE_HEROES = (1000, 89999)
+# The glyphs the game draws ranks with, by the name the dashboard asks for
+# (read off a contact sheet of the asset pack's star sprites, 2026-10-05): a
+# full gold star, the empty star already cut into five segments, and the same
+# two for an awakening's red pentagon.
+UI_SPRITES = {
+    "star_full": "hero_star_icon",
+    "star_empty": "hero_star_icon_01",
+    "pentagon_full": "ui_img_redstar",
+    "pentagon_empty": "ui_img_redstar2",
+}
+
 # aps_new_heroes.rarity -> heroes.grade (1 blue, 2 purple, 3 gold).
 HERO_GRADE_BY_RARITY = {1: 3, 2: 2, 3: 1}
 # goods.type of an exclusive equipment's fragments: para1 is the equipment.
@@ -292,12 +303,13 @@ class Catalog:
         return out
 
     def icon_refs(self) -> list[Row]:
-        """Which sprite each thing the dashboard shows is drawn with (0232):
-        heroes (`aps_new_heroes.hero_icon`), exclusive weapons
+        """Which sprite each thing the dashboard shows is drawn with (0232,
+        0233): heroes (`aps_new_heroes.hero_icon`), exclusive weapons
         (`heroes_exclusive_equip.icon`, one per hero), hero gear
-        (`ds_equip.icon`) and every item an upgrade costs (`goods.icon`).
-        Rows are {kind, ref_id, icon_key}; the sprites themselves come out of
-        the asset pack (icons.py)."""
+        (`ds_equip.icon`), every item (`goods.icon`), resources
+        (`aps_resources.icon`, where it names one sprite) and the star and
+        awakening glyphs (UI_SPRITES). Rows are {kind, ref_id, icon_key}; the
+        sprites themselves come out of the asset pack (icons.py)."""
         out: dict[tuple[str, str], str] = {}
 
         def put(kind: str, ref: Any, icon: Any) -> None:
@@ -313,14 +325,18 @@ class Catalog:
             put("exclusive", _int(row.get("group")), row.get("icon"))
         for equip_id, row in self._rows("ds_equip").items():
             put("gear", _int(equip_id), row.get("icon"))
-        costed = {
-            cost["id"] for step in self.steps() for cost in step["costs"] if cost["type"] == "item"
-        }
-        goods = self._rows("goods")
-        for item_id in sorted(costed):
-            good = goods.get(item_id)
-            if good:
-                put("item", item_id, good.get("icon"))
+        # Every item with an icon: packs and the Ruby shop list items no
+        # upgrade costs. The dashboard fetches item icons by id, never all.
+        for item_id, good in self._rows("goods").items():
+            put("item", _int(item_id), good.get("icon"))
+        for resource_id, row in self._rows("aps_resources").items():
+            icon = row.get("icon")
+            # Some name a list of season variants ("a;b;c"); none of those is
+            # the one resource the planner means, so they are left out.
+            if isinstance(icon, str) and ";" not in icon:
+                put("resource", _int(resource_id), icon)
+        for name, sprite in UI_SPRITES.items():
+            put("ui", name, sprite)
         return [{"kind": k, "ref_id": r, "icon_key": i} for (k, r), i in sorted(out.items())]
 
     def steps(self) -> Iterator[Row]:

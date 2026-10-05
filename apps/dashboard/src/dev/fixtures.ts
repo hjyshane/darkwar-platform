@@ -997,7 +997,20 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
   ],
   [['game-icons', 'gear'], new Map([['410100', PLACEHOLDER_ICON('#64748b')]])],
   [['game-icons', 'exclusive'], new Map([['40002', PLACEHOLDER_ICON('#ef4444')]])],
-  [['game-icons', 'item'], new Map([['253042', PLACEHOLDER_ICON('#22c55e')]])],
+  [
+    ['game-icons', 'item', '230104,253042,253070'],
+    new Map([
+      ['253042', PLACEHOLDER_ICON('#22c55e')],
+      ['230104', PLACEHOLDER_ICON('#38bdf8')],
+    ]),
+  ],
+  [
+    ['game-icons', 'resource'],
+    new Map([
+      ['25', PLACEHOLDER_ICON('#a16207')],
+      ['12', PLACEHOLDER_ICON('#94a3b8')],
+    ]),
+  ],
   [['planner-accounts'], [PLANNER_ACCOUNT]],
   [
     ['planner-materials'],

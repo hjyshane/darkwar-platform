@@ -10,6 +10,7 @@
 // being five full pentagons (the largest value ever observed).
 
 import { useId } from 'react';
+import { useIcons } from '../../lib/gameIcons';
 import { GEAR_PROMOTE_AT_MAX_LEVEL } from '../../lib/troops';
 
 const SEGMENTS = 5;
@@ -37,6 +38,25 @@ function wedge(i: number): string {
 function Shape({ shape, filled }: { shape: 'star' | 'pentagon'; filled: number }) {
   const id = `rank-clip-${useId().replace(/:/g, '')}`;
   const outline = points(shape);
+  // The game's own art when the reader has it (0233): the empty glyph,
+  // already cut in five, with the full one shown through the filled wedges.
+  const ui = useIcons('ui').data;
+  const empty = ui?.get(`${shape}_empty`);
+  const full = ui?.get(`${shape}_full`);
+  if (empty && full) {
+    return (
+      <svg aria-hidden="true" className="rank-shape" height="20" viewBox="0 0 24 24" width="20">
+        <clipPath id={id}>
+          {Array.from({ length: Math.min(filled, SEGMENTS) }, (_, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: five fixed wedges
+            <path d={wedge(i)} key={i} />
+          ))}
+        </clipPath>
+        <image height="24" href={empty} width="24" />
+        {filled > 0 && <image clipPath={`url(#${id})`} height="24" href={full} width="24" />}
+      </svg>
+    );
+  }
   return (
     <svg
       aria-hidden="true"

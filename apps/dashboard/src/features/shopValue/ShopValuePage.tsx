@@ -12,6 +12,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { SortableTh } from '../../components/SortableTh';
+import { GameIcon, useItemIcons } from '../../lib/gameIcons';
 import { type SortState, nextSort, sortRows } from '../../lib/tableControls';
 import { useSession } from '../../lib/useSession';
 import { PackRename } from './PackRename';
@@ -117,6 +118,11 @@ function PackRow({
   onToggleHidden: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  // Only an opened pack asks for its contents' icons.
+  const icons = useItemIcons(
+    pack.contents.map((item) => item.id),
+    open,
+  );
   const estimated = pack.estimated;
   return (
     <>
@@ -201,6 +207,7 @@ function PackRow({
                 {pack.contents.map((item) => (
                   <tr key={item.id}>
                     <td className="label">
+                      <GameIcon size={20} src={icons.data?.get(item.id)} />
                       <span title={`Item code ${item.id}`}>{itemLabel(item)}</span>
                     </td>
                     <td className="num">×{item.qty.toLocaleString('en')}</td>
@@ -386,6 +393,9 @@ function ShopTab() {
   });
   const [sort, setSort] = useState<SortState>({ key: 'value_ratio', direction: 'desc' });
   const onSort = (key: string) => setSort(nextSort(sort, key));
+  const listingIcons = useItemIcons(
+    (listings.data ?? []).flatMap((row) => (row.item_id ? [row.item_id] : [])),
+  );
   if (listings.isPending) return <p className="empty">Loading the shop…</p>;
   if (listings.isError) {
     return <p className="error">Could not load the shop: {listings.error.message}</p>;
@@ -430,6 +440,10 @@ function ShopTab() {
             {rows.map((row) => (
               <tr key={`${row.server_id}:${row.shop_type}:${row.listing_id}`}>
                 <td className="label" title={`Item code ${row.item_id ?? '—'}`}>
+                  <GameIcon
+                    size={20}
+                    src={row.item_id ? listingIcons.data?.get(row.item_id) : undefined}
+                  />
                   {itemLabel(row)}
                 </td>
                 <td>{SHOP_LABELS[row.shop_type] ?? `Shop ${row.shop_type}`}</td>
@@ -455,7 +469,15 @@ function ShopTab() {
   );
 }
 
-function ValueRow({ item, mayEdit }: { item: ItemValue; mayEdit: boolean }) {
+function ValueRow({
+  item,
+  mayEdit,
+  icon,
+}: {
+  item: ItemValue;
+  mayEdit: boolean;
+  icon: string | undefined;
+}) {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<{ name: string; rubies: string; note: string } | null>(null);
   const save = useMutation({
@@ -482,6 +504,7 @@ function ValueRow({ item, mayEdit }: { item: ItemValue; mayEdit: boolean }) {
       <td className="label" title={`Item code ${item.item_id}`}>
         {draft === null ? (
           <>
+            <GameIcon size={20} src={icon} />
             {itemLabel(item)}
             {item.renamed && (
               <span className="muted" title={`Game name: ${item.game_name ?? 'none'}`}>
@@ -576,6 +599,7 @@ function ValuesTab({ mayEdit }: { mayEdit: boolean }) {
     queryFn: fetchItemValues,
     staleTime: STALE_TIME,
   });
+  const valueIcons = useItemIcons((values.data ?? []).map((item) => item.item_id));
   const [text, setText] = useState('');
   const [source, setSource] = useState<string>('all');
   const [sort, setSort] = useState<SortState>({ key: 'rubies', direction: 'desc' });
@@ -645,7 +669,12 @@ function ValuesTab({ mayEdit }: { mayEdit: boolean }) {
           </thead>
           <tbody>
             {rows.map((item) => (
-              <ValueRow item={item} key={item.item_id} mayEdit={mayEdit} />
+              <ValueRow
+                icon={valueIcons.data?.get(item.item_id)}
+                item={item}
+                key={item.item_id}
+                mayEdit={mayEdit}
+              />
             ))}
           </tbody>
         </table>
