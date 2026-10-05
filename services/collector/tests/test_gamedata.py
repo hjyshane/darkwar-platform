@@ -297,6 +297,8 @@ CATALOGUE_TABLES = {
         [40006000] = { 40006000, 40006, 52, '300014', 253074, '' } },
       index = { id = {1,'int'}, group = {2,'int'}, level = {3,'int'}, name = {4,'string'},
                 cost_item = {5,'int'}, cost_num = {6,'string'}, icon = {7,'string'} } }""",
+    "pet": """return { data = { [101] = { 101, 'pet_record_img_pet_01' } },
+      index = { id = {1,'int'}, icon = {2,'string'} } }""",
     "car_equip": """return { data = { [1027] = { 1027, 1, 27, '200040;540|200041;110', '300007' },
         [1028] = { 1028, 1, 28, '', '300007' } },
       index = { id = {1,'int'}, slot = {2,'int'}, level = {3,'int'},
@@ -610,6 +612,7 @@ def test_icon_refs_name_a_sprite_for_heroes_weapons_gear_and_costed_items() -> N
     # The rank glyphs, by the dashboard's names.
     assert refs[("ui", "star_full")] == "hero_star_icon"
     assert refs[("ui", "pentagon_empty")] == "ui_img_redstar2"
+    assert refs[("pet", "101")] == "pet_record_img_pet_01"
 
 
 def test_icons_are_small_webp() -> None:
