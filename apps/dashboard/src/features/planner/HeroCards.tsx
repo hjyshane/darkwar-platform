@@ -144,6 +144,14 @@ export function HeroCards({ account, targets, onSet, onEdit }: HeroCardsProps) {
                 <span className={`rarity-tag chip-grade-${hero.grade ?? 'unknown'}`}>
                   {heroGradeName(hero.grade ?? null)}
                 </span>
+                {account.heroTrained.includes(hero.id) && (
+                  <span
+                    className="badge"
+                    title="In the Training Center: held at the lowest level of the five highest heroes"
+                  >
+                    training center
+                  </span>
+                )}
               </h4>
               <dl>
                 <div className="planner-card-row">

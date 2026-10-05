@@ -99,6 +99,8 @@ def test_raw_is_only_what_the_parser_reads() -> None:
         "timed_effects",
         "resources",
         "hero_exclusives",
+        "hero_levels",
+        "hero_trained",
     }
     assert row.row["raw"]["user"] == {"uid": "9473022442000580", "serverId": 580}
     assert "someone@example.com" not in str(row.row)
@@ -236,3 +238,31 @@ def test_exclusive_weapons_are_levels_by_hero() -> None:
     (row,) = account_state.normalize(load_observation(LOGIN))
 
     assert row.row["hero_exclusives"] == {"40002": 42, "33003": 22}
+
+
+def test_hero_levels_come_from_user_hero_and_the_training_center() -> None:
+    """`lev` is the level; a hero without one is in the Training Center, held
+    at the lowest of the five highest (Katrina 130 beside 131/131/130/130/130;
+    Eddie's own 40 stands)."""
+    (row,) = account_state.normalize(load_observation(LOGIN))
+
+    assert row.row["hero_levels"] == {
+        "40005": 131,
+        "40002": 131,
+        "40001": 130,
+        "21001": 130,
+        "40004": 130,
+        "1016": 40,
+        "40006": 130,
+        "12001": 130,
+    }
+    assert row.row["hero_trained"] == ["12001", "40006"]
+
+
+def test_no_hero_level_means_nothing_to_sync_to() -> None:
+    observation = load_observation(LOGIN)
+    payload = {**observation.payload, "userHero": [{"heroId": 40006}]}
+    (row,) = account_state.normalize(observation.model_copy(update={"payload": payload}))
+
+    assert row.row["hero_levels"] == {}
+    assert row.row["hero_trained"] == []

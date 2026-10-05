@@ -96,6 +96,8 @@ export type Database = {
           hero_equips: Json
           hero_exclusives: Json
           hero_intensify: Json
+          hero_levels: Json
+          hero_trained: Json
           idempotency_key: string
           items: Json
           mod_car_equips: Json
@@ -121,6 +123,8 @@ export type Database = {
           hero_equips?: Json
           hero_exclusives?: Json
           hero_intensify?: Json
+          hero_levels?: Json
+          hero_trained?: Json
           idempotency_key: string
           items?: Json
           mod_car_equips?: Json
@@ -146,6 +150,8 @@ export type Database = {
           hero_equips?: Json
           hero_exclusives?: Json
           hero_intensify?: Json
+          hero_levels?: Json
+          hero_trained?: Json
           idempotency_key?: string
           items?: Json
           mod_car_equips?: Json
@@ -6591,6 +6597,8 @@ export type Database = {
           hero_equips: Json | null
           hero_exclusives: Json | null
           hero_intensify: Json | null
+          hero_levels: Json | null
+          hero_trained: Json | null
           items: Json | null
           mod_car_equips: Json | null
           player_id: string | null

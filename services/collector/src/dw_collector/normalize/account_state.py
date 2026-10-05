@@ -21,6 +21,13 @@ collector's:
 - `heroIntensifys[]` and `modCarEquipArr[]`: always int pairs.
 - `science_new[]`: the research tree, `{itemId, level}` int pairs, itemId
   unique within a login (136 to 248 entries as research opens up).
+- `userHero[]`: the heroes and their real level, `lev`. Not
+  `heroIntensifys[].lv` — that is another figure, which the planner showed as
+  the level until 2026-10-04 (hero 1006: lev 96, intensify 10). A hero with
+  no `lev` is in the Training Center, which holds it at the lowest level of
+  the five highest heroes outside it: Katrina, with no `lev`, reads 130 in
+  game beside top fives of 131/131/130/130/130; Eddie, `lev` 40, reads 40
+  (user, 2026-10-04).
 - `heroEquipUniques[]`: exclusive weapons, `heroId` and `level` ints (9 on
   the main account, 2026-10-04); `equipId` equals `heroId`.
 
@@ -44,7 +51,7 @@ from dw_collector.models import NormalizedRow, Observation, idempotency_key
 from dw_collector.normalize.event_schedule import schedule_rows
 from dw_collector.registry import register
 
-PARSER_VERSION = "1.3.0"
+PARSER_VERSION = "1.4.0"
 
 
 class _User(BaseModel):
@@ -124,11 +131,44 @@ def account_state(payload: dict[str, Any]) -> dict[str, Any]:
         "hero_intensify": _pairs(_entries(payload, "heroIntensifys"), "heroId", "lv"),
         "mod_car_equips": _pairs(_entries(payload, "modCarEquipArr"), "equipId", "lv"),
         "science": _pairs(_entries(payload, "science_new"), "itemId", "level"),
+        **_hero_levels(_entries(payload, "userHero")),
         # Exclusive weapons, one per hero that has one: heroId -> level.
         "hero_exclusives": _pairs(_entries(payload, "heroEquipUniques"), "heroId", "level"),
         "effects": _effects(payload.get("effect")),
         "timed_effects": _timed(payload.get("status")),
         "resources": _resources(payload.get("resource")),
+    }
+
+
+# The Training Center holds a hero at the lowest level among the five highest
+# heroes outside it (see the module docstring).
+TRAINING_CENTER_TOP = 5
+
+
+def _hero_levels(entries: list[dict[str, Any]]) -> dict[str, Any]:
+    """`hero_levels` {heroId: level} for every hero, and `hero_trained`, the
+    ids the Training Center holds — those without a `lev` — at the synced
+    level. With no hero carrying a `lev` there is nothing to sync to, and
+    those heroes are left out rather than given a guess."""
+    own: dict[str, int] = {}
+    trained: list[str] = []
+    for entry in entries:
+        hero = _int(entry.get("heroId"))
+        if hero is None:
+            continue
+        level = _int(entry.get("lev"))
+        if level is None:
+            trained.append(str(hero))
+        else:
+            own[str(hero)] = level
+    top = sorted(own.values(), reverse=True)[:TRAINING_CENTER_TOP]
+    levels = dict(own)
+    if top:
+        for hero_id in trained:
+            levels[hero_id] = top[-1]
+    return {
+        "hero_levels": levels,
+        "hero_trained": sorted(trained, key=int) if top else [],
     }
 
 

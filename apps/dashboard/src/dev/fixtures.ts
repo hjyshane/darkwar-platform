@@ -925,6 +925,7 @@ const PLANNER_ACCOUNT = {
   buildings: { '400000': 55, '402000': 55, '424000': 55 },
   science: { '1601100': 12 },
   heroLevels: { '40002': 108, '1017': 97 },
+  heroTrained: ['1017'],
   heroGear: [
     { equipId: 410100, heroId: 40002, level: 100, promote: 3 },
     { equipId: 410200, heroId: 40002, level: 88, promote: 0 },
