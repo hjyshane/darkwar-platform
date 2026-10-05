@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useContext, useId, useState } from 'react';
 import {
   type Extent,
   type Point,
@@ -15,6 +15,7 @@ import {
   ticks,
   wholeNumbers,
 } from '../lib/series';
+import { ChartWidth } from './ChartFlow';
 
 /** A line chart, in SVG, with no charting library.
  *
@@ -59,8 +60,6 @@ export interface LineChartProps {
   note?: string;
 }
 
-const WIDTH = 720;
-
 export function LineChart({
   series,
   label,
@@ -77,6 +76,7 @@ export function LineChart({
   // the rest back. Held as the series NAME rather than an index, so a chart
   // whose series change under it (a sort re-picking alliances) cannot isolate
   // the wrong line — a stale name just means nothing is isolated.
+  const width = useContext(ChartWidth);
   const [only, setOnly] = useState<string | null>(null);
   const isolated = only !== null && series.some((line) => line.name === only) ? only : null;
   // Everything the axes, extents and paths see. The legend and the hidden
@@ -89,7 +89,7 @@ export function LineChart({
   const rightFormat = formatRight ?? formatValue;
 
   const box = {
-    width: WIDTH,
+    width,
     height,
     // Left room enough for a formatted power figure; bottom for one row of
     // dates. Hard-coded rather than measured: measuring text means a layout

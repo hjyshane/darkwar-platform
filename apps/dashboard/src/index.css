@@ -419,45 +419,13 @@ main > * {
   }
 }
 
-/* Above phone width the table becomes its own scroll pane so the header can
- * stay put over a hundred rows.
- *
- * It has to own the vertical axis for that to work at all: `position:
- * sticky` resolves against the nearest scrollport, and `overflow-x: auto`
- * already made this element one on BOTH axes (setting either axis to auto
- * computes the other to auto, not visible). Without a height it never
- * scrolls vertically, so a sticky header would pin to the top of a box
- * that is itself scrolling away with the page — which looks exactly like
- * not being sticky at all.
- *
- * Left on the page's own scroll on a phone: a nested scroll pane there
- * fights the browser's overscroll gestures, and with three columns visible
- * the header is rarely far away.
- */
-@media (width > 48rem) {
-  .table-wrap {
-    max-height: calc(100dvh - 15rem);
-    overflow: auto;
-    /* Y is deliberately NOT contained. `overscroll-behavior: contain` used to
-     * apply to both axes, which meant reaching the bottom of the table stopped
-     * the wheel dead: the page underneath never took over, so the table and the
-     * page felt like two scrolls that had to be driven separately. Chaining is
-     * the behaviour every other long page has.
-     *
-     * X stays contained (from the base rule) because there the containment is
-     * doing real work — a sideways flick that escaped the table would trigger
-     * the browser's back gesture. */
-    overscroll-behavior-y: auto;
-  }
-
-  .table-wrap thead th {
-    position: sticky;
-    top: 0;
-    /* Opaque, or the rows read straight through it while they pass under. */
-    background: var(--bg);
-    z-index: 2;
-  }
-}
+/* No vertical scroll pane per table (user 2026-10-05): every table scrolling
+ * on its own inside a page that also scrolls was the complaint, so the page
+ * owns the vertical axis and a table only scrolls sideways when it is wider
+ * than the measure. The sticky header went with it — sticky resolves against
+ * the nearest scrollport, which is this element on both axes once overflow-x
+ * is auto, and a header pinned to a box that scrolls away with the page does
+ * nothing. */
 
 /* `separate` with zero spacing, not `collapse`, so the sticky header keeps
  * its bottom border.
@@ -5235,4 +5203,42 @@ button.tile-grid:hover:not(:disabled) {
 .chip-class svg {
   height: 9px;
   width: 9px;
+}
+
+/* Charts side by side (ChartFlow): a third of the row each, headings, notes and
+ * tiles across the whole row. A lone chart stays a third wide rather than
+ * stretching back to the full measure. */
+.chart-flow {
+  column-gap: var(--space-4);
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.chart-flow > * {
+  flex: 1 1 100%;
+}
+
+.chart-flow > :is(.chart, .chart-cell) {
+  flex: 0 1 calc((100% - 2 * var(--space-4)) / 3);
+  min-width: min(100%, 18rem);
+}
+
+.chart-flow .chart-cell .chart {
+  margin-bottom: var(--space-4);
+}
+
+/* The legend above each plot is as long as its note, so three side by side
+ * would start their plots at three heights. The caption takes the row's slack
+ * instead, and the plots line up along the bottom. */
+.chart-flow .chart-cell {
+  display: flex;
+  flex-direction: column;
+}
+
+.chart-flow .chart-cell .chart {
+  flex-grow: 1;
+}
+
+.chart-flow .chart figcaption {
+  flex-grow: 1;
 }
