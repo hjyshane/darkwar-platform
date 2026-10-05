@@ -23,6 +23,8 @@ export interface Account {
   heroLevels: Record<string, number>;
   /** Heroes the Training Center holds at the synced level (0231). */
   heroTrained: string[];
+  /** March squads 1-4, each its hero ids in slot order (0236). */
+  heroSquads: { index: number; heroes: string[] }[];
   heroGear: { equipId: number; heroId: number | null; level: number; promote: number }[];
   /** Exclusive weapon level by hero id (0222). */
   heroExclusives: Record<string, number>;
@@ -75,7 +77,7 @@ export async function fetchAccounts(): Promise<Account[]> {
     supabase
       .from('account_state_latest')
       .select(
-        'player_id, server_id, captured_at, buildings, science, hero_intensify, hero_levels, hero_trained, hero_equips, hero_exclusives, items, resources, effects, timed_effects',
+        'player_id, server_id, captured_at, buildings, science, hero_intensify, hero_levels, hero_trained, hero_squads, hero_equips, hero_exclusives, items, resources, effects, timed_effects',
       ),
     supabase.from('account_state_manual').select('*'),
   ]);
@@ -103,6 +105,10 @@ export async function fetchAccounts(): Promise<Account[]> {
         ? asRecord(row.hero_levels)
         : asRecord(row.hero_intensify),
     heroTrained: asList<string>(row.hero_trained),
+    heroSquads: asList<{ index: number; heroes: number[] }>(row.hero_squads).map((s) => ({
+      index: s.index,
+      heroes: (s.heroes ?? []).map(String),
+    })),
     heroGear: asList(row.hero_equips),
     heroExclusives: asRecord(row.hero_exclusives),
     items: asRecord(row.items),
@@ -141,6 +147,7 @@ export function blankAccount(
     science: {},
     heroLevels: {},
     heroTrained: [],
+    heroSquads: [],
     heroGear: [],
     heroExclusives: {},
     items: {},

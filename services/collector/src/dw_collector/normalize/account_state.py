@@ -51,7 +51,7 @@ from dw_collector.models import NormalizedRow, Observation, idempotency_key
 from dw_collector.normalize.event_schedule import schedule_rows
 from dw_collector.registry import register
 
-PARSER_VERSION = "1.4.0"
+PARSER_VERSION = "1.5.0"
 
 
 class _User(BaseModel):
@@ -132,6 +132,7 @@ def account_state(payload: dict[str, Any]) -> dict[str, Any]:
         "mod_car_equips": _pairs(_entries(payload, "modCarEquipArr"), "equipId", "lv"),
         "science": _pairs(_entries(payload, "science_new"), "itemId", "level"),
         **_hero_levels(_entries(payload, "userHero")),
+        "hero_squads": _squads(payload),
         # Exclusive weapons, one per hero that has one: heroId -> level.
         "hero_exclusives": _pairs(_entries(payload, "heroEquipUniques"), "heroId", "level"),
         "effects": _effects(payload.get("effect")),
@@ -177,6 +178,33 @@ def _hero_levels(entries: list[dict[str, Any]]) -> dict[str, Any]:
 # Wood: it sits beside iron and electricity at ~7.1B and grows at their rate,
 # while `wood` reads 0 (confirmed by the user in game, 2026-10-04). The rest
 # of the block — flint, oil, water, people, pvePoint — no cost uses.
+def _squads(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    """`army_formation`: the account's march squads, 1-4, each its heroes in
+    slot order, as hero ids (0236). A formation names heroes by `heroUuid`,
+    the hero's instance id, which `userHero[].uuid` maps to its `heroId`.
+    Only `heroes`: on 2026-10-05 squad 4 read `heroes: []` beside three
+    `tempHeroes`, two of them already in squads 1 and 3 - a leftover, not a
+    squad. An empty squad stays empty.
+    A uuid no hero carries is skipped rather than guessed."""
+    by_uuid: dict[str, int] = {}
+    for entry in _entries(payload, "userHero"):
+        hero, uuid = _int(entry.get("heroId")), entry.get("uuid")
+        if hero is not None and uuid is not None:
+            by_uuid[str(uuid)] = hero
+    squads = []
+    for formation in _entries(payload, "army_formation"):
+        index = _int(formation.get("index"))
+        if index is None:
+            continue
+        slots = [s for s in formation.get("heroes") or [] if isinstance(s, dict)]
+        slots.sort(key=lambda s: _int(s.get("index")) or 0)
+        heroes = [
+            by_uuid[str(s.get("heroUuid"))] for s in slots if str(s.get("heroUuid")) in by_uuid
+        ]
+        squads.append({"index": index, "heroes": heroes})
+    return sorted(squads, key=lambda s: s["index"])
+
+
 RESOURCE_IDS: dict[str, str] = {
     "coal": "25",
     "iron": "12",

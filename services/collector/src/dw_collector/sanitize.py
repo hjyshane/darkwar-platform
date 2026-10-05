@@ -697,8 +697,9 @@ _INIT_FIELDS: dict[str, tuple[str, ...]] = {
     "building_new": ("bId", "lv"),
     "heroEquips": ("equipId", "heroId", "level", "promote"),
     "heroIntensifys": ("heroId", "lv"),
-    # Hero levels: heroId and lev only; stats, skills and uuids stay behind.
-    "userHero": ("heroId", "lev"),
+    # Hero levels: heroId and lev, and the instance uuid squads name heroes
+    # by (0236); stats and skills stay behind.
+    "userHero": ("heroId", "lev", "uuid"),
     "modCarEquipArr": ("equipId", "lv"),
     "science_new": ("itemId", "level"),
     "heroEquipUniques": ("equipId", "heroId", "level"),
@@ -732,6 +733,25 @@ def sanitize_init(payload: dict[str, Any]) -> dict[str, Any]:
             {field: entry[field] for field in fields if field in entry}
             for entry in entries[:_INIT_LIST_LIMIT]
             if isinstance(entry, dict)
+        ]
+    # Squads (0236): the index and each slot's hero uuid. ownerUid, names,
+    # soldiers and state stay behind.
+    formations = payload.get("army_formation")
+    if isinstance(formations, list):
+        clean["army_formation"] = [
+            {
+                "index": f.get("index"),
+                **{
+                    key: [
+                        {"heroUuid": s.get("heroUuid"), "index": s.get("index")}
+                        for s in f.get(key) or []
+                        if isinstance(s, dict)
+                    ]
+                    for key in ("heroes", "tempHeroes")
+                },
+            }
+            for f in formations
+            if isinstance(f, dict)
         ]
     # The server's buff totals: effect id -> number, nothing personal.
     if isinstance(payload.get("effect"), dict):

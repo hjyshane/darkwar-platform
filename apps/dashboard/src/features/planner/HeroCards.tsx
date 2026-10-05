@@ -37,6 +37,8 @@ export function HeroCards({ account, targets, onSet, onEdit }: HeroCardsProps) {
   const editing = onEdit !== undefined;
   const [gradeFilter, setGradeFilter] = useState<number | undefined | 'all'>('all');
   const [classFilter, setClassFilter] = useState<number | undefined | 'all'>('all');
+  // Squad 1-4, 'none' for heroes in no squad (user 2026-10-05).
+  const [squadFilter, setSquadFilter] = useState<number | 'none' | 'all'>('all');
   // Art for the cards (0232): nothing shows for a reader without it.
   const heroIcons = useIcons('hero');
   const gearIcons = useIcons('gear');
@@ -78,11 +80,21 @@ export function HeroCards({ account, targets, onSet, onEdit }: HeroCardsProps) {
     .sort((a, b) => (b.grade ?? 0) - (a.grade ?? 0) || Number(b.id) - Number(a.id));
   const grades = [...new Set(all.map((h) => h.grade))].sort((a, b) => (b ?? 0) - (a ?? 0));
   const classes = [...new Set(all.map((h) => h.troopClass))].sort((a, b) => (a ?? 99) - (b ?? 99));
-  const heroes = all.filter(
-    (h) =>
-      (gradeFilter === 'all' || h.grade === gradeFilter) &&
-      (classFilter === 'all' || h.troopClass === classFilter),
-  );
+  const squads = account.heroSquads;
+  const squadOf = new Map(squads.flatMap((s) => s.heroes.map((id) => [id, s.index] as const)));
+  const inSquad = (h: { id: string }) =>
+    squadFilter === 'all' ||
+    (squadFilter === 'none' ? !squadOf.has(h.id) : squadOf.get(h.id) === squadFilter);
+  const slot = (id: string) => squads.find((s) => s.index === squadFilter)?.heroes.indexOf(id) ?? 0;
+  const heroes = all
+    .filter(
+      (h) =>
+        (gradeFilter === 'all' || h.grade === gradeFilter) &&
+        (classFilter === 'all' || h.troopClass === classFilter) &&
+        inSquad(h),
+    )
+    // One squad reads in its slot order, as the game lines it up.
+    .sort((a, b) => (typeof squadFilter === 'number' ? slot(a.id) - slot(b.id) : 0));
   const maxOf = (subject: string) => maxima.data.get(subject) ?? 0;
 
   const edit = (patch: Partial<Account>) => onEdit?.({ ...account, ...patch });
@@ -91,6 +103,37 @@ export function HeroCards({ account, targets, onSet, onEdit }: HeroCardsProps) {
 
   return (
     <>
+      {squads.length > 0 && (
+        <div aria-label="Squad" className="planner-tabs" role="tablist">
+          <button
+            aria-selected={squadFilter === 'all'}
+            onClick={() => setSquadFilter('all')}
+            role="tab"
+            type="button"
+          >
+            Every hero
+          </button>
+          {squads.map((s) => (
+            <button
+              aria-selected={squadFilter === s.index}
+              key={s.index}
+              onClick={() => setSquadFilter(s.index)}
+              role="tab"
+              type="button"
+            >
+              Squad {s.index} ({s.heroes.length})
+            </button>
+          ))}
+          <button
+            aria-selected={squadFilter === 'none'}
+            onClick={() => setSquadFilter('none')}
+            role="tab"
+            type="button"
+          >
+            In no squad ({all.filter((h) => !squadOf.has(h.id)).length})
+          </button>
+        </div>
+      )}
       <div aria-label="Hero grade" className="planner-tabs" role="tablist">
         <button
           aria-selected={gradeFilter === 'all'}

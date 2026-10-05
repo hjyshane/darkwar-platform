@@ -5,9 +5,11 @@
 //
 // The arithmetic is lib/troops.ts's, confirmed in game there: a weapon fills
 // one segment per level (level 22 = 4 stars and 2 segments; level 30 =
-// awakening 1). Gear past 100 fills by promote: 1-10 are the ten stage-ups,
-// two stars' worth; from promote 11 each step is an awakening segment, 36
-// being five full pentagons (the largest value ever observed).
+// awakening 1). Gear has no stars (user, 2026-10-05): its level runs 1 to
+// 100, then the red pentagons fill. Promote 1-10 are the stage-ups the
+// levelling passes through and draw nothing; from promote 11 each step is
+// an awakening segment, 36 being five full pentagons (the largest value
+// ever observed).
 
 import { useId } from 'react';
 import { useIcons } from '../../lib/gameIcons';
@@ -126,14 +128,10 @@ export function gearSegments(promote: number): { stage: number; awakening: numbe
 }
 
 export function GearPromote({ promote }: { promote: number }) {
-  const { stage, awakening } = gearSegments(promote);
+  const { awakening } = gearSegments(promote);
   return (
     <span className="rank" title={gearPromoteText(promote)}>
-      {awakening > 0 || promote >= GEAR_PROMOTE_AT_MAX_LEVEL ? (
-        <Row count={5} segments={awakening} shape="pentagon" />
-      ) : (
-        <Row count={2} segments={stage} shape="star" />
-      )}
+      <Row count={5} segments={awakening} shape="pentagon" />
     </span>
   );
 }
@@ -158,7 +156,5 @@ export function gearPromoteText(promote: number): string {
     const part = awakening % SEGMENTS;
     return `⬠${full}${part ? ` ▰${part}` : ''}`;
   }
-  const full = Math.floor(stage / SEGMENTS);
-  const part = stage % SEGMENTS;
-  return `★${full}${part ? ` ▰${part}` : ''}`;
+  return stage === 0 ? '⬠0' : `⬠0 · stage ${stage}`;
 }

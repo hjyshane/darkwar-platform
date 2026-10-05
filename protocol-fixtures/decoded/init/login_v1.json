@@ -129,14 +129,44 @@
       }
     ],
     "userHero": [
-      { "heroId": 40005, "lev": 131 },
-      { "heroId": 40002, "lev": 131 },
-      { "heroId": 40001, "lev": 130 },
-      { "heroId": 21001, "lev": 130 },
-      { "heroId": 40004, "lev": 130 },
-      { "heroId": 1016, "lev": 40 },
-      { "heroId": 40006 },
-      { "heroId": 12001 }
+      {
+        "heroId": 40005,
+        "lev": 131,
+        "uuid": 9100000000000000000
+      },
+      {
+        "heroId": 40002,
+        "lev": 131,
+        "uuid": 9100000000000000001
+      },
+      {
+        "heroId": 40001,
+        "lev": 130,
+        "uuid": 9100000000000000002
+      },
+      {
+        "heroId": 21001,
+        "lev": 130,
+        "uuid": 9100000000000000003
+      },
+      {
+        "heroId": 40004,
+        "lev": 130,
+        "uuid": 9100000000000000004
+      },
+      {
+        "heroId": 1016,
+        "lev": 40,
+        "uuid": 9100000000000000005
+      },
+      {
+        "heroId": 40006,
+        "uuid": 9100000000000000006
+      },
+      {
+        "heroId": 12001,
+        "uuid": 9100000000000000007
+      }
     ],
     "heroIntensifys": [
       {
@@ -277,6 +307,77 @@
         "effNum": 40012,
         "effVal": 1.0,
         "stateId": 500007
+      }
+    ],
+    "army_formation": [
+      {
+        "index": 2,
+        "heroes": [
+          {
+            "heroUuid": 9100000000000000003,
+            "index": 2
+          },
+          {
+            "heroUuid": 9100000000000000004,
+            "index": 1
+          }
+        ],
+        "tempHeroes": []
+      },
+      {
+        "index": 1,
+        "heroes": [
+          {
+            "heroUuid": 9100000000000000000,
+            "index": 1
+          },
+          {
+            "heroUuid": 9100000000000000001,
+            "index": 2
+          },
+          {
+            "heroUuid": 9100000000000000002,
+            "index": 3
+          }
+        ],
+        "tempHeroes": [
+          {
+            "heroUuid": 9100000000000000000,
+            "index": 1
+          },
+          {
+            "heroUuid": 9100000000000000001,
+            "index": 2
+          },
+          {
+            "heroUuid": 9100000000000000002,
+            "index": 3
+          }
+        ]
+      },
+      {
+        "index": 3,
+        "heroes": [
+          {
+            "heroUuid": 9100000000000000005,
+            "index": 1
+          },
+          {
+            "heroUuid": 777,
+            "index": 2
+          }
+        ],
+        "tempHeroes": []
+      },
+      {
+        "index": 4,
+        "heroes": [],
+        "tempHeroes": [
+          {
+            "heroUuid": 9100000000000000005,
+            "index": 1
+          }
+        ]
       }
     ]
   },
