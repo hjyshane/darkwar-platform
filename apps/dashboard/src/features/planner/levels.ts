@@ -27,6 +27,21 @@ export function levelText(tiers: Tiers, subject: string, level: number): string 
   return sub === null ? main : `${main} · ${sub}`;
 }
 
+/** The game marks industry tiers on Watchtower alone, but every building
+ * that climbs as far (max level 81) shows the same i1..i10 in game (user,
+ * 2026-10-05). Each such building borrows the tiered building's ladder. */
+export function shareTiers(tiers: Tiers, maxLevels: ReadonlyMap<string, number>): Tiers {
+  const out = new Map(tiers);
+  for (const [tiered, ladder] of tiers) {
+    const top = maxLevels.get(tiered);
+    if (top === undefined) continue;
+    for (const [subject, max] of maxLevels) {
+      if (max === top && !out.has(subject)) out.set(subject, ladder);
+    }
+  }
+  return out;
+}
+
 export function tiersFrom(
   rows: ReadonlyArray<{ subject_id: string; level: number; tier: number }>,
 ): Tiers {

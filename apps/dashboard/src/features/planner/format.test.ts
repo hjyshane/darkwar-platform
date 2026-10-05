@@ -3,7 +3,7 @@ import { short } from './format';
 
 describe('short', () => {
   it('writes big numbers the way the game does', () => {
-    expect(short(7162671974)).toBe('7.16B');
+    expect(short(7162671974)).toBe('7.16G');
     expect(short(240000000)).toBe('240M');
     expect(short(96000000)).toBe('96M');
     expect(short(12500)).toBe('12.5K');

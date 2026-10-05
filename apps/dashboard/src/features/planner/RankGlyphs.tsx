@@ -42,9 +42,12 @@ function Shape({ shape, filled }: { shape: 'star' | 'pentagon'; filled: number }
   const outline = points(shape);
   // The game's own art when the reader has it (0233): the empty glyph,
   // already cut in five, with the full one shown through the filled wedges.
+  // Stars only: the game's empty pentagon is red already, so filled and
+  // empty segments could not be told apart (user, 2026-10-05). A pentagon
+  // is drawn here: a red outline, hollow, the reached wedges red.
   const ui = useIcons('ui').data;
-  const empty = ui?.get(`${shape}_empty`);
-  const full = ui?.get(`${shape}_full`);
+  const empty = shape === 'star' ? ui?.get('star_empty') : undefined;
+  const full = shape === 'star' ? ui?.get('star_full') : undefined;
   if (empty && full) {
     return (
       <svg aria-hidden="true" className="rank-shape" height="20" viewBox="0 0 24 24" width="20">
@@ -76,6 +79,20 @@ function Shape({ shape, filled }: { shape: 'star' | 'pentagon'; filled: number }
           <path className={i < filled ? 'rank-on' : 'rank-off'} d={wedge(i)} key={i} />
         ))}
       </g>
+      {shape === 'pentagon' &&
+        // The five cuts, so a part-filled pentagon shows how far it is.
+        outline
+          .split(' ')
+          .map((corner) => (
+            <line
+              className="rank-cut"
+              key={corner}
+              x1="12"
+              x2={corner.split(',')[0]}
+              y1="12"
+              y2={corner.split(',')[1]}
+            />
+          ))}
       <polygon className="rank-outline" points={outline} />
     </svg>
   );
@@ -156,5 +173,5 @@ export function gearPromoteText(promote: number): string {
     const part = awakening % SEGMENTS;
     return `⬠${full}${part ? ` ▰${part}` : ''}`;
   }
-  return stage === 0 ? '⬠0' : `⬠0 · stage ${stage}`;
+  return stage === 0 ? '⬠0' : `stage ${stage}`;
 }

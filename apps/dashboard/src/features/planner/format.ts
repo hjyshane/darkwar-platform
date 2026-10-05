@@ -1,9 +1,10 @@
-// Big numbers the way the game writes them: 7.16B, 240M, 12.5K. The exact
+// Big numbers the way the game writes them: 7.16G, 240M, 12.5K — G for a
+// billion, as the game does (user, 2026-10-05: 7.6G in game read 7.6B here). The exact
 // figure goes in a title for whoever needs it.
 
 const UNITS: ReadonlyArray<[number, string]> = [
   [1e12, 'T'],
-  [1e9, 'B'],
+  [1e9, 'G'],
   [1e6, 'M'],
   [1e3, 'K'],
 ];

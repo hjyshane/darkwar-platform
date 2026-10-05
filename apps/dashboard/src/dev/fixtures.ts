@@ -932,7 +932,7 @@ const PLANNER_ACCOUNT = {
     { index: 2, heroes: [] },
   ],
   heroGear: [
-    { equipId: 410100, heroId: 40002, level: 100, promote: 3 },
+    { equipId: 410100, heroId: 40002, level: 100, promote: 24 },
     { equipId: 410200, heroId: 40002, level: 88, promote: 0 },
     { equipId: 410100, heroId: 1017, level: 60, promote: 0 },
   ],
