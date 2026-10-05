@@ -347,3 +347,21 @@ test('defaultOpen renders the detail table without a click', () => {
   // table was display:block and shrank to its content on a full-width page.
   expect(document.querySelector('.lineup-detail-scroll .lineup-detail')).not.toBeNull();
 });
+
+test('a hero with a portrait shows the face, its class in a corner; one without keeps the glyph', () => {
+  const face = 'data:image/webp;base64,AAAA';
+  const { container } = renderWithQuery(<LineupCell heroes={lineup} />, [
+    [['game-icons', 'hero'], new Map([['40001', face]])],
+  ]);
+
+  const chips = [...container.querySelectorAll('.lineup .chip')];
+  const withFace = chips.filter((chip) => chip.classList.contains('chip-portrait'));
+  expect(withFace).toHaveLength(1);
+  expect(withFace[0]?.querySelector('img.chip-face')?.getAttribute('src')).toBe(face);
+  expect(withFace[0]?.querySelector('.chip-class')).not.toBeNull();
+  // Every other hero still reads by its class glyph alone.
+  expect(chips.length - withFace.length).toBe(lineup.length - 1);
+  expect(
+    chips.find((c) => !c.classList.contains('chip-portrait'))?.querySelector('img'),
+  ).toBeNull();
+});
