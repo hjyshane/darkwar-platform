@@ -62,7 +62,12 @@ async function fetchMaterials(): Promise<Material[]> {
     materials.push({
       type: 'item',
       id: row.item_id,
-      kinds: [EXTRA_ITEMS[row.item_id] ?? 'hero_fragment'],
+      // One hero's fragments (type 93) show only while held; the universal
+      // ones (62) always do.
+      kinds: [
+        EXTRA_ITEMS[row.item_id] ?? 'hero_fragment',
+        ...(String(row.item_type) === '93' ? ['only_held'] : []),
+      ],
     });
   }
   return materials;
@@ -161,6 +166,15 @@ export function StockPanel({ have, onHave, edited }: StockPanelProps) {
     const rows = materials.data
       .filter((m) => !placed.has(`${m.type}:${m.id}`) && belongs(m))
       .filter((m) => needle === '' || nameOf(m).toLowerCase().includes(needle))
+      // A hero's fragments the account has none of are left out (user,
+      // 2026-10-05) — unless searched for, or typed in on this visit.
+      .filter(
+        (m) =>
+          !m.kinds.includes('only_held') ||
+          needle !== '' ||
+          edited.has(`${m.type}:${m.id}`) ||
+          have(m.type, m.id) > 0,
+      )
       .sort((a, b) =>
         a.type === 'resource' && b.type === 'resource'
           ? RESOURCE_ORDER.indexOf(a.id) - RESOURCE_ORDER.indexOf(b.id)
