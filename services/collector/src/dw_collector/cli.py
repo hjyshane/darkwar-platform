@@ -908,6 +908,7 @@ def game_catalog(
     tabs = catalog.research_tabs()
     heroes = catalog.hero_names()
     grades = catalog.hero_grades()
+    pet_rarities = catalog.pet_rarities()
     kinds: dict[str, int] = {}
     for step in steps:
         kinds[step["kind"]] = kinds.get(step["kind"], 0) + 1
@@ -930,7 +931,8 @@ def game_catalog(
         upload.upsert_rows(client, "game_research_tabs", tabs, "tab_id")
         named, kept = upload.fill_hero_names(client, heroes)
         graded = upload.set_hero_grades(client, grades)
-    typer.echo(f"written; heroes named={named} kept-admin-names={kept} graded={graded}")
+        pets = upload.set_pet_rarities(client, pet_rarities)
+    typer.echo(f"written; heroes named={named} kept-admin-names={kept} graded={graded} pets={pets}")
 
 
 @app.command("game-icons")

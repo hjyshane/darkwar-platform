@@ -51,7 +51,7 @@ from dw_collector.models import NormalizedRow, Observation, idempotency_key
 from dw_collector.normalize.event_schedule import schedule_rows
 from dw_collector.registry import register
 
-PARSER_VERSION = "1.5.0"
+PARSER_VERSION = "1.6.0"
 
 
 class _User(BaseModel):
@@ -133,6 +133,8 @@ def account_state(payload: dict[str, Any]) -> dict[str, Any]:
         "science": _pairs(_entries(payload, "science_new"), "itemId", "level"),
         **_hero_levels(_entries(payload, "userHero")),
         "hero_squads": _squads(payload),
+        "vehicle": _vehicle(payload),
+        "pets": _pets(payload),
         # Exclusive weapons, one per hero that has one: heroId -> level.
         "hero_exclusives": _pairs(_entries(payload, "heroEquipUniques"), "heroId", "level"),
         "effects": _effects(payload.get("effect")),
@@ -203,6 +205,50 @@ def _squads(payload: dict[str, Any]) -> list[dict[str, Any]]:
         ]
         squads.append({"index": index, "heroes": heroes})
     return sorted(squads, key=lambda s: s["index"])
+
+
+def _vehicle(payload: dict[str, Any]) -> dict[str, int]:
+    """The vehicle (0237): `userModCar` level and the exp toward the next,
+    and `modCarEquipSuit` level, the parts' set bonus. Part levels are
+    `mod_car_equips`."""
+    out: dict[str, int] = {}
+    car = payload.get("userModCar")
+    if isinstance(car, dict):
+        for key in ("level", "exp"):
+            value = _int(car.get(key))
+            if value is not None:
+                out[key] = value
+    suit = payload.get("modCarEquipSuit")
+    if isinstance(suit, dict) and _int(suit.get("level")) is not None:
+        out["suit_level"] = _int(suit.get("level"))  # type: ignore[assignment]
+    return out
+
+
+def _pets(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    """Each pet (0237): level, the breakthrough reached, and the training
+    (`refiningAttrs`, attribute id -> value). Skills and timestamps stay
+    behind."""
+    pets = []
+    for entry in _entries(payload, "petsArr"):
+        pet_id, level = _int(entry.get("petId")), _int(entry.get("level"))
+        if pet_id is None or level is None:
+            continue
+        refining = entry.get("refiningAttrs")
+        pets.append(
+            {
+                "pet_id": pet_id,
+                "level": level,
+                "breakthrough": _int(entry.get("breakthroughLevel")) or 0,
+                "training": _pairs(
+                    [r for r in refining if isinstance(r, dict)]
+                    if isinstance(refining, list)
+                    else [],
+                    "attrId",
+                    "value",
+                ),
+            }
+        )
+    return sorted(pets, key=lambda p: p["pet_id"])
 
 
 RESOURCE_IDS: dict[str, str] = {

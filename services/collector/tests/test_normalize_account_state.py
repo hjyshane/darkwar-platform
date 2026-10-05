@@ -102,6 +102,8 @@ def test_raw_is_only_what_the_parser_reads() -> None:
         "hero_levels",
         "hero_trained",
         "hero_squads",
+        "vehicle",
+        "pets",
     }
     assert row.row["raw"]["user"] == {"uid": "9473022442000580", "serverId": 580}
     assert "someone@example.com" not in str(row.row)
@@ -289,3 +291,19 @@ def test_no_formations_is_no_squads() -> None:
     (row,) = account_state.normalize(observation.model_copy(update={"payload": payload}))
 
     assert row.row["hero_squads"] == []
+
+
+def test_vehicle_is_its_level_exp_and_set_level() -> None:
+    (row,) = account_state.normalize(load_observation(LOGIN))
+
+    assert row.row["vehicle"] == {"level": 279, "exp": 1200, "suit_level": 27}
+
+
+def test_pets_carry_level_breakthrough_and_training() -> None:
+    """Sorted by pet id; an entry without a numeric id is skipped."""
+    (row,) = account_state.normalize(load_observation(LOGIN))
+
+    assert row.row["pets"] == [
+        {"pet_id": 101, "level": 45, "breakthrough": 40, "training": {}},
+        {"pet_id": 106, "level": 60, "breakthrough": 60, "training": {"1": 161, "2": 150}},
+    ]

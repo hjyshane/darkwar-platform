@@ -297,16 +297,23 @@ CATALOGUE_TABLES = {
         [40006000] = { 40006000, 40006, 52, '300014', 253074, '' } },
       index = { id = {1,'int'}, group = {2,'int'}, level = {3,'int'}, name = {4,'string'},
                 cost_item = {5,'int'}, cost_num = {6,'string'}, icon = {7,'string'} } }""",
-    "pet": """return { data = { [101] = { 101, 'pet_record_img_pet_01' } },
-      index = { id = {1,'int'}, icon = {2,'string'} } }""",
+    "pet": """return { data = { [101] = { 101, 'pet_record_img_pet_01', 3 } },
+      index = { id = {1,'int'}, icon = {2,'string'}, rarity = {3,'int'} } }""",
+    "car_modify_new": """return { data = { [1] = { 1, 1, '200034;35', 100, 300 },
+        [2] = { 2, 2, '200034;40', 100, 250 },
+        [3] = { 3, 3, '', 100, 0 } },
+      index = { id = {1,'int'}, level = {2,'int'}, cost = {3,'string'},
+                add_exp = {4,'int'}, exp = {5,'int'} } }""",
     "car_equip": """return { data = { [1027] = { 1027, 1, 27, '200040;540|200041;110', '300007' },
         [1028] = { 1028, 1, 28, '', '300007' } },
       index = { id = {1,'int'}, slot = {2,'int'}, level = {3,'int'},
                 cost = {4,'string'}, name = {5,'string'} } }""",
-    "pet_levelup": """return { data = { [226] = { 226, 3, 26, '330001;2475' },
-        [227] = { 227, 3, 27, '' } },
+    "pet_levelup": """return { data = { [226] = { 226, 3, 26, '330001;2475', '', '' },
+        [227] = { 227, 3, 27, '', '', '' },
+        [230] = { 230, 3, 30, '330001;3060', '330002;80|330003;15', '1' } },
       index = { id = {1,'int'}, rarity = {2,'int'}, level = {3,'int'},
-                cost_levelup = {4,'string'} } }""",
+                cost_levelup = {4,'string'}, cost_break = {5,'string'},
+                breakthrough = {6,'string'} } }""",
 }
 CATALOGUE_EN = (
     "300001=Precision Part\n300002=Titanium Alloy\n300003=Wood\n300004=Iron\n"
@@ -626,3 +633,29 @@ def test_icons_are_small_webp() -> None:
 
     assert (width, height) == (96, 48)
     assert base64.b64decode(image)[8:12] == b"WEBP"
+
+
+def test_vehicle_level_costs_every_use_a_level_needs() -> None:
+    """Each use of the Gear cost adds 100 exp; level 1 needs 300 to go on,
+    so the step to 2 is three uses. Level 2's 250 rounds up to three."""
+    steps = sorted(
+        (s for s in _catalogue().steps() if s["kind"] == "vehicle"), key=lambda s: s["level"]
+    )
+
+    assert [(s["subject_id"], s["level"]) for s in steps] == [("0", 2), ("0", 3)]
+    assert steps[0]["costs"] == [{"type": "item", "id": "200034", "amount": 105}]
+    assert steps[1]["costs"] == [{"type": "item", "id": "200034", "amount": 120}]
+
+
+def test_a_pet_breakthrough_stays_at_its_level() -> None:
+    (step,) = [s for s in _catalogue().steps() if s["kind"] == "pet_break"]
+
+    assert (step["subject_id"], step["level"]) == ("3", 30)
+    assert step["costs"] == [
+        {"type": "item", "id": "330002", "amount": 80},
+        {"type": "item", "id": "330003", "amount": 15},
+    ]
+
+
+def test_pet_rarity_comes_from_the_pet_table() -> None:
+    assert _catalogue().pet_rarities() == {101: 3}

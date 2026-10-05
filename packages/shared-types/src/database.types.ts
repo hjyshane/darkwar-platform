@@ -104,6 +104,7 @@ export type Database = {
           mod_car_equips: Json
           observation_id: string
           parser_version: string
+          pets: Json
           player_id: string | null
           raw: Json
           resources: Json
@@ -112,6 +113,7 @@ export type Database = {
           snapshot_id: string
           source_command: string
           timed_effects: Json
+          vehicle: Json
         }
         Insert: {
           buildings?: Json
@@ -132,6 +134,7 @@ export type Database = {
           mod_car_equips?: Json
           observation_id: string
           parser_version: string
+          pets?: Json
           player_id?: string | null
           raw?: Json
           resources?: Json
@@ -140,6 +143,7 @@ export type Database = {
           snapshot_id?: string
           source_command: string
           timed_effects?: Json
+          vehicle?: Json
         }
         Update: {
           buildings?: Json
@@ -160,6 +164,7 @@ export type Database = {
           mod_car_equips?: Json
           observation_id?: string
           parser_version?: string
+          pets?: Json
           player_id?: string | null
           raw?: Json
           resources?: Json
@@ -168,6 +173,7 @@ export type Database = {
           snapshot_id?: string
           source_command?: string
           timed_effects?: Json
+          vehicle?: Json
         }
         Relationships: [
           {
@@ -4327,6 +4333,7 @@ export type Database = {
           name: string | null
           notes: string
           pet_id: number
+          rarity: number | null
           updated_at: string
         }
         Insert: {
@@ -4334,6 +4341,7 @@ export type Database = {
           name?: string | null
           notes?: string
           pet_id: number
+          rarity?: number | null
           updated_at?: string
         }
         Update: {
@@ -4341,6 +4349,7 @@ export type Database = {
           name?: string | null
           notes?: string
           pet_id?: number
+          rarity?: number | null
           updated_at?: string
         }
         Relationships: []
@@ -6731,11 +6740,13 @@ export type Database = {
           hero_trained: Json | null
           items: Json | null
           mod_car_equips: Json | null
+          pets: Json | null
           player_id: string | null
           resources: Json | null
           science: Json | null
           server_id: number | null
           timed_effects: Json | null
+          vehicle: Json | null
         }
         Relationships: [
           {
