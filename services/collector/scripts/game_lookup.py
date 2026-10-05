@@ -254,6 +254,20 @@ def list_tables(names: list[str], pattern: str) -> None:
         print("  (none — the client ships no table named anything like that)")
 
 
+def dump_tables(
+    assets: Mapping[str, bytes], text: Mapping[str, str], tables: list[str], limit: int
+) -> None:
+    """Several tables in one pass, because the candidates come as a set.
+
+    `--list boss` names four of them at once; opening them one run at a time
+    re-reads every bundle each time for no reason.
+    """
+    for index, table in enumerate(tables):
+        if index:
+            print()
+        dump_table(assets, text, table, limit)
+
+
 def dump_table(
     assets: Mapping[str, bytes], text: Mapping[str, str], table: str, limit: int
 ) -> None:
@@ -296,7 +310,9 @@ def main() -> int:
     parser.add_argument("--id", action="append", default=[], help="a row id to look up; repeatable")
     parser.add_argument("--grep", help="a regex to match localised strings against")
     parser.add_argument("--list", help="a regex to match TABLE NAMES against")
-    parser.add_argument("--table", help="dump every row of this table")
+    parser.add_argument(
+        "--table", action="append", default=[], help="dump every row of this table; repeatable"
+    )
     parser.add_argument("--rows", type=int, default=40, help="rows --table prints (default 40)")
     parser.add_argument("--quiet", action="store_true", help="no progress on stderr")
     args = parser.parse_args()
@@ -327,7 +343,7 @@ def main() -> int:
     printed = False
     for ran, run in (
         (args.list, lambda: list_tables(names, args.list)),
-        (args.table, lambda: dump_table(assets, text, args.table, args.rows)),
+        (args.table, lambda: dump_tables(assets, text, args.table, args.rows)),
         (args.grep, lambda: by_text(assets, names, text, args.grep, noisy=noisy)),
         (args.id, lambda: by_id(assets, names, text, [str(x) for x in args.id], noisy=noisy)),
     ):
