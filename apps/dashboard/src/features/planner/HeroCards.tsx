@@ -11,6 +11,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { GameIcon, useIcons } from '../../lib/gameIcons';
 import { heroGradeName } from '../../lib/heroes';
 import { troopClassName } from '../../lib/troops';
 import { LevelPicker } from './LevelPicker';
@@ -36,6 +37,10 @@ export function HeroCards({ account, targets, onSet, onEdit }: HeroCardsProps) {
   const editing = onEdit !== undefined;
   const [gradeFilter, setGradeFilter] = useState<number | undefined | 'all'>('all');
   const [classFilter, setClassFilter] = useState<number | undefined | 'all'>('all');
+  // Art for the cards (0232): nothing shows for a reader without it.
+  const heroIcons = useIcons('hero');
+  const gearIcons = useIcons('gear');
+  const weaponIcons = useIcons('exclusive');
   const info = useQuery({
     queryKey: ['planner-heroes', account.playerId, editing],
     queryFn: () => fetchHeroInfo(account, editing),
@@ -139,7 +144,8 @@ export function HeroCards({ account, targets, onSet, onEdit }: HeroCardsProps) {
           const weapon = account.heroExclusives[hero.id] ?? 0;
           return (
             <article className="planner-card" key={hero.id}>
-              <h4>
+              <h4 className="planner-card-title">
+                <GameIcon size={40} src={heroIcons.data?.get(hero.id)} />
                 {hero.name}{' '}
                 <span className={`rarity-tag chip-grade-${hero.grade ?? 'unknown'}`}>
                   {heroGradeName(hero.grade ?? null)}
@@ -201,6 +207,7 @@ export function HeroCards({ account, targets, onSet, onEdit }: HeroCardsProps) {
                   return (
                     <div className="planner-card-row" key={subject}>
                       <dt className={`gear-quality-${quality}`}>
+                        <GameIcon src={gearIcons.data?.get(String(g.equipId))} />
                         {piece?.name ?? `Gear ${g.equipId}`}
                         {editing && (
                           <button
@@ -283,7 +290,10 @@ export function HeroCards({ account, targets, onSet, onEdit }: HeroCardsProps) {
                 )}
                 {weaponMax !== undefined && (
                   <div className="planner-card-row">
-                    <dt>Exclusive weapon</dt>
+                    <dt>
+                      <GameIcon src={weaponIcons.data?.get(hero.id)} />
+                      Exclusive weapon
+                    </dt>
                     <dd>
                       <LevelPicker
                         current={weapon}

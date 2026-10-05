@@ -933,6 +933,51 @@ def game_catalog(
     typer.echo(f"written; heroes named={named} kept-admin-names={kept} graded={graded}")
 
 
+@app.command("game-icons")
+def game_icons(
+    bundles: Annotated[
+        list[Path],
+        typer.Option("--bundles", exists=True, file_okay=False, help="as for game-catalog"),
+    ],
+    pack: Annotated[
+        Path,
+        typer.Option("--pack", exists=True, dir_okay=False, help="split_install_time_pack.apk"),
+    ],
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="count, write nothing")] = False,
+    url: Annotated[str | None, typer.Option(envvar="SUPABASE_URL")] = None,
+    secret_key: Annotated[str | None, typer.Option(envvar="SUPABASE_SECRET_KEY")] = None,
+) -> None:
+    """Hero, weapon, gear and item icons from the asset pack, as small WebP
+    rows in members-only tables (0232). Needs the `gamedata` extra."""
+    from dw_collector.gamedata import read_dir, upload
+    from dw_collector.gamedata.catalog import Catalog
+    from dw_collector.gamedata.icons import extract
+
+    assets: dict[str, bytes] = {}
+    for folder in bundles:
+        assets.update(read_dir(folder))
+    refs = Catalog(assets).icon_refs()
+    icons = extract(pack, {r["icon_key"] for r in refs})
+    drawn = [r for r in refs if r["icon_key"] in icons]
+    kinds = {
+        kind: f"{sum(1 for r in drawn if r['kind'] == kind)}/"
+        f"{sum(1 for r in refs if r['kind'] == kind)}"
+        for kind in sorted({r["kind"] for r in refs})
+    }
+    size = sum(len(i["image"]) for i in icons.values()) * 3 // 4
+    typer.echo(f"icons={len(icons)} ({size // 1024} KB) refs drawn {kinds}")
+    if dry_run:
+        return
+    if not url or not secret_key:
+        typer.echo("SUPABASE_URL and SUPABASE_SECRET_KEY are required", err=True)
+        raise typer.Exit(code=2)
+    headers = {"apikey": secret_key, "Authorization": f"Bearer {secret_key}"}
+    with httpx.Client(base_url=url.rstrip("/"), headers=headers, timeout=120.0) as client:
+        upload.upsert_rows(client, "game_icons", list(icons.values()), "icon_key")
+        upload.upsert_rows(client, "game_icon_refs", drawn, "kind,ref_id")
+    typer.echo("written")
+
+
 def _fetch_all(client: httpx.Client, table: str, select: str) -> list[dict[str, Any]]:
     """Every row of a table, a page at a time: PostgREST stops at 1,000."""
     rows: list[dict[str, Any]] = []

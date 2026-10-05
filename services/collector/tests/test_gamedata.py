@@ -238,15 +238,16 @@ def test_plan_refreshes_its_own_rows_and_skips_unchanged_ones() -> None:
 
 CATALOGUE_TABLES = {
     "goods": """return { data = {
-        [253042] = { 253042, '300001', 5 },
+        [253042] = { 253042, '300001', 5, nil, nil, nil, nil, 'item_Precisionparts' },
         [200040] = { 200040, '300002', 4 },
         [210872] = { 210872, '', 2, { ['300010'] = '10,000' } },
         [222003] = { 222003, '300011', 2, { ['300011'] = '100' } },
         [210305] = { 210305, '300012', 4, nil, '1017', 93 },
-        [253074] = { 253074, '300012', 4, nil, '253094', 215, '40006000' } },
+        [253074] = { 253074, '300012', 4, nil, '253094', 215, '40006000' },
+        [253070] = { 253070, '300019', 5, nil, nil, 215, nil, 'icon_exclusive_Engineer' } },
       index = { id = {1,'int'}, name = {2,'string'}, color = {3,'int'},
                 name_value = {4,'table'}, para2 = {5,'string'},
-                type = {6,'int'}, para1 = {7,'string'} } }""",
+                type = {6,'int'}, para1 = {7,'string'}, icon = {8,'string'} } }""",
     "ds_equip_upgrade": """return { data = {
         [1001] = { 1001, 3, '10;20;30' }, [1002] = { 1002, 3, '10;20;30' } },
       index = { id = {1,'int'}, quality = {2,'int'}, stone_upgrade_cost = {3,'string'} } }""",
@@ -256,16 +257,18 @@ CATALOGUE_TABLES = {
         [12] = { 12, 11, '230104;15000|230110;50' },
         [37] = { 37, 36, '' } },
       index = { id = {1,'int'}, level = {2,'int'}, cost_goods = {3,'string'} } }""",
-    "ds_equip": """return { data = { [410100] = { 410100, '300016', 5, 1 } },
-      index = { id = {1,'int'}, name = {2,'string'}, quality = {3,'int'}, slot = {4,'int'} } }""",
+    "ds_equip": """return { data = { [410100] = { 410100, '300016', 5, 1, 'item_arms02' } },
+      index = { id = {1,'int'}, name = {2,'string'}, quality = {3,'int'}, slot = {4,'int'},
+                icon = {5,'string'} } }""",
     "effect_num_des": """return { data = { [30070] = { 30070, '300015', 0 } },
       index = { id = {1,'int'}, des = {2,'string'}, is_minus = {3,'int'} } }""",
     "heroes_levelup": """return { data = {
         [20] = { 20, 45000 }, [21] = { 21, 45000 }, [22] = { 22, 45000 } },
       index = { id = {1,'int'}, exp = {2,'int'} } }""",
-    "aps_new_heroes": """return { data = { [1017] = { 1017, '300013', 2 },
-        [40015] = { 40015, nil, 1 }, [500] = { 500, nil, 1 } },
-      index = { id = {1,'int'}, name = {2,'string'}, rarity = {3,'int'} } }""",
+    "aps_new_heroes": """return { data = { [1017] = { 1017, '300013', 2, 'hero_halfbody_CatWoman' },
+        [40015] = { 40015, nil, 1 }, [500] = { 500, nil, 1, 'hero_halfbody_Zombie05' } },
+      index = { id = {1,'int'}, name = {2,'string'}, rarity = {3,'int'},
+                hero_icon = {4,'string'} } }""",
     "aps_resources": """return { data = { [25] = { 25, '300003' }, [12] = { 12, '300004' } },
       index = { id = {1,'int'}, name = {2,'string'} } }""",
     "building": """return { data = {
@@ -288,12 +291,12 @@ CATALOGUE_TABLES = {
       index = { id = {1,'int'}, name = {2,'string'}, order = {3,'int'},
                 server = {4,'table'} } }""",
     "heroes_exclusive_equip": """return { data = {
-        [40002000] = { 40002000, 40002, 0, '300019', 253070, '10' },
+        [40002000] = { 40002000, 40002, 0, '300019', 253070, '10', 'UIarms_icon_05' },
         [40002001] = { 40002001, 40002, 1, '300019', 253070, '1' },
         [40002052] = { 40002052, 40002, 52, '300019', 253070, '' },
         [40006000] = { 40006000, 40006, 52, '300014', 253074, '' } },
       index = { id = {1,'int'}, group = {2,'int'}, level = {3,'int'}, name = {4,'string'},
-                cost_item = {5,'int'}, cost_num = {6,'string'} } }""",
+                cost_item = {5,'int'}, cost_num = {6,'string'}, icon = {7,'string'} } }""",
     "car_equip": """return { data = { [1027] = { 1027, 1, 27, '200040;540|200041;110', '300007' },
         [1028] = { 1028, 1, 28, '', '300007' } },
       index = { id = {1,'int'}, slot = {2,'int'}, level = {3,'int'},
@@ -591,3 +594,30 @@ def test_hero_grades_overwrite_the_typed_ones_for_known_heroes_only() -> None:
 
     assert written == 2
     assert sent == [[{"hero_id": 1006, "grade": 3}, {"hero_id": 1021, "grade": 1}]]
+
+
+def test_icon_refs_name_a_sprite_for_heroes_weapons_gear_and_costed_items() -> None:
+    refs = {(r["kind"], r["ref_id"]): r["icon_key"] for r in _catalogue().icon_refs()}
+
+    assert refs[("hero", "1017")] == "hero_halfbody_CatWoman"
+    # 500 is a monster, not a hero; 40015 has no icon named.
+    assert ("hero", "500") not in refs and ("hero", "40015") not in refs
+    assert refs[("exclusive", "40002")] == "UIarms_icon_05"
+    assert refs[("gear", "410100")] == "item_arms02"
+    # Items only when an upgrade costs them: Precision Part (a building) and
+    # the Pyro Pup fragments (the exclusive weapon).
+    assert refs[("item", "253042")] == "item_Precisionparts"
+    assert refs[("item", "253070")] == "icon_exclusive_Engineer"
+
+
+def test_icons_are_small_webp() -> None:
+    import base64
+
+    image_module = pytest.importorskip("PIL.Image")
+
+    from dw_collector.gamedata.icons import to_webp
+
+    image, width, height = to_webp(image_module.new("RGBA", (224, 112), (255, 0, 0, 255)))
+
+    assert (width, height) == (96, 48)
+    assert base64.b64decode(image)[8:12] == b"WEBP"

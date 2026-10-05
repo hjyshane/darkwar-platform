@@ -291,6 +291,38 @@ class Catalog:
                 out[hid] = grade
         return out
 
+    def icon_refs(self) -> list[Row]:
+        """Which sprite each thing the dashboard shows is drawn with (0232):
+        heroes (`aps_new_heroes.hero_icon`), exclusive weapons
+        (`heroes_exclusive_equip.icon`, one per hero), hero gear
+        (`ds_equip.icon`) and every item an upgrade costs (`goods.icon`).
+        Rows are {kind, ref_id, icon_key}; the sprites themselves come out of
+        the asset pack (icons.py)."""
+        out: dict[tuple[str, str], str] = {}
+
+        def put(kind: str, ref: Any, icon: Any) -> None:
+            if ref in (None, "") or not isinstance(icon, str) or not icon.strip():
+                return
+            out.setdefault((kind, str(ref)), icon.strip())
+
+        for hero_id, row in self._rows("aps_new_heroes").items():
+            hid = _int(hero_id)
+            if hid is not None and PLAYABLE_HEROES[0] <= hid <= PLAYABLE_HEROES[1]:
+                put("hero", hid, row.get("hero_icon"))
+        for row in self._rows("heroes_exclusive_equip").values():
+            put("exclusive", _int(row.get("group")), row.get("icon"))
+        for equip_id, row in self._rows("ds_equip").items():
+            put("gear", _int(equip_id), row.get("icon"))
+        costed = {
+            cost["id"] for step in self.steps() for cost in step["costs"] if cost["type"] == "item"
+        }
+        goods = self._rows("goods")
+        for item_id in sorted(costed):
+            good = goods.get(item_id)
+            if good:
+                put("item", item_id, good.get("icon"))
+        return [{"kind": k, "ref_id": r, "icon_key": i} for (k, r), i in sorted(out.items())]
+
     def steps(self) -> Iterator[Row]:
         yield from self._building_steps()
         yield from self._research_steps()

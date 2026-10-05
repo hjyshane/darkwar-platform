@@ -16,7 +16,7 @@ dependencies = [
 capture = ["scapy>=2.6"]
 # Reading the game client's own data files (dw-collector game-names). Only
 # the operator's machine needs it; the collector never imports it.
-gamedata = ["UnityPy>=1.25", "lupa>=2.8"]
+gamedata = ["UnityPy>=1.25", "lupa>=2.8", "Pillow>=10"]
 
 # Spec 10.1 asks for process separation, not package separation. One package,
 # four entrypoints: capture must not die because sync or a UI workflow failed.
@@ -76,7 +76,7 @@ module = "scapy.*"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = ["UnityPy", "UnityPy.*", "lupa", "lupa.*"]
+module = ["UnityPy", "UnityPy.*", "lupa", "lupa.*", "PIL", "PIL.*"]
 ignore_missing_imports = true
 
 # --- pytest ------------------------------------------------------------------

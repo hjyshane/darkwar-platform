@@ -104,6 +104,25 @@
 
    1 루비 = $0.0099 (루비만 든 팩이 전부 $0.99당 100).
 
+## 아이콘 (영웅·무기·장비·아이템 그림)
+
+그림은 패치 번들이 아니라 Play 스토어가 APK 옆에 까는 에셋 팩
+`split_install_time_pack.apk`(약 2 GB, 번들 4,288개 중 그림 번들 약 1,169개)에 있다.
+
+1. 경로 확인 — 설치마다 디렉터리 이름이 바뀐다:
+   `HD-Adb.exe -s <endpoint> shell pm path com.readygo.dark.gp`
+2. 복사 — **PowerShell에서** 한다. Git Bash는 `/data/app/...`를 Windows 경로로 바꿔 버려서
+   "성공"하고도 파일이 없다(2026-10-05).
+   `HD-Adb.exe -s <endpoint> pull "<pm path가 준 경로>/split_install_time_pack.apk" C:/DW_data/gamedata/apk/install_time_pack.apk`
+3. 올리기:
+   `uv run --extra gamedata dw-collector game-icons --bundles <base> --bundles <patch> --pack C:/DW_data/gamedata/apk/install_time_pack.apk`
+   먼저 `--dry-run`으로 개수를 본다(첫 배치: 102개, 259 KB — 무기 18/18, 장비 60/60, 영웅 40/47,
+   업그레이드에 드는 아이템 28/32).
+
+그림은 게임 회사 것이라 **공개 URL로 내보내지 않는다**. `game_icons`(base64 WebP, 긴 변 96px)와
+`game_icon_refs`(무엇이 어느 그림인지)는 멤버만 읽고(0232), 대시보드는 로그인한 세션으로 받아 간다.
+dev 픽스처에는 진짜 그림 대신 색 원을 쓴다.
+
 ## 언제 다시 돌리나
 
 게임 업데이트 뒤. `AssetBundles/*.version` 파일이 바뀌었으면 1~3을 다시 한다.
