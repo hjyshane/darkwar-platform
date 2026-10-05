@@ -30,7 +30,7 @@ import { fetchOwnAllianceId } from '../roster/RosterPanel';
  * and a full timestamp in a table this wide costs a column of width. */
 const joined = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeZone: 'UTC' });
 
-interface AppUser {
+export interface AppUser {
   user_id: string;
   display_name: string | null;
   role: AppRole;
@@ -55,10 +55,17 @@ interface AppUser {
 }
 
 /** Someone who signed up and has not been let in yet (0195 waiting_to_join). */
-interface Waiting {
+export interface Waiting {
   user_id: string;
   email: string;
-  created_at: string;
+  /** When they signed up. From `auth.users.created_at`, which has a default
+   * but no NOT NULL, so this is nullable however unlikely — unlike the
+   * members table below, whose `created_at` is `app_users.created_at` and IS
+   * `not null` (0002). It was typed `string` and formatted unguarded, and a
+   * null does not announce itself here the way it would there: `new Date(null)`
+   * is the epoch, not an Invalid Date, so the row would have quietly read
+   * "1 Jan 1970". A plausible wrong date is worse than no date. */
+  created_at: string | null;
 }
 
 async function fetchWaiting(): Promise<Waiting[]> {
@@ -442,9 +449,13 @@ export function MembersSetting() {
                 <tr key={person.user_id}>
                   <td className="label">{person.email}</td>
                   <td className="label">
-                    <time dateTime={person.created_at}>
-                      {joined.format(new Date(person.created_at))}
-                    </time>
+                    {person.created_at === null ? (
+                      <span className="subtle">—</span>
+                    ) : (
+                      <time dateTime={person.created_at}>
+                        {joined.format(new Date(person.created_at))}
+                      </time>
+                    )}
                   </td>
                   <td>
                     <button
