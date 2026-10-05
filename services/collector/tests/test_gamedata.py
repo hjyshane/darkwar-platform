@@ -560,10 +560,3 @@ def test_exclusive_weapon_steps_are_fragments_by_level_reached() -> None:
         ("40002", 2, [{"type": "item", "id": "253070", "amount": 1}]),
     ]
     assert steps[0]["name"] == "Pyro Pup"
-
-
-def test_hero_rarity_covers_playable_heroes_only() -> None:
-    rarity = {r["hero_id"]: r["rarity"] for r in _catalogue().hero_rarity()}
-
-    # 500 is a monster, not a hero; a hero needs no name to have a rarity.
-    assert rarity == {1017: 2, 40015: 1}

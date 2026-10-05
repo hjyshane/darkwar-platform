@@ -3230,24 +3230,6 @@ export type Database = {
         }
         Relationships: []
       }
-      game_hero_rarity: {
-        Row: {
-          hero_id: number
-          rarity: number
-          updated_at: string
-        }
-        Insert: {
-          hero_id: number
-          rarity: number
-          updated_at?: string
-        }
-        Update: {
-          hero_id?: number
-          rarity?: number
-          updated_at?: string
-        }
-        Relationships: []
-      }
       game_item_names: {
         Row: {
           item_id: string
