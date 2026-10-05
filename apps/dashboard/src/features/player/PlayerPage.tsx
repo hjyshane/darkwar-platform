@@ -15,6 +15,7 @@ import { useFavourites } from '../../lib/useFavourites';
 import { LineupCell } from '../arena/LineupCell';
 import { LineupLegend } from '../arena/LineupLegend';
 import { fetchLineups } from '../arena/lineups';
+import { PetsSummary, SquadsSummary, VehicleSummary, useAccountState } from './AccountSummary';
 import { ComponentTrend } from './ComponentTrend';
 import { MemberHistory } from './MemberHistory';
 import {
@@ -312,7 +313,7 @@ const CONTRIBUTION_LABELS: [string, string][] = [
   ['duel_round_score', TERMS.duelRound],
 ];
 
-type View = 'growth' | 'heroes' | 'arena' | 'alliance' | 'names';
+type View = 'growth' | 'heroes' | 'arena' | 'alliance' | 'names' | 'squads' | 'vehicle' | 'pets';
 
 export function PlayerPage({ playerId, now }: { playerId: string; now?: Date }) {
   const [chosen, setChosen] = useState<View>('growth');
@@ -331,6 +332,9 @@ export function PlayerPage({ playerId, now }: { playerId: string; now?: Date }) 
   // does not become a button that opens an empty map.
   const map = useMapDisclosure();
   const hasLocation = usePlayerHasLocation(playerId, now);
+  // The character's own login (owner or admin only, 0205): squads, vehicle
+  // and pets. Nobody else gets a row, and so no tabs.
+  const account = useAccountState(playerId, signedIn);
 
   if (isPending) {
     return (
@@ -363,6 +367,13 @@ export function PlayerPage({ playerId, now }: { playerId: string; now?: Date }) 
   // show is not offered.
   const views: { view: View; label: string }[] = [
     { view: 'growth', label: 'Growth' },
+    ...(account.data
+      ? [
+          { view: 'squads' as const, label: 'Squads' },
+          { view: 'vehicle' as const, label: 'Vehicle' },
+          { view: 'pets' as const, label: 'Pets' },
+        ]
+      : []),
     ...(data.componentPower.length > 0
       ? [{ view: 'heroes' as const, label: 'Heroes and pets' }]
       : []),
@@ -560,6 +571,20 @@ export function PlayerPage({ playerId, now }: { playerId: string; now?: Date }) 
           and do not exist for anybody else; this one is built on the ranking
           boards, which list every player on the server. Somebody browsing a
           rival's profile gets a growth trend here and nothing else on the page. */}
+      {account.data && view !== 'growth' && ['squads', 'vehicle', 'pets'].includes(view) && (
+        <section aria-labelledby="player-account">
+          <h2 id="player-account">
+            {view === 'squads' ? 'Squads' : view === 'vehicle' ? 'Vehicle' : 'Pets'}{' '}
+            <span className="subtle">
+              as of the last login <FreshnessBadge capturedAt={account.data.capturedAt} now={now} />
+            </span>
+          </h2>
+          {view === 'squads' && <SquadsSummary state={account.data} />}
+          {view === 'vehicle' && <VehicleSummary state={account.data} />}
+          {view === 'pets' && <PetsSummary state={account.data} />}
+        </section>
+      )}
+
       {view === 'growth' && (
         <section aria-labelledby="player-trend">
           <h2 id="player-trend">Growth</h2>

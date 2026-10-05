@@ -86,12 +86,17 @@ export interface Pet {
   pet_id: number;
   name: string | null;
   notes: string;
+  /** 1-4, what its level and breakthrough costs are keyed by (0237). */
+  rarity: number | null;
 }
 
 export type PetCatalogue = ReadonlyMap<number, Pet>;
 
 export async function fetchPets(): Promise<PetCatalogue> {
-  const { data, error } = await supabase.from('pets').select('pet_id, name, notes').order('pet_id');
+  const { data, error } = await supabase
+    .from('pets')
+    .select('pet_id, name, notes, rarity')
+    .order('pet_id');
   if (error) {
     throw new Error(`pet query failed: ${error.message}`);
   }
