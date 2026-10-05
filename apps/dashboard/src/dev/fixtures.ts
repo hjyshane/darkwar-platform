@@ -12,6 +12,7 @@
 // spacing, empty states and navigation. Nothing else.
 
 import { recentWeeks } from '../features/admin/ManualScoresSetting';
+import type { AppUser, Waiting } from '../features/admin/MembersSetting';
 import type { BoardPage } from '../features/board/board';
 import { vacateDeparted } from '../features/hive/hiveFormations';
 import { gameDate, seasonPeriod } from '../features/participation/periods';
@@ -2009,6 +2010,15 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
   ],
 
   // Admin — Access
+  //
+  // Typed, unlike most of this file. The five fields below `player_id` were
+  // all absent, and an absent `created_at` took down the whole Admin tab:
+  // `new Date(undefined)` is an Invalid Date and Intl throws
+  // "Invalid time value" on it, while the component's guard tests
+  // `=== null`, which undefined is not. FIXTURES is `unknown`-valued by
+  // design — it seeds a query cache, so there is no one shape to declare —
+  // and nothing caught the gap until the page went white. `satisfies` on
+  // this one array puts tsc back in the loop for the row that crashed.
   [
     ['members-admin'],
     [
@@ -2018,23 +2028,69 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
         role: 'admin',
         game_rank: 'R5',
         player_id: PLAYER.shane,
+        email: 'you@example.com',
+        last_sign_in_at: ago(14),
+        created_at: ago(60 * 24 * 220),
+        alliance_role: 'admin',
+        other_alliances: 0,
       },
+      // In both of our alliances, so Remove means "out of this one", and the
+      // button says so instead of offering to delete the account.
       {
         user_id: '33333333-3333-4333-8333-333333333302',
         display_name: 'Mira',
         role: 'officer',
         game_rank: 'R4',
         player_id: PLAYER.mira,
+        email: 'mira@example.com',
+        last_sign_in_at: ago(90),
+        created_at: ago(60 * 24 * 95),
+        alliance_role: 'officer',
+        other_alliances: 1,
       },
       // Signed in, never linked — the state the history screen has to explain.
+      // Also never signed in, for the badge beside the address, and a viewer,
+      // so the Remove column has nothing left to take.
+      //
+      // `created_at` is deliberately NOT null here: `app_users.created_at` is
+      // `not null` (0002) and `app_user_directory` reads that column (0201),
+      // so a null is an impossible state, and a fixture of an impossible state
+      // teaches the UI to handle something it will never be given.
       {
         user_id: '33333333-3333-4333-8333-333333333303',
         display_name: null,
         role: 'viewer',
         game_rank: null,
         player_id: null,
+        email: 'newcomer@example.com',
+        last_sign_in_at: null,
+        created_at: ago(60 * 3),
+        alliance_role: 'viewer',
+        other_alliances: 0,
       },
-    ],
+    ] satisfies AppUser[],
+  ],
+  // Admin — Access, "Waiting to join". Unseeded until now, so the section
+  // could not be looked at at all.
+  //
+  // One of the two has no signup date. That one IS reachable —
+  // `auth.users.created_at` is nullable — and it is the case the table got
+  // wrong: unguarded, `new Date(null)` is the epoch, so the row read
+  // "1 Jan 1970" rather than admitting it did not know.
+  [
+    ['waiting-to-join'],
+    [
+      {
+        user_id: '33333333-3333-4333-8333-333333333304',
+        email: 'asked.nicely@example.com',
+        created_at: ago(60 * 30),
+      },
+      {
+        user_id: '33333333-3333-4333-8333-333333333305',
+        email: 'no.signup.date@example.com',
+        created_at: null,
+      },
+    ] satisfies Waiting[],
   ],
   [
     ['linkable-players'],
