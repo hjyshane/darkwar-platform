@@ -41,6 +41,8 @@ Row = dict[str, Any]
 
 # Hero ids that are playable heroes, inclusive (see Catalog.hero_names).
 PLAYABLE_HEROES = (1000, 89999)
+# aps_new_heroes.rarity -> heroes.grade (1 blue, 2 purple, 3 gold).
+HERO_GRADE_BY_RARITY = {1: 3, 2: 2, 3: 1}
 # goods.type of an exclusive equipment's fragments: para1 is the equipment.
 EXCLUSIVE_EQUIP_FRAGMENT = 215
 # Hero experience is bought with Food, one for one.
@@ -269,6 +271,25 @@ class Catalog:
         for name in found.values():
             uses[name.lower()] = uses.get(name.lower(), 0) + 1
         return {hid: name for hid, name in found.items() if uses[name.lower()] == 1}
+
+    def hero_grades(self) -> dict[int, int]:
+        """hero id -> grade as the dashboard keeps it (heroes.grade: 1 blue,
+        2 purple, 3 gold), from `aps_new_heroes.rarity`, which runs the other
+        way: 1 gold, 2 purple, 3 blue. Checked against the game (user,
+        2026-10-05): Guy, Quinn, Evans and Catherine & Rex are gold and
+        rarity 1; the max star level follows it, 26 / 21 / 16. Rarity 4
+        (Lima, Jack) is no grade the game colours, and is left out."""
+        out: dict[int, int] = {}
+        for hero_id, row in self._rows("aps_new_heroes").items():
+            hid, rarity = _int(hero_id), _int(row.get("rarity"))
+            grade = HERO_GRADE_BY_RARITY.get(rarity) if rarity is not None else None
+            if (
+                hid is not None
+                and grade is not None
+                and PLAYABLE_HEROES[0] <= hid <= PLAYABLE_HEROES[1]
+            ):
+                out[hid] = grade
+        return out
 
     def steps(self) -> Iterator[Row]:
         yield from self._building_steps()

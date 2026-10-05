@@ -122,6 +122,19 @@ def fill_hero_names(client: httpx.Client, names: Mapping[int, str]) -> tuple[int
     return len(rows), len(typed & set(names))
 
 
+def set_hero_grades(client: httpx.Client, grades: Mapping[int, int]) -> int:
+    """Write each known hero's grade from the game (heroes.grade). Unlike
+    names, the game's grade wins over a hand-typed one: the hand-typed grades
+    were wrong for Guy, Quinn, Evans and Catherine & Rex (2026-10-05). Only
+    heroes already in the catalogue are touched; fill_hero_names adds the
+    rest first. Returns rows written."""
+    resp = client.get("/rest/v1/heroes", params={"select": "hero_id", "limit": 2000})
+    resp.raise_for_status()
+    known = {int(row["hero_id"]) for row in resp.json()}
+    rows = [{"hero_id": hid, "grade": g} for hid, g in sorted(grades.items()) if hid in known]
+    return upsert_rows(client, "heroes", rows, "hero_id")
+
+
 # PostgREST takes a large body, but a 16,000-row upsert in one statement
 # holds its locks for the whole of it on a micro instance members are using.
 BATCH = 1000

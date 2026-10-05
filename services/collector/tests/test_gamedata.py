@@ -560,3 +560,34 @@ def test_exclusive_weapon_steps_are_fragments_by_level_reached() -> None:
         ("40002", 2, [{"type": "item", "id": "253070", "amount": 1}]),
     ]
     assert steps[0]["name"] == "Pyro Pup"
+
+
+def test_hero_grades_follow_the_games_rarity_the_other_way_round() -> None:
+    grades = _catalogue().hero_grades()
+
+    # rarity 2 -> purple (2); rarity 1 -> gold (3); 500 is a monster.
+    assert grades == {1017: 2, 40015: 3}
+
+
+def test_hero_grades_overwrite_the_typed_ones_for_known_heroes_only() -> None:
+    """The game's grade wins over a hand-typed one; a hero the catalogue
+    does not have yet is not created here."""
+    import json
+
+    import httpx
+
+    from dw_collector.gamedata.upload import set_hero_grades
+
+    sent: list[list[dict[str, object]]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET":
+            return httpx.Response(200, json=[{"hero_id": 1006}, {"hero_id": 1021}])
+        sent.append(json.loads(request.content))
+        return httpx.Response(201)
+
+    client = httpx.Client(base_url="http://test", transport=httpx.MockTransport(handler))
+    written = set_hero_grades(client, {1006: 3, 1021: 1, 99999: 3})
+
+    assert written == 2
+    assert sent == [[{"hero_id": 1006, "grade": 3}, {"hero_id": 1021, "grade": 1}]]

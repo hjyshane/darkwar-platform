@@ -184,10 +184,10 @@ export function HeroesSetting() {
                       onChange={(event) => setDraft({ ...draft, grade: event.target.value })}
                       value={draft.grade}
                     >
-                      {/* 미정 is a choice, not a placeholder — clearing a
+                      {/* Unset is a choice, not a placeholder — clearing a
                           grade back to "nobody has established it" has to be
                           possible from the same control that sets one. */}
-                      <option value="">미정</option>
+                      <option value="">Unset</option>
                       {Object.entries(HERO_GRADES).map(([value, label]) => (
                         <option key={value} value={value}>
                           {label}
@@ -238,7 +238,7 @@ export function HeroesSetting() {
                   </td>
                   <td className={`label grade-cell ${heroGradeClass(hero.grade) ?? ''}`}>
                     {hero.grade === null ? (
-                      <span className="subtle">미정</span>
+                      <span className="subtle">Unset</span>
                     ) : (
                       <>
                         <span className="grade-dot" />

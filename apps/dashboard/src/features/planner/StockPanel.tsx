@@ -25,6 +25,7 @@ async function fetchMaterials(): Promise<Material[]> {
   if (error) throw new Error(error.message);
   return (data ?? [])
     .filter((m) => (m.type === 'resource' || m.type === 'item') && m.id !== null)
+    .filter((m) => !LEFT_OUT.has(`${m.type}:${m.id}`))
     .map((m) => ({ type: m.type as Material['type'], id: m.id as string, kinds: m.kinds ?? [] }));
 }
 
@@ -38,6 +39,19 @@ const GROUPS: ReadonlyArray<[string, (m: Material) => boolean]> = [
   ['Vehicle', (m) => m.kinds.includes('vehicle_part')],
   ['Pets', (m) => m.kinds.includes('pet')],
 ];
+
+// Costs a planner has no use for (user, 2026-10-05): Crimson Ore and Antigen,
+// and the items only the buildings the planner leaves out are paid in —
+// Badge, BB-8, Permanent Construction Queue, Skipper, Truth.
+const LEFT_OUT = new Set([
+  'resource:0',
+  'resource:13',
+  'item:200017',
+  'item:200063',
+  'item:200066',
+  'item:200061',
+  'item:200062',
+]);
 
 // Resources in the game's own order: Wood, Iron, Electricity, Food, Coin.
 const RESOURCE_ORDER = ['25', '12', '26', '24', '14'];
