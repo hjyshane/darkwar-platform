@@ -128,6 +128,7 @@ export function LineupCell({
                 hero.weapon_level === null ? null : 'chip-weapon',
                 isWeaponAwakened(hero.weapon_level) ? 'chip-weapon-awakened' : null,
                 bonus !== null && hero.troop_class === bonus.troopClass ? 'chip-synergy' : null,
+                heroIcons.data?.has(String(hero.hero_id)) ? 'chip-portrait' : null,
               ]
                 .filter(Boolean)
                 .join(' ')}
@@ -138,7 +139,25 @@ export function LineupCell({
                   the chip does too — the letter was a translation the reader
                   had to learn. An unrecognised class keeps the letter,
                   because there is no glyph to be honest with. */}
-              {classGlyph(hero.troop_class) ?? troopClassInitial(hero.troop_class)}
+              {/* With the hero's portrait (0232) the chip is the face, framed in
+                  its grade colour, and the class moves to a corner badge; a
+                  hero without one keeps the glyph chip. */}
+              {heroIcons.data?.has(String(hero.hero_id)) ? (
+                <>
+                  <img
+                    alt=""
+                    className="chip-face"
+                    height={22}
+                    src={heroIcons.data.get(String(hero.hero_id))}
+                    width={22}
+                  />
+                  <span className="chip-class">
+                    {classGlyph(hero.troop_class) ?? troopClassInitial(hero.troop_class)}
+                  </span>
+                </>
+              ) : (
+                (classGlyph(hero.troop_class) ?? troopClassInitial(hero.troop_class))
+              )}
             </span>
           ))}
         </span>

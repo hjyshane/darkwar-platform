@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { ArrangedTable, type Column } from '../../components/ArrangedTable';
 import { TableSearch } from '../../components/TableSearch';
+import { GameIcon, useIcons } from '../../lib/gameIcons';
 import { heroName, petName, useHeroCatalogue, usePetCatalogue } from '../../lib/heroes';
 import { playerHash, serverHash } from '../../lib/route';
 import type { ColumnSpec } from '../../lib/tableLayout';
@@ -42,6 +43,7 @@ export function CrossRankingTable({ rows, board }: { rows: BoardRow[]; board: Bo
   // are two small tables behind a shared query key, and branching here would
   // mean a hook that runs on some boards and not others.
   const { data: heroes } = useHeroCatalogue();
+  const { data: heroIcons } = useIcons('hero');
   const { data: pets } = usePetCatalogue();
   const { query, setQuery, sort, onSort, view, shown, total } = useTableView(rows, SEARCH_FIELDS, {
     key: 'rank',
@@ -105,16 +107,21 @@ export function CrossRankingTable({ rows, board }: { rows: BoardRow[]; board: Bo
             className: 'label',
             cellTitle: (row: BoardRow) => (row.unit_id === null ? undefined : `#${row.unit_id}`),
             cell: (row: BoardRow) =>
-              row.unit_id === null
-                ? '—'
-                : board.unitKind === 'pet'
-                  ? petName(pets, row.unit_id)
-                  : heroName(heroes, row.unit_id),
+              row.unit_id === null ? (
+                '—'
+              ) : board.unitKind === 'pet' ? (
+                petName(pets, row.unit_id)
+              ) : (
+                <>
+                  <GameIcon size={22} src={heroIcons?.get(String(row.unit_id))} />
+                  {heroName(heroes, row.unit_id)}
+                </>
+              ),
           }
         : null,
     ];
     return declared.filter((column): column is Column<BoardRow> => column !== null);
-  }, [board, heroes, pets]);
+  }, [board, heroes, pets, heroIcons]);
 
   if (rows.length === 0) {
     return <p className="empty">No ranking data yet.</p>;
