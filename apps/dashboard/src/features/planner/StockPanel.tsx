@@ -134,11 +134,13 @@ export function StockPanel({ have, onHave, edited }: StockPanelProps) {
       }}
       open={open}
     >
-      <summary>
-        <h3>Stock</h3>
-        <span className="subtle">
-          {' '}
-          {open ? 'hide' : 'show'} — everything an upgrade costs, and how much you hold
+      <summary className="planner-stock-head">
+        <span>
+          <h3>Stock</h3>
+          <span className="subtle">everything an upgrade costs, and how much you hold</span>
+        </span>
+        <span aria-hidden="true" className="planner-stock-toggle">
+          {open ? '▴ Hide' : '▾ Show'}
         </span>
       </summary>
       {/* A tab per category; a search looks through all of them. */}

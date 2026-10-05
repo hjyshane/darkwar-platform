@@ -9,7 +9,7 @@
 
 import { supabase } from '../../lib/supabase';
 import type { Account } from './accounts';
-import { type Tiers, tiersFrom } from './levels';
+import { type Tiers, shareTiers, tiersFrom } from './levels';
 import { type Goal, type Kind, type Step, type StepBook, bookKey, plan } from './plan';
 
 /** Steps of one subject between two levels (exclusive, inclusive). */
@@ -169,18 +169,37 @@ export async function fetchCatalogSubjects(
     }));
 }
 
-/** Levels the game shows as an industry tier (Watchtower 35+). */
+/** Levels the game shows as an industry tier: Watchtower 35+, and every
+ * building that climbs as far as it does (shareTiers). */
 export async function fetchTiers(): Promise<Tiers> {
-  const { data, error } = await supabase
-    .from('game_upgrade_steps')
-    .select('subject_id, level, tier')
-    .eq('kind', 'building')
-    .not('tier', 'is', null)
-    .limit(1000);
-  if (error) throw new Error(error.message);
-  return tiersFrom(
-    (data ?? []).map((r) => ({ subject_id: r.subject_id, level: r.level, tier: r.tier as number })),
+  const [steps, subjects] = await Promise.all([
+    supabase
+      .from('game_upgrade_steps')
+      .select('subject_id, level, tier')
+      .eq('kind', 'building')
+      .not('tier', 'is', null)
+      .limit(1000),
+    supabase
+      .from('game_upgrade_subjects')
+      .select('subject_id, max_level')
+      .eq('kind', 'building')
+      .limit(1000),
+  ]);
+  if (steps.error) throw new Error(steps.error.message);
+  if (subjects.error) throw new Error(subjects.error.message);
+  const tiers = tiersFrom(
+    (steps.data ?? []).map((r) => ({
+      subject_id: r.subject_id,
+      level: r.level,
+      tier: r.tier as number,
+    })),
   );
+  const maxLevels = new Map(
+    (subjects.data ?? []).flatMap((r) =>
+      r.subject_id !== null && r.max_level !== null ? [[r.subject_id, r.max_level] as const] : [],
+    ),
+  );
+  return shareTiers(tiers, maxLevels);
 }
 
 export interface ResearchTab {
