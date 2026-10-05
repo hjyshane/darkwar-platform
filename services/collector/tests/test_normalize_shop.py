@@ -14,8 +14,12 @@ def test_registered() -> None:
     assert registry.get("user.get.shop.info") is shop.normalize_listings
 
 
+def _packs(observation):  # type: ignore[no-untyped-def]
+    return [r for r in shop.normalize_packs(observation) if r.target_table == "shop_pack_snapshots"]
+
+
 def test_a_pack_keeps_its_price_rubies_contents_and_window() -> None:
-    rows = shop.normalize_packs(load_observation("exchange.info/packs_v1.json"))
+    rows = _packs(load_observation("exchange.info/packs_v1.json"))
     pack = rows[0].row
 
     assert pack["pack_id"] == "240806011"
@@ -33,14 +37,14 @@ def test_a_pack_keeps_its_price_rubies_contents_and_window() -> None:
 
 def test_rubies_given_as_a_resource_count_as_rubies() -> None:
     """Resource 15 is Ruby; resource 13 is not."""
-    rows = shop.normalize_packs(load_observation("exchange.info/packs_v1.json"))
+    rows = _packs(load_observation("exchange.info/packs_v1.json"))
 
     assert rows[1].row["rubies"] == 200
     assert rows[1].row["items"] == []
 
 
 def test_a_pack_without_a_price_or_a_numeric_id_is_skipped() -> None:
-    rows = shop.normalize_packs(load_observation("exchange.info/packs_v1.json"))
+    rows = _packs(load_observation("exchange.info/packs_v1.json"))
 
     assert [r.row["pack_id"] for r in rows] == ["240806011", "9001"]
 
@@ -52,9 +56,9 @@ def test_buying_a_pack_does_not_make_it_a_new_pack() -> None:
     bought.payload["exchange"][0]["bought"] = True
     bought.payload["exchange"][1]["buy_times"] = 2
 
-    keys = [r.idempotency_key for r in shop.normalize_packs(first)]
-    assert keys == [r.idempotency_key for r in shop.normalize_packs(bought)]
-    assert "bought" not in shop.normalize_packs(first)[0].row["raw"]
+    keys = [r.idempotency_key for r in _packs(first)]
+    assert keys == [r.idempotency_key for r in _packs(bought)]
+    assert "bought" not in _packs(first)[0].row["raw"]
 
 
 def test_shop_listings_carry_type_item_price_and_discount() -> None:
@@ -145,3 +149,28 @@ def test_variants_differing_only_in_a_one_off_item_are_still_copies() -> None:
     ]
 
     assert estimate(variants, known) == {"2": 50.0}
+
+
+def test_each_capture_records_which_packs_it_listed() -> None:
+    """The catalog row is what the server offers now; pack rows cannot say,
+    since an unchanged pack is never written again."""
+    observation = load_observation("exchange.info/packs_v1.json")
+    (catalog,) = [
+        r for r in shop.normalize_packs(observation) if r.target_table == "shop_pack_catalogs"
+    ]
+
+    assert catalog.row["pack_ids"] == ["9001", "240806011"]
+    assert catalog.row["server_id"] == observation.collected_from_server_id
+    # A later capture of the same list is a new row: it moves "now" forward.
+    later = observation.model_copy(
+        update={"captured_at": observation.captured_at.replace(minute=59)}
+    )
+    (again,) = [r for r in shop.normalize_packs(later) if r.target_table == "shop_pack_catalogs"]
+    assert again.idempotency_key != catalog.idempotency_key
+
+
+def test_a_capture_with_no_packs_records_no_catalog() -> None:
+    observation = load_observation("exchange.info/packs_v1.json")
+    empty = observation.model_copy(update={"payload": {"exchange": []}})
+
+    assert shop.normalize_packs(empty) == []

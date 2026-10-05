@@ -23,6 +23,7 @@ function pack(name: string, server: number, contents: PackValue['contents']): Pa
     value_dollars: null,
     value_ratio: null,
     contents_listed: true,
+    listed: null,
   };
 }
 

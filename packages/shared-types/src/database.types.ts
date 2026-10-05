@@ -6210,6 +6210,87 @@ export type Database = {
           },
         ]
       }
+      shop_pack_catalogs: {
+        Row: {
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at: string
+          idempotency_key: string
+          observation_id: string
+          pack_ids: Json
+          parser_version: string
+          raw: Json
+          server_id: number
+          snapshot_id: string
+          source_command: string
+        }
+        Insert: {
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at?: string
+          idempotency_key: string
+          observation_id: string
+          pack_ids?: Json
+          parser_version: string
+          raw?: Json
+          server_id: number
+          snapshot_id?: string
+          source_command: string
+        }
+        Update: {
+          captured_at?: string
+          collected_from_server_id?: number
+          collector_id?: string
+          created_at?: string
+          idempotency_key?: string
+          observation_id?: string
+          pack_ids?: Json
+          parser_version?: string
+          raw?: Json
+          server_id?: number
+          snapshot_id?: string
+          source_command?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_pack_catalogs_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "shop_pack_catalogs_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "shop_pack_catalogs_collector_id_fkey"
+            columns: ["collector_id"]
+            isOneToOne: false
+            referencedRelation: "collectors"
+            referencedColumns: ["collector_id"]
+          },
+          {
+            foreignKeyName: "shop_pack_catalogs_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "shop_pack_catalogs_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+        ]
+      }
       shop_pack_snapshots: {
         Row: {
           captured_at: string
@@ -7929,6 +8010,29 @@ export type Database = {
           },
           {
             foreignKeyName: "shop_listing_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+        ]
+      }
+      shop_pack_catalog_latest: {
+        Row: {
+          captured_at: string | null
+          pack_ids: Json | null
+          server_id: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_pack_catalogs_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "shop_pack_catalogs_server_id_fkey"
             columns: ["server_id"]
             isOneToOne: false
             referencedRelation: "world_sweep_coverage"
