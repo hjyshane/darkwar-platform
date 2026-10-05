@@ -18,26 +18,57 @@ interface Material {
   kinds: string[];
 }
 
+// Held but never an upgrade cost the planner adds up, so not in
+// game_upgrade_materials (user, 2026-10-05): hero fragments (item type 93,
+// one per hero), the universal hero fragments (62), and the Universal
+// Exclusive Equipment Fragment.
+const HERO_FRAGMENT_TYPES = ['93', '62'];
+const UNIVERSAL_WEAPON_FRAGMENT = '253094';
+
 async function fetchMaterials(): Promise<Material[]> {
-  const { data, error } = await supabase
-    .from('game_upgrade_materials')
-    .select('type, id, kinds')
-    .limit(1000);
-  if (error) throw new Error(error.message);
-  return (data ?? [])
+  const [costs, extra] = await Promise.all([
+    supabase.from('game_upgrade_materials').select('type, id, kinds').limit(1000),
+    supabase
+      .from('game_items')
+      .select('item_id, item_type, name')
+      .or(`item_type.in.(${HERO_FRAGMENT_TYPES.join(',')}),item_id.eq.${UNIVERSAL_WEAPON_FRAGMENT}`)
+      .limit(1000),
+  ]);
+  if (costs.error) throw new Error(costs.error.message);
+  if (extra.error) throw new Error(extra.error.message);
+  const materials: Material[] = (costs.data ?? [])
     .filter((m) => (m.type === 'resource' || m.type === 'item') && m.id !== null)
     .filter((m) => !LEFT_OUT.has(`${m.type}:${m.id}`))
     .map((m) => ({ type: m.type as Material['type'], id: m.id as string, kinds: m.kinds ?? [] }));
+  const known = new Set(materials.map((m) => `${m.type}:${m.id}`));
+  for (const row of extra.data ?? []) {
+    // "{0} Fragments" rows are templates the client fills in, not items.
+    if (known.has(`item:${row.item_id}`) || (row.name ?? '').includes('{0}')) continue;
+    materials.push({
+      type: 'item',
+      id: row.item_id,
+      kinds: [row.item_id === UNIVERSAL_WEAPON_FRAGMENT ? 'exclusive' : 'hero_fragment'],
+    });
+  }
+  return materials;
 }
+
+// Gear (200034) is a vehicle resource in game; the upgrade data lists only a
+// research that costs it, so it would land under Research (user, 2026-10-05).
+const VEHICLE_ITEMS = new Set(['200034']);
 
 /** Where a material shows up, in the order a player thinks of it. */
 const GROUPS: ReadonlyArray<[string, (m: Material) => boolean]> = [
   ['Resources', (m) => m.type === 'resource'],
+  [
+    'Vehicle',
+    (m) => m.kinds.includes('vehicle_part') || (m.type === 'item' && VEHICLE_ITEMS.has(m.id)),
+  ],
   ['Buildings', (m) => m.kinds.includes('building')],
   ['Research', (m) => m.kinds.includes('research')],
   ['Heroes and gear', (m) => m.kinds.includes('hero_gear') || m.kinds.includes('hero')],
+  ['Hero fragments', (m) => m.kinds.includes('hero_fragment')],
   ['Exclusive weapons', (m) => m.kinds.includes('exclusive')],
-  ['Vehicle', (m) => m.kinds.includes('vehicle_part')],
   ['Pets', (m) => m.kinds.includes('pet')],
 ];
 
