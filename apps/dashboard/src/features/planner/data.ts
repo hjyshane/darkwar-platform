@@ -143,6 +143,16 @@ export interface Subject {
   category: number | null;
 }
 
+// The game tables run these to 200, but past 30 they are filler: level 31
+// costs nothing and asks for Watchtower 35, level 200 for a Watchtower 200
+// that does not exist. In game they stop at 30 (user, 2026-10-05).
+const LEVEL_CAP: Record<string, number> = {
+  '409000': 30, // Bank
+  '438000': 30, // Warehouse
+  '724000': 30, // Black Market
+  '779000': 30, // City Gate
+};
+
 /** Upgradeable things of one kind, from the per-subject summary (0222):
  * every research of a tab, or the named subjects. Never a whole kind of
  * buildings or research at once — research alone is hundreds of subjects. */
@@ -164,7 +174,10 @@ export async function fetchCatalogSubjects(
     .map((row) => ({
       subject: row.subject_id as string,
       name: row.name ?? `#${row.subject_id}`,
-      maxLevel: row.max_level ?? 0,
+      maxLevel: Math.min(
+        row.max_level ?? 0,
+        LEVEL_CAP[row.subject_id as string] ?? Number.POSITIVE_INFINITY,
+      ),
       category: row.category,
     }));
 }
