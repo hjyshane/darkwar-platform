@@ -604,10 +604,12 @@ def test_icon_refs_name_a_sprite_for_heroes_weapons_gear_and_costed_items() -> N
     assert ("hero", "500") not in refs and ("hero", "40015") not in refs
     assert refs[("exclusive", "40002")] == "UIarms_icon_05"
     assert refs[("gear", "410100")] == "item_arms02"
-    # Items only when an upgrade costs them: Precision Part (a building) and
-    # the Pyro Pup fragments (the exclusive weapon).
+    # Every item with an icon, costed or not.
     assert refs[("item", "253042")] == "item_Precisionparts"
     assert refs[("item", "253070")] == "icon_exclusive_Engineer"
+    # The rank glyphs, by the dashboard's names.
+    assert refs[("ui", "star_full")] == "hero_star_icon"
+    assert refs[("ui", "pentagon_empty")] == "ui_img_redstar2"
 
 
 def test_icons_are_small_webp() -> None:

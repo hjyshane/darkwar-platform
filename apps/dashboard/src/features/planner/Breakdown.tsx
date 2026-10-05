@@ -3,6 +3,7 @@
 // account holds. Stock is edited in one place, the list at the top of the
 // page (StockPanel); here it is only read.
 
+import { GameIcon, useIcons, useItemIcons } from '../../lib/gameIcons';
 import { exact, short } from './format';
 import { type Tiers, levelText } from './levels';
 import { type Buffs, type PlannedStep, duration, groupSteps, totals } from './plan';
@@ -23,6 +24,10 @@ function Amount({ value }: { value: number }) {
 export function Breakdown({ steps, goalNames, buffs, tiers, nameOf, have }: BreakdownProps) {
   const groups = groupSteps(steps);
   const sums = totals(steps, buffs);
+  const itemIcons = useItemIcons(sums.materials.filter((m) => m.type === 'item').map((m) => m.id));
+  const resourceIcons = useIcons('resource');
+  const icon = (type: string, id: string) =>
+    (type === 'item' ? itemIcons : resourceIcons).data?.get(id);
   const time = (seconds: { buildSeconds: number; researchSeconds: number }) =>
     seconds.buildSeconds + seconds.researchSeconds > 0
       ? duration(seconds.buildSeconds + seconds.researchSeconds)
@@ -57,7 +62,10 @@ export function Breakdown({ steps, goalNames, buffs, tiers, nameOf, have }: Brea
                 <tbody>
                   {part.materials.map((m) => (
                     <tr key={`${m.type}:${m.id}`}>
-                      <td className="label">{nameOf(m.type, m.id)}</td>
+                      <td className="label">
+                        <GameIcon size={20} src={icon(m.type, m.id)} />
+                        {nameOf(m.type, m.id)}
+                      </td>
                       <td className="num">
                         <Amount value={m.amount} />
                       </td>
@@ -100,7 +108,10 @@ export function Breakdown({ steps, goalNames, buffs, tiers, nameOf, have }: Brea
               const missing = Math.max(0, m.amount - held);
               return (
                 <tr key={`${m.type}:${m.id}`}>
-                  <td className="label">{nameOf(m.type, m.id)}</td>
+                  <td className="label">
+                    <GameIcon size={20} src={icon(m.type, m.id)} />
+                    {nameOf(m.type, m.id)}
+                  </td>
                   <td className="num">
                     <Amount value={m.amount} />
                   </td>

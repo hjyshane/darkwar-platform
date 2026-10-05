@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { GameIcon, useIcons } from '../../lib/gameIcons';
 import {
   type HeroCatalogue,
   heroGradeClass,
@@ -92,6 +93,7 @@ export function LineupCell({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const { data: catalogue } = useHeroCatalogue();
+  const heroIcons = useIcons('hero');
 
   if (heroes.length === 0) {
     // Not a lineup of nobody — no `army` was decoded for this entry, which is
@@ -193,6 +195,7 @@ export function LineupCell({
                     it is what the payload carried and what a bug report
                     needs to name. */}
                   <td className="label" title={`Hero ${hero.hero_id}`}>
+                    <GameIcon size={24} src={heroIcons.data?.get(String(hero.hero_id))} />
                     {heroName(catalogue, hero.hero_id)}
                   </td>
                   <td

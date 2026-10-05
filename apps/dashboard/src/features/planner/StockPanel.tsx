@@ -7,7 +7,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { GameIcon, useIcons } from '../../lib/gameIcons';
+import { GameIcon, useIcons, useItemIcons } from '../../lib/gameIcons';
 import { supabase } from '../../lib/supabase';
 import { fetchMaterialNames } from './data';
 import { exact, short } from './format';
@@ -78,7 +78,8 @@ export function StockPanel({ have, onHave, edited }: StockPanelProps) {
     staleTime: 60 * 60_000,
   });
   const [filter, setFilter] = useState('');
-  const itemIcons = useIcons('item');
+  const itemIcons = useItemIcons(itemIds);
+  const resourceIcons = useIcons('resource');
 
   if (materials.isPending) return <p className="empty">Loading materials…</p>;
   if (materials.isError) return <p className="error">{materials.error.message}</p>;
@@ -128,7 +129,9 @@ export function StockPanel({ have, onHave, edited }: StockPanelProps) {
               return (
                 <label className="planner-stock-item" key={key}>
                   <span className="planner-stock-name">
-                    {m.type === 'item' && <GameIcon src={itemIcons.data?.get(m.id)} />}
+                    <GameIcon
+                      src={(m.type === 'item' ? itemIcons : resourceIcons).data?.get(m.id)}
+                    />
                     {nameOf(m)}
                     {edited.has(key) && (
                       <span className="muted" title="Typed over the login's figure">
