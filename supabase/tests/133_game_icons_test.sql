@@ -4,7 +4,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(7);
+select plan(8);
 
 insert into public.game_icons (icon_key, image, width, height)
 values ('hero_halfbody_Rider', 'UklGRg==', 96, 96);
@@ -47,6 +47,12 @@ select lives_ok(
   $$ insert into public.game_icon_refs (kind, ref_id, icon_key)
      values ('resource', '25', 'UIRes_icon_wood'), ('ui', 'star_full', 'hero_star_icon') $$,
   'resource and ui icons are kinds');
+
+-- 0234: pets are a kind too.
+select lives_ok(
+  $$ insert into public.game_icon_refs (kind, ref_id, icon_key)
+     values ('pet', '101', 'pet_record_img_pet_01') $$,
+  'pet icons are a kind');
 
 select * from finish();
 rollback;

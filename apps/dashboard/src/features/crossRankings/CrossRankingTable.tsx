@@ -44,6 +44,7 @@ export function CrossRankingTable({ rows, board }: { rows: BoardRow[]; board: Bo
   // mean a hook that runs on some boards and not others.
   const { data: heroes } = useHeroCatalogue();
   const { data: heroIcons } = useIcons('hero');
+  const { data: petIcons } = useIcons('pet');
   const { data: pets } = usePetCatalogue();
   const { query, setQuery, sort, onSort, view, shown, total } = useTableView(rows, SEARCH_FIELDS, {
     key: 'rank',
@@ -110,7 +111,10 @@ export function CrossRankingTable({ rows, board }: { rows: BoardRow[]; board: Bo
               row.unit_id === null ? (
                 '—'
               ) : board.unitKind === 'pet' ? (
-                petName(pets, row.unit_id)
+                <>
+                  <GameIcon size={22} src={petIcons?.get(String(row.unit_id))} />
+                  {petName(pets, row.unit_id)}
+                </>
               ) : (
                 <>
                   <GameIcon size={22} src={heroIcons?.get(String(row.unit_id))} />
@@ -121,7 +125,7 @@ export function CrossRankingTable({ rows, board }: { rows: BoardRow[]; board: Bo
         : null,
     ];
     return declared.filter((column): column is Column<BoardRow> => column !== null);
-  }, [board, heroes, pets, heroIcons]);
+  }, [board, heroes, pets, heroIcons, petIcons]);
 
   if (rows.length === 0) {
     return <p className="empty">No ranking data yet.</p>;

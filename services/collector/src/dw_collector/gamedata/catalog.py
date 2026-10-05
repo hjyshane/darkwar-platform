@@ -337,6 +337,10 @@ class Catalog:
                 put("resource", _int(resource_id), icon)
         for name, sprite in UI_SPRITES.items():
             put("ui", name, sprite)
+        # Pets (0234): `pet.icon` is the round portrait the game's pet record
+        # shows (pet_record_img_pet_01 ...), keyed by the pet id the boards use.
+        for pet_id, row in self._rows("pet").items():
+            put("pet", _int(pet_id), row.get("icon"))
         return [{"kind": k, "ref_id": r, "icon_key": i} for (k, r), i in sorted(out.items())]
 
     def steps(self) -> Iterator[Row]:
