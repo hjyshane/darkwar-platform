@@ -115,7 +115,9 @@
    "성공"하고도 파일이 없다(2026-10-05).
    `HD-Adb.exe -s <endpoint> pull "<pm path가 준 경로>/split_install_time_pack.apk" C:/DW_data/gamedata/apk/install_time_pack.apk`
 3. 올리기:
-   `uv run --extra gamedata dw-collector game-icons --bundles <base> --bundles <patch> --pack C:/DW_data/gamedata/apk/install_time_pack.apk`
+   `uv run --no-sync --with "UnityPy>=1.25" --with "lupa>=2.8" dw-collector game-icons --bundles <base> --bundles <patch> --pack C:/DW_data/gamedata/apk/install_time_pack.apk`
+   (`--extra gamedata`는 쓰지 않는다: 수집기 환경을 다시 설치하려다 실행 중인 `dw-collector.exe`에
+   막혀 os error 32로 실패한다. Pillow는 UnityPy에 딸려 온다.)
    먼저 `--dry-run`으로 개수를 본다(첫 배치: 102개, 259 KB — 무기 18/18, 장비 60/60, 영웅 40/47,
    업그레이드에 드는 아이템 28/32).
 
