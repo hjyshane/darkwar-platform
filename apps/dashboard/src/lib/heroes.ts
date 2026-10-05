@@ -13,33 +13,32 @@ export interface Hero {
   hero_id: number;
   name: string | null;
   troop_class: number | null;
-  /** 1 파랑 · 2 보라 · 3 노랑, the game's own order. Null means nobody has
-   * established it — the catalogue never guesses one. */
+  /** 1 Blue · 2 Purple · 3 Gold. Since 2026-10-05 game-catalog writes it
+   * from the client's aps_new_heroes.rarity (1 gold, 2 purple, 3 blue — the
+   * max star level runs 26/21/16 with it), so a hand-typed grade the game
+   * disagrees with is corrected on the next run. Null for a hero the client
+   * gives no grade (rarity 4: Lima, Jack). */
   grade: number | null;
   notes: string;
 }
 
-/** Grade labels, in the game's words.
- *
- * The game names these by colour, so translating them ("Blue", "Rare") would
- * put a second vocabulary between the screen and the dashboard. They live
- * here rather than in the schema for the same reason TROOP_CLASSES does:
- * somebody read them off a screen.
+/** Grade labels, by colour as the game shows them, in English (user,
+ * 2026-10-05: English only on the dashboard).
  *
  * A grade we have not seen renders as its number instead of guessing — a
  * fourth grade is the kind of thing a season ships.
  */
 export const HERO_GRADES: Record<number, string> = {
-  1: '파랑',
-  2: '보라',
-  3: '노랑',
+  1: 'Blue',
+  2: 'Purple',
+  3: 'Gold',
 };
 
 export function heroGradeName(grade: number | null): string {
   if (grade === null) {
-    return '미정';
+    return 'Unset';
   }
-  return HERO_GRADES[grade] ?? `등급 ${grade}`;
+  return HERO_GRADES[grade] ?? `Grade ${grade}`;
 }
 
 /** The class name for a hero's grade swatch, or null when there is nothing

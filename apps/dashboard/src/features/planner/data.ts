@@ -99,7 +99,41 @@ export async function fetchMaterialNames(itemIds: string[]): Promise<Names> {
   for (const row of data ?? []) {
     if (row.name) resources.set(String(row.resource_id), row.name);
   }
+  await nameFragmentOwners(items);
   return { items, resources };
+}
+
+/** An exclusive weapon's fragments carry the weapon's name ("Pyro Pup
+ * Fragments"); the hero they belong to goes in brackets beside it, which is
+ * what a player looks for: "Pyro Pup Fragments (Margaret)". The weapon's own
+ * steps (kind 'exclusive', subject = hero id) say which item is whose. */
+async function nameFragmentOwners(items: Map<string, string>): Promise<void> {
+  const { data: steps, error } = await supabase
+    .from('game_upgrade_steps')
+    .select('subject_id, costs')
+    .eq('kind', 'exclusive')
+    .eq('level', 1);
+  if (error) throw new Error(error.message);
+  const owner = new Map<string, number>();
+  for (const step of steps ?? []) {
+    const costs = Array.isArray(step.costs) ? (step.costs as { type?: string; id?: string }[]) : [];
+    for (const cost of costs) {
+      if (cost.type === 'item' && cost.id && items.has(cost.id)) {
+        owner.set(cost.id, Number(step.subject_id));
+      }
+    }
+  }
+  if (owner.size === 0) return;
+  const { data: heroes, error: heroError } = await supabase
+    .from('heroes')
+    .select('hero_id, name')
+    .in('hero_id', [...new Set(owner.values())]);
+  if (heroError) throw new Error(heroError.message);
+  const heroName = new Map((heroes ?? []).map((h) => [h.hero_id, h.name]));
+  for (const [itemId, heroId] of owner) {
+    const name = heroName.get(heroId);
+    if (name) items.set(itemId, `${items.get(itemId)} (${name})`);
+  }
 }
 
 export interface Subject {

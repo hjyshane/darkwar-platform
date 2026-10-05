@@ -205,15 +205,15 @@ test('a weapon stops at five stars and awakens after, never reaching a sixth', (
   expect(isWeaponAwakened(null)).toBe(false);
 });
 
-test("grades keep the game's own words, and an unseen one is not invented", () => {
-  expect(heroGradeName(1)).toBe('파랑');
-  expect(heroGradeName(2)).toBe('보라');
-  expect(heroGradeName(3)).toBe('노랑');
+test('grades read by colour in English, and an unseen one is not invented', () => {
+  expect(heroGradeName(1)).toBe('Blue');
+  expect(heroGradeName(2)).toBe('Purple');
+  expect(heroGradeName(3)).toBe('Gold');
   // A season could ship a fourth. It renders as itself rather than being
   // folded into the nearest known grade — same rule as troopClassName.
-  expect(heroGradeName(4)).toBe('등급 4');
+  expect(heroGradeName(4)).toBe('Grade 4');
   // Null is "nobody has established it", which is not a grade.
-  expect(heroGradeName(null)).toBe('미정');
+  expect(heroGradeName(null)).toBe('Unset');
   expect(heroGradeClass(null)).toBeNull();
   expect(heroGradeClass(2)).toBe('grade-2');
 });

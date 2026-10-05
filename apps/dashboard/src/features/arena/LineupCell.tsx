@@ -169,7 +169,7 @@ export function LineupCell({
                 <th scope="col">Hero</th>
                 {/* Grade gets a column of its own rather than only tinting the
                   name: the word is what makes the colour legible, and it is
-                  what a reader searching for "노랑" needs on the page.
+                  what a reader searching for "Gold" needs on the page.
                   The header is English like every other header here; only the
                   VALUES stay in the game's words, same rule as the labels. */}
                 <th scope="col">Grade</th>

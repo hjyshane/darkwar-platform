@@ -907,6 +907,7 @@ def game_catalog(
     gear = catalog.hero_gear()
     tabs = catalog.research_tabs()
     heroes = catalog.hero_names()
+    grades = catalog.hero_grades()
     kinds: dict[str, int] = {}
     for step in steps:
         kinds[step["kind"]] = kinds.get(step["kind"], 0) + 1
@@ -928,7 +929,8 @@ def game_catalog(
         upload.upsert_rows(client, "game_hero_gear", gear, "equip_id")
         upload.upsert_rows(client, "game_research_tabs", tabs, "tab_id")
         named, kept = upload.fill_hero_names(client, heroes)
-    typer.echo(f"written; heroes named={named} kept-admin-names={kept}")
+        graded = upload.set_hero_grades(client, grades)
+    typer.echo(f"written; heroes named={named} kept-admin-names={kept} graded={graded}")
 
 
 def _fetch_all(client: httpx.Client, table: str, select: str) -> list[dict[str, Any]]:
