@@ -14,9 +14,13 @@ export interface TabItem<T extends string | number> {
  * (roving tabindex), and the arrow keys, Home and End move between them. Without
  * it a bar of eight tabs is eight stops on the way through the page.
  *
- * Activation follows focus, as it does in a native tab strip: the panels here
- * are cheap to switch, so there is nothing to confirm. `value` that matches no
- * item (a tab that vanished) leaves the first enabled one reachable.
+ * Arrows MOVE FOCUS; Enter, Space or a click selects (the ARIA "manual
+ * activation" variant). Following focus looks nicer but several of these bars
+ * do real work on select — the map clears its search and HQ filters, the stock
+ * panel clears its filter, the hive and arena swap data — and arrowing across
+ * eight tabs would run all of it eight times. `activation="auto"` is there for a
+ * bar where selecting is free. `value` that matches no item (a tab that
+ * vanished) leaves the first enabled one reachable.
  *
  * Styling is the global `[role="tablist"]` / `[role="tab"]` rules, so a bar looks
  * the same whether it came through here or not; `className` is for the few that
@@ -27,6 +31,7 @@ export function Tabs<T extends string | number>({
   onChange,
   label,
   className,
+  activation = 'manual',
 }: {
   items: readonly TabItem<T>[];
   value: T | null | undefined;
@@ -34,12 +39,19 @@ export function Tabs<T extends string | number>({
   /** Accessible name of the whole bar. */
   label: string;
   className?: string;
+  /** `manual` (default): arrows move focus, Enter/Space selects. `auto`: selecting
+   * follows focus. */
+  activation?: 'manual' | 'auto';
 }) {
   const refs = useRef(new Map<T, HTMLButtonElement>());
   const enabled = items.filter((item) => !item.disabled);
   const reachable = enabled.some((item) => item.id === value) ? value : enabled[0]?.id;
 
   function onKeyDown(event: KeyboardEvent, id: T) {
+    // Alt+Left/Right is the browser's Back/Forward; leave modified keys alone.
+    if (event.altKey || event.ctrlKey || event.metaKey) {
+      return;
+    }
     const at = enabled.findIndex((item) => item.id === id);
     let to = -1;
     if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
@@ -57,7 +69,9 @@ export function Tabs<T extends string | number>({
     }
     event.preventDefault();
     refs.current.get(next.id)?.focus();
-    onChange(next.id);
+    if (activation === 'auto') {
+      onChange(next.id);
+    }
   }
 
   return (

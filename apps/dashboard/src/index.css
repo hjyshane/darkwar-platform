@@ -380,6 +380,11 @@ h1 {
   font-weight: 600;
 }
 
+[role="tab"][aria-selected="true"]:hover:not(:disabled) {
+  background-color: var(--accent);
+  color: var(--bg);
+}
+
 [role="tab"]:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
@@ -861,10 +866,15 @@ form label {
 }
 
 /* Text-like inputs and selects share one skin everywhere, not only inside a
- * <form>. Element selectors (specificity 0,0,1) so any class that styles a
- * specific field still wins. Checkbox/radio/range/file keep the browser's own. */
-input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="color"]),
-textarea {
+ * <form>. Wrapped in :where() so the whole selector has specificity ZERO: a
+ * bare `input:not(...)` takes the weight of its most specific :not() argument
+ * and would beat a one-class rule like `.search input`, which is the opposite
+ * of the point — any class that styles a specific field must win.
+ * Checkbox/radio/range/file/color keep the browser's own. */
+:where(
+    input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="color"]),
+    textarea
+  ) {
   background: var(--bg);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
@@ -874,21 +884,31 @@ textarea {
   transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
 }
 
-input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="color"]):hover,
-textarea:hover,
-select:hover {
+:where(
+    input:not(
+        [type="checkbox"],
+        [type="radio"],
+        [type="range"],
+        [type="file"],
+        [type="color"]
+      ):hover,
+    textarea:hover,
+    select:hover
+  ) {
   border-color: var(--fg-muted);
 }
 
-input:not(
-    [type="checkbox"],
-    [type="radio"],
-    [type="range"],
-    [type="file"],
-    [type="color"]
-  ):focus-visible,
-textarea:focus-visible,
-select:focus-visible {
+:where(
+    input:not(
+        [type="checkbox"],
+        [type="radio"],
+        [type="range"],
+        [type="file"],
+        [type="color"]
+      ):focus-visible,
+    textarea:focus-visible,
+    select:focus-visible
+  ) {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
   outline: none;
@@ -2403,6 +2423,16 @@ kbd {
   width: 100%;
 }
 
+/* The custom Select: the wrapper fills the field and the trigger fills the
+ * wrapper, as the native one did. */
+.field > .select {
+  display: block;
+}
+
+.field > .select > .select-trigger {
+  width: 100%;
+}
+
 /* For a select whose options are three words long — full width would leave a
  * dropdown the width of the page pointing at "Tip". */
 .field-narrow {
@@ -3630,7 +3660,7 @@ kbd {
   font-weight: 600;
 }
 
-.schedule-zone select {
+.schedule-zone :is(select, .select-trigger) {
   font-size: 0.85rem;
 }
 
@@ -5117,7 +5147,7 @@ button.tile-grid:hover:not(:disabled) {
   justify-content: flex-end;
 }
 
-.planner-card select {
+.planner-card :is(select, .select, .select-trigger) {
   max-width: 100%;
 }
 
@@ -5141,7 +5171,7 @@ button.tile-grid:hover:not(:disabled) {
   margin-left: var(--space-1);
 }
 
-.level-picker-raised select {
+.level-picker-raised :is(select, .select-trigger) {
   border-color: var(--accent);
   color: var(--accent);
   font-weight: 600;

@@ -22,9 +22,26 @@ describe('Tabs', () => {
     render(<Tabs items={ITEMS} label="Letters" onChange={() => {}} value="gone" />);
     expect(screen.getAllByRole('tab').map((t) => t.tabIndex)).toEqual([0, -1, -1]);
   });
-  it('moves with the arrows, skipping disabled tabs and wrapping', () => {
+  it('arrows move focus only, and do not select, by default', () => {
     const onChange = vi.fn();
     render(<Tabs items={ITEMS} label="Letters" onChange={onChange} value="a" />);
+    const [a, , c] = screen.getAllByRole('tab') as HTMLElement[];
+    fireEvent.keyDown(a as HTMLElement, { key: 'ArrowRight' });
+    expect(document.activeElement).toBe(c);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+  it('leaves modified arrows (browser Back/Forward) alone', () => {
+    const onChange = vi.fn();
+    render(<Tabs activation="auto" items={ITEMS} label="Letters" onChange={onChange} value="a" />);
+    fireEvent.keyDown(screen.getAllByRole('tab')[0] as HTMLElement, {
+      key: 'ArrowRight',
+      altKey: true,
+    });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+  it('with auto activation, moves with the arrows, skipping disabled tabs and wrapping', () => {
+    const onChange = vi.fn();
+    render(<Tabs activation="auto" items={ITEMS} label="Letters" onChange={onChange} value="a" />);
     const [a, , c] = screen.getAllByRole('tab') as HTMLElement[];
     fireEvent.keyDown(a as HTMLElement, { key: 'ArrowRight' });
     expect(onChange).toHaveBeenLastCalledWith('c');

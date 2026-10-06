@@ -42,7 +42,11 @@ export function TooltipLayer() {
       window.clearTimeout(timer.current);
       const held = parked.current;
       if (held !== null) {
-        held.el.setAttribute('title', held.title);
+        // Not if the page set a title meanwhile (a "3m ago" that re-rendered):
+        // the fresh one is the truth, ours is stale.
+        if (!held.el.hasAttribute('title')) {
+          held.el.setAttribute('title', held.title);
+        }
         if (held.labelled) {
           held.el.removeAttribute('aria-label');
         }
@@ -65,7 +69,9 @@ export function TooltipLayer() {
       const labelled =
         !el.hasAttribute('aria-label') &&
         !el.hasAttribute('aria-labelledby') &&
-        !el.textContent?.trim();
+        !el.textContent?.trim() &&
+        // A control with a <label> already has its name; ours would replace it.
+        !((el as HTMLInputElement).labels?.length ?? 0);
       el.setAttribute('data-tip', title);
       el.removeAttribute('title');
       if (labelled) {
@@ -73,6 +79,12 @@ export function TooltipLayer() {
       }
       parked.current = { el, title, labelled };
       timer.current = window.setTimeout(() => {
+        // Gone from the page while we waited (a tab switch, a refetch): nothing
+        // will ever send it a pointerout, so do not show a tip for it.
+        if (!el.isConnected) {
+          restore();
+          return;
+        }
         const r = el.getBoundingClientRect();
         setShown({
           text: title,

@@ -107,7 +107,12 @@ export function Select({
     // would leave it floating where the trigger used to be. Closing is the
     // honest answer; scrolling the list itself does not count.
     const moved = (event: Event) => {
-      if (!pop.current?.contains(event.target as Node)) {
+      const target = event.target as Node;
+      // Scrolling the list itself, or an unrelated box that does not contain the
+      // trigger, does not move the trigger and must not close the popup.
+      const movesTrigger =
+        target === document || (trigger.current !== null && target.contains(trigger.current));
+      if (movesTrigger && !pop.current?.contains(target)) {
         setOpen(false);
       }
     };
@@ -122,11 +127,21 @@ export function Select({
   }, [open]);
 
   // Keep the highlighted option in view as the arrows move through a long list.
+  // Only when the highlight moves: with no dependency list this ran after every
+  // parent render and fought a reader wheel-scrolling the list.
   useEffect(() => {
     if (open) {
-      document.getElementById(optionId(active))?.scrollIntoView?.({ block: 'nearest' });
+      document.getElementById(`${listId}-${active}`)?.scrollIntoView?.({ block: 'nearest' });
     }
-  });
+  }, [open, active, listId]);
+
+  // A popup must not outlive the control that opened it: a mutation that starts
+  // on pick can disable the Select while the list is still open.
+  useEffect(() => {
+    if (disabled) {
+      setOpen(false);
+    }
+  }, [disabled]);
 
   function typeahead(char: string) {
     const now = Date.now();
@@ -210,6 +225,9 @@ export function Select({
             id={listId}
             // The trigger keeps focus; a press on the list must not take it.
             onMouseDown={(event) => event.preventDefault()}
+            // React events bubble through a portal to the React parent, so a click
+            // on an option would otherwise reach an onClick on an ancestor row.
+            onClick={(event) => event.stopPropagation()}
             role="listbox"
             tabIndex={-1}
           >
