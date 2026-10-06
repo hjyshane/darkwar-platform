@@ -13,6 +13,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { SortableTh } from '../../components/SortableTh';
+import { BarCell } from '../../components/ui/BarCell';
 import { isAllowed, usePermissions } from '../../lib/permissions';
 import { type SortState, nextSort } from '../../lib/tableControls';
 import { useSession } from '../../lib/useSession';
@@ -79,7 +80,10 @@ function DaysCell({
           ●
         </span>
       )}
-      {scored}/{read}
+      <span className="figure-bar">
+        {scored}/{read}
+        <BarCell low={low} max={read} value={scored} />
+      </span>
     </td>
   );
 }
@@ -144,8 +148,13 @@ function TypedCell({ tally }: { tally: TypedTally | undefined }) {
           ●
         </span>
       )}
-      {tally.attended}/{tally.held}
-      {unrecorded > 0 && <span className="muted"> ?{unrecorded}</span>}
+      <span className="figure-bar">
+        <span>
+          {tally.attended}/{tally.held}
+          {unrecorded > 0 && <span className="muted"> ?{unrecorded}</span>}
+        </span>
+        <BarCell low={low} max={tally.held} value={tally.attended} />
+      </span>
     </td>
   );
 }

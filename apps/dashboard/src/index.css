@@ -1627,6 +1627,7 @@ select.rank-badge {
   background: var(--bg-raised);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
+  box-shadow: var(--shadow-1);
   padding: var(--space-3) var(--space-4);
 }
 
@@ -1651,6 +1652,21 @@ select.rank-badge {
  * large numbers just make the reader pick). */
 .stat-hero {
   grid-column: span 2;
+  position: relative;
+}
+
+/* The game accent on the one tile that is the point of the screen: a gold
+ * corner bracket, the HUD cue. Decorative only. */
+.stat-hero::before {
+  border-left: 2px solid var(--gold-strong);
+  border-top: 2px solid var(--gold-strong);
+  content: "";
+  height: 0.9rem;
+  left: -1px;
+  pointer-events: none;
+  position: absolute;
+  top: -1px;
+  width: 0.9rem;
 }
 
 .stat-hero .stat-value {
@@ -5531,6 +5547,10 @@ button.tile-grid:hover:not(:disabled) {
 .bar-cell-lead > i {
   background: var(--gold-strong);
   box-shadow: var(--glow-gold);
+}
+
+.bar-cell-low > i {
+  background: var(--danger-fg);
 }
 
 .sparkline {
