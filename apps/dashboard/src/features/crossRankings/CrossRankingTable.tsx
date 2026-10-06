@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 import { ArrangedTable, type Column } from '../../components/ArrangedTable';
 import { TableSearch } from '../../components/TableSearch';
+import { BarCell } from '../../components/ui/BarCell';
+import { RankMedal } from '../../components/ui/RankMedal';
 import { GameIcon, useIcons } from '../../lib/gameIcons';
 import { heroName, petName, useHeroCatalogue, usePetCatalogue } from '../../lib/heroes';
 import { playerHash, serverHash } from '../../lib/route';
@@ -51,6 +53,8 @@ export function CrossRankingTable({ rows, board }: { rows: BoardRow[]; board: Bo
     direction: 'asc',
   });
 
+  const maxValue = useMemo(() => Math.max(0, ...rows.map((row) => row.value ?? 0)), [rows]);
+
   // Declared above the early return: a hook cannot be skipped, and this list is
   // built by one.
   const columns = useMemo<Column<BoardRow>[]>(() => {
@@ -62,7 +66,7 @@ export function CrossRankingTable({ rows, board }: { rows: BoardRow[]; board: Bo
         label: TERMS.rank,
         sortKey: 'rank',
         numeric: true,
-        cell: (row) => row.rank ?? '—',
+        cell: (row) => <RankMedal rank={row.rank} />,
       },
       {
         id: 'name',
@@ -95,7 +99,12 @@ export function CrossRankingTable({ rows, board }: { rows: BoardRow[]; board: Bo
         label: board.valueLabel,
         sortKey: 'value',
         numeric: true,
-        cell: (row) => formatNumber(row.value),
+        cell: (row) => (
+          <span className="figure-bar">
+            {formatNumber(row.value)}
+            <BarCell lead={row.rank === 1} max={maxValue} value={row.value} />
+          </span>
+        ),
       },
       // The id becomes a name where a catalogue has one, and stays the id where
       // nobody has typed it — the same fallback the arena board uses, so a gap
@@ -125,7 +134,7 @@ export function CrossRankingTable({ rows, board }: { rows: BoardRow[]; board: Bo
         : null,
     ];
     return declared.filter((column): column is Column<BoardRow> => column !== null);
-  }, [board, heroes, pets, heroIcons, petIcons]);
+  }, [board, heroes, pets, heroIcons, petIcons, maxValue]);
 
   if (rows.length === 0) {
     return <p className="empty">No ranking data yet.</p>;

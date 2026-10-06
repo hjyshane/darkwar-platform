@@ -431,17 +431,18 @@ main > * {
  * table cell is happy to grow with it, so without max-width one deep
  * skeleton widens the whole table and the sideways page scroll comes back —
  * the same failure the .table-wrap comment above describes, arriving from
- * inside the table instead of from the number of columns. max-height keeps
- * an expanded four-level shape from burying the rows under it.
+ * inside the table instead of from the number of columns. It scrolls
+ * sideways only: a box that scrolls vertically inside a page that scrolls
+ * vertically traps the wheel. The <details> around it is the height control —
+ * collapsed until somebody asks, then as tall as it is.
  */
 .shape {
   background: var(--bg-hover);
   border-radius: 4px;
   font-size: 0.8125rem;
   margin: var(--space-1) 0 0;
-  max-height: 16rem;
   max-width: 32rem;
-  overflow: auto;
+  overflow-x: auto;
   padding: var(--space-2);
 }
 
@@ -4064,17 +4065,9 @@ button.tile-grid:hover:not(:disabled) {
     grid-template-columns: minmax(0, 720px) minmax(16rem, 1fr);
   }
 
-  /* Held beside the map while the page scrolls, and as tall as the screen
-   * allows rather than 20rem: this column has nothing under it. */
-  .hive-overview__list {
-    position: sticky;
-    top: var(--space-4);
-  }
-
-  .hive-overview__list .hive-list {
-    max-height: calc(100vh - 10rem);
-  }
-
+  /* Beside the map, in the page's own flow. Not sticky and not capped: a sticky
+   * column taller than the screen needs its own scrollbar, which is a scroll
+   * box inside a scrolling page. The list just runs as long as it is. */
   .hive-overview__list .hive-actions {
     margin-top: 0;
   }
@@ -4410,11 +4403,9 @@ button.tile-grid:hover:not(:disabled) {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-1);
-  /* About eight rows of chips: most of an eighty-member roster at once on a
-   * desktop. Was 7.5rem, three rows, which made the list a thing you
-   * scrolled inside; the search above it covers the rest. */
-  max-height: 16rem;
-  overflow-y: auto;
+  /* Every chip, wrapped. Capped at 7.5rem and then 16rem before, which made
+   * the roster a thing you scrolled inside the page; the search above it
+   * narrows it, the page scrolls past it. */
   margin-bottom: var(--space-2);
   align-content: flex-start;
 }
@@ -4487,8 +4478,7 @@ button.tile-grid:hover:not(:disabled) {
 /* The half that gets pasted into chat. Monospaced so the coordinates line up
  * in a column somebody can check against the picture. */
 .hive-list {
-  max-height: 20rem;
-  overflow: auto;
+  overflow-x: auto;
   padding: var(--space-3);
   background: var(--bg-raised);
   border: 1px solid var(--border);
@@ -5553,4 +5543,16 @@ button.tile-grid:hover:not(:disabled) {
   :root {
     --dur-fast: 0ms;
   }
+}
+
+/* A figure with its share-of-max bar underneath, right-aligned like the
+ * number so the column still reads as a column. */
+.figure-bar {
+  display: grid;
+  gap: 0.2rem;
+  justify-items: end;
+}
+
+.figure-bar .bar-cell {
+  min-width: 6rem;
 }
