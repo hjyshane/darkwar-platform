@@ -169,6 +169,47 @@ export function linePath(
   return parts.join(' ');
 }
 
+/** Closed shapes under a series, for a soft fill beneath the line.
+ *
+ * One polygon per CONTINUOUS run, for the same reason `linePath` breaks at a
+ * gap: a fill bridging a capture we do not have would draw area over days
+ * nobody observed. A run of one reading has no width and draws nothing. The
+ * base is the bottom of the plot, so this is only meaningful on an axis where
+ * up is more — the caller skips inverted (rank) axes.
+ */
+export function areaPaths(
+  points: readonly Point[],
+  x: Extent,
+  y: Extent,
+  box: Box,
+  invert = false,
+): string[] {
+  const base = (box.height - box.padBottom).toFixed(2);
+  const paths: string[] = [];
+  let run: { px: string; py: string }[] = [];
+  const flush = () => {
+    const first = run[0];
+    const last = run[run.length - 1];
+    if (first !== undefined && last !== undefined && run.length >= 2) {
+      const line = run.map((p) => `${p.px} ${p.py}`).join(' L');
+      paths.push(`M${line} L${last.px} ${base} L${first.px} ${base} Z`);
+    }
+    run = [];
+  };
+  for (const point of points) {
+    if (point.v === null) {
+      flush();
+      continue;
+    }
+    run.push({
+      px: scaleX(point.t, x, box).toFixed(2),
+      py: scaleY(point.v, y, box, invert).toFixed(2),
+    });
+  }
+  flush();
+  return paths;
+}
+
 /** Carry the last known value forward across gaps.
  *
  * ONLY for a quantity that cannot go down. A tower level is one: a capture that

@@ -2006,7 +2006,16 @@ kbd {
 
 .chart-grid {
   stroke: var(--chart-grid);
+  stroke-dasharray: 2 4;
   stroke-width: 1;
+}
+
+/* The group carries the slot's `color`; flat and translucent, so it reads as
+ * weight under the line rather than a second shape. */
+.chart-area {
+  fill: currentcolor;
+  fill-opacity: 0.12;
+  stroke: none;
 }
 
 .chart-crosshair {

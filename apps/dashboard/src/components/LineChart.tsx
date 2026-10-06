@@ -3,6 +3,7 @@ import {
   type Extent,
   type Point,
   type Series,
+  areaPaths,
   axisInverted,
   extents,
   linePath,
@@ -304,6 +305,26 @@ export function LineChart({
               </text>
             </g>
           )}
+          {/* Fill under the one line the chart is ABOUT: ours, or the single line
+              left after isolating. Under five lines it is a stack of overlapping
+              colour; under a rank axis (up is better) the base would mean
+              "worst". Neither is drawn. */}
+          {visible
+            .filter(
+              (line) =>
+                (line.emphasis === true || visible.length === 1) &&
+                axisOf(line, range.y).invert === false,
+            )
+            .map((line) => {
+              const { y, invert } = axisOf(line, range.y);
+              return (
+                <g key={`fill-${line.name}`} className={`chart-slot-${line.slot % 10}`}>
+                  {areaPaths(line.points, range.x, y, box, invert).map((d) => (
+                    <path key={d} className="chart-area" d={d} />
+                  ))}
+                </g>
+              );
+            })}
           {visible.map((line) => {
             const { y, invert } = axisOf(line, range.y);
             return (
