@@ -14,6 +14,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { SortableTh } from '../../components/SortableTh';
 import { BarCell } from '../../components/ui/BarCell';
+import { Select } from '../../components/ui/Select';
 import { isAllowed, usePermissions } from '../../lib/permissions';
 import { type SortState, nextSort } from '../../lib/tableControls';
 import { useSession } from '../../lib/useSession';
@@ -264,33 +265,27 @@ export function ParticipationPage() {
         {kind === 'round' && (
           <label>
             Round{' '}
-            <select
-              onChange={(event) => setRoundIndex(Number(event.target.value))}
-              value={roundIndex}
-            >
+            <Select onChange={(chosen) => setRoundIndex(Number(chosen))} value={roundIndex}>
               {rounds.map((round, index) => (
                 <option key={round.from} value={index}>
                   {round.label}
                   {index === 0 ? ' (current)' : ''}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
         )}
         {kind === 'week' && (
           <label>
             Week{' '}
-            <select
-              onChange={(event) => setWeekIndex(Number(event.target.value))}
-              value={weekIndex}
-            >
+            <Select onChange={(chosen) => setWeekIndex(Number(chosen))} value={weekIndex}>
               {weeks.map((week, index) => (
                 <option key={week.from} value={index}>
                   {week.label}
                   {index === 0 ? ' (this week)' : ''}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
         )}
         {kind === 'season' && <span className="subtle">{season.label}</span>}

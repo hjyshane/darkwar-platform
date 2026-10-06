@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Select } from '../../components/ui/Select';
 import { codeState, generateJoinCode, usesLeft } from '../../lib/joinCode';
 import { supabase } from '../../lib/supabase';
 
@@ -130,13 +131,10 @@ export function JoinCodesSetting() {
       >
         <label>
           Grants
-          <select
-            onChange={(event) => setRole(event.target.value as 'member' | 'officer')}
-            value={role}
-          >
+          <Select onChange={(chosen) => setRole(chosen as 'member' | 'officer')} value={role}>
             <option value="member">member — sees alliance figures</option>
             <option value="officer">officer — also sees activity and jobs</option>
-          </select>
+          </Select>
         </label>
         <label>
           Uses (blank for unlimited)

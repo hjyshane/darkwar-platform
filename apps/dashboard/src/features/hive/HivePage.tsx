@@ -1,6 +1,7 @@
 import type { Coordinate } from '@dw/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Select } from '../../components/ui/Select';
 import {
   footprintOf,
   formatTeleport,
@@ -127,9 +128,9 @@ export function HivePage() {
           <div className="hive-picker">
             <label>
               <span>Server</span>
-              <select
-                onChange={(event) => {
-                  setChosenServer(Number.parseInt(event.target.value, 10));
+              <Select
+                onChange={(chosen) => {
+                  setChosenServer(Number.parseInt(chosen, 10));
                   setChosenFormation(null);
                 }}
                 value={serverId ?? ''}
@@ -139,12 +140,12 @@ export function HivePage() {
                     {id}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
             <label>
               <span>Formation</span>
-              <select
-                onChange={(event) => setChosenFormation(event.target.value)}
+              <Select
+                onChange={(chosen) => setChosenFormation(chosen)}
                 value={formation.formationId}
               >
                 {formations.map((candidate) => (
@@ -153,7 +154,7 @@ export function HivePage() {
                     {candidate.isActive ? ' · live' : ''}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
           </div>
 

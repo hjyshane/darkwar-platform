@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { edgeIndex, moveActive, optionsFromChildren, typeaheadIndex } from './selectLogic';
 
 /** A dropdown that replaces the browser's own, whose popup is drawn by the OS
@@ -43,9 +44,19 @@ export function Select({
   const selected = options.findIndex((option) => option.value === String(value));
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
-  const [flip, setFlip] = useState(false);
+  // Where the popup sits, in viewport coordinates. It is drawn in a portal on
+  // <body> with position: fixed, because inside a `.table-wrap` (overflow-x:
+  // auto, which makes overflow-y auto too) an absolute popup is clipped by the
+  // table instead of floating over it.
+  const [place, setPlace] = useState<{
+    left: number;
+    minWidth: number;
+    top?: number;
+    bottom?: number;
+  } | null>(null);
   const root = useRef<HTMLSpanElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
+  const pop = useRef<HTMLUListElement>(null);
   const buffer = useRef({ text: '', at: 0 });
   const listId = useId();
   const optionId = (i: number) => `${listId}-${i}`;
@@ -57,7 +68,12 @@ export function Select({
     const rect = trigger.current?.getBoundingClientRect();
     if (rect !== undefined) {
       const below = window.innerHeight - rect.bottom;
-      setFlip(below < POPUP_ROOM && rect.top > below);
+      const up = below < POPUP_ROOM && rect.top > below;
+      setPlace({
+        left: rect.left,
+        minWidth: rect.width,
+        ...(up ? { bottom: window.innerHeight - rect.top + 4 } : { top: rect.bottom + 4 }),
+      });
     }
     setActive(selected >= 0 ? selected : Math.max(edgeIndex(options, 'first'), 0));
     setOpen(true);
@@ -82,12 +98,27 @@ export function Select({
       return;
     }
     const away = (event: MouseEvent) => {
-      if (root.current !== null && !root.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (!root.current?.contains(target) && !pop.current?.contains(target)) {
+        setOpen(false);
+      }
+    };
+    // The popup is fixed to the viewport, so anything that moves the trigger
+    // would leave it floating where the trigger used to be. Closing is the
+    // honest answer; scrolling the list itself does not count.
+    const moved = (event: Event) => {
+      if (!pop.current?.contains(event.target as Node)) {
         setOpen(false);
       }
     };
     document.addEventListener('mousedown', away);
-    return () => document.removeEventListener('mousedown', away);
+    window.addEventListener('scroll', moved, true);
+    window.addEventListener('resize', moved);
+    return () => {
+      document.removeEventListener('mousedown', away);
+      window.removeEventListener('scroll', moved, true);
+      window.removeEventListener('resize', moved);
+    };
   }, [open]);
 
   // Keep the highlighted option in view as the arrows move through a long list.
@@ -169,36 +200,41 @@ export function Select({
       >
         <span className="select-value">{current?.label ?? '—'}</span>
       </button>
-      {open && (
-        <ul
-          className={`select-pop${flip ? ' select-pop-up' : ''}`}
-          id={listId}
-          // The trigger keeps focus; a press on the list must not take it.
-          onMouseDown={(event) => event.preventDefault()}
-          role="listbox"
-          tabIndex={-1}
-        >
-          {options.map((option, i) => (
-            <li
-              key={`${option.value}-${i}`}
-              aria-disabled={option.disabled || undefined}
-              aria-selected={i === selected}
-              className={`select-option${i === active ? ' select-option-active' : ''}${i === selected ? ' select-option-selected' : ''}`}
-              id={optionId(i)}
-              onClick={() => choose(i)}
-              onMouseMove={() => i !== active && !option.disabled && setActive(i)}
-              role="option"
-            >
-              <span>{option.label}</span>
-              {i === selected && (
-                <span aria-hidden="true" className="select-check">
-                  ✓
-                </span>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
+      {open &&
+        place !== null &&
+        createPortal(
+          <ul
+            ref={pop}
+            className="select-pop"
+            style={place}
+            id={listId}
+            // The trigger keeps focus; a press on the list must not take it.
+            onMouseDown={(event) => event.preventDefault()}
+            role="listbox"
+            tabIndex={-1}
+          >
+            {options.map((option, i) => (
+              <li
+                key={`${option.value}-${i}`}
+                aria-disabled={option.disabled || undefined}
+                aria-selected={i === selected}
+                className={`select-option${i === active ? ' select-option-active' : ''}${i === selected ? ' select-option-selected' : ''}`}
+                id={optionId(i)}
+                onClick={() => choose(i)}
+                onMouseMove={() => i !== active && !option.disabled && setActive(i)}
+                role="option"
+              >
+                <span>{option.label}</span>
+                {i === selected && (
+                  <span aria-hidden="true" className="select-check">
+                    ✓
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>,
+          document.body,
+        )}
     </span>
   );
 }

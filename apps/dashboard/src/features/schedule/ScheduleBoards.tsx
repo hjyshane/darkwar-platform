@@ -1,4 +1,5 @@
 import { useId, useState } from 'react';
+import { Select } from '../../components/ui/Select';
 import { useChannelNames } from '../../lib/channels';
 import {
   type CategoryDraft,
@@ -116,9 +117,9 @@ export function ScheduleBoards({ categories }: { categories: ScheduleCategory[] 
             </div>
             <div className="field">
               <label htmlFor={`${formId}-channel`}>Discord channel</label>
-              <select
+              <Select
                 id={`${formId}-channel`}
-                onChange={(e) => setDraft({ ...draft, channel: e.target.value })}
+                onChange={(chosen) => setDraft({ ...draft, channel: chosen })}
                 value={draft.channel}
               >
                 <option value="">Announce nowhere</option>
@@ -133,7 +134,7 @@ export function ScheduleBoards({ categories }: { categories: ScheduleCategory[] 
                 {draft.channel !== '' && !(channels ?? []).includes(draft.channel) && (
                   <option value={draft.channel}>#{draft.channel}</option>
                 )}
-              </select>
+              </Select>
             </div>
             <div className="field">
               <label htmlFor={`${formId}-sort`}>Order</label>

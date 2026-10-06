@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Select } from '../../components/ui/Select';
 import { supabase } from '../../lib/supabase';
 
 type ClaimablePlayer = { player_id: string; current_name: string | null; code: string | null };
@@ -134,7 +135,7 @@ export function PlayerClaimForm() {
         <form onSubmit={add}>
           <label>
             Character
-            <select onChange={(event) => setPlayerId(event.target.value)} required value={playerId}>
+            <Select onChange={setPlayerId} value={playerId}>
               <option value="">Choose…</option>
               {(players ?? [])
                 .filter((player) => !linked.has(player.player_id))
@@ -144,7 +145,7 @@ export function PlayerClaimForm() {
                     {player.code ? ` [${player.code}]` : ''}
                   </option>
                 ))}
-            </select>
+            </Select>
           </label>
           <button disabled={busy || playerId === ''} type="submit">
             {busy ? 'Linking…' : 'This is me'}

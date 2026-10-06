@@ -6,6 +6,7 @@
 // claims; every member with data.enter) that have neither yet.
 
 import { useQuery } from '@tanstack/react-query';
+import { Select } from '../../components/ui/Select';
 import { type Account, type Enterable, fetchEnterable } from './accounts';
 
 interface AccountBarProps {
@@ -34,22 +35,22 @@ export function AccountBar({ accounts, current, onPick, onStart }: AccountBarPro
       {listed.length > 0 && current && (
         <label>
           Account{' '}
-          <select onChange={(e) => onPick(e.target.value)} value={current.playerId}>
+          <Select onChange={(chosen) => onPick(chosen)} value={current.playerId}>
             {listed.map((a) => (
               <option key={a.playerId} value={a.playerId}>
                 {a.name}
                 {a.source === 'manual' ? ' (by hand)' : ''}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
       )}
       {fresh.length > 0 && (
         <label>
           Enter by hand{' '}
-          <select
-            onChange={(e) => {
-              const who = fresh.find((f) => f.playerId === e.target.value);
+          <Select
+            onChange={(chosen) => {
+              const who = fresh.find((f) => f.playerId === chosen);
               if (who) onStart(who);
             }}
             value=""
@@ -60,7 +61,7 @@ export function AccountBar({ accounts, current, onPick, onStart }: AccountBarPro
                 {f.name}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
       )}
     </div>

@@ -4,6 +4,7 @@
 // input too (`onCurrent`).
 
 import type { ReactNode } from 'react';
+import { Select } from '../../components/ui/Select';
 import { type Tiers, levelLabel, levelText } from './levels';
 
 interface LevelPickerProps {
@@ -71,9 +72,9 @@ export function LevelPicker({
       {current >= max ? (
         <span className="subtle level-max">max</span>
       ) : (
-        <select
+        <Select
           aria-label={`${label}: target`}
-          onChange={(e) => onChange(Number(e.target.value))}
+          onChange={(chosen) => onChange(Number(chosen))}
           value={target ?? current}
         >
           {levels.map((level) => (
@@ -81,7 +82,7 @@ export function LevelPicker({
               {level === current ? '—' : `→ ${optionText(level)}`}
             </option>
           ))}
-        </select>
+        </Select>
       )}
       {glyph && raised && target !== undefined && (
         <span className="level-target">→ {glyph(target)}</span>

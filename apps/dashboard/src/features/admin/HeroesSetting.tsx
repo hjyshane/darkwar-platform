@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Select } from '../../components/ui/Select';
 import {
   HERO_GRADES,
   type Hero,
@@ -179,9 +180,9 @@ export function HeroesSetting() {
                     />
                   </td>
                   <td className="label">
-                    <select
+                    <Select
                       aria-label={`Grade for hero ${hero.hero_id}`}
-                      onChange={(event) => setDraft({ ...draft, grade: event.target.value })}
+                      onChange={(chosen) => setDraft({ ...draft, grade: chosen })}
                       value={draft.grade}
                     >
                       {/* Unset is a choice, not a placeholder — clearing a
@@ -193,12 +194,12 @@ export function HeroesSetting() {
                           {label}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </td>
                   <td className="label">
-                    <select
+                    <Select
                       aria-label={`Class for hero ${hero.hero_id}`}
-                      onChange={(event) => setDraft({ ...draft, troop_class: event.target.value })}
+                      onChange={(chosen) => setDraft({ ...draft, troop_class: chosen })}
                       value={draft.troop_class}
                     >
                       <option value="">Unknown</option>
@@ -207,7 +208,7 @@ export function HeroesSetting() {
                           {label}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </td>
                   <td className="label">
                     <input

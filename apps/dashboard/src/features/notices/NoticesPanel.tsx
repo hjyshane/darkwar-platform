@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useId, useState } from 'react';
 import { ChannelField } from '../../components/ChannelField';
 import { MarkupEditor, TitleField } from '../../components/MarkupEditor';
+import { Select } from '../../components/ui/Select';
 import { noticeHash } from '../../lib/route';
 import { supabase } from '../../lib/supabase';
 import { useSession } from '../../lib/useSession';
@@ -130,16 +131,16 @@ export function NoticeEditor({
           </div>
           <div className="field field-narrow">
             <label htmlFor={`${formId}-vis`}>Who sees it</label>
-            <select
+            <Select
               id={`${formId}-vis`}
-              onChange={(event) =>
-                onChange({ ...draft, visibility: event.target.value as NoticeDraft['visibility'] })
+              onChange={(chosen) =>
+                onChange({ ...draft, visibility: chosen as NoticeDraft['visibility'] })
               }
               value={draft.visibility}
             >
               <option value="member">Alliance only</option>
               <option value="public">Anyone</option>
-            </select>
+            </Select>
           </div>
         </div>
         <ChannelField

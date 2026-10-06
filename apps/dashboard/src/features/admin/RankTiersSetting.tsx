@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
+import { Select } from '../../components/ui/Select';
 import { SEASON3_BUILDINGS } from '../../features/season/buildings';
 import { labAdjustment, parseSeasonLab, seasonLabApplies } from '../../lib/seasonLab';
 import { supabase } from '../../lib/supabase';
@@ -210,9 +211,9 @@ export function RankTiersSetting() {
       <div className="stack">
         <label htmlFor="normalisation">
           How each figure is scaled before the weights mix it
-          <select
+          <Select
             id="normalisation"
-            onChange={(event) => setDraft({ ...draft, normalisation: event.target.value })}
+            onChange={(chosen) => setDraft({ ...draft, normalisation: chosen })}
             value={draft.normalisation}
           >
             {METHODS.map((method) => (
@@ -220,7 +221,7 @@ export function RankTiersSetting() {
                 {method.label}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
 
         {/* Every method's arithmetic, not only the chosen one. Picking
@@ -399,14 +400,14 @@ export function RankTiersSetting() {
 
         <label htmlFor="lab-building">
           Which building
-          <select
+          <Select
             id="lab-building"
-            onChange={(event) =>
+            onChange={(chosen) =>
               setDraft({
                 ...draft,
                 season_lab: {
                   ...draft.season_lab,
-                  building_id: event.target.value === '' ? null : Number(event.target.value),
+                  building_id: chosen === '' ? null : Number(chosen),
                 },
               })
             }
@@ -418,7 +419,7 @@ export function RankTiersSetting() {
                 {kind.name}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
 
         {/* `datetime-local` has no zone, and every timestamp in this app is

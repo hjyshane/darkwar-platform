@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
+import { Select } from '../../components/ui/Select';
 import { supabase } from '../../lib/supabase';
 
 /** Discord webhooks, and which events go down them.
@@ -411,12 +412,12 @@ export function NotificationsSetting() {
                     />
                   </td>
                   <td className="label">
-                    <select
+                    <Select
                       aria-label={`Channel for ${entry.label}`}
-                      onChange={(event) =>
+                      onChange={(chosen) =>
                         saveRouting.mutate({
                           ...routing,
-                          [entry.event]: { ...current, channel: event.target.value },
+                          [entry.event]: { ...current, channel: chosen },
                         })
                       }
                       value={current.channel}
@@ -427,7 +428,7 @@ export function NotificationsSetting() {
                           {row.channel}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </td>
                 </tr>
               );

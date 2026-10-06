@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
+import { Select } from '../../components/ui/Select';
 import { supabase } from '../../lib/supabase';
 
 interface JoinableAlliance {
@@ -70,14 +71,14 @@ export function AllianceRequestForm() {
       <h3>Which alliance are you joining?</h3>
       <label>
         Alliance
-        <select onChange={(event) => void save(event.target.value)} value={chosen}>
+        <Select onChange={(chosen) => void save(chosen)} value={chosen}>
           <option value="">Choose…</option>
           {alliances.map((alliance) => (
             <option key={alliance.alliance_id} value={alliance.alliance_id}>
               {alliance.name} [{alliance.code}] · {alliance.server_id}
             </option>
           ))}
-        </select>
+        </Select>
       </label>
       {savedName && (
         <p className="empty">

@@ -11,6 +11,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Select } from '../../components/ui/Select';
 import { GameIcon, useIcons } from '../../lib/gameIcons';
 import { heroGradeName } from '../../lib/heroes';
 import { troopClassName } from '../../lib/troops';
@@ -302,10 +303,10 @@ export function HeroCards({ account, targets, onSet, onEdit }: HeroCardsProps) {
                   <div className="planner-card-row">
                     <dt>Add gear</dt>
                     <dd>
-                      <select
+                      <Select
                         aria-label={`Add gear to ${hero.name}`}
-                        onChange={(e) => {
-                          const equipId = Number(e.target.value);
+                        onChange={(chosen) => {
+                          const equipId = Number(chosen);
                           if (!equipId) return;
                           edit({
                             heroGear: [
@@ -327,7 +328,7 @@ export function HeroCards({ account, targets, onSet, onEdit }: HeroCardsProps) {
                               {piece.name}
                             </option>
                           ))}
-                      </select>
+                      </Select>
                     </dd>
                   </div>
                 )}

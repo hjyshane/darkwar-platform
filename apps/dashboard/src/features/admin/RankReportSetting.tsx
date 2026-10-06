@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Select } from '../../components/ui/Select';
 import {
   rankPeriodLastDay,
   rankPeriodStart,
@@ -381,9 +382,9 @@ export function RankReportSetting() {
             contribution readings sit one minute before the game clears each
             week. An arbitrary start puts those readings in the wrong place and
             scores everybody at zero. */}
-        <select
-          onChange={(event) => {
-            setChosen(event.target.value);
+        <Select
+          onChange={(chosen) => {
+            setChosen(chosen);
             // A success or error sentence describes the rebuild of the period
             // it ran on. Left standing while the reader switches periods, it
             // reads as that period's result — which is how a 07-20 success
@@ -398,7 +399,7 @@ export function RankReportSetting() {
               {start.getTime() === current.getTime() ? ' (in progress)' : ''}
             </option>
           ))}
-        </select>
+        </Select>
       </label>
 
       <p className="subtle">

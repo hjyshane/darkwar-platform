@@ -6,7 +6,7 @@
 // add another; the rules below are about the SENTENCES: a name read back,
 // never a uuid printed at somebody, and no promise of an approver.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { expect, test } from 'vitest';
 import { PlayerClaimForm } from '../src/features/auth/PlayerClaimForm';
 
@@ -65,8 +65,10 @@ test('an account with a character linked is not offered another', async () => {
 
 test('the first-link picker names each character with its alliance', async () => {
   renderForm({ mine: [] });
-  const select = await screen.findByLabelText('Character');
-  const options = within(select)
+  const picker = await screen.findByLabelText('Character');
+  // The picker is a custom listbox: its options exist once it is open.
+  fireEvent.click(picker);
+  const options = within(screen.getByRole('listbox'))
     .getAllByRole('option')
     .map((o) => o.textContent);
   expect(options).toContain('VINA ăn cướp [CBFW]');

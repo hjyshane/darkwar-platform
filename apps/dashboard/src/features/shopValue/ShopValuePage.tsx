@@ -12,6 +12,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { SortableTh } from '../../components/SortableTh';
+import { Select } from '../../components/ui/Select';
 import { GameIcon, useItemIcons } from '../../lib/gameIcons';
 import { type SortState, nextSort, sortRows } from '../../lib/tableControls';
 import { useSession } from '../../lib/useSession';
@@ -288,10 +289,10 @@ function PacksTab({ now, mayEdit }: { now: Date; mayEdit: boolean }) {
       <div className="row">
         <label>
           Show{' '}
-          <select onChange={(e) => setFilter(e.target.value as PackFilter)} value={filter}>
+          <Select onChange={(chosen) => setFilter(chosen as PackFilter)} value={filter}>
             <option value="live">On sale now</option>
             <option value="all">Every pack seen (incl. no longer sold)</option>
-          </select>
+          </Select>
         </label>
         <input
           aria-label="Search packs"
@@ -302,14 +303,14 @@ function PacksTab({ now, mayEdit }: { now: Date; mayEdit: boolean }) {
         />
         <label>
           Price{' '}
-          <select onChange={(e) => setPrice(e.target.value)} value={price}>
+          <Select onChange={(chosen) => setPrice(chosen)} value={price}>
             <option value="all">Any</option>
             {prices.map((p) => (
               <option key={p} value={p}>
                 ${p}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         {hiddenHere > 0 && (
           <label>
@@ -634,14 +635,14 @@ function ValuesTab({ mayEdit }: { mayEdit: boolean }) {
         />
         <label>
           Basis{' '}
-          <select onChange={(e) => setSource(e.target.value)} value={source}>
+          <Select onChange={(chosen) => setSource(chosen)} value={source}>
             <option value="all">Any</option>
             {Object.keys(SOURCE_LABELS).map((key) => (
               <option key={key} value={key}>
                 {key}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <span className="subtle">{rows.length} items</span>
       </div>

@@ -4,6 +4,7 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Select } from '../../components/ui/Select';
 import {
   CATEGORIES,
   CATEGORY_LABELS,
@@ -61,9 +62,9 @@ export function EventName({ event, mayName }: { event: CalendarEvent; mayName: b
           placeholder={`Event #${event.activity_id}`}
           value={draft.name}
         />
-        <select
+        <Select
           aria-label="Category"
-          onChange={(change) => setDraft({ ...draft, category: change.target.value as Category })}
+          onChange={(chosen) => setDraft({ ...draft, category: chosen as Category })}
           value={draft.category}
         >
           {CATEGORIES.map((value) => (
@@ -71,7 +72,7 @@ export function EventName({ event, mayName }: { event: CalendarEvent; mayName: b
               {CATEGORY_LABELS[value]}
             </option>
           ))}
-        </select>
+        </Select>
         <button disabled={save.isPending} type="submit">
           Save
         </button>

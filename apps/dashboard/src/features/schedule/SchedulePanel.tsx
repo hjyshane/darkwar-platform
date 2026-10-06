@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Select } from '../../components/ui/Select';
 import {
   CALENDAR_VIEWS,
   type CalendarView,
@@ -168,10 +169,10 @@ export function SchedulePanel() {
         <span className="count">{rangeLabel(view, anchor)}</span>
         <label className="schedule-zone">
           <span className="visually-hidden">Select your time zone</span>
-          <select
-            onChange={(e) => {
-              setZone(e.target.value);
-              storeZone(e.target.value);
+          <Select
+            onChange={(chosen) => {
+              setZone(chosen);
+              storeZone(chosen);
             }}
             value={zone}
           >
@@ -180,7 +181,7 @@ export function SchedulePanel() {
                 {zoneLabel(name)}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         {mayManage && (
           <>
