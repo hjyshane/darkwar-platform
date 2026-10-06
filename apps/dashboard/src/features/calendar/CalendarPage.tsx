@@ -12,6 +12,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
+import { Select } from '../../components/ui/Select';
 import { useSession } from '../../lib/useSession';
 import { DayView } from './DayView';
 import { ListView } from './ListView';
@@ -157,16 +158,13 @@ export function CalendarPage() {
         {servers.length > 1 && (
           <label>
             Server{' '}
-            <select
-              onChange={(change) => setServer(Number(change.target.value))}
-              value={serverShown ?? ''}
-            >
+            <Select onChange={(next) => setServer(Number(next))} value={serverShown ?? ''}>
               {servers.map((id) => (
                 <option key={id} value={id}>
                   {id}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
         )}
       </div>

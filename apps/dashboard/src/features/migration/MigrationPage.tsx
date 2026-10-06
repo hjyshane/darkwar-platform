@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Select } from '../../components/ui/Select';
 import { isAllowed, usePermissions } from '../../lib/permissions';
 import { SERVER_ZONE, zonedDayKey, zonedTime } from '../../lib/timezone';
 import { useSession } from '../../lib/useSession';
@@ -62,13 +63,13 @@ export function MigrationPage() {
         {list.length > 1 && (
           <label>
             Migration{' '}
-            <select value={event?.event_id} onChange={(e) => setChosen(e.target.value)}>
+            <Select value={event?.event_id ?? ''} onChange={setChosen}>
               {list.map((e) => (
                 <option key={e.event_id} value={e.event_id}>
                   {e.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
         )}
         {mayManage && (

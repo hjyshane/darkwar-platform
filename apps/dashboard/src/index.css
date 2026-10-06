@@ -948,8 +948,10 @@ button.primary:hover:not(:disabled) {
   border-color: var(--gold);
 }
 
+/* background-color, not the shorthand: the shorthand also resets background-image
+ * and would strip the chevron off a Select trigger while the pointer is over it. */
 button:hover:not(:disabled) {
-  background: var(--bg-hover);
+  background-color: var(--bg-hover);
 }
 
 button:disabled {
@@ -5584,4 +5586,101 @@ button.tile-grid:hover:not(:disabled) {
 
 .figure-bar .bar-cell {
   min-width: 6rem;
+}
+
+/* --- Select (components/ui/Select) ---------------------------------------- */
+
+.select {
+  display: inline-block;
+  position: relative;
+}
+
+/* The same closed face as a native <select>, so the two can sit side by side
+ * while call sites migrate. */
+.select-trigger {
+  align-items: center;
+  background-color: var(--bg);
+  background-image: linear-gradient(45deg, transparent 50%, var(--fg-muted) 50%),
+    linear-gradient(135deg, var(--fg-muted) 50%, transparent 50%);
+  background-position: calc(100% - 1rem) 55%, calc(100% - 0.7rem) 55%;
+  background-repeat: no-repeat;
+  background-size: 0.3rem 0.3rem;
+  display: inline-flex;
+  min-width: 6rem;
+  padding: var(--space-2) 1.75rem var(--space-2) var(--space-3);
+  text-align: left;
+}
+
+.select-trigger:hover:not(:disabled) {
+  background-color: var(--bg);
+  border-color: var(--fg-muted);
+}
+
+.select-open .select-trigger {
+  border-color: var(--accent);
+}
+
+.select-trigger:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
+  outline: none;
+}
+
+.select-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The popup is a popover: it scrolls on its own when the list is long, which is
+ * the one place an inner scroll box is right. */
+.select-pop {
+  background: var(--surface-overlay);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2);
+  left: 0;
+  list-style: none;
+  margin: var(--space-1) 0 0;
+  max-height: 16rem;
+  min-width: 100%;
+  overflow-y: auto;
+  padding: var(--space-1);
+  position: absolute;
+  top: 100%;
+  white-space: nowrap;
+  z-index: 30;
+}
+
+.select-pop-up {
+  bottom: 100%;
+  margin: 0 0 var(--space-1);
+  top: auto;
+}
+
+.select-option {
+  align-items: center;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: flex;
+  gap: var(--space-4);
+  justify-content: space-between;
+  padding: var(--space-1) var(--space-3);
+}
+
+.select-option-active {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.select-option-selected {
+  font-weight: 600;
+}
+
+.select-option[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.select-check {
+  color: var(--gold);
 }
