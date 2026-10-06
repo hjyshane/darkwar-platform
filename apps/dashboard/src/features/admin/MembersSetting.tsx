@@ -502,20 +502,22 @@ export function MembersSetting() {
                     <td className="label">{player?.current_name ?? claim.player_id}</td>
                     <td>{claim.note ?? '—'}</td>
                     <td>
-                      <button
-                        disabled={decide.isPending}
-                        onClick={() => decide.mutate({ userId: claim.user_id, approve: true })}
-                        type="button"
-                      >
-                        Approve
-                      </button>{' '}
-                      <button
-                        disabled={decide.isPending}
-                        onClick={() => decide.mutate({ userId: claim.user_id, approve: false })}
-                        type="button"
-                      >
-                        Reject
-                      </button>
+                      <span className="actions">
+                        <button
+                          disabled={decide.isPending}
+                          onClick={() => decide.mutate({ userId: claim.user_id, approve: true })}
+                          type="button"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          disabled={decide.isPending}
+                          onClick={() => decide.mutate({ userId: claim.user_id, approve: false })}
+                          type="button"
+                        >
+                          Reject
+                        </button>
+                      </span>
                     </td>
                   </tr>
                 );

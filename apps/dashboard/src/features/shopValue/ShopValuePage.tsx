@@ -573,16 +573,18 @@ function ValueRow({
             </button>
           ) : (
             <>
-              <button
-                disabled={!valid || save.isPending}
-                onClick={() => save.mutate(draft)}
-                type="button"
-              >
-                Save
-              </button>{' '}
-              <button onClick={() => setDraft(null)} type="button">
-                Cancel
-              </button>
+              <span className="actions">
+                <button
+                  disabled={!valid || save.isPending}
+                  onClick={() => save.mutate(draft)}
+                  type="button"
+                >
+                  Save
+                </button>
+                <button onClick={() => setDraft(null)} type="button">
+                  Cancel
+                </button>
+              </span>
               {save.error && <span className="error"> {save.error.message}</span>}
               <div className="muted">
                 Leave the name empty to show the game's name. The item code does not change.

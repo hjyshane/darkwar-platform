@@ -218,17 +218,19 @@ export function HeroesSetting() {
                     />
                   </td>
                   <td className="num">
-                    <button
-                      className="linklike"
-                      disabled={save.isPending}
-                      onClick={() => save.mutate({ heroId: hero.hero_id, values: draft })}
-                      type="button"
-                    >
-                      save
-                    </button>{' '}
-                    <button className="linklike" onClick={() => setEditing(null)} type="button">
-                      cancel
-                    </button>
+                    <span className="actions">
+                      <button
+                        className="linklike"
+                        disabled={save.isPending}
+                        onClick={() => save.mutate({ heroId: hero.hero_id, values: draft })}
+                        type="button"
+                      >
+                        save
+                      </button>
+                      <button className="linklike" onClick={() => setEditing(null)} type="button">
+                        cancel
+                      </button>
+                    </span>
                   </td>
                 </tr>
               ) : (

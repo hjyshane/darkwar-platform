@@ -5695,3 +5695,24 @@ button.tile-grid:hover:not(:disabled) {
   white-space: pre-line;
   z-index: 200;
 }
+
+/* --- spacing between controls ---------------------------------------------- */
+
+/* A short run of buttons that belongs together (save / cancel in a table cell),
+ * where the parent is a cell or a paragraph and cannot carry a gap itself. Used
+ * instead of a `{' '}` between them: a text space is whatever width the font
+ * says, collapses at a line start, and is invisible to anyone reading the JSX. */
+.actions {
+  align-items: center;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* Controls that sit next to each other directly inside a cell or a paragraph
+ * have no flex parent to give them a gap, so they would touch. Only these
+ * parents: a `.row` or `.toolbar` already spaces its own children, and adding a
+ * margin there would double it. */
+:is(td, p, li) > :is(button, .select) + :is(button, .select) {
+  margin-inline-start: var(--space-2);
+}

@@ -57,23 +57,25 @@ export function LeaveAllianceForm() {
           you have posted all stay, and an invitation code lets you back in.
         </p>
       ) : null}
-      <button
-        className="danger"
-        disabled={leave.isPending}
-        onClick={() => (confirming ? leave.mutate() : setConfirming(true))}
-        type="button"
-      >
-        {leave.isPending
-          ? 'Leaving…'
-          : confirming
-            ? 'Yes, leave the alliance'
-            : 'Leave the alliance'}
-      </button>
-      {confirming && !leave.isPending && (
-        <button onClick={() => setConfirming(false)} type="button">
-          Cancel
+      <div className="row">
+        <button
+          className="danger"
+          disabled={leave.isPending}
+          onClick={() => (confirming ? leave.mutate() : setConfirming(true))}
+          type="button"
+        >
+          {leave.isPending
+            ? 'Leaving…'
+            : confirming
+              ? 'Yes, leave the alliance'
+              : 'Leave the alliance'}
         </button>
-      )}
+        {confirming && !leave.isPending && (
+          <button onClick={() => setConfirming(false)} type="button">
+            Cancel
+          </button>
+        )}
+      </div>
       {message && <p className={failed ? 'error' : 'empty'}>{message}</p>}
     </>
   );
