@@ -5555,6 +5555,29 @@ button.tile-grid:hover:not(:disabled) {
   background: var(--danger-fg);
 }
 
+.bar-cell-done > i {
+  background: var(--ok-fg);
+}
+
+/* Needed / have / missing as one picture: the bar is how much of the need the
+ * account already holds. */
+.coverage {
+  align-items: center;
+  display: flex;
+  gap: var(--space-3);
+  margin: var(--space-2) 0 var(--space-3);
+}
+
+.coverage .bar-cell {
+  flex: 1;
+  height: 0.6rem;
+}
+
+.coverage-text {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .sparkline {
   display: block;
   height: 1.5rem;
