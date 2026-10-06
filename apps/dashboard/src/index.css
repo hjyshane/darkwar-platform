@@ -816,7 +816,7 @@ p.empty {
 }
 
 /* Loading: the same placeholder with a pulsing dot ahead of the words. The
- * words stay (role=status announces them); the dot is only a sign of life. */
+ * words stay; the dot is only a sign of life. */
 p.loading::before {
   animation: loading-pulse 1.2s var(--ease) infinite;
   background: var(--accent);
