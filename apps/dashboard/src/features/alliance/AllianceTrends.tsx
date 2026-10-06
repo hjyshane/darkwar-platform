@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { LineChart } from '../../components/LineChart';
 import { StatTile } from '../../components/StatTile';
+import { Sparkline } from '../../components/ui/Sparkline';
 import { type Point, type Series, forwardFill, thin } from '../../lib/series';
 import { supabase } from '../../lib/supabase';
 
@@ -297,7 +298,7 @@ export function AllianceTrends({
   });
 
   if (isPending) {
-    return <p className="empty">Loading…</p>;
+    return <p className="empty loading">Loading…</p>;
   }
   if (error) {
     return <p className="error">Could not load the trends: {error.message}</p>;
@@ -418,6 +419,7 @@ export function AllianceTrends({
               <StatTile
                 hero
                 label="Total power"
+                spark={<Sparkline values={usable.map((row) => row.total_power)} />}
                 note={`over ${usable.length} complete capture${usable.length === 1 ? '' : 's'}`}
                 value={latest.total_power === null ? null : bigValue(latest.total_power)}
               />

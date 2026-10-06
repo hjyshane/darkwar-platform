@@ -55,7 +55,7 @@ export function Season2Panel() {
         {TERMS.season2Buildings}
         {data?.capturedAt && <FreshnessBadge capturedAt={data.capturedAt} />}
       </h2>
-      {isPending && <p className="empty">Loading…</p>}
+      {isPending && <p className="empty loading">Loading…</p>}
       {error && <p className="error">Could not load season 2: {(error as Error).message}</p>}
       {/* No floors at all: nobody is behind on a season that has ended. */}
       {data && <SeasonBuildingTable floors={NO_FLOORS} grid={data} />}

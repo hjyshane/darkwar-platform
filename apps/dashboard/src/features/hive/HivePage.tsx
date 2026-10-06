@@ -100,7 +100,7 @@ export function HivePage() {
   const members = useAssignableMembers();
 
   if (allFormations.isPending) {
-    return <p className="empty">Loading…</p>;
+    return <p className="empty loading">Loading…</p>;
   }
   if (allFormations.error) {
     return (

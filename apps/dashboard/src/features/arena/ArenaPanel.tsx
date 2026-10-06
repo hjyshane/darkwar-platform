@@ -89,7 +89,7 @@ export function ArenaPanel({ now }: { now?: Date }) {
   return (
     <section aria-labelledby="arena-heading">
       <h2 id="arena-heading">{TERMS.arena}</h2>
-      {boards.isPending && <p className="empty">Loading…</p>}
+      {boards.isPending && <p className="empty loading">Loading…</p>}
       {boards.error && <p className="error">Could not load arena: {boards.error.message}</p>}
       {boards.data && boards.data.length === 0 && <p className="empty">No arena snapshot yet.</p>}
 
@@ -121,7 +121,7 @@ export function ArenaPanel({ now }: { now?: Date }) {
           {selected && leagueScope(selected.league) && (
             <p className="subtle">{leagueScope(selected.league)}</p>
           )}
-          {entries.isPending && <p className="empty">Loading…</p>}
+          {entries.isPending && <p className="empty loading">Loading…</p>}
           {entries.error && <p className="error">Could not load arena: {entries.error.message}</p>}
           {selected && entries.data && (
             <ArenaTable header={selected} entries={entries.data} now={now} />

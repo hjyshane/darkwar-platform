@@ -202,7 +202,7 @@ export function ManualScoresSetting() {
       </label>
 
       {isPending ? (
-        <p className="empty">Loading…</p>
+        <p className="empty loading">Loading…</p>
       ) : error ? (
         <p className="error">Could not load this week: {error.message}</p>
       ) : rows.length === 0 ? (

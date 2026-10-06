@@ -60,7 +60,7 @@ export function BlackMoneyPage() {
     <section aria-labelledby="black-money-heading">
       <h2 id="black-money-heading">{TERMS.blackMoney}</h2>
 
-      {battles.isPending && <p className="empty">Loading…</p>}
+      {battles.isPending && <p className="empty loading">Loading…</p>}
       {battles.error && (
         <p className="error">Could not load the battles: {battles.error.message}</p>
       )}

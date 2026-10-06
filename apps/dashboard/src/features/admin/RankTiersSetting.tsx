@@ -187,7 +187,7 @@ export function RankTiersSetting() {
   });
 
   if (isPending || draft === null) {
-    return <p className="empty">Loading…</p>;
+    return <p className="empty loading">Loading…</p>;
   }
   if (error) {
     return <p className="error">Could not load the settings: {error.message}</p>;

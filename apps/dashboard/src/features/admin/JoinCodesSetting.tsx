@@ -177,7 +177,7 @@ export function JoinCodesSetting() {
       )}
       {failure !== null && <p className="error">{failure}</p>}
 
-      {isPending && <p className="empty">Loading…</p>}
+      {isPending && <p className="empty loading">Loading…</p>}
       {error && <p className="error">Could not load codes: {error.message}</p>}
 
       {data && data.length === 0 && <p className="empty">No code has been issued yet.</p>}

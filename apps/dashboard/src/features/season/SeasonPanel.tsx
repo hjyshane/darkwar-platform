@@ -102,7 +102,7 @@ export function SeasonPanel() {
         value={boardId}
         onChange={setBoardId}
       />
-      {active?.isPending && <p className="empty">Loading…</p>}
+      {active?.isPending && <p className="empty loading">Loading…</p>}
       {active?.error && (
         <p className="error">Could not load season board: {active.error.message}</p>
       )}

@@ -219,7 +219,7 @@ export function RosterPanel() {
         <CurrentPeriodTable />
       ) : (
         <>
-          {isPending && <p className="empty">Loading…</p>}
+          {isPending && <p className="empty loading">Loading…</p>}
           {error && <p className="error">Could not load members: {error.message}</p>}
           {data && <RosterTable columns={columns ?? []} rows={data} />}
         </>

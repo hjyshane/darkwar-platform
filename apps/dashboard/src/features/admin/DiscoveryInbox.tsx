@@ -78,7 +78,7 @@ export function DiscoveryInbox({ now }: { now?: Date }) {
   const [expanded, setExpanded] = useState(false);
 
   if (isPending) {
-    return <p className="empty">Loading…</p>;
+    return <p className="empty loading">Loading…</p>;
   }
   if (error) {
     return <p className="error">Could not load the inbox: {error.message}</p>;

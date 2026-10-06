@@ -324,7 +324,7 @@ export function RankReportSetting() {
   const [firstWeek, secondWeek] = rankPeriodWeekEnds(viewing);
 
   if (report.isPending) {
-    return <p className="empty">Loading…</p>;
+    return <p className="empty loading">Loading…</p>;
   }
   if (report.error) {
     return <p className="error">Could not load the report: {report.error.message}</p>;

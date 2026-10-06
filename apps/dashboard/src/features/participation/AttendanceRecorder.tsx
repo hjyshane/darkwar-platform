@@ -156,7 +156,7 @@ export function AttendanceRecorder({
       </div>
 
       {stored.isPending ? (
-        <p className="empty">Loading…</p>
+        <p className="empty loading">Loading…</p>
       ) : stored.error ? (
         <p className="error">Could not load this day: {stored.error.message}</p>
       ) : (

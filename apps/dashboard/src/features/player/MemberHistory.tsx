@@ -89,7 +89,7 @@ export function MemberHistory({ playerId, now }: { playerId: string; now?: Date 
     );
   }
   if (isPending) {
-    return <p className="empty">Loading…</p>;
+    return <p className="empty loading">Loading…</p>;
   }
   if (error) {
     return <p className="error">Could not load the history: {error.message}</p>;

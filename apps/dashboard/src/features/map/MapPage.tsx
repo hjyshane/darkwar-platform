@@ -54,7 +54,7 @@ export function MapPage({ serverId }: { serverId: number | null }) {
   const now = new Date();
 
   if (isPending) {
-    return <p className="empty">Loading…</p>;
+    return <p className="empty loading">Loading…</p>;
   }
   if (error) {
     return <p className="error">Could not load the map: {(error as Error).message}</p>;

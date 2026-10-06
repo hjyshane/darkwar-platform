@@ -515,6 +515,11 @@ td {
   text-align: left;
 }
 
+thead th {
+  background: var(--bg-raised);
+  border-bottom-color: var(--border-strong);
+}
+
 th {
   color: var(--fg-muted);
   font-size: var(--text-sm);
@@ -798,6 +803,46 @@ th:has(.sort) {
 
 .empty {
   color: var(--fg-muted);
+}
+
+/* An empty or loading message as a quiet placeholder rather than loose text
+ * floating under a heading. Paragraphs only: the same class is also used inside
+ * table cells and running text, which should stay as they are. */
+p.empty {
+  background: var(--bg-raised);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+}
+
+/* Loading: the same placeholder with a pulsing dot ahead of the words. The
+ * words stay (role=status announces them); the dot is only a sign of life. */
+p.loading::before {
+  animation: loading-pulse 1.2s var(--ease) infinite;
+  background: var(--accent);
+  border-radius: var(--radius-pill);
+  content: "";
+  display: inline-block;
+  height: 0.5rem;
+  margin-inline-end: var(--space-2);
+  vertical-align: middle;
+  width: 0.5rem;
+}
+
+@keyframes loading-pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  p.loading::before {
+    animation: none;
+  }
 }
 
 .error {
@@ -1703,6 +1748,10 @@ select.rank-badge {
 
 .stat-hero .stat-value {
   font-size: var(--text-xl);
+}
+
+.stat-spark {
+  margin-top: var(--space-2);
 }
 
 .stat-note {
@@ -5778,4 +5827,13 @@ button.tile-grid:hover:not(:disabled) {
  * margin there would double it. */
 :is(td, p, li) > :is(button, .select) + :is(button, .select) {
   margin-inline-start: var(--space-2);
+}
+
+/* A visible focus ring for anything keyboard-focusable that has no ring of its
+ * own (links, <summary>, tabindex'd boxes). :where() keeps it at zero weight so
+ * every control that already styles its own focus keeps doing so. */
+:where(a, summary, [tabindex]:not([tabindex="-1"])):focus-visible {
+  border-radius: var(--radius-sm);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }

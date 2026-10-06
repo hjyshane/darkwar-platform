@@ -260,7 +260,7 @@ export function NotificationsSetting() {
   });
 
   if (isPending) {
-    return <p className="empty">Loading…</p>;
+    return <p className="empty loading">Loading…</p>;
   }
   if (error) {
     return <p className="error">Could not load the notification settings: {error.message}</p>;

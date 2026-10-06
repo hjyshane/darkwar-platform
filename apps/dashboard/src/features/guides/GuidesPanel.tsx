@@ -260,7 +260,7 @@ export function GuidesPanel() {
       <section aria-labelledby="guides-list-heading">
         <h3 id="guides-list-heading">All guides</h3>
         {board.isPending ? (
-          <p className="empty">Loading…</p>
+          <p className="empty loading">Loading…</p>
         ) : board.data === undefined ? null : (
           <BoardList
             data={board.data}

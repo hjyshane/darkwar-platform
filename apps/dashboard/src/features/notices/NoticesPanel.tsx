@@ -305,7 +305,7 @@ export function NoticesPanel() {
       <section aria-labelledby="notices-list-heading">
         <h3 id="notices-list-heading">All notices</h3>
         {board.isPending ? (
-          <p className="empty">Loading…</p>
+          <p className="empty loading">Loading…</p>
         ) : board.data === undefined ? null : (
           <BoardList
             data={board.data}

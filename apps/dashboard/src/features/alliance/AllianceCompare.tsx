@@ -185,7 +185,7 @@ export function AllianceCompare({ serverId }: { serverId: number }) {
   });
 
   if (growth.isPending) {
-    return <p className="empty">Loading…</p>;
+    return <p className="empty loading">Loading…</p>;
   }
   if (growth.error) {
     return <p className="error">Could not load the comparison: {growth.error.message}</p>;

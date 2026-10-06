@@ -40,7 +40,7 @@ export function RankingsPanel() {
   return (
     <section aria-labelledby="rankings-heading">
       <h2 id="rankings-heading">{TERMS.allianceRanking}</h2>
-      {isPending && <p className="empty">Loading…</p>}
+      {isPending && <p className="empty loading">Loading…</p>}
       {error && <p className="error">Could not load alliance ranking: {error.message}</p>}
       {data && <AllianceRankingTable rows={data} />}
     </section>

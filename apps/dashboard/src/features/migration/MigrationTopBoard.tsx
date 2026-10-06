@@ -51,7 +51,7 @@ export function MigrationTopBoard({ eventId }: { eventId: string }) {
     staleTime: 5 * 60_000,
   });
 
-  if (board.isPending) return <p className="empty">Loading…</p>;
+  if (board.isPending) return <p className="empty loading">Loading…</p>;
   if (board.error) return <p className="error">{board.error.message}</p>;
   if (board.data.length === 0) {
     return <p className="empty">No cross-server power board captured on either side yet.</p>;

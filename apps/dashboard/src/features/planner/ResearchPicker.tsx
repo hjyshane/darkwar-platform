@@ -77,7 +77,7 @@ export function ResearchPicker({ account, levels, tiers, targets, onSet, onCurre
           show hidden and maxed ({hiddenCount})
         </label>
       )}
-      {subjects.isPending && <p className="empty">Loading…</p>}
+      {subjects.isPending && <p className="empty loading">Loading…</p>}
       {subjects.isError && <p className="error">{subjects.error.message}</p>}
       {subjects.data && (
         <div className="table-wrap" role="tabpanel">

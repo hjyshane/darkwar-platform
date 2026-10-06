@@ -51,7 +51,7 @@ export function MigrationPage() {
     <section aria-labelledby="migration-heading">
       <h2 id="migration-heading">Server migration</h2>
 
-      {events.isPending && <p className="empty">Loading…</p>}
+      {events.isPending && <p className="empty loading">Loading…</p>}
       {events.error && <p className="error">{events.error.message}</p>}
       {events.data && list.length === 0 && (
         <p className="empty">

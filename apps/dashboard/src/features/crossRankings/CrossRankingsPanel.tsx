@@ -71,7 +71,7 @@ export function CrossRankingsPanel() {
           table: this is a jumping-off point from what you are looking at, and
           offering a server the board never mentioned would lead to an empty page. */}
       {data && <ServerLinks rows={data} />}
-      {isPending && <p className="empty">Loading…</p>}
+      {isPending && <p className="empty loading">Loading…</p>}
       {error && <p className="error">Could not load ranking: {error.message}</p>}
       {data && <CrossRankingTable rows={data} board={board} />}
     </section>

@@ -241,7 +241,7 @@ export function SchedulePanel() {
       )}
 
       {error !== null && <p className="error">The calendar could not be read.</p>}
-      {isPending && <p className="empty">Loading…</p>}
+      {isPending && <p className="empty loading">Loading…</p>}
 
       <div
         className={`schedule-grid schedule-grid-${view}`}

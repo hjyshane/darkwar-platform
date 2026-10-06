@@ -252,7 +252,7 @@ export function AccountPage() {
     <>
       <AccountTabs counts={counts} onPick={setTab} tab={tab} />
       <main>
-        {isPending && <p className="empty">Loading…</p>}
+        {isPending && <p className="empty loading">Loading…</p>}
         {error && <p className="error">Could not load it: {error.message}</p>}
 
         {tab === 'player' && data !== undefined && data.playerId === null && (

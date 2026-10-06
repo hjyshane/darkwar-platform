@@ -428,7 +428,7 @@ function Screen({ route, mapServerId }: { route: Route; mapServerId: number | nu
       // comment says which). This is about not putting a screen in front of
       // someone it is not for.
       if (mayViewMembers === undefined) {
-        return <p className="empty">Loading…</p>;
+        return <p className="empty loading">Loading…</p>;
       }
       if (!mayViewMembers) {
         return (
@@ -505,7 +505,7 @@ function Screen({ route, mapServerId }: { route: Route; mapServerId: number | nu
       // member-only, so an ungated reader would get an empty board rather
       // than a board. Saying why beats rendering nothing.
       if (mayViewArena === undefined) {
-        return <p className="empty">Loading…</p>;
+        return <p className="empty loading">Loading…</p>;
       }
       if (!mayViewArena) {
         return (
@@ -671,7 +671,7 @@ function Shell({
         <LoginPage />
       ) : isPending && !standalone ? (
         <main>
-          <p className="empty">Loading…</p>
+          <p className="empty loading">Loading…</p>
         </main>
       ) : route === 'login' ? (
         <LoginPage />

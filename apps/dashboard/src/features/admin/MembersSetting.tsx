@@ -411,7 +411,7 @@ export function MembersSetting() {
   });
 
   if (isPending) {
-    return <p className="empty">Loading…</p>;
+    return <p className="empty loading">Loading…</p>;
   }
   if (error) {
     return <p className="error">Could not load members: {error.message}</p>;

@@ -285,7 +285,7 @@ export function ParticipationPage() {
         {kind === 'season' && <span className="subtle">{season.label}</span>}
       </div>
 
-      {report.isPending && <p className="empty">Loading…</p>}
+      {report.isPending && <p className="empty loading">Loading…</p>}
       {report.error && (
         <p className="error">Could not load participation: {report.error.message}</p>
       )}

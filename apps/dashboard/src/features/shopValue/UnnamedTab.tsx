@@ -116,7 +116,7 @@ export function UnnamedTab({ mayEdit }: { mayEdit: boolean }) {
 
   const failed = packs.error ?? listings.error ?? values.error;
   if (failed) return <p className="error">Could not load: {failed.message}</p>;
-  if (items === null) return <p className="empty">Loading…</p>;
+  if (items === null) return <p className="empty loading">Loading…</p>;
   if (items.length === 0) return <p className="empty">Every item has a name.</p>;
 
   return (
