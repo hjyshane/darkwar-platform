@@ -107,15 +107,17 @@ export function Select({
     // would leave it floating where the trigger used to be. Closing is the
     // honest answer; scrolling the list itself does not count.
     const moved = (event: Event) => {
-      const target = event.target as Node;
-      // Scrolling the list itself, or an unrelated box that does not contain the
-      // trigger, does not move the trigger and must not close the popup.
+      const target = event.target;
       // `resize` arrives with the window as its target, which is not a Node and
       // has no .contains(); a resize always moves the trigger.
+      if (!(target instanceof Node)) {
+        setOpen(false);
+        return;
+      }
+      // Scrolling the list itself, or an unrelated box that does not contain the
+      // trigger, does not move the trigger and must not close the popup.
       const movesTrigger =
-        !(target instanceof Node) ||
-        target === document ||
-        (trigger.current !== null && target.contains(trigger.current));
+        target === document || (trigger.current !== null && target.contains(trigger.current));
       if (movesTrigger && !pop.current?.contains(target)) {
         setOpen(false);
       }

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Select } from './Select';
 import { edgeIndex, moveActive, optionsFromChildren, typeaheadIndex } from './selectLogic';
@@ -97,7 +97,9 @@ describe('Select', () => {
   it('closes when the window is resized, without throwing', () => {
     const { trigger } = setup();
     fireEvent.click(trigger);
-    fireEvent(window, new Event('resize'));
+    act(() => {
+      window.dispatchEvent(new Event('resize'));
+    });
     expect(screen.queryByRole('listbox')).toBeNull();
   });
   it('closes on a press outside', () => {
