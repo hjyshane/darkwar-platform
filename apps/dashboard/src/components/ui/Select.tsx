@@ -110,8 +110,12 @@ export function Select({
       const target = event.target as Node;
       // Scrolling the list itself, or an unrelated box that does not contain the
       // trigger, does not move the trigger and must not close the popup.
+      // `resize` arrives with the window as its target, which is not a Node and
+      // has no .contains(); a resize always moves the trigger.
       const movesTrigger =
-        target === document || (trigger.current !== null && target.contains(trigger.current));
+        !(target instanceof Node) ||
+        target === document ||
+        (trigger.current !== null && target.contains(trigger.current));
       if (movesTrigger && !pop.current?.contains(target)) {
         setOpen(false);
       }

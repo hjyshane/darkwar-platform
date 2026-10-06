@@ -892,9 +892,14 @@ form label {
         [type="file"],
         [type="color"]
       ):hover,
-    textarea:hover,
-    select:hover
+    textarea:hover
   ) {
+  border-color: var(--fg-muted);
+}
+
+/* Not inside :where(): the bare `select` rule below sets `border` at (0,0,1) and
+ * would beat a zero-weight state colour. */
+select:hover {
   border-color: var(--fg-muted);
 }
 
@@ -906,9 +911,14 @@ form label {
         [type="file"],
         [type="color"]
       ):focus-visible,
-    textarea:focus-visible,
-    select:focus-visible
+    textarea:focus-visible
   ) {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
+  outline: none;
+}
+
+select:focus-visible {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
   outline: none;

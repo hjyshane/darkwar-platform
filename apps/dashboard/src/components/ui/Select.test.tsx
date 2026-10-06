@@ -94,6 +94,12 @@ describe('Select', () => {
     expect(screen.queryByRole('listbox')).toBeNull();
     expect(onChange).not.toHaveBeenCalled();
   });
+  it('closes when the window is resized, without throwing', () => {
+    const { trigger } = setup();
+    fireEvent.click(trigger);
+    fireEvent(window, new Event('resize'));
+    expect(screen.queryByRole('listbox')).toBeNull();
+  });
   it('closes on a press outside', () => {
     const { trigger } = setup();
     fireEvent.click(trigger);
