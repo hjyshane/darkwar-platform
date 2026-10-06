@@ -5,6 +5,7 @@ import { FavouritesFilter } from '../../components/FavouritesFilter';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
 import { SortableTh } from '../../components/SortableTh';
 import { TableSearch } from '../../components/TableSearch';
+import { BarCell } from '../../components/ui/BarCell';
 import { formatLastOnline } from '../../lib/freshness';
 import { fieldsOf } from '../../lib/memberFormulas';
 import { GAME_RANKS, isAllowed, usePermissions } from '../../lib/permissions';
@@ -326,6 +327,10 @@ interface CellContext {
   isFavourite: (kind: FavouriteKind, id: string | number) => boolean;
   toggleFavourite: (kind: FavouriteKind, id: string | number) => void;
   setRank: (playerId: string, rank: string | null) => void;
+  /** The largest power and kills across the WHOLE roster, so a share bar does
+   * not rescale when a search narrows the view. */
+  maxPower: number;
+  maxKills: number;
 }
 
 interface BaseColumn extends ColumnSpec {
@@ -434,14 +439,24 @@ const BASE_COLUMNS: BaseColumn[] = [
     label: TERMS.power,
     sortKey: 'power',
     numeric: true,
-    cell: (row) => formatNumber(row.power),
+    cell: (row, context) => (
+      <span className="figure-bar">
+        {formatNumber(row.power)}
+        <BarCell max={context.maxPower} value={row.power} />
+      </span>
+    ),
   },
   {
     id: 'kills',
     label: TERMS.kills,
     sortKey: 'kills',
     numeric: true,
-    cell: (row) => formatNumber(row.kills),
+    cell: (row, context) => (
+      <span className="figure-bar">
+        {formatNumber(row.kills)}
+        <BarCell max={context.maxKills} value={row.kills} />
+      </span>
+    ),
   },
   {
     // `group-start` marks where the donation family begins, and again where the
@@ -708,6 +723,8 @@ export function RosterTable({
     isFavourite,
     toggleFavourite: toggle,
     setRank: (playerId, rank) => setRank.mutate({ playerId, rank }),
+    maxPower: rows.reduce((top, row) => Math.max(top, row.power ?? 0), 0),
+    maxKills: rows.reduce((top, row) => Math.max(top, row.kills ?? 0), 0),
   };
 
   return (

@@ -5,6 +5,8 @@ export interface TabItem<T extends string | number> {
   label: ReactNode;
   title?: string;
   disabled?: boolean;
+  /** A modifier on this one tab (the planner colours hero grades). */
+  className?: string;
 }
 
 /** A tab bar: the ARIA tabs pattern, which the hand-copied ones were half of.
@@ -87,6 +89,7 @@ export function Tabs<T extends string | number>({
             }
           }}
           aria-selected={item.id === value}
+          className={item.className}
           disabled={item.disabled}
           onClick={() => onChange(item.id)}
           onKeyDown={(event) => onKeyDown(event, item.id)}
