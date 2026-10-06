@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
+import { TooltipLayer } from './components/ui/TooltipLayer';
 import './index.css';
 import { applyTheme, readTheme } from './lib/theme';
 
@@ -16,5 +17,6 @@ if (root === null) {
 createRoot(root).render(
   <StrictMode>
     <App />
+    <TooltipLayer />
   </StrictMode>,
 );

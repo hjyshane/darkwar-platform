@@ -15,6 +15,7 @@ import { useMemo, useState } from 'react';
 import { SortableTh } from '../../components/SortableTh';
 import { BarCell } from '../../components/ui/BarCell';
 import { Select } from '../../components/ui/Select';
+import { Tabs } from '../../components/ui/Tabs';
 import { isAllowed, usePermissions } from '../../lib/permissions';
 import { type SortState, nextSort } from '../../lib/tableControls';
 import { useSession } from '../../lib/useSession';
@@ -249,19 +250,12 @@ export function ParticipationPage() {
       <h2 id="participation-heading">Participation</h2>
 
       <div className="row">
-        <div role="tablist" aria-label="Period">
-          {KIND_LABELS.map(([id, label]) => (
-            <button
-              aria-selected={kind === id}
-              key={id}
-              onClick={() => setKind(id)}
-              role="tab"
-              type="button"
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <Tabs
+          label="Period"
+          items={KIND_LABELS.map(([id, label]) => ({ id, label }))}
+          value={kind}
+          onChange={setKind}
+        />
         {kind === 'round' && (
           <label>
             Round{' '}
@@ -302,19 +296,13 @@ export function ParticipationPage() {
       {rows.length > 0 && (
         <>
           <Summary kinds={eventKinds} rows={rows} />
-          <div aria-label="Report" className="row" role="tablist">
-            {BOARDS.map(([id, label]) => (
-              <button
-                aria-selected={board === id}
-                key={id}
-                onClick={() => setBoard(id)}
-                role="tab"
-                type="button"
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          <Tabs
+            label="Report"
+            className="row"
+            items={BOARDS.map(([id, label]) => ({ id, label }))}
+            value={board}
+            onChange={setBoard}
+          />
           <div className="table-wrap">
             <table className="compact">
               <thead>

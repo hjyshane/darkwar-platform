@@ -2,6 +2,7 @@ import type { Coordinate } from '@dw/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Select } from '../../components/ui/Select';
+import { Tabs } from '../../components/ui/Tabs';
 import {
   footprintOf,
   formatTeleport,
@@ -164,19 +165,12 @@ export function HivePage() {
               every control, and back up again to save. Members never see the
               tabs: the plan is all they have. */}
           {mayPlan && (
-            <div aria-label="Hive view" role="tablist">
-              {HIVE_TABS.map((candidate) => (
-                <button
-                  aria-selected={candidate.id === tab}
-                  key={candidate.id}
-                  onClick={() => setTab(candidate.id)}
-                  role="tab"
-                  type="button"
-                >
-                  {candidate.label}
-                </button>
-              ))}
-            </div>
+            <Tabs
+              label="Hive view"
+              items={HIVE_TABS.map((candidate) => ({ id: candidate.id, label: candidate.label }))}
+              value={tab}
+              onChange={setTab}
+            />
           )}
 
           {/* Keyed by the formation so switching plans starts the view over.

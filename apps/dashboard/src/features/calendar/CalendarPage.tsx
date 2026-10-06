@@ -13,6 +13,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { Select } from '../../components/ui/Select';
+import { Tabs } from '../../components/ui/Tabs';
 import { useSession } from '../../lib/useSession';
 import { DayView } from './DayView';
 import { ListView } from './ListView';
@@ -128,19 +129,12 @@ export function CalendarPage() {
       </p>
 
       <div className="row calendar-controls">
-        <div role="tablist" aria-label="View">
-          {VIEWS.map(([value, label]) => (
-            <button
-              aria-selected={view === value}
-              key={value}
-              onClick={() => setView(value)}
-              role="tab"
-              type="button"
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <Tabs
+          label="View"
+          items={VIEWS.map(([value, label]) => ({ id: value, label }))}
+          value={view}
+          onChange={setView}
+        />
         <fieldset className="calendar-toggle">
           <legend className="visually-hidden">Show</legend>
           {CATEGORIES.map((value) => (

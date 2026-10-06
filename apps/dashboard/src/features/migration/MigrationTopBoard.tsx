@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Tabs } from '../../components/ui/Tabs';
 import { playerHash } from '../../lib/route';
 import {
   type BoardFilter,
@@ -62,19 +63,19 @@ export function MigrationTopBoard({ eventId }: { eventId: string }) {
 
   return (
     <>
-      <div role="tablist" aria-label="Who">
-        {FILTERS.map((f) => (
-          <button
-            key={f.filter}
-            type="button"
-            role="tab"
-            aria-selected={f.filter === filter}
-            onClick={() => setFilter(f.filter)}
-          >
-            {f.label} <span className="subtle">{num(counts.get(f.filter) ?? 0)}</span>
-          </button>
-        ))}
-      </div>
+      <Tabs
+        label="Who"
+        items={FILTERS.map((f) => ({
+          id: f.filter,
+          label: (
+            <>
+              {f.label} <span className="subtle">{num(counts.get(f.filter) ?? 0)}</span>
+            </>
+          ),
+        }))}
+        value={filter}
+        onChange={setFilter}
+      />
 
       <div className="table-wrap">
         <table className="compact migration-top">

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
+import { Tabs } from '../../components/ui/Tabs';
 import { useRecordActivity } from '../../lib/activity';
 import { serverHash } from '../../lib/route';
 import { TERMS } from '../../lib/terms';
@@ -54,19 +55,12 @@ export function CrossRankingsPanel() {
         {TERMS.crossServerRanking}
         {data?.[0] && <FreshnessBadge capturedAt={data[0].captured_at} />}
       </h2>
-      <div role="tablist" aria-label="Ranking metric">
-        {BOARDS.map((candidate) => (
-          <button
-            key={candidate.id}
-            type="button"
-            role="tab"
-            aria-selected={candidate.id === boardId}
-            onClick={() => setBoardId(candidate.id)}
-          >
-            {candidate.label}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        label="Ranking metric"
+        items={BOARDS.map((candidate) => ({ id: candidate.id, label: candidate.label }))}
+        value={boardId}
+        onChange={setBoardId}
+      />
       {/* Straight to a server's own page.
           LINKS, not tabs. The board above switches what this screen shows; these
           leave it, so they have to be middle-clickable, focusable and visible in the

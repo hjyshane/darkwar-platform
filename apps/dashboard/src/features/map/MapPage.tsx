@@ -1,5 +1,6 @@
 import { formatCoordinate } from '@dw/ui';
 import { useState } from 'react';
+import { Tabs } from '../../components/ui/Tabs';
 import { formatLastOnline } from '../../lib/freshness';
 import { TERMS } from '../../lib/terms';
 import { MapCanvas } from './MapCanvas';
@@ -74,26 +75,19 @@ export function MapPage({ serverId }: { serverId: number | null }) {
     <section aria-labelledby="map-heading">
       <h2 id="map-heading">{TERMS.map}</h2>
 
-      <div role="tablist" aria-label="Scanned server">
-        {servers.map((server) => (
-          <button
-            aria-selected={server.serverId === active}
-            key={server.serverId}
-            onClick={() => {
-              setChosen(server.serverId);
-              // A name found on one server means nothing on another.
-              setSelected(null);
-              setQuery('');
-              setHqMin(null);
-              setHqMax(null);
-            }}
-            role="tab"
-            type="button"
-          >
-            {server.serverId}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        label="Scanned server"
+        items={servers.map((server) => ({ id: server.serverId, label: server.serverId }))}
+        value={active}
+        onChange={(serverId) => {
+          setChosen(serverId);
+          // A name found on one server means nothing on another.
+          setSelected(null);
+          setQuery('');
+          setHqMin(null);
+          setHqMax(null);
+        }}
+      />
 
       {servers
         .filter((server) => server.serverId === active)

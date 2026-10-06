@@ -12,6 +12,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Select } from '../../components/ui/Select';
+import { Tabs } from '../../components/ui/Tabs';
 import { GameIcon, useIcons } from '../../lib/gameIcons';
 import { heroGradeName } from '../../lib/heroes';
 import { troopClassName } from '../../lib/troops';
@@ -105,35 +106,23 @@ export function HeroCards({ account, targets, onSet, onEdit }: HeroCardsProps) {
   return (
     <>
       {squads.length > 0 && (
-        <div aria-label="Squad" className="planner-tabs" role="tablist">
-          <button
-            aria-selected={squadFilter === 'all'}
-            onClick={() => setSquadFilter('all')}
-            role="tab"
-            type="button"
-          >
-            Every hero
-          </button>
-          {squads.map((s) => (
-            <button
-              aria-selected={squadFilter === s.index}
-              key={s.index}
-              onClick={() => setSquadFilter(s.index)}
-              role="tab"
-              type="button"
-            >
-              Squad {s.index} ({s.heroes.length})
-            </button>
-          ))}
-          <button
-            aria-selected={squadFilter === 'none'}
-            onClick={() => setSquadFilter('none')}
-            role="tab"
-            type="button"
-          >
-            In no squad ({all.filter((h) => !squadOf.has(h.id)).length})
-          </button>
-        </div>
+        <Tabs
+          label="Squad"
+          className="planner-tabs"
+          items={[
+            { id: 'all' as const, label: 'Every hero' },
+            ...squads.map((s) => ({
+              id: s.index,
+              label: `Squad ${s.index} (${s.heroes.length})`,
+            })),
+            {
+              id: 'none' as const,
+              label: `In no squad (${all.filter((h) => !squadOf.has(h.id)).length})`,
+            },
+          ]}
+          value={squadFilter}
+          onChange={setSquadFilter}
+        />
       )}
       <div aria-label="Hero grade" className="planner-tabs" role="tablist">
         <button

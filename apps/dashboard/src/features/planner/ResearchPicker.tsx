@@ -6,6 +6,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Tabs } from '../../components/ui/Tabs';
 import { LevelPicker } from './LevelPicker';
 import type { Account } from './accounts';
 import { fetchCatalogSubjects, fetchResearchTabs } from './data';
@@ -59,19 +60,13 @@ export function ResearchPicker({ account, levels, tiers, targets, onSet, onCurre
     );
   return (
     <>
-      <div aria-label="Research tab" className="planner-tabs" role="tablist">
-        {tabs.data.map((t) => (
-          <button
-            aria-selected={t.tabId === tab}
-            key={t.tabId}
-            onClick={() => setChosen(t.tabId)}
-            role="tab"
-            type="button"
-          >
-            {t.name}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        label="Research tab"
+        className="planner-tabs"
+        items={tabs.data.map((t) => ({ id: t.tabId, label: t.name }))}
+        value={tab}
+        onChange={setChosen}
+      />
       {hiddenCount > 0 && (
         <label className="subtle">
           <input

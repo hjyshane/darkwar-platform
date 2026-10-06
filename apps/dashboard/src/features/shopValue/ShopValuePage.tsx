@@ -13,6 +13,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { SortableTh } from '../../components/SortableTh';
 import { Select } from '../../components/ui/Select';
+import { Tabs } from '../../components/ui/Tabs';
 import { GameIcon, useItemIcons } from '../../lib/gameIcons';
 import { type SortState, nextSort, sortRows } from '../../lib/tableControls';
 import { useSession } from '../../lib/useSession';
@@ -702,19 +703,13 @@ export function ShopValuePage() {
       <p className="subtle">
         What packs and Ruby-shop entries are worth, in dollars of value per dollar paid.
       </p>
-      <div aria-label="Shop value" className="row" role="tablist">
-        {TABS.map(([id, label]) => (
-          <button
-            aria-selected={tab === id}
-            key={id}
-            onClick={() => setTab(id)}
-            role="tab"
-            type="button"
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        label="Shop value"
+        className="row"
+        items={TABS.map(([id, label]) => ({ id, label }))}
+        value={tab}
+        onChange={setTab}
+      />
       {tab === 'packs' && <PacksTab mayEdit={mayEdit} now={now} />}
       {tab === 'shop' && <ShopTab />}
       {tab === 'values' && <ValuesTab mayEdit={mayEdit} />}

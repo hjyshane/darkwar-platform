@@ -5677,3 +5677,21 @@ button.tile-grid:hover:not(:disabled) {
 .select-check {
   color: var(--gold);
 }
+
+/* --- tooltip (components/ui/TooltipLayer) --------------------------------- */
+
+.tooltip {
+  background: var(--surface-overlay);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-2);
+  color: var(--fg);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  max-width: 20rem;
+  padding: var(--space-1) var(--space-2);
+  pointer-events: none;
+  position: fixed;
+  white-space: pre-line;
+  z-index: 200;
+}
