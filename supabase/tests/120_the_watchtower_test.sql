@@ -80,7 +80,7 @@ select ok((select watchtower_level is null from r where current_name = 'Charlie'
 -- 6. Anon still cannot call the report.
 reset role;
 select ok(not has_function_privilege('anon',
-  'public.member_participation(timestamptz, timestamptz)', 'execute'),
+  'public.member_participation(timestamptz, timestamptz, bigint, bigint)', 'execute'),
   'anon cannot run the report');
 
 select * from finish();

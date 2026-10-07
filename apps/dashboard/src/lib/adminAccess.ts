@@ -134,6 +134,12 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     heading: 'Season building alert',
     requires: capability('settings.write'),
   },
+  {
+    group: 'display',
+    id: 'participation-bars-heading',
+    heading: 'Participation score bars',
+    requires: capability('settings.write'),
+  },
   { group: 'display', id: 'notices-heading', heading: 'Notices', requires: null },
 
   // SHARED BY EVERY ALLIANCE (0200) — the group id is still `catalogue`.
