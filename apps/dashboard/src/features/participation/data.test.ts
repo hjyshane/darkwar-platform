@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   type ParticipationRow,
+  buildEntries,
   changedEntries,
   eventKey,
   isLow,
+  parseScore,
   share,
   sortRows,
   sortValue,
@@ -36,7 +38,7 @@ function row(name: string, over: Partial<ParticipationRow> = {}): ParticipationR
     season_levels_gained: 3,
     watchtower_level: 30,
     watchtower_gained: 1,
-    typed_events: { frankie: { held: 2, attended: 1, missed: 1 } },
+    typed_events: { frankie: { held: 2, attended: 1, missed: 1, score: null } },
     duel_days_over: null,
     donation_days_over: null,
     ...over,
@@ -154,5 +156,63 @@ describe('eventKey', () => {
     const key = eventKey('a'.repeat(80));
     expect(key?.length).toBe(40);
     expect(eventKey(`${'ab '.repeat(30)}`)?.endsWith('_')).toBe(false);
+  });
+});
+
+describe('parseScore', () => {
+  it('reads a whole number, and an empty box as none', () => {
+    expect(parseScore('1200')).toBe(1200);
+    expect(parseScore(' 7 ')).toBe(7);
+    expect(parseScore('')).toBeNull();
+    expect(parseScore('   ')).toBeNull();
+  });
+  it('refuses anything else, so it is never sent', () => {
+    expect(parseScore('-5')).toBeUndefined();
+    expect(parseScore('1.5')).toBeUndefined();
+    expect(parseScore('1e3')).toBeUndefined();
+    expect(parseScore('lots')).toBeUndefined();
+    expect(parseScore('1'.repeat(16))).toBeUndefined();
+  });
+});
+
+describe('buildEntries', () => {
+  const stored = {
+    marks: new Map([
+      ['a', true],
+      ['b', false],
+    ]),
+    scores: new Map([['a', 100]]),
+  };
+  it('sends nothing when nothing changed', () => {
+    expect(buildEntries(stored, new Map(), new Map())).toEqual([]);
+    expect(buildEntries(stored, new Map([['a', true]]), new Map([['a', 100]]))).toEqual([]);
+  });
+  it('a tick change alone does not mention the score, so it is kept', () => {
+    expect(buildEntries(stored, new Map([['a', false]]), new Map())).toEqual([
+      { player_id: 'a', attended: false },
+    ]);
+  });
+  it('a score change sends the current tick with the new score', () => {
+    expect(buildEntries(stored, new Map(), new Map([['a', 250]]))).toEqual([
+      { player_id: 'a', attended: true, score: 250 },
+    ]);
+  });
+  it('an emptied box clears the score', () => {
+    expect(buildEntries(stored, new Map(), new Map([['a', null]]))).toEqual([
+      { player_id: 'a', attended: true, score: null },
+    ]);
+  });
+  it('a score on a newly ticked member rides with the tick', () => {
+    expect(buildEntries(stored, new Map([['c', true]]), new Map([['c', 40]]))).toEqual([
+      { player_id: 'c', attended: true, score: 40 },
+    ]);
+  });
+  it('clearing the tick removes the row and drops the score', () => {
+    expect(buildEntries(stored, new Map([['a', null]]), new Map([['a', 5]]))).toEqual([
+      { player_id: 'a', attended: null },
+    ]);
+  });
+  it('a score typed for a member with no tick and none stored sends nothing', () => {
+    expect(buildEntries(stored, new Map(), new Map([['z', 9]]))).toEqual([]);
   });
 });

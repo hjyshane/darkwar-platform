@@ -319,15 +319,15 @@ select is((select season_levels_gained from r where current_name = 'Bravo'), 2,
 
 select is(
   (select typed_events -> 'capital_clash' from r where current_name = 'Alpha'),
-  '{"held": 1, "attended": 1, "missed": 0}'::jsonb,
+  '{"held": 1, "attended": 1, "missed": 0, "score": null}'::jsonb,
   'Capital Clash: Alpha recorded present');
 select is(
   (select typed_events -> 'capital_clash' from r where current_name = 'Bravo'),
-  '{"held": 1, "attended": 0, "missed": 1}'::jsonb,
+  '{"held": 1, "attended": 0, "missed": 1, "score": null}'::jsonb,
   'Bravo recorded absent');
 select is(
   (select typed_events -> 'frankie' from r where current_name = 'Bravo'),
-  '{"held": 1, "attended": 0, "missed": 0}'::jsonb,
+  '{"held": 1, "attended": 0, "missed": 0, "score": null}'::jsonb,
   'an event held that nobody ticked a member for reads as not recorded, not absent');
 select ok(
   (select not (typed_events ? 'server_clash') from r where current_name = 'Alpha'),

@@ -2790,6 +2790,7 @@ export type Database = {
       }
       event_attendance: {
         Row: {
+          score: number | null
           alliance_id: string | null
           attended: boolean
           entered_at: string
@@ -2799,6 +2800,7 @@ export type Database = {
           player_id: string
         }
         Insert: {
+          score?: number | null
           alliance_id?: string | null
           attended: boolean
           entered_at?: string
@@ -2808,6 +2810,7 @@ export type Database = {
           player_id: string
         }
         Update: {
+          score?: number | null
           alliance_id?: string | null
           attended?: boolean
           entered_at?: string
