@@ -2790,7 +2790,6 @@ export type Database = {
       }
       event_attendance: {
         Row: {
-          score: number | null
           alliance_id: string | null
           attended: boolean
           entered_at: string
@@ -2798,9 +2797,9 @@ export type Database = {
           held_on: string
           kind: string
           player_id: string
+          score: number | null
         }
         Insert: {
-          score?: number | null
           alliance_id?: string | null
           attended: boolean
           entered_at?: string
@@ -2808,9 +2807,9 @@ export type Database = {
           held_on: string
           kind: string
           player_id: string
+          score?: number | null
         }
         Update: {
-          score?: number | null
           alliance_id?: string | null
           attended?: boolean
           entered_at?: string
@@ -2818,6 +2817,7 @@ export type Database = {
           held_on?: string
           kind?: string
           player_id?: string
+          score?: number | null
         }
         Relationships: [
           {
@@ -4333,6 +4333,52 @@ export type Database = {
         }
         Relationships: []
       }
+      participation_thresholds: {
+        Row: {
+          alliance_id: string | null
+          board: string
+          daily_min: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          alliance_id?: string | null
+          board: string
+          daily_min: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          alliance_id?: string | null
+          board?: string
+          daily_min?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "participation_thresholds_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "participation_thresholds_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "participation_thresholds_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
+        ]
+      }
       pets: {
         Row: {
           created_at: string
@@ -4357,90 +4403,6 @@ export type Database = {
           pet_id?: number
           rarity?: number | null
           updated_at?: string
-        }
-        Relationships: []
-      }
-      participation_thresholds: {
-        Row: {
-          alliance_id: string | null
-          board: string
-          daily_min: number
-          updated_at: string
-          updated_by: string | null
-        }
-        Insert: {
-          alliance_id?: string | null
-          board: string
-          daily_min: number
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Update: {
-          alliance_id?: string | null
-          board?: string
-          daily_min?: number
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Relationships: []
-      }
-      season_buildings: {
-        Row: {
-          building_type_id: number
-          name: string
-          provisional: boolean
-          season_id: number
-          sort_order: number
-          stall_hours: number | null
-          updated_at: string
-          updated_by: string | null
-        }
-        Insert: {
-          building_type_id: number
-          name: string
-          provisional?: boolean
-          season_id: number
-          sort_order?: number
-          stall_hours?: number | null
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Update: {
-          building_type_id?: number
-          name?: string
-          provisional?: boolean
-          season_id?: number
-          sort_order?: number
-          stall_hours?: number | null
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Relationships: []
-      }
-      seasons: {
-        Row: {
-          ends_at: string | null
-          name: string
-          season_id: number
-          starts_at: string | null
-          updated_at: string
-          updated_by: string | null
-        }
-        Insert: {
-          ends_at?: string | null
-          name: string
-          season_id: number
-          starts_at?: string | null
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Update: {
-          ends_at?: string | null
-          name?: string
-          season_id?: number
-          starts_at?: string | null
-          updated_at?: string
-          updated_by?: string | null
         }
         Relationships: []
       }
@@ -6164,6 +6126,74 @@ export type Database = {
             referencedColumns: ["server_id"]
           },
         ]
+      }
+      season_buildings: {
+        Row: {
+          building_type_id: number
+          name: string
+          provisional: boolean
+          season_id: number
+          sort_order: number
+          stall_hours: number | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          building_type_id: number
+          name: string
+          provisional?: boolean
+          season_id: number
+          sort_order?: number
+          stall_hours?: number | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          building_type_id?: number
+          name?: string
+          provisional?: boolean
+          season_id?: number
+          sort_order?: number
+          stall_hours?: number | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "season_buildings_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "seasons"
+            referencedColumns: ["season_id"]
+          },
+        ]
+      }
+      seasons: {
+        Row: {
+          ends_at: string | null
+          name: string
+          season_id: number
+          starts_at: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          ends_at?: string | null
+          name: string
+          season_id: number
+          starts_at?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          ends_at?: string | null
+          name?: string
+          season_id?: number
+          starts_at?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
       }
       servers: {
         Row: {
@@ -8294,6 +8324,19 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      declare_event_day: {
+        Args: {
+          p_declared?: boolean
+          p_held_on: string
+          p_kind: string
+          p_note?: string
+        }
+        Returns: undefined
+      }
+      delete_season_building: {
+        Args: { p_building_type_id: number; p_season_id: number }
+        Returns: undefined
+      }
       enter_weekly_scores: {
         Args: { p_entries: Json; p_week_start: string }
         Returns: number
@@ -8564,6 +8607,16 @@ export type Database = {
         Args: { p_key: string; p_value: Json }
         Returns: undefined
       }
+      save_event_kind: {
+        Args: {
+          p_archived?: boolean
+          p_board: string
+          p_kind: string
+          p_label: string
+          p_sort_order?: number
+        }
+        Returns: undefined
+      }
       save_hive_formation_layout: {
         Args: { p_formation_id: string; p_slots: Json }
         Returns: Json
@@ -8573,7 +8626,12 @@ export type Database = {
         Returns: string
       }
       save_season: {
-        Args: { p_ends_at?: string; p_name: string; p_season_id: number; p_starts_at?: string }
+        Args: {
+          p_ends_at?: string
+          p_name: string
+          p_season_id: number
+          p_starts_at?: string
+        }
         Returns: undefined
       }
       save_season_building: {
@@ -8587,31 +8645,13 @@ export type Database = {
         }
         Returns: undefined
       }
-      delete_season_building: {
-        Args: { p_building_type_id: number; p_season_id: number }
-        Returns: undefined
-      }
       season_unnamed_buildings: {
-        Args: Record<PropertyKey, never>
-        Returns: { building_type_id: number; newest_seen: string; players: number }[]
-      }
-      save_event_kind: {
-        Args: {
-          p_archived?: boolean
-          p_board: string
-          p_kind: string
-          p_label: string
-          p_sort_order?: number
-        }
-        Returns: undefined
-      }
-      declare_event_day: {
-        Args: { p_declared?: boolean; p_held_on: string; p_kind: string; p_note?: string }
-        Returns: undefined
-      }
-      set_participation_threshold: {
-        Args: { p_board: string; p_daily_min: number }
-        Returns: undefined
+        Args: never
+        Returns: {
+          building_type_id: number
+          newest_seen: string
+          players: number
+        }[]
       }
       set_membership: {
         Args: {
@@ -8619,6 +8659,10 @@ export type Database = {
           p_role: Database["public"]["Enums"]["app_role"]
           p_user: string
         }
+        Returns: undefined
+      }
+      set_participation_threshold: {
+        Args: { p_board: string; p_daily_min: number }
         Returns: undefined
       }
       set_roster_membership: {
