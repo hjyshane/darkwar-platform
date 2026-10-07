@@ -76,11 +76,14 @@ create function pg_temp.building(key text, uid bigint, object_id bigint, at time
 returns void language sql as $$
   insert into public.season_building_snapshots
     (observation_id, source_command, parser_version, idempotency_key, captured_at,
-     collector_id, collected_from_server_id, server_id, game_uid, object_id,
+     collector_id, collected_from_server_id, server_id, player_id, game_uid, object_id,
      point_id, x, y, building_type_id, level)
-  values ('00000000-0000-4000-8000-00000000a0b3', 'test.map', 'test', 'test:109:' || key,
-          at, '00000000-0000-4000-8000-000000000c01', 580, 580, uid, object_id,
-          object_id, 1, 1, 744000, lvl);
+  -- player_id as the collector writes it: member_participation (0238) reads the
+  -- newest level per player and building type through it.
+  select '00000000-0000-4000-8000-00000000a0b3', 'test.map', 'test', 'test:109:' || key,
+          at, '00000000-0000-4000-8000-000000000c01', 580, 580,
+          (select p.player_id from public.players p where p.game_uid = uid), uid, object_id,
+          object_id, 1, 1, 744000, lvl;
 $$;
 
 -- Duel, daily. 09-14: Alpha 100 then 150 later the same day, Bravo 50.
