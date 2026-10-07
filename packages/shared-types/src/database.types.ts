@@ -4384,6 +4384,66 @@ export type Database = {
         }
         Relationships: []
       }
+      season_buildings: {
+        Row: {
+          building_type_id: number
+          name: string
+          provisional: boolean
+          season_id: number
+          sort_order: number
+          stall_hours: number | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          building_type_id: number
+          name: string
+          provisional?: boolean
+          season_id: number
+          sort_order?: number
+          stall_hours?: number | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          building_type_id?: number
+          name?: string
+          provisional?: boolean
+          season_id?: number
+          sort_order?: number
+          stall_hours?: number | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      seasons: {
+        Row: {
+          ends_at: string | null
+          name: string
+          season_id: number
+          starts_at: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          ends_at?: string | null
+          name: string
+          season_id: number
+          starts_at?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          ends_at?: string | null
+          name?: string
+          season_id?: number
+          starts_at?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       player_claims: {
         Row: {
           alliance_id: string | null
@@ -8511,6 +8571,29 @@ export type Database = {
       save_hive_formation_template: {
         Args: { p_name: string; p_note: string; p_slots: Json }
         Returns: string
+      }
+      save_season: {
+        Args: { p_ends_at?: string; p_name: string; p_season_id: number; p_starts_at?: string }
+        Returns: undefined
+      }
+      save_season_building: {
+        Args: {
+          p_building_type_id: number
+          p_name: string
+          p_provisional?: boolean
+          p_season_id: number
+          p_sort_order?: number
+          p_stall_hours?: number
+        }
+        Returns: undefined
+      }
+      delete_season_building: {
+        Args: { p_building_type_id: number; p_season_id: number }
+        Returns: undefined
+      }
+      season_unnamed_buildings: {
+        Args: Record<PropertyKey, never>
+        Returns: { building_type_id: number; newest_seen: string; players: number }[]
       }
       save_event_kind: {
         Args: {

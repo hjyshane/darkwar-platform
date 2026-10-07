@@ -51,15 +51,15 @@ function day(ms: number): string {
 /** The season so far, through the end of today's game day. Clamped to the
  * longest range the report will answer, from the end backwards — the recent
  * end is the one an officer is asking about. */
-export function seasonPeriod(now: Date): Period {
+export function seasonPeriod(now: Date, start: string = SEASON_START, name = 'Season 3'): Period {
   const to = gameDayStart(now).getTime() + DAY_MS;
-  const from = Math.max(Date.parse(SEASON_START), to - MAX_RANGE_DAYS * DAY_MS);
-  return { kind: 'season', from: iso(from), to: iso(to), label: `Season 3 (since ${day(from)})` };
+  const from = Math.max(Date.parse(start), to - MAX_RANGE_DAYS * DAY_MS);
+  return { kind: 'season', from: iso(from), to: iso(to), label: `${name} (since ${day(from)})` };
 }
 
 /** Every duel round that has started, newest first. */
-export function roundPeriods(now: Date): Period[] {
-  const anchor = Date.parse(SEASON_START);
+export function roundPeriods(now: Date, start: string = SEASON_START): Period[] {
+  const anchor = Date.parse(start);
   const rounds: Period[] = [];
   for (let start = anchor, n = 1; start <= now.getTime(); start += ROUND_DAYS * DAY_MS, n += 1) {
     const end = start + ROUND_DAYS * DAY_MS;
@@ -74,8 +74,8 @@ export function roundPeriods(now: Date): Period[] {
 }
 
 /** Every game week of the season that has started, newest first. */
-export function weekPeriods(now: Date): Period[] {
-  const first = Date.parse(SEASON_START);
+export function weekPeriods(now: Date, start: string = SEASON_START): Period[] {
+  const first = Date.parse(start);
   const weeks: Period[] = [];
   for (let start = resetWeekStart(now).getTime(); start >= first; start -= 7 * DAY_MS) {
     weeks.push({

@@ -158,6 +158,13 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     heading: 'Pets',
     requires: capability('catalogue.write'),
   },
+  // Shared by every alliance: a season and its building names are facts about the game.
+  {
+    group: 'catalogue',
+    id: 'seasons-heading',
+    heading: 'Seasons',
+    requires: capability('catalogue.write'),
+  },
   // Shared by every alliance, like the catalogues: an event is a fact about the game.
   {
     group: 'catalogue',

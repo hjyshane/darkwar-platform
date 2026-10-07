@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Select } from '../../components/ui/Select';
-import { SEASON3_BUILDINGS } from '../../features/season/buildings';
 import { labAdjustment, parseSeasonLab, seasonLabApplies } from '../../lib/seasonLab';
+import { currentBuildings, useSeasons } from '../../lib/seasons';
 import { supabase } from '../../lib/supabase';
 
 /** How the score is mixed, and where the rank boundaries fall.
@@ -154,6 +154,7 @@ async function fetchTiers(): Promise<Tiers> {
 
 export function RankTiersSetting() {
   const queryClient = useQueryClient();
+  const seasonList = useSeasons();
   const [draft, setDraft] = useState<Tiers | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
@@ -414,7 +415,7 @@ export function RankTiersSetting() {
             value={draft.season_lab.building_id ?? ''}
           >
             <option value="">— none chosen —</option>
-            {SEASON3_BUILDINGS.map((kind) => (
+            {currentBuildings(seasonList.data, new Date()).map((kind) => (
               <option key={kind.id} value={kind.id}>
                 {kind.name}
               </option>

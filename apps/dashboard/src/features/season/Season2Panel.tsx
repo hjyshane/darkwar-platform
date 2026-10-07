@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
+import { FALLBACK_SEASONS, pastSeason, useSeasons } from '../../lib/seasons';
 import { TERMS } from '../../lib/terms';
 import { useSession } from '../../lib/useSession';
 import { SeasonBuildingTable } from './SeasonBuildingTable';
-import { SEASON2_BUILDINGS, fetchBuildingGrid } from './buildings';
+import { fetchBuildingGrid } from './buildings';
 
 /** Shared and frozen, so the table's memo does not see a new map each render. */
 const NO_FLOORS: ReadonlyMap<number, number> = new Map();
@@ -29,9 +30,16 @@ export function Season2Panel() {
   // and snatching it back is worse than a beat of waiting.
   const isAdmin = session?.role === 'admin';
 
+  // The season before the current one (0242): Season 2 while Season 3 is on,
+  // Season 3 once Season 4 starts.
+  const seasons = useSeasons();
+  const past = pastSeason(seasons.data ?? FALLBACK_SEASONS, new Date());
+  const catalogue = past?.buildings ?? FALLBACK_SEASONS[0]?.buildings ?? [];
+  const pastName = past?.name ?? TERMS.season2Buildings;
+
   const { data, error, isPending } = useQuery({
-    queryKey: ['seasonBoard', 'season2_buildings'],
-    queryFn: () => fetchBuildingGrid(SEASON2_BUILDINGS),
+    queryKey: ['seasonBoard', 'past_buildings', past?.id ?? 0],
+    queryFn: () => fetchBuildingGrid(catalogue),
     // A season that has ended does not change. The app's 60s default would
     // re-query a frozen table on every visit.
     staleTime: 60 * 60_000,
@@ -41,7 +49,7 @@ export function Season2Panel() {
   if (!isAdmin) {
     return (
       <section aria-labelledby="season2-heading">
-        <h2 id="season2-heading">{TERMS.season2Buildings}</h2>
+        <h2 id="season2-heading">{pastName}</h2>
         <p className="empty">
           Last season's buildings are kept for admins. Nothing here affects the season being played.
         </p>
@@ -52,18 +60,21 @@ export function Season2Panel() {
   return (
     <section aria-labelledby="season2-heading">
       <h2 id="season2-heading">
-        {TERMS.season2Buildings}
+        {pastName}
         {data?.capturedAt && <FreshnessBadge capturedAt={data.capturedAt} />}
       </h2>
       {isPending && <p className="empty loading">Loading…</p>}
-      {error && <p className="error">Could not load season 2: {(error as Error).message}</p>}
+      {error && (
+        <p className="error">
+          Could not load {pastName}: {(error as Error).message}
+        </p>
+      )}
       {/* No floors at all: nobody is behind on a season that has ended. */}
       {data && <SeasonBuildingTable floors={NO_FLOORS} grid={data} />}
       <p className="note">
-        Season 2, kept for reference. These stopped being observed around 16 August, so the levels
-        are frozen where the season left them. Names marked <strong>*</strong> are placeholders: the
-        counts and two of the placements came from the alliance, the rest is inferred, and the
-        Attack and Defense pairs in particular could be the other way round.
+        {pastName}, kept for reference. These stopped being observed when the season ended, so the
+        levels are frozen where it left them. Names marked <strong>*</strong> are placeholders:
+        guesses from the shape of the data, which can be corrected under Settings → Seasons.
       </p>
     </section>
   );

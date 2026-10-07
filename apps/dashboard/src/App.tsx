@@ -64,6 +64,7 @@ import {
   routeFromHash,
   serverIdFromHash,
 } from './lib/route';
+import { FALLBACK_SEASONS, currentSeason, pastSeason, useSeasons } from './lib/seasons';
 import { supabase } from './lib/supabase';
 import { useActiveAlliance } from './lib/useMyAlliances';
 import { useOwnAlliance } from './lib/useOwnAlliance';
@@ -181,6 +182,14 @@ function SubNav({ route, allianceId }: { route: Route; allianceId: string | null
   const mayViewArena = useMayView('arena.view');
   const isAdmin = session?.role === 'admin';
   const isOfficer = isAdmin || session?.role === 'officer';
+  // The two season tabs carry the seasons' names (0242): the current one, and
+  // the one before it for the admin-only look back.
+  const seasonList = useSeasons();
+  const seasonNow = new Date();
+  const seasonNames: Record<string, string | undefined> = {
+    '#/season': currentSeason(seasonList.data ?? FALLBACK_SEASONS, seasonNow)?.name,
+    '#/season2': pastSeason(seasonList.data ?? FALLBACK_SEASONS, seasonNow)?.name,
+  };
 
   const onOwnAlliance =
     ownAlliance != null && route === 'alliance' && allianceId === ownAlliance.alliance_id;
@@ -283,7 +292,7 @@ function SubNav({ route, allianceId }: { route: Route; allianceId: string | null
               className="tab"
               href={tab.href}
             >
-              {tab.label}
+              {seasonNames[tab.href] ?? tab.label}
             </a>
           ))}
         </nav>

@@ -17,6 +17,7 @@ import { BarCell } from '../../components/ui/BarCell';
 import { Select } from '../../components/ui/Select';
 import { Tabs } from '../../components/ui/Tabs';
 import { isAllowed, usePermissions } from '../../lib/permissions';
+import { FALLBACK_SEASONS, SEASON3_START, currentSeason, useSeasons } from '../../lib/seasons';
 import { type SortState, nextSort } from '../../lib/tableControls';
 import { useSession } from '../../lib/useSession';
 import { AttendanceRecorder } from './AttendanceRecorder';
@@ -236,9 +237,18 @@ function Summary({ rows, kinds }: { rows: ParticipationRow[]; kinds: EventKind[]
 
 export function ParticipationPage() {
   const [now] = useState(() => new Date());
-  const season = useMemo(() => seasonPeriod(now), [now]);
-  const rounds = useMemo(() => roundPeriods(now), [now]);
-  const weeks = useMemo(() => weekPeriods(now), [now]);
+  // The periods count from the current season's start (0242). Until the seasons
+  // load, or when there are none, the constant Season 3 start answers.
+  const seasonList = useSeasons();
+  const current = currentSeason(seasonList.data ?? FALLBACK_SEASONS, now);
+  const seasonStart = current?.startsAt ?? SEASON3_START;
+  const seasonName = current?.name ?? 'Season 3';
+  const season = useMemo(
+    () => seasonPeriod(now, seasonStart, seasonName),
+    [now, seasonStart, seasonName],
+  );
+  const rounds = useMemo(() => roundPeriods(now, seasonStart), [now, seasonStart]);
+  const weeks = useMemo(() => weekPeriods(now, seasonStart), [now, seasonStart]);
 
   const [kind, setKind] = useState<PeriodKind>('season');
   const [roundIndex, setRoundIndex] = useState(0);

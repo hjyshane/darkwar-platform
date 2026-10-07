@@ -7,7 +7,7 @@ import {
   type SeasonBuildingAlert,
   fetchAlert,
 } from '../../lib/seasonBuildingAlert';
-import { SEASON3_BUILDINGS } from '../season/buildings';
+import { currentBuildings, useSeasons } from '../../lib/seasons';
 
 /** The threshold behind the "!" on the season building board.
  *
@@ -19,6 +19,8 @@ import { SEASON3_BUILDINGS } from '../season/buildings';
  */
 export function SeasonBuildingAlertSetting() {
   const queryClient = useQueryClient();
+  const seasons = useSeasons();
+  const buildings = currentBuildings(seasons.data, new Date());
   const [draft, setDraft] = useState<SeasonBuildingAlert | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
@@ -101,7 +103,7 @@ export function SeasonBuildingAlertSetting() {
             </tr>
           </thead>
           <tbody>
-            {SEASON3_BUILDINGS.map((kind) => {
+            {buildings.map((kind) => {
               const key = String(kind.id);
               const value = current.perBuilding[key];
               return (
