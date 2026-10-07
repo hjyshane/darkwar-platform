@@ -8590,12 +8590,12 @@ export type Database = {
         }
       }
       remove_member: { Args: { p_user: string }; Returns: undefined }
-      reset_week_start: { Args: { ts: string }; Returns: string }
-      resolve_own_alliance: { Args: never; Returns: undefined }
       research_prerequisite_steps: {
         Args: { p_subjects: string[] }
         Returns: Json
       }
+      reset_week_start: { Args: { ts: string }; Returns: string }
+      resolve_own_alliance: { Args: never; Returns: undefined }
       retention_report: {
         Args: {
           p_confirm?: boolean
