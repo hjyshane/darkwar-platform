@@ -4330,6 +4330,52 @@ export type Database = {
         }
         Relationships: []
       }
+      participation_thresholds: {
+        Row: {
+          alliance_id: string | null
+          board: string
+          daily_min: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          alliance_id?: string | null
+          board: string
+          daily_min: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          alliance_id?: string | null
+          board?: string
+          daily_min?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "participation_thresholds_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "participation_thresholds_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "participation_thresholds_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
+        ]
+      }
       pets: {
         Row: {
           created_at: string
@@ -4354,30 +4400,6 @@ export type Database = {
           pet_id?: number
           rarity?: number | null
           updated_at?: string
-        }
-        Relationships: []
-      }
-      participation_thresholds: {
-        Row: {
-          alliance_id: string | null
-          board: string
-          daily_min: number
-          updated_at: string
-          updated_by: string | null
-        }
-        Insert: {
-          alliance_id?: string | null
-          board: string
-          daily_min: number
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Update: {
-          alliance_id?: string | null
-          board?: string
-          daily_min?: number
-          updated_at?: string
-          updated_by?: string | null
         }
         Relationships: []
       }
@@ -8231,6 +8253,15 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      declare_event_day: {
+        Args: {
+          p_declared?: boolean
+          p_held_on: string
+          p_kind: string
+          p_note?: string
+        }
+        Returns: undefined
+      }
       enter_weekly_scores: {
         Args: { p_entries: Json; p_week_start: string }
         Returns: number
@@ -8501,14 +8532,6 @@ export type Database = {
         Args: { p_key: string; p_value: Json }
         Returns: undefined
       }
-      save_hive_formation_layout: {
-        Args: { p_formation_id: string; p_slots: Json }
-        Returns: Json
-      }
-      save_hive_formation_template: {
-        Args: { p_name: string; p_note: string; p_slots: Json }
-        Returns: string
-      }
       save_event_kind: {
         Args: {
           p_archived?: boolean
@@ -8519,13 +8542,13 @@ export type Database = {
         }
         Returns: undefined
       }
-      declare_event_day: {
-        Args: { p_declared?: boolean; p_held_on: string; p_kind: string; p_note?: string }
-        Returns: undefined
+      save_hive_formation_layout: {
+        Args: { p_formation_id: string; p_slots: Json }
+        Returns: Json
       }
-      set_participation_threshold: {
-        Args: { p_board: string; p_daily_min: number }
-        Returns: undefined
+      save_hive_formation_template: {
+        Args: { p_name: string; p_note: string; p_slots: Json }
+        Returns: string
       }
       set_membership: {
         Args: {
@@ -8533,6 +8556,10 @@ export type Database = {
           p_role: Database["public"]["Enums"]["app_role"]
           p_user: string
         }
+        Returns: undefined
+      }
+      set_participation_threshold: {
+        Args: { p_board: string; p_daily_min: number }
         Returns: undefined
       }
       set_roster_membership: {
