@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { type ParticipationRow, changedEntries, isLow, share, sortRows, sortValue } from './data';
+import {
+  type ParticipationRow,
+  changedEntries,
+  eventKey,
+  isLow,
+  share,
+  sortRows,
+  sortValue,
+} from './data';
 
 function row(name: string, over: Partial<ParticipationRow> = {}): ParticipationRow {
   return {
@@ -127,5 +135,24 @@ describe('days over the bar', () => {
   });
   it('a day over the bar of an unread board is nothing to judge', () => {
     expect(sortValue(row('X', { duel_days_over: 0, duel_days_read: 0 }), 'duel_over')).toBeNull();
+  });
+});
+
+describe('eventKey', () => {
+  it('makes a database-safe key from a name', () => {
+    expect(eventKey('Arena Cup')).toBe('arena_cup');
+    expect(eventKey('  Capital  Clash! ')).toBe('capital_clash');
+    expect(eventKey('Ice Pit Lv.2')).toBe('ice_pit_lv_2');
+  });
+  it('refuses a name with nothing usable in it', () => {
+    expect(eventKey('')).toBeNull();
+    expect(eventKey('!!!')).toBeNull();
+    expect(eventKey('얼음 구덩이')).toBeNull();
+    expect(eventKey('7 wonders')).toBeNull();
+  });
+  it('stays within the forty characters the database accepts', () => {
+    const key = eventKey('a'.repeat(80));
+    expect(key?.length).toBe(40);
+    expect(eventKey(`${'ab '.repeat(30)}`)?.endsWith('_')).toBe(false);
   });
 });

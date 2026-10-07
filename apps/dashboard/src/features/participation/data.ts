@@ -67,6 +67,8 @@ export interface EventKind {
   captured: boolean;
   /** Which tab of the report the event sits on (0213). */
   board: 'event' | 'season';
+  /** Hidden from the report and the recorder (0240); its history is kept. */
+  archived: boolean;
 }
 
 /** One member per row, so a whole alliance is far under PostgREST's 1,000. */
@@ -92,15 +94,71 @@ export async function fetchParticipation(
   return (data ?? []) as unknown as ParticipationRow[];
 }
 
-export async function fetchEventKinds(): Promise<EventKind[]> {
+/** Every event, archived ones included: what the settings screen edits. */
+export async function fetchAllEventKinds(): Promise<EventKind[]> {
   const { data, error } = await supabase
     .from('attendance_event_kinds')
-    .select('kind, label, sort_order, captured, board')
+    .select('kind, label, sort_order, captured, board, archived')
     .order('sort_order');
   if (error) {
     throw new Error(`event list query failed: ${error.message}`);
   }
   return (data ?? []) as EventKind[];
+}
+
+/** The events the report and the recorder show: archived ones are left out. */
+export async function fetchEventKinds(): Promise<EventKind[]> {
+  return (await fetchAllEventKinds()).filter((entry) => !entry.archived);
+}
+
+/** An event key from its name: lowercase letters, digits and underscores, and
+ * starting with a letter, which is what the database accepts. Null when the name
+ * has nothing usable in it (all punctuation, or another script). */
+export function eventKey(label: string): string | null {
+  const key = label
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 40)
+    .replace(/_+$/g, '');
+  return /^[a-z][a-z0-9_]{1,39}$/.test(key) ? key : null;
+}
+
+export async function saveEventKind(entry: {
+  kind: string;
+  label: string;
+  board: 'event' | 'season';
+  sortOrder?: number;
+  archived?: boolean;
+}): Promise<void> {
+  const { error } = await supabase.rpc('save_event_kind', {
+    p_kind: entry.kind,
+    p_label: entry.label,
+    p_board: entry.board,
+    ...(entry.sortOrder === undefined ? {} : { p_sort_order: entry.sortOrder }),
+    p_archived: entry.archived ?? false,
+  });
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+/** Say an event was held on a game day, or take that back. */
+export async function declareEventDay(
+  kind: string,
+  heldOn: string,
+  declared: boolean,
+  note?: string,
+): Promise<void> {
+  const { error } = await supabase.rpc('declare_event_day', {
+    p_kind: kind,
+    p_held_on: heldOn,
+    p_declared: declared,
+    ...(note ? { p_note: note } : {}),
+  });
+  if (error) {
+    throw new Error(error.message);
+  }
 }
 
 /** One day an event was held (0212), with the level or outcome if known. */

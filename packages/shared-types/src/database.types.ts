@@ -1958,6 +1958,7 @@ export type Database = {
       }
       attendance_event_kinds: {
         Row: {
+          archived: boolean
           board: string
           captured: boolean
           kind: string
@@ -1965,6 +1966,7 @@ export type Database = {
           sort_order: number
         }
         Insert: {
+          archived?: boolean
           board?: string
           captured?: boolean
           kind: string
@@ -1972,6 +1974,7 @@ export type Database = {
           sort_order?: number
         }
         Update: {
+          archived?: boolean
           board?: string
           captured?: boolean
           kind?: string
@@ -8505,6 +8508,20 @@ export type Database = {
       save_hive_formation_template: {
         Args: { p_name: string; p_note: string; p_slots: Json }
         Returns: string
+      }
+      save_event_kind: {
+        Args: {
+          p_archived?: boolean
+          p_board: string
+          p_kind: string
+          p_label: string
+          p_sort_order?: number
+        }
+        Returns: undefined
+      }
+      declare_event_day: {
+        Args: { p_declared?: boolean; p_held_on: string; p_kind: string; p_note?: string }
+        Returns: undefined
       }
       set_participation_threshold: {
         Args: { p_board: string; p_daily_min: number }
