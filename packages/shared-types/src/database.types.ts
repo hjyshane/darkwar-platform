@@ -4354,6 +4354,30 @@ export type Database = {
         }
         Relationships: []
       }
+      participation_thresholds: {
+        Row: {
+          alliance_id: string | null
+          board: string
+          daily_min: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          alliance_id?: string | null
+          board: string
+          daily_min: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          alliance_id?: string | null
+          board?: string
+          daily_min?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       player_claims: {
         Row: {
           alliance_id: string | null
@@ -8229,7 +8253,12 @@ export type Database = {
       linked_player_id: { Args: never; Returns: string }
       linked_player_ids: { Args: never; Returns: string[] }
       member_participation: {
-        Args: { p_from: string; p_to: string }
+        Args: {
+          p_donation_min?: number
+          p_duel_min?: number
+          p_from: string
+          p_to: string
+        }
         Returns: {
           black_gold_listed: number
           black_gold_played: number
@@ -8237,6 +8266,7 @@ export type Database = {
           black_gold_substitute_missed: number
           current_name: string
           donation_days_on_board: number
+          donation_days_over: number
           donation_days_read: number
           donation_days_scored: number
           donation_total: number
@@ -8244,6 +8274,7 @@ export type Database = {
           donation_weeks_read: number
           donation_weeks_scored: number
           duel_days_on_board: number
+          duel_days_over: number
           duel_days_read: number
           duel_days_scored: number
           duel_total: number
@@ -8474,6 +8505,10 @@ export type Database = {
       save_hive_formation_template: {
         Args: { p_name: string; p_note: string; p_slots: Json }
         Returns: string
+      }
+      set_participation_threshold: {
+        Args: { p_board: string; p_daily_min: number }
+        Returns: undefined
       }
       set_membership: {
         Args: {

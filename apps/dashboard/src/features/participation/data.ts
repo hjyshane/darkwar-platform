@@ -46,7 +46,19 @@ export interface ParticipationRow {
   watchtower_level: number | null;
   watchtower_gained: number | null;
   typed_events: Record<string, TypedTally>;
+  /** Days the daily board reached the alliance's bar (0239). Null when no bar
+   * is set for that board: no bar is not the same as nobody reaching it. */
+  duel_days_over: number | null;
+  donation_days_over: number | null;
 }
+
+/** The daily score bars an officer set, in settings (0239). Null is no bar. */
+export interface Bars {
+  duel: number | null;
+  donation: number | null;
+}
+
+export const NO_BARS: Bars = { duel: null, donation: null };
 
 export interface EventKind {
   kind: string;
@@ -58,8 +70,19 @@ export interface EventKind {
 }
 
 /** One member per row, so a whole alliance is far under PostgREST's 1,000. */
-export async function fetchParticipation(from: string, to: string): Promise<ParticipationRow[]> {
-  const { data, error } = await supabase.rpc('member_participation', { p_from: from, p_to: to });
+export async function fetchParticipation(
+  from: string,
+  to: string,
+  bars: Bars = NO_BARS,
+): Promise<ParticipationRow[]> {
+  const { data, error } = await supabase.rpc('member_participation', {
+    p_from: from,
+    p_to: to,
+    // Left out entirely when there is no bar, so the function's own default
+    // (null) applies and the report is the one it always was.
+    ...(bars.duel === null ? {} : { p_duel_min: bars.duel }),
+    ...(bars.donation === null ? {} : { p_donation_min: bars.donation }),
+  });
   if (error) {
     if (error.code === '42501') {
       return [];
@@ -174,8 +197,10 @@ export function isLow(part: number, whole: number): boolean {
 export type SortKey =
   | 'name'
   | 'duel_days'
+  | 'duel_over'
   | 'duel_total'
   | 'donation_days'
+  | 'donation_over'
   | 'donation_total'
   | 'black_gold'
   | 'buildings'
@@ -190,10 +215,16 @@ export function sortValue(row: ParticipationRow, key: SortKey): number | string 
       return (row.current_name ?? '').toLocaleLowerCase();
     case 'duel_days':
       return share(row.duel_days_scored, row.duel_days_read);
+    case 'duel_over':
+      return row.duel_days_over === null ? null : share(row.duel_days_over, row.duel_days_read);
     case 'duel_total':
       return row.duel_total;
     case 'donation_days':
       return share(row.donation_days_scored, row.donation_days_read);
+    case 'donation_over':
+      return row.donation_days_over === null
+        ? null
+        : share(row.donation_days_over, row.donation_days_read);
     case 'donation_total':
       return row.donation_total;
     case 'black_gold':
@@ -223,4 +254,35 @@ export function sortRows(
     const order = l < r ? -1 : l > r ? 1 : 0;
     return descending ? -order : order;
   });
+}
+
+/** The bars set for the alliance on screen. A viewer who may not read them gets
+ * no bars (and the report without the extra columns), not an error. */
+export async function fetchBars(): Promise<Bars> {
+  const { data, error } = await supabase
+    .from('participation_thresholds')
+    .select('board, daily_min');
+  if (error) {
+    if (error.code === '42501') {
+      return NO_BARS;
+    }
+    throw new Error(`participation bars query failed: ${error.message}`);
+  }
+  const bars: Bars = { duel: null, donation: null };
+  for (const row of data ?? []) {
+    if (row.board === 'duel') bars.duel = Number(row.daily_min);
+    if (row.board === 'donation') bars.donation = Number(row.daily_min);
+  }
+  return bars;
+}
+
+/** Set a bar, or clear it with null (or 0). */
+export async function saveBar(board: 'duel' | 'donation', value: number | null): Promise<void> {
+  const { error } = await supabase.rpc('set_participation_threshold', {
+    p_board: board,
+    p_daily_min: value ?? 0,
+  });
+  if (error) {
+    throw new Error(error.message);
+  }
 }

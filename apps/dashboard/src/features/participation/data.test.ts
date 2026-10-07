@@ -29,6 +29,8 @@ function row(name: string, over: Partial<ParticipationRow> = {}): ParticipationR
     watchtower_level: 30,
     watchtower_gained: 1,
     typed_events: { frankie: { held: 2, attended: 1, missed: 1 } },
+    duel_days_over: null,
+    donation_days_over: null,
     ...over,
   };
 }
@@ -102,5 +104,28 @@ describe('changedEntries', () => {
       ['b', null],
     ]);
     expect(changedEntries(stored, draft)).toEqual([{ player_id: 'a', attended: null }]);
+  });
+});
+
+describe('days over the bar', () => {
+  it('sorts by the share of read days that reached it', () => {
+    const rows = [
+      row('Low', { duel_days_over: 2 }),
+      row('High', { duel_days_over: 9 }),
+      row('NoBar', { duel_days_over: null }),
+    ];
+    expect(sortRows(rows, 'duel_over', true).map((r) => r.current_name)).toEqual([
+      'High',
+      'Low',
+      'NoBar',
+    ]);
+  });
+  it('no bar sorts last whichever way the column is turned', () => {
+    const rows = [row('NoBar', { donation_days_over: null }), row('A', { donation_days_over: 1 })];
+    expect(sortRows(rows, 'donation_over', false)[1]?.current_name).toBe('NoBar');
+    expect(sortRows(rows, 'donation_over', true)[1]?.current_name).toBe('NoBar');
+  });
+  it('a day over the bar of an unread board is nothing to judge', () => {
+    expect(sortValue(row('X', { duel_days_over: 0, duel_days_read: 0 }), 'duel_over')).toBeNull();
   });
 });

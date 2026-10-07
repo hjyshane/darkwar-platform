@@ -22,9 +22,11 @@ import { useSession } from '../../lib/useSession';
 import { AttendanceRecorder } from './AttendanceRecorder';
 import {
   type EventKind,
+  NO_BARS,
   type ParticipationRow,
   type SortKey,
   type TypedTally,
+  fetchBars,
   fetchEventKinds,
   fetchParticipation,
   isLow,
@@ -85,6 +87,25 @@ function DaysCell({
       <span className="figure-bar">
         {scored}/{read}
         <BarCell low={low} max={read} value={scored} />
+      </span>
+    </td>
+  );
+}
+
+/** Days the daily board reached the bar, out of the days it was read. */
+function OverCell({ over, read, bar }: { over: number | null; read: number; bar: number }) {
+  if (over === null || read === 0) {
+    return <td className="num muted">—</td>;
+  }
+  const low = isLow(over, read);
+  return (
+    <td
+      className={`num ${low ? 'growth-down' : ''}`}
+      title={`Reached ${n(bar)} on ${over} of the ${read} days the board was read.`}
+    >
+      <span className="figure-bar">
+        {over}/{read}
+        <BarCell low={low} max={read} value={over} />
       </span>
     </td>
   );
@@ -228,10 +249,19 @@ export function ParticipationPage() {
   const { data: permissions } = usePermissions();
   const mayRecord = isAllowed(permissions?.grants, session?.role, 'data.enter');
 
-  const report = useQuery({
-    queryKey: ['participation', period.from, period.to],
-    queryFn: () => fetchParticipation(period.from, period.to),
+  // The bars first: the report is the heavy call, and asking with the bars in
+  // hand means it runs once, not once without them and again with.
+  const barsQuery = useQuery({
+    queryKey: ['participation-bars'],
+    queryFn: fetchBars,
     staleTime: STALE_TIME,
+  });
+  const bars = barsQuery.data ?? NO_BARS;
+  const report = useQuery({
+    queryKey: ['participation', period.from, period.to, bars.duel, bars.donation],
+    queryFn: () => fetchParticipation(period.from, period.to, bars),
+    staleTime: STALE_TIME,
+    enabled: !barsQuery.isPending,
   });
   const kinds = useQuery({
     queryKey: ['attendance-kinds'],
@@ -315,12 +345,22 @@ export function ParticipationPage() {
                       <SortableTh numeric onSort={onSort} sort={sort} sortKey="duel_days">
                         Duel days
                       </SortableTh>
+                      {bars.duel !== null && (
+                        <SortableTh numeric onSort={onSort} sort={sort} sortKey="duel_over">
+                          Duel ≥ {n(bars.duel)}
+                        </SortableTh>
+                      )}
                       <SortableTh numeric onSort={onSort} sort={sort} sortKey="duel_total">
                         Duel total
                       </SortableTh>
                       <SortableTh numeric onSort={onSort} sort={sort} sortKey="donation_days">
                         Donation days
                       </SortableTh>
+                      {bars.donation !== null && (
+                        <SortableTh numeric onSort={onSort} sort={sort} sortKey="donation_over">
+                          Donation ≥ {n(bars.donation)}
+                        </SortableTh>
+                      )}
                       <SortableTh numeric onSort={onSort} sort={sort} sortKey="donation_total">
                         Donation total
                       </SortableTh>
@@ -376,6 +416,13 @@ export function ParticipationPage() {
                           scored={row.duel_days_scored}
                           unit="day"
                         />
+                        {bars.duel !== null && (
+                          <OverCell
+                            bar={bars.duel}
+                            over={row.duel_days_over}
+                            read={row.duel_days_read}
+                          />
+                        )}
                         <TotalCell
                           onBoard={row.duel_weeks_on_board}
                           read={row.duel_weeks_read}
@@ -387,6 +434,13 @@ export function ParticipationPage() {
                           scored={row.donation_days_scored}
                           unit="day"
                         />
+                        {bars.donation !== null && (
+                          <OverCell
+                            bar={bars.donation}
+                            over={row.donation_days_over}
+                            read={row.donation_days_read}
+                          />
+                        )}
                         <TotalCell
                           onBoard={row.donation_weeks_on_board}
                           read={row.donation_weeks_read}

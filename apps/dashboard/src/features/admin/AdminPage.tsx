@@ -25,6 +25,7 @@ import { MembersSetting } from './MembersSetting';
 import { NotificationsSetting } from './NotificationsSetting';
 import { OverviewMetricsSetting } from './OverviewMetricsSetting';
 import { OwnAllianceSetting } from './OwnAllianceSetting';
+import { ParticipationBarsSetting } from './ParticipationBarsSetting';
 import { PermissionsSetting } from './PermissionsSetting';
 import { PetsSetting } from './PetsSetting';
 import { RankReportSetting } from './RankReportSetting';
@@ -276,6 +277,13 @@ function DisplayGroup({ section }: { section: string }) {
         <section aria-labelledby="season-building-alert-heading">
           <h2 id="season-building-alert-heading">Season building alert</h2>
           <SeasonBuildingAlertSetting />
+        </section>
+      )}
+
+      {section === 'participation-bars' && (
+        <section aria-labelledby="participation-bars-heading">
+          <h2 id="participation-bars-heading">Participation score bars</h2>
+          <ParticipationBarsSetting />
         </section>
       )}
 
