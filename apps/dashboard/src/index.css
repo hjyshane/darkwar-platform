@@ -2892,6 +2892,15 @@ kbd {
   padding: 0 var(--space-2);
 }
 
+/* The count and the tags (top / hot / pinned / draft / new) all sit inline after
+ * the title with nothing between them, so they ran together into one chip. Every
+ * one of them steps away from whatever is before it; `.board-comments` already
+ * carried its own margin, this gives the badges the same. */
+.board-list li > :is(.badge, .board-comments) {
+  margin-inline-start: var(--space-2);
+  vertical-align: middle;
+}
+
 /* Opens, in the meta line with the dates (0119). Muted like the rest of that
  * row: it is context for an entry you are already reading, not a reason to
  * pick one out of the list. */
@@ -5404,25 +5413,46 @@ button.tile-grid:hover:not(:disabled) {
 .planner-stock-grid {
   display: grid;
   gap: var(--space-1) var(--space-4);
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 24rem), 1fr));
 }
 
+/* `minmax(0, 1fr)`, not `1fr`: a bare fr track will not shrink below its
+ * content's minimum width, so a long material name pushed past its column and
+ * painted over the figure and the input. With a zero minimum the name column
+ * gives way and the name ellipsizes inside it. */
 .planner-stock-item {
   align-items: center;
   display: grid;
-  gap: var(--space-2);
-  grid-template-columns: 1fr auto 7.5rem;
+  gap: var(--space-3);
+  grid-template-columns: minmax(0, 1fr) minmax(3.25rem, auto) 7rem;
 }
 
 .planner-stock-name {
+  min-width: 0;
+}
+
+/* The words ellipsize; the icon and the edited mark never do, so neither can be
+ * cut or sit on top of a neighbour. */
+.planner-stock-text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.planner-stock-name > .game-icon,
+.planner-stock-edited {
+  flex: none;
+}
+
+.planner-stock-edited {
+  margin-inline-start: var(--space-1);
+}
+
 .planner-stock-figure {
   font-variant-numeric: tabular-nums;
   font-weight: 600;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .planner-stock-item input {
