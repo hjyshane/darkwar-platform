@@ -16,6 +16,7 @@ import { ActivitySetting } from './ActivitySetting';
 import { CollectorHealth } from './CollectorHealth';
 import { DepartedSetting } from './DepartedSetting';
 import { DiscoveryInbox } from './DiscoveryInbox';
+import { EventsSetting } from './EventsSetting';
 import { FormulaSetting } from './FormulaSetting';
 import { HeroesSetting } from './HeroesSetting';
 import { JoinCodesSetting } from './JoinCodesSetting';
@@ -358,6 +359,13 @@ function CatalogueGroup({ section }: { section: string }) {
         <section aria-labelledby="pets-heading">
           <h2 id="pets-heading">Pets</h2>
           <PetsSetting />
+        </section>
+      )}
+
+      {section === 'events' && (
+        <section aria-labelledby="events-heading">
+          <h2 id="events-heading">Events</h2>
+          <EventsSetting />
         </section>
       )}
 

@@ -14,6 +14,7 @@ import {
   type Mark,
   type ParticipationRow,
   changedEntries,
+  declareEventDay,
   fetchAttendance,
   fetchEventDays,
   recordAttendance,
@@ -83,6 +84,17 @@ export function AttendanceRecorder({
     onError: (error: Error) => setNote(error.message),
   });
 
+  const declared = days.data?.some((day) => day.held_on === heldOn) ?? false;
+  const declare = useMutation({
+    mutationFn: () => declareEventDay(kind, heldOn, !declared),
+    onSuccess: () => {
+      setNote(declared ? 'Taken off the held days.' : 'Marked as held.');
+      void queryClient.invalidateQueries({ queryKey: ['attendance-days'] });
+      void queryClient.invalidateQueries({ queryKey: ['participation'] });
+    },
+    onError: (error: Error) => setNote(error.message),
+  });
+
   const label = kinds.find((entry) => entry.kind === kind)?.label ?? kind;
   const present = members.filter((member) => markOf(member.player_id) === true).length;
   const absent = members.filter((member) => markOf(member.player_id) === false).length;
@@ -147,6 +159,18 @@ export function AttendanceRecorder({
             value={heldOn}
           />
         </label>
+        <button
+          disabled={declare.isPending || kind === '' || days.isPending}
+          onClick={() => declare.mutate()}
+          title={
+            declared
+              ? 'This day is on the list of days the event was held. Take it off.'
+              : 'Count this day as one the event was held, even if nobody is ticked.'
+          }
+          type="button"
+        >
+          {declared ? 'Not held this day' : 'Mark as held'}
+        </button>
         <button onClick={() => markEveryone(true)} type="button">
           Everyone present
         </button>

@@ -158,6 +158,13 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     heading: 'Pets',
     requires: capability('catalogue.write'),
   },
+  // Shared by every alliance, like the catalogues: an event is a fact about the game.
+  {
+    group: 'catalogue',
+    id: 'events-heading',
+    heading: 'Events',
+    requires: capability('catalogue.write'),
+  },
 
   // Which alliances are ours: the install, not any one of them. An admin's,
   // because it decides whose data every other screen shows.
