@@ -923,6 +923,12 @@ form label {
   background: var(--bg);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
+  /* The page has no global border-box, and this skin gave every field padding
+   * and a border. With the default content-box a field set to `width: 100%`
+   * came out padding + border WIDER than its column: the planner's stock
+   * number boxes stuck out over the next column's names. Border-box makes a
+   * stated width the width the field actually takes. */
+  box-sizing: border-box;
   color: var(--fg);
   font: inherit;
   padding: var(--space-2) var(--space-3);
@@ -5456,6 +5462,9 @@ button.tile-grid:hover:not(:disabled) {
 }
 
 .planner-stock-item input {
+  min-width: 0;
+  /* Denser than a form field: there are dozens of these in a grid. */
+  padding: var(--space-1) var(--space-2);
   width: 100%;
 }
 

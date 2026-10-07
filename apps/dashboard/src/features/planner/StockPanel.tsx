@@ -245,7 +245,9 @@ export function StockPanel({ have, onHave, edited }: StockPanelProps) {
                       <GameIcon
                         src={(m.type === 'item' ? itemIcons : resourceIcons).data?.get(m.id)}
                       />
-                      <span className="planner-stock-text">{nameOf(m)}</span>
+                      <span className="planner-stock-text" title={nameOf(m)}>
+                        {nameOf(m)}
+                      </span>
                       {edited.has(key) && (
                         <span
                           className="muted planner-stock-edited"
