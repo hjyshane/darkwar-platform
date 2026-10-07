@@ -43,7 +43,9 @@ export function Breakdown({ steps, goalNames, buffs, tiers, nameOf, have }: Brea
       <div className="planner-cards">
         {groups.map((g) => {
           const part = totals(g.steps, buffs);
-          const title = g.prerequisite ? (g.name ?? `Building ${g.subject}`) : goalNames[g.goal];
+          const title = g.prerequisite
+            ? (g.name ?? `${g.kind === 'research' ? 'Research' : 'Building'} ${g.subject}`)
+            : goalNames[g.goal];
           const levels =
             g.kind === 'building'
               ? `${levelText(tiers, g.subject, g.from)} → ${levelText(tiers, g.subject, g.to)}`

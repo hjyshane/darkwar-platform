@@ -14,7 +14,7 @@ function step(
   subject: string,
   level: number,
   parts: number,
-  requires: { subject: string; level: number }[] = [],
+  requires: { subject: string; level: number; kind?: 'building' | 'research' }[] = [],
   kind: Step['kind'] = 'building',
 ): Step {
   return {
@@ -146,7 +146,7 @@ describe('groupSteps', () => {
     const groups = groupSteps(out.steps);
 
     expect(groups.map((g) => [g.key, g.from, g.to, g.prerequisite])).toEqual([
-      ['pre:402000', 30, 31, true],
+      ['pre:building:402000', 30, 31, true],
       ['goal:0', 30, 32, false],
       ['goal:1', 31, 32, false],
     ]);
@@ -169,5 +169,91 @@ describe('groupSteps', () => {
     );
 
     expect(groupSteps(out.steps).map((g) => g.steps.length)).toEqual([2, 1]);
+  });
+});
+
+// A research needs a Research Center level AND an earlier research (0243).
+//   research 819100 level 1 needs building 403000 at 30 and research 818100 at 2.
+//   research 818100 levels 1 and 2 need building 403000 at 30 and 20.
+const RESEARCH = book(
+  step(
+    '819100',
+    1,
+    5,
+    [
+      { subject: '403000', level: 30 },
+      { subject: '818100', level: 2, kind: 'research' },
+    ],
+    'research',
+  ),
+  step('818100', 1, 3, [{ subject: '403000', level: 20 }], 'research'),
+  step('818100', 2, 3, [{ subject: '403000', level: 20 }], 'research'),
+  step('403000', 21, 7),
+  step('403000', 22, 7),
+  step('403000', 23, 7),
+  step('403000', 24, 7),
+  step('403000', 25, 7),
+  step('403000', 26, 7),
+  step('403000', 27, 7),
+  step('403000', 28, 7),
+  step('403000', 29, 7),
+  step('403000', 30, 7),
+);
+const GOAL = [{ kind: 'research' as const, subject: '819100', from: 0, to: 1 }];
+
+describe('research prerequisites', () => {
+  it('pulls in the earlier research and the buildings it needs, in order', () => {
+    const out = plan(GOAL, RESEARCH, new Map([['403000', 20]]), true, new Map());
+    const order = out.steps.map((p) => `${p.step.kind}:${p.step.subject_id}:${p.step.level}`);
+    // The research it needs first (818100 1, 2), the Research Center climb to 30,
+    // then the goal itself.
+    expect(order.at(-1)).toBe('research:819100:1');
+    expect(order).toContain('research:818100:1');
+    expect(order).toContain('research:818100:2');
+    expect(order).toContain('building:403000:30');
+    expect(order.indexOf('research:818100:2')).toBeLessThan(order.indexOf('research:819100:1'));
+    expect(order.indexOf('building:403000:30')).toBeLessThan(order.indexOf('research:819100:1'));
+    expect(out.steps.filter((p) => p.prerequisite).length).toBe(out.steps.length - 1);
+    expect(out.missing).toEqual([]);
+    expect(out.missingResearch).toEqual([]);
+  });
+  it('does not plan research or buildings the account already has', () => {
+    const out = plan(GOAL, RESEARCH, new Map([['403000', 30]]), true, new Map([['818100', 2]]));
+    expect(out.steps.map((p) => p.step.subject_id)).toEqual(['819100']);
+  });
+  it('plans only the research still short', () => {
+    const out = plan(GOAL, RESEARCH, new Map([['403000', 30]]), true, new Map([['818100', 1]]));
+    expect(out.steps.map((p) => `${p.step.subject_id}:${p.step.level}`)).toEqual([
+      '818100:2',
+      '819100:1',
+    ]);
+  });
+  it('asks for a research it has no steps for yet, instead of dropping it', () => {
+    const partial = book(
+      step('819100', 1, 5, [{ subject: '818100', level: 2, kind: 'research' }], 'research'),
+    );
+    const out = plan(GOAL, partial, new Map(), true, new Map());
+    expect(out.missingResearch).toEqual(['818100']);
+  });
+  it('adds nothing when prerequisites are switched off', () => {
+    const out = plan(GOAL, RESEARCH, new Map(), false, new Map());
+    expect(out.steps.map((p) => p.step.subject_id)).toEqual(['819100']);
+  });
+  it('groups a prerequisite research apart from the buildings, and totals its time as research', () => {
+    const out = plan(GOAL, RESEARCH, new Map([['403000', 30]]), true, new Map());
+    const groups = groupSteps(out.steps);
+    expect(groups.map((g) => g.key)).toEqual(['pre:research:818100', 'goal:0']);
+    const sums = totals(out.steps, { constructionSpeed: 0, researchSpeed: 0, costReduction: 0 });
+    // Three research steps of an hour each; no building was needed.
+    expect(sums.researchSeconds).toBe(3 * 3600);
+    expect(sums.buildSeconds).toBe(0);
+  });
+  it('does not loop on research that needs itself', () => {
+    const circular = book(
+      step('900100', 1, 1, [{ subject: '900100', level: 1, kind: 'research' }], 'research'),
+    );
+    expect(() =>
+      plan([{ kind: 'research', subject: '900100', from: 0, to: 1 }], circular, new Map(), true),
+    ).not.toThrow();
   });
 });

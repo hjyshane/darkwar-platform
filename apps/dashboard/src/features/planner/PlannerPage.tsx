@@ -122,18 +122,22 @@ export function PlannerPage() {
 
   const { goals, names: goalNames } = useMemo(() => goalsOf(targets.values()), [targets]);
   const levels = useMemo(() => new Map(Object.entries(account?.buildings ?? {})), [account]);
+  // Research the account already has, so a prerequisite research it has met is
+  // not planned again (0243).
+  const researchLevels = useMemo(() => new Map(Object.entries(account?.science ?? {})), [account]);
   const book = useQuery({
     queryKey: [
       'planner-book',
       account?.playerId,
       JSON.stringify(goals),
       JSON.stringify(account?.buildings ?? {}),
+      JSON.stringify(account?.science ?? {}),
       withPrereqs,
     ],
-    queryFn: () => loadBook(goals, levels, withPrereqs),
+    queryFn: () => loadBook(goals, levels, withPrereqs, researchLevels),
     enabled: account !== undefined && goals.length > 0,
   });
-  const planned = book.data ? plan(goals, book.data, levels, withPrereqs) : null;
+  const planned = book.data ? plan(goals, book.data, levels, withPrereqs, researchLevels) : null;
   const sums = planned && buffs ? totals(planned.steps, buffs) : null;
   const itemIds = (sums?.materials ?? []).filter((m) => m.type === 'item').map((m) => m.id);
   const names = useQuery({

@@ -29,6 +29,20 @@ async function fetchSteps(kind: Kind, subject: string, from: number, to: number)
   return (data ?? []) as unknown as Step[];
 }
 
+/** Every step of the given researches and of the research they need, in one
+ * call (0243). A research's prerequisites run up to 47 researches deep, which a
+ * round of requests per level of depth would load slowly and, at the old cap of
+ * ten rounds, only partly. */
+async function fetchResearchClosure(subjects: string[]): Promise<Step[]> {
+  const { data, error } = await supabase.rpc('research_prerequisite_steps', {
+    p_subjects: subjects,
+  });
+  if (error) {
+    throw new Error(error.message);
+  }
+  return (Array.isArray(data) ? data : []) as unknown as Step[];
+}
+
 /** The book a plan needs: every goal's steps, then every building a
  * requirement names, loaded round by round until nothing is missing. A
  * prerequisite is loaded only up to the level it is needed at. */
@@ -36,6 +50,7 @@ export async function loadBook(
   goals: ReadonlyArray<Goal>,
   levels: ReadonlyMap<string, number>,
   withPrerequisites: boolean,
+  researchLevels: ReadonlyMap<string, number> = new Map(),
 ): Promise<StepBook> {
   const book: StepBook = new Map();
   const put = (steps: Step[], kind: Kind, subject: string) => {
@@ -51,22 +66,49 @@ export async function loadBook(
       put(await fetchSteps(goal.kind, goal.subject, goal.from, goal.to), goal.kind, goal.subject),
     ),
   );
+  // The research a research goal needs first, all of it at once.
+  const researchGoals = goals.filter((goal) => goal.kind === 'research').map((goal) => goal.subject);
+  if (withPrerequisites && researchGoals.length > 0) {
+    const bySubject = new Map<string, Step[]>();
+    for (const step of await fetchResearchClosure(researchGoals)) {
+      bySubject.set(step.subject_id, [...(bySubject.get(step.subject_id) ?? []), step]);
+    }
+    for (const [subject, steps] of bySubject) {
+      put(steps, 'research', subject);
+    }
+  }
   // A requirement can name any level of any building; load its whole climb
-  // from the account's level to the highest the game has, once.
-  for (let round = 0; round < 10; round += 1) {
-    const { missing } = plan(goals, book, levels, withPrerequisites);
-    if (missing.length === 0) {
+  // from the account's level to the highest the game has, once. The research
+  // requirements are normally already in the book (above); this is the net for
+  // one that is not.
+  for (let round = 0; round < 20; round += 1) {
+    const { missing, missingResearch } = plan(
+      goals,
+      book,
+      levels,
+      withPrerequisites,
+      researchLevels,
+    );
+    if (missing.length === 0 && missingResearch.length === 0) {
       break;
     }
-    await Promise.all(
-      missing.map(async (subject) =>
+    await Promise.all([
+      ...missing.map(async (subject) =>
         put(
           await fetchSteps('building', subject, levels.get(subject) ?? 0, 200),
           'building',
           subject,
         ),
       ),
-    );
+      // A research a requirement names: its climb from the account's level.
+      ...missingResearch.map(async (subject) =>
+        put(
+          await fetchSteps('research', subject, researchLevels.get(subject) ?? 0, 200),
+          'research',
+          subject,
+        ),
+      ),
+    ]);
   }
   return book;
 }

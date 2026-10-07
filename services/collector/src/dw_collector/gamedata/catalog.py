@@ -97,6 +97,35 @@ def _requirements(value: Any) -> list[Row]:
     return out
 
 
+def _building_conditions(value: Any) -> list[Row]:
+    """`building_condition` on a research row: a flat list of building ROW ids
+    (type + level, like every `building` id), [403030] -> the building 403000 at
+    level 30. Shaped as the `building` column's requirements are, so the planner
+    reads one kind of building requirement."""
+    out: list[Row] = []
+    for raw in value if isinstance(value, list) else []:
+        row_id = _int(raw)
+        if row_id is None or row_id < 1000:
+            continue
+        out.append({"subject": str(row_id - row_id % 1000), "level": row_id % 1000})
+    return out
+
+
+def _science_conditions(value: Any, by_row_id: Mapping[int, tuple[str, int]]) -> list[Row]:
+    """`science_condition`: a list of `aps_science` ROW ids, each one a research
+    at a level ([908205] -> research 908200 at level 5). The research is looked
+    up rather than computed, because a row id is not "science id + level" by any
+    rule the table states. Marked `kind: research`; a requirement with no kind is
+    a building. An id the table does not have is dropped, not guessed."""
+    out: list[Row] = []
+    for raw in value if isinstance(value, list) else []:
+        row_id = _int(raw)
+        found = by_row_id.get(row_id) if row_id is not None else None
+        if found is not None:
+            out.append({"subject": found[0], "level": found[1], "kind": "research"})
+    return out
+
+
 def _spec(value: Any, kind: str = "item") -> list[Row]:
     """ "id;amount|id;amount" → cost entries."""
     out: list[Row] = []
@@ -416,7 +445,16 @@ class Catalog:
                 yield step
 
     def _research_steps(self) -> Iterator[Row]:
-        for row in self._rows("aps_science").values():
+        rows = self._rows("aps_science").values()
+        # Row id -> (research, level), for the research a condition names.
+        by_row_id: dict[int, tuple[str, int]] = {}
+        for row in rows:
+            row_id = _int(row.get("id"))
+            science = _int(row.get("science_id"))
+            level = _int(row.get("level"))
+            if row_id is not None and science is not None and level is not None:
+                by_row_id[row_id] = (str(science), level)
+        for row in rows:
             step = self._step(
                 "research",
                 row.get("science_id"),
@@ -426,6 +464,10 @@ class Catalog:
                 row.get("name"),
                 row.get("time"),
                 row.get("power"),
+                # What must be built and researched first (0243): the Research
+                # Center level, and the earlier research this one unlocks from.
+                requires=_building_conditions(row.get("building_condition"))
+                + _science_conditions(row.get("science_condition"), by_row_id),
                 # The research screen's tab (aps_science_tab).
                 category=row.get("tab"),
             )
