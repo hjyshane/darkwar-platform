@@ -4327,6 +4327,52 @@ export type Database = {
         }
         Relationships: []
       }
+      participation_thresholds: {
+        Row: {
+          alliance_id: string | null
+          board: string
+          daily_min: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          alliance_id?: string | null
+          board: string
+          daily_min: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          alliance_id?: string | null
+          board?: string
+          daily_min?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "participation_thresholds_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "participation_thresholds_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "participation_thresholds_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
+        ]
+      }
       pets: {
         Row: {
           created_at: string
@@ -4351,30 +4397,6 @@ export type Database = {
           pet_id?: number
           rarity?: number | null
           updated_at?: string
-        }
-        Relationships: []
-      }
-      participation_thresholds: {
-        Row: {
-          alliance_id: string | null
-          board: string
-          daily_min: number
-          updated_at: string
-          updated_by: string | null
-        }
-        Insert: {
-          alliance_id?: string | null
-          board: string
-          daily_min: number
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Update: {
-          alliance_id?: string | null
-          board?: string
-          daily_min?: number
-          updated_at?: string
-          updated_by?: string | null
         }
         Relationships: []
       }
@@ -8506,16 +8528,16 @@ export type Database = {
         Args: { p_name: string; p_note: string; p_slots: Json }
         Returns: string
       }
-      set_participation_threshold: {
-        Args: { p_board: string; p_daily_min: number }
-        Returns: undefined
-      }
       set_membership: {
         Args: {
           p_alliance: string
           p_role: Database["public"]["Enums"]["app_role"]
           p_user: string
         }
+        Returns: undefined
+      }
+      set_participation_threshold: {
+        Args: { p_board: string; p_daily_min: number }
         Returns: undefined
       }
       set_roster_membership: {
