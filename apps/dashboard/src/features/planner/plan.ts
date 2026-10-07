@@ -32,6 +32,9 @@ export interface Cost {
 export interface Requirement {
   subject: string;
   level: number;
+  /** What `subject` is. Absent means a building, which is what every
+   * requirement was before research had any. */
+  kind?: 'building' | 'research';
 }
 
 export interface Step {
@@ -80,25 +83,32 @@ export interface Plan {
   /** Buildings a requirement names whose steps are not loaded yet. The
    * caller loads them and plans again; empty when the plan is complete. */
   missing: string[];
+  /** The same for research a requirement names (0243). */
+  missingResearch: string[];
   /** Goals or prerequisites with no step for some level in their range —
    * past the game's maximum, or a subject the catalogue does not know. */
   gaps: { kind: Kind; subject: string; level: number }[];
 }
 
-/** The steps for every goal, building prerequisites included.
+/** The steps for every goal, building and research prerequisites included.
  *
- * `levels` is the account's current building levels (type x 1000 -> level);
- * the plan raises them as it goes, so a prerequisite already met — or met by
- * an earlier step of the plan — is not added again. */
+ * `levels` is the account's current building levels (type x 1000 -> level) and
+ * `researchLevels` its research levels (science id -> level); the plan raises
+ * them as it goes, so a prerequisite already met — or met by an earlier step of
+ * the plan — is not added again. A research needs buildings AND earlier
+ * research (0243), and a building needs buildings; each is climbed the same way. */
 export function plan(
   goals: ReadonlyArray<Goal>,
   book: StepBook,
   levels: ReadonlyMap<string, number>,
   withPrerequisites = true,
+  researchLevels: ReadonlyMap<string, number> = new Map(),
 ): Plan {
   const reached = new Map(levels);
+  const reachedResearch = new Map(researchLevels);
   const steps: PlannedStep[] = [];
   const missing = new Set<string>();
+  const missingResearch = new Set<string>();
   const gaps: Plan['gaps'] = [];
 
   const climb = (
@@ -114,6 +124,8 @@ export function plan(
     if (known === undefined) {
       if (kind === 'building') {
         missing.add(subject);
+      } else if (kind === 'research' && prerequisite) {
+        missingResearch.add(subject);
       } else {
         gaps.push({ kind, subject, level: from + 1 });
       }
@@ -125,27 +137,46 @@ export function plan(
         gaps.push({ kind, subject, level });
         return;
       }
-      if (kind === 'building' && withPrerequisites && depth < 50) {
+      if ((kind === 'building' || kind === 'research') && withPrerequisites && depth < 50) {
         for (const need of step.requires) {
-          const have = reached.get(need.subject) ?? 0;
-          if (have < need.level) {
-            climb('building', need.subject, have, need.level, true, depth + 1, goal);
+          if (need.kind === 'research') {
+            const have = reachedResearch.get(need.subject) ?? 0;
+            if (have < need.level) {
+              climb('research', need.subject, have, need.level, true, depth + 1, goal);
+            }
+          } else {
+            const have = reached.get(need.subject) ?? 0;
+            if (have < need.level) {
+              climb('building', need.subject, have, need.level, true, depth + 1, goal);
+            }
           }
         }
       }
       steps.push({ step, prerequisite, goal });
       if (kind === 'building') {
         reached.set(subject, Math.max(reached.get(subject) ?? 0, level));
+      } else if (kind === 'research') {
+        reachedResearch.set(subject, Math.max(reachedResearch.get(subject) ?? 0, level));
       }
     }
   };
 
   goals.forEach((goal, index) => {
+    // What an earlier goal's prerequisites already raised is not climbed twice.
     const from =
-      goal.kind === 'building' ? Math.max(goal.from, reached.get(goal.subject) ?? 0) : goal.from;
+      goal.kind === 'building'
+        ? Math.max(goal.from, reached.get(goal.subject) ?? 0)
+        : goal.kind === 'research'
+          ? Math.max(goal.from, reachedResearch.get(goal.subject) ?? 0)
+          : goal.from;
     climb(goal.kind, goal.subject, from, goal.to, false, 0, index);
   });
-  return { steps, missing: [...missing].sort(), gaps };
+  return {
+    steps,
+    missing: [...missing].sort(),
+    missingResearch: [...missingResearch].sort(),
+    gaps,
+  };
 }
 
 export interface MaterialTotal {
@@ -235,8 +266,8 @@ function round2(value: number): number {
 }
 
 export interface StepGroup {
-  /** `goal:<index>` for what a goal asked for, `pre:<subject>` for a
-   * building pulled in first. */
+  /** `goal:<index>` for what a goal asked for, `pre:<kind>:<subject>` for a
+   * building or research pulled in first. */
   key: string;
   goal: number;
   prerequisite: boolean;
@@ -257,7 +288,9 @@ export function groupSteps(steps: ReadonlyArray<PlannedStep>): StepGroup[] {
   const groups = new Map<string, StepGroup>();
   for (const planned of steps) {
     const { step, prerequisite, goal } = planned;
-    const key = prerequisite ? `pre:${step.subject_id}` : `goal:${goal}`;
+    // By kind as well as subject: a building and a research are different
+    // things even if their ids ever meet.
+    const key = prerequisite ? `pre:${step.kind}:${step.subject_id}` : `goal:${goal}`;
     const held = groups.get(key);
     if (held) {
       held.steps.push(planned);

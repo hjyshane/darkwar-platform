@@ -280,11 +280,15 @@ CATALOGUE_TABLES = {
                 item = {4,'table'}, time = {5,'int'}, power = {6,'int'},
                 building = {7,'table'}, industry_level = {8,'string'} } }""",
     "aps_science": """return { data = {
+        [1108101] = { 1108101, 1108100, 1, '300006',
+                      { {14, 1000} }, {}, 100, 1007, {}, {} },
         [1108102] = { 1108102, 1108100, 2, '300006',
-                      { {14, 94060000} }, { {200036, 4700} }, 423000, 1007 } },
+                      { {14, 94060000} }, { {200036, 4700} }, 423000, 1007,
+                      { 403030 }, { 1108101, 999999 } } },
       index = { id = {1,'int'}, science_id = {2,'int'}, level = {3,'int'}, name = {4,'string'},
                 research_need = {5,'table'}, goods_need = {6,'table'}, time = {7,'int'},
-                tab = {8,'int'} } }""",
+                tab = {8,'int'}, building_condition = {9,'table'},
+                science_condition = {10,'table'} } }""",
     "aps_science_tab": """return { data = {
         [1007] = { 1007, '300017', 7, { {565, 9999} } },
         [23] = { 23, '300018', 9, {} } },
@@ -371,13 +375,51 @@ def test_costs_say_whether_they_are_resources_or_items_and_drop_zeros() -> None:
 
 
 def test_research_is_keyed_by_science_id_and_level() -> None:
-    (step,) = [s for s in _catalogue().steps() if s["kind"] == "research"]
+    (step,) = [s for s in _research_steps() if s["level"] == 2]
 
     assert (step["subject_id"], step["level"], step["name"]) == ("1108100", 2, "Field Formation")
     assert step["costs"] == [
         {"type": "resource", "id": "14", "amount": 94060000},
         {"type": "item", "id": "200036", "amount": 4700},
     ]
+
+
+def _research_steps() -> list[dict]:  # type: ignore[type-arg]
+    return [s for s in _catalogue().steps() if s["kind"] == "research"]
+
+
+def test_research_prerequisites_are_buildings_and_earlier_research() -> None:
+    """0243: `building_condition` is a flat list of building row ids (type +
+    level), `science_condition` a list of research row ids. Both become
+    requirements; only the research ones carry a kind."""
+    (step,) = [s for s in _research_steps() if s["level"] == 2]
+
+    assert {"subject": "403000", "level": 30} in step["requires"]
+    assert {"subject": "1108100", "level": 1, "kind": "research"} in step["requires"]
+
+
+def test_a_condition_the_table_does_not_have_is_dropped_not_guessed() -> None:
+    (step,) = [s for s in _research_steps() if s["level"] == 2]
+
+    # 999999 is not a row of aps_science: nothing is invented for it.
+    assert len(step["requires"]) == 2
+
+
+def test_research_with_no_conditions_has_no_requirements() -> None:
+    (step,) = [s for s in _research_steps() if s["level"] == 1]
+
+    assert step["requires"] == []
+
+
+def test_building_conditions_split_the_row_id_into_type_and_level() -> None:
+    from dw_collector.gamedata.catalog import _building_conditions
+
+    assert _building_conditions([403030, 403003]) == [
+        {"subject": "403000", "level": 30},
+        {"subject": "403000", "level": 3},
+    ]
+    assert _building_conditions([5, "x", None]) == []
+    assert _building_conditions(None) == []
 
 
 def test_string_costs_split_on_bar_and_semicolon() -> None:
@@ -542,7 +584,7 @@ def test_a_building_step_carries_the_industry_tier_of_the_level_reached() -> Non
 
 
 def test_a_research_step_carries_its_tab() -> None:
-    (step,) = [s for s in _catalogue().steps() if s["kind"] == "research"]
+    (step,) = [s for s in _research_steps() if s["level"] == 2]
 
     assert step["category"] == 1007
     assert step["tier"] is None
