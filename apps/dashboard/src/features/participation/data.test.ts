@@ -187,9 +187,17 @@ describe('buildEntries', () => {
     expect(buildEntries(stored, new Map(), new Map())).toEqual([]);
     expect(buildEntries(stored, new Map([['a', true]]), new Map([['a', 100]]))).toEqual([]);
   });
-  it('a tick change alone does not mention the score, so it is kept', () => {
+  it('a tick change to present does not mention the score, so it is kept', () => {
+    expect(buildEntries(stored, new Map([['b', true]]), new Map())).toEqual([
+      { player_id: 'b', attended: true },
+    ]);
+  });
+  it('marking somebody absent clears the score they had', () => {
     expect(buildEntries(stored, new Map([['a', false]]), new Map())).toEqual([
-      { player_id: 'a', attended: false },
+      { player_id: 'a', attended: false, score: null },
+    ]);
+    expect(buildEntries(stored, new Map([['a', false]]), new Map([['a', 5]]))).toEqual([
+      { player_id: 'a', attended: false, score: null },
     ]);
   });
   it('a score change sends the current tick with the new score', () => {

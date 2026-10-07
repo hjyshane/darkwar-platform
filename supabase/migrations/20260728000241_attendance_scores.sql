@@ -436,11 +436,15 @@ as $$
         case
           when fb.held_on is not null then ff.game_uid is not null
         end) as attended,
-      -- A tick wins over the board, SCORE INCLUDED: with a typed row for the
-      -- day the score is the typed one (or none), never the board's. Otherwise
-      -- an officer who marked a member absent would still carry a scanned score
-      -- for the same day.
-      case when a.attended is not null then a.score else ff.score end as score
+      -- Present: the typed score, else the scanned one (a tick with no number
+      -- typed must not throw away what the board read). Absent: none, whatever
+      -- is stored or scanned -- somebody who did not take part has no score.
+      -- No typed row: the board's.
+      case a.attended
+        when true then coalesce(a.score, ff.score)
+        when false then null
+        else ff.score
+      end as score
     from members m
     cross join event_days e
     left join public.event_attendance a

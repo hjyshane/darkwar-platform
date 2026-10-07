@@ -237,20 +237,27 @@ export async function fetchScannedScores(
   if (kind !== 'furnace_fury' || gameUids.length === 0) {
     return new Map();
   }
-  const { data, error } = await supabase
-    .from('furnace_fury_scores')
-    .select('game_uid, score')
-    .eq('held_on', heldOn)
-    .in('game_uid', [...gameUids])
-    .limit(1000);
-  if (error) {
-    throw new Error(`scanned scores query failed: ${error.message}`);
-  }
   const best = new Map<number, number>();
-  for (const row of data ?? []) {
-    if (row.score === null || row.score === undefined) continue;
-    const score = Number(row.score);
-    best.set(Number(row.game_uid), Math.max(best.get(Number(row.game_uid)) ?? 0, score));
+  // The board is read many times a day and PostgREST stops at 1,000 rows without
+  // saying so, so read it in pages until one comes back short.
+  const PAGE = 1000;
+  for (let from = 0; from < 10 * PAGE; from += PAGE) {
+    const { data, error } = await supabase
+      .from('furnace_fury_scores')
+      .select('game_uid, score')
+      .eq('held_on', heldOn)
+      .in('game_uid', [...gameUids])
+      .order('snapshot_id')
+      .range(from, from + PAGE - 1);
+    if (error) {
+      throw new Error(`scanned scores query failed: ${error.message}`);
+    }
+    for (const row of data ?? []) {
+      if (row.score === null || row.score === undefined) continue;
+      const uid = Number(row.game_uid);
+      best.set(uid, Math.max(best.get(uid) ?? 0, Number(row.score)));
+    }
+    if ((data ?? []).length < PAGE) break;
   }
   return best;
 }
@@ -294,9 +301,15 @@ export function buildEntries(
       if (before !== null) entries.push({ player_id: playerId, attended: null });
       continue;
     }
-    const scoreEdited = draftScores.has(playerId);
     const scoreBefore = stored.scores.get(playerId) ?? null;
-    const score = scoreEdited ? (draftScores.get(playerId) ?? null) : scoreBefore;
+    // Somebody marked absent has no score: it is cleared, not kept beside "absent".
+    const scoreEdited = draftScores.has(playerId) || (mark === false && scoreBefore !== null);
+    const score =
+      mark === false
+        ? null
+        : draftScores.has(playerId)
+          ? (draftScores.get(playerId) ?? null)
+          : scoreBefore;
     if (mark === before && (!scoreEdited || score === scoreBefore)) continue;
     entries.push(
       scoreEdited

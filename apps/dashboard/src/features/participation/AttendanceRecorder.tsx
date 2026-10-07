@@ -295,6 +295,17 @@ export function AttendanceRecorder({
         </>
       )}
 
+      {badScores.length > 0 && (
+        <p className="error">
+          A score is a whole number, 0 or more. Fix:{' '}
+          {badScores
+            .map(
+              ([playerId]) =>
+                members.find((member) => member.player_id === playerId)?.current_name ?? playerId,
+            )
+            .join(', ')}
+        </p>
+      )}
       <div className="row">
         <button
           disabled={entries.length === 0 || badScores.length > 0 || save.isPending}

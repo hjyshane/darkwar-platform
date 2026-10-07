@@ -6,7 +6,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(14);
+select plan(17);
 
 delete from public.attendance_event_days;
 
@@ -141,6 +141,24 @@ select is((select (typed_events -> 'furnace_fury' ->> 'score')::bigint from r wh
   900::bigint, 'a typed score beats the scanned one for the same day');
 select is((select (typed_events -> 'furnace_fury' ->> 'score')::bigint from r where current_name = 'Bravo'),
   40::bigint, 'with nothing typed, the scanned score stands');
+
+-- A tick with no score typed keeps the scanned one; an absent tick counts none.
+select public.record_event_attendance('furnace_fury', '2026-09-15', '[
+  {"player_id":"00000000-0000-4000-8000-00000000b102","attended":true}]');
+create temp table r_ff on commit drop as
+  select current_name, typed_events
+    from public.member_participation('2026-09-14T02:00:00Z', '2026-09-21T02:00:00Z');
+select is((select (typed_events -> 'furnace_fury' ->> 'score')::bigint from r_ff where current_name = 'Bravo'),
+  40::bigint, 'ticking present with no score typed keeps the scanned score');
+select public.record_event_attendance('furnace_fury', '2026-09-15', '[
+  {"player_id":"00000000-0000-4000-8000-00000000b101","attended":false,"score":777}]');
+create temp table r_ab on commit drop as
+  select current_name, typed_events
+    from public.member_participation('2026-09-14T02:00:00Z', '2026-09-21T02:00:00Z');
+select ok((select typed_events -> 'furnace_fury' ->> 'score' is null from r_ab where current_name = 'Alpha'),
+  'an absent tick counts no score, typed or scanned');
+select is((select (typed_events -> 'furnace_fury' ->> 'missed')::int from r_ab where current_name = 'Alpha'),
+  1, 'and counts as missed');
 
 -- Clearing a score.
 select public.record_event_attendance('frankie', '2026-09-16', '[
