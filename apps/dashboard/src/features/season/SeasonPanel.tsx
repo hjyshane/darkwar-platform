@@ -3,13 +3,14 @@ import { useMemo, useState } from 'react';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
 import { Tabs } from '../../components/ui/Tabs';
 import { floorsFor, useSeasonBuildingAlert } from '../../lib/seasonBuildingAlert';
+import { FALLBACK_SEASONS, currentSeason, useSeasons } from '../../lib/seasons';
 import { TERMS } from '../../lib/terms';
 import { SeasonAllianceTable } from './SeasonAllianceTable';
 import { SeasonBuildingTable } from './SeasonBuildingTable';
 import { SeasonForceTable } from './SeasonForceTable';
 import { SeasonWaitCalculator } from './SeasonWaitCalculator';
 import { type SeasonBoardId, fetchAllianceScoreBoard, fetchPlayerForceBoard } from './boards';
-import { SEASON3_BUILDINGS, fetchBuildingGrid } from './buildings';
+import { fetchBuildingGrid } from './buildings';
 
 /** The calculator is not a board — it queries nothing and is fed by hand — so
  * it is a tab id of its own rather than a fourth `SeasonBoardId`. Keeping it
@@ -57,9 +58,19 @@ export function SeasonPanel() {
     staleTime: STALE_TIME,
     enabled: boardId === 'player_force',
   });
+  // The season on screen and its buildings come from the seasons table (0242);
+  // the constants answer until it loads or when it holds nothing.
+  const seasons = useSeasons();
+  const season = currentSeason(seasons.data ?? FALLBACK_SEASONS, new Date());
+  const catalogue = season?.buildings ?? FALLBACK_SEASONS[1]?.buildings ?? [];
   const buildings = useQuery({
-    queryKey: ['seasonBoard', 'buildings'],
-    queryFn: () => fetchBuildingGrid(SEASON3_BUILDINGS),
+    queryKey: [
+      'seasonBoard',
+      'buildings',
+      season?.id ?? 0,
+      catalogue.map((kind) => kind.id).join(','),
+    ],
+    queryFn: () => fetchBuildingGrid(catalogue),
     staleTime: STALE_TIME,
     enabled: boardId === 'buildings',
   });
@@ -87,7 +98,7 @@ export function SeasonPanel() {
   return (
     <section aria-labelledby="season-heading">
       <h2 id="season-heading">
-        {TERMS.season}
+        {season?.name ?? TERMS.season}
         {/* Not on the calculator: the badge dates a capture, and that tab
             has no captured figure on it. Leaving it up would date numbers the
             reader typed themselves. */}

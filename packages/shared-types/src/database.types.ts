@@ -6127,6 +6127,74 @@ export type Database = {
           },
         ]
       }
+      season_buildings: {
+        Row: {
+          building_type_id: number
+          name: string
+          provisional: boolean
+          season_id: number
+          sort_order: number
+          stall_hours: number | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          building_type_id: number
+          name: string
+          provisional?: boolean
+          season_id: number
+          sort_order?: number
+          stall_hours?: number | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          building_type_id?: number
+          name?: string
+          provisional?: boolean
+          season_id?: number
+          sort_order?: number
+          stall_hours?: number | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "season_buildings_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "seasons"
+            referencedColumns: ["season_id"]
+          },
+        ]
+      }
+      seasons: {
+        Row: {
+          ends_at: string | null
+          name: string
+          season_id: number
+          starts_at: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          ends_at?: string | null
+          name: string
+          season_id: number
+          starts_at?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          ends_at?: string | null
+          name?: string
+          season_id?: number
+          starts_at?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       servers: {
         Row: {
           created_at: string
@@ -8265,6 +8333,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      delete_season_building: {
+        Args: { p_building_type_id: number; p_season_id: number }
+        Returns: undefined
+      }
       enter_weekly_scores: {
         Args: { p_entries: Json; p_week_start: string }
         Returns: number
@@ -8552,6 +8624,34 @@ export type Database = {
       save_hive_formation_template: {
         Args: { p_name: string; p_note: string; p_slots: Json }
         Returns: string
+      }
+      save_season: {
+        Args: {
+          p_ends_at?: string
+          p_name: string
+          p_season_id: number
+          p_starts_at?: string
+        }
+        Returns: undefined
+      }
+      save_season_building: {
+        Args: {
+          p_building_type_id: number
+          p_name: string
+          p_provisional?: boolean
+          p_season_id: number
+          p_sort_order?: number
+          p_stall_hours?: number
+        }
+        Returns: undefined
+      }
+      season_unnamed_buildings: {
+        Args: never
+        Returns: {
+          building_type_id: number
+          newest_seen: string
+          players: number
+        }[]
       }
       set_membership: {
         Args: {

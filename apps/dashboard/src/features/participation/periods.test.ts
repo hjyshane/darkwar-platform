@@ -79,3 +79,18 @@ describe('gameDate', () => {
     expect(gameDate(new Date('2026-10-02T03:00:00Z'))).toBe('2026-10-02');
   });
 });
+
+describe('a later season start (0242)', () => {
+  const START = '2026-09-28T02:00:00.000Z';
+  const LATER = new Date('2026-10-20T15:00:00Z');
+  it('counts the season, its rounds and its weeks from the given start', () => {
+    expect(seasonPeriod(LATER, START, 'Season 4').from).toBe(START);
+    expect(seasonPeriod(LATER, START, 'Season 4').label).toContain('Season 4');
+    expect(roundPeriods(LATER, START).at(-1)?.from).toBe(START);
+    expect(weekPeriods(LATER, START).at(-1)?.from).toBe(START);
+  });
+  it('has no rounds or weeks before a season that has not started', () => {
+    expect(roundPeriods(new Date('2026-09-01T00:00:00Z'), START)).toEqual([]);
+    expect(weekPeriods(new Date('2026-09-01T00:00:00Z'), START)).toEqual([]);
+  });
+});

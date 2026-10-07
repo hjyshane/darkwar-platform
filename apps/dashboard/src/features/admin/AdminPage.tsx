@@ -32,6 +32,7 @@ import { PetsSetting } from './PetsSetting';
 import { RankReportSetting } from './RankReportSetting';
 import { RankTiersSetting } from './RankTiersSetting';
 import { SeasonBuildingAlertSetting } from './SeasonBuildingAlertSetting';
+import { SeasonsSetting } from './SeasonsSetting';
 import { TableLayoutSetting } from './TableLayoutSetting';
 
 /** Settings an admin can change without a deploy.
@@ -359,6 +360,13 @@ function CatalogueGroup({ section }: { section: string }) {
         <section aria-labelledby="pets-heading">
           <h2 id="pets-heading">Pets</h2>
           <PetsSetting />
+        </section>
+      )}
+
+      {section === 'seasons' && (
+        <section aria-labelledby="seasons-heading">
+          <h2 id="seasons-heading">Seasons</h2>
+          <SeasonsSetting />
         </section>
       )}
 
