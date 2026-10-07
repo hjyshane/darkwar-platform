@@ -13,10 +13,12 @@ import {
   type EventKind,
   type Mark,
   type ParticipationRow,
-  changedEntries,
+  buildEntries,
   declareEventDay,
-  fetchAttendance,
+  fetchAttendanceDay,
   fetchEventDays,
+  fetchScannedScores,
+  parseScore,
   recordAttendance,
 } from './data';
 import { gameDate } from './periods';
@@ -41,14 +43,34 @@ export function AttendanceRecorder({
   const [kind, setKind] = useState(kinds[0]?.kind ?? '');
   const [heldOn, setHeldOn] = useState(today);
   const [draft, setDraft] = useState<Map<string, Mark>>(new Map());
+  // The score boxes' text, by member. Text, not numbers: a half-typed box is
+  // not a score yet, and an emptied one means "clear it".
+  const [draftScores, setDraftScores] = useState<Map<string, string>>(new Map());
   const [note, setNote] = useState<string | null>(null);
+
+  function resetDraft() {
+    setDraft(new Map());
+    setDraftScores(new Map());
+    setNote(null);
+  }
 
   const stored = useQuery({
     queryKey: ['event-attendance', kind, heldOn],
-    queryFn: () => fetchAttendance(kind, heldOn),
+    queryFn: () => fetchAttendanceDay(kind, heldOn),
     enabled: kind !== '' && heldOn !== '',
   });
-  const onRecord = stored.data ?? new Map<string, boolean>();
+  const onRecord = stored.data?.marks ?? new Map<string, boolean>();
+  const onRecordScores = stored.data?.scores ?? new Map<string, number>();
+  const scanned = useQuery({
+    queryKey: ['event-scanned-scores', kind, heldOn],
+    queryFn: () =>
+      fetchScannedScores(
+        kind,
+        heldOn,
+        members.map((member) => member.game_uid),
+      ),
+    enabled: kind === 'furnace_fury' && heldOn !== '',
+  });
   const days = useQuery({
     queryKey: ['attendance-days', kind],
     queryFn: () => fetchEventDays(kind),
@@ -66,17 +88,44 @@ export function AttendanceRecorder({
     setNote(null);
   }
 
+  function scoreText(playerId: string): string {
+    const typed = draftScores.get(playerId);
+    if (typed !== undefined) return typed;
+    const before = onRecordScores.get(playerId);
+    return before === undefined ? '' : String(before);
+  }
+
+  function typeScore(playerId: string, text: string) {
+    const next = new Map(draftScores);
+    next.set(playerId, text);
+    setDraftScores(next);
+    // A score belongs to a tick: typing one on a member nobody has ticked
+    // ticks them present, which is what typing a score means.
+    if (text.trim() !== '' && markOf(playerId) === null) {
+      mark(playerId, true);
+    }
+    setNote(null);
+  }
+
   function markEveryone(value: Mark) {
     setDraft(new Map(members.map((member) => [member.player_id, value])));
     setNote(null);
   }
 
-  const entries = changedEntries(onRecord, draft);
+  // Boxes whose text is not a score. They block saving rather than being sent.
+  const badScores = [...draftScores.entries()].filter(([, text]) => parseScore(text) === undefined);
+  const parsedScores = new Map<string, number | null>();
+  for (const [playerId, text] of draftScores) {
+    const parsed = parseScore(text);
+    if (parsed !== undefined) parsedScores.set(playerId, parsed);
+  }
+  const entries = buildEntries({ marks: onRecord, scores: onRecordScores }, draft, parsedScores);
 
   const save = useMutation({
     mutationFn: () => recordAttendance(kind, heldOn, entries),
     onSuccess: (written) => {
       setDraft(new Map());
+      setDraftScores(new Map());
       setNote(`Saved ${written} change${written === 1 ? '' : 's'}.`);
       void queryClient.invalidateQueries({ queryKey: ['event-attendance'] });
       void queryClient.invalidateQueries({ queryKey: ['participation'] });
@@ -113,8 +162,7 @@ export function AttendanceRecorder({
           <Select
             onChange={(chosen) => {
               setKind(chosen);
-              setDraft(new Map());
-              setNote(null);
+              resetDraft();
             }}
             value={kind}
           >
@@ -131,8 +179,7 @@ export function AttendanceRecorder({
             <Select
               onChange={(chosen) => {
                 setHeldOn(chosen);
-                setDraft(new Map());
-                setNote(null);
+                resetDraft();
               }}
               value={days.data?.some((day) => day.held_on === heldOn) ? heldOn : ''}
             >
@@ -152,8 +199,7 @@ export function AttendanceRecorder({
             max={today}
             onChange={(event) => {
               setHeldOn(event.target.value);
-              setDraft(new Map());
-              setNote(null);
+              resetDraft();
             }}
             type="date"
             value={heldOn}
@@ -174,7 +220,7 @@ export function AttendanceRecorder({
         <button onClick={() => markEveryone(true)} type="button">
           Everyone present
         </button>
-        <button onClick={() => setDraft(new Map())} type="button">
+        <button onClick={resetDraft} type="button">
           Undo changes
         </button>
       </div>
@@ -197,6 +243,9 @@ export function AttendanceRecorder({
                     Member
                   </th>
                   <th scope="col">Attendance</th>
+                  <th className="num" scope="col">
+                    Score
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -222,6 +271,21 @@ export function AttendanceRecorder({
                           ))}
                         </fieldset>
                       </td>
+                      <td className="num">
+                        <input
+                          aria-label={`Score for ${name}`}
+                          inputMode="numeric"
+                          min={0}
+                          onChange={(event) => typeScore(member.player_id, event.target.value)}
+                          placeholder={
+                            scanned.data?.has(member.game_uid)
+                              ? `scanned ${scanned.data.get(member.game_uid)?.toLocaleString('ko-KR')}`
+                              : 'optional'
+                          }
+                          type="number"
+                          value={scoreText(member.player_id)}
+                        />
+                      </td>
                     </tr>
                   );
                 })}
@@ -231,9 +295,20 @@ export function AttendanceRecorder({
         </>
       )}
 
+      {badScores.length > 0 && (
+        <p className="error">
+          A score is a whole number, 0 or more. Fix:{' '}
+          {badScores
+            .map(
+              ([playerId]) =>
+                members.find((member) => member.player_id === playerId)?.current_name ?? playerId,
+            )
+            .join(', ')}
+        </p>
+      )}
       <div className="row">
         <button
-          disabled={entries.length === 0 || save.isPending}
+          disabled={entries.length === 0 || badScores.length > 0 || save.isPending}
           onClick={() => save.mutate()}
           type="button"
         >

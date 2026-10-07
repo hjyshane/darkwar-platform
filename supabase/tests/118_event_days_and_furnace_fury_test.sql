@@ -94,16 +94,16 @@ set local role authenticated;
 
 -- 3-5. Furnace Fury from the board.
 select is(pg_temp.tally('Alpha', 'furnace_fury'),
-  '{"held": 1, "attended": 1, "missed": 0}'::jsonb, 'on the board is present');
+  '{"held": 1, "attended": 1, "missed": 0, "score": 1000}'::jsonb, 'on the board is present');
 select is(pg_temp.tally('Bravo', 'furnace_fury'),
-  '{"held": 1, "attended": 0, "missed": 1}'::jsonb,
+  '{"held": 1, "attended": 0, "missed": 1, "score": null}'::jsonb,
   'missing from our board is absent, whatever another alliance''s board says');
 select is(pg_temp.tally('Delta', 'furnace_fury'),
-  '{"held": 1, "attended": 0, "missed": 1}'::jsonb, 'an officer''s tick overrides the board');
+  '{"held": 1, "attended": 0, "missed": 1, "score": null}'::jsonb, 'an officer''s tick overrides the board, and its score with it');
 
 -- 6-7. Declared days count as held with nothing recorded.
 select is(pg_temp.tally('Alpha', 'frankie'),
-  '{"held": 1, "attended": 0, "missed": 0}'::jsonb,
+  '{"held": 1, "attended": 0, "missed": 0, "score": null}'::jsonb,
   'a declared day nobody recorded is held, not attended and not missed');
 select is((pg_temp.tally('Alpha', 'ice_pit') ->> 'held')::int, 3,
   'three Ice Pit days in the week');

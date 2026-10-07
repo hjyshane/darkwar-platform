@@ -175,6 +175,14 @@ function TypedCell({ tally }: { tally: TypedTally | undefined }) {
         <span>
           {tally.attended}/{tally.held}
           {unrecorded > 0 && <span className="muted"> ?{unrecorded}</span>}
+          {tally.score !== null && tally.score !== undefined && (
+            <span
+              className="muted participation-sub"
+              title="Total score over the days held: typed by an officer, or scanned where nobody typed one."
+            >
+              {n(tally.score)}
+            </span>
+          )}
         </span>
         <BarCell low={low} max={tally.held} value={tally.attended} />
       </span>

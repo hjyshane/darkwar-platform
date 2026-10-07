@@ -9,6 +9,9 @@ export interface TypedTally {
   held: number;
   attended: number;
   missed: number;
+  /** The member's total score over the held days: typed, or scanned where
+   * nobody typed one (0241). Null when no day has a score. */
+  score: number | null;
 }
 
 /** One row of `member_participation`. One per current member.
@@ -196,12 +199,125 @@ export async function fetchAttendance(kind: string, heldOn: string): Promise<Map
   return new Map((data ?? []).map((row) => [row.player_id, row.attended]));
 }
 
+/** What is on record for one event on one day: the ticks and the typed scores. */
+export interface AttendanceDay {
+  marks: Map<string, boolean>;
+  scores: Map<string, number>;
+}
+
+export async function fetchAttendanceDay(kind: string, heldOn: string): Promise<AttendanceDay> {
+  const { data, error } = await supabase
+    .from('event_attendance')
+    .select('player_id, attended, score')
+    .eq('kind', kind)
+    .eq('held_on', heldOn)
+    .limit(1000);
+  if (error) {
+    throw new Error(`attendance query failed: ${error.message}`);
+  }
+  const marks = new Map<string, boolean>();
+  const scores = new Map<string, number>();
+  for (const row of data ?? []) {
+    marks.set(row.player_id, row.attended);
+    if (row.score !== null && row.score !== undefined) {
+      scores.set(row.player_id, Number(row.score));
+    }
+  }
+  return { marks, scores };
+}
+
+/** The score the collector read for each member that day, by game uid. Only
+ * Furnace Fury has a board to read; the rest have none to show. A board can be
+ * read more than once a day and a score only grows, so the highest wins. */
+export async function fetchScannedScores(
+  kind: string,
+  heldOn: string,
+  gameUids: readonly number[],
+): Promise<Map<number, number>> {
+  if (kind !== 'furnace_fury' || gameUids.length === 0) {
+    return new Map();
+  }
+  const best = new Map<number, number>();
+  // The board is read many times a day and PostgREST stops at 1,000 rows without
+  // saying so, so read it in pages until one comes back short.
+  const PAGE = 1000;
+  for (let from = 0; from < 10 * PAGE; from += PAGE) {
+    const { data, error } = await supabase
+      .from('furnace_fury_scores')
+      .select('game_uid, score')
+      .eq('held_on', heldOn)
+      .in('game_uid', [...gameUids])
+      .order('snapshot_id')
+      .range(from, from + PAGE - 1);
+    if (error) {
+      throw new Error(`scanned scores query failed: ${error.message}`);
+    }
+    for (const row of data ?? []) {
+      if (row.score === null || row.score === undefined) continue;
+      const uid = Number(row.game_uid);
+      best.set(uid, Math.max(best.get(uid) ?? 0, Number(row.score)));
+    }
+    if ((data ?? []).length < PAGE) break;
+  }
+  return best;
+}
+
 /** A tick on the form: there, not there, or not recorded. */
 export type Mark = boolean | null;
 
 export interface AttendanceEntry {
   player_id: string;
   attended: Mark;
+  /** Left out: keep what is stored. A number sets it; null clears it (0241). */
+  score?: number | null;
+}
+
+/** A typed score box's text as a score: a whole number of 0 or more, or null
+ * for an empty box. Undefined for text that is neither, so the form can refuse
+ * it instead of sending something the database will. */
+export function parseScore(text: string): number | null | undefined {
+  const trimmed = text.trim();
+  if (trimmed === '') return null;
+  if (!/^[0-9]{1,15}$/.test(trimmed)) return undefined;
+  return Number(trimmed);
+}
+
+/** The entries to send: a member whose tick changed, or whose score box was
+ * touched. A member left as they were on record is not sent. A score only rides
+ * with a tick, so a member with no tick is sent without one (which clears the
+ * row), and a score box edited on an untouched member sends their current tick
+ * with the new score. */
+export function buildEntries(
+  stored: AttendanceDay,
+  draftMarks: ReadonlyMap<string, Mark>,
+  draftScores: ReadonlyMap<string, number | null>,
+): AttendanceEntry[] {
+  const ids = new Set([...draftMarks.keys(), ...draftScores.keys()]);
+  const entries: AttendanceEntry[] = [];
+  for (const playerId of ids) {
+    const before = stored.marks.get(playerId) ?? null;
+    const mark = draftMarks.has(playerId) ? (draftMarks.get(playerId) ?? null) : before;
+    if (mark === null) {
+      if (before !== null) entries.push({ player_id: playerId, attended: null });
+      continue;
+    }
+    const scoreBefore = stored.scores.get(playerId) ?? null;
+    // Somebody marked absent has no score: it is cleared, not kept beside "absent".
+    const scoreEdited = draftScores.has(playerId) || (mark === false && scoreBefore !== null);
+    const score =
+      mark === false
+        ? null
+        : draftScores.has(playerId)
+          ? (draftScores.get(playerId) ?? null)
+          : scoreBefore;
+    if (mark === before && (!scoreEdited || score === scoreBefore)) continue;
+    entries.push(
+      scoreEdited
+        ? { player_id: playerId, attended: mark, score }
+        : { player_id: playerId, attended: mark },
+    );
+  }
+  return entries;
 }
 
 /** Only what changed. A member left as they were on record is not sent, so

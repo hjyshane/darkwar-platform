@@ -2797,6 +2797,7 @@ export type Database = {
           held_on: string
           kind: string
           player_id: string
+          score: number | null
         }
         Insert: {
           alliance_id?: string | null
@@ -2806,6 +2807,7 @@ export type Database = {
           held_on: string
           kind: string
           player_id: string
+          score?: number | null
         }
         Update: {
           alliance_id?: string | null
@@ -2815,6 +2817,7 @@ export type Database = {
           held_on?: string
           kind?: string
           player_id?: string
+          score?: number | null
         }
         Relationships: [
           {
