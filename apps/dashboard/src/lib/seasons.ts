@@ -61,6 +61,8 @@ export async function fetchSeasons(): Promise<Season[]> {
       .from('season_buildings')
       .select('season_id, building_type_id, name, sort_order, provisional, stall_hours')
       .order('sort_order')
+      // A tie in the typed order must not shuffle between loads.
+      .order('building_type_id')
       .limit(1000),
   ]);
   const error = seasons.error ?? buildings.error;
@@ -104,7 +106,18 @@ export function useSeasons() {
 /** The current season's building catalogue, or Season 3's when nothing is
  * known — what the boards and the admin pickers read. */
 export function currentBuildings(seasons: readonly Season[] | undefined, now: Date) {
-  return currentSeason(seasons ?? FALLBACK_SEASONS, now)?.buildings ?? SEASON3_BUILDINGS;
+  const list = seasons ?? FALLBACK_SEASONS;
+  const current = currentSeason(list, now);
+  if (current !== null && current.buildings.length > 0) {
+    return current.buildings;
+  }
+  // A season that has started but has no buildings named yet (the days between
+  // its start and the first sweep): the pickers keep offering the last season
+  // that has some, rather than an empty table nobody can fix.
+  const named = [...list]
+    .filter((season) => season.buildings.length > 0 && (current === null || season.id < current.id))
+    .sort((a, b) => b.id - a.id)[0];
+  return named?.buildings ?? SEASON3_BUILDINGS;
 }
 
 export async function saveSeason(entry: {

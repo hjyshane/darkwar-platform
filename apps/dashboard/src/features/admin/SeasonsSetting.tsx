@@ -159,7 +159,10 @@ export function SeasonsSetting() {
                   <BuildingRow
                     busy={busy}
                     building={building}
-                    key={`${picked.id}-${building.id}`}
+                    // Keyed by what is stored, so a save (which changes the name,
+                    // order or guess) hands the row fresh state instead of keeping
+                    // the text that was typed.
+                    key={`${picked.id}-${building.id}-${building.name}-${building.provisional === true}-${index}`}
                     onDelete={() =>
                       removeBuilding.mutate({ seasonId: picked.id, typeId: building.id })
                     }

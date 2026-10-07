@@ -19,7 +19,12 @@
 --   * internal.duel_round_anchor() reads the current season's start (falling back
 --     to 2026-08-17 02:00 UTC, Season 3's, if the table has nothing yet). Duel
 --     rounds are four game weeks counted from the season start, so a new season
---     restarts them. Rounds already derived are kept.
+--     restarts them. Rounds already derived are kept. If a season starts MID-
+--     round (not a multiple of 28 days from the last anchor), the new rounds'
+--     weeks overlap the old grid and derive_duel_round (0184) re-derives those
+--     weeks under the new boundaries, replacing the derived rows for them: that
+--     is the game's own rule (rounds restart with the season), but it is the
+--     one place this migration can change figures already on screen.
 --
 -- Seasons are shared by every alliance: they are facts about the game, like the
 -- hero catalogue, so writing needs catalogue.write.

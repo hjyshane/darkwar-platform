@@ -64,6 +64,10 @@ describe('currentBuildings', () => {
     expect(currentBuildings(undefined, NOW)).toHaveLength(11);
     expect(currentBuildings([], NOW)).toHaveLength(11);
   });
+  it('a started season with no buildings named yet falls back to the last one that has some', () => {
+    const empty: Season = { ...season(4, '2026-09-28T02:00:00Z'), buildings: [] };
+    expect(currentBuildings([season(3, '2026-08-17T02:00:00Z'), empty], NOW)[0]?.name).toBe('B3');
+  });
 });
 
 describe('UTC date boxes', () => {
