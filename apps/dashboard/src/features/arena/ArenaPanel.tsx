@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Tabs } from '../../components/ui/Tabs';
 import { compareLeagues, leagueLabel, leagueScope } from '../../lib/arenaLeague';
 import { formatAge } from '../../lib/freshness';
 import { supabase } from '../../lib/supabase';
@@ -88,34 +89,39 @@ export function ArenaPanel({ now }: { now?: Date }) {
   return (
     <section aria-labelledby="arena-heading">
       <h2 id="arena-heading">{TERMS.arena}</h2>
-      {boards.isPending && <p className="empty">Loading…</p>}
+      {boards.isPending && <p className="empty loading">Loading…</p>}
       {boards.error && <p className="error">Could not load arena: {boards.error.message}</p>}
       {boards.data && boards.data.length === 0 && <p className="empty">No arena snapshot yet.</p>}
 
       {boards.data && boards.data.length > 0 && (
         <>
-          <div role="tablist" aria-label="Arena league">
-            {boards.data.map((board) => (
-              <button
-                key={board.snapshot_id}
-                type="button"
-                role="tab"
-                aria-selected={board.snapshot_id === selected?.snapshot_id}
-                onClick={() => setChosen(board.league)}
-              >
-                {leagueLabel(board.league)}
-                {/* The age rides on the tab because the two boards are
-                    captured separately and can drift apart. A league nobody
-                    has captured this week still gets its tab and its data —
-                    it says how old it is instead of vanishing. */}
-                <span className="subtle"> · {formatAge(board.captured_at, now ?? new Date())}</span>
-              </button>
-            ))}
-          </div>
+          <Tabs
+            label="Arena league"
+            items={boards.data.map((board) => ({
+              id: board.snapshot_id,
+              label: (
+                <>
+                  {leagueLabel(board.league)}
+                  {/* The age rides on the tab because the two boards are
+                      captured separately and can drift apart. A league nobody
+                      has captured this week still gets its tab and its data —
+                      it says how old it is instead of vanishing. */}
+                  <span className="subtle">
+                    {' '}
+                    · {formatAge(board.captured_at, now ?? new Date())}
+                  </span>
+                </>
+              ),
+            }))}
+            value={selected?.snapshot_id}
+            onChange={(snapshotId) =>
+              setChosen(boards.data.find((board) => board.snapshot_id === snapshotId)?.league)
+            }
+          />
           {selected && leagueScope(selected.league) && (
             <p className="subtle">{leagueScope(selected.league)}</p>
           )}
-          {entries.isPending && <p className="empty">Loading…</p>}
+          {entries.isPending && <p className="empty loading">Loading…</p>}
           {entries.error && <p className="error">Could not load arena: {entries.error.message}</p>}
           {selected && entries.data && (
             <ArenaTable header={selected} entries={entries.data} now={now} />

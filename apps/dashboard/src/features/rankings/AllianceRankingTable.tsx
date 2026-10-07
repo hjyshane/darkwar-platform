@@ -4,6 +4,8 @@ import { FavouriteButton } from '../../components/FavouriteButton';
 import { FavouritesFilter } from '../../components/FavouritesFilter';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
 import { TableSearch } from '../../components/TableSearch';
+import { BarCell } from '../../components/ui/BarCell';
+import { RankMedal } from '../../components/ui/RankMedal';
 import { allianceHash, serverHash } from '../../lib/route';
 import type { ColumnSpec } from '../../lib/tableLayout';
 import { TERMS } from '../../lib/terms';
@@ -67,6 +69,10 @@ export function AllianceRankingTable({
     { key: 'power', direction: 'desc' },
   );
 
+  // Bars scale to the strongest alliance in the whole list, not the filtered
+  // view, so searching does not make a weak alliance look dominant.
+  const maxPower = useMemo(() => Math.max(0, ...rows.map((row) => row.power ?? 0)), [rows]);
+
   // Above the early return: hooks cannot be skipped.
   const columns = useMemo<Column<AllianceRankingRow>[]>(
     () => [
@@ -79,6 +85,7 @@ export function AllianceRankingTable({
         fixed: true,
         cell: (row) => (
           <>
+            <RankMedal rank={row.rank} />{' '}
             {signedIn && (
               <FavouriteButton
                 id={row.alliance_id}
@@ -107,7 +114,12 @@ export function AllianceRankingTable({
         label: TERMS.power,
         sortKey: 'power',
         numeric: true,
-        cell: (row) => (row.power === null ? '—' : numberFormat.format(row.power)),
+        cell: (row) => (
+          <span className="figure-bar">
+            {row.power === null ? '—' : numberFormat.format(row.power)}
+            <BarCell lead={row.rank === 1} max={maxPower} value={row.power} />
+          </span>
+        ),
       },
       {
         id: 'members',
@@ -124,7 +136,7 @@ export function AllianceRankingTable({
         cell: (row) => <FreshnessBadge capturedAt={row.captured_at} now={now} />,
       },
     ],
-    [signedIn, isFavourite, toggle, now],
+    [signedIn, isFavourite, toggle, now, maxPower],
   );
 
   if (rows.length === 0) {

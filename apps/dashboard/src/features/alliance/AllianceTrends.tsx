@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { LineChart } from '../../components/LineChart';
 import { StatTile } from '../../components/StatTile';
+import { Sparkline } from '../../components/ui/Sparkline';
 import { type Point, type Series, forwardFill, thin } from '../../lib/series';
 import { supabase } from '../../lib/supabase';
 
@@ -297,7 +298,7 @@ export function AllianceTrends({
   });
 
   if (isPending) {
-    return <p className="empty">Loading…</p>;
+    return <p className="empty loading">Loading…</p>;
   }
   if (error) {
     return <p className="error">Could not load the trends: {error.message}</p>;
@@ -418,6 +419,7 @@ export function AllianceTrends({
               <StatTile
                 hero
                 label="Total power"
+                spark={<Sparkline values={usable.map((row) => row.total_power)} />}
                 note={`over ${usable.length} complete capture${usable.length === 1 ? '' : 's'}`}
                 value={latest.total_power === null ? null : bigValue(latest.total_power)}
               />
@@ -441,6 +443,7 @@ export function AllianceTrends({
               />
               <StatTile
                 label="Mean tower level"
+                spark={<Sparkline values={usable.map((row) => row.avg_hq_level)} />}
                 note={
                   hqChange === null
                     ? undefined
@@ -453,6 +456,7 @@ export function AllianceTrends({
                 it fall as people levelled past it. */}
               <StatTile
                 label="Tower 35 or higher"
+                spark={<Sparkline values={usable.map((row) => row.members_at_hq35)} />}
                 note={`of ${latest.observed_members} members seen`}
                 value={plain.format(latest.members_at_hq35)}
               />
@@ -533,11 +537,13 @@ export function AllianceTrends({
                 <StatTile
                   hero
                   label="Donated, latest day"
+                  spark={<Sparkline values={donation.points.map((point) => point.v)} />}
                   note={lastDayNote(donation)}
                   value={lastValue(donation, wholeValue)}
                 />
                 <StatTile
                   label="Duel points, latest day"
+                  spark={<Sparkline values={duel.points.map((point) => point.v)} />}
                   note={lastDayNote(duel)}
                   value={lastValue(duel, bigValue)}
                 />

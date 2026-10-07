@@ -211,7 +211,7 @@ export function AlliancePage({ allianceId, now }: { allianceId: string; now?: Da
   if (isPending) {
     return (
       <main>
-        <p className="empty">Loading…</p>
+        <p className="empty loading">Loading…</p>
       </main>
     );
   }

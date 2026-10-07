@@ -89,7 +89,7 @@ export function CollectorHealth({ now }: { now?: Date }) {
   return (
     <>
       <h3>Collectors</h3>
-      {collectors.isPending && <p className="empty">Loading…</p>}
+      {collectors.isPending && <p className="empty loading">Loading…</p>}
       {collectors.error && (
         <p className="error">Could not load collectors: {collectors.error.message}</p>
       )}
@@ -154,7 +154,7 @@ export function CollectorHealth({ now }: { now?: Date }) {
       )}
 
       <h3>Recent runs</h3>
-      {runs.isPending && <p className="empty">Loading…</p>}
+      {runs.isPending && <p className="empty loading">Loading…</p>}
       {runs.error && <p className="error">Could not load runs: {runs.error.message}</p>}
       {runs.data?.length === 0 && <p className="empty">No workflow has reported a run yet.</p>}
       {runs.data && runs.data.length > 0 && (

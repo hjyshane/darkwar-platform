@@ -18,6 +18,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
+import { Tabs } from '../../components/ui/Tabs';
 import { AccountBar, ManualBanner } from './AccountBar';
 import { Breakdown } from './Breakdown';
 import { BuildingPicker } from './BuildingPicker';
@@ -337,19 +338,13 @@ export function PlannerPage() {
 
       <section aria-labelledby="planner-goals">
         <h3 id="planner-goals">What to raise</h3>
-        <div aria-label="What to raise" className="planner-tabs" role="tablist">
-          {SECTIONS.map(([value, label]) => (
-            <button
-              aria-selected={section === value}
-              key={value}
-              onClick={() => setSection(value)}
-              role="tab"
-              type="button"
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <Tabs
+          label="What to raise"
+          className="planner-tabs"
+          items={SECTIONS.map(([value, label]) => ({ id: value, label }))}
+          value={section}
+          onChange={setSection}
+        />
         <div className="planner-picker" role="tabpanel">
           {section === 'building' && (
             <BuildingPicker

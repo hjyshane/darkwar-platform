@@ -13,6 +13,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { SortableTh } from '../../components/SortableTh';
+import { BarCell } from '../../components/ui/BarCell';
+import { Select } from '../../components/ui/Select';
+import { Tabs } from '../../components/ui/Tabs';
 import { isAllowed, usePermissions } from '../../lib/permissions';
 import { type SortState, nextSort } from '../../lib/tableControls';
 import { useSession } from '../../lib/useSession';
@@ -79,7 +82,10 @@ function DaysCell({
           ●
         </span>
       )}
-      {scored}/{read}
+      <span className="figure-bar">
+        {scored}/{read}
+        <BarCell low={low} max={read} value={scored} />
+      </span>
     </td>
   );
 }
@@ -144,8 +150,13 @@ function TypedCell({ tally }: { tally: TypedTally | undefined }) {
           ●
         </span>
       )}
-      {tally.attended}/{tally.held}
-      {unrecorded > 0 && <span className="muted"> ?{unrecorded}</span>}
+      <span className="figure-bar">
+        <span>
+          {tally.attended}/{tally.held}
+          {unrecorded > 0 && <span className="muted"> ?{unrecorded}</span>}
+        </span>
+        <BarCell low={low} max={tally.held} value={tally.attended} />
+      </span>
     </td>
   );
 }
@@ -239,55 +250,42 @@ export function ParticipationPage() {
       <h2 id="participation-heading">Participation</h2>
 
       <div className="row">
-        <div role="tablist" aria-label="Period">
-          {KIND_LABELS.map(([id, label]) => (
-            <button
-              aria-selected={kind === id}
-              key={id}
-              onClick={() => setKind(id)}
-              role="tab"
-              type="button"
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <Tabs
+          label="Period"
+          items={KIND_LABELS.map(([id, label]) => ({ id, label }))}
+          value={kind}
+          onChange={setKind}
+        />
         {kind === 'round' && (
           <label>
             Round{' '}
-            <select
-              onChange={(event) => setRoundIndex(Number(event.target.value))}
-              value={roundIndex}
-            >
+            <Select onChange={(chosen) => setRoundIndex(Number(chosen))} value={roundIndex}>
               {rounds.map((round, index) => (
                 <option key={round.from} value={index}>
                   {round.label}
                   {index === 0 ? ' (current)' : ''}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
         )}
         {kind === 'week' && (
           <label>
             Week{' '}
-            <select
-              onChange={(event) => setWeekIndex(Number(event.target.value))}
-              value={weekIndex}
-            >
+            <Select onChange={(chosen) => setWeekIndex(Number(chosen))} value={weekIndex}>
               {weeks.map((week, index) => (
                 <option key={week.from} value={index}>
                   {week.label}
                   {index === 0 ? ' (this week)' : ''}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
         )}
         {kind === 'season' && <span className="subtle">{season.label}</span>}
       </div>
 
-      {report.isPending && <p className="empty">Loading…</p>}
+      {report.isPending && <p className="empty loading">Loading…</p>}
       {report.error && (
         <p className="error">Could not load participation: {report.error.message}</p>
       )}
@@ -298,19 +296,13 @@ export function ParticipationPage() {
       {rows.length > 0 && (
         <>
           <Summary kinds={eventKinds} rows={rows} />
-          <div aria-label="Report" className="row" role="tablist">
-            {BOARDS.map(([id, label]) => (
-              <button
-                aria-selected={board === id}
-                key={id}
-                onClick={() => setBoard(id)}
-                role="tab"
-                type="button"
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          <Tabs
+            label="Report"
+            className="row"
+            items={BOARDS.map(([id, label]) => ({ id, label }))}
+            value={board}
+            onChange={setBoard}
+          />
           <div className="table-wrap">
             <table className="compact">
               <thead>

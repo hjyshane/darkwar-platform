@@ -31,6 +31,7 @@ export function StatTile({
   note,
   hero = false,
   tone,
+  spark,
 }: {
   /** Sentence case, no trailing colon. */
   label: string;
@@ -43,6 +44,9 @@ export function StatTile({
   /** Only for signed changes. `flat` is deliberately the ordinary colour: no
    * change is not a third state deserving a hue, it is the absence of one. */
   tone?: 'up' | 'down' | 'flat';
+  /** A trend line under the figure. Decoration: the value above already says
+   * where it stands, so it is hidden from assistive tech. */
+  spark?: ReactNode;
 }) {
   const toneClass = tone === 'up' ? ' growth-up' : tone === 'down' ? ' growth-down' : '';
   return (
@@ -52,6 +56,11 @@ export function StatTile({
           that donated nothing and an alliance we have not looked at are not
           the same fact, and only one of them is worth acting on. */}
       <div className={`stat-value${toneClass}`}>{value ?? '—'}</div>
+      {spark && (
+        <div aria-hidden="true" className="stat-spark">
+          {spark}
+        </div>
+      )}
       {note && <div className="stat-note">{note}</div>}
     </div>
   );

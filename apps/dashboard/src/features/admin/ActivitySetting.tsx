@@ -108,7 +108,7 @@ export function ActivitySetting() {
         Days run 02:00 to 02:00 UTC, like the game week.
       </p>
 
-      {isPending && <p className="empty">Loading…</p>}
+      {isPending && <p className="empty loading">Loading…</p>}
       {error && <p className="error">Could not load it: {error.message}</p>}
       {data !== undefined && data.length === 0 && <p className="empty">Nobody to score yet.</p>}
       {data !== undefined && data.length > 0 && (

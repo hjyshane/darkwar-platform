@@ -3,6 +3,7 @@
 // account holds. Stock is edited in one place, the list at the top of the
 // page (StockPanel); here it is only read.
 
+import { BarCell } from '../../components/ui/BarCell';
 import { GameIcon, useIcons, useItemIcons } from '../../lib/gameIcons';
 import { exact, short } from './format';
 import { type Tiers, levelText } from './levels';
@@ -32,6 +33,10 @@ export function Breakdown({ steps, goalNames, buffs, tiers, nameOf, have }: Brea
     seconds.buildSeconds + seconds.researchSeconds > 0
       ? duration(seconds.buildSeconds + seconds.researchSeconds)
       : null;
+
+  // How many of the needed materials the account already covers in full, for
+  // the strip above the table.
+  const covered = sums.materials.filter((m) => have(m.type, m.id) >= m.amount).length;
 
   return (
     <>
@@ -84,6 +89,18 @@ export function Breakdown({ steps, goalNames, buffs, tiers, nameOf, have }: Brea
         {sums.researchSeconds > 0 && `, research time ${duration(sums.researchSeconds)}`} after
         buffs.
       </p>
+      {sums.materials.length > 0 && (
+        <div className="coverage">
+          <BarCell
+            done={covered === sums.materials.length}
+            max={sums.materials.length}
+            value={covered}
+          />
+          <span className="coverage-text">
+            {covered} of {sums.materials.length} materials covered
+          </span>
+        </div>
+      )}
       <div className="table-wrap">
         <table className="compact">
           <thead>
@@ -99,6 +116,9 @@ export function Breakdown({ steps, goalNames, buffs, tiers, nameOf, have }: Brea
               </th>
               <th className="num" scope="col">
                 Missing
+              </th>
+              <th scope="col">
+                <span className="visually-hidden">Covered</span>
               </th>
             </tr>
           </thead>
@@ -120,6 +140,9 @@ export function Breakdown({ steps, goalNames, buffs, tiers, nameOf, have }: Brea
                   </td>
                   <td className={`num${missing > 0 ? ' error' : ''}`}>
                     {missing > 0 ? <Amount value={missing} /> : '✓'}
+                  </td>
+                  <td>
+                    <BarCell done={missing === 0} max={m.amount} value={Math.min(held, m.amount)} />
                   </td>
                 </tr>
               );

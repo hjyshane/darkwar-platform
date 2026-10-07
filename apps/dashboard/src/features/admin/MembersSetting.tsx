@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Select } from '../../components/ui/Select';
 import { APP_ROLES, type AppRole, GAME_RANKS } from '../../lib/permissions';
 import { supabase } from '../../lib/supabase';
 import { useActiveAlliance } from '../../lib/useMyAlliances';
@@ -410,7 +411,7 @@ export function MembersSetting() {
   });
 
   if (isPending) {
-    return <p className="empty">Loading…</p>;
+    return <p className="empty loading">Loading…</p>;
   }
   if (error) {
     return <p className="error">Could not load members: {error.message}</p>;
@@ -501,20 +502,22 @@ export function MembersSetting() {
                     <td className="label">{player?.current_name ?? claim.player_id}</td>
                     <td>{claim.note ?? '—'}</td>
                     <td>
-                      <button
-                        disabled={decide.isPending}
-                        onClick={() => decide.mutate({ userId: claim.user_id, approve: true })}
-                        type="button"
-                      >
-                        Approve
-                      </button>{' '}
-                      <button
-                        disabled={decide.isPending}
-                        onClick={() => decide.mutate({ userId: claim.user_id, approve: false })}
-                        type="button"
-                      >
-                        Reject
-                      </button>
+                      <span className="actions">
+                        <button
+                          disabled={decide.isPending}
+                          onClick={() => decide.mutate({ userId: claim.user_id, approve: true })}
+                          type="button"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          disabled={decide.isPending}
+                          onClick={() => decide.mutate({ userId: claim.user_id, approve: false })}
+                          type="button"
+                        >
+                          Reject
+                        </button>
+                      </span>
                     </td>
                   </tr>
                 );
@@ -572,12 +575,10 @@ export function MembersSetting() {
                     )}
                   </td>
                   <td className="label">
-                    <select
+                    <Select
                       aria-label={`Role for ${member.display_name ?? member.user_id}`}
                       disabled={setRole.isPending || (member.alliance_role === 'admin' && !isAdmin)}
-                      onChange={(event) =>
-                        setRole.mutate({ member, role: event.target.value as AppRole })
-                      }
+                      onChange={(chosen) => setRole.mutate({ member, role: chosen as AppRole })}
                       value={member.alliance_role}
                     >
                       {/* Admin is offered only to an admin: the database refuses
@@ -590,18 +591,18 @@ export function MembersSetting() {
                           {role}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </td>
                   <td className="label">
-                    <select
+                    <Select
                       aria-label={`Alliance rank for ${member.display_name ?? member.user_id}`}
                       disabled={save.isPending}
-                      onChange={(event) =>
+                      onChange={(chosen) =>
                         save.mutate({
                           userId: member.user_id,
                           // Blank is null: "not recorded" is a state, and R1
                           // is not a sensible default for it.
-                          patch: { game_rank: event.target.value || null },
+                          patch: { game_rank: chosen || null },
                         })
                       }
                       value={member.game_rank ?? ''}
@@ -612,16 +613,16 @@ export function MembersSetting() {
                           {rank}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </td>
                   <td className="label">
-                    <select
+                    <Select
                       aria-label={`Player for ${member.display_name ?? member.user_id}`}
                       disabled={save.isPending}
-                      onChange={(event) =>
+                      onChange={(chosen) =>
                         save.mutate({
                           userId: member.user_id,
-                          patch: { player_id: event.target.value || null },
+                          patch: { player_id: chosen || null },
                         })
                       }
                       value={member.player_id ?? ''}
@@ -632,7 +633,7 @@ export function MembersSetting() {
                           {player.current_name ?? player.player_id.slice(0, 8)}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </td>
                   <td>
                     {/* Already a viewer: there is nothing left to take, and a

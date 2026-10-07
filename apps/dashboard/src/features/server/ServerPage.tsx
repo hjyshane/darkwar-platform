@@ -81,7 +81,7 @@ export function ServerPage({ serverId }: { serverId: number }) {
         <p className="empty">
           <a href="#/cross-server">← {TERMS.crossServerRanking}</a>
         </p>
-        {isPending && <p className="empty">Loading…</p>}
+        {isPending && <p className="empty loading">Loading…</p>}
         {error && (
           <p className="error">
             Could not load server {serverId}: {error.message}

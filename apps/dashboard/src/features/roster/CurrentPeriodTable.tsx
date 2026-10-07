@@ -78,7 +78,7 @@ export function CurrentPeriodTable() {
   const { data: minimums } = useRankMinimums();
 
   if (isPending) {
-    return <p className="empty">Loading…</p>;
+    return <p className="empty loading">Loading…</p>;
   }
   if (error) {
     return <p className="error">Could not load this fortnight: {(error as Error).message}</p>;

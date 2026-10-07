@@ -110,7 +110,7 @@ export function BoardPostPage({
   if (isPending) {
     return (
       <main>
-        <p className="empty">Loading…</p>
+        <p className="empty loading">Loading…</p>
       </main>
     );
   }

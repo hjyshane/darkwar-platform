@@ -26,6 +26,12 @@
     "enabled": true,
     "rules": {
       "recommended": true,
+      "a11y": {
+        "noLabelWithoutControl": {
+          "level": "error",
+          "options": { "inputComponents": ["Select"] }
+        }
+      },
       "correctness": {
         "noUnusedVariables": "error",
         "useExhaustiveDependencies": "warn"
@@ -40,6 +46,21 @@
       }
     }
   },
+  "overrides": [
+    {
+      "include": ["apps/dashboard/src/components/ui/Select.tsx"],
+      "linter": {
+        "rules": {
+          "a11y": {
+            "useSemanticElements": "off",
+            "noNoninteractiveElementToInteractiveRole": "off",
+            "useFocusableInteractive": "off",
+            "useKeyWithClickEvents": "off"
+          }
+        }
+      }
+    }
+  ],
   "javascript": {
     "formatter": {
       "quoteStyle": "single",

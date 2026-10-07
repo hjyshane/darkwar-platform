@@ -79,7 +79,7 @@ export function OverviewMetricsSetting() {
   );
 
   if (isPending || chosen === null) {
-    return <p className="empty">Loading…</p>;
+    return <p className="empty loading">Loading…</p>;
   }
   if (error) {
     return <p className="error">Could not load the setting: {error.message}</p>;

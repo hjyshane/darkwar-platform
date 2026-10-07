@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { ArrangedTable, type Column } from '../../components/ArrangedTable';
 import { TableSearch } from '../../components/TableSearch';
+import { BarCell } from '../../components/ui/BarCell';
 import { playerHash } from '../../lib/route';
 import type { ColumnSpec } from '../../lib/tableLayout';
 import { TERMS } from '../../lib/terms';
@@ -46,6 +47,8 @@ export function AllianceMemberTable({ members }: { members: readonly AllianceMem
     { key: 'power', direction: 'desc' },
   );
 
+  const maxPower = useMemo(() => Math.max(0, ...members.map((row) => row.power ?? 0)), [members]);
+
   const columns = useMemo<Column<AllianceMemberRow>[]>(
     () => [
       {
@@ -76,10 +79,15 @@ export function AllianceMemberTable({ members }: { members: readonly AllianceMem
         label: TERMS.power,
         sortKey: 'power',
         numeric: true,
-        cell: (row) => (row.power === null ? '—' : numberFormat.format(row.power)),
+        cell: (row) => (
+          <span className="figure-bar">
+            {row.power === null ? '—' : numberFormat.format(row.power)}
+            <BarCell max={maxPower} value={row.power} />
+          </span>
+        ),
       },
     ],
-    [],
+    [maxPower],
   );
 
   return (

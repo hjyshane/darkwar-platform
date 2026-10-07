@@ -8,6 +8,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Select } from '../../components/ui/Select';
 import {
   type EventKind,
   type Mark,
@@ -97,9 +98,9 @@ export function AttendanceRecorder({
       <div className="row">
         <label>
           Event{' '}
-          <select
-            onChange={(event) => {
-              setKind(event.target.value);
+          <Select
+            onChange={(chosen) => {
+              setKind(chosen);
               setDraft(new Map());
               setNote(null);
             }}
@@ -110,14 +111,14 @@ export function AttendanceRecorder({
                 {entry.label}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         {(days.data ?? []).length > 0 && (
           <label>
             Held{' '}
-            <select
-              onChange={(event) => {
-                setHeldOn(event.target.value);
+            <Select
+              onChange={(chosen) => {
+                setHeldOn(chosen);
                 setDraft(new Map());
                 setNote(null);
               }}
@@ -130,7 +131,7 @@ export function AttendanceRecorder({
                   {day.note ? ` · ${day.note}` : ''}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
         )}
         <label>
@@ -155,7 +156,7 @@ export function AttendanceRecorder({
       </div>
 
       {stored.isPending ? (
-        <p className="empty">Loading…</p>
+        <p className="empty loading">Loading…</p>
       ) : stored.error ? (
         <p className="error">Could not load this day: {stored.error.message}</p>
       ) : (

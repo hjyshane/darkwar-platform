@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
+import { Tabs } from '../../components/ui/Tabs';
 import { floorsFor, useSeasonBuildingAlert } from '../../lib/seasonBuildingAlert';
 import { TERMS } from '../../lib/terms';
 import { SeasonAllianceTable } from './SeasonAllianceTable';
@@ -95,20 +96,13 @@ export function SeasonPanel() {
       {/* The boards describe different subjects, so this switches the whole
           table rather than a column. Tabs, not links: all of them live at
           this address. */}
-      <div role="tablist" aria-label="Season board">
-        {BOARD_LABELS.map((candidate) => (
-          <button
-            key={candidate.id}
-            type="button"
-            role="tab"
-            aria-selected={candidate.id === boardId}
-            onClick={() => setBoardId(candidate.id)}
-          >
-            {candidate.label}
-          </button>
-        ))}
-      </div>
-      {active?.isPending && <p className="empty">Loading…</p>}
+      <Tabs
+        label="Season board"
+        items={BOARD_LABELS.map((candidate) => ({ id: candidate.id, label: candidate.label }))}
+        value={boardId}
+        onChange={setBoardId}
+      />
+      {active?.isPending && <p className="empty loading">Loading…</p>}
       {active?.error && (
         <p className="error">Could not load season board: {active.error.message}</p>
       )}

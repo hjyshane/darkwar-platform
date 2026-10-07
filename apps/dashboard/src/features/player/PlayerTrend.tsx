@@ -122,7 +122,7 @@ export function PlayerTrend({ playerId }: { playerId: string }) {
   });
 
   if (isPending) {
-    return <p className="empty">Loading…</p>;
+    return <p className="empty loading">Loading…</p>;
   }
   if (error) {
     return <p className="error">Could not load the history: {error.message}</p>;

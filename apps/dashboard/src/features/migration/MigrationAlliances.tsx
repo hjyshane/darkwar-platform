@@ -35,7 +35,7 @@ export function MigrationAlliances({ eventId }: { eventId: string }) {
     staleTime: 5 * 60_000,
   });
 
-  if (alliances.isPending) return <p className="empty">Loading…</p>;
+  if (alliances.isPending) return <p className="empty loading">Loading…</p>;
   if (alliances.error) return <p className="error">{alliances.error.message}</p>;
 
   const rows = rostersOnly ? alliances.data.filter(hasRoster) : alliances.data;

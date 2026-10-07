@@ -1,6 +1,8 @@
 import type { Coordinate } from '@dw/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Select } from '../../components/ui/Select';
+import { Tabs } from '../../components/ui/Tabs';
 import {
   footprintOf,
   formatTeleport,
@@ -98,7 +100,7 @@ export function HivePage() {
   const members = useAssignableMembers();
 
   if (allFormations.isPending) {
-    return <p className="empty">Loading…</p>;
+    return <p className="empty loading">Loading…</p>;
   }
   if (allFormations.error) {
     return (
@@ -127,9 +129,9 @@ export function HivePage() {
           <div className="hive-picker">
             <label>
               <span>Server</span>
-              <select
-                onChange={(event) => {
-                  setChosenServer(Number.parseInt(event.target.value, 10));
+              <Select
+                onChange={(chosen) => {
+                  setChosenServer(Number.parseInt(chosen, 10));
                   setChosenFormation(null);
                 }}
                 value={serverId ?? ''}
@@ -139,12 +141,12 @@ export function HivePage() {
                     {id}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
             <label>
               <span>Formation</span>
-              <select
-                onChange={(event) => setChosenFormation(event.target.value)}
+              <Select
+                onChange={(chosen) => setChosenFormation(chosen)}
                 value={formation.formationId}
               >
                 {formations.map((candidate) => (
@@ -153,7 +155,7 @@ export function HivePage() {
                     {candidate.isActive ? ' · live' : ''}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
           </div>
 
@@ -163,19 +165,12 @@ export function HivePage() {
               every control, and back up again to save. Members never see the
               tabs: the plan is all they have. */}
           {mayPlan && (
-            <div aria-label="Hive view" role="tablist">
-              {HIVE_TABS.map((candidate) => (
-                <button
-                  aria-selected={candidate.id === tab}
-                  key={candidate.id}
-                  onClick={() => setTab(candidate.id)}
-                  role="tab"
-                  type="button"
-                >
-                  {candidate.label}
-                </button>
-              ))}
-            </div>
+            <Tabs
+              label="Hive view"
+              items={HIVE_TABS.map((candidate) => ({ id: candidate.id, label: candidate.label }))}
+              value={tab}
+              onChange={setTab}
+            />
           )}
 
           {/* Keyed by the formation so switching plans starts the view over.

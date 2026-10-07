@@ -149,7 +149,7 @@ export function ManualRosterSetting() {
 
       <h3>On the roster now ({members.length})</h3>
       {roster.isPending ? (
-        <p className="empty">Loading…</p>
+        <p className="empty loading">Loading…</p>
       ) : roster.error ? (
         <p className="error">Could not load the roster: {roster.error.message}</p>
       ) : members.length === 0 ? (

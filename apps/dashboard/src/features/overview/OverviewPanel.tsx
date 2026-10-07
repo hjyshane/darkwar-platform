@@ -256,7 +256,7 @@ export function OverviewPanel({ now }: { now?: Date }) {
         )}
       </h2>
 
-      {isPending && <p className="empty">Loading…</p>}
+      {isPending && <p className="empty loading">Loading…</p>}
       {error && <p className="error">Could not load the summary: {error.message}</p>}
 
       {data && data.values.members === null && (

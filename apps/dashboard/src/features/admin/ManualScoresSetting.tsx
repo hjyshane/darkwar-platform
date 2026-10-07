@@ -1,6 +1,7 @@
 import { resetWeekStart } from '@dw/game-clock';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Select } from '../../components/ui/Select';
 import { supabase } from '../../lib/supabase';
 
 /** The last `count` game weeks, newest first, each named by its reset
@@ -183,9 +184,9 @@ export function ManualScoresSetting() {
       </p>
       <label>
         Week starting{' '}
-        <select
-          onChange={(event) => {
-            setWeek(event.target.value);
+        <Select
+          onChange={(chosen) => {
+            setWeek(chosen);
             setDraft(new Map());
             setNote(null);
           }}
@@ -197,11 +198,11 @@ export function ManualScoresSetting() {
               {index === 0 ? ' (this week)' : ''}
             </option>
           ))}
-        </select>
+        </Select>
       </label>
 
       {isPending ? (
-        <p className="empty">Loading…</p>
+        <p className="empty loading">Loading…</p>
       ) : error ? (
         <p className="error">Could not load this week: {error.message}</p>
       ) : rows.length === 0 ? (

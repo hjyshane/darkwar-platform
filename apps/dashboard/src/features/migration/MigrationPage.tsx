@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Select } from '../../components/ui/Select';
+import { Tabs } from '../../components/ui/Tabs';
 import { isAllowed, usePermissions } from '../../lib/permissions';
 import { SERVER_ZONE, zonedDayKey, zonedTime } from '../../lib/timezone';
 import { useSession } from '../../lib/useSession';
@@ -49,7 +51,7 @@ export function MigrationPage() {
     <section aria-labelledby="migration-heading">
       <h2 id="migration-heading">Server migration</h2>
 
-      {events.isPending && <p className="empty">Loading…</p>}
+      {events.isPending && <p className="empty loading">Loading…</p>}
       {events.error && <p className="error">{events.error.message}</p>}
       {events.data && list.length === 0 && (
         <p className="empty">
@@ -62,13 +64,13 @@ export function MigrationPage() {
         {list.length > 1 && (
           <label>
             Migration{' '}
-            <select value={event?.event_id} onChange={(e) => setChosen(e.target.value)}>
+            <Select value={event?.event_id ?? ''} onChange={setChosen}>
               {list.map((e) => (
                 <option key={e.event_id} value={e.event_id}>
                   {e.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
         )}
         {mayManage && (
@@ -103,19 +105,12 @@ export function MigrationPage() {
         <>
           <h3>{event.name}</h3>
           <Window event={event} />
-          <div role="tablist" aria-label="Migration views">
-            {VIEWS.map((v) => (
-              <button
-                key={v.view}
-                type="button"
-                role="tab"
-                aria-selected={v.view === view}
-                onClick={() => setView(v.view)}
-              >
-                {v.label}
-              </button>
-            ))}
-          </div>
+          <Tabs
+            label="Migration views"
+            items={VIEWS.map((v) => ({ id: v.view, label: v.label }))}
+            value={view}
+            onChange={setView}
+          />
           {view === 'servers' && <MigrationServers eventId={event.event_id} />}
           {view === 'top' && <MigrationTopBoard eventId={event.event_id} />}
           {view === 'alliances' && <MigrationAlliances eventId={event.event_id} />}

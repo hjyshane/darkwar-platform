@@ -1,4 +1,5 @@
 import { useId } from 'react';
+import { Select } from '../../components/ui/Select';
 import type { ScheduleCategory, ScheduleDraft } from './schedule';
 
 /** The form behind an entry.
@@ -109,9 +110,9 @@ export function ScheduleEditor({
           </div>
           <div className="field">
             <label htmlFor={`${formId}-category`}>Board</label>
-            <select
+            <Select
               id={`${formId}-category`}
-              onChange={(e) => onChange({ ...draft, category: e.target.value })}
+              onChange={(chosen) => onChange({ ...draft, category: chosen })}
               value={draft.category}
             >
               <option value="">None</option>
@@ -120,7 +121,7 @@ export function ScheduleEditor({
                   {entry.label}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
         </div>
 
@@ -140,16 +141,16 @@ export function ScheduleEditor({
             <div className="schedule-row">
               <div className="field">
                 <label htmlFor={`${formId}-every`}>Every</label>
-                <select
+                <Select
                   id={`${formId}-every`}
-                  onChange={(e) =>
-                    onChange({ ...draft, repeatEvery: e.target.value as 'day' | 'week' })
+                  onChange={(chosen) =>
+                    onChange({ ...draft, repeatEvery: chosen as 'day' | 'week' })
                   }
                   value={draft.repeatEvery}
                 >
                   <option value="week">Week</option>
                   <option value="day">Day</option>
-                </select>
+                </Select>
               </div>
               <div className="field">
                 <label htmlFor={`${formId}-times`}>Times</label>

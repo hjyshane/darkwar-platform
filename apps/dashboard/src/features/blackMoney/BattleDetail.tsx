@@ -89,7 +89,7 @@ export function BattleDetail({ battle }: { battle: Battle }) {
         />
       </div>
 
-      {members.isPending && <p className="empty">Loading…</p>}
+      {members.isPending && <p className="empty loading">Loading…</p>}
       {members.error && (
         <p className="error">Could not load the members: {members.error.message}</p>
       )}
@@ -115,7 +115,7 @@ export function BattleDetail({ battle }: { battle: Battle }) {
       {showOpponent && (
         <>
           <h4>{opponentLabel(battle)} players</h4>
-          {opponents.isPending && <p className="empty">Loading…</p>}
+          {opponents.isPending && <p className="empty loading">Loading…</p>}
           {opponents.error && (
             <p className="error">Could not load the opponent: {opponents.error.message}</p>
           )}

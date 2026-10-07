@@ -25,7 +25,7 @@ export function MonthCardsPage() {
     <main>
       <section aria-labelledby="month-cards-heading">
         <h2 id="month-cards-heading">{TERMS.monthlyCard}</h2>
-        {isPending && <p className="empty">Loading…</p>}
+        {isPending && <p className="empty loading">Loading…</p>}
         {error && <p className="error">Could not load: {error.message}</p>}
         {data && <MonthCardTable rows={data} />}
       </section>

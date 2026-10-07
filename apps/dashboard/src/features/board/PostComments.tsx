@@ -290,7 +290,7 @@ export function Comments({ config, postId }: { config: BoardConfig; postId: stri
     return (
       <section className="comments">
         <h3>Comments</h3>
-        <p className="empty">Loading…</p>
+        <p className="empty loading">Loading…</p>
       </section>
     );
   }

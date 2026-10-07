@@ -3,6 +3,8 @@ import { ArrangedTable, type Column } from '../../components/ArrangedTable';
 import { FavouriteButton } from '../../components/FavouriteButton';
 import { FavouritesFilter } from '../../components/FavouritesFilter';
 import { TableSearch } from '../../components/TableSearch';
+import { BarCell } from '../../components/ui/BarCell';
+import { RankMedal } from '../../components/ui/RankMedal';
 import { playerHash } from '../../lib/route';
 import type { ColumnSpec } from '../../lib/tableLayout';
 import { TERMS } from '../../lib/terms';
@@ -67,6 +69,10 @@ export function ServerPlayerTable({
     { key: 'rank', direction: 'asc' },
   );
 
+  // Bars scale to the whole server, not the filtered view.
+  const maxPower = useMemo(() => Math.max(0, ...rows.map((row) => row.power ?? 0)), [rows]);
+  const maxKills = useMemo(() => Math.max(0, ...rows.map((row) => row.kills ?? 0)), [rows]);
+
   // Above the early return: hooks cannot be skipped.
   const columns = useMemo<Column<ServerPlayerRow>[]>(
     () => [
@@ -75,7 +81,7 @@ export function ServerPlayerTable({
         label: TERMS.rank,
         sortKey: 'rank',
         numeric: true,
-        cell: (row) => row.rank ?? '—',
+        cell: (row) => <RankMedal rank={row.rank} />,
       },
       {
         id: 'name',
@@ -105,17 +111,27 @@ export function ServerPlayerTable({
         label: TERMS.power,
         sortKey: 'power',
         numeric: true,
-        cell: (row) => formatNumber(row.power),
+        cell: (row) => (
+          <span className="figure-bar">
+            {formatNumber(row.power)}
+            <BarCell lead={row.rank === 1} max={maxPower} value={row.power} />
+          </span>
+        ),
       },
       {
         id: 'kills',
         label: TERMS.kills,
         sortKey: 'kills',
         numeric: true,
-        cell: (row) => formatNumber(row.kills),
+        cell: (row) => (
+          <span className="figure-bar">
+            {formatNumber(row.kills)}
+            <BarCell max={maxKills} value={row.kills} />
+          </span>
+        ),
       },
     ],
-    [signedIn, isFavourite, toggle],
+    [signedIn, isFavourite, toggle, maxPower, maxKills],
   );
 
   if (rows.length === 0) {

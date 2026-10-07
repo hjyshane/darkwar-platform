@@ -80,7 +80,7 @@ export function MigrationServers({ eventId }: { eventId: string }) {
     staleTime: STALE_TIME,
   });
 
-  if (servers.isPending || flows.isPending) return <p className="empty">Loading…</p>;
+  if (servers.isPending || flows.isPending) return <p className="empty loading">Loading…</p>;
   if (servers.error) return <p className="error">{servers.error.message}</p>;
   if (flows.error) return <p className="error">{flows.error.message}</p>;
   if (servers.data.length === 0) {

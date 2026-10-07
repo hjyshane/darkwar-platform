@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useId, useState } from 'react';
 import { ChannelField } from '../../components/ChannelField';
 import { MarkupEditor, TitleField } from '../../components/MarkupEditor';
+import { Select } from '../../components/ui/Select';
 import { isAllowed, usePermissions } from '../../lib/permissions';
 import { guideHash } from '../../lib/route';
 import { supabase } from '../../lib/supabase';
@@ -91,9 +92,9 @@ export function GuideEditor({
         </div>
         <div className="field field-narrow">
           <label htmlFor={`${formId}-kind`}>Kind</label>
-          <select
+          <Select
             id={`${formId}-kind`}
-            onChange={(event) => onChange({ ...draft, category: event.target.value })}
+            onChange={(chosen) => onChange({ ...draft, category: chosen })}
             value={draft.category}
           >
             {CATEGORIES.map((entry) => (
@@ -101,7 +102,7 @@ export function GuideEditor({
                 {entry.label}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
         <div className="field">
           <label htmlFor={`${formId}-body`}>Body</label>
@@ -259,7 +260,7 @@ export function GuidesPanel() {
       <section aria-labelledby="guides-list-heading">
         <h3 id="guides-list-heading">All guides</h3>
         {board.isPending ? (
-          <p className="empty">Loading…</p>
+          <p className="empty loading">Loading…</p>
         ) : board.data === undefined ? null : (
           <BoardList
             data={board.data}

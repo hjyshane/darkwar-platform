@@ -1,6 +1,7 @@
 import type { Coordinate } from '@dw/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
+import { Select } from '../../components/ui/Select';
 import {
   type AssignOrder,
   type AssignableMember,
@@ -1655,13 +1656,13 @@ export function FormationEditor({
               </label>
               <label>
                 <span>Kind</span>
-                <select
-                  onChange={(event) => setBrush({ ...brush, kind: event.target.value as TileKind })}
+                <Select
+                  onChange={(chosen) => setBrush({ ...brush, kind: chosen as TileKind })}
                   value={brush.kind}
                 >
                   <option value="base">Member base</option>
                   <option value="structure">Structure / marker</option>
-                </select>
+                </Select>
               </label>
             </div>
             <fieldset className="hive-swatches">
@@ -1891,16 +1892,13 @@ export function FormationEditor({
             <div className="hive-assign">
               <label>
                 <span>Fill in order of</span>
-                <select
-                  onChange={(event) => setOrder(event.target.value as AssignOrder)}
-                  value={order}
-                >
+                <Select onChange={(chosen) => setOrder(chosen as AssignOrder)} value={order}>
                   {ORDERS.map((option) => (
                     <option key={option} value={option}>
                       {assignOrderLabel(option)}
                     </option>
                   ))}
-                </select>
+                </Select>
               </label>
               <button
                 onClick={() => {
@@ -1978,13 +1976,13 @@ export function FormationEditor({
             <div className="hive-assign">
               <label>
                 <span>Sort the list by</span>
-                <select
-                  onChange={(event) => setTableSort(event.target.value as 'name' | 'tile')}
+                <Select
+                  onChange={(chosen) => setTableSort(chosen as 'name' | 'tile')}
                   value={tableSort}
                 >
                   <option value="name">Member name (A–Z)</option>
                   <option value="tile">Tile order (innermost first)</option>
-                </select>
+                </Select>
               </label>
               {/* THE TWO ORDERS ARE DIFFERENT QUESTIONS. Reading down for a
                 person wants the alphabet; checking that the middle went to
@@ -2073,11 +2071,11 @@ export function FormationEditor({
                       </td>
                       <td>{slot.label}</td>
                       <td>
-                        <select
-                          onChange={(event) => {
+                        <Select
+                          onChange={(chosen) => {
                             const next = new Map(assignments);
                             const pins = new Map(pinned);
-                            if (event.target.value === '') {
+                            if (chosen === '') {
                               next.delete(slot.slotId);
                               pins.delete(slot.slotId);
                             } else {
@@ -2086,15 +2084,15 @@ export function FormationEditor({
                               // that out from a database error message is a
                               // worse way to learn it.
                               for (const [key, value] of next) {
-                                if (value === event.target.value) {
+                                if (value === chosen) {
                                   next.delete(key);
                                   pins.delete(key);
                                 }
                               }
-                              next.set(slot.slotId, event.target.value);
+                              next.set(slot.slotId, chosen);
                               // Choosing somebody by hand IS a pin. Otherwise
                               // the next fill would quietly undo it.
-                              pins.set(slot.slotId, event.target.value);
+                              pins.set(slot.slotId, chosen);
                             }
                             setAssignments(next);
                             setPinned(pins);
@@ -2111,7 +2109,7 @@ export function FormationEditor({
                               {memberLabel(member)}
                             </option>
                           ))}
-                        </select>
+                        </Select>
                       </td>
                       <td>
                         <input

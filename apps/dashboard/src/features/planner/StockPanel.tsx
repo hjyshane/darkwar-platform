@@ -7,6 +7,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Tabs } from '../../components/ui/Tabs';
 import { GameIcon, useIcons, useItemIcons } from '../../lib/gameIcons';
 import { supabase } from '../../lib/supabase';
 import { fetchMaterialNames } from './data';
@@ -204,22 +205,23 @@ export function StockPanel({ have, onHave, edited }: StockPanelProps) {
         </span>
       </summary>
       {/* A tab per category; a search looks through all of them. */}
-      <div aria-label="Stock category" className="planner-tabs" role="tablist">
-        {sections.map(([label, rows]) => (
-          <button
-            aria-selected={needle === '' && label === shownGroup}
-            key={label}
-            onClick={() => {
-              setGroup(label);
-              setFilter('');
-            }}
-            role="tab"
-            type="button"
-          >
-            {label} ({rows.length})
-          </button>
-        ))}
-      </div>
+      <Tabs
+        label="Stock category"
+        className="planner-tabs"
+        items={sections.map(([label, rows]) => ({
+          id: label,
+          label: (
+            <>
+              {label} ({rows.length})
+            </>
+          ),
+        }))}
+        value={needle === '' ? shownGroup : null}
+        onChange={(label) => {
+          setGroup(label);
+          setFilter('');
+        }}
+      />
       <input
         aria-label="Find a material"
         className="planner-filter"
