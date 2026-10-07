@@ -67,7 +67,9 @@ export async function loadBook(
     ),
   );
   // The research a research goal needs first, all of it at once.
-  const researchGoals = goals.filter((goal) => goal.kind === 'research').map((goal) => goal.subject);
+  const researchGoals = goals
+    .filter((goal) => goal.kind === 'research')
+    .map((goal) => goal.subject);
   if (withPrerequisites && researchGoals.length > 0) {
     const bySubject = new Map<string, Step[]>();
     for (const step of await fetchResearchClosure(researchGoals)) {

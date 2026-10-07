@@ -125,6 +125,16 @@
 `game_icon_refs`(무엇이 어느 그림인지)는 멤버만 읽고(0232), 대시보드는 로그인한 세션으로 받아 간다.
 dev 픽스처에는 진짜 그림 대신 색 원을 쓴다.
 
+## 연구 선행 조건 (0243)
+
+`game-catalog`는 연구 단계마다 선행 조건도 `game_upgrade_steps.requires`에 쓴다.
+`aps_science.building_condition`(연구소 같은 건물 레벨, 건물 id = 종류+레벨)과
+`science_condition`(먼저 끝내야 하는 연구, `aps_science`의 행 id). 연구 쪽 조건에는
+`"kind": "research"`가 붙고, kind가 없으면 건물이다. **0243 마이그레이션을 푸시한 뒤 이 명령을 한 번 다시
+돌려야** 플래너가 선행 연구를 계산에 넣는다(돌리기 전에는 연구 단계에 조건이 없어 예전과 같다).
+확인: `select count(*) from game_upgrade_steps where kind='research' and jsonb_array_length(requires) > 0`
+가 4,000 대(2026-10 기준 4,349)면 된다.
+
 ## 언제 다시 돌리나
 
 게임 업데이트 뒤. `AssetBundles/*.version` 파일이 바뀌었으면 1~3을 다시 한다.
