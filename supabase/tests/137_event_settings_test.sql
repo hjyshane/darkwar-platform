@@ -6,7 +6,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(20);
+select plan(23);
 
 -- The held days earlier migrations seed would muddy the counts.
 delete from public.attendance_event_days;
@@ -98,6 +98,17 @@ select lives_ok(
 select is(
   (select captured from public.attendance_event_kinds where kind = 'furnace_fury'), true,
   'and the captured flag of a collector-written event is untouched');
+
+select throws_ok(
+  $$select public.save_event_kind('arena_cup', 'Arena Cup', null)$$,
+  '22023', null, 'a missing tab is a clean refusal, not a not-null error');
+select lives_ok(
+  $$select public.save_event_kind('arena_cup', 'Arena Cup', 'event', null, true)$$,
+  'an event can be archived');
+select public.save_event_kind('arena_cup', 'Arena Cup 2', 'event');
+select is((select archived from public.attendance_event_kinds where kind = 'arena_cup'), true,
+  'and an edit that does not mention archived leaves it archived');
+select public.save_event_kind('arena_cup', 'Arena Cup', 'event', null, false);
 
 -- ------------------------------------------------------------ held days
 

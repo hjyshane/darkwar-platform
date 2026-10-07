@@ -39,7 +39,7 @@ create function public.save_event_kind(
   p_label text,
   p_board text,
   p_sort_order int default null,
-  p_archived boolean default false
+  p_archived boolean default null
 )
 returns void
 language plpgsql
@@ -60,7 +60,7 @@ begin
   if length(v_label) not between 1 and 40 then
     raise exception 'an event name is 1 to 40 characters' using errcode = '22023';
   end if;
-  if p_board not in ('event', 'season') then
+  if p_board is null or p_board not in ('event', 'season') then
     raise exception 'an event sits on the event or the season tab' using errcode = '22023';
   end if;
 
@@ -75,7 +75,8 @@ begin
         board = excluded.board,
         -- Editing without a position keeps the one it has.
         sort_order = coalesce(p_sort_order, public.attendance_event_kinds.sort_order),
-        archived = excluded.archived;
+        -- Left out, the flag is left as it is: an edit must not un-archive.
+        archived = coalesce(p_archived, public.attendance_event_kinds.archived);
 end;
 $$;
 
