@@ -1,9 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
+import { StatTile } from '../../components/StatTile';
 import {
   canWriteAnything,
   describe,
   missingIn,
   sectionSlug,
+  sectionsIn,
   usableSectionsIn,
 } from '../../lib/adminAccess';
 import { fieldsOf } from '../../lib/memberFormulas';
@@ -34,6 +36,7 @@ import { RankTiersSetting } from './RankTiersSetting';
 import { SeasonBuildingAlertSetting } from './SeasonBuildingAlertSetting';
 import { SeasonsSetting } from './SeasonsSetting';
 import { TableLayoutSetting } from './TableLayoutSetting';
+import { settingsStrip } from './strip';
 
 /** Settings an admin can change without a deploy.
  *
@@ -76,9 +79,42 @@ export function AdminPage({ group, section }: { group: AdminGroup; section: stri
   const openSlug = open === undefined ? '' : sectionSlug(open);
 
   return (
-    <main>
+    <main className="admin-screen">
       <section aria-labelledby="admin-heading">
-        <h2 id="admin-heading">Settings</h2>
+        <div className="entity">
+          <header className="entity-head">
+            <span aria-hidden="true" className="entity-mark">
+              ST
+            </span>
+            <div>
+              <h2 id="admin-heading">Settings</h2>
+              <p className="entity-meta">
+                <span>{ADMIN_GROUPS.find((entry) => entry.group === group)?.label}</span>
+                {active !== null && group !== 'catalogue' && <span>{active.name}</span>}
+              </p>
+            </div>
+          </header>
+          <div className="strip">
+            {settingsStrip({
+              groupLabel: ADMIN_GROUPS.find((entry) => entry.group === group)?.label ?? group,
+              usable: sections.length,
+              total: sectionsIn(group).length,
+              alliance: active?.name ?? null,
+              shared: group === 'catalogue',
+              role: role ?? null,
+              signedIn: session?.email != null,
+              missing: missing.length,
+            }).map((cell, index) => (
+              <StatTile
+                hero={index === 0}
+                key={cell.label}
+                label={cell.label}
+                note={cell.note}
+                value={cell.value}
+              />
+            ))}
+          </div>
+        </div>
         {/* Which alliance these are for (0200). Every group but Shared follows
             the alliance on screen, and with two pinned the same screen showed
             one alliance's grid and the other's columns. Named here so nobody
