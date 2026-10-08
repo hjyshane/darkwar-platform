@@ -958,3 +958,19 @@
   padding: var(--space-4);
   margin: 0;
 }
+
+/* ---------------------------------------------------------------------- map */
+
+.map-screen {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.map-screen .map-search,
+.map-screen .map-range {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  margin: 0;
+}
