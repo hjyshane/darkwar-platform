@@ -24,7 +24,9 @@ def main() -> None:
     config = IphoneConfig(
         directory=Path(os.environ.get("DW_IPHONE_DIR", "./data/iphone")),
         chunk_seconds=float(os.environ.get("DW_IPHONE_CHUNK_SECONDS", "300")),
+        relaunch_seconds=float(os.environ.get("DW_IPHONE_RELAUNCH_HOURS", "6")) * 3600,
     )
+    bundle_id = os.environ.get("DW_IPHONE_BUNDLE_ID", "com.readygo.dark.nbios")
     backend = PmdBackend(
         find_tool(os.environ.get("DW_IPHONE_TOOL", "pymobiledevice3")),
         udid=os.environ.get("DW_IPHONE_UDID") or None,
@@ -39,7 +41,8 @@ def main() -> None:
     signal.signal(signal.SIGINT, _stop)
     signal.signal(signal.SIGTERM, _stop)
     log.info("iphone.start", directory=str(config.directory), chunk_seconds=config.chunk_seconds)
-    Supervisor(config, backend).run(lambda: stopping)
+    launch = None if _flag("DW_IPHONE_NO_LAUNCH") else (lambda: backend.launch(bundle_id))
+    Supervisor(config, backend, launch=launch).run(lambda: stopping)
     log.info("iphone.stopped")
 
 

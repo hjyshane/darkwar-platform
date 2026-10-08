@@ -100,6 +100,29 @@ class PmdBackend:
             found = [u for u in found if u == self._udid]
         return found
 
+    def launch(self, bundle_id: str) -> bool:
+        """Start (or restart: the tool kills a running copy first) the app.
+
+        iOS 17+ wants a tunnel for developer commands; the tool falls back to
+        a no-root userspace one on its own, which is why no admin rights are
+        needed. Needs Developer Mode on and the developer image mounted.
+        """
+        argv = [self._exe, "developer", "dvt", "launch", bundle_id]
+        if self._udid:
+            argv += ["--udid", self._udid]
+        try:
+            done = subprocess.run(
+                argv, capture_output=True, timeout=120, check=False, creationflags=_NO_WINDOW
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            log.warning("iphone.launch_error", error=str(exc))
+            return False
+        text = (done.stdout + done.stderr).decode("utf-8", errors="replace")
+        if done.returncode != 0 or "launched" not in text.lower():
+            log.warning("iphone.launch_output", code=done.returncode, tail=text[-300:])
+            return False
+        return True
+
     def start(self, out: Path) -> PcapProcess:
         argv = [self._exe, "pcap", "--out", str(out)]
         if self._udid:

@@ -193,3 +193,76 @@ def test_chunk_names_are_utc_and_sort_chronologically(tmp_path: Path) -> None:
 
     assert a.name == "iphone_20261008-090501.pcap"
     assert sorted([b.name, a.name]) == [a.name, b.name]
+
+
+def _launching(
+    tmp_path: Path,
+    script: list[tuple[bool, int, float | None]],
+    results: list[bool],
+    *,
+    stop_after_devices: int,
+    relaunch: float = 0.0,
+) -> tuple[World, FakeBackend, list[str]]:
+    world = World()
+    backend = FakeBackend(world, script)
+    events: list[str] = []
+    original_start = backend.start
+
+    def start(out: Path) -> FakeProcess:
+        events.append("start")
+        return original_start(out)
+
+    backend.start = start  # type: ignore[method-assign]
+
+    def launch() -> bool:
+        events.append("launch")
+        return results.pop(0) if results else True
+
+    config = IphoneConfig(
+        directory=tmp_path / "iphone",
+        chunk_seconds=30.0,
+        stall_seconds=10.0,
+        poll_seconds=1.0,
+        backoff_min_seconds=5.0,
+        relaunch_seconds=relaunch,
+    )
+    Supervisor(
+        config, backend, clock=lambda: world.t, sleep=world.sleep, now=world.now, launch=launch
+    ).run(lambda: backend.checks >= stop_after_devices)
+    return world, backend, events
+
+
+def test_the_game_is_launched_only_after_the_capture_is_running(tmp_path: Path) -> None:
+    _, _, events = _launching(tmp_path, [(True, 100, None)], [], stop_after_devices=2)
+
+    assert events[:2] == ["start", "launch"]
+
+
+def test_the_game_is_launched_once_while_the_phone_stays_connected(tmp_path: Path) -> None:
+    _, _, events = _launching(tmp_path, [(True, 100, None)], [], stop_after_devices=4)
+
+    assert events.count("launch") == 1
+
+
+def test_a_failed_launch_is_retried_with_the_next_chunk(tmp_path: Path) -> None:
+    _, _, events = _launching(tmp_path, [(True, 100, None)], [False], stop_after_devices=3)
+
+    assert events.count("launch") == 2
+
+
+def test_a_reconnect_launches_the_game_again(tmp_path: Path) -> None:
+    script = [(True, 100, 8.0), (False, 0, None), (True, 100, None)]
+    _, _, events = _launching(tmp_path, script, [], stop_after_devices=4)
+
+    assert events.count("launch") == 2
+
+
+def test_a_phone_left_plugged_in_is_relaunched_on_the_interval(tmp_path: Path) -> None:
+    # 30 s chunks, relaunch every 50 s: the second launch lands on the chunk
+    # after the interval has passed, never in the middle of one.
+    _, _, events = _launching(
+        tmp_path, [(True, 100, None)], [], stop_after_devices=6, relaunch=50.0
+    )
+
+    assert events.count("launch") >= 2
+    assert events[0] == "start"

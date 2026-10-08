@@ -67,6 +67,13 @@ class IphoneConfig:
     poll_seconds: float = 1.0
     backoff_min_seconds: float = 5.0
     backoff_max_seconds: float = 60.0
+    #: Restart the game this often so a phone left plugged in keeps receiving
+    #: fresh login bundles (the roster and rankings arrive on login). 0 turns
+    #: the periodic restart off; a restart on (re)connect always happens.
+    relaunch_seconds: float = 21600.0
+    #: The capture must be live BEFORE the game starts: a TCP stream joined
+    #: mid-flight cannot be read.
+    launch_delay_seconds: float = 5.0
 
 
 @dataclass(frozen=True)
@@ -98,6 +105,7 @@ class Supervisor:
         sleep: Callable[[float], None] = time.sleep,
         now: Callable[[], datetime] = lambda: datetime.now(tz=UTC),
         on_connect: Callable[[str], None] | None = None,
+        launch: Callable[[], bool] | None = None,
     ) -> None:
         self._config = config
         self._backend = backend
@@ -105,6 +113,36 @@ class Supervisor:
         self._sleep = sleep
         self._now = now
         self._on_connect = on_connect
+        self._launch = launch
+        self._launch_due = False
+        self._last_launch: float | None = None
+
+    def _maybe_launch(self) -> None:
+        """Start the game once the capture is already running.
+
+        A failed launch stays due and is retried with the next chunk; it does
+        not end the chunk, because the packets that are flowing are still data.
+        """
+        if self._launch is None or not self._launch_due:
+            return
+        self._sleep(self._config.launch_delay_seconds)
+        try:
+            ok = self._launch()
+        except Exception as exc:
+            log.warning("iphone.launch_failed", error=str(exc))
+            return
+        if ok:
+            self._launch_due = False
+            self._last_launch = self._clock()
+            log.info("iphone.launched")
+        else:
+            log.warning("iphone.launch_failed", error="launch command reported failure")
+
+    def _periodic_launch_due(self) -> bool:
+        every = self._config.relaunch_seconds
+        if self._launch is None or every <= 0 or self._last_launch is None:
+            return False
+        return self._clock() - self._last_launch >= every
 
     def run_chunk(self, should_stop: Callable[[], bool]) -> ChunkResult:
         """Capture one chunk and report how it ended. Always cleans up."""
@@ -114,6 +152,7 @@ class Supervisor:
         started = last_growth = self._clock()
         seen = 0
         try:
+            self._maybe_launch()
             while True:
                 if should_stop():
                     return ChunkResult("stopped", out, _size(out))
@@ -162,8 +201,11 @@ class Supervisor:
             if not connected:
                 connected = True
                 log.info("iphone.connected", udid=udids[0])
+                self._launch_due = True
                 if self._on_connect is not None:
                     self._on_connect(udids[0])
+            elif self._periodic_launch_due():
+                self._launch_due = True
             result = self.run_chunk(should_stop)
             kept = self._keep_or_drop(result)
             log.info(
