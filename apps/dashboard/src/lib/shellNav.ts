@@ -396,3 +396,21 @@ export function nextUp(
     .sort((a, b) => a.start - b.start)[0];
   return next === undefined ? null : { title: next.title, inMs: next.start - at };
 }
+
+/** What Ctrl+K searches: every screen, then each of its tabs as
+ * `Event guide › Alliance Duel`, so typing "duel" finds the tab itself. A tab
+ * takes its screen's icon and its own address; the open one is marked. */
+export function paletteEntries(items: readonly NavItem[]): NavItem[] {
+  return items.flatMap((item) => [
+    item,
+    ...(item.children ?? []).map((child) => ({
+      // Not the child's own key: its first tab shares the screen's address, and
+      // two rows with one key make React show the wrong one.
+      key: `${item.key} > ${child.key}`,
+      href: child.href,
+      label: `${item.label} › ${child.label}`,
+      icon: item.icon,
+      current: child.current,
+    })),
+  ]);
+}
