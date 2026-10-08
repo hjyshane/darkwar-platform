@@ -84,8 +84,14 @@ class ChunkResult:
     detail: str = ""
 
 
-def chunk_path(directory: Path, now: datetime) -> Path:
-    return directory / f"iphone_{now.astimezone(UTC):%Y%m%d-%H%M%S}.pcap"
+def chunk_path(directory: Path, now: datetime, tag: str = "") -> Path:
+    """`iphone_<UTC time>[-<tag>].pcap`; the tag keeps two phones apart.
+
+    Two phones that rotate in the same second would otherwise write the same
+    name, and `ingest-dir` records a capture by NAME.
+    """
+    suffix = f"-{tag}" if tag else ""
+    return directory / f"iphone_{now.astimezone(UTC):%Y%m%d-%H%M%S}{suffix}.pcap"
 
 
 def _size(path: Path) -> int:
@@ -106,7 +112,10 @@ class Supervisor:
         now: Callable[[], datetime] = lambda: datetime.now(tz=UTC),
         on_connect: Callable[[str], None] | None = None,
         launch: Callable[[], bool] | None = None,
+        tag: str = "",
     ) -> None:
+        self._tag = tag
+        self._log = log.bind(device=tag) if tag else log
         self._config = config
         self._backend = backend
         self._clock = clock
@@ -129,14 +138,14 @@ class Supervisor:
         try:
             ok = self._launch()
         except Exception as exc:
-            log.warning("iphone.launch_failed", error=str(exc))
+            self._log.warning("iphone.launch_failed", error=str(exc))
             return
         if ok:
             self._launch_due = False
             self._last_launch = self._clock()
-            log.info("iphone.launched")
+            self._log.info("iphone.launched")
         else:
-            log.warning("iphone.launch_failed", error="launch command reported failure")
+            self._log.warning("iphone.launch_failed", error="launch command reported failure")
 
     def _periodic_launch_due(self) -> bool:
         every = self._config.relaunch_seconds
@@ -147,7 +156,7 @@ class Supervisor:
     def run_chunk(self, should_stop: Callable[[], bool]) -> ChunkResult:
         """Capture one chunk and report how it ended. Always cleans up."""
         cfg = self._config
-        out = chunk_path(cfg.directory, self._now())
+        out = chunk_path(cfg.directory, self._now(), self._tag)
         proc = self._backend.start(out)
         started = last_growth = self._clock()
         seen = 0
@@ -180,7 +189,7 @@ class Supervisor:
         try:
             result.path.unlink(missing_ok=True)
         except OSError as exc:
-            log.warning("iphone.chunk.unlink_failed", path=str(result.path), error=str(exc))
+            self._log.warning("iphone.chunk.unlink_failed", path=str(result.path), error=str(exc))
         return False
 
     def run(self, should_stop: Callable[[], bool] = lambda: False) -> None:
@@ -192,15 +201,15 @@ class Supervisor:
             udids = self._backend.devices()
             if not udids:
                 if connected:
-                    log.warning("iphone.disconnected")
+                    self._log.warning("iphone.disconnected")
                 connected = False
-                log.info("iphone.waiting", retry_in=backoff)
+                self._log.info("iphone.waiting", retry_in=backoff)
                 self._sleep(backoff)
                 backoff = min(backoff * 2, cfg.backoff_max_seconds)
                 continue
             if not connected:
                 connected = True
-                log.info("iphone.connected", udid=udids[0])
+                self._log.info("iphone.connected", udid=udids[0])
                 self._launch_due = True
                 if self._on_connect is not None:
                     self._on_connect(udids[0])
@@ -208,7 +217,7 @@ class Supervisor:
                 self._launch_due = True
             result = self.run_chunk(should_stop)
             kept = self._keep_or_drop(result)
-            log.info(
+            self._log.info(
                 "iphone.chunk",
                 outcome=result.outcome,
                 bytes=result.size,

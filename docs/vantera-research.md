@@ -141,10 +141,12 @@ Mac은 iPhone을 USB로 물리면 가상 인터페이스 `rvi0`로 패킷을 캡
 **미확인**.
 
 상태(2026-10-08 기준): Xcode 27.1 설치 및 활성화 완료. `rvictl`은 PATH에 없고
-`/Library/Apple/usr/bin/rvictl`에 있다. **iPhone이 USB로 인식되지 않았다**
-(`system_profiler SPUSBDataType`에 없음, 신뢰 팝업 안 뜸, `xctrace`는 Offline,
-`devicectl`은 "available (paired)" = 네트워크 쪽으로만 보임). 케이블(데이터용),
-포트, 잠금 해제, 재시작, 위치 및 개인정보 보호 재설정을 시도해야 한다.
+`/Library/Apple/usr/bin/rvictl`에 있다. 그때 "iPhone이 USB로 인식되지 않았다"고
+적었던 근거는 `system_profiler SPUSBDataType`에 없다는 것이었는데, **그 근거는 틀렸다**:
+같은 맥에서 폰이 `pymobiledevice3 usbmux list`에는 `ConnectionType: USB`로 잡히는데
+`system_profiler`는 아무것도 내지 않았다(2026-10-08). 연결 확인은 `usbmux list`로 한다.
+`rvictl`은 이 맥에서 시도하지 않았다 — `pymobiledevice3 pcap`이 맥에서 캡처·게임 실행·읽기까지
+됐다(`docs/runbooks/iphone-capture.md` 확인 기록).
 
 ```bash
 xcrun xctrace list devices                      # 하드웨어 UDID는 00008...로 시작하는 쪽

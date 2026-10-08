@@ -277,3 +277,11 @@ def test_a_drop_right_after_a_slow_reconnect_waits_the_short_backoff(tmp_path: P
     assert world.sleeps[:5] == [5.0, 10.0, 20.0, 20.0, 20.0]
     assert 5.0 in world.sleeps[5:], "the post-drop wait must restart at the minimum"
     assert 20.0 not in world.sleeps[5:7]
+
+
+def test_two_phones_get_distinct_chunk_names_in_the_same_second(tmp_path: Path) -> None:
+    now = datetime(2026, 10, 8, 9, 5, 1, tzinfo=UTC)
+
+    assert chunk_path(tmp_path, now, "AAAA1111") != chunk_path(tmp_path, now, "BBBB2222")
+    assert chunk_path(tmp_path, now, "AAAA1111").name == "iphone_20261008-090501-AAAA1111.pcap"
+    assert chunk_path(tmp_path, now).name == "iphone_20261008-090501.pcap"
