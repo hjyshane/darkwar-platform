@@ -104,3 +104,17 @@ def test_black_gold_teams_come_with_the_alliance_that_fields_them() -> None:
         opens = datetime.fromisoformat(r.row["starts_at"])
         prep = datetime.fromisoformat(r.row["prep_at"])
         assert opens - prep == timedelta(minutes=5)
+
+
+def test_teams_whose_opponent_is_not_drawn_yet_still_give_their_times() -> None:
+    """The response before the match-up names only our alliance; the opponent is
+    `""` in both teams. That used to read as two alliances in common and wrote
+    nothing, so the times were missing exactly when they are announced."""
+    observation = load_observation("dragon.activity.info/teams_not_matched_yet_v1.json")
+
+    rows = black_money_activity.normalize(observation)
+
+    schedule = [r for r in rows if r.target_table == "alliance_event_times"]
+    assert {r.row["slot"] for r in schedule} == {1, 2}
+    # Nothing has been fought: no battle row.
+    assert [r for r in rows if r.target_table == "black_money_battle_snapshots"] == []

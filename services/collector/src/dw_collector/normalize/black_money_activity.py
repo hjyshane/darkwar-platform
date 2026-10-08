@@ -99,10 +99,14 @@ class _Payload(BaseModel):
 
 
 def our_alliance(teams: list[_Team]) -> str | None:
-    """The one alliance in every team's matchup, or None if that is not one."""
+    """The one alliance in every team's matchup, or None if that is not one.
+
+    A side with no alliance id is an opponent the game has not drawn yet (the
+    response sent before the match-up, 2026-10-08, names only ours and `""` in both
+    teams): `""` would otherwise be a second alliance common to every team."""
     if len(teams) < 2:
         return None
-    common = set.intersection(*({s.alliance_id for s in t.sides} for t in teams))
+    common = set.intersection(*({s.alliance_id for s in t.sides if s.alliance_id} for t in teams))
     return next(iter(common)) if len(common) == 1 else None
 
 

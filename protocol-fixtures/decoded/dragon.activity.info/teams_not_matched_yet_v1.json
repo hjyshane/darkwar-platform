@@ -1,0 +1,81 @@
+{
+  "observation_id": "3a6a71a2-9ac6-5770-8501-d015361a591e",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "dragon.activity.info",
+  "captured_at": "2026-10-08T20:32:55.397563+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "alCreateTime": 1775280429402,
+    "alRank": 1,
+    "assigned": 1,
+    "battleWillingness": 0,
+    "battleWillingness2": 1,
+    "selfTeamIndex": 2,
+    "teamArr": [
+      {
+        "battlePeriod": 3,
+        "battleServerId": 0,
+        "matchResult": 0,
+        "teamIndex": 1,
+        "timeInfo": {
+          "battleOpenTime": 1791752700000,
+          "endTime": 1791755400000,
+          "prepTime": 1791752400000
+        },
+        "vsInfoArr": [
+          {
+            "abbr": "CBFW",
+            "allianceId": "95deb37d1a0b4b8ba575ba3a3f324dac",
+            "icon": "8;8;2;8",
+            "mainNum": 20,
+            "name": "HELLBOUND",
+            "powerful": 0,
+            "serverId": 580,
+            "side": 0,
+            "strength": 197467118
+          },
+          {
+            "allianceId": "",
+            "mainNum": 20,
+            "serverId": 0,
+            "side": 1
+          }
+        ],
+        "worldId": 0
+      },
+      {
+        "battlePeriod": 2,
+        "battleServerId": 0,
+        "matchResult": 0,
+        "teamIndex": 2,
+        "timeInfo": {
+          "battleOpenTime": 1791720300000,
+          "endTime": 1791723000000,
+          "prepTime": 1791720000000
+        },
+        "vsInfoArr": [
+          {
+            "abbr": "CBFW",
+            "allianceId": "95deb37d1a0b4b8ba575ba3a3f324dac",
+            "icon": "8;8;2;8",
+            "mainNum": 20,
+            "name": "HELLBOUND",
+            "powerful": 0,
+            "serverId": 580,
+            "side": 0,
+            "strength": 39859263
+          },
+          {
+            "allianceId": "",
+            "mainNum": 20,
+            "serverId": 0,
+            "side": 1
+          }
+        ],
+        "worldId": 0
+      }
+    ],
+    "timeIndexRecord": "1;2;3"
+  },
+  "schema_version": 1
+}
