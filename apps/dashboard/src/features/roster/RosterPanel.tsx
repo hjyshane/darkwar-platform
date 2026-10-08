@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { ExportButton } from '../../components/ExportButton';
+import { StatTile } from '../../components/StatTile';
+import { Tabs } from '../../components/ui/Tabs';
 import { getActiveAlliance } from '../../lib/activeAlliance';
 import { fetchAllianceSetting } from '../../lib/allianceSetting';
 import type { CsvColumn } from '../../lib/csv';
@@ -13,6 +15,7 @@ import { useSession } from '../../lib/useSession';
 import { CurrentPeriodTable } from './CurrentPeriodTable';
 import { RankMovement } from './RankMovement';
 import { type ComputedColumn, type RosterRow, RosterTable } from './RosterTable';
+import { rosterStrip } from './strip';
 
 /** The columns an admin described, parsed once here.
  *
@@ -190,8 +193,35 @@ export function RosterPanel() {
   const { data: session } = useSession();
   const restricted = session !== undefined && session.role === 'viewer';
   return (
-    <section aria-labelledby="roster-heading">
-      <h2 id="roster-heading">{TERMS.members}</h2>
+    <section aria-labelledby="roster-heading" className="roster-screen">
+      <div className="entity">
+        <header className="entity-head">
+          <span aria-hidden="true" className="entity-mark">
+            ME
+          </span>
+          <div>
+            <h2 id="roster-heading">{TERMS.members}</h2>
+            <p className="entity-meta">
+              <span>Rank is the last finished fortnight's</span>
+              <span>Power is the sum of the members the roster lists</span>
+            </p>
+          </div>
+        </header>
+        {data && data.length > 0 && (
+          <div className="strip">
+            {rosterStrip(data).map((cell, index) => (
+              <StatTile
+                hero={index === 0}
+                key={cell.label}
+                label={cell.label}
+                note={cell.note}
+                tone={cell.tone}
+                value={cell.value}
+              />
+            ))}
+          </div>
+        )}
+      </div>
       {/* Without this the contribution columns are just full of em dashes,
           which elsewhere in this app means "never observed". Here it means
           "not yours to see", and those are different enough that saying so
@@ -223,33 +253,28 @@ export function RosterPanel() {
           running, as raw weekly readings, for "am I above the line this week"
           — a question asked on a Wednesday, which the settled answer cannot
           reach. */}
-      <div className="row">
-        <button
-          className={tab === 'settled' ? 'active' : ''}
-          onClick={() => setTab('settled')}
-          type="button"
-        >
-          Last ranking
-        </button>
-        <button
-          className={tab === 'running' ? 'active' : ''}
-          onClick={() => setTab('running')}
-          type="button"
-        >
-          This ranking · weekly
-        </button>
-      </div>
+      <Tabs
+        label="Ranking"
+        items={[
+          { id: 'settled', label: 'Last ranking' },
+          { id: 'running', label: 'This ranking · weekly' },
+        ]}
+        value={tab}
+        onChange={setTab}
+      />
 
-      {tab === 'running' ? (
-        <CurrentPeriodTable />
-      ) : (
-        <>
-          {isPending && <p className="empty loading">Loading…</p>}
-          {error && <p className="error">Could not load members: {error.message}</p>}
-          {data && <ExportButton rows={data} columns={ROSTER_CSV} filename="members" />}
-          {data && <RosterTable columns={columns ?? []} rows={data} />}
-        </>
-      )}
+      <div className="panel roster-board">
+        {tab === 'running' ? (
+          <CurrentPeriodTable />
+        ) : (
+          <>
+            {isPending && <p className="empty loading">Loading…</p>}
+            {error && <p className="error">Could not load members: {error.message}</p>}
+            {data && <ExportButton rows={data} columns={ROSTER_CSV} filename="members" />}
+            {data && <RosterTable columns={columns ?? []} rows={data} />}
+          </>
+        )}
+      </div>
     </section>
   );
 }
