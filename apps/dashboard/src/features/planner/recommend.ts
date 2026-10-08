@@ -18,7 +18,8 @@ import { type Buffs, type Requirement, type Step, totals } from './plan';
 /** A step and the one below it, which is where the account stands. `current`
  * is null for something not built or researched yet (power 0 by definition). */
 export interface StepPair {
-  current: Step | null;
+  /** Only its power is read, so a row that carries nothing else will do. */
+  current: { power?: number | null } | null;
   next: Step;
 }
 

@@ -8672,6 +8672,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      recommend_step_pairs: {
+        Args: { p_buildings: Json; p_science: Json }
+        Returns: Json
+      }
       remove_member: { Args: { p_user: string }; Returns: undefined }
       research_prerequisite_steps: {
         Args: { p_subjects: string[] }
