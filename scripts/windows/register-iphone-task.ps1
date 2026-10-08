@@ -117,3 +117,7 @@ if ($Start) {
     Start-ScheduledTask -TaskName $TaskName -ErrorAction Stop
     Write-Output 'started'
 }
+
+Write-Output ''
+Write-Output 'To stop or restart it (NOT Stop-ScheduledTask, which leaves the old chain running):'
+Write-Output '  .\scripts\windows\stop-iphone-task.ps1 -Restart'
