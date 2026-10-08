@@ -1,5 +1,6 @@
 import { formatCoordinate } from '@dw/ui';
 import { useState } from 'react';
+import { StatTile } from '../../components/StatTile';
 import { Tabs } from '../../components/ui/Tabs';
 import { formatLastOnline } from '../../lib/freshness';
 import { TERMS } from '../../lib/terms';
@@ -12,6 +13,7 @@ import {
   useScannedServers,
   useSightingSearch,
 } from './mapLocations';
+import { mapStrip } from './strip';
 
 /** The map, one server at a time, one player at a time.
  *
@@ -71,9 +73,45 @@ export function MapPage({ serverId }: { serverId: number | null }) {
     );
   }
 
+  const swept = servers.find((server) => server.serverId === active)?.sweptAt ?? null;
+
   return (
-    <section aria-labelledby="map-heading">
-      <h2 id="map-heading">{TERMS.map}</h2>
+    <section aria-labelledby="map-heading" className="map-screen">
+      <div className="entity">
+        <header className="entity-head">
+          <span aria-hidden="true" className="entity-mark">
+            MP
+          </span>
+          <div>
+            <h2 id="map-heading">{TERMS.map}</h2>
+            <p className="entity-meta">
+              <span>One server at a time</span>
+              <span>One player at a time</span>
+            </p>
+          </div>
+        </header>
+        {active !== null && (
+          <div className="strip">
+            {mapStrip({
+              serverId: active,
+              swept: swept === null ? null : formatLastOnline('offline', swept, now),
+              scannedServers: servers.length,
+              levelCount: hqMin !== null && byLevel.data ? byLevel.data.length : null,
+              nameCount:
+                query.trim().length >= MIN_QUERY && results.data ? results.data.length : null,
+              selected: selected !== null,
+            }).map((cell, index) => (
+              <StatTile
+                hero={index === 0}
+                key={cell.label}
+                label={cell.label}
+                note={cell.note}
+                value={cell.value}
+              />
+            ))}
+          </div>
+        )}
+      </div>
 
       <Tabs
         label="Scanned server"
@@ -88,15 +126,6 @@ export function MapPage({ serverId }: { serverId: number | null }) {
           setHqMax(null);
         }}
       />
-
-      {servers
-        .filter((server) => server.serverId === active)
-        .map((server) => (
-          <p className="subtle" key={server.serverId}>
-            Server {server.serverId} — last swept {formatLastOnline('offline', server.sweptAt, now)}
-            . Positions are only as recent as that sweep.
-          </p>
-        ))}
 
       <label className="map-search">
         <span>Find a player</span>
