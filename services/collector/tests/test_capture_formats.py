@@ -147,6 +147,28 @@ def test_a_truncated_classic_tail_keeps_what_came_before(tmp_path: Path) -> None
     assert _events(path) == [("inbound", "al.rank")]
 
 
+def test_a_truncated_pcapng_tail_keeps_what_came_before(tmp_path: Path) -> None:
+    """A capture process that is ended mid-write leaves a cut-off last block.
+    On 2026-10-08 that failed a whole 4.4 MB phone chunk with "invalid block"
+    and cost the login response in it."""
+    whole = _pcapng([(0, _ethernet(_game_ipv4()))], [LINKTYPE_ETHERNET])
+    # A packet block that claims 4096 bytes and carries 10.
+    cut = struct.pack("<II", 6, 4096) + b"\x00" * 10
+    path = tmp_path / "cut.pcapng"
+    path.write_bytes(whole + cut)
+
+    assert _events(path) == [("inbound", "al.rank")]
+
+
+def test_a_pcapng_block_shorter_than_its_own_header_is_still_an_error(tmp_path: Path) -> None:
+    whole = _pcapng([(0, _ethernet(_game_ipv4()))], [LINKTYPE_ETHERNET])
+    path = tmp_path / "garbage.pcapng"
+    path.write_bytes(whole + struct.pack("<II", 6, 4) + b"\x00" * 8)
+
+    with pytest.raises(PcapError, match="invalid block"):
+        read_pcapng_records(path)
+
+
 def test_a_classic_file_with_no_header_is_an_error(tmp_path: Path) -> None:
     path = tmp_path / "stub.pcap"
     path.write_bytes(b"\xd4\xc3\xb2\xa1" + b"\x00" * 8)

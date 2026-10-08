@@ -166,8 +166,20 @@ def _read_pcapng(data: bytes) -> list[PcapngPacket]:
             continue
 
         block_type, block_length = struct.unpack_from(endian + "II", data, offset)
-        if block_length < 12 or offset + block_length > len(data):
+        if block_length < 12:
             raise PcapError(f"invalid block at offset {offset}")
+        if offset + block_length > len(data):
+            if offset == 0:
+                # Not a capture at all: the very first block already lies.
+                raise PcapError(f"invalid block at offset {offset}")
+            # The LAST block was cut off: a capture process that is ended
+            # rather than asked to finish stops mid-write. Same rule as the
+            # classic reader (a truncated final record ends the read): losing
+            # a whole chunk, login response included, for its last few
+            # kilobytes is the worse outcome. A bad length in the MIDDLE of a
+            # file lands here too and stops the read there, keeping what came
+            # before.
+            break
 
         body = data[offset + 8 : offset + block_length - 4]
         if block_type == 1:  # interface description
