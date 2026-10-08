@@ -10,6 +10,7 @@ from dw_collector.iphone.supervisor import (
     IphoneConfig,
     Supervisor,
     chunk_path,
+    recover_parts,
 )
 
 
@@ -285,3 +286,47 @@ def test_two_phones_get_distinct_chunk_names_in_the_same_second(tmp_path: Path) 
     assert chunk_path(tmp_path, now, "AAAA1111") != chunk_path(tmp_path, now, "BBBB2222")
     assert chunk_path(tmp_path, now, "AAAA1111").name == "iphone_20261008-090501-AAAA1111.pcap"
     assert chunk_path(tmp_path, now).name == "iphone_20261008-090501.pcap"
+
+
+def test_a_chunk_is_not_readable_as_pcap_until_the_capture_has_ended(tmp_path: Path) -> None:
+    """ingest-dir reads any *.pcap idle for a few seconds and marks it done by
+    name, so a live chunk must not look like one."""
+    seen_while_live: list[bool] = []
+
+    class WatchingProcess(FakeProcess):
+        def poll(self) -> int | None:
+            # THIS chunk's final name; earlier chunks are legitimately published.
+            final = self._out.with_name(self._out.name.removesuffix(".part"))
+            seen_while_live.append(final.exists())
+            return super().poll()
+
+    class WatchingBackend(FakeBackend):
+        def start(self, out: Path) -> FakeProcess:
+            _, grow, dies = self._script[self._i]
+            proc = WatchingProcess(self._world, out, grow=grow, dies_after=dies)
+            self.processes.append(proc)
+            return proc
+
+    world = World()
+    backend = WatchingBackend(world, [(True, 100, None)])
+    config = IphoneConfig(
+        directory=tmp_path / "iphone", chunk_seconds=30.0, stall_seconds=10.0, poll_seconds=1.0
+    )
+    Supervisor(config, backend, clock=lambda: world.t, sleep=world.sleep, now=world.now).run(
+        lambda: backend.checks >= 3
+    )
+
+    assert seen_while_live, "the watcher never ran"
+    assert not any(seen_while_live), "a half-written chunk was visible under its final name"
+    assert _chunks(tmp_path), "finished chunks are published as .pcap"
+    assert list((tmp_path / "iphone").glob("*.part")) == [], "no .part left behind"
+
+
+def test_recover_parts_promotes_a_killed_runs_chunk_and_drops_empty_ones(tmp_path: Path) -> None:
+    (tmp_path / "iphone_a.pcap.part").write_bytes(b"\1" * 500)
+    (tmp_path / "iphone_b.pcap.part").write_bytes(b"\0" * EMPTY_PCAP_BYTES)
+
+    assert recover_parts(tmp_path) == 1
+    assert (tmp_path / "iphone_a.pcap").read_bytes() == b"\1" * 500
+    assert not (tmp_path / "iphone_b.pcap").exists()
+    assert list(tmp_path.glob("*.part")) == []

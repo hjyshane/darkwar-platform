@@ -39,6 +39,15 @@ log = structlog.get_logger()
 #: a chunk that captured nothing and is not worth ingesting.
 EMPTY_PCAP_BYTES = 24
 
+#: A chunk is written under this extra suffix and renamed to `.pcap` once the
+#: capture process has ended. `ingest-dir` reads any `*.pcap` that has not been
+#: touched for a few seconds and then marks it done BY NAME, and a live
+#: pymobiledevice3 capture does go quiet for longer than that between buffered
+#: writes - so a file with the real name is read half-written and its remaining
+#: packets are never read (seen on 2026-10-08: read 2.5 minutes into a
+#: 5-minute chunk, the delete failing because the capture still had it open).
+PART_SUFFIX = ".part"
+
 Outcome = Literal["rotated", "died", "stalled", "stopped"]
 
 
@@ -92,6 +101,29 @@ def chunk_path(directory: Path, now: datetime, tag: str = "") -> Path:
     """
     suffix = f"-{tag}" if tag else ""
     return directory / f"iphone_{now.astimezone(UTC):%Y%m%d-%H%M%S}{suffix}.pcap"
+
+
+def part_path(final: Path) -> Path:
+    return final.with_name(final.name + PART_SUFFIX)
+
+
+def recover_parts(directory: Path) -> int:
+    """Promote chunks a previous run left unfinished; return how many.
+
+    A killed parent leaves its `.part` files behind. Their last packet may be
+    cut off, which the classic-pcap reader tolerates, and left alone they
+    would hold up to five minutes of capture - session signatures included -
+    that nothing ever reads. Call this before any capture has started.
+    """
+    promoted = 0
+    for part in directory.glob(f"*{PART_SUFFIX}"):
+        final = part.with_name(part.name.removesuffix(PART_SUFFIX))
+        if _size(part) > EMPTY_PCAP_BYTES:
+            part.replace(final)
+            promoted += 1
+        else:
+            part.unlink(missing_ok=True)
+    return promoted
 
 
 def _size(path: Path) -> int:
@@ -156,7 +188,8 @@ class Supervisor:
     def run_chunk(self, should_stop: Callable[[], bool]) -> ChunkResult:
         """Capture one chunk and report how it ended. Always cleans up."""
         cfg = self._config
-        out = chunk_path(cfg.directory, self._now(), self._tag)
+        final = chunk_path(cfg.directory, self._now(), self._tag)
+        out = part_path(final)
         proc = self._backend.start(out)
         started = last_growth = self._clock()
         seen = 0
@@ -164,32 +197,49 @@ class Supervisor:
             self._maybe_launch()
             while True:
                 if should_stop():
-                    return ChunkResult("stopped", out, _size(out))
+                    return ChunkResult("stopped", final, _size(out))
                 code = proc.poll()
                 if code is not None:
-                    return ChunkResult("died", out, _size(out), proc.stderr_tail())
+                    return ChunkResult("died", final, _size(out), proc.stderr_tail())
                 size = _size(out)
                 now = self._clock()
                 if size > seen:
                     seen, last_growth = size, now
                 if now - started >= cfg.chunk_seconds:
-                    return ChunkResult("rotated", out, size)
+                    return ChunkResult("rotated", final, size)
                 if now - last_growth >= cfg.stall_seconds:
-                    return ChunkResult("stalled", out, size)
+                    return ChunkResult("stalled", final, size)
                 self._sleep(cfg.poll_seconds)
         finally:
             if proc.poll() is None:
                 proc.terminate()
 
     def _keep_or_drop(self, result: ChunkResult) -> bool:
-        """Delete a chunk that holds no packets; True when one was kept."""
-        size = _size(result.path)
-        if size > EMPTY_PCAP_BYTES:
-            return True
+        """Publish a chunk that holds packets; delete one that does not.
+
+        Called only after the capture process has ended, which is what makes
+        the rename safe: Windows will not rename a file another process holds.
+        """
+        part = part_path(result.path)
+        if _size(part) > EMPTY_PCAP_BYTES:
+            return self._publish(part, result.path)
         try:
-            result.path.unlink(missing_ok=True)
+            part.unlink(missing_ok=True)
         except OSError as exc:
-            self._log.warning("iphone.chunk.unlink_failed", path=str(result.path), error=str(exc))
+            self._log.warning("iphone.chunk.unlink_failed", path=str(part), error=str(exc))
+        return False
+
+    def _publish(self, part: Path, final: Path) -> bool:
+        for attempt in range(5):
+            try:
+                part.replace(final)
+            except OSError as exc:
+                # A virus scanner or the dying child can hold the file for a
+                # moment. Keep trying briefly; the next start promotes it.
+                self._log.warning("iphone.chunk.rename_retry", attempt=attempt, error=str(exc))
+                self._sleep(0.5)
+            else:
+                return True
         return False
 
     def run(self, should_stop: Callable[[], bool] = lambda: False) -> None:

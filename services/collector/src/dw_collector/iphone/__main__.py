@@ -25,7 +25,7 @@ from dw_collector.envfile import load_env_file
 from dw_collector.iphone.children import ChildGroup, ChildSpec
 from dw_collector.iphone.device import PmdBackend, find_tool
 from dw_collector.iphone.fleet import Fleet, short_tag
-from dw_collector.iphone.supervisor import IphoneConfig, Supervisor
+from dw_collector.iphone.supervisor import IphoneConfig, Supervisor, recover_parts
 
 log = structlog.get_logger()
 
@@ -105,6 +105,10 @@ def main() -> None:
         backend = PmdBackend(tool, udid=udid, userspace=userspace)
         launch = None if no_launch else (lambda: backend.launch(bundle_id))
         return Supervisor(config, backend, launch=launch, tag=short_tag(udid))
+
+    recovered = recover_parts(capture_dir)
+    if recovered:
+        log.info("iphone.recovered_parts", count=recovered)
 
     children = None
     if not _flag("DW_IPHONE_CAPTURE_ONLY"):
