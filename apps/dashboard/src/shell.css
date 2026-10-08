@@ -995,3 +995,24 @@
   font-weight: 600;
   margin: 0 0 var(--space-3);
 }
+
+/* ------------------------------------------------------------------- player */
+
+.player-screen {
+  display: grid;
+  gap: var(--space-4);
+}
+
+/* The header is the first section; every block under the tabs is a panel. */
+.player-screen > section:not(:first-child) {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+}
+
+.player-screen > section:not(:first-child) > h2 {
+  font-size: var(--text-base);
+  font-weight: 600;
+  margin: 0 0 var(--space-3);
+}
