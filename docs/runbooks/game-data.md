@@ -143,10 +143,21 @@ Shop value에서 그림이 빈 25개는 `goods.icon`이 가리키는 그림이 *
 | 222010 | `item401` |
 | 222101, 222102 | `icon_microradar=png`, `icon_transmissionrod=png` |
 
-이름을 추측해 다른 그림을 붙이지 않는다. 남은 후보는 기기의 `base.apk`·`split_config.*.apk`와
-on-demand 팩이다(`pm path com.readygo.dark.gp`가 주는 나머지 파일). 에뮬레이터를 켠 뒤
-`pm path`로 목록을 보고, 새 APK를 `C:/DW_data/gamedata/apk/`에 복사해 같은 이름으로 훑는다.
-`icon_*=png`는 값에 `=png`가 붙은 표 오타일 수 있으니 `icon_microradar`로도 찾는다.
+이름을 추측해 다른 그림을 붙이지 않는다.
+
+**2026-10-08에 기기에서 남은 후보를 모두 확인했고, 그림은 어디에도 없다.**
+
+- `base.apk`(20 MB)·`split_config.x86_64.apk`(42 MB): 위 이름이 파일로도, Unity Sprite·Texture2D로도 없다.
+  `base.apk`는 코드(`classes*.dex`, il2cpp 메타데이터)와 빌트인 리소스뿐이다.
+- 기기 `AssetBundles/`(27개, 38 MB): 데이터 테이블·Lua·현지화 번들뿐이고 그림이 없다(패치 번들에는 그림이
+  없다는 앞선 결론 그대로).
+- `LocalImages/`는 해시 이름의 jpg(배너·포스터 계열)이고 `LocalChatImg/`는 채팅 그림이다. 아이템 그림이 아니다.
+- `obb/`는 비어 있다.
+
+그래서 남은 가능성은 둘이다: 이 아이템들은 게임에서도 그림 없이(또는 서버가 내려주는 그림으로) 그려지거나,
+`goods.icon`이 아닌 다른 칸이 실제 그림을 가리킨다. 후자는 클라이언트의 `goods` 읽는 Lua(`lua_scripts_ui_*`)에서
+아이템 아이콘을 고르는 코드를 따라가야 알 수 있다 — 그 전까지 이 25개는 빈 칸으로 둔다.
+`icon_*=png`는 값에 `=png`가 붙은 표 오타일 수 있으니 `icon_microradar`로도 찾는다(위 두 APK에는 둘 다 없었다).
 
 ## 이벤트 가이드: 무엇이 점수를 주는가 (0248)
 
