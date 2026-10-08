@@ -8589,6 +8589,10 @@ export type Database = {
           server_id: number
         }[]
       }
+      name_unnamed_season_buildings: {
+        Args: { p_season_id: number }
+        Returns: number
+      }
       notification_channel_alliance: {
         Args: { p_channel: string }
         Returns: string
@@ -8732,6 +8736,7 @@ export type Database = {
         Args: never
         Returns: {
           building_type_id: number
+          game_name: string
           newest_seen: string
           players: number
         }[]

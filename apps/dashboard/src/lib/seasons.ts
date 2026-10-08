@@ -185,6 +185,8 @@ export interface UnnamedBuilding {
   typeId: number;
   players: number;
   newestSeen: string | null;
+  /** What the game's own client data calls this type (0246), or null. */
+  gameName: string | null;
 }
 
 /** Building types the sweeps have seen that no season has named. */
@@ -198,7 +200,20 @@ export async function fetchUnnamedBuildings(): Promise<UnnamedBuilding[]> {
     typeId: row.building_type_id,
     players: row.players,
     newestSeen: row.newest_seen,
+    gameName: row.game_name ?? null,
   }));
+}
+
+/** Names every seen-but-unnamed type the client has a name for, into one
+ * season; returns how many it named (0246). */
+export async function nameUnnamedBuildings(seasonId: number): Promise<number> {
+  const { data, error } = await supabase.rpc('name_unnamed_season_buildings', {
+    p_season_id: seasonId,
+  });
+  if (error) {
+    throw new Error(error.message);
+  }
+  return data ?? 0;
 }
 
 /** An instant as the `datetime-local` box wants it: the game's UTC, no zone.
