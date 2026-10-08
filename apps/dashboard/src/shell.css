@@ -912,3 +912,31 @@
 .entity-foot .subtle {
   margin: 0;
 }
+
+/* ------------------------------------------------------------------ planner */
+
+.planner-screen {
+  display: grid;
+  gap: var(--space-4);
+}
+
+/* Each step of the planner is a panel of its own: stock, buffs, what to raise,
+ * what it takes. The components keep their own markup; only the frame is new. */
+.planner-screen > section,
+.planner-screen > .planner-stock {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+}
+
+.planner-screen > section > h3,
+.planner-screen .planner-stock-head h3 {
+  font-size: var(--text-base);
+  font-weight: 600;
+  margin: 0 0 var(--space-2);
+}
+
+.planner-screen .planner-stock-head h3 {
+  margin: 0;
+}
