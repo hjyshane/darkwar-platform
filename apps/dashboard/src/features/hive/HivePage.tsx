@@ -1,6 +1,7 @@
 import type { Coordinate } from '@dw/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { StatTile } from '../../components/StatTile';
 import { Select } from '../../components/ui/Select';
 import { Tabs } from '../../components/ui/Tabs';
 import {
@@ -36,6 +37,7 @@ import {
   useBoard,
   useFormations,
 } from './hiveFormations';
+import { hiveStrip } from './strip';
 
 type HiveTab = 'plan' | 'shape' | 'people';
 
@@ -109,8 +111,39 @@ export function HivePage() {
   }
 
   return (
-    <section aria-labelledby="hive-heading">
-      <h2 id="hive-heading">{TERMS.hive}</h2>
+    <section aria-labelledby="hive-heading" className="hive-screen">
+      <div className="entity">
+        <header className="entity-head">
+          <span aria-hidden="true" className="entity-mark">
+            HV
+          </span>
+          <div>
+            <h2 id="hive-heading">{TERMS.hive}</h2>
+            {formation !== null && (
+              <p className="entity-meta">
+                <span>{formation.name}</span>
+                <span>Server {formation.serverId}</span>
+              </p>
+            )}
+          </div>
+        </header>
+        {formation !== null && (
+          <div className="strip">
+            {hiveStrip(formation, board.data ?? [], {
+              x: formation.anchorX,
+              y: formation.anchorY,
+            }).map((cell, index) => (
+              <StatTile
+                hero={index === 0}
+                key={cell.label}
+                label={cell.label}
+                note={cell.note}
+                value={cell.value}
+              />
+            ))}
+          </div>
+        )}
+      </div>
 
       {formation === null ? (
         <p className="empty">
@@ -345,13 +378,6 @@ function Overview({
 
   return (
     <>
-      <p className="subtle">
-        {formation.isActive ? 'Live plan' : 'Draft'} on server {formation.serverId}, anchored at{' '}
-        <code>{formatTeleport(anchor)}</code>. {board.length} tile
-        {board.length === 1 ? '' : 's'}, {board.filter((slot) => slot.playerId !== null).length}{' '}
-        filled.
-      </p>
-
       {departed.length > 0 && (
         <p className="subtle">
           {departed.length} tile{departed.length === 1 ? ' is' : 's are'} empty again because the
