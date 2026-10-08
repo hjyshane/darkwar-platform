@@ -5430,7 +5430,20 @@ button.tile-grid:hover:not(:disabled) {
   align-items: center;
   display: grid;
   gap: var(--space-3);
-  grid-template-columns: minmax(0, 1fr) minmax(3.25rem, auto) 7rem;
+  /* The number box fits a ten-digit stock (7,162,671,974 is a real value). */
+  grid-template-columns: minmax(0, 1fr) minmax(3.25rem, auto) 8.5rem;
+}
+
+/* On a phone the name would be left ~35px beside the number box: it takes its
+ * own row, and the count and the box share the one below. */
+@media (max-width: 26rem) {
+  .planner-stock-item {
+    grid-template-columns: minmax(3.25rem, auto) minmax(0, 1fr);
+  }
+
+  .planner-stock-name {
+    grid-column: 1 / -1;
+  }
 }
 
 .planner-stock-name {
