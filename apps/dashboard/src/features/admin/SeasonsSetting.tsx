@@ -6,6 +6,7 @@ import {
   deleteSeasonBuilding,
   fetchUnnamedBuildings,
   fromUtcInput,
+  nameUnnamedBuildings,
   saveSeason,
   saveSeasonBuilding,
   toUtcInput,
@@ -16,8 +17,9 @@ import {
  *
  * When a new season starts: add it here with its start (game time, UTC), sweep
  * the map as usual, and the building ids the sweeps meet appear under "Seen,
- * not named". Name them and the season behaves like Season 2 and 3 do. The game
- * sends only ids, never names, which is why the names are typed by hand.
+ * not named". The server sends only ids, but the client's own data names most of
+ * them (0246): one button names those, and a person names the rest. Then the
+ * season behaves like Season 2 and 3 do.
  *
  * The current season is the latest whose start has passed, so a season added
  * with a future start changes nothing until that day. Shared by every alliance.
@@ -53,6 +55,14 @@ export function SeasonsSetting() {
     onSuccess: done,
     onError: fail,
   });
+  const nameAll = useMutation({
+    mutationFn: nameUnnamedBuildings,
+    onSuccess: (count) => {
+      done();
+      setMessage(count === 0 ? 'Nothing to name.' : `Named ${count} from the game's data.`);
+    },
+    onError: fail,
+  });
   const removeBuilding = useMutation({
     mutationFn: (entry: { seasonId: number; typeId: number }) =>
       deleteSeasonBuilding(entry.seasonId, entry.typeId),
@@ -70,7 +80,11 @@ export function SeasonsSetting() {
   const list = [...(seasons.data ?? [])].sort((a, b) => b.id - a.id);
   const picked = list.find((season) => season.id === pickedId) ?? list[0] ?? null;
   const nextNumber = list.reduce((top, season) => Math.max(top, season.id), 0) + 1;
-  const busy = saveSeasonMutation.isPending || saveBuilding.isPending || removeBuilding.isPending;
+  const busy =
+    saveSeasonMutation.isPending ||
+    saveBuilding.isPending ||
+    removeBuilding.isPending ||
+    nameAll.isPending;
 
   return (
     <div className="setting">
@@ -188,6 +202,17 @@ export function SeasonsSetting() {
           {unnamed.data && unnamed.data.length === 0 && (
             <p className="empty">
               Every building type the sweeps have seen is named in some season.
+            </p>
+          )}
+          {unnamed.data?.some((entry) => entry.gameName !== null) && (
+            <p>
+              <button disabled={busy} onClick={() => nameAll.mutate(picked.id)} type="button">
+                Name {unnamed.data.filter((entry) => entry.gameName !== null).length} with the
+                game's names
+              </button>{' '}
+              <span className="subtle">
+                The client's own data names these types; the rest need a person.
+              </span>
             </p>
           )}
           {unnamed.data && unnamed.data.length > 0 && (
@@ -442,7 +467,7 @@ function UnnamedRow({
   busy,
   onName,
 }: {
-  entry: { typeId: number; players: number };
+  entry: { typeId: number; players: number; gameName: string | null };
   busy: boolean;
   onName: (name: string) => void;
 }) {
@@ -457,10 +482,15 @@ function UnnamedRow({
             aria-label={`Name for building ${entry.typeId}`}
             maxLength={60}
             onChange={(event) => setName(event.target.value)}
-            placeholder="name it"
+            placeholder={entry.gameName ?? 'name it'}
             type="text"
             value={name}
           />
+          {entry.gameName !== null && name.trim() === '' && (
+            <button disabled={busy} onClick={() => onName(entry.gameName ?? '')} type="button">
+              Use “{entry.gameName}”
+            </button>
+          )}
           <button
             disabled={busy || name.trim() === ''}
             onClick={() => onName(name.trim())}
