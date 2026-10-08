@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
+import { ExportButton } from '../../components/ExportButton';
 import { useRecordActivity } from '../../lib/activity';
+import type { CsvColumn } from '../../lib/csv';
 import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
 import { type AllianceRankingRow, AllianceRankingTable } from './AllianceRankingTable';
@@ -30,6 +32,16 @@ async function fetchAllianceRankings(): Promise<AllianceRankingRow[]> {
   return data as AllianceRankingRow[];
 }
 
+const ALLIANCE_CSV: CsvColumn<AllianceRankingRow>[] = [
+  { header: 'Rank', value: (row) => row.rank },
+  { header: 'Server', value: (row) => row.server_id },
+  { header: 'Tag', value: (row) => row.code },
+  { header: 'Name', value: (row) => row.name },
+  { header: 'Power', value: (row) => row.power },
+  { header: 'Members', value: (row) => row.member_count },
+  { header: 'Captured at (UTC)', value: (row) => row.captured_at },
+];
+
 export function RankingsPanel() {
   // The alliance board, for the activity score (0114).
   useRecordActivity('rank_alliance');
@@ -42,6 +54,7 @@ export function RankingsPanel() {
       <h2 id="rankings-heading">{TERMS.allianceRanking}</h2>
       {isPending && <p className="empty loading">Loading…</p>}
       {error && <p className="error">Could not load alliance ranking: {error.message}</p>}
+      {data && <ExportButton rows={data} columns={ALLIANCE_CSV} filename="alliance-ranking" />}
       {data && <AllianceRankingTable rows={data} />}
     </section>
   );

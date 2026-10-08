@@ -1,7 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { ExportButton } from '../../components/ExportButton';
 import { getActiveAlliance } from '../../lib/activeAlliance';
 import { fetchAllianceSetting } from '../../lib/allianceSetting';
+import type { CsvColumn } from '../../lib/csv';
 import { FormulaError, evaluateFormula, parseFormula } from '../../lib/formula';
 import { MEMBER_FIELD_IDS, MEMBER_FORMULAS_KEY } from '../../lib/memberFormulas';
 import { resolveFormulas } from '../../lib/overviewMetrics';
@@ -41,6 +43,29 @@ async function fetchMemberColumns(): Promise<ComputedColumn[]> {
     }
   });
 }
+
+/** What the members export carries. Month-card and VIP fields are left out:
+ * the view blanks them below officer, so a file would be mostly empty cells
+ * for most readers and a privacy question for the rest. */
+const ROSTER_CSV: CsvColumn<RosterRow>[] = [
+  { header: 'Name', value: (row) => row.current_name },
+  { header: 'Game rank (R1-R5)', value: (row) => row.member_rank },
+  { header: 'Assigned rank', value: (row) => row.assigned_rank },
+  { header: 'Computed rank', value: (row) => row.computed_rank },
+  { header: 'Rank score', value: (row) => row.rank_score },
+  { header: 'HQ level', value: (row) => row.hq_level },
+  { header: 'Power', value: (row) => row.power },
+  { header: 'Growth 1d', value: (row) => row.growth_1d },
+  { header: 'Growth 7d', value: (row) => row.growth_7d },
+  { header: 'Kills', value: (row) => row.kills },
+  { header: 'Daily donation', value: (row) => row.daily_donation_score },
+  { header: 'Weekly donation', value: (row) => row.weekly_donation_score },
+  { header: 'Duel daily', value: (row) => row.duel_daily_score },
+  { header: 'Duel weekly', value: (row) => row.duel_weekly_score },
+  { header: 'Duel round', value: (row) => row.duel_round_score },
+  { header: 'Last online (UTC)', value: (row) => row.last_online_at },
+  { header: 'Last seen (UTC)', value: (row) => row.last_seen_at },
+];
 
 export type DepartureRow = {
   game_uid: number;
@@ -221,6 +246,7 @@ export function RosterPanel() {
         <>
           {isPending && <p className="empty loading">Loading…</p>}
           {error && <p className="error">Could not load members: {error.message}</p>}
+          {data && <ExportButton rows={data} columns={ROSTER_CSV} filename="members" />}
           {data && <RosterTable columns={columns ?? []} rows={data} />}
         </>
       )}
