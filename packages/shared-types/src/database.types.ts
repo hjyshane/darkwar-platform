@@ -3808,6 +3808,159 @@ export type Database = {
         }
         Relationships: []
       }
+      gift_claim_exclusions: {
+        Row: {
+          alliance_id: string
+          created_at: string
+          excluded_by: string | null
+          game_uid: number
+        }
+        Insert: {
+          alliance_id?: string
+          created_at?: string
+          excluded_by?: string | null
+          game_uid: number
+        }
+        Update: {
+          alliance_id?: string
+          created_at?: string
+          excluded_by?: string | null
+          game_uid?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gift_claim_exclusions_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "gift_claim_exclusions_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "gift_claim_exclusions_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
+        ]
+      }
+      gift_code_claims: {
+        Row: {
+          alliance_id: string
+          attempt_count: number
+          claim_id: string
+          code_id: string
+          created_at: string
+          finished_at: string | null
+          game_uid: number
+          last_error: string | null
+          next_attempt_at: string
+          requested_by: string | null
+          result: Json | null
+          started_at: string | null
+          status: string
+        }
+        Insert: {
+          alliance_id?: string
+          attempt_count?: number
+          claim_id?: string
+          code_id: string
+          created_at?: string
+          finished_at?: string | null
+          game_uid: number
+          last_error?: string | null
+          next_attempt_at?: string
+          requested_by?: string | null
+          result?: Json | null
+          started_at?: string | null
+          status?: string
+        }
+        Update: {
+          alliance_id?: string
+          attempt_count?: number
+          claim_id?: string
+          code_id?: string
+          created_at?: string
+          finished_at?: string | null
+          game_uid?: number
+          last_error?: string | null
+          next_attempt_at?: string
+          requested_by?: string | null
+          result?: Json | null
+          started_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gift_code_claims_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "gift_code_claims_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "gift_code_claims_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "gift_code_claims_code_id_fkey"
+            columns: ["code_id"]
+            isOneToOne: false
+            referencedRelation: "gift_codes"
+            referencedColumns: ["code_id"]
+          },
+        ]
+      }
+      gift_codes: {
+        Row: {
+          added_by: string | null
+          checked_at: string | null
+          code: string
+          code_id: string
+          first_seen_at: string
+          note: string | null
+          source: string
+          status: string
+        }
+        Insert: {
+          added_by?: string | null
+          checked_at?: string | null
+          code: string
+          code_id?: string
+          first_seen_at?: string
+          note?: string | null
+          source?: string
+          status?: string
+        }
+        Update: {
+          added_by?: string | null
+          checked_at?: string | null
+          code?: string
+          code_id?: string
+          first_seen_at?: string
+          note?: string | null
+          source?: string
+          status?: string
+        }
+        Relationships: []
+      }
       guides: {
         Row: {
           alliance_id: string | null
@@ -8731,6 +8884,7 @@ export type Database = {
         }
         Returns: number
       }
+      add_gift_code: { Args: { p_code: string }; Returns: string }
       alliance_role_of: {
         Args: { p_user: string }
         Returns: Database["public"]["Enums"]["app_role"]
@@ -8774,6 +8928,7 @@ export type Database = {
       }
       build_rank_period: { Args: { p_period_start: string }; Returns: number }
       can_enter_account: { Args: { p_player_id: string }; Returns: boolean }
+      cancel_gift_claims: { Args: { p_code_id: string }; Returns: number }
       claim_player: {
         Args: { p_player_id: string }
         Returns: {
@@ -8811,6 +8966,10 @@ export type Database = {
         Args: { p_building_type_id: number; p_season_id: number }
         Returns: undefined
       }
+      enqueue_gift_claims: {
+        Args: { p_code_ids: string[]; p_game_uids?: number[] }
+        Returns: number
+      }
       enter_weekly_scores: {
         Args: { p_entries: Json; p_week_start: string }
         Returns: number
@@ -8819,6 +8978,33 @@ export type Database = {
       freeze_alliance_settings: {
         Args: { p_old_primary?: string }
         Returns: undefined
+      }
+      gift_code_progress: {
+        Args: never
+        Returns: {
+          already: number
+          checked_at: string
+          code: string
+          code_id: string
+          done: number
+          failed: number
+          first_seen_at: string
+          members: number
+          other: number
+          queued: number
+          running: number
+          source: string
+          status: string
+        }[]
+      }
+      gift_member_status: {
+        Args: never
+        Returns: {
+          claims: Json
+          excluded: boolean
+          game_uid: number
+          name: string
+        }[]
       }
       has_permission: { Args: { p_capability: string }; Returns: boolean }
       is_service_request: { Args: never; Returns: boolean }
@@ -9163,6 +9349,14 @@ export type Database = {
           newest_seen: string
           players: number
         }[]
+      }
+      set_gift_code_status: {
+        Args: { p_code_id: string; p_status: string }
+        Returns: undefined
+      }
+      set_gift_exclusion: {
+        Args: { p_excluded: boolean; p_game_uid: number }
+        Returns: undefined
       }
       set_membership: {
         Args: {
