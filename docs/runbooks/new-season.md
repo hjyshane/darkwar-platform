@@ -27,8 +27,10 @@ What changes on the start day, without anything else being done:
   for them are replaced. That is the game's own rule, but it is the one place figures already on
   screen can change; check the duel board the day after.
 
-Not covered here: the season rank rule (`season_lab` in Settings -> Rank tiers) still names one
-building and a window by hand. Pick the new building there after naming it.
+The season rank rule (`season_lab`, Settings -> Rank tiers) is separate: it may open later than the
+season does, so it keeps its own dates and its own building. After naming the new season's
+buildings, pick the building there; the button "Use <season>'s dates" copies the season's start and
+end in, and both stay editable. It is never switched on for you.
 
 If the seasons table is empty or unreadable, the dashboard falls back to the Season 2 and Season 3
 lists compiled into `features/season/buildings.ts`.

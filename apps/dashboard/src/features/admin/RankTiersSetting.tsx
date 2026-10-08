@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Select } from '../../components/ui/Select';
 import { labAdjustment, parseSeasonLab, seasonLabApplies } from '../../lib/seasonLab';
-import { currentBuildings, useSeasons } from '../../lib/seasons';
+import { currentBuildings, currentSeason, seasonWindow, useSeasons } from '../../lib/seasons';
 import { supabase } from '../../lib/supabase';
 
 /** How the score is mixed, and where the rank boundaries fall.
@@ -155,6 +155,8 @@ async function fetchTiers(): Promise<Tiers> {
 export function RankTiersSetting() {
   const queryClient = useQueryClient();
   const seasonList = useSeasons();
+  const thisSeason = currentSeason(seasonList.data ?? [], new Date());
+  const seasonDates = seasonWindow(thisSeason);
   const [draft, setDraft] = useState<Tiers | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
@@ -422,6 +424,35 @@ export function RankTiersSetting() {
             ))}
           </Select>
         </label>
+
+        {/* The dates are the season's own (Settings -> Shared -> Seasons), so a new
+            season is not typed twice. The button copies them in; they stay
+            editable, because the rule may open later than the season does. */}
+        {seasonDates !== null && (
+          <p className="subtle">
+            <button
+              onClick={() =>
+                setDraft({
+                  ...draft,
+                  season_lab: {
+                    ...draft.season_lab,
+                    starts_at: seasonDates.startsAt,
+                    // A season with no end yet keeps whatever end was typed.
+                    ends_at:
+                      seasonDates.endsAt === '' ? draft.season_lab.ends_at : seasonDates.endsAt,
+                  },
+                })
+              }
+              type="button"
+            >
+              Use {thisSeason?.name ?? 'the current season'}'s dates
+            </button>{' '}
+            {seasonDates.startsAt}
+            {seasonDates.endsAt === ''
+              ? ' → no end set on the season yet'
+              : ` → ${seasonDates.endsAt}`}
+          </p>
+        )}
 
         {/* `datetime-local` has no zone, and every timestamp in this app is
             UTC. Typing the instant in full is uglier than a picker and is the
