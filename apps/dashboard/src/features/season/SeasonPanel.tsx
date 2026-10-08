@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
 import { Tabs } from '../../components/ui/Tabs';
 import { floorsFor, useSeasonBuildingAlert } from '../../lib/seasonBuildingAlert';
-import { FALLBACK_SEASONS, currentSeason, useSeasons } from '../../lib/seasons';
+import { FALLBACK_SEASONS, currentSeason, sinceSeasonStart, useSeasons } from '../../lib/seasons';
 import { TERMS } from '../../lib/terms';
 import { SeasonAllianceTable } from './SeasonAllianceTable';
 import { SeasonBuildingTable } from './SeasonBuildingTable';
@@ -84,8 +84,15 @@ export function SeasonPanel() {
         : boardId === 'buildings'
           ? buildings
           : undefined;
+  // These two boards have no season of their own (the newest capture is what
+  // they show), so a capture from before this season began is the last one's.
+  const allianceRows = sinceSeasonStart(alliance.data ?? [], season);
+  const playerRows = sinceSeasonStart(players.data ?? [], season);
+  const oldBoard =
+    (boardId === 'alliance_score' && alliance.data && allianceRows.length === 0) ||
+    (boardId === 'player_force' && players.data && playerRows.length === 0);
   const capturedAt =
-    buildings.data?.capturedAt ?? alliance.data?.[0]?.captured_at ?? players.data?.[0]?.captured_at;
+    buildings.data?.capturedAt ?? allianceRows[0]?.captured_at ?? playerRows[0]?.captured_at;
   // Per building (0158), against the catalogue this board is rendering — so a
   // level saved under the old single-number setting still lands on exactly
   // the buildings it used to judge.
@@ -121,10 +128,18 @@ export function SeasonPanel() {
       {boardId === 'buildings' && buildings.data && (
         <SeasonBuildingTable floors={floors} grid={buildings.data} />
       )}
-      {boardId === 'alliance_score' && alliance.data && (
-        <SeasonAllianceTable rows={alliance.data} />
+      {oldBoard && (
+        <p className="empty">
+          This ranking has not been captured since {season?.name ?? 'the season'} began. Open it in
+          the game and it appears here; the last capture was from the season before.
+        </p>
       )}
-      {boardId === 'player_force' && players.data && <SeasonForceTable rows={players.data} />}
+      {boardId === 'alliance_score' && alliance.data && allianceRows.length > 0 && (
+        <SeasonAllianceTable rows={allianceRows} />
+      )}
+      {boardId === 'player_force' && players.data && playerRows.length > 0 && (
+        <SeasonForceTable rows={playerRows} />
+      )}
       {boardId === 'calculator' && <SeasonWaitCalculator />}
 
       {/* The one thing a reader could get badly wrong on this grid. An empty

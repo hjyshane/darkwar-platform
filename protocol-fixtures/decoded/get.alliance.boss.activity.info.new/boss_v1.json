@@ -1,0 +1,22 @@
+{
+  "observation_id": "3a6a71a2-9ac6-5770-8501-d015361a591e",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "get.alliance.boss.activity.info.new",
+  "captured_at": "2026-10-08T05:29:35.561314+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "bossInfo": {
+      "battle2EndTime": 1791473520000,
+      "battle2StartTime": 1791471600000,
+      "battleEndTime": 1791428520000,
+      "battleStartTime": 1791426600000,
+      "difficulty": 1,
+      "pointId": 395442
+    },
+    "lastChangeTime": 0,
+    "offlineRallyRound": 0,
+    "offlineRallyRoundSeasonEnabled": true,
+    "selfCanFightEndTime": 1791428520000
+  },
+  "schema_version": 1
+}

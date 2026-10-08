@@ -57,6 +57,20 @@ export function seasonWindow(season: Season | null): { startsAt: string; endsAt:
   };
 }
 
+/** The rows captured since a season began. The influence and score boards
+ * carry no season of their own and show the newest capture, so on the day a
+ * season changes they would keep showing the last one's figures, unlabelled,
+ * until somebody opens that ranking in the new season. A capture older than the
+ * start is the previous season's. With no start known nothing is hidden. */
+export function sinceSeasonStart<T extends { captured_at: string }>(
+  rows: readonly T[],
+  season: Season | null,
+): T[] {
+  if (season === null || season.startsAt === null) return [...rows];
+  const start = Date.parse(season.startsAt);
+  return rows.filter((row) => Date.parse(row.captured_at) >= start);
+}
+
 /** The season before the current one, for the admin-only look back. The
  * highest number below the current season's; with no current season, none. */
 export function pastSeason(seasons: readonly Season[], now: Date): Season | null {

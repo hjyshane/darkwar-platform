@@ -1,0 +1,20 @@
+{
+  "observation_id": "3a6a71a2-9ac6-5770-8501-d015361a591e",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "monster.siege.activity.info",
+  "captured_at": "2026-10-08T05:29:35.563169+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "activityET": 1791511200000,
+    "activityST": 1791338430000,
+    "passPhase": 4,
+    "phase": 5,
+    "rewardTime": 1791511800000,
+    "siegeET": 0,
+    "siegeST": 1791466200000,
+    "state": 1,
+    "timeStamp": 1791437374990,
+    "userState": 0
+  },
+  "schema_version": 1
+}

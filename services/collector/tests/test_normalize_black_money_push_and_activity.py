@@ -17,6 +17,16 @@ FOUGHT = "dragon.activity.info/both_teams_fought_v1.json"
 NOT_YET = "dragon.activity.info/team_a_not_yet_fought_v1.json"
 
 
+def _battles(observation):
+    """The battle rows only: the same response also carries the alliance's
+    event times (alliance_event_times), which have their own tests."""
+    return [
+        r
+        for r in black_money_activity.normalize(observation)
+        if r.target_table == "black_money_battle_snapshots"
+    ]
+
+
 def test_registered() -> None:
     assert registry.get("push.mail") is black_money_report.normalize_pushed
     assert registry.get("dragon.activity.info") is black_money_activity.normalize
@@ -71,7 +81,7 @@ def test_a_malformed_pushed_report_is_skipped_not_raised() -> None:
 
 
 def test_both_teams_once_both_have_fought() -> None:
-    rows = black_money_activity.normalize(load_observation(FOUGHT))
+    rows = _battles(load_observation(FOUGHT))
     by_team = {r.row["team_index"]: r.row for r in rows}
 
     assert {r.target_table for r in rows} == {"black_money_battle_snapshots"}
@@ -85,7 +95,7 @@ def test_both_teams_once_both_have_fought() -> None:
 
 def test_a_battle_not_yet_fought_writes_nothing() -> None:
     """At 13:07 team B had fought and team A had not."""
-    rows = black_money_activity.normalize(load_observation(NOT_YET))
+    rows = _battles(load_observation(NOT_YET))
 
     assert [r.row["team_index"] for r in rows] == [2]
 
@@ -94,9 +104,7 @@ def test_it_agrees_with_the_history_field_for_field() -> None:
     """Team B's 09-27 battle is in both responses. Every column the view
     reads must say the same thing whichever one wrote the row."""
     from_activity = next(
-        r.row
-        for r in black_money_activity.normalize(load_observation(FOUGHT))
-        if r.row["team_index"] == 2
+        r.row for r in _battles(load_observation(FOUGHT)) if r.row["team_index"] == 2
     )
     from_history = black_money_history.normalize(
         load_observation("dragon.battle.history/history_v1.json")
@@ -116,7 +124,7 @@ def test_it_agrees_with_the_history_field_for_field() -> None:
 
 
 def test_ours_is_the_alliance_in_every_matchup() -> None:
-    rows = black_money_activity.normalize(load_observation(FOUGHT))
+    rows = _battles(load_observation(FOUGHT))
 
     assert len({r.row["alliance_external_id"] for r in rows}) == 1
     # And it is not either opponent.
@@ -143,7 +151,7 @@ def test_the_server_is_our_sides_own_not_the_capture_label() -> None:
     ]
     on_578 = observation.model_copy(update={"payload": {**observation.payload, "teamArr": teams}})
 
-    rows = black_money_activity.normalize(on_578)
+    rows = _battles(on_578)
 
     assert observation.collected_from_server_id == 580
     assert {r.row["server_id"] for r in rows} == {578}
@@ -164,7 +172,7 @@ def test_a_side_without_a_server_falls_back_to_the_label() -> None:
     ]
     bare = observation.model_copy(update={"payload": {**observation.payload, "teamArr": teams}})
 
-    assert {r.row["server_id"] for r in black_money_activity.normalize(bare)} == {580}
+    assert {r.row["server_id"] for r in _battles(bare)} == {580}
 
 
 def test_one_team_cannot_say_which_alliance_is_ours() -> None:
@@ -180,14 +188,12 @@ def test_a_battle_keeps_its_key_across_logins() -> None:
     observation = load_observation(FOUGHT)
     again = observation.model_copy(update={"payload": {**observation.payload, "_id": 999}})
 
-    first = [r.idempotency_key for r in black_money_activity.normalize(observation)]
-    second = [r.idempotency_key for r in black_money_activity.normalize(again)]
+    first = [r.idempotency_key for r in _battles(observation)]
+    second = [r.idempotency_key for r in _battles(again)]
 
     assert first == second
 
 
 def test_malformed_activity_rejected() -> None:
     with pytest.raises(ValidationError):
-        black_money_activity.normalize(
-            load_observation("dragon.activity.info/activity_malformed_v1.json")
-        )
+        _battles(load_observation("dragon.activity.info/activity_malformed_v1.json"))

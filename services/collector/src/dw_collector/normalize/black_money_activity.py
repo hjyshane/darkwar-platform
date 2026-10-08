@@ -49,6 +49,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 from dw_collector.models import NormalizedRow, Observation, entry_idempotency_key, stable_uuid
+from dw_collector.normalize.alliance_event_times import black_gold_rows
 from dw_collector.registry import register
 
 PARSER_VERSION = "1.1.0"
@@ -114,6 +115,24 @@ def normalize(observation: Observation) -> list[NormalizedRow]:
         return []
 
     rows: list[NormalizedRow] = []
+    # When the alliance fights is in the same response, before anyone has: the
+    # schedule rows (alliance_event_times) are written whatever the results are.
+    first_us = next((s for t in payload.teams for s in t.sides if s.alliance_id == ours), None)
+    if first_us is not None:
+        rows.extend(
+            black_gold_rows(
+                observation,
+                raw_teams,
+                {
+                    "server_id": first_us.server_id
+                    if first_us.server_id is not None
+                    else observation.collected_from_server_id,
+                    "external_id": ours,
+                    "name": first_us.name,
+                    "code": first_us.abbr,
+                },
+            )
+        )
     for team, raw in zip(payload.teams, raw_teams, strict=True):
         if not team.results:
             continue
