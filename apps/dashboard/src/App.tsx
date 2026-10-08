@@ -14,6 +14,7 @@ import { LoginPage } from './features/auth/LoginPage';
 import { BlackMoneyPage } from './features/blackMoney/BlackMoneyPage';
 import { CalendarPage } from './features/calendar/CalendarPage';
 import { CrossRankingsPanel } from './features/crossRankings/CrossRankingsPanel';
+import { EventGuidePage } from './features/eventGuide/EventGuidePage';
 import { GuidePostPage } from './features/guides/GuidePostPage';
 import { GuidesPanel } from './features/guides/GuidesPanel';
 import { HivePage } from './features/hive/HivePage';
@@ -499,6 +500,9 @@ function Screen({ route, mapServerId }: { route: Route; mapServerId: number | nu
       // No capability gate: every table behind it is member-only at the policy
       // level (0215), and editing values is gated by RLS to officers and admins.
       return <ShopValuePage />;
+    case 'eventGuide':
+      // Member-only at the policy level (0248); nothing in it is about a member.
+      return <EventGuidePage />;
     case 'calendar':
       // No capability gate, for the same reason: the calendar is member-only at
       // the policy level (0208), and naming events is gated by RLS to officers

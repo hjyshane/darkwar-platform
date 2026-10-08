@@ -38,6 +38,7 @@ export type Route =
   | 'participation'
   | 'planner'
   | 'calendar'
+  | 'eventGuide'
   | 'shopValue'
   | 'account'
   | 'terms'
@@ -66,6 +67,7 @@ const ROUTES: Record<string, Route> = {
   '#/participation': 'participation',
   '#/planner': 'planner',
   '#/calendar': 'calendar',
+  '#/event-guide': 'eventGuide',
   '#/shop-value': 'shopValue',
   // The only two addresses here that a signed-out stranger is MEANT to reach.
   // Everything else on this list is walled; these are marked standalone in
@@ -308,6 +310,8 @@ export const ALLIANCE_TABS: ReadonlyArray<NavTab> = [
  * and nothing it holds is lost; it just has no tab. */
 export const EVENT_TABS: ReadonlyArray<NavTab> = [
   { route: 'calendar', hash: '#/calendar', label: 'Game calendar' },
+  // What each event is and what scores in it (0248): the game's own lists.
+  { route: 'eventGuide', hash: '#/event-guide', label: 'Event guide' },
   // What packs and Ruby-shop entries are worth (0215). Member-only at the
   // policy level, so no gate.
   { route: 'shopValue', hash: '#/shop-value', label: 'Shop value' },
@@ -343,6 +347,7 @@ export function navSection(route: Route): NavSection | null {
     case 'map':
       return 'map';
     case 'calendar':
+    case 'eventGuide':
     case 'shopValue':
     case 'schedule':
       return 'events';

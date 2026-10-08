@@ -148,6 +148,19 @@ on-demand 팩이다(`pm path com.readygo.dark.gp`가 주는 나머지 파일). �
 `pm path`로 목록을 보고, 새 APK를 `C:/DW_data/gamedata/apk/`에 복사해 같은 이름으로 훑는다.
 `icon_*=png`는 값에 `=png`가 붙은 표 오타일 수 있으니 `icon_microradar`로도 찾는다.
 
+## 이벤트 가이드: 무엇이 점수를 주는가 (0248)
+
+Survival Preparedness와 Alliance Duel의 테마별 점수 항목은 서버가 주는 테마 목록
+(`hero.event.info.get`, `get.hero.event.calendar`)과 클라이언트의 `score` 테이블(항목 이름과 기본 점수)을
+합쳐 만든다. 멤버 개인의 점수는 읽지 않는다 — 버프 때문에 사람마다 다르다.
+
+`uv run --no-sync --with "UnityPy>=1.25" --with "lupa>=2.8" dw-collector game-event-guide --bundles C:/DW_data/gamedata/base --bundles C:/DW_data/gamedata/bundles --journal C:/DW_data/live.db --dry-run`
+
+먼저 `--dry-run`으로 개수를 본다(2026-10-08: 테마 10, 점수 항목 125, 달력 42칸). 게임 업데이트 뒤나 테마가
+이상해 보일 때 다시 돌린다. Duel은 그 주의 차례가 와야 요일 테마가 오므로, 아직 안 온 요일은 가이드에
+"Not seen yet"으로 나온다. 화면은 `#/event-guide`(Events 탭). 시각은 전부 서버 시간(UTC-2)이고, 슬롯 1은
+서버 00:00에 시작하는 4시간 칸이다.
+
 ## 연구 선행 조건 (0243)
 
 `game-catalog`는 연구 단계마다 선행 조건도 `game_upgrade_steps.requires`에 쓴다.
