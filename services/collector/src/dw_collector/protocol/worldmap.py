@@ -44,6 +44,22 @@ and the roster's own `hq_level`.
     3.4      HQ LEVEL. Equals the roster's `hq_level` exactly in 349/394
              players; the remainder differ by 1-2, which is a player
              levelling between the roster snapshot and the pan
+    3.11     SHIELD END, epoch seconds. Confirmed 2026-10-08 against a screen
+             reading: one test account's shield read 7:54:51 and the tile's 3.11
+             minus the viewport clock was 7:54:43. Of eight players whose
+             detail was opened, exactly the three the operator counted as
+             shielded had a 3.11 in the future; the others had one in the
+             past (the end of their last shield) or none (never shielded).
+             Across 2,720 cities, 45 were in the future and the largest
+             remainder was 68.47h. The game has three shield items, 8h, 24h
+             and 72h, and using one while shielded RESTARTS the timer rather
+             than adding to it, so this is always last use + item length and
+             it can DECREASE. Compare snapshots with !=, not >. A remainder
+             does not identify the item (5h left fits all three).
+             Not in `world.get.detail.new`, which has no shield field.
+    3.8,3.9  NOT a shield. They were the first candidates; 3.8 is 17.85h
+             ahead on the shielded city and 38.4h ahead on one whose shield
+             ended four days earlier. Some other duration; unnamed.
     3.14     PLAYER NAME. Equals the opened detail's `name` in 288/294 and
              its `afn` (the alliance tag) in 0/294. An earlier note in the
              runbook called this the alliance tag, from a small sample where
@@ -113,6 +129,7 @@ _SERVER_ID = 103
 
 _CITY_UID = 1
 _CITY_HQ_LEVEL = 4
+_CITY_SHIELD_END = 11
 _CITY_NAME = 14
 
 #: `f2` of a player's city tile.
@@ -139,6 +156,9 @@ class City:
     uid: str | None = None
     name: str | None = None
     hq_level: int | None = None
+    #: Epoch seconds when the last shield ends; in the past once it has. None
+    #: means the city has never been shielded, not that it is unshielded.
+    shield_end: int | None = None
 
 
 @dataclass(frozen=True)
@@ -284,6 +304,7 @@ def _city(values: dict[int, list[int | bytes]]) -> City | None:
         uid=_text(sub, _CITY_UID),
         name=_text(sub, _CITY_NAME),
         hq_level=_varint(sub, _CITY_HQ_LEVEL),
+        shield_end=_varint(sub, _CITY_SHIELD_END),
     )
 
 

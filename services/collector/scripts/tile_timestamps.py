@@ -7,9 +7,12 @@ in the committed `world.get.new` fixtures, per object type, and flags the ones
 whose values sit near the viewport's own `timeStamp` — as epoch seconds or
 milliseconds, within 90 days before and 180 days after it.
 
-Then, for type-3 city tiles, it checks the one pair that stood out when this
-was first run (docs/vantera-research.md): `f3.8` and `f3.9`, present on the
-same 24% of cities, one always in the future and one always in the past.
+Then, for type-3 city tiles, it checks the pair that stood out when this was
+first run (docs/vantera-research.md): `f3.8` and `f3.9`. THEY ARE NOT THE
+SHIELD. The shield end is `f3.11` (confirmed 2026-10-08 against a screen
+reading, see `protocol/worldmap.py`); the committed fixtures predate that
+capture and carry too few shielded cities to show it, so f3.11 is only
+summarised here.
 
 It READS the fixtures and WRITES nothing. Run from anywhere:
 
@@ -114,6 +117,11 @@ def main() -> int:
     print(f"  f3.9 always before now: {all(c[9] <= now for c in both)}")
     spans = sorted(round((c[8] - c[9]) / 3600, 1) for c in both)
     print(f"  (f3.8 - f3.9) in hours, round numbers would mean a fixed-length shield: {spans}")
+    ends11 = [c[11] for c in cities if 11 in c]
+    print(
+        f"\nf3.11 (shield end): on {len(ends11)} of {len(cities)} cities, "
+        f"in the future on {sum(v > now for v in ends11)}"
+    )
     return 0
 
 

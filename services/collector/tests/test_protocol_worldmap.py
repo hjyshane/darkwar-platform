@@ -43,8 +43,11 @@ def _bfield(number: int, payload: bytes) -> bytes:
     return _tag(number, 2) + _varint(len(payload)) + payload
 
 
-def _city(uid: str, name: str, hq: int) -> bytes:
-    return _bfield(1, uid.encode()) + _vfield(4, hq) + _bfield(14, name.encode())
+def _city(uid: str, name: str, hq: int, shield_end: int | None = None) -> bytes:
+    body = _bfield(1, uid.encode()) + _vfield(4, hq)
+    if shield_end is not None:
+        body += _vfield(11, shield_end)
+    return body + _bfield(14, name.encode())
 
 
 def _point(point_id: int, object_type: int, city: bytes | None = None, server: int = 580) -> str:
@@ -93,6 +96,39 @@ def test_a_city_carries_uid_name_and_hq_level() -> None:
     assert tile.city.name == "Ranger"
     assert tile.city.hq_level == 35
     assert (tile.x, tile.y) == (443, 491)
+
+
+def test_a_city_reads_its_shield_end_from_field_eleven() -> None:
+    """Pinned to the 2026-10-08 sighting: the screen read 7:54:51 and the
+    tile's 3.11 sat 7:54:43 past the viewport clock (names are synthetic)."""
+    viewport_clock = 1791492504
+    shield_end = viewport_clock + 7 * 3600 + 54 * 60 + 43
+
+    tile = decode_point(
+        _point(389450, CITY_TYPE, _city("1000000000000580", "Shielded", 36, shield_end))
+    )
+
+    assert tile.city is not None
+    assert tile.city.shield_end == shield_end
+    assert tile.city.shield_end - viewport_clock == 28483
+
+
+def test_a_city_that_was_never_shielded_has_no_shield_end() -> None:
+    tile = decode_point(_point(395450, CITY_TYPE, _city("1000000000000580", "NeverShielded", 40)))
+
+    assert tile.city is not None
+    assert tile.city.shield_end is None
+
+
+def test_a_shield_end_in_the_past_is_kept_not_dropped() -> None:
+    """3.11 stays after the shield lapses, as the end of the LAST one. Four
+    of the five unshielded players opened on 2026-10-08 carried one."""
+    tile = decode_point(
+        _point(392450, CITY_TYPE, _city("1000000000000580", "Lapsed", 35, 1791492504 - 412654))
+    )
+
+    assert tile.city is not None
+    assert tile.city.shield_end == 1791079850
 
 
 def test_a_non_city_type_is_not_given_city_fields() -> None:
