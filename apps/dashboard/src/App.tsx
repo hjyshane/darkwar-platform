@@ -6,6 +6,7 @@ import { ReplyAlerts } from './components/ReplyAlerts';
 import { SignOutButton } from './components/SignOutButton';
 import { SyncStatus } from './components/SyncStatus';
 import { ThemeToggle } from './components/ThemeToggle';
+import { AppShell } from './components/shell/AppShell';
 import { AccountPage } from './features/account/AccountPage';
 import { AdminPage } from './features/admin/AdminPage';
 import { AlliancePage } from './features/alliance/AlliancePage';
@@ -43,32 +44,23 @@ import { queryKeysForTopic, subscribeDataChanges } from './lib/realtime';
 import { useReplyAlerts } from './lib/replyAlerts';
 import { rememberReturnTo } from './lib/returnTo';
 import {
-  ALLIANCE_TABS,
   type AdminGroup,
-  BOARD_TABS,
-  EVENT_TABS,
-  NAV_TABS,
-  OVERVIEW_TABS,
   RANKING_TABS,
   type Route,
   adminGroupFromHash,
   adminSectionFromHash,
-  allianceHash,
   allianceIdFromHash,
   guideIdFromHash,
   isRankingRoute,
   isStandaloneRoute,
   mapServerIdFromHash,
-  navSection,
   noticeIdFromHash,
   playerIdFromHash,
   routeFromHash,
   serverIdFromHash,
 } from './lib/route';
-import { FALLBACK_SEASONS, currentSeason, pastSeason, useSeasons } from './lib/seasons';
 import { supabase } from './lib/supabase';
 import { useActiveAlliance } from './lib/useMyAlliances';
-import { useOwnAlliance } from './lib/useOwnAlliance';
 import { useSession } from './lib/useSession';
 import { useSidewaysMouse } from './lib/useSidewaysMouse';
 
@@ -162,143 +154,32 @@ function useMayView(capability: string): boolean | undefined {
   return isAllowed(permissions?.grants, session?.role, capability);
 }
 
-/** The second row: which board of the group you are looking at.
+/** The three boards behind Rankings, as a row inside the screen.
  *
- * Two groups have one, and they are grouped for different reasons. The three
- * cross-server boards answer one question about three subjects. Members sits
- * under our own alliance because it IS our own alliance, listed a row at a
- * time — it was a top-level tab only because it used to be the landing screen.
- *
- * THE CAPABILITY GATES LIVE HERE, with the tabs they hide. Members needs
- * `members.view` and Arena needs `arena.view` (0063, 0064). Undefined means the
- * grid has not answered yet and is treated as "not yet" rather than "no":
- * drawing a tab and taking it away is worse than one that arrives a beat late.
- * This hides a tab and withholds nothing — RLS does that, and somebody who
- * types the address gets the screen's own empty state.
- */
-function SubNav({ route, allianceId }: { route: Route; allianceId: string | null }) {
-  const { data: session } = useSession();
-  const { data: ownAlliance } = useOwnAlliance();
-  const mayViewMembers = useMayView('members.view');
+ * The sidebar lists every screen once, so the old second rows are gone; this is
+ * the one that is not a list of screens but of boards of one screen, and it
+ * belongs with the content it switches. Arena needs `arena.view` (0064): this
+ * hides a tab and withholds nothing, and an undefined answer is "not yet", not
+ * "no". */
+function RankingBoards({ route }: { route: Route }) {
   const mayViewArena = useMayView('arena.view');
-  const isAdmin = session?.role === 'admin';
-  const isOfficer = isAdmin || session?.role === 'officer';
-  // The two season tabs carry the seasons' names (0242): the current one, and
-  // the one before it for the admin-only look back.
-  const seasonList = useSeasons();
-  const seasonNow = new Date();
-  const seasonNames: Record<string, string | undefined> = {
-    '#/season': currentSeason(seasonList.data ?? FALLBACK_SEASONS, seasonNow)?.name,
-    '#/season2': pastSeason(seasonList.data ?? FALLBACK_SEASONS, seasonNow)?.name,
-  };
-
-  const onOwnAlliance =
-    ownAlliance != null && route === 'alliance' && allianceId === ownAlliance.alliance_id;
-  const section = onOwnAlliance ? 'alliance' : navSection(route);
-
-  type Row = { key: string; href: string; label: string; current: boolean }[];
-  const rows: { label: string; tabs: Row }[] = [];
-
-  if (section === 'overview') {
-    rows.push({
-      label: 'Overview section',
-      tabs: OVERVIEW_TABS.filter((tab) => tab.route !== 'migration' || isOfficer).map((tab) => ({
-        key: tab.hash,
-        href: tab.hash,
-        label: tab.label,
-        // Cross-Server Ranking stands for three boards, so it stays selected
-        // on all of them.
-        current: tab.route === 'rankings' ? isRankingRoute(route) : tab.route === route,
-      })),
-    });
-    if (isRankingRoute(route)) {
-      rows.push({
-        label: 'Board',
-        tabs: RANKING_TABS.filter((tab) => tab.route !== 'arena' || mayViewArena === true).map(
-          (tab) => ({
-            key: tab.hash,
-            href: tab.hash,
-            label: tab.label,
-            current: tab.route === route,
-          }),
-        ),
-      });
-    }
-  } else if (section === 'alliance') {
-    rows.push({
-      label: 'Alliance section',
-      tabs: [
-        ...(ownAlliance != null
-          ? [
-              {
-                key: 'alliance',
-                href: allianceHash(ownAlliance.alliance_id),
-                label: 'Alliance',
-                current: onOwnAlliance,
-              },
-            ]
-          : []),
-        ...ALLIANCE_TABS.filter(
-          (tab) =>
-            (tab.route !== 'members' || mayViewMembers === true) &&
-            (tab.route !== 'season2' || isAdmin),
-        ).map((tab) => ({
-          key: tab.hash,
-          href: tab.hash,
-          label: tab.label,
-          current: tab.route === route,
-        })),
-      ],
-    });
-  } else if (section === 'events') {
-    rows.push({
-      label: 'Events section',
-      tabs: EVENT_TABS.map((tab) => ({
-        key: tab.hash,
-        href: tab.hash,
-        label: tab.label,
-        current: tab.route === route,
-      })),
-    });
-  } else if (section === 'boards') {
-    rows.push({
-      label: 'Boards section',
-      tabs: BOARD_TABS.map((tab) => ({
-        key: tab.hash,
-        href: tab.hash,
-        label: tab.label,
-        // A single notice or guide is still that board.
-        current:
-          tab.route === 'notices'
-            ? route === 'notices' || route === 'notice'
-            : route === 'guides' || route === 'guide',
-      })),
-    });
-  }
-
-  // One tab is not a choice. A row that offers only the screen you are
-  // already on is furniture.
-  const shown = rows.filter((row) => row.tabs.length >= 2);
-  if (shown.length === 0) {
+  const tabs = RANKING_TABS.filter((tab) => tab.route !== 'arena' || mayViewArena === true);
+  if (!isRankingRoute(route) || tabs.length < 2) {
     return null;
   }
   return (
-    <>
-      {shown.map((row) => (
-        <nav key={row.label} aria-label={row.label} className="tabs subtabs">
-          {row.tabs.map((tab) => (
-            <a
-              key={tab.key}
-              aria-current={tab.current ? 'page' : undefined}
-              className="tab"
-              href={tab.href}
-            >
-              {seasonNames[tab.href] ?? tab.label}
-            </a>
-          ))}
-        </nav>
+    <nav aria-label="Board" className="tabs subtabs">
+      {tabs.map((tab) => (
+        <a
+          key={tab.hash}
+          aria-current={tab.route === route ? 'page' : undefined}
+          className="tab"
+          href={tab.hash}
+        >
+          {tab.label}
+        </a>
       ))}
-    </>
+    </nav>
   );
 }
 
@@ -345,83 +226,6 @@ function HeaderAllianceSwitcher() {
       activeId={active?.alliance_id ?? null}
       onSwitch={switchTo}
     />
-  );
-}
-
-function Nav({ route, allianceId }: { route: Route; allianceId: string | null }) {
-  const { data: session } = useSession();
-  const { data: ownAlliance } = useOwnAlliance();
-  // Built as a list rather than mapped in place, because one tab is not in
-  // NAV_TABS: our own alliance's address carries a uuid that only a query knows,
-  // so the static list cannot hold it. It sits immediately right of Overview, is
-  // absent until the query answers, and stays absent if no alliance is pinned
-  // rather than linking at `#/alliance/null`.
-  //
-  // One gate is back, and it is here because Schedule is a TOP-level tab with a
-  // capability (0124) — unlike Members and Arena, whose checks live in `SubNav`
-  // with the second-row tabs they hide. Undefined means the grid has not
-  // answered yet and is treated as "not yet": drawing a tab and taking it away
-  // is worse than one that arrives a beat late. Hiding it withholds nothing —
-  // RLS does that, and somebody who types `#/schedule` gets an empty grid.
-  const onOwnAlliance =
-    ownAlliance != null &&
-    (navSection(route) === 'alliance' ||
-      (route === 'alliance' && allianceId === ownAlliance.alliance_id));
-  const section = onOwnAlliance ? 'alliance' : navSection(route);
-  const tabs = NAV_TABS.flatMap((tab) => {
-    const entry = {
-      key: tab.hash,
-      href: tab.hash,
-      label: tab.label,
-      // A top tab stands for its whole section, so it stays selected on
-      // every screen in it; otherwise opening Arena would deselect Overview.
-      current: tab.section === section,
-    };
-    if (tab.route !== 'overview' || ownAlliance == null) {
-      return [entry];
-    }
-    return [
-      entry,
-      {
-        key: 'own-alliance',
-        href: allianceHash(ownAlliance.alliance_id),
-        label: ownAlliance.code ?? ownAlliance.name ?? 'Our alliance',
-        current: section === 'alliance',
-      },
-    ];
-  });
-
-  return (
-    <nav aria-label="Screens" className="tabs">
-      {tabs.map((tab) => (
-        <a
-          key={tab.key}
-          href={tab.href}
-          className="tab"
-          // Marks the current tab for screen readers, and is what the
-          // stylesheet keys off — no active-state class to keep in sync.
-          aria-current={tab.current ? 'page' : undefined}
-        >
-          {tab.label}
-        </a>
-      ))}
-      {/* Sign-in used to be an unlisted address, which was fine when only an
-          admin ever needed it. Members now sign in to see their own
-          alliance's figures, so it has to be findable — and the role has to
-          be visible, or "why is this column empty" has no answer. */}
-      {/* Only an admin is shown the way in. The address is not the
-          boundary — RLS is, and #/admin renders for anyone who types it —
-          but there is no reason to put a settings screen in front of people
-          who cannot save anything on it. */}
-      {session?.role === 'admin' && (
-        <a className="tab tab-end" href="#/admin">
-          Settings
-        </a>
-      )}
-      <a className={session?.role === 'admin' ? 'tab' : 'tab tab-end'} href="#/login">
-        {session?.email ? `Signed in · ${session.role}` : 'Sign in'}
-      </a>
-    </nav>
   );
 }
 
@@ -624,120 +428,116 @@ function Shell({
   // being counted is "showed up today", which is exactly this moment.
   useRecordActivity('login');
 
+  // The controls that sat in the title row. They keep their own behaviour; the
+  // shell only decides where they go.
+  const controls = (
+    <>
+      <HeaderAllianceSwitcher />
+      {/* In the bar rather than on a panel: it is about the whole board, not one
+          table's data. Only for members: it reads sync_status, which 0065
+          closed like everything else. */}
+      {isMember && <SyncStatus />}
+      {isMember && <RefreshButton />}
+      {isMember && <AccountLink />}
+      {/* Signing out was only reachable from the login screen, which is the one
+          place somebody already signed in has no reason to visit. It is here for
+          anybody with a session, including a signed-in non-member looking at
+          the wall, who otherwise has no way out of it at all. */}
+      {session?.email != null && <SignOutButton email={session.email} />}
+      <ThemeToggle />
+    </>
+  );
+  const inShell = !standalone && isMember;
+
+  // THE WALL IS GONE. It said "Alliance members only" and offered a link to the
+  // sign-in page: one screen whose entire content was a signpost to another.
+  // Sending them straight to the sign-in page loses nothing: it carries the
+  // Terms and Privacy links the wall carried, and it handles the second state
+  // the wall existed for (signed in with no role yet) far better, by putting the
+  // join-code box in front of them.
+  const page = walled ? (
+    <LoginPage />
+  ) : isPending && !standalone ? (
+    <main>
+      <p className="empty loading">Loading…</p>
+    </main>
+  ) : route === 'login' ? (
+    <LoginPage />
+  ) : route === 'terms' ? (
+    <TermsPage />
+  ) : route === 'privacy' ? (
+    <PrivacyPage />
+  ) : route === 'admin' && adminGroup !== null ? (
+    // A floor on the whole area, not a boundary: RLS refuses every write
+    // whatever renders here. What it stops is a signed-in account with no
+    // role being shown five groups of alliance settings and reading that
+    // as "I am nearly in". The one thing they can do is redeem a code, and
+    // that is on the sign-in page.
+    mayOpenSettings(session?.role) ? (
+      <AdminPage group={adminGroup} section={adminSection} />
+    ) : (
+      <main>
+        <section aria-labelledby="admin-closed-heading">
+          <h2 id="admin-closed-heading">Nothing here is yours</h2>
+          <p className="empty">
+            Settings are for alliance members. You are signed in as{' '}
+            <strong>{session?.role ?? 'viewer'}</strong>. <a href="#/login">Redeem a join code</a>{' '}
+            to be admitted.
+          </p>
+        </section>
+      </main>
+    )
+  ) : route === 'monthCards' ? (
+    <MonthCardsPage />
+  ) : route === 'account' ? (
+    <AccountPage />
+  ) : route === 'guides' ? (
+    <GuidesPanel />
+  ) : route === 'guide' && guideId !== null ? (
+    <GuidePostPage guideId={guideId} />
+  ) : route === 'notices' ? (
+    <NoticesPanel />
+  ) : route === 'schedule' ? (
+    <main>
+      <SchedulePanel />
+    </main>
+  ) : route === 'notice' && noticeId !== null ? (
+    <NoticePostPage noticeId={noticeId} />
+  ) : route === 'server' && serverId !== null ? (
+    <ServerPage serverId={serverId} />
+  ) : route === 'player' && playerId !== null ? (
+    <PlayerPage playerId={playerId} />
+  ) : route === 'alliance' && allianceId !== null ? (
+    <AlliancePage allianceId={allianceId} />
+  ) : (
+    <main>
+      <Screen mapServerId={mapServerId} route={route} />
+    </main>
+  );
+
   return (
     <>
       <DataChangeSubscriber />
-      <header className="app-header">
-        <h1>
-          {/* The title is a link home, which is what every reader tries first.
-              An `<a>` rather than a click handler on the h1: it is navigation,
-              so it should be middle-clickable, focusable and visible in the
-              status bar like any other link. */}
-          <a className="app-home" href="#/">
-            Dark War dashboard
-          </a>
-          {/* Right beside the title: which alliance the whole board is showing
-              is the first thing to know about every screen under it. Renders
-              only for someone with more than one alliance to choose from. */}
-          <HeaderAllianceSwitcher />
-          {/* In the title rather than on a panel: it is about the whole
-              board, not one table's data. Only for members — it reads
-              sync_status, which 0065 closed like everything else. */}
-          {isMember && <SyncStatus />}
-          {/* Beside the sync badge on purpose: the badge says whether data
-              is arriving, and this is what you reach for next. */}
-          {isMember && <RefreshButton />}
-          {/* Signing out was only reachable from the login screen, which is the
-              one place somebody already signed in has no reason to visit. It
-              sits here for anybody with a session — including a signed-in
-              non-member looking at the wall, who otherwise has no way out of it
-              at all. */}
-          {session?.email != null && <SignOutButton email={session.email} />}
-          {/* Beside the account it belongs to, rather than out with the data
-              controls: posts, comments, favourites, scraps, your character and
-              leaving are all things about YOU, and they read as one cluster
-              next to "signed in as". Members only — a viewer has nothing to
-              put on the shelf. */}
-          {isMember && <AccountLink />}
-          {/* Last, pushed to the right edge (margin-left: auto). For everybody,
-              signed in or not: reading the board is the thing the theme
-              affects, and the signed-out wall is a screen somebody may be
-              staring at for a while too. */}
-          <ThemeToggle />
-        </h1>
-        {!standalone && isMember && <Nav allianceId={allianceId} route={route} />}
-        {!standalone && isMember && <SubNav allianceId={allianceId} route={route} />}
-      </header>
-      {/* Above whatever screen the reader came for, because the whole problem
-          it solves is that the answer is somewhere they are not (0117). */}
-      {!standalone && isMember && <ReplyAlerts />}
-      {/* THE WALL IS GONE. It said "Alliance members only", explained that
-          nothing here is public, and offered a link to the sign-in page — one
-          screen whose entire content was a signpost to another screen. Every
-          visitor read it once and clicked through.
-          Sending them straight to the sign-in page loses nothing: it carries
-          the Terms and Privacy links the wall carried, and it handles the
-          second state the wall existed for — signed in with no role yet — far
-          better, by putting the join-code box in front of them instead of
-          telling them where to find it. */}
-      {walled ? (
-        <LoginPage />
-      ) : isPending && !standalone ? (
-        <main>
-          <p className="empty loading">Loading…</p>
-        </main>
-      ) : route === 'login' ? (
-        <LoginPage />
-      ) : route === 'terms' ? (
-        <TermsPage />
-      ) : route === 'privacy' ? (
-        <PrivacyPage />
-      ) : route === 'admin' && adminGroup !== null ? (
-        // A floor on the whole area, not a boundary: RLS refuses every write
-        // whatever renders here. What it stops is a signed-in account with no
-        // role being shown five groups of alliance settings and reading that
-        // as "I am nearly in". The one thing they can do is redeem a code, and
-        // that is on the sign-in page.
-        mayOpenSettings(session?.role) ? (
-          <AdminPage group={adminGroup} section={adminSection} />
-        ) : (
-          <main>
-            <section aria-labelledby="admin-closed-heading">
-              <h2 id="admin-closed-heading">Nothing here is yours</h2>
-              <p className="empty">
-                Settings are for alliance members. You are signed in as{' '}
-                <strong>{session?.role ?? 'viewer'}</strong>.{' '}
-                <a href="#/login">Redeem a join code</a> to be admitted.
-              </p>
-            </section>
-          </main>
-        )
-      ) : route === 'monthCards' ? (
-        <MonthCardsPage />
-      ) : route === 'account' ? (
-        <AccountPage />
-      ) : route === 'guides' ? (
-        <GuidesPanel />
-      ) : route === 'guide' && guideId !== null ? (
-        <GuidePostPage guideId={guideId} />
-      ) : route === 'notices' ? (
-        <NoticesPanel />
-      ) : route === 'schedule' ? (
-        <main>
-          <SchedulePanel />
-        </main>
-      ) : route === 'notice' && noticeId !== null ? (
-        <NoticePostPage noticeId={noticeId} />
-      ) : route === 'server' && serverId !== null ? (
-        <ServerPage serverId={serverId} />
-      ) : route === 'player' && playerId !== null ? (
-        <PlayerPage playerId={playerId} />
-      ) : route === 'alliance' && allianceId !== null ? (
-        <AlliancePage allianceId={allianceId} />
+      {inShell ? (
+        <AppShell allianceId={allianceId} controls={controls} route={route}>
+          {/* Above whatever screen the reader came for, because the whole problem
+              it solves is that the answer is somewhere they are not (0117). */}
+          <ReplyAlerts />
+          <RankingBoards route={route} />
+          {page}
+        </AppShell>
       ) : (
-        <main>
-          <Screen mapServerId={mapServerId} route={route} />
-        </main>
+        <>
+          <header className="app-header">
+            <h1>
+              <a className="app-home" href="#/">
+                Dark War dashboard
+              </a>
+              {controls}
+            </h1>
+          </header>
+          {page}
+        </>
       )}
     </>
   );
