@@ -287,7 +287,8 @@ def test_squads_are_hero_ids_in_slot_order() -> None:
 
 def test_a_squad_at_home_is_its_saved_line() -> None:
     """`heroes` is the deployed squad and reads [] at home; the saved line of a
-    full 5 is in `tempHeroes`. A shorter one is a leftover (squad 4 above)."""
+    line of 4 or 5 is in `tempHeroes`. A shorter one is a leftover (squad 4
+    above; the collector account's squad 4 holds 3 and is not a squad)."""
     observation = load_observation(LOGIN)
     uuids = [9100000000000000000 + i for i in range(5)]
     at_home = [
@@ -299,6 +300,11 @@ def test_a_squad_at_home_is_its_saved_line() -> None:
         {
             "index": 2,
             "heroes": [],
+            "tempHeroes": [{"heroUuid": u, "index": i + 2} for i, u in enumerate(uuids[:4])],
+        },
+        {
+            "index": 3,
+            "heroes": [],
             "tempHeroes": [{"heroUuid": u, "index": i + 1} for i, u in enumerate(uuids[:3])],
         },
     ]
@@ -307,7 +313,8 @@ def test_a_squad_at_home_is_its_saved_line() -> None:
 
     squads = {s["index"]: s["heroes"] for s in row.row["hero_squads"]}
     assert len(squads[1]) == 5
-    assert squads[2] == []
+    assert len(squads[2]) == 4
+    assert squads[3] == []
 
 
 def test_no_formations_is_no_squads() -> None:
