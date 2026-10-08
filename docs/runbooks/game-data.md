@@ -125,6 +125,29 @@
 `game_icon_refs`(무엇이 어느 그림인지)는 멤버만 읽고(0232), 대시보드는 로그인한 세션으로 받아 간다.
 dev 픽스처에는 진짜 그림 대신 색 원을 쓴다.
 
+### 아이콘이 없는 상점 아이템 25개 (2026-10-08)
+
+Shop value에서 그림이 빈 25개는 `goods.icon`이 가리키는 그림이 **설치된 asset pack에 없다**.
+번들 3,440개(mesh/music/animation/spine/zombie/scenes/dub 제외)를 Sprite·Texture2D 이름으로 전부
+훑었고, 로컬 `base`·`bundles`(패치)에도 그림이 없다. 같은 이름의 변형(대소문자·밑줄)도 없다.
+
+| 아이템 id | `goods.icon` |
+|---|---|
+| 200001, 200004, 200006, 200008 | `item000`, `item005`, `item014`, `item004` |
+| 200016, 200017, 200020 | `item200016`, `item200017`, `item200020` |
+| 200018 | `item_jail_2` |
+| 200100, 200101 | `item201` |
+| 200300, 200302, 200304-200306 | `item400` |
+| 200414, 200415 / 200416, 200417 | `item501` / `item502` |
+| 200424, 200425 / 200426 | `item506` / `item514` |
+| 222010 | `item401` |
+| 222101, 222102 | `icon_microradar=png`, `icon_transmissionrod=png` |
+
+이름을 추측해 다른 그림을 붙이지 않는다. 남은 후보는 기기의 `base.apk`·`split_config.*.apk`와
+on-demand 팩이다(`pm path com.readygo.dark.gp`가 주는 나머지 파일). 에뮬레이터를 켠 뒤
+`pm path`로 목록을 보고, 새 APK를 `C:/DW_data/gamedata/apk/`에 복사해 같은 이름으로 훑는다.
+`icon_*=png`는 값에 `=png`가 붙은 표 오타일 수 있으니 `icon_microradar`로도 찾는다.
+
 ## 연구 선행 조건 (0243)
 
 `game-catalog`는 연구 단계마다 선행 조건도 `game_upgrade_steps.requires`에 쓴다.
