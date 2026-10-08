@@ -3327,6 +3327,107 @@ export type Database = {
         }
         Relationships: []
       }
+      game_event_calendar: {
+        Row: {
+          activity_id: string
+          day: number
+          event_id: string
+          slot: number
+          updated_at: string
+        }
+        Insert: {
+          activity_id: string
+          day: number
+          event_id: string
+          slot: number
+          updated_at?: string
+        }
+        Update: {
+          activity_id?: string
+          day?: number
+          event_id?: string
+          slot?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      game_event_scores: {
+        Row: {
+          action: string | null
+          action_ko: string | null
+          activity_id: string
+          event_id: string
+          per_value: number
+          points: number
+          score_id: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          action?: string | null
+          action_ko?: string | null
+          activity_id: string
+          event_id: string
+          per_value: number
+          points: number
+          score_id: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          action?: string | null
+          action_ko?: string | null
+          activity_id?: string
+          event_id?: string
+          per_value?: number
+          points?: number
+          score_id?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_event_scores_activity_id_event_id_fkey"
+            columns: ["activity_id", "event_id"]
+            isOneToOne: false
+            referencedRelation: "game_event_themes"
+            referencedColumns: ["activity_id", "event_id"]
+          },
+        ]
+      }
+      game_event_themes: {
+        Row: {
+          activity_id: string
+          day: number | null
+          event_id: string
+          min_day_score: number | null
+          min_week_score: number | null
+          name: string | null
+          name_ko: string | null
+          updated_at: string
+        }
+        Insert: {
+          activity_id: string
+          day?: number | null
+          event_id: string
+          min_day_score?: number | null
+          min_week_score?: number | null
+          name?: string | null
+          name_ko?: string | null
+          updated_at?: string
+        }
+        Update: {
+          activity_id?: string
+          day?: number | null
+          event_id?: string
+          min_day_score?: number | null
+          min_week_score?: number | null
+          name?: string | null
+          name_ko?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       game_hero_gear: {
         Row: {
           equip_id: number

@@ -1087,5 +1087,55 @@ def game_values(
     typer.echo("written")
 
 
+@app.command("game-event-guide")
+def game_event_guide(
+    bundles: Annotated[
+        list[Path],
+        typer.Option("--bundles", exists=True, file_okay=False, help="as for game-catalog"),
+    ],
+    journal: Annotated[
+        Path,
+        typer.Option(
+            "--journal",
+            exists=True,
+            dir_okay=False,
+            help="the live journal: the newest hero-event captures are read from it",
+        ),
+    ],
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="count, write nothing")] = False,
+    url: Annotated[str | None, typer.Option(envvar="SUPABASE_URL")] = None,
+    secret_key: Annotated[str | None, typer.Option(envvar="SUPABASE_SECRET_KEY")] = None,
+) -> None:
+    """What scores in Survival Preparedness and the Alliance Duel (0248).
+
+    The themes and the calendar come from the journal's captures, what each id is
+    and is worth from the client's `score` table. Nothing about any member is read.
+    Needs the `gamedata` extra.
+    """
+    from dw_collector.gamedata import read_dir, upload
+    from dw_collector.gamedata.event_guide import build, read_journal
+
+    assets: dict[str, bytes] = {}
+    for folder in bundles:
+        assets.update(read_dir(folder))
+    guide = build(assets, read_journal(str(journal)))
+    typer.echo(
+        f"themes={len(guide.themes)} scores={len(guide.scores)} calendar={len(guide.calendar)}"
+    )
+    if dry_run:
+        return
+    if not url or not secret_key:
+        typer.echo("SUPABASE_URL and SUPABASE_SECRET_KEY are required", err=True)
+        raise typer.Exit(code=2)
+    headers = {"apikey": secret_key, "Authorization": f"Bearer {secret_key}"}
+    with httpx.Client(base_url=url.rstrip("/"), headers=headers, timeout=120.0) as client:
+        upload.upsert_rows(client, "game_event_themes", guide.themes, "activity_id,event_id")
+        upload.upsert_rows(
+            client, "game_event_scores", guide.scores, "activity_id,event_id,score_id"
+        )
+        upload.upsert_rows(client, "game_event_calendar", guide.calendar, "activity_id,day,slot")
+    typer.echo("written")
+
+
 if __name__ == "__main__":
     app()
