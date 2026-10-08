@@ -18,6 +18,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
+import { StatTile } from '../../components/StatTile';
 import { Tabs } from '../../components/ui/Tabs';
 import { AccountBar, ManualBanner } from './AccountBar';
 import { Breakdown } from './Breakdown';
@@ -31,6 +32,7 @@ import { type Account, blankAccount, fetchAccounts, saveManual } from './account
 import { fetchMaterialNames, fetchTiers, loadBook } from './data';
 import { levelText } from './levels';
 import { type Buffs, EFFECT_IDS, buffsFrom, plan, totals } from './plan';
+import { plannerStrip } from './strip';
 import { type Target, goalsOf, withTarget } from './targets';
 
 type Section = 'building' | 'research' | 'heroes' | 'vehicle' | 'pets';
@@ -243,17 +245,42 @@ export function PlannerPage() {
     t.kind === 'building' ? levelText(tierMap, t.subject, level) : String(level);
 
   return (
-    <main>
-      <h2>Material planner</h2>
-      {manual ? (
-        <p className="subtle">Costs are the game's own.</p>
-      ) : (
-        <p className="subtle">
-          Costs are the game's own. Levels, stock and buffs are {account.name}'s, from the login the
-          collector saw at {account.capturedAt.slice(0, 16).replace('T', ' ')} UTC. Change any buff
-          or stock figure below; nothing here is saved.
-        </p>
-      )}
+    <main className="planner-screen">
+      <div className="entity">
+        <header className="entity-head">
+          <span aria-hidden="true" className="entity-mark">
+            PL
+          </span>
+          <div>
+            <h2>Material planner</h2>
+            <p className="entity-meta">
+              <span>{account.name}</span>
+              <span>{manual ? 'Entered by hand' : 'From the login'}</span>
+              <span>Costs are the game's own</span>
+            </p>
+          </div>
+        </header>
+        {base && (
+          <div className="strip">
+            {plannerStrip(base, extra, targets.size).map((cell, index) => (
+              <StatTile
+                hero={index === 0}
+                key={cell.label}
+                label={cell.label}
+                note={cell.note}
+                value={cell.value}
+              />
+            ))}
+          </div>
+        )}
+        {!manual && (
+          <p className="entity-foot">
+            Levels, stock and buffs are {account.name}'s, from the login the collector saw at{' '}
+            {account.capturedAt.slice(0, 16).replace('T', ' ')} UTC. Change any buff or stock figure
+            below; nothing here is saved.
+          </p>
+        )}
+      </div>
 
       {bar}
       {manual && (
