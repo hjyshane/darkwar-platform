@@ -45,6 +45,10 @@ export interface Step {
   costs: Cost[];
   seconds: number | null;
   requires: Requirement[];
+  /** Power the thing has AT this level, not what the step adds (see
+   * recommend.ts). Null where the catalogue has none (heroes, gear); absent
+   * on steps loaded before the planner asked for it. */
+  power?: number | null;
 }
 
 export interface Goal {

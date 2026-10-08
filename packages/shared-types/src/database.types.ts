@@ -8615,6 +8615,10 @@ export type Database = {
         Args: { p_apply_to_assigned?: boolean; p_period_start: string }
         Returns: number
       }
+      recommend_step_pairs: {
+        Args: { p_buildings: Json; p_science: Json }
+        Returns: Json
+      }
       record_departure: {
         Args: { p_action: string; p_user: string }
         Returns: undefined

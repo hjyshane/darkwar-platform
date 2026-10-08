@@ -11,6 +11,7 @@ import { supabase } from '../../lib/supabase';
 import type { Account } from './accounts';
 import { type Tiers, shareTiers, tiersFrom } from './levels';
 import { type Goal, type Kind, type Step, type StepBook, bookKey, plan } from './plan';
+import type { StepPair } from './recommend';
 
 /** Steps of one subject between two levels (exclusive, inclusive). */
 async function fetchSteps(kind: Kind, subject: string, from: number, to: number): Promise<Step[]> {
@@ -337,4 +338,21 @@ export async function fetchHeroInfo(account: Account, everything: boolean): Prom
         .map((h) => [String(h.hero_id), h.troop_class as number]),
     ),
   };
+}
+
+/** What each building and research the account could advance would take next,
+ * and the power of the level it stands on, in one call (0247). The levels go
+ * in as arguments, so a hand-entered account works the same as a login. */
+export async function fetchStepPairs(
+  buildings: Readonly<Record<string, number>>,
+  science: Readonly<Record<string, number>>,
+): Promise<StepPair[]> {
+  const { data, error } = await supabase.rpc('recommend_step_pairs', {
+    p_buildings: buildings,
+    p_science: science,
+  });
+  if (error) {
+    throw new Error(error.message);
+  }
+  return (Array.isArray(data) ? data : []) as unknown as StepPair[];
 }

@@ -23,6 +23,7 @@ import { AccountBar, ManualBanner } from './AccountBar';
 import { Breakdown } from './Breakdown';
 import { BuildingPicker } from './BuildingPicker';
 import { HeroCards } from './HeroCards';
+import { RecommendPanel } from './RecommendPanel';
 import { ResearchPicker } from './ResearchPicker';
 import { StockPanel } from './StockPanel';
 import { PetPicker, VehiclePicker } from './VehiclePetPickers';
@@ -209,6 +210,12 @@ export function PlannerPage() {
   const tierMap = tiers.data ?? new Map();
   const set = (target: Target) => setTargets((cur) => withTarget(cur, target));
   const remove = dropTarget;
+  const editsOf = (type: string) =>
+    Object.fromEntries(
+      Object.entries(stockEdits)
+        .filter(([key]) => key.startsWith(`${type}:`))
+        .map(([key, amount]) => [key.slice(type.length + 1), amount]),
+    );
   const have = (type: string, id: string) =>
     (manual ? undefined : stockEdits[`${type}:${id}`]) ??
     (type === 'item' ? account.items[id] : account.resources[id]) ??
@@ -221,6 +228,11 @@ export function PlannerPage() {
     } else {
       edit({ ...account, resources: { ...account.resources, [id]: amount } });
     }
+  };
+  // Stock with the reader's overwrites on top, for the upgrade ranking.
+  const stockNow = {
+    resources: { ...account.resources, ...(manual ? {} : editsOf('resource')) },
+    items: { ...account.items, ...(manual ? {} : editsOf('item')) },
   };
   const setEffect = (id: string, value: number) =>
     edit({ ...account, effects: { ...account.effects, [id]: value } });
@@ -339,6 +351,8 @@ export function PlannerPage() {
           </fieldset>
         )}
       </section>
+
+      {buffs && <RecommendPanel account={account} buffs={buffs} onSet={set} stock={stockNow} />}
 
       <section aria-labelledby="planner-goals">
         <h3 id="planner-goals">What to raise</h3>
