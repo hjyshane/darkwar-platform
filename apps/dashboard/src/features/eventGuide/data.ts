@@ -47,7 +47,7 @@ export interface CapturedTime {
   endsAt: string | null;
 }
 
-/** The siege, Frankie and Black Gold times the game told the collector (0247):
+/** The siege, Frankie and Black Gold times the game told the collector (0249):
  * what is coming, and what ended in the last day. */
 async function fetchCapturedTimes(): Promise<CapturedTime[]> {
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();

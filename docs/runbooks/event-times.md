@@ -1,4 +1,4 @@
-# Event times read from the game (0247)
+# Event times read from the game (0249)
 
 The siege, Frankie and Black Gold are scheduled by the alliance, and the game tells every
 logged-in member the pick. The collector stores it (`alliance_event_times`) and a trigger puts it

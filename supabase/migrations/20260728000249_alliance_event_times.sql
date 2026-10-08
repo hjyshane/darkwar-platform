@@ -1,4 +1,4 @@
--- 0247: the times the alliance chose for the siege, Frankie and Black Gold are
+-- 0249: the times the alliance chose for the siege, Frankie and Black Gold are
 -- read from the game and land on the schedule board.
 --
 -- 0124 built the board for entries somebody types, and left `source` for the
@@ -43,7 +43,7 @@ create unique index schedule_events_source_key_idx
   where source_key is not null;
 
 comment on column public.schedule_events.source_key is
-  'Identity of a captured entry within its alliance (0247): event, slot and '
+  'Identity of a captured entry within its alliance (0249): event, slot and '
   'server day. Null for entries somebody typed.';
 
 create table public.alliance_event_times (
@@ -86,7 +86,7 @@ create policy member_read on public.alliance_event_times
 
 comment on table public.alliance_event_times is
   'When the alliance set its Zombie Siege, Frankie and Black Gold battles, as the '
-  'game reported it (0247). Written by the collector; internal.apply_alliance_event_time() '
+  'game reported it (0249). Written by the collector; internal.apply_alliance_event_time() '
   'puts each row on the schedule board.';
 
 -- ------------------------------------------------------------ which alliance
