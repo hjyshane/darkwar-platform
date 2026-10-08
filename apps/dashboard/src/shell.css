@@ -511,7 +511,15 @@
     min-width: 0;
   }
 
+  /* Controls drop to a row of their own: beside the breadcrumb they squeezed
+   * it to two letters. */
+  .shell-top {
+    flex-wrap: wrap;
+  }
+
   .shell-controls {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
     margin-left: 0;
   }
 }
@@ -604,19 +612,23 @@
 
 /* A strip of figures divided by hairlines: the container shows its own colour
  * through a 1px gap, so no cell needs a border and a wrapped row stays ruled. */
+/* Hairlines are drawn on the cells, not shown through a gap, so a last row
+ * with fewer cells than the grid has columns stays the panel's colour instead
+ * of exposing a grey block. The margin hides the line against the frame. */
 .strip {
-  background: var(--border);
+  background: var(--bg-raised);
   border-top: 1px solid var(--border);
   display: grid;
-  gap: 1px;
   grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  margin: 0 -1px -1px 0;
+  overflow: hidden;
 }
 
 .strip .stat {
   background: var(--bg-raised);
   border: none;
   border-radius: 0;
-  box-shadow: none;
+  box-shadow: inset -1px -1px 0 var(--border);
   grid-column: auto;
   padding: var(--space-3) var(--space-4);
 }
