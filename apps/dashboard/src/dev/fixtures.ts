@@ -1221,7 +1221,12 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
   [['event-calendar'], CALENDAR_ROWS],
   [SESSION_KEY, SESSION],
   [['permissions'], { capabilities: CAPABILITIES, grants: GRANTS }],
-  [['participation', PARTICIPATION_RANGE.from, PARTICIPATION_RANGE.to], PARTICIPATION_ROWS],
+  // The score bars (0239) are part of the report's key; none set is the report as it was.
+  [['participation-bars'], { duel: null, donation: null }],
+  [
+    ['participation', PARTICIPATION_RANGE.from, PARTICIPATION_RANGE.to, null, null],
+    PARTICIPATION_ROWS,
+  ],
   [['attendance-kinds'], ATTENDANCE_KINDS],
   // The days 0212 declares for the event the recorder opens on.
   [
