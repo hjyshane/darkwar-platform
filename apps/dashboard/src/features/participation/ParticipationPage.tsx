@@ -13,6 +13,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { SortableTh } from '../../components/SortableTh';
+import { StatTile } from '../../components/StatTile';
 import { BarCell } from '../../components/ui/BarCell';
 import { Select } from '../../components/ui/Select';
 import { Tabs } from '../../components/ui/Tabs';
@@ -34,6 +35,7 @@ import {
   sortRows,
 } from './data';
 import { type Period, type PeriodKind, roundPeriods, seasonPeriod, weekPeriods } from './periods';
+import { participationStrip } from './strip';
 
 /** A season of readings changes when a sweep lands, not by the minute. */
 const STALE_TIME = 5 * 60_000;
@@ -294,8 +296,39 @@ export function ParticipationPage() {
   const onSort = (key: string) => setSort(nextSort(sort, key));
 
   return (
-    <section aria-labelledby="participation-heading">
-      <h2 id="participation-heading">Participation</h2>
+    <section aria-labelledby="participation-heading" className="participation-screen">
+      <div className="entity">
+        <header className="entity-head">
+          <span aria-hidden="true" className="entity-mark">
+            PA
+          </span>
+          <div>
+            <h2 id="participation-heading">Participation</h2>
+            <p className="entity-meta">
+              <span>{period.label}</span>
+              <span>Server time, UTC−2</span>
+            </p>
+          </div>
+        </header>
+        {rows.length > 0 && (
+          <div className="strip">
+            {participationStrip(rows, bars).map((cell, index) => (
+              <StatTile
+                hero={index === 0}
+                key={cell.label}
+                label={cell.label}
+                note={cell.note}
+                value={cell.value}
+              />
+            ))}
+          </div>
+        )}
+        {rows.length > 0 && (
+          <div className="entity-foot">
+            <Summary kinds={eventKinds} rows={rows} />
+          </div>
+        )}
+      </div>
 
       <div className="row">
         <Tabs
@@ -342,8 +375,7 @@ export function ParticipationPage() {
       )}
 
       {rows.length > 0 && (
-        <>
-          <Summary kinds={eventKinds} rows={rows} />
+        <div className="panel participation-board">
           <Tabs
             label="Report"
             className="row"
@@ -501,11 +533,13 @@ export function ParticipationPage() {
             ticked by officers, not captured, and ?N is event days nobody ticked this member for.
             Hover a cell for the detail.
           </p>
-        </>
+        </div>
       )}
 
       {mayRecord && rows.length > 0 && eventKinds.length > 0 && (
-        <AttendanceRecorder kinds={eventKinds} members={rows} now={now} />
+        <div className="panel">
+          <AttendanceRecorder kinds={eventKinds} members={rows} now={now} />
+        </div>
       )}
     </section>
   );
