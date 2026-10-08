@@ -842,3 +842,26 @@
   display: block;
   height: 100%;
 }
+
+/* ------------------------------------------------------------------- season */
+
+.season-screen {
+  display: grid;
+  gap: var(--space-4);
+}
+
+/* The board's own table sits on the panel's edge to edge, so a wide grid has
+ * the whole width and the panel's padding is not spent twice. */
+.season-board {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+
+.season-board .table-wrap {
+  margin: 0;
+}
+
+.season-screen [role="tablist"] {
+  margin-bottom: 0;
+}

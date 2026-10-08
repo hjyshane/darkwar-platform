@@ -1,16 +1,19 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
+import { StatTile } from '../../components/StatTile';
 import { Tabs } from '../../components/ui/Tabs';
 import { floorsFor, useSeasonBuildingAlert } from '../../lib/seasonBuildingAlert';
 import { FALLBACK_SEASONS, currentSeason, sinceSeasonStart, useSeasons } from '../../lib/seasons';
 import { TERMS } from '../../lib/terms';
+import { serverWhen } from '../calendar/data';
 import { SeasonAllianceTable } from './SeasonAllianceTable';
 import { SeasonBuildingTable } from './SeasonBuildingTable';
 import { SeasonForceTable } from './SeasonForceTable';
 import { SeasonWaitCalculator } from './SeasonWaitCalculator';
 import { type SeasonBoardId, fetchAllianceScoreBoard, fetchPlayerForceBoard } from './boards';
 import { fetchBuildingGrid } from './buildings';
+import { allianceStrip, buildingsStrip, playerStrip } from './strip';
 
 /** The calculator is not a board — it queries nothing and is fed by hand — so
  * it is a tab id of its own rather than a fourth `SeasonBoardId`. Keeping it
@@ -102,15 +105,61 @@ export function SeasonPanel() {
   const columns = buildings.data?.columns;
   const floors = useMemo(() => floorsFor(alert, columns ?? []), [alert, columns]);
 
+  // What the board under the header holds, in a few numbers. The calculator has
+  // none: it holds what the reader typed.
+  const cells =
+    boardId === 'buildings' && buildings.data
+      ? buildingsStrip(buildings.data, floors)
+      : boardId === 'alliance_score' && allianceRows.length > 0
+        ? allianceStrip(allianceRows)
+        : boardId === 'player_force' && playerRows.length > 0
+          ? playerStrip(playerRows)
+          : [];
+  const day = (iso: string | null) => (iso === null ? null : serverWhen(iso).split(' · ')[0]);
+  const over = season?.endsAt != null && Date.parse(season.endsAt) <= Date.now();
+
   return (
-    <section aria-labelledby="season-heading">
-      <h2 id="season-heading">
-        {season?.name ?? TERMS.season}
-        {/* Not on the calculator: the badge dates a capture, and that tab
-            has no captured figure on it. Leaving it up would date numbers the
-            reader typed themselves. */}
-        {capturedAt && boardId !== 'calculator' && <FreshnessBadge capturedAt={capturedAt} />}
-      </h2>
+    <section aria-labelledby="season-heading" className="season-screen">
+      <div className="entity">
+        <header className="entity-head">
+          <span aria-hidden="true" className="entity-mark">
+            S{season?.id ?? ''}
+          </span>
+          <div>
+            <h2 id="season-heading">{season?.name ?? TERMS.season}</h2>
+            <p className="entity-meta">
+              {day(season?.startsAt ?? null) && <span>Began {day(season?.startsAt ?? null)}</span>}
+              {day(season?.endsAt ?? null) && (
+                <span>
+                  {over ? 'Settled' : 'Ends'} {day(season?.endsAt ?? null)}
+                </span>
+              )}
+              <span>Server time, UTC−2</span>
+            </p>
+          </div>
+        </header>
+        {cells.length > 0 && (
+          <div className="strip">
+            {cells.map((cell, index) => (
+              <StatTile
+                hero={index === 0}
+                key={cell.label}
+                label={cell.label}
+                note={cell.note}
+                value={cell.value}
+              />
+            ))}
+          </div>
+        )}
+        {/* Not on the calculator: the badge dates a capture, and that tab has no
+            captured figure on it. Leaving it up would date numbers the reader
+            typed themselves. */}
+        {capturedAt && boardId !== 'calculator' && (
+          <p className="entity-foot">
+            Last captured <FreshnessBadge capturedAt={capturedAt} />
+          </p>
+        )}
+      </div>
       {/* The boards describe different subjects, so this switches the whole
           table rather than a column. Tabs, not links: all of them live at
           this address. */}
@@ -120,69 +169,72 @@ export function SeasonPanel() {
         value={boardId}
         onChange={setBoardId}
       />
-      {active?.isPending && <p className="empty loading">Loading…</p>}
-      {active?.error && (
-        <p className="error">Could not load season board: {active.error.message}</p>
-      )}
+      <div className="panel season-board">
+        {active?.isPending && <p className="empty loading">Loading…</p>}
+        {active?.error && (
+          <p className="error">Could not load season board: {active.error.message}</p>
+        )}
 
-      {boardId === 'buildings' && buildings.data && (
-        <SeasonBuildingTable floors={floors} grid={buildings.data} />
-      )}
-      {oldBoard && (
-        <p className="empty">
-          This ranking has not been captured since {season?.name ?? 'the season'} began. Open it in
-          the game and it appears here; the last capture was from the season before.
-        </p>
-      )}
-      {boardId === 'alliance_score' && alliance.data && allianceRows.length > 0 && (
-        <SeasonAllianceTable rows={allianceRows} />
-      )}
-      {boardId === 'player_force' && players.data && playerRows.length > 0 && (
-        <SeasonForceTable rows={playerRows} />
-      )}
-      {boardId === 'calculator' && <SeasonWaitCalculator />}
+        {boardId === 'buildings' && buildings.data && (
+          <SeasonBuildingTable floors={floors} grid={buildings.data} />
+        )}
+        {oldBoard && (
+          <p className="empty">
+            This ranking has not been captured since {season?.name ?? 'the season'} began. Open it
+            in the game and it appears here; the last capture was from the season before.
+          </p>
+        )}
+        {boardId === 'alliance_score' && alliance.data && allianceRows.length > 0 && (
+          <SeasonAllianceTable rows={allianceRows} />
+        )}
+        {boardId === 'player_force' && players.data && playerRows.length > 0 && (
+          <SeasonForceTable rows={playerRows} />
+        )}
+        {boardId === 'calculator' && <SeasonWaitCalculator />}
 
-      {/* The one thing a reader could get badly wrong on this grid. An empty
+        {/* The one thing a reader could get badly wrong on this grid. An empty
           cell is a gap in OUR coverage — the collector has not panned over
           that building — and not a member who has built nothing. Saying so
           on the screen because the distinction is invisible in a table of
           numbers. */}
-      {boardId === 'buildings' && (
-        <p className="note">
-          A dash means we have not seen that building yet, not that it is unbuilt. Only buildings
-          the collector has panned over appear here.
-          {floors.size > 0 && (
-            <>
-              {' '}
-              A <span className="behind-mark">!</span> marks a member under one of the levels the
-              alliance set, and the number itself is marked in the column that is short:{' '}
-              {buildings.data?.columns
-                .filter((kind) => floors.has(kind.id))
-                .map((kind) => `${kind.name} ${floors.get(kind.id)}`)
-                .join(', ')}
-              .
-            </>
-          )}
-          {buildings.data !== undefined && buildings.data.unnamedSeen > 0 && (
-            <>
-              {' '}
-              {buildings.data.unnamedSeen} more building type
-              {buildings.data.unnamedSeen === 1 ? ' is' : 's are'} on the map that this board does
-              not name — last season's among them. They are left out rather than shown as a number.
-            </>
-          )}
-        </p>
-      )}
-      {(boardId === 'alliance_score' || boardId === 'player_force') && (
-        // Said on the screen, not only in the migration. `force` and `score`
-        // are the game's own season figures and neither is power — a reader
-        // who assumes otherwise will compare them against the power board and
-        // conclude the data is wrong.
-        <p className="note">
-          Coal production and influence are the game's own season figures. Neither is power, and
-          neither is comparable with the cross-server boards.
-        </p>
-      )}
+        {boardId === 'buildings' && (
+          <p className="note">
+            A dash means we have not seen that building yet, not that it is unbuilt. Only buildings
+            the collector has panned over appear here.
+            {floors.size > 0 && (
+              <>
+                {' '}
+                A <span className="behind-mark">!</span> marks a member under one of the levels the
+                alliance set, and the number itself is marked in the column that is short:{' '}
+                {buildings.data?.columns
+                  .filter((kind) => floors.has(kind.id))
+                  .map((kind) => `${kind.name} ${floors.get(kind.id)}`)
+                  .join(', ')}
+                .
+              </>
+            )}
+            {buildings.data !== undefined && buildings.data.unnamedSeen > 0 && (
+              <>
+                {' '}
+                {buildings.data.unnamedSeen} more building type
+                {buildings.data.unnamedSeen === 1 ? ' is' : 's are'} on the map that this board does
+                not name — last season's among them. They are left out rather than shown as a
+                number.
+              </>
+            )}
+          </p>
+        )}
+        {(boardId === 'alliance_score' || boardId === 'player_force') && (
+          // Said on the screen, not only in the migration. `force` and `score`
+          // are the game's own season figures and neither is power — a reader
+          // who assumes otherwise will compare them against the power board and
+          // conclude the data is wrong.
+          <p className="note">
+            Coal production and influence are the game's own season figures. Neither is power, and
+            neither is comparable with the cross-server boards.
+          </p>
+        )}
+      </div>
     </section>
   );
 }
