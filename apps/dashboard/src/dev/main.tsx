@@ -19,6 +19,7 @@ import { Component, type ReactNode, StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App, queryClient } from '../App';
 import '../index.css';
+import '../shell.css';
 import { applyTheme, readTheme } from '../lib/theme';
 import { FIXTURES, SESSION, SESSION_KEY } from './fixtures';
 

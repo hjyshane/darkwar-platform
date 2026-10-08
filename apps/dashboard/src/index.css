@@ -57,13 +57,15 @@
 
   /* Surfaces and text — light. */
   --bg: #ffffff;
-  --bg-raised: #f8fafc;
-  --bg-hover: #f1f5f9;
-  --fg: #0f172a;
-  --fg-muted: #64748b;
-  --border: #e2e8f0;
-  --border-strong: #cbd5e1;
+  --bg-raised: #f7f7f5;
+  --bg-hover: #eeeeeb;
+  --fg: #17181a;
+  --fg-muted: #686a70;
+  --border: #e3e2dd;
+  --border-strong: #cccbc4;
   --accent: #1d4ed8;
+  /* The sidebar sits one step off the page, on the dark side of it. */
+  --shell-side: #f1f1ee;
 
   /* Layered surfaces (Linear-style): page < raised < overlay. */
   --surface-overlay: #ffffff;
@@ -118,24 +120,25 @@
  * and `:not([data-theme="light"])` is what steps out of its way. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #0b1220;
-    --bg-raised: #131c2e;
-    --bg-hover: #1b2537;
-    --fg: #e6edf7;
-    --fg-muted: #94a3b8;
-    --border: #24304a;
-    --border-strong: #34405c;
+    --bg: #101114;
+    --bg-raised: #16181b;
+    --bg-hover: #1e2125;
+    --fg: #e8e6e1;
+    --fg-muted: #9a9ca3;
+    --border: #2a2d33;
+    --border-strong: #3a3d44;
     --accent: #7aa2f7;
+    --shell-side: #0c0d0f;
 
-    --surface-overlay: #1a2338;
+    --surface-overlay: #1b1d21;
     --shadow-1: 0 1px 2px rgb(0 0 0 / 40%);
     --shadow-2: 0 8px 24px rgb(0 0 0 / 55%);
-    --gold: #f0c866;
-    --gold-strong: #d4a94a;
+    --gold: #d4ac4e;
+    --gold-strong: #c9a24b;
     --gold-bg: #3a2c0a;
     --gold-fg: #fde9b0;
-    --glow-gold: 0 0 14px rgb(212 169 74 / 35%);
-    --glow-blue: 0 0 10px rgb(122 162 247 / 35%);
+    --glow-gold: none;
+    --glow-blue: none;
     --medal-silver: #aab4c8;
     --medal-bronze: #c9803a;
 
@@ -155,24 +158,25 @@
 }
 
 :root[data-theme="dark"] {
-  --bg: #0b1220;
-  --bg-raised: #131c2e;
-  --bg-hover: #1b2537;
-  --fg: #e6edf7;
-  --fg-muted: #94a3b8;
-  --border: #24304a;
-  --border-strong: #34405c;
+  --bg: #101114;
+  --bg-raised: #16181b;
+  --bg-hover: #1e2125;
+  --fg: #e8e6e1;
+  --fg-muted: #9a9ca3;
+  --border: #2a2d33;
+  --border-strong: #3a3d44;
   --accent: #7aa2f7;
+  --shell-side: #0c0d0f;
 
-  --surface-overlay: #1a2338;
+  --surface-overlay: #1b1d21;
   --shadow-1: 0 1px 2px rgb(0 0 0 / 40%);
   --shadow-2: 0 8px 24px rgb(0 0 0 / 55%);
-  --gold: #f0c866;
-  --gold-strong: #d4a94a;
+  --gold: #d4ac4e;
+  --gold-strong: #c9a24b;
   --gold-bg: #3a2c0a;
   --gold-fg: #fde9b0;
-  --glow-gold: 0 0 14px rgb(212 169 74 / 35%);
-  --glow-blue: 0 0 10px rgb(122 162 247 / 35%);
+  --glow-gold: none;
+  --glow-blue: none;
   --medal-silver: #aab4c8;
   --medal-bronze: #c9803a;
 
