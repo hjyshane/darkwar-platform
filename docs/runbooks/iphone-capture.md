@@ -38,11 +38,13 @@ raw 링크 타입(IPv4, IPv6 확장 헤더, 길이 0 포함)을 고정해 둔다
 1. 아이폰의 UDID를 구한다.
 
    ```bash
-   system_profiler SPUSBDataType | grep -A 12 "iPhone" | grep "Serial Number"
+   pymobiledevice3 usbmux list
    ```
 
-   Serial Number가 UDID다. 25자리(`00008110-001234567890401E`)이고 하이픈이
-   들어간다. 안 나오면 Finder에서 아이폰을 고르고 기기 이름 아래 줄을 클릭하면
+   `UniqueDeviceID`가 UDID다. 25자리(`00008110-001234567890401E`)이고 하이픈이
+   들어간다. **`system_profiler SPUSBDataType`으로 찾지 않는다** — 폰이 USB로 연결돼
+   있는데도 아무것도 내지 않는 맥이 있었다(2026-10-08, 같은 폰이 `usbmux list`에는 잡힘).
+   `pymobiledevice3`가 없으면 Finder에서 아이폰을 고르고 기기 이름 아래 줄을 클릭하면
    UDID로 바뀐다.
 2. 인터페이스를 만든다.
 
@@ -315,4 +317,5 @@ Docker가 없어 못 썼다.
 
 | 날짜 | 맥 / iOS | rvi0 링크 타입 | 게임 포트 | ingest 결과 | 비고 |
 |---|---|---|---|---|---|
-| 2026-10-08 | Windows / iOS 26.6.2 | pcap (`pymobiledevice3 pcap`) | 8680 (파서가 읽음) | `ingested=19 commands=123`, 로그인·`al.rank` 포함 | USB 세션이 세 번 끊김 |
+| 2026-10-08 | Windows / iOS 26.6.2 (iPhone18,2) | pcap (`pymobiledevice3 pcap`) | 8680 (파서가 읽음) | `ingested=19 commands=123`, 로그인·`al.rank` 포함 | USB 세션이 세 번 끊김 |
+| 2026-10-08 | 맥 / iOS 26.6.2 (iPhone14,3, **다른 폰**) | pcap (`pymobiledevice3 pcap`) | 미기록 | 캡처, 게임 원격 실행, `ingest-dir` 모두 됐다고 사용자가 보고. **건수는 못 받았다** | `system_profiler`에는 폰이 안 보이는데 `usbmux list`에는 `USB`로 잡힘. `rvictl`은 안 씀 |
