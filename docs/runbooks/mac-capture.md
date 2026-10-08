@@ -64,6 +64,7 @@ Windows의 `dw-capture`·`dw-ui-worker`·데스크톱 앱은 맥에서 돌지 �
 |---|---|---|
 | 맥 자체 (BlueStacks Air, Apple Silicon의 iOS 앱) | `en0` (Wi-Fi) | 가장 흔한 경우. 유선이면 `en`번호 확인 |
 | 아이폰을 맥의 "인터넷 공유"로 연결 | `bridge100` | 아이폰 트래픽이 맥을 거친다 |
+| 아이폰을 USB로 꽂음 | `rvi0` | `rvictl`로 만든다 — `iphone-capture.md` |
 | 잘 모르겠다 | `any` | 전부 뜬다. 읽는 쪽이 PKTAP을 풀어서 처리한다 |
 | VPN을 켠 상태 | `utun*` | raw IP로 읽힌다 |
 
