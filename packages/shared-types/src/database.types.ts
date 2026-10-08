@@ -4479,6 +4479,76 @@ export type Database = {
         }
         Relationships: []
       }
+      migration_config_snapshots: {
+        Row: {
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at: string
+          idempotency_key: string
+          new_migrate_on: boolean | null
+          observation_id: string
+          parser_version: string
+          power_brackets: Json | null
+          power_tier_floors: number[] | null
+          raw: Json
+          snapshot_id: string
+          source_command: string
+        }
+        Insert: {
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at?: string
+          idempotency_key: string
+          new_migrate_on?: boolean | null
+          observation_id: string
+          parser_version: string
+          power_brackets?: Json | null
+          power_tier_floors?: number[] | null
+          raw?: Json
+          snapshot_id?: string
+          source_command: string
+        }
+        Update: {
+          captured_at?: string
+          collected_from_server_id?: number
+          collector_id?: string
+          created_at?: string
+          idempotency_key?: string
+          new_migrate_on?: boolean | null
+          observation_id?: string
+          parser_version?: string
+          power_brackets?: Json | null
+          power_tier_floors?: number[] | null
+          raw?: Json
+          snapshot_id?: string
+          source_command?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "migration_config_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "migration_config_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "migration_config_snapshots_collector_id_fkey"
+            columns: ["collector_id"]
+            isOneToOne: false
+            referencedRelation: "collectors"
+            referencedColumns: ["collector_id"]
+          },
+        ]
+      }
       migration_events: {
         Row: {
           baseline_at: string
@@ -4505,6 +4575,124 @@ export type Database = {
           settled_at?: string | null
         }
         Relationships: []
+      }
+      migration_server_snapshots: {
+        Row: {
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at: string
+          idempotency_key: string
+          invite_left: Json | null
+          king_name: string | null
+          king_uid: string | null
+          max_power: number | null
+          migrate_left: Json | null
+          need_item_id: number | null
+          need_item_num: number | null
+          observation_id: string
+          parser_version: string
+          power_limit: number | null
+          power_low_limit: number[] | null
+          raw: Json
+          season: number | null
+          season_group: number | null
+          server_id: number
+          server_rank_type: number | null
+          snapshot_id: string
+          source_command: string
+          special_left: Json | null
+          special_power_limit: number | null
+          target_open_at: string | null
+          target_power_limit: number | null
+          total_count: number | null
+          use_count: number | null
+        }
+        Insert: {
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at?: string
+          idempotency_key: string
+          invite_left?: Json | null
+          king_name?: string | null
+          king_uid?: string | null
+          max_power?: number | null
+          migrate_left?: Json | null
+          need_item_id?: number | null
+          need_item_num?: number | null
+          observation_id: string
+          parser_version: string
+          power_limit?: number | null
+          power_low_limit?: number[] | null
+          raw?: Json
+          season?: number | null
+          season_group?: number | null
+          server_id: number
+          server_rank_type?: number | null
+          snapshot_id?: string
+          source_command: string
+          special_left?: Json | null
+          special_power_limit?: number | null
+          target_open_at?: string | null
+          target_power_limit?: number | null
+          total_count?: number | null
+          use_count?: number | null
+        }
+        Update: {
+          captured_at?: string
+          collected_from_server_id?: number
+          collector_id?: string
+          created_at?: string
+          idempotency_key?: string
+          invite_left?: Json | null
+          king_name?: string | null
+          king_uid?: string | null
+          max_power?: number | null
+          migrate_left?: Json | null
+          need_item_id?: number | null
+          need_item_num?: number | null
+          observation_id?: string
+          parser_version?: string
+          power_limit?: number | null
+          power_low_limit?: number[] | null
+          raw?: Json
+          season?: number | null
+          season_group?: number | null
+          server_id?: number
+          server_rank_type?: number | null
+          snapshot_id?: string
+          source_command?: string
+          special_left?: Json | null
+          special_power_limit?: number | null
+          target_open_at?: string | null
+          target_power_limit?: number | null
+          total_count?: number | null
+          use_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "migration_server_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "migration_server_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "migration_server_snapshots_collector_id_fkey"
+            columns: ["collector_id"]
+            isOneToOne: false
+            referencedRelation: "collectors"
+            referencedColumns: ["collector_id"]
+          },
+        ]
       }
       notification_channels: {
         Row: {
@@ -8745,6 +8933,30 @@ export type Database = {
           after_at: string
           before_at: string
           external_id: string
+        }[]
+      }
+      migration_server_quotas: {
+        Args: never
+        Returns: {
+          captured_at: string
+          invite_left: Json
+          king_name: string
+          max_power: number
+          migrate_left: Json
+          need_item_id: number
+          need_item_num: number
+          power_limit: number
+          power_low_limit: number[]
+          season: number
+          season_group: number
+          server_id: number
+          server_rank_type: number
+          special_left: Json
+          special_power_limit: number
+          target_open_at: string
+          target_power_limit: number
+          total_count: number
+          use_count: number
         }[]
       }
       migration_servers: {

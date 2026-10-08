@@ -50,6 +50,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from dw_collector.models import NormalizedRow, Observation, idempotency_key
 from dw_collector.normalize.event_schedule import schedule_rows
 from dw_collector.normalize.game_season import season_rows
+from dw_collector.normalize.migration_config import config_rows
 from dw_collector.registry import register
 
 PARSER_VERSION = "1.7.1"
@@ -366,4 +367,6 @@ def normalize(observation: Observation) -> list[NormalizedRow]:
     rows.extend(schedule_rows(observation, server_id))
     # ...and the game's season calendar (game_season.py).
     rows.extend(season_rows(observation))
+    # ...and the rules the Migration screen runs on (migration_config.py).
+    rows.extend(config_rows(observation))
     return rows

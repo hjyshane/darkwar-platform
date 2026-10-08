@@ -54,6 +54,10 @@ _TABLE_ORDER = [
     # alliance and a player, signup rows a player.
     # When the alliance fights Black Gold, with the siege and Frankie (0249).
     "alliance_event_times",
+    # What the migration screen offers per server, and the rules the client is
+    # given at login (0250). Neither carries refs.
+    "migration_config_snapshots",
+    "migration_server_snapshots",
     "black_money_signup_snapshots",
     "black_money_battle_snapshots",
     "black_money_score_snapshots",

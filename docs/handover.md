@@ -2,6 +2,26 @@
 
 작성 2026-08-01, 갱신 2026-10-04. 다음 세션이 이 문서만 읽고 이어받을 수 있게 쓴다.
 
+## 2026-10-08 — 이민 등급·좌석: 게임 안에 이미 있고, 스위치만 꺼져 있다 (0250)
+
+**이민 탭은 아직 게임에 없다** (`init`의 `immigration_new` = 0). 그런데 클라이언트에는 화면 코드
+67개와 규칙 설정이 이미 들어 있어서 조사했고, 파서·테이블·탭을 **미리** 만들었다.
+자세한 내용은 `docs/runbooks/server-migration.md`의 「등급·할당량」 이하.
+
+- **이미 캡처되던 것:** `init`의 `aps_migrate_server`(`k6` = 등급 경계 10M/15M/25M/35M)와
+  `migration_quota`. 이제 `migration_config_snapshots`에 쌓인다.
+- **아직 한 번도 못 본 것:** `get.migrate.servers`(서버별 남은 좌석·power 하한·상한). 필드 이름은
+  APK의 `MigrateDataManager`가 읽는 이름에서 가져왔다. **픽스처는 손으로 쓴 합성이다**
+  (`servers_synthetic_v1.json`) — 첫 실제 응답이 오면 파서를 고치고 픽스처를 갈아 끼운다.
+  체크리스트는 런북 「화면이 열리는 날 할 일」.
+- **풀지 못한 것:** `migration_quota` 매개변수 → 좌석 수 공식(바이트코드), 등급 ↔ 경계 순서.
+- **검증:** pytest 전체, ruff, mypy, pgTAP 149파일, `pnpm check/typecheck/test/build` 통과.
+  **화면은 눈으로 보지 못했다** (로컬 Supabase 없음, 데이터도 아직 없다).
+- **배포 전:** 마이그레이션 0250이 `origin/main`의 마지막 번호 다음인지 다시 확인한다
+  (병렬 PR이 같은 번호를 잡은 적이 있다). 운영에는 `db push`가 필요하다.
+
+---
+
 ## 2026-10-08 — 아이폰 패킷 캡처 런북 (아직 실행 전)
 
 **코드 변경 없음. 문서 두 개뿐이다:** `docs/runbooks/iphone-capture.md`(신규),
