@@ -865,3 +865,24 @@
 .season-screen [role="tablist"] {
   margin-bottom: 0;
 }
+
+/* ------------------------------------------------------------------ members */
+
+.roster-screen {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.roster-board {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+
+.roster-board .table-wrap {
+  margin: 0;
+}
+
+.roster-screen [role="tablist"] {
+  margin-bottom: 0;
+}
