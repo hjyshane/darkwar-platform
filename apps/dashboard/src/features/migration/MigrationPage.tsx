@@ -7,16 +7,18 @@ import { SERVER_ZONE, zonedDayKey, zonedTime } from '../../lib/timezone';
 import { useSession } from '../../lib/useSession';
 import { MigrationAlliances } from './MigrationAlliances';
 import { MigrationEventForm } from './MigrationEventForm';
+import { MigrationQuotas } from './MigrationQuotas';
 import { MigrationServers } from './MigrationServers';
 import { MigrationTopBoard } from './MigrationTopBoard';
 import { type MigrationEvent, fetchMigrationEvents } from './data';
 
-type View = 'servers' | 'top' | 'alliances';
+type View = 'servers' | 'top' | 'alliances' | 'quotas';
 
 const VIEWS: ReadonlyArray<{ view: View; label: string }> = [
   { view: 'servers', label: 'Servers' },
   { view: 'top', label: 'Top 150' },
   { view: 'alliances', label: 'Alliances' },
+  { view: 'quotas', label: 'Seats & rules' },
 ];
 
 function serverTime(iso: string): string {
@@ -54,10 +56,16 @@ export function MigrationPage() {
       {events.isPending && <p className="empty loading">Loading…</p>}
       {events.error && <p className="error">{events.error.message}</p>}
       {events.data && list.length === 0 && (
-        <p className="empty">
-          No migration has been set up yet.
-          {mayManage ? ' Add one with its baseline — the instant the before side is read at.' : ''}
-        </p>
+        <>
+          <p className="empty">
+            No migration has been set up yet.
+            {mayManage
+              ? ' Add one with its baseline — the instant the before side is read at.'
+              : ''}
+          </p>
+          <h3>Seats &amp; rules</h3>
+          <MigrationQuotas />
+        </>
       )}
 
       <div className="migration-bar">
@@ -114,6 +122,7 @@ export function MigrationPage() {
           {view === 'servers' && <MigrationServers eventId={event.event_id} />}
           {view === 'top' && <MigrationTopBoard eventId={event.event_id} />}
           {view === 'alliances' && <MigrationAlliances eventId={event.event_id} />}
+          {view === 'quotas' && <MigrationQuotas />}
         </>
       )}
     </section>

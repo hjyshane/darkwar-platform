@@ -1,0 +1,91 @@
+{
+  "observation_id": "00000000-0000-4000-8000-00000000f301",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "get.migrate.servers",
+  "captured_at": "2026-10-20T03:00:00+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "list": [
+      {
+        "serverId": 581,
+        "season": 3,
+        "season_group": 1,
+        "server_rank_type": 1,
+        "totalCount": 60,
+        "useCount": 12,
+        "migrateLeft": [
+          {
+            "type": 1,
+            "num": 20
+          },
+          {
+            "type": 2,
+            "num": 15
+          },
+          {
+            "type": 3,
+            "num": 8
+          },
+          {
+            "type": 4,
+            "num": 5
+          }
+        ],
+        "specialLeft": [
+          {
+            "type": 4,
+            "num": 2
+          }
+        ],
+        "inviteLeft": [
+          {
+            "type": 1,
+            "num": 3
+          }
+        ],
+        "powerLowLimit": "10000000;15000000;25000000;35000000",
+        "powerLimit": 30000000,
+        "specialPowerLimit": 60000000,
+        "targetPowerLimit": 0,
+        "maxPower": 812000000,
+        "needItemId": 252000,
+        "needItemNum": 3,
+        "targetOpenTime": 1776305241000,
+        "kingName": "Synthetic King",
+        "kingUid": "1000000000000581"
+      },
+      {
+        "serverId": "584",
+        "season": 3,
+        "season_group": 2,
+        "server_rank_type": 2,
+        "totalCount": 40,
+        "useCount": 40,
+        "migrateLeft": [
+          {
+            "type": 1,
+            "num": 0
+          },
+          {
+            "type": 2,
+            "num": 0
+          }
+        ],
+        "specialLeft": [],
+        "inviteLeft": [],
+        "powerLowLimit": [5000000, 8000000, 12000000, 20000000],
+        "powerLimit": 0,
+        "specialPowerLimit": 0,
+        "kingName": "",
+        "kingUid": 0
+      },
+      {
+        "serverId": 587,
+        "season": 3,
+        "powerLowLimit": "not;a;list",
+        "migrateLeft": "unexpected"
+      }
+    ]
+  },
+  "schema_version": 1
+}
