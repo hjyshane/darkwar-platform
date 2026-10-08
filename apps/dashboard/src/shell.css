@@ -940,3 +940,21 @@
 .planner-screen .planner-stock-head h3 {
   margin: 0;
 }
+
+/* --------------------------------------------------------------------- hive */
+
+.hive-screen {
+  display: grid;
+  gap: var(--space-4);
+}
+
+/* The picker, the map and the list each sit in their own frame; the content
+ * keeps its own markup and spacing. */
+.hive-screen .hive-overview,
+.hive-screen .hive-picker {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  margin: 0;
+}
