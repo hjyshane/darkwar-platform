@@ -1016,3 +1016,23 @@
   font-weight: 600;
   margin: 0 0 var(--space-3);
 }
+
+/* ----------------------------------------------------------------- alliance */
+
+.alliance-screen {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.alliance-screen > section:not(:first-child) {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+}
+
+.alliance-screen > section:not(:first-child) > h2:not(.visually-hidden) {
+  font-size: var(--text-base);
+  font-weight: 600;
+  margin: 0 0 var(--space-3);
+}

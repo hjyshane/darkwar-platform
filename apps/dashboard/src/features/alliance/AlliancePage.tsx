@@ -232,27 +232,33 @@ export function AlliancePage({ allianceId, now }: { allianceId: string; now?: Da
 
   const label = `${data.code ? `[${data.code}] ` : ''}${data.name ?? 'Unnamed alliance'}`;
   return (
-    <main>
-      <section aria-labelledby="alliance-heading">
-        <h2 id="alliance-heading">
-          {signedIn && (
-            <FavouriteButton
-              id={data.allianceId}
-              isFavourite={isFavourite('alliance', data.allianceId)}
-              kind="alliance"
-              label={label}
-              onToggle={toggle}
-            />
-          )}
-          {label}
-          <span className="subtle">
-            {' · '}
-            <a href={serverHash(data.serverId)}>server {data.serverId}</a>
-            {data.isOwn && ' · ours'}
+    <main className="alliance-screen">
+      <section aria-labelledby="alliance-heading" className="entity">
+        <header className="entity-head">
+          <span aria-hidden="true" className="entity-mark">
+            {(data.code ?? data.name ?? 'AL').slice(0, 2).toUpperCase()}
           </span>
-        </h2>
+          <div>
+            <h2 id="alliance-heading">
+              {signedIn && (
+                <FavouriteButton
+                  id={data.allianceId}
+                  isFavourite={isFavourite('alliance', data.allianceId)}
+                  kind="alliance"
+                  label={label}
+                  onToggle={toggle}
+                />
+              )}
+              {label}
+            </h2>
+            <p className="entity-meta">
+              <a href={serverHash(data.serverId)}>Server {data.serverId}</a>
+              {data.isOwn && <span>Ours</span>}
+            </p>
+          </div>
+        </header>
 
-        <div className="stats">
+        <div className="strip">
           <StatTile
             hero
             label={TERMS.power}
@@ -274,7 +280,7 @@ export function AlliancePage({ allianceId, now }: { allianceId: string; now?: Da
             value={num(data.members.length === 0 ? null : data.members.length)}
           />
         </div>
-        <p className="subtle">
+        <p className="entity-foot">
           {TERMS.lastSeen} <FreshnessBadge capturedAt={data.lastSeenAt} now={now} />
           {data.isOwn && !data.rosterUnredactedSeen && (
             <>
