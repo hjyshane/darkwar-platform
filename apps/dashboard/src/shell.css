@@ -1156,3 +1156,61 @@
     order: 3;
   }
 }
+
+/* ---------------------------------------------------------------- sub-tabs */
+
+.shell-entry {
+  display: grid;
+  gap: 2px;
+}
+
+.shell-caret {
+  color: var(--fg-muted);
+  display: inline-flex;
+  margin-left: auto;
+  transition: transform var(--dur-fast) var(--ease);
+}
+
+.shell-caret[data-open="true"] {
+  transform: rotate(90deg);
+}
+
+/* The open screen's tabs, tucked under it with a hairline down the left so they
+ * read as belonging to it. */
+.shell-sub {
+  border-left: 1px solid var(--border);
+  display: grid;
+  gap: 1px;
+  list-style: none;
+  margin: 0 0 var(--space-1) calc(var(--space-2) + 0.55rem);
+  padding: 0 0 0 var(--space-2);
+}
+
+.shell-sublink {
+  border-radius: var(--radius-md);
+  color: var(--fg-muted);
+  display: block;
+  font-size: var(--text-sm);
+  padding: 0.3rem var(--space-2);
+  text-decoration: none;
+}
+
+.shell-sublink:hover {
+  background: var(--bg-hover);
+  color: var(--fg);
+}
+
+.shell-sublink[aria-current="page"] {
+  color: var(--gold);
+  font-weight: 500;
+}
+
+.shell-sublink:focus-visible {
+  box-shadow: var(--ring);
+  outline: none;
+}
+
+/* The collapsed rail is icons only. */
+.shell-collapsed .shell-caret {
+  display: none;
+}

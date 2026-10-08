@@ -10,12 +10,19 @@
 // same screen; only where its entry sits changed.
 
 import {
+  ADMIN_GROUPS,
   ALLIANCE_TABS,
+  type AdminGroup,
   BOARD_TABS,
+  EVENT_GUIDE_TABS,
   EVENT_TABS,
+  type EventGuideTab,
   OVERVIEW_TABS,
+  RANKING_TABS,
   type Route,
+  adminHash,
   allianceHash,
+  eventGuideHash,
   isRankingRoute,
 } from './route';
 import type { Season } from './seasons';
@@ -40,12 +47,26 @@ export type IconName =
   | 'settings'
   | 'account';
 
+/** A screen's own tabs, listed under it in the sidebar while it is open. Each
+ * has an address of its own, so a click lands on the tab and not on the screen's
+ * first one. */
+export interface NavChild {
+  key: string;
+  href: string;
+  label: string;
+  current: boolean;
+}
+
 export interface NavItem {
   key: string;
   href: string;
   label: string;
   icon: IconName;
   current: boolean;
+  /** Present only on a screen that has tabs. The sidebar draws them while the
+   * screen is current: clicking the screen opens its main page, and the tabs
+   * unfold beneath it. */
+  children?: NavChild[];
 }
 
 export interface NavGroup {
@@ -68,6 +89,10 @@ export interface NavContext {
   isOfficer: boolean;
   /** Season names by address (`#/season`), from the seasons table. */
   seasonNames: Readonly<Record<string, string | undefined>>;
+  /** The event guide tab in the address; the first when it names none. */
+  eventGuideTab?: EventGuideTab;
+  /** Whether the Arena board is open to this reader. Undefined while unknown. */
+  mayViewArena?: boolean | undefined;
 }
 
 const ICONS: Partial<Record<Route, IconName>> = {
@@ -106,6 +131,21 @@ export function buildNav(ctx: NavContext): NavGroup[] {
       label: tab.route === 'rankings' ? 'Rankings' : tab.label,
       icon: iconFor(tab.route),
       current: tab.route === 'rankings' ? isRankingRoute(ctx.route) : tab.route === ctx.route,
+      // The three boards, each its own address. Arena only where the reader
+      // may see it, and not before that is known: an entry that arrives and is
+      // taken away is worse than one that arrives a beat late.
+      ...(tab.route === 'rankings'
+        ? {
+            children: RANKING_TABS.filter(
+              (board) => board.route !== 'arena' || ctx.mayViewArena === true,
+            ).map((board) => ({
+              key: board.hash,
+              href: board.hash,
+              label: board.label,
+              current: board.route === ctx.route,
+            })),
+          }
+        : {}),
     })),
     { key: '#/map', href: '#/map', label: 'Map', icon: 'map', current: ctx.route === 'map' },
   ];
@@ -135,12 +175,23 @@ export function buildNav(ctx: NavContext): NavGroup[] {
     })),
   ];
 
+  const guideTab = ctx.eventGuideTab ?? 'events';
   const events: NavItem[] = EVENT_TABS.map((tab) => ({
     key: tab.hash,
     href: tab.hash,
     label: tab.label,
     icon: iconFor(tab.route),
     current: tab.route === ctx.route,
+    ...(tab.route === 'eventGuide'
+      ? {
+          children: EVENT_GUIDE_TABS.map((entry) => ({
+            key: eventGuideHash(entry.id),
+            href: eventGuideHash(entry.id),
+            label: entry.label,
+            current: ctx.route === 'eventGuide' && guideTab === entry.id,
+          })),
+        }
+      : {}),
   }));
 
   const boards: NavItem[] = BOARD_TABS.map((tab) => ({
@@ -164,7 +215,11 @@ export function buildNav(ctx: NavContext): NavGroup[] {
 }
 
 /** Entries below the groups: not screens about the game, but about the account. */
-export function buildFooter(route: Route, isAdmin: boolean): NavItem[] {
+export function buildFooter(
+  route: Route,
+  isAdmin: boolean,
+  adminGroup: AdminGroup | null = null,
+): NavItem[] {
   return [
     ...(isAdmin
       ? [
@@ -174,6 +229,14 @@ export function buildFooter(route: Route, isAdmin: boolean): NavItem[] {
             label: 'Settings',
             icon: 'settings' as const,
             current: route === 'admin',
+            // The five groups. Sections inside a group stay a tab bar on the
+            // page: which of them a reader may use depends on their permissions.
+            children: ADMIN_GROUPS.map((entry) => ({
+              key: adminHash(entry.group),
+              href: adminHash(entry.group),
+              label: entry.label,
+              current: route === 'admin' && (adminGroup ?? 'access') === entry.group,
+            })),
           },
         ]
       : []),
