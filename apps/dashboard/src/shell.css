@@ -974,3 +974,24 @@
   padding: var(--space-4);
   margin: 0;
 }
+
+/* ----------------------------------------------------------------- settings */
+
+.admin-screen {
+  display: grid;
+  gap: var(--space-4);
+}
+
+/* Every setting is a panel of its own; the first section is the header. */
+.admin-screen > section:not(:first-child) {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+}
+
+.admin-screen > section:not(:first-child) > h2 {
+  font-size: var(--text-base);
+  font-weight: 600;
+  margin: 0 0 var(--space-3);
+}
