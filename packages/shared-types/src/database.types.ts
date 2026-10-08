@@ -8615,6 +8615,10 @@ export type Database = {
         Args: { p_apply_to_assigned?: boolean; p_period_start: string }
         Returns: number
       }
+      recommend_step_pairs: {
+        Args: { p_buildings: Json; p_science: Json }
+        Returns: Json
+      }
       record_departure: {
         Args: { p_action: string; p_user: string }
         Returns: undefined
@@ -8671,10 +8675,6 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
-      }
-      recommend_step_pairs: {
-        Args: { p_buildings: Json; p_science: Json }
-        Returns: Json
       }
       remove_member: { Args: { p_user: string }; Returns: undefined }
       research_prerequisite_steps: {
