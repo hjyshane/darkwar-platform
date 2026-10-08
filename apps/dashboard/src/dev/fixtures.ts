@@ -16,6 +16,7 @@ import type { AppUser, Waiting } from '../features/admin/MembersSetting';
 import type { BoardPage } from '../features/board/board';
 import { vacateDeparted } from '../features/hive/hiveFormations';
 import { gameDate, seasonPeriod } from '../features/participation/periods';
+import { SEASON3_BUILDINGS, levelKey } from '../features/season/buildings';
 import { calendarRange } from '../lib/calendar';
 
 const PLAYER = {
@@ -1223,6 +1224,72 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
   [['permissions'], { capabilities: CAPABILITIES, grants: GRANTS }],
   // The score bars (0239) are part of the report's key; none set is the report as it was.
   [['participation-bars'], { duel: null, donation: null }],
+  // The season boards: a building grid, and the two rankings (newest capture each).
+  [
+    ['seasonBoard', 'buildings', 3, SEASON3_BUILDINGS.map((kind) => kind.id).join(',')],
+    {
+      members: [
+        ['Mira', 31],
+        ['Kova', 28],
+        ['Dex', 22],
+        ['Shane', 35],
+        ['Ren', 12],
+      ].map(([name, base], index) => ({
+        playerId: `season-${index}`,
+        name: name as string,
+        gameUid: 9100 + index,
+        oldestSeen: ago(90),
+        levelSince: {},
+        seenAt: Object.fromEntries(SEASON3_BUILDINGS.map((kind) => [kind.id, ago(90)])),
+        ...Object.fromEntries(
+          SEASON3_BUILDINGS.map((kind) => [levelKey(kind.id), (base as number) - (kind.id % 5)]),
+        ),
+      })),
+      columns: SEASON3_BUILDINGS,
+      capturedAt: ago(20),
+      unnamedSeen: 3,
+      rosterTotal: 71,
+    },
+  ],
+  [
+    ['seasonBoard', 'alliance_score'],
+    [
+      ['HELLBOUND', 'CBFW', 1_480_000],
+      ['GARUDAKU', 'GAR7', 1_390_000],
+      ['Little Ovls', 'LovE', 1_020_000],
+    ].map(([name, abbr, score], index) => ({
+      id: `as-${index}`,
+      allianceId: null,
+      externalId: `ext-${index}`,
+      rank: index + 1,
+      previousRank: index + 1,
+      name,
+      abbr,
+      server_id: 580,
+      score,
+      power: null,
+      captured_at: ago(60),
+    })),
+  ],
+  [
+    ['seasonBoard', 'player_force'],
+    [
+      ['Mira', 8200],
+      ['Kova', 7400],
+      ['Dex', 6100],
+    ].map(([name, force], index) => ({
+      id: `pf-${index}`,
+      playerId: null,
+      rank: index + 1,
+      name,
+      game_uid: 9100 + index,
+      server_id: 580,
+      allianceName: 'HELLBOUND',
+      abbr: 'CBFW',
+      force,
+      captured_at: ago(60),
+    })),
+  ],
   // The event guide (0248): trimmed from what the game sent on 2026-10-08.
   [
     ['event-guide'],
