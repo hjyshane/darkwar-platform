@@ -136,6 +136,32 @@ export function adminHash(group: AdminGroup, section?: string): string {
 // The one address that carries a value. Digits only: a server id is a
 // number, and anything else falls through to the landing screen rather than
 // reaching a query.
+/** The event guide's tabs, in the order they are drawn. It is one screen, so
+ * the page itself does not stack four long panels; each tab has an address of
+ * its own so the sidebar and a link can land on one. */
+export type EventGuideTab = 'events' | 'survival' | 'duel' | 'scores';
+
+export const EVENT_GUIDE_TABS: ReadonlyArray<{ id: EventGuideTab; label: string }> = [
+  { id: 'events', label: 'Alliance events' },
+  { id: 'survival', label: 'Survival Preparedness' },
+  { id: 'duel', label: 'Alliance Duel' },
+  { id: 'scores', label: 'Duel scores' },
+];
+
+const EVENT_GUIDE_HASH = new RegExp(
+  `^#/event-guide(?:/(${EVENT_GUIDE_TABS.map((tab) => tab.id).join('|')}))?$`,
+);
+
+/** The tab an `#/event-guide/...` address names; bare `#/event-guide` is the
+ * first. An unknown segment is not a route at all (it falls to the overview). */
+export function eventGuideTabFromHash(hash: string): EventGuideTab {
+  return (EVENT_GUIDE_HASH.exec(hash)?.[1] as EventGuideTab | undefined) ?? 'events';
+}
+
+export function eventGuideHash(tab: EventGuideTab): string {
+  return tab === 'events' ? '#/event-guide' : `#/event-guide/${tab}`;
+}
+
 const SERVER_HASH = /^#\/server\/(\d+)$/;
 
 // `#/map` opens on the most recently swept server; `#/map/581` opens on one,
@@ -157,6 +183,9 @@ const NOTICE_HASH = new RegExp(`^#/notices/(${UUID})$`, 'i');
 export function routeFromHash(hash: string): Route {
   if (ADMIN_HASH.test(hash)) {
     return 'admin';
+  }
+  if (EVENT_GUIDE_HASH.test(hash)) {
+    return 'eventGuide';
   }
   if (SERVER_HASH.test(hash)) {
     return 'server';

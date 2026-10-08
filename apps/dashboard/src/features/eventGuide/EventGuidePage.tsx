@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
 import { StatTile } from '../../components/StatTile';
 import { Tabs } from '../../components/ui/Tabs';
+import { EVENT_GUIDE_TABS, type EventGuideTab, eventGuideHash } from '../../lib/route';
 import { humanUntil } from '../../lib/shellNav';
-import { SERVER_ZONE, zonedTime } from '../../lib/timezone';
+import { SERVER_ZONE, browserZone, zoneLabel, zonedTime } from '../../lib/timezone';
 import { serverWhen } from '../calendar/data';
 import {
   type CapturedTime,
@@ -13,10 +14,11 @@ import {
 } from './data';
 import {
   type DuelSort,
-  bestActions,
   duelBoard,
   duelCoverage,
+  localHint,
   runningNow,
+  slotLocalHint,
   timeState,
 } from './extras';
 import {
@@ -37,31 +39,55 @@ import {
 
 const HOW_MANY_TIMES = 4;
 
+/** ` (22:30)` after a server time, or nothing where the reader's clock is the
+ * server's. */
+const bracket = (hint: string) => (hint === '' ? '' : ` (${hint})`);
+
 /** What the alliance's events are and what scores in them.
  *
  * Nothing about a member is on this page: what a person earns depends on their
  * buffs, so it lists the actions that score and their base value. All times are
  * server time (UTC-2), the clock the members read. */
-export function EventGuidePage() {
+export function EventGuidePage({ tab }: { tab: EventGuideTab }) {
   const guide = useEventGuide();
   const times = useCapturedTimes();
+  const needsGuide = tab !== 'events' && tab !== 'scores';
 
   return (
     <section aria-labelledby="guide-heading" className="event-guide">
       <OurTimes error={times.error} loading={times.isPending} rows={times.data ?? []} />
-      {(times.data ?? []).length > 0 && <AllianceTimes rows={times.data ?? []} />}
+      {/* One address per tab (#/event-guide/duel), so the sidebar and a pasted
+          link land on the tab itself and the back button steps between them. */}
+      <Tabs
+        items={EVENT_GUIDE_TABS.map((entry) => ({ id: entry.id, label: entry.label }))}
+        label="Event guide sections"
+        onChange={(id) => {
+          window.location.hash = eventGuideHash(id);
+        }}
+        value={tab}
+      />
 
-      {guide.isPending && <p className="empty loading">Loading…</p>}
-      {guide.error && <p className="error">Could not load the guide: {guide.error.message}</p>}
-      {guide.data && guide.data.themes.length === 0 && (
+      {tab === 'events' && <AllianceTimes rows={times.data ?? []} />}
+      {tab === 'scores' && (
+        <section aria-labelledby="guide-scores-heading" className="panel">
+          <h2 id="guide-scores-heading">Alliance Duel: member scores</h2>
+          <DuelScores />
+        </section>
+      )}
+
+      {needsGuide && guide.isPending && <p className="empty loading">Loading…</p>}
+      {needsGuide && guide.error && (
+        <p className="error">Could not load the guide: {guide.error.message}</p>
+      )}
+      {needsGuide && guide.data && guide.data.themes.length === 0 && (
         <p className="empty">
           The guide has not been loaded from the game yet (dw-collector game-event-guide).
         </p>
       )}
-      {guide.data && guide.data.themes.length > 0 && (
+      {needsGuide && guide.data && guide.data.themes.length > 0 && (
         <>
-          <Preparedness guide={guide.data} />
-          <Duel guide={guide.data} />
+          {tab === 'survival' && <Preparedness guide={guide.data} />}
+          {tab === 'duel' && <Duel guide={guide.data} />}
         </>
       )}
     </section>
@@ -91,6 +117,9 @@ function OurTimes({
           <h2 id="guide-heading">Event guide</h2>
           <p className="entity-meta">
             <span>Server time, UTC−2</span>
+            {zoneLabel(browserZone()) !== zoneLabel(SERVER_ZONE) && (
+              <span>Your time in brackets: {zoneLabel(browserZone())}</span>
+            )}
             <span>Points are the base value: buffs change what a person earns</span>
           </p>
         </div>
@@ -110,7 +139,7 @@ function OurTimes({
               hero={index === 0}
               key={row.id}
               label={row.title}
-              note={`${serverWhen(row.startsAt).split(' · ')[0]} · in ${humanUntil(Date.parse(row.startsAt) - now)}`}
+              note={`${serverWhen(row.startsAt).split(' · ')[0]} · in ${humanUntil(Date.parse(row.startsAt) - now)}${bracket(localHint(row.startsAt, browserZone()))}`}
               value={zonedTime(row.startsAt, SERVER_ZONE)}
             />
           ))}
@@ -125,6 +154,15 @@ function OurTimes({
  * has room for the next few. */
 function AllianceTimes({ rows }: { rows: readonly CapturedTime[] }) {
   const now = new Date();
+  const zone = browserZone();
+  if (rows.length === 0) {
+    return (
+      <p className="empty">
+        Nothing has been read from the game yet. Siege, Frankie and Black Gold times arrive when a
+        member of the alliance logs in on the collector.
+      </p>
+    );
+  }
   return (
     <section aria-labelledby="guide-times-heading" className="panel">
       <h2 id="guide-times-heading">Alliance events</h2>
@@ -135,12 +173,15 @@ function AllianceTimes({ rows }: { rows: readonly CapturedTime[] }) {
           return (
             <li data-state={state} key={row.id}>
               <span>{row.title}</span>
-              <span className="subtle">{serverWhen(row.startsAt)}</span>
+              <span className="subtle">
+                {serverWhen(row.startsAt)}
+                {bracket(localHint(row.startsAt, zone))}
+              </span>
               <strong>
                 {state === 'ahead' && `in ${humanUntil(startsIn)}`}
                 {state === 'running' &&
                   row.endsAt !== null &&
-                  `on now, ends ${zonedTime(row.endsAt, SERVER_ZONE)}`}
+                  `on now, ends ${zonedTime(row.endsAt, SERVER_ZONE)}${bracket(localHint(row.endsAt, zone))}`}
                 {state === 'over' && 'over'}
               </strong>
             </li>
@@ -165,10 +206,22 @@ function ScoreList({
     return <p className="empty">The game lists nothing that scores here.</p>;
   }
   const best = bestPerUnit(rows);
+  // The top two payments carry a small tilted mark on the row itself, which
+  // stands out without a second list repeating them. A theme with two rows has
+  // one best; with one row there is nothing to compare it with.
+  const marked = rows.length > 2 ? 2 : rows.length > 1 ? 1 : 0;
   return (
     <ul className="guide-scores">
-      {rows.map((row) => (
+      {rows.map((row, rank) => (
         <li key={row.score_id}>
+          {rank < marked && (
+            <span className="guide-best-mark" title="One of the best payments here">
+              <svg aria-hidden="true" focusable="false" viewBox="0 0 16 16">
+                <path d="M8 1.2l2.1 4.3 4.7.7-3.4 3.3.8 4.7L8 11.9l-4.2 2.3.8-4.7L1.2 6.2l4.7-.7z" />
+              </svg>
+              <span className="visually-hidden">Best</span>
+            </span>
+          )}
           <span>{actionText(row.action, row.per_value)}</span>
           <strong className="num">{pointsText(row.points)}</strong>
           <span aria-hidden="true" className="guide-bar">
@@ -194,7 +247,8 @@ function Preparedness({ guide }: { guide: EventGuide }) {
       <p className="subtle">Six four-hour slots a day; each runs one of the themes below.</p>
       {running !== null && (
         <p className="guide-now">
-          Running now: <strong>{running.name}</strong>, until {running.until} server time.
+          Running now: <strong>{running.name}</strong>, until {running.until} server time
+          {bracket(slotLocalHint(here.slot + 1, new Date(), browserZone()))}.
         </p>
       )}
       <div className="table-wrap">
@@ -216,7 +270,12 @@ function Preparedness({ guide }: { guide: EventGuide }) {
           <tbody>
             {grid.map((row, slotIndex) => (
               <tr key={slotStart(slotIndex + 1)}>
-                <th scope="row">{slotStart(slotIndex + 1)}</th>
+                <th scope="row">
+                  {slotStart(slotIndex + 1)}
+                  <span className="guide-local">
+                    {bracket(slotLocalHint(slotIndex + 1, new Date(), browserZone()))}
+                  </span>
+                </th>
                 {row.map((eventId, day) => (
                   <td
                     aria-current={
@@ -238,7 +297,6 @@ function Preparedness({ guide }: { guide: EventGuide }) {
         {themes.map((theme, themeIndex) => (
           <article className="guide-theme" key={theme.event_id}>
             <h3 data-theme-index={themeIndex}>{theme.name ?? theme.event_id}</h3>
-            <BestLine activity={SURVIVAL} eventId={theme.event_id} guide={guide} />
             <ScoreList activity={SURVIVAL} eventId={theme.event_id} guide={guide} />
           </article>
         ))}
@@ -274,7 +332,6 @@ function Duel({ guide }: { guide: EventGuide }) {
               {WEEKDAYS[(theme.day ?? 1) - 1] ?? ''} · {theme.name ?? theme.event_id}
               {theme.day === today && <span className="guide-today">Today</span>}
             </h3>
-            <BestLine activity={DUEL} eventId={theme.event_id} guide={guide} />
             <ScoreList activity={DUEL} eventId={theme.event_id} guide={guide} />
           </article>
         ))}
@@ -285,27 +342,7 @@ function Duel({ guide }: { guide: EventGuide }) {
           day's theme once it is that week's turn, so they fill in as the week goes.
         </p>
       )}
-      <DuelScores />
     </section>
-  );
-}
-
-/** The two best things to do in a theme, ahead of the whole list. */
-function BestLine({
-  guide,
-  activity,
-  eventId,
-}: {
-  guide: EventGuide;
-  activity: string;
-  eventId: string;
-}) {
-  const best = bestActions(guide.scores, activity, eventId, 2);
-  if (best.length === 0) return null;
-  return (
-    <p className="guide-best">
-      <span>Best</span> {best.join(' · ')}
-    </p>
   );
 }
 
@@ -325,7 +362,6 @@ function DuelScores() {
   const coverage = duelCoverage(lines);
   return (
     <div className="guide-board">
-      <h3>Member scores</h3>
       {board.isPending && <p className="empty loading">Loading…</p>}
       {board.error && <p className="error">Could not load the scores: {board.error.message}</p>}
       {board.data && lines.length === 0 && (

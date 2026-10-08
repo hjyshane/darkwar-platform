@@ -4,8 +4,8 @@
 // server time, UTC-2.
 
 import { resetWeekStart } from '@dw/game-clock';
-import { SERVER_ZONE, zonedDayKey } from '../../lib/timezone';
-import { type ScoreSource, type Theme, actionText, scoresOf, slotStart } from './guide';
+import { SERVER_ZONE, zonedDayKey, zonedTime } from '../../lib/timezone';
+import { SLOT_HOURS, type ScoreSource, type Theme, actionText, scoresOf, slotStart } from './guide';
 
 /** The theme the current Survival Preparedness slot runs, and when it hands
  * over. Null where the game has not told us what runs now. */
@@ -120,4 +120,34 @@ export function duelCoverage(lines: readonly DuelLine[]): { today: number; week:
     today: lines.filter((line) => line.daily !== null && line.dailyToday).length,
     week: lines.filter((line) => line.weekly !== null && line.weeklyThisWeek).length,
   };
+}
+
+const DAY_MS = 86_400_000;
+
+function dayNumber(key: string): number {
+  const [year, month, day] = key.split('-').map(Number);
+  return Date.UTC(year ?? 1970, (month ?? 1) - 1, day ?? 1) / DAY_MS;
+}
+
+/** The same instant on the reader's own clock, for showing in brackets beside
+ * the server time: `13:30`, or `01:30 +1d` where their date is a day ahead of
+ * the server's. Empty when it would only repeat the server time (the reader is
+ * in the server's own zone), so the brackets are never noise. */
+export function localHint(iso: string, localZone: string): string {
+  const serverTime = zonedTime(iso, SERVER_ZONE);
+  const localTime = zonedTime(iso, localZone);
+  const shift = dayNumber(zonedDayKey(iso, localZone)) - dayNumber(zonedDayKey(iso, SERVER_ZONE));
+  if (shift === 0 && localTime === serverTime) return '';
+  if (shift === 0) return localTime;
+  return `${localTime} ${shift > 0 ? '+' : '−'}${Math.abs(shift)}d`;
+}
+
+/** The local time a Survival Preparedness slot starts at today, from its
+ * server-clock label. Slot 1 opens at 00:00 server time. */
+export function slotLocalHint(slot: number, now: Date, localZone: string): string {
+  const [year, month, day] = zonedDayKey(now.toISOString(), SERVER_ZONE).split('-').map(Number);
+  const serverHour = (slot - 1) * SLOT_HOURS;
+  // Server time is UTC-2, so the same instant is two hours later in UTC.
+  const at = new Date(Date.UTC(year ?? 1970, (month ?? 1) - 1, day ?? 1, serverHour + 2));
+  return localHint(at.toISOString(), localZone);
 }
