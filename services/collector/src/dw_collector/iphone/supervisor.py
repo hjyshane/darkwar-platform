@@ -218,8 +218,12 @@ class Supervisor:
             )
             if result.outcome == "stopped":
                 return
-            if result.outcome == "rotated" and kept:
+            if kept:
+                # It captured packets, so the phone WAS there: whatever long
+                # wait came before is over. Without this a drop right after a
+                # slow reconnect (seen when plugging in) waited a full minute.
                 backoff = cfg.backoff_min_seconds
+            if result.outcome == "rotated" and kept:
                 continue
             # died, stalled, or a rotated chunk with nothing in it: the
             # session is not healthy. Back off before asking usbmux again.

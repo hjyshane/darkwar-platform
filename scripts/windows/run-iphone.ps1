@@ -17,13 +17,19 @@
 
 [CmdletBinding()]
 param(
-    [string]$Collector = (Resolve-Path (Join-Path $PSScriptRoot '..\..\services\collector')).Path,
+    [string]$Collector = '',
     [string]$CaptureDir = 'C:\DW_data\iphone',
     [string]$LogDir = 'C:\DW_data\logs',
     [int]$CollectedFromServer = 580
 )
 
 $ErrorActionPreference = 'Stop'
+# Resolved here, not as the parameter default: Windows PowerShell 5.1 leaves
+# $PSScriptRoot empty while parameter defaults are evaluated, which killed
+# the first run of this script with an unreadable Join-Path error.
+if (-not $Collector) {
+    $Collector = (Resolve-Path (Join-Path $PSScriptRoot '..\..\services\collector')).Path
+}
 New-Item -ItemType Directory -Force $CaptureDir, $LogDir | Out-Null
 $env:DW_IPHONE_DIR = $CaptureDir
 

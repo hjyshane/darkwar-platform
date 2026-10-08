@@ -266,3 +266,14 @@ def test_a_phone_left_plugged_in_is_relaunched_on_the_interval(tmp_path: Path) -
 
     assert events.count("launch") >= 2
     assert events[0] == "start"
+
+
+def test_a_drop_right_after_a_slow_reconnect_waits_the_short_backoff(tmp_path: Path) -> None:
+    """Five misses push the wait to its cap; a chunk that then captured packets
+    proves the phone was there, so the wait after its death starts over."""
+    script = [(False, 0, None)] * 5 + [(True, 100, 8.0), (False, 0, None)]
+    world, _, _ = _run(tmp_path, script, stop_after_devices=7)
+
+    assert world.sleeps[:5] == [5.0, 10.0, 20.0, 20.0, 20.0]
+    assert 5.0 in world.sleeps[5:], "the post-drop wait must restart at the minimum"
+    assert 20.0 not in world.sleeps[5:7]
