@@ -1390,6 +1390,19 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
     },
   ],
   [
+    ['event-guide', 'duel-board'],
+    {
+      members: ROSTER.map((row) => ({ player_id: row.player_id, current_name: row.current_name })),
+      readings: ROSTER.map((row, index) => ({
+        player_id: row.player_id,
+        duel_daily_score: index === 1 ? null : 44_000 - index * 6_000,
+        duel_daily_updated_at: index === 2 ? ago(60 * 30) : ago(40),
+        duel_weekly_score: 310_000 - index * 40_000,
+        duel_weekly_updated_at: ago(40),
+      })),
+    },
+  ],
+  [
     ['event-guide', 'captured-times'],
     [
       { id: 't1', title: 'Zombie Siege', startsAt: '2026-10-08T13:30:00Z', endsAt: null },

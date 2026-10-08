@@ -1,8 +1,24 @@
+import { useMemo, useState } from 'react';
 import { StatTile } from '../../components/StatTile';
+import { Tabs } from '../../components/ui/Tabs';
 import { humanUntil } from '../../lib/shellNav';
 import { SERVER_ZONE, zonedTime } from '../../lib/timezone';
 import { serverWhen } from '../calendar/data';
-import { type CapturedTime, type EventGuide, useCapturedTimes, useEventGuide } from './data';
+import {
+  type CapturedTime,
+  type EventGuide,
+  useCapturedTimes,
+  useDuelBoard,
+  useEventGuide,
+} from './data';
+import {
+  type DuelSort,
+  bestActions,
+  duelBoard,
+  duelCoverage,
+  runningNow,
+  timeState,
+} from './extras';
 import {
   DUEL,
   SURVIVAL,
@@ -33,6 +49,7 @@ export function EventGuidePage() {
   return (
     <section aria-labelledby="guide-heading" className="event-guide">
       <OurTimes error={times.error} loading={times.isPending} rows={times.data ?? []} />
+      {(times.data ?? []).length > 0 && <AllianceTimes rows={times.data ?? []} />}
 
       {guide.isPending && <p className="empty loading">Loading…</p>}
       {guide.error && <p className="error">Could not load the guide: {guide.error.message}</p>}
@@ -103,6 +120,37 @@ function OurTimes({
   );
 }
 
+/** Everything the game told us about the alliance's own events: what is still
+ * ahead, what is on now, and what ended in the last day. The strip above only
+ * has room for the next few. */
+function AllianceTimes({ rows }: { rows: readonly CapturedTime[] }) {
+  const now = new Date();
+  return (
+    <section aria-labelledby="guide-times-heading" className="panel">
+      <h2 id="guide-times-heading">Alliance events</h2>
+      <ul className="guide-times">
+        {rows.map((row) => {
+          const state = timeState(row, now);
+          const startsIn = Date.parse(row.startsAt) - now.getTime();
+          return (
+            <li data-state={state} key={row.id}>
+              <span>{row.title}</span>
+              <span className="subtle">{serverWhen(row.startsAt)}</span>
+              <strong>
+                {state === 'ahead' && `in ${humanUntil(startsIn)}`}
+                {state === 'running' &&
+                  row.endsAt !== null &&
+                  `on now, ends ${zonedTime(row.endsAt, SERVER_ZONE)}`}
+                {state === 'over' && 'over'}
+              </strong>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
 function ScoreList({
   guide,
   activity,
@@ -136,6 +184,7 @@ function Preparedness({ guide }: { guide: EventGuide }) {
   const themes = themesOf(guide.themes, SURVIVAL);
   const grid = weekGrid(guide.calendar, SURVIVAL);
   const here = serverNow(new Date());
+  const running = runningNow(grid, themes, here);
   const index = (id: string | null) => themes.findIndex((theme) => theme.event_id === id);
   const nameOf = (id: string | null) =>
     id === null ? '—' : (themes.find((theme) => theme.event_id === id)?.name ?? id);
@@ -143,6 +192,11 @@ function Preparedness({ guide }: { guide: EventGuide }) {
     <section aria-labelledby="guide-sp-heading" className="panel">
       <h2 id="guide-sp-heading">Survival Preparedness</h2>
       <p className="subtle">Six four-hour slots a day; each runs one of the themes below.</p>
+      {running !== null && (
+        <p className="guide-now">
+          Running now: <strong>{running.name}</strong>, until {running.until} server time.
+        </p>
+      )}
       <div className="table-wrap">
         <table className="compact guide-week">
           <thead>
@@ -184,6 +238,7 @@ function Preparedness({ guide }: { guide: EventGuide }) {
         {themes.map((theme, themeIndex) => (
           <article className="guide-theme" key={theme.event_id}>
             <h3 data-theme-index={themeIndex}>{theme.name ?? theme.event_id}</h3>
+            <BestLine activity={SURVIVAL} eventId={theme.event_id} guide={guide} />
             <ScoreList activity={SURVIVAL} eventId={theme.event_id} guide={guide} />
           </article>
         ))}
@@ -219,6 +274,7 @@ function Duel({ guide }: { guide: EventGuide }) {
               {WEEKDAYS[(theme.day ?? 1) - 1] ?? ''} · {theme.name ?? theme.event_id}
               {theme.day === today && <span className="guide-today">Today</span>}
             </h3>
+            <BestLine activity={DUEL} eventId={theme.event_id} guide={guide} />
             <ScoreList activity={DUEL} eventId={theme.event_id} guide={guide} />
           </article>
         ))}
@@ -229,6 +285,102 @@ function Duel({ guide }: { guide: EventGuide }) {
           day's theme once it is that week's turn, so they fill in as the week goes.
         </p>
       )}
+      <DuelScores />
     </section>
+  );
+}
+
+/** The two best things to do in a theme, ahead of the whole list. */
+function BestLine({
+  guide,
+  activity,
+  eventId,
+}: {
+  guide: EventGuide;
+  activity: string;
+  eventId: string;
+}) {
+  const best = bestActions(guide.scores, activity, eventId, 2);
+  if (best.length === 0) return null;
+  return (
+    <p className="guide-best">
+      <span>Best</span> {best.join(' · ')}
+    </p>
+  );
+}
+
+const plainNumber = new Intl.NumberFormat('en');
+
+/** The members' Duel scores, daily and weekly. Alliance members only (the data
+ * is behind the roster's gate), and the Duel only: it is the one board where
+ * seeing everybody's score is what the alliance asked for. A muted figure is a
+ * reading from an earlier day or week, kept because it is the last we have. */
+function DuelScores() {
+  const board = useDuelBoard();
+  const [sort, setSort] = useState<DuelSort>('daily');
+  const lines = useMemo(
+    () => duelBoard(board.data?.members ?? [], board.data?.readings ?? [], new Date(), sort),
+    [board.data, sort],
+  );
+  const coverage = duelCoverage(lines);
+  return (
+    <div className="guide-board">
+      <h3>Member scores</h3>
+      {board.isPending && <p className="empty loading">Loading…</p>}
+      {board.error && <p className="error">Could not load the scores: {board.error.message}</p>}
+      {board.data && lines.length === 0 && (
+        <p className="empty">Member scores show for signed-in alliance members.</p>
+      )}
+      {lines.length > 0 && (
+        <>
+          <p className="subtle">
+            The newest board reading for each member: {coverage.today} of {lines.length} have
+            today's, {coverage.week} have this week's. A muted figure is from an earlier day or
+            week.
+          </p>
+          <Tabs
+            items={[
+              { id: 'daily' as const, label: 'By daily' },
+              { id: 'weekly' as const, label: 'By weekly' },
+            ]}
+            label="Sort the Duel scores"
+            onChange={setSort}
+            value={sort}
+          />
+          <div className="table-wrap">
+            <table className="compact">
+              <thead>
+                <tr>
+                  <th className="label" scope="col">
+                    Member
+                  </th>
+                  <th className="num" scope="col">
+                    Daily
+                  </th>
+                  <th className="num" scope="col">
+                    Weekly
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {lines.map((line) => (
+                  <tr key={line.playerId}>
+                    <th className="label" scope="row">
+                      {line.name}
+                    </th>
+                    <td className={line.dailyToday ? 'num' : 'num guide-stale'}>
+                      {line.daily === null ? '—' : plainNumber.format(line.daily)}
+                    </td>
+                    <td className={line.weeklyThisWeek ? 'num' : 'num guide-stale'}>
+                      {line.weekly === null ? '—' : plainNumber.format(line.weekly)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
   );
 }
