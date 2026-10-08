@@ -613,6 +613,20 @@ export type Database = {
             foreignKeyName: "alliance_event_times_alliance_id_fkey"
             columns: ["alliance_id"]
             isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "alliance_event_times_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "alliance_event_times_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
             referencedRelation: "alliances"
             referencedColumns: ["alliance_id"]
           },
