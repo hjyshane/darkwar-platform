@@ -4,7 +4,7 @@
 뜬다. BlueStacks도 Npcap도 필요 없다. 뜬 파일은 `mac-capture.md`와 같은
 `ingest-dir` → `sync`로 올라간다.
 
-**상태: 아직 한 번도 실제 아이폰으로 돌려본 적 없다.** 이 문서의 1~3단계는
+**상태: Windows에서 `pymobiledevice3`로 실제 아이폰 캡처를 돌려 읽히는 것까지 확인했다(2026-10-08, 맨 아래 표). 맥 `rvictl` 경로는 아직 한 번도 못 돌렸다.** 이 문서의 1~3단계는
 "되는지 확인하는 테스트"고, 확인된 뒤에야 4단계(본 수집)로 간다. 확인 결과는 맨
 아래 표에 적는다.
 
@@ -235,6 +235,67 @@ uv run dw-collector sync
    전체를 듣기 때문에 BlueStacks 트래픽도 섞인다.
 4. 이후는 기존 Windows 흐름(`ingest-dir` → `sync`)과 같다.
 
+## 집에 두는 폰: 꽂으면 자동으로 수집 (`dw-iphone`)
+
+폰을 USB로 꽂아 두면 게임 재시작, 캡처, 읽기, 업로드가 이어지는 경로다. **폰이 꽂혀
+있는 동안만 수집된다** — 뽑으면 멈추고, 다시 꽂으면 이어진다.
+
+**상태 (2026-10-08).** 폰으로 한 번 끝에서 끝까지 돌려 확인했다: 원격 재시작 → 45초
+조각 캡처 → `ingest-dir --delete-ingested` → `account.login.new`, `init`, `al.rank`
+(연맹원 68행)가 정규화까지 들어왔다. 이어서 `run-iphone.ps1`로 세 프로세스를 함께 돌려, 가짜 REST 수신서(`/rest/v1`)에 올리는
+데까지 확인했다: 연맹원 60행, 아레나 100행, 상점, 계정 상태 등이 중복 없이 올라갔다.
+**진짜 Supabase(DB, RLS, 대시보드 표시)에는 아직 올려 본 적 없다** — 로컬 스택은 이 PC에
+Docker가 없어 못 썼다.
+
+**알려진 거동:** 폰을 막 꽂은 직후 USB 세션이 몇 초 흔들려 첫 캡처가 죽고 게임 실행이
+실패할 수 있다(`Device is not connected`). 정상이다 — 10~60초 안에 다시 붙고 그때 게임이
+켜진다.
+
+**1회 준비** (한 번만, 전부 이 폰에서 이미 끝냈다):
+
+1. Apple Devices(Microsoft Store) 설치. 드라이버가 같이 깔린다.
+2. `uv tool install pymobiledevice3`
+3. 폰을 꽂고 "이 컴퓨터를 신뢰". 설정에 **개발자 모드** 항목이 없으면 정상이다 —
+   폰이 개발자 요청을 한 번 받아야 나타난다: `pymobiledevice3 amfi reveal-developer-mode`
+   → 설정 → 개인정보 보호 및 보안 → 개발자 모드 켜기 → 재시작 → 암호 → "켜기".
+   확인: `pymobiledevice3 amfi developer-mode-status`가 `true`.
+4. 개발자 이미지: `pymobiledevice3 mounter auto-mount`.
+5. 게임 번들 ID: `com.readygo.dark.nbios` (Dark War 1.250.666). 다르면
+   `DW_IPHONE_BUNDLE_ID`.
+
+**실행:**
+
+```powershell
+.\scripts\windows\run-iphone.ps1
+```
+
+세 프로세스를 띄우고 Ctrl+C로 함께 끈다. 로그는 `C:\DW_data\logs\iphone-*.out/.err`.
+자동 잠금을 꺼 두지 않아도 돌지만, **잠금이 걸리면 USB 세션이 끊길 수 있다**
+(오늘 세 번 끊겼고 원인은 확정 못 했다). 끊기면 `dw-iphone`이 5~60초 간격으로
+기다리다 붙는다.
+
+환경 변수 (`dw-iphone`):
+
+| 변수 | 기본 | 뜻 |
+|---|---|---|
+| `DW_IPHONE_DIR` | `./data/iphone` | 조각 파일 위치 |
+| `DW_IPHONE_CHUNK_SECONDS` | 300 | 조각 길이 |
+| `DW_IPHONE_RELAUNCH_HOURS` | 6 | 꽂아 둔 채로 게임을 다시 켜는 간격. 0이면 끈다 |
+| `DW_IPHONE_BUNDLE_ID` | `com.readygo.dark.nbios` | 게임 |
+| `DW_IPHONE_NO_LAUNCH` | | `1`이면 게임을 건드리지 않는다(수동 실행) |
+| `DW_IPHONE_UDID` | | 폰이 여럿일 때 |
+
+**알아 둘 것**
+
+- 데이터는 **로그인 직후 응답**이 중심이다. 연맹 랭킹, 계정 상태, 아레나 등은 접속할 때
+  한꺼번에 오고, 화면을 연다고 새로 오지 않는다(`continuous-collection.md`). 그래서
+  재시작 간격이 곧 갱신 주기다. iOS는 화면 조작을 자동화하지 않는다.
+- 캡처는 게임보다 **먼저** 시작해야 한다. `dw-iphone`은 캡처를 띄운 뒤 5초 있다가
+  게임을 켠다.
+- 같은 계정으로 BlueStacks와 폰을 동시에 로그인하지 않는다 — 한쪽이 끊긴다. 재시작이
+  주기적으로 로그인을 일으키므로 BlueStacks 수집 계정과 같은 계정을 쓰면 서로 밀어낸다.
+- 조각은 읽은 뒤 지운다(UID와 세션 서명이 들어 있다). 읽기 전에 죽은 조각만 남는다.
+
 ## 맥에서도 B를 쓸 수 있다
 
 `rvictl`이 막히면 위 B를 맥에서 그대로 쓴다(`uv tool install pymobiledevice3`).
@@ -254,4 +315,4 @@ uv run dw-collector sync
 
 | 날짜 | 맥 / iOS | rvi0 링크 타입 | 게임 포트 | ingest 결과 | 비고 |
 |---|---|---|---|---|---|
-| | | | | | |
+| 2026-10-08 | Windows / iOS 26.6.2 | pcap (`pymobiledevice3 pcap`) | 8680 (파서가 읽음) | `ingested=19 commands=123`, 로그인·`al.rank` 포함 | USB 세션이 세 번 끊김 |

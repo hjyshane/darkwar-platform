@@ -26,6 +26,7 @@ dw-capture = "dw_collector.capture.__main__:main"
 dw-sync = "dw_collector.sync.__main__:main"
 dw-jobs = "dw_collector.jobs.__main__:main"
 dw-ui-worker = "dw_collector.ui_worker.__main__:main"
+dw-iphone = "dw_collector.iphone.__main__:main"
 dw-console = "dw_collector.console.__main__:main"
 dw-notify = "dw_collector.notify.__main__:main"
 # The desktop app's Python half. Packaged by PyInstaller, started and stopped
