@@ -16,6 +16,7 @@ import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
 import { useSession } from '../../lib/useSession';
 import { AnnouncementsBlock } from './AnnouncementsBlock';
+import { ComingUp } from './ComingUp';
 import { FavouritesBlock } from './FavouritesBlock';
 import { GuidesBlock } from './GuidesBlock';
 
@@ -244,17 +245,22 @@ export function OverviewPanel({ now }: { now?: Date }) {
   const restricted = session !== undefined && session.role === 'viewer';
 
   return (
-    <section aria-labelledby="overview-heading">
-      <h2 id="overview-heading">
-        {data?.allianceName ?? TERMS.overview}
-        {data?.allianceCode && <span className="subtle"> · {data.allianceCode}</span>}
-        {data && data.allianceCount > 1 && (
-          <span className="subtle"> · {data.allianceCount} alliances</span>
-        )}
-        {data && data.serverIds.length > 0 && (
-          <span className="subtle"> · server {data.serverIds.join(', ')}</span>
-        )}
-      </h2>
+    <section aria-labelledby="overview-heading" className="entity">
+      <header className="entity-head">
+        <span aria-hidden="true" className="entity-mark">
+          {(data?.allianceCode ?? 'DW').slice(0, 2)}
+        </span>
+        <div>
+          <h2 id="overview-heading">{data?.allianceName ?? TERMS.overview}</h2>
+          {data && (
+            <p className="entity-meta">
+              {data.allianceCode && <span>[{data.allianceCode}]</span>}
+              {data.allianceCount > 1 && <span>{data.allianceCount} alliances</span>}
+              {data.serverIds.length > 0 && <span>Server {data.serverIds.join(', ')}</span>}
+            </p>
+          )}
+        </div>
+      </header>
 
       {isPending && <p className="empty loading">Loading…</p>}
       {error && <p className="error">Could not load the summary: {error.message}</p>}
@@ -268,7 +274,7 @@ export function OverviewPanel({ now }: { now?: Date }) {
 
       {data && data.values.members !== null && (
         <>
-          <div className="stats">
+          <div className="strip">
             {(chosen?.tiles ?? []).map((id, index) => {
               if (isFormulaId(id)) {
                 const formula = chosen?.formulas.find((item) => item.id === id);
@@ -309,7 +315,7 @@ export function OverviewPanel({ now }: { now?: Date }) {
               );
             })}
           </div>
-          <p className="subtle">
+          <p className="entity-foot">
             Roster last updated <FreshnessBadge capturedAt={data.rosterObservedAt} now={now} />
           </p>
         </>
@@ -321,21 +327,26 @@ export function OverviewPanel({ now }: { now?: Date }) {
 /** The landing screen. Sections in reading order; the next one appends. */
 export function Overview({ now }: { now?: Date }) {
   return (
-    <>
-      <OverviewPanel now={now} />
-      {/* The 15-23 August event is over, so its scoreboard is off the landing
+    <div className="overview-grid">
+      <div className="overview-main">
+        <OverviewPanel now={now} />
+        {/* The 15-23 August event is over, so its scoreboard is off the landing
           screen. Unmounted rather than deleted: `EventScoreboard.tsx` still
           holds the window, the standings query and the post-the-results
           button. Bringing the next event back is two lines — import it again
           and render it here — plus new dates in that file. A finished
           scoreboard at the top of the front page is furniture that outstayed
           its deadline. */}
-      {/* Notices before shortcuts: one is news and the other is furniture.
+        {/* Notices before shortcuts: one is news and the other is furniture.
           Both boards show PINNED posts only here — the front page is not a
           second copy of the list. */}
-      <AnnouncementsBlock />
-      <GuidesBlock />
-      <FavouritesBlock />
-    </>
+        <AnnouncementsBlock />
+        <GuidesBlock />
+        <FavouritesBlock />
+      </div>
+      <aside className="overview-side">
+        <ComingUp />
+      </aside>
+    </div>
   );
 }
