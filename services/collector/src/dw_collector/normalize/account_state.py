@@ -51,7 +51,12 @@ from dw_collector.models import NormalizedRow, Observation, idempotency_key
 from dw_collector.normalize.event_schedule import schedule_rows
 from dw_collector.registry import register
 
-PARSER_VERSION = "1.6.0"
+PARSER_VERSION = "1.7.0"
+
+# A saved march squad is a full line of heroes. A formation with fewer in
+# `tempHeroes` is a leftover (2026-10-08: the collector account's squad 4 holds
+# three heroes it was never deployed with; the game shows it three squads).
+_SQUAD_SIZE = 5
 
 
 class _User(BaseModel):
@@ -184,9 +189,13 @@ def _squads(payload: dict[str, Any]) -> list[dict[str, Any]]:
     """`army_formation`: the account's march squads, 1-4, each its heroes in
     slot order, as hero ids (0236). A formation names heroes by `heroUuid`,
     the hero's instance id, which `userHero[].uuid` maps to its `heroId`.
-    Only `heroes`: on 2026-10-05 squad 4 read `heroes: []` beside three
-    `tempHeroes`, two of them already in squads 1 and 3 - a leftover, not a
-    squad. An empty squad stays empty.
+    `heroes` is the squad as DEPLOYED: it is filled only while the squad is
+    marching and reads `[]` at home (state 0), when the same line sits in
+    `tempHeroes`. So `heroes` wins when it has anyone, and otherwise a
+    `tempHeroes` line of a full 5 is the saved squad (2026-10-08, 0244 follow-up:
+    every login since 10-05 had empty `heroes` and the squads read empty). A
+    shorter `tempHeroes` is a leftover, not a squad (squad 4 on 2026-10-05 held
+    three, two of them already in squads 1 and 3), and an empty squad stays empty.
     A uuid no hero carries is skipped rather than guessed."""
     by_uuid: dict[str, int] = {}
     for entry in _entries(payload, "userHero"):
@@ -199,6 +208,9 @@ def _squads(payload: dict[str, Any]) -> list[dict[str, Any]]:
         if index is None:
             continue
         slots = [s for s in formation.get("heroes") or [] if isinstance(s, dict)]
+        if not slots:
+            saved = [s for s in formation.get("tempHeroes") or [] if isinstance(s, dict)]
+            slots = saved if len(saved) >= _SQUAD_SIZE else []
         slots.sort(key=lambda s: _int(s.get("index")) or 0)
         heroes = [
             by_uuid[str(s.get("heroUuid"))] for s in slots if str(s.get("heroUuid")) in by_uuid

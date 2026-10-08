@@ -285,6 +285,31 @@ def test_squads_are_hero_ids_in_slot_order() -> None:
     ]
 
 
+def test_a_squad_at_home_is_its_saved_line() -> None:
+    """`heroes` is the deployed squad and reads [] at home; the saved line of a
+    full 5 is in `tempHeroes`. A shorter one is a leftover (squad 4 above)."""
+    observation = load_observation(LOGIN)
+    uuids = [9100000000000000000 + i for i in range(5)]
+    at_home = [
+        {
+            "index": 1,
+            "heroes": [],
+            "tempHeroes": [{"heroUuid": u, "index": i + 1} for i, u in enumerate(uuids)],
+        },
+        {
+            "index": 2,
+            "heroes": [],
+            "tempHeroes": [{"heroUuid": u, "index": i + 1} for i, u in enumerate(uuids[:3])],
+        },
+    ]
+    payload = {**observation.payload, "army_formation": at_home}
+    (row,) = account_state.normalize(observation.model_copy(update={"payload": payload}))
+
+    squads = {s["index"]: s["heroes"] for s in row.row["hero_squads"]}
+    assert len(squads[1]) == 5
+    assert squads[2] == []
+
+
 def test_no_formations_is_no_squads() -> None:
     observation = load_observation(LOGIN)
     payload = {k: v for k, v in observation.payload.items() if k != "army_formation"}
