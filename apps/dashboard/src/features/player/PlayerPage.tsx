@@ -383,35 +383,38 @@ export function PlayerPage({ playerId, now }: { playerId: string; now?: Date }) 
   ];
   const view = views.some((entry) => entry.view === chosen) ? chosen : 'growth';
   return (
-    <main>
-      <section aria-labelledby="player-heading">
-        <h2 id="player-heading">
-          {signedIn && (
-            <FavouriteButton
-              id={data.playerId}
-              isFavourite={isFavourite('player', data.playerId)}
-              kind="player"
-              label={label}
-              onToggle={toggle}
-            />
-          )}
-          {label}
-          <span className="subtle">
-            {' · '}
-            <a href={serverHash(data.serverId)}>server {data.serverId}</a>
-            {data.allianceId && (
-              <>
-                {' · '}
+    <main className="player-screen">
+      <section aria-labelledby="player-heading" className="entity">
+        <header className="entity-head">
+          <span aria-hidden="true" className="entity-mark">
+            {label.slice(0, 2).toUpperCase()}
+          </span>
+          <div>
+            <h2 id="player-heading">
+              {signedIn && (
+                <FavouriteButton
+                  id={data.playerId}
+                  isFavourite={isFavourite('player', data.playerId)}
+                  kind="player"
+                  label={label}
+                  onToggle={toggle}
+                />
+              )}
+              {label}
+            </h2>
+            <p className="entity-meta">
+              <a href={serverHash(data.serverId)}>Server {data.serverId}</a>
+              {data.allianceId && (
                 <a href={allianceHash(data.allianceId)}>
                   {data.allianceCode ? `[${data.allianceCode}] ` : ''}
                   {data.allianceName ?? 'alliance'}
                 </a>
-              </>
-            )}
-          </span>
-        </h2>
+              )}
+            </p>
+          </div>
+        </header>
 
-        <div className="stats">
+        <div className="strip">
           <StatTile hero label={TERMS.power} value={num(data.power)} />
           <StatTile label={TERMS.hq} value={num(data.hqLevel)} />
           <StatTile label={TERMS.kills} value={num(data.kills)} />
@@ -428,7 +431,7 @@ export function PlayerPage({ playerId, now }: { playerId: string; now?: Date }) 
         </div>
         <PlayerLocationNote now={now} playerId={data.playerId} />
         {map.open && <PlayerLocationMap now={now} playerId={data.playerId} />}
-        <p className="subtle">
+        <p className="entity-foot">
           UID {data.gameUid} · {TERMS.lastSeen}{' '}
           <FreshnessBadge capturedAt={data.lastSeenAt} now={now} />
         </p>
