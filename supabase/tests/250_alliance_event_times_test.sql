@@ -1,4 +1,4 @@
--- 0247: the alliance's own times for the siege, Frankie and Black Gold are put
+-- 0249: the alliance's own times for the siege, Frankie and Black Gold are put
 -- on its schedule board - on the right alliance, as `captured` entries, without
 -- touching what an officer changed and without adding a reminder.
 begin;
