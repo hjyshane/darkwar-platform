@@ -34,6 +34,8 @@ _TABLE_ORDER = [
     "account_state_snapshots",
     # The server's event calendar from the same login (0208). No refs.
     "event_schedule_snapshots",
+    # The game's season calendar from the same login (0245). No refs.
+    "game_season_snapshots",
     "player_season_force_snapshots",
     "world_city_snapshots",
     "season_building_snapshots",

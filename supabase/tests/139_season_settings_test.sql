@@ -60,7 +60,10 @@ select ok(not has_function_privilege('anon', 'public.save_season(int, text, time
   'anon cannot add a season');
 select ok(not has_function_privilege('anon', 'public.season_unnamed_buildings()', 'execute'),
   'anon cannot list the unnamed buildings');
-select is((select count(*) from public.seasons), 2::bigint, 'nothing was written');
+-- Seeded seasons (0242, and 0245's announced Season 4) are not what is being
+-- checked; anything else would be a write that got through.
+select is((select count(*) from public.seasons where season_id not in (2, 3, 4)), 0::bigint,
+  'nothing was written');
 
 -- ----------------------------------------------------------- the writer
 

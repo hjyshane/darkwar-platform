@@ -3459,6 +3459,85 @@ export type Database = {
         }
         Relationships: []
       }
+      game_season_snapshots: {
+        Row: {
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at: string
+          end_reward_at: string | null
+          idempotency_key: string
+          next_stage: number | null
+          next_starts_at: string | null
+          observation_id: string
+          parser_version: string
+          raw: Json
+          settle_at: string | null
+          snapshot_id: string
+          source_command: string
+          stage: number
+          starts_at: string
+        }
+        Insert: {
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at?: string
+          end_reward_at?: string | null
+          idempotency_key: string
+          next_stage?: number | null
+          next_starts_at?: string | null
+          observation_id: string
+          parser_version: string
+          raw?: Json
+          settle_at?: string | null
+          snapshot_id?: string
+          source_command: string
+          stage: number
+          starts_at: string
+        }
+        Update: {
+          captured_at?: string
+          collected_from_server_id?: number
+          collector_id?: string
+          created_at?: string
+          end_reward_at?: string | null
+          idempotency_key?: string
+          next_stage?: number | null
+          next_starts_at?: string | null
+          observation_id?: string
+          parser_version?: string
+          raw?: Json
+          settle_at?: string | null
+          snapshot_id?: string
+          source_command?: string
+          stage?: number
+          starts_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_season_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "game_season_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "game_season_snapshots_collector_id_fkey"
+            columns: ["collector_id"]
+            isOneToOne: false
+            referencedRelation: "collectors"
+            referencedColumns: ["collector_id"]
+          },
+        ]
+      }
       game_strings: {
         Row: {
           en: string | null
