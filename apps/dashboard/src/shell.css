@@ -886,3 +886,29 @@
 .roster-screen [role="tablist"] {
   margin-bottom: 0;
 }
+
+/* ------------------------------------------------------------- participation */
+
+.participation-screen {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.participation-screen > .row {
+  align-items: center;
+  margin: 0;
+}
+
+.participation-board {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+
+.participation-board .table-wrap {
+  margin: 0;
+}
+
+.entity-foot .subtle {
+  margin: 0;
+}
