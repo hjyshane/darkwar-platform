@@ -13,8 +13,10 @@ import {
   tileCaption,
 } from '../../lib/hiveFormation';
 import { isAllowed, usePermissions } from '../../lib/permissions';
+import { HIVE, type HiveTab } from '../../lib/route';
 import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
+import { replaceHash, useHash } from '../../lib/useHash';
 import { useSession } from '../../lib/useSession';
 import { FormationEditor } from './FormationEditor';
 import {
@@ -38,14 +40,6 @@ import {
   useFormations,
 } from './hiveFormations';
 import { hiveStrip } from './strip';
-
-type HiveTab = 'plan' | 'shape' | 'people';
-
-const HIVE_TABS: readonly { id: HiveTab; label: string }[] = [
-  { id: 'plan', label: 'Plan' },
-  { id: 'shape', label: 'Draw the shape' },
-  { id: 'people', label: 'Who goes where' },
-];
 
 /** Where each member is told to put their base.
  *
@@ -93,7 +87,13 @@ export function HivePage() {
   );
 
   const [chosenFormation, setChosenFormation] = useState<string | null>(null);
-  const [tab, setTab] = useState<HiveTab>('plan');
+  // The tab is in the address, so the sidebar and a link can open it. Members
+  // never see tabs: the plan is all they have.
+  const hashTab = HIVE.fromHash(useHash());
+  const tab = mayPlan ? hashTab : 'plan';
+  const setTab = (next: HiveTab) => {
+    replaceHash(HIVE.hash(next));
+  };
   const active = formations.find((formation) => formation.isActive) ?? formations[0] ?? null;
   const formation =
     formations.find((candidate) => candidate.formationId === chosenFormation) ?? active;
@@ -200,7 +200,7 @@ export function HivePage() {
           {mayPlan && (
             <Tabs
               label="Hive view"
-              items={HIVE_TABS.map((candidate) => ({ id: candidate.id, label: candidate.label }))}
+              items={HIVE.tabs.map((candidate) => ({ id: candidate.id, label: candidate.label }))}
               value={tab}
               onChange={setTab}
             />

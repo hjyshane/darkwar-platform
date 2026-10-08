@@ -12,12 +12,20 @@
 import {
   ADMIN_GROUPS,
   ALLIANCE_TABS,
+  ALLIANCE_VIEWS,
   type AdminGroup,
+  type AllianceView,
   BOARD_TABS,
   EVENT_GUIDE_TABS,
   EVENT_TABS,
   type EventGuideTab,
+  HIVE,
+  type HiveTab,
+  MEMBERS,
+  type MembersTab,
   OVERVIEW_TABS,
+  PLANNER,
+  type PlannerTab,
   RANKING_TABS,
   type Route,
   adminHash,
@@ -91,6 +99,17 @@ export interface NavContext {
   seasonNames: Readonly<Record<string, string | undefined>>;
   /** The event guide tab in the address; the first when it names none. */
   eventGuideTab?: EventGuideTab;
+  /** The tab each screen has open, read from the address. A screen's own first
+   * tab when the address names none. */
+  tabs?: {
+    members?: MembersTab;
+    hive?: HiveTab;
+    planner?: PlannerTab;
+    alliance?: AllianceView;
+  };
+  /** Whether the reader may plan the hive. Its tabs are for planners only:
+   * everybody else sees the plan and nothing else. Undefined while unknown. */
+  mayPlanHive?: boolean | undefined;
   /** Whether the Arena board is open to this reader. Undefined while unknown. */
   mayViewArena?: boolean | undefined;
 }
@@ -160,6 +179,15 @@ export function buildNav(ctx: NavContext): NavGroup[] {
             label: ctx.own.label,
             icon: 'alliance' as const,
             current: onOwn,
+            // The views every alliance of ours has. Past names are left out:
+            // whether there are any is a fact about the data, which the page
+            // knows and the sidebar does not.
+            children: ALLIANCE_VIEWS.filter((view) => view.id !== 'names').map((view) => ({
+              key: allianceHash(ctx.own?.alliance_id ?? '', view.id),
+              href: allianceHash(ctx.own?.alliance_id ?? '', view.id),
+              label: view.label,
+              current: onOwn && (ctx.tabs?.alliance ?? 'members') === view.id,
+            })),
           },
         ]),
     ...ALLIANCE_TABS.filter(
@@ -172,6 +200,36 @@ export function buildNav(ctx: NavContext): NavGroup[] {
       label: name(tab.hash, tab.label),
       icon: iconFor(tab.route),
       current: tab.route === ctx.route,
+      ...(tab.route === 'members'
+        ? {
+            children: MEMBERS.tabs.map((entry) => ({
+              key: MEMBERS.hash(entry.id),
+              href: MEMBERS.hash(entry.id),
+              label: entry.label,
+              current: ctx.route === 'members' && (ctx.tabs?.members ?? 'settled') === entry.id,
+            })),
+          }
+        : {}),
+      ...(tab.route === 'hive' && ctx.mayPlanHive === true
+        ? {
+            children: HIVE.tabs.map((entry) => ({
+              key: HIVE.hash(entry.id),
+              href: HIVE.hash(entry.id),
+              label: entry.label,
+              current: ctx.route === 'hive' && (ctx.tabs?.hive ?? 'plan') === entry.id,
+            })),
+          }
+        : {}),
+      ...(tab.route === 'planner'
+        ? {
+            children: PLANNER.tabs.map((entry) => ({
+              key: PLANNER.hash(entry.id),
+              href: PLANNER.hash(entry.id),
+              label: entry.label,
+              current: ctx.route === 'planner' && (ctx.tabs?.planner ?? 'building') === entry.id,
+            })),
+          }
+        : {}),
     })),
   ];
 

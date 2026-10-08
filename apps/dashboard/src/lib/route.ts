@@ -162,6 +162,55 @@ export function eventGuideHash(tab: EventGuideTab): string {
   return tab === 'events' ? '#/event-guide' : `#/event-guide/${tab}`;
 }
 
+/** A screen whose tabs each have an address: `base` for the first, `base/<id>`
+ * for the rest. The first tab is the bare address, so every link made before the
+ * tabs had addresses still lands where it did. */
+function tabbed<T extends string>(base: string, tabs: ReadonlyArray<{ id: T; label: string }>) {
+  const pattern = new RegExp(`^${base}(?:/(${tabs.map((tab) => tab.id).join('|')}))?$`);
+  const first = tabs[0]?.id as T;
+  return {
+    tabs,
+    matches: (hash: string) => pattern.test(hash),
+    fromHash: (hash: string): T => (pattern.exec(hash)?.[1] as T | undefined) ?? first,
+    hash: (tab: T): string => (tab === first ? base : `${base}/${tab}`),
+  };
+}
+
+export type MembersTab = 'settled' | 'running';
+export const MEMBERS = tabbed<MembersTab>('#/members', [
+  { id: 'settled', label: 'Last ranking' },
+  { id: 'running', label: 'This ranking · weekly' },
+]);
+
+export type HiveTab = 'plan' | 'shape' | 'people';
+export const HIVE = tabbed<HiveTab>('#/hive', [
+  { id: 'plan', label: 'Plan' },
+  { id: 'shape', label: 'Draw the shape' },
+  { id: 'people', label: 'Who goes where' },
+]);
+
+export type PlannerTab = 'building' | 'research' | 'heroes' | 'vehicle' | 'pets';
+export const PLANNER = tabbed<PlannerTab>('#/planner', [
+  { id: 'building', label: 'Buildings' },
+  { id: 'research', label: 'Research' },
+  { id: 'heroes', label: 'Heroes' },
+  { id: 'vehicle', label: 'Vehicle' },
+  { id: 'pets', label: 'Pets' },
+]);
+
+/** An alliance page's views. Which of them a given alliance offers depends on
+ * its data (past names, whether it is ours), so the page filters this list; the
+ * sidebar lists the ones every alliance of ours has. */
+export type AllianceView = 'members' | 'board' | 'power' | 'activity' | 'compare' | 'names';
+export const ALLIANCE_VIEWS: ReadonlyArray<{ id: AllianceView; label: string }> = [
+  { id: 'members', label: 'Members' },
+  { id: 'board', label: 'Ranking' },
+  { id: 'power', label: 'Power and towers' },
+  { id: 'activity', label: 'Activity' },
+  { id: 'compare', label: 'Against the server' },
+  { id: 'names', label: 'Also known as' },
+];
+
 const SERVER_HASH = /^#\/server\/(\d+)$/;
 
 // `#/map` opens on the most recently swept server; `#/map/581` opens on one,
@@ -174,7 +223,10 @@ const MAP_HASH = /^#\/map(?:\/(\d+))?$/;
 // landing screen instead of reaching a query as a string.
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 const PLAYER_HASH = new RegExp(`^#/player/(${UUID})$`, 'i');
-const ALLIANCE_HASH = new RegExp(`^#/alliance/(${UUID})$`, 'i');
+const ALLIANCE_HASH = new RegExp(
+  `^#/alliance/(${UUID})(?:/(${ALLIANCE_VIEWS.map((view) => view.id).join('|')}))?$`,
+  'i',
+);
 // One post, on either board. Both are `#/<board>/<uuid>` so a member can send
 // somebody a link to the thing itself rather than to the list it is on.
 const GUIDE_HASH = new RegExp(`^#/guides/(${UUID})$`, 'i');
@@ -186,6 +238,15 @@ export function routeFromHash(hash: string): Route {
   }
   if (EVENT_GUIDE_HASH.test(hash)) {
     return 'eventGuide';
+  }
+  if (MEMBERS.matches(hash)) {
+    return 'members';
+  }
+  if (HIVE.matches(hash)) {
+    return 'hive';
+  }
+  if (PLANNER.matches(hash)) {
+    return 'planner';
   }
   if (SERVER_HASH.test(hash)) {
     return 'server';
@@ -238,8 +299,17 @@ export function noticeHash(noticeId: string): string {
   return `#/notices/${noticeId}`;
 }
 
-export function allianceHash(allianceId: string): string {
-  return `#/alliance/${allianceId}`;
+/** An alliance's address, and with a view one of its tabs. Members, the page's
+ * first view, is the bare address. */
+export function allianceHash(allianceId: string, view?: AllianceView): string {
+  return view === undefined || view === 'members'
+    ? `#/alliance/${allianceId}`
+    : `#/alliance/${allianceId}/${view}`;
+}
+
+/** The view an `#/alliance/<uuid>/...` address names; Members for the bare one. */
+export function allianceViewFromHash(hash: string): AllianceView {
+  return (ALLIANCE_HASH.exec(hash)?.[2] as AllianceView | undefined) ?? 'members';
 }
 
 /** The server a `#/server/580` address names, or null for any other. */
