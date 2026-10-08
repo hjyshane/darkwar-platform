@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
+import type { DuelReading, MemberName } from './extras';
 import type { CalendarSlot, ScoreSource, Theme } from './guide';
 
 export interface EventGuide {
@@ -73,6 +74,45 @@ export function useCapturedTimes() {
   return useQuery({
     queryKey: ['event-guide', 'captured-times'],
     queryFn: fetchCapturedTimes,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export interface DuelBoardData {
+  members: MemberName[];
+  readings: DuelReading[];
+}
+
+/** The newest Duel readings of the people on the roster. Two reads: who is a
+ * member (`member_roster`, which is the roster and nobody who left) and what the
+ * board last said for each (`player_contributions`, with when). A reader the
+ * gate turns away gets an empty board, not an error page. */
+async function fetchDuelBoard(): Promise<DuelBoardData> {
+  const [members, readings] = await Promise.all([
+    supabase.from('member_roster').select('player_id, current_name').limit(100),
+    supabase
+      .from('player_contributions')
+      .select(
+        'player_id, duel_daily_score, duel_daily_updated_at, duel_weekly_score, duel_weekly_updated_at',
+      )
+      .limit(1000),
+  ]);
+  for (const result of [members, readings]) {
+    if (result.error) {
+      if (result.error.code === '42501') return { members: [], readings: [] };
+      throw new Error(`duel board query failed: ${result.error.message}`);
+    }
+  }
+  return {
+    members: (members.data ?? []) as MemberName[],
+    readings: (readings.data ?? []) as DuelReading[],
+  };
+}
+
+export function useDuelBoard() {
+  return useQuery({
+    queryKey: ['event-guide', 'duel-board'],
+    queryFn: fetchDuelBoard,
     staleTime: 5 * 60 * 1000,
   });
 }
