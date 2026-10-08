@@ -250,9 +250,14 @@ object, 맥은 launchd의 프로세스 그룹). **폰 데이터는 BlueStacks �
 같은 Supabase로 올라가고, 같은 화면은 `idempotency_key`로 한 줄이 된다.
 
 **상태 (2026-10-08).** 폰 두 대(Windows용 iPhone18,2, 맥용 iPhone14,3, 둘 다 iOS 26.6.2)로
-캡처·게임 원격 실행·읽기가 확인됐다. Windows에서 `run-iphone`류 체인으로 운영 Supabase에
-올려 행이 들어간 것까지 봤다. **작업 스케줄러 등록과 launchd 등록 자체는 아직 로그온/부팅을
-거쳐 본 적 없다.** 폰 여러 대 동시 캡처는 단위 테스트만 있고 실제로 두 대를 꽂아 보진 않았다.
+캡처·게임 원격 실행·읽기가 확인됐다.
+
+- **Windows**: 단일 폰 체인으로 운영 Supabase에 올려 행이 들어간 것까지 봤다. `DarkWar-iPhone`
+  작업은 등록돼 돌고 있지만 폰이 꽂혀 있지 않은 상태에서만 로그를 봤다(대기 로그만).
+- **맥**: launchd 에이전트로 설치해 `sync.drain`까지 나온 것을 사용자가 확인했다(건수는 못 받음).
+  설치 중 `~/Library/LaunchAgents`가 root 소유라 `sudo chown "$USER" ~/Library/LaunchAgents`가
+  필요했다.
+- **아직 못 본 것**: 로그아웃/재부팅 뒤 자동으로 다시 뜨는지, 폰 여러 대 동시 캡처(단위 테스트만).
 
 **1회 준비 (폰마다)**
 
@@ -297,6 +302,12 @@ tail -f ~/dw-data/logs/iphone.log
 
 launchd 에이전트 `com.darkwar.iphone`이 로그인 때 시작하고 죽으면 다시 켠다. 제거:
 `scripts/mac/install-iphone-agent.sh --remove`.
+
+설치가 `cat > ~/Library/LaunchAgents/...plist`에서 거절되면 그 폴더가 root 소유인 것이다(이 맥에서
+그랬다). `ls -ld ~/Library/LaunchAgents`로 확인하고 관리자 권한으로 `sudo chown "$USER"
+~/Library/LaunchAgents` 한 뒤 다시 실행한다. 그래도 막히면(회사 관리 정책 등) 에이전트 없이
+`cd services/collector && DW_ENV_FILE=~/dw-data/.env uv run --no-sync python -m dw_collector.iphone`
+을 터미널에서 직접 돌려도 같은 체인이다.
 
 손으로 앞에서 보고 싶으면 Windows `scripts\windows\run-iphone.ps1`, 맥 `cd services/collector &&
 uv run --no-sync python -m dw_collector.iphone`. Ctrl+C로 멈춘다.
