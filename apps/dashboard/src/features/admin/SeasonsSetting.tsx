@@ -204,7 +204,7 @@ export function SeasonsSetting() {
               Every building type the sweeps have seen is named in some season.
             </p>
           )}
-          {unnamed.data && unnamed.data.some((entry) => entry.gameName !== null) && (
+          {unnamed.data?.some((entry) => entry.gameName !== null) && (
             <p>
               <button disabled={busy} onClick={() => nameAll.mutate(picked.id)} type="button">
                 Name {unnamed.data.filter((entry) => entry.gameName !== null).length} with the
