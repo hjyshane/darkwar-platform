@@ -35,7 +35,23 @@ UV="$(command -v uv || true)"
 command -v pymobiledevice3 >/dev/null || { echo "FAIL: pymobiledevice3 not found. Run: uv tool install pymobiledevice3"; exit 1; }
 [ -f "$COLLECTOR/src/dw_collector/iphone/__main__.py" ] || { echo "FAIL: this checkout has no dw_collector/iphone; git pull first"; exit 1; }
 ENV_FILE="${DW_ENV_FILE:-$DATA/.env}"
-[ -f "$ENV_FILE" ] || { echo "FAIL: no env file at $ENV_FILE (see docs/runbooks/mac-capture.md)"; exit 1; }
+if [ ! -f "$ENV_FILE" ]; then
+  cat <<MSG
+FAIL: no env file at $ENV_FILE
+
+Create it (outside the repo; the secret key bypasses RLS) with these four lines,
+copying the values from the Windows collector's .env - not through chat:
+
+  SUPABASE_URL=https://<project>.supabase.co
+  SUPABASE_SECRET_KEY=<secret key>
+  DW_COLLECTOR_ID=<the same value as on Windows>
+  DW_COLLECTOR_SERVER_ID=580
+
+then:  chmod 600 $ENV_FILE   and run this script again.
+(DW_SQLITE_PATH is not needed: dw-iphone keeps its own journal, $DATA/iphone.db.)
+MSG
+  exit 1
+fi
 
 mkdir -p "$LOGS" "$HOME/Library/LaunchAgents"
 # launchd gives a job a minimal PATH; uv tools and uv itself live in ~/.local/bin.
