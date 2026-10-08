@@ -6,11 +6,14 @@ import {
   type ScoreSource,
   type Theme,
   actionText,
+  bestPerUnit,
   missingDuelDays,
   scoresOf,
+  serverNow,
   slotStart,
   themesOf,
   weekGrid,
+  worth,
 } from '../src/features/eventGuide/guide';
 
 const theme = (event_id: string, activity_id: string, day: number | null): Theme => ({
@@ -110,5 +113,37 @@ describe('themes', () => {
 
     expect(themesOf(themes, DUEL).map((t) => t.day)).toEqual([1, 4]);
     expect(missingDuelDays(themes)).toEqual([2, 3, 5, 6, 7]);
+  });
+});
+
+describe('serverNow', () => {
+  it('reads the weekday and the slot on the game clock, UTC-2', () => {
+    // Thursday 2026-10-08 13:30 UTC is 11:30 server time: slot 3 (08:00-12:00).
+    expect(serverNow(new Date('2026-10-08T13:30:00Z'))).toEqual({ weekday: 4, slot: 3 });
+  });
+  it('turns the day over at 02:00 UTC, which is midnight server time', () => {
+    expect(serverNow(new Date('2026-10-08T01:59:00Z'))).toEqual({ weekday: 3, slot: 6 });
+    expect(serverNow(new Date('2026-10-08T02:00:00Z'))).toEqual({ weekday: 4, slot: 1 });
+  });
+  it('counts Sunday as day 7', () => {
+    expect(serverNow(new Date('2026-10-11T14:00:00Z')).weekday).toBe(7);
+  });
+});
+
+describe('worth', () => {
+  it('compares per unit, so a payment per hundred is not drawn as bigger than one per action', () => {
+    const rows = [
+      { points: 300, per_value: 1 },
+      { points: 10, per_value: 100 },
+    ];
+    const best = bestPerUnit(rows);
+
+    expect(best).toBe(300);
+    expect(worth(rows[0] as (typeof rows)[number], best)).toBe(1);
+    expect(worth(rows[1] as (typeof rows)[number], best)).toBeCloseTo(0.1 / 300);
+  });
+  it('is zero with nothing to compare against', () => {
+    expect(worth({ points: 5, per_value: 1 }, 0)).toBe(0);
+    expect(bestPerUnit([])).toBe(0);
   });
 });

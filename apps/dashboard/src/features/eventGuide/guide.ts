@@ -1,3 +1,5 @@
+import { SERVER_ZONE, zonedDayKey, zonedTime } from '../../lib/timezone';
+
 // What scores in Survival Preparedness and the Alliance Duel (0248).
 //
 // Pure functions only: the tables are the game's (dw-collector game-event-guide)
@@ -97,4 +99,26 @@ export function weekGrid(calendar: readonly CalendarSlot[], activity: string): (
 export function missingDuelDays(themes: readonly Theme[]): number[] {
   const known = new Set(themesOf(themes, DUEL).map((theme) => theme.day));
   return [1, 2, 3, 4, 5, 6, 7].filter((day) => !known.has(day));
+}
+
+/** Where the game's clock is right now: the weekday (Monday = 1) and the
+ * Survival Preparedness slot (1 = 00:00-04:00), both in server time, so the
+ * page can mark what is running. */
+export function serverNow(now: Date): { weekday: number; slot: number } {
+  const [year, month, day] = zonedDayKey(now.toISOString(), SERVER_ZONE).split('-').map(Number);
+  const sunday0 = new Date(Date.UTC(year ?? 1970, (month ?? 1) - 1, day ?? 1)).getUTCDay();
+  const hour = Number(zonedTime(now.toISOString(), SERVER_ZONE).slice(0, 2));
+  return { weekday: sunday0 === 0 ? 7 : sunday0, slot: Math.floor(hour / SLOT_HOURS) + 1 };
+}
+
+/** Relative worth of one scoring row, 0 to 1, against the best in its theme:
+ * the width of the bar beside it. Per unit, so "+10 per 100" is not drawn as
+ * bigger than "+300 per 1". */
+export function worth(row: Pick<ScoreSource, 'points' | 'per_value'>, best: number): number {
+  return best <= 0 ? 0 : Math.min(1, row.points / row.per_value / best);
+}
+
+/** The best per-unit payment among a theme's rows. */
+export function bestPerUnit(rows: readonly Pick<ScoreSource, 'points' | 'per_value'>[]): number {
+  return rows.reduce((best, row) => Math.max(best, row.points / row.per_value), 0);
 }
