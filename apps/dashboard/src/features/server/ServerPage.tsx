@@ -1,11 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { FavouriteButton } from '../../components/FavouriteButton';
+import { StatTile } from '../../components/StatTile';
 import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
 import { useFavourites } from '../../lib/useFavourites';
 import { latestBatch } from '../crossRankings/latestBatch';
 import { type AllianceRankingRow, AllianceRankingTable } from '../rankings/AllianceRankingTable';
 import { type ServerPlayerRow, ServerPlayerTable } from './ServerPlayerTable';
+import { serverStrip } from './strip';
 
 interface ServerData {
   alliances: AllianceRankingRow[];
@@ -64,23 +66,43 @@ export function ServerPage({ serverId }: { serverId: number }) {
   const { signedIn, isFavourite, toggle } = useFavourites();
 
   return (
-    <main>
-      <section aria-labelledby="server-heading">
-        <h2 id="server-heading">
-          {signedIn && (
-            <FavouriteButton
-              id={serverId}
-              isFavourite={isFavourite('server', serverId)}
-              kind="server"
-              label={`server ${serverId}`}
-              onToggle={toggle}
-            />
-          )}
-          {TERMS.server} {serverId}
-        </h2>
-        <p className="empty">
-          <a href="#/cross-server">← {TERMS.crossServerRanking}</a>
-        </p>
+    <main className="server-screen">
+      <section aria-labelledby="server-heading" className="entity">
+        <header className="entity-head">
+          <span aria-hidden="true" className="entity-mark">
+            {serverId}
+          </span>
+          <div>
+            <h2 id="server-heading">
+              {signedIn && (
+                <FavouriteButton
+                  id={serverId}
+                  isFavourite={isFavourite('server', serverId)}
+                  kind="server"
+                  label={`server ${serverId}`}
+                  onToggle={toggle}
+                />
+              )}
+              {TERMS.server} {serverId}
+            </h2>
+            <p className="entity-meta">
+              <a href="#/cross-server">← {TERMS.crossServerRanking}</a>
+            </p>
+          </div>
+        </header>
+        {data && (
+          <div className="strip">
+            {serverStrip(data.alliances, data.players).map((cell, index) => (
+              <StatTile
+                hero={index === 0}
+                key={cell.label}
+                label={cell.label}
+                note={cell.note}
+                value={cell.value}
+              />
+            ))}
+          </div>
+        )}
         {isPending && <p className="empty loading">Loading…</p>}
         {error && (
           <p className="error">
