@@ -16,13 +16,14 @@ from __future__ import annotations
 
 import os
 import subprocess
-import sys
 import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
 import structlog
+
+from dw_collector.iphone.jobobject import KillOnCloseJob
 
 log = structlog.get_logger()
 
@@ -36,65 +37,11 @@ class ChildSpec:
     env: Mapping[str, str] = field(default_factory=dict)
 
 
-class _WindowsJob:
-    """A job object that kills its members when the last handle to it closes."""
-
-    def __init__(self) -> None:
-        import ctypes
-        from ctypes import wintypes
-
-        self._k32 = ctypes.WinDLL("kernel32", use_last_error=True)
-        self._k32.CreateJobObjectW.restype = wintypes.HANDLE
-        self._k32.AssignProcessToJobObject.argtypes = [wintypes.HANDLE, wintypes.HANDLE]
-
-        class _Basic(ctypes.Structure):
-            _fields_ = (
-                ("PerProcessUserTimeLimit", ctypes.c_int64),
-                ("PerJobUserTimeLimit", ctypes.c_int64),
-                ("LimitFlags", wintypes.DWORD),
-                ("MinimumWorkingSetSize", ctypes.c_size_t),
-                ("MaximumWorkingSetSize", ctypes.c_size_t),
-                ("ActiveProcessLimit", wintypes.DWORD),
-                ("Affinity", ctypes.c_size_t),
-                ("PriorityClass", wintypes.DWORD),
-                ("SchedulingClass", wintypes.DWORD),
-            )
-
-        class _Io(ctypes.Structure):
-            _fields_ = tuple((n, ctypes.c_uint64) for n in ("a", "b", "c", "d", "e", "f"))
-
-        class _Extended(ctypes.Structure):
-            _fields_ = (
-                ("BasicLimitInformation", _Basic),
-                ("IoInfo", _Io),
-                ("ProcessMemoryLimit", ctypes.c_size_t),
-                ("JobMemoryLimit", ctypes.c_size_t),
-                ("PeakProcessMemoryUsed", ctypes.c_size_t),
-                ("PeakJobMemoryUsed", ctypes.c_size_t),
-            )
-
-        self._job = self._k32.CreateJobObjectW(None, None)
-        if not self._job:
-            raise OSError(ctypes.get_last_error(), "CreateJobObject failed")
-        info = _Extended()
-        info.BasicLimitInformation.LimitFlags = 0x2000  # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
-        ok = self._k32.SetInformationJobObject(
-            self._job, 9, ctypes.byref(info), ctypes.sizeof(info)
-        )  # 9 = JobObjectExtendedLimitInformation
-        if not ok:
-            raise OSError(ctypes.get_last_error(), "SetInformationJobObject failed")
-
-    def add(self, process: subprocess.Popen[bytes]) -> None:
-        handle = getattr(process, "_handle", None)
-        if handle is None or not self._k32.AssignProcessToJobObject(self._job, int(handle)):
-            log.warning("iphone.child_not_in_job", pid=process.pid)
-
-
-def _make_job() -> _WindowsJob | None:
-    if sys.platform != "win32":
+def _make_job() -> KillOnCloseJob | None:
+    if not KillOnCloseJob.supported:
         return None
     try:
-        return _WindowsJob()
+        return KillOnCloseJob()
     except OSError as exc:
         log.warning("iphone.job_object_failed", error=str(exc))
         return None
@@ -107,7 +54,7 @@ class ChildGroup:
         *,
         popen: Callable[..., Any] = subprocess.Popen,
         clock: Callable[[], float] = time.monotonic,
-        job: _WindowsJob | bool | None = True,
+        job: KillOnCloseJob | bool | None = True,
     ) -> None:
         self._specs = list(specs)
         self._popen = popen
