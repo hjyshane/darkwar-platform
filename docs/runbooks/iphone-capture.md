@@ -292,6 +292,20 @@ git -C C:\darkwar-platform pull
 `C:\DW_data\logs\iphone.log`. 권한이 모자라다고 하면 관리자 PowerShell에서 다시 한다.
 제거: `Unregister-ScheduledTask -TaskName DarkWar-iPhone -Confirm:$false`.
 
+**멈추거나 다시 시작할 때는 `Stop-ScheduledTask`를 쓰지 않는다.** 그건 작업의 런처만 끄고 그 아래
+`cmd -> uv -> python` 체인은 옛 코드 그대로 폰을 쥐고 살아 있다(2026-10-08에 코드를 고친 뒤 이걸로
+"재시작"했는데 옛 체인이 남았고, 새로 뜬 쪽은 코드 1로 끝났다). 대신:
+
+```powershell
+.\scripts\windows\stop-iphone-task.ps1            # 멈춤
+.\scripts\windows\stop-iphone-task.ps1 -Restart   # 멈추고 다시 시작 (코드를 pull한 뒤에 쓴다)
+.\scripts\windows\stop-iphone-task.ps1 -DryRun    # 무엇이 죽을지만 본다
+```
+
+런처 `cmd`와 `-m dw_collector.iphone` 파이썬의 프로세스 트리만 죽인다. 상시 수집의
+`DarkWar-Ingest`/`DarkWar-Sync`는 같은 명령을 쓰지만 이름으로 찾지 않으므로 건드리지 않는다
+(실행 전후로 상시 수집 프로세스 14개가 그대로인 것을 확인했다).
+
 맥:
 
 ```bash
