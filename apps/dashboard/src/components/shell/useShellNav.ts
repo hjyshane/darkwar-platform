@@ -1,6 +1,14 @@
 import { useEffect, useState } from 'react';
 import { isAllowed, usePermissions } from '../../lib/permissions';
-import { type Route, adminGroupFromHash, eventGuideTabFromHash } from '../../lib/route';
+import {
+  HIVE,
+  MEMBERS,
+  PLANNER,
+  type Route,
+  adminGroupFromHash,
+  allianceViewFromHash,
+  eventGuideTabFromHash,
+} from '../../lib/route';
 import { FALLBACK_SEASONS, currentSeason, pastSeason, useSeasons } from '../../lib/seasons';
 import { type NavGroup, type NavItem, breadcrumb, buildFooter, buildNav } from '../../lib/shellNav';
 import { useOwnAlliance } from '../../lib/useOwnAlliance';
@@ -38,6 +46,13 @@ export function useShellNav(
     isAdmin,
     isOfficer: isAdmin || session?.role === 'officer',
     eventGuideTab: eventGuideTabFromHash(hash),
+    tabs: {
+      members: MEMBERS.fromHash(hash),
+      hive: HIVE.fromHash(hash),
+      planner: PLANNER.fromHash(hash),
+      alliance: allianceViewFromHash(hash),
+    },
+    mayPlanHive: isPending ? undefined : isAllowed(permissions?.grants, session?.role, 'hive.plan'),
     mayViewArena: isPending
       ? undefined
       : isAllowed(permissions?.grants, session?.role, 'arena.view'),

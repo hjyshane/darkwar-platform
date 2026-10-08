@@ -1,4 +1,6 @@
 // The material planner (item 4): pick an account, pick what to raise and to
+import { PLANNER, type PlannerTab } from '../../lib/route';
+import { replaceHash, useHash } from '../../lib/useHash';
 // which level, and read what each costs and what it all costs after that
 // account's buffs — and what is still missing from what it holds.
 //
@@ -34,15 +36,6 @@ import { levelText } from './levels';
 import { type Buffs, EFFECT_IDS, buffsFrom, plan, totals } from './plan';
 import { plannerStrip } from './strip';
 import { type Target, goalsOf, withTarget } from './targets';
-
-type Section = 'building' | 'research' | 'heroes' | 'vehicle' | 'pets';
-const SECTIONS: ReadonlyArray<[Section, string]> = [
-  ['building', 'Buildings'],
-  ['research', 'Research'],
-  ['heroes', 'Heroes'],
-  ['vehicle', 'Vehicle'],
-  ['pets', 'Pets'],
-];
 
 function BuffInput({
   label,
@@ -96,7 +89,10 @@ export function PlannerPage() {
     },
   });
 
-  const [section, setSection] = useState<Section>('building');
+  const section = PLANNER.fromHash(useHash());
+  const setSection = (next: PlannerTab) => {
+    replaceHash(PLANNER.hash(next));
+  };
   const [targets, setTargets] = useState<ReadonlyMap<string, Target>>(new Map());
   const [withPrereqs, setWithPrereqs] = useState(true);
   const [timedOn, setTimedOn] = useState<ReadonlySet<number>>(new Set());
@@ -386,7 +382,7 @@ export function PlannerPage() {
         <Tabs
           label="What to raise"
           className="planner-tabs"
-          items={SECTIONS.map(([value, label]) => ({ id: value, label }))}
+          items={PLANNER.tabs.map((entry) => ({ id: entry.id, label: entry.label }))}
           value={section}
           onChange={setSection}
         />

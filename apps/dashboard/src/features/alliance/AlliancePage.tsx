@@ -1,17 +1,18 @@
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
 import { ChartFlow } from '../../components/ChartFlow';
 import { FavouriteButton } from '../../components/FavouriteButton';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
 import { StatTile } from '../../components/StatTile';
 import { isViewedAlliance } from '../../lib/activeAlliance';
+import { ALLIANCE_VIEWS, allianceHash, allianceViewFromHash } from '../../lib/route';
 import { serverHash } from '../../lib/route';
 import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
 import { useFavourites } from '../../lib/useFavourites';
+import { replaceHash, useHash } from '../../lib/useHash';
 import { AllianceCompare } from './AllianceCompare';
 import { AllianceMemberTable } from './AllianceMemberTable';
-import { AllianceTrends, type TrendPart } from './AllianceTrends';
+import { AllianceTrends } from './AllianceTrends';
 
 /** One alliance: what the game reports about it, and who we have seen in it.
  *
@@ -178,16 +179,6 @@ async function fetchAlliance(allianceId: string): Promise<AllianceDetail | null>
 /** The three questions this page answers, in the order they get asked: who is
  * in it, how has it moved, how does it compare. Members first because that is
  * what the page has always opened on and a link from elsewhere expects it. */
-type View = 'members' | TrendPart | 'compare' | 'names';
-
-const VIEWS: { view: View; label: string }[] = [
-  { view: 'members', label: 'Members' },
-  { view: 'board', label: 'Ranking' },
-  { view: 'power', label: 'Power and towers' },
-  { view: 'activity', label: 'Activity' },
-  { view: 'compare', label: 'Against the server' },
-  { view: 'names', label: 'Also known as' },
-];
 
 const plain = new Intl.NumberFormat('ko-KR');
 const compact = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 });
@@ -201,7 +192,7 @@ function big(value: number | null): string | null {
 }
 
 export function AlliancePage({ allianceId, now }: { allianceId: string; now?: Date }) {
-  const [view, setView] = useState<View>('members');
+  const asked = allianceViewFromHash(useHash());
   const { signedIn, isFavourite, toggle } = useFavourites();
   const { data, error, isPending } = useQuery({
     queryKey: ['alliance', allianceId],
@@ -231,6 +222,14 @@ export function AlliancePage({ allianceId, now }: { allianceId: string; now?: Da
   }
 
   const label = `${data.code ? `[${data.code}] ` : ''}${data.name ?? 'Unnamed alliance'}`;
+  // The views this alliance has: past names only if there are any, activity only
+  // for ours. A link to one it does not have falls back to Members.
+  const offered = ALLIANCE_VIEWS.filter(
+    (entry) =>
+      (entry.id !== 'names' || data.pastNames.length > 0) &&
+      (entry.id !== 'activity' || data.isOwn),
+  );
+  const view = offered.some((entry) => entry.id === asked) ? asked : 'members';
   return (
     <main className="alliance-screen">
       <section aria-labelledby="alliance-heading" className="entity">
@@ -302,22 +301,19 @@ export function AlliancePage({ allianceId, now }: { allianceId: string; now?: Da
         )}
       </section>
 
-      {/* Buttons, not links, and local state rather than a hash segment.
-          Switching view is not navigation here: every tab is about the same
-          alliance and the back button should leave the page, not step through
-          three panels. The markup and `aria-current` match the main nav so the
-          selected state cannot look different from the rest of the app. */}
+      {/* Buttons, and the view is in the address (#/alliance/<id>/power) so the
+          sidebar and a pasted link can land on it. Clicking between views
+          REPLACES the address instead of adding to the history: switching view
+          is not navigation, and the back button should leave the page, not step
+          through its panels. The markup and `aria-current` match the main nav
+          so the selected state cannot look different from the rest of the app. */}
       <nav aria-label="Alliance views" className="tabs subtabs">
-        {VIEWS.filter(
-          (entry) =>
-            (entry.view !== 'names' || data.pastNames.length > 0) &&
-            (entry.view !== 'activity' || data.isOwn),
-        ).map((entry) => (
+        {offered.map((entry) => (
           <button
-            key={entry.view}
-            aria-current={entry.view === view ? 'page' : undefined}
+            key={entry.id}
+            aria-current={entry.id === view ? 'page' : undefined}
             className="tab"
-            onClick={() => setView(entry.view)}
+            onClick={() => replaceHash(allianceHash(data.allianceId, entry.id))}
             type="button"
           >
             {entry.label}

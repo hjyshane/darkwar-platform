@@ -4,6 +4,7 @@ import { Tabs } from '../../components/ui/Tabs';
 import { EVENT_GUIDE_TABS, type EventGuideTab, eventGuideHash } from '../../lib/route';
 import { humanUntil } from '../../lib/shellNav';
 import { SERVER_ZONE, browserZone, zoneLabel, zonedTime } from '../../lib/timezone';
+import { replaceHash } from '../../lib/useHash';
 import { serverWhen } from '../calendar/data';
 import {
   type CapturedTime,
@@ -62,7 +63,7 @@ export function EventGuidePage({ tab }: { tab: EventGuideTab }) {
         items={EVENT_GUIDE_TABS.map((entry) => ({ id: entry.id, label: entry.label }))}
         label="Event guide sections"
         onChange={(id) => {
-          window.location.hash = eventGuideHash(id);
+          replaceHash(eventGuideHash(id));
         }}
         value={tab}
       />

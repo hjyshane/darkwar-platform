@@ -1,5 +1,4 @@
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
 import { ExportButton } from '../../components/ExportButton';
 import { StatTile } from '../../components/StatTile';
 import { Tabs } from '../../components/ui/Tabs';
@@ -9,8 +8,10 @@ import type { CsvColumn } from '../../lib/csv';
 import { FormulaError, evaluateFormula, parseFormula } from '../../lib/formula';
 import { MEMBER_FIELD_IDS, MEMBER_FORMULAS_KEY } from '../../lib/memberFormulas';
 import { resolveFormulas } from '../../lib/overviewMetrics';
+import { MEMBERS, type MembersTab } from '../../lib/route';
 import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
+import { replaceHash, useHash } from '../../lib/useHash';
 import { useSession } from '../../lib/useSession';
 import { CurrentPeriodTable } from './CurrentPeriodTable';
 import { RankMovement } from './RankMovement';
@@ -184,7 +185,10 @@ export function RosterPanel() {
   // Which board is on screen. Component state: it is a way of looking, not a
   // setting — and the settled table is the default because it is the one that
   // carries a decision.
-  const [tab, setTab] = useState<'settled' | 'running'>('settled');
+  const tab = MEMBERS.fromHash(useHash());
+  const setTab = (next: MembersTab) => {
+    replaceHash(MEMBERS.hash(next));
+  };
   const { data, error, isPending } = useQuery({ queryKey: ['roster'], queryFn: fetchRoster });
   const { data: columns } = useQuery({
     queryKey: ['member-formulas'],
@@ -255,10 +259,7 @@ export function RosterPanel() {
           reach. */}
       <Tabs
         label="Ranking"
-        items={[
-          { id: 'settled', label: 'Last ranking' },
-          { id: 'running', label: 'This ranking · weekly' },
-        ]}
+        items={MEMBERS.tabs.map((entry) => ({ id: entry.id, label: entry.label }))}
         value={tab}
         onChange={setTab}
       />
