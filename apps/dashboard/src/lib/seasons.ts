@@ -44,6 +44,19 @@ export function currentSeason(seasons: readonly Season[], now: Date): Season | n
   return best;
 }
 
+/** A season's dates as the season rank rule stores them: whole-second UTC
+ * instants (`2026-09-10T02:00:00Z`), the form the scorer reads. A season that
+ * has no start has no window; one that has no end yet gives an empty end, which
+ * the rule treats as "not applying" until somebody sets it. */
+export function seasonWindow(season: Season | null): { startsAt: string; endsAt: string } | null {
+  if (season === null || season.startsAt === null) return null;
+  const whole = (iso: string) => new Date(iso).toISOString().replace('.000Z', 'Z');
+  return {
+    startsAt: whole(season.startsAt),
+    endsAt: season.endsAt === null ? '' : whole(season.endsAt),
+  };
+}
+
 /** The season before the current one, for the admin-only look back. The
  * highest number below the current season's; with no current season, none. */
 export function pastSeason(seasons: readonly Season[], now: Date): Season | null {
