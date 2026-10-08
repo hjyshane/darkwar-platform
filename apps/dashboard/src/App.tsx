@@ -529,7 +529,7 @@ function Shell({
     <>
       <DataChangeSubscriber />
       {inShell ? (
-        <AppShell allianceId={allianceId} controls={controls} route={route}>
+        <AppShell allianceId={allianceId} controls={controls} hash={hash} route={route}>
           {/* Above whatever screen the reader came for, because the whole problem
               it solves is that the answer is somewhere they are not (0117). */}
           <ReplyAlerts />

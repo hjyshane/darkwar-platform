@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { isAllowed, usePermissions } from '../../lib/permissions';
-import type { Route } from '../../lib/route';
+import { type Route, adminGroupFromHash, eventGuideTabFromHash } from '../../lib/route';
 import { FALLBACK_SEASONS, currentSeason, pastSeason, useSeasons } from '../../lib/seasons';
 import { type NavGroup, type NavItem, breadcrumb, buildFooter, buildNav } from '../../lib/shellNav';
 import { useOwnAlliance } from '../../lib/useOwnAlliance';
@@ -12,6 +12,7 @@ import { useSession } from '../../lib/useSession';
 export function useShellNav(
   route: Route,
   allianceId: string | null,
+  hash: string,
 ): { groups: NavGroup[]; footer: NavItem[]; crumbs: string[] } {
   const { data: session } = useSession();
   const { data: ownAlliance } = useOwnAlliance();
@@ -36,12 +37,16 @@ export function useShellNav(
       : isAllowed(permissions?.grants, session?.role, 'members.view'),
     isAdmin,
     isOfficer: isAdmin || session?.role === 'officer',
+    eventGuideTab: eventGuideTabFromHash(hash),
+    mayViewArena: isPending
+      ? undefined
+      : isAllowed(permissions?.grants, session?.role, 'arena.view'),
     seasonNames: {
       '#/season': currentSeason(list, now)?.name,
       '#/season2': pastSeason(list, now)?.name,
     },
   });
-  const footer = buildFooter(route, isAdmin);
+  const footer = buildFooter(route, isAdmin, adminGroupFromHash(hash));
   return { groups, footer, crumbs: breadcrumb(groups, footer, route) };
 }
 

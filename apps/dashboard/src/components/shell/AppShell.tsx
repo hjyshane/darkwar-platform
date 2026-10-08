@@ -38,15 +38,18 @@ function storeCollapsed(collapsed: boolean): void {
 export function AppShell({
   route,
   allianceId,
+  hash,
   controls,
   children,
 }: {
   route: Route;
   allianceId: string | null;
+  /** The address, for the tabs the sidebar lists under the open screen. */
+  hash: string;
   controls: ReactNode;
   children: ReactNode;
 }) {
-  const { groups, footer, crumbs } = useShellNav(route, allianceId);
+  const { groups, footer, crumbs } = useShellNav(route, allianceId, hash);
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const [drawer, setDrawer] = useState(false);
   const [palette, setPalette] = useState(false);

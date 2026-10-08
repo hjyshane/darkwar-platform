@@ -3,7 +3,10 @@ import type { IconName } from '../../lib/shellNav';
 /** The sidebar's icons, drawn here because the app takes no icon library (the
  * CSP and the 150 kB budget both say no). One stroke each, on a 24px grid, in
  * the colour of the text beside them. */
-const PATHS: Record<IconName | 'search' | 'menu' | 'clock' | 'collapse' | 'close', string> = {
+const PATHS: Record<
+  IconName | 'search' | 'menu' | 'clock' | 'collapse' | 'close' | 'chevron',
+  string
+> = {
   overview: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z',
   rankings: 'M5 20V10M12 20V4M19 20v-7',
   migration: 'M4 8h14l-4-4M20 16H6l4 4',
@@ -28,6 +31,7 @@ const PATHS: Record<IconName | 'search' | 'menu' | 'clock' | 'collapse' | 'close
   clock: 'M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM12 8v4l3 2',
   collapse: 'M15 6l-6 6 6 6',
   close: 'M6 6l12 12M18 6L6 18',
+  chevron: 'M9 6l6 6-6 6',
 };
 
 export function Icon({ name, size = 16 }: { name: keyof typeof PATHS; size?: number }) {
