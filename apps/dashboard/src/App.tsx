@@ -45,11 +45,13 @@ import { useReplyAlerts } from './lib/replyAlerts';
 import { rememberReturnTo } from './lib/returnTo';
 import {
   type AdminGroup,
+  type EventGuideTab,
   RANKING_TABS,
   type Route,
   adminGroupFromHash,
   adminSectionFromHash,
   allianceIdFromHash,
+  eventGuideTabFromHash,
   guideIdFromHash,
   isRankingRoute,
   isStandaloneRoute,
@@ -229,7 +231,15 @@ function HeaderAllianceSwitcher() {
   );
 }
 
-function Screen({ route, mapServerId }: { route: Route; mapServerId: number | null }) {
+function Screen({
+  route,
+  mapServerId,
+  eventGuideTab,
+}: {
+  route: Route;
+  mapServerId: number | null;
+  eventGuideTab: EventGuideTab;
+}) {
   const { data: session } = useSession();
   const isOfficer = session?.role === 'officer' || session?.role === 'admin';
   const mayViewMembers = useMayView('members.view');
@@ -306,7 +316,7 @@ function Screen({ route, mapServerId }: { route: Route; mapServerId: number | nu
       return <ShopValuePage />;
     case 'eventGuide':
       // Member-only at the policy level (0248); nothing in it is about a member.
-      return <EventGuidePage />;
+      return <EventGuidePage tab={eventGuideTab} />;
     case 'calendar':
       // No capability gate, for the same reason: the calendar is member-only at
       // the policy level (0208), and naming events is gated by RLS to officers
@@ -511,7 +521,7 @@ function Shell({
     <AlliancePage allianceId={allianceId} />
   ) : (
     <main>
-      <Screen mapServerId={mapServerId} route={route} />
+      <Screen eventGuideTab={eventGuideTabFromHash(hash)} mapServerId={mapServerId} route={route} />
     </main>
   );
 

@@ -718,6 +718,10 @@
 .event-guide {
   display: grid;
   gap: var(--space-4);
+  /* A track of minmax(0, 1fr), not auto: with auto the week table's width set
+   * the column and pushed the whole page sideways instead of scrolling in its
+   * own wrapper. */
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .event-guide .panel h2 {
@@ -1071,21 +1075,41 @@
 
 /* ------------------------------------------------------- event guide, more */
 
-.guide-now,
-.guide-best {
+.guide-now {
   margin: 0 0 var(--space-2);
 }
 
-.guide-now strong,
-.guide-best span {
+.guide-now strong {
   color: var(--gold);
 }
 
-.guide-best span {
-  font-size: var(--text-xs);
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+/* The reader's own clock beside a server time, quieter than the server's. */
+.guide-local {
+  color: var(--fg-muted);
+  font-weight: 400;
+}
+
+/* A small star tipped off the corner of a row: the best payments in a theme. */
+.guide-scores li {
+  position: relative;
+}
+
+.guide-best-mark {
+  color: var(--gold);
+  height: 0.8rem;
+  left: -0.35rem;
+  pointer-events: none;
+  position: absolute;
+  top: -0.25rem;
+  transform: rotate(-18deg);
+  width: 0.8rem;
+}
+
+.guide-best-mark svg {
+  display: block;
+  fill: currentColor;
+  height: 100%;
+  width: 100%;
 }
 
 .guide-times {
@@ -1115,12 +1139,6 @@
 
 .guide-times li[data-state="running"] strong {
   color: var(--gold);
-}
-
-.guide-board {
-  border-top: 1px solid var(--border);
-  margin-top: var(--space-4);
-  padding-top: var(--space-4);
 }
 
 .guide-stale {
