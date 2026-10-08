@@ -550,6 +550,95 @@ export type Database = {
           },
         ]
       }
+      alliance_event_times: {
+        Row: {
+          alliance_external_id: string | null
+          alliance_id: string | null
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at: string
+          ends_at: string | null
+          event_key: string
+          idempotency_key: string
+          observation_id: string
+          parser_version: string
+          prep_at: string | null
+          raw: Json
+          slot: number
+          snapshot_id: string
+          source_command: string
+          starts_at: string
+        }
+        Insert: {
+          alliance_external_id?: string | null
+          alliance_id?: string | null
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at?: string
+          ends_at?: string | null
+          event_key: string
+          idempotency_key: string
+          observation_id: string
+          parser_version: string
+          prep_at?: string | null
+          raw?: Json
+          slot: number
+          snapshot_id?: string
+          source_command: string
+          starts_at: string
+        }
+        Update: {
+          alliance_external_id?: string | null
+          alliance_id?: string | null
+          captured_at?: string
+          collected_from_server_id?: number
+          collector_id?: string
+          created_at?: string
+          ends_at?: string | null
+          event_key?: string
+          idempotency_key?: string
+          observation_id?: string
+          parser_version?: string
+          prep_at?: string | null
+          raw?: Json
+          slot?: number
+          snapshot_id?: string
+          source_command?: string
+          starts_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alliance_event_times_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "alliance_event_times_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "alliance_event_times_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "alliance_event_times_collector_id_fkey"
+            columns: ["collector_id"]
+            isOneToOne: false
+            referencedRelation: "collectors"
+            referencedColumns: ["collector_id"]
+          },
+        ]
+      }
       alliance_growth_current: {
         Row: {
           alliance_id: string
@@ -5933,6 +6022,7 @@ export type Database = {
           schedule_event_id: string
           series_id: string | null
           source: string
+          source_key: string | null
           starts_at: string
           title: string
           updated_at: string
@@ -5947,6 +6037,7 @@ export type Database = {
           schedule_event_id?: string
           series_id?: string | null
           source?: string
+          source_key?: string | null
           starts_at: string
           title: string
           updated_at?: string
@@ -5961,6 +6052,7 @@ export type Database = {
           schedule_event_id?: string
           series_id?: string | null
           source?: string
+          source_key?: string | null
           starts_at?: string
           title?: string
           updated_at?: string
