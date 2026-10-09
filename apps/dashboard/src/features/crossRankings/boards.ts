@@ -39,6 +39,8 @@ export interface BoardRow {
   /** Where the row came from, on the boards that mix sources: the in-game
    * ranking, or an alliance roster. Absent on boards with one source. */
   source?: 'board' | 'roster';
+  /** The player's last known alliance, on the boards that carry it. */
+  alliance?: { id: string; code: string | null; name: string | null } | null;
 }
 
 export interface Board {

@@ -2,7 +2,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(11);
+select plan(14);
 
 insert into public.collectors (collector_id, name)
 values ('00000000-0000-4000-8000-000000000c61', 'ranking-page-test')
@@ -71,6 +71,16 @@ select is((select count(*) from public.player_ranking_page('power', null, 'roste
   1::bigint, 'search matches names case-insensitively');
 select is((select count(*) from public.player_ranking_page('power', null, '%', 'rank', false, 50, 0)),
   0::bigint, 'a literal percent sign is not a wildcard');
+
+-- 0265: the alliance rides along, and the search reaches it.
+select is((select alliance_name from got where game_uid = 6100002), 'RankPage',
+  'a ranked player carries their alliance name');
+select is((select count(*) from public.player_ranking_page('power', null, 'rankpage', 'rank', false, 50, 0)
+           where game_uid between 6100000 and 6100099), 2::bigint,
+  'searching an alliance name finds its members');
+select is((select count(*) from public.player_ranking_page('power', null, null, 'alliance', false, 50, 0)),
+  (select count(*) from public.player_ranking_merged('power')),
+  'sorting by alliance keeps every row');
 
 -- Grants: callable by signed-in users only.
 select is(has_function_privilege('anon',

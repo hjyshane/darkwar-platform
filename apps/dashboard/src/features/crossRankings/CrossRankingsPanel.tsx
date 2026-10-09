@@ -1,7 +1,7 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { type ReactNode, useEffect, useState } from 'react';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
-import { ServerChips } from '../../components/ServerChips';
+import { ServerSelect } from '../../components/ServerSelect';
 import { Strip, type StripCell } from '../../components/Strip';
 import { Tabs } from '../../components/ui/Tabs';
 import { useRecordActivity } from '../../lib/activity';
@@ -138,7 +138,7 @@ function RemoteBoard({
     >
       {/* Every server the board mentions, from the database's own count, so a
         newly scanned server shows up on its own. */}
-      <ServerChips
+      <ServerSelect
         onChange={(next) => {
           setChosenServer(next);
           setPage(1);
@@ -195,7 +195,7 @@ function LocalBoard({ board, tabs }: { board: Board; tabs: ReactNode }) {
       strip={shown && boardStrip(shown, board.valueLabel, new Date())}
       tabs={tabs}
     >
-      <ServerChips onChange={setChosenServer} servers={servers} value={server} />
+      <ServerSelect onChange={setChosenServer} servers={servers} value={server} />
       {isPending && <p className="empty loading">Loading…</p>}
       {error && <p className="error">Could not load ranking: {error.message}</p>}
       {shown && <CrossRankingTable board={board} key={server ?? 'all'} rows={shown} />}

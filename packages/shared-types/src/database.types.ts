@@ -9623,6 +9623,9 @@ export type Database = {
           p_sort?: string
         }
         Returns: {
+          alliance_code: string
+          alliance_id: string
+          alliance_name: string
           captured_at: string
           game_uid: number
           id: string
