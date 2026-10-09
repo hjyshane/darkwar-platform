@@ -7,6 +7,7 @@ import { RankMedal } from '../../components/ui/RankMedal';
 import { GameIcon, useIcons } from '../../lib/gameIcons';
 import { heroName, petName, useHeroCatalogue, usePetCatalogue } from '../../lib/heroes';
 import { playerHash, serverHash } from '../../lib/route';
+import type { SortState } from '../../lib/tableControls';
 import type { ColumnSpec } from '../../lib/tableLayout';
 import { TERMS } from '../../lib/terms';
 import { useTableView } from '../../lib/useTableView';
@@ -45,7 +46,33 @@ function formatNumber(value: number | null): string {
   return value === null ? '—' : numberFormat.format(value);
 }
 
-export function CrossRankingTable({ rows, board }: { rows: BoardRow[]; board: Board }) {
+/** Controls for a table whose paging, search and sort live in the database. */
+export interface RemoteControls {
+  query: string;
+  onQuery: (query: string) => void;
+  sort: readonly SortState[];
+  onSort: (key: string, additive?: boolean) => void;
+  page: number;
+  pageCount: number;
+  onPage: (page: number) => void;
+  /** Rows matching the search and server filter, across all pages. */
+  total: number;
+  /** Rows in the whole ranking before any filter. */
+  overall: number;
+  /** The largest figure on the board, so bars on every page share one scale. */
+  maxValue: number;
+}
+
+export function CrossRankingTable({
+  rows,
+  board,
+  remote,
+}: {
+  rows: BoardRow[];
+  board: Board;
+  /** When set, `rows` is already one page and the table only displays it. */
+  remote?: RemoteControls;
+}) {
   // Both catalogues are fetched unconditionally rather than per board: they
   // are two small tables behind a shared query key, and branching here would
   // mean a hook that runs on some boards and not others.
@@ -53,10 +80,21 @@ export function CrossRankingTable({ rows, board }: { rows: BoardRow[]; board: Bo
   const { data: heroIcons } = useIcons('hero');
   const { data: petIcons } = useIcons('pet');
   const { data: pets } = usePetCatalogue();
-  const { query, setQuery, sort, onSort, view, pageRows, page, pageCount, setPage, shown, total } =
-    useTableView(rows, SEARCH_FIELDS, { key: 'rank', direction: 'asc' }, PAGE_SIZE);
+  const local = useTableView(rows, SEARCH_FIELDS, { key: 'rank', direction: 'asc' }, PAGE_SIZE);
+  const query = remote ? remote.query : local.query;
+  const setQuery = remote ? remote.onQuery : local.setQuery;
+  const sort = remote ? remote.sort : local.sort;
+  const onSort = remote ? remote.onSort : local.onSort;
+  const pageRows = remote ? rows : local.pageRows;
+  const page = remote ? remote.page : local.page;
+  const pageCount = remote ? remote.pageCount : local.pageCount;
+  const setPage = remote ? remote.onPage : local.setPage;
+  const shown = remote ? remote.total : local.shown;
+  const total = remote ? remote.overall : local.total;
+  const noMatch = remote ? remote.total === 0 && query.trim() !== '' : local.view.length === 0;
 
-  const maxValue = useMemo(() => Math.max(0, ...rows.map((row) => row.value ?? 0)), [rows]);
+  const localMax = useMemo(() => Math.max(0, ...rows.map((row) => row.value ?? 0)), [rows]);
+  const maxValue = remote ? remote.maxValue : localMax;
 
   // Declared above the early return: a hook cannot be skipped, and this list is
   // built by one.
@@ -150,7 +188,7 @@ export function CrossRankingTable({ rows, board }: { rows: BoardRow[]; board: Bo
     return declared.filter((column): column is Column<BoardRow> => column !== null);
   }, [board, heroes, pets, heroIcons, petIcons, maxValue]);
 
-  if (rows.length === 0) {
+  if (remote ? remote.overall === 0 : rows.length === 0) {
     return <p className="empty">No ranking data yet.</p>;
   }
   return (
@@ -172,7 +210,7 @@ export function CrossRankingTable({ rows, board }: { rows: BoardRow[]; board: Bo
         tableId={TABLE_ID}
       />
       <Pager onGo={setPage} page={page} pageCount={pageCount} />
-      {view.length === 0 && <p className="empty">No player matches “{query}”.</p>}
+      {noMatch && <p className="empty">No player matches “{query}”.</p>}
     </>
   );
 }

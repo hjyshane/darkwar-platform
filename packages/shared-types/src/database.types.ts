@@ -9594,6 +9594,51 @@ export type Database = {
         Args: { p_channel: string }
         Returns: string
       }
+      player_ranking_merged: {
+        Args: { p_metric: string }
+        Returns: {
+          captured_at: string
+          game_uid: number
+          id: string
+          name: string
+          player_id: string
+          rank: number
+          server_id: number
+          source: string
+          value: number
+        }[]
+      }
+      player_ranking_page: {
+        Args: {
+          p_desc?: boolean
+          p_limit?: number
+          p_metric: string
+          p_offset?: number
+          p_search?: string
+          p_server?: number
+          p_sort?: string
+        }
+        Returns: {
+          captured_at: string
+          game_uid: number
+          id: string
+          name: string
+          player_id: string
+          rank: number
+          server_id: number
+          source: string
+          total: number
+          value: number
+        }[]
+      }
+      player_ranking_servers: {
+        Args: { p_metric: string }
+        Returns: {
+          newest: string
+          players: number
+          server_id: number
+        }[]
+      }
       primary_own_alliance: { Args: never; Returns: string }
       prune_collector_heartbeats: {
         Args: { p_confirm?: boolean; p_keep?: string }
