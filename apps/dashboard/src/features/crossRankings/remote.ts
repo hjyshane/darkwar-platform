@@ -1,4 +1,4 @@
-// Power and Kills boards, answered a page at a time by the database (0262).
+// Power and Kills boards, answered a page at a time by the database (0263).
 //
 // The merge of the in-game board with the alliance rosters, the ranking, the
 // server filter, the search and the sort all happen in SQL; the browser asks for

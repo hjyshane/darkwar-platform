@@ -52,7 +52,7 @@ export interface Board {
    * one board and a pet id on another — the same column, two vocabularies,
    * and only the board knows which. */
   unitKind: 'hero' | 'pet' | null;
-  /** Set on the boards the database pages itself (0262): they are not fetched
+  /** Set on the boards the database pages itself (0263): they are not fetched
    * whole, so they have no `fetch`. */
   remoteMetric?: RemoteMetric;
   fetch?: () => Promise<BoardRow[]>;
