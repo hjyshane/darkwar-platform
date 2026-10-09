@@ -257,6 +257,18 @@ jobs:
             echo "::error::migration versions used twice: $dupes"
             exit 1
           fi
+      # The check above sees only one tree. Two PRs that each took the next free
+      # number are each fine alone and collide once both are merged - 0165, 0258
+      # and 0262 all went that way, the last one half-way through a `db push`.
+      # Against the base as it is now, a PR that adds a version at or below the
+      # base's highest is behind and must renumber. A base that moves AFTER this
+      # run is not seen; "require branches to be up to date" in the branch rule
+      # covers that, and the check above still fails main if one slips through.
+      - name: Reject a migration numbered at or below the base's
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --no-tags origin "$GITHUB_BASE_REF"
+          bash scripts/check-migration-order.sh "origin/$GITHUB_BASE_REF"
       # Matches import STATEMENTS only. The previous pattern was
       # `(from|import)[^\n]*legacy`, which also matched prose — every
       # promoted parser's docstring says "promoted from legacy/v0.4.1",
