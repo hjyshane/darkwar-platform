@@ -251,6 +251,8 @@ const CAPABILITIES = [
     description: '',
     sort_order: 120,
   },
+  // 0251. Officers and admins by default.
+  { capability: 'giftcodes.manage', label: 'Manage gift codes', description: '', sort_order: 140 },
 ];
 
 const ROLES = ['viewer', 'member', 'officer', 'admin'] as const;
@@ -999,7 +1001,90 @@ const PLACEHOLDER_ICON = (colour: string) =>
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="${colour}"/></svg>`,
   )}`;
 
+// Gift codes (0251): invented codes and names, shaped like gift_code_progress and
+// gift_member_status. Four members, one of them left out, three codes.
+const GIFT_CODE_IDS = ['gc-1', 'gc-2', 'gc-3'] as const;
+
 export const FIXTURES: [readonly unknown[], unknown][] = [
+  [
+    ['gift', 'codes'],
+    [
+      {
+        code_id: GIFT_CODE_IDS[0],
+        code: 'SAMPLE1',
+        status: 'working',
+        source: 'officer',
+        first_seen_at: '2026-10-08T02:00:00Z',
+        checked_at: '2026-10-08T03:00:00Z',
+        members: 3,
+        queued: 1,
+        running: 0,
+        done: 1,
+        already: 1,
+        failed: 0,
+        other: 0,
+      },
+      {
+        code_id: GIFT_CODE_IDS[1],
+        code: 'SAMPLE2',
+        status: 'unverified',
+        source: 'officer',
+        first_seen_at: '2026-10-09T01:00:00Z',
+        checked_at: null,
+        members: 3,
+        queued: 0,
+        running: 0,
+        done: 0,
+        already: 0,
+        failed: 0,
+        other: 0,
+      },
+      {
+        code_id: GIFT_CODE_IDS[2],
+        code: 'OLDONE3',
+        status: 'expired',
+        source: 'officer',
+        first_seen_at: '2026-09-20T01:00:00Z',
+        checked_at: '2026-09-25T01:00:00Z',
+        members: 3,
+        queued: 0,
+        running: 0,
+        done: 2,
+        already: 0,
+        failed: 1,
+        other: 0,
+      },
+    ],
+  ],
+  [
+    ['gift', 'members'],
+    [
+      {
+        game_uid: 1000000000000001,
+        name: 'Alpha',
+        excluded: false,
+        claims: { 'gc-1': 'done', 'gc-3': 'done' },
+      },
+      {
+        game_uid: 1000000000000002,
+        name: 'Bravo',
+        excluded: false,
+        claims: { 'gc-1': 'already', 'gc-3': 'failed' },
+      },
+      {
+        game_uid: 1000000000000003,
+        name: 'Charlie',
+        excluded: false,
+        claims: { 'gc-1': 'queued', 'gc-3': 'done' },
+      },
+      {
+        game_uid: 1000000000000004,
+        name: 'Delta (left out)',
+        excluded: true,
+        claims: {},
+      },
+    ],
+  ],
   [
     ['game-icons', 'hero'],
     new Map([

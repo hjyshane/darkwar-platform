@@ -37,6 +37,7 @@ export type Route =
   | 'schedule'
   | 'participation'
   | 'planner'
+  | 'giftCodes'
   | 'calendar'
   | 'eventGuide'
   | 'shopValue'
@@ -66,6 +67,7 @@ const ROUTES: Record<string, Route> = {
   '#/schedule': 'schedule',
   '#/participation': 'participation',
   '#/planner': 'planner',
+  '#/gift-codes': 'giftCodes',
   '#/calendar': 'calendar',
   '#/event-guide': 'eventGuide',
   '#/shop-value': 'shopValue',
@@ -400,6 +402,9 @@ export const ALLIANCE_TABS: ReadonlyArray<NavTab> = [
   // What raising a building, research, hero or gear costs one of your own
   // accounts after its buffs (item 4). Account state is owner-or-admin (0205).
   { route: 'planner', hash: '#/planner', label: 'Planner' },
+  // Officer-only (0251): queues gift codes to be claimed for the alliance.
+  // Filtered in `shellNav.ts` on `giftcodes.manage`.
+  { route: 'giftCodes', hash: '#/gift-codes', label: 'Gift codes' },
 ];
 
 /** Events' second row: what the game itself has announced (0208).
@@ -442,6 +447,7 @@ export function navSection(route: Route): NavSection | null {
     case 'blackMoney':
     case 'participation':
     case 'planner':
+    case 'giftCodes':
       return 'alliance';
     case 'map':
       return 'map';
