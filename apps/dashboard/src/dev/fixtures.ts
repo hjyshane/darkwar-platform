@@ -15,6 +15,7 @@ import { recentWeeks } from '../features/admin/ManualScoresSetting';
 import type { AppUser, Waiting } from '../features/admin/MembersSetting';
 import type { BoardPage } from '../features/board/board';
 import { vacateDeparted } from '../features/hive/hiveFormations';
+import { parseAtlas } from '../features/map/atlas';
 import { gameDate, seasonPeriod } from '../features/participation/periods';
 import { SEASON3_BUILDINGS, levelKey } from '../features/season/buildings';
 import { calendarRange } from '../lib/calendar';
@@ -405,6 +406,65 @@ export const SESSION_KEY = ['session'] as const;
  * 581 to appear as swept or the tab never offers it. */
 const MAP_SERVER_ID = 581;
 const MAP_SEARCH_TERM = 'erha';
+
+/** The alliance-coloured map (0260): eight made-up alliances, each a loose clump
+ * of bases around its own centre. A seeded generator, so the picture is the same
+ * on every reload and a change in how it looks is a change in the code. */
+function atlasFixture() {
+  let seed = 7;
+  const random = () => {
+    seed = (seed * 1_664_525 + 1_013_904_223) % 4_294_967_296;
+    return seed / 4_294_967_296;
+  };
+  const centres: Array<[string, string, number, number, number]> = [
+    ['CBFW', 'HELLBOUND', 130, 215, 68],
+    ['ES_1', 'Guardian Galaxy', 400, 210, 99],
+    ['GAR7', 'GARUDAKU', 310, 650, 87],
+    ['FUCT', 'future city', 120, 405, 76],
+    ['GNSQ', 'Goon Squadz', 280, 395, 63],
+    ['LovE', 'Little Ovls & Eagles', 860, 330, 63],
+    ['F4T2', 'FATE Academy', 600, 520, 17],
+    ['SiNS', 'SiNS', 700, 150, 13],
+  ];
+  const alliances = centres.map(([code, name, , , bases], i) => ({
+    id: `fixture-alliance-${i}`,
+    code,
+    name,
+    bases,
+    power: bases * 90_000_000,
+  }));
+  const bases: Array<Array<number | string | null>> = [];
+  let uid = 1_000_000_000_000_581;
+  centres.forEach(([code, , cx, cy, count], index) => {
+    for (let n = 0; n < count; n += 1) {
+      const angle = random() * Math.PI * 2;
+      const radius = Math.sqrt(random()) * 32;
+      bases.push([
+        uid++,
+        Math.round(cx + Math.cos(angle) * radius),
+        Math.round(cy + Math.sin(angle) * radius * 0.8),
+        28 + Math.floor(random() * 8),
+        Math.round(20_000_000 + random() * 200_000_000),
+        index,
+        Math.floor(Date.now() / 1000) - Math.floor(random() * 200_000),
+        `${code} ${n + 1}`,
+      ]);
+    }
+  });
+  for (let n = 0; n < 220; n += 1) {
+    bases.push([
+      uid++,
+      Math.floor(random() * 1000),
+      Math.floor(random() * 1000),
+      20 + Math.floor(random() * 10),
+      Math.round(random() * 60_000_000),
+      -1,
+      Math.floor(Date.now() / 1000) - Math.floor(random() * 400_000),
+      `wanderer ${n + 1}`,
+    ]);
+  }
+  return parseAtlas({ alliances, bases });
+}
 
 /** The week the calendar opens on, and its query key.
  *
@@ -1557,6 +1617,7 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
   // Map (Task 6). See MAP_SERVER_ID/MAP_SEARCH_TERM above for why these two
   // keys are the ones useScannedServers/useSightingSearch will ask for.
   [['map', 'servers'], [{ serverId: MAP_SERVER_ID, sweptAt: ago(20) }]],
+  [['map', 'atlas', MAP_SERVER_ID], atlasFixture()],
   [
     ['map', 'search', MAP_SERVER_ID, MAP_SEARCH_TERM],
     [

@@ -9412,6 +9412,7 @@ export type Database = {
       leave_alliance: { Args: never; Returns: undefined }
       linked_player_id: { Args: never; Returns: string }
       linked_player_ids: { Args: never; Returns: string[] }
+      map_atlas: { Args: { p_server_id: number }; Returns: Json }
       member_participation: {
         Args: {
           p_donation_min?: number
