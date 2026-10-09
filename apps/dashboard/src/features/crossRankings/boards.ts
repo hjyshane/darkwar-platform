@@ -7,11 +7,10 @@
 // call site, each board declares how to fetch itself and yields the same
 // shape.
 
-import { fetchAllPages } from '../../lib/fetchAllPages';
 import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
 import { latestPerPlayer } from './latestPerPlayer';
-import { type PlayerReading, latestBatchPer, mergeBoardAndRoster } from './mergeRoster';
+import type { RemoteMetric } from './remote';
 
 export type BoardId =
   | 'power'
@@ -53,52 +52,10 @@ export interface Board {
    * one board and a pet id on another — the same column, two vocabularies,
    * and only the board knows which. */
   unitKind: 'hero' | 'pet' | null;
-  fetch: () => Promise<BoardRow[]>;
-}
-
-// How many 1,000-row pages of snapshots to look through. A board is 100-150
-// rows and every scanned server adds one, so this reaches well past the
-// current group; it only stops a runaway query.
-const SNAPSHOT_PAGES = 5;
-
-async function fetchFromPlayerSnapshots(
-  sourceCommand: string,
-  valueColumn: 'power' | 'kills',
-): Promise<BoardRow[]> {
-  const [snapshots, rosterRows] = await Promise.all([
-    fetchAllPages(
-      (from, to) =>
-        supabase
-          .from('player_snapshots')
-          .select(
-            'snapshot_id, player_id, rank, name, game_uid, server_id, power, kills, captured_at, collected_from_server_id',
-          )
-          .eq('source_command', sourceCommand)
-          .order('captured_at', { ascending: false })
-          .order('rank', { ascending: true, nullsFirst: false })
-          .order('snapshot_id', { ascending: true })
-          .range(from, to),
-      SNAPSHOT_PAGES,
-    ).catch((error: Error) => {
-      throw new Error(`ranking query failed: ${error.message}`);
-    }),
-    // Member-gated view: a signed-out reader gets no rows rather than an
-    // error, and the board is then the in-game ranking alone.
-    fetchAllPages((from, to) =>
-      supabase
-        .from('alliance_roster_latest')
-        .select('snapshot_id, player_id, name, game_uid, server_id, power, kills, captured_at')
-        .order('snapshot_id', { ascending: true })
-        .range(from, to),
-    ).catch((error: Error) => {
-      throw new Error(`roster query failed: ${error.message}`);
-    }),
-  ]);
-  const board: PlayerReading[] = latestBatchPer(snapshots, (row) => row.collected_from_server_id);
-  // A view's columns are all typed nullable; the underlying snapshot columns
-  // are not, which is the same cast the alliance board makes.
-  const roster = rosterRows.map((row) => ({ ...row, rank: null })) as PlayerReading[];
-  return mergeBoardAndRoster(board, roster, valueColumn);
+  /** Set on the boards the database pages itself (0261): they are not fetched
+   * whole, so they have no `fetch`. */
+  remoteMetric?: RemoteMetric;
+  fetch?: () => Promise<BoardRow[]>;
 }
 
 async function fetchComponentBoard(metric: string): Promise<BoardRow[]> {
@@ -146,7 +103,7 @@ export const BOARDS: readonly Board[] = [
     label: TERMS.power,
     valueLabel: TERMS.power,
     unitLabel: null,
-    fetch: () => fetchFromPlayerSnapshots('server.rank', 'power'),
+    remoteMetric: 'power',
   },
   {
     id: 'kills',
@@ -154,7 +111,7 @@ export const BOARDS: readonly Board[] = [
     label: TERMS.kills,
     valueLabel: TERMS.kills,
     unitLabel: null,
-    fetch: () => fetchFromPlayerSnapshots('kill.rank', 'kills'),
+    remoteMetric: 'kills',
   },
   {
     id: 'hero_power_total',

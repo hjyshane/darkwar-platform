@@ -2113,6 +2113,22 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
   ...(['power', 'kills', 'duel', 'donation'] as const).map(
     (board): [readonly unknown[], unknown] => [['crossRankings', board], CROSS_ROWS],
   ),
+  // Power and Kills are paged by the database (0261): the default page, and the
+  // per-server counts behind the chips.
+  ...(['power', 'kills'] as const).flatMap((metric): [readonly unknown[], unknown][] => [
+    [
+      ['crossRankings', 'page', metric, null, '', 'rank', 'asc', 1],
+      { rows: CROSS_ROWS, total: CROSS_ROWS.length },
+    ],
+    [
+      ['crossRankings', 'servers', metric],
+      [...new Set(CROSS_ROWS.map((row) => row.server_id))].sort().map((id) => ({
+        id,
+        count: CROSS_ROWS.filter((row) => row.server_id === id).length,
+        newest: CROSS_ROWS[0]?.captured_at ?? null,
+      })),
+    ],
+  ]),
 
   // Arena — no board captured, which is a real and common state worth seeing.
   [['arena', 'boards'], []],

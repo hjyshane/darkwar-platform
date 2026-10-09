@@ -46,3 +46,44 @@ export function boardStrip(rows: readonly BoardRow[], valueLabel: string, now: D
     },
   ];
 }
+
+/** The strip for a board the database pages (0261): the same four claims as
+ * `boardStrip`, from per-server counts and the first-ranked row, because the
+ * rows themselves are never all in the browser. */
+export function remoteStrip(
+  servers: readonly { id: number; count: number; newest: string | null }[],
+  top: BoardRow | undefined,
+  valueLabel: string,
+  now: Date,
+): StripCell[] {
+  const players = servers.reduce((sum, server) => sum + server.count, 0);
+  if (players === 0) return [];
+  const [busiest] = [...servers].sort((a, b) => b.count - a.count || a.id - b.id);
+  const newest = servers
+    .map((server) => server.newest)
+    .filter((value): value is string => value !== null)
+    .sort()
+    .at(-1);
+  return [
+    {
+      label: 'Players',
+      value: plain.format(players),
+      note: `from ${plain.format(servers.length)} ${servers.length === 1 ? 'server' : 'servers'}`,
+    },
+    {
+      label: 'Top',
+      value: top === undefined ? null : (top.name ?? `UID ${top.game_uid}`),
+      note:
+        top?.value == null ? undefined : `${valueLabel.toLowerCase()} ${compact.format(top.value)}`,
+    },
+    {
+      label: 'Most on the board',
+      value: busiest === undefined ? null : `Server ${busiest.id}`,
+      note: busiest === undefined ? undefined : `${plain.format(busiest.count)} players`,
+    },
+    {
+      label: 'Newest capture',
+      value: newest === undefined ? null : formatAge(newest, now),
+    },
+  ];
+}
