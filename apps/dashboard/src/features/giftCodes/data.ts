@@ -25,7 +25,7 @@ export interface GiftMember {
   name: string;
   excluded: boolean;
   claims: Record<string, string>;
-  /** A player ID saved by an officer (0254), not on the alliance roster. */
+  /** A player ID saved by an officer (0255), not on the alliance roster. */
   extra: boolean;
   /** The rank the game shows for them, 1 to 5 (R1 to R5), from the newest roster
    * capture. Null when it is not known: a rank is not guessed. */
@@ -112,7 +112,7 @@ export async function deleteGiftCode(codeId: string): Promise<number> {
   return data ?? 0;
 }
 
-/** Save player IDs to claim for besides the roster (0254). IDs already saved or
+/** Save player IDs to claim for besides the roster (0255). IDs already saved or
  * already on the roster are skipped; returns how many were newly saved. A label
  * is kept only when exactly one ID is given. */
 export async function addGiftExtraPlayers(uids: number[], label?: string): Promise<number> {

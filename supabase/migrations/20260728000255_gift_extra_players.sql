@@ -1,4 +1,4 @@
--- 0254: players that are not in the alliance, kept as a list of player IDs.
+-- 0255: players that are not in the alliance, kept as a list of player IDs.
 --
 -- Gift codes were claimed only for the roster. An officer can now save player
 -- IDs of their own (friends, alts, other alliances) and claim codes for them
@@ -37,7 +37,7 @@ create policy alliance_scope on public.gift_extra_players as restrictive
   using (alliance_id is not distinct from (select public.active_alliance()));
 
 comment on table public.gift_extra_players is
-  'Player IDs saved for gift-code claims beyond the alliance roster (0254). Per alliance.';
+  'Player IDs saved for gift-code claims beyond the alliance roster (0255). Per alliance.';
 
 -- Save player IDs. A label is kept only when exactly one ID is given. IDs
 -- already saved, or already on the roster, are skipped. Returns how many were

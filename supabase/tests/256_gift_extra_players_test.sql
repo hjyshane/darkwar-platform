@@ -1,4 +1,4 @@
--- 0254: player IDs saved beyond the roster. Only someone holding giftcodes.manage
+-- 0255: player IDs saved beyond the roster. Only someone holding giftcodes.manage
 -- may save or remove one, an ID is checked for shape, "claim for everyone" now
 -- includes the saved list, exclusions hold for it, and the member list and the
 -- per-code counts see it.
