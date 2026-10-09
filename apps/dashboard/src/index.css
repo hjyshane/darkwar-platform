@@ -6260,3 +6260,16 @@ button.server-link {
   color: var(--muted, #94a3b8);
   font-size: 0.85rem;
 }
+
+/* Full screen: the window is exactly the picture's shape, so dragging stops at
+ * its edges the way it does inline. */
+.pan-map:fullscreen {
+  display: grid;
+  place-items: center;
+  background: #05070f;
+}
+
+.pan-map:fullscreen .pan-map__window {
+  width: min(100vw, calc(100vh * 3164 / 2664));
+  border-radius: 0;
+}

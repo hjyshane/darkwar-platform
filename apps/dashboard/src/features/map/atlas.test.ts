@@ -17,6 +17,7 @@ import {
   parsePower,
   searchAtlas,
   shieldedCounts,
+  visibleLabels,
 } from './atlas';
 
 const json = {
@@ -243,5 +244,41 @@ describe('shield, copy format and clusters', () => {
     const small = parseAtlas({ ...shieldJson, bases: shieldJson.bases.slice(0, 3) });
 
     expect(clusters(small)).toEqual([]);
+  });
+});
+
+describe('visibleLabels', () => {
+  const near = (id: string, x: number, y: number, bases: number) => ({ id, x, y, bases });
+  const build = (list: Array<{ id: string; x: number; y: number; bases: number }>) => {
+    const alliances = list.map((a) => ({
+      id: a.id,
+      code: a.id,
+      name: a.id,
+      bases: a.bases,
+      power: 0,
+    }));
+    const found = list.map((a, i) => ({ alliance: i, at: { x: a.x, y: a.y }, radius: 10 }));
+    return { atlas: { alliances, bases: [] }, found };
+  };
+
+  it('keeps the bigger of two clumps that sit on each other and drops the smaller', () => {
+    const { atlas, found } = build([near('small', 100, 100, 6), near('big', 110, 100, 50)]);
+
+    expect(visibleLabels(found, atlas, 1).map((c) => atlas.alliances[c.alliance]?.id)).toEqual([
+      'big',
+    ]);
+  });
+
+  it('keeps both when they are far apart', () => {
+    const { atlas, found } = build([near('a', 100, 100, 10), near('b', 600, 700, 9)]);
+
+    expect(visibleLabels(found, atlas, 1)).toHaveLength(2);
+  });
+
+  it('brings the smaller one back once zoomed in far enough to tell them apart', () => {
+    const { atlas, found } = build([near('small', 100, 100, 6), near('big', 130, 100, 50)]);
+
+    expect(visibleLabels(found, atlas, 1)).toHaveLength(1);
+    expect(visibleLabels(found, atlas, 4)).toHaveLength(2);
   });
 });
