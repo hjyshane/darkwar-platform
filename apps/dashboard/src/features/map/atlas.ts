@@ -151,6 +151,47 @@ export function searchAtlas(atlas: Atlas, query: string): AtlasSearch {
   return { kind: 'text', alliances, bases };
 }
 
+export interface BaseFilter {
+  hqMin: number | null;
+  hqMax: number | null;
+  /** Keep bases with power below this; a base of unknown power is kept out. */
+  powerUnder: number | null;
+  hideStale: boolean;
+}
+
+export const NO_BASE_FILTER: BaseFilter = {
+  hqMin: null,
+  hqMax: null,
+  powerUnder: null,
+  hideStale: false,
+};
+
+export function filterActive(filter: BaseFilter): boolean {
+  return (
+    filter.hqMin !== null || filter.hqMax !== null || filter.powerUnder !== null || filter.hideStale
+  );
+}
+
+export function matchesFilter(base: AtlasBase, filter: BaseFilter, now: Date): boolean {
+  if (filter.hqMin !== null && (base.hq === null || base.hq < filter.hqMin)) return false;
+  if (filter.hqMax !== null && (base.hq === null || base.hq > filter.hqMax)) return false;
+  if (filter.powerUnder !== null && (base.power === null || base.power >= filter.powerUnder)) {
+    return false;
+  }
+  if (filter.hideStale && isStale(base, now)) return false;
+  return true;
+}
+
+const SUFFIX: Record<string, number> = { k: 1e3, m: 1e6, b: 1e9 };
+
+/** `135m`, `2.5b`, `800k` or plain digits, as the game writes power. */
+export function parsePower(text: string): number | null {
+  const match = /^\s*(\d+(?:\.\d+)?)\s*([kmb])?\s*$/i.exec(text);
+  if (match === null) return null;
+  const unit = match[2] ? (SUFFIX[match[2].toLowerCase()] ?? 1) : 1;
+  return Math.round(Number(match[1]) * unit);
+}
+
 /** Strongest first; the list beside the map is read from the top. */
 export function byPower(bases: readonly AtlasBase[]): AtlasBase[] {
   return [...bases].sort((a, b) => (b.power ?? -1) - (a.power ?? -1) || a.gameUid - b.gameUid);

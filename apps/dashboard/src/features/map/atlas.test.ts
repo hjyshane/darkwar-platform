@@ -1,13 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import {
   NO_ALLIANCE_COLOR,
+  NO_BASE_FILTER,
   OURS_COLOR,
   allianceColor,
   byPower,
   centroid,
+  filterActive,
   isStale,
+  matchesFilter,
   parseAtlas,
   parseCoordinate,
+  parsePower,
   searchAtlas,
 } from './atlas';
 
@@ -132,5 +136,54 @@ describe('byPower, centroid, isStale', () => {
 
     expect(isStale(base, new Date('2026-10-09T12:00:00Z'))).toBe(false);
     expect(isStale(base, new Date('2026-10-10T01:00:00Z'))).toBe(true);
+  });
+});
+
+describe('base filters', () => {
+  const atlas = parseAtlas(json);
+  const now = new Date('2026-10-09T00:00:00Z');
+  const keep = (filter: Partial<typeof NO_BASE_FILTER>) =>
+    atlas.bases
+      .filter((b) => matchesFilter(b, { ...NO_BASE_FILTER, ...filter }, now))
+      .map((b) => b.gameUid);
+
+  it('keeps everything when no filter is set', () => {
+    expect(filterActive(NO_BASE_FILTER)).toBe(false);
+    expect(keep({})).toEqual([1, 2, 3, 4]);
+  });
+
+  it('keeps an HQ range, both ends included', () => {
+    expect(keep({ hqMin: 30 })).toEqual([1, 2]);
+    expect(keep({ hqMax: 29 })).toEqual([3, 4]);
+    expect(keep({ hqMin: 29, hqMax: 30 })).toEqual([1, 3]);
+  });
+
+  it('keeps power under a limit and drops a base whose power is unknown', () => {
+    expect(keep({ powerUnder: 150 })).toEqual([1, 3]);
+  });
+
+  it('can hide what was last seen over a day ago', () => {
+    const old = new Date('2026-10-12T00:00:00Z');
+    const stale = atlas.bases.filter((b) =>
+      matchesFilter(b, { ...NO_BASE_FILTER, hideStale: true }, old),
+    );
+
+    expect(stale).toEqual([]);
+    expect(filterActive({ ...NO_BASE_FILTER, hideStale: true })).toBe(true);
+  });
+});
+
+describe('parsePower', () => {
+  it('reads the way power is written', () => {
+    expect(parsePower('135m')).toBe(135_000_000);
+    expect(parsePower('2.5B')).toBe(2_500_000_000);
+    expect(parsePower('800k')).toBe(800_000);
+    expect(parsePower('1200')).toBe(1200);
+  });
+
+  it('is null for anything else', () => {
+    expect(parsePower('')).toBeNull();
+    expect(parsePower('lots')).toBeNull();
+    expect(parsePower('12x')).toBeNull();
   });
 });

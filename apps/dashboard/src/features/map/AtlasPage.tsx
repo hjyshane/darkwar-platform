@@ -5,23 +5,39 @@ import { Tabs } from '../../components/ui/Tabs';
 import { formatAge } from '../../lib/freshness';
 import { useActiveAlliance } from '../../lib/useMyAlliances';
 import { AtlasMap } from './AtlasMap';
+import { PlunderList, TrucksList } from './HuntLists';
+import { HuntPins } from './HuntPins';
 import { PannableMap } from './PannableMap';
 import {
   type AtlasBase,
+  type BaseFilter,
   EMPTY_ATLAS,
   MIN_SEARCH,
+  NO_BASE_FILTER,
   allianceColor,
   byPower,
   centroid,
+  filterActive,
   formatPower,
   isStale,
+  matchesFilter,
+  parsePower,
   searchAtlas,
   useAtlas,
 } from './atlas';
+import {
+  NO_FILTER,
+  type TruckFilter,
+  type TruckSort,
+  filterTrucks,
+  sortTrucks,
+  truckSpot,
+} from './hunt';
+import { useHuntData } from './huntState';
 
 const BASES_SHOWN = 50;
 
-type Panel = 'alliances' | 'bases';
+type Panel = 'alliances' | 'bases' | 'trucks' | 'plunder';
 
 /** One server's swept bases coloured by alliance, with the alliances ranked
  * beside the map. Clicking an alliance lights its bases; clicking a base or a
@@ -41,6 +57,14 @@ export function AtlasPage({ serverId }: { serverId: number }) {
   const [focus, setFocus] = useState<{ at: Coordinate; nonce: number } | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
+  const [baseFilter, setBaseFilter] = useState<BaseFilter>(NO_BASE_FILTER);
+  const [powerText, setPowerText] = useState('');
+  const [truckFilter, setTruckFilter] = useState<TruckFilter>(NO_FILTER);
+  const [truckSort, setTruckSort] = useState<TruckSort>('time');
+  const [showTrucks, setShowTrucks] = useState(true);
+  const [showPlunder, setShowPlunder] = useState(true);
+  const [pickedHunt, setPickedHunt] = useState<string | null>(null);
+  const hunt = useHuntData(serverId);
   const now = new Date();
 
   const oursIndex = atlas.alliances.findIndex((a) => a.id === mine?.alliance_id);
@@ -57,6 +81,15 @@ export function AtlasPage({ serverId }: { serverId: number }) {
     lit = new Set(listed.map((base) => base.gameUid));
   } else if (search.kind === 'coordinate') {
     listed = search.nearest;
+  }
+  // The filters dim what they exclude on the map and drop it from the list, on
+  // top of whatever the alliance pick or the search already narrowed to.
+  if (filterActive(baseFilter)) {
+    const passing = new Set(
+      atlas.bases.filter((base) => matchesFilter(base, baseFilter, now)).map((b) => b.gameUid),
+    );
+    listed = listed.filter((base) => passing.has(base.gameUid));
+    lit = lit === null ? passing : new Set([...lit].filter((uid) => passing.has(uid)));
   }
   const ranked = byPower(listed);
   const rows = showAll ? ranked : ranked.slice(0, BASES_SHOWN);
@@ -79,6 +112,19 @@ export function AtlasPage({ serverId }: { serverId: number }) {
       ?.writeText(written)
       .then(() => setCopied(written))
       .catch(() => setCopied(null));
+  }
+
+  const shownTrucks = sortTrucks(filterTrucks(hunt.worth, truckFilter), truckSort);
+  // A pin only on the map of the server the truck belongs to: its coordinates are
+  // on that map, and nobody has shown that a foreign truck's are the same.
+  const placedTrucks = shownTrucks.flatMap((truck) => {
+    const spot = truck.serverId === serverId ? truckSpot(truck, now) : null;
+    return spot === null ? [] : [{ truck, spot }];
+  });
+
+  function chooseHunt(id: string, at: Coordinate) {
+    setPickedHunt(id);
+    goTo(at, null);
   }
 
   function chooseBase(base: AtlasBase) {
@@ -116,6 +162,16 @@ export function AtlasPage({ serverId }: { serverId: number }) {
         />
         <StatTile label="Alliances" value={atlas.alliances.length.toLocaleString('en')} />
         <StatTile
+          label="Trucks"
+          note={`purple/orange with a hero shard · ${placedTrucks.length} on this map`}
+          value={hunt.trucksLoaded ? String(hunt.worth.length) : null}
+        />
+        <StatTile
+          label="Plunder"
+          note="gold, paying Orange Skill Books"
+          value={hunt.missionsLoaded ? String(hunt.open.length) : null}
+        />
+        <StatTile
           label="Newest sighting"
           note="positions are only as recent as the sweep"
           value={newest === null ? null : formatAge(newest.toISOString(), now)}
@@ -131,13 +187,26 @@ export function AtlasPage({ serverId }: { serverId: number }) {
               onSelect={chooseBase}
               oursIndex={oursIndex}
               selectedUid={selectedUid}
-            />
+            >
+              <HuntPins
+                missions={showPlunder ? hunt.open : []}
+                onChoose={chooseHunt}
+                picked={pickedHunt}
+                trucks={showTrucks ? placedTrucks : []}
+              />
+            </AtlasMap>
           </PannableMap>
           <p className="subtle">
             Each dot is a base, coloured by the alliance its player was last seen in; faded dots
-            were last seen over a day ago. Drag to move, wheel or +/− to zoom; clicking copies the
-            coordinate.
+            were last seen over a day ago. ◆ gold: a truck with a hero fragment (faded: where it set
+            off from or was last known). ■ orange: a gold mission paying Orange Skill Books. Drag to
+            move, wheel or +/− to zoom; clicking copies the coordinate.
           </p>
+          {hunt.errors.map((message) => (
+            <p className="error" key={message}>
+              {message}
+            </p>
+          ))}
           {copied && <output className="subtle">Copied {copied}</output>}
         </div>
 
@@ -165,11 +234,83 @@ export function AtlasPage({ serverId }: { serverId: number }) {
               <p className="subtle">Keep typing — {MIN_SEARCH} characters or more.</p>
             )}
 
+          <fieldset className="map-range">
+            <legend>Filter bases</legend>
+            <label>
+              <span>HQ from</span>
+              <input
+                max={99}
+                min={1}
+                onChange={(event) =>
+                  setBaseFilter({ ...baseFilter, hqMin: toLevel(event.target.value) })
+                }
+                placeholder="1"
+                type="number"
+                value={baseFilter.hqMin ?? ''}
+              />
+            </label>
+            <label>
+              <span>to</span>
+              <input
+                max={99}
+                min={1}
+                onChange={(event) =>
+                  setBaseFilter({ ...baseFilter, hqMax: toLevel(event.target.value) })
+                }
+                placeholder="35"
+                type="number"
+                value={baseFilter.hqMax ?? ''}
+              />
+            </label>
+            <label>
+              <span>Power under</span>
+              <input
+                onChange={(event) => {
+                  setPowerText(event.target.value);
+                  setBaseFilter({ ...baseFilter, powerUnder: parsePower(event.target.value) });
+                }}
+                placeholder="e.g. 135m"
+                value={powerText}
+              />
+            </label>
+            <label>
+              <input
+                checked={baseFilter.hideStale}
+                onChange={(event) =>
+                  setBaseFilter({ ...baseFilter, hideStale: event.target.checked })
+                }
+                type="checkbox"
+              />
+              <span>Hide sightings over a day old</span>
+            </label>
+          </fieldset>
+          <fieldset className="map-range">
+            <legend>Layers</legend>
+            <label>
+              <input
+                checked={showTrucks}
+                onChange={(event) => setShowTrucks(event.target.checked)}
+                type="checkbox"
+              />
+              <span>◆ Trucks</span>
+            </label>
+            <label>
+              <input
+                checked={showPlunder}
+                onChange={(event) => setShowPlunder(event.target.checked)}
+                type="checkbox"
+              />
+              <span>■ Plunder missions</span>
+            </label>
+          </fieldset>
+
           <Tabs
             label="Panel"
             items={[
               { id: 'alliances' as const, label: 'Alliances' },
               { id: 'bases' as const, label: `Bases (${listed.length})` },
+              { id: 'trucks' as const, label: `Trucks (${hunt.worth.length})` },
+              { id: 'plunder' as const, label: `Plunder (${hunt.open.length})` },
             ]}
             onChange={setPanel}
             value={panel}
@@ -276,8 +417,45 @@ export function AtlasPage({ serverId }: { serverId: number }) {
               )}
             </>
           )}
+
+          {panel === 'trucks' && (
+            <TrucksList
+              filter={truckFilter}
+              loaded={hunt.trucksLoaded}
+              mapServer={serverId}
+              now={now}
+              onChoose={(truck) => {
+                const spot = truckSpot(truck, now);
+                if (spot) chooseHunt(truck.truckUuid, spot.at);
+                else setPickedHunt(truck.truckUuid === pickedHunt ? null : truck.truckUuid);
+              }}
+              onFilter={setTruckFilter}
+              onSort={setTruckSort}
+              picked={pickedHunt}
+              shown={shownTrucks}
+              sort={truckSort}
+              worth={hunt.worth}
+            />
+          )}
+
+          {panel === 'plunder' && (
+            <PlunderList
+              loaded={hunt.missionsLoaded}
+              now={now}
+              onChoose={(mission) => chooseHunt(mission.missionUuid, mission.at)}
+              open={hunt.open}
+              picked={pickedHunt}
+              serverId={serverId}
+            />
+          )}
         </div>
       </div>
     </div>
   );
+}
+
+/** An HQ level typed into a number box; empty or junk is no bound. */
+function toLevel(text: string): number | null {
+  const level = Number.parseInt(text, 10);
+  return Number.isNaN(level) ? null : level;
 }
