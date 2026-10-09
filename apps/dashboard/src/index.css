@@ -4787,6 +4787,27 @@ button.tile-grid:hover:not(:disabled) {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
+/* A phone is too narrow for one joined strip of category buttons, and the strip
+   clips its overflow, so the last buttons ran off the edge unreachable. Let them
+   wrap, each as a button of its own. */
+@media (max-width: 640px) {
+  .calendar-toggle {
+    border: 0;
+    border-radius: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    overflow: visible;
+  }
+  .calendar-toggle > button,
+  .calendar-toggle > button:last-child {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+  .calendar-toggle > button:focus-visible {
+    outline-offset: 1px;
+  }
+}
 .calendar-month-nav {
   align-items: center;
   gap: 1rem;
