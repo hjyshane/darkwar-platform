@@ -482,7 +482,7 @@ def test_the_database_owned_events_are_not_delivered_from_here() -> None:
     seen: list[httpx.URL] = []
     _worker({}, seen).pending()
     assert "event" in str(seen[0])
-    assert "not.in.(sync_stalled,player_claim,new_signup,schedule_reminder)" in str(seen[0])
+    assert "not.in.(sync_stalled,player_claim,new_signup,schedule_reminder,disk_high)" in str(seen[0])
 
 
 def test_sync_stalled_is_no_longer_composed_here_either() -> None:

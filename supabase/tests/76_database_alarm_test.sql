@@ -78,7 +78,7 @@ select is(
 -- stops that. `DATABASE_OWNED` in notify/worker.py is the other copy.
 select is(
   internal.database_owned_events(),
-  array['sync_stalled', 'player_claim', 'new_signup', 'schedule_reminder']::text[],
+  array['sync_stalled', 'player_claim', 'new_signup', 'schedule_reminder', 'disk_high']::text[],
   'the database owns exactly the events dw-notify skips');
 
 select * from finish();

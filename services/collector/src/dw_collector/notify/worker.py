@@ -75,7 +75,13 @@ MAX_ATTEMPTS = 5
 # stops a duplicate compose, and nothing stops a duplicate POST except deciding
 # who sends: two deliverers draining one outbox row is two Discord messages.
 # `internal.database_owned_events()` is the same list on the other side.
-DATABASE_OWNED = ("sync_stalled", "player_claim", "new_signup", "schedule_reminder")
+DATABASE_OWNED = (
+    "sync_stalled",
+    "player_claim",
+    "new_signup",
+    "schedule_reminder",
+    "disk_high",
+)
 # How long a collector may go without checking in before it is announced.
 #
 # `dw-sync` beats every DW_SYNC_INTERVAL_SECONDS, default 10, and 0060 calls the

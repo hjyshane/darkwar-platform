@@ -96,6 +96,11 @@ const EVENTS: { event: string; label: string; note: string }[] = [
     note: 'Ten minutes of silence from a collector, and one more message when it comes back. One alarm per outage, not one per check. Only useful if the notifier runs somewhere other than the collector — on the collector’s own machine, whatever kills one kills the other.',
   },
   {
+    event: 'disk_high',
+    label: 'Database nearly full',
+    note: 'The database passed 7.5 GB of its 8 GB disk. Checked once a day, after the retention pass, and repeated each day while it stays over. Deleting rows does not lower the size until the tables are rewritten — see the retention runbook.',
+  },
+  {
     event: 'data_stalled',
     label: 'Collector seeing no packets',
     note: 'The process is alive and reporting, but two hours have passed without a packet. This is the failure the board cannot show you: the figures simply stop moving while everything on screen still says healthy.',
