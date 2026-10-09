@@ -50,81 +50,99 @@ export function MigrationPage() {
   const event = list.find((e) => e.event_id === chosen) ?? list[0] ?? null;
 
   return (
-    <section aria-labelledby="migration-heading">
-      <h2 id="migration-heading">Server migration</h2>
-
-      {events.isPending && <p className="empty loading">Loading…</p>}
-      {events.error && <p className="error">{events.error.message}</p>}
-      {events.data && list.length === 0 && (
-        <>
-          <p className="empty">
-            No migration has been set up yet.
-            {mayManage
-              ? ' Add one with its baseline — the instant the before side is read at.'
-              : ''}
-          </p>
-          <h3>Seats &amp; rules</h3>
-          <MigrationQuotas />
-        </>
-      )}
-
-      <div className="migration-bar">
-        {list.length > 1 && (
-          <label>
-            Migration{' '}
-            <Select value={event?.event_id ?? ''} onChange={setChosen}>
-              {list.map((e) => (
-                <option key={e.event_id} value={e.event_id}>
-                  {e.name}
-                </option>
-              ))}
-            </Select>
-          </label>
-        )}
-        {mayManage && (
-          <>
-            <button type="button" onClick={() => setEditing(editing === 'new' ? null : 'new')}>
-              Add migration
-            </button>
-            {event && (
-              <button
-                type="button"
-                onClick={() => setEditing(editing === 'current' ? null : 'current')}
-              >
-                Edit times
-              </button>
-            )}
-          </>
+    <section aria-labelledby="migration-heading" className="board-screen">
+      <div className="entity">
+        <header className="entity-head">
+          <span aria-hidden="true" className="entity-mark">
+            MG
+          </span>
+          <div>
+            <h2 id="migration-heading">Server migration</h2>
+            <p className="entity-meta">
+              <span>Who moved between servers</span>
+              {event && <span>{event.name}</span>}
+            </p>
+          </div>
+        </header>
+        {event && (
+          <div className="entity-foot">
+            <Window event={event} />
+          </div>
         )}
       </div>
 
-      {editing !== null && (
-        <MigrationEventForm
-          key={editing === 'new' ? 'new' : event?.event_id}
-          event={editing === 'new' ? null : event}
-          onSaved={(eventId) => {
-            setChosen(eventId);
-            setEditing(null);
-          }}
-        />
-      )}
+      <div className="panel">
+        {events.isPending && <p className="empty loading">Loading…</p>}
+        {events.error && <p className="error">{events.error.message}</p>}
+        {events.data && list.length === 0 && (
+          <>
+            <p className="empty">
+              No migration has been set up yet.
+              {mayManage
+                ? ' Add one with its baseline — the instant the before side is read at.'
+                : ''}
+            </p>
+            <h3>Seats &amp; rules</h3>
+            <MigrationQuotas />
+          </>
+        )}
 
-      {event && (
-        <>
-          <h3>{event.name}</h3>
-          <Window event={event} />
-          <Tabs
-            label="Migration views"
-            items={VIEWS.map((v) => ({ id: v.view, label: v.label }))}
-            value={view}
-            onChange={setView}
+        <div className="migration-bar">
+          {list.length > 1 && (
+            <label>
+              Migration{' '}
+              <Select value={event?.event_id ?? ''} onChange={setChosen}>
+                {list.map((e) => (
+                  <option key={e.event_id} value={e.event_id}>
+                    {e.name}
+                  </option>
+                ))}
+              </Select>
+            </label>
+          )}
+          {mayManage && (
+            <>
+              <button type="button" onClick={() => setEditing(editing === 'new' ? null : 'new')}>
+                Add migration
+              </button>
+              {event && (
+                <button
+                  type="button"
+                  onClick={() => setEditing(editing === 'current' ? null : 'current')}
+                >
+                  Edit times
+                </button>
+              )}
+            </>
+          )}
+        </div>
+
+        {editing !== null && (
+          <MigrationEventForm
+            key={editing === 'new' ? 'new' : event?.event_id}
+            event={editing === 'new' ? null : event}
+            onSaved={(eventId) => {
+              setChosen(eventId);
+              setEditing(null);
+            }}
           />
-          {view === 'servers' && <MigrationServers eventId={event.event_id} />}
-          {view === 'top' && <MigrationTopBoard eventId={event.event_id} />}
-          {view === 'alliances' && <MigrationAlliances eventId={event.event_id} />}
-          {view === 'quotas' && <MigrationQuotas />}
-        </>
-      )}
+        )}
+
+        {event && (
+          <>
+            <Tabs
+              label="Migration views"
+              items={VIEWS.map((v) => ({ id: v.view, label: v.label }))}
+              value={view}
+              onChange={setView}
+            />
+            {view === 'servers' && <MigrationServers eventId={event.event_id} />}
+            {view === 'top' && <MigrationTopBoard eventId={event.event_id} />}
+            {view === 'alliances' && <MigrationAlliances eventId={event.event_id} />}
+            {view === 'quotas' && <MigrationQuotas />}
+          </>
+        )}
+      </div>
     </section>
   );
 }

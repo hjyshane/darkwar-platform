@@ -130,196 +130,211 @@ export function SchedulePanel() {
   const today = zonedDayKey(new Date().toISOString(), zone);
 
   return (
-    <section aria-labelledby="schedule-heading">
-      <h2 id="schedule-heading">Schedule</h2>
+    <section aria-labelledby="schedule-heading" className="board-screen">
+      <div className="entity">
+        <header className="entity-head">
+          <span aria-hidden="true" className="entity-mark">
+            SC
+          </span>
+          <div>
+            <h2 id="schedule-heading">Schedule</h2>
+            <p className="entity-meta">
+              <span>The alliance calendar</span>
+              <span>{zoneLabel(zone)}</span>
+            </p>
+          </div>
+        </header>
+      </div>
 
-      <div className="toolbar schedule-toolbar">
-        <nav aria-label="Calendar range" className="tabs subtabs">
-          {CALENDAR_VIEWS.map((entry) => (
-            <button
-              aria-current={entry.view === view ? 'page' : undefined}
-              className="tab"
-              key={entry.view}
-              onClick={() => setView(entry.view)}
-              type="button"
-            >
-              {entry.label}
-            </button>
-          ))}
-        </nav>
-        <div className="schedule-nav">
-          <button
-            aria-label="Earlier"
-            onClick={() => setAnchor(shiftAnchor(view, anchor, -1))}
-            type="button"
-          >
-            ‹
-          </button>
-          <button onClick={() => setAnchor(new Date(`${today}T00:00:00Z`))} type="button">
-            Today
-          </button>
-          <button
-            aria-label="Later"
-            onClick={() => setAnchor(shiftAnchor(view, anchor, 1))}
-            type="button"
-          >
-            ›
-          </button>
-        </div>
-        <span className="count">{rangeLabel(view, anchor)}</span>
-        <label className="schedule-zone">
-          <span className="visually-hidden">Select your time zone</span>
-          <Select
-            onChange={(chosen) => {
-              setZone(chosen);
-              storeZone(chosen);
-            }}
-            value={zone}
-          >
-            {zoneOptions(zone).map((name) => (
-              <option key={name} value={name}>
-                {zoneLabel(name)}
-              </option>
+      <div className="panel">
+        <div className="toolbar schedule-toolbar">
+          <nav aria-label="Calendar range" className="tabs subtabs">
+            {CALENDAR_VIEWS.map((entry) => (
+              <button
+                aria-current={entry.view === view ? 'page' : undefined}
+                className="tab"
+                key={entry.view}
+                onClick={() => setView(entry.view)}
+                type="button"
+              >
+                {entry.label}
+              </button>
             ))}
-          </Select>
-        </label>
-        {mayManage && (
-          <>
+          </nav>
+          <div className="schedule-nav">
             <button
-              onClick={() => {
-                setOpen(null);
-                setBoards(false);
-                setDraft({ ...EMPTY, starts_at: `${dayKey(range.days[0] ?? new Date())}T20:00` });
-              }}
+              aria-label="Earlier"
+              onClick={() => setAnchor(shiftAnchor(view, anchor, -1))}
               type="button"
             >
-              New entry
+              ‹
+            </button>
+            <button onClick={() => setAnchor(new Date(`${today}T00:00:00Z`))} type="button">
+              Today
             </button>
             <button
-              aria-expanded={boards}
-              onClick={() => {
-                setDraft(null);
-                setBoards(!boards);
-              }}
+              aria-label="Later"
+              onClick={() => setAnchor(shiftAnchor(view, anchor, 1))}
               type="button"
             >
-              Boards
+              ›
             </button>
-          </>
+          </div>
+          <span className="count">{rangeLabel(view, anchor)}</span>
+          <label className="schedule-zone">
+            <span className="visually-hidden">Select your time zone</span>
+            <Select
+              onChange={(chosen) => {
+                setZone(chosen);
+                storeZone(chosen);
+              }}
+              value={zone}
+            >
+              {zoneOptions(zone).map((name) => (
+                <option key={name} value={name}>
+                  {zoneLabel(name)}
+                </option>
+              ))}
+            </Select>
+          </label>
+          {mayManage && (
+            <>
+              <button
+                onClick={() => {
+                  setOpen(null);
+                  setBoards(false);
+                  setDraft({ ...EMPTY, starts_at: `${dayKey(range.days[0] ?? new Date())}T20:00` });
+                }}
+                type="button"
+              >
+                New entry
+              </button>
+              <button
+                aria-expanded={boards}
+                onClick={() => {
+                  setDraft(null);
+                  setBoards(!boards);
+                }}
+                type="button"
+              >
+                Boards
+              </button>
+            </>
+          )}
+        </div>
+
+        {boards && mayManage && <ScheduleBoards categories={categories ?? []} />}
+
+        {draft !== null && (
+          <ScheduleEditor
+            categories={categories ?? []}
+            draft={draft}
+            error={save.error === null ? null : (save.error as Error).message}
+            zone={zone}
+            onCancel={() => setDraft(null)}
+            onChange={setDraft}
+            onDelete={
+              draft.schedule_event_id === undefined
+                ? undefined
+                : () => {
+                    remove.mutate(draft.schedule_event_id as string);
+                    setDraft(null);
+                  }
+            }
+            onDeleteSeries={
+              draft.series_id == null
+                ? undefined
+                : () => {
+                    removeSeries.mutate(draft.series_id as string);
+                    setDraft(null);
+                  }
+            }
+            onSave={() => save.mutate(draft, { onSuccess: () => setDraft(null) })}
+            saving={save.isPending}
+          />
+        )}
+
+        {error !== null && <p className="error">The calendar could not be read.</p>}
+        {isPending && <p className="empty loading">Loading…</p>}
+
+        <div
+          className={`schedule-grid schedule-grid-${view}`}
+          // A day view is one column; everything else is a week wide. Inline
+          // because it is the one value the CSS cannot know.
+          style={{ gridTemplateColumns: `repeat(${view === 'day' ? 1 : 7}, minmax(0, 1fr))` }}
+        >
+          {range.days.map((day) => {
+            const key = dayKey(day);
+            const entries = byDay.get(key) ?? [];
+            return (
+              <div
+                className={[
+                  'schedule-day',
+                  key === today ? 'schedule-today' : '',
+                  view === 'month' && isOutsideMonth(day, anchor) ? 'schedule-outside' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                key={key}
+              >
+                <div className="schedule-daylabel">
+                  <time dateTime={key}>{day.toUTCString().slice(0, 11)}</time>
+                </div>
+                {entries.map((event) => {
+                  const colour = colours.get(event.category ?? '') ?? null;
+                  return (
+                    <div className="schedule-entry" key={`${key}:${event.schedule_event_id}`}>
+                      <button
+                        className="schedule-entry-button"
+                        onClick={() =>
+                          setOpen(open === event.schedule_event_id ? null : event.schedule_event_id)
+                        }
+                        style={colour === null ? undefined : { borderLeftColor: colour }}
+                        type="button"
+                      >
+                        <span className="schedule-time">{timeOf(event.starts_at, zone)}</span>{' '}
+                        <span className="schedule-title">{event.title}</span>
+                      </button>
+                      {open === event.schedule_event_id && (
+                        <div className="schedule-detail">
+                          <p>
+                            {timeOf(event.starts_at, zone)}
+                            {event.ends_at === null ? '' : ` – ${timeOf(event.ends_at, zone)}`}
+                          </p>
+                          {event.body !== null && <p>{event.body}</p>}
+                          <p className="hint">
+                            {event.schedule_reminders.length === 0
+                              ? 'No reminder.'
+                              : `Reminds: ${event.schedule_reminders
+                                  .map((entry) => reminderLabel(entry.minutes_before))
+                                  .join(', ')} before.`}
+                          </p>
+                          {mayManage && (
+                            <button
+                              className="linklike"
+                              onClick={() => {
+                                setOpen(null);
+                                setDraft(draftFrom(event, zone));
+                              }}
+                              type="button"
+                            >
+                              Edit
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+
+        {!isPending && (events ?? []).length === 0 && (
+          <p className="empty">Nothing on the calendar for this range.</p>
         )}
       </div>
-
-      {boards && mayManage && <ScheduleBoards categories={categories ?? []} />}
-
-      {draft !== null && (
-        <ScheduleEditor
-          categories={categories ?? []}
-          draft={draft}
-          error={save.error === null ? null : (save.error as Error).message}
-          zone={zone}
-          onCancel={() => setDraft(null)}
-          onChange={setDraft}
-          onDelete={
-            draft.schedule_event_id === undefined
-              ? undefined
-              : () => {
-                  remove.mutate(draft.schedule_event_id as string);
-                  setDraft(null);
-                }
-          }
-          onDeleteSeries={
-            draft.series_id == null
-              ? undefined
-              : () => {
-                  removeSeries.mutate(draft.series_id as string);
-                  setDraft(null);
-                }
-          }
-          onSave={() => save.mutate(draft, { onSuccess: () => setDraft(null) })}
-          saving={save.isPending}
-        />
-      )}
-
-      {error !== null && <p className="error">The calendar could not be read.</p>}
-      {isPending && <p className="empty loading">Loading…</p>}
-
-      <div
-        className={`schedule-grid schedule-grid-${view}`}
-        // A day view is one column; everything else is a week wide. Inline
-        // because it is the one value the CSS cannot know.
-        style={{ gridTemplateColumns: `repeat(${view === 'day' ? 1 : 7}, minmax(0, 1fr))` }}
-      >
-        {range.days.map((day) => {
-          const key = dayKey(day);
-          const entries = byDay.get(key) ?? [];
-          return (
-            <div
-              className={[
-                'schedule-day',
-                key === today ? 'schedule-today' : '',
-                view === 'month' && isOutsideMonth(day, anchor) ? 'schedule-outside' : '',
-              ]
-                .filter(Boolean)
-                .join(' ')}
-              key={key}
-            >
-              <div className="schedule-daylabel">
-                <time dateTime={key}>{day.toUTCString().slice(0, 11)}</time>
-              </div>
-              {entries.map((event) => {
-                const colour = colours.get(event.category ?? '') ?? null;
-                return (
-                  <div className="schedule-entry" key={`${key}:${event.schedule_event_id}`}>
-                    <button
-                      className="schedule-entry-button"
-                      onClick={() =>
-                        setOpen(open === event.schedule_event_id ? null : event.schedule_event_id)
-                      }
-                      style={colour === null ? undefined : { borderLeftColor: colour }}
-                      type="button"
-                    >
-                      <span className="schedule-time">{timeOf(event.starts_at, zone)}</span>{' '}
-                      <span className="schedule-title">{event.title}</span>
-                    </button>
-                    {open === event.schedule_event_id && (
-                      <div className="schedule-detail">
-                        <p>
-                          {timeOf(event.starts_at, zone)}
-                          {event.ends_at === null ? '' : ` – ${timeOf(event.ends_at, zone)}`}
-                        </p>
-                        {event.body !== null && <p>{event.body}</p>}
-                        <p className="hint">
-                          {event.schedule_reminders.length === 0
-                            ? 'No reminder.'
-                            : `Reminds: ${event.schedule_reminders
-                                .map((entry) => reminderLabel(entry.minutes_before))
-                                .join(', ')} before.`}
-                        </p>
-                        {mayManage && (
-                          <button
-                            className="linklike"
-                            onClick={() => {
-                              setOpen(null);
-                              setDraft(draftFrom(event, zone));
-                            }}
-                            type="button"
-                          >
-                            Edit
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          );
-        })}
-      </div>
-
-      {!isPending && (events ?? []).length === 0 && (
-        <p className="empty">Nothing on the calendar for this range.</p>
-      )}
     </section>
   );
 }

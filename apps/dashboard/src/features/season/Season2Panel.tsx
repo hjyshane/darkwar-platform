@@ -1,10 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
+import { Strip } from '../../components/Strip';
 import { FALLBACK_SEASONS, pastSeason, useSeasons } from '../../lib/seasons';
 import { TERMS } from '../../lib/terms';
 import { useSession } from '../../lib/useSession';
 import { SeasonBuildingTable } from './SeasonBuildingTable';
 import { fetchBuildingGrid } from './buildings';
+import { buildingsStrip } from './strip';
 
 /** Shared and frozen, so the table's memo does not see a new map each render. */
 const NO_FLOORS: ReadonlyMap<number, number> = new Map();
@@ -58,24 +60,38 @@ export function Season2Panel() {
   }
 
   return (
-    <section aria-labelledby="season2-heading">
-      <h2 id="season2-heading">
-        {pastName}
-        {data?.capturedAt && <FreshnessBadge capturedAt={data.capturedAt} />}
-      </h2>
-      {isPending && <p className="empty loading">Loading…</p>}
-      {error && (
-        <p className="error">
-          Could not load {pastName}: {(error as Error).message}
+    <section aria-labelledby="season2-heading" className="board-screen">
+      <div className="entity">
+        <header className="entity-head">
+          <span aria-hidden="true" className="entity-mark">
+            S2
+          </span>
+          <div>
+            <h2 id="season2-heading">{pastName}</h2>
+            <p className="entity-meta">
+              <span>Kept for reference</span>
+              <span>Levels are frozen where the season left them</span>
+              {data?.capturedAt && <FreshnessBadge capturedAt={data.capturedAt} />}
+            </p>
+          </div>
+        </header>
+        {/* No floors at all: nobody is behind on a season that has ended. */}
+        {data && <Strip cells={buildingsStrip(data, NO_FLOORS)} />}
+      </div>
+      <div className="panel">
+        {isPending && <p className="empty loading">Loading…</p>}
+        {error && (
+          <p className="error">
+            Could not load {pastName}: {(error as Error).message}
+          </p>
+        )}
+        {data && <SeasonBuildingTable floors={NO_FLOORS} grid={data} />}
+        <p className="note">
+          {pastName}, kept for reference. These stopped being observed when the season ended, so the
+          levels are frozen where it left them. Names marked <strong>*</strong> are placeholders:
+          guesses from the shape of the data, which can be corrected under Settings → Seasons.
         </p>
-      )}
-      {/* No floors at all: nobody is behind on a season that has ended. */}
-      {data && <SeasonBuildingTable floors={NO_FLOORS} grid={data} />}
-      <p className="note">
-        {pastName}, kept for reference. These stopped being observed when the season ended, so the
-        levels are frozen where it left them. Names marked <strong>*</strong> are placeholders:
-        guesses from the shape of the data, which can be corrected under Settings → Seasons.
-      </p>
+      </div>
     </section>
   );
 }
