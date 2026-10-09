@@ -10,10 +10,9 @@ const plain = new Intl.NumberFormat('en');
 
 /** Every server a scan has reached, on the landing screen.
  *
- * Derived from the alliance board, not the `servers` table: that table is
- * seeded with 577-584 and gains the rest as untracked rows, so it says which
- * servers exist, not which have been scanned. A server shows up here with its
- * first alliance and needs nothing registered by hand. */
+ * Derived from the alliance board, not the `servers` table: that table says
+ * which servers exist, not which have been scanned. A server shows up here with
+ * its first alliance and needs nothing registered by hand. */
 export function ScannedServers({ now }: { now?: Date }) {
   const { data, error } = useQuery({
     queryKey: ['overview', 'servers'],
