@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Tabs } from '../../components/ui/Tabs';
 import { TERMS } from '../../lib/terms';
 import { AtlasPage } from './AtlasPage';
 import { useScannedServers } from './mapLocations';
@@ -40,29 +39,15 @@ export function MapPage({ serverId }: { serverId: number | null }) {
 
   return (
     <section aria-labelledby="map-heading" className="map-screen">
-      <div className="entity">
-        <header className="entity-head">
-          <span aria-hidden="true" className="entity-mark">
-            MP
-          </span>
-          <div>
-            <h2 id="map-heading">{TERMS.map}</h2>
-            <p className="entity-meta">
-              <span>One server at a time</span>
-              <span>Bases are where a sweep last saw them</span>
-            </p>
-          </div>
-        </header>
-      </div>
-
-      <Tabs
-        label="Scanned server"
-        items={servers.map((server) => ({ id: server.serverId, label: server.serverId }))}
-        value={active}
-        onChange={setChosen}
+      <h2 className="visually-hidden" id="map-heading">
+        {TERMS.map}
+      </h2>
+      <AtlasPage
+        key={active}
+        onServer={setChosen}
+        serverId={active}
+        servers={servers.map((server) => server.serverId)}
       />
-
-      <AtlasPage key={active} serverId={active} />
     </section>
   );
 }

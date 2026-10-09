@@ -14,6 +14,7 @@ import {
   sortTrucks,
   timeLeft,
   truckFromRow,
+  truckHeading,
   truckPosition,
   truckSpot,
   withRouteLeg,
@@ -313,5 +314,28 @@ describe('withRouteLeg', () => {
     expect(truckFromRow(row)?.route?.stations).toEqual([43, 56]);
     expect(truckFromRow({ ...row, stations: null })?.route).toBeNull();
     expect(truckFromRow({ ...row, stations: ['x'] })?.route).toBeNull();
+  });
+});
+
+describe('truckHeading', () => {
+  const leg = (dx: number, dy: number) => ({
+    from: { x: 500, y: 500 },
+    to: { x: 500 + dx, y: 500 + dy },
+  });
+
+  it('numbers the eight headings clockwise from up the screen', () => {
+    expect(truckHeading(leg(0, -10))).toBe(0);
+    expect(truckHeading(leg(10, -10))).toBe(1);
+    expect(truckHeading(leg(10, 0))).toBe(2);
+    expect(truckHeading(leg(10, 10))).toBe(3);
+    expect(truckHeading(leg(0, 10))).toBe(4);
+    expect(truckHeading(leg(-10, 10))).toBe(5);
+    expect(truckHeading(leg(-10, 0))).toBe(6);
+    expect(truckHeading(leg(-10, -10))).toBe(7);
+  });
+
+  it('faces the viewer with no leg or no movement', () => {
+    expect(truckHeading(null)).toBe(4);
+    expect(truckHeading(leg(0, 0))).toBe(4);
   });
 });

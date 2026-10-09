@@ -10,9 +10,10 @@ import {
 } from 'react';
 
 export const MIN_ZOOM = 1;
-export const MAX_ZOOM = 16;
+/** Deep enough that one base fills a few hundred pixels and its name has room. */
+export const MAX_ZOOM = 64;
 /** Zoom a list click lands on: close enough to tell neighbouring pins apart. */
-export const FOCUS_ZOOM = 3;
+export const FOCUS_ZOOM = 12;
 const DRAG_THRESHOLD_PX = 4;
 
 export interface View {

@@ -1,17 +1,27 @@
 import { MAP_IMAGE_URL, MAP_INSET, toFraction } from '@dw/ui';
 import { type CSSProperties, type ReactNode, useMemo, useState } from 'react';
+import { useIcons } from '../../lib/gameIcons';
+import { AtlasHover } from './AtlasHover';
 import { useMapZoom } from './PannableMap';
 import {
   type Atlas,
   type AtlasBase,
   CLUMP_NAME_HIDE_ZOOM,
+  NAME_ZOOM,
+  TOWER_ZOOM,
   allianceColor,
   clusters,
+  formatPower,
   isShielded,
   isStale,
+  shieldLeft,
   visibleLabels,
   visibleNames,
 } from './atlas';
+import type { PlanTile } from './plan';
+
+/** Zoom from which the shield timers are named in the Shield filter. */
+const SHIELD_NAME_ZOOM = 4;
 
 /** Every swept base as a dot on the map picture, coloured by alliance.
  *
@@ -29,6 +39,9 @@ export function AtlasMap({
   lit,
   selectedUid,
   pickedAlliance = null,
+  shieldMode = false,
+  territory = false,
+  planTiles = null,
   onSelect,
   children,
 }: {
@@ -39,6 +52,13 @@ export function AtlasMap({
   selectedUid: number | null;
   /** The alliance picked in the ranking, or null: only its glow and name stay. */
   pickedAlliance?: number | null;
+  /** The Shield filter is on: names, and the time each shield has left, show from
+   * further out so the timers can be read across the map. */
+  shieldMode?: boolean;
+  /** Territory mode: alliance names at every zoom, no player names or towers. */
+  territory?: boolean;
+  /** The hive plan laid over the map (Plan mode), or null. */
+  planTiles?: readonly PlanTile[] | null;
   onSelect: (base: AtlasBase) => void;
   /** Extra layers drawn over the dots (trucks and plunder missions). */
   children?: ReactNode;
@@ -47,21 +67,31 @@ export function AtlasMap({
   const now = new Date();
   const clumps = useMemo(() => clusters(atlas), [atlas]);
   const zoom = useMapZoom();
+  // The tower picture per HQ level (0268); nothing for a visitor, who gets rings.
+  const towers = useIcons('tower').data;
   // The alliance names give way to the base names once zoomed in.
   const named = useMemo(
     () =>
-      (zoom >= CLUMP_NAME_HIDE_ZOOM ? [] : visibleLabels(clumps, atlas, zoom)).filter(
+      (zoom >= CLUMP_NAME_HIDE_ZOOM && !territory ? [] : visibleLabels(clumps, atlas, zoom)).filter(
         (clump) => pickedAlliance === null || clump.alliance === pickedAlliance,
       ),
-    [clumps, atlas, zoom, pickedAlliance],
+    [clumps, atlas, zoom, pickedAlliance, territory],
   );
   // Base names that fit without overlapping: the picked base and the lit ones
   // first. Everything else is dropped when it would sit on a name already placed.
   const baseNames = useMemo(() => {
+    if (territory) return new Set<number>();
     const first = new Set<number>(lit ?? []);
     if (selectedUid !== null) first.add(selectedUid);
-    return visibleNames(atlas, zoom, first, lit, selectedUid);
-  }, [atlas, zoom, lit, selectedUid]);
+    return visibleNames(
+      atlas,
+      zoom,
+      first,
+      lit,
+      selectedUid,
+      shieldMode ? SHIELD_NAME_ZOOM : NAME_ZOOM,
+    );
+  }, [atlas, zoom, lit, selectedUid, shieldMode, territory]);
 
   const dots = useMemo(
     () =>
@@ -129,10 +159,17 @@ export function AtlasMap({
             else if (isStale(base, now)) classes.push('atlas-dot--stale');
             if (isShielded(base, now)) classes.push('atlas-dot--shield');
             if (base.gameUid === selectedUid) classes.push('atlas-dot--on');
+            const sprite =
+              zoom >= TOWER_ZOOM && !territory && base.hq !== null
+                ? towers?.get(String(base.hq))
+                : undefined;
+            if (zoom >= TOWER_ZOOM) classes.push('atlas-dot--tower');
+            if (sprite) classes.push('atlas-dot--sprite');
             return (
               <button
                 aria-label={base.name ?? 'unnamed'}
                 className={classes.join(' ')}
+                data-uid={base.gameUid}
                 key={base.gameUid}
                 onClick={() => onSelect(base)}
                 style={{ left, top, '--dot': color } as CSSProperties}
@@ -140,10 +177,13 @@ export function AtlasMap({
                 title={`${base.name ?? 'unnamed'} — ${base.at.x}, ${base.at.y}`}
                 type="button"
               >
+                {sprite && (
+                  <img alt="" className="atlas-dot__tower" draggable={false} src={sprite} />
+                )}
                 {baseNames.has(base.gameUid) && (
                   <span className="atlas-dot__name">
                     {base.name}
-                    {base.hq !== null && <em>HQ{base.hq}</em>}
+                    <NameChip base={base} now={now} />
                   </span>
                 )}
               </button>
@@ -169,9 +209,36 @@ export function AtlasMap({
               </span>
             );
           })}
+          {planTiles?.map(({ slot, base }) => {
+            const f = toFraction({ x: slot.x, y: slot.y });
+            return (
+              <span
+                className={base ? 'atlas-plan atlas-plan--ok' : 'atlas-plan atlas-plan--miss'}
+                key={slot.slotId}
+                style={{ left: `${f.left * 100}%`, top: `${f.top * 100}%` }}
+                title={`${slot.playerName ?? 'Open tile'} · X:${slot.x} Y:${slot.y} · ${
+                  base ? 'in place' : 'not on its tile'
+                }`}
+              >
+                {zoom >= NAME_ZOOM && slot.playerName && (
+                  <span className="atlas-plan__name">{slot.playerName}</span>
+                )}
+              </span>
+            );
+          })}
+          <AtlasHover atlas={atlas} oursIndex={oursIndex} />
           {children}
         </div>
       </div>
     </figure>
   );
+}
+
+/** The tag after a base's name: the shield time left when it has one, the real
+ * power otherwise, and the HQ level when neither is known. */
+function NameChip({ base, now }: { base: AtlasBase; now: Date }) {
+  const left = isShielded(base, now) && base.shieldEnd ? shieldLeft(base.shieldEnd, now) : null;
+  if (left) return <em className="atlas-dot__shield">{left}</em>;
+  if (base.power !== null) return <em>{formatPower(base.power)}</em>;
+  return base.hq !== null ? <em>HQ{base.hq}</em> : null;
 }

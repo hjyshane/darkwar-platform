@@ -128,6 +128,18 @@ export function truckPosition(truck: Pick<Truck, 'leg'>, now: Date): TruckPositi
   };
 }
 
+/** Which of the client's eight truck pictures faces the way a truck is going:
+ * 0 up the screen, then each 45 degrees clockwise (2 right, 4 down, 6 left).
+ * A truck with no leg faces the viewer. */
+export function truckHeading(leg: Pick<TruckLeg, 'from' | 'to'> | null): number {
+  if (leg === null) return 4;
+  const dx = leg.to.x - leg.from.x;
+  const dy = leg.to.y - leg.from.y;
+  if (dx === 0 && dy === 0) return 4;
+  const turns = Math.atan2(dx, -dy) / (Math.PI / 4);
+  return ((Math.round(turns) % 8) + 8) % 8;
+}
+
 export interface TruckSpot extends TruckPosition {
   /** True when this is only where the truck set off from. */
   origin: boolean;

@@ -10,7 +10,16 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from './supabase';
 
-export type IconKind = 'hero' | 'exclusive' | 'gear' | 'item' | 'resource' | 'ui' | 'pet';
+export type IconKind =
+  | 'hero'
+  | 'exclusive'
+  | 'gear'
+  | 'item'
+  | 'resource'
+  | 'ui'
+  | 'pet'
+  | 'tower'
+  | 'truck';
 
 /** ref_id -> a data: URL, for the icons of one kind the reader may see —
  * all of them, or only the ids asked for (items: 1,370 of them, so a screen
