@@ -501,6 +501,7 @@ function atlasFixture() {
         index,
         Math.floor(Date.now() / 1000) - Math.floor(random() * 200_000),
         `${code} ${n + 1}`,
+        random() < 0.06 ? Math.floor(Date.now() / 1000) + 7200 : null,
       ]);
     }
   });

@@ -151,6 +151,7 @@ export function PannableMap({
       >
         <div
           className="pan-map__sheet"
+          data-zoom={Math.min(MAX_ZOOM, Math.floor(view.zoom))}
           style={
             {
               transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`,

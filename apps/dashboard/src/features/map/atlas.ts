@@ -33,6 +33,8 @@ export interface AtlasBase {
   alliance: number;
   seenAt: Date;
   name: string | null;
+  /** When the shield ends, as of the sighting; null when never shielded. */
+  shieldEnd: Date | null;
 }
 
 export interface Atlas {
@@ -68,7 +70,7 @@ export function parseAtlas(json: unknown): Atlas {
   const parsedBases: AtlasBase[] = [];
   for (const raw of Array.isArray(bases) ? bases : []) {
     if (!Array.isArray(raw)) continue;
-    const [uid, x, y, hq, power, alliance, seen, name] = raw;
+    const [uid, x, y, hq, power, alliance, seen, name, shield] = raw;
     if (num(uid) === null || num(x) === null || num(y) === null || num(seen) === null) continue;
     const index = num(alliance) ?? -1;
     parsedBases.push({
@@ -79,6 +81,7 @@ export function parseAtlas(json: unknown): Atlas {
       alliance: index < parsedAlliances.length ? index : -1,
       seenAt: new Date((seen as number) * 1000),
       name: text(name),
+      shieldEnd: num(shield) === null ? null : new Date((shield as number) * 1000),
     });
   }
   return { alliances: parsedAlliances, bases: parsedBases };
@@ -107,9 +110,22 @@ export function isStale(base: Pick<AtlasBase, 'seenAt'>, now: Date): boolean {
   return now.getTime() - base.seenAt.getTime() > STALE_AFTER_MS;
 }
 
-/** `446:393`, `446, 393` or `446 393`. */
+/** Shielded at the moment of the sighting. A base last seen long ago with a
+ * shield that had already ended may be shielded now; nothing here can know. */
+export function isShielded(base: Pick<AtlasBase, 'shieldEnd'>, now: Date): boolean {
+  return base.shieldEnd !== null && base.shieldEnd.getTime() > now.getTime();
+}
+
+/** What a click puts on the clipboard: `[X:123 Y:456]`, which is how a
+ * coordinate is pasted into the game's chat and into the search box here. */
+export function formatCopyCoordinate(at: Coordinate): string {
+  return `[X:${at.x} Y:${at.y}]`;
+}
+
+/** `446:393`, `446, 393`, `446 393` or `[X:446 Y:393]`. */
 export function parseCoordinate(query: string): Coordinate | null {
-  const match = /^\s*(\d{1,3})\s*[:,\s]\s*(\d{1,3})\s*$/.exec(query);
+  const match =
+    /^\s*\[?\s*(?:x\s*:?\s*)?(\d{1,3})\s*[:,\s]\s*(?:y\s*:?\s*)?(\d{1,3})\s*\]?\s*$/i.exec(query);
   if (match === null) return null;
   return { x: Number(match[1]), y: Number(match[2]) };
 }
@@ -157,6 +173,8 @@ export interface BaseFilter {
   /** Keep bases with power below this; a base of unknown power is kept out. */
   powerUnder: number | null;
   hideStale: boolean;
+  /** Shielded as of the sighting, not shielded, or either. */
+  shield: 'all' | 'shielded' | 'open';
 }
 
 export const NO_BASE_FILTER: BaseFilter = {
@@ -164,11 +182,16 @@ export const NO_BASE_FILTER: BaseFilter = {
   hqMax: null,
   powerUnder: null,
   hideStale: false,
+  shield: 'all',
 };
 
 export function filterActive(filter: BaseFilter): boolean {
   return (
-    filter.hqMin !== null || filter.hqMax !== null || filter.powerUnder !== null || filter.hideStale
+    filter.hqMin !== null ||
+    filter.hqMax !== null ||
+    filter.powerUnder !== null ||
+    filter.hideStale ||
+    filter.shield !== 'all'
   );
 }
 
@@ -179,6 +202,8 @@ export function matchesFilter(base: AtlasBase, filter: BaseFilter, now: Date): b
     return false;
   }
   if (filter.hideStale && isStale(base, now)) return false;
+  if (filter.shield === 'shielded' && !isShielded(base, now)) return false;
+  if (filter.shield === 'open' && isShielded(base, now)) return false;
   return true;
 }
 
@@ -225,4 +250,44 @@ export function useAtlas(serverId: number | null) {
     // Only a sweep changes it, and a sweep is a deliberate act.
     staleTime: 5 * 60_000,
   });
+}
+
+export interface Cluster {
+  /** Index into `alliances`. */
+  alliance: number;
+  at: Coordinate;
+  /** How far the alliance spreads from `at`, in tiles: enough to cover most of it. */
+  radius: number;
+}
+
+/** Fewer bases than this is a scatter, not a clump worth a halo and a name. */
+export const MIN_CLUSTER = 5;
+
+/** Where each sizeable alliance sits and how wide it is, for the glow and the name
+ * drawn behind and over its dots. The radius is the 85th-percentile distance from
+ * the middle, so a few stragglers across the map do not inflate the glow. */
+export function clusters(atlas: Atlas): Cluster[] {
+  const found: Cluster[] = [];
+  atlas.alliances.forEach((alliance, index) => {
+    if (alliance.bases < MIN_CLUSTER) return;
+    const members = atlas.bases.filter((base) => base.alliance === index);
+    const middle = centroid(members);
+    if (middle === null || members.length < MIN_CLUSTER) return;
+    const distances = members
+      .map((base) => Math.hypot(base.at.x - middle.x, base.at.y - middle.y))
+      .sort((a, b) => a - b);
+    const radius = distances[Math.floor(distances.length * 0.85)] ?? 0;
+    found.push({ alliance: index, at: middle, radius: Math.max(8, Math.round(radius)) });
+  });
+  return found;
+}
+
+/** Bases shielded right now, per alliance index: the "2 shielded" under a ranking row. */
+export function shieldedCounts(atlas: Atlas, now: Date): number[] {
+  const counts = atlas.alliances.map(() => 0);
+  for (const base of atlas.bases) {
+    if (base.alliance >= 0 && isShielded(base, now))
+      counts[base.alliance] = (counts[base.alliance] ?? 0) + 1;
+  }
+  return counts;
 }

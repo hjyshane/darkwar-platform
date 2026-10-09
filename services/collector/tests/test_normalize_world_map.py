@@ -267,3 +267,21 @@ def test_key_survives_a_parser_version_bump() -> None:
         world_map.PARSER_VERSION = original
 
     assert before == after
+
+
+def test_a_city_row_says_when_its_shield_ends() -> None:
+    """Epoch seconds on the wire; a timestamp in the row. Never shielded is null,
+    not 1970."""
+    cities = [
+        r
+        for r in world_map.normalize(load_observation(VIEWPORT))
+        if r.target_table == "world_city_snapshots"
+    ]
+
+    assert all("shield_end_at" in r.row for r in cities)
+    ends = [r.row["shield_end_at"] for r in cities if r.row["shield_end_at"] is not None]
+    assert ends, "the fixture has shielded bases"
+    assert all(e.startswith("20") for e in ends)
+    assert world_map._shield_end(None) is None
+    assert world_map._shield_end(0) is None
+    assert world_map._shield_end(1_791_566_025) == "2026-10-09T17:13:45+00:00"

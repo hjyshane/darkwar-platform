@@ -7479,6 +7479,7 @@ export type Database = {
           point_id: number
           raw: Json
           server_id: number
+          shield_end_at: string | null
           snapshot_id: string
           source_command: string
           x: number
@@ -7499,6 +7500,7 @@ export type Database = {
           point_id: number
           raw?: Json
           server_id: number
+          shield_end_at?: string | null
           snapshot_id?: string
           source_command: string
           x: number
@@ -7519,6 +7521,7 @@ export type Database = {
           point_id?: number
           raw?: Json
           server_id?: number
+          shield_end_at?: string | null
           snapshot_id?: string
           source_command?: string
           x?: number
@@ -8517,6 +8520,7 @@ export type Database = {
           player_id: string | null
           point_id: number | null
           server_id: number | null
+          shield_end_at: string | null
           x: number | null
           y: number | null
         }

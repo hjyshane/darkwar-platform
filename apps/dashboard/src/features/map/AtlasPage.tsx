@@ -18,11 +18,14 @@ import {
   byPower,
   centroid,
   filterActive,
+  formatCopyCoordinate,
   formatPower,
+  isShielded,
   isStale,
   matchesFilter,
   parsePower,
   searchAtlas,
+  shieldedCounts,
   useAtlas,
 } from './atlas';
 import {
@@ -103,11 +106,13 @@ export function AtlasPage({ serverId }: { serverId: number }) {
     .slice()
     .sort((a, b) => Number(b === oursIndex) - Number(a === oursIndex) || a - b);
   const maxBases = atlas.alliances[0]?.bases ?? 1;
+  const shielded = shieldedCounts(atlas, now);
+  const selected = atlas.bases.find((base) => base.gameUid === selectedUid) ?? null;
 
   function goTo(at: Coordinate, uid: number | null) {
     setSelectedUid(uid);
     setFocus((previous) => ({ at, nonce: (previous?.nonce ?? 0) + 1 }));
-    const written = formatCoordinate(at);
+    const written = formatCopyCoordinate(at);
     navigator.clipboard
       ?.writeText(written)
       .then(() => setCopied(written))
@@ -208,6 +213,9 @@ export function AtlasPage({ serverId }: { serverId: number }) {
             </p>
           ))}
           {copied && <output className="subtle">Copied {copied}</output>}
+          {selected !== null && (
+            <BaseCard alliance={atlas.alliances[selected.alliance]} base={selected} now={now} />
+          )}
         </div>
 
         <div className="hunt-side">
@@ -234,75 +242,88 @@ export function AtlasPage({ serverId }: { serverId: number }) {
               <p className="subtle">Keep typing — {MIN_SEARCH} characters or more.</p>
             )}
 
-          <fieldset className="map-range">
-            <legend>Filter bases</legend>
-            <label>
-              <span>HQ from</span>
-              <input
-                max={99}
-                min={1}
-                onChange={(event) =>
-                  setBaseFilter({ ...baseFilter, hqMin: toLevel(event.target.value) })
-                }
-                placeholder="1"
-                type="number"
-                value={baseFilter.hqMin ?? ''}
-              />
-            </label>
-            <label>
-              <span>to</span>
-              <input
-                max={99}
-                min={1}
-                onChange={(event) =>
-                  setBaseFilter({ ...baseFilter, hqMax: toLevel(event.target.value) })
-                }
-                placeholder="35"
-                type="number"
-                value={baseFilter.hqMax ?? ''}
-              />
-            </label>
-            <label>
-              <span>Power under</span>
-              <input
-                onChange={(event) => {
-                  setPowerText(event.target.value);
-                  setBaseFilter({ ...baseFilter, powerUnder: parsePower(event.target.value) });
-                }}
-                placeholder="e.g. 135m"
-                value={powerText}
-              />
-            </label>
-            <label>
-              <input
-                checked={baseFilter.hideStale}
-                onChange={(event) =>
-                  setBaseFilter({ ...baseFilter, hideStale: event.target.checked })
-                }
-                type="checkbox"
-              />
-              <span>Hide sightings over a day old</span>
-            </label>
-          </fieldset>
-          <fieldset className="map-range">
-            <legend>Layers</legend>
-            <label>
-              <input
-                checked={showTrucks}
-                onChange={(event) => setShowTrucks(event.target.checked)}
-                type="checkbox"
-              />
-              <span>◆ Trucks</span>
-            </label>
-            <label>
-              <input
-                checked={showPlunder}
-                onChange={(event) => setShowPlunder(event.target.checked)}
-                type="checkbox"
-              />
-              <span>■ Plunder missions</span>
-            </label>
-          </fieldset>
+          <Tabs
+            label="Shield"
+            items={[
+              { id: 'all' as const, label: 'All' },
+              { id: 'shielded' as const, label: 'Shield' },
+              { id: 'open' as const, label: 'No shield' },
+            ]}
+            onChange={(shield) => setBaseFilter({ ...baseFilter, shield })}
+            value={baseFilter.shield}
+          />
+          <details className="atlas-filters">
+            <summary>HQ, power and layers</summary>
+            <fieldset className="map-range">
+              <legend>Filter bases</legend>
+              <label>
+                <span>HQ from</span>
+                <input
+                  max={99}
+                  min={1}
+                  onChange={(event) =>
+                    setBaseFilter({ ...baseFilter, hqMin: toLevel(event.target.value) })
+                  }
+                  placeholder="1"
+                  type="number"
+                  value={baseFilter.hqMin ?? ''}
+                />
+              </label>
+              <label>
+                <span>to</span>
+                <input
+                  max={99}
+                  min={1}
+                  onChange={(event) =>
+                    setBaseFilter({ ...baseFilter, hqMax: toLevel(event.target.value) })
+                  }
+                  placeholder="35"
+                  type="number"
+                  value={baseFilter.hqMax ?? ''}
+                />
+              </label>
+              <label>
+                <span>Power under</span>
+                <input
+                  onChange={(event) => {
+                    setPowerText(event.target.value);
+                    setBaseFilter({ ...baseFilter, powerUnder: parsePower(event.target.value) });
+                  }}
+                  placeholder="e.g. 135m"
+                  value={powerText}
+                />
+              </label>
+              <label>
+                <input
+                  checked={baseFilter.hideStale}
+                  onChange={(event) =>
+                    setBaseFilter({ ...baseFilter, hideStale: event.target.checked })
+                  }
+                  type="checkbox"
+                />
+                <span>Hide sightings over a day old</span>
+              </label>
+            </fieldset>
+            <fieldset className="map-range">
+              <legend>Layers</legend>
+              <label>
+                <input
+                  checked={showTrucks}
+                  onChange={(event) => setShowTrucks(event.target.checked)}
+                  type="checkbox"
+                />
+                <span>◆ Trucks</span>
+              </label>
+              <label>
+                <input
+                  checked={showPlunder}
+                  onChange={(event) => setShowPlunder(event.target.checked)}
+                  type="checkbox"
+                />
+                <span>■ Plunder missions</span>
+              </label>
+            </fieldset>
+          </details>
 
           <Tabs
             label="Panel"
@@ -351,6 +372,11 @@ export function AtlasPage({ serverId }: { serverId: number }) {
                         <span className="atlas-ranking__count">
                           {alliance.bases} base{alliance.bases === 1 ? '' : 's'}
                           <span className="subtle"> · {formatPower(alliance.power)}</span>
+                          {(shielded[index] ?? 0) > 0 && (
+                            <span className="subtle atlas-ranking__shield">
+                              {shielded[index]} shielded
+                            </span>
+                          )}
                         </span>
                         <span
                           aria-hidden="true"
@@ -403,6 +429,7 @@ export function AtlasPage({ serverId }: { serverId: number }) {
                           {formatCoordinate(base.at)}
                           {base.hq !== null && ` · HQ ${base.hq}`} · {formatPower(base.power)} ·{' '}
                           {formatAge(base.seenAt.toISOString(), now)}
+                          {isShielded(base, now) && ' · shielded'}
                           {isStale(base, now) && ' (may have moved)'}
                         </span>
                       </button>
@@ -458,4 +485,35 @@ export function AtlasPage({ serverId }: { serverId: number }) {
 function toLevel(text: string): number | null {
   const level = Number.parseInt(text, 10);
   return Number.isNaN(level) ? null : level;
+}
+
+/** The picked base, under the map: who, how strong, shielded or not, and how
+ * old the sighting is. The shield is as of that sighting. */
+function BaseCard({
+  base,
+  alliance,
+  now,
+}: {
+  base: AtlasBase;
+  alliance: { code: string | null; name: string | null } | undefined;
+  now: Date;
+}) {
+  const shield = base.shieldEnd;
+  return (
+    <div className="atlas-card">
+      <strong>{base.name ?? 'unnamed'}</strong>
+      <span className="subtle">
+        {alliance?.code ? `[${alliance.code}] ` : ''}
+        {formatCopyCoordinate(base.at)}
+        {base.hq !== null && ` · HQ ${base.hq}`} · {formatPower(base.power)} power
+      </span>
+      <span className="subtle">
+        {isShielded(base, now) && shield !== null
+          ? `Shielded until ${shield.toISOString().slice(11, 16)} UTC`
+          : 'No shield'}{' '}
+        · seen {formatAge(base.seenAt.toISOString(), now)}
+        {isStale(base, now) && ' — may have moved, and the shield may have changed'}
+      </span>
+    </div>
+  );
 }

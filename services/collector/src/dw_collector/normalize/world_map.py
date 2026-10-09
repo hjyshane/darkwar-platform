@@ -50,7 +50,8 @@ from dw_collector.registry import register
 # 1.2.0: emits a world_viewport_snapshots row per response, so coverage can be
 # asked of the map. `renormalize` backfills it from journalled observations.
 # 1.3.0: started dispatch missions (type 21) go to dispatch_mission_snapshots.
-PARSER_VERSION = "1.3.0"
+# 1.4.0: a city row carries when its shield ends (0261).
+PARSER_VERSION = "1.4.0"
 
 _UID_SERVER_SUFFIX = 6
 
@@ -74,6 +75,12 @@ def _common(observation: Observation, tile: Tile, server_id: int) -> dict[str, A
         "x": tile.x,
         "y": tile.y,
     }
+
+
+def _shield_end(seconds: int | None) -> str | None:
+    if seconds is None or seconds <= 0:
+        return None
+    return datetime.fromtimestamp(seconds, UTC).isoformat()
 
 
 def _usable_uid(uid: str | None) -> bool:
@@ -242,6 +249,10 @@ def normalize(observation: Observation) -> list[NormalizedRow]:
                     "game_uid": int(uid),
                     "name": city.name,
                     "hq_level": city.hq_level,
+                    # Epoch SECONDS; in the past once the shield is down, absent when
+                    # the base was never shielded. 144 of 8,345 tiles in a day's
+                    # captures were in the future, 2-2.5 hours ahead.
+                    "shield_end_at": _shield_end(city.shield_end),
                 },
                 entity_refs={
                     "player": {
