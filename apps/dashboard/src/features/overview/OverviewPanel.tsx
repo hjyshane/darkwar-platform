@@ -19,6 +19,7 @@ import { AnnouncementsBlock } from './AnnouncementsBlock';
 import { ComingUp } from './ComingUp';
 import { FavouritesBlock } from './FavouritesBlock';
 import { GuidesBlock } from './GuidesBlock';
+import { ScannedServers } from './ScannedServers';
 
 /** The landing screen: where the alliance stands, before who did what.
  *
@@ -342,6 +343,7 @@ export function Overview({ now }: { now?: Date }) {
           second copy of the list. */}
         <AnnouncementsBlock />
         <GuidesBlock />
+        <ScannedServers now={now} />
         <FavouritesBlock />
       </div>
       <aside className="overview-side">

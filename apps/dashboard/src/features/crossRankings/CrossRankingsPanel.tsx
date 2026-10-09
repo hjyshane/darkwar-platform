@@ -1,38 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
+import { ServerChips } from '../../components/ServerChips';
 import { Strip } from '../../components/Strip';
 import { Tabs } from '../../components/ui/Tabs';
 import { useRecordActivity } from '../../lib/activity';
-import { serverHash } from '../../lib/route';
+import { filterByServer, resolveServer, serverCounts } from '../../lib/serverFilter';
 import { TERMS } from '../../lib/terms';
 import { CrossRankingTable } from './CrossRankingTable';
 import { BOARDS, type BoardId, boardById } from './boards';
 import { boardStrip } from './strip';
-
-/** Every server the current board mentions, as a link to its own page.
- *
- * Sorted numerically rather than by how many entries each has: the group is
- * 577-588 and a reader looking for "my server" wants it where its number says, not
- * wherever this week's board happens to put it.
- */
-function ServerLinks({ rows }: { rows: readonly { server_id: number | null }[] }) {
-  const servers = [
-    ...new Set(rows.flatMap((row) => (row.server_id === null ? [] : [row.server_id]))),
-  ].sort((a, b) => a - b);
-  if (servers.length === 0) {
-    return null;
-  }
-  return (
-    <nav aria-label="Servers on this board" className="server-links">
-      {servers.map((server) => (
-        <a className="server-link" href={serverHash(server)} key={server}>
-          {server}
-        </a>
-      ))}
-    </nav>
-  );
-}
 
 export function CrossRankingsPanel() {
   // The server board, for the activity score (0114). Once a day whatever the
@@ -41,6 +18,7 @@ export function CrossRankingsPanel() {
   useRecordActivity('rank_server');
   const [boardId, setBoardId] = useState<BoardId>('power');
   const board = boardById(boardId);
+  const [chosenServer, setChosenServer] = useState<number | null>(null);
   const { data, error, isPending } = useQuery({
     queryKey: ['crossRankings', boardId],
     queryFn: board.fetch,
@@ -51,6 +29,9 @@ export function CrossRankingsPanel() {
     // a new capture actually lands.
     staleTime: 10 * 60_000,
   });
+  const servers = serverCounts(data ?? []);
+  const server = resolveServer(servers, chosenServer);
+  const shown = data ? filterByServer(data, server) : undefined;
   return (
     <section aria-labelledby="cross-rankings-heading" className="board-screen">
       <div className="entity">
@@ -66,7 +47,7 @@ export function CrossRankingsPanel() {
             </p>
           </div>
         </header>
-        {data && <Strip cells={boardStrip(data, board.valueLabel, new Date())} />}
+        {shown && <Strip cells={boardStrip(shown, board.valueLabel, new Date())} />}
       </div>
       <Tabs
         label="Ranking metric"
@@ -75,19 +56,12 @@ export function CrossRankingsPanel() {
         onChange={setBoardId}
       />
       <div className="panel">
-        {/* Straight to a server's own page.
-          LINKS, not tabs. The board above switches what this screen shows; these
-          leave it, so they have to be middle-clickable, focusable and visible in the
-          status bar like any other link — which a button with a click handler is
-          not.
-
-          The list is derived from the rows on screen rather than from the `servers`
-          table: this is a jumping-off point from what you are looking at, and
-          offering a server the board never mentioned would lead to an empty page. */}
-        {data && <ServerLinks rows={data} />}
+        {/* Every server the board mentions, derived from the rows rather than the
+          `servers` table, so a newly scanned server shows up on its own. */}
+        <ServerChips onChange={setChosenServer} servers={servers} value={server} />
         {isPending && <p className="empty loading">Loading…</p>}
         {error && <p className="error">Could not load ranking: {error.message}</p>}
-        {data && <CrossRankingTable rows={data} board={board} />}
+        {shown && <CrossRankingTable rows={shown} board={board} />}
       </div>
     </section>
   );

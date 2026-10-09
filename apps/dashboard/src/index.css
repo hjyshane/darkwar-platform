@@ -5937,6 +5937,30 @@ button.tile-grid:hover:not(:disabled) {
   outline-offset: 2px;
 }
 
+/* Server filter chips: the .server-link look on a <button>, with a pressed state. */
+button.server-link {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.server-link[aria-pressed="true"] {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.server-link-open {
+  border-style: dashed;
+}
+
+/* Marks a player who is on the board only because an alliance roster lists them. */
+.row-source {
+  color: var(--fg-muted);
+  font-size: var(--text-xs, 0.75rem);
+  margin-left: var(--space-2);
+}
+
 /* Trucks & plunder (0254, 0257): the map on the left and its lists on the right,
  * so a click on a row is seen at once. The map stays in view while the lists
  * scroll with the page. */
