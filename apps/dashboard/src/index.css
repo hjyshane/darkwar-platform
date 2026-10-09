@@ -5959,6 +5959,7 @@ button.server-link {
   color: var(--fg-muted);
   font-size: var(--text-xs, 0.75rem);
   margin-left: var(--space-2);
+}
 
 /* Trucks & plunder (0254, 0257): the map on the left and its lists on the right,
  * so a click on a row is seen at once. The map stays in view while the lists
