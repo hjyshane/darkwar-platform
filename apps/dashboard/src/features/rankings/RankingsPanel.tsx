@@ -1,10 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { ExportButton } from '../../components/ExportButton';
+import { Strip } from '../../components/Strip';
 import { useRecordActivity } from '../../lib/activity';
 import type { CsvColumn } from '../../lib/csv';
 import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
 import { type AllianceRankingRow, AllianceRankingTable } from './AllianceRankingTable';
+import { allianceStrip } from './strip';
 
 /** The current state of every alliance, from the view that defines what
  *  "current" means (0035).
@@ -50,12 +52,27 @@ export function RankingsPanel() {
     queryFn: fetchAllianceRankings,
   });
   return (
-    <section aria-labelledby="rankings-heading">
-      <h2 id="rankings-heading">{TERMS.allianceRanking}</h2>
-      {isPending && <p className="empty loading">Loading…</p>}
-      {error && <p className="error">Could not load alliance ranking: {error.message}</p>}
-      {data && <ExportButton rows={data} columns={ALLIANCE_CSV} filename="alliance-ranking" />}
-      {data && <AllianceRankingTable rows={data} />}
+    <section aria-labelledby="rankings-heading" className="board-screen">
+      <div className="entity">
+        <header className="entity-head">
+          <span aria-hidden="true" className="entity-mark">
+            AR
+          </span>
+          <div>
+            <h2 id="rankings-heading">{TERMS.allianceRanking}</h2>
+            <p className="entity-meta">
+              <span>Every alliance seen, by power</span>
+            </p>
+          </div>
+        </header>
+        {data && <Strip cells={allianceStrip(data, new Date())} />}
+      </div>
+      <div className="panel">
+        {isPending && <p className="empty loading">Loading…</p>}
+        {error && <p className="error">Could not load alliance ranking: {error.message}</p>}
+        {data && <ExportButton rows={data} columns={ALLIANCE_CSV} filename="alliance-ranking" />}
+        {data && <AllianceRankingTable rows={data} />}
+      </div>
     </section>
   );
 }
