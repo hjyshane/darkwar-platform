@@ -84,10 +84,9 @@ export async function fetchPlayerPage(params: PageParams): Promise<PlayerPage> {
       unit_id: null,
       captured_at: row.captured_at,
       source: row.source === 'roster' ? 'roster' : 'board',
-      alliance:
-        !row.alliance_id
-          ? null
-          : { id: row.alliance_id, code: row.alliance_code, name: row.alliance_name },
+      alliance: !row.alliance_id
+        ? null
+        : { id: row.alliance_id, code: row.alliance_code, name: row.alliance_name },
     })),
   };
 }
