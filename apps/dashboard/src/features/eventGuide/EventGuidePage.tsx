@@ -273,8 +273,9 @@ function Now({ guide, rows }: { guide: EventGuide; rows: readonly CapturedTime[]
         <h2 id="guide-now-duel-heading">Alliance Duel, today</h2>
         {duelToday === undefined ? (
           <p className="empty">
-            Today's Duel theme has not been seen yet: the game only sends it once it is that day's
-            turn.
+            {here.weekday === 7
+              ? 'No Alliance Duel on Sunday.'
+              : "Today's Duel theme has not been loaded from the game yet."}
           </p>
         ) : (
           <>
@@ -418,8 +419,8 @@ function Duel({ guide }: { guide: EventGuide }) {
       </div>
       {missing.length > 0 && (
         <p className="note">
-          Not seen yet: {missing.map((day) => WEEKDAYS[day - 1]).join(', ')}. The game only sends a
-          day's theme once it is that week's turn, so they fill in as the week goes.
+          Not loaded yet: {missing.map((day) => WEEKDAYS[day - 1]).join(', ')}. The Duel repeats
+          Monday to Saturday every week and has none on Sunday.
         </p>
       )}
     </section>
