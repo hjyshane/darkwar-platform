@@ -25,6 +25,9 @@ export interface GiftMember {
   name: string;
   excluded: boolean;
   claims: Record<string, string>;
+  /** The rank the game shows for them, 1 to 5 (R1 to R5), from the newest roster
+   * capture. Null when it is not known: a rank is not guessed. */
+  rank: number | null;
 }
 
 // The generated types call every returned column non-null, which is what the
@@ -39,13 +42,35 @@ export async function fetchGiftCodes(): Promise<GiftCode[]> {
   return (data ?? []) as GiftCode[];
 }
 
-/** One row per roster member, so PostgREST's 1,000-row cap cannot drop anyone. */
+/** One row per roster member, so PostgREST's 1,000-row cap cannot drop anyone.
+ *
+ * The rank is not in `gift_member_status`; it is read from the roster view by
+ * game id and put on each row here. If that read fails the list still comes back,
+ * with no ranks: choosing by rank is a convenience, claiming is the job. */
 export async function fetchGiftMembers(): Promise<GiftMember[]> {
   const { data, error } = await supabase.rpc('gift_member_status');
   if (error) {
     throw new Error(`gift members query failed: ${error.message}`);
   }
-  return (data ?? []) as GiftMember[];
+  const rows = (data ?? []) as Omit<GiftMember, 'rank'>[];
+  const ranks = await fetchRanks(rows.map((row) => row.game_uid));
+  return rows.map((row) => ({ ...row, rank: ranks.get(row.game_uid) ?? null }));
+}
+
+async function fetchRanks(uids: number[]): Promise<Map<number, number>> {
+  const ranks = new Map<number, number>();
+  if (uids.length === 0) return ranks;
+  const { data, error } = await supabase
+    .from('alliance_roster_latest')
+    .select('game_uid, member_rank, captured_at')
+    .in('game_uid', uids)
+    .order('captured_at', { ascending: true });
+  if (error) return ranks;
+  // Ascending, so the newest capture of a player who appears twice wins.
+  for (const row of data ?? []) {
+    if (row.game_uid !== null && row.member_rank !== null) ranks.set(row.game_uid, row.member_rank);
+  }
+  return ranks;
 }
 
 export async function addGiftCode(code: string): Promise<void> {
