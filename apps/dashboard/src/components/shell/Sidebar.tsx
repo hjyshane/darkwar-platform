@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import type { NavGroup, NavItem } from '../../lib/shellNav';
 import { Icon } from './icons';
 
@@ -56,6 +57,23 @@ export function Sidebar({
   collapsed: boolean;
   onCollapse: () => void;
 }) {
+  const nav = useRef<HTMLElement>(null);
+  const here = [...groups.flatMap((group) => group.items), ...footer]
+    .map(
+      (item) => `${item.key}:${item.current}:${item.children?.find((child) => child.current)?.key}`,
+    )
+    .join('|');
+
+  // On a phone the list scrolls inside the drawer, and the open screen's tabs
+  // can sit below the fold. Bring the one that is open into view when the
+  // address changes. `nearest` leaves the list alone when it is already seen.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `here` is the trigger
+  useEffect(() => {
+    const open = nav.current?.querySelector('.shell-sublink[aria-current="page"]');
+    const target = open ?? nav.current?.querySelector('.shell-link[aria-current="page"]');
+    target?.scrollIntoView?.({ block: 'nearest' });
+  }, [here]);
+
   return (
     <aside className="shell-sidebar">
       <a className="shell-brand" href="#/" title={collapsed ? 'Dark War' : undefined}>
@@ -64,7 +82,7 @@ export function Sidebar({
         </span>
         <span className="shell-brand-name">Dark War</span>
       </a>
-      <nav aria-label="Screens" className="shell-nav">
+      <nav aria-label="Screens" className="shell-nav" ref={nav}>
         {groups.map((group) => (
           <section aria-label={group.label} className="shell-group" key={group.id}>
             <h2 className="shell-group-label">{group.label}</h2>

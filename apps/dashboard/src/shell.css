@@ -522,6 +522,19 @@
     flex-wrap: wrap;
     margin-left: 0;
   }
+
+  /* One row of controls instead of two. The healthy sync state shrinks to its
+   * dot (the title still says when the collector last checked in); a STOPPED
+   * feed keeps its words, because that is the state worth noticing. */
+  .shell-controls .sync-live {
+    font-size: 0;
+    margin-inline-start: 0;
+  }
+
+  .shell-controls .sync-live .sync-dot {
+    height: 0.6rem;
+    width: 0.6rem;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1213,4 +1226,11 @@
 /* The collapsed rail is icons only. */
 .shell-collapsed .shell-caret {
   display: none;
+}
+
+/* The stock panel's heading and its one-line description share a span; as
+ * inline text they ran together ("Stockeverything an upgrade costs"). */
+.planner-screen .planner-stock-head h3,
+.planner-screen .planner-stock h3 {
+  display: block;
 }
