@@ -73,3 +73,23 @@ E005 만료, E006 이미 받음, E007 한도, E009 `in cd`(잠시 후 재시도)
 - 대시보드 화면은 개발용 미리보기(가짜 데이터)로만 봤다. **진짜 DB에 붙여 본 적 없다.**
 - pgTAP 26개는 통과했지만 CI의 `db` 잡이 생성 타입(손으로 맞춘 `database.types.ts`)을 비교한다.
   틀리면 그 잡이 출력하는 diff를 그대로 옮긴다.
+
+## PC 없이 보내기: 데이터베이스가 직접 (0252)
+
+`dw-gift`는 PC가 꺼지면 멈춘다. 0252는 같은 일을 Postgres가 한다 (`pg_cron` 5초마다 +
+`pg_net`로 `code.php` GET). 대시보드에서 적용을 누르면 PC와 상관없이 큐가 처리된다.
+Edge Function도, 저장할 키도 필요 없다 - 0130(Discord 알림)과 같은 방식이다.
+
+- **기본은 꺼짐.** 아무것도 예약되지 않고 아무것도 보내지 않는다. 켜는 것은 사람이 한다:
+  `supabase db query --linked "select internal.set_gift_runner(true)"`
+  끄기: `select internal.set_gift_runner(false)` (cron 작업도 같이 사라진다).
+- **규칙은 `dw-gift`와 같다**: 요청 사이 5초, 답이 아닌 결과(`retry`)가 5번 이어지면 15분 쉼,
+  차단/보안 확인/비 JSON 답(`stop`)이면 **스스로 꺼지고** 이유를 `internal.gift_runner.halted_reason`에
+  남긴다. 죽은 코드는 은퇴시키고 기다리던 건을 취소한다. 답 원문은 `result`에 그대로.
+- **상태 보기**: `select * from internal.gift_runner;` / 최근 결과는 `gift_code_claims.result`.
+- **`dw-gift`와 같이 돌리지 않는다.** 한 건이 두 번 나가지는 않지만 속도가 두 배가 된다. 이쪽을
+  켜면 PC의 `dw-gift`는 끈다.
+- 시험하지 못한 것: pgTAP은 `pg_net` 없이 돌아서 **분류와 정산은 시험했지만 실제 HTTP 호출은
+  못 했다.** Gift Center가 Supabase(클라우드) IP의 요청을 받아 주는지도 모른다. 그래서 **본인 UID +
+  쓰지 않은 코드 한 건**으로 먼저 켜 보고, `gift_code_claims.result`에 `errorCode: "ok"`가 오는지,
+  `halted_reason`이 비어 있는지 본다. 막히면(`stop`) 스스로 꺼진다.
