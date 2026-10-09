@@ -1,4 +1,4 @@
--- 0261: Player Ranking pages. The merge, the paging, and the grants.
+-- 0262: Player Ranking pages. The merge, the paging, and the grants.
 begin;
 create extension if not exists pgtap with schema extensions;
 
