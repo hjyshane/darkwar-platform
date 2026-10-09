@@ -3893,6 +3893,30 @@ export type Database = {
         }
         Relationships: []
       }
+      game_train_stations: {
+        Row: {
+          point_id: number
+          station_no: number
+          updated_at: string
+          x: number
+          y: number
+        }
+        Insert: {
+          point_id: number
+          station_no: number
+          updated_at?: string
+          x: number
+          y: number
+        }
+        Update: {
+          point_id?: number
+          station_no?: number
+          updated_at?: string
+          x?: number
+          y?: number
+        }
+        Relationships: []
+      }
       game_upgrade_steps: {
         Row: {
           category: number | null
@@ -7558,6 +7582,8 @@ export type Database = {
           goods: Json | null
           hero_fragments: number | null
           idempotency_key: string
+          leg_end_at: string | null
+          leg_start_at: string | null
           observation_id: string
           owner_game_uid: string | null
           owner_name: string | null
@@ -7572,6 +7598,8 @@ export type Database = {
           snapshot_id: string
           source_command: string
           start_pos: number | null
+          station_index: number | null
+          stations: Json | null
           target_pos: number | null
           truck_uuid: string
         }
@@ -7587,6 +7615,8 @@ export type Database = {
           goods?: Json | null
           hero_fragments?: number | null
           idempotency_key: string
+          leg_end_at?: string | null
+          leg_start_at?: string | null
           observation_id: string
           owner_game_uid?: string | null
           owner_name?: string | null
@@ -7601,6 +7631,8 @@ export type Database = {
           snapshot_id?: string
           source_command: string
           start_pos?: number | null
+          station_index?: number | null
+          stations?: Json | null
           target_pos?: number | null
           truck_uuid: string
         }
@@ -7616,6 +7648,8 @@ export type Database = {
           goods?: Json | null
           hero_fragments?: number | null
           idempotency_key?: string
+          leg_end_at?: string | null
+          leg_start_at?: string | null
           observation_id?: string
           owner_game_uid?: string | null
           owner_name?: string | null
@@ -7630,6 +7664,8 @@ export type Database = {
           snapshot_id?: string
           source_command?: string
           start_pos?: number | null
+          station_index?: number | null
+          stations?: Json | null
           target_pos?: number | null
           truck_uuid?: string
         }
@@ -9189,6 +9225,8 @@ export type Database = {
           completeness: number | null
           goods: Json | null
           hero_fragments: number | null
+          leg_end_at: string | null
+          leg_start_at: string | null
           origin_pos: number | null
           owner_game_uid: string | null
           owner_name: string | null
@@ -9199,6 +9237,8 @@ export type Database = {
           segment_start_at: string | null
           server_id: number | null
           start_pos: number | null
+          station_index: number | null
+          stations: Json | null
           target_pos: number | null
           truck_uuid: string | null
         }

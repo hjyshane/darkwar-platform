@@ -19,7 +19,9 @@ import {
   timeLeft,
   truckSpot,
   useMissions,
+  useStations,
   useTrucks,
+  withRouteLeg,
 } from './hunt';
 
 const who = (name: string | null, abbr: string | null) =>
@@ -42,6 +44,7 @@ const who = (name: string | null, abbr: string | null) =>
  */
 export function HuntPanel({ serverId }: { serverId: number }) {
   const trucks = useTrucks();
+  const stations = useStations();
   const missions = useMissions(serverId);
   const [picked, setPicked] = useState<string | null>(null);
   const [filter, setFilter] = useState<TruckFilter>(NO_FILTER);
@@ -65,7 +68,10 @@ export function HuntPanel({ serverId }: { serverId: number }) {
       .catch(() => setCopied(null));
   }
 
-  const worth = (trucks.data ?? []).filter((truck) => isWorthTaking(truck, now));
+  const known = stations.data ?? new Map();
+  const worth = (trucks.data ?? [])
+    .map((truck) => withRouteLeg(truck, known))
+    .filter((truck) => isWorthTaking(truck, now));
   const servers = countByServer(worth);
   const shown = sortTrucks(filterTrucks(worth, filter), sort);
   const open = (missions.data ?? []).filter((mission) => missionIsOpen(mission, now));

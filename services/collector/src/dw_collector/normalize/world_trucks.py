@@ -82,6 +82,33 @@ def _server(entry: dict[str, Any], owner: str | None) -> int | None:
     return int(owner[-6:]) if owner is not None and len(owner) > 6 else None
 
 
+def _route(entry: dict[str, Any]) -> dict[str, Any]:
+    """Where on its route a listed truck is, in the game's own terms.
+
+    ``stationList`` is the truck's route as station numbers; ``lastPosIndex`` is
+    the station it is travelling TOWARDS (the leg runs from the one before it),
+    and ``lastSendTime`` .. ``nextEndTime`` are when that leg starts and ends.
+    The numbers mean nothing alone - ``game_train_stations`` (0258) turns them
+    into map points. Verified on 2,343 foreign legs: station distance over leg
+    time is 0.25 tiles/s, the truck speed, on every server 577-588.
+    """
+    stations = entry.get("stationList")
+    info = entry.get("marchInfo")
+    if (
+        not isinstance(stations, list)
+        or not all(isinstance(n, int) and not isinstance(n, bool) for n in stations)
+        or not isinstance(info, dict)
+    ):
+        return {"stations": None, "station_index": None, "leg_start_at": None, "leg_end_at": None}
+    index = info.get("lastPosIndex")
+    return {
+        "stations": stations,
+        "station_index": index if isinstance(index, int) and not isinstance(index, bool) else None,
+        "leg_start_at": _instant(info.get("lastSendTime")),
+        "leg_end_at": _instant(info.get("nextEndTime")),
+    }
+
+
 def _entry_row(observation: Observation, entry: dict[str, Any]) -> NormalizedRow | None:
     """One truck from a list or an info response."""
     truck = entry.get("uuid")
@@ -115,6 +142,7 @@ def _entry_row(observation: Observation, entry: dict[str, Any]) -> NormalizedRow
             "send_at": _instant(entry.get("sendTime")),
             "hero_fragments": fragments,
             "goods": goods,
+            **_route(entry),
         },
     )
 
@@ -204,6 +232,12 @@ def normalize_march(observation: Observation) -> list[NormalizedRow]:
                 "send_at": _instant(train.get("sendTime")),
                 "hero_fragments": None,
                 "goods": None,
+                # Present on both kinds of row, null here: the route is read from
+                # the interception list.
+                "stations": None,
+                "station_index": None,
+                "leg_start_at": None,
+                "leg_end_at": None,
             },
         )
     ]
