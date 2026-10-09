@@ -6192,7 +6192,6 @@ button.server-link {
 }
 
 .atlas-dot__name {
-  display: none;
   position: absolute;
   left: 50%;
   top: 100%;
@@ -6206,22 +6205,6 @@ button.server-link {
   white-space: nowrap;
   transform: translateX(-50%);
   pointer-events: none;
-}
-
-.pan-map__sheet[data-zoom="4"] .atlas-dot__name,
-.pan-map__sheet[data-zoom="5"] .atlas-dot__name,
-.pan-map__sheet[data-zoom="6"] .atlas-dot__name,
-.pan-map__sheet[data-zoom="7"] .atlas-dot__name,
-.pan-map__sheet[data-zoom="8"] .atlas-dot__name {
-  display: block;
-}
-
-/* Beyond zoom 3 the clump names get in the way of the base names. */
-.pan-map__sheet[data-zoom="5"] .atlas-label,
-.pan-map__sheet[data-zoom="6"] .atlas-label,
-.pan-map__sheet[data-zoom="7"] .atlas-label,
-.pan-map__sheet[data-zoom="8"] .atlas-label {
-  display: none;
 }
 
 .atlas-card {

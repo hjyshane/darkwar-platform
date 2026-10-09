@@ -314,3 +314,93 @@ export function visibleLabels(found: readonly Cluster[], atlas: Atlas, zoom: num
   }
   return kept;
 }
+
+/** Zoom from which base names are drawn at all. */
+export const NAME_ZOOM = 4;
+/** Zoom from which the alliance clump names step aside for the base names. */
+export const CLUMP_NAME_HIDE_ZOOM = 5;
+
+// How much screen a base name takes, and how far apart tiles sit on screen at
+// zoom 1: the same ~700 px per 1,000 tiles LABEL_SPAN_TILES assumes, squashed
+// vertically because the plot is wider than it is tall. Estimates on purpose: the
+// window can be any size, and a name hidden by a wrong guess comes back one
+// zoom step later while one that overlaps stays unreadable.
+const PX_PER_TILE_X = 0.7;
+const PX_PER_TILE_Y = 0.58;
+const NAME_HEIGHT_PX = 14;
+const NAME_GAP_PX = 3;
+
+function nameWidthPx(name: string): number {
+  // Wide scripts (Korean, Chinese, Vietnamese stacks) run about twice a Latin letter.
+  let width = 10;
+  for (const ch of name) width += ch.charCodeAt(0) < 0x250 ? 5.6 : 10;
+  return width;
+}
+
+/** The base names that fit on screen without sitting on each other at `zoom`.
+ *
+ * Names are placed in the order given by `first` (the picked base, the lit ones)
+ * and then by power, and a name is dropped when an already placed one overlaps it.
+ * Zooming in spreads the bases apart on screen, so the dropped ones come back; at
+ * the last zoom steps every name fits. Returns game uids.
+ *
+ * `only` narrows the candidates to a highlighted set (a picked alliance, a search
+ * result) so the rest of the map stays unlabelled. A base with no alliance is
+ * named only when it is the `clicked` one: those are the stragglers and the
+ * unknowns, and a name over each would bury the alliances that matter. */
+export function visibleNames(
+  atlas: Atlas,
+  zoom: number,
+  first: ReadonlySet<number> = new Set(),
+  only: ReadonlySet<number> | null = null,
+  clicked: number | null = null,
+): Set<number> {
+  const shown = new Set<number>();
+  if (zoom < NAME_ZOOM) return shown;
+  const ordered = atlas.bases
+    .filter((base) => base.name !== null && base.name !== '')
+    .filter(
+      (base) =>
+        base.gameUid === clicked ||
+        (base.alliance >= 0 && (only === null || only.has(base.gameUid))),
+    )
+    .sort(
+      (a, b) =>
+        Number(first.has(b.gameUid)) - Number(first.has(a.gameUid)) ||
+        (b.power ?? 0) - (a.power ?? 0),
+    );
+  // Placed boxes bucketed on a grid, so a candidate is compared with its
+  // neighbours rather than with every name already on the map.
+  const CELL_X = 200;
+  const CELL_Y = NAME_HEIGHT_PX + NAME_GAP_PX;
+  const grid = new Map<string, { x: number; y: number; w: number }[]>();
+  for (const base of ordered) {
+    const name = base.name as string;
+    const w = nameWidthPx(name);
+    const x = base.at.x * PX_PER_TILE_X * zoom;
+    const y = base.at.y * PX_PER_TILE_Y * zoom;
+    const cx = Math.floor(x / CELL_X);
+    const cy = Math.floor(y / CELL_Y);
+    let crowded = false;
+    for (let gx = cx - 1; gx <= cx + 1 && !crowded; gx += 1) {
+      for (let gy = cy - 1; gy <= cy + 1 && !crowded; gy += 1) {
+        for (const other of grid.get(`${gx}:${gy}`) ?? []) {
+          if (
+            Math.abs(other.x - x) < (other.w + w) / 2 + NAME_GAP_PX &&
+            Math.abs(other.y - y) < NAME_HEIGHT_PX + NAME_GAP_PX
+          ) {
+            crowded = true;
+            break;
+          }
+        }
+      }
+    }
+    if (crowded) continue;
+    shown.add(base.gameUid);
+    const key = `${cx}:${cy}`;
+    const bucket = grid.get(key);
+    if (bucket) bucket.push({ x, y, w });
+    else grid.set(key, [{ x, y, w }]);
+  }
+  return shown;
+}

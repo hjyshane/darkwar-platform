@@ -191,6 +191,7 @@ export function AtlasPage({ serverId }: { serverId: number }) {
               lit={lit}
               onSelect={chooseBase}
               oursIndex={oursIndex}
+              pickedAlliance={picked}
               selectedUid={selectedUid}
             >
               <HuntPins

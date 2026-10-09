@@ -10,7 +10,7 @@ import {
 } from 'react';
 
 export const MIN_ZOOM = 1;
-export const MAX_ZOOM = 8;
+export const MAX_ZOOM = 16;
 /** Zoom a list click lands on: close enough to tell neighbouring pins apart. */
 export const FOCUS_ZOOM = 3;
 const DRAG_THRESHOLD_PX = 4;
