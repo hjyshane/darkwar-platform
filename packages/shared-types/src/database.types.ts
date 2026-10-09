@@ -9363,9 +9363,12 @@ export type Database = {
         Args: { p_code_id: string; p_status: string }
         Returns: undefined
       }
-      set_gift_runner_enabled: { Args: { p_enabled: boolean }; Returns: undefined }
       set_gift_exclusion: {
         Args: { p_excluded: boolean; p_game_uid: number }
+        Returns: undefined
+      }
+      set_gift_runner_enabled: {
+        Args: { p_enabled: boolean }
         Returns: undefined
       }
       set_membership: {
