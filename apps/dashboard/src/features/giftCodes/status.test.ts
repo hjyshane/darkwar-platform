@@ -6,6 +6,7 @@ import {
   claimLabel,
   claimableSelection,
   isLive,
+  parseUids,
   pickableUids,
   rankGroups,
   rankLabel,
@@ -84,9 +85,9 @@ describe('summarise', () => {
 
 describe('claimableSelection', () => {
   const members: GiftMember[] = [
-    { game_uid: 1, name: 'Alpha', excluded: false, claims: {}, rank: 5 },
-    { game_uid: 2, name: 'Bravo', excluded: true, claims: {}, rank: 4 },
-    { game_uid: 3, name: 'Charlie', excluded: false, claims: {}, rank: 4 },
+    { game_uid: 1, name: 'Alpha', excluded: false, claims: {}, rank: 5, extra: false },
+    { game_uid: 2, name: 'Bravo', excluded: true, claims: {}, rank: 4, extra: false },
+    { game_uid: 3, name: 'Charlie', excluded: false, claims: {}, rank: 4, extra: false },
   ];
 
   test('picks the selected players who are not excluded', () => {
@@ -145,7 +146,8 @@ describe('picking by rank', () => {
     name: string,
     rank: number | null,
     excluded = false,
-  ): GiftMember => ({ game_uid, name, excluded, claims: {}, rank });
+    extra = false,
+  ): GiftMember => ({ game_uid, name, excluded, claims: {}, rank, extra });
   const roster = [
     member(1, 'Ann', 5),
     member(2, 'Bob', 4),
@@ -209,5 +211,55 @@ describe('picking by rank', () => {
 
   test('orders highest rank first, then by name, with unknown ranks last', () => {
     expect(byRank(roster).map((m) => m.name)).toEqual(['Ann', 'Bob', 'Cy', 'Di', 'Ed', 'Flo']);
+  });
+});
+
+describe('saved player IDs', () => {
+  const member = (
+    game_uid: number,
+    name: string,
+    rank: number | null,
+    extra: boolean,
+    excluded = false,
+  ): GiftMember => ({ game_uid, name, excluded, claims: {}, rank, extra });
+  const people = [
+    member(1, 'Ann', 5, false),
+    member(2, 'Bob', null, false),
+    member(3, 'UID 3', null, true),
+    member(4, 'Cousin', null, true, true),
+  ];
+
+  test('saved IDs get their own group, not "No rank"', () => {
+    const groups = rankGroups(people);
+    expect(groups.map((g) => g.label)).toEqual(['R5', 'No rank', 'Saved IDs']);
+    const saved = groups.find((g) => g.label === 'Saved IDs');
+    expect(saved?.uids).toEqual([3]);
+    expect(saved?.total).toBe(2);
+  });
+
+  test('and sort after the whole roster', () => {
+    expect(byRank(people).map((m) => m.name)).toEqual(['Ann', 'Bob', 'Cousin', 'UID 3']);
+  });
+});
+
+describe('parseUids', () => {
+  test('takes IDs separated by spaces, commas and new lines, once each', () => {
+    const r = parseUids('1135062125000580, 1135062125000581\n1135062125000580;1135062125000582');
+    expect(r.uids).toEqual([1135062125000580, 1135062125000581, 1135062125000582]);
+    expect(r.rejected).toEqual([]);
+  });
+
+  test('hands back what is not an ID instead of guessing', () => {
+    const r = parseUids('12345 abc 1135062125000580 11350621250005801234567');
+    expect(r.uids).toEqual([1135062125000580]);
+    expect(r.rejected).toEqual(['12345', 'abc', '11350621250005801234567']);
+  });
+
+  test('refuses an ID too large to hold exactly', () => {
+    expect(parseUids('9999999999999999').rejected).toEqual(['9999999999999999']);
+  });
+
+  test('empty text is nothing, not an error', () => {
+    expect(parseUids('  \n ')).toEqual({ uids: [], rejected: [] });
   });
 });

@@ -19,12 +19,13 @@ const code = (over: Partial<GiftCode> = {}): GiftCode => ({
   ...over,
 });
 
-const member = (game_uid: number, excluded = false): GiftMember => ({
+const member = (game_uid: number, excluded = false, extra = false): GiftMember => ({
   game_uid,
   name: `P${game_uid}`,
   excluded,
   claims: {},
   rank: 3,
+  extra,
 });
 
 const cell = (label: string, codes: GiftCode[] = [], members: GiftMember[] = []) =>
@@ -43,6 +44,10 @@ describe('giftStrip', () => {
 
     expect(cell('Claimed for', [], members)).toMatchObject({ value: '2', note: '1 left out' });
     expect(cell('Claimed for', [], [member(1)])?.note).toBe('the whole roster');
+    expect(cell('Claimed for', [], [member(1), member(2, false, true)])).toMatchObject({
+      value: '2',
+      note: 'the whole roster, plus 1 saved IDs',
+    });
   });
 
   test('adds up the waiting claims (queued and sending) of live codes only', () => {

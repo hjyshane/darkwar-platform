@@ -105,8 +105,12 @@ export function rankLabel(rank: number | null): string {
 
 /** The roster in the order the picker reads: highest rank first, then by name,
  * with those whose rank is not known last. */
-export function byRank<T extends Pick<GiftMember, 'rank' | 'name'>>(members: readonly T[]): T[] {
+export function byRank<T extends Pick<GiftMember, 'rank' | 'name' | 'extra'>>(
+  members: readonly T[],
+): T[] {
   return [...members].sort((a, b) => {
+    // Saved IDs come after the roster, whatever the ranks.
+    if (a.extra !== b.extra) return a.extra ? 1 : -1;
     if (a.rank === null && b.rank !== null) return 1;
     if (a.rank !== null && b.rank === null) return -1;
     return (b.rank ?? 0) - (a.rank ?? 0) || a.name.localeCompare(b.name);
@@ -128,8 +132,9 @@ export interface RankGroup {
  * button that does nothing. */
 export function rankGroups(members: ReadonlyArray<GiftMember>): RankGroup[] {
   const groups: RankGroup[] = [];
+  const roster = members.filter((m) => !m.extra);
   for (const rank of [5, 4, 3, 2, 1, null] as const) {
-    const inGroup = members.filter((m) => (rank === null ? m.rank === null : m.rank === rank));
+    const inGroup = roster.filter((m) => (rank === null ? m.rank === null : m.rank === rank));
     const uids = inGroup.filter((m) => !m.excluded).map((m) => m.game_uid);
     if (uids.length > 0) {
       groups.push({
@@ -139,6 +144,11 @@ export function rankGroups(members: ReadonlyArray<GiftMember>): RankGroup[] {
         total: inGroup.length,
       });
     }
+  }
+  const saved = members.filter((m) => m.extra);
+  const savedUids = saved.filter((m) => !m.excluded).map((m) => m.game_uid);
+  if (savedUids.length > 0) {
+    groups.push({ label: 'Saved IDs', rank: null, uids: savedUids, total: saved.length });
   }
   return groups;
 }
@@ -163,4 +173,28 @@ export function toggleGroup(selected: ReadonlySet<number>, uids: readonly number
     for (const uid of uids) next.add(uid);
   }
   return next;
+}
+
+export interface ParsedUids {
+  uids: number[];
+  /** What was typed that is not a usable player ID, as typed. */
+  rejected: string[];
+}
+
+/** Player IDs out of pasted text: separated by spaces, commas, semicolons or new
+ * lines. An ID is 10 to 18 digits; anything else is handed back as rejected
+ * rather than guessed at. Repeats are collapsed, order is kept. */
+export function parseUids(text: string): ParsedUids {
+  const seen = new Set<number>();
+  const rejected: string[] = [];
+  for (const token of text.split(/[\s,;]+/)) {
+    if (token === '') continue;
+    const value = /^[0-9]{10,18}$/.test(token) ? Number(token) : Number.NaN;
+    if (!Number.isSafeInteger(value)) {
+      rejected.push(token);
+    } else {
+      seen.add(value);
+    }
+  }
+  return { uids: [...seen], rejected };
 }

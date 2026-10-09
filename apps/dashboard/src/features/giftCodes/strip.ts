@@ -15,6 +15,11 @@ export interface StripCell {
 
 const plain = new Intl.NumberFormat('en');
 
+function stripNote(leftOut: number, saved: number): string {
+  const base = leftOut === 0 ? 'the whole roster' : `${plain.format(leftOut)} left out`;
+  return saved === 0 ? base : `${base}, plus ${plain.format(saved)} saved IDs`;
+}
+
 export function giftStrip(codes: readonly GiftCode[], members: readonly GiftMember[]): StripCell[] {
   const live = codes.filter(isLive);
   const sums = live.map(summarise);
@@ -22,6 +27,7 @@ export function giftStrip(codes: readonly GiftCode[], members: readonly GiftMemb
   const failed = sums.reduce((total, one) => total + one.failed, 0);
   const claimed = members.filter((member) => !member.excluded).length;
   const leftOut = members.length - claimed;
+  const saved = members.filter((member) => member.extra && !member.excluded).length;
   return [
     {
       label: 'Live codes',
@@ -31,7 +37,7 @@ export function giftStrip(codes: readonly GiftCode[], members: readonly GiftMemb
     {
       label: 'Claimed for',
       value: plain.format(claimed),
-      note: leftOut === 0 ? 'the whole roster' : `${plain.format(leftOut)} left out`,
+      note: stripNote(leftOut, saved),
     },
     {
       label: 'Waiting',
