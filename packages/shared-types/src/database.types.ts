@@ -9642,6 +9642,18 @@ export type Database = {
       }
       reset_week_start: { Args: { ts: string }; Returns: string }
       resolve_own_alliance: { Args: never; Returns: undefined }
+      retention_purge: {
+        Args: {
+          p_batch?: number
+          p_confirm?: boolean
+          p_keep_others?: string
+          p_keep_ours?: string
+        }
+        Returns: {
+          relation: string
+          rows: number
+        }[]
+      }
       retention_report: {
         Args: {
           p_confirm?: boolean
