@@ -134,18 +134,27 @@ def build_from(
     )
 
 
-def read_journal(path: str, limit: int = 600) -> list[tuple[str, dict[str, Any]]]:
-    """The newest hero-event captures in a journal, newest first, read-only."""
+def read_journal(path: str, limit: int = 5000) -> list[tuple[str, dict[str, Any]]]:
+    """The newest hero-event captures in a journal, newest first, read-only.
+
+    `limit` applies to each command separately. The collector captures the theme list
+    (`hero.event.info.get`) thousands of times a week and the calendar far less, so one
+    shared cap let the busy command push a week's older Duel days out of the window.
+    """
     import sqlite3
 
     reader = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
     try:
-        rows = reader.execute(
-            "select source_command, payload_json from raw_observations"
-            " where source_command in ('hero.event.info.get', 'get.hero.event.calendar')"
-            " order by captured_at desc limit ?",
-            (limit,),
-        ).fetchall()
+        rows: list[tuple[str, str, str]] = []
+        for command in ("hero.event.info.get", "get.hero.event.calendar"):
+            rows.extend(
+                reader.execute(
+                    "select captured_at, source_command, payload_json from raw_observations"
+                    " where source_command = ? order by captured_at desc limit ?",
+                    (command, limit),
+                ).fetchall()
+            )
     finally:
         reader.close()
-    return [(command, json.loads(payload)) for command, payload in rows]
+    rows.sort(key=lambda row: row[0], reverse=True)
+    return [(command, json.loads(payload)) for _, command, payload in rows]

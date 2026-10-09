@@ -108,11 +108,11 @@ describe('weekGrid', () => {
 });
 
 describe('themes', () => {
-  it('orders the Duel by weekday and says which days the game has not sent yet', () => {
+  it('orders the Duel by weekday and says which Mon-Sat days are not loaded yet (Sunday has no Duel)', () => {
     const themes = [theme('4', DUEL, 4), theme('1', DUEL, 1), theme('s', SURVIVAL, null)];
 
     expect(themesOf(themes, DUEL).map((t) => t.day)).toEqual([1, 4]);
-    expect(missingDuelDays(themes)).toEqual([2, 3, 5, 6, 7]);
+    expect(missingDuelDays(themes)).toEqual([2, 3, 5, 6]);
   });
 });
 

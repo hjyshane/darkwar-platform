@@ -94,11 +94,14 @@ export function weekGrid(calendar: readonly CalendarSlot[], activity: string): (
   return grid;
 }
 
-/** Days of the week the Duel has no theme for yet: the game only sends a theme
- * the week it runs, so a day nobody has logged in on is a gap, not a rest day. */
+/** The Duel runs Monday to Saturday and repeats every week; Sunday has none. */
+export const DUEL_DAYS = [1, 2, 3, 4, 5, 6] as const;
+
+/** Duel days (Mon-Sat) with no theme loaded yet: a gap in what the collector has
+ * read, not a rest day. Sunday is never listed, it has no Duel. */
 export function missingDuelDays(themes: readonly Theme[]): number[] {
   const known = new Set(themesOf(themes, DUEL).map((theme) => theme.day));
-  return [1, 2, 3, 4, 5, 6, 7].filter((day) => !known.has(day));
+  return DUEL_DAYS.filter((day) => !known.has(day));
 }
 
 /** Where the game's clock is right now: the weekday (Monday = 1) and the
