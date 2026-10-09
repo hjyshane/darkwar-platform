@@ -116,15 +116,17 @@ interface StockPanelProps {
   edited: ReadonlySet<string>;
 }
 
-// Closed until opened, and remembered (user 2026-10-05: the list pushed
-// the rest of the planner down). Browser storage can be refused.
+// Remembered. It was closed by default (user 2026-10-05: the list pushed the
+// rest of the planner down); it now has a page of its own, Settings, where a
+// closed panel would leave the page looking empty, so it is open until somebody
+// closes it. Browser storage can be refused.
 const OPEN_KEY = 'planner-stock-open';
 
 function readOpen(): boolean {
   try {
-    return localStorage.getItem(OPEN_KEY) === '1';
+    return localStorage.getItem(OPEN_KEY) !== '0';
   } catch {
-    return false;
+    return true;
   }
 }
 
