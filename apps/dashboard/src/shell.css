@@ -1295,3 +1295,23 @@
    * track would push the whole page sideways instead of scrolling in a wrapper. */
   grid-template-columns: minmax(0, 1fr);
 }
+
+/* A board screen's panel is headed by an h3 ("All notices", "All guides"). */
+.board-screen > .panel > h3 {
+  font-size: var(--text-base);
+  font-weight: 600;
+  margin: 0 0 var(--space-3);
+}
+
+/* The foot of a board's header holds a line of text, any error, and the button
+ * that writes a post; lay them out as a row that wraps. */
+.board-screen > .entity > .entity-foot {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+}
+
+.board-screen > .entity > .entity-foot p {
+  margin: 0;
+}
