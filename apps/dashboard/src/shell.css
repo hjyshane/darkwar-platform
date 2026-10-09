@@ -1253,3 +1253,23 @@
   border-color: var(--gold-strong);
   color: var(--gold);
 }
+
+.gift-screen {
+  display: grid;
+  gap: var(--space-4);
+  /* minmax(0, 1fr), not auto: the members table is wide, and an auto track would
+   * let it push the whole page sideways instead of scrolling in its wrapper. */
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.gift-screen > .panel > h2 {
+  font-size: var(--text-base);
+  font-weight: 600;
+  margin: 0 0 var(--space-3);
+}
+
+/* The form and the bars inside a panel sit flush with its padding. */
+.gift-screen .migration-form,
+.gift-screen .migration-bar {
+  margin: 0;
+}
