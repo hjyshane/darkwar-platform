@@ -121,7 +121,7 @@ export function CalendarPage() {
   }
 
   return (
-    <main>
+    <main className="calendar-page">
       <h2>Game calendar</h2>
       <p className="subtle">
         What the game has announced, from the login the collector saw at{' '}
