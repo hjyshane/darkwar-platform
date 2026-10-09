@@ -12,6 +12,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { SortableTh } from '../../components/SortableTh';
+import { Strip } from '../../components/Strip';
 import { Select } from '../../components/ui/Select';
 import { Tabs } from '../../components/ui/Tabs';
 import { GameIcon, useItemIcons } from '../../lib/gameIcons';
@@ -39,6 +40,7 @@ import {
   saveItemValue,
   storeHidden,
 } from './data';
+import { shopStrip } from './strip';
 
 const STALE_TIME = 5 * 60_000;
 
@@ -699,12 +701,25 @@ export function ShopValuePage() {
   const mayEdit = session?.role === 'officer' || session?.role === 'admin';
   const [now] = useState(() => new Date());
   const [tab, setTab] = useState<Tab>('packs');
+  // The same query the Packs tab runs, so the figures cost no second read.
+  const packs = useQuery({ queryKey: ['shop-packs'], queryFn: fetchPacks, staleTime: STALE_TIME });
   return (
-    <main>
-      <h2>Shop value</h2>
-      <p className="subtle">
-        What packs and Ruby-shop entries are worth, in dollars of value per dollar paid.
-      </p>
+    <main className="shop-screen">
+      <div className="entity">
+        <header className="entity-head">
+          <span aria-hidden="true" className="entity-mark">
+            SV
+          </span>
+          <div>
+            <h2>Shop value</h2>
+            <p className="entity-meta">
+              <span>What packs and Ruby-shop entries are worth</span>
+              <span>Dollars of value per dollar paid</span>
+            </p>
+          </div>
+        </header>
+        {packs.data && <Strip cells={shopStrip(packs.data, now)} />}
+      </div>
       <Tabs
         label="Shop value"
         className="row"
@@ -712,10 +727,12 @@ export function ShopValuePage() {
         value={tab}
         onChange={setTab}
       />
-      {tab === 'packs' && <PacksTab mayEdit={mayEdit} now={now} />}
-      {tab === 'shop' && <ShopTab />}
-      {tab === 'values' && <ValuesTab mayEdit={mayEdit} />}
-      {tab === 'unnamed' && <UnnamedTab mayEdit={mayEdit} />}
+      <div className="panel">
+        {tab === 'packs' && <PacksTab mayEdit={mayEdit} now={now} />}
+        {tab === 'shop' && <ShopTab />}
+        {tab === 'values' && <ValuesTab mayEdit={mayEdit} />}
+        {tab === 'unnamed' && <UnnamedTab mayEdit={mayEdit} />}
+      </div>
     </main>
   );
 }
