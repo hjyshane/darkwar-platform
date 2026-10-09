@@ -76,7 +76,10 @@ export function WeekGrid({
   return (
     <div
       className={`calendar-week${tall ? ' calendar-week-tall' : ''}`}
-      style={{ gridTemplateRows: `1.6rem repeat(${Math.max(rows - 1, 0)}, auto)` }}
+      // The date row is at least 1.6rem and grows with its text: at phone width a
+      // day reads "Mon" over "5", two lines, and a fixed row let it run into the
+      // label row beneath.
+      style={{ gridTemplateRows: `minmax(1.6rem, auto) repeat(${Math.max(rows - 1, 0)}, auto)` }}
     >
       {days.map((day, column) => (
         <div

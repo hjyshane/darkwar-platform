@@ -4807,6 +4807,23 @@ button.tile-grid:hover:not(:disabled) {
   .calendar-toggle > button:focus-visible {
     outline-offset: 1px;
   }
+  /* The global main gap (2rem) on top of each paragraph's own margins left a
+     phone with a screenful of air between the heading, the intro line and the
+     controls. */
+  .calendar-page {
+    gap: var(--space-2);
+  }
+  /* Seven columns in 375px leave about 40px a day. "Mon 5" wrapped to two lines
+     and the second ran into the category label beneath; the date row cannot grow
+     (the day cells span every row), so the date stays on one line and smaller. */
+  .calendar-week-day {
+    padding-inline: 0.15rem;
+  }
+  .calendar-date-button {
+    font-size: 0.65rem;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+  }
 }
 .calendar-month-nav {
   align-items: center;
