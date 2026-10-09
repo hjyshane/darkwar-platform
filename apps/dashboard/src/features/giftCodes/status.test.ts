@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import type { GiftCode, GiftMember } from './data';
+import type { GiftCode, GiftMember, GiftRunner } from './data';
 import {
   allSelected,
   byRank,
@@ -9,6 +9,7 @@ import {
   pickableUids,
   rankGroups,
   rankLabel,
+  runnerView,
   summarise,
   toggleGroup,
 } from './status';
@@ -94,6 +95,47 @@ describe('claimableSelection', () => {
 
   test('an empty selection claims for nobody, not for everyone', () => {
     expect(claimableSelection(members, new Set())).toEqual([]);
+  });
+});
+
+describe('runnerView', () => {
+  const now = new Date('2026-10-09T12:00:00Z');
+  const base: GiftRunner = {
+    enabled: false,
+    paused_until: null,
+    halted_reason: null,
+    last_sent_at: null,
+  };
+
+  test('off by default', () => {
+    expect(runnerView(base, now).kind).toBe('off');
+  });
+
+  test('off by an officer is just off, not an alarm', () => {
+    expect(runnerView({ ...base, halted_reason: 'turned off by an officer' }, now).kind).toBe(
+      'off',
+    );
+  });
+
+  test('a self-stop shows its reason', () => {
+    const v = runnerView({ ...base, halted_reason: 'HTTP 429' }, now);
+    expect(v.kind).toBe('stopped');
+    expect(v.text).toContain('HTTP 429');
+  });
+
+  test('on, and on but waiting out a pause', () => {
+    expect(runnerView({ ...base, enabled: true }, now).kind).toBe('on');
+    const paused = runnerView(
+      { ...base, enabled: true, paused_until: '2026-10-09T12:07:30Z' },
+      now,
+    );
+    expect(paused.kind).toBe('paused');
+    expect(paused.text).toContain('8 min');
+  });
+
+  test('a pause that has passed counts as on', () => {
+    const v = runnerView({ ...base, enabled: true, paused_until: '2026-10-09T11:00:00Z' }, now);
+    expect(v.kind).toBe('on');
   });
 });
 

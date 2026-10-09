@@ -1,4 +1,4 @@
-import type { GiftCode, GiftMember } from './data';
+import type { GiftCode, GiftMember, GiftRunner } from './data';
 
 /** What one (code, player) pair is, in words. Unknown statuses are shown as
  * they come: a status this page does not know yet is the worker's news, not
@@ -64,6 +64,38 @@ export function claimableSelection(
   selected: ReadonlySet<number>,
 ): number[] {
   return members.filter((m) => selected.has(m.game_uid) && !m.excluded).map((m) => m.game_uid);
+}
+
+export type RunnerView =
+  | { kind: 'on'; text: string }
+  | { kind: 'paused'; text: string }
+  | { kind: 'stopped'; text: string }
+  | { kind: 'off'; text: string };
+
+/** What the sender is doing, in words, from `gift_runner_status`.
+ *
+ * "Off with a reason" is the sender stopping ITSELF (a block, a challenge, an
+ * answer nobody recognises) and is shown as stopped, because that is the case
+ * that needs a person to look before turning it back on. */
+export function runnerView(runner: GiftRunner, now: Date): RunnerView {
+  if (runner.enabled) {
+    const until = runner.paused_until ? new Date(runner.paused_until) : null;
+    if (until && until.getTime() > now.getTime()) {
+      const minutes = Math.max(1, Math.ceil((until.getTime() - now.getTime()) / 60_000));
+      return {
+        kind: 'paused',
+        text: `Waiting ${minutes} min: the Gift Center is not answering normally.`,
+      };
+    }
+    return {
+      kind: 'on',
+      text: 'On: waiting claims are sent one at a time, even with every PC off.',
+    };
+  }
+  if (runner.halted_reason && runner.halted_reason !== 'turned off by an officer') {
+    return { kind: 'stopped', text: `Stopped itself: ${runner.halted_reason}` };
+  }
+  return { kind: 'off', text: 'Off: claims you queue wait until you turn this on.' };
 }
 
 /** `R4`, or a dash where the rank is not known. */

@@ -9006,6 +9006,15 @@ export type Database = {
           name: string
         }[]
       }
+      gift_runner_status: {
+        Args: never
+        Returns: {
+          enabled: boolean
+          halted_reason: string
+          last_sent_at: string
+          paused_until: string
+        }[]
+      }
       has_permission: { Args: { p_capability: string }; Returns: boolean }
       is_service_request: { Args: never; Returns: boolean }
       joinable_alliances: {
@@ -9356,6 +9365,10 @@ export type Database = {
       }
       set_gift_exclusion: {
         Args: { p_excluded: boolean; p_game_uid: number }
+        Returns: undefined
+      }
+      set_gift_runner_enabled: {
+        Args: { p_enabled: boolean }
         Returns: undefined
       }
       set_membership: {

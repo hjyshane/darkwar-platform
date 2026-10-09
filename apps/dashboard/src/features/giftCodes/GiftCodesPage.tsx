@@ -9,10 +9,13 @@ import {
   enqueueGiftClaims,
   fetchGiftCodes,
   fetchGiftMembers,
+  fetchGiftRunner,
   setGiftCodeStatus,
   setGiftExclusion,
+  setGiftRunner,
 } from './data';
 import {
+  type RunnerView,
   allSelected,
   byRank,
   claimLabel,
@@ -21,6 +24,7 @@ import {
   pickableUids,
   rankGroups,
   rankLabel,
+  runnerView,
   summarise,
   toggleGroup,
 } from './status';
@@ -45,6 +49,11 @@ export function GiftCodesPage() {
   const members = useQuery({
     queryKey: ['gift', 'members'],
     queryFn: fetchGiftMembers,
+    refetchInterval: REFRESH_MS,
+  });
+  const runner = useQuery({
+    queryKey: ['gift', 'runner'],
+    queryFn: fetchGiftRunner,
     refetchInterval: REFRESH_MS,
   });
   const [selected, setSelected] = useState<ReadonlySet<number>>(new Set());
@@ -89,6 +98,11 @@ export function GiftCodesPage() {
     onSuccess: refresh,
     onError,
   });
+  const toggleRunner = useMutation({
+    mutationFn: (enabled: boolean) => setGiftRunner(enabled),
+    onSuccess: refresh,
+    onError,
+  });
   const exclude = useMutation({
     mutationFn: ({ uid, excluded }: { uid: number; excluded: boolean }) =>
       setGiftExclusion(uid, excluded),
@@ -107,7 +121,7 @@ export function GiftCodesPage() {
   const live = list.filter(isLive);
   const people = members.data ?? [];
   const claimable = claimableSelection(people, selected);
-  const failure = [add, claim, cancel, retire, exclude].find((m) => m.error)?.error;
+  const failure = [add, claim, cancel, retire, exclude, toggleRunner].find((m) => m.error)?.error;
 
   const groups = rankGroups(people);
   const everyone = pickableUids(people);
@@ -153,10 +167,22 @@ export function GiftCodesPage() {
           </div>
         )}
         <p className="entity-foot">
-          Pressing Claim only queues the requests: a worker on the collector PC sends them one at a
-          time, slowly. Everyone on the roster is claimed for unless you leave them out below.
+          Pressing Claim only queues the requests: the sender below sends them one at a time,
+          slowly. Everyone on the roster is claimed for unless you leave them out below.
         </p>
       </div>
+
+      {runner.data && (
+        <section aria-label="Gift sender" className="panel">
+          <RunnerPanel
+            view={runnerView(runner.data, new Date())}
+            enabled={runner.data.enabled}
+            busy={toggleRunner.isPending}
+            onToggle={() => toggleRunner.mutate(!runner.data?.enabled)}
+          />
+        </section>
+      )}
+      {runner.error && <p className="error">{runner.error.message}</p>}
 
       <section aria-label="Add a code" className="panel">
         <form className="migration-form" onSubmit={submit}>
@@ -291,6 +317,28 @@ export function GiftCodesPage() {
         )}
       </section>
     </section>
+  );
+}
+
+function RunnerPanel({
+  view,
+  enabled,
+  busy,
+  onToggle,
+}: {
+  view: RunnerView;
+  enabled: boolean;
+  busy: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="migration-bar">
+      <strong>Sender</strong>
+      <span className={view.kind === 'stopped' ? 'error' : 'muted'}>{view.text}</span>
+      <button type="button" disabled={busy} onClick={onToggle}>
+        {enabled ? 'Turn off' : 'Turn on'}
+      </button>
+    </div>
   );
 }
 

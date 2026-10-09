@@ -30,6 +30,16 @@ export interface GiftMember {
   rank: number | null;
 }
 
+/** The database-side sender (0252), from `gift_runner_status`. */
+export interface GiftRunner {
+  enabled: boolean;
+  /** Set while it is waiting out a run of non-answers. */
+  paused_until: string | null;
+  /** Why it last turned itself (or an officer) off. */
+  halted_reason: string | null;
+  last_sent_at: string | null;
+}
+
 // The generated types call every returned column non-null, which is what the
 // CLI emits for `returns table` and not what the functions return - hence the
 // casts to the hand-written shapes above.
@@ -119,4 +129,19 @@ export async function cancelGiftClaims(codeId: string): Promise<number> {
     throw new Error(error.message);
   }
   return data ?? 0;
+}
+
+export async function fetchGiftRunner(): Promise<GiftRunner | null> {
+  const { data, error } = await supabase.rpc('gift_runner_status');
+  if (error) {
+    throw new Error(`gift sender query failed: ${error.message}`);
+  }
+  return ((data ?? [])[0] as GiftRunner | undefined) ?? null;
+}
+
+export async function setGiftRunner(enabled: boolean): Promise<void> {
+  const { error } = await supabase.rpc('set_gift_runner_enabled', { p_enabled: enabled });
+  if (error) {
+    throw new Error(error.message);
+  }
 }
