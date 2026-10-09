@@ -6207,6 +6207,15 @@ button.server-link {
   pointer-events: none;
 }
 
+/* The HQ level after the name: smaller and quieter than the name itself. */
+.atlas-dot__name em {
+  margin-left: 0.4em;
+  font-size: 0.85em;
+  font-style: normal;
+  font-weight: 700;
+  color: #a5b4fc;
+}
+
 .atlas-card {
   display: grid;
   gap: 0.15rem;
@@ -6255,4 +6264,119 @@ button.server-link {
 .pan-map:fullscreen .pan-map__window {
   width: min(100vw, calc(100vh * 3164 / 2664));
   border-radius: 0;
+}
+
+/* The right-hand panel's drill-down: an alliance, then one of its bases. */
+.atlas-detail {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.atlas-detail__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.atlas-detail__action,
+.atlas-detail__copy {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  color: var(--fg);
+  font: inherit;
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+}
+
+.atlas-detail__copy {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg, #fff);
+  font-weight: 600;
+}
+
+.atlas-detail__head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+}
+
+.atlas-detail__head > div {
+  display: grid;
+  min-width: 0;
+}
+
+.atlas-detail__close {
+  margin-left: auto;
+  border: 0;
+  background: none;
+  color: var(--fg-muted);
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.atlas-badge {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--radius-md);
+  color: #fff;
+  font-weight: 700;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.5);
+}
+
+.atlas-detail__title {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-xs, 0.75rem);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.atlas-strongest {
+  counter-reset: strongest;
+  padding: 0;
+  list-style: none;
+}
+
+.atlas-strongest li {
+  counter-increment: strongest;
+}
+
+.atlas-base-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  text-align: left;
+}
+
+.atlas-strongest .atlas-base-row::before {
+  content: counter(strongest);
+  min-width: 1.5em;
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.atlas-base-row__who {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+
+.atlas-base-row__power {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }

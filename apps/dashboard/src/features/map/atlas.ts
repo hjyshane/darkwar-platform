@@ -330,11 +330,12 @@ const PX_PER_TILE_Y = 0.58;
 const NAME_HEIGHT_PX = 14;
 const NAME_GAP_PX = 3;
 
-function nameWidthPx(name: string): number {
+function nameWidthPx(name: string, hq: number | null): number {
   // Wide scripts (Korean, Chinese, Vietnamese stacks) run about twice a Latin letter.
   let width = 10;
   for (const ch of name) width += ch.charCodeAt(0) < 0x250 ? 5.6 : 10;
-  return width;
+  // The "HQ27" tag after the name.
+  return hq === null ? width : width + 34;
 }
 
 /** The base names that fit on screen without sitting on each other at `zoom`.
@@ -376,7 +377,7 @@ export function visibleNames(
   const grid = new Map<string, { x: number; y: number; w: number }[]>();
   for (const base of ordered) {
     const name = base.name as string;
-    const w = nameWidthPx(name);
+    const w = nameWidthPx(name, base.hq);
     const x = base.at.x * PX_PER_TILE_X * zoom;
     const y = base.at.y * PX_PER_TILE_Y * zoom;
     const cx = Math.floor(x / CELL_X);
@@ -403,4 +404,32 @@ export function visibleNames(
     else grid.set(key, [{ x, y, w }]);
   }
   return shown;
+}
+
+export interface AllianceSummary {
+  bases: number;
+  shielded: number;
+  /** Sum of the bases whose profile has been read; the rest have no power yet. */
+  realPower: number;
+  profilesRead: number;
+  /** The strongest bases with a known power, strongest first. */
+  strongest: AtlasBase[];
+}
+
+/** The figures on an alliance's detail panel, from its bases on this map. */
+export function allianceSummary(
+  atlas: Atlas,
+  index: number,
+  now: Date,
+  strongestCount = 12,
+): AllianceSummary {
+  const members = atlas.bases.filter((base) => base.alliance === index);
+  const read = members.filter((base) => base.power !== null);
+  return {
+    bases: members.length,
+    shielded: members.filter((base) => isShielded(base, now)).length,
+    realPower: read.reduce((sum, base) => sum + (base.power ?? 0), 0),
+    profilesRead: read.length,
+    strongest: byPower(read).slice(0, strongestCount),
+  };
 }

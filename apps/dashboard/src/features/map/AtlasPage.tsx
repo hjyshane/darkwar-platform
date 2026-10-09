@@ -5,6 +5,7 @@ import { Tabs } from '../../components/ui/Tabs';
 import { formatAge } from '../../lib/freshness';
 import { useActiveAlliance } from '../../lib/useMyAlliances';
 import { AtlasMap } from './AtlasMap';
+import { AllianceDetail, BaseDetail } from './AtlasPanel';
 import { PlunderList, TrucksList } from './HuntLists';
 import { HuntPins } from './HuntPins';
 import { PannableMap } from './PannableMap';
@@ -40,7 +41,7 @@ import { useHuntData } from './huntState';
 
 const BASES_SHOWN = 50;
 
-type Panel = 'alliances' | 'bases' | 'trucks' | 'plunder';
+type Panel = 'atlas' | 'trucks' | 'plunder';
 
 /** One server's swept bases coloured by alliance, with the alliances ranked
  * beside the map. Clicking an alliance lights its bases; clicking a base or a
@@ -54,7 +55,7 @@ export function AtlasPage({ serverId }: { serverId: number }) {
   const { active: mine } = useActiveAlliance();
   const atlas = data ?? EMPTY_ATLAS;
   const [query, setQuery] = useState('');
-  const [panel, setPanel] = useState<Panel>('alliances');
+  const [panel, setPanel] = useState<Panel>('atlas');
   const [picked, setPicked] = useState<number | null>(null);
   const [selectedUid, setSelectedUid] = useState<number | null>(null);
   const [focus, setFocus] = useState<{ at: Coordinate; nonce: number } | null>(null);
@@ -94,6 +95,8 @@ export function AtlasPage({ serverId }: { serverId: number }) {
     listed = listed.filter((base) => passing.has(base.gameUid));
     lit = lit === null ? passing : new Set([...lit].filter((uid) => passing.has(uid)));
   }
+  // A search or a filter is asking about bases, not alliances.
+  const searching = query.trim().length > 0 || filterActive(baseFilter);
   const ranked = byPower(listed);
   const rows = showAll ? ranked : ranked.slice(0, BASES_SHOWN);
 
@@ -133,19 +136,36 @@ export function AtlasPage({ serverId }: { serverId: number }) {
   }
 
   function chooseBase(base: AtlasBase) {
+    // The base's alliance is what the map highlights while it is looked at, so
+    // its "strongest in" list and the glow agree.
+    setPicked(base.alliance >= 0 ? base.alliance : null);
     goTo(base.at, base.gameUid);
   }
 
-  function chooseAlliance(index: number) {
-    if (picked === index) {
-      setPicked(null);
-      return;
-    }
-    setPicked(index);
-    setShowAll(false);
+  function copyBase(base: AtlasBase) {
+    const written = formatCopyCoordinate(base.at);
+    navigator.clipboard
+      ?.writeText(written)
+      .then(() => setCopied(written))
+      .catch(() => setCopied(null));
+  }
+
+  function centreOnAlliance(index: number) {
     const middle = centroid(atlas.bases.filter((base) => base.alliance === index));
     if (middle !== null)
       setFocus((previous) => ({ at: middle, nonce: (previous?.nonce ?? 0) + 1 }));
+  }
+
+  function chooseAlliance(index: number) {
+    setPicked(index);
+    setSelectedUid(null);
+    setShowAll(false);
+    centreOnAlliance(index);
+  }
+
+  function showAllAlliances() {
+    setPicked(null);
+    setSelectedUid(null);
   }
 
   const newest = atlas.bases.reduce<Date | null>(
@@ -213,10 +233,7 @@ export function AtlasPage({ serverId }: { serverId: number }) {
               {message}
             </p>
           ))}
-          {copied && <output className="subtle">Copied {copied}</output>}
-          {selected !== null && (
-            <BaseCard alliance={atlas.alliances[selected.alliance]} base={selected} now={now} />
-          )}
+          {copied && selected === null && <output className="subtle">Copied {copied}</output>}
         </div>
 
         <div className="hunt-side">
@@ -329,8 +346,7 @@ export function AtlasPage({ serverId }: { serverId: number }) {
           <Tabs
             label="Panel"
             items={[
-              { id: 'alliances' as const, label: 'Alliances' },
-              { id: 'bases' as const, label: `Bases (${listed.length})` },
+              { id: 'atlas' as const, label: 'Atlas' },
               { id: 'trucks' as const, label: `Trucks (${hunt.worth.length})` },
               { id: 'plunder' as const, label: `Plunder (${hunt.open.length})` },
             ]}
@@ -338,7 +354,37 @@ export function AtlasPage({ serverId }: { serverId: number }) {
             value={panel}
           />
 
-          {panel === 'alliances' && (
+          {panel === 'atlas' && selected !== null && (
+            <BaseDetail
+              atlas={atlas}
+              base={selected}
+              copied={copied}
+              isOurs={selected.alliance === oursIndex && oursIndex >= 0}
+              now={now}
+              onBack={() => {
+                setSelectedUid(null);
+                if (selected.alliance < 0) setPicked(null);
+              }}
+              onChoose={chooseBase}
+              onClose={() => setSelectedUid(null)}
+              onCopy={copyBase}
+            />
+          )}
+
+          {panel === 'atlas' && selected === null && picked !== null && (
+            <AllianceDetail
+              atlas={atlas}
+              index={picked}
+              isOurs={picked === oursIndex}
+              now={now}
+              onBack={showAllAlliances}
+              onCentre={() => centreOnAlliance(picked)}
+              onChoose={chooseBase}
+              selectedUid={selectedUid}
+            />
+          )}
+
+          {panel === 'atlas' && selected === null && picked === null && (
             <>
               {atlas.alliances.length === 0 && (
                 <p className="empty">
@@ -392,56 +438,46 @@ export function AtlasPage({ serverId }: { serverId: number }) {
                   );
                 })}
               </ul>
-            </>
-          )}
 
-          {panel === 'bases' && (
-            <>
-              {picked !== null && (
-                <p className="subtle">
-                  {atlas.alliances[picked]?.code
-                    ? `[${atlas.alliances[picked]?.code}]`
-                    : 'Alliance'}
-                  's bases.{' '}
-                  <button className="linklike" onClick={() => setPicked(null)} type="button">
-                    show all
-                  </button>
-                </p>
-              )}
-              {search.kind === 'coordinate' && (
-                <p className="subtle">Nearest to {formatCoordinate(search.at)}.</p>
-              )}
-              {listed.length === 0 && <p className="empty">Nobody matches.</p>}
-              <ul className="map-results">
-                {rows.map((base) => {
-                  const alliance = base.alliance >= 0 ? atlas.alliances[base.alliance] : undefined;
-                  return (
-                    <li key={base.gameUid}>
-                      <button
-                        className={base.gameUid === selectedUid ? 'map-result--on' : undefined}
-                        onClick={() => chooseBase(base)}
-                        type="button"
-                      >
-                        <strong>
-                          {alliance?.code ? `[${alliance.code}] ` : ''}
-                          {base.name ?? 'unnamed'}
-                        </strong>
-                        <span className="subtle">
-                          {formatCoordinate(base.at)}
-                          {base.hq !== null && ` · HQ ${base.hq}`} · {formatPower(base.power)} ·{' '}
-                          {formatAge(base.seenAt.toISOString(), now)}
-                          {isShielded(base, now) && ' · shielded'}
-                          {isStale(base, now) && ' (may have moved)'}
-                        </span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-              {!showAll && ranked.length > BASES_SHOWN && (
-                <button className="linklike" onClick={() => setShowAll(true)} type="button">
-                  Show all {ranked.length}
-                </button>
+              {searching && (
+                <>
+                  {search.kind === 'coordinate' && (
+                    <p className="subtle">Nearest to {formatCoordinate(search.at)}.</p>
+                  )}
+                  {listed.length === 0 && <p className="empty">Nobody matches.</p>}
+                  <ul className="map-results">
+                    {rows.map((base) => {
+                      const alliance =
+                        base.alliance >= 0 ? atlas.alliances[base.alliance] : undefined;
+                      return (
+                        <li key={base.gameUid}>
+                          <button
+                            className={base.gameUid === selectedUid ? 'map-result--on' : undefined}
+                            onClick={() => chooseBase(base)}
+                            type="button"
+                          >
+                            <strong>
+                              {alliance?.code ? `[${alliance.code}] ` : ''}
+                              {base.name ?? 'unnamed'}
+                            </strong>
+                            <span className="subtle">
+                              {formatCoordinate(base.at)}
+                              {base.hq !== null && ` · HQ ${base.hq}`} · {formatPower(base.power)} ·{' '}
+                              {formatAge(base.seenAt.toISOString(), now)}
+                              {isShielded(base, now) && ' · shielded'}
+                              {isStale(base, now) && ' (may have moved)'}
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  {!showAll && ranked.length > BASES_SHOWN && (
+                    <button className="linklike" onClick={() => setShowAll(true)} type="button">
+                      Show all {ranked.length}
+                    </button>
+                  )}
+                </>
               )}
             </>
           )}
@@ -486,35 +522,4 @@ export function AtlasPage({ serverId }: { serverId: number }) {
 function toLevel(text: string): number | null {
   const level = Number.parseInt(text, 10);
   return Number.isNaN(level) ? null : level;
-}
-
-/** The picked base, under the map: who, how strong, shielded or not, and how
- * old the sighting is. The shield is as of that sighting. */
-function BaseCard({
-  base,
-  alliance,
-  now,
-}: {
-  base: AtlasBase;
-  alliance: { code: string | null; name: string | null } | undefined;
-  now: Date;
-}) {
-  const shield = base.shieldEnd;
-  return (
-    <div className="atlas-card">
-      <strong>{base.name ?? 'unnamed'}</strong>
-      <span className="subtle">
-        {alliance?.code ? `[${alliance.code}] ` : ''}
-        {formatCopyCoordinate(base.at)}
-        {base.hq !== null && ` · HQ ${base.hq}`} · {formatPower(base.power)} power
-      </span>
-      <span className="subtle">
-        {isShielded(base, now) && shield !== null
-          ? `Shielded until ${shield.toISOString().slice(11, 16)} UTC`
-          : 'No shield'}{' '}
-        · seen {formatAge(base.seenAt.toISOString(), now)}
-        {isStale(base, now) && ' — may have moved, and the shield may have changed'}
-      </span>
-    </div>
-  );
 }
