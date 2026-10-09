@@ -1,4 +1,4 @@
-"""Where the Dark Syndicate truck stations are on the map (0258).
+"""Where the Dark Syndicate truck stations are on the map (0259).
 
 A truck's route is a list of station NUMBERS and nothing in the client's data
 tables says where station 43 is. The map does, though: every truck march push

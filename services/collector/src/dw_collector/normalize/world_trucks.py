@@ -88,7 +88,7 @@ def _route(entry: dict[str, Any]) -> dict[str, Any]:
     ``stationList`` is the truck's route as station numbers; ``lastPosIndex`` is
     the station it is travelling TOWARDS (the leg runs from the one before it),
     and ``lastSendTime`` .. ``nextEndTime`` are when that leg starts and ends.
-    The numbers mean nothing alone - ``game_train_stations`` (0258) turns them
+    The numbers mean nothing alone - ``game_train_stations`` (0259) turns them
     into map points. Verified on 2,343 foreign legs: station distance over leg
     time is 0.25 tiles/s, the truck speed, on every server 577-588.
     """

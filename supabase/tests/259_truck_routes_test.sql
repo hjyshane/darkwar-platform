@@ -1,4 +1,4 @@
--- 0258: a listed truck carries its route and current leg through the view, and
+-- 0259: a listed truck carries its route and current leg through the view, and
 -- the station table is readable by a member and by nobody else.
 begin;
 create extension if not exists pgtap with schema extensions;
