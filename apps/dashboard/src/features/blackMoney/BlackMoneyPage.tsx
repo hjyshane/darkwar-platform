@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Fragment, useState } from 'react';
+import { Strip } from '../../components/Strip';
 import { TERMS } from '../../lib/terms';
 import { BattleDetail, STALE_TIME, num } from './BattleDetail';
 import {
@@ -11,6 +12,7 @@ import {
   serverClock,
   teamLabel,
 } from './data';
+import { blackGoldStrip } from './strip';
 
 /** The table's column count, for the detail row that spans all of it. */
 const COLUMNS = 6;
@@ -57,99 +59,115 @@ export function BlackMoneyPage() {
   const events = groupEvents(battles.data ?? []);
 
   return (
-    <section aria-labelledby="black-money-heading">
-      <h2 id="black-money-heading">{TERMS.blackMoney}</h2>
+    <section aria-labelledby="black-money-heading" className="board-screen">
+      <div className="entity">
+        <header className="entity-head">
+          <span aria-hidden="true" className="entity-mark">
+            BG
+          </span>
+          <div>
+            <h2 id="black-money-heading">{TERMS.blackMoney}</h2>
+            <p className="entity-meta">
+              <span>Our two teams, event by event</span>
+              <span>Server time, UTC−2</span>
+            </p>
+          </div>
+        </header>
+        {battles.data && <Strip cells={blackGoldStrip(battles.data)} />}
+      </div>
 
-      {battles.isPending && <p className="empty loading">Loading…</p>}
-      {battles.error && (
-        <p className="error">Could not load the battles: {battles.error.message}</p>
-      )}
-      {battles.data && events.length === 0 && (
-        <p className="empty">No Black Gold battle has been captured yet.</p>
-      )}
+      <div className="panel">
+        {battles.isPending && <p className="empty loading">Loading…</p>}
+        {battles.error && (
+          <p className="error">Could not load the battles: {battles.error.message}</p>
+        )}
+        {battles.data && events.length === 0 && (
+          <p className="empty">No Black Gold battle has been captured yet.</p>
+        )}
 
-      {events.length > 0 && (
-        // The same scroll container ArrangedTable uses, so a narrow screen
-        // scrolls the table rather than the page.
-        <div className="table-wrap">
-          <table className="compact bm-events">
-            <thead>
-              <tr>
-                <th scope="col">Event</th>
-                <th scope="col">Team</th>
-                <th scope="col">Result</th>
-                <th scope="col">Opponent</th>
-                <th scope="col" className="numeric">
-                  Score <span className="muted">(us : them)</span>
-                </th>
-                <th scope="col" className="numeric">
-                  Entered
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {events.map((event) =>
-                event.teams.map((battle, index) => {
-                  const key = battleKey(battle);
-                  const open = key === openKey;
-                  return (
-                    <Fragment key={key}>
-                      <tr className={open ? 'bm-row bm-row-open' : 'bm-row'}>
-                        {/* The day on the event's first row only. Not a
+        {events.length > 0 && (
+          // The same scroll container ArrangedTable uses, so a narrow screen
+          // scrolls the table rather than the page.
+          <div className="table-wrap">
+            <table className="compact bm-events">
+              <thead>
+                <tr>
+                  <th scope="col">Event</th>
+                  <th scope="col">Team</th>
+                  <th scope="col">Result</th>
+                  <th scope="col">Opponent</th>
+                  <th scope="col" className="numeric">
+                    Score <span className="muted">(us : them)</span>
+                  </th>
+                  <th scope="col" className="numeric">
+                    Entered
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {events.map((event) =>
+                  event.teams.map((battle, index) => {
+                    const key = battleKey(battle);
+                    const open = key === openKey;
+                    return (
+                      <Fragment key={key}>
+                        <tr className={open ? 'bm-row bm-row-open' : 'bm-row'}>
+                          {/* The day on the event's first row only. Not a
                             rowSpan: an open detail row spans the full width,
                             and a spanning date cell would cut into it. */}
-                        <th scope="row">{index === 0 ? event.day : ''}</th>
-                        <td className="label">
-                          <button
-                            type="button"
-                            className="bm-toggle"
-                            aria-expanded={open}
-                            onClick={() => setOpenKey(open ? null : key)}
-                          >
-                            <span aria-hidden="true">{open ? '▾' : '▸'}</span>{' '}
-                            {teamLabel(battle.team_index)}
-                          </button>{' '}
-                          <span className="muted">{serverClock(battle.battle_ended_at)}</span>
-                        </td>
-                        <td>
-                          <ResultBadge battle={battle} />
-                        </td>
-                        {/* Not `.label`: that class pins a cell to the left edge, and
+                          <th scope="row">{index === 0 ? event.day : ''}</th>
+                          <td className="label">
+                            <button
+                              type="button"
+                              className="bm-toggle"
+                              aria-expanded={open}
+                              onClick={() => setOpenKey(open ? null : key)}
+                            >
+                              <span aria-hidden="true">{open ? '▾' : '▸'}</span>{' '}
+                              {teamLabel(battle.team_index)}
+                            </button>{' '}
+                            <span className="muted">{serverClock(battle.battle_ended_at)}</span>
+                          </td>
+                          <td>
+                            <ResultBadge battle={battle} />
+                          </td>
+                          {/* Not `.label`: that class pins a cell to the left edge, and
                             only the team — what identifies the row — should be. */}
-                        <td>{opponent(battle)}</td>
-                        <td className="numeric">
-                          <Score battle={battle} />
-                        </td>
-                        <td className="numeric">
-                          {num(battle.user_num)} / {num(battle.max_user_num)}
-                        </td>
-                      </tr>
-                      {open && (
-                        <tr className="bm-detail-row">
-                          <td colSpan={COLUMNS}>
-                            <BattleDetail battle={battle} />
+                          <td>{opponent(battle)}</td>
+                          <td className="numeric">
+                            <Score battle={battle} />
+                          </td>
+                          <td className="numeric">
+                            {num(battle.user_num)} / {num(battle.max_user_num)}
                           </td>
                         </tr>
-                      )}
-                    </Fragment>
-                  );
-                }),
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
+                        {open && (
+                          <tr className="bm-detail-row">
+                            <td colSpan={COLUMNS}>
+                              <BattleDetail battle={battle} />
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    );
+                  }),
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
 
-      {events.length > 0 && (
-        <p className="note">
-          Open a team to see who was listed and who played. The list is the last signup reading
-          taken before the battle ended. Scores come from the battle report, which every member gets
-          as alliance mail; until one of our accounts loads it into the collector, who played is
-          unknown rather than nobody. An older report is further down the mailbox — scrolling to it
-          is enough to capture it. The team score is the battle&apos;s own points and is not the sum
-          of the players&apos; scores.
-        </p>
-      )}
+        {events.length > 0 && (
+          <p className="note">
+            Open a team to see who was listed and who played. The list is the last signup reading
+            taken before the battle ended. Scores come from the battle report, which every member
+            gets as alliance mail; until one of our accounts loads it into the collector, who played
+            is unknown rather than nobody. An older report is further down the mailbox — scrolling
+            to it is enough to capture it. The team score is the battle&apos;s own points and is not
+            the sum of the players&apos; scores.
+          </p>
+        )}
+      </div>
     </section>
   );
 }
