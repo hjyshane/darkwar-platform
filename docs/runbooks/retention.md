@@ -143,6 +143,22 @@ vacuum (full, analyze) public.arena_entries;
 
 ### 이후
 
-한 번 비운 뒤에는 `retention_purge(true)`를 하루 한 번(pg_cron, 0252가 이미 pg_cron을 쓴다)
-부르면 증가율이 정책의 정상 상태에 머문다. `season_building_snapshots`(0.56 GB)는 출석 점수가
-읽으므로 여기서 판단하지 않았다.
+`season_building_snapshots`(0.56 GB)는 출석 점수가 읽으므로 여기서 판단하지 않았다.
+
+### 매일 자동 (0258)
+
+`retention-daily`(pg_cron, 04:23 UTC)가 `internal.retention_daily()`를 부른다. 한 번에 최대
+5라운드(테이블당 5 x 20000행)만 지우고, 마지막 허용 라운드까지 일이 남아 있으면
+`behind = true`로 기록한다. 매 실행은 `internal.retention_runs`에 DB 크기와 지운 행 수를 남긴다.
+
+```sql
+select ran_at, pg_size_pretty(db_bytes) size, deleted, behind, over_limit
+from internal.retention_runs order by ran_at desc limit 14;
+```
+
+크기 트리거가 아니라 일정이다. DELETE 뒤에도 `pg_database_size`는 `VACUUM FULL` 전까지 줄지
+않아서 "7.5 GB 초과 시 실행"은 영원히 참이 된다. 비운 뒤에는 autovacuum이 빈 페이지를 새
+삽입에 재사용하므로 크기가 정책의 정상 상태에 머문다. `over_limit`(7.5 GB 초과)은 기록만
+하며 Discord 알림은 아직 없다 — 알림 이벤트는 SQL과 `notify/worker.py` 양쪽 목록과 라우팅
+설정이 함께 바뀌어야 해서 별도 변경이다. `behind`가 며칠 연속이거나 `over_limit`이 계속
+참이면 창을 줄이거나 다른 테이블을 대상에 넣는다. `VACUUM FULL`은 자동화하지 않는다(독점 잠금).

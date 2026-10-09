@@ -136,7 +136,13 @@ TRUCK = {
             {"type": 7, "value": {"id": "200034", "num": 50}},
         ]
     },
-    "marchInfo": {"robTimes": 1},
+    "marchInfo": {
+        "robTimes": 1,
+        "lastPosIndex": 2,
+        "lastSendTime": 1791500900000,
+        "nextEndTime": 1791501300000,
+    },
+    "stationList": [43, 56, 60, 54],
     "name": "Anne Example",
     "ownerId": "1651854724000581",
     "quality": 5,
@@ -236,3 +242,25 @@ def test_the_committed_fixtures_parse() -> None:
     assert [r.row["hero_fragments"] for r in listed] == [1, 0]
     assert opened[0].row["server_id"] == 585
     assert leg[0].row["target_pos"] == 485422
+
+
+def test_a_listed_truck_carries_its_route_and_current_leg() -> None:
+    (row,) = world_trucks.normalize_list(command("train.list", {"ls": [TRUCK]}))
+
+    assert row.row["stations"] == [43, 56, 60, 54]
+    assert row.row["station_index"] == 2
+    assert datetime.fromisoformat(row.row["leg_end_at"]).timestamp() * 1000 == 1791501300000
+    assert datetime.fromisoformat(row.row["leg_start_at"]) < datetime.fromisoformat(
+        row.row["leg_end_at"]
+    )
+
+
+def test_a_truck_without_a_route_writes_null_route_columns() -> None:
+    bare = {k: v for k, v in TRUCK.items() if k != "stationList"}
+    (listed,) = world_trucks.normalize_list(command("train.list", {"ls": [bare]}))
+    (leg,) = world_trucks.normalize_march(command("push.world.march.new", march()))
+    route = {"stations", "station_index", "leg_start_at", "leg_end_at"}
+
+    assert listed.row["stations"] is None
+    assert route <= set(listed.row)
+    assert route <= set(leg.row)

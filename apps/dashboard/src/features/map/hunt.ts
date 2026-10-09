@@ -46,8 +46,21 @@ export interface Truck {
   /** When the whole trip ends. */
   arriveAt: Date;
   leg: TruckLeg | null;
+  /** The route and current leg from the interception list, which names stations
+   * by number; `withRouteLeg` turns it into a `leg` once the stations are known. */
+  route: TruckRoute | null;
+  /** Where the interception list says it set off from. Not where it is. */
+  origin: Coordinate | null;
   positionSeenAt: Date | null;
   cargoSeenAt: Date | null;
+}
+
+export interface TruckRoute {
+  stations: number[];
+  /** The station it is heading for; the leg starts at the one before. */
+  index: number;
+  startAt: Date;
+  endAt: Date;
 }
 
 export interface TruckLeg {
@@ -115,6 +128,69 @@ export function truckPosition(truck: Pick<Truck, 'leg'>, now: Date): TruckPositi
   };
 }
 
+export interface TruckSpot extends TruckPosition {
+  /** True when this is only where the truck set off from. */
+  origin: boolean;
+}
+
+/** What to draw for a truck: its position when a march gave one, otherwise
+ * where the list says it left from, otherwise nothing. */
+export function truckSpot(truck: Pick<Truck, 'leg' | 'origin'>, now: Date): TruckSpot | null {
+  const position = truckPosition(truck, now);
+  if (position !== null) return { ...position, origin: false };
+  if (truck.origin !== null) return { at: truck.origin, live: false, origin: true };
+  return null;
+}
+
+export type TruckSort = 'time' | 'shards' | 'loots';
+
+export interface TruckFilter {
+  /** Null: every server. */
+  serverId: number | null;
+  /** At least this many loots left (1 or 2). 0: no minimum. */
+  minLoots: number;
+  /** At least this many hero fragments. 0: no minimum. */
+  minShards: number;
+}
+
+export const NO_FILTER: TruckFilter = { serverId: null, minLoots: 0, minShards: 0 };
+
+export function filterTrucks(trucks: readonly Truck[], filter: TruckFilter): Truck[] {
+  return trucks.filter(
+    (truck) =>
+      (filter.serverId === null || truck.serverId === filter.serverId) &&
+      lootsLeft(truck) >= filter.minLoots &&
+      truck.heroFragments >= filter.minShards,
+  );
+}
+
+/** Most shards first, most loots left first, or soonest to arrive first; ties
+ * fall back to the arrival time so the order never shuffles between refreshes. */
+export function sortTrucks(trucks: readonly Truck[], by: TruckSort): Truck[] {
+  const arrival = (a: Truck, b: Truck) => a.arriveAt.getTime() - b.arriveAt.getTime();
+  const key = (truck: Truck) =>
+    by === 'shards' ? truck.heroFragments : by === 'loots' ? lootsLeft(truck) : 0;
+  return [...trucks].sort((a, b) => key(b) - key(a) || arrival(a, b));
+}
+
+export interface ServerCount {
+  serverId: number;
+  trucks: number;
+  shards: number;
+}
+
+/** How many trucks, and how many hero fragments in them, each server has. */
+export function countByServer(trucks: readonly Truck[]): ServerCount[] {
+  const found = new Map<number, ServerCount>();
+  for (const truck of trucks) {
+    const entry = found.get(truck.serverId) ?? { serverId: truck.serverId, trucks: 0, shards: 0 };
+    entry.trucks += 1;
+    entry.shards += truck.heroFragments;
+    found.set(truck.serverId, entry);
+  }
+  return [...found.values()].sort((a, b) => a.serverId - b.serverId);
+}
+
 /** "1h 12m", "9m", "under a minute"; "gone" once it has passed. */
 export function timeLeft(until: Date, now: Date): string {
   const minutes = Math.floor((until.getTime() - now.getTime()) / 60_000);
@@ -173,9 +249,43 @@ type TruckRow = {
   segment_end_at: string | null;
   position_seen_at: string | null;
   cargo_seen_at: string | null;
+  origin_pos: number | null;
+  stations: unknown;
+  station_index: number | null;
+  leg_start_at: string | null;
+  leg_end_at: string | null;
 };
 
 const date = (value: string | null): Date | null => (value === null ? null : new Date(value));
+
+function routeFromRow(row: TruckRow): TruckRoute | null {
+  const startAt = date(row.leg_start_at);
+  const endAt = date(row.leg_end_at);
+  if (
+    !Array.isArray(row.stations) ||
+    !row.stations.every((n) => typeof n === 'number') ||
+    row.station_index === null ||
+    startAt === null ||
+    endAt === null
+  ) {
+    return null;
+  }
+  return { stations: row.stations as number[], index: row.station_index, startAt, endAt };
+}
+
+/** A truck whose road was never pushed gets one from its route: the leg to
+ * `stations[index]` starts at `stations[index - 1]`. Left alone when a march
+ * already gave a leg, or when either station is not in the table. */
+export function withRouteLeg(truck: Truck, stations: ReadonlyMap<number, Coordinate>): Truck {
+  const route = truck.route;
+  if (truck.leg !== null || route === null || route.index < 1) return truck;
+  const fromNo = route.stations[route.index - 1];
+  const toNo = route.stations[route.index];
+  const from = fromNo === undefined ? undefined : stations.get(fromNo);
+  const to = toNo === undefined ? undefined : stations.get(toNo);
+  if (from === undefined || to === undefined) return truck;
+  return { ...truck, leg: { from, to, startAt: route.startAt, endAt: route.endAt } };
+}
 
 /** A row is dropped, not guessed at, when it lacks what the rules need. */
 export function truckFromRow(row: TruckRow): Truck | null {
@@ -209,6 +319,8 @@ export function truckFromRow(row: TruckRow): Truck | null {
     robTimes: row.rob_times,
     arriveAt,
     leg,
+    route: routeFromRow(row),
+    origin: row.origin_pos === null ? null : pointToCoordinate(row.origin_pos),
     positionSeenAt: date(row.position_seen_at),
     cargoSeenAt: date(row.cargo_seen_at),
   };
@@ -257,7 +369,7 @@ export async function fetchTrucks(): Promise<Truck[]> {
   const { data, error } = await supabase
     .from('world_trucks_latest')
     .select(
-      'truck_uuid, server_id, owner_name, alliance_abbr, quality, hero_fragments, rob_times, arrive_at, start_pos, target_pos, segment_start_at, segment_end_at, position_seen_at, cargo_seen_at',
+      'truck_uuid, server_id, owner_name, alliance_abbr, quality, hero_fragments, rob_times, arrive_at, start_pos, target_pos, segment_start_at, segment_end_at, position_seen_at, cargo_seen_at, origin_pos, stations, station_index, leg_start_at, leg_end_at',
     )
     .gte('quality', TRUCK_MIN_QUALITY)
     .gt('hero_fragments', 0)
@@ -295,6 +407,24 @@ export async function fetchMissions(serverId: number): Promise<Mission[]> {
     if (mission !== null) missions.push(mission);
   }
   return missions;
+}
+
+export async function fetchStations(): Promise<Map<number, Coordinate>> {
+  const { data, error } = await supabase.from('game_train_stations').select('station_no, x, y');
+  if (error) {
+    if (error.code === '42501') return new Map();
+    throw new Error(`stations query failed: ${error.message}`);
+  }
+  return new Map((data ?? []).map((row) => [row.station_no, { x: row.x, y: row.y }]));
+}
+
+export function useStations() {
+  return useQuery({
+    queryKey: ['map', 'stations'],
+    queryFn: fetchStations,
+    // Stations do not move; a new one only appears when the table is refilled.
+    staleTime: 60 * 60_000,
+  });
 }
 
 export function useTrucks() {

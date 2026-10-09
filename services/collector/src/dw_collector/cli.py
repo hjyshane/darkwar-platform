@@ -1172,5 +1172,35 @@ def game_dispatch(
     typer.echo("written")
 
 
+@app.command("train-stations")
+def train_stations(
+    journal: Annotated[
+        Path,
+        typer.Option("--journal", exists=True, dir_okay=False, help="the live journal"),
+    ],
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="count, write nothing")] = False,
+    url: Annotated[str | None, typer.Option(envvar="SUPABASE_URL")] = None,
+    secret_key: Annotated[str | None, typer.Option(envvar="SUPABASE_SECRET_KEY")] = None,
+) -> None:
+    """Where the Dark Syndicate truck stations are, learned from truck marches (0259).
+
+    Safe to run again: it only ever adds stations the journal has since seen.
+    """
+    from dw_collector.gamedata import upload
+    from dw_collector.gamedata.train_stations import learn
+
+    rows, contested = learn(str(journal))
+    typer.echo(f"stations={len(rows)} contested={contested}")
+    if dry_run:
+        return
+    if not url or not secret_key:
+        typer.echo("SUPABASE_URL and SUPABASE_SECRET_KEY are required", err=True)
+        raise typer.Exit(code=2)
+    headers = {"apikey": secret_key, "Authorization": f"Bearer {secret_key}"}
+    with httpx.Client(base_url=url.rstrip("/"), headers=headers, timeout=120.0) as client:
+        upload.upsert_rows(client, "game_train_stations", rows, "station_no")
+    typer.echo("written")
+
+
 if __name__ == "__main__":
     app()
