@@ -176,6 +176,13 @@ fault first (`supabase-stub.sql` says what it approximates).
 
 Traps this repo has already hit:
 
+- **Take the next migration number from `origin/main` at the moment you push, not
+  from your branch.** Two branches that each took the next free number pass CI
+  alone and collide on merge (0165, 0258, 0262): `db push` applies the first and
+  fails on the second's `schema_migrations` version. `scripts/check-migration-order.sh`
+  (run by the guard job on PRs) fails a branch whose new version is at or below the
+  base's highest; run it before pushing, and renumber the file, its pgTAP test and
+  any comment that cites the number.
 - **`RAISE EXCEPTION` rolls back everything the function wrote in that call.**
   A throttle that records a failed attempt and then raises erases its own
   counter. Return instead when the write has to survive.
