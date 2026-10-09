@@ -3,7 +3,7 @@ import { StatTile } from '../../components/StatTile';
 import { Tabs } from '../../components/ui/Tabs';
 import { EVENT_GUIDE_TABS, type EventGuideTab, eventGuideHash } from '../../lib/route';
 import { humanUntil } from '../../lib/shellNav';
-import { SERVER_ZONE, browserZone, zoneLabel, zonedTime } from '../../lib/timezone';
+import { SERVER_ZONE, browserZone, zoneLabel, zonedDayKey, zonedTime } from '../../lib/timezone';
 import { replaceHash } from '../../lib/useHash';
 import { serverWhen } from '../calendar/data';
 import {
@@ -53,6 +53,7 @@ export function EventGuidePage({ tab }: { tab: EventGuideTab }) {
   const guide = useEventGuide();
   const times = useCapturedTimes();
   const needsGuide = tab !== 'events' && tab !== 'scores';
+  const timesRows = times.data ?? [];
 
   return (
     <section aria-labelledby="guide-heading" className="event-guide">
@@ -68,7 +69,7 @@ export function EventGuidePage({ tab }: { tab: EventGuideTab }) {
         value={tab}
       />
 
-      {tab === 'events' && <AllianceTimes rows={times.data ?? []} />}
+      {tab === 'events' && <AllianceTimes rows={timesRows} />}
       {tab === 'scores' && (
         <section aria-labelledby="guide-scores-heading" className="panel">
           <h2 id="guide-scores-heading">Alliance Duel: member scores</h2>
@@ -87,6 +88,7 @@ export function EventGuidePage({ tab }: { tab: EventGuideTab }) {
       )}
       {needsGuide && guide.data && guide.data.themes.length > 0 && (
         <>
+          {tab === 'today' && <Now guide={guide.data} rows={timesRows} />}
           {tab === 'survival' && <Preparedness guide={guide.data} />}
           {tab === 'duel' && <Duel guide={guide.data} />}
         </>
@@ -231,6 +233,83 @@ function ScoreList({
         </li>
       ))}
     </ul>
+  );
+}
+
+/** The first screen: only what is on today, at this hour. The Survival
+ * Preparedness theme of the slot running now, today's Duel theme, and the
+ * alliance events still to come or running today (server day). The whole week
+ * and every theme are the tabs after this one. */
+function Now({ guide, rows }: { guide: EventGuide; rows: readonly CapturedTime[] }) {
+  const now = new Date();
+  const zone = browserZone();
+  const here = serverNow(now);
+  const grid = weekGrid(guide.calendar, SURVIVAL);
+  const survivalThemes = themesOf(guide.themes, SURVIVAL);
+  const eventId = grid[here.slot - 1]?.[here.weekday - 1] ?? null;
+  const running = runningNow(grid, survivalThemes, here);
+  const duelToday = themesOf(guide.themes, DUEL).find((theme) => theme.day === here.weekday);
+  const todayKey = zonedDayKey(now.toISOString(), SERVER_ZONE);
+  const todays = rows.filter(
+    (row) => zonedDayKey(row.startsAt, SERVER_ZONE) === todayKey && timeState(row, now) !== 'over',
+  );
+  return (
+    <>
+      <section aria-labelledby="guide-now-sp-heading" className="panel">
+        <h2 id="guide-now-sp-heading">Survival Preparedness, now</h2>
+        {running === null || eventId === null ? (
+          <p className="empty">The game has not told us what runs in this slot.</p>
+        ) : (
+          <>
+            <p className="guide-now">
+              <strong>{running.name}</strong>, until {running.until} server time
+              {bracket(slotLocalHint(here.slot + 1, now, zone))}.
+            </p>
+            <ScoreList activity={SURVIVAL} eventId={eventId} guide={guide} />
+          </>
+        )}
+      </section>
+      <section aria-labelledby="guide-now-duel-heading" className="panel">
+        <h2 id="guide-now-duel-heading">Alliance Duel, today</h2>
+        {duelToday === undefined ? (
+          <p className="empty">
+            Today's Duel theme has not been seen yet: the game only sends it once it is that day's
+            turn.
+          </p>
+        ) : (
+          <>
+            <p className="guide-now">
+              {WEEKDAYS[here.weekday - 1]} · <strong>{duelToday.name ?? duelToday.event_id}</strong>
+            </p>
+            <ScoreList activity={DUEL} eventId={duelToday.event_id} guide={guide} />
+          </>
+        )}
+      </section>
+      {todays.length > 0 && (
+        <section aria-labelledby="guide-now-times-heading" className="panel">
+          <h2 id="guide-now-times-heading">Alliance events today</h2>
+          <ul className="guide-times">
+            {todays.map((row) => {
+              const state = timeState(row, now);
+              return (
+                <li data-state={state} key={row.id}>
+                  <span>{row.title}</span>
+                  <span className="subtle">
+                    {serverWhen(row.startsAt)}
+                    {bracket(localHint(row.startsAt, zone))}
+                  </span>
+                  <strong>
+                    {state === 'ahead' &&
+                      `in ${humanUntil(Date.parse(row.startsAt) - now.getTime())}`}
+                    {state === 'running' && 'on now'}
+                  </strong>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+    </>
   );
 }
 
