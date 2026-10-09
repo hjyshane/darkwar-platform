@@ -32,9 +32,10 @@ def test_registered() -> None:
 
 
 def test_cities_and_season_buildings_are_written() -> None:
-    """Two tables from one viewport. Everything else — resources, alliance
-    buildings, the eight types nobody has opened — stays out, because a row
-    for any of them would be a column full of guesses."""
+    """Cities, season buildings, started dispatch missions (0254) and the
+    coverage row. Everything else — resources, alliance buildings, the types
+    nobody has opened — stays out, because a row for any of them would be a
+    column full of guesses."""
     observation = load_observation(VIEWPORT)
 
     rows = world_map.normalize(observation)
@@ -43,6 +44,7 @@ def test_cities_and_season_buildings_are_written() -> None:
     assert tables <= {
         "world_city_snapshots",
         "season_building_snapshots",
+        "dispatch_mission_snapshots",
         "world_viewport_snapshots",
     }
     cities = [r for r in rows if r.target_table == "world_city_snapshots"]

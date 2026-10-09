@@ -39,6 +39,10 @@ _TABLE_ORDER = [
     "player_season_force_snapshots",
     "world_city_snapshots",
     "season_building_snapshots",
+    # Hero dispatch missions seen on the map, and Dark Syndicate trucks (0254).
+    # Neither carries refs.
+    "dispatch_mission_snapshots",
+    "world_truck_snapshots",
     # Coverage: where the camera looked. It carries no player refs, so it
     # could sit anywhere in this order; it is named rather than left to fall
     # through because an unlisted table sorts last by accident rather than by

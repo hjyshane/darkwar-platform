@@ -103,6 +103,9 @@ export interface MapMarker {
   faded?: boolean;
   /** Picked out of a crowd — the one the reader clicked. */
   highlighted?: boolean;
+  /** A different kind of thing than a base ('truck', 'mission'): the pin gets
+   * a `map-pin--<kind>` class and the stylesheet draws it differently. */
+  kind?: 'truck' | 'mission';
 }
 
 /** Above this many pins the labels are dropped.
@@ -167,6 +170,7 @@ export function layoutMarkers(
     const showLabel = withLabels || marker.highlighted === true;
     const className = [
       'map-pin',
+      marker.kind ? `map-pin--${marker.kind}` : '',
       marker.faded ? 'map-pin--faded' : '',
       marker.highlighted ? 'map-pin--on' : '',
       clickable ? 'map-pin--clickable' : '',

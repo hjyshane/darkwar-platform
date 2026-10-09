@@ -1,0 +1,61 @@
+{
+  "observation_id": "5b0e3c4a-1d6f-5a3e-9c21-7f1a2b3c4d01",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "train.list",
+  "captured_at": "2026-10-09T02:11:56.444052+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "_id": 1700,
+    "allianceTrainList": [],
+    "ls": [
+      {
+        "abbr": "EXMP",
+        "allianceId": "00000000000000000000000000000001",
+        "arriveTime": 1791517221235,
+        "banType": 0,
+        "buyFlag": 0,
+        "cfgId": 147,
+        "changeCountByGold": 2,
+        "completeness": 0.75,
+        "extraGoods": {
+          "cur": [
+            { "type": 7, "value": { "id": "210454", "num": 1 } },
+            { "type": 7, "value": { "id": "200034", "num": 50 } }
+          ],
+          "full": []
+        },
+        "level": 27,
+        "marchInfo": { "robTimes": 1 },
+        "marchUid": 1420304700000000001,
+        "name": "Example Owner",
+        "ownerId": "1000000001000581",
+        "quality": 5,
+        "sendTime": 1791500858683,
+        "serverId": 581,
+        "startPos": 706119,
+        "uid": "1000000001000581",
+        "uuid": 1420304700000000002
+      },
+      {
+        "abbr": "EXMP",
+        "allianceId": "00000000000000000000000000000001",
+        "arriveTime": 1791518221235,
+        "cfgId": 83,
+        "completeness": 1,
+        "extraGoods": {
+          "cur": [{ "type": 7, "value": { "id": "252004", "num": 20 } }],
+          "full": []
+        },
+        "marchInfo": { "robTimes": 0 },
+        "name": "Example Two",
+        "ownerId": "1000000002000582",
+        "quality": 3,
+        "sendTime": 1791501858683,
+        "serverId": 582,
+        "startPos": 502638,
+        "uuid": 1420304700000000003
+      }
+    ]
+  },
+  "schema_version": 1
+}

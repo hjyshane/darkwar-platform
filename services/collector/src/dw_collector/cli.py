@@ -1137,5 +1137,40 @@ def game_event_guide(
     typer.echo("written")
 
 
+@app.command("game-dispatch")
+def game_dispatch(
+    bundles: Annotated[
+        list[Path],
+        typer.Option("--bundles", exists=True, file_okay=False, help="as for game-catalog"),
+    ],
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="count, write nothing")] = False,
+    url: Annotated[str | None, typer.Option(envvar="SUPABASE_URL")] = None,
+    secret_key: Annotated[str | None, typer.Option(envvar="SUPABASE_SECRET_KEY")] = None,
+) -> None:
+    """The hero dispatch missions: colour, duration, what plundering pays (0254).
+
+    Needs the `gamedata` extra.
+    """
+    from dw_collector.gamedata import read_dir, upload
+    from dw_collector.gamedata.dispatch import build
+
+    assets: dict[str, bytes] = {}
+    for folder in bundles:
+        assets.update(read_dir(folder))
+    rows = build(assets)
+    gold = sum(1 for row in rows if row["color"] == 4)
+    orange = sum(1 for row in rows if row["orange_books"] > 0)
+    typer.echo(f"missions={len(rows)} gold={gold} paying_orange_books={orange}")
+    if dry_run:
+        return
+    if not url or not secret_key:
+        typer.echo("SUPABASE_URL and SUPABASE_SECRET_KEY are required", err=True)
+        raise typer.Exit(code=2)
+    headers = {"apikey": secret_key, "Authorization": f"Bearer {secret_key}"}
+    with httpx.Client(base_url=url.rstrip("/"), headers=headers, timeout=120.0) as client:
+        upload.upsert_rows(client, "game_dispatch_missions", rows, "mission_id")
+    typer.echo("written")
+
+
 if __name__ == "__main__":
     app()

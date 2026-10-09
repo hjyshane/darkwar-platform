@@ -1,0 +1,35 @@
+{
+  "observation_id": "5b0e3c4a-1d6f-5a3e-9c21-7f1a2b3c4d02",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "get.train.info",
+  "captured_at": "2026-10-09T00:26:16.409502+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "_id": 565,
+    "train": {
+      "abbr": "EXMP",
+      "allianceId": "00000000000000000000000000000001",
+      "arriveTime": 1791519618311,
+      "cfgId": 147,
+      "completeness": 0.75,
+      "extraGoods": {
+        "cur": [
+          { "type": 7, "value": { "id": "210454", "num": 1 } },
+          { "type": 7, "value": { "id": "200034", "num": 50 } }
+        ],
+        "full": []
+      },
+      "level": 27,
+      "marchInfo": { "robTimes": 1 },
+      "marchUid": 1420304700000000004,
+      "name": "Example Owner",
+      "ownerId": "1000000001000585",
+      "quality": 5,
+      "sendTime": 1791503731496,
+      "serverId": 585,
+      "startPos": 502638,
+      "uuid": 1420304700000000005
+    }
+  },
+  "schema_version": 1
+}
