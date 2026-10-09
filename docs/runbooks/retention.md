@@ -88,3 +88,61 @@ pg_cron은 이 프로젝트에서 아직 쓰지 않는다(§18.4 알림과 함�
 `presence_redacted`를 명시하지 않으면 기본값 `false` 때문에 **남의 연맹이 우리 것으로
 표시되고**, 그러면 보존 창이 조용히 3개월로 바뀐다. 39_retention_test가 이 실수로 5개
 실패했고, 그때 틀린 것은 마이그레이션이 아니라 테스트였다.
+
+## 디스크가 찼을 때 — 2026-10-09
+
+호스티드 DB가 **10 GB**(디스크 허용 8 GB)였다. 이 문서의 보존 정책은 한 번도 실행된 적이
+없었다. 그날 프로덕션 측정:
+
+| 테이블 | 크기 | 행 | 정책이 지울 행 |
+|---|---|---|---|
+| `alliance_member_snapshots` | 3.4 GB | 2.41 M | 2.28 M (남의 연맹, 7일 초과) |
+| `world_city_snapshots` | 1.7 GB | 1.34 M | 1.10 M 이하 (0256 규칙) |
+| `arena_entry_heroes` | 1.5 GB | 0.90 M | 보드 1,661개에서 cascade |
+| `player_component_power_snapshots` | 1.2 GB | 0.65 M | 0.69 M (7일 초과, 우리 제외) |
+
+### 지우기 (0256, `retention_purge`)
+
+`retention_report`는 `members.manage` JWT가 필요하고 테이블당 문장 하나라서 230만 행에서
+타임아웃과 WAL 폭증을 맞는다. 0256의 `retention_purge`는 서비스 롤 전용이며 테이블당
+호출당 `p_batch`(기본 20000)행만 지운다. 먼저 센다.
+
+```sql
+select * from public.retention_purge();
+```
+
+납득되면 **행이 안 나올 때까지** 반복한다(psql / `supabase db query --linked`).
+
+```sql
+select * from public.retention_purge(p_confirm := true);
+```
+
+`world_city_snapshots`는 창 안의 행과 **기지별 최신 목격 1건**을 남긴다. `latest_world_cities`
+(0144)가 읽는 것이 그것이다. 운영 중 수집기가 계속 쓰므로 한 번에 몰지 말고 배치를
+나눠서, 부하가 걸리면 시간대를 옮긴다(`prod-introspection-load`).
+
+### 디스크 반환 — DELETE는 용량을 줄이지 않는다
+
+Postgres는 비워진 페이지를 테이블 파일 안에 그대로 둔다. `pg_database_size`는 테이블을
+다시 쓰기 전까지 10 GB다. 남는 데이터가 작으므로(멤버 스냅샷은 약 5%) 다시 쓰기에
+필요한 여유 공간도 작다.
+
+```sql
+vacuum (full, analyze) public.alliance_member_snapshots;
+vacuum (full, analyze) public.world_city_snapshots;
+vacuum (full, analyze) public.player_component_power_snapshots;
+vacuum (full, analyze) public.arena_entry_heroes;
+vacuum (full, analyze) public.arena_entries;
+```
+
+`VACUUM FULL`은 `ACCESS EXCLUSIVE`를 잡는다. 그동안 수집기의 쓰기는 대기하므로 수집기를
+멈추거나 한가한 시간에, 테이블 하나씩 한다. 끝난 뒤 `select pg_size_pretty(pg_database_size(current_database()))`.
+
+프로비저닝된 디스크 자체는 Supabase가 자동 축소하지 않는다. 사용량이 8 GB 아래로 내려온 뒤
+청구/디스크 크기를 대시보드에서 확인한다.
+
+### 이후
+
+한 번 비운 뒤에는 `retention_purge(true)`를 하루 한 번(pg_cron, 0252가 이미 pg_cron을 쓴다)
+부르면 증가율이 정책의 정상 상태에 머문다. `season_building_snapshots`(0.56 GB)는 출석 점수가
+읽으므로 여기서 판단하지 않았다.
