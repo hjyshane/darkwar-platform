@@ -80,12 +80,23 @@ export function CrossRankingTable({ rows, board }: { rows: BoardRow[]; board: Bo
         // Unlinked otherwise — a board can rank somebody from a server nobody
         // has swept, and a link to a page that would 404 is worse than plain
         // text.
-        cell: (row) =>
-          row.playerId === null ? (
-            (row.name ?? `UID ${row.game_uid}`)
-          ) : (
-            <a href={playerHash(row.playerId)}>{row.name ?? `UID ${row.game_uid}`}</a>
-          ),
+        cell: (row) => (
+          <>
+            {row.playerId === null ? (
+              (row.name ?? `UID ${row.game_uid}`)
+            ) : (
+              <a href={playerHash(row.playerId)}>{row.name ?? `UID ${row.game_uid}`}</a>
+            )}
+            {row.source === 'roster' && (
+              <span
+                className="row-source"
+                title="Not on the in-game ranking: listed by an alliance roster"
+              >
+                roster
+              </span>
+            )}
+          </>
+        ),
       },
       {
         id: 'server',

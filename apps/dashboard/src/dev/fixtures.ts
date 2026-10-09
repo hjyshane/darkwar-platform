@@ -1632,6 +1632,16 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
 
   // Overview
   [
+    ['overview', 'servers'],
+    [577, 578, 580, 584, 586, 588].map((serverId, index) => ({
+      serverId,
+      alliances: 12 - index,
+      members: 900 - index * 80,
+      power: 4_200_000_000 - index * 300_000_000,
+      lastSeen: ago(30 + index * 45),
+    })),
+  ],
+  [
     ['overview'],
     {
       allianceName: 'HELLBOUND',

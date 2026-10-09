@@ -5936,3 +5936,27 @@ button.tile-grid:hover:not(:disabled) {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+
+/* Server filter chips: the .server-link look on a <button>, with a pressed state. */
+button.server-link {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.server-link[aria-pressed="true"] {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.server-link-open {
+  border-style: dashed;
+}
+
+/* Marks a player who is on the board only because an alliance roster lists them. */
+.row-source {
+  color: var(--fg-muted);
+  font-size: var(--text-xs, 0.75rem);
+  margin-left: var(--space-2);
+}

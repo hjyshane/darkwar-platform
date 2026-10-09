@@ -1,8 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import { ExportButton } from '../../components/ExportButton';
+import { ServerChips } from '../../components/ServerChips';
 import { Strip } from '../../components/Strip';
 import { useRecordActivity } from '../../lib/activity';
 import type { CsvColumn } from '../../lib/csv';
+import { fetchAllPages } from '../../lib/fetchAllPages';
+import { filterByServer, resolveServer, serverCounts } from '../../lib/serverFilter';
 import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
 import { type AllianceRankingRow, AllianceRankingTable } from './AllianceRankingTable';
@@ -22,15 +26,20 @@ import { allianceStrip } from './strip';
  * now says the same thing the rows do.
  */
 async function fetchAllianceRankings(): Promise<AllianceRankingRow[]> {
-  const { data, error } = await supabase
-    .from('alliance_latest')
-    .select(
-      'snapshot_id, alliance_id, external_id, server_id, rank, name, code, power, member_count, captured_at',
-    )
-    .order('power', { ascending: false, nullsFirst: false });
-  if (error) {
+  // Paged: one row per alliance, and PostgREST stops at 1,000 whatever the
+  // limit says. Ordered by power with the id as tie-break so pages do not overlap.
+  const data = await fetchAllPages((from, to) =>
+    supabase
+      .from('alliance_latest')
+      .select(
+        'snapshot_id, alliance_id, external_id, server_id, rank, name, code, power, member_count, captured_at',
+      )
+      .order('power', { ascending: false, nullsFirst: false })
+      .order('alliance_id', { ascending: true })
+      .range(from, to),
+  ).catch((error: Error) => {
     throw new Error(`alliance ranking query failed: ${error.message}`);
-  }
+  });
   return data as AllianceRankingRow[];
 }
 
@@ -51,6 +60,10 @@ export function RankingsPanel() {
     queryKey: ['rankings'],
     queryFn: fetchAllianceRankings,
   });
+  const [chosenServer, setChosenServer] = useState<number | null>(null);
+  const servers = serverCounts(data ?? []);
+  const server = resolveServer(servers, chosenServer);
+  const shown = data ? filterByServer(data, server) : undefined;
   return (
     <section aria-labelledby="rankings-heading" className="board-screen">
       <div className="entity">
@@ -65,13 +78,14 @@ export function RankingsPanel() {
             </p>
           </div>
         </header>
-        {data && <Strip cells={allianceStrip(data, new Date())} />}
+        {shown && <Strip cells={allianceStrip(shown, new Date())} />}
       </div>
       <div className="panel">
+        <ServerChips onChange={setChosenServer} servers={servers} value={server} />
         {isPending && <p className="empty loading">Loading…</p>}
         {error && <p className="error">Could not load alliance ranking: {error.message}</p>}
-        {data && <ExportButton rows={data} columns={ALLIANCE_CSV} filename="alliance-ranking" />}
-        {data && <AllianceRankingTable rows={data} />}
+        {shown && <ExportButton rows={shown} columns={ALLIANCE_CSV} filename="alliance-ranking" />}
+        {shown && <AllianceRankingTable rows={shown} />}
       </div>
     </section>
   );
