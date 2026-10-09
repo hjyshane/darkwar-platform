@@ -54,30 +54,29 @@ test_desktop_sidecar.py` and Task 5 verified against).
 
 **Dashboard** has no backend here — Supabase is unreachable on this machine
 (no Docker; see `apps/dashboard/src/dev/main.tsx`), so use the `dev:local`
-fixture build Task 4 wired up. Add the SAME coordinate to
-`apps/dashboard/src/dev/fixtures.ts` under the exact query keys
-`useScannedServers`/`useSightingSearch` ask for (`['map', 'servers']` and
-`['map', 'search', serverId, query.trim()]` — see `apps/dashboard/src/
-features/map/mapLocations.ts`):
+fixture build Task 4 wired up. The dashboard map is now the alliance atlas
+(`features/map/atlas.ts`): it reads one `map_atlas` result per server, not a search
+by name. Add the SAME base to the atlas fixture under the query key
+`['map', 'atlas', 581]` (and keep `['map', 'servers']` so the tab is offered), as a
+row of `parseAtlas`'s shape - `[game_uid, x, y, hq, power, alliance_index,
+seen_epoch_seconds, name, shield_end_epoch]`:
 
 ```ts
 [['map', 'servers'], [{ serverId: 581, sweptAt: ago(20) }]],
-[
-  ['map', 'search', 581, 'erha'],
-  [{ playerId: null, gameUid: 1190060554000581, name: 'ERHA SANGMAIMA',
-     serverId: 581, at: { x: 310, y: 622 }, hqLevel: 34, capturedAt: ago(20) }],
-],
+[['map', 'atlas', 581], parseAtlas({
+  alliances: [],
+  bases: [[1190060554000581, 310, 622, 34, null, -1, Math.floor(Date.now() / 1000), 'ERHA SANGMAIMA', null]],
+})],
 ```
 
-The fixture only answers the exact trimmed search string it was given
-(`'erha'`) — `MapPage.tsx`'s own `MIN_QUERY` (2 characters) is satisfied by
-that, so there's no need to fixture every possible query.
+The atlas fixture already holds a synthetic server 581; either replace it with the
+row above or add that row to it.
 
 ### Run both
 
 ```
 pnpm --filter @dw/dashboard dev:local     # opens index.dev.html
-# then in the browser: #/map/581, search "erha", click the result
+# then in the browser: #/map/581, search "erha", click the base (or its dot)
 ```
 
 ```

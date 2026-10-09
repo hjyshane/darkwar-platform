@@ -41,7 +41,7 @@ interface PlayersSearchResponse {
 
 // A DAY, not an hour — the same threshold and the same reasoning the
 // dashboard's map already uses (`apps/dashboard/src/features/map/
-// mapLocations.ts`, `SIGHTING_MAX_AGE_MS`, and `apps/dashboard/src/lib/
+// atlas.ts`, `STALE_AFTER_MS`, and `apps/dashboard/src/lib/
 // freshness.ts`, `STALE_AFTER_MS`): this app shows what the player looked
 // at, and a profile captured this morning is still worth acting on this
 // evening. An hour-old threshold would paint almost every profile amber
