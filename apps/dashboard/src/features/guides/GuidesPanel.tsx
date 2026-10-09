@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useId, useState } from 'react';
 import { ChannelField } from '../../components/ChannelField';
 import { MarkupEditor, TitleField } from '../../components/MarkupEditor';
+import { Strip } from '../../components/Strip';
 import { Select } from '../../components/ui/Select';
 import { isAllowed, usePermissions } from '../../lib/permissions';
 import { guideHash } from '../../lib/route';
@@ -9,6 +10,7 @@ import { supabase } from '../../lib/supabase';
 import { useSession } from '../../lib/useSession';
 import { BoardList } from '../board/BoardList';
 import { GUIDES, useBoard } from '../board/board';
+import { boardStrip } from '../board/strip';
 
 /** Strategy notes and tips, as a board.
  *
@@ -231,20 +233,31 @@ export function GuidesPanel() {
   const save = useSaveGuide(() => setDraft(null));
 
   return (
-    <main>
-      <section aria-labelledby="guides-heading">
-        <h2 id="guides-heading">Guides</h2>
-        <p className="subtle">
-          What the alliance worked out, rather than what the game reported. Everything else in this
-          dashboard is observation; this is the part people wrote.
-        </p>
-        {board.error && <p className="error">Could not load the guides: {board.error.message}</p>}
-        {save.error && <p className="error">{save.error.message}</p>}
-        {mayWrite && draft === null && (
-          <button onClick={() => setDraft({ ...EMPTY })} type="button">
-            Write a guide
-          </button>
-        )}
+    <main className="board-screen">
+      <section aria-labelledby="guides-heading" className="entity">
+        <header className="entity-head">
+          <span aria-hidden="true" className="entity-mark">
+            GU
+          </span>
+          <div>
+            <h2 id="guides-heading">Guides</h2>
+            <p className="entity-meta">
+              <span>What the alliance worked out</span>
+              <span>Written by people, not read from the game</span>
+            </p>
+          </div>
+        </header>
+        {board.data && <Strip cells={boardStrip(board.data, 'guide', new Date())} />}
+        <div className="entity-foot">
+          <p>Everything else in this dashboard is observation; this is the part people wrote.</p>
+          {board.error && <p className="error">Could not load the guides: {board.error.message}</p>}
+          {save.error && <p className="error">{save.error.message}</p>}
+          {mayWrite && draft === null && (
+            <button onClick={() => setDraft({ ...EMPTY })} type="button">
+              Write a guide
+            </button>
+          )}
+        </div>
       </section>
 
       {draft !== null && (
@@ -257,7 +270,7 @@ export function GuidesPanel() {
         />
       )}
 
-      <section aria-labelledby="guides-list-heading">
+      <section aria-labelledby="guides-list-heading" className="panel">
         <h3 id="guides-list-heading">All guides</h3>
         {board.isPending ? (
           <p className="empty loading">Loading…</p>

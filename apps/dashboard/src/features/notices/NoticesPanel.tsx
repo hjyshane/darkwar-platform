@@ -2,12 +2,14 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useId, useState } from 'react';
 import { ChannelField } from '../../components/ChannelField';
 import { MarkupEditor, TitleField } from '../../components/MarkupEditor';
+import { Strip } from '../../components/Strip';
 import { Select } from '../../components/ui/Select';
 import { noticeHash } from '../../lib/route';
 import { supabase } from '../../lib/supabase';
 import { useSession } from '../../lib/useSession';
 import { BoardList } from '../board/BoardList';
 import { NOTICES, useBoard } from '../board/board';
+import { boardStrip } from '../board/strip';
 
 /** Notices, as a board.
  *
@@ -276,20 +278,33 @@ export function NoticesPanel() {
   const save = useSaveNotice(() => setDraft(null));
 
   return (
-    <main>
-      <section aria-labelledby="notices-heading">
-        <h2 id="notices-heading">Notices</h2>
-        <p className="subtle">
-          Everything an admin has posted, including notices whose window has passed. The landing
-          screen shows only the pinned ones.
-        </p>
-        {board.error && <p className="error">Could not load the notices: {board.error.message}</p>}
-        {save.error && <p className="error">{save.error.message}</p>}
-        {mayWrite && draft === null && (
-          <button onClick={() => setDraft({ ...EMPTY })} type="button">
-            Post a notice
-          </button>
-        )}
+    <main className="board-screen">
+      <section aria-labelledby="notices-heading" className="entity">
+        <header className="entity-head">
+          <span aria-hidden="true" className="entity-mark">
+            NO
+          </span>
+          <div>
+            <h2 id="notices-heading">Notices</h2>
+            <p className="entity-meta">
+              <span>Everything an admin has posted</span>
+              <span>Including notices whose window has passed</span>
+            </p>
+          </div>
+        </header>
+        {board.data && <Strip cells={boardStrip(board.data, 'notice', new Date())} />}
+        <div className="entity-foot">
+          <p>The landing screen shows only the pinned ones.</p>
+          {board.error && (
+            <p className="error">Could not load the notices: {board.error.message}</p>
+          )}
+          {save.error && <p className="error">{save.error.message}</p>}
+          {mayWrite && draft === null && (
+            <button onClick={() => setDraft({ ...EMPTY })} type="button">
+              Post a notice
+            </button>
+          )}
+        </div>
       </section>
 
       {draft !== null && (
@@ -302,7 +317,7 @@ export function NoticesPanel() {
         />
       )}
 
-      <section aria-labelledby="notices-list-heading">
+      <section aria-labelledby="notices-list-heading" className="panel">
         <h3 id="notices-list-heading">All notices</h3>
         {board.isPending ? (
           <p className="empty loading">Loading…</p>
