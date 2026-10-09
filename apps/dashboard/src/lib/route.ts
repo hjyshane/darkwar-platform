@@ -141,9 +141,12 @@ export function adminHash(group: AdminGroup, section?: string): string {
 /** The event guide's tabs, in the order they are drawn. It is one screen, so
  * the page itself does not stack four long panels; each tab has an address of
  * its own so the sidebar and a link can land on one. */
-export type EventGuideTab = 'events' | 'survival' | 'duel' | 'scores';
+export type EventGuideTab = 'today' | 'events' | 'survival' | 'duel' | 'scores';
 
 export const EVENT_GUIDE_TABS: ReadonlyArray<{ id: EventGuideTab; label: string }> = [
+  // Only what is on today, at this hour: the first screen. The long lists are
+  // the tabs after it.
+  { id: 'today', label: 'Now' },
   { id: 'events', label: 'Alliance events' },
   { id: 'survival', label: 'Survival Preparedness' },
   { id: 'duel', label: 'Alliance Duel' },
@@ -157,11 +160,11 @@ const EVENT_GUIDE_HASH = new RegExp(
 /** The tab an `#/event-guide/...` address names; bare `#/event-guide` is the
  * first. An unknown segment is not a route at all (it falls to the overview). */
 export function eventGuideTabFromHash(hash: string): EventGuideTab {
-  return (EVENT_GUIDE_HASH.exec(hash)?.[1] as EventGuideTab | undefined) ?? 'events';
+  return (EVENT_GUIDE_HASH.exec(hash)?.[1] as EventGuideTab | undefined) ?? 'today';
 }
 
 export function eventGuideHash(tab: EventGuideTab): string {
-  return tab === 'events' ? '#/event-guide' : `#/event-guide/${tab}`;
+  return tab === 'today' ? '#/event-guide' : `#/event-guide/${tab}`;
 }
 
 /** A screen whose tabs each have an address: `base` for the first, `base/<id>`

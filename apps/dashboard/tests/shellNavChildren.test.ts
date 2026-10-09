@@ -24,11 +24,12 @@ const item = (ctx: NavContext, group: string, label: string): NavItem | undefine
     ?.items.find((entry) => entry.label === label);
 
 describe('sidebar tabs: event guide', () => {
-  it('lists the four tabs, each with its own address', () => {
+  it('lists the five tabs, each with its own address', () => {
     const guide = item(base({ route: 'eventGuide' }), 'events', 'Event guide');
 
     expect(guide?.children?.map((child) => [child.label, child.href])).toEqual([
-      ['Alliance events', '#/event-guide'],
+      ['Now', '#/event-guide'],
+      ['Alliance events', '#/event-guide/events'],
       ['Survival Preparedness', '#/event-guide/survival'],
       ['Alliance Duel', '#/event-guide/duel'],
       ['Duel scores', '#/event-guide/scores'],
@@ -42,7 +43,7 @@ describe('sidebar tabs: event guide', () => {
         .map((child) => child.label);
 
     expect(current('duel')).toEqual(['Alliance Duel']);
-    expect(current()).toEqual(['Alliance events']);
+    expect(current()).toEqual(['Now']);
   });
 
   it('marks no tab when another screen is open', () => {
