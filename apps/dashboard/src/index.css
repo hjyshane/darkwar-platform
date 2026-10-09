@@ -6140,3 +6140,123 @@ button.server-link {
   align-items: center;
   gap: 0.5rem;
 }
+
+/* Same alliance, same colour, readable from across the map (the Vantera look): a
+ * soft glow behind each clump, its name over it, a ring round every dot, and a
+ * base's own name once you zoom in. */
+.atlas-halo {
+  position: absolute;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--halo) 38%, transparent) 0%,
+    transparent 68%
+  );
+  pointer-events: none;
+}
+
+.atlas-dot {
+  box-shadow: 0 0 0 1px rgb(8 12 24 / 0.75);
+}
+
+.atlas-dot--shield {
+  box-shadow: 0 0 0 calc(1.5px / var(--map-zoom, 1)) #facc15, 0 0 calc(6px / var(--map-zoom, 1))
+    #facc15;
+}
+
+.atlas-label {
+  position: absolute;
+  z-index: 3;
+  padding: 1px 6px;
+  border: 1px solid var(--dot);
+  border-radius: 999px;
+  background: rgb(8 12 24 / 0.82);
+  color: #fff;
+  font-size: calc(11px / var(--map-zoom, 1));
+  font-weight: 700;
+  line-height: 1.3;
+  white-space: nowrap;
+  transform: translate(-50%, -140%);
+  pointer-events: none;
+}
+
+.atlas-label::before {
+  content: "";
+  display: inline-block;
+  width: 0.5em;
+  height: 0.5em;
+  margin-right: 0.35em;
+  border-radius: 50%;
+  background: var(--dot);
+}
+
+.atlas-dot__name {
+  display: none;
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  margin-top: calc(2px / var(--map-zoom, 1));
+  padding: 0 4px;
+  border-radius: 4px;
+  background: rgb(8 12 24 / 0.82);
+  color: #fff;
+  font-size: calc(10px / var(--map-zoom, 1));
+  line-height: 1.3;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.pan-map__sheet[data-zoom="4"] .atlas-dot__name,
+.pan-map__sheet[data-zoom="5"] .atlas-dot__name,
+.pan-map__sheet[data-zoom="6"] .atlas-dot__name,
+.pan-map__sheet[data-zoom="7"] .atlas-dot__name,
+.pan-map__sheet[data-zoom="8"] .atlas-dot__name {
+  display: block;
+}
+
+/* Beyond zoom 3 the clump names get in the way of the base names. */
+.pan-map__sheet[data-zoom="5"] .atlas-label,
+.pan-map__sheet[data-zoom="6"] .atlas-label,
+.pan-map__sheet[data-zoom="7"] .atlas-label,
+.pan-map__sheet[data-zoom="8"] .atlas-label {
+  display: none;
+}
+
+.atlas-card {
+  display: grid;
+  gap: 0.15rem;
+  margin-top: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border, #334155);
+  border-radius: 0.5rem;
+}
+
+.atlas-ranking__shield {
+  display: block;
+  font-size: 0.8em;
+}
+
+.atlas-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.5rem 0;
+}
+
+.atlas-toolbar select {
+  min-width: 0;
+  padding: 0.2rem 0.4rem;
+  font-size: 0.8rem;
+}
+
+.atlas-filters {
+  margin: 0.5rem 0;
+}
+
+.atlas-filters summary {
+  cursor: pointer;
+  color: var(--muted, #94a3b8);
+  font-size: 0.85rem;
+}

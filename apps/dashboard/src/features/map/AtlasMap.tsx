@@ -1,6 +1,6 @@
 import { MAP_IMAGE_URL, MAP_INSET, toFraction } from '@dw/ui';
 import { type CSSProperties, type ReactNode, useMemo, useState } from 'react';
-import { type Atlas, type AtlasBase, allianceColor, isStale } from './atlas';
+import { type Atlas, type AtlasBase, allianceColor, clusters, isShielded, isStale } from './atlas';
 
 /** Every swept base as a dot on the map picture, coloured by alliance.
  *
@@ -31,6 +31,7 @@ export function AtlasMap({
 }) {
   const [hasImage, setHasImage] = useState(true);
   const now = new Date();
+  const clumps = useMemo(() => clusters(atlas), [atlas]);
 
   const dots = useMemo(
     () =>
@@ -67,10 +68,34 @@ export function AtlasMap({
           />
         )}
         <div className="map-plot" style={plotStyle}>
+          {/* A soft glow behind each sizeable alliance, so a clump reads as one
+              colour from across the map before any dot can be told apart. */}
+          {clumps.map((clump) => {
+            const alliance = atlas.alliances[clump.alliance];
+            const color = allianceColor(alliance?.id ?? null, clump.alliance === oursIndex);
+            const f = toFraction(clump.at);
+            return (
+              <span
+                aria-hidden="true"
+                className="atlas-halo"
+                key={`halo-${alliance?.id}`}
+                style={
+                  {
+                    left: `${f.left * 100}%`,
+                    top: `${f.top * 100}%`,
+                    width: `${((clump.radius * 2.6) / 1000) * 100}%`,
+                    height: `${((clump.radius * 2.6) / 1000) * 100}%`,
+                    '--halo': color,
+                  } as CSSProperties
+                }
+              />
+            );
+          })}
           {dots.map(({ base, left, top, color }) => {
             const classes = ['atlas-dot'];
             if (lit !== null && !lit.has(base.gameUid)) classes.push('atlas-dot--dim');
             else if (isStale(base, now)) classes.push('atlas-dot--stale');
+            if (isShielded(base, now)) classes.push('atlas-dot--shield');
             if (base.gameUid === selectedUid) classes.push('atlas-dot--on');
             return (
               <button
@@ -82,7 +107,29 @@ export function AtlasMap({
                 tabIndex={-1}
                 title={`${base.name ?? 'unnamed'} — ${base.at.x}, ${base.at.y}`}
                 type="button"
-              />
+              >
+                <span className="atlas-dot__name">{base.name ?? ''}</span>
+              </button>
+            );
+          })}
+          {/* The alliance's name over its clump, kept the same size on screen. */}
+          {clumps.map((clump) => {
+            const alliance = atlas.alliances[clump.alliance];
+            const f = toFraction(clump.at);
+            return (
+              <span
+                className="atlas-label"
+                key={`label-${alliance?.id}`}
+                style={
+                  {
+                    left: `${f.left * 100}%`,
+                    top: `${f.top * 100}%`,
+                    '--dot': allianceColor(alliance?.id ?? null, clump.alliance === oursIndex),
+                  } as CSSProperties
+                }
+              >
+                {alliance?.code ?? '?'}
+              </span>
             );
           })}
           {children}

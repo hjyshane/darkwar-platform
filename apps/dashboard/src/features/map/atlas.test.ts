@@ -6,13 +6,17 @@ import {
   allianceColor,
   byPower,
   centroid,
+  clusters,
   filterActive,
+  formatCopyCoordinate,
+  isShielded,
   isStale,
   matchesFilter,
   parseAtlas,
   parseCoordinate,
   parsePower,
   searchAtlas,
+  shieldedCounts,
 } from './atlas';
 
 const json = {
@@ -185,5 +189,59 @@ describe('parsePower', () => {
     expect(parsePower('')).toBeNull();
     expect(parsePower('lots')).toBeNull();
     expect(parsePower('12x')).toBeNull();
+  });
+});
+
+describe('shield, copy format and clusters', () => {
+  const NOW = new Date('2026-10-09T12:00:00Z');
+  const future = Math.floor(NOW.getTime() / 1000) + 7200;
+  const past = Math.floor(NOW.getTime() / 1000) - 7200;
+  const shieldJson = {
+    alliances: [{ id: 'a-big', code: 'BIG', name: 'Big Ones', bases: 5, power: 1 }],
+    bases: [
+      [1, 10, 10, 30, 1, 0, past, 'S1', future],
+      [2, 12, 10, 30, 1, 0, past, 'S2', past],
+      [3, 10, 12, 30, 1, 0, past, 'S3', null],
+      [4, 12, 12, 30, 1, 0, past, 'S4'],
+      [5, 11, 11, 30, 1, 0, past, 'S5', future],
+    ],
+  };
+  const atlas = parseAtlas(shieldJson);
+  const keep = (shield: 'all' | 'shielded' | 'open') =>
+    atlas.bases
+      .filter((b) => matchesFilter(b, { ...NO_BASE_FILTER, shield }, NOW))
+      .map((b) => b.gameUid);
+
+  it('reads when a shield ends and treats a past or missing one as no shield', () => {
+    expect(atlas.bases.map((b) => isShielded(b, NOW))).toEqual([true, false, false, false, true]);
+    expect(atlas.bases[3]?.shieldEnd).toBeNull();
+  });
+
+  it('filters to shielded or open bases, and counts shielded ones per alliance', () => {
+    expect(keep('shielded')).toEqual([1, 5]);
+    expect(keep('open')).toEqual([2, 3, 4]);
+    expect(keep('all')).toEqual([1, 2, 3, 4, 5]);
+    expect(filterActive({ ...NO_BASE_FILTER, shield: 'open' })).toBe(true);
+    expect(shieldedCounts(atlas, NOW)).toEqual([2]);
+  });
+
+  it('writes a coordinate the way it is pasted, and reads that back', () => {
+    expect(formatCopyCoordinate({ x: 123, y: 45 })).toBe('[X:123 Y:45]');
+    expect(parseCoordinate('[X:123 Y:45]')).toEqual({ x: 123, y: 45 });
+    expect(parseCoordinate('x:123 y:45')).toEqual({ x: 123, y: 45 });
+  });
+
+  it('finds a sizeable alliance clump, its middle and a radius that covers it', () => {
+    const found = clusters(atlas);
+
+    expect(found).toHaveLength(1);
+    expect(found[0]?.at).toEqual({ x: 11, y: 11 });
+    expect(found[0]?.radius).toBeGreaterThanOrEqual(8);
+  });
+
+  it('leaves a small alliance without a clump', () => {
+    const small = parseAtlas({ ...shieldJson, bases: shieldJson.bases.slice(0, 3) });
+
+    expect(clusters(small)).toEqual([]);
   });
 });

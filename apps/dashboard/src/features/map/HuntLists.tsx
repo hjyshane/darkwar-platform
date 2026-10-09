@@ -49,77 +49,54 @@ export function TrucksList({
   const servers = countByServer(worth);
   return (
     <>
-      {servers.length > 0 && (
-        <ul aria-label="Trucks by server" className="map-results">
-          <li>
-            <button
-              className={filter.serverId === null ? 'map-result--on' : undefined}
-              onClick={() => onFilter({ ...filter, serverId: null })}
-              type="button"
-            >
-              <strong>All servers</strong>
-              <span className="subtle">
-                {worth.length} truck{worth.length === 1 ? '' : 's'} ·{' '}
-                {worth.reduce((sum, truck) => sum + truck.heroFragments, 0)} shards
-              </span>
-            </button>
-          </li>
+      {/* Small controls over the list, so the list itself is what is on screen. */}
+      <div className="atlas-toolbar">
+        <select
+          aria-label="Server"
+          onChange={(event) =>
+            onFilter({
+              ...filter,
+              serverId: event.target.value === '' ? null : Number(event.target.value),
+            })
+          }
+          value={filter.serverId ?? ''}
+        >
+          <option value="">All servers ({worth.length})</option>
           {servers.map((entry) => (
-            <li key={entry.serverId}>
-              <button
-                className={filter.serverId === entry.serverId ? 'map-result--on' : undefined}
-                onClick={() =>
-                  onFilter({
-                    ...filter,
-                    serverId: filter.serverId === entry.serverId ? null : entry.serverId,
-                  })
-                }
-                type="button"
-              >
-                <strong>Server {entry.serverId}</strong>
-                <span className="subtle">
-                  {entry.trucks} truck{entry.trucks === 1 ? '' : 's'} · {entry.shards} shards
-                </span>
-              </button>
-            </li>
+            <option key={entry.serverId} value={entry.serverId}>
+              Server {entry.serverId} ({entry.trucks} · {entry.shards} shards)
+            </option>
           ))}
-        </ul>
-      )}
-
-      <fieldset className="map-range">
-        <legend>Filter and sort trucks</legend>
-        <label>
-          <span>Loots left</span>
-          <select
-            onChange={(event) => onFilter({ ...filter, minLoots: Number(event.target.value) })}
-            value={filter.minLoots}
-          >
-            <option value={0}>Any</option>
-            <option value={1}>At least 1</option>
-            <option value={2}>2 (untouched)</option>
-          </select>
-        </label>
-        <label>
-          <span>Hero shards</span>
-          <select
-            onChange={(event) => onFilter({ ...filter, minShards: Number(event.target.value) })}
-            value={filter.minShards}
-          >
-            <option value={0}>Any</option>
-            <option value={1}>At least 1</option>
-            <option value={2}>At least 2</option>
-            <option value={3}>At least 3</option>
-          </select>
-        </label>
-        <label>
-          <span>Sort by</span>
-          <select onChange={(event) => onSort(event.target.value as TruckSort)} value={sort}>
-            <option value="time">Arrives soonest</option>
-            <option value="shards">Most hero shards</option>
-            <option value="loots">Most loots left</option>
-          </select>
-        </label>
-      </fieldset>
+        </select>
+        <select
+          aria-label="Loots left"
+          onChange={(event) => onFilter({ ...filter, minLoots: Number(event.target.value) })}
+          value={filter.minLoots}
+        >
+          <option value={0}>Loots: any</option>
+          <option value={1}>Loots: 1+</option>
+          <option value={2}>Loots: 2</option>
+        </select>
+        <select
+          aria-label="Hero shards"
+          onChange={(event) => onFilter({ ...filter, minShards: Number(event.target.value) })}
+          value={filter.minShards}
+        >
+          <option value={0}>Shards: any</option>
+          <option value={1}>Shards: 1+</option>
+          <option value={2}>Shards: 2+</option>
+          <option value={3}>Shards: 3+</option>
+        </select>
+        <select
+          aria-label="Sort by"
+          onChange={(event) => onSort(event.target.value as TruckSort)}
+          value={sort}
+        >
+          <option value="time">Sort: soonest</option>
+          <option value="shards">Sort: most shards</option>
+          <option value="loots">Sort: most loots</option>
+        </select>
+      </div>
 
       {loaded && worth.length === 0 && (
         <p className="empty">
