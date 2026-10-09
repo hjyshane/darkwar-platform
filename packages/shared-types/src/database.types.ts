@@ -8962,6 +8962,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      delete_gift_code: { Args: { p_code_id: string }; Returns: number }
       delete_season_building: {
         Args: { p_building_type_id: number; p_season_id: number }
         Returns: undefined
