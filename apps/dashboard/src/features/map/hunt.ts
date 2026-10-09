@@ -46,6 +46,8 @@ export interface Truck {
   /** When the whole trip ends. */
   arriveAt: Date;
   leg: TruckLeg | null;
+  /** Where the interception list says it set off from. Not where it is. */
+  origin: Coordinate | null;
   positionSeenAt: Date | null;
   cargoSeenAt: Date | null;
 }
@@ -115,6 +117,69 @@ export function truckPosition(truck: Pick<Truck, 'leg'>, now: Date): TruckPositi
   };
 }
 
+export interface TruckSpot extends TruckPosition {
+  /** True when this is only where the truck set off from. */
+  origin: boolean;
+}
+
+/** What to draw for a truck: its position when a march gave one, otherwise
+ * where the list says it left from, otherwise nothing. */
+export function truckSpot(truck: Pick<Truck, 'leg' | 'origin'>, now: Date): TruckSpot | null {
+  const position = truckPosition(truck, now);
+  if (position !== null) return { ...position, origin: false };
+  if (truck.origin !== null) return { at: truck.origin, live: false, origin: true };
+  return null;
+}
+
+export type TruckSort = 'time' | 'shards' | 'loots';
+
+export interface TruckFilter {
+  /** Null: every server. */
+  serverId: number | null;
+  /** At least this many loots left (1 or 2). 0: no minimum. */
+  minLoots: number;
+  /** At least this many hero fragments. 0: no minimum. */
+  minShards: number;
+}
+
+export const NO_FILTER: TruckFilter = { serverId: null, minLoots: 0, minShards: 0 };
+
+export function filterTrucks(trucks: readonly Truck[], filter: TruckFilter): Truck[] {
+  return trucks.filter(
+    (truck) =>
+      (filter.serverId === null || truck.serverId === filter.serverId) &&
+      lootsLeft(truck) >= filter.minLoots &&
+      truck.heroFragments >= filter.minShards,
+  );
+}
+
+/** Most shards first, most loots left first, or soonest to arrive first; ties
+ * fall back to the arrival time so the order never shuffles between refreshes. */
+export function sortTrucks(trucks: readonly Truck[], by: TruckSort): Truck[] {
+  const arrival = (a: Truck, b: Truck) => a.arriveAt.getTime() - b.arriveAt.getTime();
+  const key = (truck: Truck) =>
+    by === 'shards' ? truck.heroFragments : by === 'loots' ? lootsLeft(truck) : 0;
+  return [...trucks].sort((a, b) => key(b) - key(a) || arrival(a, b));
+}
+
+export interface ServerCount {
+  serverId: number;
+  trucks: number;
+  shards: number;
+}
+
+/** How many trucks, and how many hero fragments in them, each server has. */
+export function countByServer(trucks: readonly Truck[]): ServerCount[] {
+  const found = new Map<number, ServerCount>();
+  for (const truck of trucks) {
+    const entry = found.get(truck.serverId) ?? { serverId: truck.serverId, trucks: 0, shards: 0 };
+    entry.trucks += 1;
+    entry.shards += truck.heroFragments;
+    found.set(truck.serverId, entry);
+  }
+  return [...found.values()].sort((a, b) => a.serverId - b.serverId);
+}
+
 /** "1h 12m", "9m", "under a minute"; "gone" once it has passed. */
 export function timeLeft(until: Date, now: Date): string {
   const minutes = Math.floor((until.getTime() - now.getTime()) / 60_000);
@@ -173,6 +238,7 @@ type TruckRow = {
   segment_end_at: string | null;
   position_seen_at: string | null;
   cargo_seen_at: string | null;
+  origin_pos: number | null;
 };
 
 const date = (value: string | null): Date | null => (value === null ? null : new Date(value));
@@ -209,6 +275,7 @@ export function truckFromRow(row: TruckRow): Truck | null {
     robTimes: row.rob_times,
     arriveAt,
     leg,
+    origin: row.origin_pos === null ? null : pointToCoordinate(row.origin_pos),
     positionSeenAt: date(row.position_seen_at),
     cargoSeenAt: date(row.cargo_seen_at),
   };
@@ -257,7 +324,7 @@ export async function fetchTrucks(): Promise<Truck[]> {
   const { data, error } = await supabase
     .from('world_trucks_latest')
     .select(
-      'truck_uuid, server_id, owner_name, alliance_abbr, quality, hero_fragments, rob_times, arrive_at, start_pos, target_pos, segment_start_at, segment_end_at, position_seen_at, cargo_seen_at',
+      'truck_uuid, server_id, owner_name, alliance_abbr, quality, hero_fragments, rob_times, arrive_at, start_pos, target_pos, segment_start_at, segment_end_at, position_seen_at, cargo_seen_at, origin_pos',
     )
     .gte('quality', TRUCK_MIN_QUALITY)
     .gt('hero_fragments', 0)

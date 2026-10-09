@@ -5936,3 +5936,87 @@ button.tile-grid:hover:not(:disabled) {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+
+/* Trucks & plunder (0254, 0257): the map on the left and its lists on the right,
+ * so a click on a row is seen at once. The map stays in view while the lists
+ * scroll with the page. */
+.hunt-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.hunt-map {
+  position: sticky;
+  top: 1rem;
+  min-width: 0;
+}
+
+.hunt-side {
+  min-width: 0;
+}
+
+.pan-map {
+  position: relative;
+}
+
+.pan-map__tools {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.pan-map__tools button {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  line-height: 1;
+}
+
+.pan-map__window {
+  overflow: hidden;
+  touch-action: none;
+  cursor: grab;
+  border-radius: 0.5rem;
+}
+
+.pan-map__window--zoomed {
+  cursor: move;
+}
+
+.pan-map__sheet {
+  transform-origin: 0 0;
+}
+
+.pan-map__sheet .map-canvas {
+  margin: 0;
+}
+
+.pan-map__sheet .map-frame {
+  max-width: none;
+}
+
+/* Pins keep their size while the picture scales under them. */
+.pan-map__sheet .map-pin {
+  transform: translate(-50%, -50%) scale(calc(1 / var(--map-zoom, 1)));
+  pointer-events: none;
+}
+
+.pan-map__sheet .map-pin--clickable {
+  pointer-events: auto;
+}
+
+@media (max-width: 50rem) {
+  .hunt-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hunt-map {
+    position: static;
+  }
+}

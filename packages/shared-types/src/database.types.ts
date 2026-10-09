@@ -9189,6 +9189,7 @@ export type Database = {
           completeness: number | null
           goods: Json | null
           hero_fragments: number | null
+          origin_pos: number | null
           owner_game_uid: string | null
           owner_name: string | null
           position_seen_at: string | null
