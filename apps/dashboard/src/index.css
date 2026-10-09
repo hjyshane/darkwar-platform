@@ -6134,3 +6134,9 @@ button.server-link {
 .atlas .map-frame {
   background: #0b1020;
 }
+
+.atlas .map-range label:has(input[type="checkbox"]) {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}

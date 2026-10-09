@@ -407,6 +407,59 @@ export const SESSION_KEY = ['session'] as const;
 const MAP_SERVER_ID = 581;
 const MAP_SEARCH_TERM = 'erha';
 
+/** Trucks and plunder missions over the map: two trucks on this server (one mid-leg,
+ * one only known by where it set off from), one on another server, and two missions. */
+function huntTrucksFixture() {
+  const minutes = (n: number) => new Date(Date.now() + n * 60_000);
+  const truck = (id: string, serverId: number, quality: number, shards: number, rob: number) => ({
+    truckUuid: id,
+    serverId,
+    ownerName: `Hauler ${id}`,
+    allianceAbbr: 'EXMP',
+    quality,
+    heroFragments: shards,
+    robTimes: rob,
+    arriveAt: minutes(60 + shards * 20),
+    leg: null as null | {
+      from: { x: number; y: number };
+      to: { x: number; y: number };
+      startAt: Date;
+      endAt: Date;
+    },
+    route: null,
+    origin: null as null | { x: number; y: number },
+    positionSeenAt: null,
+    cargoSeenAt: minutes(-3),
+  });
+  const moving = truck('1001', MAP_SERVER_ID, 5, 2, 0);
+  moving.leg = {
+    from: { x: 300, y: 300 },
+    to: { x: 520, y: 480 },
+    startAt: minutes(-4),
+    endAt: minutes(6),
+  };
+  const settingOff = truck('1002', MAP_SERVER_ID, 4, 1, 1);
+  settingOff.origin = { x: 700, y: 620 };
+  const elsewhere = truck('1003', 583, 5, 3, 0);
+  elsewhere.origin = { x: 200, y: 700 };
+  return [moving, settingOff, elsewhere];
+}
+
+function huntMissionsFixture() {
+  const minutes = (n: number) => new Date(Date.now() + n * 60_000);
+  const mission = (id: string, x: number, y: number, books: number, left: number) => ({
+    missionUuid: id,
+    serverId: MAP_SERVER_ID,
+    at: { x, y },
+    ownerName: `Owner ${id}`,
+    allianceAbbr: 'EXMP',
+    orangeBooks: books,
+    stealMax: 3,
+    endsAt: minutes(left),
+  });
+  return [mission('m1', 410, 215, 6, 70), mission('m2', 130, 230, 6, 25)];
+}
+
 /** The alliance-coloured map (0260): eight made-up alliances, each a loose clump
  * of bases around its own centre. A seeded generator, so the picture is the same
  * on every reload and a change in how it looks is a change in the code. */
@@ -1618,6 +1671,9 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
   // keys are the ones useScannedServers/useSightingSearch will ask for.
   [['map', 'servers'], [{ serverId: MAP_SERVER_ID, sweptAt: ago(20) }]],
   [['map', 'atlas', MAP_SERVER_ID], atlasFixture()],
+  [['map', 'trucks'], huntTrucksFixture()],
+  [['map', 'stations'], new Map<number, { x: number; y: number }>()],
+  [['map', 'missions', MAP_SERVER_ID], huntMissionsFixture()],
   [
     ['map', 'search', MAP_SERVER_ID, MAP_SEARCH_TERM],
     [

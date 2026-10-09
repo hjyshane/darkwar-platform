@@ -2,13 +2,10 @@ import { useState } from 'react';
 import { Tabs } from '../../components/ui/Tabs';
 import { TERMS } from '../../lib/terms';
 import { AtlasPage } from './AtlasPage';
-import { HuntPanel } from './HuntPanel';
 import { useScannedServers } from './mapLocations';
 
-type Mode = 'atlas' | 'hunt';
-
 /** The map, one server at a time: where every swept base is, coloured by
- * alliance, and the trucks and plunder missions worth a march.
+ * alliance, with the trucks and plunder missions worth a march on top.
  *
  * The server list is what has been SWEPT, not what exists — a server nobody has
  * visited has no answer and should not offer an empty map that looks like
@@ -17,7 +14,6 @@ type Mode = 'atlas' | 'hunt';
 export function MapPage({ serverId }: { serverId: number | null }) {
   const { data: servers, isPending, error } = useScannedServers();
   const [chosen, setChosen] = useState<number | null>(serverId);
-  const [mode, setMode] = useState<Mode>('atlas');
 
   // The address wins on first paint; after that the tabs do. Falling back to
   // the most recently swept server means the tab opens on the ground somebody
@@ -66,21 +62,7 @@ export function MapPage({ serverId }: { serverId: number | null }) {
         onChange={setChosen}
       />
 
-      <Tabs
-        label="What to show"
-        items={[
-          { id: 'atlas' as const, label: 'Alliances' },
-          { id: 'hunt' as const, label: 'Trucks & plunder' },
-        ]}
-        value={mode}
-        onChange={setMode}
-      />
-
-      {mode === 'hunt' ? (
-        <HuntPanel serverId={active} />
-      ) : (
-        <AtlasPage key={active} serverId={active} />
-      )}
+      <AtlasPage key={active} serverId={active} />
     </section>
   );
 }
