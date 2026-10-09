@@ -1285,3 +1285,13 @@
    * one push the whole page sideways instead of scrolling in its wrapper. */
   grid-template-columns: minmax(0, 1fr);
 }
+
+/* --------------------------------------------------------------- shop value */
+
+.shop-screen {
+  display: grid;
+  gap: var(--space-4);
+  /* minmax(0, 1fr), not auto: the pack and item tables are wide, and an auto
+   * track would push the whole page sideways instead of scrolling in a wrapper. */
+  grid-template-columns: minmax(0, 1fr);
+}
