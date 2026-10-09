@@ -3,6 +3,7 @@ import { ArrangedTable, type Column } from '../../components/ArrangedTable';
 import { FavouriteButton } from '../../components/FavouriteButton';
 import { FavouritesFilter } from '../../components/FavouritesFilter';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
+import { Pager } from '../../components/Pager';
 import { TableSearch } from '../../components/TableSearch';
 import { BarCell } from '../../components/ui/BarCell';
 import { RankMedal } from '../../components/ui/RankMedal';
@@ -33,6 +34,10 @@ const numberFormat = new Intl.NumberFormat('ko-KR');
 const SEARCH_FIELDS = ['name', 'code'] as const;
 
 /** This table's key in the shared column arrangement. */
+/** Rows per page. The whole group's players is thousands of rows; drawing them
+ * all is what made the screen slow. */
+const PAGE_SIZE = 50;
+
 export const TABLE_ID = 'alliance-rankings';
 
 /** Identity only, for the settings screen. */
@@ -59,15 +64,17 @@ export function AllianceRankingTable({
     () => (starredOnly ? rows.filter((row) => isFavourite('alliance', row.alliance_id)) : rows),
     [rows, starredOnly, isFavourite],
   );
-  const { query, setQuery, sort, onSort, view, shown, total } = useTableView(
-    visible,
-    SEARCH_FIELDS,
-    // Matches what the query asks for AND what the rows arrive in. Those
-    // were two different things until 0035: the panel ordered by captured_at
-    // while this file re-sorted by power on the way out, so the header
-    // described an order nothing was in.
-    { key: 'power', direction: 'desc' },
-  );
+  const { query, setQuery, sort, onSort, view, pageRows, page, pageCount, setPage, shown, total } =
+    useTableView(
+      visible,
+      SEARCH_FIELDS,
+      // Matches what the query asks for AND what the rows arrive in. Those
+      // were two different things until 0035: the panel ordered by captured_at
+      // while this file re-sorted by power on the way out, so the header
+      // described an order nothing was in.
+      { key: 'power', direction: 'desc' },
+      PAGE_SIZE,
+    );
 
   // Bars scale to the strongest alliance in the whole list, not the filtered
   // view, so searching does not make a weak alliance look dominant.
@@ -164,10 +171,11 @@ export function AllianceRankingTable({
         columns={columns}
         onSort={onSort}
         rowKey={(row) => row.external_id}
-        rows={view}
+        rows={pageRows}
         sort={sort}
         tableId={TABLE_ID}
       />
+      <Pager onGo={setPage} page={page} pageCount={pageCount} />
       {view.length === 0 && <p className="empty">No alliance matches “{query}”.</p>}
     </>
   );

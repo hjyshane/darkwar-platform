@@ -61,7 +61,9 @@ export function CrossRankingsPanel() {
         <ServerChips onChange={setChosenServer} servers={servers} value={server} />
         {isPending && <p className="empty loading">Loading…</p>}
         {error && <p className="error">Could not load ranking: {error.message}</p>}
-        {shown && <CrossRankingTable rows={shown} board={board} />}
+        {shown && (
+          <CrossRankingTable key={`${boardId}-${server ?? 'all'}`} rows={shown} board={board} />
+        )}
       </div>
     </section>
   );
