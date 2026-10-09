@@ -6,6 +6,7 @@ import {
   type GiftMember,
   addGiftCode,
   cancelGiftClaims,
+  deleteGiftCode,
   enqueueGiftClaims,
   fetchGiftCodes,
   fetchGiftMembers,
@@ -98,6 +99,14 @@ export function GiftCodesPage() {
     onSuccess: refresh,
     onError,
   });
+  const remove = useMutation({
+    mutationFn: (codeId: string) => deleteGiftCode(codeId),
+    onSuccess: async () => {
+      setNotice('Code deleted.');
+      await refresh();
+    },
+    onError,
+  });
   const toggleRunner = useMutation({
     mutationFn: (enabled: boolean) => setGiftRunner(enabled),
     onSuccess: refresh,
@@ -121,7 +130,9 @@ export function GiftCodesPage() {
   const live = list.filter(isLive);
   const people = members.data ?? [];
   const claimable = claimableSelection(people, selected);
-  const failure = [add, claim, cancel, retire, exclude, toggleRunner].find((m) => m.error)?.error;
+  const failure = [add, claim, cancel, retire, remove, exclude, toggleRunner].find(
+    (m) => m.error,
+  )?.error;
 
   const groups = rankGroups(people);
   const everyone = pickableUids(people);
@@ -244,10 +255,21 @@ export function GiftCodesPage() {
                   <CodeRow
                     key={c.code_id}
                     code={c}
-                    busy={claim.isPending || cancel.isPending || retire.isPending}
+                    busy={
+                      claim.isPending || cancel.isPending || retire.isPending || remove.isPending
+                    }
                     onClaim={() => claim.mutate({ codeIds: [c.code_id] })}
                     onCancel={() => cancel.mutate(c.code_id)}
                     onRetire={() => retire.mutate(c.code_id)}
+                    onDelete={() => {
+                      if (
+                        window.confirm(
+                          `Delete ${c.code} from the list? Its claim history for your alliance goes with it.`,
+                        )
+                      ) {
+                        remove.mutate(c.code_id);
+                      }
+                    }}
                   />
                 ))}
               </tbody>
@@ -348,12 +370,14 @@ function CodeRow({
   onClaim,
   onCancel,
   onRetire,
+  onDelete,
 }: {
   code: GiftCode;
   busy: boolean;
   onClaim: () => void;
   onCancel: () => void;
   onRetire: () => void;
+  onDelete: () => void;
 }) {
   const s = summarise(code);
   return (
@@ -385,7 +409,10 @@ function CodeRow({
           </>
         ) : (
           <span className="muted">retired</span>
-        )}
+        )}{' '}
+        <button type="button" className="link" disabled={busy} onClick={onDelete}>
+          Delete
+        </button>
       </td>
     </tr>
   );

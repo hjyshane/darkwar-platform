@@ -93,3 +93,12 @@ Edge Function도, 저장할 키도 필요 없다 - 0130(Discord 알림)과 같�
   못 했다.** Gift Center가 Supabase(클라우드) IP의 요청을 받아 주는지도 모른다. 그래서 **본인 UID +
   쓰지 않은 코드 한 건**으로 먼저 켜 보고, `gift_code_claims.result`에 `errorCode: "ok"`가 오는지,
   `halted_reason`이 비어 있는지 본다. 막히면(`stop`) 스스로 꺼진다.
+
+## 0253: 켜기/끄기 오류와 코드 삭제
+
+- 0252의 Sender 켜기/끄기가 호스팅 DB에서 `UPDATE requires a WHERE clause`로 실패했다. Supabase는 API 세션에
+  `pg_safeupdate`를 올려 WHERE 없는 UPDATE/DELETE를 거부한다. pgTAP 하니스와 CI에는 이 확장이 없어서 통과했다.
+  0253이 모든 러너 UPDATE에 `where singleton`을 붙이고, 테스트 254가 소스에서 이를 검사한다.
+  **교훈: 한 행짜리 상태 표를 갱신하는 함수도 `where`를 쓴다.**
+- 코드 삭제: 코드 행의 `Delete`(확인 창). 이 연맹의 요청 기록을 지우고, 다른 연맹에 요청이 남아 있지 않을 때만
+  코드 자체를 지운다(코드는 전역이라 한 연맹이 다른 연맹의 기록을 지우면 안 된다).

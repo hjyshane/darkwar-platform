@@ -100,6 +100,16 @@ export async function setGiftCodeStatus(codeId: string, status: GiftCode['status
   }
 }
 
+/** Delete a code from the list: this alliance's claims for it, and the code
+ * itself once no alliance has a claim on it. Returns the claims removed. */
+export async function deleteGiftCode(codeId: string): Promise<number> {
+  const { data, error } = await supabase.rpc('delete_gift_code', { p_code_id: codeId });
+  if (error) {
+    throw new Error(error.message);
+  }
+  return data ?? 0;
+}
+
 export async function setGiftExclusion(gameUid: number, excluded: boolean): Promise<void> {
   const { error } = await supabase.rpc('set_gift_exclusion', {
     p_game_uid: gameUid,
