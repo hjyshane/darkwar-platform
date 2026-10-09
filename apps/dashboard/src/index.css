@@ -4813,6 +4813,11 @@ button.tile-grid:hover:not(:disabled) {
   .calendar-page {
     gap: var(--space-2);
   }
+  /* Seven day columns need every pixel a phone has: the panel the calendar sits
+     in keeps only a thin margin. */
+  .calendar-page .calendar-panel {
+    padding: var(--space-2);
+  }
   /* Seven columns in 375px leave about 40px a day. "Mon 5" wrapped to two lines
      and the second ran into the category label beneath; the date row cannot grow
      (the day cells span every row), so the date stays on one line and smaller. */

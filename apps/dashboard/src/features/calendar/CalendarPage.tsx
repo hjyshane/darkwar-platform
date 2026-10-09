@@ -12,6 +12,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
+import { Strip } from '../../components/Strip';
 import { Select } from '../../components/ui/Select';
 import { Tabs } from '../../components/ui/Tabs';
 import { useSession } from '../../lib/useSession';
@@ -31,6 +32,7 @@ import {
   serverDay,
   serverWhen,
 } from './data';
+import { calendarStrip } from './strip';
 
 /** The calendar changes when somebody logs in, not by the minute. */
 const STALE_TIME = 5 * 60_000;
@@ -122,106 +124,130 @@ export function CalendarPage() {
 
   return (
     <main className="calendar-page">
-      <h2>Game calendar</h2>
-      <p className="subtle">
-        What the game has announced, from the login the collector saw at{' '}
-        {serverWhen(onServer[0]?.seen_at ?? null)}. All times are server time (UTC−2).
-      </p>
-
-      <div className="row calendar-controls">
-        <Tabs
-          label="View"
-          items={VIEWS.map(([value, label]) => ({ id: value, label }))}
-          value={view}
-          onChange={setView}
-        />
-        <fieldset className="calendar-toggle">
-          <legend className="visually-hidden">Show</legend>
-          {CATEGORIES.map((value) => (
-            <button
-              aria-pressed={shown.has(value)}
-              className={shown.has(value) ? `calendar-toggle-on calendar-cat-${value}` : undefined}
-              key={value}
-              onClick={() => toggle(value)}
-              type="button"
-            >
-              {CATEGORY_LABELS[value]}
-            </button>
-          ))}
-        </fieldset>
-        {servers.length > 1 && (
-          <label>
-            Server{' '}
-            <Select onChange={(next) => setServer(Number(next))} value={serverShown ?? ''}>
-              {servers.map((id) => (
-                <option key={id} value={id}>
-                  {id}
-                </option>
-              ))}
-            </Select>
-          </label>
-        )}
+      <div className="entity">
+        <header className="entity-head">
+          <span aria-hidden="true" className="entity-mark">
+            GC
+          </span>
+          <div>
+            <h2>Game calendar</h2>
+            <p className="entity-meta">
+              <span>What the game has announced</span>
+              <span>Server time, UTC−2</span>
+              {servers.length > 1 && <span>Server {serverShown}</span>}
+            </p>
+          </div>
+        </header>
+        <Strip cells={calendarStrip(onServer, now)} />
+        <p className="entity-foot">
+          From the login the collector saw at {serverWhen(onServer[0]?.seen_at ?? null)}.
+        </p>
       </div>
 
-      {view !== 'list' && (
-        <p className="subtle calendar-legend">
-          {CATEGORIES.filter((value) => shown.has(value)).map((value) => (
-            <span
-              className={`calendar-bar calendar-cat-${value} calendar-bar-start calendar-bar-end calendar-legend-chip`}
-              key={value}
-            >
-              {CATEGORY_LABELS[value]}
-            </span>
-          ))}
-          Bars run from the first to the last server day (UTC−2). Pick a date to open that day.
-        </p>
-      )}
-      {view === 'month' ? (
-        <MonthView
-          day={focus}
-          events={inMonth}
-          onDay={setFocus}
-          onPickDay={openDay}
-          today={today}
-        />
-      ) : view === 'week' ? (
-        <WeekView day={focus} events={inMonth} onDay={setFocus} onPickDay={openDay} today={today} />
-      ) : view === 'day' ? (
-        <DayView day={focus} events={inMonth} now={now} onDay={setFocus} today={today} />
-      ) : (
-        <>
-          <div className="row calendar-search">
-            <input
-              aria-label="Search events by name"
-              onChange={(change) => setText(change.target.value)}
-              placeholder="Search by name or id"
-              type="search"
-              value={text}
-            />
-            <label>
-              Running on{' '}
-              <input
-                aria-label="Server day"
-                onChange={(change) => setDay(change.target.value)}
-                type="date"
-                value={day}
-              />
-            </label>
-            {(text !== '' || day !== '') && (
+      <div className="panel calendar-panel">
+        <div className="row calendar-controls">
+          <Tabs
+            label="View"
+            items={VIEWS.map(([value, label]) => ({ id: value, label }))}
+            value={view}
+            onChange={setView}
+          />
+          <fieldset className="calendar-toggle">
+            <legend className="visually-hidden">Show</legend>
+            {CATEGORIES.map((value) => (
               <button
-                onClick={() => {
-                  setText('');
-                  setDay('');
-                }}
+                aria-pressed={shown.has(value)}
+                className={
+                  shown.has(value) ? `calendar-toggle-on calendar-cat-${value}` : undefined
+                }
+                key={value}
+                onClick={() => toggle(value)}
                 type="button"
               >
-                Clear
+                {CATEGORY_LABELS[value]}
               </button>
-            )}
-          </div>
-          <ListView day={day} events={listed} mayName={mayName} now={now} />
-        </>
-      )}
+            ))}
+          </fieldset>
+          {servers.length > 1 && (
+            <label>
+              Server{' '}
+              <Select onChange={(next) => setServer(Number(next))} value={serverShown ?? ''}>
+                {servers.map((id) => (
+                  <option key={id} value={id}>
+                    {id}
+                  </option>
+                ))}
+              </Select>
+            </label>
+          )}
+        </div>
+
+        {view !== 'list' && (
+          <p className="subtle calendar-legend">
+            {CATEGORIES.filter((value) => shown.has(value)).map((value) => (
+              <span
+                className={`calendar-bar calendar-cat-${value} calendar-bar-start calendar-bar-end calendar-legend-chip`}
+                key={value}
+              >
+                {CATEGORY_LABELS[value]}
+              </span>
+            ))}
+            Bars run from the first to the last server day (UTC−2). Pick a date to open that day.
+          </p>
+        )}
+        {view === 'month' ? (
+          <MonthView
+            day={focus}
+            events={inMonth}
+            onDay={setFocus}
+            onPickDay={openDay}
+            today={today}
+          />
+        ) : view === 'week' ? (
+          <WeekView
+            day={focus}
+            events={inMonth}
+            onDay={setFocus}
+            onPickDay={openDay}
+            today={today}
+          />
+        ) : view === 'day' ? (
+          <DayView day={focus} events={inMonth} now={now} onDay={setFocus} today={today} />
+        ) : (
+          <>
+            <div className="row calendar-search">
+              <input
+                aria-label="Search events by name"
+                onChange={(change) => setText(change.target.value)}
+                placeholder="Search by name or id"
+                type="search"
+                value={text}
+              />
+              <label>
+                Running on{' '}
+                <input
+                  aria-label="Server day"
+                  onChange={(change) => setDay(change.target.value)}
+                  type="date"
+                  value={day}
+                />
+              </label>
+              {(text !== '' || day !== '') && (
+                <button
+                  onClick={() => {
+                    setText('');
+                    setDay('');
+                  }}
+                  type="button"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+            <ListView day={day} events={listed} mayName={mayName} now={now} />
+          </>
+        )}
+      </div>
     </main>
   );
 }
