@@ -237,7 +237,7 @@ export function buildNav(ctx: NavContext): NavGroup[] {
     })),
   ];
 
-  const guideTab = ctx.eventGuideTab ?? 'events';
+  const guideTab = ctx.eventGuideTab ?? 'today';
   const events: NavItem[] = EVENT_TABS.map((tab) => ({
     key: tab.hash,
     href: tab.hash,

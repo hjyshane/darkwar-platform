@@ -9,7 +9,7 @@ import {
 describe('event guide addresses', () => {
   it('keeps the old address, and it is the first tab', () => {
     expect(routeFromHash('#/event-guide')).toBe('eventGuide');
-    expect(eventGuideTabFromHash('#/event-guide')).toBe('events');
+    expect(eventGuideTabFromHash('#/event-guide')).toBe('today');
   });
 
   it('gives every tab an address that comes back as the same tab', () => {
@@ -21,7 +21,8 @@ describe('event guide addresses', () => {
   });
 
   it('writes the first tab as the bare address, so an existing link and the sidebar agree', () => {
-    expect(eventGuideHash('events')).toBe('#/event-guide');
+    expect(eventGuideHash('today')).toBe('#/event-guide');
+    expect(eventGuideHash('events')).toBe('#/event-guide/events');
     expect(eventGuideHash('duel')).toBe('#/event-guide/duel');
   });
 
