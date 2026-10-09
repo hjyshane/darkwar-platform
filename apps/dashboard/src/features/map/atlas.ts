@@ -342,16 +342,28 @@ function nameWidthPx(name: string): number {
  * Names are placed in the order given by `first` (the picked base, the lit ones)
  * and then by power, and a name is dropped when an already placed one overlaps it.
  * Zooming in spreads the bases apart on screen, so the dropped ones come back; at
- * the last zoom steps every name fits. Returns game uids. */
+ * the last zoom steps every name fits. Returns game uids.
+ *
+ * `only` narrows the candidates to a highlighted set (a picked alliance, a search
+ * result) so the rest of the map stays unlabelled. A base with no alliance is
+ * named only when it is the `clicked` one: those are the stragglers and the
+ * unknowns, and a name over each would bury the alliances that matter. */
 export function visibleNames(
   atlas: Atlas,
   zoom: number,
   first: ReadonlySet<number> = new Set(),
+  only: ReadonlySet<number> | null = null,
+  clicked: number | null = null,
 ): Set<number> {
   const shown = new Set<number>();
   if (zoom < NAME_ZOOM) return shown;
   const ordered = atlas.bases
     .filter((base) => base.name !== null && base.name !== '')
+    .filter(
+      (base) =>
+        base.gameUid === clicked ||
+        (base.alliance >= 0 && (only === null || only.has(base.gameUid))),
+    )
     .sort(
       (a, b) =>
         Number(first.has(b.gameUid)) - Number(first.has(a.gameUid)) ||

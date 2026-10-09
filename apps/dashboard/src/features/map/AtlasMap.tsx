@@ -28,6 +28,7 @@ export function AtlasMap({
   oursIndex,
   lit,
   selectedUid,
+  pickedAlliance = null,
   onSelect,
   children,
 }: {
@@ -36,6 +37,8 @@ export function AtlasMap({
   oursIndex: number;
   lit: ReadonlySet<number> | null;
   selectedUid: number | null;
+  /** The alliance picked in the ranking, or null: only its glow and name stay. */
+  pickedAlliance?: number | null;
   onSelect: (base: AtlasBase) => void;
   /** Extra layers drawn over the dots (trucks and plunder missions). */
   children?: ReactNode;
@@ -46,15 +49,18 @@ export function AtlasMap({
   const zoom = useMapZoom();
   // The alliance names give way to the base names once zoomed in.
   const named = useMemo(
-    () => (zoom >= CLUMP_NAME_HIDE_ZOOM ? [] : visibleLabels(clumps, atlas, zoom)),
-    [clumps, atlas, zoom],
+    () =>
+      (zoom >= CLUMP_NAME_HIDE_ZOOM ? [] : visibleLabels(clumps, atlas, zoom)).filter(
+        (clump) => pickedAlliance === null || clump.alliance === pickedAlliance,
+      ),
+    [clumps, atlas, zoom, pickedAlliance],
   );
   // Base names that fit without overlapping: the picked base and the lit ones
   // first. Everything else is dropped when it would sit on a name already placed.
   const baseNames = useMemo(() => {
     const first = new Set<number>(lit ?? []);
     if (selectedUid !== null) first.add(selectedUid);
-    return visibleNames(atlas, zoom, first);
+    return visibleNames(atlas, zoom, first, lit, selectedUid);
   }, [atlas, zoom, lit, selectedUid]);
 
   const dots = useMemo(
@@ -94,27 +100,29 @@ export function AtlasMap({
         <div className="map-plot" style={plotStyle}>
           {/* A soft glow behind each sizeable alliance, so a clump reads as one
               colour from across the map before any dot can be told apart. */}
-          {clumps.map((clump) => {
-            const alliance = atlas.alliances[clump.alliance];
-            const color = allianceColor(alliance?.id ?? null, clump.alliance === oursIndex);
-            const f = toFraction(clump.at);
-            return (
-              <span
-                aria-hidden="true"
-                className="atlas-halo"
-                key={`halo-${alliance?.id}`}
-                style={
-                  {
-                    left: `${f.left * 100}%`,
-                    top: `${f.top * 100}%`,
-                    width: `${((clump.radius * 2.6) / 1000) * 100}%`,
-                    height: `${((clump.radius * 2.6) / 1000) * 100}%`,
-                    '--halo': color,
-                  } as CSSProperties
-                }
-              />
-            );
-          })}
+          {clumps
+            .filter((clump) => pickedAlliance === null || clump.alliance === pickedAlliance)
+            .map((clump) => {
+              const alliance = atlas.alliances[clump.alliance];
+              const color = allianceColor(alliance?.id ?? null, clump.alliance === oursIndex);
+              const f = toFraction(clump.at);
+              return (
+                <span
+                  aria-hidden="true"
+                  className="atlas-halo"
+                  key={`halo-${alliance?.id}`}
+                  style={
+                    {
+                      left: `${f.left * 100}%`,
+                      top: `${f.top * 100}%`,
+                      width: `${((clump.radius * 2.6) / 1000) * 100}%`,
+                      height: `${((clump.radius * 2.6) / 1000) * 100}%`,
+                      '--halo': color,
+                    } as CSSProperties
+                  }
+                />
+              );
+            })}
           {dots.map(({ base, left, top, color }) => {
             const classes = ['atlas-dot'];
             if (lit !== null && !lit.has(base.gameUid)) classes.push('atlas-dot--dim');

@@ -306,6 +306,20 @@ describe('visibleNames', () => {
     expect(visibleNames(near, 16).has(2)).toBe(true);
   });
 
+  it('names only the highlighted set, and a base with no alliance only once clicked', () => {
+    const mixed = parseAtlas({
+      alliances: [{ id: 'a', code: 'A', name: 'A', bases: 1, power: 1 }],
+      bases: [
+        [1, 100, 100, 30, 900, 0, 1_790_000_000, 'In'],
+        [2, 300, 300, 30, 800, 0, 1_790_000_000, 'Out'],
+        [3, 500, 500, 30, 700, -1, 1_790_000_000, 'Loner'],
+      ],
+    });
+    expect([...visibleNames(mixed, 4)].sort()).toEqual([1, 2]);
+    expect([...visibleNames(mixed, 4, new Set(), new Set([1]))]).toEqual([1]);
+    expect([...visibleNames(mixed, 4, new Set(), null, 3)].sort()).toEqual([1, 2, 3]);
+  });
+
   it('places the picked base first even when it is the weaker one', () => {
     expect(visibleNames(near, 4, new Set([2])).has(2)).toBe(true);
     expect(visibleNames(near, 4, new Set([2])).has(1)).toBe(false);
