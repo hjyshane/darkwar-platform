@@ -11,7 +11,18 @@ import {
   setGiftCodeStatus,
   setGiftExclusion,
 } from './data';
-import { claimLabel, claimableSelection, isLive, summarise } from './status';
+import {
+  allSelected,
+  byRank,
+  claimLabel,
+  claimableSelection,
+  isLive,
+  pickableUids,
+  rankGroups,
+  rankLabel,
+  summarise,
+  toggleGroup,
+} from './status';
 
 const REFRESH_MS = 15_000;
 
@@ -95,6 +106,9 @@ export function GiftCodesPage() {
   const people = members.data ?? [];
   const claimable = claimableSelection(people, selected);
   const failure = [add, claim, cancel, retire, exclude].find((m) => m.error)?.error;
+
+  const groups = rankGroups(people);
+  const everyone = pickableUids(people);
 
   function toggle(uid: number) {
     setSelected((now) => {
@@ -207,8 +221,31 @@ export function GiftCodesPage() {
               Clear selection
             </button>
           </div>
+          {/* Pick by rank: each button adds everybody of that rank to the
+              selection, and pressing it again takes them out. All picks the whole
+              roster. Players left out are never picked by either. */}
+          <fieldset className="gift-picker">
+            <legend className="visually-hidden">Pick by rank</legend>
+            <button
+              aria-pressed={allSelected(selected, everyone)}
+              type="button"
+              onClick={() => setSelected((now) => toggleGroup(now, everyone))}
+            >
+              All ({everyone.length})
+            </button>
+            {groups.map((group) => (
+              <button
+                aria-pressed={allSelected(selected, group.uids)}
+                key={group.label}
+                type="button"
+                onClick={() => setSelected((now) => toggleGroup(now, group.uids))}
+              >
+                {group.label} ({group.uids.length})
+              </button>
+            ))}
+          </fieldset>
           <MemberTable
-            members={people}
+            members={byRank(people)}
             codes={list}
             selected={selected}
             onToggle={toggle}
@@ -290,6 +327,7 @@ function MemberTable({
           <tr>
             <th scope="col">Pick</th>
             <th scope="col">Player</th>
+            <th scope="col">Rank</th>
             <th scope="col">Leave out</th>
             {codes.map((c) => (
               <th key={c.code_id} scope="col">
@@ -311,6 +349,7 @@ function MemberTable({
                 />
               </td>
               <th scope="row">{m.name}</th>
+              <td>{rankLabel(m.rank)}</td>
               <td>
                 <input
                   type="checkbox"

@@ -1234,3 +1234,22 @@
 .planner-screen .planner-stock h3 {
   display: block;
 }
+
+/* ---------------------------------------------------------------- gift codes */
+
+/* The pick-by-rank row: All, R5 ... R1. A pressed one means everybody in that
+ * group is in the selection. */
+.gift-picker {
+  border: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: var(--space-2) 0;
+  padding: 0;
+}
+
+.gift-picker button[aria-pressed="true"] {
+  background: var(--gold-bg);
+  border-color: var(--gold-strong);
+  color: var(--gold);
+}

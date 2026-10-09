@@ -1062,24 +1062,28 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
       {
         game_uid: 1000000000000001,
         name: 'Alpha',
+        rank: 5,
         excluded: false,
         claims: { 'gc-1': 'done', 'gc-3': 'done' },
       },
       {
         game_uid: 1000000000000002,
         name: 'Bravo',
+        rank: 4,
         excluded: false,
         claims: { 'gc-1': 'already', 'gc-3': 'failed' },
       },
       {
         game_uid: 1000000000000003,
         name: 'Charlie',
+        rank: 4,
         excluded: false,
         claims: { 'gc-1': 'queued', 'gc-3': 'done' },
       },
       {
         game_uid: 1000000000000004,
         name: 'Delta (left out)',
+        rank: 3,
         excluded: true,
         claims: {},
       },
