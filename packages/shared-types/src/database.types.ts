@@ -4091,6 +4091,52 @@ export type Database = {
         }
         Relationships: []
       }
+      gift_extra_players: {
+        Row: {
+          added_by: string | null
+          alliance_id: string
+          created_at: string
+          game_uid: number
+          label: string | null
+        }
+        Insert: {
+          added_by?: string | null
+          alliance_id?: string
+          created_at?: string
+          game_uid: number
+          label?: string | null
+        }
+        Update: {
+          added_by?: string | null
+          alliance_id?: string
+          created_at?: string
+          game_uid?: number
+          label?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gift_extra_players_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "gift_extra_players_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "gift_extra_players_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
+        ]
+      }
       guides: {
         Row: {
           alliance_id: string | null
@@ -9174,6 +9220,10 @@ export type Database = {
         Returns: number
       }
       add_gift_code: { Args: { p_code: string }; Returns: string }
+      add_gift_extra_players: {
+        Args: { p_label?: string; p_uids: number[] }
+        Returns: number
+      }
       alliance_role_of: {
         Args: { p_user: string }
         Returns: Database["public"]["Enums"]["app_role"]
@@ -9292,6 +9342,7 @@ export type Database = {
         Returns: {
           claims: Json
           excluded: boolean
+          extra: boolean
           game_uid: number
           name: string
         }[]
@@ -9579,6 +9630,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      remove_gift_extra_player: {
+        Args: { p_game_uid: number }
+        Returns: undefined
       }
       remove_member: { Args: { p_user: string }; Returns: undefined }
       research_prerequisite_steps: {

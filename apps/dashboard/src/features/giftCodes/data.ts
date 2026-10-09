@@ -25,6 +25,8 @@ export interface GiftMember {
   name: string;
   excluded: boolean;
   claims: Record<string, string>;
+  /** A player ID saved by an officer (0255), not on the alliance roster. */
+  extra: boolean;
   /** The rank the game shows for them, 1 to 5 (R1 to R5), from the newest roster
    * capture. Null when it is not known: a rank is not guessed. */
   rank: number | null;
@@ -108,6 +110,27 @@ export async function deleteGiftCode(codeId: string): Promise<number> {
     throw new Error(error.message);
   }
   return data ?? 0;
+}
+
+/** Save player IDs to claim for besides the roster (0255). IDs already saved or
+ * already on the roster are skipped; returns how many were newly saved. A label
+ * is kept only when exactly one ID is given. */
+export async function addGiftExtraPlayers(uids: number[], label?: string): Promise<number> {
+  const { data, error } = await supabase.rpc('add_gift_extra_players', {
+    p_uids: uids,
+    ...(label ? { p_label: label } : {}),
+  });
+  if (error) {
+    throw new Error(error.message);
+  }
+  return data ?? 0;
+}
+
+export async function removeGiftExtraPlayer(gameUid: number): Promise<void> {
+  const { error } = await supabase.rpc('remove_gift_extra_player', { p_game_uid: gameUid });
+  if (error) {
+    throw new Error(error.message);
+  }
 }
 
 export async function setGiftExclusion(gameUid: number, excluded: boolean): Promise<void> {

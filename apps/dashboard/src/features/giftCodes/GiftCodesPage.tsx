@@ -5,12 +5,14 @@ import {
   type GiftCode,
   type GiftMember,
   addGiftCode,
+  addGiftExtraPlayers,
   cancelGiftClaims,
   deleteGiftCode,
   enqueueGiftClaims,
   fetchGiftCodes,
   fetchGiftMembers,
   fetchGiftRunner,
+  removeGiftExtraPlayer,
   setGiftCodeStatus,
   setGiftExclusion,
   setGiftRunner,
@@ -22,6 +24,7 @@ import {
   claimLabel,
   claimableSelection,
   isLive,
+  parseUids,
   pickableUids,
   rankGroups,
   rankLabel,
@@ -59,6 +62,8 @@ export function GiftCodesPage() {
   });
   const [selected, setSelected] = useState<ReadonlySet<number>>(new Set());
   const [newCode, setNewCode] = useState('');
+  const [idsText, setIdsText] = useState('');
+  const [idsLabel, setIdsLabel] = useState('');
   const [notice, setNotice] = useState<string | null>(null);
 
   const refresh = () => client.invalidateQueries({ queryKey: ['gift'] });
@@ -107,6 +112,27 @@ export function GiftCodesPage() {
     },
     onError,
   });
+  const parsed = parseUids(idsText);
+  const addIds = useMutation({
+    mutationFn: () =>
+      addGiftExtraPlayers(parsed.uids, parsed.uids.length === 1 ? idsLabel : undefined),
+    onSuccess: async (saved) => {
+      const skipped = parsed.uids.length - saved;
+      setIdsText('');
+      setIdsLabel('');
+      const already = skipped > 0 ? ` ${skipped} already on the list or the roster.` : '';
+      setNotice(
+        `Saved ${saved} ${saved === 1 ? 'player ID' : 'player IDs'}.${already} Pick them below and press Claim, or use Claim for everyone on a code.`,
+      );
+      await refresh();
+    },
+    onError,
+  });
+  const removeId = useMutation({
+    mutationFn: (uid: number) => removeGiftExtraPlayer(uid),
+    onSuccess: refresh,
+    onError,
+  });
   const toggleRunner = useMutation({
     mutationFn: (enabled: boolean) => setGiftRunner(enabled),
     onSuccess: refresh,
@@ -130,9 +156,17 @@ export function GiftCodesPage() {
   const live = list.filter(isLive);
   const people = members.data ?? [];
   const claimable = claimableSelection(people, selected);
-  const failure = [add, claim, cancel, retire, remove, exclude, toggleRunner].find(
-    (m) => m.error,
-  )?.error;
+  const failure = [
+    add,
+    claim,
+    cancel,
+    retire,
+    remove,
+    exclude,
+    addIds,
+    removeId,
+    toggleRunner,
+  ].find((m) => m.error)?.error;
 
   const groups = rankGroups(people);
   const everyone = pickableUids(people);
@@ -282,6 +316,49 @@ export function GiftCodesPage() {
         <h2 id="gift-members-heading">
           Members <span className="subtle">who has what</span>
         </h2>
+        <form
+          className="migration-form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (parsed.uids.length > 0) addIds.mutate();
+          }}
+        >
+          <label>
+            Add players by ID{' '}
+            <span className="muted">
+              (not in the alliance; paste several, separated by spaces, commas or new lines)
+            </span>
+            <textarea
+              value={idsText}
+              onChange={(e) => setIdsText(e.target.value)}
+              placeholder="e.g. 1135062125000580"
+              rows={2}
+              autoComplete="off"
+              spellCheck={false}
+            />
+          </label>
+          {parsed.uids.length === 1 && (
+            <label>
+              Name <span className="muted">(optional)</span>
+              <input
+                value={idsLabel}
+                onChange={(e) => setIdsLabel(e.target.value)}
+                maxLength={40}
+                autoComplete="off"
+              />
+            </label>
+          )}
+          <button type="submit" disabled={addIds.isPending || parsed.uids.length === 0}>
+            Save {parsed.uids.length > 0 ? parsed.uids.length : ''}{' '}
+            {parsed.uids.length === 1 ? 'ID' : 'IDs'}
+          </button>
+          {parsed.rejected.length > 0 && (
+            <p className="error">
+              Not a player ID (10 to 18 digits): {parsed.rejected.slice(0, 5).join(', ')}
+              {parsed.rejected.length > 5 ? '…' : ''}
+            </p>
+          )}
+        </form>
         {members.isPending && <p className="empty loading">Loading…</p>}
         {members.error && <p className="error">{members.error.message}</p>}
         {members.data && people.length === 0 && (
@@ -334,6 +411,7 @@ export function GiftCodesPage() {
               selected={selected}
               onToggle={toggle}
               onExclude={(uid, excluded) => exclude.mutate({ uid, excluded })}
+              onRemove={(uid) => removeId.mutate(uid)}
             />
           </>
         )}
@@ -424,12 +502,14 @@ function MemberTable({
   selected,
   onToggle,
   onExclude,
+  onRemove,
 }: {
   members: GiftMember[];
   codes: GiftCode[];
   selected: ReadonlySet<number>;
   onToggle: (uid: number) => void;
   onExclude: (uid: number, excluded: boolean) => void;
+  onRemove: (uid: number) => void;
 }) {
   return (
     <div className="table-wrap">
@@ -460,8 +540,18 @@ function MemberTable({
                   onChange={() => onToggle(m.game_uid)}
                 />
               </td>
-              <th scope="row">{m.name}</th>
-              <td>{rankLabel(m.rank)}</td>
+              <th scope="row">
+                {m.name}
+                {m.extra && (
+                  <>
+                    {' '}
+                    <button type="button" className="link" onClick={() => onRemove(m.game_uid)}>
+                      Remove
+                    </button>
+                  </>
+                )}
+              </th>
+              <td>{m.extra ? 'saved ID' : rankLabel(m.rank)}</td>
               <td>
                 <input
                   type="checkbox"
