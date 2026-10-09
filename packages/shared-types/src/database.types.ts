@@ -9598,6 +9598,13 @@ export type Database = {
         Args: { p_channel: string }
         Returns: string
       }
+      player_current_alliance: {
+        Args: never
+        Returns: {
+          alliance_id: string
+          player_id: string
+        }[]
+      }
       player_ranking_merged: {
         Args: { p_metric: string }
         Returns: {
