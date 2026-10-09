@@ -6064,7 +6064,7 @@ button.server-link {
 .atlas-dot::after {
   content: "";
   position: absolute;
-  inset: -4px;
+  inset: calc(-4px / var(--map-zoom, 1));
   border-radius: 50%;
 }
 
@@ -6157,7 +6157,7 @@ button.server-link {
 }
 
 .atlas-dot {
-  box-shadow: 0 0 0 1px rgb(8 12 24 / 0.75);
+  box-shadow: 0 0 0 calc(1px / var(--map-zoom, 1)) rgb(8 12 24 / 0.75);
 }
 
 .atlas-dot--shield {
@@ -6168,8 +6168,8 @@ button.server-link {
 .atlas-label {
   position: absolute;
   z-index: 3;
-  padding: 1px 6px;
-  border: 1px solid var(--dot);
+  padding: calc(1px / var(--map-zoom, 1)) calc(6px / var(--map-zoom, 1));
+  border: calc(1px / var(--map-zoom, 1)) solid var(--dot);
   border-radius: 999px;
   background: rgb(8 12 24 / 0.82);
   color: #fff;
@@ -6196,8 +6196,8 @@ button.server-link {
   left: 50%;
   top: 100%;
   margin-top: calc(2px / var(--map-zoom, 1));
-  padding: 0 4px;
-  border-radius: 4px;
+  padding: 0 calc(4px / var(--map-zoom, 1));
+  border-radius: calc(4px / var(--map-zoom, 1));
   background: rgb(8 12 24 / 0.82);
   color: #fff;
   font-size: calc(10px / var(--map-zoom, 1));
