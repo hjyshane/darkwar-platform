@@ -6044,3 +6044,93 @@ button.server-link {
     position: static;
   }
 }
+
+/* The atlas (0260): one dot per swept base, coloured by alliance. A dot keeps its
+ * pixel size while the window zooms (PannableMap sets --map-zoom). */
+.atlas-dot {
+  position: absolute;
+  width: calc(7px / var(--map-zoom, 1));
+  height: calc(7px / var(--map-zoom, 1));
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--dot, #94a3b8);
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+/* A bigger target than the dot, so a click lands without pixel hunting. */
+.atlas-dot::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+}
+
+.atlas-dot--stale {
+  opacity: 0.5;
+}
+
+.atlas-dot--dim {
+  opacity: 0.12;
+}
+
+.atlas-dot--on {
+  z-index: 2;
+  width: calc(12px / var(--map-zoom, 1));
+  height: calc(12px / var(--map-zoom, 1));
+  box-shadow: 0 0 0 calc(2px / var(--map-zoom, 1)) #fff;
+}
+
+.atlas-ranking button {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1.5rem 0.75rem minmax(0, 1fr) auto;
+  gap: 0.5rem;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  overflow: hidden;
+}
+
+.atlas-ranking__rank {
+  color: var(--muted, #94a3b8);
+  font-variant-numeric: tabular-nums;
+}
+
+.atlas-ranking__swatch {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+}
+
+.atlas-ranking__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.atlas-ranking__count {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* The share of the biggest alliance, as a thin line along the bottom of the row. */
+.atlas-ranking__bar {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  opacity: 0.8;
+}
+
+/* The game's picture is a bright daytime terrain; coloured dots disappear on it.
+ * Darkened here, for the atlas only, so the alliances are what the eye lands on. */
+.atlas .map-frame__image {
+  filter: brightness(0.32) saturate(0.55);
+}
+
+.atlas .map-frame {
+  background: #0b1020;
+}
