@@ -21,7 +21,8 @@
 -- answered is kept verbatim in `result`.
 --
 -- OFF BY DEFAULT. Nothing is scheduled and nothing is sent until
--- `select internal.set_gift_runner(true)` is run. The first real answers have
+-- `select internal.set_gift_runner(true)` is run or an officer flips the switch on the
+-- Gift codes screen (public.set_gift_runner_enabled). The first real answers have
 -- not been seen, so a person turns it on and watches. Turning it off also
 -- unschedules the job, so a disabled feature costs nothing every few seconds.
 --
@@ -389,6 +390,57 @@ end;
 $$;
 
 revoke execute on function internal.gift_settle() from public, anon, authenticated;
+
+-- ----------------------------------------------------- the officer's switch
+
+-- The dashboard's way to read and flip the runner. Same capability as the rest
+-- of the screen. Reading is a function of its own rather than a grant on the
+-- internal table: the reason it stopped is the only thing the screen needs.
+create function public.gift_runner_status()
+returns table (
+  enabled boolean,
+  paused_until timestamptz,
+  halted_reason text,
+  last_sent_at timestamptz
+)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  if not public.has_permission('giftcodes.manage') then
+    raise exception 'not allowed to manage gift codes' using errcode = '42501';
+  end if;
+  return query
+    select r.enabled, r.paused_until, r.halted_reason, r.last_sent_at
+    from internal.gift_runner r;
+end;
+$$;
+
+create function public.set_gift_runner_enabled(p_enabled boolean)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not public.has_permission('giftcodes.manage') then
+    raise exception 'not allowed to manage gift codes' using errcode = '42501';
+  end if;
+  perform internal.set_gift_runner(
+    coalesce(p_enabled, false),
+    case when coalesce(p_enabled, false) then null else 'turned off by an officer' end);
+end;
+$$;
+
+revoke all on function public.gift_runner_status() from public, anon, authenticated;
+revoke all on function public.set_gift_runner_enabled(boolean) from public, anon, authenticated;
+grant execute on function public.gift_runner_status() to authenticated, service_role;
+grant execute on function public.set_gift_runner_enabled(boolean) to authenticated, service_role;
+
+comment on function public.set_gift_runner_enabled(boolean) is
+  'Turns the database-side gift sender on or off (0252). Needs giftcodes.manage.';
 
 -- cron's own run log would otherwise take a row every few seconds while the
 -- runner is on.

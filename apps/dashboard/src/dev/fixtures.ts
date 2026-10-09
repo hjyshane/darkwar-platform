@@ -1057,6 +1057,10 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
     ],
   ],
   [
+    ['gift', 'runner'],
+    { enabled: false, paused_until: null, halted_reason: null, last_sent_at: null },
+  ],
+  [
     ['gift', 'members'],
     [
       {

@@ -8,10 +8,19 @@ import {
   enqueueGiftClaims,
   fetchGiftCodes,
   fetchGiftMembers,
+  fetchGiftRunner,
   setGiftCodeStatus,
   setGiftExclusion,
+  setGiftRunner,
 } from './data';
-import { claimLabel, claimableSelection, isLive, summarise } from './status';
+import {
+  type RunnerView,
+  claimLabel,
+  claimableSelection,
+  isLive,
+  runnerView,
+  summarise,
+} from './status';
 
 const REFRESH_MS = 15_000;
 
@@ -32,6 +41,11 @@ export function GiftCodesPage() {
   const members = useQuery({
     queryKey: ['gift', 'members'],
     queryFn: fetchGiftMembers,
+    refetchInterval: REFRESH_MS,
+  });
+  const runner = useQuery({
+    queryKey: ['gift', 'runner'],
+    queryFn: fetchGiftRunner,
     refetchInterval: REFRESH_MS,
   });
   const [selected, setSelected] = useState<ReadonlySet<number>>(new Set());
@@ -76,6 +90,11 @@ export function GiftCodesPage() {
     onSuccess: refresh,
     onError,
   });
+  const toggleRunner = useMutation({
+    mutationFn: (enabled: boolean) => setGiftRunner(enabled),
+    onSuccess: refresh,
+    onError,
+  });
   const exclude = useMutation({
     mutationFn: ({ uid, excluded }: { uid: number; excluded: boolean }) =>
       setGiftExclusion(uid, excluded),
@@ -94,7 +113,7 @@ export function GiftCodesPage() {
   const live = list.filter(isLive);
   const people = members.data ?? [];
   const claimable = claimableSelection(people, selected);
-  const failure = [add, claim, cancel, retire, exclude].find((m) => m.error)?.error;
+  const failure = [add, claim, cancel, retire, exclude, toggleRunner].find((m) => m.error)?.error;
 
   function toggle(uid: number) {
     setSelected((now) => {
@@ -113,10 +132,20 @@ export function GiftCodesPage() {
       <h2 id="gift-heading">Gift codes</h2>
       <p className="subtle">
         A code is redeemed on the game's Gift Center with each player's ID; the reward arrives in
-        their in-game mail. Pressing Claim only queues the requests — a worker on the collector PC
-        sends them one at a time, slowly. Everyone on the roster is claimed for unless you leave
-        them out below.
+        their in-game mail. Pressing Claim only queues the requests — the sender below sends them
+        one at a time, slowly. Everyone on the roster is claimed for unless you leave them out
+        below.
       </p>
+
+      {runner.data && (
+        <RunnerPanel
+          view={runnerView(runner.data, new Date())}
+          enabled={runner.data.enabled}
+          busy={toggleRunner.isPending}
+          onToggle={() => toggleRunner.mutate(!runner.data?.enabled)}
+        />
+      )}
+      {runner.error && <p className="error">{runner.error.message}</p>}
 
       <form className="migration-form" onSubmit={submit}>
         <label>
@@ -217,6 +246,28 @@ export function GiftCodesPage() {
         </>
       )}
     </section>
+  );
+}
+
+function RunnerPanel({
+  view,
+  enabled,
+  busy,
+  onToggle,
+}: {
+  view: RunnerView;
+  enabled: boolean;
+  busy: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="migration-bar">
+      <strong>Sender</strong>
+      <span className={view.kind === 'stopped' ? 'error' : 'muted'}>{view.text}</span>
+      <button type="button" disabled={busy} onClick={onToggle}>
+        {enabled ? 'Turn off' : 'Turn on'}
+      </button>
+    </div>
   );
 }
 

@@ -80,7 +80,7 @@ E005 만료, E006 이미 받음, E007 한도, E009 `in cd`(잠시 후 재시도)
 `pg_net`로 `code.php` GET). 대시보드에서 적용을 누르면 PC와 상관없이 큐가 처리된다.
 Edge Function도, 저장할 키도 필요 없다 - 0130(Discord 알림)과 같은 방식이다.
 
-- **기본은 꺼짐.** 아무것도 예약되지 않고 아무것도 보내지 않는다. 켜는 것은 사람이 한다:
+- **기본은 꺼짐.** 아무것도 예약되지 않고 아무것도 보내지 않는다. 켜는 것은 사람이 한다. 대시보드 Gift codes 화면 위쪽의 **Sender 패널 "Turn on" 버튼**(간부), 또는 SQL:
   `supabase db query --linked "select internal.set_gift_runner(true)"`
   끄기: `select internal.set_gift_runner(false)` (cron 작업도 같이 사라진다).
 - **규칙은 `dw-gift`와 같다**: 요청 사이 5초, 답이 아닌 결과(`retry`)가 5번 이어지면 15분 쉼,

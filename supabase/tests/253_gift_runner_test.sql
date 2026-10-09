@@ -6,7 +6,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(22);
+select plan(27);
 
 -- ------------------------------------------------------------ not reachable
 select ok(
@@ -122,6 +122,36 @@ select ok(
   and (select attempt_count = 1 and status = 'queued'
        from public.gift_code_claims where claim_id = '00000000-0000-4000-8000-00000000fa03'),
   'a stop returns the pair untouched and turns the runner off with the reason');
+
+-- ------------------------------------------------------- the officer's switch
+insert into auth.users (id, instance_id, aud, role, email) values
+  ('00000000-0000-4000-8000-00000000fb01', '00000000-0000-0000-0000-000000000000',
+   'authenticated', 'authenticated', 'runner-member@test.invalid'),
+  ('00000000-0000-4000-8000-00000000fb02', '00000000-0000-0000-0000-000000000000',
+   'authenticated', 'authenticated', 'runner-officer@test.invalid');
+insert into public.app_users (user_id, role, display_name) values
+  ('00000000-0000-4000-8000-00000000fb01', 'member', 'runner member'),
+  ('00000000-0000-4000-8000-00000000fb02', 'officer', 'runner officer');
+create function pg_temp.act_as(who uuid) returns void language sql as $$
+  select set_config('request.jwt.claims', json_build_object('sub', who)::text, true);
+$$;
+
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-4000-8000-00000000fb01');
+select throws_ok($$ select * from public.gift_runner_status() $$, '42501', null,
+  'a member cannot read the runner');
+select throws_ok($$ select public.set_gift_runner_enabled(true) $$, '42501', null,
+  'a member cannot turn it on');
+
+select pg_temp.act_as('00000000-0000-4000-8000-00000000fb02');
+select lives_ok($$ select public.set_gift_runner_enabled(true) $$,
+  'an officer can turn it on');
+select is((select enabled from public.gift_runner_status()), true,
+  'and read that it is on');
+select public.set_gift_runner_enabled(false);
+select is((select halted_reason from public.gift_runner_status()), 'turned off by an officer',
+  'turning it off says who did it');
+reset role;
 
 select * from finish();
 rollback;
