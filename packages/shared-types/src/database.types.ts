@@ -2967,6 +2967,13 @@ export type Database = {
             referencedColumns: ["server_id"]
           },
           {
+            foreignKeyName: "dispatch_mission_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+          {
             foreignKeyName: "dispatch_mission_snapshots_collector_id_fkey"
             columns: ["collector_id"]
             isOneToOne: false
@@ -7586,6 +7593,13 @@ export type Database = {
             columns: ["collected_from_server_id"]
             isOneToOne: false
             referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "world_truck_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
             referencedColumns: ["server_id"]
           },
           {
