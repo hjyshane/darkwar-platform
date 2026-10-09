@@ -1,4 +1,4 @@
--- 0258: where a foreign truck is, worked out from its route.
+-- 0259: where a foreign truck is, worked out from its route.
 --
 -- 0257 could only draw a foreign truck where it set off from. The interception
 -- list says more than that: each truck carries its route as station numbers
@@ -36,7 +36,7 @@ create policy member_read on public.game_train_stations
   using ((select public.current_app_role()) in ('member', 'officer', 'admin'));
 
 comment on table public.game_train_stations is
-  'Dark Syndicate truck stations by number, with the map point each sits on (0258). Learned '
+  'Dark Syndicate truck stations by number, with the map point each sits on (0259). Learned '
   'from truck march pushes by dw-collector train-stations.';
 
 create or replace view public.world_trucks_latest
@@ -94,5 +94,5 @@ select coalesce(c.server_id, p.server_id) as server_id,
 comment on view public.world_trucks_latest is
   'One row per truck still on the road (0254): newest position (march push) joined to newest '
   'cargo (train.list). origin_pos (0257) is where the list says it set off from. stations / '
-  'station_index / leg_start_at / leg_end_at (0258) are its route and current leg, to be read '
+  'station_index / leg_start_at / leg_end_at (0259) are its route and current leg, to be read '
   'with game_train_stations.';

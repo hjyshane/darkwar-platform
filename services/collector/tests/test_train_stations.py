@@ -1,4 +1,4 @@
-"""Station numbers become map points, from the truck marches a journal holds (0258)."""
+"""Station numbers become map points, from the truck marches a journal holds (0259)."""
 
 from __future__ import annotations
 

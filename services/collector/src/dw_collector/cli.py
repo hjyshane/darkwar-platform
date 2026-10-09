@@ -1182,7 +1182,7 @@ def train_stations(
     url: Annotated[str | None, typer.Option(envvar="SUPABASE_URL")] = None,
     secret_key: Annotated[str | None, typer.Option(envvar="SUPABASE_SECRET_KEY")] = None,
 ) -> None:
-    """Where the Dark Syndicate truck stations are, learned from truck marches (0258).
+    """Where the Dark Syndicate truck stations are, learned from truck marches (0259).
 
     Safe to run again: it only ever adds stations the journal has since seen.
     """
