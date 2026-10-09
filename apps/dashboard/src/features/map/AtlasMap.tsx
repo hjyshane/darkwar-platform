@@ -4,11 +4,13 @@ import { useMapZoom } from './PannableMap';
 import {
   type Atlas,
   type AtlasBase,
+  CLUMP_NAME_HIDE_ZOOM,
   allianceColor,
   clusters,
   isShielded,
   isStale,
   visibleLabels,
+  visibleNames,
 } from './atlas';
 
 /** Every swept base as a dot on the map picture, coloured by alliance.
@@ -42,7 +44,18 @@ export function AtlasMap({
   const now = new Date();
   const clumps = useMemo(() => clusters(atlas), [atlas]);
   const zoom = useMapZoom();
-  const named = useMemo(() => visibleLabels(clumps, atlas, zoom), [clumps, atlas, zoom]);
+  // The alliance names give way to the base names once zoomed in.
+  const named = useMemo(
+    () => (zoom >= CLUMP_NAME_HIDE_ZOOM ? [] : visibleLabels(clumps, atlas, zoom)),
+    [clumps, atlas, zoom],
+  );
+  // Base names that fit without overlapping: the picked base and the lit ones
+  // first. Everything else is dropped when it would sit on a name already placed.
+  const baseNames = useMemo(() => {
+    const first = new Set<number>(lit ?? []);
+    if (selectedUid !== null) first.add(selectedUid);
+    return visibleNames(atlas, zoom, first);
+  }, [atlas, zoom, lit, selectedUid]);
 
   const dots = useMemo(
     () =>
@@ -119,7 +132,9 @@ export function AtlasMap({
                 title={`${base.name ?? 'unnamed'} — ${base.at.x}, ${base.at.y}`}
                 type="button"
               >
-                <span className="atlas-dot__name">{base.name ?? ''}</span>
+                {baseNames.has(base.gameUid) && (
+                  <span className="atlas-dot__name">{base.name}</span>
+                )}
               </button>
             );
           })}
