@@ -1,4 +1,4 @@
--- 0255: retention that can actually run against production, in batches.
+-- 0256: retention that can actually run against production, in batches.
 --
 -- WHY. On 2026-10-09 the hosted database was 10 GB against an 8 GB disk
 -- allowance. 0070 built retention and nothing ever ran it, so the arithmetic of

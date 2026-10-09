@@ -97,14 +97,14 @@ pg_cron은 이 프로젝트에서 아직 쓰지 않는다(§18.4 알림과 함�
 | 테이블 | 크기 | 행 | 정책이 지울 행 |
 |---|---|---|---|
 | `alliance_member_snapshots` | 3.4 GB | 2.41 M | 2.28 M (남의 연맹, 7일 초과) |
-| `world_city_snapshots` | 1.7 GB | 1.34 M | 1.10 M 이하 (0255 규칙) |
+| `world_city_snapshots` | 1.7 GB | 1.34 M | 1.10 M 이하 (0256 규칙) |
 | `arena_entry_heroes` | 1.5 GB | 0.90 M | 보드 1,661개에서 cascade |
 | `player_component_power_snapshots` | 1.2 GB | 0.65 M | 0.69 M (7일 초과, 우리 제외) |
 
-### 지우기 (0255, `retention_purge`)
+### 지우기 (0256, `retention_purge`)
 
 `retention_report`는 `members.manage` JWT가 필요하고 테이블당 문장 하나라서 230만 행에서
-타임아웃과 WAL 폭증을 맞는다. 0255의 `retention_purge`는 서비스 롤 전용이며 테이블당
+타임아웃과 WAL 폭증을 맞는다. 0256의 `retention_purge`는 서비스 롤 전용이며 테이블당
 호출당 `p_batch`(기본 20000)행만 지운다. 먼저 센다.
 
 ```sql

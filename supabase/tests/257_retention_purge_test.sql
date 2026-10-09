@@ -1,4 +1,4 @@
--- 0255: batched retention. What matters is what SURVIVES: ours, the newest
+-- 0256: batched retention. What matters is what SURVIVES: ours, the newest
 -- sighting of every base, and anything inside the window.
 --
 -- Runs as service_role on purpose: pgTAP otherwise runs as the migration owner
