@@ -7597,9 +7597,9 @@ export type Database = {
           server_id: number
           snapshot_id: string
           source_command: string
+          start_pos: number | null
           station_index: number | null
           stations: Json | null
-          start_pos: number | null
           target_pos: number | null
           truck_uuid: string
         }
@@ -7630,9 +7630,9 @@ export type Database = {
           server_id: number
           snapshot_id?: string
           source_command: string
+          start_pos?: number | null
           station_index?: number | null
           stations?: Json | null
-          start_pos?: number | null
           target_pos?: number | null
           truck_uuid: string
         }
@@ -7663,9 +7663,9 @@ export type Database = {
           server_id?: number
           snapshot_id?: string
           source_command?: string
+          start_pos?: number | null
           station_index?: number | null
           stations?: Json | null
-          start_pos?: number | null
           target_pos?: number | null
           truck_uuid?: string
         }
