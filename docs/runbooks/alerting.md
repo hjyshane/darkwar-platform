@@ -45,6 +45,7 @@
 | `player_claim` | **Postgres** (0131) | 정상 작동 |
 | `new_signup` | **Postgres** (0131) | 정상 작동 |
 | `schedule_reminder` | **Postgres** (0131) | 정상 작동 |
+| `disk_high` | **Postgres** (0261) | 정상 작동 — DB가 7.5 GB를 넘으면 하루 한 번, 보존 작업(0258) 끝에서 |
 | `data_stalled` | `dw-notify` (PC) | 안 감 |
 | 랭킹·탈퇴·공지·가이드 | `dw-notify` (PC) | 안 감 |
 
