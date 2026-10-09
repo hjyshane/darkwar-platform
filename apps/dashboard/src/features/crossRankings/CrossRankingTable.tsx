@@ -6,7 +6,7 @@ import { BarCell } from '../../components/ui/BarCell';
 import { RankMedal } from '../../components/ui/RankMedal';
 import { GameIcon, useIcons } from '../../lib/gameIcons';
 import { heroName, petName, useHeroCatalogue, usePetCatalogue } from '../../lib/heroes';
-import { playerHash, serverHash } from '../../lib/route';
+import { allianceHash, playerHash, serverHash } from '../../lib/route';
 import type { SortState } from '../../lib/tableControls';
 import type { ColumnSpec } from '../../lib/tableLayout';
 import { TERMS } from '../../lib/terms';
@@ -36,6 +36,7 @@ export function crossRankingColumnSpecs(): ColumnSpec[] {
     { id: 'rank', label: TERMS.rank },
     { id: 'name', label: TERMS.name, fixed: true },
     { id: 'server', label: TERMS.server },
+    { id: 'alliance', label: TERMS.alliance },
     { id: 'value', label: 'Value (varies by board)' },
     { id: 'unit', label: 'Hero or pet (boards that have one)' },
   ];
@@ -95,6 +96,7 @@ export function CrossRankingTable({
 
   const localMax = useMemo(() => Math.max(0, ...rows.map((row) => row.value ?? 0)), [rows]);
   const maxValue = remote ? remote.maxValue : localMax;
+  const withAlliance = remote !== undefined;
 
   // Declared above the early return: a hook cannot be skipped, and this list is
   // built by one.
@@ -146,6 +148,25 @@ export function CrossRankingTable({
         numeric: true,
         cell: (row) => <a href={serverHash(row.server_id)}>{row.server_id}</a>,
       },
+      // Only the boards the database pages carry it; the component boards
+      // return no alliance and would show a column of dashes.
+      withAlliance
+        ? {
+            id: 'alliance',
+            label: TERMS.alliance,
+            sortKey: 'alliance',
+            className: 'label',
+            cell: (row: BoardRow) =>
+              row.alliance ? (
+                <a href={allianceHash(row.alliance.id)} title={row.alliance.name ?? undefined}>
+                  {row.alliance.code ? `[${row.alliance.code}] ` : ''}
+                  {row.alliance.name ?? ''}
+                </a>
+              ) : (
+                '—'
+              ),
+          }
+        : null,
       {
         id: 'value',
         label: board.valueLabel,
@@ -186,7 +207,7 @@ export function CrossRankingTable({
         : null,
     ];
     return declared.filter((column): column is Column<BoardRow> => column !== null);
-  }, [board, heroes, pets, heroIcons, petIcons, maxValue]);
+  }, [board, heroes, pets, heroIcons, petIcons, maxValue, withAlliance]);
 
   if (remote ? remote.overall === 0 : rows.length === 0) {
     return <p className="empty">No ranking data yet.</p>;

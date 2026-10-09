@@ -13,7 +13,7 @@ export type RemoteMetric = 'power' | 'kills';
 export const PAGE_SIZE = 50;
 
 /** The table's column keys that the SQL function can order by. */
-const SORTABLE = new Set(['rank', 'name', 'server_id', 'value']);
+const SORTABLE = new Set(['rank', 'name', 'server_id', 'value', 'alliance']);
 
 export interface PageParams {
   metric: RemoteMetric;
@@ -84,6 +84,9 @@ export async function fetchPlayerPage(params: PageParams): Promise<PlayerPage> {
       unit_id: null,
       captured_at: row.captured_at,
       source: row.source === 'roster' ? 'roster' : 'board',
+      alliance: !row.alliance_id
+        ? null
+        : { id: row.alliance_id, code: row.alliance_code, name: row.alliance_name },
     })),
   };
 }
