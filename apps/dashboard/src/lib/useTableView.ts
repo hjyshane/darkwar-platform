@@ -28,9 +28,13 @@ export function useTableView<T extends object>(
    * reproduces the same sequence, so nothing moves, and the header now says
    * what it is. */
   initialSort: SortState | null = null,
+  /** Rows per page, or undefined for one long list. Opt-in: only the tables that
+   * grow with the group (the rankings) page; the rest render everything as before. */
+  pageSize?: number,
 ) {
-  const [query, setQuery] = useState('');
+  const [query, setQueryRaw] = useState('');
   const [sort, setSort] = useState<SortState[]>(initialSort === null ? [] : [initialSort]);
+  const [requestedPage, setRequestedPage] = useState(1);
 
   const view = useMemo(
     () => sortRows(searchRows(rows, query, searchFields), sort),
@@ -39,9 +43,36 @@ export function useTableView<T extends object>(
 
   // Defaulted rather than required, so a header that only passes a key — every
   // one of them before this change — still compiles and still replaces the sort.
+  // A new search or sort changes which rows are first, so it starts from page 1.
+  const setQuery = useCallback((next: string) => {
+    setQueryRaw(next);
+    setRequestedPage(1);
+  }, []);
   const onSort = useCallback((key: string, additive = false) => {
     setSort((current) => nextSortKeys(current, key, additive));
+    setRequestedPage(1);
   }, []);
 
-  return { query, setQuery, sort, onSort, view, shown: view.length, total: rows.length };
+  // Clamped rather than reset: the rows can shrink under the reader (a filter
+  // upstream), and page 7 of 3 is page 3, not an empty table.
+  const pageCount = pageSize === undefined ? 1 : Math.max(1, Math.ceil(view.length / pageSize));
+  const page = Math.min(requestedPage, pageCount);
+  const pageRows = useMemo(
+    () => (pageSize === undefined ? view : view.slice((page - 1) * pageSize, page * pageSize)),
+    [view, page, pageSize],
+  );
+
+  return {
+    query,
+    setQuery,
+    sort,
+    onSort,
+    view,
+    shown: view.length,
+    total: rows.length,
+    page,
+    pageCount,
+    setPage: setRequestedPage,
+    pageRows,
+  };
 }

@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { ArrangedTable, type Column } from '../../components/ArrangedTable';
+import { Pager } from '../../components/Pager';
 import { TableSearch } from '../../components/TableSearch';
 import { BarCell } from '../../components/ui/BarCell';
 import { RankMedal } from '../../components/ui/RankMedal';
@@ -18,6 +19,10 @@ const numberFormat = new Intl.NumberFormat('ko-KR');
 const SEARCH_FIELDS = ['name', 'game_uid', 'server_id'] as const;
 
 /** This table's key in the shared column arrangement. */
+/** Rows per page. The whole group's players is thousands of rows; drawing them
+ * all is what made the screen slow. */
+const PAGE_SIZE = 50;
+
 export const TABLE_ID = 'cross-rankings';
 
 /** Identity only, for the settings screen.
@@ -48,10 +53,8 @@ export function CrossRankingTable({ rows, board }: { rows: BoardRow[]; board: Bo
   const { data: heroIcons } = useIcons('hero');
   const { data: petIcons } = useIcons('pet');
   const { data: pets } = usePetCatalogue();
-  const { query, setQuery, sort, onSort, view, shown, total } = useTableView(rows, SEARCH_FIELDS, {
-    key: 'rank',
-    direction: 'asc',
-  });
+  const { query, setQuery, sort, onSort, view, pageRows, page, pageCount, setPage, shown, total } =
+    useTableView(rows, SEARCH_FIELDS, { key: 'rank', direction: 'asc' }, PAGE_SIZE);
 
   const maxValue = useMemo(() => Math.max(0, ...rows.map((row) => row.value ?? 0)), [rows]);
 
@@ -164,10 +167,11 @@ export function CrossRankingTable({ rows, board }: { rows: BoardRow[]; board: Bo
         columns={columns}
         onSort={onSort}
         rowKey={(row) => row.id}
-        rows={view}
+        rows={pageRows}
         sort={sort}
         tableId={TABLE_ID}
       />
+      <Pager onGo={setPage} page={page} pageCount={pageCount} />
       {view.length === 0 && <p className="empty">No player matches “{query}”.</p>}
     </>
   );

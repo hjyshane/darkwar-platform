@@ -85,7 +85,7 @@ export function RankingsPanel() {
         {isPending && <p className="empty loading">Loading…</p>}
         {error && <p className="error">Could not load alliance ranking: {error.message}</p>}
         {shown && <ExportButton rows={shown} columns={ALLIANCE_CSV} filename="alliance-ranking" />}
-        {shown && <AllianceRankingTable rows={shown} />}
+        {shown && <AllianceRankingTable key={server ?? 'all'} rows={shown} />}
       </div>
     </section>
   );
