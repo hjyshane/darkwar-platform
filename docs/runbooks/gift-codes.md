@@ -4,9 +4,12 @@
 작업자가 한 건씩 천천히 보낸다. Vantera의 Gift codes 화면에서 아이디어를 가져왔다
 (그들의 데이터나 코드는 쓰지 않는다 — `docs/vantera-research.md`).
 
-**상태: 대시보드, DB, 작업자 골격까지 만들었다. 실제로 코드를 보내는 부분은 없다.**
-공식 Gift Center의 요청과 응답을 한 번도 보지 못했고, 짐작으로 쓴 요청을 연맹원의 플레이어
-ID로 보내는 것은 하지 않기로 했다. 그래서 `dw-gift`는 호출기가 없으면 **시작하지 않는다.**
+**상태: 대시보드, DB, 작업자, 호출기(`gift/official.py`)까지 있다. 아직 실제 연맹원에게는 보낸 적 없다.**
+호출기는 `DW_GIFT_REDEEMER=official`일 때만 켜진다. 2026-10-09에 틀린 코드 한 번으로만 확인했다:
+`GET https://giftcenter.darkwar-survival.com/code.php?uid=<id>&code=<code>` + 헤더 `Usertoken: <id>`
+(헤더가 없으면 `{"code":10018,"message":"params error"}`). 답은 `errorCode`: ok 성공, E004 없는 코드,
+E005 만료, E006 이미 받음, E007 한도, E009 `in cd`(잠시 후 재시도), E001-3/E008 시스템 오류.
+성공(`ok`)과 E007의 실제 모양은 아직 못 봤다 - 첫 실제 코드로 한 사람에게 먼저 보내고 `result`를 확인한다.
 
 ## 어떻게 되는 건가
 
@@ -49,10 +52,12 @@ ID로 보내는 것은 하지 않기로 했다. 그래서 `dw-gift`는 호출기
 1. **DB 적용**: `supabase db push --linked --workdir C:\darkwar-platform`은 운영 DB 쓰기라
    **직접 실행해야 한다**(분류기가 막는다). 적용 전에는 새 탭이 보이지 않는다(권한이 없으니).
    적용 후 `Hosted default grants` 함정이 있으므로 새 표들이 `select`만 열려 있는지 확인한다.
-2. **Gift Center의 요청 모양 확인**: 사용자가 자기 브라우저에서 **틀린 코드로** 한 번 시도하고,
+2. ~~Gift Center의 요청 모양 확인~~ (끝: 위 참고)
+   원래 절차:: 사용자가 자기 브라우저에서 **틀린 코드로** 한 번 시도하고,
    개발자 도구 Network의 요청 두 개(로그인, 코드 사용)를 `Copy as cURL`로 복사한다. UID와
    토큰은 가린다. 틀린 코드는 아무것도 소모하지 않고 오류 응답의 모양까지 한 번에 보여 준다.
-3. **호출기 작성** (`gift/redeemer.py`의 `Redeemer`): 응답을 `done / already / expired /
+3. ~~호출기 작성~~ (끝: `gift/official.py`)
+   원래 절차: (`gift/redeemer.py`의 `Redeemer`): 응답을 `done / already / expired /
    invalid / retry / stop` 중 하나로 옮기고, 원문은 `result`에 그대로 남긴다. 이름을
    `DW_GIFT_REDEEMER`로 연결한다.
 4. **한 사람에게 먼저**: 본인 UID와 쓰지 않은 코드 하나로 한 건만 보내서 우편이 오는지 본다.
