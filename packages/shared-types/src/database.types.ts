@@ -9342,7 +9342,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      remove_gift_extra_player: { Args: { p_game_uid: number }; Returns: undefined }
+      remove_gift_extra_player: {
+        Args: { p_game_uid: number }
+        Returns: undefined
+      }
       remove_member: { Args: { p_user: string }; Returns: undefined }
       research_prerequisite_steps: {
         Args: { p_subjects: string[] }
