@@ -1,4 +1,4 @@
--- 0262: Player Ranking is answered in the database, one page at a time.
+-- 0263: Player Ranking is answered in the database, one page at a time.
 --
 -- The screen used to download every row it could draw: up to 5,000 board
 -- snapshots, plus `alliance_roster_latest` unfiltered. 0150 measured that view
