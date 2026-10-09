@@ -141,7 +141,10 @@ export function AtlasMap({
                 type="button"
               >
                 {baseNames.has(base.gameUid) && (
-                  <span className="atlas-dot__name">{base.name}</span>
+                  <span className="atlas-dot__name">
+                    {base.name}
+                    {base.hq !== null && <em>HQ{base.hq}</em>}
+                  </span>
                 )}
               </button>
             );

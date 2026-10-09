@@ -4,6 +4,7 @@ import {
   NO_BASE_FILTER,
   OURS_COLOR,
   allianceColor,
+  allianceSummary,
   byPower,
   centroid,
   clusters,
@@ -289,7 +290,7 @@ describe('visibleNames', () => {
     alliances: [{ id: 'a', code: 'A', name: 'A', bases: 3, power: 1 }],
     bases: [
       [1, 100, 100, 30, 900, 0, 1_790_000_000, 'Strong'],
-      [2, 105, 100, 30, 100, 0, 1_790_000_000, 'Weak'],
+      [2, 110, 100, 30, 100, 0, 1_790_000_000, 'Weak'],
       [3, 500, 500, 30, 50, 0, 1_790_000_000, 'Far away'],
     ],
   });
@@ -323,5 +324,22 @@ describe('visibleNames', () => {
   it('places the picked base first even when it is the weaker one', () => {
     expect(visibleNames(near, 4, new Set([2])).has(2)).toBe(true);
     expect(visibleNames(near, 4, new Set([2])).has(1)).toBe(false);
+  });
+});
+
+describe('allianceSummary', () => {
+  const atlas = parseAtlas({
+    alliances: [{ id: 'a', code: 'A', name: 'A', bases: 3, power: 1 }],
+    bases: [
+      [1, 10, 10, 30, 300, 0, 1_790_000_000, 'Top'],
+      [2, 11, 11, 30, 100, 0, 1_790_000_000, 'Mid'],
+      [3, 12, 12, 30, null, 0, 1_790_000_000, 'Unread'],
+      [4, 13, 13, 30, 999, -1, 1_790_000_000, 'Other'],
+    ],
+  });
+  it('sums only the profiles read and says how many that is', () => {
+    const s = allianceSummary(atlas, 0, new Date());
+    expect(s).toMatchObject({ bases: 3, realPower: 400, profilesRead: 2 });
+    expect(s.strongest.map((b) => b.name)).toEqual(['Top', 'Mid']);
   });
 });
