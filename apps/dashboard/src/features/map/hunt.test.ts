@@ -16,6 +16,7 @@ import {
   truckFromRow,
   truckPosition,
   truckSpot,
+  withRouteLeg,
 } from './hunt';
 
 const NOW = new Date('2026-10-09T12:00:00Z');
@@ -32,6 +33,7 @@ function truck(over: Partial<Truck> = {}): Truck {
     robTimes: 0,
     arriveAt: at(90),
     leg: null,
+    route: null,
     origin: null,
     positionSeenAt: null,
     cargoSeenAt: NOW,
@@ -127,6 +129,10 @@ describe('rows from the views', () => {
     position_seen_at: '2026-10-09T11:56:00Z',
     cargo_seen_at: '2026-10-09T11:50:00Z',
     origin_pos: 706119,
+    stations: [43, 56, 60],
+    station_index: 1,
+    leg_start_at: '2026-10-09T11:58:00Z',
+    leg_end_at: '2026-10-09T12:04:00Z',
   };
 
   it('builds a truck with its leg', () => {
@@ -251,5 +257,61 @@ describe('filter, sort and server counts', () => {
       origin: true,
     });
     expect(truckSpot({ leg: null, origin: null }, NOW)).toBeNull();
+  });
+});
+
+describe('withRouteLeg', () => {
+  const stations = new Map([
+    [43, { x: 100, y: 100 }],
+    [56, { x: 200, y: 300 }],
+  ]);
+  const route = { stations: [43, 56, 60], index: 1, startAt: at(-3), endAt: at(3) };
+
+  it('puts a truck with no march on the leg its route names', () => {
+    const placed = withRouteLeg(truck({ route }), stations);
+
+    expect(placed.leg?.from).toEqual({ x: 100, y: 100 });
+    expect(placed.leg?.to).toEqual({ x: 200, y: 300 });
+    expect(truckPosition(placed, NOW)).toEqual({ at: { x: 150, y: 200 }, live: true });
+  });
+
+  it('leaves a truck alone when a march already gave its leg', () => {
+    const leg = { from: { x: 1, y: 1 }, to: { x: 2, y: 2 }, startAt: at(-1), endAt: at(1) };
+
+    expect(withRouteLeg(truck({ route, leg }), stations).leg).toBe(leg);
+  });
+
+  it('does not guess when a station is not in the table or the route has not started', () => {
+    expect(withRouteLeg(truck({ route: { ...route, index: 2 } }), stations).leg).toBeNull();
+    expect(withRouteLeg(truck({ route: { ...route, index: 0 } }), stations).leg).toBeNull();
+    expect(withRouteLeg(truck({ route: null }), stations).leg).toBeNull();
+  });
+
+  it('reads the route off a view row', () => {
+    const row = {
+      truck_uuid: '1',
+      server_id: 583,
+      owner_name: null,
+      alliance_abbr: null,
+      quality: 5,
+      hero_fragments: 1,
+      rob_times: 0,
+      arrive_at: '2026-10-09T13:30:00Z',
+      start_pos: null,
+      target_pos: null,
+      segment_start_at: null,
+      segment_end_at: null,
+      position_seen_at: null,
+      cargo_seen_at: '2026-10-09T11:50:00Z',
+      origin_pos: 706119,
+      stations: [43, 56],
+      station_index: 1,
+      leg_start_at: '2026-10-09T11:58:00Z',
+      leg_end_at: '2026-10-09T12:04:00Z',
+    };
+
+    expect(truckFromRow(row)?.route?.stations).toEqual([43, 56]);
+    expect(truckFromRow({ ...row, stations: null })?.route).toBeNull();
+    expect(truckFromRow({ ...row, stations: ['x'] })?.route).toBeNull();
   });
 });

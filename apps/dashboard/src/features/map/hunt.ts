@@ -46,10 +46,21 @@ export interface Truck {
   /** When the whole trip ends. */
   arriveAt: Date;
   leg: TruckLeg | null;
+  /** The route and current leg from the interception list, which names stations
+   * by number; `withRouteLeg` turns it into a `leg` once the stations are known. */
+  route: TruckRoute | null;
   /** Where the interception list says it set off from. Not where it is. */
   origin: Coordinate | null;
   positionSeenAt: Date | null;
   cargoSeenAt: Date | null;
+}
+
+export interface TruckRoute {
+  stations: number[];
+  /** The station it is heading for; the leg starts at the one before. */
+  index: number;
+  startAt: Date;
+  endAt: Date;
 }
 
 export interface TruckLeg {
@@ -239,9 +250,42 @@ type TruckRow = {
   position_seen_at: string | null;
   cargo_seen_at: string | null;
   origin_pos: number | null;
+  stations: unknown;
+  station_index: number | null;
+  leg_start_at: string | null;
+  leg_end_at: string | null;
 };
 
 const date = (value: string | null): Date | null => (value === null ? null : new Date(value));
+
+function routeFromRow(row: TruckRow): TruckRoute | null {
+  const startAt = date(row.leg_start_at);
+  const endAt = date(row.leg_end_at);
+  if (
+    !Array.isArray(row.stations) ||
+    !row.stations.every((n) => typeof n === 'number') ||
+    row.station_index === null ||
+    startAt === null ||
+    endAt === null
+  ) {
+    return null;
+  }
+  return { stations: row.stations as number[], index: row.station_index, startAt, endAt };
+}
+
+/** A truck whose road was never pushed gets one from its route: the leg to
+ * `stations[index]` starts at `stations[index - 1]`. Left alone when a march
+ * already gave a leg, or when either station is not in the table. */
+export function withRouteLeg(truck: Truck, stations: ReadonlyMap<number, Coordinate>): Truck {
+  const route = truck.route;
+  if (truck.leg !== null || route === null || route.index < 1) return truck;
+  const fromNo = route.stations[route.index - 1];
+  const toNo = route.stations[route.index];
+  const from = fromNo === undefined ? undefined : stations.get(fromNo);
+  const to = toNo === undefined ? undefined : stations.get(toNo);
+  if (from === undefined || to === undefined) return truck;
+  return { ...truck, leg: { from, to, startAt: route.startAt, endAt: route.endAt } };
+}
 
 /** A row is dropped, not guessed at, when it lacks what the rules need. */
 export function truckFromRow(row: TruckRow): Truck | null {
@@ -275,6 +319,7 @@ export function truckFromRow(row: TruckRow): Truck | null {
     robTimes: row.rob_times,
     arriveAt,
     leg,
+    route: routeFromRow(row),
     origin: row.origin_pos === null ? null : pointToCoordinate(row.origin_pos),
     positionSeenAt: date(row.position_seen_at),
     cargoSeenAt: date(row.cargo_seen_at),
@@ -324,7 +369,7 @@ export async function fetchTrucks(): Promise<Truck[]> {
   const { data, error } = await supabase
     .from('world_trucks_latest')
     .select(
-      'truck_uuid, server_id, owner_name, alliance_abbr, quality, hero_fragments, rob_times, arrive_at, start_pos, target_pos, segment_start_at, segment_end_at, position_seen_at, cargo_seen_at, origin_pos',
+      'truck_uuid, server_id, owner_name, alliance_abbr, quality, hero_fragments, rob_times, arrive_at, start_pos, target_pos, segment_start_at, segment_end_at, position_seen_at, cargo_seen_at, origin_pos, stations, station_index, leg_start_at, leg_end_at',
     )
     .gte('quality', TRUCK_MIN_QUALITY)
     .gt('hero_fragments', 0)
@@ -362,6 +407,24 @@ export async function fetchMissions(serverId: number): Promise<Mission[]> {
     if (mission !== null) missions.push(mission);
   }
   return missions;
+}
+
+export async function fetchStations(): Promise<Map<number, Coordinate>> {
+  const { data, error } = await supabase.from('game_train_stations').select('station_no, x, y');
+  if (error) {
+    if (error.code === '42501') return new Map();
+    throw new Error(`stations query failed: ${error.message}`);
+  }
+  return new Map((data ?? []).map((row) => [row.station_no, { x: row.x, y: row.y }]));
+}
+
+export function useStations() {
+  return useQuery({
+    queryKey: ['map', 'stations'],
+    queryFn: fetchStations,
+    // Stations do not move; a new one only appears when the table is refilled.
+    staleTime: 60 * 60_000,
+  });
 }
 
 export function useTrucks() {
