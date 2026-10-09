@@ -138,6 +138,17 @@ CITY_TYPE = 3
 #: `f2` of a member's season building. Confirmed by clicking 22 of them.
 SEASON_BUILDING_TYPE = 6
 
+#: `f2` of a hero dispatch mission. 65,190 of 65,190 sightings carried a mission
+#: id that is a key of the client's aps_dispatch_tasks in f101.f2.
+DISPATCH_MISSION_TYPE = 21
+
+_MISSION_UUID = 1
+_MISSION_ID = 2
+_MISSION_OWNER_UID = 3
+_MISSION_ALLIANCE_ID = 4
+_MISSION_STARTED_MS = 5
+_MISSION_FINISH_MS = 6
+
 _BUILDING = 101
 _BUILDING_OWNER_UID = 1
 _BUILDING_OBJECT_ID = 2
@@ -178,6 +189,24 @@ class SeasonBuilding:
 
 
 @dataclass(frozen=True)
+class DispatchMission:
+    """The interpreted part of a type-21 tile.
+
+    `started_ms` / `finish_ms` are present only once the owner has started the
+    mission; an unstarted one has neither and cannot be plundered. They are
+    epoch milliseconds, and `finish_ms - started_ms` equals the catalogue's
+    duration for the mission id.
+    """
+
+    uuid: int | None = None
+    mission_id: int | None = None
+    owner_uid: str | None = None
+    alliance_id: str | None = None
+    started_ms: int | None = None
+    finish_ms: int | None = None
+
+
+@dataclass(frozen=True)
 class Tile:
     """One map object at one coordinate.
 
@@ -193,6 +222,7 @@ class Tile:
     server_id: int | None = None
     city: City | None = None
     building: SeasonBuilding | None = None
+    mission: DispatchMission | None = None
     raw: dict[str, Any] = field(default_factory=dict)
 
 
@@ -292,6 +322,21 @@ def _building(values: dict[int, list[int | bytes]]) -> SeasonBuilding | None:
         object_id=_varint(sub, _BUILDING_OBJECT_ID),
         type_id=_varint(sub, _BUILDING_TYPE_ID),
         level=_varint(sub, _BUILDING_LEVEL),
+    )
+
+
+def _mission(values: dict[int, list[int | bytes]]) -> DispatchMission | None:
+    got = values.get(_BUILDING)
+    if not got or not isinstance(got[0], bytes):
+        return None
+    sub = _fields(got[0])
+    return DispatchMission(
+        uuid=_varint(sub, _MISSION_UUID),
+        mission_id=_varint(sub, _MISSION_ID),
+        owner_uid=_text(sub, _MISSION_OWNER_UID),
+        alliance_id=_text(sub, _MISSION_ALLIANCE_ID),
+        started_ms=_varint(sub, _MISSION_STARTED_MS),
+        finish_ms=_varint(sub, _MISSION_FINISH_MS),
     )
 
 
@@ -549,6 +594,7 @@ def decode_point(entry: str | bytes) -> Tile:
         server_id=_varint(top, _SERVER_ID),
         city=_city(top) if object_type == CITY_TYPE else None,
         building=_building(top) if object_type == SEASON_BUILDING_TYPE else None,
+        mission=_mission(top) if object_type == DISPATCH_MISSION_TYPE else None,
         raw={str(n): [_jsonable(v) for v in vs] for n, vs in top.items()},
     )
 

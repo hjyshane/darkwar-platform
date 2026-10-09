@@ -50,6 +50,15 @@ describe('layoutMarkers: classes', () => {
     expect(highlighted?.className).toBe('map-pin map-pin--on');
   });
 
+  it('names a truck or mission pin by its kind, so the stylesheet can draw it differently', () => {
+    const [truck, mission] = layoutMarkers([
+      marker(1, 1, 'hauler', { kind: 'truck', faded: true }),
+      marker(2, 2, 'plunder', { kind: 'mission' }),
+    ]);
+    expect(truck?.className).toBe('map-pin map-pin--truck map-pin--faded');
+    expect(mission?.className).toBe('map-pin map-pin--mission');
+  });
+
   it('adds map-pin--clickable only when the caller asks for it', () => {
     const [withoutOption] = layoutMarkers([marker(1, 1, 'plain')]);
     const [withOption] = layoutMarkers([marker(1, 1, 'plain')], { clickable: true });

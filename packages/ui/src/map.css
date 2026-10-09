@@ -140,6 +140,22 @@
   height: 9px;
 }
 
+/* Trucks and plunder missions (0254). Not bases, so not the base dot: a gold
+ * diamond for a truck worth taking, an orange square for a mission. Same size
+ * rules as the base dot so a crowd stays readable. */
+.map-plot .map-pin--truck .map-pin__dot {
+  border-radius: 2px;
+  transform: rotate(45deg);
+  background: #f5b301;
+  box-shadow: 0 0 0 2px var(--bg, #ffffff), 0 0 0 4px #8a6100;
+}
+
+.map-plot .map-pin--mission .map-pin__dot {
+  border-radius: 2px;
+  background: #ea580c;
+  box-shadow: 0 0 0 2px var(--bg, #ffffff), 0 0 0 4px #9a3412;
+}
+
 /* A pin is a button when it can be picked. The dot stays the target; the
  * label must not swallow clicks meant for a neighbouring pin. */
 .map-pin--clickable {
