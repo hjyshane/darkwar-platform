@@ -1,6 +1,18 @@
 import { describe, expect, test } from 'vitest';
 import type { GiftCode, GiftMember, GiftRunner } from './data';
-import { claimLabel, claimableSelection, isLive, runnerView, summarise } from './status';
+import {
+  allSelected,
+  byRank,
+  claimLabel,
+  claimableSelection,
+  isLive,
+  pickableUids,
+  rankGroups,
+  rankLabel,
+  runnerView,
+  summarise,
+  toggleGroup,
+} from './status';
 
 function code(over: Partial<GiftCode> = {}): GiftCode {
   return {
@@ -72,9 +84,9 @@ describe('summarise', () => {
 
 describe('claimableSelection', () => {
   const members: GiftMember[] = [
-    { game_uid: 1, name: 'Alpha', excluded: false, claims: {} },
-    { game_uid: 2, name: 'Bravo', excluded: true, claims: {} },
-    { game_uid: 3, name: 'Charlie', excluded: false, claims: {} },
+    { game_uid: 1, name: 'Alpha', excluded: false, claims: {}, rank: 5 },
+    { game_uid: 2, name: 'Bravo', excluded: true, claims: {}, rank: 4 },
+    { game_uid: 3, name: 'Charlie', excluded: false, claims: {}, rank: 4 },
   ];
 
   test('picks the selected players who are not excluded', () => {
@@ -124,5 +136,78 @@ describe('runnerView', () => {
   test('a pause that has passed counts as on', () => {
     const v = runnerView({ ...base, enabled: true, paused_until: '2026-10-09T11:00:00Z' }, now);
     expect(v.kind).toBe('on');
+  });
+});
+
+describe('picking by rank', () => {
+  const member = (
+    game_uid: number,
+    name: string,
+    rank: number | null,
+    excluded = false,
+  ): GiftMember => ({ game_uid, name, excluded, claims: {}, rank });
+  const roster = [
+    member(1, 'Ann', 5),
+    member(2, 'Bob', 4),
+    member(3, 'Cy', 4, true),
+    member(4, 'Di', 4),
+    member(5, 'Ed', 1),
+    member(6, 'Flo', null),
+  ];
+
+  test('writes a rank as R and a number, and a dash when it is not known', () => {
+    expect(rankLabel(3)).toBe('R3');
+    expect(rankLabel(null)).toBe('—');
+  });
+
+  test('offers R5 down to R1 then those with no rank, and leaves out a group nobody can be picked from', () => {
+    expect(rankGroups(roster).map((group) => group.label)).toEqual(['R5', 'R4', 'R1', 'No rank']);
+    expect(rankGroups([member(1, 'Ann', 5, true)])).toEqual([]);
+  });
+
+  test('a group never includes a player who is left out, but counts them in its total', () => {
+    const r4 = rankGroups(roster).find((group) => group.label === 'R4');
+
+    expect(r4?.uids).toEqual([2, 4]);
+    expect(r4?.total).toBe(3);
+  });
+
+  test('all is everybody but the players left out', () => {
+    expect(pickableUids(roster)).toEqual([1, 2, 4, 5, 6]);
+  });
+
+  test('a press selects the group, and another press takes it out again', () => {
+    const r4 = rankGroups(roster).find((group) => group.label === 'R4')?.uids ?? [];
+    const once = toggleGroup(new Set<number>(), r4);
+
+    expect([...once].sort()).toEqual([2, 4]);
+    expect(allSelected(once, r4)).toBe(true);
+    expect(toggleGroup(once, r4).size).toBe(0);
+  });
+
+  test('groups add up, and taking one out leaves the others', () => {
+    const groups = rankGroups(roster);
+    const r5 = groups.find((g) => g.label === 'R5')?.uids ?? [];
+    const r4 = groups.find((g) => g.label === 'R4')?.uids ?? [];
+    const both = toggleGroup(toggleGroup(new Set<number>(), r5), r4);
+
+    expect([...both].sort()).toEqual([1, 2, 4]);
+    expect([...toggleGroup(both, r4)]).toEqual([1]);
+  });
+
+  test('a group with only some of it selected is selected in full by the next press', () => {
+    const r4 = rankGroups(roster).find((group) => group.label === 'R4')?.uids ?? [];
+    const partial = new Set([2]);
+
+    expect(allSelected(partial, r4)).toBe(false);
+    expect([...toggleGroup(partial, r4)].sort()).toEqual([2, 4]);
+  });
+
+  test('an empty group is never "all selected"', () => {
+    expect(allSelected(new Set([1]), [])).toBe(false);
+  });
+
+  test('orders highest rank first, then by name, with unknown ranks last', () => {
+    expect(byRank(roster).map((m) => m.name)).toEqual(['Ann', 'Bob', 'Cy', 'Di', 'Ed', 'Flo']);
   });
 });

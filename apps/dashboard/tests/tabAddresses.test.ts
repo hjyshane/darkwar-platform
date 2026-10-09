@@ -7,6 +7,7 @@ import {
   allianceHash,
   allianceIdFromHash,
   allianceViewFromHash,
+  plannerKindFromHash,
   routeFromHash,
 } from '../src/lib/route';
 import { type NavContext, type NavItem, buildNav } from '../src/lib/shellNav';
@@ -20,7 +21,7 @@ describe('tab addresses', () => {
     expect(routeFromHash('#/hive')).toBe('hive');
     expect(HIVE.fromHash('#/hive')).toBe('plan');
     expect(routeFromHash('#/planner')).toBe('planner');
-    expect(PLANNER.fromHash('#/planner')).toBe('building');
+    expect(PLANNER.fromHash('#/planner')).toBe('raise');
   });
 
   it('gives each tab an address that comes back as the same screen and tab', () => {
@@ -102,23 +103,31 @@ describe('sidebar tabs for the alliance screens', () => {
     expect(labels(undefined)).toBeUndefined();
   });
 
-  it('lists the planner sections', () => {
+  it('lists the three planner pages', () => {
     const planner = entry(
-      base({ route: 'planner', tabs: { planner: 'pets' } }),
+      base({ route: 'planner', tabs: { planner: 'upgrades' } }),
       'alliance',
       'Planner',
     );
 
     expect(planner?.children?.map((child) => child.label)).toEqual([
-      'Buildings',
-      'Research',
-      'Heroes',
-      'Vehicle',
-      'Pets',
+      'What to raise',
+      'Settings',
+      'Next upgrades',
     ]);
     expect(planner?.children?.filter((child) => child.current).map((child) => child.label)).toEqual(
-      ['Pets'],
+      ['Next upgrades'],
     );
+  });
+
+  it('sends the five old per-kind planner addresses to What to raise', () => {
+    for (const kind of ['building', 'research', 'heroes', 'vehicle', 'pets']) {
+      expect(routeFromHash(`#/planner/${kind}`)).toBe('planner');
+      expect(PLANNER.fromHash(`#/planner/${kind}`)).toBe('raise');
+      expect(plannerKindFromHash(`#/planner/${kind}`)).toBe(kind);
+    }
+    expect(plannerKindFromHash('#/planner/settings')).toBeNull();
+    expect(plannerKindFromHash('#/planner')).toBeNull();
   });
 
   it('lists our alliance views, but not past names, which depend on its data', () => {

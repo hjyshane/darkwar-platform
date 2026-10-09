@@ -97,3 +97,70 @@ export function runnerView(runner: GiftRunner, now: Date): RunnerView {
   }
   return { kind: 'off', text: 'Off: claims you queue wait until you turn this on.' };
 }
+
+/** `R4`, or a dash where the rank is not known. */
+export function rankLabel(rank: number | null): string {
+  return rank === null ? '\u2014' : `R${rank}`;
+}
+
+/** The roster in the order the picker reads: highest rank first, then by name,
+ * with those whose rank is not known last. */
+export function byRank<T extends Pick<GiftMember, 'rank' | 'name'>>(members: readonly T[]): T[] {
+  return [...members].sort((a, b) => {
+    if (a.rank === null && b.rank !== null) return 1;
+    if (a.rank !== null && b.rank === null) return -1;
+    return (b.rank ?? 0) - (a.rank ?? 0) || a.name.localeCompare(b.name);
+  });
+}
+
+export interface RankGroup {
+  /** `R5`..`R1`, or `No rank`. */
+  label: string;
+  rank: number | null;
+  /** Everybody in the group who can be picked: left-out players cannot. */
+  uids: number[];
+  /** How many are in the group, left-out ones included. */
+  total: number;
+}
+
+/** The groups the picker offers, R5 down to R1 and then those with no rank
+ * known. A group nobody in it can be picked from is left out, so there is no
+ * button that does nothing. */
+export function rankGroups(members: ReadonlyArray<GiftMember>): RankGroup[] {
+  const groups: RankGroup[] = [];
+  for (const rank of [5, 4, 3, 2, 1, null] as const) {
+    const inGroup = members.filter((m) => (rank === null ? m.rank === null : m.rank === rank));
+    const uids = inGroup.filter((m) => !m.excluded).map((m) => m.game_uid);
+    if (uids.length > 0) {
+      groups.push({
+        label: rank === null ? 'No rank' : `R${rank}`,
+        rank,
+        uids,
+        total: inGroup.length,
+      });
+    }
+  }
+  return groups;
+}
+
+/** Everybody who can be picked: the whole roster but the players left out. */
+export function pickableUids(members: ReadonlyArray<GiftMember>): number[] {
+  return members.filter((m) => !m.excluded).map((m) => m.game_uid);
+}
+
+/** Whether every one of `uids` is already selected (and there is something to be). */
+export function allSelected(selected: ReadonlySet<number>, uids: readonly number[]): boolean {
+  return uids.length > 0 && uids.every((uid) => selected.has(uid));
+}
+
+/** A press on a group: select them all, or, when they all are already, take them
+ * out again. The rest of the selection is left as it was, so groups add up. */
+export function toggleGroup(selected: ReadonlySet<number>, uids: readonly number[]): Set<number> {
+  const next = new Set(selected);
+  if (allSelected(selected, uids)) {
+    for (const uid of uids) next.delete(uid);
+  } else {
+    for (const uid of uids) next.add(uid);
+  }
+  return next;
+}

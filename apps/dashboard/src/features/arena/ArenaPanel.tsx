@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Strip } from '../../components/Strip';
 import { Tabs } from '../../components/ui/Tabs';
 import { compareLeagues, leagueLabel, leagueScope } from '../../lib/arenaLeague';
 import { formatAge } from '../../lib/freshness';
@@ -8,6 +9,7 @@ import { TERMS } from '../../lib/terms';
 import { composition } from '../../lib/troops';
 import { type ArenaEntryRow, type ArenaHeader, ArenaTable } from './ArenaTable';
 import { narrowHero } from './lineups';
+import { arenaStrip } from './strip';
 
 /** The newest snapshot of each league.
  *
@@ -87,8 +89,26 @@ export function ArenaPanel({ now }: { now?: Date }) {
   });
 
   return (
-    <section aria-labelledby="arena-heading">
-      <h2 id="arena-heading">{TERMS.arena}</h2>
+    <section aria-labelledby="arena-heading" className="board-screen">
+      <div className="entity">
+        <header className="entity-head">
+          <span aria-hidden="true" className="entity-mark">
+            AN
+          </span>
+          <div>
+            <h2 id="arena-heading">{TERMS.arena}</h2>
+            <p className="entity-meta">
+              {selected && <span>{leagueLabel(selected.league)}</span>}
+              {selected && leagueScope(selected.league) && (
+                <span>{leagueScope(selected.league)}</span>
+              )}
+            </p>
+          </div>
+        </header>
+        {selected && entries.data && (
+          <Strip cells={arenaStrip(selected, entries.data, now ?? new Date())} />
+        )}
+      </div>
       {boards.isPending && <p className="empty loading">Loading…</p>}
       {boards.error && <p className="error">Could not load arena: {boards.error.message}</p>}
       {boards.data && boards.data.length === 0 && <p className="empty">No arena snapshot yet.</p>}
@@ -118,14 +138,15 @@ export function ArenaPanel({ now }: { now?: Date }) {
               setChosen(boards.data.find((board) => board.snapshot_id === snapshotId)?.league)
             }
           />
-          {selected && leagueScope(selected.league) && (
-            <p className="subtle">{leagueScope(selected.league)}</p>
-          )}
-          {entries.isPending && <p className="empty loading">Loading…</p>}
-          {entries.error && <p className="error">Could not load arena: {entries.error.message}</p>}
-          {selected && entries.data && (
-            <ArenaTable header={selected} entries={entries.data} now={now} />
-          )}
+          <div className="panel">
+            {entries.isPending && <p className="empty loading">Loading…</p>}
+            {entries.error && (
+              <p className="error">Could not load arena: {entries.error.message}</p>
+            )}
+            {selected && entries.data && (
+              <ArenaTable header={selected} entries={entries.data} now={now} />
+            )}
+          </div>
         </>
       )}
     </section>

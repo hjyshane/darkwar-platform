@@ -167,13 +167,26 @@ export function eventGuideHash(tab: EventGuideTab): string {
 /** A screen whose tabs each have an address: `base` for the first, `base/<id>`
  * for the rest. The first tab is the bare address, so every link made before the
  * tabs had addresses still lands where it did. */
-function tabbed<T extends string>(base: string, tabs: ReadonlyArray<{ id: T; label: string }>) {
-  const pattern = new RegExp(`^${base}(?:/(${tabs.map((tab) => tab.id).join('|')}))?$`);
+function tabbed<T extends string>(
+  base: string,
+  tabs: ReadonlyArray<{ id: T; label: string }>,
+  // Addresses an earlier layout handed out, each now pointing at the tab that
+  // took over its content, so a link made then still lands somewhere sensible.
+  aliases: Readonly<Record<string, T>> = {},
+) {
+  const names = [...tabs.map((tab) => tab.id as string), ...Object.keys(aliases)];
+  const pattern = new RegExp(`^${base}(?:/(${names.join('|')}))?$`);
   const first = tabs[0]?.id as T;
   return {
     tabs,
     matches: (hash: string) => pattern.test(hash),
-    fromHash: (hash: string): T => (pattern.exec(hash)?.[1] as T | undefined) ?? first,
+    fromHash: (hash: string): T => {
+      const named = pattern.exec(hash)?.[1];
+      if (named === undefined) return first;
+      return aliases[named] ?? (named as T);
+    },
+    /** The segment as written, for an alias that carries more than the tab. */
+    segment: (hash: string): string | null => pattern.exec(hash)?.[1] ?? null,
     hash: (tab: T): string => (tab === first ? base : `${base}/${tab}`),
   };
 }
@@ -191,14 +204,30 @@ export const HIVE = tabbed<HiveTab>('#/hive', [
   { id: 'people', label: 'Who goes where' },
 ]);
 
-export type PlannerTab = 'building' | 'research' | 'heroes' | 'vehicle' | 'pets';
-export const PLANNER = tabbed<PlannerTab>('#/planner', [
-  { id: 'building', label: 'Buildings' },
-  { id: 'research', label: 'Research' },
-  { id: 'heroes', label: 'Heroes' },
-  { id: 'vehicle', label: 'Vehicle' },
-  { id: 'pets', label: 'Pets' },
-]);
+/** The planner's three pages: choosing what to raise (with what it takes), the
+ * numbers it is worked out from (stock and buffs), and what to upgrade next.
+ * The five kinds of thing to raise are a bar inside the first page, not
+ * addresses of their own. */
+export type PlannerTab = 'raise' | 'settings' | 'upgrades';
+export const PLANNER = tabbed<PlannerTab>(
+  '#/planner',
+  [
+    { id: 'raise', label: 'What to raise' },
+    { id: 'settings', label: 'Settings' },
+    { id: 'upgrades', label: 'Next upgrades' },
+  ],
+  // The five addresses the first layout had (one per kind of thing to raise).
+  { building: 'raise', research: 'raise', heroes: 'raise', vehicle: 'raise', pets: 'raise' },
+);
+
+/** Which kind of thing to raise a planner address names: only the old
+ * per-kind addresses name one. */
+export function plannerKindFromHash(hash: string): string | null {
+  const named = PLANNER.segment(hash);
+  return named !== null && ['building', 'research', 'heroes', 'vehicle', 'pets'].includes(named)
+    ? named
+    : null;
+}
 
 /** An alliance page's views. Which of them a given alliance offers depends on
  * its data (past names, whether it is ours), so the page filters this list; the
