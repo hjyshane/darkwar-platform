@@ -1,12 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
+import { Strip } from '../../components/Strip';
 import { Tabs } from '../../components/ui/Tabs';
 import { useRecordActivity } from '../../lib/activity';
 import { serverHash } from '../../lib/route';
 import { TERMS } from '../../lib/terms';
 import { CrossRankingTable } from './CrossRankingTable';
 import { BOARDS, type BoardId, boardById } from './boards';
+import { boardStrip } from './strip';
 
 /** Every server the current board mentions, as a link to its own page.
  *
@@ -50,18 +52,30 @@ export function CrossRankingsPanel() {
     staleTime: 10 * 60_000,
   });
   return (
-    <section aria-labelledby="cross-rankings-heading">
-      <h2 id="cross-rankings-heading">
-        {TERMS.crossServerRanking}
-        {data?.[0] && <FreshnessBadge capturedAt={data[0].captured_at} />}
-      </h2>
+    <section aria-labelledby="cross-rankings-heading" className="board-screen">
+      <div className="entity">
+        <header className="entity-head">
+          <span aria-hidden="true" className="entity-mark">
+            PR
+          </span>
+          <div>
+            <h2 id="cross-rankings-heading">{TERMS.crossServerRanking}</h2>
+            <p className="entity-meta">
+              <span>{board.label}</span>
+              {data?.[0] && <FreshnessBadge capturedAt={data[0].captured_at} />}
+            </p>
+          </div>
+        </header>
+        {data && <Strip cells={boardStrip(data, board.valueLabel, new Date())} />}
+      </div>
       <Tabs
         label="Ranking metric"
         items={BOARDS.map((candidate) => ({ id: candidate.id, label: candidate.label }))}
         value={boardId}
         onChange={setBoardId}
       />
-      {/* Straight to a server's own page.
+      <div className="panel">
+        {/* Straight to a server's own page.
           LINKS, not tabs. The board above switches what this screen shows; these
           leave it, so they have to be middle-clickable, focusable and visible in the
           status bar like any other link — which a button with a click handler is
@@ -70,10 +84,11 @@ export function CrossRankingsPanel() {
           The list is derived from the rows on screen rather than from the `servers`
           table: this is a jumping-off point from what you are looking at, and
           offering a server the board never mentioned would lead to an empty page. */}
-      {data && <ServerLinks rows={data} />}
-      {isPending && <p className="empty loading">Loading…</p>}
-      {error && <p className="error">Could not load ranking: {error.message}</p>}
-      {data && <CrossRankingTable rows={data} board={board} />}
+        {data && <ServerLinks rows={data} />}
+        {isPending && <p className="empty loading">Loading…</p>}
+        {error && <p className="error">Could not load ranking: {error.message}</p>}
+        {data && <CrossRankingTable rows={data} board={board} />}
+      </div>
     </section>
   );
 }

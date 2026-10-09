@@ -1273,3 +1273,15 @@
 .gift-screen .migration-bar {
   margin: 0;
 }
+
+/* ------------------------------------------------------------- ranking boards */
+
+/* Alliance Ranking, Player Ranking and Arena share one frame: the header with its
+ * figures, then the board in a panel. */
+.board-screen {
+  display: grid;
+  gap: var(--space-4);
+  /* minmax(0, 1fr), not auto: these tables are wide, and an auto track would let
+   * one push the whole page sideways instead of scrolling in its wrapper. */
+  grid-template-columns: minmax(0, 1fr);
+}
