@@ -2891,6 +2891,97 @@ export type Database = {
           },
         ]
       }
+      dispatch_mission_snapshots: {
+        Row: {
+          alliance_external_id: string | null
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at: string
+          ends_at: string
+          idempotency_key: string
+          mission_id: number
+          mission_uuid: string
+          observation_id: string
+          owner_game_uid: number | null
+          parser_version: string
+          point_id: number
+          raw: Json
+          server_id: number
+          snapshot_id: string
+          source_command: string
+          started_at: string
+          x: number
+          y: number
+        }
+        Insert: {
+          alliance_external_id?: string | null
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at?: string
+          ends_at: string
+          idempotency_key: string
+          mission_id: number
+          mission_uuid: string
+          observation_id: string
+          owner_game_uid?: number | null
+          parser_version: string
+          point_id: number
+          raw?: Json
+          server_id: number
+          snapshot_id?: string
+          source_command: string
+          started_at: string
+          x: number
+          y: number
+        }
+        Update: {
+          alliance_external_id?: string | null
+          captured_at?: string
+          collected_from_server_id?: number
+          collector_id?: string
+          created_at?: string
+          ends_at?: string
+          idempotency_key?: string
+          mission_id?: number
+          mission_uuid?: string
+          observation_id?: string
+          owner_game_uid?: number | null
+          parser_version?: string
+          point_id?: number
+          raw?: Json
+          server_id?: number
+          snapshot_id?: string
+          source_command?: string
+          started_at?: string
+          x?: number
+          y?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dispatch_mission_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "dispatch_mission_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "dispatch_mission_snapshots_collector_id_fkey"
+            columns: ["collector_id"]
+            isOneToOne: false
+            referencedRelation: "collectors"
+            referencedColumns: ["collector_id"]
+          },
+        ]
+      }
       event_attendance: {
         Row: {
           alliance_id: string | null
@@ -3302,6 +3393,45 @@ export type Database = {
             referencedColumns: ["server_id"]
           },
         ]
+      }
+      game_dispatch_missions: {
+        Row: {
+          base_items: Json
+          color: number
+          duration_seconds: number
+          is_special: boolean
+          mission_id: number
+          orange_books: number
+          star: number | null
+          steal_items: Json
+          steal_max: number | null
+          updated_at: string
+        }
+        Insert: {
+          base_items?: Json
+          color: number
+          duration_seconds: number
+          is_special?: boolean
+          mission_id: number
+          orange_books?: number
+          star?: number | null
+          steal_items?: Json
+          steal_max?: number | null
+          updated_at?: string
+        }
+        Update: {
+          base_items?: Json
+          color?: number
+          duration_seconds?: number
+          is_special?: boolean
+          mission_id?: number
+          orange_books?: number
+          star?: number | null
+          steal_items?: Json
+          steal_max?: number | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       game_effects: {
         Row: {
@@ -7369,6 +7499,118 @@ export type Database = {
           },
         ]
       }
+      world_truck_snapshots: {
+        Row: {
+          alliance_abbr: string | null
+          arrive_at: string | null
+          captured_at: string
+          cfg_id: number | null
+          collected_from_server_id: number
+          collector_id: string
+          completeness: number | null
+          created_at: string
+          goods: Json | null
+          hero_fragments: number | null
+          idempotency_key: string
+          observation_id: string
+          owner_game_uid: string | null
+          owner_name: string | null
+          parser_version: string
+          quality: number | null
+          raw: Json
+          rob_times: number | null
+          segment_end_at: string | null
+          segment_start_at: string | null
+          send_at: string | null
+          server_id: number
+          snapshot_id: string
+          source_command: string
+          start_pos: number | null
+          target_pos: number | null
+          truck_uuid: string
+        }
+        Insert: {
+          alliance_abbr?: string | null
+          arrive_at?: string | null
+          captured_at: string
+          cfg_id?: number | null
+          collected_from_server_id: number
+          collector_id: string
+          completeness?: number | null
+          created_at?: string
+          goods?: Json | null
+          hero_fragments?: number | null
+          idempotency_key: string
+          observation_id: string
+          owner_game_uid?: string | null
+          owner_name?: string | null
+          parser_version: string
+          quality?: number | null
+          raw?: Json
+          rob_times?: number | null
+          segment_end_at?: string | null
+          segment_start_at?: string | null
+          send_at?: string | null
+          server_id: number
+          snapshot_id?: string
+          source_command: string
+          start_pos?: number | null
+          target_pos?: number | null
+          truck_uuid: string
+        }
+        Update: {
+          alliance_abbr?: string | null
+          arrive_at?: string | null
+          captured_at?: string
+          cfg_id?: number | null
+          collected_from_server_id?: number
+          collector_id?: string
+          completeness?: number | null
+          created_at?: string
+          goods?: Json | null
+          hero_fragments?: number | null
+          idempotency_key?: string
+          observation_id?: string
+          owner_game_uid?: string | null
+          owner_name?: string | null
+          parser_version?: string
+          quality?: number | null
+          raw?: Json
+          rob_times?: number | null
+          segment_end_at?: string | null
+          segment_start_at?: string | null
+          send_at?: string | null
+          server_id?: number
+          snapshot_id?: string
+          source_command?: string
+          start_pos?: number | null
+          target_pos?: number | null
+          truck_uuid?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "world_truck_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "world_truck_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "world_truck_snapshots_collector_id_fkey"
+            columns: ["collector_id"]
+            isOneToOne: false
+            referencedRelation: "collectors"
+            referencedColumns: ["collector_id"]
+          },
+        ]
+      }
       world_viewport_snapshots: {
         Row: {
           captured_at: string
@@ -8017,6 +8259,30 @@ export type Database = {
           starter_misses: number | null
           substitute_battles: number | null
           substitute_misses: number | null
+        }
+        Relationships: []
+      }
+      dispatch_missions_live: {
+        Row: {
+          alliance_abbr: string | null
+          alliance_external_id: string | null
+          color: number | null
+          ends_at: string | null
+          is_special: boolean | null
+          mission_id: number | null
+          mission_uuid: string | null
+          orange_books: number | null
+          owner_game_uid: number | null
+          owner_name: string | null
+          point_id: number | null
+          seen_at: string | null
+          server_id: number | null
+          star: number | null
+          started_at: string | null
+          steal_items: Json | null
+          steal_max: number | null
+          x: number | null
+          y: number | null
         }
         Relationships: []
       }
@@ -8865,6 +9131,29 @@ export type Database = {
           oldest_seen_at: string | null
           seen_cells: Json | null
           server_id: number | null
+        }
+        Relationships: []
+      }
+      world_trucks_latest: {
+        Row: {
+          alliance_abbr: string | null
+          arrive_at: string | null
+          cargo_seen_at: string | null
+          cfg_id: number | null
+          completeness: number | null
+          goods: Json | null
+          hero_fragments: number | null
+          owner_game_uid: string | null
+          owner_name: string | null
+          position_seen_at: string | null
+          quality: number | null
+          rob_times: number | null
+          segment_end_at: string | null
+          segment_start_at: string | null
+          server_id: number | null
+          start_pos: number | null
+          target_pos: number | null
+          truck_uuid: string | null
         }
         Relationships: []
       }

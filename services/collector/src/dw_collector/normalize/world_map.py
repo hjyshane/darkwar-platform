@@ -10,11 +10,16 @@ The second is what the alliance actually asked for, and this module had it
 labelled "marches" until 22 buildings were clicked one at a time and every
 one came back as type 6.
 
+Type 21 was dropped here for a long time because it looks like a levelled
+season building and three tests refuted that. It is the hero DISPATCH MISSION
+(0254): f101.f2 is a key of aps_dispatch_tasks in 65,190 of 65,190 sightings,
+f101.f5/f6 are start and finish in epoch milliseconds, and they exist only once
+the mission has been started. Only started ones are written - an unstarted one
+cannot be plundered and would otherwise be most of the rows.
+
 WHAT IS STILL DROPPED, AND WHY THAT IS THE POINT. Resources and alliance
-buildings are readable but nothing asks for them yet; the eight types nobody
-has opened are not readable at all. Type 21 is dropped despite looking like
-a levelled season building — three tests refute it, and writing it here as a
-level would put a wrong number in front of the alliance.
+buildings are readable but nothing asks for them yet; the types nobody has
+opened are not readable at all.
 
 The raw payload is journalled either way, so a type promoted later needs no
 re-capture: `renormalize` replays the stored observations through whatever
@@ -25,11 +30,13 @@ them as unknown.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any
 
-from dw_collector.models import NormalizedRow, Observation, idempotency_key
+from dw_collector.models import NormalizedRow, Observation, entry_idempotency_key, idempotency_key
 from dw_collector.protocol.worldmap import (
     CITY_TYPE,
+    DISPATCH_MISSION_TYPE,
     SEASON_BUILDING_TYPE,
     Tile,
     decode_viewport,
@@ -42,7 +49,8 @@ from dw_collector.registry import register
 # point_id, which is stored raw for exactly this reason.
 # 1.2.0: emits a world_viewport_snapshots row per response, so coverage can be
 # asked of the map. `renormalize` backfills it from journalled observations.
-PARSER_VERSION = "1.2.0"
+# 1.3.0: started dispatch missions (type 21) go to dispatch_mission_snapshots.
+PARSER_VERSION = "1.3.0"
 
 _UID_SERVER_SUFFIX = 6
 
@@ -73,6 +81,42 @@ def _usable_uid(uid: str | None) -> bool:
     that will not parse is a decode nobody understands — filing it anyway
     would put somebody's building under a made-up server."""
     return uid is not None and uid.isdigit() and len(uid) > _UID_SERVER_SUFFIX
+
+
+def _mission_row(observation: Observation, tile: Tile, bucket: str) -> NormalizedRow | None:
+    """A started, plunderable dispatch mission; None for anything else."""
+    mission = tile.mission
+    if mission is None or tile.object_type != DISPATCH_MISSION_TYPE:
+        return None
+    if mission.uuid is None or mission.mission_id is None:
+        return None
+    if mission.started_ms is None or mission.finish_ms is None:
+        return None
+    uid = mission.owner_uid
+    owner: int | None = None
+    server_id = tile.server_id
+    if uid is not None and _usable_uid(uid):
+        owner = int(uid)
+        server_id = _server_from_uid(uid)
+    if server_id is None:
+        return None
+    return NormalizedRow(
+        target_table="dispatch_mission_snapshots",
+        # Scoped by the MISSION and hashed over its own tile, so the same state
+        # seen from overlapping viewports is one row, not one per pan.
+        idempotency_key=entry_idempotency_key(
+            observation, f"mission:{mission.uuid}", bucket, tile.raw
+        ),
+        row={
+            **_common(observation, tile, server_id),
+            "mission_id": mission.mission_id,
+            "mission_uuid": str(mission.uuid),
+            "owner_game_uid": owner,
+            "alliance_external_id": mission.alliance_id,
+            "started_at": datetime.fromtimestamp(mission.started_ms / 1000, UTC).isoformat(),
+            "ends_at": datetime.fromtimestamp(mission.finish_ms / 1000, UTC).isoformat(),
+        },
+    )
 
 
 def _viewport_row(observation: Observation, tiles: list[Tile], bucket: str) -> NormalizedRow | None:
@@ -140,6 +184,10 @@ def normalize(observation: Observation) -> list[NormalizedRow]:
     if viewport is not None:
         rows.append(viewport)
     for tile in tiles:
+        mission_row = _mission_row(observation, tile, bucket)
+        if mission_row is not None:
+            rows.append(mission_row)
+            continue
         building = tile.building
         if tile.object_type == SEASON_BUILDING_TYPE and building is not None:
             uid = building.owner_uid
