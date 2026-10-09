@@ -1,6 +1,15 @@
 import { MAP_IMAGE_URL, MAP_INSET, toFraction } from '@dw/ui';
 import { type CSSProperties, type ReactNode, useMemo, useState } from 'react';
-import { type Atlas, type AtlasBase, allianceColor, clusters, isShielded, isStale } from './atlas';
+import { useMapZoom } from './PannableMap';
+import {
+  type Atlas,
+  type AtlasBase,
+  allianceColor,
+  clusters,
+  isShielded,
+  isStale,
+  visibleLabels,
+} from './atlas';
 
 /** Every swept base as a dot on the map picture, coloured by alliance.
  *
@@ -32,6 +41,8 @@ export function AtlasMap({
   const [hasImage, setHasImage] = useState(true);
   const now = new Date();
   const clumps = useMemo(() => clusters(atlas), [atlas]);
+  const zoom = useMapZoom();
+  const named = useMemo(() => visibleLabels(clumps, atlas, zoom), [clumps, atlas, zoom]);
 
   const dots = useMemo(
     () =>
@@ -113,7 +124,7 @@ export function AtlasMap({
             );
           })}
           {/* The alliance's name over its clump, kept the same size on screen. */}
-          {clumps.map((clump) => {
+          {named.map((clump) => {
             const alliance = atlas.alliances[clump.alliance];
             const f = toFraction(clump.at);
             return (

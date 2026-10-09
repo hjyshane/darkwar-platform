@@ -291,3 +291,26 @@ export function shieldedCounts(atlas: Atlas, now: Date): number[] {
   }
   return counts;
 }
+
+/** A name pill is about this wide at zoom 1, in tiles of a 1,000-tile map drawn
+ * about 700 px across. It stays the same size on screen as the window zooms in, so
+ * the room it takes, in tiles, shrinks with the zoom. */
+export const LABEL_SPAN_TILES = 90;
+
+/** The clump names that fit without sitting on each other: biggest alliance first,
+ * and a clump is dropped when a bigger one already has a name within the room a
+ * pill takes at this zoom. Zooming in brings the smaller ones back. */
+export function visibleLabels(found: readonly Cluster[], atlas: Atlas, zoom: number): Cluster[] {
+  const room = LABEL_SPAN_TILES / Math.max(1, zoom);
+  const bySize = [...found].sort(
+    (a, b) => (atlas.alliances[b.alliance]?.bases ?? 0) - (atlas.alliances[a.alliance]?.bases ?? 0),
+  );
+  const kept: Cluster[] = [];
+  for (const clump of bySize) {
+    const crowded = kept.some(
+      (other) => Math.hypot(other.at.x - clump.at.x, (other.at.y - clump.at.y) * 2.2) < room,
+    );
+    if (!crowded) kept.push(clump);
+  }
+  return kept;
+}

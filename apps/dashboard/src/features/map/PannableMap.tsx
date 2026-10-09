@@ -1,5 +1,13 @@
 import { type Coordinate, MAP_INSET, toFraction } from '@dw/ui';
-import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
+import {
+  type ReactNode,
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 
 export const MIN_ZOOM = 1;
 export const MAX_ZOOM = 8;
@@ -15,6 +23,12 @@ export interface View {
 }
 
 export const HOME: View = { zoom: 1, x: 0, y: 0 };
+
+/** The window's zoom, in half steps, for what is drawn inside it and has to
+ * decide what to show (the clump names). Half steps so a slow wheel does not
+ * redraw the map on every tick. */
+const ZoomContext = createContext(1);
+export const useMapZoom = () => useContext(ZoomContext);
 
 /** Keeps the picture covering the window: dragging past an edge stops there. */
 export function clampView(view: View, width: number, height: number): View {
@@ -65,6 +79,8 @@ export function PannableMap({
   focus: { at: Coordinate; nonce: number } | null;
 }) {
   const frame = useRef<HTMLDivElement>(null);
+  const root = useRef<HTMLDivElement>(null);
+  const [fullscreen, setFullscreen] = useState(false);
   const [view, setView] = useState<View>(HOME);
   const drag = useRef<{ x: number; y: number; from: View; moved: boolean } | null>(null);
   const justDragged = useRef(false);
@@ -104,64 +120,89 @@ export function PannableMap({
     setView((v) => zoomAt(v, factor, w / 2, h / 2, w, h));
   };
 
+  useEffect(() => {
+    const onChange = () => setFullscreen(document.fullscreenElement === root.current);
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, []);
+
+  // Not every browser lets a page do this (iPhone Safari does not); the button
+  // is simply a no-op there rather than a thrown error.
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement) {
+      void document.exitFullscreen?.();
+    } else {
+      void root.current?.requestFullscreen?.().catch(() => undefined);
+    }
+  };
+
   return (
-    <div className="pan-map">
-      <div className="pan-map__tools">
-        <button aria-label="Zoom in" onClick={() => step(1.5)} type="button">
-          +
-        </button>
-        <button aria-label="Zoom out" onClick={() => step(1 / 1.5)} type="button">
-          −
-        </button>
-        <button aria-label="Show the whole map" onClick={() => setView(HOME)} type="button">
-          ⌂
-        </button>
-      </div>
-      <div
-        className={view.zoom > 1 ? 'pan-map__window pan-map__window--zoomed' : 'pan-map__window'}
-        onClickCapture={(event) => {
-          // A drag that ends over a pin is not a click on it.
-          if (justDragged.current) {
-            event.stopPropagation();
-            event.preventDefault();
-            justDragged.current = false;
-          }
-        }}
-        onPointerDown={(event) => {
-          drag.current = { x: event.clientX, y: event.clientY, from: view, moved: false };
-        }}
-        onPointerMove={(event) => {
-          const d = drag.current;
-          if (!d) return;
-          const dx = event.clientX - d.x;
-          const dy = event.clientY - d.y;
-          if (!d.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
-          d.moved = true;
-          const { w, h } = size();
-          setView(clampView({ ...d.from, x: d.from.x + dx, y: d.from.y + dy }, w, h));
-        }}
-        onPointerUp={() => {
-          justDragged.current = drag.current?.moved ?? false;
-          drag.current = null;
-        }}
-        onPointerLeave={() => {
-          drag.current = null;
-        }}
-        ref={frame}
-      >
+    <ZoomContext.Provider value={Math.round(view.zoom * 2) / 2}>
+      <div className="pan-map" ref={root}>
+        <div className="pan-map__tools">
+          <button
+            aria-label={fullscreen ? 'Leave full screen' : 'Full screen'}
+            onClick={toggleFullscreen}
+            type="button"
+          >
+            {fullscreen ? '✕' : '⛶'}
+          </button>
+          <button aria-label="Zoom in" onClick={() => step(1.5)} type="button">
+            +
+          </button>
+          <button aria-label="Zoom out" onClick={() => step(1 / 1.5)} type="button">
+            −
+          </button>
+          <button aria-label="Show the whole map" onClick={() => setView(HOME)} type="button">
+            ⌂
+          </button>
+        </div>
         <div
-          className="pan-map__sheet"
-          data-zoom={Math.min(MAX_ZOOM, Math.floor(view.zoom))}
-          style={
-            {
-              transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`,
-              '--map-zoom': view.zoom,
-            } as React.CSSProperties
-          }
+          className={view.zoom > 1 ? 'pan-map__window pan-map__window--zoomed' : 'pan-map__window'}
+          onClickCapture={(event) => {
+            // A drag that ends over a pin is not a click on it.
+            if (justDragged.current) {
+              event.stopPropagation();
+              event.preventDefault();
+              justDragged.current = false;
+            }
+          }}
+          onPointerDown={(event) => {
+            drag.current = { x: event.clientX, y: event.clientY, from: view, moved: false };
+          }}
+          onPointerMove={(event) => {
+            const d = drag.current;
+            if (!d) return;
+            const dx = event.clientX - d.x;
+            const dy = event.clientY - d.y;
+            if (!d.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
+            d.moved = true;
+            const { w, h } = size();
+            setView(clampView({ ...d.from, x: d.from.x + dx, y: d.from.y + dy }, w, h));
+          }}
+          onPointerUp={() => {
+            justDragged.current = drag.current?.moved ?? false;
+            drag.current = null;
+          }}
+          onPointerLeave={() => {
+            drag.current = null;
+          }}
+          ref={frame}
         >
-          {children}
+          <div
+            className="pan-map__sheet"
+            data-zoom={Math.min(MAX_ZOOM, Math.floor(view.zoom))}
+            style={
+              {
+                transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`,
+                '--map-zoom': view.zoom,
+              } as React.CSSProperties
+            }
+          >
+            {children}
+          </div>
         </div>
       </div>
-    </div>
+    </ZoomContext.Provider>
   );
 }
