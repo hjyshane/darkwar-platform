@@ -2114,7 +2114,7 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
   ...(['power', 'kills', 'duel', 'donation'] as const).map(
     (board): [readonly unknown[], unknown] => [['crossRankings', board], CROSS_ROWS],
   ),
-  // Power and Kills are paged by the database (0261): the default page, and the
+  // Power and Kills are paged by the database (0262): the default page, and the
   // per-server counts behind the chips.
   ...(['power', 'kills'] as const).flatMap((metric): [readonly unknown[], unknown][] => [
     [

@@ -47,7 +47,7 @@ export function boardStrip(rows: readonly BoardRow[], valueLabel: string, now: D
   ];
 }
 
-/** The strip for a board the database pages (0261): the same four claims as
+/** The strip for a board the database pages (0262): the same four claims as
  * `boardStrip`, from per-server counts and the first-ranked row, because the
  * rows themselves are never all in the browser. */
 export function remoteStrip(

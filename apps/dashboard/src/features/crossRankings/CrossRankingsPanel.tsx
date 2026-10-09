@@ -76,7 +76,7 @@ function useDebounced<T>(value: T, ms: number): T {
   return settled;
 }
 
-/** Power and Kills: the database merges, ranks, filters and pages (0261), and
+/** Power and Kills: the database merges, ranks, filters and pages (0262), and
  * this asks for 50 rows at a time. */
 function RemoteBoard({
   board,
