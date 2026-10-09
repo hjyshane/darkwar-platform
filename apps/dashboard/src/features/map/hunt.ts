@@ -251,13 +251,14 @@ export function missionFromRow(row: MissionRow): Mission | null {
 
 const REFRESH_MS = 60_000;
 
-export async function fetchTrucks(serverId: number): Promise<Truck[]> {
+/** Every server's trucks. The interception list covers the whole group, and the
+ * trucks worth taking are mostly on other servers than the one being looked at. */
+export async function fetchTrucks(): Promise<Truck[]> {
   const { data, error } = await supabase
     .from('world_trucks_latest')
     .select(
       'truck_uuid, server_id, owner_name, alliance_abbr, quality, hero_fragments, rob_times, arrive_at, start_pos, target_pos, segment_start_at, segment_end_at, position_seen_at, cargo_seen_at',
     )
-    .eq('server_id', serverId)
     .gte('quality', TRUCK_MIN_QUALITY)
     .gt('hero_fragments', 0)
     .order('arrive_at', { ascending: true });
@@ -296,11 +297,10 @@ export async function fetchMissions(serverId: number): Promise<Mission[]> {
   return missions;
 }
 
-export function useTrucks(serverId: number | null) {
+export function useTrucks() {
   return useQuery({
-    queryKey: ['map', 'trucks', serverId],
-    queryFn: () => fetchTrucks(serverId as number),
-    enabled: serverId !== null,
+    queryKey: ['map', 'trucks'],
+    queryFn: fetchTrucks,
     staleTime: REFRESH_MS / 2,
     refetchInterval: REFRESH_MS,
   });

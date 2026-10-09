@@ -29,15 +29,17 @@ const who = (name: string | null, abbr: string | null) =>
  * start and finish.
  */
 export function HuntPanel({ serverId }: { serverId: number }) {
-  const trucks = useTrucks(serverId);
+  const trucks = useTrucks();
   const missions = useMissions(serverId);
   const [picked, setPicked] = useState<string | null>(null);
   const now = new Date();
 
   const worth = (trucks.data ?? []).filter((truck) => isWorthTaking(truck, now));
   const open = (missions.data ?? []).filter((mission) => missionIsOpen(mission, now));
+  // A pin only on the map of the server the truck belongs to: its leg is a
+  // position on that map, and nobody has shown that a foreign truck's is the same.
   const placed = worth.flatMap((truck) => {
-    const position = truckPosition(truck, now);
+    const position = truck.serverId === serverId ? truckPosition(truck, now) : null;
     return position === null ? [] : [{ truck, position }];
   });
 
@@ -101,8 +103,8 @@ export function HuntPanel({ serverId }: { serverId: number }) {
       <h3>Trucks with hero fragments</h3>
       {trucks.data && worth.length === 0 && (
         <p className="empty">
-          None known on server {serverId} right now. A truck only appears once the collector has
-          read the interception list while it was on the road.
+          None known right now. A truck only appears once the collector has read the interception
+          list while it was on the road.
         </p>
       )}
       <ul className="map-results">
@@ -157,6 +159,7 @@ function truckLine(truck: Truck, now: Date): string {
       : `${formatCoordinate(position.at)}${position.live ? '' : ' (last known)'}`;
   const left = lootsLeft(truck);
   return [
+    `server ${truck.serverId}`,
     `${QUALITY_NAMES[truck.quality] ?? `Q${truck.quality}`}`,
     `${truck.heroFragments} hero shard${truck.heroFragments === 1 ? '' : 's'}`,
     `${left} loot${left === 1 ? '' : 's'} left`,
