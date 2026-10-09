@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { type NavContext, type NavItem, buildFooter, buildNav } from '../src/lib/shellNav';
+import {
+  type NavContext,
+  type NavItem,
+  buildFooter,
+  buildNav,
+  paletteEntries,
+} from '../src/lib/shellNav';
 
 const base = (over: Partial<NavContext> = {}): NavContext => ({
   route: 'overview',
@@ -107,5 +113,38 @@ describe('sidebar tabs: settings', () => {
   it('marks no group when another screen is open, and is absent for a non-admin', () => {
     expect(settings('overview', null)?.children?.some((child) => child.current)).toBe(false);
     expect(buildFooter('admin', false).some((entry) => entry.label === 'Settings')).toBe(false);
+  });
+});
+
+describe('palette entries', () => {
+  it('lists each tab after its screen as "Screen › Tab", with the screen\'s icon and the tab\'s address', () => {
+    const entries = paletteEntries(
+      buildNav(base({ route: 'eventGuide', eventGuideTab: 'duel' })).flatMap(
+        (group) => group.items,
+      ),
+    );
+    const duel = entries.find((entry) => entry.label === 'Event guide › Alliance Duel');
+
+    expect(duel).toMatchObject({ href: '#/event-guide/duel', icon: 'guide', current: true });
+    expect(entries.findIndex((entry) => entry.label === 'Event guide')).toBeLessThan(
+      entries.findIndex((entry) => entry === duel),
+    );
+  });
+
+  it('leaves a screen without tabs as it is', () => {
+    const items = buildNav(base()).flatMap((group) => group.items);
+    const entries = paletteEntries(items);
+
+    expect(entries.find((entry) => entry.label === 'Game calendar')).toBe(
+      items.find((entry) => entry.label === 'Game calendar'),
+    );
+  });
+
+  it('gives every row its own key, though a first tab shares its screen address', () => {
+    const entries = paletteEntries(
+      buildNav(base({ mayViewArena: true })).flatMap((group) => group.items),
+    );
+
+    expect(new Set(entries.map((entry) => entry.key)).size).toBe(entries.length);
   });
 });

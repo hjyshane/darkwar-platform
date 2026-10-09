@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useState } from 'react';
 import type { Route } from '../../lib/route';
+import { paletteEntries } from '../../lib/shellNav';
 import { CommandPalette } from './CommandPalette';
 import { Sidebar } from './Sidebar';
 import { StatusLine } from './StatusLine';
@@ -71,7 +72,7 @@ export function AppShell({
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  const all = [...groups.flatMap((group) => group.items), ...footer];
+  const all = paletteEntries([...groups.flatMap((group) => group.items), ...footer]);
   const toggleCollapsed = () => {
     const next = !collapsed;
     setCollapsed(next);
