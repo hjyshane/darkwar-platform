@@ -56,6 +56,9 @@ export function useShellNav(
     mayViewArena: isPending
       ? undefined
       : isAllowed(permissions?.grants, session?.role, 'arena.view'),
+    mayManageGiftCodes: isPending
+      ? undefined
+      : isAllowed(permissions?.grants, session?.role, 'giftcodes.manage'),
     seasonNames: {
       '#/season': currentSeason(list, now)?.name,
       '#/season2': pastSeason(list, now)?.name,

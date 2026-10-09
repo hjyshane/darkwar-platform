@@ -112,6 +112,8 @@ export interface NavContext {
   mayPlanHive?: boolean | undefined;
   /** Whether the Arena board is open to this reader. Undefined while unknown. */
   mayViewArena?: boolean | undefined;
+  /** Whether this reader holds `giftcodes.manage` (0251). Undefined while unknown. */
+  mayManageGiftCodes?: boolean | undefined;
 }
 
 const ICONS: Partial<Record<Route, IconName>> = {
@@ -126,6 +128,7 @@ const ICONS: Partial<Record<Route, IconName>> = {
   blackMoney: 'blackGold',
   participation: 'participation',
   planner: 'planner',
+  giftCodes: 'blackGold',
   calendar: 'calendar',
   eventGuide: 'guide',
   shopValue: 'shop',
@@ -193,7 +196,8 @@ export function buildNav(ctx: NavContext): NavGroup[] {
     ...ALLIANCE_TABS.filter(
       (tab) =>
         (tab.route !== 'members' || ctx.mayViewMembers === true) &&
-        (tab.route !== 'season2' || ctx.isAdmin),
+        (tab.route !== 'season2' || ctx.isAdmin) &&
+        (tab.route !== 'giftCodes' || ctx.mayManageGiftCodes === true),
     ).map((tab) => ({
       key: tab.hash,
       href: tab.hash,

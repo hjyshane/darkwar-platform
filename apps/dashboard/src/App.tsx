@@ -16,6 +16,7 @@ import { BlackMoneyPage } from './features/blackMoney/BlackMoneyPage';
 import { CalendarPage } from './features/calendar/CalendarPage';
 import { CrossRankingsPanel } from './features/crossRankings/CrossRankingsPanel';
 import { EventGuidePage } from './features/eventGuide/EventGuidePage';
+import { GiftCodesPage } from './features/giftCodes/GiftCodesPage';
 import { GuidePostPage } from './features/guides/GuidePostPage';
 import { GuidesPanel } from './features/guides/GuidesPanel';
 import { HivePage } from './features/hive/HivePage';
@@ -244,6 +245,7 @@ function Screen({
   const isOfficer = session?.role === 'officer' || session?.role === 'admin';
   const mayViewMembers = useMayView('members.view');
   const mayViewArena = useMayView('arena.view');
+  const mayManageGiftCodes = useMayView('giftcodes.manage');
   switch (route) {
     case 'members':
       // Typing the address gets the same answer as the missing tab. Not a
@@ -305,6 +307,17 @@ function Screen({
       // Owner-or-admin at the policy level (0205): a member sees only their own
       // characters, so no capability gate.
       return <PlannerPage />;
+    case 'giftCodes':
+      // The tab is hidden from anyone without `giftcodes.manage`, and the
+      // tables and functions under it refuse them too (0251) - hiding a tab
+      // hides it from the eye, not from the address bar. This says why.
+      if (mayManageGiftCodes === undefined) {
+        return <p className="empty loading">Loading…</p>;
+      }
+      if (!mayManageGiftCodes) {
+        return <p className="empty">Gift codes are kept for officers.</p>;
+      }
+      return <GiftCodesPage />;
     case 'participation':
       // No capability gate, for Black Gold's reason: every source under it is
       // member-only at the policy level (0204's report is security invoker),
