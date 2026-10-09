@@ -1,15 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import {
+  NO_FILTER,
   type Truck,
+  type TruckFilter,
+  countByServer,
+  filterTrucks,
   huntStrip,
   isWorthTaking,
   lootsLeft,
   missionFromRow,
   missionIsOpen,
   pointToCoordinate,
+  sortTrucks,
   timeLeft,
   truckFromRow,
   truckPosition,
+  truckSpot,
 } from './hunt';
 
 const NOW = new Date('2026-10-09T12:00:00Z');
@@ -26,6 +32,7 @@ function truck(over: Partial<Truck> = {}): Truck {
     robTimes: 0,
     arriveAt: at(90),
     leg: null,
+    origin: null,
     positionSeenAt: null,
     cargoSeenAt: NOW,
     ...over,
@@ -119,6 +126,7 @@ describe('rows from the views', () => {
     segment_end_at: '2026-10-09T12:05:00Z',
     position_seen_at: '2026-10-09T11:56:00Z',
     cargo_seen_at: '2026-10-09T11:50:00Z',
+    origin_pos: 706119,
   };
 
   it('builds a truck with its leg', () => {
@@ -175,5 +183,73 @@ describe('huntStrip', () => {
 
     expect(cells[1]?.value).toBeNull();
     expect(cells[2]?.value).toBeNull();
+  });
+});
+
+describe('filter, sort and server counts', () => {
+  const a = truck({
+    truckUuid: 'a',
+    serverId: 581,
+    heroFragments: 1,
+    robTimes: 0,
+    arriveAt: at(30),
+  });
+  const b = truck({
+    truckUuid: 'b',
+    serverId: 583,
+    heroFragments: 3,
+    robTimes: 1,
+    arriveAt: at(90),
+  });
+  const c = truck({
+    truckUuid: 'c',
+    serverId: 581,
+    heroFragments: 2,
+    robTimes: 0,
+    arriveAt: at(60),
+  });
+  const all = [a, b, c];
+
+  it('filters by server, loots left and hero shards together', () => {
+    const ids = (f: Partial<TruckFilter>) =>
+      filterTrucks(all, { ...NO_FILTER, ...f }).map((t) => t.truckUuid);
+
+    expect(ids({})).toEqual(['a', 'b', 'c']);
+    expect(ids({ serverId: 581 })).toEqual(['a', 'c']);
+    expect(ids({ minLoots: 2 })).toEqual(['a', 'c']);
+    expect(ids({ minShards: 2 })).toEqual(['b', 'c']);
+    expect(ids({ serverId: 581, minShards: 2 })).toEqual(['c']);
+  });
+
+  it('sorts by shards, by loots left, or by arrival, with arrival breaking ties', () => {
+    const ids = (by: 'time' | 'shards' | 'loots') => sortTrucks(all, by).map((t) => t.truckUuid);
+
+    expect(ids('time')).toEqual(['a', 'c', 'b']);
+    expect(ids('shards')).toEqual(['b', 'c', 'a']);
+    expect(ids('loots')).toEqual(['a', 'c', 'b']);
+  });
+
+  it('counts trucks and shards per server', () => {
+    expect(countByServer(all)).toEqual([
+      { serverId: 581, trucks: 2, shards: 3 },
+      { serverId: 583, trucks: 1, shards: 3 },
+    ]);
+  });
+
+  it('draws a position when there is a leg, the origin when there is only that, else nothing', () => {
+    const leg = { from: { x: 1, y: 1 }, to: { x: 3, y: 3 }, startAt: at(-5), endAt: at(5) };
+    const origin = { x: 9, y: 9 };
+
+    expect(truckSpot({ leg, origin }, NOW)).toEqual({
+      at: { x: 2, y: 2 },
+      live: true,
+      origin: false,
+    });
+    expect(truckSpot({ leg: null, origin }, NOW)).toEqual({
+      at: origin,
+      live: false,
+      origin: true,
+    });
+    expect(truckSpot({ leg: null, origin: null }, NOW)).toBeNull();
   });
 });
