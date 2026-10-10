@@ -6701,21 +6701,29 @@ button.server-link {
 /* A base's own tower, once the picture is big enough to tell towers apart: the
  * game's model for its HQ level stands on the alliance-coloured ring. */
 .atlas-dot--sprite {
-  width: 0.5%;
-  height: 0.42%;
+  /* The three tiles of a base: towers stand shoulder to shoulder on the map. */
+  width: 0.3%;
+  height: 0.27%;
+  border-width: calc(1.5px / var(--map-zoom, 1));
   border-radius: 50%;
   overflow: visible;
+  box-shadow: none;
 }
 
 .atlas-dot__tower {
   position: absolute;
   left: 50%;
-  bottom: 30%;
-  width: 90%;
+  bottom: 22%;
+  width: 100%;
   max-width: none;
   height: auto;
   transform: translateX(-50%);
   pointer-events: none;
+}
+
+.atlas-dot--sprite .atlas-dot__name {
+  font-size: calc(11px / var(--map-zoom, 1));
+  font-weight: 600;
 }
 
 /* The card over a hovered base, and the shield timer in a name tag. */
