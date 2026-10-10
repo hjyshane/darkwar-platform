@@ -6390,10 +6390,15 @@ button.server-link {
   gap: 0;
 }
 
-.map-screen {
+/* shell.css (loaded after this file) gives .map-screen `display: grid`, which
+ * lets the side panel's long list stretch the row and the map with it, so the
+ * picture ended up centred in a column three screens tall. The extra class
+ * wins on specificity, not on order. */
+.shell-content .map-screen {
   display: block;
-  height: calc(100dvh - 3.25rem);
+  height: calc(100dvh - 5rem);
   min-height: 30rem;
+  overflow: hidden;
 }
 
 .atlas {
@@ -6497,6 +6502,7 @@ button.server-link {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow: hidden;
   border-left: 1px solid var(--border);
   background: var(--bg);
 }
@@ -6553,7 +6559,7 @@ button.server-link {
   text-align: right;
 }
 
-.atlas .map-search {
+.shell-content .atlas .map-search {
   padding: 0;
   border: 0;
   background: none;
