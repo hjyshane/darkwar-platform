@@ -980,6 +980,78 @@ def game_icons(
     typer.echo("written")
 
 
+@app.command("game-towers")
+def game_towers(
+    pack: Annotated[
+        Path,
+        typer.Option("--pack", exists=True, dir_okay=False, help="split_install_time_pack.apk"),
+    ],
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="render, write nothing")] = False,
+    url: Annotated[str | None, typer.Option(envvar="SUPABASE_URL")] = None,
+    secret_key: Annotated[str | None, typer.Option(envvar="SUPABASE_SECRET_KEY")] = None,
+) -> None:
+    """The world map's HQ towers, rendered from the client's 3D models into
+    members-only icon rows (0268). Needs the `gamedata` extra."""
+    from dw_collector.gamedata import towers, upload
+
+    by_level = towers.level_tiers(towers.read_level_models(pack))
+    pictures = towers.render_tiers(pack, set(by_level.values()))
+    refs = [
+        {"kind": "tower", "ref_id": str(level), "icon_key": pictures[tier]["icon_key"]}
+        for level, tier in sorted(by_level.items())
+        if tier in pictures
+    ]
+    size = sum(len(i["image"]) for i in pictures.values()) * 3 // 4
+    typer.echo(f"tiers={len(pictures)} ({size // 1024} KB) levels={len(refs)}")
+    if dry_run:
+        return
+    if not url or not secret_key:
+        typer.echo("SUPABASE_URL and SUPABASE_SECRET_KEY are required", err=True)
+        raise typer.Exit(code=2)
+    headers = {"apikey": secret_key, "Authorization": f"Bearer {secret_key}"}
+    with httpx.Client(base_url=url.rstrip("/"), headers=headers, timeout=120.0) as client:
+        upload.upsert_rows(client, "game_icons", list(pictures.values()), "icon_key")
+        upload.upsert_rows(client, "game_icon_refs", refs, "kind,ref_id")
+    typer.echo("written")
+
+
+@app.command("game-trucks")
+def game_trucks(
+    pack: Annotated[
+        Path,
+        typer.Option("--pack", exists=True, dir_okay=False, help="split_install_time_pack.apk"),
+    ],
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="count, write nothing")] = False,
+    url: Annotated[str | None, typer.Option(envvar="SUPABASE_URL")] = None,
+    secret_key: Annotated[str | None, typer.Option(envvar="SUPABASE_SECRET_KEY")] = None,
+) -> None:
+    """The truck sprites of the world map (five qualities, eight directions)
+    as members-only icon rows (0268). Needs the `gamedata` extra."""
+    from dw_collector.gamedata import trucks, upload
+    from dw_collector.gamedata.icons import extract
+
+    wanted = {name for _, _, name in trucks.truck_sprites()}
+    icons = extract(pack, wanted)
+    refs = [
+        {"kind": "truck", "ref_id": ref_id, "icon_key": name}
+        for quality, direction, name in trucks.truck_sprites()
+        if name in icons
+        for ref_id in [trucks.truck_ref(quality, direction)]
+    ]
+    size = sum(len(i["image"]) for i in icons.values()) * 3 // 4
+    typer.echo(f"sprites={len(icons)}/{len(wanted)} ({size // 1024} KB) refs={len(refs)}")
+    if dry_run:
+        return
+    if not url or not secret_key:
+        typer.echo("SUPABASE_URL and SUPABASE_SECRET_KEY are required", err=True)
+        raise typer.Exit(code=2)
+    headers = {"apikey": secret_key, "Authorization": f"Bearer {secret_key}"}
+    with httpx.Client(base_url=url.rstrip("/"), headers=headers, timeout=120.0) as client:
+        upload.upsert_rows(client, "game_icons", list(icons.values()), "icon_key")
+        upload.upsert_rows(client, "game_icon_refs", refs, "kind,ref_id")
+    typer.echo("written")
+
+
 def _fetch_all(client: httpx.Client, table: str, select: str) -> list[dict[str, Any]]:
     """Every row of a table, a page at a time: PostgREST stops at 1,000."""
     rows: list[dict[str, Any]] = []

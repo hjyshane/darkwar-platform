@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  NAME_ZOOM,
   NO_ALLIANCE_COLOR,
   NO_BASE_FILTER,
   OURS_COLOR,
@@ -17,6 +18,7 @@ import {
   parseCoordinate,
   parsePower,
   searchAtlas,
+  shieldLeft,
   shieldedCounts,
   visibleLabels,
   visibleNames,
@@ -290,21 +292,21 @@ describe('visibleNames', () => {
     alliances: [{ id: 'a', code: 'A', name: 'A', bases: 3, power: 1 }],
     bases: [
       [1, 100, 100, 30, 900, 0, 1_790_000_000, 'Strong'],
-      [2, 110, 100, 30, 100, 0, 1_790_000_000, 'Weak'],
+      [2, 102, 100, 30, 100, 0, 1_790_000_000, 'Weak'],
       [3, 500, 500, 30, 50, 0, 1_790_000_000, 'Far away'],
     ],
   });
 
   it('draws no base names until zoomed in', () => {
-    expect(visibleNames(near, 3).size).toBe(0);
+    expect(visibleNames(near, NAME_ZOOM - 1).size).toBe(0);
   });
 
   it('drops a name that would sit on a stronger one, and keeps the far one', () => {
-    expect([...visibleNames(near, 4)].sort()).toEqual([1, 3]);
+    expect([...visibleNames(near, NAME_ZOOM)].sort()).toEqual([1, 3]);
   });
 
   it('brings the dropped name back once zoomed far enough to separate them', () => {
-    expect(visibleNames(near, 16).has(2)).toBe(true);
+    expect(visibleNames(near, 64).has(2)).toBe(true);
   });
 
   it('names only the highlighted set, and a base with no alliance only once clicked', () => {
@@ -316,14 +318,14 @@ describe('visibleNames', () => {
         [3, 500, 500, 30, 700, -1, 1_790_000_000, 'Loner'],
       ],
     });
-    expect([...visibleNames(mixed, 4)].sort()).toEqual([1, 2]);
-    expect([...visibleNames(mixed, 4, new Set(), new Set([1]))]).toEqual([1]);
-    expect([...visibleNames(mixed, 4, new Set(), null, 3)].sort()).toEqual([1, 2, 3]);
+    expect([...visibleNames(mixed, NAME_ZOOM)].sort()).toEqual([1, 2]);
+    expect([...visibleNames(mixed, NAME_ZOOM, new Set(), new Set([1]))]).toEqual([1]);
+    expect([...visibleNames(mixed, NAME_ZOOM, new Set(), null, 3)].sort()).toEqual([1, 2, 3]);
   });
 
   it('places the picked base first even when it is the weaker one', () => {
-    expect(visibleNames(near, 4, new Set([2])).has(2)).toBe(true);
-    expect(visibleNames(near, 4, new Set([2])).has(1)).toBe(false);
+    expect(visibleNames(near, NAME_ZOOM, new Set([2])).has(2)).toBe(true);
+    expect(visibleNames(near, NAME_ZOOM, new Set([2])).has(1)).toBe(false);
   });
 });
 
@@ -341,5 +343,27 @@ describe('allianceSummary', () => {
     const s = allianceSummary(atlas, 0, new Date());
     expect(s).toMatchObject({ bases: 3, realPower: 400, profilesRead: 2 });
     expect(s.strongest.map((b) => b.name)).toEqual(['Top', 'Mid']);
+  });
+});
+
+describe('shieldLeft', () => {
+  const now = new Date('2026-10-09T12:00:00Z');
+  const at = (minutes: number) => new Date(now.getTime() + minutes * 60_000);
+
+  it('reads hours and minutes under a day', () => {
+    expect(shieldLeft(at(23 * 60 + 5), now)).toBe('23h 5m');
+  });
+
+  it('reads minutes under an hour and under a minute', () => {
+    expect(shieldLeft(at(42), now)).toBe('42m');
+    expect(shieldLeft(new Date(now.getTime() + 20_000), now)).toBe('<1m');
+  });
+
+  it('reads days and hours from a day up', () => {
+    expect(shieldLeft(at(2 * 1440 + 3 * 60 + 10), now)).toBe('2d 3h');
+  });
+
+  it('is null once the shield has ended', () => {
+    expect(shieldLeft(at(-1), now)).toBeNull();
   });
 });

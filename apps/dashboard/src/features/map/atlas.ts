@@ -116,6 +116,18 @@ export function isShielded(base: Pick<AtlasBase, 'shieldEnd'>, now: Date): boole
   return base.shieldEnd !== null && base.shieldEnd.getTime() > now.getTime();
 }
 
+/** Time left on a shield as `23h 5m`, `42m` or `<1m`; null when it has ended. */
+export function shieldLeft(end: Date, now: Date): string | null {
+  const minutes = Math.floor((end.getTime() - now.getTime()) / 60_000);
+  if (end.getTime() <= now.getTime()) return null;
+  if (minutes < 1) return '<1m';
+  if (minutes < 60) return `${minutes}m`;
+  const days = Math.floor(minutes / 1440);
+  const hours = Math.floor((minutes % 1440) / 60);
+  if (days > 0) return `${days}d ${hours}h`;
+  return `${hours}h ${minutes % 60}m`;
+}
+
 /** What a click puts on the clipboard: `[X:123 Y:456]`, which is how a
  * coordinate is pasted into the game's chat and into the search box here. */
 export function formatCopyCoordinate(at: Coordinate): string {
@@ -316,9 +328,11 @@ export function visibleLabels(found: readonly Cluster[], atlas: Atlas, zoom: num
 }
 
 /** Zoom from which base names are drawn at all. */
-export const NAME_ZOOM = 4;
+export const NAME_ZOOM = 10;
 /** Zoom from which the alliance clump names step aside for the base names. */
-export const CLUMP_NAME_HIDE_ZOOM = 5;
+export const CLUMP_NAME_HIDE_ZOOM = 12;
+/** Zoom from which a base is drawn as a tower-sized disc instead of a dot. */
+export const TOWER_ZOOM = 24;
 
 // How much screen a base name takes, and how far apart tiles sit on screen at
 // zoom 1: the same ~700 px per 1,000 tiles LABEL_SPAN_TILES assumes, squashed
@@ -348,16 +362,19 @@ function nameWidthPx(name: string, hq: number | null): number {
  * `only` narrows the candidates to a highlighted set (a picked alliance, a search
  * result) so the rest of the map stays unlabelled. A base with no alliance is
  * named only when it is the `clicked` one: those are the stragglers and the
- * unknowns, and a name over each would bury the alliances that matter. */
+ * unknowns, and a name over each would bury the alliances that matter.
+ *
+ * `minZoom` lets a mode that is about names (the shield timers) start earlier. */
 export function visibleNames(
   atlas: Atlas,
   zoom: number,
   first: ReadonlySet<number> = new Set(),
   only: ReadonlySet<number> | null = null,
   clicked: number | null = null,
+  minZoom: number = NAME_ZOOM,
 ): Set<number> {
   const shown = new Set<number>();
-  if (zoom < NAME_ZOOM) return shown;
+  if (zoom < minZoom) return shown;
   const ordered = atlas.bases
     .filter((base) => base.name !== null && base.name !== '')
     .filter(
