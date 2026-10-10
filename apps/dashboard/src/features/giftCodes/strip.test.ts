@@ -26,6 +26,7 @@ const member = (game_uid: number, excluded = false, extra = false): GiftMember =
   claims: {},
   rank: 3,
   extra,
+  has_key: false,
 });
 
 const cell = (label: string, codes: GiftCode[] = [], members: GiftMember[] = []) =>

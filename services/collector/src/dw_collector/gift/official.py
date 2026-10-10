@@ -48,7 +48,9 @@ _BY_ERROR_CODE: dict[str, Kind] = {
 #: the account we are acting from, so it fails the pair rather than halting.
 _BY_NUMERIC_CODE: dict[int, Kind] = {
     10018: "retry",
-    10006: "retry",
+    # "token expired" for EVERY request, not for one player (seen 2026-10-10):
+    # nothing can be sent, so stop and let a person look.
+    10006: "stop",
     10007: "retry",
     10020: "stop",
     10022: "stop",

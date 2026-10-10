@@ -6,6 +6,8 @@ import {
   claimLabel,
   claimableSelection,
   isLive,
+  isUuid,
+  parsePlayerLines,
   parseUids,
   pickableUids,
   rankGroups,
@@ -85,9 +87,33 @@ describe('summarise', () => {
 
 describe('claimableSelection', () => {
   const members: GiftMember[] = [
-    { game_uid: 1, name: 'Alpha', excluded: false, claims: {}, rank: 5, extra: false },
-    { game_uid: 2, name: 'Bravo', excluded: true, claims: {}, rank: 4, extra: false },
-    { game_uid: 3, name: 'Charlie', excluded: false, claims: {}, rank: 4, extra: false },
+    {
+      game_uid: 1,
+      name: 'Alpha',
+      excluded: false,
+      claims: {},
+      rank: 5,
+      extra: false,
+      has_key: false,
+    },
+    {
+      game_uid: 2,
+      name: 'Bravo',
+      excluded: true,
+      claims: {},
+      rank: 4,
+      extra: false,
+      has_key: false,
+    },
+    {
+      game_uid: 3,
+      name: 'Charlie',
+      excluded: false,
+      claims: {},
+      rank: 4,
+      extra: false,
+      has_key: false,
+    },
   ];
 
   test('picks the selected players who are not excluded', () => {
@@ -147,7 +173,7 @@ describe('picking by rank', () => {
     rank: number | null,
     excluded = false,
     extra = false,
-  ): GiftMember => ({ game_uid, name, excluded, claims: {}, rank, extra });
+  ): GiftMember => ({ game_uid, name, excluded, claims: {}, rank, extra, has_key: false });
   const roster = [
     member(1, 'Ann', 5),
     member(2, 'Bob', 4),
@@ -221,7 +247,7 @@ describe('saved player IDs', () => {
     rank: number | null,
     extra: boolean,
     excluded = false,
-  ): GiftMember => ({ game_uid, name, excluded, claims: {}, rank, extra });
+  ): GiftMember => ({ game_uid, name, excluded, claims: {}, rank, extra, has_key: false });
   const people = [
     member(1, 'Ann', 5, false),
     member(2, 'Bob', null, false),
@@ -239,6 +265,52 @@ describe('saved player IDs', () => {
 
   test('and sort after the whole roster', () => {
     expect(byRank(people).map((m) => m.name)).toEqual(['Ann', 'Bob', 'Cousin', 'UID 3']);
+  });
+});
+
+describe('parsePlayerLines', () => {
+  const sample = '3f2b8c1e-5a47-4d9e-8b6a-0c1d2e3f4a5b';
+  const key = sample;
+
+  test('a player ID followed by its key is one player with a key', () => {
+    expect(parsePlayerLines(`1135062125000580 ${key}`).entries).toEqual([
+      { uid: 1135062125000580, key },
+    ]);
+  });
+
+  test('a lone ID is a player without a key; lines and commas both separate', () => {
+    const r = parsePlayerLines(`1135062125000580, 1135062125000581 ${key}\n1135062125000582`);
+    expect(r.entries).toEqual([
+      { uid: 1135062125000580, key: null },
+      { uid: 1135062125000581, key },
+      { uid: 1135062125000582, key: null },
+    ]);
+    expect(r.rejected).toEqual([]);
+  });
+
+  test('keys are lower-cased and a repeated ID keeps the first key', () => {
+    const r = parsePlayerLines(`1135062125000580 ${key.toUpperCase()} 1135062125000580`);
+    expect(r.entries).toEqual([{ uid: 1135062125000580, key }]);
+  });
+
+  test('a key with no ID before it, or a second key, is rejected', () => {
+    const other = '11111111-2222-4333-8444-555555555555';
+    const r = parsePlayerLines(`${key} 1135062125000580 ${other} ${key}`);
+    expect(r.entries).toEqual([{ uid: 1135062125000580, key: other }]);
+    expect(r.rejected).toEqual([key, key]);
+  });
+
+  test('anything else is handed back', () => {
+    expect(parsePlayerLines('abc 123').rejected).toEqual(['abc', '123']);
+  });
+});
+
+describe('isUuid', () => {
+  test('recognises a key and nothing looser', () => {
+    expect(isUuid('3f2b8c1e-5a47-4d9e-8b6a-0c1d2e3f4a5b')).toBe(true);
+    expect(isUuid(' 3f2b8c1e-5a47-4d9e-8b6a-0c1d2e3f4a5b ')).toBe(true);
+    expect(isUuid('3f2b8c1e5a474d9e')).toBe(false);
+    expect(isUuid('')).toBe(false);
   });
 });
 

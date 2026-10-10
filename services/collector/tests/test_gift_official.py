@@ -49,6 +49,7 @@ def test_request_carries_uid_code_and_usertoken_header() -> None:
         ({"errorCode": "E001", "message": "x"}, "retry"),
         ({"errorCode": "E999", "message": "new"}, "retry"),
         ({"code": 10018, "message": "params error"}, "retry"),
+        ({"code": 10006, "message": "system fail"}, "stop"),
         ({"code": 10020, "message": "x"}, "stop"),
         ({"code": 10022, "message": "x"}, "stop"),
         ({"something": "else"}, "retry"),
