@@ -6935,3 +6935,9 @@ button.server-link {
 .atlas-chip--static {
   cursor: default;
 }
+
+/* The stage takes the drag, not only the picture on it. */
+.atlas .pan-map {
+  touch-action: none;
+  cursor: grab;
+}

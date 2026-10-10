@@ -91,13 +91,17 @@ export function PannableMap({
     return { w: el?.clientWidth ?? 1, h: el?.clientHeight ?? 1 };
   }, []);
 
-  // The wheel needs preventDefault, and React registers wheel passively.
+  // The wheel needs preventDefault, and React registers wheel passively. It is
+  // taken on the whole stage, not just the picture: the picture keeps its shape
+  // and the stage around it is often wider, and a wheel over that empty ground
+  // that did nothing read as "zoom works sometimes".
   useEffect(() => {
-    const el = frame.current;
-    if (!el) return;
+    const el = root.current;
+    const picture = frame.current;
+    if (!el || !picture) return;
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
-      const box = el.getBoundingClientRect();
+      const box = picture.getBoundingClientRect();
       const factor = event.deltaY < 0 ? 1.25 : 0.8;
       setView((v) =>
         zoomAt(v, factor, event.clientX - box.left, event.clientY - box.top, box.width, box.height),
@@ -139,7 +143,45 @@ export function PannableMap({
 
   return (
     <ZoomContext.Provider value={Math.round(view.zoom * 2) / 2}>
-      <div className="pan-map" ref={root}>
+      <div
+        className="pan-map"
+        onClickCapture={(event) => {
+          // A drag that ends over a pin is not a click on it.
+          if (justDragged.current) {
+            event.stopPropagation();
+            event.preventDefault();
+            justDragged.current = false;
+          }
+        }}
+        onPointerDown={(event) => {
+          // A fresh press clears a drag whose click never came (it ended on
+          // empty ground), so it cannot swallow this press's click.
+          justDragged.current = false;
+          if ((event.target as Element).closest('.pan-map__tools')) return;
+          drag.current = { x: event.clientX, y: event.clientY, from: view, moved: false };
+        }}
+        onPointerMove={(event) => {
+          const d = drag.current;
+          if (!d) return;
+          const dx = event.clientX - d.x;
+          const dy = event.clientY - d.y;
+          if (!d.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
+          d.moved = true;
+          const { w, h } = size();
+          setView(clampView({ ...d.from, x: d.from.x + dx, y: d.from.y + dy }, w, h));
+        }}
+        onPointerUp={() => {
+          justDragged.current = drag.current?.moved ?? false;
+          drag.current = null;
+        }}
+        onPointerCancel={() => {
+          drag.current = null;
+        }}
+        onPointerLeave={() => {
+          drag.current = null;
+        }}
+        ref={root}
+      >
         <div className="pan-map__tools">
           <button
             aria-label={fullscreen ? 'Leave full screen' : 'Full screen'}
@@ -160,34 +202,6 @@ export function PannableMap({
         </div>
         <div
           className={view.zoom > 1 ? 'pan-map__window pan-map__window--zoomed' : 'pan-map__window'}
-          onClickCapture={(event) => {
-            // A drag that ends over a pin is not a click on it.
-            if (justDragged.current) {
-              event.stopPropagation();
-              event.preventDefault();
-              justDragged.current = false;
-            }
-          }}
-          onPointerDown={(event) => {
-            drag.current = { x: event.clientX, y: event.clientY, from: view, moved: false };
-          }}
-          onPointerMove={(event) => {
-            const d = drag.current;
-            if (!d) return;
-            const dx = event.clientX - d.x;
-            const dy = event.clientY - d.y;
-            if (!d.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
-            d.moved = true;
-            const { w, h } = size();
-            setView(clampView({ ...d.from, x: d.from.x + dx, y: d.from.y + dy }, w, h));
-          }}
-          onPointerUp={() => {
-            justDragged.current = drag.current?.moved ?? false;
-            drag.current = null;
-          }}
-          onPointerLeave={() => {
-            drag.current = null;
-          }}
           ref={frame}
         >
           <div
