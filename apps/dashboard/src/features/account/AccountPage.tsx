@@ -8,6 +8,7 @@ import { LeaveAllianceForm } from '../auth/LeaveAllianceForm';
 import { FavouritesBlock } from '../overview/FavouritesBlock';
 import { PlayerPage } from '../player/PlayerPage';
 import { EmailForm } from './EmailForm';
+import { GiftKeyForm } from './GiftKeyForm';
 import { PasswordForm } from './PasswordForm';
 
 /** Everything that is yours: what you wrote, what you kept, who you are.
@@ -334,6 +335,14 @@ export function AccountPage() {
             <section aria-labelledby="password-heading">
               <h2 id="password-heading">Password</h2>
               <PasswordForm />
+            </section>
+
+            {/* Optional, and yours alone: lets gift codes be sent to your own
+                character. The key is a login token, so the form says so and the
+                database accepts only a character linked to this account. */}
+            <section aria-labelledby="gift-key-heading">
+              <h2 id="gift-key-heading">Gift Center key</h2>
+              <GiftKeyForm />
             </section>
 
             {/* LEAVING IS LAST AND UNDER A RULE, because it is the only thing
