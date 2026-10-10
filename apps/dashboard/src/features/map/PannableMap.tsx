@@ -31,6 +31,16 @@ export const HOME: View = { zoom: 1, x: 0, y: 0 };
 const ZoomContext = createContext(1);
 export const useMapZoom = () => useContext(ZoomContext);
 
+/** How much one wheel event zooms by. Proportional to how far the wheel moved,
+ * so a notch of a mouse is a small step (about 13%) and a trackpad's stream of
+ * tiny deltas is smooth, where a fixed 25% per event jumped a whole level at a
+ * time. Capped so a fast flick cannot cross several levels at once. */
+export function wheelFactor(deltaY: number, deltaMode = 0): number {
+  const lines = deltaMode === 1 ? 33 : deltaMode === 2 ? 400 : 1;
+  const moved = Math.max(-240, Math.min(240, deltaY * lines));
+  return Math.exp(-moved * 0.0012);
+}
+
 /** Keeps the picture covering the window: dragging past an edge stops there. */
 export function clampView(view: View, width: number, height: number): View {
   const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, view.zoom));
@@ -102,7 +112,7 @@ export function PannableMap({
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
       const box = picture.getBoundingClientRect();
-      const factor = event.deltaY < 0 ? 1.25 : 0.8;
+      const factor = wheelFactor(event.deltaY, event.deltaMode);
       setView((v) =>
         zoomAt(v, factor, event.clientX - box.left, event.clientY - box.top, box.width, box.height),
       );
@@ -190,10 +200,10 @@ export function PannableMap({
           >
             {fullscreen ? '✕' : '⛶'}
           </button>
-          <button aria-label="Zoom in" onClick={() => step(1.5)} type="button">
+          <button aria-label="Zoom in" onClick={() => step(1.3)} type="button">
             +
           </button>
-          <button aria-label="Zoom out" onClick={() => step(1 / 1.5)} type="button">
+          <button aria-label="Zoom out" onClick={() => step(1 / 1.3)} type="button">
             −
           </button>
           <button aria-label="Show the whole map" onClick={() => setView(HOME)} type="button">

@@ -6,6 +6,7 @@ import {
   centreOn,
   clampView,
   pictureFraction,
+  wheelFactor,
   zoomAt,
 } from './PannableMap';
 
@@ -50,5 +51,35 @@ describe('centreOn', () => {
 
     expect(view.x).toBe(0);
     expect(view.y).toBe(0);
+  });
+});
+
+describe('wheelFactor', () => {
+  it('zooms in for a wheel up and out for a wheel down, by the same amount', () => {
+    const up = wheelFactor(-100);
+    const down = wheelFactor(100);
+    expect(up).toBeGreaterThan(1);
+    expect(down).toBeLessThan(1);
+    expect(up * down).toBeCloseTo(1, 10);
+  });
+
+  it('takes a notch of a mouse as a small step', () => {
+    expect(wheelFactor(-100)).toBeLessThan(1.15);
+    expect(wheelFactor(-100)).toBeGreaterThan(1.1);
+  });
+
+  it('is smooth for a trackpad: ten tiny deltas are about one notch', () => {
+    let z = 1;
+    for (let i = 0; i < 10; i += 1) z *= wheelFactor(-10);
+    expect(z).toBeCloseTo(wheelFactor(-100), 6);
+  });
+
+  it('caps a flick so it cannot cross several levels at once', () => {
+    expect(wheelFactor(-5000)).toBe(wheelFactor(-240));
+  });
+
+  it('counts a line-mode wheel (Firefox) as about the same notch', () => {
+    expect(wheelFactor(-3, 1)).toBeGreaterThan(1.1);
+    expect(wheelFactor(-3, 1)).toBeLessThan(1.15);
   });
 });
