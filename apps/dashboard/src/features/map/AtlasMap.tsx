@@ -172,7 +172,15 @@ export function AtlasMap({
                 data-uid={base.gameUid}
                 key={base.gameUid}
                 onClick={() => onSelect(base)}
-                style={{ left, top, '--dot': color } as CSSProperties}
+                style={
+                  {
+                    left,
+                    top,
+                    '--dot': color,
+                    // Lower on the map stands in front, as towers in the client do.
+                    zIndex: sprite ? 10 + base.at.y : undefined,
+                  } as CSSProperties
+                }
                 tabIndex={-1}
                 title={`${base.name ?? 'unnamed'} — ${base.at.x}, ${base.at.y}`}
                 type="button"
