@@ -6714,9 +6714,11 @@ button.server-link {
 /* A base's own tower, once the picture is big enough to tell towers apart: the
  * game's model for its HQ level stands on the alliance-coloured ring. */
 .atlas-dot--sprite {
-  /* The three tiles of a base: towers stand shoulder to shoulder on the map. */
-  width: 0.3%;
-  height: 0.27%;
+  /* Two tiles wide on the ground, never under 28px on screen: the tower is a
+   * small marker first and grows with the map, rather than appearing at full
+   * size at one zoom level. */
+  width: max(0.22%, calc(28px / var(--map-zoom, 1)));
+  height: max(0.2%, calc(25px / var(--map-zoom, 1)));
   border-radius: 50%;
   overflow: visible;
   box-shadow: 0 0 0 calc(1.5px / var(--map-zoom, 1)) var(--dot);
@@ -6940,4 +6942,11 @@ button.server-link {
 .atlas .pan-map {
   touch-action: none;
   cursor: grab;
+}
+
+/* A picked tower keeps the size of its neighbours (the plain .--on rule is a
+ * fixed three-tile square, which is for a ring, not a picture). */
+.atlas-dot--tower.atlas-dot--sprite.atlas-dot--on {
+  width: max(0.22%, calc(28px / var(--map-zoom, 1)));
+  height: max(0.2%, calc(25px / var(--map-zoom, 1)));
 }

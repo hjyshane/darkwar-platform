@@ -331,8 +331,10 @@ export function visibleLabels(found: readonly Cluster[], atlas: Atlas, zoom: num
 export const NAME_ZOOM = 10;
 /** Zoom from which the alliance clump names step aside for the base names. */
 export const CLUMP_NAME_HIDE_ZOOM = 12;
-/** Zoom from which a base is drawn as a tower-sized disc instead of a dot. */
-export const TOWER_ZOOM = 24;
+/** Zoom from which a base is drawn as its tower instead of a dot. The tower
+ * starts at a small fixed size and grows with the map from about zoom 11, so
+ * there is no level where everything jumps. */
+export const TOWER_ZOOM = 8;
 
 // How much screen a base name takes, and how far apart tiles sit on screen at
 // zoom 1: the same ~700 px per 1,000 tiles LABEL_SPAN_TILES assumes, squashed
