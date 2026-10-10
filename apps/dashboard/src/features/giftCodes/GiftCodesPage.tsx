@@ -15,6 +15,7 @@ import {
   removeGiftExtraPlayer,
   setGiftCodeStatus,
   setGiftExclusion,
+  setGiftPlayerKeys,
   setGiftRunner,
 } from './data';
 import {
@@ -24,7 +25,8 @@ import {
   claimLabel,
   claimableSelection,
   isLive,
-  parseUids,
+  isUuid,
+  parsePlayerLines,
   pickableUids,
   rankGroups,
   rankLabel,
@@ -112,18 +114,37 @@ export function GiftCodesPage() {
     },
     onError,
   });
-  const parsed = parseUids(idsText);
+  const parsed = parsePlayerLines(idsText);
   const addIds = useMutation({
-    mutationFn: () =>
-      addGiftExtraPlayers(parsed.uids, parsed.uids.length === 1 ? idsLabel : undefined),
-    onSuccess: async (saved) => {
-      const skipped = parsed.uids.length - saved;
+    mutationFn: async () => {
+      const uids = parsed.entries.map((entry) => entry.uid);
+      const saved = await addGiftExtraPlayers(uids, uids.length === 1 ? idsLabel : undefined);
+      const keyed = parsed.entries.filter((entry) => entry.key !== null);
+      if (keyed.length > 0) {
+        await setGiftPlayerKeys(
+          keyed.map((entry) => entry.uid),
+          keyed.map((entry) => entry.key),
+        );
+      }
+      return { saved, keyed: keyed.length, given: uids.length };
+    },
+    onSuccess: async ({ saved, keyed, given }) => {
       setIdsText('');
       setIdsLabel('');
-      const already = skipped > 0 ? ` ${skipped} already on the list or the roster.` : '';
+      const skipped = given - saved;
+      const already = skipped > 0 ? ` ${skipped} were already on the list or roster.` : '';
+      const keys = keyed > 0 ? ` ${keyed} ${keyed === 1 ? 'key' : 'keys'} saved.` : '';
       setNotice(
-        `Saved ${saved} ${saved === 1 ? 'player ID' : 'player IDs'}.${already} Pick them below and press Claim, or use Claim for everyone on a code.`,
+        `Saved ${saved} ${saved === 1 ? 'player ID' : 'player IDs'}.${keys}${already} A player without a key cannot be sent to.`,
       );
+      await refresh();
+    },
+    onError,
+  });
+  const setKey = useMutation({
+    mutationFn: ({ uid, key }: { uid: number; key: string }) => setGiftPlayerKeys([uid], [key]),
+    onSuccess: async () => {
+      setNotice('Key saved. Press Claim again to queue the codes that failed for lack of it.');
       await refresh();
     },
     onError,
@@ -165,6 +186,7 @@ export function GiftCodesPage() {
     exclude,
     addIds,
     removeId,
+    setKey,
     toggleRunner,
   ].find((m) => m.error)?.error;
 
@@ -320,24 +342,25 @@ export function GiftCodesPage() {
           className="migration-form"
           onSubmit={(e) => {
             e.preventDefault();
-            if (parsed.uids.length > 0) addIds.mutate();
+            if (parsed.entries.length > 0) addIds.mutate();
           }}
         >
           <label>
             Add players by ID{' '}
             <span className="muted">
-              (not in the alliance; paste several, separated by spaces, commas or new lines)
+              (one per line: the player ID, then that player's key (UUID) from their Gift Center
+              link. A player cannot be sent to without a key)
             </span>
             <textarea
               value={idsText}
               onChange={(e) => setIdsText(e.target.value)}
-              placeholder="e.g. 1135062125000580"
+              placeholder="1135062125000580 3f2b8c1e-5a47-4d9e-8b6a-0c1d2e3f4a5b"
               rows={2}
               autoComplete="off"
               spellCheck={false}
             />
           </label>
-          {parsed.uids.length === 1 && (
+          {parsed.entries.length === 1 && (
             <label>
               Name <span className="muted">(optional)</span>
               <input
@@ -348,13 +371,14 @@ export function GiftCodesPage() {
               />
             </label>
           )}
-          <button type="submit" disabled={addIds.isPending || parsed.uids.length === 0}>
-            Save {parsed.uids.length > 0 ? parsed.uids.length : ''}{' '}
-            {parsed.uids.length === 1 ? 'ID' : 'IDs'}
+          <button type="submit" disabled={addIds.isPending || parsed.entries.length === 0}>
+            Save {parsed.entries.length > 0 ? parsed.entries.length : ''}{' '}
+            {parsed.entries.length === 1 ? 'player' : 'players'}
           </button>
           {parsed.rejected.length > 0 && (
             <p className="error">
-              Not a player ID (10 to 18 digits): {parsed.rejected.slice(0, 5).join(', ')}
+              Not a player ID (10 to 18 digits) or a key that follows one:{' '}
+              {parsed.rejected.slice(0, 5).join(', ')}
               {parsed.rejected.length > 5 ? '…' : ''}
             </p>
           )}
@@ -412,6 +436,18 @@ export function GiftCodesPage() {
               onToggle={toggle}
               onExclude={(uid, excluded) => exclude.mutate({ uid, excluded })}
               onRemove={(uid) => removeId.mutate(uid)}
+              onSetKey={(uid) => {
+                const key = window.prompt(
+                  "Paste this player's Gift Center key (the uuid= part of their link)",
+                );
+                if (key !== null && isUuid(key)) {
+                  setKey.mutate({ uid, key: key.trim().toLowerCase() });
+                } else if (key !== null && key.trim() !== '') {
+                  setNotice(
+                    'That is not a key: it looks like 3f2b8c1e-5a47-4d9e-8b6a-0c1d2e3f4a5b.',
+                  );
+                }
+              }}
             />
           </>
         )}
@@ -503,6 +539,7 @@ function MemberTable({
   onToggle,
   onExclude,
   onRemove,
+  onSetKey,
 }: {
   members: GiftMember[];
   codes: GiftCode[];
@@ -510,6 +547,7 @@ function MemberTable({
   onToggle: (uid: number) => void;
   onExclude: (uid: number, excluded: boolean) => void;
   onRemove: (uid: number) => void;
+  onSetKey: (uid: number) => void;
 }) {
   return (
     <div className="table-wrap">
@@ -520,6 +558,7 @@ function MemberTable({
             <th scope="col">Pick</th>
             <th scope="col">Player</th>
             <th scope="col">Rank</th>
+            <th scope="col">Key</th>
             <th scope="col">Leave out</th>
             {codes.map((c) => (
               <th key={c.code_id} scope="col">
@@ -552,6 +591,15 @@ function MemberTable({
                 )}
               </th>
               <td>{m.extra ? 'saved ID' : rankLabel(m.rank)}</td>
+              <td>
+                {m.has_key ? (
+                  'saved'
+                ) : (
+                  <button type="button" className="link" onClick={() => onSetKey(m.game_uid)}>
+                    Add key
+                  </button>
+                )}
+              </td>
               <td>
                 <input
                   type="checkbox"

@@ -27,6 +27,8 @@ export interface GiftMember {
   claims: Record<string, string>;
   /** A player ID saved by an officer (0255), not on the alliance roster. */
   extra: boolean;
+  /** Whether the player's Gift Center key is saved (0272). The key is never read back. */
+  has_key: boolean;
   /** The rank the game shows for them, 1 to 5 (R1 to R5), from the newest roster
    * capture. Null when it is not known: a rank is not guessed. */
   rank: number | null;
@@ -131,6 +133,19 @@ export async function removeGiftExtraPlayer(gameUid: number): Promise<void> {
   if (error) {
     throw new Error(error.message);
   }
+}
+
+/** Save (or, with a null key, clear) players' Gift Center keys (0272). A key is a
+ * credential for that player's Gift Center login: write-only from here. */
+export async function setGiftPlayerKeys(uids: number[], keys: (string | null)[]): Promise<number> {
+  const { data, error } = await supabase.rpc('set_gift_player_keys', {
+    p_uids: uids,
+    p_uuids: keys as string[],
+  });
+  if (error) {
+    throw new Error(error.message);
+  }
+  return data ?? 0;
 }
 
 export async function setGiftExclusion(gameUid: number, excluded: boolean): Promise<void> {

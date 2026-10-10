@@ -66,3 +66,5 @@ select is((select array_agg(game_uid order by x, y) from public.world_cities_in_
   array[9730000000000001, 9730000000000003]::bigint[], 'ordered by x then y');
 
 select * from finish();
+
+rollback;

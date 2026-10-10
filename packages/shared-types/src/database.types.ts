@@ -4161,6 +4161,52 @@ export type Database = {
           },
         ]
       }
+      gift_player_keys: {
+        Row: {
+          added_by: string | null
+          alliance_id: string
+          game_uid: number
+          player_uuid: string
+          updated_at: string
+        }
+        Insert: {
+          added_by?: string | null
+          alliance_id?: string
+          game_uid: number
+          player_uuid: string
+          updated_at?: string
+        }
+        Update: {
+          added_by?: string | null
+          alliance_id?: string
+          game_uid?: number
+          player_uuid?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gift_player_keys_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "gift_player_keys_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "gift_player_keys_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
+        ]
+      }
       guides: {
         Row: {
           alliance_id: string | null
@@ -9389,6 +9435,7 @@ export type Database = {
           excluded: boolean
           extra: boolean
           game_uid: number
+          has_key: boolean
           name: string
         }[]
       }
@@ -9824,6 +9871,10 @@ export type Database = {
       set_gift_exclusion: {
         Args: { p_excluded: boolean; p_game_uid: number }
         Returns: undefined
+      }
+      set_gift_player_keys: {
+        Args: { p_uids: number[]; p_uuids: string[] }
+        Returns: number
       }
       set_gift_runner_enabled: {
         Args: { p_enabled: boolean }

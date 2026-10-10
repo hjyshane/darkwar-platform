@@ -198,3 +198,56 @@ export function parseUids(text: string): ParsedUids {
   }
   return { uids: [...seen], rejected };
 }
+
+const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Whether `text` is a UUID, which is what a player's Gift Center key looks like. */
+export function isUuid(text: string): boolean {
+  return UUID_SHAPE.test(text.trim());
+}
+
+export interface PlayerEntry {
+  uid: number;
+  /** The player's Gift Center key, when one was given with the ID. */
+  key: string | null;
+}
+
+export interface ParsedPlayers {
+  entries: PlayerEntry[];
+  /** What was typed that is neither a usable player ID nor a key that follows one. */
+  rejected: string[];
+}
+
+/** Players out of pasted text: a player ID, optionally followed by that
+ * player's key (a UUID). Spaces, commas, semicolons and new lines all separate.
+ * `1135062125000580 3f2b8c1e-...` is one player with a key; a lone ID is a player
+ * without one. A key with no ID before it is handed back as rejected. */
+export function parsePlayerLines(text: string): ParsedPlayers {
+  const byUid = new Map<number, PlayerEntry>();
+  const rejected: string[] = [];
+  let last: PlayerEntry | null = null;
+  for (const token of text.split(/[\s,;]+/)) {
+    if (token === '') continue;
+    if (isUuid(token)) {
+      if (last !== null && last.key === null) {
+        last.key = token.toLowerCase();
+      } else {
+        rejected.push(token);
+      }
+      continue;
+    }
+    const value = /^[0-9]{10,18}$/.test(token) ? Number(token) : Number.NaN;
+    if (!Number.isSafeInteger(value)) {
+      rejected.push(token);
+      last = null;
+      continue;
+    }
+    let entry = byUid.get(value);
+    if (entry === undefined) {
+      entry = { uid: value, key: null };
+      byUid.set(value, entry);
+    }
+    last = entry;
+  }
+  return { entries: [...byUid.values()], rejected };
+}

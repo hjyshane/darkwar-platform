@@ -10,7 +10,6 @@ import httpx
 import structlog
 
 from dw_collector.envfile import load_env_file
-from dw_collector.gift.official import OfficialRedeemer
 from dw_collector.gift.redeemer import Redeemer
 from dw_collector.gift.worker import GiftConfig, GiftWorker
 
@@ -22,7 +21,11 @@ POLL_SECONDS = 10.0
 def load_redeemer(name: str) -> Redeemer | None:
     """The redeemer called `name`, or None if there is no such thing."""
     if name == "official":
-        return OfficialRedeemer()
+        raise SystemExit(
+            "dw-gift is retired: since 2026-10-10 the Gift Center needs each player's own "
+            "key (uuid), which this worker does not have. The database sender (Sender "
+            "panel on the Gift codes screen) sends from the keys saved there."
+        )
     return None
 
 
