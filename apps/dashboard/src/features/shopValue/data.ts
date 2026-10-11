@@ -18,7 +18,21 @@ export interface PackItem {
   name_ko: string | null;
   rubies: number | null;
   source: ValueSource | null;
+  /** The game's reward type, on picks only: 7 is an item, 40 hero gear. */
+  type?: string | null;
 }
+
+/** One way to fill a pick: a few rewards taken together. */
+export interface PackChoiceOption {
+  rubies: number;
+  /** Rewards in this option with no value yet. */
+  unvalued: number;
+  items: PackItem[];
+}
+
+/** One pick the buyer makes: the options to choose between (0276). A pack
+ * with two slots is two picks, usually from the same options. */
+export type PackChoiceSlot = PackChoiceOption[];
 
 export interface PackValue {
   server_id: number;
@@ -40,6 +54,11 @@ export interface PackValue {
   item_rubies: number;
   unvalued_items: number;
   contents: PackItem[];
+  /** The picks a buyer makes on top of `contents`; the value counts the best
+   * option of each (0276). Empty for a pack with nothing to choose. */
+  choices: PackChoiceSlot[];
+  /** Rubies the best option of every slot adds. */
+  choice_rubies: number;
   /** Null for a pack whose contents the pack list does not carry — battle
    * passes, growth passes, login gifts (0216). */
   value_dollars: number | null;
@@ -131,12 +150,31 @@ export function money(value: number): string {
   return `$${value.toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+/** The option of a slot the value counts: the one worth most (the first on
+ * a tie). */
+export function bestOption(slot: PackChoiceSlot): PackChoiceOption | undefined {
+  let best: PackChoiceOption | undefined;
+  for (const option of slot) {
+    if (best === undefined || option.rubies > best.rubies) {
+      best = option;
+    }
+  }
+  return best;
+}
+
 /** Share of the pack's value from items whose value is only estimated —
- * how much of the ratio rests on the back-solve. */
-export function estimatedShare(pack: Pick<PackValue, 'rubies' | 'contents'>): number {
+ * how much of the ratio rests on the back-solve. The best option of each
+ * pick counts, as it does in the value. */
+export function estimatedShare(
+  pack: Pick<PackValue, 'rubies' | 'contents'> & { choices?: ReadonlyArray<PackChoiceSlot> },
+): number {
   let total = pack.rubies;
   let estimated = 0;
-  for (const item of pack.contents) {
+  const counted = [...pack.contents];
+  for (const slot of pack.choices ?? []) {
+    counted.push(...(bestOption(slot)?.items ?? []));
+  }
+  for (const item of counted) {
     const value = (item.rubies ?? 0) * item.qty;
     total += value;
     if (item.source === 'estimated') {
@@ -194,6 +232,9 @@ export async function fetchPacks(): Promise<PackValue[]> {
     const catalog = listedOn.get(pack.server_id);
     return {
       ...pack,
+      // A database from before 0276 has neither column.
+      choices: Array.isArray(pack.choices) ? pack.choices : [],
+      choice_rubies: pack.choice_rubies ?? 0,
       listed: catalog ? catalog.has(pack.pack_id) : null,
       name: fixed ?? pack.name,
       game_name: pack.name,
@@ -300,12 +341,32 @@ function contentsKey(pack: Pick<PackValue, 'contents'>): string {
     .join(',');
 }
 
+/** What a pack lets its buyer pick, as a key: the same offers share it, and
+ * two packs that offer different picks (the pick-one gem packs differ only
+ * here) do not. Not part of `packKey`: renames were saved before picks were
+ * listed and must keep matching. */
+function choicesKey(pack: Pick<PackValue, 'choices'>): string {
+  return pack.choices
+    .map((slot) =>
+      slot
+        .map((option) =>
+          option.items
+            .map((item) => `${item.id}:${item.qty}`)
+            .sort()
+            .join('+'),
+        )
+        .sort()
+        .join('/'),
+    )
+    .join(';');
+}
+
 export function groupPacks(packs: ReadonlyArray<PackValue>): PackGroup[] {
   const groups = new Map<string, PackGroup>();
   for (const pack of packs) {
     // The game's name, not a correction: renaming must not split, merge or
     // un-hide an offer.
-    const key = `${pack.game_name}|${pack.dollars}|${pack.rubies}|${contentsKey(pack)}`;
+    const key = `${pack.game_name}|${pack.dollars}|${pack.rubies}|${contentsKey(pack)}|${choicesKey(pack)}`;
     const held = groups.get(key);
     if (held === undefined) {
       groups.set(key, {
@@ -395,7 +456,7 @@ export function matchesPack(pack: PackValue, text: string): boolean {
     pack.game_name.toLowerCase().includes(needle) ||
     (pack.name_ko ?? '').includes(needle) ||
     pack.pack_id === needle ||
-    pack.contents.some(
+    [...pack.contents, ...pack.choices.flat().flatMap((option) => option.items)].some(
       (item) =>
         (item.name ?? '').toLowerCase().includes(needle) || (item.name_ko ?? '').includes(needle),
     )

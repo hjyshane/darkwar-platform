@@ -22,6 +22,8 @@ const pack = (over: Partial<PackValue> = {}): PackValue => ({
   captured_at: at(-1),
   item_rubies: 0,
   unvalued_items: 0,
+  choices: [],
+  choice_rubies: 0,
   contents: [],
   value_dollars: 10,
   value_ratio: 2,

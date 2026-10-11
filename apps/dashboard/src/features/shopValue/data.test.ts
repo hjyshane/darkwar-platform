@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  type PackChoiceOption,
   type PackItem,
   type PackValue,
+  bestOption,
   byValue,
   catalogSets,
   dollarsOf,
@@ -97,6 +99,8 @@ function pack(id: string, name: string, contents: PackItem[], rubies = 0): PackV
     captured_at: '2026-10-03T00:00:00Z',
     item_rubies: 0,
     unvalued_items: 0,
+    choices: [],
+    choice_rubies: 0,
     contents,
     value_dollars: null,
     value_ratio: null,
@@ -182,5 +186,45 @@ describe('catalogSets', () => {
     expect([...sets.keys()]).toEqual([580]);
     expect(sets.get(580)?.has('9001')).toBe(true);
     expect(sets.get(580)?.has('1')).toBe(false);
+  });
+});
+
+function option(rubies: number, items: PackItem[]): PackChoiceOption {
+  return { rubies, unvalued: 0, items };
+}
+
+describe('picks (0276)', () => {
+  const gems = option(50, [item('g', 50, 1, 'game')]);
+  const speedups = option(80, [{ ...item('s', 8, 10, 'estimated'), name: 'Speedup' }]);
+
+  it('counts the best option of a slot', () => {
+    expect(bestOption([gems, speedups])).toBe(speedups);
+    expect(bestOption([])).toBeUndefined();
+  });
+
+  it('puts the best option of each pick into the estimated share', () => {
+    // 100 + 80 (estimated, the best option): 80 of 180.
+    const share = estimatedShare({ rubies: 100, contents: [], choices: [[gems, speedups]] });
+    expect(share).toBeCloseTo(80 / 180);
+  });
+
+  it('keeps packs that differ only in what they let you pick apart', () => {
+    const a = { ...pack('a', 'Gem Pack', []), choices: [[gems, speedups]] };
+    const b = { ...pack('b', 'Gem Pack', []), choices: [[gems]] };
+    const again = { ...pack('c', 'Gem Pack', []), choices: [[speedups, gems]] };
+    expect(groupPacks([a, b])).toHaveLength(2);
+    // The same options in another order are the same offer.
+    expect(groupPacks([a, again])).toHaveLength(1);
+  });
+
+  it('finds a pack by an item it lets you pick', () => {
+    const p = { ...pack('a', 'Gem Pack', []), choices: [[gems, speedups]] };
+    expect(matchesPack(p, 'speedup')).toBe(true);
+    expect(matchesPack(p, 'blueprint')).toBe(false);
+  });
+
+  it('does not change the rename key', () => {
+    const plain = pack('a', 'Gem Pack', []);
+    expect(packKey({ ...plain, choices: [[gems, speedups]] })).toBe(packKey(plain));
   });
 });

@@ -10,7 +10,7 @@
 // be off, so every pack says how much of its value rests on estimates.
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { SortableTh } from '../../components/SortableTh';
 import { Strip } from '../../components/Strip';
 import { Select } from '../../components/ui/Select';
@@ -22,9 +22,11 @@ import { PackRename } from './PackRename';
 import { UnnamedTab } from './UnnamedTab';
 import {
   type ItemValue,
+  type PackChoiceOption,
   type PackFilter,
   type PackGroup,
   SHOP_LABELS,
+  bestOption,
   dollarsOf,
   fetchItemValues,
   fetchListings,
@@ -110,6 +112,60 @@ function InlineValue({ itemId, rubies }: { itemId: string; rubies: number | null
   );
 }
 
+/** One option of a pick: its rewards under a header that says what the
+ * option is worth and whether the pack's value counts it. */
+function PickOption({
+  number,
+  option,
+  counted,
+  icons,
+  mayEdit,
+}: {
+  number: number;
+  option: PackChoiceOption;
+  counted: boolean;
+  icons: ReadonlyMap<string, string> | undefined;
+  mayEdit: boolean;
+}) {
+  return (
+    <>
+      <tr className={counted ? 'pick-counted' : 'pick-passed'}>
+        <td className="label">
+          {counted ? '✓ ' : '· '}Option {number}
+        </td>
+        <td />
+        <td className="num">{money(dollarsOf(option.rubies))}</td>
+        <td className="muted" colSpan={mayEdit ? 2 : 1}>
+          {counted ? 'counted' : ''}
+          {option.unvalued > 0 ? ` · ${option.unvalued} with no value` : ''}
+        </td>
+      </tr>
+      {option.items.map((item, index) => (
+        <tr key={`${item.id}-${index}`}>
+          <td className="label">
+            <GameIcon size={20} src={item.type === '40' ? undefined : icons?.get(item.id)} />
+            <span title={`${item.type === '40' ? 'Hero gear' : 'Item'} code ${item.id}`}>
+              {itemLabel(item)}
+            </span>
+          </td>
+          <td className="num">×{item.qty.toLocaleString('en')}</td>
+          <td className="num">
+            {item.rubies === null ? '—' : money(dollarsOf(item.rubies * item.qty))}
+          </td>
+          <td>
+            <SourceTag source={item.source} />
+          </td>
+          {mayEdit && (
+            <td>
+              {item.type === '40' ? null : <InlineValue itemId={item.id} rubies={item.rubies} />}
+            </td>
+          )}
+        </tr>
+      ))}
+    </>
+  );
+}
+
 function PackRow({
   pack,
   mayEdit,
@@ -124,7 +180,10 @@ function PackRow({
   const [open, setOpen] = useState(false);
   // Only an opened pack asks for its contents' icons.
   const icons = useItemIcons(
-    pack.contents.map((item) => item.id),
+    [
+      ...pack.contents,
+      ...pack.choices.flat().flatMap((option) => option.items.filter((i) => i.type !== '40')),
+    ].map((item) => item.id),
     open,
   );
   const estimated = pack.estimated;
@@ -153,6 +212,15 @@ function PackRow({
             >
               {' '}
               ×{pack.offers} offers
+            </span>
+          )}
+          {pack.choices.length > 0 && (
+            <span
+              className="muted"
+              title="The buyer picks part of the contents; the value counts the best option of each pick"
+            >
+              {' '}
+              · {pack.choices.length} {pack.choices.length === 1 ? 'pick' : 'picks'}
             </span>
           )}
           {mayEdit && <PackRename pack={pack} />}
@@ -228,6 +296,31 @@ function PackRow({
                     )}
                   </tr>
                 ))}
+                {pack.choices.map((slot, slotIndex) => {
+                  const best = bestOption(slot);
+                  return (
+                    // biome-ignore lint/suspicious/noArrayIndexKey: a pack's picks are a fixed list, and two slots are often identical
+                    <Fragment key={`pick-${slotIndex}`}>
+                      <tr>
+                        <td className="label muted" colSpan={mayEdit ? 5 : 4}>
+                          Pick {slotIndex + 1} of {pack.choices.length} — one of {slot.length}
+                          {slot.length > 1 && ' (the best is counted)'}
+                        </td>
+                      </tr>
+                      {slot.map((option, optionIndex) => (
+                        <PickOption
+                          counted={option === best}
+                          icons={icons.data}
+                          // biome-ignore lint/suspicious/noArrayIndexKey: a fixed list, and two options can be identical
+                          key={`opt-${optionIndex}`}
+                          mayEdit={mayEdit}
+                          number={optionIndex + 1}
+                          option={option}
+                        />
+                      ))}
+                    </Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </td>
