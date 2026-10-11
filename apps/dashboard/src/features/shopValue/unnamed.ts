@@ -51,8 +51,11 @@ export function unnamedItems(
   };
 
   for (const pack of packs) {
-    for (const item of pack.contents) {
-      if (item.name === null) {
+    const options = pack.choices.flat().flatMap((option) => option.items);
+    for (const item of [...pack.contents, ...options]) {
+      // A reward of another type (hero gear is 40) has an id from another
+      // table; it is not an item the dictionary could name.
+      if (item.name === null && (item.type ?? '7') === '7') {
         add(item.id, {
           where: 'pack',
           label: pack.name,

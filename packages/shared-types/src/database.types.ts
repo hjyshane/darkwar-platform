@@ -9230,6 +9230,8 @@ export type Database = {
       shop_pack_value: {
         Row: {
           captured_at: string | null
+          choice_rubies: number | null
+          choices: Json | null
           claimed_percent: number | null
           contents: Json | null
           contents_listed: boolean | null

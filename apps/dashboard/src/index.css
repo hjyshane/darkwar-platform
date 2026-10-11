@@ -5168,6 +5168,12 @@ button.tile-grid:hover:not(:disabled) {
   background: var(--info-bg);
   color: var(--info-fg);
 }
+.pick-counted > td {
+  font-weight: 600;
+}
+.pick-passed > td {
+  color: var(--fg-muted);
+}
 .pack-hidden > td {
   opacity: 0.45;
 }

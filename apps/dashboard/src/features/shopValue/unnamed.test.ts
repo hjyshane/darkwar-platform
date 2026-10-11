@@ -19,6 +19,8 @@ function pack(name: string, server: number, contents: PackValue['contents']): Pa
     captured_at: '2026-10-04T00:00:00Z',
     item_rubies: 0,
     unvalued_items: 0,
+    choices: [],
+    choice_rubies: 0,
     contents,
     value_dollars: null,
     value_ratio: null,
