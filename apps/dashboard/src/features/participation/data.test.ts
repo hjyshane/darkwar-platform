@@ -7,6 +7,7 @@ import {
   eventKey,
   isLow,
   parseScore,
+  pickableDays,
   share,
   sortRows,
   sortValue,
@@ -46,6 +47,25 @@ function row(name: string, over: Partial<ParticipationRow> = {}): ParticipationR
     ...over,
   };
 }
+
+describe('pickableDays', () => {
+  it('offers declared and ticked days once each, newest first', () => {
+    const declared = [
+      { held_on: '2026-09-05', note: 'lost' },
+      { held_on: '2026-10-10', note: null },
+    ];
+    expect(pickableDays(declared, ['2026-10-10', '2026-10-03'])).toEqual([
+      { held_on: '2026-10-10', note: null },
+      { held_on: '2026-10-03', note: null },
+      { held_on: '2026-09-05', note: 'lost' },
+    ]);
+  });
+
+  it('a declared day keeps its note when it is also ticked', () => {
+    const declared = [{ held_on: '2026-09-05', note: 'lost' }];
+    expect(pickableDays(declared, ['2026-09-05'])).toEqual(declared);
+  });
+});
 
 describe('tallyCounts', () => {
   const tally = { held: 3, attended: 1, missed: 1 };
