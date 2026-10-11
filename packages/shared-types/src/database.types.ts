@@ -2683,7 +2683,7 @@ export type Database = {
           rank?: number | null
           raw?: Json
           server_id: number
-          snapshot_id?: string
+          snapshot_id: string
           source_command: string
         }
         Update: {
