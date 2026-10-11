@@ -9793,10 +9793,7 @@ export type Database = {
         Returns: undefined
       }
       remove_member: { Args: { p_user: string }; Returns: undefined }
-      remove_my_gift_key: {
-        Args: { p_game_uid: number }
-        Returns: undefined
-      }
+      remove_my_gift_key: { Args: { p_game_uid: number }; Returns: undefined }
       research_prerequisite_steps: {
         Args: { p_subjects: string[] }
         Returns: Json
