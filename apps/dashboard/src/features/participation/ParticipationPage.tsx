@@ -28,11 +28,13 @@ import {
   type ParticipationRow,
   type SortKey,
   type TypedTally,
+  blackGoldExpected,
   fetchBars,
   fetchEventKinds,
   fetchParticipation,
   isLow,
   sortRows,
+  tallyCounts,
 } from './data';
 import { type Period, type PeriodKind, roundPeriods, seasonPeriod, weekPeriods } from './periods';
 import { participationStrip } from './strip';
@@ -143,16 +145,19 @@ function TotalCell({
 }
 
 function BlackGoldCell({ row }: { row: ParticipationRow }) {
-  if (row.black_gold_listed === 0 && row.black_gold_played === 0) {
+  const expected = blackGoldExpected(row);
+  if (expected === 0 && row.black_gold_played === 0) {
     return <td className="num muted">—</td>;
   }
-  const missed = row.black_gold_starter_missed + row.black_gold_substitute_missed;
+  // Only a starter who did not play missed. A substitute who played took part;
+  // one who did not play was not needed and is neither a miss nor expected.
+  const missed = row.black_gold_starter_missed;
   return (
     <td
       className="num"
-      title={`Listed ${row.black_gold_listed}, played ${row.black_gold_played}. Missed as starter ${row.black_gold_starter_missed}, as substitute ${row.black_gold_substitute_missed}. Only battles with a captured report count.`}
+      title={`Played ${row.black_gold_played} of ${expected}: every battle as a starter, and the ones a substitute played. Missed as starter ${row.black_gold_starter_missed}. A substitute who did not play (${row.black_gold_substitute_missed}) is not counted. Only battles with a captured report count.`}
     >
-      {row.black_gold_played}/{row.black_gold_listed}
+      {row.black_gold_played}/{expected}
       {missed > 0 && (
         <>
           {' '}
@@ -163,16 +168,16 @@ function BlackGoldCell({ row }: { row: ParticipationRow }) {
   );
 }
 
-function TypedCell({ tally }: { tally: TypedTally | undefined }) {
+function TypedCell({ kind, tally }: { kind: string; tally: TypedTally | undefined }) {
   if (tally === undefined || tally.held === 0) {
     return <td className="num muted">—</td>;
   }
-  const unrecorded = tally.held - tally.attended - tally.missed;
+  const { missed, unrecorded } = tallyCounts(kind, tally);
   const low = isLow(tally.attended, tally.held);
   return (
     <td
       className={`num ${low ? 'growth-down' : ''}`}
-      title={`Held ${tally.held}: present ${tally.attended}, absent ${tally.missed}, not recorded ${unrecorded}.`}
+      title={`Held ${tally.held}: present ${tally.attended}, absent ${missed}, not recorded ${unrecorded}.`}
     >
       {low && (
         <span aria-label="Under half" className="below-minimum">
@@ -547,7 +552,11 @@ export function ParticipationPage() {
                       </>
                     )}
                     {boardKinds.map((eventKind) => (
-                      <TypedCell key={eventKind.kind} tally={row.typed_events[eventKind.kind]} />
+                      <TypedCell
+                        key={eventKind.kind}
+                        kind={eventKind.kind}
+                        tally={row.typed_events[eventKind.kind]}
+                      />
                     ))}
                   </tr>
                 ))}

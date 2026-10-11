@@ -17,6 +17,32 @@ export interface TypedTally {
   damage?: number | null;
 }
 
+/** Events where a member nobody ticked took no part. Bio-Mutant is
+ * ticked for the people who fought, so a blank is an absence rather than a
+ * gap in the record (2026-10-11). Every other typed event keeps "not
+ * recorded": a blank there may just be nobody's tick. */
+export const UNRECORDED_IS_ABSENT: ReadonlySet<string> = new Set(['frankie']);
+
+/** A typed tally's three counts, with the event's blank rule applied. */
+export function tallyCounts(
+  kind: string,
+  tally: Pick<TypedTally, 'held' | 'attended' | 'missed'>,
+): { attended: number; missed: number; unrecorded: number } {
+  const blank = Math.max(0, tally.held - tally.attended - tally.missed);
+  return UNRECORDED_IS_ABSENT.has(kind)
+    ? { attended: tally.attended, missed: tally.missed + blank, unrecorded: 0 }
+    : { attended: tally.attended, missed: tally.missed, unrecorded: blank };
+}
+
+/** Battles a member was expected at in Black Gold. A starter who did not play
+ * missed; a substitute who did not play was simply not needed, so only the
+ * substitutes who played count (2026-10-11). */
+export function blackGoldExpected(
+  row: Pick<ParticipationRow, 'black_gold_listed' | 'black_gold_substitute_missed'>,
+): number {
+  return row.black_gold_listed - row.black_gold_substitute_missed;
+}
+
 /** One row of `member_participation`. One per current member.
  *
  * `*_read` is the same on every row: how many days or weeks the board was read
@@ -405,7 +431,7 @@ export function sortValue(row: ParticipationRow, key: SortKey): number | string 
     case 'donation_total':
       return row.donation_total;
     case 'black_gold':
-      return share(row.black_gold_played, row.black_gold_listed);
+      return share(row.black_gold_played, blackGoldExpected(row));
     case 'buildings':
       return row.season_levels_gained;
     case 'watchtower':
