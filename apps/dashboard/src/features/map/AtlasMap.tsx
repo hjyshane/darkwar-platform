@@ -67,6 +67,7 @@ export function AtlasMap({
   const now = new Date();
   const clumps = useMemo(() => clusters(atlas), [atlas]);
   const zoom = useMapZoom();
+  const planning = planTiles !== null;
   // The tower picture per HQ level (0268); nothing for a visitor, who gets rings.
   const towers = useIcons('tower').data;
   // The alliance names give way to the base names once zoomed in.
@@ -80,7 +81,8 @@ export function AtlasMap({
   // Base names that fit without overlapping: the picked base and the lit ones
   // first. Everything else is dropped when it would sit on a name already placed.
   const baseNames = useMemo(() => {
-    if (territory) return new Set<number>();
+    // Territory and Plan are not about who a base is: no name tags under them.
+    if (territory || planning) return new Set<number>();
     const first = new Set<number>(lit ?? []);
     if (selectedUid !== null) first.add(selectedUid);
     return visibleNames(
@@ -91,7 +93,7 @@ export function AtlasMap({
       selectedUid,
       shieldMode ? SHIELD_NAME_ZOOM : NAME_ZOOM,
     );
-  }, [atlas, zoom, lit, selectedUid, shieldMode, territory]);
+  }, [atlas, zoom, lit, selectedUid, shieldMode, territory, planning]);
 
   const dots = useMemo(
     () =>
@@ -165,6 +167,7 @@ export function AtlasMap({
                 : undefined;
             if (zoom >= TOWER_ZOOM) classes.push('atlas-dot--tower');
             if (sprite) classes.push('atlas-dot--sprite');
+            if (planning) classes.push('atlas-dot--plan');
             return (
               <button
                 aria-label={base.name ?? 'unnamed'}
@@ -223,7 +226,12 @@ export function AtlasMap({
               <span
                 className={base ? 'atlas-plan atlas-plan--ok' : 'atlas-plan atlas-plan--miss'}
                 key={slot.slotId}
-                style={{ left: `${f.left * 100}%`, top: `${f.top * 100}%` }}
+                style={{
+                  left: `${f.left * 100}%`,
+                  top: `${f.top * 100}%`,
+                  // In front of the tower standing on it, behind the one in front.
+                  zIndex: 11 + slot.y,
+                }}
                 title={`${slot.playerName ?? 'Open tile'} · X:${slot.x} Y:${slot.y} · ${
                   base ? 'in place' : 'not on its tile'
                 }`}

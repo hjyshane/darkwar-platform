@@ -6908,10 +6908,12 @@ button.server-link {
 .atlas-plan {
   position: absolute;
   z-index: 4;
-  width: max(0.3%, calc(14px / var(--map-zoom, 1)));
-  height: max(0.3%, calc(14px / var(--map-zoom, 1)));
+  /* The size of the tower's own ring, so a planned tile and the base on it are
+   * one shape and not two rings of different widths. */
+  width: max(0.22%, calc(28px / var(--map-zoom, 1)));
+  height: max(0.2%, calc(25px / var(--map-zoom, 1)));
   border-radius: 50%;
-  background: color-mix(in srgb, var(--plan, #22c55e) 22%, transparent);
+  background: color-mix(in srgb, var(--plan, #22c55e) 14%, transparent);
   box-shadow: 0 0 0 calc(2px / var(--map-zoom, 1)) var(--plan, #22c55e);
   transform: translate(-50%, -50%);
   pointer-events: none;
@@ -7075,4 +7077,31 @@ button.server-link {
 .shell-content .atlas-detail .atlas-detail__copy {
   padding: 6px var(--space-3);
   font-size: var(--text-sm);
+}
+
+/* Plan mode draws its own ring; the alliance ring and the gold shield ring under
+ * it would be a second and third outline round the same base. */
+.atlas-dot--sprite.atlas-dot--plan {
+  box-shadow: none;
+}
+
+.atlas-plan--miss .atlas-plan__name {
+  color: #fca5a5;
+}
+
+/* Dragging the map must not select what it passes over: the picture, the name
+ * tags and the hover card turned into blue blocks as the pointer swept across
+ * them. Nothing in the stage is meant to be copied. */
+.pan-map,
+.pan-map * {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.pan-map img {
+  -webkit-user-drag: none;
+}
+
+.pan-map ::selection {
+  background: transparent;
 }
