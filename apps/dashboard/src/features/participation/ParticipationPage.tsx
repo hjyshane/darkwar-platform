@@ -186,6 +186,14 @@ function TypedCell({ tally }: { tally: TypedTally | undefined }) {
               {n(tally.score)}
             </span>
           )}
+          {tally.damage !== null && tally.damage !== undefined && (
+            <span
+              className="muted participation-sub"
+              title="Total damage dealt over the days held, from the battle log. Troops taken off the other side, not the event's own score."
+            >
+              {n(tally.damage)} dmg
+            </span>
+          )}
         </span>
         <BarCell low={low} max={tally.held} value={tally.attended} />
       </span>

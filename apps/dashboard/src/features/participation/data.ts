@@ -12,6 +12,9 @@ export interface TypedTally {
   /** The member's total score over the held days: typed, or scanned where
    * nobody typed one (0241). Null when no day has a score. */
   score: number | null;
+  /** The member's total damage over the held days, from the battle log (0274).
+   * Absent before that migration; null when no day has one. */
+  damage?: number | null;
 }
 
 /** One row of `member_participation`. One per current member.
