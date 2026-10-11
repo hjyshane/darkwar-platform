@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   type ParticipationRow,
+  blackGoldExpected,
   buildEntries,
   changedEntries,
   eventKey,
@@ -9,6 +10,7 @@ import {
   share,
   sortRows,
   sortValue,
+  tallyCounts,
 } from './data';
 
 function row(name: string, over: Partial<ParticipationRow> = {}): ParticipationRow {
@@ -44,6 +46,45 @@ function row(name: string, over: Partial<ParticipationRow> = {}): ParticipationR
     ...over,
   };
 }
+
+describe('tallyCounts', () => {
+  const tally = { held: 3, attended: 1, missed: 1 };
+
+  it('a blank is not recorded for an ordinary event', () => {
+    expect(tallyCounts('capital_clash', tally)).toEqual({ attended: 1, missed: 1, unrecorded: 1 });
+  });
+
+  it('a blank is an absence for Bio-Mutant', () => {
+    expect(tallyCounts('frankie', tally)).toEqual({ attended: 1, missed: 2, unrecorded: 0 });
+  });
+});
+
+describe('Black Gold expectation', () => {
+  it('a substitute who did not play is not expected, a starter who did not play is', () => {
+    const row = {
+      black_gold_listed: 5,
+      black_gold_substitute_missed: 2,
+    };
+    expect(blackGoldExpected(row)).toBe(3);
+  });
+
+  it('ranks by played over expected, so an unused substitute does not drag it down', () => {
+    const unusedSubs = row('UnusedSubs', {
+      black_gold_listed: 4,
+      black_gold_played: 2,
+      black_gold_starter_missed: 0,
+      black_gold_substitute_missed: 2,
+    });
+    const missedStarters = row('MissedStarters', {
+      black_gold_listed: 4,
+      black_gold_played: 2,
+      black_gold_starter_missed: 2,
+      black_gold_substitute_missed: 0,
+    });
+    const order = sortRows([missedStarters, unusedSubs], 'black_gold', true);
+    expect(order.map((r) => r.current_name)).toEqual(['UnusedSubs', 'MissedStarters']);
+  });
+});
 
 describe('share and isLow', () => {
   it('nothing read is nothing to judge, not a zero', () => {
