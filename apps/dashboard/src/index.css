@@ -7008,3 +7008,71 @@ button.server-link {
   flex: none;
   font-size: var(--text-sm);
 }
+
+/* The side panel's alliance and base pages, compact. shell.css loads after this
+ * file and sets the figure strip for whole screens (9.5rem cells that wrap two
+ * and one in a 23rem panel, 12px of padding, a 20px figure), so these carry one
+ * more class to win on specificity. */
+.shell-content .atlas-detail {
+  gap: var(--space-2);
+}
+
+.shell-content .atlas-detail .strip {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  margin: 0;
+}
+
+.shell-content .atlas-detail .strip .stat {
+  padding: 6px var(--space-2);
+}
+
+.shell-content .atlas-detail .strip .stat-label {
+  font-size: var(--text-xs);
+  line-height: 1.2;
+}
+
+.shell-content .atlas-detail .strip .stat-value {
+  font-size: var(--text-base);
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.shell-content .atlas-detail .strip .stat-note {
+  font-size: var(--text-xs);
+  line-height: 1.2;
+}
+
+.shell-content .atlas-detail .atlas-badge {
+  width: 2rem;
+  height: 2rem;
+  font-size: var(--text-sm);
+}
+
+.shell-content .atlas-detail .atlas-detail__head {
+  gap: var(--space-2);
+}
+
+.shell-content .atlas-detail .atlas-detail__head strong {
+  line-height: 1.25;
+}
+
+.shell-content .atlas-detail > p {
+  margin: 0;
+  font-size: var(--text-xs);
+}
+
+.shell-content .atlas-detail .atlas-detail__title {
+  margin: var(--space-1) 0 0;
+}
+
+.shell-content .atlas-detail .atlas-strongest {
+  margin: 0;
+}
+
+.shell-content .atlas-detail .atlas-detail__action,
+.shell-content .atlas-detail .atlas-detail__copy {
+  padding: 6px var(--space-3);
+  font-size: var(--text-sm);
+}
