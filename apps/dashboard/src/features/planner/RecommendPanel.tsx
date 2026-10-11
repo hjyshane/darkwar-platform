@@ -4,8 +4,10 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
+import { useSeasons } from '../../lib/seasons';
 import type { Account } from './accounts';
-import { fetchMaterialNames, fetchStepPairs } from './data';
+import { type StepCategory, categoryOf, isNotUpgradable } from './categories';
+import { fetchCatalogSubjects, fetchMaterialNames, fetchStepPairs } from './data';
 import { type Buffs, duration } from './plan';
 import { type Metric, type Recommendation, type Stock, recommend } from './recommend';
 import type { Target } from './targets';
@@ -23,6 +25,12 @@ const METRICS: ReadonlyArray<[Metric, string, string]> = [
   ],
 ];
 
+const CATEGORIES: ReadonlyArray<[StepCategory, string]> = [
+  ['building', 'Buildings'],
+  ['research', 'Research'],
+  ['season', 'Season'],
+];
+
 export function RecommendPanel({
   account,
   buffs,
@@ -35,6 +43,13 @@ export function RecommendPanel({
   onSet: (target: Target) => void;
 }) {
   const [metric, setMetric] = useState<Metric>('perHour');
+  const [category, setCategory] = useState<StepCategory>('building');
+  const seasons = useSeasons();
+  const catalogue = useQuery({
+    queryKey: ['planner-catalog', 'building', '*'],
+    queryFn: () => fetchCatalogSubjects('building', {}),
+    staleTime: 60 * 60_000,
+  });
   const pairs = useQuery({
     queryKey: [
       'planner-pairs',
@@ -45,11 +60,38 @@ export function RecommendPanel({
     queryFn: () => fetchStepPairs(account.buildings, account.science),
     staleTime: 5 * 60_000,
   });
+  // Season buildings are whatever any season lists; a building with a highest
+  // level of 0 or 1 (Road, Arena...) cannot be upgraded and is not offered.
+  const seasonIds = useMemo(
+    () => new Set((seasons.data ?? []).flatMap((s) => s.buildings.map((b) => String(b.id)))),
+    [seasons.data],
+  );
+  const maxLevels = useMemo(
+    () => new Map((catalogue.data ?? []).map((s) => [s.subject, s.maxLevel] as const)),
+    [catalogue.data],
+  );
+  const inCategory = useMemo(
+    () =>
+      (pairs.data ?? []).filter(
+        (p) =>
+          categoryOf(p.next, seasonIds) === category &&
+          !(p.next.kind === 'building' && isNotUpgradable(p.next, maxLevels)),
+      ),
+    [pairs.data, seasonIds, maxLevels, category],
+  );
+  const counts = useMemo(() => {
+    const out: Record<StepCategory, number> = { building: 0, research: 0, season: 0 };
+    for (const p of pairs.data ?? []) {
+      if (p.next.kind === 'building' && isNotUpgradable(p.next, maxLevels)) continue;
+      out[categoryOf(p.next, seasonIds)] += 1;
+    }
+    return out;
+  }, [pairs.data, seasonIds, maxLevels]);
   const result = useMemo(
     () =>
       pairs.data
         ? recommend({
-            pairs: pairs.data,
+            pairs: inCategory,
             buildings: new Map(Object.entries(account.buildings)),
             research: new Map(Object.entries(account.science)),
             stock,
@@ -57,7 +99,7 @@ export function RecommendPanel({
             metric,
           })
         : null,
-    [pairs.data, account.buildings, account.science, stock, buffs, metric],
+    [pairs.data, inCategory, account.buildings, account.science, stock, buffs, metric],
   );
   const top = result?.ranked.slice(0, SHOWN) ?? [];
   const itemIds = [
@@ -78,9 +120,22 @@ export function RecommendPanel({
       <h3 id="planner-recommend">Next upgrades</h3>
       <p className="subtle">
         The next level of every building and research {account.name} could advance, by the power it
-        adds. Buildings and research only: heroes, gear and exclusives have no power in the game's
-        data, so they are not here.
+        adds, grouped into buildings, research and season buildings. Heroes, gear and exclusives
+        have no power in the game's data, so they are not here; buildings that cannot be upgraded
+        are left out.
       </p>
+      <div className="row">
+        {CATEGORIES.map(([value, label]) => (
+          <button
+            className={category === value ? 'active' : ''}
+            key={value}
+            onClick={() => setCategory(value)}
+            type="button"
+          >
+            {label} ({counts[value]})
+          </button>
+        ))}
+      </div>
       <div className="row">
         {METRICS.map(([value, label, hint]) => (
           <button

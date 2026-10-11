@@ -11,13 +11,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { LevelPicker } from './LevelPicker';
+import { FORMATION_IDS } from './categories';
 import { fetchCatalogSubjects } from './data';
 import { useHidden } from './hidden';
 import type { Tiers } from './levels';
 import { type Target, targetKey } from './targets';
 
-/** Formation I-IV: 200 levels in the client, none a player builds. */
-const NOT_UPGRADED = new Set(['427000', '793000', '794000', '795000']);
+const NOT_UPGRADED = FORMATION_IDS;
 
 interface PickerProps {
   levels: Readonly<Record<string, number>>;
