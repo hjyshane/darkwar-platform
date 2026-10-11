@@ -37,6 +37,7 @@ export type Route =
   | 'notice'
   | 'schedule'
   | 'participation'
+  | 'frankie'
   | 'planner'
   | 'giftCodes'
   | 'calendar'
@@ -68,6 +69,7 @@ const ROUTES: Record<string, Route> = {
   '#/notices': 'notices',
   '#/schedule': 'schedule',
   '#/participation': 'participation',
+  '#/frankie': 'frankie',
   '#/planner': 'planner',
   '#/gift-codes': 'giftCodes',
   '#/calendar': 'calendar',
@@ -436,6 +438,9 @@ export const ALLIANCE_TABS: ReadonlyArray<NavTab> = [
   // Every member against every event, plus the ones only an officer can
   // record (0204). Member-only at the policy level, so no capability gate.
   { route: 'participation', hash: '#/participation', label: 'Participation' },
+  // Each member's Frankie (Bio-Mutant) damage per event and the trend (0276).
+  // Member-only at the policy level, like Participation.
+  { route: 'frankie', hash: '#/frankie', label: 'Frankie' },
   // What raising a building, research, hero or gear costs one of your own
   // accounts after its buffs (item 4). Account state is owner-or-admin (0205).
   { route: 'planner', hash: '#/planner', label: 'Planner' },
@@ -484,6 +489,7 @@ export function navSection(route: Route): NavSection | null {
     case 'season2':
     case 'blackMoney':
     case 'participation':
+    case 'frankie':
     case 'planner':
     case 'giftCodes':
       return 'alliance';

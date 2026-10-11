@@ -1,0 +1,45 @@
+{
+  "observation_id": "00000000-0000-4000-8000-00000000f101",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "alliance.boss.damage.rank.new",
+  "captured_at": "2026-10-11T18:15:38+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "_id": 801,
+    "_time": 0,
+    "rankList": [
+      {
+        "abbr": "TST",
+        "banType": 0,
+        "damage": 64059759378,
+        "name": "Alpha",
+        "pic": "",
+        "picVer": 9,
+        "rank": 1,
+        "uid": "1000000001000580"
+      },
+      {
+        "abbr": "TST",
+        "banType": 0,
+        "damage": 49036082730,
+        "headSkinET": 0,
+        "headSkinId": 20050,
+        "name": "Bravo",
+        "pic": "",
+        "picVer": 72,
+        "rank": 2,
+        "uid": "1000000002000580"
+      },
+      {
+        "abbr": "TST",
+        "banType": 0,
+        "damage": 0,
+        "name": "Charlie",
+        "pic": "",
+        "picVer": 1,
+        "rank": 3,
+        "uid": "1000000003000581"
+      }
+    ]
+  }
+}

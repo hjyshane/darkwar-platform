@@ -130,6 +130,7 @@ const ICONS: Partial<Record<Route, IconName>> = {
   seasonBreak: 'season',
   blackMoney: 'blackGold',
   participation: 'participation',
+  frankie: 'participation',
   planner: 'planner',
   giftCodes: 'blackGold',
   calendar: 'calendar',
