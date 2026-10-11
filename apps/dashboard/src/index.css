@@ -6721,6 +6721,7 @@ button.server-link {
   height: max(0.2%, calc(25px / var(--map-zoom, 1)));
   border-radius: 50%;
   overflow: visible;
+  background: transparent;
   box-shadow: 0 0 0 calc(1.5px / var(--map-zoom, 1)) var(--dot);
 }
 
@@ -6731,8 +6732,14 @@ button.server-link {
   width: 100%;
   max-width: none;
   height: auto;
+  opacity: var(--tower-alpha, 0.82);
   transform: translateX(-50%);
   pointer-events: none;
+}
+
+.atlas-dot--sprite:hover .atlas-dot__tower,
+.atlas-dot--sprite.atlas-dot--on .atlas-dot__tower {
+  opacity: 1;
 }
 
 .atlas-dot--sprite .atlas-dot__name {
@@ -6748,7 +6755,7 @@ button.server-link {
 
 .atlas-hover {
   position: absolute;
-  z-index: 6;
+  z-index: 5000;
   width: 0;
   height: 0;
   transform: scale(calc(1 / var(--map-zoom, 1)));
@@ -6949,4 +6956,123 @@ button.server-link {
 .atlas-dot--tower.atlas-dot--sprite.atlas-dot--on {
   width: max(0.22%, calc(28px / var(--map-zoom, 1)));
   height: max(0.2%, calc(25px / var(--map-zoom, 1)));
+}
+
+/* The member list of an alliance or a base's alliance, one line a person.
+ * `.map-results button` stacks its children in a column and out-ranks the
+ * row's own rule, so the number, name and power sat on three centred lines. */
+.atlas-strongest .atlas-base-row {
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-2);
+  padding: 5px var(--space-2);
+  border-color: transparent;
+  background: none;
+}
+
+.atlas-strongest .atlas-base-row:hover,
+.atlas-strongest .atlas-base-row.map-result--on {
+  background: var(--bg-hover);
+}
+
+.atlas-strongest .atlas-base-row::before {
+  flex: none;
+  min-width: 1.4em;
+  font-size: var(--text-sm);
+  text-align: right;
+}
+
+.atlas-strongest .atlas-base-row__who {
+  flex: 1;
+  gap: 0;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.atlas-strongest .atlas-base-row__who strong {
+  overflow: hidden;
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.atlas-strongest .atlas-base-row__who .subtle {
+  overflow: hidden;
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.atlas-strongest .atlas-base-row__power {
+  flex: none;
+  font-size: var(--text-sm);
+}
+
+/* The side panel's alliance and base pages, compact. shell.css loads after this
+ * file and sets the figure strip for whole screens (9.5rem cells that wrap two
+ * and one in a 23rem panel, 12px of padding, a 20px figure), so these carry one
+ * more class to win on specificity. */
+.shell-content .atlas-detail {
+  gap: var(--space-2);
+}
+
+.shell-content .atlas-detail .strip {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  margin: 0;
+}
+
+.shell-content .atlas-detail .strip .stat {
+  padding: 6px var(--space-2);
+}
+
+.shell-content .atlas-detail .strip .stat-label {
+  font-size: var(--text-xs);
+  line-height: 1.2;
+}
+
+.shell-content .atlas-detail .strip .stat-value {
+  font-size: var(--text-base);
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.shell-content .atlas-detail .strip .stat-note {
+  font-size: var(--text-xs);
+  line-height: 1.2;
+}
+
+.shell-content .atlas-detail .atlas-badge {
+  width: 2rem;
+  height: 2rem;
+  font-size: var(--text-sm);
+}
+
+.shell-content .atlas-detail .atlas-detail__head {
+  gap: var(--space-2);
+}
+
+.shell-content .atlas-detail .atlas-detail__head strong {
+  line-height: 1.25;
+}
+
+.shell-content .atlas-detail > p {
+  margin: 0;
+  font-size: var(--text-xs);
+}
+
+.shell-content .atlas-detail .atlas-detail__title {
+  margin: var(--space-1) 0 0;
+}
+
+.shell-content .atlas-detail .atlas-strongest {
+  margin: 0;
+}
+
+.shell-content .atlas-detail .atlas-detail__action,
+.shell-content .atlas-detail .atlas-detail__copy {
+  padding: 6px var(--space-3);
+  font-size: var(--text-sm);
 }
