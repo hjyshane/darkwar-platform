@@ -719,6 +719,37 @@ def survey(
         typer.echo(f"samples={write_samples(found, samples_dir)} in {samples_dir}")
 
 
+@app.command("battle-report")
+def battle_report(
+    journal: Annotated[
+        Path, typer.Option("--journal", exists=True, dir_okay=False, help="journal to read")
+    ],
+    start: Annotated[str, typer.Option("--from", help="UTC start, e.g. 2026-10-10T14:00:00")],
+    end: Annotated[str, typer.Option("--to", help="UTC end, e.g. 2026-10-10T16:10:00")],
+    out: Annotated[Path, typer.Option("--out", help="report file (markdown), outside the repo")],
+    label: Annotated[str, typer.Option(help="title, e.g. 'Server Clash 10-10'")] = "",
+    csv_out: Annotated[Path | None, typer.Option("--csv", help="per-fighter table")] = None,
+    top: Annotated[int, typer.Option()] = 20,
+) -> None:
+    """Who hit whom in a time window: per fighter, per alliance. Read only.
+
+    Works for any event that fights on the map -- clashes, Frankie, Black Gold,
+    season events -- because a monster round differs from a PvP round only in
+    having no player uid. See battle_report.py for what damage means.
+    """
+    from dw_collector.battle_report import build_report, render, write_csv
+
+    report = build_report(journal, start, end)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(render(report, label=label, top=top), encoding="utf-8")
+    if csv_out is not None:
+        write_csv(report, csv_out)
+    typer.echo(
+        f"reports={report.reports_seen} rounds={report.rounds}"
+        f" fighters={len(report.entities)} report={out}"
+    )
+
+
 def _discard_capture(pcap: Path, *, wanted: bool) -> None:
     """Unlink an ingested capture, tolerating whoever got there first.
 

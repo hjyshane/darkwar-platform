@@ -2986,6 +2986,7 @@ export type Database = {
         Row: {
           alliance_id: string | null
           attended: boolean
+          damage: number | null
           entered_at: string
           entered_by: string | null
           held_on: string
@@ -2996,6 +2997,7 @@ export type Database = {
         Insert: {
           alliance_id?: string | null
           attended: boolean
+          damage?: number | null
           entered_at?: string
           entered_by?: string | null
           held_on: string
@@ -3006,6 +3008,7 @@ export type Database = {
         Update: {
           alliance_id?: string | null
           attended?: boolean
+          damage?: number | null
           entered_at?: string
           entered_by?: string | null
           held_on?: string

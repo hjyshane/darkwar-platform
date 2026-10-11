@@ -719,7 +719,7 @@ function participation(
     watchtower_gained: 2,
     typed_events: {
       capital_clash: { held: 2, attended: 2, missed: 0 },
-      server_clash: { held: 1, attended: 1, missed: 0 },
+      server_clash: { held: 1, attended: 1, missed: 0, score: 5_742_797, damage: 173_863_980 },
       frankie: { held: 3, attended: 3, missed: 0 },
     },
     ...over,
