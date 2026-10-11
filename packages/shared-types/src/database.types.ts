@@ -9082,6 +9082,30 @@ export type Database = {
           },
         ]
       }
+      rank_period_movement_preview: {
+        Row: {
+          activity_score: number | null
+          name: string | null
+          period_start: string | null
+          player_id: string | null
+          previous_activity_score: number | null
+          previous_period_start: string | null
+          previous_tier: string | null
+          score_change: number | null
+          tier: string | null
+          tier_change: number | null
+          tier_reason: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rank_period_snapshots_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+        ]
+      }
       schedule_reminders_due: {
         Row: {
           alliance_id: string | null

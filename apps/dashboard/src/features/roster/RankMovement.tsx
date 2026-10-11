@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import { playerHash } from '../../lib/route';
 import { supabase } from '../../lib/supabase';
 
@@ -31,9 +32,14 @@ interface MovementRow {
   score_change: number | null;
 }
 
-async function fetchMovement(): Promise<MovementRow[]> {
+/** `rank_period_movement` waits for a fortnight to finish (0132); the preview view
+ * (0275) is its mirror and reads only the fortnight still running. Which one is
+ * asked for is the reader's explicit choice - see the toggle below. */
+type MovementSource = 'rank_period_movement' | 'rank_period_movement_preview';
+
+async function fetchMovement(source: MovementSource): Promise<MovementRow[]> {
   const { data, error } = await supabase
-    .from('rank_period_movement')
+    .from(source)
     .select(
       'player_id, name, period_start, previous_period_start, tier, previous_tier, activity_score, tier_change, score_change',
     )
@@ -62,22 +68,81 @@ function Who({ row }: { row: MovementRow }) {
 }
 
 export function RankMovement() {
-  const { data, error, isPending } = useQuery({
+  // Off by default and per visit: the finished fortnight is the headline, and a
+  // partial answer must be asked for each time rather than remembered.
+  const [preview, setPreview] = useState(false);
+
+  const finished = useQuery({
     queryKey: ['rank-movement'],
-    queryFn: fetchMovement,
+    queryFn: () => fetchMovement('rank_period_movement'),
+  });
+  const running = useQuery({
+    queryKey: ['rank-movement-preview'],
+    queryFn: () => fetchMovement('rank_period_movement_preview'),
+    enabled: preview,
   });
 
-  if (isPending || error) {
+  if (finished.isPending || finished.error) {
     // Silent on both. This is a summary above a table that stands on its own, and a
     // loading line or an error banner above the roster would push the roster down
     // for something nobody came here for. The error still surfaces in the console.
     return null;
   }
 
-  const rows = data ?? [];
+  const toggle = (
+    <p>
+      <button type="button" onClick={() => setPreview((on) => !on)}>
+        {preview ? 'Back to the last finished period' : 'Preview the fortnight in progress'}
+      </button>
+    </p>
+  );
+
+  if (preview) {
+    if (running.isPending) {
+      return (
+        <div className="rank-movement">
+          {toggle}
+          <p className="subtle">Loading the preview…</p>
+        </div>
+      );
+    }
+    if (running.error) {
+      return (
+        <div className="rank-movement">
+          {toggle}
+          <p className="empty">The preview could not be loaded.</p>
+        </div>
+      );
+    }
+    return (
+      <div className="rank-movement">
+        {toggle}
+        <p className="subtle">
+          <strong>Preview.</strong> This fortnight is still running, so every reading in it is
+          partial. Tiers can still move before it finishes.
+        </p>
+        <MovementBody rows={running.data ?? []} emptyNote="No fortnight is running right now." />
+      </div>
+    );
+  }
+
+  const rows = finished.data ?? [];
+  if (rows.length === 0) {
+    return <div className="rank-movement">{toggle}</div>;
+  }
+
+  return (
+    <div className="rank-movement">
+      {toggle}
+      <MovementBody rows={rows} emptyNote="" />
+    </div>
+  );
+}
+
+function MovementBody({ rows, emptyNote }: { rows: MovementRow[]; emptyNote: string }) {
   const compared = rows.filter((row) => row.tier_change !== null);
   if (rows.length === 0) {
-    return null;
+    return emptyNote === '' ? null : <p className="empty">{emptyNote}</p>;
   }
 
   const period = rows[0]?.period_start;
@@ -110,7 +175,7 @@ export function RankMovement() {
   const best = gained[0] ?? null;
 
   return (
-    <div className="rank-movement">
+    <>
       <p className="subtle">
         Since the rank period of {previous === null ? '' : day.format(new Date(previous))} →{' '}
         {period === undefined ? '' : day.format(new Date(period))}, comparing {compared.length}{' '}
@@ -169,6 +234,6 @@ export function RankMovement() {
           )}
         </div>
       </div>
-    </div>
+    </>
   );
 }
