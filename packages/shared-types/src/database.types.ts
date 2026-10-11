@@ -9637,6 +9637,15 @@ export type Database = {
           server_id: number
         }[]
       }
+      my_gift_keys: {
+        Args: never
+        Returns: {
+          game_uid: number
+          has_key: boolean
+          name: string
+          updated_at: string
+        }[]
+      }
       name_unnamed_season_buildings: {
         Args: { p_season_id: number }
         Returns: number
@@ -9784,6 +9793,7 @@ export type Database = {
         Returns: undefined
       }
       remove_member: { Args: { p_user: string }; Returns: undefined }
+      remove_my_gift_key: { Args: { p_game_uid: number }; Returns: undefined }
       research_prerequisite_steps: {
         Args: { p_subjects: string[] }
         Returns: Json
@@ -9834,6 +9844,10 @@ export type Database = {
       save_hive_formation_template: {
         Args: { p_name: string; p_note: string; p_slots: Json }
         Returns: string
+      }
+      save_my_gift_key: {
+        Args: { p_game_uid: number; p_uuid: string }
+        Returns: undefined
       }
       save_season: {
         Args: {
