@@ -20,6 +20,9 @@ import {
 } from './atlas';
 import type { PlanTile } from './plan';
 
+/** Zoom from which a planned tile with nobody on it names who it is for. */
+const PLAN_NAME_ZOOM = 6;
+
 /** Zoom from which the shield timers are named in the Shield filter. */
 const SHIELD_NAME_ZOOM = 4;
 
@@ -236,7 +239,10 @@ export function AtlasMap({
                   base ? 'in place' : 'not on its tile'
                 }`}
               >
-                {zoom >= NAME_ZOOM && slot.playerName && (
+                {/* One label a tile, and only where it says something: a base
+                    on its tile needs none (hover gives its card), a tile with
+                    nobody on it says who was meant to be there. */}
+                {base === null && zoom >= PLAN_NAME_ZOOM && slot.playerName && (
                   <span className="atlas-plan__name">{slot.playerName}</span>
                 )}
               </span>
