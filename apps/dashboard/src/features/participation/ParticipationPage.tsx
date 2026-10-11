@@ -50,6 +50,11 @@ const BOARDS: ReadonlyArray<[Board, string]> = [
   ['season', 'Season events'],
 ];
 
+/** The screen's two views (2026-10-11): the report, and the officers' attendance
+ * form, which sat under the table where it took a scroll to the bottom to
+ * reach. Only people with data.enter get the second. */
+type View = 'report' | 'record';
+
 const KIND_LABELS: ReadonlyArray<[PeriodKind, string]> = [
   ['season', 'Season'],
   ['round', 'Duel round'],
@@ -272,6 +277,7 @@ export function ParticipationPage() {
 
   const [sort, setSort] = useState<SortState>({ key: 'name', direction: 'asc' });
   const [board, setBoard] = useState<Board>('daily');
+  const [view, setView] = useState<View>('report');
 
   const { data: session } = useSession();
   const { data: permissions } = usePermissions();
@@ -302,6 +308,9 @@ export function ParticipationPage() {
   const boardKinds = eventKinds.filter((eventKind) => eventKind.board === board);
   const ordered = sortRows(rows, sort.key as SortKey, sort.direction === 'desc');
   const onSort = (key: string) => setSort(nextSort(sort, key));
+  // A viewer who may not record never sees the second tab; one who lost the
+  // permission mid-session falls back to the report.
+  const activeView: View = mayRecord ? view : 'report';
 
   return (
     <section aria-labelledby="participation-heading" className="participation-screen">
@@ -338,41 +347,56 @@ export function ParticipationPage() {
         )}
       </div>
 
-      <div className="row">
+      {mayRecord && (
         <Tabs
-          label="Period"
-          items={KIND_LABELS.map(([id, label]) => ({ id, label }))}
-          value={kind}
-          onChange={setKind}
+          label="View"
+          className="row"
+          items={[
+            { id: 'report' as const, label: 'Report' },
+            { id: 'record' as const, label: 'Record attendance' },
+          ]}
+          value={activeView}
+          onChange={setView}
         />
-        {kind === 'round' && (
-          <label>
-            Round{' '}
-            <Select onChange={(chosen) => setRoundIndex(Number(chosen))} value={roundIndex}>
-              {rounds.map((round, index) => (
-                <option key={round.from} value={index}>
-                  {round.label}
-                  {index === 0 ? ' (current)' : ''}
-                </option>
-              ))}
-            </Select>
-          </label>
-        )}
-        {kind === 'week' && (
-          <label>
-            Week{' '}
-            <Select onChange={(chosen) => setWeekIndex(Number(chosen))} value={weekIndex}>
-              {weeks.map((week, index) => (
-                <option key={week.from} value={index}>
-                  {week.label}
-                  {index === 0 ? ' (this week)' : ''}
-                </option>
-              ))}
-            </Select>
-          </label>
-        )}
-        {kind === 'season' && <span className="subtle">{season.label}</span>}
-      </div>
+      )}
+
+      {activeView === 'report' && (
+        <div className="row">
+          <Tabs
+            label="Period"
+            items={KIND_LABELS.map(([id, label]) => ({ id, label }))}
+            value={kind}
+            onChange={setKind}
+          />
+          {kind === 'round' && (
+            <label>
+              Round{' '}
+              <Select onChange={(chosen) => setRoundIndex(Number(chosen))} value={roundIndex}>
+                {rounds.map((round, index) => (
+                  <option key={round.from} value={index}>
+                    {round.label}
+                    {index === 0 ? ' (current)' : ''}
+                  </option>
+                ))}
+              </Select>
+            </label>
+          )}
+          {kind === 'week' && (
+            <label>
+              Week{' '}
+              <Select onChange={(chosen) => setWeekIndex(Number(chosen))} value={weekIndex}>
+                {weeks.map((week, index) => (
+                  <option key={week.from} value={index}>
+                    {week.label}
+                    {index === 0 ? ' (this week)' : ''}
+                  </option>
+                ))}
+              </Select>
+            </label>
+          )}
+          {kind === 'season' && <span className="subtle">{season.label}</span>}
+        </div>
+      )}
 
       {report.isPending && <p className="empty loading">Loading…</p>}
       {report.error && (
@@ -382,7 +406,7 @@ export function ParticipationPage() {
         <p className="empty">Nobody is on the roster for this alliance yet.</p>
       )}
 
-      {rows.length > 0 && (
+      {activeView === 'report' && rows.length > 0 && (
         <div className="panel participation-board">
           <Tabs
             label="Report"
@@ -544,7 +568,7 @@ export function ParticipationPage() {
         </div>
       )}
 
-      {mayRecord && rows.length > 0 && eventKinds.length > 0 && (
+      {activeView === 'record' && rows.length > 0 && eventKinds.length > 0 && (
         <div className="panel">
           <AttendanceRecorder kinds={eventKinds} members={rows} now={now} />
         </div>
