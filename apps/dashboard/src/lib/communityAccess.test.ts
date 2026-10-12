@@ -4,7 +4,7 @@ import { isEventGuideTabOpen } from './route';
 import { sessionRole } from './useSession';
 
 describe('community role (0282)', () => {
-  it('opens the eight game-wide pages', () => {
+  it('opens the game-wide pages and the alliance and player pages', () => {
     for (const route of [
       'overview',
       'rankings',
@@ -15,6 +15,8 @@ describe('community role (0282)', () => {
       'calendar',
       'eventGuide',
       'shopValue',
+      'alliance',
+      'player',
     ] as const) {
       expect(communityMayOpen(route)).toBe(true);
     }
@@ -31,8 +33,6 @@ describe('community role (0282)', () => {
       'giftCodes',
       'notices',
       'guides',
-      'player',
-      'alliance',
       'server',
       'admin',
       'schedule',
