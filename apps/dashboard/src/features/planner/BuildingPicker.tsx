@@ -7,12 +7,18 @@
 // whose 200 rows are not something a player raises (user, 2026-10-04).
 // Hidden by the reader, or already at the top, a building drops out too;
 // "show hidden" brings them back.
+//
+// Season buildings are left out too: they have their own list in the
+// recommendations. And when levels are typed in, the list is the buildings
+// accounts actually have (0286), the same set a login lists — not the whole
+// catalogue (user, 2026-10-12).
 
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useSeasons } from '../../lib/seasons';
 import { LevelPicker } from './LevelPicker';
 import { FORMATION_IDS } from './categories';
-import { fetchCatalogSubjects } from './data';
+import { fetchCatalogSubjects, fetchPlannerBuildingIds } from './data';
 import { useHidden } from './hidden';
 import type { Tiers } from './levels';
 import { type Target, targetKey } from './targets';
@@ -28,21 +34,43 @@ interface PickerProps {
 }
 
 export function BuildingPicker({ levels, tiers, targets, onSet, onCurrent }: PickerProps) {
-  // By hand, every building is offered; from a login, the ones it has.
-  const ids = onCurrent ? [] : Object.keys(levels);
+  // From a login, the buildings it has. By hand, the buildings accounts have
+  // (0286) plus any this one already has a level for. If nobody has logged in
+  // yet there is nothing to go on, and the whole catalogue is offered.
+  const known = useQuery({
+    queryKey: ['planner-building-ids'],
+    enabled: onCurrent !== undefined,
+    staleTime: 60 * 60_000,
+    queryFn: fetchPlannerBuildingIds,
+  });
+  const settled = onCurrent === undefined || known.isSuccess || known.isError;
+  const wide = onCurrent !== undefined && (known.data ?? []).length === 0;
+  const ids =
+    onCurrent === undefined
+      ? Object.keys(levels)
+      : [...new Set([...(known.data ?? []), ...Object.keys(levels)])].sort();
   const subjects = useQuery({
-    queryKey: ['planner-catalog', 'building', onCurrent ? '*' : ids.join(',')],
-    queryFn: () => fetchCatalogSubjects('building', onCurrent ? {} : { subjects: ids }),
+    queryKey: ['planner-catalog', 'building', wide ? '*' : ids.join(',')],
+    enabled: settled,
+    queryFn: () => fetchCatalogSubjects('building', wide ? {} : { subjects: ids }),
     staleTime: 60 * 60_000,
   });
   const [filter, setFilter] = useState('');
   const [hidden, toggleHidden] = useHidden('planner-hidden-buildings');
   const [showHidden, setShowHidden] = useState(false);
+  const seasons = useSeasons();
+  const seasonIds = useMemo(
+    () =>
+      new Set((seasons.data ?? []).flatMap((season) => season.buildings.map((b) => String(b.id)))),
+    [seasons.data],
+  );
 
   if (subjects.isPending) return <p className="empty">Loading buildings…</p>;
   if (subjects.isError) return <p className="error">{subjects.error.message}</p>;
 
-  const upgradable = subjects.data.filter((s) => s.maxLevel > 1 && !NOT_UPGRADED.has(s.subject));
+  const upgradable = subjects.data.filter(
+    (s) => s.maxLevel > 1 && !NOT_UPGRADED.has(s.subject) && !seasonIds.has(s.subject),
+  );
   // Maxed hides itself, but not while levels are being typed in: setting a
   // building to its top level must not make it vanish under the cursor.
   const isHidden = (subject: string, max: number) =>

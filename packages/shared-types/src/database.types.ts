@@ -9877,6 +9877,7 @@ export type Database = {
         Args: { p_channel: string }
         Returns: string
       }
+      planner_building_ids: { Args: never; Returns: string[] }
       player_current_alliance: {
         Args: never
         Returns: {

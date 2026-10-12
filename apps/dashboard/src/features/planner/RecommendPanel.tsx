@@ -3,12 +3,18 @@
 // for the reader. "Plan it" puts a step into the planner above like any pick.
 
 import { useQuery } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { compactNumber } from '../../lib/compactNumber';
 import { useSeasons } from '../../lib/seasons';
 import type { Account } from './accounts';
 import { type StepCategory, categoryOf, isNotUpgradable } from './categories';
-import { fetchCatalogSubjects, fetchMaterialNames, fetchStepPairs } from './data';
+import {
+  fetchCatalogSubjects,
+  fetchMaterialNames,
+  fetchPlannerBuildingIds,
+  fetchStepPairs,
+} from './data';
+import { useHidden } from './hidden';
 import { type Buffs, duration } from './plan';
 import { type Metric, type Recommendation, type Stock, recommend } from './recommend';
 import type { Target } from './targets';
@@ -26,10 +32,11 @@ const METRICS: ReadonlyArray<[Metric, string, string]> = [
   ],
 ];
 
+// Season buildings are not offered (user, 2026-10-12): What to raise does not
+// list them, and this list follows it.
 const CATEGORIES: ReadonlyArray<[StepCategory, string]> = [
   ['building', 'Buildings'],
   ['research', 'Research'],
-  ['season', 'Season'],
 ];
 
 export function RecommendPanel({
@@ -46,6 +53,31 @@ export function RecommendPanel({
   const [metric, setMetric] = useState<Metric>('perHour');
   const [category, setCategory] = useState<StepCategory>('building');
   const seasons = useSeasons();
+  // The buildings What to raise lists, and only those: a login's own, or the
+  // ones accounts have when levels are typed in (0286); never one the reader
+  // hid there. 'all' when nobody has logged in and there is nothing to go on.
+  const manual = account.source === 'manual';
+  const known = useQuery({
+    queryKey: ['planner-building-ids'],
+    enabled: manual,
+    staleTime: 60 * 60_000,
+    queryFn: fetchPlannerBuildingIds,
+  });
+  const [hiddenBuildings] = useHidden('planner-hidden-buildings');
+  const listed = useMemo((): ReadonlySet<string> | 'all' | null => {
+    if (!manual) return new Set(Object.keys(account.buildings));
+    if (!known.isSuccess && !known.isError) return null;
+    const ids = known.data ?? [];
+    return ids.length === 0 ? 'all' : new Set([...ids, ...Object.keys(account.buildings)]);
+  }, [manual, known.isSuccess, known.isError, known.data, account.buildings]);
+  const offered = useCallback(
+    (p: { next: { kind: string; subject_id: string } }) =>
+      p.next.kind !== 'building' ||
+      (listed !== null &&
+        (listed === 'all' || listed.has(p.next.subject_id)) &&
+        !hiddenBuildings.has(p.next.subject_id)),
+    [listed, hiddenBuildings],
+  );
   const catalogue = useQuery({
     queryKey: ['planner-catalog', 'building', '*'],
     queryFn: () => fetchCatalogSubjects('building', {}),
@@ -76,18 +108,20 @@ export function RecommendPanel({
       (pairs.data ?? []).filter(
         (p) =>
           categoryOf(p.next, seasonIds) === category &&
+          offered(p) &&
           !(p.next.kind === 'building' && isNotUpgradable(p.next, maxLevels)),
       ),
-    [pairs.data, seasonIds, maxLevels, category],
+    [pairs.data, seasonIds, maxLevels, category, offered],
   );
   const counts = useMemo(() => {
     const out: Record<StepCategory, number> = { building: 0, research: 0, season: 0 };
     for (const p of pairs.data ?? []) {
       if (p.next.kind === 'building' && isNotUpgradable(p.next, maxLevels)) continue;
+      if (!offered(p)) continue;
       out[categoryOf(p.next, seasonIds)] += 1;
     }
     return out;
-  }, [pairs.data, seasonIds, maxLevels]);
+  }, [pairs.data, seasonIds, maxLevels, offered]);
   const result = useMemo(
     () =>
       pairs.data
@@ -121,9 +155,9 @@ export function RecommendPanel({
       <h3 id="planner-recommend">Next upgrades</h3>
       <p className="subtle">
         The next level of every building and research {account.name} could advance, by the power it
-        adds, grouped into buildings, research and season buildings. Heroes, gear and exclusives
-        have no power in the game's data, so they are not here; buildings that cannot be upgraded
-        are left out.
+        adds, grouped into buildings and research. Heroes, gear and exclusives have no power in the
+        game's data, so they are not here; buildings that cannot be upgraded, and any that What to
+        raise does not list, are left out.
       </p>
       <div className="row">
         {CATEGORIES.map(([value, label]) => (
