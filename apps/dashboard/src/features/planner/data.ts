@@ -343,6 +343,14 @@ export async function fetchHeroInfo(account: Account, everything: boolean): Prom
 /** What each building and research the account could advance would take next,
  * and the power of the level it stands on, in one call (0247). The levels go
  * in as arguments, so a hand-entered account works the same as a login. */
+/** The buildings accounts have (0286): what a by-hand planner lists, in What
+ * to raise and in Next upgrades alike. Empty when nobody has logged in. */
+export async function fetchPlannerBuildingIds(): Promise<string[]> {
+  const { data, error } = await supabase.rpc('planner_building_ids');
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
 export async function fetchStepPairs(
   buildings: Readonly<Record<string, number>>,
   science: Readonly<Record<string, number>>,

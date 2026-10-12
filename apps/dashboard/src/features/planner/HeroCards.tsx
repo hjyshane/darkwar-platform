@@ -89,6 +89,9 @@ export function HeroCards({ account, targets, onSet, onEdit }: HeroCardsProps) {
       grade: info.data.grade.get(id),
       troopClass: info.data.troopClass.get(id),
     }))
+    // A hero whose grade or class nobody has set is not listed: it is a
+    // catalogue row still waiting to be filled in (user, 2026-10-12).
+    .filter((h) => h.grade !== undefined && h.troopClass !== undefined)
     .sort((a, b) => (b.grade ?? 0) - (a.grade ?? 0) || Number(b.id) - Number(a.id));
   const grades = [...new Set(all.map((h) => h.grade))].sort((a, b) => (b ?? 0) - (a ?? 0));
   const classes = [...new Set(all.map((h) => h.troopClass))].sort((a, b) => (a ?? 99) - (b ?? 99));

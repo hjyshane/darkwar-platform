@@ -106,6 +106,11 @@ const LEFT_OUT = new Set([
   'item:200062',
 ]);
 
+// Left off the stock list by name (user, 2026-10-12): Alliance Pact, Green
+// Medal and every Chip. By the resolved name because the ids are several and
+// the game renames them; "What it takes" still counts them.
+const NOT_LISTED = /alliance pact|green medal|chip/i;
+
 // Resources in the game's own order: Wood, Iron, Electricity, Food, Coin.
 const RESOURCE_ORDER = ['25', '12', '26', '24', '14'];
 
@@ -168,6 +173,7 @@ export function StockPanel({ have, onHave, edited }: StockPanelProps) {
   const sections = GROUPS.map(([label, belongs]) => {
     const rows = materials.data
       .filter((m) => !placed.has(`${m.type}:${m.id}`) && belongs(m))
+      .filter((m) => !NOT_LISTED.test(nameOf(m)))
       .filter((m) => needle === '' || nameOf(m).toLowerCase().includes(needle))
       // A hero's fragments the account has none of are left out (user,
       // 2026-10-05) — unless searched for, or typed in on this visit.
