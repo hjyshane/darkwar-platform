@@ -43,7 +43,7 @@ import { ServerPage } from './features/server/ServerPage';
 import { ShopValuePage } from './features/shopValue/ShopValuePage';
 import { useRecordActivity } from './lib/activity';
 import { mayOpenSettings } from './lib/adminAccess';
-import { communityMayOpen } from './lib/communityAccess';
+import { CommunityGate, communityMayOpen } from './lib/communityAccess';
 import { EditModeProvider } from './lib/editMode';
 import { isAllowed, usePermissions } from './lib/permissions';
 import { queryKeysForTopic, subscribeDataChanges } from './lib/realtime';
@@ -512,8 +512,8 @@ function Shell({
         <h2 id="community-closed-heading">Not available</h2>
         <p className="empty">
           This page is for alliance members. Your account can open the overview, rankings,
-          migration, map, planner, game calendar, event guide and shop value.{' '}
-          <a href="#/">Back to the overview</a>
+          migration, map, planner, game calendar, event guide and shop value, and other alliances'
+          and players' pages. <a href="#/">Back to the overview</a>
         </p>
       </section>
     </main>
@@ -562,9 +562,21 @@ function Shell({
   ) : route === 'server' && serverId !== null ? (
     <ServerPage serverId={serverId} />
   ) : route === 'player' && playerId !== null ? (
-    <PlayerPage playerId={playerId} />
+    isCommunity ? (
+      <CommunityGate id={playerId} kind="player">
+        <PlayerPage playerId={playerId} />
+      </CommunityGate>
+    ) : (
+      <PlayerPage playerId={playerId} />
+    )
   ) : route === 'alliance' && allianceId !== null ? (
-    <AlliancePage allianceId={allianceId} />
+    isCommunity ? (
+      <CommunityGate id={allianceId} kind="alliance">
+        <AlliancePage allianceId={allianceId} />
+      </CommunityGate>
+    ) : (
+      <AlliancePage allianceId={allianceId} />
+    )
   ) : (
     <main>
       {inEventsHub(route) && <EventsTabs route={route} />}
