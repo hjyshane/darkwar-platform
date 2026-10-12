@@ -453,6 +453,124 @@ export function groupPacks(packs: ReadonlyArray<PackValue>): PackGroup[] {
   return [...groups.values()];
 }
 
+/** One offer's place among the packs the game lists under its name and price
+ * (0280). The server sends every variant; which one this server sells is an
+ * officer's choice, made once per name. */
+export interface VariantInfo {
+  /** "<game name>|<price>": what the packs of one family share. */
+  family_key: string;
+  /** A hash of the variant's contents and picks. */
+  variant_key: string;
+  /** Variants in the family among the packs on the page. */
+  variants: number;
+  /** This is the variant an officer chose. */
+  picked: boolean;
+  /** The family has a choice and its variant is on the page. */
+  family_picked: boolean;
+  /** The family has a choice but its variant is no longer listed: the game
+   * moved to another stage, and the choice wants making again. */
+  stale: boolean;
+}
+
+export type PackRow = PackGroup & VariantInfo;
+
+export function familyKey(pack: Pick<PackValue, 'game_name' | 'dollars'>): string {
+  return `${pack.game_name}|${pack.dollars}`;
+}
+
+/** Two 32-bit FNV-1a hashes, as 16 hex digits: short enough for a key, stable
+ * across reads, and the same offer reissued under new ids hashes the same. */
+function fingerprint(text: string): string {
+  let a = 0x811c9dc5;
+  let b = 0x01000193 ^ 0x5bd1e995;
+  for (let i = 0; i < text.length; i += 1) {
+    const c = text.charCodeAt(i);
+    a = Math.imul(a ^ c, 0x01000193) >>> 0;
+    b = Math.imul(b ^ c, 0x5bd1e995) >>> 0;
+  }
+  return a.toString(16).padStart(8, '0') + b.toString(16).padStart(8, '0');
+}
+
+export function variantKey(
+  pack: Pick<PackValue, 'rubies' | 'contents' | 'choices' | 'claimed_percent'>,
+): string {
+  return fingerprint(`${pack.rubies}|${contentsKey(pack)}|${choicesKey(pack)}`);
+}
+
+/** Fold same-name, same-price variants to the one an officer chose. A family
+ * with one variant is left alone; so is one whose chosen variant is not on the
+ * page (it is flagged `stale` instead, and every variant stays). `showAll`
+ * keeps every variant, marking the chosen one. */
+export function foldVariants(
+  groups: ReadonlyArray<PackGroup>,
+  choices: ReadonlyMap<string, string>,
+  showAll: boolean,
+): { rows: PackRow[]; hidden: number } {
+  const families = new Map<string, PackGroup[]>();
+  for (const group of groups) {
+    const key = familyKey(group);
+    const held = families.get(key);
+    if (held === undefined) {
+      families.set(key, [group]);
+    } else {
+      held.push(group);
+    }
+  }
+  const rows: PackRow[] = [];
+  let hidden = 0;
+  for (const group of groups) {
+    const family_key = familyKey(group);
+    const members = families.get(family_key) ?? [group];
+    const chosen = choices.get(family_key);
+    const keys = members.map((m) => variantKey(m));
+    const mine = variantKey(group);
+    const present = chosen !== undefined && keys.includes(chosen) && members.length > 1;
+    const row: PackRow = {
+      ...group,
+      family_key,
+      variant_key: mine,
+      variants: members.length,
+      picked: present && mine === chosen,
+      family_picked: present,
+      stale: chosen !== undefined && !present && members.length > 1,
+    };
+    if (present && !row.picked && !showAll) {
+      hidden += 1;
+      continue;
+    }
+    rows.push(row);
+  }
+  return { rows, hidden };
+}
+
+/** The variant chosen for each family, by family key. */
+export async function fetchVariantChoices(): Promise<Map<string, string>> {
+  const { data, error } = await supabase
+    .from('game_pack_variants')
+    .select('family_key, variant_key')
+    .limit(1000);
+  if (error) {
+    throw new Error(error.message);
+  }
+  return new Map((data ?? []).map((row) => [row.family_key, row.variant_key]));
+}
+
+/** Say which variant of a family this server sells, or clear the choice
+ * (null) to show them all again. */
+export async function saveVariantChoice(family: string, variant: string | null): Promise<void> {
+  const { error } =
+    variant === null
+      ? await supabase.from('game_pack_variants').delete().eq('family_key', family)
+      : await supabase
+          .from('game_pack_variants')
+          .upsert({ family_key: family, variant_key: variant }, { onConflict: 'family_key' });
+  if (error) {
+    throw new Error(
+      error.code === '42501' ? 'Only officers and admins can choose a variant.' : error.message,
+    );
+  }
+}
+
 /** Correct an item's name, or clear the correction (empty) to show the
  * game's name again. The item code is the key and is never changed. */
 export async function saveItemName(itemId: string, name: string): Promise<void> {
