@@ -7531,6 +7531,33 @@ export type Database = {
           },
         ]
       }
+      ui_overrides: {
+        Row: {
+          key: string
+          kind: string
+          scope: string
+          updated_at: string
+          updated_by: string | null
+          value: string
+        }
+        Insert: {
+          key: string
+          kind: string
+          scope: string
+          updated_at?: string
+          updated_by?: string | null
+          value: string
+        }
+        Update: {
+          key?: string
+          kind?: string
+          scope?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: string
+        }
+        Relationships: []
+      }
       user_players: {
         Row: {
           created_at: string
@@ -9548,6 +9575,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      clear_ui_override: {
+        Args: { p_key: string; p_kind?: string; p_scope: string }
+        Returns: number
+      }
       current_app_role: {
         Args: never
         Returns: Database["public"]["Enums"]["app_role"]
@@ -10078,6 +10109,15 @@ export type Database = {
       set_roster_membership: {
         Args: { p_member: boolean; p_player_id: string }
         Returns: number
+      }
+      set_ui_override: {
+        Args: {
+          p_key: string
+          p_kind: string
+          p_scope: string
+          p_value: string
+        }
+        Returns: undefined
       }
       tier_rank: { Args: { p_tier: string }; Returns: number }
       unlink_player: { Args: { p_player_id: string }; Returns: undefined }
