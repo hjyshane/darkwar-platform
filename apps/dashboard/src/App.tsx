@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useSyncExternalStore } from 'react';
 import { AllianceSwitcher } from './components/AllianceSwitcher';
+import { EditModeToggle } from './components/EditModeToggle';
 import { RefreshButton } from './components/RefreshButton';
 import { ReplyAlerts } from './components/ReplyAlerts';
 import { SignOutButton } from './components/SignOutButton';
@@ -42,6 +43,7 @@ import { ServerPage } from './features/server/ServerPage';
 import { ShopValuePage } from './features/shopValue/ShopValuePage';
 import { useRecordActivity } from './lib/activity';
 import { mayOpenSettings } from './lib/adminAccess';
+import { EditModeProvider } from './lib/editMode';
 import { isAllowed, usePermissions } from './lib/permissions';
 import { queryKeysForTopic, subscribeDataChanges } from './lib/realtime';
 import { useReplyAlerts } from './lib/replyAlerts';
@@ -395,19 +397,21 @@ export function App() {
   const standalone = isStandaloneRoute(route);
   return (
     <QueryClientProvider client={queryClient}>
-      <Shell
-        adminGroup={adminGroup}
-        adminSection={adminSection}
-        allianceId={allianceId}
-        guideId={guideId}
-        hash={hash}
-        noticeId={noticeId}
-        playerId={playerId}
-        route={route}
-        mapServerId={mapServerId}
-        serverId={serverId}
-        standalone={standalone}
-      />
+      <EditModeProvider>
+        <Shell
+          adminGroup={adminGroup}
+          adminSection={adminSection}
+          allianceId={allianceId}
+          guideId={guideId}
+          hash={hash}
+          noticeId={noticeId}
+          playerId={playerId}
+          route={route}
+          mapServerId={mapServerId}
+          serverId={serverId}
+          standalone={standalone}
+        />
+      </EditModeProvider>
     </QueryClientProvider>
   );
 }
@@ -475,6 +479,7 @@ function Shell({
           anybody with a session, including a signed-in non-member looking at
           the wall, who otherwise has no way out of it at all. */}
       {session?.email != null && <SignOutButton email={session.email} />}
+      <EditModeToggle />
       <ThemeToggle />
     </>
   );

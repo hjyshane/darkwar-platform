@@ -11,6 +11,7 @@ import {
 } from '../../lib/route';
 import { FALLBACK_SEASONS, currentSeason, pastSeason, useSeasons } from '../../lib/seasons';
 import { type NavGroup, type NavItem, breadcrumb, buildFooter, buildNav } from '../../lib/shellNav';
+import { useUiOverrides } from '../../lib/uiOverrides';
 import { useOwnAlliance } from '../../lib/useOwnAlliance';
 import { useSession } from '../../lib/useSession';
 
@@ -26,6 +27,7 @@ export function useShellNav(
   const { data: ownAlliance } = useOwnAlliance();
   const { data: permissions, isPending } = usePermissions();
   const seasons = useSeasons();
+  const overrides = useUiOverrides();
 
   const isAdmin = session?.role === 'admin';
   const now = new Date();
@@ -59,6 +61,7 @@ export function useShellNav(
     mayManageGiftCodes: isPending
       ? undefined
       : isAllowed(permissions?.grants, session?.role, 'giftcodes.manage'),
+    overrides,
     seasonNames: {
       '#/season': currentSeason(list, now)?.name,
       '#/season2': pastSeason(list, now)?.name,

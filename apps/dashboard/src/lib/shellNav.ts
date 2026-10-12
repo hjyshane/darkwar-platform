@@ -36,6 +36,7 @@ import {
   isRankingRoute,
 } from './route';
 import type { Season } from './seasons';
+import { NO_OVERRIDES, type Overrides, arrange, isHidden, labelOf } from './uiOverrides';
 
 export type IconName =
   | 'overview'
@@ -97,6 +98,8 @@ export interface NavContext {
   mayViewMembers: boolean | undefined;
   isAdmin: boolean;
   isOfficer: boolean;
+  /** Names, order and visibility an admin set on the page (0279). */
+  overrides?: Overrides;
   /** Season names by address (`#/season`), from the seasons table. */
   seasonNames: Readonly<Record<string, string | undefined>>;
   /** The event guide tab in the address; the first when it names none. */
@@ -209,14 +212,26 @@ export function buildNav(ctx: NavContext): NavGroup[] {
       current: tab.route === 'events' ? inEventsHub(ctx.route) : tab.route === ctx.route,
       ...(tab.route === 'events'
         ? {
-            children: EVENTS_HUB_TABS.filter(
-              (entry) => entry.route !== 'season2' || ctx.isAdmin,
-            ).map((entry) => ({
-              key: entry.hash,
-              href: entry.hash,
-              label: name(entry.hash, entry.label),
-              current: entry.route === ctx.route,
-            })),
+            children: arrange(
+              EVENTS_HUB_TABS.filter((entry) => entry.route !== 'season2' || ctx.isAdmin),
+              (entry) => entry.route,
+              ctx.overrides ?? NO_OVERRIDES,
+              'events-hub',
+            )
+              .filter(
+                (entry) => !isHidden(ctx.overrides ?? NO_OVERRIDES, 'events-hub', entry.route),
+              )
+              .map((entry) => ({
+                key: entry.hash,
+                href: entry.hash,
+                label: labelOf(
+                  ctx.overrides ?? NO_OVERRIDES,
+                  'events-hub',
+                  entry.route,
+                  name(entry.hash, entry.label),
+                ),
+                current: entry.route === ctx.route,
+              })),
           }
         : {}),
       ...(tab.route === 'members'
