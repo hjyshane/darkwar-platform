@@ -13,10 +13,13 @@ import {
   familyKey,
   foldVariants,
   groupPacks,
+  isGated,
+  isInStore,
   isLive,
   matchesPack,
   packCategory,
   packKey,
+  plainName,
   ratioLabel,
   variantKey,
 } from './data';
@@ -313,5 +316,27 @@ describe('foldVariants', () => {
     if (a === undefined || b === undefined) throw new Error('fixture');
     expect(variantKey(a)).toBe(variantKey(b));
     expect(variantKey(a)).not.toBe(variantKey(groupPacks([stage('1', 5)])[0] as PackGroup));
+  });
+});
+
+describe('what the store lists', () => {
+  const open = { starts_at: '2026-10-01T00:00:00Z', ends_at: null, listed: true };
+
+  it('treats a pack shown only with an event item as gated', () => {
+    expect(isGated({ show_type: '6;240027' })).toBe(true);
+    expect(isGated({ show_type: '' })).toBe(false);
+    expect(isGated({ show_type: null })).toBe(false);
+    expect(isGated({})).toBe(false);
+  });
+
+  it('lists on sale and not gated packs, and leaves gated ones to the event view', () => {
+    expect(isInStore({ ...open, show_type: '' }, NOW)).toBe(true);
+    expect(isInStore({ ...open, show_type: '6;240027' }, NOW)).toBe(false);
+    expect(isInStore({ ...open, show_type: '', listed: false }, NOW)).toBe(false);
+  });
+
+  it("strips the game's markup from a name", () => {
+    expect(plainName('<b>100</b>-Ruby Pack')).toBe('100-Ruby Pack');
+    expect(plainName('Pioneer Package')).toBe('Pioneer Package');
   });
 });
