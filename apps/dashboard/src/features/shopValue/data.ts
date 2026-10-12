@@ -77,6 +77,11 @@ export interface PackValue {
   listed: boolean | null;
   /** The game's pack type, the key to `packCategory`. */
   pack_type?: string | null;
+  /** What the game checks before it shows the pack (0284). `show_type` is
+   * "6;<item>" for a pack shown only while the player holds that event
+   * item; empty for one the store shows on its own. */
+  is_show?: string | null;
+  show_type?: string | null;
 }
 
 export interface ListingValue {
@@ -123,7 +128,29 @@ export const SHOP_LABELS: Record<number, string> = {
   3: 'Daily deals',
 };
 
-export type PackFilter = 'live' | 'all';
+/** live: in the store now. event: in the catalog and its window but shown
+ * only with an event item held. all: every pack ever seen. */
+export type PackFilter = 'live' | 'event' | 'all';
+
+/** The game shows the pack only while the player holds an item (the event
+ * currency the pack is for), or on a trigger: not a store listing. */
+export function isGated(pack: Pick<PackValue, 'show_type'>): boolean {
+  return (pack.show_type ?? '').trim() !== '';
+}
+
+/** What the store lists now: on sale (catalog and window) and not gated. */
+export function isInStore(
+  pack: Pick<PackValue, 'starts_at' | 'ends_at' | 'show_type'> & { listed?: boolean | null },
+  now: Date,
+): boolean {
+  return isLive(pack, now) && !isGated(pack);
+}
+
+/** The game marks a name up for display ("<b>100</b>-Ruby Pack"); a page
+ * of plain text shows the words. */
+export function plainName(name: string): string {
+  return name.replace(/<[^>]*>/g, '').trim();
+}
 
 /** On sale at `now`: in the server's newest catalog, started, and not
  * ended (a missing end is open). A pack the newest catalog left out is gone
@@ -302,8 +329,8 @@ export async function fetchPacks(): Promise<PackValue[]> {
       choices: Array.isArray(pack.choices) ? pack.choices : [],
       choice_rubies: pack.choice_rubies ?? 0,
       listed: catalog ? catalog.has(pack.pack_id) : null,
-      name: fixed ?? pack.name,
-      game_name: pack.name,
+      name: plainName(fixed ?? pack.name),
+      game_name: plainName(pack.name),
       renamed: fixed !== undefined,
     };
   });

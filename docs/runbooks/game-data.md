@@ -167,7 +167,7 @@ Survival Preparedness와 Alliance Duel의 테마별 점수 항목은 서버가 �
 
 `uv run --no-sync --with "UnityPy>=1.25" --with "lupa>=2.8" dw-collector game-event-guide --bundles C:/DW_data/gamedata/base --bundles C:/DW_data/gamedata/bundles --journal C:/DW_data/live.db --dry-run`
 
-먼저 `--dry-run`으로 개수를 본다(2026-10-08: 테마 10, 점수 항목 125, 달력 42칸). 게임 업데이트 뒤나 테마가
+먼저 `--dry-run`으로 개수를 본다(2026-10-12: 테마 11, 점수 항목 151, 달력 42칸). 게임 업데이트 뒤나 테마가
 이상해 보일 때 다시 돌린다. Duel은 그 주의 차례가 와야 요일 테마가 오므로, 아직 안 온 요일은 가이드에
 "Not seen yet"으로 나온다. 화면은 `#/event-guide`(Events 탭). 시각은 전부 서버 시간(UTC-2)이고, 슬롯 1은
 서버 00:00에 시작하는 4시간 칸이다.

@@ -35,6 +35,8 @@ import {
   fetchVariantChoices,
   foldVariants,
   groupPacks,
+  isGated,
+  isInStore,
   isLive,
   itemLabel,
   loadHidden,
@@ -211,6 +213,7 @@ function VariantMark({ pack, mayEdit }: { pack: PackRowData; mayEdit: boolean })
           {pack.variants} versions
         </span>
       )}
+      {mayEdit && ' '}
       {mayEdit &&
         (pack.picked ? (
           <button
@@ -439,7 +442,8 @@ function PacksTab({ now, mayEdit }: { now: Date; mayEdit: boolean }) {
     const rows = (packs.data ?? []).filter(
       (pack) =>
         pack.dollars > 0 &&
-        (filter === 'all' || isLive(pack, now)) &&
+        (filter === 'all' ||
+          (filter === 'live' ? isInStore(pack, now) : isLive(pack, now) && isGated(pack))) &&
         (price === 'all' || pack.dollars.toFixed(2) === price) &&
         matchesPack(pack, text),
     );
@@ -494,7 +498,8 @@ function PacksTab({ now, mayEdit }: { now: Date; mayEdit: boolean }) {
         <label>
           Show{' '}
           <Select onChange={(chosen) => setFilter(chosen as PackFilter)} value={filter}>
-            <option value="live">On sale now</option>
+            <option value="live">In the store now</option>
+            <option value="event">Event offers (shown only with an event item)</option>
             <option value="all">Every pack seen (incl. no longer sold)</option>
           </Select>
         </label>

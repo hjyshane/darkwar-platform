@@ -8,12 +8,12 @@
 
 import type { StripCell } from '../../components/Strip';
 import { humanUntil } from '../../lib/shellNav';
-import { type PackValue, groupPacks, isLive, ratioLabel } from './data';
+import { type PackValue, groupPacks, isInStore, ratioLabel } from './data';
 
 const plain = new Intl.NumberFormat('en');
 
 export function shopStrip(packs: ReadonlyArray<PackValue>, now: Date): StripCell[] {
-  const live = groupPacks(packs.filter((pack) => isLive(pack, now)));
+  const live = groupPacks(packs.filter((pack) => isInStore(pack, now)));
   const rated = live.filter((pack) => pack.value_ratio !== null);
   const best = [...rated].sort((a, b) => (b.value_ratio ?? 0) - (a.value_ratio ?? 0))[0];
   const ending = live
