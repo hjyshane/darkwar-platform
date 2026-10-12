@@ -70,9 +70,12 @@ async function fetchCapturedTimes(): Promise<CapturedTime[]> {
   }));
 }
 
-export function useCapturedTimes() {
+/** `enabled` false for a reader outside the alliance (0282): these are OUR
+ * alliance's times, and the database returns them nothing anyway. */
+export function useCapturedTimes(enabled = true) {
   return useQuery({
     queryKey: ['event-guide', 'captured-times'],
+    enabled,
     queryFn: fetchCapturedTimes,
     staleTime: 5 * 60 * 1000,
   });

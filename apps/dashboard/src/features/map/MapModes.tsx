@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useIsCommunity } from '../../lib/communityAccess';
 
 /** What the map is being read for. Each mode is a preset over the same data:
  * which bases stay bright, how far out names start, and which layers show. */
@@ -28,7 +29,11 @@ export function MapModeMenu({
 }) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
-  const current = MAP_MODES.find((m) => m.id === mode) ?? MAP_MODES[0];
+  // The hive plan is our alliance's (0165); a community account (0282) cannot
+  // read it, so the mode that draws it is not offered.
+  const isCommunity = useIsCommunity();
+  const modes = MAP_MODES.filter((m) => !(isCommunity && m.id === 'plan'));
+  const current = modes.find((m) => m.id === mode) ?? modes[0];
 
   useEffect(() => {
     if (!open) return;
@@ -62,7 +67,7 @@ export function MapModeMenu({
       </button>
       {open && (
         <div className="atlas-modes__menu" role="menu">
-          {MAP_MODES.map((item) => (
+          {modes.map((item) => (
             <button
               aria-checked={item.id === mode}
               className={

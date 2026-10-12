@@ -43,6 +43,7 @@ import { ServerPage } from './features/server/ServerPage';
 import { ShopValuePage } from './features/shopValue/ShopValuePage';
 import { useRecordActivity } from './lib/activity';
 import { mayOpenSettings } from './lib/adminAccess';
+import { communityMayOpen } from './lib/communityAccess';
 import { EditModeProvider } from './lib/editMode';
 import { isAllowed, usePermissions } from './lib/permissions';
 import { queryKeysForTopic, subscribeDataChanges } from './lib/realtime';
@@ -247,7 +248,10 @@ function Screen({
   eventGuideTab: EventGuideTab;
 }) {
   const { data: session } = useSession();
-  const isOfficer = session?.role === 'officer' || session?.role === 'admin';
+  // Community reads the migration board too (0283 opens the server-level
+  // tables and every alliance's roster but ours). Nothing there is written.
+  const isOfficer =
+    session?.role === 'officer' || session?.role === 'admin' || session?.role === 'community';
   const mayViewMembers = useMayView('members.view');
   const mayViewArena = useMayView('arena.view');
   const mayManageGiftCodes = useMayView('giftcodes.manage');
@@ -372,7 +376,9 @@ function Screen({
   }
 }
 
-const MEMBER_ROLES = new Set(['member', 'officer', 'admin']);
+// `community` (0282) passes the wall: it is signed in and admitted. What it may
+// open is `communityMayOpen`, applied to the page below.
+const MEMBER_ROLES = new Set(['community', 'member', 'officer', 'admin']);
 
 export function App() {
   // Once, for every table on every screen. See the hook: it is delegated off
@@ -447,6 +453,7 @@ function Shell({
   // wall at a member on every load would be worse than a beat of Loading.
   const { data: session, isPending } = useSession();
   const isMember = session !== undefined && MEMBER_ROLES.has(session.role);
+  const isCommunity = session?.role === 'community';
   const walled = !standalone && !isPending && !isMember;
 
   // Only what the wall actually refused. `walled` is in the dependencies as
@@ -471,8 +478,8 @@ function Shell({
       {/* In the bar rather than on a panel: it is about the whole board, not one
           table's data. Only for members: it reads sync_status, which 0065
           closed like everything else. */}
-      {isMember && <SyncStatus />}
-      {isMember && <RefreshButton />}
+      {isMember && !isCommunity && <SyncStatus />}
+      {isMember && !isCommunity && <RefreshButton />}
       {isMember && <AccountLink />}
       {/* Signing out was only reachable from the login screen, which is the one
           place somebody already signed in has no reason to visit. It is here for
@@ -496,6 +503,19 @@ function Shell({
   ) : isPending && !standalone ? (
     <main>
       <p className="empty loading">Loading…</p>
+    </main>
+  ) : isCommunity && !communityMayOpen(route) ? (
+    // The pages that are about the alliance, and the player, alliance and
+    // server pages the ranking rows link to (they list our roster).
+    <main>
+      <section aria-labelledby="community-closed-heading">
+        <h2 id="community-closed-heading">Not available</h2>
+        <p className="empty">
+          This page is for alliance members. Your account can open the overview, rankings,
+          migration, map, planner, game calendar, event guide and shop value.{' '}
+          <a href="#/">Back to the overview</a>
+        </p>
+      </section>
     </main>
   ) : route === 'login' ? (
     <LoginPage />

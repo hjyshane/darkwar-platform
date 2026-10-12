@@ -47,6 +47,7 @@ export function useShellNav(
       : isAllowed(permissions?.grants, session?.role, 'members.view'),
     isAdmin,
     isOfficer: isAdmin || session?.role === 'officer',
+    isCommunity: session?.role === 'community',
     eventGuideTab: eventGuideTabFromHash(hash),
     tabs: {
       members: MEMBERS.fromHash(hash),

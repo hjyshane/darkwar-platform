@@ -23,10 +23,12 @@ export interface RolePermission {
   allowed: boolean;
 }
 
-/** The four roles a person can hold, weakest first — the order the grid's
- * columns run in. The two service roles in the enum are not here: nobody
- * signs in as one and the grid would be offering to configure a key. */
-export const APP_ROLES = ['viewer', 'member', 'officer', 'admin'] as const;
+/** The roles a person can hold, weakest first — the order the grid's columns
+ * run in. `community` (0282) is people outside the alliance who read the
+ * game-wide pages: above a viewer, who reads nothing, and below a member. The
+ * two service roles in the enum are not here: nobody signs in as one and the
+ * grid would be offering to configure a key. */
+export const APP_ROLES = ['viewer', 'community', 'member', 'officer', 'admin'] as const;
 
 export type AppRole = (typeof APP_ROLES)[number];
 
