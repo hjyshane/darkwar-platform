@@ -9412,6 +9412,7 @@ export type Database = {
           contents_listed: boolean | null
           dollars: number | null
           ends_at: string | null
+          is_show: string | null
           item_rubies: number | null
           name: string | null
           name_key: string | null
@@ -9420,6 +9421,7 @@ export type Database = {
           pack_type: string | null
           rubies: number | null
           server_id: number | null
+          show_type: string | null
           starts_at: string | null
           unvalued_items: number | null
           value_dollars: number | null
