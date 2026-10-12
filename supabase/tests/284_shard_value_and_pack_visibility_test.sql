@@ -1,4 +1,4 @@
--- 0282: hero fragments with no value take the universal fragment's; an
+-- 0284: hero fragments with no value take the universal fragment's; an
 -- officer's own value wins; the view carries the game's visibility fields.
 begin;
 create extension if not exists pgtap with schema extensions;

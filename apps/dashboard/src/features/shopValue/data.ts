@@ -77,7 +77,7 @@ export interface PackValue {
   listed: boolean | null;
   /** The game's pack type, the key to `packCategory`. */
   pack_type?: string | null;
-  /** What the game checks before it shows the pack (0282). `show_type` is
+  /** What the game checks before it shows the pack (0284). `show_type` is
    * "6;<item>" for a pack shown only while the player holds that event
    * item; empty for one the store shows on its own. */
   is_show?: string | null;

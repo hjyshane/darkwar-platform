@@ -1,4 +1,4 @@
--- 0282: hero fragments take the universal fragment's value; the page can tell
+-- 0284: hero fragments take the universal fragment's value; the page can tell
 -- event-gated packs from the ones the store shows.
 --
 -- 0278 listed the daily packages' hero-fragment picks, but not one of the 27
@@ -227,7 +227,7 @@ select
   jsonb_array_length(l.items) > 0 or l.rubies > 0 or c.pack_id is not null as contents_listed,
   coalesce(c.choices, '[]'::jsonb) as choices,
   coalesce(c.choice_rubies, 0) + coalesce(k.picked_rubies, 0) as choice_rubies,
-  -- What the game checks before it shows the pack (0282): `is_show` and
+  -- What the game checks before it shows the pack (0284): `is_show` and
   -- `show_type` ("6;<item>": only while the player holds that event item).
   l.raw ->> 'is_show' as is_show,
   l.raw ->> 'show_type' as show_type
@@ -244,6 +244,6 @@ comment on view public.shop_pack_value is
   'choices = the picks (slot > option > {rubies, unvalued, items}) from the '
   'pack''s chooseRewardList and from game_pack_picks; value counts the best '
   'option of each pick (choice_rubies). is_show / show_type are the game''s '
-  'visibility fields (0282). Passes and other packs whose contents '
+  'visibility fields (0284). Passes and other packs whose contents '
   'the pack list does not carry have no value and contents_listed false '
-  '(0215, 0216, 0276, 0278, 0282).';
+  '(0215, 0216, 0276, 0278, 0284).';
