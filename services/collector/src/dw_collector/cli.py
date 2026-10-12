@@ -940,12 +940,14 @@ def game_catalog(
     heroes = catalog.hero_names()
     grades = catalog.hero_grades()
     pet_rarities = catalog.pet_rarities()
+    pack_picks = catalog.pack_picks()
     kinds: dict[str, int] = {}
     for step in steps:
         kinds[step["kind"]] = kinds.get(step["kind"], 0) + 1
     typer.echo(
         f"items={len(items)} resources={len(resources)} steps={len(steps)} {kinds}"
         f" heroes={len(heroes)} effects={len(effects)} gear={len(gear)} tabs={len(tabs)}"
+        f" pack-picks={len(pack_picks)}"
     )
     if dry_run:
         return
@@ -960,6 +962,9 @@ def game_catalog(
         upload.upsert_rows(client, "game_effects", effects, "effect_id")
         upload.upsert_rows(client, "game_hero_gear", gear, "equip_id")
         upload.upsert_rows(client, "game_research_tabs", tabs, "tab_id")
+        upload.upsert_rows(
+            client, "game_pack_picks", pack_picks, "match_kind,match_value,item_id,qty"
+        )
         named, kept = upload.fill_hero_names(client, heroes)
         graded = upload.set_hero_grades(client, grades)
         pets = upload.set_pet_rarities(client, pet_rarities)

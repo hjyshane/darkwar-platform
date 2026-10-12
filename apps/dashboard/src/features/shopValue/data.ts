@@ -28,6 +28,14 @@ export interface PackChoiceOption {
   /** Rewards in this option with no value yet. */
   unvalued: number;
   items: PackItem[];
+  /** Options of equal value the view folded into this one - a daily
+   * package's hero shards differ only in the hero (0278) - and a few of
+   * their names. Absent on an option that stands alone. */
+  same?: number;
+  names?: string[];
+  /** Whether the pack's value takes this option; absent where the best
+   * option of the pick is the one taken. */
+  counted?: boolean;
 }
 
 /** One pick the buyer makes: the options to choose between (0276). A pack
@@ -67,6 +75,8 @@ export interface PackValue {
   /** In the server's newest shop catalog (0235); null before any catalog
    * was recorded for the server, when the time window alone decides. */
   listed: boolean | null;
+  /** The game's pack type, the key to `packCategory`. */
+  pack_type?: string | null;
 }
 
 export interface ListingValue {
@@ -129,6 +139,62 @@ export function isLive(
   const started = pack.starts_at === null || Date.parse(pack.starts_at) <= t;
   const open = pack.ends_at === null || Date.parse(pack.ends_at) > t;
   return started && open;
+}
+
+export interface PackCategory {
+  key: string;
+  label: string;
+  icon: string;
+}
+
+export const PACK_CATEGORIES: ReadonlyArray<PackCategory> = [
+  { key: 'daily', label: 'Daily deals', icon: '\u2600\uFE0F' },
+  { key: 'weekly', label: 'Weekly passes', icon: '\u{1F4C5}' },
+  { key: 'goods', label: 'Pick-your-reward packs', icon: '\u{1F381}' },
+  { key: 'items', label: 'Item packs', icon: '\u{1F4E6}' },
+  { key: 'rubies', label: 'Ruby & currency packs', icon: '\u{1F48E}' },
+  { key: 'pass', label: 'Battle & growth passes', icon: '\u{1F3C5}' },
+  { key: 'hero', label: 'Heroes & gear', icon: '\u2694\uFE0F' },
+  { key: 'other', label: 'Other', icon: '\u{1F3F7}\uFE0F' },
+];
+
+/** The game's `type` of a pack, by the category it reads as. Read off the
+ * names the types carry on the collector's server (2026-10-11): 26 is every
+ * Daily Package, 27 every weekly pass, 24 the goods packs with a pick, 15 the
+ * ruby packs and the event-currency packs, 25 the passes. A type not listed
+ * is Other: add it here when it turns up. */
+const CATEGORY_BY_TYPE: Readonly<Record<string, string>> = {
+  '26': 'daily',
+  '41': 'daily',
+  '27': 'weekly',
+  '31': 'weekly',
+  '24': 'goods',
+  '44': 'goods',
+  '16': 'items',
+  '1': 'rubies',
+  '3': 'rubies',
+  '15': 'rubies',
+  '25': 'pass',
+  '14': 'pass',
+  '29': 'pass',
+  '50': 'pass',
+  '5': 'pass',
+  '37': 'pass',
+  '38': 'pass',
+  '39': 'pass',
+  '45': 'pass',
+  '46': 'pass',
+  '88': 'hero',
+  '666': 'hero',
+  '28': 'hero',
+  '51': 'hero',
+};
+
+const OTHER_CATEGORY = PACK_CATEGORIES[PACK_CATEGORIES.length - 1] as PackCategory;
+
+export function packCategory(type: string | null | undefined): PackCategory {
+  const key = type === null || type === undefined ? undefined : CATEGORY_BY_TYPE[type];
+  return PACK_CATEGORIES.find((c) => c.key === key) ?? OTHER_CATEGORY;
 }
 
 /** Best value first; packs with no ratio (free) last. */

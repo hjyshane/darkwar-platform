@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  PACK_CATEGORIES,
   type PackChoiceOption,
   type PackItem,
   type PackValue,
@@ -11,6 +12,7 @@ import {
   groupPacks,
   isLive,
   matchesPack,
+  packCategory,
   packKey,
   ratioLabel,
 } from './data';
@@ -226,5 +228,23 @@ describe('picks (0276)', () => {
   it('does not change the rename key', () => {
     const plain = pack('a', 'Gem Pack', []);
     expect(packKey({ ...plain, choices: [[gems, speedups]] })).toBe(packKey(plain));
+  });
+});
+
+describe('packCategory', () => {
+  it('reads a pack type as a category, and an unknown type as Other', () => {
+    expect(packCategory('26').key).toBe('daily');
+    expect(packCategory('27').key).toBe('weekly');
+    expect(packCategory('24').key).toBe('goods');
+    expect(packCategory('9999').key).toBe('other');
+    expect(packCategory(null).key).toBe('other');
+  });
+
+  it('gives every category in the table a label and an icon', () => {
+    expect(new Set(PACK_CATEGORIES.map((c) => c.key)).size).toBe(PACK_CATEGORIES.length);
+    for (const c of PACK_CATEGORIES) {
+      expect(c.label).not.toBe('');
+      expect(c.icon).not.toBe('');
+    }
   });
 });

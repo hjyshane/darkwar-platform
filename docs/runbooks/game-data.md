@@ -191,3 +191,19 @@ Survival Preparedness와 Alliance Duel의 테마별 점수 항목은 서버가 �
 
 - 번들·추출물을 레포에 넣기. 게임 회사의 자산이다.
 - `--extra gamedata`를 수집기 상시 실행 환경의 필수 의존성으로 만들기. 이 명령만 쓴다.
+
+### 팩의 선택지 — `exchange.info`에 없는 것 (2026-10-11, 0278)
+
+서버는 일부 팩의 "고르는 보상"을 보내지 않는다. 클라이언트 테이블에만 있다.
+
+| 팩 | 테이블 | 연결 |
+|---|---|---|
+| Pioneer / Commander / Overlord / Integrated Daily Sale Package | `custom_dailypackage` (영웅 조각 하나를 2·3·5·10개) | `item` 열의 세 번째 값 = 팩 id |
+| Value / Elite Custom Weekly Pass | `custom_weekly_card` (`slotnum`개를 `selectable_reward`에서) | `name` = 팩의 name key |
+
+`dw-collector game-catalog`가 `game_pack_picks`로 올린다(`pack-picks=` 숫자가 출력에 나온다).
+영웅 조각은 영웅만 다르고 값이 같아 뷰가 한 줄로 접는다(`same`).
+`exchange.info`가 직접 보내는 선택(`chooseRewardList`)은 0276 — 이쪽은 재캡처 없이 `raw`에서 읽는다.
+
+주의: 번들이 팩보다 오래되면 슬롯 수가 어긋난다(2026-10-11 로컬 번들: Elite = 3칸, 게임 화면은 4칸이라는 제보).
+번들을 다시 복사해 `game-catalog`를 한 번 더 돌린다.

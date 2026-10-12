@@ -526,6 +526,61 @@ class Catalog:
             if step:
                 yield step
 
+    def pack_picks(self) -> list[Row]:
+        """What a pack lets its buyer choose, for the packs whose pick is not in
+        `exchange.info` (0277).
+
+        `custom_dailypackage` is one row per eligible hero shard, its `item`
+        "shard;qty;pack|shard;qty;pack|...": the Pioneer / Commander /
+        Overlord / Integrated daily packages are 2 / 3 / 5 / 10 of the shard
+        the buyer picks. `custom_weekly_card` is a weekly pass whose buyer
+        takes `slotnum` of the `selectable_reward` list; its `name` is the
+        pass's name key, so every pack id that carries it shares the pick.
+
+        One row per option: (match_kind, match_value) says which packs it
+        belongs to, `slots` how many picks the buyer makes from the list.
+        """
+        out: dict[tuple[str, str, str, float], Row] = {}
+
+        def put(kind: str, value: str, slots: int, item_id: str, qty: float) -> None:
+            key = (kind, value, item_id, qty)
+            out[key] = {
+                "match_kind": kind,
+                "match_value": value,
+                "slots": slots,
+                "item_id": item_id,
+                "qty": qty,
+            }
+
+        try:
+            daily = self._rows("custom_dailypackage")
+        except KeyError:
+            daily = {}
+        for row in daily.values():
+            for part in str(row.get("item", "")).split("|"):
+                fields = part.split(";")
+                if len(fields) < 3 or not all(f.strip().isdigit() for f in fields[:3]):
+                    continue
+                put("pack_id", fields[2].strip(), 1, fields[0].strip(), float(fields[1]))
+        try:
+            weekly = self._rows("custom_weekly_card")
+        except KeyError:
+            weekly = {}
+        for row in weekly.values():
+            name, slots = _int(row.get("name")), _int(row.get("slotnum"))
+            if name is None or not slots:
+                continue
+            for part in str(row.get("selectable_reward", "")).split("|"):
+                fields = part.split(";")
+                if len(fields) < 2 or not fields[0].strip().isdigit():
+                    continue
+                try:
+                    qty = float(fields[1])
+                except ValueError:
+                    continue
+                put("name_key", str(name), slots, fields[0].strip(), qty)
+        return list(out.values())
+
     def pet_rarities(self) -> dict[int, int]:
         """pet id -> rarity (1-4), the subject of its level and breakthrough
         costs (0237)."""

@@ -318,6 +318,18 @@ CATALOGUE_TABLES = {
       index = { id = {1,'int'}, rarity = {2,'int'}, level = {3,'int'},
                 cost_levelup = {4,'string'}, cost_break = {5,'string'},
                 breakthrough = {6,'string'} } }""",
+    "custom_dailypackage": """return { data = {
+        [1] = { 1, 1, '210311;2;82000|210311;10;82003', '25;1-164', 1006 },
+        [2] = { 2, 1, '210505;2;82000|210505;10;82003', '25;1-164', 11001 },
+        [3] = { 3, 1, '210311;10;83029|bad|x;1;2', '25;165-9999', 1006 } },
+      index = { id = {1,'int'}, type = {2,'int'}, item = {3,'string'},
+                condition = {4,'string'}, hero = {5,'int'} } }""",
+    "custom_weekly_card": """return { data = {
+        [1] = { 1, 38, 83012, 2, '330005;1|230110;1|bad', 1140003 },
+        [2] = { 2, 38, 83012, 3, '330005;1|230110;1', 1140004 } },
+      index = { id = {1,'int'}, card_type = {2,'int'}, exchangeId = {3,'int'},
+                slotnum = {4,'int'}, selectable_reward = {5,'string'},
+                name = {6,'int'} } }""",
 }
 CATALOGUE_EN = (
     "300001=Precision Part\n300002=Titanium Alloy\n300003=Wood\n300004=Iron\n"
@@ -701,3 +713,21 @@ def test_a_pet_breakthrough_stays_at_its_level() -> None:
 
 def test_pet_rarity_comes_from_the_pet_table() -> None:
     assert _catalogue().pet_rarities() == {101: 3}
+
+
+def test_pack_picks_read_the_daily_hero_shards_and_the_weekly_slots() -> None:
+    picks = _catalogue().pack_picks()
+    by = {(r["match_kind"], r["match_value"], r["item_id"], r["qty"]): r for r in picks}
+
+    # A hero shard is offered at 2 and 10 under the pack ids the row names.
+    assert ("pack_id", "82000", "210311", 2.0) in by
+    assert ("pack_id", "82003", "210505", 10.0) in by
+    assert ("pack_id", "83029", "210311", 10.0) in by
+    assert by[("pack_id", "82000", "210311", 2.0)]["slots"] == 1
+    # The same shard on two rows is one option; malformed parts are skipped.
+    assert len([k for k in by if k[0] == "pack_id"]) == 5
+
+    # A weekly pass: slotnum picks from the list, keyed by the pass's name key.
+    assert by[("name_key", "1140003", "330005", 1.0)]["slots"] == 2
+    assert by[("name_key", "1140004", "230110", 1.0)]["slots"] == 3
+    assert len([k for k in by if k[0] == "name_key"]) == 4
