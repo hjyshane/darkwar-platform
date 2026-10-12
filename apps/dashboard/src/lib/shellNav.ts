@@ -95,6 +95,8 @@ export interface NavContext {
   mayViewMembers: boolean | undefined;
   isAdmin: boolean;
   isOfficer: boolean;
+  /** Between seasons: the Season break tab shows, and only then. */
+  inSeasonBreak?: boolean;
   /** Season names by address (`#/season`), from the seasons table. */
   seasonNames: Readonly<Record<string, string | undefined>>;
   /** The event guide tab in the address; the first when it names none. */
@@ -125,6 +127,7 @@ const ICONS: Partial<Record<Route, IconName>> = {
   hive: 'hive',
   season: 'season',
   season2: 'season',
+  seasonBreak: 'season',
   blackMoney: 'blackGold',
   participation: 'participation',
   planner: 'planner',
@@ -197,6 +200,7 @@ export function buildNav(ctx: NavContext): NavGroup[] {
       (tab) =>
         (tab.route !== 'members' || ctx.mayViewMembers === true) &&
         (tab.route !== 'season2' || ctx.isAdmin) &&
+        (tab.route !== 'seasonBreak' || ctx.inSeasonBreak === true) &&
         (tab.route !== 'giftCodes' || ctx.mayManageGiftCodes === true),
     ).map((tab) => ({
       key: tab.hash,

@@ -1428,6 +1428,27 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
   [['permissions'], { capabilities: CAPABILITIES, grants: GRANTS }],
   // The score bars (0239) are part of the report's key; none set is the report as it was.
   [['participation-bars'], { duel: null, donation: null }],
+  // Between seasons: Season 3 ended on 10-05 and Season 4 begins 11-09, so the
+  // Season break tab shows and the season tab holds the finished one.
+  [
+    ['seasons'],
+    [
+      {
+        id: 3,
+        name: 'Season 3',
+        startsAt: '2026-08-17T02:00:00.000Z',
+        endsAt: '2026-10-05T02:00:00.000Z',
+        buildings: [],
+      },
+      {
+        id: 4,
+        name: 'Season 4',
+        startsAt: '2026-11-09T02:00:00.000Z',
+        endsAt: null,
+        buildings: [],
+      },
+    ],
+  ],
   // The season boards: a building grid, and the two rankings (newest capture each).
   [
     ['seasonBoard', 'buildings', 3, SEASON3_BUILDINGS.map((kind) => kind.id).join(',')],

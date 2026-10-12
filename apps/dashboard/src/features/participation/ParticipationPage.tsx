@@ -36,7 +36,15 @@ import {
   sortRows,
   tallyCounts,
 } from './data';
-import { type Period, type PeriodKind, roundPeriods, seasonPeriod, weekPeriods } from './periods';
+import {
+  type Period,
+  type PeriodKind,
+  customPeriod,
+  gameDate,
+  roundPeriods,
+  seasonPeriod,
+  weekPeriods,
+} from './periods';
 import { participationStrip } from './strip';
 
 /** A season of readings changes when a sweep lands, not by the minute. */
@@ -61,6 +69,7 @@ const KIND_LABELS: ReadonlyArray<[PeriodKind, string]> = [
   ['season', 'Season'],
   ['round', 'Duel round'],
   ['week', 'Week'],
+  ['custom', 'Custom'],
 ];
 
 function n(value: number): string {
@@ -263,22 +272,40 @@ export function ParticipationPage() {
   const current = currentSeason(seasonList.data ?? FALLBACK_SEASONS, now);
   const seasonStart = current?.startsAt ?? SEASON3_START;
   const seasonName = current?.name ?? 'Season 3';
+  // A season that has ended stops at its end; the break after it is not in it.
+  const seasonEnd = current?.endsAt ?? null;
   const season = useMemo(
-    () => seasonPeriod(now, seasonStart, seasonName),
-    [now, seasonStart, seasonName],
+    () => seasonPeriod(now, seasonStart, seasonName, seasonEnd),
+    [now, seasonStart, seasonName, seasonEnd],
   );
-  const rounds = useMemo(() => roundPeriods(now, seasonStart), [now, seasonStart]);
-  const weeks = useMemo(() => weekPeriods(now, seasonStart), [now, seasonStart]);
+  const rounds = useMemo(
+    () => roundPeriods(now, seasonStart, seasonEnd),
+    [now, seasonStart, seasonEnd],
+  );
+  const weeks = useMemo(
+    () => weekPeriods(now, seasonStart, seasonEnd),
+    [now, seasonStart, seasonEnd],
+  );
+  // The custom range, as the two game dates an officer typed. Seeded with the
+  // last week so the tab opens on something.
+  const today = gameDate(now);
+  const [customFrom, setCustomFrom] = useState(() =>
+    gameDate(new Date(now.getTime() - 6 * 86_400_000)),
+  );
+  const [customTo, setCustomTo] = useState(today);
 
   const [kind, setKind] = useState<PeriodKind>('season');
   const [roundIndex, setRoundIndex] = useState(0);
   const [weekIndex, setWeekIndex] = useState(0);
+  const custom = customPeriod(customFrom, customTo, now);
   const period: Period =
     kind === 'round'
       ? (rounds[roundIndex] ?? season)
       : kind === 'week'
         ? (weeks[weekIndex] ?? season)
-        : season;
+        : kind === 'custom'
+          ? (custom ?? season)
+          : season;
 
   const [sort, setSort] = useState<SortState>({ key: 'name', direction: 'asc' });
   const [board, setBoard] = useState<Board>('daily');
@@ -398,6 +425,36 @@ export function ParticipationPage() {
                 ))}
               </Select>
             </label>
+          )}
+          {kind === 'custom' && (
+            <>
+              <label>
+                From{' '}
+                <input
+                  max={today}
+                  onChange={(event) => setCustomFrom(event.target.value)}
+                  type="date"
+                  value={customFrom}
+                />
+              </label>
+              <label>
+                To{' '}
+                <input
+                  max={today}
+                  min={customFrom}
+                  onChange={(event) => setCustomTo(event.target.value)}
+                  type="date"
+                  value={customTo}
+                />
+              </label>
+              {custom === null ? (
+                <span className="error">
+                  Pick a start on or before the end, no later than today.
+                </span>
+              ) : (
+                <span className="subtle">{custom.label}</span>
+              )}
+            </>
           )}
           {kind === 'season' && <span className="subtle">{season.label}</span>}
         </div>

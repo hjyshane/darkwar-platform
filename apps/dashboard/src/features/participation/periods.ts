@@ -23,7 +23,7 @@ export const MAX_RANGE_DAYS = 190;
 
 const ROUND_DAYS = 28;
 
-export type PeriodKind = 'season' | 'round' | 'week';
+export type PeriodKind = 'season' | 'round' | 'week' | 'custom';
 
 export interface Period {
   kind: PeriodKind;
@@ -51,17 +51,30 @@ function day(ms: number): string {
 /** The season so far, through the end of today's game day. Clamped to the
  * longest range the report will answer, from the end backwards — the recent
  * end is the one an officer is asking about. */
-export function seasonPeriod(now: Date, start: string = SEASON_START, name = 'Season 3'): Period {
-  const to = gameDayStart(now).getTime() + DAY_MS;
+export function seasonPeriod(
+  now: Date,
+  start: string = SEASON_START,
+  name = 'Season 3',
+  end: string | null = null,
+): Period {
+  // A season that has ended stops at its end: the break after it is not part
+  // of it (2026-10-11).
+  const today = gameDayStart(now).getTime() + DAY_MS;
+  const to = end === null ? today : Math.min(today, Date.parse(end));
   const from = Math.max(Date.parse(start), to - MAX_RANGE_DAYS * DAY_MS);
   return { kind: 'season', from: iso(from), to: iso(to), label: `${name} (since ${day(from)})` };
 }
 
 /** Every duel round that has started, newest first. */
-export function roundPeriods(now: Date, start: string = SEASON_START): Period[] {
+export function roundPeriods(
+  now: Date,
+  start: string = SEASON_START,
+  end: string | null = null,
+): Period[] {
   const anchor = Date.parse(start);
+  const limit = end === null ? now.getTime() : Math.min(now.getTime(), Date.parse(end) - 1);
   const rounds: Period[] = [];
-  for (let start = anchor, n = 1; start <= now.getTime(); start += ROUND_DAYS * DAY_MS, n += 1) {
+  for (let start = anchor, n = 1; start <= limit; start += ROUND_DAYS * DAY_MS, n += 1) {
     const end = start + ROUND_DAYS * DAY_MS;
     rounds.push({
       kind: 'round',
@@ -74,10 +87,15 @@ export function roundPeriods(now: Date, start: string = SEASON_START): Period[] 
 }
 
 /** Every game week of the season that has started, newest first. */
-export function weekPeriods(now: Date, start: string = SEASON_START): Period[] {
+export function weekPeriods(
+  now: Date,
+  start: string = SEASON_START,
+  end: string | null = null,
+): Period[] {
   const first = Date.parse(start);
+  const limit = end === null ? now : new Date(Math.min(now.getTime(), Date.parse(end) - 1));
   const weeks: Period[] = [];
-  for (let start = resetWeekStart(now).getTime(); start >= first; start -= 7 * DAY_MS) {
+  for (let start = resetWeekStart(limit).getTime(); start >= first; start -= 7 * DAY_MS) {
     weeks.push({
       kind: 'week',
       from: iso(start),
@@ -86,6 +104,32 @@ export function weekPeriods(now: Date, start: string = SEASON_START): Period[] {
     });
   }
   return weeks;
+}
+
+/** A range an officer typed: two game dates, both inclusive (YYYY-MM-DD).
+ *
+ * Null when either is missing or malformed, when the end is before the start,
+ * or when the start is in the future. A range longer than the report answers
+ * (MAX_RANGE_DAYS) is cut from its START, keeping the recent end, and the
+ * label says so. The end is also cut at today: a game day that has not begun
+ * has nothing to count. */
+export function customPeriod(fromDate: string, toDate: string, now: Date): Period | null {
+  const pattern = /^\d{4}-\d{2}-\d{2}$/;
+  if (!pattern.test(fromDate) || !pattern.test(toDate)) return null;
+  const startMs = Date.parse(`${fromDate}T00:00:00.000Z`) + RESET_HOUR_MS;
+  const endMs = Date.parse(`${toDate}T00:00:00.000Z`) + RESET_HOUR_MS + DAY_MS;
+  if (Number.isNaN(startMs) || Number.isNaN(endMs) || endMs <= startMs) return null;
+  const today = gameDayStart(now).getTime() + DAY_MS;
+  if (startMs >= today) return null;
+  const to = Math.min(endMs, today);
+  const from = Math.max(startMs, to - MAX_RANGE_DAYS * DAY_MS);
+  const cut = from > startMs;
+  return {
+    kind: 'custom',
+    from: iso(from),
+    to: iso(to),
+    label: `${day(from)} – ${day(to - DAY_MS)}${cut ? ` (last ${MAX_RANGE_DAYS} days of the range)` : ''}`,
+  };
 }
 
 /** The game date (YYYY-MM-DD) `at` falls on, as the attendance form wants it. */

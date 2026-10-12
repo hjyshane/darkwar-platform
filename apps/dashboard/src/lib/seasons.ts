@@ -44,6 +44,32 @@ export function currentSeason(seasons: readonly Season[], now: Date): Season | n
   return best;
 }
 
+/** Where the calendar is: inside a season, or in the break after one ended and
+ * before the next begins. `currentSeason` alone cannot say: it is the latest
+ * season that has STARTED, so it keeps naming Season 3 through the weeks after
+ * Season 3 ended. A season with no end date is never over -- an unknown end
+ * must not read as "ended at the beginning of time". */
+export type SeasonPhase =
+  | { phase: 'active'; season: Season }
+  | { phase: 'break'; ended: Season; next: Season | null }
+  | { phase: 'none' };
+
+export function seasonPhase(seasons: readonly Season[], now: Date): SeasonPhase {
+  const current = currentSeason(seasons, now);
+  if (current === null) return { phase: 'none' };
+  if (current.endsAt === null || Date.parse(current.endsAt) > now.getTime()) {
+    return { phase: 'active', season: current };
+  }
+  let next: Season | null = null;
+  for (const season of seasons) {
+    if (season.startsAt === null || Date.parse(season.startsAt) <= now.getTime()) continue;
+    if (next === null || Date.parse(season.startsAt) < Date.parse(next.startsAt ?? '')) {
+      next = season;
+    }
+  }
+  return { phase: 'break', ended: current, next };
+}
+
 /** A season's dates as the season rank rule stores them: whole-second UTC
  * instants (`2026-09-10T02:00:00Z`), the form the scorer reads. A season that
  * has no start has no window; one that has no end yet gives an empty end, which

@@ -20,6 +20,7 @@ export type Route =
   | 'crossRankings'
   | 'migration'
   | 'season'
+  | 'seasonBreak'
   | 'season2'
   | 'map'
   | 'hive'
@@ -53,6 +54,7 @@ const ROUTES: Record<string, Route> = {
   '#/migration': 'migration',
   '#/season': 'season',
   '#/season2': 'season2',
+  '#/season-break': 'seasonBreak',
   '#/map': 'map',
   '#/hive': 'hive',
   '#/black-gold': 'blackMoney',
@@ -425,6 +427,9 @@ export const OVERVIEW_TABS: ReadonlyArray<NavTab> = [
 export const ALLIANCE_TABS: ReadonlyArray<NavTab> = [
   { route: 'members', hash: '#/members', label: 'Members' },
   { route: 'hive', hash: '#/hive', label: 'Hive' },
+  // Only between seasons (shellNav): the weeks after one ends and before the
+  // next begins, when the season tab below holds the season that is over.
+  { route: 'seasonBreak', hash: '#/season-break', label: 'Season break' },
   { route: 'season', hash: '#/season', label: 'Season 3' },
   { route: 'season2', hash: '#/season2', label: 'Season 2' },
   { route: 'blackMoney', hash: '#/black-gold', label: 'Black Gold' },
@@ -475,6 +480,7 @@ export function navSection(route: Route): NavSection | null {
     case 'members':
     case 'hive':
     case 'season':
+    case 'seasonBreak':
     case 'season2':
     case 'blackMoney':
     case 'participation':

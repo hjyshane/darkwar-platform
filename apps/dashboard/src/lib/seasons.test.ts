@@ -6,6 +6,7 @@ import {
   currentSeason,
   fromUtcInput,
   pastSeason,
+  seasonPhase,
   toUtcInput,
 } from './seasons';
 
@@ -80,5 +81,54 @@ describe('UTC date boxes', () => {
     expect(toUtcInput(null)).toBe('');
     expect(fromUtcInput('')).toBeNull();
     expect(fromUtcInput('not a date')).toBeUndefined();
+  });
+});
+
+describe('seasonPhase', () => {
+  const ended = (id: number, startsAt: string, endsAt: string | null): Season => ({
+    ...season(id, startsAt),
+    endsAt,
+  });
+  const list = [
+    ended(3, '2026-08-17T02:00:00Z', '2026-10-05T02:00:00Z'),
+    ended(4, '2026-11-09T02:00:00Z', null),
+  ];
+
+  it('is active inside a season', () => {
+    const phase = seasonPhase(list, new Date('2026-09-01T00:00:00Z'));
+    expect(phase).toMatchObject({ phase: 'active' });
+  });
+
+  it('is a break after the season ended and before the next begins', () => {
+    const phase = seasonPhase(list, new Date('2026-10-11T00:00:00Z'));
+    expect(phase.phase).toBe('break');
+    if (phase.phase === 'break') {
+      expect(phase.ended.id).toBe(3);
+      expect(phase.next?.id).toBe(4);
+    }
+  });
+
+  it('is active again once the next season starts', () => {
+    const phase = seasonPhase(list, new Date('2026-11-09T02:00:00Z'));
+    expect(phase.phase === 'active' && phase.season.id).toBe(4);
+  });
+
+  it('a season with no end date is never over', () => {
+    const open = [season(3, '2026-08-17T02:00:00Z')];
+    expect(seasonPhase(open, new Date('2027-01-01T00:00:00Z')).phase).toBe('active');
+  });
+
+  it('is none before any season has started', () => {
+    expect(
+      seasonPhase([season(3, '2026-08-17T02:00:00Z')], new Date('2026-01-01T00:00:00Z')),
+    ).toEqual({
+      phase: 'none',
+    });
+  });
+
+  it('a break with no next season scheduled names none', () => {
+    const only = [ended(3, '2026-08-17T02:00:00Z', '2026-10-05T02:00:00Z')];
+    const phase = seasonPhase(only, new Date('2026-10-11T00:00:00Z'));
+    expect(phase.phase === 'break' && phase.next).toBeNull();
   });
 });
