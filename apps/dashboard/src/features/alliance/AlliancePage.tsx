@@ -4,6 +4,7 @@ import { FavouriteButton } from '../../components/FavouriteButton';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
 import { StatTile } from '../../components/StatTile';
 import { isViewedAlliance } from '../../lib/activeAlliance';
+import { compactNumber } from '../../lib/compactNumber';
 import { ALLIANCE_VIEWS, allianceHash, allianceViewFromHash } from '../../lib/route';
 import { serverHash } from '../../lib/route';
 import { supabase } from '../../lib/supabase';
@@ -181,7 +182,7 @@ async function fetchAlliance(allianceId: string): Promise<AllianceDetail | null>
  * what the page has always opened on and a link from elsewhere expects it. */
 
 const plain = new Intl.NumberFormat('ko-KR');
-const compact = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 });
+const compact = compactNumber(1);
 
 function num(value: number | null): string | null {
   return value === null ? null : plain.format(value);

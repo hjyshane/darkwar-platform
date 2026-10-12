@@ -1,5 +1,6 @@
+import { compactNumber } from '../../lib/compactNumber';
 const whole = new Intl.NumberFormat('ko-KR');
-const compact = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 2 });
+const compact = compactNumber(2);
 
 /** FR-UI-008: unknown is unknown, never zero. */
 export function num(value: number | null | undefined): string {

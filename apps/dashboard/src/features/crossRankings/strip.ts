@@ -2,10 +2,11 @@
 // where its players are from. Pure, so each claim can be checked on its own.
 
 import type { StripCell } from '../../components/Strip';
+import { compactNumber } from '../../lib/compactNumber';
 import { formatAge } from '../../lib/freshness';
 import type { BoardRow } from './boards';
 
-const compact = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 });
+const compact = compactNumber(1);
 const plain = new Intl.NumberFormat('en');
 
 export function boardStrip(rows: readonly BoardRow[], valueLabel: string, now: Date): StripCell[] {

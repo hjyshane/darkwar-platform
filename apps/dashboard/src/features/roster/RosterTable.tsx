@@ -6,6 +6,7 @@ import { FreshnessBadge } from '../../components/FreshnessBadge';
 import { SortableTh } from '../../components/SortableTh';
 import { TableSearch } from '../../components/TableSearch';
 import { BarCell } from '../../components/ui/BarCell';
+import { compactNumber } from '../../lib/compactNumber';
 import { formatLastOnline } from '../../lib/freshness';
 import { fieldsOf } from '../../lib/memberFormulas';
 import { GAME_RANKS, isAllowed, usePermissions } from '../../lib/permissions';
@@ -74,10 +75,7 @@ const numberFormat = new Intl.NumberFormat('ko-KR');
 // Same shortening the overview tiles offer — 4.4M rather than 4,400,000 —
 // because a described column is usually a score, and a score with seven
 // digits is read as a shape rather than a number.
-const compactFormat = new Intl.NumberFormat('en', {
-  notation: 'compact',
-  maximumFractionDigits: 1,
-});
+const compactFormat = compactNumber(1);
 
 /** The rank a member holds, in front of their name.
  *

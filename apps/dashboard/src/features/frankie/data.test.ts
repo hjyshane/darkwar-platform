@@ -80,7 +80,7 @@ describe('sortMembers', () => {
 
 describe('compactDamage', () => {
   it('shortens by magnitude', () => {
-    expect(compactDamage(64_059_759_378)).toBe('64.1B');
+    expect(compactDamage(64_059_759_378)).toBe('64.1G');
     expect(compactDamage(2_500_000)).toBe('2.5M');
     expect(compactDamage(1_500)).toBe('1.5K');
     expect(compactDamage(12)).toBe('12');

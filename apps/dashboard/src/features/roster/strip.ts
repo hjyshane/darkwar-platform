@@ -5,6 +5,7 @@
 // those members, so when some rows have no power the note says how many were
 // counted rather than letting the total pass for the whole roster.
 
+import { compactNumber } from '../../lib/compactNumber';
 import type { RosterRow } from './RosterTable';
 
 export interface StripCell {
@@ -16,7 +17,7 @@ export interface StripCell {
   tone?: 'up' | 'down' | 'flat';
 }
 
-const compact = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 2 });
+const compact = compactNumber(2);
 const plain = new Intl.NumberFormat('en');
 
 const known = (values: readonly (number | null)[]): number[] =>

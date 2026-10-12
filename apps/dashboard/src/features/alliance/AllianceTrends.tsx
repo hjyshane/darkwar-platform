@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { LineChart } from '../../components/LineChart';
 import { StatTile } from '../../components/StatTile';
 import { Sparkline } from '../../components/ui/Sparkline';
+import { compactNumber } from '../../lib/compactNumber';
 import { type Point, type Series, forwardFill, thin } from '../../lib/series';
 import { supabase } from '../../lib/supabase';
 
@@ -114,7 +115,7 @@ async function fetchTrends(allianceId: string) {
   };
 }
 
-const compact = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 2 });
+const compact = compactNumber(2);
 const plain = new Intl.NumberFormat('ko-KR');
 
 function bigValue(value: number): string {

@@ -4,6 +4,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
+import { compactNumber } from '../../lib/compactNumber';
 import { useSeasons } from '../../lib/seasons';
 import type { Account } from './accounts';
 import { type StepCategory, categoryOf, isNotUpgradable } from './categories';
@@ -14,7 +15,7 @@ import type { Target } from './targets';
 
 const SHOWN = 25;
 const numberFormat = new Intl.NumberFormat('en');
-const compact = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 });
+const compact = compactNumber(1);
 
 const METRICS: ReadonlyArray<[Metric, string, string]> = [
   ['perHour', 'Power per hour', 'Power added divided by the time the step takes after buffs.'],

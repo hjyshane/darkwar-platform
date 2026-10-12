@@ -3,6 +3,7 @@ import { FreshnessBadge } from '../../components/FreshnessBadge';
 import { StatTile } from '../../components/StatTile';
 import { getActiveAlliance } from '../../lib/activeAlliance';
 import { fetchAllianceSetting } from '../../lib/allianceSetting';
+import { compactNumber } from '../../lib/compactNumber';
 import { FormulaError, evaluateFormula, parseFormula } from '../../lib/formula';
 import {
   type FormulaMetric,
@@ -170,7 +171,7 @@ export async function fetchSummary(): Promise<OverviewSummary> {
   };
 }
 
-const compact = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 });
+const compact = compactNumber(1);
 const plain = new Intl.NumberFormat('ko-KR');
 
 function formatCompact(value: number | null): string | null {

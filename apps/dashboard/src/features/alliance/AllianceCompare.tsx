@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { LineChart } from '../../components/LineChart';
 import { SortableTh } from '../../components/SortableTh';
 import { isViewedAlliance } from '../../lib/activeAlliance';
+import { compactNumber } from '../../lib/compactNumber';
 import { allianceHash } from '../../lib/route';
 import type { Series } from '../../lib/series';
 import { supabase } from '../../lib/supabase';
@@ -108,7 +109,7 @@ async function fetchHistory(allianceIds: string[]): Promise<HistoryRow[]> {
   return rows;
 }
 
-const compact = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 2 });
+const compact = compactNumber(2);
 const plain = new Intl.NumberFormat('ko-KR');
 
 function bigValue(value: number): string {
