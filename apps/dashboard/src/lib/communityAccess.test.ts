@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { communityMayOpen, isCommunityRole } from './communityAccess';
 import { isEventGuideTabOpen } from './route';
+import { sessionRole } from './useSession';
 
 describe('community role (0282)', () => {
   it('opens the eight game-wide pages', () => {
@@ -53,5 +54,12 @@ describe('community role (0282)', () => {
     expect(isEventGuideTabOpen('today', true)).toBe(true);
     expect(isEventGuideTabOpen('survival', true)).toBe(true);
     expect(isEventGuideTabOpen('scores', false)).toBe(true);
+  });
+
+  it('is not turned into a viewer on the way in', () => {
+    expect(sessionRole('community')).toBe('community');
+    expect(sessionRole('member')).toBe('member');
+    expect(sessionRole('collector_service')).toBe('viewer');
+    expect(sessionRole(null)).toBe('viewer');
   });
 });

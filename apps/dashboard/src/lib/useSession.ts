@@ -3,6 +3,15 @@ import { supabase } from './supabase';
 
 export type AppRole = 'viewer' | 'community' | 'member' | 'officer' | 'admin';
 
+/** What current_app_role() said, as a dashboard role. Anything not listed
+ * reads as a viewer — which is how a community account (0282) was shown the
+ * join-code screen until it was named here. */
+export function sessionRole(role: unknown): AppRole {
+  return role === 'community' || role === 'member' || role === 'officer' || role === 'admin'
+    ? role
+    : 'viewer';
+}
+
 export interface SessionState {
   email: string | null;
   role: AppRole;
@@ -62,7 +71,7 @@ export function useSession() {
         email,
         userId,
         playerId: row?.player_id ?? null,
-        role: role === 'member' || role === 'officer' || role === 'admin' ? role : 'viewer',
+        role: sessionRole(role),
       };
     },
   });
