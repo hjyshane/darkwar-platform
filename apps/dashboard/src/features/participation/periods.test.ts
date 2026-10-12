@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   MAX_RANGE_DAYS,
   SEASON_START,
+  breakPeriod,
   customPeriod,
+  endedSeasonPeriod,
   gameDate,
   gameDayStart,
   roundPeriods,
@@ -134,5 +136,43 @@ describe('customPeriod', () => {
     const days = (Date.parse(p?.to ?? '') - Date.parse(p?.from ?? '')) / 86_400_000;
     expect(days).toBe(MAX_RANGE_DAYS);
     expect(p?.label).toContain('last');
+  });
+});
+
+describe('endedSeasonPeriod', () => {
+  it('is the whole season, first game day to last', () => {
+    const p = endedSeasonPeriod('Season 3', '2026-08-17T02:00:00.000Z', '2026-10-05T02:00:00.000Z');
+    expect(p?.from).toBe('2026-08-17T02:00:00.000Z');
+    expect(p?.to).toBe('2026-10-05T02:00:00.000Z');
+    expect(p?.kind).toBe('previous');
+    expect(p?.label).toContain('2026-10-04');
+  });
+
+  it('is nothing without a start and an end', () => {
+    expect(endedSeasonPeriod('S', null, '2026-10-05T02:00:00.000Z')).toBeNull();
+    expect(endedSeasonPeriod('S', '2026-08-17T02:00:00.000Z', null)).toBeNull();
+  });
+});
+
+describe('breakPeriod', () => {
+  const ENDED = '2026-10-05T02:00:00.000Z';
+  const NEXT = '2026-11-09T02:00:00.000Z';
+
+  it('runs from the end of the season to the end of today while the next has not begun', () => {
+    const p = breakPeriod(new Date('2026-10-11T15:00:00Z'), ENDED, NEXT);
+    expect(p?.from).toBe(ENDED);
+    expect(p?.to).toBe('2026-10-12T02:00:00.000Z');
+    expect(p?.kind).toBe('break');
+  });
+
+  it('stops at the next season start', () => {
+    expect(breakPeriod(new Date('2026-12-01T00:00:00Z'), ENDED, NEXT)?.to).toBe(NEXT);
+  });
+
+  it('has no days on the day the season ends, or with no known end', () => {
+    expect(breakPeriod(new Date('2026-10-05T03:00:00Z'), ENDED, NEXT)?.to).toBe(
+      '2026-10-06T02:00:00.000Z',
+    );
+    expect(breakPeriod(new Date('2026-10-11T00:00:00Z'), null, NEXT)).toBeNull();
   });
 });

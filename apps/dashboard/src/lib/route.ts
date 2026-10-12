@@ -20,7 +20,6 @@ export type Route =
   | 'crossRankings'
   | 'migration'
   | 'season'
-  | 'seasonBreak'
   | 'season2'
   | 'map'
   | 'hive'
@@ -38,6 +37,7 @@ export type Route =
   | 'schedule'
   | 'participation'
   | 'frankie'
+  | 'events'
   | 'planner'
   | 'giftCodes'
   | 'calendar'
@@ -55,7 +55,6 @@ const ROUTES: Record<string, Route> = {
   '#/migration': 'migration',
   '#/season': 'season',
   '#/season2': 'season2',
-  '#/season-break': 'seasonBreak',
   '#/map': 'map',
   '#/hive': 'hive',
   '#/black-gold': 'blackMoney',
@@ -70,6 +69,7 @@ const ROUTES: Record<string, Route> = {
   '#/schedule': 'schedule',
   '#/participation': 'participation',
   '#/frankie': 'frankie',
+  '#/events': 'events',
   '#/planner': 'planner',
   '#/gift-codes': 'giftCodes',
   '#/calendar': 'calendar',
@@ -429,18 +429,10 @@ export const OVERVIEW_TABS: ReadonlyArray<NavTab> = [
 export const ALLIANCE_TABS: ReadonlyArray<NavTab> = [
   { route: 'members', hash: '#/members', label: 'Members' },
   { route: 'hive', hash: '#/hive', label: 'Hive' },
-  // Only between seasons (shellNav): the weeks after one ends and before the
-  // next begins, when the season tab below holds the season that is over.
-  { route: 'seasonBreak', hash: '#/season-break', label: 'Season break' },
-  { route: 'season', hash: '#/season', label: 'Season 3' },
-  { route: 'season2', hash: '#/season2', label: 'Season 2' },
-  { route: 'blackMoney', hash: '#/black-gold', label: 'Black Gold' },
-  // Every member against every event, plus the ones only an officer can
-  // record (0204). Member-only at the policy level, so no capability gate.
-  { route: 'participation', hash: '#/participation', label: 'Participation' },
-  // Each member's Frankie (Bio-Mutant) damage per event and the trend (0277).
-  // Member-only at the policy level, like Participation.
-  { route: 'frankie', hash: '#/frankie', label: 'Frankie' },
+  // Black Gold, Frankie, Participation and the season boards, behind one
+  // entry (2026-10-11). Each keeps its own address, so every link still lands;
+  // the entry opens the first and the sidebar lists the rest under it.
+  { route: 'events', hash: '#/events', label: 'Events' },
   // What raising a building, research, hero or gear costs one of your own
   // accounts after its buffs (item 4). Account state is owner-or-admin (0205).
   { route: 'planner', hash: '#/planner', label: 'Planner' },
@@ -448,6 +440,27 @@ export const ALLIANCE_TABS: ReadonlyArray<NavTab> = [
   // Filtered in `shellNav.ts` on `giftcodes.manage`.
   { route: 'giftCodes', hash: '#/gift-codes', label: 'Gift codes' },
 ];
+
+/** The screens behind the Events entry, in the order they are drawn. Each is
+ * a page of its own with its own address; the hub is the tab strip above them
+ * and the one sidebar entry. `events` itself is the bare address and opens the
+ * first. Season 2 is for admins only (`shellNav.ts`), and the season's own name
+ * comes from the seasons table. */
+export const EVENTS_HUB_TABS: ReadonlyArray<NavTab> = [
+  { route: 'blackMoney', hash: '#/black-gold', label: 'Black Gold' },
+  // Each member's Frankie (Bio-Mutant) damage per event and the trend (0277).
+  { route: 'frankie', hash: '#/frankie', label: 'Frankie' },
+  // Every member against every event, plus the ones only an officer can
+  // record (0204). Member-only at the policy level, so no capability gate.
+  { route: 'participation', hash: '#/participation', label: 'Participation' },
+  { route: 'season', hash: '#/season', label: 'Season 3' },
+  { route: 'season2', hash: '#/season2', label: 'Season 2' },
+];
+
+/** Is this route one of the screens behind the Events entry? */
+export function inEventsHub(route: Route): boolean {
+  return route === 'events' || EVENTS_HUB_TABS.some((tab) => tab.route === route);
+}
 
 /** Events' second row: what the game itself has announced (0208).
  *
@@ -485,11 +498,11 @@ export function navSection(route: Route): NavSection | null {
     case 'members':
     case 'hive':
     case 'season':
-    case 'seasonBreak':
     case 'season2':
     case 'blackMoney':
     case 'participation':
     case 'frankie':
+    case 'events':
     case 'planner':
     case 'giftCodes':
       return 'alliance';

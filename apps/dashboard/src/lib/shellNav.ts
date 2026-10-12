@@ -16,6 +16,7 @@ import {
   type AdminGroup,
   type AllianceView,
   BOARD_TABS,
+  EVENTS_HUB_TABS,
   EVENT_GUIDE_TABS,
   EVENT_TABS,
   type EventGuideTab,
@@ -31,6 +32,7 @@ import {
   adminHash,
   allianceHash,
   eventGuideHash,
+  inEventsHub,
   isRankingRoute,
 } from './route';
 import type { Season } from './seasons';
@@ -95,8 +97,6 @@ export interface NavContext {
   mayViewMembers: boolean | undefined;
   isAdmin: boolean;
   isOfficer: boolean;
-  /** Between seasons: the Season break tab shows, and only then. */
-  inSeasonBreak?: boolean;
   /** Season names by address (`#/season`), from the seasons table. */
   seasonNames: Readonly<Record<string, string | undefined>>;
   /** The event guide tab in the address; the first when it names none. */
@@ -127,8 +127,8 @@ const ICONS: Partial<Record<Route, IconName>> = {
   hive: 'hive',
   season: 'season',
   season2: 'season',
-  seasonBreak: 'season',
   blackMoney: 'blackGold',
+  events: 'blackGold',
   participation: 'participation',
   frankie: 'participation',
   planner: 'planner',
@@ -200,15 +200,25 @@ export function buildNav(ctx: NavContext): NavGroup[] {
     ...ALLIANCE_TABS.filter(
       (tab) =>
         (tab.route !== 'members' || ctx.mayViewMembers === true) &&
-        (tab.route !== 'season2' || ctx.isAdmin) &&
-        (tab.route !== 'seasonBreak' || ctx.inSeasonBreak === true) &&
         (tab.route !== 'giftCodes' || ctx.mayManageGiftCodes === true),
     ).map((tab) => ({
       key: tab.hash,
       href: tab.hash,
       label: name(tab.hash, tab.label),
       icon: iconFor(tab.route),
-      current: tab.route === ctx.route,
+      current: tab.route === 'events' ? inEventsHub(ctx.route) : tab.route === ctx.route,
+      ...(tab.route === 'events'
+        ? {
+            children: EVENTS_HUB_TABS.filter(
+              (entry) => entry.route !== 'season2' || ctx.isAdmin,
+            ).map((entry) => ({
+              key: entry.hash,
+              href: entry.hash,
+              label: name(entry.hash, entry.label),
+              current: entry.route === ctx.route,
+            })),
+          }
+        : {}),
       ...(tab.route === 'members'
         ? {
             children: MEMBERS.tabs.map((entry) => ({
