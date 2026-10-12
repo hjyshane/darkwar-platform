@@ -22,6 +22,7 @@ import { PackRename } from './PackRename';
 import { UnnamedTab } from './UnnamedTab';
 import {
   type ItemValue,
+  PACK_CATEGORIES,
   type PackChoiceOption,
   type PackFilter,
   type PackGroup,
@@ -37,6 +38,7 @@ import {
   loadHidden,
   matchesPack,
   money,
+  packCategory,
   ratioLabel,
   saveItemName,
   saveItemValue,
@@ -131,7 +133,16 @@ function PickOption({
     <>
       <tr className={counted ? 'pick-counted' : 'pick-passed'}>
         <td className="label">
-          {counted ? '✓ ' : '· '}Option {number}
+          {counted ? '✓ ' : '· '}
+          {option.same !== undefined && option.same > 1 ? (
+            <span title={(option.names ?? []).join(', ')}>
+              Any of {option.same}
+              {(option.names ?? []).length > 0 &&
+                ` (${(option.names ?? []).slice(0, 3).join(', ')}${option.same > 3 ? ', …' : ''})`}
+            </span>
+          ) : (
+            <>Option {number}</>
+          )}
         </td>
         <td />
         <td className="num">{money(dollarsOf(option.rubies))}</td>
@@ -199,6 +210,9 @@ function PackRow({
           >
             {open ? '▾' : '▸'} {pack.name}
           </button>
+          <span className="pack-category" title={packCategory(pack.pack_type).label}>
+            {packCategory(pack.pack_type).icon}
+          </span>
           {pack.renamed && (
             <span className="muted" title={`Game name: ${pack.game_name}`}>
               {' '}
@@ -309,7 +323,7 @@ function PackRow({
                       </tr>
                       {slot.map((option, optionIndex) => (
                         <PickOption
-                          counted={option === best}
+                          counted={option.counted ?? option === best}
                           icons={icons.data}
                           // biome-ignore lint/suspicious/noArrayIndexKey: a fixed list, and two options can be identical
                           key={`opt-${optionIndex}`}
@@ -335,6 +349,7 @@ function PacksTab({ now, mayEdit }: { now: Date; mayEdit: boolean }) {
   const [filter, setFilter] = useState<PackFilter>('live');
   const [price, setPrice] = useState<string>('all');
   const [text, setText] = useState('');
+  const [category, setCategory] = useState<string>('all');
   const [sort, setSort] = useState<SortState>({ key: 'value_ratio', direction: 'desc' });
   const onSort = (key: string) => setSort(nextSort(sort, key));
   const [hidden, setHidden] = useState<ReadonlySet<string>>(loadHidden);
@@ -350,7 +365,7 @@ function PacksTab({ now, mayEdit }: { now: Date; mayEdit: boolean }) {
       storeHidden(next);
       return next;
     });
-  const grouped = useMemo(() => {
+  const ofCategory = useMemo(() => {
     const rows = (packs.data ?? []).filter(
       (pack) =>
         pack.dollars > 0 &&
@@ -358,8 +373,26 @@ function PacksTab({ now, mayEdit }: { now: Date; mayEdit: boolean }) {
         (price === 'all' || pack.dollars.toFixed(2) === price) &&
         matchesPack(pack, text),
     );
-    return sortRows(groupPacks(rows), sort);
-  }, [packs.data, filter, price, now, sort, text]);
+    return groupPacks(rows);
+  }, [packs.data, filter, price, now, text]);
+  const categoryCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const group of ofCategory) {
+      const key = packCategory(group.pack_type).key;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    return counts;
+  }, [ofCategory]);
+  const grouped = useMemo(
+    () =>
+      sortRows(
+        category === 'all'
+          ? ofCategory
+          : ofCategory.filter((group) => packCategory(group.pack_type).key === category),
+        sort,
+      ),
+    [ofCategory, category, sort],
+  );
   const hiddenHere = grouped.filter((pack) => hidden.has(pack.key)).length;
   const shown = showHidden ? grouped : grouped.filter((pack) => !hidden.has(pack.key));
   const prices = useMemo(
@@ -420,6 +453,27 @@ function PacksTab({ now, mayEdit }: { now: Date; mayEdit: boolean }) {
         )}
         <span className="subtle">{shown.length} offers. Click a heading to sort.</span>
       </div>
+      <fieldset aria-label="Pack category" className="pack-categories">
+        <button
+          aria-pressed={category === 'all'}
+          className="pack-chip"
+          onClick={() => setCategory('all')}
+          type="button"
+        >
+          All <span className="muted">{ofCategory.length}</span>
+        </button>
+        {PACK_CATEGORIES.filter((c) => (categoryCounts.get(c.key) ?? 0) > 0).map((c) => (
+          <button
+            aria-pressed={category === c.key}
+            className="pack-chip"
+            key={c.key}
+            onClick={() => setCategory(category === c.key ? 'all' : c.key)}
+            type="button"
+          >
+            {c.icon} {c.label} <span className="muted">{categoryCounts.get(c.key)}</span>
+          </button>
+        ))}
+      </fieldset>
       <div className="table-wrap">
         <table className="compact">
           <thead>

@@ -3848,6 +3848,33 @@ export type Database = {
         }
         Relationships: []
       }
+      game_pack_picks: {
+        Row: {
+          item_id: string
+          match_kind: string
+          match_value: string
+          qty: number
+          slots: number
+          updated_at: string
+        }
+        Insert: {
+          item_id: string
+          match_kind: string
+          match_value: string
+          qty: number
+          slots: number
+          updated_at?: string
+        }
+        Update: {
+          item_id?: string
+          match_kind?: string
+          match_value?: string
+          qty?: number
+          slots?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       game_research_tabs: {
         Row: {
           name: string | null
