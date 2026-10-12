@@ -10111,7 +10111,12 @@ export type Database = {
         Returns: number
       }
       set_ui_override: {
-        Args: { p_key: string; p_kind: string; p_scope: string; p_value: string }
+        Args: {
+          p_key: string
+          p_kind: string
+          p_scope: string
+          p_value: string
+        }
         Returns: undefined
       }
       tier_rank: { Args: { p_tier: string }; Returns: number }
