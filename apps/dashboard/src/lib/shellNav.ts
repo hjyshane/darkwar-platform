@@ -33,6 +33,7 @@ import {
   allianceHash,
   eventGuideHash,
   inEventsHub,
+  isEventGuideTabOpen,
   isRankingRoute,
 } from './route';
 import type { Season } from './seasons';
@@ -98,6 +99,9 @@ export interface NavContext {
   mayViewMembers: boolean | undefined;
   isAdmin: boolean;
   isOfficer: boolean;
+  /** A `community` account (0282): outside the alliance, offered the game-wide
+   * screens only. Everything that is about our alliance is left out. */
+  isCommunity?: boolean;
   /** Names, order and visibility an admin set on the page (0279). */
   overrides?: Overrides;
   /** Season names by address (`#/season`), from the seasons table. */
@@ -152,7 +156,9 @@ export function buildNav(ctx: NavContext): NavGroup[] {
   const name = (hash: string, fallback: string) => ctx.seasonNames[hash] ?? fallback;
 
   const watch: NavItem[] = [
-    ...OVERVIEW_TABS.filter((tab) => tab.route !== 'migration' || ctx.isOfficer).map((tab) => ({
+    ...OVERVIEW_TABS.filter(
+      (tab) => tab.route !== 'migration' || ctx.isOfficer || ctx.isCommunity === true,
+    ).map((tab) => ({
       key: tab.hash,
       href: tab.hash,
       // The overview entry is the landing screen; "Cross-Server Ranking" stands
@@ -180,7 +186,7 @@ export function buildNav(ctx: NavContext): NavGroup[] {
   ];
 
   const alliance: NavItem[] = [
-    ...(ctx.own === null
+    ...(ctx.own === null || ctx.isCommunity === true
       ? []
       : [
           {
@@ -202,6 +208,8 @@ export function buildNav(ctx: NavContext): NavGroup[] {
         ]),
     ...ALLIANCE_TABS.filter(
       (tab) =>
+        // Community: the planner is the one entry of this group it is given.
+        (ctx.isCommunity !== true || tab.route === 'planner') &&
         (tab.route !== 'members' || ctx.mayViewMembers === true) &&
         (tab.route !== 'giftCodes' || ctx.mayManageGiftCodes === true),
     ).map((tab) => ({
@@ -276,7 +284,9 @@ export function buildNav(ctx: NavContext): NavGroup[] {
     current: tab.route === ctx.route,
     ...(tab.route === 'eventGuide'
       ? {
-          children: EVENT_GUIDE_TABS.map((entry) => ({
+          children: EVENT_GUIDE_TABS.filter((entry) =>
+            isEventGuideTabOpen(entry.id, ctx.isCommunity === true),
+          ).map((entry) => ({
             key: eventGuideHash(entry.id),
             href: eventGuideHash(entry.id),
             label: entry.label,
@@ -286,7 +296,7 @@ export function buildNav(ctx: NavContext): NavGroup[] {
       : {}),
   }));
 
-  const boards: NavItem[] = BOARD_TABS.map((tab) => ({
+  const boards: NavItem[] = (ctx.isCommunity === true ? [] : BOARD_TABS).map((tab) => ({
     key: tab.hash,
     href: tab.hash,
     label: tab.label,
@@ -300,7 +310,11 @@ export function buildNav(ctx: NavContext): NavGroup[] {
 
   return [
     { id: 'watch' as const, label: 'Watch', items: watch },
-    { id: 'alliance' as const, label: 'Alliance', items: alliance },
+    {
+      id: 'alliance' as const,
+      label: ctx.isCommunity === true ? 'Tools' : 'Alliance',
+      items: alliance,
+    },
     { id: 'events' as const, label: 'Events', items: events },
     { id: 'boards' as const, label: 'Boards', items: boards },
   ].filter((group) => group.items.length > 0);

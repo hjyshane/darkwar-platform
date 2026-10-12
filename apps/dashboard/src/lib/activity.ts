@@ -41,7 +41,10 @@ async function record(kind: ActivityKind, userId: string): Promise<void> {
 export function useRecordActivity(kind: ActivityKind): void {
   const { data: session } = useSession();
   const userId = session?.userId ?? null;
-  const scores = session?.role !== 'viewer';
+  // A viewer is refused by the insert policy, and a community account is
+  // not in the alliance whose activity this scores (0114).
+  const scores =
+    session?.role === 'member' || session?.role === 'officer' || session?.role === 'admin';
   useEffect(() => {
     if (userId !== null && scores) {
       void record(kind, userId);

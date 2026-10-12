@@ -1,7 +1,13 @@
 import { useMemo, useState } from 'react';
 import { StatTile } from '../../components/StatTile';
 import { Tabs } from '../../components/ui/Tabs';
-import { EVENT_GUIDE_TABS, type EventGuideTab, eventGuideHash } from '../../lib/route';
+import { useIsCommunity } from '../../lib/communityAccess';
+import {
+  EVENT_GUIDE_TABS,
+  type EventGuideTab,
+  eventGuideHash,
+  isEventGuideTabOpen,
+} from '../../lib/route';
 import { humanUntil } from '../../lib/shellNav';
 import { SERVER_ZONE, browserZone, zoneLabel, zonedDayKey, zonedTime } from '../../lib/timezone';
 import { replaceHash } from '../../lib/useHash';
@@ -49,19 +55,30 @@ const bracket = (hint: string) => (hint === '' ? '' : ` (${hint})`);
  * Nothing about a member is on this page: what a person earns depends on their
  * buffs, so it lists the actions that score and their base value. All times are
  * server time (UTC-2), the clock the members read. */
-export function EventGuidePage({ tab }: { tab: EventGuideTab }) {
+export function EventGuidePage({ tab: asked }: { tab: EventGuideTab }) {
+  // A community account (0282) is outside the alliance: no member duel scores,
+  // and none of the times OUR alliance chose. The guide itself is the game's.
+  const isCommunity = useIsCommunity();
+  const tab = isEventGuideTabOpen(asked, isCommunity) ? asked : 'today';
   const guide = useEventGuide();
-  const times = useCapturedTimes();
+  const times = useCapturedTimes(!isCommunity);
   const needsGuide = tab !== 'events' && tab !== 'scores';
   const timesRows = times.data ?? [];
 
   return (
     <section aria-labelledby="guide-heading" className="event-guide">
-      <OurTimes error={times.error} loading={times.isPending} rows={times.data ?? []} />
+      <OurTimes
+        error={times.error}
+        loading={times.isPending && !isCommunity}
+        ours={!isCommunity}
+        rows={times.data ?? []}
+      />
       {/* One address per tab (#/event-guide/duel), so the sidebar and a pasted
           link land on the tab itself and the back button steps between them. */}
       <Tabs
-        items={EVENT_GUIDE_TABS.map((entry) => ({ id: entry.id, label: entry.label }))}
+        items={EVENT_GUIDE_TABS.filter((entry) => isEventGuideTabOpen(entry.id, isCommunity)).map(
+          (entry) => ({ id: entry.id, label: entry.label }),
+        )}
         label="Event guide sections"
         onChange={(id) => {
           replaceHash(eventGuideHash(id));
@@ -103,10 +120,13 @@ function OurTimes({
   rows,
   loading,
   error,
+  ours,
 }: {
   rows: readonly CapturedTime[];
   loading: boolean;
   error: Error | null;
+  /** False for a reader outside the alliance: the strip is OUR times. */
+  ours: boolean;
 }) {
   const now = Date.now();
   const ahead = rows.filter((row) => Date.parse(row.startsAt) > now).slice(0, HOW_MANY_TIMES);
@@ -129,7 +149,7 @@ function OurTimes({
       </header>
       {loading && <p className="empty loading">Loading…</p>}
       {error && <p className="error">Could not load the times: {error.message}</p>}
-      {!loading && !error && ahead.length === 0 && (
+      {ours && !loading && !error && ahead.length === 0 && (
         <p className="empty">
           No siege, Frankie or Black Gold time ahead has been read from the game yet. They arrive
           when a member of the alliance logs in on the collector.

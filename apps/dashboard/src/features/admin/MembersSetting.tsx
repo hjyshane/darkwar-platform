@@ -585,7 +585,11 @@ export function MembersSetting() {
                           anyone else (0195), and a choice that always fails is
                           not a choice. */}
                       {APP_ROLES.filter(
-                        (role) => role !== 'admin' || isAdmin || member.alliance_role === 'admin',
+                        (role) =>
+                          (role !== 'admin' || isAdmin || member.alliance_role === 'admin') &&
+                          // Community is granted by a join code, not here: it
+                          // belongs to no alliance (0283).
+                          (role !== 'community' || member.alliance_role === 'community'),
                       ).map((role) => (
                         <option key={role} value={role}>
                           {role}

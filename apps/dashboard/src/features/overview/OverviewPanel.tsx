@@ -3,6 +3,7 @@ import { FreshnessBadge } from '../../components/FreshnessBadge';
 import { StatTile } from '../../components/StatTile';
 import { getActiveAlliance } from '../../lib/activeAlliance';
 import { fetchAllianceSetting } from '../../lib/allianceSetting';
+import { useIsCommunity } from '../../lib/communityAccess';
 import { compactNumber } from '../../lib/compactNumber';
 import { FormulaError, evaluateFormula, parseFormula } from '../../lib/formula';
 import {
@@ -328,6 +329,19 @@ export function OverviewPanel({ now }: { now?: Date }) {
 
 /** The landing screen. Sections in reading order; the next one appends. */
 export function Overview({ now }: { now?: Date }) {
+  // A community account (0282) is outside the alliance: the summary, the
+  // notices and guides, the captured times and the stars are all ours. What is
+  // left is the cross-server list of scanned servers.
+  const isCommunity = useIsCommunity();
+  if (isCommunity) {
+    return (
+      <div className="overview-grid">
+        <div className="overview-main">
+          <ScannedServers now={now} />
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="overview-grid">
       <div className="overview-main">

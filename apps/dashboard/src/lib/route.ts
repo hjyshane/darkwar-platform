@@ -157,6 +157,13 @@ export const EVENT_GUIDE_TABS: ReadonlyArray<{ id: EventGuideTab; label: string 
   { id: 'scores', label: 'Duel scores' },
 ];
 
+/** Whether an event guide tab is shown to this reader. A community account
+ * (0282) is outside the alliance: it does not get our members' duel scores or
+ * the times our alliance chose. The guide's own lists are the same for all. */
+export function isEventGuideTabOpen(id: EventGuideTab, isCommunity: boolean): boolean {
+  return !isCommunity || (id !== 'scores' && id !== 'events');
+}
+
 const EVENT_GUIDE_HASH = new RegExp(
   `^#/event-guide(?:/(${EVENT_GUIDE_TABS.map((tab) => tab.id).join('|')}))?$`,
 );

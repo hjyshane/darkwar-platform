@@ -28,7 +28,7 @@ import { supabase } from '../../lib/supabase';
 interface CodeRow {
   code_id: string;
   code: string;
-  grants_role: 'member' | 'officer';
+  grants_role: 'member' | 'officer' | 'community';
   max_uses: number | null;
   used_count: number;
   expires_at: string | null;
@@ -60,7 +60,7 @@ export function JoinCodesSetting() {
   const queryClient = useQueryClient();
   const { data, error, isPending } = useQuery({ queryKey: ['join-codes'], queryFn: fetchCodes });
 
-  const [role, setRole] = useState<'member' | 'officer'>('member');
+  const [role, setRole] = useState<'member' | 'officer' | 'community'>('member');
   const [maxUses, setMaxUses] = useState('');
   const [days, setDays] = useState('30');
   const [note, setNote] = useState('');
@@ -131,9 +131,15 @@ export function JoinCodesSetting() {
       >
         <label>
           Grants
-          <Select onChange={(chosen) => setRole(chosen as 'member' | 'officer')} value={role}>
+          <Select
+            onChange={(chosen) => setRole(chosen as 'member' | 'officer' | 'community')}
+            value={role}
+          >
             <option value="member">member — sees alliance figures</option>
             <option value="officer">officer — also sees activity and jobs</option>
+            <option value="community">
+              community — game-wide pages only, nothing about the alliance
+            </option>
           </Select>
         </label>
         <label>

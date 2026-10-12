@@ -173,10 +173,15 @@ export function LoginPage() {
               <PlayerClaimForm />
               {/* A code is per alliance (0193), so a member of one can still
                   be invited into the other with the same account. */}
-              <details>
-                <summary>Invited to another of our alliances?</summary>
-                <JoinCodeForm onRedeemed={() => refreshSession()} />
-              </details>
+              {/* A community account (0282) has no alliance to be invited to
+                  another of; a member code would promote it, which is for
+                  an officer to hand out, not for this page to suggest. */}
+              {session.role !== 'community' && (
+                <details>
+                  <summary>Invited to another of our alliances?</summary>
+                  <JoinCodeForm onRedeemed={() => refreshSession()} />
+                </details>
+              )}
             </>
           )}
           <button onClick={() => void signOut()} type="button">
@@ -185,7 +190,9 @@ export function LoginPage() {
           {/* Only once there is something to leave. Offering it to a viewer
               would be offering to give up access they have not been granted,
               and `leave_alliance()` returns quietly for that case anyway. */}
-          {session !== undefined && session.role !== 'viewer' && <LeaveAllianceForm />}
+          {session !== undefined && session.role !== 'viewer' && session.role !== 'community' && (
+            <LeaveAllianceForm />
+          )}
         </section>
       </main>
     );

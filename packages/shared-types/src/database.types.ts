@@ -10197,6 +10197,7 @@ export type Database = {
         | "admin"
         | "collector_service"
         | "analyst_service"
+        | "community"
       collector_status:
         | "healthy"
         | "degraded"
@@ -10351,6 +10352,7 @@ export const Constants = {
         "admin",
         "collector_service",
         "analyst_service",
+        "community",
       ],
       collector_status: [
         "healthy",

@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from './supabase';
 
-export type AppRole = 'viewer' | 'member' | 'officer' | 'admin';
+export type AppRole = 'viewer' | 'community' | 'member' | 'officer' | 'admin';
 
 export interface SessionState {
   email: string | null;

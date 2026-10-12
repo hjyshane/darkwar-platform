@@ -22,7 +22,9 @@ const COLUMN: Record<FavouriteKind, 'player_id' | 'alliance_id' | 'server_id'> =
  */
 export function useFavourites() {
   const { data: session } = useSession();
-  const signedIn = session?.email != null;
+  // A community account (0282) has no alliance to keep shortcuts to, and the
+  // stars sit on screens it is not offered.
+  const signedIn = session?.email != null && session.role !== 'community';
   const queryClient = useQueryClient();
 
   const { data } = useQuery({
