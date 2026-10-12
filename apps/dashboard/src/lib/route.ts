@@ -438,7 +438,7 @@ export const ALLIANCE_TABS: ReadonlyArray<NavTab> = [
   // Every member against every event, plus the ones only an officer can
   // record (0204). Member-only at the policy level, so no capability gate.
   { route: 'participation', hash: '#/participation', label: 'Participation' },
-  // Each member's Frankie (Bio-Mutant) damage per event and the trend (0276).
+  // Each member's Frankie (Bio-Mutant) damage per event and the trend (0277).
   // Member-only at the policy level, like Participation.
   { route: 'frankie', hash: '#/frankie', label: 'Frankie' },
   // What raising a building, research, hero or gear costs one of your own

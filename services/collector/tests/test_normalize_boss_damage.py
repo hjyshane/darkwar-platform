@@ -1,4 +1,4 @@
-"""alliance.boss.damage.rank.new -- the Frankie damage board (0276)."""
+"""alliance.boss.damage.rank.new -- the Frankie damage board (0277)."""
 
 from __future__ import annotations
 

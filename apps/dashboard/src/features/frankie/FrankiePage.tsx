@@ -5,7 +5,7 @@
 // where somebody opened it, and from an officer's typed damage otherwise; the
 // boards are only captured when somebody looks, so an event can be missing
 // from the columns altogether. A dash in an event column is a member with no
-// damage on that event -- for Frankie that is an absence (0276).
+// damage on that event -- for Frankie that is an absence (0277).
 
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';

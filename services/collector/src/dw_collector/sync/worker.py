@@ -67,7 +67,7 @@ _TABLE_ORDER = [
     "black_money_score_snapshots",
     # Furnace Fury member boards (0212): a player and an alliance each.
     "furnace_fury_scores",
-    # Frankie damage board (0276): a player each.
+    # Frankie damage board (0277): a player each.
     "boss_damage_scores",
     # Packs and shop entries (0215). No refs.
     "shop_pack_snapshots",

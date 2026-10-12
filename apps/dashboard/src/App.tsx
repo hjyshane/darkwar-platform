@@ -329,7 +329,7 @@ function Screen({
       return <ParticipationPage />;
     case 'frankie':
       // No capability gate: the board and the report are member-only at the
-      // policy level (0276), like Participation's.
+      // policy level (0277), like Participation's.
       return <FrankiePage />;
     case 'shopValue':
       // No capability gate: every table behind it is member-only at the policy

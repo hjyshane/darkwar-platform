@@ -1,4 +1,4 @@
--- 0276: Frankie (Bio-Mutant) damage per member per event, captured.
+-- 0277: Frankie (Bio-Mutant) damage per member per event, captured.
 --
 -- Asked for on 2026-10-11: a Frankie page with each member's dates and damage,
 -- and a trend. Until now the only record was what an officer typed
@@ -51,7 +51,7 @@ create index boss_damage_scores_player_idx
   on public.boss_damage_scores (player_id, captured_at desc);
 
 comment on table public.boss_damage_scores is
-  'Frankie damage board (alliance.boss.damage.rank.new, 0276): one row per '
+  'Frankie damage board (alliance.boss.damage.rank.new, 0277): one row per '
   'member per distinct read. Per event, not cumulative. On it = took part.';
 
 alter table public.boss_damage_scores enable row level security;
@@ -147,7 +147,7 @@ as $$
 $$;
 
 comment on function public.boss_damage_by_event(date, date) is
-  'Frankie damage per current member per event (0276): the captured board, '
+  'Frankie damage per current member per event (0277): the captured board, '
   'else what an officer typed. Scoped to the alliance being viewed.';
 
 revoke all on function public.boss_damage_by_event(date, date) from public, anon;

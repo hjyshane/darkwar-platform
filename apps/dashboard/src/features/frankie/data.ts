@@ -1,4 +1,4 @@
-// Frankie (Bio-Mutant): each member's damage per event, and the trend (0276).
+// Frankie (Bio-Mutant): each member's damage per event, and the trend (0277).
 //
 // The report is a GRID: every current member against every event that has any
 // damage on record. A null cell is a member with no damage on that event --

@@ -1,4 +1,4 @@
--- 0276: the Frankie damage board and boss_damage_by_event.
+-- 0277: the Frankie damage board and boss_damage_by_event.
 --
 -- Two Frankie events: 10-05 and 10-11 (each starts 02:30 UTC). Alpha and Bravo
 -- are members; Outsider is not on the roster.

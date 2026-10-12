@@ -1,4 +1,4 @@
-"""alliance.boss.damage.rank.new -> boss_damage_scores (Frankie, 0276).
+"""alliance.boss.damage.rank.new -> boss_damage_scores (Frankie, 0277).
 
 The alliance's Frankie (Bio-Mutant) damage board: every member who hit the
 boss in the event, with the damage they did. Matched to the game on

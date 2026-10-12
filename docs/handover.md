@@ -141,7 +141,7 @@ Clash(09-19), 93 미정. 본문은 스키마 없는 protobuf. 라벨 붙인 스�
 분석용 스크립트는 세션 스크래치에만 있었다 — 다시 짤 때는 `capture-sweep.md`의 표에서
 시작한다.
 
-## 2026-10-11 — Frankie 페이지 (0276, Alliance → Frankie)
+## 2026-10-11 — Frankie 페이지 (0277, Alliance → Frankie)
 
 멤버별 Frankie(Bio-Mutant) 데미지를 이벤트마다 모아 추이를 본다.
 `boss_damage_scores` (파서 `normalize/boss_damage.py`, 명령 `alliance.boss.damage.rank.new`)와
@@ -159,7 +159,7 @@ Clash(09-19), 93 미정. 본문은 스키마 없는 protobuf. 라벨 붙인 스�
   같은 날·멤버에 둘 다 있으면 수집이 이긴다.
 - **보드는 누가 열어야 수집된다.** 이벤트가 끝나면 연맹 데미지 랭킹을 한 번 열어 둔다.
   저널에는 10-05와 10-11 두 번만 있다.
-- **이전 날을 채우려면** (마이그레이션 0276이 운영에 들어간 뒤):
+- **이전 날을 채우려면** (마이그레이션 0277이 운영에 들어간 뒤):
   `dw-collector backfill --command alliance.boss.damage.rank.new --table boss_damage_scores`
 - 라운드별 분리는 불가: 1라운드 직후 보드를 읽은 적이 없다. 읽어 두면 2라운드 = 최종 − 그 값.
 - 테스트: `supabase/tests/140_boss_damage_test.sql`, `test_normalize_boss_damage.py`.

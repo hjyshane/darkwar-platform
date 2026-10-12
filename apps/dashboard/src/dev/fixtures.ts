@@ -1448,7 +1448,8 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
         buildings: [],
       },
     ],
-  // Frankie damage per member per event (0276): a grid, null where no damage.
+  ],
+  // Frankie damage per member per event (0277): a grid, null where no damage.
   [
     ['frankie-damage'],
     [
