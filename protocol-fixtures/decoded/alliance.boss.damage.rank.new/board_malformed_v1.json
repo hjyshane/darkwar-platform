@@ -1,0 +1,23 @@
+{
+  "observation_id": "00000000-0000-4000-8000-00000000f103",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "alliance.boss.damage.rank.new",
+  "captured_at": "2026-10-11T18:15:38+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "_id": 803,
+    "_time": 0,
+    "rankList": [
+      {
+        "abbr": "TST",
+        "banType": 0,
+        "damage": 64059759378,
+        "name": "Alpha",
+        "pic": "",
+        "picVer": 9,
+        "rank": 1,
+        "uid": "not-a-uid"
+      }
+    ]
+  }
+}

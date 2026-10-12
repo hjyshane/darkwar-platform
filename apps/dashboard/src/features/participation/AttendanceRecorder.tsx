@@ -18,7 +18,9 @@ import {
   fetchAttendanceDay,
   fetchEventDays,
   fetchScannedScores,
+  fetchTickedDays,
   parseScore,
+  pickableDays,
   recordAttendance,
 } from './data';
 import { gameDate } from './periods';
@@ -76,6 +78,14 @@ export function AttendanceRecorder({
     queryFn: () => fetchEventDays(kind),
     enabled: kind !== '',
   });
+  // Days with ticks but no declaration are held days too (a back-fill writes
+  // ticks, not declarations); without them the picker hid the day to edit.
+  const ticked = useQuery({
+    queryKey: ['attendance-ticked-days', kind],
+    queryFn: () => fetchTickedDays(kind),
+    enabled: kind !== '',
+  });
+  const pickable = pickableDays(days.data ?? [], ticked.data ?? []);
 
   function markOf(playerId: string): Mark {
     return draft.has(playerId) ? (draft.get(playerId) ?? null) : (onRecord.get(playerId) ?? null);
@@ -173,7 +183,7 @@ export function AttendanceRecorder({
             ))}
           </Select>
         </label>
-        {(days.data ?? []).length > 0 && (
+        {pickable.length > 0 && (
           <label>
             Held{' '}
             <Select
@@ -181,10 +191,10 @@ export function AttendanceRecorder({
                 setHeldOn(chosen);
                 resetDraft();
               }}
-              value={days.data?.some((day) => day.held_on === heldOn) ? heldOn : ''}
+              value={pickable.some((day) => day.held_on === heldOn) ? heldOn : ''}
             >
               <option value="">Pick a day…</option>
-              {days.data?.map((day) => (
+              {pickable.map((day) => (
                 <option key={day.held_on} value={day.held_on}>
                   {day.held_on}
                   {day.note ? ` · ${day.note}` : ''}

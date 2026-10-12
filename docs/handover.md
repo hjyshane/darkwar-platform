@@ -141,6 +141,29 @@ Clash(09-19), 93 미정. 본문은 스키마 없는 protobuf. 라벨 붙인 스�
 분석용 스크립트는 세션 스크래치에만 있었다 — 다시 짤 때는 `capture-sweep.md`의 표에서
 시작한다.
 
+## 2026-10-11 — Frankie 페이지 (0277, Alliance → Frankie)
+
+멤버별 Frankie(Bio-Mutant) 데미지를 이벤트마다 모아 추이를 본다.
+`boss_damage_scores` (파서 `normalize/boss_damage.py`, 명령 `alliance.boss.damage.rank.new`)와
+`public.boss_damage_by_event()`가 멤버 × 이벤트 격자를 준다.
+
+- **보드는 이벤트 단위지 누적이 아니다.** 10-05 보드 합계가 830,655,667,504였고 같은 날
+  `dmgRecordArr`(연맹 최고 기록)가 정확히 그 숫자가 됐다. 10-11 보드(563.9B)는 기록 아래라
+  기록은 그대로. 이벤트 = 하루 2라운드(02:30, 15:00 UTC), 대략 3일에 한 번.
+- **참가자 전원 목록이다.** 39명(10-11), 45명(10-05). `alliance.boss.personal.damage`는
+  수집 계정이 본 랠리만이라(10-11: 564B 중 85B) 쓰지 않는다.
+- 보드에는 시간도 이벤트 id도 없다. 읽은 시각 이전의 가장 가까운 Frankie 시작
+  (`alliance_event_times`, bio_mutant slot 1)의 게임 날짜가 이벤트 날이고, 없으면 읽은 날.
+  같은 이벤트를 두 번 읽으면 나중 것이 이긴다.
+- 수집된 행이 없는 날은 임원이 넣은 `event_attendance`(kind frankie, damage)가 채운다.
+  같은 날·멤버에 둘 다 있으면 수집이 이긴다.
+- **보드는 누가 열어야 수집된다.** 이벤트가 끝나면 연맹 데미지 랭킹을 한 번 열어 둔다.
+  저널에는 10-05와 10-11 두 번만 있다.
+- **이전 날을 채우려면** (마이그레이션 0277이 운영에 들어간 뒤):
+  `dw-collector backfill --command alliance.boss.damage.rank.new --table boss_damage_scores`
+- 라운드별 분리는 불가: 1라운드 직후 보드를 읽은 적이 없다. 읽어 두면 2라운드 = 최종 − 그 값.
+- 테스트: `supabase/tests/140_boss_damage_test.sql`, `test_normalize_boss_damage.py`.
+
 ## 2026-10-02 — 참여 보고서 (0204, Events → Participation)
 
 멤버 한 명당 한 줄, 시즌 / 듀얼 라운드 / 주 단위로 모든 이벤트 참여를 본다.

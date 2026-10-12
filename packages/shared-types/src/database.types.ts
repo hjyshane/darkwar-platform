@@ -2649,6 +2649,106 @@ export type Database = {
           },
         ]
       }
+      boss_damage_scores: {
+        Row: {
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at: string
+          damage: number
+          game_uid: number
+          held_on: string
+          idempotency_key: string
+          observation_id: string
+          parser_version: string
+          player_id: string | null
+          rank: number | null
+          raw: Json
+          server_id: number
+          snapshot_id: string
+          source_command: string
+        }
+        Insert: {
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at?: string
+          damage: number
+          game_uid: number
+          held_on: string
+          idempotency_key: string
+          observation_id: string
+          parser_version: string
+          player_id?: string | null
+          rank?: number | null
+          raw?: Json
+          server_id: number
+          snapshot_id: string
+          source_command: string
+        }
+        Update: {
+          captured_at?: string
+          collected_from_server_id?: number
+          collector_id?: string
+          created_at?: string
+          damage?: number
+          game_uid?: number
+          held_on?: string
+          idempotency_key?: string
+          observation_id?: string
+          parser_version?: string
+          player_id?: string | null
+          rank?: number | null
+          raw?: Json
+          server_id?: number
+          snapshot_id?: string
+          source_command?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boss_damage_scores_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "boss_damage_scores_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "boss_damage_scores_collector_id_fkey"
+            columns: ["collector_id"]
+            isOneToOne: false
+            referencedRelation: "collectors"
+            referencedColumns: ["collector_id"]
+          },
+          {
+            foreignKeyName: "boss_damage_scores_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "boss_damage_scores_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "boss_damage_scores_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+        ]
+      }
       capabilities: {
         Row: {
           capability: string
@@ -9383,6 +9483,19 @@ export type Database = {
           cards: number
           member_rows: number
           player_rows: number
+        }[]
+      }
+      boss_damage_by_event: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: {
+          current_name: string
+          damage: number
+          event_day: string
+          game_uid: number
+          member_rank: number
+          player_id: string
+          rank: number
+          source: string
         }[]
       }
       build_rank_period: { Args: { p_period_start: string }; Returns: number }

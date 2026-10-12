@@ -16,6 +16,7 @@ import { BlackMoneyPage } from './features/blackMoney/BlackMoneyPage';
 import { CalendarPage } from './features/calendar/CalendarPage';
 import { CrossRankingsPanel } from './features/crossRankings/CrossRankingsPanel';
 import { EventGuidePage } from './features/eventGuide/EventGuidePage';
+import { FrankiePage } from './features/frankie/FrankiePage';
 import { GiftCodesPage } from './features/giftCodes/GiftCodesPage';
 import { GuidePostPage } from './features/guides/GuidePostPage';
 import { GuidesPanel } from './features/guides/GuidesPanel';
@@ -326,6 +327,10 @@ function Screen({
       // member-only at the policy level (0204's report is security invoker),
       // and recording is gated inside the page on `data.enter`.
       return <ParticipationPage />;
+    case 'frankie':
+      // No capability gate: the board and the report are member-only at the
+      // policy level (0277), like Participation's.
+      return <FrankiePage />;
     case 'shopValue':
       // No capability gate: every table behind it is member-only at the policy
       // level (0215), and editing values is gated by RLS to officers and admins.

@@ -1449,6 +1449,36 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
       },
     ],
   ],
+  // Frankie damage per member per event (0277): a grid, null where no damage.
+  [
+    ['frankie-damage'],
+    [
+      ['2026-10-02', 31_000_000_000, 28_500_000_000],
+      ['2026-10-05', 64_000_000_000, 41_000_000_000],
+      ['2026-10-11', 52_000_000_000, null],
+    ].flatMap(([day, shane, mira]) => [
+      {
+        event_day: day,
+        player_id: PLAYER.shane,
+        game_uid: 1001,
+        current_name: 'Shane',
+        member_rank: 5,
+        damage: shane,
+        rank: 1,
+        source: 'captured',
+      },
+      {
+        event_day: day,
+        player_id: PLAYER.mira,
+        game_uid: 1002,
+        current_name: 'Mira',
+        member_rank: 4,
+        damage: mira,
+        rank: mira === null ? null : 2,
+        source: mira === null ? null : 'captured',
+      },
+    ]),
+  ],
   // The season boards: a building grid, and the two rankings (newest capture each).
   [
     ['seasonBoard', 'buildings', 3, SEASON3_BUILDINGS.map((kind) => kind.id).join(',')],

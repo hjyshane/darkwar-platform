@@ -214,6 +214,34 @@ export async function fetchEventDays(kind: string): Promise<EventDay[]> {
   return (data ?? []) as EventDay[];
 }
 
+/** Days somebody was ticked for one event, newest first. A day with ticks is a
+ * day the event was held whether or not anyone declared it (0204), so the
+ * recorder offers it beside the declared ones. */
+export async function fetchTickedDays(kind: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('event_attendance')
+    .select('held_on')
+    .eq('kind', kind)
+    .order('held_on', { ascending: false })
+    .limit(1000);
+  if (error) {
+    throw new Error(`ticked days query failed: ${error.message}`);
+  }
+  return [...new Set((data ?? []).map((row) => row.held_on))];
+}
+
+/** The days to offer for an event: declared and ticked, one entry per day,
+ * newest first. A declared day keeps its note. Pure, so it is tested alone. */
+export function pickableDays(declared: readonly EventDay[], ticked: readonly string[]): EventDay[] {
+  const byDay = new Map<string, EventDay>(declared.map((day) => [day.held_on, day] as const));
+  for (const day of ticked) {
+    if (!byDay.has(day)) {
+      byDay.set(day, { held_on: day, note: null });
+    }
+  }
+  return [...byDay.values()].sort((a, b) => b.held_on.localeCompare(a.held_on));
+}
+
 /** What is on record for one event on one day: player_id → attended. */
 export async function fetchAttendance(kind: string, heldOn: string): Promise<Map<string, boolean>> {
   const { data, error } = await supabase
