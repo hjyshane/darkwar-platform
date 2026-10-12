@@ -1,4 +1,5 @@
 // The material planner (item 4): pick an account, pick what to raise and to
+import { useIsCommunity } from '../../lib/communityAccess';
 import { PLANNER, type PlannerTab, plannerKindFromHash } from '../../lib/route';
 import { replaceHash, useHash } from '../../lib/useHash';
 // which level, and read what each costs and what it all costs after that
@@ -67,7 +68,13 @@ function BuffInput({
   );
 }
 
+/** A character nobody has claimed and nothing has seen: every level is typed
+ * in, and nothing is ever written. What a community account (0282) plans for
+ * — it has no login the collector saw and may not enter one by hand. */
+const SCRATCH = blankAccount('scratch', 'Your account', null);
+
 export function PlannerPage() {
+  const isCommunity = useIsCommunity();
   const accounts = useQuery({
     queryKey: ['planner-accounts'],
     queryFn: fetchAccounts,
@@ -82,10 +89,12 @@ export function PlannerPage() {
   // The unsaved working copy of a hand-entered account, if it has changed.
   const [draft, setDraft] = useState<Account | null>(null);
   const listed = accounts.data ?? [];
+  const scratch = isCommunity && listed.length === 0;
   const chosen =
     listed.find((a) => a.playerId === playerId) ??
     (draft?.playerId === playerId ? draft : undefined) ??
-    listed[0];
+    listed[0] ??
+    (scratch ? SCRATCH : undefined);
   const account = draft && chosen && draft.playerId === chosen.playerId ? draft : chosen;
   const manual = account?.source === 'manual';
   const dirty = manual && draft !== null && draft.playerId === account?.playerId;
@@ -181,7 +190,7 @@ export function PlannerPage() {
     setDraft(null);
     save.reset();
   };
-  const bar = (
+  const bar = scratch ? null : (
     <AccountBar
       accounts={listed}
       current={account}
@@ -266,7 +275,9 @@ export function PlannerPage() {
             <h2>Material planner</h2>
             <p className="entity-meta">
               <span>{account.name}</span>
-              <span>{manual ? 'Entered by hand' : 'From the login'}</span>
+              <span>
+                {scratch ? 'Nothing is saved' : manual ? 'Entered by hand' : 'From the login'}
+              </span>
               <span>Costs are the game's own</span>
             </p>
           </div>
@@ -294,7 +305,15 @@ export function PlannerPage() {
       </div>
 
       {bar}
-      {manual && (
+      {scratch && (
+        <section aria-label="Your levels" className="planner-manual">
+          <span>
+            Type the level you are at now in each list under What to raise, then pick the level you
+            want. Buffs and stock are on the Settings page. Nothing here is saved.
+          </span>
+        </section>
+      )}
+      {manual && !scratch && (
         <ManualBanner
           account={account}
           dirty={dirty}
