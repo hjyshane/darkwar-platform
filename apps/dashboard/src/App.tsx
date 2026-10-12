@@ -35,6 +35,7 @@ import { RankingsPanel } from './features/rankings/RankingsPanel';
 import { RosterPanel } from './features/roster/RosterPanel';
 import { SchedulePanel } from './features/schedule/SchedulePanel';
 import { Season2Panel } from './features/season/Season2Panel';
+import { SeasonBreakPage } from './features/season/SeasonBreakPage';
 import { SeasonPanel } from './features/season/SeasonPanel';
 import { ServerPage } from './features/server/ServerPage';
 import { ShopValuePage } from './features/shopValue/ShopValuePage';
@@ -281,6 +282,8 @@ function Screen({
         );
       }
       return <MigrationPage />;
+    case 'seasonBreak':
+      return <SeasonBreakPage />;
     case 'season2':
       // The nav hides this from anyone but an admin, and the panel checks the
       // role again — hiding a tab hides it from the eye, not from the address

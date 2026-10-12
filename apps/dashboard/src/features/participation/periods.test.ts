@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   MAX_RANGE_DAYS,
   SEASON_START,
+  customPeriod,
   gameDate,
   gameDayStart,
   roundPeriods,
@@ -92,5 +93,46 @@ describe('a later season start (0242)', () => {
   it('has no rounds or weeks before a season that has not started', () => {
     expect(roundPeriods(new Date('2026-09-01T00:00:00Z'), START)).toEqual([]);
     expect(weekPeriods(new Date('2026-09-01T00:00:00Z'), START)).toEqual([]);
+  });
+});
+
+describe('a season that has ended', () => {
+  const END = '2026-10-05T02:00:00.000Z';
+  const BREAK = new Date('2026-10-20T15:00:00Z');
+
+  it('stops at its end, not at today', () => {
+    expect(seasonPeriod(BREAK, SEASON_START, 'Season 3', END).to).toBe(END);
+  });
+
+  it('lists only the rounds and weeks that began before the end', () => {
+    expect(roundPeriods(BREAK, SEASON_START, END).length).toBe(2);
+    expect(weekPeriods(BREAK, SEASON_START, END)[0]?.from).toBe('2026-09-28T02:00:00.000Z');
+  });
+});
+
+describe('customPeriod', () => {
+  it('is whole game days, both ends included', () => {
+    const p = customPeriod('2026-09-28', '2026-09-30', NOW);
+    expect(p?.from).toBe('2026-09-28T02:00:00.000Z');
+    expect(p?.to).toBe('2026-10-01T02:00:00.000Z');
+    expect(p?.kind).toBe('custom');
+  });
+
+  it('cuts the end at today', () => {
+    expect(customPeriod('2026-09-30', '2026-12-31', NOW)?.to).toBe('2026-10-03T02:00:00.000Z');
+  });
+
+  it('refuses a missing, malformed, backwards or future range', () => {
+    expect(customPeriod('', '2026-09-30', NOW)).toBeNull();
+    expect(customPeriod('09/28', '2026-09-30', NOW)).toBeNull();
+    expect(customPeriod('2026-09-30', '2026-09-28', NOW)).toBeNull();
+    expect(customPeriod('2026-11-01', '2026-11-05', NOW)).toBeNull();
+  });
+
+  it('keeps the recent end of a range longer than the report answers', () => {
+    const p = customPeriod('2026-01-01', '2026-10-02', NOW);
+    const days = (Date.parse(p?.to ?? '') - Date.parse(p?.from ?? '')) / 86_400_000;
+    expect(days).toBe(MAX_RANGE_DAYS);
+    expect(p?.label).toContain('last');
   });
 });
