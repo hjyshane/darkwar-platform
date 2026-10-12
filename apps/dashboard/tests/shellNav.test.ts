@@ -38,8 +38,10 @@ describe('buildNav', () => {
   });
 
   it('keeps every address the old tabs had', () => {
+    // The season, Black Gold, Participation and Frankie pages now sit under
+    // the one Events entry, so their addresses are its children.
     const hrefs = buildNav(base({ isAdmin: true, isOfficer: true })).flatMap((group) =>
-      group.items.map((item) => item.href),
+      group.items.flatMap((item) => [item.href, ...(item.children ?? []).map((c) => c.href)]),
     );
     for (const hash of [
       '#/',
@@ -47,6 +49,10 @@ describe('buildNav', () => {
       '#/migration',
       '#/map',
       '#/hive',
+      '#/events',
+      '#/black-gold',
+      '#/frankie',
+      '#/participation',
       '#/season',
       '#/season2',
     ]) {
@@ -59,8 +65,30 @@ describe('buildNav', () => {
   it('shows Migration to officers only and Season 2 to admins only', () => {
     expect(labels(base(), 'watch')).not.toContain('Migration');
     expect(labels(base({ isOfficer: true }), 'watch')).toContain('Migration');
-    expect(labels(base(), 'alliance')).not.toContain('Season 2');
-    expect(labels(base({ isAdmin: true }), 'alliance')).toContain('Season 2');
+    const sub = (ctx: NavContext) =>
+      buildNav(ctx)
+        .flatMap((group) => group.items)
+        .find((item) => item.href === '#/events')
+        ?.children?.map((child) => child.label) ?? [];
+    expect(sub(base())).not.toContain('Season 2');
+    expect(sub(base({ isAdmin: true }))).toContain('Season 2');
+  });
+
+  it('gathers Black Gold, Frankie, Participation and the seasons under Events', () => {
+    const alliance = buildNav(base({ isAdmin: true })).find((group) => group.id === 'alliance');
+    const events = alliance?.items.find((item) => item.href === '#/events');
+    expect(events?.children?.map((child) => child.href)).toEqual([
+      '#/black-gold',
+      '#/frankie',
+      '#/participation',
+      '#/season',
+      '#/season2',
+    ]);
+    // They are no longer top-level entries beside it.
+    const top = alliance?.items.map((item) => item.href) ?? [];
+    for (const hash of ['#/black-gold', '#/frankie', '#/participation', '#/season']) {
+      expect(top).not.toContain(hash);
+    }
   });
 
   it('waits for the permission grid before showing Members', () => {
@@ -76,9 +104,11 @@ describe('buildNav', () => {
 
   it('names the season entries from the seasons table', () => {
     const names = { '#/season': 'Season 4', '#/season2': 'Season 3' };
-    expect(labels(base({ isAdmin: true, seasonNames: names }), 'alliance')).toEqual(
-      expect.arrayContaining(['Season 4', 'Season 3']),
-    );
+    const children = buildNav(base({ isAdmin: true, seasonNames: names }))
+      .flatMap((group) => group.items)
+      .find((item) => item.href === '#/events')
+      ?.children?.map((child) => child.label);
+    expect(children).toEqual(expect.arrayContaining(['Season 4', 'Season 3']));
   });
 
   it('marks one entry current: the screen you are on', () => {
@@ -89,6 +119,10 @@ describe('buildNav', () => {
         .map((item) => item.label);
 
     expect(current('hive')).toEqual(['Hive']);
+    // Every page behind the Events entry keeps that one entry current.
+    for (const route of ['blackMoney', 'frankie', 'participation', 'season', 'events'] as const) {
+      expect(current(route)).toContain('Events');
+    }
     expect(current('eventGuide')).toEqual(['Event guide']);
     // All three ranking boards stand under one entry.
     expect(current('arena')).toEqual(['Rankings']);

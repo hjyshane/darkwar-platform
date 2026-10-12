@@ -9,13 +9,7 @@ import {
   allianceViewFromHash,
   eventGuideTabFromHash,
 } from '../../lib/route';
-import {
-  FALLBACK_SEASONS,
-  currentSeason,
-  pastSeason,
-  seasonPhase,
-  useSeasons,
-} from '../../lib/seasons';
+import { FALLBACK_SEASONS, currentSeason, pastSeason, useSeasons } from '../../lib/seasons';
 import { type NavGroup, type NavItem, breadcrumb, buildFooter, buildNav } from '../../lib/shellNav';
 import { useOwnAlliance } from '../../lib/useOwnAlliance';
 import { useSession } from '../../lib/useSession';
@@ -36,8 +30,6 @@ export function useShellNav(
   const isAdmin = session?.role === 'admin';
   const now = new Date();
   const list = seasons.data ?? FALLBACK_SEASONS;
-  const phase = seasonPhase(list, now);
-  const inSeasonBreak = phase.phase === 'break';
   const groups = buildNav({
     route,
     allianceId,
@@ -67,11 +59,8 @@ export function useShellNav(
     mayManageGiftCodes: isPending
       ? undefined
       : isAllowed(permissions?.grants, session?.role, 'giftcodes.manage'),
-    inSeasonBreak,
     seasonNames: {
-      // Between seasons the season tab holds the one that is over.
-      '#/season':
-        phase.phase === 'break' ? `${phase.ended.name} (previous)` : currentSeason(list, now)?.name,
+      '#/season': currentSeason(list, now)?.name,
       '#/season2': pastSeason(list, now)?.name,
     },
   });

@@ -18,7 +18,14 @@ import { BarCell } from '../../components/ui/BarCell';
 import { Select } from '../../components/ui/Select';
 import { Tabs } from '../../components/ui/Tabs';
 import { isAllowed, usePermissions } from '../../lib/permissions';
-import { FALLBACK_SEASONS, SEASON3_START, currentSeason, useSeasons } from '../../lib/seasons';
+import {
+  FALLBACK_SEASONS,
+  SEASON3_START,
+  currentSeason,
+  pastSeason,
+  seasonPhase,
+  useSeasons,
+} from '../../lib/seasons';
 import { type SortState, nextSort } from '../../lib/tableControls';
 import { useSession } from '../../lib/useSession';
 import { AttendanceRecorder } from './AttendanceRecorder';
@@ -39,7 +46,9 @@ import {
 import {
   type Period,
   type PeriodKind,
+  breakPeriod,
   customPeriod,
+  endedSeasonPeriod,
   gameDate,
   roundPeriods,
   seasonPeriod,
@@ -65,8 +74,11 @@ const BOARDS: ReadonlyArray<[Board, string]> = [
  * reach. Only people with data.enter get the second. */
 type View = 'report' | 'record';
 
-const KIND_LABELS: ReadonlyArray<[PeriodKind, string]> = [
-  ['season', 'Season'],
+/** The period tabs. Inside a season: this season, the one before it, then the
+ * round / week / custom ranges. In the break between two seasons there is no
+ * season in progress, so the break comes first and the season that just ended
+ * is the previous one. */
+const REST_KINDS: ReadonlyArray<[PeriodKind, string]> = [
   ['round', 'Duel round'],
   ['week', 'Week'],
   ['custom', 'Custom'],
@@ -269,7 +281,11 @@ export function ParticipationPage() {
   // The periods count from the current season's start (0242). Until the seasons
   // load, or when there are none, the constant Season 3 start answers.
   const seasonList = useSeasons();
-  const current = currentSeason(seasonList.data ?? FALLBACK_SEASONS, now);
+  const seasons = seasonList.data ?? FALLBACK_SEASONS;
+  const current = currentSeason(seasons, now);
+  // Between seasons the "current" one is the one that just ended.
+  const phase = seasonPhase(seasons, now);
+  const inBreak = phase.phase === 'break';
   const seasonStart = current?.startsAt ?? SEASON3_START;
   const seasonName = current?.name ?? 'Season 3';
   // A season that has ended stops at its end; the break after it is not in it.
@@ -294,7 +310,36 @@ export function ParticipationPage() {
   );
   const [customTo, setCustomTo] = useState(today);
 
-  const [kind, setKind] = useState<PeriodKind>('season');
+  // The season before the one in progress (in a break, the one that ended).
+  const earlier = inBreak ? current : pastSeason(seasons, now);
+  const previous = useMemo(
+    () =>
+      endedSeasonPeriod(earlier?.name ?? '', earlier?.startsAt ?? null, earlier?.endsAt ?? null),
+    [earlier],
+  );
+  const betweenSeasons = useMemo(
+    () =>
+      phase.phase === 'break'
+        ? breakPeriod(now, phase.ended.endsAt, phase.next?.startsAt ?? null)
+        : null,
+    [now, phase],
+  );
+  const periodKinds: [PeriodKind, string][] = [];
+  if (inBreak) {
+    if (betweenSeasons !== null) periodKinds.push(['break', 'Season break']);
+    if (previous !== null) periodKinds.push(['previous', 'Previous season']);
+  } else {
+    periodKinds.push(['season', 'Season']);
+    if (previous !== null) periodKinds.push(['previous', 'Previous season']);
+  }
+  periodKinds.push(...REST_KINDS);
+
+  const [picked, setKind] = useState<PeriodKind>('season');
+  // A kind that this phase does not offer (the seasons load after the first
+  // paint) falls to the first one that it does.
+  const kind: PeriodKind = periodKinds.some(([id]) => id === picked)
+    ? picked
+    : (periodKinds[0]?.[0] ?? 'season');
   const [roundIndex, setRoundIndex] = useState(0);
   const [weekIndex, setWeekIndex] = useState(0);
   const custom = customPeriod(customFrom, customTo, now);
@@ -305,7 +350,11 @@ export function ParticipationPage() {
         ? (weeks[weekIndex] ?? season)
         : kind === 'custom'
           ? (custom ?? season)
-          : season;
+          : kind === 'previous'
+            ? (previous ?? season)
+            : kind === 'break'
+              ? (betweenSeasons ?? season)
+              : season;
 
   const [sort, setSort] = useState<SortState>({ key: 'name', direction: 'asc' });
   const [board, setBoard] = useState<Board>('daily');
@@ -396,7 +445,7 @@ export function ParticipationPage() {
         <div className="row">
           <Tabs
             label="Period"
-            items={KIND_LABELS.map(([id, label]) => ({ id, label }))}
+            items={periodKinds.map(([id, label]) => ({ id, label }))}
             value={kind}
             onChange={setKind}
           />
@@ -456,7 +505,9 @@ export function ParticipationPage() {
               )}
             </>
           )}
-          {kind === 'season' && <span className="subtle">{season.label}</span>}
+          {(kind === 'season' || kind === 'previous' || kind === 'break') && (
+            <span className="subtle">{period.label}</span>
+          )}
         </div>
       )}
 

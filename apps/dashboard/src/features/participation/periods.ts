@@ -23,7 +23,7 @@ export const MAX_RANGE_DAYS = 190;
 
 const ROUND_DAYS = 28;
 
-export type PeriodKind = 'season' | 'round' | 'week' | 'custom';
+export type PeriodKind = 'season' | 'previous' | 'break' | 'round' | 'week' | 'custom';
 
 export interface Period {
   kind: PeriodKind;
@@ -63,6 +63,50 @@ export function seasonPeriod(
   const to = end === null ? today : Math.min(today, Date.parse(end));
   const from = Math.max(Date.parse(start), to - MAX_RANGE_DAYS * DAY_MS);
   return { kind: 'season', from: iso(from), to: iso(to), label: `${name} (since ${day(from)})` };
+}
+
+/** A season that has ended, whole: its first game day to its last. Cut to the
+ * longest range the report answers from the start, keeping the recent end.
+ * Null when its start or end is not known (nothing to bound it by). */
+export function endedSeasonPeriod(
+  name: string,
+  start: string | null,
+  end: string | null,
+): Period | null {
+  if (start === null || end === null) return null;
+  const to = Date.parse(end);
+  const first = Date.parse(start);
+  if (Number.isNaN(to) || Number.isNaN(first) || to <= first) return null;
+  const from = Math.max(first, to - MAX_RANGE_DAYS * DAY_MS);
+  return {
+    kind: 'previous',
+    from: iso(from),
+    to: iso(to),
+    label: `${name} · previous season (${day(from)} – ${day(to - DAY_MS)})`,
+  };
+}
+
+/** The break between two seasons: from the end of the one that ended to the
+ * start of the next, or to the end of today while the next has not begun.
+ * Null when the break has no days yet (the season ends today) or the end is
+ * unknown. */
+export function breakPeriod(
+  now: Date,
+  endedAt: string | null,
+  nextStart: string | null,
+): Period | null {
+  if (endedAt === null) return null;
+  const from = Date.parse(endedAt);
+  if (Number.isNaN(from)) return null;
+  const today = gameDayStart(now).getTime() + DAY_MS;
+  const to = nextStart === null ? today : Math.min(today, Date.parse(nextStart));
+  if (Number.isNaN(to) || to <= from) return null;
+  return {
+    kind: 'break',
+    from: iso(from),
+    to: iso(to),
+    label: `Season break (${day(from)} – ${day(to - DAY_MS)})`,
+  };
 }
 
 /** Every duel round that has started, newest first. */

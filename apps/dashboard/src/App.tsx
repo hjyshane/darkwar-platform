@@ -16,6 +16,7 @@ import { BlackMoneyPage } from './features/blackMoney/BlackMoneyPage';
 import { CalendarPage } from './features/calendar/CalendarPage';
 import { CrossRankingsPanel } from './features/crossRankings/CrossRankingsPanel';
 import { EventGuidePage } from './features/eventGuide/EventGuidePage';
+import { EventsTabs } from './features/events/EventsTabs';
 import { FrankiePage } from './features/frankie/FrankiePage';
 import { GiftCodesPage } from './features/giftCodes/GiftCodesPage';
 import { GuidePostPage } from './features/guides/GuidePostPage';
@@ -36,7 +37,6 @@ import { RankingsPanel } from './features/rankings/RankingsPanel';
 import { RosterPanel } from './features/roster/RosterPanel';
 import { SchedulePanel } from './features/schedule/SchedulePanel';
 import { Season2Panel } from './features/season/Season2Panel';
-import { SeasonBreakPage } from './features/season/SeasonBreakPage';
 import { SeasonPanel } from './features/season/SeasonPanel';
 import { ServerPage } from './features/server/ServerPage';
 import { ShopValuePage } from './features/shopValue/ShopValuePage';
@@ -56,6 +56,7 @@ import {
   allianceIdFromHash,
   eventGuideTabFromHash,
   guideIdFromHash,
+  inEventsHub,
   isRankingRoute,
   isStandaloneRoute,
   mapServerIdFromHash,
@@ -283,8 +284,6 @@ function Screen({
         );
       }
       return <MigrationPage />;
-    case 'seasonBreak':
-      return <SeasonBreakPage />;
     case 'season2':
       // The nav hides this from anyone but an admin, and the panel checks the
       // role again — hiding a tab hides it from the eye, not from the address
@@ -302,6 +301,7 @@ function Screen({
       // capability rather than a role for 0045's reason — who may plan a hive
       // move is exactly the kind of thing an alliance changes its mind about.
       return <HivePage />;
+    case 'events':
     case 'blackMoney':
       // No capability gate, like the season boards: the three tables under it
       // are member-only at the policy level (0178) and the app is walled to
@@ -542,6 +542,7 @@ function Shell({
     <AlliancePage allianceId={allianceId} />
   ) : (
     <main>
+      {inEventsHub(route) && <EventsTabs route={route} />}
       <Screen eventGuideTab={eventGuideTabFromHash(hash)} mapServerId={mapServerId} route={route} />
     </main>
   );
