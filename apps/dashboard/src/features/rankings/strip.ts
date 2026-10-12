@@ -5,10 +5,11 @@
 // reading is not a reading of zero.
 
 import type { StripCell } from '../../components/Strip';
+import { compactNumber } from '../../lib/compactNumber';
 import { formatAge } from '../../lib/freshness';
 import type { AllianceRankingRow } from './AllianceRankingTable';
 
-const compact = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 });
+const compact = compactNumber(1);
 const plain = new Intl.NumberFormat('en');
 
 export function allianceStrip(rows: readonly AllianceRankingRow[], now: Date): StripCell[] {

@@ -1,11 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
+import { compactNumber } from '../../lib/compactNumber';
 import { fetchAllPages } from '../../lib/fetchAllPages';
 import { serverHash } from '../../lib/route';
 import { supabase } from '../../lib/supabase';
 import { type ServerSummary, summariseServers } from './serverSummary';
 
-const compact = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 });
+const compact = compactNumber(1);
 const plain = new Intl.NumberFormat('en');
 
 /** Every server a scan has reached, on the landing screen.

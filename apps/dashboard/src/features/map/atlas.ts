@@ -8,6 +8,7 @@
 
 import type { Coordinate } from '@dw/ui';
 import { useQuery } from '@tanstack/react-query';
+import { compactNumber } from '../../lib/compactNumber';
 import { supabase } from '../../lib/supabase';
 
 /** A sighting older than this is drawn faded: the base may have moved. */
@@ -219,11 +220,12 @@ export function matchesFilter(base: AtlasBase, filter: BaseFilter, now: Date): b
   return true;
 }
 
-const SUFFIX: Record<string, number> = { k: 1e3, m: 1e6, b: 1e9 };
+const SUFFIX: Record<string, number> = { k: 1e3, m: 1e6, g: 1e9, b: 1e9, t: 1e12 };
 
-/** `135m`, `2.5b`, `800k` or plain digits, as the game writes power. */
+/** `135m`, `2.5g`, `800k` or plain digits, as the game writes power. `b` is
+ * still read as a billion, for figures typed before the site said G. */
 export function parsePower(text: string): number | null {
-  const match = /^\s*(\d+(?:\.\d+)?)\s*([kmb])?\s*$/i.exec(text);
+  const match = /^\s*(\d+(?:\.\d+)?)\s*([kmgbt])?\s*$/i.exec(text);
   if (match === null) return null;
   const unit = match[2] ? (SUFFIX[match[2].toLowerCase()] ?? 1) : 1;
   return Math.round(Number(match[1]) * unit);
@@ -241,7 +243,7 @@ export function centroid(bases: readonly AtlasBase[]): Coordinate | null {
   return { x: Math.round(sum.x / bases.length), y: Math.round(sum.y / bases.length) };
 }
 
-const compact = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 });
+const compact = compactNumber(1);
 export const formatPower = (power: number | null): string =>
   power === null ? '—' : compact.format(power);
 

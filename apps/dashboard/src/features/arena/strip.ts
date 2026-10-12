@@ -5,10 +5,11 @@
 // is not a defence of zero.
 
 import type { StripCell } from '../../components/Strip';
+import { compactNumber } from '../../lib/compactNumber';
 import { formatAge } from '../../lib/freshness';
 import type { ArenaEntryRow, ArenaHeader } from './ArenaTable';
 
-const compact = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 });
+const compact = compactNumber(1);
 const plain = new Intl.NumberFormat('en');
 
 export function arenaStrip(

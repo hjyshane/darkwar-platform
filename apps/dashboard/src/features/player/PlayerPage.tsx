@@ -302,7 +302,7 @@ function num(value: number | null | undefined): string | null {
 //
 // Exact, not compact. The overview compacts because it is showing a total
 // across a hundred members and the magnitude is the message; here the number
-// IS the subject, and 1,009,489,473 rendered as "1B" throws away the part
+// IS the subject, and 1,009,489,473 rendered as "1G" throws away the part
 // someone came to this page to read.
 
 const CONTRIBUTION_LABELS: [string, string][] = [

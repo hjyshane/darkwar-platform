@@ -5,6 +5,7 @@
 // a new measurement: every figure is a count or the top row of what the board
 // already fetched. A dash means "we do not know", never zero.
 
+import { compactNumber } from '../../lib/compactNumber';
 import { allianceLabel } from './boards';
 import type { SeasonAllianceRow, SeasonPlayerRow } from './boards';
 import { type BuildingGrid, buildingsBehind } from './buildings';
@@ -16,7 +17,7 @@ export interface StripCell {
   note?: string;
 }
 
-const compact = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 2 });
+const compact = compactNumber(2);
 const plain = new Intl.NumberFormat('en');
 
 /** Members seen, buildings tracked, and who is under the floors the alliance set. */

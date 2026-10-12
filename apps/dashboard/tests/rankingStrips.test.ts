@@ -51,7 +51,7 @@ describe('allianceStrip', () => {
 
     expect(cell(allianceStrip(rows, NOW), 'Strongest')).toMatchObject({
       value: '[BG] Big',
-      note: '5B power',
+      note: '5G power',
     });
   });
 
