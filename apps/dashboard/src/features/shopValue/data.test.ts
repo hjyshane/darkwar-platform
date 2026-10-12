@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   PACK_CATEGORIES,
   type PackChoiceOption,
+  type PackGroup,
   type PackItem,
   type PackValue,
   bestOption,
@@ -9,12 +10,15 @@ import {
   catalogSets,
   dollarsOf,
   estimatedShare,
+  familyKey,
+  foldVariants,
   groupPacks,
   isLive,
   matchesPack,
   packCategory,
   packKey,
   ratioLabel,
+  variantKey,
 } from './data';
 
 const NOW = new Date('2026-10-03T12:00:00Z');
@@ -246,5 +250,68 @@ describe('packCategory', () => {
       expect(c.label).not.toBe('');
       expect(c.icon).not.toBe('');
     }
+  });
+});
+
+describe('foldVariants', () => {
+  // Four stages of one daily package: same name and price, other contents.
+  const stage = (id: string, parts: number) =>
+    pack(id, 'Pioneer Package', [item('parts', parts, 1, 'game')], 0);
+  const groups = () => groupPacks([stage('1', 4), stage('2', 5), stage('3', 6)]);
+
+  it('leaves every version alone until an officer chooses', () => {
+    const { rows, hidden } = foldVariants(groups(), new Map(), false);
+    expect(rows).toHaveLength(3);
+    expect(hidden).toBe(0);
+    expect(rows.every((r) => r.variants === 3 && !r.picked && !r.stale)).toBe(true);
+  });
+
+  it('keeps only the chosen version, and says how many it hid', () => {
+    const all = groups();
+    const second = all[1];
+    if (second === undefined) throw new Error('fixture');
+    const choices = new Map([[familyKey(second), variantKey(second)]]);
+    const { rows, hidden } = foldVariants(all, choices, false);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.picked).toBe(true);
+    expect(rows[0]?.pack_ids).toEqual(['2']);
+    expect(hidden).toBe(2);
+  });
+
+  it('shows the others on request, the chosen one marked', () => {
+    const all = groups();
+    const first = all[0];
+    if (first === undefined) throw new Error('fixture');
+    const choices = new Map([[familyKey(first), variantKey(first)]]);
+    const { rows, hidden } = foldVariants(all, choices, true);
+    expect(rows).toHaveLength(3);
+    expect(rows.filter((r) => r.picked)).toHaveLength(1);
+    expect(hidden).toBe(0);
+  });
+
+  it('flags a choice whose version is gone and keeps every version', () => {
+    const choices = new Map([['Pioneer Package|4.99', 'deadbeefdeadbeef']]);
+    const { rows } = foldVariants(groups(), choices, false);
+    expect(rows).toHaveLength(3);
+    expect(rows.every((r) => r.stale && !r.family_picked)).toBe(true);
+  });
+
+  it('leaves a name with one version alone, chosen or not', () => {
+    const only = groupPacks([stage('1', 4)]);
+    const first = only[0];
+    if (first === undefined) throw new Error('fixture');
+    const choices = new Map([[familyKey(first), variantKey(first)]]);
+    const { rows } = foldVariants(only, choices, false);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.picked).toBe(false);
+    expect(rows[0]?.stale).toBe(false);
+  });
+
+  it('keys a version by what is in it, not by its ids', () => {
+    const a = groupPacks([stage('1', 4)])[0];
+    const b = groupPacks([stage('99', 4)])[0];
+    if (a === undefined || b === undefined) throw new Error('fixture');
+    expect(variantKey(a)).toBe(variantKey(b));
+    expect(variantKey(a)).not.toBe(variantKey(groupPacks([stage('1', 5)])[0] as PackGroup));
   });
 });

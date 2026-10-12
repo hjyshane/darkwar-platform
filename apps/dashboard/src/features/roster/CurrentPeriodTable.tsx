@@ -1,9 +1,8 @@
 // The fortnight now running, week by week.
 //
-// The members table shows the rank and score of the last FINISHED fortnight,
-// and 0134 keeps it that way on purpose — a period with one of its two weekly
-// readings taken is half an answer, and a rank that moves mid-fortnight is
-// worse than one that waits. That leaves the alliance without any view of the
+// The members table shows the rank and score of the LAST period that was
+// worked out, finished or not (0281 undid 0134's wait). Mid-fortnight that
+// answer can rest on half the readings, so the alliance still wants to see the
 // two weeks they are actually in, which is where this tab comes in.
 //
 // SO IT SHOWS READINGS, NOT A SCORE. No percentile, no weights, no tier: the
@@ -108,7 +107,7 @@ export function CurrentPeriodTable() {
         The fortnight that started <strong>{day(first.period_start)}</strong>. Week one closes{' '}
         {day(first.week1_end)}, week two {day(first.week2_end)} — the game clears each board a
         minute later. These are the readings themselves, not a score: the rank and score columns on
-        the members table stay on the last finished fortnight until this one closes.
+        the members table come from the last period worked out, and move when it is rebuilt.
       </p>
 
       <div className="row">

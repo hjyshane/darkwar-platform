@@ -25,13 +25,15 @@ import {
   PACK_CATEGORIES,
   type PackChoiceOption,
   type PackFilter,
-  type PackGroup,
+  type PackRow as PackRowData,
   SHOP_LABELS,
   bestOption,
   dollarsOf,
   fetchItemValues,
   fetchListings,
   fetchPacks,
+  fetchVariantChoices,
+  foldVariants,
   groupPacks,
   isLive,
   itemLabel,
@@ -42,6 +44,7 @@ import {
   ratioLabel,
   saveItemName,
   saveItemValue,
+  saveVariantChoice,
   storeHidden,
 } from './data';
 import { shopStrip } from './strip';
@@ -177,13 +180,73 @@ function PickOption({
   );
 }
 
+/** Which of several same-name, same-price packs this server sells (0280).
+ * The server lists them all; an officer says which is ours, once. */
+function VariantMark({ pack, mayEdit }: { pack: PackRowData; mayEdit: boolean }) {
+  const queryClient = useQueryClient();
+  const save = useMutation({
+    mutationFn: (variant: string | null) => saveVariantChoice(pack.family_key, variant),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['shop-variants'] });
+    },
+  });
+  if (pack.variants < 2) return null;
+  return (
+    <span className="pack-variant">
+      {' '}
+      {pack.picked ? (
+        <span title="An officer marked this as the version this server sells">
+          ✓ ours · {pack.variants - 1} other {pack.variants === 2 ? 'version' : 'versions'}
+        </span>
+      ) : (
+        <span
+          className="muted"
+          title={
+            pack.stale
+              ? 'The version that was marked is no longer listed: the game moved to another stage'
+              : 'The game lists this name and price in several versions'
+          }
+        >
+          {pack.stale ? '\u26a0 re-pick \u00b7 ' : ''}
+          {pack.variants} versions
+        </span>
+      )}
+      {mayEdit &&
+        (pack.picked ? (
+          <button
+            className="link-button muted"
+            disabled={save.isPending}
+            onClick={() => save.mutate(null)}
+            title="Show every version again"
+            type="button"
+          >
+            {' '}
+            change
+          </button>
+        ) : (
+          <button
+            className="link-button"
+            disabled={save.isPending}
+            onClick={() => save.mutate(pack.variant_key)}
+            title="This is the version this server sells; hide the others"
+            type="button"
+          >
+            {' '}
+            this one is ours
+          </button>
+        ))}
+      {save.error && <span className="error"> {save.error.message}</span>}
+    </span>
+  );
+}
+
 function PackRow({
   pack,
   mayEdit,
   hidden,
   onToggleHidden,
 }: {
-  pack: PackGroup;
+  pack: PackRowData;
   mayEdit: boolean;
   hidden: boolean;
   onToggleHidden: () => void;
@@ -237,6 +300,7 @@ function PackRow({
               · {pack.choices.length} {pack.choices.length === 1 ? 'pick' : 'picks'}
             </span>
           )}
+          <VariantMark mayEdit={mayEdit} pack={pack} />
           {mayEdit && <PackRename pack={pack} />}
         </td>
         <td className="num">{money(pack.dollars)}</td>
@@ -350,6 +414,12 @@ function PacksTab({ now, mayEdit }: { now: Date; mayEdit: boolean }) {
   const [price, setPrice] = useState<string>('all');
   const [text, setText] = useState('');
   const [category, setCategory] = useState<string>('all');
+  const variantChoices = useQuery({
+    queryKey: ['shop-variants'],
+    queryFn: fetchVariantChoices,
+    staleTime: STALE_TIME,
+  });
+  const [showVariants, setShowVariants] = useState(false);
   const [sort, setSort] = useState<SortState>({ key: 'value_ratio', direction: 'desc' });
   const onSort = (key: string) => setSort(nextSort(sort, key));
   const [hidden, setHidden] = useState<ReadonlySet<string>>(loadHidden);
@@ -375,23 +445,28 @@ function PacksTab({ now, mayEdit }: { now: Date; mayEdit: boolean }) {
     );
     return groupPacks(rows);
   }, [packs.data, filter, price, now, text]);
+  // Same-name, same-price versions fold to the one an officer marked as ours.
+  const folded = useMemo(
+    () => foldVariants(ofCategory, variantChoices.data ?? new Map(), showVariants),
+    [ofCategory, variantChoices.data, showVariants],
+  );
   const categoryCounts = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const group of ofCategory) {
+    for (const group of folded.rows) {
       const key = packCategory(group.pack_type).key;
       counts.set(key, (counts.get(key) ?? 0) + 1);
     }
     return counts;
-  }, [ofCategory]);
+  }, [folded.rows]);
   const grouped = useMemo(
     () =>
       sortRows(
         category === 'all'
-          ? ofCategory
-          : ofCategory.filter((group) => packCategory(group.pack_type).key === category),
+          ? folded.rows
+          : folded.rows.filter((group) => packCategory(group.pack_type).key === category),
         sort,
       ),
-    [ofCategory, category, sort],
+    [folded.rows, category, sort],
   );
   const hiddenHere = grouped.filter((pack) => hidden.has(pack.key)).length;
   const shown = showHidden ? grouped : grouped.filter((pack) => !hidden.has(pack.key));
@@ -451,6 +526,16 @@ function PacksTab({ now, mayEdit }: { now: Date; mayEdit: boolean }) {
             Show hidden ({hiddenHere})
           </label>
         )}
+        {(folded.hidden > 0 || showVariants) && (
+          <label>
+            <input
+              checked={showVariants}
+              onChange={(e) => setShowVariants(e.target.checked)}
+              type="checkbox"
+            />{' '}
+            Show the other versions{folded.hidden > 0 ? ` (${folded.hidden})` : ''}
+          </label>
+        )}
         <span className="subtle">{shown.length} offers. Click a heading to sort.</span>
       </div>
       <fieldset aria-label="Pack category" className="pack-categories">
@@ -460,7 +545,7 @@ function PacksTab({ now, mayEdit }: { now: Date; mayEdit: boolean }) {
           onClick={() => setCategory('all')}
           type="button"
         >
-          All <span className="muted">{ofCategory.length}</span>
+          All <span className="muted">{folded.rows.length}</span>
         </button>
         {PACK_CATEGORIES.filter((c) => (categoryCounts.get(c.key) ?? 0) > 0).map((c) => (
           <button

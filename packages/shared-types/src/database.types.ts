@@ -3875,6 +3875,27 @@ export type Database = {
         }
         Relationships: []
       }
+      game_pack_variants: {
+        Row: {
+          family_key: string
+          updated_at: string
+          updated_by: string | null
+          variant_key: string
+        }
+        Insert: {
+          family_key: string
+          updated_at?: string
+          updated_by?: string | null
+          variant_key: string
+        }
+        Update: {
+          family_key?: string
+          updated_at?: string
+          updated_by?: string | null
+          variant_key?: string
+        }
+        Relationships: []
+      }
       game_research_tabs: {
         Row: {
           name: string | null
