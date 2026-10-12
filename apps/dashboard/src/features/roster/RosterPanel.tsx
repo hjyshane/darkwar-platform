@@ -206,7 +206,7 @@ export function RosterPanel() {
           <div>
             <h2 id="roster-heading">{TERMS.members}</h2>
             <p className="entity-meta">
-              <span>Rank is the last finished fortnight's</span>
+              <span>Rank is the last period worked out</span>
               <span>Power is the sum of the members the roster lists</span>
             </p>
           </div>
@@ -252,11 +252,10 @@ export function RosterPanel() {
 
       {/* Two boards, because they answer two questions and are made of
           different material. The members table carries the rank and score of
-          the last FINISHED fortnight — the answer in force, which 0134 keeps
-          steady until a period closes. The other tab is the fortnight now
-          running, as raw weekly readings, for "am I above the line this week"
-          — a question asked on a Wednesday, which the settled answer cannot
-          reach. */}
+          the last period worked out — finished or not (0281). The other tab is
+          the fortnight now running, as raw weekly readings, for "am I above the
+          line this week" — a question asked on a Wednesday, which a score
+          built from half the readings cannot answer. */}
       <Tabs
         label="Ranking"
         items={MEMBERS.tabs.map((entry) => ({ id: entry.id, label: entry.label }))}
