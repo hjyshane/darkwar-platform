@@ -83,6 +83,7 @@ def main() -> None:
         directory=capture_dir,
         chunk_seconds=float(os.environ.get("DW_IPHONE_CHUNK_SECONDS", "300")),
         relaunch_seconds=float(os.environ.get("DW_IPHONE_RELAUNCH_HOURS", "6")) * 3600,
+        overlap_seconds=float(os.environ.get("DW_IPHONE_OVERLAP_SECONDS", "10")),
     )
     tool = find_tool(os.environ.get("DW_IPHONE_TOOL", "pymobiledevice3"))
     bundle_id = os.environ.get("DW_IPHONE_BUNDLE_ID", "com.readygo.dark.nbios")
@@ -121,6 +122,7 @@ def main() -> None:
         journal=str(journal),
         chunk_seconds=config.chunk_seconds,
         relaunch_hours=config.relaunch_seconds / 3600,
+        overlap_seconds=config.overlap_seconds,
         only_udid=only_udid,
         chain=children is not None,
     )

@@ -330,3 +330,90 @@ def test_recover_parts_promotes_a_killed_runs_chunk_and_drops_empty_ones(tmp_pat
     assert (tmp_path / "iphone_a.pcap").read_bytes() == b"\1" * 500
     assert not (tmp_path / "iphone_b.pcap").exists()
     assert list(tmp_path.glob("*.part")) == []
+
+
+class AliveWatchingBackend(FakeBackend):
+    """Records, at each start, whether the previous capture was still running."""
+
+    def __init__(self, world: World, script: list[tuple[bool, int, float | None]]) -> None:
+        super().__init__(world, script)
+        self.previous_alive: list[bool | None] = []
+
+    def start(self, out: Path) -> FakeProcess:
+        previous = self.processes[-1] if self.processes else None
+        self.previous_alive.append(None if previous is None else previous.poll() is None)
+        return super().start(out)
+
+
+def _overlapping(
+    tmp_path: Path,
+    script: list[tuple[bool, int, float | None]],
+    *,
+    stop_after_devices: int,
+    overlap: float = 10.0,
+) -> tuple[Supervisor, AliveWatchingBackend]:
+    world = World()
+    backend = AliveWatchingBackend(world, script)
+    config = IphoneConfig(
+        directory=tmp_path / "iphone",
+        chunk_seconds=30.0,
+        stall_seconds=10.0,
+        poll_seconds=1.0,
+        backoff_min_seconds=5.0,
+        overlap_seconds=overlap,
+    )
+    supervisor = Supervisor(
+        config, backend, clock=lambda: world.t, sleep=world.sleep, now=world.now
+    )
+    supervisor.run(lambda: backend.checks >= stop_after_devices)
+    return supervisor, backend
+
+
+def test_rotation_starts_the_next_capture_before_ending_the_current_one(tmp_path: Path) -> None:
+    """A login that lands on the rotation must not fall into a gap: the old
+    capture stays up until the new file has received a packet."""
+    supervisor, backend = _overlapping(tmp_path, [(True, 100, None)], stop_after_devices=4)
+
+    assert backend.previous_alive == [None, True, True, True]
+    assert all(p.terminated for p in backend.processes), "nothing is left running"
+    assert len(_chunks(tmp_path)) == 3, "every rotated chunk is still published"
+    assert list((tmp_path / "iphone").glob("*.part")) == []
+    assert supervisor.overlap_enabled
+
+
+def test_overlap_off_ends_the_capture_before_the_next_starts(tmp_path: Path) -> None:
+    _, backend = _overlapping(tmp_path, [(True, 100, None)], stop_after_devices=4, overlap=0.0)
+
+    assert backend.previous_alive == [None, False, False, False]
+    assert len(_chunks(tmp_path)) == 3
+
+
+def test_a_successor_that_dies_during_the_handoff_turns_overlap_off(tmp_path: Path) -> None:
+    """A phone that refuses a second pcapd session must not cost every
+    rotation a restart: fall back to sequential and keep the old chunk."""
+    script = [(True, 100, None), (True, 100, 0.0), (True, 100, None)]
+    supervisor, backend = _overlapping(tmp_path, script, stop_after_devices=4)
+
+    assert not supervisor.overlap_enabled
+    assert backend.previous_alive == [None, True, False, False]
+    assert backend.processes[0].terminated
+    assert len(_chunks(tmp_path)) == 2, "the chunk before the refusal and the sequential one"
+
+
+def test_a_successor_that_stays_silent_during_the_handoff_turns_overlap_off(tmp_path: Path) -> None:
+    script = [(True, 100, None), (True, 0, None)]
+    supervisor, backend = _overlapping(tmp_path, script, stop_after_devices=3)
+
+    assert not supervisor.overlap_enabled
+    assert backend.previous_alive[:2] == [None, True]
+    assert backend.processes[0].terminated
+    assert len(_chunks(tmp_path)) == 1
+
+
+def test_an_unplug_at_the_rotation_still_publishes_the_held_chunk(tmp_path: Path) -> None:
+    script = [(True, 100, None), (False, 0, None)]
+    _, backend = _overlapping(tmp_path, script, stop_after_devices=3)
+
+    assert backend.processes[0].terminated
+    assert len(_chunks(tmp_path)) == 1
+    assert list((tmp_path / "iphone").glob("*.part")) == []
