@@ -58,6 +58,20 @@ async function fetchMovement(source: MovementSource): Promise<MovementRow[]> {
 
 const day = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeZone: 'UTC' });
 
+const PERIOD_DAYS = 14;
+
+/** A rank period as the span of days it MEASURES: "28 Sept 2026 – 12 Oct 2026".
+ *
+ * The data carries only the day a fortnight opened. Printing that alone ("28 Sept")
+ * reads as a point in time, and two of them joined by an arrow read as "from then
+ * until then" - which is the opposite of what is being compared. Two whole periods
+ * are, so each is shown as its own start - end. */
+function span(startIso: string): string {
+  const start = new Date(startIso);
+  const end = new Date(start.getTime() + PERIOD_DAYS * 24 * 60 * 60 * 1000);
+  return `${day.format(start)} – ${day.format(end)}`;
+}
+
 function score(value: number): string {
   return value.toFixed(1);
 }
@@ -153,8 +167,8 @@ function MovementBody({ rows, emptyNote }: { rows: MovementRow[]; emptyNote: str
   if (previous === null || compared.length === 0) {
     return (
       <p className="subtle">
-        Rank period of {period === undefined ? 'unknown date' : day.format(new Date(period))}. No
-        earlier period to compare against yet, so there is no movement to show.
+        Rank period {period === undefined ? 'unknown' : span(period)}. No earlier period to compare
+        against yet, so there is no movement to show.
       </p>
     );
   }
@@ -177,9 +191,8 @@ function MovementBody({ rows, emptyNote }: { rows: MovementRow[]; emptyNote: str
   return (
     <>
       <p className="subtle">
-        Since the rank period of {previous === null ? '' : day.format(new Date(previous))} →{' '}
-        {period === undefined ? '' : day.format(new Date(period))}, comparing {compared.length}{' '}
-        graded members.
+        <strong>Rank period {period === undefined ? 'unknown' : span(period)}</strong>, compared
+        with the period before it ({span(previous)}). {compared.length} graded members.
       </p>
       <div className="stats">
         {/* Climbed first. The list an officer reads to say well done is the one that
