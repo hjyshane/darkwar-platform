@@ -17,6 +17,17 @@ Ending a chunk by terminating the process can leave a half-written final
 packet. The classic-pcap reader stops at a truncated last record by design
 (`protocol/pcapng.py`), so that costs one packet, not the file.
 
+Rotation itself used to be a gap: terminate, probe usbmux, spawn the next
+`pcap` (two interpreter start-ups and a lockdown handshake, several seconds)
+with nothing listening in between. A login that landed there - the one
+screen that carries the roster and rankings - was lost whole, and a person
+who opens the game by hand lands there a few percent of the time. So the
+next capture now starts WHILE the old one still runs, and the old one is
+ended only once the new file has received a packet. Whether pcapd serves
+two sessions at once has not been observed on a real phone; if the second
+one dies or stays silent while the first is alive, the supervisor logs it
+and goes back to sequential rotation for the rest of the run.
+
 This process only captures. Reading the chunks is `dw-collector ingest-dir
 --delete-ingested` and draining to Supabase is `dw-sync`, both of which
 already exist and already run as their own processes.
@@ -83,6 +94,10 @@ class IphoneConfig:
     #: The capture must be live BEFORE the game starts: a TCP stream joined
     #: mid-flight cannot be read.
     launch_delay_seconds: float = 5.0
+    #: At rotation, how long the old capture may stay up waiting for the new
+    #: one to receive its first packet. 0 restores the sequential rotation
+    #: (terminate, then start) and its gap.
+    overlap_seconds: float = 10.0
 
 
 @dataclass(frozen=True)
@@ -91,6 +106,15 @@ class ChunkResult:
     path: Path
     size: int
     detail: str = ""
+
+
+@dataclass(frozen=True)
+class _Handoff:
+    """A rotated chunk whose capture is still running until its successor is."""
+
+    proc: CaptureProcess
+    result: ChunkResult
+    rotated_at: float
 
 
 def chunk_path(directory: Path, now: datetime, tag: str = "") -> Path:
@@ -157,6 +181,13 @@ class Supervisor:
         self._launch = launch
         self._launch_due = False
         self._last_launch: float | None = None
+        self._overlap_ok = config.overlap_seconds > 0
+        self._handoff: _Handoff | None = None
+
+    @property
+    def overlap_enabled(self) -> bool:
+        """False once a handoff showed the phone will not serve two captures."""
+        return self._overlap_ok
 
     def _maybe_launch(self) -> None:
         """Start the game once the capture is already running.
@@ -185,15 +216,88 @@ class Supervisor:
             return False
         return self._clock() - self._last_launch >= every
 
+    def _await_live(
+        self, proc: CaptureProcess, out: Path, should_stop: Callable[[], bool]
+    ) -> Literal["live", "died", "silent", "stopped"]:
+        """Wait for a new capture's first packet while its predecessor runs."""
+        deadline = self._clock() + self._config.overlap_seconds
+        while True:
+            if proc.poll() is not None:
+                return "died"
+            if _size(out) > EMPTY_PCAP_BYTES:
+                return "live"
+            if should_stop():
+                return "stopped"
+            if self._clock() >= deadline:
+                return "silent"
+            self._sleep(self._config.poll_seconds)
+
+    def _take_over(
+        self, proc: CaptureProcess, out: Path, should_stop: Callable[[], bool]
+    ) -> Literal["live", "died", "silent", "stopped"]:
+        """End the previous chunk's capture once this one is receiving.
+
+        A successor that dies or stays silent while its predecessor is alive is
+        read as "this phone serves one capture at a time": overlap is turned
+        off for the rest of the run and rotation goes back to terminate-then-
+        start. Either way the predecessor is ended and published here.
+        """
+        handoff = self._handoff
+        if handoff is None:
+            return "live"
+        state = self._await_live(proc, out, should_stop)
+        if state in ("died", "silent"):
+            self._overlap_ok = False
+            self._log.warning(
+                "iphone.overlap_unsupported",
+                successor=state,
+                detail="rotating sequentially from now on",
+            )
+        self._flush_handoff()
+        return state
+
+    def _flush_handoff(self) -> None:
+        """Terminate and publish the chunk a rotation left running, if any."""
+        handoff = self._handoff
+        if handoff is None:
+            return
+        self._handoff = None
+        if handoff.proc.poll() is None:
+            handoff.proc.terminate()
+        kept = self._keep_or_drop(handoff.result)
+        self._log_chunk(handoff.result, kept, overlap=self._clock() - handoff.rotated_at)
+
+    def _log_chunk(self, result: ChunkResult, kept: bool, *, overlap: float | None = None) -> None:
+        self._log.info(
+            "iphone.chunk",
+            outcome=result.outcome,
+            bytes=result.size,
+            kept=kept,
+            file=result.path.name,
+            detail=result.detail[-200:],
+            overlap_seconds=None if overlap is None else round(overlap, 1),
+        )
+
     def run_chunk(self, should_stop: Callable[[], bool]) -> ChunkResult:
-        """Capture one chunk and report how it ended. Always cleans up."""
+        """Capture one chunk and report how it ended. Always cleans up.
+
+        A chunk that rotates while overlap is on returns with its capture
+        still running, held in `self._handoff`; the next call (or `run`) ends
+        it. Every other outcome ends the capture before returning.
+        """
         cfg = self._config
         final = chunk_path(cfg.directory, self._now(), self._tag)
         out = part_path(final)
         proc = self._backend.start(out)
         started = last_growth = self._clock()
         seen = 0
+        handed_off = False
         try:
+            state = self._take_over(proc, out, should_stop)
+            if state == "died":
+                return ChunkResult("died", final, _size(out), proc.stderr_tail())
+            if state == "stopped":
+                return ChunkResult("stopped", final, _size(out))
             self._maybe_launch()
             while True:
                 if should_stop():
@@ -206,12 +310,16 @@ class Supervisor:
                 if size > seen:
                     seen, last_growth = size, now
                 if now - started >= cfg.chunk_seconds:
-                    return ChunkResult("rotated", final, size)
+                    result = ChunkResult("rotated", final, size)
+                    if self._overlap_ok:
+                        self._handoff = _Handoff(proc, result, now)
+                        handed_off = True
+                    return result
                 if now - last_growth >= cfg.stall_seconds:
                     return ChunkResult("stalled", final, size)
                 self._sleep(cfg.poll_seconds)
         finally:
-            if proc.poll() is None:
+            if not handed_off and proc.poll() is None:
                 proc.terminate()
 
     def _keep_or_drop(self, result: ChunkResult) -> bool:
@@ -250,6 +358,9 @@ class Supervisor:
         while not should_stop():
             udids = self._backend.devices()
             if not udids:
+                # The phone went away at the rotation itself: nothing for the
+                # held capture to hand over to.
+                self._flush_handoff()
                 if connected:
                     self._log.warning("iphone.disconnected")
                 connected = False
@@ -266,15 +377,13 @@ class Supervisor:
             elif self._periodic_launch_due():
                 self._launch_due = True
             result = self.run_chunk(should_stop)
+            if self._handoff is not None and self._handoff.result is result:
+                # Rotated with the capture still up; the next chunk ends and
+                # publishes it. It ran a full chunk, so the phone was there.
+                backoff = cfg.backoff_min_seconds
+                continue
             kept = self._keep_or_drop(result)
-            self._log.info(
-                "iphone.chunk",
-                outcome=result.outcome,
-                bytes=result.size,
-                kept=kept,
-                file=result.path.name,
-                detail=result.detail[-200:],
-            )
+            self._log_chunk(result, kept)
             if result.outcome == "stopped":
                 return
             if kept:
@@ -289,3 +398,5 @@ class Supervisor:
             connected = False
             self._sleep(backoff)
             backoff = min(backoff * 2, cfg.backoff_max_seconds)
+        # Stopped between a rotation and its successor's start.
+        self._flush_handoff()
