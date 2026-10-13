@@ -20,9 +20,10 @@
   그래도 지금의 3~6초보다 짧다. 맥에서 다음 한 번 돌릴 때 `grep -c overlap_unsupported
   ~/dw-data/logs/iphone.log`가 0이면 된다. `iphone-capture.md` 「알아 둘 것」에 적어 두었다.
 - **운영 반영:** 맥은 `git pull` 뒤 `scripts/mac/install-iphone-agent.sh`(에이전트 재시작), Windows는
-  `scripts\windows\stop-iphone-task.ps1 -Restart`. 여기 Windows에는 `-m dw_collector.iphone`
-  파이썬이 **두 개**(.venv 것과 Python312 것) 떠 있는 것을 봤다 — `Stop-ScheduledTask`가 남긴 옛 체인
-  같다. 재시작할 때 같이 정리한다.
+  `scripts\windows\stop-iphone-task.ps1 -Restart`. **Windows는 2026-10-13에 재시작했고** 로그의
+  `iphone.start`에 `overlap_seconds=10.0`이 찍혔다. 프로세스 목록에 `-m dw_collector.iphone` 파이썬이
+  둘(.venv 것과 Python312 것) 보이는 것은 옛 체인이 아니다 — Windows venv의 `python.exe`는 런처라서
+  기본 인터프리터를 자식으로 띄운다(부모 PID로 확인). 체인은 하나다.
 
 ---
 
