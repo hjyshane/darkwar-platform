@@ -47,6 +47,27 @@
 
 ---
 
+## 2026-10-18 — Capital Clash가 참여 보고서에 들어갔다 (PR 머지·마이그레이션 적용 전엔 아니다)
+
+**사용자 요청: "스코어랑 리로케이션이면 충분하다, 그걸로 participation을 판정한다."**
+2026-10-17 전투(14:00~15:20 UTC)를 아이폰 수집기 저널(`~/dw-data/iphone.db`)에서 읽어 파서 둘을 만들었다.
+수집기가 pcap을 읽자마자 지우므로 원본은 저널의 `raw_observations`뿐이다.
+
+- `get.kingdom.act.score.rank` → `capital_clash_scores`, `push.world.point.update`(relocate) →
+  `player_relocations`. 판정은 `capture-sweep.md`. 마이그레이션 0287, `normalize/capital_clash.py`,
+  `supabase/tests/287_capital_clash_test.sql`.
+- **판정 규칙:** 그날 점수 보드에 있거나 수도 구역으로 이주했으면 **참여**. 둘 다 아니면 **모름**
+  (`attended 0, missed 0 of held N`) — **불참이 아니다.** 보드는 서버군 상위 100명뿐이고 이주는 수집 계정에
+  푸시된 것만이라 둘 다 하한이다. 불참은 임원이 체크해서 넣는다(체크가 항상 이긴다).
+- **수도 구역은 추정이다.** `in_capital_zone()`이 y·x 470~520을 쓴다(점 id = `y*1000+x`로 읽은 것).
+  틀리면 그 함수 하나만 `create or replace`로 바꾸면 된다.
+- **최종 점수는 없다.** 마지막 보드 읽기가 종료 17분 전(15:03 UTC)이었다.
+- **적용 순서:** PR 머지 → `supabase db push`(0287) → 아이폰 수집기가 도는 체크아웃에서 `git pull` 후
+  에이전트 재시작 → 10-17 저널을 새 파서로 다시 돌려(`dw-collector backfill`) → `dw-collector sync`.
+  테이블이 먼저 없으면 sync가 실패한다.
+
+---
+
 ## 2026-10-08 — 아이폰 패킷 캡처 런북 (아직 실행 전)
 
 **코드 변경 없음. 문서 두 개뿐이다:** `docs/runbooks/iphone-capture.md`(신규),

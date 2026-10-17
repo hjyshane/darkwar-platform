@@ -67,6 +67,10 @@ _TABLE_ORDER = [
     "black_money_score_snapshots",
     # Furnace Fury member boards (0212): a player and an alliance each.
     "furnace_fury_scores",
+    # Capital Clash: the top-100 score board and the relocations (0287). A
+    # player each.
+    "capital_clash_scores",
+    "player_relocations",
     # Frankie damage board (0277): a player each.
     "boss_damage_scores",
     # Packs and shop entries (0215). No refs.
