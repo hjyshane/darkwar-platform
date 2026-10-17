@@ -681,11 +681,12 @@ export function ParticipationPage() {
             Buildings are levels gained as far as our map sweeps have seen. Columns marked ✎ are
             ticked by officers, not captured, and ?N is event days nobody ticked this member for.
             Capital Clash counts a member present when they are on its score board (the top 100 of
-            the server group) or teleported into the capital; a member on neither shows ?N, never an
-            absence. Frankie counts each round once its damage board was opened inside the event:
-            round 1 is who was on the board when round 2 began, and round 2 is whoever's damage grew
-            after that; a round whose board was not opened after it ended shows ?N. Hover a cell for
-            the detail.
+            the server group), teleported into the capital, or had a city inside it while the battle
+            ran; absent when they were seen outside it in the battle's last 15 minutes and on none
+            of those; otherwise ?N, which is not known. Frankie counts each round once its damage
+            board was opened inside the event: round 1 is who was on the board when round 2 began,
+            and round 2 is whoever's damage grew after that; a round whose board was not opened
+            after it ended shows ?N. Hover a cell for the detail.
           </p>
         </div>
       )}
