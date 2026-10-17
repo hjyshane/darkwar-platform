@@ -1,0 +1,14 @@
+{
+  "observation_id": "00000000-0000-4000-8000-00000000cc05",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "push.world.point.update",
+  "captured_at": "2026-10-17T14:03:17+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "points": [
+      "b64:CNHVHhADGlMKEDEwMDAwMDAwMDEwMDA1ODAQ2YmJ+tb0u+sSGIC1GDogMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMGE1ODByBUFscGhhegNUU1TaAQJVU6AG2YmJ+tb0u+sSsAbEBA==",
+      "b64:CL6zHxADGlUKEDEwMDAwMDAwMDMwMDA1ODEQ2YmJ+tb0u+sSGIC1GDogMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMGI1ODFyB0NoYXJsaWV6A09USNoBAlVToAbZiYn61vS76xKwBsQE"
+    ],
+    "type": "relocate"
+  }
+}

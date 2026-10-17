@@ -680,7 +680,9 @@ export function ParticipationPage() {
             under half. Black Gold is played / listed, from battles whose report was captured.
             Buildings are levels gained as far as our map sweeps have seen. Columns marked ✎ are
             ticked by officers, not captured, and ?N is event days nobody ticked this member for.
-            Hover a cell for the detail.
+            Capital Clash counts a member present when they are on its score board (the top 100 of
+            the server group) or teleported into the capital; a member on neither shows ?N, never an
+            absence. Hover a cell for the detail.
           </p>
         </div>
       )}

@@ -2770,6 +2770,109 @@ export type Database = {
         }
         Relationships: []
       }
+      capital_clash_scores: {
+        Row: {
+          alliance_code: string | null
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at: string
+          game_uid: number
+          held_on: string
+          idempotency_key: string
+          observation_id: string
+          parser_version: string
+          player_id: string | null
+          rank: number | null
+          raw: Json
+          score: number
+          server_id: number
+          snapshot_id: string
+          source_command: string
+        }
+        Insert: {
+          alliance_code?: string | null
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at?: string
+          game_uid: number
+          held_on: string
+          idempotency_key: string
+          observation_id: string
+          parser_version: string
+          player_id?: string | null
+          rank?: number | null
+          raw?: Json
+          score: number
+          server_id: number
+          snapshot_id: string
+          source_command: string
+        }
+        Update: {
+          alliance_code?: string | null
+          captured_at?: string
+          collected_from_server_id?: number
+          collector_id?: string
+          created_at?: string
+          game_uid?: number
+          held_on?: string
+          idempotency_key?: string
+          observation_id?: string
+          parser_version?: string
+          player_id?: string | null
+          rank?: number | null
+          raw?: Json
+          score?: number
+          server_id?: number
+          snapshot_id?: string
+          source_command?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "capital_clash_scores_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "capital_clash_scores_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "capital_clash_scores_collector_id_fkey"
+            columns: ["collector_id"]
+            isOneToOne: false
+            referencedRelation: "collectors"
+            referencedColumns: ["collector_id"]
+          },
+          {
+            foreignKeyName: "capital_clash_scores_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "capital_clash_scores_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "capital_clash_scores_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+        ]
+      }
       collector_heartbeats: {
         Row: {
           collector_id: string
@@ -5943,6 +6046,106 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "pending_access"
             referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      player_relocations: {
+        Row: {
+          alliance_code: string | null
+          alliance_external_id: string | null
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at: string
+          game_uid: number
+          idempotency_key: string
+          observation_id: string
+          parser_version: string
+          player_id: string | null
+          point_id: number
+          raw: Json
+          server_id: number
+          snapshot_id: string
+          source_command: string
+        }
+        Insert: {
+          alliance_code?: string | null
+          alliance_external_id?: string | null
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at?: string
+          game_uid: number
+          idempotency_key: string
+          observation_id: string
+          parser_version: string
+          player_id?: string | null
+          point_id: number
+          raw?: Json
+          server_id: number
+          snapshot_id: string
+          source_command: string
+        }
+        Update: {
+          alliance_code?: string | null
+          alliance_external_id?: string | null
+          captured_at?: string
+          collected_from_server_id?: number
+          collector_id?: string
+          created_at?: string
+          game_uid?: number
+          idempotency_key?: string
+          observation_id?: string
+          parser_version?: string
+          player_id?: string | null
+          point_id?: number
+          raw?: Json
+          server_id?: number
+          snapshot_id?: string
+          source_command?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_relocations_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "player_relocations_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "player_relocations_collector_id_fkey"
+            columns: ["collector_id"]
+            isOneToOne: false
+            referencedRelation: "collectors"
+            referencedColumns: ["collector_id"]
+          },
+          {
+            foreignKeyName: "player_relocations_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "player_relocations_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "player_relocations_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
           },
         ]
       }
@@ -9672,6 +9875,7 @@ export type Database = {
         }[]
       }
       has_permission: { Args: { p_capability: string }; Returns: boolean }
+      in_capital_zone: { Args: { p_point: number }; Returns: boolean }
       is_service_request: { Args: never; Returns: boolean }
       joinable_alliances: {
         Args: never

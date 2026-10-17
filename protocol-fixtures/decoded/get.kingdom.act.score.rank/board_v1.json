@@ -1,0 +1,60 @@
+{
+  "observation_id": "00000000-0000-4000-8000-00000000cc01",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "get.kingdom.act.score.rank",
+  "captured_at": "2026-10-17T14:29:53+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "_id": 681,
+    "_time": 0,
+    "rankList": [
+      {
+        "abbr": "TST",
+        "allianceName": "Test Alliance",
+        "country": "US",
+        "headSkinId": 20034,
+        "lv": 55,
+        "name": "Alpha",
+        "pic": "",
+        "picVer": 7,
+        "power": 481858994,
+        "rank": 1,
+        "score": 19066151,
+        "sex": 2,
+        "uid": "1000000001000580"
+      },
+      {
+        "abbr": "TST",
+        "allianceName": "Test Alliance",
+        "country": "US",
+        "headSkinId": 20034,
+        "lv": 55,
+        "name": "Bravo",
+        "pic": "",
+        "picVer": 7,
+        "power": 1277753827,
+        "rank": 2,
+        "score": 17248635,
+        "sex": 2,
+        "uid": "1000000002000580"
+      },
+      {
+        "abbr": "OTH",
+        "allianceName": "Test Alliance",
+        "country": "US",
+        "headSkinId": 20034,
+        "lv": 55,
+        "name": "Charlie",
+        "pic": "",
+        "picVer": 7,
+        "power": 514655919,
+        "rank": 3,
+        "score": 9000000,
+        "sex": 2,
+        "uid": "1000000003000581"
+      }
+    ],
+    "selfRank": 2,
+    "selfScore": 17248635
+  }
+}

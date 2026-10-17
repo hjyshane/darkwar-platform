@@ -71,7 +71,7 @@ export function AttendanceRecorder({
         heldOn,
         members.map((member) => member.game_uid),
       ),
-    enabled: kind === 'furnace_fury' && heldOn !== '',
+    enabled: (kind === 'furnace_fury' || kind === 'capital_clash') && heldOn !== '',
   });
   const days = useQuery({
     queryKey: ['attendance-days', kind],
@@ -164,7 +164,8 @@ export function AttendanceRecorder({
       <p className="subtle">
         Pick the event and the game day it was held, tick each member, and save. Leaving somebody on
         — means not recorded, which the report shows as a gap rather than an absence. Furnace Fury
-        is read from its member board; a tick here overrides the board for that member.
+        is read from its member board and Capital Clash from its score board and who teleported to
+        the capital; a tick here overrides the board for that member.
       </p>
       <div className="row">
         <label>

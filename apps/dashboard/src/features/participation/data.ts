@@ -283,15 +283,23 @@ export async function fetchAttendanceDay(kind: string, heldOn: string): Promise<
   return { marks, scores };
 }
 
-/** The score the collector read for each member that day, by game uid. Only
- * Furnace Fury has a board to read; the rest have none to show. A board can be
- * read more than once a day and a score only grows, so the highest wins. */
+/** The score the collector read for each member that day, by game uid. Furnace
+ * Fury and Capital Clash have a board to read; the rest have none to show. A
+ * board can be read more than once a day and a score only grows, so the highest
+ * wins. Capital Clash's board is the top 100 of the server group, so a member
+ * missing from it is simply not shown, never "scored nothing". */
+const SCANNED_BOARDS = {
+  furnace_fury: 'furnace_fury_scores',
+  capital_clash: 'capital_clash_scores',
+} as const;
+
 export async function fetchScannedScores(
   kind: string,
   heldOn: string,
   gameUids: readonly number[],
 ): Promise<Map<number, number>> {
-  if (kind !== 'furnace_fury' || gameUids.length === 0) {
+  const table = SCANNED_BOARDS[kind as keyof typeof SCANNED_BOARDS];
+  if (table === undefined || gameUids.length === 0) {
     return new Map();
   }
   const best = new Map<number, number>();
@@ -300,7 +308,7 @@ export async function fetchScannedScores(
   const PAGE = 1000;
   for (let from = 0; from < 10 * PAGE; from += PAGE) {
     const { data, error } = await supabase
-      .from('furnace_fury_scores')
+      .from(table)
       .select('game_uid, score')
       .eq('held_on', heldOn)
       .in('game_uid', [...gameUids])

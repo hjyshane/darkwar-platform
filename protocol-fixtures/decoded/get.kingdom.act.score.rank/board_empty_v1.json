@@ -1,0 +1,14 @@
+{
+  "observation_id": "00000000-0000-4000-8000-00000000cc02",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "get.kingdom.act.score.rank",
+  "captured_at": "2026-10-17T14:29:53+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "_id": 681,
+    "_time": 0,
+    "rankList": [],
+    "selfRank": 0,
+    "selfScore": 0
+  }
+}
