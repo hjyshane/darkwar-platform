@@ -2946,7 +2946,80 @@ export type Database = {
           },
         ]
       }
-      capital_clash_windows: {
+      capital_clash_times: {
+        Row: {
+          at: string
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at: string
+          held_on: string
+          idempotency_key: string
+          kind: string
+          observation_id: string
+          occupy_alliance_external_id: string | null
+          parser_version: string
+          raw: Json
+          snapshot_id: string
+          source_command: string
+        }
+        Insert: {
+          at: string
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at?: string
+          held_on: string
+          idempotency_key: string
+          kind: string
+          observation_id: string
+          occupy_alliance_external_id?: string | null
+          parser_version: string
+          raw?: Json
+          snapshot_id: string
+          source_command: string
+        }
+        Update: {
+          at?: string
+          captured_at?: string
+          collected_from_server_id?: number
+          collector_id?: string
+          created_at?: string
+          held_on?: string
+          idempotency_key?: string
+          kind?: string
+          observation_id?: string
+          occupy_alliance_external_id?: string | null
+          parser_version?: string
+          raw?: Json
+          snapshot_id?: string
+          source_command?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "capital_clash_times_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "capital_clash_times_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "capital_clash_times_collector_id_fkey"
+            columns: ["collector_id"]
+            isOneToOne: false
+            referencedRelation: "collectors"
+            referencedColumns: ["collector_id"]
+          },
+        ]
+      }
+      capital_clash_window_overrides: {
         Row: {
           ends_at: string
           held_on: string
@@ -8865,6 +8938,15 @@ export type Database = {
           starter_misses: number | null
           substitute_battles: number | null
           substitute_misses: number | null
+        }
+        Relationships: []
+      }
+      capital_clash_windows: {
+        Row: {
+          ends_at: string | null
+          held_on: string | null
+          note: string | null
+          starts_at: string | null
         }
         Relationships: []
       }

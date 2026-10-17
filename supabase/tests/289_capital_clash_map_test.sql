@@ -44,7 +44,7 @@ select '00000000-0000-4000-8000-00000000e0b1', 'al.rank', 'test',
        p.game_uid, p.current_name, 3, 30, 1, false, 'online'
 from public.players p where p.game_uid between 9270000000000001 and 9270000000000007;
 
-insert into public.capital_clash_windows (held_on, starts_at, ends_at)
+insert into public.capital_clash_window_overrides (held_on, starts_at, ends_at)
 values ('2026-11-07', '2026-11-07 14:00Z', '2026-11-07 15:20Z');
 
 create function pg_temp.seen(n int, at timestamptz, x int, y int)
@@ -132,7 +132,7 @@ select is(pg_temp.tally('Golf'), '{"held": 1, "attended": 1, "missed": 0, "score
 
 -- 11-12. Members read the window and cannot change it.
 select ok((select count(*) from public.capital_clash_windows) >= 2, 'a member reads the windows');
-select throws_ok($$ delete from public.capital_clash_windows $$, '42501', null,
+select throws_ok($$ delete from public.capital_clash_window_overrides $$, '42501', null,
   'a member cannot change them');
 
 -- 13-14. A viewer reads nothing, anon has no read.
