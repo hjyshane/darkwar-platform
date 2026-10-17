@@ -73,6 +73,8 @@ _TABLE_ORDER = [
     "player_relocations",
     # Frankie damage board (0277): a player each.
     "boss_damage_scores",
+    # One row per read of that board, no refs (0288).
+    "boss_damage_reads",
     # Packs and shop entries (0215). No refs.
     "shop_pack_snapshots",
     # Which packs a capture listed (0235). No refs.

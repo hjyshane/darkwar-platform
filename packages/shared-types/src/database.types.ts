@@ -2649,6 +2649,79 @@ export type Database = {
           },
         ]
       }
+      boss_damage_reads: {
+        Row: {
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at: string
+          entries: number
+          held_on: string
+          hitters: number
+          idempotency_key: string
+          observation_id: string
+          parser_version: string
+          raw: Json
+          snapshot_id: string
+          source_command: string
+          total_damage: number
+        }
+        Insert: {
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at?: string
+          entries: number
+          held_on: string
+          hitters: number
+          idempotency_key: string
+          observation_id: string
+          parser_version: string
+          raw?: Json
+          snapshot_id: string
+          source_command: string
+          total_damage: number
+        }
+        Update: {
+          captured_at?: string
+          collected_from_server_id?: number
+          collector_id?: string
+          created_at?: string
+          entries?: number
+          held_on?: string
+          hitters?: number
+          idempotency_key?: string
+          observation_id?: string
+          parser_version?: string
+          raw?: Json
+          snapshot_id?: string
+          source_command?: string
+          total_damage?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boss_damage_reads_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "boss_damage_reads_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "boss_damage_reads_collector_id_fkey"
+            columns: ["collector_id"]
+            isOneToOne: false
+            referencedRelation: "collectors"
+            referencedColumns: ["collector_id"]
+          },
+        ]
+      }
       boss_damage_scores: {
         Row: {
           captured_at: string
@@ -9832,6 +9905,18 @@ export type Database = {
         Returns: number
       }
       epoch_ms_to_timestamptz: { Args: { p_ms: Json }; Returns: string }
+      frankie_rounds: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: {
+          attended: boolean
+          complete: boolean
+          damage: number
+          event_day: string
+          game_uid: number
+          player_id: string
+          round: number
+        }[]
+      }
       freeze_alliance_settings: {
         Args: { p_old_primary?: string }
         Returns: undefined
