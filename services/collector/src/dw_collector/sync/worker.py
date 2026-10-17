@@ -71,6 +71,8 @@ _TABLE_ORDER = [
     # player each.
     "capital_clash_scores",
     "player_relocations",
+    # When a Capital Clash starts and ends: facts, no refs (0291).
+    "capital_clash_times",
     # Frankie damage board (0277): a player each.
     "boss_damage_scores",
     # One row per read of that board, no refs (0288).

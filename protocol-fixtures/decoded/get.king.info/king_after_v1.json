@@ -1,0 +1,27 @@
+{
+  "observation_id": "00000000-0000-4000-8000-00000000cd02",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "get.king.info",
+  "captured_at": "2026-10-17T16:33:31+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "_id": 66,
+    "_time": 7,
+    "declaration": "",
+    "finishTime": 1792250404744,
+    "kingInfo": {
+      "allianceAbbr": "TST",
+      "allianceName": "Test Alliance",
+      "beKingTime": 1791041679319,
+      "country": "US",
+      "name": "Alpha",
+      "serverId": 580,
+      "termEndTime": 1793455200000,
+      "uid": "1000000001000580"
+    },
+    "occupyAllianceId": "0000000000000000000000000000a580",
+    "occupyServerId": 580,
+    "promoteEndTime": 1783735200000,
+    "useCrossPosition": 0
+  }
+}
