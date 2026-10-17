@@ -52,6 +52,8 @@ describe('buildNav', () => {
       '#/events',
       '#/black-gold',
       '#/frankie',
+      '#/capital-clash',
+      '#/server-clash',
       '#/participation',
       '#/season',
       '#/season2',
@@ -74,19 +76,28 @@ describe('buildNav', () => {
     expect(sub(base({ isAdmin: true }))).toContain('Season 2');
   });
 
-  it('gathers Black Gold, Frankie, Participation and the seasons under Events', () => {
+  it('gathers Black Gold, Frankie, the clashes, Participation and the seasons under Events', () => {
     const alliance = buildNav(base({ isAdmin: true })).find((group) => group.id === 'alliance');
     const events = alliance?.items.find((item) => item.href === '#/events');
     expect(events?.children?.map((child) => child.href)).toEqual([
       '#/black-gold',
       '#/frankie',
+      '#/capital-clash',
+      '#/server-clash',
       '#/participation',
       '#/season',
       '#/season2',
     ]);
     // They are no longer top-level entries beside it.
     const top = alliance?.items.map((item) => item.href) ?? [];
-    for (const hash of ['#/black-gold', '#/frankie', '#/participation', '#/season']) {
+    for (const hash of [
+      '#/black-gold',
+      '#/frankie',
+      '#/capital-clash',
+      '#/server-clash',
+      '#/participation',
+      '#/season',
+    ]) {
       expect(top).not.toContain(hash);
     }
   });

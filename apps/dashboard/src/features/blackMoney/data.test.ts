@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   type Battle,
   type BattleMember,
+  foldScoreHistory,
   groupEvents,
   noShows,
   outcome,
@@ -108,5 +109,42 @@ describe('labels', () => {
 
   it('shows the end time on the game clock', () => {
     expect(serverClock('2026-09-27T12:50:00Z')).toBe('10:50 server');
+  });
+});
+
+describe('foldScoreHistory', () => {
+  const row = (game_uid: number, battle_ended_at: string, score: number | null) => ({
+    game_uid,
+    battle_ended_at,
+    score,
+  });
+
+  it('orders each member oldest first, whatever order the rows came in', () => {
+    const history = foldScoreHistory([
+      row(1, '2026-10-17T00:00:00Z', 30),
+      row(1, '2026-10-03T00:00:00Z', 10),
+      row(1, '2026-10-10T00:00:00Z', 20),
+    ]);
+    expect(history.get(1)).toEqual([10, 20, 30]);
+  });
+
+  it('keeps only the latest battles', () => {
+    const rows = [1, 2, 3, 4, 5].map((n) => row(1, `2026-10-0${n}T00:00:00Z`, n * 10));
+    expect(foldScoreHistory(rows, 3).get(1)).toEqual([30, 40, 50]);
+  });
+
+  it('skips battles a member has no row in, and keeps an unplayed one as a gap', () => {
+    const history = foldScoreHistory([
+      row(1, '2026-10-03T00:00:00Z', 10),
+      row(1, '2026-10-10T00:00:00Z', null),
+      row(1, '2026-10-17T00:00:00Z', 30),
+      row(2, '2026-10-10T00:00:00Z', 5),
+    ]);
+    expect(history.get(1)).toEqual([10, null, 30]);
+    expect(history.get(2)).toEqual([5]);
+  });
+
+  it('is empty for no rows', () => {
+    expect(foldScoreHistory([]).size).toBe(0);
   });
 });

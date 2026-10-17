@@ -138,6 +138,8 @@ const ICONS: Partial<Record<Route, IconName>> = {
   events: 'blackGold',
   participation: 'participation',
   frankie: 'participation',
+  capitalClash: 'participation',
+  serverClash: 'participation',
   planner: 'planner',
   giftCodes: 'blackGold',
   calendar: 'calendar',

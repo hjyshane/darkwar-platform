@@ -9926,6 +9926,32 @@ export type Database = {
         Returns: number
       }
       epoch_ms_to_timestamptz: { Args: { p_ms: Json }; Returns: string }
+      event_board: {
+        Args: { p_kind: string }
+        Returns: {
+          attended: boolean
+          current_name: string
+          damage: number
+          event_day: string
+          game_uid: number
+          member_rank: number
+          player_id: string
+          round: number
+          score: number
+        }[]
+      }
+      event_verdicts: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          attended: boolean
+          damage: number
+          held_on: string
+          kind: string
+          player_id: string
+          round: number
+          score: number
+        }[]
+      }
       frankie_rounds: {
         Args: { p_from?: string; p_to?: string }
         Returns: {
