@@ -7,6 +7,7 @@ import {
   fetchBattleMembers,
   fetchBattleOpponents,
   fetchMemberMisses,
+  fetchMemberScoreHistory,
   noShows,
   opponentAsMember,
 } from './data';
@@ -53,6 +54,13 @@ export function BattleDetail({ battle }: { battle: Battle }) {
     queryFn: () => fetchMemberMisses(battle.alliance_external_id),
     staleTime: STALE_TIME,
   });
+  // The alliance's recent scores per member, one query shared by every battle
+  // that is opened; it feeds the trend column.
+  const history = useQuery({
+    queryKey: ['blackMoney', 'history', battle.alliance_external_id],
+    queryFn: () => fetchMemberScoreHistory(battle.alliance_external_id),
+    staleTime: STALE_TIME,
+  });
   const misses = useMemo(
     () => new Map((tally.data ?? []).map((row) => [row.game_uid, row])),
     [tally.data],
@@ -93,7 +101,9 @@ export function BattleDetail({ battle }: { battle: Battle }) {
       {members.error && (
         <p className="error">Could not load the members: {members.error.message}</p>
       )}
-      {members.data && <BattleMembersTable members={members.data} misses={misses} />}
+      {members.data && (
+        <BattleMembersTable history={history.data} members={members.data} misses={misses} />
+      )}
       <p className="note">
         Starter miss and Sub miss count every battle since the 2026-09-27 event in which the member
         was listed in that role and is not in the battle report — shown as misses out of those

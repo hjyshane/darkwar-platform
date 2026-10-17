@@ -1479,6 +1479,55 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
       },
     ]),
   ],
+  // Capital Clash and Server Clash, one event across its days (0290): the
+  // verdict is true / false / null (not known), with a score where there is one.
+  [
+    ['event-board', 'capital_clash'],
+    (
+      [
+        // [verdict, score] per member: Shane, Mira, Kova, Dex.
+        ['2026-09-19', [true, 15_200_000], [false, null], [null, null], [true, 9_800_000]],
+        ['2026-10-03', [true, 21_000_000], [true, 12_400_000], [true, 4_100_000], [false, null]],
+        ['2026-10-17', [true, 34_354_291], [true, 29_355_870], [null, null], [false, null]],
+      ] as const
+    ).flatMap(([day, ...cells]) =>
+      [
+        ['Shane', PLAYER.shane, 1001, 5],
+        ['Mira', PLAYER.mira, 1002, 4],
+        ['Kova', PLAYER.kova, 1003, 3],
+        ['Dex', PLAYER.dex, 1004, 2],
+      ].map(([name, id, uid, rank], index) => ({
+        event_day: day,
+        round: 0,
+        player_id: id,
+        game_uid: uid,
+        current_name: name,
+        member_rank: rank,
+        attended: cells[index]?.[0] ?? null,
+        score: cells[index]?.[1] ?? null,
+        damage: null,
+      })),
+    ),
+  ],
+  [
+    ['event-board', 'server_clash'],
+    [
+      ['Shane', PLAYER.shane, 1001, 5, true, 5_000, 777],
+      ['Mira', PLAYER.mira, 1002, 4, true, 3_200, 410],
+      ['Kova', PLAYER.kova, 1003, 3, false, null, null],
+      ['Dex', PLAYER.dex, 1004, 2, null, null, null],
+    ].map(([name, id, uid, rank, attended, score, damage]) => ({
+      event_day: '2026-10-10',
+      round: 0,
+      player_id: id,
+      game_uid: uid,
+      current_name: name,
+      member_rank: rank,
+      attended,
+      score,
+      damage,
+    })),
+  ],
   // The season boards: a building grid, and the two rankings (newest capture each).
   [
     ['seasonBoard', 'buildings', 3, SEASON3_BUILDINGS.map((kind) => kind.id).join(',')],

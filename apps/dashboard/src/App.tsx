@@ -16,6 +16,7 @@ import { LoginPage } from './features/auth/LoginPage';
 import { BlackMoneyPage } from './features/blackMoney/BlackMoneyPage';
 import { CalendarPage } from './features/calendar/CalendarPage';
 import { CrossRankingsPanel } from './features/crossRankings/CrossRankingsPanel';
+import { CAPITAL_CLASH, EventBoardPage, SERVER_CLASH } from './features/eventBoard/EventBoardPage';
 import { EventGuidePage } from './features/eventGuide/EventGuidePage';
 import { EventsTabs } from './features/events/EventsTabs';
 import { FrankiePage } from './features/frankie/FrankiePage';
@@ -337,6 +338,11 @@ function Screen({
       // No capability gate: the board and the report are member-only at the
       // policy level (0277), like Participation's.
       return <FrankiePage />;
+    case 'capitalClash':
+      // Member-only at the policy level, like Frankie's (0290).
+      return <EventBoardPage config={CAPITAL_CLASH} />;
+    case 'serverClash':
+      return <EventBoardPage config={SERVER_CLASH} />;
     case 'shopValue':
       // No capability gate: every table behind it is member-only at the policy
       // level (0215), and editing values is gated by RLS to officers and admins.

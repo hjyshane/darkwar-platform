@@ -47,6 +47,26 @@
 
 ---
 
+## 2026-10-18 — Capital Clash·Server Clash 페이지, Black Gold 추이 열 (0290)
+
+**사용자 요청:** 캐피털 클래시와 서버 클래시도 Frankie처럼 페이지로. 데이터에 맞게 열을 넣고 빼고,
+Black Gold에도 Frankie의 선 그래프(추이) 열.
+
+- **`event_verdicts(p_from, p_to)`** — `member_participation`의 이벤트 절반(0289의 verdicts 그대로)을
+  함수로 꺼냈다. 보고서는 이제 이걸 읽는다. 판정은 하나도 안 바뀌었고 기존 pgTAP 전부가 그 증거다.
+  **`event_board(p_kind)`** — 한 종류의 이벤트를 며칠에 걸쳐(최근 180일) 멤버별로 돌려준다. 페이지가 읽는다.
+- **페이지 두 개**(`#/capital-clash`, `#/server-clash`, Events 탭 안, `features/eventBoard/`). 셀은 점수가
+  있으면 점수, 없으면 ✓ 참여 / ✗ 불참 / ? 모름. **모름은 절대 불참이 아니다.** 열은 데이터에 맞춰 켠다:
+  점수가 하나라도 있으면 Total·Average·Best, **이벤트가 둘 이상이면** Latest·Trend, 데미지가 하나라도 있으면
+  Damage. Server Clash는 아직 게임에서 읽는 게 없어 **임원이 Participation에서 넣은 값뿐**이다(10-10 한 건).
+- **Black Gold 멤버 표에 Trend 열**(`BattleMembersTable`, 우리 쪽만): 그 멤버가 뛴 최근 8전의 점수를
+  날짜순으로. 안 뛴 전투(점수 없음)는 선이 끊긴다. 점수 행이 1,000개를 넘을 수 있어 페이지로 읽는다.
+  열 배치 설정(`TableLayoutSetting`)에도 `trend`가 올라간다.
+- 화면은 dev fixture로 봤다(Capital Clash·Server Clash). Black Gold 열은 단위 테스트와 타입으로만 확인했고
+  **눈으로는 못 봤다.**
+
+---
+
 ## 2026-10-18 — Capital Clash를 지도 위치로 판정한다, 불참까지 (0289)
 
 **사용자 요청:** 지도 위치를 추가하고 불참까지 자동 판정. **수도전 2시간 전부터 시작까지는 수도 진입이

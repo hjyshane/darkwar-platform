@@ -37,6 +37,8 @@ export type Route =
   | 'schedule'
   | 'participation'
   | 'frankie'
+  | 'capitalClash'
+  | 'serverClash'
   | 'events'
   | 'planner'
   | 'giftCodes'
@@ -69,6 +71,8 @@ const ROUTES: Record<string, Route> = {
   '#/schedule': 'schedule',
   '#/participation': 'participation',
   '#/frankie': 'frankie',
+  '#/capital-clash': 'capitalClash',
+  '#/server-clash': 'serverClash',
   '#/events': 'events',
   '#/planner': 'planner',
   '#/gift-codes': 'giftCodes',
@@ -457,6 +461,10 @@ export const EVENTS_HUB_TABS: ReadonlyArray<NavTab> = [
   { route: 'blackMoney', hash: '#/black-gold', label: 'Black Gold' },
   // Each member's Frankie (Bio-Mutant) damage per event and the trend (0277).
   { route: 'frankie', hash: '#/frankie', label: 'Frankie' },
+  // Capital Clash and Server Clash the same way: who took part, the score and
+  // how it moves (0290).
+  { route: 'capitalClash', hash: '#/capital-clash', label: 'Capital Clash' },
+  { route: 'serverClash', hash: '#/server-clash', label: 'Server Clash' },
   // Every member against every event, plus the ones only an officer can
   // record (0204). Member-only at the policy level, so no capability gate.
   { route: 'participation', hash: '#/participation', label: 'Participation' },
@@ -509,6 +517,8 @@ export function navSection(route: Route): NavSection | null {
     case 'blackMoney':
     case 'participation':
     case 'frankie':
+    case 'capitalClash':
+    case 'serverClash':
     case 'events':
     case 'planner':
     case 'giftCodes':

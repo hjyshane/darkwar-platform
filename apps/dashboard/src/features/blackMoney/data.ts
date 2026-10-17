@@ -167,6 +167,67 @@ export async function fetchMemberMisses(allianceExternalId: string): Promise<Mem
   return (data ?? []) as MemberMisses[];
 }
 
+/** How many of a member's latest battles the trend line draws. */
+export const TREND_BATTLES = 8;
+
+interface ScoreRow {
+  game_uid: number;
+  battle_ended_at: string;
+  score: number | null;
+}
+
+/** Each member's scores in the battles they were in, oldest first, the latest
+ * TREND_BATTLES of them. A battle the member has no row in is skipped: the
+ * other team's battle is not a gap in their record. A battle they were listed
+ * in and did not play has a row with no score, which breaks the line. Pure, so
+ * it is tested alone. */
+export function foldScoreHistory(
+  rows: readonly ScoreRow[],
+  limit = TREND_BATTLES,
+): Map<number, (number | null)[]> {
+  const byMember = new Map<number, ScoreRow[]>();
+  for (const row of rows) {
+    byMember.set(row.game_uid, [...(byMember.get(row.game_uid) ?? []), row]);
+  }
+  const out = new Map<number, (number | null)[]>();
+  for (const [uid, list] of byMember) {
+    const ordered = [...list].sort((a, b) =>
+      a.battle_ended_at < b.battle_ended_at ? -1 : a.battle_ended_at > b.battle_ended_at ? 1 : 0,
+    );
+    out.set(
+      uid,
+      ordered.slice(-limit).map((row) => row.score),
+    );
+  }
+  return out;
+}
+
+/** The alliance's member scores over its recent battles, for the trend column.
+ * One row per person per battle, so it is read in pages: PostgREST stops at
+ * 1,000 rows without saying so, and a short page is the end. */
+export async function fetchMemberScoreHistory(
+  allianceExternalId: string,
+): Promise<Map<number, (number | null)[]>> {
+  const PAGE = 1000;
+  const rows: ScoreRow[] = [];
+  for (let from = 0; from < 10 * PAGE; from += PAGE) {
+    const { data, error } = await supabase
+      .from('black_money_battle_members')
+      .select('game_uid, battle_ended_at, score')
+      .eq('alliance_external_id', allianceExternalId)
+      .order('battle_ended_at', { ascending: false })
+      .order('game_uid')
+      .order('team_index')
+      .range(from, from + PAGE - 1);
+    if (error) {
+      throw new Error(`member score history query failed: ${error.message}`);
+    }
+    rows.push(...((data ?? []) as ScoreRow[]));
+    if ((data ?? []).length < PAGE) break;
+  }
+  return foldScoreHistory(rows);
+}
+
 /** Every battle, newest first. ~2 per event since 2026-04 — far under 1,000. */
 export async function fetchBattles(): Promise<Battle[]> {
   let query = supabase

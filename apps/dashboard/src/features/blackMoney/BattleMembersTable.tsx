@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { ArrangedTable, type Column } from '../../components/ArrangedTable';
 import { TableSearch } from '../../components/TableSearch';
+import { Sparkline } from '../../components/ui/Sparkline';
 import { playerHash } from '../../lib/route';
 import type { ColumnSpec } from '../../lib/tableLayout';
 import { TERMS } from '../../lib/terms';
@@ -24,6 +25,7 @@ export function blackMoneyColumnSpecs(): ColumnSpec[] {
     { id: 'starterMisses', label: TERMS.blackMoneyStarterMisses },
     { id: 'subMisses', label: TERMS.blackMoneySubMisses },
     { id: 'score', label: TERMS.score },
+    { id: 'trend', label: TERMS.blackMoneyTrend },
     { id: 'kill', label: TERMS.blackMoneyKill },
     { id: 'occupy', label: TERMS.blackMoneyOccupy },
     { id: 'firstOccupy', label: TERMS.blackMoneyFirstOccupy },
@@ -38,7 +40,7 @@ function formatNumber(value: number | null): string {
 }
 
 /** Columns about our signup list and our tally — meaningless for the other side. */
-const OURS_ONLY = new Set(['slot', 'played', 'starterMisses', 'subMisses']);
+const OURS_ONLY = new Set(['slot', 'played', 'starterMisses', 'subMisses', 'trend']);
 
 /** A miss count out of the reported battles it could have happened in. A
  * member never listed in that role since the tally began reads as a dash,
@@ -73,8 +75,11 @@ export function BattleMembersTable({
   members,
   side = 'ours',
   misses,
+  history,
 }: {
   members: BattleMember[];
+  /** Each member's recent scores, oldest first, for the trend line (ours only). */
+  history?: ReadonlyMap<number, (number | null)[]>;
   /** The alliance's miss tally, keyed by game uid. Ours only. */
   misses?: ReadonlyMap<number, MemberMisses>;
   /** 'theirs' drops Slot and Played: our signup list says nothing about
@@ -155,13 +160,22 @@ export function BattleMembersTable({
         cell: (row) => missCell(row.subMisses, row.tally?.substitute_battles),
       },
       part('score', TERMS.score, 'score'),
+      {
+        id: 'trend',
+        label: TERMS.blackMoneyTrend,
+        className: 'spark-cell',
+        // The member's last battles in date order; needs two to draw a line.
+        cell: (row) => (
+          <Sparkline height={22} values={history?.get(row.game_uid) ?? []} width={96} />
+        ),
+      },
       part('kill', TERMS.blackMoneyKill, 'kill_score'),
       part('occupy', TERMS.blackMoneyOccupy, 'occupy_score'),
       part('firstOccupy', TERMS.blackMoneyFirstOccupy, 'first_occupy_score'),
       part('collect', TERMS.blackMoneyCollect, 'collect_score'),
       part('escort', TERMS.blackMoneyEscort, 'escort_score'),
     ];
-  }, []);
+  }, [history]);
   const shownColumns = useMemo(
     () => (side === 'ours' ? columns : columns.filter((c) => !OURS_ONLY.has(c.id))),
     [columns, side],
