@@ -188,10 +188,19 @@ class _Relocation(BaseModel):
     _uid = field_validator("uid")(staticmethod(_numeric_uid))
 
 
-def _decode_relocation(encoded: str) -> _Relocation:
+def _as_b64(encoded: str | bytes) -> str:
+    """The `b64:` text a point is stored as. Read from the journal a point is
+    already that text; straight off the wire it is the raw message as bytes.
+    Both must key and store identically or a replay duplicates history."""
+    if isinstance(encoded, bytes):
+        return _B64 + base64.b64encode(encoded).decode("ascii")
     if not encoded.startswith(_B64):
-        msg = "a relocated point is a b64: protobuf message"
+        msg = "a relocated point is a protobuf message (bytes or b64: text)"
         raise ValueError(msg)
+    return encoded
+
+
+def _decode_relocation(encoded: str) -> _Relocation:
     outer = _message(base64.b64decode(encoded[len(_B64) :]))
     point_ids = outer.get(1)
     players = outer.get(3)
@@ -216,7 +225,8 @@ def normalize_relocations(observation: Observation) -> list[NormalizedRow]:
     if observation.payload.get("type") != "relocate":
         return []
     rows: list[NormalizedRow] = []
-    for encoded in observation.payload.get("points") or []:
+    for point in observation.payload.get("points") or []:
+        encoded = _as_b64(point)
         move = _decode_relocation(encoded)
         game_uid = int(move.uid)
         server_id = _server_of(move.uid, observation.collected_from_server_id)

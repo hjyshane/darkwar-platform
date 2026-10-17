@@ -137,3 +137,21 @@ def test_the_same_push_twice_dedupes_and_a_second_move_does_not() -> None:
     key = capital_clash.normalize_relocations(first)[0].idempotency_key
     assert key == capital_clash.normalize_relocations(twice)[0].idempotency_key
     assert key != capital_clash.normalize_relocations(later)[0].idempotency_key
+
+
+def test_a_point_straight_off_the_wire_is_bytes_and_keys_like_its_b64_text() -> None:
+    """Live capture hands the parser the raw message as bytes; the journal
+    keeps it as `b64:` text. Both must give the same row, and the live one
+    must not crash ingestion (2026-10-18: it did, for every chunk with a move)."""
+    import base64
+
+    text = load_observation(f"{MOVES}/relocate_v1.json")
+    wire = base64.b64decode(text.payload["points"][0][len("b64:") :])
+    live = text.model_copy(deep=True)
+    live.payload["points"] = [wire]
+
+    from_text = capital_clash.normalize_relocations(text)[0]
+    from_wire = capital_clash.normalize_relocations(live)[0]
+    assert from_wire.idempotency_key == from_text.idempotency_key
+    assert from_wire.row["raw"] == from_text.row["raw"]
+    assert from_wire.row["point_id"] == 502481
