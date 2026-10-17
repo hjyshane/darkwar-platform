@@ -26,7 +26,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from dw_collector.models import NormalizedRow, Observation, entry_idempotency_key, stable_uuid
 from dw_collector.registry import register
 
-PARSER_VERSION = "1.0.0"
+PARSER_VERSION = "1.1.0"
 
 _UID_SERVER_SUFFIX = 6
 # The game day turns over at 02:00 UTC (midnight server time, UTC-2).
@@ -106,4 +106,43 @@ def normalize(observation: Observation) -> list[NormalizedRow]:
                 },
             )
         )
+    if rows:
+        rows.append(_read_row(observation, payload, held_on))
     return rows
+
+
+def _read_row(observation: Observation, payload: _Payload, held_on: date) -> NormalizedRow:
+    """One row per READ of the board, not per member (0288).
+
+    The member rows dedupe: a board read again with the same damage is the
+    same rows, so the table cannot say WHEN the board was looked at. Round-wise
+    participation needs exactly that -- was the board opened after round 1
+    ended and before round 2 began, and after round 2 ended -- so every read
+    leaves its own row. The key hashes the raw payload and the read's instant,
+    so the same observation replayed is one row and two reads never are.
+    """
+    key = entry_idempotency_key(
+        observation,
+        "boss_damage_read",
+        observation.captured_at.isoformat(),
+        dict(observation.payload),
+    )
+    return NormalizedRow(
+        target_table="boss_damage_reads",
+        idempotency_key=key,
+        row={
+            "observation_id": str(observation.observation_id),
+            "source_command": observation.source_command,
+            "parser_version": PARSER_VERSION,
+            "captured_at": observation.captured_at.isoformat(),
+            "collector_id": str(observation.collector_id),
+            "collected_from_server_id": observation.collected_from_server_id,
+            "raw": {},
+            "snapshot_id": str(stable_uuid(key)),
+            "held_on": held_on.isoformat(),
+            "entries": len(payload.entries),
+            "hitters": sum(1 for entry in payload.entries if entry.damage > 0),
+            "total_damage": sum(entry.damage for entry in payload.entries),
+        },
+        entity_refs={},
+    )
