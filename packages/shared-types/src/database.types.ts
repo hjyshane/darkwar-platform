@@ -2946,6 +2946,27 @@ export type Database = {
           },
         ]
       }
+      capital_clash_windows: {
+        Row: {
+          ends_at: string
+          held_on: string
+          note: string | null
+          starts_at: string
+        }
+        Insert: {
+          ends_at: string
+          held_on: string
+          note?: string | null
+          starts_at: string
+        }
+        Update: {
+          ends_at?: string
+          held_on?: string
+          note?: string | null
+          starts_at?: string
+        }
+        Relationships: []
+      }
       collector_heartbeats: {
         Row: {
           collector_id: string
@@ -9960,7 +9981,9 @@ export type Database = {
         }[]
       }
       has_permission: { Args: { p_capability: string }; Returns: boolean }
-      in_capital_zone: { Args: { p_point: number }; Returns: boolean }
+      in_capital_zone:
+        | { Args: { p_point: number }; Returns: boolean }
+        | { Args: { p_x: number; p_y: number }; Returns: boolean }
       is_service_request: { Args: never; Returns: boolean }
       joinable_alliances: {
         Args: never
