@@ -10,6 +10,12 @@
 
 Windows에는 `rvictl`이 없다(macOS 전용). Windows는 아래 "Windows에서" 절을 본다.
 
+**맥도 `rvictl`로 가지 않는다 (2026-10-17).** 이 맥에서 `rvictl -s <UDID>`는 `bootstrap_look_up():
+1102`와 `[FAILED]`로 끝나고 `rvi0`이 만들어지지 않았다(rpmuxd 서비스를 못 찾는 것으로 보이며,
+원인은 확정 못 했다). 지금 맥은 `pymobiledevice3`로 돈다 — 아래 "폰을 꽂으면 자동으로
+수집·업로드" 절의 `dw-iphone`(launchd)이 현재 운영 경로다. **아래 사전 준비~4단계(`rvictl`/
+`dumpcap`)는 `rvictl`이 되는 다른 맥을 위한 참고용이고, 이 맥에서는 쓰지 않는다.**
+
 ## 왜 코드 변경이 필요 없어 보이나
 
 `rvi0`은 Apple이 만든 가상 인터페이스고, `tcpdump`/`dumpcap`이 이걸 열면 파일의
@@ -20,7 +26,7 @@ raw 링크 타입(IPv4, IPv6 확장 헤더, 길이 0 포함)을 고정해 둔다
 "본다"일 뿐이다.** 2단계에서 `UNREADABLE unsupported link type N`이 나오면 그때
 `linklayer.py`에 N을 추가한다(고정 테스트와 함께).
 
-## 사전 준비 (1회)
+## 사전 준비 (1회) — `rvictl` 경로, 이 맥에서는 안 씀
 
 1. **Xcode** (또는 Xcode Command Line Tools) — `rvictl`이 들어 있다.
 
@@ -391,3 +397,4 @@ uv run --no-sync python -m dw_collector.iphone`. Ctrl+C로 멈춘다.
 |---|---|---|---|---|---|
 | 2026-10-08 | Windows / iOS 26.6.2 (iPhone18,2) | pcap (`pymobiledevice3 pcap`) | 8680 (파서가 읽음) | `ingested=19 commands=123`, 로그인·`al.rank` 포함 | USB 세션이 세 번 끊김 |
 | 2026-10-08 | 맥 / iOS 26.6.2 (iPhone14,3, **다른 폰**) | pcap (`pymobiledevice3 pcap`) | 미기록 | 캡처, 게임 원격 실행, `ingest-dir` 모두 됨. 파일 4개의 결과가 순서대로 **10, 61, 0, 13**(사용자 보고, 어느 필드인지는 확인 못 함 - `ingested=`로 추정). 0은 로그인 전에 끝난 조각처럼 읽을 게 없는 파일일 수 있다 | `system_profiler`에는 폰이 안 보이는데 `usbmux list`에는 `USB`로 잡힘. `rvictl`은 안 씀 |
+| 2026-10-17 | 맥 / iOS 26.x (iPhone, `dw-iphone` launchd 운영 중) | pcap (`pymobiledevice3 pcap`) | 8680 (파서가 읽음) | 최근 조각 `ingested=83 discovered=360 rejected=0 commands=128`. 저널 162종 명령(`push.world.march.new`, `push.al.help.update`, `user.get.shop.info` 등), 업로드 `sync.drain failed=0 sent=100` 반복, 누적 sent 4377 / pending 3280 | **`rvictl -s`는 `[FAILED]`(`bootstrap_look_up 1102`), `rvi0` 안 생김.** `alliance_member_snapshots`에서 HTTP 500 statement timeout이 한 번 났으나 `sync.batch_split`으로 복구. 이 확인에서는 `system_profiler`가 샌드박스 밖에서는 폰을 보여 줬다 |
