@@ -91,6 +91,14 @@
   --ok-fg: #14532d;
   --warn-bg: #fef3c7;
   --warn-fg: #78350f;
+  --tier-backbone-bg: #dbeafe;
+  --tier-backbone-fg: #1e3a8a;
+  --tier-elite-bg: #ffedd5;
+  --tier-elite-fg: #7c2d12;
+  --tier-advanced-bg: #ede9fe;
+  --tier-advanced-fg: #4c1d95;
+  --tier-commander-bg: #fee2e2;
+  --tier-commander-fg: #7f1d1d;
   --danger-bg: #fee2e2;
   --danger-fg: #7f1d1d;
   --info-bg: #dbeafe;
@@ -148,6 +156,14 @@
     --ok-fg: #dcfce7;
     --warn-bg: #78350f;
     --warn-fg: #fef3c7;
+    --tier-backbone-bg: #1e3a8a;
+    --tier-backbone-fg: #dbeafe;
+    --tier-elite-bg: #7c2d12;
+    --tier-elite-fg: #ffedd5;
+    --tier-advanced-bg: #4c1d95;
+    --tier-advanced-fg: #ede9fe;
+    --tier-commander-bg: #7f1d1d;
+    --tier-commander-fg: #fee2e2;
     --danger-bg: #7f1d1d;
     --danger-fg: #fee2e2;
     --info-bg: #1e3a8a;
@@ -184,6 +200,14 @@
   --ok-fg: #dcfce7;
   --warn-bg: #78350f;
   --warn-fg: #fef3c7;
+  --tier-backbone-bg: #1e3a8a;
+  --tier-backbone-fg: #dbeafe;
+  --tier-elite-bg: #7c2d12;
+  --tier-elite-fg: #ffedd5;
+  --tier-advanced-bg: #4c1d95;
+  --tier-advanced-fg: #ede9fe;
+  --tier-commander-bg: #7f1d1d;
+  --tier-commander-fg: #fee2e2;
   --danger-bg: #7f1d1d;
   --danger-fg: #fee2e2;
   --info-bg: #1e3a8a;
@@ -781,6 +805,35 @@ th:has(.sort) {
 .badge-missing {
   background: var(--neutral-bg);
   color: var(--neutral-fg);
+}
+
+/* Migration tiers (confirmed in game): backbone blue, elite orange, advanced purple,
+ * commander red. The word is always printed beside the colour (NFR-011). */
+.tier {
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  padding: var(--space-1) var(--space-2);
+  white-space: nowrap;
+}
+
+.tier-backbone {
+  background: var(--tier-backbone-bg);
+  color: var(--tier-backbone-fg);
+}
+
+.tier-elite {
+  background: var(--tier-elite-bg);
+  color: var(--tier-elite-fg);
+}
+
+.tier-advanced {
+  background: var(--tier-advanced-bg);
+  color: var(--tier-advanced-fg);
+}
+
+.tier-commander {
+  background: var(--tier-commander-bg);
+  color: var(--tier-commander-fg);
 }
 
 /* Monthly pass: "never observed" must not look like "ran out". */

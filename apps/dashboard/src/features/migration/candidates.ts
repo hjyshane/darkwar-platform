@@ -18,6 +18,12 @@ const TIER_ENDS: ReadonlyArray<readonly [Tier, number]> = [
   ['advanced', 226],
 ];
 
+/** Highest place on the tier board: the last place of the last named tier. */
+export const TIER_BOARD_SIZE = 226;
+
+/** Top to bottom, as the game ranks them. */
+export const TIERS_TOP_DOWN: readonly Tier[] = ['commander', 'elite', 'advanced', 'backbone'];
+
 export function tierOf(overallRank: number): Tier {
   for (const [tier, end] of TIER_ENDS) {
     if (overallRank <= end) return tier;
@@ -183,4 +189,62 @@ export function queryOf(candidates: readonly Candidate[]): Query {
     else names.add(c.query.trim());
   }
   return { names: [...names], uids: [...uids] };
+}
+
+export interface TierBoardRow {
+  overall_rank: number;
+  game_uid: number;
+  name: string;
+  server_id: number;
+  alliance_name: string | null;
+  power: number;
+  captured_at: string;
+}
+
+export async function fetchTierBoard(): Promise<TierBoardRow[]> {
+  const { data, error } = await supabase.rpc('migration_tier_board', {
+    p_limit: TIER_BOARD_SIZE,
+  });
+  if (error) throw new Error(`tier board query failed: ${error.message}`);
+  return (data ?? []) as TierBoardRow[];
+}
+
+export interface TierSummary {
+  tier: Tier;
+  /** First and last place of the tier; `last` is null for backbone, which has no end. */
+  first: number;
+  last: number | null;
+  /** How many of the tier's places the board holds (the board stops at its limit). */
+  count: number;
+  /** The weakest power inside the tier, i.e. what it takes to be in it. */
+  floorPower: number | null;
+  topPower: number | null;
+  byServer: Array<[number, number]>;
+}
+
+const TIER_SPANS: ReadonlyArray<readonly [Tier, number, number | null]> = [
+  ['commander', 1, 10],
+  ['elite', 11, 46],
+  ['advanced', 47, 226],
+  ['backbone', 227, null],
+];
+
+/** One line per tier over the board rows, top tier first. Backbone is empty here: the
+ * board ends where it starts, and everyone below is not on it. */
+export function summarize(rows: readonly TierBoardRow[]): TierSummary[] {
+  return TIER_SPANS.map(([tier, first, last]) => {
+    const inTier = rows.filter((r) => tierOf(r.overall_rank) === tier);
+    const servers = new Map<number, number>();
+    for (const r of inTier) servers.set(r.server_id, (servers.get(r.server_id) ?? 0) + 1);
+    const powers = inTier.map((r) => r.power);
+    return {
+      tier,
+      first,
+      last,
+      count: inTier.length,
+      floorPower: powers.length > 0 ? Math.min(...powers) : null,
+      topPower: powers.length > 0 ? Math.max(...powers) : null,
+      byServer: [...servers.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0]),
+    };
+  });
 }

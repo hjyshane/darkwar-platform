@@ -10363,6 +10363,18 @@ export type Database = {
           unseen_after: number
         }[]
       }
+      migration_tier_board: {
+        Args: { p_from_server?: number; p_limit?: number; p_to_server?: number }
+        Returns: {
+          alliance_name: string
+          captured_at: string
+          game_uid: number
+          name: string
+          overall_rank: number
+          power: number
+          server_id: number
+        }[]
+      }
       migration_top_board: {
         Args: { p_event_id: string }
         Returns: {
