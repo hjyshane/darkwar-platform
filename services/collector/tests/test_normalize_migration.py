@@ -161,3 +161,18 @@ def test_the_same_screen_twice_is_one_row_and_a_moved_seat_is_another() -> None:
 
     assert a.idempotency_key == b.idempotency_key
     assert c.idempotency_key != a.idempotency_key
+
+
+REAL = "get.migrate.servers/servers_real_v1.json"
+
+
+def test_the_live_response_is_read() -> None:
+    rows = migration_servers.normalize_servers(load_observation(REAL))
+
+    assert [r.row["server_id"] for r in rows] == [588, 587, 585]
+    low, high, _ = (r.row for r in rows)
+    assert low["power_low_limit"] == [0]
+    assert high["power_low_limit"] == [160_000_000]
+    assert (low["migrate_left"], low["invite_left"]) == (30, 30)
+    assert low["special_left"] == {"1": 1, "2": 1, "3": 5}
+    assert low["raw"]["id"] == 588

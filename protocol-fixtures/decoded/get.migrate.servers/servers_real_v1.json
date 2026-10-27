@@ -1,0 +1,157 @@
+{
+  "observation_id": "00000000-0000-4000-8000-00000000f302",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "get.migrate.servers",
+  "captured_at": "2026-10-27T14:13:32.630843+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "_id": 191,
+    "_time": 3,
+    "endTime": 1793930400000,
+    "initServerId": 0,
+    "migrateLeftArr": [
+      {
+        "id": 588,
+        "inviteLeft": 30,
+        "migrateLeft": 30,
+        "powerLowLimit": 0,
+        "specialLeft": [
+          {
+            "num": 1,
+            "type": 1
+          },
+          {
+            "num": 1,
+            "type": 2
+          },
+          {
+            "num": 5,
+            "type": 3
+          }
+        ]
+      },
+      {
+        "id": 587,
+        "inviteLeft": 30,
+        "migrateLeft": 30,
+        "powerLowLimit": 160000000,
+        "specialLeft": [
+          {
+            "num": 1,
+            "type": 1
+          },
+          {
+            "num": 1,
+            "type": 2
+          },
+          {
+            "num": 5,
+            "type": 3
+          }
+        ]
+      },
+      {
+        "id": 585,
+        "inviteLeft": 30,
+        "migrateLeft": 30,
+        "powerLowLimit": 0,
+        "specialLeft": [
+          {
+            "num": 1,
+            "type": 1
+          },
+          {
+            "num": 1,
+            "type": 2
+          },
+          {
+            "num": 5,
+            "type": 3
+          }
+        ]
+      }
+    ],
+    "migratePower": 2022986,
+    "powerLowLimit": 160000000,
+    "selfApplies": [],
+    "selfInvites": [],
+    "servers": [
+      {
+        "id": 588,
+        "kingInfo": {
+          "abbr": "1OOT",
+          "alName": "100 Thieves",
+          "banType": 0,
+          "careerLevel": 0,
+          "careerType": 0,
+          "country": "US",
+          "headFrame": 1,
+          "lang": "en",
+          "mainBuildPoint": 535581,
+          "name": "Nato 61",
+          "nowServer": 588,
+          "pic": "",
+          "picver": 2,
+          "power": 455772613,
+          "serverId": 588,
+          "sex": 1,
+          "uid": "1400701755000588"
+        },
+        "seasonGroup": 4086,
+        "serverRankType": 1
+      },
+      {
+        "id": 587,
+        "kingInfo": {
+          "abbr": "ROOT",
+          "alName": "Rise Of Our Tribe",
+          "banType": 0,
+          "careerLevel": 0,
+          "careerType": 0,
+          "country": "US",
+          "headFrame": 1,
+          "headSkinET": 0,
+          "headSkinId": 20051,
+          "lang": "en",
+          "mainBuildPoint": 576471,
+          "name": "GothicMommy",
+          "nowServer": 587,
+          "pic": "",
+          "picver": 72,
+          "power": 495121181,
+          "serverId": 587,
+          "sex": 2,
+          "uid": "1405955879000587"
+        },
+        "seasonGroup": 4086,
+        "serverRankType": 1
+      },
+      {
+        "id": 585,
+        "kingInfo": {
+          "abbr": "WKD",
+          "alName": "WalKing Dead",
+          "banType": 0,
+          "careerLevel": 0,
+          "careerType": 0,
+          "country": "SG",
+          "headFrame": 1,
+          "headSkinET": 1797246882391,
+          "headSkinId": 20047,
+          "lang": "zh_CN",
+          "mainBuildPoint": 524564,
+          "name": "兩面宿儺",
+          "nowServer": 585,
+          "pic": "",
+          "picver": 19,
+          "power": 1573340483,
+          "serverId": 585,
+          "sex": 1,
+          "uid": "1003557892000585"
+        },
+        "seasonGroup": 4086,
+        "serverRankType": 1
+      }
+    ]
+  }
+}
