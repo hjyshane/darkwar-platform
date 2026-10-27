@@ -11,13 +11,14 @@ import {
 } from '../../lib/route';
 import { FALLBACK_SEASONS, currentSeason, pastSeason, useSeasons } from '../../lib/seasons';
 import { type NavGroup, type NavItem, breadcrumb, buildFooter, buildNav } from '../../lib/shellNav';
+import { isTabShown, useTabVisibility } from '../../lib/tabVisibility';
 import { useUiOverrides } from '../../lib/uiOverrides';
 import { useOwnAlliance } from '../../lib/useOwnAlliance';
 import { useSession } from '../../lib/useSession';
 
 /** The sidebar's groups for the screen being shown, with the gates the old tab
- * bars carried: Members needs `members.view`, Migration is for officers and
- * Season 2 for admins. Hiding an entry withholds nothing; RLS does that. */
+ * bars carried: Members needs `members.view`, Migration is for officers,
+ * Season 2 for admins, and an admin can hide any tab from a role (0295). Hiding an entry withholds nothing; RLS does that. */
 export function useShellNav(
   route: Route,
   allianceId: string | null,
@@ -28,6 +29,7 @@ export function useShellNav(
   const { data: permissions, isPending } = usePermissions();
   const seasons = useSeasons();
   const overrides = useUiOverrides();
+  const tabRules = useTabVisibility();
 
   const isAdmin = session?.role === 'admin';
   const now = new Date();
@@ -63,6 +65,7 @@ export function useShellNav(
       ? undefined
       : isAllowed(permissions?.grants, session?.role, 'giftcodes.manage'),
     overrides,
+    tabShown: (tab) => isTabShown(tabRules, tab, session?.role),
     seasonNames: {
       '#/season': currentSeason(list, now)?.name,
       '#/season2': pastSeason(list, now)?.name,
