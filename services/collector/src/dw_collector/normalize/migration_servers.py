@@ -13,7 +13,13 @@ names below are the ones that function reads off the message:
   totalCount, useCount                                intake allowed / used
   targetPowerLimit, maxPower, needItemId, needItemNum, targetOpenTime, king*
 
-NOT VERIFIED AGAINST A LIVE RESPONSE. The tab was not live when this was
+FIRST LIVE RESPONSE, 2026-10-27 (servers_real_v1.json): the list is
+`migrateLeftArr`, each entry `{id, migrateLeft: n, inviteLeft: n, powerLowLimit: n,
+specialLeft: [{type, num}]}`. Totals, ceilings and the king are not in it; they
+come per server with `get.migrate.item`. The paragraph below is the original
+inference and is kept for the fields the live entry does not carry.
+
+The tab was not live when this was
 written (`immigration_new` = 0 in `init`), so the envelope around the entries
 and the shape of each field are inferred from that Lua, and the fixture is
 hand-written from the same inference. The parser is therefore forgiving about
@@ -38,7 +44,7 @@ from typing import Any
 from dw_collector.models import NormalizedRow, Observation, entry_idempotency_key, stable_uuid
 from dw_collector.registry import register
 
-PARSER_VERSION = "1.0.0"
+PARSER_VERSION = "1.1.0"
 COMMAND = "get.migrate.servers"
 
 # How deep to look for the list of servers. The envelope is unknown; the entries
@@ -58,7 +64,10 @@ def as_int(value: Any) -> int | None:
 
 
 def int_list(value: Any) -> list[int] | None:
-    """`[a, b]`, `"a;b"` or `"a,b"` as a list of ints; null if any element is not one."""
+    """`[a, b]`, `"a;b"` or `"a,b"` as a list of ints; null if any element is not one.
+    A bare integer is a list of one (the live response sends one floor per server)."""
+    if as_int(value) is not None and not isinstance(value, str):
+        return [value]
     if isinstance(value, str):
         parts: list[Any] = [p for p in value.replace(",", ";").split(";") if p.strip()]
     elif isinstance(value, list):
@@ -106,6 +115,11 @@ def _at(ms: Any) -> str | None:
 def entries(payload: Any, depth: int = 0) -> list[dict[str, Any]]:
     """Every server entry in the response, wherever the envelope put them."""
     if isinstance(payload, dict):
+        # The live response (2026-10-27): `migrateLeftArr`, one entry per offering
+        # server, keyed `id` rather than `serverId`.
+        listed = payload.get("migrateLeftArr")
+        if isinstance(listed, list):
+            return [e for e in listed if isinstance(e, dict) and as_int(e.get("id")) is not None]
         if as_int(payload.get("serverId")) is not None:
             return [payload]
         if depth >= _SEARCH_DEPTH:
@@ -137,7 +151,7 @@ def _uid(value: Any) -> str | None:
 
 def server_row(observation: Observation, entry: dict[str, Any]) -> NormalizedRow:
     captured = observation.captured_at
-    server_id = as_int(entry["serverId"])
+    server_id = as_int(entry.get("serverId", entry.get("id")))
     key = entry_idempotency_key(
         observation,
         f"migrate_server:{server_id}",

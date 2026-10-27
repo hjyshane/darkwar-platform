@@ -5299,6 +5299,85 @@ export type Database = {
         }
         Relationships: []
       }
+      migration_candidate_columns: {
+        Row: {
+          column_id: string
+          created_at: string
+          created_by: string | null
+          label: string
+          sort_order: number
+        }
+        Insert: {
+          column_id?: string
+          created_at?: string
+          created_by?: string | null
+          label: string
+          sort_order?: number
+        }
+        Update: {
+          column_id?: string
+          created_at?: string
+          created_by?: string | null
+          label?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
+      migration_candidates: {
+        Row: {
+          candidate_id: string
+          created_at: string
+          created_by: string | null
+          desired_alliance_id: string | null
+          extra: Json
+          game_uid: number | null
+          query: string
+          updated_at: string
+        }
+        Insert: {
+          candidate_id?: string
+          created_at?: string
+          created_by?: string | null
+          desired_alliance_id?: string | null
+          extra?: Json
+          game_uid?: number | null
+          query: string
+          updated_at?: string
+        }
+        Update: {
+          candidate_id?: string
+          created_at?: string
+          created_by?: string | null
+          desired_alliance_id?: string | null
+          extra?: Json
+          game_uid?: number | null
+          query?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "migration_candidates_desired_alliance_id_fkey"
+            columns: ["desired_alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "migration_candidates_desired_alliance_id_fkey"
+            columns: ["desired_alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "migration_candidates_desired_alliance_id_fkey"
+            columns: ["desired_alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
+        ]
+      }
       migration_config_snapshots: {
         Row: {
           captured_at: string
@@ -10169,6 +10248,36 @@ export type Database = {
           stayed: number
         }[]
       }
+      migration_board_info: {
+        Args: { p_from_server?: number; p_to_server?: number }
+        Returns: {
+          listed: number
+          missing_servers: number[]
+          newest_at: string
+          oldest_at: string
+          rank_floor_unlisted: number
+          servers: number[]
+        }[]
+      }
+      migration_candidate_lookup: {
+        Args: {
+          p_from_server?: number
+          p_names?: string[]
+          p_to_server?: number
+          p_uids?: number[]
+        }
+        Returns: {
+          alliance_name: string
+          captured_at: string
+          game_uid: number
+          migrate_power: number
+          migrate_power_at: string
+          name: string
+          overall_rank: number
+          power: number
+          server_id: number
+        }[]
+      }
       migration_flows: {
         Args: { p_event_id: string }
         Returns: {
@@ -10178,6 +10287,10 @@ export type Database = {
           to_server_id: number
           top_movers: number
         }[]
+      }
+      migration_list_alliance: {
+        Args: { p_observation: string; p_player: string }
+        Returns: string
       }
       migration_people: {
         Args: { p_event_id: string }

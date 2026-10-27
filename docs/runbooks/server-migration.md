@@ -96,6 +96,13 @@ Mid, High, Special로 부르지만 그건 이름 순서일 뿐 증명이 아니�
 `push.migrate.new.apply`, `push.migrate.new.invite`. 저널에는 `move.cross.server`만 있고 거기엔
 등급도 좌석도 없다(받는 서버의 접속 정보뿐).
 
+### 첫 실제 응답에서 확인된 것 (2026-10-27, `servers_real_v1.json`)
+
+`get.migrate.servers`의 `powerLowLimit`은 **등급 경계가 아니다.** 각 서버 대통령이 임의로 정한
+**받는 최소 파워**이고, 서버마다 다르다(0 또는 1억6천만). 등급 경계(`aps_migrate_server.k6`)와는
+별개다. 응답은 `migrateLeftArr`(서버 하나당 `{id, migrateLeft, inviteLeft, powerLowLimit,
+specialLeft}`), 대통령 정보는 `servers[].kingInfo`. 지원자 목록(`migrate.apply.list`)은 아직 저널에 없다.
+
 ### 풀지 못한 것
 
 - `migration_quota`의 매개변수가 **좌석 수로 바뀌는 공식**. `MigrateDataManager`의
