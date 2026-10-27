@@ -10,13 +10,15 @@ import { MigrationCandidates } from './MigrationCandidates';
 import { MigrationEventForm } from './MigrationEventForm';
 import { MigrationQuotas } from './MigrationQuotas';
 import { MigrationServers } from './MigrationServers';
+import { MigrationTiers } from './MigrationTiers';
 import { MigrationTopBoard } from './MigrationTopBoard';
 import { type MigrationEvent, fetchMigrationEvents } from './data';
 
-type View = 'candidates' | 'servers' | 'top' | 'alliances' | 'quotas';
+type View = 'candidates' | 'tiers' | 'servers' | 'top' | 'alliances' | 'quotas';
 
 const VIEWS: ReadonlyArray<{ view: View; label: string }> = [
   { view: 'candidates', label: 'Candidates' },
+  { view: 'tiers', label: 'Top 226' },
   { view: 'servers', label: 'Servers' },
   { view: 'top', label: 'Top 150' },
   { view: 'alliances', label: 'Alliances' },
@@ -142,10 +144,11 @@ export function MigrationPage() {
           ) : (
             <p className="empty">Officers and admins only.</p>
           ))}
-        {view !== 'candidates' && event === null && events.data && (
+        {view === 'tiers' && <MigrationTiers />}
+        {view !== 'candidates' && view !== 'tiers' && event === null && events.data && (
           <p className="empty">This view needs a migration to be set up first.</p>
         )}
-        {event && view !== 'candidates' && (
+        {event && view !== 'candidates' && view !== 'tiers' && (
           <>
             {view === 'servers' && <MigrationServers eventId={event.event_id} />}
             {view === 'top' && <MigrationTopBoard eventId={event.event_id} />}

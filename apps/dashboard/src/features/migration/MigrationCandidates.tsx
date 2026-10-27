@@ -3,13 +3,13 @@ import { useState } from 'react';
 import { Select } from '../../components/ui/Select';
 import { supabase } from '../../lib/supabase';
 import { SERVER_ZONE, zonedDayKey, zonedTime } from '../../lib/timezone';
+import { TierBadge } from './TierBadge';
 import {
   type BoardInfo,
   type Candidate,
   type CandidateColumn,
   type CandidateRow,
   type OwnAlliance,
-  TIER_LABELS,
   fetchBoardInfo,
   fetchCandidateColumns,
   fetchOwnServerAlliances,
@@ -108,11 +108,7 @@ function Row({
   onRemove: () => void;
 }) {
   const best = [...matches].sort((a, b) => a.overall_rank - b.overall_rank)[0];
-  const tier = best
-    ? TIER_LABELS[tierOf(best.overall_rank)]
-    : unlisted
-      ? TIER_LABELS[unlisted]
-      : '—';
+  const tierName = best ? tierOf(best.overall_rank) : unlisted;
   return (
     <tr>
       <th scope="row" title={candidate.game_uid === null ? undefined : String(candidate.game_uid)}>
@@ -153,7 +149,7 @@ function Row({
         </td>
       )}
       <td className="numeric">{best ? num(best.overall_rank) : '—'}</td>
-      <td>{tier}</td>
+      <td>{tierName ? <TierBadge tier={tierName} /> : '—'}</td>
       <td>
         <Select
           aria-label={`580 alliance for ${candidate.query}`}

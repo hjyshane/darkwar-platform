@@ -3,10 +3,12 @@ import {
   type BoardInfo,
   type Candidate,
   type CandidateRow,
+  type TierBoardRow,
   cells,
   matchesOf,
   parseQuery,
   queryOf,
+  summarize,
   tierOf,
   unlistedTier,
   unmatched,
@@ -118,5 +120,36 @@ describe('saved candidates', () => {
     expect(cells({ a: 'x', b: 3, c: null })).toEqual({ a: 'x' });
     expect(cells(null)).toEqual({});
     expect(cells(['x'])).toEqual({});
+  });
+});
+
+describe('summarize', () => {
+  const row = (overall_rank: number, server_id: number, power: number): TierBoardRow => ({
+    overall_rank,
+    game_uid: overall_rank,
+    name: `p${overall_rank}`,
+    server_id,
+    alliance_name: null,
+    power,
+    captured_at: '',
+  });
+
+  test('one line per tier, with the weakest power and the servers', () => {
+    const rows = [row(1, 578, 900), row(10, 580, 800), row(11, 580, 700), row(47, 570, 600)];
+    const [commander, elite, advanced, backbone] = summarize(rows);
+
+    expect(commander).toMatchObject({
+      tier: 'commander',
+      count: 2,
+      floorPower: 800,
+      topPower: 900,
+    });
+    expect(commander?.byServer).toEqual([
+      [578, 1],
+      [580, 1],
+    ]);
+    expect(elite).toMatchObject({ first: 11, last: 46, count: 1, floorPower: 700 });
+    expect(advanced).toMatchObject({ first: 47, last: 226, count: 1 });
+    expect(backbone).toMatchObject({ first: 227, last: null, count: 0, floorPower: null });
   });
 });
