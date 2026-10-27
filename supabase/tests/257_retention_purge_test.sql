@@ -8,6 +8,12 @@ create extension if not exists pgtap with schema extensions;
 
 select plan(9);
 
+-- The seed's roster is dated 2026-07-27. It crossed the 3-month line on 2026-10-27 and
+-- began to count as purgeable, so these totals drifted from the rows below with the
+-- calendar. The test is about its own rows; clear the seed's (rolled back with the rest).
+delete from public.alliance_member_snapshots where idempotency_key not like 'test:%';
+
+
 insert into public.collectors (collector_id, name, status, version)
 values ('00000000-0000-4000-8000-00000000cf54', 'purge test', 'offline', 'test')
 on conflict do nothing;
