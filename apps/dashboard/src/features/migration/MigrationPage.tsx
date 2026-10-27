@@ -6,15 +6,17 @@ import { isAllowed, usePermissions } from '../../lib/permissions';
 import { SERVER_ZONE, zonedDayKey, zonedTime } from '../../lib/timezone';
 import { useSession } from '../../lib/useSession';
 import { MigrationAlliances } from './MigrationAlliances';
+import { MigrationCandidates } from './MigrationCandidates';
 import { MigrationEventForm } from './MigrationEventForm';
 import { MigrationQuotas } from './MigrationQuotas';
 import { MigrationServers } from './MigrationServers';
 import { MigrationTopBoard } from './MigrationTopBoard';
 import { type MigrationEvent, fetchMigrationEvents } from './data';
 
-type View = 'servers' | 'top' | 'alliances' | 'quotas';
+type View = 'candidates' | 'servers' | 'top' | 'alliances' | 'quotas';
 
 const VIEWS: ReadonlyArray<{ view: View; label: string }> = [
+  { view: 'candidates', label: 'Candidates' },
   { view: 'servers', label: 'Servers' },
   { view: 'top', label: 'Top 150' },
   { view: 'alliances', label: 'Alliances' },
@@ -128,14 +130,23 @@ export function MigrationPage() {
           />
         )}
 
-        {event && (
+        <Tabs
+          label="Migration views"
+          items={VIEWS.map((v) => ({ id: v.view, label: v.label }))}
+          value={view}
+          onChange={setView}
+        />
+        {view === 'candidates' &&
+          (mayManage ? (
+            <MigrationCandidates />
+          ) : (
+            <p className="empty">Officers and admins only.</p>
+          ))}
+        {view !== 'candidates' && event === null && events.data && (
+          <p className="empty">This view needs a migration to be set up first.</p>
+        )}
+        {event && view !== 'candidates' && (
           <>
-            <Tabs
-              label="Migration views"
-              items={VIEWS.map((v) => ({ id: v.view, label: v.label }))}
-              value={view}
-              onChange={setView}
-            />
             {view === 'servers' && <MigrationServers eventId={event.event_id} />}
             {view === 'top' && <MigrationTopBoard eventId={event.event_id} />}
             {view === 'alliances' && <MigrationAlliances eventId={event.event_id} />}
