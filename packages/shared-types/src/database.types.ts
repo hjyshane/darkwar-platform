@@ -5299,6 +5299,85 @@ export type Database = {
         }
         Relationships: []
       }
+      migration_candidate_columns: {
+        Row: {
+          column_id: string
+          created_at: string
+          created_by: string | null
+          label: string
+          sort_order: number
+        }
+        Insert: {
+          column_id?: string
+          created_at?: string
+          created_by?: string | null
+          label: string
+          sort_order?: number
+        }
+        Update: {
+          column_id?: string
+          created_at?: string
+          created_by?: string | null
+          label?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
+      migration_candidates: {
+        Row: {
+          candidate_id: string
+          created_at: string
+          created_by: string | null
+          desired_alliance_id: string | null
+          extra: Json
+          game_uid: number | null
+          query: string
+          updated_at: string
+        }
+        Insert: {
+          candidate_id?: string
+          created_at?: string
+          created_by?: string | null
+          desired_alliance_id?: string | null
+          extra?: Json
+          game_uid?: number | null
+          query: string
+          updated_at?: string
+        }
+        Update: {
+          candidate_id?: string
+          created_at?: string
+          created_by?: string | null
+          desired_alliance_id?: string | null
+          extra?: Json
+          game_uid?: number | null
+          query?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "migration_candidates_desired_alliance_id_fkey"
+            columns: ["desired_alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "migration_candidates_desired_alliance_id_fkey"
+            columns: ["desired_alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "migration_candidates_desired_alliance_id_fkey"
+            columns: ["desired_alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
+        ]
+      }
       migration_config_snapshots: {
         Row: {
           captured_at: string
@@ -5366,71 +5445,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "collectors"
             referencedColumns: ["collector_id"]
-          },
-        ]
-      }
-      migration_candidate_columns: {
-        Row: {
-          column_id: string
-          created_at: string
-          created_by: string | null
-          label: string
-          sort_order: number
-        }
-        Insert: {
-          column_id?: string
-          created_at?: string
-          created_by?: string | null
-          label: string
-          sort_order?: number
-        }
-        Update: {
-          column_id?: string
-          created_at?: string
-          created_by?: string | null
-          label?: string
-          sort_order?: number
-        }
-        Relationships: []
-      }
-      migration_candidates: {
-        Row: {
-          candidate_id: string
-          created_at: string
-          created_by: string | null
-          desired_alliance_id: string | null
-          extra: Json
-          game_uid: number | null
-          query: string
-          updated_at: string
-        }
-        Insert: {
-          candidate_id?: string
-          created_at?: string
-          created_by?: string | null
-          desired_alliance_id?: string | null
-          extra?: Json
-          game_uid?: number | null
-          query: string
-          updated_at?: string
-        }
-        Update: {
-          candidate_id?: string
-          created_at?: string
-          created_by?: string | null
-          desired_alliance_id?: string | null
-          extra?: Json
-          game_uid?: number | null
-          query?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "migration_candidates_desired_alliance_id_fkey"
-            columns: ["desired_alliance_id"]
-            isOneToOne: false
-            referencedRelation: "alliances"
-            referencedColumns: ["alliance_id"]
           },
         ]
       }
@@ -10234,48 +10248,6 @@ export type Database = {
           stayed: number
         }[]
       }
-      migration_flows: {
-        Args: { p_event_id: string }
-        Returns: {
-          from_server_id: number
-          movers: number
-          power: number
-          to_server_id: number
-          top_movers: number
-        }[]
-      }
-      migration_people: {
-        Args: { p_event_id: string }
-        Returns: {
-          after_alliance: string
-          after_at: string
-          after_power: number
-          after_rank: number
-          after_server_id: number
-          before_alliance: string
-          before_at: string
-          before_power: number
-          before_rank: number
-          before_server_id: number
-          game_uid: number
-          home_server_id: number
-          name: string
-          player_id: string
-          status: string
-        }[]
-      }
-      migration_roster_reads: {
-        Args: { p_event_id: string }
-        Returns: {
-          after_at: string
-          before_at: string
-          external_id: string
-        }[]
-      }
-      migration_list_alliance: {
-        Args: { p_observation: string; p_player: string }
-        Returns: string
-      }
       migration_board_info: {
         Args: { p_from_server?: number; p_to_server?: number }
         Returns: {
@@ -10304,6 +10276,48 @@ export type Database = {
           overall_rank: number
           power: number
           server_id: number
+        }[]
+      }
+      migration_flows: {
+        Args: { p_event_id: string }
+        Returns: {
+          from_server_id: number
+          movers: number
+          power: number
+          to_server_id: number
+          top_movers: number
+        }[]
+      }
+      migration_list_alliance: {
+        Args: { p_observation: string; p_player: string }
+        Returns: string
+      }
+      migration_people: {
+        Args: { p_event_id: string }
+        Returns: {
+          after_alliance: string
+          after_at: string
+          after_power: number
+          after_rank: number
+          after_server_id: number
+          before_alliance: string
+          before_at: string
+          before_power: number
+          before_rank: number
+          before_server_id: number
+          game_uid: number
+          home_server_id: number
+          name: string
+          player_id: string
+          status: string
+        }[]
+      }
+      migration_roster_reads: {
+        Args: { p_event_id: string }
+        Returns: {
+          after_at: string
+          before_at: string
+          external_id: string
         }[]
       }
       migration_server_quotas: {
