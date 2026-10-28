@@ -57,6 +57,25 @@ export interface Query {
   uids: number[];
 }
 
+/** Characters a paste from a sheet or a chat can carry without showing: zero-width
+ * spaces, the byte-order mark, non-breaking and other unusual spaces. */
+const INVISIBLE = /[\s\u00a0\u200b-\u200f\u2060\ufeff]/g;
+
+/** The uid in a piece of text: 15 or more digits, once invisible characters are gone.
+ * Null for anything else, and for a number too long to hold exactly. */
+export function uidOf(text: string): number | null {
+  const digits = text.replace(INVISIBLE, '');
+  if (!/^\d{15,}$/.test(digits)) return null;
+  const n = Number(digits);
+  return Number.isSafeInteger(n) ? n : null;
+}
+
+/** The uid a saved candidate stands for: the one stored, else the one its text spells.
+ * Entries saved before invisible characters were stripped have the second only. */
+export function candidateUid(candidate: { game_uid: number | null; query: string }): number | null {
+  return candidate.game_uid ?? uidOf(candidate.query);
+}
+
 /** One name or uid per line (or comma/tab, which is what pasting an Excel column
  * can bring). A line of 15+ digits is a uid; anything else is a name. */
 export function parseQuery(text: string): Query {
@@ -64,11 +83,13 @@ export function parseQuery(text: string): Query {
   const uids: number[] = [];
   const seen = new Set<string>();
   for (const part of text.split(/[\n\r\t,]+/)) {
-    const entry = part.trim();
+    const uid = uidOf(part);
+    const entry =
+      uid === null ? part.replace(/[\u200b-\u200f\u2060\ufeff]/g, '').trim() : String(uid);
     const key = entry.toLowerCase();
     if (entry === '' || seen.has(key)) continue;
     seen.add(key);
-    if (/^\d{15,}$/.test(entry)) uids.push(Number(entry));
+    if (uid !== null) uids.push(uid);
     else names.push(entry);
   }
   return { names, uids };
@@ -174,7 +195,8 @@ export async function fetchOwnServerAlliances(): Promise<OwnAlliance[]> {
 
 /** Which of the lookup rows is this candidate: the pinned uid, else the name. */
 export function matchesOf(candidate: Candidate, rows: readonly CandidateRow[]): CandidateRow[] {
-  if (candidate.game_uid !== null) return rows.filter((r) => r.game_uid === candidate.game_uid);
+  const uid = candidateUid(candidate);
+  if (uid !== null) return rows.filter((r) => r.game_uid === uid);
   const key = candidate.query.trim().toLowerCase();
   return rows.filter((r) => r.name.trim().toLowerCase() === key);
 }
@@ -184,8 +206,8 @@ export function queryOf(candidates: readonly Candidate[]): Query {
   const names = new Set<string>();
   const uids = new Set<number>();
   for (const c of candidates) {
-    if (c.game_uid !== null) uids.add(c.game_uid);
-    else if (/^\d{15,}$/.test(c.query.trim())) uids.add(Number(c.query.trim()));
+    const uid = candidateUid(c);
+    if (uid !== null) uids.add(uid);
     else names.add(c.query.trim());
   }
   return { names: [...names], uids: [...uids] };
@@ -318,9 +340,10 @@ export function foundFor(
     }));
   }
   const key = candidate.query.trim().toLowerCase();
+  const uid = candidateUid(candidate);
   const others =
-    candidate.game_uid !== null
-      ? seen.filter((r) => r.game_uid === candidate.game_uid)
+    uid !== null
+      ? seen.filter((r) => r.game_uid === uid)
       : seen.filter((r) => r.name.trim().toLowerCase() === key);
   return others.map((r) => ({
     game_uid: r.game_uid,

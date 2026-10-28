@@ -10,6 +10,7 @@ import {
   type CandidateColumn,
   type Found,
   type OwnAlliance,
+  candidateUid,
   fetchBoardInfo,
   fetchCandidateColumns,
   fetchOwnServerAlliances,
@@ -114,7 +115,7 @@ function Row({
     (a, b) => Number(a.estimated) - Number(b.estimated) || (a.place ?? 1e9) - (b.place ?? 1e9),
   )[0];
   const tierName = best?.place != null ? tierOf(best.place) : best ? null : unlisted;
-  const uidServer = serverFromUid(candidate.game_uid);
+  const uidServer = serverFromUid(candidateUid(candidate));
   const seenAt = best?.captured_at ? serverTime(best.captured_at) : '';
   return (
     <tr>
