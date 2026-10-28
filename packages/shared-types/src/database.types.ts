@@ -10302,6 +10302,26 @@ export type Database = {
           server_id: number
         }[]
       }
+      migration_candidate_seen: {
+        Args: {
+          p_from_server?: number
+          p_names?: string[]
+          p_to_server?: number
+          p_uids?: number[]
+        }
+        Returns: {
+          alliance_name: string
+          captured_at: string
+          estimated_rank: number
+          game_uid: number
+          migrate_power: number
+          migrate_power_at: string
+          name: string
+          power: number
+          server_id: number
+          source_command: string
+        }[]
+      }
       migration_flows: {
         Args: { p_event_id: string }
         Returns: {
