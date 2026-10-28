@@ -5,6 +5,7 @@ import {
   type CandidateRow,
   type SeenRow,
   type TierBoardRow,
+  candidateUid,
   cells,
   foundFor,
   matchesOf,
@@ -14,6 +15,7 @@ import {
   sourceLabel,
   summarize,
   tierOf,
+  uidOf,
   unlistedTier,
   unmatched,
 } from './candidates';
@@ -232,5 +234,34 @@ describe('sourceLabel', () => {
     expect(sourceLabel('get.user.info.multi')).toBe('profile');
     expect(sourceLabel('apex.rank')).toBe('apex.rank');
     expect(sourceLabel(null)).toBeNull();
+  });
+});
+
+describe('uidOf', () => {
+  test('reads a uid through invisible characters from a paste', () => {
+    expect(uidOf('1064470474000578')).toBe(1064470474000578);
+    expect(uidOf(' 1064470474000578\u200b')).toBe(1064470474000578);
+    expect(uidOf('\ufeff1064470474000578\u00a0')).toBe(1064470474000578);
+  });
+
+  test('a name, a short number and a number too long to hold are not uids', () => {
+    expect(uidOf('Alpha')).toBeNull();
+    expect(uidOf('007')).toBeNull();
+    expect(uidOf('99999999999999999999')).toBeNull();
+  });
+
+  test('a pasted uid with a hidden character is a uid, not a name', () => {
+    expect(parseQuery('1064470474000578\u200b\nAlpha\u200b')).toEqual({
+      names: ['Alpha'],
+      uids: [1064470474000578],
+    });
+  });
+
+  test('a candidate saved without its uid still stands for the one its text spells', () => {
+    expect(candidateUid({ game_uid: null, query: '1064470474000578\u200b' })).toBe(
+      1064470474000578,
+    );
+    expect(candidateUid({ game_uid: 5, query: 'x' })).toBe(5);
+    expect(candidateUid({ game_uid: null, query: 'Alpha' })).toBeNull();
   });
 });
