@@ -5304,21 +5304,27 @@ export type Database = {
           column_id: string
           created_at: string
           created_by: string | null
+          kind: string
           label: string
+          options: Json
           sort_order: number
         }
         Insert: {
           column_id?: string
           created_at?: string
           created_by?: string | null
+          kind?: string
           label: string
+          options?: Json
           sort_order?: number
         }
         Update: {
           column_id?: string
           created_at?: string
           created_by?: string | null
+          kind?: string
           label?: string
+          options?: Json
           sort_order?: number
         }
         Relationships: []
