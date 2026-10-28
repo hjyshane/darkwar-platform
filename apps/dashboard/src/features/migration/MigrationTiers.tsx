@@ -127,6 +127,7 @@ export function MigrationTiers() {
               <th scope="col" className="numeric">
                 Power
               </th>
+              <th scope="col">Read</th>
             </tr>
           </thead>
           <tbody>
@@ -144,6 +145,7 @@ export function MigrationTiers() {
                 <td className="numeric" title={num(r.power)}>
                   {power(r.power)}
                 </td>
+                <td>{serverTime(r.captured_at)}</td>
               </tr>
             ))}
           </tbody>

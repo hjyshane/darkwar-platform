@@ -12,6 +12,7 @@ import {
   parseQuery,
   queryOf,
   serverFromUid,
+  sourceLabel,
   summarize,
   tierOf,
   uidOf,
@@ -193,12 +194,23 @@ describe('foundFor', () => {
 
   test('a state list gives the exact place', () => {
     const [found] = foundFor(who('alpha'), [listed], [seen]);
-    expect(found).toMatchObject({ place: 4, estimated: false, server_id: 567 });
+    expect(found).toMatchObject({
+      place: 4,
+      estimated: false,
+      server_id: 567,
+      source: 'state list',
+    });
   });
 
   test('outside the lists, the power last seen gives an estimated place', () => {
     const [found] = foundFor(who('Bravo'), [listed], [seen]);
-    expect(found).toMatchObject({ place: 2500, estimated: true, server_id: 570, migrate_power: 7 });
+    expect(found).toMatchObject({
+      place: 2500,
+      estimated: true,
+      server_id: 570,
+      migrate_power: 7,
+      source: 'profile',
+    });
   });
 
   test('a uid finds the player by uid', () => {
@@ -212,6 +224,16 @@ describe('serverFromUid', () => {
     expect(serverFromUid(1343375089000584)).toBe(584);
     expect(serverFromUid(null)).toBeNull();
     expect(serverFromUid(12345)).toBeNull();
+  });
+});
+
+describe('sourceLabel', () => {
+  test('words the route of a sighting', () => {
+    expect(sourceLabel('cross.server.rank')).toBe('state list');
+    expect(sourceLabel('roster')).toBe('alliance roster');
+    expect(sourceLabel('get.user.info.multi')).toBe('profile');
+    expect(sourceLabel('apex.rank')).toBe('apex.rank');
+    expect(sourceLabel(null)).toBeNull();
   });
 });
 
