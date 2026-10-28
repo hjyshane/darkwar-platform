@@ -283,8 +283,26 @@ export interface Found {
   place: number | null;
   estimated: boolean;
   captured_at: string | null;
+  /** Where the sighting came from, as `sourceLabel` words it. */
+  source: string | null;
   migrate_power: number | null;
   migrate_power_at: string | null;
+}
+
+/** The sighting's route in words: the command the collector read it from. */
+export function sourceLabel(command: string | null): string | null {
+  if (command === null) return null;
+  switch (command) {
+    case 'cross.server.rank':
+    case 'server.rank':
+      return 'state list';
+    case 'roster':
+      return 'alliance roster';
+    case 'get.user.info.multi':
+      return 'profile';
+    default:
+      return command;
+  }
 }
 
 /** The server a uid names: the game ends every uid in the six digits of the server it
@@ -313,6 +331,7 @@ export function foundFor(
       place: r.overall_rank,
       estimated: false,
       captured_at: r.captured_at,
+      source: 'state list',
       migrate_power: r.migrate_power,
       migrate_power_at: r.migrate_power_at,
     }));
@@ -331,6 +350,7 @@ export function foundFor(
     place: r.estimated_rank,
     estimated: true,
     captured_at: r.captured_at,
+    source: sourceLabel(r.source_command),
     migrate_power: r.migrate_power,
     migrate_power_at: r.migrate_power_at,
   }));

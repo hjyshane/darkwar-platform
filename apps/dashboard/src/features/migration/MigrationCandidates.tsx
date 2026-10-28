@@ -186,6 +186,16 @@ function Row({
           '—'
         )}
       </td>
+      <td title={best?.source ? `From the ${best.source}` : undefined}>
+        {best?.captured_at ? (
+          <>
+            {serverTime(best.captured_at)}
+            {best.source && <span className="subtle"> · {best.source}</span>}
+          </>
+        ) : (
+          '—'
+        )}
+      </td>
       <td>
         <Select
           aria-label={`580 alliance for ${candidate.query}`}
@@ -427,6 +437,7 @@ export function MigrationCandidates() {
                   Place
                 </th>
                 <th scope="col">Tier</th>
+                <th scope="col">Read</th>
                 <th scope="col">580 alliance</th>
                 {cols.map((c) => (
                   <th scope="col" key={c.column_id}>
