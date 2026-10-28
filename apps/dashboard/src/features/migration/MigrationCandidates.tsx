@@ -3,14 +3,31 @@ import { useState } from 'react';
 import { Select } from '../../components/ui/Select';
 import { supabase } from '../../lib/supabase';
 import { SERVER_ZONE, zonedDayKey, zonedTime } from '../../lib/timezone';
+import { CandidateColumnCell } from './CandidateColumnCell';
+import { CandidateColumnsManager, type ColumnDraft } from './CandidateColumnsManager';
 import { TierBadge } from './TierBadge';
+import {
+  ALL,
+  type Filters,
+  NONE,
+  NO_FILTERS,
+  type Sort,
+  type ViewRow,
+  allianceLabel,
+  applyFilters,
+  buildRows,
+  facets,
+  filtersActive,
+  nextSort,
+  sortRows,
+} from './candidateTable';
 import {
   type BoardInfo,
   type Candidate,
   type CandidateColumn,
-  type Found,
   type OwnAlliance,
-  candidateUid,
+  TIERS_TOP_DOWN,
+  TIER_LABELS,
   fetchBoardInfo,
   fetchCandidateColumns,
   fetchOwnServerAlliances,
@@ -20,8 +37,6 @@ import {
   lookupSeen,
   parseQuery,
   queryOf,
-  serverFromUid,
-  tierOf,
   unlistedTier,
 } from './candidates';
 import { num, power } from './format';
@@ -61,61 +76,52 @@ function Coverage({ info }: { info: BoardInfo | null }) {
   );
 }
 
-function allianceLabel(a: OwnAlliance): string {
-  const name = a.current_name ?? '(unnamed)';
-  return a.current_code ? `[${a.current_code}] ${name}` : name;
-}
-
-/** A text cell that saves when the field is left, and only if it changed. */
-function Cell({
-  value,
+function SortHeader({
   label,
-  onSave,
+  sortKey,
+  sort,
+  onSort,
+  numeric,
 }: {
-  value: string;
   label: string;
-  onSave: (next: string) => void;
+  sortKey: string;
+  sort: Sort | null;
+  onSort: (key: string) => void;
+  numeric?: boolean;
 }) {
+  const active = sort?.key === sortKey ? sort.direction : null;
   return (
-    <input
-      key={value}
-      aria-label={label}
-      defaultValue={value}
-      onBlur={(event) => {
-        const next = event.target.value.trim();
-        if (next !== value) onSave(next);
-      }}
-    />
+    <th
+      scope="col"
+      className={numeric ? 'numeric' : undefined}
+      aria-sort={active === null ? 'none' : active === 'asc' ? 'ascending' : 'descending'}
+    >
+      <button type="button" onClick={() => onSort(sortKey)} title="Sort by this column">
+        {label}
+        {active === 'asc' ? ' ▲' : active === 'desc' ? ' ▼' : ''}
+      </button>
+    </th>
   );
 }
 
 function Row({
-  candidate,
-  matches,
+  view,
   columns,
   alliances,
   anyMigratePower,
-  unlisted,
   onPatch,
   onCell,
   onRemove,
 }: {
-  candidate: Candidate;
-  matches: Found[];
+  view: ViewRow;
   columns: CandidateColumn[];
   alliances: OwnAlliance[];
   anyMigratePower: boolean;
-  unlisted: ReturnType<typeof unlistedTier>;
   onPatch: (patch: { game_uid?: number | null; desired_alliance_id?: string | null }) => void;
   onCell: (columnId: string, text: string) => void;
   onRemove: () => void;
 }) {
-  // The exact place off a state list wins; otherwise the strongest estimate.
-  const best = [...matches].sort(
-    (a, b) => Number(a.estimated) - Number(b.estimated) || (a.place ?? 1e9) - (b.place ?? 1e9),
-  )[0];
-  const tierName = best?.place != null ? tierOf(best.place) : best ? null : unlisted;
-  const uidServer = serverFromUid(candidateUid(candidate));
+  const { candidate, best, found: matches, tier, server, serverGuessed } = view;
   const seenAt = best?.captured_at ? serverTime(best.captured_at) : '';
   return (
     <tr>
@@ -124,7 +130,7 @@ function Row({
       </th>
       <td>
         {best === undefined ? (
-          uidServer === null ? (
+          server === null ? (
             <span className="subtle" title="Nothing seen of this player yet">
               unknown
             </span>
@@ -133,7 +139,8 @@ function Row({
               className="subtle"
               title="From the uid: the server this account was made on. Nothing else has been seen of it."
             >
-              {uidServer}?
+              {server}
+              {serverGuessed ? '?' : ''}
             </span>
           )
         ) : matches.length > 1 ? (
@@ -178,10 +185,10 @@ function Row({
         {best?.place == null ? '—' : `${best.estimated ? '~' : ''}${num(best.place)}`}
       </td>
       <td title={best?.estimated ? 'Estimated from the power last seen' : undefined}>
-        {tierName ? (
+        {tier ? (
           <>
             {best?.estimated && <span className="subtle">~ </span>}
-            <TierBadge tier={tierName} />
+            <TierBadge tier={tier} />
           </>
         ) : (
           '—'
@@ -213,7 +220,8 @@ function Row({
       </td>
       {columns.map((c) => (
         <td key={c.column_id}>
-          <Cell
+          <CandidateColumnCell
+            column={c}
             label={`${c.label} for ${candidate.query}`}
             value={candidate.extra[c.column_id] ?? ''}
             onSave={(text) => onCell(c.column_id, text)}
@@ -229,10 +237,101 @@ function Row({
   );
 }
 
+/** Narrow the table by search text, server, the alliance they are in now, the 580
+ * alliance they want, or tier. `NONE` keeps rows with nothing in that field. */
+function FilterBar({
+  filters,
+  onChange,
+  servers,
+  alliancesNow,
+  alliances,
+  shown,
+  total,
+}: {
+  filters: Filters;
+  onChange: (next: Filters) => void;
+  servers: number[];
+  alliancesNow: string[];
+  alliances: OwnAlliance[];
+  shown: number;
+  total: number;
+}) {
+  const set = (patch: Partial<Filters>) => onChange({ ...filters, ...patch });
+  return (
+    <div className="migration-bar">
+      <label>
+        Find{' '}
+        <input
+          value={filters.search}
+          onChange={(event) => set({ search: event.target.value })}
+          placeholder="name or uid"
+        />
+      </label>
+      <label>
+        Server{' '}
+        <Select value={filters.server} onChange={(server) => set({ server })}>
+          <option value={ALL}>All</option>
+          {servers.map((s) => (
+            <option key={s} value={String(s)}>
+              {s}
+            </option>
+          ))}
+          <option value={NONE}>Unknown</option>
+        </Select>
+      </label>
+      <label>
+        Alliance now{' '}
+        <Select value={filters.allianceNow} onChange={(allianceNow) => set({ allianceNow })}>
+          <option value={ALL}>All</option>
+          {alliancesNow.map((name) => (
+            <option key={name} value={name}>
+              {name}
+            </option>
+          ))}
+          <option value={NONE}>Unknown</option>
+        </Select>
+      </label>
+      <label>
+        580 alliance{' '}
+        <Select value={filters.desired} onChange={(desired) => set({ desired })}>
+          <option value={ALL}>All</option>
+          {alliances.map((a) => (
+            <option key={a.alliance_id} value={a.alliance_id}>
+              {allianceLabel(a)}
+            </option>
+          ))}
+          <option value={NONE}>Not chosen</option>
+        </Select>
+      </label>
+      <label>
+        Tier{' '}
+        <Select value={filters.tier} onChange={(tier) => set({ tier })}>
+          <option value={ALL}>All</option>
+          {TIERS_TOP_DOWN.map((t) => (
+            <option key={t} value={t}>
+              {TIER_LABELS[t]}
+            </option>
+          ))}
+          <option value={NONE}>Unknown</option>
+        </Select>
+      </label>
+      {filtersActive(filters) && (
+        <button type="button" onClick={() => onChange(NO_FILTERS)}>
+          Clear
+        </button>
+      )}
+      <span className="subtle">
+        {shown === total ? `${num(total)} candidates` : `${num(shown)} of ${num(total)}`}
+      </span>
+    </div>
+  );
+}
+
 export function MigrationCandidates() {
   const client = useQueryClient();
   const [text, setText] = useState('');
-  const [newColumn, setNewColumn] = useState('');
+  const [filters, setFilters] = useState<Filters>(NO_FILTERS);
+  const [sort, setSort] = useState<Sort | null>(null);
 
   const saved = useQuery({ queryKey: KEY, queryFn: fetchSavedCandidates, staleTime: STALE_TIME });
   const columns = useQuery({
@@ -322,19 +421,28 @@ export function MigrationCandidates() {
   });
 
   const addColumn = useMutation({
-    mutationFn: async () => {
-      const label = newColumn.trim();
-      if (label === '') return;
+    mutationFn: async (draft: ColumnDraft) => {
       const order = Math.max(0, ...(columns.data ?? []).map((c) => c.sort_order)) + 10;
-      const { error } = await supabase
-        .from('migration_candidate_columns')
-        .insert({ label, sort_order: order });
+      const { error } = await supabase.from('migration_candidate_columns').insert({
+        label: draft.label,
+        kind: draft.kind,
+        options: draft.options,
+        sort_order: order,
+      });
       if (error) throw new Error(error.message);
     },
-    onSuccess: async () => {
-      setNewColumn('');
-      await refresh();
+    onSuccess: refresh,
+  });
+
+  const updateColumn = useMutation({
+    mutationFn: async (args: { id: string; label: string; options: string[] }) => {
+      const { error } = await supabase
+        .from('migration_candidate_columns')
+        .update({ label: args.label, options: args.options })
+        .eq('column_id', args.id);
+      if (error) throw new Error(error.message);
     },
+    onSuccess: refresh,
   });
 
   const removeColumn = useMutation({
@@ -351,6 +459,16 @@ export function MigrationCandidates() {
   const rows = found.data ?? [];
   const cols = columns.data ?? [];
   const fallback = unlistedTier(info.data ?? null);
+  const ownAlliances = alliances.data ?? [];
+  const allRows = buildRows(
+    list,
+    (c) => foundFor(c, rows, seen.data ?? []),
+    ownAlliances,
+    fallback,
+  );
+  const shownRows = sortRows(applyFilters(allRows, filters), sort, cols);
+  const choices = facets(allRows);
+  const onSort = (key: string) => setSort((current) => nextSort(current, key));
   const seenRows = seen.data ?? [];
   const anyMigratePower =
     rows.some((r) => r.migrate_power !== null) || seenRows.some((r) => r.migrate_power !== null);
@@ -366,6 +484,7 @@ export function MigrationCandidates() {
     setCell.error,
     remove.error,
     addColumn.error,
+    updateColumn.error,
     removeColumn.error,
   ].find((e) => e);
 
@@ -391,21 +510,17 @@ export function MigrationCandidates() {
         </button>
       </form>
 
-      <form
-        className="migration-bar"
-        onSubmit={(event) => {
-          event.preventDefault();
-          addColumn.mutate();
+      <CandidateColumnsManager
+        columns={cols}
+        pending={addColumn.isPending || updateColumn.isPending}
+        onAdd={(draft) => addColumn.mutate(draft)}
+        onUpdate={(id, draft) => updateColumn.mutate({ id, ...draft })}
+        onRemove={(column) => {
+          if (window.confirm(`Remove the column “${column.label}” for everyone?`)) {
+            removeColumn.mutate(column.column_id);
+          }
         }}
-      >
-        <label>
-          New column{' '}
-          <input value={newColumn} onChange={(event) => setNewColumn(event.target.value)} />
-        </label>
-        <button type="submit" disabled={addColumn.isPending || newColumn.trim() === ''}>
-          Add column
-        </button>
-      </form>
+      />
 
       {failure && <p className="error">{failure.message}</p>}
       {!info.isPending && <Coverage info={info.data ?? null} />}
@@ -415,6 +530,17 @@ export function MigrationCandidates() {
 
       {saved.data && list.length === 0 && <p className="empty">No candidates yet.</p>}
       {list.length > 0 && (
+        <FilterBar
+          filters={filters}
+          onChange={setFilters}
+          servers={choices.servers}
+          alliancesNow={choices.alliancesNow}
+          alliances={ownAlliances}
+          shown={shownRows.length}
+          total={allRows.length}
+        />
+      )}
+      {list.length > 0 && (
         <div className="table-wrap">
           <table className="compact">
             <caption>
@@ -423,39 +549,37 @@ export function MigrationCandidates() {
             </caption>
             <thead>
               <tr>
-                <th scope="col">Name</th>
-                <th scope="col">Server</th>
-                <th scope="col">Alliance now</th>
-                <th scope="col" className="numeric">
-                  Power
-                </th>
+                <SortHeader label="Name" sortKey="name" sort={sort} onSort={onSort} />
+                <SortHeader label="Server" sortKey="server" sort={sort} onSort={onSort} />
+                <SortHeader
+                  label="Alliance now"
+                  sortKey="allianceNow"
+                  sort={sort}
+                  onSort={onSort}
+                />
+                <SortHeader label="Power" sortKey="power" sort={sort} onSort={onSort} numeric />
                 {anyMigratePower && (
-                  <th scope="col" className="numeric">
-                    Migrate power
-                  </th>
+                  <SortHeader
+                    label="Migrate power"
+                    sortKey="migratePower"
+                    sort={sort}
+                    onSort={onSort}
+                    numeric
+                  />
                 )}
-                <th scope="col" className="numeric">
-                  Place
-                </th>
-                <th scope="col">Tier</th>
-                <th scope="col">Read</th>
-                <th scope="col">580 alliance</th>
+                <SortHeader label="Place" sortKey="place" sort={sort} onSort={onSort} numeric />
+                <SortHeader label="Tier" sortKey="tier" sort={sort} onSort={onSort} />
+                <SortHeader label="Read" sortKey="read" sort={sort} onSort={onSort} />
+                <SortHeader label="580 alliance" sortKey="desired" sort={sort} onSort={onSort} />
                 {cols.map((c) => (
-                  <th scope="col" key={c.column_id}>
-                    {c.label}{' '}
-                    <button
-                      type="button"
-                      aria-label={`Remove column ${c.label}`}
-                      title="Remove this column (the text stays in the database)"
-                      onClick={() => {
-                        if (window.confirm(`Remove the column “${c.label}” for everyone?`)) {
-                          removeColumn.mutate(c.column_id);
-                        }
-                      }}
-                    >
-                      ×
-                    </button>
-                  </th>
+                  <SortHeader
+                    key={c.column_id}
+                    label={c.label}
+                    sortKey={`col:${c.column_id}`}
+                    sort={sort}
+                    onSort={onSort}
+                    numeric={c.kind === 'number'}
+                  />
                 ))}
                 <th scope="col">
                   <span className="visually-hidden">Remove</span>
@@ -463,25 +587,26 @@ export function MigrationCandidates() {
               </tr>
             </thead>
             <tbody>
-              {list.map((c) => (
+              {shownRows.map((view) => (
                 <Row
-                  key={c.candidate_id}
-                  candidate={c}
-                  matches={foundFor(c, rows, seenRows)}
+                  key={view.candidate.candidate_id}
+                  view={view}
                   columns={cols}
-                  alliances={alliances.data ?? []}
+                  alliances={ownAlliances}
                   anyMigratePower={anyMigratePower}
-                  unlisted={fallback}
-                  onPatch={(values) => patch.mutate({ id: c.candidate_id, values })}
+                  onPatch={(values) => patch.mutate({ id: view.candidate.candidate_id, values })}
                   onCell={(columnId, value) =>
-                    setCell.mutate({ candidate: c, columnId, text: value })
+                    setCell.mutate({ candidate: view.candidate, columnId, text: value })
                   }
-                  onRemove={() => remove.mutate(c.candidate_id)}
+                  onRemove={() => remove.mutate(view.candidate.candidate_id)}
                 />
               ))}
             </tbody>
           </table>
         </div>
+      )}
+      {list.length > 0 && shownRows.length === 0 && (
+        <p className="empty">No candidate matches these filters.</p>
       )}
       <p className="note">
         Place and tier come from the state lists when the player is on one. A player outside every

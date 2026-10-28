@@ -139,10 +139,43 @@ export interface Candidate {
   extra: Record<string, string>;
 }
 
+export type ColumnKind = 'text' | 'number' | 'dropdown' | 'note';
+
+export const COLUMN_KINDS: ReadonlyArray<{ kind: ColumnKind; label: string }> = [
+  { kind: 'text', label: 'Text' },
+  { kind: 'number', label: 'Number' },
+  { kind: 'dropdown', label: 'Dropdown' },
+  { kind: 'note', label: 'Note (long text)' },
+];
+
 export interface CandidateColumn {
   column_id: string;
   label: string;
   sort_order: number;
+  kind: ColumnKind;
+  /** The choices of a dropdown, in order; empty for any other kind. */
+  options: string[];
+}
+
+/** Dropdown choices typed one per line or separated by commas: trimmed, no blanks, no
+ * repeats, in the order given. */
+export function parseOptions(text: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const part of text.split(/[\n\r,;]+/)) {
+    const option = part.trim();
+    if (option === '' || seen.has(option.toLowerCase())) continue;
+    seen.add(option.toLowerCase());
+    out.push(option);
+  }
+  return out;
+}
+
+/** Why a column definition cannot be saved, or null. Mirrors the table's checks. */
+export function columnProblem(label: string, kind: ColumnKind, options: string[]): string | null {
+  if (label.trim() === '') return 'A column needs a name.';
+  if (kind === 'dropdown' && options.length === 0) return 'A dropdown needs at least one choice.';
+  return null;
 }
 
 export interface OwnAlliance {
@@ -171,14 +204,26 @@ export async function fetchSavedCandidates(): Promise<Candidate[]> {
   return (data ?? []).map((row) => ({ ...row, extra: cells(row.extra) }));
 }
 
+function toKind(value: string): ColumnKind {
+  return value === 'number' || value === 'dropdown' || value === 'note' ? value : 'text';
+}
+
 export async function fetchCandidateColumns(): Promise<CandidateColumn[]> {
   const { data, error } = await supabase
     .from('migration_candidate_columns')
-    .select('column_id, label, sort_order')
+    .select('column_id, label, sort_order, kind, options')
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
   if (error) throw new Error(`candidate columns query failed: ${error.message}`);
-  return data ?? [];
+  return (data ?? []).map((row) => ({
+    column_id: row.column_id,
+    label: row.label,
+    sort_order: row.sort_order,
+    kind: toKind(row.kind),
+    options: Array.isArray(row.options)
+      ? row.options.filter((o): o is string => typeof o === 'string')
+      : [],
+  }));
 }
 
 /** Our server's alliances, strongest first, for the "wants to join" choice. */
