@@ -248,3 +248,90 @@ export function summarize(rows: readonly TierBoardRow[]): TierSummary[] {
     };
   });
 }
+
+/** What we last saw of a player outside the state lists (`migration_candidate_seen`, 0296). */
+export interface SeenRow {
+  game_uid: number;
+  name: string;
+  server_id: number;
+  alliance_name: string | null;
+  power: number;
+  captured_at: string;
+  source_command: string;
+  estimated_rank: number;
+  migrate_power: number | null;
+  migrate_power_at: string | null;
+}
+
+export async function lookupSeen(query: Query): Promise<SeenRow[]> {
+  const { data, error } = await supabase.rpc('migration_candidate_seen', {
+    p_names: query.names,
+    p_uids: query.uids,
+  });
+  if (error) throw new Error(`seen lookup failed: ${error.message}`);
+  return (data ?? []) as SeenRow[];
+}
+
+/** One candidate as the table draws it. `estimated` means the place is worked out from
+ * a power seen at `captured_at` rather than read off a state list. */
+export interface Found {
+  game_uid: number;
+  name: string;
+  server_id: number;
+  alliance_name: string | null;
+  power: number | null;
+  place: number | null;
+  estimated: boolean;
+  captured_at: string | null;
+  migrate_power: number | null;
+  migrate_power_at: string | null;
+}
+
+/** The server a uid names: the game ends every uid in the six digits of the server it
+ * was made on. A player who moved still carries it, so this is where they started. */
+export function serverFromUid(uid: number | null): number | null {
+  if (uid === null) return null;
+  const text = String(uid);
+  return text.length > 6 ? Number(text.slice(-6)) : null;
+}
+
+/** Every player the candidate could be, state list first. A list gives the exact place;
+ * anything else gives an estimate from the power last seen. */
+export function foundFor(
+  candidate: Candidate,
+  listed: readonly CandidateRow[],
+  seen: readonly SeenRow[],
+): Found[] {
+  const onList = matchesOf(candidate, listed);
+  if (onList.length > 0) {
+    return onList.map((r) => ({
+      game_uid: r.game_uid,
+      name: r.name,
+      server_id: r.server_id,
+      alliance_name: r.alliance_name,
+      power: r.power,
+      place: r.overall_rank,
+      estimated: false,
+      captured_at: r.captured_at,
+      migrate_power: r.migrate_power,
+      migrate_power_at: r.migrate_power_at,
+    }));
+  }
+  const key = candidate.query.trim().toLowerCase();
+  const others =
+    candidate.game_uid !== null
+      ? seen.filter((r) => r.game_uid === candidate.game_uid)
+      : seen.filter((r) => r.name.trim().toLowerCase() === key);
+  return others.map((r) => ({
+    game_uid: r.game_uid,
+    name: r.name,
+    server_id: r.server_id,
+    alliance_name: r.alliance_name,
+    power: r.power,
+    place: r.estimated_rank,
+    estimated: true,
+    captured_at: r.captured_at,
+    migrate_power: r.migrate_power,
+    migrate_power_at: r.migrate_power_at,
+  }));
+}

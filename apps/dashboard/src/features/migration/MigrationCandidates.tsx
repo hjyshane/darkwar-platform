@@ -8,16 +8,18 @@ import {
   type BoardInfo,
   type Candidate,
   type CandidateColumn,
-  type CandidateRow,
+  type Found,
   type OwnAlliance,
   fetchBoardInfo,
   fetchCandidateColumns,
   fetchOwnServerAlliances,
   fetchSavedCandidates,
+  foundFor,
   lookupPlayers,
-  matchesOf,
+  lookupSeen,
   parseQuery,
   queryOf,
+  serverFromUid,
   tierOf,
   unlistedTier,
 } from './candidates';
@@ -98,7 +100,7 @@ function Row({
   onRemove,
 }: {
   candidate: Candidate;
-  matches: CandidateRow[];
+  matches: Found[];
   columns: CandidateColumn[];
   alliances: OwnAlliance[];
   anyMigratePower: boolean;
@@ -107,8 +109,13 @@ function Row({
   onCell: (columnId: string, text: string) => void;
   onRemove: () => void;
 }) {
-  const best = [...matches].sort((a, b) => a.overall_rank - b.overall_rank)[0];
-  const tierName = best ? tierOf(best.overall_rank) : unlisted;
+  // The exact place off a state list wins; otherwise the strongest estimate.
+  const best = [...matches].sort(
+    (a, b) => Number(a.estimated) - Number(b.estimated) || (a.place ?? 1e9) - (b.place ?? 1e9),
+  )[0];
+  const tierName = best?.place != null ? tierOf(best.place) : best ? null : unlisted;
+  const uidServer = serverFromUid(candidate.game_uid);
+  const seenAt = best?.captured_at ? serverTime(best.captured_at) : '';
   return (
     <tr>
       <th scope="row" title={candidate.game_uid === null ? undefined : String(candidate.game_uid)}>
@@ -116,12 +123,18 @@ function Row({
       </th>
       <td>
         {best === undefined ? (
-          <span
-            className="subtle"
-            title="Not in any server's top 150 (or its list is not captured)"
-          >
-            not listed
-          </span>
+          uidServer === null ? (
+            <span className="subtle" title="Nothing seen of this player yet">
+              unknown
+            </span>
+          ) : (
+            <span
+              className="subtle"
+              title="From the uid: the server this account was made on. Nothing else has been seen of it."
+            >
+              {uidServer}?
+            </span>
+          )
         ) : matches.length > 1 ? (
           <Select
             aria-label={`Which ${candidate.query}`}
@@ -131,7 +144,7 @@ function Row({
           >
             {matches.map((m) => (
               <option key={m.game_uid} value={m.game_uid}>
-                {m.server_id} · {power(m.power)} · #{m.overall_rank}
+                {m.server_id} · {power(m.power)} · #{m.place ?? '?'}
               </option>
             ))}
           </Select>
@@ -140,16 +153,39 @@ function Row({
         )}
       </td>
       <td>{best?.alliance_name ?? '—'}</td>
-      <td className="numeric" title={best ? num(best.power) : undefined}>
-        {best ? power(best.power) : '—'}
+      <td
+        className="numeric"
+        title={
+          best?.power == null ? undefined : `${num(best.power)}${seenAt ? ` · seen ${seenAt}` : ''}`
+        }
+      >
+        {best?.power == null ? '—' : power(best.power)}
       </td>
       {anyMigratePower && (
         <td className="numeric" title={best?.migrate_power_at ?? undefined}>
           {best?.migrate_power == null ? '—' : num(best.migrate_power)}
         </td>
       )}
-      <td className="numeric">{best ? num(best.overall_rank) : '—'}</td>
-      <td>{tierName ? <TierBadge tier={tierName} /> : '—'}</td>
+      <td
+        className="numeric"
+        title={
+          best?.estimated
+            ? `Estimated from the power seen ${seenAt}: not on any state list`
+            : undefined
+        }
+      >
+        {best?.place == null ? '—' : `${best.estimated ? '~' : ''}${num(best.place)}`}
+      </td>
+      <td title={best?.estimated ? 'Estimated from the power last seen' : undefined}>
+        {tierName ? (
+          <>
+            {best?.estimated && <span className="subtle">~ </span>}
+            <TierBadge tier={tierName} />
+          </>
+        ) : (
+          '—'
+        )}
+      </td>
       <td>
         <Select
           aria-label={`580 alliance for ${candidate.query}`}
@@ -209,6 +245,13 @@ export function MigrationCandidates() {
   const found = useQuery({
     queryKey: ['migration', 'candidates-lookup', query],
     queryFn: () => lookupPlayers(query),
+    enabled: query.names.length + query.uids.length > 0,
+    staleTime: STALE_TIME,
+  });
+
+  const seen = useQuery({
+    queryKey: ['migration', 'candidates-seen', query],
+    queryFn: () => lookupSeen(query),
     enabled: query.names.length + query.uids.length > 0,
     staleTime: STALE_TIME,
   });
@@ -297,13 +340,16 @@ export function MigrationCandidates() {
   const rows = found.data ?? [];
   const cols = columns.data ?? [];
   const fallback = unlistedTier(info.data ?? null);
-  const anyMigratePower = rows.some((r) => r.migrate_power !== null);
+  const seenRows = seen.data ?? [];
+  const anyMigratePower =
+    rows.some((r) => r.migrate_power !== null) || seenRows.some((r) => r.migrate_power !== null);
   const failure = [
     saved.error,
     columns.error,
     alliances.error,
     info.error,
     found.error,
+    seen.error,
     add.error,
     patch.error,
     setCell.error,
@@ -352,7 +398,9 @@ export function MigrationCandidates() {
 
       {failure && <p className="error">{failure.message}</p>}
       {!info.isPending && <Coverage info={info.data ?? null} />}
-      {(saved.isPending || found.isFetching) && <p className="empty loading">Loading…</p>}
+      {(saved.isPending || found.isFetching || seen.isFetching) && (
+        <p className="empty loading">Loading…</p>
+      )}
 
       {saved.data && list.length === 0 && <p className="empty">No candidates yet.</p>}
       {list.length > 0 && (
@@ -407,7 +455,7 @@ export function MigrationCandidates() {
                 <Row
                   key={c.candidate_id}
                   candidate={c}
-                  matches={matchesOf(c, rows)}
+                  matches={foundFor(c, rows, seenRows)}
                   columns={cols}
                   alliances={alliances.data ?? []}
                   anyMigratePower={anyMigratePower}
@@ -424,9 +472,12 @@ export function MigrationCandidates() {
         </div>
       )}
       <p className="note">
-        “not listed” means not in any server's top 150 — or a list not captured yet. Where every
-        server is captured and even the weakest listed player would be past the last tier boundary,
-        the tier shows as Backbone.
+        Place and tier come from the state lists when the player is on one. A player outside every
+        top 150 is placed by the power last seen (marked ~), with the server, name and alliance from
+        the same sighting; the time is in the tooltip. A server with a question mark comes from the
+        uid alone: nothing else has been seen of that player. Open a player's profile in the game to
+        fill the rest in. Where every server is captured and nothing is known of the player, the
+        tier shows as Backbone, which a misspelt name will also get.
       </p>
     </>
   );

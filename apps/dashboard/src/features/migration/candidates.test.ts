@@ -3,11 +3,14 @@ import {
   type BoardInfo,
   type Candidate,
   type CandidateRow,
+  type SeenRow,
   type TierBoardRow,
   cells,
+  foundFor,
   matchesOf,
   parseQuery,
   queryOf,
+  serverFromUid,
   summarize,
   tierOf,
   unlistedTier,
@@ -151,5 +154,61 @@ describe('summarize', () => {
     expect(elite).toMatchObject({ first: 11, last: 46, count: 1, floorPower: 700 });
     expect(advanced).toMatchObject({ first: 47, last: 226, count: 1 });
     expect(backbone).toMatchObject({ first: 227, last: null, count: 0, floorPower: null });
+  });
+});
+
+describe('foundFor', () => {
+  const listed: CandidateRow = {
+    game_uid: 1,
+    name: 'Alpha',
+    server_id: 567,
+    alliance_name: 'Crew',
+    power: 900,
+    overall_rank: 4,
+    captured_at: 't',
+    migrate_power: null,
+    migrate_power_at: null,
+  };
+  const seen: SeenRow = {
+    game_uid: 2,
+    name: 'Bravo',
+    server_id: 570,
+    alliance_name: null,
+    power: 300,
+    captured_at: 't',
+    source_command: 'get.user.info.multi',
+    estimated_rank: 2500,
+    migrate_power: 7,
+    migrate_power_at: 't',
+  };
+  const who = (query: string, game_uid: number | null = null): Candidate => ({
+    candidate_id: query,
+    query,
+    game_uid,
+    desired_alliance_id: null,
+    extra: {},
+  });
+
+  test('a state list gives the exact place', () => {
+    const [found] = foundFor(who('alpha'), [listed], [seen]);
+    expect(found).toMatchObject({ place: 4, estimated: false, server_id: 567 });
+  });
+
+  test('outside the lists, the power last seen gives an estimated place', () => {
+    const [found] = foundFor(who('Bravo'), [listed], [seen]);
+    expect(found).toMatchObject({ place: 2500, estimated: true, server_id: 570, migrate_power: 7 });
+  });
+
+  test('a uid finds the player by uid', () => {
+    expect(foundFor(who('2', 2), [], [seen])).toHaveLength(1);
+    expect(foundFor(who('3', 3), [], [seen])).toHaveLength(0);
+  });
+});
+
+describe('serverFromUid', () => {
+  test('is the last six digits', () => {
+    expect(serverFromUid(1343375089000584)).toBe(584);
+    expect(serverFromUid(null)).toBeNull();
+    expect(serverFromUid(12345)).toBeNull();
   });
 });
