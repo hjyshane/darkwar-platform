@@ -474,10 +474,12 @@ export function MigrationCandidates() {
       <p className="note">
         Place and tier come from the state lists when the player is on one. A player outside every
         top 150 is placed by the power last seen (marked ~), with the server, name and alliance from
-        the same sighting; the time is in the tooltip. A server with a question mark comes from the
-        uid alone: nothing else has been seen of that player. Open a player's profile in the game to
-        fill the rest in. Where every server is captured and nothing is known of the player, the
-        tier shows as Backbone, which a misspelt name will also get.
+        the same sighting: a profile, a board, or an alliance roster we opened (the same players the
+        Cross-Server player ranking lists). The time is in the tooltip. A server with a question
+        mark comes from the uid alone: nothing else has been seen of that player. Opening their
+        profile or their alliance's roster in the game fills the rest in. Where every server is
+        captured and nothing is known of the player, the tier shows as Backbone, which a misspelt
+        name will also get.
       </p>
     </>
   );
