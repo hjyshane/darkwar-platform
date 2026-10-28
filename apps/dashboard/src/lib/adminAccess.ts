@@ -140,6 +140,13 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     heading: 'Participation score bars',
     requires: capability('settings.write'),
   },
+  // tab_visibility -> an admin, spelled as a role in its policies (0295).
+  {
+    group: 'display',
+    id: 'tab-visibility-heading',
+    heading: 'Tab visibility',
+    requires: adminOnly,
+  },
   { group: 'display', id: 'notices-heading', heading: 'Notices', requires: null },
 
   // SHARED BY EVERY ALLIANCE (0200) — the group id is still `catalogue`.

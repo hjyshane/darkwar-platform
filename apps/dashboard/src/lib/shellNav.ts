@@ -102,6 +102,9 @@ export interface NavContext {
   /** A `community` account (0282): outside the alliance, offered the game-wide
    * screens only. Everything that is about our alliance is left out. */
   isCommunity?: boolean;
+  /** Whether the reader's role sees a tab, as an admin set it in Settings (0295).
+   * Hides only: absent means every tab, and it never shows what a gate withholds. */
+  tabShown?: (tab: string) => boolean;
   /** Names, order and visibility an admin set on the page (0279). */
   overrides?: Overrides;
   /** Season names by address (`#/season`), from the seasons table. */
@@ -156,10 +159,13 @@ export function buildNav(ctx: NavContext): NavGroup[] {
   const onOwn =
     ctx.own !== null && ctx.route === 'alliance' && ctx.allianceId === ctx.own.alliance_id;
   const name = (hash: string, fallback: string) => ctx.seasonNames[hash] ?? fallback;
+  const shown = ctx.tabShown ?? (() => true);
 
   const watch: NavItem[] = [
     ...OVERVIEW_TABS.filter(
-      (tab) => tab.route !== 'migration' || ctx.isOfficer || ctx.isCommunity === true,
+      (tab) =>
+        (tab.route !== 'migration' || ctx.isOfficer || ctx.isCommunity === true) &&
+        shown(tab.route),
     ).map((tab) => ({
       key: tab.hash,
       href: tab.hash,
@@ -184,11 +190,21 @@ export function buildNav(ctx: NavContext): NavGroup[] {
           }
         : {}),
     })),
-    { key: '#/map', href: '#/map', label: 'Map', icon: 'map', current: ctx.route === 'map' },
+    ...(shown('map')
+      ? [
+          {
+            key: '#/map',
+            href: '#/map',
+            label: 'Map',
+            icon: 'map' as const,
+            current: ctx.route === 'map',
+          },
+        ]
+      : []),
   ];
 
   const alliance: NavItem[] = [
-    ...(ctx.own === null || ctx.isCommunity === true
+    ...(ctx.own === null || ctx.isCommunity === true || !shown('alliance')
       ? []
       : [
           {
@@ -213,7 +229,8 @@ export function buildNav(ctx: NavContext): NavGroup[] {
         // Community: the planner is the one entry of this group it is given.
         (ctx.isCommunity !== true || tab.route === 'planner') &&
         (tab.route !== 'members' || ctx.mayViewMembers === true) &&
-        (tab.route !== 'giftCodes' || ctx.mayManageGiftCodes === true),
+        (tab.route !== 'giftCodes' || ctx.mayManageGiftCodes === true) &&
+        shown(tab.route),
     ).map((tab) => ({
       key: tab.hash,
       href: tab.hash,
@@ -278,7 +295,7 @@ export function buildNav(ctx: NavContext): NavGroup[] {
   ];
 
   const guideTab = ctx.eventGuideTab ?? 'today';
-  const events: NavItem[] = EVENT_TABS.map((tab) => ({
+  const events: NavItem[] = EVENT_TABS.filter((tab) => shown(tab.route)).map((tab) => ({
     key: tab.hash,
     href: tab.hash,
     label: tab.label,
@@ -298,7 +315,9 @@ export function buildNav(ctx: NavContext): NavGroup[] {
       : {}),
   }));
 
-  const boards: NavItem[] = (ctx.isCommunity === true ? [] : BOARD_TABS).map((tab) => ({
+  const boards: NavItem[] = (
+    ctx.isCommunity === true ? [] : BOARD_TABS.filter((tab) => shown(tab.route))
+  ).map((tab) => ({
     key: tab.hash,
     href: tab.hash,
     label: tab.label,

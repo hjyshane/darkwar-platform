@@ -8001,6 +8001,30 @@ export type Database = {
           },
         ]
       }
+      tab_visibility: {
+        Row: {
+          role: Database["public"]["Enums"]["app_role"]
+          tab_key: string
+          updated_at: string
+          updated_by: string | null
+          visible: boolean
+        }
+        Insert: {
+          role: Database["public"]["Enums"]["app_role"]
+          tab_key: string
+          updated_at?: string
+          updated_by?: string | null
+          visible: boolean
+        }
+        Update: {
+          role?: Database["public"]["Enums"]["app_role"]
+          tab_key?: string
+          updated_at?: string
+          updated_by?: string | null
+          visible?: boolean
+        }
+        Relationships: []
+      }
       ui_overrides: {
         Row: {
           key: string

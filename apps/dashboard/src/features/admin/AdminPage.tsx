@@ -35,6 +35,7 @@ import { RankReportSetting } from './RankReportSetting';
 import { RankTiersSetting } from './RankTiersSetting';
 import { SeasonBuildingAlertSetting } from './SeasonBuildingAlertSetting';
 import { SeasonsSetting } from './SeasonsSetting';
+import { TabVisibilitySetting } from './TabVisibilitySetting';
 import { TableLayoutSetting } from './TableLayoutSetting';
 import { settingsStrip } from './strip';
 
@@ -332,6 +333,13 @@ function DisplayGroup({ section }: { section: string }) {
             sampleName={sample?.current_name ?? null}
             values={sample === null ? {} : fieldsOf(sample)}
           />
+        </section>
+      )}
+
+      {section === 'tab-visibility' && (
+        <section aria-labelledby="tab-visibility-heading">
+          <h2 id="tab-visibility-heading">Tab visibility</h2>
+          <TabVisibilitySetting />
         </section>
       )}
 

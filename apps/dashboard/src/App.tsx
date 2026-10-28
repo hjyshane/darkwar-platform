@@ -70,6 +70,7 @@ import {
   serverIdFromHash,
 } from './lib/route';
 import { supabase } from './lib/supabase';
+import { isTabShown, tabKeyOf, useTabVisibility } from './lib/tabVisibility';
 import { useActiveAlliance } from './lib/useMyAlliances';
 import { useSession } from './lib/useSession';
 import { useSidewaysMouse } from './lib/useSidewaysMouse';
@@ -256,6 +257,13 @@ function Screen({
   const mayViewMembers = useMayView('members.view');
   const mayViewArena = useMayView('arena.view');
   const mayManageGiftCodes = useMayView('giftcodes.manage');
+  const tabRules = useTabVisibility();
+  // An admin can hide a tab from a role (0295). Typing the address gets the same
+  // answer as the missing entry; the policies underneath are the boundary.
+  const tabKey = tabKeyOf(route);
+  if (tabKey !== null && !isTabShown(tabRules, tabKey, session?.role)) {
+    return <p className="empty">An admin has hidden this page for your role.</p>;
+  }
   switch (route) {
     case 'members':
       // Typing the address gets the same answer as the missing tab. Not a
