@@ -42,7 +42,8 @@ def test_six_component_rows_one_per_metric() -> None:
     components = [r for r in rows if r.target_table == "player_component_power_snapshots"]
 
     by_metric = {r.row["metric"]: r.row for r in components}
-    assert set(by_metric) == set(get_new_user_info.COMPONENT_METRICS.values())
+    # The fixture predates migratePower, so the six decomposition metrics only.
+    assert set(by_metric) == set(get_new_user_info.COMPONENT_METRICS.values()) - {"migrate_power"}
 
     # heroPower/petPower land on the BOARD metrics — same fact, another route
     # (0018 pinned the equality), told apart by source_command.
@@ -119,3 +120,22 @@ def test_disagreeing_components_are_recorded_not_raised() -> None:
 def test_malformed_payload_rejected() -> None:
     with pytest.raises(ValidationError):
         get_new_user_info.normalize(load_observation("get.new.user.info/profile_malformed_v1.json"))
+
+
+def test_migration_power_is_a_component_reading_when_present() -> None:
+    """1.2.0: the profile's migratePower is read; absent means no row."""
+    observation = load_observation("get.new.user.info/profile_578_v1.json")
+    with_it = observation.model_copy(
+        update={"payload": {**observation.payload, "migratePower": 2022986}}
+    )
+
+    rows = get_new_user_info.normalize(with_it)
+    migrate = [r for r in rows if r.row.get("metric") == "migrate_power"]
+    assert len(migrate) == 1
+    assert migrate[0].row["power"] == 2022986
+    assert migrate[0].target_table == "player_component_power_snapshots"
+    assert not [
+        r
+        for r in get_new_user_info.normalize(observation)
+        if r.row.get("metric") == "migrate_power"
+    ]

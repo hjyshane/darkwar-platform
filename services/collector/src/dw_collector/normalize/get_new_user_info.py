@@ -34,7 +34,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from dw_collector.models import NormalizedRow, Observation, idempotency_key
 from dw_collector.registry import register
 
-PARSER_VERSION = "1.1.0"
+PARSER_VERSION = "1.2.0"
 
 _UID_SERVER_SUFFIX = 6
 
@@ -56,6 +56,7 @@ COMPONENT_METRICS: dict[str, str] = {
     "sciencePower": "science_power",
     "armyPower": "army_power",
     "modCarPower": "mod_car_power",
+    "migratePower": "migrate_power",
 }
 
 
@@ -138,6 +139,20 @@ def normalize(observation: Observation) -> list[NormalizedRow]:
             server_id=server_id,
         )
     )
+    # The migration power (1.2.0): a figure the game fixes at one moment, so the newest
+    # reading is the one worth showing. Admin-only in the registry (0086).
+    migrate = observation.payload.get("migratePower")
+    if isinstance(migrate, int) and not isinstance(migrate, bool):
+        rows.extend(
+            _component_rows(
+                observation,
+                {"migratePower": migrate},
+                name=payload.name,
+                bucket=bucket,
+                game_uid=game_uid,
+                server_id=server_id,
+            )
+        )
     return rows
 
 
