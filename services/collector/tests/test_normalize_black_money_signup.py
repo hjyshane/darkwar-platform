@@ -19,13 +19,19 @@ from tests.conftest import load_observation
 SIGNUP = "dragon.assign.player.info/signup_v1.json"
 
 
+def _signups(observation=None):
+    """The snapshot rows only: the migration-power readings are a second table."""
+    rows = black_money_signup.normalize(observation or load_observation(SIGNUP))
+    return [r for r in rows if r.target_table == "black_money_signup_snapshots"]
+
+
 def test_registered() -> None:
     assert registry.get("dragon.assign.player.info") is black_money_signup.normalize
 
 
 def test_the_whole_alliance_is_listed() -> None:
     """71 members, not only the signed-up ones: 16 are on neither team."""
-    rows = black_money_signup.normalize(load_observation(SIGNUP))
+    rows = _signups()
 
     assert len(rows) == 71
     assert {r.target_table for r in rows} == {"black_money_signup_snapshots"}
@@ -35,7 +41,7 @@ def test_the_whole_alliance_is_listed() -> None:
 def test_each_team_fields_twenty_starters() -> None:
     """state 1 is a starter and the cap is 20 per team, which is what the
     screen showed for both A (teamIndex 1) and B (teamIndex 2) on 09-27."""
-    rows = black_money_signup.normalize(load_observation(SIGNUP))
+    rows = _signups()
     slots = Counter((r.row["team_index"], r.row["state"]) for r in rows)
 
     assert slots[(1, 1)] == 20
@@ -48,7 +54,7 @@ def test_each_team_fields_twenty_starters() -> None:
 
 
 def test_an_empty_slot_list_is_null_not_a_slot() -> None:
-    rows = black_money_signup.normalize(load_observation(SIGNUP))
+    rows = _signups()
 
     assert sum(r.row["time_index_record"] is None for r in rows) == 13
     assert "" not in {r.row["time_index_record"] for r in rows}
@@ -101,7 +107,56 @@ def test_replay_is_idempotent_and_readings_are_distinct() -> None:
 
 
 def test_no_activity_facts() -> None:
-    """A signup is not activity. Nothing but the snapshot rows comes out."""
+    """A signup is not activity. Only the snapshot rows and the migration-power
+    readings come out."""
     rows = pipeline.process(load_observation(SIGNUP))
 
-    assert {r.target_table for r in rows} == {"black_money_signup_snapshots"}
+    assert {r.target_table for r in rows} == {
+        "black_money_signup_snapshots",
+        "player_component_power_snapshots",
+    }
+
+
+def test_each_members_migration_power_is_a_component_reading() -> None:
+    """1.1.0: the list carries migratePower for every member, and it is read."""
+    observation = load_observation(SIGNUP)
+    rows = black_money_signup.normalize(observation)
+    readings = [r for r in rows if r.target_table == "player_component_power_snapshots"]
+    sent = {
+        int(u["uid"]): u["migratePower"]
+        for u in observation.payload["users"]
+        if "migratePower" in u
+    }
+
+    assert len(readings) == len(sent) > 0
+    assert {r.row["metric"] for r in readings} == {"migrate_power"}
+    assert {r.row["game_uid"]: r.row["power"] for r in readings} == sent
+    assert all(r.row["rank"] is None and r.row["board_type"] is None for r in readings)
+
+
+def test_a_member_without_migration_power_has_no_reading() -> None:
+    observation = load_observation(SIGNUP)
+    users = [dict(u) for u in observation.payload["users"]]
+    users[0].pop("migratePower", None)
+    bare = observation.model_copy(update={"payload": {**observation.payload, "users": users}})
+
+    uid = int(users[0]["uid"])
+    readings = [
+        r
+        for r in black_money_signup.normalize(bare)
+        if r.target_table == "player_component_power_snapshots"
+    ]
+    assert uid not in {r.row["game_uid"] for r in readings}
+
+
+def test_a_reading_keeps_its_key_when_replayed() -> None:
+    observation = load_observation(SIGNUP)
+
+    def keys() -> set[str]:
+        return {
+            r.idempotency_key
+            for r in black_money_signup.normalize(observation)
+            if r.target_table == "player_component_power_snapshots"
+        }
+
+    assert keys() == keys()

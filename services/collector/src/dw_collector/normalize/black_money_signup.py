@@ -31,7 +31,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from dw_collector.models import NormalizedRow, Observation, idempotency_key, stable_uuid
 from dw_collector.registry import register
 
-PARSER_VERSION = "1.0.0"
+PARSER_VERSION = "1.1.0"
 
 _UID_SERVER_SUFFIX = 6
 
@@ -50,6 +50,7 @@ class _Member(BaseModel):
     time_index_record: str | None = Field(default=None, alias="timeIndexRecord")
     battle_willingness: int | None = Field(default=None, alias="battleWillingness")
     battle_willingness2: int | None = Field(default=None, alias="battleWillingness2")
+    migrate_power: int | None = Field(default=None, alias="migratePower")
 
     @field_validator("uid")
     @classmethod
@@ -124,4 +125,53 @@ def normalize(observation: Observation) -> list[NormalizedRow]:
                 },
             )
         )
+        rows.extend(_migrate_power_row(observation, member, raw, game_uid, server_id))
     return rows
+
+
+def _migrate_power_row(
+    observation: Observation,
+    member: _Member,
+    raw: dict[str, Any],
+    game_uid: int,
+    server_id: int,
+) -> list[NormalizedRow]:
+    """The member's migration power, as a component reading (1.1.0).
+
+    The list carries it for every member of the collector's alliance, and the profile
+    stopped doing so after 2026-10-08, so this is where our own members' figure keeps
+    arriving. One reading a day per member: the figure is fixed at one moment by the
+    game, so a reading every few minutes would add rows and no information. Missing
+    means no row, never a zero.
+    """
+    if member.migrate_power is None:
+        return []
+    bucket = observation.captured_at.date().isoformat()
+    return [
+        NormalizedRow(
+            target_table="player_component_power_snapshots",
+            idempotency_key=idempotency_key(
+                observation, f"dragon.assign.player.info:migrate_power:{game_uid}", bucket
+            ),
+            row={
+                "observation_id": str(observation.observation_id),
+                "source_command": observation.source_command,
+                "parser_version": PARSER_VERSION,
+                "captured_at": observation.captured_at.isoformat(),
+                "collector_id": str(observation.collector_id),
+                "collected_from_server_id": observation.collected_from_server_id,
+                "raw": raw,
+                "server_id": server_id,
+                "game_uid": game_uid,
+                "metric": "migrate_power",
+                "power": member.migrate_power,
+                "rank": None,
+                "board_type": None,
+                "name": member.name,
+                "unit_id": None,
+            },
+            entity_refs={
+                "player": {"game_uid": game_uid, "server_id": server_id, "name": member.name},
+            },
+        )
+    ]
