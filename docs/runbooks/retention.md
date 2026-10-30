@@ -43,6 +43,13 @@
 | `alliance_snapshots` | 3개월 (전부) | — |
 | `arena_snapshots` | 우리 멤버가 있는 보드는 안 지움 | 7일 |
 
+**예외 (0299): `migrate_power`의 가장 최근 읽기는 플레이어마다 남긴다.** 이민 파워는 게임이 한
+시점에 고정하는 값이라, 몇 주 전에 읽은 값이 여전히 정답이다. 이 예외가 없던 때는 남의
+이민 파워가 7일 뒤 지워져 후보 표의 열이 비었다. 그 값이 대체한 이전 읽기만 기록으로 취급해
+지운다. 이미 지워진 행은 수집기 저널에서 `backfill --command <명령> --table
+player_component_power_snapshots`로 다시 올린다 (`get.user.info.multi`,
+`get.new.user.info`, `dragon.assign.player.info`).
+
 `alliance_snapshots`는 연맹당 스윕당 한 행이라 멤버당 한 행과 비교가 안 되게 싸다.
 남의 연맹 전투력의 유일한 장기 시계열이므로 길게 둔다.
 
