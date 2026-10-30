@@ -26,6 +26,16 @@ select gen_random_uuid(), 'al.rank', 'test', 'test:daily:' || g, now() - interva
   '00000000-0000-4000-8000-00000000cf58', 580, '00000000-0000-4000-8000-0000000058bb',
   581, 958000000 + g, 'S' || g, true
 from generate_series(1, 3) g;
+-- Each of them was read again later, so the 40-day-old row is history. (The later ones
+-- are out of the window too, but they are the latest of their member and stay: 0299.)
+insert into public.alliance_member_snapshots
+  (observation_id, source_command, parser_version, idempotency_key, captured_at,
+   collector_id, collected_from_server_id, alliance_id, server_id, game_uid, name,
+   presence_redacted)
+select gen_random_uuid(), 'al.rank', 'test', 'keep:daily:' || g, now() - interval '35 days',
+  '00000000-0000-4000-8000-00000000cf58', 580, '00000000-0000-4000-8000-0000000058bb',
+  581, 958000000 + g, 'S' || g, true
+from generate_series(1, 3) g;
 
 -- The cron.job row is not asserted: the local stub has no cron.job table.
 select has_function('internal', 'retention_daily', array['integer'], 'the daily pass exists');
@@ -53,6 +63,9 @@ insert into public.alliance_member_snapshots
    collector_id, collected_from_server_id, alliance_id, server_id, game_uid, name,
    presence_redacted)
 values (gen_random_uuid(), 'al.rank', 'test', 'test:daily:late', now() - interval '40 days',
+  '00000000-0000-4000-8000-00000000cf58', 580, '00000000-0000-4000-8000-0000000058bb',
+  581, 958999999, 'late', true),
+  (gen_random_uuid(), 'al.rank', 'test', 'keep:daily:late', now() - interval '35 days',
   '00000000-0000-4000-8000-00000000cf58', 580, '00000000-0000-4000-8000-0000000058bb',
   581, 958999999, 'late', true);
 

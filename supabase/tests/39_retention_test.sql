@@ -65,6 +65,12 @@ values
   ('00000000-0000-4000-8000-0000000000d2', 'al.rank', 'test', 'test:ret:m2',
    now() - interval '40 days', '00000000-0000-4000-8000-00000000cf01', 580,
    '00000000-0000-4000-8000-0000000000bb', 581, 920000581,
+   '00000000-0000-4000-8000-0000000000c2', 'A Stranger', true),
+  -- A newer roster row of the stranger, still out of the window: it is the stranger's
+  -- latest, so it stays (0299), and the 40-day-old one before it is history.
+  (gen_random_uuid(), 'al.rank', 'test', 'test:ret:m2b',
+   now() - interval '35 days', '00000000-0000-4000-8000-00000000cf01', 580,
+   '00000000-0000-4000-8000-0000000000bb', 581, 920000581,
    '00000000-0000-4000-8000-0000000000c2', 'A Stranger', true);
 
 -- Power readings of the same age for both.
@@ -77,7 +83,11 @@ values
    910000580, '00000000-0000-4000-8000-0000000000c1', 500),
   ('00000000-0000-4000-8000-0000000000d4', 'server.rank', 'test', 'test:ret:p2',
    now() - interval '40 days', '00000000-0000-4000-8000-00000000cf01', 580, 581,
-   920000581, '00000000-0000-4000-8000-0000000000c2', 600);
+   920000581, '00000000-0000-4000-8000-0000000000c2', 600),
+  -- The stranger's later reading, also out of the window: their latest, so it stays.
+  (gen_random_uuid(), 'server.rank', 'test', 'test:ret:p2b',
+   now() - interval '35 days', '00000000-0000-4000-8000-00000000cf01', 580, 581,
+   920000581, '00000000-0000-4000-8000-0000000000c2', 650);
 
 -- An old arena board with one of ours on it. Entries cascade from the board,
 -- so pruning the board would delete our member's lineup.
@@ -116,7 +126,7 @@ select is(
   (select rows from public.retention_report() where relation = 'player_snapshots'),
   1::bigint, 'one power reading is out of window — the stranger''s, not ours');
 select is(
-  (select count(*) from public.player_snapshots), 2::bigint,
+  (select count(*) from public.player_snapshots), 3::bigint,
   'and the report deleted nothing');
 
 -- Now the delete.
@@ -129,7 +139,7 @@ select is(
 select is(
   (select count(*) from public.player_snapshots
    where player_id = '00000000-0000-4000-8000-0000000000c2'),
-  0::bigint, 'the stranger''s is gone');
+  1::bigint, 'the stranger''s older reading is gone and their latest stays');
 
 -- Departures are derived from these rows, so ours has to outlive the week.
 select is(
@@ -139,7 +149,7 @@ select is(
 select is(
   (select count(*) from public.alliance_member_snapshots
    where alliance_id = '00000000-0000-4000-8000-0000000000bb'),
-  0::bigint, 'a stranger alliance''s does not');
+  1::bigint, 'a stranger alliance''s ages out, but its latest row stays');
 
 -- The two that would be worst to get wrong.
 select is(
