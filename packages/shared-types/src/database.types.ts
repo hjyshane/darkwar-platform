@@ -10356,6 +10356,7 @@ export type Database = {
           p_board_from?: number
           p_board_to?: number
           p_from_server?: number
+          p_since?: unknown
           p_to_server?: number
         }
         Returns: {
@@ -10367,6 +10368,7 @@ export type Database = {
           name: string
           power: number
           server_id: number
+          source: string
         }[]
       }
       migration_people: {

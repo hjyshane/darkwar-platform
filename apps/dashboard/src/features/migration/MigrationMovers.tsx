@@ -109,9 +109,11 @@ export function MigrationMovers() {
   return (
     <>
       <p className="note">
-        {num(all.length)} players on the state lists are on a different server from the one they
-        started on. Only the top 150 of each list is read, and only lists read since the window
-        opened show arrivals: servers not yet read again are named below.
+        {num(all.length)} players on the state lists and in the alliance rosters we opened are on a
+        different server from the one their account started on. The lists hold each server's top
+        150; the rosters add everybody in an alliance whose member list was opened since the window
+        opened. A server whose list was not read again is named below, and its alliances' rosters
+        can still show who arrived.
       </p>
       <Freshness rows={fresh.data} />
 
@@ -230,6 +232,7 @@ export function MigrationMovers() {
                   </th>
                   <th scope="col">Tier</th>
                   <th scope="col">Read</th>
+                  <th scope="col">From</th>
                 </tr>
               </thead>
               <tbody>
@@ -250,6 +253,9 @@ export function MigrationMovers() {
                       <TierBadge tier={tierOf(m.board_rank)} />
                     </td>
                     <td>{serverTime(m.captured_at)}</td>
+                    <td className="subtle">
+                      {m.source === 'roster' ? 'alliance roster' : 'state list'}
+                    </td>
                   </tr>
                 ))}
               </tbody>
