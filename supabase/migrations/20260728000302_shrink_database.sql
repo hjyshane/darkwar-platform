@@ -4,10 +4,11 @@
 -- as 0299 left them (history of a figure ages out after 7 days, its latest value never
 -- does). Two kinds of data are not, and are cut harder:
 --
---   MAP    `world_city_snapshots`, `world_truck_snapshots`, `world_viewport_snapshots`:
---          24 hours of sightings and the newest of each base, truck and swept area. Every
---          server, ours included. It was 7 days (and trucks and viewports were never
---          purged at all).
+--   MAP    `world_city_snapshots`: 24 hours of sightings and the newest of each base.
+--          `world_truck_snapshots` and `world_viewport_snapshots`: only the newest of
+--          each truck and each swept area, whatever its age - what the last scan showed.
+--          Every server, ours included. Cities were 7 days; trucks and viewports were
+--          never purged at all.
 --   SHOP   `shop_listing_snapshots`, `shop_pack_snapshots`, `shop_pack_catalogs` of any
 --          server other than 579 and 580: the newest reading of each stays, the rest goes
 --          after 7 days. Our own two servers keep their history.
@@ -73,11 +74,11 @@ declare
      || ' select 1 from public.arena_entries e'
      || ' where e.arena_snapshot_id = arena_snapshots.snapshot_id'
      || ' and e.player_id in (select player_id from public.own_player_ids))'],
-    -- THE MAP (0302): one day of sightings and the newest of every thing seen, nothing in
-    -- between. Every server, ours included. The latest of each base, truck and swept area
-    -- is what the screens read (`latest_world_cities`, the truck views read the last day,
-    -- the sweep coverage reads the last time an area was swept); the sightings before it
-    -- are history of where somebody WAS.
+    -- THE MAP (0302). Bases keep a day of sightings and the newest of each. Trucks and
+    -- swept areas keep ONLY the newest of each: what a scan showed last. The screens read
+    -- the latest of each (`latest_world_cities`, the truck views read the last day, the
+    -- sweep coverage reads the last time an area was swept); every sighting before it is
+    -- history of where somebody WAS. Every server, ours included.
     ['world_city_snapshots',
      'captured_at < now() - interval ''24 hours'' and exists ('
      || ' select 1 from public.world_city_snapshots n'
@@ -85,13 +86,13 @@ declare
      || ' and n.game_uid = world_city_snapshots.game_uid'
      || ' and n.captured_at > world_city_snapshots.captured_at)'],
     ['world_truck_snapshots',
-     'captured_at < now() - interval ''24 hours'' and exists ('
+     'exists ('
      || ' select 1 from public.world_truck_snapshots n'
      || ' where n.server_id = world_truck_snapshots.server_id'
      || ' and n.truck_uuid = world_truck_snapshots.truck_uuid'
      || ' and n.captured_at > world_truck_snapshots.captured_at)'],
     ['world_viewport_snapshots',
-     'captured_at < now() - interval ''24 hours'' and exists ('
+     'exists ('
      || ' select 1 from public.world_viewport_snapshots n'
      || ' where n.server_id = world_viewport_snapshots.server_id'
      || ' and n.center_x = world_viewport_snapshots.center_x'
