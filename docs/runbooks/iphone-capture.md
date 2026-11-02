@@ -334,6 +334,20 @@ tail -f ~/dw-data/logs/iphone.log
 launchd 에이전트 `com.darkwar.iphone`이 로그인 때 시작하고 죽으면 다시 켠다. 제거:
 `scripts/mac/install-iphone-agent.sh --remove`.
 
+**설치·재시작 때 이전 사슬이 남지 않는다.** 에이전트를 내려도 `uv run`(launchd가 아는 프로세스)만 멈추고
+자식인 파이썬 사슬(`dw_collector.iphone`과 그 아래 `dw_collector.sync`, ingester, `pymobiledevice3 pcap`)이
+고아로 남는 일이 있었다. 2026-11-02에 두 벌이 닷새 동안 같이 돌아 같은 폰을 두 번 캡처하고 같은 행을 두
+번 올리고 있었다(업로드 속도 절반, DB 부하 두 배). 스크립트는 이제 `bootout` 뒤와 `--remove` 때 남은 사슬을
+먼저 인터럽트로 멈추고 10초 안에 안 끝난 것만 강제로 끝낸 다음 시작하며, 시작 5초 뒤 `dw_collector.iphone`
+파이썬이 둘 이상이면 경고를 낸다. 이 맥의 `dw_collector.iphone`/`dw_collector.sync` 프로세스를 전부 대상으로
+하므로, `rvictl` 경로(`mac-capture.md`)로 따로 `dw-sync`를 돌리는 맥이라면 그것도 같이 멈춘다. 직접 확인:
+
+```bash
+ps -eo pid,ppid,command | grep -E "dw_collector|pymobiledevice3 pcap" | grep -v grep
+```
+
+정상이면 `uv run` 하나, `-m dw_collector.iphone` 하나, 그 아래 `ingest-dir`와 `dw_collector.sync` 하나씩이다.
+
 설치가 `cat > ~/Library/LaunchAgents/...plist`에서 거절되면 그 폴더가 root 소유인 것이다(이 맥에서
 그랬다). `ls -ld ~/Library/LaunchAgents`로 확인하고 관리자 권한으로 `sudo chown "$USER"
 ~/Library/LaunchAgents` 한 뒤 다시 실행한다. 그래도 막히면(회사 관리 정책 등) 에이전트 없이
