@@ -10342,6 +10342,33 @@ export type Database = {
         Args: { p_observation: string; p_player: string }
         Returns: string
       }
+      migration_list_freshness: {
+        Args: { p_from_server?: number; p_to_server?: number }
+        Returns: {
+          captured_at: string
+          listed: number
+          movers: number
+          server_id: number
+        }[]
+      }
+      migration_movers: {
+        Args: {
+          p_board_from?: number
+          p_board_to?: number
+          p_from_server?: number
+          p_to_server?: number
+        }
+        Returns: {
+          alliance_name: string
+          board_rank: number
+          captured_at: string
+          game_uid: number
+          home_server: number
+          name: string
+          power: number
+          server_id: number
+        }[]
+      }
       migration_people: {
         Args: { p_event_id: string }
         Returns: {
