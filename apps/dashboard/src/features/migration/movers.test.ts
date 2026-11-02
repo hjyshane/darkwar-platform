@@ -1,6 +1,14 @@
 import { describe, expect, test } from 'vitest';
 import { tierOf } from './candidates';
-import { type ListFreshness, type Mover, filterMovers, flows, staleLists, tally } from './movers';
+import {
+  type ListFreshness,
+  type Mover,
+  filterMovers,
+  flows,
+  moversByUid,
+  staleLists,
+  tally,
+} from './movers';
 
 const mover = (uid: number, home: number, now: number, rank = 5000): Mover => ({
   game_uid: uid,
@@ -11,6 +19,7 @@ const mover = (uid: number, home: number, now: number, rank = 5000): Mover => ({
   power: 100,
   board_rank: rank,
   captured_at: '2026-11-02T07:00:00Z',
+  source: 'list',
 });
 
 const movers = [
@@ -74,5 +83,13 @@ describe('staleLists', () => {
 
   test('older than the limit, or never read', () => {
     expect(staleLists(rows, now, day)).toEqual([566, 567]);
+  });
+});
+
+describe('moversByUid', () => {
+  test('finds a mover by uid', () => {
+    const by = moversByUid(movers);
+    expect(by.get(3)?.home_server).toBe(577);
+    expect(by.get(99)).toBeUndefined();
   });
 });

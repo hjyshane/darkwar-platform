@@ -11,6 +11,8 @@ export interface Mover {
   power: number;
   board_rank: number;
   captured_at: string;
+  /** Where the newest sighting came from: a state list or an alliance roster. */
+  source: 'list' | 'roster';
 }
 
 /** When one server's newest state list was read and what is on it (`migration_list_freshness`). */
@@ -21,10 +23,24 @@ export interface ListFreshness {
   movers: number;
 }
 
+/** PostgREST answers at most 1,000 rows at a time, and the movers of every roster can
+ * come to more, so they are read page by page (strongest first, a stable order). */
+const PAGE = 1000;
+
 export async function fetchMovers(): Promise<Mover[]> {
-  const { data, error } = await supabase.rpc('migration_movers');
-  if (error) throw new Error(`movers query failed: ${error.message}`);
-  return (data ?? []) as Mover[];
+  const all: Mover[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase.rpc('migration_movers').range(from, from + PAGE - 1);
+    if (error) throw new Error(`movers query failed: ${error.message}`);
+    const page = (data ?? []) as Mover[];
+    all.push(...page);
+    if (page.length < PAGE) return all;
+  }
+}
+
+/** The movers by uid, for the screens that show a mover's route beside something else. */
+export function moversByUid(movers: readonly Mover[]): Map<number, Mover> {
+  return new Map(movers.map((m) => [m.game_uid, m]));
 }
 
 export async function fetchFreshness(): Promise<ListFreshness[]> {
