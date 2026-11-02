@@ -1,7 +1,7 @@
 import { supabase } from '../../lib/supabase';
 
-/** The rules the client is given at login (0250), newest reading. The four
- * cutoffs split players into the four migration levels by migrate power. */
+/** The rules the client is given at login (0250), newest reading. The cutoffs it carries
+ * are NOT the tiers (those are cut on place by power across servers), so nothing reads them. */
 export interface MigrationConfig {
   captured_at: string;
   power_tier_floors: number[] | null;
@@ -58,9 +58,6 @@ export async function fetchMigrationQuotas(): Promise<MigrationQuotaServer[]> {
   return (data ?? []) as MigrationQuotaServer[];
 }
 
-/** The client's names for the four levels, in the order of the cutoffs. */
-export const LEVEL_NAMES: readonly string[] = ['Normal', 'Mid', 'High', 'Special'];
-
 /** Seats left as `[level type, seats]`, sorted by type. The game's shape is not
  * confirmed, so this takes an object of counts ({"1": 20}), a bare number
  * (one pool, type 0) or nothing, and shows the rest as unknown rather than guess. */
@@ -85,15 +82,4 @@ export function seatTotal(value: unknown): number | null {
 /** Intake still allowed, or null when either figure is missing. */
 export function intakeLeft(total: number | null, used: number | null): number | null {
   return total === null || used === null ? null : Math.max(total - used, 0);
-}
-
-/** Which level a migrate power falls in, by the cutoffs: the highest cutoff it
- * reaches, or -1 below the first. Null when there are no cutoffs to go by. */
-export function levelOf(migratePower: number, floors: readonly number[] | null): number | null {
-  if (floors === null || floors.length === 0) return null;
-  let level = -1;
-  floors.forEach((floor, index) => {
-    if (migratePower >= floor) level = index;
-  });
-  return level;
 }

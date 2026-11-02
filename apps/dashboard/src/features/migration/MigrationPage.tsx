@@ -5,11 +5,14 @@ import { Tabs } from '../../components/ui/Tabs';
 import { isAllowed, usePermissions } from '../../lib/permissions';
 import { SERVER_ZONE, zonedDayKey, zonedTime } from '../../lib/timezone';
 import { useSession } from '../../lib/useSession';
+import { MigrationAllianceStats } from './MigrationAllianceStats';
 import { MigrationAlliances } from './MigrationAlliances';
 import { MigrationCandidates } from './MigrationCandidates';
 import { MigrationEventForm } from './MigrationEventForm';
 import { MigrationMovers } from './MigrationMovers';
 import { MigrationQuotas } from './MigrationQuotas';
+import { MigrationServerStats } from './MigrationServerStats';
+import { MigrationServerTop } from './MigrationServerTop';
 import { MigrationServers } from './MigrationServers';
 import { MigrationTiers } from './MigrationTiers';
 import { MigrationTopBoard } from './MigrationTopBoard';
@@ -148,18 +151,21 @@ export function MigrationPage() {
           ))}
         {view === 'movers' && <MigrationMovers />}
         {view === 'tiers' && <MigrationTiers />}
-        {view !== 'candidates' &&
-          view !== 'movers' &&
-          view !== 'tiers' &&
-          event === null &&
-          events.data && <p className="empty">This view needs a migration to be set up first.</p>}
-        {event && view !== 'candidates' && view !== 'movers' && view !== 'tiers' && (
-          <>
+        {view === 'top' && <MigrationServerTop />}
+        {view === 'servers' && <MigrationServerStats />}
+        {view === 'alliances' && <MigrationAllianceStats />}
+        {view === 'quotas' && <MigrationQuotas />}
+        {/* The boards that compare two readings around a baseline need a migration event;
+            they stay available under the new ones once one has been set up. */}
+        {event && (view === 'servers' || view === 'top' || view === 'alliances') && (
+          <details>
+            <summary>
+              <h3>Before and after: {event.name}</h3>
+            </summary>
             {view === 'servers' && <MigrationServers eventId={event.event_id} />}
             {view === 'top' && <MigrationTopBoard eventId={event.event_id} />}
             {view === 'alliances' && <MigrationAlliances eventId={event.event_id} />}
-            {view === 'quotas' && <MigrationQuotas />}
-          </>
+          </details>
         )}
       </div>
     </section>
