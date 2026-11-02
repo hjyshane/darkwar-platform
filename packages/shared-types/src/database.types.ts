@@ -10738,6 +10738,18 @@ export type Database = {
         }
         Returns: undefined
       }
+      storage_report: {
+        Args: { p_limit?: number }
+        Returns: {
+          est_rows: number
+          heap_bytes: number
+          index_bytes: number
+          relation: string
+          toast_bytes: number
+          total_bytes: number
+          total_pretty: string
+        }[]
+      }
       tier_rank: { Args: { p_tier: string }; Returns: number }
       unlink_player: { Args: { p_player_id: string }; Returns: undefined }
       waiting_to_join: {
