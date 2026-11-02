@@ -13,6 +13,7 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 from dw_collector.models import NormalizedRow, Observation, json_default
 
@@ -446,6 +447,35 @@ class Journal:
     def outbox_counts(self) -> dict[str, int]:
         cur = self.conn.execute("select status, count(*) from sync_outbox group by status")
         return dict(cur.fetchall())
+
+    def outbox_detail(self, *, top: int = 8) -> dict[str, Any]:
+        """What is waiting to be sent, for the dashboard's upload-queue panel.
+
+        Counts by status, the age of the oldest row still pending, which kinds of row make
+        up the queue and why the dead letters died. Every query reads the pending or
+        dead-letter slice through the `(status, next_attempt_at)` index, so it stays cheap
+        beside a table of a quarter of a million sent rows.
+        """
+        counts = self.outbox_counts()
+        oldest = self.conn.execute(
+            "select min(created_at) from sync_outbox where status = 'pending'"
+        ).fetchone()[0]
+        pending_by_event = self.conn.execute(
+            "select event_type, count(*) from sync_outbox where status = 'pending'"
+            " group by event_type order by 2 desc limit ?",
+            (top,),
+        ).fetchall()
+        dead_by_error = self.conn.execute(
+            "select substr(coalesce(last_error, '?'), 1, 80), count(*) from sync_outbox"
+            " where status = 'dead_letter' group by 1 order by 2 desc limit ?",
+            (top,),
+        ).fetchall()
+        return {
+            "sent": counts.get("sent", 0),
+            "oldest_pending_at": oldest,
+            "pending_by_event": {str(k): int(v) for k, v in pending_by_event},
+            "dead_by_error": {str(k): int(v) for k, v in dead_by_error},
+        }
 
     def prune(self, *, older_than: datetime, confirm: bool = False) -> PruneReport:
         """Drop journal history the collector can no longer act on.

@@ -32,6 +32,7 @@ import { OwnAllianceSetting } from './OwnAllianceSetting';
 import { ParticipationBarsSetting } from './ParticipationBarsSetting';
 import { PermissionsSetting } from './PermissionsSetting';
 import { PetsSetting } from './PetsSetting';
+import { QueueStatus } from './QueueStatus';
 import { RankReportSetting } from './RankReportSetting';
 import { RankTiersSetting } from './RankTiersSetting';
 import { SeasonBuildingAlertSetting } from './SeasonBuildingAlertSetting';
@@ -396,6 +397,13 @@ function OperationsGroup({ section }: { section: string }) {
 function CatalogueGroup({ section }: { section: string }) {
   return (
     <>
+      {section === 'queue' && (
+        <section aria-labelledby="queue-heading">
+          <h2 id="queue-heading">Upload queue</h2>
+          <QueueStatus />
+        </section>
+      )}
+
       {section === 'heroes' && (
         <section aria-labelledby="heroes-heading">
           <h2 id="heroes-heading">Heroes</h2>

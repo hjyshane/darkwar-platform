@@ -10258,6 +10258,28 @@ export type Database = {
           watchtower_level: number
         }[]
       }
+      migration_alliance_stats: {
+        Args: {
+          p_board_from?: number
+          p_board_to?: number
+          p_from_server?: number
+          p_limit?: number
+          p_to_server?: number
+        }
+        Returns: {
+          advanced: number
+          alliance_id: string
+          captured_at: string
+          code: string
+          commanders: number
+          elites: number
+          members: number
+          moved: number
+          name: string
+          server_id: number
+          total_power: number
+        }[]
+      }
       migration_alliances: {
         Args: { p_event_id: string }
         Returns: {
@@ -10425,6 +10447,45 @@ export type Database = {
           target_power_limit: number
           total_count: number
           use_count: number
+        }[]
+      }
+      migration_server_stats: {
+        Args: {
+          p_board_from?: number
+          p_board_to?: number
+          p_from_server?: number
+          p_to_server?: number
+        }
+        Returns: {
+          advanced: number
+          captured_at: string
+          commanders: number
+          elites: number
+          listed: number
+          max_power: number
+          min_power: number
+          moved_in: number
+          moved_out: number
+          server_id: number
+          total_power: number
+        }[]
+      }
+      migration_server_top: {
+        Args: {
+          p_board_from?: number
+          p_board_to?: number
+          p_limit?: number
+          p_server: number
+        }
+        Returns: {
+          alliance_name: string
+          board_rank: number
+          captured_at: string
+          game_uid: number
+          home_server: number
+          name: string
+          power: number
+          server_place: number
         }[]
       }
       migration_servers: {

@@ -202,6 +202,14 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     heading: 'Discord notifications',
     requires: adminOnly,
   },
+  // collector_heartbeats and refresh_jobs are officer-readable (0006); the panel is an
+  // admin's, in Settings, since it is about the machines rather than the alliance.
+  {
+    group: 'operations',
+    id: 'queue-heading',
+    heading: 'Upload queue',
+    requires: adminOnly,
+  },
 ];
 
 export function sectionsIn(group: AdminGroup): readonly AdminSection[] {
