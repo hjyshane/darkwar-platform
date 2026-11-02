@@ -12,8 +12,9 @@ the change without polling.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import httpx
 
@@ -30,6 +31,8 @@ class Health:
     outbox_depth: int
     dead_letters: int
     last_packet_at: datetime | None
+    # What the queue holds, for the admin panel: see Journal.outbox_detail.
+    queue: dict[str, Any] = field(default_factory=dict)
 
 
 def assess(
@@ -58,6 +61,7 @@ def assess(
         outbox_depth=pending,
         dead_letters=dead,
         last_packet_at=last_packet_at,
+        queue=journal.outbox_detail(),
     )
 
 
@@ -76,7 +80,7 @@ def report(
         "version": version,
         "last_packet_at": health.last_packet_at.isoformat() if health.last_packet_at else None,
         "outbox_depth": health.outbox_depth,
-        "details": {"dead_letters": health.dead_letters},
+        "details": {"dead_letters": health.dead_letters, "queue": health.queue},
         "reported_at": current,
     }
     resp = client.post("/rest/v1/collector_heartbeats", json=body)
