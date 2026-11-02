@@ -3,6 +3,7 @@ import { SERVER_ZONE, zonedDayKey, zonedTime } from '../../lib/timezone';
 import { TierBadge } from './TierBadge';
 import { TIER_BOARD_SIZE, fetchBoardInfo, fetchTierBoard, summarize, tierOf } from './candidates';
 import { num, power } from './format';
+import { fetchMovers, moversByUid } from './movers';
 
 const STALE_TIME = 60_000;
 
@@ -23,6 +24,13 @@ export function MigrationTiers() {
     staleTime: STALE_TIME,
   });
 
+  // Who on the board has moved: from the lists and the alliance rosters, newest sighting.
+  const movers = useQuery({
+    queryKey: ['migration', 'movers'],
+    queryFn: fetchMovers,
+    staleTime: STALE_TIME,
+  });
+
   if (board.isPending) return <p className="empty loading">Loading…</p>;
   if (board.error) return <p className="error">{board.error.message}</p>;
   if (board.data.length === 0) {
@@ -37,6 +45,14 @@ export function MigrationTiers() {
   const rows = board.data;
   const summary = summarize(rows);
   const missing = info.data?.missing_servers ?? [];
+  const moved = moversByUid(movers.data ?? []);
+  const movedIn = new Map<string, number>();
+  for (const r of rows) {
+    if (moved.has(r.game_uid)) {
+      const tier = tierOf(r.overall_rank);
+      movedIn.set(tier, (movedIn.get(tier) ?? 0) + 1);
+    }
+  }
 
   return (
     <>
@@ -69,6 +85,9 @@ export function MigrationTiers() {
               <th scope="col" className="numeric">
                 Strongest
               </th>
+              <th scope="col" className="numeric" title="Players of the tier who moved servers">
+                Moved
+              </th>
               <th scope="col">By server</th>
             </tr>
           </thead>
@@ -90,6 +109,9 @@ export function MigrationTiers() {
                 </td>
                 <td className="numeric" title={s.topPower === null ? undefined : num(s.topPower)}>
                   {s.topPower === null ? '—' : power(s.topPower)}
+                </td>
+                <td className="numeric">
+                  {s.last === null ? '—' : movedIn.get(s.tier) ? num(movedIn.get(s.tier)) : '—'}
                 </td>
                 <td>
                   {s.byServer.length === 0
@@ -123,6 +145,7 @@ export function MigrationTiers() {
               <th scope="col">Tier</th>
               <th scope="col">Name</th>
               <th scope="col">Server</th>
+              <th scope="col">Moved</th>
               <th scope="col">Alliance</th>
               <th scope="col" className="numeric">
                 Power
@@ -141,6 +164,20 @@ export function MigrationTiers() {
                   {r.name}
                 </th>
                 <td>{r.server_id}</td>
+                <td>
+                  {(() => {
+                    const m = moved.get(r.game_uid);
+                    if (m === undefined) return '—';
+                    return (
+                      <span
+                        title={`Read ${serverTime(m.captured_at)} from the ${m.source === 'roster' ? 'alliance roster' : 'state list'}`}
+                      >
+                        {m.home_server} → <strong>{m.server_id}</strong>
+                        {m.source === 'roster' && <span className="subtle"> · roster</span>}
+                      </span>
+                    );
+                  })()}
+                </td>
                 <td>{r.alliance_name ?? '—'}</td>
                 <td className="numeric" title={num(r.power)}>
                   {power(r.power)}
