@@ -228,3 +228,24 @@ DB가 다시 허용량(8 GB)을 넘었다. 정책은 이렇다: **랭킹은 전�
 지운 행은 DB에서 사라진다. 수집기 저널에는 원본이 남아 있어서 `backfill`로 다시 올릴 수 있지만,
 그 저널을 정리(`prune-journal`)하기 전까지만이다. 지도 이력은 어차피 다시 읽는 것이라 문제가
 적지만, **처음에는 2번(세기)의 숫자가 예상과 맞는지 보고** 3번으로 간다.
+
+
+### cron의 실행 기록 (0304)
+
+`cron.job_run_details`는 실행마다 한 행이다. 1분마다 도는 알림 잡이 둘이라 하루 약 2,900행이 쌓이는데
+지우는 잡이 선물 발송기 것 하나뿐이어서 2026-11-02에 **217 MB**(`public` 다음으로 큰 스키마)였다.
+0304가 `cron-run-log-trim`(매일 04:41 UTC, 3일 초과 삭제)을 등록한다. 쌓인 것은 첫 실행에 지워지지만
+디스크는 다시 써야 돌아온다.
+
+```sql
+delete from cron.job_run_details where start_time < now() - interval '3 days';
+vacuum (full, analyze) cron.job_run_details;
+```
+
+스키마별 크기를 볼 때는 `public`만이 아니라 `cron`도 본다:
+
+```sql
+select n.nspname, pg_size_pretty(sum(pg_total_relation_size(c.oid))) as size
+from pg_class c join pg_namespace n on n.oid = c.relnamespace
+where c.relkind in ('r', 'm', 't') group by 1 order by sum(pg_total_relation_size(c.oid)) desc limit 10;
+```
