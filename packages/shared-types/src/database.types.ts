@@ -10009,6 +10009,10 @@ export type Database = {
         Args: { p_label?: string; p_uids: number[] }
         Returns: number
       }
+      alliance_label: {
+        Args: { p_code: string; p_name: string }
+        Returns: string
+      }
       alliance_role_of: {
         Args: { p_user: string }
         Returns: Database["public"]["Enums"]["app_role"]
