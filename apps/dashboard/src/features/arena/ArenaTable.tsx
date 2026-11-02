@@ -8,6 +8,7 @@ import type { ColumnSpec } from '../../lib/tableLayout';
 import { TERMS } from '../../lib/terms';
 import type { LineupHero } from '../../lib/troops';
 import { useTableView } from '../../lib/useTableView';
+import { allianceLabel } from '../season/boards';
 import { LineupCell } from './LineupCell';
 import { LineupLegend } from './LineupLegend';
 
@@ -123,7 +124,7 @@ export function ArenaTable({
         // Tag first because that is what people say out loud; the full name is
         // there for the ones nobody knows by tag. Unallied stays an em dash, like
         // every other unknown in these tables.
-        cell: (entry) => entry.alliance_code ?? entry.alliance_name ?? '—',
+        cell: (entry) => allianceLabel(entry.alliance_name, entry.alliance_code) ?? '—',
       },
       {
         id: 'server',

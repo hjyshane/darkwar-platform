@@ -14,6 +14,7 @@ import { ADMIN_GROUPS, type AdminGroup, adminHash } from '../../lib/route';
 import { useActiveAlliance } from '../../lib/useMyAlliances';
 import { useSession } from '../../lib/useSession';
 import { fetchRoster } from '../roster/RosterPanel';
+import { allianceLabel } from '../season/boards';
 import { ActivitySetting } from './ActivitySetting';
 import { CollectorHealth } from './CollectorHealth';
 import { DepartedSetting } from './DepartedSetting';
@@ -91,7 +92,9 @@ export function AdminPage({ group, section }: { group: AdminGroup; section: stri
               <h2 id="admin-heading">Settings</h2>
               <p className="entity-meta">
                 <span>{ADMIN_GROUPS.find((entry) => entry.group === group)?.label}</span>
-                {active !== null && group !== 'catalogue' && <span>{active.name}</span>}
+                {active !== null && group !== 'catalogue' && (
+                  <span>{allianceLabel(active.name, active.code)}</span>
+                )}
               </p>
             </div>
           </header>
@@ -100,7 +103,7 @@ export function AdminPage({ group, section }: { group: AdminGroup; section: stri
               groupLabel: ADMIN_GROUPS.find((entry) => entry.group === group)?.label ?? group,
               usable: sections.length,
               total: sectionsIn(group).length,
-              alliance: active?.name ?? null,
+              alliance: active ? allianceLabel(active.name, active.code) : null,
               shared: group === 'catalogue',
               role: role ?? null,
               signedIn: session?.email != null,
@@ -126,9 +129,9 @@ export function AdminPage({ group, section }: { group: AdminGroup; section: stri
               <>These are shared by every alliance.</>
             ) : (
               <>
-                For <strong>{active.name}</strong> only. Switch alliance at the top to change
-                another's; <a href={adminHash('catalogue')}>Shared</a> holds what every alliance has
-                in common.
+                For <strong>{allianceLabel(active.name, active.code)}</strong> only. Switch alliance
+                at the top to change another's; <a href={adminHash('catalogue')}>Shared</a> holds
+                what every alliance has in common.
               </>
             )}
           </p>
