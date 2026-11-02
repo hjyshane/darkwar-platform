@@ -6,6 +6,7 @@ import { isAllowed, usePermissions } from '../../lib/permissions';
 import { SERVER_ZONE, zonedDayKey, zonedTime } from '../../lib/timezone';
 import { useSession } from '../../lib/useSession';
 import { MigrationAlliances } from './MigrationAlliances';
+import { MigrationAnalytics } from './MigrationAnalytics';
 import { MigrationCandidates } from './MigrationCandidates';
 import { MigrationEventForm } from './MigrationEventForm';
 import { MigrationMovers } from './MigrationMovers';
@@ -15,9 +16,18 @@ import { MigrationTiers } from './MigrationTiers';
 import { MigrationTopBoard } from './MigrationTopBoard';
 import { type MigrationEvent, fetchMigrationEvents } from './data';
 
-type View = 'candidates' | 'movers' | 'tiers' | 'servers' | 'top' | 'alliances' | 'quotas';
+type View =
+  | 'analytics'
+  | 'candidates'
+  | 'movers'
+  | 'tiers'
+  | 'servers'
+  | 'top'
+  | 'alliances'
+  | 'quotas';
 
 const VIEWS: ReadonlyArray<{ view: View; label: string }> = [
+  { view: 'analytics', label: 'Analytics' },
   { view: 'candidates', label: 'Candidates' },
   { view: 'movers', label: 'Movers' },
   { view: 'tiers', label: 'Top 226' },
@@ -146,21 +156,27 @@ export function MigrationPage() {
           ) : (
             <p className="empty">Officers and admins only.</p>
           ))}
+        {view === 'analytics' && <MigrationAnalytics eventId={event?.event_id ?? null} />}
         {view === 'movers' && <MigrationMovers />}
         {view === 'tiers' && <MigrationTiers />}
-        {view !== 'candidates' &&
+        {view !== 'analytics' &&
+          view !== 'candidates' &&
           view !== 'movers' &&
           view !== 'tiers' &&
           event === null &&
           events.data && <p className="empty">This view needs a migration to be set up first.</p>}
-        {event && view !== 'candidates' && view !== 'movers' && view !== 'tiers' && (
-          <>
-            {view === 'servers' && <MigrationServers eventId={event.event_id} />}
-            {view === 'top' && <MigrationTopBoard eventId={event.event_id} />}
-            {view === 'alliances' && <MigrationAlliances eventId={event.event_id} />}
-            {view === 'quotas' && <MigrationQuotas />}
-          </>
-        )}
+        {event &&
+          view !== 'analytics' &&
+          view !== 'candidates' &&
+          view !== 'movers' &&
+          view !== 'tiers' && (
+            <>
+              {view === 'servers' && <MigrationServers eventId={event.event_id} />}
+              {view === 'top' && <MigrationTopBoard eventId={event.event_id} />}
+              {view === 'alliances' && <MigrationAlliances eventId={event.event_id} />}
+              {view === 'quotas' && <MigrationQuotas />}
+            </>
+          )}
       </div>
     </section>
   );
