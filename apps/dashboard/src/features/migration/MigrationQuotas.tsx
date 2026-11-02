@@ -1,16 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { serverHash } from '../../lib/route';
 import { SERVER_ZONE, zonedDayKey, zonedTime } from '../../lib/timezone';
+import { TierBadge } from './TierBadge';
+import { fetchTierBoard, summarize } from './candidates';
 import { num, power } from './format';
-import {
-  LEVEL_NAMES,
-  type MigrationConfig,
-  type MigrationQuotaServer,
-  fetchMigrationConfig,
-  fetchMigrationQuotas,
-  intakeLeft,
-  seatList,
-} from './quota';
+import { type MigrationQuotaServer, fetchMigrationQuotas, seatList } from './quota';
 
 const STALE_TIME = 5 * 60_000;
 
@@ -18,7 +12,9 @@ function serverTime(iso: string): string {
   return `${zonedDayKey(iso, SERVER_ZONE)} ${zonedTime(iso, SERVER_ZONE)}`;
 }
 
-function Seats({ value }: { value: unknown }) {
+/** Special seats by the game's type number (1, 2, 3); a plain number is one pool. The mapping
+ * of a special type to a tier is not known, so the type is shown as the game numbers it. */
+function Special({ value }: { value: unknown }) {
   const seats = seatList(value);
   if (seats === null) return <span title="shape not recognised — see the raw snapshot">—</span>;
   if (seats.length === 0) return <span className="subtle">none</span>;
@@ -27,53 +23,64 @@ function Seats({ value }: { value: unknown }) {
       {seats.map(([type, n], index) => (
         <span key={type}>
           {index > 0 && ' · '}
-          <span className="subtle">{LEVEL_NAMES[type - 1] ?? `T${type}`}</span> {num(n)}
+          <span className="subtle">{type === 0 ? 'seats' : `type ${type}`}</span> {num(n)}
         </span>
       ))}
     </>
   );
 }
 
-function Rules({ config }: { config: MigrationConfig | null }) {
-  const floors = config?.power_tier_floors ?? null;
-  if (config === null || floors === null) {
-    return <p className="empty">No migration rules captured yet — they arrive with a login.</p>;
-  }
+/** A plain seat count, or a dash when the game sent something else. */
+function Count({ value }: { value: unknown }) {
+  const seats = seatList(value);
+  if (seats === null) return <span title="shape not recognised — see the raw snapshot">—</span>;
+  return <>{num(seats.reduce((sum, [, n]) => sum + n, 0))}</>;
+}
+
+/** What each tier takes right now: the place range the game cuts on, and the power of the
+ * weakest player standing in it on the merged state-list board. */
+function Tiers() {
+  const board = useQuery({
+    queryKey: ['migration', 'tiers'],
+    queryFn: fetchTierBoard,
+    staleTime: STALE_TIME,
+  });
+  const summary = summarize(board.data ?? []);
   return (
     <div className="table-wrap">
       <table className="compact">
         <caption>
-          The four levels, by migrate power (from the login config, {serverTime(config.captured_at)}{' '}
-          server time)
+          The four tiers, by place on the merged state-list board of servers 567–588
         </caption>
         <thead>
           <tr>
-            <th scope="col">Level</th>
+            <th scope="col">Tier</th>
             <th scope="col" className="numeric">
-              From migrate power
+              Places
             </th>
             <th scope="col" className="numeric">
-              Power brackets
+              Power of the last place
             </th>
           </tr>
         </thead>
         <tbody>
-          {floors.map((floor, index) => (
-            <tr key={floor}>
-              <th scope="row">{LEVEL_NAMES[index] ?? `Level ${index + 1}`}</th>
-              <td className="numeric" title={num(floor)}>
-                {power(floor)}
-              </td>
+          {summary.map((s) => (
+            <tr key={s.tier}>
+              <th scope="row">
+                <TierBadge tier={s.tier} />
+              </th>
               <td className="numeric">
-                {(config.power_brackets?.[index] ?? [])
-                  .filter((b) => b < 9_999_999_999)
-                  .map(power)
-                  .join(' · ') || '—'}
+                {s.last === null ? `${num(s.first)} and below` : `${num(s.first)}–${num(s.last)}`}
+              </td>
+              <td className="numeric" title={s.floorPower === null ? undefined : num(s.floorPower)}>
+                {s.last === null ? '—' : s.floorPower === null ? '—' : power(s.floorPower)}
               </td>
             </tr>
           ))}
         </tbody>
       </table>
+      {board.isPending && <p className="empty loading">Loading…</p>}
+      {board.error && <p className="error">{board.error.message}</p>}
     </div>
   );
 }
@@ -87,45 +94,41 @@ function Offer({ rows }: { rows: MigrationQuotaServer[] }) {
           <tr>
             <th scope="col">Server</th>
             <th scope="col" className="numeric">
-              Taken / allowed
+              Seats left
             </th>
-            <th scope="col">Seats left by level</th>
-            <th scope="col">Special</th>
-            <th scope="col">Invite</th>
+            <th scope="col">Special seats left</th>
             <th scope="col" className="numeric">
-              Power floors
+              Invite seats left
             </th>
-            <th scope="col" className="numeric">
-              Ceiling
+            <th
+              scope="col"
+              className="numeric"
+              title="The least power its president accepts; none when 0"
+            >
+              Power floor
             </th>
             <th scope="col">Read</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((s) => {
-            const left = intakeLeft(s.total_count, s.use_count);
+            const floor = s.power_low_limit?.[0] ?? null;
             return (
               <tr key={s.server_id}>
                 <th scope="row">
                   <a href={serverHash(s.server_id)}>{s.server_id}</a>
                 </th>
-                <td className="numeric" title={left === null ? undefined : `${num(left)} left`}>
-                  {num(s.use_count)} / {num(s.total_count)}
+                <td className="numeric">
+                  <Count value={s.migrate_left} />
                 </td>
                 <td>
-                  <Seats value={s.migrate_left} />
-                </td>
-                <td>
-                  <Seats value={s.special_left} />
-                </td>
-                <td>
-                  <Seats value={s.invite_left} />
+                  <Special value={s.special_left} />
                 </td>
                 <td className="numeric">
-                  {s.power_low_limit === null ? '—' : s.power_low_limit.map(power).join(' · ')}
+                  <Count value={s.invite_left} />
                 </td>
-                <td className="numeric" title={`special: ${power(s.special_power_limit)}`}>
-                  {s.power_limit === null || s.power_limit === 0 ? '—' : power(s.power_limit)}
+                <td className="numeric" title={floor === null ? undefined : num(floor)}>
+                  {floor === null || floor === 0 ? '—' : power(floor)}
                 </td>
                 <td>{serverTime(s.captured_at)}</td>
               </tr>
@@ -137,41 +140,89 @@ function Offer({ rows }: { rows: MigrationQuotaServer[] }) {
   );
 }
 
+const GLOSSARY: ReadonlyArray<readonly [string, string]> = [
+  [
+    'Tier',
+    'Backbone, Advanced, Elite or Commander: set by a player’s place on the merged board of the strongest 150 players of every server in the migration range, ranked by power.',
+  ],
+  ['Place', 'Position on that merged board, not on the player’s own server list.'],
+  [
+    'Migrate power',
+    'The game’s own figure for a player’s move. It is fixed at one moment, not live, and cannot be worked out from current power.',
+  ],
+  [
+    'Mover',
+    'A player on a server other than the one their account started on (the last six digits of their uid).',
+  ],
+  [
+    'Power floor',
+    'The least power a server’s president accepts; each server sets its own, and 0 means none.',
+  ],
+  [
+    'Special seat',
+    'A limited seat of type 1, 2 or 3 per server with its own migrate-power minimum.',
+  ],
+  ['Invite seat', 'A seat held for players the server invites.'],
+];
+
+/** The migration rules as the game states them, with what this page has seen of the offer. */
 export function MigrationQuotas() {
-  const config = useQuery({
-    queryKey: ['migration', 'config'],
-    queryFn: fetchMigrationConfig,
-    staleTime: STALE_TIME,
-  });
   const quotas = useQuery({
     queryKey: ['migration', 'quotas'],
     queryFn: fetchMigrationQuotas,
     staleTime: STALE_TIME,
   });
 
-  if (config.isPending || quotas.isPending) return <p className="empty loading">Loading…</p>;
-  if (config.error) return <p className="error">{config.error.message}</p>;
-  if (quotas.error) return <p className="error">{quotas.error.message}</p>;
-
   return (
     <>
-      {quotas.data.length === 0 ? (
-        <p className="empty">
-          {config.data?.new_migrate_on === false
-            ? `The game has not turned the new migration screen on (as of ${serverTime(config.data.captured_at)} server time). `
-            : ''}
-          Per-server seats appear here once the screen is open and someone looks at it with the
-          collector running.
-        </p>
-      ) : (
-        <Offer rows={quotas.data} />
-      )}
-      <Rules config={config.data} />
+      <Tiers />
+
+      <h3>Seats</h3>
+      {quotas.isPending && <p className="empty loading">Loading…</p>}
+      {quotas.error && <p className="error">{quotas.error.message}</p>}
+      {quotas.data &&
+        (quotas.data.length === 0 ? (
+          <p className="empty">
+            No per-server offer has been read yet. Open the migration tab's server list in the game
+            with the collector running.
+          </p>
+        ) : (
+          <Offer rows={quotas.data} />
+        ))}
+
+      <h3>Rules seen in the game</h3>
+      <ul>
+        <li>
+          A move costs 10 of item 252000, and the game lists a cooldown of 2,592,000 seconds (30
+          days).
+        </li>
+        <li>
+          Before the window opened every server showed 30 seats and 30 invite seats, and special
+          seats of type 1, 2 and 3 (1, 1 and 5 seats) that need a migrate power of at least 32M, 18M
+          and 10M. These figures were identical on every server read.
+        </li>
+        <li>
+          Which tier a special type belongs to has not been confirmed, so it is shown as the game
+          numbers it.
+        </li>
+        <li>The migration window of this season ends 2026-11-06 00:00 server time.</li>
+      </ul>
       <p className="note">
-        The levels and their cutoffs are the client's own login config. The per-server figures are
-        read from the screen's server list; their layout was inferred from the client before the
-        screen existed, so a dash means the game sent something this page does not recognise yet.
+        Read from <code>get.migrate.item</code> and <code>get.migrate.servers</code> on 2026-10-27;
+        the game may change them, and this list does not update itself.
       </p>
+
+      <h3>Terms</h3>
+      <dl>
+        {GLOSSARY.map(([term, meaning]) => (
+          <div key={term}>
+            <dt>
+              <strong>{term}</strong>
+            </dt>
+            <dd>{meaning}</dd>
+          </div>
+        ))}
+      </dl>
     </>
   );
 }

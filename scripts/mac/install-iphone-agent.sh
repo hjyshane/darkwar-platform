@@ -21,8 +21,38 @@ DATA="${DW_DATA_DIR:-$HOME/dw-data}"
 LOGS="$DATA/logs"
 DOMAIN="gui/$(id -u)"
 
+# The whole chain: dw-iphone, the dw-sync and ingester it starts, and the pcap capture of
+# each phone. `uv run` is the job's own process and python is its child, and booting the job
+# out stops the first without always stopping the second. The child is then orphaned and
+# keeps capturing, ingesting and sending while the new one starts beside it: every phone is
+# captured twice and every row is sent twice, which halves the upload and doubles the load
+# on the database (found 2026-11-02, two sets running for five days).
+# DW_STACK_PATTERN exists so the stop logic can be tried on processes that are not the
+# collector; leave it alone otherwise.
+STACK="${DW_STACK_PATTERN:-dw_collector\.iphone|dw_collector\.sync|ingest-dir --dir .*/iphone|pymobiledevice3 pcap}"
+
+# Stop whatever is left of the chain: interrupt first, so a capture closes its chunk, then
+# force what has not gone after ten seconds.
+stop_stack() {
+  local pids i
+  pids="$(pgrep -f "$STACK" || true)"
+  [ -n "$pids" ] || return 0
+  echo "stopping leftover collector processes: $(echo "$pids" | tr '\n' ' ')"
+  # shellcheck disable=SC2086
+  kill -INT $pids 2>/dev/null || true
+  for i in 1 2 3 4 5 6 7 8 9 10; do
+    sleep 1
+    pids="$(pgrep -f "$STACK" || true)"
+    [ -z "$pids" ] && return 0
+  done
+  echo "forcing: $(echo "$pids" | tr '\n' ' ')"
+  # shellcheck disable=SC2086
+  kill -KILL $pids 2>/dev/null || true
+}
+
 if [ "${1:-}" = "--remove" ]; then
   launchctl bootout "$DOMAIN/$LABEL" 2>/dev/null || true
+  stop_stack
   rm -f "$PLIST"
   echo "removed $LABEL"
   exit 0
@@ -85,8 +115,17 @@ cat > "$PLIST" <<EOF
 EOF
 
 launchctl bootout "$DOMAIN/$LABEL" 2>/dev/null || true
+stop_stack
 launchctl bootstrap "$DOMAIN" "$PLIST"
 launchctl kickstart -k "$DOMAIN/$LABEL"
+
+# One chain, or something is wrong: say so instead of letting it run doubled for days.
+sleep 5
+RUNNING="$(pgrep -f '/bin/python -m dw_collector\.iphone' | wc -l | tr -d ' ')"
+if [ "$RUNNING" -gt 1 ]; then
+  echo "WARNING: $RUNNING dw_collector.iphone processes are running; there should be one."
+  echo "         Look with:  ps -eo pid,ppid,command | grep dw_collector"
+fi
 echo "installed $LABEL"
 echo "  runs from: $COLLECTOR"
 echo "  log:       $LOGS/iphone.log   (tail -f it)"

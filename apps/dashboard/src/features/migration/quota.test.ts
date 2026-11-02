@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { intakeLeft, levelOf, seatList, seatTotal } from './quota';
+import { intakeLeft, seatList, seatTotal } from './quota';
 
 describe('seatList', () => {
   test('reads an object of counts in level order', () => {
@@ -45,24 +45,5 @@ describe('intakeLeft', () => {
   test('is unknown when either figure is', () => {
     expect(intakeLeft(null, 3)).toBeNull();
     expect(intakeLeft(60, null)).toBeNull();
-  });
-});
-
-describe('levelOf', () => {
-  const floors = [10_000_000, 15_000_000, 25_000_000, 35_000_000];
-
-  test('is the highest cutoff reached', () => {
-    expect(levelOf(10_000_000, floors)).toBe(0);
-    expect(levelOf(24_999_999, floors)).toBe(1);
-    expect(levelOf(60_000_000, floors)).toBe(3);
-  });
-
-  test('is -1 below the first cutoff', () => {
-    expect(levelOf(5_000_000, floors)).toBe(-1);
-  });
-
-  test('is unknown with no cutoffs', () => {
-    expect(levelOf(1, null)).toBeNull();
-    expect(levelOf(1, [])).toBeNull();
   });
 });
