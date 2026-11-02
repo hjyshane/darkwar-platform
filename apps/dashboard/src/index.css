@@ -7194,3 +7194,58 @@ button.server-link {
 .pan-map ::selection {
   background: transparent;
 }
+
+/* --- bar charts (migration boards) -------------------------------------- */
+
+.bar-chart {
+  display: block;
+  max-width: 720px;
+}
+
+.bar-label {
+  font-size: var(--text-sm);
+  fill: currentColor;
+}
+
+.bar-axis {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.bar-commander {
+  fill: var(--tier-commander-fg);
+}
+
+.bar-elite {
+  fill: var(--tier-elite-fg);
+}
+
+.bar-advanced {
+  fill: var(--tier-advanced-fg);
+}
+
+.bar-rest {
+  fill: var(--tier-backbone-fg);
+}
+
+.bar-in {
+  fill: var(--tier-backbone-fg);
+}
+
+.bar-out {
+  fill: var(--tier-elite-fg);
+}
+
+.bar-alliance {
+  fill: var(--accent);
+}
+
+.bar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  list-style: none;
+  margin: var(--space-2) 0;
+  padding: 0;
+  font-size: var(--text-sm);
+}
