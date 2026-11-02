@@ -170,3 +170,61 @@ from internal.retention_runs order by ran_at desc limit 14;
 하며 Discord 알림은 아직 없다 — 알림 이벤트는 SQL과 `notify/worker.py` 양쪽 목록과 라우팅
 설정이 함께 바뀌어야 해서 별도 변경이다. `behind`가 며칠 연속이거나 `over_limit`이 계속
 참이면 창을 줄이거나 다른 테이블을 대상에 넣는다. `VACUUM FULL`은 자동화하지 않는다(독점 잠금).
+
+
+## 8 GB 아래로 줄이기 — 2026-11-02 (0302)
+
+DB가 다시 허용량(8 GB)을 넘었다. 정책은 이렇다: **랭킹은 전체 서버를 유지**하되 값의 이력만 7일 뒤
+지운다(0299). **지도는 24시간 + 기지/트럭/탐색 구역별 최신 1건**만 남긴다(전 서버, 우리 포함).
+**상점(`shop_*`)은 579·580 이외 서버**의 이력을 지우고 서버별 최신만 남긴다. 이벤트 테이블은
+수집기 서버(580)의 데이터만 있어서 따로 지울 대상이 없다.
+
+### 순서 (프로덕션, 서비스 롤)
+
+1. **어디가 큰지 본다.** 추측하지 말고 먼저 잰다.
+
+   ```sql
+   select * from public.storage_report(30);
+   select pg_size_pretty(pg_database_size(current_database()));
+   ```
+
+   `total_pretty`가 큰 순서다. 힙·인덱스·TOAST로 나뉜다. 정책 목록에 없는 테이블이 위에 있으면
+   그 테이블을 먼저 판단한다(예: `season_building_snapshots`는 출석 점수가 읽는다).
+
+2. **센다.** 아무것도 지우지 않는다.
+
+   ```sql
+   select * from public.retention_purge();
+   ```
+
+3. **지운다.** 행이 안 나올 때까지 반복한다. 호출당 테이블마다 최대 20,000행이다. 수집기가 쓰는
+   중이므로 한 번에 몰지 말고, 타임아웃이 나면 `p_batch`를 줄인다.
+
+   ```sql
+   select * from public.retention_purge(p_confirm := true);
+   -- 줄여서: select * from public.retention_purge(true, interval '3 months', interval '7 days', 5000);
+   ```
+
+   매일 04:23 UTC의 `retention-daily`가 같은 일을 하지만 하루 5라운드(테이블당 10만 행)까지라
+   처음의 큰 빚은 위처럼 직접 갚는 편이 빠르다.
+
+4. **디스크를 돌려받는다.** DELETE는 `pg_database_size`를 줄이지 않는다. 테이블을 다시 쓴다.
+   `VACUUM FULL`은 `ACCESS EXCLUSIVE`라 그 테이블에 쓰는 수집기가 기다린다 — 수집기를 멈추거나
+   한가한 시간에 **테이블 하나씩**, 지우기로 크게 줄어든 것부터 한다.
+
+   ```sql
+   vacuum (full, analyze) public.world_city_snapshots;
+   vacuum (full, analyze) public.alliance_member_snapshots;
+   ```
+
+   다시 쓰기에는 새 사본만큼의 여유 공간이 필요하다. 남는 행이 작으면 부담이 작지만, **디스크가
+   거의 찼다면 가장 작게 줄어드는 테이블부터** 하지 말고 지우기 효과가 큰 테이블부터 해서 여유를 만든다.
+
+5. 끝나면 크기를 다시 재고 `internal.retention_runs`의 `over_limit`이 꺼졌는지 본다. 프로비저닝된
+   디스크는 Supabase가 자동으로 줄이지 않으므로 사용량이 내려온 뒤 대시보드에서 확인한다.
+
+### 되돌릴 수 없다
+
+지운 행은 DB에서 사라진다. 수집기 저널에는 원본이 남아 있어서 `backfill`로 다시 올릴 수 있지만,
+그 저널을 정리(`prune-journal`)하기 전까지만이다. 지도 이력은 어차피 다시 읽는 것이라 문제가
+적지만, **처음에는 2번(세기)의 숫자가 예상과 맞는지 보고** 3번으로 간다.
