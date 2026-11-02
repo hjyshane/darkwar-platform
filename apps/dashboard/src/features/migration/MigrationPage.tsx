@@ -7,6 +7,7 @@ import { SERVER_ZONE, zonedDayKey, zonedTime } from '../../lib/timezone';
 import { useSession } from '../../lib/useSession';
 import { MigrationAllianceStats } from './MigrationAllianceStats';
 import { MigrationAlliances } from './MigrationAlliances';
+import { MigrationAnalytics } from './MigrationAnalytics';
 import { MigrationCandidates } from './MigrationCandidates';
 import { MigrationEventForm } from './MigrationEventForm';
 import { MigrationMovers } from './MigrationMovers';
@@ -18,9 +19,18 @@ import { MigrationTiers } from './MigrationTiers';
 import { MigrationTopBoard } from './MigrationTopBoard';
 import { type MigrationEvent, fetchMigrationEvents } from './data';
 
-type View = 'candidates' | 'movers' | 'tiers' | 'servers' | 'top' | 'alliances' | 'quotas';
+type View =
+  | 'analytics'
+  | 'candidates'
+  | 'movers'
+  | 'tiers'
+  | 'servers'
+  | 'top'
+  | 'alliances'
+  | 'quotas';
 
 const VIEWS: ReadonlyArray<{ view: View; label: string }> = [
+  { view: 'analytics', label: 'Analytics' },
   { view: 'candidates', label: 'Candidates' },
   { view: 'movers', label: 'Movers' },
   { view: 'tiers', label: 'Top 226' },
@@ -149,6 +159,7 @@ export function MigrationPage() {
           ) : (
             <p className="empty">Officers and admins only.</p>
           ))}
+        {view === 'analytics' && <MigrationAnalytics eventId={event?.event_id ?? null} />}
         {view === 'movers' && <MigrationMovers />}
         {view === 'tiers' && <MigrationTiers />}
         {view === 'top' && <MigrationServerTop />}

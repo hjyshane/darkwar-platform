@@ -4767,6 +4767,131 @@ button.tile-grid:hover:not(:disabled) {
   margin-bottom: var(--space-3);
 }
 
+/* Migration analytics: bars drawn in CSS, every one beside its printed figure. Gain and
+   loss are teal and magenta, not green and red, so they survive colour blindness; the
+   sign in the figure carries the meaning either way. */
+.viz {
+  --viz-up: #0d9488;
+  --viz-down: #db2777;
+  margin: 0 0 var(--space-4);
+  min-width: 0;
+}
+
+.viz figcaption {
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+  margin-bottom: var(--space-2);
+}
+
+.viz-pair {
+  display: grid;
+  gap: var(--space-4) var(--space-6);
+  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+}
+
+.viz-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-1);
+}
+
+.viz-rows li {
+  display: grid;
+  grid-template-columns: minmax(3rem, 9rem) minmax(5rem, 1fr) minmax(5rem, auto);
+  gap: var(--space-2);
+  align-items: center;
+  font-size: var(--text-sm);
+}
+
+.viz-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.viz-text {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.viz-track {
+  position: relative;
+  display: block;
+  height: 0.9rem;
+  background: var(--bg-raised);
+  border-radius: var(--radius-sm);
+}
+
+/* The centre line of a signed bar. */
+.viz-track::before {
+  content: "";
+  position: absolute;
+  inset-block: -2px;
+  left: 50%;
+  border-left: 1px solid var(--border-strong);
+}
+
+.viz-track > i {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: var(--radius-sm);
+}
+
+.viz-up {
+  left: 50%;
+  background: var(--viz-up);
+}
+
+.viz-down {
+  right: 50%;
+  background: var(--viz-down);
+}
+
+/* An unsigned bar starts at the left edge and stacks. */
+.viz-track-one {
+  display: flex;
+  overflow: hidden;
+}
+
+.viz-track-one::before {
+  display: none;
+}
+
+.viz-track-one > i.viz-fill {
+  position: static;
+  flex: none;
+  border-radius: 0;
+}
+
+.viz-commander {
+  background: #ef4444;
+}
+.viz-elite {
+  background: #f97316;
+}
+.viz-advanced {
+  background: #8b5cf6;
+}
+.viz-backbone {
+  background: #3b82f6;
+}
+
+.viz-legend {
+  display: inline-flex;
+  gap: var(--space-1);
+  margin-left: var(--space-2);
+}
+
+.viz-share {
+  display: grid;
+  grid-template-columns: minmax(4rem, 10rem) auto;
+  gap: var(--space-2);
+  align-items: center;
+}
+
 /* A mover's row reads as the point of the board; the rest stay ordinary. */
 .table-wrap .migration-moved > :is(th, td) {
   background: var(--bg-raised);
