@@ -4892,6 +4892,162 @@ button.tile-grid:hover:not(:disabled) {
   align-items: center;
 }
 
+/* Migration infographics. Same hues as the bars above; shape and sign carry the meaning too. */
+.info-tiles {
+  list-style: none;
+  margin: 0 0 var(--space-4);
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+}
+
+.info-tile {
+  --viz-up: #0d9488;
+  --viz-down: #db2777;
+  display: grid;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--border-strong);
+  border-radius: var(--radius-md);
+}
+
+.info-gain {
+  border-left-color: var(--viz-up);
+}
+
+.info-loss {
+  border-left-color: var(--viz-down);
+}
+
+.info-server {
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+}
+
+.info-net {
+  font-size: var(--text-lg);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.info-sub {
+  font-size: var(--text-xs);
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.info-flow svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.info-flow text {
+  fill: var(--fg);
+  font-size: 12px;
+}
+
+.info-node {
+  fill: var(--fg-muted);
+}
+
+.info-band-gain {
+  stroke: #0d9488;
+  stroke-opacity: 0.45;
+}
+
+.info-band-loss {
+  stroke: #db2777;
+  stroke-opacity: 0.35;
+}
+
+.info-band-gain:hover,
+.info-band-loss:hover {
+  stroke-opacity: 0.8;
+}
+
+.info-pyramid {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-1);
+}
+
+.info-pyramid figcaption {
+  justify-self: start;
+}
+
+.info-step {
+  position: relative;
+  min-width: 11rem;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.info-step-fill {
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  background: #0d9488;
+  opacity: 0.35;
+}
+
+.info-step-text {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.info-dumb {
+  position: relative;
+  display: block;
+  height: 1rem;
+  margin-inline: 0.45rem;
+}
+
+.info-dumb::before {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: 50%;
+  border-top: 1px dashed var(--border-strong);
+}
+
+.info-dumb > .info-link {
+  position: absolute;
+  top: calc(50% - 2px);
+  height: 4px;
+  right: auto;
+}
+
+.info-dot {
+  position: absolute;
+  top: calc(50% - 0.4rem);
+  width: 0.8rem;
+  height: 0.8rem;
+  margin-left: -0.4rem;
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+
+.info-dot-from {
+  background: var(--bg);
+  border: 2px solid var(--fg-muted);
+}
+
+.info-dot-to {
+  background: var(--fg);
+}
+
 /* A mover's row reads as the point of the board; the rest stay ordinary. */
 .table-wrap .migration-moved > :is(th, td) {
   background: var(--bg-raised);

@@ -6,6 +6,7 @@ import {
   homeServerOf,
   personRankClimb,
   routes,
+  sankey,
   scale,
   serverFlows,
   tierMobility,
@@ -142,5 +143,34 @@ describe('scale', () => {
     expect(scale(-5, 10)).toBe(0.5);
     expect(scale(20, 10)).toBe(1);
     expect(scale(5, 0)).toBe(0);
+  });
+});
+
+describe('sankey', () => {
+  const list = routes([
+    mover(1, 588, 580, 3),
+    mover(2, 588, 580, 400),
+    mover(3, 577, 580, 400),
+    mover(4, 577, 565, 400),
+  ]);
+
+  test('band thickness adds up to the column height less the gaps', () => {
+    const { links, left } = sankey(list, 100, 10);
+    expect(links.reduce((acc, l) => acc + l.h, 0)).toBeCloseTo(100 - 10);
+    expect(left.map((n) => n.server)).toEqual([577, 588]);
+  });
+
+  test('bands of one node do not overlap', () => {
+    const { links } = sankey(list, 100, 0);
+    const from577 = links.filter((l) => l.from === 577).sort((a, b) => a.y0 - b.y0);
+    expect(from577).toHaveLength(2);
+    const [first, second] = from577;
+    expect((first?.y0 ?? 0) + (first?.h ?? 0) / 2).toBeLessThanOrEqual(
+      (second?.y0 ?? 0) - (second?.h ?? 0) / 2 + 1e-9,
+    );
+  });
+
+  test('no movers, nothing to lay out', () => {
+    expect(sankey([], 100)).toEqual({ left: [], right: [], links: [] });
   });
 });

@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { StatTile } from '../../components/StatTile';
 import { serverHash } from '../../lib/route';
+import { RouteFlow, SeatDumbbells, ServerScoreboard, TierPyramid } from './MigrationInfographic';
 import { TierBadge } from './TierBadge';
 import {
   type BoardShift,
@@ -151,6 +152,14 @@ function Observed() {
         <p className="empty">No mover on any list yet — nothing to chart.</p>
       ) : (
         <>
+          <h4>At a glance</h4>
+          <ServerScoreboard flows={flows} />
+          <div className="viz-pair">
+            <RouteFlow routes={routes(movers.data)} flows={flows} />
+            <TierPyramid tiers={tiers} />
+          </div>
+          <SeatDumbbells shift={shift} />
+
           <div className="viz-pair">
             <DivergingBars
               caption="Net players per server (arrived − left), all tiers"

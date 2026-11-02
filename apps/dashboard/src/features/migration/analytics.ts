@@ -228,3 +228,96 @@ export function serverPowerChange(s: MigrationServer): number | null {
 export function scale(value: number, max: number): number {
   return max > 0 && Number.isFinite(value) ? Math.min(1, Math.abs(value) / max) : 0;
 }
+
+export interface SankeyNode {
+  server: number;
+  y: number;
+  h: number;
+  total: number;
+}
+
+export interface SankeyLink {
+  from: number;
+  to: number;
+  count: number;
+  /** Centre-line y at the source and at the destination. */
+  y0: number;
+  y1: number;
+  h: number;
+}
+
+/** Routes laid out as two columns of servers joined by bands whose thickness is the number
+ * of movers. Sources and destinations are ordered by how many they carry, biggest on top,
+ * and each band takes its own slice of the node so none overlap. */
+export function sankey(
+  list: readonly Route[],
+  height: number,
+  gap = 6,
+): { left: SankeyNode[]; right: SankeyNode[]; links: SankeyLink[] } {
+  const total = list.reduce((acc, r) => acc + r.count, 0);
+  const column = (pick: (r: Route) => number) => {
+    const sums = new Map<number, number>();
+    for (const r of list) sums.set(pick(r), (sums.get(pick(r)) ?? 0) + r.count);
+    return [...sums.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0]);
+  };
+  const lefts = column((r) => r.from);
+  const rights = column((r) => r.to);
+  const unit = () => {
+    const usable = height - gap * (Math.max(lefts.length, rights.length) - 1);
+    return total > 0 ? Math.max(0, usable) / total : 0;
+  };
+  const place = (entries: Array<[number, number]>) => {
+    let y = 0;
+    return entries.map(([server, sum]) => {
+      const node = { server, y, h: sum * unit(), total: sum };
+      y += node.h + gap;
+      return node;
+    });
+  };
+  const left = place(lefts);
+  const right = place(rights);
+  const used = new Map<string, number>();
+  const take = (side: 'l' | 'r', node: SankeyNode | undefined, h: number) => {
+    const key = `${side}${node?.server}`;
+    const at = (node?.y ?? 0) + (used.get(key) ?? 0);
+    used.set(key, (used.get(key) ?? 0) + h);
+    return at + h / 2;
+  };
+  const links: SankeyLink[] = [];
+  // Order bands so the biggest of each node sit on top and do not cross needlessly.
+  const byDest = new Map(right.map((n, i) => [n.server, i]));
+  const byFrom = new Map(left.map((n, i) => [n.server, i]));
+  const ordered = [...list].sort(
+    (a, b) =>
+      (byFrom.get(a.from) ?? 0) - (byFrom.get(b.from) ?? 0) ||
+      (byDest.get(a.to) ?? 0) - (byDest.get(b.to) ?? 0),
+  );
+  for (const r of ordered) {
+    const h = r.count * unit();
+    links.push({
+      from: r.from,
+      to: r.to,
+      count: r.count,
+      y0: take(
+        'l',
+        left.find((n) => n.server === r.from),
+        h,
+      ),
+      y1: 0,
+      h,
+    });
+  }
+  const orderedByDest = [...links].sort(
+    (a, b) =>
+      (byDest.get(a.to) ?? 0) - (byDest.get(b.to) ?? 0) ||
+      (byFrom.get(a.from) ?? 0) - (byFrom.get(b.from) ?? 0),
+  );
+  for (const l of orderedByDest) {
+    l.y1 = take(
+      'r',
+      right.find((n) => n.server === l.to),
+      l.h,
+    );
+  }
+  return { left, right, links };
+}
