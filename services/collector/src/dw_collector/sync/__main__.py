@@ -18,6 +18,29 @@ from dw_collector.sync.worker import SyncConfig, SyncWorker
 
 log = structlog.get_logger()
 
+# How long to wait before the next drain while the queue is deep and the database is keeping
+# up: long enough to breathe, short enough that a backlog is a matter of minutes, not hours.
+CATCH_UP_DELAY = 0.2
+
+# One drain sends this many rows unless DW_SYNC_BATCH_SIZE says otherwise. The cost of a drain
+# is the round trips (one per table), not the rows, so a bigger batch moves a backlog faster;
+# the worker splits a batch that times out, and a failing drain backs off to `interval` below.
+DEFAULT_BATCH = 250
+
+
+def next_delay(sent: int, failed: int, batch: int, interval: float) -> float:
+    """How long to wait before the next drain.
+
+    A drain that filled its batch with nothing failing means more is probably waiting and the
+    database is keeping up: go again almost at once. Anything else - a short batch (the queue is
+    empty), or any failure (the database is struggling; hammering it makes timeouts worse) -
+    waits the usual interval. Before this the loop slept `interval` after every drain of 100
+    rows, which is 7 rows a second however deep the queue was.
+    """
+    if failed == 0 and sent >= batch:
+        return CATCH_UP_DELAY
+    return interval
+
 
 def _last_packet_at(journal: Journal) -> datetime | None:
     """Newest journalled observation — the collector's proof of life.
@@ -43,7 +66,7 @@ def main() -> None:
     if not url or not key:
         raise SystemExit("SUPABASE_URL and SUPABASE_SECRET_KEY are required")
     interval = float(os.environ.get("DW_SYNC_INTERVAL_SECONDS", "10"))
-    batch = int(os.environ.get("DW_SYNC_BATCH_SIZE", str(SyncConfig.batch_size)))
+    batch = int(os.environ.get("DW_SYNC_BATCH_SIZE", str(DEFAULT_BATCH)))
     journal = Journal(Path(os.environ.get("DW_SQLITE_PATH", "./data/collector.db")))
     journal.init_db()
     worker = SyncWorker(journal, SyncConfig(supabase_url=url, secret_key=key, batch_size=batch))
@@ -51,19 +74,26 @@ def main() -> None:
     # a drain that is eleven hours behind produce the same `sent=` lines, and
     # the only difference visible in the log is how many rows each one moved.
     log.info("sync.start", interval=interval, batch_size=batch)
+    last_beat = float("-inf")
     try:
         while True:
             stats = worker.drain_once()
             if stats.sent or stats.failed:
                 log.info("sync.drain", sent=stats.sent, failed=stats.failed)
             # FR-COL-007: the same loop reports health, so a stalled sync
-            # is visible even when it has nothing to send.
-            try:
-                health = assess(journal, last_packet_at=_last_packet_at(journal))
-                report(worker.client, os.environ["DW_COLLECTOR_ID"], health, version=__version__)
-            except (httpx.HTTPError, KeyError) as exc:
-                log.warning("sync.heartbeat_failed", error=str(exc))
-            time.sleep(interval)
+            # is visible even when it has nothing to send. On its own clock:
+            # while catching up the loop turns every few seconds, and a beat
+            # (which counts the queue) that often would be work for nothing.
+            if time.monotonic() - last_beat >= interval:
+                last_beat = time.monotonic()
+                try:
+                    health = assess(journal, last_packet_at=_last_packet_at(journal))
+                    report(
+                        worker.client, os.environ["DW_COLLECTOR_ID"], health, version=__version__
+                    )
+                except (httpx.HTTPError, KeyError) as exc:
+                    log.warning("sync.heartbeat_failed", error=str(exc))
+            time.sleep(next_delay(stats.sent, stats.failed, batch, interval))
     except KeyboardInterrupt:
         log.info("sync.stop")
 

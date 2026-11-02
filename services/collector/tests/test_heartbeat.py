@@ -59,7 +59,14 @@ def test_report_writes_history_and_summary(journal: Journal) -> None:
     assert calls[0][1] == "/rest/v1/collector_heartbeats"
     assert beat["collector_id"] == COLLECTOR
     assert beat["status"] == "healthy"
-    assert beat["details"] == {"dead_letters": 0}
+    assert beat["details"]["dead_letters"] == 0
+    # The queue detail rides along for the admin panel; an empty journal has nothing in it.
+    assert beat["details"]["queue"] == {
+        "sent": 0,
+        "oldest_pending_at": None,
+        "pending_by_event": {},
+        "dead_by_error": {},
+    }
     # The summary the dashboard reads mirrors the beat.
     assert calls[1][1] == "/rest/v1/collectors"
     assert calls[1][2]["status"] == "healthy"
@@ -98,3 +105,28 @@ def test_proof_of_life_is_the_last_row_written(journal: Journal) -> None:
     journal.conn.commit()
 
     assert _last_packet_at(journal) == NOW - timedelta(days=30)
+
+
+def test_the_queue_detail_says_what_is_waiting_and_why_rows_died(journal: Journal) -> None:
+    observation = load_observation("al.rank/roster_nulls_v1.json")
+    journal.record(observation, al_rank.normalize(observation))
+    ids = [item.id for item in journal.pending_outbox()]
+    journal.mark_failed(
+        ids[:1], "The read operation timed out", max_attempts=1, base_backoff=1.0, max_backoff=1.0
+    )
+
+    detail = journal.outbox_detail()
+
+    assert sum(detail["pending_by_event"].values()) == len(ids) - 1
+    assert all(name.startswith("snapshot.") for name in detail["pending_by_event"])
+    assert detail["dead_by_error"] == {"The read operation timed out": 1}
+    assert detail["oldest_pending_at"] is not None
+
+
+def test_the_beat_carries_the_queue_detail(journal: Journal) -> None:
+    observation = load_observation("al.rank/roster_nulls_v1.json")
+    journal.record(observation, al_rank.normalize(observation))
+
+    health = assess(journal, last_packet_at=NOW - timedelta(minutes=1), now=NOW)
+
+    assert health.outbox_depth == sum(health.queue["pending_by_event"].values()) > 0
