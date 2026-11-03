@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import threading
 import time
 from datetime import datetime
 from pathlib import Path
@@ -59,6 +60,32 @@ def _last_packet_at(journal: Journal) -> datetime | None:
     return datetime.fromisoformat(row[0]) if row and row[0] else None
 
 
+HEARTBEAT_TIMEOUT = httpx.Timeout(connect=5.0, read=10.0, write=10.0, pool=5.0)
+
+
+def heartbeat_loop(
+    db_path: Path,
+    client: httpx.Client,
+    collector_id: str,
+    interval: float,
+    stop: threading.Event,
+) -> None:
+    """Report health on its own clock, apart from the drain.
+
+    A drain can spend minutes in a chain of split requests against a slow
+    database; a beat queued behind it makes a working collector look silent.
+    sqlite3 connections are bound to their thread, so this opens its own.
+    """
+    journal = Journal(db_path)
+    while not stop.is_set():
+        try:
+            health = assess(journal, last_packet_at=_last_packet_at(journal))
+            report(client, collector_id, health, version=__version__)
+        except httpx.HTTPError as exc:
+            log.warning("sync.heartbeat_failed", error=str(exc))
+        stop.wait(interval)
+
+
 def main() -> None:
     load_env_file()
     url = os.environ.get("SUPABASE_URL")
@@ -67,35 +94,42 @@ def main() -> None:
         raise SystemExit("SUPABASE_URL and SUPABASE_SECRET_KEY are required")
     interval = float(os.environ.get("DW_SYNC_INTERVAL_SECONDS", "10"))
     batch = int(os.environ.get("DW_SYNC_BATCH_SIZE", str(DEFAULT_BATCH)))
-    journal = Journal(Path(os.environ.get("DW_SQLITE_PATH", "./data/collector.db")))
+    db_path = Path(os.environ.get("DW_SQLITE_PATH", "./data/collector.db"))
+    journal = Journal(db_path)
     journal.init_db()
     worker = SyncWorker(journal, SyncConfig(supabase_url=url, secret_key=key, batch_size=batch))
     # The batch size is logged, not just read: a drain that is keeping up and
     # a drain that is eleven hours behind produce the same `sent=` lines, and
     # the only difference visible in the log is how many rows each one moved.
     log.info("sync.start", interval=interval, batch_size=batch)
-    last_beat = float("-inf")
+    # FR-COL-007: health is reported even when there is nothing to send. Own
+    # thread, own client, own journal connection - see heartbeat_loop.
+    stop = threading.Event()
+    collector_id = os.environ.get("DW_COLLECTOR_ID")
+    if collector_id:
+        beat_client = httpx.Client(
+            base_url=url,
+            headers={"apikey": key, "Authorization": f"Bearer {key}"},
+            timeout=HEARTBEAT_TIMEOUT,
+        )
+        threading.Thread(
+            target=heartbeat_loop,
+            args=(db_path, beat_client, collector_id, interval, stop),
+            name="heartbeat",
+            daemon=True,
+        ).start()
+    else:
+        log.warning("sync.heartbeat_failed", error="DW_COLLECTOR_ID is not set")
     try:
         while True:
             stats = worker.drain_once()
             if stats.sent or stats.failed:
                 log.info("sync.drain", sent=stats.sent, failed=stats.failed)
-            # FR-COL-007: the same loop reports health, so a stalled sync
-            # is visible even when it has nothing to send. On its own clock:
-            # while catching up the loop turns every few seconds, and a beat
-            # (which counts the queue) that often would be work for nothing.
-            if time.monotonic() - last_beat >= interval:
-                last_beat = time.monotonic()
-                try:
-                    health = assess(journal, last_packet_at=_last_packet_at(journal))
-                    report(
-                        worker.client, os.environ["DW_COLLECTOR_ID"], health, version=__version__
-                    )
-                except (httpx.HTTPError, KeyError) as exc:
-                    log.warning("sync.heartbeat_failed", error=str(exc))
             time.sleep(next_delay(stats.sent, stats.failed, batch, interval))
     except KeyboardInterrupt:
         log.info("sync.stop")
+    finally:
+        stop.set()
 
 
 if __name__ == "__main__":

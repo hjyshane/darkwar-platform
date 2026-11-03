@@ -122,6 +122,17 @@ STATEMENT_TIMEOUT = "57014"
 MIN_SPLIT_ROWS = 10
 
 
+# Read is above the 8 s statement_timeout plus the gateway, so a database that
+# is merely slow answers 57014 (which splits) before the client gives up. A
+# ReadTimeout past this means the answer is not coming and is split too.
+REQUEST_TIMEOUT = httpx.Timeout(connect=10.0, read=30.0, write=30.0, pool=10.0)
+
+# The request never got an answer: nothing was said about the rows, so these
+# do not count against max_attempts. A ReadTimeout is NOT here - the server
+# may be rejecting the size - and neither is any HTTP status.
+UNREACHABLE = (httpx.ConnectError, httpx.ConnectTimeout, httpx.NetworkError)
+
+
 class SyncError(Exception):
     pass
 
@@ -138,8 +149,10 @@ class SyncWorker:
                 "apikey": config.secret_key,
                 "Authorization": f"Bearer {config.secret_key}",
             },
-            timeout=15.0,
+            timeout=REQUEST_TIMEOUT,
         )
+        # Consecutive drains that never reached the server; sets the deferral.
+        self._unreachable_streak = 0
 
     # -- entity resolution ---------------------------------------------------
 
@@ -368,21 +381,37 @@ class SyncWorker:
     def _post_rows(
         self, table: str, rows: list[dict[str, Any]], conflict_target: str, resolution: str
     ) -> None:
-        resp = self.client.post(
-            f"/rest/v1/{table}",
-            params={"on_conflict": conflict_target},
-            json=rows,
-            headers={"Prefer": f"resolution={resolution},return=minimal"},
-        )
-        if resp.status_code < 400:
+        try:
+            resp = self.client.post(
+                f"/rest/v1/{table}",
+                params={"on_conflict": conflict_target},
+                json=rows,
+                headers={"Prefer": f"resolution={resolution},return=minimal"},
+            )
+        except httpx.TimeoutException as exc:
+            # An unreachable server is not about size; let the drain defer it.
+            if isinstance(exc, httpx.ConnectTimeout) or len(rows) <= MIN_SPLIT_ROWS:
+                raise
+            resp = None
+        if resp is not None and resp.status_code < 400:
             return
-        if STATEMENT_TIMEOUT in resp.text and len(rows) > MIN_SPLIT_ROWS:
+        if resp is None or (STATEMENT_TIMEOUT in resp.text and len(rows) > MIN_SPLIT_ROWS):
             half = len(rows) // 2
             log.info("sync.batch_split", table=table, rows=len(rows))
             self._post_rows(table, rows[:half], conflict_target, resolution)
             self._post_rows(table, rows[half:], conflict_target, resolution)
             return
         raise SyncError(f"{table}: HTTP {resp.status_code}: {resp.text[:300]}")
+
+    def _defer_unreachable(
+        self, items: list[OutboxItem], exc: Exception, now: datetime | None
+    ) -> None:
+        delay = min(
+            self.config.max_backoff_seconds,
+            self.config.base_backoff_seconds * (2**self._unreachable_streak),
+        )
+        self._unreachable_streak += 1
+        self.journal.defer([i.id for i in items], str(exc), delay=delay, now=now)
 
     def drain_once(self, now: datetime | None = None) -> DrainStats:
         stats = DrainStats()
@@ -405,6 +434,10 @@ class SyncWorker:
                     seen_collectors.add(cid)
         except (httpx.HTTPError, SyncError) as exc:
             log.warning("sync.collector_registration_failed", error=str(exc))
+            if isinstance(exc, UNREACHABLE):
+                self._defer_unreachable(items, exc, now)
+                stats.failed = len(items)
+                return stats
             self.journal.mark_failed(
                 [i.id for i in items],
                 str(exc),
@@ -421,13 +454,21 @@ class SyncWorker:
             by_table.setdefault(item.payload.target_table, []).append(item)
 
         order = {t: i for i, t in enumerate(_TABLE_ORDER)}
-        for table in sorted(by_table, key=lambda t: order.get(t, len(order))):
+        tables = sorted(by_table, key=lambda t: order.get(t, len(order)))
+        for position, table in enumerate(tables):
             batch = by_table[table]
             try:
                 rows = self._resolve_rows(batch)
                 self._upsert(table, rows, batch[0].payload.conflict_target)
             except (httpx.HTTPError, SyncError) as exc:
                 log.warning("sync.batch_failed", table=table, error=str(exc))
+                if isinstance(exc, UNREACHABLE):
+                    # The line is down: the other tables would only wait out
+                    # their own timeouts. Defer everything not yet sent.
+                    rest = [i for t in tables[position:] for i in by_table[t]]
+                    self._defer_unreachable(rest, exc, now)
+                    stats.failed += len(rest)
+                    return stats
                 self.journal.mark_failed(
                     [i.id for i in batch],
                     str(exc),
@@ -438,6 +479,7 @@ class SyncWorker:
                 )
                 stats.failed += len(batch)
                 continue
+            self._unreachable_streak = 0
             self.journal.mark_sent([i.id for i in batch])
             stats.sent += len(batch)
             stats.tables[table] = stats.tables.get(table, 0) + len(batch)

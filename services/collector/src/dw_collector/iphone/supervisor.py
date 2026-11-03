@@ -167,7 +167,7 @@ class Supervisor:
         sleep: Callable[[float], None] = time.sleep,
         now: Callable[[], datetime] = lambda: datetime.now(tz=UTC),
         on_connect: Callable[[str], None] | None = None,
-        launch: Callable[[], bool] | None = None,
+        launch: Callable[[bool], bool] | None = None,
         tag: str = "",
     ) -> None:
         self._tag = tag
@@ -180,6 +180,8 @@ class Supervisor:
         self._on_connect = on_connect
         self._launch = launch
         self._launch_due = False
+        # Only the periodic restart forces one; a reconnect leaves a running game be.
+        self._launch_force = False
         self._last_launch: float | None = None
         self._overlap_ok = config.overlap_seconds > 0
         self._handoff: _Handoff | None = None
@@ -199,12 +201,13 @@ class Supervisor:
             return
         self._sleep(self._config.launch_delay_seconds)
         try:
-            ok = self._launch()
+            ok = self._launch(self._launch_force)
         except Exception as exc:
             self._log.warning("iphone.launch_failed", error=str(exc))
             return
         if ok:
             self._launch_due = False
+            self._launch_force = False
             self._last_launch = self._clock()
             self._log.info("iphone.launched")
         else:
@@ -376,6 +379,7 @@ class Supervisor:
                     self._on_connect(udids[0])
             elif self._periodic_launch_due():
                 self._launch_due = True
+                self._launch_force = True
             result = self.run_chunk(should_stop)
             if self._handoff is not None and self._handoff.result is result:
                 # Rotated with the capture still up; the next chunk ends and

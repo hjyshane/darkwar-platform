@@ -215,8 +215,8 @@ def _launching(
 
     backend.start = start  # type: ignore[method-assign]
 
-    def launch() -> bool:
-        events.append("launch")
+    def launch(force: bool) -> bool:
+        events.append("force" if force else "launch")
         return results.pop(0) if results else True
 
     config = IphoneConfig(
@@ -251,11 +251,12 @@ def test_a_failed_launch_is_retried_with_the_next_chunk(tmp_path: Path) -> None:
     assert events.count("launch") == 2
 
 
-def test_a_reconnect_launches_the_game_again(tmp_path: Path) -> None:
+def test_a_reconnect_asks_for_a_launch_but_does_not_force_a_restart(tmp_path: Path) -> None:
     script = [(True, 100, 8.0), (False, 0, None), (True, 100, None)]
     _, _, events = _launching(tmp_path, script, [], stop_after_devices=4)
 
     assert events.count("launch") == 2
+    assert "force" not in events
 
 
 def test_a_phone_left_plugged_in_is_relaunched_on_the_interval(tmp_path: Path) -> None:
@@ -265,7 +266,7 @@ def test_a_phone_left_plugged_in_is_relaunched_on_the_interval(tmp_path: Path) -
         tmp_path, [(True, 100, None)], [], stop_after_devices=6, relaunch=50.0
     )
 
-    assert events.count("launch") >= 2
+    assert events.count("force") >= 1, "the periodic restart is forced"
     assert events[0] == "start"
 
 
