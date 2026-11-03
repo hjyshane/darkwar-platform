@@ -1,6 +1,7 @@
 import { type MapMarker, formatCoordinate } from '@dw/ui';
 import { invoke } from '@tauri-apps/api/core';
 import { createArenaView } from './arenaView';
+import { createCatalogView } from './catalogView';
 import { createMapView, renderMarkers } from './mapView';
 import { createProfileView } from './profileView';
 import { createRosterView } from './rosterView';
@@ -346,15 +347,18 @@ const tabSearchEl = document.querySelector<HTMLButtonElement>('#tab-search');
 const tabProfileEl = document.querySelector<HTMLButtonElement>('#tab-profile');
 const tabRosterEl = document.querySelector<HTMLButtonElement>('#tab-roster');
 const tabArenaEl = document.querySelector<HTMLButtonElement>('#tab-arena');
+const tabCatalogEl = document.querySelector<HTMLButtonElement>('#tab-catalog');
 const tabSettingsEl = document.querySelector<HTMLButtonElement>('#tab-settings');
 const viewSearchEl = document.querySelector<HTMLElement>('#view-search');
 const viewProfileEl = document.querySelector<HTMLElement>('#view-profile');
 const viewRosterEl = document.querySelector<HTMLElement>('#view-roster');
 const viewArenaEl = document.querySelector<HTMLElement>('#view-arena');
+const viewCatalogEl = document.querySelector<HTMLElement>('#view-catalog');
 const viewSettingsEl = document.querySelector<HTMLElement>('#view-settings');
 const profileRootEl = document.querySelector<HTMLDivElement>('#profile-root');
 const rosterRootEl = document.querySelector<HTMLDivElement>('#roster-root');
 const arenaRootEl = document.querySelector<HTMLDivElement>('#arena-root');
+const catalogRootEl = document.querySelector<HTMLDivElement>('#catalog-root');
 const settingsRootEl = document.querySelector<HTMLDivElement>('#settings-root');
 
 // Mounted once at module load, same as the map (see the note above) — the
@@ -379,6 +383,12 @@ if (rosterRootEl !== null) {
 const arenaView = createArenaView();
 if (arenaRootEl !== null) {
   arenaRootEl.appendChild(arenaView.el);
+}
+
+// The command catalog, same shape as the roster and arena views.
+const catalogView = createCatalogView();
+if (catalogRootEl !== null) {
+  catalogRootEl.appendChild(catalogView.el);
 }
 
 let statusPollHandle: number | undefined;
@@ -412,6 +422,7 @@ if (
   viewProfileEl !== null &&
   viewRosterEl !== null &&
   viewArenaEl !== null &&
+  viewCatalogEl !== null &&
   viewSettingsEl !== null
 ) {
   views.register({ id: 'search', el: viewSearchEl });
@@ -438,6 +449,13 @@ if (
     },
   });
   views.register({
+    id: 'catalog',
+    el: viewCatalogEl,
+    onEnter: () => {
+      void catalogView.load();
+    },
+  });
+  views.register({
     id: 'settings',
     el: viewSettingsEl,
     onEnter: () => {
@@ -452,6 +470,7 @@ tabSearchEl?.addEventListener('click', () => views.show('search'));
 tabProfileEl?.addEventListener('click', () => views.show('profile'));
 tabRosterEl?.addEventListener('click', () => views.show('roster'));
 tabArenaEl?.addEventListener('click', () => views.show('arena'));
+tabCatalogEl?.addEventListener('click', () => views.show('catalog'));
 tabSettingsEl?.addEventListener('click', () => views.show('settings'));
 
 function labeledRow(labelText: string, control: HTMLElement): HTMLDivElement {

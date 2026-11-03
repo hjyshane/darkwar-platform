@@ -36,6 +36,7 @@ from dw_collector import normalize as _normalize  # noqa: F401  (registers norma
 from dw_collector import pipeline, registry
 from dw_collector.models import Observation
 from dw_collector.protocol.pcapng import iter_extension_events
+from dw_collector.request_log import request_observation
 from dw_collector.storage.journal import Journal
 
 
@@ -51,6 +52,8 @@ class ScanResult:
     discovered: int
     rejected: int
     commands: dict[str, int]
+    # Client requests stored for the command catalog. Not part of `events`.
+    requests: int = 0
 
     @property
     def events(self) -> int:
@@ -70,10 +73,25 @@ def _ingest_capture(
     """One capture file through the pipeline. Shared by scan-capture,
     ingest-dir, and the desktop app's ingest loop so none of the three can
     drift from the one path that has been used by hand all along."""
-    ingested = discovered = rejected = 0
+    ingested = discovered = rejected = requests = 0
     commands: dict[str, int] = {}
     for index, event in enumerate(iter_extension_events(pcap, port=port)):
         if event.direction != "inbound":
+            # Requests are masked and kept apart from responses; see
+            # request_log.py. `discover_only` is about unknown RESPONSES.
+            if journal.record_request(
+                request_observation(
+                    observation_id=uuid.uuid5(
+                        uuid.NAMESPACE_URL, f"dw-scan-req:{pcap.name}:{index}:{event.command}"
+                    ),
+                    collector_id=collector_id,
+                    command=event.command,
+                    payload=dict(event.payload),
+                    captured_at=event.captured_at or fallback,
+                    collected_from_server_id=collected_from_server,
+                )
+            ):
+                requests += 1
             continue
         known = registry.get(event.command) is not None
         if discover_only and known:
@@ -103,7 +121,7 @@ def _ingest_capture(
             ingested += 1
         else:
             discovered += 1
-    return ScanResult(ingested, discovered, rejected, commands)
+    return ScanResult(ingested, discovered, rejected, commands, requests)
 
 
 def _ready_captures(directory: Path, minimum_age_seconds: float) -> list[Path]:

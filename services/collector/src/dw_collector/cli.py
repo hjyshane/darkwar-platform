@@ -475,6 +475,37 @@ def journal_summary(db: Annotated[Path | None, _DB_OPTION] = None) -> None:
         typer.echo(f"  {count:6d}  {table}")
 
 
+@app.command("command-catalog")
+def command_catalog(
+    db: Annotated[Path | None, _DB_OPTION] = None,
+    as_json: Annotated[bool, typer.Option("--json", help="Machine-readable output.")] = False,
+    routines: Annotated[
+        list[Path] | None,
+        typer.Option("--routines", help="Directory of UI routines (repeatable)."),
+    ] = None,
+) -> None:
+    """Every command seen, with request/response counts, parser, tables,
+    screens that expect it and the capture-sweep verdict. Read-only."""
+    from dw_collector import catalog
+
+    journal = _open_journal(db)
+    try:
+        entries = catalog.build_catalog(
+            journal.conn, routine_dirs=routines or catalog.routine_dirs_from_env()
+        )
+    finally:
+        journal.close()
+    if as_json:
+        typer.echo(json.dumps(catalog.catalog_json(entries), ensure_ascii=False, indent=2))
+        return
+    typer.echo(f"{'resp':>7} {'req':>6} {'pair':>6}  parser  {'verdict':<10} command")
+    for item in entries:
+        typer.echo(
+            f"{item.responses:7d} {item.requests:6d} {item.paired:6d}  "
+            f"{'yes' if item.parser else '-':<6}  {item.verdict_status or '-':<10} {item.command}"
+        )
+
+
 @app.command("clock-skew")
 def clock_skew(db: Annotated[Path | None, _DB_OPTION] = None) -> None:
     """Compare the game server's clock against ours, per observation.

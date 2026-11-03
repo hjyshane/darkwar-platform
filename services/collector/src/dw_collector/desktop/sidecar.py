@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import ParseResult, parse_qs, urlparse
 
+from dw_collector import catalog
 from dw_collector.desktop import adapters, capture, localread, settings
 
 HOST = "127.0.0.1"
@@ -697,6 +698,9 @@ class Handler(BaseHTTPRequestHandler):
         if parsed.path == "/arena":
             self._handle_arena(parsed)
             return
+        if parsed.path == "/catalog":
+            self._handle_catalog()
+            return
 
         if parsed.path != "/find":
             self._send(404, {"error": "no such endpoint"})
@@ -846,6 +850,33 @@ class Handler(BaseHTTPRequestHandler):
         finally:
             conn.close()
         self._send(200, roster_json(entries))
+
+    def _handle_catalog(self) -> None:
+        """`GET /catalog` — every command the journal has seen, in either
+        direction, with its parser, screens and runbook verdict.
+
+        LOCAL ONLY, like every read here. Requests are stored masked, but the
+        responses' shapes and the journal path are this machine's business;
+        nothing about this endpoint is mirrored to the cloud. FOLLOWS
+        `/roster` for the journal-state check and the fresh connection.
+        """
+        state = journal_state(self.server.journal_path)
+        if state != READY:
+            self._send(503, {"error": "no journal to read yet", "state": state})
+            return
+
+        conn = sqlite3.connect(self.server.journal_path)
+        try:
+            entries = catalog.build_catalog(conn, routine_dirs=catalog.routine_dirs_from_env())
+        except sqlite3.DatabaseError as exc:
+            self._send(
+                503,
+                {"error": f"could not read the journal: {exc}", "state": UNREADABLE},
+            )
+            return
+        finally:
+            conn.close()
+        self._send(200, catalog.catalog_json(entries))
 
     def _handle_arena(self, parsed: ParseResult) -> None:
         """`GET /arena`, optionally `?league=<n>` — every league's bracket,

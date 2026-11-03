@@ -2849,6 +2849,25 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
     ],
   ],
   [
+    ['command-request-shapes'],
+    [
+      {
+        command_request_shape_id: 'q1',
+        source_command: 'world.get.new',
+        fingerprint: 'c0de11aac0de11aac0de11aac0de11aa',
+        sample: {
+          _id: 'integer',
+          serverId: 'integer',
+          viewLvl: 'integer',
+          x: 'integer',
+          y: 'integer',
+        },
+        first_seen_at: ago(60 * 24 * 3),
+        last_seen_at: ago(30),
+      },
+    ],
+  ],
+  [
     ['schema-observations'],
     [
       {

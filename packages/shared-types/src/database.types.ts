@@ -3123,6 +3123,44 @@ export type Database = {
         }
         Relationships: []
       }
+      command_request_shapes: {
+        Row: {
+          collector_id: string | null
+          command_request_shape_id: string
+          fingerprint: string
+          first_seen_at: string
+          last_seen_at: string
+          sample: Json
+          source_command: string
+        }
+        Insert: {
+          collector_id?: string | null
+          command_request_shape_id?: string
+          fingerprint: string
+          first_seen_at?: string
+          last_seen_at?: string
+          sample?: Json
+          source_command: string
+        }
+        Update: {
+          collector_id?: string | null
+          command_request_shape_id?: string
+          fingerprint?: string
+          first_seen_at?: string
+          last_seen_at?: string
+          sample?: Json
+          source_command?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "command_request_shapes_collector_id_fkey"
+            columns: ["collector_id"]
+            isOneToOne: false
+            referencedRelation: "collectors"
+            referencedColumns: ["collector_id"]
+          },
+        ]
+      }
       comment_notifications: {
         Row: {
           comment_id: string
