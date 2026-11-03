@@ -299,3 +299,106 @@ def test_a_timeout_that_splitting_cannot_fix_still_fails(journal: Journal) -> No
 
     assert stats.failed == 93
     assert "alliance_member_snapshots" not in fake.upserted
+
+
+class FlakySupabase(FakeSupabase):
+    """The network, not the database: requests can time out or never connect."""
+
+    def __init__(self, *, read_timeout_above: int | None = None) -> None:
+        super().__init__()
+        self.read_timeout_above = read_timeout_above
+        self.down = False
+
+    def handler(self, request: httpx.Request) -> httpx.Response:
+        if self.down:
+            raise httpx.ConnectError("[Errno 65] No route to host", request=request)
+        table = request.url.path.removeprefix("/rest/v1/")
+        if request.method == "POST" and table not in self.entities:
+            rows = json.loads(request.content)
+            if self.read_timeout_above is not None and len(rows) > self.read_timeout_above:
+                raise httpx.ReadTimeout("The read operation timed out", request=request)
+        return super().handler(request)
+
+
+def test_a_read_timeout_splits_the_batch_and_loses_nothing(journal: Journal) -> None:
+    fake = FlakySupabase(read_timeout_above=30)
+    worker = _worker(_loaded_journal(journal), fake)
+
+    stats = worker.drain_once()
+
+    assert stats.failed == 0
+    assert journal.outbox_counts() == {"sent": 694}
+    members = fake.upserted["alliance_member_snapshots"]
+    assert len(members) == 93
+    # Resent halves carry the same keys, once each.
+    keys = [m["idempotency_key"] for m in members]
+    assert len(set(keys)) == 93
+
+
+def test_a_read_timeout_splitting_cannot_fix_still_counts_as_an_attempt(journal: Journal) -> None:
+    fake = FlakySupabase(read_timeout_above=0)
+    worker = _worker(_loaded_journal(journal), fake)
+
+    assert worker.drain_once().failed == 694
+    # Slow is still a failure: the attempt is spent, unlike an unreachable server.
+    spent = journal.conn.execute(
+        "select count(*) from sync_outbox where status = 'pending' and attempt_count = 1"
+    ).fetchone()[0]
+    assert spent == 694
+
+
+def test_an_outage_never_dead_letters_rows_nobody_rejected(journal: Journal) -> None:
+    fake = FlakySupabase()
+    fake.down = True
+    worker = _worker(_loaded_journal(journal), fake, max_attempts=3, base_backoff_seconds=1.0)
+    now = datetime.now(tz=UTC)
+
+    for minute in range(10):
+        stats = worker.drain_once(now=now + timedelta(minutes=minute * 10))
+        assert stats.sent == 0
+        assert stats.failed == 694
+
+    counts = journal.outbox_counts()
+    assert counts == {"pending": 694}
+    assert journal.conn.execute("select max(attempt_count) from sync_outbox").fetchone()[0] == 0
+
+    fake.down = False
+    stats = worker.drain_once(now=now + timedelta(hours=3))
+    assert stats.sent == 694
+    assert journal.outbox_counts() == {"sent": 694}
+
+
+def test_an_outage_backs_off_without_trying_every_table(journal: Journal) -> None:
+    fake = FlakySupabase()
+    fake.down = True
+    calls: list[str] = []
+    inner = fake.handler
+
+    def counting(request: httpx.Request) -> httpx.Response:
+        calls.append(request.url.path)
+        return inner(request)
+
+    client = httpx.Client(base_url="http://fake.local", transport=httpx.MockTransport(counting))
+    worker = SyncWorker(
+        _loaded_journal(journal),
+        SyncConfig(supabase_url="http://fake.local", secret_key="t", batch_size=1000),
+        client=client,
+    )
+    now = datetime.now(tz=UTC)
+    worker.drain_once(now=now)
+
+    assert len(calls) == 1
+    # Deferred, so the very next drain has nothing due.
+    assert worker.drain_once(now=now).sent == 0
+
+
+def test_a_server_rejection_still_dead_letters(journal: Journal) -> None:
+    fake = FakeSupabase(fail_tables={"alliance_member_snapshots"})
+    roster = load_observation("al.rank/roster_nulls_v1.json")
+    journal.record(roster, al_rank.normalize(roster))
+    worker = _worker(journal, fake, max_attempts=2, base_backoff_seconds=1.0)
+    now = datetime.now(tz=UTC)
+
+    worker.drain_once(now=now)
+    worker.drain_once(now=now + timedelta(minutes=5))
+    assert journal.outbox_counts() == {"dead_letter": 3}
