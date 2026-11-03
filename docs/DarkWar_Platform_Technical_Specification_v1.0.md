@@ -142,7 +142,7 @@ lang: ko-KR
 # 4. 설계 원칙
 
 1. **Official-client-first**: 공식 게임 클라이언트와 공식 UI를 사용한다.
-2. **Passive capture first**: 데이터는 가능한 한 클라이언트 응답을 수동으로 관찰하여 저장한다.
+2. **Passive capture first**: 데이터는 가능한 한 클라이언트 응답을 수동으로 관찰하여 저장한다. (2026-11-04 `docs/adr/0002`: 수집계정이 조회 명령을 사람 속도로 직접 보내는 것은 허용한다. `dw-capture` 자체는 계속 수동이다.)
 3. **Dedicated account isolation**: 본계정과 수집 계정의 BlueStacks 인스턴스, ADB serial, 프로세스 제어를 분리한다.
 4. **Raw / normalized / derived separation**: 원본, 정규화 snapshot, 파생 활동 점수를 분리한다.
 5. **Idempotent ingestion**: 같은 데이터가 반복 수신되어도 논리적 결과는 한 번만 반영한다.
@@ -371,7 +371,7 @@ Supabase는 PostgreSQL을 중심으로 Auth, RLS, Realtime, Storage, Queues, Edg
 | ADR-002 | SQLite를 edge buffer/outbox로 유지 | 인터넷 장애와 cloud 장애 중 데이터 유실 방지 |
 | ADR-003 | Discord와 웹은 하나의 TypeScript shared SPA 사용 | 기능 중복 및 UI drift 방지 |
 | ADR-004 | Collector는 Python 3.12 service로 유지 | 기존 protocol decoder와 Windows/ADB 자산 재사용 |
-| ADR-005 | 직접 packet injection 금지 | 본계정/수집계정 안정성 및 보안 경계 유지 |
+| ADR-005 | ~~직접 packet injection 금지~~ — `docs/adr/0002`로 대체(2026-11-04): 수집계정 한정, 조회 명령 허용 목록, 사람 속도 | 본계정/수집계정 안정성 및 보안 경계 유지 |
 | ADR-006 | Activity scoring은 versioned derived layer | 원본 보존, 공정성, 재계산 가능성 |
 | ADR-007 | Adapter registry + schema discovery | 신규 이벤트·시즌 추가 비용 최소화 |
 | ADR-008 | Privileged mutation은 Edge Function 또는 service worker만 수행 | browser secret 노출 방지 및 중앙 권한 검증 |
