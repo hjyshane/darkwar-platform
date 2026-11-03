@@ -12,9 +12,10 @@ have never been run against real data.
 
 ## Decisions already made — do not relitigate
 
-- **Development is Windows-only.** No WSL. Capture, BlueStacks, and ADB are
-  native Windows; the collector must hold them in one process tree. CI runs on
-  Linux specifically to catch case-sensitivity and path assumptions.
+- **The collector holds capture, the game client's tooling (BlueStacks/ADB or
+  the iPhone), and its supervisor in one process tree**, wherever it runs —
+  Windows PC, Mac, or a cloud host. CI runs on Linux specifically to catch
+  case-sensitivity and path assumptions.
 - **The spec's Appendix C layout was deliberately trimmed.** `modules/` is not
   created, ever — every one of its nine names already has a home in
   `services/`, `supabase/migrations/`, or `apps/dashboard/src/features/`.
@@ -22,6 +23,11 @@ have never been run against real data.
 - **`services/` holds one Python package**, not four. Spec §10.1 asks for
   *process* separation; that is satisfied by four console entrypoints
   (`dw-capture`, `dw-sync`, `dw-jobs`, `dw-ui-worker`) sharing one package.
+- **Passive is the default, not the whole rule (ADR-0002, 2026-11-04).** The
+  collector account may send read-only, allowlisted requests at human pace, and
+  may run unattended in the cloud and relaunch the client on an update signal.
+  Never the main account, never a state-changing command, never a free-form
+  payload from a trigger. `dw-capture` itself still never writes to the wire.
 - **Create directories on first use.** `supabase/functions/`, `docs/adr/`,
   `docs/runbooks/`, `packages/ui`, `packages/api-client`,
   `packages/scoring-explain`, `services/analysis-worker` do not exist yet and

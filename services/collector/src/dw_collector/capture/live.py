@@ -111,7 +111,10 @@ def sniff_into(
     timeout: float | None = None,
     count: int = 0,
 ) -> None:
-    """Passive capture only: no packet is ever injected or modified.
+    """Passive capture only: this module never injects or modifies a packet.
+
+    Sending requests, where allowed at all, belongs to a separate package and
+    process (docs/adr/0002), never to the sniffer.
 
     Blocks until `timeout`/`count` is reached, or until interrupted. Every
     decodable segment is handed to `handle_segment` as it arrives, so a

@@ -8,7 +8,7 @@ description: Launch the Dark War dashboard against the local Supabase stack and 
 **This file was written from a WSL session and its browser steps are
 Linux-only** — `apt-get download`, `dpkg -x`, `LD_LIBRARY_PATH`, `/tmp`
 paths. None of that applies on Windows, which is where CLAUDE.md says
-development happens ("Windows-only. No WSL.").
+the collector PC runs.
 
 On Windows the stack and data steps are the same commands; what changes is
 the browser. **Section 4 was never needed** — Claude Code's own Browser pane
