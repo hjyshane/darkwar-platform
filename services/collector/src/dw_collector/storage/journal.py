@@ -394,6 +394,24 @@ class Journal:
                         ),
                     )
 
+    def defer(
+        self, ids: list[int], error: str, *, delay: float, now: datetime | None = None
+    ) -> None:
+        """Retry later WITHOUT spending an attempt.
+
+        For failures that say nothing about the rows - the network is down, the
+        server was never reached - so an outage longer than the backoff
+        schedule cannot dead-letter rows nobody rejected.
+        """
+        current = now or datetime.now(tz=UTC)
+        retry_at = (current + timedelta(seconds=delay)).isoformat()
+        with self.conn:
+            for item_id in ids:
+                self.conn.execute(
+                    "update sync_outbox set next_attempt_at = ?, last_error = ? where id = ?",
+                    (retry_at, error, item_id),
+                )
+
     def command_counts(self) -> list[tuple[str, int]]:
         """Observations per command, most frequent first."""
         cur = self.conn.execute(

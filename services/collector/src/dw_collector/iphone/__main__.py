@@ -104,7 +104,7 @@ def main() -> None:
 
     def make_supervisor(udid: str) -> Supervisor:
         backend = PmdBackend(tool, udid=udid, userspace=userspace)
-        launch = None if no_launch else (lambda: backend.launch(bundle_id))
+        launch = None if no_launch else (lambda force: backend.launch(bundle_id, force=force))
         return Supervisor(config, backend, launch=launch, tag=short_tag(udid))
 
     recovered = recover_parts(capture_dir)

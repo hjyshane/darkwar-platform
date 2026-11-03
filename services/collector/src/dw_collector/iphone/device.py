@@ -8,6 +8,7 @@ the collector's lockfile, and it is only ever spoken to through its CLI.
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -58,8 +59,13 @@ class PcapProcess:
             return ""
         try:
             end = self._stderr.seek(0, 2)
-            self._stderr.seek(max(0, end - _TAIL_BYTES))
-            return self._stderr.read().decode("utf-8", errors="replace").strip()
+            self._stderr.seek(0)
+            data = self._stderr.read()
+            if end > 2 * _TAIL_BYTES:
+                # The cause is at the top of a traceback and the trailer is
+                # boilerplate; keep both ends.
+                data = data[:_TAIL_BYTES] + b"\n...\n" + data[-_TAIL_BYTES:]
+            return data.decode("utf-8", errors="replace").strip()
         finally:
             self._stderr.close()
 
@@ -100,13 +106,41 @@ class PmdBackend:
             found = [u for u in found if u == self._udid]
         return found
 
-    def launch(self, bundle_id: str) -> bool:
-        """Start (or restart: the tool kills a running copy first) the app.
+    def is_running(self, bundle_id: str) -> bool:
+        """Whether the app has a live process. False on ANY doubt.
+
+        `process-id-for-bundle-id` only gives a valid pid while the app runs.
+        If the answer cannot be had, the caller launches as before.
+        """
+        argv = [self._exe, "developer", "dvt", "process-id-for-bundle-id", bundle_id]
+        if self._udid:
+            argv += ["--udid", self._udid]
+        try:
+            done = subprocess.run(
+                argv, capture_output=True, timeout=60, check=False, creationflags=_NO_WINDOW
+            )
+        except (OSError, subprocess.SubprocessError):
+            return False
+        if done.returncode != 0:
+            return False
+        pids = re.findall(r"\b\d+\b", done.stdout.decode("utf-8", errors="replace"))
+        return any(int(p) > 0 for p in pids)
+
+    def launch(self, bundle_id: str, *, force: bool = False) -> bool:
+        """Start the app, or leave it alone if it is already running.
+
+        `dvt launch` kills a running copy first, and a launch from here comes up
+        black until the phone goes home and back, so a reconnect (the wifi or
+        hotspot changing, a pcap that died) must not restart a healthy game.
+        `force` is for the periodic restart that wants a fresh login.
 
         iOS 17+ wants a tunnel for developer commands; the tool falls back to
         a no-root userspace one on its own, which is why no admin rights are
         needed. Needs Developer Mode on and the developer image mounted.
         """
+        if not force and self.is_running(bundle_id):
+            log.info("iphone.launch_skipped", reason="already running")
+            return True
         argv = [self._exe, "developer", "dvt", "launch", bundle_id]
         if self._udid:
             argv += ["--udid", self._udid]

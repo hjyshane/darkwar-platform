@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -130,3 +131,30 @@ def test_the_beat_carries_the_queue_detail(journal: Journal) -> None:
     health = assess(journal, last_packet_at=NOW - timedelta(minutes=1), now=NOW)
 
     assert health.outbox_depth == sum(health.queue["pending_by_event"].values()) > 0
+
+
+def test_heartbeat_loop_beats_on_its_own_and_survives_failures(tmp_path: Path) -> None:
+    import threading
+
+    from dw_collector.sync.__main__ import heartbeat_loop
+
+    db = tmp_path / "j.db"
+    Journal(db).init_db()
+    beats: list[str] = []
+    stop = threading.Event()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        beats.append(request.method)
+        if len(beats) == 1:
+            raise httpx.ReadTimeout("The read operation timed out", request=request)
+        if len(beats) >= 4:
+            stop.set()
+        return httpx.Response(201, json=[])
+
+    client = httpx.Client(base_url="http://fake.local", transport=httpx.MockTransport(handler))
+    thread = threading.Thread(target=heartbeat_loop, args=(db, client, "cid", 0.01, stop))
+    thread.start()
+    thread.join(timeout=5)
+
+    assert not thread.is_alive()
+    assert len(beats) >= 4
