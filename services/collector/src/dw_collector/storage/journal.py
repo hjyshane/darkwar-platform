@@ -15,6 +15,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from dw_collector.discovery import fingerprint, payload_shape
 from dw_collector.models import NormalizedRow, Observation, json_default
 
 _SCHEMA = """
@@ -87,6 +88,33 @@ create index if not exists normalized_rows_target_table_idx
 -- harder: this one's first build reads all of normalized_rows.
 create index if not exists normalized_rows_observation_idx
   on normalized_rows (observation_id);
+
+-- The client's own requests, masked (request_log.mask_request) before they
+-- get here. A separate table rather than a direction column on
+-- raw_observations: that table is what prune, renormalize, the sync outbox
+-- and every desktop projection read, and a request is none of their business.
+-- `request_id` is the payload's `_id`, which the matching response echoes.
+create table if not exists request_observations (
+  observation_id text primary key,
+  collector_id text not null,
+  source_command text not null,
+  captured_at text not null,
+  collected_from_server_id integer not null,
+  request_id integer,
+  payload_json text not null,
+  created_at text not null
+);
+
+create index if not exists request_observations_command_idx
+  on request_observations (source_command, captured_at);
+
+-- (command, shape) pairs already queued for the cloud. A request shape is sent
+-- once, when first seen here, so the outbox does not grow with traffic.
+create table if not exists request_shapes_seen (
+  source_command text not null,
+  fingerprint text not null,
+  primary key (source_command, fingerprint)
+);
 
 -- Which capture files ingest-dir has already read. Re-reading one is safe
 -- (idempotency_key hashes the raw payload, so a replay updates rather than
@@ -214,6 +242,75 @@ class Journal:
                 else:
                     duplicate += 1
         return RecordResult(raw_inserted, inserted, duplicate)
+
+    def record_request(self, observation: Observation) -> bool:
+        """Store one MASKED client request; False when it was already there.
+
+        The caller masks. This refuses an inbound observation so a response
+        can never land in the table the catalog reads requests from.
+        """
+        if observation.direction != "outbound":
+            msg = "record_request takes an outbound observation"
+            raise ValueError(msg)
+        request_id = observation.payload.get("_id")
+        with self.conn:
+            cur = self.conn.execute(
+                "insert or ignore into request_observations values (?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    str(observation.observation_id),
+                    str(observation.collector_id),
+                    observation.source_command,
+                    observation.captured_at.isoformat(),
+                    observation.collected_from_server_id,
+                    request_id if isinstance(request_id, int) else None,
+                    json.dumps(observation.payload, sort_keys=True, default=json_default),
+                    _now_iso(),
+                ),
+            )
+            stored = cur.rowcount == 1
+            if stored:
+                self._queue_request_shape(observation)
+        return stored
+
+    def _queue_request_shape(self, observation: Observation) -> None:
+        """First sighting of a (command, shape) goes to the outbox as a
+        `command_request_shapes` row. Inside record_request's transaction."""
+        shape = payload_shape(observation.payload)
+        print_ = fingerprint(shape)
+        fresh = self.conn.execute(
+            "insert or ignore into request_shapes_seen values (?, ?)",
+            (observation.source_command, print_),
+        )
+        if fresh.rowcount != 1:
+            return
+        seen_at = observation.captured_at.isoformat()
+        row = NormalizedRow(
+            target_table="command_request_shapes",
+            idempotency_key=f"reqshape:{observation.source_command}:{print_}",
+            conflict_target="source_command,fingerprint",
+            row={
+                "collector_id": str(observation.collector_id),
+                "source_command": observation.source_command,
+                "fingerprint": print_,
+                "sample": shape,
+                "first_seen_at": seen_at,
+                "last_seen_at": seen_at,
+            },
+        )
+        now = _now_iso()
+        self.conn.execute(
+            "insert or ignore into sync_outbox"
+            " (event_type, entity_key, payload_json, idempotency_key, created_at, next_attempt_at)"
+            " values (?, ?, ?, ?, ?, ?)",
+            (
+                f"snapshot.{row.target_table}",
+                row.idempotency_key,
+                row.model_dump_json(),
+                row.idempotency_key,
+                now,
+                now,
+            ),
+        )
 
     #: Rows somebody is watching for, sent ahead of the rest of the queue.
     #:
@@ -605,6 +702,10 @@ class Journal:
                 "delete from sync_outbox where status = 'sent' and created_at < ?",
                 (cutoff,),
             )
+        # Requests have no outbox and nothing hangs off them, so age alone
+        # decides; they are the catalog's evidence, kept as long as responses.
+        with self.conn:
+            self.conn.execute("delete from request_observations where captured_at < ?", (cutoff,))
         _cleanup()
         return report
 

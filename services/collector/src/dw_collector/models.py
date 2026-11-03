@@ -13,7 +13,7 @@ import hashlib
 import json
 import uuid
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -43,6 +43,11 @@ class Observation(BaseModel):
     collected_from_server_id: int
     payload: dict[str, Any]
     schema_version: int = 1
+    # "inbound" = server → client response, the only kind the pipeline routes.
+    # "outbound" = the client's own request, kept for the command catalog and
+    # never handed to a normalizer: its payload is masked (request_log.py)
+    # and a request is not a fact about the game.
+    direction: Literal["inbound", "outbound"] = "inbound"
 
     @field_validator("captured_at")
     @classmethod

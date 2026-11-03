@@ -1,0 +1,172 @@
+{
+  "source": "docs/runbooks/capture-sweep.md",
+  "commands": [
+    {
+      "command": "al.battle.rank.info",
+      "status": "promoted",
+      "verdict": "승격"
+    },
+    {
+      "command": "al.battle.week.result.info",
+      "status": "rejected",
+      "verdict": "거절"
+    },
+    {
+      "command": "al.fight.act.info",
+      "status": "promoted",
+      "verdict": "승격 완료 — Furnace Fury (2026-10-03 · 파서 1.0.0, 0212)",
+      "parser": false,
+      "note": "only al.fight.act.member.score is promoted; this one is kept as raw"
+    },
+    {
+      "command": "al.fight.act.member.score",
+      "status": "promoted",
+      "verdict": "승격 완료 — Furnace Fury (2026-10-03 · 파서 1.0.0, 0212)"
+    },
+    {
+      "command": "al.show.help",
+      "status": "rejected",
+      "verdict": "거절"
+    },
+    {
+      "command": "chat.get.system.mails",
+      "status": "promoted",
+      "verdict": "승격 완료 — type 147만 (2026-09-27 · 파서 1.0.0, 0178)"
+    },
+    {
+      "command": "dragon.activity.info",
+      "status": "promoted",
+      "verdict": "승격 완료 (2026-09-27 · 파서 1.0.0)"
+    },
+    {
+      "command": "dragon.assign.player.info",
+      "status": "promoted",
+      "verdict": "승격 완료 (2026-09-27 · 파서 1.0.0, 0178)"
+    },
+    {
+      "command": "dragon.battle.history",
+      "status": "promoted",
+      "verdict": "승격 완료 (2026-09-27 · 파서 1.0.0, 0178)"
+    },
+    {
+      "command": "exchange.info",
+      "status": "promoted",
+      "verdict": "승격 완료 (2026-10-03 · 파서 1.0.0, 0215)"
+    },
+    {
+      "command": "get.alliance.boss.activity.info.new",
+      "status": "recapture",
+      "verdict": "재캡처 필요"
+    },
+    {
+      "command": "get.challenge.act.info",
+      "status": "rejected",
+      "verdict": "기각(Bio-mutant 아님) — MutaBeast Hunt (2026-10-03)"
+    },
+    {
+      "command": "get.challenge.act.member.info",
+      "status": "rejected",
+      "verdict": "기각(Bio-mutant 아님) — MutaBeast Hunt (2026-10-03)"
+    },
+    {
+      "command": "get.daily.alliance.donate.rank",
+      "status": "promoted",
+      "verdict": "승격"
+    },
+    {
+      "command": "get.dragon.battle.times",
+      "status": "hold",
+      "verdict": "보류"
+    },
+    {
+      "command": "get.group.ice.cave.occupy.info",
+      "status": "reference",
+      "verdict": "참고 — Ice Pit 점유"
+    },
+    {
+      "command": "get.history.king.record",
+      "status": "hold",
+      "verdict": "보류 — Capital Clash"
+    },
+    {
+      "command": "get.king.info",
+      "status": "hold",
+      "verdict": "보류 — Capital Clash"
+    },
+    {
+      "command": "get.kingdom.act.score.info",
+      "status": "hold",
+      "verdict": "보류 — Capital Clash"
+    },
+    {
+      "command": "get.kingdom.act.score.rank",
+      "status": "promoted",
+      "verdict": "승격 (2026-10-18 · 파서 1.0.0, 0287)"
+    },
+    {
+      "command": "get.new.user.info",
+      "status": "promoted",
+      "verdict": "승격 완료 (판정 2026-08-11 · 파서 1.1.0, 2026-08-12)"
+    },
+    {
+      "command": "get.server.ice.cave.info",
+      "status": "reference",
+      "verdict": "참고 — Ice Pit 점유"
+    },
+    {
+      "command": "get.wander.dmg.rank",
+      "status": "promising",
+      "verdict": "유망 — SvS 선발 지표 Warfiend 피해 랭킹"
+    },
+    {
+      "command": "get.week.alliance.donate.rank",
+      "status": "promoted",
+      "verdict": "승격"
+    },
+    {
+      "command": "init",
+      "status": "promoted",
+      "verdict": "승격 완료 (2026-10-02 · 파서 1.0.0, 0205)"
+    },
+    {
+      "command": "kill.rank",
+      "status": "promoted",
+      "verdict": "승격"
+    },
+    {
+      "command": "monster.siege.activity.info",
+      "status": "hold",
+      "verdict": "보류 — Zombie Siege, 연맹 단위만"
+    },
+    {
+      "command": "push.mail",
+      "status": "promising",
+      "verdict": "유망 — 아직 미확인"
+    },
+    {
+      "command": "push.share.msg",
+      "status": "recapture",
+      "verdict": "재캡처 필요"
+    },
+    {
+      "command": "push.world.point.update",
+      "status": "promoted",
+      "verdict": "승격 (2026-10-18 · 파서 1.0.0, 0287)"
+    },
+    {
+      "command": "rank.get.by.range",
+      "status": "rejected",
+      "verdict": "거절"
+    },
+    {
+      "command": "user.get.act.boss.rank",
+      "status": "promising",
+      "verdict": "유망 — Ice Pit의 Tundra Titan 피해 랭킹으로 추정"
+    },
+    {
+      "command": "user.get.shop.info",
+      "status": "promoted",
+      "verdict": "승격 완료 (2026-10-03 · 파서 1.0.0, 0215)"
+    }
+  ]
+}

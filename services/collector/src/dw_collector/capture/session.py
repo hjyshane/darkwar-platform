@@ -27,6 +27,7 @@ from dw_collector import clock, pipeline
 from dw_collector.models import Observation
 from dw_collector.protocol.frames import extract_extension_event
 from dw_collector.protocol.pcapng import ExtensionEvent, TCPDirectionReassembler, TcpSegment
+from dw_collector.request_log import request_observation
 from dw_collector.storage.journal import Journal
 
 log = structlog.get_logger()
@@ -48,6 +49,8 @@ class CaptureStats:
     ingested: int = 0
     discovered: int = 0
     rejected: int = 0
+    # Client requests journalled for the command catalog (never normalized).
+    requests: int = 0
     rows: int = 0
     commands: dict[str, int] = field(default_factory=dict)
     # Loss indicators. Non-zero means Npcap dropped or reordered packets, so
@@ -141,12 +144,13 @@ class CaptureSession:
         ):
             self.stats.frames += 1
             self.last_frame_at = now or datetime.now(tz=UTC)
-            if not inbound:
-                continue
             event = extract_extension_event(frame.object)
             if event is None:
                 continue
             command, payload, request_id = event
+            if not inbound:
+                self._record_request(command, payload, now=now or datetime.now(tz=UTC))
+                continue
             self._check_clock(command, dict(payload), now or datetime.now(tz=UTC))
             self._record(
                 ExtensionEvent("inbound", command, payload, request_id),
@@ -188,6 +192,27 @@ class CaptureSession:
         """Roll per-stream loss counters up into the reported stats."""
         self.stats.resync_bytes = sum(s.decoder.resync_bytes for s in self._streams.values())
         self.stats.gap_skips = sum(s.gap_skips for s in self._streams.values())
+
+    def _record_request(self, command: str, payload: dict[str, Any], *, now: datetime) -> None:
+        """Journal one client request, masked. Never raises: a request is
+        evidence for the catalog, and losing one must not stop collection."""
+        self._sequence += 1
+        observation = request_observation(
+            observation_id=uuid.uuid5(
+                uuid.NAMESPACE_URL,
+                f"dw-capture-req:{self.collector_id}:{now.isoformat()}:{self._sequence}",
+            ),
+            collector_id=self.collector_id,
+            command=command,
+            payload=payload,
+            captured_at=now,
+            collected_from_server_id=self.collected_from_server_id,
+        )
+        try:
+            if self.journal.record_request(observation):
+                self.stats.requests += 1
+        except Exception:
+            log.warning("capture.request_not_recorded", command=command, exc_info=True)
 
     def _record(self, event: ExtensionEvent, *, now: datetime) -> None:
         self._sequence += 1

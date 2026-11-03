@@ -56,7 +56,7 @@ const COLLAPSED_ROWS = 10;
 
 const SEARCH_FIELDS = ['source_command'] as const;
 
-export function DiscoveryInbox({ now }: { now?: Date }) {
+function UnparsedCommands({ now }: { now?: Date }) {
   const current = now ?? new Date();
   const { data, error, isPending } = useQuery({
     queryKey: ['schema-observations'],
@@ -168,6 +168,108 @@ export function DiscoveryInbox({ now }: { now?: Date }) {
             : `Show ${hidden} more command shape${hidden === 1 ? '' : 's'}`}
         </button>
       )}
+    </>
+  );
+}
+
+/** What the game client asks each command with: one row per (command, request
+ * shape), from the requests the collector journals locally. Shapes only —
+ * `request_log.mask_request` blanks identity and credential fields first and
+ * `discovery.payload_shape` then drops every value, so nothing here can name a
+ * player or carry a session. Sent once per shape, so there is no count; the
+ * point is to see which fields a request has before anyone proposes sending one.
+ */
+interface RequestShapeRow {
+  command_request_shape_id: string;
+  source_command: string;
+  fingerprint: string;
+  sample: unknown;
+  first_seen_at: string;
+  last_seen_at: string;
+}
+
+async function fetchRequestShapes(): Promise<RequestShapeRow[]> {
+  const { data, error } = await supabase
+    .from('command_request_shapes')
+    .select(
+      'command_request_shape_id, source_command, fingerprint, sample, first_seen_at, last_seen_at',
+    )
+    .order('source_command', { ascending: true })
+    .limit(500);
+  if (error) {
+    throw new Error(error.message);
+  }
+  return data as RequestShapeRow[];
+}
+
+function RequestShapes({ now }: { now?: Date }) {
+  const current = now ?? new Date();
+  const { data, error, isPending } = useQuery({
+    queryKey: ['command-request-shapes'],
+    queryFn: fetchRequestShapes,
+  });
+
+  if (isPending) {
+    return <p className="empty loading">Loading…</p>;
+  }
+  if (error) {
+    return <p className="error">Could not load request shapes: {error.message}</p>;
+  }
+  if (data === undefined || data.length === 0) {
+    return (
+      <p className="empty">
+        No client requests have been recorded yet. They appear after a capture run with request
+        recording on the collector.
+      </p>
+    );
+  }
+  return (
+    <>
+      <h3>Client requests</h3>
+      <p>
+        What the game sends, one row per command and request shape. Identity and credential fields
+        are blanked before storage and only key→type skeletons reach this table.
+      </p>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th className="label" scope="col">
+                Command
+              </th>
+              <th scope="col">First</th>
+              <th scope="col">Last</th>
+              <th scope="col">Shape</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((row) => (
+              <tr key={row.command_request_shape_id}>
+                <td className="label">
+                  <code>{row.source_command}</code>
+                </td>
+                <td title={row.first_seen_at}>{formatAge(row.first_seen_at, current)}</td>
+                <td title={row.last_seen_at}>{formatAge(row.last_seen_at, current)}</td>
+                <td>
+                  <details>
+                    <summary>{row.fingerprint.slice(0, 8)}</summary>
+                    <pre className="shape">{JSON.stringify(row.sample, null, 2)}</pre>
+                  </details>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
+
+export function DiscoveryInbox({ now }: { now?: Date }) {
+  return (
+    <>
+      <UnparsedCommands now={now} />
+      <RequestShapes now={now} />
     </>
   );
 }

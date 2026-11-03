@@ -12,7 +12,8 @@ a = Analysis(
     ["src/dw_collector/desktop/__main__.py"],
     pathex=["src"],
     binaries=[],
-    datas=[],
+    # The verdict table catalog.py reads with importlib.resources.
+    datas=[("src/dw_collector/command_catalog.json", "dw_collector")],
     hiddenimports=[],
     excludes=["scapy", "tkinter", "httpx", "typer"],
 )
