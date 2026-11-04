@@ -47,9 +47,26 @@ describe('foldBossDamage', () => {
 
   it('totals each event and counts who hit the boss', () => {
     expect(report.events).toEqual([
-      { day: '2026-10-05', participants: 2, total: 150, average: 75, turnout: 1 },
-      { day: '2026-10-11', participants: 1, total: 300, average: 300, turnout: 0.5 },
+      { day: '2026-10-05', roster: 2, participants: 2, total: 150, average: 75, turnout: 1 },
+      { day: '2026-10-11', roster: 2, participants: 1, total: 300, average: 300, turnout: 0.5 },
     ]);
+  });
+
+  it('holds a member only to the events they were in the alliance for', () => {
+    // Charlie joined after the 10-05 event: no cell there, so 10-05 is a roster of 2.
+    const later = foldBossDamage([
+      cell('2026-10-05', 'a', 100),
+      cell('2026-10-05', 'b', null),
+      cell('2026-10-11', 'a', 300),
+      cell('2026-10-11', 'b', null),
+      cell('2026-10-11', 'c', 80),
+    ]);
+    const charlie = later.members.find((m) => m.player_id === 'c');
+    expect(charlie?.held).toBe(1);
+    expect(charlie?.attended).toBe(1);
+    expect(later.events.map((e) => e.roster)).toEqual([2, 3]);
+    expect(later.events[0]?.turnout).toBe(0.5);
+    expect(later.events[1]?.turnout).toBeCloseTo(2 / 3);
   });
 
   it('an empty grid is an empty report', () => {

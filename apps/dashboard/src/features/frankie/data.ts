@@ -1,6 +1,6 @@
 // Frankie (Bio-Mutant): each member's damage per event, and the trend (0277).
 //
-// The report is a GRID: every current member against every event that has any
+// The report is a GRID: every member of the alliance on the day against every event that has any
 // damage on record. A null cell is a member with no damage on that event --
 // they did not hit the boss or were not on the board -- and for Frankie that
 // is an absence, the one event where a blank counts against somebody.
@@ -44,7 +44,10 @@ export interface MemberSeries {
   member_rank: number | null;
   /** Damage per event; null where they have none. */
   damages: (number | null)[];
+  /** Whether they were in the alliance that day, per event, to match `days`. */
+  present: boolean[];
   attended: number;
+  /** Events they were in the alliance for, not every event on record. */
   held: number;
   total: number;
   best: number | null;
@@ -60,7 +63,9 @@ export interface EventTotal {
   participants: number;
   total: number;
   average: number | null;
-  /** Share of the current roster that hit the boss. */
+  /** Members of the alliance on that day, not today's headcount. */
+  roster: number;
+  /** Share of that day's roster that hit the boss. */
   turnout: number | null;
 }
 
@@ -84,8 +89,9 @@ export function foldBossDamage(cells: readonly BossCell[]): BossReport {
         name: cell.current_name,
         member_rank: cell.member_rank,
         damages: days.map(() => null),
+        present: days.map(() => false),
         attended: 0,
-        held: days.length,
+        held: 0,
         total: 0,
         best: null,
         average: null,
@@ -94,8 +100,12 @@ export function foldBossDamage(cells: readonly BossCell[]): BossReport {
       byMember.set(cell.player_id, member);
     }
     const index = dayIndex.get(cell.event_day);
-    if (index !== undefined && cell.damage !== null) {
-      member.damages[index] = cell.damage;
+    if (index !== undefined) {
+      // A cell exists only for a member of the alliance on that day (0308).
+      member.present[index] = true;
+      if (cell.damage !== null) {
+        member.damages[index] = cell.damage;
+      }
     }
   }
 
@@ -107,6 +117,7 @@ export function foldBossDamage(cells: readonly BossCell[]): BossReport {
     members.push({
       ...member,
       attended: hit.length,
+      held: member.present.filter(Boolean).length,
       total,
       best: hit.length === 0 ? null : Math.max(...hit),
       average: hit.length === 0 ? null : total / hit.length,
@@ -114,14 +125,15 @@ export function foldBossDamage(cells: readonly BossCell[]): BossReport {
     });
   }
 
-  const roster = members.length;
   const events: EventTotal[] = days.map((day, index) => {
     const values = members
       .map((m) => m.damages[index] ?? null)
       .filter((d): d is number => d !== null);
     const total = values.reduce((sum, d) => sum + d, 0);
+    const roster = members.filter((m) => m.present[index]).length;
     return {
       day,
+      roster,
       participants: values.length,
       total,
       average: values.length === 0 ? null : total / values.length,

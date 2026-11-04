@@ -10051,6 +10051,14 @@ export type Database = {
         Args: { p_code: string; p_name: string }
         Returns: string
       }
+      alliance_membership_history: {
+        Args: never
+        Returns: {
+          captured_at: string
+          game_uid: number
+          player_id: string
+        }[]
+      }
       alliance_role_of: {
         Args: { p_user: string }
         Returns: Database["public"]["Enums"]["app_role"]
