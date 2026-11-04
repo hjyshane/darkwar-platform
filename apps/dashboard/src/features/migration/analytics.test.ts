@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import {
+  allianceMovers,
   alliancePowerChange,
   boardShift,
   extremes,
@@ -172,5 +173,29 @@ describe('sankey', () => {
 
   test('no movers, nothing to lay out', () => {
     expect(sankey([], 100)).toEqual({ left: [], right: [], links: [] });
+  });
+});
+
+describe('allianceMovers', () => {
+  const inAlliance = (m: Mover, name: string | null): Mover => ({ ...m, alliance_name: name });
+
+  test('groups movers by alliance, most first, with where they came from', () => {
+    const rows = allianceMovers([
+      inAlliance(mover(1, 570, 580, 3, 500), 'Wolves'),
+      inAlliance(mover(2, 570, 580, 30, 300), 'Wolves'),
+      inAlliance(mover(3, 588, 580, 400, 100), 'Wolves'),
+      inAlliance(mover(4, 572, 565, 400, 50), 'Bears'),
+    ]);
+    expect(rows.map((r) => r.name)).toEqual(['Wolves', 'Bears']);
+    expect(rows[0]).toMatchObject({ server: 580, movers: 3, power: 900 });
+    expect(rows[0]?.from).toEqual([
+      [570, 2],
+      [588, 1],
+    ]);
+    expect(rows[0]?.byTier).toMatchObject({ commander: 1, elite: 1, backbone: 1 });
+  });
+
+  test('leaves out movers with no alliance name', () => {
+    expect(allianceMovers([inAlliance(mover(1, 570, 580, 3), null)])).toEqual([]);
   });
 });

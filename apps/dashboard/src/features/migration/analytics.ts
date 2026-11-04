@@ -321,3 +321,51 @@ export function sankey(
   }
   return { left, right, links };
 }
+
+export interface AllianceMovers {
+  name: string;
+  /** Server most of its movers stand on now. */
+  server: number;
+  /** Members seen on another server than the one their uid ends in. */
+  movers: number;
+  power: number;
+  /** Servers they came from, most first. */
+  from: Array<[number, number]>;
+  byTier: Record<Tier, number>;
+}
+
+/** Alliances ranked by how many movers sit in them, off the movers of every list and
+ * roster. Players with no alliance name (a list entry without one, or a viewer who may
+ * not see names) are left out; this counts movers, not members. */
+export function allianceMovers(movers: readonly Mover[]): AllianceMovers[] {
+  const by = new Map<string, { row: AllianceMovers; servers: Map<number, number> }>();
+  for (const m of movers) {
+    const name = m.alliance_name?.trim();
+    if (!name) continue;
+    const held = by.get(name) ?? {
+      row: { name, server: m.server_id, movers: 0, power: 0, from: [], byTier: noTiers() },
+      servers: new Map<number, number>(),
+    };
+    held.row.movers += 1;
+    held.row.power += m.power;
+    held.row.byTier[tierOf(m.board_rank)] += 1;
+    held.servers.set(m.server_id, (held.servers.get(m.server_id) ?? 0) + 1);
+    by.set(name, held);
+  }
+  const homes = new Map<string, Map<number, number>>();
+  for (const m of movers) {
+    const name = m.alliance_name?.trim();
+    if (!name) continue;
+    const h = homes.get(name) ?? new Map<number, number>();
+    h.set(m.home_server, (h.get(m.home_server) ?? 0) + 1);
+    homes.set(name, h);
+  }
+  return [...by.values()]
+    .map(({ row, servers }) => ({
+      ...row,
+      server:
+        [...servers.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0])[0]?.[0] ?? row.server,
+      from: [...(homes.get(row.name) ?? [])].sort((a, b) => b[1] - a[1] || a[0] - b[0]),
+    }))
+    .sort((a, b) => b.movers - a.movers || b.power - a.power || a.name.localeCompare(b.name));
+}

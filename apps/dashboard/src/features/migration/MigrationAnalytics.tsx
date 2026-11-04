@@ -5,8 +5,10 @@ import { serverHash } from '../../lib/route';
 import { RouteFlow, SeatDumbbells, ServerScoreboard, TierPyramid } from './MigrationInfographic';
 import { TierBadge } from './TierBadge';
 import {
+  type AllianceMovers,
   type BoardShift,
   TIER_SIZE,
+  allianceMovers,
   alliancePowerChange,
   boardShift,
   extremes,
@@ -183,6 +185,8 @@ function Observed() {
 
           <TopShift shift={shift} />
 
+          <AllianceBoard rows={allianceMovers(movers.data)} />
+
           <div className="table-wrap">
             <table className="compact">
               <caption>How many of each tier moved</caption>
@@ -268,6 +272,90 @@ function Observed() {
         “left” undercounts where its destination list is old. Backbone has no end: the count is the
         movers seen, not a share of the tier.
       </p>
+    </>
+  );
+}
+
+/** Alliances by their movers, from the same lists and rosters as everything above, so it
+ * covers every server whether or not an alliance's member list was opened. */
+function AllianceBoard({ rows }: { rows: AllianceMovers[] }) {
+  if (rows.length === 0) {
+    return (
+      <p className="empty">
+        No mover carries an alliance name — names show for officers and admins only.
+      </p>
+    );
+  }
+  const shown = rows.slice(0, 25);
+  const max = Math.max(1, ...shown.map((r) => r.movers));
+  return (
+    <>
+      <figure className="viz">
+        <figcaption>
+          Alliances that took in the most movers <TierLegend />
+        </figcaption>
+        <ul className="viz-rows">
+          {shown.slice(0, 15).map((r) => (
+            <li key={r.name}>
+              <span className="viz-label" title={r.name}>
+                {r.name}
+              </span>
+              <span className="viz-track viz-track-one" aria-hidden="true">
+                {TIERS_TOP_DOWN.map((t) => (
+                  <i
+                    key={t}
+                    className={`viz-fill viz-${t}`}
+                    style={{ width: `${(r.byTier[t] / max) * 100}%` }}
+                  />
+                ))}
+              </span>
+              <span className="viz-text">
+                {num(r.movers)} · {power(r.power)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </figure>
+      <div className="table-wrap">
+        <table className="compact">
+          <caption>Alliances with movers, from any server's list or opened roster</caption>
+          <thead>
+            <tr>
+              <th scope="col">Alliance</th>
+              <th scope="col">Server</th>
+              <th scope="col" className="numeric">
+                Movers
+              </th>
+              <th scope="col" className="numeric">
+                Power
+              </th>
+              <th scope="col">Came from</th>
+            </tr>
+          </thead>
+          <tbody>
+            {shown.map((r) => (
+              <tr key={r.name}>
+                <th scope="row">{r.name}</th>
+                <td>
+                  <a href={serverHash(r.server)}>{r.server}</a>
+                </td>
+                <td className="numeric">{num(r.movers)}</td>
+                <td className="numeric" title={num(r.power)}>
+                  {power(r.power)}
+                </td>
+                <td>
+                  {r.from.map(([server, n], i) => (
+                    <span key={server}>
+                      {i > 0 && ' · '}
+                      {server} <span className="subtle">{n}</span>
+                    </span>
+                  ))}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </>
   );
 }
