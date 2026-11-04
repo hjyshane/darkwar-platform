@@ -1,6 +1,6 @@
 // Frankie (Bio-Mutant): who hit the boss, for how much, and how it moves.
 //
-// One row per current member, one column per event with damage on record, a
+// One row per member on record, one column per event with damage on record, a
 // trend line and the totals. The events come from the game's own damage board
 // where somebody opened it, and from an officer's typed damage otherwise; the
 // boards are only captured when somebody looks, so an event can be missing
@@ -154,7 +154,7 @@ export function FrankiePage() {
               note={
                 latest === undefined
                   ? undefined
-                  : `${latest.participants} of ${report.members.length} members`
+                  : `${latest.participants} of ${latest.roster} members`
               }
               value={latest?.turnout == null ? null : percent(latest.turnout)}
             />
@@ -218,7 +218,7 @@ export function FrankiePage() {
                         {event.day}
                       </th>
                       <td className="num">
-                        {event.participants}/{report.members.length}
+                        {event.participants}/{event.roster}
                       </td>
                       <td className="num">
                         {event.turnout === null ? '—' : percent(event.turnout)}
@@ -287,9 +287,9 @@ export function FrankiePage() {
           </div>
           <p className="note">
             Damage is what the member did to the boss in the event. <strong>Hit</strong> is the
-            events on record they have damage on; ● marks under half. A dash is no damage on that
-            event. Trend draws the events in date order and needs two. Hover a figure for the exact
-            number.
+            events they were in the alliance for that they have damage on; ● marks under half. A
+            dash is no damage on that event. Trend draws the events in date order and needs two.
+            Hover a figure for the exact number.
           </p>
         </div>
       )}
