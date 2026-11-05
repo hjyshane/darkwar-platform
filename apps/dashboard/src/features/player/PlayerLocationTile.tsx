@@ -5,7 +5,8 @@ import { formatLastOnline } from '../../lib/freshness';
 import { serverHash } from '../../lib/route';
 import { TERMS } from '../../lib/terms';
 import { MapCanvas } from '../map/MapCanvas';
-import { type LocationState, stateOf, usePlayerLocation } from './playerLocation';
+import { shieldLeft } from '../map/atlas';
+import { type LocationState, shieldStateOf, stateOf, usePlayerLocation } from './playerLocation';
 
 /** Where this player was last seen on the map.
  *
@@ -82,6 +83,38 @@ export function PlayerLocationTile({
       }
     />
   );
+}
+
+/** Whether this player's base is shielded, as the last sweep saw it.
+ *
+ * The same sighting as the location tile, so it carries the same caveat: a
+ * shield can be raised or extended after the sweep. A "down" that is older
+ * than a few hours is therefore shown as "May be up", not as a fact. */
+export function PlayerShieldTile({ playerId, now }: { playerId: string; now?: Date }) {
+  const { data, isPending } = usePlayerLocation(playerId);
+  const at = now ?? new Date();
+  const state = shieldStateOf(data ?? null, at);
+
+  let value: string;
+  let note: string | undefined;
+  switch (state.kind) {
+    case 'up':
+      value = shieldLeft(state.endsAt, at) ?? '<1m';
+      note = 'left, as of last sweep';
+      break;
+    case 'down':
+      value = 'Down';
+      note = state.since === null ? 'never shielded' : 'as of last sweep';
+      break;
+    case 'maybe':
+      value = 'May be up';
+      note = 'last sweep is old';
+      break;
+    default:
+      value = '—';
+      note = isPending ? undefined : 'not scanned';
+  }
+  return <StatTile label={TERMS.shield} note={note} value={isPending ? '…' : value} />;
 }
 
 /** The sentence under the tiles, when there is something to explain.

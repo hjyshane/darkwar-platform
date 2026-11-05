@@ -85,6 +85,9 @@ export const TERMS = {
   // ours: where the map last showed this player's city. A sighting, never
   // a live position — the map is only read where the collector is pointed.
   location: 'Location',
+  // ours: shield_end_at of the last map sighting (0262), not a live reading.
+  shield: 'Shield',
+  serverRank: 'Server rank',
   map: 'Map',
   // ours. The game has no screen for this — a hive is a shape the alliance
   // agrees on in chat, and "hive" is what the alliance calls it. Nothing in

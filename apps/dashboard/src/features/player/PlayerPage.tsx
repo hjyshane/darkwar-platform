@@ -22,6 +22,7 @@ import {
   PlayerLocationMap,
   PlayerLocationNote,
   PlayerLocationTile,
+  PlayerShieldTile,
   useMapDisclosure,
   usePlayerHasLocation,
 } from './PlayerLocationTile';
@@ -33,6 +34,7 @@ import {
   newestPerLeague,
   percent,
 } from './playerArena';
+import { PlayerServerRankTile } from './serverRank';
 
 /** One player, gathered from every table that knows something about them.
  *
@@ -428,6 +430,8 @@ export function PlayerPage({ playerId, now }: { playerId: string; now?: Date }) 
             onToggleMap={hasLocation ? map.toggle : undefined}
             playerId={data.playerId}
           />
+          <PlayerShieldTile now={now} playerId={data.playerId} />
+          <PlayerServerRankTile power={data.power} serverId={data.serverId} />
         </div>
         <PlayerLocationNote now={now} playerId={data.playerId} />
         {map.open && <PlayerLocationMap now={now} playerId={data.playerId} />}
