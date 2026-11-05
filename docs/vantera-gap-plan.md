@@ -129,7 +129,7 @@ Phase 2 전체가 이 결과에 달려 있다.
 | A2 | 플레이어 첫 줄: 서버 순위 + 쉴드 해제 시각 | 없음 (`city_shield` 0262 있음) | `PlayerPage.tsx`, `PlayerLocationTile.tsx` |
 | A3 | 연맹 개요 탭 (최강 + 최근 이동) | 없음 | `AlliancePage.tsx` |
 | A4 | 순위표: 다음 순위까지 남은 양, K/D | K/D 데이터 존재 확인 필요 | 확인부터 |
-| A5 | 성장 요소 분해를 이번 주 화면으로 | 없음 | `ComponentTrend.tsx` |
+| A5 | ~~성장 요소 분해를 이번 주 화면으로~~ **완료**: Growth 탭 총전투력 아래로 이동 | 없음 | `PlayerPage.tsx` |
 | A6 | 첫 사용 투어 | 없음 | — |
 | A7 | 지도 모바일 시트, 선택 플레이어 칩 | 없음 | `AtlasPage.tsx`, `AtlasPanel.tsx` |
 | B0 | 요청 캡처 결과 읽기, 핸드셰이크 타당성 | 새 캡처 필요 | #555 도구 있음, 데이터 없음 |
