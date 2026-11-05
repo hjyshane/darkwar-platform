@@ -88,8 +88,19 @@ describe('CrossRankingTable', () => {
 
   it('renders unknown as a dash, never zero (FR-UI-008)', () => {
     renderWithQuery(<CrossRankingTable rows={[row({ value: null })]} board={boardById('power')} />);
-    expect(screen.getByText('—')).toBeDefined();
+    // The value cell and, with nobody above, the gap cell: both unknown, neither zero.
+    expect(screen.getAllByText('—').length).toBeGreaterThan(0);
     expect(screen.queryByText('0')).toBeNull();
+  });
+
+  it('shows how far each row is behind the one above it', () => {
+    renderWithQuery(
+      <CrossRankingTable
+        board={boardById('power')}
+        rows={[row({ rank: 1, value: 1_000 }), row({ rank: 2, value: 750 })]}
+      />,
+    );
+    expect(screen.getByText('−250')).toBeDefined();
   });
 
   it('names the unit from its own catalogue, and prints the id without one', () => {
