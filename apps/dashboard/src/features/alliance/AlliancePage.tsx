@@ -13,6 +13,7 @@ import { useFavourites } from '../../lib/useFavourites';
 import { replaceHash, useHash } from '../../lib/useHash';
 import { AllianceCompare } from './AllianceCompare';
 import { AllianceMemberTable } from './AllianceMemberTable';
+import { AllianceOverview } from './AllianceOverview';
 import { AllianceTrends } from './AllianceTrends';
 
 /** One alliance: what the game reports about it, and who we have seen in it.
@@ -331,6 +332,10 @@ export function AlliancePage({ allianceId, now }: { allianceId: string; now?: Da
             <AllianceTrends allianceId={data.allianceId} isOwn={data.isOwn} part={view} />
           </ChartFlow>
         </section>
+      )}
+
+      {view === 'overview' && (
+        <AllianceOverview isOwn={data.isOwn} members={data.members} now={now} />
       )}
 
       {view === 'compare' && (
