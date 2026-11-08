@@ -240,6 +240,33 @@ export function AtlasPage({
                   : `${plan.formation.name} · ${planMatch.placed}/${planMatch.total} in place`}
             </span>
           )}
+          {selected !== null && (
+            // The chosen player, on the map itself. On a phone the detail is
+            // below the picture, out of sight; the chip names who is selected,
+            // jumps to the detail, and its × lets go without scrolling for it.
+            <span className="atlas-chip atlas-chip--selected">
+              <button
+                aria-label={`Show details for ${selected.name ?? 'unnamed'}`}
+                className="atlas-chip__main"
+                onClick={() =>
+                  document
+                    .querySelector('.atlas .hunt-side')
+                    ?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+                }
+                type="button"
+              >
+                {selected.name ?? 'unnamed'} · {formatPower(selected.power)}
+              </button>
+              <button
+                aria-label={`Clear ${selected.name ?? 'unnamed'}`}
+                className="atlas-chip__x"
+                onClick={() => setSelectedUid(null)}
+                type="button"
+              >
+                ×
+              </button>
+            </span>
+          )}
           {pickedAlliance !== undefined && (
             <button
               aria-label={`Show every alliance again (now [${pickedAlliance.code ?? '?'}])`}
