@@ -95,4 +95,21 @@ describe('console tokens', () => {
     const stripped = css.replace(/--ink-[\w-]+:\s*[^;]+;/g, '');
     expect(stripped).not.toMatch(/#7aa2f7|#1d4ed8|#22d3ee|#35c6ff/i);
   });
+
+  it('draws the map ours colour from the accent, not a literal', () => {
+    const atlas = readFileSync(join(process.cwd(), 'src', 'features', 'map', 'atlas.ts'), 'utf8');
+    expect(atlas).toMatch(/OURS_COLOR = 'var\(--accent\)'/);
+    expect(atlas).not.toMatch(/#22d3ee/i);
+  });
+
+  it('keeps colour literals out of rules, bar the measured hero grades and brand marks', () => {
+    // Every literal outside a `--token:` declaration or a comment must be one
+    // of the known exceptions: the Discord brand mark and the hero-grade chip
+    // palette (measured for colour-blind separation in both schemes).
+    const allowed = new Set(['#5865f2']);
+    const literals = [...css.matchAll(/^\s*(?!--)[a-z-]+:\s*[^;]*?(#[0-9a-f]{3,8})\b/gim)]
+      .map((m) => m[1]?.toLowerCase())
+      .filter((h): h is string => Boolean(h) && !allowed.has(h as string));
+    expect(literals).toEqual([]);
+  });
 });
