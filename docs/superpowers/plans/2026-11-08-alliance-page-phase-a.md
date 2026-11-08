@@ -228,4 +228,10 @@ power_at := the moving row's power; observed_at := its captured_at; player_name 
 
 ## Evidence (Task 1)
 
-_filled during execution_
+`dw_collector.sanitize` is imported in exactly one place: `cli.py:593`, a
+local import inside the `extract-fixture` command, whose result is written to
+a fixture file (`cli.py:630`, `payload=sanitizer(...)`). `ingest.py`,
+`pipeline.py`, `storage/` and `sync/` contain no `sanitize` import. The other
+grep hits (`normalize/account_state.py:120`, `normalize/arena.py:52`,
+`protocol/army.py:345`, `protocol/worldmap.py:457,508`) are comments. The
+collector stores `intro` and `announce` verbatim; redaction is fixture-only.
