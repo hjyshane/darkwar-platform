@@ -33,9 +33,12 @@
   --space-6: 1.5rem;
   --space-8: 2rem;
 
+  /* Console: cells and tables are square; chips, LEDs and buttons take 3px;
+   * dialogs and the palette 6px. `--radius-sm`/`--radius-pill` stay declared
+   * for the few per-feature rules that still name them. */
   --radius-sm: 0.25rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
+  --radius-md: 3px;
+  --radius-lg: 6px;
   --radius-pill: 999px;
 
   /* Motion. Short and plain; reduced-motion zeroes them below. */
@@ -44,6 +47,9 @@
 
   --text-xs: 0.6875rem;
   --text-2xl: 2.25rem;
+  /* The console label: 10px mono, uppercase, letter-spaced. The size lives
+   * here; the rest is the `.cell-label` / `th` rule that uses it. */
+  --text-label: 0.625rem;
   --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
 
   --text-sm: 0.8125rem;
@@ -55,55 +61,84 @@
 
   --measure: 72rem;
 
-  /* Surfaces and text — light. */
-  --bg: #ffffff;
-  --bg-raised: #f7f7f5;
-  --bg-hover: #eeeeeb;
+  /* Surfaces and text — light: the paper grid. Console's home is dark; light
+   * keeps the same structure (shared borders, square cells, one accent) on
+   * paper, with the accent darkened so it still reads as text. */
+  --bg: #f4f3ef;
+  --bg-cell: #ffffff;
+  --bg-raised: #faf9f6;
+  --bg-top: #ecebe6;
+  --bg-hover: #efeee9;
   --fg: #17181a;
   --fg-muted: #686a70;
-  --border: #e3e2dd;
-  --border-strong: #cccbc4;
-  --accent: #1d4ed8;
-  /* The sidebar sits one step off the page, on the dark side of it. */
-  --shell-side: #f1f1ee;
+  --border: #d9d7cf;
+  --border-strong: #bdbbb2;
+  /* The accent as text and border; the fill is the lighter amber with dark
+   * text on it, because #e0b452 on paper fails AA as text. */
+  --accent: #a16207;
+  --accent-fg: #ffffff;
+  --accent-fill: #e0b452;
+  --accent-fill-fg: #17181a;
+  --accent-wash: #f6ecd2;
+  --shell-side: var(--bg-top);
 
-  /* Layered surfaces (Linear-style): page < raised < overlay. */
+  /* Surfaces: page < cell < raised; overlay only for dialogs and the
+   * palette, which are the only things that still cast a shadow. */
   --surface-overlay: #ffffff;
-  --shadow-1: 0 1px 2px rgb(15 23 42 / 8%);
+  --shadow-1: none;
   --shadow-2: 0 8px 24px rgb(15 23 42 / 14%);
   --ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
 
-  /* Game accent. Used sparingly: rank medals, the primary call to action, the
-   * active tab, the top bar. Never on tables or forms. Light-mode gold is dark
-   * enough for text on --gold-bg; glows are off in light. */
-  --gold: #a16207;
-  --gold-strong: #ca8a04;
-  --gold-bg: #fef9c3;
-  --gold-fg: #422006;
+  /* Gold IS the accent now. The aliases stay so the rank medals, the primary
+   * button and the active tab keep their hooks; no glow anywhere but LEDs. */
+  --gold: var(--accent);
+  --gold-strong: var(--accent);
+  --gold-bg: var(--accent-wash);
+  --gold-fg: var(--fg);
   --glow-gold: none;
   --glow-blue: none;
-  --medal-silver: #94a3b8;
-  --medal-bronze: #b45309;
+  --medal-silver: #8d8f96;
+  --medal-bronze: #9a5a38;
+
+  /* Plain status colours for LEDs and signed deltas, and the glow behind an
+   * LED dot. Light gets no glow: on paper it reads as a smudge. */
+  --ok: #2f7d4a;
+  --bad: #b4433f;
+  --led-glow-ok: none;
+  --led-glow-bad: none;
+  --led-glow-warn: none;
+
+  /* Data palette: categorical, muted, for tiers, chart series, guide tints
+   * and the map's "ours". Light is one step darker than dark so it holds as
+   * text. Chrome never uses these; the accent never joins them twice. */
+  --data-1: #a16207;
+  --data-2: #4f7a4c;
+  --data-3: #46637f;
+  --data-4: #9a5a38;
+  --data-5: #6f5586;
+  --data-6: #5f6168;
 
   /* Status families. Each is a background/foreground pair that keeps its
    * contrast in its own scheme, rather than one colour reused in both. */
   --ok-bg: #dcfce7;
   --ok-fg: #14532d;
-  --warn-bg: #fef3c7;
-  --warn-fg: #78350f;
-  --tier-backbone-bg: #dbeafe;
-  --tier-backbone-fg: #1e3a8a;
-  --tier-elite-bg: #ffedd5;
-  --tier-elite-fg: #7c2d12;
-  --tier-advanced-bg: #ede9fe;
-  --tier-advanced-fg: #4c1d95;
-  --tier-commander-bg: #fee2e2;
-  --tier-commander-fg: #7f1d1d;
+  --warn-bg: #f6ecd2;
+  --warn-fg: #6b4a07;
+  --tier-backbone-bg: #e4ebf3;
+  --tier-backbone-fg: #3c5470;
+  --tier-elite-bg: #f3e4dc;
+  --tier-elite-fg: #8a4f32;
+  --tier-advanced-bg: #ece5f2;
+  --tier-advanced-fg: #5f4a73;
+  --tier-commander-bg: #f6ecd2;
+  --tier-commander-fg: #7a4c05;
   --danger-bg: #fee2e2;
   --danger-fg: #7f1d1d;
-  --info-bg: #dbeafe;
-  --info-fg: #1e3a8a;
-  --neutral-bg: #f1f5f9;
+  /* Info is a cool neutral — a different message from "no status", so it
+   * keeps its own family — but not navy. */
+  --info-bg: #e6ebf1;
+  --info-fg: #334155;
+  --neutral-bg: #ecebe6;
   --neutral-fg: #475569;
 
   font-family: var(--font-sans);
@@ -128,92 +163,130 @@
  * and `:not([data-theme="light"])` is what steps out of its way. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #101114;
-    --bg-raised: #16181b;
-    --bg-hover: #1e2125;
+    --bg: #15161a;
+    --bg-cell: #1a1b20;
+    --bg-raised: #1f2026;
+    --bg-top: #121317;
+    --bg-hover: #23252b;
     --fg: #e8e6e1;
-    --fg-muted: #9a9ca3;
-    --border: #2a2d33;
-    --border-strong: #3a3d44;
-    --accent: #7aa2f7;
-    --shell-side: #0c0d0f;
+    --fg-muted: #8d8f96;
+    --border: #2c2e34;
+    --border-strong: #3a3d45;
+    --accent: #e0b452;
+    --accent-fg: #15161a;
+    --accent-fill: #e0b452;
+    --accent-fill-fg: #15161a;
+    --accent-wash: #2a2415;
+    --shell-side: var(--bg-top);
 
-    --surface-overlay: #1b1d21;
-    --shadow-1: 0 1px 2px rgb(0 0 0 / 40%);
+    --surface-overlay: #1f2026;
+    --shadow-1: none;
     --shadow-2: 0 8px 24px rgb(0 0 0 / 55%);
-    --gold: #d4ac4e;
-    --gold-strong: #c9a24b;
-    --gold-bg: #3a2c0a;
-    --gold-fg: #fde9b0;
+    --gold: var(--accent);
+    --gold-strong: var(--accent);
+    --gold-bg: var(--accent-wash);
+    --gold-fg: var(--fg);
     --glow-gold: none;
     --glow-blue: none;
     --medal-silver: #aab4c8;
-    --medal-bronze: #c9803a;
+    --medal-bronze: #c48a6a;
+
+    --ok: #6cc38a;
+    --bad: #e07070;
+    --led-glow-ok: 0 0 6px var(--ok);
+    --led-glow-bad: 0 0 6px var(--bad);
+    --led-glow-warn: 0 0 6px var(--accent);
+
+    --data-1: #e0b452;
+    --data-2: #8fb38a;
+    --data-3: #7f98b3;
+    --data-4: #c48a6a;
+    --data-5: #a48bb8;
+    --data-6: #8d8f96;
 
     /* Inverted: dark plate, light text — the reverse of the light values,
-     * not the same hex reused. */
-    --ok-bg: #14532d;
-    --ok-fg: #dcfce7;
-    --warn-bg: #78350f;
-    --warn-fg: #fef3c7;
-    --tier-backbone-bg: #1e3a8a;
-    --tier-backbone-fg: #dbeafe;
-    --tier-elite-bg: #7c2d12;
-    --tier-elite-fg: #ffedd5;
-    --tier-advanced-bg: #4c1d95;
-    --tier-advanced-fg: #ede9fe;
-    --tier-commander-bg: #7f1d1d;
-    --tier-commander-fg: #fee2e2;
-    --danger-bg: #7f1d1d;
-    --danger-fg: #fee2e2;
-    --info-bg: #1e3a8a;
-    --info-fg: #dbeafe;
-    --neutral-bg: #1e293b;
-    --neutral-fg: #cbd5e1;
+     * not the same hex reused. Plates sit a step off --bg-cell. */
+    --ok-bg: #1c2a22;
+    --ok-fg: #9fd3ad;
+    --warn-bg: #2a2415;
+    --warn-fg: #e0b452;
+    --tier-backbone-bg: #202a36;
+    --tier-backbone-fg: #a9bdd4;
+    --tier-elite-bg: #332520;
+    --tier-elite-fg: #d9a98f;
+    --tier-advanced-bg: #2b2433;
+    --tier-advanced-fg: #c3b1d4;
+    --tier-commander-bg: #2a2415;
+    --tier-commander-fg: #e0b452;
+    --danger-bg: #2d1d1d;
+    --danger-fg: #e49a9a;
+    --info-bg: #1e242c;
+    --info-fg: #9fb0c3;
+    --neutral-bg: #22242a;
+    --neutral-fg: #b4b6bd;
   }
 }
 
 :root[data-theme="dark"] {
-  --bg: #101114;
-  --bg-raised: #16181b;
-  --bg-hover: #1e2125;
+  --bg: #15161a;
+  --bg-cell: #1a1b20;
+  --bg-raised: #1f2026;
+  --bg-top: #121317;
+  --bg-hover: #23252b;
   --fg: #e8e6e1;
-  --fg-muted: #9a9ca3;
-  --border: #2a2d33;
-  --border-strong: #3a3d44;
-  --accent: #7aa2f7;
-  --shell-side: #0c0d0f;
+  --fg-muted: #8d8f96;
+  --border: #2c2e34;
+  --border-strong: #3a3d45;
+  --accent: #e0b452;
+  --accent-fg: #15161a;
+  --accent-fill: #e0b452;
+  --accent-fill-fg: #15161a;
+  --accent-wash: #2a2415;
+  --shell-side: var(--bg-top);
 
-  --surface-overlay: #1b1d21;
-  --shadow-1: 0 1px 2px rgb(0 0 0 / 40%);
+  --surface-overlay: #1f2026;
+  --shadow-1: none;
   --shadow-2: 0 8px 24px rgb(0 0 0 / 55%);
-  --gold: #d4ac4e;
-  --gold-strong: #c9a24b;
-  --gold-bg: #3a2c0a;
-  --gold-fg: #fde9b0;
+  --gold: var(--accent);
+  --gold-strong: var(--accent);
+  --gold-bg: var(--accent-wash);
+  --gold-fg: var(--fg);
   --glow-gold: none;
   --glow-blue: none;
   --medal-silver: #aab4c8;
-  --medal-bronze: #c9803a;
+  --medal-bronze: #c48a6a;
 
-  --ok-bg: #14532d;
-  --ok-fg: #dcfce7;
-  --warn-bg: #78350f;
-  --warn-fg: #fef3c7;
-  --tier-backbone-bg: #1e3a8a;
-  --tier-backbone-fg: #dbeafe;
-  --tier-elite-bg: #7c2d12;
-  --tier-elite-fg: #ffedd5;
-  --tier-advanced-bg: #4c1d95;
-  --tier-advanced-fg: #ede9fe;
-  --tier-commander-bg: #7f1d1d;
-  --tier-commander-fg: #fee2e2;
-  --danger-bg: #7f1d1d;
-  --danger-fg: #fee2e2;
-  --info-bg: #1e3a8a;
-  --info-fg: #dbeafe;
-  --neutral-bg: #1e293b;
-  --neutral-fg: #cbd5e1;
+  --ok: #6cc38a;
+  --bad: #e07070;
+  --led-glow-ok: 0 0 6px var(--ok);
+  --led-glow-bad: 0 0 6px var(--bad);
+  --led-glow-warn: 0 0 6px var(--accent);
+
+  --data-1: #e0b452;
+  --data-2: #8fb38a;
+  --data-3: #7f98b3;
+  --data-4: #c48a6a;
+  --data-5: #a48bb8;
+  --data-6: #8d8f96;
+
+  --ok-bg: #1c2a22;
+  --ok-fg: #9fd3ad;
+  --warn-bg: #2a2415;
+  --warn-fg: #e0b452;
+  --tier-backbone-bg: #202a36;
+  --tier-backbone-fg: #a9bdd4;
+  --tier-elite-bg: #332520;
+  --tier-elite-fg: #d9a98f;
+  --tier-advanced-bg: #2b2433;
+  --tier-advanced-fg: #c3b1d4;
+  --tier-commander-bg: #2a2415;
+  --tier-commander-fg: #e0b452;
+  --danger-bg: #2d1d1d;
+  --danger-fg: #e49a9a;
+  --info-bg: #1e242c;
+  --info-fg: #9fb0c3;
+  --neutral-bg: #22242a;
+  --neutral-fg: #b4b6bd;
 }
 
 /* `color-scheme` follows the choice too, so the scrollbars, form controls and
@@ -2101,47 +2174,47 @@ kbd {
  * [data-theme="dark"] — and editing one dark block without the other splits
  * the toggle from the OS preference. */
 :root {
-  --chart-1: #1d4ed8;
-  --chart-2: #b91c1c;
-  --chart-3: #047857;
-  --chart-4: #a16207;
-  --chart-5: #7e22ce;
-  --chart-6: #0e7490;
-  --chart-7: #be185d;
-  --chart-8: #4d7c0f;
-  --chart-9: #475569;
-  --chart-10: #c2410c;
-  --chart-grid: #e2e8f0;
+  --chart-1: var(--data-1);
+  --chart-2: var(--data-2);
+  --chart-3: var(--data-3);
+  --chart-4: var(--data-4);
+  --chart-5: var(--data-5);
+  --chart-6: var(--data-6);
+  --chart-7: #3f6a44;
+  --chart-8: #7e4a2e;
+  --chart-9: #3a5068;
+  --chart-10: #8a7a2e;
+  --chart-grid: var(--border);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --chart-1: #60a5fa;
-    --chart-2: #f87171;
-    --chart-3: #34d399;
-    --chart-4: #fbbf24;
-    --chart-5: #c084fc;
-    --chart-6: #22d3ee;
-    --chart-7: #f472b6;
-    --chart-8: #a3e635;
-    --chart-9: #94a3b8;
-    --chart-10: #fb923c;
-    --chart-grid: #334155;
+    --chart-1: var(--data-1);
+    --chart-2: var(--data-2);
+    --chart-3: var(--data-3);
+    --chart-4: var(--data-4);
+    --chart-5: var(--data-5);
+    --chart-6: var(--data-6);
+    --chart-7: #6f9470;
+    --chart-8: #a87052;
+    --chart-9: #60788f;
+    --chart-10: #d6c38a;
+    --chart-grid: var(--border);
   }
 }
 
 :root[data-theme="dark"] {
-  --chart-1: #60a5fa;
-  --chart-2: #f87171;
-  --chart-3: #34d399;
-  --chart-4: #fbbf24;
-  --chart-5: #c084fc;
-  --chart-6: #22d3ee;
-  --chart-7: #f472b6;
-  --chart-8: #a3e635;
-  --chart-9: #94a3b8;
-  --chart-10: #fb923c;
-  --chart-grid: #334155;
+  --chart-1: var(--data-1);
+  --chart-2: var(--data-2);
+  --chart-3: var(--data-3);
+  --chart-4: var(--data-4);
+  --chart-5: var(--data-5);
+  --chart-6: var(--data-6);
+  --chart-7: #6f9470;
+  --chart-8: #a87052;
+  --chart-9: #60788f;
+  --chart-10: #d6c38a;
+  --chart-grid: var(--border);
 }
 
 .chart {
