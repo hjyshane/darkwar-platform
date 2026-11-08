@@ -13,7 +13,14 @@
 //   unknown  - power is NULL on either level, so the gain cannot be worked out.
 //   blocked  - a prerequisite is not met yet; says which.
 
-import { type Buffs, type Requirement, type Step, totals } from './plan';
+import {
+  type Buffs,
+  type MaterialTotal,
+  type Requirement,
+  type Step,
+  stockable,
+  totals,
+} from './plan';
 
 /** A step and the one below it, which is where the account stands. `current`
  * is null for something not built or researched yet (power 0 by definition). */
@@ -43,7 +50,7 @@ export interface Recommendation {
   /** After the speed buff; null when the step takes no time. */
   hours: number | null;
   /** What it costs after the cost-reduction buff. */
-  costs: { type: 'resource' | 'item'; id: string; amount: number }[];
+  costs: MaterialTotal[];
   /** The largest share of any single stock the step would use; 0 for no cost. */
   worstShare: number;
   affordable: boolean;
@@ -87,7 +94,7 @@ function unmet(step: Step, input: RecommendInput): Requirement[] {
   });
 }
 
-function shareOf(cost: { type: 'resource' | 'item'; id: string; amount: number }, stock: Stock) {
+function shareOf(cost: MaterialTotal, stock: Stock) {
   const held = (cost.type === 'resource' ? stock.resources : stock.items)[cost.id] ?? 0;
   if (cost.amount <= 0) {
     return 0;
@@ -100,7 +107,12 @@ function price(candidate: Candidate, gain: number, input: RecommendInput): Recom
   const spent = totals([{ step, prerequisite: false, goal: 0 }], input.buffs);
   const seconds = step.kind === 'building' ? spent.buildSeconds : spent.researchSeconds;
   const hours = seconds > 0 ? seconds / 3600 : null;
-  const worstShare = Math.max(0, ...spent.materials.map((cost) => shareOf(cost, input.stock)));
+  // Only what an account holds is a share of stock (counters never reach a
+  // building or research step anyway).
+  const worstShare = Math.max(
+    0,
+    ...stockable(spent.materials).map((cost) => shareOf(cost, input.stock)),
+  );
   const affordable = worstShare <= 1;
   const score =
     input.metric === 'perHour'
