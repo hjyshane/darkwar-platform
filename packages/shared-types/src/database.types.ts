@@ -4107,6 +4107,7 @@ export type Database = {
       }
       game_items: {
         Row: {
+          counter_value: Json | null
           icon: string | null
           item_id: string
           item_type: number | null
@@ -4116,6 +4117,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          counter_value?: Json | null
           icon?: string | null
           item_id: string
           item_type?: number | null
@@ -4125,6 +4127,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          counter_value?: Json | null
           icon?: string | null
           item_id?: string
           item_type?: number | null
@@ -4380,6 +4383,7 @@ export type Database = {
         Row: {
           category: number | null
           costs: Json
+          game_season: number | null
           kind: string
           level: number
           name: string | null
@@ -4394,6 +4398,7 @@ export type Database = {
         Insert: {
           category?: number | null
           costs?: Json
+          game_season?: number | null
           kind: string
           level: number
           name?: string | null
@@ -4408,6 +4413,7 @@ export type Database = {
         Update: {
           category?: number | null
           costs?: Json
+          game_season?: number | null
           kind?: string
           level?: number
           name?: string | null
@@ -9170,6 +9176,7 @@ export type Database = {
       game_upgrade_subjects: {
         Row: {
           category: number | null
+          game_season: number | null
           kind: string | null
           max_level: number | null
           name: string | null
@@ -10140,6 +10147,7 @@ export type Database = {
         Args: { p_key: string; p_kind?: string; p_scope: string }
         Returns: number
       }
+      costs_are_valid: { Args: { p_costs: Json }; Returns: boolean }
       current_app_role: {
         Args: never
         Returns: Database["public"]["Enums"]["app_role"]
