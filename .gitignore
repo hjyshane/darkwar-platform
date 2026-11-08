@@ -96,3 +96,6 @@ apps/desktop/src-tauri/gen/schemas
 # The packaged sidecar (~18 MB) copied here for externalBin — rebuild it from
 # services/collector/dist/dw-sidecar.exe, never commit it.
 apps/desktop/src-tauri/binaries/
+
+# brainstorming visual companion sessions
+.superpowers/
