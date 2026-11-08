@@ -23,6 +23,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { StatTile } from '../../components/StatTile';
 import { Tabs } from '../../components/ui/Tabs';
+import { useHandoff } from '../calculator/useHandoff';
 import { AccountBar, ManualBanner } from './AccountBar';
 import { Breakdown } from './Breakdown';
 import { BuildingPicker } from './BuildingPicker';
@@ -118,6 +119,8 @@ export function PlannerPage() {
     () => (plannerKindFromHash(hash) as Section | null) ?? 'building',
   );
   const [targets, setTargets] = useState<ReadonlyMap<string, Target>>(new Map());
+  // A target the calculator handed over in the address ("Load into my plan").
+  useHandoff(account, (target) => setTargets((cur) => withTarget(cur, target)));
   const [withPrereqs, setWithPrereqs] = useState(true);
   const [timedOn, setTimedOn] = useState<ReadonlySet<number>>(new Set());
   const [extra, setExtra] = useState<Buffs>({
