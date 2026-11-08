@@ -200,6 +200,13 @@ running ──패킷 침묵 ≥ 10분──▶ stalled ──┐
 별도 서비스이고 여기서 시작하지 않는다. **VM에서 실행해 본 적이 없다.** 첫 실행은
 `DW_CLOUD_NO_RESTART=1`(캡처만)로 시작해 `journal-summary`가 늘어나는 것부터 본다.
 
+설치는 `scripts/cloud/install-dw-cloud.sh`가 한다: 전제(uv, tcpdump, `sudo -n`, `.env`의
+네 값, 기본 경로 인터페이스)를 검사하고 `uv sync` 뒤 아래 유닛을 써서 켠다. **인자 없이
+실행하면 `DW_CLOUD_NO_RESTART=1`(캡처만)** 이고, 청크와 `journal-summary`가 느는 것을 본 뒤
+`--with-restart`로 다시 실행하면 감시 루프가 켜진다. `--remove`로 지운다. 에뮬레이터 유닛은
+설치하지 않는다 — `scripts/cloud/dw-emulator.service.example`을 손으로 복사한다(§8의
+`-gpu swangle_indirect`).
+
 ### 안전장치
 - 재시작은 `DW_CLOUD_SERIAL`(기본 `emulator-5554`) **한 대**에만, `AdbClient`의 가드를
   거쳐 간다. 그 serial이 VM의 adb에 보이는 **유일한 기기**가 아니면 `AdbGuardError`로
@@ -210,34 +217,34 @@ running ──패킷 침묵 ≥ 10분──▶ stalled ──┐
 - 알림은 `~/dw-data/cloud-alerts.jsonl`과 로그에 남는다. 외부로 나가는 알림은 §4의
   `data_stalled` 뿐이다.
 
-### 한 번만 하는 설정
-```bash
-# tcpdump를 sudo 비밀번호 없이 (GCE 기본 계정은 이미 NOPASSWD)
-sudo apt-get install -y tcpdump
-# 저장소와 uv, 비밀은 ~/dw-data/.env (커밋 금지)
-cd services/collector && uv sync
-```
-
-### systemd (`/etc/systemd/system/dw-cloud.service`)
+### 스크립트가 쓰는 유닛 (`/etc/systemd/system/dw-cloud.service`)
 ```ini
 [Unit]
-Description=Dark War cloud collector
+Description=Dark War cloud collector (tcpdump -> ingest -> sync, watchdog)
 After=network-online.target dw-emulator.service
-Wants=dw-emulator.service
+Wants=network-online.target
 
 [Service]
-User=hxy008
-WorkingDirectory=/home/hxy008/DW_app/services/collector
-Environment=DW_DATA_DIR=/home/hxy008/dw-data
-Environment=DW_CLOUD_ADB=/home/hxy008/android/platform-tools/adb
-ExecStart=/home/hxy008/.local/bin/uv run dw-cloud
+User=<login user>
+WorkingDirectory=<repo>/services/collector
+Environment=PATH=<~/.local/bin, uv, adb, system>
+Environment=DW_DATA_DIR=<~/dw-data>
+Environment=DW_ENV_FILE=<~/dw-data/.env>
+Environment=DW_CLOUD_INTERFACE=<default route dev, e.g. ens4>
+Environment=DW_CLOUD_TCPDUMP=/usr/bin/tcpdump
+Environment=DW_CLOUD_ADB=<platform-tools/adb>
+Environment=DW_CLOUD_NO_RESTART=1        # --with-restart 로 설치하면 이 줄이 없다
+ExecStart=<uv> run --no-sync dw-cloud
 Restart=always
 RestartSec=30
+TimeoutStopSec=90
 
 [Install]
 WantedBy=multi-user.target
 ```
-`dw-emulator.service`의 GPU 모드는 `-gpu swangle_indirect`여야 한다(§8).
+tcpdump는 `sudo -n`으로 뜬다(GCE 기본 계정은 NOPASSWD). 비밀은 `~/dw-data/.env`(커밋 금지),
+`DW_COLLECTOR_ID`는 Windows 수집기와 **다른 값**을 쓴다 — 같은 값이면 `sync_status`에서 두
+수집기가 하나로 보인다.
 
 ### 환경 변수
 | 변수 | 기본값 | 뜻 |

@@ -1,0 +1,27 @@
+# The emulator unit that dw-cloud orders itself after. Not installed by any script:
+# copy it to /etc/systemd/system/dw-emulator.service, fix the user, the paths and
+# the AVD name, then:
+#   sudo systemctl daemon-reload && sudo systemctl enable --now dw-emulator
+#
+# What docs/runbooks/cloud-unattended.md section 8 found on 2026-11-04 (GCE dw-emu-test):
+# - the emulator dies with its SSH session unless it runs under systemd;
+# - -gpu swangle_indirect is the only mode that survived opening the Play Store
+#   (swiftshader_indirect and guest crashed with SEGV, "Failed to find ColorBuffer");
+# - headless needs the X11 client libraries installed (libx11-xcb1 and friends).
+# Whether it survives hours of the game running is not known yet.
+[Unit]
+Description=Android emulator for the Dark War collector account
+After=network-online.target
+
+[Service]
+User=hxy008
+Environment=ANDROID_SDK_ROOT=/home/hxy008/android
+Environment=ANDROID_AVD_HOME=/home/hxy008/.android/avd
+ExecStart=/home/hxy008/android/emulator/emulator -avd dw -no-window -no-audio -no-boot-anim -gpu swangle_indirect -no-snapshot-save
+Restart=on-failure
+RestartSec=20
+# The emulator takes a while to shut down; a SIGKILL can corrupt the data partition.
+TimeoutStopSec=120
+
+[Install]
+WantedBy=multi-user.target
