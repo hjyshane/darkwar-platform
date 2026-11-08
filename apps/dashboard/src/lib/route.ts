@@ -408,11 +408,10 @@ export interface NavTab {
  * link anybody has already sent still lands on the same screen — only where
  * the tab for it sits.
  *
- *   overview   the landing screen, the cross-server boards read against it,
- *              and (since 2026-11-08) our own alliance's page and its views
- *   alliance   our own alliance's entry — roster, hive plan, season boards,
- *              Black Gold and participation under it — plus the planner and
- *              gift codes beside it
+ *   overview   the landing screen, and the cross-server boards read against it
+ *   alliance   our own alliance's entry — its page ("Overview"), roster, hive
+ *              plan, season boards, Black Gold and participation under it —
+ *              plus the planner and gift codes beside it
  *   map        on its own: one player at a time, and nothing else is like it
  *   events     what the game offers: the calendar and the shops (Schedule archived)
  *   boards     what the alliance writes to itself: notices and guides
@@ -442,17 +441,17 @@ export const OVERVIEW_TABS: ReadonlyArray<NavTab> = [
   { route: 'migration', hash: '#/migration', label: 'Migration' },
 ];
 
-/** The screens UNDER our alliance's own entry (2026-11-08): the roster, the
- * hive plan and the event boards. The entry is named after the alliance (its
- * code, from the alliances table) and opens the first of these the reader may
- * see; the sidebar lists the rest beneath it. Each keeps its own address and
- * its own in-page tab strip — Members' two rankings, Hive's three steps, the
- * Events hub strip — so nothing a link points at moved.
+/** The screens UNDER our alliance's own entry (2026-11-08), after the alliance
+ * page itself: the roster, the hive plan and the event boards. The entry is
+ * named after the alliance (its code, from the alliances table) and opens the
+ * first screen the reader may see; the sidebar lists the rest beneath it. Each
+ * keeps its own address and its own in-page tab strip — Members' two rankings,
+ * Hive's three steps, the Events hub strip — so nothing a link points at moved.
  *
- * Before this they sat BESIDE the entry, and the entry held the alliance
- * page's views; those views now sit under Overview (`OWN_ALLIANCE_VIEWS` in
- * `shellNav.ts`), since the alliance page answers the overview's question —
- * how are we doing — about us alone.
+ * The alliance page is not on this list because its address carries a uuid
+ * only a query knows; `shellNav.ts` puts it first, as "Overview", with the
+ * page's views (`ALLIANCE_VIEWS`) as its tabs. Before this these three sat
+ * BESIDE the entry, and the entry's children were the page's views.
  *
  * The season boards, Black Gold and Participation moved here from Events on
  * 2026-10-03: they are how OUR members did, which is this tab's question.

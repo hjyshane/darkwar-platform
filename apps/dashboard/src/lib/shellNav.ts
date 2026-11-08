@@ -11,10 +11,9 @@
 //
 // REGROUPED 2026-11-08. Our alliance's entry (named after the alliance, "CBFW")
 // used to hold the alliance page's views, with Members, Hive and Events beside
-// it. Now the page's views sit under Overview — the page is how WE are doing,
-// which is the overview's question asked about us alone — and Members, Hive and
-// Events sit under the alliance's entry, which opens the first of them. Again,
-// no address moved: `#/members`, `#/hive`, `#/events` and
+// it. Now the entry holds four screens: Overview (the alliance page itself, with
+// its views as the page's own strip), Members, Hive and Events. It opens the
+// first of them. Again, no address moved: `#/members`, `#/hive`, `#/events` and
 // `#/alliance/<uuid>/<view>` are what they were.
 
 import {
@@ -177,22 +176,6 @@ export function buildNav(ctx: NavContext): NavGroup[] {
   const name = (hash: string, fallback: string) => ctx.seasonNames[hash] ?? fallback;
   const shown = ctx.tabShown ?? (() => true);
 
-  // Our alliance's page, as views under Overview. Left out for a community
-  // account (the page is ours and closed to it), while the alliance is not yet
-  // known, and when an admin hid "Our alliance" (0295). Past names are left
-  // out: whether there are any is a fact about the data, which the page knows
-  // and the sidebar does not.
-  const ownViews: NavChild[] =
-    ctx.own === null || ctx.isCommunity === true || !shown('alliance')
-      ? []
-      : ALLIANCE_VIEWS.filter((view) => view.id !== 'names').map((view) => ({
-          key: allianceHash(ctx.own?.alliance_id ?? '', view.id),
-          href: allianceHash(ctx.own?.alliance_id ?? '', view.id),
-          label: view.label,
-          current: onOwn && (ctx.tabs?.alliance ?? 'members') === view.id,
-          screen: true,
-        }));
-
   const watch: NavItem[] = [
     ...OVERVIEW_TABS.filter(
       (tab) =>
@@ -205,15 +188,7 @@ export function buildNav(ctx: NavContext): NavGroup[] {
       // for the three boards behind it, so it stays current on all of them.
       label: tab.route === 'rankings' ? 'Rankings' : tab.label,
       icon: iconFor(tab.route),
-      current:
-        tab.route === 'rankings'
-          ? isRankingRoute(ctx.route)
-          : tab.route === 'overview'
-            ? ctx.route === 'overview' || onOwn
-            : tab.route === ctx.route,
-      // The landing screen, with our alliance's page unfolded beneath it: the
-      // entry stays current on that page so the views stay in view.
-      ...(tab.route === 'overview' && ownViews.length > 0 ? { children: ownViews } : {}),
+      current: tab.route === 'rankings' ? isRankingRoute(ctx.route) : tab.route === ctx.route,
       // The three boards, each its own address. Arena only where the reader
       // may see it, and not before that is known: an entry that arrives and is
       // taken away is worse than one that arrives a beat late.
@@ -290,32 +265,60 @@ export function buildNav(ctx: NavContext): NavGroup[] {
     }
   };
 
-  // Members, Hive and Events, under the alliance's own entry. The gates the
-  // entries carried when they stood on their own are unchanged: Members needs
-  // `members.view` (and not before that is known), each can be hidden by an
-  // admin (0295), and a community account gets none of them.
+  // Our alliance's page, as the first screen under its entry: "Overview". Its
+  // views are the page's own strip, kept here for Ctrl+K; past names are left
+  // out, since whether there are any is a fact about the data, which the page
+  // knows and the sidebar does not. Waits for the alliance to be known (its
+  // address is the uuid), and an admin can hide it as "Our alliance" (0295).
+  const ownPage: NavChild[] =
+    ctx.own === null || !shown('alliance')
+      ? []
+      : [
+          {
+            key: 'own-page',
+            href: allianceHash(ctx.own.alliance_id),
+            label: 'Overview',
+            current: onOwn,
+            screen: true,
+            tabs: ALLIANCE_VIEWS.filter((view) => view.id !== 'names').map((view) => ({
+              key: allianceHash(ctx.own?.alliance_id ?? '', view.id),
+              href: allianceHash(ctx.own?.alliance_id ?? '', view.id),
+              label: view.label,
+              current: onOwn && (ctx.tabs?.alliance ?? 'members') === view.id,
+            })),
+          },
+        ];
+
+  // Then Members, Hive and Events. The gates the entries carried when they
+  // stood on their own are unchanged: Members needs `members.view` (and not
+  // before that is known), each can be hidden by an admin (0295), and a
+  // community account gets none of this — the page is ours and closed to it.
   const ownScreens: NavChild[] =
     ctx.isCommunity === true
       ? []
-      : OWN_ALLIANCE_TABS.filter(
-          (tab) => (tab.route !== 'members' || ctx.mayViewMembers === true) && shown(tab.route),
-        ).map((tab) => {
-          const tabs = tabsOf(tab.route);
-          return {
-            key: tab.hash,
-            href: tab.hash,
-            label: tab.label,
-            current: tab.route === 'events' ? inEventsHub(ctx.route) : tab.route === ctx.route,
-            screen: true,
-            ...(tabs.length > 0 ? { tabs } : {}),
-          };
-        });
+      : [
+          ...ownPage,
+          ...OWN_ALLIANCE_TABS.filter(
+            (tab) => (tab.route !== 'members' || ctx.mayViewMembers === true) && shown(tab.route),
+          ).map((tab) => {
+            const tabs = tabsOf(tab.route);
+            return {
+              key: tab.hash,
+              href: tab.hash,
+              label: tab.label,
+              current: tab.route === 'events' ? inEventsHub(ctx.route) : tab.route === ctx.route,
+              screen: true,
+              ...(tabs.length > 0 ? { tabs } : {}),
+            };
+          }),
+        ];
   const firstOwn = ownScreens[0];
 
   const alliance: NavItem[] = [
-    // The entry opens the first screen the reader may see, and is current on
-    // any of them. Named after the alliance once that is known; before then
-    // the entry is still drawn, since the screens under it do not wait.
+    // The entry opens the first screen the reader may see — the alliance page
+    // once that is known — and is current on any of them. Named after the
+    // alliance once known; before then the entry is still drawn, since the
+    // other screens under it do not wait.
     ...(firstOwn === undefined
       ? []
       : [

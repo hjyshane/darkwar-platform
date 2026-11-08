@@ -129,14 +129,14 @@ describe('sidebar tabs for the alliance screens', () => {
     expect(plannerKindFromHash('#/planner')).toBeNull();
   });
 
-  it('lists our alliance views under Overview, but not past names, which depend on its data', () => {
-    const overview = entry(
+  it("keeps our alliance views on the entry's Overview, but not past names, which depend on its data", () => {
+    const page = filed(
       base({ route: 'alliance', allianceId: UUID, tabs: { alliance: 'power' } }),
-      'watch',
       'Overview',
     );
 
-    expect(overview?.children?.map((child) => child.label)).toEqual([
+    expect(page?.href).toBe(`#/alliance/${UUID}`);
+    expect(page?.tabs?.map((tab) => tab.label)).toEqual([
       'Members',
       'Overview',
       'Ranking',
@@ -144,14 +144,13 @@ describe('sidebar tabs for the alliance screens', () => {
       'Activity',
       'Against the server',
     ]);
-    expect(overview?.children?.find((child) => child.current)?.href).toBe(
-      `#/alliance/${UUID}/power`,
-    );
+    expect(page?.tabs?.find((tab) => tab.current)?.href).toBe(`#/alliance/${UUID}/power`);
   });
 
   it('marks no alliance view while another screen is open', () => {
-    const overview = entry(base({ route: 'overview' }), 'watch', 'Overview');
+    const page = filed(base({ route: 'overview' }), 'Overview');
 
-    expect(overview?.children?.some((child) => child.current)).toBe(false);
+    expect(page?.current).toBe(false);
+    expect(page?.tabs?.some((tab) => tab.current)).toBe(false);
   });
 });

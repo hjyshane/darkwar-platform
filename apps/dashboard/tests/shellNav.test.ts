@@ -168,14 +168,14 @@ describe('buildNav', () => {
     expect(current('player')).toEqual([]);
   });
 
-  it('marks Overview current on our own alliance page, and nothing on another', () => {
+  it('marks our alliance current on its own page, and nothing on another', () => {
     const on = (allianceId: string) =>
       buildNav(base({ route: 'alliance', allianceId }))
         .flatMap((group) => group.items)
         .filter((item) => item.current)
         .map((item) => item.label);
 
-    expect(on('a1')).toEqual(['Overview']);
+    expect(on('a1')).toEqual(['CBFW']);
     expect(on('somebody-else')).toEqual([]);
   });
 });
@@ -197,6 +197,9 @@ describe('buildFooter and breadcrumb', () => {
 
     // A screen filed under our alliance's entry is named after it.
     expect(at('hive')).toEqual(['Alliance', 'CBFW', 'Hive']);
+    expect(
+      breadcrumb(buildNav(base({ route: 'alliance', allianceId: 'a1' })), [], 'alliance'),
+    ).toEqual(['Alliance', 'CBFW', 'Overview']);
     expect(at('planner')).toEqual(['Alliance', 'Planner']);
     expect(at('account')).toEqual(['My account']);
     expect(at('player')).toEqual(['Player']);
