@@ -99,8 +99,17 @@ describe('CellGrid', () => {
         <Cell label="A" value="1" />
       </CellGrid>,
     );
-    expect(
-      (container.querySelector('.cell-grid') as HTMLElement).style.getPropertyValue('--cols'),
-    ).toBe('6');
+    const grid = container.querySelector('.cell-grid') as HTMLElement;
+    expect(grid.style.getPropertyValue('--cols')).toBe('6');
+    expect(grid.getAttribute('data-cols')).toBe('6');
+  });
+
+  it('sets no data-cols when the count is omitted, so auto-fit applies', () => {
+    const { container } = render(
+      <CellGrid>
+        <Cell label="A" value="1" />
+      </CellGrid>,
+    );
+    expect(container.querySelector('.cell-grid')?.hasAttribute('data-cols')).toBe(false);
   });
 });

@@ -59,6 +59,9 @@
   --map-fg: #e8e6e1;
   --map-fg-muted: #9a9ca3;
   --map-ring: #ffffff;
+  /* The shield ring and the shield mark. Not the accent: ours is the accent,
+   * and a shielded own base must still show two colours. */
+  --map-shield: #facc15;
   --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
 
   --text-sm: 0.8125rem;
@@ -84,7 +87,7 @@
   --border-strong: #bdbbb2;
   /* The accent as text and border; the fill is the lighter amber with dark
    * text on it, because #e0b452 on paper fails AA as text. */
-  --accent: #a16207;
+  --accent: #955a06;
   --accent-fg: #ffffff;
   --accent-fill: #e0b452;
   --accent-fill-fg: #17181a;
@@ -113,6 +116,12 @@
    * LED dot. Light gets no glow: on paper it reads as a smudge. */
   --ok: #2f7d4a;
   --bad: #b4433f;
+
+  /* The game's own two rank colours: gold stars, red awakenings. Themed for
+   * contrast but never the accent or a status token, because a pentagon is
+   * not a failure and a star is not a call to action. */
+  --game-gold: #d9a105;
+  --game-red: #dc2626;
   --led-glow-ok: none;
   --led-glow-bad: none;
   --led-glow-warn: none;
@@ -202,6 +211,8 @@
 
     --ok: #6cc38a;
     --bad: #e07070;
+    --game-gold: #fbbf24;
+    --game-red: #f87171;
     --led-glow-ok: 0 0 6px var(--ok);
     --led-glow-bad: 0 0 6px var(--bad);
     --led-glow-warn: 0 0 6px var(--accent);
@@ -267,6 +278,8 @@
 
   --ok: #6cc38a;
   --bad: #e07070;
+  --game-gold: #fbbf24;
+  --game-red: #f87171;
   --led-glow-ok: 0 0 6px var(--ok);
   --led-glow-bad: 0 0 6px var(--bad);
   --led-glow-warn: 0 0 6px var(--accent);
@@ -1404,29 +1417,11 @@ button:focus-visible {
  * thing it is copying. Contrast is carried by the outline, which is the same
  * colour as the fill, so an empty shape is still visible on either surface. */
 .rank-star {
-  color: var(--accent);
+  color: var(--game-gold);
 }
 
 .rank-pentagon {
-  color: var(--bad);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .rank-star {
-    color: var(--accent);
-  }
-
-  :root:not([data-theme="light"]) .rank-pentagon {
-    color: var(--bad);
-  }
-}
-
-:root[data-theme="dark"] .rank-star {
-  color: var(--accent);
-}
-
-:root[data-theme="dark"] .rank-pentagon {
-  color: var(--bad);
+  color: var(--game-red);
 }
 
 /* Gear is four pieces, one per line: at level 100 the number stops meaning
@@ -1950,7 +1945,7 @@ select.rank-badge {
   padding: 0;
 }
 
-.chips .chip {
+.chips .filter-chip {
   background: var(--bg-raised);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -1960,12 +1955,12 @@ select.rank-badge {
   text-decoration: none;
 }
 
-.chips .chip:hover {
+.chips .filter-chip:hover {
   background: var(--bg-hover);
   border-color: var(--border-strong);
 }
 
-.chips .chip:focus-visible {
+.chips .filter-chip:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
@@ -2097,7 +2092,7 @@ select.rank-badge {
 
 /* A chip that acts rather than navigates. Same look as the link chips, but a
  * button, because it changes a setting instead of going somewhere. */
-.chips button.chip {
+.chips button.filter-chip {
   cursor: pointer;
   font: inherit;
 }
@@ -2682,7 +2677,7 @@ kbd {
   --ink-orange: #b45309;
   --ink-green: #15803d;
   --ink-blue: #1d4ed8;
-  --ink-purple: var(--data-5);
+  --ink-purple: #6d28d9;
   --ink-grey: #6b7280;
   --ink-mark-bg: #fef08a;
   --ink-mark-fg: #1f2937;
@@ -2690,7 +2685,7 @@ kbd {
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --ink-red: var(--bad);
+    --ink-red: #fca5a5;
     --ink-orange: #fcd34d;
     --ink-green: #86efac;
     --ink-blue: #93c5fd;
@@ -2702,7 +2697,7 @@ kbd {
 }
 
 :root[data-theme="dark"] {
-  --ink-red: var(--bad);
+  --ink-red: #fca5a5;
   --ink-orange: #fcd34d;
   --ink-green: #86efac;
   --ink-blue: #93c5fd;
@@ -5996,8 +5991,8 @@ button.tile-grid:hover:not(:disabled) {
 }
 
 .rank-medal-1 {
-  background: var(--gold-strong);
-  border-color: var(--gold);
+  background: var(--accent-fill);
+  border-color: var(--accent-fill);
   color: var(--accent-fill-fg);
 }
 
@@ -6010,7 +6005,7 @@ button.tile-grid:hover:not(:disabled) {
 .rank-medal-3 {
   background: var(--medal-bronze);
   border-color: var(--medal-bronze);
-  color: var(--accent-fill-fg);
+  color: var(--accent-fg);
 }
 
 /* Share-of-max bar beside a figure. */
@@ -6460,8 +6455,8 @@ button.server-link {
 }
 
 .atlas-dot--shield {
-  box-shadow: 0 0 0 calc(1.5px / var(--map-zoom, 1)) var(--accent), 0 0
-    calc(6px / var(--map-zoom, 1)) var(--accent);
+  box-shadow: 0 0 0 calc(1.5px / var(--map-zoom, 1)) var(--map-shield), 0 0
+    calc(6px / var(--map-zoom, 1)) var(--map-shield);
 }
 
 .atlas-label {
@@ -6991,7 +6986,7 @@ button.server-link {
 }
 
 .atlas-route--on {
-  stroke: var(--accent);
+  stroke: var(--map-shield);
   stroke-width: calc(2.5px / var(--map-zoom, 1));
 }
 
@@ -7120,7 +7115,7 @@ button.server-link {
 
 .atlas-hover__row b.atlas-hover__shield,
 .atlas-dot__name em.atlas-dot__shield {
-  color: var(--accent);
+  color: var(--map-shield);
 }
 
 /* A truck as the game draws it, on a ring like the one under it in the client. */

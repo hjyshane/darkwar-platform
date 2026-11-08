@@ -91,7 +91,7 @@ export interface CellGridProps {
 export function CellGrid({ children, columns }: CellGridProps) {
   const style = columns ? ({ '--cols': String(columns) } as CSSProperties) : undefined;
   return (
-    <div className="cell-grid" style={style}>
+    <div className="cell-grid" data-cols={columns ? String(columns) : undefined} style={style}>
       {children}
     </div>
   );

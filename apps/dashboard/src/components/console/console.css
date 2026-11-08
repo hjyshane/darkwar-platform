@@ -11,7 +11,16 @@
   border: 1px solid var(--border);
   display: grid;
   gap: 1px;
-  grid-template-columns: repeat(var(--cols, auto-fit), minmax(9.5rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+}
+
+/* A fixed column count only applies once the row has room for it; below
+ * 720px the grid falls back to auto-fit, and the cells may shrink to zero
+ * so six columns never push out of their container. */
+@media (min-width: 720px) {
+  .cell-grid[data-cols] {
+    grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 480px) {

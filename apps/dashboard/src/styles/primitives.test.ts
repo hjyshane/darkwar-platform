@@ -52,6 +52,21 @@ describe('console primitives', () => {
     expect(label).toMatch(/font-size: var\(--text-label\)/);
   });
 
+  it('restyles the favourites chips under their renamed class', () => {
+    expect(css).toMatch(/^\.chips \.filter-chip \{/m);
+    expect(css).toMatch(/^\.chips button\.filter-chip \{/m);
+    expect(css).not.toMatch(/^\.chips (button)?\.chip\b/m);
+  });
+
+  it('caps a fixed-column cell grid to wide viewports and lets cells shrink', () => {
+    const kit = readFileSync(join(root, 'src', 'components', 'console', 'console.css'), 'utf8');
+    const base = kit.match(/^\.cell-grid \{([^}]*)\}/m)?.[1] ?? '';
+    expect(base).not.toMatch(/--cols/);
+    expect(kit).toMatch(
+      /@media \(min-width: 720px\) \{\s*\.cell-grid\[data-cols\] \{[^}]*repeat\(var\(--cols\), minmax\(0, 1fr\)\)/,
+    );
+  });
+
   it('gives bare links the accent instead of the browser default blue', () => {
     const anchor = css.match(/^a \{([^}]*)\}/m)?.[1] ?? '';
     expect(anchor).toMatch(/color: var\(--accent\)/);
