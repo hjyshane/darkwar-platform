@@ -250,9 +250,20 @@ export function plannerKindFromHash(hash: string): string | null {
 /** An alliance page's views. Which of them a given alliance offers depends on
  * its data (past names, whether it is ours), so the page filters this list; the
  * sidebar lists the ones every alliance of ours has. */
-export type AllianceView = 'members' | 'board' | 'power' | 'activity' | 'compare' | 'names';
+export type AllianceView =
+  | 'members'
+  | 'overview'
+  | 'board'
+  | 'power'
+  | 'activity'
+  | 'compare'
+  | 'names';
 export const ALLIANCE_VIEWS: ReadonlyArray<{ id: AllianceView; label: string }> = [
   { id: 'members', label: 'Members' },
+  // Strongest members and, for officers, who left lately. After Members, not
+  // before it: the bare address has always opened Members and a link anybody
+  // has sent expects that.
+  { id: 'overview', label: 'Overview' },
   { id: 'board', label: 'Ranking' },
   { id: 'power', label: 'Power and towers' },
   { id: 'activity', label: 'Activity' },

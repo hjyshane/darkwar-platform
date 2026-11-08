@@ -22,6 +22,7 @@ import {
   PlayerLocationMap,
   PlayerLocationNote,
   PlayerLocationTile,
+  PlayerShieldTile,
   useMapDisclosure,
   usePlayerHasLocation,
 } from './PlayerLocationTile';
@@ -33,6 +34,7 @@ import {
   newestPerLeague,
   percent,
 } from './playerArena';
+import { PlayerServerRankTile } from './serverRank';
 
 /** One player, gathered from every table that knows something about them.
  *
@@ -428,6 +430,8 @@ export function PlayerPage({ playerId, now }: { playerId: string; now?: Date }) 
             onToggleMap={hasLocation ? map.toggle : undefined}
             playerId={data.playerId}
           />
+          <PlayerShieldTile now={now} playerId={data.playerId} />
+          <PlayerServerRankTile power={data.power} serverId={data.serverId} />
         </div>
         <PlayerLocationNote now={now} playerId={data.playerId} />
         {map.open && <PlayerLocationMap now={now} playerId={data.playerId} />}
@@ -594,6 +598,17 @@ export function PlayerPage({ playerId, now }: { playerId: string; now?: Date }) 
           <ChartFlow>
             <PlayerTrend playerId={data.playerId} />
           </ChartFlow>
+          {/* The hero and pet lines sit under the total, on the screen people
+              open first: "are they still building" is the question after "how
+              strong". It was one tab away; the chart is the same one, moved. */}
+          {data.componentPower.length > 0 && (
+            <>
+              <h3 id="player-component-trend">Heroes and pets over time</h3>
+              <ChartFlow>
+                <ComponentTrend playerId={data.playerId} />
+              </ChartFlow>
+            </>
+          )}
         </section>
       )}
 
@@ -615,11 +630,7 @@ export function PlayerPage({ playerId, now }: { playerId: string; now?: Date }) 
               />
             ))}
           </div>
-          {/* The tiles are the newest reading; this is the shape. Hero power moves
-              in steps when a threshold is crossed, which no single figure shows. */}
-          <ChartFlow>
-            <ComponentTrend playerId={data.playerId} />
-          </ChartFlow>
+          {/* The shape of these lines is on the Growth tab, under total power. */}
         </section>
       )}
 

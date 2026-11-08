@@ -23,6 +23,9 @@ export interface PlayerLocation {
   y: number;
   serverId: number;
   capturedAt: string;
+  /** When the shield ends, as of this sighting (0262). Null when never shielded
+   * or not read; in the past once it is down. */
+  shieldEndAt: string | null;
 }
 
 export type LocationState =
@@ -55,7 +58,7 @@ export function stateOf(
 export async function fetchPlayerLocation(playerId: string): Promise<PlayerLocation | null> {
   const { data, error } = await supabase
     .from('world_city_snapshots')
-    .select('x, y, server_id, captured_at')
+    .select('x, y, server_id, captured_at, shield_end_at')
     .eq('player_id', playerId)
     .order('captured_at', { ascending: false })
     .limit(1)
@@ -76,6 +79,7 @@ export async function fetchPlayerLocation(playerId: string): Promise<PlayerLocat
     y: data.y,
     serverId: data.server_id,
     capturedAt: data.captured_at,
+    shieldEndAt: data.shield_end_at,
   };
 }
 
@@ -91,4 +95,36 @@ export function usePlayerLocation(playerId: string) {
 /** `491, 444` — the coordinate as the game writes it. */
 export function formatCoordinate(at: PlayerLocation): string {
   return `${at.x}, ${at.y}`;
+}
+
+/** How old a sighting may be before "no shield" stops being an answer.
+ *
+ * Far shorter than the location's day: a shield is eight hours at the least and
+ * a base can raise one the minute after the sweep. A reading older than this
+ * that shows the shield down is "may be up now", never "down". */
+export const SHIELD_MAX_AGE_MS = 3 * 60 * 60 * 1000;
+
+export type ShieldState =
+  /** Nobody has swept this player's ground. */
+  | { kind: 'unknown' }
+  /** The sighting has the shield running and it has not ended yet. It can be
+   * extended, so this is "until at least", as of the sighting. */
+  | { kind: 'up'; endsAt: Date }
+  /** Down at a sighting recent enough to trust. `since` is when it ended, or
+   * null when it was never shielded. */
+  | { kind: 'down'; since: Date | null }
+  /** The shield had ended or was never seen, but the reading is old: it may
+   * have been raised again since. */
+  | { kind: 'maybe'; since: Date | null };
+
+export function shieldStateOf(location: PlayerLocation | null, now: Date): ShieldState {
+  if (location === null) {
+    return { kind: 'unknown' };
+  }
+  const end = location.shieldEndAt === null ? null : new Date(location.shieldEndAt);
+  if (end !== null && end.getTime() > now.getTime()) {
+    return { kind: 'up', endsAt: end };
+  }
+  const age = now.getTime() - new Date(location.capturedAt).getTime();
+  return age <= SHIELD_MAX_AGE_MS ? { kind: 'down', since: end } : { kind: 'maybe', since: end };
 }

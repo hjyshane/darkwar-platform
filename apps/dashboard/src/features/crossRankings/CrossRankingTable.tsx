@@ -12,6 +12,7 @@ import type { ColumnSpec } from '../../lib/tableLayout';
 import { TERMS } from '../../lib/terms';
 import { useTableView } from '../../lib/useTableView';
 import type { Board, BoardRow } from './boards';
+import { gapsToAbove, inBoardOrder } from './gap';
 
 const numberFormat = new Intl.NumberFormat('ko-KR');
 
@@ -38,6 +39,7 @@ export function crossRankingColumnSpecs(): ColumnSpec[] {
     { id: 'server', label: TERMS.server },
     { id: 'alliance', label: TERMS.alliance },
     { id: 'value', label: 'Value (varies by board)' },
+    { id: 'gap', label: 'Behind the one above' },
     { id: 'unit', label: 'Hero or pet (boards that have one)' },
   ];
 }
@@ -97,6 +99,13 @@ export function CrossRankingTable({
   const localMax = useMemo(() => Math.max(0, ...rows.map((row) => row.value ?? 0)), [rows]);
   const maxValue = remote ? remote.maxValue : localMax;
   const withAlliance = remote !== undefined;
+  // The distance to the row above, drawn only while that row really is the next
+  // one up: board order, no search. The first row of a page has nobody above it
+  // on the page, so it shows a dash rather than a number from a page not loaded.
+  const gapById = useMemo(() => {
+    const gaps = inBoardOrder(sort, query) ? gapsToAbove(pageRows) : pageRows.map(() => null);
+    return new Map(pageRows.map((row, index) => [row.id, gaps[index] ?? null]));
+  }, [pageRows, sort, query]);
 
   // Declared above the early return: a hook cannot be skipped, and this list is
   // built by one.
@@ -179,6 +188,16 @@ export function CrossRankingTable({
           </span>
         ),
       },
+      {
+        id: 'gap',
+        label: 'Behind',
+        numeric: true,
+        cellTitle: () => 'How much more it takes to pass the one above',
+        cell: (row) => {
+          const gap = gapById.get(row.id) ?? null;
+          return gap === null ? '—' : `−${numberFormat.format(gap)}`;
+        },
+      },
       // The id becomes a name where a catalogue has one, and stays the id where
       // nobody has typed it — the same fallback the arena board uses, so a gap
       // in the catalogue looks the same everywhere.
@@ -207,7 +226,7 @@ export function CrossRankingTable({
         : null,
     ];
     return declared.filter((column): column is Column<BoardRow> => column !== null);
-  }, [board, heroes, pets, heroIcons, petIcons, maxValue, withAlliance]);
+  }, [board, heroes, pets, heroIcons, petIcons, maxValue, withAlliance, gapById]);
 
   if (remote ? remote.overall === 0 : rows.length === 0) {
     return <p className="empty">No ranking data yet.</p>;

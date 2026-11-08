@@ -7415,3 +7415,69 @@ button.server-link {
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
+
+/* The selected player's chip: two buttons sharing one pill. */
+.atlas-chip--selected {
+  cursor: default;
+  gap: 0;
+  padding: 0;
+}
+
+.atlas-chip__main,
+.atlas-chip__x {
+  background: none;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  padding: var(--space-2) var(--space-3);
+}
+
+.atlas-chip__main {
+  max-width: 14rem;
+  overflow: hidden;
+  padding-right: var(--space-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A phone-height map leaves the detail below the fold; keep the chip a thumb's
+ * reach and let the stage leave room for the detail to show on first scroll. */
+@media (max-width: 50rem) {
+  .atlas {
+    grid-template-rows: 55dvh auto;
+  }
+
+  .atlas-chip__main,
+  .atlas-chip__x {
+    min-height: 2.75rem;
+  }
+}
+
+/* On a phone, a chosen base's detail is a sheet over the lower part of the map
+ * rather than a column below it, so choosing a dot shows who it is without
+ * scrolling away from the dot. The search and filters stay in the page flow and
+ * come back when the selection is cleared. */
+@media (max-width: 50rem) {
+  .atlas--sheet {
+    grid-template-rows: 100dvh;
+  }
+
+  .atlas--sheet .hunt-side {
+    background: var(--bg);
+    border-radius: var(--radius-lg, 12px) var(--radius-lg, 12px) 0 0;
+    border-top: 1px solid var(--border);
+    bottom: 0;
+    box-shadow: 0 -8px 24px rgb(0 0 0 / 0.35);
+    left: 0;
+    max-height: 45dvh;
+    position: fixed;
+    right: 0;
+    z-index: 20;
+  }
+
+  .atlas--sheet .atlas-side__top,
+  .atlas--sheet .atlas-side__filters {
+    display: none;
+  }
+}

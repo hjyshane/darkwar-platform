@@ -139,6 +139,7 @@ describe('sidebar tabs for the alliance screens', () => {
 
     expect(own?.children?.map((child) => child.label)).toEqual([
       'Members',
+      'Overview',
       'Ranking',
       'Power and towers',
       'Activity',

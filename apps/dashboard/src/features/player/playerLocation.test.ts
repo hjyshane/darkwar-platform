@@ -1,7 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { LOCATION_MAX_AGE_MS, formatCoordinate, stateOf } from './playerLocation';
+import {
+  LOCATION_MAX_AGE_MS,
+  SHIELD_MAX_AGE_MS,
+  formatCoordinate,
+  shieldStateOf,
+  stateOf,
+} from './playerLocation';
 
-const at = (capturedAt: string) => ({ x: 491, y: 444, serverId: 581, capturedAt });
+const at = (capturedAt: string) => ({
+  x: 491,
+  y: 444,
+  serverId: 581,
+  capturedAt,
+  shieldEndAt: null,
+});
 const NOW = new Date('2026-08-22T12:00:00Z');
 
 describe('stateOf', () => {
@@ -35,5 +47,47 @@ describe('stateOf', () => {
       expect(formatCoordinate(state.at)).toBe('491, 444');
       expect(state.at.serverId).toBe(581);
     }
+  });
+});
+
+describe('shieldStateOf', () => {
+  const sight = (capturedAt: string, shieldEndAt: string | null) => ({
+    ...at(capturedAt),
+    shieldEndAt,
+  });
+
+  it('is unknown with no sighting', () => {
+    expect(shieldStateOf(null, NOW)).toEqual({ kind: 'unknown' });
+  });
+
+  it('is up while the shield end is in the future', () => {
+    const state = shieldStateOf(sight('2026-08-22T11:00:00Z', '2026-08-22T15:00:00Z'), NOW);
+    expect(state.kind).toBe('up');
+  });
+
+  it('is up from an old sighting too, because the end is still ahead', () => {
+    // A shield that outlasts the reading has not ended whatever the age.
+    const state = shieldStateOf(sight('2026-08-22T01:00:00Z', '2026-08-22T13:00:00Z'), NOW);
+    expect(state.kind).toBe('up');
+  });
+
+  it('is down when the end has passed and the sighting is fresh', () => {
+    const state = shieldStateOf(sight('2026-08-22T11:00:00Z', '2026-08-22T09:00:00Z'), NOW);
+    expect(state).toEqual({ kind: 'down', since: new Date('2026-08-22T09:00:00Z') });
+  });
+
+  it('is only "maybe" when the sighting is older than the shield window', () => {
+    // Down at 06:00 does not mean down at noon: a shield can be raised after the sweep.
+    const old = sight('2026-08-22T06:00:00Z', '2026-08-22T05:00:00Z');
+    expect(shieldStateOf(old, NOW).kind).toBe('maybe');
+    const justInside = new Date(NOW.getTime() - SHIELD_MAX_AGE_MS + 1000).toISOString();
+    expect(shieldStateOf(sight(justInside, null), NOW)).toEqual({ kind: 'down', since: null });
+  });
+
+  it('never shielded and fresh is down with no end time', () => {
+    expect(shieldStateOf(sight('2026-08-22T11:30:00Z', null), NOW)).toEqual({
+      kind: 'down',
+      since: null,
+    });
   });
 });
