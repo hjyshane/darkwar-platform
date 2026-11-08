@@ -1217,15 +1217,23 @@ export type Database = {
       alliance_snapshots: {
         Row: {
           alliance_id: string
+          announce: string | null
           captured_at: string
           code: string | null
           collected_from_server_id: number
           collector_id: string
+          country: string | null
           created_at: string
           external_id: string
           idempotency_key: string
+          intro: string | null
+          join_approval: number | null
+          language: string | null
           leader_game_uid: number | null
+          max_members: number | null
           member_count: number | null
+          min_hq: number | null
+          min_power: number | null
           name: string | null
           observation_id: string
           parser_version: string
@@ -1238,15 +1246,23 @@ export type Database = {
         }
         Insert: {
           alliance_id: string
+          announce?: string | null
           captured_at: string
           code?: string | null
           collected_from_server_id: number
           collector_id: string
+          country?: string | null
           created_at?: string
           external_id: string
           idempotency_key: string
+          intro?: string | null
+          join_approval?: number | null
+          language?: string | null
           leader_game_uid?: number | null
+          max_members?: number | null
           member_count?: number | null
+          min_hq?: number | null
+          min_power?: number | null
           name?: string | null
           observation_id: string
           parser_version: string
@@ -1259,15 +1275,23 @@ export type Database = {
         }
         Update: {
           alliance_id?: string
+          announce?: string | null
           captured_at?: string
           code?: string | null
           collected_from_server_id?: number
           collector_id?: string
+          country?: string | null
           created_at?: string
           external_id?: string
           idempotency_key?: string
+          intro?: string | null
+          join_approval?: number | null
+          language?: string | null
           leader_game_uid?: number | null
+          max_members?: number | null
           member_count?: number | null
+          min_hq?: number | null
+          min_power?: number | null
           name?: string | null
           observation_id?: string
           parser_version?: string
@@ -8730,6 +8754,69 @@ export type Database = {
         }
         Relationships: []
       }
+      alliance_info_latest: {
+        Row: {
+          alliance_id: string | null
+          announce: string | null
+          captured_at: string | null
+          code: string | null
+          country: string | null
+          external_id: string | null
+          intro: string | null
+          join_approval: number | null
+          language: string | null
+          leader_game_uid: number | null
+          max_members: number | null
+          member_count: number | null
+          min_hq: number | null
+          min_power: number | null
+          name: string | null
+          power: number | null
+          server_id: number | null
+          snapshot_id: string | null
+        }
+        Insert: {
+          alliance_id?: string | null
+          announce?: string | null
+          captured_at?: string | null
+          code?: string | null
+          country?: string | null
+          external_id?: string | null
+          intro?: string | null
+          join_approval?: number | null
+          language?: string | null
+          leader_game_uid?: number | null
+          max_members?: number | null
+          member_count?: number | null
+          min_hq?: number | null
+          min_power?: number | null
+          name?: string | null
+          power?: number | null
+          server_id?: number | null
+          snapshot_id?: string | null
+        }
+        Update: {
+          alliance_id?: string | null
+          announce?: string | null
+          captured_at?: string | null
+          code?: string | null
+          country?: string | null
+          external_id?: string | null
+          intro?: string | null
+          join_approval?: number | null
+          language?: string | null
+          leader_game_uid?: number | null
+          max_members?: number | null
+          member_count?: number | null
+          min_hq?: number | null
+          min_power?: number | null
+          name?: string | null
+          power?: number | null
+          server_id?: number | null
+          snapshot_id?: string | null
+        }
+        Relationships: []
+      }
       alliance_latest: {
         Row: {
           alliance_id: string | null
@@ -10059,6 +10146,21 @@ export type Database = {
           player_id: string
         }[]
       }
+      alliance_moves: {
+        Args: { p_alliance: string; p_since?: string }
+        Returns: {
+          direction: string
+          game_uid: number
+          observed_at: string
+          other_alliance_id: string
+          other_alliance_name: string
+          other_alliance_tag: string
+          other_server_id: number
+          player_id: string
+          player_name: string
+          power_at: number
+        }[]
+      }
       alliance_role_of: {
         Args: { p_user: string }
         Returns: Database["public"]["Enums"]["app_role"]
@@ -10100,6 +10202,7 @@ export type Database = {
           player_rows: number
         }[]
       }
+      belongs_to_alliance: { Args: { p_alliance: string }; Returns: boolean }
       boss_damage_by_event: {
         Args: { p_from?: string; p_to?: string }
         Returns: {
