@@ -130,5 +130,5 @@ select is(
 
 reset role;
 
-select finish();
+select * from finish();
 rollback;
