@@ -150,33 +150,33 @@ create policy member_read on public.game_event_score_items
 -- Writing: the 0078 capabilities, verb for verb.
 create policy writer_insert on public.event_guides
   for insert to authenticated
-  with check (public.has_permission('guide.write'));
+  with check ((select public.has_permission('guide.write')));
 create policy writer_update on public.event_guides
   for update to authenticated
-  using (public.has_permission('guide.edit'))
-  with check (public.has_permission('guide.edit'));
+  using ((select public.has_permission('guide.edit')))
+  with check ((select public.has_permission('guide.edit')));
 create policy writer_delete on public.event_guides
   for delete to authenticated
-  using (public.has_permission('guide.delete'));
+  using ((select public.has_permission('guide.delete')));
 
 create policy writer_insert on public.event_guide_sections
   for insert to authenticated
-  with check (public.has_permission('guide.write'));
+  with check ((select public.has_permission('guide.write')));
 create policy writer_update on public.event_guide_sections
   for update to authenticated
-  using (public.has_permission('guide.edit'))
-  with check (public.has_permission('guide.edit'));
+  using ((select public.has_permission('guide.edit')))
+  with check ((select public.has_permission('guide.edit')));
 create policy writer_delete on public.event_guide_sections
   for delete to authenticated
-  using (public.has_permission('guide.delete'));
+  using ((select public.has_permission('guide.delete')));
 
 create policy writer_insert on public.game_event_score_items
   for insert to authenticated
-  with check (public.has_permission('guide.write'));
+  with check ((select public.has_permission('guide.write')));
 create policy writer_update on public.game_event_score_items
   for update to authenticated
-  using (public.has_permission('guide.edit'))
-  with check (public.has_permission('guide.edit'));
+  using ((select public.has_permission('guide.edit')))
+  with check ((select public.has_permission('guide.edit')));
 create policy writer_delete on public.game_event_score_items
   for delete to authenticated
-  using (public.has_permission('guide.delete'));
+  using ((select public.has_permission('guide.delete')));
