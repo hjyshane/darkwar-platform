@@ -205,7 +205,7 @@ export function AtlasPage({
   if (error) return <p className="error">Could not load the map: {(error as Error).message}</p>;
 
   return (
-    <div className="atlas">
+    <div className={selected !== null && panel === 'atlas' ? 'atlas atlas--sheet' : 'atlas'}>
       <div className="hunt-map">
         <PannableMap focus={focus}>
           <AtlasMap
