@@ -1,29 +1,24 @@
 import type { ReactNode } from 'react';
+import { Cell, type CellTone } from './console/Cell';
+
 /** One figure with the noun it belongs to.
+ *
+ * Since the console restyle this is a thin wrapper over `console/Cell`: it
+ * keeps the props and the `.stat*` class hooks its 100-odd call sites and
+ * the strip stylesheet rely on, and renders the console cell underneath.
+ * New code uses `Cell` directly.
  *
  * `value` is ALREADY FORMATTED by the caller, not a number this decides how
  * to render. Whether 4,350,390 should read as "4.35M" depends on what it
- * counts, and the tile is the wrong place to guess.
+ * counts, and the tile is the wrong place to guess. A node rather than a
+ * string only so a figure can also be a control; passing a raw number here
+ * is still the caller's bug.
  *
- * A node rather than a string only so a figure can also be a control — the
- * player page hangs its map on the coordinate, because the number is what
- * somebody is already looking at when they want to see where it is. That is
- * the exception; passing a raw number here is still the caller's bug.
- *
- * Proportional figures here, deliberately, while table cells use
- * tabular-nums: tabular gives every digit the width of a zero, which keeps a
- * column aligned but makes a large standalone number look gappy. Nothing
- * aligns vertically in a row of tiles.
- *
- * Colour is opt-in and only for a figure that has a DIRECTION. A level — power,
- * kills, HQ — has no better or worse, so colouring it would invent a state the
- * figure does not have; those tiles keep the ordinary text token and the status
- * palette stays for things that really have one, like the freshness badge.
- *
- * A delta is the exception: it is already signed, and the sign is the point. So
- * `tone` exists, and a caller passes it only when the value it formatted was a
- * change. The colour reinforces a `+` or `−` that is on screen either way,
- * which is why a reader who cannot separate the two hues loses nothing.
+ * Colour is opt-in and only for a figure that has a DIRECTION. A level has
+ * no better or worse, so a tile keeps the ordinary text colour; `tone` is
+ * for a signed change, where the colour reinforces a `+` or `−` already on
+ * screen. `flat` is deliberately the ordinary colour: no change is not a
+ * third state deserving a hue.
  */
 export function StatTile({
   label,
@@ -41,27 +36,28 @@ export function StatTile({
   note?: string;
   /** Exactly one tile per screen may be the hero. */
   hero?: boolean;
-  /** Only for signed changes. `flat` is deliberately the ordinary colour: no
-   * change is not a third state deserving a hue, it is the absence of one. */
+  /** Only for signed changes. */
   tone?: 'up' | 'down' | 'flat';
-  /** A trend line under the figure. Decoration: the value above already says
-   * where it stands, so it is hidden from assistive tech. */
+  /** A trend line under the figure. Decoration, hidden from assistive tech. */
   spark?: ReactNode;
 }) {
-  const toneClass = tone === 'up' ? ' growth-up' : tone === 'down' ? ' growth-down' : '';
+  const direction: CellTone | undefined = tone === 'up' || tone === 'down' ? tone : undefined;
+  const growth = direction === 'up' ? ' growth-up' : direction === 'down' ? ' growth-down' : '';
   return (
-    <div className={hero ? 'stat stat-hero' : 'stat'}>
-      <div className="stat-label">{label}</div>
-      {/* FR-UI-008: unknown is unknown. A dash, never a zero — an alliance
-          that donated nothing and an alliance we have not looked at are not
-          the same fact, and only one of them is worth acting on. */}
-      <div className={`stat-value${toneClass}`}>{value ?? '—'}</div>
-      {spark && (
-        <div aria-hidden="true" className="stat-spark">
-          {spark}
-        </div>
-      )}
-      {note && <div className="stat-note">{note}</div>}
-    </div>
+    <Cell
+      classNames={{
+        root: hero ? 'stat stat-hero' : 'stat',
+        label: 'stat-label',
+        value: `stat-value${growth}`,
+        spark: 'stat-spark',
+        note: 'stat-note',
+      }}
+      hero={hero}
+      label={label}
+      note={note}
+      spark={spark}
+      tone={direction}
+      value={value}
+    />
   );
 }

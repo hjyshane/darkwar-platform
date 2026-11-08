@@ -52,6 +52,12 @@ describe('console primitives', () => {
     expect(label).toMatch(/font-size: var\(--text-label\)/);
   });
 
+  it('lets a console cell value break instead of overflowing the grid', () => {
+    const kit = readFileSync(join(root, 'src', 'components', 'console', 'console.css'), 'utf8');
+    expect(kit).toMatch(/^\.cell-value \{[^}]*overflow-wrap: anywhere/m);
+    expect(kit).not.toMatch(/#[0-9a-f]{3,8}\b/i);
+  });
+
   it('fills the primary button with the accent fill and its own text colour', () => {
     const primary = css.match(/^button\.primary \{([^}]*)\}/m)?.[1] ?? '';
     expect(primary).toMatch(/background: var\(--accent-fill\)/);
