@@ -45,10 +45,16 @@ describe('buildNav tab visibility (0295)', () => {
 describe('buildNav hierarchy (2026-11-08)', () => {
   const withOwn: NavContext = { ...base, own: OWN };
 
-  test("the alliance page's views sit under Overview", () => {
+  const ownPage = (ctx: NavContext) =>
+    item(ctx, 'CBFW')?.children?.find((c) => c.label === 'Overview');
+
+  test("the alliance page is the entry's Overview, its views kept as tabs", () => {
+    expect(childLabels(withOwn, 'CBFW')).toEqual(['Overview', 'Members', 'Hive', 'Events']);
+    expect(item(withOwn, 'CBFW')?.href).toBe(`#/alliance/${OWN.alliance_id}`);
+    expect(ownPage(withOwn)?.href).toBe(`#/alliance/${OWN.alliance_id}`);
     // Every view but past names (whether there are any is a fact about the
-    // data), in the page's order: the alliance's own Overview tab among them.
-    expect(childLabels(withOwn, 'Overview')).toEqual([
+    // data), in the page's order: the page's own Overview tab among them.
+    expect(ownPage(withOwn)?.tabs?.map((t) => t.label)).toEqual([
       'Members',
       'Overview',
       'Ranking',
@@ -56,25 +62,28 @@ describe('buildNav hierarchy (2026-11-08)', () => {
       'Activity',
       'Against the server',
     ]);
-    const views = item(withOwn, 'Overview')?.children ?? [];
-    expect(views.find((view) => view.label === 'Power and towers')?.href).toBe(
+    expect(ownPage(withOwn)?.tabs?.find((t) => t.label === 'Power and towers')?.href).toBe(
       `#/alliance/${OWN.alliance_id}/power`,
     );
+    // The top Overview is the landing screen and nothing more.
+    expect(item(withOwn, 'Overview')?.children).toBeUndefined();
   });
 
-  test('Overview stays current on our own alliance page, with the view marked', () => {
+  test('the entry and its Overview are current on our own alliance page, with the view marked', () => {
     const onPower: NavContext = {
       ...withOwn,
       route: 'alliance',
       allianceId: OWN.alliance_id,
       tabs: { alliance: 'power' },
     };
-    const overview = item(onPower, 'Overview');
-    expect(overview?.current).toBe(true);
-    expect(overview?.children?.find((c) => c.current)?.label).toBe('Power and towers');
+    expect(item(onPower, 'CBFW')?.current).toBe(true);
+    expect(ownPage(onPower)?.current).toBe(true);
+    expect(ownPage(onPower)?.tabs?.find((t) => t.current)?.label).toBe('Power and towers');
+    expect(item(onPower, 'Overview')?.current).toBe(false);
     // Somebody else's alliance page is not ours.
-    const other = item({ ...onPower, allianceId: 'not-ours' }, 'Overview');
-    expect(other?.current).toBe(false);
+    const other = { ...onPower, allianceId: 'not-ours' };
+    expect(item(other, 'CBFW')?.current).toBe(false);
+    expect(ownPage(other)?.current).toBe(false);
   });
 
   test('Members, Hive and Events are under the alliance entry, not beside it', () => {
@@ -82,24 +91,24 @@ describe('buildNav hierarchy (2026-11-08)', () => {
     expect(labels(withOwn)).not.toContain('Members');
     expect(labels(withOwn)).not.toContain('Hive');
     expect(labels(withOwn)).not.toContain('Events');
-    expect(childLabels(withOwn, 'CBFW')).toEqual(['Members', 'Hive', 'Events']);
-    expect(item(withOwn, 'CBFW')?.href).toBe('#/members');
     // The tools stay beside it.
     expect(labels(withOwn)).toContain('Planner');
   });
 
   test('the entry opens the first screen the reader may see', () => {
     const noRoster = { ...withOwn, mayViewMembers: false };
-    expect(childLabels(noRoster, 'CBFW')).toEqual(['Hive', 'Events']);
-    expect(item(noRoster, 'CBFW')?.href).toBe('#/hive');
+    expect(childLabels(noRoster, 'CBFW')).toEqual(['Overview', 'Hive', 'Events']);
     // Not before the grid has answered, either.
     expect(childLabels({ ...withOwn, mayViewMembers: undefined }, 'CBFW')).not.toContain('Members');
+    // Without the page (hidden), the first of the rest.
+    const noPage = { ...noRoster, tabShown: (tab: string) => tab !== 'alliance' };
+    expect(item(noPage, 'CBFW')?.href).toBe('#/hive');
   });
 
   test('the entry is drawn before the alliance is known, under a plain name', () => {
+    // The page's address is the uuid, so it waits; the rest do not.
     expect(childLabels(base, 'Our alliance')).toEqual(['Members', 'Hive', 'Events']);
-    // ... but the alliance page's views wait for it.
-    expect(item(base, 'Overview')?.children).toBeUndefined();
+    expect(item(base, 'Our alliance')?.href).toBe('#/members');
   });
 
   test('the entry is current on any screen under it', () => {
@@ -107,27 +116,26 @@ describe('buildNav hierarchy (2026-11-08)', () => {
       expect(item({ ...withOwn, route }, 'CBFW')?.current).toBe(true);
     }
     expect(item({ ...withOwn, route: 'planner' }, 'CBFW')?.current).toBe(false);
+    expect(item({ ...withOwn, route: 'overview' }, 'CBFW')?.current).toBe(false);
   });
 
   test('an admin can still hide each screen (0295)', () => {
     const noHive = { ...withOwn, tabShown: (tab: string) => tab !== 'hive' };
-    expect(childLabels(noHive, 'CBFW')).toEqual(['Members', 'Events']);
+    expect(childLabels(noHive, 'CBFW')).toEqual(['Overview', 'Members', 'Events']);
+    // "Our alliance" hides the page.
+    const noPage = { ...withOwn, tabShown: (tab: string) => tab !== 'alliance' };
+    expect(childLabels(noPage, 'CBFW')).toEqual(['Members', 'Hive', 'Events']);
     // Hiding every screen removes the entry rather than leaving it empty.
     const none = {
       ...withOwn,
-      tabShown: (tab: string) => !['members', 'hive', 'events'].includes(tab),
+      tabShown: (tab: string) => !['alliance', 'members', 'hive', 'events'].includes(tab),
     };
     expect(labels(none)).not.toContain('CBFW');
-    // "Our alliance" hides the page's views under Overview.
-    const noPage = { ...withOwn, tabShown: (tab: string) => tab !== 'alliance' };
-    expect(item(noPage, 'Overview')?.children).toBeUndefined();
-    expect(childLabels(noPage, 'CBFW')).toEqual(['Members', 'Hive', 'Events']);
   });
 
-  test('a community account gets neither the entry nor the views', () => {
+  test('a community account gets neither the entry nor the page', () => {
     const community = { ...withOwn, isCommunity: true };
     expect(labels(community)).not.toContain('CBFW');
-    expect(item(community, 'Overview')?.children).toBeUndefined();
     expect(labels(community)).toContain('Planner');
   });
 
@@ -135,7 +143,7 @@ describe('buildNav hierarchy (2026-11-08)', () => {
     const onHive: NavContext = { ...withOwn, route: 'hive' };
     expect(breadcrumb(buildNav(onHive), [], 'hive')).toEqual(['Alliance', 'CBFW', 'Hive']);
     const onPage: NavContext = { ...withOwn, route: 'alliance', allianceId: OWN.alliance_id };
-    expect(breadcrumb(buildNav(onPage), [], 'alliance')).toEqual(['Watch', 'Overview', 'Members']);
+    expect(breadcrumb(buildNav(onPage), [], 'alliance')).toEqual(['Alliance', 'CBFW', 'Overview']);
     // An entry's own tabs are not named: the page shows them.
     const onDuel: NavContext = { ...withOwn, route: 'eventGuide', eventGuideTab: 'duel' };
     expect(breadcrumb(buildNav(onDuel), [], 'eventGuide')).toEqual(['Events', 'Event guide']);
@@ -148,7 +156,7 @@ describe('buildNav hierarchy (2026-11-08)', () => {
     expect(found).toContain('CBFW › Events › Season 2');
     expect(found).toContain('CBFW › Hive › Draw the shape');
     expect(found).toContain('CBFW › Members › This ranking · weekly');
-    expect(found).toContain('Overview › Power and towers');
+    expect(found).toContain('CBFW › Overview › Power and towers');
     // Not a planner: the hive has no tabs to find.
     const reader = paletteEntries(buildNav(withOwn).flatMap((g) => g.items)).map((e) => e.label);
     expect(reader).not.toContain('CBFW › Hive › Draw the shape');
