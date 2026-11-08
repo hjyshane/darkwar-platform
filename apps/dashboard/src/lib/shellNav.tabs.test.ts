@@ -46,15 +46,20 @@ describe('buildNav hierarchy (2026-11-08)', () => {
   const withOwn: NavContext = { ...base, own: OWN };
 
   test("the alliance page's views sit under Overview", () => {
+    // Every view but past names (whether there are any is a fact about the
+    // data), in the page's order: the alliance's own Overview tab among them.
     expect(childLabels(withOwn, 'Overview')).toEqual([
       'Members',
+      'Overview',
       'Ranking',
       'Power and towers',
       'Activity',
       'Against the server',
     ]);
     const views = item(withOwn, 'Overview')?.children ?? [];
-    expect(views[2]?.href).toBe(`#/alliance/${OWN.alliance_id}/power`);
+    expect(views.find((view) => view.label === 'Power and towers')?.href).toBe(
+      `#/alliance/${OWN.alliance_id}/power`,
+    );
   });
 
   test('Overview stays current on our own alliance page, with the view marked', () => {
