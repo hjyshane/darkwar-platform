@@ -113,7 +113,19 @@ export function GuidePostPage({ guideId }: { guideId: string }) {
               <button
                 className="linklike"
                 disabled={remove.isPending}
-                onClick={() => remove.mutate()}
+                onClick={() => {
+                  // A guide is deleted for good: the table keeps no history, so
+                  // one misclick is unrecoverable without a database restore.
+                  const title = editable.data?.title;
+                  const name = title ? `“${title}”` : 'this guide';
+                  if (
+                    window.confirm(
+                      `Delete ${name}? This cannot be undone. To only hide it, use Edit → Unpublish.`,
+                    )
+                  ) {
+                    remove.mutate();
+                  }
+                }}
                 type="button"
               >
                 delete
