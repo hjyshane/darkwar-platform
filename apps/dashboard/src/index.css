@@ -427,10 +427,9 @@ h1 {
 /* Keyed off aria-current, so the accessible state and the visible state
  * cannot disagree. */
 .tab[aria-current="page"] {
-  border-bottom-color: var(--gold-strong);
+  border-bottom-color: var(--accent);
   color: var(--fg);
   font-weight: 600;
-  text-shadow: var(--glow-gold);
 }
 
 .tab:focus-visible {
@@ -474,16 +473,15 @@ h1 {
 }
 
 [role="tab"][aria-selected="true"] {
-  background: var(--accent);
-  border-color: var(--accent);
-  box-shadow: var(--glow-blue);
-  color: var(--bg);
+  background: var(--accent-fill);
+  border-color: var(--accent-fill);
+  color: var(--accent-fill-fg);
   font-weight: 600;
 }
 
 [role="tab"][aria-selected="true"]:hover:not(:disabled) {
-  background-color: var(--accent);
-  color: var(--bg);
+  background-color: var(--accent-fill);
+  color: var(--accent-fill-fg);
 }
 
 [role="tab"]:focus-visible {
@@ -603,29 +601,41 @@ main > * {
  * glance: a row scrolled half under the header reads like it is showing
  * through, and painting the header magenta shows it covering its whole band.
  */
+/* Console tables: cells share one rule each way, the head sticks on the top
+ * surface in the label face, and nothing is rounded. Any `table` picks this
+ * up; `.num` still marks the figures. */
 table {
-  border-collapse: separate;
-  border-spacing: 0;
+  border-collapse: collapse;
   width: 100%;
 }
 
 th,
 td {
   border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
   padding: var(--space-2) var(--space-3);
   text-align: left;
 }
 
+th:last-child,
+td:last-child {
+  border-right: none;
+}
+
 thead th {
-  background: var(--bg-raised);
+  background: var(--bg-top);
   border-bottom-color: var(--border-strong);
+  font-family: var(--font-mono);
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 th {
   color: var(--fg-muted);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  font-size: var(--text-label);
+  font-weight: 500;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   white-space: nowrap;
 }
@@ -978,7 +988,7 @@ p.loading::before {
 .error {
   color: var(--danger-fg);
   background: var(--danger-bg);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   padding: var(--space-2) var(--space-3);
 }
 
@@ -993,7 +1003,7 @@ p.loading::before {
 .alliance-switch {
   align-self: center;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-md);
   display: flex;
   margin: 0;
   padding: 2px;
@@ -1147,16 +1157,15 @@ button {
  * guide, beside saving it as a draft. This is where the game accent lives:
  * gold fill, soft glow in dark. One per row, or it stops meaning anything. */
 button.primary {
-  background: var(--gold-strong);
-  border-color: var(--gold-strong);
-  box-shadow: var(--glow-gold);
-  color: #1a1204;
+  background: var(--accent-fill);
+  border-color: var(--accent-fill);
+  color: var(--accent-fill-fg);
   font-weight: 600;
 }
 
 button.primary:hover:not(:disabled) {
-  background: var(--gold);
-  border-color: var(--gold);
+  background: var(--accent-fill);
+  border-color: var(--fg);
 }
 
 /* background-color, not the shorthand: the shorthand also resets background-image
@@ -1219,16 +1228,20 @@ button:focus-visible {
   outline-offset: 2px;
 }
 
-.chip {
+/* A filter or removable token (favourites, metric pickers, planner targets).
+ * Renamed off `.chip`, which the arena lineup also defined; the two had been
+ * fighting over the same name. Square, like every other console control. */
+.filter-chip {
+  border-radius: var(--radius-md);
   font-size: var(--text-sm);
   padding: var(--space-1) var(--space-3);
   white-space: nowrap;
 }
 
-.chip[aria-pressed="true"] {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--bg);
+.filter-chip[aria-pressed="true"] {
+  background: var(--accent-fill);
+  border-color: var(--accent-fill);
+  color: var(--accent-fill-fg);
 }
 
 /* --- arena lineup -------------------------------------------------------- */
@@ -1844,42 +1857,35 @@ select.rank-badge {
   padding: var(--space-3) var(--space-4);
 }
 
+/* The console label: 10px mono, uppercase, letter-spaced. The same face as a
+ * table head, so a tile and a column read as one system. */
 .stat-label {
   color: var(--fg-muted);
-  font-size: var(--text-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
-/* Proportional figures, NOT the tabular-nums the table cells use. Tabular
- * gives every digit the width of a zero, which is what keeps a column
- * aligned and what makes a large standalone number look gappy. Nothing in a
- * row of tiles aligns vertically. */
+/* Tabular mono everywhere a figure stands, tiles included. Console gives up
+ * the proportional-figure nicety so a strip of cells lines up digit for
+ * digit with the table under it. */
 .stat-value {
+  font-family: var(--font-mono);
   font-size: var(--text-lg);
   font-weight: 600;
-  font-variant-numeric: proportional-nums;
+  font-variant-numeric: tabular-nums;
   line-height: 1.2;
   margin-top: var(--space-1);
 }
 
 /* One hero per screen (the skill's rule, and it holds here: two competing
- * large numbers just make the reader pick). */
+ * large numbers just make the reader pick). Size alone marks it now; the
+ * gold corner bracket went with the glow. */
 .stat-hero {
   grid-column: span 2;
   position: relative;
-}
-
-/* The game accent on the one tile that is the point of the screen: a gold
- * corner bracket, the HUD cue. Decorative only. */
-.stat-hero::before {
-  border-left: 2px solid var(--gold-strong);
-  border-top: 2px solid var(--gold-strong);
-  content: "";
-  height: 0.9rem;
-  left: -1px;
-  pointer-events: none;
-  position: absolute;
-  top: -1px;
-  width: 0.9rem;
 }
 
 .stat-hero .stat-value {
@@ -3439,8 +3445,8 @@ kbd {
 /* The current page. Disabled in the markup as well, so it is not clickable —
  * this only stops it looking clickable. */
 .pager button[aria-current="page"] {
-  background: var(--accent-soft, var(--bg-raised));
-  border-color: var(--accent, var(--border));
+  background: var(--accent-wash);
+  border-color: var(--accent);
   font-weight: 700;
   opacity: 1;
 }

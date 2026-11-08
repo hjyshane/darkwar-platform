@@ -86,21 +86,21 @@ export function FavouritesBlock() {
         <ul className="chips">
           {serverIds.map((id) => (
             <li key={`s${id}`}>
-              <a className="chip" href={serverHash(id)}>
+              <a className="filter-chip" href={serverHash(id)}>
                 Server {id}
               </a>
             </li>
           ))}
           {(data?.alliances ?? []).map((row) => (
             <li key={row.id}>
-              <a className="chip" href={allianceHash(row.id)}>
+              <a className="filter-chip" href={allianceHash(row.id)}>
                 {row.label} <span className="subtle">· {row.server}</span>
               </a>
             </li>
           ))}
           {(data?.players ?? []).map((row) => (
             <li key={row.id}>
-              <a className="chip" href={playerHash(row.id)}>
+              <a className="filter-chip" href={playerHash(row.id)}>
                 {row.label} <span className="subtle">· {row.server}</span>
               </a>
             </li>

@@ -16,8 +16,14 @@ const css = readFileSync(join(process.cwd(), 'src', 'index.css'), 'utf8');
 function tokensOf(selector: string): Record<string, string> {
   const out: Record<string, string> = {};
   for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-    if (m[1].trim().split('\n').pop()?.trim() !== selector) continue;
-    for (const d of m[2].matchAll(/(--[\w-]+):\s*([^;]+);/g)) out[d[1]] = d[2].trim();
+    const head = m[1] ?? '';
+    const body = m[2] ?? '';
+    if (head.trim().split('\n').pop()?.trim() !== selector) continue;
+    for (const d of body.matchAll(/(--[\w-]+):\s*([^;]+);/g)) {
+      const name = d[1];
+      const value = d[2];
+      if (name && value) out[name] = value.trim();
+    }
   }
   return out;
 }
