@@ -159,18 +159,36 @@ Shop value에서 그림이 빈 25개는 `goods.icon`이 가리키는 그림이 *
 아이템 아이콘을 고르는 코드를 따라가야 알 수 있다 — 그 전까지 이 25개는 빈 칸으로 둔다.
 `icon_*=png`는 값에 `=png`가 붙은 표 오타일 수 있으니 `icon_microradar`로도 찾는다(위 두 APK에는 둘 다 없었다).
 
-## 이벤트 가이드: 무엇이 점수를 주는가 (0248)
+## 이벤트 가이드: 무엇이 점수를 주는가 (0248, 0309)
 
-Survival Preparedness와 Alliance Duel의 테마별 점수 항목은 서버가 주는 테마 목록
-(`hero.event.info.get`, `get.hero.event.calendar`)과 클라이언트의 `score` 테이블(항목 이름과 기본 점수)을
-합쳐 만든다. 멤버 개인의 점수는 읽지 않는다 — 버프 때문에 사람마다 다르다.
+이벤트의 테마별 점수 항목은 서버가 주는 테마 목록(`hero.event.info.get`, `get.hero.event.calendar`)과
+클라이언트의 `score` 테이블(항목 이름과 기본 점수)을 합쳐 만든다. 멤버 개인의 점수는 읽지 않는다 — 버프
+때문에 사람마다 다르다.
+
+**범위는 "저널에 `hero.event.info.get`이 설명한 모든 activity"다** (0309부터; 전에는 100004·70005 둘로
+고정). 수집 계정이 연 이벤트만 그 패킷이 오므로, 가이드에 없는 이벤트는 게임에서 그 이벤트 창을 한 번
+열어 주면 다음 실행에 잡힌다. 달력 패킷에는 activity id가 없어서, 달력의 각 테마는 그 테마를 가진 activity에
+붙인다. `score` 필드가 id 목록이 아니라 문턱값 하나인 캡처(100003의 일부)는 점수 항목이 없는 것으로
+읽히고, 그런 activity만 있으면 가이드도 만들지 않는다(`scoreless`).
 
 `uv run --no-sync --with "UnityPy>=1.25" --with "lupa>=2.8" dw-collector game-event-guide --bundles C:/DW_data/gamedata/base --bundles C:/DW_data/gamedata/bundles --journal C:/DW_data/live.db --dry-run`
 
-먼저 `--dry-run`으로 개수를 본다(2026-10-12: 테마 11, 점수 항목 151, 달력 42칸). 게임 업데이트 뒤나 테마가
-이상해 보일 때 다시 돌린다. Duel은 그 주의 차례가 와야 요일 테마가 오므로, 아직 안 온 요일은 가이드에
-"Not seen yet"으로 나온다. 화면은 `#/event-guide`(Events 탭). 시각은 전부 서버 시간(UTC-2)이고, 슬롯 1은
-서버 00:00에 시작하는 4시간 칸이다.
+먼저 `--dry-run`으로 한 줄을 본다. 2026-11-08:
+`activities=3 themes=18 scores=158 calendar=42 guides=3 sections=18 scoreless=[] unnamed=[]`.
+
+- `guides`·`sections`: 점수 항목이 하나라도 있는 activity마다 `event_guides` 한 줄(슬러그 `activity-<id>`,
+  제목은 클라이언트의 이벤트 이름, **비공개**), 테마마다 `event_guide_sections`에 `source=client`인
+  `point_table` 섹션 한 개(Duel은 `day`가 요일, Survival Preparedness는 슬롯을 돌기 때문에 `day`가 null).
+- 가이드 줄은 **없을 때만 만들고 절대 덮어쓰지 않는다** — 임원이 바꾼 제목·슬러그·공개 여부는 남는다.
+  `client` 섹션은 매 실행마다 지우고 다시 쓴다. `source=officer` 섹션과 점수 id→아이템 매핑
+  (`game_event_score_items`)은 건드리지 않는다.
+- `scoreless=[...]`: 봤지만 점수 항목이 없는 activity. 가져올 게 없다.
+- `unnamed=[...]`: 클라이언트 테이블에 이름이 없는 activity. 제목이 `Activity <id>`로 들어가니 먼저
+  `game-names`를 돌리거나, 임원이 가이드 편집기에서 제목을 고친다.
+
+게임 업데이트 뒤나 테마가 이상해 보일 때 다시 돌린다. Duel은 그 주의 차례가 와야 요일 테마가 오므로, 아직
+안 온 요일은 가이드에 "Not seen yet"으로 나온다. 화면은 `#/event-guide`(Events 탭). 시각은 전부 서버
+시간(UTC-2)이고, 슬롯 1은 서버 00:00에 시작하는 4시간 칸이다.
 
 ## 연구 선행 조건 (0243)
 
