@@ -4,6 +4,7 @@ import { paletteEntries } from '../../lib/shellNav';
 import { CommandPalette } from './CommandPalette';
 import { Sidebar } from './Sidebar';
 import { StatusLine } from './StatusLine';
+import { Tour } from './Tour';
 import { Icon } from './icons';
 import { useShellNav } from './useShellNav';
 
@@ -121,7 +122,10 @@ export function AppShell({
           <div className="shell-controls">{controls}</div>
         </header>
         <StatusLine />
-        <div className="shell-content">{children}</div>
+        <div className="shell-content">
+          <Tour />
+          {children}
+        </div>
       </div>
       <CommandPalette items={all} onClose={() => setPalette(false)} open={palette} />
     </div>

@@ -1315,3 +1315,30 @@
 .board-screen > .entity > .entity-foot p {
   margin: 0;
 }
+
+/* First-use tour card. */
+.tour {
+  background: var(--surface-raised, var(--surface));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-2, 8px);
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+}
+
+.tour-count {
+  color: var(--fg-muted);
+  font-size: 0.8rem;
+  margin: 0;
+}
+
+.tour-title {
+  font-size: 1rem;
+  margin: 0;
+}
+
+.tour-actions {
+  align-items: center;
+  display: flex;
+  gap: var(--space-3);
+}
