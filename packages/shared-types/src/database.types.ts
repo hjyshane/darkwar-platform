@@ -3462,6 +3462,120 @@ export type Database = {
           },
         ]
       }
+      event_guide_sections: {
+        Row: {
+          guide_id: string
+          kind: string
+          payload: Json
+          section_id: string
+          sort_order: number
+          source: string
+          title: string | null
+          title_ko: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          guide_id: string
+          kind: string
+          payload?: Json
+          section_id?: string
+          sort_order?: number
+          source?: string
+          title?: string | null
+          title_ko?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          guide_id?: string
+          kind?: string
+          payload?: Json
+          section_id?: string
+          sort_order?: number
+          source?: string
+          title?: string | null
+          title_ko?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_guide_sections_guide_id_fkey"
+            columns: ["guide_id"]
+            isOneToOne: false
+            referencedRelation: "event_guides"
+            referencedColumns: ["guide_id"]
+          },
+          {
+            foreignKeyName: "event_guide_sections_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "pending_access"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      event_guides: {
+        Row: {
+          activity_id: string | null
+          guide_id: string
+          post_id: string | null
+          published: boolean
+          slug: string
+          starts_rule: Json
+          summary: string | null
+          summary_ko: string | null
+          title: string
+          title_ko: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          activity_id?: string | null
+          guide_id?: string
+          post_id?: string | null
+          published?: boolean
+          slug: string
+          starts_rule?: Json
+          summary?: string | null
+          summary_ko?: string | null
+          title: string
+          title_ko?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          activity_id?: string | null
+          guide_id?: string
+          post_id?: string | null
+          published?: boolean
+          slug?: string
+          starts_rule?: Json
+          summary?: string | null
+          summary_ko?: string | null
+          title?: string
+          title_ko?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_guides_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "guides"
+            referencedColumns: ["guide_id"]
+          },
+          {
+            foreignKeyName: "event_guides_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "pending_access"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       event_names: {
         Row: {
           activity_id: string
@@ -3891,6 +4005,38 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      game_event_score_items: {
+        Row: {
+          item_ref: Json
+          per: number
+          score_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          item_ref: Json
+          per?: number
+          score_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          item_ref?: Json
+          per?: number
+          score_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_event_score_items_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "pending_access"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       game_event_scores: {
         Row: {
