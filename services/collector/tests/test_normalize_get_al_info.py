@@ -35,6 +35,17 @@ def test_alliance_detail() -> None:
     # Unpromoted fields survive whole in raw.
     assert row["raw"]["giftLevel"] == 80
     assert row["raw"]["maxMember"] == 100
+    # The alliance's own words and join rules, promoted in 0309.
+    assert row["intro"] == "[redacted intro]"
+    # The payload carries "" — an empty announcement is no announcement.
+    assert row["announce"] is None
+    assert row["language"] == "391083"
+    # The raw payload integer. Its meaning is unconfirmed (column comment).
+    assert row["join_approval"] == 1
+    assert row["min_power"] == 30000000
+    assert row["min_hq"] == 20
+    assert row["max_members"] == 100
+    assert row["country"] == "TW"
 
 
 def test_minimal_payload() -> None:
@@ -45,6 +56,21 @@ def test_minimal_payload() -> None:
     assert row["leader_game_uid"] is None
     # No createServer → falls back to the observing server.
     assert row["server_id"] == 580
+    for key in (
+        "intro",
+        "announce",
+        "language",
+        "join_approval",
+        "min_power",
+        "min_hq",
+        "max_members",
+        "country",
+    ):
+        assert row[key] is None, key
+
+
+def test_parser_version_bumped_for_promoted_fields() -> None:
+    assert get_al_info.PARSER_VERSION == "1.1.0"
 
 
 def test_malformed_leader_uid_rejected() -> None:
