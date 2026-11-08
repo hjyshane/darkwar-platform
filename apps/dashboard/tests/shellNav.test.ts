@@ -27,6 +27,23 @@ const labels = (ctx: NavContext, group: string) =>
     .find((entry) => entry.id === group)
     ?.items.map((item) => item.label) ?? [];
 
+/** Every address the sidebar knows: entries, their children, and the tabs a
+ * filed screen keeps for Ctrl+K. */
+const hrefsOf = (ctx: NavContext) =>
+  buildNav(ctx).flatMap((group) =>
+    group.items.flatMap((item) => [
+      item.href,
+      ...(item.children ?? []).flatMap((c) => [c.href, ...(c.tabs ?? []).map((t) => t.href)]),
+    ]),
+  );
+
+/** The Events screen, filed under our alliance's entry (2026-11-08). */
+const eventsOf = (ctx: NavContext) =>
+  buildNav(ctx)
+    .flatMap((group) => group.items)
+    .find((item) => item.key === 'own-alliance')
+    ?.children?.find((child) => child.href === '#/events');
+
 describe('buildNav', () => {
   it('lists the groups in the order the sidebar draws them', () => {
     expect(buildNav(base()).map((group) => group.id)).toEqual([
@@ -38,16 +55,15 @@ describe('buildNav', () => {
   });
 
   it('keeps every address the old tabs had', () => {
-    // The season, Black Gold, Participation and Frankie pages now sit under
-    // the one Events entry, so their addresses are its children.
-    const hrefs = buildNav(base({ isAdmin: true, isOfficer: true })).flatMap((group) =>
-      group.items.flatMap((item) => [item.href, ...(item.children ?? []).map((c) => c.href)]),
-    );
+    // Members, Hive and Events sit under our alliance's entry; the season,
+    // Black Gold, Participation and Frankie pages are the Events screen's tabs.
+    const hrefs = hrefsOf(base({ isAdmin: true, isOfficer: true }));
     for (const hash of [
       '#/',
       '#/rankings',
       '#/migration',
       '#/map',
+      '#/members',
       '#/hive',
       '#/events',
       '#/black-gold',
@@ -67,19 +83,14 @@ describe('buildNav', () => {
   it('shows Migration to officers only and Season 2 to admins only', () => {
     expect(labels(base(), 'watch')).not.toContain('Migration');
     expect(labels(base({ isOfficer: true }), 'watch')).toContain('Migration');
-    const sub = (ctx: NavContext) =>
-      buildNav(ctx)
-        .flatMap((group) => group.items)
-        .find((item) => item.href === '#/events')
-        ?.children?.map((child) => child.label) ?? [];
+    const sub = (ctx: NavContext) => eventsOf(ctx)?.tabs?.map((tab) => tab.label) ?? [];
     expect(sub(base())).not.toContain('Season 2');
     expect(sub(base({ isAdmin: true }))).toContain('Season 2');
   });
 
   it('gathers Black Gold, Frankie, the clashes, Participation and the seasons under Events', () => {
     const alliance = buildNav(base({ isAdmin: true })).find((group) => group.id === 'alliance');
-    const events = alliance?.items.find((item) => item.href === '#/events');
-    expect(events?.children?.map((child) => child.href)).toEqual([
+    expect(eventsOf(base({ isAdmin: true }))?.tabs?.map((tab) => tab.href)).toEqual([
       '#/black-gold',
       '#/frankie',
       '#/capital-clash',
@@ -103,23 +114,28 @@ describe('buildNav', () => {
   });
 
   it('waits for the permission grid before showing Members', () => {
-    expect(labels(base({ mayViewMembers: undefined }), 'alliance')).not.toContain('Members');
-    expect(labels(base({ mayViewMembers: false }), 'alliance')).not.toContain('Members');
-    expect(labels(base({ mayViewMembers: true }), 'alliance')).toContain('Members');
+    const under = (ctx: NavContext) =>
+      buildNav(ctx)
+        .flatMap((group) => group.items)
+        .find((item) => item.key === 'own-alliance')
+        ?.children?.map((child) => child.label) ?? [];
+    expect(under(base({ mayViewMembers: undefined }))).not.toContain('Members');
+    expect(under(base({ mayViewMembers: false }))).not.toContain('Members');
+    expect(under(base({ mayViewMembers: true }))).toContain('Members');
   });
 
-  it('puts our own alliance first, and leaves it out until it is known', () => {
+  it('puts our own alliance first, under a plain name until it is known', () => {
     expect(labels(base(), 'alliance')[0]).toBe('CBFW');
-    expect(labels(base({ own: null }), 'alliance')[0]).not.toBe('CBFW');
+    // The screens under it do not wait for the alliances table.
+    expect(labels(base({ own: null }), 'alliance')[0]).toBe('Our alliance');
   });
 
   it('names the season entries from the seasons table', () => {
     const names = { '#/season': 'Season 4', '#/season2': 'Season 3' };
-    const children = buildNav(base({ isAdmin: true, seasonNames: names }))
-      .flatMap((group) => group.items)
-      .find((item) => item.href === '#/events')
-      ?.children?.map((child) => child.label);
-    expect(children).toEqual(expect.arrayContaining(['Season 4', 'Season 3']));
+    const tabs = eventsOf(base({ isAdmin: true, seasonNames: names }))?.tabs?.map(
+      (tab) => tab.label,
+    );
+    expect(tabs).toEqual(expect.arrayContaining(['Season 4', 'Season 3']));
   });
 
   it('marks one entry current: the screen you are on', () => {
@@ -129,11 +145,19 @@ describe('buildNav', () => {
         .filter((item) => item.current)
         .map((item) => item.label);
 
-    expect(current('hive')).toEqual(['Hive']);
-    // Every page behind the Events entry keeps that one entry current.
-    for (const route of ['blackMoney', 'frankie', 'participation', 'season', 'events'] as const) {
-      expect(current(route)).toContain('Events');
+    // Members, Hive and every page behind Events keep our alliance's entry current.
+    for (const route of [
+      'members',
+      'hive',
+      'blackMoney',
+      'frankie',
+      'participation',
+      'season',
+      'events',
+    ] as const) {
+      expect(current(route)).toEqual(['CBFW']);
     }
+    expect(current('planner')).toEqual(['Planner']);
     expect(current('eventGuide')).toEqual(['Event guide']);
     // All three ranking boards stand under one entry.
     expect(current('arena')).toEqual(['Rankings']);
@@ -144,14 +168,14 @@ describe('buildNav', () => {
     expect(current('player')).toEqual([]);
   });
 
-  it('marks our alliance current only on its own page', () => {
+  it('marks Overview current on our own alliance page, and nothing on another', () => {
     const on = (allianceId: string) =>
       buildNav(base({ route: 'alliance', allianceId }))
         .flatMap((group) => group.items)
         .filter((item) => item.current)
         .map((item) => item.label);
 
-    expect(on('a1')).toEqual(['CBFW']);
+    expect(on('a1')).toEqual(['Overview']);
     expect(on('somebody-else')).toEqual([]);
   });
 });
@@ -171,7 +195,9 @@ describe('buildFooter and breadcrumb', () => {
       return breadcrumb(buildNav(ctx), buildFooter(route, true), route);
     };
 
-    expect(at('hive')).toEqual(['Alliance', 'Hive']);
+    // A screen filed under our alliance's entry is named after it.
+    expect(at('hive')).toEqual(['Alliance', 'CBFW', 'Hive']);
+    expect(at('planner')).toEqual(['Alliance', 'Planner']);
     expect(at('account')).toEqual(['My account']);
     expect(at('player')).toEqual(['Player']);
   });

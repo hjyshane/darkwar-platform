@@ -78,25 +78,24 @@ const entry = (ctx: NavContext, group: string, label: string): NavItem | undefin
     .find((candidate) => candidate.id === group)
     ?.items.find((candidate) => candidate.label === label);
 
-describe('sidebar tabs for the alliance screens', () => {
-  it('lists the two ranking tabs under Members, marking the open one', () => {
-    const members = entry(
-      base({ route: 'members', tabs: { members: 'running' } }),
-      'alliance',
-      'Members',
-    );
+/** A screen filed under our alliance's entry (2026-11-08): its own tabs are
+ * not drawn in the sidebar, but are kept on the child for Ctrl+K. */
+const filed = (ctx: NavContext, label: string) =>
+  entry(ctx, 'alliance', 'CBFW')?.children?.find((child) => child.label === label);
 
-    expect(members?.children?.map((child) => [child.label, child.href, child.current])).toEqual([
+describe('sidebar tabs for the alliance screens', () => {
+  it('keeps the two ranking tabs on Members, marking the open one', () => {
+    const members = filed(base({ route: 'members', tabs: { members: 'running' } }), 'Members');
+
+    expect(members?.tabs?.map((tab) => [tab.label, tab.href, tab.current])).toEqual([
       ['Last ranking', '#/members', false],
       ['This ranking · weekly', '#/members/running', true],
     ]);
   });
 
-  it('lists the hive tabs to a planner only', () => {
+  it('keeps the hive tabs for a planner only', () => {
     const labels = (mayPlanHive: boolean | undefined) =>
-      entry(base({ route: 'hive', mayPlanHive }), 'alliance', 'Hive')?.children?.map(
-        (child) => child.label,
-      );
+      filed(base({ route: 'hive', mayPlanHive }), 'Hive')?.tabs?.map((tab) => tab.label);
 
     expect(labels(true)).toEqual(['Plan', 'Draw the shape', 'Who goes where']);
     expect(labels(false)).toBeUndefined();
@@ -130,14 +129,14 @@ describe('sidebar tabs for the alliance screens', () => {
     expect(plannerKindFromHash('#/planner')).toBeNull();
   });
 
-  it('lists our alliance views, but not past names, which depend on its data', () => {
-    const own = entry(
+  it('lists our alliance views under Overview, but not past names, which depend on its data', () => {
+    const overview = entry(
       base({ route: 'alliance', allianceId: UUID, tabs: { alliance: 'power' } }),
-      'alliance',
-      'CBFW',
+      'watch',
+      'Overview',
     );
 
-    expect(own?.children?.map((child) => child.label)).toEqual([
+    expect(overview?.children?.map((child) => child.label)).toEqual([
       'Members',
       'Overview',
       'Ranking',
@@ -145,12 +144,14 @@ describe('sidebar tabs for the alliance screens', () => {
       'Activity',
       'Against the server',
     ]);
-    expect(own?.children?.find((child) => child.current)?.href).toBe(`#/alliance/${UUID}/power`);
+    expect(overview?.children?.find((child) => child.current)?.href).toBe(
+      `#/alliance/${UUID}/power`,
+    );
   });
 
   it('marks no alliance view while another screen is open', () => {
-    const own = entry(base({ route: 'overview' }), 'alliance', 'CBFW');
+    const overview = entry(base({ route: 'overview' }), 'watch', 'Overview');
 
-    expect(own?.children?.some((child) => child.current)).toBe(false);
+    expect(overview?.children?.some((child) => child.current)).toBe(false);
   });
 });

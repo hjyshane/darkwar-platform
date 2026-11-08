@@ -408,9 +408,11 @@ export interface NavTab {
  * link anybody has already sent still lands on the same screen — only where
  * the tab for it sits.
  *
- *   overview   the landing screen, and the cross-server boards read against it
- *   alliance   our own alliance: its page, roster, hive plan, season boards,
- *              Black Gold and participation
+ *   overview   the landing screen, the cross-server boards read against it,
+ *              and (since 2026-11-08) our own alliance's page and its views
+ *   alliance   our own alliance's entry — roster, hive plan, season boards,
+ *              Black Gold and participation under it — plus the planner and
+ *              gift codes beside it
  *   map        on its own: one player at a time, and nothing else is like it
  *   events     what the game offers: the calendar and the shops (Schedule archived)
  *   boards     what the alliance writes to itself: notices and guides
@@ -440,21 +442,35 @@ export const OVERVIEW_TABS: ReadonlyArray<NavTab> = [
   { route: 'migration', hash: '#/migration', label: 'Migration' },
 ];
 
-/** Our alliance's second row, after the alliance page itself (whose address
- * needs the uuid, so `App.tsx` puts it first). Hive moved here: it is our
- * alliance's plan, drawn on the map, read by every member on move day.
+/** The screens UNDER our alliance's own entry (2026-11-08): the roster, the
+ * hive plan and the event boards. The entry is named after the alliance (its
+ * code, from the alliances table) and opens the first of these the reader may
+ * see; the sidebar lists the rest beneath it. Each keeps its own address and
+ * its own in-page tab strip — Members' two rankings, Hive's three steps, the
+ * Events hub strip — so nothing a link points at moved.
+ *
+ * Before this they sat BESIDE the entry, and the entry held the alliance
+ * page's views; those views now sit under Overview (`OWN_ALLIANCE_VIEWS` in
+ * `shellNav.ts`), since the alliance page answers the overview's question —
+ * how are we doing — about us alone.
  *
  * The season boards, Black Gold and Participation moved here from Events on
  * 2026-10-03: they are how OUR members did, which is this tab's question.
- * Season 2 is filtered to admins in `App.tsx`. Each screen keeps its own
- * in-page tabs — Season 3's four boards among them. */
-export const ALLIANCE_TABS: ReadonlyArray<NavTab> = [
+ * Season 2 is filtered to admins in `App.tsx`. Members needs `members.view`
+ * (`shellNav.ts`). */
+export const OWN_ALLIANCE_TABS: ReadonlyArray<NavTab> = [
   { route: 'members', hash: '#/members', label: 'Members' },
+  // Our alliance's plan, drawn on the map, read by every member on move day.
   { route: 'hive', hash: '#/hive', label: 'Hive' },
   // Black Gold, Frankie, Participation and the season boards, behind one
   // entry (2026-10-11). Each keeps its own address, so every link still lands;
-  // the entry opens the first and the sidebar lists the rest under it.
+  // the entry opens the first and the strip above the page lists the rest.
   { route: 'events', hash: '#/events', label: 'Events' },
+];
+
+/** The rest of the Alliance group, beside the alliance's own entry: tools for
+ * one of its members rather than boards about all of them. */
+export const ALLIANCE_TABS: ReadonlyArray<NavTab> = [
   // What raising a building, research, hero or gear costs one of your own
   // accounts after its buffs (item 4). Account state is owner-or-admin (0205).
   { route: 'planner', hash: '#/planner', label: 'Planner' },

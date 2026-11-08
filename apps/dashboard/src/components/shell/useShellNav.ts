@@ -18,7 +18,8 @@ import { useSession } from '../../lib/useSession';
 
 /** The sidebar's groups for the screen being shown, with the gates the old tab
  * bars carried: Members needs `members.view`, Migration is for officers,
- * Season 2 for admins, and an admin can hide any tab from a role (0295). Hiding an entry withholds nothing; RLS does that. */
+ * Season 2 for admins, and an admin can hide any tab from a role (0295). Hiding
+ * an entry withholds nothing; RLS does that. */
 export function useShellNav(
   route: Route,
   allianceId: string | null,
