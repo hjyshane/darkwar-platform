@@ -319,6 +319,15 @@ body {
   padding: var(--space-4);
 }
 
+/* A bare link is the accent. Without this the browser's own blue shows on
+ * every unclassed anchor (the sign-in footer, names in prose), which was
+ * invisible while the accent was itself blue and is the one blue the console
+ * must not have. Nav, tabs and chips set their own colour and are unaffected. */
+a {
+  color: var(--accent);
+  text-underline-offset: 0.15em;
+}
+
 h1 {
   font-size: var(--text-xl);
   margin: 0 0 var(--space-4);

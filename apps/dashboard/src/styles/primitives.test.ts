@@ -52,6 +52,11 @@ describe('console primitives', () => {
     expect(label).toMatch(/font-size: var\(--text-label\)/);
   });
 
+  it('gives bare links the accent instead of the browser default blue', () => {
+    const anchor = css.match(/^a \{([^}]*)\}/m)?.[1] ?? '';
+    expect(anchor).toMatch(/color: var\(--accent\)/);
+  });
+
   it('lets a console cell value break instead of overflowing the grid', () => {
     const kit = readFileSync(join(root, 'src', 'components', 'console', 'console.css'), 'utf8');
     expect(kit).toMatch(/^\.cell-value \{[^}]*overflow-wrap: anywhere/m);
