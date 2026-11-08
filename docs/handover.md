@@ -1,6 +1,105 @@
 # 인수인계
 
-작성 2026-08-01, 갱신 2026-10-13. 다음 세션이 이 문서만 읽고 이어받을 수 있게 쓴다.
+작성 2026-08-01, 갱신 2026-11-08. 다음 세션이 이 문서만 읽고 이어받을 수 있게 쓴다.
+
+## 2026-11-08 — 시즌 4 전날 점검: 수집기는 26일 묵은 코드로 돌고 있었다
+
+시즌 4(Sealed Island)는 **11-09 월 02:00 UTC** 시작. `season-4-capture.md`의 「월요일 전」을 돌렸다.
+
+- **Windows 수집기가 10-13 코드(15f2832)로 돌고 있었다.** 메인 체크아웃은 10-13 pull 뒤 그대로였고
+  작업은 전부 워크트리에서 머지만 됐다. 작업 스케줄러 체인은 editable install이라 `git pull`만으로는
+  아무것도 바뀌지 않는다. 11-08 08:22에 pull(edaae1b), 08:34에 Ingest·Sync·Notify·iPhone 재시작
+  (`collector-operations.md`의 레시피: `Stop-ScheduledTask` → 명령줄 패턴으로 체인 kill →
+  `Start-ScheduledTask`). Capture는 dumpcap만이라 두었다. 확인: `sync.log`에 `batch_size=1000`
+  (옛 코드는 100), `iphone.start chain=True`, `sync_status` 하트비트 1초. `uv.lock`은 안 바뀌어
+  `uv sync` 불필요.
+- **메인 체크아웃이 다른 세션에 의해 브랜치로 바뀐다.** 같은 날 10:47에 어떤 세션이
+  `C:\darkwar-platform`을 `dashboard-update-plan-0670e1`로 checkout했다(#561, 머지 뒤 되돌림).
+  떠 있는 프로세스는 import가 끝나 영향이 없지만 **다음 재시작은 그 브랜치 코드를 올린다.**
+  재시작 전에 `git -C C:\darkwar-platform branch --show-current`가 `main`인지 본다.
+- 프로드 확인: `game_season_snapshots` 최신 행 stage 2, `next_stage` 3, `next_starts_at` 11-09 02:00
+  (stage는 월요일 로그인 뒤에야 3이 된다). `seasons`에 season_id 4 행 있음, `ends_at` null —
+  월요일 이후 스냅샷의 `settle_at`이 실제 종료일. `C:\DW_data\season4` 만들었고 Wireshark 있음.
+- 사용자 몫: 맥 `git pull` + `install-iphone-agent.sh`, 주말에 시즌 3 마지막 보드(Coal Production·
+  Influence) 한 번 열기. 첫날 캡처 10개 파일은 `season-4-capture.md` 표.
+- 같은 날 대시보드: 탭 재배치(#562, #564, #565) — Members·Hive·Events가 CBFW 항목 아래로, 연맹
+  페이지는 그 안의 Overview 탭. 주소는 안 바뀌어 리다이렉트 없음. #561(플레이어 타일, Behind 열,
+  첫 사용 투어, 지도 바텀시트)은 `vantera-gap-plan.md`의 A2~A7. 둘 다 cbfw.us에 배포됐다.
+
+---
+
+## 2026-11-03 ~ 11-08 — 요청 캡처, ADR-0002, 클라우드 무인 수집 (0307, #555 #556 #560 #563)
+
+세 PR이 한 줄로 이어진다: **요청을 보기 시작했고 → 수집 계정이 읽기 요청을 보내도 된다고 정했고 →
+VM에서 사람 없이 돌리는 코드를 썼다.** 셋 중 실제 데이터로 돈 것은 첫 번째만이다.
+
+- **요청 캡처(#555, 0307).** 클라이언트→서버 요청을 마스킹해 로컬 SQLite `request_observations`에
+  쌓는다(`request_log.py`). 응답 경로·아웃박스와 섞이지 않고 클라우드로 가지 않는다. 짝짓기는
+  `catalog.pair_requests`(같은 명령·같은 `_id`·120초 창). 판정표는 `command_catalog.json`으로 옮겼고
+  `test_command_catalog.py`가 문서다. 대시보드 Commands 탭, `uv run dw-collector command-catalog`.
+  로그인 명령은 버전류 키 빼고 전부 지운다 — 어느 필드가 서명인지 모르기 때문. 런북
+  `request-capture.md`. **Windows에서 이 코드가 돌기 시작한 것은 11-08 재시작부터다.**
+- **ADR-0002(#556).** 수집 계정은 allowlist의 읽기 명령만, 사람 속도로, 킬 스위치 뒤에서 보낼 수
+  있다. 본계정·상태 변경·자유 페이로드는 영원히 금지. `dw-capture`는 여전히 쓰지 않는다. 송신
+  코드는 **없다** — 인코더와 로그인 핸드셰이크가 없어서 요청 캡처와 카탈로그가 먼저였다.
+  "Windows 전용, WSL 금지" 결정은 철회됐다.
+- **클라우드(#560).** `watchdog/machine.py`(패킷 침묵 10분 → 재실행 → `init` 대기, 백오프 2·4·8…30분,
+  6시간 6회·연속 3회 실패면 `halted`), `watchdog/update_signal.py`(필드 이름은 추측 — 11-04 캡처의
+  로그인 응답엔 version 키가 `picVer`뿐이었다), `cloud/`(`dw-cloud`: tcpdump 청크 교대 + ingest-dir
+  + dw-sync 자식 + 감시 루프, `dw-iphone`과 같은 모양). **전부 가짜 adb·가짜 시계로만 시험했다.**
+  28개 테스트. 코드가 아니라 사람이 11-04에 GCE `dw-emu-test`(n2-standard-4, 중첩 가상화,
+  Ubuntu 22.04)에서 확인한 것: x86_64 에뮬에 게임 설치·로그인 됨, `-gpu swangle_indirect`만 안정,
+  `force-stop → monkey` 재실행이 손 없이 기지 화면까지 올라오고 `init`이 캡처에 잡힘. 상세는
+  `cloud-unattended.md` §8.
+- **설치 스크립트(#563).** `scripts/cloud/install-dw-cloud.sh`: 전제 검사 → `uv sync` → systemd 유닛.
+  **인자 없으면 `DW_CLOUD_NO_RESTART=1`(캡처만)**, `--with-restart`로 감시 켬. 에뮬 유닛은
+  `dw-emulator.service.example`을 손으로. VM의 `.env`는 Windows와 **다른 `DW_COLLECTOR_ID`**
+  (하트비트가 collector_id로 upsert). **VM에서 아직 한 번도 실행 안 했다.**
+- **VM은 맥에서만 닿는다.** Windows에 gcloud 없고 SSH 항목도 없다. 11-08엔 Windows Tailscale이
+  "starting"에 멈춰 맥(100.104.146.25)도 안 닿았다. 첫 실행은 맥에서:
+  `cd ~/DW_app && git pull && scripts/cloud/install-dw-cloud.sh`, 그다음 `journalctl -u dw-cloud -f`와
+  `journal-summary` 증가. 하루 깨끗하면 `--with-restart`.
+
+---
+
+## 2026-11-02 ~ 11-04 — 동기화 정체와 8 GB (0299, 0302, 0304, #548 #550 #551 #554, 0308)
+
+PR 본문에서 옮긴 요약이다(이 세션이 한 작업이 아니다).
+
+- **동기화가 30초에 200행이었다(#550).** 배치를 다 채우고 실패가 없으면 0.2초 뒤 바로 다음 배치,
+  기본 배치 100 → 250(지금 운영 로그는 1000). 하트비트는 자기 시계로 매 interval. 11-02 측정은
+  17,000행 큐.
+- **#554:** upsert `ReadTimeout`은 57014처럼 배치를 쪼개고, 연결 실패는 시도 횟수를 안 쓰고 미룬다
+  (죽은 네트워크에서 dead letter가 생기지 않게). 아이폰 재접속은 떠 있는 게임을 더 이상 죽이지 않는다
+  (`process-id-for-bundle-id` 먼저). 원인은 11-03 맥의 `No route to host`. 블랙 스크린과 `pcap`이
+  죽는 이유는 미해결.
+- **#551:** 맥 에이전트 설치 스크립트가 옛 체인을 먼저 죽인다 — 체인 두 세트가 5일간 같은 저널을
+  두 번씩 올리고 있었다.
+- **#548:** 관리자 Settings에 수집기 업로드 큐 상태.
+- **DB가 다시 8 GB를 넘었다.** 0299 보존 정책은 모든 것의 최신값을 남기고, 0302는 지도(기지 24시간 +
+  최신, 트럭·소탕 구역은 더 짧게)와 579·580 외 서버의 상점을 줄이며 `storage_report(n)`를 추가,
+  0304는 pg_cron 실행 로그를 잡마다 자른다. 런북 「8 GB 아래로 줄이기」: 측정 → 배치 삭제 →
+  테이블별 `VACUUM FULL`(DELETE만으로는 디스크가 안 준다).
+- **0308:** Frankie는 그날의 로스터로 센다(이벤트 시점 as-of).
+- `#558` 시즌 4 캡처 체크리스트, `#559` 가이드 삭제 전 확인.
+
+---
+
+## 2026-10-27 ~ 11-02 — 이민(migration) 후보·등급·이동·보드 (0292 ~ 0306)
+
+PR 제목과 `server-migration.md`에서 옮긴 요약이다(이 세션이 한 작업이 아니다). 상세는 그 런북의
+「첫 실제 응답에서 확인된 것 (2026-10-27)」 이하.
+
+- `get.migrate.servers`의 **첫 실제 응답이 10-27에 왔다**(`servers_real_v1.json`) — 10-08의 합성 픽스처를
+  갈아 끼웠다. 풀지 못한 것은 런북 「풀지 못한 것」.
+- 후보 탭(0292·0293), Top 226 등급 보드(0294), 역할별 탭 가시성 — Migration은 관리자만(0295),
+  상태 목록 밖 후보를 다른 목격에서 채움(0296), 로스터에서도(0297), 후보 열 타입·정렬·필터(0298),
+  프로필 카드·드래곤 신청 목록에서 이민 power 읽기(#542), 이동(movers) 보드와 교차 서버 랭킹의
+  상태 목록(0300·0301), 로스터에서 movers(0303), 서버·연맹별 보드와 차트, 실제 규칙(0305),
+  연맹 태그(0306), Analytics 탭(#552).
+- 붙은 버그: 붙여넣은 uid의 숨은 문자(#538), 후보·보드 행의 읽은 날짜(#540).
+
+---
 
 ## 2026-10-13 — 아이폰 조각 교대의 틈을 없앴다 (코드 변경, 실제 폰에서는 미확인)
 
