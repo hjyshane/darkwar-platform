@@ -1,8 +1,12 @@
 """ADB adapter. Every call goes through AdbPolicy first — there is no path
 to a device that skips the guard.
 
-Deliberately small: tap, swipe, back, screenshot, launch, and a device
-listing. Nothing here stops, clears, or installs anything.
+Deliberately small: tap, swipe, back, screenshot, launch, force-stop, and a
+device listing. Nothing here clears or installs anything.
+
+`force_stop` exists for the cloud watchdog (ADR-0002), which restarts a stalled
+game client. Like `launch` it is safe because of the target, not the verb:
+`check_target` has already refused every serial but the collector's.
 
 `launch` is the one that starts something, and it was added for a cold
 start after a power cut — a machine that boots with nobody in front of it
@@ -79,6 +83,10 @@ class AdbClient:
         png = self._run(["exec-out", "screencap", "-p"], capture=True)
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_bytes(png)
+
+    def force_stop(self, package: str) -> None:
+        """End the app's process so the next `launch` is a cold start."""
+        self._run(["shell", "am", "force-stop", package])
 
     def launch(self, package: str) -> None:
         """Bring an app to the foreground by package name.
