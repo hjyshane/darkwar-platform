@@ -24,9 +24,17 @@ Kinds, and how each table names a step:
 - hero          `heroes_levelup`: Food per level
 - hero_gear     `ds_equip_upgrade` / `ds_equip_promote`: subject = cost list
 - exclusive     `heroes_exclusive_equip`: hero id + level, fragments
+- chip          `car_microchip_promote`: quality + (star, sub-step), EXP and
+                duplicates as `counter` costs (0309)
 
-Buildings carry `tier` (industry tier, Watchtower 35+) and research
-`category` (the research screen's tab).
+Buildings carry `tier` (industry tier, Watchtower 35+), research `category`
+(the research screen's tab), and a building of a season its `game_season`
+(the client's `building_season`: the game's theme id, not our season number).
+
+A `counter` cost is a quantity that is neither an item nor a resource — chip
+star-up EXP points (`chip_exp`) or a duplicate of the same chip
+(`chip_duplicate:<quality>`). EXP cards (goods type 224) carry what they are
+worth in `counter_value`, so the dashboard converts points to cards from data.
 """
 
 from __future__ import annotations
@@ -61,6 +69,21 @@ FOOD_RESOURCE = "24"
 # Hero gear levels are bought with Boost Ore ("a powerful crystal, used to
 # enhance hero equipment").
 BOOST_ORE = "230104"
+# goods.type of a Chip Star-Up EXP Card; para1 is the EXP it gives (500 ...
+# 60,000). Read from the client 2026-11-08: 300017, 300005, 300006, 300030.
+CHIP_EXP_CARD = 224
+# The counter a chip's star-up EXP is counted in, and the one its duplicates
+# are, per quality (purple 4, orange 5).
+CHIP_EXP = "chip_exp"
+CHIP_DUPLICATE = "chip_duplicate"
+# Sub-steps per star, as the game shows them ("0★ 4/10").
+CHIP_SUBSTEPS = 10
+
+
+def chip_label(level: int) -> str:
+    """A chip's state as the game shows it, from the flat level: level 5 is
+    "0★ 5/10", level 10 is "1★ 0/10", level 100 is "10★ 0/10"."""
+    return f"{level // CHIP_SUBSTEPS}★ {level % CHIP_SUBSTEPS}/{CHIP_SUBSTEPS}"
 
 
 def _int(value: Any) -> int | None:
@@ -202,14 +225,20 @@ class Catalog:
                 if owner_en:
                     name = name.replace("{0}", owner_en)
                     name_ko = name_ko.replace("{0}", owner_ko or owner_en) if name_ko else None
+            item_type = _int(row.get("type"))
+            exp = _int(row.get("para1")) if item_type == CHIP_EXP_CARD else None
             out.append(
                 {
                     "item_id": item_id,
                     "name": name,
                     "name_ko": name_ko,
-                    "item_type": _int(row.get("type")),
+                    "item_type": item_type,
                     "quality": _int(row.get("color")),
                     "icon": row.get("icon") or None,
+                    # What the item is worth in a counter when used (0309): an
+                    # EXP card's star-up points. Every row carries the key, so
+                    # an upsert clears a value the client has dropped.
+                    "counter_value": {"id": CHIP_EXP, "amount": exp} if exp else None,
                 }
             )
         return out
@@ -382,6 +411,7 @@ class Catalog:
         yield from self._hero_steps()
         yield from self._hero_gear_steps()
         yield from self._exclusive_steps()
+        yield from self._chip_steps()
 
     def _step(
         self,
@@ -395,11 +425,15 @@ class Catalog:
         requires: list[Row] | None = None,
         tier: Any = None,
         category: Any = None,
+        game_season: Any = None,
+        literal_name: str | None = None,
     ) -> Row | None:
         lvl = _int(level)
         if lvl is None or subject in (None, ""):
             return None
-        name, name_ko = self._names(name_key)
+        # A literal name is one the game draws rather than localises ("0★ 5/10"),
+        # the same in every language.
+        name, name_ko = (literal_name, literal_name) if literal_name else self._names(name_key)
         return {
             "kind": kind,
             "subject_id": str(subject),
@@ -412,6 +446,7 @@ class Catalog:
             "requires": requires or [],
             "tier": _int(tier),
             "category": _int(category),
+            "game_season": _int(game_season) or None,
         }
 
     def _building_steps(self) -> Iterator[Row]:
@@ -440,6 +475,10 @@ class Catalog:
                 # Industry tier of the level reached: Watchtower 35-39 is
                 # "Industry Lv.1", 40-44 Lv.2 ... 80 Lv.10. Only it has one.
                 following.get("industry_level"),
+                # The game's season theme a season building belongs to (0309):
+                # 4 is Smart Greenhouse / Thermal Lab (our Season 3), 6 Mineral
+                # Factory / Oni Seal Hall. Empty on an ordinary building.
+                game_season=following.get("building_season"),
             )
             if step:
                 yield step
@@ -694,5 +733,42 @@ class Catalog:
                 [{"type": "item", "id": str(item), "amount": amount}],
                 row.get("name"),
             )
+            if step:
+                yield step
+
+    def _chip_steps(self) -> Iterator[Row]:
+        """Vehicle chips (`car_microchip_promote`, 0309): one row per quality
+        at (rank, grade) — the star the game draws and the sub-step out of ten
+        — holding what it takes to go on: `cost_goods` is star-up EXP points,
+        `cost_self` duplicates of the same chip; a row costs one or the other
+        (the ninth sub-step of every star and some middle ones take
+        duplicates). Flattened to level = star x 10 + sub-step reached, so
+        purple (quality 4) runs 1..100 from "0★ 1/10" to "10★ 0/10"; the top
+        row has no cost and is no step. Green (2) and blue (3) have one row
+        and no costs: not upgradeable, no steps. Power stays null — the client
+        gives it per chip (`car_microchip_attribute`), not per quality."""
+        rows = self._rows("car_microchip_promote")
+        by_state = {
+            (_int(r.get("quality")), _int(r.get("rank")), _int(r.get("grade"))): r
+            for r in rows.values()
+        }
+        for (quality, rank, grade), row in by_state.items():
+            if quality is None or rank is None or grade is None:
+                continue
+            following = by_state.get(
+                (quality, rank, grade + 1) if grade + 1 < CHIP_SUBSTEPS else (quality, rank + 1, 0)
+            )
+            exp, duplicates = _int(row.get("cost_goods")), _int(row.get("cost_self"))
+            costs: list[Row] = []
+            if exp:
+                costs.append({"type": "counter", "id": CHIP_EXP, "amount": exp})
+            if duplicates:
+                costs.append(
+                    {"type": "counter", "id": f"{CHIP_DUPLICATE}:{quality}", "amount": duplicates}
+                )
+            if following is None or not costs:
+                continue
+            level = rank * CHIP_SUBSTEPS + grade + 1
+            step = self._step("chip", quality, level, costs, literal_name=chip_label(level))
             if step:
                 yield step
