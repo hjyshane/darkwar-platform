@@ -19,6 +19,7 @@ const PATHS: Record<
   blackGold: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM9 10h5a2 2 0 0 1 0 4H9M12 7v10',
   participation: 'M4 12l5 5L20 6',
   planner: 'M6 3h12v18H6zM9 7h6M9 12h.01M12 12h.01M15 12h.01M9 16h.01M12 16h.01M15 16h.01',
+  calculator: 'M5 4h14v16H5zM8 8h8M8 12h3M13 12h3M8 16h3M13 16h3',
   calendar: 'M4 6h16v14H4zM4 10h16M8 3v4M16 3v4',
   guide: 'M9 6h11M9 12h11M9 18h11M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2',
   shop: 'M5 8h14l-1 12H6zM9 8a3 3 0 0 1 6 0',

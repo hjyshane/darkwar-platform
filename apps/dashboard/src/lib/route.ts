@@ -41,6 +41,7 @@ export type Route =
   | 'serverClash'
   | 'events'
   | 'planner'
+  | 'calculator'
   | 'giftCodes'
   | 'calendar'
   | 'eventGuide'
@@ -75,6 +76,7 @@ const ROUTES: Record<string, Route> = {
   '#/server-clash': 'serverClash',
   '#/events': 'events',
   '#/planner': 'planner',
+  '#/calculator': 'calculator',
   '#/gift-codes': 'giftCodes',
   '#/calendar': 'calendar',
   '#/event-guide': 'eventGuide',
@@ -477,6 +479,9 @@ export const ALLIANCE_TABS: ReadonlyArray<NavTab> = [
   // What raising a building, research, hero or gear costs one of your own
   // accounts after its buffs (item 4). Account state is owner-or-admin (0205).
   { route: 'planner', hash: '#/planner', label: 'Planner' },
+  // The reference half of the planner: what a range costs with no account
+  // open, with the state in the address so the link can be passed around.
+  { route: 'calculator', hash: '#/calculator', label: 'Calculator' },
   // Officer-only (0251): queues gift codes to be claimed for the alliance.
   // Filtered in `shellNav.ts` on `giftcodes.manage`.
   { route: 'giftCodes', hash: '#/gift-codes', label: 'Gift codes' },
@@ -551,6 +556,7 @@ export function navSection(route: Route): NavSection | null {
     case 'serverClash':
     case 'events':
     case 'planner':
+    case 'calculator':
     case 'giftCodes':
       return 'alliance';
     case 'map':

@@ -59,6 +59,7 @@ export type IconName =
   | 'blackGold'
   | 'participation'
   | 'planner'
+  | 'calculator'
   | 'calendar'
   | 'guide'
   | 'shop'
@@ -159,6 +160,7 @@ const ICONS: Partial<Record<Route, IconName>> = {
   capitalClash: 'participation',
   serverClash: 'participation',
   planner: 'planner',
+  calculator: 'calculator',
   giftCodes: 'blackGold',
   calendar: 'calendar',
   eventGuide: 'guide',
@@ -333,8 +335,9 @@ export function buildNav(ctx: NavContext): NavGroup[] {
         ]),
     ...ALLIANCE_TABS.filter(
       (tab) =>
-        // Community: the planner is the one entry of this group it is given.
-        (ctx.isCommunity !== true || tab.route === 'planner') &&
+        // Community: the planner and the calculator are what it is given of
+        // this group.
+        (ctx.isCommunity !== true || tab.route === 'planner' || tab.route === 'calculator') &&
         (tab.route !== 'giftCodes' || ctx.mayManageGiftCodes === true) &&
         shown(tab.route),
     ).map((tab) => ({
