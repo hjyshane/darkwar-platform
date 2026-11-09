@@ -1,4 +1,4 @@
-// `notes`: a block of text (0309). The UI is English; `text_ko` is data an
+// `notes`: a block of text (0310). The UI is English; `text_ko` is data an
 // officer may fill, not a switch.
 
 import { isRecord, nullStr, str } from './common';

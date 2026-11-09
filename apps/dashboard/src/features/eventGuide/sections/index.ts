@@ -1,4 +1,4 @@
-// The six section kinds of an event guide (0309), and the one entry point
+// The six section kinds of an event guide (0310), and the one entry point
 // that turns an `event_guide_sections` row into a typed section.
 
 import { isSectionKind } from './common';

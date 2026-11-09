@@ -1,4 +1,4 @@
-// Counter costs (0309): chip star-up EXP points and duplicates are summed by
+// Counter costs (0311): chip star-up EXP points and duplicates are summed by
 // id like items and resources, never discounted, and never matched against
 // stock — a player holds EXP cards, not points.
 import { describe, expect, it } from 'vitest';

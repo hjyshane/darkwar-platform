@@ -1,4 +1,4 @@
-// The small validator the section schemas share (0309).
+// The small validator the section schemas share (0310).
 //
 // No zod in this repo: payloads are checked by hand, the way lib/seasonLab.ts
 // and lib/rankMinimums.ts check a setting. Every helper returns null for

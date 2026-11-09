@@ -1,4 +1,4 @@
-// `point_table`: what scores on one day (or in one theme) and for how much (0309).
+// `point_table`: what scores on one day (or in one theme) and for how much (0310).
 //
 // One section per day. The importer writes these from game_event_scores for
 // client-sourced activities, with `score_id` on each row and no `item_ref`;
