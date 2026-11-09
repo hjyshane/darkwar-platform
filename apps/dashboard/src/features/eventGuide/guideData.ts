@@ -160,10 +160,11 @@ export function useRefCatalogue(refs: readonly ItemRef[]) {
 
 /** The accounts the viewer may plan for — the planner's own query and key, so
  * the prep check uses the same gate and the same stock as the planner. */
-export function useViewerAccounts() {
+export function useViewerAccounts(enabled = true) {
   return useQuery<Account[]>({
     queryKey: ['planner-accounts'],
     queryFn: fetchAccounts,
+    enabled,
     staleTime: 5 * 60_000,
   });
 }
