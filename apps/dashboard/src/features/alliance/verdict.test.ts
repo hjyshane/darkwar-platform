@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { type AllianceVerdictFacts, composeAllianceVerdict, standingFacts } from './verdict';
+import {
+  type AllianceVerdictFacts,
+  composeAllianceVerdict,
+  standingFacts,
+  standingGap,
+  verdictParts,
+} from './verdict';
 
 const NONE: AllianceVerdictFacts = {
   rank: null,
@@ -82,6 +88,50 @@ describe('composeAllianceVerdict', () => {
 
   it('is empty when nothing is known', () => {
     expect(composeAllianceVerdict(NONE)).toBe('');
+  });
+});
+
+describe('verdictParts', () => {
+  it('marks the figures a reader scans for and nothing else', () => {
+    const parts = verdictParts({
+      ...NONE,
+      rank: 2,
+      total: 12,
+      serverId: 580,
+      power: 14_100_000_000,
+      above: { tag: 'ADET', power: 15_300_000_000 },
+      minPower: 30_000_000,
+      minHq: 20,
+    });
+    expect(parts.filter((part) => part.kind === 'figure').map((part) => part.text)).toEqual([
+      '#2',
+      '1.2G',
+      '30M',
+      'HQ 20',
+    ]);
+    expect(parts.map((part) => part.text).join('')).toBe(
+      '#2 of 12 alliances on 580, 1.2G behind [ADET]. 30M and HQ 20 minimum.',
+    );
+  });
+
+  it('is empty when nothing is known', () => {
+    expect(verdictParts(NONE)).toEqual([]);
+  });
+});
+
+describe('standingGap', () => {
+  it('phrases the gap for the rank cell', () => {
+    expect(
+      standingGap({ ...NONE, rank: 2, power: 100, above: { tag: 'ADET', power: 1_300_000_100 } }),
+    ).toBe('1.3G behind [ADET]');
+    expect(
+      standingGap({ ...NONE, rank: 1, power: 2_000_000, below: { tag: null, power: 1_000_000 } }),
+    ).toBe('1M ahead of the next alliance');
+  });
+  it('is null without a neighbour power', () => {
+    expect(
+      standingGap({ ...NONE, rank: 3, power: 100, above: { tag: 'X', power: null } }),
+    ).toBeNull();
   });
 });
 
