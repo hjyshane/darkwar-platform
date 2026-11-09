@@ -1,4 +1,4 @@
-// `item_ref`: how a section names a thing in the game (0309).
+// `item_ref`: how a section names a thing in the game (0310).
 //
 // {kind, id}, resolved through the catalogue at render time, so a renamed
 // item renames everywhere and the payload never carries a label that can go

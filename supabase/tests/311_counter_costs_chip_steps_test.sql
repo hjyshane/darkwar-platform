@@ -1,4 +1,4 @@
--- 0309: a cost may be a counter (chip EXP points, duplicates), vehicle chips
+-- 0311: a cost may be a counter (chip EXP points, duplicates), vehicle chips
 -- are a kind, a season building says which game season it is, and an EXP
 -- card says what it is worth. Community reads the new kind; anon reads none.
 begin;

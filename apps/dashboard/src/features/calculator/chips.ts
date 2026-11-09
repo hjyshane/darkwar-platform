@@ -1,4 +1,4 @@
-// Vehicle chips as the calculator shows them (0309). No React, no queries.
+// Vehicle chips as the calculator shows them (0311). No React, no queries.
 //
 // The importer flattens a chip's (star, sub-step) to one level per step:
 // level = star x 10 + sub-step reached, 1..100, so "0★ 4/10 → 0★ 5/10" is the

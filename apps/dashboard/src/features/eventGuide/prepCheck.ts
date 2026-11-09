@@ -1,4 +1,4 @@
-// The prepare-now checklist against the viewer's own stock (0309).
+// The prepare-now checklist against the viewer's own stock (0310).
 //
 // Pure: the stock is the planner's `Account` shape from account_state_latest
 // (features/planner/accounts.ts), the same gate and the same path. "412 held

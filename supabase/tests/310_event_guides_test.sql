@@ -1,4 +1,4 @@
--- 0309: the event guide model — who reads a guide, who writes one, and the
+-- 0310: the event guide model — who reads a guide, who writes one, and the
 -- importer's path.
 --
 -- Guides are shared game facts (no alliance), so every signed-in role that

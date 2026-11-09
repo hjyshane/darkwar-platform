@@ -1,8 +1,8 @@
-"""What scores in each event the journal has seen (0248, 0309).
+"""What scores in each event the journal has seen (0248, 0310).
 
 What this pins: the shape of the guide built from the server's theme lists and the
 client's score table, with the real ids seen in the journal on 2026-10-08, and the
-guide/section rows the importer adds for 0309. The payloads are trimmed to the fields
+guide/section rows the importer adds for 0310. The payloads are trimmed to the fields
 read; no member's score is in them.
 """
 

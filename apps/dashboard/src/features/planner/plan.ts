@@ -24,7 +24,7 @@ export type Kind =
   | 'pet_break'
   | 'chip';
 
-/** What a cost is counted in. A `counter` (0309) is a quantity that is neither
+/** What a cost is counted in. A `counter` (0311) is a quantity that is neither
  * an item nor a resource a player holds: a chip's star-up EXP points
  * (`chip_exp`) or a duplicate of the same chip (`chip_duplicate:<quality>`). */
 export type CostType = 'resource' | 'item' | 'counter';
