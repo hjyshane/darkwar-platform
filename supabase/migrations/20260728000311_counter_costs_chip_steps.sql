@@ -1,4 +1,4 @@
--- 0309: a cost may be a counter, vehicle chips are a kind, a season building
+-- 0311: a cost may be a counter, vehicle chips are a kind, a season building
 -- says which game season it is, and an EXP card says what it is worth.
 --
 -- The calculator reference mode (docs/superpowers/specs/2026-11-08-
@@ -56,7 +56,7 @@ revoke all on function public.costs_are_valid(jsonb) from public, anon;
 grant execute on function public.costs_are_valid(jsonb) to service_role;
 
 comment on function public.costs_are_valid(jsonb) is
-  'Every entry of a costs array is {type: resource|item|counter, id: text, amount: number} (0309).';
+  'Every entry of a costs array is {type: resource|item|counter, id: text, amount: number} (0311).';
 
 alter table public.game_upgrade_steps drop constraint game_upgrade_steps_costs_check;
 alter table public.game_upgrade_steps
@@ -75,7 +75,7 @@ alter table public.game_upgrade_steps add column game_season int;
 comment on column public.game_upgrade_steps.game_season is
   'The game''s season theme a season building belongs to (the client''s '
   'building_season: 4 Smart Greenhouse …, 6 Mineral Factory …). Null on anything '
-  'that is not a season building. Not seasons.season_id (0309).';
+  'that is not a season building. Not seasons.season_id (0311).';
 
 alter table public.game_items add column counter_value jsonb
   check (
@@ -87,7 +87,7 @@ alter table public.game_items add column counter_value jsonb
 
 comment on column public.game_items.counter_value is
   'What using the item is worth in a counter cost: {"id": "chip_exp", "amount": 60000} '
-  'on a Chip Star-Up EXP Card. Null on every other item (0309).';
+  'on a Chip Star-Up EXP Card. Null on every other item (0311).';
 
 -- The per-subject summary (0222, 0224) gains the season, so the calculator's
 -- season picker is one read of the view. Body as 0224 left it, one column added

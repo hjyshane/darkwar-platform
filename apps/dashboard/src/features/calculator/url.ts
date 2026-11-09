@@ -7,7 +7,7 @@
 export const CALCULATOR_HASH = '#/calculator';
 
 /** What the calculator can price. The planner's kinds less `pet_break` (an
- * internal split of a pet goal) plus vehicle chips (0309). Season buildings
+ * internal split of a pet goal) plus vehicle chips (0311). Season buildings
  * are `building` with a season filter in the form, not a kind of their own. */
 export const CALCULATOR_KINDS = [
   'building',

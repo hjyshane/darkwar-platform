@@ -1,4 +1,4 @@
-// `stages`: the event's stage ladder with per-stage drops and totals (0309).
+// `stages`: the event's stage ladder with per-stage drops and totals (0310).
 
 import { intIn, isRecord, list, num, str } from './common';
 import { type ItemRef, parseItemRef } from './itemRef';

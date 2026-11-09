@@ -35,8 +35,14 @@ select is(
   'in the order the alliance reads them');
 select is((select count(*) from public.season_buildings where season_id = 2 and provisional), 11::bigint,
   'Season 2''s names are all marked as guesses');
-select is(internal.duel_round_anchor(), timestamptz '2026-08-17 02:00:00+00',
-  'the duel round anchor is still Season 3''s start');
+-- The seeded seasons start on real dates, so which one is running depends on
+-- the day the suite runs. This pinned Season 3's start and went red the morning
+-- Season 4 opened (2026-11-09 02:00Z, seeded by 0245). Read the table instead;
+-- the two assertions further down pin the rule itself with literals (a start
+-- still to come does not move the anchor, a start that has passed does).
+select is(internal.duel_round_anchor(),
+  (select max(s.starts_at) from public.seasons s where s.starts_at <= now()),
+  'the duel round anchor is the start of the season now running');
 
 -- ------------------------------------------------------------- refusals
 

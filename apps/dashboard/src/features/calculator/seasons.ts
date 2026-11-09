@@ -1,4 +1,4 @@
-// Season buildings for the calculator's "Season building" entry (0309).
+// Season buildings for the calculator's "Season building" entry (0311).
 //
 // The client's `building` table is imported whole, so a season's buildings are
 // ordinary `kind='building'` steps with costs and time. What groups them is the

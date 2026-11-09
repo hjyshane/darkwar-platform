@@ -975,7 +975,7 @@ def game_catalog(
     kinds: dict[str, int] = {}
     for step in steps:
         kinds[step["kind"]] = kinds.get(step["kind"], 0) + 1
-    # Items worth a counter when used (0309): the chip EXP cards.
+    # Items worth a counter when used (0311): the chip EXP cards.
     exp_cards = sum(1 for item in items if item.get("counter_value"))
     typer.echo(
         f"items={len(items)} resources={len(resources)} steps={len(steps)} {kinds}"
@@ -1247,7 +1247,7 @@ def game_event_guide(
     url: Annotated[str | None, typer.Option(envvar="SUPABASE_URL")] = None,
     secret_key: Annotated[str | None, typer.Option(envvar="SUPABASE_SECRET_KEY")] = None,
 ) -> None:
-    """What scores in every event the journal has seen (0248, 0309).
+    """What scores in every event the journal has seen (0248, 0310).
 
     The themes and the calendar come from the journal's captures, what each id is
     and is worth from the client's `score` table. Nothing about any member is read.

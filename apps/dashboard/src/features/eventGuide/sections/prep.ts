@@ -1,4 +1,4 @@
-// `prep`: the prepare-now checklist — what to hoard, with caps (0309).
+// `prep`: the prepare-now checklist — what to hoard, with caps (0310).
 //
 // prepCheck.ts evaluates these against the viewer's own stock.
 

@@ -1,4 +1,4 @@
-// Best day per item, derived from the point tables and never stored (0309).
+// Best day per item, derived from the point tables and never stored (0310).
 //
 // For each item_ref that appears in point_table rows across the days, the day
 // its unit pays most, ties listed. Shown only when the item appears on at
