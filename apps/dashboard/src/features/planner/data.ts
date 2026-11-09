@@ -184,8 +184,12 @@ async function nameFragmentOwners(items: Map<string, string>): Promise<void> {
 export interface Subject {
   subject: string;
   name: string;
+  /** The client's Korean name, so a Korean query finds the subject (0309). */
+  nameKo: string | null;
   maxLevel: number;
   category: number | null;
+  /** The game's season theme for a season building, null otherwise (0309). */
+  gameSeason: number | null;
 }
 
 // The game tables run these to 200, but past 30 they are filler: level 31
@@ -203,15 +207,17 @@ const LEVEL_CAP: Record<string, number> = {
  * buildings or research at once — research alone is hundreds of subjects. */
 export async function fetchCatalogSubjects(
   kind: Kind,
-  filter: { category?: number; subjects?: string[] },
+  filter: { category?: number; subjects?: string[]; seasonal?: boolean },
 ): Promise<Subject[]> {
   let query = supabase
     .from('game_upgrade_subjects')
-    .select('subject_id, name, max_level, category')
+    .select('subject_id, name, name_ko, max_level, category, game_season')
     .eq('kind', kind);
   if (filter.category !== undefined) query = query.eq('category', filter.category);
   if (filter.subjects !== undefined)
     query = query.in('subject_id', filter.subjects.length > 0 ? filter.subjects : ['-']);
+  // Season buildings only (0309): the few dozen the client gives a season.
+  if (filter.seasonal) query = query.not('game_season', 'is', null);
   const { data, error } = await query.limit(1000);
   if (error) throw new Error(error.message);
   return (data ?? [])
@@ -219,11 +225,13 @@ export async function fetchCatalogSubjects(
     .map((row) => ({
       subject: row.subject_id as string,
       name: row.name ?? `#${row.subject_id}`,
+      nameKo: row.name_ko,
       maxLevel: Math.min(
         row.max_level ?? 0,
         LEVEL_CAP[row.subject_id as string] ?? Number.POSITIVE_INFINITY,
       ),
       category: row.category,
+      gameSeason: row.game_season,
     }));
 }
 

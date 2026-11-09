@@ -17,7 +17,7 @@ import { resetWeekStart } from '@dw/game-clock';
 // both implementations read it.
 const PERIOD_EPOCH = Date.UTC(2026, 7, 3, 2);
 const WEEK_MS = 604_800_000;
-const MINUTE_MS = 60_000;
+const HOUR_MS = 3_600_000;
 const DAY_MS = 24 * 3600 * 1000;
 
 export function rankPeriodStart(ts: Date): Date {
@@ -68,13 +68,16 @@ export function recentRankPeriods(ts: Date, count: number): Date[] {
   return Array.from({ length: count }, (_unused, index) => new Date(current - index * 2 * WEEK_MS));
 }
 
-/** The two moments a week's contribution has to be read at: 01:59Z on the
- * last day of each week, one minute before the game clears the boards.
- * Reading them a minute later would score everybody at zero, which is the
- * whole reason these are not the period's own boundaries. */
+/** The two moments a week's contribution has to be read at: 14:00Z on the
+ * Sunday of each week, twelve hours before the game clears the boards at the
+ * Monday 02:00 reset — noon on the game's own clock (UTC−2). The alliance
+ * decided the ranking is DONE then (0309); until then it was read at 01:59Z
+ * on the Monday, the last minute before the wipe, and could not be finished
+ * before the small hours. Reading at or after 02:00 would score everybody at
+ * zero, which is why these are not the period's own boundaries. */
 export function rankPeriodWeekEnds(periodStart: Date): [Date, Date] {
   return [
-    new Date(periodStart.getTime() + WEEK_MS - MINUTE_MS),
-    new Date(periodStart.getTime() + 2 * WEEK_MS - MINUTE_MS),
+    new Date(periodStart.getTime() + WEEK_MS - 12 * HOUR_MS),
+    new Date(periodStart.getTime() + 2 * WEEK_MS - 12 * HOUR_MS),
   ];
 }

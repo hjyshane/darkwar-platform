@@ -12,7 +12,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(11);
+select plan(12);
 
 -- This file's alliance is the ONLY one marked ours for the duration.
 -- build_rank_period covers every member of every is_own alliance, and the
@@ -77,14 +77,20 @@ returns void language sql as $$
           at, '00000000-0000-4000-8000-000000000c01', 580, 580, uid, kind, amount, '{}'::jsonb);
 $$;
 
--- Period 2026-07-27T02:00Z: week ends are 2026-08-03T01:59Z and 08-10T01:59Z.
-select pg_temp.contribute(9100000000000001, 'weekly_donation', 1000, '2026-08-03T01:00:00Z');
-select pg_temp.contribute(9100000000000001, 'weekly_donation', 3000, '2026-08-10T01:00:00Z');
-select pg_temp.contribute(9100000000000001, 'alliance_battle_weekly', 50000, '2026-08-03T01:00:00Z');
-select pg_temp.contribute(9100000000000001, 'alliance_battle_weekly', 70000, '2026-08-10T01:00:00Z');
--- The quiet one only ever appears in week one.
-select pg_temp.contribute(9100000000000002, 'weekly_donation', 10, '2026-08-03T01:00:00Z');
-select pg_temp.contribute(9100000000000002, 'alliance_battle_weekly', 20, '2026-08-03T01:00:00Z');
+-- Period 2026-07-27T02:00Z: week ends are 2026-08-02T14:00Z and 08-09T14:00Z
+-- (0309; Sunday 14:00Z, twelve hours before the Monday reset).
+select pg_temp.contribute(9100000000000001, 'weekly_donation', 1000, '2026-08-02T13:00:00Z');
+select pg_temp.contribute(9100000000000001, 'weekly_donation', 3000, '2026-08-09T13:00:00Z');
+select pg_temp.contribute(9100000000000001, 'alliance_battle_weekly', 50000, '2026-08-02T13:00:00Z');
+select pg_temp.contribute(9100000000000001, 'alliance_battle_weekly', 70000, '2026-08-09T13:00:00Z');
+-- The quiet one only ever appears in week one — and once more AFTER week
+-- one's deadline but before the reset, which is week one's board, read too
+-- late to count. Week two's window opens at the reset (0309), so this row
+-- must land in neither week: not week one (it is past the deadline) and not
+-- week two (it is before the reset).
+select pg_temp.contribute(9100000000000002, 'weekly_donation', 10, '2026-08-02T13:00:00Z');
+select pg_temp.contribute(9100000000000002, 'alliance_battle_weekly', 20, '2026-08-02T13:00:00Z');
+select pg_temp.contribute(9100000000000002, 'weekly_donation', 15, '2026-08-02T20:00:00Z');
 
 -- An officer, not a member (0112): the computation reads the whole roster's
 -- history, and 0066 gives that read to officer/admin only. 66 owns the
@@ -130,9 +136,14 @@ select is((pg_temp.row_of('Busy')).duel_total, 120000::bigint,
   'the duel total comes from the board it is actually stored under');
 
 -- A member with nothing in week two reports a null there rather than
--- repeating week one.
+-- repeating week one. The week-one figure is the one read BY the deadline;
+-- the Sunday-evening capture (15) counts for neither week. Asserting week
+-- one too: a null-expecting assertion passes when the row is missing.
+select is((pg_temp.row_of('Quiet')).donation_week1, 10::bigint,
+  'week one is the newest reading at or before the Sunday deadline');
 select is((pg_temp.row_of('Quiet')).donation_week2, null,
-  'a week with no capture is unknown, not a repeat of the week before');
+  'a week with no capture is unknown, not a repeat of the week before, '
+  'and not a late capture of the week before either');
 
 -- Rebuilding is idempotent: same inputs, same answer, one row per member.
 select lives_ok(

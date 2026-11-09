@@ -98,7 +98,8 @@ sage `#8fb38a`, steel `#7f98b3`, clay `#c48a6a`, plum `#a48bb8`, slate
 
 Light (paper grid): page `#f4f3ef`, cell `#ffffff`, raised `#faf9f6`, top
 bar `#ecebe6`, rules `#d9d7cf` / `#bdbbb2`, text `#17181a` / `#686a70`,
-amber darkens to the existing `--gold` `#a16207` for text and borders and
+amber darkens to `#955a06` for text and borders (measured: 4.5+ on every
+light surface it sits on; `#a16207` only cleared white) and
 stays `#e0b452` only as a fill behind dark text. Status greens and reds use
 their existing light-scheme values.
 
@@ -212,7 +213,7 @@ mistaken for the competitor, the PR is not done.
 
 ## Decided by Claude, user can override
 
-- Light mode uses the existing dark gold `#a16207` for amber text so
+- Light mode uses a dark gold `#955a06` for amber text so
   contrast holds. Mockup showed dark only.
 - Radii drop to near zero site-wide. The mockup implied it; stating it.
 - `--gold` aliases amber rather than coexisting. One accent.

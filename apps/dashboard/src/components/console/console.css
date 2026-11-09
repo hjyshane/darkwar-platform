@@ -1,0 +1,310 @@
+/* The console kit. Only tokens from index.css; no literal colours here.
+ *
+ * Imported from each kit component rather than from index.css, because that
+ * file's one `@import` has to stay first and Vite dedupes a CSS module that
+ * several components import. */
+
+/* --- Cell / CellGrid ------------------------------------------------------ */
+
+.cell-grid {
+  background: var(--border);
+  border: 1px solid var(--border);
+  display: grid;
+  gap: 1px;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+}
+
+/* A fixed column count only applies once the row has room for it; below
+ * 720px the grid falls back to auto-fit, and the cells may shrink to zero
+ * so six columns never push out of their container. */
+@media (min-width: 720px) {
+  .cell-grid[data-cols] {
+    grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .cell-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.cell {
+  background: var(--bg-cell);
+  min-width: 0;
+  padding: var(--space-3) var(--space-4);
+}
+
+.cell-label {
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.cell-value {
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  margin-top: var(--space-1);
+  /* A 16-digit UID or a coordinate pair must break, never push the grid. */
+  overflow-wrap: anywhere;
+}
+
+.cell[data-hero] .cell-value {
+  font-size: var(--text-xl);
+}
+
+.cell-unit {
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  margin-left: 0.2em;
+}
+
+.cell-context,
+.cell-note {
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  margin-top: var(--space-1);
+}
+
+.cell[data-tone="up"] .cell-context {
+  color: var(--ok);
+}
+
+.cell[data-tone="down"] .cell-context {
+  color: var(--bad);
+}
+
+.cell-spark {
+  margin-top: var(--space-2);
+}
+
+/* --- Led ------------------------------------------------------------------ */
+
+.led {
+  align-items: center;
+  color: var(--fg-muted);
+  display: inline-flex;
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  font-weight: 500;
+  gap: 0.4em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* The only glow in the system, and only here. Off in light (the token is
+ * `none` there) and never animated, so reduced-motion has nothing to do. */
+.led-dot {
+  background: var(--fg-muted);
+  border-radius: 50%;
+  display: inline-block;
+  flex: none;
+  height: 7px;
+  width: 7px;
+}
+
+.led[data-tone="ok"] .led-dot {
+  background: var(--ok);
+  box-shadow: var(--led-glow-ok);
+}
+
+.led[data-tone="bad"] .led-dot {
+  background: var(--bad);
+  box-shadow: var(--led-glow-bad);
+}
+
+.led[data-tone="warn"] .led-dot {
+  background: var(--accent);
+  box-shadow: var(--led-glow-warn);
+}
+
+/* --- Verdict -------------------------------------------------------------- */
+
+.verdict {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin: 0;
+  max-width: 72ch;
+}
+
+.verdict code {
+  background: var(--accent-wash);
+  border-radius: var(--radius-md);
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  padding: 0.05em 0.4em;
+}
+
+/* --- Chip (console) ------------------------------------------------------- */
+
+.chip-console {
+  align-items: center;
+  background: var(--bg-cell);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  display: inline-flex;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  gap: 0.5em;
+  padding: 0.25em 0.6em;
+  white-space: nowrap;
+}
+
+.chip-icon {
+  display: inline-flex;
+  flex: none;
+  height: 12px;
+  width: 12px;
+}
+
+.chip-icon > * {
+  height: 100%;
+  width: 100%;
+}
+
+.chip-label {
+  color: var(--fg);
+}
+
+.chip-figure {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.chip-suffix {
+  color: var(--fg-muted);
+}
+
+/* --- Ticks ---------------------------------------------------------------- */
+
+.ticks {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+@media (max-width: 480px) {
+  .ticks {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* The rule is the bar: a 2px top border for the whole, an amber overlay of
+ * width --w for this item's share. No --w, no overlay. */
+.tick {
+  border-top: 2px solid var(--border);
+  min-width: 0;
+  padding-top: var(--space-2);
+  position: relative;
+}
+
+.tick::before {
+  background: var(--accent);
+  content: "";
+  height: 2px;
+  left: 0;
+  position: absolute;
+  top: -2px;
+  width: var(--w, 0);
+}
+
+.tick-value {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.tick-label,
+.tick-delta {
+  color: var(--fg-muted);
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.tick-rank {
+  background: var(--bg-raised);
+  border-radius: var(--radius-md);
+  color: var(--fg);
+  float: right;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  padding: 0 0.4em;
+}
+
+.tick-rank-of {
+  color: var(--fg-muted);
+  font-weight: 500;
+}
+
+.tick[data-top] .tick-rank {
+  background: var(--accent-fill);
+  color: var(--accent-fill-fg);
+}
+
+.tick[data-top] .tick-rank-of {
+  color: var(--accent-fill-fg);
+  opacity: 0.7;
+}
+
+/* --- StepTable ------------------------------------------------------------ */
+
+.step-table-wrap {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+.step-table caption {
+  caption-side: top;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  letter-spacing: 0.1em;
+  padding: 0 0 var(--space-2);
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.step-table td {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.step-table tfoot td {
+  background: var(--bg-raised);
+  border-bottom: none;
+  border-top: 1px solid var(--border-strong);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.step-fold {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  margin: var(--space-2) auto 0;
+}

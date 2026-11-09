@@ -292,7 +292,11 @@ const ALLIANCE_HASH = new RegExp(
 const GUIDE_HASH = new RegExp(`^#/guides/(${UUID})$`, 'i');
 const NOTICE_HASH = new RegExp(`^#/notices/(${UUID})$`, 'i');
 
-export function routeFromHash(hash: string): Route {
+export function routeFromHash(fullHash: string): Route {
+  // A query (`#/planner?target=…`, the calculator's hand-off) rides on an
+  // address without changing which screen it is; the screen reads it itself.
+  const at = fullHash.indexOf('?');
+  const hash = at < 0 ? fullHash : fullHash.slice(0, at);
   if (ADMIN_HASH.test(hash)) {
     return 'admin';
   }
