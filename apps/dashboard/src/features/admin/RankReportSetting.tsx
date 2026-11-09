@@ -404,8 +404,9 @@ export function RankReportSetting() {
 
       <p className="subtle">
         Period <strong>{iso(viewing)}</strong> to <strong>{iso(rankPeriodLastDay(viewing))}</strong>
-        . Contribution and duel were read at {iso(firstWeek)} 01:59Z and {iso(secondWeek)} 01:59Z —
-        one minute before the game clears each week — and power at the period's own two boundaries.
+        . Contribution and duel were read at {iso(firstWeek)} 14:00Z and {iso(secondWeek)} 14:00Z —
+        Sunday noon server time, twelve hours before the game clears each week — and power at the
+        period's own two boundaries.
       </p>
 
       {inProgress && (
