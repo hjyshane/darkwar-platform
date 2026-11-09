@@ -24,17 +24,22 @@ export const TERMS = {
   allianceRanking: 'Alliance Ranking',
   crossServerRanking: 'Cross-Server Ranking',
   arena: 'Arena',
-  // Season 3. The WIRE fields are `score` (get.alliance.season.score.rank)
-  // and `force` (desert.force.server.rank), and the columns keep those names
-  // so a row stays traceable to the payload that produced it. What the two
-  // numbers MEASURE is coal production and influence — named by the operator
-  // from the game's own screens, not from a capture, so they belong in the
-  // "ours" category of the provenance note above until a screen is captured.
+  // Season 4 (Sealed Island). The WIRE fields are `score`
+  // (get.alliance.season.score.rank) and `force` (desert.force.server.rank),
+  // and the columns keep those names so a row stays traceable to the payload
+  // that produced it. What the two numbers MEASURE is named by the operator,
+  // not from a capture, so they belong in the "ours" category of the
+  // provenance note above until a Season 4 screen is captured:
+  //
+  //   score — Soul Stone. Season 3 called this Coal Production; the Season 4
+  //     guides rank alliances by the Soul Stones their territories produce.
+  //   force — still Influence, Season 3's name. Nothing read for Season 4
+  //     renames it, so it stays until `season-4-capture.md` says otherwise.
   //
   // This file is the one place that translation lives. Nothing downstream
   // should hardcode either wording.
-  season: 'Season 3',
-  seasonScore: 'Coal Production',
+  season: 'Season 4',
+  seasonScore: 'Soul Stone',
   seasonForce: 'Influence',
   seasonBuildings: 'Buildings',
   // Not a board. The three figures are typed in by the reader off their own
