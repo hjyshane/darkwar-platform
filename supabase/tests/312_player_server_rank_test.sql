@@ -1,4 +1,4 @@
--- 0309: rank on the server with both neighbours, one row.
+-- 0312: rank on the server with both neighbours, one row.
 --
 -- A fresh server so no other fixture's players can sit between ours. Five
 -- players: a clear leader, a tie for second, a last place, and one with no

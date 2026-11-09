@@ -3,7 +3,10 @@ import { StatTile } from '../../components/StatTile';
 import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
 
-/** One row from `player_server_rank` (0309). */
+/** One row from `player_server_rank` (0312). The neighbours are null at the
+ * ends of the board. The generated types say `number` because the generator
+ * marks every column of a function's returned table non-null, so this type is
+ * the honest one and the generated row is assigned into it. */
 export interface ServerRankRow {
   rank: number;
   total: number;
@@ -35,7 +38,7 @@ export function serverRankFacts(row: ServerRankRow | null | undefined): ServerRa
 }
 
 /** One round trip: rank, total, and the nearest distinct power above and
- * below, from `player_server_rank` (0309) over `players_server_power_idx`.
+ * below, from `player_server_rank` (0312) over `players_server_power_idx`.
  *
  * "Read" matters: the group's rankings only list who the collector has seen,
  * so this is a rank among known players, and the tile says so. No row when

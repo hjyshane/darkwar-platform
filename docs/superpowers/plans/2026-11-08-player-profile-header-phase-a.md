@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - No RLS change; no new table; no new capture. The one migration adds a `security invoker` function over `public.players`, which is already `public_read`.
-- Migration version is taken from `origin/main` at push time (today: `0308` is highest, so the new file is `20260728000309_*`); run `scripts/check-migration-order.sh` before pushing. pgTAP test numbered to match (`309_*_test.sql`).
+- Migration version is taken from `origin/main` at push time (today: `0308` is highest, so the new file is `20260728000312_*`); run `scripts/check-migration-order.sh` before pushing. pgTAP test numbered to match (`312_*_test.sql`).
 - Never pin `scoring_version`; one `captured_at` per roster batch in fixtures.
 - English UI only. Board nouns in the verdict are: heroes, pets, buildings, tech, troops, vehicle.
 - Retention windows (0070/0299): own-alliance members 3 months → header window **30d**; everyone else **7d**. Always written out.
@@ -35,8 +35,8 @@
 ### Task 1: `player_server_rank` RPC + pgTAP
 
 **Files:**
-- Create: `supabase/migrations/20260728000309_player_server_rank.sql`
-- Create: `supabase/tests/309_player_server_rank_test.sql`
+- Create: `supabase/migrations/20260728000312_player_server_rank.sql`
+- Create: `supabase/tests/312_player_server_rank_test.sql`
 - Modify: `packages/shared-types/src/database.types.ts` (public `Functions`, alphabetical, near `player_ranking_page`)
 
 **Interfaces:**
@@ -45,7 +45,7 @@
 
 - [ ] **Step 1: Write the failing pgTAP test**
 
-`309_player_server_rank_test.sql`: `select plan(9)`. Insert server `5990` (`server_group 'test'`), five players on it with game_uids 59900001..59900005 and powers 500, 400, 400, 100, null. Also one auth user + `app_users` row with role `viewer` (uuid `...f309`), helper `pg_temp.act_as(uuid)` as in `256_gift_extra_players_test.sql`.
+`312_player_server_rank_test.sql`: `select plan(9)`. Insert server `5990` (`server_group 'test'`), five players on it with game_uids 59900001..59900005 and powers 500, 400, 400, 100, null. Also one auth user + `app_users` row with role `viewer` (uuid `...f309`), helper `pg_temp.act_as(uuid)` as in `256_gift_extra_players_test.sql`.
   1. `results_eq` for the 500 player: `(1, 4, 500, null, 400)`.
   2. `results_eq` for one 400 player: `(2, 4, 400, 500, 100)` — the tie shares #2 and the neighbour below is 100, not the other 400.
   3. `results_eq` for the 100 player: `(4, 4, 100, 400, null)`.
@@ -59,7 +59,7 @@
 
 - [ ] **Step 2: Run it to see it fail**
 
-Run: `pnpm db:test:local 309`
+Run: `pnpm db:test:local 312`
 Expected: fails with `function public.player_server_rank(uuid) does not exist`.
 
 - [ ] **Step 3: Write the migration**
@@ -68,8 +68,8 @@ Header comment: why one row (the verdict needs the gap to #rank-1 and the lead o
 
 - [ ] **Step 4: Run the test to see it pass**
 
-Run: `pnpm db:test:local 309`
-Expected: `309_player_server_rank_test.sql .. ok`.
+Run: `pnpm db:test:local 312`
+Expected: `312_player_server_rank_test.sql .. ok`.
 
 - [ ] **Step 5: Add the function to `database.types.ts`**
 
@@ -78,7 +78,7 @@ Insert the `player_server_rank` block after `player_ranking_servers` (alphabetic
 - [ ] **Step 6: Commit**
 
 ```bash
-git add supabase/migrations/20260728000309_player_server_rank.sql supabase/tests/309_player_server_rank_test.sql packages/shared-types/src/database.types.ts
+git add supabase/migrations/20260728000312_player_server_rank.sql supabase/tests/312_player_server_rank_test.sql packages/shared-types/src/database.types.ts
 git commit -m "feat(db): player_server_rank returns rank and both neighbours in one row"
 ```
 
@@ -294,5 +294,5 @@ Input is already newest-per-league from `newestPerLeague` (`playerArena.ts`), li
 ### Task 8: Gate, push, draft PR
 
 - [ ] `pnpm check && pnpm typecheck && pnpm test` and `pnpm db:test:local` (full) — all green.
-- [ ] `git fetch origin main && bash scripts/check-migration-order.sh` — renumber if 0309 is taken.
+- [ ] `git fetch origin main && bash scripts/check-migration-order.sh` — renumber if the number is taken (it was: 0309 became 0312).
 - [ ] `git push -u origin player-profile-header-d56681`; `gh pr create --draft --title "feat(player): profile header data (phase A)"` with a body listing, per spec section, what phase B consumes: `useServerRank`/`ServerRankFacts`; `composeVerdict` + `VerdictSegment`; `composeBoards`/`fetchBoardRows`/`BOARD_NOUN`; `retentionWindowDays`, `powerDelta`, `killsDelta`, `fetchHistoryWindow`; `tenureCell`/`fetchFirstSeenInAlliance`; `arenaSummary`. Note: no `player_board_rank_latest` view (no second player-wide use found); RPC applied to prod only by `db push` on merge.

@@ -1,4 +1,4 @@
--- 0309: where a player stands on their server, with both neighbours, in one row.
+-- 0312: where a player stands on their server, with both neighbours, in one row.
 --
 -- The profile's server-rank tile asked two head-count questions of `players`
 -- (how many have more power; how many have any) and said "#12 of 1,840". The
@@ -60,4 +60,4 @@ comment on function public.player_server_rank(uuid) is
   'Power rank of one player among the players read on their server, with the '
   'nearest distinct power above and below. One row; none when the player is '
   'unknown or has no power reading. Invoker over players, so it shows a reader '
-  'exactly what the table does — see 0309.';
+  'exactly what the table does — see 0312.';
