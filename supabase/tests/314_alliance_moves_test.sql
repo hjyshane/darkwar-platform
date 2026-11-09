@@ -1,4 +1,4 @@
--- 0310: alliance_moves — who joined from where, who left to where, built from
+-- 0314: alliance_moves — who joined from where, who left to where, built from
 -- player_snapshots, one row per move, visibility decided inside the function.
 begin;
 create extension if not exists pgtap with schema extensions;

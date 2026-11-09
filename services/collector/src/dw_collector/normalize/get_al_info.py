@@ -10,7 +10,7 @@ alliance.rank cannot.
 
 `rank` stays null: a detail card carries no ranking position.
 
-1.1.0 (0309) also lifts the alliance's own words and join rules — `intro`,
+1.1.0 (0313) also lifts the alliance's own words and join rules — `intro`,
 `announce`, `language`, `joinApproval`, `powerRestrictionN`,
 `castleRestrictionN`, `maxMember`, `country` — now that every capture has
 carried them. `joinApproval` is kept as the raw integer: whether `1` means
@@ -46,7 +46,7 @@ class _Payload(BaseModel):
     announce: str | None = None
     # A client localization key (391083 = Traditional Chinese), not a name.
     language: str | None = None
-    # Raw integer; meaning unconfirmed. See the 0309 column comment.
+    # Raw integer; meaning unconfirmed. See the 0313 column comment.
     join_approval: int | None = Field(default=None, alias="joinApproval")
     power_restriction: int | None = Field(default=None, alias="powerRestrictionN")
     castle_restriction: int | None = Field(default=None, alias="castleRestrictionN")

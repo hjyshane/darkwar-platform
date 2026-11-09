@@ -1,4 +1,4 @@
--- 0309: the alliance's own words and join rules, promoted out of raw.
+-- 0313: the alliance's own words and join rules, promoted out of raw.
 --
 -- `get.al.info` has carried intro, announce, language, joinApproval,
 -- powerRestrictionN, castleRestrictionN, maxMember and country in every
@@ -76,7 +76,7 @@ where raw ?| array['intro', 'announce', 'language', 'joinApproval',
 -- Does the caller belong to this alliance? Admin is global; everybody else
 -- needs a membership row for exactly this alliance_id. security invoker is
 -- enough: 0192's own_or_manager_read lets an account read its own rows, and
--- that is the only row this asks about. 0310's alliance_moves uses it too.
+-- that is the only row this asks about. 0314's alliance_moves uses it too.
 create function public.belongs_to_alliance(p_alliance uuid)
 returns boolean
 language sql

@@ -1,4 +1,4 @@
--- 0309: the alliance's own words and join rules, with the announcement gated
+-- 0313: the alliance's own words and join rules, with the announcement gated
 -- per row by membership, not by the request's role.
 --
 -- Every negative here is paired with a positive on the same rows: a gate that

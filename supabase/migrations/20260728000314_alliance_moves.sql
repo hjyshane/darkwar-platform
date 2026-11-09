@@ -1,4 +1,4 @@
--- 0310: alliance_moves — the movement feed for the alliance page.
+-- 0314: alliance_moves — the movement feed for the alliance page.
 --
 -- Who joined from where, who left to where, with their power at the time, for
 -- every player we observe anywhere. The source is player_snapshots (0003):
@@ -25,7 +25,7 @@
 --
 -- WHO SEES IT (user decision 2026-11-08). For an own alliance: its members and
 -- officers (an alliance_memberships row for auth.uid() and that alliance,
--- 0309's belongs_to_alliance) and admins; a community account or a member of
+-- 0313's belongs_to_alliance) and admins; a community account or a member of
 -- another own alliance gets zero rows. For any other alliance: every signed-in
 -- role, since community already reads those rosters (0283). The branch lives
 -- here so the page carries no role logic. security invoker: the caller's own
@@ -157,4 +157,4 @@ comment on function public.alliance_moves(uuid, timestamptz) is
   'One row per observed alliance change touching p_alliance since p_since (default 90 '
   'days): direction in/out/relocated, the other alliance when catalogued, the player''s '
   'power at the time. From player_snapshots only. Own alliances: members, officers and '
-  'admins; other alliances: every signed-in role. security invoker (0310).';
+  'admins; other alliances: every signed-in role. security invoker (0314).';

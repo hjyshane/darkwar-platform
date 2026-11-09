@@ -1,4 +1,4 @@
-// The movement feed: 0310's alliance_moves, one row per observed change,
+// The movement feed: 0314's alliance_moves, one row per observed change,
 // already filtered to what the caller may see. These helpers only order,
 // filter and label; the window and the visibility live in the database.
 

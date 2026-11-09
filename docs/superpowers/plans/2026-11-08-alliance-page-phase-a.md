@@ -4,7 +4,7 @@
 
 **Goal:** Land the data layer for the alliance page: promoted `get.al.info` fields, the `alliance_info_latest` view with per-row `announce` gating, the `alliance_moves` RPC over `player_snapshots`, and the pure TypeScript modules phase B renders from.
 
-**Architecture:** Two migrations (0309 info fields + view, 0310 moves RPC), each with a pgTAP file. The normalizer lifts the same eight fields the migration backfills from `raw`. Dashboard code is pure functions and thin query modules under `features/alliance/`; `AlliancePage.tsx` is untouched. Committed types in `packages/shared-types` are hand-edited to match (CI's db job verifies).
+**Architecture:** Two migrations (0313 info fields + view, 0314 moves RPC), each with a pgTAP file. The normalizer lifts the same eight fields the migration backfills from `raw`. Dashboard code is pure functions and thin query modules under `features/alliance/`; `AlliancePage.tsx` is untouched. Committed types in `packages/shared-types` are hand-edited to match (CI's db job verifies).
 
 **Tech Stack:** PostgreSQL 17 / pgTAP, Supabase (PostgREST RPC, RLS), Python 3.12 + pydantic (collector), TypeScript + vitest (dashboard).
 
@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Migration numbers: next free on `origin/main` is `0309` (highest is `20260728000308`). Re-check at push with `scripts/check-migration-order.sh`.
+- Migration numbers: `0313` and `0314`. Written as 0309/0310 and renumbered on 2026-11-09 after three PRs merged at 0309 (fix #574 ends main at 0311; the player page takes 0312). Re-check at push with `scripts/check-migration-order.sh`.
 - Every new view: `with (security_invoker = true)`, `grant select ... to authenticated, service_role`, `revoke all ... from anon`. Every new function: `revoke all ... from public, anon`, `grant execute ... to authenticated, service_role`. (Hosted grants are point-in-time.)
 - `(select public.current_app_role())` wrapped in a subselect wherever it appears in a policy, view or function body (0179).
 - Hosted `pg_safeupdate`: every `update` carries a `where`.
@@ -76,11 +76,11 @@
 - [ ] **Step 5:** `uv run ruff check . && uv run ruff format --check . && uv run mypy src`.
 - [ ] **Step 6:** Commit `feat(collector): get.al.info lifts intro, rules and language`.
 
-### Task 3: Migration 0309 — columns, backfill, `alliance_info_latest`
+### Task 3: Migration 0313 — columns, backfill, `alliance_info_latest`
 
 **Files:**
-- Create: `supabase/migrations/20260728000309_alliance_info_fields.sql`
-- Create: `supabase/tests/309_alliance_info_fields_test.sql`
+- Create: `supabase/migrations/20260728000313_alliance_info_fields.sql`
+- Create: `supabase/tests/313_alliance_info_fields_test.sql`
 - Modify: `packages/shared-types/src/database.types.ts` (alliance_snapshots Row/Insert/Update at ~1217; new view before `alliance_latest` at ~8733; new function after `alliance_membership_history` at ~10054)
 
 **Interfaces:**
@@ -98,7 +98,7 @@
   - as memberA: `captured_at` for A equals the newest get.al.info row, and `intro` is `'intro-a'` (the newer alliance.rank row did not win).
   - `throws_ok` as `anon`: `select 1 from public.alliance_info_latest` → `42501`.
   - backfill: insert a get.al.info row with only `raw` = `{"intro":"x","joinApproval":"1","powerRestrictionN":null,"maxMember":100}` and null typed columns BEFORE the migration cannot run in pgTAP, so instead call the backfill as a function? No — keep the backfill inline; test it by re-running the same `update` statement text here is duplication. Instead: assert `(select count(*) from alliance_snapshots where raw ? 'intro' and intro is null) = 0` after inserting a row whose `intro` column is set by the test (sanity), and rely on the regex guard shape being identical to 0016's `backfill_month_card_from_raw`. Keep this test honest: name it "columns exist for the backfill to fill".
-- [ ] **Step 2:** `pnpm db:test:local` → 309 fails (missing columns).
+- [ ] **Step 2:** `pnpm db:test:local` → 313 fails (missing columns).
 - [ ] **Step 3: Write the migration.** Header comment: why (spec), the raw-leak note (`raw` is already readable and carries `announce`; the typed column is what the page reads, the view gates it; closing `raw` is a separate decision). `alter table ... add column` × 8. Column comments: `join_approval` — "Raw joinApproval integer from get.al.info. Meaning UNCONFIRMED (fixture ADET: joinApproval 1, recruitTotal 1); check in the client before writing a sentence from it."; `min_power` ← `powerRestrictionN`; `min_hq` ← `castleRestrictionN`; `max_members` ← `maxMember`; `language` — "client localization key (391083 = Traditional Chinese); resolved in features/alliance/codes.ts"; `country` — ISO alpha-2. Backfill:
   ```sql
   update public.alliance_snapshots set
@@ -115,13 +115,13 @@
   Then `belongs_to_alliance`, the view, grants/revokes, comments.
 - [ ] **Step 4:** `pnpm db:test:local` → all green (watch 0035's `alliance_latest` test still passes).
 - [ ] **Step 5: Hand-edit types.** `alliance_snapshots` Row: add `announce: string | null`, `country`, `intro`, `join_approval: number | null`, `language`, `max_members`, `min_hq`, `min_power` in alphabetical position; Insert/Update with `?`. View `alliance_info_latest` before `alliance_latest` with all columns `| null`, `Relationships: []`. Function `belongs_to_alliance: { Args: { p_alliance: string }; Returns: boolean }` between `backfill_month_card_from_raw` and `boss_damage_by_event`.
-- [ ] **Step 6:** `pnpm typecheck`. Commit `feat(db): promote get.al.info fields and gate announce per alliance (0309)`.
+- [ ] **Step 6:** `pnpm typecheck`. Commit `feat(db): promote get.al.info fields and gate announce per alliance (0313)`.
 
-### Task 4: Migration 0310 — `alliance_moves`
+### Task 4: Migration 0314 — `alliance_moves`
 
 **Files:**
-- Create: `supabase/migrations/20260728000310_alliance_moves.sql`
-- Create: `supabase/tests/310_alliance_moves_test.sql`
+- Create: `supabase/migrations/20260728000314_alliance_moves.sql`
+- Create: `supabase/tests/314_alliance_moves_test.sql`
 - Modify: `packages/shared-types/src/database.types.ts` (function after `alliance_membership_history`)
 
 **Interfaces:**
@@ -158,11 +158,11 @@ power_at := the moving row's power; observed_at := its captured_at; player_name 
   - p8: t1 `ext-a` (580), t2 `ext-a` (582) with no alliances row for (582,'ext-a') → no row anywhere, no error.
   - since: p1's t2 at `now() - interval '100 days'`; calling with default `p_since` omits it, calling with `'2000-01-01'` includes it.
   Visibility (each under `set local role authenticated` + `act_as`): community → A: `is_empty`; memberA → B: `is_empty`; community → C: `isnt_empty`; memberA → A: 3 rows (p2 out, p3 in, and with far since p1 in); officerA → A: `isnt_empty`; admin → B: callable (empty set, no error: `lives_ok`). `throws_ok` as anon → `42501`. `has_index`.
-- [ ] **Step 2:** `pnpm db:test:local` → 310 fails (function missing).
+- [ ] **Step 2:** `pnpm db:test:local` → 314 fails (function missing).
 - [ ] **Step 3: Write the migration** with the algorithm above, index, grants (`revoke all ... from public, anon; grant execute ... to authenticated, service_role`), comments (visibility rule, coverage caveat, relocation rule).
 - [ ] **Step 4:** `pnpm db:test:local` → green.
 - [ ] **Step 5:** Types: `alliance_moves: { Args: { p_alliance: string; p_since?: string }; Returns: {...}[] }` with the ten columns alphabetical, non-null typed (generator style for `returns table`).
-- [ ] **Step 6:** `pnpm typecheck`. Commit `feat(db): alliance_moves feed over player_snapshots (0310)`.
+- [ ] **Step 6:** `pnpm typecheck`. Commit `feat(db): alliance_moves feed over player_snapshots (0314)`.
 
 ### Task 5: `codes.ts` — language keys and country codes
 

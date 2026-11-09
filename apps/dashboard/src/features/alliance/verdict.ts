@@ -18,7 +18,7 @@ export interface AllianceVerdictFacts {
   above: Neighbour | null;
   /** The alliance one place below; used for the lead when this one leads. */
   below: Neighbour | null;
-  /** null until joinApproval's meaning is confirmed (0309 column comment). */
+  /** null until joinApproval's meaning is confirmed (0313 column comment). */
   joinRule: 'approval' | 'open' | null;
   minPower: number | null;
   minHq: number | null;

@@ -1,4 +1,4 @@
-// The alliance's info card: the newest get.al.info snapshot (0309's
+// The alliance's info card: the newest get.al.info snapshot (0313's
 // alliance_info_latest). `announce` arrives null unless the viewer belongs
 // to the alliance; the view decides that per row, so nothing here does.
 
@@ -21,7 +21,7 @@ export async function fetchAllianceInfo(allianceId: string): Promise<AllianceInf
 /** The join rule for the verdict sentence.
  *
  * Always null for now: `join_approval` is the raw payload integer and whether
- * 1 means "needs approval" or "open join" is unconfirmed (the 0309 column
+ * 1 means "needs approval" or "open join" is unconfirmed (the 0313 column
  * comment says how to confirm it). Until then the cell shows the raw value as
  * "Join (raw)" and the verdict carries only the minimums. This is the one
  * place to flip once the client has been checked. */

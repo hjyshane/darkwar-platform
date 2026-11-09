@@ -35,7 +35,7 @@ def test_alliance_detail() -> None:
     # Unpromoted fields survive whole in raw.
     assert row["raw"]["giftLevel"] == 80
     assert row["raw"]["maxMember"] == 100
-    # The alliance's own words and join rules, promoted in 0309.
+    # The alliance's own words and join rules, promoted in 0313.
     assert row["intro"] == "[redacted intro]"
     # The payload carries "" — an empty announcement is no announcement.
     assert row["announce"] is None

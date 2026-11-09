@@ -1,6 +1,6 @@
 // Names for the codes get.al.info sends: `language` is a client localization
 // key, `country` an ISO 3166-1 alpha-2 code. The column stores the raw code
-// (0309) so a key the client adds later displays as itself instead of failing.
+// (0313) so a key the client adds later displays as itself instead of failing.
 //
 // LANGUAGES is read off the client dictionary
 // (Assets_Main_DataTable_Localization_{English,Korean}_Dictionaries_Dialog_1,
