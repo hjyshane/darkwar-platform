@@ -488,7 +488,12 @@ export function PlannerPage() {
             <ul className="chips planner-chosen" aria-label="Chosen">
               {[...targets.entries()].map(([key, t]) => (
                 <li key={key}>
-                  <button className="chip" onClick={() => remove(key)} title="Remove" type="button">
+                  <button
+                    className="filter-chip"
+                    onClick={() => remove(key)}
+                    title="Remove"
+                    type="button"
+                  >
                     {t.name} {shown(t, t.from)} → {shown(t, t.to)}
                     {t.kind === 'hero_gear' &&
                       (t.stageTo ?? 0) > (t.stageFrom ?? 0) &&

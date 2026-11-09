@@ -114,7 +114,7 @@ export function BattleDetail({ battle }: { battle: Battle }) {
         <p>
           <button
             type="button"
-            className="chip"
+            className="filter-chip"
             aria-pressed={showOpponent}
             onClick={() => setShowOpponent((on) => !on)}
           >

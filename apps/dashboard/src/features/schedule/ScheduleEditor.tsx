@@ -178,7 +178,7 @@ export function ScheduleEditor({
             {PRESETS.map((preset) => (
               <button
                 aria-pressed={draft.reminders.includes(preset.minutes)}
-                className="chip"
+                className="filter-chip"
                 key={preset.minutes}
                 onClick={() => toggle(preset.minutes)}
                 type="button"
