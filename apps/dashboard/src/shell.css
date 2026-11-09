@@ -98,7 +98,7 @@
 .shell-link {
   align-items: center;
   border-left: 2px solid transparent;
-  border-radius: var(--radius-md);
+  border-radius: 0;
   color: var(--fg-muted);
   display: flex;
   font-size: var(--text-sm);
@@ -117,15 +117,16 @@
   color: var(--fg);
 }
 
+/* The amber left rule is the whole signal; no fill behind it, so the active
+ * item reads as a mark on the rail rather than a highlighted card. */
 .shell-link[aria-current="page"] {
-  background: var(--bg-hover);
-  border-left-color: var(--gold-strong);
+  border-left-color: var(--accent);
   color: var(--fg);
   font-weight: 500;
 }
 
 .shell-link[aria-current="page"] svg {
-  color: var(--gold);
+  color: var(--accent);
 }
 
 .shell-link:focus-visible,
@@ -205,7 +206,7 @@
 
 .shell-top {
   align-items: center;
-  background: var(--bg);
+  background: var(--bg-top);
   border-bottom: 1px solid var(--border);
   display: flex;
   gap: var(--space-3);
@@ -553,9 +554,9 @@
 .panel,
 .entity,
 .overview-main > section:not(.entity) {
-  background: var(--bg-raised);
+  background: var(--bg-cell);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: 0;
   padding: var(--space-4);
 }
 
@@ -628,31 +629,28 @@
 /* Hairlines are drawn on the cells, not shown through a gap, so a last row
  * with fewer cells than the grid has columns stays the panel's colour instead
  * of exposing a grey block. The margin hides the line against the frame. */
+/* The shared-border grid: a 1px gap over the rule colour, so adjacent cells
+ * share one line each way instead of each drawing its own. The same idea as
+ * the console CellGrid; this is the legacy-markup version of it. */
 .strip {
-  background: var(--bg-raised);
+  background: var(--border);
   border-top: 1px solid var(--border);
   display: grid;
+  gap: 1px;
   grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
-  margin: 0 -1px -1px 0;
-  overflow: hidden;
 }
 
 .strip .stat {
-  background: var(--bg-raised);
+  background: var(--bg-cell);
   border: none;
   border-radius: 0;
-  box-shadow: inset -1px -1px 0 var(--border);
+  box-shadow: none;
   grid-column: auto;
   padding: var(--space-3) var(--space-4);
 }
 
 .strip .stat-hero::before {
   display: none;
-}
-
-.strip .stat-label {
-  font-size: var(--text-xs);
-  letter-spacing: 0.02em;
 }
 
 .strip .stat-value,
@@ -753,23 +751,23 @@
 }
 
 [data-theme-index="0"] {
-  --tint: #c9a24b;
+  --tint: var(--data-1);
 }
 
 [data-theme-index="1"] {
-  --tint: #5fb3a1;
+  --tint: var(--data-2);
 }
 
 [data-theme-index="2"] {
-  --tint: #8f7fd6;
+  --tint: var(--data-5);
 }
 
 [data-theme-index="3"] {
-  --tint: #d98c6a;
+  --tint: var(--data-4);
 }
 
 [data-theme-index="4"] {
-  --tint: #7aa2f7;
+  --tint: var(--data-3);
 }
 
 .guide-cell {
@@ -1318,9 +1316,9 @@
 
 /* First-use tour card. */
 .tour {
-  background: var(--surface-raised, var(--surface));
+  background: var(--bg-cell);
   border: 1px solid var(--border);
-  border-radius: var(--radius-2, 8px);
+  border-radius: var(--radius-lg);
   display: grid;
   gap: var(--space-2);
   padding: var(--space-4);

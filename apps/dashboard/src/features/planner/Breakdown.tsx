@@ -7,7 +7,7 @@ import { BarCell } from '../../components/ui/BarCell';
 import { GameIcon, useIcons, useItemIcons } from '../../lib/gameIcons';
 import { exact, short } from './format';
 import { type Tiers, levelText } from './levels';
-import { type Buffs, type PlannedStep, duration, groupSteps, totals } from './plan';
+import { type Buffs, type PlannedStep, duration, groupSteps, stockable, totals } from './plan';
 
 interface BreakdownProps {
   steps: ReadonlyArray<PlannedStep>;
@@ -35,8 +35,9 @@ export function Breakdown({ steps, goalNames, buffs, tiers, nameOf, have }: Brea
       : null;
 
   // How many of the needed materials the account already covers in full, for
-  // the strip above the table.
-  const covered = sums.materials.filter((m) => have(m.type, m.id) >= m.amount).length;
+  // the strip above the table. Counters (0309) are not stock and stay out.
+  const held = stockable(sums.materials);
+  const covered = held.filter((m) => have(m.type, m.id) >= m.amount).length;
 
   return (
     <>
@@ -91,15 +92,11 @@ export function Breakdown({ steps, goalNames, buffs, tiers, nameOf, have }: Brea
         {sums.researchSeconds > 0 && `, research time ${duration(sums.researchSeconds)}`} after
         buffs.
       </p>
-      {sums.materials.length > 0 && (
+      {held.length > 0 && (
         <div className="coverage">
-          <BarCell
-            done={covered === sums.materials.length}
-            max={sums.materials.length}
-            value={covered}
-          />
+          <BarCell done={covered === held.length} max={held.length} value={covered} />
           <span className="coverage-text">
-            {covered} of {sums.materials.length} materials covered
+            {covered} of {held.length} materials covered
           </span>
         </div>
       )}
@@ -126,8 +123,22 @@ export function Breakdown({ steps, goalNames, buffs, tiers, nameOf, have }: Brea
           </thead>
           <tbody>
             {sums.materials.map((m) => {
-              const held = have(m.type, m.id);
-              const missing = Math.max(0, m.amount - held);
+              // A counter is spent, not held: no stock column for it.
+              if (m.type === 'counter') {
+                return (
+                  <tr key={`${m.type}:${m.id}`}>
+                    <td className="label">{nameOf(m.type, m.id)}</td>
+                    <td className="num">
+                      <Amount value={m.amount} />
+                    </td>
+                    <td className="num subtle">—</td>
+                    <td className="num subtle">—</td>
+                    <td />
+                  </tr>
+                );
+              }
+              const inStock = have(m.type, m.id);
+              const missing = Math.max(0, m.amount - inStock);
               return (
                 <tr key={`${m.type}:${m.id}`}>
                   <td className="label">
@@ -138,13 +149,17 @@ export function Breakdown({ steps, goalNames, buffs, tiers, nameOf, have }: Brea
                     <Amount value={m.amount} />
                   </td>
                   <td className="num">
-                    <Amount value={held} />
+                    <Amount value={inStock} />
                   </td>
                   <td className={`num${missing > 0 ? ' error' : ''}`}>
                     {missing > 0 ? <Amount value={missing} /> : '✓'}
                   </td>
                   <td>
-                    <BarCell done={missing === 0} max={m.amount} value={Math.min(held, m.amount)} />
+                    <BarCell
+                      done={missing === 0}
+                      max={m.amount}
+                      value={Math.min(inStock, m.amount)}
+                    />
                   </td>
                 </tr>
               );

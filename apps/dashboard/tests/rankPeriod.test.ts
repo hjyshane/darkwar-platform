@@ -28,14 +28,15 @@ test('a period is exactly two weeks, and the next one starts where it ends', () 
   expect(rankPeriodStart(end).toISOString()).toBe(end.toISOString());
 });
 
-test('the weekly readings land a minute before the boards clear', () => {
+test('the weekly readings land at Sunday 14:00Z, twelve hours before the boards clear', () => {
   const start = rankPeriodStart(new Date('2026-08-05T13:45:12Z'));
   const [first, second] = rankPeriodWeekEnds(start);
 
-  expect(first.toISOString()).toBe('2026-08-10T01:59:00.000Z');
-  expect(second.toISOString()).toBe('2026-08-17T01:59:00.000Z');
-  // Each is inside the period it belongs to. A reading at 02:00 would fall
-  // in the next week and score zero, which is the mistake this pins.
+  // 12:00 server time (UTC−2) on the Sunday; the reset is Monday 02:00Z.
+  expect(first.toISOString()).toBe('2026-08-09T14:00:00.000Z');
+  expect(second.toISOString()).toBe('2026-08-16T14:00:00.000Z');
+  // Each is inside the period it belongs to. A reading at the reset would
+  // fall in the next week and score zero, which is the mistake this pins.
   expect(rankPeriodStart(first).toISOString()).toBe(start.toISOString());
   expect(second.getTime()).toBeLessThan(rankPeriodEnd(start).getTime());
 });

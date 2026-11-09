@@ -31,18 +31,19 @@ select is(public.rank_period_start('2026-07-27T02:00:00Z'), '2026-07-20T02:00:00
 select is(public.rank_period_start('2026-01-05T02:00:00Z'), '2026-01-05T02:00:00Z'::timestamptz,
   'well before the epoch still resolves, on the same fortnightly grid');
 
--- The measurement points. 01:59, not 02:00: a minute later the game has
--- wiped the weekly boards and everybody scores zero.
+-- The measurement points (0309): Sunday 14:00Z, twelve hours before the
+-- Monday 02:00Z reset wipes the weekly boards — noon on the game's clock.
+-- Until 0309 this was 01:59Z on the Monday, the last minute before the wipe.
 select is(public.rank_period_week_ends('2026-08-03T02:00:00Z'),
-  array['2026-08-10T01:59:00Z'::timestamptz, '2026-08-17T01:59:00Z'::timestamptz],
-  'the weekly readings land a minute before the boards clear');
+  array['2026-08-09T14:00:00Z'::timestamptz, '2026-08-16T14:00:00Z'::timestamptz],
+  'the weekly readings land at Sunday 14:00Z, twelve hours before the boards clear');
 
 select is(public.rank_period_start((public.rank_period_week_ends('2026-08-03T02:00:00Z'))[1]),
   '2026-08-03T02:00:00Z'::timestamptz,
   'and the first one is inside the period it belongs to');
 select is(public.rank_period_start((public.rank_period_week_ends('2026-08-03T02:00:00Z'))[2]),
   '2026-08-03T02:00:00Z'::timestamptz,
-  'as is the second, which a reading at 02:00 would not be');
+  'as is the second, which a reading at the reset would not be');
 
 -- Derived from the week rule rather than reimplementing it, so the two
 -- cannot disagree about what a Monday is.

@@ -230,7 +230,7 @@ export function SeasonPanel() {
           // who assumes otherwise will compare them against the power board and
           // conclude the data is wrong.
           <p className="note">
-            Coal production and influence are the game's own season figures. Neither is power, and
+            Soul Stone and influence are the game's own season figures. Neither is power, and
             neither is comparable with the cross-server boards.
           </p>
         )}

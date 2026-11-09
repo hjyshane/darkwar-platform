@@ -975,10 +975,12 @@ def game_catalog(
     kinds: dict[str, int] = {}
     for step in steps:
         kinds[step["kind"]] = kinds.get(step["kind"], 0) + 1
+    # Items worth a counter when used (0309): the chip EXP cards.
+    exp_cards = sum(1 for item in items if item.get("counter_value"))
     typer.echo(
         f"items={len(items)} resources={len(resources)} steps={len(steps)} {kinds}"
         f" heroes={len(heroes)} effects={len(effects)} gear={len(gear)} tabs={len(tabs)}"
-        f" pack-picks={len(pack_picks)}"
+        f" pack-picks={len(pack_picks)} exp-cards={exp_cards}"
     )
     if dry_run:
         return
@@ -1245,22 +1247,29 @@ def game_event_guide(
     url: Annotated[str | None, typer.Option(envvar="SUPABASE_URL")] = None,
     secret_key: Annotated[str | None, typer.Option(envvar="SUPABASE_SECRET_KEY")] = None,
 ) -> None:
-    """What scores in Survival Preparedness and the Alliance Duel (0248).
+    """What scores in every event the journal has seen (0248, 0309).
 
     The themes and the calendar come from the journal's captures, what each id is
     and is worth from the client's `score` table. Nothing about any member is read.
-    Needs the `gamedata` extra.
+    Each activity that scores also gets an unpublished event guide with one client
+    point_table section per theme; officer sections and game_event_score_items are
+    never touched. The dry-run line lists `scoreless` ids (nothing to import) and
+    `unnamed` ids (run game-names first, or rename the guide). Needs the
+    `gamedata` extra.
     """
     from dw_collector.gamedata import read_dir, upload
-    from dw_collector.gamedata.event_guide import build, read_journal
+    from dw_collector.gamedata.event_guide import (
+        build,
+        dry_run_report,
+        read_journal,
+        write_guides,
+    )
 
     assets: dict[str, bytes] = {}
     for folder in bundles:
         assets.update(read_dir(folder))
     guide = build(assets, read_journal(str(journal)))
-    typer.echo(
-        f"themes={len(guide.themes)} scores={len(guide.scores)} calendar={len(guide.calendar)}"
-    )
+    typer.echo(dry_run_report(guide))
     if dry_run:
         return
     if not url or not secret_key:
@@ -1273,7 +1282,8 @@ def game_event_guide(
             client, "game_event_scores", guide.scores, "activity_id,event_id,score_id"
         )
         upload.upsert_rows(client, "game_event_calendar", guide.calendar, "activity_id,day,slot")
-    typer.echo("written")
+        guides_sent, sections_sent = write_guides(client, guide)
+    typer.echo(f"written guides={guides_sent} sections={sections_sent}")
 
 
 @app.command("game-dispatch")

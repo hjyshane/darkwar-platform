@@ -155,7 +155,7 @@ export function OverviewMetricsSetting() {
           .filter((option) => !chosen.includes(option.id))
           .map((option) => (
             <li key={option.id}>
-              <button className="chip" onClick={() => toggle(option.id)} type="button">
+              <button className="filter-chip" onClick={() => toggle(option.id)} type="button">
                 + {option.label}
               </button>
             </li>

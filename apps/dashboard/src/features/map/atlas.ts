@@ -89,8 +89,10 @@ export function parseAtlas(json: unknown): Atlas {
 }
 
 /** Our own alliance's colour; every other alliance gets one from its id. */
-export const OURS_COLOR = '#22d3ee';
-export const NO_ALLIANCE_COLOR = '#94a3b8';
+// Ours is the accent (console: amber), read from the stylesheet so it follows
+// the scheme; every consumer sets it as a CSS value, never on a canvas.
+export const OURS_COLOR = 'var(--accent)';
+export const NO_ALLIANCE_COLOR = 'var(--map-fg-muted)';
 
 /** A colour from the alliance's id, so it is the same on every visit and does
  * not shuffle when the ranking does. */
