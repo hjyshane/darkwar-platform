@@ -8775,47 +8775,43 @@ export type Database = {
           server_id: number | null
           snapshot_id: string | null
         }
-        Insert: {
-          alliance_id?: string | null
-          announce?: string | null
-          captured_at?: string | null
-          code?: string | null
-          country?: string | null
-          external_id?: string | null
-          intro?: string | null
-          join_approval?: number | null
-          language?: string | null
-          leader_game_uid?: number | null
-          max_members?: number | null
-          member_count?: number | null
-          min_hq?: number | null
-          min_power?: number | null
-          name?: string | null
-          power?: number | null
-          server_id?: number | null
-          snapshot_id?: string | null
-        }
-        Update: {
-          alliance_id?: string | null
-          announce?: string | null
-          captured_at?: string | null
-          code?: string | null
-          country?: string | null
-          external_id?: string | null
-          intro?: string | null
-          join_approval?: number | null
-          language?: string | null
-          leader_game_uid?: number | null
-          max_members?: number | null
-          member_count?: number | null
-          min_hq?: number | null
-          min_power?: number | null
-          name?: string | null
-          power?: number | null
-          server_id?: number | null
-          snapshot_id?: string | null
-        }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "alliance_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "alliance_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "alliance_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "alliance_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "alliance_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+        ]
       }
       alliance_latest: {
         Row: {
