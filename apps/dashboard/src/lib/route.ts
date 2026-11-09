@@ -149,12 +149,16 @@ export function adminHash(group: AdminGroup, section?: string): string {
 /** The event guide's tabs, in the order they are drawn. It is one screen, so
  * the page itself does not stack four long panels; each tab has an address of
  * its own so the sidebar and a link can land on one. */
-export type EventGuideTab = 'today' | 'events' | 'survival' | 'duel' | 'scores';
+export type EventGuideTab = 'today' | 'guides' | 'events' | 'survival' | 'duel' | 'scores';
 
 export const EVENT_GUIDE_TABS: ReadonlyArray<{ id: EventGuideTab; label: string }> = [
   // Only what is on today, at this hour: the first screen. The long lists are
   // the tabs after it.
   { id: 'today', label: 'Now' },
+  // The event guides (0310): one per event, each with an address of its own
+  // under this tab (`#/event-guide/guides/<slug>`). Game facts, so community
+  // reads them too.
+  { id: 'guides', label: 'Guides' },
   { id: 'events', label: 'Alliance events' },
   { id: 'survival', label: 'Survival Preparedness' },
   { id: 'duel', label: 'Alliance Duel' },
@@ -168,18 +172,34 @@ export function isEventGuideTabOpen(id: EventGuideTab, isCommunity: boolean): bo
   return !isCommunity || (id !== 'scores' && id !== 'events');
 }
 
-const EVENT_GUIDE_HASH = new RegExp(
+/** One guide under the Guides tab: `#/event-guide/guides/<slug>`. The slug is
+ * `event_guides.slug` (0310), which the table already holds to this shape. */
+const EVENT_GUIDE_SLUG_HASH = /^#\/event-guide\/guides\/([a-z0-9][a-z0-9-]{0,79})$/;
+
+const EVENT_GUIDE_TAB_HASH = new RegExp(
   `^#/event-guide(?:/(${EVENT_GUIDE_TABS.map((tab) => tab.id).join('|')}))?$`,
 );
+
+const EVENT_GUIDE_HASH = {
+  test: (hash: string) => EVENT_GUIDE_TAB_HASH.test(hash) || EVENT_GUIDE_SLUG_HASH.test(hash),
+};
 
 /** The tab an `#/event-guide/...` address names; bare `#/event-guide` is the
  * first. An unknown segment is not a route at all (it falls to the overview). */
 export function eventGuideTabFromHash(hash: string): EventGuideTab {
-  return (EVENT_GUIDE_HASH.exec(hash)?.[1] as EventGuideTab | undefined) ?? 'today';
+  if (EVENT_GUIDE_SLUG_HASH.test(hash)) return 'guides';
+  return (EVENT_GUIDE_TAB_HASH.exec(hash)?.[1] as EventGuideTab | undefined) ?? 'today';
 }
 
-export function eventGuideHash(tab: EventGuideTab): string {
-  return tab === 'today' ? '#/event-guide' : `#/event-guide/${tab}`;
+/** The guide an address names, or null on any other event-guide address. */
+export function eventGuideSlugFromHash(hash: string): string | null {
+  return EVENT_GUIDE_SLUG_HASH.exec(hash)?.[1] ?? null;
+}
+
+/** `slug` only means something under the Guides tab; elsewhere it is ignored. */
+export function eventGuideHash(tab: EventGuideTab, slug?: string | null): string {
+  if (tab === 'today') return '#/event-guide';
+  return tab === 'guides' && slug ? `#/event-guide/guides/${slug}` : `#/event-guide/${tab}`;
 }
 
 /** A screen whose tabs each have an address: `base` for the first, `base/<id>`
