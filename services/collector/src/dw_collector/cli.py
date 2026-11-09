@@ -975,10 +975,12 @@ def game_catalog(
     kinds: dict[str, int] = {}
     for step in steps:
         kinds[step["kind"]] = kinds.get(step["kind"], 0) + 1
+    # Items worth a counter when used (0309): the chip EXP cards.
+    exp_cards = sum(1 for item in items if item.get("counter_value"))
     typer.echo(
         f"items={len(items)} resources={len(resources)} steps={len(steps)} {kinds}"
         f" heroes={len(heroes)} effects={len(effects)} gear={len(gear)} tabs={len(tabs)}"
-        f" pack-picks={len(pack_picks)}"
+        f" pack-picks={len(pack_picks)} exp-cards={exp_cards}"
     )
     if dry_run:
         return

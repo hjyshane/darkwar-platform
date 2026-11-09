@@ -86,6 +86,28 @@
    (`ds_equip_promote`)로 확인됐지만 레벨업 재료(`ds_equip_upgrade.stone_upgrade_cost`)가
    어떤 아이템인지 테이블에 없다.
 
+   **개조차 칩(0309, 2026-11-08):** `car_microchip_promote`에서 `kind='chip'`을 쓴다.
+   subject는 등급 번호(4 보라, 5 주황 — 초록 2·파랑 3은 한 행뿐이고 비용이 없어 강화 불가),
+   level은 별 × 10 + 칸(`rank` = 별 0~10, `grade` = 칸 0~9), name은 게임이 그리는 그대로
+   `"0★ 5/10"`. 비용은 아이템이 아니라 **`counter`** 타입이다: `cost_goods`(별 강화 EXP) →
+   `{"type":"counter","id":"chip_exp"}`, `cost_self`(같은 칩 중복) →
+   `{"type":"counter","id":"chip_duplicate:<등급>"}`. 한 행은 둘 중 하나만 든다(각 별의
+   9번째 칸과 중간 몇 칸이 중복 소모; 등급당 중복 500개). 꼭대기 행(10★ 0/10)은 비용이
+   없어 스텝이 아니다. 전투력은 칩마다 다르고 등급별이 아니어서(`car_microchip_attribute`)
+   null로 둔다. EXP 카드는 `goods.type = 224`, `para1`이 EXP(300017=500, 300005=10,000,
+   300006=30,000, 300030=60,000)이고 `game_items.counter_value`에 `{"id":"chip_exp",
+   "amount":60000}`로 들어간다 — 대시보드가 "129M EXP = 2,152 × Big EXP card"를 상수 아닌
+   데이터로 계산하기 위해서다. 출력에 `exp-cards=4`가 나온다.
+
+   **시즌 건물(0309):** 새 kind가 아니다. `building` 테이블의 `building_season` 열을
+   `game_upgrade_steps.game_season`에 쓴다. 이 번호는 **게임의 시즌 테마 번호**이고 우리
+   `seasons.season_id`가 아니다(3 = Altar/Obelisk/Statue = 우리 시즌 2, 4 = Smart
+   Greenhouse~Defensive Base = 우리 시즌 3, 6 = Mineral Factory~Guardian Gem, 그 외 2·8·10).
+   대응은 `apps/dashboard/src/features/calculator/seasons.ts`. **0309를 푸시한 뒤 이 명령을 한
+   번 다시 돌려야** `game_season`·`counter_value`·칩 스텝이 채워진다(돌리기 전에는 모두 null).
+   확인: `select kind, count(*) from game_upgrade_steps where kind='chip' group by 1` → 200,
+   `select count(distinct subject_id) from game_upgrade_steps where game_season is not null` → 64.
+
 6. 아이템 가치(루비)와 팩 이름 올리기(0215). **팩이 먼저 동기화돼 있어야 한다** —
    `exchange.info`가 잡힌 뒤(상점·팩 화면을 한 번 열면 온다), 수집기가 `shop_pack_snapshots`로 올린 다음:
 

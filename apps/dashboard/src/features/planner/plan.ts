@@ -21,10 +21,16 @@ export type Kind =
   | 'vehicle'
   | 'vehicle_part'
   | 'pet'
-  | 'pet_break';
+  | 'pet_break'
+  | 'chip';
+
+/** What a cost is counted in. A `counter` (0309) is a quantity that is neither
+ * an item nor a resource a player holds: a chip's star-up EXP points
+ * (`chip_exp`) or a duplicate of the same chip (`chip_duplicate:<quality>`). */
+export type CostType = 'resource' | 'item' | 'counter';
 
 export interface Cost {
-  type: 'resource' | 'item';
+  type: CostType;
   id: string;
   amount: number;
 }
@@ -184,9 +190,16 @@ export function plan(
 }
 
 export interface MaterialTotal {
-  type: 'resource' | 'item';
+  type: CostType;
   id: string;
   amount: number;
+}
+
+/** The totals an account can hold stock against. Counters are left out: a
+ * player holds EXP cards (items), never the points, and a duplicate chip is
+ * not in the item list the login sends. */
+export function stockable(materials: ReadonlyArray<MaterialTotal>): MaterialTotal[] {
+  return materials.filter((m) => m.type !== 'counter');
 }
 
 export interface Totals {

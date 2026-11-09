@@ -244,7 +244,8 @@ CATALOGUE_TABLES = {
         [222003] = { 222003, '300011', 2, { ['300011'] = '100' } },
         [210305] = { 210305, '300012', 4, nil, '1017', 93 },
         [253074] = { 253074, '300012', 4, nil, '253094', 215, '40006000' },
-        [253070] = { 253070, '300019', 5, nil, nil, 215, nil, 'icon_exclusive_Engineer' } },
+        [253070] = { 253070, '300019', 5, nil, nil, 215, nil, 'icon_exclusive_Engineer' },
+        [300030] = { 300030, '300020', 4, nil, nil, 224, '60000' } },
       index = { id = {1,'int'}, name = {2,'string'}, color = {3,'int'},
                 name_value = {4,'table'}, para2 = {5,'string'},
                 type = {6,'int'}, para1 = {7,'string'}, icon = {8,'string'} } }""",
@@ -330,12 +331,26 @@ CATALOGUE_TABLES = {
       index = { id = {1,'int'}, card_type = {2,'int'}, exchangeId = {3,'int'},
                 slotnum = {4,'int'}, selectable_reward = {5,'string'},
                 name = {6,'int'} } }""",
+    # Chips (car_microchip_promote): quality, rank (star), grade (sub-step),
+    # cost_goods is EXP, cost_self is duplicates; a row costs one or the other.
+    "car_microchip_promote": """return { data = {
+        [100] = { 100, 2, 0, 0, '500', '', '' },
+        [2000] = { 2000, 4, 0, 0, '50000', '500', '' },
+        [2001] = { 2001, 4, 0, 1, '', '1000', '' },
+        [2009] = { 2009, 4, 0, 9, '', '0', '1' },
+        [2010] = { 2010, 4, 1, 0, '', '13000', '' },
+        [2011] = { 2011, 4, 1, 1, '', '14000', '' },
+        [2100] = { 2100, 4, 10, 0, '', '', '' } },
+      index = { id = {1,'int'}, quality = {2,'int'}, rank = {3,'int'}, grade = {4,'int'},
+                value_self = {5,'string'}, cost_goods = {6,'string'},
+                cost_self = {7,'string'} } }""",
 }
 CATALOGUE_EN = (
     "300001=Precision Part\n300002=Titanium Alloy\n300003=Wood\n300004=Iron\n"
     "300006=Field Formation\n300007=Gun\n300010={0} Coins\n300011={0} VIP Points\n"
     "300012={0} Fragments\n300013=Mia\n300014=Night Owl\n300015=Construction Speed\n"
     "300016=D5-Slayer\n300017=Battle\n300018=Battle Strategy\n300019=Pyro Pup\n"
+    "300020=Chip Star-Up EXP Card (Big)\n"
 )
 CATALOGUE_KO = "300001=정밀 부품\n300010=코인 {0}\n"
 
@@ -731,3 +746,33 @@ def test_pack_picks_read_the_daily_hero_shards_and_the_weekly_slots() -> None:
     assert by[("name_key", "1140003", "330005", 1.0)]["slots"] == 2
     assert by[("name_key", "1140004", "230110", 1.0)]["slots"] == 3
     assert len([k for k in by if k[0] == "name_key"]) == 4
+
+
+def test_chip_steps_flatten_star_and_substep_and_cost_exp_or_duplicates() -> None:
+    from dw_collector.gamedata.catalog import chip_label
+
+    steps = sorted(
+        (s for s in _catalogue().steps() if s["kind"] == "chip"), key=lambda s: s["level"]
+    )
+
+    # Level = star x 10 + sub-step reached: row (0,0)'s 500 EXP buys "0★ 1/10",
+    # row (0,9)'s one duplicate buys "1★ 0/10", and the top row (10,0) is no step.
+    assert [(s["subject_id"], s["level"], s["costs"], s["name"]) for s in steps] == [
+        ("4", 1, [{"type": "counter", "id": "chip_exp", "amount": 500}], "0★ 1/10"),
+        ("4", 10, [{"type": "counter", "id": "chip_duplicate:4", "amount": 1}], "1★ 0/10"),
+        ("4", 11, [{"type": "counter", "id": "chip_exp", "amount": 13000}], "1★ 1/10"),
+    ]
+    # The step's label is the same in both languages, and green (quality 2,
+    # one row, no cost) is not upgradeable.
+    assert steps[0]["name_ko"] == "0★ 1/10"
+    assert steps[0]["power"] is None
+    assert chip_label(5) == "0★ 5/10"
+    assert chip_label(100) == "10★ 0/10"
+
+
+def test_exp_cards_carry_their_counter_value() -> None:
+    items = {row["item_id"]: row for row in _catalogue().items()}
+
+    assert items["300030"]["counter_value"] == {"id": "chip_exp", "amount": 60000}
+    assert items["300030"]["name"] == "Chip Star-Up EXP Card (Big)"
+    assert items["253042"]["counter_value"] is None
