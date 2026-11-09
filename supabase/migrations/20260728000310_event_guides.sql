@@ -1,4 +1,4 @@
--- 0309: the event guide model — one guide per event, built from typed sections.
+-- 0310: the event guide model — one guide per event, built from typed sections.
 --
 -- The 0248 tables hold what the game says scores in Survival Preparedness and
 -- the Alliance Duel. Every other event (the seasonal festivals, future ones of
@@ -80,15 +80,15 @@ create table public.game_event_score_items (
 );
 
 comment on table public.event_guides is
-  'One event guide per event: typed sections under it (0309). activity_id when '
+  'One event guide per event: typed sections under it (0310). activity_id when '
   'the game has one (the importer creates these, unpublished); null for a '
   'festival an officer types. Shared game facts, no alliance.';
 comment on table public.event_guide_sections is
-  'The blocks of an event guide in sort_order (0309). Shape per `kind` is owned '
+  'The blocks of an event guide in sort_order (0310). Shape per `kind` is owned '
   'by the dashboard. source=client rows are rewritten by dw-collector '
   'game-event-guide; source=officer rows are never touched by it.';
 comment on table public.game_event_score_items is
-  'Which item a client score id consumes and how many per scored action (0309). '
+  'Which item a client score id consumes and how many per scored action (0310). '
   'Officer-owned; the importer never writes it. The id is global across events, '
   'so one mapping serves every event that reuses it.';
 

@@ -25,7 +25,7 @@ Kinds, and how each table names a step:
 - hero_gear     `ds_equip_upgrade` / `ds_equip_promote`: subject = cost list
 - exclusive     `heroes_exclusive_equip`: hero id + level, fragments
 - chip          `car_microchip_promote`: quality + (star, sub-step), EXP and
-                duplicates as `counter` costs (0309)
+                duplicates as `counter` costs (0311)
 
 Buildings carry `tier` (industry tier, Watchtower 35+), research `category`
 (the research screen's tab), and a building of a season its `game_season`
@@ -235,7 +235,7 @@ class Catalog:
                     "item_type": item_type,
                     "quality": _int(row.get("color")),
                     "icon": row.get("icon") or None,
-                    # What the item is worth in a counter when used (0309): an
+                    # What the item is worth in a counter when used (0311): an
                     # EXP card's star-up points. Every row carries the key, so
                     # an upsert clears a value the client has dropped.
                     "counter_value": {"id": CHIP_EXP, "amount": exp} if exp else None,
@@ -475,7 +475,7 @@ class Catalog:
                 # Industry tier of the level reached: Watchtower 35-39 is
                 # "Industry Lv.1", 40-44 Lv.2 ... 80 Lv.10. Only it has one.
                 following.get("industry_level"),
-                # The game's season theme a season building belongs to (0309):
+                # The game's season theme a season building belongs to (0311):
                 # 4 is Smart Greenhouse / Thermal Lab (our Season 3), 6 Mineral
                 # Factory / Oni Seal Hall. Empty on an ordinary building.
                 game_season=following.get("building_season"),
@@ -737,7 +737,7 @@ class Catalog:
                 yield step
 
     def _chip_steps(self) -> Iterator[Row]:
-        """Vehicle chips (`car_microchip_promote`, 0309): one row per quality
+        """Vehicle chips (`car_microchip_promote`, 0311): one row per quality
         at (rank, grade) — the star the game draws and the sub-step out of ten
         — holding what it takes to go on: `cost_goods` is star-up EXP points,
         `cost_self` duplicates of the same chip; a row costs one or the other

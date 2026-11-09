@@ -1,4 +1,4 @@
-// `rewards`: what the event pays out, as chips (0309).
+// `rewards`: what the event pays out, as chips (0310).
 
 import { compact, isRecord, list, optStr, str } from './common';
 import { type ItemRef, parseItemRef } from './itemRef';

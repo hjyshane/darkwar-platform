@@ -1,4 +1,4 @@
-// game_event_score_items laid over a client point table (0309).
+// game_event_score_items laid over a client point table (0310).
 //
 // The client's score table names an action but no item, so the importer's
 // point_table rows carry a `score_id` and nothing else. Officers map a score

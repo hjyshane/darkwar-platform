@@ -184,11 +184,11 @@ async function nameFragmentOwners(items: Map<string, string>): Promise<void> {
 export interface Subject {
   subject: string;
   name: string;
-  /** The client's Korean name, so a Korean query finds the subject (0309). */
+  /** The client's Korean name, so a Korean query finds the subject (0311). */
   nameKo: string | null;
   maxLevel: number;
   category: number | null;
-  /** The game's season theme for a season building, null otherwise (0309). */
+  /** The game's season theme for a season building, null otherwise (0311). */
   gameSeason: number | null;
 }
 
@@ -216,7 +216,7 @@ export async function fetchCatalogSubjects(
   if (filter.category !== undefined) query = query.eq('category', filter.category);
   if (filter.subjects !== undefined)
     query = query.in('subject_id', filter.subjects.length > 0 ? filter.subjects : ['-']);
-  // Season buildings only (0309): the few dozen the client gives a season.
+  // Season buildings only (0311): the few dozen the client gives a season.
   if (filter.seasonal) query = query.not('game_season', 'is', null);
   const { data, error } = await query.limit(1000);
   if (error) throw new Error(error.message);

@@ -1,4 +1,4 @@
-"""What scores in each event the journal has seen, from the game (0248, 0309).
+"""What scores in each event the journal has seen, from the game (0248, 0310).
 
 The server sends the shape (`hero.event.info.get`: each theme with the ids of what
 scores in it; `get.hero.event.calendar`: which theme runs in which slot of which day)
@@ -48,7 +48,7 @@ class Guide:
     themes: list[dict[str, Any]] = field(default_factory=list)
     scores: list[dict[str, Any]] = field(default_factory=list)
     calendar: list[dict[str, Any]] = field(default_factory=list)
-    # 0309: one guide per activity that scores, one client section per theme.
+    # 0310: one guide per activity that scores, one client section per theme.
     guides: list[dict[str, Any]] = field(default_factory=list)
     sections: list[dict[str, Any]] = field(default_factory=list)
     # Every activity id the journal described, and the two lists the operator acts on.

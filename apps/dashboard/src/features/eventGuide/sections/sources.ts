@@ -1,4 +1,4 @@
-// `sources`: where the event's currency or ammo comes from, with limits (0309).
+// `sources`: where the event's currency or ammo comes from, with limits (0310).
 
 import { isRecord, list, nullNum, nullStr, str } from './common';
 

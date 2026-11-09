@@ -86,7 +86,7 @@
    (`ds_equip_promote`)로 확인됐지만 레벨업 재료(`ds_equip_upgrade.stone_upgrade_cost`)가
    어떤 아이템인지 테이블에 없다.
 
-   **개조차 칩(0309, 2026-11-08):** `car_microchip_promote`에서 `kind='chip'`을 쓴다.
+   **개조차 칩(0311, 2026-11-08):** `car_microchip_promote`에서 `kind='chip'`을 쓴다.
    subject는 등급 번호(4 보라, 5 주황 — 초록 2·파랑 3은 한 행뿐이고 비용이 없어 강화 불가),
    level은 별 × 10 + 칸(`rank` = 별 0~10, `grade` = 칸 0~9), name은 게임이 그리는 그대로
    `"0★ 5/10"`. 비용은 아이템이 아니라 **`counter`** 타입이다: `cost_goods`(별 강화 EXP) →
@@ -99,7 +99,7 @@
    "amount":60000}`로 들어간다 — 대시보드가 "129M EXP = 2,152 × Big EXP card"를 상수 아닌
    데이터로 계산하기 위해서다. 출력에 `exp-cards=4`가 나온다.
 
-   **시즌 건물(0309):** 새 kind가 아니다. `building` 테이블의 `building_season` 열을
+   **시즌 건물(0311):** 새 kind가 아니다. `building` 테이블의 `building_season` 열을
    `game_upgrade_steps.game_season`에 쓴다. 이 번호는 **게임의 시즌 테마 번호**이고 우리
    `seasons.season_id`가 아니다(3 = Altar/Obelisk/Statue = 우리 시즌 2, 4 = Smart
    Greenhouse~Defensive Base = 우리 시즌 3, 6 = Mineral Factory~Guardian Gem, 그 외 2·8·10).
@@ -181,7 +181,7 @@ Shop value에서 그림이 빈 25개는 `goods.icon`이 가리키는 그림이 *
 아이템 아이콘을 고르는 코드를 따라가야 알 수 있다 — 그 전까지 이 25개는 빈 칸으로 둔다.
 `icon_*=png`는 값에 `=png`가 붙은 표 오타일 수 있으니 `icon_microradar`로도 찾는다(위 두 APK에는 둘 다 없었다).
 
-## 이벤트 가이드: 무엇이 점수를 주는가 (0248, 0309)
+## 이벤트 가이드: 무엇이 점수를 주는가 (0248, 0310)
 
 이벤트의 테마별 점수 항목은 서버가 주는 테마 목록(`hero.event.info.get`, `get.hero.event.calendar`)과
 클라이언트의 `score` 테이블(항목 이름과 기본 점수)을 합쳐 만든다. 멤버 개인의 점수는 읽지 않는다 — 버프

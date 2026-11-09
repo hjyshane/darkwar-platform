@@ -35,7 +35,7 @@ export function Breakdown({ steps, goalNames, buffs, tiers, nameOf, have }: Brea
       : null;
 
   // How many of the needed materials the account already covers in full, for
-  // the strip above the table. Counters (0309) are not stock and stay out.
+  // the strip above the table. Counters (0311) are not stock and stay out.
   const held = stockable(sums.materials);
   const covered = held.filter((m) => have(m.type, m.id) >= m.amount).length;
 
