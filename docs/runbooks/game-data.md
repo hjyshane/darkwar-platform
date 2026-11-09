@@ -107,6 +107,10 @@
    번 다시 돌려야** `game_season`·`counter_value`·칩 스텝이 채워진다(돌리기 전에는 모두 null).
    확인: `select kind, count(*) from game_upgrade_steps where kind='chip' group by 1` → 200,
    `select count(distinct subject_id) from game_upgrade_steps where game_season is not null` → 64.
+   **정정(2026-11-09):** `building_season`은 각 시즌 건물의 **레벨 0 행에만** 있다(868000 = '6',
+   868001~868030 = ''). 0311의 첫 임포터는 도달 레벨 행에서 읽어 모든 스텝이 null이었다 — 위
+   확인 쿼리가 0을 돌려주면 그 버전으로 돌린 것이다. 고친 임포터(종류별로 한 번 찾아 모든 스텝에
+   씀)로 `game-catalog`를 **다시 한 번** 돌리면 64가 된다.
 
 6. 아이템 가치(루비)와 팩 이름 올리기(0215). **팩이 먼저 동기화돼 있어야 한다** —
    `exchange.info`가 잡힌 뒤(상점·팩 화면을 한 번 열면 온다), 수집기가 `shop_pack_snapshots`로 올린 다음:

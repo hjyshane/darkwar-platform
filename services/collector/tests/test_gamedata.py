@@ -355,13 +355,14 @@ CATALOGUE_EN = (
 CATALOGUE_KO = "300001=정밀 부품\n300010=코인 {0}\n"
 
 
-def _catalogue():  # type: ignore[no-untyped-def]
+def _catalogue(tables=None):  # type: ignore[no-untyped-def]
+    """The fixture catalogue; `tables` replaces or adds datatables by name."""
     from dw_collector.gamedata.catalog import Catalog
 
     base = "assets/main/datatable"
     assets = {
         f"{base}/luatxt/luadatatable/{name}.bytes": _client_bytecode(src)
-        for name, src in CATALOGUE_TABLES.items()
+        for name, src in {**CATALOGUE_TABLES, **(tables or {})}.items()
     }
     assets[f"{base}/localization/english/dictionaries/dialog_1.txt"] = CATALOGUE_EN.encode()
     assets[f"{base}/localization/korean/dictionaries/dialog_1.txt"] = CATALOGUE_KO.encode()
@@ -776,3 +777,28 @@ def test_exp_cards_carry_their_counter_value() -> None:
     assert items["300030"]["counter_value"] == {"id": "chip_exp", "amount": 60000}
     assert items["300030"]["name"] == "Chip Star-Up EXP Card (Big)"
     assert items["253042"]["counter_value"] is None
+
+
+# A season building as the client ships it: `building_season` is filled on the
+# level-0 row only; every row above it carries an empty string.
+SEASON_BUILDING = """return { data = {
+    [727079] = { 727079, '300005', { {12, 11400} }, {}, 1267465, 285090, {}, '9', '' },
+    [727080] = { 727080, '300005', {}, {}, 0, 290000, {}, '10', '' },
+    [868000] = { 868000, '300005', { {0, 700} }, {}, 2, 0, {}, '', '6' },
+    [868001] = { 868001, '300005', { {0, 900} }, {}, 60, 10, {}, '', '' },
+    [868002] = { 868002, '300005', {}, {}, 0, 20, {}, '', '' } },
+  index = { id = {1,'int'}, name = {2,'string'}, cost_consume = {3,'table'},
+            item = {4,'table'}, time = {5,'int'}, power = {6,'int'},
+            building = {7,'table'}, industry_level = {8,'string'},
+            building_season = {9,'string'} } }"""
+
+
+def test_a_season_building_takes_its_season_from_its_base_row() -> None:
+    steps = [
+        s for s in _catalogue({"building": SEASON_BUILDING}).steps() if s["kind"] == "building"
+    ]
+    by_subject = {(s["subject_id"], s["level"]): s["game_season"] for s in steps}
+
+    # Both steps of the season building carry the season its level-0 row names,
+    # though the rows they reach say nothing; an ordinary building has none.
+    assert by_subject == {("727000", 80): None, ("868000", 1): 6, ("868000", 2): 6}

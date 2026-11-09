@@ -456,8 +456,19 @@ class Catalog:
         [[402000, 30], ...] — Watchtower 30 needs Alliance Hall 30 and Fighter
         Camp 30, as the user's table says). So the step to L+1 carries row L's
         cost and requirements and row L+1's name and power, and the top row,
-        with nothing after it, is no step."""
+        with nothing after it, is no step.
+
+        A season building says which season it is ONCE, on its level-0 row
+        (868000 carries `building_season` '6'; 868001 ... 868030 carry ''), so
+        the season is looked up per type and written on every step of it. Read
+        from the row a step reaches, as 0311's first import did, it was empty
+        on every step."""
         rows = self._rows("building")
+        season_of: dict[int, int] = {}
+        for row_id, row in rows.items():
+            full, season = _int(row_id), _int(row.get("building_season"))
+            if full is not None and season:
+                season_of.setdefault(full // 1000 * 1000, season)
         for row_id, row in rows.items():
             full = _int(row_id)
             following = rows.get(str(full + 1)) if full is not None else None
@@ -477,8 +488,8 @@ class Catalog:
                 following.get("industry_level"),
                 # The game's season theme a season building belongs to (0311):
                 # 4 is Smart Greenhouse / Thermal Lab (our Season 3), 6 Mineral
-                # Factory / Oni Seal Hall. Empty on an ordinary building.
-                game_season=following.get("building_season"),
+                # Factory / Oni Seal Hall. None on an ordinary building.
+                game_season=season_of.get(full // 1000 * 1000),
             )
             if step:
                 yield step
