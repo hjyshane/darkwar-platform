@@ -171,18 +171,16 @@ describe('notesFor', () => {
     expect(notesFor({ ...DEFAULT_STATE, subject: '409000', to: 30 }, none, [])).toEqual([
       'Buildings this needs first are not included; the planner adds them.',
     ]);
-    expect(
-      notesFor({ ...DEFAULT_STATE, kind: 'research', subject: '1', to: 3 }, none, []),
-    ).toEqual(['Research and buildings this needs first are not included; the planner adds them.']);
+    expect(notesFor({ ...DEFAULT_STATE, kind: 'research', subject: '1', to: 3 }, none, [])).toEqual(
+      ['Research and buildings this needs first are not included; the planner adds them.'],
+    );
   });
 
   it('marks an exclusive weapon range that reaches the red ranks', () => {
     const none = { materials: [], buildSeconds: 0, researchSeconds: 0 };
     const weapon = { ...DEFAULT_STATE, kind: 'exclusive' as const, subject: '40002' };
     expect(notesFor({ ...weapon, to: 25 }, none, [])).toEqual([]);
-    expect(notesFor({ ...weapon, to: 26 }, none, [])).toEqual([
-      'Red ranks open season by season.',
-    ]);
+    expect(notesFor({ ...weapon, to: 26 }, none, [])).toEqual(['Red ranks open season by season.']);
   });
 
   it('counts the breakthroughs a pet range includes', () => {

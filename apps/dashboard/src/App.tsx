@@ -14,6 +14,7 @@ import { AlliancePage } from './features/alliance/AlliancePage';
 import { ArenaPanel } from './features/arena/ArenaPanel';
 import { LoginPage } from './features/auth/LoginPage';
 import { BlackMoneyPage } from './features/blackMoney/BlackMoneyPage';
+import { CalculatorPage } from './features/calculator/CalculatorPage';
 import { CalendarPage } from './features/calendar/CalendarPage';
 import { CrossRankingsPanel } from './features/crossRankings/CrossRankingsPanel';
 import { CAPITAL_CLASH, EventBoardPage, SERVER_CLASH } from './features/eventBoard/EventBoardPage';
@@ -326,6 +327,10 @@ function Screen({
       // Owner-or-admin at the policy level (0205): a member sees only their own
       // characters, so no capability gate.
       return <PlannerPage />;
+    case 'calculator':
+      // Reference costs from the game's own tables: readable by every signed-in
+      // role, community included (0283), so no gate beyond the wall.
+      return <CalculatorPage />;
     case 'giftCodes':
       // The tab is hidden from anyone without `giftcodes.manage`, and the
       // tables and functions under it refuse them too (0251) - hiding a tab

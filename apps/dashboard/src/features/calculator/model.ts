@@ -6,6 +6,7 @@
 // every figure comes back out of its totals(), so the reference page cannot
 // drift from the planner (the spec's first anti-goal).
 
+import { weaponSegments, weaponText } from '../planner/RankGlyphs';
 import { exact, short } from '../planner/format';
 import { type Tiers, levelText } from '../planner/levels';
 import {
@@ -17,7 +18,6 @@ import {
   type Totals,
   totals,
 } from '../planner/plan';
-import { weaponSegments, weaponText } from '../planner/RankGlyphs';
 import { breakthroughsCrossed } from '../planner/targets';
 import { CHIP_DUPLICATE_PREFIX, CHIP_EXP, chipLabel } from './chips';
 import type { CalculatorKind, CalculatorState } from './url';
@@ -85,7 +85,7 @@ export function goalsFor(state: CalculatorState): Goal[] {
 }
 
 /** One speed figure, whichever clock the kind runs on. */
-export function buffsFor(state: CalculatorState): Buffs {
+export function buffsFor(state: Pick<CalculatorState, 'speed' | 'cost'>): Buffs {
   return {
     constructionSpeed: state.speed,
     researchSpeed: state.speed,
@@ -151,7 +151,13 @@ export function stepTable(steps: ReadonlyArray<PlannedStep>, buffs: Buffs): Step
       level: planned.step.level,
       ...rowOf(totals([planned], buffs)),
     })),
-    total: { key: 'total', kind: steps[0]?.step.kind ?? 'building', subject: '', level: null, ...rowOf(sums) },
+    total: {
+      key: 'total',
+      kind: steps[0]?.step.kind ?? 'building',
+      subject: '',
+      level: null,
+      ...rowOf(sums),
+    },
   };
 }
 

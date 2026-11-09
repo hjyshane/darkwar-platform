@@ -19,7 +19,7 @@ describe('labelSubjects', () => {
     expect(gearSubjectName('level:q3', 60)).toBe('Quality 3 gear · to level 60');
   });
 
-  it('names chips by quality, not by the view\'s top step label', () => {
+  it("names chips by quality, not by the view's top step label", () => {
     const labelled = labelSubjects(
       'chip',
       [subject('5', '10★ 0/10', 100), subject('4', '10★ 0/10', 100)],
@@ -41,9 +41,7 @@ describe('labelSubjects', () => {
     expect(labelSubjects('hero', [subject('hero', '#hero', 200)], new Map())[0]?.name).toBe(
       'Hero level',
     );
-    expect(labelSubjects('vehicle', [subject('0', '#0', 500)], new Map())[0]?.name).toBe(
-      'Vehicle',
-    );
+    expect(labelSubjects('vehicle', [subject('0', '#0', 500)], new Map())[0]?.name).toBe('Vehicle');
     expect(
       labelSubjects('pet', [subject('4', '#4', 100), subject('1', '#1', 60)], new Map()).map(
         (s) => s.name,
