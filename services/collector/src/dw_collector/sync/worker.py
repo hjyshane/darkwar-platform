@@ -43,6 +43,9 @@ _TABLE_ORDER = [
     # Neither carries refs.
     "dispatch_mission_snapshots",
     "world_truck_snapshots",
+    # The squad that escorts a listed truck: a player's 1-4 squad power (0317).
+    # Carries a game uid, not a player ref, so it sits beside the trucks.
+    "player_squad_power_snapshots",
     # Season sites: the floating lantern and what it reveals (0315). No refs.
     "season_site_snapshots",
     # Coverage: where the camera looked. It carries no player refs, so it
