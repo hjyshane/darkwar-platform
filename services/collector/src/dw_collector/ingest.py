@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import time
 import uuid
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -60,6 +61,34 @@ class ScanResult:
         return self.ingested + self.discovered
 
 
+class ServerFollower:
+    """The server the logged-in account is on, read from its own `init`.
+
+    `--collected-from-server` is a constant, so an account that moves to
+    another server (the sub-account that joined ACE on 579) was labelled with
+    the old one until somebody edited `.env`. The login response names the
+    account's server (`user.serverId`), so a chain that has ONE account at a
+    time (the iPhone) can follow it. Opt-in: the Windows capture is
+    machine-wide, where two accounts' traffic shares a file and "the last
+    login" would be a guess.
+
+    Starts at the configured server and keeps the last login's across files.
+    A restart falls back to the configured one until the next `init`, which
+    every reconnect sends.
+    """
+
+    def __init__(self, default: int) -> None:
+        self.current = default
+
+    def observe(self, command: str, payload: Mapping[str, object]) -> None:
+        if command != "init":
+            return
+        user = payload.get("user")
+        server = user.get("serverId") if isinstance(user, dict) else None
+        if isinstance(server, int) and not isinstance(server, bool) and server > 0:
+            self.current = server
+
+
 def _ingest_capture(
     journal: Journal,
     pcap: Path,
@@ -69,6 +98,7 @@ def _ingest_capture(
     port: int,
     discover_only: bool,
     fallback: datetime,
+    follower: ServerFollower | None = None,
 ) -> ScanResult:
     """One capture file through the pipeline. Shared by scan-capture,
     ingest-dir, and the desktop app's ingest loop so none of the three can
@@ -76,6 +106,10 @@ def _ingest_capture(
     ingested = discovered = rejected = requests = 0
     commands: dict[str, int] = {}
     for index, event in enumerate(iter_extension_events(pcap, port=port)):
+        if follower is not None and event.direction == "inbound":
+            follower.observe(event.command, event.payload)
+        if follower is not None:
+            collected_from_server = follower.current
         if event.direction != "inbound":
             # Requests are masked and kept apart from responses; see
             # request_log.py. `discover_only` is about unknown RESPONSES.

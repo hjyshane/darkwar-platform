@@ -61,6 +61,8 @@ def child_specs(capture_dir: Path, journal: Path) -> list[ChildSpec]:
         "5",
         "--collected-from-server",
         server,
+        # One account at a time on the phone: its login names its server.
+        "--follow-login-server",
     ]
     return [
         ChildSpec("ingest", ingest, env),

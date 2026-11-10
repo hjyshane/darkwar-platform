@@ -296,6 +296,11 @@ object, 맥은 launchd의 프로세스 그룹). **폰 데이터는 BlueStacks �
 - 코드는 `main`을 받은 체크아웃에서 돌린다. 작업 스케줄러가 워크트리를 가리키면 그 워크트리가
   지워지는 날 로그온마다 실패한다.
 
+**서버 번호는 로그인이 정한다.** 아이폰 체인의 ingest는 `--follow-login-server`로 뜬다: `init` 응답의
+`user.serverId`가 이후 캡처의 `collected_from_server`가 된다(파일을 넘어서도 유지). `DW_COLLECTOR_SERVER_ID`는
+재시작 직후 첫 로그인 전까지의 시작값일 뿐이라, 계정이 서버를 옮겨도 `.env`를 고칠 필요가 없다. 한 번에 계정 하나인
+체인 전용 — Windows의 머신 전체 캡처에는 켜지 않는다.
+
 **자동 시작 등록**
 
 Windows (PowerShell, 코드를 받은 체크아웃에서):
