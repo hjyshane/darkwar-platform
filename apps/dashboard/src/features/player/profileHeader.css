@@ -118,6 +118,29 @@
   padding: var(--space-4);
 }
 
+/* Six boards read as two rows of three, or one row of six when there is
+ * room, rather than five and a straggler; under the narrow break the kit's
+ * own rule stacks them. Sized by the block, like the cells. */
+.profile-composition {
+  container-type: inline-size;
+}
+
+.profile-composition .ticks {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@container (max-width: 440px) {
+  .profile-composition .ticks {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@container (min-width: 900px) {
+  .profile-composition .ticks {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
 .profile-label {
   color: var(--fg-muted);
   font-family: var(--font-mono);

@@ -35,24 +35,44 @@ export function tenureCell(
 }
 
 /** The oldest roster row still held for this player in this alliance, or null
- * when there is none — whether because they were never on the roster or
- * because the reader may not see it. A 42501 is the same null: this is one
- * cell on a page of other facts. */
+ * when there is none to show.
+ *
+ * MEMBERSHIP FIRST. The alliance a caller passes usually comes from
+ * `players.current_alliance_id`, which is a LAST KNOWN alliance: joining is
+ * recorded and leaving never is. Counting days from the first roster row for
+ * somebody who has left would print "In alliance 45d" about an ex-member, so
+ * the player has to be on `alliance_roster_latest` — the newest roster batch,
+ * the only honest answer to "who is in it now" — before any tenure is read.
+ *
+ * Null also when the reader may not see the history (own-or-officer, 0066):
+ * the policy filters the rows away rather than refusing, and a 42501 is
+ * treated the same. This is one cell on a page of other facts. */
 export async function fetchFirstSeenInAlliance(
   playerId: string,
   allianceId: string,
 ): Promise<string | null> {
-  const { data, error } = await supabase
-    .from('alliance_member_snapshots')
-    .select('captured_at')
-    .eq('player_id', playerId)
-    .eq('alliance_id', allianceId)
-    .order('captured_at', { ascending: true })
-    .limit(1)
-    .maybeSingle();
-  if (error) {
-    if (error.code === '42501') return null;
-    throw new Error(`alliance tenure query failed: ${error.message}`);
+  const [member, first] = await Promise.all([
+    supabase
+      .from('alliance_roster_latest')
+      .select('player_id')
+      .eq('alliance_id', allianceId)
+      .eq('player_id', playerId)
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from('alliance_member_snapshots')
+      .select('captured_at')
+      .eq('player_id', playerId)
+      .eq('alliance_id', allianceId)
+      .order('captured_at', { ascending: true })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+  for (const { error } of [member, first]) {
+    if (error && error.code !== '42501') {
+      throw new Error(`alliance tenure query failed: ${error.message}`);
+    }
   }
-  return data?.captured_at ?? null;
+  if (member.error || first.error || member.data === null) return null;
+  return first.data?.captured_at ?? null;
 }

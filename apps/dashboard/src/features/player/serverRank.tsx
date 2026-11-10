@@ -1,7 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { StatTile } from '../../components/StatTile';
 import { supabase } from '../../lib/supabase';
-import { TERMS } from '../../lib/terms';
 
 /** One row from `player_server_rank` (0312). The neighbours are null at the
  * ends of the board. The generated types say `number` because the generator
@@ -41,7 +39,7 @@ export function serverRankFacts(row: ServerRankRow | null | undefined): ServerRa
  * below, from `player_server_rank` (0312) over `players_server_power_idx`.
  *
  * "Read" matters: the group's rankings only list who the collector has seen,
- * so this is a rank among known players, and the tile says so. No row when
+ * so this is a rank among known players, and the cell's `/total` says so. No row when
  * the player has no power reading — or when the reader may not see `players`
  * at all, since the function is invoker (0065). */
 export async function fetchServerRank(playerId: string): Promise<ServerRankFacts | null> {
@@ -56,16 +54,4 @@ export function useServerRank(playerId: string) {
     queryFn: () => fetchServerRank(playerId),
     staleTime: 10 * 60_000,
   });
-}
-
-export function PlayerServerRankTile({ playerId }: { playerId: string }) {
-  const { data, isPending } = useServerRank(playerId);
-  const value = isPending ? '…' : data ? `#${data.rank.toLocaleString('en-US')}` : '—';
-  return (
-    <StatTile
-      label={TERMS.serverRank}
-      note={data ? `of ${data.total.toLocaleString('en-US')} known` : undefined}
-      value={value}
-    />
-  );
 }

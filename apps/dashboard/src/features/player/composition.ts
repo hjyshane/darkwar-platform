@@ -9,7 +9,6 @@
 // and only for the boards the game ranks. No rank is computed among "known
 // players": that would look like a game rank and is not one.
 
-import { supabase } from '../../lib/supabase';
 import type { RankedBoard } from './verdict';
 
 export const BOARD_METRICS = [
@@ -121,19 +120,4 @@ export function rankedBoards(boards: readonly Board[]): RankedBoard[] {
   return boards
     .filter((board) => board.rank !== null)
     .map((board) => ({ noun: board.noun, rank: board.rank as number }));
-}
-
-/** Every board row for one player, newest first. One player's rows for six
- * metrics over the retention window; the limit is a guard, and newest-first
- * means a truncation loses only old rows. */
-export async function fetchBoardRows(playerId: string): Promise<BoardRow[]> {
-  const { data, error } = await supabase
-    .from('player_component_power_snapshots')
-    .select('metric, power, rank, captured_at')
-    .eq('player_id', playerId)
-    .in('metric', [...BOARD_METRICS])
-    .order('captured_at', { ascending: false })
-    .limit(600);
-  if (error) throw new Error(`composition query failed: ${error.message}`);
-  return data;
 }
