@@ -18,7 +18,7 @@ from pydantic import ValidationError
 from dw_collector import normalize as _normalize  # noqa: F401  (registers normalizers)
 from dw_collector import pipeline, registry
 from dw_collector.envfile import load_env_file
-from dw_collector.ingest import _ingest_capture, _ready_captures
+from dw_collector.ingest import ServerFollower, _ingest_capture, _ready_captures
 from dw_collector.models import Observation
 from dw_collector.protocol.pcapng import PcapError
 from dw_collector.storage.journal import Journal
@@ -815,6 +815,14 @@ def ingest_dir(
             help="unlink a capture file once its events are journalled",
         ),
     ] = False,
+    follow_login_server: Annotated[
+        bool,
+        typer.Option(
+            "--follow-login-server",
+            help="label with the server the last `init` login named; "
+            "--collected-from-server is only the start. One account at a time.",
+        ),
+    ] = False,
 ) -> None:
     """Ingest pcapng files a capture engine leaves in a directory.
 
@@ -846,6 +854,7 @@ def ingest_dir(
         # had just written — at 130,000 names, that query and the set built
         # from it were most of the loop's idle cost.
         done = journal.ingested_captures()
+        follower = ServerFollower(collected_from_server) if follow_login_server else None
         while True:
             pending = [p for p in _ready_captures(directory, min_age_seconds) if p.name not in done]
             for pcap in pending:
@@ -859,6 +868,7 @@ def ingest_dir(
                         port=port,
                         discover_only=False,
                         fallback=fallback,
+                        follower=follower,
                     )
                 except (PcapError, OSError, ValueError) as exc:
                     # One unreadable file must not stop the loop — a
