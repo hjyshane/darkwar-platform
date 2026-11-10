@@ -105,6 +105,11 @@ const EVENTS: { event: string; label: string; note: string }[] = [
     label: 'Collector seeing no packets',
     note: 'The process is alive and reporting, but two hours have passed without a packet. This is the failure the board cannot show you: the figures simply stop moving while everything on screen still says healthy.',
   },
+  {
+    event: 'treasure_spots',
+    label: 'Large Treasure Spots on the map',
+    note: 'Every Large Treasure Spot the sweep can see — the lanterns still hiding one and the spots already open — as a list of the game’s own coordinates (#580[X:456 Y:261]), one message per server whenever the list changes. Only while Season 4 is the current season; off-season it sends nothing even when switched on.',
+  },
 ];
 
 interface Outbox {

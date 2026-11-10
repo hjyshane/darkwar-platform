@@ -167,6 +167,12 @@
       "command": "user.get.shop.info",
       "status": "promoted",
       "verdict": "승격 완료 (2026-10-03 · 파서 1.0.0, 0215)"
+    },
+    {
+      "command": "world.get.new",
+      "status": "promoted",
+      "verdict": "승격 완료 (2026-11-10 · 파서 1.5.0, 0315)",
+      "note": "the viewport itself has written cities since 0137; this entry records the type-29 season site (floating lantern) promotion, the first object type to get a verdict row"
     }
   ]
 }
