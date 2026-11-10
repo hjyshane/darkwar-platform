@@ -33,6 +33,7 @@ import { ParticipationBarsSetting } from './ParticipationBarsSetting';
 import { PermissionsSetting } from './PermissionsSetting';
 import { PetsSetting } from './PetsSetting';
 import { QueueStatus } from './QueueStatus';
+import { RankPeriodsSetting } from './RankPeriodsSetting';
 import { RankReportSetting } from './RankReportSetting';
 import { RankTiersSetting } from './RankTiersSetting';
 import { SeasonBuildingAlertSetting } from './SeasonBuildingAlertSetting';
@@ -273,6 +274,13 @@ function AllianceGroup({ section }: { section: string }) {
         <section aria-labelledby="rank-report-heading">
           <h2 id="rank-report-heading">Rank changes</h2>
           <RankReportSetting />
+        </section>
+      )}
+
+      {section === 'rank-periods' && (
+        <section aria-labelledby="rank-periods-heading">
+          <h2 id="rank-periods-heading">Rank periods</h2>
+          <RankPeriodsSetting />
         </section>
       )}
 

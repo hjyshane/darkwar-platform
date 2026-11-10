@@ -77,20 +77,21 @@ returns void language sql as $$
           at, '00000000-0000-4000-8000-000000000c01', 580, 580, uid, kind, amount, '{}'::jsonb);
 $$;
 
--- Period 2026-07-27T02:00Z: week ends are 2026-08-02T14:00Z and 08-09T14:00Z
+-- Period 2026-08-03T02:00Z (a grid start since 0071; 0316 refuses one that is
+-- not): week ends are 2026-08-09T14:00Z and 08-16T14:00Z
 -- (0309; Sunday 14:00Z, twelve hours before the Monday reset).
-select pg_temp.contribute(9100000000000001, 'weekly_donation', 1000, '2026-08-02T13:00:00Z');
-select pg_temp.contribute(9100000000000001, 'weekly_donation', 3000, '2026-08-09T13:00:00Z');
-select pg_temp.contribute(9100000000000001, 'alliance_battle_weekly', 50000, '2026-08-02T13:00:00Z');
-select pg_temp.contribute(9100000000000001, 'alliance_battle_weekly', 70000, '2026-08-09T13:00:00Z');
+select pg_temp.contribute(9100000000000001, 'weekly_donation', 1000, '2026-08-09T13:00:00Z');
+select pg_temp.contribute(9100000000000001, 'weekly_donation', 3000, '2026-08-16T13:00:00Z');
+select pg_temp.contribute(9100000000000001, 'alliance_battle_weekly', 50000, '2026-08-09T13:00:00Z');
+select pg_temp.contribute(9100000000000001, 'alliance_battle_weekly', 70000, '2026-08-16T13:00:00Z');
 -- The quiet one only ever appears in week one — and once more AFTER week
 -- one's deadline but before the reset, which is week one's board, read too
 -- late to count. Week two's window opens at the reset (0309), so this row
 -- must land in neither week: not week one (it is past the deadline) and not
 -- week two (it is before the reset).
-select pg_temp.contribute(9100000000000002, 'weekly_donation', 10, '2026-08-02T13:00:00Z');
-select pg_temp.contribute(9100000000000002, 'alliance_battle_weekly', 20, '2026-08-02T13:00:00Z');
-select pg_temp.contribute(9100000000000002, 'weekly_donation', 15, '2026-08-02T20:00:00Z');
+select pg_temp.contribute(9100000000000002, 'weekly_donation', 10, '2026-08-09T13:00:00Z');
+select pg_temp.contribute(9100000000000002, 'alliance_battle_weekly', 20, '2026-08-09T13:00:00Z');
+select pg_temp.contribute(9100000000000002, 'weekly_donation', 15, '2026-08-09T20:00:00Z');
 
 -- An officer, not a member (0112): the computation reads the whole roster's
 -- history, and 0066 gives that read to officer/admin only. 66 owns the
@@ -104,21 +105,21 @@ values ('00000000-0000-4000-8000-0000000ab201', 'officer', 'rank officer');
 -- The role is required, and the refusal is the function's own.
 set local role authenticated;
 select throws_ok(
-  $$ select public.build_rank_period('2026-07-27T02:00:00Z') $$,
+  $$ select public.build_rank_period('2026-08-03T02:00:00Z') $$,
   '42501', null, 'a logged-out visitor cannot build a period');
 reset role;
 
 select set_config('request.jwt.claims',
   json_build_object('sub', '00000000-0000-4000-8000-0000000ab201')::text, true);
 set local role authenticated;
-select ok(public.build_rank_period('2026-07-27T02:00:00Z') >= 2,
+select ok(public.build_rank_period('2026-08-03T02:00:00Z') >= 2,
   'an officer can build one, and it covers the alliance');
 reset role;
 
 create function pg_temp.row_of(who text) returns public.rank_period_snapshots
 language sql as $$
   select * from public.rank_period_snapshots
-  where period_start = '2026-07-27T02:00:00Z' and name = who;
+  where period_start = '2026-08-03T02:00:00Z' and name = who;
 $$;
 
 -- Each week read from its own window, so the two are different numbers.
@@ -149,10 +150,10 @@ select is((pg_temp.row_of('Quiet')).donation_week2, null,
 select lives_ok(
   $$ select set_config('request.jwt.claims',
        json_build_object('sub', '00000000-0000-4000-8000-0000000ab201')::text, true);
-     select public.build_rank_period('2026-07-27T02:00:00Z') $$,
+     select public.build_rank_period('2026-08-03T02:00:00Z') $$,
   'building the same period again is allowed');
 select is((select count(*) from public.rank_period_snapshots
-           where period_start = '2026-07-27T02:00:00Z'
+           where period_start = '2026-08-03T02:00:00Z'
              and player_id = '00000000-0000-4000-8000-0000000ab101'), 1::bigint,
   'and leaves one row, not two');
 
@@ -168,7 +169,7 @@ where key = 'rank_tiers';
 select set_config('request.jwt.claims',
   json_build_object('sub', '00000000-0000-4000-8000-0000000ab201')::text, true);
 set local role authenticated;
-select lives_ok($$ select public.build_rank_period('2026-07-27T02:00:00Z') $$,
+select lives_ok($$ select public.build_rank_period('2026-08-03T02:00:00Z') $$,
   'rebuilding under a different scaling method is allowed');
 reset role;
 
