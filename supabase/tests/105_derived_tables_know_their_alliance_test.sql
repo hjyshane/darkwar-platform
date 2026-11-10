@@ -120,12 +120,12 @@ select is(
 
 -- 6-9. Built while viewing Bravo: Bravo's members, stamped Bravo, and nobody
 -- in Alpha sees the rows.
-select is(public.build_rank_period('2026-07-27T02:00:00Z'), 2,
+select is(public.build_rank_period('2026-08-03T02:00:00Z'), 2,
   'building while viewing Bravo scores Bravo''s two members');
 reset role;
 select is(
   (select array_agg(distinct alliance_id::text) from public.rank_period_snapshots
-    where period_start = '2026-07-27T02:00:00Z'
+    where period_start = '2026-08-03T02:00:00Z'
       and player_id::text like '00000000-0000-4000-8000-0000000f3%'),
   array['00000000-0000-4000-8000-0000000f1002'],
   'and stamps every row Bravo''s');
@@ -133,14 +133,14 @@ set local role authenticated;
 select pg_temp.as_user('00000000-0000-4000-8000-0000000f2001');
 select is(
   (select count(*)::int from public.rank_period_snapshots
-    where period_start = '2026-07-27T02:00:00Z'
+    where period_start = '2026-08-03T02:00:00Z'
       and player_id::text like '00000000-0000-4000-8000-0000000f3%'),
   0,
   'a member of Alpha does not see Bravo''s scores');
 select pg_temp.as_user('00000000-0000-4000-8000-0000000f2002');
 select is(
   (select count(*)::int from public.rank_period_snapshots
-    where period_start = '2026-07-27T02:00:00Z'
+    where period_start = '2026-08-03T02:00:00Z'
       and player_id::text like '00000000-0000-4000-8000-0000000f3%'),
   2,
   'an officer of Bravo does');

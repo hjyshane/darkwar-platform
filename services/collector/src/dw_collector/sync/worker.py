@@ -43,6 +43,8 @@ _TABLE_ORDER = [
     # Neither carries refs.
     "dispatch_mission_snapshots",
     "world_truck_snapshots",
+    # Season sites: the floating lantern and what it reveals (0315). No refs.
+    "season_site_snapshots",
     # Coverage: where the camera looked. It carries no player refs, so it
     # could sit anywhere in this order; it is named rather than left to fall
     # through because an unlisted table sorts last by accident rather than by

@@ -38,6 +38,7 @@ from dw_collector.protocol.worldmap import (
     CITY_TYPE,
     DISPATCH_MISSION_TYPE,
     SEASON_BUILDING_TYPE,
+    SEASON_SITE_TYPE,
     Tile,
     decode_viewport,
 )
@@ -51,7 +52,9 @@ from dw_collector.registry import register
 # asked of the map. `renormalize` backfills it from journalled observations.
 # 1.3.0: started dispatch missions (type 21) go to dispatch_mission_snapshots.
 # 1.4.0: a city row carries when its shield ends (0261).
-PARSER_VERSION = "1.4.0"
+# 1.5.0: season sites (type 29: the floating lantern and what it reveals) go to
+# season_site_snapshots (0315).
+PARSER_VERSION = "1.5.0"
 
 _UID_SERVER_SUFFIX = 6
 
@@ -126,6 +129,52 @@ def _mission_row(observation: Observation, tile: Tile, bucket: str) -> Normalize
     )
 
 
+def _site_row(observation: Observation, tile: Tile, bucket: str) -> NormalizedRow | None:
+    """A season site in whatever state it is in; None for anything else.
+
+    EVERY STATE IS STORED, unlike a mission, where only a started one is of
+    use. An unlit lantern is the interesting row here: its cat id already
+    says what it will reveal, so the map can point at the lanterns worth
+    lighting. The participants are kept as they arrive — a list of uids —
+    because a count is all the screens need today and the list is what the
+    wire carries.
+    """
+    site = tile.site
+    if site is None or tile.object_type != SEASON_SITE_TYPE:
+        return None
+    if site.uuid is None or site.cat_id is None or site.expires_ms is None:
+        return None
+    if site.status is None:
+        return None
+    # The MAP's server (f103). A site has no owner to take one from, and it
+    # stands on exactly one server's ground.
+    server_id = tile.server_id
+    if server_id is None:
+        return None
+    revealed = (
+        None
+        if site.revealed_ms is None
+        else datetime.fromtimestamp(site.revealed_ms / 1000, UTC).isoformat()
+    )
+    return NormalizedRow(
+        target_table="season_site_snapshots",
+        # Scoped by the SITE and hashed over its own tile, so the same state
+        # seen from overlapping viewports is one row, and a lantern being lit
+        # (a new status in the tile) is a new one.
+        idempotency_key=entry_idempotency_key(observation, f"site:{site.uuid}", bucket, tile.raw),
+        row={
+            **_common(observation, tile, server_id),
+            "site_uuid": str(site.uuid),
+            "cat_id": site.cat_id,
+            "status": site.status,
+            "expires_at": datetime.fromtimestamp(site.expires_ms / 1000, UTC).isoformat(),
+            "revealed_at": revealed,
+            "limit_seconds": site.limit_s,
+            "participant_uids": list(site.participants),
+        },
+    )
+
+
 def _viewport_row(observation: Observation, tiles: list[Tile], bucket: str) -> NormalizedRow | None:
     """Where the camera looked, which the city rows cannot say.
 
@@ -194,6 +243,10 @@ def normalize(observation: Observation) -> list[NormalizedRow]:
         mission_row = _mission_row(observation, tile, bucket)
         if mission_row is not None:
             rows.append(mission_row)
+            continue
+        site_row = _site_row(observation, tile, bucket)
+        if site_row is not None:
+            rows.append(site_row)
             continue
         building = tile.building
         if tile.object_type == SEASON_BUILDING_TYPE and building is not None:

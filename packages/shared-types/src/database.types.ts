@@ -1217,15 +1217,23 @@ export type Database = {
       alliance_snapshots: {
         Row: {
           alliance_id: string
+          announce: string | null
           captured_at: string
           code: string | null
           collected_from_server_id: number
           collector_id: string
+          country: string | null
           created_at: string
           external_id: string
           idempotency_key: string
+          intro: string | null
+          join_approval: number | null
+          language: string | null
           leader_game_uid: number | null
+          max_members: number | null
           member_count: number | null
+          min_hq: number | null
+          min_power: number | null
           name: string | null
           observation_id: string
           parser_version: string
@@ -1238,15 +1246,23 @@ export type Database = {
         }
         Insert: {
           alliance_id: string
+          announce?: string | null
           captured_at: string
           code?: string | null
           collected_from_server_id: number
           collector_id: string
+          country?: string | null
           created_at?: string
           external_id: string
           idempotency_key: string
+          intro?: string | null
+          join_approval?: number | null
+          language?: string | null
           leader_game_uid?: number | null
+          max_members?: number | null
           member_count?: number | null
+          min_hq?: number | null
+          min_power?: number | null
           name?: string | null
           observation_id: string
           parser_version: string
@@ -1259,15 +1275,23 @@ export type Database = {
         }
         Update: {
           alliance_id?: string
+          announce?: string | null
           captured_at?: string
           code?: string | null
           collected_from_server_id?: number
           collector_id?: string
+          country?: string | null
           created_at?: string
           external_id?: string
           idempotency_key?: string
+          intro?: string | null
+          join_approval?: number | null
+          language?: string | null
           leader_game_uid?: number | null
+          max_members?: number | null
           member_count?: number | null
+          min_hq?: number | null
+          min_power?: number | null
           name?: string | null
           observation_id?: string
           parser_version?: string
@@ -7157,6 +7181,58 @@ export type Database = {
           },
         ]
       }
+      rank_period_overrides: {
+        Row: {
+          alliance_id: string
+          created_at: string
+          created_by: string | null
+          note: string | null
+          override_id: string
+          period_end: string
+          period_start: string
+        }
+        Insert: {
+          alliance_id?: string
+          created_at?: string
+          created_by?: string | null
+          note?: string | null
+          override_id?: string
+          period_end: string
+          period_start: string
+        }
+        Update: {
+          alliance_id?: string
+          created_at?: string
+          created_by?: string | null
+          note?: string | null
+          override_id?: string
+          period_end?: string
+          period_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rank_period_overrides_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "rank_period_overrides_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "rank_period_overrides_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
+        ]
+      }
       rank_period_snapshots: {
         Row: {
           activity_score: number | null
@@ -7182,6 +7258,7 @@ export type Database = {
           minimum_missed: string | null
           name: string | null
           offline_hours: number | null
+          period_end: string | null
           period_start: string
           player_id: string
           power_end: number | null
@@ -7218,6 +7295,7 @@ export type Database = {
           minimum_missed?: string | null
           name?: string | null
           offline_hours?: number | null
+          period_end?: string | null
           period_start: string
           player_id: string
           power_end?: number | null
@@ -7254,6 +7332,7 @@ export type Database = {
           minimum_missed?: string | null
           name?: string | null
           offline_hours?: number | null
+          period_end?: string | null
           period_start?: string
           player_id?: string
           power_end?: number | null
@@ -7834,6 +7913,100 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "seasons"
             referencedColumns: ["season_id"]
+          },
+        ]
+      }
+      season_site_snapshots: {
+        Row: {
+          captured_at: string
+          cat_id: number
+          collected_from_server_id: number
+          collector_id: string
+          created_at: string
+          expires_at: string
+          idempotency_key: string
+          limit_seconds: number | null
+          observation_id: string
+          parser_version: string
+          participant_uids: Json
+          point_id: number
+          raw: Json
+          revealed_at: string | null
+          server_id: number
+          site_uuid: string
+          snapshot_id: string
+          source_command: string
+          status: number
+          x: number
+          y: number
+        }
+        Insert: {
+          captured_at: string
+          cat_id: number
+          collected_from_server_id: number
+          collector_id: string
+          created_at?: string
+          expires_at: string
+          idempotency_key: string
+          limit_seconds?: number | null
+          observation_id: string
+          parser_version: string
+          participant_uids?: Json
+          point_id: number
+          raw?: Json
+          revealed_at?: string | null
+          server_id: number
+          site_uuid: string
+          snapshot_id?: string
+          source_command: string
+          status: number
+          x: number
+          y: number
+        }
+        Update: {
+          captured_at?: string
+          cat_id?: number
+          collected_from_server_id?: number
+          collector_id?: string
+          created_at?: string
+          expires_at?: string
+          idempotency_key?: string
+          limit_seconds?: number | null
+          observation_id?: string
+          parser_version?: string
+          participant_uids?: Json
+          point_id?: number
+          raw?: Json
+          revealed_at?: string | null
+          server_id?: number
+          site_uuid?: string
+          snapshot_id?: string
+          source_command?: string
+          status?: number
+          x?: number
+          y?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "season_site_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "season_site_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "season_site_snapshots_collector_id_fkey"
+            columns: ["collector_id"]
+            isOneToOne: false
+            referencedRelation: "collectors"
+            referencedColumns: ["collector_id"]
           },
         ]
       }
@@ -8882,6 +9055,65 @@ export type Database = {
         }
         Relationships: []
       }
+      alliance_info_latest: {
+        Row: {
+          alliance_id: string | null
+          announce: string | null
+          captured_at: string | null
+          code: string | null
+          country: string | null
+          external_id: string | null
+          intro: string | null
+          join_approval: number | null
+          language: string | null
+          leader_game_uid: number | null
+          max_members: number | null
+          member_count: number | null
+          min_hq: number | null
+          min_power: number | null
+          name: string | null
+          power: number | null
+          server_id: number | null
+          snapshot_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alliance_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "alliance_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "alliance_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "alliance_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "alliance_snapshots_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+        ]
+      }
       alliance_latest: {
         Row: {
           alliance_id: string | null
@@ -9462,10 +9694,12 @@ export type Database = {
           duel_week2: number | null
           game_uid: number | null
           newest_reading_at: string | null
+          period_end: string | null
           period_start: string | null
           player_id: string | null
           week1_end: string | null
           week2_end: string | null
+          weeks: number | null
         }
         Relationships: [
           {
@@ -9869,6 +10103,7 @@ export type Database = {
       rank_period_latest: {
         Row: {
           activity_score: number | null
+          alliance_id: string | null
           below_minimum: boolean | null
           computed_at: string | null
           donation_pct: number | null
@@ -9890,6 +10125,7 @@ export type Database = {
           minimum_missed: string | null
           name: string | null
           offline_hours: number | null
+          period_end: string | null
           period_start: string | null
           player_id: string | null
           power_end: number | null
@@ -9903,6 +10139,27 @@ export type Database = {
           tier_reason: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "rank_period_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "rank_period_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "rank_period_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
           {
             foreignKeyName: "rank_period_snapshots_player_id_fkey"
             columns: ["player_id"]
@@ -10024,6 +10281,26 @@ export type Database = {
             referencedColumns: ["schedule_event_id"]
           },
         ]
+      }
+      season_sites_live: {
+        Row: {
+          cat_group: number | null
+          cat_id: number | null
+          expires_at: string | null
+          game_x: number | null
+          game_y: number | null
+          limit_seconds: number | null
+          participant_count: number | null
+          point_id: number | null
+          revealed_at: string | null
+          seen_at: string | null
+          server_id: number | null
+          site_uuid: string | null
+          status: number | null
+          x: number | null
+          y: number | null
+        }
+        Relationships: []
       }
       shop_listing_value: {
         Row: {
@@ -10212,6 +10489,21 @@ export type Database = {
           player_id: string
         }[]
       }
+      alliance_moves: {
+        Args: { p_alliance: string; p_since?: string }
+        Returns: {
+          direction: string
+          game_uid: number
+          observed_at: string
+          other_alliance_id: string
+          other_alliance_name: string
+          other_alliance_tag: string
+          other_server_id: number
+          player_id: string
+          player_name: string
+          power_at: number
+        }[]
+      }
       alliance_role_of: {
         Args: { p_user: string }
         Returns: Database["public"]["Enums"]["app_role"]
@@ -10253,6 +10545,7 @@ export type Database = {
           player_rows: number
         }[]
       }
+      belongs_to_alliance: { Args: { p_alliance: string }; Returns: boolean }
       boss_damage_by_event: {
         Args: { p_from?: string; p_to?: string }
         Returns: {
@@ -10308,6 +10601,10 @@ export type Database = {
         Returns: undefined
       }
       delete_gift_code: { Args: { p_code_id: string }; Returns: number }
+      delete_rank_period_override: {
+        Args: { p_override_id: string }
+        Returns: undefined
+      }
       delete_season_building: {
         Args: { p_building_type_id: number; p_season_id: number }
         Returns: undefined
@@ -10822,6 +11119,16 @@ export type Database = {
           server_id: number
         }[]
       }
+      player_server_rank: {
+        Args: { p_player_id: string }
+        Returns: {
+          next_above_power: number
+          next_below_power: number
+          power: number
+          rank: number
+          total: number
+        }[]
+      }
       primary_own_alliance: { Args: never; Returns: string }
       prune_collector_heartbeats: {
         Args: { p_confirm?: boolean; p_keep?: string }
@@ -10831,6 +11138,18 @@ export type Database = {
           prunable: number
         }[]
       }
+      rank_period_bounds: {
+        Args: { p_alliance?: string; ts: string }
+        Returns: {
+          overridden: boolean
+          period_end: string
+          period_start: string
+        }[]
+      }
+      rank_period_reading_ends: {
+        Args: { period_end: string; period_start: string }
+        Returns: string[]
+      }
       rank_period_start: { Args: { ts: string }; Returns: string }
       rank_period_week_ends: {
         Args: { period_start: string }
@@ -10839,6 +11158,15 @@ export type Database = {
       rebuild_rank_period: {
         Args: { p_apply_to_assigned?: boolean; p_period_start: string }
         Returns: number
+      }
+      recent_rank_periods: {
+        Args: { p_count?: number }
+        Returns: {
+          in_progress: boolean
+          overridden: boolean
+          period_end: string
+          period_start: string
+        }[]
       }
       recommend_step_pairs: {
         Args: { p_buildings: Json; p_science: Json }
@@ -10961,6 +11289,10 @@ export type Database = {
       save_my_gift_key: {
         Args: { p_game_uid: number; p_uuid: string }
         Returns: undefined
+      }
+      save_rank_period_override: {
+        Args: { p_note?: string; p_period_end: string; p_period_start: string }
+        Returns: string
       }
       save_season: {
         Args: {

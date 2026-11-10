@@ -76,6 +76,26 @@ and the roster's own `hq_level`.
              same 1,720 objects. Monotonic is what makes it a level, and it
              is the test type 21 failed three times
 
+    101      on type 29, the SEASON SITE: `luckyCat` in the detail, the
+             floating lantern and what it reveals in the Kitsune season
+    101.1    the site's uuid
+    101.2    cat id, the client's `lucky_cats` key; 15xx is a Large Treasure
+             Spot. Fixed from spawn
+    101.3    expiry, epoch ms; the whole spawned batch shares one
+    101.4    revealed at, epoch ms, once lit
+    101.5    seconds the open site lasts (3600)
+    101.7    participant uids, `;`-joined
+    101.8    status: 3 unlit, 0 lit, 1 revealing, 2 open
+
+    THE GAME'S COORDINATE FOR A SITE IS ONE LESS ON BOTH AXES than this
+    decoder's. Both share links checked read (x-1, y-1) of the tile; the
+    object has `size` 3 in `lucky_cats`, so the game is naming a different
+    square of the same footprint. Two samples, not a derivation: anything
+    shown to a player as a coordinate to type into the game should use the
+    game's form — `game_x` / `game_y` on the season_sites_live view (0315),
+    the one place the rule is written — and anything drawn on our own map
+    the tile's.
+
 WHAT IS DELIBERATELY NOT INTERPRETED. Type 21 carries an owner uid and a
 spec whose trailing digits run 1-4, and it looks like a levelled building.
 It is not: keyed on object id the spec never changed across days (0 of
@@ -149,6 +169,33 @@ _MISSION_ALLIANCE_ID = 4
 _MISSION_STARTED_MS = 5
 _MISSION_FINISH_MS = 6
 
+#: `f2` of a season site: the client's WorldLuckyCatStatueObject, which the
+#: server calls `luckyCat` in world.get.detail.new and which each season skins
+#: anew. In the Kitsune season (from 2026-11-09) it is the FLOATING LANTERN and
+#: what the lantern reveals. Confirmed 2026-11-10 against two in-game share
+#: links: an unlit "Seek Divine Treasures" lantern and an open "Large Treasure
+#: Spot" were both type 29, one tile apart from where the game said.
+SEASON_SITE_TYPE = 29
+
+_SITE_UUID = 1
+#: Key into the client's `lucky_cats` table, FIXED FROM SPAWN. Its hundreds
+#: name the content: 11xx Pile of Scrap, 12xx Large Jizo Statue, 13xx Large
+#: Kitsune Statue, 14xx Large Daruma Statue, 15xx Large Treasure Spot; the
+#: tens and units pick a reward variant. So what an unlit lantern hides is
+#: known before anybody lights it.
+_SITE_CAT_ID = 2
+_SITE_EXPIRES_MS = 3
+#: Present once the site has been revealed: when that happened.
+_SITE_REVEALED_MS = 4
+#: Seconds the revealed site stays open (3600 on every open one seen).
+_SITE_LIMIT_S = 5
+#: The uids of everybody taking part, one string joined with `;`.
+_SITE_PARTICIPANTS = 7
+#: 3 unlit lantern, 0 lit, 1 revealing (about 100 s), 2 open. Read off one
+#: object followed through all four on 2026-11-10; the batch of 45 that
+#: spawned together at 22:23 UTC was all 3 with one shared expiry.
+_SITE_STATUS = 8
+
 _BUILDING = 101
 _BUILDING_OWNER_UID = 1
 _BUILDING_OBJECT_ID = 2
@@ -206,6 +253,31 @@ class DispatchMission:
     finish_ms: int | None = None
 
 
+#: A season site's `status` while it is still a lantern nobody has lit.
+SITE_UNLIT = 3
+#: A season site's `status` once it is open to explore.
+SITE_OPEN = 2
+
+
+@dataclass(frozen=True)
+class SeasonSite:
+    """The interpreted part of a type-29 tile.
+
+    `cat_id` is the client's `lucky_cats` key and never changes for one
+    object; `status` walks 3 → 0 → 1 → 2 as a lantern is lit and its site
+    opens. `expires_ms` is on every state; `revealed_ms`, `limit_s` and the
+    participants arrive with the reveal.
+    """
+
+    uuid: int | None = None
+    cat_id: int | None = None
+    status: int | None = None
+    expires_ms: int | None = None
+    revealed_ms: int | None = None
+    limit_s: int | None = None
+    participants: tuple[str, ...] = ()
+
+
 @dataclass(frozen=True)
 class Tile:
     """One map object at one coordinate.
@@ -223,6 +295,7 @@ class Tile:
     city: City | None = None
     building: SeasonBuilding | None = None
     mission: DispatchMission | None = None
+    site: SeasonSite | None = None
     raw: dict[str, Any] = field(default_factory=dict)
 
 
@@ -340,6 +413,23 @@ def _mission(values: dict[int, list[int | bytes]]) -> DispatchMission | None:
     )
 
 
+def _site(values: dict[int, list[int | bytes]]) -> SeasonSite | None:
+    got = values.get(_BUILDING)
+    if not got or not isinstance(got[0], bytes):
+        return None
+    sub = _fields(got[0])
+    joined = _text(sub, _SITE_PARTICIPANTS)
+    return SeasonSite(
+        uuid=_varint(sub, _SITE_UUID),
+        cat_id=_varint(sub, _SITE_CAT_ID),
+        status=_varint(sub, _SITE_STATUS),
+        expires_ms=_varint(sub, _SITE_EXPIRES_MS),
+        revealed_ms=_varint(sub, _SITE_REVEALED_MS),
+        limit_s=_varint(sub, _SITE_LIMIT_S),
+        participants=tuple(p for p in joined.split(";") if p) if joined else (),
+    )
+
+
 def _city(values: dict[int, list[int | bytes]]) -> City | None:
     got = values.get(_CITY)
     if not got or not isinstance(got[0], bytes):
@@ -421,6 +511,16 @@ def _looks_like_uid(raw: bytes) -> bool:
     return len(raw) == UID_LENGTH and raw.isdigit()
 
 
+def _looks_like_uid_list(raw: bytes) -> bool:
+    """A `;`-joined list of uids, as a type-29 site names its participants.
+
+    Two or more, each a uid: a single uid is already caught by
+    `_looks_like_uid`, and an empty string or a lone `;` is nobody.
+    """
+    parts = raw.split(b";")
+    return len(parts) > 1 and all(_looks_like_uid(part) for part in parts)
+
+
 def _mask_uids_anywhere(buf: bytes, uid_for: Callable[[str], str]) -> tuple[bytes, bool]:
     """Replace every 16-digit numeric string in one sub-message.
 
@@ -429,14 +529,25 @@ def _mask_uids_anywhere(buf: bytes, uid_for: Callable[[str], str]) -> tuple[byte
     those same numbers hold an object id and a building type on the other —
     masking by position would blank a type on one tile and leak a person on
     the next. Sixteen numeric digits is what a uid is.
+
+    A `;`-JOINED LIST OF THEM IS PEOPLE TOO. A type-29 site names everybody
+    taking part in one string, and a rule that only knew a uid on its own
+    would have passed twelve of them through the first time a fixture was
+    taken over an open site.
     """
     out = bytearray()
     changed = False
     for number, wire, chunk in _split(buf):
         if wire == _WIRE_BYTES:
             body = _fields_body(chunk)
+            payload: bytes | None = None
             if _looks_like_uid(body):
                 payload = uid_for(body.decode("ascii")).encode("ascii")
+            elif _looks_like_uid_list(body):
+                payload = ";".join(
+                    uid_for(part.decode("ascii")) for part in body.split(b";")
+                ).encode("ascii")
+            if payload is not None:
                 out += _emit_varint((number << 3) | _WIRE_BYTES)
                 out += _emit_varint(len(payload))
                 out += payload
@@ -595,6 +706,7 @@ def decode_point(entry: str | bytes) -> Tile:
         city=_city(top) if object_type == CITY_TYPE else None,
         building=_building(top) if object_type == SEASON_BUILDING_TYPE else None,
         mission=_mission(top) if object_type == DISPATCH_MISSION_TYPE else None,
+        site=_site(top) if object_type == SEASON_SITE_TYPE else None,
         raw={str(n): [_jsonable(v) for v in vs] for n, vs in top.items()},
     )
 

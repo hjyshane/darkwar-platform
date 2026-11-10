@@ -94,6 +94,14 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
   // member who reaches the Rebuild button gets the function's own 42501, not
   // a wrong rebuild.
   { group: 'alliance', id: 'rank-report-heading', heading: 'Rank changes', requires: null },
+  // save_rank_period_override() / delete_rank_period_override() -> settings.write
+  // (0316), the same gate as the tier settings a period's length sits beside.
+  {
+    group: 'alliance',
+    id: 'rank-periods-heading',
+    heading: 'Rank periods',
+    requires: capability('settings.write'),
+  },
   // enter_weekly_scores(), set_roster_membership() -> data.enter (0176).
   // Officers hold it: the collector going down is not something to route
   // through an admin.

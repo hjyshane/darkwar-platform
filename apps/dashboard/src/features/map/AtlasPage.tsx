@@ -225,6 +225,7 @@ export function AtlasPage({
               missions={showPlunder || mode === 'plunder' ? hunt.open : []}
               onChoose={chooseHunt}
               picked={pickedHunt}
+              sites={showPlunder || mode === 'plunder' ? hunt.treasure : []}
               trucks={showPlunder || mode === 'plunder' ? onThisMap : []}
             />
           </AtlasMap>
