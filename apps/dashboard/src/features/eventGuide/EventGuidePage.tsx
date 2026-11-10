@@ -6,12 +6,14 @@ import {
   EVENT_GUIDE_TABS,
   type EventGuideTab,
   eventGuideHash,
+  eventGuideSlugFromHash,
   isEventGuideTabOpen,
 } from '../../lib/route';
 import { humanUntil } from '../../lib/shellNav';
 import { SERVER_ZONE, browserZone, zoneLabel, zonedDayKey, zonedTime } from '../../lib/timezone';
-import { replaceHash } from '../../lib/useHash';
+import { replaceHash, useHash } from '../../lib/useHash';
 import { serverWhen } from '../calendar/data';
+import { GuidesTab } from './GuidesTab';
 import {
   type CapturedTime,
   type EventGuide,
@@ -62,8 +64,12 @@ export function EventGuidePage({ tab: asked }: { tab: EventGuideTab }) {
   const tab = isEventGuideTabOpen(asked, isCommunity) ? asked : 'today';
   const guide = useEventGuide();
   const times = useCapturedTimes(!isCommunity);
-  const needsGuide = tab !== 'events' && tab !== 'scores';
+  // The Guides tab (0310) reads its own tables, not the three 0248 ones.
+  const needsGuide = tab !== 'events' && tab !== 'scores' && tab !== 'guides';
   const timesRows = times.data ?? [];
+  // Which guide, from the address (#/event-guide/guides/<slug>), as the
+  // planner reads its page: a pasted link lands on the guide itself.
+  const slug = eventGuideSlugFromHash(useHash());
 
   return (
     <section aria-labelledby="guide-heading" className="event-guide">
@@ -86,6 +92,7 @@ export function EventGuidePage({ tab: asked }: { tab: EventGuideTab }) {
         value={tab}
       />
 
+      {tab === 'guides' && <GuidesTab slug={slug} />}
       {tab === 'events' && <AllianceTimes rows={timesRows} />}
       {tab === 'scores' && (
         <section aria-labelledby="guide-scores-heading" className="panel">
