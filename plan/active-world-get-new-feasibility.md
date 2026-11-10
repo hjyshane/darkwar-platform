@@ -70,6 +70,37 @@ a second session for an account already connected. That spike is pure capture
 reading, like this one. It does not involve the client's native code, and it is
 where the go/no-go actually resolves. Everything downstream is ordinary work.
 
+## Spike result (2026-11-10): the login is signed, which decides it
+
+The handshake spike was run against the sanitized request log (its mask marks
+which fields are credential vs visible — structure only, no secret read). It
+resolves the open question, and against the hopeful direction above:
+
+- `account.login.new`, the command that establishes the session, **carries a
+  `_sig`.** It is masked as a credential field in every one of 8 captures.
+  `login.other` and `login.third.part.web` carry one too.
+- So although `world.get.new` is unsigned, you cannot reach the point of
+  sending it without first completing a **signed** login. Opening our own
+  session therefore requires producing a `_sig` — the one thing this study put
+  out of scope, because deriving it means the client's native code and is the
+  part that most looks like a bot.
+
+The two session options from above both fail on this:
+- piggyback the client's live session — still unreliable frame injection;
+- open our own session — now known to need the signer.
+
+### Revised verdict: NO-GO for the active path, as scoped. Use the ADB sweep.
+
+ADR-0002 anticipated exactly this: "If the handshake cannot be reproduced, this
+ADR still stands but the work turns to extending `dw-ui-worker`." The handshake
+is signed, so the realistic automation for keeping the map fresh is the ADB
+sweep (`dw-ui-worker sweep`), which rides the client's own authenticated session
+and needs no signer. That is the recommendation.
+
+Reopening the active path would mean a separate, deliberate decision to
+reproduce the login `_sig` from the APK — its own ADR, its own risk acceptance
+on the collector account — and is not something this study pursues or endorses.
+
 ## What is NOT in scope
 
 Reproducing any command's `_sig` is explicitly out of scope: the map does not
