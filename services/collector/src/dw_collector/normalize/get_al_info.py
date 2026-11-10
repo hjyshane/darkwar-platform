@@ -9,6 +9,13 @@ display name. That fills alliance_snapshots.leader_game_uid, which
 alliance.rank cannot.
 
 `rank` stays null: a detail card carries no ranking position.
+
+1.1.0 (0313) also lifts the alliance's own words and join rules — `intro`,
+`announce`, `language`, `joinApproval`, `powerRestrictionN`,
+`castleRestrictionN`, `maxMember`, `country` — now that every capture has
+carried them. `joinApproval` is kept as the raw integer: whether `1` means
+"needs approval" or "open join" is UNCONFIRMED (the column comment says so);
+nothing here guesses. An empty `intro`/`announce` string is stored as null.
 """
 
 from __future__ import annotations
@@ -18,7 +25,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from dw_collector.models import NormalizedRow, Observation, idempotency_key
 from dw_collector.registry import register
 
-PARSER_VERSION = "1.0.0"
+PARSER_VERSION = "1.1.0"
 
 
 class _Payload(BaseModel):
@@ -33,6 +40,19 @@ class _Payload(BaseModel):
     # The server the alliance was founded on. Post-merge this can differ
     # from where it currently fights (`crossFightSrcServerId`, kept in raw).
     create_server: int | None = Field(default=None, alias="createServer")
+    # Free text written by the alliance; the sanitizer redacts both in
+    # committed fixtures only (cli.py extract-fixture), never at storage.
+    intro: str | None = None
+    announce: str | None = None
+    # A client localization key (391083 = Traditional Chinese), not a name.
+    language: str | None = None
+    # Raw integer; meaning unconfirmed. See the 0313 column comment.
+    join_approval: int | None = Field(default=None, alias="joinApproval")
+    power_restriction: int | None = Field(default=None, alias="powerRestrictionN")
+    castle_restriction: int | None = Field(default=None, alias="castleRestrictionN")
+    max_member: int | None = Field(default=None, alias="maxMember")
+    # ISO 3166-1 alpha-2.
+    country: str | None = None
 
     @field_validator("leader_uid")
     @classmethod
@@ -73,6 +93,14 @@ def normalize(observation: Observation) -> list[NormalizedRow]:
                 "member_count": payload.cur_member,
                 "leader_game_uid": int(payload.leader_uid) if payload.leader_uid else None,
                 "rank": None,
+                "intro": payload.intro or None,
+                "announce": payload.announce or None,
+                "language": payload.language or None,
+                "join_approval": payload.join_approval,
+                "min_power": payload.power_restriction,
+                "min_hq": payload.castle_restriction,
+                "max_members": payload.max_member,
+                "country": payload.country or None,
             },
             entity_refs={
                 "alliance": {
