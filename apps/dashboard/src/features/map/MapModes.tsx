@@ -15,7 +15,11 @@ export const MAP_MODES: ReadonlyArray<{ id: MapMode; label: string; hint: string
     label: 'Plan',
     hint: 'The hive plan: green where a base stands on its tile, red where not',
   },
-  { id: 'plunder', label: 'Plunder', hint: 'Trucks and plunder missions, bases dimmed' },
+  {
+    id: 'plunder',
+    label: 'Plunder',
+    hint: 'Trucks, plunder missions and Large Treasure Spots, bases dimmed',
+  },
 ];
 
 /** The mode switch floating on the map: a pill showing the current mode that

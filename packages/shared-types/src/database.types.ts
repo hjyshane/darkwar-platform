@@ -7837,6 +7837,100 @@ export type Database = {
           },
         ]
       }
+      season_site_snapshots: {
+        Row: {
+          captured_at: string
+          cat_id: number
+          collected_from_server_id: number
+          collector_id: string
+          created_at: string
+          expires_at: string
+          idempotency_key: string
+          limit_seconds: number | null
+          observation_id: string
+          parser_version: string
+          participant_uids: Json
+          point_id: number
+          raw: Json
+          revealed_at: string | null
+          server_id: number
+          site_uuid: string
+          snapshot_id: string
+          source_command: string
+          status: number
+          x: number
+          y: number
+        }
+        Insert: {
+          captured_at: string
+          cat_id: number
+          collected_from_server_id: number
+          collector_id: string
+          created_at?: string
+          expires_at: string
+          idempotency_key: string
+          limit_seconds?: number | null
+          observation_id: string
+          parser_version: string
+          participant_uids?: Json
+          point_id: number
+          raw?: Json
+          revealed_at?: string | null
+          server_id: number
+          site_uuid: string
+          snapshot_id?: string
+          source_command: string
+          status: number
+          x: number
+          y: number
+        }
+        Update: {
+          captured_at?: string
+          cat_id?: number
+          collected_from_server_id?: number
+          collector_id?: string
+          created_at?: string
+          expires_at?: string
+          idempotency_key?: string
+          limit_seconds?: number | null
+          observation_id?: string
+          parser_version?: string
+          participant_uids?: Json
+          point_id?: number
+          raw?: Json
+          revealed_at?: string | null
+          server_id?: number
+          site_uuid?: string
+          snapshot_id?: string
+          source_command?: string
+          status?: number
+          x?: number
+          y?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "season_site_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "season_site_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "season_site_snapshots_collector_id_fkey"
+            columns: ["collector_id"]
+            isOneToOne: false
+            referencedRelation: "collectors"
+            referencedColumns: ["collector_id"]
+          },
+        ]
+      }
       seasons: {
         Row: {
           ends_at: string | null
@@ -10024,6 +10118,26 @@ export type Database = {
             referencedColumns: ["schedule_event_id"]
           },
         ]
+      }
+      season_sites_live: {
+        Row: {
+          cat_group: number | null
+          cat_id: number | null
+          expires_at: string | null
+          game_x: number | null
+          game_y: number | null
+          limit_seconds: number | null
+          participant_count: number | null
+          point_id: number | null
+          revealed_at: string | null
+          seen_at: string | null
+          server_id: number | null
+          site_uuid: string | null
+          status: number | null
+          x: number | null
+          y: number | null
+        }
+        Relationships: []
       }
       shop_listing_value: {
         Row: {
