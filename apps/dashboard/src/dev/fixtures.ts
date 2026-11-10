@@ -1105,6 +1105,74 @@ const PLANNER_BOOK = new Map([
   ['building:424000', new Map([[56, plannerStep('424000', 56, 'Fighter Camp', 140, [])]])],
 ]);
 
+/** The calculator reference page (#/calculator). Every number below is made
+ * up for the look-around build: round figures in the game's shapes, not the
+ * game's tables. Two links have steps: the Bank from unbuilt to 30 and an
+ * orange chip from 0★ to 10★; any other selection shows the page's own
+ * error state, which is what a missing fixture should look like. */
+const calcSubject = (
+  subject: string,
+  name: string,
+  maxLevel: number,
+  gameSeason: number | null = null,
+  nameKo: string | null = null,
+) => ({ subject, name, nameKo, maxLevel, category: null, gameSeason });
+const CALC_BUILDINGS = [
+  calcSubject('409000', 'Bank', 30, null, '은행'),
+  calcSubject('402000', 'Alliance Hall', 81),
+  calcSubject('424000', 'Fighter Camp', 81),
+  calcSubject('438000', 'Warehouse', 30, null, '창고'),
+  calcSubject('400000', 'Watchtower', 81),
+  calcSubject('862000', 'Thermal Lab', 35, 4),
+  calcSubject('857000', 'Smart Greenhouse I', 30, 4),
+  calcSubject('868000', 'Mineral Factory I', 30, 6),
+  calcSubject('873000', 'Oni Seal Hall', 35, 6),
+];
+const calcStep = (
+  kind: string,
+  subject: string,
+  level: number,
+  costs: unknown[],
+  seconds: number | null,
+) => ({
+  step: { kind, subject_id: subject, level, name: null, costs, seconds, requires: [] },
+  prerequisite: false,
+  goal: 0,
+});
+const CALC_BANK_STEPS = Array.from({ length: 30 }, (_, i) => {
+  const level = i + 1;
+  return calcStep(
+    'building',
+    '409000',
+    level,
+    [
+      { type: 'resource', id: '25', amount: 12_000 * level ** 3 },
+      { type: 'resource', id: '12', amount: 9_000 * level ** 3 },
+      { type: 'resource', id: '26', amount: 4_000 * level ** 3 },
+      ...(level > 20 ? [{ type: 'item', id: '253042', amount: (level - 20) * 15 }] : []),
+    ],
+    90 * level ** 3,
+  );
+});
+const CALC_CHIP_STEPS = Array.from({ length: 100 }, (_, i) => {
+  const level = i + 1;
+  // Every tenth step takes duplicates instead of EXP, as the game's does.
+  return calcStep(
+    'chip',
+    '5',
+    level,
+    level % 10 === 0
+      ? [{ type: 'counter', id: 'chip_duplicate:5', amount: level / 2 }]
+      : [{ type: 'counter', id: 'chip_exp', amount: 2_500 * level ** 2 }],
+    null,
+  );
+});
+const CALC_RESOURCE_NAMES = new Map([
+  ['25', 'Wood'],
+  ['12', 'Iron'],
+  ['26', 'Electricity'],
+]);
+
 /** Placeholder art: a coloured disc. The real icons are the game's and are
  * never committed; this only shows where they sit. */
 const PLACEHOLDER_ICON = (colour: string) =>
@@ -1228,6 +1296,32 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
     ]),
   ],
   [['planner-accounts'], [PLANNER_ACCOUNT]],
+  [['calculator-subjects', 'building'], CALC_BUILDINGS],
+  [
+    ['calculator-subjects', 'chip'],
+    [calcSubject('4', 'Purple chip', 100), calcSubject('5', 'Orange chip', 100)],
+  ],
+  [
+    [
+      'calculator-steps',
+      JSON.stringify([{ kind: 'building', subject: '409000', from: 0, to: 30 }]),
+    ],
+    { steps: CALC_BANK_STEPS, gaps: [] },
+  ],
+  [
+    ['calculator-steps', JSON.stringify([{ kind: 'chip', subject: '5', from: 0, to: 100 }])],
+    { steps: CALC_CHIP_STEPS, gaps: [] },
+  ],
+  [
+    ['calculator-names', '253042'],
+    { items: new Map([['253042', 'Precision Part']]), resources: CALC_RESOURCE_NAMES },
+  ],
+  [['calculator-names', ''], { items: new Map(), resources: CALC_RESOURCE_NAMES }],
+  [
+    ['calculator-exp-cards'],
+    [{ itemId: '300030', name: 'Chip Star-Up EXP Card (Big)', amount: 60_000 }],
+  ],
+  [['game-icons', 'item', '253042'], new Map([['253042', PLACEHOLDER_ICON('#22c55e')]])],
   [
     ['planner-materials'],
     [

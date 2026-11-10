@@ -20,6 +20,8 @@ const COMMUNITY_ROUTES: ReadonlySet<Route> = new Set<Route>([
   'migration',
   'map',
   'planner',
+  // Game-wide reference costs, nothing of ours.
+  'calculator',
   'calendar',
   'eventGuide',
   'shopValue',
