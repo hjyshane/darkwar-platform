@@ -2,9 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { ChartFlow } from '../../components/ChartFlow';
 import { FavouriteButton } from '../../components/FavouriteButton';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
-import { StatTile } from '../../components/StatTile';
 import { isViewedAlliance } from '../../lib/activeAlliance';
-import { compactNumber } from '../../lib/compactNumber';
 import { ALLIANCE_VIEWS, allianceHash, allianceViewFromHash } from '../../lib/route';
 import { serverHash } from '../../lib/route';
 import { supabase } from '../../lib/supabase';
@@ -12,7 +10,10 @@ import { TERMS } from '../../lib/terms';
 import { useFavourites } from '../../lib/useFavourites';
 import { replaceHash, useHash } from '../../lib/useHash';
 import { AllianceCompare } from './AllianceCompare';
+import { AllianceHeader, AllianceLeader } from './AllianceHeader';
+import { AllianceIntro } from './AllianceIntro';
 import { AllianceMemberTable } from './AllianceMemberTable';
+import { MovesTab, RecentMoves } from './AllianceMoves';
 import { AllianceOverview } from './AllianceOverview';
 import { AllianceTrends } from './AllianceTrends';
 
@@ -46,6 +47,9 @@ interface AllianceDetail {
   power: number | null;
   memberCount: number | null;
   isOwn: boolean;
+  /** `alliances.is_own` as stored: one of ours, viewed or not. Only words the
+   * moves feed's empty state; what the caller may read is the RPC's call. */
+  ownAlliance: boolean;
   rosterUnredactedSeen: boolean;
   lastSeenAt: string | null;
   members: {
@@ -141,6 +145,7 @@ async function fetchAlliance(allianceId: string): Promise<AllianceDetail | null>
     // Ours AND the one being viewed: the other own alliance's member data
     // is withheld by RLS now, so its page must not offer those blocks.
     isOwn: isViewedAlliance(alliance.alliance_id, alliance.is_own),
+    ownAlliance: alliance.is_own,
     rosterUnredactedSeen: alliance.roster_unredacted_seen,
     lastSeenAt: alliance.last_seen_at,
     members:
@@ -183,14 +188,9 @@ async function fetchAlliance(allianceId: string): Promise<AllianceDetail | null>
  * what the page has always opened on and a link from elsewhere expects it. */
 
 const plain = new Intl.NumberFormat('ko-KR');
-const compact = compactNumber(1);
 
 function num(value: number | null): string | null {
   return value === null ? null : plain.format(value);
-}
-
-function big(value: number | null): string | null {
-  return value === null ? null : compact.format(value);
 }
 
 export function AlliancePage({ allianceId, now }: { allianceId: string; now?: Date }) {
@@ -255,32 +255,25 @@ export function AlliancePage({ allianceId, now }: { allianceId: string; now?: Da
             <p className="entity-meta">
               <a href={serverHash(data.serverId)}>Server {data.serverId}</a>
               {data.isOwn && <span>Ours</span>}
+              <AllianceLeader allianceId={data.allianceId} />
             </p>
           </div>
         </header>
 
-        <div className="strip">
-          <StatTile
-            hero
-            label={TERMS.power}
-            note="as the game reports it"
-            value={big(data.power)}
-          />
-          <StatTile
-            label={TERMS.members}
-            note="as the game reports it"
-            value={num(data.memberCount)}
-          />
-          <StatTile
-            label="Members observed"
-            note={
-              data.membersFrom === 'roster'
-                ? 'the newest roster capture'
-                : 'last known alliance, which is not cleared when somebody leaves'
-            }
-            value={num(data.members.length === 0 ? null : data.members.length)}
-          />
-        </div>
+        {/* Status lights, the verdict and six figures (console kit). Power and
+            members are still what the ranking screen reported; how many we
+            have actually observed, and from where, rides on the Members cell. */}
+        <AllianceHeader
+          allianceId={data.allianceId}
+          memberCount={data.memberCount}
+          membersFrom={data.membersFrom}
+          now={now}
+          observed={data.members.length}
+          power={data.power}
+          rosterCapturedAt={data.rosterCapturedAt}
+          rosterComplete={data.rosterComplete}
+          serverId={data.serverId}
+        />
         <p className="entity-foot">
           {TERMS.lastSeen} <FreshnessBadge capturedAt={data.lastSeenAt} now={now} />
           {data.isOwn && !data.rosterUnredactedSeen && (
@@ -335,7 +328,15 @@ export function AlliancePage({ allianceId, now }: { allianceId: string; now?: Da
       )}
 
       {view === 'overview' && (
-        <AllianceOverview isOwn={data.isOwn} members={data.members} now={now} />
+        <div className="alliance-stack">
+          <AllianceIntro allianceId={data.allianceId} />
+          <RecentMoves allianceId={data.allianceId} now={now} ownAlliance={data.ownAlliance} />
+          <AllianceOverview isOwn={data.isOwn} members={data.members} now={now} />
+        </div>
+      )}
+
+      {view === 'moves' && (
+        <MovesTab allianceId={data.allianceId} now={now} ownAlliance={data.ownAlliance} />
       )}
 
       {view === 'compare' && (

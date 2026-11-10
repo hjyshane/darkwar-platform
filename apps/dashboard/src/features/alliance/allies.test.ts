@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { type IntroSegment, parseIntro } from './allies';
+import { type IntroSegment, namedServers, parseIntro } from './allies';
 
 const KNOWN = [
   { allianceId: 'rbrn-565', serverId: 565, code: 'RBRN' },
@@ -66,5 +66,14 @@ describe('parseIntro', () => {
 
   it('gives nothing for empty text', () => {
     expect(parseIntro('', KNOWN)).toEqual([]);
+  });
+});
+
+describe('namedServers', () => {
+  it('lists each server an ally group names, once, ascending', () => {
+    expect(namedServers('571 ZBM / 565 RBRN\nhello\n565 XYZ')).toEqual([565, 571]);
+  });
+  it('is empty for text with no ally group', () => {
+    expect(namedServers('We fight at 20 UTC')).toEqual([]);
   });
 });

@@ -1,0 +1,137 @@
+/* The alliance page's console composition. Tokens only; no literal colours.
+ *
+ * Imported from the alliance components that use it, the way the kit's own
+ * stylesheet is: index.css keeps its single @import first, and Vite dedupes a
+ * CSS module several components import. */
+
+/* --- Header --------------------------------------------------------------- */
+
+.alliance-leds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  padding: 0 var(--space-4) var(--space-3);
+}
+
+.alliance-verdict {
+  padding: 0 var(--space-4) var(--space-4);
+}
+
+/* The entity frame already draws the outer rule, so the grid inside it keeps
+ * only its top edge: neighbours share one line instead of two. */
+.entity > .cell-grid {
+  border-width: 1px 0 0;
+}
+
+/* Six cells are two rows of three. The kit's fixed column count only applies
+ * from 720px and below 480px it is two columns; in between, auto-fit could
+ * land on four and leave two empty slots showing the rule colour. */
+@media (min-width: 560px) and (max-width: 719px) {
+  .entity > .cell-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* A cell whose value is words (a language name), not a figure: base size, and
+ * it breaks at a space before it breaks inside a word. */
+.cell-value-words {
+  font-size: var(--text-base);
+  overflow-wrap: break-word;
+}
+
+/* --- Panels on Overview and Moves ----------------------------------------- */
+
+.alliance-panel {
+  background: var(--bg-cell);
+  border: 1px solid var(--border);
+  min-width: 0;
+}
+
+.alliance-panel > h2,
+.alliance-panel > h3 {
+  border-bottom: 1px solid var(--border);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  text-transform: uppercase;
+}
+
+.alliance-panel > h3 {
+  border-top: 1px solid var(--border);
+}
+
+.alliance-panel > .empty,
+.alliance-panel > .error,
+.alliance-panel > .loading {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+}
+
+.alliance-panel > .table-wrap {
+  border: none;
+}
+
+.alliance-panel-foot {
+  border-top: 1px solid var(--border);
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+}
+
+/* minmax(0, 1fr), not the implicit auto track: a wide table would otherwise
+ * stretch the column past the viewport instead of scrolling in its wrapper. */
+.alliance-stack {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* --- Intro ---------------------------------------------------------------- */
+
+.intro-text {
+  padding: var(--space-3) var(--space-4);
+}
+
+/* The alliance's own words, line breaks as written. A long unbroken run (a
+ * URL, a row of symbols) wraps instead of pushing the page sideways. */
+.intro-line {
+  margin: 0;
+  min-height: 1.5em;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.intro-ally {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+/* --- Moves ---------------------------------------------------------------- */
+
+.moves-toolbar {
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+}
+
+.moves-count {
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  margin-left: auto;
+}
+
+.alliance-panel > .pager {
+  border-top: 1px solid var(--border);
+  padding: var(--space-2) var(--space-4);
+}

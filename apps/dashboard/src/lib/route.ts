@@ -275,6 +275,7 @@ export function plannerKindFromHash(hash: string): string | null {
 export type AllianceView =
   | 'members'
   | 'overview'
+  | 'moves'
   | 'board'
   | 'power'
   | 'activity'
@@ -286,6 +287,9 @@ export const ALLIANCE_VIEWS: ReadonlyArray<{ id: AllianceView; label: string }> 
   // before it: the bare address has always opened Members and a link anybody
   // has sent expects that.
   { id: 'overview', label: 'Overview' },
+  // Who joined from where and who left to where, as far as we observed it
+  // (alliance_moves, 0314). The RPC decides who may read which alliance's.
+  { id: 'moves', label: 'Moves' },
   { id: 'board', label: 'Ranking' },
   { id: 'power', label: 'Power and towers' },
   { id: 'activity', label: 'Activity' },

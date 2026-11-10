@@ -70,3 +70,15 @@ export function parseIntro(text: string, known: readonly KnownAlliance[]): Intro
   const byServerTag = lookup(known);
   return text.split(/\r?\n/).map((line) => parseLine(line, byServerTag));
 }
+
+/** The servers an intro names in its ally groups, ascending and distinct: the
+ * only servers whose alliances need fetching to resolve its tags. */
+export function namedServers(text: string): number[] {
+  const servers = new Set<number>();
+  for (const line of parseIntro(text, [])) {
+    for (const segment of line) {
+      if (segment.kind === 'ally') servers.add(segment.serverId);
+    }
+  }
+  return [...servers].sort((a, b) => a - b);
+}

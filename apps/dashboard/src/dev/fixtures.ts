@@ -2732,8 +2732,12 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
       power: 4_120_000_000,
       memberCount: 93,
       isOwn: true,
+      ownAlliance: true,
       rosterUnredactedSeen: true,
       lastSeenAt: ago(40),
+      membersFrom: 'roster',
+      rosterCapturedAt: ago(60 * 3),
+      rosterComplete: true,
       members: ROSTER.map((row) => ({
         playerId: row.player_id,
         name: row.current_name,
@@ -2747,6 +2751,75 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
         { name: 'Legion', code: null, lastSeenAt: ago(60 * 24 * 94) },
       ],
     },
+  ],
+  // The alliance page's console header, intro and moves feed (0313, 0314).
+  [
+    ['alliance-info', ALLIANCE.ours],
+    {
+      snapshot_id: 'ai-1',
+      alliance_id: ALLIANCE.ours,
+      server_id: 580,
+      external_id: 'ext-ours',
+      name: 'HELLBOUND',
+      code: 'CBFW',
+      power: 4_120_000_000,
+      member_count: 93,
+      leader_game_uid: 58000,
+      intro:
+        'Daily players only. Rally at 20:00 UTC.\nAllies:\n565 RBRN / 570 SYNN SYN2 RYSE / 581 IRWF\nNAP with everyone in the top 5 until the season ends.',
+      announce: 'Capital Clash signup closes Friday. Shields up before reset.\n581 IRWF',
+      language: '391083',
+      join_approval: 1,
+      min_power: 30_000_000,
+      min_hq: 20,
+      max_members: 100,
+      country: 'TW',
+      captured_at: ago(60 * 5),
+    },
+  ],
+  [
+    ['alliance-standing', 580],
+    [
+      { alliance_id: '22222222-2222-4222-8222-2222222222a1', power: 5_320_000_000, code: 'ADET' },
+      { alliance_id: ALLIANCE.ours, power: 4_120_000_000, code: 'CBFW' },
+      { alliance_id: '22222222-2222-4222-8222-2222222222a2', power: 2_900_000_000, code: 'WLVS' },
+      { alliance_id: '22222222-2222-4222-8222-2222222222a3', power: 1_100_000_000, code: 'NOVA' },
+    ],
+  ],
+  [
+    ['alliance-power-readings', ALLIANCE.ours],
+    [
+      { captured_at: ago(60), power: 4_120_000_000 },
+      { captured_at: ago(60 * 24 * 4), power: 4_050_000_000 },
+      { captured_at: ago(60 * 24 * 8), power: 3_930_000_000 },
+    ],
+  ],
+  [['alliance-leader', 58000], { playerId: PLAYER.shane, name: 'Shane' }],
+  [
+    ['alliance-tags', [565, 570, 581]],
+    [
+      { allianceId: ALLIANCE.rival, serverId: 581, code: 'IRWF' },
+      { allianceId: '22222222-2222-4222-8222-2222222222b1', serverId: 570, code: 'SYNN' },
+    ],
+  ],
+  [
+    ['alliance-moves', ALLIANCE.ours],
+    Array.from({ length: 27 }, (_, index) => {
+      const direction = index === 6 ? 'relocated' : index % 3 === 1 ? 'out' : 'in';
+      const known = index % 4 !== 3;
+      return {
+        player_id: [PLAYER.shane, PLAYER.mira, PLAYER.kova, PLAYER.dex][index % 4],
+        game_uid: 9_700_000_000_000_000 + index,
+        player_name: ['Shane', 'Mira', 'Kova', 'Dex', 'A very long player name'][index % 5],
+        direction,
+        other_alliance_id: known && index % 2 === 0 ? ALLIANCE.rival : null,
+        other_alliance_tag: known && index % 2 === 0 ? 'IRWF' : null,
+        other_alliance_name: known && index % 2 === 0 ? 'Iron Wolves' : null,
+        other_server_id: known ? 581 : null,
+        power_at: 180_000_000 - index * 4_300_000,
+        observed_at: ago(60 * (5 + index * 31)),
+      };
+    }),
   ],
   [
     ['server', 580],

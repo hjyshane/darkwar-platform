@@ -26,42 +26,91 @@ export interface AllianceVerdictFacts {
 
 const figure = compactNumber(1);
 
+/** A piece of the verdict. Figures are the numbers a reader scans for; the
+ * header sets them in `<code>`, everything else is running text. */
+export interface VerdictPart {
+  kind: 'text' | 'figure';
+  text: string;
+}
+
+const text = (value: string): VerdictPart => ({ kind: 'text', text: value });
+const fig = (value: string): VerdictPart => ({ kind: 'figure', text: value });
+
 function tagged(neighbour: Neighbour): string {
   return neighbour.tag ? `[${neighbour.tag}]` : 'the next alliance';
 }
 
-function standing(facts: AllianceVerdictFacts): string | null {
-  if (facts.rank === null || facts.total === null || facts.serverId === null) return null;
-  let sentence = `#${facts.rank} of ${facts.total} alliances on ${facts.serverId}`;
-  if (facts.power !== null) {
-    if (facts.rank === 1 && facts.below?.power != null) {
-      sentence += `, ${figure.format(facts.power - facts.below.power)} ahead of ${tagged(facts.below)}`;
-    } else if (facts.rank > 1 && facts.above?.power != null) {
-      sentence += `, ${figure.format(facts.above.power - facts.power)} behind ${tagged(facts.above)}`;
-    }
+/** The distance to the neighbour that matters: the lead over second place for
+ * the leader, the gap to the place above for everybody else. Null when either
+ * power was never read. */
+function gap(facts: AllianceVerdictFacts): { amount: string; rest: string } | null {
+  if (facts.rank === null || facts.power === null) return null;
+  if (facts.rank === 1 && facts.below?.power != null) {
+    return {
+      amount: figure.format(facts.power - facts.below.power),
+      rest: ` ahead of ${tagged(facts.below)}`,
+    };
   }
-  return `${sentence}.`;
+  if (facts.rank > 1 && facts.above?.power != null) {
+    return {
+      amount: figure.format(facts.above.power - facts.power),
+      rest: ` behind ${tagged(facts.above)}`,
+    };
+  }
+  return null;
 }
 
-function rules(facts: AllianceVerdictFacts): string | null {
-  const minimums: string[] = [];
-  if (facts.minPower !== null) minimums.push(figure.format(facts.minPower));
-  if (facts.minHq !== null) minimums.push(`HQ ${facts.minHq}`);
-  const minimum = minimums.length > 0 ? `${minimums.join(' and ')} minimum` : null;
+/** The gap as one phrase, for the rank cell's context line: `1.2G behind [ADET]`. */
+export function standingGap(facts: AllianceVerdictFacts): string | null {
+  const found = gap(facts);
+  return found === null ? null : `${found.amount}${found.rest}`;
+}
+
+function standing(facts: AllianceVerdictFacts): VerdictPart[] {
+  if (facts.rank === null || facts.total === null || facts.serverId === null) return [];
+  const parts = [fig(`#${facts.rank}`), text(` of ${facts.total} alliances on ${facts.serverId}`)];
+  const found = gap(facts);
+  if (found !== null) parts.push(text(', '), fig(found.amount), text(found.rest));
+  parts.push(text('.'));
+  return parts;
+}
+
+function rules(facts: AllianceVerdictFacts): VerdictPart[] {
+  const minimums: VerdictPart[] = [];
+  if (facts.minPower !== null) minimums.push(fig(figure.format(facts.minPower)));
+  if (facts.minHq !== null) {
+    if (minimums.length > 0) minimums.push(text(' and '));
+    minimums.push(fig(`HQ ${facts.minHq}`));
+  }
   const join =
     facts.joinRule === 'approval'
       ? 'Joins need approval'
       : facts.joinRule === 'open'
         ? 'Open join'
         : null;
-  const parts = [join, minimum].filter((part): part is string => part !== null);
-  return parts.length > 0 ? `${parts.join(' · ')}.` : null;
+  if (join === null && minimums.length === 0) return [];
+  const parts: VerdictPart[] = [];
+  if (join !== null) parts.push(text(join));
+  if (join !== null && minimums.length > 0) parts.push(text(' · '));
+  if (minimums.length > 0) parts.push(...minimums, text(' minimum'));
+  parts.push(text('.'));
+  return parts;
+}
+
+/** The verdict as parts, the standing sentence then the join rules, either
+ * dropped when its data is missing. Empty when nothing is known. */
+export function verdictParts(facts: AllianceVerdictFacts): VerdictPart[] {
+  const first = standing(facts);
+  const second = rules(facts);
+  return first.length > 0 && second.length > 0
+    ? [...first, text(' '), ...second]
+    : [...first, ...second];
 }
 
 export function composeAllianceVerdict(facts: AllianceVerdictFacts): string {
-  return [standing(facts), rules(facts)]
-    .filter((sentence): sentence is string => sentence !== null)
-    .join(' ');
+  return verdictParts(facts)
+    .map((part) => part.text)
+    .join('');
 }
 
 export interface StandingRow {
