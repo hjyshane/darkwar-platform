@@ -57,6 +57,7 @@ describe('buildNav hierarchy (2026-11-08)', () => {
     expect(ownPage(withOwn)?.tabs?.map((t) => t.label)).toEqual([
       'Members',
       'Overview',
+      'Moves',
       'Ranking',
       'Power and towers',
       'Activity',
