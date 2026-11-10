@@ -54,7 +54,9 @@ from dw_collector.registry import register
 # 1.4.0: a city row carries when its shield ends (0261).
 # 1.5.0: season sites (type 29: the floating lantern and what it reveals) go to
 # season_site_snapshots (0315).
-PARSER_VERSION = "1.5.0"
+# 1.6.0: a city row carries `map_server_id`, the map it was seen on (0318). Its
+# `server_id` stays the uid's home server, which a migration does not change.
+PARSER_VERSION = "1.6.0"
 
 _UID_SERVER_SUFFIX = 6
 
@@ -289,6 +291,7 @@ def normalize(observation: Observation) -> list[NormalizedRow]:
         if uid is None or not uid.isdigit() or len(uid) <= _UID_SERVER_SUFFIX:
             continue
         server_id = _server_from_uid(uid)
+        map_server = observation.payload.get("serverId")
         rows.append(
             NormalizedRow(
                 target_table="world_city_snapshots",
@@ -299,6 +302,7 @@ def normalize(observation: Observation) -> list[NormalizedRow]:
                 idempotency_key=idempotency_key(observation, f"tile:{tile.point_id}", bucket),
                 row={
                     **_common(observation, tile, server_id),
+                    "map_server_id": map_server if isinstance(map_server, int) else tile.server_id,
                     "game_uid": int(uid),
                     "name": city.name,
                     "hq_level": city.hq_level,

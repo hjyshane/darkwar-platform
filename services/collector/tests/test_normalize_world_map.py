@@ -127,6 +127,17 @@ def test_every_city_carries_a_uid_and_its_server() -> None:
     assert {r.row["collected_from_server_id"] for r in rows} == {580}
 
 
+def test_a_city_carries_the_map_it_was_seen_on() -> None:
+    """0318: a migrated player's uid still names the old home server, so the
+    map the response described is stored beside it."""
+    observation = load_observation(VIEWPORT)
+    rows = [r for r in tile_rows(observation) if r.target_table == "world_city_snapshots"]
+
+    assert rows
+    for row in rows:
+        assert row.row["map_server_id"] == observation.payload["serverId"]
+
+
 def test_hq_level_is_kept_where_the_tile_carries_one() -> None:
     rows = [r for r in tile_rows(load_observation(VIEWPORT)) if "hq_level" in r.row]
     levels = [r.row["hq_level"] for r in rows if r.row["hq_level"] is not None]
