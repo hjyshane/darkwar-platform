@@ -9,6 +9,7 @@
 
 .eg-guide {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-4);
   min-width: 0;
 }
@@ -38,6 +39,7 @@
   background: var(--bg-cell);
   border: 1px solid var(--border);
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
 }
@@ -79,6 +81,11 @@
   white-space: nowrap;
 }
 
+/* On the pressed (amber-filled) chip the badge cannot be amber too. */
+.filter-chip[aria-pressed="true"] .eg-draft {
+  color: inherit;
+}
+
 .eg-account {
   align-items: center;
   display: flex;
@@ -90,6 +97,7 @@
 
 .eg-sections {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-6);
   min-width: 0;
 }
@@ -193,6 +201,7 @@
 
 .eg-editor {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-6);
   min-width: 0;
 }
@@ -201,7 +210,11 @@
   background: var(--bg-cell);
   border: 1px solid var(--border);
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-3);
+  /* The global `form` rule caps at 22rem, which suits the sign-in form and
+   * squeezes this one into a column. */
+  max-width: none;
   padding: var(--space-3) var(--space-4);
 }
 
@@ -269,6 +282,7 @@
 .eg-section-item {
   background: var(--bg-cell);
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-3);
   min-width: 0;
   padding: var(--space-3) var(--space-4);
@@ -314,6 +328,7 @@
 .eg-group {
   border: 1px solid var(--border);
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-2);
   padding: var(--space-3);
 }
@@ -322,6 +337,7 @@
 
 .eg-pick {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-1);
   min-width: 9rem;
 }
