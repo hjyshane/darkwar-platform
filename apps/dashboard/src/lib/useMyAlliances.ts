@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect } from 'react';
-import { getActiveAlliance, setActiveAlliance } from './activeAlliance';
+import { useEffect, useSyncExternalStore } from 'react';
+import { getActiveAlliance, setActiveAlliance, subscribeActiveAlliance } from './activeAlliance';
 import { supabase } from './supabase';
 import { type AppRole, useSession } from './useSession';
 
@@ -43,7 +43,7 @@ export function useMyAlliances() {
 export function useActiveAlliance() {
   const queryClient = useQueryClient();
   const { data: alliances } = useMyAlliances();
-  const stored = getActiveAlliance();
+  const stored = useSyncExternalStore(subscribeActiveAlliance, getActiveAlliance, () => null);
   const active = alliances?.find((a) => a.alliance_id === stored) ?? alliances?.[0] ?? null;
 
   // A stored choice this account can no longer view (left, removed, or a

@@ -54,11 +54,30 @@ export function getActiveAlliance(): string | null {
   return current;
 }
 
+const listeners = new Set<() => void>();
+
+/** For useSyncExternalStore. The choice lives outside React (the fetch wrapper
+ * needs it), so a component that shows it has to be told when it changes: the
+ * data under the header refetches on a switch, but the header itself had no
+ * reason to render again, and its toggle kept showing the old alliance. */
+export function subscribeActiveAlliance(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
 export function setActiveAlliance(allianceId: string | null): void {
   if (pinned !== null) {
     return;
   }
+  if (current === allianceId) {
+    return;
+  }
   current = allianceId;
+  for (const listener of listeners) {
+    listener();
+  }
   if (typeof window === 'undefined') {
     return;
   }

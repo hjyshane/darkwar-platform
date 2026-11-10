@@ -8,6 +8,7 @@ import {
   hostAlliance,
   isViewedAlliance,
   setActiveAlliance,
+  subscribeActiveAlliance,
 } from '../src/lib/activeAlliance';
 
 const fetchSpy = vi.fn(
@@ -63,4 +64,17 @@ test('the ACE host is pinned to Ascension, www included; every other host is not
   expect(hostAlliance('cbfw.us')).toBeNull();
   expect(hostAlliance('localhost')).toBeNull();
   expect(hostAlliance('evil-ace-ascension.us')).toBeNull();
+});
+
+test('a switch tells subscribers, so the header toggle can show it', () => {
+  const heard = vi.fn();
+  const stop = subscribeActiveAlliance(heard);
+
+  setActiveAlliance('00000000-0000-4000-8000-00000000a001');
+  setActiveAlliance('00000000-0000-4000-8000-00000000a001'); // no change, no call
+  setActiveAlliance('00000000-0000-4000-8000-00000000a002');
+  stop();
+  setActiveAlliance(null);
+
+  expect(heard).toHaveBeenCalledTimes(2);
 });
