@@ -10921,6 +10921,16 @@ export type Database = {
           server_id: number
         }[]
       }
+      player_server_rank: {
+        Args: { p_player_id: string }
+        Returns: {
+          next_above_power: number
+          next_below_power: number
+          power: number
+          rank: number
+          total: number
+        }[]
+      }
       primary_own_alliance: { Args: never; Returns: string }
       prune_collector_heartbeats: {
         Args: { p_confirm?: boolean; p_keep?: string }

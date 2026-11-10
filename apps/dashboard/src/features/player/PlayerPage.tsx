@@ -431,7 +431,7 @@ export function PlayerPage({ playerId, now }: { playerId: string; now?: Date }) 
             playerId={data.playerId}
           />
           <PlayerShieldTile now={now} playerId={data.playerId} />
-          <PlayerServerRankTile power={data.power} serverId={data.serverId} />
+          <PlayerServerRankTile playerId={data.playerId} />
         </div>
         <PlayerLocationNote now={now} playerId={data.playerId} />
         {map.open && <PlayerLocationMap now={now} playerId={data.playerId} />}
