@@ -8617,6 +8617,7 @@ export type Database = {
           game_uid: number
           hq_level: number | null
           idempotency_key: string
+          map_server_id: number | null
           name: string | null
           observation_id: string
           parser_version: string
@@ -8638,6 +8639,7 @@ export type Database = {
           game_uid: number
           hq_level?: number | null
           idempotency_key: string
+          map_server_id?: number | null
           name?: string | null
           observation_id: string
           parser_version: string
@@ -8659,6 +8661,7 @@ export type Database = {
           game_uid?: number
           hq_level?: number | null
           idempotency_key?: string
+          map_server_id?: number | null
           name?: string | null
           observation_id?: string
           parser_version?: string
