@@ -49,7 +49,8 @@ log = structlog.get_logger()
 # signatures below read as intent rather than as a repeated type argument.
 Row = dict[str, Any]
 
-# A fortnight, in the units the period grid uses.
+# A fortnight, in the units the period grid uses: the length of a period
+# built before snapshots recorded their own end (0315).
 PERIOD_DAYS = 14
 # How long a member has to have been missing before their absence is announced.
 #
@@ -346,13 +347,17 @@ class NotifyWorker:
                 continue
             mine = f"&alliance_id=eq.{alliance_id}"
             newest = self._get(
-                "rank_period_snapshots?select=period_start,scoring_version"
+                "rank_period_snapshots?select=period_start,period_end,scoring_version"
                 f"{mine}&order=period_start.desc,scoring_version.desc&limit=1"
             )
             if not newest:
                 continue
             period_start = newest[0]["period_start"]
             version = newest[0]["scoring_version"]
+            # The period's own end (0315): a hand-set period can be one to four
+            # weeks, and the snapshot records which. Rows older than the column
+            # are fortnights, which is what the old arithmetic assumed.
+            period_end = newest[0].get("period_end") or _add_days(period_start, PERIOD_DAYS)
             rows = self._get(
                 "rank_period_snapshots?select=player_id,name,tier,tier_reason"
                 f"{mine}&period_start=eq.{filter_value(period_start)}"
@@ -376,7 +381,7 @@ class NotifyWorker:
                 rank_period_message(
                     channel=channel,
                     period_start=period_start,
-                    period_end=_add_days(period_start, PERIOD_DAYS),
+                    period_end=period_end,
                     scoring_version=version,
                     rows=rows,
                     previous=previous_rows,

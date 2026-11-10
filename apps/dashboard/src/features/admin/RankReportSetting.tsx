@@ -3,9 +3,8 @@ import { useState } from 'react';
 import { Select } from '../../components/ui/Select';
 import {
   rankPeriodLastDay,
-  rankPeriodStart,
-  rankPeriodWeekEnds,
-  recentRankPeriods,
+  rankPeriodReadingEnds,
+  useRecentRankPeriods,
 } from '../../lib/rankPeriod';
 import { supabase } from '../../lib/supabase';
 
@@ -16,10 +15,11 @@ import { supabase } from '../../lib/supabase';
  * enough to defend to the person being demoted.
  *
  * There is no scheduler behind it. The period boundaries are fixed — every
- * other Monday 02:00 UTC — and the figures come from observations bounded by
- * those times, so opening this on Wednesday reports exactly what opening it
- * on Monday would have. What a scheduled job would add is a notification,
- * not an answer, and nothing here is currently running at 02:05 to send one.
+ * other Monday 02:00 UTC, or whatever an officer set by hand under "Rank
+ * periods" (0315) — and the figures come from observations bounded by those
+ * times, so opening this on Wednesday reports exactly what opening it on
+ * Monday would have. What a scheduled job would add is a notification, not an
+ * answer, and nothing here is currently running at 02:05 to send one.
  *
  * The period is built on open when it has no rows yet. Rebuilding is offered
  * because a capture that syncs late makes the answer better, and the
@@ -202,10 +202,11 @@ export function RankReportSetting() {
   // it is a way of looking at one answer, not a property of the answer.
   const [showAll, setShowAll] = useState(false);
 
-  // The period now in progress. It is both the default and the one the Build
-  // button acts on, so the fortnight the alliance is actually living in is the
-  // one that gets built.
-  const current = rankPeriodStart(new Date());
+  // The period now in progress and the ones before it, AS THE DATABASE RESOLVES
+  // THEM (0315). This screen used to compute the list from its own copy of the
+  // grid; a period can now be set by hand, so only SQL knows the answer.
+  const periods = useRecentRankPeriods(6);
+  const current = periods.data?.[0];
 
   // Which period the screen is looking at.
   //
@@ -224,16 +225,18 @@ export function RankReportSetting() {
   // Building a period that has not finished gives a partial answer rather than
   // a wrong one, and the screen says so below. A stale answer says nothing.
   const [chosen, setChosen] = useState<string | null>(null);
-  const viewing = chosen === null ? current : new Date(chosen);
-  const inProgress = viewing.getTime() === current.getTime();
-
-  // Grid boundaries rather than free dates: a period boundary IS a game week
-  // boundary, and an arbitrary start puts the two weekly contribution readings
-  // somewhere the game never cleared a board. See recentRankPeriods.
-  const options = recentRankPeriods(new Date(), 6);
+  const options = periods.data ?? [];
+  const viewingPeriod =
+    chosen === null ? current : (options.find((p) => p.start.toISOString() === chosen) ?? current);
+  // The epoch until the periods load: the report query waits for them, so
+  // nothing is ever fetched for it.
+  const viewing = viewingPeriod?.start ?? new Date(0);
+  const viewingEnd = viewingPeriod?.end ?? new Date(0);
+  const inProgress = viewingPeriod?.inProgress === true;
 
   const report = useQuery({
     queryKey: ['rank-report', viewing.toISOString()],
+    enabled: viewingPeriod !== undefined,
     queryFn: async () => {
       // ASKED, NOT CALCULATED. This used to be `viewing - 14 days`, and the
       // Members tab does something else: `rank_period_movement` (0100) takes
@@ -321,9 +324,16 @@ export function RankReportSetting() {
     },
   });
 
-  const [firstWeek, secondWeek] = rankPeriodWeekEnds(viewing);
+  // One reading per week the period has — two for a fortnight, one for a
+  // week cut short by a hand-set period, up to four for a long one.
+  const readings = rankPeriodReadingEnds(viewing, viewingEnd);
+  const lastReading = readings[readings.length - 1];
+  const readingsStillDue = readings.filter((at) => at.getTime() > Date.now());
 
-  if (report.isPending) {
+  if (periods.error) {
+    return <p className="error">Could not work out the periods: {periods.error.message}</p>;
+  }
+  if (periods.isPending || report.isPending) {
     return <p className="empty loading">Loading…</p>;
   }
   if (report.error) {
@@ -377,11 +387,12 @@ export function RankReportSetting() {
     <>
       <label>
         Period
-        {/* On the grid, not free dates. A period boundary is a game week
-            boundary — Monday 02:00 UTC, every other one — and the two weekly
-            contribution readings sit one minute before the game clears each
-            week. An arbitrary start puts those readings in the wrong place and
-            scores everybody at zero. */}
+        {/* The periods the database resolves, not free dates. A period
+            boundary is a game week boundary — Monday 02:00 UTC — and the
+            weekly contribution readings sit twelve hours before the game
+            clears each week. An arbitrary start puts those readings in the
+            wrong place and scores everybody at zero. A period set by hand
+            under "Rank periods" shows up here marked. */}
         <Select
           onChange={(chosen) => {
             setChosen(chosen);
@@ -393,38 +404,42 @@ export function RankReportSetting() {
           }}
           value={viewing.toISOString()}
         >
-          {options.map((start) => (
-            <option key={start.toISOString()} value={start.toISOString()}>
-              {iso(start)} to {iso(rankPeriodLastDay(start))}
-              {start.getTime() === current.getTime() ? ' (in progress)' : ''}
+          {options.map((period) => (
+            <option key={period.start.toISOString()} value={period.start.toISOString()}>
+              {iso(period.start)} to {iso(rankPeriodLastDay(period.end))}
+              {period.overridden ? ' (set by hand)' : ''}
+              {period.inProgress ? ' (in progress)' : ''}
             </option>
           ))}
         </Select>
       </label>
 
       <p className="subtle">
-        Period <strong>{iso(viewing)}</strong> to <strong>{iso(rankPeriodLastDay(viewing))}</strong>
-        . Contribution and duel were read at {iso(firstWeek)} 14:00Z and {iso(secondWeek)} 14:00Z —
-        Sunday noon server time, twelve hours before the game clears each week — and power at the
-        period's own two boundaries.
+        Period <strong>{iso(viewing)}</strong> to{' '}
+        <strong>{iso(rankPeriodLastDay(viewingEnd))}</strong>
+        {viewingPeriod?.overridden ? ' — set by hand' : ''}. Contribution and duel{' '}
+        {readings.length === 1 ? 'were read once, at ' : 'were read at '}
+        {readings.map((at) => `${iso(at)} 14:00Z`).join(', ')} — Sunday noon server time, twelve
+        hours before the game clears each week — and power at the period's own two boundaries.
       </p>
 
       {inProgress && (
         // Said rather than refused. Building a period that has not finished is
         // a legitimate thing to want — on a young database it is the only
-        // period with any captures in it — but its second weekly reading has
-        // not happened yet, so half the contribution figures will be missing
+        // period with any captures in it — but its later weekly readings have
+        // not happened yet, so part of the contribution figures will be missing
         // and that must not read as somebody having contributed nothing.
         <p className="empty">
-          This period is still running. Its second weekly reading is on {iso(secondWeek)}, so
-          contribution and duel for week two are not in yet — building it now gives a partial
-          answer, not a wrong one.
+          This period is still running.{' '}
+          {readingsStillDue.length > 0 && lastReading !== undefined
+            ? `Its ${readings.length === 1 ? 'only' : 'last'} weekly reading is on ${iso(lastReading)}, so contribution and duel for ${readingsStillDue.length === 1 ? 'that week are' : 'those weeks are'} not in yet — building it now gives a partial answer, not a wrong one.`
+            : 'Every weekly reading has been taken; only power and offline time can still move.'}
           <br />
           {/* 0281: the Members tab and player pages follow the last period
               worked out, so Build here moves them. Said next to the button
               because a half-read period grades low until it is rebuilt. */}
           The Members tab and player pages will use it as the current rank; rebuild after it closes
-          on {iso(rankPeriodLastDay(viewing))} to settle the final answer.
+          on {iso(rankPeriodLastDay(viewingEnd))} to settle the final answer.
         </p>
       )}
 

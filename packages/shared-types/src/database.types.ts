@@ -7181,6 +7181,58 @@ export type Database = {
           },
         ]
       }
+      rank_period_overrides: {
+        Row: {
+          alliance_id: string
+          created_at: string
+          created_by: string | null
+          note: string | null
+          override_id: string
+          period_end: string
+          period_start: string
+        }
+        Insert: {
+          alliance_id?: string
+          created_at?: string
+          created_by?: string | null
+          note?: string | null
+          override_id?: string
+          period_end: string
+          period_start: string
+        }
+        Update: {
+          alliance_id?: string
+          created_at?: string
+          created_by?: string | null
+          note?: string | null
+          override_id?: string
+          period_end?: string
+          period_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rank_period_overrides_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "rank_period_overrides_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "rank_period_overrides_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
+        ]
+      }
       rank_period_snapshots: {
         Row: {
           activity_score: number | null
@@ -7206,6 +7258,7 @@ export type Database = {
           minimum_missed: string | null
           name: string | null
           offline_hours: number | null
+          period_end: string | null
           period_start: string
           player_id: string
           power_end: number | null
@@ -7242,6 +7295,7 @@ export type Database = {
           minimum_missed?: string | null
           name?: string | null
           offline_hours?: number | null
+          period_end?: string | null
           period_start: string
           player_id: string
           power_end?: number | null
@@ -7278,6 +7332,7 @@ export type Database = {
           minimum_missed?: string | null
           name?: string | null
           offline_hours?: number | null
+          period_end?: string | null
           period_start?: string
           player_id?: string
           power_end?: number | null
@@ -9545,10 +9600,12 @@ export type Database = {
           duel_week2: number | null
           game_uid: number | null
           newest_reading_at: string | null
+          period_end: string | null
           period_start: string | null
           player_id: string | null
           week1_end: string | null
           week2_end: string | null
+          weeks: number | null
         }
         Relationships: [
           {
@@ -9973,6 +10030,7 @@ export type Database = {
           minimum_missed: string | null
           name: string | null
           offline_hours: number | null
+          period_end: string | null
           period_start: string | null
           player_id: string | null
           power_end: number | null
@@ -10407,6 +10465,10 @@ export type Database = {
         Returns: undefined
       }
       delete_gift_code: { Args: { p_code_id: string }; Returns: number }
+      delete_rank_period_override: {
+        Args: { p_override_id: string }
+        Returns: undefined
+      }
       delete_season_building: {
         Args: { p_building_type_id: number; p_season_id: number }
         Returns: undefined
@@ -10940,6 +11002,18 @@ export type Database = {
           prunable: number
         }[]
       }
+      rank_period_bounds: {
+        Args: { p_alliance?: string; ts: string }
+        Returns: {
+          overridden: boolean
+          period_end: string
+          period_start: string
+        }[]
+      }
+      rank_period_reading_ends: {
+        Args: { period_end: string; period_start: string }
+        Returns: string[]
+      }
       rank_period_start: { Args: { ts: string }; Returns: string }
       rank_period_week_ends: {
         Args: { period_start: string }
@@ -10948,6 +11022,15 @@ export type Database = {
       rebuild_rank_period: {
         Args: { p_apply_to_assigned?: boolean; p_period_start: string }
         Returns: number
+      }
+      recent_rank_periods: {
+        Args: { p_count?: number }
+        Returns: {
+          in_progress: boolean
+          overridden: boolean
+          period_end: string
+          period_start: string
+        }[]
       }
       recommend_step_pairs: {
         Args: { p_buildings: Json; p_science: Json }
@@ -11070,6 +11153,10 @@ export type Database = {
       save_my_gift_key: {
         Args: { p_game_uid: number; p_uuid: string }
         Returns: undefined
+      }
+      save_rank_period_override: {
+        Args: { p_note?: string; p_period_end: string; p_period_start: string }
+        Returns: string
       }
       save_season: {
         Args: {

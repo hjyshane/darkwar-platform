@@ -46,32 +46,32 @@ set local role authenticated;
 -- function refuses.
 select pg_temp.act_as('00000000-0000-4000-8000-0000000ad111');
 select throws_ok(
-  $$ select public.build_rank_period('2026-07-27T02:00:00Z') $$,
+  $$ select public.build_rank_period('2026-08-03T02:00:00Z') $$,
   '42501', null,
   'a member cannot build a period — 0066 hides the roster history their '
   'computation would need');
 
 select throws_ok(
-  $$ select public.rebuild_rank_period('2026-07-27T02:00:00Z', false) $$,
+  $$ select public.rebuild_rank_period('2026-08-03T02:00:00Z', false) $$,
   '42501', null,
   'nor reach the computation through the wrapper');
 
 select pg_temp.act_as('00000000-0000-4000-8000-0000000ad112');
 select throws_ok(
-  $$ select public.build_rank_period('2026-07-27T02:00:00Z') $$,
+  $$ select public.build_rank_period('2026-08-03T02:00:00Z') $$,
   '42501', null, 'a viewer cannot either');
 
 -- And nothing was written on the way to any refusal.
 select is(
   (select count(*) from public.rank_period_snapshots
-   where period_start = '2026-07-27T02:00:00Z'),
+   where period_start = '2026-08-03T02:00:00Z'),
   0::bigint, 'a refused call writes no snapshot rows');
 
 -- The positive half, so the gate is proven to sit between member and
 -- officer rather than in front of everybody.
 select pg_temp.act_as('00000000-0000-4000-8000-0000000ad113');
 select lives_ok(
-  $$ select public.build_rank_period('2026-07-27T02:00:00Z') $$,
+  $$ select public.build_rank_period('2026-08-03T02:00:00Z') $$,
   'an officer can build one');
 
 reset role;
