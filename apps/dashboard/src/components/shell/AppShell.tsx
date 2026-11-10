@@ -60,6 +60,13 @@ export function AppShell({
   // biome-ignore lint/correctness/useExhaustiveDependencies: the route is the trigger
   useEffect(() => setDrawer(false), [route, allianceId]);
 
+  // Moving to another page or tab starts at its top, not wherever the last one
+  // was left scrolled.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the address is the trigger
+  useEffect(() => {
+    window.scrollTo?.(0, 0);
+  }, [hash]);
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {

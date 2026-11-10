@@ -18,7 +18,7 @@ import { CalendarPage } from './features/calendar/CalendarPage';
 import { CrossRankingsPanel } from './features/crossRankings/CrossRankingsPanel';
 import { CAPITAL_CLASH, EventBoardPage, SERVER_CLASH } from './features/eventBoard/EventBoardPage';
 import { EventGuidePage } from './features/eventGuide/EventGuidePage';
-import { EventsTabs } from './features/events/EventsTabs';
+import { EventsTabs, useFirstEventsRoute } from './features/events/EventsTabs';
 import { FrankiePage } from './features/frankie/FrankiePage';
 import { GiftCodesPage } from './features/giftCodes/GiftCodesPage';
 import { GuidePostPage } from './features/guides/GuidePostPage';
@@ -242,7 +242,7 @@ function HeaderAllianceSwitcher() {
 }
 
 function Screen({
-  route,
+  route: addressRoute,
   mapServerId,
   eventGuideTab,
 }: {
@@ -251,6 +251,10 @@ function Screen({
   eventGuideTab: EventGuideTab;
 }) {
   const { data: session } = useSession();
+  // The bare Events address opens the first tab of the arranged strip, not a
+  // fixed page.
+  const firstEvents = useFirstEventsRoute();
+  const route = addressRoute === 'events' ? firstEvents : addressRoute;
   // Community reads the migration board too (0283 opens the server-level
   // tables and every alliance's roster but ours). Nothing there is written.
   const isOfficer =

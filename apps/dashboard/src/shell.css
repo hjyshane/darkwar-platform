@@ -108,6 +108,19 @@
   white-space: nowrap;
 }
 
+/* An entry with subpages is a button that folds its list, styled as the link. */
+button.shell-link {
+  background: none;
+  border-bottom: 0;
+  border-right: 0;
+  border-top: 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+  width: 100%;
+}
+
 .shell-link svg {
   flex: none;
 }

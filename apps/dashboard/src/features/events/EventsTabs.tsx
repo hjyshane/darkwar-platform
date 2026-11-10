@@ -51,6 +51,17 @@ export function eventsTabs(
     .filter((tab) => showHidden || !tab.hidden);
 }
 
+/** The screen the bare `#/events` address opens: the first tab the admin's
+ * arrangement leaves showing, so reordering the strip changes the main page. */
+export function useFirstEventsRoute(): Route {
+  const { data: session } = useSession();
+  const overrides = useUiOverrides();
+  const offered = EVENTS_HUB_TABS.filter(
+    (tab) => tab.route !== 'season2' || session?.role === 'admin',
+  );
+  return eventsTabs(offered, {}, overrides, false)[0]?.route ?? 'blackMoney';
+}
+
 export function EventsTabs({ route }: { route: Route }) {
   const { data: session } = useSession();
   const seasons = useSeasons();
