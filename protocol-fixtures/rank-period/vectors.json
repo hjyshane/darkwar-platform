@@ -9,7 +9,10 @@
     "not_the_daily_boards": "Daily rankings and daily arena must NOT be summed across a period. One reading of a board that resets every day is one day's figure, and adding two of them over a fortnight would understate everybody by whatever was not captured. If a daily figure is ever wanted per period it needs a reading per day, which nothing collects yet."
   },
   "absent_is_not_zero": "A period with no captures in it must not produce figures of zero and a tier of 'score'. Before 0071 it did: 93 members were graded R3 over a fortnight that predated the collector, and offline_hours came back at -225 because presence was read from outside the period. donation_total and duel_total are null when neither week was read, activity_score is null when every input is absent, a member with no activity_score gets no tier, and presence is bounded by the period's end.",
-  "consumers": ["supabase/migrations (rank_period_start)", "apps/dashboard (rankPeriod.ts)"],
+  "consumers": [
+    "supabase/migrations (rank_period_start — the grid; rank_period_bounds since 0316 answers from hand-set periods first and this grid otherwise)"
+  ],
+  "no_longer_a_consumer": "apps/dashboard — it carried a copy of this grid until 0316. A period can now be set by hand in rank_period_overrides, so the answer depends on a table and a second implementation would have to fetch it and re-apply three rules; the screen asks recent_rank_periods instead. 316_rank_periods_set_by_hand_test pins how hand-set periods and this grid fit together.",
   "not_a_consumer": "services/collector — nothing there needs a period yet, and an implementation with no caller is one that drifts unnoticed. Add it there when something asks.",
   "vectors": [
     {

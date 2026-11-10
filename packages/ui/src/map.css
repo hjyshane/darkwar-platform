@@ -156,6 +156,19 @@
   box-shadow: 0 0 0 2px var(--bg, #ffffff), 0 0 0 4px #9a3412;
 }
 
+/* A Large Treasure Spot: the lantern's red, round like a paper lantern. Unlit
+ * is the plain dot; an open spot carries a pale ring so the two read apart at a
+ * glance — one is "go light it", the other "go explore it". */
+.map-plot .map-pin--treasure .map-pin__dot {
+  background: #e11d48;
+  box-shadow: 0 0 0 2px var(--bg, #ffffff), 0 0 0 4px #881337;
+}
+
+.map-plot .map-pin--treasure-open .map-pin__dot {
+  background: #fb7185;
+  box-shadow: 0 0 0 2px var(--bg, #ffffff), 0 0 0 4px #e11d48, 0 0 0 6px #fecdd3;
+}
+
 /* A pin is a button when it can be picked. The dot stays the target; the
  * label must not swallow clicks meant for a neighbouring pin. */
 .map-pin--clickable {

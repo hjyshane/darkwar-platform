@@ -10,9 +10,11 @@ Nothing in this module talks to the network or to a database.
 
 from __future__ import annotations
 
+import hashlib
 import re
 from collections import Counter
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from typing import Any
 
 # One PostgREST row. `dict[str, Any]` everywhere it appears, named once so the
@@ -594,6 +596,108 @@ def resumed_message(
         body=(
             f"**{collector_name}** is reporting again. "
             f"The gap started {since[:16].replace('T', ' ')}Z."
+        ),
+    )
+
+
+#: `cat_group` of a Large Treasure Spot on season_sites_live: the hundreds of
+#: the client's lucky_cats key (0315).
+LARGE_TREASURE_GROUP = 15
+#: `status` of a lantern nobody has lit.
+SITE_UNLIT = 3
+#: `status` of a site open to explore.
+SITE_OPEN = 2
+
+
+def _site_closes_at(row: Row) -> datetime | None:
+    """When a site is gone: its hour from the reveal, or its expiry."""
+    expires = row.get("expires_at")
+    if not isinstance(expires, str):
+        return None
+    closes = datetime.fromisoformat(expires)
+    revealed, limit = row.get("revealed_at"), row.get("limit_seconds")
+    if isinstance(revealed, str) and isinstance(limit, int):
+        opened_until = datetime.fromisoformat(revealed) + timedelta(seconds=limit)
+        closes = min(closes, opened_until)
+    return closes
+
+
+def _left(until: datetime | None, now: datetime) -> str:
+    if until is None:
+        return ""
+    minutes = int((until - now).total_seconds() // 60)
+    if minutes < 1:
+        return "under a minute left"
+    if minutes < 60:
+        return f"{minutes}m left"
+    return f"{minutes // 60}h {minutes % 60:02d}m left"
+
+
+def treasure_message(
+    *,
+    channel: str,
+    server_id: int,
+    sites: list[Row],
+    now: datetime,
+) -> Message | None:
+    """Every Large Treasure Spot standing on one server, as the game's coordinates.
+
+    THE COORDINATE IS THE GAME'S, `game_x` / `game_y` from the view, in the
+    form a share link carries — `#580[X:456 Y:261]` — so a member can paste a
+    line straight into the game's jump box. Our own tile would land one square
+    off (0315).
+
+    KEYED ON THE SET OF COORDINATES, not on the states. A lantern being lit,
+    or the hour on an open spot ticking down, is the same list of places and
+    should not post again; a lantern expiring or a new batch spawning changes
+    the set and does. The key carries the channel, as guides do, so a second
+    room is not silenced by the first.
+
+    None when there is nothing standing: "no treasure" is not news worth a
+    message, and posting it would make the empty list the thing that repeats.
+    """
+    if not sites:
+        return None
+    coords = sorted(
+        (int(row["game_x"]), int(row["game_y"]))
+        for row in sites
+        if isinstance(row.get("game_x"), int) and isinstance(row.get("game_y"), int)
+    )
+    if not coords:
+        return None
+    digest = hashlib.sha1(";".join(f"{x},{y}" for x, y in coords).encode()).hexdigest()[:16]
+    lines: list[str] = []
+    # Unlit first — those are the ones to go and light — then by expiry.
+    ordered = sorted(sites, key=lambda r: (r.get("status") != SITE_UNLIT, str(r.get("expires_at"))))
+    for row in ordered:
+        if not (isinstance(row.get("game_x"), int) and isinstance(row.get("game_y"), int)):
+            continue
+        status = row.get("status")
+        if status == SITE_UNLIT:
+            state = "unlit lantern"
+        elif status == SITE_OPEN:
+            state = f"open · {row.get('participant_count') or 0} exploring"
+        else:
+            state = "being lit"
+        left = _left(_site_closes_at(row), now)
+        tail = f" · {left}" if left else ""
+        lines.append(f"`#{server_id}[X:{row['game_x']} Y:{row['game_y']}]` · {state}{tail}")
+    count = len(lines)
+    return Message(
+        channel=channel,
+        event="treasure_spots",
+        idempotency_key=f"treasure:{server_id}:{digest}:{channel}",
+        title=clamp(f"Large Treasure Spots · #{server_id} · {count}", TITLE_LIMIT),
+        body=clamp(
+            "\n".join(
+                [
+                    "_Lanterns still hiding a Large Treasure Spot, and spots already open. "
+                    "Light-bearing troops near a lantern reveal it; scouts explore the spot._",
+                    "",
+                    *lines,
+                ]
+            ),
+            BODY_LIMIT,
         ),
     )
 

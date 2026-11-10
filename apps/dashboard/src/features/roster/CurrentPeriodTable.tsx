@@ -19,8 +19,13 @@ interface PeriodRow {
   player_id: string;
   current_name: string | null;
   period_start: string;
+  /** 0316: the period's own end and week count. A period set by hand can run
+   * one to four weeks; the two week columns are the first two readings and
+   * the totals cover every week read. */
+  period_end: string;
+  weeks: number;
   week1_end: string;
-  week2_end: string;
+  week2_end: string | null;
   donation_week1: number | null;
   donation_week2: number | null;
   duel_week1: number | null;
@@ -37,7 +42,7 @@ async function fetchCurrentPeriod(): Promise<PeriodRow[]> {
   const { data, error } = await supabase
     .from('member_current_period_contribution')
     .select(
-      'player_id, current_name, period_start, week1_end, week2_end, donation_week1, donation_week2, duel_week1, duel_week2, donation_total, duel_total',
+      'player_id, current_name, period_start, period_end, weeks, week1_end, week2_end, donation_week1, donation_week2, duel_week1, duel_week2, donation_total, duel_total',
     )
     // One row per member (0157), so this counts people and PostgREST's
     // thousand-row cap is nowhere near.
@@ -80,11 +85,11 @@ export function CurrentPeriodTable() {
     return <p className="empty loading">Loading…</p>;
   }
   if (error) {
-    return <p className="error">Could not load this fortnight: {(error as Error).message}</p>;
+    return <p className="error">Could not load this period: {(error as Error).message}</p>;
   }
   const rows = data ?? [];
   if (rows.length === 0) {
-    return <p className="empty">Nothing captured for this fortnight yet.</p>;
+    return <p className="empty">Nothing captured for this period yet.</p>;
   }
 
   const first = rows[0] as PeriodRow;
@@ -104,18 +109,24 @@ export function CurrentPeriodTable() {
   return (
     <>
       <p className="subtle">
-        The fortnight that started <strong>{day(first.period_start)}</strong>. Week one closes{' '}
-        {day(first.week1_end)}, week two {day(first.week2_end)} — the game clears each board a
-        minute later. These are the readings themselves, not a score: the rank and score columns on
-        the members table come from the last period worked out, and move when it is rebuilt.
+        The {first.weeks === 2 ? 'fortnight' : `${first.weeks}-week period`} that started{' '}
+        <strong>{day(first.period_start)}</strong>
+        {first.weeks === 2 ? '' : ', set by hand'}. Week one is read on {day(first.week1_end)}
+        {first.week2_end !== null && <>, week two on {day(first.week2_end)}</>} — Sunday noon server
+        time, twelve hours before the game clears each board.
+        {first.weeks > 2 && (
+          <> Weeks three{first.weeks > 3 ? ' and four' : ''} are in the period total only.</>
+        )}{' '}
+        These are the readings themselves, not a score: the rank and score columns on the members
+        table come from the last period worked out, and move when it is rebuilt.
       </p>
 
       <div className="row">
         {(
           [
             ['week1', 'Week 1'],
-            ['week2', 'Week 2'],
-            ['both', 'Both weeks'],
+            ...(first.weeks >= 2 ? [['week2', 'Week 2'] as const] : []),
+            ['both', first.weeks === 2 ? 'Both weeks' : 'Whole period'],
           ] as const
         ).map(([id, label]) => (
           <button

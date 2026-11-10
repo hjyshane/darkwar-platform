@@ -4,6 +4,7 @@ import { useIcons } from '../../lib/gameIcons';
 import { who } from './HuntLists';
 import { useMapZoom } from './PannableMap';
 import { type Mission, type Truck, timeLeft, truckHeading, truckSpot } from './hunt';
+import { type TreasureSite, closesAt, isUnlit, shareLabel, siteTitle } from './sites';
 
 /** A clock that ticks every second, so a truck moves along its road and its
  * countdown runs without anything being refetched. */
@@ -62,25 +63,29 @@ function Routes({
   );
 }
 
-/** Trucks (gold diamonds) and plunder missions (orange squares) over the atlas.
+/** Trucks (gold diamonds), plunder missions (orange squares) and Large Treasure
+ * Spots (red lanterns) over the atlas.
  *
  * Positioned like the base dots, as percentages of the plot, and drawn above
  * them. A faded diamond is a truck whose spot is only where it set off from, or
  * where it was last known: the leg it was on has ended and the next one is not
- * in the data.
+ * in the data. A ringed lantern is a spot already open: go explore rather than
+ * go light.
  */
 export function HuntPins({
   trucks,
   missions,
+  sites = [],
   picked,
   onChoose,
 }: {
   trucks: readonly Truck[];
   missions: readonly Mission[];
+  sites?: readonly TreasureSite[];
   picked: string | null;
   onChoose: (id: string, at: { x: number; y: number }) => void;
 }) {
-  const now = useTick(trucks.length > 0 || missions.length > 0);
+  const now = useTick(trucks.length > 0 || missions.length > 0 || sites.length > 0);
   const zoom = useMapZoom();
   // The client's own truck pictures (0268): colour by quality, facing by heading.
   const sprites = useIcons('truck').data;
@@ -148,6 +153,32 @@ export function HuntPins({
           type="button"
         >
           <span className="map-pin__dot" />
+        </button>
+      ))}
+      {sites.map((site) => (
+        <button
+          className={[
+            'map-pin',
+            'map-pin--treasure',
+            'map-pin--clickable',
+            isUnlit(site) ? '' : 'map-pin--treasure-open',
+            site.siteUuid === picked ? 'map-pin--on' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          key={site.siteUuid}
+          onClick={() => onChoose(site.siteUuid, site.at)}
+          style={place(site.at)}
+          title={siteTitle(site)}
+          type="button"
+        >
+          <span className="map-pin__dot" />
+          {(site.siteUuid === picked || zoom >= 6) && (
+            <span className="atlas-truck-tag">
+              {shareLabel(site)} · {isUnlit(site) ? 'unlit' : 'open'} ·{' '}
+              {timeLeft(closesAt(site), now)}
+            </span>
+          )}
         </button>
       ))}
     </>
