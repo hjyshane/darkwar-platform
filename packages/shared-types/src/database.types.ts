@@ -10103,6 +10103,7 @@ export type Database = {
       rank_period_latest: {
         Row: {
           activity_score: number | null
+          alliance_id: string | null
           below_minimum: boolean | null
           computed_at: string | null
           donation_pct: number | null
@@ -10138,6 +10139,27 @@ export type Database = {
           tier_reason: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "rank_period_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "rank_period_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "rank_period_snapshots_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
           {
             foreignKeyName: "rank_period_snapshots_player_id_fkey"
             columns: ["player_id"]
