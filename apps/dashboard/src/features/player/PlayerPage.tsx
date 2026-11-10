@@ -7,8 +7,6 @@ import { StatTile } from '../../components/StatTile';
 import { isViewedAlliance } from '../../lib/activeAlliance';
 import { useRecordActivity } from '../../lib/activity';
 import { leagueLabel } from '../../lib/arenaLeague';
-import { formatLastOnline } from '../../lib/freshness';
-import { allianceHash, serverHash } from '../../lib/route';
 import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
 import { useFavourites } from '../../lib/useFavourites';
@@ -21,12 +19,12 @@ import { MemberHistory } from './MemberHistory';
 import {
   PlayerLocationMap,
   PlayerLocationNote,
-  PlayerLocationTile,
-  PlayerShieldTile,
   useMapDisclosure,
   usePlayerHasLocation,
 } from './PlayerLocationTile';
 import { PlayerTrend } from './PlayerTrend';
+import { ProfileHeader } from './ProfileHeader';
+import type { BoardRow } from './composition';
 import {
   type PlayerArenaEntry,
   growthNote,
@@ -34,7 +32,7 @@ import {
   newestPerLeague,
   percent,
 } from './playerArena';
-import { PlayerServerRankTile } from './serverRank';
+import { type HeaderSource, useProfileHeader } from './useProfileHeader';
 
 /** One player, gathered from every table that knows something about them.
  *
@@ -112,6 +110,10 @@ interface PlayerDetail {
     powerAt: string | null;
   } | null;
   componentPower: { metric: string; power: number | null; rank: number | null }[];
+  /** Every component reading, newest first: the header's composition takes
+   * its value from the newest row and its rank from the newest RANKED row,
+   * which the one-per-metric list above has already thrown away. */
+  boardRows: BoardRow[];
   arena: PlayerArenaEntry[];
   pastNames: { name: string; lastSeenAt: string }[];
 }
@@ -286,10 +288,38 @@ async function fetchPlayer(playerId: string): Promise<PlayerDetail | null> {
         }
       : null,
     componentPower,
+    boardRows: (component.data ?? []).map((row) => ({
+      metric: row.metric,
+      power: row.power,
+      rank: row.rank,
+      captured_at: row.captured_at,
+    })),
     arena,
     pastNames: (names.data ?? [])
       .filter((row) => row.name !== player.current_name)
       .map((row) => ({ name: row.name, lastSeenAt: row.last_seen_at })),
+  };
+}
+
+/** What the header reads off the player row.
+ *
+ * `powerAt` is when the newest power reading was taken, which is what the
+ * data light dates. `player_growth_recent` knows it; without a row there the
+ * player's own last-seen time stands in, and only when a power exists to date. */
+function headerSource(data: PlayerDetail): HeaderSource {
+  return {
+    serverId: data.serverId,
+    hqLevel: data.hqLevel,
+    power: data.power,
+    kills: data.kills,
+    isOwnAlliance: data.isOwnAlliance,
+    onlineState: data.onlineState,
+    offlineSince: data.offlineSince,
+    observedAt: data.observedAt,
+    powerAt: data.recentGrowth?.powerAt ?? (data.power === null ? null : data.lastSeenAt),
+    allianceId: data.allianceId,
+    boardRows: data.boardRows,
+    arena: data.arena,
   };
 }
 
@@ -337,6 +367,9 @@ export function PlayerPage({ playerId, now }: { playerId: string; now?: Date }) 
   // The character's own login (owner or admin only, 0205): squads, vehicle
   // and pets. Nobody else gets a row, and so no tabs.
   const account = useAccountState(playerId, signedIn);
+  // The header's own facts (rank with neighbours, the retention window, the
+  // roster tenure). Above the early returns for the same reason as the rest.
+  const header = useProfileHeader(playerId, data ? headerSource(data) : null, now);
 
   if (isPending) {
     return (
@@ -352,7 +385,7 @@ export function PlayerPage({ playerId, now }: { playerId: string; now?: Date }) 
       </main>
     );
   }
-  if (data === null || data === undefined) {
+  if (data === null || data === undefined || header === null) {
     // Not "no data yet": the address named a player we have never observed,
     // which is a different thing and a plain 404 rather than a hint to go
     // and capture something.
@@ -386,60 +419,44 @@ export function PlayerPage({ playerId, now }: { playerId: string; now?: Date }) 
   const view = views.some((entry) => entry.view === chosen) ? chosen : 'growth';
   return (
     <main className="player-screen">
-      <section aria-labelledby="player-heading" className="entity">
-        <header className="entity-head">
-          <span aria-hidden="true" className="entity-mark">
-            {label.slice(0, 2).toUpperCase()}
-          </span>
-          <div>
-            <h2 id="player-heading">
-              {signedIn && (
-                <FavouriteButton
-                  id={data.playerId}
-                  isFavourite={isFavourite('player', data.playerId)}
-                  kind="player"
-                  label={label}
-                  onToggle={toggle}
-                />
-              )}
-              {label}
-            </h2>
-            <p className="entity-meta">
-              <a href={serverHash(data.serverId)}>Server {data.serverId}</a>
-              {data.allianceId && (
-                <a href={allianceHash(data.allianceId)}>
-                  {data.allianceCode ? `[${data.allianceCode}] ` : ''}
-                  {data.allianceName ?? 'alliance'}
-                </a>
-              )}
-            </p>
-          </div>
-        </header>
-
-        <div className="strip">
-          <StatTile hero label={TERMS.power} value={num(data.power)} />
-          <StatTile label={TERMS.hq} value={num(data.hqLevel)} />
-          <StatTile label={TERMS.kills} value={num(data.kills)} />
-          <StatTile
-            label={TERMS.lastOnline}
-            value={formatLastOnline(data.onlineState, data.offlineSince, now ?? new Date())}
-          />
-          <PlayerLocationTile
-            mapOpen={map.open}
-            now={now}
-            onToggleMap={hasLocation ? map.toggle : undefined}
-            playerId={data.playerId}
-          />
-          <PlayerShieldTile now={now} playerId={data.playerId} />
-          <PlayerServerRankTile playerId={data.playerId} />
-        </div>
-        <PlayerLocationNote now={now} playerId={data.playerId} />
-        {map.open && <PlayerLocationMap now={now} playerId={data.playerId} />}
-        <p className="entity-foot">
-          UID {data.gameUid} · {TERMS.lastSeen}{' '}
-          <FreshnessBadge capturedAt={data.lastSeenAt} now={now} />
-        </p>
-      </section>
+      <ProfileHeader
+        alliance={
+          data.allianceId
+            ? { id: data.allianceId, code: data.allianceCode, name: data.allianceName }
+            : null
+        }
+        favourite={
+          signedIn && (
+            <FavouriteButton
+              id={data.playerId}
+              isFavourite={isFavourite('player', data.playerId)}
+              kind="player"
+              label={label}
+              onToggle={toggle}
+            />
+          )
+        }
+        gameUid={data.gameUid}
+        hqLevel={data.hqLevel}
+        lastSeenAt={data.lastSeenAt}
+        mapOpen={map.open}
+        mapSlot={
+          map.open && (
+            <>
+              <PlayerLocationNote now={now} playerId={data.playerId} />
+              <PlayerLocationMap now={now} playerId={data.playerId} />
+            </>
+          )
+        }
+        model={header}
+        name={label}
+        now={now}
+        onShowArena={data.arena.length > 0 ? () => setChosen('arena') : undefined}
+        // Only when there is somewhere to show, so the coordinate does not
+        // become a button that opens an empty map.
+        onToggleMap={hasLocation ? map.toggle : undefined}
+        serverId={data.serverId}
+      />
 
       {/* Alliance-internal blocks, and only for our own members.
        *

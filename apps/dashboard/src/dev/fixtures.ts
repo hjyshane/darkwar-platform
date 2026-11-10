@@ -36,6 +36,30 @@ const NOW = Date.now();
 const ago = (minutes: number) => new Date(NOW - minutes * 60_000).toISOString();
 const ahead = (days: number) => new Date(NOW + days * 86_400_000).toISOString();
 
+/** One hero of an arena defence, as `fetchLineups` narrows it. */
+function lineupHero(
+  slot: number,
+  heroId: number,
+  troopClass: number,
+  level: number,
+  star: number,
+  heroPower: number,
+) {
+  return {
+    slot,
+    hero_id: heroId,
+    troop_class: troopClass,
+    hero_level: level,
+    level_synced: false,
+    star,
+    stage: 2,
+    hero_power: heroPower,
+    weapon_level: null,
+    skills: [],
+    equipment: [],
+  };
+}
+
 /** One roster row. Deliberately uneven: nulls are the case the UI is most
  *  likely to get wrong, so a third of these figures are unobserved. */
 function member(
@@ -2481,10 +2505,117 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
         { metric: 'troop_power', power: 33_900_000, rank: 1 },
         { metric: 'pet_power', power: 5_900_000, rank: null },
       ],
-      arena: [],
+      // The six components of one profile read, which sum exactly to power
+      // (0109), plus an older ranked board reading for heroes and pets: the
+      // header takes the value from the newest row and the rank from the
+      // newest RANKED one.
+      boardRows: [
+        { metric: 'army_power', power: 24_300_000, rank: null, captured_at: ago(35) },
+        { metric: 'hero_power_total', power: 14_800_000, rank: null, captured_at: ago(35) },
+        { metric: 'building_power', power: 9_600_000, rank: null, captured_at: ago(35) },
+        { metric: 'science_power', power: 6_900_000, rank: null, captured_at: ago(35) },
+        { metric: 'mod_car_power', power: 3_500_000, rank: null, captured_at: ago(35) },
+        { metric: 'pet_power_total', power: 2_100_000, rank: null, captured_at: ago(35) },
+        { metric: 'hero_power_total', power: 14_600_000, rank: 2, captured_at: ago(60 * 20) },
+        { metric: 'pet_power_total', power: 2_100_000, rank: 1, captured_at: ago(60 * 20) },
+      ],
+      arena: [
+        {
+          entryId: 'arena-shane-gold',
+          league: 1,
+          weekStart: ago(60 * 24 * 3),
+          capturedAt: ago(60 * 26),
+          rank: 14,
+          score: 2_310,
+          defensePower: 13_900_000,
+          lineup: [
+            lineupHero(1, 40002, 1, 120, 5, 6_200_000),
+            lineupHero(2, 1017, 2, 118, 4, 4_100_000),
+            lineupHero(3, 40002, 1, 115, 4, 3_600_000),
+          ],
+        },
+        {
+          entryId: 'arena-shane-silver',
+          league: 2,
+          weekStart: ago(60 * 24 * 3),
+          capturedAt: ago(60 * 26),
+          rank: 3,
+          score: 1_880,
+          defensePower: null,
+          // An entry whose payload carried no `army`.
+          lineup: [],
+        },
+      ],
       pastNames: [{ name: 'Shayne', lastSeenAt: ago(60 * 24 * 40) }],
     },
   ],
+  // The header's own queries (phase B of the player profile).
+  [
+    ['player-server-rank', PLAYER.shane],
+    { rank: 3, total: 412, gapToAbove: 2_400_000, leadOverBelow: 900_000 },
+  ],
+  [
+    ['player-location', PLAYER.shane],
+    // Swept 90 minutes ago; the shield ended two days before that.
+    { x: 491, y: 444, serverId: 580, capturedAt: ago(90), shieldEndAt: ago(60 * 50) },
+  ],
+  [
+    // 30 days: Shane is one of ours (retention keeps months, 0070).
+    ['player-history-window', PLAYER.shane, 30],
+    [
+      {
+        captured_at: ago(60 * 24 * 28),
+        power: 55_100_000,
+        kills: null,
+        source_command: 'server.rank',
+      },
+      {
+        captured_at: ago(60 * 24 * 27),
+        power: null,
+        kills: 4_950_000,
+        source_command: 'kill.rank',
+      },
+      { captured_at: ago(60 * 5), power: null, kills: 5_400_000, source_command: 'kill.rank' },
+      { captured_at: ago(35), power: 61_200_000, kills: null, source_command: 'server.rank' },
+    ],
+  ],
+  [['player-first-seen', PLAYER.shane, ALLIANCE.ours], ago(60 * 24 * 45)],
+
+  // A player known by name and nothing else: no power, no rank, no map read,
+  // no boards, no arena. The header has to stand on dashes.
+  [
+    ['player', PLAYER.dex],
+    {
+      subscription: null,
+      playerId: PLAYER.dex,
+      gameUid: 58004,
+      name: 'Dex',
+      serverId: 580,
+      allianceId: null,
+      allianceName: null,
+      allianceCode: null,
+      isOwnAlliance: false,
+      hqLevel: null,
+      power: null,
+      kills: null,
+      lastSeenAt: null,
+      onlineState: null,
+      offlineSince: null,
+      observedAt: null,
+      contributions: null,
+      rank: null,
+      growth: null,
+      recentGrowth: null,
+      componentPower: [],
+      boardRows: [],
+      arena: [],
+      pastNames: [],
+    },
+  ],
+  [['player-server-rank', PLAYER.dex], null],
+  [['player-location', PLAYER.dex], null],
+  [['player-history-window', PLAYER.dex, 7], []],
+  [['player-trend', PLAYER.dex], []],
   [
     ['member-history', PLAYER.shane],
     [
