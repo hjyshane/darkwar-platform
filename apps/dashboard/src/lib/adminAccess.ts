@@ -187,6 +187,15 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     heading: 'Events',
     requires: capability('catalogue.write'),
   },
+  // event_guides, event_guide_sections, game_event_score_items (0310) ->
+  // guide.write / guide.edit / guide.delete, the 0078 board's own grid: a
+  // guide is writing, not reference data, so it is not behind catalogue.write.
+  {
+    group: 'catalogue',
+    id: 'event-guides-heading',
+    heading: 'Event guides',
+    requires: capability('guide.write'),
+  },
 
   // Which alliances are ours: the install, not any one of them. An admin's,
   // because it decides whose data every other screen shows.

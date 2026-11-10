@@ -22,6 +22,14 @@ const SEEDED: RolePermission[] = [
   { role: 'officer', capability: 'settings.write', allowed: false },
   { role: 'officer', capability: 'catalogue.write', allowed: false },
   { role: 'officer', capability: 'data.enter', allowed: true },
+  // 0078 seeded the board's capabilities in the same grid: officers write and
+  // edit, only admins delete.
+  { role: 'admin', capability: 'guide.write', allowed: true },
+  { role: 'admin', capability: 'guide.edit', allowed: true },
+  { role: 'admin', capability: 'guide.delete', allowed: true },
+  { role: 'officer', capability: 'guide.write', allowed: true },
+  { role: 'officer', capability: 'guide.edit', allowed: true },
+  { role: 'officer', capability: 'guide.delete', allowed: false },
 ];
 
 /** The grant that motivated all of this: officers approve player claims, so
@@ -141,19 +149,30 @@ group('what a group tells you', () => {
   });
 
   test('a group with no writable section at all still reports honestly', () => {
-    const officer = OFFICER_MANAGES_MEMBERS;
+    // An officer the grid denies the board's capabilities too: with guide.write
+    // they CAN write one thing in the shared group (the event guides).
+    const officer = OFFICER_MANAGES_MEMBERS.map((grant) =>
+      grant.capability.startsWith('guide.') ? { ...grant, allowed: false } : grant,
+    );
     expect(canWriteAnything('catalogue', 'officer', officer)).toBe(false);
-    // Shared (id `catalogue`): the catalogue, and the pin list an admin keeps.
+    // Shared (id `catalogue`): the catalogue, the event guides, and the pin
+    // list an admin keeps.
     expect(missingIn('catalogue', 'officer', officer)).toEqual([
       { kind: 'capability', capability: 'catalogue.write' },
+      { kind: 'capability', capability: 'guide.write' },
       { kind: 'role', role: 'admin' },
     ]);
+  });
+
+  test('an officer with guide.write can write in the shared group, and is not told otherwise', () => {
+    expect(canWriteAnything('catalogue', 'officer', OFFICER_MANAGES_MEMBERS)).toBe(true);
   });
 
   test('sections that only read are never listed as missing', () => {
     // Shared holds two read-only screens beside the ones that need a grant.
     expect(missingIn('catalogue', 'member', SEEDED)).toEqual([
       { kind: 'capability', capability: 'catalogue.write' },
+      { kind: 'capability', capability: 'guide.write' },
       { kind: 'role', role: 'admin' },
     ]);
   });
@@ -222,6 +241,15 @@ group('the sections a reader may use', () => {
   test('a group with nothing usable comes back empty rather than partly drawn', () => {
     // Operations is Discord alone since 0200, and Discord is an admin's.
     expect(usableSectionsIn('operations', 'member', SEEDED)).toHaveLength(0);
+  });
+
+  test('Event guides is offered to whoever holds guide.write, not to a member without it', () => {
+    expect(usableSectionsIn('catalogue', 'officer', SEEDED).map((s) => s.heading)).toContain(
+      'Event guides',
+    );
+    expect(usableSectionsIn('catalogue', 'member', SEEDED).map((s) => s.heading)).not.toContain(
+      'Event guides',
+    );
   });
 
   test('the shared screens that only read stay open to a member', () => {
