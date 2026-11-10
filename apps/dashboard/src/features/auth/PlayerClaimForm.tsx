@@ -1,21 +1,39 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Select } from '../../components/ui/Select';
+import { getActiveAlliance, isAlliancePinnedByHost } from '../../lib/activeAlliance';
 import { supabase } from '../../lib/supabase';
 
 type ClaimablePlayer = { player_id: string; current_name: string | null; code: string | null };
 type LinkedPlayer = { player_id: string; current_name: string | null };
 
-async function fetchClaimablePlayers(): Promise<ClaimablePlayer[]> {
-  // Every own alliance's roster, not only the one being viewed: somebody in
-  // two alliances links their character in each from the same screen.
-  const { data, error } = await supabase
+/** The alliance this account said it is joining (AllianceRequestForm writes it
+ * to the account's metadata), or the one a pinned host stands for. null when
+ * nothing was chosen: a single-alliance install, where the list is everybody. */
+async function fetchChosenAlliance(): Promise<string | null> {
+  if (isAlliancePinnedByHost()) {
+    return getActiveAlliance();
+  }
+  const { data } = await supabase.auth.getUser();
+  const chosen = data.user?.user_metadata?.alliance_id;
+  return typeof chosen === 'string' ? chosen : null;
+}
+
+async function fetchClaimablePlayers(allianceId: string | null): Promise<ClaimablePlayer[]> {
+  // The chosen alliance's characters only. Without a choice, every own
+  // alliance's, as before. `players.current_alliance_id` is a LAST KNOWN
+  // alliance, so somebody who has left can still be listed here; the list is a
+  // picker of who you are, and `claim_player` is what decides who may link.
+  let query = supabase
     .from('players')
     .select(
-      'player_id, current_name, alliances!players_current_alliance_id_fkey!inner(is_own, current_code)',
+      'player_id, current_name, alliances!players_current_alliance_id_fkey!inner(alliance_id, is_own, current_code)',
     )
-    .eq('alliances.is_own', true)
-    .order('current_name');
+    .eq('alliances.is_own', true);
+  if (allianceId !== null) {
+    query = query.eq('alliances.alliance_id', allianceId);
+  }
+  const { data, error } = await query.order('current_name');
   if (error) {
     throw new Error(`roster query failed: ${error.message}`);
   }
@@ -51,7 +69,15 @@ async function fetchMyPlayers(): Promise<LinkedPlayer[]> {
  */
 export function PlayerClaimForm() {
   const queryClient = useQueryClient();
-  const { data: players } = useQuery({ queryKey: ['claimable'], queryFn: fetchClaimablePlayers });
+  const { data: chosenAlliance } = useQuery({
+    queryKey: ['chosen-alliance'],
+    queryFn: fetchChosenAlliance,
+  });
+  const { data: players } = useQuery({
+    queryKey: ['claimable', chosenAlliance ?? null],
+    queryFn: () => fetchClaimablePlayers(chosenAlliance ?? null),
+    enabled: chosenAlliance !== undefined,
+  });
   const { data: mine } = useQuery({ queryKey: ['my-players'], queryFn: fetchMyPlayers });
   const [playerId, setPlayerId] = useState('');
   const [busy, setBusy] = useState(false);

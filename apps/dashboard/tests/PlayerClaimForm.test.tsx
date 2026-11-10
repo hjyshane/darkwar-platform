@@ -21,7 +21,8 @@ function renderForm(options: {
   roster?: typeof ROSTER;
 }) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  client.setQueryData(['claimable'], options.roster ?? ROSTER);
+  client.setQueryData(['chosen-alliance'], null);
+  client.setQueryData(['claimable', null], options.roster ?? ROSTER);
   client.setQueryData(['my-players'], options.mine ?? []);
   return render(
     <QueryClientProvider client={client}>
