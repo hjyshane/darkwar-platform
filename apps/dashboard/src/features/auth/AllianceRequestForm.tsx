@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Select } from '../../components/ui/Select';
 import { supabase } from '../../lib/supabase';
@@ -23,6 +23,7 @@ interface JoinableAlliance {
  * Renders nothing when there is no choice to make (one own alliance).
  */
 export function AllianceRequestForm() {
+  const queryClient = useQueryClient();
   const { data: alliances } = useQuery({
     queryKey: ['joinable-alliances'],
     queryFn: async (): Promise<JoinableAlliance[]> => {
@@ -62,6 +63,8 @@ export function AllianceRequestForm() {
       return;
     }
     setSaved(allianceId);
+    // The character picker below lists the chosen alliance's players only.
+    void queryClient.invalidateQueries({ queryKey: ['chosen-alliance'] });
   }
 
   const savedName = alliances.find((a) => a.alliance_id === saved);

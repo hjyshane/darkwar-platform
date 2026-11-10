@@ -42,6 +42,7 @@ import { Season2Panel } from './features/season/Season2Panel';
 import { SeasonPanel } from './features/season/SeasonPanel';
 import { ServerPage } from './features/server/ServerPage';
 import { ShopValuePage } from './features/shopValue/ShopValuePage';
+import { isAlliancePinnedByHost } from './lib/activeAlliance';
 import { useRecordActivity } from './lib/activity';
 import { mayOpenSettings } from './lib/adminAccess';
 import { CommunityGate, communityMayOpen } from './lib/communityAccess';
@@ -228,7 +229,7 @@ function AccountLink() {
 function HeaderAllianceSwitcher() {
   const { data: session } = useSession();
   const { alliances, active, switchTo } = useActiveAlliance();
-  if (session?.role !== 'admin') {
+  if (session?.role !== 'admin' || isAlliancePinnedByHost()) {
     return null;
   }
   return (
