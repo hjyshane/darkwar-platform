@@ -29,6 +29,7 @@ import httpx
 import structlog
 
 from dw_collector.notify.compose import (
+    LARGE_TREASURE_GROUP,
     Message,
     attachment_name,
     claim_message,
@@ -40,6 +41,7 @@ from dw_collector.notify.compose import (
     reminder_message,
     resumed_message,
     silence_message,
+    treasure_message,
     waiting_message,
 )
 
@@ -139,6 +141,13 @@ NOTICE_BACKLOG = timedelta(days=7)
 # added. The notice side had this guard from the start; the guide side did not,
 # because whoever wrote it assumed the worker had been running all along.
 GUIDE_BACKLOG = timedelta(days=7)
+
+# The season whose lanterns hide Large Treasure Spots (0315). `seasons` numbers
+# them as the alliance does (0245: game stage + 1), and the Kitsune season that
+# began 2026-11-09 is Season 4. The event is gated on it rather than on "any
+# season" because `cat_group` 15 is this season's lucky_cats block — the next
+# season reskins the same object and 15xx may mean something else entirely.
+TREASURE_SEASON_ID = 4
 
 
 def targets(row: Row, fallback: str) -> list[str]:
@@ -500,6 +509,65 @@ class NotifyWorker:
             if (fallback := self._target_for(routing, "guides", row.get("alliance_id")))
             for target in targets(row, fallback)
         ]
+
+    def _treasure_season_is_on(self, now: datetime) -> bool:
+        """Whether the current season is the one whose lanterns hide treasure.
+
+        The current season is the latest whose start has passed (0242), and it
+        has to be `TREASURE_SEASON_ID` with its end not yet reached. Off-season
+        the event sends nothing however it is switched, and nothing is fetched:
+        the cheap check comes first.
+        """
+        rows = self._get(
+            "seasons?select=season_id,starts_at,ends_at"
+            f"&starts_at=lte.{filter_value(now.isoformat())}"
+            "&order=starts_at.desc&limit=1"
+        )
+        if not rows or rows[0].get("season_id") != TREASURE_SEASON_ID:
+            return False
+        ends_at = rows[0].get("ends_at")
+        return not (isinstance(ends_at, str) and datetime.fromisoformat(ends_at) <= now)
+
+    def treasure_candidates(self, routing: dict[str, Row]) -> list[Message]:
+        """Every server's standing Large Treasure Spots, whenever the list changes.
+
+        "Whenever the list changes" is the outbox's doing, not a timer's: the
+        message is keyed on the set of coordinates, so a pass that sees the same
+        lanterns standing enqueues nothing and a pass that sees a new batch, or
+        one gone, posts the whole current list. See `treasure_message`.
+
+        PER ALLIANCE ROOM, like everything since 0199: the primary's routing and
+        each other alliance's own decide where it goes; the spots themselves
+        belong to nobody, so every room that wants them gets the same list.
+        """
+        if not self._anyone_wants(routing, "treasure_spots"):
+            return []
+        now = datetime.now(UTC)
+        if not self._treasure_season_is_on(now):
+            return []
+        rows = self._get(
+            "season_sites_live?select=server_id,game_x,game_y,status,expires_at,"
+            "revealed_at,limit_seconds,participant_count"
+            f"&cat_group=eq.{LARGE_TREASURE_GROUP}"
+            "&order=server_id,expires_at"
+        )
+        by_server: dict[int, list[Row]] = {}
+        for row in rows:
+            server_id = row.get("server_id")
+            if isinstance(server_id, int):
+                by_server.setdefault(server_id, []).append(row)
+        rooms = [self._target(routing, "treasure_spots")] + [
+            self._target(r, "treasure_spots") for r in self._alliance_routing.values()
+        ]
+        messages: list[Message] = []
+        for channel in dict.fromkeys(room for room in rooms if room):
+            for server_id, sites in sorted(by_server.items()):
+                message = treasure_message(
+                    channel=channel, server_id=server_id, sites=sites, now=now
+                )
+                if message is not None:
+                    messages.append(message)
+        return messages
 
     def notice_candidates(self, routing: dict[str, Row]) -> list[Message]:
         """Notices that are live and not yet announced.
@@ -959,6 +1027,8 @@ class NotifyWorker:
             self.departure_candidates,
             self.guide_candidates,
             self.notice_candidates,
+            # Large Treasure Spots on the map, while Season 4 runs (0315).
+            self.treasure_candidates,
             # 0130 and 0131 moved four events into Postgres: the alarm about
             # the collector, the two that come from the website, and the
             # calendar reminders. None of them describes anything the collector
