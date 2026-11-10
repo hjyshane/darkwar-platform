@@ -12,6 +12,31 @@
  */
 const STORAGE_KEY = 'dw-active-alliance';
 
+/** Hosts that belong to one alliance. The same build is served on each; the
+ * address decides which alliance it opens on, and the choice cannot be changed
+ * there (no switcher, nothing stored). That is a convenience for the people of
+ * that alliance and for an admin who wants one tab per alliance — NOT a
+ * boundary: RLS still decides what any account can read, whatever the host.
+ *
+ * The id is the production `alliances.alliance_id` of Ascension (ACE, 579).
+ * cbfw.us and every other host are absent, so they behave as before. */
+const HOST_ALLIANCES: Readonly<Record<string, string>> = {
+  'ace-ascension.us': 'b9daa299-20e1-41a2-84e7-e14a3b544bde',
+};
+
+/** The alliance a host is pinned to, or null. `www.` counts as the same host. */
+export function hostAlliance(hostname: string): string | null {
+  return HOST_ALLIANCES[hostname.toLowerCase().replace(/^www\./, '')] ?? null;
+}
+
+const pinned: string | null =
+  typeof window === 'undefined' ? null : hostAlliance(window.location.hostname);
+
+/** True on a host that fixes the alliance: the switcher is not offered. */
+export function isAlliancePinnedByHost(): boolean {
+  return pinned !== null;
+}
+
 function readStored(): string | null {
   if (typeof window === 'undefined') {
     return null;
@@ -23,13 +48,16 @@ function readStored(): string | null {
   }
 }
 
-let current: string | null = readStored();
+let current: string | null = pinned ?? readStored();
 
 export function getActiveAlliance(): string | null {
   return current;
 }
 
 export function setActiveAlliance(allianceId: string | null): void {
+  if (pinned !== null) {
+    return;
+  }
   current = allianceId;
   if (typeof window === 'undefined') {
     return;

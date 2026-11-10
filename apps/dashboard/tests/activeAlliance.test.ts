@@ -5,6 +5,7 @@ import { afterEach, expect, test, vi } from 'vitest';
 import {
   fetchWithAlliance,
   getActiveAlliance,
+  hostAlliance,
   isViewedAlliance,
   setActiveAlliance,
 } from '../src/lib/activeAlliance';
@@ -53,4 +54,13 @@ test('"ours" means one of ours AND the one being viewed', () => {
   // not offer those blocks, and a chart must not highlight it as ours.
   expect(isViewedAlliance('a', true)).toBe(false);
   expect(isViewedAlliance('b', false)).toBe(false);
+});
+
+test('the ACE host is pinned to Ascension, www included; every other host is not', () => {
+  const ace = 'b9daa299-20e1-41a2-84e7-e14a3b544bde';
+  expect(hostAlliance('ace-ascension.us')).toBe(ace);
+  expect(hostAlliance('WWW.Ace-Ascension.us')).toBe(ace);
+  expect(hostAlliance('cbfw.us')).toBeNull();
+  expect(hostAlliance('localhost')).toBeNull();
+  expect(hostAlliance('evil-ace-ascension.us')).toBeNull();
 });
