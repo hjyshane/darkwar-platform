@@ -129,7 +129,11 @@ describe('GuideHeader', () => {
   it('marks a draft and links the long-form post when there is one', () => {
     const { container } = render(
       <GuideHeader
-        guide={guide({ title: 'Halloween', published: false, post_id: 'p1' })}
+        guide={guide({
+          title: 'Halloween',
+          published: false,
+          post_id: '0b9f2c1e-6a1d-4d0e-9c53-3f2f1f0b7a11',
+        })}
         now={NOW}
         postTitle="How to play Halloween"
         start={start({})}
@@ -138,7 +142,7 @@ describe('GuideHeader', () => {
     );
     expect(container.querySelector('.eg-draft')?.textContent).toBe('DRAFT');
     const link = container.querySelector('a');
-    expect(link?.getAttribute('href')).toBe('#/guides');
+    expect(link?.getAttribute('href')).toBe('#/guides/0b9f2c1e-6a1d-4d0e-9c53-3f2f1f0b7a11');
     expect(link?.textContent).toContain('How to play Halloween');
   });
 });

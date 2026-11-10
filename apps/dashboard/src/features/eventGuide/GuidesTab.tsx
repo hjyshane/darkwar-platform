@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Led, type LedTone } from '../../components/console/Led';
 import { Select } from '../../components/ui/Select';
 import { isAllowed, usePermissions } from '../../lib/permissions';
-import { adminHash, eventGuideHash } from '../../lib/route';
+import { adminHash, eventGuideHash, guideHash } from '../../lib/route';
 import { humanUntil } from '../../lib/shellNav';
 import { browserZone } from '../../lib/timezone';
 import { replaceHash } from '../../lib/useHash';
@@ -148,7 +148,7 @@ export function GuideHeader({ guide, start, now, zone, postTitle }: GuideHeaderP
       {guide.summary && <p>{guide.summary}</p>}
       {postTitle && (
         <p>
-          <a href="#/guides">Long-form guide on the board: {postTitle}</a>
+          <a href={guideHash(guide.post_id as string)}>Long-form guide on the board: {postTitle}</a>
         </p>
       )}
     </header>
