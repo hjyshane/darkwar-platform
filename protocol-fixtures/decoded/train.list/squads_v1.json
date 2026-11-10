@@ -1,0 +1,71 @@
+{
+  "observation_id": "5b0e3c4a-1d6f-5a3e-9c21-7f1a2b3c4d11",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "train.list",
+  "captured_at": "2026-11-09T21:01:20.000000+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "_id": 1701,
+    "ls": [
+      {
+        "abbr": "EXMP",
+        "allianceId": "00000000000000000000000000000001",
+        "arriveTime": 1794259471339,
+        "cfgId": 90,
+        "completeness": 1,
+        "extraGoods": {
+          "cur": [{ "type": 7, "value": { "id": "252004", "num": 20 } }],
+          "full": []
+        },
+        "marchInfo": {
+          "heroInfo": {
+            "1": { "id": 1006, "level": 99, "power": 3941100, "rankLv": 26, "studentLv": 0 },
+            "2": { "id": 1008, "level": 98, "power": 3077900, "rankLv": 26, "studentLv": 0 },
+            "3": { "id": 40001, "level": 98, "power": 4902400, "rankLv": 26, "studentLv": 0 },
+            "4": { "id": 1004, "level": 98, "power": 4335600, "rankLv": 26, "studentLv": 0 },
+            "5": { "id": 12001, "level": 1, "power": 1697400, "rankLv": 26, "studentLv": 98 }
+          },
+          "lastArriveTime": 1794257749625,
+          "lastPosIndex": 36,
+          "lastSendTime": 1794257757025,
+          "nextEndTime": 1794258447161,
+          "power": 122937533,
+          "robTimes": 0,
+          "squadNo": 1,
+          "squadNoClient": 1
+        },
+        "name": "Example Owner",
+        "ownerId": "1000000001000568",
+        "quality": 3,
+        "sendTime": 1794239860989,
+        "serverId": 568,
+        "startPos": 514424,
+        "stationList": [43, 48, 60],
+        "uid": "1000000001000568",
+        "uuid": 1420304700000000011
+      },
+      {
+        "abbr": "EXMP",
+        "allianceId": "00000000000000000000000000000001",
+        "arriveTime": 1794260471339,
+        "cfgId": 83,
+        "completeness": 1,
+        "extraGoods": { "cur": [], "full": [] },
+        "marchInfo": {
+          "lastPosIndex": 4,
+          "robTimes": 0,
+          "squadNo": 4
+        },
+        "name": "Example Two",
+        "ownerId": "1000000002000582",
+        "quality": 3,
+        "sendTime": 1794240860989,
+        "serverId": 582,
+        "startPos": 502638,
+        "uid": "1000000002000582",
+        "uuid": 1420304700000000012
+      }
+    ]
+  },
+  "schema_version": 1
+}

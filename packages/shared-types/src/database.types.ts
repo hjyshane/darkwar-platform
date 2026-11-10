@@ -6900,6 +6900,85 @@ export type Database = {
           },
         ]
       }
+      player_squad_power_snapshots: {
+        Row: {
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at: string
+          game_uid: number
+          heroes: Json
+          idempotency_key: string
+          observation_id: string
+          parser_version: string
+          power: number
+          raw: Json
+          server_id: number
+          snapshot_id: string
+          source_command: string
+          squad_no: number
+          truck_uuid: string
+        }
+        Insert: {
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at?: string
+          game_uid: number
+          heroes?: Json
+          idempotency_key: string
+          observation_id: string
+          parser_version: string
+          power: number
+          raw?: Json
+          server_id: number
+          snapshot_id?: string
+          source_command: string
+          squad_no: number
+          truck_uuid: string
+        }
+        Update: {
+          captured_at?: string
+          collected_from_server_id?: number
+          collector_id?: string
+          created_at?: string
+          game_uid?: number
+          heroes?: Json
+          idempotency_key?: string
+          observation_id?: string
+          parser_version?: string
+          power?: number
+          raw?: Json
+          server_id?: number
+          snapshot_id?: string
+          source_command?: string
+          squad_no?: number
+          truck_uuid?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_squad_power_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "player_squad_power_snapshots_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "player_squad_power_snapshots_collector_id_fkey"
+            columns: ["collector_id"]
+            isOneToOne: false
+            referencedRelation: "collectors"
+            referencedColumns: ["collector_id"]
+          },
+        ]
+      }
       player_vip: {
         Row: {
           observed_at: string
@@ -10025,6 +10104,17 @@ export type Database = {
             referencedColumns: ["server_id"]
           },
         ]
+      }
+      player_squads_latest: {
+        Row: {
+          game_uid: number | null
+          player_name: string | null
+          seen_at: string | null
+          server_id: number | null
+          squad_count: number | null
+          squads: Json | null
+        }
+        Relationships: []
       }
       player_subscriptions: {
         Row: {
