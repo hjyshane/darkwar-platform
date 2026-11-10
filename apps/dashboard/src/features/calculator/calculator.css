@@ -92,6 +92,21 @@
   padding: 0;
 }
 
+/* The kit grid paints its rule colour behind the cells, so a last row that
+ * does not fill shows that colour as a slab. The number of totals here is
+ * whatever the range costs (two to seven), so the rows are often ragged:
+ * the cells draw the rules instead, one outline each, meeting in the 1px gap,
+ * and an unfilled track is simply the page. */
+.calc-totals .cell-grid {
+  background: none;
+  border: none;
+  padding: 1px;
+}
+
+.calc-totals .cell {
+  outline: 1px solid var(--border);
+}
+
 .calc-heading {
   color: var(--fg-muted);
   font-family: var(--font-mono);
@@ -109,17 +124,17 @@
   gap: 0.35em;
 }
 
-/* The notes sit under the totals and share their bottom rule. */
+/* The notes sit under the totals and share their bottom rule: pulled up one
+ * pixel so their top border lies on the cells' own bottom outline. */
 .calc-notes {
   background: var(--bg-raised);
   border: 1px solid var(--border);
-  border-top: none;
   color: var(--fg-muted);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
   list-style: none;
-  margin: 0;
+  margin: -1px 0 0;
   padding: var(--space-2) var(--space-4);
 }
 
