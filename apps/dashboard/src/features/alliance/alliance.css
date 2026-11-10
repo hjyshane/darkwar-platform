@@ -24,11 +24,28 @@
   border-width: 1px 0 0;
 }
 
+/* Six cells are two rows of three. The kit's fixed column count only applies
+ * from 720px and below 480px it is two columns; in between, auto-fit could
+ * land on four and leave two empty slots showing the rule colour. */
+@media (min-width: 560px) and (max-width: 719px) {
+  .entity > .cell-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* A cell whose value is words (a language name), not a figure: base size, and
+ * it breaks at a space before it breaks inside a word. */
+.cell-value-words {
+  font-size: var(--text-base);
+  overflow-wrap: break-word;
+}
+
 /* --- Panels on Overview and Moves ----------------------------------------- */
 
 .alliance-panel {
   background: var(--bg-cell);
   border: 1px solid var(--border);
+  min-width: 0;
 }
 
 .alliance-panel > h2,
@@ -67,9 +84,12 @@
   padding: var(--space-2) var(--space-4);
 }
 
+/* minmax(0, 1fr), not the implicit auto track: a wide table would otherwise
+ * stretch the column past the viewport instead of scrolling in its wrapper. */
 .alliance-stack {
   display: grid;
   gap: var(--space-4);
+  grid-template-columns: minmax(0, 1fr);
 }
 
 /* --- Intro ---------------------------------------------------------------- */

@@ -108,7 +108,7 @@ export function AllianceHeaderView({
           </Verdict>
         </div>
       )}
-      <CellGrid columns={6}>
+      <CellGrid columns={3}>
         <Cell
           context={delta === null ? undefined : `${signedCompact(delta)} in 7d`}
           hero
@@ -141,7 +141,10 @@ export function AllianceHeaderView({
           value={info?.join_approval ?? null}
         />
         <Cell label="Minimums" value={minimums.length > 0 ? minimums.join(' · ') : null} />
+        {/* Words, not a figure: smaller, and wrapping at spaces instead of
+            mid-word like the kit's figures do. */}
         <Cell
+          classNames={{ value: 'cell-value-words' }}
           context={countryName(info?.country ?? null) ?? undefined}
           label="Language"
           value={languageName(info?.language ?? null)}
