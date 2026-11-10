@@ -1,4 +1,4 @@
--- 0315: a rank period set by hand, and the fortnights around it.
+-- 0316: a rank period set by hand, and the fortnights around it.
 --
 -- Three things are pinned. The RULE: a hand-set period wins where it covers
 -- the instant, the fortnightly grid re-anchors at its end, and the fortnight

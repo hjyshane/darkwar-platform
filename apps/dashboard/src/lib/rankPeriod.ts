@@ -4,7 +4,7 @@ import { supabase } from './supabase';
 
 /** The period ranks are decided over.
  *
- * UNTIL 0315 THIS FILE OWNED A COPY OF THE GRID: every other Monday 02:00 UTC
+ * UNTIL 0316 THIS FILE OWNED A COPY OF THE GRID: every other Monday 02:00 UTC
  * from the 2026-08-03 epoch, two weeks each, checked against the same vectors
  * the SQL is. A period can now be set by hand (`rank_period_overrides`), the
  * fortnights around it re-anchor and get cut short, and the answer depends on

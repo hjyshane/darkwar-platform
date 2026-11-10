@@ -52,7 +52,7 @@ log = structlog.get_logger()
 Row = dict[str, Any]
 
 # A fortnight, in the units the period grid uses: the length of a period
-# built before snapshots recorded their own end (0315).
+# built before snapshots recorded their own end (0316).
 PERIOD_DAYS = 14
 # How long a member has to have been missing before their absence is announced.
 #
@@ -143,7 +143,7 @@ NOTICE_BACKLOG = timedelta(days=7)
 # because whoever wrote it assumed the worker had been running all along.
 GUIDE_BACKLOG = timedelta(days=7)
 
-# The season whose lanterns hide Large Treasure Spots (0315). `seasons` numbers
+# The season whose lanterns hide Large Treasure Spots (0316). `seasons` numbers
 # them as the alliance does (0245: game stage + 1), and the Kitsune season that
 # began 2026-11-09 is Season 4. The event is gated on it rather than on "any
 # season" because `cat_group` 15 is this season's lucky_cats block — the next
@@ -363,7 +363,7 @@ class NotifyWorker:
                 continue
             period_start = newest[0]["period_start"]
             version = newest[0]["scoring_version"]
-            # The period's own end (0315): a hand-set period can be one to four
+            # The period's own end (0316): a hand-set period can be one to four
             # weeks, and the snapshot records which. Rows older than the column
             # are fortnights, which is what the old arithmetic assumed.
             period_end = newest[0].get("period_end") or _add_days(period_start, PERIOD_DAYS)
@@ -1032,7 +1032,7 @@ class NotifyWorker:
             self.departure_candidates,
             self.guide_candidates,
             self.notice_candidates,
-            # Large Treasure Spots on the map, while Season 4 runs (0315).
+            # Large Treasure Spots on the map, while Season 4 runs (0316).
             self.treasure_candidates,
             # 0130 and 0131 moved four events into Postgres: the alarm about
             # the collector, the two that come from the website, and the

@@ -17,7 +17,7 @@ import {
  * and stays the default. This is for the weeks it does not fit: a season that
  * opens on the wrong Monday, a server migration that empties the boards. An
  * officer sets a start and a length; the database (`rank_period_bounds`,
- * 0315) then answers from that period where it covers the instant, counts
+ * 0316) then answers from that period where it covers the instant, counts
  * fortnights from its end afterwards, and cuts the fortnight before it short.
  *
  * Resets only, from a list, because a period boundary has to be one the game

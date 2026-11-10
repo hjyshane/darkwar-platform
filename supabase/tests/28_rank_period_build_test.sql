@@ -77,7 +77,7 @@ returns void language sql as $$
           at, '00000000-0000-4000-8000-000000000c01', 580, 580, uid, kind, amount, '{}'::jsonb);
 $$;
 
--- Period 2026-08-03T02:00Z (a grid start since 0071; 0315 refuses one that is
+-- Period 2026-08-03T02:00Z (a grid start since 0071; 0316 refuses one that is
 -- not): week ends are 2026-08-09T14:00Z and 08-16T14:00Z
 -- (0309; Sunday 14:00Z, twelve hours before the Monday reset).
 select pg_temp.contribute(9100000000000001, 'weekly_donation', 1000, '2026-08-09T13:00:00Z');

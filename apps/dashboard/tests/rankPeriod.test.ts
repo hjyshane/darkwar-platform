@@ -1,7 +1,7 @@
 // What is left of the period arithmetic once the rule itself moved to SQL
-// (0315): printing a period's last day, placing its weekly readings, and
+// (0316): printing a period's last day, placing its weekly readings, and
 // telling a reset boundary from any other instant. The grid and the hand-set
-// periods are pinned in supabase/tests/315_rank_periods_set_by_hand_test.sql
+// periods are pinned in supabase/tests/316_rank_periods_set_by_hand_test.sql
 // and 27_rank_period_test.sql; nothing here re-implements them.
 import { describe, expect, test } from 'vitest';
 import {

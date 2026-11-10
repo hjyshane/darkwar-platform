@@ -95,7 +95,7 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
   // a wrong rebuild.
   { group: 'alliance', id: 'rank-report-heading', heading: 'Rank changes', requires: null },
   // save_rank_period_override() / delete_rank_period_override() -> settings.write
-  // (0315), the same gate as the tier settings a period's length sits beside.
+  // (0316), the same gate as the tier settings a period's length sits beside.
   {
     group: 'alliance',
     id: 'rank-periods-heading',

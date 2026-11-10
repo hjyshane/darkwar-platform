@@ -16,7 +16,7 @@ import { supabase } from '../../lib/supabase';
  *
  * There is no scheduler behind it. The period boundaries are fixed — every
  * other Monday 02:00 UTC, or whatever an officer set by hand under "Rank
- * periods" (0315) — and the figures come from observations bounded by those
+ * periods" (0316) — and the figures come from observations bounded by those
  * times, so opening this on Wednesday reports exactly what opening it on
  * Monday would have. What a scheduled job would add is a notification, not an
  * answer, and nothing here is currently running at 02:05 to send one.
@@ -203,7 +203,7 @@ export function RankReportSetting() {
   const [showAll, setShowAll] = useState(false);
 
   // The period now in progress and the ones before it, AS THE DATABASE RESOLVES
-  // THEM (0315). This screen used to compute the list from its own copy of the
+  // THEM (0316). This screen used to compute the list from its own copy of the
   // grid; a period can now be set by hand, so only SQL knows the answer.
   const periods = useRecentRankPeriods(6);
   const current = periods.data?.[0];

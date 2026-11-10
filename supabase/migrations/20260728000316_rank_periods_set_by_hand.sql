@@ -1,4 +1,4 @@
--- 0315: a rank period set by hand.
+-- 0316: a rank period set by hand.
 --
 -- Rank periods have been a fixed grid since 0050: every other Monday 02:00 UTC
 -- from the 2026-08-03 epoch, two weeks each, no exceptions. The grid is the
@@ -78,7 +78,7 @@ create table public.rank_period_overrides (
 );
 
 comment on table public.rank_period_overrides is
-  'Rank periods set by hand (0315), one row per period, per alliance. Both ends '
+  'Rank periods set by hand (0316), one row per period, per alliance. Both ends '
   'are Monday 02:00 UTC resets, one to four weeks apart, never overlapping. '
   'rank_period_bounds answers from here first and from the fortnightly grid '
   'otherwise, re-anchored at the newest finished hand-set period. Written only '
@@ -158,7 +158,7 @@ end;
 $$;
 
 comment on function public.rank_period_bounds(timestamptz, uuid) is
-  'The rank period containing ts for one alliance (0315): a hand-set period if '
+  'The rank period containing ts for one alliance (0316): a hand-set period if '
   'one covers ts; otherwise a fortnight counted from the end of the newest '
   'finished hand-set period (or the 2026-08-03 grid before any), cut short where '
   'the next hand-set period begins. The one place the rule lives.';
@@ -200,7 +200,7 @@ grant execute on function public.rank_period_reading_ends(timestamptz, timestamp
 alter table public.rank_period_snapshots add column period_end timestamptz;
 
 comment on column public.rank_period_snapshots.period_end is
-  'When this period ended (0315) — the next period''s start. Two weeks after '
+  'When this period ended (0316) — the next period''s start. Two weeks after '
   'period_start for every period built before hand-set periods existed; the '
   'bounds in force at build time since. Null only on rows older than this '
   'column, which readers treat as a fortnight.';
@@ -267,7 +267,7 @@ begin
     raise exception 'officers only' using errcode = '42501';
   end if;
 
-  -- THE PERIOD'S OWN BOUNDS (0315), not two weeks assumed. A start that is not
+  -- THE PERIOD'S OWN BOUNDS (0316), not two weeks assumed. A start that is not
   -- a period start under the rule now in force is refused rather than given a
   -- guessed end: it is either a hand-set period that has since been changed,
   -- or a date typed into the wrong box.
@@ -364,7 +364,7 @@ begin
     ) mr on true
     where r.alliance_id = (select alliance_id from own_alliance)
   ),
-  -- ONE WINDOW PER WEEK THE PERIOD HAS (0315), not two assumed. Each week
+  -- ONE WINDOW PER WEEK THE PERIOD HAS (0316), not two assumed. Each week
   -- opens at the RESET (0309), not at the previous week's reading: a capture
   -- taken between a deadline and the reset belongs to neither.
   reading as (
@@ -688,7 +688,7 @@ $$;
 comment on function public.build_rank_period(timestamptz) is
   'Scores one rank period for the alliance being viewed (0196) with its own '
   'rank_tiers, and writes rank_period_snapshots with alliance_id and the '
-  'period''s end. The period''s bounds come from rank_period_bounds (0315): a '
+  'period''s end. The period''s bounds come from rank_period_bounds (0316): a '
   'start that is not a period start is refused. One Sunday 14:00Z reading per '
   'week the period has; week1/week2 columns hold the first two, the totals '
   'every week read. Every per-member figure is an index probe (0110). Officer '
@@ -876,7 +876,7 @@ cross join lateral (
 comment on view public.member_current_period_contribution is
   'The RUNNING period''s weekly donation and duel readings per current roster '
   'member. The period is whatever rank_period_bounds says is in force now '
-  '(0315) — a hand-set one or the fortnight. week1/week2 are the first two '
+  '(0316) — a hand-set one or the fortnight. week1/week2 are the first two '
   'readings, the totals every week read so far, `weeks` how many the period '
   'has. Raw readings, never a score or a tier: nothing here can move a rank. '
   'One indexed probe per member per week per board (0110).';
@@ -923,7 +923,7 @@ $$;
 
 comment on function public.recent_rank_periods(int) is
   'The rank period now in force and the p_count - 1 before it, newest first, '
-  'for the alliance being viewed (0315). Each is what rank_period_bounds says, '
+  'for the alliance being viewed (0316). Each is what rank_period_bounds says, '
   'so hand-set periods and the fortnights around them come out as they ran.';
 
 revoke all on function public.recent_rank_periods(int) from public, anon;
@@ -998,7 +998,7 @@ end;
 $$;
 
 comment on function public.save_rank_period_override(timestamptz, timestamptz, text) is
-  'Sets a rank period by hand for the alliance being viewed (0315): both ends '
+  'Sets a rank period by hand for the alliance being viewed (0316): both ends '
   'on a Monday 02:00 UTC reset, one to four weeks, not overlapping another. '
   'settings.write (0200). Returns the new row''s id. A period already built '
   'under the old bounds keeps its rows; rebuild it under the new ones.';
@@ -1030,7 +1030,7 @@ end;
 $$;
 
 comment on function public.delete_rank_period_override(uuid) is
-  'Removes a hand-set rank period of the alliance being viewed (0315); the '
+  'Removes a hand-set rank period of the alliance being viewed (0316); the '
   'fortnightly grid resumes over those weeks. settings.write (0200). Rows '
   'already built under it stay as history.';
 

@@ -19,7 +19,7 @@ interface PeriodRow {
   player_id: string;
   current_name: string | null;
   period_start: string;
-  /** 0315: the period's own end and week count. A period set by hand can run
+  /** 0316: the period's own end and week count. A period set by hand can run
    * one to four weeks; the two week columns are the first two readings and
    * the totals cover every week read. */
   period_end: string;
