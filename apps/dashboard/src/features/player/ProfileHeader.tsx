@@ -32,6 +32,11 @@ export interface ProfileHeaderProps {
   mapSlot?: ReactNode;
   /** Switches the page to the Arena tab, which keeps every entry. */
   onShowArena?: () => void;
+  /** The server the account was made on, when it is not the one they are on
+   * now (0320). Absent for a player with no recorded move. */
+  homeServerId?: number;
+  /** Switches the page to the Servers tab. */
+  onShowServers?: () => void;
   now?: Date;
 }
 
@@ -69,6 +74,8 @@ export function ProfileHeader({
   mapOpen,
   mapSlot,
   onShowArena,
+  homeServerId,
+  onShowServers,
   now,
 }: ProfileHeaderProps) {
   const { position } = model;
@@ -85,6 +92,17 @@ export function ProfileHeader({
           </h2>
           <p className="entity-meta">
             <a href={serverHash(serverId)}>Server {serverId}</a>
+            {homeServerId !== undefined && homeServerId !== serverId && (
+              <span>
+                {onShowServers ? (
+                  <button className="linklike" onClick={onShowServers} type="button">
+                    from Server {homeServerId}
+                  </button>
+                ) : (
+                  `from Server ${homeServerId}`
+                )}
+              </span>
+            )}
             {alliance && (
               <a href={allianceHash(alliance.id)}>
                 {alliance.code ? `[${alliance.code}] ` : ''}

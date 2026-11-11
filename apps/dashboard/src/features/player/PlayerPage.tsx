@@ -24,6 +24,7 @@ import {
 } from './PlayerLocationTile';
 import { PlayerTrend } from './PlayerTrend';
 import { ProfileHeader } from './ProfileHeader';
+import { ServerHistory } from './ServerHistory';
 import type { BoardRow } from './composition';
 import {
   type PlayerArenaEntry,
@@ -32,6 +33,7 @@ import {
   newestPerLeague,
   percent,
 } from './playerArena';
+import { fetchServerMoves, serverPath } from './serverPath';
 import { type HeaderSource, useProfileHeader } from './useProfileHeader';
 
 /** One player, gathered from every table that knows something about them.
@@ -345,7 +347,16 @@ const CONTRIBUTION_LABELS: [string, string][] = [
   ['duel_round_score', TERMS.duelRound],
 ];
 
-type View = 'growth' | 'heroes' | 'arena' | 'alliance' | 'names' | 'squads' | 'vehicle' | 'pets';
+type View =
+  | 'growth'
+  | 'heroes'
+  | 'arena'
+  | 'alliance'
+  | 'names'
+  | 'servers'
+  | 'squads'
+  | 'vehicle'
+  | 'pets';
 
 export function PlayerPage({ playerId, now }: { playerId: string; now?: Date }) {
   const [chosen, setChosen] = useState<View>('growth');
@@ -370,6 +381,12 @@ export function PlayerPage({ playerId, now }: { playerId: string; now?: Date }) 
   // The header's own facts (rank with neighbours, the retention window, the
   // roster tenure). Above the early returns for the same reason as the rest.
   const header = useProfileHeader(playerId, data ? headerSource(data) : null, now);
+  // Every server they have stood on (0320). Its own query so a failure here
+  // costs the Servers tab, not the page.
+  const moves = useQuery({
+    queryKey: ['player', playerId, 'server-moves'],
+    queryFn: () => fetchServerMoves(playerId),
+  });
 
   if (isPending) {
     return (
@@ -397,6 +414,7 @@ export function PlayerPage({ playerId, now }: { playerId: string; now?: Date }) 
   }
 
   const label = data.name ?? `UID ${data.gameUid}`;
+  const path = serverPath(moves.data ?? [], data.serverId);
   // One tab per block, so the page is the header and one thing rather than
   // a scroll through all of them (user 2026-10-05). A tab with nothing to
   // show is not offered.
@@ -415,6 +433,8 @@ export function PlayerPage({ playerId, now }: { playerId: string; now?: Date }) 
     ...(data.arena.length > 0 ? [{ view: 'arena' as const, label: TERMS.arena }] : []),
     ...(data.isOwnAlliance ? [{ view: 'alliance' as const, label: 'In the alliance' }] : []),
     ...(data.pastNames.length > 0 ? [{ view: 'names' as const, label: 'Also known as' }] : []),
+    // Only for somebody who has moved: everyone else's single server is in the header.
+    ...(path.moved ? [{ view: 'servers' as const, label: 'Servers' }] : []),
   ];
   const view = views.some((entry) => entry.view === chosen) ? chosen : 'growth';
   return (
@@ -437,6 +457,7 @@ export function PlayerPage({ playerId, now }: { playerId: string; now?: Date }) 
           )
         }
         gameUid={data.gameUid}
+        homeServerId={path.moved ? path.homeServerId : undefined}
         hqLevel={data.hqLevel}
         lastSeenAt={data.lastSeenAt}
         mapOpen={map.open}
@@ -454,6 +475,7 @@ export function PlayerPage({ playerId, now }: { playerId: string; now?: Date }) 
         onShowArena={data.arena.length > 0 ? () => setChosen('arena') : undefined}
         // Only when there is somewhere to show, so the coordinate does not
         // become a button that opens an empty map.
+        onShowServers={path.moved ? () => setChosen('servers') : undefined}
         onToggleMap={hasLocation ? map.toggle : undefined}
         serverId={data.serverId}
       />
@@ -687,6 +709,13 @@ export function PlayerPage({ playerId, now }: { playerId: string; now?: Date }) 
               )}
             </div>
           ))}
+        </section>
+      )}
+
+      {view === 'servers' && path.moved && (
+        <section aria-labelledby="player-servers">
+          <h2 id="player-servers">Servers</h2>
+          <ServerHistory path={path} />
         </section>
       )}
 
