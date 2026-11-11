@@ -78,9 +78,13 @@ class AdbClient:
     def back(self) -> None:
         self._run(["shell", "input", "keyevent", KEYCODE_BACK])
 
+    def screencap(self) -> bytes:
+        """The current screen as PNG bytes."""
+        return self._run(["exec-out", "screencap", "-p"], capture=True)
+
     def screenshot(self, out: Path) -> None:
         """Pull a PNG so routine coordinates can be read off a real screen."""
-        png = self._run(["exec-out", "screencap", "-p"], capture=True)
+        png = self.screencap()
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_bytes(png)
 

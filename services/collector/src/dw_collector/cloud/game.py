@@ -83,6 +83,13 @@ class AdbGameClient:
             return False
         return True
 
+    def stop(self) -> None:
+        """Close the game (a person is about to log in by hand)."""
+        try:
+            self._adb.force_stop(self._package)
+        except AdbError as exc:
+            log.warning("cloud.stop_failed", error=str(exc))
+
     def relogin(self) -> bool:
         deadline = self._clock() + self._timeout
         while True:
