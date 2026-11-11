@@ -10,6 +10,7 @@ import { MigrationAlliances } from './MigrationAlliances';
 import { MigrationAnalytics } from './MigrationAnalytics';
 import { MigrationCandidates } from './MigrationCandidates';
 import { MigrationEventForm } from './MigrationEventForm';
+import { MigrationMoveHistory } from './MigrationMoveHistory';
 import { MigrationMovers } from './MigrationMovers';
 import { MigrationQuotas } from './MigrationQuotas';
 import { MigrationServerStats } from './MigrationServerStats';
@@ -23,6 +24,7 @@ type View =
   | 'analytics'
   | 'candidates'
   | 'movers'
+  | 'history'
   | 'tiers'
   | 'servers'
   | 'top'
@@ -33,6 +35,7 @@ const VIEWS: ReadonlyArray<{ view: View; label: string }> = [
   { view: 'analytics', label: 'Analytics' },
   { view: 'candidates', label: 'Candidates' },
   { view: 'movers', label: 'Movers' },
+  { view: 'history', label: 'Move history' },
   { view: 'tiers', label: 'Top 226' },
   { view: 'servers', label: 'Servers' },
   { view: 'top', label: 'Top 150' },
@@ -161,6 +164,7 @@ export function MigrationPage() {
           ))}
         {view === 'analytics' && <MigrationAnalytics eventId={event?.event_id ?? null} />}
         {view === 'movers' && <MigrationMovers />}
+        {view === 'history' && <MigrationMoveHistory />}
         {view === 'tiers' && <MigrationTiers />}
         {view === 'top' && <MigrationServerTop />}
         {view === 'servers' && <MigrationServerStats />}

@@ -2334,6 +2334,51 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
   // Arena — no board captured, which is a real and common state worth seeing.
   [['arena', 'boards'], []],
 
+  // Recorded server moves (0320): Shane started on 571 and came to 580.
+  [
+    ['player', PLAYER.shane, 'server-moves'],
+    [{ fromServerId: 571, toServerId: 580, seenAt: ago(11520), lastSeenFromAt: ago(14400) }],
+  ],
+  [
+    ['migration', 'move-tally', 'all'],
+    [
+      { server_id: 571, arrived: 2, departed: 14, last_move_at: ago(2880) },
+      { server_id: 575, arrived: 6, departed: 1, last_move_at: ago(4320) },
+      { server_id: 580, arrived: 12, departed: 3, last_move_at: ago(1440) },
+    ],
+  ],
+  [
+    ['migration', 'server-flow', 580, 'all'],
+    [
+      ['in', PLAYER.shane, 'Shane', 571, 571, 11520, 14400, 1_480_000_000],
+      ['in', PLAYER.dex, 'Dex', 575, 575, 5760, null, 920_000_000],
+      [
+        'out',
+        '11111111-1111-4111-8111-1111111111f1',
+        'Wanderer',
+        580,
+        575,
+        1440,
+        2880,
+        610_000_000,
+      ],
+    ].map(([direction, player_id, player_name, home_server, other, seen, last, power], at) => ({
+      move_id: at + 1,
+      direction,
+      player_id,
+      game_uid: 9_000_000_000_000_000 + at,
+      player_name,
+      home_server,
+      other_server_id: other,
+      seen_at: ago(seen as number),
+      last_seen_from_at: last === null ? null : ago(last as number),
+      power,
+      alliance_id: null,
+      alliance_code: null,
+      alliance_name: null,
+    })),
+  ],
+
   // Server migration — one event, window open (settled_at null), a few moves.
   [
     ['migration', 'events'],

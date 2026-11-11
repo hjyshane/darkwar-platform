@@ -6785,6 +6785,50 @@ export type Database = {
           },
         ]
       }
+      player_server_moves: {
+        Row: {
+          created_at: string
+          from_server_id: number
+          game_uid: number
+          last_seen_from_at: string | null
+          move_id: number
+          player_id: string
+          seen_at: string
+          source_command: string
+          to_server_id: number
+        }
+        Insert: {
+          created_at?: string
+          from_server_id: number
+          game_uid: number
+          last_seen_from_at?: string | null
+          move_id?: never
+          player_id: string
+          seen_at: string
+          source_command: string
+          to_server_id: number
+        }
+        Update: {
+          created_at?: string
+          from_server_id?: number
+          game_uid?: number
+          last_seen_from_at?: string | null
+          move_id?: never
+          player_id?: string
+          seen_at?: string
+          source_command?: string
+          to_server_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_server_moves_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+        ]
+      }
       player_snapshots: {
         Row: {
           alliance_abbr: string | null
@@ -11414,6 +11458,33 @@ export type Database = {
           game_name: string
           newest_seen: string
           players: number
+        }[]
+      }
+      server_migration_flow: {
+        Args: { p_server: number; p_since?: string }
+        Returns: {
+          alliance_code: string
+          alliance_id: string
+          alliance_name: string
+          direction: string
+          game_uid: number
+          home_server: number
+          last_seen_from_at: string
+          move_id: number
+          other_server_id: number
+          player_id: string
+          player_name: string
+          power: number
+          seen_at: string
+        }[]
+      }
+      server_migration_summary: {
+        Args: { p_since?: string }
+        Returns: {
+          arrived: number
+          departed: number
+          last_move_at: string
+          server_id: number
         }[]
       }
       set_gift_code_status: {
