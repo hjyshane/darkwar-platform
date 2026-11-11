@@ -6,7 +6,6 @@ import { Select } from '../../components/ui/Select';
 import { Tabs } from '../../components/ui/Tabs';
 import {
   footprintOf,
-  formatTeleport,
   isMemberBase,
   memberNumbering,
   offsetKey,
@@ -14,6 +13,7 @@ import {
 } from '../../lib/hiveFormation';
 import { isAllowed, usePermissions } from '../../lib/permissions';
 import { HIVE, type HiveTab } from '../../lib/route';
+import { shareCoordinate } from '../../lib/shareCoordinate';
 import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
 import { replaceHash, useHash } from '../../lib/useHash';
@@ -294,7 +294,7 @@ function MyTile({
     <p className="hive-mine">
       <span>Your tile in {formation.name}</span>
       <strong>
-        <code>{formatTeleport({ x: mine.x, y: mine.y })}</code>
+        <code>{shareCoordinate(formation.serverId, { x: mine.x, y: mine.y })}</code>
       </strong>
       {mine.label !== '' && <span>{mine.label}</span>}
       {!formation.isActive && (
@@ -373,7 +373,7 @@ function Overview({
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['hive'] }),
   });
 
-  const text = handoutList(board);
+  const text = handoutList(board, formation.serverId);
   const departed = board.filter((slot) => slot.departedName !== null);
 
   return (

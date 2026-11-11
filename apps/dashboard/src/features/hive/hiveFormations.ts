@@ -13,13 +13,13 @@
 // straight at the table, because there is no halfway state to protect.
 
 import { useQuery } from '@tanstack/react-query';
-import {
-  type AssignableMember,
-  type AssignableSlot,
-  type TileColour,
-  type TileKind,
-  formatTeleport,
+import type {
+  AssignableMember,
+  AssignableSlot,
+  TileColour,
+  TileKind,
 } from '../../lib/hiveFormation';
+import { shareCoordinate } from '../../lib/shareCoordinate';
 import { supabase } from '../../lib/supabase';
 
 export interface Formation {
@@ -100,8 +100,9 @@ export function vacateDeparted(slot: BoardSlot): BoardSlot {
 /** The formation as a list to hand out: one line per member, who and where.
  *
  * WRITTEN FOR THE PERSON READING IT, not for the officer who drew it. It is
- * pasted into alliance chat, where `[X:n Y:n]` becomes a coordinate the reader
- * can tap, and where everybody is scanning it for one line — their own. So:
+ * pasted into alliance chat, where `#580[X:n Y:n]` becomes a coordinate the
+ * reader can tap (without the `#server` it stays plain text), and where
+ * everybody is scanning it for one line — their own. So:
  *
  * - by name, because that is what the reader is looking for. The board's own
  *   order is by tile, which is the right order for checking that the middle
@@ -114,11 +115,11 @@ export function vacateDeparted(slot: BoardSlot): BoardSlot {
  * outside the editor counts, and the label is the catalogue name copied onto
  * the slot, so it said "Member base" on every line.
  */
-export function handoutList(board: readonly BoardSlot[]): string {
+export function handoutList(board: readonly BoardSlot[], serverId: number): string {
   return board
     .filter((slot) => slot.playerName !== null)
     .sort((a, b) => (a.playerName ?? '').localeCompare(b.playerName ?? ''))
-    .map((slot) => `${slot.playerName} ${formatTeleport({ x: slot.x, y: slot.y })}`)
+    .map((slot) => `${slot.playerName} ${shareCoordinate(serverId, { x: slot.x, y: slot.y })}`)
     .join('\n');
 }
 

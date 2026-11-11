@@ -195,7 +195,7 @@ export function BaseDetail({
         {isStale(base, now) && ' — may have moved, and the shield may have changed'}
       </p>
       <button className="atlas-detail__copy" onClick={() => onCopy(base)} type="button">
-        Copy {formatCopyCoordinate(base.at)}
+        Copy coordinate
       </button>
       {copied && <output className="subtle">Copied {copied}</output>}
       {mates.length > 0 && (

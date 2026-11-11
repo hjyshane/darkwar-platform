@@ -131,16 +131,21 @@ export function shieldLeft(end: Date, now: Date): string | null {
   return `${hours}h ${minutes % 60}m`;
 }
 
-/** What a click puts on the clipboard: `[X:123 Y:456]`, which is how a
- * coordinate is pasted into the game's chat and into the search box here. */
+/** How a coordinate is SHOWN beside a base: `[X:123 Y:456]`. What a click puts
+ * on the clipboard is `shareCoordinate` instead — the `#580` in front is what
+ * makes game chat turn it into a tappable place. */
 export function formatCopyCoordinate(at: Coordinate): string {
   return `[X:${at.x} Y:${at.y}]`;
 }
 
-/** `446:393`, `446, 393`, `446 393` or `[X:446 Y:393]`. */
+/** `446:393`, `446, 393`, `446 393`, `[X:446 Y:393]` or `#580[X:446 Y:393]`.
+ * The server in front is accepted and dropped: the search runs on the map
+ * already open, and a coordinate copied from the game carries one. */
 export function parseCoordinate(query: string): Coordinate | null {
   const match =
-    /^\s*\[?\s*(?:x\s*:?\s*)?(\d{1,3})\s*[:,\s]\s*(?:y\s*:?\s*)?(\d{1,3})\s*\]?\s*$/i.exec(query);
+    /^\s*(?:#\d{1,4}\s*)?\[?\s*(?:x\s*:?\s*)?(\d{1,3})\s*[:,\s]\s*(?:y\s*:?\s*)?(\d{1,3})\s*\]?\s*$/i.exec(
+      query,
+    );
   if (match === null) return null;
   return { x: Number(match[1]), y: Number(match[2]) };
 }
