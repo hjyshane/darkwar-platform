@@ -132,33 +132,46 @@ describe('handoutList', () => {
     // The board's own order is by tile, which is the order for checking the
     // middle went to the right people — not for eighty people each finding
     // the one line that is theirs.
-    expect(handoutList(board)).toBe('Dex [X:516 Y:385]\nMira [X:512 Y:391]\nShane [X:509 Y:391]');
+    expect(handoutList(board, 580)).toBe(
+      'Dex #580[X:516 Y:385]\nMira #580[X:512 Y:391]\nShane #580[X:509 Y:391]',
+    );
+  });
+
+  test('every coordinate carries the server, or game chat will not make it tappable', () => {
+    // `[X:n Y:n]` alone stays plain text in game chat; `#580[X:n Y:n]` is a
+    // link. The server is the formation's map, the same for every line.
+    const lines = handoutList(board, 583).split('\n');
+
+    expect(lines.every((line) => /#583\[X:\d+ Y:\d+\]$/.test(line))).toBe(true);
   });
 
   test('a tile with nobody on it is left out', () => {
     // It has nobody to tell, and on a half-planned hive they were most of
     // the list.
-    expect(handoutList(board)).not.toContain('512 Y:388');
-    expect(handoutList(board).split('\n')).toHaveLength(3);
+    expect(handoutList(board, 580)).not.toContain('512 Y:388');
+    expect(handoutList(board, 580).split('\n')).toHaveLength(3);
   });
 
   test('no ordinal and no label, whatever the tile carries', () => {
     // The label is the catalogue name copied onto the slot, so it read
     // "Member base" on every line of the list.
-    const line = handoutList([boardSlot({ ordinal: 7, label: 'Member base', playerName: 'Ruth' })]);
+    const line = handoutList(
+      [boardSlot({ ordinal: 7, label: 'Member base', playerName: 'Ruth' })],
+      580,
+    );
 
-    expect(line).toBe('Ruth [X:512 Y:388]');
+    expect(line).toBe('Ruth #580[X:512 Y:388]');
   });
 
   test('a board with nobody placed on it is empty, not a list of blanks', () => {
-    expect(handoutList([boardSlot({ playerId: null, playerName: null })])).toBe('');
+    expect(handoutList([boardSlot({ playerId: null, playerName: null })], 580)).toBe('');
   });
 
   test('the board it was given is not reordered', () => {
     // `.sort` is in place, and the same array draws the picture above the
     // list — sorting it there would have shuffled the map's numbering.
     const given = [...board];
-    handoutList(given);
+    handoutList(given, 580);
 
     expect(given.map((slot) => slot.slotId)).toEqual(['a', 'b', 'c', 'd']);
   });

@@ -8,6 +8,7 @@
 
 import type { Coordinate } from '@dw/ui';
 import { useQuery } from '@tanstack/react-query';
+import { shareCoordinate } from '../../lib/shareCoordinate';
 import { supabase } from '../../lib/supabase';
 
 /** `cat_id / 100` for a Large Treasure Spot. The other groups this season are
@@ -55,7 +56,7 @@ export function siteIsStanding(site: TreasureSite, now: Date): boolean {
 
 /** `#580[X:456 Y:261]`, the game's own share form, so it can be pasted back in. */
 export function shareLabel(site: Pick<TreasureSite, 'serverId' | 'gameAt'>): string {
-  return `#${site.serverId}[X:${site.gameAt.x} Y:${site.gameAt.y}]`;
+  return shareCoordinate(site.serverId, site.gameAt);
 }
 
 /** One line for a pin's tooltip. */

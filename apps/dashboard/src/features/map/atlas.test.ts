@@ -234,6 +234,10 @@ describe('shield, copy format and clusters', () => {
     expect(formatCopyCoordinate({ x: 123, y: 45 })).toBe('[X:123 Y:45]');
     expect(parseCoordinate('[X:123 Y:45]')).toEqual({ x: 123, y: 45 });
     expect(parseCoordinate('x:123 y:45')).toEqual({ x: 123, y: 45 });
+    // What the site now copies, and what the game shares, both carry the
+    // server in front; the search box must read it back.
+    expect(parseCoordinate('#580[X:123 Y:45]')).toEqual({ x: 123, y: 45 });
+    expect(parseCoordinate(' #583 [X:7 Y:999] ')).toEqual({ x: 7, y: 999 });
   });
 
   it('finds a sizeable alliance clump, its middle and a radius that covers it', () => {

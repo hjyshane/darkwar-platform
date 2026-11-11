@@ -2,6 +2,7 @@ import { type Coordinate, formatCoordinate } from '@dw/ui';
 import { useState } from 'react';
 import { Tabs } from '../../components/ui/Tabs';
 import { formatAge } from '../../lib/freshness';
+import { shareCoordinate } from '../../lib/shareCoordinate';
 import { useActiveAlliance } from '../../lib/useMyAlliances';
 import { AtlasMap } from './AtlasMap';
 import { AllianceDetail, BaseDetail } from './AtlasPanel';
@@ -19,7 +20,6 @@ import {
   byPower,
   centroid,
   filterActive,
-  formatCopyCoordinate,
   formatPower,
   isShielded,
   isStale,
@@ -133,7 +133,7 @@ export function AtlasPage({
   function goTo(at: Coordinate, uid: number | null) {
     setSelectedUid(uid);
     setFocus((previous) => ({ at, nonce: (previous?.nonce ?? 0) + 1 }));
-    const written = formatCopyCoordinate(at);
+    const written = shareCoordinate(serverId, at);
     navigator.clipboard
       ?.writeText(written)
       .then(() => setCopied(written))
@@ -171,7 +171,7 @@ export function AtlasPage({
   }
 
   function copyBase(base: AtlasBase) {
-    const written = formatCopyCoordinate(base.at);
+    const written = shareCoordinate(serverId, base.at);
     navigator.clipboard
       ?.writeText(written)
       .then(() => setCopied(written))

@@ -40,6 +40,7 @@ import {
   tileInsideBox,
   tilesOverlap,
 } from '../../lib/hiveFormation';
+import { shareCoordinate } from '../../lib/shareCoordinate';
 import {
   type GridBase,
   type GridSighting,
@@ -2052,20 +2053,23 @@ export function FormationEditor({
                           press away from the clipboard. The dashboard cannot
                           drive the game — a web page has no way to reach
                           BlueStacks — so what it copies is written the way the
-                          game writes a coordinate, `[X:n Y:n]`, which alliance
-                          chat turns back into a place you can tap. */}
+                          game shares a place, `#580[X:n Y:n]`, which alliance
+                          chat turns back into a place you can tap. Without the
+                          `#server` it stays plain text. */}
                         <button
                           className="linklike"
                           onClick={() => {
                             void navigator.clipboard?.writeText(
-                              formatTeleport({ x: slot.x, y: slot.y }),
+                              shareCoordinate(formation.serverId, { x: slot.x, y: slot.y }),
                             );
                             setCopied(slot.slotId);
                           }}
                           title="Copy this coordinate"
                           type="button"
                         >
-                          <code>{formatTeleport({ x: slot.x, y: slot.y })}</code>
+                          <code>
+                            {shareCoordinate(formation.serverId, { x: slot.x, y: slot.y })}
+                          </code>
                           {copied === slot.slotId ? ' ✓' : ''}
                         </button>
                       </td>
