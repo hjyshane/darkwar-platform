@@ -44,6 +44,9 @@ from dw_collector.watchdog.update_signal import UpdateObserver
 log = structlog.get_logger()
 
 TICK_SECONDS = float(os.environ.get("DW_CLOUD_TICK_SECONDS", "30"))
+#: After a launch the client logs in, then loads for a while with the city not
+#: yet tappable; a routine run in that window fails for no real reason.
+WARMUP_SECONDS = float(os.environ.get("DW_CLOUD_WARMUP_SECONDS", "240"))
 
 
 def _flag(name: str) -> bool:
@@ -144,6 +147,8 @@ def main() -> None:
     device: AdbDevice | None = None
     schedule = Schedule(base / "cloud-routines.db")
     was_paused = False
+    #: No routines until the client has had time to finish loading after a launch.
+    warmup_until = time.monotonic() + WARMUP_SECONDS
     feed: SignalFeed | None = None
     if not _flag("DW_CLOUD_NO_RESTART"):
         if not wait_for_serial(serial, executable=adb, timeout_seconds=300.0):
@@ -208,6 +213,7 @@ def main() -> None:
                     if watchdog is not None:
                         watchdog.resume()
                     game.relaunch()
+                    warmup_until = time.monotonic() + WARMUP_SECONDS
                     log.info("cloud.unpaused")
                 was_paused = paused
             if paused:
@@ -220,9 +226,16 @@ def main() -> None:
                     watchdog.resume()
                     log.info("cloud.resumed")
                 state = watchdog.tick()
+                if state is not State.RUNNING:
+                    warmup_until = time.monotonic() + WARMUP_SECONDS
                 if state is State.HALTED:
                     log.error("cloud.halted", marker=str(halted_file))
-                elif device is not None and _flag("DW_CLOUD_ROUTINES") and game_is_up(journal):
+                elif (
+                    device is not None
+                    and _flag("DW_CLOUD_ROUTINES")
+                    and time.monotonic() >= warmup_until
+                    and game_is_up(journal)
+                ):
                     run_due(
                         device,
                         schedule,

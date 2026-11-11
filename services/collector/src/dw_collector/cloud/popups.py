@@ -51,6 +51,8 @@ CLOSERS = (
     Closer("selena_cancel"),
     Closer("shop_x"),
     Closer("miasma_title", "tap_away"),
+    # The tech donate dialog, left open if a run died between its presses.
+    Closer("donate_x"),
 )
 
 

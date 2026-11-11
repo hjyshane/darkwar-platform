@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import getpass
 import os
+import signal
 import subprocess
 import tempfile
 from collections.abc import Callable
@@ -36,6 +37,32 @@ def default_interface(
     if "dev" in words and words.index("dev") + 1 < len(words):
         return words[words.index("dev") + 1]
     return None
+
+
+class TcpdumpProcess(PcapProcess):
+    """Ends the whole process group, not just the child `sudo`.
+
+    `sudo tcpdump -Z user` leaves a tcpdump that has dropped to `user`; a
+    SIGTERM sent to the `sudo` Popen handle never reached it, so every
+    rotation leaked a capture that kept writing to its (renamed) file. On
+    2026-11-11 that was 19 of them in ten minutes, and the ingest never saw a
+    file old enough to read.
+    """
+
+    def terminate(self) -> None:
+        pgid = self._process.pid
+        try:
+            os.killpg(pgid, signal.SIGTERM)
+        except (ProcessLookupError, PermissionError):
+            self._process.terminate()
+        try:
+            self._process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(pgid, signal.SIGKILL)
+            except (ProcessLookupError, PermissionError):
+                self._process.kill()
+        self._stderr.close()
 
 
 class TcpdumpBackend:
@@ -79,5 +106,10 @@ class TcpdumpBackend:
     def start(self, out: Path) -> PcapProcess:
         # stderr to a file, not a pipe: an unread pipe fills and wedges the child.
         stderr = tempfile.TemporaryFile()  # noqa: SIM115
-        process = subprocess.Popen(self.argv(out), stdout=subprocess.DEVNULL, stderr=stderr)
-        return PcapProcess(process, stderr)
+        process = subprocess.Popen(
+            self.argv(out),
+            stdout=subprocess.DEVNULL,
+            stderr=stderr,
+            start_new_session=True,
+        )
+        return TcpdumpProcess(process, stderr)

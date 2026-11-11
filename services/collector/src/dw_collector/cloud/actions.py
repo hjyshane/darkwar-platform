@@ -53,6 +53,14 @@ class Context:
     def seen(self, name: str, frame: Frame | None = None) -> Match | None:
         return find(frame if frame is not None else self.look(), templates.load(name))
 
+    def wait_for(self, name: str, tries: int = 4) -> Match | None:
+        """Look again a few times: a screen can take longer than `settle` to open."""
+        for _ in range(tries):
+            hit = self.seen(name)
+            if hit is not None:
+                return hit
+        return None
+
 
 class Action(Protocol):
     name: str
@@ -80,10 +88,10 @@ def _open_alliance(ctx: Context, menu: tuple[int, int], title: str) -> str | Non
     if find(home, templates.load("alliance_icon")) is None:
         return "alliance icon not on screen"
     ctx.device.tap(*ALLIANCE_ICON)
-    if ctx.seen("alliance_title") is None:
+    if ctx.wait_for("alliance_title") is None:
         return "alliance screen did not open"
     ctx.device.tap(*menu)
-    if ctx.seen(title) is None:
+    if ctx.wait_for(title) is None:
         return f"{title} did not open"
     return None
 

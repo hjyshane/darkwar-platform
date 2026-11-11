@@ -204,3 +204,30 @@ def test_halt_now_stays_halted_until_resumed() -> None:
     assert dog.tick() is State.HALTED
     dog.resume()
     assert dog.state is State.RUNNING
+
+
+def test_tcpdump_terminate_ends_the_whole_group_not_just_the_parent() -> None:
+    """`sudo tcpdump -Z` leaves a child that outlives a signal to its parent."""
+    import os
+    import subprocess
+    import tempfile
+    import time
+
+    from dw_collector.cloud.tcpdump import TcpdumpProcess
+
+    stderr = tempfile.TemporaryFile()  # noqa: SIM115
+    # Killing only the parent handle would leave the grandchild running.
+    process = subprocess.Popen(
+        ["sh", "-c", "sleep 60 & echo $! ; wait"],
+        stdout=subprocess.PIPE,
+        start_new_session=True,
+    )
+    assert process.stdout is not None
+    child = int(process.stdout.readline())
+    TcpdumpProcess(process, stderr).terminate()
+    time.sleep(0.2)
+    try:
+        os.kill(child, 0)
+    except ProcessLookupError:
+        return
+    raise AssertionError("grandchild survived terminate()")
