@@ -39,6 +39,7 @@ jobs:
       python: ${{ steps.filter.outputs.python }}
       web: ${{ steps.filter.outputs.web }}
       db: ${{ steps.filter.outputs.db }}
+      functions: ${{ steps.filter.outputs.functions }}
     steps:
       - uses: actions/checkout@v7
       # Exact version, same policy as every action here.
@@ -56,6 +57,10 @@ jobs:
               - 'pnpm-workspace.yaml'
               - 'biome.json'
               - '.nvmrc'
+            # Edge Functions get their unit tests in the web job (Node is set up there) but are
+            # deliberately NOT part of `web`, which also decides whether the dashboard is deployed.
+            functions:
+              - 'supabase/functions/**'
             db:
               - 'supabase/**'
               - 'packages/shared-types/**'
@@ -89,7 +94,7 @@ jobs:
   web:
     runs-on: ubuntu-latest
     needs: changes
-    if: needs.changes.outputs.web == 'true' || github.event_name == 'workflow_dispatch'
+    if: needs.changes.outputs.web == 'true' || needs.changes.outputs.functions == 'true' || github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -109,6 +114,8 @@ jobs:
       - run: pnpm check
       - run: pnpm typecheck
       - run: pnpm test
+      # Edge Function logic (grounding check, orchestration) is plain TypeScript with the model injected.
+      - run: node --experimental-strip-types --test supabase/functions/llm-digest/*.test.ts
       - run: pnpm build
 
   db:

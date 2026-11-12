@@ -64,6 +64,7 @@
 | DB가 느릴 때 | `docs/runbooks/db-performance.md` |
 | 수집기 운영 | `collector-operations.md`, `continuous-collection.md`, `season-4-capture.md` |
 | 클라우드 | `cloud-unattended.md`, `cloud-actions.md` |
+| LLM 다이제스트 (DB·함수 코드까지, 미배포·UI 없음) | `docs/runbooks/llm-digest.md` |
 | 일지 | `docs/log/2026-08.md` … `2026-11.md` |
 | 옛 TODO 목록(08-02, 낡음) | `docs/log/2026-08-and-earlier-tail.md` |
 | 작업 방식 | `docs/runbooks/working-agreements.md` |

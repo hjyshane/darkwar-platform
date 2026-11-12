@@ -1,6 +1,7 @@
 # LLM features in the product — design
 
-Date: 2026-11-12. Status: **draft, nothing built.** Three decisions at the end are the owner's.
+Date: 2026-11-12. Status: **slice A built in the DB and as an Edge Function, not deployed, no UI** (see `docs/runbooks/llm-digest.md`).
+Decisions taken by the owner 2026-11-12: slice A first; Supabase Edge Function; sending member names and figures to the model API is allowed.
 
 ## Intent
 
@@ -62,7 +63,7 @@ First slice: a weekly alliance digest drafted for officers to edit and post.
 - Auto-posting to Discord. The bot "reads nothing" (discord-bot.md) and keeps that property.
 - Member-facing generation in the first slice.
 
-## Decisions for the owner
+## Decisions (resolved 2026-11-12)
 
 1. **First slice** — A (digest), or start from C (questions) / B (explanations).
 2. **Where it runs** — Supabase Edge Function (inherits the officer's JWT so RLS applies; `supabase/functions/`
