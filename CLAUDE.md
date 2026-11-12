@@ -8,7 +8,9 @@ file wins — it reflects decisions made after the spec was written.
 
 **Start here if you are picking this up: `docs/handover.md`.** It says where
 the work stopped, what is blocked and why, and — importantly — which parts
-have never been run against real data.
+have never been run against real data. It is a short, overwritten status page
+(≤120 lines); history is in `docs/log/YYYY-MM.md`, recurring gotchas in
+`docs/runbooks/traps.md`.
 
 ## Decisions already made — do not relitigate
 
@@ -23,11 +25,15 @@ have never been run against real data.
 - **`services/` holds one Python package**, not four. Spec §10.1 asks for
   *process* separation; that is satisfied by four console entrypoints
   (`dw-capture`, `dw-sync`, `dw-jobs`, `dw-ui-worker`) sharing one package.
-- **Passive is the default, not the whole rule (ADR-0002, 2026-11-04).** The
-  collector account may send read-only, allowlisted requests at human pace, and
-  may run unattended in the cloud and relaunch the client on an update signal.
-  Never the main account, never a state-changing command, never a free-form
-  payload from a trigger. `dw-capture` itself still never writes to the wire.
+- **Passive is the default, not the whole rule (ADR-0002, 2026-11-04; amended
+  by ADR-0003, 2026-11-11).** The collector account may send allowlisted
+  requests at human pace, may run unattended in the cloud and relaunch the
+  client on an update signal, and — since ADR-0003 — may perform the *named,
+  allowlisted* in-game actions listed in that ADR (alliance help, tech donate,
+  gift claims…) by screen automation, each step verified, behind a kill switch.
+  Never the main account, never a free-form payload from a trigger, never an
+  action that is not on the ADR-0003 list (adding one is a reviewed change to
+  that list). `dw-capture` itself still never writes to the wire.
 - **Create directories on first use.** `supabase/functions/`, `docs/adr/`,
   `docs/runbooks/`, `packages/ui`, `packages/api-client`,
   `packages/scoring-explain`, `services/analysis-worker` do not exist yet and
