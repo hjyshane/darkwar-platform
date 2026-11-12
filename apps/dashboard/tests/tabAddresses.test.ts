@@ -102,21 +102,10 @@ describe('sidebar tabs for the alliance screens', () => {
     expect(labels(undefined)).toBeUndefined();
   });
 
-  it('lists the three planner pages', () => {
-    const planner = entry(
-      base({ route: 'planner', tabs: { planner: 'upgrades' } }),
-      'alliance',
-      'Planner',
-    );
-
-    expect(planner?.children?.map((child) => child.label)).toEqual([
-      'What to raise',
-      'Settings',
-      'Next upgrades',
-    ]);
-    expect(planner?.children?.filter((child) => child.current).map((child) => child.label)).toEqual(
-      ['Next upgrades'],
-    );
+  it('gives the archived planner no sidebar entry, while its address still opens it', () => {
+    const planner = entry(base({ route: 'planner' }), 'alliance', 'Planner');
+    expect(planner).toBeUndefined();
+    expect(routeFromHash(PLANNER.hash('upgrades'))).toBe('planner');
   });
 
   it('sends the five old per-kind planner addresses to What to raise', () => {

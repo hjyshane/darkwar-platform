@@ -3,7 +3,6 @@ import { isAllowed, usePermissions } from '../../lib/permissions';
 import {
   HIVE,
   MEMBERS,
-  PLANNER,
   type Route,
   adminGroupFromHash,
   allianceViewFromHash,
@@ -55,7 +54,6 @@ export function useShellNav(
     tabs: {
       members: MEMBERS.fromHash(hash),
       hive: HIVE.fromHash(hash),
-      planner: PLANNER.fromHash(hash),
       alliance: allianceViewFromHash(hash),
     },
     mayPlanHive: isPending ? undefined : isAllowed(permissions?.grants, session?.role, 'hive.plan'),

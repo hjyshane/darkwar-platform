@@ -536,8 +536,8 @@ function Shell({
         <h2 id="community-closed-heading">Not available</h2>
         <p className="empty">
           This page is for alliance members. Your account can open the overview, rankings,
-          migration, map, planner, game calendar, event guide and shop value, and other alliances'
-          and players' pages. <a href="#/">Back to the overview</a>
+          migration, map, calculator, game calendar, event guide and shop value, and other
+          alliances' and players' pages. <a href="#/">Back to the overview</a>
         </p>
       </section>
     </main>

@@ -319,7 +319,7 @@ const GUIDE_HASH = new RegExp(`^#/guides/(${UUID})$`, 'i');
 const NOTICE_HASH = new RegExp(`^#/notices/(${UUID})$`, 'i');
 
 export function routeFromHash(fullHash: string): Route {
-  // A query (`#/planner?target=…`, the calculator's hand-off) rides on an
+  // A query (`#/calculator?kind=…`, the calculator's state) rides on an
   // address without changing which screen it is; the screen reads it itself.
   const at = fullHash.indexOf('?');
   const hash = at < 0 ? fullHash : fullHash.slice(0, at);
@@ -499,12 +499,14 @@ export const OWN_ALLIANCE_TABS: ReadonlyArray<NavTab> = [
 
 /** The rest of the Alliance group, beside the alliance's own entry: tools for
  * one of its members rather than boards about all of them. */
+//
+// PLANNER IS ARCHIVED (2026-11-12): the calculator answers the question most
+// people brought to it. Its address still opens it, so no link breaks and no
+// account state it shows is lost; it just has no entry, the way Schedule was
+// archived on 2026-10-03.
 export const ALLIANCE_TABS: ReadonlyArray<NavTab> = [
-  // What raising a building, research, hero or gear costs one of your own
-  // accounts after its buffs (item 4). Account state is owner-or-admin (0205).
-  { route: 'planner', hash: '#/planner', label: 'Planner' },
-  // The reference half of the planner: what a range costs with no account
-  // open, with the state in the address so the link can be passed around.
+  // What a range costs with no account open, with the state in the address so
+  // the link can be passed around.
   { route: 'calculator', hash: '#/calculator', label: 'Calculator' },
   // Officer-only (0251): queues gift codes to be claimed for the alliance.
   // Filtered in `shellNav.ts` on `giftcodes.manage`.

@@ -157,7 +157,8 @@ describe('buildNav', () => {
     ] as const) {
       expect(current(route)).toEqual(['CBFW']);
     }
-    expect(current('planner')).toEqual(['Planner']);
+    // Archived: it opens by address but nothing in the sidebar stands for it.
+    expect(current('planner')).toEqual([]);
     expect(current('eventGuide')).toEqual(['Event guide']);
     // All three ranking boards stand under one entry.
     expect(current('arena')).toEqual(['Rankings']);
@@ -200,7 +201,7 @@ describe('buildFooter and breadcrumb', () => {
     expect(
       breadcrumb(buildNav(base({ route: 'alliance', allianceId: 'a1' })), [], 'alliance'),
     ).toEqual(['Alliance', 'CBFW', 'Overview']);
-    expect(at('planner')).toEqual(['Alliance', 'Planner']);
+    expect(at('planner')).toEqual(['Planner']);
     expect(at('account')).toEqual(['My account']);
     expect(at('player')).toEqual(['Player']);
   });

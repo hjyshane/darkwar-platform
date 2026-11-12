@@ -14,7 +14,7 @@ describe('isTabShown', () => {
   });
 
   test('no row means shown', () => {
-    expect(isTabShown(rules, 'planner', 'member')).toBe(true);
+    expect(isTabShown(rules, 'calculator', 'member')).toBe(true);
     expect(isTabShown(rules, 'hive', 'member')).toBe(true);
   });
 
