@@ -61,6 +61,8 @@
 | 요구사항 | `DarkWar_Platform_Technical_Specification_v1.0.md` |
 | 결정 | `docs/adr/` (0001~0003) |
 | 함정 | `docs/runbooks/traps.md`, CLAUDE.md "Traps" |
+| 마이그레이션 / 명령 승격 절차 | 스킬 `new-migration`, `promote-command` (`.claude/skills/`) |
+| 자동 가드(legacy·PCAP·.env 차단, 번호 검사) | `.claude/hooks/guard.mjs`, `.claude/settings.json` |
 | DB가 느릴 때 | `docs/runbooks/db-performance.md` |
 | 수집기 운영 | `collector-operations.md`, `continuous-collection.md`, `season-4-capture.md` |
 | 클라우드 | `cloud-unattended.md`, `cloud-actions.md` |
