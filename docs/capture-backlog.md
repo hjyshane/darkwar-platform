@@ -332,3 +332,56 @@ Clash, Server Clash, Frankie, Ice Pit, Furnace Fury는 지금 **임원이 손으
 승격 판정 기준과 이미 판정한 커맨드 목록도 같은 문서에 있다 — **UID가 있다는 것만으로
 승격하면 안 된다**는 것이 이번 스윕에서 두 번 확인됐다(`al.show.help`는 요청자,
 `rank.get.by.range`의 `power`는 지표별 값).
+
+
+---
+
+## 미처리로 남겨둔 것 — 지나가다 본 것들 (handover에서 이관, 2026-11-12)
+
+> 2026-08-03 기준 기록이다. 1번은 해결됨(0036). **3번(`arena_matches` writer 없음)은 그 뒤 상태를 확인하지 않았다** — 프로덕션 `select count(*)`부터.
+
+고치지 않고 적어만 둔다. 둘 다 지금 무언가를 깨뜨리고 있지는 않다.
+
+**1. ~~듀얼 세 보드가 `metric_key`를 하나 공유한다.~~ 해결됨 (0036).**
+
+`activity_facts`에서 일간(5.6M)·주간(26M)·라운드(103M)가 한 계열에 섞여 있었고,
+`metric_registry`가 `percentile_rank`를 지정하므로 백분위가 **어느 보드가
+마지막에 적재됐는지**에 좌우됐다. 보드마다 키를 하나씩 주고, 이미 쌓인 424건은
+`source_snapshot_id` → `contribution_type`으로 되짚어 재분류했다 — 값은 그대로고
+분류만 고쳤다.
+
+같은 김에 `alliance_donation_score`를 `alliance_daily_donation_score`로 바꿨다.
+"일간"이라고 말하지 않는 이름이 이 실수를 쉽게 만든 원인이었고, 그걸
+`alliance_battle_daily_score` 옆에 두면 다음 사람이 "기부 전체"로 읽는다.
+
+**2. `player_contributions`와 `player_presence`에 `service_role` 권한이 없다.**
+`player_month_cards`(0016)는 `grant all ... to service_role`을 하는데 0020·0024는
+`anon, authenticated`만 했다. 그래서 시크릿 키로 이 두 테이블을 읽으면 42501이
+난다. 실제로 막히는 것은 없다 — 쓰기는 `security definer` 트리거가 하고 읽기는
+브라우저 세션이 한다. **더 좁은 쪽이므로 필요가 생기기 전에는 넓히지 않는다.**
+필요해지면 RLS 변경이니 pgTAP 음성 테스트가 따라야 한다(§20.2).
+
+**3. `arena_matches`에 writer가 없다. — 확인됐다, 0이다 (2026-08-03)**
+
+> `db reset` 직후 로컬에서 `select count(*)` = **0**. 마이그레이션에도
+> `seed.sql`에도 이 테이블에 넣는 INSERT가 없으므로 클라우드에 올려도 0이다.
+> **아래 "0이면" 갈래가 확정됐다.** 아직 지우지 않았다 — pgTAP 3파일을 옮기는
+> 것이 그 작업의 대부분이고, 별건으로 다룬다.
+
+`services/`와 `apps/` 어디에서도 이 테이블에 쓰지 않는다. 읽는 코드는
+`legacy/v0.4.1/`(`activity_api.py`, `dashboard.py`)에만 있다. 0003이 만들고 0007이
+알림 트리거를 달고 0064가 member-only로 좁혔지만, **아무도 행을 넣지 않는다.**
+
+`al.battle.rank.info`와 같은 모양이다 — 자리는 있는데 채우는 것이 없다.
+
+확인할 것: 프로덕션에서 `select count(*) from public.arena_matches`.
+
+- **0이면** 테이블을 지우는 마이그레이션이 맞다. 다만 **지우기 전에 알 것**:
+  pgTAP 세 파일이 이 테이블을 편리한 스냅샷 테이블로 쓰고 있다 —
+  `01_conventions_test`(관례·유니크), `05_notifications_test`(알림 페이로드),
+  `33_arena_member_only_test`. 셋 다 다른 테이블로 옮겨야 하고, 그게 삭제
+  작업의 대부분이다.
+- **0이 아니면** 어딘가에 writer가 있다는 뜻이고, 그걸 먼저 찾아야 한다.
+
+**확인 전에는 지우지 않는다.** Mac에는 실 데이터가 없어서 여기서는 셀 수 없었다.
+
