@@ -33,8 +33,6 @@ import {
   type MembersTab,
   OVERVIEW_TABS,
   OWN_ALLIANCE_TABS,
-  PLANNER,
-  type PlannerTab,
   RANKING_TABS,
   type Route,
   adminHash,
@@ -132,7 +130,6 @@ export interface NavContext {
   tabs?: {
     members?: MembersTab;
     hive?: HiveTab;
-    planner?: PlannerTab;
     alliance?: AllianceView;
   };
   /** Whether the reader may plan the hive. Its tabs are for planners only:
@@ -335,9 +332,8 @@ export function buildNav(ctx: NavContext): NavGroup[] {
         ]),
     ...ALLIANCE_TABS.filter(
       (tab) =>
-        // Community: the planner and the calculator are what it is given of
-        // this group.
-        (ctx.isCommunity !== true || tab.route === 'planner' || tab.route === 'calculator') &&
+        // Community: the calculator is what it is given of this group.
+        (ctx.isCommunity !== true || tab.route === 'calculator') &&
         (tab.route !== 'giftCodes' || ctx.mayManageGiftCodes === true) &&
         shown(tab.route),
     ).map((tab) => ({
@@ -346,16 +342,6 @@ export function buildNav(ctx: NavContext): NavGroup[] {
       label: tab.label,
       icon: iconFor(tab.route),
       current: tab.route === ctx.route,
-      ...(tab.route === 'planner'
-        ? {
-            children: PLANNER.tabs.map((entry) => ({
-              key: PLANNER.hash(entry.id),
-              href: PLANNER.hash(entry.id),
-              label: entry.label,
-              current: ctx.route === 'planner' && (ctx.tabs?.planner ?? 'building') === entry.id,
-            })),
-          }
-        : {}),
     })),
   ];
 
@@ -450,6 +436,8 @@ const OTHER_LABELS: Partial<Record<Route, string>> = {
   guide: 'Guide',
   notice: 'Notice',
   schedule: 'Schedule',
+  // Archived 2026-11-12: no entry, but its address still opens it.
+  planner: 'Planner',
   admin: 'Settings',
   account: 'My account',
   monthCards: 'Month cards',

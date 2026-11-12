@@ -27,10 +27,10 @@ describe('the calculator route', () => {
     expect(navSection('calculator')).toBe('alliance');
   });
 
-  it('sits straight after the planner in the sidebar', () => {
+  it('is in the sidebar, and the archived planner is not', () => {
     const labels = items(member).map((i) => i.label);
     expect(labels).toContain('Calculator');
-    expect(labels.indexOf('Calculator')).toBe(labels.indexOf('Planner') + 1);
+    expect(labels).not.toContain('Planner');
     const entry = items({ ...member, route: 'calculator' }).find((i) => i.label === 'Calculator');
     expect(entry?.href).toBe(CALCULATOR_HASH);
     expect(entry?.current).toBe(true);

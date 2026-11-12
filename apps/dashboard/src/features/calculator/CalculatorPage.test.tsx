@@ -31,7 +31,6 @@ const mocks = vi.hoisted(() => ({
   fetchCalculatorSubjects: vi.fn(),
   loadSteps: vi.fn(),
   fetchExpCards: vi.fn(),
-  fetchAccounts: vi.fn(),
 }));
 
 vi.mock('./data', () => ({
@@ -43,13 +42,11 @@ vi.mock('../planner/data', () => ({
   fetchTiers: async () => new Map(),
   fetchMaterialNames: async () => ({ items: new Map(), resources: new Map([['25', 'Wood']]) }),
 }));
-vi.mock('../planner/accounts', () => ({ fetchAccounts: mocks.fetchAccounts }));
 vi.mock('../../lib/gameIcons', () => ({
   useIcons: () => ({ data: undefined }),
   useItemIcons: () => ({ data: undefined }),
   GameIcon: () => null,
 }));
-vi.mock('../../lib/communityAccess', () => ({ useIsCommunity: () => false }));
 
 import { CalculatorPage } from './CalculatorPage';
 
@@ -78,7 +75,6 @@ beforeEach(() => {
     gaps: [],
   }));
   mocks.fetchExpCards.mockResolvedValue([{ itemId: '300030', name: 'Big card', amount: 60000 }]);
-  mocks.fetchAccounts.mockResolvedValue([]);
 });
 
 describe('CalculatorPage', () => {
@@ -123,10 +119,9 @@ describe('CalculatorPage', () => {
     ]);
   });
 
-  it('shows buff fields and the hand-off only where they apply', async () => {
-    mocks.fetchAccounts.mockResolvedValue([{ playerId: 'p1' }]);
+  it('shows buff fields only where they apply', async () => {
     const first = open('#/calculator?kind=building&subject=409000&from=28&to=30');
-    expect(await screen.findByRole('button', { name: 'Load into my plan' })).toBeTruthy();
+    await screen.findByRole('table');
     expect(screen.getByLabelText('Speed bonus %')).toBeTruthy();
     expect(screen.getByLabelText('Cost reduction %')).toBeTruthy();
     first.unmount();
@@ -135,14 +130,14 @@ describe('CalculatorPage', () => {
     await screen.findByRole('table');
     expect(screen.queryByLabelText('Speed bonus %')).toBeNull();
     expect(screen.queryByLabelText('Cost reduction %')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Load into my plan' })).toBeNull();
     // A chip range converts its EXP to cards from data.
     expect(screen.getByText('60K EXP = 1 × Big card (60,000 each)')).toBeTruthy();
   });
 
-  it('hides the hand-off from a viewer with no planner account', async () => {
+  it('offers the link and nothing that sends the range to the archived planner', async () => {
     open('#/calculator?kind=building&subject=409000&from=28&to=30');
     await screen.findByRole('table');
+    expect(screen.getByRole('button', { name: 'Copy link' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Load into my plan' })).toBeNull();
   });
 

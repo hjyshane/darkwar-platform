@@ -8,9 +8,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
-import { useIsCommunity } from '../../lib/communityAccess';
 import { replaceHash, useHash } from '../../lib/useHash';
-import { fetchAccounts } from '../planner/accounts';
 import { fetchMaterialNames, fetchTiers } from '../planner/data';
 import type { Tiers } from '../planner/levels';
 import { totals } from '../planner/plan';
@@ -18,7 +16,6 @@ import { CalculatorForm } from './CalculatorForm';
 import { CalculatorResult } from './CalculatorResult';
 import './calculator.css';
 import { fetchCalculatorSubjects, fetchExpCards, loadSteps } from './data';
-import { canHandOff, plannerHandoffHash } from './handoff';
 import {
   type FormKind,
   buffsFor,
@@ -71,7 +68,6 @@ export function CalculatorPage() {
   // not in the address: a link to a season building opens under it anyway.
   const [seasonPicked, setSeasonPicked] = useState(false);
   const [pickedSeason, setPickedSeason] = useState<number | null>(null);
-  const isCommunity = useIsCommunity();
 
   const subjects = useQuery({
     queryKey: ['calculator-subjects', state.kind],
@@ -143,16 +139,6 @@ export function CalculatorPage() {
     enabled: state.kind === 'chip',
     staleTime: HOUR,
   });
-  // "Load into my plan" is for a viewer who has somewhere to load it: an
-  // account the planner lists, or the scratch account a community reader plans on.
-  const accounts = useQuery({
-    queryKey: ['planner-accounts'],
-    queryFn: fetchAccounts,
-    staleTime: 5 * 60_000,
-    enabled: canHandOff(state.kind),
-  });
-  const mayHandOff =
-    canHandOff(state.kind) && (isCommunity || (accounts.data ?? []).length > 0) && current !== null;
 
   const onKind = (kind: FormKind) => {
     setPickedSeason(null);
@@ -227,22 +213,6 @@ export function CalculatorPage() {
               />
               <div className="calc-actions">
                 <CopyLink state={withoutInertBuffs(range)} />
-                {mayHandOff && state.subject !== null && (
-                  <button
-                    className="primary"
-                    onClick={() => {
-                      window.location.hash = plannerHandoffHash({
-                        kind: range.kind as Parameters<typeof plannerHandoffHash>[0]['kind'],
-                        subject: state.subject as string,
-                        to: range.to,
-                      });
-                    }}
-                    title="Adds this as a target in the planner, from your account's own level. Nothing is saved until the planner saves."
-                    type="button"
-                  >
-                    Load into my plan
-                  </button>
-                )}
               </div>
             </>
           )}
