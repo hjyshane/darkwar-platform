@@ -8,7 +8,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(24);
+select plan(25);
 
 -- ---------------------------------------------------------------- set-up
 
@@ -214,6 +214,10 @@ select is(pg_temp.nudge_then_count('00000000-0000-4000-8000-0000000323e1', inter
   'a 3-hour move sends again at the new time');
 select is(pg_temp.sent('00000000-0000-4000-8000-0000000323e7', 'once'), 1,
   'send now goes out once');
+-- A one-off's fire_at is its send_at, which does not move with the entry: it
+-- stays inside the grace after a move, so only the step can say it was sent.
+select is(pg_temp.nudge_then_count('00000000-0000-4000-8000-0000000323e7', interval '3 hours'), 1,
+  'and not again when its entry moves');
 select ok((select body from public.notification_outbox
             where schedule_event_id = '00000000-0000-4000-8000-0000000323e1' limit 1)
   like 'Bring shields%Starts <t:%', 'officer message first, generated line last');

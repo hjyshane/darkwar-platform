@@ -18,7 +18,9 @@
 --     the reminder row, so a re-saved reminder cannot send twice and a moved
 --     time sends again at the new time. A calendar re-read nudging a time by
 --     under 2 minutes is jitter: a step already sent for an anchor within 2
---     minutes is not sent again, although its key would differ.
+--     minutes is not sent again, although its key would differ. A one-off
+--     ("send now", "send later") is the exception: it is sent once per entry
+--     whatever the entry's times do afterwards, since its fire_at never moves.
 --
 -- Same name and cron tick as before (0131): detect_schedule_reminders().
 
@@ -207,12 +209,15 @@ begin
     and d.fire_at > now() - interval '15 minutes'
     and rt.channel is not null
     -- Sent already for (nearly) this time: a move under 2 minutes is jitter.
+    -- A one-off is sent once, full stop: its fire_at is send_at, which does
+    -- not move with the entry, so after a move it would still be in the grace.
     and not exists (
       select 1 from public.notification_outbox o
        where o.schedule_event_id = d.schedule_event_id
          and o.alarm_step = st.step
-         and o.anchor_at > d.anchor_at - interval '2 minutes'
-         and o.anchor_at < d.anchor_at + interval '2 minutes')
+         and (st.step like 'once:%'
+              or (o.anchor_at > d.anchor_at - interval '2 minutes'
+                  and o.anchor_at < d.anchor_at + interval '2 minutes')))
   on conflict (idempotency_key) do nothing;
 
   get diagnostics v_written = row_count;
