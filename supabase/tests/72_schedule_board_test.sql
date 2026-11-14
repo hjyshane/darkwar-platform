@@ -45,6 +45,8 @@ values
   ('00000000-0000-4000-8000-0000000fe001', 'Bear 20:00', 'bear',
    '2026-08-20T20:00:00Z');
 
+-- 0322 copies a board's steps onto every new entry; this test places its own.
+delete from public.schedule_reminders where schedule_event_id = '00000000-0000-4000-8000-0000000fe001';
 insert into public.schedule_reminders (schedule_event_id, minutes_before)
 values ('00000000-0000-4000-8000-0000000fe001', 30);
 

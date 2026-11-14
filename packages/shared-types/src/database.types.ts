@@ -5880,44 +5880,62 @@ export type Database = {
       }
       notification_outbox: {
         Row: {
+          alarm_step: string | null
+          anchor_at: string | null
           attempts: number
           body: string
           channel: string
           created_at: string
           delivered_at: string | null
           event: string
+          expired_at: string | null
+          expires_at: string | null
           idempotency_key: string
           image_url: string | null
           last_error: string | null
           notification_id: number
+          ping_role_id: string | null
+          schedule_event_id: string | null
           title: string
           transport_request_id: number | null
         }
         Insert: {
+          alarm_step?: string | null
+          anchor_at?: string | null
           attempts?: number
           body: string
           channel: string
           created_at?: string
           delivered_at?: string | null
           event: string
+          expired_at?: string | null
+          expires_at?: string | null
           idempotency_key: string
           image_url?: string | null
           last_error?: string | null
           notification_id?: never
+          ping_role_id?: string | null
+          schedule_event_id?: string | null
           title: string
           transport_request_id?: number | null
         }
         Update: {
+          alarm_step?: string | null
+          anchor_at?: string | null
           attempts?: number
           body?: string
           channel?: string
           created_at?: string
           delivered_at?: string | null
           event?: string
+          expired_at?: string | null
+          expires_at?: string | null
           idempotency_key?: string
           image_url?: string | null
           last_error?: string | null
           notification_id?: never
+          ping_role_id?: string | null
+          schedule_event_id?: string | null
           title?: string
           transport_request_id?: number | null
         }
@@ -7644,33 +7662,57 @@ export type Database = {
       }
       schedule_categories: {
         Row: {
+          activity_id: string | null
+          activity_stage: string
+          alarm_on_open: boolean
           alliance_id: string | null
           category: string
           channel: string | null
+          close_reminders: number[]
           colour: string | null
           created_at: string
+          kind: string
           label: string
+          message_template: string | null
+          ping_role_id: string | null
           sort_order: number
+          start_reminders: number[]
           updated_at: string
         }
         Insert: {
+          activity_id?: string | null
+          activity_stage?: string
+          alarm_on_open?: boolean
           alliance_id?: string | null
           category: string
           channel?: string | null
+          close_reminders?: number[]
           colour?: string | null
           created_at?: string
+          kind?: string
           label: string
+          message_template?: string | null
+          ping_role_id?: string | null
           sort_order?: number
+          start_reminders?: number[]
           updated_at?: string
         }
         Update: {
+          activity_id?: string | null
+          activity_stage?: string
+          alarm_on_open?: boolean
           alliance_id?: string | null
           category?: string
           channel?: string | null
+          close_reminders?: number[]
           colour?: string | null
           created_at?: string
+          kind?: string
           label?: string
+          message_template?: string | null
+          ping_role_id?: string | null
           sort_order?: number
+          start_reminders?: number[]
           updated_at?: string
         }
         Relationships: [
@@ -7713,12 +7755,14 @@ export type Database = {
       }
       schedule_events: {
         Row: {
+          alarm_message: string | null
           alliance_id: string | null
           body: string | null
           category: string | null
           created_at: string
           created_by: string | null
           ends_at: string | null
+          hidden: boolean
           schedule_event_id: string
           series_id: string | null
           source: string
@@ -7728,12 +7772,14 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          alarm_message?: string | null
           alliance_id?: string | null
           body?: string | null
           category?: string | null
           created_at?: string
           created_by?: string | null
           ends_at?: string | null
+          hidden?: boolean
           schedule_event_id?: string
           series_id?: string | null
           source?: string
@@ -7743,12 +7789,14 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          alarm_message?: string | null
           alliance_id?: string | null
           body?: string | null
           category?: string | null
           created_at?: string
           created_by?: string | null
           ends_at?: string | null
+          hidden?: boolean
           schedule_event_id?: string
           series_id?: string | null
           source?: string
@@ -7818,22 +7866,31 @@ export type Database = {
       }
       schedule_reminders: {
         Row: {
+          anchor: string
           created_at: string
-          minutes_before: number
+          enabled: boolean
+          minutes_before: number | null
           reminder_id: string
           schedule_event_id: string
+          send_at: string | null
         }
         Insert: {
+          anchor?: string
           created_at?: string
-          minutes_before: number
+          enabled?: boolean
+          minutes_before?: number | null
           reminder_id?: string
           schedule_event_id: string
+          send_at?: string | null
         }
         Update: {
+          anchor?: string
           created_at?: string
-          minutes_before?: number
+          enabled?: boolean
+          minutes_before?: number | null
           reminder_id?: string
           schedule_event_id?: string
+          send_at?: string | null
         }
         Relationships: [
           {
@@ -10356,14 +10413,24 @@ export type Database = {
       }
       schedule_reminders_due: {
         Row: {
+          alarm_message: string | null
           alliance_id: string | null
+          anchor: string | null
+          anchor_at: string | null
           category: string | null
           category_label: string | null
           channel: string | null
+          enabled: boolean | null
+          ends_at: string | null
           fire_at: string | null
+          hidden: boolean | null
+          kind: string | null
+          message_template: string | null
           minutes_before: number | null
+          ping_role_id: string | null
           reminder_id: string | null
           schedule_event_id: string | null
+          send_at: string | null
           starts_at: string | null
           title: string | null
         }
@@ -10613,6 +10680,16 @@ export type Database = {
       add_gift_extra_players: {
         Args: { p_label?: string; p_uids: number[] }
         Returns: number
+      }
+      alarm_deliveries: {
+        Args: { p_events: string[] }
+        Returns: {
+          alarm_step: string
+          anchor_at: string
+          delivered_at: string
+          expired_at: string
+          schedule_event_id: string
+        }[]
       }
       alliance_label: {
         Args: { p_code: string; p_name: string }

@@ -26,6 +26,8 @@ values
   ('00000000-0000-4000-8000-0000000fa004', 'Bear hunt', 'bear',
    '2026-09-07T22:00:00Z', '00000000-0000-4000-8000-0000000fb001');
 
+-- 0322 copies a board's steps onto every new entry; this test places its own.
+delete from public.schedule_reminders where schedule_event_id in (select schedule_event_id from public.schedule_events where series_id = '00000000-0000-4000-8000-0000000fb001');
 insert into public.schedule_reminders (schedule_event_id, minutes_before)
 select schedule_event_id, 30 from public.schedule_events
 where series_id = '00000000-0000-4000-8000-0000000fb001';

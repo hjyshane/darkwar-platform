@@ -4,7 +4,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(13);
+select plan(17);
 
 insert into public.collectors (collector_id, name)
 values ('00000000-0000-4000-8000-0000000a1001', 'event-times-test');
@@ -63,6 +63,8 @@ select is((select count(*)::int from public.schedule_events
 select is((select count(*)::int from public.schedule_events
             where alliance_id = '00000000-0000-4000-8000-0000000a1a02' and source = 'captured'),
   1, 'Black Gold went to the alliance its response named');
+select is((select body from public.schedule_events where source_key like 'black_gold:2:%'),
+  null, 'a captured entry carries no body (0326)');
 select is((select title from public.schedule_events where source_key like 'black_gold:2:%'),
   'Black Gold, team B', 'team 2 is team B');
 select is((select title from public.schedule_events where source_key like 'bio_mutant:2:%'),
@@ -71,9 +73,24 @@ select is((select count(*)::int from public.schedule_categories
             where alliance_id = '00000000-0000-4000-8000-0000000a1a01'
               and category in ('game_zombie_siege', 'game_bio_mutant') and channel is null),
   2, 'each event gets a board of its own, with no Discord channel');
-select is((select count(*)::int from public.schedule_reminders r
-            join public.schedule_events e using (schedule_event_id) where e.source = 'captured'),
-  0, 'and no reminder: that stays a decision for an officer');
+-- Since 0322 a board's default steps are copied onto the entry, so reminders
+-- exist; what stays an officer's decision is a room to say them in.
+select is((select count(*)::int from public.schedule_reminders_due d
+            join public.schedule_events e using (schedule_event_id)
+            where e.source = 'captured' and d.channel is not null),
+  0, 'and no reminder reaches Discord: that stays a decision for an officer');
+-- Not vacuous: the reminders are really there, and each is channel-less.
+select cmp_ok((select count(*)::int from public.schedule_reminders r
+                join public.schedule_events e using (schedule_event_id)
+                where e.source = 'captured'),
+  '>', 0, 'captured entries do carry their board''s reminder steps');
+select is((select count(*)::int from public.schedule_reminders_due d
+            join public.schedule_events e using (schedule_event_id)
+            where e.source = 'captured' and d.channel is null),
+  (select count(*)::int from public.schedule_reminders r
+    join public.schedule_events e using (schedule_event_id)
+    where e.source = 'captured'),
+  'and every one of them is due with no channel');
 
 -- The same pick seen again, a little later: still one entry.
 select pg_temp.put('et:siege:1b', 'zombie_siege', 1, pg_temp.d(1), null, null,
@@ -99,10 +116,14 @@ select is((select starts_at from public.schedule_events where source_key like 'z
   'a reading older than the entry''s own is not applied');
 
 -- The pick moves to another day while still ahead: the old entry goes.
+create temp table _siege_before as
+  select schedule_event_id from public.schedule_events where source_key like 'zombie_siege:1:%';
 select pg_temp.put('et:siege:next', 'zombie_siege', 1, pg_temp.d(4), null, null,
                    now() + interval '3 minutes');
 select is((select count(*)::int from public.schedule_events where source_key like 'zombie_siege:1:%'),
-  1, 'moving the siege to another day replaces the entry rather than adding one');
+  1, 'moving the siege to another day leaves one entry rather than adding one');
+select is((select schedule_event_id from public.schedule_events where source_key like 'zombie_siege:1:%'),
+  (select schedule_event_id from _siege_before), 'and it is the same entry, moved (0326)');
 
 -- Nobody logged in lately: stored, but no entry on a guessed board.
 select pg_temp.put('et:siege:nobody', 'zombie_siege', 1, pg_temp.d(9), null, null,

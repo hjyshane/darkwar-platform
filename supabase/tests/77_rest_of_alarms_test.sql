@@ -9,7 +9,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(8);
+select plan(9);
 
 insert into public.notification_channels (channel, webhook_url) values
   ('alarm', 'https://discord.test/webhooks/alarm'),
@@ -17,6 +17,14 @@ insert into public.notification_channels (channel, webhook_url) values
 
 delete from public.app_settings where key = 'discord_notifications';
 insert into public.app_settings (key, value) values ('discord_notifications', '{}'::jsonb);
+
+-- A step due now (0322 copies the board's 60-minute step onto the entry) on a
+-- board with no channel of its own: with the switch off it has nowhere to go.
+-- Since 0323 a board WITH a channel sends whatever the switch says — the
+-- switch is the fallback, not a gate (323 proves that half).
+insert into public.schedule_categories (category, label) values ('quiet', 'Quiet board');
+insert into public.schedule_events (schedule_event_id, title, category, starts_at)
+values ('00000000-0000-4000-8000-0000000ec002', 'Quiet rally', 'quiet', now() + interval '60 minutes');
 
 -- --------------------------------------------------------------- the switches
 select is(internal.detect_player_claims(), 0, 'claims: off writes nothing');
@@ -77,10 +85,16 @@ select internal.detect_schedule_reminders();
 -- The board's channel, not the settings one: one webhook per board is why
 -- 0124 put the channel on the category at all.
 select is(
-  (select channel from public.notification_outbox where event = 'schedule_reminder'),
+  (select channel from public.notification_outbox
+    where idempotency_key like 'alarm:00000000-0000-4000-8000-0000000ec001:%'),
   'bears',
   'a reminder follows its board''s channel, with the settings channel only as '
   'the fallback');
+select is(
+  (select channel from public.notification_outbox
+    where idempotency_key like 'alarm:00000000-0000-4000-8000-0000000ec002:%'),
+  'alarm',
+  'and the board with no channel, silent while the switch was off, now uses it');
 
 select * from finish();
 rollback;
