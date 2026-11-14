@@ -138,7 +138,7 @@ values ('00000000-0000-4000-8000-0000000b7301', 1);
 select internal.detect_schedule_reminders();
 select is(
   (select channel from public.notification_outbox
-    where idempotency_key like 'schedule_reminder:%' and title = 'dc bravo rally'),
+    where idempotency_key like 'alarm:00000000-0000-4000-8000-0000000b7301:%'),
   'dc-b-news', 'a reminder never follows a board into another alliance''s room');
 
 -- 15. A sign-up is announced to the alliance it asked for — and a malformed
