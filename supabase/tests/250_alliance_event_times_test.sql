@@ -4,7 +4,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(13);
+select plan(15);
 
 insert into public.collectors (collector_id, name)
 values ('00000000-0000-4000-8000-0000000a1001', 'event-times-test');
@@ -77,6 +77,18 @@ select is((select count(*)::int from public.schedule_reminders_due d
             join public.schedule_events e using (schedule_event_id)
             where e.source = 'captured' and d.channel is not null),
   0, 'and no reminder reaches Discord: that stays a decision for an officer');
+-- Not vacuous: the reminders are really there, and each is channel-less.
+select cmp_ok((select count(*)::int from public.schedule_reminders r
+                join public.schedule_events e using (schedule_event_id)
+                where e.source = 'captured'),
+  '>', 0, 'captured entries do carry their board''s reminder steps');
+select is((select count(*)::int from public.schedule_reminders_due d
+            join public.schedule_events e using (schedule_event_id)
+            where e.source = 'captured' and d.channel is null),
+  (select count(*)::int from public.schedule_reminders r
+    join public.schedule_events e using (schedule_event_id)
+    where e.source = 'captured'),
+  'and every one of them is due with no channel');
 
 -- The same pick seen again, a little later: still one entry.
 select pg_temp.put('et:siege:1b', 'zombie_siege', 1, pg_temp.d(1), null, null,
