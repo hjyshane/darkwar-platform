@@ -4,7 +4,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(15);
+select plan(17);
 
 insert into public.collectors (collector_id, name)
 values ('00000000-0000-4000-8000-0000000a1001', 'event-times-test');
@@ -63,6 +63,8 @@ select is((select count(*)::int from public.schedule_events
 select is((select count(*)::int from public.schedule_events
             where alliance_id = '00000000-0000-4000-8000-0000000a1a02' and source = 'captured'),
   1, 'Black Gold went to the alliance its response named');
+select is((select body from public.schedule_events where source_key like 'black_gold:2:%'),
+  null, 'a captured entry carries no body (0326)');
 select is((select title from public.schedule_events where source_key like 'black_gold:2:%'),
   'Black Gold, team B', 'team 2 is team B');
 select is((select title from public.schedule_events where source_key like 'bio_mutant:2:%'),
@@ -114,10 +116,14 @@ select is((select starts_at from public.schedule_events where source_key like 'z
   'a reading older than the entry''s own is not applied');
 
 -- The pick moves to another day while still ahead: the old entry goes.
+create temp table _siege_before as
+  select schedule_event_id from public.schedule_events where source_key like 'zombie_siege:1:%';
 select pg_temp.put('et:siege:next', 'zombie_siege', 1, pg_temp.d(4), null, null,
                    now() + interval '3 minutes');
 select is((select count(*)::int from public.schedule_events where source_key like 'zombie_siege:1:%'),
-  1, 'moving the siege to another day replaces the entry rather than adding one');
+  1, 'moving the siege to another day leaves one entry rather than adding one');
+select is((select schedule_event_id from public.schedule_events where source_key like 'zombie_siege:1:%'),
+  (select schedule_event_id from _siege_before), 'and it is the same entry, moved (0326)');
 
 -- Nobody logged in lately: stored, but no entry on a guessed board.
 select pg_temp.put('et:siege:nobody', 'zombie_siege', 1, pg_temp.d(9), null, null,
