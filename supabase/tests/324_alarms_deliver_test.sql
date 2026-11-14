@@ -4,11 +4,12 @@
 -- why delivery is split: `alert_payload` builds what is posted, `next_alerts`
 -- picks what is posted, `expire_stale_alerts` drops what is too late to post —
 -- all three plain SQL, all three tested below. deliver_owned_alerts only wires
--- them to http_post.
+-- them to http_post, and what can be checked of that wiring without running it
+-- (the schema it calls pg_net by) is checked from the function's source.
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(20);
+select plan(28);
 
 -- ---------------------------------------------------------------- set-up
 
@@ -134,11 +135,32 @@ select ok(not exists (select 1 from internal.next_alerts(50) n
                       where o.idempotency_key = 'alarm:t324:stale'),
   'an expired alarm is never offered for sending');
 
+-- The pending index stops at expired rows too, or every sweep and selection
+-- walks past each one ever dropped.
+select is(pg_get_indexdef('public.notification_outbox_pending_idx'::regclass),
+  'CREATE INDEX notification_outbox_pending_idx ON public.notification_outbox '
+  'USING btree (created_at) WHERE ((delivered_at IS NULL) AND (expired_at IS NULL))',
+  'the pending index leaves expired rows out');
+
+-- ------------------------------------------------------------------ pg_net
+--
+-- `extensions.net.http_post` parses as database.schema.function and fails with
+-- "cross-database references are not implemented" on every call. pg_net's
+-- functions and its response table live in schema `net` (0252 calls it so).
+select ok((select prosrc !~ 'extensions\.net' and prosrc ~ '[^.\w]net\.http_post\('
+             from pg_proc where oid = 'internal.deliver_owned_alerts(int)'::regprocedure),
+  'deliver_owned_alerts calls pg_net by its own schema');
+select ok((select prosrc !~ 'extensions\.net' and prosrc ~ '[^.\w]net\._http_response\M'
+             from pg_proc where oid = 'internal.reconcile_owned_alerts()'::regprocedure),
+  'reconcile_owned_alerts reads pg_net''s responses by its own schema');
+
 -- ------------------------------------------------------------------- grants
 
 select ok(not has_function_privilege('authenticated', 'internal.next_alerts(int)', 'execute')
       and not has_function_privilege('authenticated', 'internal.expire_stale_alerts()', 'execute')
-      and not has_function_privilege('authenticated', 'internal.deliver_owned_alerts(int)', 'execute'),
+      and not has_function_privilege('authenticated', 'internal.deliver_owned_alerts(int)', 'execute')
+      and not has_function_privilege('authenticated', 'internal.reconcile_owned_alerts()', 'execute')
+      and not has_function_privilege('authenticated', 'internal.date_legacy_reminders()', 'execute'),
   'the delivery functions are not callable by API roles');
 
 -- -------------------------------------------------------- alarm_deliveries
@@ -164,6 +186,30 @@ set local role anon;
 select throws_ok($$ select * from public.alarm_deliveries(array['00000000-0000-4000-8000-0000000324e1'::uuid]) $$,
   '42501', null, 'anon cannot call it');
 reset role;
+
+-- ------------------------------------------- reminders queued before 0324
+--
+-- 0199's rows carry no expires_at, so the sweep never touches them: once a
+-- channel is switched on they would all go out at once, days late. 0324 dates
+-- each from when it was queued.
+insert into public.notification_outbox (channel, event, idempotency_key, title, body, created_at)
+values ('t324-on', 'schedule_reminder', 'schedule_reminder:t324-old', 'old', 'x', now() - interval '3 days'),
+       ('t324-on', 'schedule_reminder', 'schedule_reminder:t324-recent', 'recent', 'x', now() - interval '1 minute');
+insert into public.notification_outbox (channel, event, idempotency_key, title, body, created_at, delivered_at)
+values ('t324-on', 'schedule_reminder', 'schedule_reminder:t324-sent', 'sent', 'x',
+        now() - interval '3 days', now() - interval '3 days');
+
+select ok(internal.date_legacy_reminders() > 0, 'reminders queued before 0324 are given an expiry');
+select is((select expires_at - created_at from public.notification_outbox
+            where idempotency_key = 'schedule_reminder:t324-old'),
+  interval '15 minutes', 'fifteen minutes after they were queued');
+select is((select expires_at is null from public.notification_outbox
+            where idempotency_key = 'schedule_reminder:t324-sent'),
+  true, 'one already delivered is left as it was');
+select ok(internal.expire_stale_alerts() > 0, 'the next sweep has something to drop');
+select is((select array_agg(idempotency_key order by idempotency_key) from public.notification_outbox
+            where idempotency_key like 'schedule_reminder:t324-%' and expired_at is not null),
+  array['schedule_reminder:t324-old'], 'the days-old one is dropped, the recent one still goes');
 
 select * from finish();
 rollback;
