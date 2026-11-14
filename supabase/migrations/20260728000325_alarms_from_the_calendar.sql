@@ -12,12 +12,15 @@
 -- The entry's identity is 'cal:<activity>:<stage>:<calendar start epoch>', so
 -- a reading that moves a time updates the entry in place and one that drops
 -- the activity deletes nothing. An update touches ONLY starts_at, ends_at and
--- updated_at, and only when a time really differs (0326 posts a "moved"
+-- updated_at, and only when a time really differs (0327 posts a "moved"
 -- notice off that change): never the title, the officer's message, the board
 -- or `hidden`. Reminders are not made here; the entry trigger of 0322 does it.
 --
--- Not a trigger, so a malformed row is skipped with a warning and the rest of
--- the run carries on.
+-- Not a trigger, so one bad row never stops the run. A row missing a time it
+-- needs, already past, or more than 14 days out is passed over silently — that
+-- is the calendar's normal state, not an error. A row that raises (a time that
+-- will not convert, a failed write) is skipped with a warning naming it, and
+-- the rest of the run carries on.
 
 create function internal.sync_calendar_alarms(p_now timestamptz default now())
 returns int

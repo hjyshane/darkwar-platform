@@ -62,7 +62,8 @@ alter table public.schedule_events
 comment on column public.schedule_events.alarm_message is
   'Replaces the board''s message template for this entry when set.';
 comment on column public.schedule_events.hidden is
-  'Kept on the board but not drawn on the calendar.';
+  'Kept on the board but not drawn on the calendar, and sends nothing: no '
+  'alarm (0323) and no moved notice (0327).';
 
 -- --------------------------------------------------------------- reminders
 
@@ -178,7 +179,9 @@ create trigger schedule_events_alarm_steps
 -- ---------------------------------------------------- the calendar boards
 
 -- Boards the collector's readings land on. Capital Clash is a moment; Black
--- Gold's sign-up and roster selection are windows that speak only at the close.
+-- Gold's sign-up and roster selection are windows with no countdown to the
+-- opening (start_reminders '{}'): they speak when they open (alarm_on_open's
+-- default) and before they close (close_reminders' default).
 create function internal.seed_calendar_boards(p_alliance uuid)
 returns int
 language plpgsql
