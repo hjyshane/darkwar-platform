@@ -464,7 +464,9 @@ Branch `feat/event-alarms-tab` from `origin/main` after PR 1 merges.
   `alarm_deliveries`), `useGameEventsForServer(serverId: number)` (`event_schedule_current`),
   mutations `useSaveEntryAlarms()` (message + `reminderDiff`), `useSendOnce()` (`send_at` = now or
   chosen), `useHideEntry()` (captured → `hidden = true`; manual → delete), `useSaveBoard()`,
-  `useWatchGameEvent()` (window board with `activity_id`, `start_reminders: []`).
+  `useWatchGameEvent()` (window board with `activity_id`, `start_reminders: []`),
+  `useUnplacedPicks()` (`alliance_event_times` rows with `alliance_id is null` captured in the last
+  14 days — the picks 0249 could not put on any board; members can read that table).
 
 - [ ] **Step 1: Write the failing tests** in `alarmLogic.test.ts`:
 
