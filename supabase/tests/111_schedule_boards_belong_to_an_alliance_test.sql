@@ -41,6 +41,8 @@ select throws_ok(
 insert into public.schedule_events (schedule_event_id, title, starts_at, category, alliance_id)
 values ('00000000-0000-4000-8000-0000000bb301', 'sb bravo rally', now() + interval '1 hour',
         'sb-war', '00000000-0000-4000-8000-0000000bb002');
+-- 0322 copies a board's steps onto every new entry; this test places its own.
+delete from public.schedule_reminders where schedule_event_id = '00000000-0000-4000-8000-0000000bb301';
 insert into public.schedule_reminders (schedule_event_id, minutes_before)
 values ('00000000-0000-4000-8000-0000000bb301', 30);
 select is(

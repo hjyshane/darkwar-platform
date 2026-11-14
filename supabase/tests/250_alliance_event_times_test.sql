@@ -71,9 +71,12 @@ select is((select count(*)::int from public.schedule_categories
             where alliance_id = '00000000-0000-4000-8000-0000000a1a01'
               and category in ('game_zombie_siege', 'game_bio_mutant') and channel is null),
   2, 'each event gets a board of its own, with no Discord channel');
-select is((select count(*)::int from public.schedule_reminders r
-            join public.schedule_events e using (schedule_event_id) where e.source = 'captured'),
-  0, 'and no reminder: that stays a decision for an officer');
+-- Since 0322 a board's default steps are copied onto the entry, so reminders
+-- exist; what stays an officer's decision is a room to say them in.
+select is((select count(*)::int from public.schedule_reminders_due d
+            join public.schedule_events e using (schedule_event_id)
+            where e.source = 'captured' and d.channel is not null),
+  0, 'and no reminder reaches Discord: that stays a decision for an officer');
 
 -- The same pick seen again, a little later: still one entry.
 select pg_temp.put('et:siege:1b', 'zombie_siege', 1, pg_temp.d(1), null, null,
