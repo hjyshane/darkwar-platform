@@ -131,12 +131,14 @@ alter table public.schedule_categories enable trigger channel_is_ours;
 insert into public.schedule_events (schedule_event_id, title, starts_at, category, alliance_id)
 values ('00000000-0000-4000-8000-0000000b7301', 'dc bravo rally', now() + interval '1 minute',
         'dc-legacy', '00000000-0000-4000-8000-0000000b7002');
+-- 0322 copies a board's steps onto every new entry; this test places its own.
+delete from public.schedule_reminders where schedule_event_id = '00000000-0000-4000-8000-0000000b7301';
 insert into public.schedule_reminders (schedule_event_id, minutes_before)
 values ('00000000-0000-4000-8000-0000000b7301', 1);
 select internal.detect_schedule_reminders();
 select is(
   (select channel from public.notification_outbox
-    where idempotency_key like 'schedule_reminder:%' and title = 'dc bravo rally'),
+    where idempotency_key like 'alarm:00000000-0000-4000-8000-0000000b7301:%'),
   'dc-b-news', 'a reminder never follows a board into another alliance''s room');
 
 -- 15. A sign-up is announced to the alliance it asked for — and a malformed
