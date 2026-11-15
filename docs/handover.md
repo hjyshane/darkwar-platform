@@ -11,8 +11,15 @@
 ## 2. 사람 몫 / 막힌 것
 
 - **프로덕션 `db push` 안 됨 (11-14 읽음, 확인함).** 프로덕션의 최신 적용 마이그레이션은 0320. 대기 중: 0321(지도 아틀라스, 다른 PR)과 0322–0327(이벤트 알람, PR #596 머지됨). 실행은 주인이: `supabase db push --linked --workdir C:\darkwar-platform` (푸시 전 `scripts/check-migration-order.sh`). **알람 대시보드 PR(`feat/event-alarms-tab`)은 이 푸시 뒤에만 머지한다** — 머지하면 cbfw.us가 배포되고 탭이 새 컬럼을 읽는다.
-  - 푸시 뒤 확인 4가지: (1) `cron.job_run_details`에서 `alerts-detect`·`alerts-reconcile` 성공(전에는 매번 실패였다), (2) `has_function_privilege('anon','public.alarm_deliveries(uuid[])','execute')`가 false, (3) 각 자기 연맹에 달력 보드 셋(`game_capital_clash`, `game_black_gold_signup`, `game_black_gold_roster`), (4) `cron.job`에 `alarms-calendar`.
+  - 푸시 뒤 확인 4가지: (1) `cron.job_run_details`에서 `alerts-detect`·`alerts-reconcile` 성공(11-14에 읽은 최근 24시간은 매 실행 실패였다; 그 이전은 안 봄), (2) `has_function_privilege('anon','public.alarm_deliveries(uuid[])','execute')`가 false, (3) 각 자기 연맹에 달력 보드 셋(`game_capital_clash`, `game_black_gold_signup`, `game_black_gold_roster`), (4) `cron.job`에 `alarms-calendar`.
   - **푸시 직후부터 알람이 각 연맹의 알림 채널로 나가기 시작한다 — 탭이 생기기 전에.** 보드에 `ping_role_id`를 넣기 전까지 역할 멘션은 없다.
+- **PR 2 머지·배포 뒤 확인 6가지 (미실시).** 탭 쿼리는 실 DB로 돌린 적이 없다(§3).
+  1. 간부와 멤버 각각으로 `#/alarms`가 400 없이 열린다(시각 `.or()` 필터, 항목에 붙은 reminders).
+  2. 나간 단계가 있는 항목에 대해 간부로 부른 `alarm_deliveries`가 행을 돌려준다.
+  3. 칩 하나 끄고 Save → `schedule_reminders.enabled`가 바뀐다(`db query --linked`로 본다).
+  4. Send now → `once:` outbox 행이 생기고, Refresh 뒤 칩이 sent.
+  5. 보드 저장이 `channel_is_ours`를 통과한다. 게임 이벤트 감시가 맞는 연맹에 보드를 넣는다.
+  6. 숨긴 게임 항목이 다음 `alarms-calendar` 실행 뒤에도 숨겨져 있다.
 - **알람 실제 시험 (Task 10 Step 3, 주인 몫, 미실시).** 시험용 역할(한 명만 보유)과 시험용 채널을 Zombie Siege 보드에 걸고, 다음 Siege나 Frankie에서 12시간/1시간/5분 알림이 오는지, 폰에 역할 푸시가 오는지, 두 시간대에서 시각이 맞는지 본다. 멘션은 보이는데 푸시가 안 오면 역할의 "Allow anyone to @mention this role"을 켠다.
 - **수집기 재시작 — 미확인.** Windows는 11-08에 edaae1b로 올렸다. 그 뒤 #582(아이폰 체인이 서버를 따라감) 등이 머지됐다. 반영하려면 `git pull`만으로는 안 된다(editable install) — `collector-operations.md` 레시피. **재시작 전에 `git -C C:\darkwar-platform branch --show-current`가 `main`인지 본다**(다른 세션이 체크아웃을 바꾼 적 있음).
 - **맥**: `git pull` + `install-iphone-agent.sh`(체인이 옛 체인을 먼저 죽임, #551).
