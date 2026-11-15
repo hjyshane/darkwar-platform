@@ -7,12 +7,14 @@ import {
   boardDefaultSteps,
   checkEntry,
   chipFor,
+  chipText,
   entrySource,
   nothingWillBeSent,
   orderSteps,
   pingRole,
   previewMessage,
   reminderDiff,
+  silenceReason,
   stepKey,
   stepMinutes,
   wholeSecond,
@@ -22,6 +24,8 @@ const MIN = 60_000;
 const HOUR = 60 * MIN;
 const DAY = 24 * HOUR;
 const NOW = new Date('2026-11-20T12:00:00Z');
+// Relative steps read the same in every zone; only a one-off's time differs.
+const ZONE = 'UTC';
 const iso = (ms: number) => new Date(ms).toISOString();
 // The event started half an hour ago, so its 1 h alarm went out 90 minutes ago.
 const START = iso(NOW.getTime() - 30 * MIN);
@@ -78,28 +82,28 @@ const board = (patch: Partial<AlarmBoard>): AlarmBoard => ({
 
 describe('chipFor', () => {
   test('a sent step stays sent when the time moved by under 2 minutes', () => {
-    expect(chipFor(step60, entryMovedBy(90_000), [delivered('start:60', START)], NOW).state).toBe(
-      'sent',
-    );
+    expect(
+      chipFor(step60, entryMovedBy(90_000), [delivered('start:60', START)], NOW, ZONE).state,
+    ).toBe('sent');
   });
 
   test('a step whose time moved by hours is pending again', () => {
-    expect(chipFor(step60, entryMovedBy(3 * HOUR), [delivered('start:60', START)], NOW).state).toBe(
-      'pending',
-    );
+    expect(
+      chipFor(step60, entryMovedBy(3 * HOUR), [delivered('start:60', START)], NOW, ZONE).state,
+    ).toBe('pending');
   });
 
   test('a past, unsent step reads as skipped; a turned-off one as off', () => {
-    expect(chipFor(step720, entryIn(30 * MIN), [], NOW)).toEqual({
+    expect(chipFor(step720, entryIn(30 * MIN), [], NOW, ZONE)).toEqual({
       label: '12h',
       state: 'skipped',
     });
-    expect(chipFor({ ...step60, enabled: false }, entryIn(DAY), [], NOW).state).toBe('off');
+    expect(chipFor({ ...step60, enabled: false }, entryIn(DAY), [], NOW, ZONE).state).toBe('off');
   });
 
   test('a step inside the 15-minute grace is still pending', () => {
     // 5 m before a start 2 minutes ago: due 7 minutes ago, the detector still takes it.
-    expect(chipFor(s5, entryIn(-2 * MIN), [], NOW).state).toBe('pending');
+    expect(chipFor(s5, entryIn(-2 * MIN), [], NOW, ZONE).state).toBe('pending');
   });
 
   test('a delivery the database dropped as too late reads as skipped', () => {
@@ -109,31 +113,40 @@ describe('chipFor', () => {
       deliveredAt: null,
       expiredAt: iso(NOW.getTime()),
     };
-    expect(chipFor(s5, entryIn(-2 * MIN), [expired], NOW).state).toBe('skipped');
+    expect(chipFor(s5, entryIn(-2 * MIN), [expired], NOW, ZONE).state).toBe('skipped');
   });
 
   test('a one-off is sent once, whatever happened to the entry since', () => {
     const sendAt = iso(NOW.getTime() - 10 * MIN);
     const once = onceStep(sendAt, 'r-once');
     expect(
-      chipFor(once, entryMovedBy(3 * HOUR), [delivered(stepKey(once), START)], NOW).state,
+      chipFor(once, entryMovedBy(3 * HOUR), [delivered(stepKey(once), START)], NOW, ZONE).state,
     ).toBe('sent');
   });
 
   test('a close step on an entry with no end can never fire', () => {
-    expect(chipFor(endStep(60), entryIn(DAY), [], NOW).state).toBe('skipped');
+    expect(chipFor(endStep(60), entryIn(DAY), [], NOW, ZONE).state).toBe('skipped');
   });
 
   test('labels: steps, open, close and a one-off in the reader zone', () => {
     const window = { startsAt: iso(NOW.getTime() + DAY), endsAt: iso(NOW.getTime() + 2 * DAY) };
-    expect(chipFor(s5, window, [], NOW).label).toBe('5m');
-    expect(chipFor(startStep(90), window, [], NOW).label).toBe('1h30m');
-    expect(chipFor(startStep(0), window, [], NOW).label).toBe('open');
-    expect(chipFor(endStep(60), window, [], NOW).label).toBe('close 1h');
-    expect(chipFor(endStep(0), window, [], NOW).label).toBe('close');
+    expect(chipFor(s5, window, [], NOW, ZONE).label).toBe('5m');
+    expect(chipFor(startStep(90), window, [], NOW, ZONE).label).toBe('1h30m');
+    expect(chipFor(startStep(0), window, [], NOW, ZONE).label).toBe('open');
+    expect(chipFor(endStep(60), window, [], NOW, ZONE).label).toBe('close 1h');
+    expect(chipFor(endStep(0), window, [], NOW, ZONE).label).toBe('close');
     expect(chipFor(onceStep('2026-11-20T12:00:00.000Z'), window, [], NOW, 'Asia/Seoul').label).toBe(
       'Nov 20 21:00',
     );
+  });
+});
+
+describe('chipText', () => {
+  test('says what happened to each step, as the spec words it', () => {
+    expect(chipText({ label: '12h', state: 'sent' })).toBe('12h ✓ sent');
+    expect(chipText({ label: '1h', state: 'pending' })).toBe('1h · pending');
+    expect(chipText({ label: '5m', state: 'off' })).toBe('5m · off');
+    expect(chipText({ label: '12h', state: 'skipped' })).toBe('12h — skipped (too late)');
   });
 });
 
@@ -225,6 +238,14 @@ describe('board defaults', () => {
       insert: [startStep(720), startStep(5)],
       remove: ['r-30'],
     });
+  });
+});
+
+describe('silenceReason', () => {
+  test('names the switched-off channel, or the missing one', () => {
+    expect(silenceReason('old-alarms')).toMatch(/^#old-alarms is switched off/);
+    expect(silenceReason(null)).toMatch(/^this board has no channel/);
+    expect(silenceReason('')).toMatch(/^this board has no channel/);
   });
 });
 

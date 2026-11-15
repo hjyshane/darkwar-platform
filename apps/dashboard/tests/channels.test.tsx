@@ -1,4 +1,4 @@
-// The channel list every post editor and the schedule's boards read.
+// The channel list every post editor and the alarm boards read.
 //
 // The bug these pin: the query asked for `enabled` and then ignored it, so a
 // switched-off channel was offered in all three pickers. Picking one produced a

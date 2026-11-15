@@ -153,6 +153,7 @@ const ICONS: Partial<Record<Route, IconName>> = {
   blackMoney: 'blackGold',
   events: 'blackGold',
   participation: 'participation',
+  alarms: 'calendar',
   frankie: 'participation',
   capitalClash: 'participation',
   serverClash: 'participation',
@@ -435,7 +436,7 @@ const OTHER_LABELS: Partial<Record<Route, string>> = {
   alliance: 'Alliance',
   guide: 'Guide',
   notice: 'Notice',
-  schedule: 'Schedule',
+  alarms: 'Alarms',
   // Archived 2026-11-12: no entry, but its address still opens it.
   planner: 'Planner',
   admin: 'Settings',

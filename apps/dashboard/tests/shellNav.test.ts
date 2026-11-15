@@ -88,7 +88,7 @@ describe('buildNav', () => {
     expect(sub(base({ isAdmin: true }))).toContain('Season 2');
   });
 
-  it('gathers Black Gold, Frankie, the clashes, Participation and the seasons under Events', () => {
+  it('gathers Black Gold, Frankie, the clashes, Participation, Alarms and the seasons under Events', () => {
     const alliance = buildNav(base({ isAdmin: true })).find((group) => group.id === 'alliance');
     expect(eventsOf(base({ isAdmin: true }))?.tabs?.map((tab) => tab.href)).toEqual([
       '#/black-gold',
@@ -96,6 +96,7 @@ describe('buildNav', () => {
       '#/capital-clash',
       '#/server-clash',
       '#/participation',
+      '#/alarms',
       '#/season',
       '#/season2',
     ]);

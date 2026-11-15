@@ -8,7 +8,7 @@ import { supabase } from './supabase';
  * list — and an empty list here is a dropdown that cannot be filled in, with a
  * foreign key waiting to reject whatever gets typed instead.
  *
- * Shared by three editors now — the schedule's boards, notices and guides —
+ * Shared by three editors now — the alarm boards, notices and guides —
  * which is why it moved out of the schedule feature. One query key, so opening
  * two of those screens in a session asks once.
  *
@@ -23,7 +23,7 @@ import { supabase } from './supabase';
  *
  * Turning a channel OFF does not blank the posts already routed to it. Every
  * editor keeps a name the row carries but this list does not have — the
- * checkboxes in `ChannelField`, the extra `<option>` in the schedule's boards —
+ * checkboxes in `ChannelField`, the extra `<option>` in the alarm boards —
  * so the routing survives an unrelated edit and comes back when the channel is
  * switched on again.
  */

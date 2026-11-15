@@ -5,6 +5,7 @@ import {
   ADMIN_GROUPS,
   ALLIANCE_TABS,
   BOARD_TABS,
+  EVENTS_HUB_TABS,
   EVENT_TABS,
   NAV_TABS,
   OVERVIEW_TABS,
@@ -12,6 +13,7 @@ import {
   adminGroupFromHash,
   adminHash,
   adminSectionFromHash,
+  inEventsHub,
   isRankingRoute,
   isStandaloneRoute,
   navSection,
@@ -254,7 +256,9 @@ test('did not move any address', () => {
     '#/black-gold': 'blackMoney',
     // The first address, kept as an alias for links sent before the rename.
     '#/black-money': 'blackMoney',
-    '#/schedule': 'schedule',
+    // The archived Schedule screen's address opens the Alarms tab that
+    // replaced it, so a bookmark lands somewhere useful.
+    '#/schedule': 'alarms',
     '#/notices': 'notices',
     '#/guides': 'guides',
     '#/map': 'map',
@@ -262,6 +266,20 @@ test('did not move any address', () => {
   for (const [hash, route] of Object.entries(expected)) {
     expect(routeFromHash(hash)).toBe(route);
   }
+});
+
+test('opens the Alarms tab under Events, after Participation', () => {
+  expect(routeFromHash('#/alarms')).toBe('alarms');
+  expect(routeFromHash('#/schedule')).toBe('alarms');
+  expect(inEventsHub('alarms')).toBe(true);
+  expect(navSection('alarms')).toBe('alliance');
+  const routes = EVENTS_HUB_TABS.map((tab) => tab.route);
+  expect(routes.indexOf('alarms')).toBe(routes.indexOf('participation') + 1);
+  expect(EVENTS_HUB_TABS.find((tab) => tab.route === 'alarms')).toEqual({
+    route: 'alarms',
+    hash: '#/alarms',
+    label: 'Alarms',
+  });
 });
 
 test('keeps a single notice or guide under Boards', () => {

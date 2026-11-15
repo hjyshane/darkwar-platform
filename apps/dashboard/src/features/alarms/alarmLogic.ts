@@ -1,4 +1,4 @@
-import { SERVER_ZONE, toInputValue, zonedTime } from '../../lib/timezone';
+import { toInputValue, zonedTime } from '../../lib/timezone';
 
 /** The Alarms tab's rules, with no database in sight (spec §1, §4, §8).
  *
@@ -73,6 +73,10 @@ export const PING_ROLE_ID = /^[0-9]{17,20}$/;
 /** 0322's bounds on a step: up to two weeks before. */
 export const MAX_MINUTES_BEFORE = 20_160;
 
+/** The message box's limit: Discord takes 4,096 in an embed description and
+ *  0323 adds the time line after the message, so this leaves it room (§4). */
+export const MESSAGE_MAX = 3_900;
+
 const MINUTE_MS = 60_000;
 /** A move under this is calendar jitter: the sent alarm still counts (0323). */
 const SAME_TIME_MS = 2 * MINUTE_MS;
@@ -115,13 +119,15 @@ function duration(minutes: number): string {
   return `${minutes}m`;
 }
 
-function shortDate(iso: string, zone: string): string {
+/** `Nov 20 21:00` in the zone. */
+export function shortDate(iso: string, zone: string): string {
   const day = new Intl.DateTimeFormat('en-US', { timeZone: zone, month: 'short', day: 'numeric' });
   return `${day.format(new Date(iso))} ${zonedTime(iso, zone)}`;
 }
 
-/** `12h`, `5m`, `open`, `close 1h`, or a one-off's time in the reader's zone. */
-export function stepLabel(step: AlarmStep, zone: string = SERVER_ZONE): string {
+/** `12h`, `5m`, `open`, `close 1h`, or a one-off's time in the reader's zone.
+ *  The zone is required: a one-off read in somebody else's clock is wrong. */
+export function stepLabel(step: AlarmStep, zone: string): string {
   if (step.sendAt !== null) {
     return shortDate(step.sendAt, zone);
   }
@@ -158,7 +164,7 @@ export function chipFor(
   entry: EntryTimes,
   deliveries: readonly Delivery[],
   now: Date,
-  zone: string = SERVER_ZONE,
+  zone: string,
 ): Chip {
   const label = stepLabel(step, zone);
   if (!step.enabled) {
@@ -184,6 +190,18 @@ export function chipFor(
     return { label, state: 'skipped' };
   }
   return { label, state: 'pending' };
+}
+
+const CHIP_TEXT: Record<ChipState, string> = {
+  sent: '✓ sent',
+  pending: '· pending',
+  off: '· off',
+  skipped: '— skipped (too late)',
+};
+
+/** `12h ✓ sent`, `1h · pending`, `5m · off`, `12h — skipped (too late)`. */
+export function chipText(chip: Chip): string {
+  return `${chip.label} ${CHIP_TEXT[chip.state]}`;
 }
 
 /** How to turn the rows there are into the rows wanted, matched by `stepKey`.
@@ -338,6 +356,13 @@ export function nothingWillBeSent(
     channel !== '' &&
     enabledChannels.includes(channel)
   );
+}
+
+/** Why `nothingWillBeSent` said so, for the warning beside the board. */
+export function silenceReason(boardChannel: string | null): string {
+  return boardChannel === null || boardChannel === ''
+    ? "this board has no channel, and the alliance's reminder channel is off or switched off. Pick a channel for the board."
+    : `#${boardChannel} is switched off or gone, and a board with a channel never falls back. Pick another.`;
 }
 
 /** Board steps as 0322's checks accept them: whole minutes up to two weeks,
