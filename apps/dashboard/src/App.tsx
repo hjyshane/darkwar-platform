@@ -10,6 +10,7 @@ import { ThemeToggle } from './components/ThemeToggle';
 import { AppShell } from './components/shell/AppShell';
 import { AccountPage } from './features/account/AccountPage';
 import { AdminPage } from './features/admin/AdminPage';
+import { AlarmsPage } from './features/alarms/AlarmsPage';
 import { AlliancePage } from './features/alliance/AlliancePage';
 import { ArenaPanel } from './features/arena/ArenaPanel';
 import { LoginPage } from './features/auth/LoginPage';
@@ -38,7 +39,6 @@ import { PlannerPage } from './features/planner/PlannerPage';
 import { PlayerPage } from './features/player/PlayerPage';
 import { RankingsPanel } from './features/rankings/RankingsPanel';
 import { RosterPanel } from './features/roster/RosterPanel';
-import { SchedulePanel } from './features/schedule/SchedulePanel';
 import { Season2Panel } from './features/season/Season2Panel';
 import { SeasonPanel } from './features/season/SeasonPanel';
 import { ServerPage } from './features/server/ServerPage';
@@ -352,6 +352,11 @@ function Screen({
       // member-only at the policy level (0204's report is security invoker),
       // and recording is gated inside the page on `data.enter`.
       return <ParticipationPage />;
+    case 'alarms':
+      // No capability gate: the entries and boards are `schedule.view` at the
+      // policy level (0124, 0194), and the controls inside are offered on
+      // `schedule.manage`, which RLS enforces again on every write.
+      return <AlarmsPage />;
     case 'frankie':
       // No capability gate: the board and the report are member-only at the
       // policy level (0277), like Participation's.
@@ -577,10 +582,6 @@ function Shell({
     <GuidePostPage guideId={guideId} />
   ) : route === 'notices' ? (
     <NoticesPanel />
-  ) : route === 'schedule' ? (
-    <main>
-      <SchedulePanel />
-    </main>
   ) : route === 'notice' && noticeId !== null ? (
     <NoticePostPage noticeId={noticeId} />
   ) : route === 'server' && serverId !== null ? (

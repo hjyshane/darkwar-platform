@@ -13,12 +13,19 @@
 
 import { recentWeeks } from '../features/admin/ManualScoresSetting';
 import type { AppUser, Waiting } from '../features/admin/MembersSetting';
+import {
+  type AlarmBoard,
+  type AlarmEntry,
+  type AlarmStep,
+  type Delivery,
+  stepKey,
+  wholeSecond,
+} from '../features/alarms/alarmLogic';
 import type { BoardPage } from '../features/board/board';
 import { vacateDeparted } from '../features/hive/hiveFormations';
 import { parseAtlas } from '../features/map/atlas';
 import { gameDate, seasonPeriod } from '../features/participation/periods';
 import { SEASON3_BUILDINGS, levelKey } from '../features/season/buildings';
-import { calendarRange } from '../lib/calendar';
 
 const PLAYER = {
   shane: '11111111-1111-4111-8111-111111111101',
@@ -533,25 +540,158 @@ function atlasFixture() {
   return parseAtlas({ alliances, bases });
 }
 
-/** The week the calendar opens on, and its query key.
+/** The Alarms tab (spec 2026-11-14 §8): one entry of each source, both board
+ * kinds, and deliveries that put every chip state on screen.
  *
- * Derived with the same function the screen uses rather than copied: the key
- * holds the window's ISO bounds, so anything hand-written stops matching the
- * moment the week turns over — and a missed key renders as an empty calendar
- * rather than as an error.
- */
-const SCHEDULE_RANGE = calendarRange('week', new Date());
-const SCHEDULE_DAYS = SCHEDULE_RANGE.days.map((day) => day.toISOString().slice(0, 10));
-// The hook widens the window by a day at each end, because the grid's cells are
-// days in the READER'S zone while this range is in UTC. The key has to be built
-// the same way or the fixture matches nothing and the screen draws an empty
-// calendar — which looks exactly like a week with nothing on it.
-const SCHEDULE_DAY_MS = 86_400_000;
-const SCHEDULE_KEY = [
-  'schedule',
-  'events',
-  new Date(SCHEDULE_RANGE.start.getTime() - SCHEDULE_DAY_MS).toISOString(),
-  new Date(SCHEDULE_RANGE.end.getTime() + SCHEDULE_DAY_MS).toISOString(),
+ * EVERY TIME IS RELATIVE TO NOW. The chips are computed against the clock, so
+ * a hand-typed date would read "skipped" the day after it was typed, and the
+ * deliveries key carries the entry ids, so it is derived from them too. */
+const HOUR_MS = 3_600_000;
+const inHours = (hours: number) => new Date(NOW + hours * HOUR_MS).toISOString();
+const alarmStep = (anchor: 'start' | 'end', minutesBefore: number, enabled = true): AlarmStep => ({
+  reminderId: `r-${anchor}-${minutesBefore}`,
+  anchor,
+  minutesBefore,
+  sendAt: null,
+  enabled,
+});
+const ALARM_ONE_OFF: AlarmStep = {
+  reminderId: 'r-once',
+  anchor: 'start',
+  minutesBefore: null,
+  sendAt: wholeSecond(new Date(NOW - 2 * HOUR_MS)),
+  enabled: true,
+};
+const ALARM_BOARD_DEFAULTS = {
+  startReminders: [720, 60, 5],
+  closeReminders: [720, 60, 5],
+  alarmOnOpen: true,
+  messageTemplate: null,
+  activityId: null,
+  activityStage: 'main',
+};
+const ALARM_BOARDS: AlarmBoard[] = [
+  {
+    ...ALARM_BOARD_DEFAULTS,
+    category: 'game_capital_clash',
+    label: 'Capital Clash',
+    kind: 'point',
+    channel: 'alarm',
+    pingRoleId: '123456789012345678',
+    messageTemplate: 'Capital Clash {in}. Teleport to the capital before {start}.',
+    activityId: '111001',
+    sortOrder: 10,
+  },
+  {
+    ...ALARM_BOARD_DEFAULTS,
+    category: 'game_zombie_siege',
+    label: 'Zombie Siege',
+    kind: 'point',
+    channel: null,
+    pingRoleId: null,
+    sortOrder: 20,
+  },
+  // A board on a channel that is no longer switched on: the warning case.
+  {
+    ...ALARM_BOARD_DEFAULTS,
+    category: 'server_clash',
+    label: 'Server Clash',
+    kind: 'point',
+    channel: 'old-alarms',
+    pingRoleId: null,
+    sortOrder: 30,
+  },
+  {
+    ...ALARM_BOARD_DEFAULTS,
+    category: 'game_black_gold_signup',
+    label: 'Black Gold sign-up',
+    kind: 'window',
+    channel: 'alarm',
+    pingRoleId: '123456789012345678',
+    startReminders: [],
+    activityId: '80002',
+    activityStage: 'signup',
+    sortOrder: 40,
+  },
+];
+const ALARM_ENTRIES: AlarmEntry[] = [
+  {
+    // Open since yesterday: its opening alarm went out, its close steps wait.
+    id: 'ev-black-gold-signup',
+    title: 'Black Gold · Sign-up',
+    category: 'game_black_gold_signup',
+    startsAt: inHours(-20),
+    endsAt: inHours(28),
+    source: 'captured',
+    sourceKey: 'cal:80002:signup:1',
+    alarmMessage: null,
+    steps: [
+      alarmStep('start', 0),
+      alarmStep('end', 720),
+      alarmStep('end', 60),
+      alarmStep('end', 5),
+    ],
+  },
+  {
+    // The alliance's pick, three hours out: 12 h sent, 1 h pending, 5 m off,
+    // and a one-off an officer sent two hours ago.
+    id: 'ev-zombie-siege',
+    title: 'Zombie Siege',
+    category: 'game_zombie_siege',
+    startsAt: inHours(3),
+    endsAt: inHours(3.5),
+    source: 'captured',
+    sourceKey: 'pick:zombie_siege:1',
+    alarmMessage: 'Shields up before {start} — it starts {in}.',
+    steps: [
+      alarmStep('start', 720),
+      alarmStep('start', 60),
+      alarmStep('start', 5, false),
+      ALARM_ONE_OFF,
+    ],
+  },
+  {
+    // Typed in by hand six hours out, after its 12 h alarm was due: skipped.
+    id: 'ev-server-clash',
+    title: 'Server Clash vs 584',
+    category: 'server_clash',
+    startsAt: inHours(6),
+    endsAt: null,
+    source: 'manual',
+    sourceKey: null,
+    alarmMessage: null,
+    steps: [alarmStep('start', 720), alarmStep('start', 60), alarmStep('start', 5)],
+  },
+  {
+    id: 'ev-capital-clash',
+    title: 'Capital Clash',
+    category: 'game_capital_clash',
+    startsAt: inHours(50),
+    endsAt: inHours(53),
+    source: 'captured',
+    sourceKey: 'cal:111001:main:1',
+    alarmMessage: null,
+    steps: [alarmStep('start', 720), alarmStep('start', 60), alarmStep('start', 5)],
+  },
+];
+const ALARM_DELIVERIES: Record<string, Delivery[]> = {
+  'ev-black-gold-signup': [
+    { alarmStep: 'start:0', anchorAt: inHours(-20), deliveredAt: inHours(-20), expiredAt: null },
+  ],
+  'ev-zombie-siege': [
+    { alarmStep: 'start:720', anchorAt: inHours(3), deliveredAt: inHours(-9), expiredAt: null },
+    {
+      alarmStep: stepKey(ALARM_ONE_OFF),
+      anchorAt: inHours(3),
+      deliveredAt: inHours(-2),
+      expiredAt: null,
+    },
+  ],
+};
+const ALARM_DELIVERIES_KEY = [
+  'alarms',
+  'deliveries',
+  ALARM_ENTRIES.map((entry) => entry.id).sort(),
 ];
 
 /** Held as a stable reference so main.tsx can tell "still the fixture" from
@@ -817,9 +957,17 @@ const ATTENDANCE_KINDS = [
   { kind: 'furnace_fury', label: 'Furnace Fury', sort_order: 50, captured: true, board: 'season' },
 ];
 
+/** `index.dev.html?role=member` (or `officer`, `viewer`) draws the app as that
+ *  role, so a screen's read-only face can be looked at too. Admin otherwise.
+ *  The grants below decide what each role holds, as they do in the app. */
+function devRole(): string {
+  const asked = new URLSearchParams(globalThis.location?.search ?? '').get('role');
+  return asked === 'officer' || asked === 'member' || asked === 'viewer' ? asked : 'admin';
+}
+
 export const SESSION = {
   email: 'you@example.invalid',
-  role: 'admin',
+  role: devRole(),
   userId: '33333333-3333-4333-8333-333333333301',
   // The linked character. Without it the hive board cannot say which tile is
   // yours, which is the one line that screen exists to print — an unlinked
@@ -1890,63 +2038,31 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
   [['map', 'stations'], new Map<number, { x: number; y: number }>()],
   [['map', 'missions', MAP_SERVER_ID], huntMissionsFixture()],
 
-  // Schedule (0124). THE KEY IS COMPUTED, not written out, because the
-  // calendar's query key carries the window it is looking at and that window
-  // moves with the clock. A hand-typed key was right on the day it was typed
-  // and matched nothing afterwards — the screen then renders its empty state,
-  // which looks exactly like a calendar with nothing on it.
+  // Alarms (spec 2026-11-14 §8). The entries and deliveries are built above,
+  // relative to now; the deliveries key is derived from the entry ids.
+  [['alarms', 'entries'], ALARM_ENTRIES],
+  [['alarms', 'boards'], ALARM_BOARDS],
+  [ALARM_DELIVERIES_KEY, ALARM_DELIVERIES],
+  [['alarms', 'reminder-routing'], { enabled: true, channel: 'alarm' }],
+  // Keyed by the alliance's server; null here, as this build has no alliance
+  // list to name one (no `my-alliances` fixture), which asks for every server.
   [
-    SCHEDULE_KEY,
+    ['alarms', 'unplaced-picks', null],
     [
       {
-        schedule_event_id: 'ev-bear',
-        title: 'Bear hunt',
-        body: 'Rally at the south gate. Bring stamina.',
-        category: 'bear',
-        starts_at: `${SCHEDULE_DAYS[2]}T20:00:00+00:00`,
-        ends_at: null,
-        source: 'manual',
-        schedule_reminders: [{ reminder_id: 'r1', minutes_before: 30 }],
-      },
-      {
-        schedule_event_id: 'ev-duel',
-        title: 'Alliance duel',
-        body: null,
-        category: 'duel',
-        starts_at: `${SCHEDULE_DAYS[0]}T02:00:00+00:00`,
-        ends_at: `${SCHEDULE_DAYS[4]}T02:00:00+00:00`,
-        source: 'manual',
-        schedule_reminders: [],
-      },
-      {
-        schedule_event_id: 'ev-reset',
-        title: 'Weekly reset',
-        body: null,
-        category: null,
-        starts_at: `${SCHEDULE_DAYS[0]}T02:00:00+00:00`,
-        ends_at: null,
-        source: 'manual',
-        schedule_reminders: [{ reminder_id: 'r2', minutes_before: 1440 }],
+        id: 'pick-unplaced-1',
+        eventKey: 'bio_mutant',
+        slot: 2,
+        startsAt: inHours(20),
+        endsAt: inHours(20.75),
+        capturedAt: ago(90),
+        serverId: MAP_SERVER_ID,
       },
     ],
   ],
-  [
-    ['schedule', 'channels'],
-    ['alarm', 'general'],
-  ],
-  [
-    ['schedule', 'categories'],
-    [
-      { category: 'bear', label: 'Bear hunt', colour: '#c2410c', channel: 'alarm', sort_order: 10 },
-      {
-        category: 'duel',
-        label: 'Alliance duel',
-        colour: '#1d4ed8',
-        channel: null,
-        sort_order: 20,
-      },
-    ],
-  ],
+  // The switched-on channels an officer may route to (0125). `old-alarms` is
+  // missing on purpose: the Server Clash board still points at it.
+  [['notification-channel-names'], ['alarm', 'general']],
 
   // Overview
   [

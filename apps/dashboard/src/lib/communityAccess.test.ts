@@ -35,7 +35,7 @@ describe('community role (0282)', () => {
       'guides',
       'server',
       'admin',
-      'schedule',
+      'alarms',
     ] as const) {
       expect(communityMayOpen(route)).toBe(false);
     }

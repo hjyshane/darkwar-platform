@@ -34,8 +34,8 @@ export type Route =
   | 'guide'
   | 'notices'
   | 'notice'
-  | 'schedule'
   | 'participation'
+  | 'alarms'
   | 'frankie'
   | 'capitalClash'
   | 'serverClash'
@@ -69,8 +69,11 @@ const ROUTES: Record<string, Route> = {
   '#/account': 'account',
   '#/guides': 'guides',
   '#/notices': 'notices',
-  '#/schedule': 'schedule',
   '#/participation': 'participation',
+  '#/alarms': 'alarms',
+  // The Schedule screen's address. Archived on 2026-10-03 and replaced by the
+  // Alarms tab, so a bookmark lands there rather than on Overview.
+  '#/schedule': 'alarms',
   '#/frankie': 'frankie',
   '#/capital-clash': 'capitalClash',
   '#/server-clash': 'serverClash',
@@ -443,7 +446,7 @@ export interface NavTab {
  *              plan, season boards, Black Gold and participation under it —
  *              plus the planner and gift codes beside it
  *   map        on its own: one player at a time, and nothing else is like it
- *   events     what the game offers: the calendar and the shops (Schedule archived)
+ *   events     what the game offers: the calendar and the shops
  *   boards     what the alliance writes to itself: notices and guides
  */
 export type NavSection = 'overview' | 'alliance' | 'map' | 'events' | 'boards';
@@ -454,7 +457,7 @@ export const NAV_TABS: ReadonlyArray<NavTab & { section: NavSection }> = [
   { route: 'overview', hash: '#/', label: 'Overview', section: 'overview' },
   { route: 'map', hash: '#/map', label: 'Map', section: 'map' },
   // The game's own calendar: the alliance's events moved under its own tab
-  // (2026-10-03), and the Schedule board is archived.
+  // (2026-10-03); the Schedule board became the Alarms tab under Events.
   { route: 'calendar', hash: '#/calendar', label: 'Events', section: 'events' },
   { route: 'notices', hash: '#/notices', label: 'Boards', section: 'boards' },
 ];
@@ -529,6 +532,10 @@ export const EVENTS_HUB_TABS: ReadonlyArray<NavTab> = [
   // Every member against every event, plus the ones only an officer can
   // record (0204). Member-only at the policy level, so no capability gate.
   { route: 'participation', hash: '#/participation', label: 'Participation' },
+  // Each upcoming event's Discord alarms, and what they sent (spec 2026-11-14
+  // §8). Readable with `schedule.view`; edited with `schedule.manage`, which
+  // the page checks to decide whether to offer its controls.
+  { route: 'alarms', hash: '#/alarms', label: 'Alarms' },
   { route: 'season', hash: '#/season', label: 'Season 3' },
   { route: 'season2', hash: '#/season2', label: 'Season 2' },
 ];
@@ -538,11 +545,7 @@ export function inEventsHub(route: Route): boolean {
   return route === 'events' || EVENTS_HUB_TABS.some((tab) => tab.route === route);
 }
 
-/** Events' second row: what the game itself has announced (0208).
- *
- * SCHEDULE IS ARCHIVED (2026-10-03): the game calendar replaced it. Its
- * address still opens it for anybody with `schedule.view`, so no link breaks
- * and nothing it holds is lost; it just has no tab. */
+/** Events' second row: what the game itself has announced (0208). */
 export const EVENT_TABS: ReadonlyArray<NavTab> = [
   { route: 'calendar', hash: '#/calendar', label: 'Game calendar' },
   // What each event is and what scores in it (0248): the game's own lists.
@@ -577,6 +580,7 @@ export function navSection(route: Route): NavSection | null {
     case 'season2':
     case 'blackMoney':
     case 'participation':
+    case 'alarms':
     case 'frankie':
     case 'capitalClash':
     case 'serverClash':
@@ -590,7 +594,6 @@ export function navSection(route: Route): NavSection | null {
     case 'calendar':
     case 'eventGuide':
     case 'shopValue':
-    case 'schedule':
       return 'events';
     case 'notices':
     case 'notice':

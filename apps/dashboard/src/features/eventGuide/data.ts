@@ -49,13 +49,21 @@ export interface CapturedTime {
 }
 
 /** The siege, Frankie and Black Gold times the game told the collector (0249):
- * what is coming, and what ended in the last day. */
+ * what is coming, and what ended in the last day.
+ *
+ * Not hidden ones: an officer hid them on the Alarms tab. Not the calendar's
+ * (0325 keys those `cal:`): they are `captured` too, and would push the
+ * alliance's picks out of the 30 rows. A captured row with no key at all
+ * predates keys and is a pick, so it stays.
+ */
 async function fetchCapturedTimes(): Promise<CapturedTime[]> {
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const { data, error } = await supabase
     .from('schedule_events')
     .select('schedule_event_id, title, starts_at, ends_at')
     .eq('source', 'captured')
+    .eq('hidden', false)
+    .or('source_key.is.null,source_key.not.like.cal:*')
     .gte('starts_at', since)
     .order('starts_at')
     .limit(30);

@@ -25,7 +25,7 @@ export const TABS: readonly TabChoice[] = [
   { key: 'alliance', label: 'Our alliance' },
   { key: 'members', label: 'Members' },
   { key: 'hive', label: 'Hive' },
-  { key: 'events', label: 'Events (Black Gold, Frankie, Clash, Participation)' },
+  { key: 'events', label: 'Events (Black Gold, Frankie, Clash, Participation, Alarms)' },
   { key: 'calculator', label: 'Calculator' },
   { key: 'giftCodes', label: 'Gift codes' },
   { key: 'calendar', label: 'Game calendar' },

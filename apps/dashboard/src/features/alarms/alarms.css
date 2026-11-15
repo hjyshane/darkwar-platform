@@ -1,0 +1,154 @@
+/* The Alarms tab. Tokens from index.css only; buttons, fields and the select
+ * are the console kit's and are not restyled here. Imported from AlarmsPage,
+ * never from index.css. */
+
+.alarm-toolbar {
+  flex-wrap: wrap;
+}
+
+.alarm-zone :is(select, .select-trigger) {
+  font-size: var(--text-sm);
+}
+
+.alarm-list,
+.alarm-board-list,
+.alarm-picks {
+  display: grid;
+  gap: var(--space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* One entry or one board: a bordered cell, its head on one wrapping line. */
+.alarm-entry {
+  background: var(--bg-cell);
+  border: 1px solid var(--border);
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-3);
+}
+
+.alarm-head {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+}
+
+.alarm-title {
+  font-weight: 600;
+}
+
+.alarm-when {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Where the entry came from, in the console label face. */
+.alarm-source {
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.alarm-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* A step and what became of it. The word is always printed beside the
+ * colour, so the colour only helps a reader who already sees it. */
+.alarm-chip {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  padding: var(--space-1) var(--space-2);
+  white-space: nowrap;
+}
+
+.alarm-chip-sent {
+  background: var(--ok-bg);
+  color: var(--ok-fg);
+}
+
+.alarm-chip-pending {
+  background: var(--info-bg);
+  color: var(--info-fg);
+}
+
+/* Unknown (delivery state not read yet) and no-end are not faults either. */
+.alarm-chip-off,
+.alarm-chip-skipped,
+.alarm-chip-noend,
+.alarm-chip-unknown {
+  background: var(--neutral-bg);
+  color: var(--neutral-fg);
+}
+
+button.alarm-chip {
+  cursor: pointer;
+}
+
+button.alarm-chip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* The officer's controls under an entry, and a board's editor. */
+.alarm-panel {
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+}
+
+.alarm-panel textarea {
+  font: inherit;
+  font-size: var(--text-sm);
+}
+
+.alarm-preview {
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+/* Nothing will be sent, and picks with no home: a fact to act on, not a fault. */
+.alarm-warn {
+  background: var(--warn-bg);
+  border: 1px solid var(--border);
+  color: var(--warn-fg);
+  font-size: var(--text-sm);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+}
+
+.alarm-warn h3 {
+  font-size: var(--text-sm);
+  margin: 0 0 var(--space-1);
+}
+
+.alarm-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.alarm-boards {
+  margin-top: var(--space-4);
+}
+
+.alarm-boards .alarm-toolbar h3 {
+  margin: 0;
+}
