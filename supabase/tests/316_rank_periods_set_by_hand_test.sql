@@ -93,10 +93,10 @@ select is(pg_temp.b('2026-11-20 12:00+00', null),
 
 select is(public.rank_period_reading_ends('2026-11-16 02:00+00', '2026-11-30 02:00+00'),
   public.rank_period_week_ends('2026-11-16 02:00+00'),
-  'a fortnight''s readings are the two 0309 always gave');
+  'a fortnight''s readings are the two rank_period_week_ends gives');
 select is(public.rank_period_reading_ends('2026-11-09 02:00+00', '2026-11-16 02:00+00'),
-  array['2026-11-15 14:00+00'::timestamptz],
-  'a one-week period has one reading, Sunday 14:00Z');
+  array['2026-11-16 00:00+00'::timestamptz],
+  'a one-week period has one reading, Monday 00:00Z (0328)');
 select is(cardinality(public.rank_period_reading_ends('2026-11-16 02:00+00', '2026-12-14 02:00+00')),
   4, 'a four-week period has four');
 

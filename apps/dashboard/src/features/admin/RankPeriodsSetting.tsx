@@ -21,7 +21,7 @@ import {
  * fortnights from its end afterwards, and cuts the fortnight before it short.
  *
  * Resets only, from a list, because a period boundary has to be one the game
- * performs — the weekly readings sit twelve hours before each — and a free
+ * performs — the weekly readings sit two hours before each — and a free
  * date box would accept a Tuesday. The function refuses one anyway, in words.
  */
 export function RankPeriodsSetting() {

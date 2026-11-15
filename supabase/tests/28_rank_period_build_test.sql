@@ -78,8 +78,8 @@ returns void language sql as $$
 $$;
 
 -- Period 2026-08-03T02:00Z (a grid start since 0071; 0316 refuses one that is
--- not): week ends are 2026-08-09T14:00Z and 08-16T14:00Z
--- (0309; Sunday 14:00Z, twelve hours before the Monday reset).
+-- not): week ends are 2026-08-10T00:00Z and 08-17T00:00Z
+-- (0328; Monday 00:00Z, two hours before the reset).
 select pg_temp.contribute(9100000000000001, 'weekly_donation', 1000, '2026-08-09T13:00:00Z');
 select pg_temp.contribute(9100000000000001, 'weekly_donation', 3000, '2026-08-16T13:00:00Z');
 select pg_temp.contribute(9100000000000001, 'alliance_battle_weekly', 50000, '2026-08-09T13:00:00Z');
@@ -91,7 +91,7 @@ select pg_temp.contribute(9100000000000001, 'alliance_battle_weekly', 70000, '20
 -- week two (it is before the reset).
 select pg_temp.contribute(9100000000000002, 'weekly_donation', 10, '2026-08-09T13:00:00Z');
 select pg_temp.contribute(9100000000000002, 'alliance_battle_weekly', 20, '2026-08-09T13:00:00Z');
-select pg_temp.contribute(9100000000000002, 'weekly_donation', 15, '2026-08-09T20:00:00Z');
+select pg_temp.contribute(9100000000000002, 'weekly_donation', 15, '2026-08-10T01:00:00Z');
 
 -- An officer, not a member (0112): the computation reads the whole roster's
 -- history, and 0066 gives that read to officer/admin only. 66 owns the
@@ -138,10 +138,10 @@ select is((pg_temp.row_of('Busy')).duel_total, 120000::bigint,
 
 -- A member with nothing in week two reports a null there rather than
 -- repeating week one. The week-one figure is the one read BY the deadline;
--- the Sunday-evening capture (15) counts for neither week. Asserting week
+-- the 01:00 Monday capture (15) counts for neither week. Asserting week
 -- one too: a null-expecting assertion passes when the row is missing.
 select is((pg_temp.row_of('Quiet')).donation_week1, 10::bigint,
-  'week one is the newest reading at or before the Sunday deadline');
+  'week one is the newest reading at or before the deadline');
 select is((pg_temp.row_of('Quiet')).donation_week2, null,
   'a week with no capture is unknown, not a repeat of the week before, '
   'and not a late capture of the week before either');
