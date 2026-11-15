@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { CalendarRange } from '../../lib/calendar';
 import { supabase } from '../../lib/supabase';
-import { fromInputValue, toInputValue, zonedDayKey } from '../../lib/timezone';
+import { fromInputValue, zonedDayKey } from '../../lib/timezone';
 
 /** Reading and writing the calendar (0124).
  *
@@ -113,16 +113,9 @@ export interface ScheduleDraft {
   series_id?: string | null;
 }
 
-/** Both directions now go through the reader's zone.
- *
- * They used to be a string slice and a `Z` suffix, which was correct only
- * because everything on this screen was UTC. An officer in Seoul typing 20:00
- * into that editor scheduled 20:00 UTC — a reminder at five in the morning
- * their own time, for an event they had just described as an evening one.
- */
-export function toLocal(iso: string | null, zone: string): string {
-  return toInputValue(iso, zone);
-}
+/** Moved to the Alarms tab, which replaces this screen; re-exported until
+ *  the screen is deleted. */
+export { toLocal } from '../alarms/alarmLogic';
 
 /** The wall clocks a repeat produces, in the reader's zone.
  *
