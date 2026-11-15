@@ -31,12 +31,12 @@ select is(public.rank_period_start('2026-07-27T02:00:00Z'), '2026-07-20T02:00:00
 select is(public.rank_period_start('2026-01-05T02:00:00Z'), '2026-01-05T02:00:00Z'::timestamptz,
   'well before the epoch still resolves, on the same fortnightly grid');
 
--- The measurement points (0309): Sunday 14:00Z, twelve hours before the
--- Monday 02:00Z reset wipes the weekly boards — noon on the game's clock.
--- Until 0309 this was 01:59Z on the Monday, the last minute before the wipe.
+-- The measurement points (0328): Monday 00:00Z, two hours before the 02:00Z
+-- reset wipes the weekly boards — 22:00 Sunday on the game's clock. 0309 had
+-- them at Sunday 14:00Z, and before that 01:59Z on the Monday.
 select is(public.rank_period_week_ends('2026-08-03T02:00:00Z'),
-  array['2026-08-09T14:00:00Z'::timestamptz, '2026-08-16T14:00:00Z'::timestamptz],
-  'the weekly readings land at Sunday 14:00Z, twelve hours before the boards clear');
+  array['2026-08-10T00:00:00Z'::timestamptz, '2026-08-17T00:00:00Z'::timestamptz],
+  'the weekly readings land at Monday 00:00Z, two hours before the boards clear');
 
 select is(public.rank_period_start((public.rank_period_week_ends('2026-08-03T02:00:00Z'))[1]),
   '2026-08-03T02:00:00Z'::timestamptz,

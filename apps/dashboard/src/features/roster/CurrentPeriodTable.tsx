@@ -112,8 +112,8 @@ export function CurrentPeriodTable() {
         The {first.weeks === 2 ? 'fortnight' : `${first.weeks}-week period`} that started{' '}
         <strong>{day(first.period_start)}</strong>
         {first.weeks === 2 ? '' : ', set by hand'}. Week one is read on {day(first.week1_end)}
-        {first.week2_end !== null && <>, week two on {day(first.week2_end)}</>} — Sunday noon server
-        time, twelve hours before the game clears each board.
+        {first.week2_end !== null && <>, week two on {day(first.week2_end)}</>} — at 00:00Z, 22:00
+        Sunday server time, two hours before the game clears each board.
         {first.weeks > 2 && (
           <> Weeks three{first.weeks > 3 ? ' and four' : ''} are in the period total only.</>
         )}{' '}

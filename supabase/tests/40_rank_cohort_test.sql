@@ -106,8 +106,8 @@ returns void language sql as $$
     '00000000-0000-4000-8000-00000000cc71', 580, 580, uid, 'weekly_donation', amount);
 $$;
 
--- Period 2026-08-03 to 08-17; weekly readings at 08-09 14:00Z and 08-16 14:00Z
--- (0309: Sunday noon server time, twelve hours before the reset).
+-- Period 2026-08-03 to 08-17; weekly readings at 08-10 00:00Z and 08-17 00:00Z
+-- (0328: 22:00 Sunday server time, two hours before the reset).
 -- The officer gives the most, which is exactly the row that used to bend
 -- everybody else's percentile.
 select pg_temp.contribute(9200000000000001, 1000, '2026-08-09T13:00:00Z');

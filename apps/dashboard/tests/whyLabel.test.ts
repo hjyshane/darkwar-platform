@@ -17,6 +17,9 @@ function row(over: Partial<RankRow> = {}): RankRow {
     minimum_missed: null,
     lab_level: null,
     lab_adjustment: 0,
+    duel_scoring: 'points',
+    duel_days_met: null,
+    duel_days_read: null,
     computed_at: '2026-08-30T21:00:00Z',
     ...over,
   };

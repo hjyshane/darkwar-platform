@@ -32,15 +32,15 @@ describe('rankPeriodLastDay', () => {
 });
 
 describe('rankPeriodReadingEnds', () => {
-  test('a fortnight is read twice, at Sunday 14:00Z, twelve hours before the boards clear', () => {
+  test('a fortnight is read twice, at Monday 00:00Z, two hours before the boards clear', () => {
     const ends = rankPeriodReadingEnds(
       new Date('2026-08-03T02:00:00Z'),
       new Date('2026-08-17T02:00:00Z'),
     );
-    // 12:00 server time (UTC−2) on the Sunday; the reset is Monday 02:00Z.
+    // 22:00 server time (UTC−2) on the Sunday; the reset is Monday 02:00Z (0328).
     expect(ends.map((d) => d.toISOString())).toEqual([
-      '2026-08-09T14:00:00.000Z',
-      '2026-08-16T14:00:00.000Z',
+      '2026-08-10T00:00:00.000Z',
+      '2026-08-17T00:00:00.000Z',
     ]);
   });
 
@@ -49,7 +49,7 @@ describe('rankPeriodReadingEnds', () => {
       new Date('2026-11-09T02:00:00Z'),
       new Date('2026-11-16T02:00:00Z'),
     );
-    expect(one.map((d) => d.toISOString())).toEqual(['2026-11-15T14:00:00.000Z']);
+    expect(one.map((d) => d.toISOString())).toEqual(['2026-11-16T00:00:00.000Z']);
 
     const three = rankPeriodReadingEnds(
       new Date('2027-01-11T02:00:00Z'),

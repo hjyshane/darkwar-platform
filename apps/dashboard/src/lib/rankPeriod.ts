@@ -45,17 +45,18 @@ export function rankPeriodLastDay(end: Date): Date {
   return new Date(end.getTime() - DAY_MS);
 }
 
-/** The moments each week's contribution is read at: 14:00Z on the Sunday of
- * every week the period has, twelve hours before the game clears the boards at
- * the Monday 02:00 reset — noon on the game's own clock (UTC−2; 0309). One
- * entry per week, so a one-week period has one and a three-week period three.
- * Reading at or after 02:00 would score everybody at zero, which is why these
- * are not the period's own boundaries. Mirrors `rank_period_reading_ends`. */
+/** The moments each week's contribution is read at: 00:00Z on the Monday
+ * closing every week the period has, two hours before the game clears the
+ * boards at the 02:00 reset — 22:00 Sunday on the game's own clock (UTC−2;
+ * 0328, which moved it from Sunday 14:00Z). One entry per week, so a one-week
+ * period has one and a three-week period three. Reading at or after 02:00
+ * would score everybody at zero, which is why these are not the period's own
+ * boundaries. Mirrors `rank_period_reading_ends`. */
 export function rankPeriodReadingEnds(start: Date, end: Date): Date[] {
   const weeks = Math.floor((end.getTime() - start.getTime()) / WEEK_MS);
   return Array.from(
     { length: Math.max(weeks, 0) },
-    (_unused, index) => new Date(start.getTime() + (index + 1) * WEEK_MS - 12 * HOUR_MS),
+    (_unused, index) => new Date(start.getTime() + (index + 1) * WEEK_MS - 2 * HOUR_MS),
   );
 }
 
