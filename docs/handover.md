@@ -1,6 +1,6 @@
 # 인수인계
 
-**재작성 2026-11-15** (알람 항목 갱신; 전체 재구성은 11-12). 이 문서는 일지가 아니라 **덮어쓰는 현재 상태**다 — 해결된 항목은 지우고, 사연은 `docs/log/`에 남긴다. 4,243줄이던 이전 버전은 달별로 `docs/log/`에 옮겼다(내용 수정 없음). 분할 근거: [handover-split-proposal.md](handover-split-proposal.md).
+**재작성 2026-11-15** (알람 배포 반영; 전체 재구성은 11-12). 이 문서는 일지가 아니라 **덮어쓰는 현재 상태**다 — 해결된 항목은 지우고, 사연은 `docs/log/`에 남긴다. 4,243줄이던 이전 버전은 달별로 `docs/log/`에 옮겼다(내용 수정 없음). 분할 근거: [handover-split-proposal.md](handover-split-proposal.md).
 
 > 줄마다 **확인함**(이 문서를 쓰며 파일·git으로 봄) / **미확인**(일지·PR 제목에서 가져옴, 지금 상태를 모름)을 구분한다.
 
@@ -10,12 +10,14 @@
 
 ## 2. 사람 몫 / 막힌 것
 
-- **프로덕션 `db push` 안 됨 (11-14 읽음, 확인함).** 프로덕션의 최신 적용 마이그레이션은 0320. 대기 중: 0321(지도 아틀라스, 다른 PR)과 0322–0327(이벤트 알람, PR #596 머지됨). 실행은 주인이: `supabase db push --linked --workdir C:\darkwar-platform` (푸시 전 `scripts/check-migration-order.sh`). **알람 대시보드 PR(`feat/event-alarms-tab`)은 이 푸시 뒤에만 머지한다** — 머지하면 cbfw.us가 배포되고 탭이 새 컬럼을 읽는다.
-  - 푸시 뒤 확인 4가지: (1) `cron.job_run_details`에서 `alerts-detect`·`alerts-reconcile` 성공(11-14에 읽은 최근 24시간은 매 실행 실패였다; 그 이전은 안 봄), (2) `has_function_privilege('anon','public.alarm_deliveries(uuid[])','execute')`가 false, (3) 각 자기 연맹에 달력 보드 셋(`game_capital_clash`, `game_black_gold_signup`, `game_black_gold_roster`), (4) `cron.job`에 `alarms-calendar`.
-  - **푸시 직후부터 알람이 각 연맹의 알림 채널로 나가기 시작한다 — 탭이 생기기 전에.** 보드에 `ping_role_id`를 넣기 전까지 역할 멘션은 없다.
-- **PR 2 머지·배포 뒤 확인 6가지 (미실시).** 탭 쿼리는 실 DB로 돌린 적이 없다(§3).
+- **이벤트 알람 배포됨 (11-15, 확인함).** 주인이 `db push`로 0321–0327을 적용했다(21:29 UTC 무렵, `schema_migrations`로 확인). 대시보드 Alarms 탭은 #597로 머지(`590bf9fd`), CI `deploy` 성공, cbfw.us가 탭이 든 `index-IQHQGTwp.js`를 낸다.
+  - 푸시 뒤 확인 4가지 통과(21:44 UTC에 읽음): `alerts-reconcile`은 21:28이 마지막 실패(옛 `extensions.net._http_response` 오류)이고 21:29부터 매분 성공, `alerts-detect`·`alarms-calendar`(5분마다, 첫 실행 21:30) 실패 0; anon은 `alarm_deliveries` 실행 불가(authenticated는 가능); 자기 연맹 둘 다 달력 보드 셋; `cron.job`에 `alarms-calendar`.
+  - **디스코드로 나간 알람은 아직 없다.** 11-15 21:00 이후 outbox 행 0. 첫 전송은 Frankie 1의 1시간 단계, **11-16 01:30 UTC**, 보드 채널 `frankie`(켜짐). 그 outbox 행에 `delivered_at`이 차고 `last_error`가 비었는지 본다. 그때까지 `alarm_deliveries`가 빈 목록인 것은 정상이다.
+  - 두 번째 자기 연맹(`b9daa299…`)은 보드는 있지만 다가오는 항목이 0이라 알람이 안 나간다. 이유는 안 봄.
+  - 주인에게 열린 질문: 시간대 선택 기본값이 서버 시각(08-16 사이트 전체 결정)인데 스펙 §8은 읽는 사람의 시간대; 감시 목록에서 Siege를 빼는 id 41008의 근거가 커밋 안 된 `plan/website-restructure-2026-11.md`뿐(프로덕션 달력 한 줄로 확인 가능).
+- **탭 확인 6가지 (미실시, 주인 몫).** 탭 쿼리를 로그인 상태로 실 DB에 돌린 적은 아직 없다(§3). 1번은 주인이 직접 보기로 했다(11-15).
   1. 간부와 멤버 각각으로 `#/alarms`가 400 없이 열린다(시각 `.or()` 필터, 항목에 붙은 reminders).
-  2. 나간 단계가 있는 항목에 대해 간부로 부른 `alarm_deliveries`가 행을 돌려준다.
+  2. 간부로 부른 `alarm_deliveries`가 200을 돌려준다 — 첫 전송 뒤엔 그 항목의 행이 있다.
   3. 칩 하나 끄고 Save → `schedule_reminders.enabled`가 바뀐다(`db query --linked`로 본다).
   4. Send now → `once:` outbox 행이 생기고, Refresh 뒤 칩이 sent.
   5. 보드 저장이 `channel_is_ours`를 통과한다. 게임 이벤트 감시가 맞는 연맹에 보드를 넣는다.
@@ -34,8 +36,8 @@
 |---|---|---|
 | `dw-cloud` 감시(패킷 침묵 → 재실행)와 설치 스크립트 | 11-08: "VM에서 한 번도 실행 안 했다". 11-11에 에뮬에서 수동 검증은 함 | `cloud-unattended.md` §8 |
 | 연맹 도움·기술 기부·선물 수령 루틴(#591) | 코드 있음, **실계정 무인 운영 미확인** | `cloud-actions.md`, ADR-0003 |
-| 알람 전송(pg_net POST) 경로 | 로컬·CI에서 돌릴 수 없다. 첫 실행은 푸시 뒤 프로덕션 cron. 11-15: 미실행 | `0322`–`0327`, `log/2026-11.md` |
-| 알람 탭의 쿼리 | typecheck와 fixture 빌드만 통과. Windows엔 Docker가 없어 실제 DB로는 안 돌림 | `apps/dashboard` Alarms 탭 |
+| 알람 전송(pg_net POST) 경로 | 로컬·CI에서 돌릴 수 없다. 11-15 푸시 뒤 cron은 성공하나 보낼 행이 아직 없었다. 첫 시도 11-16 01:30 UTC | `0322`–`0327`, `log/2026-11.md` |
+| 알람 탭의 쿼리 | 11-15 배포됨. 로그인 상태로 연 적 아직 없음(§2 탭 확인) | `apps/dashboard` Alarms 탭 |
 | 웹훅이 "Allow anyone to @mention this role" 없이 역할을 알릴 수 있는가 | 모름 (스펙 §4). 주인의 실제 시험에서 가려진다 | `docs/superpowers/specs/2026-11-14-event-alarms-design.md` |
 | 업데이트 신호 필드 이름 | **추측** (11-04 로그인 응답엔 `picVer`뿐) | `watchdog/update_signal.py` |
 | 아이폰 조각 교대 틈 수정 | 10-13: "실제 폰에서는 미확인" | `log/2026-10.md` |
@@ -68,7 +70,7 @@
 - 11-09 마이그레이션 번호 충돌로 main이 빨개짐(#574) — 함정 재발
 - 11-10 플레이어 서버 이동 이력 0320, 아틀라스·기지가 이민을 따라감 (#587~#589)
 - 11-10 능동 `world.get.new` no-go (#580) → 11-11 ADR-0003, 게임 내 동작 허용 (#591)
-- 11-13~15 이벤트 알람: 스펙·계획(`62f85e90`·`1b65faef`), DB 쪽 #596 머지(0322–0327, 프로덕션 pg_net 호출 버그 수정), 대시보드 Alarms 탭은 `feat/event-alarms-tab`에서 푸시 전 — `log/2026-11.md`
+- 11-13~15 이벤트 알람: 스펙·계획(`62f85e90`·`1b65faef`), DB 쪽 #596 머지(0322–0327, 프로덕션 pg_net 호출 버그 수정), 11-15 프로덕션 푸시와 Alarms 탭 #597 배포 — `log/2026-11.md`
 
 ## 7. 어디를 읽을지
 
