@@ -1,6 +1,6 @@
 # 인수인계
 
-**재작성 2026-11-12.** 이 문서는 일지가 아니라 **덮어쓰는 현재 상태**다 — 해결된 항목은 지우고, 사연은 `docs/log/`에 남긴다. 4,243줄이던 이전 버전은 달별로 `docs/log/`에 옮겼다(내용 수정 없음). 분할 근거: [handover-split-proposal.md](handover-split-proposal.md).
+**재작성 2026-11-15** (알람 항목 갱신; 전체 재구성은 11-12). 이 문서는 일지가 아니라 **덮어쓰는 현재 상태**다 — 해결된 항목은 지우고, 사연은 `docs/log/`에 남긴다. 4,243줄이던 이전 버전은 달별로 `docs/log/`에 옮겼다(내용 수정 없음). 분할 근거: [handover-split-proposal.md](handover-split-proposal.md).
 
 > 줄마다 **확인함**(이 문서를 쓰며 파일·git으로 봄) / **미확인**(일지·PR 제목에서 가져옴, 지금 상태를 모름)을 구분한다.
 
@@ -10,7 +10,10 @@
 
 ## 2. 사람 몫 / 막힌 것
 
-- **프로덕션 `db push` 상태 — 미확인.** 0309(등급 측정 일요일 14:00 UTC, 스코어링 v9)부터 0320(플레이어 서버 이동 이력)까지. 푸시 전 `scripts/check-migration-order.sh`, 번호는 origin/main 기준.
+- **프로덕션 `db push` 안 됨 (11-14 읽음, 확인함).** 프로덕션의 최신 적용 마이그레이션은 0320. 대기 중: 0321(지도 아틀라스, 다른 PR)과 0322–0327(이벤트 알람, PR #596 머지됨). 실행은 주인이: `supabase db push --linked --workdir C:\darkwar-platform` (푸시 전 `scripts/check-migration-order.sh`). **알람 대시보드 PR(`feat/event-alarms-tab`)은 이 푸시 뒤에만 머지한다** — 머지하면 cbfw.us가 배포되고 탭이 새 컬럼을 읽는다.
+  - 푸시 뒤 확인 4가지: (1) `cron.job_run_details`에서 `alerts-detect`·`alerts-reconcile` 성공(전에는 매번 실패였다), (2) `has_function_privilege('anon','public.alarm_deliveries(uuid[])','execute')`가 false, (3) 각 자기 연맹에 달력 보드 셋(`game_capital_clash`, `game_black_gold_signup`, `game_black_gold_roster`), (4) `cron.job`에 `alarms-calendar`.
+  - **푸시 직후부터 알람이 각 연맹의 알림 채널로 나가기 시작한다 — 탭이 생기기 전에.** 보드에 `ping_role_id`를 넣기 전까지 역할 멘션은 없다.
+- **알람 실제 시험 (Task 10 Step 3, 주인 몫, 미실시).** 시험용 역할(한 명만 보유)과 시험용 채널을 Zombie Siege 보드에 걸고, 다음 Siege나 Frankie에서 12시간/1시간/5분 알림이 오는지, 폰에 역할 푸시가 오는지, 두 시간대에서 시각이 맞는지 본다. 멘션은 보이는데 푸시가 안 오면 역할의 "Allow anyone to @mention this role"을 켠다.
 - **수집기 재시작 — 미확인.** Windows는 11-08에 edaae1b로 올렸다. 그 뒤 #582(아이폰 체인이 서버를 따라감) 등이 머지됐다. 반영하려면 `git pull`만으로는 안 된다(editable install) — `collector-operations.md` 레시피. **재시작 전에 `git -C C:\darkwar-platform branch --show-current`가 `main`인지 본다**(다른 세션이 체크아웃을 바꾼 적 있음).
 - **맥**: `git pull` + `install-iphone-agent.sh`(체인이 옛 체인을 먼저 죽임, #551).
 - **VM(GCE `dw-emu-test`)은 맥에서만 닿는다.** Windows엔 gcloud도 SSH 항목도 없다.
@@ -23,6 +26,9 @@
 |---|---|---|
 | `dw-cloud` 감시(패킷 침묵 → 재실행)와 설치 스크립트 | 11-08: "VM에서 한 번도 실행 안 했다". 11-11에 에뮬에서 수동 검증은 함 | `cloud-unattended.md` §8 |
 | 연맹 도움·기술 기부·선물 수령 루틴(#591) | 코드 있음, **실계정 무인 운영 미확인** | `cloud-actions.md`, ADR-0003 |
+| 알람 전송(pg_net POST) 경로 | 로컬·CI에서 돌릴 수 없다. 첫 실행은 푸시 뒤 프로덕션 cron. 11-15: 미실행 | `0322`–`0327`, `log/2026-11.md` |
+| 알람 탭의 쿼리 | typecheck와 fixture 빌드만 통과. Windows엔 Docker가 없어 실제 DB로는 안 돌림 | `apps/dashboard` Alarms 탭 |
+| 웹훅이 "Allow anyone to @mention this role" 없이 역할을 알릴 수 있는가 | 모름 (스펙 §4). 주인의 실제 시험에서 가려진다 | `docs/superpowers/specs/2026-11-14-event-alarms-design.md` |
 | 업데이트 신호 필드 이름 | **추측** (11-04 로그인 응답엔 `picVer`뿐) | `watchdog/update_signal.py` |
 | 아이폰 조각 교대 틈 수정 | 10-13: "실제 폰에서는 미확인" | `log/2026-10.md` |
 | 데스크톱 앱 두 번째 머신 설치 | 개발 머신 한 대만 성공 | `log/2026-09.md` (09-11) |
@@ -53,6 +59,7 @@
 - 11-09 마이그레이션 번호 충돌로 main이 빨개짐(#574) — 함정 재발
 - 11-10 플레이어 서버 이동 이력 0320, 아틀라스·기지가 이민을 따라감 (#587~#589)
 - 11-10 능동 `world.get.new` no-go (#580) → 11-11 ADR-0003, 게임 내 동작 허용 (#591)
+- 11-13~15 이벤트 알람: 스펙·계획(`62f85e90`·`1b65faef`), DB 쪽 #596 머지(0322–0327, 프로덕션 pg_net 호출 버그 수정), 대시보드 Alarms 탭은 `feat/event-alarms-tab`에서 푸시 전 — `log/2026-11.md`
 
 ## 7. 어디를 읽을지
 
