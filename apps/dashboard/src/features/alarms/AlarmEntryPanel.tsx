@@ -26,9 +26,11 @@ import { useHideEntry, useReminderRouting, useSaveEntryAlarms, useSendOnce } fro
  * save. A copy taken when the panel opened would go stale the moment "Send
  * now" filed a one-off — and the next Save would diff it away again.
  *
- * SEND NOW AND SEND LATER SAVE FIRST. A one-off carries whatever message is
- * SAVED on the entry when the minute job renders it, so a message typed and
- * sent without saving would go out as the old one.
+ * SEND NOW AND SEND LATER SAVE AN EDITED DRAFT FIRST. A one-off carries
+ * whatever message is SAVED on the entry when the minute job renders it, so a
+ * message typed and sent without saving would go out as the old one. An
+ * UNTOUCHED draft is not written back: the cached message may be older than
+ * one another officer saved since, and writing it would overwrite theirs.
  */
 
 export interface AlarmEntryPanelProps {
@@ -106,7 +108,9 @@ export function AlarmEntryPanel({
       if (Date.parse(at) < Date.now()) {
         throw new Error('That time has already passed.');
       }
-      await persist();
+      if (dirty) {
+        await persist();
+      }
       await send.mutateAsync({ entryId: entry.id, at: new Date(at) });
       setLater('');
     });
@@ -186,7 +190,9 @@ export function AlarmEntryPanel({
           disabled={busy}
           onClick={() =>
             run(async () => {
-              await persist();
+              if (dirty) {
+                await persist();
+              }
               await send.mutateAsync({ entryId: entry.id });
             })
           }
@@ -207,7 +213,7 @@ export function AlarmEntryPanel({
           Send later
         </button>
         <span className="subtle">
-          Both save the message first and send it to this entry's channel.
+          Both save your changes first, then send the saved message to this entry's channel.
         </span>
       </div>
 

@@ -18,6 +18,7 @@ const mock = vi.hoisted(() => ({
   routing: null as unknown,
   picks: [] as unknown[],
   calls: [] as string[],
+  inputs: {} as Record<string, unknown[]>,
 }));
 
 vi.mock('../../lib/supabase', () => ({ supabase: {} }));
@@ -41,11 +42,13 @@ vi.mock('../../lib/useMyAlliances', () => ({
   useActiveAlliance: () => ({ active: null, alliances: [], switchTo: () => undefined }),
 }));
 vi.mock('./alarms', () => {
+  const record = (name: string, input: unknown) => {
+    mock.calls.push(name);
+    mock.inputs[name] = [...(mock.inputs[name] ?? []), input];
+  };
   const mutation = (name: string) => () => ({
-    mutate: () => mock.calls.push(name),
-    mutateAsync: async () => {
-      mock.calls.push(name);
-    },
+    mutate: (input: unknown) => record(name, input),
+    mutateAsync: async (input: unknown) => record(name, input),
     isPending: false,
     error: null,
     reset: () => undefined,
@@ -61,6 +64,7 @@ vi.mock('./alarms', () => {
     useSendOnce: mutation('send'),
     useHideEntry: mutation('hide'),
     useSaveBoard: mutation('save-board'),
+    useSavePingRole: mutation('ping'),
     useWatchGameEvent: mutation('watch'),
     useAddEntry: mutation('add'),
     useEditEntry: mutation('edit'),
@@ -137,6 +141,7 @@ beforeEach(() => {
   mock.routing = { enabled: true, channel: 'general' };
   mock.picks = [];
   mock.calls = [];
+  mock.inputs = {};
 });
 
 afterEach(cleanup);
@@ -155,13 +160,48 @@ describe('AlarmsPage', () => {
     expect(screen.queryByText(/Nothing will be sent/)).toBeNull();
   });
 
-  test('an officer opens an entry and sends now, saving the message first', async () => {
+  test('an officer sends now from an untouched panel without rewriting the message', async () => {
     mock.role = 'officer';
     renderPage();
     fireEvent.click(screen.getByRole('button', { name: /Alarms and message/ }));
-    const send = screen.getByRole('button', { name: 'Send now' });
-    fireEvent.click(send);
+    fireEvent.click(screen.getByRole('button', { name: 'Send now' }));
+    // The cached message may be older than another officer's: not written back.
+    await waitFor(() => expect(mock.calls).toEqual(['send']));
+  });
+
+  test('an officer who edited the message saves it before sending now', async () => {
+    mock.role = 'officer';
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: /Alarms and message/ }));
+    fireEvent.change(screen.getByLabelText("Message on this entry's alarms"), {
+      target: { value: 'Rally at the gate {in}' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send now' }));
     await waitFor(() => expect(mock.calls).toEqual(['save', 'send']));
+    expect(mock.inputs.save?.[0]).toMatchObject({ message: 'Rally at the gate {in}' });
+  });
+
+  test('"use for every board" sets only the ping role on the other boards, in one call', async () => {
+    mock.role = 'officer';
+    mock.boards = [
+      board({}),
+      board({ category: 'game_bio_mutant', label: 'Frankie', messageTemplate: 'Theirs' }),
+      board({ category: 'server_clash', label: 'Server Clash', channel: 'general' }),
+    ];
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit: Zombie Siege' }));
+    fireEvent.change(screen.getByLabelText('Ping role ID (optional)'), {
+      target: { value: '123456789012345678' },
+    });
+    fireEvent.click(screen.getByLabelText('Use for every board'));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(mock.calls).toEqual(['save-board', 'ping']));
+    // The whole-board save touched this board only; the others got the role alone.
+    expect(mock.inputs['save-board']).toHaveLength(1);
+    expect(mock.inputs['save-board']?.[0]).toMatchObject({ category: 'game_zombie_siege' });
+    expect(mock.inputs.ping).toEqual([
+      { pingRoleId: '123456789012345678', categories: ['game_bio_mutant', 'server_clash'] },
+    ]);
   });
 
   test('an officer is told a board on a switched-off channel sends nothing', () => {

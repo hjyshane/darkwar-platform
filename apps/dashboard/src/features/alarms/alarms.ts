@@ -339,6 +339,24 @@ export function useSaveBoard() {
   });
 }
 
+/** "Use for every board": the ping role ALONE on the boards named, in one
+ *  statement. Never a whole-board save from this page's copy, which would put
+ *  back whatever another officer changed on those boards since it loaded. */
+export function useSavePingRole() {
+  return useAlarmMutation(
+    async ({ pingRoleId, categories }: { pingRoleId: string | null; categories: string[] }) => {
+      if (categories.length === 0) {
+        return;
+      }
+      const { error } = await supabase
+        .from('schedule_categories')
+        .update({ ping_role_id: pingRole(pingRoleId) })
+        .in('category', categories);
+      throwIf(error);
+    },
+  );
+}
+
 /** A window board following one game activity: 0325 then files its windows.
  *  Inserted, never upserted, so an existing board is not overwritten. */
 export function useWatchGameEvent() {

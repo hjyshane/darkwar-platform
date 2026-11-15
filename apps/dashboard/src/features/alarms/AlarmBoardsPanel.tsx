@@ -13,10 +13,10 @@ import {
   stepLabel,
 } from './alarmLogic';
 import {
-  type BoardDraft,
   useGameEventsForServer,
   useReminderRouting,
   useSaveBoard,
+  useSavePingRole,
   useWatchGameEvent,
 } from './alarms';
 
@@ -35,17 +35,6 @@ const minutesOf = (text: string) =>
     .split(/[\s,]+/)
     .filter((part) => part !== '')
     .map(Number);
-
-const draftOf = (board: AlarmBoard): BoardDraft => ({
-  category: board.category,
-  kind: board.kind,
-  channel: board.channel,
-  pingRoleId: board.pingRoleId,
-  startReminders: board.startReminders,
-  closeReminders: board.closeReminders,
-  alarmOnOpen: board.alarmOnOpen,
-  messageTemplate: board.messageTemplate,
-});
 
 interface EditorProps {
   board: AlarmBoard;
@@ -66,6 +55,7 @@ function BoardEditor({ board, boards, channels, onDone }: EditorProps) {
   const [template, setTemplate] = useState(board.messageTemplate ?? '');
   const [problem, setProblem] = useState<string | null>(null);
   const save = useSaveBoard();
+  const saveRole = useSavePingRole();
   const roleIsBad = role.trim() !== '' && !PING_ROLE_ID.test(role.trim());
 
   async function commit() {
@@ -83,9 +73,10 @@ function BoardEditor({ board, boards, channels, onDone }: EditorProps) {
         messageTemplate: template,
       });
       if (everyBoard) {
-        for (const other of boards.filter((b) => b.category !== board.category)) {
-          await save.mutateAsync({ ...draftOf(other), pingRoleId: pinged });
-        }
+        await saveRole.mutateAsync({
+          pingRoleId: pinged,
+          categories: boards.map((b) => b.category).filter((c) => c !== board.category),
+        });
       }
       onDone();
     } catch (error) {
@@ -197,8 +188,12 @@ function BoardEditor({ board, boards, channels, onDone }: EditorProps) {
 
       {problem !== null && <p className="error">{problem}</p>}
       <div className="alarm-actions">
-        <button disabled={save.isPending || roleIsBad} onClick={commit} type="button">
-          {save.isPending ? 'Saving…' : 'Save'}
+        <button
+          disabled={save.isPending || saveRole.isPending || roleIsBad}
+          onClick={commit}
+          type="button"
+        >
+          {save.isPending || saveRole.isPending ? 'Saving…' : 'Save'}
         </button>
         <button onClick={onDone} type="button">
           Cancel
