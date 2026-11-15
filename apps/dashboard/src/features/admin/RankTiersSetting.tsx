@@ -99,6 +99,29 @@ interface SeasonLabSetting {
   bonus: number;
 }
 
+/** What the duel weight is applied to (0328).
+ *
+ * `points` is the weekly duel board, as it has always been. `days` counts the
+ * duel days (Monday to Saturday; Sunday is not a duel day) on which a member's
+ * DAILY duel board met that weekday's floor, and ranks the count instead. The
+ * floors are per weekday because the duel's days are not alike — Saturday's
+ * kill day is worth many times a Tuesday. A weekday at 0 is not asked for and
+ * not counted. A day the collector never read is left out rather than scored
+ * as a miss, so a quiet collector day costs nobody a place.
+ */
+type DuelScoring = 'points' | 'days';
+
+const DUEL_DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
+type DuelDay = (typeof DUEL_DAYS)[number];
+const DUEL_DAY_LABEL: Record<DuelDay, string> = {
+  mon: 'Monday',
+  tue: 'Tuesday',
+  wed: 'Wednesday',
+  thu: 'Thursday',
+  fri: 'Friday',
+  sat: 'Saturday',
+};
+
 interface Tiers {
   r3_percent: number;
   r2_percent: number;
@@ -107,6 +130,8 @@ interface Tiers {
   weights: { donation: number; duel: number; power_growth: number };
   minimums: Minimums;
   season_lab: SeasonLabSetting;
+  duel_scoring: DuelScoring;
+  duel_daily_minimums: Record<DuelDay, number>;
 }
 
 const FALLBACK: Tiers = {
@@ -130,6 +155,10 @@ const FALLBACK: Tiers = {
     penalty: 0,
     bonus: 0,
   },
+  // Points, as always. Floors at zero, so switching to days before any are
+  // typed counts nothing rather than demanding something nobody agreed.
+  duel_scoring: 'points',
+  duel_daily_minimums: { mon: 0, tue: 0, wed: 0, thu: 0, fri: 0, sat: 0 },
 };
 
 async function fetchTiers(): Promise<Tiers> {
@@ -149,6 +178,13 @@ async function fetchTiers(): Promise<Tiers> {
     weights: { ...FALLBACK.weights, ...(stored.weights ?? {}) },
     minimums: { ...FALLBACK.minimums, ...(stored.minimums ?? {}) },
     season_lab: { ...FALLBACK.season_lab, ...(stored.season_lab ?? {}) },
+    // Anything but 'days' is points, which is also what the scorer does with
+    // a value it does not recognise.
+    duel_scoring: stored.duel_scoring === 'days' ? 'days' : 'points',
+    duel_daily_minimums: {
+      ...FALLBACK.duel_daily_minimums,
+      ...(stored.duel_daily_minimums ?? {}),
+    },
   };
 }
 
@@ -372,6 +408,62 @@ export function RankTiersSetting() {
             value={draft.minimums.duel_weekly}
           />
         </label>
+
+        <p className="subtle">
+          <strong>Duel scoring.</strong> The duel weight above is applied to the weekly duel points
+          by default. Scoring it on days instead ranks each member on how many duel days — Monday to
+          Saturday — their daily duel board met that day's minimum, using the same scale and weights
+          as the points would. A day at 0 is not required and not counted. A day the collector did
+          not read counts for nobody, so it moves no one.
+          <br />
+          The weekly points are still read and shown; only what the duel weight measures changes.
+          The weekly duel minimum above stays a weekly floor in both modes.
+        </p>
+
+        <label htmlFor="duel-scoring">
+          What the duel weight measures
+          <Select
+            id="duel-scoring"
+            onChange={(chosen) =>
+              setDraft({ ...draft, duel_scoring: chosen === 'days' ? 'days' : 'points' })
+            }
+            value={draft.duel_scoring}
+          >
+            <option value="points">Weekly duel points</option>
+            <option value="days">Duel days over the daily minimum</option>
+          </Select>
+        </label>
+
+        {draft.duel_scoring === 'days' && (
+          <div className="stack">
+            {DUEL_DAYS.map((day) => (
+              <label htmlFor={`duel-day-${day}`} key={day}>
+                {DUEL_DAY_LABEL[day]} minimum <span className="subtle">(0 = not counted)</span>
+                <input
+                  id={`duel-day-${day}`}
+                  min="0"
+                  onChange={(event) =>
+                    setDraft({
+                      ...draft,
+                      duel_daily_minimums: {
+                        ...draft.duel_daily_minimums,
+                        [day]: Number(event.target.value),
+                      },
+                    })
+                  }
+                  type="number"
+                  value={draft.duel_daily_minimums[day]}
+                />
+              </label>
+            ))}
+            {DUEL_DAYS.every((day) => draft.duel_daily_minimums[day] <= 0) && (
+              <p className="error">
+                Every day is at 0, so no day is counted and every member ties on duel. Set at least
+                one.
+              </p>
+            )}
+          </div>
+        )}
 
         <p className="subtle">
           <strong>Season building.</strong> Between seasons the score is donation, duel and power

@@ -46,6 +46,13 @@ export interface RankRow {
    * itself rather than printing a row of dashes. */
   lab_level: number | null;
   lab_adjustment: number | null;
+  /** 0328: which duel figure `duel_pct` ranked — the weekly points ('points')
+   * or the count of duel days over the weekday floor ('days') — and, under
+   * days, how many days were met out of how many were read. Rows scored before
+   * 0328 are points with null counts. */
+  duel_scoring: string | null;
+  duel_days_met: number | null;
+  duel_days_read: number | null;
   /** When this answer was worked out. Shown beside the tier counts: the table
    * redraws identically when a rebuild lands close to the previous one, and
    * without a timestamp "nothing changed" and "nothing happened" look the
@@ -176,7 +183,7 @@ async function fetchPeriod(periodStart: Date): Promise<RankRow[]> {
     // the newest.
     .from('rank_period_latest')
     .select(
-      'player_id, name, donation_total, duel_total, power_growth, activity_score, offline_hours, tier, tier_reason, below_minimum, minimum_missed, lab_level, lab_adjustment, computed_at',
+      'player_id, name, donation_total, duel_total, power_growth, activity_score, offline_hours, tier, tier_reason, below_minimum, minimum_missed, lab_level, lab_adjustment, duel_scoring, duel_days_met, duel_days_read, computed_at',
     )
     .eq('period_start', periodStart.toISOString())
     .order('activity_score', { ascending: false, nullsFirst: false });
@@ -376,6 +383,10 @@ export function RankReportSetting() {
   // a column of dashes that says nothing, and a report an officer has to
   // defend a demotion from is the wrong place for one.
   const showsLab = now.some((row) => row.lab_level !== null || (row.lab_adjustment ?? 0) !== 0);
+  // Under days scoring (0328) the duel column that decided the rank is the day
+  // count, not the points, so it gets its own column beside them. Judged on
+  // the whole period for the same reason as the season column.
+  const showsDuelDays = now.some((row) => row.duel_scoring === 'days');
 
   const counts = now.reduce<Record<string, number>>((acc, row) => {
     const tier = row.tier ?? '—';
@@ -389,7 +400,7 @@ export function RankReportSetting() {
         Period
         {/* The periods the database resolves, not free dates. A period
             boundary is a game week boundary — Monday 02:00 UTC — and the
-            weekly contribution readings sit twelve hours before the game
+            weekly contribution readings sit two hours before the game
             clears each week. An arbitrary start puts those readings in the
             wrong place and scores everybody at zero. A period set by hand
             under "Rank periods" shows up here marked. */}
@@ -419,8 +430,8 @@ export function RankReportSetting() {
         <strong>{iso(rankPeriodLastDay(viewingEnd))}</strong>
         {viewingPeriod?.overridden ? ' — set by hand' : ''}. Contribution and duel{' '}
         {readings.length === 1 ? 'were read once, at ' : 'were read at '}
-        {readings.map((at) => `${iso(at)} 14:00Z`).join(', ')} — Sunday noon server time, twelve
-        hours before the game clears each week — and power at the period's own two boundaries.
+        {readings.map((at) => `${iso(at)} 00:00Z`).join(', ')} — 22:00 Sunday server time, two hours
+        before the game clears each week — and power at the period's own two boundaries.
       </p>
 
       {inProgress && (
@@ -537,6 +548,7 @@ export function RankReportSetting() {
                 <th className="num">Score</th>
                 <th className="num">Donation</th>
                 <th className="num">Duel</th>
+                {showsDuelDays && <th className="num">Duel days</th>}
                 <th className="num">Power</th>
                 {showsLab && <th className="num">Season</th>}
                 <th className="label">Why</th>
@@ -585,6 +597,17 @@ export function RankReportSetting() {
                     </td>
                     <td className="num">{row.donation_total?.toLocaleString('ko-KR') ?? '—'}</td>
                     <td className="num">{row.duel_total?.toLocaleString('ko-KR') ?? '—'}</td>
+                    {showsDuelDays && (
+                      <td className="num">
+                        {/* Met out of read. "4 / 5" says the fifth day was
+                            read and missed; a day the collector never read is
+                            in neither number, so a short denominator is our
+                            gap and not the member's. */}
+                        {row.duel_days_met === null
+                          ? '—'
+                          : `${row.duel_days_met} / ${row.duel_days_read ?? '?'}`}
+                      </td>
+                    )}
                     <td className={`num ${(row.power_growth ?? 0) < 0 ? 'growth-down' : ''}`}>
                       {row.power_growth === null ? '—' : `${row.power_growth.toFixed(1)}%`}
                     </td>

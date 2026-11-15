@@ -7386,7 +7386,10 @@ export type Database = {
           donation_week1_at: string | null
           donation_week2: number | null
           donation_week2_at: string | null
+          duel_days_met: number | null
+          duel_days_read: number | null
           duel_pct: number | null
+          duel_scoring: string
           duel_total: number | null
           duel_week1: number | null
           duel_week1_at: string | null
@@ -7423,7 +7426,10 @@ export type Database = {
           donation_week1_at?: string | null
           donation_week2?: number | null
           donation_week2_at?: string | null
+          duel_days_met?: number | null
+          duel_days_read?: number | null
           duel_pct?: number | null
+          duel_scoring?: string
           duel_total?: number | null
           duel_week1?: number | null
           duel_week1_at?: string | null
@@ -7460,7 +7466,10 @@ export type Database = {
           donation_week1_at?: string | null
           donation_week2?: number | null
           donation_week2_at?: string | null
+          duel_days_met?: number | null
+          duel_days_read?: number | null
           duel_pct?: number | null
+          duel_scoring?: string
           duel_total?: number | null
           duel_week1?: number | null
           duel_week1_at?: string | null
@@ -10306,7 +10315,10 @@ export type Database = {
           donation_week1_at: string | null
           donation_week2: number | null
           donation_week2_at: string | null
+          duel_days_met: number | null
+          duel_days_read: number | null
           duel_pct: number | null
+          duel_scoring: string | null
           duel_total: number | null
           duel_week1: number | null
           duel_week1_at: string | null
