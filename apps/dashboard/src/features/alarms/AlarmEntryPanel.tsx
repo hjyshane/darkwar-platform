@@ -29,15 +29,17 @@ import { useHideEntry, useReminderRouting, useSaveEntryAlarms, useSendOnce } fro
  * SEND NOW AND SEND LATER SAVE AN EDITED DRAFT FIRST. A one-off carries
  * whatever message is SAVED on the entry when the minute job renders it, so a
  * message typed and sent without saving would go out as the old one. An
- * UNTOUCHED draft is not written back: the cached message may be older than
- * one another officer saved since, and writing it would overwrite theirs.
+ * UNTOUCHED message is never written back — not by Send, and not by a Save of
+ * changed steps: the cached message may be older than one another officer
+ * saved since, and writing it would overwrite theirs.
  */
 
 export interface AlarmEntryPanelProps {
   entry: AlarmEntry;
   board: AlarmBoard | undefined;
   boards: readonly AlarmBoard[];
-  deliveries: readonly Delivery[];
+  /** Null until the delivery state is read: due chips then read "…". */
+  deliveries: readonly Delivery[] | null;
   zone: string;
   now: Date;
 }
@@ -89,7 +91,8 @@ export function AlarmEntryPanel({
   }
 
   async function persist() {
-    await save.mutateAsync({ entryId: entry.id, message: text, current: entry.steps, desired });
+    // `message`, not `text`: null when untouched, so the saved one stays.
+    await save.mutateAsync({ entryId: entry.id, message, current: entry.steps, desired });
     setMessage(null);
     setSteps(null);
   }

@@ -124,8 +124,25 @@ describe('chipFor', () => {
     ).toBe('sent');
   });
 
-  test('a close step on an entry with no end can never fire', () => {
-    expect(chipFor(endStep(60), entryIn(DAY), [], NOW, ZONE).state).toBe('skipped');
+  test('a close step on an entry with no end says so, not "too late"', () => {
+    const chip = chipFor(endStep(60), entryIn(DAY), [], NOW, ZONE);
+    expect(chip.state).toBe('noend');
+    expect(chipText(chip)).toBe('close 1h — no end time');
+  });
+
+  test('before the delivery state arrives, a due step is neither sent nor skipped', () => {
+    // Due 90 minutes ago: it may well have gone out; nobody knows yet.
+    const due = chipFor(step60, entryIn(-30 * MIN), null, NOW, ZONE);
+    expect(due.state).toBe('unknown');
+    expect(chipText(due)).toBe('1h · …');
+    // Due inside the last two minutes: a delivery could already match it.
+    expect(chipFor(s5, entryIn(6 * MIN), null, NOW, ZONE).state).toBe('unknown');
+    // Hours ahead nothing can have gone out, and off is off whatever was sent.
+    expect(chipFor(step60, entryIn(DAY), null, NOW, ZONE).state).toBe('pending');
+    expect(chipFor({ ...step60, enabled: false }, entryIn(-HOUR), null, NOW, ZONE).state).toBe(
+      'off',
+    );
+    expect(chipFor(endStep(60), entryIn(-HOUR), null, NOW, ZONE).state).toBe('noend');
   });
 
   test('labels: steps, open, close and a one-off in the reader zone', () => {
@@ -147,6 +164,8 @@ describe('chipText', () => {
     expect(chipText({ label: '1h', state: 'pending' })).toBe('1h · pending');
     expect(chipText({ label: '5m', state: 'off' })).toBe('5m · off');
     expect(chipText({ label: '12h', state: 'skipped' })).toBe('12h — skipped (too late)');
+    expect(chipText({ label: 'close', state: 'noend' })).toBe('close — no end time');
+    expect(chipText({ label: '12h', state: 'unknown' })).toBe('12h · …');
   });
 });
 
@@ -320,12 +339,30 @@ describe('what the writes accept', () => {
   });
 
   test('a manual entry needs a title, a start, and an end after its start', () => {
-    const at = '2026-11-20T12:00:00.000Z';
-    expect(checkEntry({ title: ' Server Clash ', startsAt: at, endsAt: null })).toBe(
+    const at = iso(NOW.getTime() + HOUR);
+    expect(checkEntry({ title: ' Server Clash ', startsAt: at, endsAt: null }, NOW)).toBe(
       'Server Clash',
     );
-    expect(() => checkEntry({ title: '  ', startsAt: at, endsAt: null })).toThrow();
-    expect(() => checkEntry({ title: 'x', startsAt: '', endsAt: null })).toThrow();
-    expect(() => checkEntry({ title: 'x', startsAt: at, endsAt: at })).toThrow();
+    expect(() => checkEntry({ title: '  ', startsAt: at, endsAt: null }, NOW)).toThrow();
+    expect(() => checkEntry({ title: 'x', startsAt: '', endsAt: null }, NOW)).toThrow();
+    expect(() => checkEntry({ title: 'x', startsAt: at, endsAt: at }, NOW)).toThrow();
+  });
+
+  test('an entry the list would not show is refused rather than saved out of sight', () => {
+    const entry = (startsAt: number, endsAt: number | null = null) => ({
+      title: 'Server Clash',
+      startsAt: iso(startsAt),
+      endsAt: endsAt === null ? null : iso(endsAt),
+    });
+    const now = NOW.getTime();
+    // The list reaches 14 days ahead: one further out would vanish on save.
+    expect(() => checkEntry(entry(now + 15 * DAY), NOW)).toThrow(/14 days/);
+    expect(() => checkEntry(entry(now + 14 * DAY), NOW)).toThrow(/14 days/);
+    expect(checkEntry(entry(now + 14 * DAY - MIN), NOW)).toBe('Server Clash');
+    // Already over: no end and started, or ended.
+    expect(() => checkEntry(entry(now - MIN), NOW)).toThrow(/already/);
+    expect(() => checkEntry(entry(now - 2 * HOUR, now - HOUR), NOW)).toThrow(/already/);
+    // Started but still open is still listed.
+    expect(checkEntry(entry(now - HOUR, now + HOUR), NOW)).toBe('Server Clash');
   });
 });

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Select } from '../../components/ui/Select';
 import { isAllowed, usePermissions } from '../../lib/permissions';
 import {
@@ -48,6 +48,17 @@ import './alarms.css';
 
 const SOURCE_LABEL = { game: 'game', pick: 'alliance pick', manual: 'manual' } as const;
 
+/** The chips' clock. A step turns from pending to due on its minute, so the
+ *  page re-reads the time once a minute rather than only when it re-renders. */
+function useMinuteClock(): Date {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  return now;
+}
+
 /** `Sat, Nov 21 20:00` in the zone. */
 function dayTime(iso: string, zone: string): string {
   const day = new Intl.DateTimeFormat('en-US', {
@@ -83,7 +94,8 @@ function When({ entry, zone }: { entry: AlarmEntry; zone: string }) {
 interface RowProps {
   entry: AlarmEntry;
   board: AlarmBoard | undefined;
-  deliveries: readonly Delivery[];
+  /** Null until the delivery state is read. */
+  deliveries: readonly Delivery[] | null;
   zone: string;
   now: Date;
   mayManage: boolean;
@@ -198,17 +210,16 @@ export function AlarmsPage() {
 
   const entries = useAlarmEntries();
   const boards = useAlarmBoards();
-  const picks = useUnplacedPicks();
+  // Picks are readable across the group; the ones that matter here were read
+  // on this alliance's server, and the query asks for those alone.
+  const picks = useUnplacedPicks(active?.server_id ?? null);
   const list = entries.data ?? [];
   const deliveries = useAlarmDeliveries(list.map((entry) => entry.id));
+  const sentByEntry = deliveries.data;
   const boardList = boards.data ?? [];
   const byCategory = new Map(boardList.map((board) => [board.category, board]));
-  // Picks are readable across the group; the ones that matter here were read
-  // on this alliance's server. Unknown server: show them all.
-  const unplaced = (picks.data ?? []).filter(
-    (pick) => active === null || pick.serverId === active.server_id,
-  );
-  const now = new Date();
+  const unplaced = picks.data ?? [];
+  const now = useMinuteClock();
 
   return (
     <section aria-labelledby="alarms-heading" className="board-screen">
@@ -261,6 +272,12 @@ export function AlarmsPage() {
         )}
 
         {entries.error !== null && <p className="error">The alarms could not be read.</p>}
+        {deliveries.error !== null && (
+          <p className="error">
+            What the alarms have sent could not be read, so an alarm that is due shows "…" or may be
+            out of date.
+          </p>
+        )}
         {entries.isPending && <p className="empty loading">Loading…</p>}
         {!entries.isPending && list.length === 0 && (
           <p className="empty">Nothing on the calendar in the next 14 days.</p>
@@ -271,7 +288,8 @@ export function AlarmsPage() {
             <AlarmRow
               board={entry.category === null ? undefined : byCategory.get(entry.category)}
               boards={boardList}
-              deliveries={deliveries.data?.[entry.id] ?? []}
+              // Undefined while loading or failed: "not known", never "nothing sent".
+              deliveries={sentByEntry === undefined ? null : (sentByEntry[entry.id] ?? [])}
               entry={entry}
               key={entry.id}
               mayManage={mayManage}
@@ -285,7 +303,13 @@ export function AlarmsPage() {
       </div>
 
       {mayManage && (
-        <AlarmBoardsPanel boards={boardList} serverId={active?.server_id ?? null} zone={zone} />
+        <AlarmBoardsPanel
+          boards={boardList}
+          failed={boards.error !== null}
+          loading={boards.isPending}
+          serverId={active?.server_id ?? null}
+          zone={zone}
+        />
       )}
     </section>
   );

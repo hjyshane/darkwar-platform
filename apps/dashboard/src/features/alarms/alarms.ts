@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchAllianceSetting } from '../../lib/allianceSetting';
 import { supabase } from '../../lib/supabase';
 import {
+  AHEAD_MS,
   type AlarmBoard,
   type AlarmEntry,
   type AlarmStep,
@@ -15,6 +16,7 @@ import {
   stepMinutes,
   wholeSecond,
 } from './alarmLogic';
+import { categoryKey } from './boardLogic';
 
 /** The Alarms tab's reads and writes (spec §1, §5, §8).
  *
@@ -25,9 +27,8 @@ import {
  */
 
 const KEY = ['alarms'] as const;
-const DAY_MS = 86_400_000;
-/** Entries are generated, and listed, two weeks ahead (spec §3). */
-const AHEAD_DAYS = 14;
+/** The chips follow the minute job: what it sent is read again this often. */
+const DELIVERIES_POLL_MS = 60_000;
 
 type ReminderRow = Database['public']['Tables']['schedule_reminders']['Row'];
 
@@ -83,7 +84,7 @@ export function useAlarmEntries() {
           'schedule_event_id, title, category, starts_at, ends_at, source, source_key, alarm_message, schedule_reminders(reminder_id, anchor, minutes_before, send_at, enabled)',
         )
         .eq('hidden', false)
-        .lt('starts_at', new Date(now.getTime() + AHEAD_DAYS * DAY_MS).toISOString())
+        .lt('starts_at', new Date(now.getTime() + AHEAD_MS).toISOString())
         .or(`starts_at.gte.${nowIso},ends_at.gte.${nowIso}`)
         .order('starts_at');
       throwIf(error);
@@ -132,12 +133,15 @@ export function useAlarmBoards() {
   });
 }
 
-/** What the minute job has queued for these entries, by entry id (0324). */
+/** What the minute job has queued for these entries, by entry id (0324).
+ *  Polled: nothing pushes these tables to the page, and a chip still reading
+ *  "pending" after its alarm went out is the stale state this avoids. */
 export function useAlarmDeliveries(eventIds: readonly string[]) {
   const ids = [...eventIds].sort();
   return useQuery({
     queryKey: [...KEY, 'deliveries', ids],
     enabled: ids.length > 0,
+    refetchInterval: DELIVERIES_POLL_MS,
     queryFn: async (): Promise<Record<string, Delivery[]>> => {
       const { data, error } = await supabase.rpc('alarm_deliveries', { p_events: ids });
       throwIf(error);
@@ -212,19 +216,29 @@ export interface UnplacedPick {
   serverId: number;
 }
 
-/** Picks of the last 14 days that 0249 could not tie to an alliance. */
-export function useUnplacedPicks() {
+/** Picks of the last 14 days that 0249 could not tie to an alliance, read on
+ * the server of the alliance on screen.
+ *
+ * FILTERED IN THE QUERY. The table is readable across the group and PostgREST
+ * stops at 1,000 rows, so filtering afterwards could find nothing for this
+ * server under other servers' rows. `serverId` null (not known yet): all of
+ * them, as before the server was known.
+ */
+export function useUnplacedPicks(serverId: number | null) {
   return useQuery({
-    queryKey: [...KEY, 'unplaced-picks'],
+    queryKey: [...KEY, 'unplaced-picks', serverId],
     queryFn: async (): Promise<UnplacedPick[]> => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('alliance_event_times')
         .select(
           'snapshot_id, event_key, slot, starts_at, ends_at, captured_at, collected_from_server_id',
         )
         .is('alliance_id', null)
-        .gte('captured_at', new Date(Date.now() - AHEAD_DAYS * DAY_MS).toISOString())
-        .order('captured_at', { ascending: false });
+        .gte('captured_at', new Date(Date.now() - AHEAD_MS).toISOString());
+      if (serverId !== null) {
+        query = query.eq('collected_from_server_id', serverId);
+      }
+      const { data, error } = await query.order('captured_at', { ascending: false });
       throwIf(error);
       return (data ?? []).map((row) => ({
         id: row.snapshot_id,
@@ -241,21 +255,30 @@ export function useUnplacedPicks() {
 
 export interface EntryAlarmsDraft {
   entryId: string;
-  message: string;
+  /** The message as the officer edited it; null when it was not touched. */
+  message: string | null;
   current: readonly AlarmStep[];
   desired: readonly AlarmStep[];
 }
 
 /** An entry's message and steps, saved as a DIFF (spec §1): unchanged rows
- *  keep their ids, and only steps no longer wanted are deleted. */
+ * keep their ids, and only steps no longer wanted are deleted.
+ *
+ * THE MESSAGE IS WRITTEN ONLY WHEN IT WAS EDITED. The page's copy can be hours
+ * old (nothing refetches it on focus, and no realtime topic carries these
+ * tables), so writing it back with a step change would put back a message
+ * another officer has replaced since.
+ */
 export function useSaveEntryAlarms() {
   return useAlarmMutation(async (draft: EntryAlarmsDraft) => {
-    const message = draft.message.trim();
-    const saved = await supabase
-      .from('schedule_events')
-      .update({ alarm_message: message === '' ? null : message })
-      .eq('schedule_event_id', draft.entryId);
-    throwIf(saved.error);
+    if (draft.message !== null) {
+      const message = draft.message.trim();
+      const saved = await supabase
+        .from('schedule_events')
+        .update({ alarm_message: message === '' ? null : message })
+        .eq('schedule_event_id', draft.entryId);
+      throwIf(saved.error);
+    }
     const diff = reminderDiff(draft.current, draft.desired);
     if (diff.remove.length > 0) {
       const removed = await supabase
@@ -372,6 +395,46 @@ export function useWatchGameEvent() {
     if (error?.code === '23505') {
       throw new Error('That game event already has a board.');
     }
+    throwIf(error);
+  });
+}
+
+/** A board of the alliance's own: a name and a kind. The key is derived from
+ * the name, free among `taken` (the alliance's boards). Its steps, channel and
+ * template are the column defaults (0322) — except that those defaults count
+ * down to a START whatever the kind, and a window opens rather than starts, so
+ * a window board is given no start steps, as 0322's seeded windows are. */
+export function useCreateBoard() {
+  return useAlarmMutation(
+    async ({
+      label,
+      kind,
+      taken,
+    }: { label: string; kind: AlarmBoard['kind']; taken: string[] }) => {
+      const name = label.trim();
+      if (name === '') {
+        throw new Error('A board needs a name.');
+      }
+      const { error } = await supabase.from('schedule_categories').insert({
+        category: categoryKey(name, taken),
+        label: name,
+        kind,
+        ...(kind === 'window' ? { start_reminders: [] } : {}),
+      });
+      if (error?.code === '23505') {
+        throw new Error('Another officer just added a board with that name. Try again.');
+      }
+      throwIf(error);
+    },
+  );
+}
+
+/** A board removed. Its entries stay, with their alarms (0203 clears their
+ *  board), and a watched game event is un-watched this way (0325 files
+ *  nothing for an activity no board follows). */
+export function useDeleteBoard() {
+  return useAlarmMutation(async (category: string) => {
+    const { error } = await supabase.from('schedule_categories').delete().eq('category', category);
     throwIf(error);
   });
 }

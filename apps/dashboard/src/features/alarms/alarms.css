@@ -85,8 +85,11 @@
   color: var(--info-fg);
 }
 
+/* Unknown (delivery state not read yet) and no-end are not faults either. */
 .alarm-chip-off,
-.alarm-chip-skipped {
+.alarm-chip-skipped,
+.alarm-chip-noend,
+.alarm-chip-unknown {
   background: var(--neutral-bg);
   color: var(--neutral-fg);
 }
@@ -144,4 +147,8 @@ button.alarm-chip:focus-visible {
 
 .alarm-boards {
   margin-top: var(--space-4);
+}
+
+.alarm-boards .alarm-toolbar h3 {
+  margin: 0;
 }

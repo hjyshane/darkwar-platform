@@ -28,7 +28,9 @@ export interface Delivery {
   expiredAt: string | null;
 }
 
-export type ChipState = 'sent' | 'pending' | 'off' | 'skipped';
+/** `noend`: a close step on an entry with no end, which can never fire.
+ *  `unknown`: due already, but what the minute job did is not read yet. */
+export type ChipState = 'sent' | 'pending' | 'off' | 'skipped' | 'noend' | 'unknown';
 
 export interface Chip {
   label: string;
@@ -76,6 +78,12 @@ export const MAX_MINUTES_BEFORE = 20_160;
 /** The message box's limit: Discord takes 4,096 in an embed description and
  *  0323 adds the time line after the message, so this leaves it room (§4). */
 export const MESSAGE_MAX = 3_900;
+
+/** Entries are generated, and listed, two weeks ahead (spec §3). The tab's
+ *  list, its look-back for unplaced picks and the manual-entry check all
+ *  read this one number. */
+export const AHEAD_DAYS = 14;
+export const AHEAD_MS = AHEAD_DAYS * 86_400_000;
 
 const MINUTE_MS = 60_000;
 /** A move under this is calendar jitter: the sent alarm still counts (0323). */
@@ -158,17 +166,30 @@ function fireMs(step: AlarmStep, entry: EntryTimes): number | null {
  * A delivery counts only for (nearly) the same anchor time: when the game moves
  * the event by hours, the step is due again at the new time, as 0323 decides.
  * A one-off is the exception — it goes out once, whatever moves afterwards.
+ *
+ * `deliveries` is null until `alarm_deliveries` has answered (or when it
+ * failed). A step already due then reads `unknown`, never `skipped`: calling
+ * a sent alarm "too late" is the one lie a reader would act on. A step more
+ * than two minutes ahead is `pending` either way — nothing can have gone out
+ * for it, since a sent one only counts within two minutes of its anchor.
  */
 export function chipFor(
   step: AlarmStep,
   entry: EntryTimes,
-  deliveries: readonly Delivery[],
+  deliveries: readonly Delivery[] | null,
   now: Date,
   zone: string,
 ): Chip {
   const label = stepLabel(step, zone);
   if (!step.enabled) {
     return { label, state: 'off' };
+  }
+  const fire = fireMs(step, entry);
+  if (fire === null) {
+    return { label, state: 'noend' };
+  }
+  if (deliveries === null) {
+    return { label, state: fire - now.getTime() > SAME_TIME_MS ? 'pending' : 'unknown' };
   }
   const key = stepKey(step);
   const anchor = anchorMs(step, entry);
@@ -181,12 +202,7 @@ export function chipFor(
   if (matching.some((d) => d.deliveredAt !== null)) {
     return { label, state: 'sent' };
   }
-  const fire = fireMs(step, entry);
-  if (
-    fire === null ||
-    now.getTime() - fire > GRACE_MS ||
-    matching.some((d) => d.expiredAt !== null)
-  ) {
+  if (now.getTime() - fire > GRACE_MS || matching.some((d) => d.expiredAt !== null)) {
     return { label, state: 'skipped' };
   }
   return { label, state: 'pending' };
@@ -197,6 +213,8 @@ const CHIP_TEXT: Record<ChipState, string> = {
   pending: '· pending',
   off: '· off',
   skipped: '— skipped (too late)',
+  noend: '— no end time',
+  unknown: '· …',
 };
 
 /** `12h ✓ sent`, `1h · pending`, `5m · off`, `12h — skipped (too late)`. */
@@ -389,8 +407,14 @@ export interface EntryTimesDraft {
   endsAt: string | null;
 }
 
-/** A manual entry's trimmed title, or why it cannot be saved. */
-export function checkEntry(draft: EntryTimesDraft): string {
+/** A manual entry's trimmed title, or why it cannot be saved.
+ *
+ * ONLY WHAT THE LIST WILL SHOW. The tab lists entries still to start or still
+ * open, starting within `AHEAD_DAYS`; one saved outside that disappears the
+ * moment it is saved, and the officer adds it again — two entries, two sets of
+ * alarms. So it is refused here, by the same numbers the list uses.
+ */
+export function checkEntry(draft: EntryTimesDraft, now: Date = new Date()): string {
   const title = draft.title.trim();
   if (title === '') {
     throw new Error('An entry needs a title.');
@@ -399,8 +423,17 @@ export function checkEntry(draft: EntryTimesDraft): string {
   if (Number.isNaN(starts)) {
     throw new Error('An entry needs a start time.');
   }
-  if (draft.endsAt !== null && !(Date.parse(draft.endsAt) > starts)) {
+  const ends = draft.endsAt === null ? null : Date.parse(draft.endsAt);
+  if (ends !== null && !(ends > starts)) {
     throw new Error('An entry has to end after it starts.');
+  }
+  if (starts >= now.getTime() + AHEAD_MS) {
+    throw new Error(
+      `Only the next ${AHEAD_DAYS} days are listed, so this entry would not show. Add it nearer the time.`,
+    );
+  }
+  if ((ends ?? starts) < now.getTime()) {
+    throw new Error('That time has already passed: the entry would not show.');
   }
   return title;
 }

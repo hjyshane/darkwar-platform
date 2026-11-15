@@ -2044,8 +2044,10 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
   [['alarms', 'boards'], ALARM_BOARDS],
   [ALARM_DELIVERIES_KEY, ALARM_DELIVERIES],
   [['alarms', 'reminder-routing'], { enabled: true, channel: 'alarm' }],
+  // Keyed by the alliance's server; null here, as this build has no alliance
+  // list to name one (no `my-alliances` fixture), which asks for every server.
   [
-    ['alarms', 'unplaced-picks'],
+    ['alarms', 'unplaced-picks', null],
     [
       {
         id: 'pick-unplaced-1',

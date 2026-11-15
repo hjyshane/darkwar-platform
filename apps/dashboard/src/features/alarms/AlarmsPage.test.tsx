@@ -13,7 +13,9 @@ const mock = vi.hoisted(() => ({
   role: 'member',
   entries: [] as unknown[],
   boards: [] as unknown[],
-  deliveries: {} as Record<string, unknown[]>,
+  boardsError: null as Error | null,
+  deliveries: {} as Record<string, unknown[]> | undefined,
+  deliveriesError: null as Error | null,
   channels: [] as string[],
   routing: null as unknown,
   picks: [] as unknown[],
@@ -55,8 +57,12 @@ vi.mock('./alarms', () => {
   });
   return {
     useAlarmEntries: () => ({ data: mock.entries, isPending: false, error: null }),
-    useAlarmBoards: () => ({ data: mock.boards, isPending: false, error: null }),
-    useAlarmDeliveries: () => ({ data: mock.deliveries }),
+    useAlarmBoards: () => ({
+      data: mock.boardsError === null ? mock.boards : undefined,
+      isPending: false,
+      error: mock.boardsError,
+    }),
+    useAlarmDeliveries: () => ({ data: mock.deliveries, error: mock.deliveriesError }),
     useGameEventsForServer: () => ({ data: [] }),
     useReminderRouting: () => ({ data: mock.routing }),
     useUnplacedPicks: () => ({ data: mock.picks }),
@@ -66,6 +72,8 @@ vi.mock('./alarms', () => {
     useSaveBoard: mutation('save-board'),
     useSavePingRole: mutation('ping'),
     useWatchGameEvent: mutation('watch'),
+    useCreateBoard: mutation('create-board'),
+    useDeleteBoard: mutation('delete-board'),
     useAddEntry: mutation('add'),
     useEditEntry: mutation('edit'),
   };
@@ -136,7 +144,9 @@ beforeEach(() => {
   mock.role = 'member';
   mock.entries = [entry];
   mock.boards = [board({})];
+  mock.boardsError = null;
   mock.deliveries = { [entry.id]: [sent(entry)] };
+  mock.deliveriesError = null;
   mock.channels = ['general'];
   mock.routing = { enabled: true, channel: 'general' };
   mock.picks = [];
@@ -179,6 +189,96 @@ describe('AlarmsPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Send now' }));
     await waitFor(() => expect(mock.calls).toEqual(['save', 'send']));
     expect(mock.inputs.save?.[0]).toMatchObject({ message: 'Rally at the gate {in}' });
+  });
+
+  test('saving a chip change does not write the cached message back', async () => {
+    mock.role = 'officer';
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: /Alarms and message/ }));
+    fireEvent.click(screen.getByRole('button', { name: '1h · pending' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(mock.calls).toEqual(['save']));
+    // The message on screen may be hours old; null means "not edited, leave it".
+    expect(mock.inputs.save?.[0]).toMatchObject({ entryId: 'ev-siege', message: null });
+  });
+
+  test('"back to board defaults" then Save leaves the message alone too', async () => {
+    mock.role = 'officer';
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: /Alarms and message/ }));
+    fireEvent.click(screen.getByRole('button', { name: '5m · pending' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Back to board defaults' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(mock.calls).toEqual(['save']));
+    expect(mock.inputs.save?.[0]).toMatchObject({ message: null });
+  });
+
+  test('while the delivery state is loading, a due alarm is not called skipped', () => {
+    mock.deliveries = undefined;
+    renderPage();
+    // 12 h before a start three hours away was due nine hours ago.
+    expect(screen.getByText('12h · …')).toBeTruthy();
+    expect(screen.queryByText(/skipped/)).toBeNull();
+    expect(screen.getByText('1h · pending')).toBeTruthy();
+  });
+
+  test('a failed delivery read is said out loud, and the chips stay neutral', () => {
+    mock.deliveries = undefined;
+    mock.deliveriesError = new Error('400');
+    renderPage();
+    expect(screen.getByText(/could not be read/)).toBeTruthy();
+    expect(screen.getByText('12h · …')).toBeTruthy();
+    expect(screen.queryByText(/skipped/)).toBeNull();
+  });
+
+  test('a failed board read is an error, not "No boards yet."', () => {
+    mock.role = 'officer';
+    mock.boardsError = new Error('400');
+    renderPage();
+    const boards = screen.getByRole('region', { name: 'Boards' });
+    expect(within(boards).getByText('The boards could not be read.')).toBeTruthy();
+    expect(within(boards).queryByText('No boards yet.')).toBeNull();
+  });
+
+  test('an officer adds a board by name and kind', async () => {
+    mock.role = 'officer';
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'New board' }));
+    fireEvent.change(screen.getByLabelText('Board name'), { target: { value: 'Bear Hunt' } });
+    fireEvent.click(screen.getByRole('radio', { name: /A window/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add board' }));
+    await waitFor(() => expect(mock.calls).toEqual(['create-board']));
+    expect(mock.inputs['create-board']?.[0]).toEqual({
+      label: 'Bear Hunt',
+      kind: 'window',
+      taken: ['game_zombie_siege'],
+    });
+  });
+
+  test('deleting a board asks first, and says what happens to its entries', async () => {
+    mock.role = 'officer';
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit: Zombie Siege' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete board' }));
+    expect(mock.calls).toEqual([]);
+    expect(
+      screen.getByText(/keep their alarms; with no board, they go to the alliance/),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, delete' }));
+    await waitFor(() => expect(mock.calls).toEqual(['delete-board']));
+    expect(mock.inputs['delete-board']).toEqual(['game_zombie_siege']);
+  });
+
+  test('a watched game event is stopped, not "deleted"', () => {
+    mock.role = 'officer';
+    mock.boards = [
+      board({ category: 'game_40748', label: 'Maple Isle Clash', activityId: '40748' }),
+    ];
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit: Maple Isle Clash' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Stop watching' }));
+    expect(screen.getByRole('button', { name: 'Yes, stop watching' })).toBeTruthy();
+    expect(mock.calls).toEqual([]);
   });
 
   test('"use for every board" sets only the ping role on the other boards, in one call', async () => {
