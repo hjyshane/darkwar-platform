@@ -229,19 +229,28 @@ describe('board defaults', () => {
 });
 
 describe('nothingWillBeSent', () => {
+  const enabled = ['siege', 'alliance-alerts'];
   const on = { enabled: true, channel: 'alliance-alerts' };
 
   test('a board channel that is switched on is enough', () => {
-    expect(nothingWillBeSent('siege', ['siege'], null)).toBe(false);
+    expect(nothingWillBeSent('siege', enabled, null)).toBe(false);
   });
 
-  test('without a usable board channel, the alliance reminder routing decides', () => {
-    expect(nothingWillBeSent(null, ['siege'], on)).toBe(false);
-    expect(nothingWillBeSent('switched-off', ['siege'], on)).toBe(false);
-    expect(nothingWillBeSent(null, ['siege'], null)).toBe(true);
-    expect(nothingWillBeSent(null, [], { enabled: false, channel: 'alliance-alerts' })).toBe(true);
+  test('a board on a switched-off channel sends nothing: it never falls back', () => {
+    expect(nothingWillBeSent('switched-off', enabled, on)).toBe(true);
     expect(nothingWillBeSent('switched-off', [], { enabled: true, channel: '' })).toBe(true);
-    expect(nothingWillBeSent(null, [], 'not an object')).toBe(true);
+  });
+
+  test('a board with no channel uses the routing, when it is on and its channel is too', () => {
+    expect(nothingWillBeSent(null, enabled, on)).toBe(false);
+    expect(nothingWillBeSent('', enabled, on)).toBe(false);
+    expect(nothingWillBeSent(null, ['siege'], on)).toBe(true);
+    expect(nothingWillBeSent(null, enabled, null)).toBe(true);
+    expect(nothingWillBeSent(null, enabled, { enabled: false, channel: 'alliance-alerts' })).toBe(
+      true,
+    );
+    expect(nothingWillBeSent(null, enabled, { enabled: true, channel: '' })).toBe(true);
+    expect(nothingWillBeSent(null, enabled, 'not an object')).toBe(true);
   });
 });
 

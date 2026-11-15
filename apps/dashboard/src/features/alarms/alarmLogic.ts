@@ -311,25 +311,33 @@ export function previewMessage(
     .replaceAll('{end}', endsAt === null ? '' : longDate(endsAt, zone));
 }
 
-/** Whether a board's alarms reach nobody: no usable board channel, and the
- * alliance's `schedule_reminder` routing is off or names no channel.
+/** Whether a board's alarms reach nobody.
  *
- * `reminderRouting` is the routing's `schedule_reminder` value as stored, so
- * anything that is not `{enabled: true, channel: '…'}` counts as off.
+ * A BOARD WITH A CHANNEL NEVER FALLS BACK: 0323's `alarm_route` takes the
+ * board's channel without asking whether it is switched on, and 0324 delivers
+ * only to switched-on channels — so a board on a switched-off channel is
+ * silent whatever the routing says. Only a board with no channel uses the
+ * alliance's `schedule_reminder` routing, and that has to be on and name a
+ * switched-on channel. Anything else stored there counts as off.
  */
 export function nothingWillBeSent(
   boardChannel: string | null,
   enabledChannels: readonly string[],
   reminderRouting: unknown,
 ): boolean {
-  if (boardChannel !== null && enabledChannels.includes(boardChannel)) {
-    return false;
+  if (boardChannel !== null && boardChannel !== '') {
+    return !enabledChannels.includes(boardChannel);
   }
   if (typeof reminderRouting !== 'object' || reminderRouting === null) {
     return true;
   }
   const { enabled, channel } = reminderRouting as { enabled?: unknown; channel?: unknown };
-  return !(enabled === true && typeof channel === 'string' && channel.trim() !== '');
+  return !(
+    enabled === true &&
+    typeof channel === 'string' &&
+    channel !== '' &&
+    enabledChannels.includes(channel)
+  );
 }
 
 /** Board steps as 0322's checks accept them: whole minutes up to two weeks,
