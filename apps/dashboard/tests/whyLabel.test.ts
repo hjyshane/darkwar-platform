@@ -20,6 +20,7 @@ function row(over: Partial<RankRow> = {}): RankRow {
     duel_scoring: 'points',
     duel_days_met: null,
     duel_days_read: null,
+    measured_share: 1,
     computed_at: '2026-08-30T21:00:00Z',
     ...over,
   };
@@ -76,6 +77,21 @@ test('the season building says which way it moved the score', () => {
 
 test('an ordinary scored member just says score', () => {
   expect(whyLabel(row())).toBe('score');
+});
+
+// 0329: joined during a hand-set period, scored over the rest of it. The
+// share comes from its own column, so it survives whichever reason the
+// migration put first — and a row scored before 0329 has a null share.
+test('a member scored over part of a hand-set period says how much of it', () => {
+  const late = row({
+    tier_reason: 'score, over the 90% of the period on the roster',
+    measured_share: 0.9048,
+  });
+  expect(whyLabel(late)).toBe('score, 90% of period');
+  expect(whyLabel(row({ lab_adjustment: 10, measured_share: 0.5 }))).toBe(
+    'score, season building +10, 50% of period',
+  );
+  expect(whyLabel(row({ measured_share: null }))).toBe('score');
 });
 
 // Prefix matching, so rewording the sentence in a later migration shows the

@@ -23,7 +23,8 @@
   5. 보드 저장이 `channel_is_ours`를 통과한다. 게임 이벤트 감시가 맞는 연맹에 보드를 넣는다.
   6. 숨긴 게임 항목이 다음 `alarms-calendar` 실행 뒤에도 숨겨져 있다.
 - **알람 실제 시험 (Task 10 Step 3, 주인 몫, 미실시).** 시험용 역할(한 명만 보유)과 시험용 채널을 Zombie Siege 보드에 걸고, 다음 Siege나 Frankie에서 12시간/1시간/5분 알림이 오는지, 폰에 역할 푸시가 오는지, 두 시간대에서 시각이 맞는지 본다. 멘션은 보이는데 푸시가 안 오면 역할의 "Allow anyone to @mention this role"을 켠다.
-- **0328 대기 (PR #598).** 등급 측정 시각 월 00:00 UTC(리셋 2시간 전) + 듀얼 `days` 스코어링, v10. 머지되면 대시보드 Rank report가 `rank_period_latest`의 새 열(`duel_scoring`·`duel_days_*`)을 읽으므로 **푸시 전에는 그 화면이 400**. 푸시 뒤 Rank report에서 현재 기간을 다시 빌드해야 v10 수치가 보인다.
+- **0328 적용 완료 (11-15, PR #598 머지·푸시).** v10으로 두 연맹 현재 기간 리빌드함(HELLBOUND는 11-16 00:17Z에 2주차 측정 뒤 재빌드). 11-15 21:42Z~00:00Z 사이 주간 보드 스윕이 없어 2주차 읽기는 21:31Z 캡처.
+- **0329 대기.** 수동 설정 기간(0316)에서 기간 중 가입한 멤버도 점수를 받음, `measured_share`로 보정, v11. 머지되면 Rank report가 `rank_period_latest.measured_share`를 읽으므로 **푸시 전에는 그 화면이 400**. 푸시 뒤 수동 기간을 다시 빌드해야 가입자가 등급을 받는다. 그리드 2주 기간은 결과 불변.
 - **수집기 재시작 — 미확인.** Windows는 11-08에 edaae1b로 올렸다. 그 뒤 #582(아이폰 체인이 서버를 따라감) 등이 머지됐다. 반영하려면 `git pull`만으로는 안 된다(editable install) — `collector-operations.md` 레시피. **재시작 전에 `git -C C:\darkwar-platform branch --show-current`가 `main`인지 본다**(다른 세션이 체크아웃을 바꾼 적 있음).
 - **맥**: `git pull` + `install-iphone-agent.sh`(체인이 옛 체인을 먼저 죽임, #551).
 - **VM(GCE `dw-emu-test`)은 맥에서만 닿는다.** Windows엔 gcloud도 SSH 항목도 없다.
@@ -63,6 +64,7 @@
 
 ## 6. 최근 2주 (자세한 것은 `log/2026-11.md`)
 
+- 11-16 수동 기간의 중도 가입자 점수 산정, 재적 비율로 보정 (0329, v11) — `log/2026-11.md`
 - 11-15 등급 측정 시각 월요일 00:00 UTC(리셋 2시간 전) + 듀얼 `days` 모드 (0328, v10) — `log/2026-11.md`
 - 11-08 등급 측정 시각 일요일 14:00 UTC (0309, v9) — `log/2026-11.md`
 - 11-08 시즌 4 전날 점검, Windows 수집기가 26일 묵은 코드였음 — 같은 파일
