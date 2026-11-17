@@ -53,6 +53,12 @@ export interface RankRow {
   duel_scoring: string | null;
   duel_days_met: number | null;
   duel_days_read: number | null;
+  /** 0329: the share of the period the member was on the roster for, 0 < share
+   * <= 1. Below 1 only for a member who joined during a hand-set period and
+   * was scored over the rest of it — the percentiles then compared the totals
+   * divided by this, while the totals shown are what was read. 1 (or null, on
+   * rows scored before 0329) for everyone else. */
+  measured_share: number | null;
   /** When this answer was worked out. Shown beside the tier counts: the table
    * redraws identically when a rebuild lands close to the previous one, and
    * without a timestamp "nothing changed" and "nothing happened" look the
@@ -82,7 +88,7 @@ export function whyLabel(row: RankRow): string {
     return `offline ${Math.round(row.offline_hours ?? 0)}h`;
   }
   if (row.below_minimum === true) {
-    return `under weekly ${row.minimum_missed ?? 'minimum'}`;
+    return withShare(row, `under weekly ${row.minimum_missed ?? 'minimum'}`);
   }
   if (reason.startsWith('not measured')) {
     return 'joined too recently to score';
@@ -95,9 +101,26 @@ export function whyLabel(row: RankRow): string {
   }
   const lab = row.lab_adjustment ?? 0;
   if (lab !== 0) {
-    return `score, season building ${lab > 0 ? '+' : ''}${lab}`;
+    return withShare(row, `score, season building ${lab > 0 ? '+' : ''}${lab}`);
   }
-  return reason === '' ? 'score' : reason;
+  // 0329 writes its own sentence ("score, over the 90% of the period on the
+  // roster"); the share is printed from the column instead, so it reads the
+  // same whichever reason came first.
+  if (reason.startsWith('score, over the')) {
+    return withShare(row, 'score');
+  }
+  return withShare(row, reason === '' ? 'score' : reason);
+}
+
+/** "…, 90% of period" after a scored member's label when they joined during a
+ * hand-set period and were ranked over the rest of it (0329). The totals in
+ * the row are what was read; the rank compared them over this share. */
+function withShare(row: RankRow, label: string): string {
+  const share = row.measured_share ?? 1;
+  if (share >= 1) {
+    return label;
+  }
+  return `${label}, ${Math.round(share * 100)}% of period`;
 }
 
 /** What went wrong with Rebuild or Send, in the words an officer can act on.
@@ -183,7 +206,7 @@ async function fetchPeriod(periodStart: Date): Promise<RankRow[]> {
     // the newest.
     .from('rank_period_latest')
     .select(
-      'player_id, name, donation_total, duel_total, power_growth, activity_score, offline_hours, tier, tier_reason, below_minimum, minimum_missed, lab_level, lab_adjustment, duel_scoring, duel_days_met, duel_days_read, computed_at',
+      'player_id, name, donation_total, duel_total, power_growth, activity_score, offline_hours, tier, tier_reason, below_minimum, minimum_missed, lab_level, lab_adjustment, duel_scoring, duel_days_met, duel_days_read, measured_share, computed_at',
     )
     .eq('period_start', periodStart.toISOString())
     .order('activity_score', { ascending: false, nullsFirst: false });

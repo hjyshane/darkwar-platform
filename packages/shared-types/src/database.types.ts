@@ -7434,6 +7434,7 @@ export type Database = {
           growth_pct: number | null
           lab_adjustment: number
           lab_level: number | null
+          measured_share: number
           minimum_missed: string | null
           name: string | null
           offline_hours: number | null
@@ -7474,6 +7475,7 @@ export type Database = {
           growth_pct?: number | null
           lab_adjustment?: number
           lab_level?: number | null
+          measured_share?: number
           minimum_missed?: string | null
           name?: string | null
           offline_hours?: number | null
@@ -7514,6 +7516,7 @@ export type Database = {
           growth_pct?: number | null
           lab_adjustment?: number
           lab_level?: number | null
+          measured_share?: number
           minimum_missed?: string | null
           name?: string | null
           offline_hours?: number | null
@@ -10364,6 +10367,7 @@ export type Database = {
           growth_pct: number | null
           lab_adjustment: number | null
           lab_level: number | null
+          measured_share: number | null
           minimum_missed: string | null
           name: string | null
           offline_hours: number | null
