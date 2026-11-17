@@ -5142,12 +5142,19 @@ export type Database = {
           anchor_y: number
           created_at: string
           created_by: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          deleted_by_name: string | null
+          edited_at: string
+          edited_by: string | null
+          edited_by_name: string | null
           formation_id: string
           is_active: boolean
           name: string
           note: string
           server_id: number
           updated_at: string
+          version: number
         }
         Insert: {
           alliance_id?: string | null
@@ -5155,12 +5162,19 @@ export type Database = {
           anchor_y: number
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          deleted_by_name?: string | null
+          edited_at?: string
+          edited_by?: string | null
+          edited_by_name?: string | null
           formation_id?: string
           is_active?: boolean
           name: string
           note?: string
           server_id: number
           updated_at?: string
+          version?: number
         }
         Update: {
           alliance_id?: string | null
@@ -5168,12 +5182,19 @@ export type Database = {
           anchor_y?: number
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          deleted_by_name?: string | null
+          edited_at?: string
+          edited_by?: string | null
+          edited_by_name?: string | null
           formation_id?: string
           is_active?: boolean
           name?: string
           note?: string
           server_id?: number
           updated_at?: string
+          version?: number
         }
         Relationships: [
           {
@@ -5200,6 +5221,20 @@ export type Database = {
           {
             foreignKeyName: "hive_formations_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "pending_access"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "hive_formations_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "pending_access"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "hive_formations_edited_by_fkey"
+            columns: ["edited_by"]
             isOneToOne: false
             referencedRelation: "pending_access"
             referencedColumns: ["user_id"]
@@ -9770,6 +9805,7 @@ export type Database = {
           dy: number | null
           formation_id: string | null
           formation_name: string | null
+          formation_version: number | null
           game_uid: number | null
           hq_level: number | null
           is_active: boolean | null
@@ -10831,6 +10867,10 @@ export type Database = {
         Returns: undefined
       }
       delete_gift_code: { Args: { p_code_id: string }; Returns: number }
+      delete_hive_formation: {
+        Args: { p_formation_id: string }
+        Returns: undefined
+      }
       delete_rank_period_override: {
         Args: { p_override_id: string }
         Returns: undefined
@@ -10946,6 +10986,10 @@ export type Database = {
       leave_alliance: { Args: never; Returns: undefined }
       linked_player_id: { Args: never; Returns: string }
       linked_player_ids: { Args: never; Returns: string[] }
+      make_hive_formation_live: {
+        Args: { p_formation_id: string }
+        Returns: undefined
+      }
       map_atlas: { Args: { p_server_id: number }; Returns: Json }
       member_participation: {
         Args: {
@@ -11266,6 +11310,16 @@ export type Database = {
           status: string
         }[]
       }
+      move_hive_formation: {
+        Args: {
+          p_formation_id: string
+          p_from_x: number
+          p_from_y: number
+          p_to_x: number
+          p_to_y: number
+        }
+        Returns: Json
+      }
       my_alliances: {
         Args: never
         Returns: {
@@ -11471,6 +11525,10 @@ export type Database = {
       }
       reset_week_start: { Args: { ts: string }; Returns: string }
       resolve_own_alliance: { Args: never; Returns: undefined }
+      restore_hive_formation: {
+        Args: { p_formation_id: string }
+        Returns: Json
+      }
       retention_purge: {
         Args: {
           p_batch?: number
@@ -11507,6 +11565,15 @@ export type Database = {
           p_sort_order?: number
         }
         Returns: undefined
+      }
+      save_hive_formation: {
+        Args: {
+          p_assignments: Json
+          p_formation_id: string
+          p_slots: Json
+          p_version: number
+        }
+        Returns: Json
       }
       save_hive_formation_layout: {
         Args: { p_formation_id: string; p_slots: Json }

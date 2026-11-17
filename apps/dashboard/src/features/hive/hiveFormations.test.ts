@@ -82,6 +82,7 @@ function boardSlot(over: Partial<BoardSlot> = {}): BoardSlot {
     stillAMember: false,
     assignedAt: null,
     departedName: null,
+    formationVersion: 1,
     ...over,
   };
 }

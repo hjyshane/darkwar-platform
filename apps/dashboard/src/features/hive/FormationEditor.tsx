@@ -1,5 +1,5 @@
 import type { Coordinate } from '@dw/ui';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useIsMutating, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { Select } from '../../components/ui/Select';
 import {
@@ -41,6 +41,7 @@ import {
   tilesOverlap,
 } from '../../lib/hiveFormation';
 import { shareCoordinate } from '../../lib/shareCoordinate';
+import { ConflictBanner, Stamp } from './HiveStamp';
 import {
   type GridBase,
   type GridSighting,
@@ -60,16 +61,21 @@ import {
   createMapFeature,
   deleteMapFeature,
   deleteTemplate,
-  fetchBoard,
   fetchTemplateTiles,
-  saveAssignments,
-  saveLayout,
+  moveFormation,
+  saveFormation,
   saveTemplate,
-  updateFormation,
   useMapFeatures,
   useOccupiedTiles,
   useTemplates,
 } from './hiveFormations';
+import {
+  PlanDeletedError,
+  StaleSaveError,
+  boardVersionOf,
+  draftStatus,
+  peopleByOffset,
+} from './hiveSafety';
 
 /** A tile in the draft, identified by where it is.
  *
@@ -434,16 +440,17 @@ export function FormationEditor({
   const saved = useMemo(() => draftFromBoard(slots), [slots]);
   // Keyed by the version of the saved layout it was seeded from, so a
   // refetch after a save replaces the draft rather than leaving the old one
-  // on screen looking unsaved.
+  // on screen looking unsaved. Reconciled with each arriving board further
+  // down, once the people's state exists too — see "WHEN A BOARD ARRIVES".
   const [draftFor, setDraftFor] = useState<Map<string, DraftSlot>>(saved);
   const [draft, setDraft] = useState<Map<string, DraftSlot>>(saved);
-  if (draftFor !== saved) {
-    setDraftFor(saved);
-    // Not on an anchor move — see sameSavedShape.
-    if (!sameSavedShape(draftFor, saved)) {
-      setDraft(saved);
-    }
-  }
+  // WHICH VERSION OF THE PLAN THE DRAFT WAS BUILT FROM (0330). A save names
+  // it, and is refused if somebody else has saved since. It moves forward
+  // when a newer board is taken in, and to whatever this officer's own save
+  // returns — never to a newer board while there are unsaved changes, which
+  // is what keeps those changes from being saved over somebody else's.
+  const boardVersion = boardVersionOf(slots, formation.version);
+  const [baseVersion, setBaseVersion] = useState<number>(boardVersion);
 
   const [centre, setCentre] = useState<Coordinate>({ x: formation.anchorX, y: formation.anchorY });
   // The same reset the draft gets above. The centre is seeded from the anchor
@@ -498,11 +505,9 @@ export function FormationEditor({
   const [assignmentsFor, setAssignmentsFor] = useState<readonly BoardSlot[]>([]);
   const [pinned, setPinned] = useState<Map<string, string>>(new Map());
   const [memberQuery, setMemberQuery] = useState('');
-  // Not on an anchor move either — see sameOccupancy.
-  if (assignmentsFor !== slots && sameOccupancy(assignmentsFor, slots)) {
-    setAssignmentsFor(slots);
-  } else if (assignmentsFor !== slots) {
-    setAssignmentsFor(slots);
+
+  /** The people as the board has them, pins included. */
+  function seedPeople() {
     setAssignments(
       new Map(
         slots.flatMap((slot) => (slot.playerId === null ? [] : [[slot.slotId, slot.playerId]])),
@@ -532,6 +537,63 @@ export function FormationEditor({
       );
       return new Map([...survivingPins(was, slots), ...fromBoard]);
     });
+  }
+
+  // WHEN A BOARD ARRIVES (0330).
+  //
+  // This used to replace the draft whenever the saved shape changed, which
+  // was right after this officer's own save and silently wrong after anybody
+  // else's: twenty minutes of unsaved drawing vanished the moment another
+  // officer pressed Save. Now the board's version decides (`draftStatus`):
+  //
+  // - the version this draft was built from, or the one this officer's own
+  //   save returned: today's rules, unchanged — an anchor move keeps the
+  //   draft (`sameSavedShape`, `sameOccupancy`), a save of ours replaces it;
+  // - newer, with nothing unsaved here: take it quietly;
+  // - newer, with unsaved changes: KEEP THEM. They cannot be saved over the
+  //   newer plan; the banner by Save says so and offers to load it.
+  //
+  // "Unsaved" is judged against what the draft and the people were built
+  // from, not against the board that just arrived. And nothing is judged
+  // while this officer's own save is in flight: its refresh can land before
+  // the save's answer has moved `baseVersion`, and would read as somebody
+  // else's.
+  const saving = useIsMutating({ mutationKey: ['hive', 'save', formation.formationId] }) > 0;
+  if (!saving && (draftFor !== saved || assignmentsFor !== slots || boardVersion !== baseVersion)) {
+    const unsavedBefore =
+      !sameLayout(draft, draftFor) ||
+      assignmentsFor.some((slot) => (assignments.get(slot.slotId) ?? null) !== slot.playerId);
+    const arriving = draftStatus({ unsaved: unsavedBefore, baseVersion, boardVersion });
+    if (arriving === 'behind') {
+      setBaseVersion(boardVersion);
+    }
+    const keep = arriving === 'conflict';
+    if (draftFor !== saved) {
+      setDraftFor(saved);
+      if (!keep && !sameSavedShape(draftFor, saved)) {
+        setDraft(saved);
+      }
+    }
+    if (assignmentsFor !== slots) {
+      setAssignmentsFor(slots);
+      // Not on an anchor move either — see sameOccupancy.
+      if (!keep && !sameOccupancy(assignmentsFor, slots)) {
+        seedPeople();
+      }
+    }
+  }
+  // Somebody else saved while there were unsaved changes here.
+  const conflicted = !saving && boardVersion > baseVersion;
+
+  /** Drop what is unsaved here and take the newer plan. */
+  function loadNewVersion() {
+    setDraft(saved);
+    setDraftFor(saved);
+    setAssignmentsFor(slots);
+    setPinned(new Map());
+    seedPeople();
+    setBaseVersion(boardVersion);
+    setRefusal(null);
   }
 
   const anchor: Coordinate = pendingAnchor ?? { x: formation.anchorX, y: formation.anchorY };
@@ -595,77 +657,70 @@ export function FormationEditor({
     yMax: view.yMax,
   });
 
-  /** Save the shape, then put everybody back on it.
+  /** Save whatever is unsaved — the shape, the people, or both — in ONE call.
    *
-   * TWO CALLS, AND THE SECOND IS THE POINT. `save_hive_formation_layout`
-   * deletes the tiles that moved and inserts new ones — it has to, because a
-   * shape shifted by one tile overlaps its own previous version — so the rows
-   * an assignment pointed at are gone, and their slot ids with them. Without
-   * this, dragging a base silently unassigned its member, and so did nudging
-   * a whole block.
+   * `save_hive_formation` (0330) writes the shape and then puts everybody back
+   * on it inside one transaction, under the version check. It used to be three
+   * requests (layout, a re-read, people), and a save from another officer
+   * could land between any two.
    *
-   * Each draft tile carries the id of the slot it came from, so once the
-   * layout lands the board is read back and everybody is put on the tile they
-   * were drawn on — including a member handed that tile since the last save. `assign_hive_formation_slots` replaces the whole map in one
-   * transaction, which is what makes re-applying safe rather than eighty
-   * updates that can half-fail.
+   * THE PEOPLE GO BY OFFSET. A moved tile is deleted and reinserted under a
+   * new id, so the rows an assignment pointed at are gone with their ids;
+   * worked out from the draft BEFORE the call, each member rides with the
+   * square they stand on — including a member handed that tile since the last
+   * save. A member whose tile was erased outright has nowhere to go back to,
+   * and is reported (`lost`) rather than quietly dropped.
    *
-   * A member whose tile was deleted outright has nowhere to go back to, and
-   * is reported rather than quietly dropped.
+   * RETURNED, not fired and forgotten, in `onSuccess`: the save stays pending
+   * until the board has been re-read, so its refresh is never judged as
+   * somebody else's (see "WHEN A BOARD ARRIVES").
    */
-  const layoutSave = useMutation({
-    mutationFn: async () => {
-      // Worked out BEFORE the layout call, while the old slot ids still mean
-      // something: a moved tile is deleted and reinserted under a new id, so
-      // afterwards the only thing that still finds it is where it now stands.
-      const carried = placementsOf(orderedDraft(), assignments, pinned);
-      const summary = await saveLayout(formation.formationId, layoutForSave());
-      const saved = await fetchBoard(formation.formationId);
-      await saveAssignments(
+  const save = useMutation({
+    mutationKey: ['hive', 'save', formation.formationId],
+    mutationFn: () => {
+      if (dirty) {
+        const ordered = orderedDraft();
+        return saveFormation(
+          formation.formationId,
+          baseVersion,
+          layoutForSave(),
+          peopleByOffset(ordered, placementsOf(ordered, assignments, pinned)),
+        );
+      }
+      return saveFormation(
         formation.formationId,
-        saved.map((slot) => ({
-          slot_id: slot.slotId,
-          player_id: carried.get(offsetKey(slot))?.playerId ?? null,
-          pinned: carried.get(offsetKey(slot))?.pinned ?? false,
-        })),
+        baseVersion,
+        null,
+        peopleByOffset(slots, placementsOf(slots, assignments, pinned)),
       );
-      return { summary, restored: carried.size };
     },
-    onSuccess: ({ summary, restored }) => {
-      // `unassigned` counts what the layout call dropped; `restored` counts
-      // what was put back. Only the difference is a member who actually lost
-      // their place, and only that is worth saying out loud.
-      const lost = Math.max(summary.unassigned - restored, 0);
+    onSuccess: (result) => {
+      setBaseVersion(result.version);
       setRefusal(
-        lost === 0
+        result.lost === 0
           ? null
-          : `Saved. ${lost} member${lost === 1 ? '' : 's'} lost a tile, because the tile they were on is gone.`,
+          : `Saved. ${result.lost} member${result.lost === 1 ? '' : 's'} lost a tile, because the tile they were on is gone.`,
       );
-      void queryClient.invalidateQueries({ queryKey: ['hive'] });
+      return queryClient.invalidateQueries({ queryKey: ['hive'] });
     },
-    onError: (error: Error) => setRefusal(error.message),
-  });
-
-  const assignmentSave = useMutation({
-    mutationFn: () =>
-      saveAssignments(
-        formation.formationId,
-        slots.map((slot) => ({
-          slot_id: slot.slotId,
-          player_id: assignments.get(slot.slotId) ?? null,
-          pinned: pinned.has(slot.slotId),
-        })),
-      ),
-    onSuccess: () => {
-      setRefusal(null);
-      void queryClient.invalidateQueries({ queryKey: ['hive'] });
+    onError: (error: Error) => {
+      if (error instanceof StaleSaveError) {
+        // The banner takes over once the newer board arrives.
+        setRefusal('Somebody else saved this plan first. Fetching their version…');
+        void queryClient.invalidateQueries({ queryKey: ['hive'] });
+        return;
+      }
+      setRefusal(
+        error instanceof PlanDeletedError
+          ? 'This plan was deleted. An officer can restore it from Recently deleted.'
+          : error.message,
+      );
     },
-    onError: (error: Error) => setRefusal(error.message),
   });
 
   const anchorMove = useMutation({
-    mutationFn: (to: Coordinate) =>
-      updateFormation(formation.formationId, { anchorX: to.x, anchorY: to.y }),
+    mutationFn: (move: { from: Coordinate; to: Coordinate }) =>
+      moveFormation(formation.formationId, move.from, move.to),
     // RETURNED, not fired and forgotten: the mutation stays pending until the
     // board has been re-read, so `pendingAnchor` is let go only once the
     // formation it stood in for has arrived — never a frame on the old ground.
@@ -673,20 +728,39 @@ export function FormationEditor({
       setRefusal(null);
       return queryClient.invalidateQueries({ queryKey: ['hive'] });
     },
-    onError: (error: Error) => setRefusal(error.message),
+    onError: (error: Error) => {
+      if (error instanceof StaleSaveError) {
+        // The draft is untouched: an anchor move makes nobody's draft stale.
+        setRefusal("Someone else moved this plan's anchor. It has been reloaded.");
+        void queryClient.invalidateQueries({ queryKey: ['hive'] });
+        return;
+      }
+      setRefusal(
+        error instanceof PlanDeletedError
+          ? 'This plan was deleted. An officer can restore it from Recently deleted.'
+          : error.message,
+      );
+    },
   });
 
   /** Move the whole formation: the typed box and the dragged anchor both end
-   * here, so the two cannot disagree about what a move does. */
+   * here, so the two cannot disagree about what a move does.
+   *
+   * Sent with the anchor this screen last read, not the pending one: that is
+   * what 0330 checks, so a move made from a stale view is refused rather than
+   * landing on top of somebody else's. */
   function moveAnchor(to: Coordinate) {
     const from = anchor;
     setPendingAnchor(to);
     setCentre(to);
-    anchorMove.mutate(to, {
-      onSettled: () => setPendingAnchor(null),
-      // Refused: the formation never moved, so neither should the view.
-      onError: () => setCentre(from),
-    });
+    anchorMove.mutate(
+      { from: { x: formation.anchorX, y: formation.anchorY }, to },
+      {
+        onSettled: () => setPendingAnchor(null),
+        // Refused: the formation never moved, so neither should the view.
+        onError: () => setCentre(from),
+      },
+    );
   }
 
   // The catalogue the brush is loaded from (0171). Read here rather than
@@ -784,25 +858,11 @@ export function FormationEditor({
     onError: (error: Error) => setRefusal(error.message),
   });
 
-  /** Save whatever is unsaved, in the order the data allows.
-   *
-   * ONE BUTTON, TWO CALLS UNDERNEATH, and the order is not a preference. A
-   * tile has no id until it has been written, so the people can only be
-   * pinned to tiles that already exist — which is why this used to be two
-   * buttons an officer had to press in the right order, and why pressing the
-   * wrong one first looked like it had done nothing.
-   *
-   * `layoutSave` already carries each member along with the square they are
-   * standing on and re-applies them once the tiles have ids, so when the
-   * shape has changed it saves both and there is nothing left for the second
-   * call to do. When only the people have changed there is no shape to write.
-   */
+  /** Save whatever is unsaved. One button, one call (`save`): this used to be
+   * two buttons an officer had to press in the right order, then one button
+   * over two calls, and since 0330 the shape and the people go together. */
   function saveEverything() {
-    if (dirty) {
-      layoutSave.mutate();
-      return;
-    }
-    assignmentSave.mutate();
+    save.mutate();
   }
 
   /** A click on the grid. On a base it removes it; on free ground it adds one.
@@ -1332,28 +1392,40 @@ export function FormationEditor({
 
   // On both tabs: the shape and the people are saved together, and making
   // somebody switch tabs to press Save is how a fill gets left unsaved.
+  // The conflict banner sits above the button it disables: there is nothing
+  // to save until the officer has chosen to take the newer plan.
   const saveActions = (
-    <div className="hive-actions">
-      <button
-        className="primary"
-        disabled={!unsaved || layoutSave.isPending || assignmentSave.isPending}
-        onClick={saveEverything}
-        type="button"
-      >
-        {layoutSave.isPending || assignmentSave.isPending
-          ? 'Saving…'
-          : !unsaved
-            ? 'Saved'
-            : dirty && assignmentsDirty
-              ? 'Save the shape and the people'
-              : dirty
-                ? 'Save the shape'
-                : 'Save who goes where'}
-      </button>
-      <button disabled={!dirty} onClick={() => setDraft(saved)} type="button">
-        Discard changes
-      </button>
-    </div>
+    <>
+      {conflicted && (
+        <ConflictBanner
+          at={formation.editedAt}
+          name={formation.editedByName}
+          onLoad={loadNewVersion}
+        />
+      )}
+      <div className="hive-actions">
+        <button
+          className="primary"
+          disabled={!unsaved || conflicted || save.isPending}
+          onClick={saveEverything}
+          type="button"
+        >
+          {save.isPending
+            ? 'Saving…'
+            : !unsaved
+              ? 'Saved'
+              : dirty && assignmentsDirty
+                ? 'Save the shape and the people'
+                : dirty
+                  ? 'Save the shape'
+                  : 'Save who goes where'}
+        </button>
+        <button disabled={!dirty} onClick={() => setDraft(saved)} type="button">
+          Discard changes
+        </button>
+        <Stamp at={formation.editedAt} name={formation.editedByName} />
+      </div>
+    </>
   );
 
   return (
@@ -1425,7 +1497,7 @@ export function FormationEditor({
           <TileGrid
             anchor={anchor}
             bases={bases}
-            busy={layoutSave.isPending}
+            busy={save.isPending}
             canDropAt={(at) => dropTarget(drawn, anchor, at).kind !== 'refused'}
             canMoveTo={canMove}
             canAnchorAt={(to) => formationFitsAt(to, drawn)}
