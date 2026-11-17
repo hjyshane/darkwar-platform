@@ -9,9 +9,13 @@
 // there is no order of calls that works. 0167's two functions do the whole
 // formation at once, and this file never reaches past them.
 //
-// Single-field edits — renaming, moving the anchor, marking a plan live — go
-// straight at the table, because there is no halfway state to protect.
+// SINCE 0330 EVERY CHANGE AFTER CREATION IS A FUNCTION CALL, single fields
+// included. Moving the anchor, making a plan live and deleting one used to go
+// straight at the table; now each locks the plan row and checks that nobody
+// else got there first, and the browser no longer holds the table rights that
+// would let it go around that. Creating a plan is the one direct write left.
 
+import type { Coordinate } from '@dw/ui';
 import { useQuery } from '@tanstack/react-query';
 import type {
   AssignableMember,
@@ -21,6 +25,7 @@ import type {
 } from '../../lib/hiveFormation';
 import { shareCoordinate } from '../../lib/shareCoordinate';
 import { supabase } from '../../lib/supabase';
+import { KEEP_DELETED_DAYS, type OffsetAssignment, toWriteError } from './hiveSafety';
 
 export interface Formation {
   formationId: string;
@@ -31,6 +36,52 @@ export interface Formation {
   note: string;
   isActive: boolean;
   updatedAt: string;
+  /** Moves with every saved change to the shape or the people (0330). A save
+   * names the version its draft was built from and is refused if this has
+   * moved on. */
+  version: number;
+  /** Who last changed the shape, the people or the anchor, and when. Null
+   * name: an account with neither a character nor a display name. */
+  editedAt: string;
+  editedByName: string | null;
+  /** Null unless the plan is in "Recently deleted". */
+  deletedAt: string | null;
+  deletedByName: string | null;
+}
+
+const FORMATION_COLUMNS =
+  'formation_id, name, server_id, anchor_x, anchor_y, note, is_active, updated_at, version, edited_at, edited_by_name, deleted_at, deleted_by_name';
+
+function toFormation(row: {
+  formation_id: string;
+  name: string;
+  server_id: number;
+  anchor_x: number;
+  anchor_y: number;
+  note: string;
+  is_active: boolean;
+  updated_at: string;
+  version: number;
+  edited_at: string;
+  edited_by_name: string | null;
+  deleted_at: string | null;
+  deleted_by_name: string | null;
+}): Formation {
+  return {
+    formationId: row.formation_id,
+    name: row.name,
+    serverId: row.server_id,
+    anchorX: row.anchor_x,
+    anchorY: row.anchor_y,
+    note: row.note,
+    isActive: row.is_active,
+    updatedAt: row.updated_at,
+    version: row.version,
+    editedAt: row.edited_at,
+    editedByName: row.edited_by_name,
+    deletedAt: row.deleted_at,
+    deletedByName: row.deleted_by_name,
+  };
 }
 
 /** One tile of a formation, with the member standing on it. */
@@ -63,6 +114,9 @@ export interface BoardSlot extends AssignableSlot {
   /** Who was on this tile before they left the alliance, for the screen to
    * say so. The tile itself reads as empty — see `vacateDeparted`. */
   departedName: string | null;
+  /** The version of the plan this row was read from (0330), which is what
+   * the editor's draft is "built from". */
+  formationVersion: number | null;
 }
 
 /** A member who has left gives their tile up, as far as every screen is
@@ -140,34 +194,42 @@ function emptyOnRefusal(code: string | undefined): boolean {
   return code === '42501';
 }
 
-export async function fetchFormations(serverId: number | null): Promise<Formation[]> {
-  let request = supabase
-    .from('hive_formations')
-    .select('formation_id, name, server_id, anchor_x, anchor_y, note, is_active, updated_at')
-    // Live plans first: the one being executed is the one somebody opening
-    // this screen almost always came for.
+/** The plans, live ones first.
+ *
+ * `withDeleted` adds the plans deleted in the last 30 days — the officers'
+ * restore list — to the SAME response (0330's policy shows them to officers
+ * only). One response rather than two queries, so that a plan somebody else
+ * just deleted moves from one list to the other at once instead of briefly
+ * being in neither; see `pickFormation`. Everybody else — members, the map —
+ * asks without, and never sees a deleted plan. */
+export async function fetchFormations(
+  serverId: number | null,
+  withDeleted = false,
+): Promise<Formation[]> {
+  let request = supabase.from('hive_formations').select(FORMATION_COLUMNS);
+  if (withDeleted) {
+    const since = new Date(Date.now() - KEEP_DELETED_DAYS * 24 * 60 * 60_000).toISOString();
+    request = request.or(`deleted_at.is.null,deleted_at.gt.${since}`);
+  } else {
+    request = request.is('deleted_at', null);
+  }
+  // Live plans first: the one being executed is the one somebody opening
+  // this screen almost always came for. Deleted ones last, newest first.
+  let ordered = request
+    .order('deleted_at', { ascending: false, nullsFirst: true })
     .order('is_active', { ascending: false })
     .order('updated_at', { ascending: false });
   if (serverId !== null) {
-    request = request.eq('server_id', serverId);
+    ordered = ordered.eq('server_id', serverId);
   }
-  const { data, error } = await request.limit(100);
+  const { data, error } = await ordered.limit(100);
   if (error) {
     if (emptyOnRefusal(error.code)) {
       return [];
     }
     throw new Error(`formation query failed: ${error.message}`);
   }
-  return (data ?? []).map((row) => ({
-    formationId: row.formation_id,
-    name: row.name,
-    serverId: row.server_id,
-    anchorX: row.anchor_x,
-    anchorY: row.anchor_y,
-    note: row.note,
-    isActive: row.is_active,
-    updatedAt: row.updated_at,
-  }));
+  return (data ?? []).map(toFormation);
 }
 
 /** What PostgREST will hand back in one response, whatever a query asks for. */
@@ -199,10 +261,12 @@ export async function everyPage<T>(
   }
 }
 
-export function useFormations(serverId: number | null) {
+export function useFormations(serverId: number | null, withDeleted = false) {
   return useQuery({
-    queryKey: ['hive', 'formations', serverId],
-    queryFn: () => fetchFormations(serverId),
+    queryKey: withDeleted
+      ? ['hive', 'formations', serverId, 'with-deleted']
+      : ['hive', 'formations', serverId],
+    queryFn: () => fetchFormations(serverId, withDeleted),
     staleTime: 60_000,
   });
 }
@@ -221,7 +285,7 @@ export async function fetchBoard(formationId: string): Promise<BoardSlot[]> {
     supabase
       .from('hive_formation_board')
       .select(
-        'slot_id, ordinal, label, dx, dy, x, y, span_x, span_y, kind, colour, pinned, player_id, player_name, hq_level, power, still_a_member, assigned_at',
+        'slot_id, ordinal, label, dx, dy, x, y, span_x, span_y, kind, colour, pinned, player_id, player_name, hq_level, power, still_a_member, assigned_at, formation_version',
       )
       .eq('formation_id', formationId)
       .order('ordinal')
@@ -270,17 +334,21 @@ export async function fetchBoard(formationId: string): Promise<BoardSlot[]> {
         stillAMember: row.still_a_member,
         assignedAt: row.assigned_at,
         departedName: null,
+        formationVersion: row.formation_version,
       }),
     );
   }
   return slots;
 }
 
-export function useBoard(formationId: string | null) {
+/** `frozen`: keep the board last read and do not fetch again. For a plan
+ * deleted while it was on screen — the board view leaves deleted plans out,
+ * so a refetch would come back empty and take the officer's draft with it. */
+export function useBoard(formationId: string | null, frozen = false) {
   return useQuery({
     queryKey: ['hive', 'board', formationId],
     queryFn: () => fetchBoard(formationId as string),
-    enabled: formationId !== null,
+    enabled: formationId !== null && !frozen,
     staleTime: 30_000,
   });
 }
@@ -398,49 +466,55 @@ export interface LayoutTile {
   colour: TileColour | null;
 }
 
-export async function saveLayout(
-  formationId: string,
-  slots: readonly LayoutTile[],
-): Promise<LayoutSummary> {
-  const { data, error } = await supabase.rpc('save_hive_formation_layout', {
-    p_formation_id: formationId,
-    p_slots: slots as unknown as never,
-  });
-  if (error) {
-    throw new Error(error.message);
-  }
-  const summary = (data ?? {}) as Partial<LayoutSummary>;
-  return {
-    slots: summary.slots ?? 0,
-    added: summary.added ?? 0,
-    changed: summary.changed ?? 0,
-    removed: summary.removed ?? 0,
-    unassigned: summary.unassigned ?? 0,
-  };
-}
-
-export interface AssignmentSummary {
+export interface FormationSaveResult extends LayoutSummary {
+  /** The plan's version after this save: the editor's draft is built from it
+   * now, so the refresh that follows is not mistaken for somebody else's. */
+  version: number;
+  editedAt: string;
+  editedByName: string | null;
   assigned: number;
-  cleared: number;
-  changed: number;
+  /** Members who stood on a tile this save erased and stand nowhere now. */
+  lost: number;
 }
 
-export async function saveAssignments(
+/** Save the shape, the people, or both, in ONE call (0330).
+ *
+ * `version` is the version the draft was built from; a save made from an
+ * older one is refused with a `StaleSaveError` and writes nothing. `slots`
+ * null keeps the shape; `people` null keeps the people. People are named by
+ * offset, because a moved tile gets a new id. */
+export async function saveFormation(
   formationId: string,
-  assignments: ReadonlyArray<{ slot_id: string; player_id: string | null; pinned: boolean }>,
-): Promise<AssignmentSummary> {
-  const { data, error } = await supabase.rpc('assign_hive_formation_slots', {
+  version: number,
+  slots: readonly LayoutTile[] | null,
+  people: readonly OffsetAssignment[] | null,
+): Promise<FormationSaveResult> {
+  const { data, error } = await supabase.rpc('save_hive_formation', {
     p_formation_id: formationId,
-    p_assignments: assignments as unknown as never,
+    p_version: version,
+    p_slots: slots as unknown as never,
+    p_assignments: people as unknown as never,
   });
   if (error) {
-    throw new Error(error.message);
+    throw toWriteError(error);
   }
-  const summary = (data ?? {}) as Partial<AssignmentSummary>;
+  const result = (data ?? {}) as Partial<
+    Omit<FormationSaveResult, 'editedAt' | 'editedByName'> & {
+      edited_at: string;
+      edited_by_name: string | null;
+    }
+  >;
   return {
-    assigned: summary.assigned ?? 0,
-    cleared: summary.cleared ?? 0,
-    changed: summary.changed ?? 0,
+    version: result.version ?? version + 1,
+    editedAt: result.edited_at ?? new Date().toISOString(),
+    editedByName: result.edited_by_name ?? null,
+    slots: result.slots ?? 0,
+    added: result.added ?? 0,
+    changed: result.changed ?? 0,
+    removed: result.removed ?? 0,
+    unassigned: result.unassigned ?? 0,
+    assigned: result.assigned ?? 0,
+    lost: result.lost ?? 0,
   };
 }
 
@@ -466,75 +540,58 @@ export async function createFormation(input: {
   return data.formation_id;
 }
 
-export async function updateFormation(
+/** Move the whole formation. Checked against `from`, the anchor this officer
+ * last saw: if somebody else moved it since, the move is refused with a
+ * `StaleSaveError` of kind `anchor`. Not checked against the version — a save
+ * never carries the anchor, so an anchor move makes nobody's draft stale. */
+export async function moveFormation(
   formationId: string,
-  patch: Partial<{
-    name: string;
-    anchorX: number;
-    anchorY: number;
-    note: string;
-    isActive: boolean;
-  }>,
+  from: Coordinate,
+  to: Coordinate,
 ): Promise<void> {
-  // Named fields rather than a loose record: PostgREST's generated Update
-  // type refuses an index signature, and it is right to — a typo in a key
-  // would otherwise be sent to the server as a column nobody has.
-  const row: {
-    name?: string;
-    anchor_x?: number;
-    anchor_y?: number;
-    note?: string;
-    is_active?: boolean;
-  } = {};
-  if (patch.name !== undefined) {
-    row.name = patch.name;
-  }
-  if (patch.anchorX !== undefined) {
-    row.anchor_x = patch.anchorX;
-  }
-  if (patch.anchorY !== undefined) {
-    row.anchor_y = patch.anchorY;
-  }
-  if (patch.note !== undefined) {
-    row.note = patch.note;
-  }
-  if (patch.isActive !== undefined) {
-    row.is_active = patch.isActive;
-  }
-  const { error } = await supabase
-    .from('hive_formations')
-    .update(row)
-    .eq('formation_id', formationId);
+  const { error } = await supabase.rpc('move_hive_formation', {
+    p_formation_id: formationId,
+    p_from_x: from.x,
+    p_from_y: from.y,
+    p_to_x: to.x,
+    p_to_y: to.y,
+  });
   if (error) {
-    throw new Error(error.message);
+    throw toWriteError(error);
   }
 }
 
+/** Into "Recently deleted" for 30 days. Not version-checked: it can be
+ * undone. A deleted plan stops being live. */
 export async function deleteFormation(formationId: string): Promise<void> {
-  const { error } = await supabase.from('hive_formations').delete().eq('formation_id', formationId);
+  const { error } = await supabase.rpc('delete_hive_formation', {
+    p_formation_id: formationId,
+  });
   if (error) {
-    throw new Error(error.message);
+    throw toWriteError(error);
   }
 }
 
-/** Only one formation per server may be live, and the database says so with a
- * unique index. Standing the new one up before sitting the old one down would
- * be refused, so the order here is not cosmetic.
- *
- * The old plan is stood down first even though that leaves a moment with no
- * live plan at all. The alternative is a moment with two, which is the state
- * where a member reads the wrong coordinate. */
-export async function makeActive(formationId: string, serverId: number): Promise<void> {
-  const { error: standDown } = await supabase
-    .from('hive_formations')
-    .update({ is_active: false })
-    .eq('server_id', serverId)
-    .eq('is_active', true)
-    .neq('formation_id', formationId);
-  if (standDown) {
-    throw new Error(standDown.message);
+/** Back from "Recently deleted", not live, at a new version. */
+export async function restoreFormation(formationId: string): Promise<void> {
+  const { error } = await supabase.rpc('restore_hive_formation', {
+    p_formation_id: formationId,
+  });
+  if (error) {
+    throw toWriteError(error);
   }
-  await updateFormation(formationId, { isActive: true });
+}
+
+/** Only one formation per server may be live. 0330 does the stand-down and
+ * the raise in one call: the two requests this used to be could leave the
+ * alliance with no live plan when the second was refused. */
+export async function makeActive(formationId: string): Promise<void> {
+  const { error } = await supabase.rpc('make_hive_formation_live', {
+    p_formation_id: formationId,
+  });
+  if (error) {
+    throw toWriteError(error);
+  }
 }
 
 /** A reusable shape for the editor's brush: a name and a size, nothing else.

@@ -13,7 +13,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(70);
+select plan(71);
 
 -- The board's columns. `x` and `y` are the whole point — the instruction a
 -- member reads — and `still_a_member` is what stops a fortnight-old plan
@@ -402,23 +402,37 @@ select throws_ok(
   '42501', null,
   'a member cannot draw one');
 
+-- Through 0330's checked save, the only one the site can call since then.
 select throws_ok(
-  $$ select public.save_hive_formation_layout(
-       '00000000-0000-4000-8000-00000000f201', '[]'::jsonb) $$,
+  $$ select public.save_hive_formation(
+       '00000000-0000-4000-8000-00000000f201', 1, '[]'::jsonb, null) $$,
   '42501', null,
   'nor reach the tiles through the function that writes them');
 
 select pg_temp.act_as('00000000-0000-4000-8000-00000000f303');
-select lives_ok(
+-- 0330 shut the old door: 0167's layout save checks no version, so the
+-- signed-in browser may not call it any more.
+select throws_ok(
   $$ select public.save_hive_formation_layout(
-       '00000000-0000-4000-8000-00000000f201',
-       '[{"dx":0,"dy":0,"ordinal":1}]'::jsonb) $$,
+       '00000000-0000-4000-8000-00000000f201', '[]'::jsonb) $$,
+  '42501', null,
+  'an officer no longer reaches the unchecked layout save directly');
+select lives_ok(
+  $$ select public.save_hive_formation(
+       '00000000-0000-4000-8000-00000000f201', 1,
+       '[{"dx":0,"dy":0,"ordinal":1}]'::jsonb, null) $$,
   'an officer can — the gate sits between member and officer');
 
 -- 0174: a pin belongs to the plan, not to the browser it was clicked in.
 
 select has_column('public', 'hive_formation_board', 'pinned',
   'the board hands the pin back, so a reload does not lose it');
+
+-- What follows exercises 0167/0174/0177's two writers themselves. Since 0330
+-- only their owner calls them (from save_hive_formation), so they run as the
+-- owner here, with the officer's claims kept: `has_permission` still reads
+-- the JWT, and claims set with is_local survive `reset role`.
+reset role;
 
 -- A PIN PROTECTS A PLACEMENT, so an empty tile cannot hold one. Left settable
 -- it would sit there as a trap for whoever is auto-assigned to that tile next.
@@ -553,6 +567,10 @@ select lives_ok(
                                             'span_x', 1, 'span_y', 1))
           from generate_series(0, 1001) as i)) $$,
   'while a large layout that does not overlap is saved');
+
+-- Back through the real role: the catalogue's refusals below are policy
+-- refusals, which the owner would not meet.
+set local role authenticated;
 
 -- The catalogue (0171). Same split as the formation itself: an officer
 -- curates it, a member reads it, a stranger does not.

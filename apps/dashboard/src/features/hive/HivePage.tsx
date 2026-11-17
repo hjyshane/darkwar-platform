@@ -19,6 +19,8 @@ import { TERMS } from '../../lib/terms';
 import { replaceHash, useHash } from '../../lib/useHash';
 import { useSession } from '../../lib/useSession';
 import { FormationEditor } from './FormationEditor';
+import { Stamp } from './HiveStamp';
+import { DeletedUnderYou, RecentlyDeleted } from './RecentlyDeleted';
 import {
   type GridBase,
   TileGrid,
@@ -39,6 +41,7 @@ import {
   useBoard,
   useFormations,
 } from './hiveFormations';
+import { pickFormation, stillRestorable } from './hiveSafety';
 import { hiveStrip } from './strip';
 
 /** Where each member is told to put their base.
@@ -73,20 +76,31 @@ export function HivePage() {
   });
 
   const [chosenServer, setChosenServer] = useState<number | null>(null);
-  const allFormations = useFormations(null);
+  // ONE QUERY for live and deleted plans (officers get both; 0330), so a plan
+  // deleted by somebody else moves from one list to the other at once — see
+  // `pickFormation`.
+  const allPlans = useFormations(null, mayPlan);
+  const livePlans = (allPlans.data ?? []).filter((plan) => plan.deletedAt === null);
+  const now = new Date();
+  const deletedPlans = (allPlans.data ?? []).filter(
+    (plan) => plan.deletedAt !== null && stillRestorable(plan.deletedAt, now),
+  );
   // The server the live plan is on, so opening the tab lands on the ground
   // the alliance is actually moving to rather than on the lowest server id.
   const defaultServer =
-    allFormations.data?.find((formation) => formation.isActive)?.serverId ??
-    allFormations.data?.[0]?.serverId ??
+    livePlans.find((formation) => formation.isActive)?.serverId ??
+    livePlans[0]?.serverId ??
     servers?.[0] ??
     null;
   const serverId = chosenServer ?? defaultServer;
-  const formations = (allFormations.data ?? []).filter(
-    (formation) => formation.serverId === serverId,
-  );
+  const serverPlans = (allPlans.data ?? []).filter((plan) => plan.serverId === serverId);
+  const formations = serverPlans.filter((plan) => plan.deletedAt === null);
 
   const [chosenFormation, setChosenFormation] = useState<string | null>(null);
+  // The plan on screen, so it stays on screen when another is made live or
+  // when somebody else deletes it — an officer's unsaved draft lives in the
+  // editor for that plan. Members always follow the live plan.
+  const [shownId, setShownId] = useState<string | null>(null);
   // The tab is in the address, so the sidebar and a link can open it. Members
   // never see tabs: the plan is all they have.
   const hashTab = HIVE.fromHash(useHash());
@@ -94,20 +108,25 @@ export function HivePage() {
   const setTab = (next: HiveTab) => {
     replaceHash(HIVE.hash(next));
   };
-  const active = formations.find((formation) => formation.isActive) ?? formations[0] ?? null;
-  const formation =
-    formations.find((candidate) => candidate.formationId === chosenFormation) ?? active;
+  const { formation, deletedUnderUs } = pickFormation({
+    plans: serverPlans,
+    chosenId: chosenFormation,
+    shownId: mayPlan ? shownId : null,
+  });
+  if (mayPlan && formation !== null && formation.formationId !== shownId) {
+    setShownId(formation.formationId);
+  }
 
-  const board = useBoard(formation?.formationId ?? null);
+  // Frozen while the plan on screen is deleted: the board view leaves deleted
+  // plans out, and an empty refetch would wipe the draft drawn on it.
+  const board = useBoard(formation?.formationId ?? null, deletedUnderUs);
   const members = useAssignableMembers();
 
-  if (allFormations.isPending) {
+  if (allPlans.isPending) {
     return <p className="empty loading">Loading…</p>;
   }
-  if (allFormations.error) {
-    return (
-      <p className="error">Could not load formations: {(allFormations.error as Error).message}</p>
-    );
+  if (allPlans.error) {
+    return <p className="error">Could not load formations: {(allPlans.error as Error).message}</p>;
   }
 
   return (
@@ -154,6 +173,7 @@ export function HivePage() {
         </p>
       ) : (
         <>
+          {deletedUnderUs && <DeletedUnderYou formation={formation} />}
           <MyTile
             board={board.data ?? []}
             formation={formation}
@@ -166,6 +186,7 @@ export function HivePage() {
                 onChange={(chosen) => {
                   setChosenServer(Number.parseInt(chosen, 10));
                   setChosenFormation(null);
+                  setShownId(null);
                 }}
                 value={serverId ?? ''}
               >
@@ -188,6 +209,11 @@ export function HivePage() {
                     {candidate.isActive ? ' · live' : ''}
                   </option>
                 ))}
+                {/* The plan on screen, though deleted, so the picker does not
+                    claim another plan is the one being looked at. */}
+                {deletedUnderUs && (
+                  <option value={formation.formationId}>{formation.name} · deleted</option>
+                )}
               </Select>
             </label>
           </div>
@@ -218,6 +244,12 @@ export function HivePage() {
               formation={formation}
               key={formation.formationId}
               mayPlan={mayPlan}
+              // This officer deleted it: move on, unlike a delete by somebody
+              // else, which keeps the plan on screen (`pickFormation`).
+              onDeleted={() => {
+                setChosenFormation(null);
+                setShownId(null);
+              }}
               ownPlayerId={session?.playerId ?? null}
             />
           )}
@@ -229,6 +261,19 @@ export function HivePage() {
           onCreated={setChosenFormation}
           serverId={serverId}
           suggested={formations.length + 1}
+        />
+      )}
+
+      {/* On every tab, not only beside "Start a new formation": the Delete
+          button is on the plan tab, and the way back from it belongs where
+          the officer is standing. Collapsed, and absent when empty. */}
+      {mayPlan && (
+        <RecentlyDeleted
+          plans={deletedPlans}
+          onRestored={(restored) => {
+            setChosenServer(restored.serverId);
+            setChosenFormation(restored.formationId);
+          }}
         />
       )}
 
@@ -317,11 +362,13 @@ function Overview({
   board,
   formation,
   mayPlan,
+  onDeleted,
   ownPlayerId,
 }: {
   board: readonly BoardSlot[];
   formation: Formation;
   mayPlan: boolean;
+  onDeleted: () => void;
   ownPlayerId: string | null;
 }) {
   const queryClient = useQueryClient();
@@ -365,12 +412,15 @@ function Overview({
   }));
 
   const stand = useMutation({
-    mutationFn: () => makeActive(formation.formationId, formation.serverId),
+    mutationFn: () => makeActive(formation.formationId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['hive'] }),
   });
   const remove = useMutation({
     mutationFn: () => deleteFormation(formation.formationId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['hive'] }),
+    onSuccess: () => {
+      onDeleted();
+      return queryClient.invalidateQueries({ queryKey: ['hive'] });
+    },
   });
 
   const text = handoutList(board, formation.serverId);
@@ -435,8 +485,10 @@ function Overview({
         </div>
 
         <div className="hive-overview__list">
+          {/* For members too: "who changed this, and when" is the question
+              somebody asks before trusting a coordinate. */}
+          <Stamp at={formation.editedAt} name={formation.editedByName} />
           <OverviewActions
-            board={board}
             confirming={confirming}
             copied={copied}
             formation={formation}
@@ -451,6 +503,10 @@ function Overview({
             removing={remove.isPending}
             standing={stand.isPending}
           />
+          {/* Refusals are answers, not silence: these two used to fail with
+              nothing on screen at all. */}
+          {stand.error && <p className="error">{(stand.error as Error).message}</p>}
+          {remove.error && <p className="error">{(remove.error as Error).message}</p>}
           {board.length > 0 && <pre className="hive-list">{text}</pre>}
         </div>
       </div>
@@ -459,7 +515,6 @@ function Overview({
 }
 
 function OverviewActions({
-  board,
   confirming,
   copied,
   formation,
@@ -471,7 +526,6 @@ function OverviewActions({
   removing,
   standing,
 }: {
-  board: readonly BoardSlot[];
   confirming: boolean;
   copied: boolean;
   formation: Formation;
@@ -489,21 +543,23 @@ function OverviewActions({
         <button onClick={onCopy} type="button">
           {copied ? 'Copied' : 'Copy the list'}
         </button>
-        {mayPlan && !formation.isActive && (
+        {/* Neither applies to a plan that is already deleted: the notice at
+            the top offers to restore it instead. */}
+        {mayPlan && !formation.isActive && formation.deletedAt === null && (
           <button disabled={standing} onClick={onStand} type="button">
             Make this the live plan
           </button>
         )}
-        {/* TWO PRESSES, following LeaveAllianceForm. Deleting takes the
-            tiles and every assignment on them with it, there is no history
-            to recover them from, and this button sits next to one that only
-            copies text. */}
-        {mayPlan && (
+        {/* TWO PRESSES, following LeaveAllianceForm. Since 0330 a delete can
+            be undone from "Recently deleted" for 30 days, but this button
+            still sits next to one that only copies text, and the confirm says
+            how long the way back stays open. */}
+        {mayPlan && formation.deletedAt === null && (
           <button disabled={removing} onClick={onDelete} type="button">
             {removing
               ? 'Deleting…'
               : confirming
-                ? `Really delete ${formation.name} and its ${board.length} tiles?`
+                ? `Delete ${formation.name}? It can be restored for 30 days.`
                 : 'Delete this formation'}
           </button>
         )}

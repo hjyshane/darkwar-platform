@@ -766,6 +766,11 @@ const HIVE_FORMATIONS = [
     note: '',
     isActive: true,
     updatedAt: ago(90),
+    version: 3,
+    editedAt: ago(90),
+    editedByName: 'Mira',
+    deletedAt: null,
+    deletedByName: null,
   },
   {
     formationId: '11111111-1111-4111-8111-1111111111f2',
@@ -776,6 +781,32 @@ const HIVE_FORMATIONS = [
     note: '',
     isActive: false,
     updatedAt: ago(60 * 30),
+    version: 1,
+    editedAt: ago(60 * 30),
+    // An account with no character and no display name: the stamp says
+    // "someone" rather than a blank.
+    editedByName: null,
+    deletedAt: null,
+    deletedByName: null,
+  },
+];
+
+/** "Recently deleted": one plan deleted four days ago, kept 26 more. */
+const HIVE_DELETED = [
+  {
+    formationId: '11111111-1111-4111-8111-1111111111f3',
+    name: 'Hive move 11-03',
+    serverId: 580,
+    anchorX: 480,
+    anchorY: 360,
+    note: '',
+    isActive: false,
+    updatedAt: ago(60 * 24 * 4),
+    version: 5,
+    editedAt: ago(60 * 24 * 6),
+    editedByName: 'Shane',
+    deletedAt: ago(60 * 24 * 4),
+    deletedByName: 'Dex',
   },
 ];
 
@@ -834,6 +865,7 @@ const HIVE_SLOTS = [
     stillAMember: index === 3 ? false : index >= 1 && index <= 4 ? true : null,
     assignedAt: index >= 1 && index <= 4 ? ago(90) : null,
     departedName: null,
+    formationVersion: 3,
     // Through the same step the real read takes, so Kova (who has left) shows
     // here the way a departed member shows on the live board: as an empty tile.
   }))
@@ -2121,6 +2153,12 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
   [['hive', 'formations', 580], HIVE_FORMATIONS],
   [['hive', 'board', HIVE_FORMATION_ID], HIVE_SLOTS],
   [['hive', 'members'], HIVE_MEMBERS],
+  // What an officer's hive screen asks for: live and recently deleted plans
+  // in one response (0330).
+  [
+    ['hive', 'formations', null, 'with-deleted'],
+    [...HIVE_FORMATIONS, ...HIVE_DELETED],
+  ],
   [
     ['blackMoney', 'battles'],
     [

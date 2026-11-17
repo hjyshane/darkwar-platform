@@ -8,7 +8,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(18);
+select plan(20);
 
 -- Fixtures ------------------------------------------------------------------
 
@@ -134,27 +134,29 @@ select is((select count(*)::int from public.announcements where title = 'ch alph
   'an update aimed at Alpha while viewing Bravo touches nothing');
 set local role authenticated;
 
--- 13. THE DEFINER DOOR: save_hive_formation_layout runs as its owner, so RLS
--- does not see it. The guard trigger does.
+-- 13. THE DEFINER DOOR: save_hive_formation runs as its owner, so RLS does
+-- not see it. Since 0330 the site saves only through it (0167's layout save
+-- is closed to the browser), and its row lock asks refuse_other_alliance
+-- before the version can answer — so the plan's right version, 1, is passed
+-- here, and the refusal is about the alliance and nothing else.
 select pg_temp.as_user('00000000-0000-4000-8000-0000000d2003', '00000000-0000-4000-8000-0000000d1002');
 select throws_ok(
-  $$ select public.save_hive_formation_layout('00000000-0000-4000-8000-0000000d4001',
-                                              '[{"dx": 3, "dy": 3}]') $$,
+  $$ select public.save_hive_formation('00000000-0000-4000-8000-0000000d4001', 1,
+                                       '[{"dx": 3, "dy": 3}]', null) $$,
   '42501', null,
   'a definer RPC cannot draw on another alliance''s formation');
 
 -- 14. And the same RPC still works at home.
 select lives_ok(
-  $$ select public.save_hive_formation_layout('00000000-0000-4000-8000-0000000d4002',
-                                              '[{"dx": 0, "dy": 0}, {"dx": 6, "dy": 0}]') $$,
+  $$ select public.save_hive_formation('00000000-0000-4000-8000-0000000d4002', 1,
+                                       '[{"dx": 0, "dy": 0}, {"dx": 6, "dy": 0}]', null) $$,
   'while drawing on its own alliance''s formation works');
 
--- 15. Deleting a formation cascades to its slots after the parent is gone;
--- the slot guard must not read that as "another alliance".
+-- 15. Deleting a non-primary alliance's formation. Since 0330 that is a soft
+-- delete through a definer function, so it meets the same guard.
 select lives_ok(
-  $$ delete from public.hive_formations
-      where formation_id = '00000000-0000-4000-8000-0000000d4002' $$,
-  'deleting a non-primary alliance''s formation, slots and all, works');
+  $$ select public.delete_hive_formation('00000000-0000-4000-8000-0000000d4002') $$,
+  'deleting a non-primary alliance''s formation works');
 
 -- Uniqueness per alliance ---------------------------------------------------
 
@@ -164,6 +166,19 @@ select lives_ok(
 reset role;
 select set_config('request.jwt.claims', '{}', true),
        set_config('request.headers', '{}', true);
+
+-- 15b. The hard delete is the cleanup's now (0330), run with no signed-in
+-- user. It cascades to the slots after the parent is gone, and the slot guard
+-- must not read that as "another alliance".
+update public.hive_formations set deleted_at = now() - interval '31 days'
+ where formation_id = '00000000-0000-4000-8000-0000000d4002';
+select is(internal.purge_deleted_hive_formations(), 1,
+  'the cleanup removes a non-primary alliance''s deleted formation');
+select is(
+  (select count(*)::int from public.hive_formation_slots
+    where formation_id = '00000000-0000-4000-8000-0000000d4002'),
+  0,
+  'slots and all');
 
 -- 16. Both alliances may have a live plan on the same server.
 select lives_ok(
