@@ -122,6 +122,24 @@ const DUEL_DAY_LABEL: Record<DuelDay, string> = {
   sat: 'Saturday',
 };
 
+/** The one number every duel day is held to, or null when the weekdays differ.
+ *
+ * The scorer (0328) only ever reads six weekday floors. The form offers one
+ * field on top of them because that is how the floor was set the first time it
+ * was used — 624,000 typed six times — and six boxes invite a typo on one of
+ * them. The single field is a view over the six, not a seventh setting: saving
+ * writes the same value into every weekday, and a stored setting whose
+ * weekdays already agree opens on the single field. */
+export function uniformDuelMinimum(minimums: Record<DuelDay, number>): number | null {
+  const first = minimums.mon;
+  return DUEL_DAYS.every((day) => minimums[day] === first) ? first : null;
+}
+
+/** Every duel day, Monday to Saturday, at the same floor. */
+export function everyDuelDay(value: number): Record<DuelDay, number> {
+  return { mon: value, tue: value, wed: value, thu: value, fri: value, sat: value };
+}
+
 interface Tiers {
   r3_percent: number;
   r2_percent: number;
@@ -196,6 +214,12 @@ export function RankTiersSetting() {
   const [draft, setDraft] = useState<Tiers | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
+  // Whether the daily minimum is shown as six weekday boxes or one field.
+  // Null until the officer chooses: then the stored setting decides, and six
+  // weekdays that agree open on the one field.
+  const [perWeekday, setPerWeekday] = useState<boolean | null>(null);
+  const weekdaysShown =
+    draft !== null && (perWeekday ?? uniformDuelMinimum(draft.duel_daily_minimums) === null);
 
   const { data, error, isPending } = useQuery({ queryKey: ['rank-tiers'], queryFn: fetchTiers });
   useEffect(() => {
@@ -436,26 +460,67 @@ export function RankTiersSetting() {
 
         {draft.duel_scoring === 'days' && (
           <div className="stack">
-            {DUEL_DAYS.map((day) => (
-              <label htmlFor={`duel-day-${day}`} key={day}>
-                {DUEL_DAY_LABEL[day]} minimum <span className="subtle">(0 = not counted)</span>
+            <label htmlFor="duel-day-mode">
+              Daily minimum
+              <Select
+                id="duel-day-mode"
+                onChange={(chosen) => {
+                  const weekdays = chosen === 'weekday';
+                  setPerWeekday(weekdays);
+                  // Collapsing to one field makes Monday's floor the floor for
+                  // every day, so what the field shows is what will be saved.
+                  if (!weekdays) {
+                    setDraft({
+                      ...draft,
+                      duel_daily_minimums: everyDuelDay(draft.duel_daily_minimums.mon),
+                    });
+                  }
+                }}
+                value={weekdaysShown ? 'weekday' : 'same'}
+              >
+                <option value="same">The same every duel day</option>
+                <option value="weekday">Different per weekday</option>
+              </Select>
+            </label>
+            {weekdaysShown ? (
+              DUEL_DAYS.map((day) => (
+                <label htmlFor={`duel-day-${day}`} key={day}>
+                  {DUEL_DAY_LABEL[day]} minimum <span className="subtle">(0 = not counted)</span>
+                  <input
+                    id={`duel-day-${day}`}
+                    min="0"
+                    onChange={(event) =>
+                      setDraft({
+                        ...draft,
+                        duel_daily_minimums: {
+                          ...draft.duel_daily_minimums,
+                          [day]: Number(event.target.value),
+                        },
+                      })
+                    }
+                    type="number"
+                    value={draft.duel_daily_minimums[day]}
+                  />
+                </label>
+              ))
+            ) : (
+              <label htmlFor="duel-day-all">
+                Points per duel day, Monday to Saturday{' '}
+                <span className="subtle">(0 = no day counted)</span>
                 <input
-                  id={`duel-day-${day}`}
+                  id="duel-day-all"
                   min="0"
                   onChange={(event) =>
                     setDraft({
                       ...draft,
-                      duel_daily_minimums: {
-                        ...draft.duel_daily_minimums,
-                        [day]: Number(event.target.value),
-                      },
+                      duel_daily_minimums: everyDuelDay(Number(event.target.value)),
                     })
                   }
                   type="number"
-                  value={draft.duel_daily_minimums[day]}
+                  value={draft.duel_daily_minimums.mon}
                 />
               </label>
-            ))}
+            )}
             {DUEL_DAYS.every((day) => draft.duel_daily_minimums[day] <= 0) && (
               <p className="error">
                 Every day is at 0, so no day is counted and every member ties on duel. Set at least
