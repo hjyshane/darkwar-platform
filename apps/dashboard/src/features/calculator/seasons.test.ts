@@ -10,7 +10,8 @@ describe('seasonLabel', () => {
   it("names the seasons we have played by our number and the rest by the game's", () => {
     expect(seasonLabel(4)).toBe('Season 3');
     expect(seasonLabel(3)).toBe('Season 2');
-    expect(seasonLabel(6)).toBe('Game season 6');
+    expect(seasonLabel(6)).toBe('Season 4');
+    expect(seasonLabel(8)).toBe('Game season 8');
   });
 });
 
@@ -24,7 +25,7 @@ describe('groupBySeason', () => {
     ]);
     expect(groups.map((g) => [g.gameSeason, g.label])).toEqual([
       [4, 'Season 3'],
-      [6, 'Game season 6'],
+      [6, 'Season 4'],
     ]);
     expect(groups[1]?.subjects.map((s) => s.subject)).toEqual(['868000', '873000']);
     expect(isSeasonBuilding(subject('409000', 'Bank', null))).toBe(false);

@@ -7,6 +7,7 @@
 import { supabase } from '../../lib/supabase';
 import { type Subject, fetchCatalogSubjects, loadBook } from '../planner/data';
 import { type Goal, type Plan, type PlannedStep, plan } from '../planner/plan';
+import { buildingsForCalculator } from './buildingList';
 import { CHIP_EXP, chipSubjectName } from './chips';
 import type { ExpCard } from './model';
 import type { CalculatorKind } from './url';
@@ -58,6 +59,8 @@ export function labelSubjects(
           return hero ? { ...s, name: `${s.name} (${hero})` } : s;
         })
         .sort(byName);
+    case 'building':
+      return buildingsForCalculator(rows).sort(byName);
     default:
       return [...rows].sort(byName);
   }
