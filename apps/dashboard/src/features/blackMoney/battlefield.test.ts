@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { OBJECTIVES, OBJECTIVE_FACTS, placed } from './battlefield';
 
@@ -45,5 +47,15 @@ describe('the Black Gold battlefield', () => {
     expect(placed(hq, true).y).toBeCloseTo(1 - hq.y);
     expect(placed(hq, false).x).toBeLessThan(0.5);
     expect(placed(hq, false).y).toBeGreaterThan(0.5);
+  });
+
+  it('names the same objectives as the plan table accepts', () => {
+    const sql = readFileSync(
+      resolve(process.cwd(), '../../supabase/migrations/20260728000331_bgb_plans.sql'),
+      'utf8',
+    );
+    const block = /objective_key in \(([^)]*)\)/.exec(sql)?.[1] ?? '';
+    const accepted = [...block.matchAll(/'([a-z0-9-]+)'/g)].map((m) => m[1]).sort();
+    expect(accepted).toEqual([...OBJECTIVES.map((o) => o.id), 'roam'].sort());
   });
 });
