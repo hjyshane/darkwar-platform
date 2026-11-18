@@ -458,7 +458,7 @@ export const NAV_TABS: ReadonlyArray<NavTab & { section: NavSection }> = [
   { route: 'map', hash: '#/map', label: 'Map', section: 'map' },
   // The game's own calendar: the alliance's events moved under its own tab
   // (2026-10-03); the Schedule board became the Alarms tab under Events.
-  { route: 'calendar', hash: '#/calendar', label: 'Events', section: 'events' },
+  { route: 'eventGuide', hash: '#/event-guide', label: 'Events', section: 'events' },
   { route: 'notices', hash: '#/notices', label: 'Boards', section: 'boards' },
 ];
 
@@ -507,14 +507,13 @@ export const OWN_ALLIANCE_TABS: ReadonlyArray<NavTab> = [
 // people brought to it. Its address still opens it, so no link breaks and no
 // account state it shows is lost; it just has no entry, the way Schedule was
 // archived on 2026-10-03.
-export const ALLIANCE_TABS: ReadonlyArray<NavTab> = [
-  // What a range costs with no account open, with the state in the address so
-  // the link can be passed around.
-  { route: 'calculator', hash: '#/calculator', label: 'Calculator' },
-  // Officer-only (0251): queues gift codes to be claimed for the alliance.
-  // Filtered in `shellNav.ts` on `giftcodes.manage`.
-  { route: 'giftCodes', hash: '#/gift-codes', label: 'Gift codes' },
-];
+//
+// CALCULATOR AND GIFT CODES ARE HIDDEN (2026-11-18, website feedback): no
+// entry, same addresses, so every link and the officer's claim queue still
+// work. Restore by putting the two lines back:
+//   { route: 'calculator', hash: '#/calculator', label: 'Calculator' },
+//   { route: 'giftCodes', hash: '#/gift-codes', label: 'Gift codes' },  (officer-only, 0251)
+export const ALLIANCE_TABS: ReadonlyArray<NavTab> = [];
 
 /** The screens behind the Events entry, in the order they are drawn. Each is
  * a page of its own with its own address; the hub is the tab strip above them
@@ -546,13 +545,15 @@ export function inEventsHub(route: Route): boolean {
 }
 
 /** Events' second row: what the game itself has announced (0208). */
+//
+// GAME CALENDAR AND SHOP VALUE ARE HIDDEN (2026-11-18, website feedback): no
+// entry, same addresses (#/calendar, #/shop-value). Restore by putting back
+//   { route: 'calendar', hash: '#/calendar', label: 'Game calendar' }, first and
+//   { route: 'shopValue', hash: '#/shop-value', label: 'Shop value' }, last,
+// and pointing the top Events tab in NAV_TABS at '#/calendar' again.
 export const EVENT_TABS: ReadonlyArray<NavTab> = [
-  { route: 'calendar', hash: '#/calendar', label: 'Game calendar' },
   // What each event is and what scores in it (0248): the game's own lists.
   { route: 'eventGuide', hash: '#/event-guide', label: 'Event guide' },
-  // What packs and Ruby-shop entries are worth (0215). Member-only at the
-  // policy level, so no gate.
-  { route: 'shopValue', hash: '#/shop-value', label: 'Shop value' },
 ];
 
 /** Boards' second row: what the alliance writes for itself. */

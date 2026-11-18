@@ -27,21 +27,18 @@ describe('the calculator route', () => {
     expect(navSection('calculator')).toBe('alliance');
   });
 
-  it('is in the sidebar, and the archived planner is not', () => {
+  it('has no sidebar entry (hidden 2026-11-18), and neither has the archived planner', () => {
     const labels = items(member).map((i) => i.label);
-    expect(labels).toContain('Calculator');
+    expect(labels).not.toContain('Calculator');
     expect(labels).not.toContain('Planner');
-    const entry = items({ ...member, route: 'calculator' }).find((i) => i.label === 'Calculator');
-    expect(entry?.href).toBe(CALCULATOR_HASH);
-    expect(entry?.current).toBe(true);
-    expect(entry?.children).toBeUndefined();
+    expect(labels).not.toContain('Gift codes');
+    expect(labels).not.toContain('Game calendar');
+    expect(labels).not.toContain('Shop value');
+    expect(routeFromHash(CALCULATOR_HASH)).toBe('calculator');
   });
 
-  it('is offered to a community account, and an admin can hide it like any tab', () => {
+  it('is still open to a community account by address', () => {
     expect(communityMayOpen('calculator')).toBe(true);
-    expect(items({ ...member, isCommunity: true }).map((i) => i.label)).toContain('Calculator');
     expect(tabKeyOf('calculator')).toBe('calculator');
-    const hidden = items({ ...member, tabShown: (tab) => tab !== 'calculator' });
-    expect(hidden.map((i) => i.label)).not.toContain('Calculator');
   });
 });
