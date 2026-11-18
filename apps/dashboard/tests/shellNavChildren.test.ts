@@ -13,7 +13,8 @@ const base = (over: Partial<NavContext> = {}): NavContext => ({
   own: { alliance_id: 'a1', label: 'CBFW' },
   mayViewMembers: true,
   isAdmin: false,
-  isOfficer: false,
+  // The full menu: a plain member gets the short one (buildMemberNav).
+  isOfficer: true,
   seasonNames: {},
   ...over,
 });

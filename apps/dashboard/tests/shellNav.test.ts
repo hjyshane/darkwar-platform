@@ -17,7 +17,8 @@ const base = (over: Partial<NavContext> = {}): NavContext => ({
   own: { alliance_id: 'a1', label: 'CBFW' },
   mayViewMembers: true,
   isAdmin: false,
-  isOfficer: false,
+  // The full menu: a plain member gets the short one (buildMemberNav).
+  isOfficer: true,
   seasonNames: {},
   ...over,
 });
@@ -81,7 +82,7 @@ describe('buildNav', () => {
   });
 
   it('shows Migration to officers only and Season 2 to admins only', () => {
-    expect(labels(base(), 'watch')).not.toContain('Migration');
+    expect(labels(base({ isOfficer: false }), 'watch')).not.toContain('Migration');
     expect(labels(base({ isOfficer: true }), 'watch')).toContain('Migration');
     const sub = (ctx: NavContext) => eventsOf(ctx)?.tabs?.map((tab) => tab.label) ?? [];
     expect(sub(base())).not.toContain('Season 2');
