@@ -4,7 +4,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
-import { objectiveLabel } from '../blackMoney/bgbPlan';
+import { objectiveLabel } from '../blackGold/bgbPlan';
 
 export interface MyPlayer {
   name: string | null;
