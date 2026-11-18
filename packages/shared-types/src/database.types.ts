@@ -2263,6 +2263,151 @@ export type Database = {
           },
         ]
       }
+      bgb_plan_assignments: {
+        Row: {
+          assignment_id: string
+          created_at: string
+          objective_key: string
+          ordinal: number
+          plan_id: string
+          player_id: string
+          role: string
+        }
+        Insert: {
+          assignment_id?: string
+          created_at?: string
+          objective_key: string
+          ordinal?: number
+          plan_id: string
+          player_id: string
+          role?: string
+        }
+        Update: {
+          assignment_id?: string
+          created_at?: string
+          objective_key?: string
+          ordinal?: number
+          plan_id?: string
+          player_id?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bgb_plan_assignments_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "bgb_plans"
+            referencedColumns: ["plan_id"]
+          },
+          {
+            foreignKeyName: "bgb_plan_assignments_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+        ]
+      }
+      bgb_plans: {
+        Row: {
+          alliance_id: string | null
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          deleted_by_name: string | null
+          edited_at: string
+          edited_by: string | null
+          edited_by_name: string | null
+          is_live: boolean
+          name: string
+          note: string
+          plan_id: string
+          team_index: number
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          alliance_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          deleted_by_name?: string | null
+          edited_at?: string
+          edited_by?: string | null
+          edited_by_name?: string | null
+          is_live?: boolean
+          name: string
+          note?: string
+          plan_id?: string
+          team_index: number
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          alliance_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          deleted_by_name?: string | null
+          edited_at?: string
+          edited_by?: string | null
+          edited_by_name?: string | null
+          is_live?: boolean
+          name?: string
+          note?: string
+          plan_id?: string
+          team_index?: number
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bgb_plans_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_daily_contribution"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "bgb_plans_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliance_departures"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "bgb_plans_alliance_id_fkey"
+            columns: ["alliance_id"]
+            isOneToOne: false
+            referencedRelation: "alliances"
+            referencedColumns: ["alliance_id"]
+          },
+          {
+            foreignKeyName: "bgb_plans_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "pending_access"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "bgb_plans_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "pending_access"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "bgb_plans_edited_by_fkey"
+            columns: ["edited_by"]
+            isOneToOne: false
+            referencedRelation: "pending_access"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       black_money_battle_snapshots: {
         Row: {
           alliance_external_id: string
@@ -10866,6 +11011,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      delete_bgb_plan: { Args: { p_plan_id: string }; Returns: undefined }
       delete_gift_code: { Args: { p_code_id: string }; Returns: number }
       delete_hive_formation: {
         Args: { p_formation_id: string }
@@ -10986,6 +11132,7 @@ export type Database = {
       leave_alliance: { Args: never; Returns: undefined }
       linked_player_id: { Args: never; Returns: string }
       linked_player_ids: { Args: never; Returns: string[] }
+      make_bgb_plan_live: { Args: { p_plan_id: string }; Returns: undefined }
       make_hive_formation_live: {
         Args: { p_formation_id: string }
         Returns: undefined
@@ -11525,6 +11672,7 @@ export type Database = {
       }
       reset_week_start: { Args: { ts: string }; Returns: string }
       resolve_own_alliance: { Args: never; Returns: undefined }
+      restore_bgb_plan: { Args: { p_plan_id: string }; Returns: Json }
       restore_hive_formation: {
         Args: { p_formation_id: string }
         Returns: Json
@@ -11555,6 +11703,16 @@ export type Database = {
       save_alliance_setting: {
         Args: { p_key: string; p_value: Json }
         Returns: undefined
+      }
+      save_bgb_plan: {
+        Args: {
+          p_assignments: Json
+          p_name: string
+          p_note: string
+          p_plan_id: string
+          p_version: number
+        }
+        Returns: Json
       }
       save_event_kind: {
         Args: {
