@@ -503,7 +503,7 @@ def _alliance_masker() -> Callable[[str | None], int]:
 
 
 def sanitize_dragon_assign_player_info(payload: dict[str, Any]) -> dict[str, Any]:
-    """Black Money signup list (the game calls the event `dragon`).
+    """Black Gold signup list (the game calls the event `dragon`).
 
     Every member of the collector's alliance, with the team and slot the
     officers put them in. Masked: uid (server suffix kept, D-1) and name.
@@ -533,7 +533,7 @@ def sanitize_dragon_assign_player_info(payload: dict[str, Any]) -> dict[str, Any
 
 
 def sanitize_dragon_battle_history(payload: dict[str, Any]) -> dict[str, Any]:
-    """Black Money battle history: one entry per team per event.
+    """Black Gold battle history: one entry per team per event.
 
     `enemyAllianceId` on the real response is OUR alliance id on every
     entry that carries it — the game's bug, not ours. The same md5 mapping is applied to
@@ -572,11 +572,11 @@ def sanitize_dragon_battle_history(payload: dict[str, Any]) -> dict[str, Any]:
 # rally reports, deliveries, the collector's own reward mail — is dropped
 # from a fixture rather than masked: none of it is needed to pin the report's
 # shape, and each type would need its own proof that nothing personal survives.
-BLACK_MONEY_REPORT_MAIL_TYPE = 147
+BLACK_GOLD_REPORT_MAIL_TYPE = 147
 
 
 def sanitize_chat_get_system_mails(payload: dict[str, Any]) -> dict[str, Any]:
-    """A page of the collector's system inbox, cut down to Black Money
+    """A page of the collector's system inbox, cut down to Black Gold
     battle reports and masked.
 
     A report's body is a JSON STRING (`contentsLocal`) holding both sides of
@@ -621,7 +621,7 @@ def sanitize_chat_get_system_mails(payload: dict[str, Any]) -> dict[str, Any]:
 
     kept = []
     for mail in mails:
-        if mail.get("type") != BLACK_MONEY_REPORT_MAIL_TYPE:
+        if mail.get("type") != BLACK_GOLD_REPORT_MAIL_TYPE:
             continue
         clean = dict(mail)
         if clean.get("toUser"):
@@ -644,7 +644,7 @@ def sanitize_push_mail(payload: dict[str, Any]) -> dict[str, Any]:
     inbox page. ANY OTHER MAIL keeps its type and uid and nothing else:
     push.mail carries player-to-player messages, and no fixture may hold one.
     """
-    if payload.get("type") != BLACK_MONEY_REPORT_MAIL_TYPE:
+    if payload.get("type") != BLACK_GOLD_REPORT_MAIL_TYPE:
         return {"type": payload.get("type"), "uid": payload.get("uid")}
     page: list[dict[str, Any]] = sanitize_chat_get_system_mails({"msg": [payload]})["msg"]
     return page[0]

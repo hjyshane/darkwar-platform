@@ -48,26 +48,28 @@ export const TERMS = {
   // Admin-only. Last season's buildings still arrive from old sightings.
   season2Buildings: 'Season 2',
   monthlyCard: 'Monthly Card',
-  // The event's on-screen name. On the wire it is `dragon`; the tables and
-  // this key say black_money, the name it was first known by (0178).
-  blackMoney: 'Black Gold',
+  // The event's on-screen name. On the wire it is `dragon`. The database
+  // tables and views still say black_money, the name it was first known by
+  // (0178), as do two stored keys: the route id `blackMoney` and the table
+  // layout ids `black-money-*`. Everything else in code says Black Gold.
+  blackGold: 'Black Gold',
   // ours: the signup list's `state` (1 starter, 2 substitute) read as a slot.
-  blackMoneySlot: 'Slot',
+  blackGoldSlot: 'Slot',
   // ours: whether the player is in the battle report — the game shows no
   // attendance column, only the report's player list.
-  blackMoneyPlayed: 'Played',
+  blackGoldPlayed: 'Played',
   // The battle report's five score parts: killScore, occupyScore,
   // firstOccupyScore, collectScore, escortScore.
-  blackMoneyKill: 'Kills',
-  blackMoneyOccupy: 'Occupy',
-  blackMoneyFirstOccupy: 'First Occupy',
-  blackMoneyCollect: 'Collect',
-  blackMoneyEscort: 'Escort',
-  blackMoneyTrend: 'Trend',
+  blackGoldKill: 'Kills',
+  blackGoldOccupy: 'Occupy',
+  blackGoldFirstOccupy: 'First Occupy',
+  blackGoldCollect: 'Collect',
+  blackGoldEscort: 'Escort',
+  blackGoldTrend: 'Trend',
   // ours: counted since the 2026-09-27 event (0183) — listed, then absent
   // from the battle report.
-  blackMoneyStarterMisses: 'Starter miss',
-  blackMoneySubMisses: 'Sub miss',
+  blackGoldStarterMisses: 'Starter miss',
+  blackGoldSubMisses: 'Sub miss',
   signIn: 'Sign In',
 
   // Columns

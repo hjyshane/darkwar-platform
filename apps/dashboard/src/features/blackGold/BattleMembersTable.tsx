@@ -12,25 +12,26 @@ const numberFormat = new Intl.NumberFormat('ko-KR');
 
 const SEARCH_FIELDS = ['name', 'game_uid'] as const;
 
-/** This table's key in the shared column arrangement. */
+/** This table's key in the shared column arrangement. Stored in app_settings,
+ * which is why it keeps the event's first name. */
 export const TABLE_ID = 'black-money-members';
 /** The opposing side's table: the same figures, none of our list's columns. */
 export const OPPONENT_TABLE_ID = 'black-money-opponents';
 
-export function blackMoneyColumnSpecs(): ColumnSpec[] {
+export function blackGoldColumnSpecs(): ColumnSpec[] {
   return [
     { id: 'name', label: TERMS.name, fixed: true },
-    { id: 'slot', label: TERMS.blackMoneySlot },
-    { id: 'played', label: TERMS.blackMoneyPlayed },
-    { id: 'starterMisses', label: TERMS.blackMoneyStarterMisses },
-    { id: 'subMisses', label: TERMS.blackMoneySubMisses },
+    { id: 'slot', label: TERMS.blackGoldSlot },
+    { id: 'played', label: TERMS.blackGoldPlayed },
+    { id: 'starterMisses', label: TERMS.blackGoldStarterMisses },
+    { id: 'subMisses', label: TERMS.blackGoldSubMisses },
     { id: 'score', label: TERMS.score },
-    { id: 'trend', label: TERMS.blackMoneyTrend },
-    { id: 'kill', label: TERMS.blackMoneyKill },
-    { id: 'occupy', label: TERMS.blackMoneyOccupy },
-    { id: 'firstOccupy', label: TERMS.blackMoneyFirstOccupy },
-    { id: 'collect', label: TERMS.blackMoneyCollect },
-    { id: 'escort', label: TERMS.blackMoneyEscort },
+    { id: 'trend', label: TERMS.blackGoldTrend },
+    { id: 'kill', label: TERMS.blackGoldKill },
+    { id: 'occupy', label: TERMS.blackGoldOccupy },
+    { id: 'firstOccupy', label: TERMS.blackGoldFirstOccupy },
+    { id: 'collect', label: TERMS.blackGoldCollect },
+    { id: 'escort', label: TERMS.blackGoldEscort },
   ];
 }
 
@@ -127,14 +128,14 @@ export function BattleMembersTable({
       },
       {
         id: 'slot',
-        label: TERMS.blackMoneySlot,
+        label: TERMS.blackGoldSlot,
         sortKey: 'slotOrder',
         className: 'label',
         cell: (row) => slotLabel(row.slot),
       },
       {
         id: 'played',
-        label: TERMS.blackMoneyPlayed,
+        label: TERMS.blackGoldPlayed,
         sortKey: 'playedOrder',
         className: 'label',
         cell: (row) =>
@@ -146,7 +147,7 @@ export function BattleMembersTable({
       },
       {
         id: 'starterMisses',
-        label: TERMS.blackMoneyStarterMisses,
+        label: TERMS.blackGoldStarterMisses,
         sortKey: 'starterMisses',
         numeric: true,
         // "1 / 2": missed one of the two reported battles they started on.
@@ -154,7 +155,7 @@ export function BattleMembersTable({
       },
       {
         id: 'subMisses',
-        label: TERMS.blackMoneySubMisses,
+        label: TERMS.blackGoldSubMisses,
         sortKey: 'subMisses',
         numeric: true,
         cell: (row) => missCell(row.subMisses, row.tally?.substitute_battles),
@@ -162,18 +163,18 @@ export function BattleMembersTable({
       part('score', TERMS.score, 'score'),
       {
         id: 'trend',
-        label: TERMS.blackMoneyTrend,
+        label: TERMS.blackGoldTrend,
         className: 'spark-cell',
         // The member's last battles in date order; needs two to draw a line.
         cell: (row) => (
           <Sparkline height={22} values={history?.get(row.game_uid) ?? []} width={96} />
         ),
       },
-      part('kill', TERMS.blackMoneyKill, 'kill_score'),
-      part('occupy', TERMS.blackMoneyOccupy, 'occupy_score'),
-      part('firstOccupy', TERMS.blackMoneyFirstOccupy, 'first_occupy_score'),
-      part('collect', TERMS.blackMoneyCollect, 'collect_score'),
-      part('escort', TERMS.blackMoneyEscort, 'escort_score'),
+      part('kill', TERMS.blackGoldKill, 'kill_score'),
+      part('occupy', TERMS.blackGoldOccupy, 'occupy_score'),
+      part('firstOccupy', TERMS.blackGoldFirstOccupy, 'first_occupy_score'),
+      part('collect', TERMS.blackGoldCollect, 'collect_score'),
+      part('escort', TERMS.blackGoldEscort, 'escort_score'),
     ];
   }, [history]);
   const shownColumns = useMemo(

@@ -2160,7 +2160,7 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
     [...HIVE_FORMATIONS, ...HIVE_DELETED],
   ],
   [
-    ['blackMoney', 'battles'],
+    ['blackGold', 'battles'],
     [
       {
         alliance_external_id: 'ours',
@@ -2237,7 +2237,7 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
     ],
   ],
   [
-    ['blackMoney', 'misses', 'ours'],
+    ['blackGold', 'misses', 'ours'],
     [
       {
         game_uid: 9101000000000580,
@@ -2270,7 +2270,7 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
     ],
   ],
   [
-    ['blackMoney', 'opponents', '2026-09-27T12:50:00Z', 2],
+    ['blackGold', 'opponents', '2026-09-27T12:50:00Z', 2],
     [
       {
         game_uid: 1500000000000581,
@@ -2314,7 +2314,7 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
     ],
   ],
   [
-    ['blackMoney', 'members', '2026-09-27T12:50:00Z', 2],
+    ['blackGold', 'members', '2026-09-27T12:50:00Z', 2],
     [
       {
         game_uid: 9101000000000580,

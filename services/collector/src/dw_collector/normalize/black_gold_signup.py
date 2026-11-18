@@ -1,6 +1,6 @@
 """dragon.assign.player.info → black_money_signup_snapshots.
 
-Black Money is the event's name on screen; on the wire it is `dragon`. It
+Black Gold is the event's name on screen; on the wire it is `dragon`. It
 runs every other Sunday as two teams, A and B, each fielding 20 starters and
 up to 20 substitutes against a different opponent.
 
