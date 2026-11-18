@@ -11,6 +11,12 @@ dependencies = [
     # dw-cloud reads the emulator's screen: template matching on screenshots.
     "Pillow>=10",
     "numpy>=1.26",
+    # Compressed responses since game build 1.250.672 are zstd with an AES-CTR
+    # masked prefix (protocol/aps_zstd.py). Python 3.12 has no zstd, and
+    # pure-Python AES measured 0.2 ms a block: too slow for resync scanning.
+    # 0.23 is the first zstandard with `allow_extra_data`.
+    "zstandard>=0.23",
+    "cryptography>=43",
 ]
 
 # Capture is Windows-only and needs Npcap. Kept out of the default install so
