@@ -47,9 +47,9 @@ function Score({ battle }: { battle: Battle }) {
   );
 }
 
-export function BlackMoneyPage() {
+export function BlackGoldPage() {
   const battles = useQuery({
-    queryKey: ['blackMoney', 'battles'],
+    queryKey: ['blackGold', 'battles'],
     queryFn: fetchBattles,
     staleTime: STALE_TIME,
   });
@@ -61,14 +61,14 @@ export function BlackMoneyPage() {
   const events = groupEvents(battles.data ?? []);
 
   return (
-    <section aria-labelledby="black-money-heading" className="board-screen">
+    <section aria-labelledby="black-gold-heading" className="board-screen">
       <div className="entity">
         <header className="entity-head">
           <span aria-hidden="true" className="entity-mark">
             BG
           </span>
           <div>
-            <h2 id="black-money-heading">{TERMS.blackMoney}</h2>
+            <h2 id="black-gold-heading">{TERMS.blackGold}</h2>
             <p className="entity-meta">
               <span>Our two teams, event by event</span>
               <span>Server time, UTC−2</span>

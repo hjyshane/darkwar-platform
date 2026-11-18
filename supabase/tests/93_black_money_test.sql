@@ -1,4 +1,4 @@
--- 0178: the three Black Money tables follow the snapshot conventions, stay
+-- 0178: the three Black Gold tables follow the snapshot conventions, stay
 -- member-only, and a report copy from a second inbox cannot land twice.
 begin;
 create extension if not exists pgtap with schema extensions;

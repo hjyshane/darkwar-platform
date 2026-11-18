@@ -23,6 +23,8 @@ export type Route =
   | 'season2'
   | 'map'
   | 'hive'
+  // Black Gold. The id keeps the event's first name because it is STORED:
+  // ui_overrides rows (the events hub's order) are keyed by it.
   | 'blackMoney'
   | 'arena'
   | 'server'

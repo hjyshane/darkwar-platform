@@ -9,7 +9,7 @@ import pytest
 from pydantic import ValidationError
 
 from dw_collector import registry
-from dw_collector.normalize import black_money_activity, black_money_history, black_money_report
+from dw_collector.normalize import black_gold_activity, black_gold_history, black_gold_report
 from tests.conftest import load_observation
 
 PUSHED = "push.mail/report_team_a_pushed_v1.json"
@@ -22,21 +22,21 @@ def _battles(observation):
     event times (alliance_event_times), which have their own tests."""
     return [
         r
-        for r in black_money_activity.normalize(observation)
+        for r in black_gold_activity.normalize(observation)
         if r.target_table == "black_money_battle_snapshots"
     ]
 
 
 def test_registered() -> None:
-    assert registry.get("push.mail") is black_money_report.normalize_pushed
-    assert registry.get("dragon.activity.info") is black_money_activity.normalize
+    assert registry.get("push.mail") is black_gold_report.normalize_pushed
+    assert registry.get("dragon.activity.info") is black_gold_activity.normalize
 
 
 # --- push.mail ------------------------------------------------------------
 
 
 def test_a_pushed_report_is_read_like_one_from_the_inbox() -> None:
-    rows = black_money_report.normalize_pushed(load_observation(PUSHED))
+    rows = black_gold_report.normalize_pushed(load_observation(PUSHED))
     sides = Counter((r.row["side"], r.row["win"], r.row["server_id"]) for r in rows)
 
     assert {r.target_table for r in rows} == {"black_money_score_snapshots"}
@@ -52,8 +52,8 @@ def test_a_pushed_and_a_fetched_copy_share_one_key() -> None:
         update={"source_command": "chat.get.system.mails", "payload": {"msg": [pushed.payload]}}
     )
 
-    pushed_keys = [r.idempotency_key for r in black_money_report.normalize_pushed(pushed)]
-    fetched_keys = [r.idempotency_key for r in black_money_report.normalize(fetched)]
+    pushed_keys = [r.idempotency_key for r in black_gold_report.normalize_pushed(pushed)]
+    fetched_keys = [r.idempotency_key for r in black_gold_report.normalize(fetched)]
 
     assert pushed_keys == fetched_keys
     assert all(key.split(":")[1] == "chat.get.system.mails" for key in pushed_keys)
@@ -66,11 +66,11 @@ def test_other_pushed_mail_writes_nothing() -> None:
         update={"payload": {"uid": "2", "type": 1, "contentsLocal": "hello"}}
     )
 
-    assert black_money_report.normalize_pushed(personal) == []
+    assert black_gold_report.normalize_pushed(personal) == []
 
 
 def test_a_malformed_pushed_report_is_skipped_not_raised() -> None:
-    rows = black_money_report.normalize_pushed(
+    rows = black_gold_report.normalize_pushed(
         load_observation("push.mail/report_malformed_v1.json")
     )
 
@@ -106,7 +106,7 @@ def test_it_agrees_with_the_history_field_for_field() -> None:
     from_activity = next(
         r.row for r in _battles(load_observation(FOUGHT)) if r.row["team_index"] == 2
     )
-    from_history = black_money_history.normalize(
+    from_history = black_gold_history.normalize(
         load_observation("dragon.battle.history/history_v1.json")
     )[0].row
 
@@ -181,7 +181,7 @@ def test_one_team_cannot_say_which_alliance_is_ours() -> None:
         update={"payload": {**observation.payload, "teamArr": observation.payload["teamArr"][:1]}}
     )
 
-    assert black_money_activity.normalize(one_team) == []
+    assert black_gold_activity.normalize(one_team) == []
 
 
 def test_a_battle_keeps_its_key_across_logins() -> None:

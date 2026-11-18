@@ -14,7 +14,7 @@ from typing import Any
 
 from dw_collector import pipeline
 from dw_collector.models import Observation
-from dw_collector.normalize import black_money_report, report_mail
+from dw_collector.normalize import black_gold_report, report_mail
 
 SCOUT_BODY = "CgYIARIC" + "QUJD" * 8
 BATTLE_BODY = "EIPd2wVGa" + "WFla" * 8
@@ -50,7 +50,7 @@ def _inbox(*mails: dict[str, Any]) -> Observation:
 
 
 def test_a_scout_result_is_kept_as_scout() -> None:
-    (row,) = black_money_report.normalize(_inbox(_mail(8, "scoutContent", SCOUT_BODY)))
+    (row,) = black_gold_report.normalize(_inbox(_mail(8, "scoutContent", SCOUT_BODY)))
 
     assert row.target_table == "battle_report_ingests"
     assert row.row["report_kind"] == "scout"
@@ -62,7 +62,7 @@ def test_a_scout_result_is_kept_as_scout() -> None:
 
 def test_a_battle_report_is_kept_as_mail_simple() -> None:
     """mail_simple is what mail.read.share writes for the same body."""
-    (row,) = black_money_report.normalize(_inbox(_mail(72, "battleContent", BATTLE_BODY)))
+    (row,) = black_gold_report.normalize(_inbox(_mail(72, "battleContent", BATTLE_BODY)))
 
     assert row.row["report_kind"] == "mail_simple"
     assert row.row["report_content"] == BATTLE_BODY
@@ -77,7 +77,7 @@ def test_an_unlisted_report_type_is_kept_by_its_body() -> None:
 
 
 def test_ordinary_mail_writes_nothing() -> None:
-    rows = black_money_report.normalize(
+    rows = black_gold_report.normalize(
         _inbox(_mail(3, None, ""), {"uid": "x", "type": 13, "contentsLocal": "plain text"})
     )
 
@@ -92,7 +92,7 @@ def test_a_malformed_body_writes_nothing() -> None:
 
 
 def test_raw_is_the_mail_without_its_body() -> None:
-    (row,) = black_money_report.normalize(_inbox(_mail(8, "scoutContent", SCOUT_BODY)))
+    (row,) = black_gold_report.normalize(_inbox(_mail(8, "scoutContent", SCOUT_BODY)))
 
     assert "contentsLocal" not in row.row["raw"]
     assert row.row["raw"]["type"] == 8
@@ -102,25 +102,25 @@ def test_pushed_and_fetched_copies_share_a_key() -> None:
     """The same report reaches us pushed, on an inbox page, and under another
     recipient's mail uid. All of them are one report."""
     mail = _mail(72, "battleContent", BATTLE_BODY)
-    (fetched,) = black_money_report.normalize(_inbox(mail))
-    (pushed,) = black_money_report.normalize_pushed(_observation("push.mail", mail))
+    (fetched,) = black_gold_report.normalize(_inbox(mail))
+    (pushed,) = black_gold_report.normalize_pushed(_observation("push.mail", mail))
     other_recipient = {**mail, "uid": "another-mail-uid", "toUser": "9000000000001580"}
-    (copy,) = black_money_report.normalize(_inbox(other_recipient))
+    (copy,) = black_gold_report.normalize(_inbox(other_recipient))
 
     assert fetched.idempotency_key == pushed.idempotency_key == copy.idempotency_key
     assert fetched.row["ingest_id"] == pushed.row["ingest_id"]
 
 
 def test_different_reports_get_different_keys() -> None:
-    (a,) = black_money_report.normalize(_inbox(_mail(72, "battleContent", BATTLE_BODY)))
-    (b,) = black_money_report.normalize(_inbox(_mail(72, "battleContent", BATTLE_BODY + "QQ")))
-    (s,) = black_money_report.normalize(_inbox(_mail(8, "scoutContent", BATTLE_BODY)))
+    (a,) = black_gold_report.normalize(_inbox(_mail(72, "battleContent", BATTLE_BODY)))
+    (b,) = black_gold_report.normalize(_inbox(_mail(72, "battleContent", BATTLE_BODY + "QQ")))
+    (s,) = black_gold_report.normalize(_inbox(_mail(8, "scoutContent", BATTLE_BODY)))
 
     assert len({a.idempotency_key, b.idempotency_key, s.idempotency_key}) == 3
 
 
 def test_one_page_keeps_every_report_on_it() -> None:
-    rows = black_money_report.normalize(
+    rows = black_gold_report.normalize(
         _inbox(
             _mail(8, "scoutContent", SCOUT_BODY),
             _mail(3, None, ""),

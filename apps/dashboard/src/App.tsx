@@ -14,7 +14,7 @@ import { AlarmsPage } from './features/alarms/AlarmsPage';
 import { AlliancePage } from './features/alliance/AlliancePage';
 import { ArenaPanel } from './features/arena/ArenaPanel';
 import { LoginPage } from './features/auth/LoginPage';
-import { BlackMoneyPage } from './features/blackMoney/BlackMoneyPage';
+import { BlackGoldPage } from './features/blackGold/BlackGoldPage';
 import { CalculatorPage } from './features/calculator/CalculatorPage';
 import { CalendarPage } from './features/calendar/CalendarPage';
 import { CrossRankingsPanel } from './features/crossRankings/CrossRankingsPanel';
@@ -327,7 +327,7 @@ function Screen({
       // No capability gate, like the season boards: the three tables under it
       // are member-only at the policy level (0178) and the app is walled to
       // members, so there is no ungated reader to explain an empty page to.
-      return <BlackMoneyPage />;
+      return <BlackGoldPage />;
     case 'planner':
       // Owner-or-admin at the policy level (0205): a member sees only their own
       // characters, so no capability gate.

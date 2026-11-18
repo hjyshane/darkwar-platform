@@ -19,7 +19,7 @@ read: the teams in `teamArr` are the alliance's choice.
 Only the siege and Frankie payloads say nothing about WHICH alliance; the
 collector's account is the only link, so the database resolves it from the
 account that was logged in (0249). Black Gold's payload names both alliances,
-and our own is the one in every team's matchup (black_money_activity).
+and our own is the one in every team's matchup (black_gold_activity).
 
 Times are epoch ms. One row per distinct time: the key hashes the event, slot
 and instants, so every login that sees the same pick is one row, and a moved

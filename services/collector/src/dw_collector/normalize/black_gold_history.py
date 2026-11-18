@@ -1,6 +1,6 @@
 """dragon.battle.history → black_money_battle_snapshots.
 
-One entry per team per Black Money event, reaching back to 2026-04-19 —
+One entry per team per Black Gold event, reaching back to 2026-04-19 —
 25 battles in the first response captured. The team-level result: both
 scores, how many entered on each side, and the outcome.
 

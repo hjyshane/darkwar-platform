@@ -1,4 +1,4 @@
-"""dragon.assign.player.info — the Black Money signup list.
+"""dragon.assign.player.info — the Black Gold signup list.
 
 What this pins is the encoding the officers' assignments arrive in: team by
 `teamIndex`, starter or substitute by `state`, and the whole alliance listed
@@ -13,7 +13,7 @@ import pytest
 from pydantic import ValidationError
 
 from dw_collector import pipeline, registry
-from dw_collector.normalize import black_money_signup
+from dw_collector.normalize import black_gold_signup
 from tests.conftest import load_observation
 
 SIGNUP = "dragon.assign.player.info/signup_v1.json"
@@ -21,12 +21,12 @@ SIGNUP = "dragon.assign.player.info/signup_v1.json"
 
 def _signups(observation=None):
     """The snapshot rows only: the migration-power readings are a second table."""
-    rows = black_money_signup.normalize(observation or load_observation(SIGNUP))
+    rows = black_gold_signup.normalize(observation or load_observation(SIGNUP))
     return [r for r in rows if r.target_table == "black_money_signup_snapshots"]
 
 
 def test_registered() -> None:
-    assert registry.get("dragon.assign.player.info") is black_money_signup.normalize
+    assert registry.get("dragon.assign.player.info") is black_gold_signup.normalize
 
 
 def test_the_whole_alliance_is_listed() -> None:
@@ -63,7 +63,7 @@ def test_an_empty_slot_list_is_null_not_a_slot() -> None:
 
 def test_home_server_comes_from_the_uid() -> None:
     """The list carries serverId, and it agrees with the uid suffix."""
-    rows = black_money_signup.normalize(load_observation(SIGNUP))
+    rows = black_gold_signup.normalize(load_observation(SIGNUP))
 
     assert {r.row["server_id"] for r in rows} == {580}
     assert all(str(r.row["game_uid"]).endswith("000580") for r in rows)
@@ -74,7 +74,7 @@ def test_optional_fields_may_be_missing() -> None:
     observation = load_observation(SIGNUP)
     sparse = observation.model_copy(update={"payload": {"users": [{"uid": "9123456789000581"}]}})
 
-    (row,) = black_money_signup.normalize(sparse)
+    (row,) = black_gold_signup.normalize(sparse)
 
     assert row.row["server_id"] == 581
     assert row.row["state"] is None
@@ -84,7 +84,7 @@ def test_optional_fields_may_be_missing() -> None:
 
 def test_malformed_uid_rejected() -> None:
     with pytest.raises(ValidationError):
-        black_money_signup.normalize(
+        black_gold_signup.normalize(
             load_observation("dragon.assign.player.info/signup_malformed_v1.json")
         )
 
@@ -93,8 +93,8 @@ def test_replay_is_idempotent_and_readings_are_distinct() -> None:
     """Replaying one reading reproduces its keys. A second reading of the
     list is a new snapshot — assignments move between readings."""
     observation = load_observation(SIGNUP)
-    first = {r.idempotency_key for r in black_money_signup.normalize(observation)}
-    again = {r.idempotency_key for r in black_money_signup.normalize(observation)}
+    first = {r.idempotency_key for r in black_gold_signup.normalize(observation)}
+    again = {r.idempotency_key for r in black_gold_signup.normalize(observation)}
     later = observation.model_copy(
         update={
             "captured_at": observation.captured_at.replace(minute=59),
@@ -103,7 +103,7 @@ def test_replay_is_idempotent_and_readings_are_distinct() -> None:
     )
 
     assert first == again
-    assert first.isdisjoint({r.idempotency_key for r in black_money_signup.normalize(later)})
+    assert first.isdisjoint({r.idempotency_key for r in black_gold_signup.normalize(later)})
 
 
 def test_no_activity_facts() -> None:
@@ -120,7 +120,7 @@ def test_no_activity_facts() -> None:
 def test_each_members_migration_power_is_a_component_reading() -> None:
     """1.1.0: the list carries migratePower for every member, and it is read."""
     observation = load_observation(SIGNUP)
-    rows = black_money_signup.normalize(observation)
+    rows = black_gold_signup.normalize(observation)
     readings = [r for r in rows if r.target_table == "player_component_power_snapshots"]
     sent = {
         int(u["uid"]): u["migratePower"]
@@ -143,7 +143,7 @@ def test_a_member_without_migration_power_has_no_reading() -> None:
     uid = int(users[0]["uid"])
     readings = [
         r
-        for r in black_money_signup.normalize(bare)
+        for r in black_gold_signup.normalize(bare)
         if r.target_table == "player_component_power_snapshots"
     ]
     assert uid not in {r.row["game_uid"] for r in readings}
@@ -155,7 +155,7 @@ def test_a_reading_keeps_its_key_when_replayed() -> None:
     def keys() -> set[str]:
         return {
             r.idempotency_key
-            for r in black_money_signup.normalize(observation)
+            for r in black_gold_signup.normalize(observation)
             if r.target_table == "player_component_power_snapshots"
         }
 
