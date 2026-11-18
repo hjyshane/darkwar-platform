@@ -92,8 +92,8 @@ describe('buildNav hierarchy (2026-11-08)', () => {
     expect(labels(withOwn)).not.toContain('Members');
     expect(labels(withOwn)).not.toContain('Hive');
     expect(labels(withOwn)).not.toContain('Events');
-    // The tools stay beside it; the planner is archived (2026-11-12).
-    expect(labels(withOwn)).toContain('Calculator');
+    // The planner is archived (2026-11-12); the calculator is hidden (2026-11-18).
+    expect(labels(withOwn)).not.toContain('Calculator');
     expect(labels(withOwn)).not.toContain('Planner');
   });
 
@@ -135,10 +135,10 @@ describe('buildNav hierarchy (2026-11-08)', () => {
     expect(labels(none)).not.toContain('CBFW');
   });
 
-  test('a community account gets neither the entry nor the page', () => {
+  test('a community account gets neither the entry nor the page (the calculator is hidden for all)', () => {
     const community = { ...withOwn, isCommunity: true };
     expect(labels(community)).not.toContain('CBFW');
-    expect(labels(community)).toContain('Calculator');
+    expect(labels(community)).not.toContain('Calculator');
   });
 
   test('the top bar names the filed screen', () => {
