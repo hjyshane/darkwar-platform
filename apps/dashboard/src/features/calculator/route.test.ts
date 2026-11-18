@@ -27,18 +27,39 @@ describe('the calculator route', () => {
     expect(navSection('calculator')).toBe('alliance');
   });
 
-  it('has no sidebar entry (hidden 2026-11-18), and neither has the archived planner', () => {
+  it('is in the sidebar, and the archived planner is not', () => {
     const labels = items(member).map((i) => i.label);
-    expect(labels).not.toContain('Calculator');
+    expect(labels).toContain('Calculator');
     expect(labels).not.toContain('Planner');
-    expect(labels).not.toContain('Gift codes');
-    expect(labels).not.toContain('Game calendar');
-    expect(labels).not.toContain('Shop value');
-    expect(routeFromHash(CALCULATOR_HASH)).toBe('calculator');
+    const entry = items({ ...member, route: 'calculator' }).find((i) => i.label === 'Calculator');
+    expect(entry?.href).toBe(CALCULATOR_HASH);
+    expect(entry?.current).toBe(true);
+    expect(entry?.children).toBeUndefined();
   });
 
-  it('is still open to a community account by address', () => {
+  it('is offered to a community account, and an admin can hide it like any tab', () => {
     expect(communityMayOpen('calculator')).toBe(true);
+    expect(items({ ...member, isCommunity: true }).map((i) => i.label)).toContain('Calculator');
     expect(tabKeyOf('calculator')).toBe('calculator');
+    const hidden = items({ ...member, tabShown: (tab) => tab !== 'calculator' });
+    expect(hidden.map((i) => i.label)).not.toContain('Calculator');
+  });
+
+  it('puts every one of the four 2026-11-18 entries back under the admin tab setting', () => {
+    // They were taken out of the code that day and came back the same day:
+    // whether a role sees them is Settings → Tab visibility (0295), not a code change.
+    const officer = { ...member, isOfficer: true, mayManageGiftCodes: true };
+    const shown = items(officer).map((i) => i.label);
+    for (const label of ['Calculator', 'Gift codes', 'Game calendar', 'Shop value']) {
+      expect(shown).toContain(label);
+    }
+    const hidden = items({
+      ...officer,
+      tabShown: (tab) => !['giftCodes', 'calendar', 'shopValue'].includes(tab),
+    }).map((i) => i.label);
+    expect(hidden).toContain('Calculator');
+    expect(hidden).not.toContain('Gift codes');
+    expect(hidden).not.toContain('Game calendar');
+    expect(hidden).not.toContain('Shop value');
   });
 });
