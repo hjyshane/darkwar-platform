@@ -30,15 +30,86 @@ function Glyph({ kind }: { kind: ObjectiveKind }) {
   }
 }
 
-function Marker({ objective, flipped }: { objective: Objective; flipped: boolean }) {
+function Marker({
+  objective,
+  flipped,
+  count,
+  highlighted,
+}: {
+  objective: Objective;
+  flipped: boolean;
+  count: number;
+  highlighted: boolean;
+}) {
   const at = placed(objective, flipped);
   const side =
     objective.id === 'hq-ours' ? 'ours' : objective.id === 'hq-theirs' ? 'theirs' : 'neutral';
   return (
-    <g className={`bf-marker bf-${side}`} transform={`translate(${at.x * SIZE} ${at.y * SIZE})`}>
-      <title>{objective.label}</title>
+    <g
+      className={`bf-marker bf-${side}${highlighted ? ' bf-highlight' : ''}`}
+      transform={`translate(${at.x * SIZE} ${at.y * SIZE})`}
+    >
+      <title>{count > 0 ? `${objective.label}: ${count}` : objective.label}</title>
       <Glyph kind={objective.kind} />
+      {count > 0 && (
+        <text className="bf-count" x="6" y="-4">
+          {count}
+        </text>
+      )}
     </g>
+  );
+}
+
+/** The picture alone. `counts` puts a number beside an objective (how many
+ * players a plan sends there); `highlight` rings one (the reader's own). */
+export function BattlefieldSvg({
+  flipped,
+  counts,
+  highlight,
+}: {
+  flipped: boolean;
+  counts?: ReadonlyMap<string, number>;
+  highlight?: string | null;
+}) {
+  return (
+    <svg
+      aria-label="Black Gold battlefield: headquarters in opposite corners, two military bases, two field hospitals, six oil refineries and the rare earth factory in the centre"
+      className="bf-map"
+      role="img"
+      viewBox={`0 0 ${SIZE} ${SIZE}`}
+    >
+      <rect className="bf-ground" height={SIZE} rx="4" width={SIZE} />
+      {OBJECTIVES.map((objective) => (
+        <Marker
+          count={counts?.get(objective.id) ?? 0}
+          flipped={flipped}
+          highlighted={highlight === objective.id}
+          key={objective.id}
+          objective={objective}
+        />
+      ))}
+    </svg>
+  );
+}
+
+/** Which corner is ours, as two pressed buttons. */
+export function OrientationToggle({
+  flipped,
+  onChange,
+}: {
+  flipped: boolean;
+  onChange: (flipped: boolean) => void;
+}) {
+  return (
+    <fieldset className="bf-orient">
+      <legend>Our headquarters is</legend>
+      <button aria-pressed={!flipped} onClick={() => onChange(false)} type="button">
+        Bottom left
+      </button>
+      <button aria-pressed={flipped} onClick={() => onChange(true)} type="button">
+        Top right
+      </button>
+    </fieldset>
   );
 }
 
@@ -56,26 +127,8 @@ export function Battlefield() {
       <summary>Battlefield map and objectives</summary>
       <div className="bf-layout">
         <div>
-          <fieldset className="bf-orient">
-            <legend>Our headquarters is</legend>
-            <button aria-pressed={!flipped} onClick={() => setFlipped(false)} type="button">
-              Bottom left
-            </button>
-            <button aria-pressed={flipped} onClick={() => setFlipped(true)} type="button">
-              Top right
-            </button>
-          </fieldset>
-          <svg
-            aria-label="Black Gold battlefield: headquarters in opposite corners, two military bases, two field hospitals, six oil refineries and the rare earth factory in the centre"
-            className="bf-map"
-            role="img"
-            viewBox={`0 0 ${SIZE} ${SIZE}`}
-          >
-            <rect className="bf-ground" height={SIZE} rx="4" width={SIZE} />
-            {OBJECTIVES.map((objective) => (
-              <Marker flipped={flipped} key={objective.id} objective={objective} />
-            ))}
-          </svg>
+          <OrientationToggle flipped={flipped} onChange={setFlipped} />
+          <BattlefieldSvg flipped={flipped} />
           <p className="subtle">
             Red-and-blue corners are the two headquarters; the star is a Military Base, the cross a
             Field Hospital, the drop an Oil Refinery. Which side is ours changes from battle to

@@ -4,6 +4,7 @@ import { Strip } from '../../components/Strip';
 import { TERMS } from '../../lib/terms';
 import { BattleDetail, STALE_TIME, num } from './BattleDetail';
 import { Battlefield } from './BattlefieldMap';
+import { BgbPlanPanel } from './BgbPlanPanel';
 import {
   type Battle,
   battleKey,
@@ -78,6 +79,8 @@ export function BlackMoneyPage() {
       </div>
 
       <Battlefield />
+
+      <BgbPlanPanel />
 
       <div className="panel">
         {battles.isPending && <p className="empty loading">Loading…</p>}
