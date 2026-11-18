@@ -132,7 +132,7 @@ test('a stranger is offered a way in, not told they are already in', async () =>
   expect(screen.queryByText(/Signed in as/)).toBeNull();
 });
 
-test('a signed-in account with no role gets the join-code box, not directions to it', async () => {
+test('a signed-in account with no role gets the code and the character on one form', async () => {
   // The wall told this person to "enter a join code on the sign-in page",
   // which is the screen they are now already on. The box itself is better.
   auth.getSession.mockResolvedValue({
@@ -143,7 +143,11 @@ test('a signed-in account with no role gets the join-code box, not directions to
   // The address is on screen because the usual cause of landing here twice is
   // having signed in with the wrong account.
   expect(await screen.findByText(/newcomer@test.local/)).toBeTruthy();
-  expect(screen.getByRole('heading', { name: 'Enter your invitation code' })).toBeTruthy();
+  // One form since 2026-11-18: the code and the in-game name, one button.
+  expect(screen.getByRole('heading', { name: 'Join your alliance' })).toBeTruthy();
+  expect(screen.getByLabelText('Invitation code, first half')).toBeTruthy();
+  expect(screen.getByLabelText(/Your character/)).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Join' })).toBeTruthy();
 });
 
 test('the two pages that answer "what about my email address" are linked', async () => {

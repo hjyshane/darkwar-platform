@@ -29,7 +29,6 @@ export function JoinCodeForm({ onRedeemed }: { onRedeemed: () => void }) {
   // hand, and the hyphen was a character people either forgot or typed twice.
   const [first, setFirst] = useState('');
   const [second, setSecond] = useState('');
-  const secondBox = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
@@ -68,52 +67,73 @@ export function JoinCodeForm({ onRedeemed }: { onRedeemed: () => void }) {
         This account has no alliance role yet, so alliance-only figures stay hidden. Enter the
         invitation code an officer gave you.
       </p>
-      {/* TWO BOXES AND NO HYPHEN. The separator is printed between them
-          instead of typed: it was the one character people got wrong, and a
-          wrong character costs an attempt against a five-try lockout (0021).
-          Lowercase is folded up — every issued code is uppercase by
-          construction, so a lowercase one is a typing choice, not a different
-          code. */}
-      <fieldset className="code-boxes">
-        <legend>Invitation code</legend>
-        <input
-          aria-label="Invitation code, first half"
-          autoComplete="off"
-          inputMode="text"
-          maxLength={CODE_GROUP}
-          onChange={(event) => {
-            const [a, b] = splitPastedCode(event.target.value);
-            setFirst(a);
-            // A pasted whole code fills both, and typing the fifth character
-            // moves on rather than making somebody reach for the mouse.
-            if (b !== '') {
-              setSecond(b);
-              secondBox.current?.focus();
-            } else if (a.length === CODE_GROUP) {
-              secondBox.current?.focus();
-            }
-          }}
-          spellCheck={false}
-          value={first}
-        />
-        <span aria-hidden="true" className="code-dash">
-          -
-        </span>
-        <input
-          aria-label="Invitation code, second half"
-          autoComplete="off"
-          inputMode="text"
-          maxLength={CODE_GROUP}
-          onChange={(event) => setSecond(cleanCodePart(event.target.value))}
-          ref={secondBox}
-          spellCheck={false}
-          value={second}
-        />
-      </fieldset>
+      <CodeBoxes first={first} onFirst={setFirst} onSecond={setSecond} second={second} />
       <button disabled={busy || !isCodeComplete(first, second)} type="submit">
         {busy ? 'Checking…' : 'Redeem'}
       </button>
       {message && <p className={failed ? 'error' : 'empty'}>{message}</p>}
     </form>
+  );
+}
+
+/** The two halves of an invitation code, printed hyphen between them. Shared
+ * by this form and the sign-up screen's join form. */
+export function CodeBoxes({
+  first,
+  second,
+  onFirst,
+  onSecond,
+}: {
+  first: string;
+  second: string;
+  onFirst: (value: string) => void;
+  onSecond: (value: string) => void;
+}) {
+  const secondBox = useRef<HTMLInputElement>(null);
+  const setFirst = onFirst;
+  const setSecond = onSecond;
+  // TWO BOXES AND NO HYPHEN. The separator is printed between them
+  // instead of typed: it was the one character people got wrong, and a
+  // wrong character costs an attempt against a five-try lockout (0021).
+  // Lowercase is folded up — every issued code is uppercase by
+  // construction, so a lowercase one is a typing choice, not a different
+  // code.
+  return (
+    <fieldset className="code-boxes">
+      <legend>Invitation code</legend>
+      <input
+        aria-label="Invitation code, first half"
+        autoComplete="off"
+        inputMode="text"
+        maxLength={CODE_GROUP}
+        onChange={(event) => {
+          const [a, b] = splitPastedCode(event.target.value);
+          setFirst(a);
+          // A pasted whole code fills both, and typing the fifth character
+          // moves on rather than making somebody reach for the mouse.
+          if (b !== '') {
+            setSecond(b);
+            secondBox.current?.focus();
+          } else if (a.length === CODE_GROUP) {
+            secondBox.current?.focus();
+          }
+        }}
+        spellCheck={false}
+        value={first}
+      />
+      <span aria-hidden="true" className="code-dash">
+        -
+      </span>
+      <input
+        aria-label="Invitation code, second half"
+        autoComplete="off"
+        inputMode="text"
+        maxLength={CODE_GROUP}
+        onChange={(event) => setSecond(cleanCodePart(event.target.value))}
+        ref={secondBox}
+        spellCheck={false}
+        value={second}
+      />
+    </fieldset>
   );
 }

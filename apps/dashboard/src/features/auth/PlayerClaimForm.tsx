@@ -10,7 +10,7 @@ type LinkedPlayer = { player_id: string; current_name: string | null };
 /** The alliance this account said it is joining (AllianceRequestForm writes it
  * to the account's metadata), or the one a pinned host stands for. null when
  * nothing was chosen: a single-alliance install, where the list is everybody. */
-async function fetchChosenAlliance(): Promise<string | null> {
+export async function fetchChosenAlliance(): Promise<string | null> {
   if (isAlliancePinnedByHost()) {
     return getActiveAlliance();
   }

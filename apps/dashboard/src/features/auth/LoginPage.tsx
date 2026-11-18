@@ -6,6 +6,7 @@ import { TERMS } from '../../lib/terms';
 import { useSession } from '../../lib/useSession';
 import { AllianceRequestForm } from './AllianceRequestForm';
 import { JoinCodeForm } from './JoinCodeForm';
+import { JoinForm, type Joined } from './JoinForm';
 import { LeaveAllianceForm } from './LeaveAllianceForm';
 import { PlayerClaimForm } from './PlayerClaimForm';
 import { SignUpForm } from './SignUpForm';
@@ -27,6 +28,9 @@ export function LoginPage() {
   const [busy, setBusy] = useState(false);
   const [sessionEmail, setSessionEmail] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  // What the one-step join said, kept here because the form that produced it
+  // disappears the moment the account stops being a viewer.
+  const [joined, setJoined] = useState<Joined | null>(null);
   const { data: session } = useSession();
   const queryClient = useQueryClient();
 
@@ -152,20 +156,29 @@ export function LoginPage() {
           <p>
             Signed in as {sessionEmail} — <strong>{session?.role ?? 'viewer'}</strong>.
           </p>
-          {/* One screen, and the order is forced rather than chosen: a viewer
-              cannot read `players` (0065), so the character picker would be an
-              empty list, and `player_claims` refuses an insert from a viewer
-              anyway (0068). So the code comes first and the picker replaces it
-              the moment the role changes — as close to "choose your character
-              while joining" as the gate allows.
-              Not numbered: the two never appear together, so "step 2" would
-              be labelling something with nothing above it. */}
+          {/* ONE SCREEN, ONE BUTTON (2026-11-18). The code and the character
+              used to be two screens, the picker replacing the code form once
+              the role changed: a viewer cannot read `players` (0065) and
+              `claim_player` refuses a viewer (0068). The order is still forced,
+              so JoinForm asks for both and does them in turn — see
+              joinAndClaim.ts. */}
           {session?.role === 'viewer' && (
             <>
               <AllianceRequestForm />
-              <h3>Enter your invitation code</h3>
-              <JoinCodeForm onRedeemed={() => refreshSession()} />
+              <JoinForm
+                onJoined={(outcome) => {
+                  setJoined(outcome);
+                  refreshSession();
+                }}
+              />
             </>
+          )}
+          {joined !== null && session?.role !== 'viewer' && (
+            <p className={joined.note === null ? 'empty' : 'error'}>
+              {joined.note ??
+                `Welcome — you are now ${joined.role}${joined.linked ? `, linked to ${joined.linked}` : ''}. `}
+              {joined.note === null && <a href="#/">Go to the dashboard</a>}
+            </p>
           )}
           {session !== undefined && session.role !== 'viewer' && (
             <>

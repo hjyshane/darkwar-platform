@@ -11119,6 +11119,16 @@ export type Database = {
         | { Args: { p_point: number }; Returns: boolean }
         | { Args: { p_x: number; p_y: number }; Returns: boolean }
       is_service_request: { Args: never; Returns: boolean }
+      join_roster: {
+        Args: { p_alliance?: string }
+        Returns: {
+          alliance_code: string
+          alliance_id: string
+          game_uid: number
+          name: string
+          player_id: string
+        }[]
+      }
       joinable_alliances: {
         Args: never
         Returns: {
