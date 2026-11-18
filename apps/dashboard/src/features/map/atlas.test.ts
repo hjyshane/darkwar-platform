@@ -11,6 +11,7 @@ import {
   clusters,
   filterActive,
   formatCopyCoordinate,
+  isOldSweep,
   isShielded,
   isStale,
   matchesFilter,
@@ -369,5 +370,13 @@ describe('shieldLeft', () => {
 
   it('is null once the shield has ended', () => {
     expect(shieldLeft(at(-1), now)).toBeNull();
+  });
+});
+
+describe('isOldSweep', () => {
+  const now = new Date('2026-11-18T12:00:00Z');
+  it('is false inside three days and true past them', () => {
+    expect(isOldSweep('2026-11-16T12:00:01Z', now)).toBe(false);
+    expect(isOldSweep('2026-11-15T11:59:00Z', now)).toBe(true);
   });
 });
