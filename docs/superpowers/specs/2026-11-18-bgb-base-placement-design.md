@@ -1,98 +1,110 @@
-# Black Gold battle map: planning where each player's base goes — design (DRAFT)
+# Black Gold battle plan: who takes which objective — design (DRAFT 2)
 
 2026-11-18. From the website feedback triage (`docs/website-feedback-2026-11.md`, item G):
-an R4/R5 wants "a map for BGB with the ability to place player bases on it so you can plan
-everything in advance". Black Gold (wire name `dragon`, on screen "Black Money") is the
-alliance's two-team battle: teams A and B, 20 starters and up to 20 substitutes each.
+an R4/R5 wants "a map for BGB … so you can plan everything in advance". Black Gold (wire name
+`dragon`, on screen "Black Money" / "Black Gold Battlefield") is the alliance's two-team battle:
+teams A and B, 20 starters and up to 20 substitutes each.
 
-**Status: blocked on one fact this repository does not hold — see §3.** Everything else below is
-designed so the answer changes data, not structure.
+Draft 2 replaces draft 1 after the owner supplied the battlefield minimap and the in-game event
+rules (screenshots, 2026-11-18). **They change the design**: the battlefield is not a grid where
+players place bases, so the hive editor is the wrong thing to copy.
 
-## 1. What exists
+## 1. What the battlefield is (from the owner's screenshots)
 
-| Piece | Where | Note |
+Not read from capture; **unverified against the wire**. Source: in-game event text and the minimap.
+
+- A square minimap, two spawn HQs on opposite corners (red and blue) — **which side is ours
+  varies per battle** (top or bottom), so the picture must flip.
+- Fixed objectives, symmetric about the centre:
+
+| Icon | Objective | Count on minimap | First control (alliance / personal) | Sustained (per min) | Capture buff |
+|---|---|---|---|---|---|
+| star | Military Base | 2 | 5,000 / 2,500 | +1,000 / +500 | Troop DMG +20% |
+| + | Field Hospital | 2 | 5,000 / 2,500 | +1,000 / +500 | Wound healing +50% |
+| drop | Oil Refinery | 6 | 2,000 / 1,000 | +400 / +200 | — |
+| house (centre) | Rare Earth Factory | 1 | — | produces Rare Earth Alloy at 15 min and 25 min | — |
+| shield | Our / their Headquarters | 1 each | alloy delivered: 100,000 / 10,000 | — | — |
+
+- **Oil Tanks are scattered across the whole map** (owner): gathering, 600 alliance / 60 personal
+  per min. Not a fixed spot, so not plannable as a slot.
+- Military Base and Field Hospital can be contested only after a delay; starters enter at once,
+  **substitutes only once the battle has officially begun** (a natural second wave).
+- Only starters/substitutes the leader or R4 picked may enter; the game owns that roster
+  (`black_money_signup_snapshots`: `team_index`, `state` 1 starter / 2 sub).
+
+There are **no tile coordinates** and no per-player base to place. What an officer can plan in
+advance is **which players go to which objective** (and who carries alloy).
+
+## 2. What exists
+
+| Piece | Where | Reusable? |
 |---|---|---|
-| Who is on which team, starter or sub | `black_money_signup_snapshots` (0178): `team_index` 1/2, `state` 1 starter / 2 sub | Read from the game (`dragon.assign.player.info`); the game owns the lineup, the site mirrors it |
-| Battle results, per-player scores, opponents, misses | 0178, 0182, 0183; `features/blackMoney/*` | Read-only history |
-| A drawn plan on a map, members assigned to tiles, saved whole, stale-save refusal, recoverable delete | `hive_formations` + `hive_formation_slots` (0165–0173, 0330), `features/hive/*` (`FormationEditor`, `TileGrid`) | **Bound to the world**: `server_id` FK, anchors and offsets checked against the 998×998 world map (`hive_formation_fits_the_map`) |
+| Roster: team, starter/sub | `black_money_signup_snapshots` (0178), latest reading = rows sharing the newest `captured_at` | Yes — the source of the assign list |
+| History, scores, opponents, misses | 0178, 0182, 0183, `features/blackMoney/*` | Read-only context beside the plan |
+| Hive formation tables and editor | `hive_formations`/`_slots` (0165–0173, 0330), `features/hive/*` | **Concept only.** Bound to world coordinates and `server_id`; the tile grid is irrelevant here. Copy the *safety behaviour* (refuse stale save, recoverable delete, last-editor stamp), not the grid |
 
-So "BGB lineup" in the feedback is already the Black Gold tab (a mirror of the in-game roster).
-What is new is a **drawn plan on the battlefield**, which has no home yet.
+## 3. Goal and non-goals
 
-## 2. Goal and non-goals
+Goal: an officer picks team A or B, sees the minimap, drags starters and substitutes onto
+objectives (and a few free roles such as "carry alloy" or "hold HQ"), saves; every member sees
+"your objective this battle" first, as `MyTile` does for the hive.
 
-Goal: an officer opens a Black Gold plan for team A or B, sees the battlefield, places the
-team's players on it, saves, and every member of the alliance can read their own spot —
-the hive page's shape, for this event.
+Non-goals: no writes to the game (ADR-0002/0003 unchanged — this only plans); no auto-placement;
+no scoring; no new capture; no tile coordinates.
 
-Non-goals: no writes to the game (ADR-0002/0003 allowlist unchanged — this only plans);
-no scoring, no automatic placement, no new capture.
+## 4. Design
 
-## 3. The open fact: what is the battlefield?
+**Map:** a hand-drawn inline SVG in the dashboard (not the owner's JPEG — it is a low-resolution
+screenshot of the game's art). Objective positions are normalised 0–1 values in a small static
+definition (`features/blackMoney/battlefield.ts`), keyed by objective id (`mil-1`, `mil-2`,
+`hosp-1`, `hosp-2`, `oil-1`…`oil-6`, `factory`, `hq-ours`, `hq-theirs`). A **"we are at the
+bottom / top"** toggle rotates the picture 180°; the stored plan does not depend on it, because
+objectives are named by role relative to us (`mil-ours-near`, `mil-theirs-near`…) rather than by
+screen corner. *Exact naming of the near/far pairs needs the owner's confirmation (§7 Q1).*
 
-I could not find, in the repo or fixtures, any description of the Black Gold battlefield:
-its size, whether it is a tile grid with coordinates, whether players pick a spot or the game
-assigns it, and what fixed features (objectives, spawns, lanes) sit on it. `dragon.*` payloads
-carry rosters and results only. **Owner: please provide** a screenshot of the battlefield
-(and, if there is one, the in-game rule for how a player's position is chosen).
+**Data (new migration, `new-migration` skill):**
 
-What each answer means:
+- `bgb_plans` — alliance, team 1/2, name, note, `is_live`, audit columns and soft delete as in
+  0330. One live plan per (alliance, team).
+- `bgb_plan_assignments` — plan, `objective_key text` (checked against the static list by a
+  `check` on the known keys), `player_id` (nullable), `role text`, `wave` 1/2 (starters / subs),
+  `ordinal`. One row per person per plan (unique `(plan_id, player_id)`).
+- Board view folds assignments to **one row per placed player** (PostgREST 1,000-row cap).
+- Membership from `alliance_roster_latest`, never `players.current_alliance_id`; a player who left
+  shows as empty.
+- RLS: members of the alliance read; writers need a capability (§7 Q2). pgTAP negative tests:
+  non-officer write fails, another alliance's plan invisible, an unknown objective key refused,
+  one player twice refused.
 
-| If the battlefield is… | Then the map is… |
-|---|---|
-| A tile grid with coordinates | The hive grid at a fixed size with its own bounds (option A) |
-| A picture with named zones/slots | An image plus a list of slot positions (option B) |
-| Not placeable at all (game decides) | Nothing to build; drop item G and say so |
+**Surface:** a "Plan" view inside Black Gold, per team. Officer view: minimap with objective
+markers, a side list of the team's starters then substitutes (from the latest signup reading),
+drag or click to assign, save whole with the hive's stale-save refusal. Member view: their own
+objective first, then the plan read-only.
 
-## 4. Options
+**Reference panel:** the objective table above (points, buffs, alloy times 15/25 min) beside the
+map, as data in the same static file so it is one place to fix when the game changes.
 
-**A. Own tables, shared editor component.** New `bgb_plans` (alliance, team 1/2, name, optional
-map key, note, same audit/lock/soft-delete columns as 0330) and `bgb_plan_slots` (plan, dx/dy or
-zone id, optional `player_id`, label). The map's size and fixed features live in a small static
-definition in `apps/dashboard` keyed by map key, not in the database. The editor is extracted
-from `FormationEditor` so the grid, drag, and "saved whole" behaviour are shared rather than
-copied. Costs a migration and a refactor; keeps hive rules intact.
+## 5. Tests
 
-**B. Same, with an image background.** As A, plus the picture. Supabase Storage is deliberately
-deferred (CLAUDE.md), so the image ships as a dashboard asset, not an upload.
+- Vitest: `battlefield.ts` has every key once and symmetric positions; board fold gives one row
+  per person; roster departure renders empty; orientation toggle changes only the picture.
+- pgTAP as above, one `captured_at` per signup batch in fixtures.
+- The migration number is taken from `origin/main` at push time.
 
-**C. Reuse `hive_formations` with a pseudo-server.** Rejected: the server FK, the 998 bounds, and
-the "fits the map" trigger all say "world". Bending them risks the hive plan members rely on
-on move day.
+## 6. Phases
 
-**Recommendation: A, or B if §3 says picture.** Build only after §3 is answered.
+1. Confirm §7 (owner). 2. Static battlefield definition + SVG + reference panel, read-only, no
+database (shippable alone: it already answers "where is everything"). 3. Migration + pgTAP.
+4. Officer editor and member view. 5. Link from the Black Gold tab and, optionally, the alarm board.
 
-## 5. Design (A/B)
+Phase 2 is deliberately first: it needs no migration and is useful without the plan.
 
-- **Scope:** a plan belongs to an alliance and a team (A/B). Members read it; users with a new
-  `bgb.plan` capability (or reuse `hive.plan` — owner call) write it.
-- **People:** the assign list is the team's starters then substitutes from the latest signup
-  snapshot (rows sharing the newest `captured_at`, per CLAUDE.md). A player who left the
-  alliance shows empty, as in the hive (`alliance_roster_latest`, never `current_alliance_id`).
-- **One row per person:** the board read folds slots into one row per placed player
-  (`distinct on`/`jsonb_agg`), because PostgREST caps at 1,000 rows.
-- **Safety:** copy the hive's refuse-stale-save, delete-is-recoverable, last-editor stamp, rather
-  than invent less.
-- **Surface:** a "Plan" view inside Black Gold, per team; link from the Alarms board is optional later.
-- **Member view:** "your spot on team A" first, as `MyTile` does for the hive.
+## 7. Open questions for the owner
 
-## 6. Tests
-
-- pgTAP: member can read, non-officer write fails, a plan in another alliance is invisible
-  (negative tests, §20.2); slot outside the map refused; one player twice in a plan refused.
-  Fixture uses one `captured_at` per signup batch.
-- Vitest: extracted editor keeps the hive's existing tests green; BGB board fold gives one row
-  per person; roster-departure shows empty.
-- Migration number taken from `origin/main` at push time (`new-migration` skill).
-
-## 7. Phases
-
-1. Answer §3 (owner). 2. Extract the shared grid/editor part with no behaviour change (own PR).
-3. Migration + pgTAP. 4. BGB plan view, officer edit, member read. 5. Link from Black Gold tab.
-
-## 8. Open questions
-
-1. Battlefield screenshot and placement rule (§3).
-2. Separate `bgb.plan` capability, or reuse `hive.plan`?
+1. Which objectives are "near us" vs "near them" at each corner — i.e. is the layout mirrored
+   point-for-point so that `mil-ours-near` is always the star beside our HQ? (The minimap shows a
+   dashed rectangle beside the top-right HQ; what is it?)
+2. A new `bgb.plan` capability, or reuse `hive.plan`?
 3. One live plan per team, or several drafts like the hive?
-4. Should substitutes get spots, or only the 20 starters?
+4. Should the plan assign substitutes too (second wave), or only the 20 starters?
+5. Is "carry alloy" etc. worth being a free-text role, or a fixed short list?
