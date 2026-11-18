@@ -14,6 +14,7 @@
 // Hash-based so it works on any static host with zero rewrite config.
 
 export type Route =
+  | 'home'
   | 'overview'
   | 'members'
   | 'rankings'
@@ -52,6 +53,9 @@ export type Route =
   | 'login';
 
 const ROUTES: Record<string, Route> = {
+  // Where a signed-in member lands (2026-11-18). The bare address stays the
+  // overview, so every link to `#/` still lands where it did.
+  '#/home': 'home',
   '#/members': 'members',
   '#/rankings': 'rankings',
   '#/cross-server': 'crossRankings',
@@ -571,6 +575,7 @@ export const BOARD_TABS: ReadonlyArray<NavTab> = [
  * plain `alliance` route here is somebody else's. */
 export function navSection(route: Route): NavSection | null {
   switch (route) {
+    case 'home':
     case 'overview':
     case 'rankings':
     case 'crossRankings':

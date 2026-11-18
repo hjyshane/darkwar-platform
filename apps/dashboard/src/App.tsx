@@ -26,6 +26,7 @@ import { GiftCodesPage } from './features/giftCodes/GiftCodesPage';
 import { GuidePostPage } from './features/guides/GuidePostPage';
 import { GuidesPanel } from './features/guides/GuidesPanel';
 import { HivePage } from './features/hive/HivePage';
+import { HomePage } from './features/home/HomePage';
 import { PrivacyPage } from './features/legal/PrivacyPage';
 import { TermsPage } from './features/legal/TermsPage';
 import { MapPage } from './features/map/MapPage';
@@ -398,6 +399,8 @@ function Screen({
         );
       }
       return <ArenaPanel />;
+    case 'home':
+      return <HomePage />;
     default:
       // Unknown addresses land here too, which is why the overview has to
       // stand on its own with no data rather than assume it was navigated to.
@@ -492,6 +495,16 @@ function Shell({
   useEffect(() => {
     rememberReturnTo(hash, walled);
   }, [hash, walled]);
+
+  // EVERYONE IN THE ALLIANCE LANDS ON HOME (owner, 2026-11-18): opening the
+  // site with no address goes there. Only the EMPTY address — `#/` is still
+  // the overview, so the sidebar's Overview entry and every link sent to it
+  // keep working. A community account keeps the overview: Home is ours.
+  useEffect(() => {
+    if (isMember && !isCommunity && (hash === '' || hash === '#')) {
+      window.location.replace('#/home');
+    }
+  }, [hash, isMember, isCommunity]);
 
   // Signing in scores a point, once a day (0114). Here rather than in the
   // login form, because most sessions do not pass through that form at all —
