@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { effectiveRole, usePreviewRole } from './previewRole';
 import { supabase } from './supabase';
 
 export type AppRole = 'viewer' | 'community' | 'member' | 'officer' | 'admin';
@@ -30,6 +31,9 @@ export interface SessionState {
    * where that sentence is the point rather than a nicety.
    */
   playerId: string | null;
+  /** The role current_app_role() really returned. Differs from `role` only
+   * while an admin is previewing another role (previewRole.ts). */
+  realRole?: AppRole;
 }
 
 /** Who the viewer is, as the database sees it.
@@ -43,7 +47,8 @@ export interface SessionState {
  * is what current_app_role() falls back to.
  */
 export function useSession() {
-  return useQuery({
+  const preview = usePreviewRole();
+  const query = useQuery({
     queryKey: ['session'],
     queryFn: async (): Promise<SessionState> => {
       const { data } = await supabase.auth.getSession();
@@ -75,4 +80,14 @@ export function useSession() {
       };
     },
   });
+  // "View as" (previewRole.ts): an admin sees the screens of another role.
+  // Applied here so every screen that asks for the role gets the same answer.
+  const data = query.data;
+  if (data === undefined || effectiveRole(data.role, preview) === data.role) {
+    return query;
+  }
+  return {
+    ...query,
+    data: { ...data, role: effectiveRole(data.role, preview), realRole: data.role },
+  };
 }
