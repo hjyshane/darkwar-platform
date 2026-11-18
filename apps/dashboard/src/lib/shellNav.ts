@@ -177,6 +177,19 @@ export function buildNav(ctx: NavContext): NavGroup[] {
   const shown = ctx.tabShown ?? (() => true);
 
   const watch: NavItem[] = [
+    // Home first, for everyone in the alliance (owner, 2026-11-18). Not for a
+    // community account: every card on it is about our alliance.
+    ...(ctx.isCommunity === true
+      ? []
+      : [
+          {
+            key: '#/home',
+            href: '#/home',
+            label: 'Home',
+            icon: 'overview' as const,
+            current: ctx.route === 'home',
+          },
+        ]),
     ...OVERVIEW_TABS.filter(
       (tab) =>
         (tab.route !== 'migration' || ctx.isOfficer || ctx.isCommunity === true) &&
