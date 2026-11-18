@@ -48,6 +48,15 @@ const TOPIC_QUERY_KEYS: Record<string, readonly (readonly string[])[]> = {
   // week, so naming one reaches the picker and nothing else.
   hive_formation_templates: [['hive', 'templates']],
   season_building_snapshots: [['seasonBoard']],
+  // Black Gold plans. A new signup reading has to reach an officer who has
+  // the editor open — the starter list is what they are placing — and a plan
+  // made live has to reach the members reading it. The editor never moves its
+  // draft on a refetch (BgbPlanPanel), so refetching under it is safe.
+  black_money_signup_snapshots: [['bgb', 'starters']],
+  bgb_plans: [
+    ['bgb', 'plans'],
+    ['bgb', 'detail'],
+  ],
   arena_entries: [['arena'], ['player']],
   // Written by an admin rather than the collector, and the only topic here
   // that fires on delete too — a notice taken down has to disappear.

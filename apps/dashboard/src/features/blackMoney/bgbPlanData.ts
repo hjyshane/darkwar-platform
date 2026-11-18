@@ -49,33 +49,35 @@ export function usePlans(teamIndex: number) {
   });
 }
 
-/** The team's starters in the newest signup reading on the alliance's server.
+/** The team's starters in the newest signup reading of the alliance being
+ * viewed (0332), and when that reading was taken.
  *
- * One reading is one batch sharing one captured_at (0178), so "newest" is the
- * rows at the newest instant. The limit is far above one reading (an alliance
- * is under a hundred people), so the newest batch is always whole. */
-export function useStarters(serverId: number | null, teamIndex: number) {
+ * Chosen in the database, not here: a reading carries no alliance id, and
+ * "newest on our server" picks another own alliance's list the moment one
+ * shares the server and opens the signup screen after us. `bgb_starters`
+ * takes the newest reading most of whose players are on our roster — the
+ * same reading save_bgb_plan judges against, so the editor never offers a
+ * starter the save would refuse. The alliance id is in the key because the
+ * function reads the alliance from the request header. */
+export function useStarters(allianceId: string | null, teamIndex: number) {
   return useQuery({
-    queryKey: ['bgb', 'starters', serverId, teamIndex],
-    enabled: serverId !== null,
+    queryKey: ['bgb', 'starters', allianceId, teamIndex],
+    enabled: allianceId !== null,
     queryFn: async (): Promise<{ starters: Starter[]; readAt: string | null }> => {
-      const { data, error } = await supabase
-        .from('black_money_signup_snapshots')
-        .select('player_id, name, power, captured_at, team_index, state')
-        .eq('server_id', serverId ?? -1)
-        .order('captured_at', { ascending: false })
-        .limit(400);
+      const { data, error } = await supabase.rpc('bgb_starters', { p_team_index: teamIndex });
       if (error) throw new Error(`signup query failed: ${error.message}`);
-      const rows = data ?? [];
-      const readAt = rows[0]?.captured_at ?? null;
-      const starters: Starter[] = [];
-      for (const row of rows) {
-        if (row.captured_at !== readAt) break;
-        if (row.team_index !== teamIndex || row.state !== 1 || row.player_id === null) continue;
-        starters.push({ playerId: row.player_id, name: row.name ?? '?', power: row.power });
-      }
-      starters.sort((a, b) => (b.power ?? 0) - (a.power ?? 0));
-      return { starters, readAt };
+      const body = data as {
+        read_at: string | null;
+        starters: { player_id: string; name: string | null; power: number | null }[];
+      };
+      return {
+        readAt: body.read_at,
+        starters: body.starters.map((row) => ({
+          playerId: row.player_id,
+          name: row.name ?? '?',
+          power: row.power,
+        })),
+      };
     },
   });
 }

@@ -10957,6 +10957,7 @@ export type Database = {
         }[]
       }
       belongs_to_alliance: { Args: { p_alliance: string }; Returns: boolean }
+      bgb_starters: { Args: { p_team_index: number }; Returns: Json }
       boss_damage_by_event: {
         Args: { p_from?: string; p_to?: string }
         Returns: {
