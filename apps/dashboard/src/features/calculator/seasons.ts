@@ -13,12 +13,15 @@
 // types somebody has seen and is not community-readable.
 
 import type { Subject } from '../planner/data';
+import { FALLBACK_SEASON_LABELS } from './buildingList';
 
 /** The game's season theme → our seasons.season_id, where both are known
  * (read off the client's building table against seasons.ts, 2026-11-08). */
 export const OUR_SEASON_BY_GAME_SEASON: Readonly<Record<number, number>> = {
   3: 2,
   4: 3,
+  // Mineral Factory … Guardian Gem, the set Season 4 builds (2026-11-18).
+  6: 4,
 };
 
 export interface SeasonGroup {
@@ -29,6 +32,8 @@ export interface SeasonGroup {
 
 /** "Season 3" for a theme we have played, "Game season 6" for one we have not. */
 export function seasonLabel(gameSeason: number): string {
+  const fallback = FALLBACK_SEASON_LABELS[gameSeason];
+  if (fallback !== undefined) return fallback;
   const ours = OUR_SEASON_BY_GAME_SEASON[gameSeason];
   return ours === undefined ? `Game season ${gameSeason}` : `Season ${ours}`;
 }

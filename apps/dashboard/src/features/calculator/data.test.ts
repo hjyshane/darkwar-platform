@@ -49,13 +49,18 @@ describe('labelSubjects', () => {
     ).toEqual(['Pet · rarity 1', 'Pet · rarity 4']);
   });
 
-  it('sorts buildings by name and leaves the unnamed ones last', () => {
+  it('sorts buildings by name, leaving out unnamed and hidden ones (buildingList.ts)', () => {
     const labelled = labelSubjects(
       'building',
-      [subject('999000', '#999000'), subject('438000', 'Warehouse'), subject('409000', 'Bank')],
+      [
+        subject('999000', '#999000'),
+        subject('438000', 'Warehouse'),
+        subject('409000', 'Bank'),
+        subject('424000', 'Blastproof Hall'),
+      ],
       new Map(),
     );
-    expect(labelled.map((s) => s.name)).toEqual(['Bank', 'Warehouse', '#999000']);
+    expect(labelled.map((s) => s.name)).toEqual(['Blastproof Hall', 'Warehouse']);
   });
 });
 
