@@ -37,12 +37,15 @@ export function MapPage({ serverId }: { serverId: number | null }) {
     );
   }
 
+  // The dropdown reads in number order; the default above stays the newest sweep.
+  const ordered = [...servers].sort((a, b) => a.serverId - b.serverId);
+
   return (
     <section aria-labelledby="map-heading" className="map-screen">
       <h2 className="visually-hidden" id="map-heading">
         {TERMS.map}
       </h2>
-      <AtlasPage key={active} onServer={setChosen} serverId={active} servers={servers} />
+      <AtlasPage key={active} onServer={setChosen} serverId={active} servers={ordered} />
     </section>
   );
 }
