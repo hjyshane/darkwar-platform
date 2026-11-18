@@ -10,6 +10,7 @@
 
 ## 2. 사람 몫 / 막힌 것
 
+- **압축 응답(APS zstd v1) — Windows Ingest 재시작·백필 끝 (11-18, 확인함).** 게임 1.250.672부터 압축 응답이 APS zstd v1. `DarkWar-Ingest`가 11-18 01:26:38에 브랜치 `fix/collector-aps-zstd-frames` 코드(59c61a0f 위)로 다시 떴고 `aps_zstd_key_loaded sha256=e9ed2813695e`를 찍었다. 그 전에 옛 코드가 읽은 파일은 `C:\DW_data\aps\backfill_aps.py`로 전부 채웠고 outbox 실패 0. **머지되기 전에는 상시 작업이 이 브랜치 체크아웃에서 돈다 — 머지 전에 `main`으로 바꾸고 재시작하면 다시 압축 응답을 버린다.** 키 경로는 `.env`의 `DW_APS_ZSTD_KEY_FILE`(키 파일은 저장소 밖). 맥(아이폰 체인)과 데스크톱 앱은 키가 없어 계속 버린다(§3).
 - **이벤트 알람 배포됨 (11-15, 확인함).** 주인이 `db push`로 0321–0327을 적용했다(21:29 UTC 무렵, `schema_migrations`로 확인). 대시보드 Alarms 탭은 #597로 머지(`590bf9fd`), CI `deploy` 성공, cbfw.us가 탭이 든 `index-IQHQGTwp.js`를 낸다.
   - 푸시 뒤 확인 4가지 통과(21:44 UTC에 읽음): `alerts-reconcile`은 21:28이 마지막 실패(옛 `extensions.net._http_response` 오류)이고 21:29부터 매분 성공, `alerts-detect`·`alarms-calendar`(5분마다, 첫 실행 21:30) 실패 0; anon은 `alarm_deliveries` 실행 불가(authenticated는 가능); 자기 연맹 둘 다 달력 보드 셋; `cron.job`에 `alarms-calendar`.
   - **디스코드로 나간 알람은 아직 없다.** 11-15 21:00 이후 outbox 행 0. 첫 전송은 Frankie 1의 1시간 단계, **11-16 01:30 UTC**, 보드 채널 `frankie`(켜짐). 그 outbox 행에 `delivered_at`이 차고 `last_error`가 비었는지 본다. 그때까지 `alarm_deliveries`가 빈 목록인 것은 정상이다.
@@ -25,7 +26,7 @@
 - **알람 실제 시험 (Task 10 Step 3, 주인 몫, 미실시).** 시험용 역할(한 명만 보유)과 시험용 채널을 Zombie Siege 보드에 걸고, 다음 Siege나 Frankie에서 12시간/1시간/5분 알림이 오는지, 폰에 역할 푸시가 오는지, 두 시간대에서 시각이 맞는지 본다. 멘션은 보이는데 푸시가 안 오면 역할의 "Allow anyone to @mention this role"을 켠다.
 - **0328 적용 완료 (11-15, PR #598 머지·푸시).** v10으로 두 연맹 현재 기간 리빌드함(HELLBOUND는 11-16 00:17Z에 2주차 측정 뒤 재빌드). 11-15 21:42Z~00:00Z 사이 주간 보드 스윕이 없어 2주차 읽기는 21:31Z 캡처.
 - **0329 대기.** 수동 설정 기간(0316)에서 기간 중 가입한 멤버도 점수를 받음, `measured_share`로 보정, v11. 머지되면 Rank report가 `rank_period_latest.measured_share`를 읽으므로 **푸시 전에는 그 화면이 400**. 푸시 뒤 수동 기간을 다시 빌드해야 가입자가 등급을 받는다. 그리드 2주 기간은 결과 불변.
-- **수집기 재시작 — 미확인.** Windows는 11-08에 edaae1b로 올렸다. 그 뒤 #582(아이폰 체인이 서버를 따라감) 등이 머지됐다. 반영하려면 `git pull`만으로는 안 된다(editable install) — `collector-operations.md` 레시피. **재시작 전에 `git -C C:\darkwar-platform branch --show-current`가 `main`인지 본다**(다른 세션이 체크아웃을 바꾼 적 있음).
+- **수집기 재시작 — 미확인.** Windows Ingest만 11-18에 59c61a0f + APS 수정으로 다시 떴다(위). Sync·Notify·Capture는 11-17 19시대에 시작했고 그때 체크아웃은 확인 안 함. Windows는 11-08에 edaae1b로 올렸다. 그 뒤 #582(아이폰 체인이 서버를 따라감) 등이 머지됐다. 반영하려면 `git pull`만으로는 안 된다(editable install) — `collector-operations.md` 레시피. **재시작 전에 `git -C C:\darkwar-platform branch --show-current`가 `main`인지 본다**(다른 세션이 체크아웃을 바꾼 적 있음).
 - **맥**: `git pull` + `install-iphone-agent.sh`(체인이 옛 체인을 먼저 죽임, #551).
 - **VM(GCE `dw-emu-test`)은 맥에서만 닿는다.** Windows엔 gcloud도 SSH 항목도 없다.
 
@@ -45,6 +46,7 @@
 | 데스크톱 앱 두 번째 머신 설치 | 개발 머신 한 대만 성공 | `log/2026-09.md` (09-11) |
 | `dw-capture` 재접속 멈춤 | 원인 미확인 (계측만 있음) | `log/…-tail.md` |
 | `arena_matches` writer 없음 | 08-03에 로컬 0건 확인, 프로덕션 미확인 | `capture-backlog.md` |
+| 아이폰(iOS) 클라이언트의 APS zstd 키 | 모름. Android APK에서만 뽑았다. 맥 `.env`에 `DW_APS_ZSTD_KEY_FILE`이 없으면 그 체인은 압축 응답을 버린다 | `C:\DW_data\aps\README.md` |
 
 ## 4. 문서가 서로 어긋난 곳
 
@@ -64,6 +66,7 @@
 
 ## 6. 최근 2주 (자세한 것은 `log/2026-11.md`)
 
+- 11-17 게임 1.250.672의 APS zstd v1: 압축 응답 전부 유실 → 디코더·키 추출·백필 — `log/2026-11.md`
 - 11-16 수동 기간의 중도 가입자 점수 산정, 재적 비율로 보정 (0329, v11) — `log/2026-11.md`
 - 11-15 등급 측정 시각 월요일 00:00 UTC(리셋 2시간 전) + 듀얼 `days` 모드 (0328, v10) — `log/2026-11.md`
 - 11-08 등급 측정 시각 일요일 14:00 UTC (0309, v9) — `log/2026-11.md`

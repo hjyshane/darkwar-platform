@@ -22,6 +22,22 @@
 
 ---
 
+## 함정 — 게임 업데이트가 압축 코덱을 바꾸면 수집기는 건강해 보이며 큰 응답만 버린다
+
+1.250.672(2026-11-17)에서 압축 프레임(0x20)이 zlib에서 APS zstd v1로 바뀌자 디코더가 그 본문을
+resync 바이트로 넘겼다. 평문 프레임(push 대부분)과 요청은 계속 들어와서 ingest 로그도 저널도
+살아 보였고, 빠진 것은 `al.rank`·`world.get.new`·`get.al.info`·로그인처럼 **압축될 만큼 큰 응답뿐**이었다.
+
+**알아채는 법:** 업데이트 직후 큰 응답 명령의 raw 행이 0이 되거나 `resync_bytes`가 뛴다.
+다음 업데이트에서 키만 바뀌면 같은 모양으로 다시 온다 — `aps_zstd_key_loaded`는 찍히는데 압축 응답이
+없다. 그때는 `C:\DW_data\aps\README.md` 순서로 새 APK에서 키를 다시 뽑고 `aps_check.py`가
+`decoded N, failed 0`을 내는지 본다. 이미 ingest된 파일은 통째로 다시 넣지 말고 `backfill_aps.py`로
+(평문 이벤트가 중복된다 — 이유는 그 파일 머리말).
+
+*출처: log/2026-11.md, 2026-11-17*
+
+---
+
 ## 함정 — `select *` 뷰의 별은 생성 시점에 한 번 펼쳐진다
 
 0156 첫 push가 `column latest.below_minimum does not exist`로 실패했다.

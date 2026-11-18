@@ -1,7 +1,9 @@
 """SmartFox TCP frame extraction from a byte stream.
 
-Captured game traffic uses flag byte 0x80 (plain) or 0xA0 (zlib); 0x08 set
-means a four-byte body length. The decoder may attach mid-stream, so on any
+Captured game traffic uses flag byte 0x80 (plain) or 0xA0 (compressed); 0x08
+set means a four-byte body length. A compressed body is zlib before game build
+1.250.672 and APS zstd v1 from it on (aps_zstd.py); both are tried, so old
+captures still replay. The decoder may attach mid-stream, so on any
 undecodable candidate it shifts one byte and rescans until a valid frame
 boundary is found (FR-COL-003: garbage must not stop the collector).
 """
@@ -11,6 +13,7 @@ from __future__ import annotations
 import zlib
 from dataclasses import dataclass
 
+from dw_collector.protocol.aps_zstd import CHECK_PREFIX_SIZE, ApsZstdError, ApsZstdV1
 from dw_collector.protocol.sfs import ParseError, Reader, SfsValue, parse_sfs_value
 
 # The cap is what bounds a stall, not just what rejects nonsense. A false
@@ -23,7 +26,8 @@ from dw_collector.protocol.sfs import ParseError, Reader, SfsValue, parse_sfs_va
 # ranking, player profile, and two days of live traffic) put the largest at
 # 83,549 bytes — the login response. 4,126 are under 1KB and nothing reaches
 # 256KB. 1MiB is twelve times the largest ever seen, and it caps the stall at
-# 1MiB of traffic rather than 32MB.
+# 1MiB of traffic rather than 32MB. Under APS zstd v1 the largest of 11,306
+# compressed frames was 85,870 bytes, so the margin still holds.
 MAX_FRAME_SIZE = 1024 * 1024
 
 # Requiring the type byte turns a resync from "does this parse?" into "does
@@ -42,13 +46,14 @@ ENVELOPE_KEYS = frozenset({"a", "c", "p"})
 
 
 def _plausible_body_start(flags: int, prefix: bytes) -> bool:
-    """Could `prefix` be the first bytes of a body with these flags?
+    """Could `prefix` be the first bytes of a plain or zlib body with these flags?
 
-    A compressed body opens with a zlib header: compression method 8, a window
+    A zlib body opens with a zlib header: compression method 8, a window
     size no larger than 32KB, and a check value that makes the 16-bit header a
     multiple of 31. A plain body opens with the SFSObject type byte. This
     rejects most false headers on sight; whatever it lets through is still
-    fully validated once the body arrives.
+    fully validated once the body arrives. An APS zstd v1 body is judged by
+    its codec instead (`SmartFoxStreamDecoder._plausible_start`).
     """
     if flags & 0x20:
         if len(prefix) < 2:
@@ -68,9 +73,15 @@ class SmartFoxFrame:
 
 
 class SmartFoxStreamDecoder:
-    """Incremental decoder; feed() returns every complete frame so far."""
+    """Incremental decoder; feed() returns every complete frame so far.
 
-    def __init__(self) -> None:
+    `aps` decodes compressed frames from game build 1.250.672 on. Without it
+    those frames are skipped as resync bytes, which is what every decoder did
+    before this existed; the capture paths pass `aps_zstd.configured()`.
+    """
+
+    def __init__(self, aps: ApsZstdV1 | None = None) -> None:
+        self.aps = aps
         self.buffer = bytearray()
         # Bytes discarded while hunting for a frame boundary. Non-zero after
         # startup means packets were dropped or reordered — surfaced in the
@@ -80,6 +91,34 @@ class SmartFoxStreamDecoder:
     def _skip_byte(self) -> None:
         del self.buffer[0]
         self.resync_bytes += 1
+
+    def _prefix_length(self, flags: int) -> int:
+        if not flags & 0x20:
+            return 1
+        return CHECK_PREFIX_SIZE if self.aps is not None else 2
+
+    def _plausible_start(self, flags: int, prefix: bytes, body_length: int) -> bool:
+        if _plausible_body_start(flags, prefix[:2]):
+            return True
+        return (
+            bool(flags & 0x20)
+            and self.aps is not None
+            and self.aps.plausible_start(prefix, body_length)
+        )
+
+    def _decompress(self, encoded: bytes) -> bytes:
+        """zlib if it opens like zlib and inflates, else APS zstd v1."""
+        if _plausible_body_start(0x20, encoded[:2]):
+            try:
+                return zlib.decompress(encoded)
+            except zlib.error:
+                # An APS nonce opens like a zlib header about once in 1,000
+                # frames; that frame is still APS.
+                if self.aps is None:
+                    raise
+        if self.aps is None:
+            raise ParseError("compressed body is not zlib and no APS zstd key is configured")
+        return self.aps.decode(encoded)
 
     def feed(self, data: bytes) -> list[SmartFoxFrame]:
         if data:
@@ -112,11 +151,13 @@ class SmartFoxStreamDecoder:
             # quiet account (a few KB a second) for the whole capture file.
             # Measured on a real 60 s window: 5 frames decoded with 74,630
             # bytes parked; with this check, 21 frames and 2 bytes parked.
-            prefix_length = min(2 if flags & 0x20 else 1, body_length)
+            prefix_length = min(self._prefix_length(flags), body_length)
             if len(self.buffer) < header_length + prefix_length:
                 break
-            if not _plausible_body_start(
-                flags, bytes(self.buffer[header_length : header_length + prefix_length])
+            if not self._plausible_start(
+                flags,
+                bytes(self.buffer[header_length : header_length + prefix_length]),
+                body_length,
             ):
                 self._skip_byte()
                 continue
@@ -127,7 +168,7 @@ class SmartFoxStreamDecoder:
 
             encoded = bytes(self.buffer[header_length:frame_length])
             try:
-                decoded_bytes = zlib.decompress(encoded) if flags & 0x20 else encoded
+                decoded_bytes = self._decompress(encoded) if flags & 0x20 else encoded
                 if decoded_bytes[:1] != bytes([SFS_OBJECT_TYPE]):
                     raise ParseError("frame payload is not a top-level SFSObject")
                 reader = Reader(decoded_bytes)
@@ -136,7 +177,7 @@ class SmartFoxStreamDecoder:
                     raise ParseError(f"{len(decoded_bytes) - reader.pos} unparsed bytes")
                 if not isinstance(decoded_object, dict) or not set(decoded_object) >= ENVELOPE_KEYS:
                     raise ParseError("frame is not a SmartFox envelope")
-            except (ParseError, zlib.error):
+            except (ParseError, zlib.error, ApsZstdError):
                 self._skip_byte()
                 continue
 

@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from dw_collector.protocol import aps_zstd
 from dw_collector.protocol.frames import (
     SmartFoxFrame,
     SmartFoxStreamDecoder,
@@ -312,11 +313,18 @@ MAX_PENDING_SEGMENTS = 64
 GAP_TIMEOUT_SECONDS = 10.0
 
 
+def _configured_decoder() -> SmartFoxStreamDecoder:
+    return SmartFoxStreamDecoder(aps=aps_zstd.configured())
+
+
 @dataclass
 class TCPDirectionReassembler:
     """Directional in-order reassembly for one long game session."""
 
-    decoder: SmartFoxStreamDecoder = field(default_factory=SmartFoxStreamDecoder)
+    # Every capture path (dw-capture, ingest-dir, scan-capture, the desktop
+    # app, the iPhone and Mac chains) builds its streams here, so this is the
+    # one place the APS zstd key has to reach.
+    decoder: SmartFoxStreamDecoder = field(default_factory=_configured_decoder)
     next_sequence: int | None = None
     pending: dict[int, bytes] = field(default_factory=dict)
     # Times a lost segment forced a jump past the gap. Live capture only;
