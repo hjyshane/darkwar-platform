@@ -1,4 +1,4 @@
-# Black Gold battle plan: who takes which objective — design (DRAFT 2)
+# Black Gold battle plan: who takes which objective — design (DRAFT 3)
 
 2026-11-18. From the website feedback triage (`docs/website-feedback-2026-11.md`, item G):
 an R4/R5 wants "a map for BGB … so you can plan everything in advance". Black Gold (wire name
@@ -28,7 +28,7 @@ Not read from capture; **unverified against the wire**. Source: in-game event te
 - **Oil Tanks are scattered across the whole map** (owner): gathering, 600 alliance / 60 personal
   per min. Not a fixed spot, so not plannable as a slot.
 - Military Base and Field Hospital can be contested only after a delay; starters enter at once,
-  **substitutes only once the battle has officially begun** (a natural second wave).
+  substitutes only once the battle has officially begun (**the plan does not cover them**, §7).
 - Only starters/substitutes the leader or R4 picked may enter; the game owns that roster
   (`black_money_signup_snapshots`: `team_index`, `state` 1 starter / 2 sub).
 
@@ -65,19 +65,20 @@ screen corner. *Exact naming of the near/far pairs needs the owner's confirmatio
 **Data (new migration, `new-migration` skill):**
 
 - `bgb_plans` — alliance, team 1/2, name, note, `is_live`, audit columns and soft delete as in
-  0330. One live plan per (alliance, team).
+  0330. **Several drafts per team, one of them live** (like the hive): one live plan per
+  (alliance, team) by partial unique index.
 - `bgb_plan_assignments` — plan, `objective_key text` (checked against the static list by a
-  `check` on the known keys), `player_id` (nullable), `role text`, `wave` 1/2 (starters / subs),
-  `ordinal`. One row per person per plan (unique `(plan_id, player_id)`).
+  `check` on the known keys), `player_id` (nullable), `role text`, `ordinal`. Starters only: a
+  `player_id` must be a starter (`state = 1`) in the team's latest signup reading, checked on write. One row per person per plan (unique `(plan_id, player_id)`).
 - Board view folds assignments to **one row per placed player** (PostgREST 1,000-row cap).
 - Membership from `alliance_roster_latest`, never `players.current_alliance_id`; a player who left
   shows as empty.
-- RLS: members of the alliance read; writers need a capability (§7 Q2). pgTAP negative tests:
+- RLS: members of the alliance read; writers need `hive.plan` (reused, owner 2026-11-18). pgTAP negative tests:
   non-officer write fails, another alliance's plan invisible, an unknown objective key refused,
   one player twice refused.
 
 **Surface:** a "Plan" view inside Black Gold, per team. Officer view: minimap with objective
-markers, a side list of the team's starters then substitutes (from the latest signup reading),
+markers, a side list of the team's 20 starters (from the latest signup reading),
 drag or click to assign, save whole with the hive's stale-save refusal. Member view: their own
 objective first, then the plan read-only.
 
@@ -99,12 +100,14 @@ database (shippable alone: it already answers "where is everything"). 3. Migrati
 
 Phase 2 is deliberately first: it needs no migration and is useful without the plan.
 
-## 7. Open questions for the owner
+## 7. Decisions (owner, 2026-11-18)
 
-1. Which objectives are "near us" vs "near them" at each corner — i.e. is the layout mirrored
-   point-for-point so that `mil-ours-near` is always the star beside our HQ? (The minimap shows a
-   dashed rectangle beside the top-right HQ; what is it?)
-2. A new `bgb.plan` capability, or reuse `hive.plan`?
-3. One live plan per team, or several drafts like the hive?
-4. Should the plan assign substitutes too (second wave), or only the 20 starters?
-5. Is "carry alloy" etc. worth being a free-text role, or a fixed short list?
+1. The dashed rectangle on the minimap is **ignored**. The layout is treated as point-symmetric
+   (the owner's "대칭 맞음?" read as confirmation; if the two sides are not mirror images, say so
+   before phase 2 fixes the positions).
+2. Capability: **reuse `hive.plan`**, no new one.
+3. **Several drafts per team**, one live.
+4. **Starters only**; substitutes are not assigned.
+
+Still open: whether "carry alloy" and similar roles are free text or a short fixed list
+(defaulting to free text, capped length, until someone objects).
