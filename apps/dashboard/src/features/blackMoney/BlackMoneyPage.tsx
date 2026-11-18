@@ -3,6 +3,7 @@ import { Fragment, useState } from 'react';
 import { Strip } from '../../components/Strip';
 import { TERMS } from '../../lib/terms';
 import { BattleDetail, STALE_TIME, num } from './BattleDetail';
+import { Battlefield } from './BattlefieldMap';
 import {
   type Battle,
   battleKey,
@@ -75,6 +76,8 @@ export function BlackMoneyPage() {
         </header>
         {battles.data && <Strip cells={blackGoldStrip(battles.data)} />}
       </div>
+
+      <Battlefield />
 
       <div className="panel">
         {battles.isPending && <p className="empty loading">Loading…</p>}

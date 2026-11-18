@@ -7467,3 +7467,52 @@ button.server-link {
     display: none;
   }
 }
+
+/* --- Black Gold battlefield (read-only map beside the battles) ------------- */
+.bf-layout {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: minmax(0, 24rem) minmax(0, 1fr);
+  align-items: start;
+  margin-top: var(--space-3);
+}
+
+@media (max-width: 760px) {
+  .bf-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.bf-orient {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  border: 0;
+  padding: 0;
+  margin: 0 0 var(--space-2);
+}
+
+.bf-map {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.bf-ground {
+  fill: var(--bg-cell);
+  stroke: var(--border-strong);
+  stroke-width: 0.6;
+}
+
+.bf-marker {
+  fill: var(--fg-muted);
+}
+
+.bf-ours {
+  fill: var(--accent);
+}
+
+.bf-theirs {
+  fill: var(--bad);
+}
