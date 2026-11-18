@@ -7,6 +7,7 @@ import { ReplyAlerts } from './components/ReplyAlerts';
 import { SignOutButton } from './components/SignOutButton';
 import { SyncStatus } from './components/SyncStatus';
 import { ThemeToggle } from './components/ThemeToggle';
+import { PreviewBanner } from './components/ViewAs';
 import { AppShell } from './components/shell/AppShell';
 import { AccountPage } from './features/account/AccountPage';
 import { AdminPage } from './features/admin/AdminPage';
@@ -612,6 +613,7 @@ function Shell({
   return (
     <>
       <DataChangeSubscriber />
+      <PreviewBanner />
       {inShell ? (
         <AppShell allianceId={allianceId} controls={controls} hash={hash} route={route}>
           {/* Above whatever screen the reader came for, because the whole problem

@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { StatTile } from '../../components/StatTile';
+import { ViewAsPicker } from '../../components/ViewAs';
 import {
   canWriteAnything,
   describe,
@@ -85,6 +86,12 @@ export function AdminPage({ group, section }: { group: AdminGroup; section: stri
 
   return (
     <main className="admin-screen">
+      {/* Preview the site as another role (previewRole.ts). At the top of
+          Settings because it is an admin's tool; the banner it raises on every
+          screen is the way back. */}
+      <div className="view-as-bar">
+        <ViewAsPicker goHome />
+      </div>
       <section aria-labelledby="admin-heading">
         <div className="entity">
           <header className="entity-head">
