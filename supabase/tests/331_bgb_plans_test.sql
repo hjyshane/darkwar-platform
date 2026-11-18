@@ -18,6 +18,11 @@ update public.alliances set is_own = false where is_own;
 insert into public.alliances (alliance_id, server_id, external_id, current_name, is_own) values
   ('00000000-0000-4000-8000-0000003310a1', 580, 'ext-331', 'BgbOurs', true),
   ('00000000-0000-4000-8000-0000003310a2', 580, 'ext-331-other', 'BgbElsewhere', false);
+-- Pinned, so the primary (and the alliance a new plan lands in) is this
+-- fixture's, whatever else in the database is marked own.
+delete from public.app_settings where key = 'own_alliance';
+insert into public.app_settings (key, value)
+values ('own_alliance', '{"alliance_ids": ["00000000-0000-4000-8000-0000003310a1"]}');
 insert into public.players (player_id, server_id, game_uid, current_name, power) values
   ('00000000-0000-4000-8000-0000003310b1', 580, 9331000000000001, 'Ann', 90),
   ('00000000-0000-4000-8000-0000003310b2', 580, 9331000000000002, 'Ben', 80),
@@ -50,6 +55,17 @@ values
   ('00000000-0000-4000-8000-00000000f332', 'dragon.assign.player.info', 'test',
    't:bgb:new:4', '2026-11-16T13:00:00Z', '00000000-0000-4000-8000-000000000c01',
    580, 580, '00000000-0000-4000-8000-0000003310b4', 9331000000000004, 'Dan', 1, 2);
+
+-- Our roster, one batch: since 0332 a reading counts as ours only when most
+-- of the players it names are on it.
+insert into public.alliance_member_snapshots
+  (observation_id, source_command, parser_version, idempotency_key, captured_at,
+   collector_id, collected_from_server_id, alliance_id, server_id, player_id, game_uid, name)
+select '00000000-0000-4000-8000-00000000f330', 'al.rank', 'test', 't:bgb:roster:' || p.game_uid,
+       '2026-11-16T11:00:00Z', '00000000-0000-4000-8000-000000000c01', 580,
+       '00000000-0000-4000-8000-0000003310a1', 580, p.player_id, p.game_uid, p.current_name
+  from public.players p
+ where p.player_id::text like '00000000-0000-4000-8000-0000003310b%';
 
 insert into auth.users (id, instance_id, aud, role, email) values
   ('00000000-0000-4000-8000-0000003310c2', '00000000-0000-0000-0000-000000000000',

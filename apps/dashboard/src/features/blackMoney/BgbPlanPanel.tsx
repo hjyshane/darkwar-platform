@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Tabs } from '../../components/ui/Tabs';
+import { formatAge } from '../../lib/freshness';
 import { isAllowed, usePermissions } from '../../lib/permissions';
 import { useActiveAlliance } from '../../lib/useMyAlliances';
 import { useSession } from '../../lib/useSession';
@@ -148,7 +149,7 @@ function OfficerView({ team }: { team: Team }) {
   const queryClient = useQueryClient();
   const { active } = useActiveAlliance();
   const plans = usePlans(team);
-  const starters = useStarters(active?.server_id ?? null, team);
+  const starters = useStarters(active?.alliance_id ?? null, team);
   const [chosen, setChosen] = useState<string | null>(null);
   const [name, setName] = useState('');
 
@@ -383,7 +384,7 @@ function DraftEditor({
         Last changed by {plan.editedByName ?? 'someone'}.
         {readAt === null
           ? ' No signup list has been captured yet, so there are no starters to place.'
-          : ` Starters from the signup list read ${new Date(readAt).toLocaleString()}.`}
+          : ` Starters from the signup list read ${new Date(readAt).toLocaleString()} (${formatAge(readAt, new Date())}) — it updates only when someone opens the Black Gold signup screen in game.`}
       </p>
       {initial.dropped.length > 0 && (
         <p className="subtle">
