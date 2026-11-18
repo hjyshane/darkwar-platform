@@ -41,6 +41,23 @@ SFS_OBJECT_TYPE = 0x12
 ENVELOPE_KEYS = frozenset({"a", "c", "p"})
 
 
+def _plausible_body_start(flags: int, prefix: bytes) -> bool:
+    """Could `prefix` be the first bytes of a body with these flags?
+
+    A compressed body opens with a zlib header: compression method 8, a window
+    size no larger than 32KB, and a check value that makes the 16-bit header a
+    multiple of 31. A plain body opens with the SFSObject type byte. This
+    rejects most false headers on sight; whatever it lets through is still
+    fully validated once the body arrives.
+    """
+    if flags & 0x20:
+        if len(prefix) < 2:
+            return False
+        cmf, flg = prefix[0], prefix[1]
+        return (cmf & 0x0F) == 8 and (cmf >> 4) <= 7 and ((cmf << 8) | flg) % 31 == 0
+    return prefix[:1] == bytes([SFS_OBJECT_TYPE])
+
+
 @dataclass(frozen=True)
 class SmartFoxFrame:
     flags: int
@@ -84,6 +101,23 @@ class SmartFoxStreamDecoder:
 
             body_length = int.from_bytes(self.buffer[1:header_length], "big")
             if body_length <= 0 or body_length > MAX_FRAME_SIZE:
+                self._skip_byte()
+                continue
+
+            # Judge the header by the first bytes of its body BEFORE waiting
+            # for the rest. Attaching mid-stream means scanning through the
+            # tail of some other frame, and compressed bytes look like a
+            # header about once in 128 positions with a length up to 64KB.
+            # Waiting for that length parks every real frame behind it — on a
+            # quiet account (a few KB a second) for the whole capture file.
+            # Measured on a real 60 s window: 5 frames decoded with 74,630
+            # bytes parked; with this check, 21 frames and 2 bytes parked.
+            prefix_length = min(2 if flags & 0x20 else 1, body_length)
+            if len(self.buffer) < header_length + prefix_length:
+                break
+            if not _plausible_body_start(
+                flags, bytes(self.buffer[header_length : header_length + prefix_length])
+            ):
                 self._skip_byte()
                 continue
 
