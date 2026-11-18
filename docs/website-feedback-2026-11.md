@@ -24,7 +24,7 @@
 | 피드백 | 현재 상태 | 근거 |
 |---|---|---|
 | E 하이브 작성기 | **있음, 그리고 큼.** 지도 위 편집·드래그 배치·핀·3탭, 저장 충돌 거부·삭제 복구·마지막 편집자 표시(#602, 11-15). 이 사용자는 **못 찾았거나** 원하는 형태가 아닌 것 | `features/hive/FormationEditor.tsx`(94KB), `HivePage`, `hiveSafety.ts` |
-| F BGB 라인업 | **있음.** Black Gold 탭 + 전투별 멤버표(상대 표 포함), 편성 | `features/blackMoney/*`, 라우트 `#/black-gold` |
+| F BGB 라인업 | **있음.** Black Gold 탭 + 전투별 멤버표(상대 표 포함), 편성 | `features/blackGold/*`, 라우트 `#/black-gold` |
 | H 참여도 통계 | **이미 있음** — "불가능하겠지만"이 아니다. 이벤트별 참여 기록·출석 입력 | `features/participation/*`, `#/participation` |
 | I 가이드 | **틀은 있음.** 이벤트 가이드 + 게시판 가이드 + 관리자 편집기(11-09). **내용**(영웅 조각·장비 등)이 없을 뿐 | `features/eventGuide`, `features/guides`, `#/guides` |
 | 알림 | 이벤트 알람 탭 배포(11-15). 피드백의 "scheduler"가 이것일 수 있음(§4 질문) | `features/alarms`, `#/alarms` |

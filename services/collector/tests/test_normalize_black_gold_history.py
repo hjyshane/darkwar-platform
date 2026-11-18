@@ -1,4 +1,4 @@
-"""dragon.battle.history — Black Money team results back to April."""
+"""dragon.battle.history — Black Gold team results back to April."""
 
 from __future__ import annotations
 
@@ -9,18 +9,18 @@ import pytest
 from pydantic import ValidationError
 
 from dw_collector import registry
-from dw_collector.normalize import black_money_history
+from dw_collector.normalize import black_gold_history
 from tests.conftest import load_observation
 
 HISTORY = "dragon.battle.history/history_v1.json"
 
 
 def test_registered() -> None:
-    assert registry.get("dragon.battle.history") is black_money_history.normalize
+    assert registry.get("dragon.battle.history") is black_gold_history.normalize
 
 
 def test_one_row_per_team_per_event() -> None:
-    rows = black_money_history.normalize(load_observation(HISTORY))
+    rows = black_gold_history.normalize(load_observation(HISTORY))
 
     assert len(rows) == 25
     assert {r.target_table for r in rows} == {"black_money_battle_snapshots"}
@@ -32,7 +32,7 @@ def test_one_row_per_team_per_event() -> None:
 def test_todays_team_b_result() -> None:
     """Read off the screen on 09-27: B beat RENS 382,529 to 284,451, 21 of
     ours entered against 22 of theirs — one more than the 20 starters."""
-    latest = black_money_history.normalize(load_observation(HISTORY))[0].row
+    latest = black_gold_history.normalize(load_observation(HISTORY))[0].row
 
     assert latest["team_index"] == 2
     assert (latest["score"], latest["enemy_score"]) == (382529, 284451)
@@ -43,7 +43,7 @@ def test_todays_team_b_result() -> None:
 
 def test_state_two_is_a_win() -> None:
     """state 2 on exactly the entries where our score beats theirs."""
-    rows = black_money_history.normalize(load_observation(HISTORY))
+    rows = black_gold_history.normalize(load_observation(HISTORY))
 
     assert Counter(r.row["state"] for r in rows) == {2: 14, 3: 11}
     for r in rows:
@@ -53,7 +53,7 @@ def test_state_two_is_a_win() -> None:
 def test_enemy_alliance_id_is_not_trusted() -> None:
     """The wire's enemyAllianceId repeats OUR id on every entry that carries
     it, so it is neither stored nor used as the opponent."""
-    rows = black_money_history.normalize(load_observation(HISTORY))
+    rows = black_gold_history.normalize(load_observation(HISTORY))
 
     carrying = [r for r in rows if "enemyAllianceId" in r.row["raw"]]
     assert len(carrying) == 24
@@ -65,7 +65,7 @@ def test_enemy_alliance_id_is_not_trusted() -> None:
 
 
 def test_a_missing_enemy_name_is_kept_as_null() -> None:
-    rows = black_money_history.normalize(load_observation(HISTORY))
+    rows = black_gold_history.normalize(load_observation(HISTORY))
     nameless = [r.row for r in rows if r.row["enemy_name"] is None]
 
     assert len(nameless) == 1
@@ -76,7 +76,7 @@ def test_a_missing_enemy_name_is_kept_as_null() -> None:
 def test_the_capture_label_is_marked_as_a_guess() -> None:
     """No server in the payload: the label is written, and the ref says it
     is a fallback so sync can put the row on its alliance's real server."""
-    rows = black_money_history.normalize(load_observation(HISTORY))
+    rows = black_gold_history.normalize(load_observation(HISTORY))
 
     assert {r.row["server_id"] for r in rows} == {580}
     assert all(r.entity_refs["alliance"]["server_id_is_fallback"] for r in rows)
@@ -95,8 +95,8 @@ def test_a_battle_keeps_its_key_across_screen_opens() -> None:
         }
     )
 
-    first = [r.idempotency_key for r in black_money_history.normalize(observation)]
-    second = [r.idempotency_key for r in black_money_history.normalize(reopened)]
+    first = [r.idempotency_key for r in black_gold_history.normalize(observation)]
+    second = [r.idempotency_key for r in black_gold_history.normalize(reopened)]
 
     assert first == second
     assert len(set(first)) == 25
@@ -108,8 +108,8 @@ def test_a_changed_entry_is_a_new_fact() -> None:
     entries[0]["score"] += 1
     changed = observation.model_copy(update={"payload": {"historyArr": entries}})
 
-    before = black_money_history.normalize(observation)
-    after = black_money_history.normalize(changed)
+    before = black_gold_history.normalize(observation)
+    after = black_gold_history.normalize(changed)
 
     assert before[0].idempotency_key != after[0].idempotency_key
     assert [r.idempotency_key for r in before[1:]] == [r.idempotency_key for r in after[1:]]
@@ -117,6 +117,6 @@ def test_a_changed_entry_is_a_new_fact() -> None:
 
 def test_missing_battle_time_rejected() -> None:
     with pytest.raises(ValidationError):
-        black_money_history.normalize(
+        black_gold_history.normalize(
             load_observation("dragon.battle.history/history_malformed_v1.json")
         )

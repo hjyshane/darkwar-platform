@@ -59,7 +59,7 @@ _TABLE_ORDER = [
     "arena_snapshots",
     "arena_entries",
     "alliance_contribution_snapshots",
-    # Black Money (0178). Battle rows resolve an alliance, score rows an
+    # Black Gold (0178). Battle rows resolve an alliance, score rows an
     # alliance and a player, signup rows a player.
     # When the alliance fights Black Gold, with the siege and Frankie (0249).
     "alliance_event_times",
