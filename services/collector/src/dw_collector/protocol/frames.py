@@ -32,10 +32,15 @@ MAX_FRAME_SIZE = 1024 * 1024
 
 # Requiring the type byte turns a resync from "does this parse?" into "does
 # this parse AS A FRAME?" — a mis-synced window can otherwise read a
-# string-length prefix that swallows the next command name, producing a
-# plausible-looking frame such as "push.world.march." + "world.get.new" glued
-# together. That check alone proved insufficient live: the glued command
-# reappeared, because a false window can still begin with 0x12 and parse.
+# string-length prefix that swallows the next command name and still parse.
+#
+# `push.world.march.world.get.new` is NOT such a glued name, though it was
+# taken for one when this check was added (2026-07). It is a real push: the
+# marches (`marchInfos`, `lines`, `monsterInfos`) for the viewport a
+# `world.get.new` just loaded, about one per viewport (28 and 28 in a 150 s
+# dumpcap window; 511 and 510 on the 2026-11-17 ring). Since game build
+# 1.250.672 it arrives in APS zstd frames, which a mis-synced window cannot
+# decode, and every one of the 672 journalled by 2026-11-18 has that key set.
 SFS_OBJECT_TYPE = 0x12
 
 # All 520 frames across five real captures (login, roster, arena, alliance
