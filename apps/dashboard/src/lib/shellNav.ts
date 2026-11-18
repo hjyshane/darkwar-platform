@@ -171,6 +171,12 @@ const iconFor = (route: Route): IconName => ICONS[route] ?? 'overview';
 
 /** The groups, in the order the sidebar draws them. */
 export function buildNav(ctx: NavContext): NavGroup[] {
+  // A plain member gets the short menu (owner, 2026-11-18; design
+  // docs/superpowers/specs/2026-11-18-member-home-design.md §2). Officers and
+  // admins keep everything below; a community account keeps its own.
+  if (!ctx.isOfficer && !ctx.isAdmin && ctx.isCommunity !== true) {
+    return buildMemberNav(ctx);
+  }
   const onOwn =
     ctx.own !== null && ctx.route === 'alliance' && ctx.allianceId === ctx.own.alliance_id;
   const name = (hash: string, fallback: string) => ctx.seasonNames[hash] ?? fallback;
@@ -404,6 +410,129 @@ export function buildNav(ctx: NavContext): NavGroup[] {
     { id: 'events' as const, label: 'Events', items: events },
     { id: 'boards' as const, label: 'Boards', items: boards },
   ].filter((group) => group.items.length > 0);
+}
+
+/** The six entries a member sees: Home, Guides, Calculator, Hive, Map,
+ * Alliance. Every other screen keeps its address and opens as before; it is
+ * only not offered. An admin's Tab visibility (0295) still hides any of these,
+ * and the Alliance entry waits for the alliance to be known, as the full menu's
+ * does. */
+export function buildMemberNav(ctx: NavContext): NavGroup[] {
+  const shown = ctx.tabShown ?? (() => true);
+  const route = ctx.route;
+  const onOwn = ctx.own !== null && route === 'alliance' && ctx.allianceId === ctx.own.alliance_id;
+
+  const guideChildren: NavChild[] = [
+    ...(shown('notices')
+      ? [
+          {
+            key: '#/notices',
+            href: '#/notices',
+            label: 'Notices',
+            current: route === 'notices' || route === 'notice',
+            screen: true,
+          },
+        ]
+      : []),
+    ...(shown('guides')
+      ? [
+          {
+            key: '#/guides',
+            href: '#/guides',
+            label: 'Alliance guides',
+            current: route === 'guides' || route === 'guide',
+            screen: true,
+          },
+        ]
+      : []),
+    ...(shown('eventGuide')
+      ? [
+          {
+            key: '#/event-guide',
+            href: '#/event-guide',
+            label: 'Event guide',
+            current: route === 'eventGuide',
+            screen: true,
+          },
+        ]
+      : []),
+  ];
+
+  const allianceChildren: NavChild[] = [
+    ...(ctx.own !== null && shown('alliance')
+      ? [
+          {
+            key: 'own-page',
+            href: allianceHash(ctx.own.alliance_id),
+            label: 'Roster',
+            current: onOwn,
+            screen: true,
+          },
+        ]
+      : []),
+    ...(shown('events')
+      ? [
+          {
+            key: '#/participation',
+            href: '#/participation',
+            label: 'Participation',
+            current: route === 'participation',
+            screen: true,
+          },
+          {
+            key: '#/black-gold',
+            href: '#/black-gold',
+            label: 'Black Gold',
+            current: route === 'blackMoney',
+            screen: true,
+          },
+        ]
+      : []),
+  ];
+
+  const single = (key: string, label: string, icon: IconName, current: boolean): NavItem => ({
+    key,
+    href: key,
+    label,
+    icon,
+    current,
+  });
+  const firstGuide = guideChildren[0];
+  const firstAlliance = allianceChildren[0];
+
+  const items: NavItem[] = [
+    single('#/home', 'Home', 'overview', route === 'home'),
+    ...(firstGuide === undefined
+      ? []
+      : [
+          {
+            key: 'guides-entry',
+            href: firstGuide.href,
+            label: 'Guides',
+            icon: 'guides' as const,
+            current: guideChildren.some((child) => child.current),
+            children: guideChildren,
+          },
+        ]),
+    ...(shown('calculator')
+      ? [single('#/calculator', 'Calculator', 'calculator', route === 'calculator')]
+      : []),
+    ...(shown('hive') ? [single('#/hive', 'Hive', 'hive', route === 'hive')] : []),
+    ...(shown('map') ? [single('#/map', 'Map', 'map', route === 'map')] : []),
+    ...(firstAlliance === undefined
+      ? []
+      : [
+          {
+            key: 'own-alliance',
+            href: firstAlliance.href,
+            label: ctx.own?.label ?? 'Alliance',
+            icon: 'alliance' as const,
+            current: allianceChildren.some((child) => child.current),
+            children: allianceChildren,
+          },
+        ]),
+  ];
+  return [{ id: 'watch' as const, label: 'Menu', items }];
 }
 
 /** Entries below the groups: not screens about the game, but about the account. */
