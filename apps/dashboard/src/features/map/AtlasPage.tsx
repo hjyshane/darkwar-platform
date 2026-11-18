@@ -21,6 +21,7 @@ import {
   centroid,
   filterActive,
   formatPower,
+  isOldSweep,
   isShielded,
   isStale,
   matchesFilter,
@@ -38,6 +39,7 @@ import {
   truckSpot,
 } from './hunt';
 import { useHuntData } from './huntState';
+import type { ScannedServer } from './mapLocations';
 import { matchPlan, usePlan } from './plan';
 
 const BASES_SHOWN = 50;
@@ -57,10 +59,11 @@ export function AtlasPage({
   onServer,
 }: {
   serverId: number;
-  servers: readonly number[];
+  servers: readonly ScannedServer[];
   onServer: (id: number) => void;
 }) {
   const { data, isPending, error } = useAtlas(serverId);
+  const sweptAt = servers.find((server) => server.serverId === serverId)?.sweptAt;
   const { active: mine } = useActiveAlliance();
   const atlas = data ?? EMPTY_ATLAS;
   const [query, setQuery] = useState('');
@@ -301,9 +304,9 @@ export function AtlasPage({
           <label className="atlas-state">
             <span>State</span>
             <select onChange={(event) => onServer(Number(event.target.value))} value={serverId}>
-              {servers.map((id) => (
-                <option key={id} value={id}>
-                  {id}
+              {servers.map((server) => (
+                <option key={server.serverId} value={server.serverId}>
+                  {server.serverId} · {formatAge(server.sweptAt, now)}
                 </option>
               ))}
             </select>
@@ -313,6 +316,13 @@ export function AtlasPage({
             {newest !== null && ` · ${formatAge(newest.toISOString(), now)}`}
           </span>
         </div>
+
+        {sweptAt !== undefined && isOldSweep(sweptAt, now) && (
+          <output className="subtle atlas-old-sweep">
+            Server {serverId} was last swept {formatAge(sweptAt, now)}. Bases here may have moved or
+            left, so treat this map as a snapshot, not as live.
+          </output>
+        )}
 
         <div className="atlas-side__filters">
           <label className="map-search">

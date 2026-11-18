@@ -4247,6 +4247,7 @@ button.tile-grid:hover:not(:disabled) {
 .hive-zoom,
 .hive-shapes,
 .hive-actions,
+.hive-edit-cta,
 .hive-assign,
 .hive-picker,
 .hive-coordinate {

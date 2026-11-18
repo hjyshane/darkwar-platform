@@ -168,7 +168,7 @@ export function HivePage() {
         <p className="empty">
           No formation has been drawn yet.{' '}
           {mayPlan
-            ? 'Pick a server and start one below.'
+            ? `Start one below (it goes on server ${serverId ?? '…'}), then draw its shape on the map and say who goes where.`
             : 'An officer draws one before a hive move; your tile will appear here when they do.'}
         </p>
       ) : (
@@ -238,6 +238,20 @@ export function HivePage() {
               the picker (or a promotion) swapped the formation underneath,
               and the new plan appeared to have no bases until you dragged
               back to wherever its anchor was. */}
+          {mayPlan && tab === 'plan' && (
+            <p className="hive-edit-cta">
+              <button onClick={() => setTab('shape')} type="button">
+                Edit this layout
+              </button>
+              <button onClick={() => setTab('people')} type="button">
+                Assign members
+              </button>
+              <span className="subtle">
+                Draw the shape on the map, then say who goes where. To start a different layout,
+                open “Draw the shape”.
+              </span>
+            </p>
+          )}
           {(!mayPlan || tab === 'plan') && (
             <Overview
               board={board.data ?? []}
@@ -258,6 +272,8 @@ export function HivePage() {
 
       {mayPlan && serverId !== null && (formation === null || tab === 'shape') && (
         <NewFormation
+          // Open when there is nothing else to do on the screen.
+          open={formation === null}
           onCreated={setChosenFormation}
           serverId={serverId}
           suggested={formations.length + 1}
@@ -508,6 +524,11 @@ function Overview({
           {stand.error && <p className="error">{(stand.error as Error).message}</p>}
           {remove.error && <p className="error">{(remove.error as Error).message}</p>}
           {board.length > 0 && <pre className="hive-list">{text}</pre>}
+          {!mayPlan && (
+            <p className="subtle">
+              Layouts are drawn by officers with hive access (R4/R5). Ask one to change yours.
+            </p>
+          )}
         </div>
       </div>
     </>
@@ -575,10 +596,12 @@ function OverviewActions({
 
 function NewFormation({
   onCreated,
+  open,
   serverId,
   suggested,
 }: {
   onCreated: (formationId: string) => void;
+  open: boolean;
   serverId: number;
   suggested: number;
 }) {
@@ -602,7 +625,7 @@ function NewFormation({
   });
 
   return (
-    <details className="hive-new">
+    <details className="hive-new" open={open || undefined}>
       <summary>Start a new formation</summary>
       <div className="hive-coordinate">
         <label>

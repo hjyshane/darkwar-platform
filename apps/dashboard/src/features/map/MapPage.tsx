@@ -42,12 +42,7 @@ export function MapPage({ serverId }: { serverId: number | null }) {
       <h2 className="visually-hidden" id="map-heading">
         {TERMS.map}
       </h2>
-      <AtlasPage
-        key={active}
-        onServer={setChosen}
-        serverId={active}
-        servers={servers.map((server) => server.serverId)}
-      />
+      <AtlasPage key={active} onServer={setChosen} serverId={active} servers={servers} />
     </section>
   );
 }

@@ -109,6 +109,15 @@ export function allianceColor(id: string | null, ours = false): string {
   return `hsl(${hash % 360} 70% 58%)`;
 }
 
+/** A server's last sweep older than this is worth saying out loud: most bases
+ * on it have had time to move, and the map looks "glitched" otherwise. */
+export const OLD_SWEEP_MS = 3 * 24 * 60 * 60_000;
+
+/** Has this server gone unread long enough that its map is likely out of date? */
+export function isOldSweep(sweptAt: string, now: Date): boolean {
+  return now.getTime() - new Date(sweptAt).getTime() > OLD_SWEEP_MS;
+}
+
 export function isStale(base: Pick<AtlasBase, 'seenAt'>, now: Date): boolean {
   return now.getTime() - base.seenAt.getTime() > STALE_AFTER_MS;
 }
