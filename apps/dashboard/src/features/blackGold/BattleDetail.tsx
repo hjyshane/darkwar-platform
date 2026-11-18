@@ -35,14 +35,14 @@ function opponentLabel(battle: Battle): string {
 export function BattleDetail({ battle }: { battle: Battle }) {
   const [showOpponent, setShowOpponent] = useState(false);
   const members = useQuery({
-    queryKey: ['blackMoney', 'members', battle.battle_ended_at, battle.team_index],
+    queryKey: ['blackGold', 'members', battle.battle_ended_at, battle.team_index],
     queryFn: () => fetchBattleMembers(battle),
     staleTime: STALE_TIME,
   });
   // Only asked for once somebody wants it: most readers open a battle to see
   // our own people.
   const opponents = useQuery({
-    queryKey: ['blackMoney', 'opponents', battle.battle_ended_at, battle.team_index],
+    queryKey: ['blackGold', 'opponents', battle.battle_ended_at, battle.team_index],
     queryFn: () => fetchBattleOpponents(battle),
     staleTime: STALE_TIME,
     enabled: showOpponent,
@@ -50,14 +50,14 @@ export function BattleDetail({ battle }: { battle: Battle }) {
   // The whole alliance's tally, not this battle's: one query shared by every
   // battle that is opened, keyed on the alliance.
   const tally = useQuery({
-    queryKey: ['blackMoney', 'misses', battle.alliance_external_id],
+    queryKey: ['blackGold', 'misses', battle.alliance_external_id],
     queryFn: () => fetchMemberMisses(battle.alliance_external_id),
     staleTime: STALE_TIME,
   });
   // The alliance's recent scores per member, one query shared by every battle
   // that is opened; it feeds the trend column.
   const history = useQuery({
-    queryKey: ['blackMoney', 'history', battle.alliance_external_id],
+    queryKey: ['blackGold', 'history', battle.alliance_external_id],
     queryFn: () => fetchMemberScoreHistory(battle.alliance_external_id),
     staleTime: STALE_TIME,
   });

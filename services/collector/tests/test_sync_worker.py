@@ -241,14 +241,14 @@ def test_unknown_servers_are_registered_untracked(journal: Journal) -> None:
 
 
 def _history_journal(journal: Journal) -> Journal:
-    from dw_collector.normalize import black_money_history
+    from dw_collector.normalize import black_gold_history
 
     history = load_observation("dragon.battle.history/history_v1.json")
-    journal.record(history, black_money_history.normalize(history))
+    journal.record(history, black_gold_history.normalize(history))
     return journal
 
 
-def test_black_money_history_follows_its_alliances_server(journal: Journal) -> None:
+def test_black_gold_history_follows_its_alliances_server(journal: Journal) -> None:
     """A history opened by ACE's scanner on 578 arrives labelled 580. It must
     land on the ACE Supabase already knows, not mint a second one on 580."""
     fake = FakeSupabase()
@@ -267,7 +267,7 @@ def test_black_money_history_follows_its_alliances_server(journal: Journal) -> N
     assert len(fake.entities["alliances"]) == 1
 
 
-def test_black_money_history_of_an_unseen_alliance_uses_the_label(journal: Journal) -> None:
+def test_black_gold_history_of_an_unseen_alliance_uses_the_label(journal: Journal) -> None:
     fake = FakeSupabase()
 
     stats = _worker(_history_journal(journal), fake).drain_once()

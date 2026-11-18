@@ -45,7 +45,7 @@ export interface BattleMember {
 }
 
 /** Both teams of one fortnightly event, keyed by its day on the game's clock. */
-export interface BlackMoneyEvent {
+export interface BlackGoldEvent {
   /** YYYY-MM-DD in server time. Both teams fight on the same server day. */
   day: string;
   teams: Battle[];
@@ -68,7 +68,7 @@ export function serverClock(iso: string): string {
 
 /** Group battles into events: the two teams of one event share a server day.
  * Newest event first, team A before team B within it. */
-export function groupEvents(battles: Battle[]): BlackMoneyEvent[] {
+export function groupEvents(battles: Battle[]): BlackGoldEvent[] {
   const byDay = new Map<string, Battle[]>();
   for (const battle of battles) {
     const day = zonedDayKey(battle.battle_ended_at, SERVER_ZONE);

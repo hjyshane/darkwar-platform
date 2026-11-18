@@ -37,7 +37,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 
 from dw_collector.models import NormalizedRow, Observation, entry_idempotency_key, stable_uuid
 from dw_collector.normalize import report_mail
-from dw_collector.normalize.black_money_signup import home_server
+from dw_collector.normalize.black_gold_signup import home_server
 from dw_collector.registry import register
 
 log = structlog.get_logger()
@@ -149,7 +149,7 @@ def _mail_rows(observation: Observation, raw_mail: dict[str, Any]) -> list[Norma
         return _report_rows(observation, _Mail.model_validate(raw_mail))
     except ValidationError as exc:
         log.warning(
-            "black_money_report.skipped",
+            "black_gold_report.skipped",
             mail_uid=raw_mail.get("uid"),
             errors=exc.error_count(),
         )

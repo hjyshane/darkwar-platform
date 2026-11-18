@@ -78,7 +78,7 @@ export function LoginPage() {
       // `takeReturnTo()` is empty for an ordinary sign-in, and assigning an
       // empty hash leaves the address at a bare `#`. Naming the overview is
       // the same destination said out loud.
-      window.location.hash = takeReturnTo() || '#/';
+      window.location.hash = takeReturnTo() || (session.role === 'community' ? '#/' : '#/home');
     }
   }, [arriving, session, sessionEmail]);
 
@@ -177,7 +177,7 @@ export function LoginPage() {
             <p className={joined.note === null ? 'empty' : 'error'}>
               {joined.note ??
                 `Welcome — you are now ${joined.role}${joined.linked ? `, linked to ${joined.linked}` : ''}. `}
-              {joined.note === null && <a href="#/">Go to the dashboard</a>}
+              {joined.note === null && <a href="#/home">Go to Home</a>}
             </p>
           )}
           {session !== undefined && session.role !== 'viewer' && (

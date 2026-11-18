@@ -11,7 +11,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 from dw_collector import registry
-from dw_collector.normalize import alliance_event_times, black_money_activity
+from dw_collector.normalize import alliance_event_times, black_gold_activity
 from tests.conftest import load_observation
 
 SIEGE = "monster.siege.activity.info/siege_v1.json"
@@ -91,7 +91,7 @@ def test_the_same_pick_is_one_key_however_often_it_is_seen() -> None:
 def test_black_gold_teams_come_with_the_alliance_that_fields_them() -> None:
     rows = [
         r
-        for r in black_money_activity.normalize(load_observation(BLACK_GOLD))
+        for r in black_gold_activity.normalize(load_observation(BLACK_GOLD))
         if r.target_table == "alliance_event_times"
     ]
 
@@ -112,7 +112,7 @@ def test_teams_whose_opponent_is_not_drawn_yet_still_give_their_times() -> None:
     nothing, so the times were missing exactly when they are announced."""
     observation = load_observation("dragon.activity.info/teams_not_matched_yet_v1.json")
 
-    rows = black_money_activity.normalize(observation)
+    rows = black_gold_activity.normalize(observation)
 
     schedule = [r for r in rows if r.target_table == "alliance_event_times"]
     assert {r.row["slot"] for r in schedule} == {1, 2}

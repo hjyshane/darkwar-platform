@@ -2,7 +2,7 @@
 
 2026-11-18. From the website feedback triage (`docs/website-feedback-2026-11.md`, item G):
 an R4/R5 wants "a map for BGB … so you can plan everything in advance". Black Gold (wire name
-`dragon`, on screen "Black Money" / "Black Gold Battlefield") is the alliance's two-team battle:
+`dragon`, on screen "Black Gold Battlefield", tables `black_money_*`) is the alliance's two-team battle:
 teams A and B, 20 starters and up to 20 substitutes each.
 
 Draft 2 replaces draft 1 after the owner supplied the battlefield minimap and the in-game event
@@ -40,7 +40,7 @@ advance is **which players go to which objective** (and who carries alloy).
 | Piece | Where | Reusable? |
 |---|---|---|
 | Roster: team, starter/sub | `black_money_signup_snapshots` (0178), latest reading = rows sharing the newest `captured_at` | Yes — the source of the assign list |
-| History, scores, opponents, misses | 0178, 0182, 0183, `features/blackMoney/*` | Read-only context beside the plan |
+| History, scores, opponents, misses | 0178, 0182, 0183, `features/blackGold/*` | Read-only context beside the plan |
 | Hive formation tables and editor | `hive_formations`/`_slots` (0165–0173, 0330), `features/hive/*` | **Concept only.** Bound to world coordinates and `server_id`; the tile grid is irrelevant here. Copy the *safety behaviour* (refuse stale save, recoverable delete, last-editor stamp), not the grid |
 
 ## 3. Goal and non-goals
@@ -56,7 +56,7 @@ no scoring; no new capture; no tile coordinates.
 
 **Map:** a hand-drawn inline SVG in the dashboard (not the owner's JPEG — it is a low-resolution
 screenshot of the game's art). Objective positions are normalised 0–1 values in a small static
-definition (`features/blackMoney/battlefield.ts`), keyed by objective id (`mil-1`, `mil-2`,
+definition (`features/blackGold/battlefield.ts`), keyed by objective id (`mil-1`, `mil-2`,
 `hosp-1`, `hosp-2`, `oil-1`…`oil-6`, `factory`, `hq-ours`, `hq-theirs`). A **"we are at the
 bottom / top"** toggle rotates the picture 180°; the stored plan does not depend on it, because
 objectives are named by role relative to us (`mil-ours-near`, `mil-theirs-near`…) rather than by
