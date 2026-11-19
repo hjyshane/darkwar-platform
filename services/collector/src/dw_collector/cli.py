@@ -1131,22 +1131,6 @@ def game_trucks(
     typer.echo("written")
 
 
-def _fetch_all(client: httpx.Client, table: str, select: str) -> list[dict[str, Any]]:
-    """Every row of a table, a page at a time: PostgREST stops at 1,000."""
-    rows: list[dict[str, Any]] = []
-    page = 1000
-    while True:
-        resp = client.get(
-            f"/rest/v1/{table}",
-            params={"select": select, "limit": page, "offset": len(rows)},
-        )
-        resp.raise_for_status()
-        batch = resp.json()
-        rows.extend(batch)
-        if len(batch) < page:
-            return rows
-
-
 @app.command("game-values")
 def game_values(
     bundles: Annotated[
@@ -1180,10 +1164,12 @@ def game_values(
     prices = game_prices(assets)
     headers = {"apikey": secret_key, "Authorization": f"Bearer {secret_key}"}
     with httpx.Client(base_url=url.rstrip("/"), headers=headers, timeout=120.0) as client:
-        snapshots = _fetch_all(
+        # Oldest first: a snapshot synced while this pages lands at the end.
+        snapshots = upload.fetch_all(
             client,
             "shop_pack_snapshots",
             "pack_id,name_key,dollars,rubies,claimed_percent,items,captured_at",
+            "captured_at,snapshot_id",
         )
         newest: dict[str, dict[str, Any]] = {}
         for row in snapshots:
@@ -1194,7 +1180,7 @@ def game_values(
             (pack_from_row(row) for row in newest.values()),
             game_prices(assets, vip_as_zero=False),
         )
-        existing = _fetch_all(client, "game_item_values", "item_id,source")
+        existing = upload.fetch_all(client, "game_item_values", "item_id,source", "item_id")
         officer = {row["item_id"] for row in existing if row["source"] == "officer"}
         # An estimate this run no longer makes must go, or it stays forever:
         # the rule tightened in 0216 and left Land Expansion at 7,625 rubies.

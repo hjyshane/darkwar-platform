@@ -72,14 +72,35 @@ def plan(existing: Iterable[Mapping[str, Any]], names: Mapping[str, EventName]) 
     return Plan(to_write, to_classify, unchanged, kept_human)
 
 
+# PostgREST's max-rows: it returns at most this many whatever `limit` asks.
+PAGE = 1000
+
+
+def fetch_all(client: httpx.Client, table: str, select: str, order: str) -> list[dict[str, Any]]:
+    """Every row of a table, a page at a time.
+
+    One request stops at 1,000 rows, silently. `order` must be unique, or
+    the pages are not guaranteed to tile the table: a row can land on two
+    pages and another on none."""
+    rows: list[dict[str, Any]] = []
+    while True:
+        resp = client.get(
+            f"/rest/v1/{table}",
+            params={"select": select, "order": order, "limit": PAGE, "offset": len(rows)},
+        )
+        resp.raise_for_status()
+        batch: list[dict[str, Any]] = resp.json()
+        rows.extend(batch)
+        if len(batch) < PAGE:
+            return rows
+
+
 def fetch_existing(client: httpx.Client) -> list[dict[str, Any]]:
-    resp = client.get(
-        "/rest/v1/event_names",
-        params={"select": "activity_id,name,updated_by,activity_type,category", "limit": 10000},
+    """All of event_names. It passed 1,000 rows in 1.250.672 (1,443), and a
+    row this does not see is planned as new — an officer's name included."""
+    return fetch_all(
+        client, "event_names", "activity_id,name,updated_by,activity_type,category", "activity_id"
     )
-    resp.raise_for_status()
-    rows: list[dict[str, Any]] = resp.json()
-    return rows
 
 
 def upsert(client: httpx.Client, rows: list[dict[str, Any]]) -> None:
