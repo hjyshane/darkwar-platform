@@ -372,6 +372,55 @@ Running
 뒤에 해야 한다 — 실행 중인 작업이 `.venv\Scripts`의 exe를 잡고 있으면
 sync가 os error 32로 죽는다.
 
+### 4-3. 죽은 작업이 다시 뜨는가 — `NextRunTime`을 본다
+
+**2026-11-19에 실제로 겪었다.** ingest가 `database is locked` 하나에 exit 1로
+끝났고, 16시간 동안 아무것도 다시 띄우지 않았다. 그사이 Frankie 두 라운드와
+피해 보드가 대시보드에 오지 않았다. 작업 스케줄러에서 되살리는 장치는 둘인데
+둘 다 일하지 않았다:
+
+- **`RestartCount 999` / 1분**: 작업을 **시작하지 못했을 때만** 동작한다.
+  동작(action)이 0이 아닌 코드로 끝나는 것은 실패로 치지 않는다.
+- **5분 반복**: 로그온 트리거에 붙은 반복은 **등록 뒤의 첫 로그온부터** 돈다.
+  `register-tasks.ps1`은 언제나 로그온된 세션 안에서 돌리므로, 등록한 그 순간부터
+  다음 로그온(재부팅)까지 반복이 무장되지 않는다. 트리거 목록에는 `PT5M`이 그대로
+  보여서 겉으로는 모른다.
+
+이제 `register-tasks.ps1`이 같은 5분 반복을 **시간 트리거**로도 단다. 등록 즉시
+무장되고 재부팅 뒤에도 남는다. `MultipleInstances IgnoreNew`라서 살아 있는
+작업에는 아무 일도 하지 않는다. 등록 끝의 검사는 `NextRunTime`이 비어 있으면
+FAIL을 낸다.
+
+**확인 (아무것도 멈추지 않는다):**
+
+```powershell
+Get-ScheduledTask -TaskName 'DarkWar-*' | ForEach-Object { '{0,-16} {1,-8} next={2}' -f $_.TaskName, $_.State, (Get-ScheduledTaskInfo -TaskName $_.TaskName).NextRunTime }
+```
+
+`next=` 뒤가 비어 있으면 그 작업은 죽으면 다음 로그온까지 죽은 채로 있다.
+고치려면 관리자 PowerShell에서 `register-tasks.ps1`을 다시 돌린다 — 네 작업을
+멈추고(4-2의 명령줄 킬까지 스크립트가 한다) 다시 등록하고 띄운다.
+
+**저널 잠금은 이제 죽을 일이 아니다.** 연결이 60초 기다리고
+(`BUSY_TIMEOUT_SECONDS`, 전에는 sqlite3 기본값 5초), 그래도 잠겨 있으면
+`ingest-dir`가 **같은 파일을** 다시 시도하며 로그에 남긴다:
+
+```
+cap_06135_20261118203842.pcapng  LOCKED database is locked (attempt 1); not marked, retrying in 1s
+```
+
+간격은 1·2·4·8·16초, 그 뒤로는 30초마다. 잠긴 동안 그 파일은 `ingested_captures`에
+들어가지 않고 `--delete-ingested`로 지워지지도 않는다 — 늦게 들어갈 뿐 잃지 않는다.
+`LOCKED` 몇 줄 뒤에 `ingested=` 줄이 이어지면 정상이다. **`LOCKED`가 몇 분 넘게
+이어지면** 잠금을 쥔 프로세스가 있다: `prune-journal --confirm`이나 `vacuum`이 도는
+중인지, 멈춘 `dw-sync`가 있는지 본다. 잠금이 아닌 DB 오류(디스크 가득 등)는 기다려도
+낫지 않으므로 파일을 표시하지 않은 채 exit 1로 끝나고, 시간 트리거가 5분 안에 다시 띄운다.
+
+**`run-Ingest.cmd`를 `goto` 루프로 감싸지 않는다.** 검토하고 버렸다.
+`Stop-ScheduledTask`는 wscript만 끝내므로 루프 도는 cmd가 고아로 남아 워커를 다시
+띄운다 — writer를 멈춰야 하는 prune·vacuum 도중에도. 종료 코드도 삼킨다.
+되살리기는 시간 트리거가 맡는다.
+
 ---
 
 ## 5. 데이터베이스를 비운 뒤 되살리기
@@ -504,6 +553,8 @@ uv run --no-sync dw-collector survey `
 | `outbox={'dead_letter': N}` | 여러 번 실패해 포기한 항목 | 원인 고친 뒤 `retry-outbox --dead-letters` |
 | `held back: N` (prune) | 그 관측의 행이 아직 클라우드에 안 갔다 | `sync` 먼저. N이 계속 크면 outbox가 막힌 것 |
 | 저널이 계속 커짐 | 자동으로 줄이는 장치가 없다 | 5-2 `prune-journal` |
+| `ingest.log`에 `LOCKED ... retrying` | 다른 프로세스(dw-sync·prune)가 저널에 쓰는 중 | 정상, 기다리면 풀린다. 몇 분 넘게 이어지면 4-3 |
+| 작업이 `Ready`, `LastTaskResult` 1, 로그 끝이 traceback | 워커가 죽었는데 되살리는 트리거가 무장 안 됨 | 4-3 `NextRunTime` 확인 |
 | `rejected > 0` | 프로그램이 못 읽는 데이터 | 개발자에게 알린다(수정 필요) |
 | `git pull`이 `uv.lock` 때문에 멈춤 | 자동 생성 파일 충돌 | 그 파일을 지우고 다시 pull |
 

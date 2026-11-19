@@ -684,23 +684,73 @@ def test_stop_interrupts_a_slow_pass_between_files_not_after_it(tmp_path: Path) 
             thread.join(timeout=10)
 
 
-def test_operational_error_from_ingest_is_caught_and_the_loop_survives(
+def test_a_locked_journal_is_retried_on_the_next_pass_not_skipped(
     tmp_path: Path,
 ) -> None:
     """`sqlite3.OperationalError` (e.g. "database is locked") is a
     `DatabaseError`, not an `OSError` — the old `except (PcapError, OSError,
     ValueError)` in `_ingest_once` did not catch it, so it would have killed
-    the whole ingest session over one file. It must cost only that file.
+    the whole ingest session over one file.
+
+    Catching it was half right: it then marked the file ingested with zero
+    events, so a lock — which says nothing about the file — lost the file
+    for good. It must cost nothing: the pass ends, the file stays unmarked,
+    and the next pass reads it first.
     """
     capture_dir = tmp_path / "captures"
     capture_dir.mkdir()
     _write_capture(capture_dir / "a_locked.pcapng", age_seconds=600, valid=True)
     _write_capture(capture_dir / "b_good.pcapng", age_seconds=500, valid=True)
     journal_path = tmp_path / "journal.db"
+    calls: list[str] = []
 
     def flaky_ingest_capture(journal: Journal, pcap: Path, **kwargs: object) -> ScanResult:
-        if pcap.name == "a_locked.pcapng":
+        calls.append(pcap.name)
+        if calls == ["a_locked.pcapng"]:
             raise sqlite3.OperationalError("database is locked")
+        return ScanResult(ingested=1, discovered=0, rejected=0, commands={})
+
+    supervisor = capture.Supervisor(
+        dumpcap=sys.executable,
+        build_argv=_stub_argv,
+        journal_path=journal_path,
+        ingest_poll_seconds=0.05,
+        ingest_capture=flaky_ingest_capture,
+    )
+    try:
+        supervisor._start_ingest_loop(capture_dir, _GAME_PORT)
+        assert _wait_until(lambda: supervisor.status().ingest.files_ingested == 2, timeout=5)
+        status = supervisor.status()
+        assert status.ingest.state == "running", "an OperationalError must not kill the loop"
+        assert supervisor._ingest_thread is not None
+        assert supervisor._ingest_thread.is_alive()
+    finally:
+        supervisor._stop_ingest_loop()
+
+    # The locked file again, first, before anything after it.
+    assert calls[:3] == ["a_locked.pcapng", "a_locked.pcapng", "b_good.pcapng"]
+    journal = Journal(journal_path)
+    try:
+        marked = dict(journal.conn.execute("select name, events from ingested_captures"))
+    finally:
+        journal.close()
+    assert marked == {"a_locked.pcapng": 1, "b_good.pcapng": 1}
+
+
+def test_a_database_error_that_is_not_a_lock_still_costs_only_that_file(
+    tmp_path: Path,
+) -> None:
+    # Finding 1's original promise, for everything that is not a lock: a
+    # malformed or full database must not kill the session over one file.
+    capture_dir = tmp_path / "captures"
+    capture_dir.mkdir()
+    _write_capture(capture_dir / "a_broken.pcapng", age_seconds=600, valid=True)
+    _write_capture(capture_dir / "b_good.pcapng", age_seconds=500, valid=True)
+    journal_path = tmp_path / "journal.db"
+
+    def flaky_ingest_capture(journal: Journal, pcap: Path, **kwargs: object) -> ScanResult:
+        if pcap.name == "a_broken.pcapng":
+            raise sqlite3.OperationalError("disk I/O error")
         return ScanResult(ingested=1, discovered=0, rejected=0, commands={})
 
     supervisor = capture.Supervisor(
@@ -714,11 +764,8 @@ def test_operational_error_from_ingest_is_caught_and_the_loop_survives(
         supervisor._start_ingest_loop(capture_dir, _GAME_PORT)
         assert _wait_until(lambda: supervisor.status().ingest.files_ingested == 1, timeout=5)
         status = supervisor.status()
-        assert status.ingest.state == "running", "an OperationalError must not kill the loop"
+        assert status.ingest.state == "running"
         assert status.ingest.files_seen == 2
-        assert status.ingest.files_ingested == 1
-        assert supervisor._ingest_thread is not None
-        assert supervisor._ingest_thread.is_alive()
     finally:
         supervisor._stop_ingest_loop()
 

@@ -138,6 +138,35 @@ $trigger.Repetition = (
         -RepetitionDuration (New-TimeSpan -Days 3650)
 ).Repetition
 
+# AND a time trigger carrying the same repetition, because the one above is
+# not armed until a logon happens AFTER registration.
+#
+# A repetition hangs off its trigger's firing. This script is always run from
+# inside a logged-on session, so the logon it would need has already passed:
+# registered at 18:58 on 17 November, an hour after that day's logon, all four
+# tasks had a five-minute repetition that had never started and would not
+# until the next reboot. Nothing showed it - the trigger reads PT5M in every
+# listing. On 19 November ingest died at 01:45 UTC on a locked journal and sat
+# in Ready for sixteen hours with not one restart attempt in its log.
+#
+# A time trigger is armed the moment it is registered and survives reboots
+# (it fires on its schedule, not on an event). The tell that one is missing is
+# an empty NextRunTime, which the check below now refuses.
+$revive = New-ScheduledTaskTrigger -Once -At (Get-Date) `
+    -RepetitionInterval (New-TimeSpan -Minutes 5) `
+    -RepetitionDuration (New-TimeSpan -Days 3650)
+#
+# RestartCount 999 in $settings above does not do this job and never did: Task
+# Scheduler counts a task as failed when it cannot START it, not when the
+# action exits non-zero, so an ingest that crashes is never "restarted".
+#
+# Nor does a `goto` loop in run-*.cmd, which was considered and rejected.
+# Stop-ScheduledTask ends wscript only, so a looping cmd outlives it as an
+# orphan and starts the worker again half a minute later - in the middle of
+# a prune or vacuum that needed the writers stopped. It would also swallow the
+# exit code the launcher below now returns on purpose. Five minutes is well
+# inside dumpcap's 24-hour ring, and a stopped task stays stopped.
+
 # Each task runs through wscript -> cmd, and both parts are load-bearing.
 #
 # wscript, because PowerShell -WindowStyle Hidden does NOT hide anything when
@@ -440,7 +469,7 @@ foreach ($task in $tasks) {
         # registration that replaces it. Everything that can fail - the
         # interface, the venv sync, writing this wrapper - is already done.
         Unregister-ScheduledTask -TaskName $name -Confirm:$false -ErrorAction SilentlyContinue
-        Register-ScheduledTask -TaskName $name -Action $action -Trigger $trigger `
+        Register-ScheduledTask -TaskName $name -Action $action -Trigger @($trigger, $revive) `
             -Settings $settings -Description 'Dark War continuous collection' -ErrorAction Stop | Out-Null
     } catch {
         Write-Output ("FAIL " + $name + " : " + $_.Exception.Message)
@@ -461,7 +490,12 @@ foreach ($task in $tasks) {
         $failed += $name
         continue
     }
-    $repeat = $registered.Triggers | ForEach-Object { $_.Repetition.Interval } | Where-Object { $_ }
+    $repeat = $registered.Triggers | ForEach-Object { $_.Repetition.Interval } | Where-Object { $_ } |
+        Select-Object -First 1
+    # What actually revives a dead task: a run already on the calendar. A
+    # repetition on the logon trigger alone leaves this empty until the next
+    # logon, and the listing above cannot tell the difference.
+    $next   = (Get-ScheduledTaskInfo -TaskName $name).NextRunTime
     $hidden = $registered.Actions[0].Execute -match 'wscript'
     $script = Join-Path $ScriptDir ('run-' + ($name -replace 'DarkWar-', '') + '.cmd')
     $text   = if (Test-Path $script) { Get-Content $script -Raw } else { '' }
@@ -473,6 +507,9 @@ foreach ($task in $tasks) {
     if (-not $repeat) {
         Write-Output ("FAIL " + $name + " : no repetition trigger - a dead task will stay dead")
         $failed += $name
+    } elseif (-not $next) {
+        Write-Output ("FAIL " + $name + " : no next run time - the repetition is not armed, a dead task stays dead until the next logon")
+        $failed += $name
     } elseif (-not $hidden) {
         Write-Output ("FAIL " + $name + " : window not hidden")
         $failed += $name
@@ -483,7 +520,7 @@ foreach ($task in $tasks) {
         Write-Output ("FAIL " + $name + " : uv without --no-sync - it will fight the other task for .venv")
         $failed += $name
     } else {
-        Write-Output ("OK   " + $name + " : logon + repeat " + $repeat + ", hidden, log -> " + $task.Log)
+        Write-Output ("OK   " + $name + " : logon + repeat " + $repeat + " (next " + $next + "), hidden, log -> " + $task.Log)
     }
 }
 

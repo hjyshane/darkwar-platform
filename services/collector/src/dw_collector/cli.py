@@ -7,7 +7,9 @@ import os
 import sqlite3
 import time
 import uuid
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
+from functools import partial
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -21,7 +23,7 @@ from dw_collector.envfile import load_env_file
 from dw_collector.ingest import ServerFollower, _ingest_capture, _ready_captures
 from dw_collector.models import Observation
 from dw_collector.protocol.pcapng import PcapError
-from dw_collector.storage.journal import Journal
+from dw_collector.storage.journal import Journal, is_locked
 from dw_collector.sync.worker import DrainStats, SyncConfig, SyncWorker
 
 app = typer.Typer(no_args_is_help=True)
@@ -835,6 +837,11 @@ def ingest_dir(
     Files already read are recorded in the journal, so restarting does not
     re-read the ring.
 
+    A journal another process has locked (dw-sync, prune-journal) is waited
+    out on the same file, logged as LOCKED, and never marked done over; see
+    `_until_unlocked`. Any other database error exits non-zero with the file
+    unmarked, for the scheduled task to restart.
+
     `--delete-ingested` exists because the ring assumption failed in
     practice: dumpcap's `-b files:` cap only deletes what DUMPCAP wrote in
     THIS run, so restarts leave the previous run's files behind forever, and
@@ -853,51 +860,110 @@ def ingest_dir(
         # whole table every tick only ever re-read what this process itself
         # had just written — at 130,000 names, that query and the set built
         # from it were most of the loop's idle cost.
-        done = journal.ingested_captures()
+        done = _until_unlocked("journal", journal.ingested_captures)
         follower = ServerFollower(collected_from_server) if follow_login_server else None
+
+        def ingest_one(pcap: Path) -> None:
+            # Every write in here is safe to repeat, which is what lets a
+            # locked journal retry the whole file rather than skip it: the
+            # observation ids are the file name plus the event's position,
+            # the inserts are `or ignore`, and the mark comes last.
+            fallback = datetime.now(tz=UTC)
+            try:
+                result = _ingest_capture(
+                    journal,
+                    pcap,
+                    collector_id=collector_id,
+                    collected_from_server=collected_from_server,
+                    port=port,
+                    discover_only=False,
+                    fallback=fallback,
+                    follower=follower,
+                )
+            except (PcapError, OSError, ValueError) as exc:
+                # One unreadable file must not stop the loop — a
+                # collector that stops on the first bad capture is the
+                # failure this command exists to escape. Marked done
+                # rather than retried: a truncated file never becomes
+                # valid, and retrying it every poll would lose
+                # everything after it instead of just that window.
+                #
+                # NOT sqlite3 errors: those are not in this tuple and must
+                # never be. A locked journal says nothing about the file, and
+                # marking the file done over it is how a capture is lost for
+                # good — see `_until_unlocked`.
+                journal.mark_capture_ingested(pcap.name, 0)
+                done.add(pcap.name)
+                _discard_capture(pcap, wanted=delete_ingested)
+                typer.echo(f"{pcap.name}  UNREADABLE {exc}", err=True)
+                return
+            journal.mark_capture_ingested(pcap.name, result.events)
+            done.add(pcap.name)
+            # Only after the mark is committed: a deleted-but-unmarked
+            # file would be data lost, a marked-but-undeleted one is just
+            # a file the next poll skips.
+            _discard_capture(pcap, wanted=delete_ingested)
+            typer.echo(
+                f"{pcap.name}  ingested={result.ingested} discovered={result.discovered}"
+                f" rejected={result.rejected} commands={len(result.commands)}"
+            )
+
         while True:
             pending = [p for p in _ready_captures(directory, min_age_seconds) if p.name not in done]
             for pcap in pending:
-                fallback = datetime.now(tz=UTC)
-                try:
-                    result = _ingest_capture(
-                        journal,
-                        pcap,
-                        collector_id=collector_id,
-                        collected_from_server=collected_from_server,
-                        port=port,
-                        discover_only=False,
-                        fallback=fallback,
-                        follower=follower,
-                    )
-                except (PcapError, OSError, ValueError) as exc:
-                    # One unreadable file must not stop the loop — a
-                    # collector that stops on the first bad capture is the
-                    # failure this command exists to escape. Marked done
-                    # rather than retried: a truncated file never becomes
-                    # valid, and retrying it every poll would lose
-                    # everything after it instead of just that window.
-                    journal.mark_capture_ingested(pcap.name, 0)
-                    done.add(pcap.name)
-                    _discard_capture(pcap, wanted=delete_ingested)
-                    typer.echo(f"{pcap.name}  UNREADABLE {exc}", err=True)
-                    continue
-                journal.mark_capture_ingested(pcap.name, result.events)
-                done.add(pcap.name)
-                # Only after the mark is committed: a deleted-but-unmarked
-                # file would be data lost, a marked-but-undeleted one is just
-                # a file the next poll skips.
-                _discard_capture(pcap, wanted=delete_ingested)
-                typer.echo(
-                    f"{pcap.name}  ingested={result.ingested} discovered={result.discovered}"
-                    f" rejected={result.rejected} commands={len(result.commands)}"
-                )
+                # In order, and not past a locked one: the next file waits
+                # until this one is in, so the journal never has a hole
+                # behind the point the loop has reached.
+                _until_unlocked(pcap.name, partial(ingest_one, pcap))
             if interval_seconds <= 0:
                 typer.echo(f"done: {len(pending)} file(s)")
                 return
             time.sleep(interval_seconds)
     finally:
         journal.close()
+
+
+#: Wait between attempts at a journal write that found the database locked,
+#: on top of the busy timeout every attempt has already spent waiting inside
+#: SQLite. Doubles to the cap and stays there.
+_LOCKED_RETRY_FIRST_SECONDS = 1.0
+_LOCKED_RETRY_MAX_SECONDS = 30.0
+
+
+def _until_unlocked[T](label: str, attempt: Callable[[], T]) -> T:
+    """Run `attempt` until it gets past a locked journal; anything else raises.
+
+    WHY RETRY RATHER THAN EXIT. On 2026-11-19 one `database is locked` came
+    out of `Journal.record`, out of this loop, and out of the process, and
+    the scheduled task never brought it back: ingest was down for sixteen
+    hours while dumpcap's 24-hour ring kept rotating underneath it. The other
+    writer was dw-sync draining 1,000-row batches, and a lock clears when its
+    holder commits. Exiting turns seconds of contention into an outage as
+    long as whatever is supposed to restart the process takes to notice.
+
+    WHY UNBOUNDED. A lock that never clears is a stuck writer, and a
+    restarted ingest would meet the same lock. Waiting here at least says so,
+    every attempt, in the log the console tails.
+
+    WHY ONLY LOCKS. A full disk or a malformed journal is not cured by
+    waiting, and the file being read is not at fault either way — so the
+    process exits non-zero, the file stays unmarked and on disk, and the
+    next start reads it again. Never marked done over a database error.
+    """
+    tries = 0
+    while True:
+        try:
+            return attempt()
+        except sqlite3.OperationalError as exc:
+            if not is_locked(exc):
+                raise
+            tries += 1
+            delay = min(_LOCKED_RETRY_MAX_SECONDS, _LOCKED_RETRY_FIRST_SECONDS * 2 ** (tries - 1))
+            typer.echo(
+                f"{label}  LOCKED {exc} (attempt {tries}); not marked, retrying in {delay:g}s",
+                err=True,
+            )
+            time.sleep(delay)
 
 
 @app.command("game-names")
