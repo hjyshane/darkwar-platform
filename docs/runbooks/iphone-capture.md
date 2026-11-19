@@ -311,7 +311,9 @@ git -C C:\darkwar-platform pull
 ```
 
 `DarkWar-iPhone` 작업이 로그온 때 시작하고 5분마다 죽었는지 보고 살린다. 창은 없다. 로그:
-`C:\DW_data\logs\iphone.log`. 권한이 모자라다고 하면 관리자 PowerShell에서 다시 한다.
+`C:\DW_data\logs\iphone.log`. 5분 반복은 시간 트리거에도 달려 있어서 등록 즉시 동작한다
+(로그온 트리거에만 달면 다음 로그온까지 안 돈다 — `traps.md`). 2026-11-19 이전 스크립트로
+등록했다면 한 번 다시 등록한다. 스크립트는 `NextRunTime`이 비어 있으면 FAIL로 끝난다. 권한이 모자라다고 하면 관리자 PowerShell에서 다시 한다.
 제거: `Unregister-ScheduledTask -TaskName DarkWar-iPhone -Confirm:$false`.
 
 **멈추거나 다시 시작할 때는 `Stop-ScheduledTask`를 쓰지 않는다.** 그건 작업의 런처만 끄고 그 아래

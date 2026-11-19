@@ -555,6 +555,7 @@ uv run --no-sync dw-collector survey `
 | 저널이 계속 커짐 | 자동으로 줄이는 장치가 없다 | 5-2 `prune-journal` |
 | `ingest.log`에 `LOCKED ... retrying` | 다른 프로세스(dw-sync·prune)가 저널에 쓰는 중 | 정상, 기다리면 풀린다. 몇 분 넘게 이어지면 4-3 |
 | 작업이 `Ready`, `LastTaskResult` 1, 로그 끝이 traceback | 워커가 죽었는데 되살리는 트리거가 무장 안 됨 | 4-3 `NextRunTime` 확인 |
+| `sync.log`에 `sync.journal_locked` | ingest가 저널에 쓰는 중이라 그 드레인을 건너뜀 | 정상. 다음 드레인이 같은 행을 다시 보낸다(중복은 클라우드가 무시) |
 | `rejected > 0` | 프로그램이 못 읽는 데이터 | 개발자에게 알린다(수정 필요) |
 | `git pull`이 `uv.lock` 때문에 멈춤 | 자동 생성 파일 충돌 | 그 파일을 지우고 다시 pull |
 
