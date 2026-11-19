@@ -12,19 +12,71 @@
 ## 파일이 어디 있고 어떻게 생겼나
 
 - 위치: BlueStacks 안 `/sdcard/Android/data/com.readygo.dark.gp/files/AssetBundles/`
-- `datatable_config_luatxt_*.bundle` — 설정 테이블. 안에 든 건 **Lua 5.4 바이트코드**
+- `datatable_config_luatxt_*.bundle` — 설정 테이블. 안에 든 건 **Lua 바이트코드**
   (`*.bytes`)이고 실행하면 `{data = {[id] = {값...}}, index = {컬럼 = {위치, 타입}}}`를
-  돌려준다.
+  돌려준다. 1.250.672(2026-11-17)부터 Lua 5.4 → **5.5**(번들 이름도 `luatxt_55_*`).
 - `datatable_langslice_localization_dialog_0..5.bundle` — 16개 언어의 `키=문자열`
   텍스트. 한 언어가 여섯 조각으로 나뉘어 있다. English·Korean 둘 다 있다.
-- 클라이언트가 걸어둔 장치 두 개(`dw_collector/gamedata/`가 처리):
+- 클라이언트가 걸어둔 장치(`dw_collector/gamedata/`가 처리):
   - 번들 맨 앞에 `UnityRaw` 8바이트가 붙어 있다. 떼면 평범한 UnityFS 번들이다.
-  - 바이트코드 시그니처 `\x1bLua` 뒤에 `\x03` 한 바이트가 끼어 있다. 빼면 표준 Lua 5.4다.
+  - 바이트코드 시그니처 `\x1bLua` 뒤에 한 바이트가 끼어 있다. 그 **다음 바이트(버전)**로
+    형식을 가른다(`luatable.stock_bytecode`).
+    - `\x03` + `T`(5.4, 1.250.672 전): 빼면 표준 Lua 5.4다.
+    - `\xa8` + `U`(5.5): 빼는 것만으로는 안 된다. 아래 "Lua 5.5 datatable".
 - `files/config.db`(146MB)는 설정이 아니라 채팅·유저 캐시다. 쓸모없다.
 - `AssetBundles`에 있는 건 **패치로 내려받은** 번들뿐이다(테이블 이름 a~g 일부).
   **전체 테이블(463개)은 APK의 `split_install_time_pack.apk`(약 2GB) 안**
   `assets/AssetBundles/datatable_*.bundle` 34개(약 36MB)에 있다. 건물·연구·개조차·
   펫 업그레이드 비용과 아이템 사전은 여기서 나온다. 순서는 **기본 → 패치**(패치가 덮어씀).
+
+## Lua 5.5 datatable (1.250.672~)
+
+표식 `0xa8`을 빼도 표준 5.5(`lupa.lua55`)가 `bad binary format (invalid constant)`로 거부한다.
+덤프 구조(헤더·varint·상수·문자열·디버그 정보)는 표준 5.5 그대로이고, 다른 건 둘이다.
+
+1. **정렬.** 5.5는 코드 벡터와 절대 줄 정보 앞을 **청크 첫 바이트부터 센** 4바이트 경계로 채운다.
+   클라이언트는 표식까지 세서 채웠으므로 표식만 빼면 모든 패딩이 1바이트 어긋난다. 그래서
+   `luatable._Rewriter`가 필드 단위로 다시 쓰며 패딩을 출력 기준으로 새로 계산한다.
+2. **opcode 재번호.** 명령어 하위 7비트(128값) 중 0..84가 표준 85개 opcode의 순열이고, 85..127은
+   그 별칭이다(한 테이블 안에서 SETFIELD가 44와 109로 섞여 나온다). 1.250.672의 청크 3,378개에
+   서로 다른 번호 116개가 쓰였다. `CLIENT_OPCODES[0xa8]`가 datatable에 필요한 16개만 옮긴다
+   (그 빌드의 datatable 479개가 쓰는 12개 + 불리언·nil·초대형 테이블용 LOADFALSE·LOADTRUE·LOADNIL·
+   LOADKX). **나머지 번호가 나오면 실행하지 않고 거부한다** — Lua는 바이트코드를 검증하지 않는다.
+
+번호표는 클라이언트의 `libxlua.so`(x86_64, `split_config.x86_64.apk`의 `lib/x86_64/`)를 **정적 분석만**
+해서 읽었다(실행·루팅·후킹 없음). 심볼은 동적 심볼뿐이다.
+
+- `luaV_execute`의 디스패치 표: `.data.rel.ro`의 `R_X86_64_RELATIVE` 128개 연속(0x1bbe80), 대상
+  주소는 서로 다른 85개 = 5.5의 opcode 수. 핸들러 주소 순서는 소스 순서가 아니다(컴파일러가 재배치).
+- 핸들러 끝의 다음 명령 가져오기는 128바이트 표(.rodata 0x40250)를 한 번 거친다: 0..84는 그대로,
+  85..127은 대표 번호. 128칸 전부 직접 디스패치와 같은 핸들러를 고른다.
+- 로더(`luaU_undump`)는 표준과 같고 번호를 바꾸지 않는다. 오프셋 카운터가 표식을 센다(주 함수 앞에서 0x2a).
+- 각 핸들러의 기계어로 판정했다(레지스터 `r11` = base, `[rbp-0x90]` = 상수 배열, `r14d` = 명령어):
+
+| opcode | 클라이언트 번호 | 핸들러가 하는 일 |
+|---|---|---|
+| MOVE | 70, 85, 86, 87, 120 | `R[A] := R[B]`(값 8바이트 + 태그) |
+| LOADI | 81, 90 | `Bx − 0xffff`를 정수로, 태그 3 |
+| LOADF | 59, 91 | 같은 값을 `cvtsi2sd`로 실수로, 태그 0x13 |
+| LOADK | 1, 88, 89, 121 | `K[Bx]` 복사 |
+| LOADKX | 35 | 다음 명령의 Ax로 `K[Ax]`, pc + 1 |
+| LOADFALSE | 16, 92 | 태그 1만 쓴다(77은 같은 일 + pc + 1이라 LFALSESKIP) |
+| LOADTRUE | 27, 93 | 태그 0x11 |
+| LOADNIL | 75, 94, 95, 126 | B + 1칸에 태그 0 |
+| SETTABLE | 4, 106, 107, 124 | 키 = 레지스터 `R[B]`(정수면 배열 빠른 경로) |
+| SETI | 32, 108 | 키 = B 바이트 자체 |
+| SETFIELD | 44, 109 | 키 = `K[B]`(짧은 문자열 경로) |
+| NEWTABLE | 25 | 테이블을 만들어 태그 0x45, 크기는 vB·vC(+EXTRAARG) |
+| SETLIST | 63 | vB개를 vC 다음부터, 모자라면 배열을 늘림 |
+| RETURN | 78 | 업밸류 닫기, 호출 후처리 |
+| VARARGPREP | 34 | 가변 인자 정리 함수 호출 뒤 base 갱신 |
+| EXTRAARG | 45 | 아무것도 안 하고 다음 명령 |
+
+lupa 2.8의 `lua55`는 lua.org 5.5.0과 번호가 같다(MOVE 0 … VARARGPREP 83, EXTRAARG 84 — 컴파일해서 확인).
+
+**다시 읽어야 할 때:** `decode`가 `marker 0x..`(표식이 바뀜) 또는 `opcode N is not one a datatable uses`
+(번호가 바뀌었거나 테이블이 새 opcode를 씀)로 실패하면, 추측해서 번호를 넣지 말고 새 `libxlua.so`에서
+다시 읽는다. 도구와 순서는 저장소 밖 `C:\DW_data\lua55\README.md`.
 
 ## 절차
 
