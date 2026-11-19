@@ -64,19 +64,28 @@ select pg_temp.roster(9500000000000002, '00000000-0000-4000-8000-0000000cb502',
 
 -- THE PERIOD IS THE ONE RUNNING NOW, which is the whole point: its end is in the
 -- future, and that is the bound 0071 was measuring absences to.
-create function pg_temp.presence(pid uuid, since timestamptz)
+--
+-- Presence arrives the way production writes it: as a roster sighting, which
+-- 0032's trigger projects into `player_presence`. Since 0335 the scorer reads
+-- the sighting itself, so a row written straight into `player_presence` would
+-- no longer reach it. Both at the same instant, one roster batch.
+create function pg_temp.presence(uid bigint, pid uuid, since timestamptz)
 returns void language sql as $$
-  insert into public.player_presence (player_id, online_state, offline_since, observed_at)
-  values (pid, 'offline', since, now() - interval '1 minute')
-  on conflict (player_id) do update
-    set online_state = 'offline', offline_since = excluded.offline_since,
-        observed_at = excluded.observed_at;
+  insert into public.alliance_member_snapshots (
+    observation_id, source_command, parser_version, idempotency_key, captured_at,
+    collector_id, collected_from_server_id, alliance_id, server_id, game_uid, player_id,
+    member_rank, presence_redacted, online_state, offline_since)
+  values (gen_random_uuid(), 'al.rank', 'test', 'offp:' || uid,
+    now() - interval '1 minute', '00000000-0000-4000-8000-00000000cc75', 580,
+    '00000000-0000-4000-8000-0000000ab075', 580, uid, pid, 2, false, 'offline', since);
 $$;
 
 -- One away two hours, one away ten days. Under the old bound both came out over
 -- 200 hours and were indistinguishable.
-select pg_temp.presence('00000000-0000-4000-8000-0000000cb501', now() - interval '2 hours');
-select pg_temp.presence('00000000-0000-4000-8000-0000000cb502', now() - interval '10 days');
+select pg_temp.presence(9500000000000001, '00000000-0000-4000-8000-0000000cb501',
+  now() - interval '2 hours');
+select pg_temp.presence(9500000000000002, '00000000-0000-4000-8000-0000000cb502',
+  now() - interval '10 days');
 
 set local role authenticated;
 select pg_temp.act_as('00000000-0000-4000-8000-0000000ad075');
