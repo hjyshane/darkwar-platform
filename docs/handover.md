@@ -26,10 +26,10 @@
   5. 보드 저장이 `channel_is_ours`를 통과한다. 게임 이벤트 감시가 맞는 연맹에 보드를 넣는다.
   6. 숨긴 게임 항목이 다음 `alarms-calendar` 실행 뒤에도 숨겨져 있다.
 - **알람 실제 시험 (Task 10 Step 3, 주인 몫, 미실시).** 시험용 역할(한 명만 보유)과 시험용 채널을 Zombie Siege 보드에 걸고, 다음 Siege나 Frankie에서 12시간/1시간/5분 알림이 오는지, 폰에 역할 푸시가 오는지, 두 시간대에서 시각이 맞는지 본다. 멘션은 보이는데 푸시가 안 오면 역할의 "Allow anyone to @mention this role"을 켠다.
-- **0334 대기 — 순서가 있다 (11-18, 지도 연맹·이동·트럭).** ① 주인이 `db push`로 0334 적용 → ② 그 **뒤에** Windows Ingest·Sync 재시작(`collector-operations.md` 레시피). 거꾸로 하면 새 파서(world_map 1.7.0)가 `in_alliance`·`alliance_code`를 보내는데 DB에 열이 없어 Sync가 막힌다. 확인: 재시작 뒤 `world_city_snapshots`에 `in_alliance`가 찬 행, `world_truck_snapshots`에 `source_command = 'push.world.march.world.get.new'` 행, 566 지도에 연맹 랭킹. 미션 좌표(타일 그대로 복사)가 게임 좌표와 같은지는 **미확인** — 게임에서 미션 공유 링크 하나와 대조. `log/2026-11.md`.
+- **0334 대기 — 순서가 있다 (11-18, 지도 연맹·이동·트럭).** ① 주인이 `db push`로 0334 적용 → ② 그 **뒤에** Windows Ingest·Sync 재시작(`collector-operations.md` 레시피). 거꾸로 하면 새 파서(world_map 1.7.0)가 `in_alliance`·`alliance_code`를 보내는데 DB에 열이 없어 Sync가 막힌다. 확인: 재시작 뒤 `world_city_snapshots`에 `in_alliance`가 찬 행, `world_truck_snapshots`에 `source_command = 'push.world.march.world.get.new'` 행, 566 지도에 연맹 랭킹. 미션 좌표(타일 그대로 복사)가 게임 좌표와 같은지는 **미확인** — 게임에서 미션 공유 링크 하나와 대조. `log/2026-11.md`. **11-19 재시작 뒤 Sync는 막히지 않았다(확인함, 저널 기준):** 로컬 outbox에서 `in_alliance`가 든 행 39,400개와 `march.world.get.new` 트럭 300개가 오류 없이 sent — sync는 모르는 열을 거르지 않으니 프로덕션에 0334 열이 있다. `schema_migrations` 기록과 위 화면 확인 셋은 안 봄.
 - **0328 적용 완료 (11-15, PR #598 머지·푸시).** v10으로 두 연맹 현재 기간 리빌드함(HELLBOUND는 11-16 00:17Z에 2주차 측정 뒤 재빌드). 11-15 21:42Z~00:00Z 사이 주간 보드 스윕이 없어 2주차 읽기는 21:31Z 캡처.
 - **0335·0336 — SQL Editor로 적용, `schema_migrations`에는 없다 (11-19).** 0335(끝난 기간 리빌드에서 부재가 사라지던 버그, v12)는 주인이 SQL Editor로 적용함(주인 보고, 미확인). 0336(Rebuild 50초 상한)도 SQL Editor로 적용함(11-19, 주인이 `proconfig`에 `statement_timeout=50s` 확인). 둘 다 기록이 없어 다음 `db push`가 **0334 뒤에 다시 돌린다** — 함수 교체뿐이라 무해. 0334보다 먼저 기록하면 `db push`가 순서 오류로 멈추므로 기록하지 않았다. 남은 것: CBFW 11-02~16 Rebuild로 v12 행이 생기고 부재 R1이 돌아오는지(11-18 14:49Z 이후 Rebuild 성공 0), R1 37명(44%)의 원인 — `log/2026-11.md` 11-19.
-- **수집기 재시작 — 미확인.** Windows Ingest만 11-18에 59c61a0f + APS 수정으로 다시 떴다(위). Sync·Notify·Capture는 11-17 19시대에 시작했고 그때 체크아웃은 확인 안 함. Windows는 11-08에 edaae1b로 올렸다. 그 뒤 #582(아이폰 체인이 서버를 따라감) 등이 머지됐다. 반영하려면 `git pull`만으로는 안 된다(editable install) — `collector-operations.md` 레시피. **재시작 전에 `git -C C:\darkwar-platform branch --show-current`가 `main`인지 본다**(다른 세션이 체크아웃을 바꾼 적 있음).
+- **Windows 수집기 — 11-19 재등록·재시작 (확인함).** 11-19 01:45Z ingest가 `database is locked` 하나에 죽고 16시간 안 살아났다(#628·#631로 고침, `log/2026-11.md`). 주인이 13:21 EST에 `register-tasks.ps1`로 네 작업을 `main` `4580bb37`로 재등록, Sync만 #631 뒤 13:37 EST에 `a3ea389d`로 재시작. 넷 다 로그온+**시간** 트리거, `NextRunTime` 있음 — 죽으면 5분 안에 되살아난다(전엔 반복이 무장 안 돼 있었다). 크래시 구간 파일은 전부 들어갔고 outbox 0 대기·0 dead. 체크아웃에 다른 세션의 **커밋 안 된 대시보드 변경**(eventGuide 등)이 남아 있다. 반영하려면 `git pull`만으로는 안 된다(editable install) — `collector-operations.md` §4-2. **재시작 전에 `git -C C:\darkwar-platform branch --show-current`가 `main`인지 본다**(11-19에도 한때 `feat/hive-map-zoom-size-rank`였다).
 - **맥**: `git pull` + `install-iphone-agent.sh`(체인이 옛 체인을 먼저 죽임, #551).
 - **VM(GCE `dw-emu-test`)은 맥에서만 닿는다.** Windows엔 gcloud도 SSH 항목도 없다.
 
@@ -50,6 +50,8 @@
 | `dw-capture` 재접속 멈춤 | 원인 미확인 (계측만 있음) | `log/…-tail.md` |
 | `arena_matches` writer 없음 | 08-03에 로컬 0건 확인, 프로덕션 미확인 | `capture-backlog.md` |
 | `goto-sweep` 무인 반복(566–588 전체 회차) | 11-18: 582–586에서 110점 시험만, 전체 회차 없음(보류, §2). 거절되는 서버 유무 모름 | `runbooks/map-sweep.md` |
+| 잠긴 저널 재시도(ingest `LOCKED`, sync `sync.journal_locked`) | 11-19: 진짜 잠금으로 테스트만. 재시작 뒤 라이브에서 잠금 아직 없음 | `collector-operations.md` §4-3 |
+| 시간 트리거가 죽은 작업을 되살림 | 11-19: 등록·`NextRunTime`까지 확인. 실제로 죽은 작업을 살린 적은 아직 없음 | `register-tasks.ps1` |
 | 기존 스와이프 스윕(`dw-ui-worker sweep`)의 줌 | 11-18: BlueStacks 터치가 프로토콜 B라 `zoom.py` 핀치 무효 | `traps.md` |
 | 아이폰(iOS) 클라이언트의 APS zstd 키 | 모름. Android APK에서만 뽑았다. 맥 `.env`에 `DW_APS_ZSTD_KEY_FILE`이 없으면 그 체인은 압축 응답을 버린다 | `C:\DW_data\aps\README.md` |
 
@@ -64,13 +66,14 @@
 
 | 머신 | 돌리는 것 | 메모 |
 |---|---|---|
-| Windows `C:\darkwar-platform` | Ingest · Sync · Notify · iPhone 작업 스케줄러 체인, dumpcap | 재시작: `Stop-ScheduledTask` → 명령줄 패턴으로 체인 kill → `Start-ScheduledTask`. 한 번 `uv run` 재동기화가 상시 작업을 죽인 적 있어 `--no-sync`([traps.md](runbooks/traps.md)) |
+| Windows `C:\darkwar-platform` | Capture(dumpcap) · Ingest · Sync · Notify 작업 스케줄러. `DarkWar-iPhone`은 11-19 기준 **등록 안 됨** | 재시작: `Stop-ScheduledTask` → 명령줄 패턴으로 체인 kill → `Start-ScheduledTask`. 죽으면 시간 트리거가 5분 안에 살림 — `NextRunTime`이 비면 안 산다. 한 번 `uv run` 재동기화가 상시 작업을 죽인 적 있어 `--no-sync`([traps.md](runbooks/traps.md)) |
 | Mac | 아이폰 에이전트, 개발 | pgTAP 전체 가능(`mac-setup.md`, Docker 없음). 캡처·로컬 스택·`db:types`는 Windows/CI |
 | GCE VM | 에뮬레이터 + `dw-cloud` (예정) | `DW_COLLECTOR_ID`는 Windows와 달라야 함(하트비트 upsert 키) |
 | CI | `web`·`guard`·`db`·`deploy` | **`db` 잡을 읽고 머지**(CLAUDE.md) |
 
 ## 6. 최근 2주 (자세한 것은 `log/2026-11.md`)
 
+- 11-19 `database is locked` 하나에 ingest가 16시간 죽음 — 잠금 재시도, 무장 안 된 되살리기 트리거 (#628·#631) — `log/2026-11.md`
 - 11-19 끝난 등급 기간을 다시 빌드하면 부재가 사라지던 버그 (0335, v12); CBFW 등급 대거 변동의 진단 — `log/2026-11.md`
 - 11-18 맵 스윕을 게임의 좌표 이동 창으로(`goto-sweep`), 직접 요청·딥링크는 안 됨, BlueStacks 터치 사고 — `log/2026-11.md`
 - 11-18 게임 데이터가 Lua 5.5(패딩 기준·opcode 재번호) → 읽기 고침, `game-names` 1,000행 잘림 (#622) — `log/2026-11.md`
