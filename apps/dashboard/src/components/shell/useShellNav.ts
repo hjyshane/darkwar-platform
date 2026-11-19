@@ -42,7 +42,7 @@ export function useShellNav(
         ? null
         : {
             alliance_id: ownAlliance.alliance_id,
-            label: ownAlliance.code ?? ownAlliance.name ?? 'Our alliance',
+            label: ownAlliance.code ?? ownAlliance.name ?? 'Alliance',
           },
     mayViewMembers: isPending
       ? undefined
@@ -54,7 +54,7 @@ export function useShellNav(
     tabs: {
       members: MEMBERS.fromHash(hash),
       hive: HIVE.fromHash(hash),
-      alliance: allianceViewFromHash(hash),
+      alliance: allianceViewFromHash(hash) ?? undefined,
     },
     mayPlanHive: isPending ? undefined : isAllowed(permissions?.grants, session?.role, 'hive.plan'),
     mayViewArena: isPending

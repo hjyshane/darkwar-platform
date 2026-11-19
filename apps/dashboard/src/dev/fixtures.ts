@@ -21,6 +21,7 @@ import {
   stepKey,
   wholeSecond,
 } from '../features/alarms/alarmLogic';
+import { overviewWindow } from '../features/alliance/overview';
 import type { BoardPage } from '../features/board/board';
 import { vacateDeparted } from '../features/hive/hiveFormations';
 import { parseAtlas } from '../features/map/atlas';
@@ -974,6 +975,32 @@ const PARTICIPATION_ROWS = [
     watchtower_gained: 1,
   }),
 ];
+
+const OVERVIEW_WINDOW = overviewWindow(new Date(NOW));
+
+/** One event's verdicts, as many rows as members: present, absent, not known. */
+function verdicts(
+  kind: string,
+  daysAgo: number,
+  present: number,
+  absent: number,
+  unknown: number,
+  each: { score?: number; damage?: number },
+) {
+  const row = (attended: boolean | null) => ({
+    kind,
+    held_on: ago(60 * 24 * daysAgo).slice(0, 10),
+    round: 1,
+    attended,
+    score: attended === true ? (each.score ?? null) : null,
+    damage: attended === true ? (each.damage ?? null) : null,
+  });
+  return [
+    ...Array.from({ length: present }, () => row(true)),
+    ...Array.from({ length: absent }, () => row(false)),
+    ...Array.from({ length: unknown }, () => row(null)),
+  ];
+}
 
 const ATTENDANCE_KINDS = [
   {
@@ -3602,6 +3629,26 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
 
   // Which alliance is ours, for the nav tab that links straight to it.
   [['own-alliance'], { alliance_id: ALLIANCE.ours, name: 'HELLBOUND', code: 'CBFW' }],
+
+  // Our alliance's Overview: the duel days and the fortnight's events, as the
+  // two reads return them (features/alliance/overview.ts).
+  [
+    ['alliance-overview', 'duel', ALLIANCE.ours, OVERVIEW_WINDOW.fromDay],
+    [1, 2, 3, 4, 5, 6].map((back) => ({
+      game_day: ago(60 * 24 * back).slice(0, 10),
+      total: 41_000_000 + back * 3_700_000,
+      members_counted: 84,
+    })),
+  ],
+  [
+    ['alliance-overview', 'events', OVERVIEW_WINDOW.from],
+    [
+      ...verdicts('frankie', 3, 61, 20, 0, { damage: 900_000_000 }),
+      ...verdicts('capital_clash', 5, 38, 0, 46, { score: 1_200_000 }),
+      ...verdicts('season_clash', 8, 52, 30, 2, {}),
+    ],
+  ],
+  [['attendance-kinds-all'], ATTENDANCE_KINDS],
 
   // One alliance's trends. The board readings come in PAIRS — a server board and
   // a cross-server board three minutes apart, same power, different rank — which

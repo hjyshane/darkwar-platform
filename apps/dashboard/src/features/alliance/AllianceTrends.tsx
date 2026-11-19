@@ -281,8 +281,9 @@ function dailySeries(
 }
 
 /** Which block of the trends a tab shows (user 2026-10-05: one tab per
- * block rather than a scroll through all three). */
-export type TrendPart = 'board' | 'power' | 'activity';
+ * block). Power and towers sat on a tab of their own until 2026-11-19; they
+ * are now the lower half of Activity. */
+export type TrendPart = 'board' | 'activity';
 
 export function AllianceTrends({
   allianceId,
@@ -403,10 +404,76 @@ export function AllianceTrends({
         </>
       )}
 
+      {/* Ours only, and not because of a permission. `rank_period_snapshots` is
+          scored from contribution and duel boards, which exist for our members
+          and nobody else — the rows come back unfiltered by alliance, so drawing
+          them on a stranger's page would put OUR activity under THEIR name. */}
+      {part === 'activity' && isOwn && (
+        <>
+          <h3>Activity</h3>
+          {dailyDays === 0 ? (
+            <p className="empty">
+              No daily board has been captured for this alliance yet. Donation and duel totals come
+              from the daily ranking screens, which have to be opened before 02:00 UTC clears them.
+            </p>
+          ) : (
+            <>
+              <div className="stats">
+                <StatTile
+                  hero
+                  label="Donated, latest day"
+                  spark={<Sparkline values={donation.points.map((point) => point.v)} />}
+                  note={lastDayNote(donation)}
+                  value={lastValue(donation, wholeValue)}
+                />
+                <StatTile
+                  label="Duel points, latest day"
+                  spark={<Sparkline values={duel.points.map((point) => point.v)} />}
+                  note={lastDayNote(duel)}
+                  value={lastValue(duel, bigValue)}
+                />
+                <StatTile
+                  label="Days captured"
+                  note={`${partialDays} read only once`}
+                  value={plain.format(dailyDays)}
+                />
+              </div>
+
+              {dailyDays === 1 ? (
+                // One day is not a trend, and a flat line across one point claims
+                // a measurement that held still.
+                <p className="empty">
+                  One game day captured so far. A second is what makes this a trend — the daily
+                  boards reset at 02:00 UTC, so each one has to be read before then or it is gone.
+                </p>
+              ) : (
+                <LineChart
+                  formatRight={bigValue}
+                  formatTime={day}
+                  formatValue={wholeValue}
+                  label="Alliance donation and duel points per game day"
+                  note="A game day runs 02:00 to 02:00 UTC, and each figure is the largest reading taken that day — the boards accumulate, so summing our captures would count the same points twice. Duel points are the dashed line, on the right."
+                  series={[donation, duel]}
+                />
+              )}
+
+              {partialDays > 0 && (
+                <p className="subtle">
+                  {partialDays} of these days was read only once. The boards accumulate through the
+                  day, so a single early reading is a part of that day rather than its total — a dip
+                  there is our capture, not the alliance.
+                </p>
+              )}
+            </>
+          )}
+        </>
+      )}
+
       {/* Everything below needs the member list opened, which we can only do for
           our own alliance. Saying so beats an empty section that reads as a
           collector that has not run. */}
-      {part === 'power' &&
+      {part === 'activity' && <h3>Power and towers</h3>}
+      {part === 'activity' &&
         (usable.length === 0 || latest === null || first === null ? (
           <p className="empty">
             Per-member figures — power spread, tower levels, activity — need the alliance's own
@@ -519,71 +586,6 @@ export function AllianceTrends({
             </div>
           </>
         ))}
-
-      {/* Ours only, and not because of a permission. `rank_period_snapshots` is
-          scored from contribution and duel boards, which exist for our members
-          and nobody else — the rows come back unfiltered by alliance, so drawing
-          them on a stranger's page would put OUR activity under THEIR name. */}
-      {part === 'activity' && isOwn && (
-        <>
-          <h3>Activity</h3>
-          {dailyDays === 0 ? (
-            <p className="empty">
-              No daily board has been captured for this alliance yet. Donation and duel totals come
-              from the daily ranking screens, which have to be opened before 02:00 UTC clears them.
-            </p>
-          ) : (
-            <>
-              <div className="stats">
-                <StatTile
-                  hero
-                  label="Donated, latest day"
-                  spark={<Sparkline values={donation.points.map((point) => point.v)} />}
-                  note={lastDayNote(donation)}
-                  value={lastValue(donation, wholeValue)}
-                />
-                <StatTile
-                  label="Duel points, latest day"
-                  spark={<Sparkline values={duel.points.map((point) => point.v)} />}
-                  note={lastDayNote(duel)}
-                  value={lastValue(duel, bigValue)}
-                />
-                <StatTile
-                  label="Days captured"
-                  note={`${partialDays} read only once`}
-                  value={plain.format(dailyDays)}
-                />
-              </div>
-
-              {dailyDays === 1 ? (
-                // One day is not a trend, and a flat line across one point claims
-                // a measurement that held still.
-                <p className="empty">
-                  One game day captured so far. A second is what makes this a trend — the daily
-                  boards reset at 02:00 UTC, so each one has to be read before then or it is gone.
-                </p>
-              ) : (
-                <LineChart
-                  formatRight={bigValue}
-                  formatTime={day}
-                  formatValue={wholeValue}
-                  label="Alliance donation and duel points per game day"
-                  note="A game day runs 02:00 to 02:00 UTC, and each figure is the largest reading taken that day — the boards accumulate, so summing our captures would count the same points twice. Duel points are the dashed line, on the right."
-                  series={[donation, duel]}
-                />
-              )}
-
-              {partialDays > 0 && (
-                <p className="subtle">
-                  {partialDays} of these days was read only once. The boards accumulate through the
-                  day, so a single early reading is a part of that day rather than its total — a dip
-                  there is our capture, not the alliance.
-                </p>
-              )}
-            </>
-          )}
-        </>
-      )}
     </>
   );
 }

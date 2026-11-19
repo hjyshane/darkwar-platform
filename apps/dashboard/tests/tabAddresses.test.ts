@@ -57,8 +57,36 @@ describe('tab addresses', () => {
       expect(allianceIdFromHash(hash)).toBe(UUID);
       expect(allianceViewFromHash(hash)).toBe(view.id);
     }
+    // Only the address with no view is bare: Members is written out like the
+    // rest. The bare one names no view, and the page opens on its own first.
     expect(allianceHash(UUID)).toBe(`#/alliance/${UUID}`);
-    expect(allianceViewFromHash(`#/alliance/${UUID}`)).toBe('members');
+    expect(allianceHash(UUID, 'members')).toBe(`#/alliance/${UUID}/members`);
+    expect(allianceHash(UUID, 'overview')).toBe(`#/alliance/${UUID}/overview`);
+    expect(allianceViewFromHash(`#/alliance/${UUID}`)).toBeNull();
+    expect(allianceViewFromHash('#/members')).toBeNull();
+  });
+
+  it('lists the alliance views in the order the page draws them', () => {
+    expect(ALLIANCE_VIEWS.map((view) => [view.id, view.label])).toEqual([
+      ['overview', 'Overview'],
+      ['members', 'Members'],
+      ['moves', 'Moves'],
+      ['board', 'Ranking'],
+      ['activity', 'Activity'],
+      ['compare', 'Against the server'],
+      ['names', 'Also known as'],
+    ]);
+  });
+
+  it('sends the retired Power and towers address to Activity, which took it over', () => {
+    const hash = `#/alliance/${UUID}/power`;
+    expect(ALLIANCE_VIEWS.map((view) => view.id as string)).not.toContain('power');
+    expect(routeFromHash(hash)).toBe('alliance');
+    expect(allianceIdFromHash(hash)).toBe(UUID);
+    expect(allianceViewFromHash(hash)).toBe('activity');
+    // An address nobody ever handed out is still not the alliance page.
+    expect(routeFromHash(`#/alliance/${UUID}/nope`)).toBe('overview');
+    expect(allianceViewFromHash(`#/alliance/${UUID}/nope`)).toBeNull();
   });
 });
 
@@ -68,44 +96,85 @@ const base = (over: Partial<NavContext> = {}): NavContext => ({
   own: { alliance_id: UUID, label: 'CBFW' },
   mayViewMembers: true,
   isAdmin: false,
-  // The full menu: a plain member gets the short one (buildMemberNav).
+  // An officer: the member menu, plus Alarms under the alliance (2026-11-19).
   isOfficer: true,
   seasonNames: {},
   ...over,
 });
+
+/** An admin: the same menu, and the Admin menu under it. */
+const admin = (over: Partial<NavContext> = {}): NavContext => base({ isAdmin: true, ...over });
 
 const entry = (ctx: NavContext, group: string, label: string): NavItem | undefined =>
   buildNav(ctx)
     .find((candidate) => candidate.id === group)
     ?.items.find((candidate) => candidate.label === label);
 
-/** A screen filed under our alliance's entry (2026-11-08): its own tabs are
- * not drawn in the sidebar, but are kept on the child for Ctrl+K. */
-const filed = (ctx: NavContext, label: string) =>
-  entry(ctx, 'alliance', 'CBFW')?.children?.find((child) => child.label === label);
+/** A screen filed under an entry: its own tabs are not drawn in the sidebar,
+ * but are kept on the child for Ctrl+K. */
+const filed = (ctx: NavContext, group: string, under: string, label: string) =>
+  entry(ctx, group, under)?.children?.find((child) => child.label === label);
+
+/** Our alliance's page, the first screen under its entry (2026-11-08). */
+const ownPage = (ctx: NavContext) => filed(ctx, 'watch', 'CBFW', 'Overview');
 
 describe('sidebar tabs for the alliance screens', () => {
-  it('keeps the two ranking tabs on Members, marking the open one', () => {
-    const members = filed(base({ route: 'members', tabs: { members: 'running' } }), 'Members');
+  it('keeps the two ranking tabs on Members, in the Roster of the admin, marking the open one', () => {
+    const ctx = admin({ route: 'members', tabs: { members: 'running' } });
+    const members = filed(ctx, 'admin', 'Roster', 'Members');
 
+    expect(members).toMatchObject({ href: '#/members', screen: true, current: true });
     expect(members?.tabs?.map((tab) => [tab.label, tab.href, tab.current])).toEqual([
       ['Last ranking', '#/members', false],
       ['This ranking · weekly', '#/members/running', true],
     ]);
+    // The bare address is the first tab.
+    expect(
+      filed(admin({ route: 'members' }), 'admin', 'Roster', 'Members')
+        ?.tabs?.filter((tab) => tab.current)
+        .map((tab) => tab.label),
+    ).toEqual(['Last ranking']);
+    // Members is no longer under our alliance's entry, for anybody.
+    expect(filed(ctx, 'watch', 'CBFW', 'Members')).toBeUndefined();
+    expect(filed(base({ route: 'members' }), 'watch', 'CBFW', 'Members')).toBeUndefined();
   });
 
-  it('keeps the hive tabs for a planner only', () => {
-    const labels = (mayPlanHive: boolean | undefined) =>
-      filed(base({ route: 'hive', mayPlanHive }), 'Hive')?.tabs?.map((tab) => tab.label);
+  it('lists the hive steps under Hive for a planner only', () => {
+    const hive = (mayPlanHive: boolean | undefined, tab?: 'people') =>
+      entry(base({ route: 'hive', mayPlanHive, tabs: { hive: tab } }), 'watch', 'Hive');
 
-    expect(labels(true)).toEqual(['Plan', 'Draw the shape', 'Who goes where']);
-    expect(labels(false)).toBeUndefined();
-    expect(labels(undefined)).toBeUndefined();
+    expect(hive(true, 'people')?.children?.map((c) => [c.label, c.href, c.current])).toEqual([
+      ['Plan', '#/hive', false],
+      ['Draw the shape', '#/hive/shape', false],
+      ['Who goes where', '#/hive/people', true],
+    ]);
+    // The bare address is the plan.
+    expect(
+      hive(true)
+        ?.children?.filter((c) => c.current)
+        .map((c) => c.label),
+    ).toEqual(['Plan']);
+    // Everybody else sees the plan and nothing else: the entry, with no steps.
+    expect(hive(false)).toMatchObject({ href: '#/hive', current: true });
+    expect(hive(false)?.children).toBeUndefined();
+    expect(hive(undefined)).toMatchObject({ href: '#/hive', current: true });
+    expect(hive(undefined)?.children).toBeUndefined();
+    // Hive is an entry of its own, not a screen under our alliance's.
+    const planner = base({ route: 'hive', mayPlanHive: true });
+    expect(filed(planner, 'watch', 'CBFW', 'Hive')).toBeUndefined();
   });
 
   it('gives the archived planner no sidebar entry, while its address still opens it', () => {
-    const planner = entry(base({ route: 'planner' }), 'alliance', 'Planner');
-    expect(planner).toBeUndefined();
+    for (const ctx of [base({ route: 'planner' }), admin({ route: 'planner' })]) {
+      const named = buildNav(ctx).flatMap((group) =>
+        group.items.flatMap((item) => [item, ...(item.children ?? [])]),
+      );
+      expect(named.length).toBeGreaterThan(6);
+      expect(
+        named.filter((one) => one.label === 'Planner' || one.href.startsWith('#/planner')),
+      ).toEqual([]);
+      expect(named.some((one) => one.current)).toBe(false);
+    }
     expect(routeFromHash(PLANNER.hash('upgrades'))).toBe('planner');
   });
 
@@ -120,27 +189,68 @@ describe('sidebar tabs for the alliance screens', () => {
   });
 
   it("keeps our alliance views on the entry's Overview, but not past names, which depend on its data", () => {
-    const page = filed(
-      base({ route: 'alliance', allianceId: UUID, tabs: { alliance: 'power' } }),
-      'Overview',
+    const page = ownPage(
+      base({ route: 'alliance', allianceId: UUID, tabs: { alliance: 'activity' } }),
     );
 
     expect(page?.href).toBe(`#/alliance/${UUID}`);
+    expect(page?.tabs?.map((tab) => [tab.label, tab.href])).toEqual([
+      ['Overview', `#/alliance/${UUID}/overview`],
+      ['Members', `#/alliance/${UUID}/members`],
+      ['Ranking', `#/alliance/${UUID}/board`],
+      ['Activity', `#/alliance/${UUID}/activity`],
+      ['Against the server', `#/alliance/${UUID}/compare`],
+    ]);
+    expect(page?.tabs?.filter((tab) => tab.current).map((tab) => tab.href)).toEqual([
+      `#/alliance/${UUID}/activity`,
+    ]);
+  });
+
+  it('keeps Moves for an admin only, after Members', () => {
+    const page = ownPage(
+      admin({ route: 'alliance', allianceId: UUID, tabs: { alliance: 'moves' } }),
+    );
+
     expect(page?.tabs?.map((tab) => tab.label)).toEqual([
-      'Members',
       'Overview',
+      'Members',
       'Moves',
       'Ranking',
-      'Power and towers',
       'Activity',
       'Against the server',
     ]);
-    expect(page?.tabs?.find((tab) => tab.current)?.href).toBe(`#/alliance/${UUID}/power`);
+    expect(page?.tabs?.filter((tab) => tab.current).map((tab) => tab.href)).toEqual([
+      `#/alliance/${UUID}/moves`,
+    ]);
+    for (const ctx of [base(), base({ isOfficer: false })]) {
+      expect(ownPage(ctx)).toBeDefined();
+      expect(ownPage(ctx)?.tabs?.map((tab) => tab.label)).not.toContain('Moves');
+    }
+  });
+
+  it('marks Overview for the bare address of our own page, and Activity for the retired one', () => {
+    const marked = (hash: string) =>
+      ownPage(
+        base({
+          route: routeFromHash(hash),
+          allianceId: allianceIdFromHash(hash),
+          tabs: { alliance: allianceViewFromHash(hash) ?? undefined },
+        }),
+      )
+        ?.tabs?.filter((tab) => tab.current)
+        .map((tab) => tab.label);
+
+    expect(marked(`#/alliance/${UUID}`)).toEqual(['Overview']);
+    expect(marked(`#/alliance/${UUID}/members`)).toEqual(['Members']);
+    expect(marked(`#/alliance/${UUID}/power`)).toEqual(['Activity']);
+    // Somebody else's page marks nothing of ours.
+    expect(marked('#/alliance/33333333-3333-4333-8333-333333333301/members')).toEqual([]);
   });
 
   it('marks no alliance view while another screen is open', () => {
-    const page = filed(base({ route: 'overview' }), 'Overview');
+    const page = ownPage(base({ route: 'overview' }));
 
+    expect(page).toBeDefined();
     expect(page?.current).toBe(false);
     expect(page?.tabs?.some((tab) => tab.current)).toBe(false);
   });

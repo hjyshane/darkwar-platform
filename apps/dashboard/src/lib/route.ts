@@ -261,29 +261,32 @@ export function plannerKindFromHash(hash: string): string | null {
  * its data (past names, whether it is ours), so the page filters this list; the
  * sidebar lists the ones every alliance of ours has. */
 export type AllianceView =
-  | 'members'
   | 'overview'
+  | 'members'
   | 'moves'
   | 'board'
-  | 'power'
   | 'activity'
   | 'compare'
   | 'names';
 export const ALLIANCE_VIEWS: ReadonlyArray<{ id: AllianceView; label: string }> = [
-  { id: 'members', label: 'Members' },
-  // Strongest members and, for officers, who left lately. After Members, not
-  // before it: the bare address has always opened Members and a link anybody
-  // has sent expects that.
+  // Ours only (owner, 2026-11-19): the duel and the last fortnight's alliance
+  // events. It is what our own page opens on; anybody else's opens on Members.
   { id: 'overview', label: 'Overview' },
+  { id: 'members', label: 'Members' },
   // Who joined from where and who left to where, as far as we observed it
-  // (alliance_moves, 0314). The RPC decides who may read which alliance's.
+  // (alliance_moves, 0314). Offered to admins only (owner, 2026-11-19); the
+  // RPC still decides who may read which alliance's.
   { id: 'moves', label: 'Moves' },
   { id: 'board', label: 'Ranking' },
-  { id: 'power', label: 'Power and towers' },
+  // Donation and duel totals, then power and towers beneath them: the two were
+  // separate views until 2026-11-19.
   { id: 'activity', label: 'Activity' },
   { id: 'compare', label: 'Against the server' },
   { id: 'names', label: 'Also known as' },
 ];
+
+/** Views that were folded into another: the address still lands. */
+const RETIRED_ALLIANCE_VIEWS: Readonly<Record<string, AllianceView>> = { power: 'activity' };
 
 const SERVER_HASH = /^#\/server\/(\d+)$/;
 
@@ -298,7 +301,10 @@ const MAP_HASH = /^#\/map(?:\/(\d+))?$/;
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 const PLAYER_HASH = new RegExp(`^#/player/(${UUID})$`, 'i');
 const ALLIANCE_HASH = new RegExp(
-  `^#/alliance/(${UUID})(?:/(${ALLIANCE_VIEWS.map((view) => view.id).join('|')}))?$`,
+  `^#/alliance/(${UUID})(?:/(${[
+    ...ALLIANCE_VIEWS.map((view) => view.id),
+    ...Object.keys(RETIRED_ALLIANCE_VIEWS),
+  ].join('|')}))?$`,
   'i',
 );
 // One post, on either board. Both are `#/<board>/<uuid>` so a member can send
@@ -380,14 +386,17 @@ export function noticeHash(noticeId: string): string {
 /** An alliance's address, and with a view one of its tabs. Members, the page's
  * first view, is the bare address. */
 export function allianceHash(allianceId: string, view?: AllianceView): string {
-  return view === undefined || view === 'members'
-    ? `#/alliance/${allianceId}`
-    : `#/alliance/${allianceId}/${view}`;
+  // The bare address is the page's own first view: Overview on ours, Members
+  // on anybody else's. A named view is always written out, Members included.
+  return view === undefined ? `#/alliance/${allianceId}` : `#/alliance/${allianceId}/${view}`;
 }
 
-/** The view an `#/alliance/<uuid>/...` address names; Members for the bare one. */
-export function allianceViewFromHash(hash: string): AllianceView {
-  return (ALLIANCE_HASH.exec(hash)?.[2] as AllianceView | undefined) ?? 'members';
+/** The view an `#/alliance/<uuid>/...` address names; null for the bare one,
+ * which the page opens on its first view. */
+export function allianceViewFromHash(hash: string): AllianceView | null {
+  const named = ALLIANCE_HASH.exec(hash)?.[2]?.toLowerCase();
+  if (named === undefined) return null;
+  return RETIRED_ALLIANCE_VIEWS[named] ?? (named as AllianceView);
 }
 
 /** The server a `#/server/580` address names, or null for any other. */
@@ -527,6 +536,19 @@ export const EVENTS_HUB_TABS: ReadonlyArray<NavTab> = [
   { route: 'season', hash: '#/season', label: 'Season 3' },
   { route: 'season2', hash: '#/season2', label: 'Season 2' },
 ];
+
+/** Whether a reader is offered one of the Events screens, in the strip and in
+ * the sidebar. Season 2 is for admins; Alarms is for officers and admins
+ * (owner, 2026-11-19): a member has no alarm to set. Hides an entry and
+ * withholds nothing — the address still opens, and RLS decides what it shows. */
+export function eventsTabOffered(
+  route: Route,
+  who: { isAdmin: boolean; isOfficer: boolean },
+): boolean {
+  if (route === 'season2') return who.isAdmin;
+  if (route === 'alarms') return who.isAdmin || who.isOfficer;
+  return true;
+}
 
 /** Is this route one of the screens behind the Events entry? */
 export function inEventsHub(route: Route): boolean {
