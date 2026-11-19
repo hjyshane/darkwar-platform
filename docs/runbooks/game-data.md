@@ -205,6 +205,10 @@ lupa 2.8의 `lua55`는 lua.org 5.5.0과 번호가 같다(MOVE 0 … VARARGPREP 8
    막혀 os error 32로 실패한다. Pillow는 UnityPy에 딸려 온다.)
    먼저 `--dry-run`으로 개수를 본다(첫 배치: 102개, 259 KB — 무기 18/18, 장비 60/60, 영웅 40/47,
    업그레이드에 드는 아이템 28/32).
+   2026-11-18(1.250.672): 팩은 `C:/DW_data/apk/1.250.672/split_install_time_pack.apk`(버전별 폴더;
+   `C:/DW_data/gamedata/apk/`는 없어졌다). `icons=1005 (2933 KB) refs drawn {exclusive 18/18, gear 60/60,
+   hero 40/47, item 1400/1899, pet 9/9, resource 11/16, ui 4/4}`. 실제 실행은 2 GB 팩을 읽느라 **10분 넘게**
+   걸린다(백그라운드로 돌린다). 덮어쓰기만 하므로 `game-towers`·`game-trucks`가 넣은 그림은 남는다.
 
 그림은 게임 회사 것이라 **공개 URL로 내보내지 않는다**. `game_icons`(base64 WebP, 긴 변 96px)와
 `game_icon_refs`(무엇이 어느 그림인지)는 멤버만 읽고(0232), 대시보드는 로그인한 세션으로 받아 간다.
@@ -260,6 +264,15 @@ Shop value에서 그림이 빈 25개는 `goods.icon`이 가리키는 그림이 *
 
 먼저 `--dry-run`으로 한 줄을 본다. 2026-11-08:
 `activities=3 themes=18 scores=158 calendar=42 guides=3 sections=18 scoreless=[] unnamed=[]`.
+
+**테마 수는 저널이 가진 기간만큼이다.** 2026-11-18(1.250.672)에는 `live.db`에 그날 캡처만 있어서
+(`hero.event.info.get` 81건, 달력 15건) `themes=9 scores=73 sections=9`였다. `client` 섹션은 매번
+지우고 다시 쓰므로, 저널이 짧을 때 돌리면 전에 있던 테마 섹션이 빠진다 — 먼저 프로덕션의 섹션 수와
+저널 기간(`select min(captured_at), max(captured_at) from raw_observations where source_command =
+'hero.event.info.get'`)을 본다. 그날은 프로덕션에 가이드가 하나도 없어서 잃을 게 없었다(처음 씀:
+가이드 3, 섹션 9). 듀얼의 다른 요일은 그 요일 캡처가 쌓인 뒤 다시 돌리면 채워진다. 가이드 제목
+"Merry Xmas"(70005)·"Mech Vault"(100004)·"Key Search"(100003)는 클라이언트 `activity_panel`의 이름이다
+(5.4 시절 10-03 `game-names`와 같다) — 임원이 가이드 편집기에서 고친다.
 
 - `guides`·`sections`: 점수 항목이 하나라도 있는 activity마다 `event_guides` 한 줄(슬러그 `activity-<id>`,
   제목은 클라이언트의 이벤트 이름, **비공개**), 테마마다 `event_guide_sections`에 `source=client`인
