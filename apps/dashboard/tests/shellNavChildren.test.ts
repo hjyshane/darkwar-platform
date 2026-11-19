@@ -25,16 +25,14 @@ const item = (ctx: NavContext, group: string, label: string): NavItem | undefine
     ?.items.find((entry) => entry.label === label);
 
 describe('sidebar tabs: event guide', () => {
-  it('lists the six tabs, each with its own address', () => {
+  it('lists the four tabs, each with its own address', () => {
     const guide = item(base({ route: 'eventGuide' }), 'events', 'Event guide');
 
     expect(guide?.children?.map((child) => [child.label, child.href])).toEqual([
       ['Now', '#/event-guide'],
-      ['Guides', '#/event-guide/guides'],
       ['Alliance events', '#/event-guide/events'],
       ['Survival Preparedness', '#/event-guide/survival'],
       ['Alliance Duel', '#/event-guide/duel'],
-      ['Duel scores', '#/event-guide/scores'],
     ]);
   });
 

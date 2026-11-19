@@ -1,4 +1,3 @@
-import { useMemo, useState } from 'react';
 import { StatTile } from '../../components/StatTile';
 import { Tabs } from '../../components/ui/Tabs';
 import { useIsCommunity } from '../../lib/communityAccess';
@@ -6,30 +5,14 @@ import {
   EVENT_GUIDE_TABS,
   type EventGuideTab,
   eventGuideHash,
-  eventGuideSlugFromHash,
   isEventGuideTabOpen,
 } from '../../lib/route';
 import { humanUntil } from '../../lib/shellNav';
 import { SERVER_ZONE, browserZone, zoneLabel, zonedDayKey, zonedTime } from '../../lib/timezone';
-import { replaceHash, useHash } from '../../lib/useHash';
+import { replaceHash } from '../../lib/useHash';
 import { serverWhen } from '../calendar/data';
-import { GuidesTab } from './GuidesTab';
-import {
-  type CapturedTime,
-  type EventGuide,
-  useCapturedTimes,
-  useDuelBoard,
-  useEventGuide,
-} from './data';
-import {
-  type DuelSort,
-  duelBoard,
-  duelCoverage,
-  localHint,
-  runningNow,
-  slotLocalHint,
-  timeState,
-} from './extras';
+import { type CapturedTime, type EventGuide, useCapturedTimes, useEventGuide } from './data';
+import { localHint, runningNow, slotLocalHint, timeState } from './extras';
 import {
   DUEL,
   SURVIVAL,
@@ -58,18 +41,14 @@ const bracket = (hint: string) => (hint === '' ? '' : ` (${hint})`);
  * buffs, so it lists the actions that score and their base value. All times are
  * server time (UTC-2), the clock the members read. */
 export function EventGuidePage({ tab: asked }: { tab: EventGuideTab }) {
-  // A community account (0282) is outside the alliance: no member duel scores,
-  // and none of the times OUR alliance chose. The guide itself is the game's.
+  // A community account (0282) is outside the alliance: none of the times OUR
+  // alliance chose. The guide itself is the game's.
   const isCommunity = useIsCommunity();
   const tab = isEventGuideTabOpen(asked, isCommunity) ? asked : 'today';
   const guide = useEventGuide();
   const times = useCapturedTimes(!isCommunity);
-  // The Guides tab (0310) reads its own tables, not the three 0248 ones.
-  const needsGuide = tab !== 'events' && tab !== 'scores' && tab !== 'guides';
+  const needsGuide = tab !== 'events';
   const timesRows = times.data ?? [];
-  // Which guide, from the address (#/event-guide/guides/<slug>), as the
-  // planner reads its page: a pasted link lands on the guide itself.
-  const slug = eventGuideSlugFromHash(useHash());
 
   return (
     <section aria-labelledby="guide-heading" className="event-guide">
@@ -92,14 +71,7 @@ export function EventGuidePage({ tab: asked }: { tab: EventGuideTab }) {
         value={tab}
       />
 
-      {tab === 'guides' && <GuidesTab slug={slug} />}
       {tab === 'events' && <AllianceTimes rows={timesRows} />}
-      {tab === 'scores' && (
-        <section aria-labelledby="guide-scores-heading" className="panel">
-          <h2 id="guide-scores-heading">Alliance Duel: member scores</h2>
-          <DuelScores />
-        </section>
-      )}
 
       {needsGuide && guide.isPending && <p className="empty loading">Loading…</p>}
       {needsGuide && guide.error && (
@@ -451,80 +423,5 @@ function Duel({ guide }: { guide: EventGuide }) {
         </p>
       )}
     </section>
-  );
-}
-
-const plainNumber = new Intl.NumberFormat('en');
-
-/** The members' Duel scores, daily and weekly. Alliance members only (the data
- * is behind the roster's gate), and the Duel only: it is the one board where
- * seeing everybody's score is what the alliance asked for. A muted figure is a
- * reading from an earlier day or week, kept because it is the last we have. */
-function DuelScores() {
-  const board = useDuelBoard();
-  const [sort, setSort] = useState<DuelSort>('daily');
-  const lines = useMemo(
-    () => duelBoard(board.data?.members ?? [], board.data?.readings ?? [], new Date(), sort),
-    [board.data, sort],
-  );
-  const coverage = duelCoverage(lines);
-  return (
-    <div className="guide-board">
-      {board.isPending && <p className="empty loading">Loading…</p>}
-      {board.error && <p className="error">Could not load the scores: {board.error.message}</p>}
-      {board.data && lines.length === 0 && (
-        <p className="empty">Member scores show for signed-in alliance members.</p>
-      )}
-      {lines.length > 0 && (
-        <>
-          <p className="subtle">
-            The newest board reading for each member: {coverage.today} of {lines.length} have
-            today's, {coverage.week} have this week's. A muted figure is from an earlier day or
-            week.
-          </p>
-          <Tabs
-            items={[
-              { id: 'daily' as const, label: 'By daily' },
-              { id: 'weekly' as const, label: 'By weekly' },
-            ]}
-            label="Sort the Duel scores"
-            onChange={setSort}
-            value={sort}
-          />
-          <div className="table-wrap">
-            <table className="compact">
-              <thead>
-                <tr>
-                  <th className="label" scope="col">
-                    Member
-                  </th>
-                  <th className="num" scope="col">
-                    Daily
-                  </th>
-                  <th className="num" scope="col">
-                    Weekly
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {lines.map((line) => (
-                  <tr key={line.playerId}>
-                    <th className="label" scope="row">
-                      {line.name}
-                    </th>
-                    <td className={line.dailyToday ? 'num' : 'num guide-stale'}>
-                      {line.daily === null ? '—' : plainNumber.format(line.daily)}
-                    </td>
-                    <td className={line.weeklyThisWeek ? 'num' : 'num guide-stale'}>
-                      {line.weekly === null ? '—' : plainNumber.format(line.weekly)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
-    </div>
   );
 }

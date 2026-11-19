@@ -1,6 +1,7 @@
 // `prep`: the prepare-now checklist — what to hoard, with caps (0310).
 //
-// prepCheck.ts evaluates these against the viewer's own stock.
+// Written in the admin guide editor. The members' Guides tab that checked
+// these against the viewer's own stock (prepCheck.ts) has been removed.
 
 import { compact, intIn, isRecord, list, optNum } from './common';
 import { type ItemRef, parseItemRef } from './itemRef';

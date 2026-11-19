@@ -47,13 +47,12 @@ describe('community role (0282)', () => {
     expect(isCommunityRole(undefined)).toBe(false);
   });
 
-  it('drops the duel scores and our times from the event guide, and nothing else', () => {
-    expect(isEventGuideTabOpen('scores', true)).toBe(false);
+  it('drops our times from the event guide, and nothing else', () => {
     expect(isEventGuideTabOpen('events', true)).toBe(false);
     expect(isEventGuideTabOpen('duel', true)).toBe(true);
     expect(isEventGuideTabOpen('today', true)).toBe(true);
     expect(isEventGuideTabOpen('survival', true)).toBe(true);
-    expect(isEventGuideTabOpen('scores', false)).toBe(true);
+    expect(isEventGuideTabOpen('events', false)).toBe(true);
   });
 
   it('is not turned into a viewer on the way in', () => {
