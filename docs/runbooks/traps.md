@@ -95,6 +95,22 @@ resync 바이트로 넘겼다. 평문 프레임(push 대부분)과 요청은 계
 
 ---
 
+## 함정 — 무거운 RPC의 시간 상한은 브라우저가 부르는 함수 정의에 쓴다
+
+authenticated 역할의 `statement_timeout`은 8초다. 무거운 함수 하나를 풀어 주려면
+`set statement_timeout = '50s'`를 **REST로 불리는 그 함수의 정의 안에** 쓴다(Supabase가 클라이언트
+호출에 적용, 최대 60초). 두 가지가 틀리기 쉽다.
+
+- **안쪽 함수에 걸면 안 먹는다.** 타이머는 클라이언트가 보낸 문장이 시작될 때 이미 켜진다.
+  `rebuild_rank_period`(래퍼)가 `build_rank_period`(채점기)를 부르므로 래퍼에 건다.
+- **`ALTER FUNCTION … SET`으로 붙이면 사라진다.** `create or replace function`은 SET 절을 새
+  정의의 것으로 **통째로 바꾼다.** 채점기는 스코어링 버전마다 다시 만들어진다(0309·0316·0328·0329·0335).
+  정의 안에 쓰고, pgTAP으로 `proconfig`를 고정한다(336).
+
+*출처: log/2026-11.md, 2026-11-19 (0336)*
+
+---
+
 ## 함정 — `select *` 뷰의 별은 생성 시점에 한 번 펼쳐진다
 
 0156 첫 push가 `column latest.below_minimum does not exist`로 실패했다.
