@@ -57,6 +57,18 @@ and the roster's own `hq_level`.
              it can DECREASE. Compare snapshots with !=, not >. A remainder
              does not identify the item (5h left fits all three).
              Not in `world.get.detail.new`, which has no shield field.
+             NAMED BY THE CLIENT ITSELF (2026-11-18, build 1.250.672): the
+             `BuildInfo` message in `net/proto/worldpointinfo` declares
+             ownerUid, uuid, buildId, level, buildState, queueState, allianceId,
+             updateEndTime, updateStartTime, lastHpTime, protectEndTime,
+             inside, currentHp, name, alAbbr - fields 1-15 in that order, so
+             3.11 is `protectEndTime`, 3.7 `allianceId`, 3.15 `alAbbr`, and
+             3.3 (400000 on every city) the HQ's `buildId`. 3.8 / 3.9 are
+             `updateEndTime` / `updateStartTime`, an upgrade in progress.
+             That night 133 of 39,063 bases were protected, with 21.6h to
+             212.9h left: longer than any one item, so the end time also
+             covers protection that is not a bought shield. It is what the
+             game counts down either way, and the dashboard shows it as such
     3.8,3.9  NOT a shield. They were the first candidates; 3.8 is 17.85h
              ahead on the shielded city and 38.4h ahead on one whose shield
              ended four days earlier. Some other duration; unnamed.
@@ -64,6 +76,17 @@ and the roster's own `hq_level`.
              its `afn` (the alliance tag) in 0/294. An earlier note in the
              runbook called this the alliance tag, from a small sample where
              the values happened to be short
+    3.7      ALLIANCE ID, the 32-hex id every board and roster calls the
+             alliance's `external_id`. Checked 2026-11-18 over 23,013 distinct
+             bases on 566-588: equal to the newest `al.rank` roster's alliance
+             in 1,033 of 1,037 players read both ways. The 4 others are newer
+             on the map than on the roster: two have no 3.7 any more (left),
+             two show a different alliance (moved). ABSENT when the player is
+             in no alliance - 15,967 of 106,848 city tiles carried one.
+    3.15     ALLIANCE TAG, the code the game prints in brackets. Equal to the
+             alliance's `code` in 1,076 of 1,076. Present exactly when 3.7 is
+    3.27     a two-letter COUNTRY code (UN, VN, US…), not an alliance: it
+             matched no roster code in 4,168 checks
     102,103  server id, 580 on every tile of the sweep
 
     101      the SEASON BUILDING sub-message, present on type 6
@@ -149,8 +172,10 @@ _SERVER_ID = 103
 
 _CITY_UID = 1
 _CITY_HQ_LEVEL = 4
+_CITY_ALLIANCE_ID = 7
 _CITY_SHIELD_END = 11
 _CITY_NAME = 14
+_CITY_ALLIANCE_TAG = 15
 
 #: `f2` of a player's city tile.
 CITY_TYPE = 3
@@ -217,6 +242,10 @@ class City:
     #: Epoch seconds when the last shield ends; in the past once it has. None
     #: means the city has never been shielded, not that it is unshielded.
     shield_end: int | None = None
+    #: The alliance the player is in AT THIS SIGHTING, as the map draws it:
+    #: its 32-hex id and its tag. Both None means no alliance, not unknown.
+    alliance_id: str | None = None
+    alliance_tag: str | None = None
 
 
 @dataclass(frozen=True)
@@ -435,11 +464,15 @@ def _city(values: dict[int, list[int | bytes]]) -> City | None:
     if not got or not isinstance(got[0], bytes):
         return None
     sub = _fields(got[0])
+    alliance_id = _text(sub, _CITY_ALLIANCE_ID)
     return City(
         uid=_text(sub, _CITY_UID),
         name=_text(sub, _CITY_NAME),
         hq_level=_varint(sub, _CITY_HQ_LEVEL),
         shield_end=_varint(sub, _CITY_SHIELD_END),
+        # An empty id is no alliance, the same as an absent one.
+        alliance_id=alliance_id or None,
+        alliance_tag=_text(sub, _CITY_ALLIANCE_TAG) if alliance_id else None,
     )
 
 

@@ -133,31 +133,9 @@ export function AtlasMap({
           />
         )}
         <div className="map-plot" style={plotStyle}>
-          {/* A soft glow behind each sizeable alliance, so a clump reads as one
-              colour from across the map before any dot can be told apart. */}
-          {clumps
-            .filter((clump) => pickedAlliance === null || clump.alliance === pickedAlliance)
-            .map((clump) => {
-              const alliance = atlas.alliances[clump.alliance];
-              const color = allianceColor(alliance?.id ?? null, clump.alliance === oursIndex);
-              const f = toFraction(clump.at);
-              return (
-                <span
-                  aria-hidden="true"
-                  className="atlas-halo"
-                  key={`halo-${alliance?.id}`}
-                  style={
-                    {
-                      left: `${f.left * 100}%`,
-                      top: `${f.top * 100}%`,
-                      width: `${((clump.radius * 2.6) / 1000) * 100}%`,
-                      height: `${((clump.radius * 2.6) / 1000) * 100}%`,
-                      '--halo': color,
-                    } as CSSProperties
-                  }
-                />
-              );
-            })}
+          {/* No glow behind a clump any more: it read as a pink density cloud
+              over the towers rather than as an alliance (operator, 2026-11-18).
+              The clump's NAME below is what says whose ground it is. */}
           {dots.map(({ base, left, top, color }) => {
             const classes = ['atlas-dot'];
             if (lit !== null && !lit.has(base.gameUid)) classes.push('atlas-dot--dim');

@@ -5,8 +5,9 @@ import { formatAge } from '../../lib/freshness';
 import { shareCoordinate } from '../../lib/shareCoordinate';
 import { useActiveAlliance } from '../../lib/useMyAlliances';
 import { AtlasMap } from './AtlasMap';
+import { MovesPanel } from './AtlasMoves';
 import { AllianceDetail, BaseDetail } from './AtlasPanel';
-import { PlunderList, TrucksList } from './HuntLists';
+import { CopyHint, PlunderList, TreasureList, TrucksList } from './HuntLists';
 import { HuntPins } from './HuntPins';
 import { type MapMode, MapModeMenu } from './MapModes';
 import { PannableMap } from './PannableMap';
@@ -27,6 +28,7 @@ import {
   matchesFilter,
   parsePower,
   searchAtlas,
+  shieldLeft,
   shieldedCounts,
   useAtlas,
 } from './atlas';
@@ -35,16 +37,19 @@ import {
   type TruckFilter,
   type TruckSort,
   filterTrucks,
+  missionShare,
   sortTrucks,
+  truckShare,
   truckSpot,
 } from './hunt';
 import { useHuntData } from './huntState';
 import type { ScannedServer } from './mapLocations';
 import { matchPlan, usePlan } from './plan';
+import { shareLabel } from './sites';
 
 const BASES_SHOWN = 50;
 
-type Panel = 'atlas' | 'plunder';
+type Panel = 'atlas' | 'plunder' | 'moves';
 
 /** One server's swept bases coloured by alliance, with the alliances ranked
  * beside the map. Clicking an alliance lights its bases; clicking a base or a
@@ -133,14 +138,23 @@ export function AtlasPage({
   const pickedAlliance = picked === null ? undefined : atlas.alliances[picked];
   const selected = atlas.bases.find((base) => base.gameUid === selectedUid) ?? null;
 
-  function goTo(at: Coordinate, uid: number | null) {
-    setSelectedUid(uid);
-    setFocus((previous) => ({ at, nonce: (previous?.nonce ?? 0) + 1 }));
-    const written = shareCoordinate(serverId, at);
+  /** Everything a click copies goes through here, already in the game's share
+   * form (`#580[X:512 Y:300]`), so the toast shows exactly what was written. */
+  function writeCopy(written: string) {
     navigator.clipboard
       ?.writeText(written)
       .then(() => setCopied(written))
       .catch(() => setCopied(null));
+  }
+
+  function focusOn(at: Coordinate) {
+    setFocus((previous) => ({ at, nonce: (previous?.nonce ?? 0) + 1 }));
+  }
+
+  function goTo(at: Coordinate, uid: number | null) {
+    setSelectedUid(uid);
+    focusOn(at);
+    writeCopy(shareCoordinate(serverId, at));
   }
 
   const shownTrucks = sortTrucks(filterTrucks(hunt.worth, truckFilter), truckSort);
@@ -153,17 +167,16 @@ export function AtlasPage({
 
   const onThisMap = shownTrucks.filter((truck) => truck.serverId === serverId);
 
-  function chooseMode(next: MapMode) {
-    setMode(next);
-    setBaseFilter((previous) => ({
-      ...previous,
-      shield: next === 'targets' ? 'open' : next === 'shields' ? 'shielded' : 'all',
-    }));
-  }
-
-  function chooseHunt(id: string, at: Coordinate) {
+  /** A truck, mission or treasure spot picked from a pin or a list. `at` is
+   * where to send the map, null when it is not on this one; `copy` is the
+   * game's share form for it, which for a treasure spot is not its tile. */
+  function chooseHunt(id: string, at: Coordinate | null, copy: string | null) {
     setPickedHunt(id);
-    goTo(at, null);
+    if (at !== null) {
+      setSelectedUid(null);
+      focusOn(at);
+    }
+    if (copy !== null) writeCopy(copy);
   }
 
   function chooseBase(base: AtlasBase) {
@@ -174,11 +187,7 @@ export function AtlasPage({
   }
 
   function copyBase(base: AtlasBase) {
-    const written = shareCoordinate(serverId, base.at);
-    navigator.clipboard
-      ?.writeText(written)
-      .then(() => setCopied(written))
-      .catch(() => setCopied(null));
+    writeCopy(shareCoordinate(serverId, base.at));
   }
 
   function centreOnAlliance(index: number) {
@@ -218,9 +227,9 @@ export function AtlasPage({
             oursIndex={oursIndex}
             pickedAlliance={picked}
             selectedUid={selectedUid}
-            shieldMode={
-              mode === 'targets' || mode === 'shields' || baseFilter.shield === 'shielded'
-            }
+            // Either shield filter is a question about bases one by one, so names
+            // (with the shield time or the power) start from further out.
+            shieldMode={baseFilter.shield !== 'all'}
             planTiles={planMatch?.tiles ?? null}
             territory={mode === 'territory'}
           >
@@ -234,7 +243,7 @@ export function AtlasPage({
           </AtlasMap>
         </PannableMap>
         <div className="atlas-bar">
-          <MapModeMenu mode={mode} onChange={chooseMode} />
+          <MapModeMenu mode={mode} onChange={setMode} />
           {planMatch !== null && (
             <span className="atlas-chip atlas-chip--static">
               {plan.loading
@@ -432,8 +441,9 @@ export function AtlasPage({
               { id: 'atlas' as const, label: 'Atlas' },
               {
                 id: 'plunder' as const,
-                label: `Plunder (${hunt.worth.length + hunt.open.length})`,
+                label: `Plunder (${hunt.worth.length + hunt.open.length + hunt.treasure.length})`,
               },
+              { id: 'moves' as const, label: 'Moves' },
             ]}
             onChange={setPanel}
             value={panel}
@@ -444,6 +454,7 @@ export function AtlasPage({
               atlas={atlas}
               base={selected}
               copied={copied}
+              serverId={serverId}
               isOurs={selected.alliance === oursIndex && oursIndex >= 0}
               now={now}
               onBack={() => {
@@ -549,7 +560,9 @@ export function AtlasPage({
                               {formatCoordinate(base.at)}
                               {base.hq !== null && ` · HQ ${base.hq}`} · {formatPower(base.power)} ·{' '}
                               {formatAge(base.seenAt.toISOString(), now)}
-                              {isShielded(base, now) && ' · shielded'}
+                              {base.shieldEnd !== null && isShielded(base, now)
+                                ? ` · 🛡 ${shieldLeft(base.shieldEnd, now) ?? ''} left`
+                                : ' · no shield'}
                               {isStale(base, now) && ' (may have moved)'}
                             </span>
                           </button>
@@ -567,8 +580,20 @@ export function AtlasPage({
             </>
           )}
 
+          {panel === 'moves' && (
+            <MovesPanel
+              atlas={atlas}
+              onChoose={(base) => {
+                setPanel('atlas');
+                chooseBase(base);
+              }}
+              serverId={serverId}
+            />
+          )}
+
           {panel === 'plunder' && (
             <>
+              <CopyHint copied={copied} />
               <h3 className="atlas-detail__title">Trucks</h3>
               <TrucksList
                 filter={truckFilter}
@@ -576,9 +601,13 @@ export function AtlasPage({
                 mapServer={serverId}
                 now={now}
                 onChoose={(truck) => {
+                  // Copied wherever it is; the map moves only to a truck on it.
                   const spot = truckSpot(truck, now);
-                  if (spot) chooseHunt(truck.truckUuid, spot.at);
-                  else setPickedHunt(truck.truckUuid === pickedHunt ? null : truck.truckUuid);
+                  chooseHunt(
+                    truck.truckUuid,
+                    spot !== null && truck.serverId === serverId ? spot.at : null,
+                    truckShare(truck, now),
+                  );
                 }}
                 onFilter={setTruckFilter}
                 onSort={setTruckSort}
@@ -591,10 +620,21 @@ export function AtlasPage({
               <PlunderList
                 loaded={hunt.missionsLoaded}
                 now={now}
-                onChoose={(mission) => chooseHunt(mission.missionUuid, mission.at)}
+                onChoose={(mission) =>
+                  chooseHunt(mission.missionUuid, mission.at, missionShare(mission))
+                }
                 open={hunt.open}
                 picked={pickedHunt}
                 serverId={serverId}
+              />
+              <h3 className="atlas-detail__title">Large Treasure</h3>
+              <TreasureList
+                loaded={hunt.treasureLoaded}
+                now={now}
+                onChoose={(site) => chooseHunt(site.siteUuid, site.at, shareLabel(site))}
+                picked={pickedHunt}
+                serverId={serverId}
+                sites={hunt.treasure}
               />
             </>
           )}

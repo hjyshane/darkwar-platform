@@ -84,6 +84,14 @@ r/darkwarsurvival `1uokudu`에서 제작자가 링크를 남겼다.)
   (2.85, 7.91, 17.57, 23.73, 68.47시간)이고 최댓값이 72시간 아래.
 - `world.get.detail.new`(플레이어 상세)에는 쉴드 필드가 **없다**. 화면 상세 창에도
   남은 시간이 안 나온다. 지도 타일이 유일한 출처.
+- **클라이언트 정의로도 확인 (2026-11-18, 빌드 1.250.672).** `net/proto/worldpointinfo`의
+  `BuildInfo` 메시지가 필드를 ownerUid, uuid, buildId, level, buildState, queueState,
+  allianceId, updateEndTime, updateStartTime, lastHpTime, **protectEndTime**, inside,
+  currentHp, name, **alAbbr** 순서로 선언한다 — 1~15번. 그래서 `f3.11` = 보호 종료,
+  `f3.7` = 연맹 id, `f3.15` = 연맹 태그(0334에서 지도 연맹으로 승격), `f3.8`/`f3.9` = 업그레이드
+  종료/시작. 그날 밤 566–588 도시 39,063개 중 보호 중 133개, 남은 시간 21.6~212.9시간 —
+  아이템 하나보다 길어서 산 쉴드가 아닌 보호도 같은 시각에 들어 있다. 화면은 이 값을 그대로
+  "쉴드 남은 시간"으로 보여준다.
 
 게임 규칙(사용자 확인): 쉴드 아이템은 8, 24, 72시간 세 종류. 쉴드 중에 다시 쓰면
 **남은 시간에 더해지지 않고 그 순간부터 새로 시작**한다. 그래서 `f3.11` = 마지막

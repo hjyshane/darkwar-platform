@@ -10,12 +10,14 @@ import {
   lootsLeft,
   missionFromRow,
   missionIsOpen,
+  missionShare,
   pointToCoordinate,
   sortTrucks,
   timeLeft,
   truckFromRow,
   truckHeading,
   truckPosition,
+  truckShare,
   truckSpot,
   withRouteLeg,
 } from './hunt';
@@ -337,5 +339,24 @@ describe('truckHeading', () => {
   it('faces the viewer with no leg or no movement', () => {
     expect(truckHeading(null)).toBe(4);
     expect(truckHeading(leg(0, 0))).toBe(4);
+  });
+});
+
+describe('what a plunder click copies', () => {
+  it('copies a truck on its OWN server, wherever the map is', () => {
+    const leg = { from: { x: 100, y: 200 }, to: { x: 200, y: 200 }, startAt: at(-5), endAt: at(5) };
+    expect(truckShare(truck({ serverId: 566, leg }), NOW)).toBe('#566[X:150 Y:200]');
+  });
+
+  it('copies where a truck set off from when no march gave a leg', () => {
+    expect(truckShare(truck({ serverId: 571, origin: { x: 7, y: 9 } }), NOW)).toBe('#571[X:7 Y:9]');
+  });
+
+  it('copies nothing for a truck nothing places', () => {
+    expect(truckShare(truck(), NOW)).toBeNull();
+  });
+
+  it('copies a mission on the map it stands on', () => {
+    expect(missionShare({ serverId: 583, at: { x: 446, y: 393 } })).toBe('#583[X:446 Y:393]');
   });
 });

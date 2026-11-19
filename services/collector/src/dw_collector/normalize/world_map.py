@@ -56,7 +56,12 @@ from dw_collector.registry import register
 # season_site_snapshots (0315).
 # 1.6.0: a city row carries `map_server_id`, the map it was seen on (0318). Its
 # `server_id` stays the uid's home server, which a migration does not change.
-PARSER_VERSION = "1.6.0"
+# 1.7.0: a city row carries the alliance the map draws it in (0334): `in_alliance`
+# and, through the alliance entity ref, `alliance_id`. And a mission row's
+# `server_id` is the MAP's server, as 0254 always said it was - it had been the
+# owner's uid server, which files a migrated owner's mission under the server
+# they left (498 of 4,136 sightings on 580 on 2026-11-18).
+PARSER_VERSION = "1.7.0"
 
 _UID_SERVER_SUFFIX = 6
 
@@ -95,6 +100,16 @@ def _usable_uid(uid: str | None) -> bool:
     return uid is not None and uid.isdigit() and len(uid) > _UID_SERVER_SUFFIX
 
 
+def _map_server(observation: Observation, tile: Tile) -> int | None:
+    """The server whose map the response describes: the viewport's own
+    `serverId`, else the tile's f103. Never the uid's: that is where the
+    player was born, and a migration does not change it."""
+    server = observation.payload.get("serverId")
+    if isinstance(server, int) and not isinstance(server, bool):
+        return server
+    return tile.server_id
+
+
 def _mission_row(observation: Observation, tile: Tile, bucket: str) -> NormalizedRow | None:
     """A started, plunderable dispatch mission; None for anything else."""
     mission = tile.mission
@@ -105,11 +120,11 @@ def _mission_row(observation: Observation, tile: Tile, bucket: str) -> Normalize
     if mission.started_ms is None or mission.finish_ms is None:
         return None
     uid = mission.owner_uid
-    owner: int | None = None
-    server_id = tile.server_id
-    if uid is not None and _usable_uid(uid):
-        owner = int(uid)
-        server_id = _server_from_uid(uid)
+    owner = int(uid) if uid is not None and _usable_uid(uid) else None
+    # The MAP's server, which is where the mission can be plundered. Until 1.7.0
+    # this was the owner's uid server whenever the uid parsed, so a mission of
+    # somebody who had migrated in was listed on the server they had left.
+    server_id = _map_server(observation, tile)
     if server_id is None:
         return None
     return NormalizedRow(
@@ -291,7 +306,30 @@ def normalize(observation: Observation) -> list[NormalizedRow]:
         if uid is None or not uid.isdigit() or len(uid) <= _UID_SERVER_SUFFIX:
             continue
         server_id = _server_from_uid(uid)
-        map_server = observation.payload.get("serverId")
+        map_server = _map_server(observation, tile)
+        refs: dict[str, dict[str, Any]] = {
+            "player": {
+                "game_uid": int(uid),
+                "server_id": server_id,
+                "name": city.name,
+            },
+        }
+        # The alliance the map draws the base in (0334). Filed under the map's
+        # server: an alliance is on the server whose ground its bases stand on,
+        # which is what a board names too, and a migrated alliance is a new row
+        # there exactly as it is when a board first shows it on the new server.
+        # Without a map server there is nothing to file it under, so the row says
+        # nothing about the alliance rather than something it cannot back.
+        in_alliance: bool | None = None
+        if map_server is not None:
+            in_alliance = city.alliance_id is not None
+            if city.alliance_id is not None:
+                refs["alliance"] = {
+                    "server_id": map_server,
+                    "external_id": city.alliance_id,
+                    "name": None,
+                    "code": city.alliance_tag,
+                }
         rows.append(
             NormalizedRow(
                 target_table="world_city_snapshots",
@@ -302,7 +340,7 @@ def normalize(observation: Observation) -> list[NormalizedRow]:
                 idempotency_key=idempotency_key(observation, f"tile:{tile.point_id}", bucket),
                 row={
                     **_common(observation, tile, server_id),
-                    "map_server_id": map_server if isinstance(map_server, int) else tile.server_id,
+                    "map_server_id": map_server,
                     "game_uid": int(uid),
                     "name": city.name,
                     "hq_level": city.hq_level,
@@ -310,14 +348,14 @@ def normalize(observation: Observation) -> list[NormalizedRow]:
                     # the base was never shielded. 144 of 8,345 tiles in a day's
                     # captures were in the future, 2-2.5 hours ahead.
                     "shield_end_at": _shield_end(city.shield_end),
+                    # True / false: the map drew it in an alliance / in none.
+                    # NULL only on rows from before 1.7.0, which never looked.
+                    "in_alliance": in_alliance,
+                    # The alliance's tag as the map printed it at this sighting;
+                    # the alliance row's own code is only as fresh as the first one.
+                    "alliance_code": city.alliance_tag if in_alliance else None,
                 },
-                entity_refs={
-                    "player": {
-                        "game_uid": int(uid),
-                        "server_id": server_id,
-                        "name": city.name,
-                    },
-                },
+                entity_refs=refs,
             )
         )
     return rows

@@ -1,0 +1,12 @@
+{
+  "observation_id": "5b0e3c4a-1d6f-5a3e-9c21-7f1a2b3c4d35",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "push.world.march.world.get.new",
+  "captured_at": "2026-11-19T01:02:11.124636+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "marchInfos": "not a list",
+    "serverId": 566
+  },
+  "schema_version": 1
+}

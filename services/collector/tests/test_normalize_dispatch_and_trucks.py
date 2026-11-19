@@ -264,3 +264,80 @@ def test_a_truck_without_a_route_writes_null_route_columns() -> None:
     assert listed.row["stations"] is None
     assert route <= set(listed.row)
     assert route <= set(leg.row)
+
+
+# --- 0334 / parser 1.7.0: a mission is on the map it stands on --------------
+
+
+def test_a_migrants_mission_is_on_the_map_not_the_server_they_left() -> None:
+    """The owner's uid ends in 571; the mission stands on 580's map. 1.6.0
+    filed it under 571, so 580's plunder list never showed it."""
+    point = mission_point()
+    # Same tile, an owner born elsewhere.
+    raw = base64.b64decode(point[len(B64_PREFIX) :])
+    raw = raw.replace(OWNER.encode(), b"1177855891000571")
+    migrant = B64_PREFIX + base64.b64encode(raw).decode()
+
+    (row,) = mission_rows(viewport(migrant))
+
+    assert row.row["server_id"] == 580
+    assert row.row["owner_game_uid"] == 1177855891000571
+
+
+# --- parser 1.2.0: trucks in the marches drawn on whatever map is open -------
+
+VIEWPORT_MARCHES = "push.world.march.world.get.new/truck_marches_v1.json"
+
+
+def test_the_viewport_march_push_is_registered() -> None:
+    assert registry.get("push.world.march.world.get.new") is world_trucks.normalize_viewport_marches
+
+
+def test_every_truck_in_a_viewport_push_gives_its_leg() -> None:
+    rows = world_trucks.normalize_viewport_marches(load_observation(VIEWPORT_MARCHES))
+
+    # Two trucks; the ordinary march is not one, and the truck listed twice is
+    # one row.
+    assert sorted(r.row["truck_uuid"] for r in rows) == [
+        "1438426303605916704",
+        "1438426303605916799",
+    ]
+    driver = next(r for r in rows if r.row["truck_uuid"] == "1438426303605916704")
+    assert driver.row["server_id"] == 566
+    assert (driver.row["start_pos"], driver.row["target_pos"]) == (946502, 928389)
+    assert driver.row["segment_end_at"] is not None
+    assert driver.row["owner_game_uid"] == "1000000003000571"
+    assert driver.row["rob_times"] == 1
+    assert driver.row["goods"] is None
+    assert driver.row["source_command"] == "push.world.march.world.get.new"
+
+
+def test_a_leg_seen_by_both_pushes_is_one_key() -> None:
+    """The same leg of the same truck, pushed alone and inside a viewport's
+    list: the view joins on the truck, and two rows of one fact are noise."""
+    observation = load_observation(VIEWPORT_MARCHES)
+    entry = observation.payload["marchInfos"][1]
+    (alone,) = world_trucks.normalize_march(
+        command("push.world.march.new", entry).model_copy(
+            update={"captured_at": observation.captured_at}
+        )
+    )
+    listed = world_trucks.normalize_viewport_marches(
+        observation.model_copy(update={"collector_id": COLLECTOR})
+    )
+
+    assert alone.idempotency_key in {r.idempotency_key for r in listed}
+
+
+def test_a_viewport_push_with_no_list_gives_nothing() -> None:
+    malformed = load_observation("push.world.march.world.get.new/truck_marches_malformed_v1.json")
+    assert world_trucks.normalize_viewport_marches(malformed) == []
+    assert world_trucks.normalize_viewport_marches(command("x", {"marchInfos": [None, 3]})) == []
+
+
+def test_the_viewport_push_replays_to_the_same_keys() -> None:
+    observation = load_observation(VIEWPORT_MARCHES)
+    first = [r.idempotency_key for r in world_trucks.normalize_viewport_marches(observation)]
+    second = [r.idempotency_key for r in world_trucks.normalize_viewport_marches(observation)]
+
+    assert first == second

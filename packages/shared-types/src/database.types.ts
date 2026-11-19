@@ -8903,6 +8903,8 @@ export type Database = {
       }
       world_city_snapshots: {
         Row: {
+          alliance_code: string | null
+          alliance_id: string | null
           captured_at: string
           collected_from_server_id: number
           collector_id: string
@@ -8910,6 +8912,7 @@ export type Database = {
           game_uid: number
           hq_level: number | null
           idempotency_key: string
+          in_alliance: boolean | null
           map_server_id: number | null
           name: string | null
           observation_id: string
@@ -8925,6 +8928,8 @@ export type Database = {
           y: number
         }
         Insert: {
+          alliance_code?: string | null
+          alliance_id?: string | null
           captured_at: string
           collected_from_server_id: number
           collector_id: string
@@ -8932,6 +8937,7 @@ export type Database = {
           game_uid: number
           hq_level?: number | null
           idempotency_key: string
+          in_alliance?: boolean | null
           map_server_id?: number | null
           name?: string | null
           observation_id: string
@@ -8947,6 +8953,8 @@ export type Database = {
           y: number
         }
         Update: {
+          alliance_code?: string | null
+          alliance_id?: string | null
           captured_at?: string
           collected_from_server_id?: number
           collector_id?: string
@@ -8954,6 +8962,7 @@ export type Database = {
           game_uid?: number
           hq_level?: number | null
           idempotency_key?: string
+          in_alliance?: boolean | null
           map_server_id?: number | null
           name?: string | null
           observation_id?: string

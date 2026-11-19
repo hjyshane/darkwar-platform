@@ -9,8 +9,10 @@ import {
   byPower,
   formatCopyCoordinate,
   formatPower,
+  homeServer,
   isShielded,
   isStale,
+  shieldLeft,
 } from './atlas';
 
 const plain = new Intl.NumberFormat('en');
@@ -47,6 +49,9 @@ export function BaseRow({
           <span className="subtle">
             {base.hq !== null && `HQ ${base.hq} · `}
             {formatCopyCoordinate(base.at)}
+            {base.shieldEnd !== null && isShielded(base, new Date()) && (
+              <> · 🛡 {shieldLeft(base.shieldEnd, new Date())}</>
+            )}
           </span>
         </span>
         <span className="atlas-base-row__power">{formatPower(base.power)}</span>
@@ -129,6 +134,7 @@ export function BaseDetail({
   now,
   isOurs,
   copied,
+  serverId,
   onBack,
   onClose,
   onCopy,
@@ -139,6 +145,8 @@ export function BaseDetail({
   now: Date;
   isOurs: boolean;
   copied: string | null;
+  /** The server whose map this is, to tell a migrant from somebody born here. */
+  serverId: number;
   onBack: () => void;
   onClose: () => void;
   onCopy: (base: AtlasBase) => void;
@@ -147,6 +155,7 @@ export function BaseDetail({
   const alliance = base.alliance >= 0 ? atlas.alliances[base.alliance] : undefined;
   const color = allianceColor(alliance?.id ?? null, isOurs);
   const shielded = isShielded(base, now) && base.shieldEnd !== null;
+  const home = homeServer(base.gameUid);
   const mates =
     alliance === undefined
       ? []
@@ -184,12 +193,21 @@ export function BaseDetail({
           label="Shield"
           note={
             shielded && base.shieldEnd !== null
-              ? `until ${base.shieldEnd.toISOString().slice(11, 16)} UTC`
+              ? `until ${base.shieldEnd.toISOString().slice(5, 16).replace('T', ' ')} UTC`
               : undefined
           }
-          value={shielded ? 'Shielded' : 'No shield'}
+          value={
+            shielded && base.shieldEnd !== null
+              ? `🛡 ${shieldLeft(base.shieldEnd, now) ?? ''} left`
+              : 'No shield'
+          }
         />
       </div>
+      {home !== serverId && (
+        <p className="subtle">
+          Started on server {home} — migrated to {serverId}.
+        </p>
+      )}
       <p className="subtle">
         {formatCoordinate(base.at)} · seen {formatAge(base.seenAt.toISOString(), now)}
         {isStale(base, now) && ' — may have moved, and the shield may have changed'}

@@ -1,4 +1,4 @@
-import { formatCoordinate } from '@dw/ui';
+import { shareCoordinate } from '../../lib/shareCoordinate';
 import {
   type Mission,
   QUALITY_NAMES,
@@ -7,9 +7,24 @@ import {
   type TruckSort,
   countByServer,
   lootsLeft,
+  missionShare,
   timeLeft,
   truckSpot,
 } from './hunt';
+import { type TreasureSite, closesAt, isUnlit, shareLabel } from './sites';
+
+/** Every plunder row copies on click; the hint says so once, above the lists. */
+export function CopyHint({ copied }: { copied: string | null }) {
+  return (
+    <p className="subtle hunt-copy-hint">
+      {copied ? (
+        <output>Copied {copied}</output>
+      ) : (
+        'Click a row to copy its coordinate as #server[X: Y:] for game chat.'
+      )}
+    </p>
+  );
+}
 
 export const who = (name: string | null, abbr: string | null) =>
   `${abbr ? `[${abbr}] ` : ''}${name ?? 'unknown'}`;
@@ -159,9 +174,58 @@ export function PlunderList({
             >
               <strong>■ {who(mission.ownerName, mission.allianceAbbr)}</strong>
               <span className="subtle">
-                {formatCoordinate(mission.at)} · {mission.orangeBooks} Orange Skill Books per steal
+                {missionShare(mission)} · {mission.orangeBooks} Orange Skill Books per steal
                 {mission.stealMax !== null && ` · up to ${mission.stealMax} steals`} · ends in{' '}
                 {timeLeft(mission.endsAt, now)}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+}
+
+/** Large Treasure Spots on the server on screen: lanterns hiding one, and spots
+ * already open (0315). The coordinate is the game's, one less than the tile. */
+export function TreasureList({
+  sites,
+  serverId,
+  picked,
+  onChoose,
+  loaded,
+  now,
+}: {
+  sites: readonly TreasureSite[];
+  serverId: number;
+  picked: string | null;
+  onChoose: (site: TreasureSite) => void;
+  loaded: boolean;
+  now: Date;
+}) {
+  return (
+    <>
+      {loaded && sites.length === 0 && (
+        <p className="empty">
+          No Large Treasure Spot standing on server {serverId} as far as the map has seen.
+        </p>
+      )}
+      <ul className="map-results">
+        {sites.map((site) => (
+          <li key={site.siteUuid}>
+            <button
+              className={site.siteUuid === picked ? 'map-result--on' : undefined}
+              onClick={() => onChoose(site)}
+              type="button"
+            >
+              <strong>◎ {shareLabel(site)}</strong>
+              <span className="subtle">
+                {isUnlit(site)
+                  ? 'unlit lantern'
+                  : site.status === 2
+                    ? `open · ${site.participants} exploring`
+                    : 'being lit'}{' '}
+                · closes in {timeLeft(closesAt(site), now)}
               </span>
             </button>
           </li>
@@ -175,13 +239,12 @@ function truckLine(truck: Truck, mapServer: number, now: Date): string {
   const spot = truckSpot(truck, now);
   let where = 'no position seen';
   if (spot !== null) {
-    const base = formatCoordinate(spot.at);
+    // The server in front says whose map it is on, the open one or another.
+    const base = shareCoordinate(truck.serverId, spot.at);
     if (spot.origin) where = `set off from ${base}`;
     else where = spot.live ? base : `${base} (last known)`;
   }
-  if (spot !== null && truck.serverId !== mapServer) {
-    where += ` (on server ${truck.serverId}’s map)`;
-  }
+  if (spot !== null && truck.serverId !== mapServer) where += ' (another map)';
   const left = lootsLeft(truck);
   return [
     `server ${truck.serverId}`,

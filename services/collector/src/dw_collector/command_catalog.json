@@ -171,8 +171,14 @@
     {
       "command": "world.get.new",
       "status": "promoted",
-      "verdict": "승격 완료 (2026-11-10 · 파서 1.5.0, 0315)",
-      "note": "the viewport itself has written cities since 0137; this entry records the type-29 season site (floating lantern) promotion, the first object type to get a verdict row"
+      "verdict": "승격 완료 (2026-11-10 · 파서 1.5.0, 0315; 2026-11-18 · 파서 1.7.0, 0334)",
+      "note": "the viewport itself has written cities since 0137; 0315 promoted the type-29 season site (floating lantern), the first object type to get a verdict row; 0334 promoted the city's alliance (f3.7 allianceId, f3.15 alAbbr) and files a mission under the map's server"
+    },
+    {
+      "command": "push.world.march.world.get.new",
+      "status": "promoted",
+      "verdict": "승격 완료 (2026-11-18 · world_trucks 파서 1.2.0, 0334)",
+      "note": "the marches drawn on whatever map the camera is on (marchInfos, serverId); type 15 is a Dark Syndicate truck and goes to world_truck_snapshots like push.world.march.new, which only covers the collector's own server. Other march types are not stored"
     }
   ]
 }

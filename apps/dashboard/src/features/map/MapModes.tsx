@@ -3,12 +3,12 @@ import { useIsCommunity } from '../../lib/communityAccess';
 
 /** What the map is being read for. Each mode is a preset over the same data:
  * which bases stay bright, how far out names start, and which layers show. */
-export type MapMode = 'map' | 'targets' | 'shields' | 'territory' | 'plunder' | 'plan';
+// No Targets or Shields mode: they were presets of the sidebar's All / Shield /
+// No shield filter, which already does both (operator, 2026-11-18).
+export type MapMode = 'map' | 'territory' | 'plunder' | 'plan';
 
 export const MAP_MODES: ReadonlyArray<{ id: MapMode; label: string; hint: string }> = [
   { id: 'map', label: 'Map', hint: 'Every swept base, coloured by alliance' },
-  { id: 'targets', label: 'Targets', hint: 'Bases with no shield, with their power' },
-  { id: 'shields', label: 'Shields', hint: 'Shielded bases, with the time each has left' },
   { id: 'territory', label: 'Territory', hint: 'Alliance ground only, no player names' },
   {
     id: 'plan',
