@@ -731,9 +731,9 @@ class Supervisor:
                 # NOT marked: the pass ends here and the next poll starts
                 # again from this file, so nothing after it is read out of
                 # order either. Re-reading is safe — every write is keyed on
-                # the file name and event position. `ingest-dir` made the
-                # opposite choice (mark it done) for a lock once, by catching
-                # it with the unreadable files, and that is data lost.
+                # the file name and event position. This loop used to catch a
+                # lock with the unreadable files and mark it done with zero
+                # events, which lost the file for good.
                 log.warning(f"dw_capture.ingest_journal_locked: {pcap.name}", exc_info=True)
                 return
 
