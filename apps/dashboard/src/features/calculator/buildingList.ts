@@ -70,6 +70,16 @@ export const HIDDEN_BUILDINGS: ReadonlySet<string> = new Set([
 /** Names hidden wherever they turn up (rows past the ones the owner listed). */
 const HIDDEN_NAMES = new Set(['defunct portal gate']);
 
+/** Turrets of every kind and season (Armed Turret I/II …), by name so a
+ * turret in a season not imported yet is caught too (owner, 2026-11-18). */
+const TURRET = /turret/i;
+
+/** Season groups the owner asked to leave out (2026-11-18): the game's themes
+ * 8 and 10, which no server here has played, and two fallback groups — 101
+ * ("Season 1", the Crystal Factories) and 105, the fallback's name for the
+ * same not-played buildings when the catalogue has no `game_season`. */
+export const HIDDEN_SEASONS: ReadonlySet<number> = new Set([8, 10, 101, 105]);
+
 /** Whether the calculator offers this building at all. */
 export function isOffered(subject: Pick<Subject, 'subject' | 'name' | 'maxLevel'>): boolean {
   const id = Number(subject.subject);
@@ -79,6 +89,7 @@ export function isOffered(subject: Pick<Subject, 'subject' | 'name' | 'maxLevel'
   if (subject.maxLevel <= 1) return false;
   // The client has no name for it (449000, 727000).
   if (subject.name.startsWith('#')) return false;
+  if (TURRET.test(subject.name)) return false;
   return !HIDDEN_NAMES.has(subject.name.toLowerCase());
 }
 
@@ -107,14 +118,15 @@ export function fallbackSeason(subjectId: string): number | null {
 }
 
 /** The building list as the calculator shows it: hidden ones out, a season
- * filled in where the catalogue left it empty, and an ordinary building that
- * appears twice under one name (Mart) offered once. */
+ * filled in where the catalogue left it empty, hidden seasons out, and an
+ * ordinary building that appears twice under one name (Mart) offered once. */
 export function buildingsForCalculator(rows: ReadonlyArray<Subject>): Subject[] {
   const seen = new Set<string>();
   const out: Subject[] = [];
   for (const row of [...rows].sort((a, b) => Number(a.subject) - Number(b.subject))) {
     if (!isOffered(row)) continue;
     const gameSeason = row.gameSeason ?? fallbackSeason(row.subject);
+    if (gameSeason !== null && HIDDEN_SEASONS.has(gameSeason)) continue;
     if (gameSeason === null) {
       const key = row.name.toLowerCase();
       if (seen.has(key)) continue;
