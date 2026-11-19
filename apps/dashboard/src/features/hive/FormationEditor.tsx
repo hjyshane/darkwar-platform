@@ -31,7 +31,6 @@ import {
   ringOf,
   ringOffsets,
   ringOrderAround,
-  searchMembers,
   shiftedBy,
   sortMembers,
   sortSlots,
@@ -51,6 +50,7 @@ import {
   ZOOM_DEFAULT,
   centreKeeping,
   pannedCentre,
+  rankClass,
   windowAround,
   windowFitting,
   windowRadius,
@@ -81,6 +81,13 @@ import {
   peopleByOffset,
 } from './hiveSafety';
 import { clampMapSize, mapSizeProps, setMapPrefs, useMapPrefs } from './mapPrefs';
+import {
+  PALETTE_SORTS,
+  type PaletteSort,
+  paletteRows,
+  placedTiles,
+  shortPower,
+} from './memberPalette';
 
 /** A tile in the draft, identified by where it is.
  *
@@ -276,13 +283,7 @@ export function paintedTiles(
  */
 function memberLabel(member: AssignableMember): string {
   const rank = member.memberRank === null ? '' : `R${member.memberRank}`;
-  const power =
-    member.power === null
-      ? ''
-      : member.power >= 1_000_000
-        ? `${(member.power / 1_000_000).toFixed(1)}M`
-        : `${Math.round(member.power / 1000)}k`;
-  const extra = [rank, power].filter(Boolean).join(' · ');
+  const extra = [rank, shortPower(member.power)].filter(Boolean).join(' · ');
   return extra === '' ? (member.name ?? 'unnamed') : `${member.name ?? 'unnamed'} (${extra})`;
 }
 
@@ -512,6 +513,10 @@ export function FormationEditor({
   const [assignmentsFor, setAssignmentsFor] = useState<readonly BoardSlot[]>([]);
   const [pinned, setPinned] = useState<Map<string, string>>(new Map());
   const [memberQuery, setMemberQuery] = useState('');
+  // How the member list beside the map is stacked, and whether the placed
+  // are in it. Its own, not the fill order's: see `paletteRows`.
+  const [paletteSort, setPaletteSort] = useState<PaletteSort>('name');
+  const [hidePlaced, setHidePlaced] = useState(false);
 
   /** The people as the board has them, pins included. */
   function seedPeople() {
@@ -1210,7 +1215,7 @@ export function FormationEditor({
     setRefusal(notes.length === 0 ? null : `${usable.length} bases drawn — ${notes.join(', ')}.`);
   }
 
-  /** A member dropped on the map from the list above it.
+  /** A member dropped on the map from the list beside it.
    *
    * THE SAME DECISION AS THE DROPDOWN, reached by pointing instead of
    * scrolling: the member is taken off wherever they were, put on this tile,
@@ -1262,18 +1267,36 @@ export function FormationEditor({
   }
 
   const byId = new Map(members.map((member) => [member.playerId, member]));
-  // Only assignments that still point at a tile. A stand-in id outlives its
-  // tile when the tile is taken away again before a save, and counting it
-  // would leave that member looking placed while standing nowhere.
+  // The assignments a drop keeps for everybody else: those pointing at a tile
+  // either drawn or still saved. A stand-in id outlives its tile when the tile
+  // is taken away again before a save. Saved slots stay in so that Discard
+  // changes, which brings a clicked-away base back, brings its member too.
   const liveSlotIds = new Set([
     ...slots.map((slot) => slot.slotId),
     ...drawn.flatMap((slot) => (slot.slotId === null ? [] : [slot.slotId])),
   ]);
-  const placedIds = new Set(
-    [...assignments].flatMap(([slotId, playerId]) => (liveSlotIds.has(slotId) ? [playerId] : [])),
-  );
+  // Who is placed is a narrower question — on a tile of the plan AS DRAWN.
+  // Counting the saved slots here too kept a member greyed after their base
+  // was clicked away (see `placedTiles`).
+  const placedAt = placedTiles(assignments, drawn);
+  const placedIds = new Set(placedAt.keys());
   const unplaced = members.filter((member) => !placedIds.has(member.playerId));
-  const paletteMembers = searchMembers(sortMembers(members, 'name'), memberQuery);
+  const paletteMembers = paletteRows(members, placedAt, {
+    query: memberQuery,
+    sort: paletteSort,
+    hidePlaced,
+  });
+
+  /** Take a member off their tile and back onto the list.
+   *
+   * THE TILE STAYS. Clicking a base removes the ground itself — the base,
+   * not just whoever was on it — so without this the only way to take one
+   * person off was to delete their base and draw it again. Their pin goes
+   * too: a pin is a plan for a placement, and there no longer is one. */
+  function unplace(playerId: string) {
+    setAssignments(new Map([...assignments].filter(([, id]) => id !== playerId)));
+    setPinned(new Map([...pinned].filter(([, id]) => id !== playerId)));
+  }
   // Only tiles a member's city can stand on. Structures hold ground rather
   // than people — the database refuses a player on one anyway — and a
   // base-kind tile that is not 3x3 is a drawing, not a place to send anybody.
@@ -1470,13 +1493,19 @@ export function FormationEditor({
   return (
     <>
       <div className="hive-editor" hidden={half !== 'shape'}>
-        <div className={['hive-editor__map', sized.className].join(' ').trim()} style={sized.style}>
-          {/* THE PEOPLE, WHERE THE GROUND IS. Placing a member used to mean
-              finding their tile's row in the table below and scrolling a
-              dropdown of eighty names; dragging them onto the square is the
-              same decision made by pointing at it. The dropdown stays for
-              keyboards and phones, which HTML drag and drop does not reach. */}
-          {/* A SEARCH, because the list is an index and eighty chips is still
+        {/* THE PEOPLE, BESIDE THE GROUND. Placing a member used to mean
+            finding their tile's row in the table below and scrolling a
+            dropdown of eighty names; dragging them onto the square is the
+            same decision made by pointing at it. The dropdown stays for
+            keyboards and phones, which HTML drag and drop does not reach.
+
+            A COLUMN NEXT TO THE MAP, not a strip above it. Eighty chips
+            wrapped above the map pushed it down the page, so a drag from the
+            first row was a drag off the bottom of the screen; beside it, and
+            held in view as the page scrolls, every drag is a short move
+            across. On a narrow screen it goes back above the map, capped. */}
+        <section aria-label="Members" className="hive-roster">
+          {/* A SEARCH, because the list is an index and eighty rows is still
               a lot of reading. It filters what is shown and nothing else:
               clearing it brings everyone back in the same order. */}
           <div className="hive-palette-search">
@@ -1495,44 +1524,110 @@ export function FormationEditor({
             <span className="hive-count">
               {memberQuery.trim() === ''
                 ? `${unplaced.length} of ${members.length} not placed`
-                : `${paletteMembers.length} of ${members.length} shown`}
+                : `${paletteMembers.length} shown`}
             </span>
           </div>
+          {/* ONE LIST, IN AN ORDER CHOSEN HERE. It used to follow the fill
+              order — a dropdown elsewhere on the page — and put the unplaced
+              ahead of the placed, so a name's position depended on both and
+              looking one up meant reading all eighty. Now the order is the
+              list's own (A–Z unless asked otherwise) and placing somebody
+              never moves their row; "Hide placed" takes the dealt-with out of
+              the way instead of reshuffling them. */}
+          <div className="hive-roster__options">
+            <fieldset className="hive-roster__sort">
+              <legend className="visually-hidden">Order</legend>
+              {PALETTE_SORTS.map((option) => (
+                <button
+                  aria-pressed={paletteSort === option.sort}
+                  key={option.sort}
+                  onClick={() => setPaletteSort(option.sort)}
+                  type="button"
+                >
+                  {option.label}
+                </button>
+              ))}
+            </fieldset>
+            <label className="hive-roster__hide">
+              <input
+                checked={hidePlaced}
+                onChange={(event) => setHidePlaced(event.target.checked)}
+                type="checkbox"
+              />
+              Hide placed
+            </label>
+          </div>
           <ul aria-label="Members to place" className="hive-palette">
-            {/* ALPHABETICAL, ALWAYS, AND ONE LIST. This is not a plan, it is
-                an index: you come to it knowing the name you want and you have
-                to find it. It used to follow the fill order — power, by
-                default — and put the unplaced ahead of the placed, so a name's
-                position depended both on a dropdown elsewhere on the page and
-                on whether that member had been dealt with yet. Looking one up
-                meant reading all eighty. The placed are still greyed, which is
-                what that split was for; they just no longer move. */}
             {paletteMembers.length === 0 && (
-              <li className="subtle">Nobody on the roster matches “{memberQuery.trim()}”.</li>
-            )}
-            {paletteMembers.map((member) => (
-              <li
-                className={
-                  placedIds.has(member.playerId)
-                    ? 'hive-palette__member hive-palette__member--placed'
-                    : 'hive-palette__member'
-                }
-                draggable
-                key={member.playerId}
-                onDragStart={(event) => {
-                  event.dataTransfer.setData(MEMBER_DRAG_TYPE, member.playerId);
-                  event.dataTransfer.effectAllowed = 'move';
-                }}
-                title={
-                  placedIds.has(member.playerId)
-                    ? `${memberLabel(member)} — placed; drop them somewhere else to move them`
-                    : `${memberLabel(member)} — drag onto the map`
-                }
-              >
-                {member.name ?? 'unnamed'}
+              <li className="subtle">
+                {memberQuery.trim() !== ''
+                  ? `Nobody${hidePlaced ? ' unplaced' : ''} on the roster matches “${memberQuery.trim()}”.`
+                  : hidePlaced && members.length > 0
+                    ? 'Everybody has a tile.'
+                    : 'Nobody on the roster yet.'}
               </li>
-            ))}
+            )}
+            {paletteMembers.map(({ member, tile }) => {
+              const name = member.name ?? 'unnamed';
+              const number = tile === null ? undefined : numbering.get(offsetKey(tile));
+              return (
+                <li
+                  className={
+                    tile === null
+                      ? 'hive-palette__member'
+                      : 'hive-palette__member hive-palette__member--placed'
+                  }
+                  draggable
+                  key={member.playerId}
+                  onDragStart={(event) => {
+                    event.dataTransfer.setData(MEMBER_DRAG_TYPE, member.playerId);
+                    event.dataTransfer.effectAllowed = 'move';
+                  }}
+                  title={
+                    tile === null
+                      ? `${memberLabel(member)} — drag onto the map`
+                      : `${memberLabel(member)} — on tile ${number ?? ''}; drag somewhere else to move them`
+                  }
+                >
+                  <span aria-hidden="true" className="hive-palette__grip">
+                    ⠿
+                  </span>
+                  <span
+                    className={`hive-palette__rank hive-rank-chip--${rankClass(member.memberRank)}`}
+                  >
+                    {member.memberRank === null ? '–' : `R${member.memberRank}`}
+                  </span>
+                  <span className="hive-palette__name">{name}</span>
+                  {tile === null ? (
+                    <span className="hive-palette__power">{shortPower(member.power)}</span>
+                  ) : (
+                    <>
+                      <button
+                        aria-label={`Show ${name}'s tile on the map`}
+                        className="hive-palette__where"
+                        onClick={() => setCentre(absoluteOf(anchor, tile))}
+                        title={`Tile ${number ?? ''} at ${formatTeleport(absoluteOf(anchor, tile))} — show it on the map`}
+                        type="button"
+                      >
+                        {number === undefined ? 'Where' : `#${number}`}
+                      </button>
+                      <button
+                        aria-label={`Take ${name} off their tile`}
+                        className="hive-palette__off"
+                        onClick={() => unplace(member.playerId)}
+                        title="Take them off this tile. The base stays."
+                        type="button"
+                      >
+                        ×
+                      </button>
+                    </>
+                  )}
+                </li>
+              );
+            })}
           </ul>
+        </section>
+        <div className={['hive-editor__map', sized.className].join(' ').trim()} style={sized.style}>
           <TileGrid
             anchor={anchor}
             bases={bases}
@@ -1559,11 +1654,12 @@ export function FormationEditor({
             window={view}
           />
           <p className="subtle">
-            Drag a name from the list above onto the map: on free ground it draws their base there,
-            on a base it puts them on it. Click free ground to place a base, click a base to take it
-            away. Each one is {BASE_SPAN}x{BASE_SPAN} tiles and the coordinate is the middle. Drag
-            from empty ground to slide the map — or hold <kbd>ctrl</kbd>, which works while an area
-            tool is on too. Hold <kbd>ctrl</kbd> and use the wheel, or pinch, to zoom; drag the
+            Drag a name from the member list onto the map: on free ground it draws their base there,
+            on a base it puts them on it. To take somebody off without losing the base, press × on
+            their row. Click free ground to place a base, click a base to take it away (with whoever
+            is on it). Each one is {BASE_SPAN}x{BASE_SPAN} tiles and the coordinate is the middle.
+            Drag from empty ground to slide the map — or hold <kbd>ctrl</kbd>, which works while an
+            area tool is on too. Hold <kbd>ctrl</kbd> and use the wheel, or pinch, to zoom; drag the
             corner handle to resize the map. Shaded squares are where the map last SAW somebody — a
             base that was destroyed or lost its shield has been teleported somewhere random, so
             treat them as a hint and not as a wall.
