@@ -100,6 +100,17 @@ $trigger.Repetition = (
         -RepetitionDuration (New-TimeSpan -Days 3650)
 ).Repetition
 
+# AND a time trigger with the same repetition. A repetition on a logon
+# trigger is not armed until a logon AFTER registration, and this script is
+# run from inside a logged-on session - so until the next reboot nothing
+# would revive a dead chain. The collection tasks sat in exactly that state
+# for two days in November 2026 (register-tasks.ps1 has the story). A time
+# trigger is armed when it is registered; IgnoreNew keeps it from touching a
+# chain that is running.
+$revive = New-ScheduledTaskTrigger -Once -At (Get-Date) `
+    -RepetitionInterval (New-TimeSpan -Minutes 5) `
+    -RepetitionDuration (New-TimeSpan -Days 3650)
+
 $action = New-ScheduledTaskAction -Execute 'wscript.exe' `
     -Argument ('//B //Nologo "' + $launcher + '" "' + $cmd + '"') `
     -WorkingDirectory $Collector
@@ -107,9 +118,16 @@ $action = New-ScheduledTaskAction -Execute 'wscript.exe' `
 $user = [Security.Principal.WindowsIdentity]::GetCurrent().Name
 $principal = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive
 
-Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger `
+Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger @($trigger, $revive) `
     -Settings $settings -Principal $principal -Force -ErrorAction Stop | Out-Null
-Write-Output ('registered ' + $TaskName + ' for ' + $user)
+# The listing shows PT5M either way; only a run on the calendar proves the
+# repetition will actually fire.
+$next = (Get-ScheduledTaskInfo -TaskName $TaskName).NextRunTime
+if (-not $next) {
+    Write-Output ('FAIL: ' + $TaskName + ' has no next run time - a dead chain would stay dead until the next logon')
+    exit 1
+}
+Write-Output ('registered ' + $TaskName + ' for ' + $user + ' (next revive check ' + $next + ')')
 Write-Output ('  runs from: ' + $Collector)
 Write-Output ('  log:       ' + $log)
 

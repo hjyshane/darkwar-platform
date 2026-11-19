@@ -23,16 +23,21 @@ from collections.abc import Iterator
 from datetime import UTC, datetime
 from pathlib import Path
 
+import httpx
 import pytest
 from typer.testing import CliRunner, Result
 
 from dw_collector import cli
 from dw_collector.cli import app
 from dw_collector.models import Observation
+from dw_collector.normalize import al_rank
 from dw_collector.protocol.linklayer import LINKTYPE_NULL
 from dw_collector.storage import journal as journal_module
 from dw_collector.storage.journal import BUSY_TIMEOUT_SECONDS, Journal, is_locked
+from dw_collector.sync.__main__ import CATCH_UP_DELAY, drain_step
+from tests.conftest import load_observation
 from tests.test_capture_formats import _classic, _game_ipv4
+from tests.test_sync_worker import FakeSupabase, _worker
 
 runner = CliRunner()
 
@@ -250,3 +255,60 @@ def test_a_database_error_that_is_not_a_lock_exits_and_leaves_the_file_unmarked(
     assert isinstance(result.exception, sqlite3.OperationalError)
     assert _marked(db) == {}
     assert capture.exists()
+
+
+# --- dw-sync ---------------------------------------------------------------------
+
+
+def test_dw_sync_skips_a_locked_drain_and_resends_on_the_next(
+    db: Path, blocker: sqlite3.Connection
+) -> None:
+    """The same lock with the roles swapped: ingest holds it while sync tries
+    to mark a batch sent. The rows already went up, so the drain must not
+    die and must not lose them — they stay pending and go again."""
+    journal = Journal(db, busy_timeout=0.05)
+    blocker.execute("commit")  # the fixture's lock is taken mid-drain below
+    roster = load_observation("al.rank/cbfw_roster_v1.json")
+    journal.record(roster, al_rank.normalize(roster))
+    fake = FakeSupabase()
+    snapshot_posts: list[int] = []
+    real_handler = fake.handler
+
+    def ingest_grabs_the_lock(request: httpx.Request) -> httpx.Response:
+        response = real_handler(request)
+        if request.method == "POST" and "alliance_member_snapshots" in request.url.path:
+            snapshot_posts.append(1)
+            if len(snapshot_posts) == 1:
+                blocker.execute("begin immediate")  # ingest writes a file
+        return response
+
+    fake.handler = ingest_grabs_the_lock  # type: ignore[method-assign]
+    worker = _worker(journal, fake)
+    try:
+        # batch=93 is exactly the roster, so a drain that got through would
+        # ask to go again at once; only the lock path waits the interval.
+        first = drain_step(worker, batch=93, interval=10.0)
+
+        assert first == 10.0
+        assert len(fake.upserted["alliance_member_snapshots"]) == 93
+        blocker.execute("commit")  # ingest's file is in
+        assert journal.outbox_counts() == {"pending": 93}
+
+        second = drain_step(worker, batch=93, interval=10.0)
+
+        # Sent again, and this time recorded as sent. The second copy is what
+        # `ignore-duplicates` on the cloud side is for.
+        assert second == CATCH_UP_DELAY
+        assert len(snapshot_posts) == 2
+        assert journal.outbox_counts() == {"sent": 93}
+    finally:
+        journal.close()
+
+
+def test_dw_sync_still_stops_on_a_database_error_that_is_not_a_lock() -> None:
+    class Broken:
+        def drain_once(self) -> object:
+            raise sqlite3.OperationalError("database disk image is malformed")
+
+    with pytest.raises(sqlite3.OperationalError):
+        drain_step(Broken(), batch=10, interval=10.0)  # type: ignore[arg-type]

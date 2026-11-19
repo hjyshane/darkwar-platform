@@ -38,7 +38,11 @@
    `ingest-dir`가 **같은 파일을** 늘어나는 간격으로 다시 시도한다(`LOCKED` 줄). 잠긴
    동안 그 파일은 `ingested_captures`에 안 들어가고 지워지지도 않는다. 잠금을
    UNREADABLE처럼 "0건으로 표시하고 넘어가기"로 잡으면 그게 데이터 유실이다 —
-   데스크톱 사이드카의 ingest가 바로 그렇게 하고 있었고 같이 고쳤다.
+   데스크톱 사이드카의 ingest가 바로 그렇게 하고 있었고 같이 고쳤다. 역할이 뒤바뀐
+   경우(ingest가 잠금을 쥐고 `dw-sync`가 `mark_sent`에서 막힘)도 같은 크래시였다.
+   이제 `dw-sync`는 그 드레인을 버리고(`sync.journal_locked`) 간격 뒤에 다시 돈다.
+   이미 올라간 행은 pending으로 남아 한 번 더 가고, 클라우드의 `ignore-duplicates`가
+   받아낸다. 하트비트 스레드도 잠금에 죽지 않는다.
 2. **작업 스케줄러.** `RestartCount`는 종료 코드 ≠ 0을 실패로 치지 않는다(시작을 못
    했을 때만). 되살리는 것은 5분 반복인데, 그 반복은 **로그온 트리거에 붙어 있어서
    등록 뒤에 로그온이 있어야 무장된다.** `register-tasks.ps1`은 로그온된 세션에서
@@ -53,7 +57,9 @@
 **고르지 않은 것:** `run-*.cmd`의 `goto` 루프. `Stop-ScheduledTask`가 wscript만
 끝내므로 루프 cmd가 고아로 남아 워커를 되살린다 — prune·vacuum 도중에도.
 
-**같은 꼴이 남은 곳:** `register-iphone-task.ps1`도 반복을 로그온 트리거에만 단다.
+`register-iphone-task.ps1`도 반복을 로그온 트리거에만 달고 있었다 — 같이 고쳤다.
+**새 등록 스크립트를 쓸 때:** 되살리기용 반복은 시간 트리거에 달고, 등록 뒤
+`NextRunTime`이 비어 있지 않은지 확인한다.
 
 *출처: 2026-11-19 사고 — ingest.log, `Get-ScheduledTaskInfo`·`Export-ScheduledTask` 조회.
 코드 `storage/journal.py`(`is_locked`), `cli.py`(`_until_unlocked`), `scripts/windows/register-tasks.ps1`*

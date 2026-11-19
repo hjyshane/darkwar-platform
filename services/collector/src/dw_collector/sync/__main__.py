@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import sqlite3
 import threading
 import time
 from datetime import datetime
@@ -13,7 +14,7 @@ import structlog
 
 from dw_collector import __version__
 from dw_collector.envfile import load_env_file
-from dw_collector.storage.journal import Journal
+from dw_collector.storage.journal import Journal, is_locked
 from dw_collector.sync.heartbeat import assess, report
 from dw_collector.sync.worker import SyncConfig, SyncWorker
 
@@ -41,6 +42,34 @@ def next_delay(sent: int, failed: int, batch: int, interval: float) -> float:
     if failed == 0 and sent >= batch:
         return CATCH_UP_DELAY
     return interval
+
+
+def drain_step(worker: SyncWorker, batch: int, interval: float) -> float:
+    """One drain; returns how long to wait before the next.
+
+    A LOCKED JOURNAL IS SKIPPED, NOT FATAL. dw-sync shares the journal with
+    ingest-dir, and on 2026-11-19 ingest died on exactly this error while
+    dw-sync held the lock; the reverse is the same failure with the roles
+    swapped. `Journal` already waits a minute for a lock, so reaching this
+    means a long one, and the drain simply runs again after `interval`.
+
+    Nothing is lost by abandoning a drain partway. Each journal write in it
+    is its own transaction: a lock on `pending_outbox` or `mark_failed`
+    changes nothing, and a lock on `mark_sent` after the rows went up leaves
+    them pending, so the next drain sends them again — which the cloud's
+    unique keys absorb, the same way `retry-outbox --already-sent` relies on.
+    Any other database error still ends the process.
+    """
+    try:
+        stats = worker.drain_once()
+    except sqlite3.OperationalError as exc:
+        if not is_locked(exc):
+            raise
+        log.warning("sync.journal_locked", error=str(exc), retry_in=interval)
+        return interval
+    if stats.sent or stats.failed:
+        log.info("sync.drain", sent=stats.sent, failed=stats.failed)
+    return next_delay(stats.sent, stats.failed, batch, interval)
 
 
 def _last_packet_at(journal: Journal) -> datetime | None:
@@ -83,6 +112,14 @@ def heartbeat_loop(
             report(client, collector_id, health, version=__version__)
         except httpx.HTTPError as exc:
             log.warning("sync.heartbeat_failed", error=str(exc))
+        except sqlite3.OperationalError as exc:
+            # This is a daemon thread: anything raised here ends the beats
+            # with nothing in the log, and the dashboard reads the collector
+            # as dead while it is still syncing. A lock is worth one skipped
+            # beat, never that.
+            if not is_locked(exc):
+                raise
+            log.warning("sync.heartbeat_failed", error=str(exc))
         stop.wait(interval)
 
 
@@ -122,10 +159,7 @@ def main() -> None:
         log.warning("sync.heartbeat_failed", error="DW_COLLECTOR_ID is not set")
     try:
         while True:
-            stats = worker.drain_once()
-            if stats.sent or stats.failed:
-                log.info("sync.drain", sent=stats.sent, failed=stats.failed)
-            time.sleep(next_delay(stats.sent, stats.failed, batch, interval))
+            time.sleep(drain_step(worker, batch, interval))
     except KeyboardInterrupt:
         log.info("sync.stop")
     finally:
