@@ -165,8 +165,52 @@ def _now_iso() -> str:
     return datetime.now(tz=UTC).isoformat()
 
 
+#: How long a write waits for another connection's lock before SQLite gives
+#: up with "database is locked". Read at connect time, not bound as a default
+#: argument, so a test can shorten it for the whole process.
+#:
+#: The journal has more than one writer by design — ingest-dir writes rows,
+#: dw-sync marks them sent, prune-journal deletes — and WAL lets readers past
+#: a writer but never a second writer. Python's own default here is FIVE
+#: SECONDS, and that is what killed ingest on 2026-11-19: seven minutes behind
+#: under a map sweep, with dw-sync draining 1,000-row batches into the same
+#: file, one write waited five seconds, raised, and took the process with it
+#: for sixteen hours. A minute is far past any transaction those writers hold
+#: in normal running, and a lock that outlasts it is the caller's to retry
+#: (`is_locked`), not a reason to die.
+BUSY_TIMEOUT_SECONDS = 60.0
+
+
+def is_locked(exc: BaseException) -> bool:
+    """True when `exc` is SQLite saying another connection holds the lock.
+
+    That is the one database error that says nothing about the data: the
+    same write succeeds once the other writer commits, so the caller should
+    retry it, and must not record the work as done. Everything else — a full
+    disk, a malformed file, a missing table — is not this, and is not
+    retried here.
+
+    The extended code where SQLite set one (SQLITE_BUSY_SNAPSHOT is BUSY
+    too); the message where it did not, which is the case for an error a
+    test constructs by hand.
+    """
+    if not isinstance(exc, sqlite3.OperationalError):
+        return False
+    code = getattr(exc, "sqlite_errorcode", None)
+    if isinstance(code, int):
+        return code & 0xFF in (sqlite3.SQLITE_BUSY, sqlite3.SQLITE_LOCKED)
+    text = str(exc)
+    return "database is locked" in text or "database table is locked" in text
+
+
 class Journal:
-    def __init__(self, path: Path, *, single_writer_thread: bool = False) -> None:
+    def __init__(
+        self,
+        path: Path,
+        *,
+        single_writer_thread: bool = False,
+        busy_timeout: float | None = None,
+    ) -> None:
         """`single_writer_thread` opts out of sqlite3's own thread check.
 
         Only dw-capture sets it, and only because its writes all happen on
@@ -177,10 +221,18 @@ class Journal:
 
         Left off by default so that anything which grows a second writer
         gets the loud error rather than a corrupt database.
+
+        `busy_timeout` is seconds, `BUSY_TIMEOUT_SECONDS` when not given.
+        sqlite3's `timeout` IS SQLite's busy timeout (`pragma busy_timeout`
+        reads it back in milliseconds), so this is the one place it is set.
         """
         self.path = path
         path.parent.mkdir(parents=True, exist_ok=True)
-        self.conn = sqlite3.connect(path, check_same_thread=not single_writer_thread)
+        self.conn = sqlite3.connect(
+            path,
+            timeout=BUSY_TIMEOUT_SECONDS if busy_timeout is None else busy_timeout,
+            check_same_thread=not single_writer_thread,
+        )
         self.conn.execute("pragma journal_mode=wal")
         self.conn.execute("pragma foreign_keys=on")
 

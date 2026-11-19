@@ -22,6 +22,44 @@
 
 ---
 
+## 함정 — `database is locked` 하나에 ingest가 죽고, 5분 반복은 한 번도 돌지 않았다
+
+2026-11-19 01:45 UTC. 맵 스윕 부하로 ingest가 7분쯤 밀려 있었고 `dw-sync`가 같은
+`live.db`(WAL)에 1,000행 배치를 쓰고 있었다. `Journal.record`의 쓰기 하나가 sqlite3
+기본 busy 대기 **5초**를 넘겨 `OperationalError: database is locked`를 냈다. `ingest-dir`
+루프는 `except (PcapError, OSError, ValueError)`만 잡는데 sqlite 오류는 그 어느 것도
+아니라서 프로세스가 exit 1로 끝났다. 약 16시간 — Frankie 두 라운드와 피해 보드 읽기가
+대시보드에 오지 않았다.
+
+**두 겹이 동시에 비어 있었다.**
+
+1. **코드.** 연결에 busy timeout을 준 적이 없었고, 잠금을 재시도하는 곳도 없었다.
+   이제 `Journal`은 `BUSY_TIMEOUT_SECONDS`(60초)로 연결하고, 그래도 잠겨 있으면
+   `ingest-dir`가 **같은 파일을** 늘어나는 간격으로 다시 시도한다(`LOCKED` 줄). 잠긴
+   동안 그 파일은 `ingested_captures`에 안 들어가고 지워지지도 않는다. 잠금을
+   UNREADABLE처럼 "0건으로 표시하고 넘어가기"로 잡으면 그게 데이터 유실이다 —
+   데스크톱 사이드카의 ingest가 바로 그렇게 하고 있었고 같이 고쳤다.
+2. **작업 스케줄러.** `RestartCount`는 종료 코드 ≠ 0을 실패로 치지 않는다(시작을 못
+   했을 때만). 되살리는 것은 5분 반복인데, 그 반복은 **로그온 트리거에 붙어 있어서
+   등록 뒤에 로그온이 있어야 무장된다.** `register-tasks.ps1`은 로그온된 세션에서
+   돌리므로 등록 순간부터 다음 재부팅까지 반복이 없다. 11-17 18:58(그날 로그온
+   17:58의 한 시간 뒤)에 등록한 네 작업 모두 그 상태였고, 크래시 뒤 ingest.log에는
+   재시작 시도가 **한 줄도** 없었다. 트리거 목록에는 `PT5M`이 멀쩡히 보인다.
+   이제 같은 반복을 단 시간 트리거를 함께 등록하고, `NextRunTime`이 비면 FAIL.
+
+**알아채는 법:** `(Get-ScheduledTaskInfo DarkWar-Ingest).NextRunTime`이 비어 있다.
+`LastTaskResult` 1 + `Ready` + 로그 끝이 traceback이고 그 뒤로 아무 줄이 없다.
+
+**고르지 않은 것:** `run-*.cmd`의 `goto` 루프. `Stop-ScheduledTask`가 wscript만
+끝내므로 루프 cmd가 고아로 남아 워커를 되살린다 — prune·vacuum 도중에도.
+
+**같은 꼴이 남은 곳:** `register-iphone-task.ps1`도 반복을 로그온 트리거에만 단다.
+
+*출처: 2026-11-19 사고 — ingest.log, `Get-ScheduledTaskInfo`·`Export-ScheduledTask` 조회.
+코드 `storage/journal.py`(`is_locked`), `cli.py`(`_until_unlocked`), `scripts/windows/register-tasks.ps1`*
+
+---
+
 ## 함정 — BlueStacks 터치 장치(event4)에 직접 쓰면 사람의 클릭이 죽는다
 
 2026-11-18 지금의 BlueStacks는 `/dev/input/event4`("BlueStacks Virtual Touch")가 **멀티터치 프로토콜 B**

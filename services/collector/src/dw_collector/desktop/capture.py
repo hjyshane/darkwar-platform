@@ -56,7 +56,7 @@ from typing import IO
 
 from dw_collector.ingest import ScanResult, _ingest_capture, _ready_captures
 from dw_collector.protocol.pcapng import PcapError
-from dw_collector.storage.journal import Journal
+from dw_collector.storage.journal import Journal, is_locked
 
 log = logging.getLogger(__name__)
 
@@ -595,13 +595,19 @@ class Supervisor:
         to only be checked between whole passes, never mid-backlog, see
         `_ingest_once`) spawns a SECOND `Journal(..., single_writer_thread=
         True)` against the very file the first thread is still writing.
-        There is no crash to announce this: WAL mode is on but nothing here
-        sets a `busy_timeout` (see `Journal.__init__`), so the new writer's
-        first colliding write raises `sqlite3.OperationalError` — silently,
-        inside a background thread, in a case `_ingest_once` used to not
-        even catch (Finding 1 also widens that to `sqlite3.DatabaseError`,
-        `OperationalError`'s parent — it is NOT an `OSError`, despite
-        sounding like one). Meanwhile both threads share and stomp on the
+        There is no crash to announce this. `Journal.__init__` now sets a
+        busy timeout (`BUSY_TIMEOUT_SECONDS`, a minute), so the new writer's
+        colliding writes mostly WAIT for the straggler's instead of failing —
+        which hides the second writer rather than revealing it. One that
+        outwaits the timeout raises "database is locked", and `_ingest_once`
+        now leaves that file unmarked for the next pass (it used to mark it
+        done, losing it). Either way nothing is raised where anyone would
+        see it: it is all inside a background thread. Before the busy
+        timeout, the first colliding write raised `sqlite3.OperationalError`
+        at once, in a case `_ingest_once` used to not even catch (Finding 1
+        widened that to `sqlite3.DatabaseError`, `OperationalError`'s parent
+        — it is NOT an `OSError`, despite sounding like one). Meanwhile both
+        threads share and stomp on the
         same `_ingest_files_seen`/`_ingest_files_ingested`/
         `_ingest_rows_written` counters, which the new `_start_ingest_loop`
         call has just reset to zero out from under the straggler. Keeping
@@ -716,31 +722,52 @@ class Supervisor:
                 return
             with self._ingest_status_lock:
                 self._ingest_files_seen += 1
-            fallback = datetime.now(tz=UTC)
             try:
-                result = self._ingest_capture(
-                    journal,
-                    pcap,
-                    collector_id=self._collector_id,
-                    collected_from_server=self._collected_from_server,
-                    port=game_port,
-                    discover_only=False,
-                    fallback=fallback,
-                )
-            except (PcapError, OSError, ValueError, sqlite3.DatabaseError):
-                # `sqlite3.DatabaseError` added for Finding 1:
-                # `sqlite3.OperationalError` (e.g. "database is locked") is
-                # a `DatabaseError` subclass, NOT an `OSError`, despite
-                # sounding like one — an `except OSError` alone lets it
-                # right past this handler and into `_ingest_loop`'s
-                # catch-all, which would kill this entire ingest session
-                # over what should cost, at most, this one file. Catching
-                # the parent class also covers disk-full and corruption for
-                # the same reason.
-                journal.mark_capture_ingested(pcap.name, 0)
-                log.warning(f"dw_capture.unreadable_capture: {pcap.name}", exc_info=True)
-                continue
-            journal.mark_capture_ingested(pcap.name, result.events)
-            with self._ingest_status_lock:
-                self._ingest_files_ingested += 1
-                self._ingest_rows_written += result.events
+                self._ingest_file(journal, pcap, game_port)
+            except sqlite3.OperationalError as exc:
+                if not is_locked(exc):
+                    raise
+                # A locked journal is not this file's fault, and the file is
+                # NOT marked: the pass ends here and the next poll starts
+                # again from this file, so nothing after it is read out of
+                # order either. Re-reading is safe — every write is keyed on
+                # the file name and event position. This loop used to catch a
+                # lock with the unreadable files and mark it done with zero
+                # events, which lost the file for good.
+                log.warning(f"dw_capture.ingest_journal_locked: {pcap.name}", exc_info=True)
+                return
+
+    def _ingest_file(self, journal: Journal, pcap: Path, game_port: int) -> None:
+        """One file in, marked, and counted. A locked journal raises out of
+        here unmarked; see `_ingest_once`."""
+        fallback = datetime.now(tz=UTC)
+        try:
+            result = self._ingest_capture(
+                journal,
+                pcap,
+                collector_id=self._collector_id,
+                collected_from_server=self._collected_from_server,
+                port=game_port,
+                discover_only=False,
+                fallback=fallback,
+            )
+        except (PcapError, OSError, ValueError, sqlite3.DatabaseError) as exc:
+            # `sqlite3.DatabaseError` added for Finding 1:
+            # `sqlite3.OperationalError` is a `DatabaseError` subclass, NOT
+            # an `OSError`, despite sounding like one — an `except OSError`
+            # alone lets it right past this handler and into `_ingest_loop`'s
+            # catch-all, which would kill this entire ingest session over
+            # what should cost, at most, this one file. Catching the parent
+            # class also covers disk-full and corruption for the same reason.
+            #
+            # Except a LOCK, which costs nothing: it goes back up unmarked
+            # and the file is read again on the next pass.
+            if is_locked(exc):
+                raise
+            journal.mark_capture_ingested(pcap.name, 0)
+            log.warning(f"dw_capture.unreadable_capture: {pcap.name}", exc_info=True)
+            return
+        journal.mark_capture_ingested(pcap.name, result.events)
+        with self._ingest_status_lock:
+            self._ingest_files_ingested += 1
+            self._ingest_rows_written += result.events
