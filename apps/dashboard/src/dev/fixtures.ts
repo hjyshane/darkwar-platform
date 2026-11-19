@@ -997,6 +997,10 @@ function devRole(): string {
   return asked === 'officer' || asked === 'member' || asked === 'viewer' ? asked : 'admin';
 }
 
+/** `?unlinked` shows an account with no character, which for a member or
+ * officer is the character picker in front of every page (lib/characterGate). */
+const UNLINKED = new URLSearchParams(globalThis.location?.search ?? '').has('unlinked');
+
 export const SESSION = {
   email: 'you@example.invalid',
   role: devRole(),
@@ -1004,7 +1008,7 @@ export const SESSION = {
   // The linked character. Without it the hive board cannot say which tile is
   // yours, which is the one line that screen exists to print — an unlinked
   // account is a real state and worth seeing too, but not the default one.
-  playerId: PLAYER.shane,
+  playerId: UNLINKED ? null : PLAYER.shane,
 };
 
 /** The game calendar (0208): what one login saw. Real ids from the 10-02
@@ -1723,6 +1727,19 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
   ],
   [['event-calendar'], CALENDAR_ROWS],
   [SESSION_KEY, SESSION],
+  // The character picker (PlayerClaimForm): no alliance chosen at sign-up, so
+  // every own alliance's characters, and the account's own links.
+  [['chosen-alliance'], null],
+  [
+    ['claimable', null],
+    [
+      { player_id: PLAYER.shane, current_name: 'Shane', code: 'CBFW' },
+      { player_id: PLAYER.mira, current_name: 'Mira', code: 'CBFW' },
+      { player_id: PLAYER.kova, current_name: 'Kova', code: 'CBFW' },
+      { player_id: PLAYER.dex, current_name: 'Dex', code: 'CBFW' },
+    ],
+  ],
+  [['my-players'], UNLINKED ? [] : [{ player_id: PLAYER.shane, current_name: 'Shane' }]],
   [['permissions'], { capabilities: CAPABILITIES, grants: GRANTS }],
   // The score bars (0239) are part of the report's key; none set is the report as it was.
   [['participation-bars'], { duel: null, donation: null }],
