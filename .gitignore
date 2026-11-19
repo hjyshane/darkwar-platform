@@ -15,6 +15,14 @@
 *.sqlite3
 legacy/**/data/
 legacy/**/*.db
+# Extracted game binaries, and the local reverse-engineering workspace
+# (Ghidra, Il2CppDumper, frida, il2cpp dumps). The game's own code, by the
+# gigabyte: never committed, and kept out of Biome's way (it reads this file).
+apk/
+*.apk
+*.aab
+/analysis/
+/tools/
 
 # ---------------------------------------------------------------------------
 # Secrets. The Supabase secret/service-role key bypasses RLS entirely (NFR-001)
