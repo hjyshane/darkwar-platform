@@ -10,7 +10,7 @@
 
 ## 2. 사람 몫 / 막힌 것
 
-- **맵 스윕 예약 등록 — 주인 몫 (11-18, 미실시).** `dw-ui-worker goto-sweep`(게임의 좌표 이동 창으로 566–588을 서버당 70점)을 8시간마다 돌리려면 관리자 PowerShell에서 `.\scripts\windows\register-map-sweep.ps1` 한 번. 로그 `C:\DW_data\logs\map-sweep.log`, 멈춘 화면은 `C:\DW_data\ui-shots`. BlueStacks 창 제목에 `collector`가 들어 있어야 가드가 그 인스턴스를 고른다(11-18에 주인이 바꿈). `runbooks/map-sweep.md`.
+- **맵 스윕(`goto-sweep`) — 보류 (11-18, 주인 결정, 확인함).** 코드는 #623으로 main에 있다(게임의 좌표 이동 창으로 566–588을 서버당 70점, 이동 한 번 11.2초, 전체 약 5시간). 8시간 예약 `DarkWar-MapSweep`은 11-18에 등록했다가 주인 요청으로 **지웠다**(작업 스케줄러에 없음 확인). 지금은 주인이 자기 BlueStacks 매크로로 맵을 훑는다. 다시 켜려면 관리자 PowerShell에서 `powershell -ExecutionPolicy Bypass -File .\scripts\windows\register-map-sweep.ps1`(이 PC는 실행 정책 미설정이라 `-ExecutionPolicy Bypass`가 필요). BlueStacks 창 제목에 `collector`가 있어야 가드가 그 인스턴스를 고른다. `runbooks/map-sweep.md`.
 - **압축 응답(APS zstd v1) — 끝 (11-18, 확인함).** 디코더는 #604로 main에 머지, Windows Ingest는 11-18 01:27부터 그 코드로 돈다(`aps_zstd_key_loaded sha256=e9ed2813695e`), 그 전 파일은 `C:\DW_data\aps\backfill_aps.py`로 전부 채웠다. 키 경로는 `.env`의 `DW_APS_ZSTD_KEY_FILE`(키 파일은 저장소 밖). 맥(아이폰 체인)과 데스크톱 앱은 키가 없어 계속 버린다(§3, 주인이 보류).
 - **이벤트 알람 배포됨 (11-15, 확인함).** 주인이 `db push`로 0321–0327을 적용했다(21:29 UTC 무렵, `schema_migrations`로 확인). 대시보드 Alarms 탭은 #597로 머지(`590bf9fd`), CI `deploy` 성공, cbfw.us가 탭이 든 `index-IQHQGTwp.js`를 낸다.
   - 푸시 뒤 확인 4가지 통과(21:44 UTC에 읽음): `alerts-reconcile`은 21:28이 마지막 실패(옛 `extensions.net._http_response` 오류)이고 21:29부터 매분 성공, `alerts-detect`·`alarms-calendar`(5분마다, 첫 실행 21:30) 실패 0; anon은 `alarm_deliveries` 실행 불가(authenticated는 가능); 자기 연맹 둘 다 달력 보드 셋; `cron.job`에 `alarms-calendar`.
@@ -47,7 +47,7 @@
 | 데스크톱 앱 두 번째 머신 설치 | 개발 머신 한 대만 성공 | `log/2026-09.md` (09-11) |
 | `dw-capture` 재접속 멈춤 | 원인 미확인 (계측만 있음) | `log/…-tail.md` |
 | `arena_matches` writer 없음 | 08-03에 로컬 0건 확인, 프로덕션 미확인 | `capture-backlog.md` |
-| `goto-sweep` 무인 반복(566–588 전체 회차) | 11-18: 582 3점·583 70점 시험만. 전체 회차 시간, 거절되는 서버 유무 모름 | `runbooks/map-sweep.md` |
+| `goto-sweep` 무인 반복(566–588 전체 회차) | 11-18: 582–586에서 110점 시험만, 전체 회차 없음(보류, §2). 거절되는 서버 유무 모름 | `runbooks/map-sweep.md` |
 | 기존 스와이프 스윕(`dw-ui-worker sweep`)의 줌 | 11-18: BlueStacks 터치가 프로토콜 B라 `zoom.py` 핀치 무효 | `traps.md` |
 | 아이폰(iOS) 클라이언트의 APS zstd 키 | 모름. Android APK에서만 뽑았다. 맥 `.env`에 `DW_APS_ZSTD_KEY_FILE`이 없으면 그 체인은 압축 응답을 버린다 | `C:\DW_data\aps\README.md` |
 
