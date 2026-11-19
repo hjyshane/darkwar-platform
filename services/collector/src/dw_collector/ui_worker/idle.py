@@ -35,8 +35,23 @@ DEFAULT_PROTECTED_TERMS: tuple[str, ...] = (
     "hd-player",
 )
 
+#: Text that contains a protected term without being the game. The repository
+#: is called darkwar-platform, so a File Explorer, editor or terminal open on it
+#: read as "the emulator is in use": a map sweep spent most of its first full
+#: run (2026-11-18) pausing for an Explorer window while the emulator sat idle.
+#: Removed before matching rather than special-cased per term.
+NOT_THE_GAME: tuple[str, ...] = ("darkwar-platform",)
+
 # How much quieter it has to be when the game or emulator is in front.
 PROTECTED_IDLE_MULTIPLIER = 2.0
+
+
+def protected_term(title: str, process: str, terms: tuple[str, ...]) -> str | None:
+    """The first protected term the foreground window carries, or None."""
+    combined = f"{title} {process}".lower()
+    for harmless in NOT_THE_GAME:
+        combined = combined.replace(harmless, " ")
+    return next((term for term in terms if term in combined), None)
 
 
 class IdleUnavailableError(RuntimeError):
@@ -216,8 +231,7 @@ class IdlePolicy:
                 reason=f"could not measure idleness ({exc})",
             )
 
-        combined = f"{title} {process}".lower()
-        protected = next((term for term in self.protected_terms if term in combined), None)
+        protected = protected_term(title, process, self.protected_terms)
         if protected is not None and seconds < self.minimum_idle_seconds:
             return IdleState(
                 idle_seconds=seconds,
@@ -259,8 +273,7 @@ class IdlePolicy:
                 reason=f"could not measure idleness ({exc})",
             )
 
-        combined = f"{title} {process}".lower()
-        protected = next((term for term in self.protected_terms if term in combined), None)
+        protected = protected_term(title, process, self.protected_terms)
         protected_threshold = self.minimum_idle_seconds * PROTECTED_IDLE_MULTIPLIER
         if protected is not None and seconds < protected_threshold:
             return IdleState(

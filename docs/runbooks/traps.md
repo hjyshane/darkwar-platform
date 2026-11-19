@@ -22,6 +22,25 @@
 
 ---
 
+## 함정 — BlueStacks 터치 장치(event4)에 직접 쓰면 사람의 클릭이 죽는다
+
+2026-11-18 지금의 BlueStacks는 `/dev/input/event4`("BlueStacks Virtual Touch")가 **멀티터치 프로토콜 B**
+(`ABS_MT_SLOT`·`ABS_MT_TRACKING_ID`·`BTN_TOUCH`)다. `zoom.py`는 슬롯이 없던 시절의 프로토콜 A로 쓰므로
+**핀치가 아무 일도 하지 않는다**(기존 `dw-ui-worker sweep`의 줌 설정도 같이 죽어 있다).
+
+프로토콜 B로 고쳐 쓰려던 시험이 더 나빴다. 이 장치는 BlueStacks 자신의 마우스 클릭과 **커널 상태를 공유**하고,
+커널은 같은 값의 연속 이벤트를 버린다(MT 슬롯 추적이 없는 장치라 축마다 값이 하나뿐). 결과:
+제스처가 탭으로 읽혀 빈 타일(Build/Teleport/March)·몬스터(Rally) 메뉴가 열렸고, 마지막 `BTN_TOUCH 0`이 남아
+**사람의 클릭이 전부 "hovering"으로 처리돼 BlueStacks에서 아무것도 눌리지 않았다.** 복구는
+`dumpsys input`으로 상태를 보고, 슬롯마다 다른 id를 줬다가 `-1`로 떼고(반복 값 회피) `BTN_TOUCH 1`로 되돌리는 것.
+
+**규칙:** 자동화는 event4에 쓰지 않는다. 탭·입력은 `adb shell input`(별도 주입 경로), 줌은 가상 마우스
+`/dev/input/event5`의 휠(`AdbClient.wheel`, 상대 이벤트라 남는 상태가 없다).
+
+*출처: log/2026-11.md, 2026-11-18*
+
+---
+
 ## 함정 — 게임 업데이트가 압축 코덱을 바꾸면 수집기는 건강해 보이며 큰 응답만 버린다
 
 1.250.672(2026-11-17)에서 압축 프레임(0x20)이 zlib에서 APS zstd v1로 바뀌자 디코더가 그 본문을
