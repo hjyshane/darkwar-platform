@@ -1,7 +1,8 @@
 # Starting a new season
 
 Seasons and their buildings are data (0242), edited in **Settings -> Catalogue -> Seasons**
-(`catalogue.write`, shared by every alliance). No code change or deploy.
+(`catalogue.write`, shared by every alliance). No code change or deploy, except the calculator's
+season list (step 5).
 
 **The season itself is detected (0245).** Every login carries the game's season calendar
 (`seasonStage`, `nextSeasonStage`, `seasonInfo`); the collector stores it in
@@ -27,6 +28,13 @@ Needs the collector running version 1.0.0 of `game_season.py` or later (restart 
    sure of: it is shown with a `*`.
 4. **Order.** Buildings show in the order of their "Order" number (10, 20, ...). Change a number to
    move one.
+5. **The calculator — the one code change.** The calculator's "Season building" picker offers only
+   the game themes listed in `OUR_SEASON_BY_GAME_SEASON`
+   (`apps/dashboard/src/features/calculator/seasons.ts`; owner, 2026-11-19). The game numbers its
+   season sets by theme, not by our season (theme 6 is our Season 4), so add the new season's theme
+   there, or its buildings stay out of the calculator. The theme is the `game_season` of its
+   buildings: `select distinct game_season, name from game_upgrade_subjects where kind = 'building'
+   and game_season is not null`.
 
 What changes on the start day, without anything else being done:
 
