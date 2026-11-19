@@ -122,7 +122,7 @@
           "arriveTime": 1795060000000,
           "cfgId": 110,
           "completeness": 1.0,
-          "marchInfo": {"robTimes": 0, "squadNo": 1},
+          "marchInfo": { "robTimes": 0, "squadNo": 1 },
           "ownerId": "1000000004000566",
           "quality": 4,
           "sendTime": 1795040000000,
