@@ -7,7 +7,7 @@
 
 import { describe, expect, test } from 'vitest';
 import { footprintOf, memberNumbering, tileCaption } from '../../lib/hiveFormation';
-import { ZOOM_STEPS, windowAround, windowFitting, zoomStep } from './TileGrid';
+import { ZOOM_MAX, windowAround, windowFitting } from './TileGrid';
 
 const base = (dx: number, dy: number) => ({ dx, dy, spanX: 3, spanY: 3, kind: 'base' as const });
 const frankie = { dx: 0, dy: 0, spanX: 4, spanY: 3, kind: 'structure' as const };
@@ -82,21 +82,22 @@ describe('the picture opens on the whole formation', () => {
     }
   });
 
-  test('three bases are not blown up past the closest zoom step', () => {
+  test('three bases are not blown up to fill the screen', () => {
+    // 17 tiles across, the old closest step: the reader can still zoom in
+    // past it by hand, but the picture does not open there.
     const fit = windowFitting([footprintOf({ x: 500, y: 500 }, 3, 3)]);
-    expect(fit?.radius).toBe(ZOOM_STEPS[0]);
+    expect(fit?.radius).toBe(8);
+  });
+
+  test('a formation wider than the zoom can go opens at the widest zoom', () => {
+    const fit = windowFitting([
+      footprintOf({ x: 100, y: 500 }, 3, 3),
+      footprintOf({ x: 900, y: 500 }, 3, 3),
+    ]);
+    expect(fit?.radius).toBe(ZOOM_MAX);
   });
 
   test('nothing drawn is no fit', () => {
     expect(windowFitting([])).toBeNull();
-  });
-
-  test('from a fitted radius, one notch goes to the nearest step that way', () => {
-    // 18 sits between the 14 and 22 steps.
-    expect(zoomStep(18, 1)).toBe(14);
-    expect(zoomStep(18, -1)).toBe(22);
-    // Past either end there is nowhere further to go.
-    expect(zoomStep(50, -1)).toBe(50);
-    expect(zoomStep(5, 1)).toBe(5);
   });
 });

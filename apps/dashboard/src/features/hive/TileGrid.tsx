@@ -5,6 +5,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type RefObject,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from 'react';
@@ -16,6 +17,7 @@ import {
   footprintOf,
   formatTeleport,
 } from '../../lib/hiveFormation';
+import { MAP_SIZE_MAX, MAP_SIZE_MIN } from './mapPrefs';
 
 // A few dozen tiles, close enough to click one.
 //
@@ -118,9 +120,9 @@ const X_LABEL_PX = 30;
 /** Pixels per label going down. A line of text, plus air. */
 const Y_LABEL_PX = 22;
 
-/** The element's width in CSS pixels, or 0 until it has been measured. */
-function useMeasuredWidth(): [RefObject<HTMLDivElement | null>, number] {
-  const ref = useRef<HTMLDivElement | null>(null);
+/** The width of the element behind `ref` in CSS pixels, or 0 until it has
+ * been measured. Follows it as it changes — the map can be resized now. */
+function useWidthOf(ref: RefObject<HTMLElement | null>): number {
   const [width, setWidth] = useState(0);
   useEffect(() => {
     const element = ref.current;
@@ -134,8 +136,8 @@ function useMeasuredWidth(): [RefObject<HTMLDivElement | null>, number] {
     });
     observer.observe(element);
     return () => observer.disconnect();
-  }, []);
-  return [ref, width];
+  }, [ref]);
+  return width;
 }
 
 /** The coordinates one axis labels, between `min` and `max` inclusive.
@@ -163,20 +165,30 @@ export function axisTicks(min: number, max: number, maxTicks = TICKS_UNMEASURED)
  * Each label is centred on its tile, not on a grid line: a tile is a square
  * with a coordinate, and a label on the line between 480 and 481 names neither.
  */
-function AxisFrame({ view, children }: { view: GridWindow; children: ReactNode }) {
+function AxisFrame({
+  view,
+  children,
+  grip,
+}: {
+  view: GridWindow;
+  children: ReactNode;
+  /** The resize handle, drawn just off the grid's bottom-right corner. */
+  grip?: ReactNode;
+}) {
   // MEASURED ON THE X AXIS ITSELF, not on the frame around it. The frame is
   // full width while the grid column is capped at 720px, so on a wide screen
   // the frame is the wrong number — measuring it budgeted 23 labels into the
   // space for 15 and left 10px between them. The x axis shares the grid's
   // column, so its width IS the width the labels are laid out across.
-  const [axisRef, width] = useMeasuredWidth();
+  const axisRef = useRef<HTMLDivElement | null>(null);
+  const width = useWidthOf(axisRef);
   // The grid is square, so that width is also the height the Y labels stack
   // down. One measurement, two spacings.
   const budget = (perLabel: number) =>
     width === 0 ? TICKS_UNMEASURED : Math.max(2, Math.floor(width / perLabel));
 
   return (
-    <div className="tile-frame">
+    <div className={grip === undefined ? 'tile-frame' : 'tile-frame tile-frame--resizable'}>
       <span aria-hidden="true" className="tile-frame__title tile-frame__title--y">
         Y
       </span>
@@ -198,7 +210,124 @@ function AxisFrame({ view, children }: { view: GridWindow; children: ReactNode }
       <span aria-hidden="true" className="tile-frame__title tile-frame__title--x">
         X
       </span>
+      {grip}
     </div>
+  );
+}
+
+/** How far one arrow-key press resizes the map, in CSS pixels. */
+const RESIZE_KEY_STEP = 40;
+
+/** The handle that resizes the map: drag it, or focus it and use the arrows.
+ *
+ * A HANDLE ON THE MAP RATHER THAN A SETTING ELSEWHERE, because the size you
+ * want is the size that looks right, and the only way to find it is to watch
+ * the map while you change it.
+ *
+ * OFF THE CORNER, NOT ON IT. The grid is one big click target where every
+ * pixel names a tile; a handle drawn over its corner would steal the clicks
+ * for the tiles under it, so it sits just outside, in a column of its own.
+ *
+ * Reports the GRID's width, measured from the grid itself, so a drag starts
+ * from the size actually on screen even when the page has squeezed it below
+ * the size last chosen. Double-click hands the size back to the page.
+ */
+function ResizeGrip({
+  target,
+  width,
+  onResize,
+  min,
+  max,
+}: {
+  target: RefObject<HTMLElement | null>;
+  /** The grid's measured width, 0 until measured. */
+  width: number;
+  onResize: (width: number | null) => void;
+  min: number;
+  max: number;
+}) {
+  const [held, setHeld] = useState<{ x: number; y: number; width: number; limit: number } | null>(
+    null,
+  );
+
+  /** As wide as the page column allows from where the grid starts, so a drag
+   * past its edge stops there instead of growing a size nobody can see —
+   * which would then have to be dragged all the way back. The COLUMN, not the
+   * window: the content is capped at --measure, so on a wide screen the
+   * window's edge is hundreds of pixels past anything the map can fill. */
+  function limit(): number {
+    const grid = target.current;
+    if (grid === null) {
+      return max;
+    }
+    const column = grid.closest('main');
+    const right =
+      column === null ? document.documentElement.clientWidth : column.getBoundingClientRect().right;
+    // The handle's own column and the padding round the map.
+    return Math.max(min, Math.min(max, right - grid.getBoundingClientRect().left - 40));
+  }
+
+  const report = (next: number, ceiling = limit()) =>
+    onResize(Math.round(Math.min(ceiling, Math.max(min, next))));
+
+  return (
+    <span
+      aria-label="Map size. Drag, or use the arrow keys; double-click to reset."
+      aria-orientation="horizontal"
+      aria-valuemax={max}
+      aria-valuemin={min}
+      aria-valuenow={Math.round(width)}
+      aria-valuetext={`${Math.round(width)} pixels wide`}
+      className={held === null ? 'tile-frame__grip' : 'tile-frame__grip tile-frame__grip--held'}
+      onDoubleClick={() => onResize(null)}
+      onKeyDown={(event) => {
+        const step = event.shiftKey ? RESIZE_KEY_STEP * 3 : RESIZE_KEY_STEP;
+        const grow =
+          event.key === 'ArrowRight' || event.key === 'ArrowDown'
+            ? step
+            : event.key === 'ArrowLeft' || event.key === 'ArrowUp'
+              ? -step
+              : 0;
+        if (grow !== 0) {
+          event.preventDefault();
+          report(width + grow);
+        } else if (event.key === 'Home') {
+          event.preventDefault();
+          report(min);
+        } else if (event.key === 'End') {
+          event.preventDefault();
+          report(limit());
+        }
+      }}
+      onLostPointerCapture={() => setHeld(null)}
+      onPointerDown={(event) => {
+        if (event.button !== 0) {
+          return;
+        }
+        event.preventDefault();
+        event.currentTarget.setPointerCapture(event.pointerId);
+        setHeld({
+          x: event.clientX,
+          y: event.clientY,
+          width: target.current?.getBoundingClientRect().width ?? width,
+          limit: limit(),
+        });
+      }}
+      onPointerMove={(event) => {
+        if (held === null) {
+          return;
+        }
+        // The map is square, so a corner handle has one size to give it: the
+        // larger of the two movements, so dragging straight right or straight
+        // down both work, and so does the diagonal everybody actually does.
+        const byX = event.clientX - held.x;
+        const byY = event.clientY - held.y;
+        report(held.width + (Math.abs(byX) >= Math.abs(byY) ? byX : byY), held.limit);
+      }}
+      onPointerUp={() => setHeld(null)}
+      role="slider"
+      tabIndex={0}
+    />
   );
 }
 
@@ -221,6 +350,20 @@ export interface GridBase {
   own?: boolean;
   /** Drawn as a warning: an assignment for somebody off the roster. */
   stale?: boolean;
+  /** Coloured by the alliance rank of whoever stands on it — 1 to 5 for R1 to
+   * R5, null for a member whose rank is not known — INSTEAD of `colour`.
+   * Absent, `colour` decides, which is how every tile was drawn before. */
+  rank?: number | null;
+  /** A member base with nobody on it yet. Only set while bases are coloured by
+   * rank: there an empty base painted the default colour would read as one
+   * more rank, so it is drawn as an empty outline instead. */
+  vacant?: boolean;
+}
+
+/** The class that colours a base by rank: r1..r5, or r0 for anything that is
+ * not a rank the game gives (null, or a number from a column gone wrong). */
+export function rankClass(rank: number | null): string {
+  return Number.isInteger(rank) && rank !== null && rank >= 1 && rank <= 5 ? `r${rank}` : 'r0';
 }
 
 /** Somebody already standing here, from the map's own sightings. */
@@ -243,43 +386,133 @@ function boxStyle(window: GridWindow, at: Coordinate, spanX: number, spanY = spa
   return rectStyle(window, footprintOf(at, spanX, spanY));
 }
 
-/** How wide the window can be, in tiles either side of the centre.
+/** How close and how wide the window can go, in tiles either side of the
+ * centre.
+ *
+ * ANY RADIUS IN BETWEEN, NOT A LADDER. This used to be four fixed steps (17,
+ * 29, 45 and 69 tiles across), which was too coarse to frame a hive the way
+ * an officer wanted it and stopped well short of the ground round it. The
+ * closest is one base and its neighbours; the widest is a couple of hundred
+ * tiles, for finding somewhere to put the whole thing.
  *
  * Shared by both grids so the member's picture and the officer's editor zoom
- * through the same steps — and so "45 tiles" means one thing in the app. The
- * middle two are where a hive is drawn; the widest is for finding somewhere
- * to put it and the closest for the last tile of an awkward corner.
+ * the same way — and so "45 tiles" means one thing in the app.
  */
-export const ZOOM_STEPS = [8, 14, 22, 34] as const;
+export const ZOOM_MIN = 3;
+export const ZOOM_MAX = 100;
 
-/** The step one notch in or out from `radius`, clamped at both ends.
- *
- * `direction` is +1 for CLOSER, which is a smaller radius and therefore a
- * lower index — the list runs outward. Getting that backwards does not throw;
- * it just makes the wheel do the opposite of what every map does, which is
- * how it was found.
- */
-export function zoomStep(radius: number, direction: number): number {
-  const index = ZOOM_STEPS.indexOf(radius as (typeof ZOOM_STEPS)[number]);
-  if (index === -1) {
-    // OFF THE LADDER: a window fitted to a formation has whatever radius the
-    // formation needed. One notch goes to the nearest step in the direction
-    // asked, so "closer" is never a jump outward to the ladder's default.
-    const closer = [...ZOOM_STEPS].reverse().find((step) => step < radius);
-    const wider = ZOOM_STEPS.find((step) => step > radius);
-    return (direction > 0 ? closer : wider) ?? radius;
-  }
-  return ZOOM_STEPS[Math.min(ZOOM_STEPS.length - 1, Math.max(0, index - direction))] ?? radius;
+/** Where the editor opens: a hive's inner rings, close enough to click. */
+export const ZOOM_DEFAULT = 14;
+
+/** How much one wheel notch, or one press of + or −, changes the radius. Small
+ * enough that a notch never loses the ground being looked at; at the closest
+ * end it still moves the window by a whole tile either side. */
+export const ZOOM_NOTCH = 1.2;
+
+/** The tightest a fitted window goes, so a formation of three bases is not
+ * blown up to fill the screen. Deliberately not ZOOM_MIN: the reader can still
+ * zoom in past this by hand. */
+const FIT_MIN_RADIUS = 8;
+
+/** A zoom held as a number, clamped to the range. */
+export function clampZoom(radius: number): number {
+  return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, radius));
 }
+
+/** The radius the window is actually drawn at.
+ *
+ * THE ZOOM IS KEPT AS A FRACTION, THE WINDOW IS WHOLE TILES. A trackpad pinch
+ * arrives as dozens of tiny steps, each far less than a tile; rounding every
+ * one of them would throw each away and the pinch would never move at all.
+ */
+export function windowRadius(zoom: number): number {
+  return Math.round(clampZoom(zoom));
+}
+
+/** The zoom `notches` closer (positive) or wider (negative), clamped at both
+ * ends rather than wrapping. Fractional notches are what a pinch sends.
+ *
+ * CLOSER IS A SMALLER RADIUS. Getting that backwards does not throw; it just
+ * makes the wheel do the opposite of what every map does, which is how it was
+ * found the first time.
+ */
+export function zoomedBy(zoom: number, notches: number): number {
+  const next = clampZoom(zoom / ZOOM_NOTCH ** notches);
+  // A WHOLE NOTCH ALWAYS MOVES THE WINDOW. Near the closest end a fifth of a
+  // radius is under a tile, so from a fractional zoom (left by a pinch) a
+  // press of + could round to the window already on screen and appear to do
+  // nothing. A pinch's fractions are left alone: those are meant to add up.
+  if (Math.abs(notches) >= 1 && windowRadius(next) === windowRadius(zoom)) {
+    return clampZoom(windowRadius(zoom) - Math.sign(notches));
+  }
+  return next;
+}
+
+/** One wheel event as notches, positive for closer.
+ *
+ * TWO DEVICES, ONE EVENT. A mouse wheel arrives one notch per event, as a
+ * line count or a hundred-odd pixels; a trackpad pinch arrives as a stream of
+ * small pixel deltas with ctrl set. Treating the pinch's deltas as notches
+ * zoomed the whole range in a flick, and treating the wheel's hundred pixels
+ * as a pinch made one notch a jump of three. So each is read as what it is.
+ */
+export function wheelNotches(deltaY: number, deltaMode: number): number {
+  if (deltaY === 0) {
+    return 0;
+  }
+  if (deltaMode !== 0 || Math.abs(deltaY) >= 50) {
+    return -Math.sign(deltaY);
+  }
+  return -deltaY / 20;
+}
+
+/** Where the pointer is across the grid, 0..1 from the top-left corner. */
+export interface GridFraction {
+  left: number;
+  top: number;
+}
+
+/** The centre that keeps the ground under the pointer where it is when the
+ * window becomes `radius` tiles either side.
+ *
+ * ZOOMING ABOUT THE POINTER, NOT ABOUT THE TILE UNDER IT. This used to
+ * re-centre on the tile under the pointer, which with four big steps at least
+ * kept it in view; with a pinch that sends forty small steps, re-centring on
+ * each one flew the map toward the cursor. Holding the pointer's spot fixed is
+ * what every map does, and the formula is the same one: the edges move by the
+ * change in size, shared out by where the pointer sits between them.
+ *
+ * From the window as DRAWN, which near the map's edge has slid away from the
+ * centre the caller holds — so the answer is about the ground on screen.
+ */
+export function centreKeeping(view: GridWindow, radius: number, at: GridFraction): Coordinate {
+  const grown = radius * 2 + 1 - view.across;
+  // The map's y counts upward, so the top edge is yMax and growing the window
+  // pushes it UP by the share of the growth that lies above the pointer.
+  const xMin = view.xMin - at.left * grown;
+  const yMax = view.yMax + at.top * grown;
+  return pannedCentre({ x: Math.round(xMin + radius), y: Math.round(yMax - radius) }, 0, 0);
+}
+
+/** The smallest a tile may be drawn and still carry a caption, in CSS pixels.
+ * A 3x3 base is then about fourteen pixels — a name is clipped to its first
+ * letters there, but it is still the letters of a name, which is what a member
+ * looking for themselves on the widest view needs. */
+const CAPTION_MIN_TILE_PX = 4.5;
+
+/** Below this the grid lines are dropped: one line every three pixels is not a
+ * grid any more, it is a grey wash over the bases it is meant to measure. */
+const LINES_MIN_TILE_PX = 4;
 
 /** The window that shows every footprint whole, with a margin round it.
  *
  * For the members' picture, which is there to be looked at rather than
  * worked in: it opens on the WHOLE formation instead of a fixed zoom round the
  * anchor, which on an eighty-base hive showed the middle and left everybody
- * past the second ring to be panned for. Never closer than the nearest zoom
- * step, so a formation of three bases is not blown up to fill the screen.
- * Null for nothing drawn — the caller keeps its own default.
+ * past the second ring to be panned for. Never closer than FIT_MIN_RADIUS, so
+ * a formation of three bases is not blown up to fill the screen, and never
+ * wider than the zoom can go. Null for nothing drawn — the caller keeps its
+ * own default.
  */
 export function windowFitting(
   boxes: readonly FootprintBox[],
@@ -294,7 +527,7 @@ export function windowFitting(
   const y1 = Math.max(...boxes.map((box) => box.y1));
   const centre = { x: Math.floor((x0 + x1) / 2), y: Math.floor((y0 + y1) / 2) };
   const reach = Math.max(centre.x - x0, x1 - centre.x, centre.y - y0, y1 - centre.y);
-  return { centre, radius: Math.max(ZOOM_STEPS[0], reach + margin) };
+  return { centre, radius: clampZoom(Math.max(FIT_MIN_RADIUS, reach + margin)) };
 }
 
 /** How far the pointer must travel before a press becomes a drag.
@@ -386,6 +619,7 @@ export function TileGrid({
   canDropAt,
   onMoveAnchor,
   canAnchorAt,
+  onResize,
   busy = false,
 }: {
   window: GridWindow;
@@ -423,10 +657,14 @@ export function TileGrid({
    * pointer crosses, so the square under the cursor can say no BEFORE the
    * drop rather than the drop being silently ignored. */
   canMoveTo?: (from: Coordinate, to: Coordinate) => boolean;
-  /** Given, ctrl + wheel (or a pinch) zooms. `direction` is +1 to go closer, and `at` is the
-   * tile under the pointer — the caller re-centres on it so the square being
-   * looked at stays under the cursor instead of sliding away. */
-  onZoom?: (direction: number, at: Coordinate) => void;
+  /** Given, ctrl + wheel (or a pinch) zooms. `notches` is positive to go
+   * closer and may be fractional (a pinch); `at` is where the pointer is
+   * across the grid, for `centreKeeping` — so the ground being looked at stays
+   * under the cursor instead of sliding away.
+   *
+   * At most once a frame: a pinch sends far more events than the screen can
+   * draw, and they are added up rather than each one re-rendering the page. */
+  onZoom?: (notches: number, at: GridFraction) => void;
   /** Given, a member dragged from a list (MEMBER_DRAG_TYPE) can be dropped on
    * a tile, which is reported with their player id. The parent decides what a
    * drop there means — a new base, or the base already standing there. */
@@ -446,14 +684,26 @@ export function TileGrid({
   /** Whether the whole formation fits with the anchor on `to`. Asked while
    * dragging so the ghosts can refuse before the drop. */
   canAnchorAt?: (to: Coordinate) => boolean;
+  /** Given, a handle off the grid's bottom-right corner resizes it, reported
+   * as the grid's new width in CSS pixels — or null, on a double-click, to
+   * hand the size back to the page. The caller owns the size and lays the
+   * page out round it; the grid only draws the handle. */
+  onResize?: (width: number | null) => void;
   busy?: boolean;
 }) {
-  // Captions are dropped once a tile is too small to hold one. Up to the
-  // widest zoom step, not 45 across as it was: a caption is clipped to its own
-  // footprint and footprints never overlap, so names cannot run together into
-  // the grey mass MapCanvas guards against — and hiding them meant a member
-  // zoomed out to see the whole hive could find nobody but themselves.
-  const roomForCaptions = view.across <= Math.max(...ZOOM_STEPS) * 2 + 1;
+  const surfaceRef = useRef<HTMLElement | null>(null);
+  const surfaceWidth = useWidthOf(surfaceRef);
+  // Pixels per tile, which is what decides whether a caption or a grid line
+  // can be read — not how many tiles are across, now that the same number of
+  // tiles can be drawn 300px or 1,500px wide. Unmeasured (the first paint, and
+  // jsdom), the old rule: captions up to 69 tiles across, lines always.
+  const tilePx = surfaceWidth === 0 ? null : surfaceWidth / view.across;
+  // A caption is clipped to its own footprint and footprints never overlap, so
+  // names cannot run together into the grey mass MapCanvas guards against —
+  // and hiding them early meant a member zoomed out to see the whole hive
+  // could find nobody but themselves.
+  const roomForCaptions = tilePx === null ? view.across <= 69 : tilePx >= CAPTION_MIN_TILE_PX;
+  const dense = tilePx !== null && tilePx < LINES_MIN_TILE_PX;
 
   const [drag, setDrag] = useState<Drag | null>(null);
   const [region, setRegion] = useState<{ from: Coordinate; to: Coordinate } | null>(null);
@@ -477,7 +727,6 @@ export function TileGrid({
      * ground. Decides what a press that never moved means on release. */
     viaModifier: boolean;
   } | null>(null);
-  const surfaceRef = useRef<HTMLElement | null>(null);
   // A completed drag must not also fire the click that follows pointerup.
   // A ref rather than state: it is read and cleared inside the very next
   // event, and a re-render in between would be a frame of the wrong thing.
@@ -575,15 +824,39 @@ export function TileGrid({
   // browser's own page zoom, and only preventDefault on a non-passive handler
   // keeps it from zooming the whole page while the map zooms too.
   //
-  // The dependency list is the whole closure it reads. `onZoom` is redefined
-  // every render by the parent, which is why this re-attaches rather than
-  // capturing a stale `view`.
+  // ADDED UP AND HANDED OVER ONCE A FRAME. A pinch sends several events per
+  // frame; each one calling the parent read the zoom from the last render, so
+  // all but one of them were lost and the pinch crawled. Summed here and sent
+  // on the next frame, by which point the parent has drawn the last one.
+  //
+  // `onZoom` is redefined every render by the parent, so it is read through a
+  // ref at the moment of sending rather than captured when the listener was
+  // attached — attaching once is what lets the sum survive between events.
+  const zoomRef = useRef(onZoom);
+  // After every commit and before the next frame, which is when `send` reads
+  // it — never during render, where React may throw the render away.
+  useLayoutEffect(() => {
+    zoomRef.current = onZoom;
+  });
+  const zoomable = onZoom !== undefined;
   useEffect(() => {
     const element = surfaceRef.current;
-    const zoom = onZoom;
-    if (element === null || zoom === undefined) {
+    if (element === null || !zoomable) {
       return;
     }
+    let notches = 0;
+    let at: GridFraction = { left: 0.5, top: 0.5 };
+    let frame: number | null = null;
+    const send = () => {
+      frame = null;
+      // Capped so a burst from a free-spinning wheel is a few notches, not
+      // the whole range in one frame.
+      const total = Math.max(-4, Math.min(4, notches));
+      notches = 0;
+      if (total !== 0) {
+        zoomRef.current?.(total, at);
+      }
+    };
     const wheel = (event: WheelEvent) => {
       if (!(event.ctrlKey || event.metaKey)) {
         return;
@@ -593,16 +866,24 @@ export function TileGrid({
       if (box.width === 0 || box.height === 0) {
         return;
       }
-      const at = tileAtFraction(
-        view,
-        (event.clientX - box.left) / box.width,
-        (event.clientY - box.top) / box.height,
-      );
-      zoom(event.deltaY < 0 ? 1 : -1, at);
+      const inside = (value: number) => Math.min(1, Math.max(0, value));
+      at = {
+        left: inside((event.clientX - box.left) / box.width),
+        top: inside((event.clientY - box.top) / box.height),
+      };
+      notches += wheelNotches(event.deltaY, event.deltaMode);
+      if (frame === null) {
+        frame = requestAnimationFrame(send);
+      }
     };
     element.addEventListener('wheel', wheel, { passive: false });
-    return () => element.removeEventListener('wheel', wheel);
-  }, [onZoom, view]);
+    return () => {
+      element.removeEventListener('wheel', wheel);
+      if (frame !== null) {
+        cancelAnimationFrame(frame);
+      }
+    };
+  }, [zoomable]);
 
   /** The tile under a pointer event, or null when the box has no size yet.
    * Any event with a position will do — a drag from the member list is not a
@@ -714,7 +995,15 @@ export function TileGrid({
         const className = [
           'tile-grid__base',
           base.structure ? 'tile-grid__base--structure' : '',
-          base.colour == null ? '' : `tile-grid__base--${base.colour}`,
+          // Rank, when the page asks for it, replaces the painted colour
+          // rather than fighting it: both set the fill and the border, and
+          // two rules racing on one tile is how a colour silently loses.
+          base.rank !== undefined
+            ? `tile-grid__base--${rankClass(base.rank)}`
+            : base.colour == null
+              ? ''
+              : `tile-grid__base--${base.colour}`,
+          base.vacant ? 'tile-grid__base--vacant' : '',
           base.selected ? 'tile-grid__base--on' : '',
           base.own ? 'tile-grid__base--own' : '',
           base.stale ? 'tile-grid__base--stale' : '',
@@ -750,15 +1039,32 @@ export function TileGrid({
     </>
   );
 
+  const grip =
+    onResize === undefined ? undefined : (
+      <ResizeGrip
+        max={MAP_SIZE_MAX}
+        min={MAP_SIZE_MIN}
+        onResize={onResize}
+        target={surfaceRef}
+        width={surfaceWidth}
+      />
+    );
+
   if (onPick === undefined) {
     return (
-      <AxisFrame view={view}>
+      <AxisFrame grip={grip} view={view}>
         {/* NO MODIFIER NEEDED HERE. On the read-only map a drag has nothing
             else it could mean, so plain dragging pans and ctrl still works —
             the editor needs ctrl only because a bare drag there already
             carries a base or sweeps an area. */}
         <div
-          className={pan !== null ? 'tile-grid tile-grid--panning' : 'tile-grid'}
+          className={[
+            'tile-grid',
+            pan !== null ? 'tile-grid--panning' : '',
+            dense ? 'tile-grid--dense' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
           onPointerCancel={() => setPan(null)}
           onPointerDown={(event) => {
             if (pannable && (event.button === 0 || event.button === 1)) {
@@ -784,7 +1090,7 @@ export function TileGrid({
   // presses arrive with `detail === 0` and are ignored rather than
   // silently placing a base in the middle.
   return (
-    <AxisFrame view={view}>
+    <AxisFrame grip={grip} view={view}>
       <button
         aria-label={[
           sweeping
@@ -808,6 +1114,7 @@ export function TileGrid({
           sweeping ? 'tile-grid--sweeping' : '',
           pan !== null ? 'tile-grid--panning' : '',
           anchorDrag?.moved === true ? 'tile-grid--carrying-anchor' : '',
+          dense ? 'tile-grid--dense' : '',
         ]
           .filter(Boolean)
           .join(' ')}

@@ -42,15 +42,19 @@ import {
 } from '../../lib/hiveFormation';
 import { shareCoordinate } from '../../lib/shareCoordinate';
 import { ConflictBanner, Stamp } from './HiveStamp';
+import { BaseColours, type RankEntry, ViewControls, rankTally } from './MapControls';
 import {
   type GridBase,
   type GridSighting,
   MEMBER_DRAG_TYPE,
   TileGrid,
-  ZOOM_STEPS,
+  ZOOM_DEFAULT,
+  centreKeeping,
   pannedCentre,
   windowAround,
-  zoomStep,
+  windowFitting,
+  windowRadius,
+  zoomedBy,
 } from './TileGrid';
 import {
   type BoardSlot,
@@ -76,6 +80,7 @@ import {
   draftStatus,
   peopleByOffset,
 } from './hiveSafety';
+import { clampMapSize, mapSizeProps, setMapPrefs, useMapPrefs } from './mapPrefs';
 
 /** A tile in the draft, identified by where it is.
  *
@@ -471,7 +476,9 @@ export function FormationEditor({
   // old anchor until the board refetched, so for a moment the officer was
   // looking at empty ground and the move read as having failed.
   const [pendingAnchor, setPendingAnchor] = useState<Coordinate | null>(null);
-  const [zoom, setZoom] = useState<number>(14);
+  // A fraction, like the members' picture: see `windowRadius`.
+  const [zoom, setZoom] = useState<number>(ZOOM_DEFAULT);
+  const prefs = useMapPrefs();
   const [refusal, setRefusal] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [brush, setBrush] = useState<Brush>({
@@ -597,7 +604,7 @@ export function FormationEditor({
   }
 
   const anchor: Coordinate = pendingAnchor ?? { x: formation.anchorX, y: formation.anchorY };
-  const view = windowAround(centre, zoom);
+  const view = windowAround(centre, windowRadius(zoom));
   const drawn = [...draft.values()];
   const structures = drawn.filter((slot) => slot.kind === 'structure');
   const byRing = ringOrderAround(structures);
@@ -1357,14 +1364,32 @@ export function FormationEditor({
     );
   });
 
+  // BY THE SLOT THE TILE CAME FROM, not by where it stands now. A dragged
+  // base is somewhere its slot never was, and looking the member up by
+  // position made their name vanish the instant it was put down — which
+  // reads as "I have just deleted this person" rather than "I have moved
+  // them".
+  const assignedTo = (slot: DraftSlot) =>
+    slot.slotId === null ? undefined : assignments.get(slot.slotId);
+
+  /** How a tile is coloured while bases are coloured by rank: the rank of
+   * whoever is on it, or an empty outline. Ground keeps its painted colour,
+   * so Frankie and the boundary still read as ground among the ranks. Over
+   * the unsaved assignments, so a drag shows its new rank at once. */
+  const byRank = prefs.colourBy === 'rank';
+  function rankOf(slot: DraftSlot): RankEntry & { colour?: null } {
+    if (!byRank || slot.kind !== 'base') {
+      return {};
+    }
+    const assigned = assignedTo(slot);
+    return assigned === undefined
+      ? { colour: null, vacant: true }
+      : { rank: byId.get(assigned)?.memberRank ?? null };
+  }
+
   const bases: GridBase[] = onScreen.map((slot) => {
     const at = absoluteOf(anchor, slot);
-    // BY THE SLOT THE TILE CAME FROM, not by where it stands now. A dragged
-    // base is somewhere its slot never was, and looking the member up by
-    // position made their name vanish the instant it was put down — which
-    // reads as "I have just deleted this person" rather than "I have moved
-    // them".
-    const assigned = slot.slotId === null ? undefined : assignments.get(slot.slotId);
+    const assigned = assignedTo(slot);
     return {
       key: offsetKey(slot),
       at,
@@ -1379,8 +1404,22 @@ export function FormationEditor({
         numbering.get(offsetKey(slot)),
       ),
       own: assigned !== undefined && assigned === ownPlayerId,
+      ...rankOf(slot),
     };
   });
+  // Counted over every tile, not the window: the legend must not change as
+  // the map is panned.
+  const ranksDrawn = rankTally(drawn.map(rankOf));
+  const sized = mapSizeProps(prefs.size);
+
+  /** The whole formation in view, the way the members' picture opens. */
+  function showWhole() {
+    const fit = windowFitting(
+      drawn.map((slot) => footprintOf(absoluteOf(anchor, slot), slot.spanX, slot.spanY)),
+    );
+    setCentre(fit?.centre ?? anchor);
+    setZoom(fit?.radius ?? ZOOM_DEFAULT);
+  }
 
   const ourIds = new Set(members.map((member) => member.playerId));
   const sightings: GridSighting[] = (occupied.data ?? []).map((tile) => ({
@@ -1431,7 +1470,7 @@ export function FormationEditor({
   return (
     <>
       <div className="hive-editor" hidden={half !== 'shape'}>
-        <div className="hive-editor__map">
+        <div className={['hive-editor__map', sized.className].join(' ').trim()} style={sized.style}>
           {/* THE PEOPLE, WHERE THE GROUND IS. Placing a member used to mean
               finding their tile's row in the table below and scrolling a
               dropdown of eighty names; dragging them onto the square is the
@@ -1507,13 +1546,14 @@ export function FormationEditor({
             onPick={pick}
             onPan={(byX, byY) => setCentre((from) => pannedCentre(from, byX, byY))}
             onRegion={tool === 'draw' ? undefined : sweep}
-            onZoom={(direction, at) => {
-              // RE-CENTRE ON THE TILE UNDER THE POINTER. Zooming about the
-              // window's own centre slides whatever you were looking at away
-              // from the cursor, which at four steps means hunting for it
-              // again on every notch.
-              setZoom(zoomStep(zoom, direction));
-              setCentre(at);
+            onResize={(size) => setMapPrefs({ size: size === null ? null : clampMapSize(size) })}
+            onZoom={(notches, at) => {
+              // ABOUT THE POINTER: the ground under the cursor stays under it
+              // (`centreKeeping`), so zooming in on a corner of the hive lands
+              // on that corner instead of hunting for it again on every notch.
+              const next = zoomedBy(zoom, notches);
+              setCentre(centreKeeping(view, windowRadius(next), at));
+              setZoom(next);
             }}
             sightings={sightings}
             window={view}
@@ -1523,23 +1563,17 @@ export function FormationEditor({
             on a base it puts them on it. Click free ground to place a base, click a base to take it
             away. Each one is {BASE_SPAN}x{BASE_SPAN} tiles and the coordinate is the middle. Drag
             from empty ground to slide the map — or hold <kbd>ctrl</kbd>, which works while an area
-            tool is on too. Hold <kbd>ctrl</kbd> and use the wheel to zoom. Shaded squares are where
-            the map last SAW somebody — a base that was destroyed or lost its shield has been
-            teleported somewhere random, so treat them as a hint and not as a wall.
+            tool is on too. Hold <kbd>ctrl</kbd> and use the wheel, or pinch, to zoom; drag the
+            corner handle to resize the map. Shaded squares are where the map last SAW somebody — a
+            base that was destroyed or lost its shield has been teleported somewhere random, so
+            treat them as a hint and not as a wall.
           </p>
-          <fieldset className="hive-zoom">
-            <legend>Zoom</legend>
-            {ZOOM_STEPS.map((step) => (
-              <button
-                aria-pressed={step === zoom}
-                key={step}
-                onClick={() => setZoom(step)}
-                type="button"
-              >
-                {step * 2 + 1} tiles
-              </button>
-            ))}
-          </fieldset>
+          <ViewControls onZoom={setZoom} sized={prefs.size !== null} zoom={zoom}>
+            <button onClick={showWhole} type="button">
+              Whole formation
+            </button>
+          </ViewControls>
+          <BaseColours colourBy={prefs.colourBy} tally={ranksDrawn} />
         </div>
 
         <div className="hive-editor__controls">

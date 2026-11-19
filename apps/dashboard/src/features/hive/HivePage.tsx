@@ -20,15 +20,17 @@ import { replaceHash, useHash } from '../../lib/useHash';
 import { useSession } from '../../lib/useSession';
 import { FormationEditor } from './FormationEditor';
 import { Stamp } from './HiveStamp';
+import { BaseColours, ViewControls, rankTally } from './MapControls';
 import { DeletedUnderYou, RecentlyDeleted } from './RecentlyDeleted';
 import {
   type GridBase,
   TileGrid,
-  ZOOM_STEPS,
+  centreKeeping,
   pannedCentre,
   windowAround,
   windowFitting,
-  zoomStep,
+  windowRadius,
+  zoomedBy,
 } from './TileGrid';
 import {
   type BoardSlot,
@@ -42,6 +44,7 @@ import {
   useFormations,
 } from './hiveFormations';
 import { pickFormation, stillRestorable } from './hiveSafety';
+import { clampMapSize, mapSizeProps, setMapPrefs, useMapPrefs } from './mapPrefs';
 import { hiveStrip } from './strip';
 
 /** Where each member is told to put their base.
@@ -121,6 +124,11 @@ export function HivePage() {
   // plans out, and an empty refetch would wipe the draft drawn on it.
   const board = useBoard(formation?.formationId ?? null, deletedUnderUs);
   const members = useAssignableMembers();
+  // Each member's in-game rank, for colouring the picture by rank. From the
+  // roster (one row per member), joined here rather than onto the board view:
+  // the board is the plan and its rows are written by the save; a rank is a
+  // fact about the member that changes without anybody touching the plan.
+  const ranks = new Map((members.data ?? []).map((member) => [member.playerId, member.memberRank]));
 
   if (allPlans.isPending) {
     return <p className="empty loading">Loading…</p>;
@@ -265,6 +273,7 @@ export function HivePage() {
                 setShownId(null);
               }}
               ownPlayerId={session?.playerId ?? null}
+              ranks={ranks}
             />
           )}
         </>
@@ -380,21 +389,28 @@ function Overview({
   mayPlan,
   onDeleted,
   ownPlayerId,
+  ranks,
 }: {
   board: readonly BoardSlot[];
   formation: Formation;
   mayPlan: boolean;
   onDeleted: () => void;
   ownPlayerId: string | null;
+  /** Player id to in-game rank (1-5), for colouring bases by rank. */
+  ranks: ReadonlyMap<string, number | null>;
 }) {
   const queryClient = useQueryClient();
   const [copied, setCopied] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const prefs = useMapPrefs();
+  const byRank = prefs.colourBy === 'rank';
   const anchor = { x: formation.anchorX, y: formation.anchorY };
   // OPENS ON THE WHOLE FORMATION. Both are null until the member zooms or
   // drags; until then the window is whatever shows every tile, so nobody has
   // to pan to find where they stand. The read-only grid still zooms and pans —
   // a member checking their own square wants to get close to it.
+  //
+  // The zoom is a fraction (see `windowRadius`); the window is whole tiles.
   const [zoom, setZoom] = useState<number | null>(null);
   const [centre, setCentre] = useState<Coordinate | null>(null);
   // Fitted to the MEMBERS' BASES, not to every tile: a boundary drawn round a
@@ -407,7 +423,7 @@ function Overview({
   const home = fitted(board.filter(isMemberBase)) ??
     fitted(board) ?? { centre: anchor, radius: 14 };
   const radius = zoom ?? home.radius;
-  const view = windowAround(centre ?? home.centre, radius);
+  const view = windowAround(centre ?? home.centre, windowRadius(radius));
   // The editor's numbering, so the "7" an officer calls out is the "7" here.
   const numbering = memberNumbering(board);
   const bases: GridBase[] = board.map((slot) => ({
@@ -418,14 +434,23 @@ function Overview({
     spanX: slot.spanX,
     spanY: slot.spanY,
     structure: slot.kind === 'structure',
-    colour: slot.colour,
+    // An empty base coloured by rank is an outline, not the paint it was drawn in.
+    colour: byRank && slot.kind === 'base' && slot.playerId === null ? null : slot.colour,
     caption: tileCaption(slot, slot.playerName, numbering.get(offsetKey(slot))),
     // THE READER'S OWN TILE, on the grid every member sees rather than only
     // in the editor. The line above the picture already says the coordinate;
     // this is what lets somebody check it against the shape before they
     // teleport, which is the whole reason the picture is here.
     own: ownPlayerId !== null && slot.playerId === ownPlayerId,
+    // Bases only: ground keeps its painted colour, so Frankie and the
+    // boundary still read as ground among the ranks.
+    ...(byRank && slot.kind === 'base'
+      ? slot.playerId === null
+        ? { vacant: true }
+        : { rank: ranks.get(slot.playerId) ?? null }
+      : {}),
   }));
+  const sized = mapSizeProps(prefs.size);
 
   const stand = useMutation({
     mutationFn: () => makeActive(formation.formationId),
@@ -456,7 +481,7 @@ function Overview({
           one against the other means scrolling between them; side by side it
           is one glance. A narrow window keeps the stack — the list under the
           map is still the right order for a phone. */}
-      <div className="hive-overview">
+      <div className={['hive-overview', sized.className].join(' ').trim()} style={sized.style}>
         <div className="hive-overview__map">
           <TileGrid
             anchor={anchor}
@@ -466,27 +491,19 @@ function Overview({
             // nothing — otherwise the view jumps to 0,0 on the first tile of the
             // drag.
             onPan={(byX, byY) => setCentre((from) => pannedCentre(from ?? home.centre, byX, byY))}
-            onZoom={(direction, at) => {
-              setZoom(zoomStep(radius, direction));
-              setCentre(at);
+            onResize={(size) => setMapPrefs({ size: size === null ? null : clampMapSize(size) })}
+            onZoom={(notches, at) => {
+              const next = zoomedBy(radius, notches);
+              setCentre(centreKeeping(view, windowRadius(next), at));
+              setZoom(next);
             }}
             window={view}
           />
           <p className="subtle">
-            Drag the map to slide it. Hold <kbd>ctrl</kbd> and use the wheel to zoom.
+            Drag the map to slide it. Hold <kbd>ctrl</kbd> and use the wheel, or pinch, to zoom.
+            Drag the corner handle to make the map bigger or smaller.
           </p>
-          <fieldset className="hive-zoom">
-            <legend>Zoom</legend>
-            {ZOOM_STEPS.map((step) => (
-              <button
-                aria-pressed={step === zoom}
-                key={step}
-                onClick={() => setZoom(step)}
-                type="button"
-              >
-                {step * 2 + 1} tiles
-              </button>
-            ))}
+          <ViewControls onZoom={setZoom} sized={prefs.size !== null} zoom={radius}>
             <button
               aria-pressed={zoom === null && centre === null}
               onClick={() => {
@@ -497,7 +514,8 @@ function Overview({
             >
               Whole plan
             </button>
-          </fieldset>
+          </ViewControls>
+          <BaseColours colourBy={prefs.colourBy} tally={rankTally(bases)} />
         </div>
 
         <div className="hive-overview__list">
