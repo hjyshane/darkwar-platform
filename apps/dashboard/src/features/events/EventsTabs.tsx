@@ -11,7 +11,7 @@
 
 import { useState } from 'react';
 import { useEditMode } from '../../lib/editMode';
-import { EVENTS_HUB_TABS, type NavTab, type Route } from '../../lib/route';
+import { EVENTS_HUB_TABS, type NavTab, type Route, eventsTabOffered } from '../../lib/route';
 import { FALLBACK_SEASONS, currentSeason, pastSeason, useSeasons } from '../../lib/seasons';
 import {
   type Overrides,
@@ -56,9 +56,11 @@ export function eventsTabs(
 export function useFirstEventsRoute(): Route {
   const { data: session } = useSession();
   const overrides = useUiOverrides();
-  const offered = EVENTS_HUB_TABS.filter(
-    (tab) => tab.route !== 'season2' || session?.role === 'admin',
-  );
+  const who = {
+    isAdmin: session?.role === 'admin',
+    isOfficer: session?.role === 'officer',
+  };
+  const offered = EVENTS_HUB_TABS.filter((tab) => eventsTabOffered(tab.route, who));
   return eventsTabs(offered, {}, overrides, false)[0]?.route ?? 'blackMoney';
 }
 
@@ -80,7 +82,9 @@ export function EventsTabs({ route }: { route: Route }) {
     '#/season': currentSeason(list, now)?.name,
     '#/season2': pastSeason(list, now)?.name,
   };
-  const offered = EVENTS_HUB_TABS.filter((tab) => tab.route !== 'season2' || isAdmin);
+  const offered = EVENTS_HUB_TABS.filter((tab) =>
+    eventsTabOffered(tab.route, { isAdmin, isOfficer: session?.role === 'officer' }),
+  );
   const tabs = eventsTabs(offered, defaults, overrides, editing);
   const shown = tabs.filter((tab) => !tab.hidden);
   // `events` is the bare address and shows the first tab.

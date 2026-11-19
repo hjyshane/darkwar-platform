@@ -19,6 +19,12 @@ const member: NavContext = {
 };
 
 const items = (ctx: NavContext) => buildNav(ctx).flatMap((g) => g.items);
+/** The screens filed under one entry. */
+const filed = (ctx: NavContext, label: string) =>
+  (items(ctx).find((i) => i.label === label)?.children ?? []).map((c) => c.label);
+/** Every entry and every screen filed under one. */
+const everyLabel = (ctx: NavContext) =>
+  items(ctx).flatMap((i) => [i.label, ...(i.children ?? []).map((c) => c.label)]);
 
 describe('the calculator route', () => {
   it('is named by its address, with or without the state in the query', () => {
@@ -45,21 +51,35 @@ describe('the calculator route', () => {
     expect(hidden.map((i) => i.label)).not.toContain('Calculator');
   });
 
-  it('puts every one of the four 2026-11-18 entries back under the admin tab setting', () => {
+  it('keeps the four 2026-11-18 entries under the admin tab setting: the calculator for everybody, the other three in the Admin menu', () => {
     // They were taken out of the code that day and came back the same day:
-    // whether a role sees them is Settings → Tab visibility (0295), not a code change.
+    // whether a role sees them is Settings → Tab visibility (0295), not a code
+    // change. Since 2026-11-19 gift codes, the game calendar and shop value are
+    // filed in the admin's own group; the calculator is in everybody's menu.
+    const admin = { ...member, isAdmin: true, isOfficer: true, mayManageGiftCodes: true };
+    expect(items(admin).map((i) => i.label)).toContain('Calculator');
+    expect(filed(admin, 'Roster')).toEqual(['Members', 'Gift codes']);
+    expect(filed(admin, 'Game data')).toEqual(['Game calendar', 'Shop value']);
+    const hidden = {
+      ...admin,
+      tabShown: (tab: string) => !['giftCodes', 'calendar', 'shopValue'].includes(tab),
+    };
+    expect(items(hidden).map((i) => i.label)).toContain('Calculator');
+    expect(everyLabel(hidden)).not.toContain('Gift codes');
+    expect(everyLabel(hidden)).not.toContain('Game calendar');
+    expect(everyLabel(hidden)).not.toContain('Shop value');
+    // An entry with nothing left under it is not drawn.
+    expect(everyLabel(hidden)).not.toContain('Game data');
+    // An officer has the member menu and the Officer menu: the calculator and
+    // Gift codes, and neither of the game-data two.
     const officer = { ...member, isOfficer: true, mayManageGiftCodes: true };
-    const shown = items(officer).map((i) => i.label);
-    for (const label of ['Calculator', 'Gift codes', 'Game calendar', 'Shop value']) {
-      expect(shown).toContain(label);
+    expect(items(officer).map((i) => i.label)).toContain('Calculator');
+    expect(items(officer).map((i) => i.label)).toContain('Gift codes');
+    for (const label of ['Game calendar', 'Shop value']) {
+      expect(everyLabel(officer)).not.toContain(label);
     }
-    const hidden = items({
-      ...officer,
-      tabShown: (tab) => !['giftCodes', 'calendar', 'shopValue'].includes(tab),
-    }).map((i) => i.label);
-    expect(hidden).toContain('Calculator');
-    expect(hidden).not.toContain('Gift codes');
-    expect(hidden).not.toContain('Game calendar');
-    expect(hidden).not.toContain('Shop value');
+    // Tab visibility hides the officer's Gift codes like any tab.
+    const officerHidden = { ...officer, tabShown: (tab: string) => tab !== 'giftCodes' };
+    expect(everyLabel(officerHidden)).not.toContain('Gift codes');
   });
 });

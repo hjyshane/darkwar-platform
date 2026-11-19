@@ -9,6 +9,10 @@
 // THE ADDRESSES DID NOT MOVE. Every link anybody has sent still lands on the
 // same screen; only where its entry sits changed.
 //
+// ONE MENU SINCE 2026-11-19 (see buildNav): the note below is how officers and
+// admins were grouped until then, kept because the addresses it names are
+// still the addresses.
+//
 // REGROUPED 2026-11-08. Our alliance's entry (named after the alliance, "CBFW")
 // used to hold the alliance page's views, with Members, Hive and Events beside
 // it. Now the entry holds four screens: Overview (the alliance page itself, with
@@ -22,7 +26,6 @@ import {
   ALLIANCE_VIEWS,
   type AdminGroup,
   type AllianceView,
-  BOARD_TABS,
   EVENTS_HUB_TABS,
   EVENT_GUIDE_TABS,
   EVENT_TABS,
@@ -32,13 +35,12 @@ import {
   MEMBERS,
   type MembersTab,
   OVERVIEW_TABS,
-  OWN_ALLIANCE_TABS,
   RANKING_TABS,
   type Route,
   adminHash,
   allianceHash,
   eventGuideHash,
-  inEventsHub,
+  eventsTabOffered,
   isEventGuideTabOpen,
   isRankingRoute,
 } from './route';
@@ -75,11 +77,11 @@ export interface NavChild {
   label: string;
   current: boolean;
   /** A screen of its own filed under the entry, not one of the entry's tabs:
-   * the top bar names it after the entry (`Alliance › CBFW › Members`). */
+   * the top bar names it after the entry (`Menu › CBFW › Black Gold`). */
   screen?: boolean;
   /** The screen's own tabs, for a child that is a screen. The sidebar has two
    * levels and does not draw them — the page carries its own strip — but
-   * Ctrl+K still finds each (`CBFW › Events › Black Gold`). */
+   * Ctrl+K still finds each (`Guides › Event guide › Alliance Duel`). */
   tabs?: NavChild[];
 }
 
@@ -96,7 +98,7 @@ export interface NavItem {
 }
 
 export interface NavGroup {
-  id: 'watch' | 'alliance' | 'events' | 'boards';
+  id: 'watch' | 'alliance' | 'events' | 'boards' | 'admin' | 'officer';
   label: string;
   items: NavItem[];
 }
@@ -169,60 +171,101 @@ const ICONS: Partial<Record<Route, IconName>> = {
 
 const iconFor = (route: Route): IconName => ICONS[route] ?? 'overview';
 
-/** The groups, in the order the sidebar draws them. */
-export function buildNav(ctx: NavContext): NavGroup[] {
-  // A plain member gets the short menu (owner, 2026-11-18; design
-  // docs/superpowers/specs/2026-11-18-member-home-design.md §2). Officers and
-  // admins keep everything below; a community account keeps its own.
-  if (!ctx.isOfficer && !ctx.isAdmin && ctx.isCommunity !== true) {
-    return buildMemberNav(ctx);
-  }
-  const onOwn =
-    ctx.own !== null && ctx.route === 'alliance' && ctx.allianceId === ctx.own.alliance_id;
-  const name = (hash: string, fallback: string) => ctx.seasonNames[hash] ?? fallback;
-  const shown = ctx.tabShown ?? (() => true);
+/** The three ranking boards, each its own address. Arena only where the reader
+ * may see it, and not before that is known: an entry that arrives and is taken
+ * away is worse than one that arrives a beat late. */
+function rankingBoards(ctx: NavContext): NavChild[] {
+  return RANKING_TABS.filter((board) => board.route !== 'arena' || ctx.mayViewArena === true).map(
+    (board) => ({
+      key: board.hash,
+      href: board.hash,
+      label: board.label,
+      current: board.route === ctx.route,
+    }),
+  );
+}
 
-  const watch: NavItem[] = [
-    // Home first, for everyone in the alliance (owner, 2026-11-18). Not for a
-    // community account: every card on it is about our alliance.
-    ...(ctx.isCommunity === true
-      ? []
-      : [
+/** The groups, in the order the sidebar draws them.
+ *
+ * ONE MENU FOR EVERYBODY IN THE ALLIANCE (owner, 2026-11-19). Members, officers
+ * and admins get the same six entries (`buildMemberNav`); an admin gets one more
+ * group under them, "Admin menu", holding every screen the six leave out, and
+ * an officer a short "Officer menu" with Members and Gift codes. Until
+ * that day officers and admins had the full four-group menu and only a plain
+ * member the short one. A community account keeps its own (`buildCommunityNav`).
+ *
+ * No address moved: a screen with no entry still opens from its address or a
+ * link, and what a role may READ is RLS's decision, never the menu's. */
+export function buildNav(ctx: NavContext): NavGroup[] {
+  if (ctx.isCommunity === true) {
+    return buildCommunityNav(ctx);
+  }
+  const menu = buildMemberNav(ctx);
+  if (!ctx.isAdmin) {
+    const officer = ctx.isOfficer ? buildOfficerMenu(ctx) : [];
+    return officer.length === 0
+      ? menu
+      : [...menu, { id: 'officer' as const, label: 'Officer menu', items: officer }];
+  }
+  const admin = buildAdminMenu(ctx);
+  return admin.length === 0
+    ? menu
+    : [...menu, { id: 'admin' as const, label: 'Admin menu', items: admin }];
+}
+
+/** The officer's extra group (owner, 2026-11-19): the two screens an officer
+ * works in that the six entries leave out, each its own entry. Members needs
+ * `members.view` and Gift codes `giftcodes.manage`, as they always did, and not
+ * before the grid has answered; Tab visibility still hides either. An admin has
+ * both under Roster in the Admin menu instead. */
+function buildOfficerMenu(ctx: NavContext): NavItem[] {
+  const shown = ctx.tabShown ?? (() => true);
+  return [
+    ...(ctx.mayViewMembers === true && shown('members')
+      ? [
           {
-            key: '#/home',
-            href: '#/home',
-            label: 'Home',
-            icon: 'overview' as const,
-            current: ctx.route === 'home',
+            key: '#/members',
+            href: '#/members',
+            label: 'Members',
+            icon: 'members' as const,
+            current: ctx.route === 'members',
+            children: MEMBERS.tabs.map((entry) => ({
+              key: MEMBERS.hash(entry.id),
+              href: MEMBERS.hash(entry.id),
+              label: entry.label,
+              current: ctx.route === 'members' && (ctx.tabs?.members ?? 'settled') === entry.id,
+            })),
           },
-        ]),
-    ...OVERVIEW_TABS.filter(
-      (tab) =>
-        (tab.route !== 'migration' || ctx.isOfficer || ctx.isCommunity === true) &&
-        shown(tab.route),
-    ).map((tab) => ({
+        ]
+      : []),
+    ...(ctx.mayManageGiftCodes === true && shown('giftCodes')
+      ? [
+          {
+            key: '#/gift-codes',
+            href: '#/gift-codes',
+            label: 'Gift codes',
+            icon: iconFor('giftCodes'),
+            current: ctx.route === 'giftCodes',
+          },
+        ]
+      : []),
+  ];
+}
+
+/** What a `community` account (0282) is offered: the game-wide screens only.
+ * Everything that is about our alliance is left out. */
+function buildCommunityNav(ctx: NavContext): NavGroup[] {
+  const shown = ctx.tabShown ?? (() => true);
+  const watch: NavItem[] = [
+    ...OVERVIEW_TABS.filter((tab) => shown(tab.route)).map((tab) => ({
       key: tab.hash,
       href: tab.hash,
-      // The overview entry is the landing screen; "Cross-Server Ranking" stands
-      // for the three boards behind it, so it stays current on all of them.
+      // "Cross-Server Ranking" stands for the three boards behind it, so it
+      // stays current on all of them.
       label: tab.route === 'rankings' ? 'Rankings' : tab.label,
       icon: iconFor(tab.route),
       current: tab.route === 'rankings' ? isRankingRoute(ctx.route) : tab.route === ctx.route,
-      // The three boards, each its own address. Arena only where the reader
-      // may see it, and not before that is known: an entry that arrives and is
-      // taken away is worse than one that arrives a beat late.
-      ...(tab.route === 'rankings'
-        ? {
-            children: RANKING_TABS.filter(
-              (board) => board.route !== 'arena' || ctx.mayViewArena === true,
-            ).map((board) => ({
-              key: board.hash,
-              href: board.hash,
-              label: board.label,
-              current: board.route === ctx.route,
-            })),
-          }
-        : {}),
+      ...(tab.route === 'rankings' ? { children: rankingBoards(ctx) } : {}),
     })),
     ...(shown('map')
       ? [
@@ -236,135 +279,16 @@ export function buildNav(ctx: NavContext): NavGroup[] {
         ]
       : []),
   ];
-
-  // Each screen's own tabs, kept for Ctrl+K only (the sidebar stops at two
-  // levels; the pages carry these strips themselves). The Events hub's are the
-  // admin's arrangement (0279): renamed, reordered, hidden ones left out, Season
-  // 2 for admins only. Hive's are for planners only; everybody else sees the
-  // plan and nothing else, so for them the screen has no tabs to find.
-  const tabsOf = (route: Route): NavChild[] => {
-    switch (route) {
-      case 'events':
-        return arrange(
-          EVENTS_HUB_TABS.filter((entry) => entry.route !== 'season2' || ctx.isAdmin),
-          (entry) => entry.route,
-          ctx.overrides ?? NO_OVERRIDES,
-          'events-hub',
-        )
-          .filter((entry) => !isHidden(ctx.overrides ?? NO_OVERRIDES, 'events-hub', entry.route))
-          .map((entry) => ({
-            key: entry.hash,
-            href: entry.hash,
-            label: labelOf(
-              ctx.overrides ?? NO_OVERRIDES,
-              'events-hub',
-              entry.route,
-              name(entry.hash, entry.label),
-            ),
-            current: entry.route === ctx.route,
-          }));
-      case 'members':
-        return MEMBERS.tabs.map((entry) => ({
-          key: MEMBERS.hash(entry.id),
-          href: MEMBERS.hash(entry.id),
-          label: entry.label,
-          current: ctx.route === 'members' && (ctx.tabs?.members ?? 'settled') === entry.id,
-        }));
-      case 'hive':
-        return ctx.mayPlanHive === true
-          ? HIVE.tabs.map((entry) => ({
-              key: HIVE.hash(entry.id),
-              href: HIVE.hash(entry.id),
-              label: entry.label,
-              current: ctx.route === 'hive' && (ctx.tabs?.hive ?? 'plan') === entry.id,
-            }))
-          : [];
-      default:
-        return [];
-    }
-  };
-
-  // Our alliance's page, as the first screen under its entry: "Overview". Its
-  // views are the page's own strip, kept here for Ctrl+K; past names are left
-  // out, since whether there are any is a fact about the data, which the page
-  // knows and the sidebar does not. Waits for the alliance to be known (its
-  // address is the uuid), and an admin can hide it as "Our alliance" (0295).
-  const ownPage: NavChild[] =
-    ctx.own === null || !shown('alliance')
-      ? []
-      : [
-          {
-            key: 'own-page',
-            href: allianceHash(ctx.own.alliance_id),
-            label: 'Overview',
-            current: onOwn,
-            screen: true,
-            tabs: ALLIANCE_VIEWS.filter((view) => view.id !== 'names').map((view) => ({
-              key: allianceHash(ctx.own?.alliance_id ?? '', view.id),
-              href: allianceHash(ctx.own?.alliance_id ?? '', view.id),
-              label: view.label,
-              current: onOwn && (ctx.tabs?.alliance ?? 'members') === view.id,
-            })),
-          },
-        ];
-
-  // Then Members, Hive and Events. The gates the entries carried when they
-  // stood on their own are unchanged: Members needs `members.view` (and not
-  // before that is known), each can be hidden by an admin (0295), and a
-  // community account gets none of this — the page is ours and closed to it.
-  const ownScreens: NavChild[] =
-    ctx.isCommunity === true
-      ? []
-      : [
-          ...ownPage,
-          ...OWN_ALLIANCE_TABS.filter(
-            (tab) => (tab.route !== 'members' || ctx.mayViewMembers === true) && shown(tab.route),
-          ).map((tab) => {
-            const tabs = tabsOf(tab.route);
-            return {
-              key: tab.hash,
-              href: tab.hash,
-              label: tab.label,
-              current: tab.route === 'events' ? inEventsHub(ctx.route) : tab.route === ctx.route,
-              screen: true,
-              ...(tabs.length > 0 ? { tabs } : {}),
-            };
-          }),
-        ];
-  const firstOwn = ownScreens[0];
-
-  const alliance: NavItem[] = [
-    // The entry opens the first screen the reader may see — the alliance page
-    // once that is known — and is current on any of them. Named after the
-    // alliance once known; before then the entry is still drawn, since the
-    // other screens under it do not wait.
-    ...(firstOwn === undefined
-      ? []
-      : [
-          {
-            key: 'own-alliance',
-            href: firstOwn.href,
-            label: ctx.own?.label ?? 'Our alliance',
-            icon: 'alliance' as const,
-            current: ownScreens.some((child) => child.current),
-            children: ownScreens,
-          },
-        ]),
-    ...ALLIANCE_TABS.filter(
-      (tab) =>
-        // Community: the calculator is what it is given of this group.
-        (ctx.isCommunity !== true || tab.route === 'calculator') &&
-        (tab.route !== 'giftCodes' || ctx.mayManageGiftCodes === true) &&
-        shown(tab.route),
-    ).map((tab) => ({
-      key: tab.hash,
-      href: tab.hash,
-      label: tab.label,
-      icon: iconFor(tab.route),
-      current: tab.route === ctx.route,
-    })),
-  ];
-
+  // The calculator is what it is given of the alliance's tools.
+  const tools: NavItem[] = ALLIANCE_TABS.filter(
+    (tab) => tab.route === 'calculator' && shown(tab.route),
+  ).map((tab) => ({
+    key: tab.hash,
+    href: tab.hash,
+    label: tab.label,
+    icon: iconFor(tab.route),
+    current: tab.route === ctx.route,
+  }));
   const guideTab = ctx.eventGuideTab ?? 'today';
   const events: NavItem[] = EVENT_TABS.filter((tab) => shown(tab.route)).map((tab) => ({
     key: tab.hash,
@@ -374,53 +298,59 @@ export function buildNav(ctx: NavContext): NavGroup[] {
     current: tab.route === ctx.route,
     ...(tab.route === 'eventGuide'
       ? {
-          children: EVENT_GUIDE_TABS.filter((entry) =>
-            isEventGuideTabOpen(entry.id, ctx.isCommunity === true),
-          ).map((entry) => ({
-            key: eventGuideHash(entry.id),
-            href: eventGuideHash(entry.id),
-            label: entry.label,
-            current: ctx.route === 'eventGuide' && guideTab === entry.id,
-          })),
+          children: EVENT_GUIDE_TABS.filter((entry) => isEventGuideTabOpen(entry.id, true)).map(
+            (entry) => ({
+              key: eventGuideHash(entry.id),
+              href: eventGuideHash(entry.id),
+              label: entry.label,
+              current: ctx.route === 'eventGuide' && guideTab === entry.id,
+            }),
+          ),
         }
       : {}),
   }));
-
-  const boards: NavItem[] = (
-    ctx.isCommunity === true ? [] : BOARD_TABS.filter((tab) => shown(tab.route))
-  ).map((tab) => ({
-    key: tab.hash,
-    href: tab.hash,
-    label: tab.label,
-    icon: iconFor(tab.route),
-    // A single notice or guide is still that board.
-    current:
-      tab.route === 'notices'
-        ? ctx.route === 'notices' || ctx.route === 'notice'
-        : ctx.route === 'guides' || ctx.route === 'guide',
-  }));
-
   return [
     { id: 'watch' as const, label: 'Watch', items: watch },
-    {
-      id: 'alliance' as const,
-      label: ctx.isCommunity === true ? 'Tools' : 'Alliance',
-      items: alliance,
-    },
+    { id: 'alliance' as const, label: 'Tools', items: tools },
     { id: 'events' as const, label: 'Events', items: events },
-    { id: 'boards' as const, label: 'Boards', items: boards },
   ].filter((group) => group.items.length > 0);
 }
 
-/** The six entries a member sees: Home, Guides, Calculator, Hive, Map,
- * Alliance. Every other screen keeps its address and opens as before; it is
- * only not offered. An admin's Tab visibility (0295) still hides any of these,
- * and the Alliance entry waits for the alliance to be known, as the full menu's
- * does. */
+/** The screens behind Events, as the strip above them draws them: the admin's
+ * arrangement (0279) — renamed, reordered, hidden ones left out — and only the
+ * ones this reader is offered (`eventsTabOffered`). */
+function eventScreens(ctx: NavContext): NavChild[] {
+  const o = ctx.overrides ?? NO_OVERRIDES;
+  const offered = arrange(
+    EVENTS_HUB_TABS.filter((entry) => eventsTabOffered(entry.route, ctx)),
+    (entry) => entry.route,
+    o,
+    'events-hub',
+  ).filter((entry) => !isHidden(o, 'events-hub', entry.route));
+  return offered.map((entry, index) => ({
+    key: entry.hash,
+    href: entry.hash,
+    label: labelOf(o, 'events-hub', entry.route, ctx.seasonNames[entry.hash] ?? entry.label),
+    // The bare `#/events` address opens the first of them.
+    current: entry.route === ctx.route || (ctx.route === 'events' && index === 0),
+    screen: true,
+  }));
+}
+
+/** The six entries everybody in the alliance sees: Home, Guides, Calculator,
+ * Hive, Map, and the alliance's own. Every other screen keeps its address and
+ * opens as before; it is only not offered here (an admin finds them in the
+ * Admin menu). An admin's Tab visibility (0295) still hides any of these, and
+ * the alliance's page waits for the alliance to be known.
+ *
+ * UNDER THE ALLIANCE: its page ("Overview"), then EVERY event screen the reader
+ * is offered (owner, 2026-11-19). It used to list Participation and Black Gold
+ * and no other event, which read as the other events not existing. */
 export function buildMemberNav(ctx: NavContext): NavGroup[] {
   const shown = ctx.tabShown ?? (() => true);
   const route = ctx.route;
-  const onOwn = ctx.own !== null && route === 'alliance' && ctx.allianceId === ctx.own.alliance_id;
+  const own = ctx.own;
+  const onOwn = own !== null && route === 'alliance' && ctx.allianceId === own.alliance_id;
 
   const guideChildren: NavChild[] = [
     ...(shown('notices')
@@ -453,41 +383,44 @@ export function buildMemberNav(ctx: NavContext): NavGroup[] {
             label: 'Event guide',
             current: route === 'eventGuide',
             screen: true,
+            // Its own strip, kept for Ctrl+K so typing "duel" finds the tab.
+            tabs: EVENT_GUIDE_TABS.filter((entry) => isEventGuideTabOpen(entry.id, false)).map(
+              (entry) => ({
+                key: eventGuideHash(entry.id),
+                href: eventGuideHash(entry.id),
+                label: entry.label,
+                current: route === 'eventGuide' && (ctx.eventGuideTab ?? 'today') === entry.id,
+              }),
+            ),
           },
         ]
       : []),
   ];
 
   const allianceChildren: NavChild[] = [
-    ...(ctx.own !== null && shown('alliance')
+    ...(own !== null && shown('alliance')
       ? [
           {
             key: 'own-page',
-            href: allianceHash(ctx.own.alliance_id),
-            label: 'Roster',
+            href: allianceHash(own.alliance_id),
+            label: 'Overview',
             current: onOwn,
             screen: true,
+            // The page's own strip, kept here for Ctrl+K. Past names are left
+            // out (whether there are any is a fact about the data, which the
+            // page knows and the sidebar does not); Moves is the admins'.
+            tabs: ALLIANCE_VIEWS.filter(
+              (view) => view.id !== 'names' && (view.id !== 'moves' || ctx.isAdmin),
+            ).map((view) => ({
+              key: allianceHash(own.alliance_id, view.id),
+              href: allianceHash(own.alliance_id, view.id),
+              label: view.label,
+              current: onOwn && (ctx.tabs?.alliance ?? 'overview') === view.id,
+            })),
           },
         ]
       : []),
-    ...(shown('events')
-      ? [
-          {
-            key: '#/participation',
-            href: '#/participation',
-            label: 'Participation',
-            current: route === 'participation',
-            screen: true,
-          },
-          {
-            key: '#/black-gold',
-            href: '#/black-gold',
-            label: 'Black Gold',
-            current: route === 'blackMoney',
-            screen: true,
-          },
-        ]
-      : []),
+    ...(shown('events') ? eventScreens(ctx) : []),
   ];
 
   const single = (key: string, label: string, icon: IconName, current: boolean): NavItem => ({
@@ -517,7 +450,25 @@ export function buildMemberNav(ctx: NavContext): NavGroup[] {
     ...(shown('calculator')
       ? [single('#/calculator', 'Calculator', 'calculator', route === 'calculator')]
       : []),
-    ...(shown('hive') ? [single('#/hive', 'Hive', 'hive', route === 'hive')] : []),
+    ...(shown('hive')
+      ? [
+          {
+            ...single('#/hive', 'Hive', 'hive', route === 'hive'),
+            // The planning steps, for planners only: everybody else sees the
+            // plan and nothing else, so for them the screen has no tabs.
+            ...(ctx.mayPlanHive === true
+              ? {
+                  children: HIVE.tabs.map((entry) => ({
+                    key: HIVE.hash(entry.id),
+                    href: HIVE.hash(entry.id),
+                    label: entry.label,
+                    current: route === 'hive' && (ctx.tabs?.hive ?? 'plan') === entry.id,
+                  })),
+                }
+              : {}),
+          },
+        ]
+      : []),
     ...(shown('map') ? [single('#/map', 'Map', 'map', route === 'map')] : []),
     ...(firstAlliance === undefined
       ? []
@@ -525,7 +476,7 @@ export function buildMemberNav(ctx: NavContext): NavGroup[] {
           {
             key: 'own-alliance',
             href: firstAlliance.href,
-            label: ctx.own?.label ?? 'Alliance',
+            label: own?.label ?? 'Alliance',
             icon: 'alliance' as const,
             current: allianceChildren.some((child) => child.current),
             children: allianceChildren,
@@ -533,6 +484,87 @@ export function buildMemberNav(ctx: NavContext): NavGroup[] {
         ]),
   ];
   return [{ id: 'watch' as const, label: 'Menu', items }];
+}
+
+/** The admin's extra group: every screen the six entries leave out, filed by
+ * what it is about. Three entries, each opening its first screen and listing
+ * the rest beneath it while open.
+ *
+ *   Servers   the group-wide picture: server overview, the rankings, migration
+ *   Roster    the alliance's own books: the member rankings and gift codes
+ *   Game data what the game itself announces: its calendar and shop values
+ *
+ * Settings stays in the footer, where it was. The gates each screen carried are
+ * unchanged (`members.view`, `giftcodes.manage`, Tab visibility). */
+function buildAdminMenu(ctx: NavContext): NavItem[] {
+  const shown = ctx.tabShown ?? (() => true);
+  const route = ctx.route;
+  const screen = (
+    hash: string,
+    label: string,
+    current: boolean,
+    tabs: NavChild[] = [],
+  ): NavChild => ({
+    key: hash,
+    href: hash,
+    label,
+    current,
+    screen: true,
+    ...(tabs.length > 0 ? { tabs } : {}),
+  });
+
+  const servers: NavChild[] = [
+    ...(shown('overview') ? [screen('#/', 'Server overview', route === 'overview')] : []),
+    ...(shown('rankings')
+      ? [screen('#/rankings', 'Rankings', isRankingRoute(route), rankingBoards(ctx))]
+      : []),
+    ...(shown('migration') ? [screen('#/migration', 'Migration', route === 'migration')] : []),
+  ];
+  const roster: NavChild[] = [
+    ...(ctx.mayViewMembers === true && shown('members')
+      ? [
+          screen(
+            '#/members',
+            'Members',
+            route === 'members',
+            MEMBERS.tabs.map((entry) => ({
+              key: MEMBERS.hash(entry.id),
+              href: MEMBERS.hash(entry.id),
+              label: entry.label,
+              current: route === 'members' && (ctx.tabs?.members ?? 'settled') === entry.id,
+            })),
+          ),
+        ]
+      : []),
+    ...(ctx.mayManageGiftCodes === true && shown('giftCodes')
+      ? [screen('#/gift-codes', 'Gift codes', route === 'giftCodes')]
+      : []),
+  ];
+  const gameData: NavChild[] = [
+    ...(shown('calendar') ? [screen('#/calendar', 'Game calendar', route === 'calendar')] : []),
+    ...(shown('shopValue') ? [screen('#/shop-value', 'Shop value', route === 'shopValue')] : []),
+  ];
+
+  const entry = (key: string, label: string, icon: IconName, children: NavChild[]): NavItem[] => {
+    const first = children[0];
+    return first === undefined
+      ? []
+      : [
+          {
+            key,
+            href: first.href,
+            label,
+            icon,
+            current: children.some((child) => child.current),
+            children,
+          },
+        ];
+  };
+  return [
+    ...entry('admin-servers', 'Servers', 'rankings', servers),
+    ...entry('admin-roster', 'Roster', 'members', roster),
+    ...entry('admin-game', 'Game data', 'calendar', gameData),
+  ];
 }
 
 /** Entries below the groups: not screens about the game, but about the account. */
@@ -579,6 +611,17 @@ const OTHER_LABELS: Partial<Record<Route, string>> = {
   guide: 'Guide',
   notice: 'Notice',
   alarms: 'Alarms',
+  // In the Admin menu only since 2026-11-19; anybody else who opens one by
+  // its address still gets its name in the top bar.
+  overview: 'Server overview',
+  rankings: 'Rankings',
+  crossRankings: 'Rankings',
+  arena: 'Rankings',
+  migration: 'Migration',
+  members: 'Members',
+  giftCodes: 'Gift codes',
+  calendar: 'Game calendar',
+  shopValue: 'Shop value',
   // Archived 2026-11-12: no entry, but its address still opens it.
   planner: 'Planner',
   admin: 'Settings',
@@ -589,9 +632,9 @@ const OTHER_LABELS: Partial<Record<Route, string>> = {
   login: 'Sign in',
 };
 
-/** `["Alliance", "Planner"]`: the group and the screen, for the top bar. A screen
+/** `["Menu", "Calculator"]`: the group and the screen, for the top bar. A screen
  * that is in no group (a player, a server) shows just its own name. A screen
- * filed under an entry (`["Alliance", "CBFW", "Hive"]`) is named after it; an
+ * filed under an entry (`["Menu", "CBFW", "Black Gold"]`) is named after it; an
  * entry's own tabs are not, since the page shows them. */
 export function breadcrumb(
   groups: readonly NavGroup[],
@@ -671,7 +714,7 @@ export function nextUp(
 
 /** What Ctrl+K searches: every screen, then each of its tabs as
  * `Event guide › Alliance Duel`, so typing "duel" finds the tab itself, and a
- * filed screen's own tabs as `CBFW › Events › Black Gold`. A tab takes its
+ * filed screen's own tabs as `CBFW › Overview › Activity`. A tab takes its
  * screen's icon and its own address; the open one is marked. */
 export function paletteEntries(items: readonly NavItem[]): NavItem[] {
   return items.flatMap((item) => [

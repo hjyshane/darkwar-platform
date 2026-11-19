@@ -1,13 +1,10 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
 import { LineChart } from '../../components/LineChart';
-import { SortableTh } from '../../components/SortableTh';
 import { isViewedAlliance } from '../../lib/activeAlliance';
 import { compactNumber } from '../../lib/compactNumber';
 import { allianceHash } from '../../lib/route';
 import type { Series } from '../../lib/series';
 import { supabase } from '../../lib/supabase';
-import { type SortState, nextSortKeys, sortRows } from '../../lib/tableControls';
 
 /** Who on this server is growing, and how we compare.
  *
@@ -51,6 +48,12 @@ interface HistoryRow {
   is_own: boolean;
 }
 
+/** How many alliances the tab lists: the ten strongest on the server, always
+ * in power order (owner, 2026-11-19). It used to list every alliance seen on
+ * the board, sortable, opening on growth — some 160 rows of which the bottom
+ * hundred were one-sighting shells nobody was comparing against. */
+const TOP = 10;
+
 /** How many lines the comparison chart draws. Six because that is how many
  * hues the palette has, and a seventh line would repeat one — two alliances the
  * same colour in a chart whose whole job is telling them apart. */
@@ -64,7 +67,9 @@ async function fetchGrowth(serverId: number): Promise<GrowthRow[]> {
     )
     .eq('server_id', serverId)
     .order('power_last', { ascending: false, nullsFirst: false })
-    .limit(300);
+    // A tiebreaker, so two alliances level on power do not swap on a refetch.
+    .order('alliance_id')
+    .limit(TOP);
   if (error) {
     throw new Error(`growth query failed: ${error.message}`);
   }
@@ -137,28 +142,18 @@ function shortName(row: GrowthRow): string {
 }
 
 export function AllianceCompare({ serverId }: { serverId: number }) {
-  // Growth first, because "who is pulling away" is the question this tab exists
-  // for. The ranking table already answers "who is big".
-  // A list, like every other table since the roster got a tiebreaker — this one
-  // does not use useTableView (it has no search box), so it carries the same
-  // state shape by hand rather than behaving differently from its neighbours.
-  const [sort, setSort] = useState<SortState[]>([{ key: 'power_growth_pct', direction: 'desc' }]);
   const growth = useQuery({
     queryKey: ['alliance-compare', serverId],
     queryFn: () => fetchGrowth(serverId),
   });
 
-  // `sortRows` rather than a comparator per column: it already puts unknowns last
-  // in BOTH directions, which is the rule that matters here. An alliance seen
-  // once has not held still, and sorting its null growth as zero would file it
-  // among the alliances that genuinely did not move.
+  // Already in power order, strongest first: the query sorts and the table
+  // offers no other order.
   const rows = growth.data ?? [];
-  const ranked = sortRows(rows, sort);
+  const ranked = rows;
 
-  // The chart takes the top of whatever the table is sorted by, plus us — so
-  // sorting by growth draws the fastest movers and sorting by power draws the
-  // biggest, which is the comparison the reader just asked for. Ours is always
-  // in it, emphasised, because "how do we compare" is the point.
+  // The chart takes the strongest of them, plus us when we are among the ten:
+  // emphasised, because "how do we compare" is the point.
   const chosen = ranked.filter((row) => row.readings > 1).slice(0, CHART_LINES);
   // `is_own` comes down with the row (0073 joins it), so which one is ours needs
   // no second query and no id threaded through the page. Ours displaces the last
@@ -199,10 +194,6 @@ export function AllianceCompare({ serverId }: { serverId: number }) {
     );
   }
 
-  function onSort(key: string, additive: boolean): void {
-    setSort((current) => nextSortKeys(current, key, additive));
-  }
-
   const byAlliance = new Map<string, HistoryRow[]>();
   for (const row of history.data ?? []) {
     const bucket = byAlliance.get(row.alliance_id) ?? [];
@@ -225,13 +216,9 @@ export function AllianceCompare({ serverId }: { serverId: number }) {
 
   return (
     <>
-      {/* No sort control of its own: the table headers are the control, and the
-          chart follows them. Two ways to set one order would be two places to
-          look when they disagree. */}
       <p className="subtle">
-        {rows.length} alliance{rows.length === 1 ? '' : 's'} on server {serverId} ·{' '}
-        {rows.filter((row) => row.readings > 1).length} seen more than once · sort a column below to
-        change which alliances the chart draws
+        The {rows.length} strongest alliance{rows.length === 1 ? '' : 's'} on server {serverId}, by
+        power
       </p>
 
       {history.error ? (
@@ -257,32 +244,17 @@ export function AllianceCompare({ serverId }: { serverId: number }) {
         <table>
           <thead>
             <tr>
-              {/* Sorted on `name`, not on the tag shown in the chart: sorting a
-                  list of alliances by their tag is not an order anybody is
-                  looking for. */}
-              <SortableTh className="label" onSort={onSort} sort={sort} sortKey="name">
+              <th className="label" scope="col">
                 Alliance
-              </SortableTh>
-              <SortableTh numeric onSort={onSort} sort={sort} sortKey="power_last">
-                Power
-              </SortableTh>
-              <SortableTh numeric onSort={onSort} sort={sort} sortKey="power_growth_pct">
-                Change
-              </SortableTh>
-              <SortableTh numeric onSort={onSort} sort={sort} sortKey="rank_last">
-                Rank
-              </SortableTh>
-              <SortableTh numeric onSort={onSort} sort={sort} sortKey="rank_climb">
-                Climb
-              </SortableTh>
-              <SortableTh numeric onSort={onSort} sort={sort} sortKey="member_count">
-                Members
-              </SortableTh>
-              {/* On `span_days`, so descending is the longest measurement rather
-                  than alphabetical order over "9.1 days · 35 readings". */}
-              <SortableTh className="label" onSort={onSort} sort={sort} sortKey="span_days">
+              </th>
+              <th scope="col">Power</th>
+              <th scope="col">Change</th>
+              <th scope="col">Rank</th>
+              <th scope="col">Climb</th>
+              <th scope="col">Members</th>
+              <th className="label" scope="col">
                 Measured over
-              </SortableTh>
+              </th>
             </tr>
           </thead>
           <tbody>

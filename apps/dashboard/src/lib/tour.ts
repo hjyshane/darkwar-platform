@@ -13,7 +13,7 @@ export interface TourStep {
 export const TOUR_STEPS: readonly TourStep[] = [
   {
     title: 'The menu on the left',
-    body: 'Screens are grouped by what you are doing: Watch, Alliance, Events, Boards. On a phone it opens from the menu button.',
+    body: 'Six entries: Home, Guides, Calculator, Hive, Map and the alliance. An entry with more than one screen lists them beneath it while it is open. On a phone the menu opens from the menu button.',
   },
   {
     title: 'Go to a screen',

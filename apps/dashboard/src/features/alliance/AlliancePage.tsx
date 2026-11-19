@@ -9,11 +9,11 @@ import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
 import { useFavourites } from '../../lib/useFavourites';
 import { replaceHash, useHash } from '../../lib/useHash';
+import { useSession } from '../../lib/useSession';
 import { AllianceCompare } from './AllianceCompare';
 import { AllianceHeader, AllianceLeader } from './AllianceHeader';
-import { AllianceIntro } from './AllianceIntro';
 import { AllianceMemberTable } from './AllianceMemberTable';
-import { MovesTab, RecentMoves } from './AllianceMoves';
+import { MovesTab } from './AllianceMoves';
 import { AllianceOverview } from './AllianceOverview';
 import { AllianceTrends } from './AllianceTrends';
 
@@ -183,9 +183,8 @@ async function fetchAlliance(allianceId: string): Promise<AllianceDetail | null>
   };
 }
 
-/** The three questions this page answers, in the order they get asked: who is
- * in it, how has it moved, how does it compare. Members first because that is
- * what the page has always opened on and a link from elsewhere expects it. */
+/** The questions this page answers, in the order they get asked: for ours, how
+ * the fortnight went; then who is in it, how it has moved, how it compares. */
 
 const plain = new Intl.NumberFormat('ko-KR');
 
@@ -196,6 +195,7 @@ function num(value: number | null): string | null {
 export function AlliancePage({ allianceId, now }: { allianceId: string; now?: Date }) {
   const asked = allianceViewFromHash(useHash());
   const { signedIn, isFavourite, toggle } = useFavourites();
+  const { data: session } = useSession();
   const { data, error, isPending } = useQuery({
     queryKey: ['alliance', allianceId],
     queryFn: () => fetchAlliance(allianceId),
@@ -224,14 +224,24 @@ export function AlliancePage({ allianceId, now }: { allianceId: string; now?: Da
   }
 
   const label = `${data.code ? `[${data.code}] ` : ''}${data.name ?? 'Unnamed alliance'}`;
-  // The views this alliance has: past names only if there are any, activity only
-  // for ours. A link to one it does not have falls back to Members.
+  // The views this alliance has: past names only if there are any; Overview and
+  // Activity only for ours (their sources are our own boards and events); Moves
+  // for admins only (owner, 2026-11-19) — the RPC behind it is unchanged, this
+  // only stops offering it. The bare address, and a link to a view this page
+  // does not have, open the first: Overview on ours, Members on anybody else's.
   const offered = ALLIANCE_VIEWS.filter(
     (entry) =>
       (entry.id !== 'names' || data.pastNames.length > 0) &&
-      (entry.id !== 'activity' || data.isOwn),
+      (entry.id !== 'overview' || data.isOwn) &&
+      (entry.id !== 'activity' || data.isOwn) &&
+      (entry.id !== 'moves' || session?.role === 'admin'),
   );
-  const view = offered.some((entry) => entry.id === asked) ? asked : 'members';
+  const view =
+    asked !== null && offered.some((entry) => entry.id === asked)
+      ? asked
+      : data.isOwn
+        ? 'overview'
+        : 'members';
   return (
     <main className="alliance-screen">
       <section aria-labelledby="alliance-heading" className="entity">
@@ -316,7 +326,7 @@ export function AlliancePage({ allianceId, now }: { allianceId: string; now?: Da
         ))}
       </nav>
 
-      {(view === 'board' || view === 'power' || view === 'activity') && (
+      {(view === 'board' || view === 'activity') && (
         <section aria-labelledby="alliance-trends">
           <h2 className="visually-hidden" id="alliance-trends">
             Trends
@@ -327,13 +337,7 @@ export function AlliancePage({ allianceId, now }: { allianceId: string; now?: Da
         </section>
       )}
 
-      {view === 'overview' && (
-        <div className="alliance-stack">
-          <AllianceIntro allianceId={data.allianceId} />
-          <RecentMoves allianceId={data.allianceId} now={now} ownAlliance={data.ownAlliance} />
-          <AllianceOverview isOwn={data.isOwn} members={data.members} now={now} />
-        </div>
-      )}
+      {view === 'overview' && <AllianceOverview allianceId={data.allianceId} now={now} />}
 
       {view === 'moves' && (
         <MovesTab allianceId={data.allianceId} now={now} ownAlliance={data.ownAlliance} />
