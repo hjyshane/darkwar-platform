@@ -95,20 +95,26 @@ lupa 2.8의 `lua55`는 lua.org 5.5.0과 번호가 같다(MOVE 0 … VARARGPREP 8
    ```powershell
    cd C:\darkwar-platform\services\collector
    uv sync --extra gamedata
-   uv run dw-collector game-names --bundles C:/DW_data/gamedata/bundles --dry-run
+   uv run dw-collector game-names --bundles C:/DW_data/gamedata/base --dry-run
    ```
 
-   `1443 named events in the client's tables (English)` 같은 줄과 목록이 나온다.
+   `1477 named events in the client's tables (English)` 같은 줄과 목록이 나온다.
+   `--bundles`는 **폴더 하나**다. 1.250.672부터는 **기본 팩 폴더(`base`)**를 준다 — 패치
+   폴더에는 `activity_panel`도 현지화 조각 대부분도 없어 `no datatable 'activity_panel'`로
+   실패한다(2026-11-18: 기본 팩만 = 기본 + 패치, 1,477개 이름이 하나도 다르지 않았다).
 
 3. 올리기(`.env`의 `SUPABASE_URL`·`SUPABASE_SECRET_KEY` 사용):
 
    ```powershell
-   uv run dw-collector game-names --bundles C:/DW_data/gamedata/bundles
+   uv run dw-collector game-names --bundles C:/DW_data/gamedata/base
    ```
 
    `written=N unchanged=M kept-officer-names=K`. 임원이 직접 입력한 이름
    (`updated_by`가 있는 행)은 **절대 덮어쓰지 않는다.** 이 도구가 쓴 행(`updated_by`
    null, `note`에 출처 표기)은 게임이 이름을 바꾸면 다음 실행에서 갱신된다.
+   `event_names`는 1,000행을 넘었다(1,443). 한 번에 읽던 옛 코드는 1,000행만 받아 나머지를
+   "새 행"으로 다시 썼고, 거기 섞인 임원 이름은 덮어썼을 것이다 — 이제 페이지로 다 읽는다
+   (`upload.fetch_all`). 2026-11-18 실행: `written=34 unchanged=1438 kept-officer-names=5`.
 
 4. 기본 팩에서 전체 테이블 꺼내기(2GB를 통째로 받지 않는다). 기기의 `unzip -p`는
    파일 끝에 `unzip: invalid zip magic 00000000\n`(34바이트)을 붙여 내보내므로 잘라낸다.
