@@ -1165,11 +1165,6 @@ button.shell-link {
   color: var(--gold);
 }
 
-.guide-stale {
-  color: var(--fg-muted);
-  opacity: 0.7;
-}
-
 @media (max-width: 40rem) {
   .guide-times li {
     grid-template-columns: minmax(0, 1fr) auto;

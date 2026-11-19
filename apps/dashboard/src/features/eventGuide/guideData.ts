@@ -10,9 +10,7 @@ import type { Json } from '@dw/shared-types';
 import { useQuery } from '@tanstack/react-query';
 import { fetchIcons } from '../../lib/gameIcons';
 import { supabase } from '../../lib/supabase';
-import { fetchCalendar } from '../calendar/data';
-import { type Account, fetchAccounts } from '../planner/accounts';
-import type { GuideRow, ScheduleRow } from './guides';
+import type { GuideRow } from './guides';
 import { type ScoreItemMap, scoreItemMapFrom } from './scoreItems';
 import type { GuideSection } from './sections/index';
 import { type ItemCatalogue, type ItemRef, catalogueFrom, itemRefKey } from './sections/itemRef';
@@ -69,22 +67,6 @@ export function useScoreItems() {
     queryKey: [...GUIDES_KEY, 'score-items'],
     queryFn: fetchScoreItems,
     staleTime: 5 * 60_000,
-  });
-}
-
-/** The game's calendar, under the calendar page's own key so the two share
- * one request. */
-export function useGuideSchedule() {
-  return useQuery({
-    queryKey: ['event-calendar'],
-    queryFn: fetchCalendar,
-    staleTime: 5 * 60_000,
-    select: (rows): ScheduleRow[] =>
-      rows.map((row) => ({
-        activity_id: row.activity_id,
-        starts_at: row.starts_at,
-        ends_at: row.ends_at,
-      })),
   });
 }
 
@@ -155,17 +137,6 @@ export function useRefCatalogue(refs: readonly ItemRef[]) {
     queryFn: () => fetchRefCatalogue(refs),
     enabled: key !== '',
     staleTime: 60 * 60_000,
-  });
-}
-
-/** The accounts the viewer may plan for — the planner's own query and key, so
- * the prep check uses the same gate and the same stock as the planner. */
-export function useViewerAccounts(enabled = true) {
-  return useQuery<Account[]>({
-    queryKey: ['planner-accounts'],
-    queryFn: fetchAccounts,
-    enabled,
-    staleTime: 5 * 60_000,
   });
 }
 

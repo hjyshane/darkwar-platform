@@ -1,10 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  type DuelReading,
   type TimeRow,
   bestActions,
-  duelBoard,
-  duelCoverage,
   runningNow,
   timeState,
 } from '../src/features/eventGuide/extras';
@@ -86,79 +83,5 @@ describe('timeState', () => {
   it('is over once it ended, and a started event with no end is not claimed to run', () => {
     expect(timeState(row('2026-10-10T09:00:00Z', '2026-10-10T10:00:00Z'), now)).toBe('over');
     expect(timeState(row('2026-10-10T11:00:00Z', null), now)).toBe('over');
-  });
-});
-
-describe('duelBoard', () => {
-  // Saturday 2026-10-10 12:00 UTC: server day Oct 10 (UTC-2), game week from Mon Oct 5.
-  const now = new Date('2026-10-10T12:00:00Z');
-  const reading = (over: Partial<DuelReading> & { player_id: string }): DuelReading => ({
-    duel_daily_score: null,
-    duel_daily_updated_at: null,
-    duel_weekly_score: null,
-    duel_weekly_updated_at: null,
-    ...over,
-  });
-  const members = [
-    { player_id: 'a', current_name: 'Ann' },
-    { player_id: 'b', current_name: 'Bob' },
-    { player_id: 'c', current_name: 'Cy' },
-  ];
-  const readings = [
-    reading({
-      player_id: 'a',
-      duel_daily_score: 100,
-      duel_daily_updated_at: '2026-10-10T10:00:00Z',
-      duel_weekly_score: 500,
-      duel_weekly_updated_at: '2026-10-10T10:00:00Z',
-    }),
-    reading({
-      player_id: 'b',
-      duel_daily_score: 900,
-      duel_daily_updated_at: '2026-10-09T10:00:00Z',
-      duel_weekly_score: 400,
-      duel_weekly_updated_at: '2026-10-01T10:00:00Z',
-    }),
-  ];
-
-  it('sorts by the column asked for, and sinks a member with no reading', () => {
-    expect(duelBoard(members, readings, now, 'daily').map((l) => l.name)).toEqual([
-      'Bob',
-      'Ann',
-      'Cy',
-    ]);
-    expect(duelBoard(members, readings, now, 'weekly').map((l) => l.name)).toEqual([
-      'Ann',
-      'Bob',
-      'Cy',
-    ]);
-  });
-
-  it('marks a reading from an earlier day or week as stale, but keeps the number', () => {
-    const board = duelBoard(members, readings, now, 'daily');
-    expect(board.find((l) => l.name === 'Bob')).toMatchObject({
-      daily: 900,
-      dailyToday: false,
-      weekly: 400,
-      weeklyThisWeek: false,
-    });
-    expect(board.find((l) => l.name === 'Ann')).toMatchObject({
-      dailyToday: true,
-      weeklyThisWeek: true,
-    });
-  });
-
-  it('leaves a member with no reading at null, not zero', () => {
-    const cy = duelBoard(members, readings, now, 'daily').find((l) => l.name === 'Cy');
-    expect(cy).toMatchObject({ daily: null, weekly: null, dailyToday: false });
-  });
-
-  it('counts only readings that belong to today and this week', () => {
-    expect(duelCoverage(duelBoard(members, readings, now, 'daily'))).toEqual({ today: 1, week: 1 });
-  });
-
-  it('ignores a reading for somebody who is not on the roster', () => {
-    const extra = [...readings, reading({ player_id: 'zz', duel_daily_score: 5 })];
-    expect(duelBoard(members, extra, now, 'daily')).toHaveLength(3);
   });
 });
