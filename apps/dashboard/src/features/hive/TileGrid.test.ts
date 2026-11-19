@@ -1,13 +1,18 @@
 import { MAP_MAX } from '@dw/ui';
 import { expect, test } from 'vitest';
 import {
-  ZOOM_STEPS,
+  ZOOM_MAX,
+  ZOOM_MIN,
   axisTicks,
+  centreKeeping,
   pannedCentre,
+  rankClass,
   tileAtFraction,
   tileCorner,
+  wheelNotches,
   windowAround,
-  zoomStep,
+  windowRadius,
+  zoomedBy,
 } from './TileGrid';
 
 test('unmeasured, an axis falls back to round coordinates and at most ten', () => {
@@ -17,7 +22,7 @@ test('unmeasured, an axis falls back to round coordinates and at most ten', () =
 
   expect(axisTicks(492, 508)).toEqual([492, 494, 496, 498, 500, 502, 504, 506, 508]);
   expect(axisTicks(466, 534)).toEqual([470, 480, 490, 500, 510, 520, 530]);
-  for (const radius of ZOOM_STEPS) {
+  for (const radius of [ZOOM_MIN, 8, 14, 22, 34, 60, ZOOM_MAX]) {
     const view = windowAround({ x: 500, y: 500 }, radius);
     const ticks = axisTicks(view.xMin, view.xMax);
     expect(ticks.length).toBeGreaterThan(2);
@@ -100,18 +105,115 @@ test('a click outside the grid is clamped rather than invented', () => {
 });
 
 test('wheeling in gets closer, which is fewer tiles', () => {
-  // The list runs outward, so "closer" is a lower index. Backwards here makes
-  // the wheel do the opposite of every other map and throws nothing.
-  expect(zoomStep(14, 1)).toBeLessThan(14);
-  expect(zoomStep(14, -1)).toBeGreaterThan(14);
+  // Closer is a smaller radius. Backwards here makes the wheel do the
+  // opposite of every other map and throws nothing.
+  expect(zoomedBy(14, 1)).toBeLessThan(14);
+  expect(zoomedBy(14, -1)).toBeGreaterThan(14);
 });
 
 test('zoom stops at both ends rather than wrapping', () => {
-  const closest = ZOOM_STEPS.at(0) ?? 0;
-  const widest = ZOOM_STEPS.at(-1) ?? 0;
+  expect(zoomedBy(ZOOM_MIN, 1)).toBe(ZOOM_MIN);
+  expect(zoomedBy(ZOOM_MAX, -1)).toBe(ZOOM_MAX);
+  expect(zoomedBy(ZOOM_MIN, 50)).toBe(ZOOM_MIN);
+  expect(zoomedBy(ZOOM_MAX, -50)).toBe(ZOOM_MAX);
+});
 
-  expect(zoomStep(closest, 1)).toBe(closest);
-  expect(zoomStep(widest, -1)).toBe(widest);
+test('one notch always moves the window, even at the closest end', () => {
+  // The whole point of leaving the four-step ladder: every notch changes what
+  // is on screen, and none of them is a jump.
+  // Bounded by the window drawn rather than the raw zoom: a zoom of 3.3 IS the
+  // closest window, and asking it for closer still is the end, not a failure.
+  let steps = 0;
+  for (let zoom = ZOOM_MIN; windowRadius(zoom) < ZOOM_MAX; zoom = zoomedBy(zoom, -1)) {
+    const wider = zoomedBy(zoom, -1);
+    expect(windowRadius(wider)).toBeGreaterThan(windowRadius(zoom));
+    expect(windowRadius(wider)).toBeLessThanOrEqual(Math.ceil(windowRadius(zoom) * 1.3));
+    steps += 1;
+  }
+  // End to end in a couple of dozen notches: fine enough to frame a hive,
+  // short enough to cross the whole range with one spin of the wheel.
+  expect(steps).toBeGreaterThan(12);
+  expect(steps).toBeLessThan(30);
+  for (let zoom = ZOOM_MAX; windowRadius(zoom) > ZOOM_MIN; zoom = zoomedBy(zoom, 1)) {
+    expect(windowRadius(zoomedBy(zoom, 1))).toBeLessThan(windowRadius(zoom));
+  }
+  // Including from a fraction a pinch left behind, where a fifth of the
+  // radius is less than a tile.
+  for (const zoom of [3.6, 4.32, 4.4, 5.2]) {
+    expect(windowRadius(zoomedBy(zoom, -1))).toBeGreaterThan(windowRadius(zoom));
+    expect(windowRadius(zoomedBy(zoom, 1))).toBeLessThanOrEqual(
+      Math.max(ZOOM_MIN, windowRadius(zoom) - 1),
+    );
+  }
+});
+
+test('a pinch is many small steps that add up, not one that rounds away', () => {
+  // Forty events of a fortieth of a notch each land where one whole notch
+  // does — rounding each step to whole tiles would have left the map still.
+  let zoom = 20;
+  for (let step = 0; step < 40; step += 1) {
+    zoom = zoomedBy(zoom, 1 / 40);
+  }
+  expect(zoom).toBeCloseTo(zoomedBy(20, 1), 6);
+  expect(windowRadius(zoom)).toBeLessThan(20);
+});
+
+test('a mouse notch is one step and a pinch follows its deltas', () => {
+  // Chrome on Windows sends 100px a notch, Firefox three lines.
+  expect(wheelNotches(100, 0)).toBe(-1);
+  expect(wheelNotches(-100, 0)).toBe(1);
+  expect(wheelNotches(3, 1)).toBe(-1);
+  expect(wheelNotches(-120, 0)).toBe(1);
+  // A pinch: small pixel deltas, read in proportion.
+  expect(wheelNotches(-4, 0)).toBeCloseTo(0.2, 6);
+  expect(wheelNotches(10, 0)).toBeCloseTo(-0.5, 6);
+  expect(wheelNotches(0, 0)).toBe(0);
+});
+
+test('zooming keeps the ground under the pointer where it is', () => {
+  // The tile under the cursor before a zoom is the tile under it after — the
+  // pointer's spot holds still and everything else grows or shrinks round it.
+  const view = windowAround({ x: 500, y: 500 }, 20);
+  for (const at of [
+    { left: 0.5, top: 0.5 },
+    { left: 0.1, top: 0.85 },
+    { left: 0.9, top: 0.2 },
+    { left: 0, top: 1 },
+  ]) {
+    for (const radius of [6, 13, 35, 80]) {
+      const before = tileAtFraction(view, at.left, at.top);
+      const after = tileAtFraction(
+        windowAround(centreKeeping(view, radius, at), radius),
+        at.left,
+        at.top,
+      );
+      expect(Math.abs(after.x - before.x)).toBeLessThanOrEqual(1);
+      expect(Math.abs(after.y - before.y)).toBeLessThanOrEqual(1);
+    }
+  }
+});
+
+test('zooming about the middle keeps the middle', () => {
+  const view = windowAround({ x: 321, y: 654 }, 15);
+  expect(centreKeeping(view, 40, { left: 0.5, top: 0.5 })).toEqual({ x: 321, y: 654 });
+  expect(centreKeeping(view, 5, { left: 0.5, top: 0.5 })).toEqual({ x: 321, y: 654 });
+});
+
+test('zooming out against the map edge stays on the map', () => {
+  const view = windowAround({ x: 2, y: MAP_MAX - 2 }, 10);
+  const centre = centreKeeping(view, ZOOM_MAX, { left: 0, top: 0 });
+  expect(centre.x).toBeGreaterThanOrEqual(0);
+  expect(centre.y).toBeLessThanOrEqual(MAP_MAX);
+});
+
+test('a rank colours by R1 to R5 and anything else is unknown', () => {
+  expect([1, 2, 3, 4, 5].map(rankClass)).toEqual(['r1', 'r2', 'r3', 'r4', 'r5']);
+  // Null is a member the roster has no rank for; the others are a column gone
+  // wrong, and must not invent a sixth colour.
+  expect(rankClass(null)).toBe('r0');
+  expect(rankClass(0)).toBe('r0');
+  expect(rankClass(6)).toBe('r0');
+  expect(rankClass(2.5)).toBe('r0');
 });
 
 // Sliding the view with ctrl held.

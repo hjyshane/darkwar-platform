@@ -3879,11 +3879,16 @@ kbd {
  * lines cannot drift out of step with where the bases are drawn.
  */
 /* The grid with its coordinates round it: Y title and labels on the left, X
- * labels and title underneath. The 720px cap lives on the grid's COLUMN so
- * the x labels are laid out across exactly the width the tiles are. */
+ * labels and title underneath. The cap lives on the grid's COLUMN so the x
+ * labels are laid out across exactly the width the tiles are.
+ *
+ * THE CAP IS THE READER'S, 720px UNTIL THEY RESIZE IT. `--hive-map-size` is
+ * set on the box round the map only once somebody has dragged the corner
+ * handle (`mapSizeProps`), so the fallback here is the layout that shipped
+ * before the map could be resized, unchanged. */
 .tile-frame {
   display: grid;
-  grid-template-columns: auto auto minmax(0, 720px);
+  grid-template-columns: auto auto minmax(0, var(--hive-map-size, 720px));
   grid-template-rows: auto auto auto;
   /* PACKED TO THE START, NOT STRETCHED. The frame is full width while the grid
    * column stops at 720px, and the default `normal` hands the leftover to the
@@ -3954,11 +3959,50 @@ kbd {
   transform: translateX(-50%);
 }
 
+/* A fourth column for the resize handle, so it sits just OFF the grid's
+ * bottom-right corner — every pixel of the grid itself is a tile somebody
+ * may be trying to click. */
+.tile-frame--resizable {
+  grid-template-columns: auto auto minmax(0, var(--hive-map-size, 720px)) auto;
+}
+
+.tile-frame__grip {
+  grid-column: 4;
+  grid-row: 2;
+  align-self: start;
+  justify-self: start;
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  cursor: nwse-resize;
+  /* A drag on a touch screen resizes rather than scrolling the page. */
+  touch-action: none;
+  /* Two diagonal strokes: the shape every resizable thing in a desktop uses. */
+  background-image: linear-gradient(
+    135deg,
+    transparent 0 44%,
+    var(--fg-muted) 44% 52%,
+    transparent 52% 66%,
+    var(--fg-muted) 66% 74%,
+    transparent 74%
+  );
+}
+
+.tile-frame__grip:hover,
+.tile-frame__grip--held {
+  background-color: var(--bg-hover);
+}
+
+.tile-frame__grip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
 .tile-grid {
   position: relative;
   display: block;
   width: 100%;
-  max-width: 720px;
+  max-width: var(--hive-map-size, 720px);
   aspect-ratio: 1 / 1;
   padding: 0;
   margin: 0;
@@ -4003,6 +4047,14 @@ button.tile-grid:hover:not(:disabled) {
 .tile-grid--busy {
   opacity: 0.6;
   cursor: progress;
+}
+
+/* Zoomed so far out that a tile is a few pixels: a line every three pixels is
+ * a grey wash over the bases, not a grid, so there are none. The axes still
+ * say where everything is. Through the custom property, so the hover rule
+ * above loses the lines too rather than painting them back. */
+.tile-grid--dense {
+  --grid-lines: none;
 }
 
 /* Where the map last saw somebody. Drawn UNDER the plan and deliberately
@@ -4180,6 +4232,58 @@ button.tile-grid:hover:not(:disabled) {
   border-color: var(--data-4);
 }
 
+/* Bases coloured by the alliance rank of whoever stands on them ("Base
+ * colours: By rank"). Only ever INSTEAD of a painted colour — the grid gives a
+ * tile one or the other — so these never race the rules above.
+ *
+ * FIVE HUES THAT STAY APART IN BOTH THEMES. The painted palette cannot do it:
+ * in dark, its blue, amber and the default fill are all the accent gold, and
+ * teal sits next to green. So ranks take their own set, one token each, and
+ * the legend chips read the same `--rank` so a chip and the base it explains
+ * cannot drift apart. */
+.tile-grid__base--r5,
+.hive-rank-chip--r5 {
+  --rank: var(--danger-fg);
+}
+.tile-grid__base--r4,
+.hive-rank-chip--r4 {
+  --rank: var(--warn-fg);
+}
+.tile-grid__base--r3,
+.hive-rank-chip--r3 {
+  --rank: var(--ok-fg);
+}
+.tile-grid__base--r2,
+.hive-rank-chip--r2 {
+  --rank: var(--data-3);
+}
+.tile-grid__base--r1,
+.hive-rank-chip--r1 {
+  --rank: var(--data-5);
+}
+/* A member whose rank is not known: grey, which no rank is. */
+.tile-grid__base--r0,
+.hive-rank-chip--r0 {
+  --rank: var(--fg-muted);
+}
+
+.tile-grid__base--r5,
+.tile-grid__base--r4,
+.tile-grid__base--r3,
+.tile-grid__base--r2,
+.tile-grid__base--r1,
+.tile-grid__base--r0 {
+  background: color-mix(in srgb, var(--rank) 42%, transparent);
+  border-color: var(--rank);
+}
+
+/* A member base nobody stands on, while bases are coloured by rank. Empty and
+ * dashed: filled with the default colour it would read as one more rank. */
+.tile-grid__base--vacant {
+  background: transparent;
+  border: 1px dashed var(--fg-muted);
+}
+
 /* Refused, and said BEFORE the drop rather than by the drop doing nothing.
  * Never colour alone (NFR-011): the shape is a barred box and the editor
  * prints the reason in words under the grid. */
@@ -4230,6 +4334,24 @@ button.tile-grid:hover:not(:disabled) {
     grid-template-columns: minmax(0, 720px) minmax(16rem, 1fr);
   }
 
+  /* Resized: the map is the chosen size plus its axis labels and the handle,
+   * and the list takes what is left beside it — or goes underneath, when what
+   * is left is narrower than a list can be. Not a grid column: the list's
+   * 16rem minimum then squeezed the map instead, so the size asked for and
+   * the size drawn came apart and the handle stopped following the pointer. */
+  .hive-overview.hive-map--sized {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .hive-overview.hive-map--sized > .hive-overview__map {
+    flex: 0 1 calc(var(--hive-map-size) + 4rem);
+  }
+
+  .hive-overview.hive-map--sized > .hive-overview__list {
+    flex: 1 1 16rem;
+  }
+
   /* Beside the map, in the page's own flow. Not sticky and not capped: a sticky
    * column taller than the screen needs its own scrollbar, which is a scroll
    * box inside a scrolling page. The list just runs as long as it is. */
@@ -4249,6 +4371,14 @@ button.tile-grid:hover:not(:disabled) {
 .hive-editor__map {
   flex: 1 1 420px;
   min-width: 0;
+}
+
+/* Resized: exactly as wide as asked (plus the axis labels and the handle),
+ * neither grown nor shared with the controls. Where that leaves no room
+ * beside it the controls wrap underneath, which is what asking for a big map
+ * on a narrow screen means. */
+.hive-editor__map.hive-map--sized {
+  flex: 0 1 calc(var(--hive-map-size) + 4rem);
 }
 
 .hive-editor__controls {
@@ -4308,6 +4438,56 @@ button.tile-grid:hover:not(:disabled) {
 .hive-zoom {
   border: 0;
   padding: 0;
+  align-items: center;
+}
+
+/* Wide enough to place a zoom by eye; the buttons either side step it. */
+.hive-zoom__slider {
+  width: 10rem;
+  max-width: 40vw;
+}
+
+/* Fixed width, so the row does not shuffle sideways as the number changes
+ * from 7 tiles to 201 under a moving slider. */
+.hive-zoom__readout {
+  min-width: 5.5em;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-muted);
+}
+
+/* What each rank colour means, on its own line under the two buttons. */
+.hive-rank-legend {
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-sm);
+}
+
+.hive-rank-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.hive-rank-chip {
+  display: inline-block;
+  width: 0.9rem;
+  height: 0.9rem;
+  box-sizing: border-box;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--rank) 42%, transparent);
+  border: 1px solid var(--rank);
+}
+
+/* After the rule above, which it has to beat: it has no `--rank` to read. */
+.hive-rank-chip.hive-rank-chip--vacant {
+  background: transparent;
+  border: 1px dashed var(--fg-muted);
 }
 
 .hive-zoom legend {
