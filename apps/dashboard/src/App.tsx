@@ -14,6 +14,7 @@ import { AdminPage } from './features/admin/AdminPage';
 import { AlarmsPage } from './features/alarms/AlarmsPage';
 import { AlliancePage } from './features/alliance/AlliancePage';
 import { ArenaPanel } from './features/arena/ArenaPanel';
+import { CharacterGate } from './features/auth/CharacterGate';
 import { LoginPage } from './features/auth/LoginPage';
 import { BlackGoldPage } from './features/blackGold/BlackGoldPage';
 import { CalculatorPage } from './features/calculator/CalculatorPage';
@@ -48,6 +49,7 @@ import { ShopValuePage } from './features/shopValue/ShopValuePage';
 import { isAlliancePinnedByHost } from './lib/activeAlliance';
 import { useRecordActivity } from './lib/activity';
 import { mayOpenSettings } from './lib/adminAccess';
+import { mustPickCharacter, openWhilePicking } from './lib/characterGate';
 import { CommunityGate, communityMayOpen } from './lib/communityAccess';
 import { EditModeProvider } from './lib/editMode';
 import { isAllowed, usePermissions } from './lib/permissions';
@@ -488,6 +490,10 @@ function Shell({
   const isMember = session !== undefined && MEMBER_ROLES.has(session.role);
   const isCommunity = session?.role === 'community';
   const walled = !standalone && !isPending && !isMember;
+  // A member or officer with no character linked sees the picker in place of
+  // every page but sign-in and the legal two (lib/characterGate.ts).
+  const mustPick = mustPickCharacter(session);
+  const picking = mustPick && !openWhilePicking(route);
 
   // Only what the wall actually refused. `walled` is in the dependencies as
   // well as `hash` because a session can expire without the reader touching
@@ -521,9 +527,9 @@ function Shell({
       {/* In the bar rather than on a panel: it is about the whole board, not one
           table's data. Only for members: it reads sync_status, which 0065
           closed like everything else. */}
-      {isMember && !isCommunity && <SyncStatus />}
-      {isMember && !isCommunity && <RefreshButton />}
-      {isMember && <AccountLink />}
+      {isMember && !isCommunity && !mustPick && <SyncStatus />}
+      {isMember && !isCommunity && !mustPick && <RefreshButton />}
+      {isMember && !mustPick && <AccountLink />}
       {/* Signing out was only reachable from the login screen, which is the one
           place somebody already signed in has no reason to visit. It is here for
           anybody with a session, including a signed-in non-member looking at
@@ -533,7 +539,9 @@ function Shell({
       <ThemeToggle />
     </>
   );
-  const inShell = !standalone && isMember;
+  // No sidebar while a character is owed: every entry in it would open the
+  // picker again.
+  const inShell = !standalone && isMember && !mustPick;
 
   // THE WALL IS GONE. It said "Alliance members only" and offered a link to the
   // sign-in page: one screen whose entire content was a signpost to another.
@@ -547,6 +555,8 @@ function Shell({
     <main>
       <p className="empty loading">Loading…</p>
     </main>
+  ) : picking ? (
+    <CharacterGate />
   ) : isCommunity && !communityMayOpen(route) ? (
     // The pages that are about the alliance, and the player, alliance and
     // server pages the ranking rows link to (they list our roster).
