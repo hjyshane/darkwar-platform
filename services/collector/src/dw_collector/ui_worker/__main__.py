@@ -26,7 +26,7 @@ from dw_collector.ui_worker import gaps as gaps_mod
 from dw_collector.ui_worker import probe as probe_mod
 from dw_collector.ui_worker import sweep as sweep_mod
 from dw_collector.ui_worker import zoom as zoom_mod
-from dw_collector.ui_worker.adb import AdbClient, list_devices, wait_for_serial
+from dw_collector.ui_worker.adb import AdbClient, AdbError, list_devices, wait_for_serial
 from dw_collector.ui_worker.guard import AdbGuardError, AdbPolicy
 from dw_collector.ui_worker.idle import IdlePolicy
 from dw_collector.ui_worker.routine import Routine
@@ -780,6 +780,248 @@ def sweep(
         "\nwhat was actually covered is world_sweep_coverage, once sync catches up."
         " The box above is where the camera went, which is not the same claim."
     )
+
+
+def _parse_servers(spec: str) -> list[int]:
+    """ "566-588" or "580,581,590-592" -> the server ids, in order."""
+    out: list[int] = []
+    for part in spec.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        low, _, high = part.partition("-")
+        first, last = int(low), int(high or low)
+        if last < first:
+            msg = f"backwards range {part!r}"
+            raise ValueError(msg)
+        out.extend(range(first, last + 1))
+    return list(dict.fromkeys(out))
+
+
+def _journal_caught_up(journal: Journal, until: datetime, timeout: float) -> bool:
+    """Wait until the journal holds packets captured at or after `until`.
+
+    Capture writes the journal tens of seconds behind the wire (dumpcap closes
+    a file every 15s and ingest reads it a little later), so checking where
+    jumps landed straight after the last one would read their absence.
+    """
+    deadline = time.monotonic() + timeout
+    while True:
+        row = journal.conn.execute("select max(captured_at) from raw_observations").fetchone()
+        latest = row[0] if row else None
+        if latest and datetime.fromisoformat(str(latest)) >= until:
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(5.0)
+
+
+@app.command("goto-sweep")
+def goto_sweep(
+    servers: Annotated[
+        str, typer.Option(help="which servers, e.g. 566-588 or 580,581")
+    ] = "566-588",
+    adb: Annotated[str, _ADB] = "adb",
+    db: Annotated[Path | None, typer.Option("--db")] = None,
+    max_jumps: Annotated[
+        int | None, typer.Option(help="stop after this many jumps; for a bounded trial")
+    ] = None,
+    wait_for_idle_seconds: Annotated[
+        float, typer.Option(help="wait this long for the operator to stop using the machine")
+    ] = 900.0,
+    quiet_from_minute: Annotated[
+        int,
+        typer.Option(help="stand down past this minute of the hour, for the :58 macro"),
+    ] = 55,
+    shots: Annotated[
+        Path | None,
+        typer.Option(help="where to save an unrecognised screen; default beside the journal"),
+    ] = None,
+    verify_seconds: Annotated[
+        float, typer.Option(help="how long to wait for the journal to show where the jumps landed")
+    ] = 240.0,
+    unknown_screen_retries: Annotated[
+        int, typer.Option(help="times to wait out a screen nothing here can close before stopping")
+    ] = 3,
+    unknown_screen_wait: Annotated[
+        float, typer.Option(help="seconds to wait before looking at an unknown screen again")
+    ] = 180.0,
+) -> None:
+    """Visit every server's map through the game's own position box.
+
+    Each jump types a server, X and Y into the game's "World" window and
+    presses Go, so every request is the client's own. Seventy jumps cover a
+    server (goto.py), and where each one landed is read back from the journal
+    afterwards: a jump counts when a viewLvl 1 viewport with tiles in it came
+    back within reach of its target. Jumps that did not are tried once more.
+
+    A popup is closed only with something known to close (goto_screen.py).
+    A screen nothing here recognises is NOT tapped: the run waits
+    `--unknown-screen-wait` and looks again, up to `--unknown-screen-retries`
+    times in a row, because the game's own dialogs (reconnecting, loading)
+    often clear by themselves. Then it stops, screenshots saved. It also
+    yields to an operator at the emulator and stops on the kill switch.
+    """
+    from dw_collector.ui_worker import goto as goto_mod
+    from dw_collector.ui_worker.goto_screen import GotoScreen, ScreenError
+
+    try:
+        wanted = _parse_servers(servers)
+    except ValueError as exc:
+        typer.echo(f"--servers: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    if not wanted:
+        typer.echo("--servers names no server", err=True)
+        raise typer.Exit(code=2)
+
+    policy, target = _resolve(adb)
+    journal = _open_journal(db)
+    client = AdbClient(policy=policy, serial=target, executable=adb)
+    journal_path = Path(os.environ.get("DW_SQLITE_PATH", "./data/collector.db"))
+    shot_dir = shots or journal_path.parent / "ui-shots"
+    screen = GotoScreen(client, shots=shot_dir)
+    idle = IdlePolicy.from_env()
+
+    if idle is not None:
+        deadline = time.monotonic() + wait_for_idle_seconds
+        state = idle.contends()
+        while not state.is_idle and time.monotonic() < deadline:
+            time.sleep(5.0)
+            state = idle.contends()
+        if not state.is_idle:
+            typer.echo(f"still in use after {wait_for_idle_seconds:.0f}s: {state.reason}", err=True)
+            journal.close()
+            raise typer.Exit(code=1)
+
+    plan = goto_mod.plan(wanted)
+    if max_jumps is not None:
+        plan = plan[:max_jumps]
+    typer.echo(
+        f"{target}: {len(plan)} jumps over {len(wanted)} server(s),"
+        f" {len(goto_mod.plan_server(0))} a server; a landing counts within"
+        f" +-{goto_mod.TOLERANCE_X} x and +-{goto_mod.TOLERANCE_Y} y"
+    )
+
+    started = journal.watermark()
+    since = datetime.now(UTC)
+    refused: set[int] = set()
+    aborted: str | None = None
+
+    def run(targets: list[goto_mod.Target]) -> list[goto_mod.Target]:
+        """Jump to each target; return the ones jumped to."""
+        nonlocal aborted
+        done: list[goto_mod.Target] = []
+        current: int | None = None
+        for index, spot in enumerate(targets, 1):
+            if policy.kill_switch_engaged():
+                aborted = "kill switch engaged"
+                break
+            if datetime.now().minute >= quiet_from_minute:
+                typer.echo(f"  {datetime.now():%H:%M:%S} standing down for the macro")
+                while datetime.now().minute >= quiet_from_minute:
+                    time.sleep(20.0)
+                # The macro drove the emulator meanwhile; the window's State
+                # prefill is wherever it left the camera, so type it again.
+                current = None
+            if idle is not None and not idle.contends().is_idle:
+                # YIELD, THEN COME BACK. A run is hours long and the operator
+                # glancing at the emulator for a minute should not cost the
+                # rest of it - but neither may the sweep fight them for the
+                # screen. Whatever they did moved the camera, so the next jump
+                # starts from ready() and types the server again.
+                typer.echo(f"  {datetime.now():%H:%M:%S} pausing: {idle.contends().reason}")
+                deadline = time.monotonic() + wait_for_idle_seconds
+                state = idle.contends()
+                while not state.is_idle and time.monotonic() < deadline:
+                    time.sleep(10.0)
+                    state = idle.contends()
+                if not state.is_idle:
+                    aborted = (
+                        f"operator still active after {wait_for_idle_seconds:.0f}s - {state.reason}"
+                    )
+                    break
+                typer.echo(f"  {datetime.now():%H:%M:%S} resuming")
+                current = None
+            if spot.server in refused:
+                continue
+            went: bool | None = None
+            unknown = 0
+            while went is None and aborted is None:
+                try:
+                    went = screen.jump(spot, current_server=current)
+                except ScreenError as exc:
+                    unknown += 1
+                    if unknown > unknown_screen_retries:
+                        aborted = str(exc)
+                        break
+                    typer.echo(
+                        f"  {datetime.now():%H:%M:%S} unknown screen ({exc});"
+                        f" looking again in {unknown_screen_wait:.0f}s"
+                        f" [{unknown}/{unknown_screen_retries}]"
+                    )
+                    # Whatever popped up may have moved the camera or the
+                    # window's State prefill; start this jump from scratch.
+                    current = None
+                    deadline = time.monotonic() + unknown_screen_wait
+                    while time.monotonic() < deadline:
+                        if policy.kill_switch_engaged():
+                            aborted = "kill switch engaged"
+                            break
+                        time.sleep(5.0)
+                except (AdbError, OSError) as exc:
+                    aborted = f"adb: {exc}"
+            if aborted is not None or went is None:
+                break
+            if not went:
+                refused.add(spot.server)
+                typer.echo(f"  {spot.server}: the client would not go there - skipping this server")
+                current = None
+                continue
+            current = spot.server
+            done.append(spot)
+            if index % 10 == 0 or index == len(targets):
+                typer.echo(
+                    f"  {datetime.now():%H:%M:%S} {index}/{len(targets)}"
+                    f"  at {spot.server} ({spot.x},{spot.y})"
+                )
+        return done
+
+    def landings() -> list[goto_mod.Landing]:
+        return goto_mod.parse_landings(journal.payloads_after(started, goto_mod.MAP_COMMAND, since))
+
+    try:
+        jumped = run(plan)
+        if jumped and not _journal_caught_up(journal, datetime.now(UTC), verify_seconds):
+            typer.echo(f"journal did not catch up within {verify_seconds:.0f}s", err=True)
+        missed = goto_mod.unreached(jumped, landings())
+        if missed and aborted is None:
+            typer.echo(f"\n{len(missed)} jump(s) not confirmed; trying them once more")
+            again = run(missed)
+            if again:
+                _journal_caught_up(journal, datetime.now(UTC), verify_seconds)
+            missed = goto_mod.unreached(jumped, landings())
+        seen = landings()
+    finally:
+        journal.close()
+
+    typer.echo("")
+    for server in wanted:
+        mine = [t for t in jumped if t.server == server]
+        if server in refused:
+            typer.echo(f"  {server}: refused by the client (outside the cluster?)")
+        elif not mine:
+            typer.echo(f"  {server}: not reached")
+        else:
+            lost = [t for t in missed if t.server == server]
+            note = "  wrong zoom" if goto_mod.wrong_zoom(seen, server) else ""
+            typer.echo(f"  {server}: {len(mine) - len(lost)}/{len(mine)} landed{note}")
+    if aborted:
+        typer.echo(f"\nSTOPPED: {aborted}", err=True)
+        raise typer.Exit(code=1)
+    if missed:
+        typer.echo(f"\n{len(missed)} jump(s) never confirmed", err=True)
+        raise typer.Exit(code=1)
+    typer.echo("\nevery jump landed")
 
 
 @app.command()
