@@ -4368,8 +4368,10 @@ button.tile-grid:hover:not(:disabled) {
   margin: var(--space-4) 0;
 }
 
+/* Twice the controls' share of any spare width: the member list beside the
+ * map has to come out of somebody's room, and the map is what it is for. */
 .hive-editor__map {
-  flex: 1 1 420px;
+  flex: 2 1 420px;
   min-width: 0;
 }
 
@@ -4742,18 +4744,103 @@ button.tile-grid:hover:not(:disabled) {
 
 /* The members an officer drags onto the editor's map. Unplaced first and at
  * full strength; placed ones stay draggable (to move them) but step back. */
-.hive-palette {
-  list-style: none;
-  padding: 0;
-  margin-top: 0;
+/* The member list: a column beside the map, held in view as the page scrolls
+ * (clear of the sticky top bar) and scrolling inside itself. It used to be
+ * every chip wrapped above the map, uncapped so the page did the scrolling —
+ * but then the page scrolled the MAP away, and a drag from the top of the
+ * list ended off the bottom of the screen. Beside the map, both stay put. */
+.hive-roster {
+  flex: 0 0 15rem;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 4.5rem;
+  max-height: calc(100vh - 6rem);
+}
+
+.hive-roster .hive-palette-search input {
+  flex: 1 1 100%;
+  max-width: none;
+}
+
+.hive-roster__options {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-1);
-  /* Every chip, wrapped. Capped at 7.5rem and then 16rem before, which made
-   * the roster a thing you scrolled inside the page; the search above it
-   * narrows it, the page scrolls past it. */
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
   margin-bottom: var(--space-2);
-  align-content: flex-start;
+}
+
+.hive-roster__sort {
+  display: inline-flex;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.hive-roster__sort button {
+  padding: 2px var(--space-2);
+  font-size: var(--text-sm);
+  border-radius: 0;
+}
+
+.hive-roster__sort button + button {
+  margin-left: -1px;
+}
+
+.hive-roster__sort button:first-child {
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
+}
+
+.hive-roster__sort button:last-child {
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+
+.hive-roster__sort button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+  position: relative;
+}
+
+.hive-roster__hide {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+
+.hive-palette {
+  list-style: none;
+  margin: 0;
+  padding: var(--space-1);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+/* A phone, or a window too narrow for the list and a 420px map side by side
+ * once the sidebar has its 232px: back above the map, across the whole width,
+ * a few rows tall and scrolling inside. */
+@media (max-width: 1000px) {
+  .hive-roster {
+    flex: 1 1 100%;
+    position: static;
+    max-height: none;
+  }
+
+  .hive-palette {
+    max-height: 14rem;
+  }
 }
 
 .hive-palette-search {
@@ -4769,22 +4856,89 @@ button.tile-grid:hover:not(:disabled) {
   max-width: 20rem;
 }
 
+/* One row per member: grip, rank, name, and power — or, once placed, which
+ * tile and a way off it. The whole row is the handle, so it is a row-sized
+ * target rather than a word-sized one. */
 .hive-palette__member {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 2rem;
   padding: 2px var(--space-2);
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-sm);
   font-size: var(--text-sm);
   cursor: grab;
   user-select: none;
   background: var(--bg-raised);
 }
 
+.hive-palette__member:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-hover);
+}
+
 .hive-palette__member:active {
   cursor: grabbing;
 }
 
+/* Placed: still there, still draggable (to move them), but plainly dealt
+ * with — dashed and unfilled, the name muted. Not faded as a whole, which
+ * read as disabled and hid the tile number it now carries. */
 .hive-palette__member--placed {
-  opacity: 0.5;
+  background: transparent;
+  border-style: dashed;
+}
+
+.hive-palette__member--placed .hive-palette__name {
+  color: var(--fg-muted);
+}
+
+.hive-palette__grip {
+  flex: none;
+  color: var(--fg-muted);
+  line-height: 1;
+}
+
+/* The rank in its own colour — the same `--rank` the map's "By rank" mode
+ * paints bases with — and in words, so the colour is never the only cue. */
+.hive-palette__rank {
+  flex: none;
+  min-width: 2.25rem;
+  padding: 0 var(--space-1);
+  border: 1px solid var(--rank, var(--border));
+  border-radius: var(--radius-pill);
+  color: var(--rank, var(--fg-muted));
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-align: center;
+}
+
+.hive-palette__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hive-palette__power {
+  flex: none;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.hive-palette__where,
+.hive-palette__off {
+  flex: none;
+  padding: 0 var(--space-1);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+}
+
+.hive-palette__where {
+  font-family: var(--font-mono);
 }
 
 .hive-count {
