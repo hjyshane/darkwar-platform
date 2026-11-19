@@ -296,3 +296,110 @@ def test_a_city_row_says_when_its_shield_ends() -> None:
     assert world_map._shield_end(None) is None
     assert world_map._shield_end(0) is None
     assert world_map._shield_end(1_791_566_025) == "2026-10-09T17:13:45+00:00"
+
+
+def test_a_city_says_which_alliance_the_map_drew_it_in() -> None:
+    """Parser 1.7.0 (0334): every city row from a viewport that names its map
+    says yes or no, and a yes carries the alliance for the sync worker to file
+    under that map's server."""
+    observation = load_observation(VIEWPORT)
+    cities = [
+        r for r in world_map.normalize(observation) if r.target_table == "world_city_snapshots"
+    ]
+
+    assert all(isinstance(r.row["in_alliance"], bool) for r in cities)
+    inside = [r for r in cities if r.row["in_alliance"]]
+    # This viewport sits on an alliance hub, so every base is in one; the
+    # "in none" case is the hand-built tile below.
+    assert inside, "the fixture has bases in alliances"
+    for row in inside:
+        ref = row.entity_refs["alliance"]
+        assert ref["server_id"] == observation.payload["serverId"]
+        assert len(ref["external_id"]) == 32
+        assert ref["code"] == row.row["alliance_code"]
+        # Resolved cloud-side, never invented here.
+        assert "alliance_id" not in row.row
+
+
+def _city_point(*, alliance: str | None, server: int | None) -> str:
+    """One city tile built from the wire format, in an alliance or not, with
+    or without the f103 that names its map."""
+    import base64
+
+    from dw_collector.protocol.worldmap import B64_PREFIX
+
+    def varint(value: int) -> bytes:
+        out = bytearray()
+        while True:
+            byte = value & 0x7F
+            value >>= 7
+            out.append(byte | (0x80 if value else 0))
+            if not value:
+                return bytes(out)
+
+    def v(number: int, value: int) -> bytes:
+        return varint(number << 3) + varint(value)
+
+    def b(number: int, payload: bytes) -> bytes:
+        return varint((number << 3) | 2) + varint(len(payload)) + payload
+
+    city = b(1, b"1034779077000571") + v(4, 25) + b(14, b"Tam")
+    if alliance is not None:
+        city += b(7, alliance.encode()) + b(15, b"35VN")
+    point = v(1, 318405) + v(2, 3) + b(3, city)
+    if server is not None:
+        point += v(103, server)
+    return B64_PREFIX + base64.b64encode(point).decode()
+
+
+def test_a_migrants_city_files_its_alliance_under_the_map_not_the_uid() -> None:
+    """Born on 571 (the uid), standing on 567's map: the alliance is 567's."""
+    observation = load_observation(VIEWPORT).model_copy(
+        update={
+            "payload": {
+                "serverId": 567,
+                "points": [_city_point(alliance="629d85b816d846f797868277ac8228fa", server=567)],
+            }
+        }
+    )
+    (city,) = [
+        r for r in world_map.normalize(observation) if r.target_table == "world_city_snapshots"
+    ]
+
+    assert (city.row["server_id"], city.row["map_server_id"]) == (571, 567)
+    assert city.row["in_alliance"] is True
+    assert city.row["alliance_code"] == "35VN"
+    assert city.entity_refs["alliance"] == {
+        "server_id": 567,
+        "external_id": "629d85b816d846f797868277ac8228fa",
+        "name": None,
+        "code": "35VN",
+    }
+
+
+def test_without_a_map_server_a_city_says_nothing_about_its_alliance() -> None:
+    """No server to file the alliance under: unknown, not "in no alliance"."""
+    for alliance in ("629d85b816d846f797868277ac8228fa", None):
+        observation = load_observation(VIEWPORT).model_copy(
+            update={"payload": {"points": [_city_point(alliance=alliance, server=None)]}}
+        )
+        (city,) = [
+            r for r in world_map.normalize(observation) if r.target_table == "world_city_snapshots"
+        ]
+
+        assert city.row["in_alliance"] is None
+        assert city.row["alliance_code"] is None
+        assert "alliance" not in city.entity_refs
+
+
+def test_a_city_in_no_alliance_says_so() -> None:
+    observation = load_observation(VIEWPORT).model_copy(
+        update={"payload": {"serverId": 567, "points": [_city_point(alliance=None, server=567)]}}
+    )
+    (city,) = [
+        r for r in world_map.normalize(observation) if r.target_table == "world_city_snapshots"
+    ]
+
+    assert city.row["in_alliance"] is False
+    assert city.row["alliance_code"] is None
+    assert "alliance" not in city.entity_refs

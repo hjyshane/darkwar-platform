@@ -268,3 +268,39 @@ def test_decoding_is_deterministic() -> None:
     entry = _point(491444, CITY_TYPE, _city("1190060554000580", "Ranger", 35))
 
     assert decode_point(entry) == decode_point(entry)
+
+
+def _city_in(uid: str, name: str, alliance: str | None, tag: str | None) -> bytes:
+    """A city as the client's `BuildInfo` lays it out: id at 7, tag at 15, and a
+    two-letter country at 27 that is not an alliance."""
+    body = _bfield(1, uid.encode()) + _vfield(3, 400000) + _vfield(4, 25)
+    if alliance is not None:
+        body += _bfield(7, alliance.encode())
+    body += _bfield(14, name.encode())
+    if tag is not None:
+        body += _bfield(15, tag.encode())
+    return body + _bfield(27, b"VN")
+
+
+def test_a_city_carries_the_alliance_the_map_draws_it_in() -> None:
+    city = _city_in("1034779077000567", "Tam", "629d85b816d846f797868277ac8228fa", "35VN")
+    tile = decode_point(_point(318405, CITY_TYPE, city, server=567))
+
+    assert tile.city is not None
+    assert tile.city.alliance_id == "629d85b816d846f797868277ac8228fa"
+    assert tile.city.alliance_tag == "35VN"
+
+
+def test_a_city_in_no_alliance_has_neither_and_the_country_is_not_one() -> None:
+    tile = decode_point(_point(318405, CITY_TYPE, _city_in("1034779077000567", "Tam", None, None)))
+
+    assert tile.city is not None
+    assert (tile.city.alliance_id, tile.city.alliance_tag) == (None, None)
+
+
+def test_a_tag_without_an_alliance_id_is_not_an_alliance() -> None:
+    """The two travel together; a tag alone would be a guess at which alliance."""
+    tile = decode_point(_point(318405, CITY_TYPE, _city_in("1034779077000567", "Tam", "", "35VN")))
+
+    assert tile.city is not None
+    assert (tile.city.alliance_id, tile.city.alliance_tag) == (None, None)

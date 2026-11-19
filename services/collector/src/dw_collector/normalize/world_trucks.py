@@ -1,4 +1,5 @@
-"""train.list / get.train.info / push.world.march.new (type 15) → world_truck_snapshots
+"""train.list / get.train.info / push.world.march.new and
+push.world.march.world.get.new (type 15) → world_truck_snapshots
 (+ player_squad_power_snapshots).
 
 A Dark Syndicate truck reaches us three ways and none of them is the whole truck:
@@ -40,7 +41,10 @@ from dw_collector.registry import register
 
 # 1.1.0: a listed truck's escort squad (squadNo, power, heroInfo) goes to
 # player_squad_power_snapshots (0317).
-PARSER_VERSION = "1.1.0"
+# 1.2.0: `push.world.march.world.get.new`, the marches drawn on whatever map the
+# camera is on, gives truck legs for every server, not only the collector's own.
+# A leg keys in `push.world.march.new`'s namespace whichever push carried it.
+PARSER_VERSION = "1.2.0"
 
 HERO_FRAGMENT_ITEM_IDS = frozenset({"210318", "210319", "210454"})
 _MARCH_TYPE_TRUCK = 15
@@ -291,7 +295,43 @@ def normalize_info(observation: Observation) -> list[NormalizedRow]:
 @register("push.world.march.new")
 def normalize_march(observation: Observation) -> list[NormalizedRow]:
     """The truck as a march. Every other march type is somebody else's business."""
-    payload = observation.payload
+    return _march_rows(observation, observation.payload)
+
+
+#: The namespace both march commands key a leg in, so one leg seen by both is
+#: one row rather than two.
+_LEG_KEY_COMMAND = "push.world.march.new"
+
+
+@register("push.world.march.world.get.new")
+def normalize_viewport_marches(observation: Observation) -> list[NormalizedRow]:
+    """Every truck in the marches drawn on the map the camera is looking at.
+
+    `push.world.march.new` reaches the collector only for its own server's
+    marches. This push comes with each `world.get.new` viewport instead, for
+    whichever server the camera is on: `marchInfos` is a list of the same march
+    objects, and `serverId` names the map. On 2026-11-19 it carried trucks on
+    566-586 while `push.world.march.new` had two, both on 580 - so before this,
+    a truck on any other server could be listed but never placed.
+    """
+    marches = observation.payload.get("marchInfos")
+    if not isinstance(marches, list):
+        return []
+    rows: list[NormalizedRow] = []
+    seen: set[str] = set()
+    for march in marches:
+        if not isinstance(march, dict):
+            continue
+        for row in _march_rows(observation, march):
+            if row.idempotency_key in seen:
+                continue
+            seen.add(row.idempotency_key)
+            rows.append(row)
+    return rows
+
+
+def _march_rows(observation: Observation, payload: dict[str, Any]) -> list[NormalizedRow]:
+    """One march object, as either push carries it; a row only for a truck."""
     train = payload.get("train")
     if payload.get("type") != _MARCH_TYPE_TRUCK or not isinstance(train, dict):
         return []
@@ -319,6 +359,7 @@ def normalize_march(observation: Observation) -> list[NormalizedRow]:
                     k: payload.get(k)
                     for k in ("uuid", "startPos", "targetPos", "startTime", "endTime")
                 },
+                key_command=_LEG_KEY_COMMAND,
             ),
             row={
                 **_common(observation, server_id, truck),

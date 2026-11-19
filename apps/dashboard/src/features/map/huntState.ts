@@ -21,6 +21,7 @@ export interface HuntData {
   loading: boolean;
   trucksLoaded: boolean;
   missionsLoaded: boolean;
+  treasureLoaded: boolean;
   errors: string[];
 }
 
@@ -43,6 +44,7 @@ export function useHuntData(serverId: number): HuntData {
     loading: trucks.isPending || missions.isPending,
     trucksLoaded: trucks.data !== undefined,
     missionsLoaded: missions.data !== undefined,
+    treasureLoaded: sites.data !== undefined,
     errors: [
       trucks.error ? `Could not load trucks: ${(trucks.error as Error).message}` : null,
       missions.error ? `Could not load missions: ${(missions.error as Error).message}` : null,

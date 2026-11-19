@@ -11,6 +11,7 @@ import {
   clusters,
   filterActive,
   formatCopyCoordinate,
+  homeServer,
   isOldSweep,
   isShielded,
   isStale,
@@ -378,5 +379,13 @@ describe('isOldSweep', () => {
   it('is false inside three days and true past them', () => {
     expect(isOldSweep('2026-11-16T12:00:01Z', now)).toBe(false);
     expect(isOldSweep('2026-11-15T11:59:00Z', now)).toBe(true);
+  });
+});
+
+describe('homeServer', () => {
+  it('is the last six digits of the uid, which a migration does not change', () => {
+    expect(homeServer(1_034_779_077_000_567)).toBe(567);
+    // A real uid stays under 2^53, so the browser holds it exactly.
+    expect(homeServer(1_665_823_116_000_580)).toBe(580);
   });
 });

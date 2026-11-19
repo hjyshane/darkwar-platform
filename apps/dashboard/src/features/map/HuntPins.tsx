@@ -1,9 +1,10 @@
 import { toFraction } from '@dw/ui';
 import { useEffect, useRef, useState } from 'react';
 import { useIcons } from '../../lib/gameIcons';
+import { shareCoordinate } from '../../lib/shareCoordinate';
 import { who } from './HuntLists';
 import { useMapZoom } from './PannableMap';
-import { type Mission, type Truck, timeLeft, truckHeading, truckSpot } from './hunt';
+import { type Mission, type Truck, missionShare, timeLeft, truckHeading, truckSpot } from './hunt';
 import { type TreasureSite, closesAt, isUnlit, shareLabel, siteTitle } from './sites';
 
 /** A clock that ticks every second, so a truck moves along its road and its
@@ -83,7 +84,9 @@ export function HuntPins({
   missions: readonly Mission[];
   sites?: readonly TreasureSite[];
   picked: string | null;
-  onChoose: (id: string, at: { x: number; y: number }) => void;
+  /** `copy` is what the click puts on the clipboard: the game's share form,
+   * which for a treasure site is not the tile it is drawn on (0315). */
+  onChoose: (id: string, at: { x: number; y: number }, copy: string) => void;
 }) {
   const now = useTick(trucks.length > 0 || missions.length > 0 || sites.length > 0);
   const zoom = useMapZoom();
@@ -112,7 +115,9 @@ export function HuntPins({
             .filter(Boolean)
             .join(' ')}
           key={truck.truckUuid}
-          onClick={() => onChoose(truck.truckUuid, spot.at)}
+          onClick={() =>
+            onChoose(truck.truckUuid, spot.at, shareCoordinate(truck.serverId, spot.at))
+          }
           style={place(spot.at)}
           title={`Truck${spot.origin ? ' (set off from here)' : ''} · ${who(truck.ownerName, truck.allianceAbbr)} · ${truck.heroFragments} shard`}
           type="button"
@@ -147,7 +152,7 @@ export function HuntPins({
             .filter(Boolean)
             .join(' ')}
           key={mission.missionUuid}
-          onClick={() => onChoose(mission.missionUuid, mission.at)}
+          onClick={() => onChoose(mission.missionUuid, mission.at, missionShare(mission))}
           style={place(mission.at)}
           title={`Plunder · ${who(mission.ownerName, mission.allianceAbbr)} · ${mission.orangeBooks} books`}
           type="button"
@@ -167,7 +172,7 @@ export function HuntPins({
             .filter(Boolean)
             .join(' ')}
           key={site.siteUuid}
-          onClick={() => onChoose(site.siteUuid, site.at)}
+          onClick={() => onChoose(site.siteUuid, site.at, shareLabel(site))}
           style={place(site.at)}
           title={siteTitle(site)}
           type="button"

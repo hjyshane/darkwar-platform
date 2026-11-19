@@ -3797,6 +3797,28 @@ kbd {
   background: var(--bg-hover);
 }
 
+/* A player in the map's Moves list who is not on this map: a link to them,
+ * laid out like the rows that are buttons. */
+.map-results .atlas-moves__link {
+  background: var(--bg-raised);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  text-decoration: none;
+}
+
+.map-results .atlas-moves__link:hover {
+  background: var(--bg-hover);
+}
+
+.hunt-copy-hint {
+  margin: 0 0 var(--space-2);
+}
+
 .map-selected {
   margin: var(--space-4) 0 var(--space-2);
 }
@@ -6341,21 +6363,10 @@ button.server-link {
   gap: 0.5rem;
 }
 
-/* Same alliance, same colour, readable from across the map (the Vantera look): a
- * soft glow behind each clump, its name over it, a ring round every dot, and a
- * base's own name once you zoom in. */
-.atlas-halo {
-  position: absolute;
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  background: radial-gradient(
-    circle,
-    color-mix(in srgb, var(--halo) 38%, transparent) 0%,
-    transparent 68%
-  );
-  pointer-events: none;
-}
-
+/* Same alliance, same colour, readable from across the map: the clump's name
+ * over it, a ring round every dot, and a base's own name once you zoom in. The
+ * soft glow that used to sit behind each clump is gone (2026-11-18): it read as
+ * a pink density cloud over the towers. */
 .atlas-dot {
   box-shadow: 0 0 0 calc(1px / var(--map-zoom, 1)) rgb(8 12 24 / 0.75);
 }

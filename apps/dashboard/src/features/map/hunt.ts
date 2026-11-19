@@ -7,6 +7,7 @@
 
 import type { Coordinate } from '@dw/ui';
 import { useQuery } from '@tanstack/react-query';
+import { shareCoordinate } from '../../lib/shareCoordinate';
 import { supabase } from '../../lib/supabase';
 import type { StripCell } from './strip';
 
@@ -215,6 +216,24 @@ export function timeLeft(until: Date, now: Date): string {
 
 export function missionIsOpen(mission: Pick<Mission, 'endsAt'>, now: Date): boolean {
   return mission.endsAt.getTime() > now.getTime();
+}
+
+/** What clicking a truck copies: `#566[X:512 Y:300]`, on the TRUCK's server,
+ * so a truck listed while another map is open still pastes as a place on its
+ * own ground. Null when nothing says where it is. */
+export function truckShare(
+  truck: Pick<Truck, 'serverId' | 'leg' | 'origin'>,
+  now: Date,
+): string | null {
+  const spot = truckSpot(truck, now);
+  return spot === null ? null : shareCoordinate(truck.serverId, spot.at);
+}
+
+/** What clicking a plunder mission copies, on the map it stands on (0334). The
+ * tile's own coordinate: unlike a treasure site's, it has not been checked
+ * against a link the game shared. */
+export function missionShare(mission: Pick<Mission, 'serverId' | 'at'>): string {
+  return shareCoordinate(mission.serverId, mission.at);
 }
 
 export interface HuntStripInput {

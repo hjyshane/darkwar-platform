@@ -140,6 +140,12 @@ export function shieldLeft(end: Date, now: Date): string | null {
   return `${hours}h ${minutes % 60}m`;
 }
 
+/** The server an account was made on: the uid's last six digits (ADR-0001).
+ * A base on another server's map belongs to somebody who migrated there. */
+export function homeServer(gameUid: number): number {
+  return gameUid % 1_000_000;
+}
+
 /** How a coordinate is SHOWN beside a base: `[X:123 Y:456]`. What a click puts
  * on the clipboard is `shareCoordinate` instead — the `#580` in front is what
  * makes game chat turn it into a tappable place. */
@@ -290,12 +296,13 @@ export interface Cluster {
   radius: number;
 }
 
-/** Fewer bases than this is a scatter, not a clump worth a halo and a name. */
+/** Fewer bases than this is a scatter, not a clump worth a name. */
 export const MIN_CLUSTER = 5;
 
-/** Where each sizeable alliance sits and how wide it is, for the glow and the name
- * drawn behind and over its dots. The radius is the 85th-percentile distance from
- * the middle, so a few stragglers across the map do not inflate the glow. */
+/** Where each sizeable alliance sits and how wide it is, for the name drawn over
+ * its dots. The radius is the 85th-percentile distance from the middle, so a few
+ * stragglers across the map do not inflate it. It also sized a glow behind the
+ * clump until 2026-11-18, when that was taken off the map. */
 export function clusters(atlas: Atlas): Cluster[] {
   const found: Cluster[] = [];
   atlas.alliances.forEach((alliance, index) => {
