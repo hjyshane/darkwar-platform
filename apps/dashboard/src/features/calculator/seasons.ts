@@ -9,11 +9,16 @@
 // Statues) our Season 2. The two are mapped here where both are known; a theme
 // we have not played is labelled by its number rather than guessed.
 //
+// The map is also the calculator's allow-list: only the themes in it are
+// offered (owner, 2026-11-19 — "Seasons 2, 3 and 4 are the ones we used"). The
+// catalogue holds 2, 8 and 10 as well; theme 2 is a second Altar / Obelisk /
+// Statue set (760000–769000) no server here has built. When a new season
+// starts, add its theme here or its buildings stay out of the picker.
+//
 // The hand-curated `season_buildings` table is NOT used here: it lists only
 // types somebody has seen and is not community-readable.
 
 import type { Subject } from '../planner/data';
-import { FALLBACK_SEASON_LABELS } from './buildingList';
 
 /** The game's season theme → our seasons.season_id, where both are known
  * (read off the client's building table against seasons.ts, 2026-11-08). */
@@ -24,16 +29,19 @@ export const OUR_SEASON_BY_GAME_SEASON: Readonly<Record<number, number>> = {
   6: 4,
 };
 
+/** Whether a game theme is one of our seasons, i.e. one the calculator offers. */
+export function isOurSeason(gameSeason: number): boolean {
+  return OUR_SEASON_BY_GAME_SEASON[gameSeason] !== undefined;
+}
+
 export interface SeasonGroup {
   gameSeason: number;
   label: string;
   subjects: Subject[];
 }
 
-/** "Season 3" for a theme we have played, "Game season 6" for one we have not. */
+/** "Season 3" for a theme we have played, "Game season 8" for one we have not. */
 export function seasonLabel(gameSeason: number): string {
-  const fallback = FALLBACK_SEASON_LABELS[gameSeason];
-  if (fallback !== undefined) return fallback;
   const ours = OUR_SEASON_BY_GAME_SEASON[gameSeason];
   return ours === undefined ? `Game season ${gameSeason}` : `Season ${ours}`;
 }

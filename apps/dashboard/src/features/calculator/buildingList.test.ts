@@ -66,19 +66,25 @@ describe('the calculator building list', () => {
       ['Season 2', ['Statue of Carnage I', 'Altar I']],
       ['Season 3', ['Thermal Lab', 'Defensive Base I']],
       ['Season 4', ['Mineral Factory I']],
-      ['Altar set, second (season unconfirmed)', ['Obelisk']],
     ]);
   });
 
-  it('leaves out Season 1 and the seasons nobody has played (owner, 2026-11-18)', () => {
+  it('offers only our Seasons 2, 3 and 4 (owner, 2026-11-19)', () => {
     const names = list.map((s) => s.name);
-    for (const name of ['Crystal Factory I', 'Crystal Factory II', 'Holy Altar I']) {
+    // Season 1, the other Altar set (764000 Obelisk) and the unplayed themes.
+    for (const name of ['Crystal Factory I', 'Crystal Factory II', 'Obelisk', 'Holy Altar I']) {
       expect(names).not.toContain(name);
     }
-    // ...and the same themes when the catalogue names them itself.
+    // ...and the same themes when the catalogue names them itself, as
+    // production does since the re-import: 2, 8 and 10 are not ours.
     expect(
-      buildingsForCalculator([b('1001000', 'Holy Altar I', 30, 8), b('1002000', 'X', 30, 10)]),
+      buildingsForCalculator([
+        b('764000', 'Obelisk', 30, 2),
+        b('1001000', 'Holy Altar I', 30, 8),
+        b('1011000', 'Holy Altar I', 30, 10),
+      ]),
     ).toEqual([]);
+    expect(groupBySeason(buildingsForCalculator([b('851000', 'Altar I', 30, 3)]))).toHaveLength(1);
   });
 
   it('leaves out turrets, season or not, and keeps the defensive base beside them', () => {
@@ -89,8 +95,10 @@ describe('the calculator building list', () => {
   });
 
   it("lets the catalogue's own season win once it is imported", () => {
-    const [obelisk] = buildingsForCalculator([b('764000', 'Obelisk', 30, 2)]);
-    expect(obelisk?.gameSeason).toBe(2);
+    // An id the fallback does not know, which the catalogue puts in Season 3.
+    const [lab] = buildingsForCalculator([b('899000', 'New Lab', 30, 4)]);
+    expect(lab?.gameSeason).toBe(4);
+    expect(fallbackSeason('899000')).toBeNull();
     expect(fallbackSeason('400000')).toBeNull();
   });
 });

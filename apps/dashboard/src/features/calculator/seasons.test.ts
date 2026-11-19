@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Subject } from '../planner/data';
-import { groupBySeason, isSeasonBuilding, seasonLabel } from './seasons';
+import { groupBySeason, isOurSeason, isSeasonBuilding, seasonLabel } from './seasons';
 
 function subject(id: string, name: string, gameSeason: number | null): Subject {
   return { subject: id, name, nameKo: null, maxLevel: 30, category: null, gameSeason };
@@ -12,6 +12,13 @@ describe('seasonLabel', () => {
     expect(seasonLabel(3)).toBe('Season 2');
     expect(seasonLabel(6)).toBe('Season 4');
     expect(seasonLabel(8)).toBe('Game season 8');
+    expect(seasonLabel(2)).toBe('Game season 2');
+  });
+});
+
+describe('isOurSeason', () => {
+  it('is true for the themes of our Seasons 2–4 and nothing else', () => {
+    expect([2, 3, 4, 6, 8, 10, 101, 105].filter(isOurSeason)).toEqual([3, 4, 6]);
   });
 });
 

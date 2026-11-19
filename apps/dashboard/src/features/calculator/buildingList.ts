@@ -13,10 +13,17 @@
 // `building_season`, but in production every row read null on 2026-11-18
 // (the re-run after the 0311 importer fix had not happened, see
 // docs/runbooks/game-data.md). Without it every season building landed in the
-// ordinary list. The ids below put them back into season groups; once the
-// catalogue is re-imported its own `game_season` wins.
+// ordinary list. The ids below put them back into season groups; the
+// catalogue's own `game_season` wins where it has one (filled since the
+// re-run: 2,241 steps on 2026-11-19). It still has none for the Crystal
+// Factories, so the fallback is what keeps those out.
+//
+// WHICH SEASONS. Only ours — the themes `OUR_SEASON_BY_GAME_SEASON` maps
+// (seasons.ts). Every other theme, and the fallback's own markers below, is
+// left out.
 
 import type { Subject } from '../planner/data';
+import { isOurSeason } from './seasons';
 
 /** Furniture inside the shelter: 500000–554000, all of it. */
 const FURNITURE = { from: 500000, to: 554999 };
@@ -74,12 +81,6 @@ const HIDDEN_NAMES = new Set(['defunct portal gate']);
  * turret in a season not imported yet is caught too (owner, 2026-11-18). */
 const TURRET = /turret/i;
 
-/** Season groups the owner asked to leave out (2026-11-18): the game's themes
- * 8 and 10, which no server here has played, and two fallback groups — 101
- * ("Season 1", the Crystal Factories) and 105, the fallback's name for the
- * same not-played buildings when the catalogue has no `game_season`. */
-export const HIDDEN_SEASONS: ReadonlySet<number> = new Set([8, 10, 101, 105]);
-
 /** Whether the calculator offers this building at all. */
 export function isOffered(subject: Pick<Subject, 'subject' | 'name' | 'maxLevel'>): boolean {
   const id = Number(subject.subject);
@@ -93,24 +94,19 @@ export function isOffered(subject: Pick<Subject, 'subject' | 'name' | 'maxLevel'
   return !HIDDEN_NAMES.has(subject.name.toLowerCase());
 }
 
-/** Season groups the fallback can name. Keys at 100+ are ours, not the game's
- * theme numbers, so they can never collide with a real `game_season`. */
-export const FALLBACK_SEASON_LABELS: Readonly<Record<number, string>> = {
-  101: 'Season 1 (unconfirmed)',
-  102: 'Altar set, second (season unconfirmed)',
-  105: 'Season 5+ (not played yet)',
-};
-
 /** A season building's group when the catalogue has no `game_season`.
  * 3 / 4 / 6 are the game's theme numbers (docs/runbooks/game-data.md, seasons.ts):
  * 3 = our Season 2 (the ids the sweeps saw in Season 2), 4 = Season 3,
- * 6 = Season 4 (Mineral Factory … Guardian Gem). */
+ * 6 = Season 4 (Mineral Factory … Guardian Gem). 2 is the catalogue's own
+ * number for the other Altar set (2026-11-19). 101 and 105 are markers, not
+ * game themes: season buildings that are not ours and that the catalogue
+ * gives no number (the Crystal Factories) or did not when this was written. */
 export function fallbackSeason(subjectId: string): number | null {
   const id = Number(subjectId);
   if (id === 705000 || id === 709000) return 101; // Crystal Factory II, I
   if ([743000, 744000, 745000, 750000, 751000, 752000].includes(id)) return 3;
   if (id >= 851000 && id <= 856000) return 3; // Altar I–V, Obelisk
-  if (id >= 760000 && id <= 769000) return 102; // the other Altar / Obelisk / Statue set
+  if (id >= 760000 && id <= 769000) return 2; // the other Altar / Obelisk / Statue set
   if (id >= 857000 && id <= 867000) return 4; // Smart Greenhouse … Defensive Base
   if (id >= 868000 && id <= 878000) return 6; // Mineral Factory … Guardian Gem
   if (id >= 1000000) return 105; // Holy Altar, Guardian Sanctuary …
@@ -118,15 +114,16 @@ export function fallbackSeason(subjectId: string): number | null {
 }
 
 /** The building list as the calculator shows it: hidden ones out, a season
- * filled in where the catalogue left it empty, hidden seasons out, and an
- * ordinary building that appears twice under one name (Mart) offered once. */
+ * filled in where the catalogue left it empty, seasons that are not ours out,
+ * and an ordinary building that appears twice under one name (Mart) offered
+ * once. */
 export function buildingsForCalculator(rows: ReadonlyArray<Subject>): Subject[] {
   const seen = new Set<string>();
   const out: Subject[] = [];
   for (const row of [...rows].sort((a, b) => Number(a.subject) - Number(b.subject))) {
     if (!isOffered(row)) continue;
     const gameSeason = row.gameSeason ?? fallbackSeason(row.subject);
-    if (gameSeason !== null && HIDDEN_SEASONS.has(gameSeason)) continue;
+    if (gameSeason !== null && !isOurSeason(gameSeason)) continue;
     if (gameSeason === null) {
       const key = row.name.toLowerCase();
       if (seen.has(key)) continue;
