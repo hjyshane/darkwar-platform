@@ -131,7 +131,8 @@ lupa 2.8의 `lua55`는 lua.org 5.5.0과 번호가 같다(MOVE 0 … VARARGPREP 8
    uv run dw-collector game-catalog --bundles C:/DW_data/gamedata/base --bundles C:/DW_data/gamedata/bundles
    ```
 
-   `items=1869 resources=24 steps=16106 {building, research, vehicle_part, pet}`.
+   `items=1869 resources=24 steps=16106 {building, research, vehicle_part, pet}`
+   (1.250.672, 2026-11-18: `items=1901 resources=24 steps=18444`, 종류 10개, `chip` 200).
    게임 데이터라 덮어쓴다(사람이 고칠 칸이 없다). 영웅 이름도 채운다(`aps_new_heroes`) —
    관리자가 입력한 이름은 그대로 두고 빈 칸과 처음 보는 영웅만 채운다(2026-10-03 대조:
    입력된 31명 전원 게임 이름과 일치). 영웅 장비 비용은 아직 없다 — 승급은 Power Core
