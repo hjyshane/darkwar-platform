@@ -12,19 +12,71 @@
 ## 파일이 어디 있고 어떻게 생겼나
 
 - 위치: BlueStacks 안 `/sdcard/Android/data/com.readygo.dark.gp/files/AssetBundles/`
-- `datatable_config_luatxt_*.bundle` — 설정 테이블. 안에 든 건 **Lua 5.4 바이트코드**
+- `datatable_config_luatxt_*.bundle` — 설정 테이블. 안에 든 건 **Lua 바이트코드**
   (`*.bytes`)이고 실행하면 `{data = {[id] = {값...}}, index = {컬럼 = {위치, 타입}}}`를
-  돌려준다.
+  돌려준다. 1.250.672(2026-11-17)부터 Lua 5.4 → **5.5**(번들 이름도 `luatxt_55_*`).
 - `datatable_langslice_localization_dialog_0..5.bundle` — 16개 언어의 `키=문자열`
   텍스트. 한 언어가 여섯 조각으로 나뉘어 있다. English·Korean 둘 다 있다.
-- 클라이언트가 걸어둔 장치 두 개(`dw_collector/gamedata/`가 처리):
+- 클라이언트가 걸어둔 장치(`dw_collector/gamedata/`가 처리):
   - 번들 맨 앞에 `UnityRaw` 8바이트가 붙어 있다. 떼면 평범한 UnityFS 번들이다.
-  - 바이트코드 시그니처 `\x1bLua` 뒤에 `\x03` 한 바이트가 끼어 있다. 빼면 표준 Lua 5.4다.
+  - 바이트코드 시그니처 `\x1bLua` 뒤에 한 바이트가 끼어 있다. 그 **다음 바이트(버전)**로
+    형식을 가른다(`luatable.stock_bytecode`).
+    - `\x03` + `T`(5.4, 1.250.672 전): 빼면 표준 Lua 5.4다.
+    - `\xa8` + `U`(5.5): 빼는 것만으로는 안 된다. 아래 "Lua 5.5 datatable".
 - `files/config.db`(146MB)는 설정이 아니라 채팅·유저 캐시다. 쓸모없다.
 - `AssetBundles`에 있는 건 **패치로 내려받은** 번들뿐이다(테이블 이름 a~g 일부).
   **전체 테이블(463개)은 APK의 `split_install_time_pack.apk`(약 2GB) 안**
   `assets/AssetBundles/datatable_*.bundle` 34개(약 36MB)에 있다. 건물·연구·개조차·
   펫 업그레이드 비용과 아이템 사전은 여기서 나온다. 순서는 **기본 → 패치**(패치가 덮어씀).
+
+## Lua 5.5 datatable (1.250.672~)
+
+표식 `0xa8`을 빼도 표준 5.5(`lupa.lua55`)가 `bad binary format (invalid constant)`로 거부한다.
+덤프 구조(헤더·varint·상수·문자열·디버그 정보)는 표준 5.5 그대로이고, 다른 건 둘이다.
+
+1. **정렬.** 5.5는 코드 벡터와 절대 줄 정보 앞을 **청크 첫 바이트부터 센** 4바이트 경계로 채운다.
+   클라이언트는 표식까지 세서 채웠으므로 표식만 빼면 모든 패딩이 1바이트 어긋난다. 그래서
+   `luatable._Rewriter`가 필드 단위로 다시 쓰며 패딩을 출력 기준으로 새로 계산한다.
+2. **opcode 재번호.** 명령어 하위 7비트(128값) 중 0..84가 표준 85개 opcode의 순열이고, 85..127은
+   그 별칭이다(한 테이블 안에서 SETFIELD가 44와 109로 섞여 나온다). 1.250.672의 청크 3,378개에
+   서로 다른 번호 116개가 쓰였다. `CLIENT_OPCODES[0xa8]`가 datatable에 필요한 16개만 옮긴다
+   (그 빌드의 datatable 479개가 쓰는 12개 + 불리언·nil·초대형 테이블용 LOADFALSE·LOADTRUE·LOADNIL·
+   LOADKX). **나머지 번호가 나오면 실행하지 않고 거부한다** — Lua는 바이트코드를 검증하지 않는다.
+
+번호표는 클라이언트의 `libxlua.so`(x86_64, `split_config.x86_64.apk`의 `lib/x86_64/`)를 **정적 분석만**
+해서 읽었다(실행·루팅·후킹 없음). 심볼은 동적 심볼뿐이다.
+
+- `luaV_execute`의 디스패치 표: `.data.rel.ro`의 `R_X86_64_RELATIVE` 128개 연속(0x1bbe80), 대상
+  주소는 서로 다른 85개 = 5.5의 opcode 수. 핸들러 주소 순서는 소스 순서가 아니다(컴파일러가 재배치).
+- 핸들러 끝의 다음 명령 가져오기는 128바이트 표(.rodata 0x40250)를 한 번 거친다: 0..84는 그대로,
+  85..127은 대표 번호. 128칸 전부 직접 디스패치와 같은 핸들러를 고른다.
+- 로더(`luaU_undump`)는 표준과 같고 번호를 바꾸지 않는다. 오프셋 카운터가 표식을 센다(주 함수 앞에서 0x2a).
+- 각 핸들러의 기계어로 판정했다(레지스터 `r11` = base, `[rbp-0x90]` = 상수 배열, `r14d` = 명령어):
+
+| opcode | 클라이언트 번호 | 핸들러가 하는 일 |
+|---|---|---|
+| MOVE | 70, 85, 86, 87, 120 | `R[A] := R[B]`(값 8바이트 + 태그) |
+| LOADI | 81, 90 | `Bx − 0xffff`를 정수로, 태그 3 |
+| LOADF | 59, 91 | 같은 값을 `cvtsi2sd`로 실수로, 태그 0x13 |
+| LOADK | 1, 88, 89, 121 | `K[Bx]` 복사 |
+| LOADKX | 35 | 다음 명령의 Ax로 `K[Ax]`, pc + 1 |
+| LOADFALSE | 16, 92 | 태그 1만 쓴다(77은 같은 일 + pc + 1이라 LFALSESKIP) |
+| LOADTRUE | 27, 93 | 태그 0x11 |
+| LOADNIL | 75, 94, 95, 126 | B + 1칸에 태그 0 |
+| SETTABLE | 4, 106, 107, 124 | 키 = 레지스터 `R[B]`(정수면 배열 빠른 경로) |
+| SETI | 32, 108 | 키 = B 바이트 자체 |
+| SETFIELD | 44, 109 | 키 = `K[B]`(짧은 문자열 경로) |
+| NEWTABLE | 25 | 테이블을 만들어 태그 0x45, 크기는 vB·vC(+EXTRAARG) |
+| SETLIST | 63 | vB개를 vC 다음부터, 모자라면 배열을 늘림 |
+| RETURN | 78 | 업밸류 닫기, 호출 후처리 |
+| VARARGPREP | 34 | 가변 인자 정리 함수 호출 뒤 base 갱신 |
+| EXTRAARG | 45 | 아무것도 안 하고 다음 명령 |
+
+lupa 2.8의 `lua55`는 lua.org 5.5.0과 번호가 같다(MOVE 0 … VARARGPREP 83, EXTRAARG 84 — 컴파일해서 확인).
+
+**다시 읽어야 할 때:** `decode`가 `marker 0x..`(표식이 바뀜) 또는 `opcode N is not one a datatable uses`
+(번호가 바뀌었거나 테이블이 새 opcode를 씀)로 실패하면, 추측해서 번호를 넣지 말고 새 `libxlua.so`에서
+다시 읽는다. 도구와 순서는 저장소 밖 `C:\DW_data\lua55\README.md`.
 
 ## 절차
 
@@ -43,20 +95,26 @@
    ```powershell
    cd C:\darkwar-platform\services\collector
    uv sync --extra gamedata
-   uv run dw-collector game-names --bundles C:/DW_data/gamedata/bundles --dry-run
+   uv run dw-collector game-names --bundles C:/DW_data/gamedata/base --dry-run
    ```
 
-   `1443 named events in the client's tables (English)` 같은 줄과 목록이 나온다.
+   `1477 named events in the client's tables (English)` 같은 줄과 목록이 나온다.
+   `--bundles`는 **폴더 하나**다. 1.250.672부터는 **기본 팩 폴더(`base`)**를 준다 — 패치
+   폴더에는 `activity_panel`도 현지화 조각 대부분도 없어 `no datatable 'activity_panel'`로
+   실패한다(2026-11-18: 기본 팩만 = 기본 + 패치, 1,477개 이름이 하나도 다르지 않았다).
 
 3. 올리기(`.env`의 `SUPABASE_URL`·`SUPABASE_SECRET_KEY` 사용):
 
    ```powershell
-   uv run dw-collector game-names --bundles C:/DW_data/gamedata/bundles
+   uv run dw-collector game-names --bundles C:/DW_data/gamedata/base
    ```
 
    `written=N unchanged=M kept-officer-names=K`. 임원이 직접 입력한 이름
    (`updated_by`가 있는 행)은 **절대 덮어쓰지 않는다.** 이 도구가 쓴 행(`updated_by`
    null, `note`에 출처 표기)은 게임이 이름을 바꾸면 다음 실행에서 갱신된다.
+   `event_names`는 1,000행을 넘었다(1,443). 한 번에 읽던 옛 코드는 1,000행만 받아 나머지를
+   "새 행"으로 다시 썼고, 거기 섞인 임원 이름은 덮어썼을 것이다 — 이제 페이지로 다 읽는다
+   (`upload.fetch_all`). 2026-11-18 실행: `written=34 unchanged=1438 kept-officer-names=5`.
 
 4. 기본 팩에서 전체 테이블 꺼내기(2GB를 통째로 받지 않는다). 기기의 `unzip -p`는
    파일 끝에 `unzip: invalid zip magic 00000000\n`(34바이트)을 붙여 내보내므로 잘라낸다.
@@ -79,7 +137,8 @@
    uv run dw-collector game-catalog --bundles C:/DW_data/gamedata/base --bundles C:/DW_data/gamedata/bundles
    ```
 
-   `items=1869 resources=24 steps=16106 {building, research, vehicle_part, pet}`.
+   `items=1869 resources=24 steps=16106 {building, research, vehicle_part, pet}`
+   (1.250.672, 2026-11-18: `items=1901 resources=24 steps=18444`, 종류 10개, `chip` 200).
    게임 데이터라 덮어쓴다(사람이 고칠 칸이 없다). 영웅 이름도 채운다(`aps_new_heroes`) —
    관리자가 입력한 이름은 그대로 두고 빈 칸과 처음 보는 영웅만 채운다(2026-10-03 대조:
    입력된 31명 전원 게임 이름과 일치). 영웅 장비 비용은 아직 없다 — 승급은 Power Core
@@ -146,6 +205,10 @@
    막혀 os error 32로 실패한다. Pillow는 UnityPy에 딸려 온다.)
    먼저 `--dry-run`으로 개수를 본다(첫 배치: 102개, 259 KB — 무기 18/18, 장비 60/60, 영웅 40/47,
    업그레이드에 드는 아이템 28/32).
+   2026-11-18(1.250.672): 팩은 `C:/DW_data/apk/1.250.672/split_install_time_pack.apk`(버전별 폴더;
+   `C:/DW_data/gamedata/apk/`는 없어졌다). `icons=1005 (2933 KB) refs drawn {exclusive 18/18, gear 60/60,
+   hero 40/47, item 1400/1899, pet 9/9, resource 11/16, ui 4/4}`. 실제 실행은 2 GB 팩을 읽느라 **10분 넘게**
+   걸린다(백그라운드로 돌린다). 덮어쓰기만 하므로 `game-towers`·`game-trucks`가 넣은 그림은 남는다.
 
 그림은 게임 회사 것이라 **공개 URL로 내보내지 않는다**. `game_icons`(base64 WebP, 긴 변 96px)와
 `game_icon_refs`(무엇이 어느 그림인지)는 멤버만 읽고(0232), 대시보드는 로그인한 세션으로 받아 간다.
@@ -201,6 +264,15 @@ Shop value에서 그림이 빈 25개는 `goods.icon`이 가리키는 그림이 *
 
 먼저 `--dry-run`으로 한 줄을 본다. 2026-11-08:
 `activities=3 themes=18 scores=158 calendar=42 guides=3 sections=18 scoreless=[] unnamed=[]`.
+
+**테마 수는 저널이 가진 기간만큼이다.** 2026-11-18(1.250.672)에는 `live.db`에 그날 캡처만 있어서
+(`hero.event.info.get` 81건, 달력 15건) `themes=9 scores=73 sections=9`였다. `client` 섹션은 매번
+지우고 다시 쓰므로, 저널이 짧을 때 돌리면 전에 있던 테마 섹션이 빠진다 — 먼저 프로덕션의 섹션 수와
+저널 기간(`select min(captured_at), max(captured_at) from raw_observations where source_command =
+'hero.event.info.get'`)을 본다. 그날은 프로덕션에 가이드가 하나도 없어서 잃을 게 없었다(처음 씀:
+가이드 3, 섹션 9). 듀얼의 다른 요일은 그 요일 캡처가 쌓인 뒤 다시 돌리면 채워진다. 가이드 제목
+"Merry Xmas"(70005)·"Mech Vault"(100004)·"Key Search"(100003)는 클라이언트 `activity_panel`의 이름이다
+(5.4 시절 10-03 `game-names`와 같다) — 임원이 가이드 편집기에서 고친다.
 
 - `guides`·`sections`: 점수 항목이 하나라도 있는 activity마다 `event_guides` 한 줄(슬러그 `activity-<id>`,
   제목은 클라이언트의 이벤트 이름, **비공개**), 테마마다 `event_guide_sections`에 `source=client`인

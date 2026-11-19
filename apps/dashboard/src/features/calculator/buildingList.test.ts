@@ -36,6 +36,8 @@ const ROWS = [
   b('818000', 'Truck', 1),
   b('851000', 'Altar I', 30),
   b('862000', 'Thermal Lab', 35),
+  b('864000', 'Armed Turret I', 8),
+  b('865000', 'Defensive Base I', 8),
   b('868000', 'Mineral Factory I', 30),
   b('893000', 'Mart', 81),
   b('1001000', 'Holy Altar I', 30),
@@ -62,17 +64,33 @@ describe('the calculator building list', () => {
   it('puts season buildings into season groups when the catalogue has none', () => {
     expect(groupBySeason(list).map((g) => [g.label, g.subjects.map((s) => s.name)])).toEqual([
       ['Season 2', ['Statue of Carnage I', 'Altar I']],
-      ['Season 3', ['Thermal Lab']],
+      ['Season 3', ['Thermal Lab', 'Defensive Base I']],
       ['Season 4', ['Mineral Factory I']],
-      ['Season 1 (unconfirmed)', ['Crystal Factory II', 'Crystal Factory I']],
       ['Altar set, second (season unconfirmed)', ['Obelisk']],
-      ['Season 5+ (not played yet)', ['Holy Altar I']],
     ]);
   });
 
+  it('leaves out Season 1 and the seasons nobody has played (owner, 2026-11-18)', () => {
+    const names = list.map((s) => s.name);
+    for (const name of ['Crystal Factory I', 'Crystal Factory II', 'Holy Altar I']) {
+      expect(names).not.toContain(name);
+    }
+    // ...and the same themes when the catalogue names them itself.
+    expect(
+      buildingsForCalculator([b('1001000', 'Holy Altar I', 30, 8), b('1002000', 'X', 30, 10)]),
+    ).toEqual([]);
+  });
+
+  it('leaves out turrets, season or not, and keeps the defensive base beside them', () => {
+    expect(list.map((s) => s.name)).not.toContain('Armed Turret I');
+    expect(list.map((s) => s.name)).toContain('Defensive Base I');
+    expect(isOffered(b('9', 'Armed Turret II', 8))).toBe(false);
+    expect(isOffered(b('9', 'Turret', 30))).toBe(false);
+  });
+
   it("lets the catalogue's own season win once it is imported", () => {
-    const [thermal] = buildingsForCalculator([b('862000', 'Thermal Lab', 35, 8)]);
-    expect(thermal?.gameSeason).toBe(8);
+    const [obelisk] = buildingsForCalculator([b('764000', 'Obelisk', 30, 2)]);
+    expect(obelisk?.gameSeason).toBe(2);
     expect(fallbackSeason('400000')).toBeNull();
   });
 });

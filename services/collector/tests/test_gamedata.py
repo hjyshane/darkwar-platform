@@ -197,6 +197,45 @@ def test_plan_never_overwrites_an_officers_name_or_category() -> None:
     assert result.kept_human == 1
 
 
+def test_an_officers_name_past_the_first_thousand_rows_is_still_kept() -> None:
+    """PostgREST returns 1,000 rows whatever `limit` asks; event_names held
+    1,443 by 1.250.672. An officer's row on the second page used to be
+    planned as new and overwritten."""
+    import httpx
+
+    from dw_collector.gamedata.upload import fetch_existing
+
+    table = [
+        {
+            "activity_id": str(n),
+            "name": f"Event {n}",
+            "updated_by": None,
+            "activity_type": 2,
+            "category": "event",
+        }
+        for n in range(100000, 101443)
+    ]
+    table[1200]["updated_by"] = "officer"
+    table[1200]["name"] = "Typed by an officer"
+    asked: list[dict[str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        params = dict(request.url.params)
+        asked.append(params)
+        rows = sorted(table, key=lambda row: row[params["order"]])
+        start = int(params["offset"])
+        return httpx.Response(200, json=rows[start : start + min(int(params["limit"]), 1000)])
+
+    client = httpx.Client(base_url="http://test", transport=httpx.MockTransport(handler))
+    existing = fetch_existing(client)
+    result = plan(existing, {"101200": _named("Event 101200")})
+
+    assert len(existing) == 1443
+    assert [params["offset"] for params in asked] == ["0", "1000"]
+    assert all(params["order"] == "activity_id" for params in asked)
+    assert (result.to_write, result.kept_human) == ([], 1)
+
+
 def test_plan_fills_the_game_facts_on_an_officers_row() -> None:
     """Named before categories existed: the type and a category are added,
     the name is not touched."""
