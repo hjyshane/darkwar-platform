@@ -1,5 +1,6 @@
-// How the hive maps are shown in THIS browser: how big the map is drawn, and
-// whether bases are coloured by the plan or by the member's alliance rank.
+// How the hive maps are shown in THIS browser: how big the map is drawn,
+// whether bases are coloured by the plan or by the member's alliance rank,
+// and how wide the editor's side panel is.
 //
 // PER BROWSER, NOT PER PLAN. Both are about the reader's screen and eyes, not
 // about the formation — an officer on a laptop and the same officer on a 4K
@@ -23,6 +24,9 @@ export interface MapPrefs {
    * 720px cap that shipped before the map could be resized). */
   size: number | null;
   colourBy: ColourBy;
+  /** The editor's side panel (members and tools) in CSS pixels, or null for
+   * its default. Widened by whoever has members with long names. */
+  panelWidth: number | null;
 }
 
 /** Smallest and largest a viewer may drag the map to, in CSS pixels. The
@@ -31,10 +35,20 @@ export interface MapPrefs {
 export const MAP_SIZE_MIN = 240;
 export const MAP_SIZE_MAX = 2400;
 
-export const DEFAULT_PREFS: MapPrefs = { size: null, colourBy: 'plan' };
+/** The editor's side panel: the default, and how far it may be dragged. The
+ * floor still fits a name and its tile number; the ceiling leaves a map. */
+export const PANEL_WIDTH_DEFAULT = 320;
+export const PANEL_WIDTH_MIN = 240;
+export const PANEL_WIDTH_MAX = 640;
+
+export const DEFAULT_PREFS: MapPrefs = { size: null, colourBy: 'plan', panelWidth: null };
 
 export function clampMapSize(size: number): number {
   return Math.round(Math.min(MAP_SIZE_MAX, Math.max(MAP_SIZE_MIN, size)));
+}
+
+export function clampPanelWidth(width: number): number {
+  return Math.round(Math.min(PANEL_WIDTH_MAX, Math.max(PANEL_WIDTH_MIN, width)));
 }
 
 /** Whatever was stored, made safe. A value written by an older build, edited
@@ -49,10 +63,14 @@ export function parsePrefs(raw: string | null): MapPrefs {
     if (typeof value !== 'object' || value === null) {
       return DEFAULT_PREFS;
     }
-    const { size, colourBy } = value as Record<string, unknown>;
+    const { size, colourBy, panelWidth } = value as Record<string, unknown>;
     return {
       size: typeof size === 'number' && Number.isFinite(size) ? clampMapSize(size) : null,
       colourBy: colourBy === 'rank' ? 'rank' : 'plan',
+      panelWidth:
+        typeof panelWidth === 'number' && Number.isFinite(panelWidth)
+          ? clampPanelWidth(panelWidth)
+          : null,
     };
   } catch {
     return DEFAULT_PREFS;
@@ -109,4 +127,10 @@ export function mapSizeProps(size: number | null): {
         className: 'hive-map--sized',
         style: { '--hive-map-size': `${size}px` } as CSSProperties,
       };
+}
+
+/** The custom property that sizes the editor's side panel; nothing for the
+ * default, which the stylesheet holds. */
+export function panelWidthStyle(width: number | null): CSSProperties | undefined {
+  return width === null ? undefined : ({ '--hive-panel-width': `${width}px` } as CSSProperties);
 }

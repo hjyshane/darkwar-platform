@@ -9,15 +9,15 @@ import {
   sortMembers,
 } from '../../lib/hiveFormation';
 import type { DraftSlot } from './FormationEditor';
+import { rankClass } from './TileGrid';
 
-/** How the list is stacked. The fill order's own options less HQ level,
- * which nobody places a member by. */
-export type PaletteSort = Extract<AssignOrder, 'name' | 'power' | 'rank'>;
+/** How the list is stacked within each rank. Rank itself is the grouping
+ * (`groupRows`), so it is not also an order. */
+export type PaletteSort = Extract<AssignOrder, 'name' | 'power'>;
 
 export const PALETTE_SORTS: readonly { sort: PaletteSort; label: string }[] = [
   { sort: 'name', label: 'A–Z' },
   { sort: 'power', label: 'Power' },
-  { sort: 'rank', label: 'Rank' },
 ];
 
 /** Who stands on which tile of the plan AS IT IS DRAWN NOW, by player id.
@@ -69,6 +69,46 @@ export function paletteRows(
   return searchMembers(sortMembers(members, options.sort), options.query)
     .map((member) => ({ member, tile: placed.get(member.playerId) ?? null }))
     .filter((row) => !options.hidePlaced || row.tile === null);
+}
+
+/** A run of rows under one heading. */
+export interface PaletteGroup {
+  /** `r5`..`r1`, `r0` for an unknown rank, or `all` when not grouped. */
+  key: string;
+  /** The heading; null when not grouped, which has none. */
+  label: string | null;
+  rows: PaletteRow[];
+  /** How many of those rows are on a tile. */
+  placed: number;
+}
+
+const RANK_GROUPS: readonly { key: string; label: string }[] = [
+  { key: 'r5', label: 'R5' },
+  { key: 'r4', label: 'R4' },
+  { key: 'r3', label: 'R3' },
+  { key: 'r2', label: 'R2' },
+  { key: 'r1', label: 'R1' },
+  { key: 'r0', label: 'Rank unknown' },
+];
+
+/** The rows under a heading per alliance rank, R5 first and the unknown last,
+ * or under no heading at all.
+ *
+ * GROUPS, NOT AN ORDER. Officers place the R5s and R4s first and the rest
+ * after, so the list says who is in which rank in so many words; within a
+ * rank the rows keep whatever order they came in (A–Z or power). A rank
+ * nobody in the rows holds has no heading — an empty "R2" is noise. */
+export function groupRows(rows: readonly PaletteRow[], byRank: boolean): PaletteGroup[] {
+  const placedIn = (some: readonly PaletteRow[]) => some.filter((row) => row.tile !== null).length;
+  if (!byRank) {
+    return rows.length === 0
+      ? []
+      : [{ key: 'all', label: null, rows: [...rows], placed: placedIn(rows) }];
+  }
+  return RANK_GROUPS.flatMap(({ key, label }) => {
+    const inRank = rows.filter((row) => rankClass(row.member.memberRank) === key);
+    return inRank.length === 0 ? [] : [{ key, label, rows: inRank, placed: placedIn(inRank) }];
+  });
 }
 
 /** Power as the game prints it — 48.0M, 512k — or nothing when the collector
