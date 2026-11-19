@@ -3,7 +3,7 @@
 import { describe, expect, test } from 'vitest';
 import type { AssignableMember } from '../../lib/hiveFormation';
 import type { DraftSlot } from './FormationEditor';
-import { paletteRows, placedTiles, shortPower } from './memberPalette';
+import { groupRows, paletteRows, placedTiles, shortPower } from './memberPalette';
 
 function tile(slotId: string | null, dx = 0, dy = 0): DraftSlot {
   return {
@@ -76,11 +76,9 @@ describe('the rows', () => {
     expect(rows.find((row) => row.member.playerId === 'dex')?.tile).toBeNull();
   });
 
-  test('by power and by rank, with the unknown last', () => {
+  test('by power, with the unread last', () => {
     const byPower = paletteRows(roster, placed, { query: '', sort: 'power', hidePlaced: false });
     expect(byPower.map((row) => row.member.playerId)).toEqual(['shane', 'mira', 'bo', 'dex']);
-    const byRank = paletteRows(roster, placed, { query: '', sort: 'rank', hidePlaced: false });
-    expect(byRank.map((row) => row.member.playerId)).toEqual(['shane', 'mira', 'dex', 'bo']);
   });
 
   test('placing somebody does not move their row', () => {
@@ -105,6 +103,67 @@ describe('the rows', () => {
     expect(paletteRows(roster, placed, { query: 'mi', sort: 'name', hidePlaced: true })).toEqual(
       [],
     );
+  });
+});
+
+describe('grouped by rank', () => {
+  const roster = [
+    member('shane', 'Shane', 61_200_000, 5),
+    member('dex', 'Dex', null, 1),
+    member('mira', 'Mira', 48_000_000, 4),
+    member('ara', 'Ara', 50_000_000, 4),
+    member('bo', 'bo', 12_000_000, null),
+    member('odd', 'Odd', 1_000_000, 9),
+  ];
+  const placed = new Map([['mira', tile('s1')]]);
+  const rows = (sort: 'name' | 'power') =>
+    paletteRows(roster, placed, { query: '', sort, hidePlaced: false });
+
+  test('R5 first, the unknown last, and a rank nobody holds has no heading', () => {
+    const groups = groupRows(rows('name'), true);
+    expect(groups.map((group) => group.label)).toEqual(['R5', 'R4', 'R1', 'Rank unknown']);
+    expect(groups.map((group) => group.key)).toEqual(['r5', 'r4', 'r1', 'r0']);
+  });
+
+  test('a rank the game does not have reads as unknown, not as a sixth group', () => {
+    const unknown = groupRows(rows('name'), true).find((group) => group.key === 'r0');
+    expect(unknown?.rows.map((row) => row.member.playerId)).toEqual(['bo', 'odd']);
+  });
+
+  test('within a rank the order asked for holds', () => {
+    const r4 = (sort: 'name' | 'power') =>
+      groupRows(rows(sort), true)
+        .find((group) => group.key === 'r4')
+        ?.rows.map((row) => row.member.playerId);
+    expect(r4('name')).toEqual(['ara', 'mira']);
+    expect(r4('power')).toEqual(['ara', 'mira']);
+    const flipped = [member('mira', 'Mira', 60_000_000, 4), member('ara', 'Ara', 50_000_000, 4)];
+    const byPower = groupRows(
+      paletteRows(flipped, new Map(), { query: '', sort: 'power', hidePlaced: false }),
+      true,
+    );
+    expect(byPower[0]?.rows.map((row) => row.member.playerId)).toEqual(['mira', 'ara']);
+  });
+
+  test('each heading counts its rows and how many are placed', () => {
+    const r4 = groupRows(rows('name'), true).find((group) => group.key === 'r4');
+    expect(r4?.rows.length).toBe(2);
+    expect(r4?.placed).toBe(1);
+  });
+
+  test('ungrouped is one run with no heading, in the same order', () => {
+    const flat = groupRows(rows('name'), false);
+    expect(flat).toHaveLength(1);
+    expect(flat[0]?.label).toBeNull();
+    expect(flat[0]?.rows.map((row) => row.member.playerId)).toEqual(
+      rows('name').map((row) => row.member.playerId),
+    );
+    expect(flat[0]?.placed).toBe(1);
+  });
+
+  test('no rows, no groups — grouped or not', () => {
+    expect(groupRows([], true)).toEqual([]);
+    expect(groupRows([], false)).toEqual([]);
   });
 });
 

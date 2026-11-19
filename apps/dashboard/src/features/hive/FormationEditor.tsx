@@ -1,6 +1,6 @@
 import type { Coordinate } from '@dw/ui';
 import { useIsMutating, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import { Select } from '../../components/ui/Select';
 import {
   type AssignOrder,
@@ -42,6 +42,7 @@ import {
 import { shareCoordinate } from '../../lib/shareCoordinate';
 import { ConflictBanner, Stamp } from './HiveStamp';
 import { BaseColours, type RankEntry, ViewControls, rankTally } from './MapControls';
+import { PanelDivider } from './PanelDivider';
 import {
   type GridBase,
   type GridSighting,
@@ -80,10 +81,22 @@ import {
   draftStatus,
   peopleByOffset,
 } from './hiveSafety';
-import { clampMapSize, mapSizeProps, setMapPrefs, useMapPrefs } from './mapPrefs';
+import {
+  PANEL_WIDTH_DEFAULT,
+  PANEL_WIDTH_MAX,
+  PANEL_WIDTH_MIN,
+  clampMapSize,
+  clampPanelWidth,
+  mapSizeProps,
+  panelWidthStyle,
+  setMapPrefs,
+  useMapPrefs,
+} from './mapPrefs';
 import {
   PALETTE_SORTS,
+  type PaletteRow,
   type PaletteSort,
+  groupRows,
   paletteRows,
   placedTiles,
   shortPower,
@@ -517,6 +530,13 @@ export function FormationEditor({
   // are in it. Its own, not the fill order's: see `paletteRows`.
   const [paletteSort, setPaletteSort] = useState<PaletteSort>('name');
   const [hidePlaced, setHidePlaced] = useState(false);
+  // Grouped under R5..R1 headings unless asked otherwise: officers place by
+  // rank first.
+  const [groupByRank, setGroupByRank] = useState(true);
+  // Which tab of the panel beside the map is open. Members first: placing
+  // people is what the panel is opened for most.
+  const [panelTab, setPanelTab] = useState<'members' | 'tools'>('members');
+  const panelId = useId();
 
   /** The people as the board has them, pins included. */
   function seedPeople() {
@@ -1286,6 +1306,7 @@ export function FormationEditor({
     sort: paletteSort,
     hidePlaced,
   });
+  const paletteGroups = groupRows(paletteMembers, groupByRank);
 
   /** Take a member off their tile and back onto the list.
    *
@@ -1452,6 +1473,68 @@ export function FormationEditor({
     ours: tile.playerId !== null && ourIds.has(tile.playerId),
   }));
 
+  /** One member in the Members tab: grip, rank (when not already said by a
+   * heading), name, and power — or, once placed, their tile and a way off it.
+   * The whole row is the drag handle. */
+  function memberRow({ member, tile }: PaletteRow) {
+    const name = member.name ?? 'unnamed';
+    const number = tile === null ? undefined : numbering.get(offsetKey(tile));
+    return (
+      <li
+        className={
+          tile === null
+            ? 'hive-palette__member'
+            : 'hive-palette__member hive-palette__member--placed'
+        }
+        draggable
+        key={member.playerId}
+        onDragStart={(event) => {
+          event.dataTransfer.setData(MEMBER_DRAG_TYPE, member.playerId);
+          event.dataTransfer.effectAllowed = 'move';
+        }}
+        title={
+          tile === null
+            ? `${memberLabel(member)} — drag onto the map`
+            : `${memberLabel(member)} — on tile ${number ?? ''}; drag somewhere else to move them`
+        }
+      >
+        <span aria-hidden="true" className="hive-palette__grip">
+          ⠿
+        </span>
+        {!groupByRank && (
+          <span className={`hive-palette__rank hive-rank-chip--${rankClass(member.memberRank)}`}>
+            {member.memberRank === null ? '–' : `R${member.memberRank}`}
+          </span>
+        )}
+        <span className="hive-palette__name">{name}</span>
+        {tile === null ? (
+          <span className="hive-palette__power">{shortPower(member.power)}</span>
+        ) : (
+          <>
+            <button
+              aria-label={`Show ${name}'s tile on the map`}
+              className="hive-palette__where"
+              onClick={() => setCentre(absoluteOf(anchor, tile))}
+              title={`Tile ${number ?? ''} at ${formatTeleport(absoluteOf(anchor, tile))} — show it on the map`}
+              type="button"
+            >
+              {number === undefined ? 'Where' : `#${number}`}
+            </button>
+            <button
+              aria-label={`Take ${name} off their tile`}
+              className="hive-palette__off"
+              onClick={() => unplace(member.playerId)}
+              title="Take them off this tile. The base stays."
+              type="button"
+            >
+              ×
+            </button>
+          </>
+        )}
+      </li>
+    );
+  }
+
   // On both tabs: the shape and the people are saved together, and making
   // somebody switch tabs to press Save is how a fill gets left unsaved.
   // The conflict banner sits above the button it disables: there is nothing
@@ -1492,575 +1575,12 @@ export function FormationEditor({
 
   return (
     <>
-      <div className="hive-editor" hidden={half !== 'shape'}>
-        {/* THE PEOPLE, BESIDE THE GROUND. Placing a member used to mean
-            finding their tile's row in the table below and scrolling a
-            dropdown of eighty names; dragging them onto the square is the
-            same decision made by pointing at it. The dropdown stays for
-            keyboards and phones, which HTML drag and drop does not reach.
-
-            A COLUMN NEXT TO THE MAP, not a strip above it. Eighty chips
-            wrapped above the map pushed it down the page, so a drag from the
-            first row was a drag off the bottom of the screen; beside it, and
-            held in view as the page scrolls, every drag is a short move
-            across. On a narrow screen it goes back above the map, capped. */}
-        <section aria-label="Members" className="hive-roster">
-          {/* A SEARCH, because the list is an index and eighty rows is still
-              a lot of reading. It filters what is shown and nothing else:
-              clearing it brings everyone back in the same order. */}
-          <div className="hive-palette-search">
-            <input
-              aria-label="Find a member"
-              onChange={(event) => setMemberQuery(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Escape') {
-                  setMemberQuery('');
-                }
-              }}
-              placeholder="Find a member…"
-              type="search"
-              value={memberQuery}
-            />
-            <span className="hive-count">
-              {memberQuery.trim() === ''
-                ? `${unplaced.length} of ${members.length} not placed`
-                : `${paletteMembers.length} shown`}
-            </span>
-          </div>
-          {/* ONE LIST, IN AN ORDER CHOSEN HERE. It used to follow the fill
-              order — a dropdown elsewhere on the page — and put the unplaced
-              ahead of the placed, so a name's position depended on both and
-              looking one up meant reading all eighty. Now the order is the
-              list's own (A–Z unless asked otherwise) and placing somebody
-              never moves their row; "Hide placed" takes the dealt-with out of
-              the way instead of reshuffling them. */}
-          <div className="hive-roster__options">
-            <fieldset className="hive-roster__sort">
-              <legend className="visually-hidden">Order</legend>
-              {PALETTE_SORTS.map((option) => (
-                <button
-                  aria-pressed={paletteSort === option.sort}
-                  key={option.sort}
-                  onClick={() => setPaletteSort(option.sort)}
-                  type="button"
-                >
-                  {option.label}
-                </button>
-              ))}
-            </fieldset>
-            <label className="hive-roster__hide">
-              <input
-                checked={hidePlaced}
-                onChange={(event) => setHidePlaced(event.target.checked)}
-                type="checkbox"
-              />
-              Hide placed
-            </label>
-          </div>
-          <ul aria-label="Members to place" className="hive-palette">
-            {paletteMembers.length === 0 && (
-              <li className="subtle">
-                {memberQuery.trim() !== ''
-                  ? `Nobody${hidePlaced ? ' unplaced' : ''} on the roster matches “${memberQuery.trim()}”.`
-                  : hidePlaced && members.length > 0
-                    ? 'Everybody has a tile.'
-                    : 'Nobody on the roster yet.'}
-              </li>
-            )}
-            {paletteMembers.map(({ member, tile }) => {
-              const name = member.name ?? 'unnamed';
-              const number = tile === null ? undefined : numbering.get(offsetKey(tile));
-              return (
-                <li
-                  className={
-                    tile === null
-                      ? 'hive-palette__member'
-                      : 'hive-palette__member hive-palette__member--placed'
-                  }
-                  draggable
-                  key={member.playerId}
-                  onDragStart={(event) => {
-                    event.dataTransfer.setData(MEMBER_DRAG_TYPE, member.playerId);
-                    event.dataTransfer.effectAllowed = 'move';
-                  }}
-                  title={
-                    tile === null
-                      ? `${memberLabel(member)} — drag onto the map`
-                      : `${memberLabel(member)} — on tile ${number ?? ''}; drag somewhere else to move them`
-                  }
-                >
-                  <span aria-hidden="true" className="hive-palette__grip">
-                    ⠿
-                  </span>
-                  <span
-                    className={`hive-palette__rank hive-rank-chip--${rankClass(member.memberRank)}`}
-                  >
-                    {member.memberRank === null ? '–' : `R${member.memberRank}`}
-                  </span>
-                  <span className="hive-palette__name">{name}</span>
-                  {tile === null ? (
-                    <span className="hive-palette__power">{shortPower(member.power)}</span>
-                  ) : (
-                    <>
-                      <button
-                        aria-label={`Show ${name}'s tile on the map`}
-                        className="hive-palette__where"
-                        onClick={() => setCentre(absoluteOf(anchor, tile))}
-                        title={`Tile ${number ?? ''} at ${formatTeleport(absoluteOf(anchor, tile))} — show it on the map`}
-                        type="button"
-                      >
-                        {number === undefined ? 'Where' : `#${number}`}
-                      </button>
-                      <button
-                        aria-label={`Take ${name} off their tile`}
-                        className="hive-palette__off"
-                        onClick={() => unplace(member.playerId)}
-                        title="Take them off this tile. The base stays."
-                        type="button"
-                      >
-                        ×
-                      </button>
-                    </>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-        <div className={['hive-editor__map', sized.className].join(' ').trim()} style={sized.style}>
-          <TileGrid
-            anchor={anchor}
-            bases={bases}
-            busy={save.isPending}
-            canDropAt={(at) => dropTarget(drawn, anchor, at).kind !== 'refused'}
-            canMoveTo={canMove}
-            canAnchorAt={(to) => formationFitsAt(to, drawn)}
-            onDropMember={dropMember}
-            onMove={move}
-            onMoveAnchor={anchorMove.isPending ? undefined : moveAnchor}
-            onPick={pick}
-            onPan={(byX, byY) => setCentre((from) => pannedCentre(from, byX, byY))}
-            onRegion={tool === 'draw' ? undefined : sweep}
-            onResize={(size) => setMapPrefs({ size: size === null ? null : clampMapSize(size) })}
-            onZoom={(notches, at) => {
-              // ABOUT THE POINTER: the ground under the cursor stays under it
-              // (`centreKeeping`), so zooming in on a corner of the hive lands
-              // on that corner instead of hunting for it again on every notch.
-              const next = zoomedBy(zoom, notches);
-              setCentre(centreKeeping(view, windowRadius(next), at));
-              setZoom(next);
-            }}
-            sightings={sightings}
-            window={view}
-          />
-          <p className="subtle">
-            Drag a name from the member list onto the map: on free ground it draws their base there,
-            on a base it puts them on it. To take somebody off without losing the base, press × on
-            their row. Click free ground to place a base, click a base to take it away (with whoever
-            is on it). Each one is {BASE_SPAN}x{BASE_SPAN} tiles and the coordinate is the middle.
-            Drag from empty ground to slide the map — or hold <kbd>ctrl</kbd>, which works while an
-            area tool is on too. Hold <kbd>ctrl</kbd> and use the wheel, or pinch, to zoom; drag the
-            corner handle to resize the map. Shaded squares are where the map last SAW somebody — a
-            base that was destroyed or lost its shield has been teleported somewhere random, so
-            treat them as a hint and not as a wall.
-          </p>
-          <ViewControls onZoom={setZoom} sized={prefs.size !== null} zoom={zoom}>
-            <button onClick={showWhole} type="button">
-              Whole formation
-            </button>
-          </ViewControls>
-          <BaseColours colourBy={prefs.colourBy} tally={ranksDrawn} />
-        </div>
-
-        <div className="hive-editor__controls">
-          <fieldset>
-            <legend>Anchor</legend>
-            <p className="subtle">
-              Every tile is stored as an offset from here, so moving the anchor moves the whole
-              formation and cannot change its shape.
-            </p>
-            <p className="subtle">Or drag the anchor square on the map — every tile follows it.</p>
-            <CoordinateInput
-              at={anchor}
-              busy={anchorMove.isPending}
-              fits={(to) => formationFitsAt(to, drawn)}
-              label="Anchor"
-              onSubmit={moveAnchor}
-              submitLabel="Move formation"
-              whyNot="From there part of the formation would run off the map."
-            />
-          </fieldset>
-
-          <fieldset>
-            <legend>Look at</legend>
-            <CoordinateInput
-              at={centre}
-              label="Centre the view on"
-              onSubmit={setCentre}
-              submitLabel="Go there"
-            />
-          </fieldset>
-
-          <fieldset className="hive-tools">
-            <legend>What a drag does</legend>
-            <p className="subtle">
-              Clicking a tile places or removes one in every mode. This is only about the drag,
-              because one gesture cannot mean two things: while an area tool is on, bases stay where
-              they are.
-            </p>
-            <div className="hive-shapes">
-              {(
-                [
-                  ['draw', 'Move a base', 'Drag a base to carry it somewhere else.'],
-                  [
-                    'mark',
-                    'Fill an area',
-                    'Drag out a rectangle and fill every free tile in it with a 1x1 marker, in the brush\u2019s colour and caption. Goes around whatever is already drawn.',
-                  ],
-                  [
-                    'outline',
-                    'Draw a boundary',
-                    'Drag out a rectangle and mark only its EDGE. What a boundary needs, at a fraction of the tiles a fill would spend.',
-                  ],
-                  [
-                    'erase',
-                    'Erase an area',
-                    'Drag out a rectangle and take its 1x1 markers back out. Bases are left alone.',
-                  ],
-                  [
-                    'select',
-                    'Select',
-                    'Drag out a rectangle to pick out everything completely inside it, then drag any of them to move the whole group, recolour them, or remove them together.',
-                  ],
-                ] as const
-              ).map(([value, label, hint]) => (
-                <button
-                  aria-pressed={tool === value}
-                  key={value}
-                  onClick={() => {
-                    setTool(value);
-                    // A selection that outlived its tool would still be
-                    // carried by a drag, in a mode whose drag means something
-                    // else entirely.
-                    if (value !== 'select') {
-                      setSelection(new Set());
-                    }
-                    setRefusal(null);
-                  }}
-                  title={hint}
-                  type="button"
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            {tool === 'select' && (
-              <div className="hive-selection">
-                <p className="subtle">
-                  {selection.size === 0
-                    ? 'Nothing selected. Drag a box around the tiles you want — one base counts, so this is also how a single tile gets a new colour.'
-                    : `${selection.size} tile${selection.size === 1 ? '' : 's'} selected — drag any of them to move the group, nudge it a tile at a time, or paint it.`}
-                </p>
-                {selection.size > 0 && (
-                  <div className="hive-shapes">
-                    {/* A TILE AT A TIME, for the last step of lining a block up
-                        against a boundary. A drag cannot reliably land on one
-                        tile at this zoom, and the coordinate boxes move the
-                        anchor rather than a selection. */}
-                    {(
-                      [
-                        ['\u2190', -1, 0],
-                        ['\u2192', 1, 0],
-                        ['\u2191', 0, 1],
-                        ['\u2193', 0, -1],
-                      ] as const
-                    ).map(([glyph, byX, byY]) => (
-                      <button
-                        aria-label={`Nudge the selection ${glyph}`}
-                        key={glyph}
-                        onClick={() => moveSelection(byX, byY)}
-                        type="button"
-                      >
-                        {glyph}
-                      </button>
-                    ))}
-                    <button onClick={() => setSelection(new Set())} type="button">
-                      Deselect
-                    </button>
-                    <button className="hive-remove" onClick={deleteSelection} type="button">
-                      Remove {selection.size} tile{selection.size === 1 ? '' : 's'}
-                    </button>
-                  </div>
-                )}
-                {/* PAINTING, RATHER THAN PUTTING A NEW TILE DOWN. The brush's
-                    colour only ever applied to tiles being placed, and a click
-                    on a placed one removes it — so recolouring a base meant
-                    deleting it, which takes the member on it, their pin and
-                    the slot id with it. These swatches change the colour of
-                    tiles that are already there and touch nothing else. */}
-                {selection.size > 0 && (
-                  <fieldset className="hive-swatches">
-                    <legend>
-                      Paint {selection.size} tile{selection.size === 1 ? '' : 's'}
-                    </legend>
-                    <button
-                      className="hive-swatch"
-                      onClick={() => paintSelection(null)}
-                      type="button"
-                    >
-                      default
-                    </button>
-                    {TILE_COLOURS.map((colour) => (
-                      <button
-                        aria-label={`Paint the selection ${colour}`}
-                        className={`hive-swatch hive-swatch--${colour}`}
-                        key={colour}
-                        onClick={() => paintSelection(colour)}
-                        type="button"
-                      />
-                    ))}
-                  </fieldset>
-                )}
-              </div>
-            )}
-          </fieldset>
-
-          <fieldset>
-            <legend>What a click puts down</legend>
-            <p className="subtle">
-              A member's base is {BASE_SPAN}x{BASE_SPAN}. A structure is ground that is spoken for —
-              Frankie at {FRANKIE.spanX}x{FRANKIE.spanY}, an alliance building, or a 1x1 marker on a
-              tile to keep clear. Nothing may overlap anything, whatever size each of them is.
-            </p>
-            <div className="hive-brush">
-              <label>
-                <span>Wide</span>
-                <input
-                  max={32}
-                  min={1}
-                  onChange={(event) =>
-                    setBrush({ ...brush, spanX: clampSpan(event.target.value, brush.spanX) })
-                  }
-                  type="number"
-                  value={brush.spanX}
-                />
-              </label>
-              <label>
-                <span>Tall</span>
-                <input
-                  max={32}
-                  min={1}
-                  onChange={(event) =>
-                    setBrush({ ...brush, spanY: clampSpan(event.target.value, brush.spanY) })
-                  }
-                  type="number"
-                  value={brush.spanY}
-                />
-              </label>
-              <label>
-                <span>Kind</span>
-                <Select
-                  onChange={(chosen) => setBrush({ ...brush, kind: chosen as TileKind })}
-                  value={brush.kind}
-                >
-                  <option value="base">Member base</option>
-                  <option value="structure">Structure / marker</option>
-                </Select>
-              </label>
-            </div>
-            <fieldset className="hive-swatches">
-              <legend>Colour</legend>
-              <button
-                aria-pressed={brush.colour === null}
-                className="hive-swatch"
-                onClick={() => setBrush({ ...brush, colour: null })}
-                type="button"
-              >
-                default
-              </button>
-              {TILE_COLOURS.map((colour) => (
-                <button
-                  aria-label={colour}
-                  aria-pressed={brush.colour === colour}
-                  className={`hive-swatch hive-swatch--${colour}`}
-                  key={colour}
-                  onClick={() => setBrush({ ...brush, colour })}
-                  type="button"
-                />
-              ))}
-            </fieldset>
-          </fieldset>
-
-          <fieldset>
-            <legend>Things on the map</legend>
-            <p className="subtle">
-              The shapes this alliance draws more than once, kept as a list rather than retyped.
-              Clicking one loads its size, kind and colour into the brush and captions the tile with
-              its name — a copy, so tidying the list later never changes a formation already sent
-              out.
-            </p>
-            {features.isError ? (
-              <p className="error">Could not load the list of map features.</p>
-            ) : null}
-            <div className="hive-features">
-              {(features.data ?? []).map((feature) => (
-                <span className="hive-feature" key={feature.featureId}>
-                  <button
-                    className={
-                      feature.colour === null
-                        ? 'hive-feature__load'
-                        : `hive-feature__load hive-feature__load--${feature.colour}`
-                    }
-                    onClick={() => loadFeature(feature)}
-                    title={feature.note === '' ? undefined : feature.note}
-                    type="button"
-                  >
-                    {feature.name} {feature.spanX}x{feature.spanY}
-                  </button>
-                  <button
-                    aria-label={`Remove ${feature.name} from the list`}
-                    className="hive-feature__drop"
-                    disabled={featureRemove.isPending}
-                    onClick={() => featureRemove.mutate(feature.featureId)}
-                    type="button"
-                  >
-                    x
-                  </button>
-                </span>
-              ))}
-              {features.isSuccess && features.data.length === 0 ? (
-                <span className="subtle">Nothing in the list yet.</span>
-              ) : null}
-            </div>
-            <form
-              className="hive-feature-add"
-              onSubmit={(event) => {
-                event.preventDefault();
-                const name = featureName.trim();
-                if (name !== '') {
-                  featureAdd.mutate(name);
-                }
-              }}
-            >
-              <label>
-                <span>
-                  Add the brush ({brush.spanX}x{brush.spanY}
-                  {brush.kind === 'structure' ? ', structure' : ''}
-                  {brush.colour === null ? '' : `, ${brush.colour}`}) as
-                </span>
-                <input
-                  maxLength={40}
-                  onChange={(event) => setFeatureName(event.target.value)}
-                  placeholder="Alliance HQ"
-                  value={featureName}
-                />
-              </label>
-              <button disabled={featureName.trim() === '' || featureAdd.isPending} type="submit">
-                Add to list
-              </button>
-            </form>
-          </fieldset>
-
-          <fieldset>
-            <legend>Saved shapes</legend>
-            <p className="subtle">
-              A shape is offsets from the anchor, so a saved one carries no map and nobody standing
-              on it — the same hive fits any anchor on any server. Loading one replaces what is
-              drawn but writes nothing: move the anchor until it sits where you want, then save.
-            </p>
-            {templates.isError ? <p className="error">Could not load the saved shapes.</p> : null}
-            <div className="hive-features">
-              {(templates.data ?? []).map((template) => (
-                <span className="hive-feature" key={template.templateId}>
-                  <button
-                    className="hive-feature__load"
-                    disabled={templateLoad.isPending}
-                    onClick={() => templateLoad.mutate(template)}
-                    title={template.note === '' ? undefined : template.note}
-                    type="button"
-                  >
-                    {template.name} · {template.bases} base{template.bases === 1 ? '' : 's'}
-                    {template.structures === 0 ? '' : ` + ${template.structures}`}
-                  </button>
-                  <button
-                    aria-label={`Delete the saved shape ${template.name}`}
-                    className="hive-feature__drop"
-                    disabled={templateRemove.isPending}
-                    onClick={() => templateRemove.mutate(template.templateId)}
-                    type="button"
-                  >
-                    x
-                  </button>
-                </span>
-              ))}
-              {templates.isSuccess && templates.data.length === 0 ? (
-                <span className="subtle">Nothing saved yet.</span>
-              ) : null}
-            </div>
-            <form
-              className="hive-feature-add"
-              onSubmit={(event) => {
-                event.preventDefault();
-                const name = templateName.trim();
-                if (name !== '') {
-                  templateSave.mutate(name);
-                }
-              }}
-            >
-              <label>
-                <span>
-                  Save the {draft.size} tile{draft.size === 1 ? '' : 's'} drawn as
-                </span>
-                <input
-                  maxLength={60}
-                  onChange={(event) => setTemplateName(event.target.value)}
-                  placeholder="Bear rally"
-                  value={templateName}
-                />
-              </label>
-              {/* Saving under a name already used REPLACES that shape, which is
-                  what an officer correcting three tiles means. Said out loud
-                  because it is the one thing here that can lose work. */}
-              <button
-                disabled={draft.size === 0 || templateName.trim() === '' || templateSave.isPending}
-                type="submit"
-              >
-                {(templates.data ?? []).some(
-                  (template) =>
-                    template.name.trim().toLowerCase() === templateName.trim().toLowerCase(),
-                )
-                  ? 'Replace saved shape'
-                  : 'Save shape'}
-              </button>
-            </form>
-          </fieldset>
-
-          <fieldset>
-            <legend>Start from a shape</legend>
-            <p className="subtle">
-              Packed on a {BASE_SPAN}-tile pitch, centred on the anchor. Replaces what is drawn.
-            </p>
-            <div className="hive-shapes">
-              {[3, 5, 7, 9].map((side) => (
-                <button key={side} onClick={() => generate('block', side, side)} type="button">
-                  {side}x{side} block
-                </button>
-              ))}
-              {[5, 7, 9].map((side) => (
-                <button
-                  key={`ring-${side}`}
-                  onClick={() => generate('ring', side, side)}
-                  type="button"
-                >
-                  {side}x{side} ring
-                </button>
-              ))}
-              <button onClick={() => setDraft(new Map())} type="button">
-                Clear
-              </button>
-            </div>
-          </fieldset>
-
+      <div hidden={half !== 'shape'}>
+        {/* SAVE ABOVE THE MAP, always in view. It sat at the foot of the
+            controls column, and with those controls now behind a tab it would
+            have been behind one too. */}
+        <div className="hive-editor__bar">
+          {saveActions}
           <p className="hive-count">
             {draft.size} tile{draft.size === 1 ? '' : 's'} drawn · {members.length} member
             {members.length === 1 ? '' : 's'} on the roster
@@ -2071,9 +1591,614 @@ export function FormationEditor({
               </>
             )}
           </p>
-
-          {saveActions}
         </div>
+        <div
+          className={['hive-editor', sized.className].join(' ').trim()}
+          style={{ ...sized.style, ...panelWidthStyle(prefs.panelWidth) }}
+        >
+          <div className="hive-editor__map">
+            <TileGrid
+              anchor={anchor}
+              bases={bases}
+              busy={save.isPending}
+              canDropAt={(at) => dropTarget(drawn, anchor, at).kind !== 'refused'}
+              canMoveTo={canMove}
+              canAnchorAt={(to) => formationFitsAt(to, drawn)}
+              onDropMember={dropMember}
+              onMove={move}
+              onMoveAnchor={anchorMove.isPending ? undefined : moveAnchor}
+              onPick={pick}
+              onPan={(byX, byY) => setCentre((from) => pannedCentre(from, byX, byY))}
+              onRegion={tool === 'draw' ? undefined : sweep}
+              onResize={(size) => setMapPrefs({ size: size === null ? null : clampMapSize(size) })}
+              onZoom={(notches, at) => {
+                // ABOUT THE POINTER: the ground under the cursor stays under it
+                // (`centreKeeping`), so zooming in on a corner of the hive lands
+                // on that corner instead of hunting for it again on every notch.
+                const next = zoomedBy(zoom, notches);
+                setCentre(centreKeeping(view, windowRadius(next), at));
+                setZoom(next);
+              }}
+              sightings={sightings}
+              window={view}
+            />
+          </div>
+
+          {/* ONE PANEL BESIDE THE MAP, two tabs: the people, and every other
+              control. Those controls were a column of seven boxes running far
+              below the map, and the member list a second column that followed
+              the scroll and slid over them. Now both sit in one box as tall as
+              the map, each scrolling inside it, and the map keeps the room. */}
+          <section aria-label="Members and tools" className="hive-panel">
+            <PanelDivider
+              max={PANEL_WIDTH_MAX}
+              min={PANEL_WIDTH_MIN}
+              onResize={(width) =>
+                setMapPrefs({ panelWidth: width === null ? null : clampPanelWidth(width) })
+              }
+              width={prefs.panelWidth ?? PANEL_WIDTH_DEFAULT}
+            />
+            <div className="hive-panel__inner">
+              <div aria-label="Panel" className="hive-panel__tabs" role="tablist">
+                <button
+                  aria-controls={`${panelId}-members`}
+                  aria-selected={panelTab === 'members'}
+                  id={`${panelId}-tab-members`}
+                  onClick={() => setPanelTab('members')}
+                  role="tab"
+                  type="button"
+                >
+                  Members
+                  {unplaced.length > 0 && (
+                    <span className="hive-panel__badge" title="Not placed yet">
+                      {unplaced.length}
+                    </span>
+                  )}
+                </button>
+                <button
+                  aria-controls={`${panelId}-tools`}
+                  aria-selected={panelTab === 'tools'}
+                  id={`${panelId}-tab-tools`}
+                  onClick={() => setPanelTab('tools')}
+                  role="tab"
+                  type="button"
+                >
+                  Tools
+                </button>
+              </div>
+
+              {/* THE PEOPLE. Dragging a name onto a square is the same decision
+                  as the dropdown on the people tab, made by pointing at it; the
+                  dropdown stays for keyboards and phones, which HTML drag and
+                  drop does not reach. */}
+              <div
+                aria-labelledby={`${panelId}-tab-members`}
+                className="hive-panel__body"
+                hidden={panelTab !== 'members'}
+                id={`${panelId}-members`}
+                role="tabpanel"
+              >
+                {/* A SEARCH, because eighty rows is still a lot of reading. It
+                    filters what is shown and nothing else. */}
+                <div className="hive-palette-search">
+                  <input
+                    aria-label="Find a member"
+                    onChange={(event) => setMemberQuery(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Escape') {
+                        setMemberQuery('');
+                      }
+                    }}
+                    placeholder="Find a member…"
+                    type="search"
+                    value={memberQuery}
+                  />
+                  <span className="hive-count">
+                    {memberQuery.trim() === ''
+                      ? `${unplaced.length} of ${members.length} not placed`
+                      : `${paletteMembers.length} shown`}
+                  </span>
+                </div>
+                {/* BY RANK, then A–Z or power within it — chosen here, never
+                    borrowed from the fill order elsewhere on the page. Placing
+                    somebody never moves their row; "Hide placed" takes the
+                    dealt-with out of the way instead of reshuffling them. */}
+                <div className="hive-roster__options">
+                  <fieldset className="hive-roster__sort">
+                    <legend className="visually-hidden">Order</legend>
+                    {PALETTE_SORTS.map((option) => (
+                      <button
+                        aria-pressed={paletteSort === option.sort}
+                        key={option.sort}
+                        onClick={() => setPaletteSort(option.sort)}
+                        type="button"
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </fieldset>
+                  <label className="hive-roster__hide">
+                    <input
+                      checked={groupByRank}
+                      onChange={(event) => setGroupByRank(event.target.checked)}
+                      type="checkbox"
+                    />
+                    By rank
+                  </label>
+                  <label className="hive-roster__hide">
+                    <input
+                      checked={hidePlaced}
+                      onChange={(event) => setHidePlaced(event.target.checked)}
+                      type="checkbox"
+                    />
+                    Hide placed
+                  </label>
+                </div>
+                <div className="hive-roster__list">
+                  {paletteGroups.length === 0 && (
+                    <p className="subtle hive-roster__empty">
+                      {memberQuery.trim() !== ''
+                        ? `Nobody${hidePlaced ? ' unplaced' : ''} on the roster matches “${memberQuery.trim()}”.`
+                        : hidePlaced && members.length > 0
+                          ? 'Everybody has a tile.'
+                          : 'Nobody on the roster yet.'}
+                    </p>
+                  )}
+                  {paletteGroups.map((group) => (
+                    <section
+                      aria-label={group.label ?? 'Members to place'}
+                      className="hive-roster__group"
+                      key={group.key}
+                    >
+                      {group.label !== null && (
+                        <h4 className={`hive-roster__head hive-rank-chip--${group.key}`}>
+                          <span aria-hidden="true" className="hive-roster__dot" />
+                          {group.label}
+                          <span className="hive-roster__tally">
+                            {group.rows.length}
+                            {group.placed > 0 ? ` · ${group.placed} placed` : ''}
+                          </span>
+                        </h4>
+                      )}
+                      <ul className="hive-palette">{group.rows.map(memberRow)}</ul>
+                    </section>
+                  ))}
+                </div>
+              </div>
+
+              <div
+                aria-labelledby={`${panelId}-tab-tools`}
+                className="hive-panel__body hive-panel__tools"
+                hidden={panelTab !== 'tools'}
+                id={`${panelId}-tools`}
+                role="tabpanel"
+              >
+                <fieldset className="hive-tools">
+                  <legend>What a drag does</legend>
+                  <p className="subtle">
+                    Clicking a tile places or removes one in every mode. This is only about the
+                    drag, because one gesture cannot mean two things: while an area tool is on,
+                    bases stay where they are.
+                  </p>
+                  <div className="hive-shapes">
+                    {(
+                      [
+                        ['draw', 'Move a base', 'Drag a base to carry it somewhere else.'],
+                        [
+                          'mark',
+                          'Fill an area',
+                          'Drag out a rectangle and fill every free tile in it with a 1x1 marker, in the brush\u2019s colour and caption. Goes around whatever is already drawn.',
+                        ],
+                        [
+                          'outline',
+                          'Draw a boundary',
+                          'Drag out a rectangle and mark only its EDGE. What a boundary needs, at a fraction of the tiles a fill would spend.',
+                        ],
+                        [
+                          'erase',
+                          'Erase an area',
+                          'Drag out a rectangle and take its 1x1 markers back out. Bases are left alone.',
+                        ],
+                        [
+                          'select',
+                          'Select',
+                          'Drag out a rectangle to pick out everything completely inside it, then drag any of them to move the whole group, recolour them, or remove them together.',
+                        ],
+                      ] as const
+                    ).map(([value, label, hint]) => (
+                      <button
+                        aria-pressed={tool === value}
+                        key={value}
+                        onClick={() => {
+                          setTool(value);
+                          // A selection that outlived its tool would still be
+                          // carried by a drag, in a mode whose drag means something
+                          // else entirely.
+                          if (value !== 'select') {
+                            setSelection(new Set());
+                          }
+                          setRefusal(null);
+                        }}
+                        title={hint}
+                        type="button"
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  {tool === 'select' && (
+                    <div className="hive-selection">
+                      <p className="subtle">
+                        {selection.size === 0
+                          ? 'Nothing selected. Drag a box around the tiles you want — one base counts, so this is also how a single tile gets a new colour.'
+                          : `${selection.size} tile${selection.size === 1 ? '' : 's'} selected — drag any of them to move the group, nudge it a tile at a time, or paint it.`}
+                      </p>
+                      {selection.size > 0 && (
+                        <div className="hive-shapes">
+                          {/* A TILE AT A TIME, for the last step of lining a block up
+                        against a boundary. A drag cannot reliably land on one
+                        tile at this zoom, and the coordinate boxes move the
+                        anchor rather than a selection. */}
+                          {(
+                            [
+                              ['\u2190', -1, 0],
+                              ['\u2192', 1, 0],
+                              ['\u2191', 0, 1],
+                              ['\u2193', 0, -1],
+                            ] as const
+                          ).map(([glyph, byX, byY]) => (
+                            <button
+                              aria-label={`Nudge the selection ${glyph}`}
+                              key={glyph}
+                              onClick={() => moveSelection(byX, byY)}
+                              type="button"
+                            >
+                              {glyph}
+                            </button>
+                          ))}
+                          <button onClick={() => setSelection(new Set())} type="button">
+                            Deselect
+                          </button>
+                          <button className="hive-remove" onClick={deleteSelection} type="button">
+                            Remove {selection.size} tile{selection.size === 1 ? '' : 's'}
+                          </button>
+                        </div>
+                      )}
+                      {/* PAINTING, RATHER THAN PUTTING A NEW TILE DOWN. The brush's
+                    colour only ever applied to tiles being placed, and a click
+                    on a placed one removes it — so recolouring a base meant
+                    deleting it, which takes the member on it, their pin and
+                    the slot id with it. These swatches change the colour of
+                    tiles that are already there and touch nothing else. */}
+                      {selection.size > 0 && (
+                        <fieldset className="hive-swatches">
+                          <legend>
+                            Paint {selection.size} tile{selection.size === 1 ? '' : 's'}
+                          </legend>
+                          <button
+                            className="hive-swatch"
+                            onClick={() => paintSelection(null)}
+                            type="button"
+                          >
+                            default
+                          </button>
+                          {TILE_COLOURS.map((colour) => (
+                            <button
+                              aria-label={`Paint the selection ${colour}`}
+                              className={`hive-swatch hive-swatch--${colour}`}
+                              key={colour}
+                              onClick={() => paintSelection(colour)}
+                              type="button"
+                            />
+                          ))}
+                        </fieldset>
+                      )}
+                    </div>
+                  )}
+                </fieldset>
+
+                <fieldset>
+                  <legend>What a click puts down</legend>
+                  <p className="subtle">
+                    A member's base is {BASE_SPAN}x{BASE_SPAN}. A structure is ground that is spoken
+                    for — Frankie at {FRANKIE.spanX}x{FRANKIE.spanY}, an alliance building, or a 1x1
+                    marker on a tile to keep clear. Nothing may overlap anything, whatever size each
+                    of them is.
+                  </p>
+                  <div className="hive-brush">
+                    <label>
+                      <span>Wide</span>
+                      <input
+                        max={32}
+                        min={1}
+                        onChange={(event) =>
+                          setBrush({ ...brush, spanX: clampSpan(event.target.value, brush.spanX) })
+                        }
+                        type="number"
+                        value={brush.spanX}
+                      />
+                    </label>
+                    <label>
+                      <span>Tall</span>
+                      <input
+                        max={32}
+                        min={1}
+                        onChange={(event) =>
+                          setBrush({ ...brush, spanY: clampSpan(event.target.value, brush.spanY) })
+                        }
+                        type="number"
+                        value={brush.spanY}
+                      />
+                    </label>
+                    <label>
+                      <span>Kind</span>
+                      <Select
+                        onChange={(chosen) => setBrush({ ...brush, kind: chosen as TileKind })}
+                        value={brush.kind}
+                      >
+                        <option value="base">Member base</option>
+                        <option value="structure">Structure / marker</option>
+                      </Select>
+                    </label>
+                  </div>
+                  <fieldset className="hive-swatches">
+                    <legend>Colour</legend>
+                    <button
+                      aria-pressed={brush.colour === null}
+                      className="hive-swatch"
+                      onClick={() => setBrush({ ...brush, colour: null })}
+                      type="button"
+                    >
+                      default
+                    </button>
+                    {TILE_COLOURS.map((colour) => (
+                      <button
+                        aria-label={colour}
+                        aria-pressed={brush.colour === colour}
+                        className={`hive-swatch hive-swatch--${colour}`}
+                        key={colour}
+                        onClick={() => setBrush({ ...brush, colour })}
+                        type="button"
+                      />
+                    ))}
+                  </fieldset>
+                </fieldset>
+
+                <fieldset>
+                  <legend>Things on the map</legend>
+                  <p className="subtle">
+                    The shapes this alliance draws more than once, kept as a list rather than
+                    retyped. Clicking one loads its size, kind and colour into the brush and
+                    captions the tile with its name — a copy, so tidying the list later never
+                    changes a formation already sent out.
+                  </p>
+                  {features.isError ? (
+                    <p className="error">Could not load the list of map features.</p>
+                  ) : null}
+                  <div className="hive-features">
+                    {(features.data ?? []).map((feature) => (
+                      <span className="hive-feature" key={feature.featureId}>
+                        <button
+                          className={
+                            feature.colour === null
+                              ? 'hive-feature__load'
+                              : `hive-feature__load hive-feature__load--${feature.colour}`
+                          }
+                          onClick={() => loadFeature(feature)}
+                          title={feature.note === '' ? undefined : feature.note}
+                          type="button"
+                        >
+                          {feature.name} {feature.spanX}x{feature.spanY}
+                        </button>
+                        <button
+                          aria-label={`Remove ${feature.name} from the list`}
+                          className="hive-feature__drop"
+                          disabled={featureRemove.isPending}
+                          onClick={() => featureRemove.mutate(feature.featureId)}
+                          type="button"
+                        >
+                          x
+                        </button>
+                      </span>
+                    ))}
+                    {features.isSuccess && features.data.length === 0 ? (
+                      <span className="subtle">Nothing in the list yet.</span>
+                    ) : null}
+                  </div>
+                  <form
+                    className="hive-feature-add"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      const name = featureName.trim();
+                      if (name !== '') {
+                        featureAdd.mutate(name);
+                      }
+                    }}
+                  >
+                    <label>
+                      <span>
+                        Add the brush ({brush.spanX}x{brush.spanY}
+                        {brush.kind === 'structure' ? ', structure' : ''}
+                        {brush.colour === null ? '' : `, ${brush.colour}`}) as
+                      </span>
+                      <input
+                        maxLength={40}
+                        onChange={(event) => setFeatureName(event.target.value)}
+                        placeholder="Alliance HQ"
+                        value={featureName}
+                      />
+                    </label>
+                    <button
+                      disabled={featureName.trim() === '' || featureAdd.isPending}
+                      type="submit"
+                    >
+                      Add to list
+                    </button>
+                  </form>
+                </fieldset>
+
+                <fieldset>
+                  <legend>Saved shapes</legend>
+                  <p className="subtle">
+                    A shape is offsets from the anchor, so a saved one carries no map and nobody
+                    standing on it — the same hive fits any anchor on any server. Loading one
+                    replaces what is drawn but writes nothing: move the anchor until it sits where
+                    you want, then save.
+                  </p>
+                  {templates.isError ? (
+                    <p className="error">Could not load the saved shapes.</p>
+                  ) : null}
+                  <div className="hive-features">
+                    {(templates.data ?? []).map((template) => (
+                      <span className="hive-feature" key={template.templateId}>
+                        <button
+                          className="hive-feature__load"
+                          disabled={templateLoad.isPending}
+                          onClick={() => templateLoad.mutate(template)}
+                          title={template.note === '' ? undefined : template.note}
+                          type="button"
+                        >
+                          {template.name} · {template.bases} base{template.bases === 1 ? '' : 's'}
+                          {template.structures === 0 ? '' : ` + ${template.structures}`}
+                        </button>
+                        <button
+                          aria-label={`Delete the saved shape ${template.name}`}
+                          className="hive-feature__drop"
+                          disabled={templateRemove.isPending}
+                          onClick={() => templateRemove.mutate(template.templateId)}
+                          type="button"
+                        >
+                          x
+                        </button>
+                      </span>
+                    ))}
+                    {templates.isSuccess && templates.data.length === 0 ? (
+                      <span className="subtle">Nothing saved yet.</span>
+                    ) : null}
+                  </div>
+                  <form
+                    className="hive-feature-add"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      const name = templateName.trim();
+                      if (name !== '') {
+                        templateSave.mutate(name);
+                      }
+                    }}
+                  >
+                    <label>
+                      <span>
+                        Save the {draft.size} tile{draft.size === 1 ? '' : 's'} drawn as
+                      </span>
+                      <input
+                        maxLength={60}
+                        onChange={(event) => setTemplateName(event.target.value)}
+                        placeholder="Bear rally"
+                        value={templateName}
+                      />
+                    </label>
+                    {/* Saving under a name already used REPLACES that shape, which is
+                  what an officer correcting three tiles means. Said out loud
+                  because it is the one thing here that can lose work. */}
+                    <button
+                      disabled={
+                        draft.size === 0 || templateName.trim() === '' || templateSave.isPending
+                      }
+                      type="submit"
+                    >
+                      {(templates.data ?? []).some(
+                        (template) =>
+                          template.name.trim().toLowerCase() === templateName.trim().toLowerCase(),
+                      )
+                        ? 'Replace saved shape'
+                        : 'Save shape'}
+                    </button>
+                  </form>
+                </fieldset>
+
+                <fieldset>
+                  <legend>Start from a shape</legend>
+                  <p className="subtle">
+                    Packed on a {BASE_SPAN}-tile pitch, centred on the anchor. Replaces what is
+                    drawn.
+                  </p>
+                  <div className="hive-shapes">
+                    {[3, 5, 7, 9].map((side) => (
+                      <button
+                        key={side}
+                        onClick={() => generate('block', side, side)}
+                        type="button"
+                      >
+                        {side}x{side} block
+                      </button>
+                    ))}
+                    {[5, 7, 9].map((side) => (
+                      <button
+                        key={`ring-${side}`}
+                        onClick={() => generate('ring', side, side)}
+                        type="button"
+                      >
+                        {side}x{side} ring
+                      </button>
+                    ))}
+                    <button onClick={() => setDraft(new Map())} type="button">
+                      Clear
+                    </button>
+                  </div>
+                </fieldset>
+
+                <fieldset>
+                  <legend>Anchor</legend>
+                  <p className="subtle">
+                    Every tile is stored as an offset from here, so moving the anchor moves the
+                    whole formation and cannot change its shape.
+                  </p>
+                  <p className="subtle">
+                    Or drag the anchor square on the map — every tile follows it.
+                  </p>
+                  <CoordinateInput
+                    at={anchor}
+                    busy={anchorMove.isPending}
+                    fits={(to) => formationFitsAt(to, drawn)}
+                    label="Anchor"
+                    onSubmit={moveAnchor}
+                    submitLabel="Move formation"
+                    whyNot="From there part of the formation would run off the map."
+                  />
+                </fieldset>
+
+                <fieldset>
+                  <legend>Look at</legend>
+                  <CoordinateInput
+                    at={centre}
+                    label="Centre the view on"
+                    onSubmit={setCentre}
+                    submitLabel="Go there"
+                  />
+                </fieldset>
+              </div>
+            </div>
+          </section>
+        </div>
+        {/* UNDER THE ROW, not inside the map's column, so the map's column is
+            the map alone and the panel beside it is exactly the map's height. */}
+        <ViewControls onZoom={setZoom} sized={prefs.size !== null} zoom={zoom}>
+          <button onClick={showWhole} type="button">
+            Whole formation
+          </button>
+        </ViewControls>
+        <BaseColours colourBy={prefs.colourBy} tally={ranksDrawn} />
+        <p className="subtle">
+          Drag a name from the Members tab onto the map: on free ground it draws their base there,
+          on a base it puts them on it. To take somebody off without losing the base, press × on
+          their row. Click free ground to place a base, click a base to take it away (with whoever
+          is on it). Each one is {BASE_SPAN}x{BASE_SPAN} tiles and the coordinate is the middle.
+          Drag from empty ground to slide the map — or hold <kbd>ctrl</kbd>, which works while an
+          area tool is on too. Hold <kbd>ctrl</kbd> and use the wheel, or pinch, to zoom; drag the
+          corner handle to resize the map, and the bar beside the panel to widen the panel. Shaded
+          squares are where the map last SAW somebody — a base that was destroyed or lost its shield
+          has been teleported somewhere random, so treat them as a hint and not as a wall.
+        </p>
       </div>
 
       {refusal !== null && <p className="error">{refusal}</p>}

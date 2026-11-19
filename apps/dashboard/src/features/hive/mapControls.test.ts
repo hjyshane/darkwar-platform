@@ -4,7 +4,16 @@
 import { describe, expect, test } from 'vitest';
 import { rankTally, sliderFromZoom, zoomFromSlider } from './MapControls';
 import { ZOOM_MAX, ZOOM_MIN, windowRadius } from './TileGrid';
-import { DEFAULT_PREFS, MAP_SIZE_MAX, MAP_SIZE_MIN, mapSizeProps, parsePrefs } from './mapPrefs';
+import {
+  DEFAULT_PREFS,
+  MAP_SIZE_MAX,
+  MAP_SIZE_MIN,
+  PANEL_WIDTH_MAX,
+  PANEL_WIDTH_MIN,
+  mapSizeProps,
+  panelWidthStyle,
+  parsePrefs,
+} from './mapPrefs';
 
 describe('the zoom slider', () => {
   test('left is the widest view and right the closest, like the + beside it', () => {
@@ -63,7 +72,7 @@ describe('the rank legend', () => {
 describe('what this browser remembers', () => {
   test('nothing stored is the page as it shipped', () => {
     expect(parsePrefs(null)).toEqual(DEFAULT_PREFS);
-    expect(DEFAULT_PREFS).toEqual({ size: null, colourBy: 'plan' });
+    expect(DEFAULT_PREFS).toEqual({ size: null, colourBy: 'plan', panelWidth: null });
   });
 
   test('garbage reads as the defaults rather than throwing', () => {
@@ -76,7 +85,25 @@ describe('what this browser remembers', () => {
   test('a size from somewhere else is held inside the range', () => {
     expect(parsePrefs('{"size":90000}').size).toBe(MAP_SIZE_MAX);
     expect(parsePrefs('{"size":3}').size).toBe(MAP_SIZE_MIN);
-    expect(parsePrefs('{"size":901.6,"colourBy":"rank"}')).toEqual({ size: 902, colourBy: 'rank' });
+    expect(parsePrefs('{"size":901.6,"colourBy":"rank"}')).toEqual({
+      size: 902,
+      colourBy: 'rank',
+      panelWidth: null,
+    });
+  });
+
+  test('the editor panel width is held inside its range, and garbage is the default', () => {
+    expect(parsePrefs('{"panelWidth":5000}').panelWidth).toBe(PANEL_WIDTH_MAX);
+    expect(parsePrefs('{"panelWidth":10}').panelWidth).toBe(PANEL_WIDTH_MIN);
+    expect(parsePrefs('{"panelWidth":401.4}').panelWidth).toBe(401);
+    expect(parsePrefs('{"panelWidth":"wide"}').panelWidth).toBeNull();
+    // A store written before the panel existed still reads.
+    expect(parsePrefs('{"size":800,"colourBy":"plan"}').panelWidth).toBeNull();
+  });
+
+  test('the panel width is a custom property only once somebody drags it', () => {
+    expect(panelWidthStyle(null)).toBeUndefined();
+    expect(panelWidthStyle(420)).toEqual({ '--hive-panel-width': '420px' });
   });
 
   test('the page layout is untouched until somebody resizes', () => {
