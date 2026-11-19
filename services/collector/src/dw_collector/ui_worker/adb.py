@@ -1,8 +1,9 @@
 """ADB adapter. Every call goes through AdbPolicy first — there is no path
 to a device that skips the guard.
 
-Deliberately small: tap, swipe, back, screenshot, launch, force-stop, and a
-device listing. Nothing here clears or installs anything.
+Deliberately small: tap, swipe, back, digits into a focused field, a mouse
+wheel, screenshot, launch, force-stop, and a device listing. Nothing here
+clears or installs anything.
 
 `force_stop` exists for the cloud watchdog (ADR-0002), which restarts a stalled
 game client. Like `launch` it is safe because of the target, not the verb:
@@ -24,6 +25,7 @@ aimed at and records it. The guarantee is the target, not the verb.
 
 from __future__ import annotations
 
+import struct
 import subprocess
 import time
 from dataclasses import dataclass, field
@@ -36,6 +38,19 @@ from dw_collector.ui_worker.guard import AdbPolicy
 log = structlog.get_logger()
 
 KEYCODE_BACK = "4"
+
+#: BlueStacks' virtual mouse. The map sweep zooms with its wheel, NOT with a
+#: pinch on the touch device: that device is shared with BlueStacks' own
+#: input and keeps one kernel-wide state per axis, so a gesture written to it
+#: can leave BTN_TOUCH cleared or a contact held - which on 2026-11-18 stopped
+#: every mouse click in the emulator until both were put back by hand. A wheel
+#: notch is a relative event with nothing left behind. Named, not discovered,
+#: for the reason zoom.TOUCH_DEVICE gives.
+MOUSE_DEVICE = "/dev/input/event5"
+#: ABS_X/ABS_Y range the virtual mouse reports, whatever the resolution.
+_MOUSE_MAX = 65535
+_EV_SYN, _EV_REL, _EV_ABS = 0, 2, 3
+_ABS_X, _ABS_Y, _REL_WHEEL = 0, 1, 8
 
 
 @dataclass
@@ -78,9 +93,59 @@ class AdbClient:
     def back(self) -> None:
         self._run(["shell", "input", "keyevent", KEYCODE_BACK])
 
+    def text(self, digits: str) -> None:
+        """Type into the focused field. Digits only: `adb shell` joins its
+        arguments into a device shell line, so anything else is a quoting
+        problem waiting to happen, and nothing that calls this needs more."""
+        if not digits.isdigit():
+            msg = f"refusing to type {digits!r}: digits only"
+            raise ValueError(msg)
+        self._run(["shell", "input", "text", digits])
+
+    def wheel(self, x: int, y: int, notches: int, *, width: int = 1080, height: int = 1920) -> None:
+        """Turn the virtual mouse wheel over screen point (x, y).
+
+        Negative is wheel-down, which the game reads as zoom out. One shell
+        line for the whole thing, so the notches arrive together. See
+        MOUSE_DEVICE for why this and not a pinch.
+        """
+        dev = MOUSE_DEVICE
+        ax = max(0, min(_MOUSE_MAX, x * _MOUSE_MAX // width))
+        ay = max(0, min(_MOUSE_MAX, y * _MOUSE_MAX // height))
+        step = -1 if notches < 0 else 1
+        parts = [
+            f"sendevent {dev} {_EV_ABS} {_ABS_X} {ax};",
+            f"sendevent {dev} {_EV_ABS} {_ABS_Y} {ay};",
+            f"sendevent {dev} {_EV_SYN} 0 0;",
+        ]
+        for _ in range(abs(notches)):
+            parts.append(f"sendevent {dev} {_EV_REL} {_REL_WHEEL} {step};")
+            parts.append(f"sendevent {dev} {_EV_SYN} 0 0;")
+        self._run(["shell", "".join(parts)])
+
     def screencap(self) -> bytes:
         """The current screen as PNG bytes."""
         return self._run(["exec-out", "screencap", "-p"], capture=True)
+
+    def screencap_raw(self) -> tuple[int, int, bytes]:
+        """The current screen as (width, height, RGBA bytes), unencoded.
+
+        Twice as fast as `screencap` on the collector's BlueStacks (0.7-0.95s
+        against 1.0-1.8s for 1080x1920): PNG-encoding on the device costs more
+        than moving 8MB over a local adb socket, and a sweep that looks at the
+        screen four times a jump pays it 6,000 times a run.
+        """
+        data = self._run(["exec-out", "screencap"], capture=True)
+        if len(data) < 12:
+            msg = f"screencap returned {len(data)} bytes"
+            raise AdbError(msg)
+        width, height, _format = struct.unpack_from("<III", data)
+        header = len(data) - width * height * 4
+        # 12 bytes of width/height/format, plus a colour space on newer Android.
+        if header not in (12, 16):
+            msg = f"screencap of {len(data)} bytes does not hold {width}x{height} RGBA"
+            raise AdbError(msg)
+        return width, height, data[header:]
 
     def screenshot(self, out: Path) -> None:
         """Pull a PNG so routine coordinates can be read off a real screen."""

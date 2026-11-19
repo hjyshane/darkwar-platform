@@ -118,3 +118,22 @@ def test_default_probe_matches_the_platform() -> None:
 
     expected = getattr(ctypes, "windll", None) is not None
     assert (default_probe() is not None) is expected
+
+
+@pytest.mark.parametrize(
+    ("title", "process"),
+    [
+        ("darkwar-platform and 2 more tabs - File Explorer", "explorer.exe"),
+        ("goto.py - darkwar-platform - Visual Studio Code", "Code.exe"),
+        (r"C:\darkwar-platform\services\collector", "WindowsTerminal.exe"),
+    ],
+)
+def test_the_repository_open_in_another_app_is_not_the_emulator(title: str, process: str) -> None:
+    """The repo's own name contains "darkwar"; a window on it must not pause a sweep."""
+    state = _policy(FakeProbe(0.0, title, process)).contends()
+    assert state.is_idle, state.reason
+
+
+def test_the_game_still_counts_when_the_repo_name_is_also_in_the_title() -> None:
+    state = _policy(FakeProbe(0.0, "collector - darkwar-platform", "HD-Player.exe")).contends()
+    assert not state.is_idle

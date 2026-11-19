@@ -1,5 +1,13 @@
 """Pinch-zoom, because the sweep's zoom cannot be left to whoever used it last.
 
+OUT OF DATE SINCE A BLUESTACKS UPDATE (seen 2026-11-18). event4 now reports
+ABS_MT_SLOT, ABS_MT_TRACKING_ID and BTN_TOUCH - multitouch protocol B - so the
+protocol A frames below change nothing on screen. Do not "fix" this by writing
+protocol B here: the device shares its state with BlueStacks' own clicks, and
+the attempt left every mouse click in the emulator dead (docs/runbooks/
+traps.md). The goto sweep zooms with the virtual mouse wheel instead
+(AdbClient.wheel).
+
 `viewLvl` 1 is the only zoom worth sweeping at: 0 returns about 76 tiles per
 pan and 2 RETURNS NONE AT ALL — 15 requests, zero points every time, while
 the game goes on drawing a perfectly normal map. A sweep that started at 2

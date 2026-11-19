@@ -10,7 +10,8 @@
 
 ## 2. 사람 몫 / 막힌 것
 
-- **압축 응답(APS zstd v1) — Windows Ingest 재시작·백필 끝 (11-18, 확인함).** 게임 1.250.672부터 압축 응답이 APS zstd v1. `DarkWar-Ingest`가 11-18 01:26:38에 브랜치 `fix/collector-aps-zstd-frames` 코드(59c61a0f 위)로 다시 떴고 `aps_zstd_key_loaded sha256=e9ed2813695e`를 찍었다. 그 전에 옛 코드가 읽은 파일은 `C:\DW_data\aps\backfill_aps.py`로 전부 채웠고 outbox 실패 0. **머지되기 전에는 상시 작업이 이 브랜치 체크아웃에서 돈다 — 머지 전에 `main`으로 바꾸고 재시작하면 다시 압축 응답을 버린다.** 키 경로는 `.env`의 `DW_APS_ZSTD_KEY_FILE`(키 파일은 저장소 밖). 맥(아이폰 체인)과 데스크톱 앱은 키가 없어 계속 버린다(§3).
+- **맵 스윕 예약 등록 — 주인 몫 (11-18, 미실시).** `dw-ui-worker goto-sweep`(게임의 좌표 이동 창으로 566–588을 서버당 70점)을 8시간마다 돌리려면 관리자 PowerShell에서 `.\scripts\windows\register-map-sweep.ps1` 한 번. 로그 `C:\DW_data\logs\map-sweep.log`, 멈춘 화면은 `C:\DW_data\ui-shots`. BlueStacks 창 제목에 `collector`가 들어 있어야 가드가 그 인스턴스를 고른다(11-18에 주인이 바꿈). `runbooks/map-sweep.md`.
+- **압축 응답(APS zstd v1) — 끝 (11-18, 확인함).** 디코더는 #604로 main에 머지, Windows Ingest는 11-18 01:27부터 그 코드로 돈다(`aps_zstd_key_loaded sha256=e9ed2813695e`), 그 전 파일은 `C:\DW_data\aps\backfill_aps.py`로 전부 채웠다. 키 경로는 `.env`의 `DW_APS_ZSTD_KEY_FILE`(키 파일은 저장소 밖). 맥(아이폰 체인)과 데스크톱 앱은 키가 없어 계속 버린다(§3, 주인이 보류).
 - **게임 데이터가 Lua 5.5 (11-18, 확인함).** 1.250.672부터 datatable이 5.5(표식 `0xa8`, opcode 재번호). `main`의 `game-*` 명령은 하나도 못 읽는다 — 브랜치 `fix/gamedata-lua55`가 고친다(**머지 전**). PR #622. 11-18에 그 브랜치로 `game-catalog`(`game_season` 주제 64개 확인)·`game-names`(새 이름 34, 임원 이름 5 보존 — 1,000행 잘림 버그도 같은 PR에서 고침)·`game-values`(game 175, estimated 59)를 돌렸다. `game-event-guide`·`game-icons`는 안 돌림. 다음 업데이트에서 `decode`가 `marker`/`opcode N`으로 실패하면 `C:\DW_data\lua55\README.md`(런북 "Lua 5.5 datatable").
 - **이벤트 알람 배포됨 (11-15, 확인함).** 주인이 `db push`로 0321–0327을 적용했다(21:29 UTC 무렵, `schema_migrations`로 확인). 대시보드 Alarms 탭은 #597로 머지(`590bf9fd`), CI `deploy` 성공, cbfw.us가 탭이 든 `index-IQHQGTwp.js`를 낸다.
   - 푸시 뒤 확인 4가지 통과(21:44 UTC에 읽음): `alerts-reconcile`은 21:28이 마지막 실패(옛 `extensions.net._http_response` 오류)이고 21:29부터 매분 성공, `alerts-detect`·`alarms-calendar`(5분마다, 첫 실행 21:30) 실패 0; anon은 `alarm_deliveries` 실행 불가(authenticated는 가능); 자기 연맹 둘 다 달력 보드 셋; `cron.job`에 `alarms-calendar`.
@@ -47,6 +48,8 @@
 | 데스크톱 앱 두 번째 머신 설치 | 개발 머신 한 대만 성공 | `log/2026-09.md` (09-11) |
 | `dw-capture` 재접속 멈춤 | 원인 미확인 (계측만 있음) | `log/…-tail.md` |
 | `arena_matches` writer 없음 | 08-03에 로컬 0건 확인, 프로덕션 미확인 | `capture-backlog.md` |
+| `goto-sweep` 무인 반복(566–588 전체 회차) | 11-18: 582 3점·583 70점 시험만. 전체 회차 시간, 거절되는 서버 유무 모름 | `runbooks/map-sweep.md` |
+| 기존 스와이프 스윕(`dw-ui-worker sweep`)의 줌 | 11-18: BlueStacks 터치가 프로토콜 B라 `zoom.py` 핀치 무효 | `traps.md` |
 | 아이폰(iOS) 클라이언트의 APS zstd 키 | 모름. Android APK에서만 뽑았다. 맥 `.env`에 `DW_APS_ZSTD_KEY_FILE`이 없으면 그 체인은 압축 응답을 버린다 | `C:\DW_data\aps\README.md` |
 
 ## 4. 문서가 서로 어긋난 곳
@@ -67,7 +70,9 @@
 
 ## 6. 최근 2주 (자세한 것은 `log/2026-11.md`)
 
-- 11-17 게임 1.250.672의 APS zstd v1: 압축 응답 전부 유실 → 디코더·키 추출·백필 — `log/2026-11.md`
+- 11-18 맵 스윕을 게임의 좌표 이동 창으로(`goto-sweep`), 직접 요청·딥링크는 안 됨, BlueStacks 터치 사고 — `log/2026-11.md`
+- 11-18 게임 데이터가 Lua 5.5(패딩 기준·opcode 재번호) → 읽기 고침, `game-names` 1,000행 잘림 (#622) — `log/2026-11.md`
+- 11-17 게임 1.250.672의 APS zstd v1: 압축 응답 전부 유실 → 디코더·키 추출·백필 (#604) — `log/2026-11.md`
 - 11-16 수동 기간의 중도 가입자 점수 산정, 재적 비율로 보정 (0329, v11) — `log/2026-11.md`
 - 11-15 등급 측정 시각 월요일 00:00 UTC(리셋 2시간 전) + 듀얼 `days` 모드 (0328, v10) — `log/2026-11.md`
 - 11-08 등급 측정 시각 일요일 14:00 UTC (0309, v9) — `log/2026-11.md`
@@ -88,7 +93,7 @@
 | 마이그레이션 / 명령 승격 절차 | 스킬 `new-migration`, `promote-command` (`.claude/skills/`) |
 | 자동 가드(legacy·PCAP·.env 차단, 번호 검사) | `.claude/hooks/guard.mjs`, `.claude/settings.json` |
 | DB가 느릴 때 | `docs/runbooks/db-performance.md` |
-| 수집기 운영 | `collector-operations.md`, `continuous-collection.md`, `season-4-capture.md` |
+| 수집기 운영 | `collector-operations.md`, `continuous-collection.md`, `season-4-capture.md`, 맵 스윕 `map-sweep.md` |
 | 클라우드 | `cloud-unattended.md`, `cloud-actions.md` |
 | 주간 자동 점검(CI·마이그레이션·handover 신선도) | `docs/runbooks/scheduled-routines.md` |
 | 일지 | `docs/log/2026-08.md` … `2026-11.md` |
