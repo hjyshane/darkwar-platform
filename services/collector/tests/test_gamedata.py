@@ -17,7 +17,7 @@ from dw_collector.gamedata import (
     repair_header,
     strip_prefix,
 )
-from dw_collector.gamedata.names import EventName, classify
+from dw_collector.gamedata.names import EventName, classify, plain_text
 from dw_collector.gamedata.upload import NOTE, plan
 
 ACTIVITY_PANEL = """
@@ -153,6 +153,42 @@ def test_names_come_in_the_language_asked_for() -> None:
     assert {k: v.name for k, v in names.items()} == {"41101": "극지 얼음 구덩이"}
 
 
+PANEL_WITH_TEXT = """
+return {
+  data = {
+    [41101] = { 41101, 126, '200501', '571002', '571003' },
+    [2010] = { 2010, 288, '200503', '', '999999' },
+  },
+  index = {
+    id = { 1, 'int' }, type = { 2, 'int' }, name = { 3, 'string' },
+    story = { 4, 'string' }, desc_info = { 5, 'string' },
+  },
+}
+"""
+
+
+def test_an_event_carries_the_clients_summary_and_rules_as_plain_text() -> None:
+    """desc_info and story are localisation keys like the name. The client's
+    markup goes and its literal backslash-n becomes a line break (0337)."""
+    assets = _assets(_client_bytecode(PANEL_WITH_TEXT))
+    assets["assets/main/datatable/localization/english/dictionaries/dialog_2.txt"] = (
+        b"571003=Beat <b>Tundra Titan</b>!\n"
+        b"571002=Rules: \\n1. Thaws at <color=#c8212d>12:00:00</color>. \\n2. HQ < 10 waits.\n"
+    )
+
+    names = event_names(assets)
+
+    assert names["41101"].summary == "Beat Tundra Titan!"
+    assert names["41101"].rules == "Rules:\n1. Thaws at 12:00:00.\n2. HQ < 10 waits."
+    # No key, or a key with no string: nothing, not the key.
+    assert (names["2010"].summary, names["2010"].rules) == (None, None)
+
+
+def test_plain_text_of_nothing_is_nothing() -> None:
+    assert plain_text(None) is None
+    assert plain_text("<b></b> \\n ") is None
+
+
 def test_a_chunk_that_reaches_for_os_fails_instead_of_running() -> None:
     """The chunk runs with an empty environment."""
     from dw_collector.gamedata import decode
@@ -175,6 +211,8 @@ def test_plan_writes_new_names_with_their_category() -> None:
             "note": NOTE,
             "activity_type": 274,
             "category": "premium",
+            "summary": None,
+            "rules": None,
         }
     ]
 
@@ -841,3 +879,46 @@ def test_a_season_building_takes_its_season_from_its_base_row() -> None:
     # Both steps of the season building carry the season its level-0 row names,
     # though the rows they reach say nothing; an ordinary building has none.
     assert by_subject == {("727000", 80): None, ("868000", 1): 6, ("868000", 2): 6}
+
+
+def test_plan_refreshes_the_games_text_even_on_an_officers_row() -> None:
+    """Nobody types the summary or the rules, so they follow the client; the
+    officer's name and category beside them are still theirs (0337)."""
+    existing = [
+        {
+            "activity_id": "41101",
+            "name": "Ice Pit",
+            "updated_by": "u",
+            "activity_type": 2,
+            "category": "season",
+            "summary": "old",
+            "rules": None,
+        }
+    ]
+    game = EventName("Arctic Ice Pit", 2, "event", "Beat Tundra Titan!", "Rules")
+
+    result = plan(existing, {"41101": game})
+
+    assert result.to_write == []
+    assert result.to_classify == [
+        {"activity_id": "41101", "summary": "Beat Tundra Titan!", "rules": "Rules"}
+    ]
+
+
+def test_plan_rewrites_its_own_row_when_only_the_text_changed() -> None:
+    existing = [
+        {
+            "activity_id": "41101",
+            "name": "Arctic Ice Pit",
+            "updated_by": None,
+            "activity_type": 2,
+            "category": "event",
+            "summary": None,
+            "rules": None,
+        }
+    ]
+
+    result = plan(existing, {"41101": EventName("Arctic Ice Pit", 2, "event", "New", None)})
+
+    assert [row["summary"] for row in result.to_write] == ["New"]
+    assert result.unchanged == 0

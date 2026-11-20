@@ -3752,6 +3752,8 @@ export type Database = {
           category: string | null
           name: string
           note: string | null
+          rules: string | null
+          summary: string | null
           updated_at: string
           updated_by: string | null
         }
@@ -3761,6 +3763,8 @@ export type Database = {
           category?: string | null
           name: string
           note?: string | null
+          rules?: string | null
+          summary?: string | null
           updated_at?: string
           updated_by?: string | null
         }
@@ -3770,6 +3774,8 @@ export type Database = {
           category?: string | null
           name?: string
           note?: string | null
+          rules?: string | null
+          summary?: string | null
           updated_at?: string
           updated_by?: string | null
         }

@@ -11,6 +11,7 @@ language (`.../localization/<language>/dictionaries/dialog_N.txt`).
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
@@ -96,6 +97,26 @@ class EventName:
     name: str
     activity_type: int | None
     category: str  # 'major' | 'recurring' | 'season' | 'event' | 'pass' | 'premium'
+    # The client's own one-line pitch (`desc_info`) and its rules screen
+    # (`story`), as plain text (0337). None where the client has neither.
+    summary: str | None = None
+    rules: str | None = None
+
+
+# Unity rich text: <color=#c8212d>, </color>, <b>, <size=20>... Only tags that
+# open with a letter or a slash, so "HQ < 10" in a sentence survives.
+_TAG = re.compile(r"</?[a-zA-Z][^<>]*>")
+
+
+def plain_text(value: str | None) -> str | None:
+    """A localisation string as plain text: the client's markup removed and
+    its literal backslash-n turned into line breaks. None when nothing is left."""
+    if value is None:
+        return None
+    text = _TAG.sub("", value.replace("\\n", "\n").replace("\r", ""))
+    lines = [line.strip() for line in text.split("\n")]
+    out = re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
+    return out or None
 
 
 def _int(value: Any) -> int | None:
@@ -121,6 +142,10 @@ def event_names(assets: Mapping[str, bytes], language: str = "English") -> dict[
         if activity_id.isdigit() and name and name.strip():
             kind = _int(row.get("type"))
             names[activity_id] = EventName(
-                name.strip(), kind, classify(activity_id, kind, english.get(key, name))
+                name.strip(),
+                kind,
+                classify(activity_id, kind, english.get(key, name)),
+                plain_text(strings.get(str(row.get("desc_info", "")).strip())),
+                plain_text(strings.get(str(row.get("story", "")).strip())),
             )
     return names

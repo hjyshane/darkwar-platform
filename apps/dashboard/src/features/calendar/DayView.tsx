@@ -35,12 +35,14 @@ export function DayView({
   today,
   now,
   onDay,
+  onOpen,
 }: {
   events: CalendarEvent[];
   day: string;
   today: string;
   now: Date;
   onDay: (day: string) => void;
+  onOpen: (event: CalendarEvent) => void;
 }) {
   const running = events.filter((event) => runsOn(event, day));
   const blocks = dayBlocks(day);
@@ -82,12 +84,15 @@ export function DayView({
                 <div className="calendar-lane-label">{CATEGORY_LABELS[category]}</div>
                 <ul className="calendar-chips">
                   {list.map((event) => (
-                    <li
-                      className={`calendar-bar calendar-bar-start calendar-bar-end calendar-cat-${category}`}
-                      key={event.activity_id}
-                      title={`${serverWhen(event.starts_at, now)} → ${serverWhen(event.ends_at, now)}`}
-                    >
-                      {labelOf(event)}
+                    <li key={event.activity_id}>
+                      <button
+                        className={`calendar-bar calendar-bar-start calendar-bar-end calendar-cat-${category}`}
+                        onClick={() => onOpen(event)}
+                        title={`${serverWhen(event.starts_at, now)} → ${serverWhen(event.ends_at, now)}`}
+                        type="button"
+                      >
+                        {labelOf(event)}
+                      </button>
                     </li>
                   ))}
                 </ul>
@@ -128,7 +133,9 @@ export function DayView({
                         {edge === 'starts' ? 'starts' : 'ends'}{' '}
                         {clock((edge === 'starts' ? event.starts_at : event.ends_at) ?? '')}
                       </span>{' '}
-                      {labelOf(event)}
+                      <button className="calendar-open" onClick={() => onOpen(event)} type="button">
+                        {labelOf(event)}
+                      </button>
                     </li>
                   ))}
                 </ul>

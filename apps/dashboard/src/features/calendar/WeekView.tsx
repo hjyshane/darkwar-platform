@@ -16,12 +16,14 @@ export function WeekView({
   today,
   onDay,
   onPickDay,
+  onOpen,
 }: {
   events: CalendarEvent[];
   day: string;
   today: string;
   onDay: (day: string) => void;
   onPickDay: (day: string) => void;
+  onOpen: (event: CalendarEvent) => void;
 }) {
   const monday = mondayOf(day);
   const keys = WEEKDAYS.map((_, index) => addDays(monday, index));
@@ -50,6 +52,7 @@ export function WeekView({
             label: `${WEEKDAYS[index]} ${Number(key.slice(8))}`,
           }))}
           events={events}
+          onOpen={onOpen}
           onPickDay={onPickDay}
           tall
           today={today}

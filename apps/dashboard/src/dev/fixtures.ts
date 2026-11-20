@@ -1039,8 +1039,8 @@ export const SESSION = {
 };
 
 /** The game calendar (0208): what one login saw. Real ids from the 10-02
- *  capture, two named by an officer and the rest still bare, which is what
- *  the page looks like on its first day. */
+ *  capture, named as `game-names` names them. Two are left bare — ids the
+ *  client's table has no row for — and the page lists those apart. */
 const CALENDAR_SEEN = ago(25);
 function calendarEvent(
   id: string,
@@ -1080,19 +1080,19 @@ const CALENDAR_KINDS: Record<string, [string, number]> = {
 const CALENDAR_ROWS_RAW = [
   calendarEvent('41101', -47, 17, 'Ice Pit'),
   calendarEvent('700001', -47, 9, 'Season 3'),
-  calendarEvent('40741', -47, 2),
-  calendarEvent('55001', -5, 0.9),
+  calendarEvent('40741', -47, 2, "Francis's Collection"),
+  calendarEvent('55001', -5, 0.9, 'Alliance Duel'),
   calendarEvent('400047', -12, 1.9, null, 7),
-  calendarEvent('111001', 0.5, 2),
-  calendarEvent('80002', 2, 9),
-  calendarEvent('104000', 9, 30),
+  calendarEvent('111001', 0.5, 2, 'Capital Clash'),
+  calendarEvent('80002', 2, 9, 'Black Gold Battlefield'),
+  calendarEvent('104000', 9, 30, 'Season Celebration'),
   calendarEvent('97001', 13, 20, null, 8),
-  calendarEvent('492000', -5, -0.1),
-  calendarEvent('40086', -182, 6400, null, 11),
-  calendarEvent('8072', -556, 6400, null, 8),
+  calendarEvent('492000', -5, -0.1, 'Frozen Rescue'),
+  calendarEvent('40086', -182, 6400, 'Hero Battle Pass', 11),
+  calendarEvent('8072', -556, 6400, "Catherine's Gift", 8),
   calendarEvent('300004', -1.5, 1.2, 'Mod Vehicle Combo Pack', 8),
   calendarEvent('40739', -47, 9, "Bob's Supply Shack"),
-  calendarEvent('30000', null, null, null, 6),
+  calendarEvent('30000', null, null, 'Daily Sign-in', 6),
 ];
 const CALENDAR_ROWS = CALENDAR_ROWS_RAW.map((row) => ({
   ...row,
@@ -1753,6 +1753,22 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
     ],
   ],
   [['event-calendar'], CALENDAR_ROWS],
+  // The game's own text for two events (0337); the rest answer "no description".
+  [
+    ['event-text', '41101'],
+    {
+      summary: 'Beat Tundra Titan to start your Ice Fishing adventure!',
+      rules:
+        'Conquest Rules:\n1. When Level 1/2/3 Ice Pits open, the ice surface will thaw at 12:00:00 (server time) that day, and the Tundra Titan will emerge and remain for 1 hour.\n2. When the Tundra Titan is defeated, the alliance that deals the highest cumulative damage will gain 7-day control of the Ice Pit until the next conquest begins.',
+    },
+  ],
+  [
+    ['event-text', '111001'],
+    {
+      summary: 'Seize the Capital, become the State dominator, and gain supreme power!',
+      rules: null,
+    },
+  ],
   [SESSION_KEY, SESSION],
   // The character picker (PlayerClaimForm): no alliance chosen at sign-up, so
   // every own alliance's characters, and the account's own links.

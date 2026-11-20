@@ -17,12 +17,14 @@ import { Select } from '../../components/ui/Select';
 import { Tabs } from '../../components/ui/Tabs';
 import { useSession } from '../../lib/useSession';
 import { DayView } from './DayView';
-import { ListView } from './ListView';
+import { EventCard } from './EventCard';
+import { EventTable, ListView } from './ListView';
 import { MonthView } from './MonthView';
 import { WeekView } from './WeekView';
 import {
   CATEGORIES,
   CATEGORY_LABELS,
+  type CalendarEvent,
   type Category,
   DEFAULT_SHOWN,
   endWithSeason,
@@ -31,6 +33,7 @@ import {
   search,
   serverDay,
   serverWhen,
+  splitIdentified,
 } from './data';
 import { calendarStrip } from './strip';
 
@@ -73,14 +76,21 @@ export function CalendarPage() {
     () => endWithSeason((calendar.data ?? []).filter((event) => event.server_id === serverShown)),
     [calendar.data, serverShown],
   );
+  // An event with no name is not drawn: it is listed apart, under the views.
+  const { identified, unidentified } = useMemo(() => splitIdentified(onServer), [onServer]);
   const inMonth = useMemo(
-    () => onServer.filter((event) => inCategory(event, shown)),
-    [onServer, shown],
+    () => identified.filter((event) => inCategory(event, shown)),
+    [identified, shown],
   );
   const listed = useMemo(
-    () => search(onServer, { text, day, shown }),
-    [onServer, text, day, shown],
+    () => search(identified, { text, day, shown }),
+    [identified, text, day, shown],
   );
+  // The open card, by id: the event is looked up again on every render, so a
+  // rename made from the card shows on it.
+  const [openId, setOpenId] = useState<string | null>(null);
+  const opened = onServer.find((event) => event.activity_id === openId) ?? null;
+  const open = (event: CalendarEvent) => setOpenId(event.activity_id);
   const openDay = (picked: string) => {
     setFocus(picked);
     setView('day');
@@ -138,7 +148,7 @@ export function CalendarPage() {
             </p>
           </div>
         </header>
-        <Strip cells={calendarStrip(onServer, now)} />
+        <Strip cells={calendarStrip(identified, now)} />
         <p className="entity-foot">
           From the login the collector saw at {serverWhen(onServer[0]?.seen_at ?? null)}.
         </p>
@@ -192,7 +202,8 @@ export function CalendarPage() {
                 {CATEGORY_LABELS[value]}
               </span>
             ))}
-            Bars run from the first to the last server day (UTC−2). Pick a date to open that day.
+            Bars run from the first to the last server day (UTC−2). Pick a date to open that day, or
+            an event to see what it is.
           </p>
         )}
         {view === 'month' ? (
@@ -200,6 +211,7 @@ export function CalendarPage() {
             day={focus}
             events={inMonth}
             onDay={setFocus}
+            onOpen={open}
             onPickDay={openDay}
             today={today}
           />
@@ -208,11 +220,19 @@ export function CalendarPage() {
             day={focus}
             events={inMonth}
             onDay={setFocus}
+            onOpen={open}
             onPickDay={openDay}
             today={today}
           />
         ) : view === 'day' ? (
-          <DayView day={focus} events={inMonth} now={now} onDay={setFocus} today={today} />
+          <DayView
+            day={focus}
+            events={inMonth}
+            now={now}
+            onDay={setFocus}
+            onOpen={open}
+            today={today}
+          />
         ) : (
           <>
             <div className="row calendar-search">
@@ -244,10 +264,42 @@ export function CalendarPage() {
                 </button>
               )}
             </div>
-            <ListView day={day} events={listed} mayName={mayName} now={now} />
+            <ListView day={day} events={listed} mayName={mayName} now={now} onOpen={open} />
           </>
         )}
       </div>
+
+      {unidentified.length > 0 && (
+        <details className="panel calendar-unidentified">
+          <summary>
+            <h3 className="calendar-heading">
+              Unidentified <span className="calendar-count">({unidentified.length})</span>
+            </h3>
+          </summary>
+          <p className="subtle">
+            The server lists these ids, but the game client has no name for them, so nobody can say
+            what they are. They are kept off the calendar and out of the figures above.
+            {mayName && ' Name one and it joins the calendar.'}
+          </p>
+          <EventTable
+            countdown={null}
+            events={unidentified}
+            mayName={mayName}
+            now={now}
+            onOpen={open}
+          />
+        </details>
+      )}
+
+      {opened !== null && (
+        <EventCard
+          event={opened}
+          key={opened.activity_id}
+          mayName={mayName}
+          now={now}
+          onClose={() => setOpenId(null)}
+        />
+      )}
     </main>
   );
 }
