@@ -1,4 +1,4 @@
--- 0337: event_names carries the game's own text - what an event is, in the
+-- 0338: event_names carries the game's own text - what an event is, in the
 -- client's words.
 --
 -- The calendar named an event and stopped there: a member who did not already
@@ -33,6 +33,6 @@ alter table public.event_names
   add column rules text check (rules is null or length(rules) <= 20000);
 
 comment on column public.event_names.summary is
-  'The client''s one-line description (activity_panel.desc_info), plain text (0337).';
+  'The client''s one-line description (activity_panel.desc_info), plain text (0338).';
 comment on column public.event_names.rules is
-  'The client''s rules screen (activity_panel.story), plain text (0337).';
+  'The client''s rules screen (activity_panel.story), plain text (0338).';
