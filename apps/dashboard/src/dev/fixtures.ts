@@ -24,10 +24,12 @@ import {
 import { overviewWindow } from '../features/alliance/overview';
 import type { BoardPage } from '../features/board/board';
 import { labelSubjects } from '../features/calculator/data';
+import { planWithPrerequisites } from '../features/calculator/prereqs';
 import type { CalculatorKind } from '../features/calculator/url';
 import { vacateDeparted } from '../features/hive/hiveFormations';
 import { parseAtlas } from '../features/map/atlas';
 import { gameDate, seasonPeriod } from '../features/participation/periods';
+import type { Goal, Step, StepBook } from '../features/planner/plan';
 import { SEASON3_BUILDINGS, levelKey } from '../features/season/buildings';
 
 const PLAYER = {
@@ -1391,6 +1393,66 @@ const CALC_BANK_STEPS = Array.from({ length: 30 }, (_, i) => {
     90 * level ** 3,
   );
 });
+/** What the Bank needs first, for the Advanced switch: two buildings, each
+ * one row of the "Needed first" table. As made up as the Bank's own steps. */
+const calcFirst = (subject: string, name: string, level: number) => {
+  const made = calcStep(
+    'building',
+    subject,
+    level,
+    [
+      { type: 'resource', id: '25', amount: 8_000 * level ** 3 },
+      { type: 'resource', id: '12', amount: 6_000 * level ** 3 },
+      ...(level > 20 ? [{ type: 'item', id: '253042', amount: (level - 20) * 10 }] : []),
+    ],
+    60 * level ** 3,
+  );
+  return { ...made, step: { ...made.step, name }, prerequisite: true };
+};
+/** The book the real reader would hand back: Bank level n asks for Alliance
+ * Hall n-1, and from 6 on for a Warehouse five levels behind. Planned by the
+ * page's own code, so the level pickers in the table work here too. */
+const CALC_BANK_BOOK: StepBook = new Map([
+  [
+    'building:409000',
+    new Map(
+      CALC_BANK_STEPS.map(({ step }) => [
+        step.level,
+        {
+          ...step,
+          requires: [
+            ...(step.level > 1 ? [{ subject: '402000', level: step.level - 1 }] : []),
+            ...(step.level > 5 ? [{ subject: '438000', level: step.level - 5 }] : []),
+          ],
+        } as Step,
+      ]),
+    ),
+  ],
+  ...(
+    [
+      ['402000', 'Alliance Hall', 29],
+      ['438000', 'Warehouse', 25],
+    ] as const
+  ).map(
+    ([subject, name, top]) =>
+      [
+        `building:${subject}`,
+        new Map(
+          Array.from({ length: top }, (_, i) => [
+            i + 1,
+            calcFirst(subject, name, i + 1).step as Step,
+          ]),
+        ),
+      ] as const,
+  ),
+]);
+const calcWithFirst = (from: number): [readonly unknown[], unknown] => {
+  const goals: Goal[] = [{ kind: 'building', subject: '409000', from, to: 30 }];
+  return [
+    ['calculator-steps', JSON.stringify(goals), 'with-prerequisites'],
+    { ...planWithPrerequisites(goals, CALC_BANK_BOOK), book: CALC_BANK_BOOK },
+  ];
+};
 const CALC_CHIP_STEPS = Array.from({ length: 100 }, (_, i) => {
   const level = i + 1;
   // Every tenth step takes duplicates instead of EXP, as the game's does.
@@ -1608,6 +1670,8 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
     ],
     { steps: CALC_BANK_STEPS, gaps: [] },
   ],
+  calcWithFirst(0),
+  calcWithFirst(28),
   [
     ['calculator-steps', JSON.stringify([{ kind: 'chip', subject: '5', from: 0, to: 100 }])],
     { steps: CALC_CHIP_STEPS, gaps: [] },

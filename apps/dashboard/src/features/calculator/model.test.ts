@@ -8,6 +8,7 @@ import {
   levelFloor,
   levelName,
   notesFor,
+  planTables,
   stepTable,
   withoutInertBuffs,
 } from './model';
@@ -82,12 +83,25 @@ describe('goalsFor', () => {
     ]);
   });
 
-  it('feeds one speed figure to whichever clock the kind runs on', () => {
+  it('feeds the speed figure to the clock the kind runs on, and to no other', () => {
     expect(buffsFor({ ...DEFAULT_STATE, speed: 35, cost: 10 })).toEqual({
       constructionSpeed: 35,
-      researchSpeed: 35,
+      researchSpeed: 0,
       costReduction: 10,
     });
+    // A research priced with its buildings: the bonus does not build faster.
+    expect(buffsFor({ ...DEFAULT_STATE, kind: 'research', speed: 35 })).toEqual({
+      constructionSpeed: 0,
+      researchSpeed: 35,
+      costReduction: 0,
+    });
+  });
+
+  it('keeps the prerequisites switch only on a kind that has prerequisites', () => {
+    const on = { ...DEFAULT_STATE, prereqs: true };
+    expect(withoutInertBuffs(on).prereqs).toBe(true);
+    expect(withoutInertBuffs({ ...on, kind: 'research' }).prereqs).toBe(true);
+    expect(withoutInertBuffs({ ...on, kind: 'pet' }).prereqs).toBe(false);
   });
 });
 
@@ -137,6 +151,78 @@ describe('stepTable', () => {
   });
 });
 
+describe('planTables', () => {
+  const wood = (amount: number) => [{ type: 'resource' as const, id: '25', amount }];
+  const parts = (amount: number) => [{ type: 'item' as const, id: '253042', amount }];
+  const none = { constructionSpeed: 0, researchSpeed: 0, costReduction: 0 };
+  const first = (step: Parameters<typeof planned>[0]): PlannedStep => ({
+    ...planned(step),
+    prerequisite: true,
+  });
+
+  it('is one table when nothing is needed first', () => {
+    const tables = planTables([planned({ kind: 'building', level: 30, costs: wood(100) })], none);
+    expect(tables.needed).toBeNull();
+    expect(tables.own).toBe(tables.all);
+  });
+
+  it('folds each thing needed first into one row and keeps the range step by step', () => {
+    const tables = planTables(
+      [
+        first({ kind: 'building', subject_id: '401000', name: 'Wall', level: 29, costs: parts(5) }),
+        first({ kind: 'building', subject_id: '401000', name: 'Wall', level: 30, costs: parts(7) }),
+        first({ kind: 'research', subject_id: '7001', name: null, level: 1, costs: wood(40) }),
+        planned({ kind: 'building', level: 30, costs: wood(100), seconds: 60 }),
+      ],
+      none,
+    );
+    expect(tables.needed?.rows.map((r) => [r.climb, r.amounts.get('item:253042')])).toEqual([
+      [{ name: 'Wall', floor: 28, from: 28, to: 30 }, 12],
+      [{ name: 'Research 7001', floor: 0, from: 0, to: 1 }, undefined],
+    ]);
+    expect(tables.needed?.total.amounts.get('resource:25')).toBe(40);
+    expect(tables.own.rows.map((r) => r.level)).toEqual([30]);
+    expect(tables.own.total.amounts.get('resource:25')).toBe(100);
+    // The top of the page is everything, and every table has its columns.
+    expect(tables.all.total.amounts.get('resource:25')).toBe(140);
+    expect(tables.own.materials).toBe(tables.all.materials);
+    expect(tables.needed?.materials).toBe(tables.all.materials);
+  });
+});
+
+describe('planTables with levels the reader set', () => {
+  const parts = (amount: number) => [{ type: 'item' as const, id: '253042', amount }];
+  const none = { constructionSpeed: 0, researchSpeed: 0, costReduction: 0 };
+  const wall = (level: number): PlannedStep => ({
+    ...planned({ kind: 'building', subject_id: '401000', name: 'Wall', level, costs: parts(5) }),
+    prerequisite: true,
+  });
+  const lab: PlannedStep = {
+    ...planned({ kind: 'building', subject_id: '402000', name: 'Lab', level: 3, costs: parts(9) }),
+    prerequisite: true,
+  };
+  const bank = planned({ kind: 'building', level: 30, costs: parts(1) });
+  const floor = [wall(29), wall(30), lab, bank];
+
+  it('keeps every row the floor listed, priced from where it now stands', () => {
+    // Wall said to be at 29 already; the Lab at 3, so nothing of it is left.
+    const tables = planTables([wall(30), bank], none, floor);
+    expect(tables.needed?.rows.map((r) => [r.climb, r.amounts.get('item:253042') ?? 0])).toEqual([
+      [{ name: 'Wall', floor: 28, from: 29, to: 30 }, 5],
+      [{ name: 'Lab', floor: 2, from: 3, to: 3 }, 0],
+    ]);
+    expect(tables.needed?.total.amounts.get('item:253042')).toBe(5);
+    expect(tables.all.total.amounts.get('item:253042')).toBe(6);
+  });
+
+  it('still lists them when nothing is left to pay, so a level can be set back', () => {
+    const tables = planTables([bank], none, floor);
+    expect(tables.needed?.rows).toHaveLength(2);
+    expect(tables.needed?.total.amounts.size).toBe(0);
+    expect(tables.own.rows.map((r) => r.level)).toEqual([30]);
+  });
+});
+
 describe('notesFor', () => {
   const chip = { ...DEFAULT_STATE, kind: 'chip' as const, subject: '5', to: 100 };
   const sums = {
@@ -169,11 +255,15 @@ describe('notesFor', () => {
   it('says what a building or research total leaves out', () => {
     const none = { materials: [], buildSeconds: 0, researchSeconds: 0 };
     expect(notesFor({ ...DEFAULT_STATE, subject: '409000', to: 30 }, none, [])).toEqual([
-      'Buildings this needs first are not included; the planner adds them.',
+      'Buildings this needs first are not included; Advanced adds them.',
     ]);
     expect(notesFor({ ...DEFAULT_STATE, kind: 'research', subject: '1', to: 3 }, none, [])).toEqual(
-      ['Research and buildings this needs first are not included; the planner adds them.'],
+      ['Research and buildings this needs first are not included; Advanced adds them.'],
     );
+    // With them priced in, there is nothing left out to mention.
+    expect(
+      notesFor({ ...DEFAULT_STATE, subject: '409000', to: 30, prereqs: true }, none, []),
+    ).toEqual([]);
   });
 
   it('marks an exclusive weapon range that reaches the red ranks', () => {

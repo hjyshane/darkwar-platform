@@ -34,6 +34,9 @@ export interface CalculatorState {
   speed: number;
   /** Cost reduction, percent. */
   cost: number;
+  /** Whether the buildings and research the range needs first are priced
+   * with it (prereqs.ts). Buildings and research only. */
+  prereqs: boolean;
 }
 
 export const DEFAULT_STATE: CalculatorState = {
@@ -43,6 +46,7 @@ export const DEFAULT_STATE: CalculatorState = {
   to: 0,
   speed: 0,
   cost: 0,
+  prereqs: false,
 };
 
 /** Widest a buff is allowed to be in the address: a construction speed past
@@ -83,6 +87,7 @@ export function parseCalculatorHash(hash: string): CalculatorState {
     to: Math.max(from, bounded(params.get('to'), MAX_LEVEL)),
     speed: bounded(params.get('speed'), MAX_SPEED),
     cost: bounded(params.get('cost'), MAX_COST),
+    prereqs: params.get('pre') === '1',
   };
 }
 
@@ -96,6 +101,7 @@ export function calculatorHash(state: CalculatorState): string {
   if (state.to > 0) params.set('to', String(state.to));
   if (state.speed > 0) params.set('speed', String(state.speed));
   if (state.cost > 0) params.set('cost', String(state.cost));
+  if (state.prereqs) params.set('pre', '1');
   return `${CALCULATOR_HASH}?${params.toString()}`;
 }
 

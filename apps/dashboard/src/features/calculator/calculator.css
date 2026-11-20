@@ -77,6 +77,41 @@
   margin: var(--space-1) 0;
 }
 
+/* The advanced options: closed until asked for, so the form stays the short
+ * one most questions need. */
+.calc-advanced {
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-3);
+}
+
+.calc-advanced > summary {
+  color: var(--fg-muted);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.calc-check {
+  align-items: center;
+  display: flex;
+  font-size: var(--text-sm);
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.calc-form .calc-check input {
+  padding: 0;
+}
+
+.calc-hint {
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  margin: var(--space-2) 0 0;
+}
+
 /* --- the result ---------------------------------------------------------- */
 
 .calc-result {
@@ -156,6 +191,15 @@
 }
 
 .calc-step {
+  white-space: nowrap;
+}
+
+/* A needed-first row: its name, the level it stands at (the reader's to
+ * set) and the level needed, on one line. */
+.calc-have {
+  align-items: center;
+  display: inline-flex;
+  gap: var(--space-2);
   white-space: nowrap;
 }
 

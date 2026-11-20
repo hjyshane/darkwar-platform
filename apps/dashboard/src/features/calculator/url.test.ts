@@ -13,6 +13,7 @@ const SPEC_LINK = '#/calculator?kind=building&subject=409000&from=28&to=30&speed
 describe('parseCalculatorHash', () => {
   it('reads the example from the spec', () => {
     expect(parseCalculatorHash(SPEC_LINK)).toEqual({
+      prereqs: false,
       kind: 'building',
       subject: '409000',
       from: 28,
@@ -92,5 +93,18 @@ describe('isCalculatorHash', () => {
     expect(isCalculatorHash(SPEC_LINK)).toBe(true);
     expect(isCalculatorHash('#/calculators')).toBe(false);
     expect(isCalculatorHash('#/planner')).toBe(false);
+  });
+});
+
+describe('the prerequisites switch', () => {
+  it('is in the address only when on, and reads back', () => {
+    const on = { ...DEFAULT_STATE, subject: '409000', from: 28, to: 30, prereqs: true };
+    expect(calculatorHash(on)).toBe(
+      '#/calculator?kind=building&subject=409000&from=28&to=30&pre=1',
+    );
+    expect(parseCalculatorHash(calculatorHash(on))).toEqual(on);
+    expect(calculatorHash({ ...on, prereqs: false })).not.toContain('pre=');
+    // Anything but the one value the page writes is off.
+    expect(parseCalculatorHash('#/calculator?kind=building&pre=yes').prereqs).toBe(false);
   });
 });
