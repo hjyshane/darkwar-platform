@@ -251,6 +251,8 @@ test('did not move any address', () => {
     '#/arena': 'arena',
     '#/members': 'members',
     '#/hive': 'hive',
+    // Starting a formation: a page of the hive screen, not a tab of it.
+    '#/hive/new': 'hive',
     '#/season': 'season',
     '#/season2': 'season2',
     '#/black-gold': 'blackMoney',

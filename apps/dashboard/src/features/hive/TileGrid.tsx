@@ -169,11 +169,14 @@ function AxisFrame({
   view,
   children,
   grip,
+  overlay,
 }: {
   view: GridWindow;
   children: ReactNode;
   /** The resize handle, drawn just off the grid's bottom-right corner. */
   grip?: ReactNode;
+  /** Controls drawn over the grid's corners — see `TileGrid`'s `overlay`. */
+  overlay?: ReactNode;
 }) {
   // MEASURED ON THE X AXIS ITSELF, not on the frame around it. The frame is
   // full width while the grid column is capped at 720px, so on a wide screen
@@ -200,6 +203,11 @@ function AxisFrame({
         ))}
       </div>
       {children}
+      {/* A SIBLING OF THE GRID, NOT A CHILD. The editor's grid is a button,
+          and a button cannot hold buttons; laid over the same cell instead,
+          and only its panels take the pointer, so every tile between them is
+          still the grid's to click. */}
+      {overlay !== undefined && <div className="tile-frame__overlay">{overlay}</div>}
       <div aria-hidden="true" className="tile-frame__axis tile-frame__axis--x" ref={axisRef}>
         {axisTicks(view.xMin, view.xMax, budget(X_LABEL_PX)).map((x) => (
           <span key={x} style={{ left: `${((x - view.xMin + 0.5) / view.across) * 100}%` }}>
@@ -580,18 +588,23 @@ export function shiftedAt(at: Coordinate, from: Coordinate, to: Coordinate): Coo
 
 /** Whether a press on `tile` picks up the anchor rather than what is under it.
  *
- * Only on the anchor's own square, and only when nobody is standing there — a
- * person's base on the anchor is theirs to drag. Ground (a structure such as
- * Frankie) does not count as somebody, which is the usual case: Frankie is
- * drawn centred on the anchor. */
-export function grabsAnchor(
-  tile: Coordinate,
-  anchor: Coordinate,
-  held: Pick<GridBase, 'structure'> | undefined,
-): boolean {
-  return (
-    tile.x === anchor.x && tile.y === anchor.y && (held === undefined || held.structure === true)
-  );
+ * THE ANCHOR'S OWN SQUARE, WHATEVER IS DRAWN OVER IT. It used to yield to a
+ * person's base standing there, which left an officer with no way to take
+ * hold of the one tile every offset hangs from once somebody was put on it.
+ * The anchor is one square and drawn on top; a base over it is still carried
+ * from any of its other eight. */
+export function grabsAnchor(tile: Coordinate, anchor: Coordinate): boolean {
+  return tile.x === anchor.x && tile.y === anchor.y;
+}
+
+/** One tile of a shape about to be stamped, where it would land and whether
+ * it would — drawn under the pointer before the click. */
+export interface StampGhost {
+  key: string;
+  at: Coordinate;
+  spanX: number;
+  spanY: number;
+  allowed: boolean;
 }
 
 function rectStyle(window: GridWindow, box: FootprintBox) {
@@ -620,6 +633,8 @@ export function TileGrid({
   onMoveAnchor,
   canAnchorAt,
   onResize,
+  overlay,
+  stampGhosts,
   busy = false,
 }: {
   window: GridWindow;
@@ -689,6 +704,14 @@ export function TileGrid({
    * hand the size back to the page. The caller owns the size and lays the
    * page out round it; the grid only draws the handle. */
   onResize?: (width: number | null) => void;
+  /** Controls laid over the grid's corners: the view buttons and the colour
+   * key. Each panel takes the pointer; the ground between them stays the
+   * grid's. */
+  overlay?: ReactNode;
+  /** Given, the shape a click would put down, drawn under the pointer as it
+   * moves — so a stamp is aimed rather than guessed. The click itself still
+   * arrives through `onPick`. */
+  stampGhosts?: (at: Coordinate) => readonly StampGhost[];
   busy?: boolean;
 }) {
   const surfaceRef = useRef<HTMLElement | null>(null);
@@ -710,6 +733,8 @@ export function TileGrid({
   // Where a member being dragged in from the list would land, while they are
   // over the grid.
   const [incoming, setIncoming] = useState<{ at: Coordinate; allowed: boolean } | null>(null);
+  // The tile under a pointer that is only hovering, while a stamp is armed.
+  const [hover, setHover] = useState<Coordinate | null>(null);
   // The anchor being carried: where it would land, and whether it may.
   const [anchorDrag, setAnchorDrag] = useState<{
     to: Coordinate;
@@ -914,17 +939,18 @@ export function TileGrid({
           title={`${sighting.name ?? 'unnamed'} was last seen at ${formatTeleport(sighting.at)}`}
         />
       ))}
-      <span
-        className={
-          anchorGrabbable ? 'tile-grid__anchor tile-grid__anchor--grab' : 'tile-grid__anchor'
-        }
-        style={boxStyle(view, anchorDrag?.moved === true ? anchorDrag.to : anchor, 1)}
-        title={
-          anchorGrabbable
-            ? `Anchor — ${formatTeleport(anchor)}. Drag it to move the whole formation.`
-            : `Anchor — ${formatTeleport(anchor)}`
-        }
-      />
+      {/* THE SHAPE A CLICK WOULD STAMP, under the pointer before the click. */}
+      {hover !== null &&
+        stampGhosts !== undefined &&
+        stampGhosts(hover).map((ghost) => (
+          <span
+            className={
+              ghost.allowed ? 'tile-grid__ghost' : 'tile-grid__ghost tile-grid__ghost--blocked'
+            }
+            key={`stamp-${ghost.key}`}
+            style={boxStyle(view, ghost.at, ghost.spanX, ghost.spanY)}
+          />
+        ))}
       {/* THE WHOLE FORMATION WHERE IT WOULD LAND. Moving the anchor moves
           every tile, so every tile gets a ghost — one ghost would say nothing
           about whether the far wing runs off the map. */}
@@ -1036,6 +1062,21 @@ export function TileGrid({
           </span>
         );
       })}
+      {/* THE ANCHOR LAST, one square, over everything drawn on it. Under a
+          base it was a square nobody could see or take hold of; on top it is
+          always there to find, and a press on it is always the anchor's
+          (`grabsAnchor`). */}
+      <span
+        className={
+          anchorGrabbable ? 'tile-grid__anchor tile-grid__anchor--grab' : 'tile-grid__anchor'
+        }
+        style={boxStyle(view, anchorDrag?.moved === true ? anchorDrag.to : anchor, 1)}
+        title={
+          anchorGrabbable
+            ? `Anchor — ${formatTeleport(anchor)}. Drag it to move the whole formation.`
+            : `Anchor — ${formatTeleport(anchor)}`
+        }
+      />
     </>
   );
 
@@ -1052,7 +1093,7 @@ export function TileGrid({
 
   if (onPick === undefined) {
     return (
-      <AxisFrame grip={grip} view={view}>
+      <AxisFrame grip={grip} overlay={overlay} view={view}>
         {/* NO MODIFIER NEEDED HERE. On the read-only map a drag has nothing
             else it could mean, so plain dragging pans and ctrl still works —
             the editor needs ctrl only because a bare drag there already
@@ -1090,7 +1131,7 @@ export function TileGrid({
   // presses arrive with `detail === 0` and are ignored rather than
   // silently placing a base in the middle.
   return (
-    <AxisFrame grip={grip} view={view}>
+    <AxisFrame grip={grip} overlay={overlay} view={view}>
       <button
         aria-label={[
           sweeping
@@ -1135,6 +1176,7 @@ export function TileGrid({
           }
         }}
         onDragLeave={() => setIncoming(null)}
+        onPointerLeave={() => setHover(null)}
         onDragOver={(event) => {
           if (onDropMember === undefined || !event.dataTransfer.types.includes(MEMBER_DRAG_TYPE)) {
             return;
@@ -1215,11 +1257,10 @@ export function TileGrid({
             return;
           }
           const held = baseUnder(tile);
-          // THE ANCHOR FIRST, because Frankie is drawn over it and the
-          // structure rule below would otherwise turn this press into a pan.
-          // Like a base drag, nothing moves until the pointer does: a press
-          // that goes nowhere is still a click on that square.
-          if (anchorGrabbable && grabsAnchor(tile, anchor, held)) {
+          // THE ANCHOR FIRST, over whatever is drawn on its square — Frankie,
+          // or somebody's base. Like a base drag, nothing moves until the
+          // pointer does; what a press that goes nowhere means is on release.
+          if (anchorGrabbable && grabsAnchor(tile, anchor)) {
             event.currentTarget.setPointerCapture(event.pointerId);
             setAnchorDrag({ to: anchor, moved: false, allowed: true });
             return;
@@ -1286,6 +1327,13 @@ export function TileGrid({
             return;
           }
           if (drag === null) {
+            // Only hovering: where an armed stamp would land.
+            if (stampGhosts !== undefined) {
+              const over = tileUnder(event);
+              if (over?.x !== hover?.x || over?.y !== hover?.y) {
+                setHover(over);
+              }
+            }
             return;
           }
           const tile = tileUnder(event);
@@ -1334,6 +1382,13 @@ export function TileGrid({
           if (anchorDrag !== null) {
             setAnchorDrag(null);
             if (!anchorDrag.moved) {
+              // A CLICK ON THE ANCHOR IS THE ANCHOR'S when something is drawn
+              // over it: it must not fall through and take away the base it
+              // sits on. Free ground under it still takes the click, so a tile
+              // can be put down centred on the anchor.
+              if (baseUnder(anchor) !== undefined) {
+                swallowClick.current = true;
+              }
               return;
             }
             swallowClick.current = true;
