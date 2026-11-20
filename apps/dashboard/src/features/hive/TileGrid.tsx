@@ -17,6 +17,7 @@ import {
   footprintOf,
   formatTeleport,
 } from '../../lib/hiveFormation';
+import { TILE_H, TILE_W } from '../../lib/tileShape';
 import { MAP_SIZE_MAX, MAP_SIZE_MIN } from './mapPrefs';
 
 // A few dozen tiles, close enough to click one.
@@ -185,10 +186,10 @@ function AxisFrame({
   // column, so its width IS the width the labels are laid out across.
   const axisRef = useRef<HTMLDivElement | null>(null);
   const width = useWidthOf(axisRef);
-  // The grid is square, so that width is also the height the Y labels stack
-  // down. One measurement, two spacings.
-  const budget = (perLabel: number) =>
-    width === 0 ? TICKS_UNMEASURED : Math.max(2, Math.floor(width / perLabel));
+  // The grid is 4:3 (a tile is wider than tall), so the Y labels stack down
+  // three quarters of that width. One measurement, two spacings.
+  const budget = (perLabel: number, along = width) =>
+    width === 0 ? TICKS_UNMEASURED : Math.max(2, Math.floor(along / perLabel));
 
   return (
     <div className={grip === undefined ? 'tile-frame' : 'tile-frame tile-frame--resizable'}>
@@ -196,7 +197,7 @@ function AxisFrame({
         Y
       </span>
       <div aria-hidden="true" className="tile-frame__axis tile-frame__axis--y">
-        {axisTicks(view.yMin, view.yMax, budget(Y_LABEL_PX)).map((y) => (
+        {axisTicks(view.yMin, view.yMax, budget(Y_LABEL_PX, (width * TILE_H) / TILE_W)).map((y) => (
           <span key={y} style={{ top: `${((view.yMax - y + 0.5) / view.across) * 100}%` }}>
             {y}
           </span>
@@ -814,7 +815,8 @@ export function TileGrid({
     }
     const box = event.currentTarget.getBoundingClientRect();
     const cell = box.width / view.across;
-    if (cell === 0) {
+    const cellY = box.height / view.across;
+    if (cell === 0 || cellY === 0) {
       return;
     }
     // Whole tiles only. A sub-tile pan would have to move the grid's
@@ -822,7 +824,7 @@ export function TileGrid({
     // draws is defined in tiles — so the picture would not change until the
     // step landed anyway, just later and less evenly.
     const stepX = Math.round((event.clientX - pan.x) / cell);
-    const stepY = Math.round((event.clientY - pan.y) / cell);
+    const stepY = Math.round((event.clientY - pan.y) / cellY);
     if (stepX === 0 && stepY === 0) {
       return;
     }
@@ -832,7 +834,7 @@ export function TileGrid({
     // the screen counts downward — the two flips cancel and the sign stays
     // positive.
     onPan?.(-stepX, stepY);
-    setPan({ ...pan, x: pan.x + stepX * cell, y: pan.y + stepY * cell, moved: true });
+    setPan({ ...pan, x: pan.x + stepX * cell, y: pan.y + stepY * cellY, moved: true });
   }
   // Base dragging is off while sweeping: one gesture, one meaning.
   const draggable = onMove !== undefined && !sweeping;

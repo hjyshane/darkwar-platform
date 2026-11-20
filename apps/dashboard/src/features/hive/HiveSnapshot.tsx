@@ -1,4 +1,5 @@
 import { footprintOf, isMemberBase } from '../../lib/hiveFormation';
+import { TILE_H, TILE_W } from '../../lib/tileShape';
 import type { BoardSlot } from './hiveFormations';
 
 /** Tiles of air round the bases, so the outer row is not drawn on the edge. */
@@ -112,7 +113,8 @@ export function HiveSnapshot({
     >
       <svg
         aria-hidden="true"
-        style={{ aspectRatio: `${snapshot.width} / ${snapshot.height}` }}
+        preserveAspectRatio="none"
+        style={{ aspectRatio: `${snapshot.width * TILE_W} / ${snapshot.height * TILE_H}` }}
         viewBox={`0 0 ${snapshot.width} ${snapshot.height}`}
       >
         {others.map((tile) => (
@@ -127,11 +129,13 @@ export function HiveSnapshot({
         ))}
         {own && (
           <>
-            <circle
+            {/* Stretched with the picture, so the radius is narrower across to stay round. */}
+            <ellipse
               className="hive-snap__ring"
               cx={own.left + own.width / 2}
               cy={own.top + own.height / 2}
-              r={Math.max(own.width, own.height) * 1.1}
+              rx={(Math.max(own.width, own.height) * 1.1 * TILE_H) / TILE_W}
+              ry={Math.max(own.width, own.height) * 1.1}
             />
             <rect
               className={own.className}
