@@ -16,6 +16,7 @@ import {
   type MaterialTotal,
   type PlannedStep,
   type Totals,
+  groupSteps,
   totals,
 } from '../planner/plan';
 import { breakthroughsCrossed } from '../planner/targets';
@@ -59,7 +60,14 @@ export function withoutInertBuffs(state: CalculatorState): CalculatorState {
     ...state,
     speed: fields.speed ? state.speed : 0,
     cost: fields.cost ? state.cost : 0,
+    prereqs: hasPrerequisites(state.kind) && state.prereqs,
   };
+}
+
+/** The kinds that need other things first: a building needs buildings, a
+ * research needs buildings and earlier research (0243). Nothing else does. */
+export function hasPrerequisites(kind: CalculatorKind): boolean {
+  return kind === 'building' || kind === 'research';
 }
 
 /** The lowest `from` a kind allows. A hero, the vehicle and a pet exist at
@@ -89,11 +97,13 @@ export function goalsFor(state: CalculatorState): Goal[] {
   ];
 }
 
-/** One speed figure, whichever clock the kind runs on. */
-export function buffsFor(state: Pick<CalculatorState, 'speed' | 'cost'>): Buffs {
+/** One speed figure, on the clock the kind runs on and no other: a research
+ * priced with the buildings it needs first has both clocks in it, and a
+ * research speed bonus does not build anything faster. */
+export function buffsFor(state: Pick<CalculatorState, 'kind' | 'speed' | 'cost'>): Buffs {
   return {
-    constructionSpeed: state.speed,
-    researchSpeed: state.speed,
+    constructionSpeed: state.kind === 'research' ? 0 : state.speed,
+    researchSpeed: state.kind === 'building' ? 0 : state.speed,
     costReduction: state.cost,
   };
 }
@@ -122,6 +132,16 @@ export interface StepRow {
   amounts: ReadonlyMap<string, number>;
   /** Seconds after buffs; zero where the kind has no time. */
   seconds: number;
+  /** Set on a row that is a whole climb and not one step: a building or
+   * research the range needs first, from the level it is taken to stand at. */
+  climb?: {
+    name: string;
+    /** The least it can stand at: what the range's from level required. */
+    floor: number;
+    /** Where it is taken to stand: the floor, or what the reader has. */
+    from: number;
+    to: number;
+  };
 }
 
 export interface StepTableModel {
@@ -145,10 +165,14 @@ function rowOf(sums: Totals): Pick<StepRow, 'amounts' | 'seconds'> {
 /** One row per step and a total row, every figure from the planner's
  * totals(). Rows are priced one at a time, so a row's rounding is its own
  * and the total row is the range's, as the planner shows it. */
-export function stepTable(steps: ReadonlyArray<PlannedStep>, buffs: Buffs): StepTableModel {
+export function stepTable(
+  steps: ReadonlyArray<PlannedStep>,
+  buffs: Buffs,
+  columns?: MaterialTotal[],
+): StepTableModel {
   const sums = totals(steps, buffs);
   return {
-    materials: sums.materials,
+    materials: columns ?? sums.materials,
     rows: steps.map((planned) => ({
       key: `${planned.step.kind}:${planned.step.subject_id}:${planned.step.level}`,
       kind: planned.step.kind,
@@ -162,6 +186,73 @@ export function stepTable(steps: ReadonlyArray<PlannedStep>, buffs: Buffs): Step
       subject: '',
       level: null,
       ...rowOf(sums),
+    },
+  };
+}
+
+export interface PlanTables {
+  /** Everything: the range and what it needs first. Its materials are the
+   * columns of both tables below, so a figure is found in the same place. */
+  all: StepTableModel;
+  /** The range's own steps, one row each. */
+  own: StepTableModel;
+  /** One row per building or research needed first, in the order the plan
+   * meets them; null when the range needs nothing it does not already have. */
+  needed: StepTableModel | null;
+}
+
+/** A plan split for the page: the range step by step, and each thing it needs
+ * first as one row. Without prerequisites in the steps, `own` is `all`.
+ *
+ * `floor` is the same plan before the reader said what they have. Its rows
+ * are the ones listed, so a row whose level was raised until it costs nothing
+ * stays where it can be lowered again; the figures are `steps`' own. */
+export function planTables(
+  steps: ReadonlyArray<PlannedStep>,
+  buffs: Buffs,
+  floor: ReadonlyArray<PlannedStep> = steps,
+): PlanTables {
+  const all = stepTable(steps, buffs);
+  const listed = groupSteps(floor.filter((s) => s.prerequisite));
+  if (listed.length === 0) return { all, own: all, needed: null };
+  const first = steps.filter((s) => s.prerequisite);
+  const now = new Map(groupSteps(first).map((group) => [group.key, group]));
+  const own = stepTable(
+    steps.filter((s) => !s.prerequisite),
+    buffs,
+    all.materials,
+  );
+  return {
+    all,
+    own,
+    needed: {
+      materials: all.materials,
+      rows: listed.map((group) => {
+        const left = now.get(group.key);
+        return {
+          key: group.key,
+          kind: group.kind,
+          subject: group.subject,
+          level: group.to,
+          ...rowOf(totals(left?.steps ?? [], buffs)),
+          climb: {
+            name:
+              group.name ??
+              `${group.kind === 'research' ? 'Research' : 'Building'} ${group.subject}`,
+            floor: group.from,
+            // Nothing left of it: it stands where it was needed, or past it.
+            from: left?.from ?? group.to,
+            to: group.to,
+          },
+        };
+      }),
+      total: {
+        key: 'total',
+        kind: 'building',
+        subject: '',
+        level: null,
+        ...rowOf(totals(first, buffs)),
+      },
     },
   };
 }
@@ -199,11 +290,11 @@ export function notesFor(
       notes.push(`${exact(duplicates)} duplicate${duplicates === 1 ? '' : 's'} of the same chip`);
     }
   }
-  if (state.kind === 'building') {
-    notes.push('Buildings this needs first are not included; the planner adds them.');
+  if (state.kind === 'building' && !state.prereqs) {
+    notes.push('Buildings this needs first are not included; Advanced adds them.');
   }
-  if (state.kind === 'research') {
-    notes.push('Research and buildings this needs first are not included; the planner adds them.');
+  if (state.kind === 'research' && !state.prereqs) {
+    notes.push('Research and buildings this needs first are not included; Advanced adds them.');
   }
   if (state.kind === 'vehicle_part') {
     notes.push('Every vehicle part costs the same.');

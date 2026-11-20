@@ -6,10 +6,11 @@
 
 import { supabase } from '../../lib/supabase';
 import { type Subject, fetchCatalogSubjects, loadBook } from '../planner/data';
-import { type Goal, type Plan, type PlannedStep, plan } from '../planner/plan';
+import { type Goal, type Plan, type PlannedStep, type StepBook, plan } from '../planner/plan';
 import { buildingsForCalculator } from './buildingList';
 import { CHIP_EXP, chipSubjectName } from './chips';
 import type { ExpCard } from './model';
+import { fromNothing, planWithPrerequisites } from './prereqs';
 import type { CalculatorKind } from './url';
 
 /** Hero gear qualities by the colour the game draws them in (owner,
@@ -133,13 +134,27 @@ export interface LoadedSteps {
   steps: PlannedStep[];
   /** Levels in the range the catalogue has no step for. */
   gaps: Plan['gaps'];
+  /** With prerequisites: every climb from nothing, so the page can plan again
+   * from the levels the reader says they have without another read. */
+  book?: StepBook;
 }
 
-/** The steps of the goals, priced by nobody yet. No prerequisites: the
- * reference has no account, so it cannot say which are already met. */
-export async function loadSteps(goals: ReadonlyArray<Goal>): Promise<LoadedSteps> {
+/** The steps of the goals, priced by nobody yet. Without prerequisites unless
+ * asked: the reference has no account, so which are already met is worked out
+ * from the `from` level alone (prereqs.ts). */
+export async function loadSteps(
+  goals: ReadonlyArray<Goal>,
+  withPrerequisites = false,
+): Promise<LoadedSteps> {
   if (goals.length === 0) return { steps: [], gaps: [] };
   const none = new Map<string, number>();
+  if (withPrerequisites) {
+    // The whole climb from nothing, so the standing at `from` can be worked
+    // out (prereqs.ts). In the plan's order: what is needed first comes first.
+    const whole = await loadBook(fromNothing(goals), none, true);
+    const { steps, gaps } = planWithPrerequisites(goals, whole);
+    return { steps, gaps, book: whole };
+  }
   const book = await loadBook(goals, none, false);
   const { steps, gaps } = plan(goals, book, none, false);
   // A pet's breakthroughs are goals of their own; put each beside the level

@@ -6,7 +6,14 @@ import { useId, useState } from 'react';
 import { Select } from '../../components/ui/Select';
 import type { Subject } from '../planner/data';
 import type { Tiers } from '../planner/levels';
-import { type FormKind, KIND_OPTIONS, buffFields, levelFloor, levelName } from './model';
+import {
+  type FormKind,
+  KIND_OPTIONS,
+  buffFields,
+  hasPrerequisites,
+  levelFloor,
+  levelName,
+} from './model';
 import { filterSubjects } from './search';
 import type { SeasonGroup } from './seasons';
 import type { TreeGroup } from './trees';
@@ -229,6 +236,28 @@ export function CalculatorForm({
             )}
           </div>
         </>
+      )}
+
+      {hasPrerequisites(state.kind) && (
+        // Open when the link asked for it, so a shared link shows why its
+        // totals are larger.
+        <details className="calc-advanced" open={state.prereqs || undefined}>
+          <summary>Advanced</summary>
+          <label className="calc-check">
+            <input
+              checked={state.prereqs}
+              onChange={(event) => onChange({ ...state, prereqs: event.target.checked })}
+              type="checkbox"
+            />
+            Include what it needs first
+          </label>
+          <p className="calc-hint">
+            {state.kind === 'research'
+              ? 'The research and buildings this range asks for, priced with it.'
+              : 'The other buildings this range asks for, priced with it.'}{' '}
+            For one account's own levels and stock, open the <a href="#/planner">planner</a>.
+          </p>
+        </details>
       )}
     </form>
   );

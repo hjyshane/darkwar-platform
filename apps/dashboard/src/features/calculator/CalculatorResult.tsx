@@ -2,8 +2,10 @@
 // notes, and one row per step. Every figure arrives already worked out by the
 // planner's totals() (model.ts); this file only draws.
 
+import type { ReactNode } from 'react';
 import { Cell, CellGrid } from '../../components/console/Cell';
 import { type StepColumn, StepTable } from '../../components/console/StepTable';
+import { Select } from '../../components/ui/Select';
 import { GameIcon, useIcons, useItemIcons } from '../../lib/gameIcons';
 import type { Names } from '../planner/data';
 import { exact, short } from '../planner/format';
@@ -19,7 +21,14 @@ const FOLD_AT = 20;
 
 export interface CalculatorResultProps {
   state: CalculatorState;
+  /** Everything priced: the totals at the top, and the columns of the tables. */
   table: StepTableModel;
+  /** The range's own steps; `table` itself when nothing is needed first. */
+  own?: StepTableModel;
+  /** The buildings and research needed first, one row each. */
+  needed?: StepTableModel | null;
+  /** The reader says where one of the needed-first rows really stands. */
+  onHave?: (kind: 'building' | 'research', subject: string, level: number) => void;
   notes: ReadonlyArray<string>;
   names: Names | undefined;
   tiers: Tiers;
@@ -47,7 +56,16 @@ function buffContext(percent: number, sign: '+' | '−', what: string): string |
   return percent > 0 ? `${sign}${percent}% ${what}` : undefined;
 }
 
-export function CalculatorResult({ state, table, notes, names, tiers }: CalculatorResultProps) {
+export function CalculatorResult({
+  state,
+  table,
+  own = table,
+  needed = null,
+  onHave,
+  notes,
+  names,
+  tiers,
+}: CalculatorResultProps) {
   const itemIcons = useItemIcons(table.materials.filter((m) => m.type === 'item').map((m) => m.id));
   const resourceIcons = useIcons('resource');
   // Icons are the game's art and members-only (0232): a viewer who may not
@@ -59,19 +77,41 @@ export function CalculatorResult({ state, table, notes, names, tiers }: Calculat
     return m.type === 'resource' ? resourceIcons.data?.get(m.id) : undefined;
   };
 
-  const stepLabel = (row: StepRow): string => {
-    if (row.level === null) return 'Total';
+  const stepLabel = (row: StepRow, total: string): ReactNode => {
+    if (row.level === null) return total;
     if (row.kind === 'pet_break') return `Breakthrough at ${row.level}`;
+    if (row.climb !== undefined) {
+      // A building or research needed first: its own kind's level names.
+      const { climb } = row;
+      const kind = row.kind === 'research' ? 'research' : 'building';
+      const name = (level: number) => levelName(kind, row.subject, level, tiers);
+      if (onHave === undefined) return `${climb.name} · ${name(climb.from)} → ${name(climb.to)}`;
+      // Where it stands is the reader's to say: from the least the range's
+      // from level allows, up to the level needed (which costs nothing).
+      const levels = Array.from({ length: climb.to - climb.floor + 1 }, (_, i) => climb.floor + i);
+      return (
+        <span className="calc-have">
+          {climb.name}
+          <Select
+            aria-label={`${climb.name}: level now`}
+            onChange={(v) => onHave(kind, row.subject, Number(v))}
+            value={climb.from}
+          >
+            {levels.map((level) => (
+              <option key={level} value={level}>
+                {name(level)}
+              </option>
+            ))}
+          </Select>
+          → {name(climb.to)}
+        </span>
+      );
+    }
     const name = (level: number) => levelName(state.kind, row.subject, level, tiers);
     return `${name(row.level - 1)} → ${name(row.level)}`;
   };
 
-  const columns: StepColumn<StepRow>[] = [
-    {
-      key: 'step',
-      header: 'Step',
-      cell: (row) => <span className="calc-step">{stepLabel(row)}</span>,
-    },
+  const costColumns: StepColumn<StepRow>[] = [
     ...table.materials.map(
       (material): StepColumn<StepRow> => ({
         key: materialKey(material),
@@ -98,6 +138,14 @@ export function CalculatorResult({ state, table, notes, names, tiers }: Calculat
           },
         ]
       : []),
+  ];
+  const columnsFor = (header: string, total: string): StepColumn<StepRow>[] => [
+    {
+      key: 'step',
+      header,
+      cell: (row) => <span className="calc-step">{stepLabel(row, total)}</span>,
+    },
+    ...costColumns,
   ];
 
   return (
@@ -143,13 +191,23 @@ export function CalculatorResult({ state, table, notes, names, tiers }: Calculat
         )}
       </div>
 
+      {needed !== null && (
+        <StepTable
+          caption="Needed first"
+          columns={columnsFor('Upgrade', 'Needed first')}
+          foldAt={FOLD_AT}
+          rowKey={(row) => row.key}
+          rows={needed.rows}
+          total={needed.total}
+        />
+      )}
       <StepTable
         caption="Step by step"
-        columns={columns}
+        columns={columnsFor('Step', needed === null ? 'Total' : 'This range alone')}
         foldAt={FOLD_AT}
         rowKey={(row) => row.key}
-        rows={table.rows}
-        total={table.total}
+        rows={own.rows}
+        total={own.total}
       />
     </>
   );

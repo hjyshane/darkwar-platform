@@ -11,7 +11,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { replaceHash, useHash } from '../../lib/useHash';
 import { fetchMaterialNames, fetchResearchTabs, fetchTiers } from '../planner/data';
 import type { Tiers } from '../planner/levels';
-import { totals } from '../planner/plan';
+import { bookKey, totals } from '../planner/plan';
 import { CalculatorForm } from './CalculatorForm';
 import { CalculatorResult } from './CalculatorResult';
 import './calculator.css';
@@ -21,11 +21,14 @@ import {
   SHARED_KINDS,
   buffsFor,
   goalsFor,
+  hasPrerequisites,
   levelFloor,
+  levelName,
   notesFor,
-  stepTable,
+  planTables,
   withoutInertBuffs,
 } from './model';
+import { planWithPrerequisites } from './prereqs';
 import { groupBySeason, isSeasonBuilding } from './seasons';
 import { OUR_SERVER, groupByTree } from './trees';
 import {
@@ -38,6 +41,7 @@ import {
 
 const HOUR = 60 * 60_000;
 const NO_TIERS: Tiers = new Map();
+const NO_LEVELS: ReadonlyMap<string, number> = new Map();
 
 function CopyLink({ state }: { state: CalculatorState }) {
   const [said, setSaid] = useState<string | null>(null);
@@ -82,7 +86,8 @@ export function CalculatorPage() {
     queryKey: ['planner-tiers'],
     queryFn: fetchTiers,
     staleTime: HOUR,
-    enabled: state.kind === 'building',
+    // A research priced with what it needs first names buildings too.
+    enabled: state.kind === 'building' || state.prereqs,
   });
   const researchTabs = useQuery({
     queryKey: ['calculator-research-tabs'],
@@ -145,18 +150,38 @@ export function CalculatorPage() {
         );
   const goals = current === null ? [] : goalsFor(range);
   const goalKey = JSON.stringify(goals);
+  const withFirst = hasPrerequisites(range.kind) && range.prereqs;
   const loaded = useQuery({
-    queryKey: ['calculator-steps', goalKey],
-    queryFn: () => loadSteps(goals),
+    queryKey: withFirst
+      ? ['calculator-steps', goalKey, 'with-prerequisites']
+      : ['calculator-steps', goalKey],
+    queryFn: () => (withFirst ? loadSteps(goals, true) : loadSteps(goals)),
     enabled: goals.length > 0,
     staleTime: HOUR,
   });
-  const { speed, cost } = range;
-  const buffs = useMemo(() => buffsFor({ speed, cost }), [speed, cost]);
-  const table = useMemo(
-    () => (loaded.data ? stepTable(loaded.data.steps, buffs) : null),
-    [loaded.data, buffs],
+  // Where the reader says a needed-first building or research really stands.
+  // Theirs alone: it is not in the address, and a new range starts it over.
+  const [held, setHeld] = useState<{ goal: string; levels: ReadonlyMap<string, number> }>({
+    goal: '',
+    levels: new Map(),
+  });
+  const have = held.goal === goalKey ? held.levels : NO_LEVELS;
+  const floor = loaded.data;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: goals are named by goalKey
+  const planned = useMemo(
+    () =>
+      floor?.book !== undefined && have.size > 0
+        ? planWithPrerequisites(goals, floor.book, have)
+        : floor,
+    [floor, have, goalKey],
   );
+  const { kind, speed, cost } = range;
+  const buffs = useMemo(() => buffsFor({ kind, speed, cost }), [kind, speed, cost]);
+  const tables = useMemo(
+    () => (planned && floor ? planTables(planned.steps, buffs, floor.steps) : null),
+    [planned, floor, buffs],
+  );
+  const table = tables?.all ?? null;
   const itemIds = (table?.materials ?? [])
     .filter((m) => m.type === 'item')
     .map((m) => m.id)
@@ -182,9 +207,28 @@ export function CalculatorPage() {
     write({ ...DEFAULT_STATE, kind: next, speed: state.speed, cost: state.cost });
   };
 
-  const gap = loaded.data?.gaps[0];
+  const gap = planned?.gaps[0];
+  // A gap in something needed first is not a gap in the range itself.
+  const gapIsOwn = gap !== undefined && gap.kind === range.kind && gap.subject === range.subject;
   const notes =
-    loaded.data && table ? notesFor(range, totals(loaded.data.steps, buffs), cards.data ?? []) : [];
+    planned && table ? notesFor(range, totals(planned.steps, buffs), cards.data ?? []) : [];
+  if (withFirst && tables && current !== null) {
+    const stands = `${current.name} ${levelName(range.kind, current.subject, range.from, tiers.data ?? NO_TIERS)}`;
+    const count =
+      tables.needed?.rows.filter((row) => row.amounts.size > 0 || row.seconds > 0).length ?? 0;
+    const raised = have.size > 0;
+    notes.unshift(
+      range.from === 0
+        ? count > 0
+          ? `Includes ${count} needed first, each from nothing.`
+          : 'Nothing is needed first.'
+        : count > 0
+          ? `Includes ${count} needed first, each from where ${stands} already had it. Set a level you have raised past that in the table.`
+          : raised
+            ? 'Nothing more is needed first at the levels you set.'
+            : `Nothing more is needed first: ${stands} already asked for it all.`,
+    );
+  }
 
   return (
     <main>
@@ -238,16 +282,33 @@ export function CalculatorPage() {
           {loaded.isError && (
             <p className="error">Could not load the costs: {loaded.error.message}</p>
           )}
-          {gap !== undefined && (
+          {gap !== undefined && gapIsOwn && (
             <p className="error">
               The catalogue has no cost for level {gap.level}; the figures stop before it.
             </p>
           )}
-          {table !== null && goals.length > 0 && table.rows.length > 0 && (
+          {gap !== undefined && !gapIsOwn && (
+            <p className="error">
+              Something this needs first has no cost in the catalogue ({gap.kind} {gap.subject},
+              level {gap.level}); it is left out past there.
+            </p>
+          )}
+          {table !== null && tables !== null && goals.length > 0 && table.rows.length > 0 && (
             <>
               <CalculatorResult
                 names={names.data}
+                needed={tables.needed}
+                onHave={
+                  floor?.book === undefined
+                    ? undefined
+                    : (kind, subject, level) =>
+                        setHeld({
+                          goal: goalKey,
+                          levels: new Map(have).set(bookKey(kind, subject), level),
+                        })
+                }
                 notes={notes}
+                own={tables.own}
                 state={range}
                 table={table}
                 tiers={tiers.data ?? NO_TIERS}

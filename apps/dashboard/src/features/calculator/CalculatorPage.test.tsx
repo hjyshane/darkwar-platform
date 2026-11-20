@@ -192,4 +192,57 @@ describe('CalculatorPage', () => {
     await screen.findByRole('table');
     expect(screen.getByLabelText('Season')).toBeTruthy();
   });
+
+  it('prices what the range needs first when the link asks for it', async () => {
+    mocks.loadSteps.mockResolvedValue({
+      steps: [
+        {
+          ...step('building', '401000', 29),
+          step: { ...step('building', '401000', 29).step, name: 'Wall' },
+          prerequisite: true,
+        },
+        step('building', '409000', 29),
+        step('building', '409000', 30),
+      ],
+      gaps: [],
+    });
+    open('#/calculator?kind=building&subject=409000&from=28&to=30&pre=1');
+
+    const [needed, own] = await screen.findAllByRole('table');
+    expect(mocks.loadSteps).toHaveBeenCalledWith(
+      [{ kind: 'building', subject: '409000', from: 28, to: 30 }],
+      true,
+    );
+    // No book in this answer, so the row is read-only: there is nothing to plan again from.
+    expect(within(needed as HTMLElement).getByText('Wall · 28 → 29')).toBeTruthy();
+    expect(within(own as HTMLElement).getByText('This range alone')).toBeTruthy();
+    // Three steps of 300K each at the top; two of them the range's own.
+    const totals = screen.getByRole('group', { name: 'Totals' });
+    expect(within(totals).getByText('900K')).toBeTruthy();
+    expect(within(own as HTMLElement).getByText('600K')).toBeTruthy();
+    expect(
+      screen.getByText(/Includes 1 needed first, each from where Bank 28 already had it/),
+    ).toBeTruthy();
+    expect(screen.queryByText(/not included/)).toBeNull();
+    expect((screen.getByLabelText('Include what it needs first') as HTMLInputElement).checked).toBe(
+      true,
+    );
+  });
+
+  it('offers the switch for buildings and research only, with the way to the planner', async () => {
+    const first = open('#/calculator?kind=building&subject=409000&from=28&to=30');
+    await screen.findByRole('table');
+    expect((screen.getByLabelText('Include what it needs first') as HTMLInputElement).checked).toBe(
+      false,
+    );
+    expect(screen.getByRole('link', { name: 'planner' }).getAttribute('href')).toBe('#/planner');
+    first.unmount();
+
+    open('#/calculator?kind=chip&subject=4&to=1&pre=1');
+    await screen.findByRole('table');
+    expect(screen.queryByLabelText('Include what it needs first')).toBeNull();
+    expect(mocks.loadSteps).toHaveBeenLastCalledWith([
+      { kind: 'chip', subject: '4', from: 0, to: 1 },
+    ]);
+  });
 });
