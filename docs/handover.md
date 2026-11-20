@@ -1,12 +1,12 @@
 # 인수인계
 
-**재작성 2026-11-15** (알람 배포 반영; 전체 재구성은 11-12). 이 문서는 일지가 아니라 **덮어쓰는 현재 상태**다 — 해결된 항목은 지우고, 사연은 `docs/log/`에 남긴다. 4,243줄이던 이전 버전은 달별로 `docs/log/`에 옮겼다(내용 수정 없음). 분할 근거: [handover-split-proposal.md](handover-split-proposal.md).
+**갱신 2026-11-20** (`main` `b90a0512` 기준; 재작성 11-15, 전체 재구성은 11-12). 이 문서는 일지가 아니라 **덮어쓰는 현재 상태**다 — 해결된 항목은 지우고, 사연은 `docs/log/`에 남긴다. 4,243줄이던 이전 버전은 달별로 `docs/log/`에 옮겼다(내용 수정 없음). 분할 근거: [handover-split-proposal.md](handover-split-proposal.md).
 
 > 줄마다 **확인함**(이 문서를 쓰며 파일·git으로 봄) / **미확인**(일지·PR 제목에서 가져옴, 지금 상태를 모름)을 구분한다.
 
 ## 1. 한 문단
 
-수집(Windows 수집기 + 맥 아이폰 체인) → SQLite 저널 → Supabase → 대시보드(cbfw.us, main 머지 시 CI `deploy` 잡이 배포)가 운영 중이다. 11-09 시즌 4(Sealed Island)가 시작됐다. 클라우드 부계정 무인 수집·게임 내 동작(ADR-0002/0003)은 **코드와 수동 검증까지**이고 상시 운영은 아직 확인되지 않았다.
+수집(Windows 수집기 + 맥 아이폰 체인) → SQLite 저널 → Supabase → 대시보드(cbfw.us, main 머지 시 CI `deploy` 잡이 배포)가 운영 중이다. 11-09 시즌 4(Sealed Island)가 시작됐다. 클라우드 부계정 무인 수집·게임 내 동작(ADR-0002/0003)은 **코드와 수동 검증까지**이고 상시 운영은 아직 확인되지 않았다. **11-20 확인함:** `main`은 열린 PR 0개, 최근 CI 5건 success, cbfw.us가 `index-DOuRJeZK.js`(deploy 잡이 일치 확인).
 
 ## 2. 사람 몫 / 막힌 것
 
@@ -28,12 +28,13 @@
 - **알람 실제 시험 (Task 10 Step 3, 주인 몫, 미실시).** 시험용 역할(한 명만 보유)과 시험용 채널을 Zombie Siege 보드에 걸고, 다음 Siege나 Frankie에서 12시간/1시간/5분 알림이 오는지, 폰에 역할 푸시가 오는지, 두 시간대에서 시각이 맞는지 본다. 멘션은 보이는데 푸시가 안 오면 역할의 "Allow anyone to @mention this role"을 켠다.
 - **0334 대기 — 순서가 있다 (11-18, 지도 연맹·이동·트럭).** ① 주인이 `db push`로 0334 적용 → ② 그 **뒤에** Windows Ingest·Sync 재시작(`collector-operations.md` 레시피). 거꾸로 하면 새 파서(world_map 1.7.0)가 `in_alliance`·`alliance_code`를 보내는데 DB에 열이 없어 Sync가 막힌다. 확인: 재시작 뒤 `world_city_snapshots`에 `in_alliance`가 찬 행, `world_truck_snapshots`에 `source_command = 'push.world.march.world.get.new'` 행, 566 지도에 연맹 랭킹. 미션 좌표(타일 그대로 복사)가 게임 좌표와 같은지는 **미확인** — 게임에서 미션 공유 링크 하나와 대조. `log/2026-11.md`. **11-19 재시작 뒤 Sync는 막히지 않았다(확인함, 저널 기준):** 로컬 outbox에서 `in_alliance`가 든 행 39,400개와 `march.world.get.new` 트럭 300개가 오류 없이 sent — sync는 모르는 열을 거르지 않으니 프로덕션에 0334 열이 있다. `schema_migrations` 기록과 위 화면 확인 셋은 안 봄.
 - **0335–0340 프로덕션 적용 완료 (11-19 23:08 EST 무렵, 확인함).** 주인이 `main` `274205b8`에서 `db push --remote`로 여섯 개를 한 번에 적용했다(`Finished supabase db push.`). 푸시 직전 `migration list --linked`에서 원격은 0334까지였고 0337은 비어 있었다 — 번호가 둘이던 동안(#646으로 이벤트 설명이 0338로 옮겨짐) 잘못 들어간 것은 없다. 그 뒤 Ingest·Sync를 §4-2 레시피로 재시작(프로세스 시작 23:07:53·23:08:01, 옛 워커 없음, `sync.start`와 새 파일 ingest 확인).
-  - **남은 확인(미실시):** 로그인 한 번 → `shop_pack_offers`에 줄, Packs 탭에서 배틀패스가 값과 함께 8개 안팎. 0338(이벤트 설명 카드)·0339(hive 앵커 재설정)·0340(떠난 미션이 목록에서 빠짐)도 화면에서는 안 봄. 0337 pgTAP은 이 PC에서 못 돌렸다(PostgreSQL 17 없음) — CI `db` 잡이 유일한 실행. 두 팩짜리 패스의 트랙 대응은 추론(미확인), 데일리 패키지 4단계는 여전히 임원 선택 — `log/2026-11.md`.
+  - **남은 확인(미실시):** 로그인 한 번 → `shop_pack_offers`에 줄, Packs 탭에서 배틀패스가 값과 함께 8개 안팎. 0338(이벤트 설명 카드)·0339(hive 앵커 재설정)·0340(떠난 미션이 목록에서 빠짐)도 화면에서는 안 봄. 0337 pgTAP은 Windows PC에서 못 돌렸지만(PostgreSQL 17 없음) **11-20 맥에서 전체 통과(확인함: 마이그레이션 336개, 파일 232개, 실패 0, 13초)**, CI `db`도 초록. 두 팩짜리 패스의 트랙 대응은 추론(미확인), 데일리 패키지 4단계는 여전히 임원 선택 — `log/2026-11.md`.
   - **이 PC에서 `db push` 하는 법:** supabase CLI가 설치돼 있지 않고 실행 정책이 `npx.ps1`을 막는다 → `npx.cmd supabase …`. 이 CLI 버전은 기본 대상이 로컬 스택이라 `--remote`가 필요하다. 링크는 11-19에 함(`link --project-ref`는 URL이 아니라 20자 ref).
 - **0328 적용 완료 (11-15, PR #598 머지·푸시).** v10으로 두 연맹 현재 기간 리빌드함(HELLBOUND는 11-16 00:17Z에 2주차 측정 뒤 재빌드). 11-15 21:42Z~00:00Z 사이 주간 보드 스윕이 없어 2주차 읽기는 21:31Z 캡처.
 - **0335·0336 — 이제 `schema_migrations`에 있다 (11-19).** 먼저 SQL Editor로 적용됐던 둘(0335: 끝난 기간 리빌드에서 부재가 사라지던 버그, v12 / 0336: Rebuild 50초 상한)은 위 푸시가 다시 돌리며 기록했다(함수 교체뿐). 남은 것: CBFW 11-02~16 Rebuild로 v12 행이 생기고 부재 R1이 돌아오는지(11-18 14:49Z 이후 Rebuild 성공 0), R1 37명(44%)의 원인 — `log/2026-11.md` 11-19.
 - **Windows 수집기 — 11-19 재등록·재시작 (확인함).** 11-19 01:45Z ingest가 `database is locked` 하나에 죽고 16시간 안 살아났다(#628·#631로 고침, `log/2026-11.md`). 주인이 13:21 EST에 `register-tasks.ps1`로 네 작업을 `main` `4580bb37`로 재등록, Sync만 #631 뒤 13:37 EST에 `a3ea389d`로 재시작. 넷 다 로그온+**시간** 트리거, `NextRunTime` 있음 — 죽으면 5분 안에 되살아난다(전엔 반복이 무장 안 돼 있었다). 크래시 구간 파일은 전부 들어갔고 outbox 0 대기·0 dead. 체크아웃에 남아 있던 다른 세션의 커밋 안 된 대시보드 변경(이벤트 가이드 Guides·Duel scores 탭 삭제)은 11-19에 브랜치 `feat/event-guide-drop-guides-scores`로 옮겼다(확인함, 검사 통과). 역분석 작업물 `analysis/`·`tools/`(Ghidra 등, 1.3GB)는 Ghidra가 열려 있어 저장소 폴더에 그대로 두고 `.gitignore`로 막았다. 반영하려면 `git pull`만으로는 안 된다(editable install) — `collector-operations.md` §4-2. **재시작 전에 `git -C C:\darkwar-platform branch --show-current`가 `main`인지 본다**(11-19에도 한때 `feat/hive-map-zoom-size-rank`였다).
 - **맥**: `git pull` + `install-iphone-agent.sh`(체인이 옛 체인을 먼저 죽임, #551).
+- **머지 안 된 것 (11-20 워크트리 정리 때 확인함).** 머지·클린 워크트리 30개는 지웠다. 남은 것: 브랜치 `llm-features-design`(0322, 보류), `immigration-tab-analytics`(대시보드 2커밋, PR 없음), `supabase-storage-overflow`(0317 아레나 보드 60일 — **0317은 main에서 `player_squad_power`가 씀, 새 번호로**), `cloud-alliance-help`(tcpdump 그룹 종료, 1커밋). 커밋 안 된 파일: `setup-minipc.ps1`, `direct-send-feasibility.md`, `gift-redeem.user.js`+테스트+`gift-codes.md` 수정(각각 `4gb-…`·`angry-gould`·`gift-code-redeem-…` 워크트리).
 - **VM(GCE `dw-emu-test`)은 맥에서만 닿는다.** Windows엔 gcloud도 SSH 항목도 없다.
 
 ## 3. 실데이터로 한 번도 안 돌린 것
@@ -76,6 +77,7 @@
 
 ## 6. 최근 2주 (자세한 것은 `log/2026-11.md`)
 
+- 11-20 `main` 상태 점검·워크트리 정리·0335–0340 pgTAP 맥 통과; 0337 번호 중복(#645)·hive 도구 모음(#646)·홈 hive(#643)·맵 hunt 탭(#644) 머지 — `log/2026-11.md`
 - 11-19 `database is locked` 하나에 ingest가 16시간 죽음 — 잠금 재시도, 무장 안 된 되살리기 트리거 (#628·#631) — `log/2026-11.md`
 - 11-19 끝난 등급 기간을 다시 빌드하면 부재가 사라지던 버그 (0335, v12); CBFW 등급 대거 변동의 진단 — `log/2026-11.md`
 - 11-18 맵 스윕을 게임의 좌표 이동 창으로(`goto-sweep`), 직접 요청·딥링크는 안 됨, BlueStacks 터치 사고 — `log/2026-11.md`
@@ -83,8 +85,6 @@
 - 11-17 게임 1.250.672의 APS zstd v1: 압축 응답 전부 유실 → 디코더·키 추출·백필 (#604) — `log/2026-11.md`
 - 11-16 수동 기간의 중도 가입자 점수 산정, 재적 비율로 보정 (0329, v11) — `log/2026-11.md`
 - 11-15 등급 측정 시각 월요일 00:00 UTC(리셋 2시간 전) + 듀얼 `days` 모드 (0328, v10) — `log/2026-11.md`
-- 11-08 등급 측정 시각 일요일 14:00 UTC (0309, v9) — `log/2026-11.md`
-- 11-08 시즌 4 전날 점검, Windows 수집기가 26일 묵은 코드였음 — 같은 파일
 - 11-09~10 콘솔 키트 + 이벤트 가이드·계산기·플레이어 헤더·연맹 페이지 Phase A/B (#568~#581)
 - 11-09 마이그레이션 번호 충돌로 main이 빨개짐(#574) — 함정 재발
 - 11-10 플레이어 서버 이동 이력 0320, 아틀라스·기지가 이민을 따라감 (#587~#589)
