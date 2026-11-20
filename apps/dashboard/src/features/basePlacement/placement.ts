@@ -14,6 +14,8 @@
 // box). A square is named by its CENTRE cell, so an odd side is the only kind
 // that has one; every size here is odd for that reason.
 
+import { shareCoordinate } from '../../lib/shareCoordinate';
+
 export const BASE_SIZE = 3;
 
 export { TILE_H, TILE_W } from '../../lib/tileShape';
@@ -154,10 +156,11 @@ export function ringFor(s: Structure): Cell[] | null {
   return TRADE_SHOP_RING.map((o) => ({ x: s.x + o.x, y: s.y + o.y }));
 }
 
-/** `(x,y)` per line, for pasting into chat. */
-export function coordinateList(bases: readonly Cell[]): string {
+/** One base per line in the game's share form, `#580[X:372 Y:431]`, for
+ * pasting into chat: the server in front is what makes each line tappable. */
+export function coordinateList(serverId: number, bases: readonly Cell[]): string {
   return [...bases]
     .sort((a, b) => a.y - b.y || a.x - b.x)
-    .map((b) => `${b.x},${b.y}`)
+    .map((b) => shareCoordinate(serverId, b))
     .join('\n');
 }

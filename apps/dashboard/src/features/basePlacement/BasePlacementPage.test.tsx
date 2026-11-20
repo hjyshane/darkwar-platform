@@ -42,6 +42,22 @@ describe('BasePlacementPage', () => {
     expect(screen.getByText(/Overlaps another base/)).toBeTruthy();
   });
 
+  // What gets pasted into game chat: the server in front is what makes each
+  // line a tappable place, so the list is written that way on screen too.
+  it('lists each base as #server[X: Y:], for the server picked', () => {
+    const { container } = render(<BasePlacementPage />);
+    const [x, y] = screen.getAllByRole('textbox').slice(0, 2) as [
+      HTMLInputElement,
+      HTMLInputElement,
+    ];
+    fireEvent.change(x, { target: { value: '372' } });
+    fireEvent.change(y, { target: { value: '431' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add base' }));
+    expect(container.querySelector('.bp-list')?.textContent).toBe('#580[X:372 Y:431]');
+    fireEvent.change(screen.getByLabelText('Server'), { target: { value: '583' } });
+    expect(container.querySelector('.bp-list')?.textContent).toBe('#583[X:372 Y:431]');
+  });
+
   it('forgets nothing on a reload', () => {
     const first = render(<BasePlacementPage />);
     fireEvent.click(screen.getByRole('button', { name: 'Place the sealing ring' }));
@@ -63,6 +79,12 @@ describe('parseState', () => {
       expect(parseState(raw).structures).toHaveLength(1);
       expect(parseState(raw).bases).toEqual([]);
     }
+  });
+  it('keeps a layout saved before the server was asked for, on the default server', () => {
+    const raw = JSON.stringify({ structures: [], bases: [{ x: 372, y: 431 }] });
+    expect(parseState(raw)).toMatchObject({ server: 580, bases: [{ x: 372, y: 431 }] });
+    expect(parseState(JSON.stringify({ server: 583, structures: [], bases: [] })).server).toBe(583);
+    expect(parseState(JSON.stringify({ server: 'x', structures: [], bases: [] })).server).toBe(580);
   });
   it('refuses an even footprint', () => {
     const raw = JSON.stringify({
