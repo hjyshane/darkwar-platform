@@ -74,6 +74,7 @@ const ROUTES: Record<string, Route> = {
   '#/arena': 'arena',
   '#/month-cards': 'monthCards',
   '#/account': 'account',
+  '#/account/plans': 'account',
   '#/guides': 'guides',
   '#/notices': 'notices',
   '#/participation': 'participation',
@@ -250,21 +251,42 @@ export function merchantTesterOffered(who: { isAdmin: boolean; isOfficer: boolea
  * button leaves it. */
 export const HIVE_NEW = '#/hive/new';
 
-/** The planner's three pages: choosing what to raise (with what it takes), the
- * numbers it is worked out from (stock and buffs), and what to upgrade next.
- * The five kinds of thing to raise are a bar inside the first page, not
- * addresses of their own. */
-export type PlannerTab = 'raise' | 'settings' | 'upgrades';
-export const PLANNER = tabbed<PlannerTab>(
-  '#/planner',
-  [
-    { id: 'raise', label: 'What to raise' },
-    { id: 'settings', label: 'Settings' },
-    { id: 'upgrades', label: 'Next upgrades' },
-  ],
+/** My account, opened on its Plans tab: where the planner sends a reader who
+ * has just saved one (0341). The page's other tabs have no address. */
+export const ACCOUNT_PLANS = '#/account/plans';
+
+/** The planner is ONE page since 2026-11-20 (owner): stock and buffs sit at its
+ * head instead of on a Settings page, and Next upgrades is no longer shown.
+ * Every address it has ever handed out still opens it. */
+export type PlannerTab = 'raise';
+export const PLANNER = tabbed<PlannerTab>('#/planner', [{ id: 'raise', label: 'What to raise' }], {
+  // The two pages it had until 2026-11-20.
+  settings: 'raise',
+  upgrades: 'raise',
   // The five addresses the first layout had (one per kind of thing to raise).
-  { building: 'raise', research: 'raise', heroes: 'raise', vehicle: 'raise', pets: 'raise' },
-);
+  building: 'raise',
+  research: 'raise',
+  heroes: 'raise',
+  vehicle: 'raise',
+  pets: 'raise',
+});
+
+/** The calculator's two pages: what a range of upgrades costs, and how long a
+ * resource takes to reach an amount at its hourly output. The second sat on
+ * the season board as "Wait Calculator" until 2026-11-20; it is arithmetic on
+ * three typed figures and belongs to no season. The cost page keeps its state
+ * in a query on the bare address (`#/calculator?kind=…`). */
+export type CalculatorTab = 'cost' | 'wait';
+export const CALCULATOR = tabbed<CalculatorTab>('#/calculator', [
+  { id: 'cost', label: 'Upgrade cost' },
+  { id: 'wait', label: 'Resource wait time' },
+]);
+
+/** The tab an address names, whatever query rides on it. */
+export function calculatorTabFromHash(fullHash: string): CalculatorTab {
+  const at = fullHash.indexOf('?');
+  return CALCULATOR.fromHash(at < 0 ? fullHash : fullHash.slice(0, at));
+}
 
 /** Which kind of thing to raise a planner address names: only the old
  * per-kind addresses name one. */
@@ -349,6 +371,9 @@ export function routeFromHash(fullHash: string): Route {
   }
   if (PLANNER.matches(hash)) {
     return 'planner';
+  }
+  if (CALCULATOR.matches(hash)) {
+    return 'calculator';
   }
   if (SERVER_HASH.test(hash)) {
     return 'server';
@@ -518,10 +543,9 @@ export const OWN_ALLIANCE_TABS: ReadonlyArray<NavTab> = [
 /** The rest of the Alliance group, beside the alliance's own entry: tools for
  * one of its members rather than boards about all of them. */
 //
-// PLANNER IS ARCHIVED (2026-11-12): the calculator answers the question most
-// people brought to it. Its address still opens it, so no link breaks and no
-// account state it shows is lost; it just has no entry, the way Schedule was
-// archived on 2026-10-03.
+// THE PLANNER HAS NO ENTRY OF ITS OWN. It was archived on 2026-11-12 and came
+// back on 2026-11-20 (owner) filed under Calculator, beside the wait-time page:
+// `calculatorChildren` in `shellNav.ts`.
 export const ALLIANCE_TABS: ReadonlyArray<NavTab> = [
   // What a range costs with no account open, with the state in the address so
   // the link can be passed around.

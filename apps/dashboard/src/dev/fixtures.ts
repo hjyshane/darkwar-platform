@@ -1658,6 +1658,25 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
     ]),
   ],
   [['planner-accounts'], [PLANNER_ACCOUNT]],
+  // A saved plan (0341), as the planner reopens it and My account lists it.
+  [
+    ['planner-plans'],
+    [
+      {
+        planId: '11111111-1111-4111-8111-111111113411',
+        name: 'Watchtower 56',
+        playerId: PLANNER_ID,
+        accountName: 'WonderingDuck',
+        targets: [
+          { kind: 'building', subject: '400000', name: 'Watchtower', from: 55, to: 56 },
+          { kind: 'research', subject: '1601100', name: 'Field Rations', from: 12, to: 14 },
+        ],
+        extra: { constructionSpeed: 10, researchSpeed: 0, costReduction: 0 },
+        withPrereqs: true,
+        updatedAt: '2026-11-19T18:40:00Z',
+      },
+    ],
+  ],
   [['calculator-subjects', 'building'], CALC_BUILDINGS],
   [
     ['calculator-subjects', 'chip'],

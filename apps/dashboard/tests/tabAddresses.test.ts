@@ -7,6 +7,7 @@ import {
   allianceHash,
   allianceIdFromHash,
   allianceViewFromHash,
+  calculatorTabFromHash,
   plannerKindFromHash,
   routeFromHash,
 } from '../src/lib/route';
@@ -169,18 +170,37 @@ describe('sidebar tabs for the alliance screens', () => {
     expect(filed(planner, 'watch', 'CBFW', 'Hive')).toBeUndefined();
   });
 
-  it('gives the archived planner no sidebar entry, while its address still opens it', () => {
+  it('files the planner and the wait-time page under Calculator', () => {
+    const under = (ctx: NavContext) =>
+      buildNav(ctx)
+        .flatMap((group) => group.items)
+        .find((item) => item.label === 'Calculator');
     for (const ctx of [base({ route: 'planner' }), admin({ route: 'planner' })]) {
-      const named = buildNav(ctx).flatMap((group) =>
-        group.items.flatMap((item) => [item, ...(item.children ?? [])]),
-      );
-      expect(named.length).toBeGreaterThan(6);
-      expect(
-        named.filter((one) => one.label === 'Planner' || one.href.startsWith('#/planner')),
-      ).toEqual([]);
-      expect(named.some((one) => one.current)).toBe(false);
+      const entry = under(ctx);
+      expect(entry?.current).toBe(true);
+      expect(entry?.children?.map((child) => [child.label, child.href, child.current])).toEqual([
+        ['Upgrade cost', '#/calculator', false],
+        ['Resource wait time', '#/calculator/wait', false],
+        ['Planner', '#/planner', true],
+      ]);
     }
-    expect(routeFromHash(PLANNER.hash('upgrades'))).toBe('planner');
+    const wait = under(base({ route: 'calculator', tabs: { calculator: 'wait' } }));
+    expect(wait?.children?.filter((child) => child.current).map((child) => child.label)).toEqual([
+      'Resource wait time',
+    ]);
+    expect(routeFromHash('#/calculator/wait')).toBe('calculator');
+    expect(calculatorTabFromHash('#/calculator/wait')).toBe('wait');
+    expect(calculatorTabFromHash('#/calculator?kind=chip&subject=4')).toBe('cost');
+    expect(routeFromHash('#/calculator/nope')).toBe('overview');
+  });
+
+  it('opens the one planner page from the two pages it used to have', () => {
+    for (const old of ['settings', 'upgrades']) {
+      expect(routeFromHash(`#/planner/${old}`)).toBe('planner');
+      expect(PLANNER.fromHash(`#/planner/${old}`)).toBe('raise');
+    }
+    expect(PLANNER.tabs.map((tab) => tab.id)).toEqual(['raise']);
+    expect(routeFromHash('#/account/plans')).toBe('account');
   });
 
   it('sends the five old per-kind planner addresses to What to raise', () => {

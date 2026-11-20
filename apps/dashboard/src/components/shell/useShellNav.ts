@@ -6,6 +6,7 @@ import {
   type Route,
   adminGroupFromHash,
   allianceViewFromHash,
+  calculatorTabFromHash,
   eventGuideTabFromHash,
 } from '../../lib/route';
 import { FALLBACK_SEASONS, currentSeason, pastSeason, useSeasons } from '../../lib/seasons';
@@ -54,6 +55,7 @@ export function useShellNav(
     tabs: {
       members: MEMBERS.fromHash(hash),
       hive: HIVE.fromHash(hash),
+      calculator: calculatorTabFromHash(hash),
       alliance: allianceViewFromHash(hash) ?? undefined,
     },
     mayPlanHive: isPending ? undefined : isAllowed(permissions?.grants, session?.role, 'hive.plan'),

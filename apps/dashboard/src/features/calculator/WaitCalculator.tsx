@@ -1,7 +1,12 @@
 import { useId, useState } from 'react';
+import './calculator.css';
 import { formatWait, parseAmount, waitFor } from './wait';
 
 /** How long until a resource reaches what an upgrade wants.
+ *
+ * On the season board as "Wait Calculator" until 2026-11-20. It never read a
+ * season: any resource with an hourly output fits, so it is the calculator's
+ * second page now (`#/calculator/wait`).
  *
  * The whole thing is local state. The app holds no production rate for
  * anybody and the building board carries levels rather than stockpiles, so
@@ -10,7 +15,7 @@ import { formatWait, parseAmount, waitFor } from './wait';
  * are empty again. That is stated on the screen so nobody types their numbers
  * expecting the alliance to see them.
  */
-export function SeasonWaitCalculator() {
+export function WaitCalculator() {
   const [perHour, setPerHour] = useState('');
   const [current, setCurrent] = useState('');
   const [needed, setNeeded] = useState('');
@@ -96,5 +101,24 @@ export function SeasonWaitCalculator() {
         boxes empty on reload.
       </p>
     </div>
+  );
+}
+
+/** The calculator's second page. */
+export function WaitCalculatorPage() {
+  return (
+    <main>
+      <section>
+        <h2>Resource wait time</h2>
+        <p className="calc-intro">
+          How long until a resource reaches the amount an upgrade wants, at the hourly output the
+          game shows for it. Any resource: season materials, food, iron, anything that comes in by
+          the hour.
+        </p>
+      </section>
+      <div className="panel">
+        <WaitCalculator />
+      </div>
+    </main>
   );
 }

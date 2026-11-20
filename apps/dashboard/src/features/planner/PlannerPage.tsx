@@ -1,7 +1,4 @@
 // The material planner (item 4): pick an account, pick what to raise and to
-import { useIsCommunity } from '../../lib/communityAccess';
-import { PLANNER, type PlannerTab, plannerKindFromHash } from '../../lib/route';
-import { replaceHash, useHash } from '../../lib/useHash';
 // which level, and read what each costs and what it all costs after that
 // account's buffs — and what is still missing from what it holds.
 //
@@ -18,16 +15,24 @@ import { replaceHash, useHash } from '../../lib/useHash';
 // Picking happens where the thing lives: buildings in a list, research under
 // the game's research tabs, heroes on cards with their gear and exclusive
 // weapon. Each pick replaces the last one for the same thing.
+//
+// ONE PAGE SINCE 2026-11-20 (owner). Buffs and stock were a Settings page of
+// their own; they are a compact block at the head of this one now, so the
+// numbers a plan is worked out from are typed where the plan is read. "Next
+// upgrades" is no longer shown (RecommendPanel is kept, unmounted). And what
+// was chosen can be saved under a name (0341) and read back from My account.
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { StatTile } from '../../components/StatTile';
 import { Tabs } from '../../components/ui/Tabs';
+import { useIsCommunity } from '../../lib/communityAccess';
+import { ACCOUNT_PLANS, plannerKindFromHash } from '../../lib/route';
+import { replaceHash, useHash } from '../../lib/useHash';
 import { AccountBar, ManualBanner } from './AccountBar';
 import { Breakdown } from './Breakdown';
 import { BuildingPicker } from './BuildingPicker';
 import { HeroCards } from './HeroCards';
-import { RecommendPanel } from './RecommendPanel';
 import { ResearchPicker } from './ResearchPicker';
 import { StockPanel } from './StockPanel';
 import { PetPicker, VehiclePicker } from './VehiclePetPickers';
@@ -35,6 +40,15 @@ import { type Account, blankAccount, fetchAccounts, saveManual } from './account
 import { fetchMaterialNames, fetchTiers, loadBook } from './data';
 import { levelText } from './levels';
 import { type Buffs, EFFECT_IDS, buffsFrom, plan, totals } from './plan';
+import {
+  NO_EXTRA,
+  fetchPlans,
+  planHash,
+  planIdFromHash,
+  savePlan,
+  targetMap,
+  targetText,
+} from './plans';
 import { plannerStrip } from './strip';
 import { type Target, goalsOf, withTarget } from './targets';
 
@@ -53,17 +67,18 @@ function BuffInput({
   onChange,
 }: { label: string; value: number; onChange: (v: number) => void }) {
   return (
-    <label>
-      {label}{' '}
-      <input
-        inputMode="decimal"
-        onChange={(e) => onChange(Number(e.target.value) || 0)}
-        step="any"
-        style={{ width: '6rem' }}
-        type="number"
-        value={value}
-      />
-      %
+    <label className="planner-buff">
+      <span>{label}</span>
+      <span className="planner-buff-figure">
+        <input
+          inputMode="decimal"
+          onChange={(e) => onChange(Number(e.target.value) || 0)}
+          step="any"
+          type="number"
+          value={value}
+        />
+        %
+      </span>
     </label>
   );
 }
@@ -108,24 +123,53 @@ export function PlannerPage() {
   });
 
   const hash = useHash();
-  const page = PLANNER.fromHash(hash);
-  const setPage = (next: PlannerTab) => {
-    replaceHash(PLANNER.hash(next));
-  };
-  // Which kind of thing the first page is picking from. Local, not an address:
-  // it is a way of looking, and an old per-kind link only sets where it starts.
+  // Which kind of thing the page is picking from. Local, not an address: it is
+  // a way of looking, and an old per-kind link only sets where it starts.
   const [section, setSection] = useState<Section>(
-    () => (plannerKindFromHash(hash) as Section | null) ?? 'building',
+    () => (plannerKindFromHash(hash.split('?')[0] ?? '') as Section | null) ?? 'building',
   );
   const [targets, setTargets] = useState<ReadonlyMap<string, Target>>(new Map());
   const [withPrereqs, setWithPrereqs] = useState(true);
   const [timedOn, setTimedOn] = useState<ReadonlySet<number>>(new Set());
-  const [extra, setExtra] = useState<Buffs>({
-    constructionSpeed: 0,
-    researchSpeed: 0,
-    costReduction: 0,
-  });
+  const [extra, setExtra] = useState<Buffs>(NO_EXTRA);
   const [stockEdits, setStockEdits] = useState<Record<string, number>>({});
+
+  // A saved plan (0341). `#/planner?plan=<id>` names one, as My account links
+  // it; it is put on the page once, when it arrives, and after that the page
+  // is the reader's to change. `planId` is the plan a Save writes over.
+  const wantedPlan = planIdFromHash(hash);
+  const plans = useQuery({
+    queryKey: ['planner-plans'],
+    queryFn: fetchPlans,
+    staleTime: 5 * 60_000,
+  });
+  const [planId, setPlanId] = useState<string | null>(null);
+  const [planName, setPlanName] = useState('');
+  const [opened, setOpened] = useState<string | null>(null);
+  const wanted =
+    wantedPlan !== null && wantedPlan !== opened
+      ? plans.data?.find((one) => one.planId === wantedPlan)
+      : undefined;
+  useEffect(() => {
+    if (wanted === undefined) return;
+    setOpened(wanted.planId);
+    setPlanId(wanted.planId);
+    setPlanName(wanted.name);
+    if (wanted.playerId !== null) setPlayerId(wanted.playerId);
+    setDraft(null);
+    setTargets(targetMap(wanted.targets));
+    setWithPrereqs(wanted.withPrereqs);
+    setExtra(wanted.extra);
+  }, [wanted]);
+  const keep = useMutation({
+    mutationFn: savePlan,
+    onSuccess: async (saved) => {
+      setOpened(saved.planId);
+      setPlanId(saved.planId);
+      replaceHash(planHash(saved.planId));
+      await queryClient.invalidateQueries({ queryKey: ['planner-plans'] });
+    },
+  });
 
   const now = Date.now();
   const activeTimed = (account?.timedEffects ?? []).filter((t) => t.end > now);
@@ -189,6 +233,9 @@ export function PlannerPage() {
     setTimedOn(new Set());
     setDraft(null);
     save.reset();
+    // Another account's plan would be a new one, not this one written over.
+    setPlanId(null);
+    keep.reset();
   };
   const bar = scratch ? null : (
     <AccountBar
@@ -232,12 +279,6 @@ export function PlannerPage() {
   const tierMap = tiers.data ?? new Map();
   const set = (target: Target) => setTargets((cur) => withTarget(cur, target));
   const remove = dropTarget;
-  const editsOf = (type: string) =>
-    Object.fromEntries(
-      Object.entries(stockEdits)
-        .filter(([key]) => key.startsWith(`${type}:`))
-        .map(([key, amount]) => [key.slice(type.length + 1), amount]),
-    );
   const have = (type: string, id: string) =>
     (manual ? undefined : stockEdits[`${type}:${id}`]) ??
     (type === 'item' ? account.items[id] : account.resources[id]) ??
@@ -250,11 +291,6 @@ export function PlannerPage() {
     } else {
       edit({ ...account, resources: { ...account.resources, [id]: amount } });
     }
-  };
-  // Stock with the reader's overwrites on top, for the upgrade ranking.
-  const stockNow = {
-    resources: { ...account.resources, ...(manual ? {} : editsOf('resource')) },
-    items: { ...account.items, ...(manual ? {} : editsOf('item')) },
   };
   const setEffect = (id: string, value: number) =>
     edit({ ...account, effects: { ...account.effects, [id]: value } });
@@ -298,8 +334,8 @@ export function PlannerPage() {
         {!manual && (
           <p className="entity-foot">
             Levels, stock and buffs are {account.name}'s, from the login the collector saw at{' '}
-            {account.capturedAt.slice(0, 16).replace('T', ' ')} UTC. Change any buff or stock figure
-            on the Settings page; nothing here is saved.
+            {account.capturedAt.slice(0, 16).replace('T', ' ')} UTC. A buff or stock figure typed
+            over it below lasts for the visit; a plan you save keeps what you chose to raise.
           </p>
         )}
       </div>
@@ -309,7 +345,7 @@ export function PlannerPage() {
         <section aria-label="Your levels" className="planner-manual">
           <span>
             Type the level you are at now in each list under What to raise, then pick the level you
-            want. Buffs and stock are on the Settings page. Nothing here is saved.
+            want. Your levels, buffs and stock are not saved; a plan you save keeps what you chose.
           </span>
         </section>
       )}
@@ -327,195 +363,229 @@ export function PlannerPage() {
         />
       )}
 
-      <Tabs
-        className="planner-pages"
-        items={PLANNER.tabs.map((entry) => ({ id: entry.id, label: entry.label }))}
-        label="Planner pages"
-        onChange={setPage}
-        value={page}
-      />
-
-      {page === 'settings' && (
+      {/* What every figure below is worked out from, kept short: the buffs on
+          one line, the stock list folded away until it is wanted. */}
+      <section aria-labelledby="planner-buffs" className="planner-settings">
+        <h3 id="planner-buffs">Buffs and stock</h3>
+        {manual && (
+          <div className="planner-buffs">
+            <span
+              className="planner-buffs-label"
+              title="The totals the game shows under Detail → Develop"
+            >
+              Yours
+            </span>
+            <BuffInput
+              label="Build speed"
+              onChange={(v) => setEffect(EFFECT_IDS.constructionSpeed, v)}
+              value={account.effects[EFFECT_IDS.constructionSpeed] ?? 0}
+            />
+            <BuffInput
+              label="Research speed"
+              onChange={(v) => setEffect(EFFECT_IDS.researchSpeed, v)}
+              value={account.effects[EFFECT_IDS.researchSpeed] ?? 0}
+            />
+            <BuffInput
+              label="Cost reduction"
+              onChange={(v) => setEffect(EFFECT_IDS.costReduction, v)}
+              value={account.effects[EFFECT_IDS.costReduction] ?? 0}
+            />
+          </div>
+        )}
+        <div className="planner-buffs">
+          <span
+            className="planner-buffs-label"
+            title="A presidential or emergency-project buff, on top of the account's own"
+          >
+            Added on top
+          </span>
+          <BuffInput
+            label="Build speed"
+            onChange={(v) => setExtra({ ...extra, constructionSpeed: v })}
+            value={extra.constructionSpeed}
+          />
+          <BuffInput
+            label="Research speed"
+            onChange={(v) => setExtra({ ...extra, researchSpeed: v })}
+            value={extra.researchSpeed}
+          />
+          <BuffInput
+            label="Cost reduction"
+            onChange={(v) => setExtra({ ...extra, costReduction: v })}
+            value={extra.costReduction}
+          />
+        </div>
+        {activeTimed.length > 0 && (
+          <fieldset className="row">
+            <legend className="subtle">Timed buffs running at that login</legend>
+            {activeTimed.map((t, i) => (
+              <label key={`${t.effect}-${i}`}>
+                <input
+                  checked={timedOn.has(i)}
+                  onChange={() =>
+                    setTimedOn((cur) => {
+                      const next = new Set(cur);
+                      if (next.has(i)) next.delete(i);
+                      else next.add(i);
+                      return next;
+                    })
+                  }
+                  type="checkbox"
+                />{' '}
+                effect {t.effect} +{t.value} (until{' '}
+                {new Date(t.end).toISOString().slice(5, 16).replace('T', ' ')})
+              </label>
+            ))}
+          </fieldset>
+        )}
         <StockPanel
           edited={manual ? new Set() : new Set(Object.keys(stockEdits))}
           have={have}
           onHave={setHave}
         />
-      )}
+      </section>
 
-      {page === 'settings' && (
-        <section aria-labelledby="planner-buffs">
-          <h3 id="planner-buffs">Buffs</h3>
-          {manual ? (
-            <>
-              <p className="subtle">
-                The totals the game shows under Detail → Develop (research, buildings, pets and the
-                rest added up):
-              </p>
-              <div className="row">
-                <BuffInput
-                  label="construction speed"
-                  onChange={(v) => setEffect(EFFECT_IDS.constructionSpeed, v)}
-                  value={account.effects[EFFECT_IDS.constructionSpeed] ?? 0}
-                />
-                <BuffInput
-                  label="research speed"
-                  onChange={(v) => setEffect(EFFECT_IDS.researchSpeed, v)}
-                  value={account.effects[EFFECT_IDS.researchSpeed] ?? 0}
-                />
-                <BuffInput
-                  label="construction cost reduction"
-                  onChange={(v) => setEffect(EFFECT_IDS.costReduction, v)}
-                  value={account.effects[EFFECT_IDS.costReduction] ?? 0}
-                />
-              </div>
-              <p className="subtle">And a presidential or emergency-project buff on top:</p>
-            </>
-          ) : (
-            <p className="subtle">
-              From the login: construction speed {base?.constructionSpeed}%, research speed{' '}
-              {base?.researchSpeed}%, construction cost −{base?.costReduction}%. Add a presidential
-              or emergency-project buff on top:
-            </p>
+      <section aria-labelledby="planner-goals">
+        <h3 id="planner-goals">What to raise</h3>
+        <Tabs
+          label="Kind of thing to raise"
+          className="planner-tabs"
+          items={SECTIONS.map(([value, label]) => ({ id: value, label }))}
+          value={section}
+          onChange={setSection}
+        />
+        <div className="planner-picker" role="tabpanel">
+          {section === 'building' && (
+            <BuildingPicker
+              levels={account.buildings}
+              onCurrent={levelEditor('buildings', 'building')}
+              onSet={set}
+              targets={targets}
+              tiers={tierMap}
+            />
           )}
-          <div className="row">
-            <BuffInput
-              label="+ construction speed"
-              onChange={(v) => setExtra({ ...extra, constructionSpeed: v })}
-              value={extra.constructionSpeed}
+          {section === 'research' && (
+            <ResearchPicker
+              account={account}
+              levels={account.science}
+              onCurrent={levelEditor('science', 'research')}
+              onSet={set}
+              targets={targets}
+              tiers={tierMap}
             />
-            <BuffInput
-              label="+ research speed"
-              onChange={(v) => setExtra({ ...extra, researchSpeed: v })}
-              value={extra.researchSpeed}
-            />
-            <BuffInput
-              label="+ cost reduction"
-              onChange={(v) => setExtra({ ...extra, costReduction: v })}
-              value={extra.costReduction}
-            />
-          </div>
-          {activeTimed.length > 0 && (
-            <fieldset className="row">
-              <legend className="subtle">Timed buffs running at that login</legend>
-              {activeTimed.map((t, i) => (
-                <label key={`${t.effect}-${i}`}>
-                  <input
-                    checked={timedOn.has(i)}
-                    onChange={() =>
-                      setTimedOn((cur) => {
-                        const next = new Set(cur);
-                        if (next.has(i)) next.delete(i);
-                        else next.add(i);
-                        return next;
-                      })
-                    }
-                    type="checkbox"
-                  />{' '}
-                  effect {t.effect} +{t.value} (until{' '}
-                  {new Date(t.end).toISOString().slice(5, 16).replace('T', ' ')})
-                </label>
-              ))}
-            </fieldset>
           )}
-        </section>
-      )}
-
-      {page === 'upgrades' && buffs && (
-        <RecommendPanel account={account} buffs={buffs} onSet={set} stock={stockNow} />
-      )}
-
-      {page === 'raise' && (
-        <section aria-labelledby="planner-goals">
-          <h3 id="planner-goals">What to raise</h3>
-          <Tabs
-            label="Kind of thing to raise"
-            className="planner-tabs"
-            items={SECTIONS.map(([value, label]) => ({ id: value, label }))}
-            value={section}
-            onChange={setSection}
-          />
-          <div className="planner-picker" role="tabpanel">
-            {section === 'building' && (
-              <BuildingPicker
-                levels={account.buildings}
-                onCurrent={levelEditor('buildings', 'building')}
-                onSet={set}
-                targets={targets}
-                tiers={tierMap}
-              />
-            )}
-            {section === 'research' && (
-              <ResearchPicker
-                account={account}
-                levels={account.science}
-                onCurrent={levelEditor('science', 'research')}
-                onSet={set}
-                targets={targets}
-                tiers={tierMap}
-              />
-            )}
-            {section === 'vehicle' && (
-              <VehiclePicker account={account} onSet={set} targets={targets} />
-            )}
-            {section === 'pets' && <PetPicker account={account} onSet={set} targets={targets} />}
-            {section === 'heroes' && (
-              <HeroCards
-                account={account}
-                onEdit={
-                  manual
-                    ? (next) => {
-                        // A changed level now makes old targets on heroes wrong.
-                        setTargets(
-                          (cur) =>
-                            new Map(
-                              [...cur].filter(
-                                ([, t]) => !['hero', 'hero_gear', 'exclusive'].includes(t.kind),
-                              ),
+          {section === 'vehicle' && (
+            <VehiclePicker account={account} onSet={set} targets={targets} />
+          )}
+          {section === 'pets' && <PetPicker account={account} onSet={set} targets={targets} />}
+          {section === 'heroes' && (
+            <HeroCards
+              account={account}
+              onEdit={
+                manual
+                  ? (next) => {
+                      // A changed level now makes old targets on heroes wrong.
+                      setTargets(
+                        (cur) =>
+                          new Map(
+                            [...cur].filter(
+                              ([, t]) => !['hero', 'hero_gear', 'exclusive'].includes(t.kind),
                             ),
-                        );
-                        edit(next);
-                      }
-                    : undefined
-                }
-                onSet={set}
-                targets={targets}
-              />
-            )}
-          </div>
-
-          {targets.size > 0 && (
-            <ul className="chips planner-chosen" aria-label="Chosen">
-              {[...targets.entries()].map(([key, t]) => (
-                <li key={key}>
-                  <button
-                    className="filter-chip"
-                    onClick={() => remove(key)}
-                    title="Remove"
-                    type="button"
-                  >
-                    {t.name} {shown(t, t.from)} → {shown(t, t.to)}
-                    {t.kind === 'hero_gear' &&
-                      (t.stageTo ?? 0) > (t.stageFrom ?? 0) &&
-                      ` · stage ${t.stageFrom} → ${t.stageTo}`}{' '}
-                    ✕
-                  </button>
-                </li>
-              ))}
-            </ul>
+                          ),
+                      );
+                      edit(next);
+                    }
+                  : undefined
+              }
+              onSet={set}
+              targets={targets}
+            />
           )}
-          <label>
-            <input
-              checked={withPrereqs}
-              onChange={(e) => setWithPrereqs(e.target.checked)}
-              type="checkbox"
-            />{' '}
-            Include the buildings a building needs first
-          </label>
-        </section>
-      )}
+        </div>
 
-      {page === 'raise' && goals.length > 0 && (
+        {targets.size > 0 && (
+          <ul className="chips planner-chosen" aria-label="Chosen">
+            {[...targets.entries()].map(([key, t]) => (
+              <li key={key}>
+                <button
+                  className="filter-chip"
+                  onClick={() => remove(key)}
+                  title="Remove"
+                  type="button"
+                >
+                  {targetText(t, shown)} ✕
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <label>
+          <input
+            checked={withPrereqs}
+            onChange={(e) => setWithPrereqs(e.target.checked)}
+            type="checkbox"
+          />{' '}
+          Include the buildings a building needs first
+        </label>
+
+        {/* Saving keeps the choices, not the account: opened again, the plan
+              is costed against the account as it is then. */}
+        <form
+          className="planner-save"
+          onSubmit={(e) => {
+            e.preventDefault();
+            keep.mutate({
+              planId,
+              name: planName,
+              playerId: account.playerId,
+              accountName: account.name,
+              targets: [...targets.values()],
+              extra,
+              withPrereqs,
+            });
+          }}
+        >
+          <label>
+            Plan name{' '}
+            <input
+              maxLength={80}
+              onChange={(e) => setPlanName(e.target.value)}
+              placeholder="e.g. HQ 31 push"
+              value={planName}
+            />
+          </label>
+          <button
+            disabled={targets.size === 0 || planName.trim() === '' || keep.isPending}
+            type="submit"
+          >
+            {keep.isPending ? 'Saving…' : planId === null ? 'Save plan' : 'Save changes'}
+          </button>
+          {planId !== null && (
+            <button
+              disabled={keep.isPending}
+              onClick={() => {
+                setPlanId(null);
+                keep.reset();
+              }}
+              title="Stop writing over the saved plan: the next Save makes a new one"
+              type="button"
+            >
+              Save as a new plan
+            </button>
+          )}
+          {keep.isSuccess && planId !== null && (
+            <output className="subtle">
+              Saved. It is under <a href={ACCOUNT_PLANS}>My account → Plans</a>.
+            </output>
+          )}
+          {keep.isError && <span className="error">Could not save: {keep.error.message}</span>}
+          {wantedPlan !== null && plans.isSuccess && opened !== wantedPlan && (
+            <span className="error">That saved plan is not there any more.</span>
+          )}
+        </form>
+      </section>
+
+      {goals.length > 0 && (
         <section aria-labelledby="planner-result">
           <h3 id="planner-result">What it takes</h3>
           {book.isPending && <p className="empty">Adding it up…</p>}
@@ -537,7 +607,7 @@ export function PlannerPage() {
                 tiers={tierMap}
               />
               <p className="note">
-                Have is the Stock list on the Settings page; change a figure there. Construction
+                Have is the Stock list at the top of the page; change a figure there. Construction
                 cost reduction applies to building resources, not to items such as Precision Parts.
               </p>
             </>

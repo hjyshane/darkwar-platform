@@ -279,9 +279,9 @@ describe('buildNav', () => {
     expect(current('hive')).toEqual(['Hive']);
     expect(current('calculator')).toEqual(['Calculator']);
     expect(current('map')).toEqual(['Map']);
-    // Archived: it opens by address but nothing in the sidebar stands for it.
-    expect(current('planner')).toEqual([]);
-    expect(current('planner', admin)).toEqual([]);
+    // Filed under Calculator since 2026-11-20.
+    expect(current('planner')).toEqual(['Calculator']);
+    expect(current('planner', admin)).toEqual(['Calculator']);
     // The event guide, a notice and a guide are all under Guides.
     expect(current('eventGuide')).toEqual(['Guides']);
     expect(current('notice')).toEqual(['Guides']);
@@ -346,7 +346,7 @@ describe('buildFooter and breadcrumb', () => {
     expect(at('members', admin)).toEqual(['Admin menu', 'Roster', 'Members']);
     expect(at('shopValue', admin)).toEqual(['Admin menu', 'Game data', 'Shop value']);
     expect(at('hive', admin)).toEqual(['Menu', 'Hive']);
-    expect(at('planner')).toEqual(['Planner']);
+    expect(at('planner')).toEqual(['Menu', 'Calculator', 'Planner']);
     expect(at('account')).toEqual(['My account']);
     expect(at('player')).toEqual(['Player']);
   });

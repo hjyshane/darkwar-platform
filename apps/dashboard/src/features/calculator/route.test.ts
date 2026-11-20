@@ -33,14 +33,18 @@ describe('the calculator route', () => {
     expect(navSection('calculator')).toBe('alliance');
   });
 
-  it('is in the sidebar, and the archived planner is not', () => {
+  it('is in the sidebar, with the planner under it and not beside it', () => {
     const labels = items(member).map((i) => i.label);
     expect(labels).toContain('Calculator');
     expect(labels).not.toContain('Planner');
     const entry = items({ ...member, route: 'calculator' }).find((i) => i.label === 'Calculator');
     expect(entry?.href).toBe(CALCULATOR_HASH);
     expect(entry?.current).toBe(true);
-    expect(entry?.children).toBeUndefined();
+    expect(entry?.children?.map((child) => child.label)).toEqual([
+      'Upgrade cost',
+      'Resource wait time',
+      'Planner',
+    ]);
   });
 
   it('is offered to a community account, and an admin can hide it like any tab', () => {
