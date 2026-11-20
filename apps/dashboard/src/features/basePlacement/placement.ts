@@ -16,6 +16,8 @@
 
 export const BASE_SIZE = 3;
 
+export { TILE_H, TILE_W } from '../../lib/tileShape';
+
 export interface Cell {
   x: number;
   y: number;

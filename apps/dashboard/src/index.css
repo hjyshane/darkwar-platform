@@ -4003,7 +4003,9 @@ kbd {
   display: block;
   width: 100%;
   max-width: var(--hive-map-size, 720px);
-  aspect-ratio: 1 / 1;
+  /* A tile is 4 wide and 3 tall: lib/tileShape.ts. The window is the same count of
+   * tiles each way, so the box is 4:3 and background-size below follows. */
+  aspect-ratio: 4 / 3;
   padding: 0;
   margin: 0;
   border: 1px solid var(--border-strong);
@@ -7173,6 +7175,17 @@ button.server-link {
 
 .atlas .map-frame {
   background: var(--map-bg);
+  /* A tile is 4 wide and 3 tall in the game (lib/tileShape.ts), and the picture's
+   * 3054 x 2554 world is not that shape, so it is stretched to it: the frame's
+   * aspect is 4/3 times the picture's own inset-corrected ratio, and the
+   * picture fills the frame rather than setting its height. MAP_INSET is in
+   * fractions of the picture, so every pin still lands where it did. */
+  aspect-ratio: 32323424 / 24407568;
+}
+
+.atlas .map-frame__image {
+  height: 100%;
+  object-fit: fill;
 }
 
 .atlas .map-range label:has(input[type="checkbox"]) {
@@ -7298,7 +7311,7 @@ button.server-link {
 }
 
 .pan-map:fullscreen .pan-map__window {
-  width: min(100vw, calc(100vh * 3164 / 2664));
+  width: min(100vw, calc(100vh * 32323424 / 24407568));
   border-radius: 0;
 }
 
@@ -7463,8 +7476,8 @@ button.server-link {
 }
 
 .atlas .pan-map__window {
-  width: min(100cqw, calc(100cqh * 3164 / 2664));
-  aspect-ratio: 3164 / 2664;
+  width: min(100cqw, calc(100cqh * 32323424 / 24407568));
+  aspect-ratio: 32323424 / 24407568;
   border-radius: 0;
 }
 

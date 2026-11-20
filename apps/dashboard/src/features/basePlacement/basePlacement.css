@@ -33,7 +33,6 @@
 }
 
 .bp-svg {
-  aspect-ratio: 1;
   background: var(--bg);
   cursor: crosshair;
   display: block;
@@ -43,13 +42,15 @@
 
 .bp-grid {
   stroke: var(--border);
-  stroke-width: 0.04;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
 }
 
 .bp-area {
   fill: var(--accent-wash);
   stroke: var(--accent);
-  stroke-width: 0.12;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
 }
 
 .bp-footprint {
@@ -60,7 +61,8 @@
 .bp-base {
   fill: var(--accent-fill);
   stroke: var(--accent);
-  stroke-width: 0.1;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
 }
 
 .bp-open {

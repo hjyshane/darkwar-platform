@@ -11,6 +11,8 @@ import {
   BASE_SIZE,
   type Cell,
   type Structure,
+  TILE_H,
+  TILE_W,
   TRADE_SHOP,
   areaRect,
   baseRect,
@@ -155,8 +157,18 @@ export function BasePlacementPage() {
     if (refusal(at, bases, structures) === null) update({ ...state, bases: [...bases, at] });
   };
 
+  // The tile under the pointer. Read through the SVG's own screen transform,
+  // not the element's box: the picture is a square inside a box that can be
+  // wider or taller than it (the height is capped), and dividing by the box
+  // shifts every tile toward the side the picture is pushed away from.
   const cellAt = (event: React.MouseEvent<SVGSVGElement>): Cell => {
-    const box = event.currentTarget.getBoundingClientRect();
+    const svg = event.currentTarget;
+    const ctm = svg.getScreenCTM?.();
+    if (ctm) {
+      const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(ctm.inverse());
+      return { x: Math.floor(point.x / TILE_W), y: Math.floor(point.y / TILE_H) };
+    }
+    const box = svg.getBoundingClientRect();
     return {
       x: view.x0 + Math.floor(((event.clientX - box.left) / box.width) * width),
       y: view.y0 + Math.floor(((event.clientY - box.top) / box.height) * height),
@@ -211,92 +223,96 @@ export function BasePlacementPage() {
             onMouseLeave={() => setHover(null)}
             onMouseMove={(event) => setHover(cellAt(event))}
             role="img"
-            viewBox={`${view.x0} ${view.y0} ${width} ${height}`}
+            style={{ aspectRatio: `${width * TILE_W} / ${height * TILE_H}` }}
+            viewBox={`${view.x0 * TILE_W} ${view.y0 * TILE_H} ${width * TILE_W} ${height * TILE_H}`}
           >
             <title>Placement grid</title>
-            {Array.from({ length: width + 1 }, (_, i) => (
-              <line
-                className="bp-grid"
-                key={`v${view.x0 + i}`}
-                x1={view.x0 + i}
-                x2={view.x0 + i}
-                y1={view.y0}
-                y2={view.y1 + 1}
-              />
-            ))}
-            {Array.from({ length: height + 1 }, (_, i) => (
-              <line
-                className="bp-grid"
-                key={`h${view.y0 + i}`}
-                x1={view.x0}
-                x2={view.x1 + 1}
-                y1={view.y0 + i}
-                y2={view.y0 + i}
-              />
-            ))}
-            {structures.map((s) => {
-              const area = areaRect(s);
-              return area === null ? null : (
-                <rect
-                  className="bp-area"
-                  height={area.y1 - area.y0 + 1}
-                  key={`a${s.id}`}
-                  width={area.x1 - area.x0 + 1}
-                  x={area.x0}
-                  y={area.y0}
+            <g transform={`scale(${TILE_W} ${TILE_H})`}>
+              {Array.from({ length: width + 1 }, (_, i) => (
+                <line
+                  className="bp-grid"
+                  key={`v${view.x0 + i}`}
+                  x1={view.x0 + i}
+                  x2={view.x0 + i}
+                  y1={view.y0}
+                  y2={view.y1 + 1}
                 />
-              );
-            })}
-            {open.map((c) => (
-              <circle
-                className="bp-open"
-                cx={c.x + 0.5}
-                cy={c.y + 0.5}
-                key={`o${c.x},${c.y}`}
-                r={0.18}
-              />
-            ))}
-            {structures.map((s) => {
-              const f = footprintRect(s);
-              return (
-                <rect
-                  className="bp-footprint"
-                  height={f.y1 - f.y0 + 1}
-                  key={`f${s.id}`}
-                  width={f.x1 - f.x0 + 1}
-                  x={f.x0}
-                  y={f.y0}
+              ))}
+              {Array.from({ length: height + 1 }, (_, i) => (
+                <line
+                  className="bp-grid"
+                  key={`h${view.y0 + i}`}
+                  x1={view.x0}
+                  x2={view.x1 + 1}
+                  y1={view.y0 + i}
+                  y2={view.y0 + i}
                 />
-              );
-            })}
-            {bases.map((b) => {
-              const r = baseRect(b);
-              return (
+              ))}
+              {structures.map((s) => {
+                const area = areaRect(s);
+                return area === null ? null : (
+                  <rect
+                    className="bp-area"
+                    height={area.y1 - area.y0 + 1}
+                    key={`a${s.id}`}
+                    width={area.x1 - area.x0 + 1}
+                    x={area.x0}
+                    y={area.y0}
+                  />
+                );
+              })}
+              {open.map((c) => (
+                <ellipse
+                  className="bp-open"
+                  cx={c.x + 0.5}
+                  cy={c.y + 0.5}
+                  key={`o${c.x},${c.y}`}
+                  rx={0.12}
+                  ry={0.16}
+                />
+              ))}
+              {structures.map((s) => {
+                const f = footprintRect(s);
+                return (
+                  <rect
+                    className="bp-footprint"
+                    height={f.y1 - f.y0 + 1}
+                    key={`f${s.id}`}
+                    width={f.x1 - f.x0 + 1}
+                    x={f.x0}
+                    y={f.y0}
+                  />
+                );
+              })}
+              {bases.map((b) => {
+                const r = baseRect(b);
+                return (
+                  <rect
+                    className="bp-base"
+                    height={BASE_SIZE}
+                    key={`b${b.x},${b.y}`}
+                    width={BASE_SIZE}
+                    x={r.x0}
+                    y={r.y0}
+                  />
+                );
+              })}
+              {ghost !== null && (
                 <rect
-                  className="bp-base"
+                  className={
+                    ghostOnBase
+                      ? 'bp-ghost bp-ghost-remove'
+                      : ghostRefusal
+                        ? 'bp-ghost bp-ghost-no'
+                        : 'bp-ghost'
+                  }
                   height={BASE_SIZE}
-                  key={`b${b.x},${b.y}`}
                   width={BASE_SIZE}
-                  x={r.x0}
-                  y={r.y0}
+                  x={baseRect(ghost).x0}
+                  y={baseRect(ghost).y0}
                 />
-              );
-            })}
-            {ghost !== null && (
-              <rect
-                className={
-                  ghostOnBase
-                    ? 'bp-ghost bp-ghost-remove'
-                    : ghostRefusal
-                      ? 'bp-ghost bp-ghost-no'
-                      : 'bp-ghost'
-                }
-                height={BASE_SIZE}
-                width={BASE_SIZE}
-                x={baseRect(ghost).x0}
-                y={baseRect(ghost).y0}
-              />
-            )}
+              )}
+            </g>
           </svg>
           <p className="bp-hint">
             {ghost === null
