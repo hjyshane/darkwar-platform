@@ -11,8 +11,10 @@ import {
   type DraftSlot,
   formationFitsAt,
   parseCoordinate,
+  reanchoredDraft,
   sameOccupancy,
   sameSavedShape,
+  tileUnderPointer,
 } from './FormationEditor';
 import { grabsAnchor, shiftedAt } from './TileGrid';
 import type { BoardSlot } from './hiveFormations';
@@ -115,21 +117,48 @@ describe('a typed coordinate', () => {
 describe('dragging the anchor', () => {
   const anchor = { x: 512, y: 388 };
 
-  test('a press on its square with Frankie over it picks up the anchor', () => {
-    expect(grabsAnchor(anchor, anchor, { structure: true })).toBe(true);
-    expect(grabsAnchor(anchor, anchor, undefined)).toBe(true);
+  test('a press on its square picks up the anchor, whatever is drawn over it', () => {
+    // Frankie, somebody's base or nothing at all: the anchor is drawn on top
+    // and its one square is always the anchor's.
+    expect(grabsAnchor(anchor, anchor)).toBe(true);
   });
 
-  test('a person standing on it keeps their drag', () => {
-    expect(grabsAnchor(anchor, anchor, { structure: false })).toBe(false);
-    expect(grabsAnchor(anchor, anchor, {})).toBe(false);
-  });
-
-  test('anywhere else on Frankie is not the anchor', () => {
-    expect(grabsAnchor({ x: 513, y: 388 }, anchor, { structure: true })).toBe(false);
+  test('the square beside it is not the anchor', () => {
+    // A base standing on the anchor is still carried from its other squares.
+    expect(grabsAnchor({ x: 513, y: 388 }, anchor)).toBe(false);
+    expect(grabsAnchor({ x: 512, y: 387 }, anchor)).toBe(false);
   });
 
   test('every tile moves by exactly what the anchor did', () => {
     expect(shiftedAt({ x: 509, y: 391 }, anchor, { x: 600, y: 380 })).toEqual({ x: 597, y: 383 });
+  });
+});
+
+describe('setting the anchor somewhere else (0339)', () => {
+  const from = { x: 500, y: 500 };
+
+  test('every tile stays where it stood; only its offset changes', () => {
+    const draft = new Map([draftSlot(0, 0), draftSlot(3, 0), draftSlot(0, -3)]);
+    const to = { x: 503, y: 500 };
+    const moved = reanchoredDraft(draft, from, to);
+    const ground = (map: Map<string, DraftSlot>, anchor: { x: number; y: number }) =>
+      [...map.values()].map((slot) => `${anchor.x + slot.dx},${anchor.y + slot.dy}`).sort();
+    expect(ground(moved, to)).toEqual(ground(draft, from));
+    expect([...moved.keys()].sort()).toEqual(['-3,-3', '-3,0', '0,0']);
+  });
+
+  test('each tile keeps its slot, so whoever stands on it stays on it', () => {
+    const draft = new Map([draftSlot(3, 0, { slotId: 'kept' })]);
+    expect(reanchoredDraft(draft, from, { x: 503, y: 500 }).get('0,0')?.slotId).toBe('kept');
+  });
+
+  test('a click anywhere on a base or structure finds it, and only on it', () => {
+    const [, base] = draftSlot(3, 0);
+    const [, frankie] = draftSlot(0, -3, { spanX: 4, spanY: 3, kind: 'structure' });
+    const drawn = [base, frankie];
+    // The base centred on 503,500 covers 502..504; Frankie, 4 wide, 499..502.
+    expect(tileUnderPointer(drawn, from, { x: 504, y: 501 })).toBe(base);
+    expect(tileUnderPointer(drawn, from, { x: 499, y: 497 })).toBe(frankie);
+    expect(tileUnderPointer(drawn, from, { x: 510, y: 510 })).toBeUndefined();
   });
 });

@@ -12,7 +12,7 @@ import {
   tileCaption,
 } from '../../lib/hiveFormation';
 import { isAllowed, usePermissions } from '../../lib/permissions';
-import { HIVE, type HiveTab } from '../../lib/route';
+import { HIVE, HIVE_NEW, type HiveTab } from '../../lib/route';
 import { shareCoordinate } from '../../lib/shareCoordinate';
 import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
@@ -20,7 +20,7 @@ import { replaceHash, useHash } from '../../lib/useHash';
 import { useSession } from '../../lib/useSession';
 import { FormationEditor } from './FormationEditor';
 import { Stamp } from './HiveStamp';
-import { BaseColours, ViewControls, rankTally } from './MapControls';
+import { MapKey, MapNav, rankTally } from './MapControls';
 import { DeletedUnderYou, RecentlyDeleted } from './RecentlyDeleted';
 import {
   type GridBase,
@@ -106,8 +106,12 @@ export function HivePage() {
   const [shownId, setShownId] = useState<string | null>(null);
   // The tab is in the address, so the sidebar and a link can open it. Members
   // never see tabs: the plan is all they have.
-  const hashTab = HIVE.fromHash(useHash());
+  const hash = useHash();
+  const hashTab = HIVE.fromHash(hash);
   const tab = mayPlan ? hashTab : 'plan';
+  // Its own page, reached by the "New formation" button. A member sent the
+  // address sees the plan, like any other officer-only address here.
+  const creating = mayPlan && hash === HIVE_NEW;
   const setTab = (next: HiveTab) => {
     replaceHash(HIVE.hash(next));
   };
@@ -137,6 +141,11 @@ export function HivePage() {
     return <p className="error">Could not load formations: {(allPlans.error as Error).message}</p>;
   }
 
+  /** To the new-formation page: a step in the history, so back returns. */
+  const startNew = () => {
+    window.location.hash = HIVE_NEW;
+  };
+
   return (
     <section aria-labelledby="hive-heading" className="hive-screen">
       <div className="entity">
@@ -146,15 +155,21 @@ export function HivePage() {
           </span>
           <div>
             <h2 id="hive-heading">{TERMS.hive}</h2>
-            {formation !== null && (
+            {creating ? (
               <p className="entity-meta">
-                <span>{formation.name}</span>
-                <span>Server {formation.serverId}</span>
+                <span>New formation</span>
               </p>
+            ) : (
+              formation !== null && (
+                <p className="entity-meta">
+                  <span>{formation.name}</span>
+                  <span>Server {formation.serverId}</span>
+                </p>
+              )
             )}
           </div>
         </header>
-        {formation !== null && (
+        {!creating && formation !== null && (
           <div className="strip">
             {hiveStrip(formation, board.data ?? [], {
               x: formation.anchorX,
@@ -172,13 +187,39 @@ export function HivePage() {
         )}
       </div>
 
-      {formation === null ? (
-        <p className="empty">
-          No formation has been drawn yet.{' '}
-          {mayPlan
-            ? `Start one below (it goes on server ${serverId ?? '…'}), then draw its shape on the map and say who goes where.`
-            : 'An officer draws one before a hive move; your tile will appear here when they do.'}
-        </p>
+      {/* THE NEW-FORMATION PAGE IN PLACE OF THE REST, not instead of the whole
+          screen: the editor further down stays mounted (and hidden) under it,
+          because it holds the unsaved draft of the plan that was open. */}
+      {creating ? (
+        <NewFormation
+          initialServer={serverId}
+          // Straight to drawing it, in place of this page in the history:
+          // back from the editor goes to wherever "New formation" was pressed.
+          onCreated={(created) => {
+            setChosenServer(created.serverId);
+            setChosenFormation(created.formationId);
+            setShownId(null);
+            replaceHash(HIVE.hash('shape'));
+          }}
+          plans={livePlans}
+          servers={servers ?? []}
+        />
+      ) : formation === null ? (
+        <>
+          <p className="empty">
+            No formation has been drawn yet.{' '}
+            {mayPlan
+              ? 'Start one, then draw its shape on the map and say who goes where.'
+              : 'An officer draws one before a hive move; your tile will appear here when they do.'}
+          </p>
+          {mayPlan && (
+            <p className="hive-edit-cta">
+              <button className="primary" onClick={startNew} type="button">
+                Start a new formation
+              </button>
+            </p>
+          )}
+        </>
       ) : (
         <>
           {deletedUnderUs && <DeletedUnderYou formation={formation} />}
@@ -224,6 +265,14 @@ export function HivePage() {
                 )}
               </Select>
             </label>
+            {/* BESIDE THE PICKER, on every tab: making a formation is choosing
+                one that does not exist yet. It used to be a fold-out on the
+                drawing tab only, between the tabs and the map. */}
+            {mayPlan && (
+              <button onClick={startNew} type="button">
+                New formation
+              </button>
+            )}
           </div>
 
           {/* THREE VIEWS, NOT ONE PAGE. The live plan, the drawing tools and
@@ -256,7 +305,7 @@ export function HivePage() {
               </button>
               <span className="subtle">
                 Draw the shape on the map, then say who goes where. To start a different layout,
-                open “Draw the shape”.
+                press New formation.
               </span>
             </p>
           )}
@@ -279,29 +328,6 @@ export function HivePage() {
         </>
       )}
 
-      {mayPlan && serverId !== null && (formation === null || tab === 'shape') && (
-        <NewFormation
-          // Open when there is nothing else to do on the screen.
-          open={formation === null}
-          onCreated={setChosenFormation}
-          serverId={serverId}
-          suggested={formations.length + 1}
-        />
-      )}
-
-      {/* On every tab, not only beside "Start a new formation": the Delete
-          button is on the plan tab, and the way back from it belongs where
-          the officer is standing. Collapsed, and absent when empty. */}
-      {mayPlan && (
-        <RecentlyDeleted
-          plans={deletedPlans}
-          onRestored={(restored) => {
-            setChosenServer(restored.serverId);
-            setChosenFormation(restored.formationId);
-          }}
-        />
-      )}
-
       {/* Keyed for the same reason as Overview — and here the unkeyed version
           only LOOKED right: switching formations usually unmounted the editor
           through the `board.isPending` gate below, but a board already in the
@@ -312,7 +338,7 @@ export function HivePage() {
           draft, and looking at the live plan for a moment must not throw away
           twenty minutes of drawing. */}
       {mayPlan && formation !== null && !board.isPending && (
-        <div hidden={tab === 'plan'}>
+        <div hidden={creating || tab === 'plan'}>
           <FormationEditor
             formation={formation}
             key={formation.formationId}
@@ -322,6 +348,20 @@ export function HivePage() {
             half={tab === 'people' ? 'people' : 'shape'}
           />
         </div>
+      )}
+
+      {/* LAST ON THE PAGE, on every tab: the Delete button is on the plan tab
+          and the way back from it belongs on the screen the officer is on —
+          but under the work, not between the tabs and the map. Collapsed, and
+          absent when empty. */}
+      {mayPlan && !creating && (
+        <RecentlyDeleted
+          plans={deletedPlans}
+          onRestored={(restored) => {
+            setChosenServer(restored.serverId);
+            setChosenFormation(restored.formationId);
+          }}
+        />
       )}
     </section>
   );
@@ -497,25 +537,31 @@ function Overview({
               setCentre(centreKeeping(view, windowRadius(next), at));
               setZoom(next);
             }}
+            overlay={
+              <>
+                <MapKey colourBy={prefs.colourBy} tally={rankTally(bases)} />
+                <MapNav
+                  anchor={anchor}
+                  fitLabel="Whole plan"
+                  fitted={zoom === null && centre === null}
+                  onFit={() => {
+                    setZoom(null);
+                    setCentre(null);
+                  }}
+                  onHome={() => setCentre(anchor)}
+                  onZoom={setZoom}
+                  sized={prefs.size !== null}
+                  zoom={radius}
+                />
+              </>
+            }
             window={view}
           />
           <p className="subtle">
-            Drag the map to slide it. Hold <kbd>ctrl</kbd> and use the wheel, or pinch, to zoom.
-            Drag the corner handle to make the map bigger or smaller.
+            Drag the map to slide it. Hold <kbd>ctrl</kbd> and use the wheel, or pinch, to zoom; the
+            house goes to the anchor and the frame shows the whole plan. Drag the corner handle to
+            make the map bigger or smaller.
           </p>
-          <ViewControls onZoom={setZoom} sized={prefs.size !== null} zoom={radius}>
-            <button
-              aria-pressed={zoom === null && centre === null}
-              onClick={() => {
-                setZoom(null);
-                setCentre(null);
-              }}
-              type="button"
-            >
-              Whole plan
-            </button>
-          </ViewControls>
-          <BaseColours colourBy={prefs.colourBy} tally={rankTally(bases)} />
         </div>
 
         <div className="hive-overview__list">
@@ -612,57 +658,99 @@ function OverviewActions({
   );
 }
 
+/** The new-formation page: which server, what it is called, and where its
+ * anchor goes. Created empty; the next stop is drawing its shape. */
 function NewFormation({
+  servers,
+  initialServer,
+  plans,
   onCreated,
-  open,
-  serverId,
-  suggested,
 }: {
-  onCreated: (formationId: string) => void;
-  open: boolean;
-  serverId: number;
-  suggested: number;
+  servers: readonly number[];
+  /** The server the hive screen was on, so the new plan lands beside it. */
+  initialServer: number | null;
+  /** The live plans, for the name suggested on each server. */
+  plans: readonly Formation[];
+  onCreated: (created: { formationId: string; serverId: number }) => void;
 }) {
   const queryClient = useQueryClient();
+  const [serverId, setServerId] = useState<number | null>(initialServer ?? servers[0] ?? null);
   const [name, setName] = useState('');
   const [x, setX] = useState('500');
   const [y, setY] = useState('500');
+  const suggested = `Formation ${plans.filter((plan) => plan.serverId === serverId).length + 1}`;
   const create = useMutation({
-    mutationFn: () =>
+    mutationFn: (on: number) =>
       createFormation({
-        name: name.trim() === '' ? `Formation ${suggested}` : name.trim(),
-        serverId,
+        name: name.trim() === '' ? suggested : name.trim(),
+        serverId: on,
         anchorX: Number.parseInt(x, 10),
         anchorY: Number.parseInt(y, 10),
-      }),
-    onSuccess: (formationId) => {
+      }).then((formationId) => ({ formationId, serverId: on })),
+    onSuccess: (created) => {
       setName('');
-      onCreated(formationId);
+      onCreated(created);
       void queryClient.invalidateQueries({ queryKey: ['hive'] });
     },
   });
 
   return (
-    <details className="hive-new" open={open || undefined}>
-      <summary>Start a new formation</summary>
-      <div className="hive-coordinate">
-        <label>
-          <span>Name</span>
-          <input onChange={(event) => setName(event.target.value)} value={name} />
-        </label>
-        <label>
-          <span>Anchor x</span>
-          <input inputMode="numeric" onChange={(event) => setX(event.target.value)} value={x} />
-        </label>
-        <label>
-          <span>y</span>
-          <input inputMode="numeric" onChange={(event) => setY(event.target.value)} value={y} />
-        </label>
-        <button disabled={create.isPending} onClick={() => create.mutate()} type="button">
-          {create.isPending ? 'Creating…' : `Create on server ${serverId}`}
-        </button>
-      </div>
+    <div className="hive-new">
+      <h3>Start a new formation</h3>
+      <p className="subtle">
+        It starts with nothing drawn. Next you draw its shape on the map, then say who goes where.
+        The anchor is the square every tile is measured from; it can be moved later.
+      </p>
+      {serverId === null ? (
+        <p className="empty">There is no server to put a formation on.</p>
+      ) : (
+        <form
+          className="hive-coordinate"
+          onSubmit={(event) => {
+            event.preventDefault();
+            create.mutate(serverId);
+          }}
+        >
+          <label>
+            <span>Server</span>
+            <Select
+              onChange={(chosen) => setServerId(Number.parseInt(chosen, 10))}
+              value={serverId}
+            >
+              {servers.map((id) => (
+                <option key={id} value={id}>
+                  {id}
+                </option>
+              ))}
+            </Select>
+          </label>
+          <label>
+            <span>Name</span>
+            <input
+              onChange={(event) => setName(event.target.value)}
+              placeholder={suggested}
+              value={name}
+            />
+          </label>
+          <label>
+            <span>Anchor x</span>
+            <input inputMode="numeric" onChange={(event) => setX(event.target.value)} value={x} />
+          </label>
+          <label>
+            <span>y</span>
+            <input inputMode="numeric" onChange={(event) => setY(event.target.value)} value={y} />
+          </label>
+          <button disabled={create.isPending} type="submit">
+            {create.isPending ? 'Creating…' : `Create on server ${serverId}`}
+          </button>
+          {/* In place of this page, not a new step: back from the hive is
+              then wherever the officer was before they pressed New. */}
+          <button onClick={() => replaceHash(HIVE.hash('plan'))} type="button">
+            Cancel
+          </button>
+        </form>
+      )}
       {create.error && <p className="error">{(create.error as Error).message}</p>}
-    </details>
+    </div>
   );
 }
