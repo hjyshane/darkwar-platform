@@ -94,11 +94,11 @@ describe('overlapping territories', () => {
 describe('coordinateList', () => {
   it('sorts top to bottom, left to right', () => {
     expect(
-      coordinateList([
+      coordinateList(580, [
         { x: 5, y: 2 },
         { x: 3, y: 2 },
         { x: 9, y: 1 },
       ]),
-    ).toBe('9,1\n3,2\n5,2');
+    ).toBe('#580[X:9 Y:1]\n#580[X:3 Y:2]\n#580[X:5 Y:2]');
   });
 });

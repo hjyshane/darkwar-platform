@@ -6,6 +6,7 @@
 // and the rules are in placement.ts.
 
 import { useMemo, useState } from 'react';
+import { DEFAULT_SERVER, SERVERS } from '../migration/boards';
 import './basePlacement.css';
 import {
   BASE_SIZE,
@@ -30,11 +31,14 @@ const STORE_KEY = 'dw.basePlacement.v1';
 const MARGIN = 3;
 
 interface State {
+  /** The server whose map this is: the `#580` a copied coordinate starts with. */
+  server: number;
   structures: Structure[];
   bases: Cell[];
 }
 
 const DEFAULT_STATE: State = {
+  server: DEFAULT_SERVER,
   structures: [{ id: 's1', name: 'Trade Shop', x: 377, y: 436, ...TRADE_SHOP }],
   bases: [],
 };
@@ -46,7 +50,7 @@ const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFin
 export function parseState(raw: string | null): State {
   if (raw === null) return DEFAULT_STATE;
   try {
-    const data = JSON.parse(raw) as { structures?: unknown; bases?: unknown };
+    const data = JSON.parse(raw) as { server?: unknown; structures?: unknown; bases?: unknown };
     if (!Array.isArray(data.structures) || !Array.isArray(data.bases)) return DEFAULT_STATE;
     const structures: Structure[] = [];
     for (const s of data.structures as Record<string, unknown>[]) {
@@ -75,7 +79,10 @@ export function parseState(raw: string | null): State {
       if (!isNum(b.x) || !isNum(b.y)) return DEFAULT_STATE;
       bases.push({ x: b.x, y: b.y });
     }
-    return { structures, bases };
+    // Layouts saved before the server was asked for have none: they keep
+    // their bases and take the default.
+    const server = SERVERS.find((id) => id === data.server) ?? DEFAULT_SERVER;
+    return { server, structures, bases };
   } catch {
     return DEFAULT_STATE;
   }
@@ -189,7 +196,7 @@ export function BasePlacementPage() {
 
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(coordinateList(bases));
+      await navigator.clipboard.writeText(coordinateList(state.server, bases));
       setSaid('Copied');
     } catch {
       setSaid('Select the list below and copy it');
@@ -365,6 +372,19 @@ export function BasePlacementPage() {
             >
               Clear bases
             </button>
+            <label>
+              Server
+              <select
+                onChange={(event) => update({ ...state, server: Number(event.target.value) })}
+                value={state.server}
+              >
+                {SERVERS.map((id) => (
+                  <option key={id} value={id}>
+                    #{id}
+                  </option>
+                ))}
+              </select>
+            </label>
             <button disabled={bases.length === 0} onClick={copy} type="button">
               Copy coordinates
             </button>
@@ -491,7 +511,7 @@ export function BasePlacementPage() {
           {bases.length > 0 && (
             <>
               <h3>Bases</h3>
-              <pre className="bp-list">{coordinateList(bases)}</pre>
+              <pre className="bp-list">{coordinateList(state.server, bases)}</pre>
             </>
           )}
         </div>
