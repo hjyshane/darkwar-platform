@@ -1,11 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { RichTitle } from '../../components/RichText';
-import { guideHash, noticeHash } from '../../lib/route';
+import { ACCOUNT_PLANS, guideHash, noticeHash } from '../../lib/route';
 import { supabase } from '../../lib/supabase';
 import { useSession } from '../../lib/useSession';
 import { LeaveAllianceForm } from '../auth/LeaveAllianceForm';
 import { FavouritesBlock } from '../overview/FavouritesBlock';
+import { SavedPlans, useSavedPlans } from '../planner/SavedPlans';
 import { PlayerPage } from '../player/PlayerPage';
 import { EmailForm } from './EmailForm';
 import { GiftKeyForm } from './GiftKeyForm';
@@ -24,13 +25,15 @@ import { PasswordForm } from './PasswordForm';
  */
 const day = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeZone: 'UTC' });
 
-type Tab = 'posts' | 'comments' | 'favourites' | 'scraps' | 'player' | 'account';
+type Tab = 'posts' | 'comments' | 'favourites' | 'scraps' | 'plans' | 'player' | 'account';
 
 const TABS: ReadonlyArray<[Tab, string]> = [
   ['posts', 'Posts'],
   ['comments', 'Comments'],
   ['favourites', 'Favourites'],
   ['scraps', 'Scraps'],
+  // What the planner saved (0341): its own query, since the planner shares it.
+  ['plans', 'Plans'],
   ['player', 'My character'],
   // ONE TAB FOR THE THINGS YOU DO TO THE ACCOUNT, as opposed to the four
   // above, which are things you read. Password and leaving were separate tabs
@@ -219,8 +222,12 @@ function AccountTabs({
 
 export function AccountPage() {
   const { data: session } = useSession();
-  const [tab, setTab] = useState<Tab>('posts');
+  // `#/account/plans` is where the planner sends a reader who has just saved.
+  const [tab, setTab] = useState<Tab>(() =>
+    window.location.hash === ACCOUNT_PLANS ? 'plans' : 'posts',
+  );
   const { data, error, isPending } = useMine(session?.userId ?? null);
+  const plans = useSavedPlans(session?.userId != null);
 
   if (session?.userId == null) {
     return (
@@ -232,10 +239,12 @@ export function AccountPage() {
     );
   }
 
-  const counts: Partial<Record<Tab, number>> =
-    data === undefined
+  const counts: Partial<Record<Tab, number>> = {
+    ...(data === undefined
       ? {}
-      : { posts: data.posts.length, comments: data.comments.length, scraps: data.scraps.length };
+      : { posts: data.posts.length, comments: data.comments.length, scraps: data.scraps.length }),
+    ...(plans.data === undefined ? {} : { plans: plans.data.length }),
+  };
 
   // The character tab hands the whole screen to PlayerPage, which is a page in
   // its own right — the alternative was a link, and a tab that is only a link
@@ -322,6 +331,8 @@ export function AccountPage() {
             ))}
           </ul>
         )}
+
+        {tab === 'plans' && <SavedPlans />}
 
         {tab === 'account' && (
           <>

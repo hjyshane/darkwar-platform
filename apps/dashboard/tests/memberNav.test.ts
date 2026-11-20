@@ -47,9 +47,15 @@ describe('the member menu', () => {
       .flatMap((g) => g.items)
       .find((i) => i.label === 'CBFW')?.children;
     expect(filed?.every((c) => c.screen === true)).toBe(true);
-    // Home, Calculator and Map have nothing under them; neither does Hive for
-    // a reader who does not plan it.
-    for (const label of ['Home', 'Calculator', 'Hive', 'Map']) {
+    // Calculator carries its two pages and the planner (2026-11-20).
+    expect(children(member(), 'Calculator')).toEqual([
+      'Upgrade cost',
+      'Resource wait time',
+      'Planner',
+    ]);
+    // Home and Map have nothing under them; neither does Hive for a reader who
+    // does not plan it.
+    for (const label of ['Home', 'Hive', 'Map']) {
       expect(
         buildNav(member())
           .flatMap((g) => g.items)

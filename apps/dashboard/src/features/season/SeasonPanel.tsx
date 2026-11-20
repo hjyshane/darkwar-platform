@@ -10,24 +10,17 @@ import { serverWhen } from '../calendar/data';
 import { SeasonAllianceTable } from './SeasonAllianceTable';
 import { SeasonBuildingTable } from './SeasonBuildingTable';
 import { SeasonForceTable } from './SeasonForceTable';
-import { SeasonWaitCalculator } from './SeasonWaitCalculator';
 import { type SeasonBoardId, fetchAllianceScoreBoard, fetchPlayerForceBoard } from './boards';
 import { fetchBuildingGrid } from './buildings';
 import { allianceStrip, buildingsStrip, playerStrip } from './strip';
 
-/** The calculator is not a board — it queries nothing and is fed by hand — so
- * it is a tab id of its own rather than a fourth `SeasonBoardId`. Keeping it
- * out of that union is what stops it from ever being handed to a fetcher. */
-type SeasonTabId = SeasonBoardId | 'calculator';
-
 /** Buildings first: it is the board the alliance opens the tab to read, and
- * the two rankings are the ones you go looking for. The calculator is last —
- * it is a tool you go to deliberately, not something you read. */
-const BOARD_LABELS: ReadonlyArray<{ id: SeasonTabId; label: string }> = [
+ * the two rankings are the ones you go looking for. The wait calculator that
+ * was the fourth tab is the Calculator's second page since 2026-11-20. */
+const BOARD_LABELS: ReadonlyArray<{ id: SeasonBoardId; label: string }> = [
   { id: 'buildings', label: TERMS.seasonBuildings },
   { id: 'alliance_score', label: TERMS.seasonScore },
   { id: 'player_force', label: TERMS.seasonForce },
-  { id: 'calculator', label: TERMS.seasonCalculator },
 ];
 
 /** A board changes only when somebody opens it in the game, so the app's 60s
@@ -46,7 +39,7 @@ export function SeasonPanel() {
   // opens as player-board opens and corrupt a metric that already has
   // history. No measurement is better than a wrong one; the kind can be
   // added deliberately when season scoring is designed.
-  const [boardId, setBoardId] = useState<SeasonTabId>('buildings');
+  const [boardId, setBoardId] = useState<SeasonBoardId>('buildings');
   const { data: alert } = useSeasonBuildingAlert();
 
   const alliance = useQuery({
@@ -77,8 +70,6 @@ export function SeasonPanel() {
     staleTime: STALE_TIME,
     enabled: boardId === 'buildings',
   });
-  // The calculator has no query, so it has no pending or error state to
-  // report — `active` stays undefined and both banners below stay off.
   const active =
     boardId === 'alliance_score'
       ? alliance
@@ -105,8 +96,7 @@ export function SeasonPanel() {
   const columns = buildings.data?.columns;
   const floors = useMemo(() => floorsFor(alert, columns ?? []), [alert, columns]);
 
-  // What the board under the header holds, in a few numbers. The calculator has
-  // none: it holds what the reader typed.
+  // What the board under the header holds, in a few numbers.
   const cells =
     boardId === 'buildings' && buildings.data
       ? buildingsStrip(buildings.data, floors)
@@ -151,10 +141,7 @@ export function SeasonPanel() {
             ))}
           </div>
         )}
-        {/* Not on the calculator: the badge dates a capture, and that tab has no
-            captured figure on it. Leaving it up would date numbers the reader
-            typed themselves. */}
-        {capturedAt && boardId !== 'calculator' && (
+        {capturedAt && (
           <p className="entity-foot">
             Last captured <FreshnessBadge capturedAt={capturedAt} />
           </p>
@@ -190,7 +177,6 @@ export function SeasonPanel() {
         {boardId === 'player_force' && players.data && playerRows.length > 0 && (
           <SeasonForceTable rows={playerRows} />
         )}
-        {boardId === 'calculator' && <SeasonWaitCalculator />}
 
         {/* The one thing a reader could get badly wrong on this grid. An empty
           cell is a gap in OUR coverage — the collector has not panned over

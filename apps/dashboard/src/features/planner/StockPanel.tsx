@@ -121,17 +121,19 @@ interface StockPanelProps {
   edited: ReadonlySet<string>;
 }
 
-// Remembered. It was closed by default (user 2026-10-05: the list pushed the
-// rest of the planner down); it now has a page of its own, Settings, where a
-// closed panel would leave the page looking empty, so it is open until somebody
-// closes it. Browser storage can be refused.
-const OPEN_KEY = 'planner-stock-open';
+// Remembered, and closed until somebody opens it: the list is long and it sits
+// at the head of the planner again (2026-11-20), where an open one pushes
+// everything else down (user 2026-10-05, the first time it lived here). For
+// the weeks it had a Settings page of its own it was open by default; the key
+// is new so that default is not read back as somebody's choice. Browser
+// storage can be refused.
+const OPEN_KEY = 'planner-stock-open-2';
 
 function readOpen(): boolean {
   try {
-    return localStorage.getItem(OPEN_KEY) !== '0';
+    return localStorage.getItem(OPEN_KEY) === '1';
   } catch {
-    return true;
+    return false;
   }
 }
 

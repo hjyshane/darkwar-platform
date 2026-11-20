@@ -26,6 +26,8 @@ import {
   ALLIANCE_VIEWS,
   type AdminGroup,
   type AllianceView,
+  CALCULATOR,
+  type CalculatorTab,
   EVENTS_HUB_TABS,
   EVENT_GUIDE_TABS,
   EVENT_TABS,
@@ -134,6 +136,7 @@ export interface NavContext {
   tabs?: {
     members?: MembersTab;
     hive?: HiveTab;
+    calculator?: CalculatorTab;
     alliance?: AllianceView;
   };
   /** Whether the reader may plan the hive. Its tabs are for planners only:
@@ -185,6 +188,27 @@ function rankingBoards(ctx: NavContext): NavChild[] {
       current: board.route === ctx.route,
     }),
   );
+}
+
+/** What sits under Calculator (owner, 2026-11-20): its two pages, then the
+ * planner, which is a screen of its own filed here. The planner had been
+ * archived since 2026-11-12; the wait-time page came off the season board. */
+function calculatorChildren(ctx: NavContext): NavChild[] {
+  return [
+    ...CALCULATOR.tabs.map((entry) => ({
+      key: CALCULATOR.hash(entry.id),
+      href: CALCULATOR.hash(entry.id),
+      label: entry.label,
+      current: ctx.route === 'calculator' && (ctx.tabs?.calculator ?? 'cost') === entry.id,
+    })),
+    {
+      key: '#/planner',
+      href: '#/planner',
+      label: 'Planner',
+      current: ctx.route === 'planner',
+      screen: true,
+    },
+  ];
 }
 
 /** The groups, in the order the sidebar draws them.
@@ -281,7 +305,8 @@ function buildCommunityNav(ctx: NavContext): NavGroup[] {
         ]
       : []),
   ];
-  // The calculator is what it is given of the alliance's tools.
+  // The calculator, with the planner under it, is what it is given of the
+  // alliance's tools.
   const tools: NavItem[] = ALLIANCE_TABS.filter(
     (tab) => tab.route === 'calculator' && shown(tab.route),
   ).map((tab) => ({
@@ -289,7 +314,9 @@ function buildCommunityNav(ctx: NavContext): NavGroup[] {
     href: tab.hash,
     label: tab.label,
     icon: iconFor(tab.route),
-    current: tab.route === ctx.route,
+    // The planner is filed under it, so it stays current there too.
+    current: tab.route === ctx.route || ctx.route === 'planner',
+    children: calculatorChildren(ctx),
   }));
   const guideTab = ctx.eventGuideTab ?? 'today';
   const events: NavItem[] = EVENT_TABS.filter((tab) => shown(tab.route)).map((tab) => ({
@@ -472,7 +499,17 @@ export function buildMemberNav(ctx: NavContext): NavGroup[] {
           },
         ]),
     ...(shown('calculator')
-      ? [single('#/calculator', 'Calculator', 'calculator', route === 'calculator')]
+      ? [
+          {
+            ...single(
+              '#/calculator',
+              'Calculator',
+              'calculator',
+              route === 'calculator' || route === 'planner',
+            ),
+            children: calculatorChildren(ctx),
+          },
+        ]
       : []),
     ...(shown('hive')
       ? [
@@ -637,7 +674,7 @@ const OTHER_LABELS: Partial<Record<Route, string>> = {
   giftCodes: 'Gift codes',
   calendar: 'Game calendar',
   shopValue: 'Shop value',
-  // Archived 2026-11-12: no entry, but its address still opens it.
+  // Filed under Calculator; named here for a reader whose Calculator is hidden.
   planner: 'Planner',
   admin: 'Settings',
   account: 'My account',

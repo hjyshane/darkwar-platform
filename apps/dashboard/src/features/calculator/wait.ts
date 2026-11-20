@@ -1,4 +1,4 @@
-/** How long until a season resource reaches the amount an upgrade wants.
+/** How long until a resource reaches the amount an upgrade wants.
  *
  * Nothing here touches the database. The three figures are read off the game
  * by the member and typed in — the app has no production rate for anybody, and

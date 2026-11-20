@@ -230,7 +230,7 @@ describe('palette entries', () => {
     const items = buildNav(base({ isOfficer: false })).flatMap((group) => group.items);
     const entries = paletteEntries(items);
 
-    for (const label of ['Home', 'Calculator', 'Hive', 'Map']) {
+    for (const label of ['Home', 'Hive', 'Map']) {
       const entry = items.find((candidate) => candidate.label === label);
       expect(entry).toBeDefined();
       expect(entries.find((candidate) => candidate.label === label)).toBe(entry);

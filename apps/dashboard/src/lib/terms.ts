@@ -42,9 +42,6 @@ export const TERMS = {
   seasonScore: 'Soul Stone',
   seasonForce: 'Influence',
   seasonBuildings: 'Buildings',
-  // Not a board. The three figures are typed in by the reader off their own
-  // game screen — nothing on this tab is captured or stored.
-  seasonCalculator: 'Wait Calculator',
   // Admin-only. Last season's buildings still arrive from old sightings.
   season2Buildings: 'Season 2',
   monthlyCard: 'Monthly Card',

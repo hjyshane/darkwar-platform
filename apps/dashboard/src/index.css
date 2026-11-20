@@ -8637,3 +8637,86 @@ button.server-link {
   font-weight: 400;
   color: var(--fg-muted);
 }
+
+/* The planner's buffs and stock, at the head of the page since 2026-11-20:
+ * one line of small boxes per row of buffs, the stock list folded under it. */
+.planner-settings {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.planner-settings > h3 {
+  margin: 0;
+}
+
+.planner-buffs {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+}
+
+.planner-buffs-label {
+  color: var(--fg-muted);
+  font-size: 0.85em;
+  min-width: 5.5rem;
+}
+
+.planner-buff {
+  align-items: center;
+  display: inline-flex;
+  font-size: 0.9em;
+  gap: var(--space-2);
+}
+
+.planner-buff-figure {
+  white-space: nowrap;
+}
+
+.planner-buff input {
+  padding-block: 2px;
+  text-align: right;
+  width: 4rem;
+}
+
+.planner-settings .planner-stock {
+  margin: 0;
+}
+
+.planner-save {
+  align-items: center;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  margin-top: var(--space-3);
+  max-width: none;
+  padding-top: var(--space-3);
+}
+
+.planner-save label {
+  align-items: center;
+  display: inline-flex;
+  gap: var(--space-2);
+}
+
+.planner-save input {
+  width: min(16rem, 60vw);
+}
+
+.saved-plan-targets {
+  list-style: none;
+  margin: var(--space-2) 0;
+  padding: 0;
+}
+
+.saved-plan-target {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 0.85em;
+  padding: 1px var(--space-2);
+}
+
+.saved-plan-actions {
+  align-items: center;
+}

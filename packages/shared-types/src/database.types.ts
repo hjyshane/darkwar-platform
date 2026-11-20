@@ -6200,6 +6200,53 @@ export type Database = {
         }
         Relationships: []
       }
+      planner_plans: {
+        Row: {
+          account_name: string
+          created_at: string
+          extra_buffs: Json
+          name: string
+          plan_id: string
+          player_id: string | null
+          targets: Json
+          updated_at: string
+          user_id: string
+          with_prereqs: boolean
+        }
+        Insert: {
+          account_name?: string
+          created_at?: string
+          extra_buffs?: Json
+          name: string
+          plan_id?: string
+          player_id?: string | null
+          targets?: Json
+          updated_at?: string
+          user_id?: string
+          with_prereqs?: boolean
+        }
+        Update: {
+          account_name?: string
+          created_at?: string
+          extra_buffs?: Json
+          name?: string
+          plan_id?: string
+          player_id?: string | null
+          targets?: Json
+          updated_at?: string
+          user_id?: string
+          with_prereqs?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planner_plans_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "pending_access"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       player_claims: {
         Row: {
           alliance_id: string | null
