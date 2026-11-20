@@ -14,6 +14,7 @@ export function MonthView({
   today,
   onDay,
   onPickDay,
+  onOpen,
 }: {
   events: CalendarEvent[];
   /** Any server day in the month shown (`YYYY-MM-DD`). */
@@ -21,6 +22,7 @@ export function MonthView({
   today: string;
   onDay: (day: string) => void;
   onPickDay: (day: string) => void;
+  onOpen: (event: CalendarEvent) => void;
 }) {
   const anchor = new Date(`${day.slice(0, 8)}01T00:00:00Z`);
   const days = calendarRange('month', anchor).days;
@@ -63,6 +65,7 @@ export function MonthView({
             }))}
             events={events}
             key={dayKey(week[0] ?? anchor)}
+            onOpen={onOpen}
             onPickDay={onPickDay}
             today={today}
           />

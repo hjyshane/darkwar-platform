@@ -12,6 +12,7 @@ import {
   endWithSeason,
   groupedWeekBars,
   inCategory,
+  isUnidentified,
   knownCategory,
   labelOf,
   lastServerDay,
@@ -19,6 +20,8 @@ import {
   search,
   serverDay,
   serverWhen,
+  splitIdentified,
+  statusOf,
   until,
   weekBars,
 } from './data';
@@ -119,6 +122,43 @@ describe('until', () => {
 describe('labelOf', () => {
   it('falls back to the id', () => {
     expect(labelOf({ name: null, activity_id: '41101' })).toBe('Event #41101');
+  });
+});
+
+describe('unidentified events', () => {
+  it('is an event with no name, whatever else it has', () => {
+    expect(isUnidentified(event('40401', null, null))).toBe(true);
+    expect(isUnidentified(event('41101', null, null, 'Arctic Ice Pit'))).toBe(false);
+  });
+
+  it('splits them from the calendar, in id order', () => {
+    const { identified, unidentified } = splitIdentified([
+      event('40723', null, null),
+      event('41101', null, null, 'Arctic Ice Pit'),
+      event('40401', null, null),
+    ]);
+
+    expect(identified.map((entry) => entry.activity_id)).toEqual(['41101']);
+    expect(unidentified.map((entry) => entry.activity_id)).toEqual(['40401', '40723']);
+  });
+});
+
+describe('statusOf', () => {
+  it('says how long a running event has left and how soon a coming one starts', () => {
+    expect(statusOf(event('1', '2026-10-01T02:00:00Z', '2026-10-04T02:00:00Z'), NOW)).toBe(
+      'Running · ends in 1d 4h',
+    );
+    expect(statusOf(event('2', '2026-10-05T02:00:00Z', '2026-10-12T02:00:00Z'), NOW)).toBe(
+      'Starts in 2d 4h',
+    );
+  });
+
+  it('names the states with no countdown', () => {
+    expect(statusOf(event('3', '2026-09-01T02:00:00Z', '2026-09-02T02:00:00Z'), NOW)).toBe('Ended');
+    expect(statusOf(event('4', '2026-01-01T02:00:00Z', '2044-01-01T02:00:00Z'), NOW)).toBe(
+      'Standing feature',
+    );
+    expect(statusOf(event('5', null, null), NOW)).toBe('No dates');
   });
 });
 

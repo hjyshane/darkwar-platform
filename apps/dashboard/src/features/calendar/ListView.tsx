@@ -38,16 +38,18 @@ const SECTIONS: ReadonlyArray<{ bucket: Bucket; title: string; blurb: string; op
   },
 ];
 
-function EventTable({
+export function EventTable({
   events,
   countdown,
   now,
   mayName,
+  onOpen,
 }: {
   events: CalendarEvent[];
   countdown: 'start' | 'end' | null;
   now: Date;
   mayName: boolean;
+  onOpen: (event: CalendarEvent) => void;
 }) {
   return (
     <div className="table-wrap">
@@ -71,7 +73,7 @@ function EventTable({
           {events.map((event) => (
             <tr key={`${event.server_id}:${event.activity_id}`}>
               <td>
-                <EventName event={event} mayName={mayName} />
+                <EventName event={event} mayName={mayName} onOpen={onOpen} />
               </td>
               <td>{serverWhen(event.starts_at, now)}</td>
               <td>{serverWhen(event.ends_at, now)}</td>
@@ -99,15 +101,19 @@ function CategoryList({
   day,
   now,
   mayName,
+  onOpen,
 }: {
   events: CalendarEvent[];
   day: string;
   now: Date;
   mayName: boolean;
+  onOpen: (event: CalendarEvent) => void;
 }) {
   const arranged = useMemo(() => arrange(events, now), [events, now]);
   if (day !== '') {
-    return <EventTable countdown={null} events={events} mayName={mayName} now={now} />;
+    return (
+      <EventTable countdown={null} events={events} mayName={mayName} now={now} onOpen={onOpen} />
+    );
   }
   return (
     <>
@@ -129,6 +135,7 @@ function CategoryList({
               events={list}
               mayName={mayName}
               now={now}
+              onOpen={onOpen}
             />
           </details>
         );
@@ -137,18 +144,21 @@ function CategoryList({
   );
 }
 
-/** The list, one group per category, each in its own colour. Unclassified
- * entries sit with the events (categoryOf). */
+/** The list, one group per category, each in its own colour. A named entry
+ * with no category sits with the events (categoryOf); an unnamed one never
+ * reaches here (CalendarPage lists those apart). */
 export function ListView({
   events,
   day,
   now,
   mayName,
+  onOpen,
 }: {
   events: CalendarEvent[];
   day: string;
   now: Date;
   mayName: boolean;
+  onOpen: (event: CalendarEvent) => void;
 }) {
   if (events.length === 0) {
     return <p className="empty">Nothing matches. Clear the search or pick another day.</p>;
@@ -171,7 +181,7 @@ export function ListView({
             <h3 className="calendar-group-title">
               {title} <span className="calendar-count">({list.length})</span>
             </h3>
-            <CategoryList day={day} events={list} mayName={mayName} now={now} />
+            <CategoryList day={day} events={list} mayName={mayName} now={now} onOpen={onOpen} />
           </section>
         );
       })}

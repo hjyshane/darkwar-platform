@@ -39,6 +39,8 @@ def _full(activity_id: str, event: EventName) -> dict[str, Any]:
         "note": NOTE,
         "activity_type": event.activity_type,
         "category": event.category,
+        "summary": event.summary,
+        "rules": event.rules,
     }
 
 
@@ -59,13 +61,20 @@ def plan(existing: Iterable[Mapping[str, Any]], names: Mapping[str, EventName]) 
                 patch["activity_type"] = event.activity_type
             if row.get("category") is None:
                 patch["category"] = event.category
+            # The game's own text is a game fact too: there is nowhere for a
+            # person to type it, so it follows the client on every row (0337).
+            for field in ("summary", "rules"):
+                if row.get(field) != getattr(event, field):
+                    patch[field] = getattr(event, field)
             if patch:
                 to_classify.append({"activity_id": activity_id, **patch})
         elif (
             row.get("name"),
             row.get("activity_type"),
             row.get("category"),
-        ) == (event.name, event.activity_type, event.category):
+            row.get("summary"),
+            row.get("rules"),
+        ) == (event.name, event.activity_type, event.category, event.summary, event.rules):
             unchanged += 1
         else:
             to_write.append(_full(activity_id, event))
@@ -99,7 +108,10 @@ def fetch_existing(client: httpx.Client) -> list[dict[str, Any]]:
     """All of event_names. It passed 1,000 rows in 1.250.672 (1,443), and a
     row this does not see is planned as new — an officer's name included."""
     return fetch_all(
-        client, "event_names", "activity_id,name,updated_by,activity_type,category", "activity_id"
+        client,
+        "event_names",
+        "activity_id,name,updated_by,activity_type,category,summary,rules",
+        "activity_id",
     )
 
 

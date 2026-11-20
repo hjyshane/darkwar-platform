@@ -5803,6 +5803,101 @@ button.tile-grid:hover:not(:disabled) {
   }
 }
 
+/* Events open a card (0337). A bar is now a button: it keeps the bar's look,
+ * so everything the global `button` rule adds is taken back here. The hover
+ * selector repeats :not(:disabled) to outrank `button:hover:not(:disabled)`,
+ * which would otherwise repaint the bar in the page's hover grey. */
+button.calendar-bar {
+  border: 0;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: filter var(--dur-fast) var(--ease);
+}
+button.calendar-bar:hover:not(:disabled) {
+  background-color: var(--cat-bg);
+  filter: brightness(1.12);
+}
+button.calendar-bar.calendar-cat-major:hover:not(:disabled) {
+  background-color: var(--cat-fg);
+}
+button.calendar-bar:focus-visible,
+.calendar-open:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.calendar-chips > li > .calendar-bar {
+  margin: 0;
+}
+.calendar-open {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.calendar-open:hover:not(:disabled) {
+  background-color: transparent;
+  text-decoration: underline;
+}
+.calendar-open.calendar-unnamed {
+  color: var(--fg-muted);
+}
+.calendar-unidentified {
+  margin-top: var(--space-4);
+}
+.calendar-unidentified > summary {
+  cursor: pointer;
+}
+.calendar-card {
+  width: min(60ch, 92vw);
+}
+.calendar-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.calendar-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.25rem 0 0;
+}
+.calendar-card-tags .calendar-bar {
+  margin: 0;
+}
+.calendar-card-close {
+  flex: none;
+  line-height: 1;
+  padding: 0.2rem 0.55rem;
+}
+.calendar-card-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem 1rem;
+  margin: var(--space-4) 0 0.25rem;
+}
+.calendar-card-facts dt {
+  color: var(--fg-muted);
+  font-size: 0.8em;
+}
+.calendar-card-facts dd {
+  margin: 0;
+}
+/* pre-line: the game's rules are numbered lines, kept as the client breaks them. */
+.calendar-card-text {
+  white-space: pre-line;
+}
+.calendar-card-edit {
+  border-top: 1px solid var(--border);
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+}
+
 /* Shop value (0215): an expandable pack row and the basis of each value. */
 .link-button {
   background: none;

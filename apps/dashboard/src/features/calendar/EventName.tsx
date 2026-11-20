@@ -15,7 +15,16 @@ import {
   saveEventName,
 } from './data';
 
-export function EventName({ event, mayName }: { event: CalendarEvent; mayName: boolean }) {
+export function EventName({
+  event,
+  mayName,
+  onOpen,
+}: {
+  event: CalendarEvent;
+  mayName: boolean;
+  /** Given, the name is a button that opens the event's card. */
+  onOpen?: (event: CalendarEvent) => void;
+}) {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<{ name: string; category: Category } | null>(null);
   const save = useMutation({
@@ -30,9 +39,19 @@ export function EventName({ event, mayName }: { event: CalendarEvent; mayName: b
   if (draft === null) {
     return (
       <>
-        <span className={event.name === null ? 'calendar-unnamed' : undefined}>
-          {labelOf(event)}
-        </span>
+        {onOpen === undefined ? (
+          <span className={event.name === null ? 'calendar-unnamed' : undefined}>
+            {labelOf(event)}
+          </span>
+        ) : (
+          <button
+            className={`calendar-open${event.name === null ? ' calendar-unnamed' : ''}`}
+            onClick={() => onOpen(event)}
+            type="button"
+          >
+            {labelOf(event)}
+          </button>
+        )}
         {mayName && (
           <button
             aria-label={`Edit ${labelOf(event)}`}

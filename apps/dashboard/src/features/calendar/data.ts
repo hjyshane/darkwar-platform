@@ -117,6 +117,46 @@ export function labelOf(event: Pick<CalendarEvent, 'name' | 'activity_id'>): str
   return event.name ?? `Event #${event.activity_id}`;
 }
 
+/** An event nobody has identified: the server lists the id, the game client's
+ * tables have no name for it, and no officer has given it one. 40401 was one
+ * on 2026-11-19 — a week-long entry the client itself has no row for. These
+ * are kept off the calendar and listed apart: a bar reading "Event #40401"
+ * tells a member nothing, and it took a lane from events that do. */
+export function isUnidentified(event: Pick<CalendarEvent, 'name'>): boolean {
+  return event.name === null;
+}
+
+/** The calendar's events and the unidentified ones, apart. The unidentified
+ * are in id order: with no name there is nothing else to find one by. */
+export function splitIdentified(events: ReadonlyArray<CalendarEvent>): {
+  identified: CalendarEvent[];
+  unidentified: CalendarEvent[];
+} {
+  const identified: CalendarEvent[] = [];
+  const unidentified: CalendarEvent[] = [];
+  for (const event of events) {
+    (isUnidentified(event) ? unidentified : identified).push(event);
+  }
+  unidentified.sort((a, b) => Number(a.activity_id) - Number(b.activity_id));
+  return { identified, unidentified };
+}
+
+/** What the card says an event is doing as of `now`. */
+export function statusOf(event: CalendarEvent, now: Date): string {
+  switch (bucketOf(event, now)) {
+    case 'live':
+      return `Running · ends in ${until(event.ends_at ?? '', now)}`;
+    case 'upcoming':
+      return `Starts in ${until(event.starts_at ?? '', now)}`;
+    case 'ended':
+      return 'Ended';
+    case 'standing':
+      return 'Standing feature';
+    default:
+      return 'No dates';
+  }
+}
+
 /** `2026-10-03` — the server-time day an instant falls on. */
 export function serverDay(iso: string): string {
   return zonedDayKey(iso, SERVER_ZONE);
@@ -264,6 +304,32 @@ export async function fetchCalendar(): Promise<CalendarEvent[]> {
   return (data ?? [])
     .filter((row) => row.activity_id !== null && row.server_id !== null)
     .map((row) => ({ ...row, category: knownCategory(row.category) })) as CalendarEvent[];
+}
+
+/** The game's own words for an event (0337): the line under its title and
+ * its rules screen, as plain text. */
+export interface EventText {
+  summary: string | null;
+  rules: string | null;
+}
+
+/** One event's text, read when its card opens. Null fields when the client
+ * has no text for it, or the row does not exist (an unidentified event). */
+export async function fetchEventText(activityId: string): Promise<EventText> {
+  const { data, error } = await supabase
+    .from('event_names')
+    .select('summary, rules')
+    .eq('activity_id', activityId)
+    .maybeSingle();
+  if (error) {
+    // 42703: the dashboard shipped before 0337 was applied. The card still
+    // has the dates to show; it says the text is not loaded rather than fail.
+    if (error.code === '42703' || error.code === '42501') {
+      return { summary: null, rules: null };
+    }
+    throw new Error(error.message);
+  }
+  return { summary: data?.summary ?? null, rules: data?.rules ?? null };
 }
 
 /** A category the dashboard knows, or null. 'shop' (0210) became 'premium'

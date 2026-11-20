@@ -16,7 +16,15 @@ import {
   serverWhen,
 } from './data';
 
-function Bar({ bar, row }: { bar: WeekBar; row: number }) {
+function Bar({
+  bar,
+  row,
+  onOpen,
+}: {
+  bar: WeekBar;
+  row: number;
+  onOpen: (event: CalendarEvent) => void;
+}) {
   const category = categoryOf(bar.event);
   const classes = [
     'calendar-bar',
@@ -27,14 +35,16 @@ function Bar({ bar, row }: { bar: WeekBar; row: number }) {
     .filter(Boolean)
     .join(' ');
   return (
-    <div
+    <button
       className={classes}
+      onClick={() => onOpen(bar.event)}
+      type="button"
       style={{ gridColumn: `${bar.start + 1} / ${bar.end + 2}`, gridRow: row }}
       title={`${labelOf(bar.event)} (${CATEGORY_LABELS[category]}): ${serverWhen(bar.event.starts_at)} → ${serverWhen(bar.event.ends_at)}`}
     >
       {!bar.startsHere && <span aria-hidden="true">◀ </span>}
       {labelOf(bar.event)}
-    </div>
+    </button>
   );
 }
 
@@ -50,12 +60,15 @@ export function WeekGrid({
   events,
   today,
   onPickDay,
+  onOpen,
   tall = false,
 }: {
   days: WeekDay[];
   events: CalendarEvent[];
   today: string;
   onPickDay: (day: string) => void;
+  /** Open an event's card. */
+  onOpen: (event: CalendarEvent) => void;
   /** The week view: taller day cells, labelled groups. */
   tall?: boolean;
 }) {
@@ -117,6 +130,7 @@ export function WeekGrid({
           <Bar
             bar={bar}
             key={`${group.category}-${bar.event.activity_id}`}
+            onOpen={onOpen}
             row={firstLane + bar.lane}
           />
         )),
