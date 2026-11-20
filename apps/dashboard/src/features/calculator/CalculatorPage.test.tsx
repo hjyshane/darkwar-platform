@@ -6,8 +6,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Subject } from '../planner/data';
 import type { PlannedStep } from '../planner/plan';
 
-const subject = (id: string, name: string, maxLevel: number, gameSeason: number | null = null) =>
-  ({ subject: id, name, nameKo: null, maxLevel, category: null, gameSeason }) as Subject;
+const subject = (
+  id: string,
+  name: string,
+  maxLevel: number,
+  gameSeason: number | null = null,
+  category: number | null = null,
+) => ({ subject: id, name, nameKo: null, maxLevel, category, gameSeason }) as Subject;
 
 const step = (kind: PlannedStep['step']['kind'], subjectId: string, level: number) =>
   ({
@@ -40,6 +45,10 @@ vi.mock('./data', () => ({
 }));
 vi.mock('../planner/data', () => ({
   fetchTiers: async () => new Map(),
+  fetchResearchTabs: async () => [
+    { tabId: 1003, name: 'New Home' },
+    { tabId: 1007, name: 'Battle' },
+  ],
   fetchMaterialNames: async () => ({ items: new Map(), resources: new Map([['25', 'Wood']]) }),
 }));
 vi.mock('../../lib/gameIcons', () => ({
@@ -62,11 +71,18 @@ function open(hash: string) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.fetchCalculatorSubjects.mockImplementation(async (kind: string) =>
-    kind === 'chip'
-      ? [subject('4', 'Purple chip', 100)]
-      : [subject('409000', 'Bank', 30), subject('868000', 'Mineral Factory I', 30, 6)],
-  );
+  mocks.fetchCalculatorSubjects.mockImplementation(async (kind: string) => {
+    if (kind === 'chip') return [subject('4', 'Purple chip', 100)];
+    if (kind === 'vehicle_part') return [subject('1', 'Vehicle part (any)', 66)];
+    if (kind === 'research') {
+      return [
+        subject('7001', 'Marching Speed', 10, null, 1007),
+        subject('3001', 'Fast Building', 10, null, 1003),
+        subject('9001', 'Other screen', 10, null, 7),
+      ];
+    }
+    return [subject('409000', 'Bank', 30), subject('868000', 'Mineral Factory I', 30, 6)];
+  });
   mocks.loadSteps.mockImplementation(async (goals: { kind: string; subject: string }[]) => ({
     steps:
       goals[0]?.kind === 'chip'
@@ -145,6 +161,30 @@ describe('CalculatorPage', () => {
     open('#/calculator');
     expect(await screen.findByText('Pick what to price.')).toBeTruthy();
     expect(screen.queryByRole('table')).toBeNull();
+  });
+
+  it('opens a link to one vehicle part as the entry that stands for all six', async () => {
+    open('#/calculator?kind=vehicle_part&subject=4&from=10&to=12');
+    await screen.findByRole('table');
+    expect(mocks.loadSteps).toHaveBeenCalledWith([
+      { kind: 'vehicle_part', subject: '1', from: 10, to: 12 },
+    ]);
+    expect(screen.getByText('Every vehicle part costs the same.')).toBeTruthy();
+  });
+
+  it('offers research a main tree at a time, opening on the linked research tree', async () => {
+    open('#/calculator?kind=research&subject=7001&to=2');
+    await screen.findByRole('table');
+    // The Select is a button until opened: it reads the chosen tree, and the
+    // count beside it is the tree's own research, not the catalogue's three.
+    expect((await screen.findByLabelText('Tree')).textContent).toBe('Battle (1)');
+    expect(screen.getByLabelText('Subject').textContent).toBe('Marching Speed');
+  });
+
+  it('has no tree to pick for a kind that is not research', async () => {
+    open('#/calculator?kind=building&subject=409000&from=28&to=30');
+    await screen.findByRole('table');
+    expect(screen.queryByLabelText('Tree')).toBeNull();
   });
 
   it('opens a season building under the season entry', async () => {

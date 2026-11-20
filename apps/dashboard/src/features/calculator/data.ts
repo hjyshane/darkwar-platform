@@ -12,11 +12,37 @@ import { CHIP_EXP, chipSubjectName } from './chips';
 import type { ExpCard } from './model';
 import type { CalculatorKind } from './url';
 
-/** "level:q5" with a top level of 100 → "Quality 5 gear · to level 100". The
- * client numbers gear qualities and names only the pieces, so the number is
- * what is shown rather than a colour somebody would have to guess. */
+/** Hero gear qualities by the colour the game draws them in (owner,
+ * 2026-11-19): the client's D1 … D5 pieces. */
+export const GEAR_QUALITIES: Readonly<Record<string, string>> = {
+  '1': 'Grey',
+  '2': 'Green',
+  '3': 'Blue',
+  '4': 'Purple',
+  '5': 'Orange',
+};
+
+/** Pet rarities by the grade the game shows (owner, 2026-11-19): rarity 1
+ * tops out at level 60 and is C, rarity 4 at 100 and is S. */
+export const PET_GRADES: Readonly<Record<string, string>> = {
+  '1': 'C',
+  '2': 'B',
+  '3': 'A',
+  '4': 'S',
+};
+
+/** "level:q5" with a top level of 100 → "Orange gear · to level 100"; the
+ * number itself for a quality with no colour here. */
 export function gearSubjectName(subject: string, maxLevel: number): string {
-  return `Quality ${subject.replace('level:q', '')} gear · to level ${maxLevel}`;
+  const quality = subject.replace('level:q', '');
+  const colour = GEAR_QUALITIES[quality];
+  return `${colour ?? `Quality ${quality}`} gear · to level ${maxLevel}`;
+}
+
+/** "4" with a top level of 100 → "S-grade pet · to level 100". */
+export function petSubjectName(subject: string, maxLevel: number): string {
+  const grade = PET_GRADES[subject];
+  return `${grade ? `${grade}-grade pet` : `Pet · rarity ${subject}`} · to level ${maxLevel}`;
 }
 
 const byName = (a: Subject, b: Subject) => {
@@ -25,6 +51,19 @@ const byName = (a: Subject, b: Subject) => {
   return unnamed !== 0 ? unnamed : a.name.localeCompare(b.name);
 };
 const byId = (a: Subject, b: Subject) => Number(a.subject) - Number(b.subject);
+
+/** The subjects of a kind whose members all cost the same, as ONE entry: the
+ * lowest id stands for the rest. Read off the client's tables 2026-11-19: the
+ * six vehicle parts (Gun … Wheel) have identical steps, and the eighteen
+ * exclusive weapons the same counts, each in its own fragments. Null when the
+ * tracks do not end at one level — then they are not one thing after all, and
+ * the caller lists them apart. */
+function sharedSubject(rows: ReadonlyArray<Subject>, name: string): Subject[] | null {
+  const [first, ...rest] = [...rows].sort(byId);
+  if (first === undefined) return [];
+  if (rest.some((s) => s.maxLevel !== first.maxLevel)) return null;
+  return [{ ...first, name, nameKo: null }];
+}
 
 /** The catalogue's subjects of a kind, named and ordered for the picker.
  * `heroNames` (hero id → name) is only read for exclusive weapons. */
@@ -49,16 +88,19 @@ export function labelSubjects(
       // The view's name for a chip is its top step's label ("10★ 0/10").
       return rows.map((s) => ({ ...s, name: chipSubjectName(s.subject) })).sort(byId);
     case 'pet':
-      return rows.map((s) => ({ ...s, name: `Pet · rarity ${s.subject}` })).sort(byId);
+      return rows.map((s) => ({ ...s, name: petSubjectName(s.subject, s.maxLevel) })).sort(byId);
     case 'vehicle_part':
-      return [...rows].sort(byId);
+      return sharedSubject(rows, 'Vehicle part (any)') ?? [...rows].sort(byId);
     case 'exclusive':
-      return rows
-        .map((s) => {
-          const hero = heroNames.get(s.subject);
-          return hero ? { ...s, name: `${s.name} (${hero})` } : s;
-        })
-        .sort(byName);
+      return (
+        sharedSubject(rows, 'Exclusive weapon (any)') ??
+        rows
+          .map((s) => {
+            const hero = heroNames.get(s.subject);
+            return hero ? { ...s, name: `${s.name} (${hero})` } : s;
+          })
+          .sort(byName)
+      );
     case 'building':
       return buildingsForCalculator(rows).sort(byName);
     default:
@@ -81,9 +123,10 @@ async function fetchHeroNames(heroIds: string[]): Promise<Map<string, string>> {
  * come with their `gameSeason`; the page splits ordinary from seasonal. */
 export async function fetchCalculatorSubjects(kind: CalculatorKind): Promise<Subject[]> {
   const rows = (await fetchCatalogSubjects(kind, {})).filter((s) => s.maxLevel >= 1);
-  const heroNames =
-    kind === 'exclusive' ? await fetchHeroNames(rows.map((s) => s.subject)) : new Map();
-  return labelSubjects(kind, rows, heroNames);
+  const labelled = labelSubjects(kind, rows, new Map());
+  // Weapons listed apart want their heroes beside them; one entry does not.
+  if (kind !== 'exclusive' || labelled.length <= 1) return labelled;
+  return labelSubjects(kind, rows, await fetchHeroNames(rows.map((s) => s.subject)));
 }
 
 export interface LoadedSteps {

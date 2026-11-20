@@ -14,9 +14,13 @@ describe('labelSubjects', () => {
       new Map(),
     );
     expect(labelled.map((s) => [s.subject, s.name])).toEqual([
-      ['level:q5', 'Quality 5 gear · to level 100'],
+      ['level:q5', 'Orange gear · to level 100'],
     ]);
-    expect(gearSubjectName('level:q3', 60)).toBe('Quality 3 gear · to level 60');
+    expect(
+      ['1', '2', '3', '4'].map((q) => gearSubjectName(`level:q${q}`, 60).split(' gear')[0]),
+    ).toEqual(['Grey', 'Green', 'Blue', 'Purple']);
+    // A quality the game adds later keeps its number until it is named here.
+    expect(gearSubjectName('level:q6', 120)).toBe('Quality 6 gear · to level 120');
   });
 
   it("names chips by quality, not by the view's top step label", () => {
@@ -28,16 +32,39 @@ describe('labelSubjects', () => {
     expect(labelled.map((s) => s.name)).toEqual(['Purple chip', 'Orange chip']);
   });
 
-  it('puts the hero beside an exclusive weapon, so either name finds it', () => {
+  it('offers the vehicle parts and the exclusive weapons as one entry each', () => {
+    const parts = labelSubjects(
+      'vehicle_part',
+      [subject('3', 'Armor', 66), subject('1', 'Gun', 66), subject('6', 'Wheel', 66)],
+      new Map(),
+    );
+    expect(parts.map((s) => [s.subject, s.name, s.maxLevel])).toEqual([
+      ['1', 'Vehicle part (any)', 66],
+    ]);
+    const weapons = labelSubjects(
+      'exclusive',
+      [subject('40002', 'Pyro Pup', 52), subject('21001', 'Blood Rose', 52)],
+      new Map([['40002', 'Margaret']]),
+    );
+    expect(weapons.map((s) => [s.subject, s.name])).toEqual([['21001', 'Exclusive weapon (any)']]);
+  });
+
+  it('lists them apart again if their tracks stop at different levels', () => {
     const labelled = labelSubjects(
       'exclusive',
-      [subject('40002', 'Pyro Pup', 52), subject('40006', 'Night Owl', 52)],
+      [subject('40002', 'Pyro Pup', 52), subject('40006', 'Night Owl', 40)],
       new Map([['40002', 'Margaret']]),
     );
     expect(labelled.map((s) => s.name)).toEqual(['Night Owl', 'Pyro Pup (Margaret)']);
+    const parts = labelSubjects(
+      'vehicle_part',
+      [subject('2', 'Engine', 66), subject('1', 'Gun', 70)],
+      new Map(),
+    );
+    expect(parts.map((s) => s.name)).toEqual(['Gun', 'Engine']);
   });
 
-  it('names the single-subject kinds and the pet rarities', () => {
+  it('names the single-subject kinds, and pets by grade', () => {
     expect(labelSubjects('hero', [subject('hero', '#hero', 200)], new Map())[0]?.name).toBe(
       'Hero level',
     );
@@ -46,7 +73,12 @@ describe('labelSubjects', () => {
       labelSubjects('pet', [subject('4', '#4', 100), subject('1', '#1', 60)], new Map()).map(
         (s) => s.name,
       ),
-    ).toEqual(['Pet · rarity 1', 'Pet · rarity 4']);
+    ).toEqual(['C-grade pet · to level 60', 'S-grade pet · to level 100']);
+    expect(
+      labelSubjects('pet', [subject('2', '#2', 70), subject('3', '#3', 80)], new Map()).map(
+        (s) => s.name,
+      ),
+    ).toEqual(['B-grade pet · to level 70', 'A-grade pet · to level 80']);
   });
 
   it('sorts buildings by name, leaving out unnamed and hidden ones (buildingList.ts)', () => {

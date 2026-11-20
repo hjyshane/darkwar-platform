@@ -39,6 +39,11 @@ export const KIND_OPTIONS: ReadonlyArray<{ id: FormKind; label: string }> = [
   { id: 'season', label: 'Season building' },
 ];
 
+/** The kinds offered as one entry because every subject costs the same
+ * (data.ts sharedSubject). A link that names one of them by its old id — a
+ * single part, a single weapon — opens that entry. */
+export const SHARED_KINDS: ReadonlySet<CalculatorKind> = new Set(['vehicle_part', 'exclusive']);
+
 /** Which buff fields a kind shows: exactly the ones plan.ts applies to it.
  * Construction speed and cost reduction act on buildings, research speed on
  * research, and nothing else has a time or a discount. */
@@ -199,6 +204,12 @@ export function notesFor(
   }
   if (state.kind === 'research') {
     notes.push('Research and buildings this needs first are not included; the planner adds them.');
+  }
+  if (state.kind === 'vehicle_part') {
+    notes.push('Every vehicle part costs the same.');
+  }
+  if (state.kind === 'exclusive') {
+    notes.push('Every exclusive weapon takes the same count, in its own fragments.');
   }
   if (state.kind === 'exclusive' && weaponSegments(state.to).awakening > 0) {
     notes.push('Red ranks open season by season.');
