@@ -8471,7 +8471,7 @@ button.server-link {
 
 .home-week {
   display: grid;
-  grid-template-columns: 6rem 1fr;
+  grid-template-columns: minmax(6rem, max-content) 1fr;
   gap: var(--space-2) var(--space-3);
   margin: 0 0 var(--space-2);
 }
@@ -8489,4 +8489,138 @@ button.server-link {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+}
+/* The plan as a thumbnail, the reader's base picked out. SVG in tile units, so
+ * strokes are non-scaling: a 1px border must stay 1px at any plan size. */
+.hive-snap {
+  display: block;
+  width: 100%;
+  max-width: 16rem;
+  margin: 0 0 var(--space-2);
+  color: inherit;
+  text-decoration: none;
+}
+
+.hive-snap svg {
+  display: block;
+  width: 100%;
+  max-height: 12rem;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.hive-snap__tile {
+  fill: color-mix(in srgb, var(--accent) 30%, transparent);
+  stroke: var(--accent);
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+}
+.hive-snap__tile--structure {
+  fill: color-mix(in srgb, var(--warn-bg) 55%, transparent);
+  stroke: var(--warn-fg);
+  stroke-dasharray: 3 2;
+}
+.hive-snap__tile--slate {
+  fill: color-mix(in srgb, var(--fg-muted) 35%, transparent);
+  stroke: var(--fg-muted);
+}
+.hive-snap__tile--red {
+  fill: color-mix(in srgb, var(--danger-fg) 35%, transparent);
+  stroke: var(--danger-fg);
+}
+.hive-snap__tile--amber {
+  fill: color-mix(in srgb, var(--warn-fg) 32%, transparent);
+  stroke: var(--warn-fg);
+}
+.hive-snap__tile--green {
+  fill: color-mix(in srgb, var(--ok-fg) 35%, transparent);
+  stroke: var(--ok-fg);
+}
+.hive-snap__tile--teal {
+  fill: color-mix(in srgb, var(--data-2) 40%, transparent);
+  stroke: var(--data-2);
+}
+.hive-snap__tile--blue {
+  fill: color-mix(in srgb, var(--accent) 32%, transparent);
+  stroke: var(--accent);
+}
+.hive-snap__tile--violet {
+  fill: color-mix(in srgb, var(--data-5) 35%, transparent);
+  stroke: var(--data-5);
+}
+.hive-snap__tile--pink {
+  fill: color-mix(in srgb, var(--data-4) 35%, transparent);
+  stroke: var(--data-4);
+}
+
+/* Last, so it wins over whatever colour the tile was painted: solid where the
+ * others are tinted, which is what reads as "this one" at thumbnail size. */
+.hive-snap__tile--own {
+  fill: var(--ok-fg);
+  stroke: var(--fg);
+  stroke-width: 2px;
+  stroke-dasharray: none;
+}
+
+.hive-snap__ring {
+  fill: color-mix(in srgb, var(--ok-fg) 18%, transparent);
+  stroke: var(--ok-fg);
+  stroke-width: 2px;
+  vector-effect: non-scaling-stroke;
+}
+
+.hive-snap__legend {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1, 0.25rem);
+  margin-top: var(--space-1, 0.25rem);
+  font-size: 0.8rem;
+  color: var(--fg-muted);
+}
+
+.hive-snap__swatch {
+  width: 0.7rem;
+  height: 0.7rem;
+  background: var(--ok-fg);
+  border: 1px solid var(--fg);
+  border-radius: 2px;
+}
+
+/* Pinned notices at the top of Home, pressed down to one line each: the label
+ * in place of a section heading, rows without the card padding. */
+.home-notices:empty {
+  display: none;
+}
+
+.home-notices h2 {
+  margin: 0 0 var(--space-1);
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.home-notices .notices {
+  gap: var(--space-1);
+}
+
+.home-notices .notice {
+  padding: 0 var(--space-3);
+}
+
+.home-notices .notice-open {
+  padding: var(--space-1) 0;
+}
+
+.home-notices p.subtle {
+  margin: var(--space-1) 0 0;
+  font-size: 0.85rem;
+}
+
+.home-week__local {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--fg-muted);
 }

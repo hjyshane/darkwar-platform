@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { shareCoordinate } from '../../lib/shareCoordinate';
-import { SERVER_ZONE, zonedTime } from '../../lib/timezone';
+import { SERVER_ZONE, browserZone, zonedDayKey, zonedTime } from '../../lib/timezone';
 import { useSession } from '../../lib/useSession';
 import { KIND_OPTIONS } from '../calculator/model';
 import {
@@ -11,6 +11,7 @@ import {
 } from '../calculator/url';
 import { useCapturedTimes, useEventGuide } from '../eventGuide/data';
 import { WEEKDAYS } from '../eventGuide/guide';
+import { HiveSnapshot } from '../hive/HiveSnapshot';
 import { useBoard, useFormations } from '../hive/hiveFormations';
 import { AnnouncementsBlock } from '../overview/AnnouncementsBlock';
 import { GuidesBlock } from '../overview/GuidesBlock';
@@ -27,6 +28,9 @@ export function HomePage() {
   const { data: session } = useSession();
   const playerId = session?.playerId ?? null;
   const me = useMyPlayer(playerId);
+  const nowIso = new Date().toISOString();
+  const localZone = browserZone();
+  const showLocal = hasOwnClock(localZone, nowIso);
 
   return (
     <section aria-labelledby="home-heading" className="home">
@@ -34,8 +38,9 @@ export function HomePage() {
         <h2 id="home-heading">Home</h2>
         <p className="subtle">
           {me.data?.name ?? (playerId === null ? 'No character linked' : '…')}
-          {me.data ? ` · Server ${me.data.serverId}` : ''} ·{' '}
-          {zonedTime(new Date().toISOString(), SERVER_ZONE)} server time
+          {me.data ? ` · Server ${me.data.serverId}` : ''} · {zonedTime(nowIso, SERVER_ZONE)} server
+          time
+          {showLocal && ` · ${zonedTime(nowIso, localZone)} your time`}
         </p>
       </header>
       {playerId === null && (
@@ -44,15 +49,30 @@ export function HomePage() {
           and your Black Gold team here.
         </p>
       )}
+      {/* Pinned notices first, as tight one-line rows (owner, 2026-11-19): what
+          the officers want read comes before anything else, without pushing
+          the tile below the fold. The block draws nothing when none is pinned. */}
+      <div className="home-notices">
+        <AnnouncementsBlock />
+      </div>
       <HiveCard playerId={playerId} />
       <WeekCard playerId={playerId} />
       <UpgradeCard />
       <div className="panel home-card">
         <h3 className="home-label">From your officers</h3>
-        <AnnouncementsBlock />
         <GuidesBlock />
       </div>
     </section>
+  );
+}
+
+/** Whether the reader's machine is on a different clock from the game's at
+ * that instant. Somebody whose clock already reads server time is not told
+ * the same time twice. */
+function hasOwnClock(zone: string, iso: string): boolean {
+  return (
+    zonedTime(iso, zone) !== zonedTime(iso, SERVER_ZONE) ||
+    zonedDayKey(iso, zone) !== zonedDayKey(iso, SERVER_ZONE)
   );
 }
 
@@ -80,6 +100,10 @@ function HiveCard({ playerId }: { playerId: string | null }) {
       ) : (
         <p className="empty">You have no tile in this plan.</p>
       )}
+      {/* The coordinate says where to teleport; the picture says where that is
+          in the shape, which is what somebody checks before they spend the
+          item (owner, 2026-11-19). */}
+      {mine && <HiveSnapshot board={board.data ?? []} ownPlayerId={playerId} />}
       <p className="subtle">
         Changed {zonedTime(live.editedAt, SERVER_ZONE)} by {live.editedByName ?? 'someone'}
       </p>
@@ -114,11 +138,14 @@ function WeekCard({ playerId }: { playerId: string | null }) {
       ? (bg.data.row.team_index ?? null)
       : null;
   const next = nextBlackGold(times.data ?? [], team, now);
-  const when = (iso: string) => {
-    const day = new Date(iso);
+  // The weekday of the zone's own date: 23:00 server time on Saturday is
+  // already Sunday morning in Seoul, and each clock has to name its own day.
+  const when = (iso: string, zone: string) => {
+    const day = new Date(`${zonedDayKey(iso, zone)}T00:00:00Z`);
     const weekday = WEEKDAYS[(day.getUTCDay() + 6) % 7] ?? '';
-    return `${weekday} ${zonedTime(iso, SERVER_ZONE)}`;
+    return `${weekday} ${zonedTime(iso, zone)}`;
   };
+  const localZone = browserZone();
   return (
     <div className="panel home-card">
       <h3 className="home-label">This week</h3>
@@ -127,7 +154,15 @@ function WeekCard({ playerId }: { playerId: string | null }) {
         <dd>
           {duel ? <strong>Alliance Duel · {duel.name}</strong> : 'No Alliance Duel theme today.'}
         </dd>
-        <dt>{next ? when(next.startsAt) : 'Black Gold'}</dt>
+        <dt>
+          {next ? when(next.startsAt, SERVER_ZONE) : 'Black Gold'}
+          {next && <span className="home-week__local">server time</span>}
+          {/* The reader's own clock beside the game's (owner, 2026-11-19):
+              the game shows server time, the alarm they set does not. */}
+          {next && hasOwnClock(localZone, next.startsAt) && (
+            <span className="home-week__local">{when(next.startsAt, localZone)} your time</span>
+          )}
+        </dt>
         <dd>
           <strong>{next ? next.title : 'Black Gold Battlefield'}</strong>
           <br />

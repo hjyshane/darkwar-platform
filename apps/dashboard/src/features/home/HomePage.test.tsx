@@ -8,6 +8,8 @@ const mock = vi.hoisted(() => ({
   playerId: 'p1' as string | null,
   plans: [] as unknown[],
   board: [] as unknown[],
+  zone: 'Asia/Seoul',
+  times: [] as unknown[],
 }));
 
 vi.mock('../../lib/supabase', () => ({ supabase: {} }));
@@ -15,6 +17,10 @@ vi.mock('../../lib/useSession', () => ({
   useSession: () => ({
     data: { role: 'member', email: null, userId: 'u', playerId: mock.playerId },
   }),
+}));
+vi.mock('../../lib/timezone', async (original) => ({
+  ...(await original<typeof import('../../lib/timezone')>()),
+  browserZone: () => mock.zone,
 }));
 vi.mock('./homeData', () => ({
   useMyPlayer: () => ({ data: mock.playerId ? { name: 'Ann', serverId: 580 } : undefined }),
@@ -33,7 +39,7 @@ vi.mock('../hive/hiveFormations', () => ({
 }));
 vi.mock('../eventGuide/data', () => ({
   useEventGuide: () => ({ data: { themes: [], scores: [], calendar: [] } }),
-  useCapturedTimes: () => ({ data: [] }),
+  useCapturedTimes: () => ({ data: mock.times }),
 }));
 vi.mock('../overview/AnnouncementsBlock', () => ({ AnnouncementsBlock: () => <p>notices</p> }));
 vi.mock('../overview/GuidesBlock', () => ({ GuidesBlock: () => <p>guides</p> }));
@@ -61,7 +67,14 @@ function show() {
 beforeEach(() => {
   mock.playerId = 'p1';
   mock.plans = [livePlan];
-  mock.board = [{ playerId: 'p1', x: 512, y: 300, label: '' }];
+  mock.zone = 'Asia/Seoul';
+  mock.times = [];
+  const base = { label: '', spanX: 3, spanY: 3, kind: 'base', colour: null };
+  mock.board = [
+    { ...base, slotId: 's1', playerId: 'p1', x: 512, y: 300 },
+    { ...base, slotId: 's2', playerId: 'p2', x: 515, y: 303 },
+    { ...base, slotId: 's3', playerId: null, x: 509, y: 300, colour: 'red' },
+  ];
 });
 
 describe('HomePage', () => {
@@ -70,6 +83,50 @@ describe('HomePage', () => {
     expect(screen.getByText('#580[X:512 Y:300]')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Copy coordinates' })).toBeTruthy();
     expect(screen.getByText(/by Officer/)).toBeTruthy();
+  });
+
+  it('draws the plan small under the coordinate with my base picked out', () => {
+    const { container } = show();
+    expect(screen.getByRole('link', { name: /Your base on the plan map/ })).toBeTruthy();
+    expect(container.querySelectorAll('.hive-snap__tile').length).toBe(3);
+    const own = container.querySelectorAll('.hive-snap__tile--own');
+    expect(own.length).toBe(1);
+    // West of p2 and south of it: x counts east, and the picture's y is the
+    // map's y turned over, so the more northern base is nearer the top.
+    const other = container.querySelector(
+      '.hive-snap__tile:not(.hive-snap__tile--own):not(.hive-snap__tile--red)',
+    );
+    expect(Number(own[0]?.getAttribute('x'))).toBeLessThan(Number(other?.getAttribute('x')));
+    expect(Number(own[0]?.getAttribute('y'))).toBeGreaterThan(Number(other?.getAttribute('y')));
+  });
+
+  it('leaves the picture out when I have no tile in the plan', () => {
+    mock.playerId = 'p9';
+    const { container } = show();
+    expect(screen.getByText('You have no tile in this plan.')).toBeTruthy();
+    expect(container.querySelector('.hive-snap')).toBeNull();
+  });
+
+  it('puts the pinned notices above the hive card', () => {
+    show();
+    const notices = screen.getByText('notices');
+    const hive = screen.getByText(/Hive move/);
+    expect(notices.compareDocumentPosition(hive) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('gives the next Black Gold time on my own clock beside server time', () => {
+    mock.times = [{ title: 'Black Gold · Team A', startsAt: '2099-01-03T22:30:00Z' }];
+    show();
+    // 22:30 UTC is 20:30 server time on the 3rd and 07:30 in Seoul on the 4th.
+    expect(screen.getByText(/^Sat 20:30/)).toBeTruthy();
+    expect(screen.getByText('Sun 07:30 your time')).toBeTruthy();
+  });
+
+  it('does not repeat the time for a reader whose clock is server time', () => {
+    mock.zone = 'Etc/GMT+2';
+    mock.times = [{ title: 'Black Gold · Team A', startsAt: '2099-01-03T22:30:00Z' }];
+    show();
+    expect(screen.queryByText(/your time/)).toBeNull();
   });
 
   it('shows my Black Gold team and objective, and the calculator inside the upgrade card', () => {
