@@ -33,6 +33,7 @@ import {
   HIVE,
   type HiveTab,
   MEMBERS,
+  MERCHANT_TESTER,
   type MembersTab,
   OVERVIEW_TABS,
   RANKING_TABS,
@@ -43,6 +44,7 @@ import {
   eventsTabOffered,
   isEventGuideTabOpen,
   isRankingRoute,
+  merchantTesterOffered,
 } from './route';
 import type { Season } from './seasons';
 import { NO_OVERRIDES, type Overrides, arrange, isHidden, labelOf } from './uiOverrides';
@@ -430,6 +432,28 @@ export function buildMemberNav(ctx: NavContext): NavGroup[] {
     icon,
     current,
   });
+  // The planning steps, for planners only, then the Merchant tester for
+  // officers and admins (owner, 2026-11-20): a different reader each.
+  const hiveChildren = [
+    ...(ctx.mayPlanHive === true
+      ? HIVE.tabs.map((entry) => ({
+          key: HIVE.hash(entry.id),
+          href: HIVE.hash(entry.id),
+          label: entry.label,
+          current: route === 'hive' && (ctx.tabs?.hive ?? 'plan') === entry.id,
+        }))
+      : []),
+    ...(merchantTesterOffered(ctx) && ctx.isCommunity !== true
+      ? [
+          {
+            key: MERCHANT_TESTER,
+            href: MERCHANT_TESTER,
+            label: 'Merchant tester',
+            current: route === 'basePlacement',
+          },
+        ]
+      : []),
+  ];
   const firstGuide = guideChildren[0];
   const firstAlliance = allianceChildren[0];
 
@@ -453,19 +477,10 @@ export function buildMemberNav(ctx: NavContext): NavGroup[] {
     ...(shown('hive')
       ? [
           {
-            ...single('#/hive', 'Hive', 'hive', route === 'hive'),
+            ...single('#/hive', 'Hive', 'hive', route === 'hive' || route === 'basePlacement'),
             // The planning steps, for planners only: everybody else sees the
             // plan and nothing else, so for them the screen has no tabs.
-            ...(ctx.mayPlanHive === true
-              ? {
-                  children: HIVE.tabs.map((entry) => ({
-                    key: HIVE.hash(entry.id),
-                    href: HIVE.hash(entry.id),
-                    label: entry.label,
-                    current: route === 'hive' && (ctx.tabs?.hive ?? 'plan') === entry.id,
-                  })),
-                }
-              : {}),
+            ...(hiveChildren.length > 0 ? { children: hiveChildren } : {}),
           },
         ]
       : []),

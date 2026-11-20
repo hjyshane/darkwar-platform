@@ -1,0 +1,181 @@
+/* Base placement tester. Tokens from index.css only. Imported from
+ * BasePlacementPage, never from index.css. */
+
+.bp {
+  align-items: start;
+  display: grid;
+  gap: var(--space-6);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 24rem);
+}
+
+@media (max-width: 900px) {
+  .bp {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.bp-intro,
+.bp-note,
+.bp-hint {
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+  margin: 0;
+  max-width: 72ch;
+}
+
+.bp-board {
+  background: var(--bg-cell);
+  border: 1px solid var(--border);
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-3);
+}
+
+.bp-svg {
+  aspect-ratio: 1;
+  background: var(--bg);
+  cursor: crosshair;
+  display: block;
+  max-height: 80vh;
+  width: 100%;
+}
+
+.bp-grid {
+  stroke: var(--border);
+  stroke-width: 0.04;
+}
+
+.bp-area {
+  fill: var(--accent-wash);
+  stroke: var(--accent);
+  stroke-width: 0.12;
+}
+
+.bp-footprint {
+  fill: var(--fg-muted);
+  opacity: 0.85;
+}
+
+.bp-base {
+  fill: var(--accent-fill);
+  stroke: var(--accent);
+  stroke-width: 0.1;
+}
+
+.bp-open {
+  fill: var(--danger-fg);
+  pointer-events: none;
+}
+
+.bp-ghost {
+  fill: var(--ok);
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.bp-ghost-no {
+  fill: var(--danger-fg);
+}
+
+.bp-ghost-remove {
+  fill: var(--fg-muted);
+}
+
+.bp-side {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.bp-side h3 {
+  margin: var(--space-2) 0 0;
+}
+
+.bp-verdict {
+  background: var(--warn-bg);
+  color: var(--warn-fg);
+  padding: var(--space-3);
+}
+
+.bp-sealed {
+  background: var(--ok-bg);
+  color: var(--ok-fg);
+}
+
+.bp-count {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  margin-top: var(--space-1);
+}
+
+.bp-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.bp-said {
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+}
+
+.bp-add,
+.bp-structure {
+  background: var(--bg-cell);
+  border: 1px solid var(--border);
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  min-width: 0;
+  padding: var(--space-3);
+}
+
+.bp-add {
+  align-items: end;
+  grid-template-columns: 1fr 1fr auto;
+}
+
+.bp-refused {
+  color: var(--danger-fg);
+  font-size: var(--text-sm);
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.bp-row {
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.bp label {
+  color: var(--fg-muted);
+  display: grid;
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  gap: var(--space-1);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.bp input {
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  color: var(--fg);
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+}
+
+.bp-list {
+  background: var(--bg-cell);
+  border: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  margin: 0;
+  max-height: 14rem;
+  overflow: auto;
+  padding: var(--space-3);
+}

@@ -140,8 +140,13 @@ describe('sidebar tabs for the alliance screens', () => {
   });
 
   it('lists the hive steps under Hive for a planner only', () => {
+    // A member, so the officer-only Merchant tester is not among the children.
     const hive = (mayPlanHive: boolean | undefined, tab?: 'people') =>
-      entry(base({ route: 'hive', mayPlanHive, tabs: { hive: tab } }), 'watch', 'Hive');
+      entry(
+        base({ route: 'hive', mayPlanHive, tabs: { hive: tab }, isOfficer: false }),
+        'watch',
+        'Hive',
+      );
 
     expect(hive(true, 'people')?.children?.map((c) => [c.label, c.href, c.current])).toEqual([
       ['Plan', '#/hive', false],
@@ -253,5 +258,36 @@ describe('sidebar tabs for the alliance screens', () => {
     expect(page).toBeDefined();
     expect(page?.current).toBe(false);
     expect(page?.tabs?.some((tab) => tab.current)).toBe(false);
+  });
+});
+
+describe('the Merchant tester under Hive (2026-11-20)', () => {
+  const hiveOf = (over: Partial<NavContext>) => entry(base(over), 'watch', 'Hive');
+  const tester = { label: 'Merchant tester', href: '#/base-placement' };
+
+  it('is offered to an officer and to an admin, after the planning steps', () => {
+    for (const ctx of [{ isOfficer: true }, { isOfficer: false, isAdmin: true }]) {
+      const labels = hiveOf({ ...ctx, mayPlanHive: true })?.children?.map((c) => c.label);
+      expect(labels).toEqual(['Plan', 'Draw the shape', 'Who goes where', 'Merchant tester']);
+    }
+  });
+
+  it('is the only child for an officer who does not plan the hive', () => {
+    expect(hiveOf({ mayPlanHive: false })?.children).toMatchObject([tester]);
+  });
+
+  it('is not offered to a member or a community account', () => {
+    expect(hiveOf({ isOfficer: false, mayPlanHive: true })?.children?.map((c) => c.label)).toEqual([
+      'Plan',
+      'Draw the shape',
+      'Who goes where',
+    ]);
+    expect(hiveOf({ isOfficer: true, isCommunity: true })?.children).toBeUndefined();
+  });
+
+  it('keeps Hive current, and marks itself current, on its own page', () => {
+    const open = hiveOf({ route: 'basePlacement' });
+    expect(open?.current).toBe(true);
+    expect(open?.children?.find((c) => c.href === '#/base-placement')?.current).toBe(true);
   });
 });
