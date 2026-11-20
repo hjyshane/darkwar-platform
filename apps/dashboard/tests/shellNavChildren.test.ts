@@ -226,7 +226,8 @@ describe('palette entries', () => {
   });
 
   it('leaves a screen without tabs as it is', () => {
-    const items = buildNav(base()).flatMap((group) => group.items);
+    // A member: an officer's Hive carries the Merchant tester beneath it.
+    const items = buildNav(base({ isOfficer: false })).flatMap((group) => group.items);
     const entries = paletteEntries(items);
 
     for (const label of ['Home', 'Calculator', 'Hive', 'Map']) {

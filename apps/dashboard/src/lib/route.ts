@@ -45,6 +45,7 @@ export type Route =
   | 'events'
   | 'planner'
   | 'calculator'
+  | 'basePlacement'
   | 'giftCodes'
   | 'calendar'
   | 'eventGuide'
@@ -86,6 +87,9 @@ const ROUTES: Record<string, Route> = {
   '#/events': 'events',
   '#/planner': 'planner',
   '#/calculator': 'calculator',
+  // The Merchant tester, a sub-entry under Hive for officers and admins
+  // (`merchantTesterOffered`).
+  '#/base-placement': 'basePlacement',
   '#/gift-codes': 'giftCodes',
   '#/calendar': 'calendar',
   '#/event-guide': 'eventGuide',
@@ -231,6 +235,14 @@ export const HIVE = tabbed<HiveTab>('#/hive', [
   { id: 'shape', label: 'Draw the shape' },
   { id: 'people', label: 'Who goes where' },
 ]);
+
+/** The Merchant tester: where 3x3 bases can go around a structure. A sub-entry
+ * under Hive, offered to officers and admins only (owner, 2026-11-20). Hides the
+ * entry and the page; it reads and writes nothing, so there is no policy to match. */
+export const MERCHANT_TESTER = '#/base-placement';
+export function merchantTesterOffered(who: { isAdmin: boolean; isOfficer: boolean }): boolean {
+  return who.isAdmin || who.isOfficer;
+}
 
 /** Starting a new formation: a page of the hive screen reached by a button,
  * not a tab. It is done once a move rather than switched between, so it has
@@ -604,6 +616,7 @@ export function navSection(route: Route): NavSection | null {
     case 'events':
     case 'planner':
     case 'calculator':
+    case 'basePlacement':
     case 'giftCodes':
       return 'alliance';
     case 'map':

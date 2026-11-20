@@ -16,6 +16,7 @@ import { AlliancePage } from './features/alliance/AlliancePage';
 import { ArenaPanel } from './features/arena/ArenaPanel';
 import { CharacterGate } from './features/auth/CharacterGate';
 import { LoginPage } from './features/auth/LoginPage';
+import { BasePlacementPage } from './features/basePlacement/BasePlacementPage';
 import { BlackGoldPage } from './features/blackGold/BlackGoldPage';
 import { CalculatorPage } from './features/calculator/CalculatorPage';
 import { CalendarPage } from './features/calendar/CalendarPage';
@@ -340,6 +341,13 @@ function Screen({
       // Reference costs from the game's own tables: readable by every signed-in
       // role, community included (0283), so no gate beyond the wall.
       return <CalculatorPage />;
+    case 'basePlacement':
+      // Officers and admins (owner, 2026-11-20), not community. Client-side
+      // only, so this hides the page; there is no policy underneath to match.
+      if (session?.role !== 'officer' && session?.role !== 'admin') {
+        return <p className="empty">The Merchant tester is for officers.</p>;
+      }
+      return <BasePlacementPage />;
     case 'giftCodes':
       // The tab is hidden from anyone without `giftcodes.manage`, and the
       // tables and functions under it refuse them too (0251) - hiding a tab
