@@ -2215,6 +2215,35 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
   [['map', 'trucks'], huntTrucksFixture()],
   [['map', 'stations'], new Map<number, { x: number; y: number }>()],
   [['map', 'missions', MAP_SERVER_ID], huntMissionsFixture()],
+  // Two Large Treasure Spots: a lantern nobody has lit, and one already open.
+  [
+    ['map', 'treasure', MAP_SERVER_ID],
+    [
+      {
+        siteUuid: 't1',
+        serverId: MAP_SERVER_ID,
+        at: { x: 560, y: 300 },
+        gameAt: { x: 559, y: 299 },
+        status: 3,
+        expiresAt: new Date(Date.now() + 90 * 60_000),
+        revealedAt: null,
+        limitSeconds: null,
+        participants: 0,
+      },
+      {
+        siteUuid: 't2',
+        serverId: MAP_SERVER_ID,
+        at: { x: 300, y: 520 },
+        gameAt: { x: 299, y: 519 },
+        status: 2,
+        expiresAt: new Date(Date.now() + 90 * 60_000),
+        revealedAt: new Date(Date.now() - 10 * 60_000),
+        limitSeconds: 3600,
+        participants: 3,
+      },
+    ],
+  ],
+  [['game-icons', 'item', '230101'], new Map([['230101', PLACEHOLDER_ICON('#f59e0b')]])],
 
   // Alarms (spec 2026-11-14 §8). The entries and deliveries are built above,
   // relative to now; the deliveries key is derived from the entry ids.

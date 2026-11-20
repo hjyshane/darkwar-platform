@@ -27,6 +27,9 @@ export const TRUCK_MAX_LOOTS = 2;
 /** Gold in aps_dispatch_tasks.color: 2 blue, 3 purple, 4 gold. */
 export const MISSION_GOLD_COLOR = 4;
 
+/** The Orange Skill Book's item id: what a gold mission pays, and its pin. */
+export const ORANGE_SKILL_BOOK = '230101';
+
 export const QUALITY_NAMES: Record<number, string> = {
   1: 'Grey',
   2: 'Green',
@@ -102,6 +105,15 @@ export function lootsLeft(truck: Pick<Truck, 'robTimes'>): number {
   // Unknown counts as untouched: the list is the only place it is read, and it
   // always carries it, so null means "not yet seen" rather than "taken".
   return Math.max(0, TRUCK_MAX_LOOTS - (truck.robTimes ?? 0));
+}
+
+/** When the loot count was last read: the newer of the list and the march,
+ * since the view takes it from whichever came last. A truck looted since then
+ * still shows the old count, so the row says how old the count is. */
+export function lootsSeenAt(truck: Pick<Truck, 'positionSeenAt' | 'cargoSeenAt'>): Date | null {
+  const { positionSeenAt: a, cargoSeenAt: b } = truck;
+  if (a === null || b === null) return a ?? b;
+  return a > b ? a : b;
 }
 
 export interface TruckPosition {

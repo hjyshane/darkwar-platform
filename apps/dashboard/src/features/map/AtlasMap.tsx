@@ -15,6 +15,7 @@ import {
   isShielded,
   isStale,
   shieldLeft,
+  strongestAlliances,
   visibleLabels,
   visibleNames,
 } from './atlas';
@@ -73,14 +74,17 @@ export function AtlasMap({
   const planning = planTiles !== null;
   // The tower picture per HQ level (0268); nothing for a visitor, who gets rings.
   const towers = useIcons('tower').data;
-  // The alliance names give way to the base names once zoomed in.
-  const named = useMemo(
-    () =>
-      (zoom >= CLUMP_NAME_HIDE_ZOOM && !territory ? [] : visibleLabels(clumps, atlas, zoom)).filter(
-        (clump) => pickedAlliance === null || clump.alliance === pickedAlliance,
-      ),
-    [clumps, atlas, zoom, pickedAlliance, territory],
-  );
+  // The alliance names give way to the base names once zoomed in. Only the
+  // five strongest are tagged; an alliance picked in the ranking is tagged
+  // whatever its rank, since it was asked for by name.
+  const named = useMemo(() => {
+    if (zoom >= CLUMP_NAME_HIDE_ZOOM && !territory) return [];
+    const strongest = strongestAlliances(atlas);
+    const wanted = clumps.filter((clump) =>
+      pickedAlliance === null ? strongest.has(clump.alliance) : clump.alliance === pickedAlliance,
+    );
+    return visibleLabels(wanted, atlas, zoom);
+  }, [clumps, atlas, zoom, pickedAlliance, territory]);
   // Base names that fit without overlapping: the picked base and the lit ones
   // first. Everything else is dropped when it would sit on a name already placed.
   const baseNames = useMemo(() => {

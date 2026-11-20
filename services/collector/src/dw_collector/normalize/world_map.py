@@ -61,7 +61,12 @@ from dw_collector.registry import register
 # `server_id` is the MAP's server, as 0254 always said it was - it had been the
 # owner's uid server, which files a migrated owner's mission under the server
 # they left (498 of 4,136 sightings on 580 on 2026-11-18).
-PARSER_VERSION = "1.7.0"
+# 1.8.0: the viewport row's `raw` names the dispatch missions that were in the
+# window (`missions`, their uuids). A mission row is stored once a day however
+# often it is seen, so nothing said a mission was still there at a later pan, or
+# that it was not; 0338 reads this list to drop one that a later pan over its
+# tile no longer shows.
+PARSER_VERSION = "1.8.0"
 
 _UID_SERVER_SUFFIX = 6
 
@@ -226,7 +231,20 @@ def _viewport_row(observation: Observation, tiles: list[Tile], bucket: str) -> N
             "captured_at": observation.captured_at.isoformat(),
             "collector_id": str(observation.collector_id),
             "collected_from_server_id": observation.collected_from_server_id,
-            "raw": {},
+            # Every dispatch mission in the window, started or not, by uuid.
+            # The row is keyed by the whole response, so each pan that differs
+            # writes one: this is the only record of what a LATER look at the
+            # same ground did and did not show (0338). An empty list is a
+            # statement - "looked, none here" - and is written as one.
+            "raw": {
+                "missions": sorted(
+                    str(tile.mission.uuid)
+                    for tile in tiles
+                    if tile.object_type == DISPATCH_MISSION_TYPE
+                    and tile.mission is not None
+                    and tile.mission.uuid is not None
+                )
+            },
             # The MAP's server, from the response's own field. Unlike a city,
             # whose server comes from its uid, the ground being looked at
             # belongs to exactly one server and the response names it.
