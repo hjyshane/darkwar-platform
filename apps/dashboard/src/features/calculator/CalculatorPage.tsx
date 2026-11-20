@@ -9,7 +9,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { replaceHash, useHash } from '../../lib/useHash';
-import { fetchMaterialNames, fetchTiers } from '../planner/data';
+import { fetchMaterialNames, fetchResearchTabs, fetchTiers } from '../planner/data';
 import type { Tiers } from '../planner/levels';
 import { totals } from '../planner/plan';
 import { CalculatorForm } from './CalculatorForm';
@@ -18,6 +18,7 @@ import './calculator.css';
 import { fetchCalculatorSubjects, fetchExpCards, loadSteps } from './data';
 import {
   type FormKind,
+  SHARED_KINDS,
   buffsFor,
   goalsFor,
   levelFloor,
@@ -26,6 +27,7 @@ import {
   withoutInertBuffs,
 } from './model';
 import { groupBySeason, isSeasonBuilding } from './seasons';
+import { OUR_SERVER, groupByTree } from './trees';
 import {
   type CalculatorState,
   DEFAULT_STATE,
@@ -68,6 +70,8 @@ export function CalculatorPage() {
   // not in the address: a link to a season building opens under it anyway.
   const [seasonPicked, setSeasonPicked] = useState(false);
   const [pickedSeason, setPickedSeason] = useState<number | null>(null);
+  // The research tree is the same kind of thing: a way of finding a subject.
+  const [pickedTree, setPickedTree] = useState<number | null>(null);
 
   const subjects = useQuery({
     queryKey: ['calculator-subjects', state.kind],
@@ -80,17 +84,43 @@ export function CalculatorPage() {
     staleTime: HOUR,
     enabled: state.kind === 'building',
   });
+  const researchTabs = useQuery({
+    queryKey: ['calculator-research-tabs'],
+    queryFn: () => fetchResearchTabs(OUR_SERVER),
+    staleTime: HOUR,
+    enabled: state.kind === 'research',
+  });
   const all = subjects.data ?? [];
-  const current = all.find((s) => s.subject === state.subject) ?? null;
+  // A kind offered as one entry: whatever part or weapon a link names is it.
+  const shared = SHARED_KINDS.has(state.kind) && all.length === 1 ? all[0] : undefined;
+  const current =
+    shared !== undefined && state.subject !== null
+      ? shared
+      : (all.find((s) => s.subject === state.subject) ?? null);
 
   const seasonal =
     state.kind === 'building' && (seasonPicked || (current !== null && isSeasonBuilding(current)));
   const formKind: FormKind = seasonal ? 'season' : state.kind;
   const seasons = useMemo(() => groupBySeason(subjects.data ?? []), [subjects.data]);
   const gameSeason = pickedSeason ?? current?.gameSeason ?? seasons[0]?.gameSeason ?? null;
-  const pool = !seasonal
-    ? all.filter((s) => !isSeasonBuilding(s))
-    : (seasons.find((g) => g.gameSeason === gameSeason)?.subjects ?? []);
+  // Research is picked a main tree at a time, as the research screen shows it.
+  // Without the tabs (not loaded, or the read failed) it is one flat list.
+  const trees = useMemo(
+    () =>
+      state.kind === 'research' ? groupByTree(subjects.data ?? [], researchTabs.data ?? []) : [],
+    [state.kind, subjects.data, researchTabs.data],
+  );
+  const has = (tabId: number | null | undefined) => trees.some((t) => t.tabId === tabId);
+  const tree = has(pickedTree)
+    ? pickedTree
+    : has(current?.category)
+      ? (current?.category ?? null)
+      : (trees[0]?.tabId ?? null);
+  const pool = seasonal
+    ? (seasons.find((g) => g.gameSeason === gameSeason)?.subjects ?? [])
+    : trees.length > 0
+      ? (trees.find((t) => t.tabId === tree)?.subjects ?? [])
+      : all.filter((s) => !isSeasonBuilding(s));
 
   // A kind with one subject (hero level, the vehicle) has nothing to choose.
   const only = state.subject === null && all.length === 1 ? all[0] : undefined;
@@ -106,7 +136,11 @@ export function CalculatorPage() {
     current === null
       ? state
       : clampToRange(
-          { ...state, from: Math.max(state.from, levelFloor(state.kind)) },
+          {
+            ...state,
+            subject: current.subject,
+            from: Math.max(state.from, levelFloor(state.kind)),
+          },
           current.maxLevel,
         );
   const goals = current === null ? [] : goalsFor(range);
@@ -142,6 +176,7 @@ export function CalculatorPage() {
 
   const onKind = (kind: FormKind) => {
     setPickedSeason(null);
+    setPickedTree(null);
     setSeasonPicked(kind === 'season');
     const next = kind === 'season' ? 'building' : kind;
     write({ ...DEFAULT_STATE, kind: next, speed: state.speed, cost: state.cost });
@@ -172,7 +207,13 @@ export function CalculatorPage() {
             setPickedSeason(next);
             write({ ...state, subject: null, from: 0, to: 0 });
           }}
+          onTree={(next) => {
+            setPickedTree(next);
+            write({ ...state, subject: null, from: 0, to: 0 });
+          }}
           pool={pool}
+          tree={tree}
+          trees={trees}
           seasons={seasons}
           state={range}
           tiers={tiers.data ?? NO_TIERS}

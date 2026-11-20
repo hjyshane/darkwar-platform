@@ -23,6 +23,8 @@ import {
 } from '../features/alarms/alarmLogic';
 import { overviewWindow } from '../features/alliance/overview';
 import type { BoardPage } from '../features/board/board';
+import { labelSubjects } from '../features/calculator/data';
+import type { CalculatorKind } from '../features/calculator/url';
 import { vacateDeparted } from '../features/hive/hiveFormations';
 import { parseAtlas } from '../features/map/atlas';
 import { gameDate, seasonPeriod } from '../features/participation/periods';
@@ -1402,6 +1404,69 @@ const CALC_CHIP_STEPS = Array.from({ length: 100 }, (_, i) => {
     null,
   );
 });
+/** The kinds the calculator folds or renames, as the catalogue returns them
+ * and labelled by the page's own labelSubjects — so the look-around build
+ * shows what the code does with six parts, not a name typed in here. */
+const calcLabelled = (kind: CalculatorKind, rows: ReturnType<typeof calcSubject>[]) =>
+  labelSubjects(kind, rows, new Map());
+const CALC_PARTS = calcLabelled(
+  'vehicle_part',
+  ['Gun', 'Engine', 'Armor', 'Body', 'Fuel Tank', 'Wheel'].map((name, i) =>
+    calcSubject(String(i + 1), name, 66),
+  ),
+);
+const CALC_WEAPONS = calcLabelled('exclusive', [
+  calcSubject('40002', 'Pyro Pup', 52),
+  calcSubject('21001', 'Blood Rose', 52),
+  calcSubject('40006', 'Night Owl', 52),
+]);
+const CALC_GEAR = calcLabelled(
+  'hero_gear',
+  [20, 40, 60, 80, 100].map((top, i) => calcSubject(`level:q${i + 1}`, '#', top)),
+);
+const CALC_PETS = calcLabelled(
+  'pet',
+  [60, 70, 80, 100].map((top, i) => calcSubject(String(i + 1), '#', top)),
+);
+const CALC_RESEARCH_TABS = [
+  { tabId: 1003, name: 'New Home' },
+  { tabId: 1001, name: 'Shelter Building' },
+  { tabId: 1007, name: 'Battle' },
+];
+const CALC_RESEARCH = [
+  ['310', 'Arable Land', 1003],
+  ['311', 'Water Purification', 1003],
+  ['320', 'Bricklaying', 1001],
+  ['330', 'Marching Speed', 1007],
+  ['331', 'Squad Attack', 1007],
+  ['332', 'Squad Defense', 1007],
+  // The other research screen's (servers 1–564): never offered.
+  ['900', 'Develop I', 1],
+].map(([id, name, tab]) => ({
+  ...calcSubject(String(id), String(name), 10),
+  category: Number(tab),
+}));
+const CALC_PART_STEPS = Array.from({ length: 66 }, (_, i) =>
+  calcStep(
+    'vehicle_part',
+    CALC_PARTS[0]?.subject ?? '1',
+    i + 1,
+    [
+      { type: 'item', id: '200040', amount: 40 * (i + 1) },
+      ...((i + 1) % 6 === 0 ? [{ type: 'item', id: '200041', amount: i + 1 }] : []),
+    ],
+    null,
+  ),
+);
+const CALC_WEAPON_STEPS = Array.from({ length: 52 }, (_, i) =>
+  calcStep(
+    'exclusive',
+    CALC_WEAPONS[0]?.subject ?? '21001',
+    i + 1,
+    [{ type: 'item', id: '253067', amount: 10 + 5 * i }],
+    null,
+  ),
+);
 const CALC_RESOURCE_NAMES = new Map([
   ['25', 'Wood'],
   ['12', 'Iron'],
@@ -1546,6 +1611,40 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
   [
     ['calculator-steps', JSON.stringify([{ kind: 'chip', subject: '5', from: 0, to: 100 }])],
     { steps: CALC_CHIP_STEPS, gaps: [] },
+  ],
+  [['calculator-subjects', 'vehicle_part'], CALC_PARTS],
+  [['calculator-subjects', 'exclusive'], CALC_WEAPONS],
+  [['calculator-subjects', 'hero_gear'], CALC_GEAR],
+  [['calculator-subjects', 'pet'], CALC_PETS],
+  [['calculator-subjects', 'research'], CALC_RESEARCH],
+  [['calculator-research-tabs'], CALC_RESEARCH_TABS],
+  [
+    ['calculator-steps', JSON.stringify([{ kind: 'vehicle_part', subject: '1', from: 0, to: 66 }])],
+    { steps: CALC_PART_STEPS, gaps: [] },
+  ],
+  [
+    [
+      'calculator-steps',
+      JSON.stringify([{ kind: 'exclusive', subject: '21001', from: 0, to: 52 }]),
+    ],
+    { steps: CALC_WEAPON_STEPS, gaps: [] },
+  ],
+  [
+    ['calculator-names', '200040,200041'],
+    {
+      items: new Map([
+        ['200040', 'Titanium Alloy'],
+        ['200041', 'Design Blueprint'],
+      ]),
+      resources: CALC_RESOURCE_NAMES,
+    },
+  ],
+  [
+    ['calculator-names', '253067'],
+    {
+      items: new Map([['253067', 'Blood Rose Fragments (Scarlett)']]),
+      resources: CALC_RESOURCE_NAMES,
+    },
   ],
   [
     ['calculator-names', '253042'],

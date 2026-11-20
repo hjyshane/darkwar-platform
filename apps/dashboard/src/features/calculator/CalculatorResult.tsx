@@ -25,8 +25,14 @@ export interface CalculatorResultProps {
   tiers: Tiers;
 }
 
-function materialName(material: MaterialTotal, names: Names | undefined): string {
+function materialName(
+  material: MaterialTotal,
+  names: Names | undefined,
+  kind: CalculatorState['kind'],
+): string {
   if (material.type === 'counter') return counterName(material.id);
+  // One entry prices every weapon; the fragments are whichever weapon's.
+  if (kind === 'exclusive' && material.type === 'item') return 'Weapon fragments';
   if (material.type === 'item') return names?.items.get(material.id) ?? `Item ${material.id}`;
   return names?.resources.get(material.id) ?? `Resource ${material.id}`;
 }
@@ -46,12 +52,12 @@ export function CalculatorResult({ state, table, notes, names, tiers }: Calculat
   const resourceIcons = useIcons('resource');
   // Icons are the game's art and members-only (0232): a viewer who may not
   // read them gets an empty map, and the cell is the figure alone.
-  const icon = (m: MaterialTotal) =>
-    m.type === 'item'
-      ? itemIcons.data?.get(m.id)
-      : m.type === 'resource'
-        ? resourceIcons.data?.get(m.id)
-        : undefined;
+  const icon = (m: MaterialTotal) => {
+    // The stand-in weapon's fragment art would name one weapon.
+    if (state.kind === 'exclusive') return undefined;
+    if (m.type === 'item') return itemIcons.data?.get(m.id);
+    return m.type === 'resource' ? resourceIcons.data?.get(m.id) : undefined;
+  };
 
   const stepLabel = (row: StepRow): string => {
     if (row.level === null) return 'Total';
@@ -69,7 +75,14 @@ export function CalculatorResult({ state, table, notes, names, tiers }: Calculat
     ...table.materials.map(
       (material): StepColumn<StepRow> => ({
         key: materialKey(material),
-        header: materialName(material, names),
+        // The same art as the totals cell above, so a column is found by
+        // sight; the name stays for whoever may not read the icons.
+        header: (
+          <span className="calc-amount">
+            <GameIcon size={16} src={icon(material)} />
+            {materialName(material, names, state.kind)}
+          </span>
+        ),
         numeric: true,
         cell: (row) => <Amount value={row.amounts.get(materialKey(material))} />,
       }),
@@ -109,7 +122,7 @@ export function CalculatorResult({ state, table, notes, names, tiers }: Calculat
                     : undefined
                 }
                 key={materialKey(material)}
-                label={materialName(material, names)}
+                label={materialName(material, names, state.kind)}
                 value={
                   <span className="calc-amount" title={exact(material.amount)}>
                     <GameIcon size={18} src={icon(material)} />

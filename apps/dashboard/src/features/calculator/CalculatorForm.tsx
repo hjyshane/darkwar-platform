@@ -9,6 +9,7 @@ import type { Tiers } from '../planner/levels';
 import { type FormKind, KIND_OPTIONS, buffFields, levelFloor, levelName } from './model';
 import { filterSubjects } from './search';
 import type { SeasonGroup } from './seasons';
+import type { TreeGroup } from './trees';
 import type { CalculatorState } from './url';
 
 export interface CalculatorFormProps {
@@ -21,10 +22,14 @@ export interface CalculatorFormProps {
   /** Season groups, when the form kind is `season`. */
   seasons: ReadonlyArray<SeasonGroup>;
   gameSeason: number | null;
+  /** Research trees, when the kind is research and the tabs are known. */
+  trees: ReadonlyArray<TreeGroup>;
+  tree: number | null;
   tiers: Tiers;
   loading: boolean;
   onKind: (kind: FormKind) => void;
   onSeason: (gameSeason: number) => void;
+  onTree: (tabId: number) => void;
   onChange: (next: CalculatorState) => void;
 }
 
@@ -44,10 +49,13 @@ export function CalculatorForm({
   current,
   seasons,
   gameSeason,
+  trees,
+  tree,
   tiers,
   loading,
   onKind,
   onSeason,
+  onTree,
   onChange,
 }: CalculatorFormProps) {
   const id = useId();
@@ -96,6 +104,19 @@ export function CalculatorForm({
             {seasons.map((season) => (
               <option key={season.gameSeason} value={season.gameSeason}>
                 {season.label}
+              </option>
+            ))}
+          </Select>
+        </div>
+      )}
+
+      {trees.length > 0 && (
+        <div className="field">
+          <label htmlFor={`${id}-tree`}>Tree</label>
+          <Select id={`${id}-tree`} onChange={(v) => onTree(Number(v))} value={tree ?? ''}>
+            {trees.map((group) => (
+              <option key={group.tabId} value={group.tabId}>
+                {group.label} ({group.subjects.length})
               </option>
             ))}
           </Select>

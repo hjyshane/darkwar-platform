@@ -179,8 +179,19 @@ describe('notesFor', () => {
   it('marks an exclusive weapon range that reaches the red ranks', () => {
     const none = { materials: [], buildSeconds: 0, researchSeconds: 0 };
     const weapon = { ...DEFAULT_STATE, kind: 'exclusive' as const, subject: '40002' };
-    expect(notesFor({ ...weapon, to: 25 }, none, [])).toEqual([]);
-    expect(notesFor({ ...weapon, to: 26 }, none, [])).toEqual(['Red ranks open season by season.']);
+    const same = 'Every exclusive weapon takes the same count, in its own fragments.';
+    expect(notesFor({ ...weapon, to: 25 }, none, [])).toEqual([same]);
+    expect(notesFor({ ...weapon, to: 26 }, none, [])).toEqual([
+      same,
+      'Red ranks open season by season.',
+    ]);
+  });
+
+  it('says a vehicle part range holds for every part', () => {
+    const none = { materials: [], buildSeconds: 0, researchSeconds: 0 };
+    expect(
+      notesFor({ ...DEFAULT_STATE, kind: 'vehicle_part', subject: '1', to: 66 }, none, []),
+    ).toEqual(['Every vehicle part costs the same.']);
   });
 
   it('counts the breakthroughs a pet range includes', () => {
