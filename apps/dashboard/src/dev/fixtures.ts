@@ -1852,7 +1852,7 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
     ],
   ],
   [['event-calendar'], CALENDAR_ROWS],
-  // The game's own text for two events (0339); the rest answer "no description".
+  // The game's own text for two events (0338); the rest answer "no description".
   [
     ['event-text', '41101'],
     {

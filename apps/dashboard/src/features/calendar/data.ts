@@ -306,7 +306,7 @@ export async function fetchCalendar(): Promise<CalendarEvent[]> {
     .map((row) => ({ ...row, category: knownCategory(row.category) })) as CalendarEvent[];
 }
 
-/** The game's own words for an event (0339): the line under its title and
+/** The game's own words for an event (0338): the line under its title and
  * its rules screen, as plain text. */
 export interface EventText {
   summary: string | null;
@@ -322,7 +322,7 @@ export async function fetchEventText(activityId: string): Promise<EventText> {
     .eq('activity_id', activityId)
     .maybeSingle();
   if (error) {
-    // 42703: the dashboard shipped before 0339 was applied. The card still
+    // 42703: the dashboard shipped before 0338 was applied. The card still
     // has the dates to show; it says the text is not loaded rather than fail.
     if (error.code === '42703' || error.code === '42501') {
       return { summary: null, rules: null };

@@ -1,5 +1,5 @@
 // The card an event opens: when it runs, what it needs, and what the game
-// itself says it is (event_names.summary / rules, 0339 — the client's own
+// itself says it is (event_names.summary / rules, 0338 — the client's own
 // text, read when the card opens rather than with the whole calendar).
 //
 // A native <dialog>, like the command palette: it traps focus, closes on

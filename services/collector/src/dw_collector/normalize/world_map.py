@@ -64,7 +64,7 @@ from dw_collector.registry import register
 # 1.8.0: the viewport row's `raw` names the dispatch missions that were in the
 # window (`missions`, their uuids). A mission row is stored once a day however
 # often it is seen, so nothing said a mission was still there at a later pan, or
-# that it was not; 0338 reads this list to drop one that a later pan over its
+# that it was not; 0340 reads this list to drop one that a later pan over its
 # tile no longer shows.
 PARSER_VERSION = "1.8.0"
 
@@ -234,7 +234,7 @@ def _viewport_row(observation: Observation, tiles: list[Tile], bucket: str) -> N
             # Every dispatch mission in the window, started or not, by uuid.
             # The row is keyed by the whole response, so each pan that differs
             # writes one: this is the only record of what a LATER look at the
-            # same ground did and did not show (0338). An empty list is a
+            # same ground did and did not show (0340). An empty list is a
             # statement - "looked, none here" - and is written as one.
             "raw": {
                 "missions": sorted(

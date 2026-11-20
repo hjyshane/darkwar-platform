@@ -98,7 +98,7 @@ class EventName:
     activity_type: int | None
     category: str  # 'major' | 'recurring' | 'season' | 'event' | 'pass' | 'premium'
     # The client's own one-line pitch (`desc_info`) and its rules screen
-    # (`story`), as plain text (0339). None where the client has neither.
+    # (`story`), as plain text (0338). None where the client has neither.
     summary: str | None = None
     rules: str | None = None
 

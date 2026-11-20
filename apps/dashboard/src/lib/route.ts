@@ -232,6 +232,12 @@ export const HIVE = tabbed<HiveTab>('#/hive', [
   { id: 'people', label: 'Who goes where' },
 ]);
 
+/** Starting a new formation: a page of the hive screen reached by a button,
+ * not a tab. It is done once a move rather than switched between, so it has
+ * no place in the tab bar or the sidebar — but it has an address, so the back
+ * button leaves it. */
+export const HIVE_NEW = '#/hive/new';
+
 /** The planner's three pages: choosing what to raise (with what it takes), the
  * numbers it is worked out from (stock and buffs), and what to upgrade next.
  * The five kinds of thing to raise are a bar inside the first page, not
@@ -326,7 +332,7 @@ export function routeFromHash(fullHash: string): Route {
   if (MEMBERS.matches(hash)) {
     return 'members';
   }
-  if (HIVE.matches(hash)) {
+  if (HIVE.matches(hash) || hash === HIVE_NEW) {
     return 'hive';
   }
   if (PLANNER.matches(hash)) {

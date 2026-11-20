@@ -1,4 +1,4 @@
--- 0338: dispatch_missions_live - a mission that a later look at its tile no
+-- 0340: dispatch_missions_live - a mission that a later look at its tile no
 -- longer shows leaves the list.
 --
 -- WHY. The view (0254, 0334) kept a mission from its last sighting until its
@@ -106,4 +106,4 @@ comment on view public.dispatch_missions_live is
   'Started dispatch missions whose finish instant has not passed (0254), with their colour '
   'and Orange Skill Book count from game_dispatch_missions and the owner''s name. server_id '
   'is the map the mission stands on, from the tile (0334). A mission is dropped once a later '
-  'viewport over its tile lists the missions it saw and does not name it (0338).';
+  'viewport over its tile lists the missions it saw and does not name it (0340).';

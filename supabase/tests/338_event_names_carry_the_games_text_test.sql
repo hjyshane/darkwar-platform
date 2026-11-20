@@ -1,4 +1,4 @@
--- 0339: event_names carries the game's summary and rules.
+-- 0338: event_names carries the game's summary and rules.
 begin;
 create extension if not exists pgtap with schema extensions;
 

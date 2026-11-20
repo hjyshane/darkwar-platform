@@ -343,7 +343,7 @@ def test_the_viewport_push_replays_to_the_same_keys() -> None:
     assert first == second
 
 
-# --- 0338 / parser 1.8.0: a viewport says which missions were in it ---------
+# --- 0340 / parser 1.8.0: a viewport says which missions were in it ---------
 
 
 def viewport_row(observation: Observation) -> Any:
@@ -364,5 +364,5 @@ def test_the_viewport_names_the_missions_in_its_window() -> None:
 
 def test_a_viewport_with_no_mission_says_so() -> None:
     """An empty list, not a missing key: "looked here, none" is what lets a
-    mission that has gone be dropped (0338)."""
+    mission that has gone be dropped (0340)."""
     assert viewport_row(viewport()).row["raw"] == {"missions": []}

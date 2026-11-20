@@ -171,8 +171,8 @@
     {
       "command": "world.get.new",
       "status": "promoted",
-      "verdict": "승격 완료 (2026-11-10 · 파서 1.5.0, 0315; 2026-11-18 · 파서 1.7.0, 0334; 2026-11-19 · 파서 1.8.0, 0338)",
-      "note": "the viewport itself has written cities since 0137; 0315 promoted the type-29 season site (floating lantern), the first object type to get a verdict row; 0334 promoted the city's alliance (f3.7 allianceId, f3.15 alAbbr) and files a mission under the map's server; 0338 has the viewport row name the dispatch missions in its window, so one that left can be dropped"
+      "verdict": "승격 완료 (2026-11-10 · 파서 1.5.0, 0315; 2026-11-18 · 파서 1.7.0, 0334; 2026-11-19 · 파서 1.8.0, 0340)",
+      "note": "the viewport itself has written cities since 0137; 0315 promoted the type-29 season site (floating lantern), the first object type to get a verdict row; 0334 promoted the city's alliance (f3.7 allianceId, f3.15 alAbbr) and files a mission under the map's server; 0340 has the viewport row name the dispatch missions in its window, so one that left can be dropped"
     },
     {
       "command": "push.world.march.world.get.new",

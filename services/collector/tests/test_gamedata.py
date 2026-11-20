@@ -169,7 +169,7 @@ return {
 
 def test_an_event_carries_the_clients_summary_and_rules_as_plain_text() -> None:
     """desc_info and story are localisation keys like the name. The client's
-    markup goes and its literal backslash-n becomes a line break (0339)."""
+    markup goes and its literal backslash-n becomes a line break (0338)."""
     assets = _assets(_client_bytecode(PANEL_WITH_TEXT))
     assets["assets/main/datatable/localization/english/dictionaries/dialog_2.txt"] = (
         b"571003=Beat <b>Tundra Titan</b>!\n"
@@ -883,7 +883,7 @@ def test_a_season_building_takes_its_season_from_its_base_row() -> None:
 
 def test_plan_refreshes_the_games_text_even_on_an_officers_row() -> None:
     """Nobody types the summary or the rules, so they follow the client; the
-    officer's name and category beside them are still theirs (0339)."""
+    officer's name and category beside them are still theirs (0338)."""
     existing = [
         {
             "activity_id": "41101",
