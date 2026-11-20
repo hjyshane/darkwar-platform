@@ -5803,7 +5803,7 @@ button.tile-grid:hover:not(:disabled) {
   }
 }
 
-/* Events open a card (0337). A bar is now a button: it keeps the bar's look,
+/* Events open a card (0339). A bar is now a button: it keeps the bar's look,
  * so everything the global `button` rule adds is taken back here. The hover
  * selector repeats :not(:disabled) to outrank `button:hover:not(:disabled)`,
  * which would otherwise repaint the bar in the page's hover grey. */

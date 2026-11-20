@@ -62,7 +62,7 @@ def plan(existing: Iterable[Mapping[str, Any]], names: Mapping[str, EventName]) 
             if row.get("category") is None:
                 patch["category"] = event.category
             # The game's own text is a game fact too: there is nowhere for a
-            # person to type it, so it follows the client on every row (0337).
+            # person to type it, so it follows the client on every row (0339).
             for field in ("summary", "rules"):
                 if row.get(field) != getattr(event, field):
                     patch[field] = getattr(event, field)

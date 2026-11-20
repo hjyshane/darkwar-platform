@@ -1,5 +1,9 @@
--- 0337: event_names carries the game's own text - what an event is, in the
+-- 0339: event_names carries the game's own text - what an event is, in the
 -- client's words.
+--
+-- Was 0337 until 2026-11-19: it merged after shop_pack_offers took
+-- the same number (0165, 0258, 0262 again), and neither had been pushed, so this
+-- one, the later, moved.
 --
 -- The calendar named an event and stopped there: a member who did not already
 -- know what "Arctic Veins" was learned nothing from seeing it on Tuesday. The
@@ -33,6 +37,6 @@ alter table public.event_names
   add column rules text check (rules is null or length(rules) <= 20000);
 
 comment on column public.event_names.summary is
-  'The client''s one-line description (activity_panel.desc_info), plain text (0337).';
+  'The client''s one-line description (activity_panel.desc_info), plain text (0339).';
 comment on column public.event_names.rules is
-  'The client''s rules screen (activity_panel.story), plain text (0337).';
+  'The client''s rules screen (activity_panel.story), plain text (0339).';
