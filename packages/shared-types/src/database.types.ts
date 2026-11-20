@@ -6237,7 +6237,15 @@ export type Database = {
           user_id?: string
           with_prereqs?: boolean
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "planner_plans_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "pending_access"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       player_claims: {
         Row: {
