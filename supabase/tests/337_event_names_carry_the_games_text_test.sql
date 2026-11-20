@@ -10,11 +10,11 @@ insert into auth.users (id, instance_id, aud, role, email) values
   ('00000000-0000-4000-8000-000000337102', '00000000-0000-0000-0000-000000000000',
    'authenticated', 'authenticated', 'text-officer@test.invalid'),
   ('00000000-0000-4000-8000-000000337103', '00000000-0000-0000-0000-000000000000',
-   'authenticated', 'authenticated', 'text-pending@test.invalid');
+   'authenticated', 'authenticated', 'text-viewer@test.invalid');
 insert into public.app_users (user_id, role, display_name) values
   ('00000000-0000-4000-8000-000000337101', 'member', 'text member'),
   ('00000000-0000-4000-8000-000000337102', 'officer', 'text officer'),
-  ('00000000-0000-4000-8000-000000337103', 'pending', 'text pending')
+  ('00000000-0000-4000-8000-000000337103', 'viewer', 'text viewer')
 on conflict (user_id) do update set role = excluded.role;
 
 -- The tool's write: the service key, name and text together.
@@ -46,7 +46,7 @@ select set_config('request.jwt.claims',
   json_build_object('sub', '00000000-0000-4000-8000-000000337103')::text, true);
 set local role authenticated;
 select is((select count(*) from public.event_names where activity_id = '41101'), 0::bigint,
-  'a pending account cannot read the text');
+  'a viewer cannot read the text');
 reset role;
 -- 5. Nor does anon have the table at all.
 select ok(not has_table_privilege('anon', 'public.event_names', 'select'),
