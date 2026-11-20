@@ -49,7 +49,10 @@ import { shareLabel } from './sites';
 
 const BASES_SHOWN = 50;
 
-type Panel = 'atlas' | 'plunder' | 'moves';
+/** The sidebar's tabs. Trucks, missions and treasure were one "Plunder" tab of
+ * three stacked lists; each is its own tab so its list starts at the top
+ * (operator, 2026-11-19). */
+type Panel = 'atlas' | 'trucks' | 'missions' | 'treasure' | 'moves';
 
 /** One server's swept bases coloured by alliance, with the alliances ranked
  * beside the map. Clicking an alliance lights its bases; clicking a base or a
@@ -166,6 +169,9 @@ export function AtlasPage({
   });
 
   const onThisMap = shownTrucks.filter((truck) => truck.serverId === serverId);
+  // The Layers box and the Plunder mode show all three kinds of pin; a tab
+  // shows its own kind even when the box is off, so its list is never pinless.
+  const allPins = showPlunder || mode === 'plunder';
 
   /** A truck, mission or treasure spot picked from a pin or a list. `at` is
    * where to send the map, null when it is not on this one; `copy` is the
@@ -234,11 +240,11 @@ export function AtlasPage({
             territory={mode === 'territory'}
           >
             <HuntPins
-              missions={showPlunder || mode === 'plunder' ? hunt.open : []}
+              missions={allPins || panel === 'missions' ? hunt.open : []}
               onChoose={chooseHunt}
               picked={pickedHunt}
-              sites={showPlunder || mode === 'plunder' ? hunt.treasure : []}
-              trucks={showPlunder || mode === 'plunder' ? onThisMap : []}
+              sites={allPins || panel === 'treasure' ? hunt.treasure : []}
+              trucks={allPins || panel === 'trucks' ? onThisMap : []}
             />
           </AtlasMap>
         </PannableMap>
@@ -333,7 +339,22 @@ export function AtlasPage({
           </output>
         )}
 
-        <div className="atlas-side__filters">
+        <Tabs
+          className="atlas-side__tabs"
+          label="Panel"
+          items={[
+            { id: 'atlas' as const, label: 'Atlas' },
+            { id: 'trucks' as const, label: `Trucks (${hunt.worth.length})` },
+            { id: 'missions' as const, label: `Missions (${hunt.open.length})` },
+            { id: 'treasure' as const, label: `Treasure (${hunt.treasure.length})` },
+            { id: 'moves' as const, label: 'Moves' },
+          ]}
+          onChange={setPanel}
+          value={panel}
+        />
+
+        {/* Search and the base filters ask about bases, so they belong to Atlas. */}
+        <div className="atlas-side__filters" hidden={panel !== 'atlas'}>
           <label className="map-search">
             <span className="visually-hidden">Search</span>
             <input
@@ -435,20 +456,6 @@ export function AtlasPage({
         </div>
 
         <div className="atlas-side__body">
-          <Tabs
-            label="Panel"
-            items={[
-              { id: 'atlas' as const, label: 'Atlas' },
-              {
-                id: 'plunder' as const,
-                label: `Plunder (${hunt.worth.length + hunt.open.length + hunt.treasure.length})`,
-              },
-              { id: 'moves' as const, label: 'Moves' },
-            ]}
-            onChange={setPanel}
-            value={panel}
-          />
-
           {panel === 'atlas' && selected !== null && (
             <BaseDetail
               atlas={atlas}
@@ -591,10 +598,9 @@ export function AtlasPage({
             />
           )}
 
-          {panel === 'plunder' && (
+          {panel === 'trucks' && (
             <>
               <CopyHint copied={copied} />
-              <h3 className="atlas-detail__title">Trucks</h3>
               <TrucksList
                 filter={truckFilter}
                 loaded={hunt.trucksLoaded}
@@ -602,11 +608,14 @@ export function AtlasPage({
                 now={now}
                 onChoose={(truck) => {
                   // Copied wherever it is; the map moves only to a truck on it.
-                  const spot = truckSpot(truck, now);
+                  // The clock is read at the click: a truck covers a tile every
+                  // four seconds, and `now` is as old as the last render.
+                  const clicked = new Date();
+                  const spot = truckSpot(truck, clicked);
                   chooseHunt(
                     truck.truckUuid,
                     spot !== null && truck.serverId === serverId ? spot.at : null,
-                    truckShare(truck, now),
+                    truckShare(truck, clicked),
                   );
                 }}
                 onFilter={setTruckFilter}
@@ -616,7 +625,12 @@ export function AtlasPage({
                 sort={truckSort}
                 worth={hunt.worth}
               />
-              <h3 className="atlas-detail__title">Missions</h3>
+            </>
+          )}
+
+          {panel === 'missions' && (
+            <>
+              <CopyHint copied={copied} />
               <PlunderList
                 loaded={hunt.missionsLoaded}
                 now={now}
@@ -627,7 +641,12 @@ export function AtlasPage({
                 picked={pickedHunt}
                 serverId={serverId}
               />
-              <h3 className="atlas-detail__title">Large Treasure</h3>
+            </>
+          )}
+
+          {panel === 'treasure' && (
+            <>
+              <CopyHint copied={copied} />
               <TreasureList
                 loaded={hunt.treasureLoaded}
                 now={now}

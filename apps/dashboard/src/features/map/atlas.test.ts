@@ -22,6 +22,7 @@ import {
   searchAtlas,
   shieldLeft,
   shieldedCounts,
+  strongestAlliances,
   visibleLabels,
   visibleNames,
 } from './atlas';
@@ -254,6 +255,37 @@ describe('shield, copy format and clusters', () => {
     const small = parseAtlas({ ...shieldJson, bases: shieldJson.bases.slice(0, 3) });
 
     expect(clusters(small)).toEqual([]);
+  });
+});
+
+describe('strongestAlliances', () => {
+  const alliance = (id: string, power: number, bases: number) => ({
+    id,
+    code: id,
+    name: id,
+    bases,
+    power,
+  });
+
+  it('keeps the five with the most power, whatever order they are ranked in', () => {
+    // Ranked by bases, as map_atlas sends them: the strongest is last.
+    const alliances = [
+      alliance('a', 10, 90),
+      alliance('b', 60, 80),
+      alliance('c', 50, 70),
+      alliance('d', 40, 60),
+      alliance('e', 30, 50),
+      alliance('f', 20, 40),
+      alliance('g', 99, 5),
+    ];
+
+    expect([...strongestAlliances({ alliances })].sort()).toEqual([1, 2, 3, 4, 6]);
+  });
+
+  it('falls back to the base count where no power was ever read', () => {
+    const alliances = [9, 8, 7, 6, 5, 4].map((bases, i) => alliance(`x${i}`, 0, bases));
+
+    expect([...strongestAlliances({ alliances })].sort()).toEqual([0, 1, 2, 3, 4]);
   });
 });
 

@@ -1,10 +1,18 @@
 import { toFraction } from '@dw/ui';
 import { useEffect, useRef, useState } from 'react';
-import { useIcons } from '../../lib/gameIcons';
+import { useIcons, useItemIcons } from '../../lib/gameIcons';
 import { shareCoordinate } from '../../lib/shareCoordinate';
 import { who } from './HuntLists';
 import { useMapZoom } from './PannableMap';
-import { type Mission, type Truck, missionShare, timeLeft, truckHeading, truckSpot } from './hunt';
+import {
+  type Mission,
+  ORANGE_SKILL_BOOK,
+  type Truck,
+  missionShare,
+  timeLeft,
+  truckHeading,
+  truckSpot,
+} from './hunt';
 import { type TreasureSite, closesAt, isUnlit, shareLabel, siteTitle } from './sites';
 
 /** A clock that ticks every second, so a truck moves along its road and its
@@ -64,13 +72,52 @@ function Routes({
   );
 }
 
-/** Trucks (gold diamonds), plunder missions (orange squares) and Large Treasure
- * Spots (red lanterns) over the atlas.
+/** The face of the beckoning cat the game stands on a Large Treasure Spot:
+ * white, one orange ear and patch, smiling eyes, a red collar with a gold bell.
+ * Drawn here rather than fetched: the client's art for it is a 3D model, not
+ * an icon. */
+function LuckyCat() {
+  return (
+    <svg aria-hidden="true" className="atlas-pin-cat" viewBox="0 0 32 32">
+      <path d="M5 13 L6 3 L13 8 Z" fill="#fff7ec" stroke="#5b3a1e" strokeLinejoin="round" />
+      <path d="M27 13 L26 3 L19 8 Z" fill="#f2a23a" stroke="#5b3a1e" strokeLinejoin="round" />
+      <ellipse cx="16" cy="16.5" fill="#fff7ec" rx="12" ry="10.5" stroke="#5b3a1e" />
+      <path d="M21 7.2 Q27.5 9.5 27.6 16 Q23 14 21 7.2 Z" fill="#f2a23a" />
+      <path
+        d="M8.5 15.5 Q11 12.8 13.5 15.5 M18.5 15.5 Q21 12.8 23.5 15.5"
+        fill="none"
+        stroke="#5b3a1e"
+        strokeLinecap="round"
+        strokeWidth="1.4"
+      />
+      <path d="M15 18 L17 18 L16 19.3 Z" fill="#e2767a" />
+      <path
+        d="M13 20.5 Q14.5 22.3 16 20.3 Q17.5 22.3 19 20.5"
+        fill="none"
+        stroke="#5b3a1e"
+        strokeLinecap="round"
+      />
+      <path
+        d="M6.5 25 Q16 30 25.5 25"
+        fill="none"
+        stroke="#d5352f"
+        strokeLinecap="round"
+        strokeWidth="3"
+      />
+      <circle cx="16" cy="28.2" fill="#f5c542" r="2.4" stroke="#5b3a1e" strokeWidth="0.8" />
+    </svg>
+  );
+}
+
+/** Trucks (the game's truck pictures), plunder missions (the game's Orange
+ * Skill Book, which is what they pay) and Large Treasure Spots (a cat face: the
+ * client calls them lucky cats) over the atlas. A mission falls back to a plain
+ * marker for a reader the icons are not served to.
  *
  * Positioned like the base dots, as percentages of the plot, and drawn above
  * them. A faded diamond is a truck whose spot is only where it set off from, or
  * where it was last known: the leg it was on has ended and the next one is not
- * in the data. A ringed lantern is a spot already open: go explore rather than
+ * in the data. A ringed cat is a spot already open: go explore rather than
  * go light.
  */
 export function HuntPins({
@@ -92,6 +139,7 @@ export function HuntPins({
   const zoom = useMapZoom();
   // The client's own truck pictures (0268): colour by quality, facing by heading.
   const sprites = useIcons('truck').data;
+  const book = useItemIcons([ORANGE_SKILL_BOOK], missions.length > 0).data?.get(ORANGE_SKILL_BOOK);
   const placed = trucks.flatMap((truck) => {
     const spot = truckSpot(truck, now);
     return spot === null ? [] : [{ truck, spot }];
@@ -157,7 +205,11 @@ export function HuntPins({
           title={`Plunder · ${who(mission.ownerName, mission.allianceAbbr)} · ${mission.orangeBooks} books`}
           type="button"
         >
-          <span className="map-pin__dot" />
+          {book ? (
+            <img alt="" className="atlas-pin-icon" draggable={false} src={book} />
+          ) : (
+            <span className="map-pin__dot" />
+          )}
         </button>
       ))}
       {sites.map((site) => (
@@ -177,7 +229,7 @@ export function HuntPins({
           title={siteTitle(site)}
           type="button"
         >
-          <span className="map-pin__dot" />
+          <LuckyCat />
           {(site.siteUuid === picked || zoom >= 6) && (
             <span className="atlas-truck-tag">
               {shareLabel(site)} · {isUnlit(site) ? 'unlit' : 'open'} ·{' '}

@@ -7561,6 +7561,29 @@ button.server-link {
   border-bottom: 1px solid var(--border);
 }
 
+/* `display: grid` above would beat the hidden attribute. */
+.atlas-side__filters[hidden] {
+  display: none;
+}
+
+/* Five tabs in a narrow column: they scroll sideways rather than wrap. */
+.atlas-side__tabs {
+  flex: none;
+  flex-wrap: nowrap;
+  margin: var(--space-3) var(--space-4) 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.atlas-side__tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.atlas-side__tabs [role="tab"] {
+  flex: none;
+  white-space: nowrap;
+}
+
 .atlas-side__body {
   display: grid;
   flex: 1;
@@ -7875,6 +7898,31 @@ button.server-link {
 
 .map-pin--truck.map-pin--on:has(.atlas-truck)::before {
   border-color: var(--map-ring);
+}
+
+/* A mission as what it pays (the game's Orange Skill Book) and a treasure spot
+ * as a cat face, both the size of a thumb rather than of a dot. */
+.atlas-pin-icon {
+  display: block;
+  width: 28px;
+  height: 28px;
+  filter: drop-shadow(0 2px 3px rgb(0 0 0 / 0.55));
+}
+
+.atlas-pin-cat {
+  display: block;
+  width: 30px;
+  height: 30px;
+  filter: drop-shadow(0 2px 3px rgb(0 0 0 / 0.55));
+}
+
+/* Already open, or the one picked: a ring, as the dot had. */
+.map-pin--treasure-open .atlas-pin-cat,
+.map-pin--on .atlas-pin-icon,
+.map-pin--on .atlas-pin-cat {
+  border-radius: 50%;
+  outline: 2px solid var(--map-ring);
+  outline-offset: 2px;
 }
 
 /* The mode switch: a pill that opens a short list, as on the reference map. */

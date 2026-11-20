@@ -341,3 +341,28 @@ def test_the_viewport_push_replays_to_the_same_keys() -> None:
     second = [r.idempotency_key for r in world_trucks.normalize_viewport_marches(observation)]
 
     assert first == second
+
+
+# --- 0340 / parser 1.8.0: a viewport says which missions were in it ---------
+
+
+def viewport_row(observation: Observation) -> Any:
+    (row,) = [
+        r for r in world_map.normalize(observation) if r.target_table == "world_viewport_snapshots"
+    ]
+    return row
+
+
+def test_the_viewport_names_the_missions_in_its_window() -> None:
+    """A mission row is written once a day, so a later pan says nothing new
+    through it. The viewport row is what records that the mission was still
+    there - started or not, since an unstarted one is still standing."""
+    row = viewport_row(viewport(mission_point(), mission_point(x=447, y=394, started=False)))
+
+    assert row.row["raw"] == {"missions": ["1420304694173123724"] * 2}
+
+
+def test_a_viewport_with_no_mission_says_so() -> None:
+    """An empty list, not a missing key: "looked here, none" is what lets a
+    mission that has gone be dropped (0340)."""
+    assert viewport_row(viewport()).row["raw"] == {"missions": []}

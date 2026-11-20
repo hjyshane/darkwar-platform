@@ -1,3 +1,4 @@
+import { formatAge } from '../../lib/freshness';
 import { shareCoordinate } from '../../lib/shareCoordinate';
 import {
   type Mission,
@@ -7,6 +8,7 @@ import {
   type TruckSort,
   countByServer,
   lootsLeft,
+  lootsSeenAt,
   missionShare,
   timeLeft,
   truckSpot,
@@ -246,11 +248,15 @@ function truckLine(truck: Truck, mapServer: number, now: Date): string {
   }
   if (spot !== null && truck.serverId !== mapServer) where += ' (another map)';
   const left = lootsLeft(truck);
+  // A twice-looted truck is not listed at all; one looted since it was last
+  // read still is, so the count carries its age.
+  const seen = lootsSeenAt(truck);
+  const counted = seen === null ? '' : ` (${formatAge(seen.toISOString(), now)})`;
   return [
     `server ${truck.serverId}`,
     `${QUALITY_NAMES[truck.quality] ?? `Q${truck.quality}`}`,
     `${truck.heroFragments} hero shard${truck.heroFragments === 1 ? '' : 's'}`,
-    `${left} loot${left === 1 ? '' : 's'} left`,
+    `${left} loot${left === 1 ? '' : 's'} left${counted}`,
     where,
     `arrives in ${timeLeft(truck.arriveAt, now)}`,
   ].join(' · ');

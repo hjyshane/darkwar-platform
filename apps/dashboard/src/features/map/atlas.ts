@@ -352,6 +352,30 @@ export function visibleLabels(found: readonly Cluster[], atlas: Atlas, zoom: num
   return kept;
 }
 
+/** How many alliances get their tag on the map: the NAP 5 (operator, 2026-11-19). */
+export const TAGGED_ALLIANCES = 5;
+
+/** Indexes of the `count` strongest alliances: by the power of their swept
+ * bases, then by how many bases, so a server whose powers were never read still
+ * names its five largest. */
+export function strongestAlliances(
+  atlas: Pick<Atlas, 'alliances'>,
+  count = TAGGED_ALLIANCES,
+): Set<number> {
+  return new Set(
+    atlas.alliances
+      .map((alliance, index) => ({ alliance, index }))
+      .sort(
+        (a, b) =>
+          b.alliance.power - a.alliance.power ||
+          b.alliance.bases - a.alliance.bases ||
+          a.index - b.index,
+      )
+      .slice(0, count)
+      .map((entry) => entry.index),
+  );
+}
+
 /** Zoom from which base names are drawn at all. */
 export const NAME_ZOOM = 10;
 /** Zoom from which the alliance clump names step aside for the base names. */
