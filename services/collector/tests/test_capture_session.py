@@ -64,7 +64,7 @@ def test_known_command_is_ingested(session: CaptureSession, journal: Journal) ->
 
 
 def test_unknown_command_becomes_discovery(session: CaptureSession, journal: Journal) -> None:
-    session.feed(segment(frame(envelope("get.battlepass.info", {"season": 3}))), now=NOW)
+    session.feed(segment(frame(envelope("get.fish.atlas.info", {"season": 3}))), now=NOW)
 
     assert session.stats.discovered == 1
     assert session.stats.ingested == 0
@@ -81,7 +81,7 @@ def test_malformed_payload_is_counted_not_raised(session: CaptureSession, journa
 
     # ...and the session keeps working afterwards (new stream, so the
     # reassembler is not waiting on a sequence gap).
-    session.feed(segment(frame(envelope("get.battlepass.info", {"a": 1})), dport=50001), now=NOW)
+    session.feed(segment(frame(envelope("get.fish.atlas.info", {"a": 1})), dport=50001), now=NOW)
     assert session.stats.discovered == 1
 
 
@@ -100,7 +100,7 @@ def test_traffic_on_other_ports_is_dropped(session: CaptureSession) -> None:
 def test_response_split_across_segments_is_reassembled(
     session: CaptureSession, journal: Journal
 ) -> None:
-    data = frame(envelope("get.battlepass.info", {"season": 3, "tiers": [{"id": 1}]}))
+    data = frame(envelope("get.fish.atlas.info", {"season": 3, "tiers": [{"id": 1}]}))
     session.feed(segment(data[:5], seq=1000), now=NOW)
     assert session.stats.frames == 0
     session.feed(segment(data[5:], seq=1000 + 5), now=NOW)
@@ -190,7 +190,7 @@ def test_live_source_delivers_segments_through_the_callback(
     ends, so a streaming capture must use prn, not iterate the result."""
     from dw_collector.capture import live
 
-    data = frame(envelope("get.battlepass.info", {"season": 3}))
+    data = frame(envelope("get.fish.atlas.info", {"season": 3}))
     fake = _FakeScapy(
         [
             _FakePacket(data, sport=8680, dport=50000, seq=1),
@@ -269,7 +269,7 @@ def test_lost_segment_recovers_instead_of_stalling(journal: Journal) -> None:
 
 
 def test_session_reports_loss_counters(session: CaptureSession) -> None:
-    session.feed(segment(b"\x77" * 40 + frame(envelope("get.battlepass.info", {"a": 1}))), now=NOW)
+    session.feed(segment(b"\x77" * 40 + frame(envelope("get.fish.atlas.info", {"a": 1}))), now=NOW)
     session.refresh_loss_counters()
     assert session.stats.discovered == 1
     assert session.stats.resync_bytes == 40

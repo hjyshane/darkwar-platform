@@ -86,6 +86,9 @@ _TABLE_ORDER = [
     "shop_pack_snapshots",
     # Which packs a capture listed (0235). No refs.
     "shop_pack_catalogs",
+    # Which packs the selling screens name, and what the passes pay (0337).
+    # No refs.
+    "shop_pack_offers",
     "shop_listing_snapshots",
     "battle_report_ingests",
     "activity_facts",

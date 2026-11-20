@@ -183,7 +183,8 @@ function PickOption({
 }
 
 /** Which of several same-name, same-price packs this server sells (0280).
- * The server lists them all; an officer says which is ours, once. */
+ * The server lists them all; the game's selling screens name ours (0337),
+ * and where none does an officer says which, once. */
 function VariantMark({ pack, mayEdit }: { pack: PackRowData; mayEdit: boolean }) {
   const queryClient = useQueryClient();
   const save = useMutation({
@@ -192,7 +193,29 @@ function VariantMark({ pack, mayEdit }: { pack: PackRowData; mayEdit: boolean })
       void queryClient.invalidateQueries({ queryKey: ['shop-variants'] });
     },
   });
+  if (pack.unsold) {
+    return (
+      <span
+        className="pack-variant muted"
+        title="None of the game's screens sells this pack on this server: another stage's or another server's version"
+      >
+        {' '}
+        not sold here
+      </span>
+    );
+  }
   if (pack.variants < 2) return null;
+  if (pack.by_game) {
+    return (
+      <span
+        className="pack-variant"
+        title="The game's own screen names this version for this server"
+      >
+        {' '}
+        ✓ ours · {pack.variants - 1} other {pack.variants === 2 ? 'version' : 'versions'}
+      </span>
+    );
+  }
   return (
     <span className="pack-variant">
       {' '}
@@ -349,6 +372,13 @@ function PackRow({
       {open && (
         <tr className="pack-contents">
           <td colSpan={10}>
+            {pack.offer_track && (
+              <p className="subtle">
+                A pass: this is what its {pack.offer_track === 'paid' ? 'paid' : pack.offer_track}{' '}
+                track pays over all its levels, read from the game's own screen. The value assumes
+                every level is reached.
+              </p>
+            )}
             <table className="compact">
               <tbody>
                 <tr>
@@ -538,7 +568,8 @@ function PacksTab({ now, mayEdit }: { now: Date; mayEdit: boolean }) {
               onChange={(e) => setShowVariants(e.target.checked)}
               type="checkbox"
             />{' '}
-            Show the other versions{folded.hidden > 0 ? ` (${folded.hidden})` : ''}
+            Show packs this server does not sell
+            {folded.hidden > 0 ? ` (${folded.hidden})` : ''}
           </label>
         )}
         <span className="subtle">{shown.length} offers. Click a heading to sort.</span>
@@ -619,8 +650,10 @@ function PacksTab({ now, mayEdit }: { now: Date; mayEdit: boolean }) {
         <strong>Estimated</strong> is how much of that rests on values back-solved from the game's
         own claims; <strong>Unvalued</strong> items are left out. Packs with the same name, price
         and contents are one row — the game lists some offers under many ids (a battle pass per
-        tier, a daily deal per slot). Passes and gifts that pay out over time have no listed
-        contents, so no value. Open a pack for its contents.
+        tier, a daily deal per slot). The game sends every server's and every stage's packs; the
+        ones its own screens name for this server are the ones shown, and a pass takes its contents
+        from its screen — the paid track over all its levels. A pass or gift no screen has been read
+        for has no listed contents, so no value. Open a pack for its contents.
       </p>
     </>
   );

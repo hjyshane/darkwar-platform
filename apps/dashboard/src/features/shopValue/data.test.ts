@@ -340,3 +340,71 @@ describe('what the store lists', () => {
     expect(plainName('Pioneer Package')).toBe('Pioneer Package');
   });
 });
+
+describe('what this server sells (0337)', () => {
+  // Three stages of one weekly pass, and the game's screen names the second.
+  const stage = (id: string, parts: number, offered: boolean | null) => ({
+    ...pack(id, 'Custom Weekly Pass', [item('parts', parts, 1, 'game')], 0),
+    offered,
+  });
+  // A pass: nothing in the pack list.
+  const pass = (id: string, name: string, offered: boolean | null) => ({
+    ...pack(id, name, [], 0),
+    offered,
+  });
+
+  it('keeps the version a screen names and drops the others, no officer needed', () => {
+    const groups = groupPacks([stage('1', 4, false), stage('2', 5, true), stage('3', 6, false)]);
+    const { rows, hidden } = foldVariants(groups, new Map(), false);
+    expect(rows.map((r) => r.pack_ids)).toEqual([['2']]);
+    expect(rows[0]).toMatchObject({ picked: true, by_game: true, unsold: false, variants: 3 });
+    expect(hidden).toBe(2);
+  });
+
+  it('lets the screen overrule an officer who chose another version', () => {
+    const groups = groupPacks([stage('1', 4, false), stage('2', 5, true)]);
+    const first = groups[0];
+    if (first === undefined) throw new Error('fixture');
+    const choices = new Map([[familyKey(first), variantKey(first)]]);
+    const { rows } = foldVariants(groups, choices, false);
+    expect(rows.map((r) => r.pack_ids)).toEqual([['2']]);
+  });
+
+  it('shows the others on request, marked as not sold here', () => {
+    const groups = groupPacks([stage('1', 4, false), stage('2', 5, true)]);
+    const { rows, hidden } = foldVariants(groups, new Map(), true);
+    expect(rows.map((r) => r.unsold)).toEqual([true, false]);
+    expect(hidden).toBe(0);
+  });
+
+  it('drops a pack with no contents that no screen names', () => {
+    const groups = groupPacks([pass('7', 'Their Pass', false), pass('8', 'Other Pass', false)]);
+    const { rows, hidden } = foldVariants(groups, new Map(), false);
+    expect(rows).toHaveLength(0);
+    expect(hidden).toBe(2);
+  });
+
+  it('keeps a pack that lists its contents when no screen names its family', () => {
+    // A ruby pack is sold by the store itself: no screen ever names it.
+    const groups = groupPacks([{ ...pack('9', 'Ruby Pack', [], 100), offered: false }]);
+    const { rows } = foldVariants(groups, new Map(), false);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ unsold: false, by_game: false });
+  });
+
+  it('hides nothing on a server whose screens were never read', () => {
+    const groups = groupPacks([pass('7', 'Some Pass', null), stage('1', 4, null)]);
+    const { rows, hidden } = foldVariants(groups, new Map(), false);
+    expect(rows).toHaveLength(2);
+    expect(hidden).toBe(0);
+  });
+
+  it('counts an offer as sold here when any of its ids is named', () => {
+    // One offer under three ids; the screen names the last.
+    const groups = groupPacks([stage('1', 5, false), stage('2', 5, false), stage('3', 5, true)]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.offered).toBe(true);
+    const unread = groupPacks([stage('1', 5, null), stage('2', 5, false)]);
+    expect(unread[0]?.offered).toBe(false);
+  });
+});

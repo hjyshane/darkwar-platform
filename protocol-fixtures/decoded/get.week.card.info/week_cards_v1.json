@@ -1,0 +1,150 @@
+{
+  "observation_id": "00000000-0000-4000-8000-0000000f0006",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "get.week.card.info",
+  "captured_at": "2026-11-19T23:34:25+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "_id": 100,
+    "_time": 61,
+    "dailyFree": {
+      "lastRewardTime": 0,
+      "reward": [
+        {
+          "type": 7,
+          "value": {
+            "id": "200201",
+            "num": 1
+          }
+        },
+        {
+          "type": 7,
+          "value": {
+            "id": "210881",
+            "num": 1
+          }
+        },
+        {
+          "type": 5,
+          "value": 10
+        }
+      ]
+    },
+    "weekCards": [
+      {
+        "condition": true,
+        "exchange_id": "83009",
+        "id": 80001,
+        "image": "monthlycard_icon_03;monthlycard_bg_02;2",
+        "name": "894060",
+        "order": 5,
+        "percent": "5690",
+        "reward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "230110",
+              "num": 3
+            }
+          },
+          {
+            "type": 7,
+            "value": {
+              "id": "230104",
+              "num": 1200
+            }
+          }
+        ],
+        "tab": 0,
+        "time": 7,
+        "type": 7,
+        "type_function": 1
+      },
+      {
+        "condition": true,
+        "exchange_id": "83013",
+        "id": 120001,
+        "image": "monthlycard_icon_04;monthlycard_bg_03;3",
+        "name": "322302",
+        "order": 1,
+        "percent": "3580",
+        "reward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "253042",
+              "num": 8
+            }
+          },
+          {
+            "type": 7,
+            "value": {
+              "id": "200213",
+              "num": 3
+            }
+          },
+          {
+            "type": 7,
+            "value": {
+              "id": "252016",
+              "num": 50
+            }
+          }
+        ],
+        "tab": 0,
+        "time": 7,
+        "type": 7,
+        "type_function": 1
+      },
+      {
+        "condition": true,
+        "exchange_id": "83017",
+        "id": 160001,
+        "image": "monthlycard_icon_06;monthlycard_bg_02;2",
+        "name": "902055",
+        "order": 4,
+        "percent": "2500",
+        "reward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "200036",
+              "num": 100
+            }
+          },
+          {
+            "type": 7,
+            "value": {
+              "id": "210874",
+              "num": 3
+            }
+          },
+          {
+            "type": 7,
+            "value": {
+              "id": "200223",
+              "num": 2
+            }
+          }
+        ],
+        "tab": 0,
+        "time": 7,
+        "type": 8,
+        "type_function": 1
+      },
+      {
+        "condition": true,
+        "exchange_id": "26072305",
+        "goods_select": "2:300004;30|253042;10|330005;2|230110;3|270007;2|200036;150|230104;1200|200203;8|210874;6",
+        "id": 200005,
+        "name": "1140003",
+        "order": 1,
+        "percent": "0",
+        "tab": 0,
+        "time": 7,
+        "type": 9,
+        "type_function": 3
+      }
+    ]
+  }
+}

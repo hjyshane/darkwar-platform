@@ -1,0 +1,29 @@
+{
+  "observation_id": "00000000-0000-4000-8000-0000000f0008",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "multi.choice.gift.info",
+  "captured_at": "2026-11-19T23:34:25+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "_id": 53,
+    "_time": 3,
+    "activityId": 300005,
+    "buyNum": 1,
+    "freeChestAvailable": false,
+    "gifts": [
+      {
+        "exchangeId": "26032445",
+        "status": 1
+      },
+      {
+        "exchangeId": "26032455",
+        "status": 1
+      },
+      {
+        "exchangeId": "26032450",
+        "status": 1
+      }
+    ],
+    "tierIndex": 0
+  }
+}

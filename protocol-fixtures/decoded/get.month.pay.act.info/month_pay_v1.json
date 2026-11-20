@@ -1,0 +1,58 @@
+{
+  "observation_id": "00000000-0000-4000-8000-0000000f0010",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "get.month.pay.act.info",
+  "captured_at": "2026-11-19T23:34:25+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "_id": 35,
+    "_time": 29,
+    "activityId": 901306,
+    "para2": "80983",
+    "para3": "80969",
+    "payTime": 0,
+    "payUnlockIndex": 0,
+    "stageArr": [
+      {
+        "index": 1,
+        "reward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "200203",
+              "num": 6
+            }
+          }
+        ],
+        "state": 0
+      },
+      {
+        "index": 2,
+        "reward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "253042",
+              "num": 6
+            }
+          }
+        ],
+        "state": 0
+      },
+      {
+        "index": 3,
+        "reward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "200036",
+              "num": 300
+            }
+          }
+        ],
+        "state": 0
+      }
+    ],
+    "unlockIndex": 0
+  }
+}

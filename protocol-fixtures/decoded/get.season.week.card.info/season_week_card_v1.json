@@ -1,0 +1,45 @@
+{
+  "observation_id": "00000000-0000-4000-8000-0000000f0007",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "get.season.week.card.info",
+  "captured_at": "2026-11-19T23:34:25+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "_id": 50,
+    "_time": 5,
+    "activityId": 700104,
+    "cardInfo": {
+      "endTime": 0,
+      "lastReceiveFreeTime": 1795054007973,
+      "lastReceiveTime": 0,
+      "startTime": 0
+    },
+    "exchangeId": "83109",
+    "freeReward": [
+      {
+        "type": 7,
+        "value": {
+          "id": "200203",
+          "num": 1
+        }
+      }
+    ],
+    "reward": [
+      {
+        "type": 7,
+        "value": {
+          "id": "250000",
+          "num": 5
+        }
+      },
+      {
+        "type": 7,
+        "value": {
+          "id": "200203",
+          "num": 5
+        }
+      }
+    ],
+    "time": 7
+  }
+}

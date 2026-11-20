@@ -1,0 +1,23 @@
+{
+  "observation_id": "00000000-0000-4000-8000-0000000f0009",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "get.custom.package.activity.info",
+  "captured_at": "2026-11-19T23:34:25+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "_id": 33,
+    "_time": 27,
+    "activityId": 8009,
+    "exchangeIds": "302016;302017;302018;302019;302020",
+    "lastReceiveFreeTime": 1795053691528,
+    "reward": [
+      {
+        "type": 7,
+        "value": {
+          "id": "200201",
+          "num": 1
+        }
+      }
+    ]
+  }
+}
