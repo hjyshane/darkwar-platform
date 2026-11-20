@@ -82,6 +82,14 @@ export interface PackValue {
    * item; empty for one the store shows on its own. */
   is_show?: string | null;
   show_type?: string | null;
+  /** Whether one of the game's selling screens names the pack for this
+   * server (0337): true = sold here now, false = the screens were read and
+   * none names it, null = no screen read for the server. */
+  offered?: boolean | null;
+  /** Set when `contents` are what a pass pays over its levels, read from
+   * its screen: the track ('special', 'middle', 'paid'). */
+  offer_track?: string | null;
+  offer_source?: string | null;
 }
 
 export interface ListingValue {
@@ -473,6 +481,10 @@ export function groupPacks(packs: ReadonlyArray<PackValue>): PackGroup[] {
     } else {
       held.offers += 1;
       held.pack_ids.push(pack.pack_id);
+      // One id of the offer named by a screen is the offer sold here.
+      if (pack.offered === true || held.offered === undefined || held.offered === null) {
+        held.offered = pack.offered ?? held.offered;
+      }
       const key = packKey(pack);
       if (!held.rename_keys.includes(key)) held.rename_keys.push(key);
     }
@@ -481,8 +493,9 @@ export function groupPacks(packs: ReadonlyArray<PackValue>): PackGroup[] {
 }
 
 /** One offer's place among the packs the game lists under its name and price
- * (0280). The server sends every variant; which one this server sells is an
- * officer's choice, made once per name. */
+ * (0280). The server sends every variant; which one this server sells is
+ * what the game's own selling screens name (0337), and where no screen
+ * names any of them, an officer's choice, made once per name. */
 export interface VariantInfo {
   /** "<game name>|<price>": what the packs of one family share. */
   family_key: string;
@@ -497,6 +510,13 @@ export interface VariantInfo {
   /** The family has a choice but its variant is no longer listed: the game
    * moved to another stage, and the choice wants making again. */
   stale: boolean;
+  /** The game's screens name a version of this family: `picked` is theirs,
+   * not an officer's, and nobody can change it. */
+  by_game: boolean;
+  /** Not sold on this server: another version is the one the screens name,
+   * or the pack lists no contents and no screen sells it. Hidden unless
+   * every pack is asked for. */
+  unsold: boolean;
 }
 
 export type PackRow = PackGroup & VariantInfo;
@@ -524,10 +544,13 @@ export function variantKey(
   return fingerprint(`${pack.rubies}|${contentsKey(pack)}|${choicesKey(pack)}`);
 }
 
-/** Fold same-name, same-price variants to the one an officer chose. A family
+/** Keep what this server sells. Where the game's screens name a version of
+ * a family, the versions they do not name are dropped; so is a pack with no
+ * contents that no screen names (another server's pass). Otherwise
+ * same-name, same-price variants fold to the one an officer chose: a family
  * with one variant is left alone; so is one whose chosen variant is not on the
  * page (it is flagged `stale` instead, and every variant stays). `showAll`
- * keeps every variant, marking the chosen one. */
+ * keeps every row, marking the chosen ones and the `unsold`. */
 export function foldVariants(
   groups: ReadonlyArray<PackGroup>,
   choices: ReadonlyMap<string, string>,
@@ -548,6 +571,32 @@ export function foldVariants(
   for (const group of groups) {
     const family_key = familyKey(group);
     const members = families.get(family_key) ?? [group];
+    if (members.some((m) => m.offered === true)) {
+      const ours = group.offered === true;
+      if (!ours && !showAll) {
+        hidden += 1;
+        continue;
+      }
+      rows.push({
+        ...group,
+        family_key,
+        variant_key: variantKey(group),
+        variants: members.length,
+        picked: ours && members.length > 1,
+        family_picked: members.length > 1,
+        stale: false,
+        by_game: true,
+        unsold: !ours,
+      });
+      continue;
+    }
+    // No screen names this family. A pack that lists nothing is sold through
+    // a screen or not at all, so one the screens passed over is not ours.
+    const unsold = group.offered === false && !group.contents_listed;
+    if (unsold && !showAll) {
+      hidden += 1;
+      continue;
+    }
     const chosen = choices.get(family_key);
     const keys = members.map((m) => variantKey(m));
     const mine = variantKey(group);
@@ -560,6 +609,8 @@ export function foldVariants(
       picked: present && mine === chosen,
       family_picked: present,
       stale: chosen !== undefined && !present && members.length > 1,
+      by_game: false,
+      unsold,
     };
     if (present && !row.picked && !showAll) {
       hidden += 1;

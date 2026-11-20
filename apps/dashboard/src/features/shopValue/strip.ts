@@ -2,18 +2,24 @@
 // loaded. Pure, so what the strip claims can be checked on its own.
 //
 // Only packs on sale now count, and an offer the game issued under several ids
-// counts once (`groupPacks`). A pack with no value ratio (a battle pass, a login
+// counts once (`groupPacks`). A pack the game's screens do not sell on this
+// server - another stage's version, another server's pass - is not on sale
+// here (`foldVariants`, with no officer choices: the strip never hid those). A pack with no value ratio (a battle pass, a login
 // gift) is never the best value and is left out of the average: no ratio is not
 // a ratio of zero.
 
 import type { StripCell } from '../../components/Strip';
 import { humanUntil } from '../../lib/shellNav';
-import { type PackValue, groupPacks, isInStore, ratioLabel } from './data';
+import { type PackValue, foldVariants, groupPacks, isInStore, ratioLabel } from './data';
 
 const plain = new Intl.NumberFormat('en');
 
 export function shopStrip(packs: ReadonlyArray<PackValue>, now: Date): StripCell[] {
-  const live = groupPacks(packs.filter((pack) => isInStore(pack, now)));
+  const live = foldVariants(
+    groupPacks(packs.filter((pack) => isInStore(pack, now))),
+    new Map(),
+    false,
+  ).rows;
   const rated = live.filter((pack) => pack.value_ratio !== null);
   const best = [...rated].sort((a, b) => (b.value_ratio ?? 0) - (a.value_ratio ?? 0))[0];
   const ending = live

@@ -94,3 +94,23 @@ describe('shopStrip', () => {
     expect(cell(none, 'Average value')?.value).toBeNull();
   });
 });
+
+describe('shopStrip and what this server sells (0337)', () => {
+  test('leaves out the versions and passes the game does not sell here', () => {
+    const packs = [
+      pack({ pack_id: 'a', name: 'Weekly', game_name: 'Weekly', rubies: 100, offered: true }),
+      pack({ pack_id: 'b', name: 'Weekly', game_name: 'Weekly', rubies: 200, offered: false }),
+      pack({
+        pack_id: 'c',
+        name: 'Their Pass',
+        game_name: 'Their Pass',
+        rubies: 0,
+        contents_listed: false,
+        value_ratio: null,
+        offered: false,
+      }),
+      pack({ pack_id: 'd', name: 'Rubies', game_name: 'Rubies', offered: false }),
+    ];
+    expect(cell(packs, 'On sale now')?.value).toBe('2');
+  });
+});

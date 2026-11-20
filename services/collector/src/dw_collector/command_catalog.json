@@ -179,6 +179,51 @@
       "status": "promoted",
       "verdict": "승격 완료 (2026-11-18 · world_trucks 파서 1.2.0, 0334)",
       "note": "the marches drawn on whatever map the camera is on (marchInfos, serverId); type 15 is a Dark Syndicate truck and goes to world_truck_snapshots like push.world.march.new, which only covers the collector's own server. Other march types are not stored"
+    },
+    {
+      "command": "get.battlepass.info",
+      "status": "promoted",
+      "verdict": "승격 완료 (2026-11-19 · shop_offers 파서 1.0.0, 0337)"
+    },
+    {
+      "command": "get.season.battlepass.info",
+      "status": "promoted",
+      "verdict": "승격 완료 (2026-11-19 · shop_offers 파서 1.0.0, 0337)"
+    },
+    {
+      "command": "growth.plan.info",
+      "status": "promoted",
+      "verdict": "승격 완료 (2026-11-19 · shop_offers 파서 1.0.0, 0337)"
+    },
+    {
+      "command": "get.month.detect.card",
+      "status": "promoted",
+      "verdict": "승격 완료 (2026-11-19 · shop_offers 파서 1.0.0, 0337)"
+    },
+    {
+      "command": "get.week.card.info",
+      "status": "promoted",
+      "verdict": "승격 완료 (2026-11-19 · shop_offers 파서 1.0.0, 0337)"
+    },
+    {
+      "command": "get.season.week.card.info",
+      "status": "promoted",
+      "verdict": "승격 완료 (2026-11-19 · shop_offers 파서 1.0.0, 0337)"
+    },
+    {
+      "command": "multi.choice.gift.info",
+      "status": "promoted",
+      "verdict": "승격 완료 (2026-11-19 · shop_offers 파서 1.0.0, 0337)"
+    },
+    {
+      "command": "get.custom.package.activity.info",
+      "status": "promoted",
+      "verdict": "승격 완료 (2026-11-19 · shop_offers 파서 1.0.0, 0337)"
+    },
+    {
+      "command": "get.month.pay.act.info",
+      "status": "promoted",
+      "verdict": "승격 완료 (2026-11-19 · shop_offers 파서 1.0.0, 0337)"
     }
   ]
 }

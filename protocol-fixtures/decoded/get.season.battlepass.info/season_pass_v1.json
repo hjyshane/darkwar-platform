@@ -1,0 +1,177 @@
+{
+  "observation_id": "00000000-0000-4000-8000-0000000f0003",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "get.season.battlepass.info",
+  "captured_at": "2026-11-19T23:34:25+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "_id": 49,
+    "_time": 0,
+    "activityId": 70031,
+    "addExpPercent": 50,
+    "battlePass": {
+      "exp": 30,
+      "level": 20,
+      "unlock": 0,
+      "unlockBig": 0
+    },
+    "extraExp": 300,
+    "extraReward": [
+      {
+        "type": 7,
+        "value": {
+          "id": "200203",
+          "num": 4
+        }
+      },
+      {
+        "type": 7,
+        "value": {
+          "id": "200364",
+          "num": 3
+        }
+      }
+    ],
+    "packageIds": "83103;83104",
+    "stateInfo": [
+      {
+        "level": 1,
+        "middleReward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "210454",
+              "num": 5
+            }
+          },
+          {
+            "type": 7,
+            "value": {
+              "id": "200364",
+              "num": 10
+            }
+          }
+        ],
+        "middleState": 0,
+        "normalReward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "210454",
+              "num": 1
+            }
+          }
+        ],
+        "normalState": 1,
+        "specialReward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "210454",
+              "num": 5
+            }
+          }
+        ],
+        "specialState": 0
+      },
+      {
+        "level": 2,
+        "middleReward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "200213",
+              "num": 4
+            }
+          },
+          {
+            "type": 0,
+            "value": 30000
+          }
+        ],
+        "middleState": 0,
+        "normalReward": [
+          {
+            "type": 0,
+            "value": 10000
+          }
+        ],
+        "normalState": 1,
+        "specialReward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "230110",
+              "num": 10
+            }
+          },
+          {
+            "type": 0,
+            "value": 60000
+          }
+        ],
+        "specialState": 0
+      },
+      {
+        "level": 3,
+        "middleReward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "200213",
+              "num": 4
+            }
+          },
+          {
+            "type": 0,
+            "value": 30000
+          }
+        ],
+        "middleState": 0,
+        "normalReward": [
+          {
+            "type": 0,
+            "value": 10000
+          }
+        ],
+        "normalState": 1,
+        "specialReward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "230110",
+              "num": 10
+            }
+          },
+          {
+            "type": 0,
+            "value": 60000
+          }
+        ],
+        "specialState": 0
+      }
+    ],
+    "taskArr": [
+      {
+        "exp": 20,
+        "num": 1,
+        "payExp": 0,
+        "startTime": 1794189600000,
+        "state": 2,
+        "taskId": 336901,
+        "type": 1,
+        "week": 1
+      },
+      {
+        "exp": 40,
+        "num": 22,
+        "payExp": 0,
+        "startTime": 1797213600000,
+        "state": 1,
+        "taskId": 337413,
+        "type": 1,
+        "week": 6
+      }
+    ]
+  }
+}

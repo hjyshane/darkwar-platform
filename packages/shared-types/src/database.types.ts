@@ -8637,6 +8637,99 @@ export type Database = {
           },
         ]
       }
+      shop_pack_offers: {
+        Row: {
+          activity_id: string | null
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at: string
+          idempotency_key: string
+          items: Json
+          levels: number | null
+          observation_id: string
+          pack_id: string
+          parser_version: string
+          raw: Json
+          server_id: number
+          snapshot_id: string
+          source_command: string
+          track: string | null
+        }
+        Insert: {
+          activity_id?: string | null
+          captured_at: string
+          collected_from_server_id: number
+          collector_id: string
+          created_at?: string
+          idempotency_key: string
+          items?: Json
+          levels?: number | null
+          observation_id: string
+          pack_id: string
+          parser_version: string
+          raw?: Json
+          server_id: number
+          snapshot_id?: string
+          source_command: string
+          track?: string | null
+        }
+        Update: {
+          activity_id?: string | null
+          captured_at?: string
+          collected_from_server_id?: number
+          collector_id?: string
+          created_at?: string
+          idempotency_key?: string
+          items?: Json
+          levels?: number | null
+          observation_id?: string
+          pack_id?: string
+          parser_version?: string
+          raw?: Json
+          server_id?: number
+          snapshot_id?: string
+          source_command?: string
+          track?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_pack_offers_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "shop_pack_offers_collected_from_server_id_fkey"
+            columns: ["collected_from_server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "shop_pack_offers_collector_id_fkey"
+            columns: ["collector_id"]
+            isOneToOne: false
+            referencedRelation: "collectors"
+            referencedColumns: ["collector_id"]
+          },
+          {
+            foreignKeyName: "shop_pack_offers_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "shop_pack_offers_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "world_sweep_coverage"
+            referencedColumns: ["server_id"]
+          },
+        ]
+      }
       shop_pack_snapshots: {
         Row: {
           captured_at: string
@@ -10783,6 +10876,9 @@ export type Database = {
           name: string | null
           name_key: string | null
           name_ko: string | null
+          offer_source: string | null
+          offer_track: string | null
+          offered: boolean | null
           pack_id: string | null
           pack_type: string | null
           rubies: number | null

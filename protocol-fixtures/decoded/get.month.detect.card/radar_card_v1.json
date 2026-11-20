@@ -1,0 +1,94 @@
+{
+  "observation_id": "00000000-0000-4000-8000-0000000f0005",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "get.month.detect.card",
+  "captured_at": "2026-11-19T23:34:25+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "_id": 13,
+    "_time": 0,
+    "activityId": 2008,
+    "freeScoreReward": [
+      {
+        "freeReward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "200201",
+              "num": 15
+            }
+          }
+        ],
+        "index": 1,
+        "score": 20
+      },
+      {
+        "freeReward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "200201",
+              "num": 15
+            }
+          }
+        ],
+        "index": 2,
+        "score": 40
+      }
+    ],
+    "monthDetectCards": [
+      {
+        "cardType": 39,
+        "exchangeId": "240000007",
+        "id": 14,
+        "scoreRewardArr": [
+          {
+            "index": 1,
+            "payReward": [
+              {
+                "type": 7,
+                "value": {
+                  "id": "253042",
+                  "num": 20
+                }
+              }
+            ],
+            "score": 20
+          },
+          {
+            "index": 2,
+            "payReward": [
+              {
+                "type": 7,
+                "value": {
+                  "id": "200204",
+                  "num": 3
+                }
+              }
+            ],
+            "score": 40
+          },
+          {
+            "index": 3,
+            "payReward": [
+              {
+                "type": 7,
+                "value": {
+                  "id": "253014",
+                  "num": 5
+                }
+              }
+            ],
+            "score": 60
+          }
+        ]
+      }
+    ],
+    "userMonthDetectCard": {
+      "free": "1|2|3|4|5|6|7|8|9",
+      "recharge": "",
+      "score": 183,
+      "unlockFlag": 0
+    }
+  }
+}

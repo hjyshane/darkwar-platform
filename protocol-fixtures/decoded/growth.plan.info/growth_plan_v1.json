@@ -1,0 +1,109 @@
+{
+  "observation_id": "00000000-0000-4000-8000-0000000f0004",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "growth.plan.info",
+  "captured_at": "2026-11-19T23:34:25+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "_id": 122,
+    "_time": 0,
+    "exchangeId": "20250313",
+    "rechargeType": 121,
+    "stageInfo": [
+      {
+        "id": "20001",
+        "needLevel": 5,
+        "normalReward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "200364",
+              "num": 1
+            }
+          }
+        ],
+        "normalState": 1,
+        "specialReward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "200366",
+              "num": 10
+            }
+          },
+          {
+            "type": 7,
+            "value": {
+              "id": "252017",
+              "num": 50
+            }
+          }
+        ],
+        "specialState": 1
+      },
+      {
+        "id": "20002",
+        "needLevel": 8,
+        "normalReward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "200364",
+              "num": 1
+            }
+          }
+        ],
+        "normalState": 1,
+        "specialReward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "200366",
+              "num": 1
+            }
+          },
+          {
+            "type": 7,
+            "value": {
+              "id": "230101",
+              "num": 100
+            }
+          }
+        ],
+        "specialState": 1
+      },
+      {
+        "id": "20003",
+        "needLevel": 10,
+        "normalReward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "200364",
+              "num": 1
+            }
+          }
+        ],
+        "normalState": 1,
+        "specialReward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "200366",
+              "num": 1
+            }
+          },
+          {
+            "type": 7,
+            "value": {
+              "id": "270003",
+              "num": 1
+            }
+          }
+        ],
+        "specialState": 1
+      }
+    ],
+    "unlockSpecialReward": 1
+  }
+}
