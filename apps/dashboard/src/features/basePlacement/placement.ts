@@ -16,6 +16,11 @@
 
 export const BASE_SIZE = 3;
 
+/** A coordinate cell in the game is a 4:3 rectangle, wider than it is tall
+ * (owner, 2026-11-20). Only the drawing cares: every rule is in cells. */
+export const TILE_W = 4;
+export const TILE_H = 3;
+
 export interface Cell {
   x: number;
   y: number;
