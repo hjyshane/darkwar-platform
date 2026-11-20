@@ -155,8 +155,18 @@ export function BasePlacementPage() {
     if (refusal(at, bases, structures) === null) update({ ...state, bases: [...bases, at] });
   };
 
+  // The tile under the pointer. Read through the SVG's own screen transform,
+  // not the element's box: the picture is a square inside a box that can be
+  // wider or taller than it (the height is capped), and dividing by the box
+  // shifts every tile toward the side the picture is pushed away from.
   const cellAt = (event: React.MouseEvent<SVGSVGElement>): Cell => {
-    const box = event.currentTarget.getBoundingClientRect();
+    const svg = event.currentTarget;
+    const ctm = svg.getScreenCTM?.();
+    if (ctm) {
+      const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(ctm.inverse());
+      return { x: Math.floor(point.x), y: Math.floor(point.y) };
+    }
+    const box = svg.getBoundingClientRect();
     return {
       x: view.x0 + Math.floor(((event.clientX - box.left) / box.width) * width),
       y: view.y0 + Math.floor(((event.clientY - box.top) / box.height) * height),
