@@ -561,6 +561,31 @@ export async function moveFormation(
   }
 }
 
+/** Put the anchor on `to` and leave every tile where it stands: each offset
+ * moves the other way (0339). Checked against the anchor AND the version this
+ * officer opened — unlike a move, it rewrites every offset, so it makes any
+ * draft built on the old ones stale. Answers with the plan's new version. */
+export async function reanchorFormation(
+  formationId: string,
+  version: number,
+  from: Coordinate,
+  to: Coordinate,
+): Promise<{ version: number }> {
+  const { data, error } = await supabase.rpc('reanchor_hive_formation', {
+    p_formation_id: formationId,
+    p_version: version,
+    p_from_x: from.x,
+    p_from_y: from.y,
+    p_to_x: to.x,
+    p_to_y: to.y,
+  });
+  if (error) {
+    throw toWriteError(error);
+  }
+  const answer = data as { version?: unknown } | null;
+  return { version: typeof answer?.version === 'number' ? answer.version : version + 1 };
+}
+
 /** Into "Recently deleted" for 30 days. Not version-checked: it can be
  * undone. A deleted plan stops being live. */
 export async function deleteFormation(formationId: string): Promise<void> {

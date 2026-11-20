@@ -4075,16 +4075,18 @@ button.tile-grid:hover:not(:disabled) {
   border-color: var(--info-fg);
 }
 
+/* One square, over EVERYTHING drawn on it — Frankie, somebody's base, a
+ * selection ring, a ghost — so it is always there to see and to take hold of
+ * (`grabsAnchor`). Above the selection ring's z-index 1. */
 .tile-grid__anchor {
   position: absolute;
+  z-index: 2;
   background: var(--accent);
   outline: 2px solid var(--bg);
+  box-shadow: 0 0 0 3px var(--accent);
 }
 
-/* Lifted over the structure drawn round it (Frankie), or the structure takes
- * the hover and the cursor never says the square can be picked up. */
 .tile-grid__anchor--grab {
-  z-index: 1;
   cursor: grab;
 }
 
@@ -4399,6 +4401,152 @@ button.tile-grid:hover:not(:disabled) {
   max-width: calc(var(--hive-map-size, 720px) + 4rem);
 }
 
+/* The editor's toolbar (EditorToolbar): one row of icon buttons over the
+ * map, in groups — drag tool, brush, shapes and anchor, selection. Wraps on a
+ * narrow map rather than scrolling sideways. */
+.map-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  margin: 0 0 var(--space-2);
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+}
+
+.map-toolbar__group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.map-toolbar__group + .map-toolbar__group {
+  padding-left: var(--space-2);
+  border-left: 1px solid var(--border);
+}
+
+/* Not the swatches: their fill IS the information, and this reset would win
+ * over `.hive-swatch--red` and leave nine identical empty squares. */
+.map-toolbar button:not(.hive-swatch),
+.map-toolbar summary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 0.45rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--fg);
+  font-size: var(--text-sm);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.map-toolbar button:hover:not(:disabled),
+.map-toolbar summary:hover {
+  background-color: var(--bg-hover);
+}
+
+.map-toolbar button[aria-pressed="true"]:not(.hive-swatch),
+.map-toolbar summary.map-toolbar__on,
+.map-toolbar details[open] > summary {
+  border-color: var(--accent);
+  color: var(--accent);
+  background-color: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.map-toolbar summary {
+  list-style: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.map-toolbar summary::-webkit-details-marker {
+  display: none;
+}
+
+.map-toolbar summary .hive-swatch,
+.map-toolbar__panel button .hive-swatch {
+  width: 1rem;
+  height: 1rem;
+}
+
+.map-toolbar .hive-swatch--none {
+  background: transparent;
+  border: 1px dashed var(--fg-muted);
+}
+
+.map-toolbar__menu {
+  position: relative;
+}
+
+/* A menu opened from the toolbar, over the map under it. */
+.map-toolbar__panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 5;
+  display: grid;
+  gap: 2px;
+  min-width: 11rem;
+  max-height: 22rem;
+  overflow-y: auto;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.3);
+}
+
+.map-toolbar__panel > button {
+  justify-content: flex-start;
+  width: 100%;
+  white-space: nowrap;
+}
+
+.map-toolbar__swatches {
+  grid-template-columns: repeat(5, 2rem);
+  min-width: 0;
+}
+
+.map-toolbar__swatches > button {
+  width: 2rem;
+  height: 2rem;
+}
+
+.map-toolbar__spans {
+  display: flex;
+  gap: var(--space-2);
+  padding: 4px;
+}
+
+.map-toolbar__spans label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.75rem;
+  color: var(--fg-muted);
+}
+
+.map-toolbar__spans input {
+  width: 4rem;
+}
+
+.map-toolbar__note {
+  margin: 4px 6px 0;
+  font-size: 0.75rem;
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+
+.map-toolbar__danger {
+  color: var(--danger-fg) !important;
+}
+
 /* Resized: exactly as wide as asked. Where that leaves no room beside it the
  * panel wraps underneath, which is what asking for a big map on a narrow
  * screen means — rather than squeezing the map back below the size chosen. */
@@ -4539,7 +4687,6 @@ button.tile-grid:hover:not(:disabled) {
   }
 }
 
-.hive-zoom,
 .hive-shapes,
 .hive-actions,
 .hive-edit-cta,
@@ -4574,47 +4721,147 @@ button.tile-grid:hover:not(:disabled) {
   color: var(--danger-fg);
 }
 
-/* A fieldset because it is a group of controls with a name, which is what a
- * fieldset is — a div with role="group" is the same thing spelled worse. Its
- * chrome is reset because the border and legend box are wrong here: the
- * group sits under the map as a row of buttons, not as a panel. */
-.hive-zoom {
-  border: 0;
-  padding: 0;
-  align-items: center;
+/* --- the controls laid over a map's corners (MapControls) ---------------- */
+
+/* The grid's own cell, a second time, on top of it. It takes no pointer and
+ * has no size of its own (`container-type: size` lays it out from the cell,
+ * never from what is in it), so the grid underneath is still clicked, dragged
+ * and measured exactly as before; only the panels inside take the pointer.
+ * A size container so the zoom slider can bow out of a short map. */
+.tile-frame__overlay {
+  grid-column: 3;
+  grid-row: 1;
+  position: relative;
+  z-index: 2;
+  container-type: size;
+  pointer-events: none;
 }
 
-/* Wide enough to place a zoom by eye; the buttons either side step it. */
-.hive-zoom__slider {
-  width: 10rem;
-  max-width: 40vw;
-}
-
-/* Fixed width, so the row does not shuffle sideways as the number changes
- * from 7 tiles to 201 under a moving slider. */
-.hive-zoom__readout {
-  min-width: 5.5em;
+.map-nav,
+.map-key,
+.map-stamp {
+  position: absolute;
+  pointer-events: auto;
+  margin: 0;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  /* See-through enough to keep the ground in view, solid enough to read. */
+  background: color-mix(in srgb, var(--bg-raised) 88%, transparent);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.25);
   font-size: var(--text-sm);
+}
+
+.map-nav {
+  top: 8px;
+  right: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.map-nav button,
+.map-key button,
+.map-stamp button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.9rem;
+  height: 1.9rem;
+  padding: 0 0.4rem;
+  line-height: 1;
+}
+
+/* Upright, + above and − below, so up is closer like the button over it. */
+.map-nav__slider {
+  writing-mode: vertical-lr;
+  direction: rtl;
+  width: 1.2rem;
+  height: 6rem;
+  margin: 0;
+}
+
+@container (max-height: 22rem) {
+  .map-nav__slider {
+    display: none;
+  }
+}
+
+/* How many tiles across: fixed width so the panel does not twitch as it
+ * changes from 7 to 201 under a moving slider. */
+.map-nav__readout {
+  min-width: 2.5em;
+  text-align: center;
+  font-size: 0.7rem;
   font-variant-numeric: tabular-nums;
   color: var(--fg-muted);
 }
 
-/* What each rank colour means, on its own line under the two buttons. */
-.hive-rank-legend {
-  flex-basis: 100%;
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1) var(--space-3);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font-size: var(--text-sm);
+.map-key {
+  top: 8px;
+  left: 8px;
+  max-width: calc(100% - 4.5rem);
 }
 
-.hive-rank-legend li {
-  display: inline-flex;
+.map-key__switch {
+  display: flex;
+  gap: 4px;
+}
+
+.map-key__legend {
+  display: grid;
+  gap: 2px;
+  margin: 6px 2px 2px;
+  padding: 0;
+  list-style: none;
+  font-size: 0.75rem;
+}
+
+.map-key__legend li {
+  display: flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: 6px;
+  white-space: nowrap;
+}
+
+/* The Key button exists only for a map too small to keep the list open.
+ * Two classes, to beat `.map-key button` above. */
+.map-key .map-key__more {
+  display: none;
+}
+
+@container (max-width: 26rem) {
+  .map-key .map-key__more {
+    display: inline-flex;
+  }
+
+  .map-key:not(.map-key--open) .map-key__legend {
+    display: none;
+  }
+}
+
+.map-nav button[aria-pressed="true"],
+.map-key button[aria-pressed="true"],
+.hive-shapes button[aria-pressed="true"],
+.hive-feature__load[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* A shape in hand: what the next click on the map does, on the map. */
+.map-stamp {
+  left: 8px;
+  bottom: 8px;
+  max-width: calc(100% - 16px);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-left: var(--space-2);
+}
+
+.map-stamp__note {
+  color: var(--fg-muted);
 }
 
 .hive-rank-chip {
@@ -4631,17 +4878,6 @@ button.tile-grid:hover:not(:disabled) {
 .hive-rank-chip.hive-rank-chip--vacant {
   background: transparent;
   border: 1px dashed var(--fg-muted);
-}
-
-.hive-zoom legend {
-  font-size: var(--text-sm);
-  color: var(--fg-muted);
-  padding: 0;
-}
-
-.hive-zoom button[aria-pressed="true"] {
-  border-color: var(--accent);
-  color: var(--accent);
 }
 
 /* The brush: what the next click puts down. */
@@ -5803,7 +6039,7 @@ button.tile-grid:hover:not(:disabled) {
   }
 }
 
-/* Events open a card (0337). A bar is now a button: it keeps the bar's look,
+/* Events open a card (0338). A bar is now a button: it keeps the bar's look,
  * so everything the global `button` rule adds is taken back here. The hover
  * selector repeats :not(:disabled) to outrank `button:hover:not(:disabled)`,
  * which would otherwise repaint the bar in the page's hover grey. */

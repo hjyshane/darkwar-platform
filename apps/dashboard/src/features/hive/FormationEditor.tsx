@@ -1,23 +1,20 @@
 import type { Coordinate } from '@dw/ui';
 import { useIsMutating, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { Select } from '../../components/ui/Select';
 import {
   type AssignOrder,
   type AssignableMember,
   BASE_SPAN,
-  FRANKIE,
   type FootprintBox,
   MAX_TILES,
   type Offset,
   type SizedOffset,
-  TILE_COLOURS,
   type TileColour,
   type TileKind,
   absoluteOf,
   assignOrderLabel,
   autoAssign,
-  blockOffsets,
   boxArea,
   canMoveGroup,
   canPlace,
@@ -29,7 +26,6 @@ import {
   offsetKey,
   outlineTilesIn,
   ringOf,
-  ringOffsets,
   ringOrderAround,
   shiftedBy,
   sortMembers,
@@ -40,8 +36,9 @@ import {
   tilesOverlap,
 } from '../../lib/hiveFormation';
 import { shareCoordinate } from '../../lib/shareCoordinate';
+import { EditorToolbar } from './EditorToolbar';
 import { ConflictBanner, Stamp } from './HiveStamp';
-import { BaseColours, type RankEntry, ViewControls, rankTally } from './MapControls';
+import { MapKey, MapNav, type RankEntry, rankTally } from './MapControls';
 import { PanelDivider } from './PanelDivider';
 import {
   type GridBase,
@@ -68,6 +65,7 @@ import {
   deleteTemplate,
   fetchTemplateTiles,
   moveFormation,
+  reanchorFormation,
   saveFormation,
   saveTemplate,
   useMapFeatures,
@@ -101,6 +99,13 @@ import {
   placedTiles,
   shortPower,
 } from './memberPalette';
+import {
+  BUILT_IN_SHAPES,
+  type StampShape,
+  shapeFromTemplate,
+  stampPlan,
+  stampSummary,
+} from './shapeStamp';
 
 /** A tile in the draft, identified by where it is.
  *
@@ -214,13 +219,6 @@ export function dropTarget(
   return { kind: 'new', tile };
 }
 
-/** A typed span, or the one already there. A half-typed box must not silently
- * become a 1x1 the next click then places. */
-function clampSpan(typed: string, fallback: number): number {
-  const value = Number.parseInt(typed, 10);
-  return Number.isNaN(value) ? fallback : Math.min(32, Math.max(1, value));
-}
-
 /** What the next click puts down.
  *
  * A BRUSH RATHER THAN A MODE. Size, kind and colour are the three things a
@@ -228,7 +226,7 @@ function clampSpan(typed: string, fallback: number): number {
  * — which is also why 3x3 stays the default: it is what almost every click
  * places, and the officer only touches this to draw a structure or a marker.
  */
-interface Brush {
+export interface Brush {
   spanX: number;
   spanY: number;
   kind: TileKind;
@@ -301,7 +299,7 @@ function memberLabel(member: AssignableMember): string {
 }
 
 /** What a drag does. Clicking a tile places or removes one in every mode. */
-type Tool = 'draw' | 'mark' | 'outline' | 'erase' | 'select';
+export type Tool = 'draw' | 'mark' | 'outline' | 'erase' | 'select';
 
 const ORDERS: readonly AssignOrder[] = ['power', 'hq', 'rank', 'name'];
 
@@ -324,52 +322,43 @@ function draftFromBoard(slots: readonly BoardSlot[]): Map<string, DraftSlot> {
   );
 }
 
-/** A saved shape, turned back into a draft.
- *
- * EVERY TILE LANDS EMPTY, and that is not an oversight. A template carries
- * nobody (0172) because a shape saved a fortnight ago naming who stood where
- * is a stale roster in a new place — the member it names may have left, which
- * is the whole reason the board has a `still_a_member` flag. Filling the shape
- * is auto-assignment's job, from the roster as it is today.
- */
-export function draftFromTiles(tiles: readonly LayoutTile[]): Map<string, DraftSlot> {
-  return new Map(
-    tiles.map((tile) => [
-      offsetKey(tile),
-      {
-        dx: tile.dx,
-        dy: tile.dy,
-        spanX: tile.span_x,
-        spanY: tile.span_y,
-        kind: tile.kind,
-        colour: tile.colour,
-        ordinal: tile.ordinal,
-        label: tile.label,
-        slotId: null,
-      },
-    ]),
-  );
-}
-
-/** How much of a saved shape would hang off the edge from this anchor.
- *
- * ASKED BEFORE THE SAVE REFUSES IT. The database checks each footprint
- * against the map's edge when the layout is written, and its message names
- * one tile; a shape loaded onto an anchor near a corner can have thirty in
- * that state. Counting them here is what lets the screen say move the anchor
- * rather than name a tile and stop.
- */
-export function tilesOffMap(anchor: Coordinate, tiles: readonly LayoutTile[]): number {
-  return tiles.filter((tile) => !tileFitsOnMap(absoluteOf(anchor, tile), tile.span_x, tile.span_y))
-    .length;
-}
-
 /** Whether every tile of a drawn shape stays on the map with the anchor on
- * `anchor`. The draft's counterpart of `tilesOffMap`, asked before an anchor
- * move is sent so the officer is told where they are aiming rather than handed
+ * `anchor`. Asked before an anchor move is sent so the officer is told where they are aiming rather than handed
  * the database's refusal naming one tile afterwards. */
 export function formationFitsAt(anchor: Coordinate, tiles: readonly SizedOffset[]): boolean {
   return tiles.every((tile) => tileFitsOnMap(absoluteOf(anchor, tile), tile.spanX, tile.spanY));
+}
+
+/** The draft measured from a new anchor: every tile where it stood, its offset
+ * moved the other way — what 0339 does to the saved rows, done to the draft
+ * in the same render the anchor changes, so the map never draws the old
+ * offsets from the new anchor (the whole shape jumping by the difference). */
+export function reanchoredDraft(
+  draft: ReadonlyMap<string, DraftSlot>,
+  from: Coordinate,
+  to: Coordinate,
+): Map<string, DraftSlot> {
+  const byX = from.x - to.x;
+  const byY = from.y - to.y;
+  return new Map(
+    [...draft.values()].map((slot) => {
+      const moved = shiftedBy(slot, byX, byY);
+      return [offsetKey(moved), moved];
+    }),
+  );
+}
+
+/** The drawn tile whose footprint covers `tile`, if any: what a click while
+ * choosing an anchor lands on. */
+export function tileUnderPointer(
+  drawn: readonly DraftSlot[],
+  anchor: Coordinate,
+  tile: Coordinate,
+): DraftSlot | undefined {
+  return drawn.find((slot) => {
+    const box = footprintOf(absoluteOf(anchor, slot), slot.spanX, slot.spanY);
+    return tile.x >= box.x0 && tile.x <= box.x1 && tile.y >= box.y0 && tile.y <= box.y1;
+  });
 }
 
 /** Whether a refetched board is the SAME saved shape, tile for tile.
@@ -510,6 +499,28 @@ export function FormationEditor({
   // carrying a base and sweeping out an area are modes rather than a guess
   // about intent — see TileGrid's `onRegion`.
   const [tool, setTool] = useState<Tool>('draw');
+  // A shape picked up to be stamped: while it is held, a click on the map
+  // puts it down there instead of placing one tile (`shapeStamp`).
+  const [armed, setArmed] = useState<StampShape | null>(null);
+  // Choosing a new anchor by clicking something on the map: the next click
+  // on a base or a structure puts the anchor on it.
+  const [pickingAnchor, setPickingAnchor] = useState(false);
+  // Esc puts either away, wherever the focus is — the officer's eyes are on
+  // the map, not on the button they started from.
+  const holding = armed !== null || pickingAnchor;
+  useEffect(() => {
+    if (!holding) {
+      return;
+    }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setArmed(null);
+        setPickingAnchor(false);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [holding]);
   // The tiles a box-select picked out, by offset key. Kept as keys rather
   // than as slots so a selected tile that then MOVES stays selected under its
   // new key — the group drag rewrites the whole set, and holding stale slot
@@ -775,6 +786,67 @@ export function FormationEditor({
     },
   });
 
+  /** Put the anchor somewhere else and leave every tile where it is (0339).
+   *
+   * THE DRAFT FOLLOWS IN THE SAME RENDER AS THE ANCHOR. The anchor shown is
+   * `pendingAnchor` until the formation and the board have both been re-read;
+   * setting it on its own would draw the old offsets from the new anchor, and
+   * the whole hive would jump by the difference until the board arrived. */
+  const reanchor = useMutation({
+    mutationFn: (to: Coordinate) =>
+      reanchorFormation(
+        formation.formationId,
+        baseVersion,
+        { x: formation.anchorX, y: formation.anchorY },
+        to,
+      ),
+    onSuccess: (result, to) => {
+      setDraft(reanchoredDraft(draft, { x: formation.anchorX, y: formation.anchorY }, to));
+      // Offsets are keys; a selection held by the old ones points at nothing.
+      setSelection(new Set());
+      setPendingAnchor(to);
+      // Ours, not somebody else's: the board arriving at this version is
+      // today's rules, not a conflict.
+      setBaseVersion(result.version);
+      setRefusal(null);
+      return queryClient.invalidateQueries({ queryKey: ['hive'] });
+    },
+    onError: (error: Error) => {
+      if (error instanceof StaleSaveError) {
+        setRefusal(
+          'Someone else changed this plan since you opened it, so the anchor was not moved. It has been reloaded.',
+        );
+        void queryClient.invalidateQueries({ queryKey: ['hive'] });
+        return;
+      }
+      setRefusal(
+        error instanceof PlanDeletedError
+          ? 'This plan was deleted. An officer can restore it from Recently deleted.'
+          : error.message,
+      );
+    },
+  });
+
+  /** Re-anchor on `to`, from the typed box or a click on the map. Refused
+   * while anything is unsaved: it rewrites every SAVED offset, and a draft
+   * drawn on the old ones could not be saved afterwards. */
+  function reanchorAt(to: Coordinate) {
+    if (unsaved) {
+      setRefusal('Save or discard your changes first: setting the anchor rewrites every tile.');
+      return;
+    }
+    if (!tileFitsOnMap(to, BASE_SPAN, BASE_SPAN)) {
+      setRefusal(
+        `The anchor has to be between 1 and 998 on both axes; ${formatTeleport(to)} is not.`,
+      );
+      return;
+    }
+    if (to.x === formation.anchorX && to.y === formation.anchorY) {
+      return;
+    }
+    reanchor.mutate(to, { onSettled: () => setPendingAnchor(null) });
+  }
+
   /** Move the whole formation: the typed box and the dragged anchor both end
    * here, so the two cannot disagree about what a move does.
    *
@@ -867,28 +939,100 @@ export function FormationEditor({
     onError: (error: Error) => setRefusal(error.message),
   });
 
-  /** Load a saved shape into the DRAFT, replacing what is drawn.
+  /** Pick a saved shape up as a STAMP, like the built-in ones: a click on the
+   * map puts it down centred where its anchor was.
    *
    * Not a write, and that is the whole design. A template has no anchor, so
-   * whether its tiles fit the map is a question only this formation can
-   * answer — the officer sees where it lands, moves the anchor if part of it
-   * hangs off the edge, and saves through the same layout call as always.
-   * Saving it here instead would refuse the whole shape with a message about
-   * a tile they cannot yet see.
+   * whether its tiles fit is a question only the ground it is put on can
+   * answer — the ghost under the pointer shows it, and what lands is saved
+   * through the same layout call as always. It used to REPLACE the drawing,
+   * centred on the anchor; Clear and a click on the anchor still does that.
    */
   const templateLoad = useMutation({
     mutationFn: (template: FormationTemplate) => fetchTemplateTiles(template.templateId),
-    onSuccess: (tiles) => {
-      setDraft(draftFromTiles(tiles));
-      const offMap = tilesOffMap(anchor, tiles);
-      setRefusal(
-        offMap === 0
-          ? null
-          : `${offMap} of ${tiles.length} tiles fall off the edge of the map from this anchor. Move the anchor before saving.`,
-      );
+    onSuccess: (tiles, template) => {
+      arm({
+        key: `template-${template.templateId}`,
+        label: template.name,
+        tiles: shapeFromTemplate(tiles),
+      });
     },
     onError: (error: Error) => setRefusal(error.message),
   });
+
+  /** Pick a shape up to stamp, or put it away if it is the one held. Stamping
+   * is a click, so it takes the drawing tool: an area tool would turn the
+   * press into a sweep. */
+  function arm(shape: StampShape) {
+    setRefusal(null);
+    setPickingAnchor(false);
+    if (armed?.key === shape.key) {
+      setArmed(null);
+      return;
+    }
+    setArmed(shape);
+    setTool('draw');
+  }
+
+  /** Start or stop choosing the anchor on the map. A click is how it is
+   * chosen, so it takes the drawing tool and puts any held shape away. */
+  function choosingAnchor(on: boolean) {
+    setPickingAnchor(on);
+    setRefusal(null);
+    if (on) {
+      setArmed(null);
+      setTool('draw');
+    }
+  }
+
+  /** What a drag does from now on. */
+  function chooseTool(value: Tool) {
+    setTool(value);
+    // An area tool owns the press, so a held shape could not be put down, nor
+    // an anchor chosen: let go of them rather than leave them doing nothing.
+    if (value !== 'draw') {
+      setArmed(null);
+      setPickingAnchor(false);
+    }
+    // A selection that outlived its tool would still be carried by a drag, in
+    // a mode whose drag means something else entirely.
+    if (value !== 'select') {
+      setSelection(new Set());
+    }
+    setRefusal(null);
+  }
+
+  /** Put the held shape down centred on `at`. The tiles that would land on
+   * something, or off the map, are left out and counted; the shape stays in
+   * hand for the next click. */
+  function stampShape(shape: StampShape, at: Coordinate) {
+    const plan = stampPlan(shape.tiles, at, anchor, drawn);
+    const landing = plan.filter((tile) => tile.fate === 'placed');
+    if (draft.size + landing.length > MAX_TILES) {
+      setRefusal(`That would take the formation past the ${MAX_TILES}-tile limit.`);
+      return;
+    }
+    if (landing.length > 0) {
+      const next = new Map(draft);
+      // Ordinals are placeholders, as for a clicked tile: the save renumbers.
+      for (const [index, tile] of landing.entries()) {
+        const slot: DraftSlot = {
+          dx: tile.dx,
+          dy: tile.dy,
+          spanX: tile.spanX,
+          spanY: tile.spanY,
+          kind: tile.kind,
+          colour: tile.colour,
+          label: tile.label,
+          ordinal: draft.size + index + 1,
+          slotId: null,
+        };
+        next.set(offsetKey(slot), slot);
+      }
+      setDraft(next);
+    }
+    setRefusal(stampSummary(plan));
+  }
 
   /** Save whatever is unsaved. One button, one call (`save`): this used to be
    * two buttons an officer had to press in the right order, then one button
@@ -903,6 +1047,22 @@ export function FormationEditor({
    * leaves an officer looking for which of eighty neighbours is in the way,
    * and at this zoom the offending base may be off screen. */
   function pick(tile: Coordinate) {
+    if (pickingAnchor) {
+      // THE OBJECT'S OWN COORDINATE, not the square clicked: the anchor goes
+      // where the game puts that base or building, which is its middle.
+      const under = tileUnderPointer(drawn, anchor, tile);
+      if (under === undefined) {
+        setRefusal('Click a base or a structure to put the anchor on it, or press Esc.');
+        return;
+      }
+      setPickingAnchor(false);
+      reanchorAt(absoluteOf(anchor, under));
+      return;
+    }
+    if (armed !== null) {
+      stampShape(armed, tile);
+      return;
+    }
     const hit = drawn.find((slot) => {
       const box = footprintOf(absoluteOf(anchor, slot), slot.spanX, slot.spanY);
       return tile.x >= box.x0 && tile.x <= box.x1 && tile.y >= box.y0 && tile.y <= box.y1;
@@ -1176,63 +1336,6 @@ export function FormationEditor({
     next.set(offsetKey(landing), { ...held, ...landing });
     setDraft(next);
     setRefusal(null);
-  }
-
-  /** Replace the draft with a generated shape.
-   *
-   * REPLACES RATHER THAN ADDS. Merging a block into hand-drawn tiles would
-   * silently drop whichever of them overlapped, and an officer would be left
-   * comparing the result against what they meant to draw. */
-  function generate(shape: 'block' | 'ring', columns: number, rows: number) {
-    const offsets = shape === 'block' ? blockOffsets(columns, rows) : ringOffsets(columns, rows);
-    // FRANKIE FIRST, then everything that fits around it. It is an ordinary
-    // tile with a size since 0169, so "keep the bases off the centre" is the
-    // same overlap test as everywhere else rather than a special case.
-    const frankie: DraftSlot = {
-      dx: 0,
-      dy: 0,
-      spanX: FRANKIE.spanX,
-      spanY: FRANKIE.spanY,
-      kind: 'structure',
-      colour: 'amber',
-      ordinal: 0,
-      label: 'Frankie',
-      slotId: null,
-    };
-    // TWO REASONS A GENERATED TILE IS DROPPED, worth telling apart: one is the
-    // edge of the world and the other is the centre. A block centred on the
-    // anchor always puts a base on Frankie, so the second number is never zero
-    // and reads as normal rather than as a fault.
-    const onMap = offsets.filter((offset) =>
-      tileFitsOnMap(absoluteOf(anchor, offset), offset.spanX, offset.spanY),
-    );
-    const usable = onMap.filter((offset) => !tilesOverlap(frankie, offset));
-    setDraft(
-      new Map([
-        [offsetKey(frankie), frankie],
-        ...[...usable].sort(byRing).map(
-          (offset, index) =>
-            [
-              offsetKey(offset),
-              {
-                ...offset,
-                ordinal: index + 1,
-                label: '',
-                kind: 'base' as TileKind,
-                colour: null,
-                slotId: null,
-              },
-            ] as const,
-        ),
-      ]),
-    );
-    const offMap = offsets.length - onMap.length;
-    const onCentre = onMap.length - usable.length;
-    const notes = [
-      offMap > 0 ? `${offMap} fell off the edge of the map` : '',
-      onCentre > 0 ? `${onCentre} would have stood on Frankie` : '',
-    ].filter(Boolean);
-    setRefusal(notes.length === 0 ? null : `${usable.length} bases drawn — ${notes.join(', ')}.`);
   }
 
   /** A member dropped on the map from the list beside it.
@@ -1597,6 +1700,40 @@ export function FormationEditor({
           style={{ ...sized.style, ...panelWidthStyle(prefs.panelWidth) }}
         >
           <div className="hive-editor__map">
+            <EditorToolbar
+              armedKey={armed?.key ?? null}
+              brush={brush}
+              features={features.data ?? []}
+              onBrush={(next) => {
+                setBrush(next);
+                setRefusal(null);
+              }}
+              onClear={() => {
+                setDraft(new Map());
+                setRefusal(null);
+              }}
+              onFeature={loadFeature}
+              onPickAnchor={() => choosingAnchor(!pickingAnchor)}
+              onShape={arm}
+              onTemplate={(template) =>
+                armed?.key === `template-${template.templateId}`
+                  ? setArmed(null)
+                  : templateLoad.mutate(template)
+              }
+              onTool={chooseTool}
+              pickDisabled={unsaved || reanchor.isPending}
+              pickingAnchor={pickingAnchor}
+              selection={{
+                count: selection.size,
+                onNudge: moveSelection,
+                onPaint: paintSelection,
+                onRemove: deleteSelection,
+                onDeselect: () => setSelection(new Set()),
+              }}
+              shapes={BUILT_IN_SHAPES}
+              templates={templates.data ?? []}
+              tool={tool}
+            />
             <TileGrid
               anchor={anchor}
               bases={bases}
@@ -1619,7 +1756,68 @@ export function FormationEditor({
                 setCentre(centreKeeping(view, windowRadius(next), at));
                 setZoom(next);
               }}
+              overlay={
+                <>
+                  <MapKey colourBy={prefs.colourBy} tally={ranksDrawn} />
+                  <MapNav
+                    anchor={anchor}
+                    fitLabel="Whole formation"
+                    onFit={showWhole}
+                    onHome={() => setCentre(anchor)}
+                    onZoom={setZoom}
+                    sized={prefs.size !== null}
+                    zoom={zoom}
+                  />
+                  {/* WHAT A CLICK WILL DO, on the map: the shape was picked up
+                      in a panel that may be scrolled away by now. */}
+                  {pickingAnchor && (
+                    <div className="map-stamp">
+                      <output>
+                        <strong>New anchor</strong> — click a base or structure to put the anchor on
+                        it. Nothing moves.
+                        {refusal !== null && <span className="map-stamp__note"> {refusal}</span>}
+                      </output>
+                      <button
+                        aria-label="Stop choosing the anchor"
+                        onClick={() => choosingAnchor(false)}
+                        title="Stop (Esc)"
+                        type="button"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  )}
+                  {armed !== null && (
+                    <div className="map-stamp">
+                      <output>
+                        <strong>{armed.label}</strong> — click the map to put it down.
+                        {refusal !== null && <span className="map-stamp__note"> {refusal}</span>}
+                      </output>
+                      <button
+                        aria-label={`Put ${armed.label} away`}
+                        onClick={() => setArmed(null)}
+                        title="Put it away (Esc)"
+                        type="button"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  )}
+                </>
+              }
               sightings={sightings}
+              stampGhosts={
+                armed === null
+                  ? undefined
+                  : (at) =>
+                      stampPlan(armed.tiles, at, anchor, drawn).map((tile, index) => ({
+                        key: String(index),
+                        at: tile.at,
+                        spanX: tile.spanX,
+                        spanY: tile.spanY,
+                        allowed: tile.fate === 'placed',
+                      }))
+              }
               window={view}
             />
           </div>
@@ -1773,197 +1971,6 @@ export function FormationEditor({
                 id={`${panelId}-tools`}
                 role="tabpanel"
               >
-                <fieldset className="hive-tools">
-                  <legend>What a drag does</legend>
-                  <p className="subtle">
-                    Clicking a tile places or removes one in every mode. This is only about the
-                    drag, because one gesture cannot mean two things: while an area tool is on,
-                    bases stay where they are.
-                  </p>
-                  <div className="hive-shapes">
-                    {(
-                      [
-                        ['draw', 'Move a base', 'Drag a base to carry it somewhere else.'],
-                        [
-                          'mark',
-                          'Fill an area',
-                          'Drag out a rectangle and fill every free tile in it with a 1x1 marker, in the brush\u2019s colour and caption. Goes around whatever is already drawn.',
-                        ],
-                        [
-                          'outline',
-                          'Draw a boundary',
-                          'Drag out a rectangle and mark only its EDGE. What a boundary needs, at a fraction of the tiles a fill would spend.',
-                        ],
-                        [
-                          'erase',
-                          'Erase an area',
-                          'Drag out a rectangle and take its 1x1 markers back out. Bases are left alone.',
-                        ],
-                        [
-                          'select',
-                          'Select',
-                          'Drag out a rectangle to pick out everything completely inside it, then drag any of them to move the whole group, recolour them, or remove them together.',
-                        ],
-                      ] as const
-                    ).map(([value, label, hint]) => (
-                      <button
-                        aria-pressed={tool === value}
-                        key={value}
-                        onClick={() => {
-                          setTool(value);
-                          // A selection that outlived its tool would still be
-                          // carried by a drag, in a mode whose drag means something
-                          // else entirely.
-                          if (value !== 'select') {
-                            setSelection(new Set());
-                          }
-                          setRefusal(null);
-                        }}
-                        title={hint}
-                        type="button"
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                  {tool === 'select' && (
-                    <div className="hive-selection">
-                      <p className="subtle">
-                        {selection.size === 0
-                          ? 'Nothing selected. Drag a box around the tiles you want — one base counts, so this is also how a single tile gets a new colour.'
-                          : `${selection.size} tile${selection.size === 1 ? '' : 's'} selected — drag any of them to move the group, nudge it a tile at a time, or paint it.`}
-                      </p>
-                      {selection.size > 0 && (
-                        <div className="hive-shapes">
-                          {/* A TILE AT A TIME, for the last step of lining a block up
-                        against a boundary. A drag cannot reliably land on one
-                        tile at this zoom, and the coordinate boxes move the
-                        anchor rather than a selection. */}
-                          {(
-                            [
-                              ['\u2190', -1, 0],
-                              ['\u2192', 1, 0],
-                              ['\u2191', 0, 1],
-                              ['\u2193', 0, -1],
-                            ] as const
-                          ).map(([glyph, byX, byY]) => (
-                            <button
-                              aria-label={`Nudge the selection ${glyph}`}
-                              key={glyph}
-                              onClick={() => moveSelection(byX, byY)}
-                              type="button"
-                            >
-                              {glyph}
-                            </button>
-                          ))}
-                          <button onClick={() => setSelection(new Set())} type="button">
-                            Deselect
-                          </button>
-                          <button className="hive-remove" onClick={deleteSelection} type="button">
-                            Remove {selection.size} tile{selection.size === 1 ? '' : 's'}
-                          </button>
-                        </div>
-                      )}
-                      {/* PAINTING, RATHER THAN PUTTING A NEW TILE DOWN. The brush's
-                    colour only ever applied to tiles being placed, and a click
-                    on a placed one removes it — so recolouring a base meant
-                    deleting it, which takes the member on it, their pin and
-                    the slot id with it. These swatches change the colour of
-                    tiles that are already there and touch nothing else. */}
-                      {selection.size > 0 && (
-                        <fieldset className="hive-swatches">
-                          <legend>
-                            Paint {selection.size} tile{selection.size === 1 ? '' : 's'}
-                          </legend>
-                          <button
-                            className="hive-swatch"
-                            onClick={() => paintSelection(null)}
-                            type="button"
-                          >
-                            default
-                          </button>
-                          {TILE_COLOURS.map((colour) => (
-                            <button
-                              aria-label={`Paint the selection ${colour}`}
-                              className={`hive-swatch hive-swatch--${colour}`}
-                              key={colour}
-                              onClick={() => paintSelection(colour)}
-                              type="button"
-                            />
-                          ))}
-                        </fieldset>
-                      )}
-                    </div>
-                  )}
-                </fieldset>
-
-                <fieldset>
-                  <legend>What a click puts down</legend>
-                  <p className="subtle">
-                    A member's base is {BASE_SPAN}x{BASE_SPAN}. A structure is ground that is spoken
-                    for — Frankie at {FRANKIE.spanX}x{FRANKIE.spanY}, an alliance building, or a 1x1
-                    marker on a tile to keep clear. Nothing may overlap anything, whatever size each
-                    of them is.
-                  </p>
-                  <div className="hive-brush">
-                    <label>
-                      <span>Wide</span>
-                      <input
-                        max={32}
-                        min={1}
-                        onChange={(event) =>
-                          setBrush({ ...brush, spanX: clampSpan(event.target.value, brush.spanX) })
-                        }
-                        type="number"
-                        value={brush.spanX}
-                      />
-                    </label>
-                    <label>
-                      <span>Tall</span>
-                      <input
-                        max={32}
-                        min={1}
-                        onChange={(event) =>
-                          setBrush({ ...brush, spanY: clampSpan(event.target.value, brush.spanY) })
-                        }
-                        type="number"
-                        value={brush.spanY}
-                      />
-                    </label>
-                    <label>
-                      <span>Kind</span>
-                      <Select
-                        onChange={(chosen) => setBrush({ ...brush, kind: chosen as TileKind })}
-                        value={brush.kind}
-                      >
-                        <option value="base">Member base</option>
-                        <option value="structure">Structure / marker</option>
-                      </Select>
-                    </label>
-                  </div>
-                  <fieldset className="hive-swatches">
-                    <legend>Colour</legend>
-                    <button
-                      aria-pressed={brush.colour === null}
-                      className="hive-swatch"
-                      onClick={() => setBrush({ ...brush, colour: null })}
-                      type="button"
-                    >
-                      default
-                    </button>
-                    {TILE_COLOURS.map((colour) => (
-                      <button
-                        aria-label={colour}
-                        aria-pressed={brush.colour === colour}
-                        className={`hive-swatch hive-swatch--${colour}`}
-                        key={colour}
-                        onClick={() => setBrush({ ...brush, colour })}
-                        type="button"
-                      />
-                    ))}
-                  </fieldset>
-                </fieldset>
-
                 <fieldset>
                   <legend>Things on the map</legend>
                   <p className="subtle">
@@ -2041,9 +2048,9 @@ export function FormationEditor({
                   <legend>Saved shapes</legend>
                   <p className="subtle">
                     A shape is offsets from the anchor, so a saved one carries no map and nobody
-                    standing on it — the same hive fits any anchor on any server. Loading one
-                    replaces what is drawn but writes nothing: move the anchor until it sits where
-                    you want, then save.
+                    standing on it — the same hive fits any anchor on any server. Pick one and click
+                    the map, like the shapes below: it goes down round the square you click, as
+                    often as you like. Nothing is written until you save.
                   </p>
                   {templates.isError ? (
                     <p className="error">Could not load the saved shapes.</p>
@@ -2052,9 +2059,14 @@ export function FormationEditor({
                     {(templates.data ?? []).map((template) => (
                       <span className="hive-feature" key={template.templateId}>
                         <button
+                          aria-pressed={armed?.key === `template-${template.templateId}`}
                           className="hive-feature__load"
                           disabled={templateLoad.isPending}
-                          onClick={() => templateLoad.mutate(template)}
+                          onClick={() =>
+                            armed?.key === `template-${template.templateId}`
+                              ? setArmed(null)
+                              : templateLoad.mutate(template)
+                          }
                           title={template.note === '' ? undefined : template.note}
                           type="button"
                         >
@@ -2117,44 +2129,11 @@ export function FormationEditor({
                 </fieldset>
 
                 <fieldset>
-                  <legend>Start from a shape</legend>
-                  <p className="subtle">
-                    Packed on a {BASE_SPAN}-tile pitch, centred on the anchor. Replaces what is
-                    drawn.
-                  </p>
-                  <div className="hive-shapes">
-                    {[3, 5, 7, 9].map((side) => (
-                      <button
-                        key={side}
-                        onClick={() => generate('block', side, side)}
-                        type="button"
-                      >
-                        {side}x{side} block
-                      </button>
-                    ))}
-                    {[5, 7, 9].map((side) => (
-                      <button
-                        key={`ring-${side}`}
-                        onClick={() => generate('ring', side, side)}
-                        type="button"
-                      >
-                        {side}x{side} ring
-                      </button>
-                    ))}
-                    <button onClick={() => setDraft(new Map())} type="button">
-                      Clear
-                    </button>
-                  </div>
-                </fieldset>
-
-                <fieldset>
                   <legend>Anchor</legend>
                   <p className="subtle">
                     Every tile is stored as an offset from here, so moving the anchor moves the
-                    whole formation and cannot change its shape.
-                  </p>
-                  <p className="subtle">
-                    Or drag the anchor square on the map — every tile follows it.
+                    whole formation and cannot change its shape. Or drag the anchor square on the
+                    map — every tile follows it.
                   </p>
                   <CoordinateInput
                     at={anchor}
@@ -2165,6 +2144,32 @@ export function FormationEditor({
                     submitLabel="Move formation"
                     whyNot="From there part of the formation would run off the map."
                   />
+                  {/* THE OTHER THING AN ANCHOR CHANGE CAN MEAN: measure the plan
+                      from somewhere else, and move nothing. */}
+                  <p className="subtle">
+                    Or set the anchor somewhere else and leave every tile where it is — on a
+                    coordinate, or on a base or structure already drawn. It is saved at once, so
+                    save or discard your changes first.
+                  </p>
+                  <CoordinateInput
+                    at={anchor}
+                    busy={reanchor.isPending}
+                    fits={() => !unsaved}
+                    label="New anchor"
+                    onSubmit={reanchorAt}
+                    submitLabel="Set anchor here"
+                    whyNot="Save or discard your changes first: setting the anchor rewrites every tile."
+                  />
+                  <p className="hive-shapes">
+                    <button
+                      aria-pressed={pickingAnchor}
+                      disabled={unsaved || reanchor.isPending}
+                      onClick={() => choosingAnchor(!pickingAnchor)}
+                      type="button"
+                    >
+                      Pick a base or structure on the map
+                    </button>
+                  </p>
                 </fieldset>
 
                 <fieldset>
@@ -2180,24 +2185,18 @@ export function FormationEditor({
             </div>
           </section>
         </div>
-        {/* UNDER THE ROW, not inside the map's column, so the map's column is
-            the map alone and the panel beside it is exactly the map's height. */}
-        <ViewControls onZoom={setZoom} sized={prefs.size !== null} zoom={zoom}>
-          <button onClick={showWhole} type="button">
-            Whole formation
-          </button>
-        </ViewControls>
-        <BaseColours colourBy={prefs.colourBy} tally={ranksDrawn} />
         <p className="subtle">
           Drag a name from the Members tab onto the map: on free ground it draws their base there,
           on a base it puts them on it. To take somebody off without losing the base, press × on
           their row. Click free ground to place a base, click a base to take it away (with whoever
           is on it). Each one is {BASE_SPAN}x{BASE_SPAN} tiles and the coordinate is the middle.
           Drag from empty ground to slide the map — or hold <kbd>ctrl</kbd>, which works while an
-          area tool is on too. Hold <kbd>ctrl</kbd> and use the wheel, or pinch, to zoom; drag the
-          corner handle to resize the map, and the bar beside the panel to widen the panel. Shaded
-          squares are where the map last SAW somebody — a base that was destroyed or lost its shield
-          has been teleported somewhere random, so treat them as a hint and not as a wall.
+          area tool is on too. Hold <kbd>ctrl</kbd> and use the wheel, or pinch, to zoom; the house
+          in the corner goes to the anchor and the frame shows the whole formation. The anchor is
+          the bright square, drawn over anything on it: drag it to move everything. Drag the corner
+          handle to resize the map, and the bar beside the panel to widen the panel. Shaded squares
+          are where the map last SAW somebody — a base that was destroyed or lost its shield has
+          been teleported somewhere random, so treat them as a hint and not as a wall.
         </p>
       </div>
 

@@ -11708,6 +11708,17 @@ export type Database = {
         Args: { period_start: string }
         Returns: string[]
       }
+      reanchor_hive_formation: {
+        Args: {
+          p_formation_id: string
+          p_from_x: number
+          p_from_y: number
+          p_to_x: number
+          p_to_y: number
+          p_version: number
+        }
+        Returns: Json
+      }
       rebuild_rank_period: {
         Args: { p_apply_to_assigned?: boolean; p_period_start: string }
         Returns: number
