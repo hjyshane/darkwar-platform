@@ -271,15 +271,17 @@ export const PLANNER = tabbed<PlannerTab>('#/planner', [{ id: 'raise', label: 'W
   pets: 'raise',
 });
 
-/** The calculator's two pages: what a range of upgrades costs, and how long a
- * resource takes to reach an amount at its hourly output. The second sat on
- * the season board as "Wait Calculator" until 2026-11-20; it is arithmetic on
- * three typed figures and belongs to no season. The cost page keeps its state
- * in a query on the bare address (`#/calculator?kind=…`). */
-export type CalculatorTab = 'cost' | 'wait';
+/** The calculator's three pages: what a range of upgrades costs, how long a
+ * resource takes to reach an amount at its hourly output, and what a season
+ * monster does to a march short of virus resistance (owner, 2026-11-20). The
+ * wait page sat on the season board as "Wait Calculator" until 2026-11-20; it
+ * is arithmetic on three typed figures and belongs to no season. The cost page
+ * keeps its state in a query on the bare address (`#/calculator?kind=…`). */
+export type CalculatorTab = 'cost' | 'wait' | 'resistance';
 export const CALCULATOR = tabbed<CalculatorTab>('#/calculator', [
   { id: 'cost', label: 'Upgrade cost' },
   { id: 'wait', label: 'Resource wait time' },
+  { id: 'resistance', label: 'Virus resistance' },
 ]);
 
 /** The tab an address names, whatever query rides on it. */
