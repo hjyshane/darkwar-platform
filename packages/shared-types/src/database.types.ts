@@ -4094,6 +4094,120 @@ export type Database = {
           },
         ]
       }
+      game_datatable_names: {
+        Row: {
+          name_en: string | null
+          name_ko: string | null
+          row_id: string
+          table_name: string
+        }
+        Insert: {
+          name_en?: string | null
+          name_ko?: string | null
+          row_id: string
+          table_name: string
+        }
+        Update: {
+          name_en?: string | null
+          name_ko?: string | null
+          row_id?: string
+          table_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_datatable_names_table_name_fkey"
+            columns: ["table_name"]
+            isOneToOne: false
+            referencedRelation: "game_datatables"
+            referencedColumns: ["name"]
+          },
+        ]
+      }
+      game_datatable_rows: {
+        Row: {
+          chunk: number
+          rows: Json
+          table_name: string
+        }
+        Insert: {
+          chunk: number
+          rows: Json
+          table_name: string
+        }
+        Update: {
+          chunk?: number
+          rows?: Json
+          table_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_datatable_rows_table_name_fkey"
+            columns: ["table_name"]
+            isOneToOne: false
+            referencedRelation: "game_datatables"
+            referencedColumns: ["name"]
+          },
+        ]
+      }
+      game_datatable_strings: {
+        Row: {
+          lang: string
+          strings: Json
+          table_name: string
+        }
+        Insert: {
+          lang: string
+          strings: Json
+          table_name: string
+        }
+        Update: {
+          lang?: string
+          strings?: Json
+          table_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_datatable_strings_table_name_fkey"
+            columns: ["table_name"]
+            isOneToOne: false
+            referencedRelation: "game_datatables"
+            referencedColumns: ["name"]
+          },
+        ]
+      }
+      game_datatables: {
+        Row: {
+          byte_size: number
+          chunk_count: number
+          client_version: string
+          columns: Json
+          dumped_at: string
+          loc_columns: Json
+          name: string
+          row_count: number
+        }
+        Insert: {
+          byte_size: number
+          chunk_count: number
+          client_version: string
+          columns: Json
+          dumped_at?: string
+          loc_columns?: Json
+          name: string
+          row_count: number
+        }
+        Update: {
+          byte_size?: number
+          chunk_count?: number
+          client_version?: string
+          columns?: Json
+          dumped_at?: string
+          loc_columns?: Json
+          name?: string
+          row_count?: number
+        }
+        Relationships: []
+      }
       game_dispatch_missions: {
         Row: {
           base_items: Json

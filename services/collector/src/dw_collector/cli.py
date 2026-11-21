@@ -1384,6 +1384,68 @@ def game_dispatch(
     typer.echo("written")
 
 
+@app.command("game-dump")
+def game_dump(
+    bundles: Annotated[
+        list[Path],
+        typer.Option("--bundles", exists=True, file_okay=False, help="as for game-catalog"),
+    ],
+    out: Annotated[
+        Path | None,
+        typer.Option("--out", file_okay=False, help="also write the dump as JSON files here"),
+    ] = None,
+    only: Annotated[
+        list[str] | None, typer.Option("--only", help="just these tables (repeatable)")
+    ] = None,
+    client_version: Annotated[
+        str | None,
+        typer.Option("--client-version", help="defaults to the last folder's datatable.version"),
+    ] = None,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="count, write nothing")] = False,
+    url: Annotated[str | None, typer.Option(envvar="SUPABASE_URL")] = None,
+    secret_key: Annotated[str | None, typer.Option(envvar="SUPABASE_SECRET_KEY")] = None,
+) -> None:
+    """Every client datatable, for the admin browser in Settings > Shared (0343).
+
+    Pass the base pack's bundles and then the patch bundles, as for
+    game-catalog. Writes ~470 tables in 1,000-row pieces; a few minutes.
+    Needs the `gamedata` extra.
+    """
+    from dw_collector.gamedata import read_dir
+    from dw_collector.gamedata.dump import build, upload, write_json
+
+    assets: dict[str, bytes] = {}
+    for folder in bundles:
+        assets.update(read_dir(folder))
+    if client_version is None:
+        version_file = bundles[-1] / "datatable.version"
+        client_version = (
+            version_file.read_text("utf-8").strip() if version_file.is_file() else "unknown"
+        )
+    dump = build(assets, only=only or None)
+    rows = sum(len(table.rows) for table in dump.tables)
+    size = sum(table.byte_size for table in dump.tables)
+    localised = sum(1 for table in dump.tables if table.loc_columns)
+    typer.echo(
+        f"tables={len(dump.tables)} rows={rows} json={size / 1e6:.1f}MB"
+        f" localised={localised} failed={len(dump.failures)} version={client_version}"
+    )
+    for name, why in dump.failures.items():
+        typer.echo(f"  {name}: {why}", err=True)
+    if out is not None:
+        write_json(dump, out, client_version)
+        typer.echo(f"written to {out}")
+    if dry_run:
+        return
+    if not url or not secret_key:
+        typer.echo("SUPABASE_URL and SUPABASE_SECRET_KEY are required", err=True)
+        raise typer.Exit(code=2)
+    headers = {"apikey": secret_key, "Authorization": f"Bearer {secret_key}"}
+    with httpx.Client(base_url=url.rstrip("/"), headers=headers, timeout=300.0) as client:
+        written, removed = upload(client, dump, client_version)
+    typer.echo(f"uploaded tables={written} removed={removed}")
+
+
 @app.command("train-stations")
 def train_stations(
     journal: Annotated[

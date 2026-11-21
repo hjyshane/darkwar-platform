@@ -132,8 +132,10 @@ export const ADMIN_GROUPS: ReadonlyArray<{ group: AdminGroup; label: string }> =
 // Each settings group held five stacked panels and every one of them queried
 // on mount; a section at a time means one address per screen, which is also
 // what makes a link to a particular setting possible.
+// A section may carry its own state after `?` (the game data browser's table
+// and row, 0343); the route ignores it, and `lib/gameTables.ts` reads it.
 const ADMIN_HASH = new RegExp(
-  `^#/admin(?:/(${ADMIN_GROUPS.map((g) => g.group).join('|')})(?:/([a-z0-9-]+))?)?$`,
+  `^#/admin(?:/(${ADMIN_GROUPS.map((g) => g.group).join('|')})(?:/([a-z0-9-]+))?)?(?:[?][^#]*)?$`,
 );
 
 /** The group an `#/admin/...` address names, or null for any other address.

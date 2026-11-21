@@ -309,6 +309,36 @@ Shop value에서 그림이 빈 25개는 `goods.icon`이 가리키는 그림이 *
 확인: `select count(*) from game_upgrade_steps where kind='research' and jsonb_array_length(requires) > 0`
 가 4,000 대(2026-10 기준 4,349)면 된다.
 
+## 전체 테이블 브라우저 — Settings › Shared › Game data tables (0343, `game-dump`)
+
+위의 명령들은 테이블 하나를 골라 화면 모양으로 깎아 올린다. 무엇을 승격할지 고르려면 먼저
+원본 테이블을 읽어야 했고, 그건 번들이 있는 PC의 Python 세션이었다. `game-dump`는 **473개
+테이블 전부**를 그대로 올리고, 관리자가 대시보드에서 읽는다(`#/admin/catalogue/game-data`).
+
+```
+uv run dw-collector game-dump --bundles C:/DW_data/gamedata/base --bundles C:/DW_data/gamedata/bundles --dry-run
+uv run dw-collector game-dump --bundles C:/DW_data/gamedata/base --bundles C:/DW_data/gamedata/bundles
+```
+
+- `--dry-run`은 세고 쓰지 않는다. `--out DIR`을 주면 같은 모양을 JSON 파일로도 남긴다
+  (2026-11-20 실측: 473 테이블, 214,147행, JSON 131.7 MB, 텍스트 열이 있는 테이블 210,
+  실패 0). `--only 표이름`(반복 가능)으로 몇 개만 올릴 수 있다.
+- 올리는 곳: `game_datatables`(테이블당 한 행: 열 목록, 텍스트 열, 조각 수),
+  `game_datatable_rows`(1,000행 jsonb 조각), `game_datatable_strings`(그 테이블이 쓰는
+  현지화 문자열, en·ko), `game_datatable_names`(이름이 있는 행마다 한 줄 — "이 이름이 어느
+  표에 있나" 검색용). 서비스 키로 **전부 지우고 다시 쓴다**(없어진 표는 떨어진다). RLS는
+  관리자 읽기 전용(pgTAP 343).
+- 클라이언트 버전은 마지막 `--bundles` 폴더의 `datatable.version`에서 읽는다(없으면 `unknown`,
+  `--client-version`으로 지정).
+- **추정 둘**, 화면에 표시된다. ① 텍스트 열: 비어 있지 않은 값의 80% 이상이 영어 사전의 키인 열
+  (`id`·`*_id`는 제외). 그 열은 고른 언어로 그려지고 키는 포인터 아래(행 서랍에는 키·영어·한국어가
+  같이). 틀린 추정은 숫자가 문장으로 보이는 게 아니라 문장이 숫자로 보이는 쪽이라 눈에 띈다.
+  ② `skill_id`·`good_id`처럼 **이름이 다른 표를 가리키는 열은 링크**(`lib/gameTables.ts`
+  `refTarget`: 이름 그대로, 복수형, 별칭 good/item→goods·activity→activity_panel·
+  science→aps_science·build→building·monster→aps_monster). 틀린 링크는 "No row N"에 떨어진다.
+- 다시 돌릴 때: 클라이언트 업데이트 뒤(`game-catalog`와 같은 때). 몇 분 걸린다(테이블당 요청
+  3~14개). 주 PC의 `C:\darkwar-platform` 체크아웃이 이 명령을 가진 커밋이어야 한다.
+
 ## 언제 다시 돌리나
 
 게임 업데이트 뒤. `AssetBundles/*.version` 파일이 바뀌었으면 1~3을 다시 한다.
