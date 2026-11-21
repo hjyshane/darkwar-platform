@@ -29,9 +29,11 @@ import { Tabs } from '../../components/ui/Tabs';
 import { useIsCommunity } from '../../lib/communityAccess';
 import { ACCOUNT_PLANS, plannerKindFromHash } from '../../lib/route';
 import { replaceHash, useHash } from '../../lib/useHash';
+import { chipLabel, counterName } from '../calculator/chips';
 import { AccountBar, ManualBanner } from './AccountBar';
 import { Breakdown } from './Breakdown';
 import { BuildingPicker } from './BuildingPicker';
+import { ChipPicker } from './ChipPicker';
 import { HeroCards } from './HeroCards';
 import { ResearchPicker } from './ResearchPicker';
 import { StockPanel } from './StockPanel';
@@ -295,10 +297,16 @@ export function PlannerPage() {
   const setEffect = (id: string, value: number) =>
     edit({ ...account, effects: { ...account.effects, [id]: value } });
   const nameOf = (type: string, id: string) =>
-    (type === 'item' ? names.data?.items.get(id) : names.data?.resources.get(id)) ??
-    `${type} ${id}`;
+    type === 'counter'
+      ? counterName(id)
+      : ((type === 'item' ? names.data?.items.get(id) : names.data?.resources.get(id)) ??
+        `${type} ${id}`);
   const shown = (t: Target, level: number) =>
-    t.kind === 'building' ? levelText(tierMap, t.subject, level) : String(level);
+    t.kind === 'building'
+      ? levelText(tierMap, t.subject, level)
+      : t.kind === 'chip'
+        ? chipLabel(level)
+        : String(level);
 
   return (
     <main className="planner-screen">
@@ -475,7 +483,10 @@ export function PlannerPage() {
             />
           )}
           {section === 'vehicle' && (
-            <VehiclePicker account={account} onSet={set} targets={targets} />
+            <>
+              <VehiclePicker account={account} onSet={set} targets={targets} />
+              <ChipPicker onSet={set} targets={targets} />
+            </>
           )}
           {section === 'pets' && <PetPicker account={account} onSet={set} targets={targets} />}
           {section === 'heroes' && (

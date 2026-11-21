@@ -5,6 +5,7 @@
 
 import { BarCell } from '../../components/ui/BarCell';
 import { GameIcon, useIcons, useItemIcons } from '../../lib/gameIcons';
+import { chipLabel } from '../calculator/chips';
 import { exact, short } from './format';
 import { type Tiers, levelText } from './levels';
 import { type Buffs, type PlannedStep, duration, groupSteps, stockable, totals } from './plan';
@@ -50,7 +51,9 @@ export function Breakdown({ steps, goalNames, buffs, tiers, nameOf, have }: Brea
           const levels =
             g.kind === 'building'
               ? `${levelText(tiers, g.subject, g.from)} → ${levelText(tiers, g.subject, g.to)}`
-              : `${g.from} → ${g.to}`;
+              : g.kind === 'chip'
+                ? `${chipLabel(g.from)} → ${chipLabel(g.to)}`
+                : `${g.from} → ${g.to}`;
           const took = time(part);
           return (
             <article className="planner-card" key={g.key}>
