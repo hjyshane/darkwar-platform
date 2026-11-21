@@ -1526,6 +1526,18 @@ button.shell-link {
   min-width: 0;
 }
 
+/* A grid item's min-width is its content's width unless said otherwise, so a
+   60-column table widened the implicit track, the panel and the page with it
+   instead of scrolling inside `.table-wrap` (seen on `building`, 11-21). Every
+   child of the main pane gives that up; the wrapper then scrolls. */
+.gd-main > * {
+  min-width: 0;
+}
+
+.gd-table-wrap {
+  max-width: 100%;
+}
+
 .gd-overview p {
   margin: 0 0 var(--space-3);
   max-width: 60ch;
