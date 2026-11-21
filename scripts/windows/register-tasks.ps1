@@ -296,7 +296,14 @@ $tasks = @(
         # keeps the file dumpcap is still writing out of the reader; 20s is
         # comfortably past a rotation without adding a minute of lag.
         # Worst case: 60 (rotation) + 20 (min-age) + 30 (poll) = 110s.
-        Args = "$uvRun dw-collector ingest-dir --dir `"$CaptureDir`" --min-age-seconds $($timings.MinAge) --interval-seconds $($timings.Poll)"
+        #
+        # --follow-login-server: dumpcap takes every BlueStacks instance on
+        # the adapter, so one file carries several accounts. Each TCP
+        # connection is labelled with the server ITS OWN `init` named, so a
+        # sub-account on another server is filed under that server rather
+        # than under the default. A connection that logged in before the
+        # last ingest restart keeps the default until the client reconnects.
+        Args = "$uvRun dw-collector ingest-dir --dir `"$CaptureDir`" --min-age-seconds $($timings.MinAge) --interval-seconds $($timings.Poll) --follow-login-server"
         Dir  = $Collector
         Log  = "$LogDir\ingest.log"
         Match = @('ingest-dir', 'run-Ingest.cmd')

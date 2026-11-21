@@ -36,7 +36,7 @@ from pydantic import ValidationError
 from dw_collector import normalize as _normalize  # noqa: F401  (registers normalizers)
 from dw_collector import pipeline, registry
 from dw_collector.models import Observation
-from dw_collector.protocol.pcapng import iter_extension_events
+from dw_collector.protocol.pcapng import Connection, iter_extension_events
 from dw_collector.request_log import request_observation
 from dw_collector.storage.journal import Journal
 
@@ -62,31 +62,45 @@ class ScanResult:
 
 
 class ServerFollower:
-    """The server the logged-in account is on, read from its own `init`.
+    """The server each logged-in account is on, read from its own `init`.
 
     `--collected-from-server` is a constant, so an account that moves to
     another server (the sub-account that joined ACE on 579) was labelled with
     the old one until somebody edited `.env`. The login response names the
-    account's server (`user.serverId`), so a chain that has ONE account at a
-    time (the iPhone) can follow it. Opt-in: the Windows capture is
-    machine-wide, where two accounts' traffic shares a file and "the last
-    login" would be a guess.
+    account's server (`user.serverId`), so the label can follow it.
 
-    Starts at the configured server and keeps the last login's across files.
-    A restart falls back to the configured one until the next `init`, which
-    every reconnect sends.
+    The label is kept PER TCP CONNECTION. The Windows capture is machine-wide:
+    every BlueStacks instance on the adapter lands in the same file, so two
+    accounts' traffic interleaves and "the last login seen" would label one
+    account's data with the other's server. A response is matched to the login
+    that opened its connection instead (`ExtensionEvent.connection`, the same
+    tuple for both directions). Events with no connection — fixtures, the live
+    reassembler — share one slot, which is the one-account behaviour the iPhone
+    chain had before.
+
+    Starts every connection at the configured server and keeps each login's
+    across files, since the file boundary is dumpcap's rotation, not the
+    connection's. A restart forgets the map: a connection that logged in
+    before it keeps the configured server until the client reconnects, which
+    sends `init` again.
     """
 
     def __init__(self, default: int) -> None:
-        self.current = default
+        self.default = default
+        self._servers: dict[Connection | None, int] = {}
 
-    def observe(self, command: str, payload: Mapping[str, object]) -> None:
+    def observe(
+        self, connection: Connection | None, command: str, payload: Mapping[str, object]
+    ) -> None:
         if command != "init":
             return
         user = payload.get("user")
         server = user.get("serverId") if isinstance(user, dict) else None
         if isinstance(server, int) and not isinstance(server, bool) and server > 0:
-            self.current = server
+            self._servers[connection] = server
+
+    def server_for(self, connection: Connection | None) -> int:
+        return self._servers.get(connection, self.default)
 
 
 def _ingest_capture(
@@ -106,10 +120,10 @@ def _ingest_capture(
     ingested = discovered = rejected = requests = 0
     commands: dict[str, int] = {}
     for index, event in enumerate(iter_extension_events(pcap, port=port)):
-        if follower is not None and event.direction == "inbound":
-            follower.observe(event.command, event.payload)
         if follower is not None:
-            collected_from_server = follower.current
+            if event.direction == "inbound":
+                follower.observe(event.connection, event.command, event.payload)
+            collected_from_server = follower.server_for(event.connection)
         if event.direction != "inbound":
             # Requests are masked and kept apart from responses; see
             # request_log.py. `discover_only` is about unknown RESPONSES.

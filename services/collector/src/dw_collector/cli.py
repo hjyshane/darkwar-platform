@@ -821,8 +821,9 @@ def ingest_dir(
         bool,
         typer.Option(
             "--follow-login-server",
-            help="label with the server the last `init` login named; "
-            "--collected-from-server is only the start. One account at a time.",
+            help="label each TCP connection with the server its own `init` login "
+            "named, so several accounts in one file each get theirs; "
+            "--collected-from-server is only the start.",
         ),
     ] = False,
 ) -> None:
