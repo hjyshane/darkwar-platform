@@ -4,6 +4,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { chipLabel } from '../calculator/chips';
 import { fetchTiers } from './data';
 import { levelText } from './levels';
 import { type SavedPlan, deletePlan, fetchPlans, planHash, targetText } from './plans';
@@ -51,7 +52,11 @@ export function SavedPlans() {
 
   const tierMap = tiers.data ?? new Map();
   const shown = (t: Target, level: number) =>
-    t.kind === 'building' ? levelText(tierMap, t.subject, level) : String(level);
+    t.kind === 'building'
+      ? levelText(tierMap, t.subject, level)
+      : t.kind === 'chip'
+        ? chipLabel(level)
+        : String(level);
 
   return (
     <ul className="board-list saved-plans">

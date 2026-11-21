@@ -3505,6 +3505,13 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
     ]),
   ],
   [
+    ['planner-catalog', 'chip', 'maxima'],
+    new Map([
+      ['4', { subject: '4', name: '10★ 0/10', maxLevel: 100, category: null }],
+      ['5', { subject: '5', name: '10★ 0/10', maxLevel: 100, category: null }],
+    ]),
+  ],
+  [
     ['planner-catalog', 'pet', 'maxima'],
     new Map([
       ['1', { subject: '1', name: null, maxLevel: 60, category: null }],

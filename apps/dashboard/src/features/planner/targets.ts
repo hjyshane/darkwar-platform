@@ -9,7 +9,8 @@ import type { Goal, Kind } from './plan';
 export interface Target {
   kind: Kind;
   /** building / research: subject id; hero: hero id; exclusive: hero id;
-   * hero_gear: `<index in heroGear>:<equipId>:<quality>`. */
+   * hero_gear: `<index in heroGear>:<equipId>:<quality>`; chip:
+   * `<quality>:<n>`, levels being the flat star x 10 + sub-step. */
   subject: string;
   name: string;
   from: number;
@@ -67,6 +68,14 @@ export function goalsOf(targets: Iterable<Target>): { goals: Goal[]; names: stri
           `${t.name} (breakthrough ${level})`,
         );
       }
+    } else if (t.kind === 'chip') {
+      // subject `<quality>:<n>`: the nth chip of a quality; the costs are the
+      // quality's (ChipPicker).
+      if (t.to > t.from)
+        add(
+          { kind: 'chip', subject: t.subject.split(':')[0] ?? '0', from: t.from, to: t.to },
+          t.name,
+        );
     } else if (t.kind === 'hero') {
       add({ kind: 'hero', subject: 'hero', from: t.from, to: t.to }, t.name);
     } else if (t.to > t.from) {

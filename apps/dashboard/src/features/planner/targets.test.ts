@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { chipQuality, chipRowCount } from './ChipPicker';
 import { type Target, breakthroughsCrossed, goalsOf, withTarget } from './targets';
 
 const wt: Target = { kind: 'building', subject: '400000', name: 'Watchtower', from: 30, to: 35 };
@@ -60,5 +61,28 @@ describe('pets', () => {
       { kind: 'pet_break', subject: '4', from: 69, to: 70 },
     ]);
     expect(names).toEqual(['Rex', 'Rex (breakthrough 70)']);
+  });
+});
+
+describe('chips', () => {
+  it('cost by their quality, whichever chip of it they are', () => {
+    const { goals, names } = goalsOf([
+      { kind: 'chip', subject: '5:1', name: 'Orange chip', from: 4, to: 10 },
+      { kind: 'chip', subject: '5:2', name: 'Orange chip 2', from: 0, to: 20 },
+      { kind: 'chip', subject: '4:1', name: 'Purple chip', from: 7, to: 7 },
+    ]);
+    expect(goals).toEqual([
+      { kind: 'chip', subject: '5', from: 4, to: 10 },
+      { kind: 'chip', subject: '5', from: 0, to: 20 },
+    ]);
+    expect(names).toEqual(['Orange chip', 'Orange chip 2']);
+  });
+
+  it('show a row for every chip that has a target, and at least one', () => {
+    const second: Target = { kind: 'chip', subject: '5:3', name: 'Orange chip 3', from: 0, to: 5 };
+    expect(chipRowCount('5', 1, [second])).toBe(3);
+    expect(chipRowCount('4', 1, [second])).toBe(1);
+    expect(chipRowCount('4', 2, [])).toBe(2);
+    expect(chipQuality('5:3')).toBe('5');
   });
 });
