@@ -7,6 +7,7 @@ import {
   MAX_MONSTER_LEVEL,
   SEASON_MONSTERS,
   type SeasonTable,
+  panelPower,
   penalty,
   percentChange,
   powerFor,
@@ -47,6 +48,7 @@ export function ResistanceCalculator() {
   const own = parseAmount(mine);
   const result = own !== null && required !== null ? penalty(own, required) : null;
   const state = result === null ? null : verdict(result);
+  const shown = result === null ? power : panelPower(power, result);
 
   return (
     <div className="calc">
@@ -78,10 +80,10 @@ export function ResistanceCalculator() {
               id={`${id}-table`}
               onChange={(v) => setTable(v as SeasonTable)}
               value={table}
-              title="The client carries two ladders for levels 66-85; they agree below 66."
+              title="Season 4 plays game season 6. Season 7 is the next run of this map; the two ladders agree below level 66."
             >
-              <option value="6">Table A</option>
-              <option value="7">Table B</option>
+              <option value="6">Season 4 (6)</option>
+              <option value="7">Next run (7)</option>
             </Select>
           </div>
         </div>
@@ -137,9 +139,12 @@ export function ResistanceCalculator() {
           </div>
           <div className="stat">
             <div className="stat-label">Recommended power</div>
-            <div className="stat-value" title={power === null ? undefined : exact(power)}>
-              {power === null ? '—' : short(power)}
+            <div className="stat-value" title={shown === null ? undefined : exact(shown)}>
+              {shown === null ? '—' : short(shown)}
             </div>
+            {power !== null && shown !== null && shown !== power && (
+              <div className="stat-note">{short(power)} in the table; the panel inflates it</div>
+            )}
           </div>
         </div>
 
@@ -158,17 +163,20 @@ export function ResistanceCalculator() {
                   <th scope="col">Resistance</th>
                   <th scope="col">Your damage</th>
                   <th scope="col">Monster damage</th>
+                  <th scope="col">Panel power</th>
                 </tr>
               </thead>
               <tbody>
                 {CURVE_STEPS.map((step) => {
                   const row = penalty(required - step, required);
+                  const inflated = panelPower(power, row);
                   return (
                     <tr key={step}>
                       <td>{exact(step)}</td>
                       <td>{exact(Math.max(0, required - step))}</td>
                       <td>{percentChange(row.self)}</td>
                       <td>{percentChange(row.monster)}</td>
+                      <td>{inflated === null ? '—' : short(inflated)}</td>
                     </tr>
                   );
                 })}
@@ -179,9 +187,11 @@ export function ResistanceCalculator() {
 
         <p className="note">
           Your damage drops 0.1% a point short, to a floor of -99%. The monster gains (1 + 0.0027 ×
-          short)<sup>6</sup> up to 400 short, then 1 + 0.2 × short, capped at +29,900%. From the
-          client&apos;s own tables and the server&apos;s battle config, read 2026-11-20. Nothing
-          typed here is sent anywhere or saved.
+          short)<sup>6</sup> up to 400 short, then 1 + 0.2 × short, capped at +29,900%. The
+          panel&apos;s recommended power is the table&apos;s figure times the square root of monster
+          damage over yours, so it climbs with the same shortfall. From the client&apos;s own tables
+          and the server&apos;s battle config, read 2026-11-20. Nothing typed here is sent anywhere
+          or saved.
         </p>
       </div>
     </div>
