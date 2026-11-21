@@ -7992,6 +7992,49 @@ button.server-link {
   background: rgb(255 255 255 / 0.1);
 }
 
+/* The layer switch beside it: the same pill, with a count of what is hidden,
+ * opening a checklist rather than a radio list. */
+.atlas-layers__button--some {
+  border-color: var(--map-ring);
+}
+
+.atlas-layers__badge {
+  padding: 0 var(--space-2);
+  white-space: nowrap;
+  border-radius: var(--radius-pill);
+  background: var(--map-ring);
+  color: var(--map-bg-deep);
+  font-size: 0.75em;
+  font-weight: 700;
+}
+
+.atlas-layers__menu {
+  min-width: 14rem;
+}
+
+.atlas-layers__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  color: var(--map-fg);
+  cursor: pointer;
+}
+
+.atlas-layers__item:hover {
+  background: rgb(255 255 255 / 0.1);
+}
+
+.atlas-layers__item--off {
+  color: var(--map-fg-muted);
+}
+
+.atlas-layers__item input {
+  margin: 0;
+  accent-color: var(--map-ring);
+}
+
 /* The hive plan over the map: a ring on each planned tile, green where a base
  * stands on its centre and red where nobody does. At low zoom the ring keeps a
  * readable size; once zoomed in it is the three tiles of the base. */
@@ -8327,6 +8370,17 @@ button.server-link {
   .atlas-chip__main,
   .atlas-chip__x {
     min-height: 2.75rem;
+  }
+
+  /* Two pills and a chip do not fit a phone in one row: wrap, and keep the
+   * chosen base's name short enough that the row above it stays whole. */
+  .atlas-bar {
+    right: var(--space-3);
+    flex-wrap: wrap;
+  }
+
+  .atlas-chip__main {
+    max-width: 9rem;
   }
 }
 

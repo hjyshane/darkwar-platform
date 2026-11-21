@@ -1,5 +1,5 @@
 import { type Coordinate, formatCoordinate } from '@dw/ui';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Tabs } from '../../components/ui/Tabs';
 import { formatAge } from '../../lib/freshness';
 import { shareCoordinate } from '../../lib/shareCoordinate';
@@ -9,7 +9,7 @@ import { MovesPanel } from './AtlasMoves';
 import { AllianceDetail, BaseDetail } from './AtlasPanel';
 import { CopyHint, PlunderList, TreasureList, TrucksList } from './HuntLists';
 import { HuntPins } from './HuntPins';
-import { type MapMode, MapModeMenu } from './MapModes';
+import { MapLayerMenu, type MapMode, MapModeMenu } from './MapModes';
 import { PannableMap } from './PannableMap';
 import {
   type AtlasBase,
@@ -43,6 +43,7 @@ import {
   truckSpot,
 } from './hunt';
 import { useHuntData } from './huntState';
+import { type MapLayer, readLayers, storeLayers, visibleBases } from './layers';
 import type { ScannedServer } from './mapLocations';
 import { matchPlan, usePlan } from './plan';
 import { shareLabel } from './sites';
@@ -86,7 +87,7 @@ export function AtlasPage({
   const [powerText, setPowerText] = useState('');
   const [truckFilter, setTruckFilter] = useState<TruckFilter>(NO_FILTER);
   const [truckSort, setTruckSort] = useState<TruckSort>('time');
-  const [showPlunder, setShowPlunder] = useState(true);
+  const [layers, setLayers] = useState(readLayers);
   const [pickedHunt, setPickedHunt] = useState<string | null>(null);
   const hunt = useHuntData(serverId);
   const plan = usePlan(serverId, mode === 'plan');
@@ -140,6 +141,17 @@ export function AtlasPage({
   const shielded = shieldedCounts(atlas, now);
   const pickedAlliance = picked === null ? undefined : atlas.alliances[picked];
   const selected = atlas.bases.find((base) => base.gameUid === selectedUid) ?? null;
+  // What the map draws: the bases whose shield state is switched on in the Layers
+  // menu. Hidden bases are gone from the picture, not dimmed — the point is a
+  // quieter map. The sidebar lists still count every base. Memoised because
+  // AtlasMap clusters the atlas it is given, and `now` moves every render.
+  const drawn = useMemo(
+    () =>
+      layers.shielded && layers.open
+        ? atlas
+        : { ...atlas, bases: visibleBases(atlas.bases, layers, new Date()) },
+    [atlas, layers],
+  );
 
   /** Everything a click copies goes through here, already in the game's share
    * form (`#580[X:512 Y:300]`), so the toast shows exactly what was written. */
@@ -169,9 +181,15 @@ export function AtlasPage({
   });
 
   const onThisMap = shownTrucks.filter((truck) => truck.serverId === serverId);
-  // The Layers box and the Plunder mode show all three kinds of pin; a tab
-  // shows its own kind even when the box is off, so its list is never pinless.
-  const allPins = showPlunder || mode === 'plunder';
+  // The Layers menu says which kinds of pin are drawn; a tab shows its own kind
+  // even when its layer is off, so its list is never pinless.
+  const pinned = (layer: MapLayer) => layers[layer] || panel === layer;
+
+  function setLayer(layer: MapLayer, on: boolean) {
+    const next = { ...layers, [layer]: on };
+    setLayers(next);
+    storeLayers(next);
+  }
 
   /** A truck, mission or treasure spot picked from a pin or a list. `at` is
    * where to send the map, null when it is not on this one; `copy` is the
@@ -227,7 +245,7 @@ export function AtlasPage({
       <div className="hunt-map">
         <PannableMap focus={focus}>
           <AtlasMap
-            atlas={atlas}
+            atlas={drawn}
             lit={lit}
             onSelect={chooseBase}
             oursIndex={oursIndex}
@@ -240,16 +258,17 @@ export function AtlasPage({
             territory={mode === 'territory'}
           >
             <HuntPins
-              missions={allPins || panel === 'missions' ? hunt.open : []}
+              missions={pinned('missions') ? hunt.open : []}
               onChoose={chooseHunt}
               picked={pickedHunt}
-              sites={allPins || panel === 'treasure' ? hunt.treasure : []}
-              trucks={allPins || panel === 'trucks' ? onThisMap : []}
+              sites={pinned('treasure') ? hunt.treasure : []}
+              trucks={pinned('trucks') ? onThisMap : []}
             />
           </AtlasMap>
         </PannableMap>
         <div className="atlas-bar">
           <MapModeMenu mode={mode} onChange={setMode} />
+          <MapLayerMenu layers={layers} onChange={setLayer} />
           {planMatch !== null && (
             <span className="atlas-chip atlas-chip--static">
               {plan.loading
@@ -439,14 +458,10 @@ export function AtlasPage({
               />
               <span>Hide sightings over a day old</span>
             </label>
-            <label>
-              <input
-                checked={showPlunder}
-                onChange={(event) => setShowPlunder(event.target.checked)}
-                type="checkbox"
-              />
-              <span>◆ Trucks and ■ missions ({placedTrucks.length} trucks on this map)</span>
-            </label>
+            <p className="subtle">
+              The Layers pill on the map hides ◆ trucks, ■ missions, ✦ treasure spots, or the bases
+              with or without a shield ({placedTrucks.length} trucks on this map).
+            </p>
             <p className="subtle">
               Each dot is a base seen in a sweep, coloured by the alliance its player was last seen
               in; faded dots were last seen over a day ago. Drag to move, wheel or +/− to zoom in
