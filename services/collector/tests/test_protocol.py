@@ -213,6 +213,9 @@ def test_pcapng_to_extension_events(tmp_path: Path) -> None:
     assert events[0].direction == "inbound"
     assert events[0].command == "al.rank"
     assert events[0].request_id == 7
+    # Read from the client's side even though this packet travelled server →
+    # client, so a request and its response share one connection key.
+    assert events[0].connection == ("10.0.0.2", 50000, "10.0.0.1", 8680)
 
 
 def test_parse_tcp_ignores_non_tcp() -> None:

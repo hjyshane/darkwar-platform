@@ -395,6 +395,12 @@ class TCPDirectionReassembler:
         return frames
 
 
+# One TCP connection, as (client ip, client port, server ip, server port).
+# The same key for both directions, which is what lets a response be matched
+# to the login that opened its connection when several accounts share a file.
+Connection = tuple[str, int, str, int]
+
+
 @dataclass(frozen=True)
 class ExtensionEvent:
     direction: str  # "inbound" = server → client
@@ -403,13 +409,14 @@ class ExtensionEvent:
     request_id: int | None
     # When the capture engine recorded the packet that completed this frame.
     captured_at: datetime | None = None
+    # The connection this frame travelled on. None for events that did not
+    # come off a socket (fixtures, the live reassembler).
+    connection: Connection | None = None
 
 
 def iter_extension_events(path: Path, port: int = 8680) -> Iterator[ExtensionEvent]:
     """Every SmartFox extension event in a capture, in stream order."""
-    streams: dict[tuple[str, int, str, int], TCPDirectionReassembler] = defaultdict(
-        TCPDirectionReassembler
-    )
+    streams: dict[Connection, TCPDirectionReassembler] = defaultdict(TCPDirectionReassembler)
     for record in read_pcapng_records(path):
         segment = parse_tcp(record.data, record.linktype)
         if segment is None or not segment.payload:
@@ -423,9 +430,18 @@ def iter_extension_events(path: Path, port: int = 8680) -> Iterator[ExtensionEve
             segment.destination_port,
         )
         direction = "inbound" if segment.source_port == port else "outbound"
+        # The reassembler is per direction (`key` is as the packet travelled);
+        # the connection is the same tuple read from the client's side.
+        connection: Connection = (
+            (segment.destination_ip, segment.destination_port, segment.source_ip, port)
+            if direction == "inbound"
+            else key
+        )
         for frame in streams[key].feed(segment.sequence, segment.payload):
             event = extract_extension_event(frame.object)
             if event is None:
                 continue
             command, payload, request_id = event
-            yield ExtensionEvent(direction, command, payload, request_id, record.captured_at)
+            yield ExtensionEvent(
+                direction, command, payload, request_id, record.captured_at, connection
+            )

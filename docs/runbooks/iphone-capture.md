@@ -298,8 +298,9 @@ object, 맥은 launchd의 프로세스 그룹). **폰 데이터는 BlueStacks �
 
 **서버 번호는 로그인이 정한다.** 아이폰 체인의 ingest는 `--follow-login-server`로 뜬다: `init` 응답의
 `user.serverId`가 이후 캡처의 `collected_from_server`가 된다(파일을 넘어서도 유지). `DW_COLLECTOR_SERVER_ID`는
-재시작 직후 첫 로그인 전까지의 시작값일 뿐이라, 계정이 서버를 옮겨도 `.env`를 고칠 필요가 없다. 한 번에 계정 하나인
-체인 전용 — Windows의 머신 전체 캡처에는 켜지 않는다.
+재시작 직후 첫 로그인 전까지의 시작값일 뿐이라, 계정이 서버를 옮겨도 `.env`를 고칠 필요가 없다. 라벨은 **TCP 연결마다**
+따로 기억하므로 Windows의 머신 전체 캡처(BlueStacks 인스턴스 여러 개가 한 파일에 섞임)에도 켠다 —
+`register-tasks.ps1`의 Ingest가 이 플래그로 뜬다. 한 계정의 데이터가 다른 계정의 로그인에 덮이지 않는다.
 
 **자동 시작 등록**
 
