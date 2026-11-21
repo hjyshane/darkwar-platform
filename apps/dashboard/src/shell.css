@@ -1382,3 +1382,346 @@ button.shell-link {
   display: flex;
   gap: var(--space-3);
 }
+
+/* ------------------------------------------------- game data browser (0343) */
+/* Two panes and a drawer: the list of ~470 tables on the left, the open table
+   on the right, and the open row as a third pane when there is one. The
+   section it sits in is one of the admin panels, so it takes the panel's full
+   width rather than the reading measure the other settings use. */
+.gd-section {
+  min-width: 0;
+}
+
+.gd-browser {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: 15rem minmax(0, 1fr);
+  min-height: 60vh;
+}
+
+.gd-browser:has(.gd-drawer) {
+  grid-template-columns: 15rem minmax(0, 1fr) 22rem;
+}
+
+.gd-side {
+  display: grid;
+  gap: var(--space-3);
+  align-content: start;
+}
+
+.gd-search,
+.gd-filter {
+  display: block;
+}
+
+.gd-search input,
+.gd-filter input {
+  width: 100%;
+}
+
+.gd-hits {
+  background: var(--bg-cell);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  margin-top: var(--space-2);
+  max-height: 18rem;
+  overflow-y: auto;
+}
+
+.gd-hits ul,
+.gd-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.gd-hits li a {
+  display: grid;
+  gap: 0.1rem;
+  padding: var(--space-2) var(--space-3);
+  text-decoration: none;
+}
+
+.gd-hits li a:hover {
+  background: var(--bg-hover);
+}
+
+.gd-hits p {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+}
+
+.gd-hit-name {
+  color: var(--fg);
+}
+
+.gd-hit-where {
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.gd-count {
+  margin: 0;
+}
+
+.gd-list ul {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.gd-table-pick {
+  align-items: baseline;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  color: var(--fg);
+  display: flex;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  justify-content: space-between;
+  padding: var(--space-1) var(--space-2);
+  text-align: left;
+  width: 100%;
+}
+
+.gd-table-pick:hover {
+  background: var(--bg-hover);
+}
+
+.gd-table-pick[aria-current="true"] {
+  background: var(--accent-wash);
+  font-weight: 600;
+}
+
+.gd-table-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gd-table-rows {
+  color: var(--fg-muted);
+  flex: none;
+  font-size: var(--text-xs);
+  margin-left: var(--space-2);
+}
+
+.gd-text-dot,
+.gd-col-mark {
+  color: var(--accent);
+  font-size: var(--text-label);
+  font-weight: 700;
+  margin-left: 0.3em;
+  vertical-align: super;
+}
+
+.gd-main {
+  display: grid;
+  gap: var(--space-3);
+  align-content: start;
+  min-width: 0;
+}
+
+.gd-overview p {
+  margin: 0 0 var(--space-3);
+  max-width: 60ch;
+}
+
+.gd-strip {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-4);
+}
+
+.gd-title {
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  margin: 0;
+}
+
+.gd-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.gd-facts div {
+  display: flex;
+  gap: 0.4em;
+}
+
+.gd-facts dt {
+  color: var(--fg-muted);
+}
+
+.gd-facts dd {
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+}
+
+.gd-modes {
+  border: 0;
+  display: inline-flex;
+  margin: 0 0 0 auto;
+  padding: 0;
+}
+
+.gd-modes button {
+  border-radius: 0;
+}
+
+.gd-modes button:first-child {
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
+}
+
+.gd-modes button:last-child {
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+
+.gd-modes button[aria-pressed="true"] {
+  background: var(--accent-fill);
+  color: var(--accent-fill-fg);
+}
+
+.gd-check {
+  align-items: center;
+  display: inline-flex;
+  gap: var(--space-1);
+  white-space: nowrap;
+}
+
+.gd-table-wrap {
+  max-height: 70vh;
+  overflow: auto;
+}
+
+.gd-table thead th {
+  background: var(--bg-raised);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.gd-table thead th.label {
+  z-index: 3;
+}
+
+.gd-table td,
+.gd-table th {
+  font-size: var(--text-sm);
+  max-width: 28rem;
+  white-space: nowrap;
+}
+
+.gd-table td.gd-text {
+  white-space: normal;
+  min-width: 12rem;
+}
+
+.gd-row-pick {
+  background: none;
+  border: 0;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  padding: 0;
+  text-decoration: underline;
+}
+
+.gd-row-pick[aria-pressed="true"] {
+  font-weight: 700;
+}
+
+.gd-selected td {
+  background: var(--accent-wash);
+}
+
+.gd-json {
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+}
+
+.gd-drawer {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: var(--space-3);
+}
+
+.gd-drawer-head {
+  align-items: start;
+  display: flex;
+  justify-content: space-between;
+}
+
+.gd-drawer-head h3 {
+  font-size: var(--text-base);
+  margin: 0;
+}
+
+.gd-drawer-table {
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+}
+
+.gd-fields {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+}
+
+.gd-field {
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-2);
+}
+
+.gd-field dt {
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.gd-field dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.gd-pre {
+  font-size: var(--text-xs);
+  margin: 0;
+  max-height: 16rem;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+.gd-both {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.gd-key {
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+}
+
+.gd-null-mark {
+  color: var(--fg-muted);
+}
+
+@media (width <= 64rem) {
+  .gd-browser,
+  .gd-browser:has(.gd-drawer) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .gd-list ul {
+    max-height: 14rem;
+  }
+}

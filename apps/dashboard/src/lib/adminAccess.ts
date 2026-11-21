@@ -204,6 +204,9 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     requires: capability('guide.write'),
   },
 
+  // game_datatables and its pieces (0343): the client's own files, read by
+  // admins only, written by `dw-collector game-dump` with the service key.
+  { group: 'catalogue', id: 'game-data-heading', heading: 'Game data tables', requires: adminOnly },
   // Which alliances are ours: the install, not any one of them. An admin's,
   // because it decides whose data every other screen shows.
   { group: 'catalogue', id: 'own-alliance-heading', heading: 'Our alliances', requires: adminOnly },

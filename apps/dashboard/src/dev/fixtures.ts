@@ -4039,3 +4039,163 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
     },
   ],
 ];
+
+/** The game data browser (0343): two small tables shaped like the client's,
+ * so the list, the grid, the row drawer and the name search all draw. The
+ * real dump has ~470 tables and the biggest 10,900 rows; this is the shape,
+ * not the scale. */
+const GAME_TABLE_METAS = [
+  {
+    name: 'gift',
+    client_version: '1645,22513,4220438827',
+    columns: ['id', 'name', 'good_id', 'show_type', 'order', 'chat_text'],
+    loc_columns: ['name', 'chat_text'],
+    row_count: 2,
+    chunk_count: 1,
+    byte_size: 240,
+    dumped_at: ago(3),
+  },
+  {
+    name: 'goods',
+    client_version: '1645,22513,4220438827',
+    columns: ['id', 'name', 'icon', 'description', 'type', 'lv', 'color', 'use', 'unused'],
+    loc_columns: ['name', 'description'],
+    row_count: 4,
+    chunk_count: 1,
+    byte_size: 980,
+    dumped_at: ago(3),
+  },
+  {
+    name: 'skill',
+    client_version: '1645,22513,4220438827',
+    columns: ['id', 'type', 'level', 'name', 'des'],
+    loc_columns: ['name', 'des'],
+    row_count: 2527,
+    chunk_count: 3,
+    byte_size: 4_490_000,
+    dumped_at: ago(3),
+  },
+];
+const GAME_GOODS_ROWS = {
+  '230101': {
+    id: 230101,
+    name: '300101',
+    icon: 'item_book_orange',
+    description: '300102',
+    type: 7,
+    lv: 1,
+    color: 5,
+    use: [{ kind: 'exp', amount: 5000 }],
+    unused: null,
+  },
+  '230102': {
+    id: 230102,
+    name: '300103',
+    icon: 'item_book_purple',
+    description: '300104',
+    type: 7,
+    lv: 1,
+    color: 4,
+    use: [{ kind: 'exp', amount: 1000 }],
+    unused: null,
+  },
+  '300003': {
+    id: 300003,
+    name: '300105',
+    icon: 'item_chip_001',
+    description: '300106',
+    type: 12,
+    lv: 0,
+    color: 3,
+    use: null,
+    unused: null,
+  },
+  '300004': {
+    id: 300004,
+    name: '300199',
+    icon: 'item_chip_002',
+    description: '',
+    type: 12,
+    lv: 0,
+    color: 3,
+    use: { note: 'a nested table with a very long value that the grid clips to one line of text' },
+    unused: null,
+  },
+};
+FIXTURES.push(
+  [['game-tables'], GAME_TABLE_METAS],
+  [
+    ['game-table', 'goods'],
+    {
+      meta: GAME_TABLE_METAS[1],
+      rows: Object.entries(GAME_GOODS_ROWS).map(([id, values]) => ({ id, values })),
+      strings: {
+        en: {
+          '300101': 'Orange Skill Book',
+          '300102': 'Grants 5,000 hero EXP.',
+          '300103': 'Purple Skill Book',
+          '300104': 'Grants 1,000 hero EXP.',
+          '300105': 'Vehicle Chip (Rare)',
+          '300106': 'Fits a mod vehicle slot.',
+        },
+        ko: {
+          '300101': '오렌지 스킬북',
+          '300102': '영웅 EXP 5,000을 얻습니다.',
+          '300103': '퍼플 스킬북',
+          '300105': '차량 칩 (레어)',
+        },
+      },
+    },
+  ],
+  [
+    ['game-table', 'gift'],
+    {
+      meta: GAME_TABLE_METAS[0],
+      rows: [
+        {
+          id: '1',
+          values: {
+            id: 1,
+            name: '610001',
+            good_id: 230101,
+            show_type: 1,
+            order: 1,
+            chat_text: '610002',
+          },
+        },
+        {
+          id: '2',
+          values: {
+            id: 2,
+            name: '610003',
+            good_id: 300003,
+            show_type: 2,
+            order: 2,
+            chat_text: null,
+          },
+        },
+      ],
+      strings: {
+        en: { '610001': 'Starter Gift', '610002': '{0} sent a gift!', '610003': 'Chip Gift' },
+        ko: { '610001': '스타터 선물', '610003': '칩 선물' },
+      },
+    },
+  ],
+  [
+    ['game-names', 'book'],
+    [
+      {
+        table_name: 'goods',
+        row_id: '230101',
+        name_en: 'Orange Skill Book',
+        name_ko: '오렌지 스킬북',
+      },
+      {
+        table_name: 'goods',
+        row_id: '230102',
+        name_en: 'Purple Skill Book',
+        name_ko: '퍼플 스킬북',
+      },
+    ],
+  ],
+);

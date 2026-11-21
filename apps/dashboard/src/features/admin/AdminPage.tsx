@@ -24,6 +24,7 @@ import { DiscoveryInbox } from './DiscoveryInbox';
 import { EventGuidesSetting } from './EventGuidesSetting';
 import { EventsSetting } from './EventsSetting';
 import { FormulaSetting } from './FormulaSetting';
+import { GameDataSetting } from './GameDataSetting';
 import { HeroesSetting } from './HeroesSetting';
 import { JoinCodesSetting } from './JoinCodesSetting';
 import { ManualRosterSetting } from './ManualRosterSetting';
@@ -453,6 +454,13 @@ function CatalogueGroup({ section }: { section: string }) {
         <section aria-labelledby="events-heading">
           <h2 id="events-heading">Events</h2>
           <EventsSetting />
+        </section>
+      )}
+
+      {section === 'game-data' && (
+        <section aria-labelledby="game-data-heading" className="gd-section">
+          <h2 id="game-data-heading">Game data tables</h2>
+          <GameDataSetting />
         </section>
       )}
 
