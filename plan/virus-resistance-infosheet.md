@@ -32,9 +32,15 @@ Both come from one number: how many points short you are.**
 
 Rule of thumb: **100 short is already a losing fight. 300 short is a wipe.**
 
+**The panel's recommended power is not fixed.** It is the table's power times
+√(monster damage ÷ your damage), so it grows with YOUR shortfall. A Lv.60
+Rotting Oni is 490M on paper; at 250 short the panel says 2.6G. Two members
+see two different numbers on the same monster.
+
 ## What each monster asks for
 
-Required virus resistance by level (Table A / Table B where they differ).
+Required virus resistance by level. Where two figures: Season 4 (game season
+6) / next run of this map (7).
 
 | Lv | Booze Brute (rally) | Rotting Oni (single) | Miasmified Brute | Miasmified Oni |
 |---:|---:|---:|---:|---:|
@@ -61,7 +67,8 @@ Miasmified versions want about +500 more at low levels and the same at 70+.
 | 84 | 2.42G | 971M | 13,000 / 12,915 |
 | 85 | 2.50G | 1.00G | 13,020 / 12,930 |
 
-CP = the game's recommended power. Same for plain and Miasmified.
+CP = the table's recommended power, what the panel shows when you MEET the
+requirement. Same for plain and Miasmified. Short, and it inflates (above).
 
 ## Takeaways
 

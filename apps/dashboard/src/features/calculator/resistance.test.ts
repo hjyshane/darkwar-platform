@@ -3,6 +3,7 @@ import {
   MONSTER_CAP,
   SEASON_MONSTERS,
   SELF_FLOOR,
+  panelPower,
   parsePenaltyParam,
   penalty,
   percentChange,
@@ -19,6 +20,29 @@ test('reproduces the game panel: 8,500 against 9,700', () => {
   expect(percentChange(result.self)).toBe('-99.0%');
   expect(percentChange(result.monster)).toBe('+24000.0%');
   expect(verdict(result)).toBe('defeat');
+});
+
+// The second check (owner, 2026-11-21): a Lv.60 Rotting Oni wanting 10,000
+// against 9,750 drew -25% / +2108.5%, and recommended 2.6G where the table
+// says 490M. The panel scales the table's power by √(monster ÷ yours).
+test('reproduces the second panel: 9,750 against 10,000, and its inflated power', () => {
+  const oniRow = SEASON_MONSTERS.find((m) => m.id === 'oni');
+  if (oniRow === undefined) throw new Error('no oni');
+  expect(requiredFor(oniRow, 60, '6')).toBe(10000);
+  const result = penalty(9750, 10000);
+  expect(percentChange(result.self)).toBe('-25.0%');
+  expect(percentChange(result.monster)).toBe('+2108.5%');
+  expect(powerFor(oniRow, 60)).toBe(489900000);
+  const shown = panelPower(powerFor(oniRow, 60), result);
+  expect(shown).toBeCloseTo(2659e6, -7);
+});
+
+test('the panel power is the table power while the requirement is met', () => {
+  expect(panelPower(489900000, penalty(10000, 10000))).toBe(489900000);
+  expect(panelPower(489900000, penalty(12000, 10000))).toBe(489900000);
+  expect(panelPower(null, penalty(9750, 10000))).toBeNull();
+  // The floor and cap bound it: √(300 ÷ 0.01) ≈ 173× at worst.
+  expect(panelPower(1e9, penalty(0, 10000))).toBeCloseTo(1e9 * Math.sqrt(300 / 0.01), -6);
 });
 
 test('enough resistance costs nothing, however much is spare', () => {

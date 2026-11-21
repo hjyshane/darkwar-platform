@@ -32,6 +32,10 @@ export const PENALTY_PARAM = '0.0027;1000;6;0;400|0.2;1000;1;0';
 export const SELF_FLOOR = 0.01;
 /** The monster's damage multiplier never exceeds this: `new_battle_config.k24`. */
 export const MONSTER_CAP = 300;
+/** How hard the shortfall inflates the panel's recommended power:
+ * `battle_config.k26`, the exponent in `UIWorldPointCtrl`'s
+ * `recommend_power × (monster ÷ yours)^k26`. */
+export const POWER_EXPONENT = 0.5;
 
 /** The pieces a param string names, in order. */
 export function parsePenaltyParam(param: string): PenaltyPiece[] {
@@ -70,6 +74,17 @@ export function penalty(mine: number, required: number, pieces = PIECES): Penalt
   return { deficit, self, monster };
 }
 
+/** The recommended power the attack panel draws: the table's figure while you
+ * meet the requirement, and above it `power × (monster ÷ yours)^0.5` — so a
+ * Lv.60 Rotting Oni's 490M reads 2.66G at 250 short (owner, 2026-11-21: the
+ * panel said 2.6G where the table said 490M). The client skips the scaling
+ * when the table has no power; null stays null. */
+export function panelPower(power: number | null, result: Penalty): number | null {
+  if (power === null) return null;
+  if (result.deficit <= 0 || power <= 0) return power;
+  return power * (result.monster / result.self) ** POWER_EXPONENT;
+}
+
 /** "-99.0%" / "+24000.0%": the attack panel's own wording, one decimal. */
 export function percentChange(multiplier: number): string {
   const pct = (multiplier - 1) * 100;
@@ -88,9 +103,10 @@ export function verdict(result: Penalty): Verdict {
 
 // --- the monsters ----------------------------------------------------------
 
-/** The two internal season tables (`world_season` 6 and 7) share one ladder
- * to level 65 and part at 66. Which one a server is on is not something the
- * app knows, so the page offers both. */
+/** The two internal season tables (`aps_monster.world_season` 6 and 7) share
+ * one ladder to level 65 and part at 66. Game season 6 is the one our Season 4
+ * plays (`seasons.ts` maps its buildings the same way); 7 is the next run of
+ * this map. The page offers both, with 6 first. */
 export type SeasonTable = '6' | '7';
 
 export interface SeasonMonster {

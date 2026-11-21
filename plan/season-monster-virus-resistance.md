@@ -22,6 +22,27 @@ monster dmg = min((1 + a*deficit)^n + c, k24)                         k24 = 300 
 not change either output over 0..9700 in sandbox runs.
 
 Verified against screenshot: Lv.52 Booze Brute, 8,500/9,700 → -99.0% / +24000.0%.
+Second check (2026-11-21): Lv.60 Rotting Oni, 9,750/10,000 → -25.0% / +2108.5%.
+
+## Panel's recommended power
+
+`UIWorldPointCtrl` (lines 2252-2317, disassembled with the scratch
+`luadis.py`) draws, while `selfValue < resistance` and the table has a power:
+
+```
+panel_power = recommend_power × ((monster_dmg) / (my_dmg)) ^ k26     k26 = battle_config.k26 = 0.5
+```
+
+Lv.60 Rotting Oni: 489.9M × √(22.085 / 0.75) = 2.66G; the panel showed 2.6G.
+So the panel's power is not a fixed property of the monster — it climbs with
+the viewer's own shortfall, and two members see different figures.
+
+## Which season table
+
+`aps_season`: id 7 = season 6, id 8 = season 7, both map_type 3 (the virus
+map). The calculator's `seasons.ts` already maps game season 6 → our Season 4,
+so table A (6) is ours; 7 is the next run of this map. Labels on the page:
+"Season 4 (6)" / "Next run (7)".
 
 ## Curve (deficit = required - mine)
 
