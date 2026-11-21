@@ -316,10 +316,13 @@ Shop value에서 그림이 빈 25개는 `goods.icon`이 가리키는 그림이 *
 테이블 전부**를 그대로 올리고, 관리자가 대시보드에서 읽는다(`#/admin/catalogue/game-data`).
 
 ```
-uv run dw-collector game-dump --bundles C:/DW_data/gamedata/base --bundles C:/DW_data/gamedata/bundles --dry-run
-uv run dw-collector game-dump --bundles C:/DW_data/gamedata/base --bundles C:/DW_data/gamedata/bundles
+uv run --no-sync --with "UnityPy>=1.25" --with "lupa>=2.8" dw-collector game-dump --bundles C:/DW_data/gamedata/base --bundles C:/DW_data/gamedata/bundles --dry-run
+uv run --no-sync --with "UnityPy>=1.25" --with "lupa>=2.8" dw-collector game-dump --bundles C:/DW_data/gamedata/base --bundles C:/DW_data/gamedata/bundles
 ```
 
+- 주 PC 체크아웃의 `.venv`에는 `gamedata` 엑스트라가 없고, 맨 `uv run`은 재동기화로 상시
+  작업을 죽인 적이 있다(traps.md) — 그래서 `--no-sync --with` 둘. 11-21에 맨 `uv run`으로
+  `ModuleNotFoundError: UnityPy`가 났다.
 - `--dry-run`은 세고 쓰지 않는다. `--out DIR`을 주면 같은 모양을 JSON 파일로도 남긴다
   (2026-11-20 실측: 473 테이블, 214,147행, JSON 131.7 MB, 텍스트 열이 있는 테이블 210,
   실패 0). `--only 표이름`(반복 가능)으로 몇 개만 올릴 수 있다.
