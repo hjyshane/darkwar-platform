@@ -17,6 +17,7 @@ import { useSession } from '../../lib/useSession';
 import { fetchRoster } from '../roster/RosterPanel';
 import { allianceLabel } from '../season/boards';
 import { ActivitySetting } from './ActivitySetting';
+import { AllianceTrendsSetting } from './AllianceTrendsSetting';
 import { CollectorHealth } from './CollectorHealth';
 import { DepartedSetting } from './DepartedSetting';
 import { DiscoveryInbox } from './DiscoveryInbox';
@@ -336,6 +337,13 @@ function DisplayGroup({ section }: { section: string }) {
         <section aria-labelledby="season-building-alert-heading">
           <h2 id="season-building-alert-heading">Season building alert</h2>
           <SeasonBuildingAlertSetting />
+        </section>
+      )}
+
+      {section === 'alliance-page' && (
+        <section aria-labelledby="alliance-page-heading">
+          <h2 id="alliance-page-heading">Alliance page</h2>
+          <AllianceTrendsSetting />
         </section>
       )}
 

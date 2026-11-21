@@ -224,8 +224,10 @@ export function AlliancePage({ allianceId, now }: { allianceId: string; now?: Da
   }
 
   const label = `${data.code ? `[${data.code}] ` : ''}${data.name ?? 'Unnamed alliance'}`;
-  // The views this alliance has: past names only if there are any; Overview and
-  // Activity only for ours (their sources are our own boards and events); Moves
+  // The views this alliance has: past names only if there are any; Overview
+  // only for ours (its sources are our own boards and events); Activity for
+  // everybody since it took in the ranking board and the server comparison,
+  // which every alliance has (2026-11-20) — its ours-only blocks still are; Moves
   // for admins only (owner, 2026-11-19) — the RPC behind it is unchanged, this
   // only stops offering it. The bare address, and a link to a view this page
   // does not have, open the first: Overview on ours, Members on anybody else's.
@@ -233,7 +235,6 @@ export function AlliancePage({ allianceId, now }: { allianceId: string; now?: Da
     (entry) =>
       (entry.id !== 'names' || data.pastNames.length > 0) &&
       (entry.id !== 'overview' || data.isOwn) &&
-      (entry.id !== 'activity' || data.isOwn) &&
       (entry.id !== 'moves' || session?.role === 'admin'),
   );
   const view =
@@ -326,28 +327,30 @@ export function AlliancePage({ allianceId, now }: { allianceId: string; now?: Da
         ))}
       </nav>
 
-      {(view === 'board' || view === 'activity') && (
-        <section aria-labelledby="alliance-trends">
-          <h2 className="visually-hidden" id="alliance-trends">
-            Trends
-          </h2>
-          <ChartFlow>
-            <AllianceTrends allianceId={data.allianceId} isOwn={data.isOwn} part={view} />
-          </ChartFlow>
-        </section>
+      {/* One view for everything measured over time. Ranking and Against the
+          server were tabs of their own until 2026-11-20; their addresses still
+          land here (RETIRED_ALLIANCE_VIEWS). */}
+      {view === 'activity' && (
+        <>
+          <section aria-labelledby="alliance-trends">
+            <h2 className="visually-hidden" id="alliance-trends">
+              Trends
+            </h2>
+            <ChartFlow>
+              <AllianceTrends allianceId={data.allianceId} isOwn={data.isOwn} />
+            </ChartFlow>
+          </section>
+          <section aria-labelledby="alliance-compare">
+            <h2 id="alliance-compare">Against the server</h2>
+            <AllianceCompare serverId={data.serverId} />
+          </section>
+        </>
       )}
 
       {view === 'overview' && <AllianceOverview allianceId={data.allianceId} now={now} />}
 
       {view === 'moves' && (
         <MovesTab allianceId={data.allianceId} now={now} ownAlliance={data.ownAlliance} />
-      )}
-
-      {view === 'compare' && (
-        <section aria-labelledby="alliance-compare">
-          <h2 id="alliance-compare">Against the server</h2>
-          <AllianceCompare serverId={data.serverId} />
-        </section>
       )}
 
       {view === 'members' && (

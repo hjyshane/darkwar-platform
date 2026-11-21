@@ -142,6 +142,13 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     heading: 'Season building alert',
     requires: capability('settings.write'),
   },
+  // alliance_trends, through save_alliance_setting (0342).
+  {
+    group: 'display',
+    id: 'alliance-page-heading',
+    heading: 'Alliance page',
+    requires: capability('settings.write'),
+  },
   {
     group: 'display',
     id: 'participation-bars-heading',

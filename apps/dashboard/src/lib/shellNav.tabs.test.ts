@@ -90,17 +90,13 @@ describe('buildNav hierarchy (2026-11-19)', () => {
     expect(ownPage(withOwn)?.tabs?.map((t) => t.label)).toEqual([
       'Overview',
       'Members',
-      'Ranking',
       'Activity',
-      'Against the server',
     ]);
     expect(ownPage(adminOwn)?.tabs?.map((t) => t.label)).toEqual([
       'Overview',
       'Members',
       'Moves',
-      'Ranking',
       'Activity',
-      'Against the server',
     ]);
     // Every view is written out in its address, Members included.
     expect(ownPage(withOwn)?.tabs?.find((t) => t.label === 'Activity')?.href).toBe(

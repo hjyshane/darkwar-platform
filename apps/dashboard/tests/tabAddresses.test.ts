@@ -72,19 +72,19 @@ describe('tab addresses', () => {
       ['overview', 'Overview'],
       ['members', 'Members'],
       ['moves', 'Moves'],
-      ['board', 'Ranking'],
       ['activity', 'Activity'],
-      ['compare', 'Against the server'],
       ['names', 'Also known as'],
     ]);
   });
 
-  it('sends the retired Power and towers address to Activity, which took it over', () => {
-    const hash = `#/alliance/${UUID}/power`;
-    expect(ALLIANCE_VIEWS.map((view) => view.id as string)).not.toContain('power');
-    expect(routeFromHash(hash)).toBe('alliance');
-    expect(allianceIdFromHash(hash)).toBe(UUID);
-    expect(allianceViewFromHash(hash)).toBe('activity');
+  it('sends the retired Power, Ranking and Against the server addresses to Activity, which took them over', () => {
+    for (const retired of ['power', 'board', 'compare']) {
+      const hash = `#/alliance/${UUID}/${retired}`;
+      expect(ALLIANCE_VIEWS.map((view) => view.id as string)).not.toContain(retired);
+      expect(routeFromHash(hash)).toBe('alliance');
+      expect(allianceIdFromHash(hash)).toBe(UUID);
+      expect(allianceViewFromHash(hash)).toBe('activity');
+    }
     // An address nobody ever handed out is still not the alliance page.
     expect(routeFromHash(`#/alliance/${UUID}/nope`)).toBe('overview');
     expect(allianceViewFromHash(`#/alliance/${UUID}/nope`)).toBeNull();
@@ -222,9 +222,7 @@ describe('sidebar tabs for the alliance screens', () => {
     expect(page?.tabs?.map((tab) => [tab.label, tab.href])).toEqual([
       ['Overview', `#/alliance/${UUID}/overview`],
       ['Members', `#/alliance/${UUID}/members`],
-      ['Ranking', `#/alliance/${UUID}/board`],
       ['Activity', `#/alliance/${UUID}/activity`],
-      ['Against the server', `#/alliance/${UUID}/compare`],
     ]);
     expect(page?.tabs?.filter((tab) => tab.current).map((tab) => tab.href)).toEqual([
       `#/alliance/${UUID}/activity`,
@@ -240,9 +238,7 @@ describe('sidebar tabs for the alliance screens', () => {
       'Overview',
       'Members',
       'Moves',
-      'Ranking',
       'Activity',
-      'Against the server',
     ]);
     expect(page?.tabs?.filter((tab) => tab.current).map((tab) => tab.href)).toEqual([
       `#/alliance/${UUID}/moves`,
@@ -268,6 +264,8 @@ describe('sidebar tabs for the alliance screens', () => {
     expect(marked(`#/alliance/${UUID}`)).toEqual(['Overview']);
     expect(marked(`#/alliance/${UUID}/members`)).toEqual(['Members']);
     expect(marked(`#/alliance/${UUID}/power`)).toEqual(['Activity']);
+    expect(marked(`#/alliance/${UUID}/board`)).toEqual(['Activity']);
+    expect(marked(`#/alliance/${UUID}/compare`)).toEqual(['Activity']);
     // Somebody else's page marks nothing of ours.
     expect(marked('#/alliance/33333333-3333-4333-8333-333333333301/members')).toEqual([]);
   });
