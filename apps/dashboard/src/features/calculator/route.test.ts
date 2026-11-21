@@ -43,8 +43,10 @@ describe('the calculator route', () => {
     expect(entry?.children?.map((child) => child.label)).toEqual([
       'Upgrade cost',
       'Resource wait time',
+      'Virus resistance',
       'Planner',
     ]);
+    expect(routeFromHash('#/calculator/resistance')).toBe('calculator');
   });
 
   it('is offered to a community account, and an admin can hide it like any tab', () => {

@@ -190,7 +190,7 @@ function rankingBoards(ctx: NavContext): NavChild[] {
   );
 }
 
-/** What sits under Calculator (owner, 2026-11-20): its two pages, then the
+/** What sits under Calculator (owner, 2026-11-20): its pages, then the
  * planner, which is a screen of its own filed here. The planner had been
  * archived since 2026-11-12; the wait-time page came off the season board. */
 function calculatorChildren(ctx: NavContext): NavChild[] {

@@ -19,6 +19,7 @@ import { LoginPage } from './features/auth/LoginPage';
 import { BasePlacementPage } from './features/basePlacement/BasePlacementPage';
 import { BlackGoldPage } from './features/blackGold/BlackGoldPage';
 import { CalculatorPage } from './features/calculator/CalculatorPage';
+import { ResistanceCalculatorPage } from './features/calculator/ResistanceCalculator';
 import { WaitCalculatorPage } from './features/calculator/WaitCalculator';
 import { CalendarPage } from './features/calendar/CalendarPage';
 import { CrossRankingsPanel } from './features/crossRankings/CrossRankingsPanel';
@@ -250,11 +251,19 @@ function HeaderAllianceSwitcher() {
   );
 }
 
-/** The calculator's two pages, by address: `#/calculator` (with its query) is
- * the cost page, `#/calculator/wait` the wait-time one. */
+/** The calculator's three pages, by address: `#/calculator` (with its query)
+ * is the cost page, `#/calculator/wait` the wait-time one and
+ * `#/calculator/resistance` the virus-resistance one. */
 function CalculatorScreen() {
   const hash = useHash();
-  return calculatorTabFromHash(hash) === 'wait' ? <WaitCalculatorPage /> : <CalculatorPage />;
+  switch (calculatorTabFromHash(hash)) {
+    case 'wait':
+      return <WaitCalculatorPage />;
+    case 'resistance':
+      return <ResistanceCalculatorPage />;
+    default:
+      return <CalculatorPage />;
+  }
 }
 
 function Screen({

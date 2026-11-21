@@ -170,7 +170,7 @@ describe('sidebar tabs for the alliance screens', () => {
     expect(filed(planner, 'watch', 'CBFW', 'Hive')).toBeUndefined();
   });
 
-  it('files the planner and the wait-time page under Calculator', () => {
+  it('files the planner and the wait-time and resistance pages under Calculator', () => {
     const under = (ctx: NavContext) =>
       buildNav(ctx)
         .flatMap((group) => group.items)
@@ -181,6 +181,7 @@ describe('sidebar tabs for the alliance screens', () => {
       expect(entry?.children?.map((child) => [child.label, child.href, child.current])).toEqual([
         ['Upgrade cost', '#/calculator', false],
         ['Resource wait time', '#/calculator/wait', false],
+        ['Virus resistance', '#/calculator/resistance', false],
         ['Planner', '#/planner', true],
       ]);
     }

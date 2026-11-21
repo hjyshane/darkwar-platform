@@ -47,10 +47,11 @@ describe('the member menu', () => {
       .flatMap((g) => g.items)
       .find((i) => i.label === 'CBFW')?.children;
     expect(filed?.every((c) => c.screen === true)).toBe(true);
-    // Calculator carries its two pages and the planner (2026-11-20).
+    // Calculator carries its three pages and the planner (2026-11-20).
     expect(children(member(), 'Calculator')).toEqual([
       'Upgrade cost',
       'Resource wait time',
+      'Virus resistance',
       'Planner',
     ]);
     // Home and Map have nothing under them; neither does Hive for a reader who
