@@ -3914,9 +3914,93 @@ export const FIXTURES: [readonly unknown[], unknown][] = [
           },
         ];
       }),
-      roster: [],
+      // Six complete captures over ten days, each carrying its tower levels
+      // (0342), so the counted level and the start date below have something
+      // to act on: a few members cross 30 and one crosses 35 along the way.
+      roster: [0, 1, 2, 3, 4, 5].map((step) => {
+        const levels = ROSTER.map((_, index) =>
+          Math.min(36, 26 + (index % 9) + (step > 2 ? 1 : 0)),
+        );
+        return {
+          captured_at: ago(60 * 24 * 2 * (5 - step)),
+          observed_members: levels.length,
+          expected_members: levels.length,
+          snapshot_complete: true,
+          total_power: 17_000_000_000 + step * 150_000_000,
+          avg_power: 180_000_000 + step * 1_600_000,
+          median_power: 150_000_000 + step * 1_200_000,
+          avg_hq_level: levels.reduce((sum, level) => sum + level, 0) / levels.length,
+          members_at_hq35: levels.filter((level) => level >= 35).length,
+          hq_levels: levels,
+          officers: 6,
+        };
+      }),
       daily: [],
     },
+  ],
+  // The alliance page's setting, deliberately NOT the defaults: level 30 and a
+  // start four days back, so this build shows both doing something. The admin
+  // key is the Settings form's own copy.
+  [['alliance-trends-setting'], { towerLevel: 30, since: ago(60 * 24 * 4).slice(0, 10) }],
+  [['alliance-trends-setting-admin'], { towerLevel: 30, since: ago(60 * 24 * 4).slice(0, 10) }],
+
+  // Against the server, which lives under Activity. Two alliances with five
+  // readings each, so the table and the comparison chart both draw.
+  [
+    ['alliance-compare', 580],
+    [
+      {
+        alliance_id: ALLIANCE.ours,
+        name: 'HELLBOUND',
+        code: 'CBFW',
+        is_own: true,
+        member_count: 93,
+        readings: 5,
+        power_first: 17_500_000_000,
+        power_last: 17_860_000_000,
+        power_growth: 360_000_000,
+        power_growth_pct: 2.06,
+        rank_climb: 1,
+        rank_first: 2,
+        rank_last: 1,
+        span_days: 4,
+      },
+      {
+        alliance_id: ALLIANCE.rival,
+        name: 'Rivals',
+        code: 'RVL',
+        is_own: false,
+        member_count: 88,
+        readings: 5,
+        power_first: 17_600_000_000,
+        power_last: 17_700_000_000,
+        power_growth: 100_000_000,
+        power_growth_pct: 0.57,
+        rank_climb: -1,
+        rank_first: 1,
+        rank_last: 2,
+        span_days: 4,
+      },
+    ],
+  ],
+  [
+    ['alliance-history', 580, [ALLIANCE.ours, ALLIANCE.rival].sort()],
+    [0, 1, 2, 3, 4].flatMap((step) => [
+      {
+        alliance_id: ALLIANCE.ours,
+        captured_at: ago(60 * 24 * (5 - step)),
+        power: 17_500_000_000 + step * 90_000_000,
+        name: 'HELLBOUND',
+        is_own: true,
+      },
+      {
+        alliance_id: ALLIANCE.rival,
+        captured_at: ago(60 * 24 * (5 - step)),
+        power: 17_600_000_000 + step * 25_000_000,
+        name: 'Rivals',
+        is_own: false,
+      },
+    ]),
   ],
 
   // The two boards. Enough rows to put the pager on screen (22 unpinned at 20

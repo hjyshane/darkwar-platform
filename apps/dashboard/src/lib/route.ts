@@ -300,14 +300,7 @@ export function plannerKindFromHash(hash: string): string | null {
 /** An alliance page's views. Which of them a given alliance offers depends on
  * its data (past names, whether it is ours), so the page filters this list; the
  * sidebar lists the ones every alliance of ours has. */
-export type AllianceView =
-  | 'overview'
-  | 'members'
-  | 'moves'
-  | 'board'
-  | 'activity'
-  | 'compare'
-  | 'names';
+export type AllianceView = 'overview' | 'members' | 'moves' | 'activity' | 'names';
 export const ALLIANCE_VIEWS: ReadonlyArray<{ id: AllianceView; label: string }> = [
   // Ours only (owner, 2026-11-19): the duel and the last fortnight's alliance
   // events. It is what our own page opens on; anybody else's opens on Members.
@@ -317,16 +310,20 @@ export const ALLIANCE_VIEWS: ReadonlyArray<{ id: AllianceView; label: string }> 
   // (alliance_moves, 0314). Offered to admins only (owner, 2026-11-19); the
   // RPC still decides who may read which alliance's.
   { id: 'moves', label: 'Moves' },
-  { id: 'board', label: 'Ranking' },
-  // Donation and duel totals, then power and towers beneath them: the two were
-  // separate views until 2026-11-19.
+  // Everything measured over time, on one view (owner, 2026-11-20): donation
+  // and duel totals, power and towers, the ranking board, and the alliance
+  // against its server. Power was a view of its own until 2026-11-19; Ranking
+  // and Against the server until the day after.
   { id: 'activity', label: 'Activity' },
-  { id: 'compare', label: 'Against the server' },
   { id: 'names', label: 'Also known as' },
 ];
 
 /** Views that were folded into another: the address still lands. */
-const RETIRED_ALLIANCE_VIEWS: Readonly<Record<string, AllianceView>> = { power: 'activity' };
+const RETIRED_ALLIANCE_VIEWS: Readonly<Record<string, AllianceView>> = {
+  power: 'activity',
+  board: 'activity',
+  compare: 'activity',
+};
 
 const SERVER_HASH = /^#\/server\/(\d+)$/;
 

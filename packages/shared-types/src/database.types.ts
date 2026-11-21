@@ -9742,6 +9742,7 @@ export type Database = {
           avg_power: number | null
           captured_at: string | null
           expected_members: number | null
+          hq_levels: number[] | null
           max_hq_level: number | null
           max_power: number | null
           median_power: number | null
