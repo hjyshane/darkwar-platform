@@ -9,6 +9,7 @@ import { MovesPanel } from './AtlasMoves';
 import { AllianceDetail, BaseDetail } from './AtlasPanel';
 import { CopyHint, PlunderList, TreasureList, TrucksList } from './HuntLists';
 import { HuntPins } from './HuntPins';
+import { MapLoadError } from './MapLoadError';
 import { MapLayerMenu, type MapMode, MapModeMenu } from './MapModes';
 import { PannableMap } from './PannableMap';
 import {
@@ -71,7 +72,7 @@ export function AtlasPage({
   servers: readonly ScannedServer[];
   onServer: (id: number) => void;
 }) {
-  const { data, isPending, error } = useAtlas(serverId);
+  const { data, isPending, error, refetch } = useAtlas(serverId);
   const sweptAt = servers.find((server) => server.serverId === serverId)?.sweptAt;
   const { active: mine } = useActiveAlliance();
   const atlas = data ?? EMPTY_ATLAS;
@@ -238,7 +239,7 @@ export function AtlasPage({
   );
 
   if (isPending) return <p className="empty loading">Loading…</p>;
-  if (error) return <p className="error">Could not load the map: {(error as Error).message}</p>;
+  if (error) return <MapLoadError error={error} onRetry={() => void refetch()} />;
 
   return (
     <div className={selected !== null && panel === 'atlas' ? 'atlas atlas--sheet' : 'atlas'}>

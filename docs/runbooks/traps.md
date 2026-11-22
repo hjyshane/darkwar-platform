@@ -101,6 +101,25 @@ resync 바이트로 넘겼다. 평문 프레임(push 대부분)과 요청은 계
 
 ---
 
+## 함정 — loose index scan의 조건 하나가 인덱스 밖에 있으면 그 스캔은 "전부 읽기"다
+
+`map_atlas`의 `uids_old`(0318)는 `where server_id = p and map_server_id is null order by game_uid limit 1`을
+uid마다 반복하는 loose index scan이다. 인덱스는 `(server_id, game_uid, captured_at)`이고 `map_server_id`는
+없다 — 그래서 `is null`은 **힙 행마다 거르는 필터**가 되고, 옛 행이 없는 서버에서는 첫 프로브가 그 서버의
+모든 행을 읽고 0행을 돌려준다(로컬 144만 행: 180,000행 필터, 7,579 힙 페이지). 답이 같아서 pgTAP은 몰랐고,
+지도는 "canceling statement due to statement timeout"을 자주 냈다.
+
+- 반복 프로브(`limit 1`)의 **모든** 조건이 인덱스 안에 있는지 본다. 하나라도 밖이면 비용은 행 수에 비례한다.
+- 고치는 법은 그 조건을 담는 부분 인덱스(0344: `... where map_server_id is null`). 함수는 안 바꾼다.
+- 비용을 믿지 말고 플랜을 핀한다(59·60·344): `Filter: (<열> IS NULL)`이 그 CTE 아래 보이면 회귀다.
+- 로컬 재현은 `scripts/pgtap/run.py`의 클러스터에 generate_series로 서버 모양대로 채우고 member 세션에서
+  함수 본문을 `explain (analyze, buffers)`로 본다(prosrc에서 `p_server_id`를 치환; `map_server_id`도 매치되니
+  단어 경계로).
+
+*출처: log/2026-11.md, 2026-11-21*
+
+---
+
 ## 함정 — 무거운 RPC의 시간 상한은 브라우저가 부르는 함수 정의에 쓴다
 
 authenticated 역할의 `statement_timeout`은 8초다. 무거운 함수 하나를 풀어 주려면

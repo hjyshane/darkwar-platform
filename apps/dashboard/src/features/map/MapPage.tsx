@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { TERMS } from '../../lib/terms';
 import { AtlasPage } from './AtlasPage';
+import { MapLoadError } from './MapLoadError';
 import { useScannedServers } from './mapLocations';
 
 /** The map, one server at a time: where every swept base is, coloured by
@@ -11,7 +12,7 @@ import { useScannedServers } from './mapLocations';
  * "nobody is there".
  */
 export function MapPage({ serverId }: { serverId: number | null }) {
-  const { data: servers, isPending, error } = useScannedServers();
+  const { data: servers, isPending, error, refetch } = useScannedServers();
   const [chosen, setChosen] = useState<number | null>(serverId);
 
   // The address wins on first paint; after that the tabs do. Falling back to
@@ -23,7 +24,7 @@ export function MapPage({ serverId }: { serverId: number | null }) {
     return <p className="empty loading">Loading…</p>;
   }
   if (error) {
-    return <p className="error">Could not load the map: {(error as Error).message}</p>;
+    return <MapLoadError error={error} onRetry={() => void refetch()} />;
   }
   if (!servers || servers.length === 0 || active === null) {
     return (
