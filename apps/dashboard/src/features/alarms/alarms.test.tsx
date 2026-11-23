@@ -38,7 +38,13 @@ const db = vi.hoisted(() => {
 vi.mock('../../lib/supabase', () => ({ supabase: { from: db.from } }));
 
 import type { AlarmStep } from './alarmLogic';
-import { useCreateBoard, useDeleteBoard, useSaveEntryAlarms, useUnplacedPicks } from './alarms';
+import {
+  useCreateBoard,
+  useDeleteBoard,
+  useEditEntry,
+  useSaveEntryAlarms,
+  useUnplacedPicks,
+} from './alarms';
 
 function wrapper({ children }: { children: ReactNode }) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -155,5 +161,40 @@ describe('useUnplacedPicks', () => {
     const { result } = renderHook(() => useUnplacedPicks(null), { wrapper });
     await waitFor(() => expect(result.current.data).toBeDefined());
     expect(ops('alliance_event_times')[0]?.some(([method]) => method === 'eq')).toBe(false);
+  });
+});
+
+describe('useEditEntry', () => {
+  const draft = {
+    title: 'Black Gold roster selection',
+    startsAt: new Date(Date.now() + 3_600_000).toISOString(),
+    endsAt: new Date(Date.now() + 7_200_000).toISOString(),
+  };
+
+  test('a game entry gets its times locked and keeps its title', async () => {
+    const { result } = renderHook(() => useEditEntry(), { wrapper });
+    await act(() =>
+      result.current.mutateAsync({ ...draft, entry: { id: 'e1', source: 'captured' } }),
+    );
+    const [update] = ops('schedule_events')[0] ?? [];
+    expect(update?.[0]).toBe('update');
+    expect(update?.[1][0]).toEqual({
+      times_locked: true,
+      starts_at: draft.startsAt,
+      ends_at: draft.endsAt,
+    });
+  });
+
+  test('a manual entry changes its title and times, with no lock', async () => {
+    const { result } = renderHook(() => useEditEntry(), { wrapper });
+    await act(() =>
+      result.current.mutateAsync({ ...draft, entry: { id: 'e2', source: 'manual' } }),
+    );
+    const [update] = ops('schedule_events')[0] ?? [];
+    expect(update?.[1][0]).toEqual({
+      title: draft.title,
+      starts_at: draft.startsAt,
+      ends_at: draft.endsAt,
+    });
   });
 });

@@ -69,6 +69,7 @@ vi.mock('./alarms', () => {
     useSaveEntryAlarms: mutation('save'),
     useSendOnce: mutation('send'),
     useHideEntry: mutation('hide'),
+    useReleaseEntryTimes: mutation('release'),
     useSaveBoard: mutation('save-board'),
     useSavePingRole: mutation('ping'),
     useWatchGameEvent: mutation('watch'),
@@ -118,6 +119,7 @@ function siege(): AlarmEntry {
     source: 'captured',
     sourceKey: 'pick:siege:1',
     alarmMessage: 'Shields up before {start}',
+    timesLocked: false,
     steps: [step(720), step(60), step(5)],
   };
 }

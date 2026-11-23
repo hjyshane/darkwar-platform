@@ -81,7 +81,7 @@ export function useAlarmEntries() {
       const { data, error } = await supabase
         .from('schedule_events')
         .select(
-          'schedule_event_id, title, category, starts_at, ends_at, source, source_key, alarm_message, schedule_reminders(reminder_id, anchor, minutes_before, send_at, enabled)',
+          'schedule_event_id, title, category, starts_at, ends_at, source, source_key, alarm_message, times_locked, schedule_reminders(reminder_id, anchor, minutes_before, send_at, enabled)',
         )
         .eq('hidden', false)
         .lt('starts_at', new Date(now.getTime() + AHEAD_MS).toISOString())
@@ -97,6 +97,7 @@ export function useAlarmEntries() {
         source: row.source,
         sourceKey: row.source_key,
         alarmMessage: row.alarm_message,
+        timesLocked: row.times_locked,
         steps: orderSteps(row.schedule_reminders.map(toStep)),
       }));
     },
@@ -459,20 +460,35 @@ export function useAddEntry() {
   });
 }
 
-/** A manual entry's title and times. The game owns a captured entry's times
- *  (its next reading puts them back): refused here, and again in the WHERE. */
+/** An entry's title and times. A manual entry is simply changed. A game entry
+ *  keeps its title and gets its times LOCKED (0344): without the lock the game's
+ *  next reading would put them back within five minutes. */
 export function useEditEntry() {
   return useAlarmMutation(
     async (draft: EntryTimesDraft & { entry: Pick<AlarmEntry, 'id' | 'source'> }) => {
-      if (draft.entry.source !== 'manual') {
-        throw new Error('Only a manual entry can be edited; the game owns the others.');
-      }
+      const manual = draft.entry.source === 'manual';
+      const title = checkEntry(draft);
       const { error } = await supabase
         .from('schedule_events')
-        .update({ title: checkEntry(draft), starts_at: draft.startsAt, ends_at: draft.endsAt })
-        .eq('schedule_event_id', draft.entry.id)
-        .eq('source', 'manual');
+        .update({
+          ...(manual ? { title } : { times_locked: true }),
+          starts_at: draft.startsAt,
+          ends_at: draft.endsAt,
+        })
+        .eq('schedule_event_id', draft.entry.id);
       throwIf(error);
     },
   );
+}
+
+/** Hand a game entry's times back to the game: its next reading (within five
+ *  minutes) restores them. */
+export function useReleaseEntryTimes() {
+  return useAlarmMutation(async (entry: Pick<AlarmEntry, 'id'>) => {
+    const { error } = await supabase
+      .from('schedule_events')
+      .update({ times_locked: false })
+      .eq('schedule_event_id', entry.id);
+    throwIf(error);
+  });
 }

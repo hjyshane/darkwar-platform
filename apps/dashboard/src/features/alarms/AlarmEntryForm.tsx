@@ -13,7 +13,8 @@ import { useAddEntry, useEditEntry } from './alarms';
  * moving the entry to another board later would leave the old board's steps.
  *
  * The fields are wall clocks in the reader's zone; the database stores the
- * instant. A captured entry never reaches this form: the game owns its times.
+ * instant. A captured entry gets its times locked on save (0344), so the game
+ * stops putting them back; its title stays the game's.
  */
 
 export interface AlarmEntryFormProps {
@@ -62,6 +63,7 @@ export function AlarmEntryForm({ boards, zone, entry, onDone }: AlarmEntryFormPr
         <div className="field">
           <label htmlFor={`${formId}-title`}>Title</label>
           <input
+            disabled={entry !== undefined && entry.source !== 'manual'}
             id={`${formId}-title`}
             maxLength={120}
             onChange={(e) => setTitle(e.target.value)}
@@ -102,6 +104,9 @@ export function AlarmEntryForm({ boards, zone, entry, onDone }: AlarmEntryFormPr
       </div>
       <p className="subtle">
         Times are in the zone picked above.
+        {entry !== undefined &&
+          entry.source !== 'manual' &&
+          ' Changing a game entry’s times keeps them: the game stops moving this entry until you hand it back.'}
         {entry === undefined && ' The entry gets its board’s alarms when it is saved.'}
       </p>
       {problem !== null && <p className="error">{problem}</p>}
