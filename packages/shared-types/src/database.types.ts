@@ -8127,6 +8127,7 @@ export type Database = {
           source: string
           source_key: string | null
           starts_at: string
+          times_locked: boolean
           title: string
           updated_at: string
         }
@@ -8144,6 +8145,7 @@ export type Database = {
           source?: string
           source_key?: string | null
           starts_at: string
+          times_locked?: boolean
           title: string
           updated_at?: string
         }
@@ -8161,6 +8163,7 @@ export type Database = {
           source?: string
           source_key?: string | null
           starts_at?: string
+          times_locked?: boolean
           title?: string
           updated_at?: string
         }

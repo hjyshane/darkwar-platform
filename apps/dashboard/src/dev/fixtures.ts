@@ -630,6 +630,7 @@ const ALARM_ENTRIES: AlarmEntry[] = [
     source: 'captured',
     sourceKey: 'cal:80002:signup:1',
     alarmMessage: null,
+    timesLocked: false,
     steps: [
       alarmStep('start', 0),
       alarmStep('end', 720),
@@ -648,6 +649,7 @@ const ALARM_ENTRIES: AlarmEntry[] = [
     source: 'captured',
     sourceKey: 'pick:zombie_siege:1',
     alarmMessage: 'Shields up before {start} — it starts {in}.',
+    timesLocked: false,
     steps: [
       alarmStep('start', 720),
       alarmStep('start', 60),
@@ -665,6 +667,7 @@ const ALARM_ENTRIES: AlarmEntry[] = [
     source: 'manual',
     sourceKey: null,
     alarmMessage: null,
+    timesLocked: false,
     steps: [alarmStep('start', 720), alarmStep('start', 60), alarmStep('start', 5)],
   },
   {
@@ -676,6 +679,7 @@ const ALARM_ENTRIES: AlarmEntry[] = [
     source: 'captured',
     sourceKey: 'cal:111001:main:1',
     alarmMessage: null,
+    timesLocked: false,
     steps: [alarmStep('start', 720), alarmStep('start', 60), alarmStep('start', 5)],
   },
 ];

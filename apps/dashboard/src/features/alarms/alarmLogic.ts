@@ -50,6 +50,8 @@ export interface AlarmEntry extends EntryTimes {
   source: string;
   sourceKey: string | null;
   alarmMessage: string | null;
+  /** An officer set a game entry's times by hand; the game's readings leave them (0344). */
+  timesLocked: boolean;
   steps: AlarmStep[];
 }
 

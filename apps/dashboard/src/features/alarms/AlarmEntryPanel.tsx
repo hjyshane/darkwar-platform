@@ -17,7 +17,13 @@ import {
   silenceReason,
   stepKey,
 } from './alarmLogic';
-import { useHideEntry, useReminderRouting, useSaveEntryAlarms, useSendOnce } from './alarms';
+import {
+  useHideEntry,
+  useReleaseEntryTimes,
+  useReminderRouting,
+  useSaveEntryAlarms,
+  useSendOnce,
+} from './alarms';
 
 /** One entry's alarms, for an officer (spec §5, §8).
  *
@@ -67,11 +73,12 @@ export function AlarmEntryPanel({
   const save = useSaveEntryAlarms();
   const send = useSendOnce();
   const hide = useHideEntry();
+  const release = useReleaseEntryTimes();
 
   const text = message ?? entry.alarmMessage ?? '';
   const desired = steps ?? entry.steps;
   const dirty = message !== null || steps !== null;
-  const busy = save.isPending || send.isPending || hide.isPending;
+  const busy = save.isPending || send.isPending || hide.isPending || release.isPending;
   const manual = entry.source === 'manual';
   // Judged only once both answers are in: a channel list still loading is not
   // a channel switched off.
@@ -223,12 +230,21 @@ export function AlarmEntryPanel({
       {problem !== null && <p className="error">{problem}</p>}
 
       <div className="alarm-actions">
-        {manual ? (
-          <button className="linklike" onClick={() => setEditing(!editing)} type="button">
-            {editing ? 'Stop editing' : 'Edit title and times'}
-          </button>
-        ) : (
-          <span className="subtle">The game sets this entry's times.</span>
+        <button className="linklike" onClick={() => setEditing(!editing)} type="button">
+          {editing ? 'Stop editing' : manual ? 'Edit title and times' : 'Edit times'}
+        </button>
+        {!manual && entry.timesLocked && (
+          <>
+            <span className="subtle">Times set by hand.</span>
+            <button
+              className="linklike"
+              disabled={busy}
+              onClick={() => run(async () => release.mutateAsync(entry))}
+              type="button"
+            >
+              Use the game's times again
+            </button>
+          </>
         )}
         {confirming ? (
           <>
@@ -255,7 +271,7 @@ export function AlarmEntryPanel({
         )}
       </div>
 
-      {manual && editing && (
+      {editing && (
         <AlarmEntryForm
           boards={boards}
           entry={entry}

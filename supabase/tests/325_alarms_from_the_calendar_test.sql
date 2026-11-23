@@ -4,7 +4,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(11);
+select plan(13);
 
 -- ---------------------------------------------------------------- set-up
 
@@ -38,10 +38,10 @@ returns void language sql as $$
           '00000000-0000-4000-8000-000000325c01', 580, 580, p_events)
 $$;
 
--- Black Gold: sign-up +1d..stop, roster stop..+5d, battle ending +6d.
+-- Black Gold: time selection start..+1d, roster +1d..stop, battle ending +6d.
 create function pg_temp.bg(p_stop_signup timestamptz) returns jsonb language sql as $$
   select jsonb_build_object('id', '80002',
-    'startTime', pg_temp.ms(pg_temp.t0() + interval '1 day'),
+    'startTime', pg_temp.ms(pg_temp.t0()),
     'endTime', pg_temp.ms(pg_temp.t0() + interval '8 days'),
     'startSignUpTime', pg_temp.ms(pg_temp.t0() + interval '1 day'),
     'stopSignUpTime', pg_temp.ms(p_stop_signup),
@@ -70,12 +70,12 @@ select pg_temp.snap('one', now() + interval '1 hour',
 select is(internal.sync_calendar_alarms(), 6, 'three boards × two own alliances');
 
 select is(pg_temp.times('game_black_gold_signup'),
-  pg_temp.ms(pg_temp.t0() + interval '1 day') || '→' || pg_temp.ms(pg_temp.t0() + interval '3 days'),
-  'sign-up window');
+  pg_temp.ms(pg_temp.t0()) || '→' || pg_temp.ms(pg_temp.t0() + interval '1 day'),
+  'time selection: the week''s start to the roster window');
 
 select is(pg_temp.times('game_black_gold_roster'),
-  pg_temp.ms(pg_temp.t0() + interval '3 days') || '→' || pg_temp.ms(pg_temp.t0() + interval '5 days'),
-  'roster window');
+  pg_temp.ms(pg_temp.t0() + interval '1 day') || '→' || pg_temp.ms(pg_temp.t0() + interval '3 days'),
+  'roster selection: start of sign-up to its stop');
 
 select is(internal.sync_calendar_alarms(), 0, 're-reading writes nothing');
 
@@ -91,7 +91,7 @@ select is((select case when pg_temp.ms(ends_at) = pg_temp.ms(pg_temp.t0() + inte
                        then 'moved' else 'stale' end
              from public.schedule_events
             where alliance_id = '00000000-0000-4000-8000-0000000325a1'
-              and category = 'game_black_gold_signup'),
+              and category = 'game_black_gold_roster'),
   'moved', 'a newer reading moves the entry in place');
 
 select is((select alarm_message from public.schedule_events
@@ -134,6 +134,29 @@ select is((select hidden from public.schedule_events
 select is((select count(*)::int from public.schedule_events
             where alliance_id = '00000000-0000-4000-8000-0000000325a3'),
   0, 'other alliances get nothing');
+
+-- A time an officer set by hand is left alone by the next reading, and comes
+-- back once the lock is cleared.
+update public.schedule_events
+   set starts_at = starts_at + interval '1 hour', ends_at = ends_at + interval '1 hour',
+       times_locked = true
+ where alliance_id = '00000000-0000-4000-8000-0000000325a2'
+   and category = 'game_black_gold_roster';
+select pg_temp.snap('five-b', now() + interval '5 hours 30 minutes',
+  jsonb_build_array(pg_temp.clash(), pg_temp.bg(pg_temp.t0() + interval '3 days 18 hours')));
+select internal.sync_calendar_alarms();
+select is((select pg_temp.ms(ends_at) from public.schedule_events
+            where alliance_id = '00000000-0000-4000-8000-0000000325a2'
+              and category = 'game_black_gold_roster'),
+  pg_temp.ms(pg_temp.t0() + interval '3 days 13 hours'), 'a locked entry keeps the officer''s times');
+update public.schedule_events set times_locked = false
+ where alliance_id = '00000000-0000-4000-8000-0000000325a2'
+   and category = 'game_black_gold_roster';
+select internal.sync_calendar_alarms();
+select is((select pg_temp.ms(ends_at) from public.schedule_events
+            where alliance_id = '00000000-0000-4000-8000-0000000325a2'
+              and category = 'game_black_gold_roster'),
+  pg_temp.ms(pg_temp.t0() + interval '3 days 18 hours'), 'unlocked, the game''s reading returns');
 
 -- A malformed time is skipped, not fatal.
 select pg_temp.snap('six', now() + interval '6 hours',
