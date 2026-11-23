@@ -8774,3 +8774,21 @@ button.server-link {
 .saved-plan-actions {
   align-items: center;
 }
+
+/* Settings > Operations > Server clash data (0345) */
+.server-clash-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 0.75rem 0 1rem;
+}
+
+.server-clash-controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.server-clash-table td.lead {
+  font-weight: 600;
+}

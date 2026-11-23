@@ -12076,6 +12076,10 @@ export type Database = {
           players: number
         }[]
       }
+      server_clash_compare: {
+        Args: { p_days?: number; p_server_a: number; p_server_b: number }
+        Returns: Json
+      }
       server_migration_flow: {
         Args: { p_server: number; p_since?: string }
         Returns: {
