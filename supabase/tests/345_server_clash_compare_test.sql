@@ -1,18 +1,20 @@
 -- 0345: server_clash_compare - two servers through their top 3 alliances and the
--- members who moved. An admin reads it; an officer, a member, community and anon
+-- members seen on the map; who moved is a separate figure, and who was not seen
+-- (or has no power reading) is counted as needing a scan. An admin reads it; an officer, a member, community and anon
 -- are refused (raised, not an empty document that would read as two dead servers).
 --
 -- Servers 580 and 584. 580: alliance AA (strong), members
 --   p1  power 100 -> 150 two days apart                      active (grew)
---   p2  power 200 -> 200                                      inactive
---   p3  power 300 -> 320 ten days ago                         active only with a 30-day window
+--   p2  power 200 -> 200                                      seen, did not move
+--   p3  power 300 -> 320 ten days ago                         counted (seen), moved only in a 30-day window
+--   alliance AA says 30 members: 27 were never seen
 -- 584: alliance BB, members
 --   q1  no power reading, base seen at two places             active (moved)
 --   q2  no power reading, a truck of theirs seen              active (truck)
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(13);
+select plan(14);
 
 insert into auth.users (id, instance_id, aud, role, email) values
   ('00000000-0000-4000-8000-000003450101', '00000000-0000-0000-0000-000000000000',
@@ -124,8 +126,11 @@ select is((select (e ->> 'members_seen')::int from doc7, jsonb_array_elements(d 
             where (e ->> 'server_id')::int = 580), 3,
   'though all three members are seen on the map');
 select is((select (e ->> 'total_power')::bigint from doc7, jsonb_array_elements(d -> 'servers') e
-            where (e ->> 'server_id')::int = 580), 150::bigint,
-  'the power counted is the active members, latest reading');
+            where (e ->> 'server_id')::int = 580), 670::bigint,
+  'power counts everyone seen with a reading, newest each, even one older than the window');
+select is((select (e ->> 'unseen_members')::int from doc7, jsonb_array_elements(d -> 'servers') e
+            where (e ->> 'server_id')::int = 580), 27,
+  'the alliance''s other 27 members were never seen: they need a scan');
 select is((select (e ->> 'active_players')::int from doc7, jsonb_array_elements(d -> 'servers') e
             where (e ->> 'server_id')::int = 584), 2,
   'on 584 a moved base and a truck both count');
@@ -134,14 +139,14 @@ select is((select (e ->> 'no_power_reading')::int from doc7, jsonb_array_element
   'and both are said to have no power reading');
 select is((select jsonb_array_length(d -> 'alliances') from doc7), 2,
   'one top alliance per server in this fixture');
-select is((select count(*)::int from doc7, jsonb_array_elements(d -> 'players') e
-            where e ->> 'name' = 'p2'), 0,
-  'a player who did not move is not listed');
+select is((select (e ->> 'moving')::boolean from doc7, jsonb_array_elements(d -> 'players') e
+            where e ->> 'name' = 'p2'), false,
+  'a player seen but not moving is listed, as not moving');
 select is((select (e ->> 'active_players')::int from doc30, jsonb_array_elements(d -> 'servers') e
             where (e ->> 'server_id')::int = 580), 2,
   'a 30-day window brings in the one who grew ten days ago');
 
--- 10-12. Everybody else is refused.
+-- 11-13. Everybody else is refused.
 select pg_temp.act_as('00000000-0000-4000-8000-000003450102');
 select throws_ok($$ select public.server_clash_compare(580, 584) $$, '42501', null,
   'an officer is refused');
@@ -153,7 +158,7 @@ select throws_ok($$ select public.server_clash_compare(580, 584) $$, '42501', nu
   'community is refused');
 reset role;
 
--- 13. Anon has no execute grant.
+-- 14. Anon has no execute grant.
 set local role anon;
 select throws_ok($$ select public.server_clash_compare(580, 584) $$, '42501', null,
   'anon cannot call it');

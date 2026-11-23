@@ -18,7 +18,13 @@ export interface ServerSide {
   server_id: number;
   alliances_on_board: number;
   members_seen: number;
+  /** The top alliances' own member counts, summed. */
+  members_official: number;
+  /** Official members the map never showed: they need a scan. */
+  unseen_members: number;
   active_players: number;
+  /** Seen members that have a power reading. */
+  power_known: number;
   total_power: number;
   median_power: number | null;
   top_power: number | null;
@@ -37,6 +43,7 @@ export interface ClashAlliance {
   member_count: number | null;
   members_seen: number;
   active_players: number;
+  needs_scan: number;
   total_power: number | null;
   top_power: number | null;
 }
@@ -53,6 +60,7 @@ export interface ClashPlayer {
   moved: boolean;
   shield_changed: boolean;
   trucked: boolean;
+  moving: boolean;
 }
 
 export interface ServerClashData {
@@ -128,7 +136,10 @@ export function sideOf(data: ServerClashData, server: number): ServerSide {
       server_id: server,
       alliances_on_board: 0,
       members_seen: 0,
+      members_official: 0,
+      unseen_members: 0,
       active_players: 0,
+      power_known: 0,
       total_power: 0,
       median_power: null,
       top_power: null,
@@ -140,15 +151,27 @@ export function sideOf(data: ServerClashData, server: number): ServerSide {
   );
 }
 
-/** One line on what the opponent's figures are likely to be missing. The
- * comparison is only as good as how much of each server the collector saw, and
- * the screen says so rather than leaving a thin side to read as a weak one. */
+/** What needs another scan on one side: members the map never showed, and
+ * members seen with no power reading. Together they are the people missing
+ * from that side's totals. */
+export function scanNeeded(side: ServerSide): { unseen: number; noPower: number; total: number } {
+  return {
+    unseen: side.unseen_members,
+    noPower: side.no_power_reading,
+    total: side.unseen_members + side.no_power_reading,
+  };
+}
+
+/** One line on what the opponent's figures are likely to be missing. A thin
+ * side is thin because it was scanned less, not because the server is weak, and
+ * the screen says so rather than leaving it to read as weakness. */
 export function coverageWarning(ours: ServerSide, theirs: ServerSide): string | null {
   if (theirs.alliances_on_board < 3 && theirs.alliances_on_board < ours.alliances_on_board) {
     return `Only ${theirs.alliances_on_board} of ${theirs.server_id}'s alliances reached the alliance board in this window, so its side is thinner than the server is.`;
   }
-  if (theirs.active_players > 0 && theirs.no_power_reading / theirs.active_players > 0.5) {
-    return `More than half of ${theirs.server_id}'s moving players were never on the power board, so their power is missing from its total.`;
+  const missing = scanNeeded(theirs);
+  if (missing.total > 0 && missing.total >= theirs.members_seen) {
+    return `${missing.total} of ${theirs.server_id}'s people still need a scan (${missing.unseen} never seen, ${missing.noPower} seen with no power reading): its totals are a floor, not the server.`;
   }
   return null;
 }

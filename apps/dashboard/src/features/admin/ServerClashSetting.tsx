@@ -49,15 +49,15 @@ function metricsFor(ours: ServerSide, theirs: ServerSide): Metric[] {
       format: whole,
     },
     {
-      label: 'Moving players',
-      note: 'power, kills or HQ up, or the base or a truck moved',
-      mine: ours.active_players,
-      theirs: theirs.active_players,
+      label: 'People seen',
+      note: 'on the map at least once, in those alliances',
+      mine: ours.members_seen,
+      theirs: theirs.members_seen,
       format: whole,
     },
     {
       label: 'Their power, together',
-      note: 'latest reading of the moving players',
+      note: 'newest reading of everyone with one',
       mine: ours.total_power,
       theirs: theirs.total_power,
       format: big,
@@ -73,6 +73,13 @@ function metricsFor(ours: ServerSide, theirs: ServerSide): Metric[] {
       mine: ours.top_power,
       theirs: theirs.top_power,
       format: big,
+    },
+    {
+      label: 'Moving',
+      note: 'power, kills or HQ up, or the base or a truck moved',
+      mine: ours.active_players,
+      theirs: theirs.active_players,
+      format: whole,
     },
     {
       label: 'Power gained in the window',
@@ -95,8 +102,16 @@ function metricsFor(ours: ServerSide, theirs: ServerSide): Metric[] {
       format: whole,
     },
     {
-      label: 'Power not known',
-      note: 'moving, but never on the power board',
+      label: 'Never seen — scan needed',
+      note: 'the alliances’ own member count minus those seen',
+      mine: ours.unseen_members,
+      theirs: theirs.unseen_members,
+      format: whole,
+      neutral: true,
+    },
+    {
+      label: 'Seen, no power reading — scan needed',
+      note: 'never on the power board',
       mine: ours.no_power_reading,
       theirs: theirs.no_power_reading,
       format: whole,
@@ -138,9 +153,10 @@ export function ServerClashSetting() {
   return (
     <div className="server-clash">
       <p className="note">
-        Each server is read through its top 3 alliances (by the alliance board) and the members of
-        those who showed movement in the last {days} days. It sees what the collector sees: the
-        boards and the map, not every player on a server.
+        Each server is read through its top 3 alliances (by the alliance board). Anyone seen on the
+        map in the last {Math.max(days, 14)} days counts, even once; who moved in the last {days}{' '}
+        days is shown separately. People not seen, or seen with no power reading, are listed as
+        needing a scan: the totals are a floor until they are scanned.
       </p>
 
       <div className="server-clash-controls">
@@ -210,7 +226,7 @@ function Comparison({
     return (
       <p className="empty">
         No alliance of either server reached the alliance board in the last {data.days} days, or
-        none of their bases were seen on the map naming an alliance. Nothing to compare yet.
+        none of their bases were seen on the map naming an alliance. Both sides need a scan.
       </p>
     );
   }
@@ -261,7 +277,7 @@ function Comparison({
 
       {[ours, opponent].map((server) => (
         <section key={server}>
-          <h4>Moving players on {server}</h4>
+          <h4>People seen on {server}</h4>
           <PlayerTable rows={data.players.filter((row) => row.server_id === server)} />
         </section>
       ))}
@@ -292,6 +308,9 @@ function AllianceTable({ rows }: { rows: ClashAlliance[] }) {
             <th scope="col" className="num">
               Moving
             </th>
+            <th scope="col" className="num">
+              Needs a scan
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -306,6 +325,7 @@ function AllianceTable({ rows }: { rows: ClashAlliance[] }) {
               <td className="num">{whole(row.member_count)}</td>
               <td className="num">{whole(row.members_seen)}</td>
               <td className="num">{whole(row.active_players)}</td>
+              <td className="num">{whole(row.needs_scan)}</td>
             </tr>
           ))}
         </tbody>
@@ -322,12 +342,13 @@ function movement(row: ClashPlayer): string {
   if (row.moved) parts.push('moved base');
   if (row.shield_changed) parts.push('shield');
   if (row.trucked) parts.push('truck');
-  return parts.join(' · ');
+  if (parts.length > 0) return parts.join(' · ');
+  return row.power === null ? 'scan needed: no power reading' : 'seen, no movement';
 }
 
 function PlayerTable({ rows }: { rows: ClashPlayer[] }) {
   if (rows.length === 0) {
-    return <p className="empty">Nobody moved.</p>;
+    return <p className="empty">Nobody seen.</p>;
   }
   const shown = rows.slice(0, PLAYERS_SHOWN);
   return (

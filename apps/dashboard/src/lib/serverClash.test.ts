@@ -4,6 +4,7 @@ import {
   coverageWarning,
   leader,
   parseClash,
+  scanNeeded,
   shareOfPair,
   sideOf,
 } from './serverClash';
@@ -12,7 +13,10 @@ const side = (over: Partial<ServerSide>): ServerSide => ({
   server_id: 588,
   alliances_on_board: 3,
   members_seen: 10,
+  members_official: 30,
+  unseen_members: 0,
   active_players: 6,
+  power_known: 10,
   total_power: 600,
   median_power: 100,
   top_power: 200,
@@ -77,12 +81,28 @@ describe('coverageWarning', () => {
     expect(text).toContain('Only 1 of 588');
   });
 
-  it('says so when most moving players have no power reading', () => {
-    const text = coverageWarning(side({ server_id: 580 }), side({ no_power_reading: 5 }));
-    expect(text).toContain('More than half');
+  it('says so when as many people need a scan as were seen', () => {
+    const text = coverageWarning(
+      side({ server_id: 580 }),
+      side({ members_seen: 6, unseen_members: 20, no_power_reading: 2 }),
+    );
+    expect(text).toContain('22 of 588');
+    expect(text).toContain('20 never seen, 2 seen with no power reading');
   });
 
-  it('stays quiet when both sides are as seen as each other', () => {
-    expect(coverageWarning(side({ server_id: 580 }), side({}))).toBeNull();
+  it('stays quiet when few are missing next to those seen', () => {
+    expect(
+      coverageWarning(side({ server_id: 580 }), side({ unseen_members: 2, no_power_reading: 1 })),
+    ).toBeNull();
+  });
+});
+
+describe('scanNeeded', () => {
+  it('adds the never-seen to the seen-without-power', () => {
+    expect(scanNeeded(side({ unseen_members: 4, no_power_reading: 3 }))).toEqual({
+      unseen: 4,
+      noPower: 3,
+      total: 7,
+    });
   });
 });

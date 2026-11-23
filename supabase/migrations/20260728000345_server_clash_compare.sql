@@ -13,18 +13,24 @@
 --     Not `alliance_roster_latest` - rosters exist for our alliances only -
 --     and not `players.current_alliance_id`, which is a last-known value that
 --     nothing clears;
---   * of those, the ones who MOVED in the last `p_days` days: power up, kills
---     up, HQ level up (player boards or map), the base changed place or
---     shield, or a truck of theirs was seen. Power that only fell is not
---     movement - losing troops is not playing.
+--   * every member SEEN in the last 14 days (or `p_days` if longer) counts, even
+--     once: a sighting is information, power comes from the newest
+--     `server.rank` reading in that span. Who MOVED within `p_days` is a
+--     separate figure: power up, kills up, HQ level up (player boards or map),
+--     the base changed place or shield, or a truck of theirs was seen. Power
+--     that only fell is not movement - losing troops is not playing.
+--   * who is NOT known is said, not dropped: an alliance's official member
+--     count minus the members seen is `needs_scan` (people the map never
+--     showed), and a member seen with no power reading is `no_power_reading`.
+--     Both need another scan.
 --
 -- It returns ONE jsonb document, not rows, so PostgREST's 1,000-row cap cannot
 -- clip the member list (the trap 0144 and 0147 are about). Members are one
 -- entry per person.
 --
 -- WHAT THIS CANNOT SAY, and the screen says it too: a player with no
--- `server.rank` reading has no power here (`no_power_reading` counts them), so
--- a server whose people rarely reach the top-150 board looks weaker than it is.
+-- `server.rank` reading has no power here, so a server whose people rarely reach
+-- the top-150 board looks weaker than it is until they are scanned.
 -- The collector sits on 580; 588 is seen through the group-wide boards and the
 -- map sweeps only.
 --
@@ -54,7 +60,7 @@ begin
   end if;
 
   v_since := now() - make_interval(days => v_days);
-  v_members_since := now() - interval '14 days';
+  v_members_since := now() - make_interval(days => greatest(v_days, 14));
 
   return (
     with srv as (
@@ -90,13 +96,16 @@ begin
     pw as (
       select p.player_id,
              (array_agg(p.power order by p.captured_at asc)
-               filter (where p.source_command = 'server.rank' and p.power is not null))[1] as power_first,
+               filter (where p.source_command = 'server.rank' and p.power is not null
+                         and p.captured_at > v_since))[1] as power_first,
              (array_agg(p.power order by p.captured_at desc)
                filter (where p.source_command = 'server.rank' and p.power is not null))[1] as power_last,
-             max(p.kills) - min(p.kills) as kills_gain,
-             max(p.hq_level) - min(p.hq_level) as hq_gain
+             max(p.kills) filter (where p.captured_at > v_since)
+               - min(p.kills) filter (where p.captured_at > v_since) as kills_gain,
+             max(p.hq_level) filter (where p.captured_at > v_since)
+               - min(p.hq_level) filter (where p.captured_at > v_since) as hq_gain
       from public.player_snapshots p
-      where p.captured_at > v_since
+      where p.captured_at > v_members_since
         and p.player_id in (select player_id from mem)
       group by p.player_id
     ),
@@ -141,13 +150,14 @@ begin
       select f2.server_id,
              count(*) as members_seen,
              count(*) filter (where active) as active_players,
-             sum(power_last) filter (where active) as total_power,
-             percentile_cont(0.5) within group (order by power_last) filter (where active) as median_power,
-             max(power_last) filter (where active) as top_power,
-             sum(greatest(power_gain, 0)) filter (where active) as power_gained,
-             count(*) filter (where active and power_gain > 0) as growing,
-             count(*) filter (where active and (moved or shield_changed or trucked)) as map_active,
-             count(*) filter (where active and power_last is null) as no_power_reading
+             count(*) filter (where power_last is not null) as power_known,
+             sum(power_last) as total_power,
+             percentile_cont(0.5) within group (order by power_last) as median_power,
+             max(power_last) as top_power,
+             sum(greatest(power_gain, 0)) as power_gained,
+             count(*) filter (where power_gain > 0) as growing,
+             count(*) filter (where moved or shield_changed or trucked) as map_active,
+             count(*) filter (where power_last is null) as no_power_reading
       from f2
       group by f2.server_id
     ),
@@ -155,8 +165,9 @@ begin
       select t.server_id, t.rn, t.code, t.name, t.power, t.member_count,
              count(f2.player_id) as members_seen,
              count(f2.player_id) filter (where f2.active) as active_players,
-             sum(f2.power_last) filter (where f2.active) as total_power,
-             max(f2.power_last) filter (where f2.active) as top_power
+             greatest(coalesce(t.member_count, 0) - count(f2.player_id), 0) as needs_scan,
+             sum(f2.power_last) as total_power,
+             max(f2.power_last) as top_power
       from t3 t
       left join f2 on f2.server_id = t.server_id and f2.rn = t.rn
       group by t.server_id, t.rn, t.code, t.name, t.power, t.member_count
@@ -169,7 +180,10 @@ begin
                  'server_id', s.server_id,
                  'alliances_on_board', coalesce((select count(*) from t3 where t3.server_id = s.server_id), 0),
                  'members_seen', coalesce(v.members_seen, 0),
+                 'members_official', coalesce((select sum(a.member_count) from al a where a.server_id = s.server_id), 0),
+                 'unseen_members', coalesce((select sum(a.needs_scan) from al a where a.server_id = s.server_id), 0),
                  'active_players', coalesce(v.active_players, 0),
+                 'power_known', coalesce(v.power_known, 0),
                  'total_power', coalesce(v.total_power, 0),
                  'median_power', v.median_power,
                  'top_power', v.top_power,
@@ -195,9 +209,10 @@ begin
                  'hq_gain', p.hq_gain,
                  'moved', p.moved,
                  'shield_changed', p.shield_changed,
-                 'trucked', p.trucked
+                 'trucked', p.trucked,
+                 'moving', p.active
                ) order by p.server_id, p.power_last desc nulls last, p.game_uid)
-        from f2 p where p.active
+        from f2 p
       ), '[]'::jsonb)
     )
   );
@@ -208,7 +223,8 @@ revoke all on function public.server_clash_compare(int, int, int) from public, a
 grant execute on function public.server_clash_compare(int, int, int) to authenticated;
 
 comment on function public.server_clash_compare(int, int, int) is
-  'Two servers compared through their top 3 alliances and the members who moved in the last p_days (0345). '
-  'One jsonb document: servers, alliances, players. Members come from the map, power from the '
-  'server.rank board, so a player never on that board has no power here (no_power_reading). '
+  'Two servers compared through their top 3 alliances and the members seen on the map (0345). '
+  'One jsonb document: servers, alliances, players. Anyone seen once counts; who moved in the last '
+  'p_days is a separate figure. Members not seen at all (unseen_members) or seen with no server.rank '
+  'power (no_power_reading) are the ones that need another scan. '
   'Admins only: anyone else gets 42501.';
