@@ -42,6 +42,7 @@ import { RankReportSetting } from './RankReportSetting';
 import { RankTiersSetting } from './RankTiersSetting';
 import { SeasonBuildingAlertSetting } from './SeasonBuildingAlertSetting';
 import { SeasonsSetting } from './SeasonsSetting';
+import { ServerClashSetting } from './ServerClashSetting';
 import { TabVisibilitySetting } from './TabVisibilitySetting';
 import { TableLayoutSetting } from './TableLayoutSetting';
 import { settingsStrip } from './strip';
@@ -409,6 +410,13 @@ function OperationsGroup({ section }: { section: string }) {
         <section aria-labelledby="notifications-heading">
           <h2 id="notifications-heading">Discord notifications</h2>
           <NotificationsSetting />
+        </section>
+      )}
+
+      {section === 'server-clash' && (
+        <section aria-labelledby="server-clash-heading">
+          <h2 id="server-clash-heading">Server clash data</h2>
+          <ServerClashSetting />
         </section>
       )}
     </>

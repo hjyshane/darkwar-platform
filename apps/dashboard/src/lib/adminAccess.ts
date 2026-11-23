@@ -231,6 +231,13 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
   },
   // collector_heartbeats and refresh_jobs are officer-readable (0006); the panel is an
   // admin's, in Settings, since it is about the machines rather than the alliance.
+  // server_clash_compare (0345): admins only, the function raises for anyone else.
+  {
+    group: 'operations',
+    id: 'server-clash-heading',
+    heading: 'Server clash data',
+    requires: adminOnly,
+  },
   {
     group: 'operations',
     id: 'queue-heading',
