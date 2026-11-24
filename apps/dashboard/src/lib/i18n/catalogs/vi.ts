@@ -2312,6 +2312,9 @@ export const vi: Catalog = {
   '✦ Treasure spots': '✦ Điểm kho báu',
   '🛡 Shielded bases': '🛡 Căn cứ có khiên',
   '[attendance] Held': 'Diễn ra ngày',
+  'Your browser could not tell which language this is.':
+    'Trình duyệt của bạn không nhận ra đây là ngôn ngữ nào.',
+  'Press Translate again to download the language pack.': 'Nhấn Dịch lần nữa để tải gói ngôn ngữ.',
   'The translation did not come back. Try again in a moment.':
     'Bản dịch chưa trả về. Hãy thử lại sau giây lát.',
   'Show original': 'Xem bản gốc',

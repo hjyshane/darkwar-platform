@@ -2335,6 +2335,10 @@ export const de: Catalog = {
   '✦ Treasure spots': '✦ Schatzorte',
   '🛡 Shielded bases': '🛡 Basen mit Schild',
   '[attendance] Held': 'Stattgefunden am',
+  'Your browser could not tell which language this is.':
+    'Ihr Browser konnte die Sprache dieses Textes nicht erkennen.',
+  'Press Translate again to download the language pack.':
+    'Tippen Sie erneut auf Übersetzen, um das Sprachpaket herunterzuladen.',
   'The translation did not come back. Try again in a moment.':
     'Die Übersetzung kam nicht zurück. Versuch es gleich noch einmal.',
   'Show original': 'Original anzeigen',

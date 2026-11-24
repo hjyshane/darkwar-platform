@@ -2299,6 +2299,10 @@ export const ko: Catalog = {
   '✦ Treasure spots': '✦ 보물 위치',
   '🛡 Shielded bases': '🛡 보호막 있는 기지',
   '[attendance] Held': '개최일',
+  'Your browser could not tell which language this is.':
+    '브라우저가 이 글의 언어를 알아내지 못했습니다.',
+  'Press Translate again to download the language pack.':
+    '언어 팩을 받으려면 번역을 한 번 더 누르세요.',
   'The translation did not come back. Try again in a moment.':
     '번역 결과가 오지 않았어요. 잠시 후 다시 시도해 주세요.',
   'Show original': '원문 보기',

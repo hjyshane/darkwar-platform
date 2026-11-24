@@ -2324,6 +2324,10 @@ export const tr: Catalog = {
   '✦ Treasure spots': '✦ Hazine noktaları',
   '🛡 Shielded bases': '🛡 Kalkanlı üsler',
   '[attendance] Held': 'Yapıldığı gün',
+  'Your browser could not tell which language this is.':
+    'Tarayıcınız bunun hangi dilde olduğunu anlayamadı.',
+  'Press Translate again to download the language pack.':
+    'Dil paketini indirmek için Çevir’e yeniden basın.',
   'The translation did not come back. Try again in a moment.':
     'Çeviri gelmedi. Birazdan tekrar dene.',
   'Show original': 'Orijinali göster',

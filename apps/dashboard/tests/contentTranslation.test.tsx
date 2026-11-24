@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   TranslateFailure,
   browserCanTranslate,
+  createBounded,
   splitLines,
   translateLines,
   useContentTranslation,
@@ -16,14 +17,21 @@ import {
 
 /** A browser translator that upper-cases, and a detector that says Korean. */
 function installBrowserApis(
-  options: { detected?: string; availability?: string; detector?: string } = {},
+  options: {
+    detected?: string;
+    confidence?: number;
+    availability?: string;
+    detector?: string;
+  } = {},
 ) {
   const created: string[] = [];
   const scope = globalThis as Record<string, unknown>;
   scope.LanguageDetector = {
     availability: async () => options.detector ?? 'available',
     create: async () => ({
-      detect: async () => [{ detectedLanguage: options.detected ?? 'ko', confidence: 0.9 }],
+      detect: async () => [
+        { detectedLanguage: options.detected ?? 'ko', confidence: options.confidence ?? 0.9 },
+      ],
     }),
   };
   scope.Translator = {
@@ -120,6 +128,36 @@ describe('useContentTranslation', () => {
     }
   });
 
+  it('says it cannot tell the language rather than guessing English (codex review on #679)', async () => {
+    const created = installBrowserApis({ detected: 'de', confidence: 0.3 });
+    const { result } = renderHook(() => useContentTranslation('comment:c9', { body: 'ja' }), {
+      wrapper,
+    });
+    act(() => result.current.mutate());
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect((result.current.error as TranslateFailure).reason).toBe('unknown');
+    expect(created).toEqual([]);
+  });
+
+  it('asks for another press when a pack must download and the click has expired (codex review on #679)', async () => {
+    const created = installBrowserApis({ detected: 'fr', availability: 'downloadable' });
+    Object.defineProperty(navigator, 'userActivation', {
+      configurable: true,
+      value: { isActive: false },
+    });
+    try {
+      const { result } = renderHook(() => useContentTranslation('comment:c10', { body: 'Salut' }), {
+        wrapper,
+      });
+      act(() => result.current.mutate());
+      await waitFor(() => expect(result.current.isError).toBe(true));
+      expect((result.current.error as TranslateFailure).reason).toBe('again');
+      expect(created).toEqual([]);
+    } finally {
+      Reflect.deleteProperty(navigator, 'userActivation');
+    }
+  });
+
   it('reports a language pair the browser cannot translate', async () => {
     installBrowserApis({ detected: 'vi', availability: 'unavailable' });
     const { result } = renderHook(() => useContentTranslation('comment:c9', { body: 'xin chào' }), {
@@ -149,5 +187,48 @@ describe('useContentTranslation', () => {
     // Another post opened in the same page.
     rerender({ key: 'comment:c2', body: '일요일' });
     await waitFor(() => expect(result.current.data).toBeUndefined());
+  });
+});
+
+describe('createBounded (codex review on #679)', () => {
+  it('fails a download that goes silent, but not one that keeps reporting progress', async () => {
+    vi.useFakeTimers();
+    try {
+      const silent = createBounded(
+        () => new Promise<never>(() => {}),
+        () => {},
+        1_000,
+      );
+      const failed = expect(silent).rejects.toBeInstanceOf(TranslateFailure);
+      await vi.advanceTimersByTimeAsync(1_001);
+      await failed;
+
+      let report: ((event: { loaded: number }) => void) | undefined;
+      let finish: ((value: string) => void) | undefined;
+      const seen: number[] = [];
+      const slow = createBounded<string>(
+        (monitor) => {
+          monitor({
+            addEventListener: (_type, listener) => {
+              report = listener;
+            },
+          });
+          return new Promise((resolve) => {
+            finish = resolve;
+          });
+        },
+        (loaded) => seen.push(loaded),
+        1_000,
+      );
+      for (const loaded of [0.25, 0.5, 0.75]) {
+        await vi.advanceTimersByTimeAsync(900);
+        report?.({ loaded });
+      }
+      finish?.('model');
+      expect(await slow).toBe('model');
+      expect(seen).toEqual([0.25, 0.5, 0.75]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

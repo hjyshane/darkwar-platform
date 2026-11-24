@@ -45,7 +45,7 @@ interface TranslatorApi {
 
 interface LanguageDetectorApi {
   availability(): Promise<string>;
-  create(): Promise<{
+  create(options?: { monitor?: (monitor: ProgressMonitor) => void }): Promise<{
     detect(text: string): Promise<Array<{ detectedLanguage: string; confidence: number }>>;
   }>;
 }
@@ -65,7 +65,11 @@ export function browserCanTranslate(): boolean {
   return apis() !== null;
 }
 
-export type TranslateFailureReason = 'unsupported' | 'pair' | 'failed';
+/** unsupported: no usable API here. pair: no model for these two languages.
+ * unknown: the text's language could not be told. again: a model must be
+ * downloaded and the browser wants a fresh click for that. failed: anything
+ * else, a stalled download included. */
+export type TranslateFailureReason = 'unsupported' | 'pair' | 'unknown' | 'again' | 'failed';
 
 export class TranslateFailure extends Error {
   constructor(readonly reason: TranslateFailureReason) {
@@ -114,12 +118,63 @@ export function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   ]);
 }
 
+/** How long a model download may go without progress before it counts as
+ * stalled. A download can take minutes on a slow line, so this bounds silence,
+ * not the whole download. */
+export const STALL_MS = 60_000;
+
+/** Make a model, failing when it goes `stallMs` without answering or reporting
+ * progress. Without this a stalled download leaves the button disabled for
+ * good, with no way to try again. */
+export function createBounded<T>(
+  create: (monitor: (monitor: ProgressMonitor) => void) => Promise<T>,
+  onProgress: (loaded: number) => void,
+  stallMs = STALL_MS,
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    let timer: ReturnType<typeof setTimeout>;
+    const arm = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => reject(new TranslateFailure('failed')), stallMs);
+    };
+    arm();
+    create((monitor) =>
+      monitor.addEventListener('downloadprogress', (event) => {
+        arm();
+        onProgress(event.loaded);
+      }),
+    ).then(
+      (made) => {
+        clearTimeout(timer);
+        resolve(made);
+      },
+      (error: unknown) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
+/** Whether the click that started this is still "user activation". Creating a
+ * model that must be downloaded needs one, and awaiting the detector can use
+ * it up. A browser without the property is trusted to manage on its own. */
+function stillActivated(): boolean {
+  const activation = (globalThis.navigator as { userActivation?: { isActive: boolean } })
+    ?.userActivation;
+  return activation === undefined || activation.isActive;
+}
+
 /** Translators already made in this tab, by language pair: creating one can
  * mean a model download, and a reader translating a thread should pay it once. */
 const translators = new Map<string, Promise<BrowserTranslator>>();
 
-async function detect(api: LanguageDetectorApi, text: string): Promise<string | null> {
-  const detector = await api.create();
+async function detect(
+  api: LanguageDetectorApi,
+  text: string,
+  onProgress: (loaded: number) => void,
+): Promise<string | null> {
+  const detector = await createBounded((monitor) => api.create({ monitor }), onProgress);
   const [best] = await detector.detect(text);
   // Short or mixed text is guessed badly; below this the guess is not used.
   if (best === undefined || best.confidence < 0.5) return null;
@@ -144,22 +199,29 @@ export function useContentTranslation(key: string, fields: { title?: string; bod
           throw new TranslateFailure('unsupported');
         }
         const sample = `${fields.title ?? ''}\n${fields.body}`.trim();
-        const source = (await detect(api.LanguageDetector, sample)) ?? 'en';
+        // A low-confidence guess is not turned into "English": that would tell
+        // an English reader a short foreign comment is already theirs.
+        const source = await detect(api.LanguageDetector, sample, setProgress);
+        if (source === null) throw new TranslateFailure('unknown');
         if (source === language) return { sameLanguage: true };
         const pair = { sourceLanguage: source, targetLanguage: language };
-        if ((await withTimeout(api.Translator.availability(pair), 10_000)) === 'unavailable') {
-          throw new TranslateFailure('pair');
-        }
         const id = `${source}>${language}`;
         let made = translators.get(id);
         if (made === undefined) {
-          made = api.Translator.create({
-            ...pair,
-            monitor: (monitor) =>
-              monitor.addEventListener('downloadprogress', (event) => setProgress(event.loaded)),
-          });
+          const availability = await withTimeout(api.Translator.availability(pair), 10_000);
+          if (availability === 'unavailable') throw new TranslateFailure('pair');
+          // Downloading the pack needs the click to still count; waiting on the
+          // detector may have used it up. Ask for another press, which then
+          // finds the detector ready and goes straight here.
+          if (availability !== 'available' && !stillActivated()) {
+            throw new TranslateFailure('again');
+          }
+          made = createBounded(
+            (monitor) => api.Translator.create({ ...pair, monitor }),
+            setProgress,
+          );
           translators.set(id, made);
-          // A failed download is not kept: the next press tries again.
+          // A failed or stalled download is not kept: the next press tries again.
           made.catch(() => translators.delete(id));
         }
         const translator = await made;
@@ -248,7 +310,11 @@ export function TranslateControl({
               ? t(
                   "Your browser can't translate here. Use its own Translate page instead (Chrome and Edge on a computer can translate right here).",
                 )
-              : t('The translation did not come back. Try again in a moment.')}
+              : reason === 'unknown'
+                ? t('Your browser could not tell which language this is.')
+                : reason === 'again'
+                  ? t('Press Translate again to download the language pack.')
+                  : t('The translation did not come back. Try again in a moment.')}
         </span>
       )}
     </span>

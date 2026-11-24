@@ -2249,6 +2249,8 @@ export const zh: Catalog = {
   '✦ Treasure spots': '✦ 宝藏点',
   '🛡 Shielded bases': '🛡 有护盾的基地',
   '[attendance] Held': '举办日期',
+  'Your browser could not tell which language this is.': '你的浏览器无法判断这段文字的语言。',
+  'Press Translate again to download the language pack.': '再按一次“翻译”以下载语言包。',
   'The translation did not come back. Try again in a moment.': '翻译没有返回，请稍后再试。',
   'Show original': '查看原文',
   'Translating…': '翻译中…',

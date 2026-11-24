@@ -2351,6 +2351,10 @@ export const fr: Catalog = {
   '✦ Treasure spots': '✦ Emplacements de trésor',
   '🛡 Shielded bases': '🛡 Bases avec bouclier',
   '[attendance] Held': 'Tenu le',
+  'Your browser could not tell which language this is.':
+    "Votre navigateur n'a pas pu déterminer la langue de ce texte.",
+  'Press Translate again to download the language pack.':
+    'Appuyez de nouveau sur Traduire pour télécharger le pack de langue.',
   'The translation did not come back. Try again in a moment.':
     "La traduction n'est pas revenue. Réessayez dans un instant.",
   'Show original': "Voir l'original",

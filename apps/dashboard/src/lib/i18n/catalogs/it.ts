@@ -2348,6 +2348,10 @@ export const it: Catalog = {
   '✦ Treasure spots': '✦ Punti tesoro',
   '🛡 Shielded bases': '🛡 Basi con scudo',
   '[attendance] Held': 'Svolto il',
+  'Your browser could not tell which language this is.':
+    'Il tuo browser non è riuscito a capire in che lingua è questo testo.',
+  'Press Translate again to download the language pack.':
+    'Premi di nuovo Traduci per scaricare il pacchetto della lingua.',
   'The translation did not come back. Try again in a moment.':
     'La traduzione non è arrivata. Riprova tra poco.',
   'Show original': "Mostra l'originale",
