@@ -4,8 +4,8 @@
 // for 565-588, sync's ensure_servers() adds any stranger as untracked, and the
 // map coverage view (0148) reads the same flag. The pickers on the migration and
 // merchant-tester screens used a TypeScript constant instead, so growing the
-// group meant a code change and a release. Now it is one `update` — and, once
-// the settings registry lands, a switch in Settings.
+// group meant a code change and a release. Now it is a checkbox in
+// Settings › Shared › Site values (set_server_tracked, 0347).
 //
 // The constant stays as the fallback: what the pickers show while the query is
 // in flight, if it is refused, or if no server is marked at all.
@@ -38,9 +38,11 @@ async function fetchTrackedServers(): Promise<number[]> {
 
 /** The group's servers, for a picker. Never empty and never waits: the fallback
  * stands in until the database answers. */
+export const TRACKED_SERVERS_KEY = ['servers', 'tracked'] as const;
+
 export function useTrackedServers(): readonly number[] {
   const { data } = useQuery({
-    queryKey: ['servers', 'tracked'],
+    queryKey: TRACKED_SERVERS_KEY,
     queryFn: fetchTrackedServers,
     // The group changes a few times a year.
     staleTime: 60 * 60_000,

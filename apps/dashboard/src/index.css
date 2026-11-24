@@ -8787,3 +8787,66 @@ button.server-link {
 .server-clash-table td.lead {
   font-weight: 600;
 }
+
+/* Settings › Shared › Site values: one card per registry entry (2026-11-24). */
+.site-values {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.site-value-head {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: space-between;
+}
+
+.site-value-head h3 {
+  margin: 0;
+}
+
+.site-value-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.site-choices {
+  border: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  margin: 0;
+  padding: 0;
+}
+
+.site-servers label {
+  font-variant-numeric: tabular-nums;
+  min-width: 4.5rem;
+}
+
+.site-map table {
+  width: auto;
+}
+
+/* The search box above the Settings groups. */
+.settings-search {
+  margin: var(--space-2) 0;
+  max-width: 28rem;
+  position: relative;
+}
+
+.settings-search input {
+  width: 100%;
+}
+
+.settings-search-hits {
+  list-style: none;
+  margin: var(--space-1) 0 0;
+  padding: 0;
+}
+
+.settings-search-hits li {
+  padding: 0.2rem 0;
+}

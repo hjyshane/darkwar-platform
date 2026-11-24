@@ -16,6 +16,8 @@ import { Strip } from '../../components/Strip';
 import { Select } from '../../components/ui/Select';
 import { Tabs } from '../../components/ui/Tabs';
 import { GameIcon, useItemIcons } from '../../lib/gameIcons';
+import { PACK_CATEGORY_BY_TYPE } from '../../lib/settings/registry';
+import { useSiteSetting } from '../../lib/settings/useSiteSetting';
 import { type SortState, nextSort, sortRows } from '../../lib/tableControls';
 import { useSession } from '../../lib/useSession';
 import { PackRename } from './PackRename';
@@ -278,6 +280,7 @@ function PackRow({
   onToggleHidden: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const byType = useSiteSetting(PACK_CATEGORY_BY_TYPE);
   // Only an opened pack asks for its contents' icons.
   const icons = useItemIcons(
     [
@@ -299,8 +302,8 @@ function PackRow({
           >
             {open ? '▾' : '▸'} {pack.name}
           </button>
-          <span className="pack-category" title={packCategory(pack.pack_type).label}>
-            {packCategory(pack.pack_type).icon}
+          <span className="pack-category" title={packCategory(pack.pack_type, byType).label}>
+            {packCategory(pack.pack_type, byType).icon}
           </span>
           {pack.renamed && (
             <span className="muted" title={`Game name: ${pack.game_name}`}>
@@ -442,6 +445,7 @@ function PackRow({
 }
 
 function PacksTab({ now, mayEdit }: { now: Date; mayEdit: boolean }) {
+  const byType = useSiteSetting(PACK_CATEGORY_BY_TYPE);
   const packs = useQuery({ queryKey: ['shop-packs'], queryFn: fetchPacks, staleTime: STALE_TIME });
   const [filter, setFilter] = useState<PackFilter>('live');
   const [price, setPrice] = useState<string>('all');
@@ -487,20 +491,20 @@ function PacksTab({ now, mayEdit }: { now: Date; mayEdit: boolean }) {
   const categoryCounts = useMemo(() => {
     const counts = new Map<string, number>();
     for (const group of folded.rows) {
-      const key = packCategory(group.pack_type).key;
+      const key = packCategory(group.pack_type, byType).key;
       counts.set(key, (counts.get(key) ?? 0) + 1);
     }
     return counts;
-  }, [folded.rows]);
+  }, [folded.rows, byType]);
   const grouped = useMemo(
     () =>
       sortRows(
         category === 'all'
           ? folded.rows
-          : folded.rows.filter((group) => packCategory(group.pack_type).key === category),
+          : folded.rows.filter((group) => packCategory(group.pack_type, byType).key === category),
         sort,
       ),
-    [folded.rows, category, sort],
+    [folded.rows, category, sort, byType],
   );
   const hiddenHere = grouped.filter((pack) => hidden.has(pack.key)).length;
   const shown = showHidden ? grouped : grouped.filter((pack) => !hidden.has(pack.key));

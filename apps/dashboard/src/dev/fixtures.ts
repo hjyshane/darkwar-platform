@@ -4203,3 +4203,82 @@ FIXTURES.push(
     ],
   ],
 );
+
+// Settings › Shared › Site values and Operations › Change history (0347): one
+// value changed from its default, one left alone, the whole 565-588 group plus
+// a stranger, and a short history with one row of each kind an admin meets.
+FIXTURES.push(
+  [
+    ['app_settings', 'site'],
+    new Map([
+      [
+        'site.calendar_default_shown',
+        {
+          value: ['major', 'recurring', 'season', 'event', 'pass'],
+          updatedAt: ago(60 * 5),
+          updatedBy: '33333333-3333-4333-8333-333333333301',
+        },
+      ],
+    ]),
+  ],
+  [
+    ['servers', 'all-for-settings'],
+    [
+      ...Array.from({ length: 24 }, (_, i) => ({ server_id: 565 + i, is_tracked: true })),
+      { server_id: 629, is_tracked: false },
+    ],
+  ],
+  [['servers', 'tracked'], Array.from({ length: 24 }, (_, i) => 565 + i)],
+  [
+    ['settings-history', 'names'],
+    new Map([
+      ['33333333-3333-4333-8333-333333333301', 'you'],
+      ['33333333-3333-4333-8333-333333333302', 'Officer Kim'],
+    ]),
+  ],
+  [
+    ['settings-history', 'all'],
+    [
+      {
+        history_id: 4,
+        source: 'app_settings',
+        alliance_id: null,
+        item: 'site.calendar_default_shown',
+        old_value: null,
+        new_value: ['major', 'recurring', 'season', 'event', 'pass'],
+        changed_by: '33333333-3333-4333-8333-333333333301',
+        changed_at: ago(60 * 5),
+      },
+      {
+        history_id: 3,
+        source: 'tab_visibility',
+        alliance_id: null,
+        item: 'calendar:member',
+        old_value: null,
+        new_value: false,
+        changed_by: '33333333-3333-4333-8333-333333333302',
+        changed_at: ago(60 * 26),
+      },
+      {
+        history_id: 2,
+        source: 'servers',
+        alliance_id: null,
+        item: '629',
+        old_value: null,
+        new_value: false,
+        changed_by: null,
+        changed_at: ago(60 * 50),
+      },
+      {
+        history_id: 1,
+        source: 'role_permissions',
+        alliance_id: null,
+        item: 'officer:giftcodes.manage',
+        old_value: false,
+        new_value: true,
+        changed_by: '33333333-3333-4333-8333-333333333301',
+        changed_at: ago(60 * 24 * 3),
+      },
+    ],
+  ],
+);

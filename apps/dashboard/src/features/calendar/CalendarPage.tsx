@@ -15,6 +15,8 @@ import { useMemo, useState } from 'react';
 import { Strip } from '../../components/Strip';
 import { Select } from '../../components/ui/Select';
 import { Tabs } from '../../components/ui/Tabs';
+import { CALENDAR_DEFAULT_SHOWN } from '../../lib/settings/registry';
+import { useSiteSetting } from '../../lib/settings/useSiteSetting';
 import { useSession } from '../../lib/useSession';
 import { DayView } from './DayView';
 import { EventCard } from './EventCard';
@@ -26,7 +28,6 @@ import {
   CATEGORY_LABELS,
   type CalendarEvent,
   type Category,
-  DEFAULT_SHOWN,
   endWithSeason,
   fetchCalendar,
   inCategory,
@@ -62,7 +63,11 @@ export function CalendarPage() {
   const today = serverDay(now.toISOString());
   // The server day the week, day and month views are on.
   const [focus, setFocus] = useState(today);
-  const [shown, setShown] = useState<ReadonlySet<Category>>(DEFAULT_SHOWN);
+  // What an admin chose to show first (Settings › Shared › Site values), until
+  // the reader toggles a category; from then on, theirs.
+  const shownAtFirst = useSiteSetting(CALENDAR_DEFAULT_SHOWN);
+  const [picked, setPicked] = useState<ReadonlySet<Category> | null>(null);
+  const shown = useMemo(() => picked ?? new Set(shownAtFirst), [picked, shownAtFirst]);
   const [text, setText] = useState('');
   const [day, setDay] = useState('');
 
@@ -96,8 +101,8 @@ export function CalendarPage() {
     setView('day');
   };
   const toggle = (category: Category) =>
-    setShown((current) => {
-      const next = new Set(current);
+    setPicked((current) => {
+      const next = new Set(current ?? shownAtFirst);
       if (next.has(category)) {
         next.delete(category);
       } else {
