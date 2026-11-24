@@ -21,6 +21,7 @@
 // `#/alliance/<uuid>/<view>` are what they were.
 
 import { type Translate, english } from './i18n/core';
+import { type MenuEditRef, applyMenuOverrides } from './menuOverrides';
 import {
   ADMIN_GROUPS,
   ALLIANCE_TABS,
@@ -93,6 +94,10 @@ export interface NavChild {
    * levels and does not draw them — the page carries its own strip — but
    * Ctrl+K still finds each (`Guides › Event guide › Alliance Duel`). */
   tabs?: NavChild[];
+  /** Present when an admin can rename, reorder or hide it (menuOverrides.ts). */
+  edit?: MenuEditRef;
+  /** Hidden by an admin; only drawn in edit mode, dimmed. */
+  hidden?: boolean;
 }
 
 export interface NavItem {
@@ -105,12 +110,15 @@ export interface NavItem {
    * screen is current: clicking the screen opens its main page, and the tabs
    * unfold beneath it. */
   children?: NavChild[];
+  edit?: MenuEditRef;
+  hidden?: boolean;
 }
 
 export interface NavGroup {
   id: 'watch' | 'alliance' | 'events' | 'boards' | 'admin' | 'officer';
   label: string;
   items: NavItem[];
+  edit?: MenuEditRef;
 }
 
 export interface NavContext {
@@ -133,6 +141,8 @@ export interface NavContext {
   tabShown?: (tab: string) => boolean;
   /** Names, order and visibility an admin set on the page (0279). */
   overrides?: Overrides;
+  /** An admin in edit mode: entries hidden from the menu stay, marked. */
+  showHiddenMenu?: boolean;
   /** Season names by address (`#/season`), from the seasons table. */
   seasonNames: Readonly<Record<string, string | undefined>>;
   /** The event guide tab in the address; the first when it names none. */
@@ -209,6 +219,15 @@ function calculatorChildren(ctx: NavContext): NavChild[] {
  * No address moved: a screen with no entry still opens from its address or a
  * link, and what a role may READ is RLS's decision, never the menu's. */
 export function buildNav(ctx: NavContext): NavGroup[] {
+  // The admin's arrangement of the menu goes over whatever the code built.
+  return applyMenuOverrides(
+    buildDefaultNav(ctx),
+    ctx.overrides ?? NO_OVERRIDES,
+    ctx.showHiddenMenu === true,
+  );
+}
+
+function buildDefaultNav(ctx: NavContext): NavGroup[] {
   const t = ctx.t ?? english;
   if (ctx.isCommunity === true) {
     return buildCommunityNav(ctx);
