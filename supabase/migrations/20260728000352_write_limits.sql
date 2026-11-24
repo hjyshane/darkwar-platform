@@ -13,7 +13,8 @@
 --      also writes a reply notice for the post's author and a realtime
 --      notification for every open board. Nothing stopped a loop.
 --      -> A trigger refuses an account's sixth comment inside a minute and
---         its sixtieth inside an hour. Generous for a person, a wall for a
+--         its sixtieth inside an hour, on the server's clock and one insert
+--         per account at a time. Generous for a person, a wall for a
 --         script. Refusing is right here: there is no counter to keep, the
 --         insert itself is what is turned away.
 --
@@ -50,10 +51,21 @@ declare
   v_minute int;
   v_hour int;
 begin
-  -- The collector and definer jobs write as nobody; only a person is limited.
-  if v_uid is null then
+  -- Only a request from the browser is limited: the collector, definer jobs
+  -- and the owner's own writes are not people.
+  if v_uid is null
+     or coalesce(current_setting('role', true), 'none') not in ('authenticated', 'anon') then
     return new;
   end if;
+  -- The clock is the server's. 0122's actor trigger keeps a created_at the
+  -- caller supplied, and a comment dated an hour back would never enter the
+  -- count (codex review on #684).
+  new.created_at := now();
+  -- One account's inserts take turns, so two sent at once cannot both count
+  -- the same four and both pass (codex review on #684). The lock is held to
+  -- commit; the count below takes a fresh snapshot after it, and sees the
+  -- comment the previous holder committed.
+  perform pg_advisory_xact_lock(hashtext('post_comments_throttle'), hashtext(v_uid::text));
   select count(*) filter (where created_at > now() - interval '1 minute'),
          count(*)
     into v_minute, v_hour

@@ -4,7 +4,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(12);
+select plan(13);
 
 insert into auth.users (id, instance_id, aud, role, email) values
   ('00000000-0000-4000-8000-0000000a0352', '00000000-0000-0000-0000-000000000000',
@@ -46,6 +46,15 @@ select throws_ok(
   $$ select pg_temp.comment(6) $$,
   'DW429', null,
   'the sixth comment in a minute is refused');
+
+-- 2b. A comment the caller dates an hour back is dated now, so it counts.
+select pg_temp.act_as('00000000-0000-4000-8000-0000000d0352');
+set local role authenticated;
+insert into public.post_comments (guide_id, body, created_at)
+values ('00000000-0000-4000-8000-000000020352', 'backdated', now() - interval '2 hours');
+select is(
+  (select created_at from public.post_comments where body = 'backdated'),
+  now(), 'a signed-in caller cannot backdate a comment past the limit');
 
 -- 3. The limit is per account: somebody else may still comment.
 select pg_temp.act_as('00000000-0000-4000-8000-0000000d0352');
