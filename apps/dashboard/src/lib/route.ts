@@ -13,97 +13,12 @@
 //
 // Hash-based so it works on any static host with zero rewrite config.
 
-export type Route =
-  | 'home'
-  | 'overview'
-  | 'members'
-  | 'rankings'
-  | 'crossRankings'
-  | 'migration'
-  | 'season'
-  | 'season2'
-  | 'map'
-  | 'hive'
-  // Black Gold. The id keeps the event's first name because it is STORED:
-  // ui_overrides rows (the events hub's order) are keyed by it.
-  | 'blackMoney'
-  | 'arena'
-  | 'server'
-  | 'player'
-  | 'alliance'
-  | 'admin'
-  | 'monthCards'
-  | 'guides'
-  | 'guide'
-  | 'notices'
-  | 'notice'
-  | 'participation'
-  | 'alarms'
-  | 'frankie'
-  | 'capitalClash'
-  | 'serverClash'
-  | 'events'
-  | 'planner'
-  | 'calculator'
-  | 'basePlacement'
-  | 'giftCodes'
-  | 'calendar'
-  | 'eventGuide'
-  | 'shopValue'
-  | 'account'
-  | 'terms'
-  | 'privacy'
-  | 'login';
+// Which screens exist, their addresses and what each is allowed: routeTable.ts.
+// This file keeps what a table of strings cannot say: the addresses that carry
+// an id or a sub-tab, and the sidebar's lists and their order.
+import { ADDRESS_TO_ROUTE, type NavSection, type Route, routeDef } from './routeTable';
 
-const ROUTES: Record<string, Route> = {
-  // Where a signed-in member lands (2026-11-18). The bare address stays the
-  // overview, so every link to `#/` still lands where it did.
-  '#/home': 'home',
-  '#/members': 'members',
-  '#/rankings': 'rankings',
-  '#/cross-server': 'crossRankings',
-  '#/migration': 'migration',
-  '#/season': 'season',
-  '#/season2': 'season2',
-  '#/map': 'map',
-  '#/hive': 'hive',
-  '#/black-gold': 'blackMoney',
-  // The address it shipped under on 2026-09-27, before the name was
-  // corrected. Kept so the links sent that day still land.
-  '#/black-money': 'blackMoney',
-  '#/arena': 'arena',
-  '#/month-cards': 'monthCards',
-  '#/account': 'account',
-  '#/account/plans': 'account',
-  '#/guides': 'guides',
-  '#/notices': 'notices',
-  '#/participation': 'participation',
-  '#/alarms': 'alarms',
-  // The Schedule screen's address. Archived on 2026-10-03 and replaced by the
-  // Alarms tab, so a bookmark lands there rather than on Overview.
-  '#/schedule': 'alarms',
-  '#/frankie': 'frankie',
-  '#/capital-clash': 'capitalClash',
-  '#/server-clash': 'serverClash',
-  '#/events': 'events',
-  '#/planner': 'planner',
-  '#/calculator': 'calculator',
-  // The Merchant tester, a sub-entry under Hive for officers and admins
-  // (`merchantTesterOffered`).
-  '#/base-placement': 'basePlacement',
-  '#/gift-codes': 'giftCodes',
-  '#/calendar': 'calendar',
-  '#/event-guide': 'eventGuide',
-  '#/shop-value': 'shopValue',
-  // The only two addresses here that a signed-out stranger is MEANT to reach.
-  // Everything else on this list is walled; these are marked standalone in
-  // `App.tsx` so they are not, because Google and Discord fetch them with no
-  // session when approving the sign-in buttons, and because somebody deciding
-  // whether to hand over their email has to be able to read them first.
-  '#/terms': 'terms',
-  '#/privacy': 'privacy',
-  '#/login': 'login',
-};
+export type { NavSection, Route } from './routeTable';
 
 /** Settings is one route with several screens under it.
  *
@@ -394,7 +309,7 @@ export function routeFromHash(fullHash: string): Route {
   if (NOTICE_HASH.test(hash)) {
     return 'notice';
   }
-  return ROUTES[hash] ?? 'overview';
+  return ADDRESS_TO_ROUTE.get(hash) ?? 'overview';
 }
 
 /** The player a `#/player/<uuid>` address names, or null for any other. */
@@ -487,7 +402,6 @@ export interface NavTab {
  *   events     what the game offers: the calendar and the shops
  *   boards     what the alliance writes to itself: notices and guides
  */
-export type NavSection = 'overview' | 'alliance' | 'map' | 'events' | 'boards';
 
 /** The top row. Our own alliance's tab is not here — its address carries a
  * uuid only a query knows — and `App.tsx` injects it straight after Overview. */
@@ -620,44 +534,7 @@ export const BOARD_TABS: ReadonlyArray<NavTab> = [
  * Our own alliance's page is decided by the caller, which knows the uuid; a
  * plain `alliance` route here is somebody else's. */
 export function navSection(route: Route): NavSection | null {
-  switch (route) {
-    case 'home':
-    case 'overview':
-    case 'rankings':
-    case 'crossRankings':
-    case 'arena':
-    case 'migration':
-      return 'overview';
-    case 'members':
-    case 'hive':
-    case 'season':
-    case 'season2':
-    case 'blackMoney':
-    case 'participation':
-    case 'alarms':
-    case 'frankie':
-    case 'capitalClash':
-    case 'serverClash':
-    case 'events':
-    case 'planner':
-    case 'calculator':
-    case 'basePlacement':
-    case 'giftCodes':
-      return 'alliance';
-    case 'map':
-      return 'map';
-    case 'calendar':
-    case 'eventGuide':
-    case 'shopValue':
-      return 'events';
-    case 'notices':
-    case 'notice':
-    case 'guides':
-    case 'guide':
-      return 'boards';
-    default:
-      return null;
-  }
+  return routeDef(route).section;
 }
 
 /** The three boards behind Cross-Server Ranking — a third row, under Overview's.
@@ -694,9 +571,9 @@ export function isRankingRoute(route: Route): boolean {
  *                  address cannot be asked to sign in first to find out what
  *                  happens to it
  *
- * It lives here rather than inline in `App.tsx` so the list can be asserted:
- * a fifth route added by habit is a screen quietly published.
+ * Declared per route in routeTable.ts (`standalone`), and asserted in
+ * route.test.ts: a fifth route added by habit is a screen quietly published.
  */
 export function isStandaloneRoute(route: Route): boolean {
-  return route === 'login' || route === 'monthCards' || route === 'terms' || route === 'privacy';
+  return routeDef(route).standalone === true;
 }

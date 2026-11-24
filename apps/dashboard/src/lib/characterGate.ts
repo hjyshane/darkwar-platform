@@ -15,6 +15,7 @@
 // puts in front of it.
 
 import type { Route } from './route';
+import { routeDef } from './routeTable';
 import type { AppRole, SessionState } from './useSession';
 
 /** Who has to pick. Not an admin: the admins run the roster the picker lists,
@@ -39,5 +40,5 @@ export function mustPickCharacter(session: SessionState | undefined): boolean {
  * which carries the same picker and the join flow's result, and the two legal
  * pages it links to. */
 export function openWhilePicking(route: Route): boolean {
-  return route === 'login' || route === 'terms' || route === 'privacy';
+  return routeDef(route).whilePicking === true;
 }
