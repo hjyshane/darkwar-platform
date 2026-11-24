@@ -2339,17 +2339,17 @@ export const es: Catalog = {
   '✦ Treasure spots': '✦ Puntos de tesoro',
   '🛡 Shielded bases': '🛡 Bases con escudo',
   '[attendance] Held': 'Celebrado el',
-  'You have used your translations for today. Try again tomorrow.':
-    'Ya usaste tus traducciones de hoy. Inténtalo de nuevo mañana.',
-  'Translation is switched off.': 'La traducción está desactivada.',
-  'Translation is not set up on this site yet.':
-    'La traducción aún no está configurada en este sitio.',
-  'This could not be translated: it is gone, or not yours to read.':
-    'No se puede traducir: el contenido ya no existe o no tienes acceso.',
   'The translation did not come back. Try again in a moment.':
     'La traducción no llegó. Inténtalo de nuevo en un momento.',
-  'Machine translation.': 'Traducción automática.',
   'Show original': 'Ver original',
   'Translating…': 'Traduciendo…',
   'Translate into {language}': 'Traducir al {language}',
+  "Your browser can't translate here. Use its own Translate page instead (Chrome and Edge on a computer can translate right here).":
+    'Tu navegador no puede traducir aquí. Usa la traducción de página del navegador (Chrome y Edge en el ordenador traducen aquí mismo).',
+  'Translated by your browser.': 'Traducido por tu navegador.',
+  'Downloading the translation model… {percent}%':
+    'Descargando el modelo de traducción… {percent} %',
+  'Already in your language.': 'Ya está en tu idioma.',
+  'Your browser cannot translate from this language into {language}.':
+    'Tu navegador no puede traducir este idioma al {language}.',
 };

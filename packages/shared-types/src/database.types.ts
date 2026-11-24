@@ -3426,42 +3426,6 @@ export type Database = {
         }
         Relationships: []
       }
-      content_translations: {
-        Row: {
-          created_at: string
-          field: string
-          kind: string
-          language: string
-          model: string
-          requested_by: string | null
-          source_hash: string
-          source_id: string
-          translated: string
-        }
-        Insert: {
-          created_at?: string
-          field: string
-          kind: string
-          language: string
-          model: string
-          requested_by?: string | null
-          source_hash: string
-          source_id: string
-          translated: string
-        }
-        Update: {
-          created_at?: string
-          field?: string
-          kind?: string
-          language?: string
-          model?: string
-          requested_by?: string | null
-          source_hash?: string
-          source_id?: string
-          translated?: string
-        }
-        Relationships: []
-      }
       data_change_notifications: {
         Row: {
           created_at: string

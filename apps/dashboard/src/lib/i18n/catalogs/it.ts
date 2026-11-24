@@ -2348,17 +2348,16 @@ export const it: Catalog = {
   '✦ Treasure spots': '✦ Punti tesoro',
   '🛡 Shielded bases': '🛡 Basi con scudo',
   '[attendance] Held': 'Svolto il',
-  'You have used your translations for today. Try again tomorrow.':
-    'Hai esaurito le traduzioni di oggi. Riprova domani.',
-  'Translation is switched off.': 'La traduzione è disattivata.',
-  'Translation is not set up on this site yet.':
-    'La traduzione non è ancora configurata su questo sito.',
-  'This could not be translated: it is gone, or not yours to read.':
-    'Impossibile tradurre: il contenuto non esiste più o non puoi leggerlo.',
   'The translation did not come back. Try again in a moment.':
     'La traduzione non è arrivata. Riprova tra poco.',
-  'Machine translation.': 'Traduzione automatica.',
   'Show original': "Mostra l'originale",
   'Translating…': 'Traduzione…',
   'Translate into {language}': 'Traduci in {language}',
+  "Your browser can't translate here. Use its own Translate page instead (Chrome and Edge on a computer can translate right here).":
+    'Il tuo browser non può tradurre qui. Usa la traduzione della pagina del browser (Chrome ed Edge su computer traducono direttamente qui).',
+  'Translated by your browser.': 'Tradotto dal tuo browser.',
+  'Downloading the translation model… {percent}%': 'Download del modello di traduzione… {percent}%',
+  'Already in your language.': 'È già nella tua lingua.',
+  'Your browser cannot translate from this language into {language}.':
+    'Il tuo browser non può tradurre questa lingua in {language}.',
 };
