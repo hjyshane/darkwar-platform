@@ -1,3 +1,9 @@
+// The tabs a screen keeps for Ctrl+K, and the rows the palette makes of them.
+//
+// Changed on 2026-11-24: "Event guide" is labelled "Game guide" (its addresses
+// are the same), and Hive is no longer an entry with its steps beneath it but
+// a screen under the alliance, found as `CBFW › Hive › Draw the shape`. The
+// entry with tabs of its own is now Tools (Calculator until that day).
 import { describe, expect, it } from 'vitest';
 import {
   type NavChild,
@@ -39,10 +45,10 @@ const filed = (
 ): NavChild | undefined =>
   item(ctx, group, label)?.children?.find((child) => child.label === screen);
 
-describe('sidebar tabs: event guide', () => {
-  const guideOf = (ctx: NavContext) => filed(ctx, 'watch', 'Guides', 'Event guide');
+describe('sidebar tabs: game guide (called Event guide until 2026-11-24)', () => {
+  const guideOf = (ctx: NavContext) => filed(ctx, 'watch', 'Guides', 'Game guide');
 
-  it('files the guide under Guides as a screen, keeping its four tabs, each with its own address', () => {
+  it('files the Game guide under Guides as a screen, keeping its four tabs, each with its own address', () => {
     const guide = guideOf(base({ route: 'eventGuide' }));
 
     expect(guide).toMatchObject({ href: '#/event-guide', screen: true, current: true });
@@ -60,7 +66,7 @@ describe('sidebar tabs: event guide', () => {
     }
   });
 
-  it('marks the tab in the address, and the first when it names none', () => {
+  it('marks the Game guide tab in the address, and the first when it names none', () => {
     const current = (tab?: 'duel') =>
       guideOf(base({ route: 'eventGuide', eventGuideTab: tab }))
         ?.tabs?.filter((entry) => entry.current)
@@ -70,7 +76,7 @@ describe('sidebar tabs: event guide', () => {
     expect(current()).toEqual(['Now']);
   });
 
-  it('marks no tab when another screen is open', () => {
+  it('marks no Game guide tab when another screen is open', () => {
     const guide = guideOf(base({ route: 'calendar' }));
 
     expect(guide?.current).toBe(false);
@@ -87,11 +93,11 @@ describe('sidebar tabs: event guide', () => {
     expect(filed(admin(), 'admin', 'Game data', 'Shop value')?.tabs).toBeUndefined();
   });
 
-  it('lists a community account the tabs as children, without the one that is about our alliance', () => {
+  it('lists a community account the Game guide tabs as children, without the one that is about our alliance', () => {
     const guide = item(
       base({ isCommunity: true, route: 'eventGuide', eventGuideTab: 'duel' }),
       'events',
-      'Event guide',
+      'Game guide',
     );
 
     expect(guide?.children?.map((child) => [child.label, child.href, child.current])).toEqual([
@@ -194,8 +200,8 @@ describe('palette entries', () => {
         (group) => group.items,
       ),
     );
-    const screen = entries.find((entry) => entry.label === 'Guides › Event guide');
-    const duel = entries.find((entry) => entry.label === 'Guides › Event guide › Alliance Duel');
+    const screen = entries.find((entry) => entry.label === 'Guides › Game guide');
+    const duel = entries.find((entry) => entry.label === 'Guides › Game guide › Alliance Duel');
 
     expect(screen).toMatchObject({ href: '#/event-guide', icon: 'guides', current: true });
     expect(duel).toMatchObject({ href: '#/event-guide/duel', icon: 'guides', current: true });
@@ -207,35 +213,61 @@ describe('palette entries', () => {
     );
     // Only the open tab is marked.
     expect(
-      entries.find((entry) => entry.label === 'Guides › Event guide › Alliance events')?.current,
+      entries.find((entry) => entry.label === 'Guides › Game guide › Alliance events')?.current,
     ).toBe(false);
   });
 
-  it('lists an entry’s own tabs as "Screen › Tab"', () => {
+  it('lists an entry’s own tabs as "Screen › Tab", and the hive steps after the alliance and Hive', () => {
+    // Tools is the entry whose children are its own tabs.
+    const tools = paletteEntries(
+      buildNav(base({ route: 'calculator', tabs: { calculator: 'wait' } })).flatMap(
+        (group) => group.items,
+      ),
+    );
+
+    expect(tools.find((entry) => entry.label === 'Tools › Resource wait time')).toMatchObject({
+      href: '#/calculator/wait',
+      icon: 'calculator',
+      current: true,
+    });
+
+    // Hive was such an entry until 2026-11-24. It is a screen under the
+    // alliance now, so its steps are three deep and take the alliance's icon.
     const entries = paletteEntries(
       buildNav(base({ route: 'hive', mayPlanHive: true, tabs: { hive: 'shape' } })).flatMap(
         (group) => group.items,
       ),
     );
 
-    expect(entries.find((entry) => entry.label === 'Hive › Draw the shape')).toMatchObject({
+    expect(entries.find((entry) => entry.label === 'CBFW › Hive › Draw the shape')).toMatchObject({
       href: '#/hive/shape',
-      icon: 'hive',
+      icon: 'alliance',
       current: true,
     });
+    expect(entries.find((entry) => entry.label === 'CBFW › Hive')).toMatchObject({
+      href: '#/hive',
+      icon: 'alliance',
+      current: true,
+    });
+    expect(entries.find((entry) => entry.label === 'Hive › Draw the shape')).toBeUndefined();
   });
 
   it('leaves a screen without tabs as it is', () => {
-    // A member: an officer's Hive carries the Merchant tester beneath it.
+    // A member, who does not plan the hive.
     const items = buildNav(base({ isOfficer: false })).flatMap((group) => group.items);
     const entries = paletteEntries(items);
 
-    for (const label of ['Home', 'Hive', 'Map']) {
+    for (const label of ['Home', 'Map']) {
       const entry = items.find((candidate) => candidate.label === label);
       expect(entry).toBeDefined();
       expect(entries.find((candidate) => candidate.label === label)).toBe(entry);
       expect(entries.filter((candidate) => candidate.label.startsWith(`${label} ›`))).toEqual([]);
     }
+    // Hive, a screen under the alliance since 2026-11-24, is one row for a
+    // reader with no steps to plan: nothing beneath it, and no entry of its own.
+    expect(entries.filter((candidate) => candidate.label === 'CBFW › Hive')).toHaveLength(1);
+    expect(entries.filter((candidate) => candidate.label.startsWith('CBFW › Hive ›'))).toEqual([]);
+    expect(entries.find((candidate) => candidate.label === 'Hive')).toBeUndefined();
   });
 
   it('gives every row its own key, though a first tab shares its screen address', () => {

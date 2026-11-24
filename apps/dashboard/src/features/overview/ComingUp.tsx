@@ -37,7 +37,7 @@ export function ComingUp() {
         </ul>
       )}
       <p className="subtle">
-        Server time (UTC−2). <a href="#/event-guide">Event guide</a>
+        Server time (UTC−2). <a href="#/event-guide">Game guide</a>
       </p>
     </section>
   );

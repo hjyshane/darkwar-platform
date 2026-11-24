@@ -83,6 +83,10 @@ export interface NavChild {
   /** A screen of its own filed under the entry, not one of the entry's tabs:
    * the top bar names it after the entry (`Menu › CBFW › Black Gold`). */
   screen?: boolean;
+  /** A caption the sidebar draws above this child, opening a run of children
+   * that belong together ("Events", "Seasons" under the alliance). Drawn only:
+   * it is not a link and Ctrl+K does not list it. */
+  heading?: string;
   /** The screen's own tabs, for a child that is a screen. The sidebar has two
    * levels and does not draw them — the page carries its own strip — but
    * Ctrl+K still finds each (`Guides › Event guide › Alliance Duel`). */
@@ -356,7 +360,8 @@ function eventScreens(ctx: NavContext): NavChild[] {
     o,
     'events-hub',
   ).filter((entry) => !isHidden(o, 'events-hub', entry.route));
-  return offered.map((entry, index) => ({
+  const screens = offered.map((entry, index) => ({
+    route: entry.route,
     key: entry.hash,
     href: entry.hash,
     label: labelOf(o, 'events-hub', entry.route, ctx.seasonNames[entry.hash] ?? entry.label),
@@ -364,10 +369,31 @@ function eventScreens(ctx: NavContext): NavChild[] {
     current: entry.route === ctx.route || (ctx.route === 'events' && index === 0),
     screen: true,
   }));
+  // Two runs, each under its own caption (owner, 2026-11-24): the events that
+  // come round whatever the season, then the season boards. The admin's order
+  // holds inside each run; the strip above the pages still lists them as one.
+  const captioned = (run: typeof screens, heading: string): NavChild[] =>
+    run.map(({ route: _route, ...child }, index) => (index === 0 ? { ...child, heading } : child));
+  return [
+    ...captioned(
+      screens.filter((entry) => !isSeasonRoute(entry.route)),
+      'Events',
+    ),
+    ...captioned(
+      screens.filter((entry) => isSeasonRoute(entry.route)),
+      'Seasons',
+    ),
+  ];
 }
 
-/** The six entries everybody in the alliance sees: Home, Guides, Calculator,
- * Hive, Map, and the alliance's own. Every other screen keeps its address and
+/** The season boards among the Events screens: this season's and the last. */
+function isSeasonRoute(route: Route): boolean {
+  return route === 'season' || route === 'season2';
+}
+
+/** The five entries everybody in the alliance sees (owner, 2026-11-24): Home,
+ * the alliance's own, Tools, Guides and Map. Until that day there were six:
+ * Hive was an entry of its own and Tools was called Calculator. Every other screen keeps its address and
  * opens as before; it is only not offered here (an admin finds them in the
  * Admin menu). An admin's Tab visibility (0295) still hides any of these, and
  * the alliance's page waits for the alliance to be known.
@@ -409,7 +435,7 @@ export function buildMemberNav(ctx: NavContext): NavGroup[] {
           {
             key: '#/event-guide',
             href: '#/event-guide',
-            label: 'Event guide',
+            label: 'Game guide',
             current: route === 'eventGuide',
             screen: true,
             // Its own strip, kept for Ctrl+K so typing "duel" finds the tab.
@@ -425,6 +451,19 @@ export function buildMemberNav(ctx: NavContext): NavGroup[] {
         ]
       : []),
   ];
+
+  // The planning steps, for planners only: everybody else sees the plan and
+  // nothing else. The page carries them as its own strip; here they are kept
+  // for Ctrl+K.
+  const hiveTabs: NavChild[] =
+    ctx.mayPlanHive === true
+      ? HIVE.tabs.map((entry) => ({
+          key: HIVE.hash(entry.id),
+          href: HIVE.hash(entry.id),
+          label: entry.label,
+          current: route === 'hive' && (ctx.tabs?.hive ?? 'plan') === entry.id,
+        }))
+      : [];
 
   const allianceChildren: NavChild[] = [
     ...(own !== null && shown('alliance')
@@ -449,6 +488,32 @@ export function buildMemberNav(ctx: NavContext): NavGroup[] {
           },
         ]
       : []),
+    // The hive plan is the alliance's (owner, 2026-11-24): filed here, after
+    // the alliance's own page, instead of as an entry of its own.
+    ...(shown('hive')
+      ? [
+          {
+            key: '#/hive',
+            href: '#/hive',
+            label: 'Hive',
+            current: route === 'hive',
+            screen: true,
+            ...(hiveTabs.length > 0 ? { tabs: hiveTabs } : {}),
+          },
+        ]
+      : []),
+    // The Merchant tester, for officers and admins (owner, 2026-11-20).
+    ...(shown('hive') && merchantTesterOffered(ctx) && ctx.isCommunity !== true
+      ? [
+          {
+            key: MERCHANT_TESTER,
+            href: MERCHANT_TESTER,
+            label: 'Merchant tester',
+            current: route === 'basePlacement',
+            screen: true,
+          },
+        ]
+      : []),
     ...(shown('events') ? eventScreens(ctx) : []),
   ];
 
@@ -459,69 +524,11 @@ export function buildMemberNav(ctx: NavContext): NavGroup[] {
     icon,
     current,
   });
-  // The planning steps, for planners only, then the Merchant tester for
-  // officers and admins (owner, 2026-11-20): a different reader each.
-  const hiveChildren = [
-    ...(ctx.mayPlanHive === true
-      ? HIVE.tabs.map((entry) => ({
-          key: HIVE.hash(entry.id),
-          href: HIVE.hash(entry.id),
-          label: entry.label,
-          current: route === 'hive' && (ctx.tabs?.hive ?? 'plan') === entry.id,
-        }))
-      : []),
-    ...(merchantTesterOffered(ctx) && ctx.isCommunity !== true
-      ? [
-          {
-            key: MERCHANT_TESTER,
-            href: MERCHANT_TESTER,
-            label: 'Merchant tester',
-            current: route === 'basePlacement',
-          },
-        ]
-      : []),
-  ];
   const firstGuide = guideChildren[0];
   const firstAlliance = allianceChildren[0];
 
   const items: NavItem[] = [
     single('#/home', 'Home', 'overview', route === 'home'),
-    ...(firstGuide === undefined
-      ? []
-      : [
-          {
-            key: 'guides-entry',
-            href: firstGuide.href,
-            label: 'Guides',
-            icon: 'guides' as const,
-            current: guideChildren.some((child) => child.current),
-            children: guideChildren,
-          },
-        ]),
-    ...(shown('calculator')
-      ? [
-          {
-            ...single(
-              '#/calculator',
-              'Calculator',
-              'calculator',
-              route === 'calculator' || route === 'planner',
-            ),
-            children: calculatorChildren(ctx),
-          },
-        ]
-      : []),
-    ...(shown('hive')
-      ? [
-          {
-            ...single('#/hive', 'Hive', 'hive', route === 'hive' || route === 'basePlacement'),
-            // The planning steps, for planners only: everybody else sees the
-            // plan and nothing else, so for them the screen has no tabs.
-            ...(hiveChildren.length > 0 ? { children: hiveChildren } : {}),
-          },
-        ]
-      : []),
-    ...(shown('map') ? [single('#/map', 'Map', 'map', route === 'map')] : []),
     ...(firstAlliance === undefined
       ? []
       : [
@@ -534,6 +541,34 @@ export function buildMemberNav(ctx: NavContext): NavGroup[] {
             children: allianceChildren,
           },
         ]),
+    // The calculator's three pages and the planner. Still keyed and gated as
+    // `calculator`: what Tab visibility hides is unchanged.
+    ...(shown('calculator')
+      ? [
+          {
+            ...single(
+              '#/calculator',
+              'Tools',
+              'calculator',
+              route === 'calculator' || route === 'planner',
+            ),
+            children: calculatorChildren(ctx),
+          },
+        ]
+      : []),
+    ...(firstGuide === undefined
+      ? []
+      : [
+          {
+            key: 'guides-entry',
+            href: firstGuide.href,
+            label: 'Guides',
+            icon: 'guides' as const,
+            current: guideChildren.some((child) => child.current),
+            children: guideChildren,
+          },
+        ]),
+    ...(shown('map') ? [single('#/map', 'Map', 'map', route === 'map')] : []),
   ];
   return [{ id: 'watch' as const, label: 'Menu', items }];
 }

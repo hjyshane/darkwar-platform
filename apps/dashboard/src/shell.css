@@ -1248,6 +1248,17 @@ button.shell-link {
   text-decoration: none;
 }
 
+/* A caption above a run of subpages ("Events", "Seasons"). Not a link. */
+.shell-subhead {
+  color: var(--fg-muted);
+  display: block;
+  font-size: var(--text-xs);
+  letter-spacing: 0.06em;
+  opacity: 0.75;
+  padding: var(--space-2) var(--space-2) 0.15rem;
+  text-transform: uppercase;
+}
+
 .shell-sublink:hover {
   background: var(--bg-hover);
   color: var(--fg);

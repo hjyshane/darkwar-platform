@@ -602,7 +602,7 @@ export function inEventsHub(route: Route): boolean {
 export const EVENT_TABS: ReadonlyArray<NavTab> = [
   { route: 'calendar', hash: '#/calendar', label: 'Game calendar' },
   // What each event is and what scores in it (0248): the game's own lists.
-  { route: 'eventGuide', hash: '#/event-guide', label: 'Event guide' },
+  { route: 'eventGuide', hash: '#/event-guide', label: 'Game guide' },
   // What packs and Ruby-shop entries are worth (0215). Member-only at the
   // policy level, so no gate.
   { route: 'shopValue', hash: '#/shop-value', label: 'Shop value' },

@@ -8552,11 +8552,6 @@ button.server-link {
   margin: 0;
 }
 
-.home-kinds {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
 /* The plan as a thumbnail, the reader's base picked out. SVG in tile units, so
  * strokes are non-scaling: a 1px border must stay 1px at any plan size. */
 .hive-snap {

@@ -29,7 +29,7 @@ export const TABS: readonly TabChoice[] = [
   { key: 'calculator', label: 'Calculator' },
   { key: 'giftCodes', label: 'Gift codes' },
   { key: 'calendar', label: 'Game calendar' },
-  { key: 'eventGuide', label: 'Event guide' },
+  { key: 'eventGuide', label: 'Game guide' },
   { key: 'shopValue', label: 'Shop value' },
   { key: 'notices', label: 'Notices' },
   { key: 'guides', label: 'Guides' },

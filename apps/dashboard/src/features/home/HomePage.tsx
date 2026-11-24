@@ -2,13 +2,6 @@ import { useState } from 'react';
 import { shareCoordinate } from '../../lib/shareCoordinate';
 import { SERVER_ZONE, browserZone, zonedDayKey, zonedTime } from '../../lib/timezone';
 import { useSession } from '../../lib/useSession';
-import { KIND_OPTIONS } from '../calculator/model';
-import {
-  CALCULATOR_KINDS,
-  type CalculatorKind,
-  DEFAULT_STATE,
-  calculatorHash,
-} from '../calculator/url';
 import { useCapturedTimes, useEventGuide } from '../eventGuide/data';
 import { WEEKDAYS } from '../eventGuide/guide';
 import { HiveSnapshot } from '../hive/HiveSnapshot';
@@ -21,9 +14,10 @@ import { blackGoldLine, nextBlackGold, todaysDuel } from './homeModel';
 /** Where every signed-in member lands (owner, 2026-11-18): this week on one
  * screen. Design: docs/superpowers/specs/2026-11-18-member-home-design.md.
  *
- * Four cards, the one a member needs right now first: where my base goes, what
- * runs this week, what to upgrade (with the calculator), what the officers
- * pinned. No gift-code card (owner). */
+ * Three cards, the one a member needs right now first: where my base goes, what
+ * runs this week, what the officers pinned. No gift-code card (owner). The
+ * Upgrades card (calculator links) came out on 2026-11-24 (owner): the
+ * calculator is one sidebar entry away and the card held nothing else. */
 export function HomePage() {
   const { data: session } = useSession();
   const playerId = session?.playerId ?? null;
@@ -57,7 +51,6 @@ export function HomePage() {
       </div>
       <HiveCard playerId={playerId} />
       <WeekCard playerId={playerId} />
-      <UpgradeCard />
       <div className="panel home-card">
         <h3 className="home-label">From your officers</h3>
         <GuidesBlock />
@@ -178,42 +171,7 @@ function WeekCard({ playerId }: { playerId: string | null }) {
         </dd>
       </dl>
       <p>
-        <a href="#/event-guide">Event guide</a> · <a href="#/black-gold">Black Gold</a>
-      </p>
-    </div>
-  );
-}
-
-function isCalculatorKind(id: string): id is CalculatorKind {
-  return (CALCULATOR_KINDS as ReadonlyArray<string>).includes(id);
-}
-
-/** "Your next moves" from the mockup. Phase 1 is the calculator inside it
- * (owner: the calculator lives in this card); recommendations for the
- * reader's own account come later (design §4, phase 3). */
-function UpgradeCard() {
-  return (
-    <div className="panel home-card">
-      <h3 className="home-label">Upgrades</h3>
-      <p className="subtle">What any upgrade costs, from the game's own data.</p>
-      <p className="home-kinds">
-        {KIND_OPTIONS.flatMap((kind) =>
-          // Season buildings are `building` with a filter in the form (url.ts).
-          isCalculatorKind(kind.id)
-            ? [
-                <a
-                  className="filter-chip"
-                  href={calculatorHash({ ...DEFAULT_STATE, kind: kind.id })}
-                  key={kind.id}
-                >
-                  {kind.label}
-                </a>,
-              ]
-            : [],
-        )}
-      </p>
-      <p>
-        <a href="#/calculator">Open the calculator →</a>
+        <a href="#/event-guide">Game guide</a> · <a href="#/black-gold">Black Gold</a>
       </p>
     </div>
   );
