@@ -9,12 +9,17 @@
 // a ratio of zero.
 
 import type { StripCell } from '../../components/Strip';
+import { type Translate, english } from '../../lib/i18n/core';
 import { humanUntil } from '../../lib/shellNav';
 import { type PackValue, foldVariants, groupPacks, isInStore, ratioLabel } from './data';
 
 const plain = new Intl.NumberFormat('en');
 
-export function shopStrip(packs: ReadonlyArray<PackValue>, now: Date): StripCell[] {
+export function shopStrip(
+  packs: ReadonlyArray<PackValue>,
+  now: Date,
+  t: Translate = english,
+): StripCell[] {
   const live = foldVariants(
     groupPacks(packs.filter((pack) => isInStore(pack, now))),
     new Map(),
@@ -31,30 +36,36 @@ export function shopStrip(packs: ReadonlyArray<PackValue>, now: Date): StripCell
       : rated.reduce((sum, pack) => sum + (pack.value_ratio ?? 0), 0) / rated.length;
   return [
     {
-      label: 'On sale now',
+      label: t('On sale now'),
       value: plain.format(live.length),
-      note: live.length === 1 ? 'offer' : 'offers',
+      note: live.length === 1 ? t('offer') : t('offers'),
     },
     {
-      label: 'Best value',
+      label: t('Best value'),
       value: best === undefined ? null : best.name,
       note:
         best === undefined
           ? undefined
-          : `${ratioLabel(best.value_ratio)} for $${plain.format(best.dollars)}`,
+          : t('{ratio} for ${dollars}', {
+              ratio: ratioLabel(best.value_ratio),
+              dollars: plain.format(best.dollars),
+            }),
     },
     {
-      label: 'Ends next',
+      label: t('Ends next'),
       value: ending === undefined ? null : ending.name,
       note:
         ending?.ends_at == null
           ? undefined
-          : `in ${humanUntil(Date.parse(ending.ends_at) - now.getTime())}`,
+          : t('in {time}', { time: humanUntil(Date.parse(ending.ends_at) - now.getTime(), t) }),
     },
     {
-      label: 'Average value',
+      label: t('Average value'),
       value: average === null ? null : ratioLabel(average),
-      note: average === null ? undefined : `over ${plain.format(rated.length)} with a ratio`,
+      note:
+        average === null
+          ? undefined
+          : t('over {count} with a ratio', { count: plain.format(rated.length) }),
     },
   ];
 }

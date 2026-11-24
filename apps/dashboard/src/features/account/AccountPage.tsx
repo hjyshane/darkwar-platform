@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { RichTitle } from '../../components/RichText';
+import { rich, useT } from '../../lib/i18n';
 import { ACCOUNT_PLANS, guideHash, noticeHash } from '../../lib/route';
 import { supabase } from '../../lib/supabase';
 import { useSession } from '../../lib/useSession';
@@ -27,7 +28,7 @@ const day = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeZone: 'U
 
 type Tab = 'posts' | 'comments' | 'favourites' | 'scraps' | 'plans' | 'player' | 'account';
 
-const TABS: ReadonlyArray<[Tab, string]> = [
+export const TABS: ReadonlyArray<[Tab, string]> = [
   ['posts', 'Posts'],
   ['comments', 'Comments'],
   ['favourites', 'Favourites'],
@@ -202,8 +203,9 @@ function AccountTabs({
   counts: Partial<Record<Tab, number>>;
   onPick: (tab: Tab) => void;
 }) {
+  const t = useT();
   return (
-    <nav aria-label="My account" className="tabs subtabs account-tabs">
+    <nav aria-label={t('My account')} className="tabs subtabs account-tabs">
       {TABS.map(([id, label]) => (
         <button
           key={id}
@@ -212,7 +214,7 @@ function AccountTabs({
           onClick={() => onPick(id)}
           type="button"
         >
-          {label}
+          {t(label)}
           {counts[id] !== undefined && ` (${counts[id]})`}
         </button>
       ))}
@@ -221,6 +223,7 @@ function AccountTabs({
 }
 
 export function AccountPage() {
+  const t = useT();
   const { data: session } = useSession();
   // `#/account/plans` is where the planner sends a reader who has just saved.
   const [tab, setTab] = useState<Tab>(() =>
@@ -233,7 +236,9 @@ export function AccountPage() {
     return (
       <main>
         <p className="empty">
-          <a href="#/login">Sign in</a> to see your account.
+          {rich(t('{signin} to see your account.'), {
+            signin: <a href="#/login">{t('Sign in')}</a>,
+          })}
         </p>
       </main>
     );
@@ -262,27 +267,37 @@ export function AccountPage() {
     <>
       <AccountTabs counts={counts} onPick={setTab} tab={tab} />
       <main>
-        {isPending && <p className="empty loading">Loading…</p>}
-        {error && <p className="error">Could not load it: {error.message}</p>}
+        {isPending && <p className="empty loading">{t('Loading…')}</p>}
+        {error && (
+          <p className="error">{t('Could not load it: {message}', { message: error.message })}</p>
+        )}
 
         {tab === 'player' && data !== undefined && data.playerId === null && (
           <p className="empty">
-            No character is linked to this account yet. Ask an officer to confirm which character
-            you are from the <a href="#/login">sign-in screen</a>.
+            {rich(
+              t(
+                'No character is linked to this account yet. Ask an officer to confirm which character you are from the {signin}.',
+              ),
+              { signin: <a href="#/login">{t('sign-in screen')}</a> },
+            )}
           </p>
         )}
 
         {data !== undefined && tab === 'posts' && (
           <ul className="board-list">
-            {data.posts.length === 0 && <p className="empty">You have not written a post yet.</p>}
+            {data.posts.length === 0 && (
+              <p className="empty">{t('You have not written a post yet.')}</p>
+            )}
             {data.posts.map((post) => (
               <li key={`${post.board}-${post.id}`}>
                 <a href={hashFor(post.board, post.id)}>
                   <RichTitle title={post.title} />
                 </a>
-                {post.draft && <span className="badge badge-missing">draft</span>}
+                {post.draft && <span className="badge badge-missing">{t('draft')}</span>}
                 <div className="post-meta">
-                  <span className="post-tag">{post.board === 'guide' ? 'guide' : 'notice'}</span>
+                  <span className="post-tag">
+                    {post.board === 'guide' ? t('guide') : t('notice')}
+                  </span>
                   <time dateTime={post.at}>{day.format(new Date(post.at))}</time>
                 </div>
               </li>
@@ -292,7 +307,9 @@ export function AccountPage() {
 
         {data !== undefined && tab === 'comments' && (
           <ul className="board-list">
-            {data.comments.length === 0 && <p className="empty">You have not commented yet.</p>}
+            {data.comments.length === 0 && (
+              <p className="empty">{t('You have not commented yet.')}</p>
+            )}
             {data.comments.map((comment) => (
               <li key={comment.id}>
                 {/* The comment itself is the link text. On this page the reader
@@ -300,7 +317,9 @@ export function AccountPage() {
                     under — the board chip and the date place it. */}
                 <a href={hashFor(comment.board, comment.postId)}>{comment.body}</a>
                 <div className="post-meta">
-                  <span className="post-tag">{comment.board === 'guide' ? 'guide' : 'notice'}</span>
+                  <span className="post-tag">
+                    {comment.board === 'guide' ? t('guide') : t('notice')}
+                  </span>
                   <time dateTime={comment.at}>{day.format(new Date(comment.at))}</time>
                 </div>
               </li>
@@ -316,16 +335,18 @@ export function AccountPage() {
         {data !== undefined && tab === 'scraps' && (
           <ul className="board-list">
             {data.scraps.length === 0 && (
-              <p className="empty">You have not scrapped anything yet.</p>
+              <p className="empty">{t('You have not scrapped anything yet.')}</p>
             )}
             {data.scraps.map((post) => (
               <li key={`${post.board}-${post.id}`}>
                 <a href={hashFor(post.board, post.id)}>
                   <RichTitle title={post.title} />
                 </a>
-                {post.draft && <span className="badge badge-missing">draft</span>}
+                {post.draft && <span className="badge badge-missing">{t('draft')}</span>}
                 <div className="post-meta">
-                  <span className="post-tag">{post.board === 'guide' ? 'guide' : 'notice'}</span>
+                  <span className="post-tag">
+                    {post.board === 'guide' ? t('guide') : t('notice')}
+                  </span>
                 </div>
               </li>
             ))}
@@ -339,12 +360,12 @@ export function AccountPage() {
             {/* Email first: it is the thing people come to check ("which
                 address is this account?") even when they do not change it. */}
             <section aria-labelledby="email-heading">
-              <h2 id="email-heading">Email</h2>
+              <h2 id="email-heading">{t('Email')}</h2>
               <EmailForm />
             </section>
 
             <section aria-labelledby="password-heading">
-              <h2 id="password-heading">Password</h2>
+              <h2 id="password-heading">{t('Password')}</h2>
               <PasswordForm />
             </section>
 
@@ -352,7 +373,7 @@ export function AccountPage() {
                 character. The key is a login token, so the form says so and the
                 database accepts only a character linked to this account. */}
             <section aria-labelledby="gift-key-heading">
-              <h2 id="gift-key-heading">Gift Center key</h2>
+              <h2 id="gift-key-heading">{t('Gift Center key')}</h2>
               <GiftKeyForm />
             </section>
 
@@ -361,7 +382,7 @@ export function AccountPage() {
                 carries its own confirmation; the separation here is so that
                 nobody reaches it while aiming for the password field above. */}
             <section aria-labelledby="leave-heading" className="account-danger">
-              <h2 id="leave-heading">Leaving</h2>
+              <h2 id="leave-heading">{t('Leaving')}</h2>
               <LeaveAllianceForm />
             </section>
           </>

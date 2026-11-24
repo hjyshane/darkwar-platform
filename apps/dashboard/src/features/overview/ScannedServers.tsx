@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
 import { compactNumber } from '../../lib/compactNumber';
 import { fetchAllPages } from '../../lib/fetchAllPages';
+import { useT } from '../../lib/i18n';
 import { serverHash } from '../../lib/route';
 import { supabase } from '../../lib/supabase';
 import { type ServerSummary, summariseServers } from './serverSummary';
@@ -15,6 +16,7 @@ const plain = new Intl.NumberFormat('en');
  * which servers exist, not which have been scanned. A server shows up here with
  * its first alliance and needs nothing registered by hand. */
 export function ScannedServers({ now }: { now?: Date }) {
+  const t = useT();
   const { data, error } = useQuery({
     queryKey: ['overview', 'servers'],
     queryFn: async (): Promise<ServerSummary[]> => {
@@ -43,16 +45,23 @@ export function ScannedServers({ now }: { now?: Date }) {
   }
   return (
     <section aria-labelledby="overview-servers-heading">
-      <h2 id="overview-servers-heading">Scanned servers ({data.length})</h2>
+      <h2 id="overview-servers-heading">
+        {t('Scanned servers ({count})', { count: data.length })}
+      </h2>
       <ul className="board-list">
         {data.map((server) => (
           <li key={server.serverId}>
-            <a href={serverHash(server.serverId)}>Server {server.serverId}</a>
+            <a href={serverHash(server.serverId)}>
+              {t('Server {server}', { server: server.serverId })}
+            </a>
             <span className="subtle">
               {' '}
-              · {plain.format(server.alliances)} alliances
-              {server.members !== null && ` · ${plain.format(server.members)} members`}
-              {server.power !== null && ` · ${compact.format(server.power)} power`} ·{' '}
+              · {t('{count} alliances', { count: plain.format(server.alliances) })}
+              {server.members !== null &&
+                ` · ${t('{count} members', { count: plain.format(server.members) })}`}
+              {server.power !== null &&
+                ` · ${t('{power} power', { power: compact.format(server.power) })}`}{' '}
+              ·{' '}
             </span>
             <FreshnessBadge capturedAt={server.lastSeen} now={now} />
           </li>

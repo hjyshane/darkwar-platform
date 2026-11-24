@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Select } from '../../components/ui/Select';
+import { rich, useT } from '../../lib/i18n';
 import { supabase } from '../../lib/supabase';
 
 interface JoinableAlliance {
@@ -23,6 +24,7 @@ interface JoinableAlliance {
  * Renders nothing when there is no choice to make (one own alliance).
  */
 export function AllianceRequestForm() {
+  const t = useT();
   const queryClient = useQueryClient();
   const { data: alliances } = useQuery({
     queryKey: ['joinable-alliances'],
@@ -71,11 +73,11 @@ export function AllianceRequestForm() {
 
   return (
     <div>
-      <h3>Which alliance are you joining?</h3>
+      <h3>{t('Which alliance are you joining?')}</h3>
       <label>
-        Alliance
+        {t('Alliance')}
         <Select onChange={(chosen) => void save(chosen)} value={chosen}>
-          <option value="">Choose…</option>
+          <option value="">{t('Choose…')}</option>
           {alliances.map((alliance) => (
             <option key={alliance.alliance_id} value={alliance.alliance_id}>
               {alliance.name} [{alliance.code}] · {alliance.server_id}
@@ -85,8 +87,12 @@ export function AllianceRequestForm() {
       </label>
       {savedName && (
         <p className="empty">
-          Waiting for an officer of <strong>{savedName.code}</strong> to let you in — or enter their
-          invitation code below.
+          {rich(
+            t(
+              'Waiting for an officer of {alliance} to let you in — or enter their invitation code below.',
+            ),
+            { alliance: <strong>{savedName.code}</strong> },
+          )}
         </p>
       )}
       {error && <p className="error">{error}</p>}

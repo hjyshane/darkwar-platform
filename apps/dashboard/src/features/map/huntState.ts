@@ -1,3 +1,4 @@
+import { useT } from '../../lib/i18n';
 import {
   type Mission,
   type Truck,
@@ -29,6 +30,7 @@ export interface HuntData {
  * worth a march right now. The rules live in hunt.ts; this only runs them on
  * what was fetched. */
 export function useHuntData(serverId: number): HuntData {
+  const t = useT();
   const trucks = useTrucks();
   const stations = useStations();
   const missions = useMissions(serverId);
@@ -46,9 +48,15 @@ export function useHuntData(serverId: number): HuntData {
     missionsLoaded: missions.data !== undefined,
     treasureLoaded: sites.data !== undefined,
     errors: [
-      trucks.error ? `Could not load trucks: ${(trucks.error as Error).message}` : null,
-      missions.error ? `Could not load missions: ${(missions.error as Error).message}` : null,
-      sites.error ? `Could not load treasure spots: ${(sites.error as Error).message}` : null,
+      trucks.error
+        ? t('Could not load trucks: {message}', { message: (trucks.error as Error).message })
+        : null,
+      missions.error
+        ? t('Could not load missions: {message}', { message: (missions.error as Error).message })
+        : null,
+      sites.error
+        ? t('Could not load treasure spots: {message}', { message: (sites.error as Error).message })
+        : null,
     ].filter((message): message is string => message !== null),
   };
 }

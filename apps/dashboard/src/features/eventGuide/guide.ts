@@ -1,3 +1,4 @@
+import { type Translate, english } from '../../lib/i18n/core';
 import { SERVER_ZONE, zonedDayKey, zonedTime } from '../../lib/timezone';
 
 // What scores in Survival Preparedness and the Alliance Duel (0248).
@@ -50,8 +51,12 @@ export function slotStart(slot: number): string {
 /** The sentence a score row reads as: the game's `{0}` is the amount one
  * payment is made for, so "Use {0} Gears" at 1 reads "Use 1 Gears". Rows
  * without a placeholder (Open 1 Orange-quality Chip Chest) are left alone. */
-export function actionText(action: string | null, perValue: number): string {
-  if (action === null) return 'Unnamed action';
+export function actionText(
+  action: string | null,
+  perValue: number,
+  t: Translate = english,
+): string {
+  if (action === null) return t('Unnamed action');
   return action.replace(/\{0\}/g, String(perValue));
 }
 

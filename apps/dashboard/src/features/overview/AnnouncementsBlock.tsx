@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { RichTitle } from '../../components/RichText';
+import { useT } from '../../lib/i18n';
 import { noticeHash } from '../../lib/route';
 import { supabase } from '../../lib/supabase';
 
@@ -66,6 +67,7 @@ async function fetchAnnouncements(): Promise<Announcement[]> {
 const day = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeZone: 'UTC' });
 
 export function AnnouncementsBlock() {
+  const t = useT();
   const { data, error, isPending } = useQuery({
     queryKey: ['announcements'],
     queryFn: fetchAnnouncements,
@@ -82,8 +84,12 @@ export function AnnouncementsBlock() {
 
   return (
     <section aria-labelledby="announcements-heading">
-      <h2 id="announcements-heading">Notices</h2>
-      {error && <p className="error">Could not load notices: {error.message}</p>}
+      <h2 id="announcements-heading">{t('Notices')}</h2>
+      {error && (
+        <p className="error">
+          {t('Could not load notices: {message}', { message: error.message })}
+        </p>
+      )}
       <ul className="notices">
         {notices.map((item) => (
           <li
@@ -103,14 +109,14 @@ export function AnnouncementsBlock() {
                 <RichTitle title={item.title} />
               </span>
               <span className="subtle">{day.format(new Date(item.created_at))}</span>
-              {item.pinned && <span className="badge badge-fresh">pinned</span>}
-              {item.visibility === 'member' && <span className="badge">alliance</span>}
+              {item.pinned && <span className="badge badge-fresh">{t('pinned')}</span>}
+              {item.visibility === 'member' && <span className="badge">{t('alliance')}</span>}
             </a>
           </li>
         ))}
       </ul>
       <p className="subtle">
-        <a href="#/notices">All notices →</a>
+        <a href="#/notices">{t('All notices →')}</a>
       </p>
     </section>
   );

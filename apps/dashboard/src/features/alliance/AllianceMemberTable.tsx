@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { ArrangedTable, type Column } from '../../components/ArrangedTable';
 import { TableSearch } from '../../components/TableSearch';
 import { BarCell } from '../../components/ui/BarCell';
+import { useT } from '../../lib/i18n';
 import { playerHash } from '../../lib/route';
 import type { ColumnSpec } from '../../lib/tableLayout';
 import { TERMS } from '../../lib/terms';
@@ -38,6 +39,7 @@ export function allianceMemberColumnSpecs(): ColumnSpec[] {
  * and not others.
  */
 export function AllianceMemberTable({ members }: { members: readonly AllianceMemberRow[] }) {
+  const t = useT();
   // `power` descending is the order the query already returned. Stating it means
   // the header says what the rows are doing, rather than showing an unsorted
   // arrow over an order the reader can plainly see (see useTableView).
@@ -53,7 +55,7 @@ export function AllianceMemberTable({ members }: { members: readonly AllianceMem
     () => [
       {
         id: 'name',
-        label: TERMS.name,
+        label: t(TERMS.name),
         sortKey: 'name',
         className: 'label',
         fixed: true,
@@ -69,14 +71,14 @@ export function AllianceMemberTable({ members }: { members: readonly AllianceMem
       },
       {
         id: 'hq',
-        label: TERMS.hq,
+        label: t(TERMS.hq),
         sortKey: 'hqLevel',
         numeric: true,
         cell: (row) => row.hqLevel ?? '—',
       },
       {
         id: 'power',
-        label: TERMS.power,
+        label: t(TERMS.power),
         sortKey: 'power',
         numeric: true,
         cell: (row) => (
@@ -87,17 +89,17 @@ export function AllianceMemberTable({ members }: { members: readonly AllianceMem
         ),
       },
     ],
-    [maxPower],
+    [maxPower, t],
   );
 
   return (
     <>
       <TableSearch
-        label="Search members"
+        label={t('Search members')}
         onChange={setQuery}
         shown={shown}
         total={total}
-        unit="members"
+        unit={t('members')}
         value={query}
       />
       <ArrangedTable
@@ -108,7 +110,7 @@ export function AllianceMemberTable({ members }: { members: readonly AllianceMem
         sort={sort}
         tableId={TABLE_ID}
       />
-      {view.length === 0 && <p className="empty">No member matches “{query}”.</p>}
+      {view.length === 0 && <p className="empty">{t('No member matches “{query}”.', { query })}</p>}
     </>
   );
 }

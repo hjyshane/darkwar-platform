@@ -4,6 +4,8 @@ import { ChannelField } from '../../components/ChannelField';
 import { MarkupEditor, TitleField } from '../../components/MarkupEditor';
 import { Strip } from '../../components/Strip';
 import { Select } from '../../components/ui/Select';
+import { useT } from '../../lib/i18n';
+import { type Translate, english } from '../../lib/i18n/core';
 import { noticeHash } from '../../lib/route';
 import { supabase } from '../../lib/supabase';
 import { useSession } from '../../lib/useSession';
@@ -54,11 +56,11 @@ const EMPTY: NoticeDraft = {
   published_at: null,
 };
 
-export function visibilityLabel(value: string | null): string | null {
+export function visibilityLabel(value: string | null, t: Translate = english): string | null {
   if (value === null) {
     return null;
   }
-  return value === 'public' ? 'Anyone' : 'Alliance only';
+  return value === 'public' ? t('Anyone') : t('Alliance only');
 }
 
 /** `datetime-local` gives no zone, and the column is timestamptz. Read as UTC
@@ -270,6 +272,7 @@ export function useSaveNotice(onDone: () => void) {
 }
 
 export function NoticesPanel() {
+  const t = useT();
   const { data: session } = useSession();
   const mayWrite = session?.role === 'admin';
   const [page, setPage] = useState(1);
@@ -285,18 +288,20 @@ export function NoticesPanel() {
             NO
           </span>
           <div>
-            <h2 id="notices-heading">Notices</h2>
+            <h2 id="notices-heading">{t('Notices')}</h2>
             <p className="entity-meta">
-              <span>Everything an admin has posted</span>
-              <span>Including notices whose window has passed</span>
+              <span>{t('Everything an admin has posted')}</span>
+              <span>{t('Including notices whose window has passed')}</span>
             </p>
           </div>
         </header>
-        {board.data && <Strip cells={boardStrip(board.data, 'notice', new Date())} />}
+        {board.data && <Strip cells={boardStrip(board.data, 'notice', new Date(), t)} />}
         <div className="entity-foot">
-          <p>The landing screen shows only the pinned ones.</p>
+          <p>{t('The landing screen shows only the pinned ones.')}</p>
           {board.error && (
-            <p className="error">Could not load the notices: {board.error.message}</p>
+            <p className="error">
+              {t('Could not load the notices: {message}', { message: board.error.message })}
+            </p>
           )}
           {save.error && <p className="error">{save.error.message}</p>}
           {mayWrite && draft === null && (
@@ -318,16 +323,16 @@ export function NoticesPanel() {
       )}
 
       <section aria-labelledby="notices-list-heading" className="panel">
-        <h3 id="notices-list-heading">All notices</h3>
+        <h3 id="notices-list-heading">{t('All notices')}</h3>
         {board.isPending ? (
-          <p className="empty loading">Loading…</p>
+          <p className="empty loading">{t('Loading…')}</p>
         ) : board.data === undefined ? null : (
           <BoardList
             data={board.data}
-            empty="Nothing posted yet."
+            empty={t('Nothing posted yet.')}
             hrefFor={noticeHash}
             onGo={setPage}
-            tagLabel={visibilityLabel}
+            tagLabel={(value) => visibilityLabel(value, t)}
           />
         )}
       </section>

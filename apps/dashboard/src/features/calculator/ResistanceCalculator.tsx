@@ -1,5 +1,6 @@
 import { useId, useState } from 'react';
 import { Select } from '../../components/ui/Select';
+import { rich, useT } from '../../lib/i18n';
 import { exact, short } from '../planner/format';
 import './calculator.css';
 import {
@@ -18,7 +19,7 @@ import { parseAmount } from './wait';
 
 const LEVELS = Array.from({ length: MAX_MONSTER_LEVEL }, (_, i) => i + 1);
 
-const VERDICT_TEXT = {
+export const VERDICT_TEXT = {
   sufficient: 'Sufficient virus resistance',
   insufficient: 'Insufficient resistance. Keep fighting might cause huge losses.',
   defeat: 'Insufficient resistance. Certain defeat.',
@@ -33,6 +34,7 @@ const VERDICT_TEXT = {
  * or a level the ladder has wrong.
  */
 export function ResistanceCalculator() {
+  const t = useT();
   const [monsterId, setMonsterId] = useState(SEASON_MONSTERS[0]?.id ?? 'brute');
   const [level, setLevel] = useState(52);
   const [table, setTable] = useState<SeasonTable>('6');
@@ -54,63 +56,66 @@ export function ResistanceCalculator() {
     <div className="calc">
       <form className="calc-form" onSubmit={(event) => event.preventDefault()}>
         <div className="field">
-          <label htmlFor={`${id}-monster`}>Monster</label>
+          <label htmlFor={`${id}-monster`}>{t('Monster')}</label>
           <Select id={`${id}-monster`} onChange={setMonsterId} value={monsterId}>
             {SEASON_MONSTERS.map((m) => (
               <option key={m.id} value={m.id}>
-                {m.name} · {m.rally ? 'rally' : 'single'}
+                {m.name} · {m.rally ? t('rally') : t('single')}
               </option>
             ))}
           </Select>
         </div>
         <div className="calc-pair">
           <div className="field">
-            <label htmlFor={`${id}-level`}>Level</label>
+            <label htmlFor={`${id}-level`}>{t('Level')}</label>
             <Select id={`${id}-level`} onChange={(v) => setLevel(Number(v))} value={level}>
               {LEVELS.map((lv) => (
                 <option key={lv} value={lv}>
-                  Lv.{lv}
+                  {t('Lv.{level}', { level: lv })}
                 </option>
               ))}
             </Select>
           </div>
           <div className="field">
-            <label htmlFor={`${id}-table`}>Season table</label>
+            <label htmlFor={`${id}-table`}>{t('Season table')}</label>
             <Select
               id={`${id}-table`}
               onChange={(v) => setTable(v as SeasonTable)}
               value={table}
-              title="Season 4 plays game season 6. Season 7 is the next run of this map; the two ladders agree below level 66."
+              title={t(
+                'Season 4 plays game season 6. Season 7 is the next run of this map; the two ladders agree below level 66.',
+              )}
             >
               <option value="6">Season 4 (6)</option>
-              <option value="7">Next run (7)</option>
+              <option value="7">{t('Next run (7)')}</option>
             </Select>
           </div>
         </div>
         <div className="field">
-          <label htmlFor={`${id}-mine`}>Your virus resistance</label>
+          <label htmlFor={`${id}-mine`}>{t('Your virus resistance')}</label>
           <input
             autoComplete="off"
             id={`${id}-mine`}
             inputMode="numeric"
             onChange={(event) => setMine(event.target.value)}
-            placeholder="e.g. 8,500"
+            placeholder={t('e.g. 8,500')}
             value={mine}
           />
         </div>
         <div className="field">
-          <label htmlFor={`${id}-required`}>Monster&apos;s figure (optional)</label>
+          <label htmlFor={`${id}-required`}>{t("Monster's figure (optional)")}</label>
           <input
             autoComplete="off"
             id={`${id}-required`}
             inputMode="numeric"
             onChange={(event) => setOverride(event.target.value)}
-            placeholder={ladder === null ? 'as the attack panel shows' : exact(ladder)}
+            placeholder={ladder === null ? t('as the attack panel shows') : exact(ladder)}
             value={override}
           />
           <p className="calc-hint">
-            Blank uses the ladder above. Type the figure from the attack panel to check a monster
-            that is not listed.
+            {t(
+              'Blank uses the ladder above. Type the figure from the attack panel to check a monster that is not listed.',
+            )}
           </p>
         </div>
       </form>
@@ -118,52 +123,54 @@ export function ResistanceCalculator() {
       <div aria-live="polite" className="calc-result">
         <div className="cell-grid">
           <div className="stat">
-            <div className="stat-label">Required</div>
+            <div className="stat-label">{t('Required')}</div>
             <div className="stat-value">{required === null ? '—' : exact(required)}</div>
           </div>
           <div className="stat">
-            <div className="stat-label">Shortfall</div>
+            <div className="stat-label">{t('Shortfall')}</div>
             <div className="stat-value">
-              {result === null ? '—' : result.deficit <= 0 ? 'none' : exact(result.deficit)}
+              {result === null ? '—' : result.deficit <= 0 ? t('none') : exact(result.deficit)}
             </div>
           </div>
           <div className="stat">
-            <div className="stat-label">Your damage</div>
+            <div className="stat-label">{t('Your damage')}</div>
             <div className="stat-value">{result === null ? '—' : percentChange(result.self)}</div>
           </div>
           <div className="stat">
-            <div className="stat-label">Monster damage</div>
+            <div className="stat-label">{t('Monster damage')}</div>
             <div className="stat-value">
               {result === null ? '—' : percentChange(result.monster)}
             </div>
           </div>
           <div className="stat">
-            <div className="stat-label">Recommended power</div>
+            <div className="stat-label">{t('Recommended power')}</div>
             <div className="stat-value" title={shown === null ? undefined : exact(shown)}>
               {shown === null ? '—' : short(shown)}
             </div>
             {power !== null && shown !== null && shown !== power && (
-              <div className="stat-note">{short(power)} in the table; the panel inflates it</div>
+              <div className="stat-note">
+                {t('{power} in the table; the panel inflates it', { power: short(power) })}
+              </div>
             )}
           </div>
         </div>
 
         <p className="note">
-          {state === null && 'Type your resistance. The required figure is the client’s ladder.'}
-          {state !== null && VERDICT_TEXT[state]}
+          {state === null && t('Type your resistance. The required figure is the client’s ladder.')}
+          {state !== null && t(VERDICT_TEXT[state])}
         </p>
 
         {required !== null && (
           <div className="table-wrap">
             <table>
-              <caption>At this requirement, by shortfall</caption>
+              <caption>{t('At this requirement, by shortfall')}</caption>
               <thead>
                 <tr>
-                  <th scope="col">Short by</th>
-                  <th scope="col">Resistance</th>
-                  <th scope="col">Your damage</th>
-                  <th scope="col">Monster damage</th>
-                  <th scope="col">Panel power</th>
+                  <th scope="col">{t('Short by')}</th>
+                  <th scope="col">{t('Resistance')}</th>
+                  <th scope="col">{t('Your damage')}</th>
+                  <th scope="col">{t('Monster damage')}</th>
+                  <th scope="col">{t('Panel power')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -186,12 +193,12 @@ export function ResistanceCalculator() {
         )}
 
         <p className="note">
-          Your damage drops 0.1% a point short, to a floor of -99%. The monster gains (1 + 0.0027 ×
-          short)<sup>6</sup> up to 400 short, then 1 + 0.2 × short, capped at +29,900%. The
-          panel&apos;s recommended power is the table&apos;s figure times the square root of monster
-          damage over yours, so it climbs with the same shortfall. From the client&apos;s own tables
-          and the server&apos;s battle config, read 2026-11-20. Nothing typed here is sent anywhere
-          or saved.
+          {rich(
+            t(
+              "Your damage drops 0.1% a point short, to a floor of -99%. The monster gains (1 + 0.0027 × short){power} up to 400 short, then 1 + 0.2 × short, capped at +29,900%. The panel's recommended power is the table's figure times the square root of monster damage over yours, so it climbs with the same shortfall. From the client's own tables and the server's battle config, read 2026-11-20. Nothing typed here is sent anywhere or saved.",
+            ),
+            { power: <sup>6</sup> },
+          )}
         </p>
       </div>
     </div>
@@ -200,13 +207,15 @@ export function ResistanceCalculator() {
 
 /** The calculator's third page. */
 export function ResistanceCalculatorPage() {
+  const t = useT();
   return (
     <main>
       <section>
-        <h2>Virus resistance</h2>
+        <h2>{t('Virus resistance')}</h2>
         <p className="calc-intro">
-          What a season monster does to a march whose virus resistance is short of what it wants:
-          the damage you lose and the damage it gains, as the attack panel draws them.
+          {t(
+            'What a season monster does to a march whose virus resistance is short of what it wants: the damage you lose and the damage it gains, as the attack panel draws them.',
+          )}
         </p>
       </section>
       <ResistanceCalculator />

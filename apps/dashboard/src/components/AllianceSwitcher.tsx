@@ -1,3 +1,4 @@
+import { useT } from '../lib/i18n';
 import type { MyAlliance } from '../lib/useMyAlliances';
 
 /** The one control for "which of my alliances am I looking at".
@@ -19,12 +20,13 @@ export function AllianceSwitcher({
   onSwitch: (allianceId: string) => void;
   className?: string;
 }) {
+  const t = useT();
   if (alliances.length < 2) {
     return null;
   }
   return (
     <fieldset className={`alliance-switch ${className ?? ''}`.trim()}>
-      <legend className="visually-hidden">Viewing alliance</legend>
+      <legend className="visually-hidden">{t('Viewing alliance')}</legend>
       {alliances.map((alliance) => (
         <button
           key={alliance.alliance_id}

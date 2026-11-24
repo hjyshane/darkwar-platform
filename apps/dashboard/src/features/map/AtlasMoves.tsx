@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Tabs } from '../../components/ui/Tabs';
 import { formatAge } from '../../lib/freshness';
+import { useT } from '../../lib/i18n';
 import { playerHash } from '../../lib/route';
 import {
   type ServerFlowRow,
@@ -30,6 +31,7 @@ export function MovesPanel({
   atlas: Atlas;
   onChoose: (base: AtlasBase) => void;
 }) {
+  const t = useT();
   const [since, setSince] = useState<Since>('30d');
   const flow = useQuery({
     queryKey: ['map', 'moves', serverId, since],
@@ -41,44 +43,47 @@ export function MovesPanel({
   const { arrived, departed } = splitFlow(flow.data ?? []);
 
   return (
-    <section aria-label="Moves" className="atlas-moves">
+    <section aria-label={t('Moves')} className="atlas-moves">
       <Tabs
-        label="Since"
+        label={t('Since')}
         items={[
-          { id: '7d' as const, label: '7 days' },
-          { id: '30d' as const, label: '30 days' },
-          { id: 'all' as const, label: 'All' },
+          { id: '7d' as const, label: t('7 days') },
+          { id: '30d' as const, label: t('30 days') },
+          { id: 'all' as const, label: t('All') },
         ]}
         onChange={setSince}
         value={since}
       />
-      {flow.isPending && <p className="empty loading">Loading…</p>}
+      {flow.isPending && <p className="empty loading">{t('Loading…')}</p>}
       {flow.error && (
-        <p className="error">Could not load the moves: {(flow.error as Error).message}</p>
+        <p className="error">
+          {t('Could not load the moves: {message}', { message: (flow.error as Error).message })}
+        </p>
       )}
       {flow.data && (
         <>
           <MoveList
-            empty={`Nobody seen arriving on ${serverId} in this window.`}
+            empty={t('Nobody seen arriving on {server} in this window.', { server: serverId })}
             now={now}
             onChoose={onChoose}
             onMap={onMap}
             rows={arrived}
-            title={`Migrated in (${arrived.length})`}
+            title={t('Migrated in ({count})', { count: arrived.length })}
             verb="from"
           />
           <MoveList
-            empty={`Nobody seen leaving ${serverId} in this window.`}
+            empty={t('Nobody seen leaving {server} in this window.', { server: serverId })}
             now={now}
             onChoose={onChoose}
             onMap={onMap}
             rows={departed}
-            title={`Migrated out (${departed.length})`}
+            title={t('Migrated out ({count})', { count: departed.length })}
             verb="to"
           />
           <p className="subtle">
-            A move is dated when the player was first seen on the new server — on its map, a board
-            or a roster — not when they moved. Name, alliance and power are their current ones.
+            {t(
+              'A move is dated when the player was first seen on the new server — on its map, a board or a roster — not when they moved. Name, alliance and power are their current ones.',
+            )}
           </p>
         </>
       )}
@@ -103,6 +108,7 @@ function MoveList({
   onChoose: (base: AtlasBase) => void;
   now: Date;
 }) {
+  const t = useT();
   const others = byOtherServer(rows).slice(0, 6);
   return (
     <>
@@ -110,7 +116,15 @@ function MoveList({
       {rows.length === 0 ? (
         <p className="empty">{empty}</p>
       ) : (
-        <p className="subtle">{others.map((o) => `${verb} ${o.server}: ${o.count}`).join(' · ')}</p>
+        <p className="subtle">
+          {others
+            .map((o) =>
+              verb === 'from'
+                ? t('from {server}: {count}', { server: o.server, count: o.count })
+                : t('to {server}: {count}', { server: o.server, count: o.count }),
+            )
+            .join(' · ')}
+        </p>
       )}
       <ul className="map-results">
         {rows.map((row) => {
@@ -122,9 +136,12 @@ function MoveList({
                 {row.player_name ?? `UID ${row.game_uid}`}
               </strong>
               <span className="subtle">
-                {verb} {row.other_server_id} · seen {formatAge(row.seen_at, now)} ·{' '}
+                {verb === 'from'
+                  ? t('from {server}', { server: row.other_server_id })
+                  : t('to {server}', { server: row.other_server_id })}{' '}
+                · {t('seen {age}', { age: formatAge(row.seen_at, now, t) })} ·{' '}
                 {formatPower(row.power)}
-                {base !== undefined && ' · on this map'}
+                {base !== undefined && ` · ${t('on this map')}`}
               </span>
             </>
           );

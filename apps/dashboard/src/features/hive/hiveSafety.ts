@@ -6,6 +6,7 @@
 // without rendering two thousand lines of it.
 
 import { type Offset, offsetKey } from '../../lib/hiveFormation';
+import { type Translate, english } from '../../lib/i18n/core';
 import { zonedDayKey, zonedTime } from '../../lib/timezone';
 
 /** How long a deleted plan can be restored. The owner's choice, 2026-11-15;
@@ -129,8 +130,17 @@ export function whenText(at: string, zone: string, now: Date): string {
 }
 
 /** "Last changed by Mina · 14:32". */
-export function stampText(name: string | null, at: string, zone: string, now: Date): string {
-  return `Last changed by ${name ?? 'someone'} · ${whenText(at, zone, now)}`;
+export function stampText(
+  name: string | null,
+  at: string,
+  zone: string,
+  now: Date,
+  t: Translate = english,
+): string {
+  return t('Last changed by {name} · {time}', {
+    name: name ?? t('someone'),
+    time: whenText(at, zone, now),
+  });
 }
 
 /** Which plan the hive screen shows.

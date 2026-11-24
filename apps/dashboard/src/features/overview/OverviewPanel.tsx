@@ -6,6 +6,7 @@ import { fetchAllianceSetting } from '../../lib/allianceSetting';
 import { useIsCommunity } from '../../lib/communityAccess';
 import { compactNumber } from '../../lib/compactNumber';
 import { FormulaError, evaluateFormula, parseFormula } from '../../lib/formula';
+import { rich, useT } from '../../lib/i18n';
 import {
   type FormulaMetric,
   METRIC_CATALOGUE,
@@ -232,6 +233,7 @@ function formulaValues(
 }
 
 export function OverviewPanel({ now }: { now?: Date }) {
+  const t = useT();
   const { data, error, isPending } = useQuery({
     queryKey: ['overview'],
     queryFn: fetchSummary,
@@ -254,24 +256,33 @@ export function OverviewPanel({ now }: { now?: Date }) {
           {(data?.allianceCode ?? 'DW').slice(0, 2)}
         </span>
         <div>
-          <h2 id="overview-heading">{data?.allianceName ?? TERMS.overview}</h2>
+          <h2 id="overview-heading">{data?.allianceName ?? t(TERMS.overview)}</h2>
           {data && (
             <p className="entity-meta">
               {data.allianceCode && <span>[{data.allianceCode}]</span>}
-              {data.allianceCount > 1 && <span>{data.allianceCount} alliances</span>}
-              {data.serverIds.length > 0 && <span>Server {data.serverIds.join(', ')}</span>}
+              {data.allianceCount > 1 && (
+                <span>{t('{count} alliances', { count: data.allianceCount })}</span>
+              )}
+              {data.serverIds.length > 0 && (
+                <span>{t('Server {server}', { server: data.serverIds.join(', ') })}</span>
+              )}
             </p>
           )}
         </div>
       </header>
 
-      {isPending && <p className="empty loading">Loading…</p>}
-      {error && <p className="error">Could not load the summary: {error.message}</p>}
+      {isPending && <p className="empty loading">{t('Loading…')}</p>}
+      {error && (
+        <p className="error">
+          {t('Could not load the summary: {message}', { message: error.message })}
+        </p>
+      )}
 
       {data && data.values.members === null && (
         <p className="empty">
-          No roster captured yet. Open the alliance member list in game with the collector running,
-          and this fills in.
+          {t(
+            'No roster captured yet. Open the alliance member list in game with the collector running, and this fills in.',
+          )}
         </p>
       )}
 
@@ -307,8 +318,14 @@ export function OverviewPanel({ now }: { now?: Date }) {
                   // picker can state rather than a second setting.
                   hero={index === 0}
                   key={id}
-                  label={spec.label}
-                  note={spec.restricted && restricted ? 'alliance members only' : spec.note}
+                  label={t(spec.label)}
+                  note={
+                    spec.restricted && restricted
+                      ? t('alliance members only')
+                      : spec.note === undefined
+                        ? undefined
+                        : t(spec.note)
+                  }
                   value={
                     spec.compact
                       ? formatCompact(data.values[id as MetricId])
@@ -319,7 +336,9 @@ export function OverviewPanel({ now }: { now?: Date }) {
             })}
           </div>
           <p className="entity-foot">
-            Roster last updated <FreshnessBadge capturedAt={data.rosterObservedAt} now={now} />
+            {rich(t('Roster last updated {badge}'), {
+              badge: <FreshnessBadge capturedAt={data.rosterObservedAt} now={now} />,
+            })}
           </p>
         </>
       )}

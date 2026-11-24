@@ -1,3 +1,4 @@
+import { useT } from '../../lib/i18n';
 import { loadErrorText } from './loadError';
 
 interface MapLoadErrorProps {
@@ -10,7 +11,8 @@ interface MapLoadErrorProps {
 /** The map's error state: one sentence that says what to do, a button that
  * does it, and the database's words only when they are not the timeout. */
 export function MapLoadError({ error, onRetry }: MapLoadErrorProps) {
-  const { message, detail } = loadErrorText(error);
+  const t = useT();
+  const { message, detail } = loadErrorText(error, t);
   return (
     <p className="error" role="alert">
       {message}
@@ -18,7 +20,7 @@ export function MapLoadError({ error, onRetry }: MapLoadErrorProps) {
         <>
           {' '}
           <button className="link-button" onClick={onRetry} type="button">
-            Try again
+            {t('Try again')}
           </button>
         </>
       ) : null}

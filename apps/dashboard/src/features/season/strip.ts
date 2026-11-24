@@ -6,6 +6,7 @@
 // already fetched. A dash means "we do not know", never zero.
 
 import { compactNumber } from '../../lib/compactNumber';
+import { type Translate, english } from '../../lib/i18n/core';
 import { allianceLabel } from './boards';
 import type { SeasonAllianceRow, SeasonPlayerRow } from './boards';
 import { type BuildingGrid, buildingsBehind } from './buildings';
@@ -24,23 +25,24 @@ const plain = new Intl.NumberFormat('en');
 export function buildingsStrip(
   grid: BuildingGrid,
   floors: ReadonlyMap<number, number>,
+  t: Translate = english,
 ): StripCell[] {
   const cells: StripCell[] = [
     {
-      label: 'Members seen',
+      label: t('Members seen'),
       value: plain.format(grid.members.length),
       note:
         grid.rosterTotal === null
           ? undefined
-          : `of ${plain.format(grid.rosterTotal)} in the roster`,
+          : t('of {total} in the roster', { total: plain.format(grid.rosterTotal) }),
     },
     {
-      label: 'Buildings',
+      label: t('Buildings'),
       value: plain.format(grid.columns.length),
       note:
         grid.unnamedSeen > 0
-          ? `${plain.format(grid.unnamedSeen)} more on the map, not named`
-          : 'all named',
+          ? t('{count} more on the map, not named', { count: plain.format(grid.unnamedSeen) })
+          : t('all named'),
     },
   ];
   if (floors.size > 0) {
@@ -48,36 +50,43 @@ export function buildingsStrip(
       (member) => buildingsBehind(member, grid.columns, floors).length > 0,
     ).length;
     cells.push({
-      label: 'Under a floor',
+      label: t('Under a floor'),
       value: plain.format(behind),
-      note: `of ${plain.format(grid.members.length)} seen`,
+      note: t('of {total} seen', { total: plain.format(grid.members.length) }),
     });
   }
   return cells;
 }
 
 /** The alliances ranked, and who is first. */
-export function allianceStrip(rows: readonly SeasonAllianceRow[]): StripCell[] {
+export function allianceStrip(
+  rows: readonly SeasonAllianceRow[],
+  t: Translate = english,
+): StripCell[] {
   const top = [...rows].sort((a, b) => (a.rank ?? 1e9) - (b.rank ?? 1e9))[0];
   return [
-    { label: 'Alliances ranked', value: plain.format(rows.length) },
+    { label: t('Alliances ranked'), value: plain.format(rows.length) },
     {
-      label: 'First',
+      label: t('First'),
       value: top === undefined ? null : (allianceLabel(top.name, top.abbr) ?? null),
-      note: top?.score == null ? undefined : `${compact.format(top.score)} points`,
+      note:
+        top?.score == null ? undefined : t('{score} points', { score: compact.format(top.score) }),
     },
   ];
 }
 
 /** The players ranked, and who is first. */
-export function playerStrip(rows: readonly SeasonPlayerRow[]): StripCell[] {
+export function playerStrip(rows: readonly SeasonPlayerRow[], t: Translate = english): StripCell[] {
   const top = [...rows].sort((a, b) => (a.rank ?? 1e9) - (b.rank ?? 1e9))[0];
   return [
-    { label: 'Players ranked', value: plain.format(rows.length) },
+    { label: t('Players ranked'), value: plain.format(rows.length) },
     {
-      label: 'First',
+      label: t('First'),
       value: top?.name ?? null,
-      note: top?.force == null ? undefined : `${compact.format(top.force)} influence`,
+      note:
+        top?.force == null
+          ? undefined
+          : t('{force} influence', { force: compact.format(top.force) }),
     },
   ];
 }

@@ -1,4 +1,5 @@
 import { useId, useState } from 'react';
+import { useT } from '../../lib/i18n';
 import './calculator.css';
 import { formatWait, parseAmount, waitFor } from './wait';
 
@@ -16,6 +17,7 @@ import { formatWait, parseAmount, waitFor } from './wait';
  * expecting the alliance to see them.
  */
 export function WaitCalculator() {
+  const t = useT();
   const [perHour, setPerHour] = useState('');
   const [current, setCurrent] = useState('');
   const [needed, setNeeded] = useState('');
@@ -38,7 +40,7 @@ export function WaitCalculator() {
     <div>
       <div className="stack">
         <label htmlFor={rateId}>
-          Output per hour
+          {t('Output per hour')}
           {/* `inputMode` rather than `type="number"`: the figures are pasted
               off the game with its own separators, which a number input
               rejects outright, and the spinner arrows are useless here. */}
@@ -47,29 +49,29 @@ export function WaitCalculator() {
             id={rateId}
             inputMode="decimal"
             onChange={(event) => setPerHour(event.target.value)}
-            placeholder="e.g. 1,200"
+            placeholder={t('e.g. 1,200')}
             value={perHour}
           />
         </label>
         <label htmlFor={currentId}>
-          Current amount
+          {t('Current amount')}
           <input
             autoComplete="off"
             id={currentId}
             inputMode="decimal"
             onChange={(event) => setCurrent(event.target.value)}
-            placeholder="e.g. 40,000"
+            placeholder={t('e.g. 40,000')}
             value={current}
           />
         </label>
         <label htmlFor={neededId}>
-          Amount needed to upgrade
+          {t('Amount needed to upgrade')}
           <input
             autoComplete="off"
             id={neededId}
             inputMode="decimal"
             onChange={(event) => setNeeded(event.target.value)}
-            placeholder="e.g. 100,000"
+            placeholder={t('e.g. 100,000')}
             value={needed}
           />
         </label>
@@ -78,27 +80,37 @@ export function WaitCalculator() {
       {/* Polite, not assertive: the answer changes on every keystroke and an
           assertive region would interrupt a screen reader mid-number. */}
       <div aria-live="polite" className="stat">
-        <div className="stat-label">Time to wait</div>
+        <div className="stat-label">{t('Time to wait')}</div>
         <div className="stat-value">
           {answer === null && '—'}
-          {answer?.kind === 'ready' && 'Ready now'}
-          {answer?.kind === 'never' && 'Never at this rate'}
+          {answer?.kind === 'ready' && t('Ready now')}
+          {answer?.kind === 'never' && t('Never at this rate')}
           {answer?.kind === 'wait' && formatWait(answer.hours)}
         </div>
       </div>
 
       <p className="note">
         {answer === null &&
-          'Fill in all three boxes. A figure can be pasted with the separators the game draws.'}
-        {answer?.kind === 'ready' && 'You already have enough for the upgrade.'}
+          t('Fill in all three boxes. A figure can be pasted with the separators the game draws.')}
+        {answer?.kind === 'ready' && t('You already have enough for the upgrade.')}
         {answer?.kind === 'never' &&
-          `Nothing is coming in, so the ${shortfall?.toLocaleString()} short never arrives. Check the output figure.`}
+          t(
+            'Nothing is coming in, so the {shortfall} short never arrives. Check the output figure.',
+            { shortfall: `${shortfall?.toLocaleString()}` },
+          )}
         {answer?.kind === 'wait' &&
-          `${shortfall?.toLocaleString()} short at ${parsed.perHour?.toLocaleString()} an hour. Assumes the rate holds — a buff, a lost building or a full warehouse changes it.`}
+          t(
+            '{shortfall} short at {rate} an hour. Assumes the rate holds — a buff, a lost building or a full warehouse changes it.',
+            {
+              shortfall: `${shortfall?.toLocaleString()}`,
+              rate: `${parsed.perHour?.toLocaleString()}`,
+            },
+          )}
       </p>
       <p className="note">
-        Nothing typed here is sent anywhere or saved. It is arithmetic on your own screen, and the
-        boxes empty on reload.
+        {t(
+          'Nothing typed here is sent anywhere or saved. It is arithmetic on your own screen, and the boxes empty on reload.',
+        )}
       </p>
     </div>
   );
@@ -106,14 +118,15 @@ export function WaitCalculator() {
 
 /** The calculator's second page. */
 export function WaitCalculatorPage() {
+  const t = useT();
   return (
     <main>
       <section>
-        <h2>Resource wait time</h2>
+        <h2>{t('Resource wait time')}</h2>
         <p className="calc-intro">
-          How long until a resource reaches the amount an upgrade wants, at the hourly output the
-          game shows for it. Any resource: season materials, food, iron, anything that comes in by
-          the hour.
+          {t(
+            'How long until a resource reaches the amount an upgrade wants, at the hourly output the game shows for it. Any resource: season materials, food, iron, anything that comes in by the hour.',
+          )}
         </p>
       </section>
       <div className="panel">

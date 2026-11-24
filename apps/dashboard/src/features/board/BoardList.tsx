@@ -1,5 +1,6 @@
 import { Pager } from '../../components/Pager';
 import { RichTitle } from '../../components/RichText';
+import { useT } from '../../lib/i18n';
 import type { BoardPage, BoardPost } from './board';
 import { hotPostIds, topPostId } from './views';
 
@@ -47,6 +48,7 @@ function Row({
   read: boolean;
   tagLabel: (tag: string | null) => string | null;
 }) {
+  const t = useT();
   const tag = tagLabel(post.tag);
   // Not "Unknown": a post written before 0079, or by an account with no
   // character linked, has an author we genuinely cannot name.
@@ -60,20 +62,20 @@ function Row({
           looking — not down in the meta line with the dates. "Is anybody
           talking about this" is a reason to open a post; the date is not. */}
       {commentCount > 0 && (
-        <span className="board-comments" title={`${commentCount} comments`}>
+        <span className="board-comments" title={t('{count} comments', { count: commentCount })}>
           {commentCount}
         </span>
       )}
       {/* Two tags answering two questions: `top` is the most-read post on the
           board and changes rarely, `hot` is about this week and decays. A post
           can be both, and the order puts the rarer one first. */}
-      {top && <span className="badge badge-top">top</span>}
-      {hot && <span className="badge badge-hot">hot</span>}
-      {post.pinned && <span className="badge badge-fresh">pinned</span>}
-      {post.liveAt === null && <span className="badge badge-missing">draft</span>}
+      {top && <span className="badge badge-top">{t('top')}</span>}
+      {hot && <span className="badge badge-hot">{t('hot')}</span>}
+      {post.pinned && <span className="badge badge-fresh">{t('pinned')}</span>}
+      {post.liveAt === null && <span className="badge badge-missing">{t('draft')}</span>}
       {/* Unread said in words as well as in weight, because bold alone is not
           something everybody can see. */}
-      {!read && <span className="badge badge-missing">new</span>}
+      {!read && <span className="badge badge-missing">{t('new')}</span>}
       {/* The post page's own meta block (`post-meta`), so the list shows the
           facts in the same clothes the opened post does. */}
       <div className="post-meta">
@@ -88,13 +90,17 @@ function Row({
             the one that belongs next to the title. */}
         {viewCount > 0 && (
           <span className="post-views">
-            {viewCount} view{viewCount === 1 ? '' : 's'}
+            {viewCount === 1
+              ? t('{count} view', { count: viewCount })
+              : t('{count} views', { count: viewCount })}
           </span>
         )}
         {/* Only when it differs, as on the post page: an "edited" stamp on
             every entry would say nothing. */}
         {post.updatedAt !== post.createdAt && (
-          <span className="post-edited">edited {day.format(new Date(post.updatedAt))}</span>
+          <span className="post-edited">
+            {t('edited {date}', { date: day.format(new Date(post.updatedAt)) })}
+          </span>
         )}
       </div>
     </li>
@@ -114,6 +120,7 @@ export function BoardList({
   tagLabel: (tag: string | null) => string | null;
   empty: React.ReactNode;
 }) {
+  const t = useT();
   if (data.posts.length === 0 && data.pinned.length === 0) {
     return <p className="empty">{empty}</p>;
   }
@@ -159,8 +166,11 @@ export function BoardList({
       </ul>
       <Pager onGo={onGo} page={data.page} pageCount={data.pageCount} />
       <p className="subtle">
-        {data.total} post{data.total === 1 ? '' : 's'}
-        {data.pinned.length > 0 && ` · ${data.pinned.length} pinned, shown on every page`}
+        {data.total === 1
+          ? t('{count} post', { count: data.total })
+          : t('{count} posts', { count: data.total })}
+        {data.pinned.length > 0 &&
+          ` · ${t('{count} pinned, shown on every page', { count: data.pinned.length })}`}
       </p>
     </>
   );

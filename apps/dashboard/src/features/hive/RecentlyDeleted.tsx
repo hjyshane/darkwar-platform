@@ -5,6 +5,7 @@
 // hides a deleted plan from them is the same one that shows it to officers.
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { rich, useT } from '../../lib/i18n';
 import { readZone } from '../../lib/timezone';
 import { type Formation, restoreFormation } from './hiveFormations';
 import { KEEP_DELETED_DAYS, keptUntil, whenText } from './hiveSafety';
@@ -29,6 +30,7 @@ export function RecentlyDeleted({
   plans: readonly Formation[];
   onRestored: (formation: Formation) => void;
 }) {
+  const t = useT();
   const restore = useRestore(onRestored);
   // In the reader's chosen clock, like every other date on the hive screens.
   const day = new Intl.DateTimeFormat('en-GB', {
@@ -42,28 +44,38 @@ export function RecentlyDeleted({
   }
   return (
     <details className="hive-new">
-      <summary>Recently deleted ({plans.length})</summary>
+      <summary>{t('Recently deleted ({count})', { count: plans.length })}</summary>
       <p className="subtle">
-        A deleted plan can be restored for {KEEP_DELETED_DAYS} days. It comes back as a draft, not
-        as the live plan.
+        {t(
+          'A deleted plan can be restored for {days} days. It comes back as a draft, not as the live plan.',
+          { days: KEEP_DELETED_DAYS },
+        )}
       </p>
       <ul className="hive-deleted">
         {plans.map((plan) => (
           <li key={plan.formationId}>
             <span>
-              <strong>{plan.name}</strong> · server {plan.serverId} · deleted by{' '}
-              {plan.deletedByName ?? 'someone'}
-              {plan.deletedAt !== null && (
-                <>
-                  , {day.format(new Date(plan.deletedAt))} · kept until{' '}
-                  {day.format(keptUntil(plan.deletedAt))}
-                </>
-              )}
+              {plan.deletedAt !== null
+                ? rich(
+                    t('{name} · server {server} · deleted by {by}, {day} · kept until {until}'),
+                    {
+                      name: <strong>{plan.name}</strong>,
+                      server: plan.serverId,
+                      by: plan.deletedByName ?? t('someone'),
+                      day: day.format(new Date(plan.deletedAt)),
+                      until: day.format(keptUntil(plan.deletedAt)),
+                    },
+                  )
+                : rich(t('{name} · server {server} · deleted by {by}'), {
+                    name: <strong>{plan.name}</strong>,
+                    server: plan.serverId,
+                    by: plan.deletedByName ?? t('someone'),
+                  })}
             </span>
             <button disabled={restore.isPending} onClick={() => restore.mutate(plan)} type="button">
               {restore.isPending && restore.variables?.formationId === plan.formationId
-                ? 'Restoring…'
-                : 'Restore'}
+                ? t('Restoring…')
+                : t('Restore')}
             </button>
           </li>
         ))}
@@ -80,16 +92,31 @@ export function RecentlyDeleted({
  * plan; restoring it keeps its version (0330), so a draft that was open when
  * it was deleted can be saved as soon as it is back. */
 export function DeletedUnderYou({ formation }: { formation: Formation }) {
+  const t = useT();
   const restore = useRestore(() => undefined);
   return (
     <div className="hive-conflict" role="alert">
       <p>
-        <strong>{formation.deletedByName ?? 'Someone'}</strong> deleted {formation.name}
-        {formation.deletedAt !== null && (
-          <> at {whenText(formation.deletedAt, readZone(), new Date())}</>
-        )}
-        . Nothing on it can be saved until it is restored; anything you have not saved is still
-        here.
+        {formation.deletedAt !== null
+          ? rich(
+              t(
+                '{by} deleted {name} at {time}. Nothing on it can be saved until it is restored; anything you have not saved is still here.',
+              ),
+              {
+                by: <strong>{formation.deletedByName ?? t('Someone')}</strong>,
+                name: formation.name,
+                time: whenText(formation.deletedAt, readZone(), new Date()),
+              },
+            )
+          : rich(
+              t(
+                '{by} deleted {name}. Nothing on it can be saved until it is restored; anything you have not saved is still here.',
+              ),
+              {
+                by: <strong>{formation.deletedByName ?? t('Someone')}</strong>,
+                name: formation.name,
+              },
+            )}
       </p>
       <p>
         <button
@@ -97,7 +124,7 @@ export function DeletedUnderYou({ formation }: { formation: Formation }) {
           onClick={() => restore.mutate(formation)}
           type="button"
         >
-          {restore.isPending ? 'Restoring…' : 'Restore it'}
+          {restore.isPending ? t('Restoring…') : t('Restore it')}
         </button>
       </p>
       {restore.error && <p className="error">{(restore.error as Error).message}</p>}

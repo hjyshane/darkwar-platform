@@ -13,6 +13,8 @@
 
 import { useId } from 'react';
 import { useIcons } from '../../lib/gameIcons';
+import { useT } from '../../lib/i18n';
+import { type Translate, english } from '../../lib/i18n/core';
 import { GEAR_PROMOTE_AT_MAX_LEVEL } from '../../lib/troops';
 
 const SEGMENTS = 5;
@@ -145,9 +147,10 @@ export function gearSegments(promote: number): { stage: number; awakening: numbe
 }
 
 export function GearPromote({ promote }: { promote: number }) {
+  const t = useT();
   const { awakening } = gearSegments(promote);
   return (
-    <span className="rank" title={gearPromoteText(promote)}>
+    <span className="rank" title={gearPromoteText(promote, t)}>
       <Row count={5} segments={awakening} shape="pentagon" />
     </span>
   );
@@ -166,12 +169,12 @@ export function weaponText(level: number): string {
   return `★${full}${part ? ` ▰${part}` : ''}`;
 }
 
-export function gearPromoteText(promote: number): string {
+export function gearPromoteText(promote: number, t: Translate = english): string {
   const { stage, awakening } = gearSegments(promote);
   if (promote >= GEAR_PROMOTE_AT_MAX_LEVEL) {
     const full = Math.floor(awakening / SEGMENTS);
     const part = awakening % SEGMENTS;
     return `⬠${full}${part ? ` ▰${part}` : ''}`;
   }
-  return stage === 0 ? '⬠0' : `stage ${stage}`;
+  return stage === 0 ? '⬠0' : t('stage {stage}', { stage });
 }

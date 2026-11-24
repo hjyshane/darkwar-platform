@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useT } from '../../lib/i18n';
 import { supabase } from '../../lib/supabase';
 
 /** Give up your own access.
@@ -20,6 +21,7 @@ import { supabase } from '../../lib/supabase';
  * screen whose other button says "Sign out".
  */
 export function LeaveAllianceForm() {
+  const t = useT();
   const queryClient = useQueryClient();
   const [confirming, setConfirming] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -35,7 +37,9 @@ export function LeaveAllianceForm() {
     onSuccess: () => {
       setFailed(false);
       setConfirming(false);
-      setMessage('Done. You have left this alliance; any other alliance you are in is unchanged.');
+      setMessage(
+        t('Done. You have left this alliance; any other alliance you are in is unchanged.'),
+      );
       // Everything cached was computed under the old role, and most of it is
       // about to come back empty — the same reason redeeming a code
       // invalidates the lot.
@@ -53,8 +57,9 @@ export function LeaveAllianceForm() {
     <>
       {confirming ? (
         <p className="empty">
-          Leaving takes away your access to member pages. Your sign-in, your favourites and anything
-          you have posted all stay, and an invitation code lets you back in.
+          {t(
+            'Leaving takes away your access to member pages. Your sign-in, your favourites and anything you have posted all stay, and an invitation code lets you back in.',
+          )}
         </p>
       ) : null}
       <div className="row">
@@ -65,14 +70,14 @@ export function LeaveAllianceForm() {
           type="button"
         >
           {leave.isPending
-            ? 'Leaving…'
+            ? t('Leaving…')
             : confirming
-              ? 'Yes, leave the alliance'
-              : 'Leave the alliance'}
+              ? t('Yes, leave the alliance')
+              : t('Leave the alliance')}
         </button>
         {confirming && !leave.isPending && (
           <button onClick={() => setConfirming(false)} type="button">
-            Cancel
+            {t('Cancel')}
           </button>
         )}
       </div>

@@ -7,6 +7,7 @@
 
 import type { Coordinate } from '@dw/ui';
 import { useQuery } from '@tanstack/react-query';
+import { type Translate, english } from '../../lib/i18n/core';
 import { shareCoordinate } from '../../lib/shareCoordinate';
 import { supabase } from '../../lib/supabase';
 import type { StripCell } from './strip';
@@ -217,10 +218,10 @@ export function countByServer(trucks: readonly Truck[]): ServerCount[] {
 }
 
 /** "1h 12m", "9m", "under a minute"; "gone" once it has passed. */
-export function timeLeft(until: Date, now: Date): string {
+export function timeLeft(until: Date, now: Date, t: Translate = english): string {
   const minutes = Math.floor((until.getTime() - now.getTime()) / 60_000);
-  if (minutes < 0) return 'gone';
-  if (minutes < 1) return 'under a minute';
+  if (minutes < 0) return t('gone');
+  if (minutes < 1) return t('under a minute');
   if (minutes < 60) return `${minutes}m`;
   const hours = Math.floor(minutes / 60);
   return `${hours}h ${String(minutes % 60).padStart(2, '0')}m`;

@@ -2,6 +2,7 @@
 // (0310). Pure: the forms hold a payload, change it through these helpers, and
 // ask `validateDraft` whether Save may be offered and, if not, why.
 
+import { type Translate, english } from '../../../lib/i18n/core';
 import { type SectionKind, type SectionPayload, parseSection } from '../sections/index';
 
 /** Where a new section of each kind starts. Every structured kind starts
@@ -24,16 +25,24 @@ export function emptyPayload(kind: SectionKind): SectionPayload['payload'] {
   }
 }
 
-const REASON: Record<SectionKind, string> = {
-  rewards: 'Every reward needs a name and a kind.',
-  stages: 'Every group needs a name, every stage a number, every drop an item and a quantity.',
-  point_table: 'Every row needs an action and a number of points.',
-  prep: 'Every row needs an item, and a unit above zero.',
-  sources: 'Every row needs a source.',
-  notes: 'Notes need some text.',
-};
-
-const NOT_A_NUMBER = 'A number field holds something that is not a number.';
+function reason(kind: SectionKind, t: Translate): string {
+  switch (kind) {
+    case 'rewards':
+      return t('Every reward needs a name and a kind.');
+    case 'stages':
+      return t(
+        'Every group needs a name, every stage a number, every drop an item and a quantity.',
+      );
+    case 'point_table':
+      return t('Every row needs an action and a number of points.');
+    case 'prep':
+      return t('Every row needs an item, and a unit above zero.');
+    case 'sources':
+      return t('Every row needs a source.');
+    case 'notes':
+      return t('Notes need some text.');
+  }
+}
 
 /** A NaN anywhere in the draft: a number input holding text. Looked for
  * before parsing, because the validators treat a bad OPTIONAL number as
@@ -48,10 +57,16 @@ function hasNaN(value: unknown): boolean {
 export type DraftResult = { ok: true; section: SectionPayload } | { ok: false; reason: string };
 
 /** Whether a draft may be saved, and the sentence to show when it may not. */
-export function validateDraft(kind: SectionKind, payload: unknown): DraftResult {
-  if (hasNaN(payload)) return { ok: false, reason: NOT_A_NUMBER };
+export function validateDraft(
+  kind: SectionKind,
+  payload: unknown,
+  t: Translate = english,
+): DraftResult {
+  if (hasNaN(payload)) {
+    return { ok: false, reason: t('A number field holds something that is not a number.') };
+  }
   const section = parseSection(kind, payload);
-  return section === null ? { ok: false, reason: REASON[kind] } : { ok: true, section };
+  return section === null ? { ok: false, reason: reason(kind, t) } : { ok: true, section };
 }
 
 export function setAt<T>(list: readonly T[], index: number, value: T): T[] {

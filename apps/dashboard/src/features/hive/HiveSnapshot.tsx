@@ -1,4 +1,5 @@
 import { footprintOf, isMemberBase } from '../../lib/hiveFormation';
+import { useT } from '../../lib/i18n';
 import { TILE_H, TILE_W } from '../../lib/tileShape';
 import type { BoardSlot } from './hiveFormations';
 
@@ -95,6 +96,7 @@ export function HiveSnapshot({
   board: readonly BoardSlot[];
   ownPlayerId: string | null;
 }) {
+  const t = useT();
   const snapshot = hiveSnapshot(board, ownPlayerId);
   if (snapshot === null) {
     return null;
@@ -106,7 +108,7 @@ export function HiveSnapshot({
   return (
     <a
       aria-label={
-        own ? 'Your base on the plan map. Open the plan.' : 'The plan map. Open the plan.'
+        own ? t('Your base on the plan map. Open the plan.') : t('The plan map. Open the plan.')
       }
       className="hive-snap"
       href="#/hive"
@@ -149,7 +151,7 @@ export function HiveSnapshot({
       </svg>
       {own && (
         <span className="hive-snap__legend">
-          <span aria-hidden="true" className="hive-snap__swatch" /> Your base · north is up
+          <span aria-hidden="true" className="hive-snap__swatch" /> {t('Your base · north is up')}
         </span>
       )}
     </a>

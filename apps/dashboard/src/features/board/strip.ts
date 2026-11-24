@@ -7,6 +7,7 @@
 
 import type { StripCell } from '../../components/Strip';
 import { formatAge } from '../../lib/freshness';
+import { type Translate, english } from '../../lib/i18n/core';
 import type { BoardPage, BoardPost } from './board';
 
 const plain = new Intl.NumberFormat('en');
@@ -25,6 +26,7 @@ export function boardStrip(
   page: Pick<BoardPage, 'pinned' | 'posts' | 'total' | 'read'>,
   noun: 'notice' | 'guide',
   now: Date,
+  t: Translate = english,
 ): StripCell[] {
   const posts = shown(page);
   const unread = posts.filter((post) => !page.read.has(post.id)).length;
@@ -33,23 +35,23 @@ export function boardStrip(
   )[0];
   return [
     {
-      label: `${noun === 'notice' ? 'Notices' : 'Guides'} posted`,
+      label: noun === 'notice' ? t('Notices posted') : t('Guides posted'),
       value: plain.format(page.total),
     },
     {
-      label: 'Pinned',
+      label: t('Pinned'),
       value: plain.format(page.pinned.length),
-      note: page.pinned.length === 0 ? 'none' : 'kept at the top',
+      note: page.pinned.length === 0 ? t('none') : t('kept at the top'),
     },
     {
-      label: 'Unread',
+      label: t('Unread'),
       value: plain.format(unread),
-      note: 'on this page, and the pinned ones',
+      note: t('on this page, and the pinned ones'),
     },
     {
-      label: 'Newest',
+      label: t('Newest'),
       value: newest === undefined ? null : newest.title,
-      note: newest === undefined ? undefined : formatAge(newest.liveAt ?? newest.createdAt, now),
+      note: newest === undefined ? undefined : formatAge(newest.liveAt ?? newest.createdAt, now, t),
     },
   ];
 }

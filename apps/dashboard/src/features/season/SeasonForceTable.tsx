@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { ArrangedTable, type Column } from '../../components/ArrangedTable';
 import { TableSearch } from '../../components/TableSearch';
+import { useT } from '../../lib/i18n';
 import { playerHash, serverHash } from '../../lib/route';
 import type { ColumnSpec } from '../../lib/tableLayout';
 import { TERMS } from '../../lib/terms';
@@ -30,6 +31,7 @@ function formatNumber(value: number | null): string {
 }
 
 export function SeasonForceTable({ rows }: { rows: SeasonPlayerRow[] }) {
+  const t = useT();
   const { query, setQuery, sort, onSort, view, shown, total } = useTableView(rows, SEARCH_FIELDS, {
     key: 'rank',
     direction: 'asc',
@@ -86,13 +88,13 @@ export function SeasonForceTable({ rows }: { rows: SeasonPlayerRow[] }) {
   );
 
   if (rows.length === 0) {
-    return <p className="empty">No season player board captured yet.</p>;
+    return <p className="empty">{t('No season player board captured yet.')}</p>;
   }
   return (
     <>
       <TableSearch
-        label="Search players"
-        unit="players"
+        label={t('Search players')}
+        unit={t('players')}
         onChange={setQuery}
         shown={shown}
         total={total}
@@ -106,7 +108,7 @@ export function SeasonForceTable({ rows }: { rows: SeasonPlayerRow[] }) {
         sort={sort}
         tableId={TABLE_ID}
       />
-      {view.length === 0 && <p className="empty">No player matches “{query}”.</p>}
+      {view.length === 0 && <p className="empty">{t('No player matches “{query}”.', { query })}</p>}
     </>
   );
 }

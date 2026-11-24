@@ -1,5 +1,6 @@
 import { formatCoordinate, toFraction } from '@dw/ui';
 import { type CSSProperties, useEffect, useMemo, useState } from 'react';
+import { useT } from '../../lib/i18n';
 import { type Atlas, allianceColor, formatPower, isShielded, shieldLeft } from './atlas';
 
 /** The card that follows the pointer over a base: who, HQ, where, how strong,
@@ -11,6 +12,7 @@ import { type Atlas, allianceColor, formatPower, isShielded, shieldLeft } from '
  * `--map-zoom`).
  */
 export function AtlasHover({ atlas, oursIndex }: { atlas: Atlas; oursIndex: number }) {
+  const t = useT();
   const [uid, setUid] = useState<number | null>(null);
   const [host, setHost] = useState<HTMLSpanElement | null>(null);
   const byUid = useMemo(() => new Map(atlas.bases.map((b) => [b.gameUid, b])), [atlas]);
@@ -48,20 +50,20 @@ export function AtlasHover({ atlas, oursIndex }: { atlas: Atlas; oursIndex: numb
           style={{ left: `${f.left * 100}%`, top: `${f.top * 100}%` } as CSSProperties}
         >
           <span className="atlas-hover__card">
-            <strong className="atlas-hover__name">{base.name ?? 'unnamed'}</strong>
+            <strong className="atlas-hover__name">{base.name ?? t('unnamed')}</strong>
             <span className="atlas-hover__meta">
               <span className="atlas-hover__dot" style={{ background: color }} />
               {alliance?.code ? `[${alliance.code}] · ` : ''}
-              {base.hq !== null && `HQ ${base.hq} · `}
+              {base.hq !== null && `${t('HQ {level}', { level: base.hq })} · `}
               {formatCoordinate(base.at)}
             </span>
             <span className="atlas-hover__row">
-              <span>Real power</span>
+              <span>{t('Real power')}</span>
               <b>{formatPower(base.power)}</b>
             </span>
             <span className="atlas-hover__row">
-              <span>Shield</span>
-              <b className={left ? 'atlas-hover__shield' : undefined}>{left ?? 'No shield'}</b>
+              <span>{t('Shield')}</span>
+              <b className={left ? 'atlas-hover__shield' : undefined}>{left ?? t('No shield')}</b>
             </span>
           </span>
         </span>

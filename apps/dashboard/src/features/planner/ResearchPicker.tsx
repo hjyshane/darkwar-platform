@@ -7,6 +7,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Tabs } from '../../components/ui/Tabs';
+import { useT } from '../../lib/i18n';
 import { LevelPicker } from './LevelPicker';
 import type { Account } from './accounts';
 import { fetchCatalogSubjects, fetchResearchTabs } from './data';
@@ -24,6 +25,7 @@ interface PickerProps {
 }
 
 export function ResearchPicker({ account, levels, tiers, targets, onSet, onCurrent }: PickerProps) {
+  const t = useT();
   const tabs = useQuery({
     queryKey: ['planner-research-tabs', account.serverId],
     queryFn: () => fetchResearchTabs(account.serverId),
@@ -40,7 +42,7 @@ export function ResearchPicker({ account, levels, tiers, targets, onSet, onCurre
   const [hidden, toggleHidden] = useHidden('planner-hidden-research');
   const [showHidden, setShowHidden] = useState(false);
 
-  if (tabs.isPending) return <p className="empty">Loading research…</p>;
+  if (tabs.isPending) return <p className="empty">{t('Loading research…')}</p>;
   if (tabs.isError) return <p className="error">{tabs.error.message}</p>;
 
   // Started research first, then by name: what the account is working on
@@ -61,9 +63,9 @@ export function ResearchPicker({ account, levels, tiers, targets, onSet, onCurre
   return (
     <>
       <Tabs
-        label="Research tab"
+        label={t('Research tab')}
         className="planner-tabs"
-        items={tabs.data.map((t) => ({ id: t.tabId, label: t.name }))}
+        items={tabs.data.map((entry) => ({ id: entry.tabId, label: entry.name }))}
         value={tab}
         onChange={setChosen}
       />
@@ -74,10 +76,10 @@ export function ResearchPicker({ account, levels, tiers, targets, onSet, onCurre
             onChange={(e) => setShowHidden(e.target.checked)}
             type="checkbox"
           />{' '}
-          show hidden and maxed ({hiddenCount})
+          {t('show hidden and maxed ({count})', { count: hiddenCount })}
         </label>
       )}
-      {subjects.isPending && <p className="empty loading">Loading…</p>}
+      {subjects.isPending && <p className="empty loading">{t('Loading…')}</p>}
       {subjects.isError && <p className="error">{subjects.error.message}</p>}
       {subjects.data && (
         <div className="table-wrap" role="tabpanel">
@@ -85,9 +87,9 @@ export function ResearchPicker({ account, levels, tiers, targets, onSet, onCurre
             <thead>
               <tr>
                 <th className="label" scope="col">
-                  Research
+                  {t('Research')}
                 </th>
-                <th scope="col">Level</th>
+                <th scope="col">{t('Level')}</th>
                 <th scope="col" />
               </tr>
             </thead>
@@ -128,7 +130,7 @@ export function ResearchPicker({ account, levels, tiers, targets, onSet, onCurre
                         onClick={() => toggleHidden(s.subject)}
                         type="button"
                       >
-                        {hidden.has(s.subject) ? 'unhide' : 'hide'}
+                        {hidden.has(s.subject) ? t('unhide') : t('hide')}
                       </button>
                     </td>
                   </tr>

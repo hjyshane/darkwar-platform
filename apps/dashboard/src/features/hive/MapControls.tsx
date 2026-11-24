@@ -10,6 +10,7 @@
 import type { Coordinate } from '@dw/ui';
 import { useState } from 'react';
 import { formatTeleport } from '../../lib/hiveFormation';
+import { useT } from '../../lib/i18n';
 import { ZOOM_MAX, ZOOM_MIN, clampZoom, rankClass, windowRadius, zoomedBy } from './TileGrid';
 import { type ColourBy, setMapPrefs } from './mapPrefs';
 
@@ -87,24 +88,26 @@ export function MapNav({
    * something to undo. */
   sized: boolean;
 }) {
+  const t = useT();
   const across = windowRadius(zoom) * 2 + 1;
-  const home = `Go to the anchor, ${formatTeleport(anchor)}`;
+  const home = t('Go to the anchor, {coordinate}', { coordinate: formatTeleport(anchor) });
+  const acrossText = t('{count} tiles across', { count: across });
   return (
     <fieldset className="map-nav">
-      <legend className="visually-hidden">View</legend>
+      <legend className="visually-hidden">{t('View')}</legend>
       <button
-        aria-label="Zoom in"
+        aria-label={t('Zoom in')}
         disabled={zoom <= ZOOM_MIN}
         onClick={() => onZoom(zoomedBy(zoom, 1))}
-        title="Zoom in"
+        title={t('Zoom in')}
         type="button"
       >
         +
       </button>
       <input
-        aria-label="Zoom"
+        aria-label={t('Zoom')}
         aria-orientation="vertical"
-        aria-valuetext={`${across} tiles across`}
+        aria-valuetext={acrossText}
         className="map-nav__slider"
         max={SLIDER_STEPS}
         min={0}
@@ -114,15 +117,15 @@ export function MapNav({
         value={sliderFromZoom(zoom)}
       />
       <button
-        aria-label="Zoom out"
+        aria-label={t('Zoom out')}
         disabled={zoom >= ZOOM_MAX}
         onClick={() => onZoom(zoomedBy(zoom, -1))}
-        title="Zoom out"
+        title={t('Zoom out')}
         type="button"
       >
         −
       </button>
-      <output aria-live="off" className="map-nav__readout" title={`${across} tiles across`}>
+      <output aria-live="off" className="map-nav__readout" title={acrossText}>
         {across}
       </output>
       <button aria-label={home} onClick={onHome} title={home} type="button">
@@ -139,9 +142,9 @@ export function MapNav({
       </button>
       {sized && (
         <button
-          aria-label="Default map size"
+          aria-label={t('Default map size')}
           onClick={() => setMapPrefs({ size: null })}
-          title="Default map size"
+          title={t('Default map size')}
           type="button"
         >
           <Icon d={SHRINK} />
@@ -205,26 +208,27 @@ export function rankTally(entries: readonly RankEntry[]): RankTally {
  * names included, so there it hides behind a Key button; on a map with room
  * the button is not drawn and the list is always open (index.css). */
 export function MapKey({ colourBy, tally }: { colourBy: ColourBy; tally: RankTally }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   return (
     <fieldset className={open ? 'map-key map-key--open' : 'map-key'}>
-      <legend className="visually-hidden">Base colours</legend>
+      <legend className="visually-hidden">{t('Base colours')}</legend>
       <div className="map-key__switch">
         <button
           aria-pressed={colourBy === 'plan'}
           onClick={() => setMapPrefs({ colourBy: 'plan' })}
-          title="Bases in the colours they were drawn in"
+          title={t('Bases in the colours they were drawn in')}
           type="button"
         >
-          Drawn
+          {t('Drawn')}
         </button>
         <button
           aria-pressed={colourBy === 'rank'}
           onClick={() => setMapPrefs({ colourBy: 'rank' })}
-          title="Bases coloured by alliance rank, R1 to R5"
+          title={t('Bases coloured by alliance rank, R1 to R5')}
           type="button"
         >
-          Rank
+          {t('Rank')}
         </button>
         {colourBy === 'rank' && (
           <button
@@ -233,26 +237,27 @@ export function MapKey({ colourBy, tally }: { colourBy: ColourBy; tally: RankTal
             onClick={() => setOpen(!open)}
             type="button"
           >
-            Key
+            {t('Key')}
           </button>
         )}
       </div>
       {colourBy === 'rank' && (
-        <ul aria-label="Rank colours" className="map-key__legend">
+        <ul aria-label={t('Rank colours')} className="map-key__legend">
           {tally.ranks.map((entry) => (
             <li key={entry.key}>
               <span aria-hidden="true" className={`hive-rank-chip hive-rank-chip--${entry.key}`} />
-              {entry.label} <span className="subtle">{entry.count}</span>
+              {entry.key === 'r0' ? t('Rank unknown') : entry.label}{' '}
+              <span className="subtle">{entry.count}</span>
             </li>
           ))}
           {tally.vacant > 0 && (
             <li>
               <span aria-hidden="true" className="hive-rank-chip hive-rank-chip--vacant" />
-              Nobody yet <span className="subtle">{tally.vacant}</span>
+              {t('Nobody yet')} <span className="subtle">{tally.vacant}</span>
             </li>
           )}
           {tally.ranks.length === 0 && tally.vacant === 0 && (
-            <li className="subtle">No member bases</li>
+            <li className="subtle">{t('No member bases')}</li>
           )}
         </ul>
       )}

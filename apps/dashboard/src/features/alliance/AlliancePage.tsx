@@ -3,6 +3,7 @@ import { ChartFlow } from '../../components/ChartFlow';
 import { FavouriteButton } from '../../components/FavouriteButton';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
 import { isViewedAlliance } from '../../lib/activeAlliance';
+import { rich, useT } from '../../lib/i18n';
 import { ALLIANCE_VIEWS, allianceHash, allianceViewFromHash } from '../../lib/route';
 import { serverHash } from '../../lib/route';
 import { supabase } from '../../lib/supabase';
@@ -193,6 +194,7 @@ function num(value: number | null): string | null {
 }
 
 export function AlliancePage({ allianceId, now }: { allianceId: string; now?: Date }) {
+  const t = useT();
   const asked = allianceViewFromHash(useHash());
   const { signedIn, isFavourite, toggle } = useFavourites();
   const { data: session } = useSession();
@@ -204,26 +206,28 @@ export function AlliancePage({ allianceId, now }: { allianceId: string; now?: Da
   if (isPending) {
     return (
       <main>
-        <p className="empty loading">Loading…</p>
+        <p className="empty loading">{t('Loading…')}</p>
       </main>
     );
   }
   if (error) {
     return (
       <main>
-        <p className="error">Could not load the alliance: {error.message}</p>
+        <p className="error">
+          {t('Could not load the alliance: {error}', { error: error.message })}
+        </p>
       </main>
     );
   }
   if (data === null || data === undefined) {
     return (
       <main>
-        <p className="empty">No alliance with that id. It may never have been observed.</p>
+        <p className="empty">{t('No alliance with that id. It may never have been observed.')}</p>
       </main>
     );
   }
 
-  const label = `${data.code ? `[${data.code}] ` : ''}${data.name ?? 'Unnamed alliance'}`;
+  const label = `${data.code ? `[${data.code}] ` : ''}${data.name ?? t('Unnamed alliance')}`;
   // The views this alliance has: past names only if there are any; Overview
   // only for ours (its sources are our own boards and events); Activity for
   // everybody since it took in the ranking board and the server comparison,
@@ -264,8 +268,10 @@ export function AlliancePage({ allianceId, now }: { allianceId: string; now?: Da
               {label}
             </h2>
             <p className="entity-meta">
-              <a href={serverHash(data.serverId)}>Server {data.serverId}</a>
-              {data.isOwn && <span>Ours</span>}
+              <a href={serverHash(data.serverId)}>
+                {t('Server {server}', { server: data.serverId })}
+              </a>
+              {data.isOwn && <span>{t('Ours')}</span>}
               <AllianceLeader allianceId={data.allianceId} />
             </p>
           </div>
@@ -286,11 +292,13 @@ export function AlliancePage({ allianceId, now }: { allianceId: string; now?: Da
           serverId={data.serverId}
         />
         <p className="entity-foot">
-          {TERMS.lastSeen} <FreshnessBadge capturedAt={data.lastSeenAt} now={now} />
+          {t(TERMS.lastSeen)} <FreshnessBadge capturedAt={data.lastSeenAt} now={now} />
           {data.isOwn && !data.rosterUnredactedSeen && (
             <>
               {' · '}
-              <strong>pinned by an admin</strong>, not by evidence — no unredacted roster for it
+              {rich(t('{pinned}, not by evidence — no unredacted roster for it'), {
+                pinned: <strong>{t('pinned by an admin')}</strong>,
+              })}
             </>
           )}
         </p>
@@ -300,9 +308,10 @@ export function AlliancePage({ allianceId, now }: { allianceId: string; now?: Da
             scrolled to the end reads as members having left. */}
         {data.membersFrom === 'roster' && !data.rosterComplete && (
           <p className="empty">
-            The newest roster capture saw {data.members.length} of the {num(data.memberCount)} the
-            game reports, so it was cut short rather than finished — anybody missing from this list
-            may simply not have been scrolled to.
+            {t(
+              'The newest roster capture saw {seen} of the {count} the game reports, so it was cut short rather than finished — anybody missing from this list may simply not have been scrolled to.',
+              { seen: data.members.length, count: num(data.memberCount) ?? '' },
+            )}
           </p>
         )}
       </section>
@@ -313,7 +322,7 @@ export function AlliancePage({ allianceId, now }: { allianceId: string; now?: Da
           is not navigation, and the back button should leave the page, not step
           through its panels. The markup and `aria-current` match the main nav
           so the selected state cannot look different from the rest of the app. */}
-      <nav aria-label="Alliance views" className="tabs subtabs">
+      <nav aria-label={t('Alliance views')} className="tabs subtabs">
         {offered.map((entry) => (
           <button
             key={entry.id}
@@ -322,7 +331,7 @@ export function AlliancePage({ allianceId, now }: { allianceId: string; now?: Da
             onClick={() => replaceHash(allianceHash(data.allianceId, entry.id))}
             type="button"
           >
-            {entry.label}
+            {t(entry.label)}
           </button>
         ))}
       </nav>
@@ -334,14 +343,14 @@ export function AlliancePage({ allianceId, now }: { allianceId: string; now?: Da
         <>
           <section aria-labelledby="alliance-trends">
             <h2 className="visually-hidden" id="alliance-trends">
-              Trends
+              {t('Trends')}
             </h2>
             <ChartFlow>
               <AllianceTrends allianceId={data.allianceId} isOwn={data.isOwn} />
             </ChartFlow>
           </section>
           <section aria-labelledby="alliance-compare">
-            <h2 id="alliance-compare">Against the server</h2>
+            <h2 id="alliance-compare">{t('Against the server')}</h2>
             <AllianceCompare serverId={data.serverId} />
           </section>
         </>
@@ -355,15 +364,16 @@ export function AlliancePage({ allianceId, now }: { allianceId: string; now?: Da
 
       {view === 'members' && (
         <section aria-labelledby="alliance-members">
-          <h2 id="alliance-members">{TERMS.members}</h2>
+          <h2 id="alliance-members">{t(TERMS.members)}</h2>
           {data.members.length === 0 ? (
             // The common case for someone else's alliance, and worth saying
             // rather than showing an empty table: the game gives a member COUNT
             // on the ranking screen but the names only come from opening that
             // alliance's roster, which we can only do for our own.
             <p className="empty">
-              No member of this alliance has been observed. The ranking screen reports how many
-              there are; the names come from a roster capture.
+              {t(
+                'No member of this alliance has been observed. The ranking screen reports how many there are; the names come from a roster capture.',
+              )}
             </p>
           ) : (
             <AllianceMemberTable members={data.members} />
@@ -373,7 +383,7 @@ export function AlliancePage({ allianceId, now }: { allianceId: string; now?: Da
 
       {view === 'names' && data.pastNames.length > 0 && (
         <section aria-labelledby="alliance-names">
-          <h2 id="alliance-names">Also known as</h2>
+          <h2 id="alliance-names">{t('Also known as')}</h2>
           {/* The player page has shown player_names since it existed and the
               alliance side was simply never built. Same reason it matters:
               a name is not an identity, and somebody searching for an
@@ -387,10 +397,10 @@ export function AlliancePage({ allianceId, now }: { allianceId: string; now?: Da
               <thead>
                 <tr>
                   <th className="label" scope="col">
-                    {TERMS.name}
+                    {t(TERMS.name)}
                   </th>
-                  <th scope="col">Tag</th>
-                  <th scope="col">Last seen as this</th>
+                  <th scope="col">{t('Tag')}</th>
+                  <th scope="col">{t('Last seen as this')}</th>
                 </tr>
               </thead>
               <tbody>

@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { useT } from '../../lib/i18n';
 import {
   CODE_GROUP,
   cleanCodePart,
@@ -25,6 +26,7 @@ import { supabase } from '../../lib/supabase';
  * An actual error is the lockout, and that one is shown verbatim.
  */
 export function JoinCodeForm({ onRedeemed }: { onRedeemed: () => void }) {
+  const t = useT();
   // Two halves rather than one string. The code is dictated and typed by
   // hand, and the hyphen was a character people either forgot or typed twice.
   const [first, setFirst] = useState('');
@@ -51,25 +53,26 @@ export function JoinCodeForm({ onRedeemed }: { onRedeemed: () => void }) {
     }
     if (data === null) {
       setFailed(true);
-      setMessage('That code is not valid.');
+      setMessage(t('That code is not valid.'));
       return;
     }
     setFailed(false);
     setFirst('');
     setSecond('');
-    setMessage(`You are now ${data}.`);
+    setMessage(t('You are now {role}.', { role: data }));
     onRedeemed();
   }
 
   return (
     <form onSubmit={(event) => void redeem(event)}>
       <p className="empty">
-        This account has no alliance role yet, so alliance-only figures stay hidden. Enter the
-        invitation code an officer gave you.
+        {t(
+          'This account has no alliance role yet, so alliance-only figures stay hidden. Enter the invitation code an officer gave you.',
+        )}
       </p>
       <CodeBoxes first={first} onFirst={setFirst} onSecond={setSecond} second={second} />
       <button disabled={busy || !isCodeComplete(first, second)} type="submit">
-        {busy ? 'Checking…' : 'Redeem'}
+        {busy ? t('Checking…') : t('Redeem')}
       </button>
       {message && <p className={failed ? 'error' : 'empty'}>{message}</p>}
     </form>
@@ -89,6 +92,7 @@ export function CodeBoxes({
   onFirst: (value: string) => void;
   onSecond: (value: string) => void;
 }) {
+  const t = useT();
   const secondBox = useRef<HTMLInputElement>(null);
   const setFirst = onFirst;
   const setSecond = onSecond;
@@ -100,9 +104,9 @@ export function CodeBoxes({
   // code.
   return (
     <fieldset className="code-boxes">
-      <legend>Invitation code</legend>
+      <legend>{t('Invitation code')}</legend>
       <input
-        aria-label="Invitation code, first half"
+        aria-label={t('Invitation code, first half')}
         autoComplete="off"
         inputMode="text"
         maxLength={CODE_GROUP}
@@ -125,7 +129,7 @@ export function CodeBoxes({
         -
       </span>
       <input
-        aria-label="Invitation code, second half"
+        aria-label={t('Invitation code, second half')}
         autoComplete="off"
         inputMode="text"
         maxLength={CODE_GROUP}

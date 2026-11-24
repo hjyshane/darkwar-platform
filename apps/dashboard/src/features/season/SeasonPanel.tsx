@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
 import { StatTile } from '../../components/StatTile';
 import { Tabs } from '../../components/ui/Tabs';
+import { rich, useT } from '../../lib/i18n';
 import { floorsFor, useSeasonBuildingAlert } from '../../lib/seasonBuildingAlert';
 import { FALLBACK_SEASONS, currentSeason, sinceSeasonStart, useSeasons } from '../../lib/seasons';
 import { TERMS } from '../../lib/terms';
@@ -30,6 +31,7 @@ const BOARD_LABELS: ReadonlyArray<{ id: SeasonBoardId; label: string }> = [
 const STALE_TIME = 10 * 60_000;
 
 export function SeasonPanel() {
+  const t = useT();
   // NO useRecordActivity HERE, deliberately.
   //
   // The activity kinds are fixed by a CHECK constraint in 0114 and consumed
@@ -99,11 +101,11 @@ export function SeasonPanel() {
   // What the board under the header holds, in a few numbers.
   const cells =
     boardId === 'buildings' && buildings.data
-      ? buildingsStrip(buildings.data, floors)
+      ? buildingsStrip(buildings.data, floors, t)
       : boardId === 'alliance_score' && allianceRows.length > 0
-        ? allianceStrip(allianceRows)
+        ? allianceStrip(allianceRows, t)
         : boardId === 'player_force' && playerRows.length > 0
-          ? playerStrip(playerRows)
+          ? playerStrip(playerRows, t)
           : [];
   const day = (iso: string | null) => (iso === null ? null : serverWhen(iso).split(' · ')[0]);
   const over = season?.endsAt != null && Date.parse(season.endsAt) <= Date.now();
@@ -118,13 +120,17 @@ export function SeasonPanel() {
           <div>
             <h2 id="season-heading">{season?.name ?? TERMS.season}</h2>
             <p className="entity-meta">
-              {day(season?.startsAt ?? null) && <span>Began {day(season?.startsAt ?? null)}</span>}
+              {day(season?.startsAt ?? null) && (
+                <span>{t('Began {date}', { date: day(season?.startsAt ?? null) ?? '' })}</span>
+              )}
               {day(season?.endsAt ?? null) && (
                 <span>
-                  {over ? 'Settled' : 'Ends'} {day(season?.endsAt ?? null)}
+                  {over
+                    ? t('Settled {date}', { date: day(season?.endsAt ?? null) ?? '' })
+                    : t('Ends {date}', { date: day(season?.endsAt ?? null) ?? '' })}
                 </span>
               )}
-              <span>Server time, UTC−2</span>
+              <span>{t('Server time, UTC−2')}</span>
             </p>
           </div>
         </header>
@@ -143,7 +149,9 @@ export function SeasonPanel() {
         )}
         {capturedAt && (
           <p className="entity-foot">
-            Last captured <FreshnessBadge capturedAt={capturedAt} />
+            {rich(t('Last captured {age}'), {
+              age: <FreshnessBadge capturedAt={capturedAt} />,
+            })}
           </p>
         )}
       </div>
@@ -151,15 +159,17 @@ export function SeasonPanel() {
           table rather than a column. Tabs, not links: all of them live at
           this address. */}
       <Tabs
-        label="Season board"
+        label={t('Season board')}
         items={BOARD_LABELS.map((candidate) => ({ id: candidate.id, label: candidate.label }))}
         value={boardId}
         onChange={setBoardId}
       />
       <div className="panel season-board">
-        {active?.isPending && <p className="empty loading">Loading…</p>}
+        {active?.isPending && <p className="empty loading">{t('Loading…')}</p>}
         {active?.error && (
-          <p className="error">Could not load season board: {active.error.message}</p>
+          <p className="error">
+            {t('Could not load season board: {error}', { error: active.error.message })}
+          </p>
         )}
 
         {boardId === 'buildings' && buildings.data && (
@@ -167,8 +177,10 @@ export function SeasonPanel() {
         )}
         {oldBoard && (
           <p className="empty">
-            This ranking has not been captured since {season?.name ?? 'the season'} began. Open it
-            in the game and it appears here; the last capture was from the season before.
+            {t(
+              'This ranking has not been captured since {season} began. Open it in the game and it appears here; the last capture was from the season before.',
+              { season: season?.name ?? t('the season') },
+            )}
           </p>
         )}
         {boardId === 'alliance_score' && alliance.data && allianceRows.length > 0 && (
@@ -185,27 +197,38 @@ export function SeasonPanel() {
           numbers. */}
         {boardId === 'buildings' && (
           <p className="note">
-            A dash means we have not seen that building yet, not that it is unbuilt. Only buildings
-            the collector has panned over appear here.
+            {t(
+              'A dash means we have not seen that building yet, not that it is unbuilt. Only buildings the collector has panned over appear here.',
+            )}
             {floors.size > 0 && (
               <>
                 {' '}
-                A <span className="behind-mark">!</span> marks a member under one of the levels the
-                alliance set, and the number itself is marked in the column that is short:{' '}
-                {buildings.data?.columns
-                  .filter((kind) => floors.has(kind.id))
-                  .map((kind) => `${kind.name} ${floors.get(kind.id)}`)
-                  .join(', ')}
-                .
+                {rich(
+                  t(
+                    'A {mark} marks a member under one of the levels the alliance set, and the number itself is marked in the column that is short: {levels}.',
+                  ),
+                  {
+                    mark: <span className="behind-mark">!</span>,
+                    levels: buildings.data?.columns
+                      .filter((kind) => floors.has(kind.id))
+                      .map((kind) => `${kind.name} ${floors.get(kind.id)}`)
+                      .join(', '),
+                  },
+                )}
               </>
             )}
             {buildings.data !== undefined && buildings.data.unnamedSeen > 0 && (
               <>
                 {' '}
-                {buildings.data.unnamedSeen} more building type
-                {buildings.data.unnamedSeen === 1 ? ' is' : 's are'} on the map that this board does
-                not name — last season's among them. They are left out rather than shown as a
-                number.
+                {buildings.data.unnamedSeen === 1
+                  ? t(
+                      "{count} more building type is on the map that this board does not name — last season's among them. They are left out rather than shown as a number.",
+                      { count: buildings.data.unnamedSeen },
+                    )
+                  : t(
+                      "{count} more building types are on the map that this board does not name — last season's among them. They are left out rather than shown as a number.",
+                      { count: buildings.data.unnamedSeen },
+                    )}
               </>
             )}
           </p>
@@ -216,8 +239,9 @@ export function SeasonPanel() {
           // who assumes otherwise will compare them against the power board and
           // conclude the data is wrong.
           <p className="note">
-            Soul Stone and influence are the game's own season figures. Neither is power, and
-            neither is comparable with the cross-server boards.
+            {t(
+              "Soul Stone and influence are the game's own season figures. Neither is power, and neither is comparable with the cross-server boards.",
+            )}
           </p>
         )}
       </div>

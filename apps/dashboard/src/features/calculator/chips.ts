@@ -5,6 +5,8 @@
 // step to level 5 and "0★ 9/10 → 1★ 0/10" the step to level 10. The same
 // arithmetic lives in gamedata/catalog.py (chip_label); keep them together.
 
+import { type Translate, english } from '../../lib/i18n/core';
+
 /** Sub-steps per star, as the game draws them ("4/10"). */
 export const CHIP_SUBSTEPS = 10;
 /** The last state a chip reaches: 10★ 0/10. */
@@ -34,9 +36,11 @@ export function chipStepName(level: number): string {
 }
 
 /** "Purple chip" for subject "4"; the id itself for a quality we do not know. */
-export function chipSubjectName(subject: string): string {
+export function chipSubjectName(subject: string, t: Translate = english): string {
   const quality = CHIP_QUALITIES[subject];
-  return quality ? `${quality} chip` : `Chip quality ${subject}`;
+  return quality
+    ? t('{quality} chip', { quality: t(quality) })
+    : t('Chip quality {quality}', { quality: subject });
 }
 
 /** The counter ids chip steps spend (gamedata/catalog.py CHIP_EXP, CHIP_DUPLICATE). */
@@ -44,10 +48,12 @@ export const CHIP_EXP = 'chip_exp';
 export const CHIP_DUPLICATE_PREFIX = 'chip_duplicate:';
 
 /** A reader-facing name for a counter: "Star-up EXP", "Purple chip duplicates". */
-export function counterName(id: string): string {
-  if (id === CHIP_EXP) return 'Star-up EXP';
+export function counterName(id: string, t: Translate = english): string {
+  if (id === CHIP_EXP) return t('Star-up EXP');
   if (id.startsWith(CHIP_DUPLICATE_PREFIX)) {
-    return `${chipSubjectName(id.slice(CHIP_DUPLICATE_PREFIX.length))} duplicates`;
+    return t('{chip} duplicates', {
+      chip: chipSubjectName(id.slice(CHIP_DUPLICATE_PREFIX.length), t),
+    });
   }
   return id;
 }

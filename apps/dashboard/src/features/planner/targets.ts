@@ -4,6 +4,7 @@
 // A target is keyed by what it raises, so picking a new level for the same
 // building replaces the old target instead of adding a second climb.
 
+import { type Translate, english } from '../../lib/i18n/core';
 import type { Goal, Kind } from './plan';
 
 export interface Target {
@@ -41,45 +42,64 @@ export function withTarget(
 /** The plan's goals, and for each the name of the target it came from. Hero
  * gear is two tracks — levels, then stages — so one target can be two
  * goals; every hero shares one Food cost list ("hero"). */
-export function goalsOf(targets: Iterable<Target>): { goals: Goal[]; names: string[] } {
+export function goalsOf(
+  targets: Iterable<Target>,
+  t: Translate = english,
+): { goals: Goal[]; names: string[] } {
   const goals: Goal[] = [];
   const names: string[] = [];
   const add = (goal: Goal, name: string) => {
     goals.push(goal);
     names.push(name);
   };
-  for (const t of targets) {
-    if (t.kind === 'hero_gear') {
-      const quality = t.subject.split(':')[2] ?? '0';
-      if (t.to > t.from)
-        add({ kind: 'hero_gear', subject: `level:q${quality}`, from: t.from, to: t.to }, t.name);
-      if ((t.stageTo ?? 0) > (t.stageFrom ?? 0))
+  for (const target of targets) {
+    if (target.kind === 'hero_gear') {
+      const quality = target.subject.split(':')[2] ?? '0';
+      if (target.to > target.from)
         add(
-          { kind: 'hero_gear', subject: 'promote', from: t.stageFrom ?? 0, to: t.stageTo ?? 0 },
-          `${t.name} (stages)`,
+          { kind: 'hero_gear', subject: `level:q${quality}`, from: target.from, to: target.to },
+          target.name,
         );
-    } else if (t.kind === 'pet') {
+      if ((target.stageTo ?? 0) > (target.stageFrom ?? 0))
+        add(
+          {
+            kind: 'hero_gear',
+            subject: 'promote',
+            from: target.stageFrom ?? 0,
+            to: target.stageTo ?? 0,
+          },
+          t('{name} (stages)', { name: target.name }),
+        );
+    } else if (target.kind === 'pet') {
       // subject `<petId>:<rarity>`; the costs are the rarity's.
-      const rarity = t.subject.split(':')[1] ?? '0';
-      add({ kind: 'pet', subject: rarity, from: t.from, to: t.to }, t.name);
-      for (const level of breakthroughsCrossed(t.from, t.to, t.stageFrom ?? 0)) {
+      const rarity = target.subject.split(':')[1] ?? '0';
+      add({ kind: 'pet', subject: rarity, from: target.from, to: target.to }, target.name);
+      for (const level of breakthroughsCrossed(target.from, target.to, target.stageFrom ?? 0)) {
         add(
           { kind: 'pet_break', subject: rarity, from: level - 1, to: level },
-          `${t.name} (breakthrough ${level})`,
+          t('{name} (breakthrough {level})', { name: target.name, level }),
         );
       }
-    } else if (t.kind === 'chip') {
+    } else if (target.kind === 'chip') {
       // subject `<quality>:<n>`: the nth chip of a quality; the costs are the
       // quality's (ChipPicker).
-      if (t.to > t.from)
+      if (target.to > target.from)
         add(
-          { kind: 'chip', subject: t.subject.split(':')[0] ?? '0', from: t.from, to: t.to },
-          t.name,
+          {
+            kind: 'chip',
+            subject: target.subject.split(':')[0] ?? '0',
+            from: target.from,
+            to: target.to,
+          },
+          target.name,
         );
-    } else if (t.kind === 'hero') {
-      add({ kind: 'hero', subject: 'hero', from: t.from, to: t.to }, t.name);
-    } else if (t.to > t.from) {
-      add({ kind: t.kind, subject: t.subject, from: t.from, to: t.to }, t.name);
+    } else if (target.kind === 'hero') {
+      add({ kind: 'hero', subject: 'hero', from: target.from, to: target.to }, target.name);
+    } else if (target.to > target.from) {
+      add(
+        { kind: target.kind, subject: target.subject, from: target.from, to: target.to },
+        target.name,
+      );
     }
   }
   return { goals, names };

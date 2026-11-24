@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { rich, useT } from '../lib/i18n';
 import {
   type Applied,
   type MarkupAction,
@@ -35,7 +36,7 @@ import { RichText, RichTitle } from './RichText';
  * in one row read as a wall, and the writer has to check every one. Grouped by
  * what they do to the text — emphasis, then structure — a reader finds bold
  * without reading the rest. */
-const GROUPS: { action: MarkupAction; label: string; title: string }[][] = [
+export const GROUPS: { action: MarkupAction; label: string; title: string }[][] = [
   [
     { action: 'bold', label: 'B', title: 'Bold' },
     { action: 'italic', label: 'I', title: 'Italic' },
@@ -57,7 +58,7 @@ const GROUPS: { action: MarkupAction; label: string; title: string }[][] = [
  * end up in the body text anyway (`[text]{red}`), so the writer may as well
  * learn them from the button they pressed.
  */
-const COLOUR_TITLES: Record<ColourName, string> = {
+export const COLOUR_TITLES: Record<ColourName, string> = {
   red: 'Red — urgent',
   orange: 'Orange — careful',
   green: 'Green — done, good',
@@ -69,15 +70,16 @@ const COLOUR_TITLES: Record<ColourName, string> = {
 
 /** The colour buttons, shared by the body editor and the title field. */
 function ColourButtons({ onPick }: { onPick: (colour: ColourName) => void }) {
+  const t = useT();
   return (
     <div className="colour-buttons">
       {COLOUR_NAMES.map((colour) => (
         <button
-          aria-label={COLOUR_TITLES[colour]}
+          aria-label={t(COLOUR_TITLES[colour])}
           className={`colour-swatch ink-${colour}`}
           key={colour}
           onClick={() => onPick(colour)}
-          title={COLOUR_TITLES[colour]}
+          title={t(COLOUR_TITLES[colour])}
           type="button"
         >
           A
@@ -109,6 +111,7 @@ export function TitleField({
   onChange: (next: string) => void;
   placeholder?: string;
 }) {
+  const t = useT();
   const ref = useRef<HTMLInputElement>(null);
 
   function edit(change: (body: string, at: Selection) => Applied): void {
@@ -131,14 +134,14 @@ export function TitleField({
         <div className="markup-group">
           <button
             onClick={() => edit((body, at) => applyMarkup(body, at, 'bold'))}
-            title="Bold"
+            title={t('Bold')}
             type="button"
           >
             B
           </button>
           <button
             onClick={() => edit((body, at) => applyMarkup(body, at, 'italic'))}
-            title="Italic"
+            title={t('Italic')}
             type="button"
           >
             I
@@ -176,6 +179,7 @@ export function MarkupEditor({
   onChange: (next: string) => void;
   rows?: number;
 }) {
+  const t = useT();
   const ref = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -208,7 +212,7 @@ export function MarkupEditor({
         box?.setSelectionRange(applied.selection.start, applied.selection.end);
       });
     } catch (error) {
-      setUploadError(error instanceof Error ? error.message : 'Upload failed.');
+      setUploadError(error instanceof Error ? error.message : t('Upload failed.'));
     } finally {
       setUploading(false);
       // Cleared so choosing the SAME file again fires `change` a second time —
@@ -271,7 +275,7 @@ export function MarkupEditor({
               <button
                 key={button.action}
                 onClick={() => press(button.action)}
-                title={button.title}
+                title={t(button.title)}
                 type="button"
               >
                 {button.label}
@@ -285,10 +289,10 @@ export function MarkupEditor({
           <button
             disabled={uploading}
             onClick={() => fileRef.current?.click()}
-            title="Add a picture — PNG, JPEG, WebP or GIF, up to 5MB"
+            title={t('Add a picture — PNG, JPEG, WebP or GIF, up to 5MB')}
             type="button"
           >
-            {uploading ? '⏳ Uploading…' : '🖼 Image'}
+            {uploading ? `⏳ ${t('Uploading…')}` : `🖼 ${t('Image')}`}
           </button>
           {/* Size is the author's call, not only the reader's. A map or a
               comparison table is unreadable at thumbnail size, and asking every
@@ -298,15 +302,15 @@ export function MarkupEditor({
               never touch this, and it wraps, so nobody gets stuck at an end. */}
           <button
             onClick={() => edit(cycleImageSize)}
-            title="Size of the picture the caret is on — normal, wide, small"
+            title={t('Size of the picture the caret is on — normal, wide, small')}
             type="button"
           >
-            ↔ Size
+            {`↔ ${t('Size')}`}
           </button>
         </div>
         <input
           accept={ALLOWED_TYPES.join(',')}
-          aria-label="Choose a picture to upload"
+          aria-label={t('Choose a picture to upload')}
           className="visually-hidden"
           onChange={(event) => {
             const file = event.target.files?.[0];
@@ -327,20 +331,25 @@ export function MarkupEditor({
       />
       {uploadError !== null && <p className="error">{uploadError}</p>}
       <p className="subtle">
-        Emoji work as they are. Nothing is rendered as HTML, so a tag you type shows as a tag.
+        {t(
+          'Emoji work as they are. Nothing is rendered as HTML, so a tag you type shows as a tag.',
+        )}
       </p>
       {/* Said at the point of upload rather than in a runbook nobody writing a
           guide will read. It said "pictures are public" until 0083 closed the
           bucket — a claim to 94 people about where their screenshots end up has to
           track what the schema actually does. */}
       <p className="subtle">
-        <strong>Pictures are alliance-only.</strong> They are not public: a link copied out of the
-        page stops working within the hour. When a guide is published, the picture is uploaded to
-        the Discord channel as a file — so anybody in that channel can see and re-share it.
+        {rich(
+          t(
+            '{lead} They are not public: a link copied out of the page stops working within the hour. When a guide is published, the picture is uploaded to the Discord channel as a file — so anybody in that channel can see and re-share it.',
+          ),
+          { lead: <strong>{t('Pictures are alliance-only.')}</strong> },
+        )}
       </p>
       {value.trim() !== '' && (
         <>
-          <h4>Preview</h4>
+          <h4>{t('Preview')}</h4>
           <div className="markup-preview">
             <RichText body={value} />
           </div>

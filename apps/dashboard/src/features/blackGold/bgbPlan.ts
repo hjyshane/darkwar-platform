@@ -2,6 +2,7 @@
 // sends, and what the reader is told — kept apart from the screen so each
 // rule can be tested on its own.
 
+import { type Translate, english } from '../../lib/i18n/core';
 import { OBJECTIVES } from './battlefield';
 
 /** Every key the database accepts, in the order the editor lists them. */
@@ -11,8 +12,9 @@ export const PLAN_OBJECTIVES: ReadonlyArray<{ id: string; label: string }> = [
   { id: 'roam', label: 'Roam (no fixed spot)' },
 ];
 
-export function objectiveLabel(id: string): string {
-  return PLAN_OBJECTIVES.find((o) => o.id === id)?.label ?? id;
+export function objectiveLabel(id: string, t: Translate = english): string {
+  const label = PLAN_OBJECTIVES.find((o) => o.id === id)?.label;
+  return label === undefined ? id : t(label);
 }
 
 export interface Starter {
@@ -47,6 +49,7 @@ export type Draft = ReadonlyMap<string, Placement>;
 export function draftFrom(
   saved: readonly Assignment[],
   starters: readonly Starter[],
+  t: Translate = english,
 ): { draft: Draft; dropped: string[] } {
   const eligible = new Set(starters.map((s) => s.playerId));
   const draft = new Map<string, Placement>();
@@ -55,7 +58,7 @@ export function draftFrom(
     if (eligible.has(a.playerId)) {
       draft.set(a.playerId, { objectiveKey: a.objectiveKey, role: a.role });
     } else {
-      dropped.push(a.playerName ?? 'a former starter');
+      dropped.push(a.playerName ?? t('a former starter'));
     }
   }
   return { draft, dropped };
@@ -94,10 +97,11 @@ export function countsOf(placements: Iterable<{ objectiveKey: string }>): Map<st
  * out — what a member reads and what gets pasted into chat. */
 export function byObjective(
   assignments: readonly Assignment[],
+  t: Translate = english,
 ): { objectiveKey: string; label: string; people: Assignment[] }[] {
   return PLAN_OBJECTIVES.map((o) => ({
     objectiveKey: o.id,
-    label: o.label,
+    label: t(o.label),
     people: assignments
       .filter((a) => a.objectiveKey === o.id)
       .sort((x, y) => x.ordinal - y.ordinal),
@@ -105,9 +109,13 @@ export function byObjective(
 }
 
 /** Plain text for alliance chat. */
-export function handout(planName: string, assignments: readonly Assignment[]): string {
+export function handout(
+  planName: string,
+  assignments: readonly Assignment[],
+  t: Translate = english,
+): string {
   const lines = [planName];
-  for (const group of byObjective(assignments)) {
+  for (const group of byObjective(assignments, t)) {
     const names = group.people.map((p) =>
       p.role === '' ? (p.playerName ?? '?') : `${p.playerName ?? '?'} (${p.role})`,
     );

@@ -10,6 +10,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
+import { useT } from '../../lib/i18n';
 import { EventName } from './EventName';
 import {
   CATEGORY_LABELS,
@@ -36,6 +37,7 @@ export function EventCard({
   mayName: boolean;
   onClose: () => void;
 }) {
+  const t = useT();
   const dialog = useRef<HTMLDialogElement>(null);
   const unidentified = isUnidentified(event);
   const text = useQuery({
@@ -81,73 +83,83 @@ export function EventCard({
       <header className="calendar-card-head">
         <div>
           <h3 className={unidentified ? 'calendar-unnamed' : undefined} id={titleId}>
-            {labelOf(event)}
+            {labelOf(event, t)}
           </h3>
           <p className="calendar-card-tags">
             {unidentified ? (
-              <span className="badge">Unidentified</span>
+              <span className="badge">{t('Unidentified')}</span>
             ) : (
               <span
                 className={`calendar-bar calendar-bar-start calendar-bar-end calendar-cat-${category}`}
               >
-                {CATEGORY_LABELS[category]}
+                {t(CATEGORY_LABELS[category])}
               </span>
             )}
-            <span className="subtle">{statusOf(event, now)}</span>
+            <span className="subtle">{statusOf(event, now, t)}</span>
           </p>
         </div>
-        <button aria-label="Close" className="calendar-card-close" onClick={onClose} type="button">
+        <button
+          aria-label={t('Close')}
+          className="calendar-card-close"
+          onClick={onClose}
+          type="button"
+        >
           ×
         </button>
       </header>
 
       <dl className="calendar-card-facts">
         <div>
-          <dt>Starts</dt>
+          <dt>{t('Starts')}</dt>
           <dd>{serverWhen(event.starts_at, now)}</dd>
         </div>
         <div>
-          <dt>Ends</dt>
+          <dt>{t('Ends')}</dt>
           <dd>{serverWhen(event.ends_at, now)}</dd>
         </div>
         <div>
-          <dt>HQ level</dt>
-          <dd>{event.need_hq_level ? `${event.need_hq_level}+` : 'Any'}</dd>
+          <dt>{t('HQ level')}</dt>
+          <dd>{event.need_hq_level ? `${event.need_hq_level}+` : t('Any')}</dd>
         </div>
         <div>
-          <dt>Game id</dt>
+          <dt>{t('Game id')}</dt>
           <dd>
             {event.activity_id}
             {event.activity_type !== null && (
-              <span className="subtle"> · type {event.activity_type}</span>
+              <span className="subtle">
+                {' · '}
+                {t('type {type}', { type: event.activity_type })}
+              </span>
             )}
           </dd>
         </div>
       </dl>
-      <p className="subtle">Server time, UTC−2.</p>
+      <p className="subtle">{t('Server time, UTC−2.')}</p>
 
       {unidentified ? (
         <p>
-          The server lists this id, but the game client's event table has no entry for it — so there
-          is no name, description or rules to show, and the game itself does not show it either. It
-          is kept off the calendar until someone names it.
+          {t(
+            "The server lists this id, but the game client's event table has no entry for it — so there is no name, description or rules to show, and the game itself does not show it either. It is kept off the calendar until someone names it.",
+          )}
         </p>
       ) : text.isPending ? (
-        <p className="empty">Loading what the game says…</p>
+        <p className="empty">{t('Loading what the game says…')}</p>
       ) : text.isError ? (
-        <p className="error">Could not load the description: {text.error.message}</p>
+        <p className="error">
+          {t('Could not load the description: {error}', { error: text.error.message })}
+        </p>
       ) : text.data.summary === null && text.data.rules === null ? (
-        <p className="empty">The game has no description for this event.</p>
+        <p className="empty">{t('The game has no description for this event.')}</p>
       ) : (
         <>
           {text.data.summary !== null && <p className="calendar-card-text">{text.data.summary}</p>}
           {text.data.rules !== null && (
             <>
-              <h4>Rules</h4>
+              <h4>{t('Rules')}</h4>
               <p className="calendar-card-text">{text.data.rules}</p>
             </>
           )}
-          <p className="subtle">From the game client's own text.</p>
+          <p className="subtle">{t("From the game client's own text.")}</p>
         </>
       )}
 

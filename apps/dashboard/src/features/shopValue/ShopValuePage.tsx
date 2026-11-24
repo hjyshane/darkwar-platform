@@ -16,6 +16,7 @@ import { Strip } from '../../components/Strip';
 import { Select } from '../../components/ui/Select';
 import { Tabs } from '../../components/ui/Tabs';
 import { GameIcon, useItemIcons } from '../../lib/gameIcons';
+import { type Translate, rich, useT } from '../../lib/i18n';
 import { PACK_CATEGORY_BY_TYPE, RUBY_DOLLAR_RATE } from '../../lib/settings/registry';
 import { useSiteSetting } from '../../lib/settings/useSiteSetting';
 import { type SortState, nextSort, sortRows } from '../../lib/tableControls';
@@ -56,7 +57,7 @@ import { shopStrip } from './strip';
 const STALE_TIME = 5 * 60_000;
 
 type Tab = 'packs' | 'shop' | 'values' | 'unnamed';
-const TABS: ReadonlyArray<[Tab, string]> = [
+export const TABS: ReadonlyArray<[Tab, string]> = [
   ['packs', 'Packs'],
   ['shop', 'Ruby shop'],
   ['values', 'Item values'],
@@ -65,16 +66,35 @@ const TABS: ReadonlyArray<[Tab, string]> = [
 
 const SOURCE_LABELS = { officer: 'officer', game: 'game', estimated: 'estimated' } as const;
 
+/** A Ruby-shop type's name (SHOP_LABELS), or its number when it has none. */
+function shopLabel(type: number, t: Translate): string {
+  const label = SHOP_LABELS[type];
+  return label === undefined ? t('Shop {type}', { type }) : t(label);
+}
+
+/** A value's basis as the reader's language says it; an unknown one as it came. */
+function sourceText(source: string, t: Translate): string {
+  return source === 'officer'
+    ? t('officer')
+    : source === 'game'
+      ? t('game')
+      : source === 'estimated'
+        ? t('estimated')
+        : source;
+}
+
 function SourceTag({ source }: { source: string | null }) {
+  const t = useT();
   if (source === null) {
-    return <span className="muted">no value</span>;
+    return <span className="muted">{t('no value')}</span>;
   }
-  return <span className={`value-source value-source-${source}`}>{source}</span>;
+  return <span className={`value-source value-source-${source}`}>{sourceText(source, t)}</span>;
 }
 
 /** Set one item's value from inside a pack: what an officer reaches for
  * when a pack's ratio looks wrong. Saved as theirs (0215). */
 function InlineValue({ itemId, rubies }: { itemId: string; rubies: number | null }) {
+  const t = useT();
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<string | null>(null);
   const save = useMutation({
@@ -93,7 +113,7 @@ function InlineValue({ itemId, rubies }: { itemId: string; rubies: number | null
         onClick={() => setDraft(rubies === null ? '' : String(rubies))}
         type="button"
       >
-        edit
+        {t('edit')}
       </button>
     );
   }
@@ -101,7 +121,7 @@ function InlineValue({ itemId, rubies }: { itemId: string; rubies: number | null
   return (
     <span className="row">
       <input
-        aria-label={`Rubies per unit for item ${itemId}`}
+        aria-label={t('Rubies per unit for item {id}', { id: itemId })}
         inputMode="decimal"
         min={0}
         onChange={(e) => setDraft(e.target.value)}
@@ -109,12 +129,12 @@ function InlineValue({ itemId, rubies }: { itemId: string; rubies: number | null
         type="number"
         value={draft}
       />
-      <span className="muted">rubies each</span>
+      <span className="muted">{t('rubies each')}</span>
       <button disabled={!valid || save.isPending} onClick={() => save.mutate(draft)} type="button">
-        Save
+        {t('Save')}
       </button>
       <button onClick={() => setDraft(null)} type="button">
-        Cancel
+        {t('Cancel')}
       </button>
       {save.error && <span className="error">{save.error.message}</span>}
     </span>
@@ -136,6 +156,7 @@ function PickOption({
   icons: ReadonlyMap<string, string> | undefined;
   mayEdit: boolean;
 }) {
+  const t = useT();
   const rate = useSiteSetting(RUBY_DOLLAR_RATE);
   return (
     <>
@@ -144,27 +165,35 @@ function PickOption({
           {counted ? '✓ ' : '· '}
           {option.same !== undefined && option.same > 1 ? (
             <span title={(option.names ?? []).join(', ')}>
-              Any of {option.same}
+              {t('Any of {count}', { count: option.same })}
               {(option.names ?? []).length > 0 &&
                 ` (${(option.names ?? []).slice(0, 3).join(', ')}${option.same > 3 ? ', …' : ''})`}
             </span>
           ) : (
-            <>Option {number}</>
+            <>{t('Option {number}', { number })}</>
           )}
         </td>
         <td />
         <td className="num">{money(dollarsOf(option.rubies, rate))}</td>
         <td className="muted" colSpan={mayEdit ? 2 : 1}>
-          {counted ? 'counted' : ''}
-          {option.unvalued > 0 ? ` · ${option.unvalued} with no value` : ''}
+          {counted ? t('counted') : ''}
+          {option.unvalued > 0
+            ? ` · ${t('{count} with no value', { count: option.unvalued })}`
+            : ''}
         </td>
       </tr>
       {option.items.map((item, index) => (
         <tr key={`${item.id}-${index}`}>
           <td className="label">
             <GameIcon size={20} src={item.type === '40' ? undefined : icons?.get(item.id)} />
-            <span title={`${item.type === '40' ? 'Hero gear' : 'Item'} code ${item.id}`}>
-              {itemLabel(item)}
+            <span
+              title={
+                item.type === '40'
+                  ? t('Hero gear code {id}', { id: item.id })
+                  : t('Item code {id}', { id: item.id })
+              }
+            >
+              {itemLabel(item, t)}
             </span>
           </td>
           <td className="num">×{item.qty.toLocaleString('en')}</td>
@@ -189,6 +218,7 @@ function PickOption({
  * The server lists them all; the game's selling screens name ours (0337),
  * and where none does an officer says which, once. */
 function VariantMark({ pack, mayEdit }: { pack: PackRowData; mayEdit: boolean }) {
+  const t = useT();
   const queryClient = useQueryClient();
   const save = useMutation({
     mutationFn: (variant: string | null) => saveVariantChoice(pack.family_key, variant),
@@ -200,10 +230,12 @@ function VariantMark({ pack, mayEdit }: { pack: PackRowData; mayEdit: boolean })
     return (
       <span
         className="pack-variant muted"
-        title="None of the game's screens sells this pack on this server: another stage's or another server's version"
+        title={t(
+          "None of the game's screens sells this pack on this server: another stage's or another server's version",
+        )}
       >
         {' '}
-        not sold here
+        {t('not sold here')}
       </span>
     );
   }
@@ -212,10 +244,12 @@ function VariantMark({ pack, mayEdit }: { pack: PackRowData; mayEdit: boolean })
     return (
       <span
         className="pack-variant"
-        title="The game's own screen names this version for this server"
+        title={t("The game's own screen names this version for this server")}
       >
         {' '}
-        ✓ ours · {pack.variants - 1} other {pack.variants === 2 ? 'version' : 'versions'}
+        {pack.variants === 2
+          ? t('✓ ours · {count} other version', { count: pack.variants - 1 })
+          : t('✓ ours · {count} other versions', { count: pack.variants - 1 })}
       </span>
     );
   }
@@ -223,20 +257,24 @@ function VariantMark({ pack, mayEdit }: { pack: PackRowData; mayEdit: boolean })
     <span className="pack-variant">
       {' '}
       {pack.picked ? (
-        <span title="An officer marked this as the version this server sells">
-          ✓ ours · {pack.variants - 1} other {pack.variants === 2 ? 'version' : 'versions'}
+        <span title={t('An officer marked this as the version this server sells')}>
+          {pack.variants === 2
+            ? t('✓ ours · {count} other version', { count: pack.variants - 1 })
+            : t('✓ ours · {count} other versions', { count: pack.variants - 1 })}
         </span>
       ) : (
         <span
           className="muted"
           title={
             pack.stale
-              ? 'The version that was marked is no longer listed: the game moved to another stage'
-              : 'The game lists this name and price in several versions'
+              ? t(
+                  'The version that was marked is no longer listed: the game moved to another stage',
+                )
+              : t('The game lists this name and price in several versions')
           }
         >
-          {pack.stale ? '\u26a0 re-pick \u00b7 ' : ''}
-          {pack.variants} versions
+          {pack.stale ? `\u26a0 ${t('re-pick')} \u00b7 ` : ''}
+          {t('{count} versions', { count: pack.variants })}
         </span>
       )}
       {mayEdit && ' '}
@@ -246,22 +284,22 @@ function VariantMark({ pack, mayEdit }: { pack: PackRowData; mayEdit: boolean })
             className="link-button muted"
             disabled={save.isPending}
             onClick={() => save.mutate(null)}
-            title="Show every version again"
+            title={t('Show every version again')}
             type="button"
           >
             {' '}
-            change
+            {t('change')}
           </button>
         ) : (
           <button
             className="link-button"
             disabled={save.isPending}
             onClick={() => save.mutate(pack.variant_key)}
-            title="This is the version this server sells; hide the others"
+            title={t('This is the version this server sells; hide the others')}
             type="button"
           >
             {' '}
-            this one is ours
+            {t('this one is ours')}
           </button>
         ))}
       {save.error && <span className="error"> {save.error.message}</span>}
@@ -280,6 +318,7 @@ function PackRow({
   hidden: boolean;
   onToggleHidden: () => void;
 }) {
+  const t = useT();
   const rate = useSiteSetting(RUBY_DOLLAR_RATE);
   const [open, setOpen] = useState(false);
   const byType = useSiteSetting(PACK_CATEGORY_BY_TYPE);
@@ -304,11 +343,11 @@ function PackRow({
           >
             {open ? '▾' : '▸'} {pack.name}
           </button>
-          <span className="pack-category" title={packCategory(pack.pack_type, byType).label}>
+          <span className="pack-category" title={t(packCategory(pack.pack_type, byType).label)}>
             {packCategory(pack.pack_type, byType).icon}
           </span>
           {pack.renamed && (
-            <span className="muted" title={`Game name: ${pack.game_name}`}>
+            <span className="muted" title={t('Game name: {name}', { name: pack.game_name })}>
               {' '}
               ✎
             </span>
@@ -316,19 +355,27 @@ function PackRow({
           {pack.offers > 1 && (
             <span
               className="muted"
-              title={`The game lists this offer under ${pack.offers} ids: ${pack.pack_ids.join(', ')}`}
+              title={t('The game lists this offer under {count} ids: {ids}', {
+                count: pack.offers,
+                ids: pack.pack_ids.join(', '),
+              })}
             >
               {' '}
-              ×{pack.offers} offers
+              {t('×{count} offers', { count: pack.offers })}
             </span>
           )}
           {pack.choices.length > 0 && (
             <span
               className="muted"
-              title="The buyer picks part of the contents; the value counts the best option of each pick"
+              title={t(
+                'The buyer picks part of the contents; the value counts the best option of each pick',
+              )}
             >
               {' '}
-              · {pack.choices.length} {pack.choices.length === 1 ? 'pick' : 'picks'}
+              ·{' '}
+              {pack.choices.length === 1
+                ? t('{count} pick', { count: pack.choices.length })
+                : t('{count} picks', { count: pack.choices.length })}
             </span>
           )}
           <VariantMark mayEdit={mayEdit} pack={pack} />
@@ -346,16 +393,18 @@ function PackRow({
           <td
             className="muted"
             colSpan={2}
-            title="A pass or gift that pays out over levels or days; the pack list does not carry its rewards"
+            title={t(
+              'A pass or gift that pays out over levels or days; the pack list does not carry its rewards',
+            )}
           >
-            contents not listed
+            {t('contents not listed')}
           </td>
         )}
         <td className="num">{pack.rubies.toLocaleString('en')}</td>
-        <td className="num" title="Share of the value resting on estimated item values">
+        <td className="num" title={t('Share of the value resting on estimated item values')}>
           {estimated > 0 ? `${Math.round(estimated * 100)}%` : '—'}
         </td>
-        <td className="num" title="Contents with no value yet: the ratio leaves them out">
+        <td className="num" title={t('Contents with no value yet: the ratio leaves them out')}>
           {pack.unvalued_items > 0 ? pack.unvalued_items : '—'}
         </td>
         <td className="num muted">
@@ -364,13 +413,17 @@ function PackRow({
         <td className="num muted">{pack.offers}</td>
         <td>
           <button
-            aria-label={hidden ? `Show ${pack.name} again` : `Hide ${pack.name}`}
+            aria-label={
+              hidden
+                ? t('Show {name} again', { name: pack.name })
+                : t('Hide {name}', { name: pack.name })
+            }
             className="link-button muted"
             onClick={onToggleHidden}
-            title={hidden ? 'Show this offer again' : 'Hide this offer (this browser only)'}
+            title={hidden ? t('Show this offer again') : t('Hide this offer (this browser only)')}
             type="button"
           >
-            {hidden ? 'unhide' : 'hide'}
+            {hidden ? t('unhide') : t('hide')}
           </button>
         </td>
       </tr>
@@ -379,15 +432,16 @@ function PackRow({
           <td colSpan={10}>
             {pack.offer_track && (
               <p className="subtle">
-                A pass: this is what its {pack.offer_track === 'paid' ? 'paid' : pack.offer_track}{' '}
-                track pays over all its levels, read from the game's own screen. The value assumes
-                every level is reached.
+                {t(
+                  "A pass: this is what its {track} track pays over all its levels, read from the game's own screen. The value assumes every level is reached.",
+                  { track: pack.offer_track === 'paid' ? t('paid') : pack.offer_track },
+                )}
               </p>
             )}
             <table className="compact">
               <tbody>
                 <tr>
-                  <td className="label">Rubies</td>
+                  <td className="label">{t('Rubies')}</td>
                   <td className="num">{pack.rubies.toLocaleString('en')}</td>
                   <td className="num">{money(dollarsOf(pack.rubies, rate))}</td>
                   <td />
@@ -396,7 +450,7 @@ function PackRow({
                   <tr key={item.id}>
                     <td className="label">
                       <GameIcon size={20} src={icons.data?.get(item.id)} />
-                      <span title={`Item code ${item.id}`}>{itemLabel(item)}</span>
+                      <span title={t('Item code {id}', { id: item.id })}>{itemLabel(item, t)}</span>
                     </td>
                     <td className="num">×{item.qty.toLocaleString('en')}</td>
                     <td className="num">
@@ -419,8 +473,17 @@ function PackRow({
                     <Fragment key={`pick-${slotIndex}`}>
                       <tr>
                         <td className="label muted" colSpan={mayEdit ? 5 : 4}>
-                          Pick {slotIndex + 1} of {pack.choices.length} — one of {slot.length}
-                          {slot.length > 1 && ' (the best is counted)'}
+                          {slot.length > 1
+                            ? t('Pick {number} of {total} — one of {count} (the best is counted)', {
+                                number: slotIndex + 1,
+                                total: pack.choices.length,
+                                count: slot.length,
+                              })
+                            : t('Pick {number} of {total} — one of {count}', {
+                                number: slotIndex + 1,
+                                total: pack.choices.length,
+                                count: slot.length,
+                              })}
                         </td>
                       </tr>
                       {slot.map((option, optionIndex) => (
@@ -447,6 +510,7 @@ function PackRow({
 }
 
 function PacksTab({ now, mayEdit }: { now: Date; mayEdit: boolean }) {
+  const t = useT();
   const byType = useSiteSetting(PACK_CATEGORY_BY_TYPE);
   const packs = useQuery({ queryKey: ['shop-packs'], queryFn: fetchPacks, staleTime: STALE_TIME });
   const [filter, setFilter] = useState<PackFilter>('live');
@@ -518,13 +582,22 @@ function PacksTab({ now, mayEdit }: { now: Date; mayEdit: boolean }) {
     [packs.data],
   );
 
-  if (packs.isPending) return <p className="empty">Loading packs…</p>;
-  if (packs.isError) return <p className="error">Could not load packs: {packs.error.message}</p>;
+  if (packs.isPending) return <p className="empty">{t('Loading packs…')}</p>;
+  if (packs.isError)
+    return (
+      <p className="error">
+        {t('Could not load packs: {message}', { message: packs.error.message })}
+      </p>
+    );
   if ((packs.data ?? []).length === 0) {
     return (
       <p className="empty">
-        No packs yet. They arrive when the collector sees the pack store opened, and are valued once
-        <code> dw-collector game-values</code> has run.
+        {rich(
+          t(
+            'No packs yet. They arrive when the collector sees the pack store opened, and are valued once {command} has run.',
+          ),
+          { command: <code>dw-collector game-values</code> },
+        )}
       </p>
     );
   }
@@ -532,24 +605,24 @@ function PacksTab({ now, mayEdit }: { now: Date; mayEdit: boolean }) {
     <>
       <div className="row">
         <label>
-          Show{' '}
+          {t('Show')}{' '}
           <Select onChange={(chosen) => setFilter(chosen as PackFilter)} value={filter}>
-            <option value="live">In the store now</option>
-            <option value="event">Event offers (shown only with an event item)</option>
-            <option value="all">Every pack seen (incl. no longer sold)</option>
+            <option value="live">{t('In the store now')}</option>
+            <option value="event">{t('Event offers (shown only with an event item)')}</option>
+            <option value="all">{t('Every pack seen (incl. no longer sold)')}</option>
           </Select>
         </label>
         <input
-          aria-label="Search packs"
+          aria-label={t('Search packs')}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Search a pack or an item in it"
+          placeholder={t('Search a pack or an item in it')}
           type="search"
           value={text}
         />
         <label>
-          Price{' '}
+          {t('Price')}{' '}
           <Select onChange={(chosen) => setPrice(chosen)} value={price}>
-            <option value="all">Any</option>
+            <option value="all">{t('Any')}</option>
             {prices.map((p) => (
               <option key={p} value={p}>
                 ${p}
@@ -564,7 +637,7 @@ function PacksTab({ now, mayEdit }: { now: Date; mayEdit: boolean }) {
               onChange={(e) => setShowHidden(e.target.checked)}
               type="checkbox"
             />{' '}
-            Show hidden ({hiddenHere})
+            {t('Show hidden ({count})', { count: hiddenHere })}
           </label>
         )}
         {(folded.hidden > 0 || showVariants) && (
@@ -574,20 +647,22 @@ function PacksTab({ now, mayEdit }: { now: Date; mayEdit: boolean }) {
               onChange={(e) => setShowVariants(e.target.checked)}
               type="checkbox"
             />{' '}
-            Show packs this server does not sell
+            {t('Show packs this server does not sell')}
             {folded.hidden > 0 ? ` (${folded.hidden})` : ''}
           </label>
         )}
-        <span className="subtle">{shown.length} offers. Click a heading to sort.</span>
+        <span className="subtle">
+          {t('{count} offers. Click a heading to sort.', { count: shown.length })}
+        </span>
       </div>
-      <fieldset aria-label="Pack category" className="pack-categories">
+      <fieldset aria-label={t('Pack category')} className="pack-categories">
         <button
           aria-pressed={category === 'all'}
           className="pack-chip"
           onClick={() => setCategory('all')}
           type="button"
         >
-          All <span className="muted">{folded.rows.length}</span>
+          {t('All')} <span className="muted">{folded.rows.length}</span>
         </button>
         {PACK_CATEGORIES.filter((c) => (categoryCounts.get(c.key) ?? 0) > 0).map((c) => (
           <button
@@ -597,7 +672,7 @@ function PacksTab({ now, mayEdit }: { now: Date; mayEdit: boolean }) {
             onClick={() => setCategory(category === c.key ? 'all' : c.key)}
             type="button"
           >
-            {c.icon} {c.label} <span className="muted">{categoryCounts.get(c.key)}</span>
+            {c.icon} {t(c.label)} <span className="muted">{categoryCounts.get(c.key)}</span>
           </button>
         ))}
       </fieldset>
@@ -606,34 +681,34 @@ function PacksTab({ now, mayEdit }: { now: Date; mayEdit: boolean }) {
           <thead>
             <tr>
               <SortableTh className="label" onSort={onSort} sort={sort} sortKey="name">
-                Pack
+                {t('Pack')}
               </SortableTh>
               <SortableTh numeric onSort={onSort} sort={sort} sortKey="dollars">
-                Price
+                {t('Price')}
               </SortableTh>
               <SortableTh numeric onSort={onSort} sort={sort} sortKey="value_dollars">
-                Worth
+                {t('Worth')}
               </SortableTh>
               <SortableTh numeric onSort={onSort} sort={sort} sortKey="value_ratio">
-                Value
+                {t('Value')}
               </SortableTh>
               <SortableTh numeric onSort={onSort} sort={sort} sortKey="rubies">
-                Rubies
+                {t('Rubies')}
               </SortableTh>
               <SortableTh numeric onSort={onSort} sort={sort} sortKey="estimated">
-                Estimated
+                {t('Estimated')}
               </SortableTh>
               <SortableTh numeric onSort={onSort} sort={sort} sortKey="unvalued_items">
-                Unvalued
+                {t('Unvalued')}
               </SortableTh>
               <SortableTh numeric onSort={onSort} sort={sort} sortKey="claimed_percent">
-                Game says
+                {t('Game says')}
               </SortableTh>
               <SortableTh numeric onSort={onSort} sort={sort} sortKey="offers">
-                Offers
+                {t('Offers')}
               </SortableTh>
               <th scope="col">
-                <span className="visually-hidden">Hide</span>
+                <span className="visually-hidden">{t('Hide')}</span>
               </th>
             </tr>
           </thead>
@@ -651,21 +726,23 @@ function PacksTab({ now, mayEdit }: { now: Date; mayEdit: boolean }) {
         </table>
       </div>
       <p className="note">
-        <strong>Value</strong> is dollars of value per dollar paid: the rubies inside plus every
-        item at its ruby value, at 100 rubies per $0.99. VIP Points count as nothing.{' '}
-        <strong>Estimated</strong> is how much of that rests on values back-solved from the game's
-        own claims; <strong>Unvalued</strong> items are left out. Packs with the same name, price
-        and contents are one row — the game lists some offers under many ids (a battle pass per
-        tier, a daily deal per slot). The game sends every server's and every stage's packs; the
-        ones its own screens name for this server are the ones shown, and a pass takes its contents
-        from its screen — the paid track over all its levels. A pass or gift no screen has been read
-        for has no listed contents, so no value. Open a pack for its contents.
+        {rich(
+          t(
+            "{value} is dollars of value per dollar paid: the rubies inside plus every item at its ruby value, at 100 rubies per $0.99. VIP Points count as nothing. {estimated} is how much of that rests on values back-solved from the game's own claims; {unvalued} items are left out. Packs with the same name, price and contents are one row — the game lists some offers under many ids (a battle pass per tier, a daily deal per slot). The game sends every server's and every stage's packs; the ones its own screens name for this server are the ones shown, and a pass takes its contents from its screen — the paid track over all its levels. A pass or gift no screen has been read for has no listed contents, so no value. Open a pack for its contents.",
+          ),
+          {
+            value: <strong>{t('Value')}</strong>,
+            estimated: <strong>{t('Estimated')}</strong>,
+            unvalued: <strong>{t('Unvalued')}</strong>,
+          },
+        )}
       </p>
     </>
   );
 }
 
 function ShopTab() {
+  const t = useT();
   const listings = useQuery({
     queryKey: ['shop-listings'],
     queryFn: fetchListings,
@@ -676,16 +753,22 @@ function ShopTab() {
   const listingIcons = useItemIcons(
     (listings.data ?? []).flatMap((row) => (row.item_id ? [row.item_id] : [])),
   );
-  if (listings.isPending) return <p className="empty">Loading the shop…</p>;
+  if (listings.isPending) return <p className="empty">{t('Loading the shop…')}</p>;
   if (listings.isError) {
-    return <p className="error">Could not load the shop: {listings.error.message}</p>;
+    return (
+      <p className="error">
+        {t('Could not load the shop: {message}', { message: listings.error.message })}
+      </p>
+    );
   }
   const rows = sortRows(
     (listings.data ?? []).map((row) => ({ ...row, shop: SHOP_LABELS[row.shop_type] ?? '' })),
     sort,
   );
   if (rows.length === 0) {
-    return <p className="empty">No Ruby-shop entries yet. Open the shop in the game once.</p>;
+    return (
+      <p className="empty">{t('No Ruby-shop entries yet. Open the shop in the game once.')}</p>
+    );
   }
   return (
     <>
@@ -694,39 +777,39 @@ function ShopTab() {
           <thead>
             <tr>
               <SortableTh className="label" onSort={onSort} sort={sort} sortKey="name">
-                Item
+                {t('Item')}
               </SortableTh>
               <SortableTh onSort={onSort} sort={sort} sortKey="shop">
-                Shop
+                {t('Shop')}
               </SortableTh>
               <SortableTh numeric onSort={onSort} sort={sort} sortKey="qty">
-                Qty
+                {t('Qty')}
               </SortableTh>
               <SortableTh numeric onSort={onSort} sort={sort} sortKey="price">
-                Rubies
+                {t('Rubies')}
               </SortableTh>
               <SortableTh numeric onSort={onSort} sort={sort} sortKey="discount">
-                Off
+                {t('Off')}
               </SortableTh>
               <SortableTh numeric onSort={onSort} sort={sort} sortKey="value_ratio">
-                Value
+                {t('Value')}
               </SortableTh>
               <SortableTh onSort={onSort} sort={sort} sortKey="value_source">
-                Basis
+                {t('Basis')}
               </SortableTh>
             </tr>
           </thead>
           <tbody>
             {rows.map((row) => (
               <tr key={`${row.server_id}:${row.shop_type}:${row.listing_id}`}>
-                <td className="label" title={`Item code ${row.item_id ?? '—'}`}>
+                <td className="label" title={t('Item code {id}', { id: row.item_id ?? '—' })}>
                   <GameIcon
                     size={20}
                     src={row.item_id ? listingIcons.data?.get(row.item_id) : undefined}
                   />
-                  {itemLabel(row)}
+                  {itemLabel(row, t)}
                 </td>
-                <td>{SHOP_LABELS[row.shop_type] ?? `Shop ${row.shop_type}`}</td>
+                <td>{shopLabel(row.shop_type, t)}</td>
                 <td className="num">{row.qty.toLocaleString('en')}</td>
                 <td className="num">{row.price.toLocaleString('en')}</td>
                 <td className="num">{row.discount ? `${row.discount}%` : '—'}</td>
@@ -742,8 +825,12 @@ function ShopTab() {
         </table>
       </div>
       <p className="note">
-        <strong>Value</strong> is rubies of value per ruby spent: ×1.0 is list price, ×2.0 is half
-        off. Only entries sold for rubies are here; the token shops spend their own currency.
+        {rich(
+          t(
+            '{value} is rubies of value per ruby spent: ×1.0 is list price, ×2.0 is half off. Only entries sold for rubies are here; the token shops spend their own currency.',
+          ),
+          { value: <strong>{t('Value')}</strong> },
+        )}
       </p>
     </>
   );
@@ -758,6 +845,7 @@ function ValueRow({
   mayEdit: boolean;
   icon: string | undefined;
 }) {
+  const t = useT();
   const rate = useSiteSetting(RUBY_DOLLAR_RATE);
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<{ name: string; rubies: string; note: string } | null>(null);
@@ -782,13 +870,16 @@ function ValueRow({
   const valid = draft !== null && draft.rubies.trim() !== '' && Number(draft.rubies) >= 0;
   return (
     <tr>
-      <td className="label" title={`Item code ${item.item_id}`}>
+      <td className="label" title={t('Item code {id}', { id: item.item_id })}>
         {draft === null ? (
           <>
             <GameIcon size={20} src={icon} />
-            {itemLabel(item)}
+            {itemLabel(item, t)}
             {item.renamed && (
-              <span className="muted" title={`Game name: ${item.game_name ?? 'none'}`}>
+              <span
+                className="muted"
+                title={t('Game name: {name}', { name: item.game_name ?? t('none') })}
+              >
                 {' '}
                 ✎
               </span>
@@ -796,10 +887,10 @@ function ValueRow({
           </>
         ) : (
           <input
-            aria-label="Item name"
+            aria-label={t('Item name')}
             maxLength={80}
             onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-            placeholder={item.game_name ?? 'Item name'}
+            placeholder={item.game_name ?? t('Item name')}
             value={draft.name}
           />
         )}
@@ -809,7 +900,7 @@ function ValueRow({
           item.rubies.toLocaleString('en', { maximumFractionDigits: 2 })
         ) : (
           <input
-            aria-label={`Rubies for ${itemLabel(item)}`}
+            aria-label={t('Rubies for {name}', { name: itemLabel(item, t) })}
             inputMode="decimal"
             min={0}
             onChange={(e) => setDraft({ ...draft, rubies: e.target.value })}
@@ -828,7 +919,7 @@ function ValueRow({
           (item.note ?? '')
         ) : (
           <input
-            aria-label="Note"
+            aria-label={t('Note')}
             maxLength={300}
             onChange={(e) => setDraft({ ...draft, note: e.target.value })}
             value={draft.note}
@@ -848,7 +939,7 @@ function ValueRow({
               }
               type="button"
             >
-              Edit
+              {t('Edit')}
             </button>
           ) : (
             <>
@@ -858,15 +949,15 @@ function ValueRow({
                   onClick={() => save.mutate(draft)}
                   type="button"
                 >
-                  Save
+                  {t('Save')}
                 </button>
                 <button onClick={() => setDraft(null)} type="button">
-                  Cancel
+                  {t('Cancel')}
                 </button>
               </span>
               {save.error && <span className="error"> {save.error.message}</span>}
               <div className="muted">
-                Leave the name empty to show the game's name. The item code does not change.
+                {t("Leave the name empty to show the game's name. The item code does not change.")}
               </div>
             </>
           )}
@@ -877,6 +968,7 @@ function ValueRow({
 }
 
 function ValuesTab({ mayEdit }: { mayEdit: boolean }) {
+  const t = useT();
   const values = useQuery({
     queryKey: ['shop-values'],
     queryFn: fetchItemValues,
@@ -887,9 +979,13 @@ function ValuesTab({ mayEdit }: { mayEdit: boolean }) {
   const [source, setSource] = useState<string>('all');
   const [sort, setSort] = useState<SortState>({ key: 'rubies', direction: 'desc' });
   const onSort = (key: string) => setSort(nextSort(sort, key));
-  if (values.isPending) return <p className="empty">Loading values…</p>;
+  if (values.isPending) return <p className="empty">{t('Loading values…')}</p>;
   if (values.isError) {
-    return <p className="error">Could not load values: {values.error.message}</p>;
+    return (
+      <p className="error">
+        {t('Could not load values: {message}', { message: values.error.message })}
+      </p>
+    );
   }
   const needle = text.trim().toLowerCase();
   const rows = sortRows(
@@ -909,43 +1005,43 @@ function ValuesTab({ mayEdit }: { mayEdit: boolean }) {
     <>
       <div className="row">
         <input
-          aria-label="Search items"
+          aria-label={t('Search items')}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Search by name or id"
+          placeholder={t('Search by name or id')}
           type="search"
           value={text}
         />
         <label>
-          Basis{' '}
+          {t('Basis')}{' '}
           <Select onChange={(chosen) => setSource(chosen)} value={source}>
-            <option value="all">Any</option>
+            <option value="all">{t('Any')}</option>
             {Object.keys(SOURCE_LABELS).map((key) => (
               <option key={key} value={key}>
-                {key}
+                {sourceText(key, t)}
               </option>
             ))}
           </Select>
         </label>
-        <span className="subtle">{rows.length} items</span>
+        <span className="subtle">{t('{count} items', { count: rows.length })}</span>
       </div>
       <div className="table-wrap">
         <table className="compact">
           <thead>
             <tr>
               <SortableTh className="label" onSort={onSort} sort={sort} sortKey="name">
-                Item
+                {t('Item')}
               </SortableTh>
               <SortableTh numeric onSort={onSort} sort={sort} sortKey="rubies">
-                Rubies each
+                {t('Rubies each')}
               </SortableTh>
               <th className="num" scope="col">
-                $ each
+                {t('$ each')}
               </th>
               <SortableTh onSort={onSort} sort={sort} sortKey="source">
-                Basis
+                {t('Basis')}
               </SortableTh>
               <SortableTh onSort={onSort} sort={sort} sortKey="note">
-                Note
+                {t('Note')}
               </SortableTh>
               {mayEdit && <th scope="col" />}
             </tr>
@@ -963,17 +1059,23 @@ function ValuesTab({ mayEdit }: { mayEdit: boolean }) {
         </table>
       </div>
       <p className="note">
-        <strong>game</strong> is the Ruby shop's own price; <strong>estimated</strong> is
-        back-solved from the game's value claims on the packs an item is in, and can be off;{' '}
-        <strong>officer</strong> is a value somebody set, which the game tool never overwrites.
-        Names can be corrected too (✎ marks a corrected name); the item code, shown on hover, is the
-        game's and never changes.
+        {rich(
+          t(
+            "{game} is the Ruby shop's own price; {estimated} is back-solved from the game's value claims on the packs an item is in, and can be off; {officer} is a value somebody set, which the game tool never overwrites. Names can be corrected too (✎ marks a corrected name); the item code, shown on hover, is the game's and never changes.",
+          ),
+          {
+            game: <strong>{t('game')}</strong>,
+            estimated: <strong>{t('estimated')}</strong>,
+            officer: <strong>{t('officer')}</strong>,
+          },
+        )}
       </p>
     </>
   );
 }
 
 export function ShopValuePage() {
+  const t = useT();
   const { data: session } = useSession();
   const mayEdit = session?.role === 'officer' || session?.role === 'admin';
   const [now] = useState(() => new Date());
@@ -988,19 +1090,19 @@ export function ShopValuePage() {
             SV
           </span>
           <div>
-            <h2>Shop value</h2>
+            <h2>{t('Shop value')}</h2>
             <p className="entity-meta">
-              <span>What packs and Ruby-shop entries are worth</span>
-              <span>Dollars of value per dollar paid</span>
+              <span>{t('What packs and Ruby-shop entries are worth')}</span>
+              <span>{t('Dollars of value per dollar paid')}</span>
             </p>
           </div>
         </header>
-        {packs.data && <Strip cells={shopStrip(packs.data, now)} />}
+        {packs.data && <Strip cells={shopStrip(packs.data, now, t)} />}
       </div>
       <Tabs
-        label="Shop value"
+        label={t('Shop value')}
         className="row"
-        items={TABS.map(([id, label]) => ({ id, label }))}
+        items={TABS.map(([id, label]) => ({ id, label: t(label) }))}
         value={tab}
         onChange={setTab}
       />

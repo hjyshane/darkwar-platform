@@ -1,3 +1,5 @@
+import { type Translate, english } from '../../lib/i18n/core';
+
 /** Changing your own password, from inside a session (no email involved).
  *
  * This is the one recovery path that works while SMTP is unconfigured:
@@ -30,12 +32,16 @@ export const MIN_PASSWORD_LENGTH = 6;
  * password form that says "invalid" teaches nobody anything, and this is the
  * screen somebody reaches when they are already locked out of the normal one.
  */
-export function passwordProblem(next: string, confirm: string): string | null {
+export function passwordProblem(
+  next: string,
+  confirm: string,
+  t: Translate = english,
+): string | null {
   if (next === '') {
     return null;
   }
   if (next.length < MIN_PASSWORD_LENGTH) {
-    return `At least ${MIN_PASSWORD_LENGTH} characters.`;
+    return t('At least {count} characters.', { count: MIN_PASSWORD_LENGTH });
   }
   // Checked before the match, because "they do not match" on two fields that
   // are both wrong sends the reader looking at the wrong problem.
@@ -43,7 +49,7 @@ export function passwordProblem(next: string, confirm: string): string | null {
     return null;
   }
   if (next !== confirm) {
-    return 'The two do not match.';
+    return t('The two do not match.');
   }
   return null;
 }

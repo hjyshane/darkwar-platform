@@ -7,6 +7,7 @@
 // decides that, nothing here does.
 
 import type { Json } from '@dw/shared-types';
+import { type Translate, english } from '../../lib/i18n/core';
 import { supabase } from '../../lib/supabase';
 import type { Buffs, Kind } from './plan';
 import { type Target, targetKey } from './targets';
@@ -95,12 +96,16 @@ export function targetMap(targets: readonly Target[]): Map<string, Target> {
 
 /** "Headquarters 30 → 31", with a gear's stages when it climbs them. `shown`
  * turns a level into what the game calls it (a building's tier). */
-export function targetText(t: Target, shown: (t: Target, level: number) => string): string {
+export function targetText(
+  target: Target,
+  shown: (target: Target, level: number) => string,
+  t: Translate = english,
+): string {
   const stages =
-    t.kind === 'hero_gear' && (t.stageTo ?? 0) > (t.stageFrom ?? 0)
-      ? ` · stage ${t.stageFrom} → ${t.stageTo}`
+    target.kind === 'hero_gear' && (target.stageTo ?? 0) > (target.stageFrom ?? 0)
+      ? ` · ${t('stage {from} → {to}', { from: String(target.stageFrom), to: String(target.stageTo) })}`
       : '';
-  return `${t.name} ${shown(t, t.from)} → ${shown(t, t.to)}${stages}`;
+  return `${target.name} ${shown(target, target.from)} → ${shown(target, target.to)}${stages}`;
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

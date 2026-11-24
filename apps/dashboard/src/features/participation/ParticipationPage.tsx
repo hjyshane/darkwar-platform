@@ -17,6 +17,7 @@ import { StatTile } from '../../components/StatTile';
 import { BarCell } from '../../components/ui/BarCell';
 import { Select } from '../../components/ui/Select';
 import { Tabs } from '../../components/ui/Tabs';
+import { rich, useT } from '../../lib/i18n';
 import { isAllowed, usePermissions } from '../../lib/permissions';
 import {
   FALLBACK_SEASONS,
@@ -63,7 +64,7 @@ const STALE_TIME = 5 * 60_000;
  * events, and the season's own. Which event sits where is the event's
  * `board` (0213); buildings are season progress. */
 type Board = 'daily' | 'event' | 'season';
-const BOARDS: ReadonlyArray<[Board, string]> = [
+export const BOARDS: ReadonlyArray<[Board, string]> = [
   ['daily', 'Daily'],
   ['event', 'Events'],
   ['season', 'Season events'],
@@ -78,7 +79,7 @@ type View = 'report' | 'record';
  * round / week / custom ranges. In the break between two seasons there is no
  * season in progress, so the break comes first and the season that just ended
  * is the previous one. */
-const REST_KINDS: ReadonlyArray<[PeriodKind, string]> = [
+export const REST_KINDS: ReadonlyArray<[PeriodKind, string]> = [
   ['round', 'Duel round'],
   ['week', 'Week'],
   ['custom', 'Custom'],
@@ -100,6 +101,7 @@ function DaysCell({
   read: number;
   unit: string;
 }) {
+  const t = useT();
   if (read === 0) {
     return <td className="num muted">—</td>;
   }
@@ -108,10 +110,19 @@ function DaysCell({
   return (
     <td
       className={`num ${low ? 'growth-down' : ''}`}
-      title={`Scored on ${scored} of the ${read} ${unit}s the board was read. On the board ${onBoard}, not on it ${off}.`}
+      title={t(
+        'Scored on {scored} of the {read} {units} the board was read. On the board {onboard}, not on it {off}.',
+        {
+          scored,
+          read,
+          units: unit === 'day' ? t('days') : `${unit}s`,
+          onboard: onBoard,
+          off,
+        },
+      )}
     >
       {low && (
-        <span aria-label="Under half" className="below-minimum">
+        <span aria-label={t('Under half')} className="below-minimum">
           ●
         </span>
       )}
@@ -125,6 +136,7 @@ function DaysCell({
 
 /** Days the daily board reached the bar, out of the days it was read. */
 function OverCell({ over, read, bar }: { over: number | null; read: number; bar: number }) {
+  const t = useT();
   if (over === null || read === 0) {
     return <td className="num muted">—</td>;
   }
@@ -132,7 +144,11 @@ function OverCell({ over, read, bar }: { over: number | null; read: number; bar:
   return (
     <td
       className={`num ${low ? 'growth-down' : ''}`}
-      title={`Reached ${n(bar)} on ${over} of the ${read} days the board was read.`}
+      title={t('Reached {bar} on {over} of the {read} days the board was read.', {
+        bar: n(bar),
+        over,
+        read,
+      })}
     >
       <span className="figure-bar">
         {over}/{read}
@@ -152,20 +168,25 @@ function TotalCell({
   onBoard: number;
   read: number;
 }) {
+  const t = useT();
   if (total === null) {
     return <td className="num muted">—</td>;
   }
   return (
-    <td className="num" title={`On ${onBoard} of the ${read} weekly boards read.`}>
+    <td
+      className="num"
+      title={t('On {onboard} of the {read} weekly boards read.', { onboard: onBoard, read })}
+    >
       {n(total)}
       <span className="muted participation-sub">
-        {onBoard}/{read} wk
+        {onBoard}/{read} {t('wk')}
       </span>
     </td>
   );
 }
 
 function BlackGoldCell({ row }: { row: ParticipationRow }) {
+  const t = useT();
   const expected = blackGoldExpected(row);
   if (expected === 0 && row.black_gold_played === 0) {
     return <td className="num muted">—</td>;
@@ -176,13 +197,21 @@ function BlackGoldCell({ row }: { row: ParticipationRow }) {
   return (
     <td
       className="num"
-      title={`Played ${row.black_gold_played} of ${expected}: every battle as a starter, and the ones a substitute played. Missed as starter ${row.black_gold_starter_missed}. A substitute who did not play (${row.black_gold_substitute_missed}) is not counted. Only battles with a captured report count.`}
+      title={t(
+        'Played {played} of {expected}: every battle as a starter, and the ones a substitute played. Missed as starter {missed}. A substitute who did not play ({unneeded}) is not counted. Only battles with a captured report count.',
+        {
+          played: row.black_gold_played,
+          expected,
+          missed: row.black_gold_starter_missed,
+          unneeded: row.black_gold_substitute_missed,
+        },
+      )}
     >
       {row.black_gold_played}/{expected}
       {missed > 0 && (
         <>
           {' '}
-          <span className="badge badge-loss">{missed} missed</span>
+          <span className="badge badge-loss">{t('{count} missed', { count: missed })}</span>
         </>
       )}
     </td>
@@ -190,6 +219,7 @@ function BlackGoldCell({ row }: { row: ParticipationRow }) {
 }
 
 function TypedCell({ kind, tally }: { kind: string; tally: TypedTally | undefined }) {
+  const t = useT();
   if (tally === undefined || tally.held === 0) {
     return <td className="num muted">—</td>;
   }
@@ -198,10 +228,15 @@ function TypedCell({ kind, tally }: { kind: string; tally: TypedTally | undefine
   return (
     <td
       className={`num ${low ? 'growth-down' : ''}`}
-      title={`Held ${tally.held}: present ${tally.attended}, absent ${missed}, not recorded ${unrecorded}.`}
+      title={t('Held {held}: present {attended}, absent {missed}, not recorded {unrecorded}.', {
+        held: tally.held,
+        attended: tally.attended,
+        missed,
+        unrecorded,
+      })}
     >
       {low && (
-        <span aria-label="Under half" className="below-minimum">
+        <span aria-label={t('Under half')} className="below-minimum">
           ●
         </span>
       )}
@@ -212,7 +247,9 @@ function TypedCell({ kind, tally }: { kind: string; tally: TypedTally | undefine
           {tally.score !== null && tally.score !== undefined && (
             <span
               className="muted participation-sub"
-              title="Total score over the days held: typed by an officer, or scanned where nobody typed one."
+              title={t(
+                'Total score over the days held: typed by an officer, or scanned where nobody typed one.',
+              )}
             >
               {n(tally.score)}
             </span>
@@ -220,9 +257,11 @@ function TypedCell({ kind, tally }: { kind: string; tally: TypedTally | undefine
           {tally.damage !== null && tally.damage !== undefined && (
             <span
               className="muted participation-sub"
-              title="Total damage dealt over the days held, from the battle log. Troops taken off the other side, not the event's own score."
+              title={t(
+                "Total damage dealt over the days held, from the battle log. Troops taken off the other side, not the event's own score.",
+              )}
             >
-              {n(tally.damage)} dmg
+              {t('{damage} dmg', { damage: n(tally.damage) })}
             </span>
           )}
         </span>
@@ -234,15 +273,18 @@ function TypedCell({ kind, tally }: { kind: string; tally: TypedTally | undefine
 
 /** Watchtower level now, and levels gained in the range when it was read. */
 function WatchtowerCell({ row }: { row: ParticipationRow }) {
+  const t = useT();
   if (row.watchtower_level === null) {
     return <td className="num muted">—</td>;
   }
   return (
     <td
       className="num"
-      title="Watchtower (main building) level at the end of the range, and levels gained inside it. No gain shown when nobody read the member in the range."
+      title={t(
+        'Watchtower (main building) level at the end of the range, and levels gained inside it. No gain shown when nobody read the member in the range.',
+      )}
     >
-      Lv {row.watchtower_level}
+      {t('Lv {level}', { level: row.watchtower_level })}
       {row.watchtower_gained !== null && (
         <span className={row.watchtower_gained > 0 ? undefined : 'muted'}>
           {' '}
@@ -254,6 +296,7 @@ function WatchtowerCell({ row }: { row: ParticipationRow }) {
 }
 
 function Summary({ rows, kinds }: { rows: ParticipationRow[]; kinds: EventKind[] }) {
+  const t = useT();
   const first = rows[0];
   if (first === undefined) return null;
   const held = kinds
@@ -264,19 +307,27 @@ function Summary({ rows, kinds }: { rows: ParticipationRow[]; kinds: EventKind[]
     .filter((entry): entry is string => entry !== null);
   return (
     <p className="subtle">
-      {rows.length} members. Duel board read on {first.duel_days_read} days and{' '}
-      {first.duel_weeks_read} weeks; donation board on {first.donation_days_read} days and{' '}
-      {first.donation_weeks_read} weeks.{' '}
+      {t(
+        '{members} members. Duel board read on {duel_days} days and {duel_weeks} weeks; donation board on {donation_days} days and {donation_weeks} weeks.',
+        {
+          members: rows.length,
+          duel_days: first.duel_days_read,
+          duel_weeks: first.duel_weeks_read,
+          donation_days: first.donation_days_read,
+          donation_weeks: first.donation_weeks_read,
+        },
+      )}{' '}
       {held.length > 0 ? (
-        <>Recorded by officers: {held.join(', ')}.</>
+        <>{t('Recorded by officers: {events}.', { events: held.join(', ') })}</>
       ) : (
-        <>No event recorded by officers yet.</>
+        <>{t('No event recorded by officers yet.')}</>
       )}
     </p>
   );
 }
 
 export function ParticipationPage() {
+  const t = useT();
   const [now] = useState(() => new Date());
   // The periods count from the current season's start (0242). Until the seasons
   // load, or when there are none, the constant Season 3 start answers.
@@ -291,16 +342,16 @@ export function ParticipationPage() {
   // A season that has ended stops at its end; the break after it is not in it.
   const seasonEnd = current?.endsAt ?? null;
   const season = useMemo(
-    () => seasonPeriod(now, seasonStart, seasonName, seasonEnd),
-    [now, seasonStart, seasonName, seasonEnd],
+    () => seasonPeriod(now, seasonStart, seasonName, seasonEnd, t),
+    [now, seasonStart, seasonName, seasonEnd, t],
   );
   const rounds = useMemo(
-    () => roundPeriods(now, seasonStart, seasonEnd),
-    [now, seasonStart, seasonEnd],
+    () => roundPeriods(now, seasonStart, seasonEnd, t),
+    [now, seasonStart, seasonEnd, t],
   );
   const weeks = useMemo(
-    () => weekPeriods(now, seasonStart, seasonEnd),
-    [now, seasonStart, seasonEnd],
+    () => weekPeriods(now, seasonStart, seasonEnd, t),
+    [now, seasonStart, seasonEnd, t],
   );
   // The custom range, as the two game dates an officer typed. Seeded with the
   // last week so the tab opens on something.
@@ -314,25 +365,25 @@ export function ParticipationPage() {
   const earlier = inBreak ? current : pastSeason(seasons, now);
   const previous = useMemo(
     () =>
-      endedSeasonPeriod(earlier?.name ?? '', earlier?.startsAt ?? null, earlier?.endsAt ?? null),
-    [earlier],
+      endedSeasonPeriod(earlier?.name ?? '', earlier?.startsAt ?? null, earlier?.endsAt ?? null, t),
+    [earlier, t],
   );
   const betweenSeasons = useMemo(
     () =>
       phase.phase === 'break'
-        ? breakPeriod(now, phase.ended.endsAt, phase.next?.startsAt ?? null)
+        ? breakPeriod(now, phase.ended.endsAt, phase.next?.startsAt ?? null, t)
         : null,
-    [now, phase],
+    [now, phase, t],
   );
   const periodKinds: [PeriodKind, string][] = [];
   if (inBreak) {
-    if (betweenSeasons !== null) periodKinds.push(['break', 'Season break']);
-    if (previous !== null) periodKinds.push(['previous', 'Previous season']);
+    if (betweenSeasons !== null) periodKinds.push(['break', t('Season break')]);
+    if (previous !== null) periodKinds.push(['previous', t('Previous season')]);
   } else {
-    periodKinds.push(['season', 'Season']);
-    if (previous !== null) periodKinds.push(['previous', 'Previous season']);
+    periodKinds.push(['season', t('Season')]);
+    if (previous !== null) periodKinds.push(['previous', t('Previous season')]);
   }
-  periodKinds.push(...REST_KINDS);
+  periodKinds.push(...REST_KINDS.map(([id, label]): [PeriodKind, string] => [id, t(label)]));
 
   const [picked, setKind] = useState<PeriodKind>('season');
   // A kind that this phase does not offer (the seasons load after the first
@@ -342,7 +393,7 @@ export function ParticipationPage() {
     : (periodKinds[0]?.[0] ?? 'season');
   const [roundIndex, setRoundIndex] = useState(0);
   const [weekIndex, setWeekIndex] = useState(0);
-  const custom = customPeriod(customFrom, customTo, now);
+  const custom = customPeriod(customFrom, customTo, now, t);
   const period: Period =
     kind === 'round'
       ? (rounds[roundIndex] ?? season)
@@ -401,16 +452,16 @@ export function ParticipationPage() {
             PA
           </span>
           <div>
-            <h2 id="participation-heading">Participation</h2>
+            <h2 id="participation-heading">{t('Participation')}</h2>
             <p className="entity-meta">
               <span>{period.label}</span>
-              <span>Server time, UTC−2</span>
+              <span>{t('Server time, UTC−2')}</span>
             </p>
           </div>
         </header>
         {rows.length > 0 && (
           <div className="strip">
-            {participationStrip(rows, bars).map((cell, index) => (
+            {participationStrip(rows, bars, t).map((cell, index) => (
               <StatTile
                 hero={index === 0}
                 key={cell.label}
@@ -430,11 +481,11 @@ export function ParticipationPage() {
 
       {mayRecord && (
         <Tabs
-          label="View"
+          label={t('View')}
           className="row"
           items={[
-            { id: 'report' as const, label: 'Report' },
-            { id: 'record' as const, label: 'Record attendance' },
+            { id: 'report' as const, label: t('Report') },
+            { id: 'record' as const, label: t('Record attendance') },
           ]}
           value={activeView}
           onChange={setView}
@@ -444,19 +495,19 @@ export function ParticipationPage() {
       {activeView === 'report' && (
         <div className="row">
           <Tabs
-            label="Period"
+            label={t('Period')}
             items={periodKinds.map(([id, label]) => ({ id, label }))}
             value={kind}
             onChange={setKind}
           />
           {kind === 'round' && (
             <label>
-              Round{' '}
+              {t('Round')}{' '}
               <Select onChange={(chosen) => setRoundIndex(Number(chosen))} value={roundIndex}>
                 {rounds.map((round, index) => (
                   <option key={round.from} value={index}>
                     {round.label}
-                    {index === 0 ? ' (current)' : ''}
+                    {index === 0 ? ` (${t('current')})` : ''}
                   </option>
                 ))}
               </Select>
@@ -464,12 +515,12 @@ export function ParticipationPage() {
           )}
           {kind === 'week' && (
             <label>
-              Week{' '}
+              {t('Week')}{' '}
               <Select onChange={(chosen) => setWeekIndex(Number(chosen))} value={weekIndex}>
                 {weeks.map((week, index) => (
                   <option key={week.from} value={index}>
                     {week.label}
-                    {index === 0 ? ' (this week)' : ''}
+                    {index === 0 ? ` (${t('this week')})` : ''}
                   </option>
                 ))}
               </Select>
@@ -478,7 +529,7 @@ export function ParticipationPage() {
           {kind === 'custom' && (
             <>
               <label>
-                From{' '}
+                {t('From')}{' '}
                 <input
                   max={today}
                   onChange={(event) => setCustomFrom(event.target.value)}
@@ -487,7 +538,7 @@ export function ParticipationPage() {
                 />
               </label>
               <label>
-                To{' '}
+                {t('To')}{' '}
                 <input
                   max={today}
                   min={customFrom}
@@ -498,7 +549,7 @@ export function ParticipationPage() {
               </label>
               {custom === null ? (
                 <span className="error">
-                  Pick a start on or before the end, no later than today.
+                  {t('Pick a start on or before the end, no later than today.')}
                 </span>
               ) : (
                 <span className="subtle">{custom.label}</span>
@@ -511,20 +562,22 @@ export function ParticipationPage() {
         </div>
       )}
 
-      {report.isPending && <p className="empty loading">Loading…</p>}
+      {report.isPending && <p className="empty loading">{t('Loading…')}</p>}
       {report.error && (
-        <p className="error">Could not load participation: {report.error.message}</p>
+        <p className="error">
+          {t('Could not load participation: {error}', { error: report.error.message })}
+        </p>
       )}
       {report.data && rows.length === 0 && (
-        <p className="empty">Nobody is on the roster for this alliance yet.</p>
+        <p className="empty">{t('Nobody is on the roster for this alliance yet.')}</p>
       )}
 
       {activeView === 'report' && rows.length > 0 && (
         <div className="panel participation-board">
           <Tabs
-            label="Report"
+            label={t('Report')}
             className="row"
-            items={BOARDS.map(([id, label]) => ({ id, label }))}
+            items={BOARDS.map(([id, label]) => ({ id, label: t(label) }))}
             value={board}
             onChange={setBoard}
           />
@@ -533,31 +586,31 @@ export function ParticipationPage() {
               <thead>
                 <tr>
                   <SortableTh className="label" onSort={onSort} sort={sort} sortKey="name">
-                    Member
+                    {t('Member')}
                   </SortableTh>
                   {board === 'daily' && (
                     <>
                       <SortableTh numeric onSort={onSort} sort={sort} sortKey="duel_days">
-                        Duel days
+                        {t('Duel days')}
                       </SortableTh>
                       {bars.duel !== null && (
                         <SortableTh numeric onSort={onSort} sort={sort} sortKey="duel_over">
-                          Duel ≥ {n(bars.duel)}
+                          {t('Duel ≥ {bar}', { bar: n(bars.duel) })}
                         </SortableTh>
                       )}
                       <SortableTh numeric onSort={onSort} sort={sort} sortKey="duel_total">
-                        Duel total
+                        {t('Duel total')}
                       </SortableTh>
                       <SortableTh numeric onSort={onSort} sort={sort} sortKey="donation_days">
-                        Donation days
+                        {t('Donation days')}
                       </SortableTh>
                       {bars.donation !== null && (
                         <SortableTh numeric onSort={onSort} sort={sort} sortKey="donation_over">
-                          Donation ≥ {n(bars.donation)}
+                          {t('Donation ≥ {bar}', { bar: n(bars.donation) })}
                         </SortableTh>
                       )}
                       <SortableTh numeric onSort={onSort} sort={sort} sortKey="donation_total">
-                        Donation total
+                        {t('Donation total')}
                       </SortableTh>
                     </>
                   )}
@@ -569,10 +622,10 @@ export function ParticipationPage() {
                   {board === 'season' && (
                     <>
                       <SortableTh numeric onSort={onSort} sort={sort} sortKey="buildings">
-                        Season buildings
+                        {t('Season buildings')}
                       </SortableTh>
                       <SortableTh numeric onSort={onSort} sort={sort} sortKey="watchtower">
-                        Watchtower
+                        {t('Watchtower')}
                       </SortableTh>
                     </>
                   )}
@@ -586,7 +639,7 @@ export function ParticipationPage() {
                     >
                       {eventKind.label}
                       {!eventKind.captured && (
-                        <span className="muted" title="Recorded by an officer, not captured">
+                        <span className="muted" title={t('Recorded by an officer, not captured')}>
                           {' '}
                           ✎
                         </span>
@@ -648,7 +701,9 @@ export function ParticipationPage() {
                       <>
                         <td
                           className="num"
-                          title="Season building levels gained in this range, as far as our map sweeps have seen."
+                          title={t(
+                            'Season building levels gained in this range, as far as our map sweeps have seen.',
+                          )}
                         >
                           {row.season_levels_gained === null ? (
                             <span className="muted">—</span>
@@ -673,20 +728,12 @@ export function ParticipationPage() {
           </div>
 
           <p className="note">
-            Days and events read <strong>scored / read</strong>: the days the board was read for the
-            alliance, and how many of them the member scored on. Duel days are Monday to Saturday:
-            the duel does not run on Sunday. A day nobody captured is left out, so a gap in our
-            capture never counts against anybody; a dash means there was nothing to judge. ● marks
-            under half. Black Gold is played / listed, from battles whose report was captured.
-            Buildings are levels gained as far as our map sweeps have seen. Columns marked ✎ are
-            ticked by officers, not captured, and ?N is event days nobody ticked this member for.
-            Capital Clash counts a member present when they are on its score board (the top 100 of
-            the server group), teleported into the capital, or had a city inside it while the battle
-            ran; absent when they were seen outside it in the battle's last 15 minutes and on none
-            of those; otherwise ?N, which is not known. Frankie counts each round once its damage
-            board was opened inside the event: round 1 is who was on the board when round 2 began,
-            and round 2 is whoever's damage grew after that; a round whose board was not opened
-            after it ended shows ?N. Hover a cell for the detail.
+            {rich(
+              t(
+                "Days and events read {ratio}: the days the board was read for the alliance, and how many of them the member scored on. Duel days are Monday to Saturday: the duel does not run on Sunday. A day nobody captured is left out, so a gap in our capture never counts against anybody; a dash means there was nothing to judge. ● marks under half. Black Gold is played / listed, from battles whose report was captured. Buildings are levels gained as far as our map sweeps have seen. Columns marked ✎ are ticked by officers, not captured, and ?N is event days nobody ticked this member for. Capital Clash counts a member present when they are on its score board (the top 100 of the server group), teleported into the capital, or had a city inside it while the battle ran; absent when they were seen outside it in the battle's last 15 minutes and on none of those; otherwise ?N, which is not known. Frankie counts each round once its damage board was opened inside the event: round 1 is who was on the board when round 2 began, and round 2 is whoever's damage grew after that; a round whose board was not opened after it ended shows ?N. Hover a cell for the detail.",
+              ),
+              { ratio: <strong>{t('scored / read')}</strong> },
+            )}
           </p>
         </div>
       )}

@@ -5,6 +5,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Select } from '../../components/ui/Select';
+import { useT } from '../../lib/i18n';
 import {
   CATEGORIES,
   CATEGORY_LABELS,
@@ -25,6 +26,7 @@ export function EventName({
   /** Given, the name is a button that opens the event's card. */
   onOpen?: (event: CalendarEvent) => void;
 }) {
+  const t = useT();
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<{ name: string; category: Category } | null>(null);
   const save = useMutation({
@@ -41,7 +43,7 @@ export function EventName({
       <>
         {onOpen === undefined ? (
           <span className={event.name === null ? 'calendar-unnamed' : undefined}>
-            {labelOf(event)}
+            {labelOf(event, t)}
           </span>
         ) : (
           <button
@@ -49,17 +51,17 @@ export function EventName({
             onClick={() => onOpen(event)}
             type="button"
           >
-            {labelOf(event)}
+            {labelOf(event, t)}
           </button>
         )}
         {mayName && (
           <button
-            aria-label={`Edit ${labelOf(event)}`}
+            aria-label={t('Edit {name}', { name: labelOf(event, t) })}
             className="calendar-name-button"
             onClick={() => setDraft({ name: event.name ?? '', category: categoryOf(event) })}
             type="button"
           >
-            {event.name === null ? 'Name it' : 'Edit'}
+            {event.name === null ? t('Name it') : t('Edit')}
           </button>
         )}
       </>
@@ -75,34 +77,35 @@ export function EventName({
         }}
       >
         <input
-          aria-label={`Name for event ${event.activity_id}`}
+          aria-label={t('Name for event {id}', { id: event.activity_id })}
           maxLength={80}
           onChange={(change) => setDraft({ ...draft, name: change.target.value })}
-          placeholder={`Event #${event.activity_id}`}
+          placeholder={t('Event #{id}', { id: event.activity_id })}
           value={draft.name}
         />
         <Select
-          aria-label="Category"
+          aria-label={t('Category')}
           onChange={(chosen) => setDraft({ ...draft, category: chosen as Category })}
           value={draft.category}
         >
           {CATEGORIES.map((value) => (
             <option key={value} value={value}>
-              {CATEGORY_LABELS[value]}
+              {t(CATEGORY_LABELS[value])}
             </option>
           ))}
         </Select>
         <button disabled={save.isPending} type="submit">
-          Save
+          {t('Save')}
         </button>
         <button onClick={() => setDraft(null)} type="button">
-          Cancel
+          {t('Cancel')}
         </button>
       </form>
       {save.error && <p className="error">{save.error.message}</p>}
       <p className="subtle">
-        Leave the name empty and save to remove it. Your edit is kept when the game's names are
-        refreshed.
+        {t(
+          "Leave the name empty and save to remove it. Your edit is kept when the game's names are refreshed.",
+        )}
       </p>
     </>
   );

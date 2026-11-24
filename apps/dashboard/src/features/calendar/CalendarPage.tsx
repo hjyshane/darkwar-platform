@@ -15,6 +15,7 @@ import { useMemo, useState } from 'react';
 import { Strip } from '../../components/Strip';
 import { Select } from '../../components/ui/Select';
 import { Tabs } from '../../components/ui/Tabs';
+import { useT } from '../../lib/i18n';
 import { CALENDAR_DEFAULT_SHOWN } from '../../lib/settings/registry';
 import { useSiteSetting } from '../../lib/settings/useSiteSetting';
 import { useSession } from '../../lib/useSession';
@@ -43,14 +44,14 @@ const STALE_TIME = 5 * 60_000;
 
 type View = 'week' | 'day' | 'month' | 'list';
 
-const VIEWS: ReadonlyArray<[View, string]> = [
-  ['month', 'Monthly'],
-  ['week', 'Weekly'],
-  ['day', 'Daily'],
-  ['list', 'List'],
-];
-
 export function CalendarPage() {
+  const t = useT();
+  const views: ReadonlyArray<[View, string]> = [
+    ['month', t('Monthly')],
+    ['week', t('Weekly')],
+    ['day', t('Daily')],
+    ['list', t('List')],
+  ];
   const { data: session } = useSession();
   const mayName = session?.role === 'officer' || session?.role === 'admin';
   const calendar = useQuery({
@@ -114,24 +115,27 @@ export function CalendarPage() {
   if (calendar.isPending) {
     return (
       <main>
-        <p className="empty">Loading the game calendar…</p>
+        <p className="empty">{t('Loading the game calendar…')}</p>
       </main>
     );
   }
   if (calendar.isError) {
     return (
       <main>
-        <p className="error">Could not load the game calendar: {calendar.error.message}</p>
+        <p className="error">
+          {t('Could not load the game calendar: {error}', { error: calendar.error.message })}
+        </p>
       </main>
     );
   }
   if (onServer.length === 0) {
     return (
       <main>
-        <h2>Game calendar</h2>
+        <h2>{t('Game calendar')}</h2>
         <p className="empty">
-          No calendar yet. It arrives with the next login the collector sees on this PC — any
-          account, any of the alliance's characters.
+          {t(
+            "No calendar yet. It arrives with the next login the collector sees on this PC — any account, any of the alliance's characters.",
+          )}
         </p>
       </main>
     );
@@ -145,30 +149,34 @@ export function CalendarPage() {
             GC
           </span>
           <div>
-            <h2>Game calendar</h2>
+            <h2>{t('Game calendar')}</h2>
             <p className="entity-meta">
-              <span>What the game has announced</span>
-              <span>Server time, UTC−2</span>
-              {servers.length > 1 && <span>Server {serverShown}</span>}
+              <span>{t('What the game has announced')}</span>
+              <span>{t('Server time, UTC−2')}</span>
+              {servers.length > 1 && (
+                <span>{t('Server {server}', { server: serverShown ?? '' })}</span>
+              )}
             </p>
           </div>
         </header>
-        <Strip cells={calendarStrip(identified, now)} />
+        <Strip cells={calendarStrip(identified, now, t)} />
         <p className="entity-foot">
-          From the login the collector saw at {serverWhen(onServer[0]?.seen_at ?? null)}.
+          {t('From the login the collector saw at {when}.', {
+            when: serverWhen(onServer[0]?.seen_at ?? null),
+          })}
         </p>
       </div>
 
       <div className="panel calendar-panel">
         <div className="row calendar-controls">
           <Tabs
-            label="View"
-            items={VIEWS.map(([value, label]) => ({ id: value, label }))}
+            label={t('View')}
+            items={views.map(([value, label]) => ({ id: value, label }))}
             value={view}
             onChange={setView}
           />
           <fieldset className="calendar-toggle">
-            <legend className="visually-hidden">Show</legend>
+            <legend className="visually-hidden">{t('Show')}</legend>
             {CATEGORIES.map((value) => (
               <button
                 aria-pressed={shown.has(value)}
@@ -179,13 +187,13 @@ export function CalendarPage() {
                 onClick={() => toggle(value)}
                 type="button"
               >
-                {CATEGORY_LABELS[value]}
+                {t(CATEGORY_LABELS[value])}
               </button>
             ))}
           </fieldset>
           {servers.length > 1 && (
             <label>
-              Server{' '}
+              {t('Server')}{' '}
               <Select onChange={(next) => setServer(Number(next))} value={serverShown ?? ''}>
                 {servers.map((id) => (
                   <option key={id} value={id}>
@@ -204,11 +212,12 @@ export function CalendarPage() {
                 className={`calendar-bar calendar-cat-${value} calendar-bar-start calendar-bar-end calendar-legend-chip`}
                 key={value}
               >
-                {CATEGORY_LABELS[value]}
+                {t(CATEGORY_LABELS[value])}
               </span>
             ))}
-            Bars run from the first to the last server day (UTC−2). Pick a date to open that day, or
-            an event to see what it is.
+            {t(
+              'Bars run from the first to the last server day (UTC−2). Pick a date to open that day, or an event to see what it is.',
+            )}
           </p>
         )}
         {view === 'month' ? (
@@ -242,16 +251,16 @@ export function CalendarPage() {
           <>
             <div className="row calendar-search">
               <input
-                aria-label="Search events by name"
+                aria-label={t('Search events by name')}
                 onChange={(change) => setText(change.target.value)}
-                placeholder="Search by name or id"
+                placeholder={t('Search by name or id')}
                 type="search"
                 value={text}
               />
               <label>
-                Running on{' '}
+                {t('Running on')}{' '}
                 <input
-                  aria-label="Server day"
+                  aria-label={t('Server day')}
                   onChange={(change) => setDay(change.target.value)}
                   type="date"
                   value={day}
@@ -265,7 +274,7 @@ export function CalendarPage() {
                   }}
                   type="button"
                 >
-                  Clear
+                  {t('Clear')}
                 </button>
               )}
             </div>
@@ -278,13 +287,14 @@ export function CalendarPage() {
         <details className="panel calendar-unidentified">
           <summary>
             <h3 className="calendar-heading">
-              Unidentified <span className="calendar-count">({unidentified.length})</span>
+              {t('Unidentified')} <span className="calendar-count">({unidentified.length})</span>
             </h3>
           </summary>
           <p className="subtle">
-            The server lists these ids, but the game client has no name for them, so nobody can say
-            what they are. They are kept off the calendar and out of the figures above.
-            {mayName && ' Name one and it joins the calendar.'}
+            {t(
+              'The server lists these ids, but the game client has no name for them, so nobody can say what they are. They are kept off the calendar and out of the figures above.',
+            )}
+            {mayName && ` ${t('Name one and it joins the calendar.')}`}
           </p>
           <EventTable
             countdown={null}

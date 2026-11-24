@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useT } from '../../lib/i18n';
 import {
   OBJECTIVES,
   OBJECTIVE_FACTS,
@@ -41,6 +42,7 @@ function Marker({
   count: number;
   highlighted: boolean;
 }) {
+  const t = useT();
   const at = placed(objective, flipped);
   const side =
     objective.id === 'hq-ours' ? 'ours' : objective.id === 'hq-theirs' ? 'theirs' : 'neutral';
@@ -49,7 +51,7 @@ function Marker({
       className={`bf-marker bf-${side}${highlighted ? ' bf-highlight' : ''}`}
       transform={`translate(${at.x * SIZE} ${at.y * SIZE})`}
     >
-      <title>{count > 0 ? `${objective.label}: ${count}` : objective.label}</title>
+      <title>{count > 0 ? `${t(objective.label)}: ${count}` : t(objective.label)}</title>
       <Glyph kind={objective.kind} />
       {count > 0 && (
         <text className="bf-count" x="6" y="-4">
@@ -71,9 +73,12 @@ export function BattlefieldSvg({
   counts?: ReadonlyMap<string, number>;
   highlight?: string | null;
 }) {
+  const t = useT();
   return (
     <svg
-      aria-label="Black Gold battlefield: headquarters in opposite corners, two military bases, two field hospitals, six oil refineries and the rare earth factory in the centre"
+      aria-label={t(
+        'Black Gold battlefield: headquarters in opposite corners, two military bases, two field hospitals, six oil refineries and the rare earth factory in the centre',
+      )}
       className="bf-map"
       role="img"
       viewBox={`0 0 ${SIZE} ${SIZE}`}
@@ -100,14 +105,15 @@ export function OrientationToggle({
   flipped: boolean;
   onChange: (flipped: boolean) => void;
 }) {
+  const t = useT();
   return (
     <fieldset className="bf-orient">
-      <legend>Our headquarters is</legend>
+      <legend>{t('Our headquarters is')}</legend>
       <button aria-pressed={!flipped} onClick={() => onChange(false)} type="button">
-        Bottom left
+        {t('Bottom left')}
       </button>
       <button aria-pressed={flipped} onClick={() => onChange(true)} type="button">
-        Top right
+        {t('Top right')}
       </button>
     </fieldset>
   );
@@ -121,33 +127,34 @@ export function OrientationToggle({
  * battle put us at the top right.
  */
 export function Battlefield() {
+  const t = useT();
   const [flipped, setFlipped] = useState(false);
   return (
     <details className="panel bf-panel">
-      <summary>Battlefield map and objectives</summary>
+      <summary>{t('Battlefield map and objectives')}</summary>
       <div className="bf-layout">
         <div>
           <OrientationToggle flipped={flipped} onChange={setFlipped} />
           <BattlefieldSvg flipped={flipped} />
           <p className="subtle">
-            Red-and-blue corners are the two headquarters; the star is a Military Base, the cross a
-            Field Hospital, the drop an Oil Refinery. Which side is ours changes from battle to
-            battle.
+            {t(
+              'Red-and-blue corners are the two headquarters; the star is a Military Base, the cross a Field Hospital, the drop an Oil Refinery. Which side is ours changes from battle to battle.',
+            )}
           </p>
         </div>
         <div className="table-wrap">
           <table className="compact">
             <thead>
               <tr>
-                <th scope="col">Objective</th>
+                <th scope="col">{t('Objective')}</th>
                 <th scope="col" className="numeric">
-                  On map
+                  {t('On map')}
                 </th>
                 <th scope="col" className="numeric">
-                  First control
+                  {t('First control')}
                 </th>
                 <th scope="col" className="numeric">
-                  Held
+                  {t('Held')}
                 </th>
               </tr>
             </thead>
@@ -155,20 +162,22 @@ export function Battlefield() {
               {OBJECTIVE_FACTS.map((fact) => (
                 <tr key={fact.kind}>
                   <th scope="row">
-                    {fact.name}
+                    {t(fact.name)}
                     <br />
-                    <span className="muted">{fact.note}</span>
+                    <span className="muted">{t(fact.note)}</span>
                   </th>
                   <td className="numeric">{fact.count}</td>
                   <td className="numeric">{fact.first}</td>
-                  <td className="numeric">{fact.sustained}</td>
+                  <td className="numeric">{t(fact.sustained)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <p className="subtle">Points are alliance / personal. {SCATTERED_NOTE}</p>
           <p className="subtle">
-            From the game&apos;s own event screens, not from capture; the game can change them.
+            {t('Points are alliance / personal.')} {t(SCATTERED_NOTE)}
+          </p>
+          <p className="subtle">
+            {t("From the game's own event screens, not from capture; the game can change them.")}
           </p>
         </div>
       </div>

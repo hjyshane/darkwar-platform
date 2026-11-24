@@ -9,6 +9,7 @@ import {
   useAllianceTrendsSetting,
 } from '../../lib/allianceTrendsSetting';
 import { compactNumber } from '../../lib/compactNumber';
+import { type Translate, useT } from '../../lib/i18n';
 import { type Point, type Series, forwardFill, thin } from '../../lib/series';
 import { supabase } from '../../lib/supabase';
 
@@ -229,16 +230,20 @@ function sizeOf(board: readonly BoardPoint[], scope: string): number | null {
 }
 
 /** The server board's name, which is the alliance's own server number. */
-function serverLabel(board: readonly BoardPoint[]): string {
+function serverLabel(board: readonly BoardPoint[], t: Translate): string {
   const server = board.find((row) => row.server_id !== null)?.server_id ?? null;
   const size = sizeOf(board, 'server');
-  const where = server === null ? 'own server' : `server ${server}`;
-  return size === null ? `Rank on ${where}` : `Rank on ${where} (of ${size})`;
+  if (server === null) {
+    return size === null ? t('Rank on own server') : t('Rank on own server (of {size})', { size });
+  }
+  return size === null
+    ? t('Rank on server {server}', { server })
+    : t('Rank on server {server} (of {size})', { server, size });
 }
 
-function crossLabel(board: readonly BoardPoint[]): string {
+function crossLabel(board: readonly BoardPoint[], t: Translate): string {
   const size = sizeOf(board, 'cross_server');
-  return size === null ? 'Cross-server rank' : `Cross-server rank (of ${size})`;
+  return size === null ? t('Cross-server rank') : t('Cross-server rank (of {size})', { size });
 }
 
 /** One rank line per board, each on its own axis.
@@ -251,7 +256,7 @@ function crossLabel(board: readonly BoardPoint[]): string {
  * right axis exists to keep two lines apart; with one line it would only move the
  * numbers to the far side of the chart.
  */
-function rankSeries(board: readonly BoardPoint[]): Series[] {
+function rankSeries(board: readonly BoardPoint[], t: Translate): Series[] {
   const server = hasScope(board, 'server');
   const cross = hasScope(board, 'cross_server');
   const line = (scope: string, name: string, slot: number, axis: 'left' | 'right'): Series => ({
@@ -266,31 +271,35 @@ function rankSeries(board: readonly BoardPoint[]): Series[] {
   });
   if (server && cross) {
     return [
-      line('server', serverLabel(board), 1, 'left'),
-      line('cross_server', crossLabel(board), 2, 'right'),
+      line('server', serverLabel(board, t), 1, 'left'),
+      line('cross_server', crossLabel(board, t), 2, 'right'),
     ];
   }
   if (server) {
-    return [line('server', serverLabel(board), 1, 'left')];
+    return [line('server', serverLabel(board, t), 1, 'left')];
   }
   if (cross) {
-    return [line('cross_server', crossLabel(board), 2, 'left')];
+    return [line('cross_server', crossLabel(board, t), 2, 'left')];
   }
   return [];
 }
 
 /** Said in the chart's note, because two rank lines that are both "rank" need a
  * sentence explaining why one is higher. */
-function scopeNote(board: readonly BoardPoint[]): string {
+function scopeNote(board: readonly BoardPoint[], t: Translate): string {
   const server = hasScope(board, 'server');
   const cross = hasScope(board, 'cross_server');
   if (server && cross) {
-    return 'One line per board, each on its own axis — left is this alliance among its own server, right is among every server the board covers. Different questions, and a good answer to one can look poor beside the other, which is why they do not share a scale.';
+    return t(
+      'One line per board, each on its own axis — left is this alliance among its own server, right is among every server the board covers. Different questions, and a good answer to one can look poor beside the other, which is why they do not share a scale.',
+    );
   }
   if (cross) {
-    return 'Only the cross-server board has been captured for this alliance, so there is one line.';
+    return t(
+      'Only the cross-server board has been captured for this alliance, so there is one line.',
+    );
   }
-  return 'Only their own server board has been captured, so there is one line.';
+  return t('Only their own server board has been captured, so there is one line.');
 }
 
 /** One kind of daily board as a series, keyed on the game day it belongs to. */
@@ -318,6 +327,7 @@ function dailySeries(
  * Ours reads top-down from what the members did to where it put the alliance;
  * anybody else's leads with the ranking board, the only block they have. */
 export function AllianceTrends({ allianceId, isOwn }: { allianceId: string; isOwn: boolean }) {
+  const t = useT();
   // The alliance on screen's choices (0342); the defaults while they load, so
   // the charts are not held back by a setting.
   const setting = useAllianceTrendsSetting().data ?? DEFAULT_TRENDS;
@@ -327,10 +337,12 @@ export function AllianceTrends({ allianceId, isOwn }: { allianceId: string; isOw
   });
 
   if (isPending) {
-    return <p className="empty loading">Loading…</p>;
+    return <p className="empty loading">{t('Loading…')}</p>;
   }
   if (error) {
-    return <p className="error">Could not load the trends: {error.message}</p>;
+    return (
+      <p className="error">{t('Could not load the trends: {error}', { error: error.message })}</p>
+    );
   }
 
   const board = data?.board ?? [];
@@ -342,7 +354,7 @@ export function AllianceTrends({ allianceId, isOwn }: { allianceId: string; isOw
   // after the day the alliance chose. Null when that day is after every
   // capture, which is said rather than measured from somewhere else.
   const first = baselineOf(usable, setting.since);
-  const sinceLabel = setting.since === null ? 'the first capture' : setting.since;
+  const sinceLabel = setting.since === null ? t('the first capture') : setting.since;
   // The level the alliance counts from. A database without `hq_levels` can
   // only answer for 35, so that is what is counted — and named — there.
   const towerLevel = usable.some((row) => membersAtLevel(row, setting.towerLevel) !== null)
@@ -355,8 +367,8 @@ export function AllianceTrends({ allianceId, isOwn }: { allianceId: string; isOw
   // total in the tens of millions, so sharing a scale flattens the donation line
   // onto the floor and it is the one an officer chases.
   const daily = data?.daily ?? [];
-  const donation = dailySeries(daily, 'daily_donation', 'Donated', 0, 'left');
-  const duel = dailySeries(daily, 'alliance_battle_daily', 'Duel points', 1, 'right');
+  const donation = dailySeries(daily, 'daily_donation', t('Donated'), 0, 'left');
+  const duel = dailySeries(daily, 'alliance_battle_daily', t('Duel points'), 1, 'right');
   const dailyDays = new Set(daily.map((row) => row.game_day)).size;
   // A day read once, early, is a partial day and looks like a bad day. Worth
   // naming rather than letting the dip be read as the alliance slacking.
@@ -381,15 +393,19 @@ export function AllianceTrends({ allianceId, isOwn }: { allianceId: string; isOw
   // and one axis cannot show both — the rank line would sit flat on the floor.
   const ranking = (
     <>
-      <h3>On the ranking board</h3>
+      <h3>{t('On the ranking board')}</h3>
       {board.length === 0 ? (
         <p className="empty">
-          This alliance has never appeared in a captured ranking board, so there is nothing to plot.
+          {t(
+            'This alliance has never appeared in a captured ranking board, so there is nothing to plot.',
+          )}
         </p>
       ) : board.length === 1 ? (
         <p className="empty">
-          One sighting, on {day(Date.parse(board[0]?.captured_at ?? ''))}. A second is what makes a
-          trend — the boards are captured when somebody opens them, not on a schedule.
+          {t(
+            'One sighting, on {day}. A second is what makes a trend — the boards are captured when somebody opens them, not on a schedule.',
+            { day: day(Date.parse(board[0]?.captured_at ?? '')) },
+          )}
         </p>
       ) : (
         <>
@@ -402,11 +418,13 @@ export function AllianceTrends({ allianceId, isOwn }: { allianceId: string; isOw
             formatRight={wholeValue}
             formatTime={moment}
             formatValue={bigValue}
-            label="Alliance power and member count as the ranking board reported them"
-            note="Captured when somebody opens the board, so the gaps are ours and not theirs. Members are the dashed line on the right — power rising while that line is flat is the members themselves growing."
+            label={t('Alliance power and member count as the ranking board reported them')}
+            note={t(
+              'Captured when somebody opens the board, so the gaps are ours and not theirs. Members are the dashed line on the right — power rising while that line is flat is the members themselves growing.',
+            )}
             series={[
-              column(board, (row) => row.power, 'Power', 0),
-              { ...column(board, (row) => row.member_count, 'Members', 5), axis: 'right' },
+              column(board, (row) => row.power, t('Power'), 0),
+              { ...column(board, (row) => row.member_count, t('Members'), 5), axis: 'right' },
             ]}
           />
           {/* Rank drawn UPSIDE DOWN. Rank 6 beats rank 9, so an ordinary axis
@@ -428,9 +446,11 @@ export function AllianceTrends({ allianceId, isOwn }: { allianceId: string; isOw
             formatRight={wholeValue}
             formatTime={moment}
             formatValue={wholeValue}
-            label="Board rank over time, one line per board"
-            note={`The rank axis is inverted, so climbing is a line going UP. ${scopeNote(board)}`}
-            series={rankSeries(board)}
+            label={t('Board rank over time, one line per board')}
+            note={t('The rank axis is inverted, so climbing is a line going UP. {scope}', {
+              scope: scopeNote(board, t),
+            })}
+            series={rankSeries(board, t)}
           />
         </>
       )}
@@ -447,31 +467,32 @@ export function AllianceTrends({ allianceId, isOwn }: { allianceId: string; isOw
           them on a stranger's page would put OUR activity under THEIR name. */}
       {isOwn && (
         <>
-          <h3>Activity</h3>
+          <h3>{t('Activity')}</h3>
           {dailyDays === 0 ? (
             <p className="empty">
-              No daily board has been captured for this alliance yet. Donation and duel totals come
-              from the daily ranking screens, which have to be opened before 02:00 UTC clears them.
+              {t(
+                'No daily board has been captured for this alliance yet. Donation and duel totals come from the daily ranking screens, which have to be opened before 02:00 UTC clears them.',
+              )}
             </p>
           ) : (
             <>
               <div className="stats">
                 <StatTile
                   hero
-                  label="Donated, latest day"
+                  label={t('Donated, latest day')}
                   spark={<Sparkline values={donation.points.map((point) => point.v)} />}
                   note={lastDayNote(donation)}
                   value={lastValue(donation, wholeValue)}
                 />
                 <StatTile
-                  label="Duel points, latest day"
+                  label={t('Duel points, latest day')}
                   spark={<Sparkline values={duel.points.map((point) => point.v)} />}
                   note={lastDayNote(duel)}
                   value={lastValue(duel, bigValue)}
                 />
                 <StatTile
-                  label="Days captured"
-                  note={`${partialDays} read only once`}
+                  label={t('Days captured')}
+                  note={t('{count} read only once', { count: partialDays })}
                   value={plain.format(dailyDays)}
                 />
               </div>
@@ -480,25 +501,29 @@ export function AllianceTrends({ allianceId, isOwn }: { allianceId: string; isOw
                 // One day is not a trend, and a flat line across one point claims
                 // a measurement that held still.
                 <p className="empty">
-                  One game day captured so far. A second is what makes this a trend — the daily
-                  boards reset at 02:00 UTC, so each one has to be read before then or it is gone.
+                  {t(
+                    'One game day captured so far. A second is what makes this a trend — the daily boards reset at 02:00 UTC, so each one has to be read before then or it is gone.',
+                  )}
                 </p>
               ) : (
                 <LineChart
                   formatRight={bigValue}
                   formatTime={day}
                   formatValue={wholeValue}
-                  label="Alliance donation and duel points per game day"
-                  note="A game day runs 02:00 to 02:00 UTC, and each figure is the largest reading taken that day — the boards accumulate, so summing our captures would count the same points twice. Duel points are the dashed line, on the right."
+                  label={t('Alliance donation and duel points per game day')}
+                  note={t(
+                    'A game day runs 02:00 to 02:00 UTC, and each figure is the largest reading taken that day — the boards accumulate, so summing our captures would count the same points twice. Duel points are the dashed line, on the right.',
+                  )}
                   series={[donation, duel]}
                 />
               )}
 
               {partialDays > 0 && (
                 <p className="subtle">
-                  {partialDays} of these days was read only once. The boards accumulate through the
-                  day, so a single early reading is a part of that day rather than its total — a dip
-                  there is our capture, not the alliance.
+                  {t(
+                    '{count} of these days was read only once. The boards accumulate through the day, so a single early reading is a part of that day rather than its total — a dip there is our capture, not the alliance.',
+                    { count: partialDays },
+                  )}
                 </p>
               )}
             </>
@@ -509,30 +534,43 @@ export function AllianceTrends({ allianceId, isOwn }: { allianceId: string; isOw
       {/* Everything below needs the member list opened, which we can only do for
           our own alliance. Saying so beats an empty section that reads as a
           collector that has not run. */}
-      <h3>Power and towers</h3>
+      <h3>{t('Power and towers')}</h3>
       {usable.length === 0 || latest === null ? (
         <p className="empty">
-          Per-member figures — power spread, tower levels, activity — need the alliance's own member
-          list, which can only be opened from inside it.{' '}
+          {t(
+            "Per-member figures — power spread, tower levels, activity — need the alliance's own member list, which can only be opened from inside it.",
+          )}{' '}
           {all.length > 0 &&
-            `${all.length} capture${all.length === 1 ? '' : 's'} of this roster exist but every one was cut short, and a mean over the top of a list the game sorts by power is not a mean over the alliance.`}
+            (all.length === 1
+              ? t(
+                  '{count} capture of this roster exist but every one was cut short, and a mean over the top of a list the game sorts by power is not a mean over the alliance.',
+                  { count: all.length },
+                )
+              : t(
+                  '{count} captures of this roster exist but every one was cut short, and a mean over the top of a list the game sorts by power is not a mean over the alliance.',
+                  { count: all.length },
+                ))}
         </p>
       ) : (
         <>
           <div className="stats">
             <StatTile
               hero
-              label="Total power"
+              label={t('Total power')}
               spark={<Sparkline values={usable.map((row) => row.total_power)} />}
-              note={`over ${usable.length} complete capture${usable.length === 1 ? '' : 's'}`}
+              note={
+                usable.length === 1
+                  ? t('over {count} complete capture', { count: usable.length })
+                  : t('over {count} complete captures', { count: usable.length })
+              }
               value={latest.total_power === null ? null : bigValue(latest.total_power)}
             />
             <StatTile
-              label={`Since ${sinceLabel}`}
+              label={t('Since {when}', { when: sinceLabel })}
               note={
                 first === null
-                  ? `no complete capture on or after ${sinceLabel}`
-                  : `measured from ${day(Date.parse(first.captured_at))}`
+                  ? t('no complete capture on or after {when}', { when: sinceLabel })
+                  : t('measured from {day}', { day: day(Date.parse(first.captured_at)) })
               }
               tone={
                 powerChange === null
@@ -550,12 +588,15 @@ export function AllianceTrends({ allianceId, isOwn }: { allianceId: string; isOw
               }
             />
             <StatTile
-              label="Mean tower level"
+              label={t('Mean tower level')}
               spark={<Sparkline values={usable.map((row) => row.avg_hq_level)} />}
               note={
                 hqChange === null
                   ? undefined
-                  : `${hqChange > 0 ? '+' : ''}${hqChange.toFixed(2)} since ${sinceLabel}`
+                  : t('{change} since {when}', {
+                      change: `${hqChange > 0 ? '+' : ''}${hqChange.toFixed(2)}`,
+                      when: sinceLabel,
+                    })
               }
               value={latest.avg_hq_level === null ? null : levelValue(latest.avg_hq_level)}
             />
@@ -564,9 +605,9 @@ export function AllianceTrends({ allianceId, isOwn }: { allianceId: string; isOw
                 level — which would make it fall as people levelled past it.
                 The level itself is the alliance's setting (0342). */}
             <StatTile
-              label={`Tower ${towerLevel} or higher`}
+              label={t('Tower {level} or higher', { level: towerLevel })}
               spark={<Sparkline values={usable.map(atLevel)} />}
-              note={`of ${latest.observed_members} members seen`}
+              note={t('of {count} members seen', { count: latest.observed_members })}
               value={plain.format(atLevel(latest) ?? 0)}
             />
           </div>
@@ -575,15 +616,20 @@ export function AllianceTrends({ allianceId, isOwn }: { allianceId: string; isOw
             // Said, not hidden. A reader who knows the collector ran 180 times
             // and counts 140 points will otherwise assume something is broken.
             <p className="subtle">
-              {dropped} capture{dropped === 1 ? '' : 's'} left out of the charts below: each saw
-              fewer members than the game reports, so it was cut short rather than finished.
-              Averaging one beside a whole batch would put a step in the line that nothing in the
-              alliance caused.
+              {dropped === 1
+                ? t(
+                    '{count} capture left out of the charts below: each saw fewer members than the game reports, so it was cut short rather than finished. Averaging one beside a whole batch would put a step in the line that nothing in the alliance caused.',
+                    { count: dropped },
+                  )
+                : t(
+                    '{count} captures left out of the charts below: each saw fewer members than the game reports, so it was cut short rather than finished. Averaging one beside a whole batch would put a step in the line that nothing in the alliance caused.',
+                    { count: dropped },
+                  )}
             </p>
           )}
 
           <div className="chart-cell">
-            <h3>Power, member by member</h3>
+            <h3>{t('Power, member by member')}</h3>
             {/* Total on the left, per-member on the right. 17 billion against 180
               million is a hundredfold gap: on one axis the mean and the median
               lie on top of each other along the floor, and those two are the
@@ -593,18 +639,22 @@ export function AllianceTrends({ allianceId, isOwn }: { allianceId: string; isOw
               formatRight={bigValue}
               formatTime={moment}
               formatValue={bigValue}
-              label="Alliance power over time: total on the left, mean and median per member on the right"
-              note="The total moves with the roster size. The dashed pair is per member, on its own scale — that is where growth shows."
+              label={t(
+                'Alliance power over time: total on the left, mean and median per member on the right',
+              )}
+              note={t(
+                'The total moves with the roster size. The dashed pair is per member, on its own scale — that is where growth shows.',
+              )}
               series={[
-                column(usable, (row) => row.total_power, 'Total', 0),
-                { ...column(usable, (row) => row.avg_power, 'Mean', 1), axis: 'right' },
-                { ...column(usable, (row) => row.median_power, 'Median', 2), axis: 'right' },
+                column(usable, (row) => row.total_power, t('Total'), 0),
+                { ...column(usable, (row) => row.avg_power, t('Mean'), 1), axis: 'right' },
+                { ...column(usable, (row) => row.median_power, t('Median'), 2), axis: 'right' },
               ]}
             />
           </div>
 
           <div className="chart-cell">
-            <h3>Tower levels</h3>
+            <h3>{t('Tower levels')}</h3>
             {/* Forward-filled, and only these two series are. A tower is never
               demolished, so a capture that did not carry the level is a gap in
               our reading rather than a fall — holding the last value is closer to
@@ -614,12 +664,17 @@ export function AllianceTrends({ allianceId, isOwn }: { allianceId: string; isOw
               formatRight={wholeValue}
               formatTime={moment}
               formatValue={levelValue}
-              label={`Mean tower level and how many members have reached level ${towerLevel}`}
-              note={`Levels never fall, so a capture missing the figure holds the last one. The dashed line counts members whose tower is level ${towerLevel} or higher, on the right.`}
+              label={t('Mean tower level and how many members have reached level {level}', {
+                level: towerLevel,
+              })}
+              note={t(
+                'Levels never fall, so a capture missing the figure holds the last one. The dashed line counts members whose tower is level {level} or higher, on the right.',
+                { level: towerLevel },
+              )}
               series={[
-                filled(column(usable, (row) => row.avg_hq_level, 'Mean level', 2)),
+                filled(column(usable, (row) => row.avg_hq_level, t('Mean level'), 2)),
                 {
-                  ...filled(column(usable, atLevel, `Tower ${towerLevel}+`, 3)),
+                  ...filled(column(usable, atLevel, t('Tower {level}+', { level: towerLevel }), 3)),
                   axis: 'right',
                 },
               ]}

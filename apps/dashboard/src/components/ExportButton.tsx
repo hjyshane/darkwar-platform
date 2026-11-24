@@ -1,4 +1,5 @@
 import { type CsvColumn, downloadCsv, toCsv } from '../lib/csv';
+import { useT } from '../lib/i18n';
 
 /** PostgREST answers at most this many rows whatever `.limit()` asks for. */
 const POSTGREST_ROW_CAP = 1000;
@@ -20,6 +21,7 @@ export function ExportButton<Row>({
   /** Without the extension or date; both are added here. */
   filename: string;
 }) {
+  const t = useT();
   const capped = rows !== undefined && rows.length >= POSTGREST_ROW_CAP;
   return (
     <button
@@ -27,7 +29,9 @@ export function ExportButton<Row>({
       disabled={rows === undefined || rows.length === 0}
       title={
         capped
-          ? `Only the first ${POSTGREST_ROW_CAP} rows are loaded; this file stops there.`
+          ? t('Only the first {count} rows are loaded; this file stops there.', {
+              count: POSTGREST_ROW_CAP,
+            })
           : undefined
       }
       onClick={() => {
@@ -38,7 +42,7 @@ export function ExportButton<Row>({
         downloadCsv(`${filename}-${day}.csv`, toCsv(rows, columns));
       }}
     >
-      Export CSV{capped ? ' (first 1000)' : ''}
+      {capped ? t('Export CSV (first 1000)') : t('Export CSV')}
     </button>
   );
 }

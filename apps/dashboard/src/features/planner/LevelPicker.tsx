@@ -5,6 +5,7 @@
 
 import type { ReactNode } from 'react';
 import { Select } from '../../components/ui/Select';
+import { useT } from '../../lib/i18n';
 import { type Tiers, levelLabel, levelText } from './levels';
 
 interface LevelPickerProps {
@@ -37,6 +38,7 @@ export function LevelPicker({
   glyph,
   text,
 }: LevelPickerProps) {
+  const t = useT();
   const optionText = text ?? ((level: number) => levelText(tiers, subject, level));
   const now = levelLabel(tiers, subject, current);
   const levels: number[] = [];
@@ -47,7 +49,7 @@ export function LevelPicker({
       {onCurrent ? (
         <span className="level-now">
           <input
-            aria-label={`${label}: now`}
+            aria-label={t('{label}: now', { label })}
             className="level-input"
             max={max}
             min={0}
@@ -70,10 +72,10 @@ export function LevelPicker({
         </span>
       )}
       {current >= max ? (
-        <span className="subtle level-max">max</span>
+        <span className="subtle level-max">{t('max')}</span>
       ) : (
         <Select
-          aria-label={`${label}: target`}
+          aria-label={t('{label}: target', { label })}
           onChange={(chosen) => onChange(Number(chosen))}
           value={target ?? current}
         >

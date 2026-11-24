@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Chip } from '../../../components/console/Chip';
 import { GameIcon } from '../../../lib/gameIcons';
+import { useT } from '../../../lib/i18n';
 import { type PickerResult, searchItems } from '../guideData';
 import { type ItemCatalogue, type ItemRef, itemRefKey, resolveItemRef } from '../sections/itemRef';
 import { searchFilter } from './drafts';
@@ -28,6 +29,7 @@ export function ItemPicker({
   id,
   search = searchItems,
 }: ItemPickerProps) {
+  const t = useT();
   const [text, setText] = useState('');
   const [results, setResults] = useState<PickerResult[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -71,14 +73,14 @@ export function ItemPicker({
           suffix={value.kind}
         />
         <button
-          aria-label="Clear item"
+          aria-label={t('Clear item')}
           onClick={() => {
             setPickedName(null);
             onChange(null);
           }}
           type="button"
         >
-          Clear
+          {t('Clear')}
         </button>
       </span>
     );
@@ -87,14 +89,14 @@ export function ItemPicker({
   return (
     <div className="eg-pick">
       <input
-        aria-label="Find an item"
+        aria-label={t('Find an item')}
         id={id}
         onChange={(event) => setText(event.target.value)}
-        placeholder="Name, English or Korean"
+        placeholder={t('Name, English or Korean')}
         type="search"
         value={text}
       />
-      {error && <p className="error">Search failed: {error}</p>}
+      {error && <p className="error">{t('Search failed: {error}', { error })}</p>}
       {results.length > 0 && (
         <ul className="eg-pick-results">
           {results.map((result) => (

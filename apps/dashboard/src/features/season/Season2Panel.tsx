@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { FreshnessBadge } from '../../components/FreshnessBadge';
 import { Strip } from '../../components/Strip';
+import { useT } from '../../lib/i18n';
 import { FALLBACK_SEASONS, pastSeason, useSeasons } from '../../lib/seasons';
 import { TERMS } from '../../lib/terms';
 import { useSession } from '../../lib/useSession';
@@ -27,6 +28,7 @@ const NO_FLOORS: ReadonlyMap<number, number> = new Map();
  * database gate that would let a member straight through.
  */
 export function Season2Panel() {
+  const t = useT();
   const { data: session } = useSession();
   // Undefined while the session loads is not an admin yet: showing the board
   // and snatching it back is worse than a beat of waiting.
@@ -53,7 +55,9 @@ export function Season2Panel() {
       <section aria-labelledby="season2-heading">
         <h2 id="season2-heading">{pastName}</h2>
         <p className="empty">
-          Last season's buildings are kept for admins. Nothing here affects the season being played.
+          {t(
+            "Last season's buildings are kept for admins. Nothing here affects the season being played.",
+          )}
         </p>
       </section>
     );

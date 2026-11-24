@@ -4,6 +4,8 @@ import { ChannelField } from '../../components/ChannelField';
 import { MarkupEditor, TitleField } from '../../components/MarkupEditor';
 import { Strip } from '../../components/Strip';
 import { Select } from '../../components/ui/Select';
+import { useT } from '../../lib/i18n';
+import { type Translate, english } from '../../lib/i18n/core';
 import { isAllowed, usePermissions } from '../../lib/permissions';
 import { guideHash } from '../../lib/route';
 import { supabase } from '../../lib/supabase';
@@ -30,11 +32,12 @@ export const CATEGORIES: { value: string; label: string }[] = [
   { value: 'tip', label: 'Tip' },
 ];
 
-export function categoryLabel(value: string | null): string | null {
+export function categoryLabel(value: string | null, t: Translate = english): string | null {
   if (value === null) {
     return null;
   }
-  return CATEGORIES.find((entry) => entry.value === value)?.label ?? value;
+  const label = CATEGORIES.find((entry) => entry.value === value)?.label;
+  return label === undefined ? value : t(label);
 }
 
 export interface Draft {
@@ -79,13 +82,16 @@ export function GuideEditor({
   onCancel: () => void;
   saving: boolean;
 }) {
+  const t = useT();
   const formId = useId();
   return (
     <section aria-labelledby="guide-editor-heading">
-      <h3 id="guide-editor-heading">{draft.guide_id === undefined ? 'New guide' : 'Editing'}</h3>
+      <h3 id="guide-editor-heading">
+        {draft.guide_id === undefined ? t('New guide') : t('Editing')}
+      </h3>
       <div className="form-stack">
         <div className="field">
-          <label htmlFor={`${formId}-title`}>Title</label>
+          <label htmlFor={`${formId}-title`}>{t('Title')}</label>
           <TitleField
             id={`${formId}-title`}
             onChange={(title) => onChange({ ...draft, title })}
@@ -93,7 +99,7 @@ export function GuideEditor({
           />
         </div>
         <div className="field field-narrow">
-          <label htmlFor={`${formId}-kind`}>Kind</label>
+          <label htmlFor={`${formId}-kind`}>{t('Kind')}</label>
           <Select
             id={`${formId}-kind`}
             onChange={(chosen) => onChange({ ...draft, category: chosen })}
@@ -101,13 +107,13 @@ export function GuideEditor({
           >
             {CATEGORIES.map((entry) => (
               <option key={entry.value} value={entry.value}>
-                {entry.label}
+                {t(entry.label)}
               </option>
             ))}
           </Select>
         </div>
         <div className="field">
-          <label htmlFor={`${formId}-body`}>Body</label>
+          <label htmlFor={`${formId}-body`}>{t('Body')}</label>
           <MarkupEditor
             id={`${formId}-body`}
             onChange={(body) => onChange({ ...draft, body })}
@@ -115,7 +121,7 @@ export function GuideEditor({
           />
         </div>
         <ChannelField
-          fallbackLabel="Default for guides"
+          fallbackLabel={t('Default for guides')}
           id={`${formId}-channel`}
           onChange={(channels) => onChange({ ...draft, channels })}
           value={draft.channels}
@@ -127,7 +133,7 @@ export function GuideEditor({
               onChange={(event) => onChange({ ...draft, pinned: event.target.checked })}
               type="checkbox"
             />
-            Pin to the top of every page
+            {t('Pin to the top of every page')}
           </label>
         </div>
         {/* Publishing is a separate ACT from saving, because publishing is what
@@ -148,16 +154,16 @@ export function GuideEditor({
                 onClick={() => onSave(false)}
                 type="button"
               >
-                {saving ? 'Saving…' : 'Save draft'}
+                {saving ? t('Saving…') : t('Save draft')}
               </button>
               <button
                 className="primary"
                 disabled={saving || draft.title.trim() === ''}
                 onClick={() => onSave(true)}
-                title="Visible to the alliance, and posted to Discord"
+                title={t('Visible to the alliance, and posted to Discord')}
                 type="button"
               >
-                Publish
+                {t('Publish')}
               </button>
             </>
           ) : (
@@ -168,23 +174,25 @@ export function GuideEditor({
                 onClick={() => onSave(true)}
                 type="button"
               >
-                {saving ? 'Saving…' : 'Save changes'}
+                {saving ? t('Saving…') : t('Save changes')}
               </button>
               {/* Back to a draft. Not a delete — the guide keeps its address and
                   its text, and stops being on the board. Discord keeps whatever
                   it was already told; nothing here can unsay that. */}
               <button disabled={saving} onClick={() => onSave(false)} type="button">
-                Unpublish
+                {t('Unpublish')}
               </button>
             </>
           )}
           <button onClick={onCancel} type="button">
-            Cancel
+            {t('Cancel')}
           </button>
         </div>
         {draft.published_at === null && (
           <p className="subtle">
-            A draft is visible only to people who may write guides. Publishing posts it to Discord.
+            {t(
+              'A draft is visible only to people who may write guides. Publishing posts it to Discord.',
+            )}
           </p>
         )}
       </div>
@@ -223,6 +231,7 @@ export function useSaveGuide(onDone: () => void) {
 }
 
 export function GuidesPanel() {
+  const t = useT();
   const { data: session } = useSession();
   const { data: permissions } = usePermissions();
   const mayWrite = isAllowed(permissions?.grants, session?.role, 'guide.write');
@@ -240,21 +249,27 @@ export function GuidesPanel() {
             GU
           </span>
           <div>
-            <h2 id="guides-heading">Guides</h2>
+            <h2 id="guides-heading">{t('Guides')}</h2>
             <p className="entity-meta">
-              <span>What the alliance worked out</span>
-              <span>Written by people, not read from the game</span>
+              <span>{t('What the alliance worked out')}</span>
+              <span>{t('Written by people, not read from the game')}</span>
             </p>
           </div>
         </header>
-        {board.data && <Strip cells={boardStrip(board.data, 'guide', new Date())} />}
+        {board.data && <Strip cells={boardStrip(board.data, 'guide', new Date(), t)} />}
         <div className="entity-foot">
-          <p>Everything else in this dashboard is observation; this is the part people wrote.</p>
-          {board.error && <p className="error">Could not load the guides: {board.error.message}</p>}
+          <p>
+            {t('Everything else in this dashboard is observation; this is the part people wrote.')}
+          </p>
+          {board.error && (
+            <p className="error">
+              {t('Could not load the guides: {message}', { message: board.error.message })}
+            </p>
+          )}
           {save.error && <p className="error">{save.error.message}</p>}
           {mayWrite && draft === null && (
             <button onClick={() => setDraft({ ...EMPTY })} type="button">
-              Write a guide
+              {t('Write a guide')}
             </button>
           )}
         </div>
@@ -271,20 +286,22 @@ export function GuidesPanel() {
       )}
 
       <section aria-labelledby="guides-list-heading" className="panel">
-        <h3 id="guides-list-heading">All guides</h3>
+        <h3 id="guides-list-heading">{t('All guides')}</h3>
         {board.isPending ? (
-          <p className="empty loading">Loading…</p>
+          <p className="empty loading">{t('Loading…')}</p>
         ) : board.data === undefined ? null : (
           <BoardList
             data={board.data}
             empty={
               mayWrite
-                ? 'Nothing here yet. Write the first one — a guide is worth more than the same explanation typed into chat four times.'
-                : 'Nothing here yet. An officer can add one.'
+                ? t(
+                    'Nothing here yet. Write the first one — a guide is worth more than the same explanation typed into chat four times.',
+                  )
+                : t('Nothing here yet. An officer can add one.')
             }
             hrefFor={guideHash}
             onGo={setPage}
-            tagLabel={categoryLabel}
+            tagLabel={(value) => categoryLabel(value, t)}
           />
         )}
       </section>

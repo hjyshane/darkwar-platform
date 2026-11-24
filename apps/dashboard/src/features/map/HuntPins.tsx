@@ -1,6 +1,7 @@
 import { toFraction } from '@dw/ui';
 import { useEffect, useRef, useState } from 'react';
 import { useIcons, useItemIcons } from '../../lib/gameIcons';
+import { useT } from '../../lib/i18n';
 import { shareCoordinate } from '../../lib/shareCoordinate';
 import { who } from './HuntLists';
 import { useMapZoom } from './PannableMap';
@@ -135,6 +136,7 @@ export function HuntPins({
    * which for a treasure site is not the tile it is drawn on (0315). */
   onChoose: (id: string, at: { x: number; y: number }, copy: string) => void;
 }) {
+  const t = useT();
   const now = useTick(trucks.length > 0 || missions.length > 0 || sites.length > 0);
   const zoom = useMapZoom();
   // The client's own truck pictures (0268): colour by quality, facing by heading.
@@ -167,7 +169,7 @@ export function HuntPins({
             onChoose(truck.truckUuid, spot.at, shareCoordinate(truck.serverId, spot.at))
           }
           style={place(spot.at)}
-          title={`Truck${spot.origin ? ' (set off from here)' : ''} · ${who(truck.ownerName, truck.allianceAbbr)} · ${truck.heroFragments} shard`}
+          title={`${spot.origin ? t('Truck (set off from here)') : t('Truck')} · ${who(truck.ownerName, truck.allianceAbbr, t)} · ${t('{count} shard', { count: truck.heroFragments })}`}
           type="button"
         >
           {sprites?.get(`${truck.quality}-${truckHeading(truck.leg)}`) ? (
@@ -183,8 +185,9 @@ export function HuntPins({
           {(truck.truckUuid === picked || zoom >= 6) && (
             <span className="atlas-truck-tag">
               {truck.allianceAbbr ? `[${truck.allianceAbbr}] ` : ''}
-              {truck.ownerName ?? 'unknown'} · {truck.heroFragments} shard ·{' '}
-              {timeLeft(truck.arriveAt, now)}
+              {truck.ownerName ?? t('unknown')} ·{' '}
+              {t('{count} shard', { count: truck.heroFragments })} ·{' '}
+              {timeLeft(truck.arriveAt, now, t)}
             </span>
           )}
         </button>
@@ -202,7 +205,7 @@ export function HuntPins({
           key={mission.missionUuid}
           onClick={() => onChoose(mission.missionUuid, mission.at, missionShare(mission))}
           style={place(mission.at)}
-          title={`Plunder · ${who(mission.ownerName, mission.allianceAbbr)} · ${mission.orangeBooks} books`}
+          title={`${t('Plunder')} · ${who(mission.ownerName, mission.allianceAbbr, t)} · ${t('{count} books', { count: mission.orangeBooks })}`}
           type="button"
         >
           {book ? (
@@ -226,14 +229,14 @@ export function HuntPins({
           key={site.siteUuid}
           onClick={() => onChoose(site.siteUuid, site.at, shareLabel(site))}
           style={place(site.at)}
-          title={siteTitle(site)}
+          title={siteTitle(site, t)}
           type="button"
         >
           <LuckyCat />
           {(site.siteUuid === picked || zoom >= 6) && (
             <span className="atlas-truck-tag">
-              {shareLabel(site)} · {isUnlit(site) ? 'unlit' : 'open'} ·{' '}
-              {timeLeft(closesAt(site), now)}
+              {shareLabel(site)} · {isUnlit(site) ? t('unlit') : t('open')} ·{' '}
+              {timeLeft(closesAt(site), now, t)}
             </span>
           )}
         </button>

@@ -12,6 +12,7 @@ import { useMemo, useState } from 'react';
 import { SortableTh } from '../../components/SortableTh';
 import { StatTile } from '../../components/StatTile';
 import { Sparkline } from '../../components/ui/Sparkline';
+import { rich, useT } from '../../lib/i18n';
 import { type SortState, nextSort } from '../../lib/tableControls';
 import {
   type FrankieSortKey,
@@ -39,6 +40,7 @@ function percent(value: number): string {
 }
 
 function ChangeCell({ value }: { value: number | null }) {
+  const t = useT();
   if (value === null) {
     return <td className="num muted">—</td>;
   }
@@ -46,7 +48,7 @@ function ChangeCell({ value }: { value: number | null }) {
   return (
     <td
       className={`num ${up ? 'growth-up' : 'growth-down'}`}
-      title="Newest event against the event before it that the member also hit."
+      title={t('Newest event against the event before it that the member also hit.')}
     >
       {up ? '+' : '−'}
       {compactDamage(Math.abs(value))}
@@ -55,6 +57,7 @@ function ChangeCell({ value }: { value: number | null }) {
 }
 
 function MemberRow({ member, days }: { member: MemberSeries; days: readonly string[] }) {
+  const t = useT();
   const low = member.held > 0 && member.attended / member.held < LOW_SHARE;
   return (
     <tr>
@@ -63,10 +66,13 @@ function MemberRow({ member, days }: { member: MemberSeries; days: readonly stri
       </th>
       <td
         className={`num ${low ? 'growth-down' : ''}`}
-        title={`Hit the boss on ${member.attended} of ${member.held} events on record.`}
+        title={t('Hit the boss on {attended} of {held} events on record.', {
+          attended: member.attended,
+          held: member.held,
+        })}
       >
         {low && (
-          <span aria-label="Under half" className="below-minimum">
+          <span aria-label={t('Under half')} className="below-minimum">
             ●
           </span>
         )}
@@ -91,7 +97,7 @@ function MemberRow({ member, days }: { member: MemberSeries; days: readonly stri
       {days.map((day, index) => {
         const damage = member.damages[index] ?? null;
         return damage === null ? (
-          <td className="num muted" key={day} title="No damage on this event.">
+          <td className="num muted" key={day} title={t('No damage on this event.')}>
             —
           </td>
         ) : (
@@ -105,6 +111,7 @@ function MemberRow({ member, days }: { member: MemberSeries; days: readonly stri
 }
 
 export function FrankiePage() {
+  const t = useT();
   const query = useQuery({
     queryKey: ['frankie-damage'],
     queryFn: fetchBossDamage,
@@ -136,75 +143,83 @@ export function FrankiePage() {
           <div>
             <h2 id="frankie-heading">Frankie</h2>
             <p className="entity-meta">
-              <span>Bio-Mutant · damage per member per event</span>
-              <span>Server time, UTC−2</span>
+              <span>{t('Bio-Mutant · damage per member per event')}</span>
+              <span>{t('Server time, UTC−2')}</span>
             </p>
           </div>
         </header>
         {report.events.length > 0 && (
           <div className="strip">
-            <StatTile hero label="Events on record" value={report.events.length} />
+            <StatTile hero label={t('Events on record')} value={report.events.length} />
             <StatTile
-              label="Latest event"
+              label={t('Latest event')}
               note={latest === undefined ? undefined : latest.day}
               value={latest === undefined ? null : compactDamage(latest.total)}
             />
             <StatTile
-              label="Latest turnout"
+              label={t('Latest turnout')}
               note={
                 latest === undefined
                   ? undefined
-                  : `${latest.participants} of ${latest.roster} members`
+                  : t('{count} of {total} members', {
+                      count: latest.participants,
+                      total: latest.roster,
+                    })
               }
               value={latest?.turnout == null ? null : percent(latest.turnout)}
             />
             <StatTile
-              label="Best event"
+              label={t('Best event')}
               note={best === null ? undefined : best.day}
               value={best === null ? null : compactDamage(best.total)}
             />
             <StatTile
-              label="Never hit"
-              note="members with no damage on any event"
+              label={t('Never hit')}
+              note={t('members with no damage on any event')}
               value={neverHit}
             />
           </div>
         )}
       </div>
 
-      {query.isPending && <p className="empty loading">Loading…</p>}
-      {query.error && <p className="error">Could not load Frankie: {query.error.message}</p>}
+      {query.isPending && <p className="empty loading">{t('Loading…')}</p>}
+      {query.error && (
+        <p className="error">
+          {t('Could not load Frankie: {error}', { error: query.error.message })}
+        </p>
+      )}
       {query.data && report.events.length === 0 && (
         <p className="empty">
-          No Frankie damage is on record yet. The board is captured when somebody opens the alliance
-          damage ranking after an event.
+          {t(
+            'No Frankie damage is on record yet. The board is captured when somebody opens the alliance damage ranking after an event.',
+          )}
         </p>
       )}
 
       {report.events.length > 0 && (
         <div className="panel">
-          <h3>By event</h3>
+          <h3>{t('By event')}</h3>
           <div className="table-wrap">
             <table className="compact">
               <thead>
                 <tr>
                   <th className="label" scope="col">
-                    Event
+                    {t('Event')}
                   </th>
                   <th className="num" scope="col">
-                    Hit the boss
+                    {t('Hit the boss')}
                   </th>
                   <th className="num" scope="col">
-                    Turnout
+                    {t('Turnout')}
                   </th>
                   <th className="num" scope="col">
-                    Total damage
+                    {t('Total damage')}
                   </th>
                   <th className="num" scope="col">
-                    Average
+                    {t('Average')}
                   </th>
                   <th className="num" scope="col">
-                    Against last
+                    {t('Against last')}
                   </th>
                 </tr>
               </thead>
@@ -238,8 +253,9 @@ export function FrankiePage() {
           </div>
           {previous !== undefined && latest !== undefined && (
             <p className="note">
-              Only events whose damage board was opened (or typed in by an officer) appear. A
-              missing date is an event nobody captured, not a day without Frankie.
+              {t(
+                'Only events whose damage board was opened (or typed in by an officer) appear. A missing date is an event nobody captured, not a day without Frankie.',
+              )}
             </p>
           )}
         </div>
@@ -247,30 +263,30 @@ export function FrankiePage() {
 
       {report.events.length > 0 && (
         <div className="panel participation-board">
-          <h3>By member</h3>
+          <h3>{t('By member')}</h3>
           <div className="table-wrap">
             <table className="compact">
               <thead>
                 <tr>
                   <SortableTh className="label" onSort={onSort} sort={sort} sortKey="name">
-                    Member
+                    {t('Member')}
                   </SortableTh>
                   <SortableTh numeric onSort={onSort} sort={sort} sortKey="attended">
-                    Hit
+                    {t('Hit')}
                   </SortableTh>
                   <SortableTh numeric onSort={onSort} sort={sort} sortKey="total">
-                    Total
+                    {t('Total')}
                   </SortableTh>
                   <SortableTh numeric onSort={onSort} sort={sort} sortKey="average">
-                    Average
+                    {t('Average')}
                   </SortableTh>
                   <SortableTh numeric onSort={onSort} sort={sort} sortKey="best">
-                    Best
+                    {t('Best')}
                   </SortableTh>
                   <SortableTh numeric onSort={onSort} sort={sort} sortKey="change">
-                    Latest
+                    {t('Latest')}
                   </SortableTh>
-                  <th scope="col">Trend</th>
+                  <th scope="col">{t('Trend')}</th>
                   {report.days.map((day) => (
                     <th className="num" key={day} scope="col">
                       {shortDay(day)}
@@ -286,10 +302,12 @@ export function FrankiePage() {
             </table>
           </div>
           <p className="note">
-            Damage is what the member did to the boss in the event. <strong>Hit</strong> is the
-            events they were in the alliance for that they have damage on; ● marks under half. A
-            dash is no damage on that event. Trend draws the events in date order and needs two.
-            Hover a figure for the exact number.
+            {rich(
+              t(
+                'Damage is what the member did to the boss in the event. {hit} is the events they were in the alliance for that they have damage on; ● marks under half. A dash is no damage on that event. Trend draws the events in date order and needs two. Hover a figure for the exact number.',
+              ),
+              { hit: <strong>{t('Hit')}</strong> },
+            )}
           </p>
         </div>
       )}

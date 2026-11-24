@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useT } from '../../lib/i18n';
 import { allianceHash, playerHash, serverHash } from '../../lib/route';
 import { supabase } from '../../lib/supabase';
 import { useFavourites } from '../../lib/useFavourites';
@@ -21,6 +22,7 @@ interface Starred {
 }
 
 export function FavouritesBlock() {
+  const t = useT();
   const { signedIn, ids } = useFavourites();
   const playerIds = [...ids.player];
   const allianceIds = [...ids.alliance];
@@ -76,18 +78,22 @@ export function FavouritesBlock() {
 
   return (
     <section aria-labelledby="favourites-heading">
-      <h2 id="favourites-heading">My favourites</h2>
-      {error && <p className="error">Could not load favourites: {error.message}</p>}
+      <h2 id="favourites-heading">{t('My favourites')}</h2>
+      {error && (
+        <p className="error">
+          {t('Could not load favourites: {message}', { message: error.message })}
+        </p>
+      )}
       {nothing ? (
         <p className="empty">
-          Nothing starred yet. The ☆ beside a player, alliance or server adds it here.
+          {t('Nothing starred yet. The ☆ beside a player, alliance or server adds it here.')}
         </p>
       ) : (
         <ul className="chips">
           {serverIds.map((id) => (
             <li key={`s${id}`}>
               <a className="filter-chip" href={serverHash(id)}>
-                Server {id}
+                {t('Server {server}', { server: id })}
               </a>
             </li>
           ))}

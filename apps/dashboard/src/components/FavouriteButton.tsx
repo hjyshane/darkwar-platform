@@ -1,3 +1,4 @@
+import { useT } from '../lib/i18n';
 import type { FavouriteKind } from '../lib/useFavourites';
 
 /** A star that pins one row.
@@ -25,9 +26,10 @@ export function FavouriteButton({
   isFavourite: boolean;
   onToggle: (kind: FavouriteKind, id: string | number) => void;
 }) {
+  const t = useT();
   return (
     <button
-      aria-label={`Favourite ${label}`}
+      aria-label={t('Favourite {name}', { name: label })}
       aria-pressed={isFavourite}
       className="favourite"
       onClick={() => onToggle(kind, id)}

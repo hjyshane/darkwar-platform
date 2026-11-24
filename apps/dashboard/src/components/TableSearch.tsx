@@ -1,4 +1,5 @@
 import { useId } from 'react';
+import { useT } from '../lib/i18n';
 
 /** Filter-as-you-type over a table, with the count of what survived.
  *
@@ -30,6 +31,7 @@ export function TableSearch({
   /** Extra controls for this table — the favourites filter, so far. */
   children?: React.ReactNode;
 }) {
+  const t = useT();
   const id = useId();
   return (
     <div className="toolbar">
@@ -45,7 +47,9 @@ export function TableSearch({
         />
       </label>
       <output className="count" htmlFor={id}>
-        {value.trim() === '' ? `${total} ${unit}` : `${shown} of ${total} ${unit}`}
+        {value.trim() === ''
+          ? t('{total} {unit}', { total, unit })
+          : t('{shown} of {total} {unit}', { shown, total, unit })}
       </output>
       {children}
     </div>

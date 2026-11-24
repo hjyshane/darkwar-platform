@@ -7,6 +7,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { Select } from '../../components/ui/Select';
+import { useT } from '../../lib/i18n';
 import { type Account, type Enterable, fetchEnterable } from './accounts';
 
 interface AccountBarProps {
@@ -17,6 +18,7 @@ interface AccountBarProps {
 }
 
 export function AccountBar({ accounts, current, onPick, onStart }: AccountBarProps) {
+  const t = useT();
   const enterable = useQuery({
     queryKey: ['planner-enterable'],
     queryFn: fetchEnterable,
@@ -34,12 +36,12 @@ export function AccountBar({ accounts, current, onPick, onStart }: AccountBarPro
     <div className="row">
       {listed.length > 0 && current && (
         <label>
-          Account{' '}
+          {t('Account')}{' '}
           <Select onChange={(chosen) => onPick(chosen)} value={current.playerId}>
             {listed.map((a) => (
               <option key={a.playerId} value={a.playerId}>
                 {a.name}
-                {a.source === 'manual' ? ' (by hand)' : ''}
+                {a.source === 'manual' ? ` ${t('(by hand)')}` : ''}
               </option>
             ))}
           </Select>
@@ -47,7 +49,7 @@ export function AccountBar({ accounts, current, onPick, onStart }: AccountBarPro
       )}
       {fresh.length > 0 && (
         <label>
-          Enter by hand{' '}
+          {t('Enter by hand')}{' '}
           <Select
             onChange={(chosen) => {
               const who = fresh.find((f) => f.playerId === chosen);
@@ -55,7 +57,7 @@ export function AccountBar({ accounts, current, onPick, onStart }: AccountBarPro
             }}
             value=""
           >
-            <option value="">Pick a character…</option>
+            <option value="">{t('Pick a character…')}</option>
             {fresh.map((f) => (
               <option key={f.playerId} value={f.playerId}>
                 {f.name}
@@ -85,26 +87,31 @@ export function ManualBanner({
   onSave,
   onDiscard,
 }: ManualBannerProps) {
+  const t = useT();
   return (
-    <section aria-label="Entered by hand" className="planner-manual">
+    <section aria-label={t('Entered by hand')} className="planner-manual">
       <span>
-        {account.name}'s levels, buffs and stock are entered by hand
         {account.capturedAt
-          ? ` (saved ${account.capturedAt.slice(0, 16).replace('T', ' ')} UTC)`
-          : ' and not saved yet'}
-        . Type the levels now in each list; a login, once the collector sees one, replaces this.
+          ? t(
+              "{name}'s levels, buffs and stock are entered by hand (saved {time} UTC). Type the levels now in each list; a login, once the collector sees one, replaces this.",
+              { name: account.name, time: account.capturedAt.slice(0, 16).replace('T', ' ') },
+            )
+          : t(
+              "{name}'s levels, buffs and stock are entered by hand and not saved yet. Type the levels now in each list; a login, once the collector sees one, replaces this.",
+              { name: account.name },
+            )}
       </span>
       <span className="row">
         <button disabled={!dirty || saving} onClick={onSave} type="button">
-          {saving ? 'Saving…' : dirty ? 'Save' : 'Saved'}
+          {saving ? t('Saving…') : dirty ? t('Save') : t('Saved')}
         </button>
         {dirty && (
           <button disabled={saving} onClick={onDiscard} type="button">
-            Discard changes
+            {t('Discard changes')}
           </button>
         )}
       </span>
-      {error && <span className="error">Could not save: {error}</span>}
+      {error && <span className="error">{t('Could not save: {message}', { message: error })}</span>}
     </section>
   );
 }

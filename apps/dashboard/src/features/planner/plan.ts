@@ -12,6 +12,8 @@
 // Construction speed and cost reduction act on buildings, research speed on
 // research; hero levels and gear have no time and no discount.
 
+import { type Translate, english } from '../../lib/i18n/core';
+
 export type Kind =
   | 'building'
   | 'research'
@@ -245,15 +247,17 @@ export function totals(steps: ReadonlyArray<PlannedStep>, buffs: Buffs): Totals 
 
 /** "3d 2h", "5h 12m", "40m". Past a day, to the nearest hour, as the game
  * shows it: 4d 14h 34m reads 4d 15h. */
-export function duration(seconds: number): string {
+export function duration(seconds: number, t: Translate = english): string {
   const minutes = Math.round(seconds / 60);
   if (minutes >= 1440) {
     const hours = Math.round(minutes / 60);
-    return `${Math.floor(hours / 24)}d ${hours % 24}h`;
+    return t('{days}d {hours}h', { days: Math.floor(hours / 24), hours: hours % 24 });
   }
   const hours = Math.floor(minutes / 60);
   const mins = minutes % 60;
-  return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+  return hours > 0
+    ? t('{hours}h {minutes}m', { hours, minutes: mins })
+    : t('{minutes}m', { minutes: mins });
 }
 
 /** Buffs from the account's login (0219): the server's summed totals, plus

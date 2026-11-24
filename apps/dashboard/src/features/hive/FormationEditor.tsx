@@ -35,6 +35,8 @@ import {
   tileInsideBox,
   tilesOverlap,
 } from '../../lib/hiveFormation';
+import { rich, useT } from '../../lib/i18n';
+import { type Translate, english } from '../../lib/i18n/core';
 import { shareCoordinate } from '../../lib/shareCoordinate';
 import { EditorToolbar } from './EditorToolbar';
 import { ConflictBanner, Stamp } from './HiveStamp';
@@ -103,6 +105,7 @@ import {
   BUILT_IN_SHAPES,
   type StampShape,
   shapeFromTemplate,
+  shapeLabel,
   stampPlan,
   stampSummary,
 } from './shapeStamp';
@@ -181,6 +184,7 @@ export function dropTarget(
   drawn: readonly DraftSlot[],
   anchor: Coordinate,
   at: Coordinate,
+  t: Translate = english,
 ): DropTarget {
   const hit = drawn.find((slot) => {
     const box = footprintOf(absoluteOf(anchor, slot), slot.spanX, slot.spanY);
@@ -191,7 +195,10 @@ export function dropTarget(
       ? { kind: 'onto', key: offsetKey(hit) }
       : {
           kind: 'refused',
-          reason: `${hit.label === '' ? 'That tile' : hit.label} is ground, not a base — nobody can stand on it.`,
+          reason:
+            hit.label === ''
+              ? t('That tile is ground, not a base — nobody can stand on it.')
+              : t('{label} is ground, not a base — nobody can stand on it.', { label: hit.label }),
         };
   }
   const tile: SizedOffset = {
@@ -203,7 +210,9 @@ export function dropTarget(
   if (!tileFitsOnMap(at, BASE_SPAN, BASE_SPAN)) {
     return {
       kind: 'refused',
-      reason: `A base centred on ${formatTeleport(at)} would need ground off the edge of the map.`,
+      reason: t('A base centred on {coordinate} would need ground off the edge of the map.', {
+        coordinate: formatTeleport(at),
+      }),
     };
   }
   if (!canPlace(drawn, tile)) {
@@ -212,8 +221,11 @@ export function dropTarget(
       kind: 'refused',
       reason:
         clash === undefined
-          ? 'That ground is taken.'
-          : `A base there would share ground with the tile at ${formatTeleport(absoluteOf(anchor, clash))}. Drop them on a base, or on free ground.`,
+          ? t('That ground is taken.')
+          : t(
+              'A base there would share ground with the tile at {coordinate}. Drop them on a base, or on free ground.',
+              { coordinate: formatTeleport(absoluteOf(anchor, clash)) },
+            ),
     };
   }
   return { kind: 'new', tile };
@@ -292,10 +304,11 @@ export function paintedTiles(
  * Power is abbreviated because the exact figure is not the point here; the
  * ordering is, and three significant figures is enough to see it.
  */
-function memberLabel(member: AssignableMember): string {
+function memberLabel(member: AssignableMember, t: Translate = english): string {
   const rank = member.memberRank === null ? '' : `R${member.memberRank}`;
   const extra = [rank, shortPower(member.power)].filter(Boolean).join(' · ');
-  return extra === '' ? (member.name ?? 'unnamed') : `${member.name ?? 'unnamed'} (${extra})`;
+  const name = member.name ?? t('unnamed');
+  return extra === '' ? name : `${name} (${extra})`;
 }
 
 /** What a drag does. Clicking a tile places or removes one in every mode. */
@@ -444,6 +457,7 @@ export function FormationEditor({
    * draft and one Save — and the other is only hidden. */
   half: 'shape' | 'people';
 }) {
+  const t = useT();
   const queryClient = useQueryClient();
   const saved = useMemo(() => draftFromBoard(slots), [slots]);
   // Keyed by the version of the saved layout it was seeded from, so a
@@ -742,20 +756,26 @@ export function FormationEditor({
       setRefusal(
         result.lost === 0
           ? null
-          : `Saved. ${result.lost} member${result.lost === 1 ? '' : 's'} lost a tile, because the tile they were on is gone.`,
+          : result.lost === 1
+            ? t('Saved. {count} member lost a tile, because the tile they were on is gone.', {
+                count: result.lost,
+              })
+            : t('Saved. {count} members lost a tile, because the tile they were on is gone.', {
+                count: result.lost,
+              }),
       );
       return queryClient.invalidateQueries({ queryKey: ['hive'] });
     },
     onError: (error: Error) => {
       if (error instanceof StaleSaveError) {
         // The banner takes over once the newer board arrives.
-        setRefusal('Somebody else saved this plan first. Fetching their version…');
+        setRefusal(t('Somebody else saved this plan first. Fetching their version…'));
         void queryClient.invalidateQueries({ queryKey: ['hive'] });
         return;
       }
       setRefusal(
         error instanceof PlanDeletedError
-          ? 'This plan was deleted. An officer can restore it from Recently deleted.'
+          ? t('This plan was deleted. An officer can restore it from Recently deleted.')
           : error.message,
       );
     },
@@ -774,13 +794,13 @@ export function FormationEditor({
     onError: (error: Error) => {
       if (error instanceof StaleSaveError) {
         // The draft is untouched: an anchor move makes nobody's draft stale.
-        setRefusal("Someone else moved this plan's anchor. It has been reloaded.");
+        setRefusal(t("Someone else moved this plan's anchor. It has been reloaded."));
         void queryClient.invalidateQueries({ queryKey: ['hive'] });
         return;
       }
       setRefusal(
         error instanceof PlanDeletedError
-          ? 'This plan was deleted. An officer can restore it from Recently deleted.'
+          ? t('This plan was deleted. An officer can restore it from Recently deleted.')
           : error.message,
       );
     },
@@ -814,14 +834,16 @@ export function FormationEditor({
     onError: (error: Error) => {
       if (error instanceof StaleSaveError) {
         setRefusal(
-          'Someone else changed this plan since you opened it, so the anchor was not moved. It has been reloaded.',
+          t(
+            'Someone else changed this plan since you opened it, so the anchor was not moved. It has been reloaded.',
+          ),
         );
         void queryClient.invalidateQueries({ queryKey: ['hive'] });
         return;
       }
       setRefusal(
         error instanceof PlanDeletedError
-          ? 'This plan was deleted. An officer can restore it from Recently deleted.'
+          ? t('This plan was deleted. An officer can restore it from Recently deleted.')
           : error.message,
       );
     },
@@ -832,12 +854,14 @@ export function FormationEditor({
    * drawn on the old ones could not be saved afterwards. */
   function reanchorAt(to: Coordinate) {
     if (unsaved) {
-      setRefusal('Save or discard your changes first: setting the anchor rewrites every tile.');
+      setRefusal(t('Save or discard your changes first: setting the anchor rewrites every tile.'));
       return;
     }
     if (!tileFitsOnMap(to, BASE_SPAN, BASE_SPAN)) {
       setRefusal(
-        `The anchor has to be between 1 and 998 on both axes; ${formatTeleport(to)} is not.`,
+        t('The anchor has to be between 1 and 998 on both axes; {coordinate} is not.', {
+          coordinate: formatTeleport(to),
+        }),
       );
       return;
     }
@@ -1009,7 +1033,9 @@ export function FormationEditor({
     const plan = stampPlan(shape.tiles, at, anchor, drawn);
     const landing = plan.filter((tile) => tile.fate === 'placed');
     if (draft.size + landing.length > MAX_TILES) {
-      setRefusal(`That would take the formation past the ${MAX_TILES}-tile limit.`);
+      setRefusal(
+        t('That would take the formation past the {limit}-tile limit.', { limit: MAX_TILES }),
+      );
       return;
     }
     if (landing.length > 0) {
@@ -1031,7 +1057,7 @@ export function FormationEditor({
       }
       setDraft(next);
     }
-    setRefusal(stampSummary(plan));
+    setRefusal(stampSummary(plan, t));
   }
 
   /** Save whatever is unsaved. One button, one call (`save`): this used to be
@@ -1052,7 +1078,7 @@ export function FormationEditor({
       // where the game puts that base or building, which is its middle.
       const under = tileUnderPointer(drawn, anchor, tile);
       if (under === undefined) {
-        setRefusal('Click a base or a structure to put the anchor on it, or press Esc.');
+        setRefusal(t('Click a base or a structure to put the anchor on it, or press Esc.'));
         return;
       }
       setPickingAnchor(false);
@@ -1082,7 +1108,11 @@ export function FormationEditor({
     };
     if (!tileFitsOnMap(tile, brush.spanX, brush.spanY)) {
       setRefusal(
-        `A ${brush.spanX}x${brush.spanY} tile centred on ${formatTeleport(tile)} would need ground off the edge of the map.`,
+        t('A {x}x{y} tile centred on {coordinate} would need ground off the edge of the map.', {
+          x: brush.spanX,
+          y: brush.spanY,
+          coordinate: formatTeleport(tile),
+        }),
       );
       return;
     }
@@ -1090,8 +1120,12 @@ export function FormationEditor({
       const clash = drawn.find((slot) => tilesOverlap(slot, candidate));
       setRefusal(
         clash === undefined
-          ? 'That ground is taken.'
-          : `That would share ground with the ${clash.spanX}x${clash.spanY} tile at ${formatTeleport(absoluteOf(anchor, clash))}.`,
+          ? t('That ground is taken.')
+          : t('That would share ground with the {x}x{y} tile at {coordinate}.', {
+              x: clash.spanX,
+              y: clash.spanY,
+              coordinate: formatTeleport(absoluteOf(anchor, clash)),
+            }),
       );
       return;
     }
@@ -1131,7 +1165,7 @@ export function FormationEditor({
       setSelection(new Set(picked.map(offsetKey)));
       setRefusal(
         picked.length === 0
-          ? 'Nothing is completely inside that box, so nothing is selected.'
+          ? t('Nothing is completely inside that box, so nothing is selected.')
           : null,
       );
       return;
@@ -1154,7 +1188,9 @@ export function FormationEditor({
         }
       }
       setDraft(next);
-      setRefusal(removed === 0 ? 'Nothing to erase in that area — it holds no 1x1 markers.' : null);
+      setRefusal(
+        removed === 0 ? t('Nothing to erase in that area — it holds no 1x1 markers.') : null,
+      );
       return;
     }
 
@@ -1166,8 +1202,10 @@ export function FormationEditor({
     if (free.length === 0) {
       setRefusal(
         tool === 'outline'
-          ? `Every tile on the edge of those ${boxArea(box)} is already spoken for.`
-          : `Every one of those ${boxArea(box)} tiles is already spoken for.`,
+          ? t('Every tile on the edge of those {area} is already spoken for.', {
+              area: boxArea(box),
+            })
+          : t('Every one of those {area} tiles is already spoken for.', { area: boxArea(box) }),
       );
       return;
     }
@@ -1177,8 +1215,14 @@ export function FormationEditor({
       const room = Math.max(0, MAX_TILES - draft.size);
       setRefusal(
         room === 0
-          ? `This formation already holds ${draft.size} tiles, the most one can — erase some before marking more.`
-          : `That area needs ${free.length} markers and only ${room} more fit under the ${MAX_TILES}-tile limit — drag a smaller area, or use Draw a boundary.`,
+          ? t(
+              'This formation already holds {count} tiles, the most one can — erase some before marking more.',
+              { count: draft.size },
+            )
+          : t(
+              'That area needs {needed} markers and only {room} more fit under the {limit}-tile limit — drag a smaller area, or use Draw a boundary.',
+              { needed: free.length, room, limit: MAX_TILES },
+            ),
       );
       return;
     }
@@ -1217,7 +1261,10 @@ export function FormationEditor({
     }
     if (!canMoveGroup(drawn, selection, byX, byY, anchor)) {
       setRefusal(
-        `Those ${selection.size} tiles cannot all move there — something is in the way, or the group would run off the map.`,
+        t(
+          'Those {count} tiles cannot all move there — something is in the way, or the group would run off the map.',
+          { count: selection.size },
+        ),
       );
       return;
     }
@@ -1263,7 +1310,10 @@ export function FormationEditor({
     setRefusal(
       people === 0
         ? null
-        : `Removed ${removed} tiles, ${people} of which had somebody standing on them.`,
+        : t('Removed {removed} tiles, {people} of which had somebody standing on them.', {
+            removed,
+            people,
+          }),
     );
   }
 
@@ -1346,13 +1396,15 @@ export function FormationEditor({
    * quietly move them. Whoever stood on the tile before goes back to the list.
    */
   function dropMember(playerId: string, at: Coordinate) {
-    const target = dropTarget(drawn, anchor, at);
+    const target = dropTarget(drawn, anchor, at, t);
     if (target.kind === 'refused') {
       setRefusal(target.reason);
       return;
     }
     if (target.kind === 'new' && draft.size + 1 > MAX_TILES) {
-      setRefusal(`This formation already holds ${draft.size} tiles, the most one can.`);
+      setRefusal(
+        t('This formation already holds {count} tiles, the most one can.', { count: draft.size }),
+      );
       return;
     }
     const next = new Map(draft);
@@ -1580,7 +1632,7 @@ export function FormationEditor({
    * heading), name, and power — or, once placed, their tile and a way off it.
    * The whole row is the drag handle. */
   function memberRow({ member, tile }: PaletteRow) {
-    const name = member.name ?? 'unnamed';
+    const name = member.name ?? t('unnamed');
     const number = tile === null ? undefined : numbering.get(offsetKey(tile));
     return (
       <li
@@ -1597,8 +1649,11 @@ export function FormationEditor({
         }}
         title={
           tile === null
-            ? `${memberLabel(member)} — drag onto the map`
-            : `${memberLabel(member)} — on tile ${number ?? ''}; drag somewhere else to move them`
+            ? t('{member} — drag onto the map', { member: memberLabel(member, t) })
+            : t('{member} — on tile {number}; drag somewhere else to move them', {
+                member: memberLabel(member, t),
+                number: number ?? '',
+              })
         }
       >
         <span aria-hidden="true" className="hive-palette__grip">
@@ -1615,19 +1670,22 @@ export function FormationEditor({
         ) : (
           <>
             <button
-              aria-label={`Show ${name}'s tile on the map`}
+              aria-label={t("Show {name}'s tile on the map", { name })}
               className="hive-palette__where"
               onClick={() => setCentre(absoluteOf(anchor, tile))}
-              title={`Tile ${number ?? ''} at ${formatTeleport(absoluteOf(anchor, tile))} — show it on the map`}
+              title={t('Tile {number} at {coordinate} — show it on the map', {
+                number: number ?? '',
+                coordinate: formatTeleport(absoluteOf(anchor, tile)),
+              })}
               type="button"
             >
-              {number === undefined ? 'Where' : `#${number}`}
+              {number === undefined ? t('Where') : `#${number}`}
             </button>
             <button
-              aria-label={`Take ${name} off their tile`}
+              aria-label={t('Take {name} off their tile', { name })}
               className="hive-palette__off"
               onClick={() => unplace(member.playerId)}
-              title="Take them off this tile. The base stays."
+              title={t('Take them off this tile. The base stays.')}
               type="button"
             >
               ×
@@ -1659,17 +1717,17 @@ export function FormationEditor({
           type="button"
         >
           {save.isPending
-            ? 'Saving…'
+            ? t('Saving…')
             : !unsaved
-              ? 'Saved'
+              ? t('Saved')
               : dirty && assignmentsDirty
-                ? 'Save the shape and the people'
+                ? t('Save the shape and the people')
                 : dirty
-                  ? 'Save the shape'
-                  : 'Save who goes where'}
+                  ? t('Save the shape')
+                  : t('Save who goes where')}
         </button>
         <button disabled={!dirty} onClick={() => setDraft(saved)} type="button">
-          Discard changes
+          {t('Discard changes')}
         </button>
         <Stamp at={formation.editedAt} name={formation.editedByName} />
       </div>
@@ -1685,12 +1743,22 @@ export function FormationEditor({
         <div className="hive-editor__bar">
           {saveActions}
           <p className="hive-count">
-            {draft.size} tile{draft.size === 1 ? '' : 's'} drawn · {members.length} member
-            {members.length === 1 ? '' : 's'} on the roster
+            {draft.size === 1
+              ? t('{count} tile drawn', { count: draft.size })
+              : t('{count} tiles drawn', { count: draft.size })}{' '}
+            ·{' '}
+            {members.length === 1
+              ? t('{count} member on the roster', { count: members.length })
+              : t('{count} members on the roster', { count: members.length })}
             {draft.size < members.length && draft.size > 0 && (
               <>
                 {' '}
-                — <strong>{members.length - draft.size} would have nowhere to stand</strong>
+                —{' '}
+                <strong>
+                  {t('{count} would have nowhere to stand', {
+                    count: members.length - draft.size,
+                  })}
+                </strong>
               </>
             )}
           </p>
@@ -1738,7 +1806,7 @@ export function FormationEditor({
               anchor={anchor}
               bases={bases}
               busy={save.isPending}
-              canDropAt={(at) => dropTarget(drawn, anchor, at).kind !== 'refused'}
+              canDropAt={(at) => dropTarget(drawn, anchor, at, t).kind !== 'refused'}
               canMoveTo={canMove}
               canAnchorAt={(to) => formationFitsAt(to, drawn)}
               onDropMember={dropMember}
@@ -1761,7 +1829,7 @@ export function FormationEditor({
                   <MapKey colourBy={prefs.colourBy} tally={ranksDrawn} />
                   <MapNav
                     anchor={anchor}
-                    fitLabel="Whole formation"
+                    fitLabel={t('Whole formation')}
                     onFit={showWhole}
                     onHome={() => setCentre(anchor)}
                     onZoom={setZoom}
@@ -1773,14 +1841,18 @@ export function FormationEditor({
                   {pickingAnchor && (
                     <div className="map-stamp">
                       <output>
-                        <strong>New anchor</strong> — click a base or structure to put the anchor on
-                        it. Nothing moves.
+                        {rich(
+                          t(
+                            '{title} — click a base or structure to put the anchor on it. Nothing moves.',
+                          ),
+                          { title: <strong>{t('New anchor')}</strong> },
+                        )}
                         {refusal !== null && <span className="map-stamp__note"> {refusal}</span>}
                       </output>
                       <button
-                        aria-label="Stop choosing the anchor"
+                        aria-label={t('Stop choosing the anchor')}
                         onClick={() => choosingAnchor(false)}
-                        title="Stop (Esc)"
+                        title={t('Stop (Esc)')}
                         type="button"
                       >
                         ×
@@ -1790,13 +1862,15 @@ export function FormationEditor({
                   {armed !== null && (
                     <div className="map-stamp">
                       <output>
-                        <strong>{armed.label}</strong> — click the map to put it down.
+                        {rich(t('{shape} — click the map to put it down.'), {
+                          shape: <strong>{shapeLabel(armed, t)}</strong>,
+                        })}
                         {refusal !== null && <span className="map-stamp__note"> {refusal}</span>}
                       </output>
                       <button
-                        aria-label={`Put ${armed.label} away`}
+                        aria-label={t('Put {shape} away', { shape: shapeLabel(armed, t) })}
                         onClick={() => setArmed(null)}
-                        title="Put it away (Esc)"
+                        title={t('Put it away (Esc)')}
                         type="button"
                       >
                         ×
@@ -1827,7 +1901,7 @@ export function FormationEditor({
               below the map, and the member list a second column that followed
               the scroll and slid over them. Now both sit in one box as tall as
               the map, each scrolling inside it, and the map keeps the room. */}
-          <section aria-label="Members and tools" className="hive-panel">
+          <section aria-label={t('Members and tools')} className="hive-panel">
             <PanelDivider
               max={PANEL_WIDTH_MAX}
               min={PANEL_WIDTH_MIN}
@@ -1837,7 +1911,7 @@ export function FormationEditor({
               width={prefs.panelWidth ?? PANEL_WIDTH_DEFAULT}
             />
             <div className="hive-panel__inner">
-              <div aria-label="Panel" className="hive-panel__tabs" role="tablist">
+              <div aria-label={t('Panel')} className="hive-panel__tabs" role="tablist">
                 <button
                   aria-controls={`${panelId}-members`}
                   aria-selected={panelTab === 'members'}
@@ -1846,9 +1920,9 @@ export function FormationEditor({
                   role="tab"
                   type="button"
                 >
-                  Members
+                  {t('Members')}
                   {unplaced.length > 0 && (
-                    <span className="hive-panel__badge" title="Not placed yet">
+                    <span className="hive-panel__badge" title={t('Not placed yet')}>
                       {unplaced.length}
                     </span>
                   )}
@@ -1861,7 +1935,7 @@ export function FormationEditor({
                   role="tab"
                   type="button"
                 >
-                  Tools
+                  {t('Tools')}
                 </button>
               </div>
 
@@ -1880,21 +1954,24 @@ export function FormationEditor({
                     filters what is shown and nothing else. */}
                 <div className="hive-palette-search">
                   <input
-                    aria-label="Find a member"
+                    aria-label={t('Find a member')}
                     onChange={(event) => setMemberQuery(event.target.value)}
                     onKeyDown={(event) => {
                       if (event.key === 'Escape') {
                         setMemberQuery('');
                       }
                     }}
-                    placeholder="Find a member…"
+                    placeholder={t('Find a member…')}
                     type="search"
                     value={memberQuery}
                   />
                   <span className="hive-count">
                     {memberQuery.trim() === ''
-                      ? `${unplaced.length} of ${members.length} not placed`
-                      : `${paletteMembers.length} shown`}
+                      ? t('{count} of {total} not placed', {
+                          count: unplaced.length,
+                          total: members.length,
+                        })
+                      : t('{count} shown', { count: paletteMembers.length })}
                   </span>
                 </div>
                 {/* BY RANK, then A–Z or power within it — chosen here, never
@@ -1903,7 +1980,7 @@ export function FormationEditor({
                     dealt-with out of the way instead of reshuffling them. */}
                 <div className="hive-roster__options">
                   <fieldset className="hive-roster__sort">
-                    <legend className="visually-hidden">Order</legend>
+                    <legend className="visually-hidden">{t('Order')}</legend>
                     {PALETTE_SORTS.map((option) => (
                       <button
                         aria-pressed={paletteSort === option.sort}
@@ -1911,7 +1988,7 @@ export function FormationEditor({
                         onClick={() => setPaletteSort(option.sort)}
                         type="button"
                       >
-                        {option.label}
+                        {option.sort === 'power' ? t('Power') : option.label}
                       </button>
                     ))}
                   </fieldset>
@@ -1921,7 +1998,7 @@ export function FormationEditor({
                       onChange={(event) => setGroupByRank(event.target.checked)}
                       type="checkbox"
                     />
-                    By rank
+                    {t('By rank')}
                   </label>
                   <label className="hive-roster__hide">
                     <input
@@ -1929,32 +2006,44 @@ export function FormationEditor({
                       onChange={(event) => setHidePlaced(event.target.checked)}
                       type="checkbox"
                     />
-                    Hide placed
+                    {t('Hide placed')}
                   </label>
                 </div>
                 <div className="hive-roster__list">
                   {paletteGroups.length === 0 && (
                     <p className="subtle hive-roster__empty">
                       {memberQuery.trim() !== ''
-                        ? `Nobody${hidePlaced ? ' unplaced' : ''} on the roster matches “${memberQuery.trim()}”.`
+                        ? hidePlaced
+                          ? t('Nobody unplaced on the roster matches “{query}”.', {
+                              query: memberQuery.trim(),
+                            })
+                          : t('Nobody on the roster matches “{query}”.', {
+                              query: memberQuery.trim(),
+                            })
                         : hidePlaced && members.length > 0
-                          ? 'Everybody has a tile.'
-                          : 'Nobody on the roster yet.'}
+                          ? t('Everybody has a tile.')
+                          : t('Nobody on the roster yet.')}
                     </p>
                   )}
                   {paletteGroups.map((group) => (
                     <section
-                      aria-label={group.label ?? 'Members to place'}
+                      aria-label={
+                        group.key === 'r0'
+                          ? t('Rank unknown')
+                          : (group.label ?? t('Members to place'))
+                      }
                       className="hive-roster__group"
                       key={group.key}
                     >
                       {group.label !== null && (
                         <h4 className={`hive-roster__head hive-rank-chip--${group.key}`}>
                           <span aria-hidden="true" className="hive-roster__dot" />
-                          {group.label}
+                          {group.key === 'r0' ? t('Rank unknown') : group.label}
                           <span className="hive-roster__tally">
                             {group.rows.length}
-                            {group.placed > 0 ? ` · ${group.placed} placed` : ''}
+                            {group.placed > 0
+                              ? ` · ${t('{count} placed', { count: group.placed })}`
+                              : ''}
                           </span>
                         </h4>
                       )}
@@ -1972,15 +2061,14 @@ export function FormationEditor({
                 role="tabpanel"
               >
                 <fieldset>
-                  <legend>Things on the map</legend>
+                  <legend>{t('Things on the map')}</legend>
                   <p className="subtle">
-                    The shapes this alliance draws more than once, kept as a list rather than
-                    retyped. Clicking one loads its size, kind and colour into the brush and
-                    captions the tile with its name — a copy, so tidying the list later never
-                    changes a formation already sent out.
+                    {t(
+                      'The shapes this alliance draws more than once, kept as a list rather than retyped. Clicking one loads its size, kind and colour into the brush and captions the tile with its name — a copy, so tidying the list later never changes a formation already sent out.',
+                    )}
                   </p>
                   {features.isError ? (
-                    <p className="error">Could not load the list of map features.</p>
+                    <p className="error">{t('Could not load the list of map features.')}</p>
                   ) : null}
                   <div className="hive-features">
                     {(features.data ?? []).map((feature) => (
@@ -1998,7 +2086,7 @@ export function FormationEditor({
                           {feature.name} {feature.spanX}x{feature.spanY}
                         </button>
                         <button
-                          aria-label={`Remove ${feature.name} from the list`}
+                          aria-label={t('Remove {name} from the list', { name: feature.name })}
                           className="hive-feature__drop"
                           disabled={featureRemove.isPending}
                           onClick={() => featureRemove.mutate(feature.featureId)}
@@ -2009,7 +2097,7 @@ export function FormationEditor({
                       </span>
                     ))}
                     {features.isSuccess && features.data.length === 0 ? (
-                      <span className="subtle">Nothing in the list yet.</span>
+                      <span className="subtle">{t('Nothing in the list yet.')}</span>
                     ) : null}
                   </div>
                   <form
@@ -2024,14 +2112,20 @@ export function FormationEditor({
                   >
                     <label>
                       <span>
-                        Add the brush ({brush.spanX}x{brush.spanY}
-                        {brush.kind === 'structure' ? ', structure' : ''}
-                        {brush.colour === null ? '' : `, ${brush.colour}`}) as
+                        {t('Add the brush ({brush}) as', {
+                          brush: [
+                            `${brush.spanX}x${brush.spanY}`,
+                            brush.kind === 'structure' ? t('structure') : '',
+                            brush.colour ?? '',
+                          ]
+                            .filter(Boolean)
+                            .join(', '),
+                        })}
                       </span>
                       <input
                         maxLength={40}
                         onChange={(event) => setFeatureName(event.target.value)}
-                        placeholder="Alliance HQ"
+                        placeholder={t('Alliance HQ')}
                         value={featureName}
                       />
                     </label>
@@ -2039,21 +2133,20 @@ export function FormationEditor({
                       disabled={featureName.trim() === '' || featureAdd.isPending}
                       type="submit"
                     >
-                      Add to list
+                      {t('Add to list')}
                     </button>
                   </form>
                 </fieldset>
 
                 <fieldset>
-                  <legend>Saved shapes</legend>
+                  <legend>{t('Saved shapes')}</legend>
                   <p className="subtle">
-                    A shape is offsets from the anchor, so a saved one carries no map and nobody
-                    standing on it — the same hive fits any anchor on any server. Pick one and click
-                    the map, like the shapes below: it goes down round the square you click, as
-                    often as you like. Nothing is written until you save.
+                    {t(
+                      'A shape is offsets from the anchor, so a saved one carries no map and nobody standing on it — the same hive fits any anchor on any server. Pick one and click the map, like the shapes below: it goes down round the square you click, as often as you like. Nothing is written until you save.',
+                    )}
                   </p>
                   {templates.isError ? (
-                    <p className="error">Could not load the saved shapes.</p>
+                    <p className="error">{t('Could not load the saved shapes.')}</p>
                   ) : null}
                   <div className="hive-features">
                     {(templates.data ?? []).map((template) => (
@@ -2070,11 +2163,14 @@ export function FormationEditor({
                           title={template.note === '' ? undefined : template.note}
                           type="button"
                         >
-                          {template.name} · {template.bases} base{template.bases === 1 ? '' : 's'}
+                          {template.name} ·{' '}
+                          {template.bases === 1
+                            ? t('{count} base', { count: template.bases })
+                            : t('{count} bases', { count: template.bases })}
                           {template.structures === 0 ? '' : ` + ${template.structures}`}
                         </button>
                         <button
-                          aria-label={`Delete the saved shape ${template.name}`}
+                          aria-label={t('Delete the saved shape {name}', { name: template.name })}
                           className="hive-feature__drop"
                           disabled={templateRemove.isPending}
                           onClick={() => templateRemove.mutate(template.templateId)}
@@ -2085,7 +2181,7 @@ export function FormationEditor({
                       </span>
                     ))}
                     {templates.isSuccess && templates.data.length === 0 ? (
-                      <span className="subtle">Nothing saved yet.</span>
+                      <span className="subtle">{t('Nothing saved yet.')}</span>
                     ) : null}
                   </div>
                   <form
@@ -2100,12 +2196,14 @@ export function FormationEditor({
                   >
                     <label>
                       <span>
-                        Save the {draft.size} tile{draft.size === 1 ? '' : 's'} drawn as
+                        {draft.size === 1
+                          ? t('Save the {count} tile drawn as', { count: draft.size })
+                          : t('Save the {count} tiles drawn as', { count: draft.size })}
                       </span>
                       <input
                         maxLength={60}
                         onChange={(event) => setTemplateName(event.target.value)}
-                        placeholder="Bear rally"
+                        placeholder={t('Bear rally')}
                         value={templateName}
                       />
                     </label>
@@ -2122,43 +2220,45 @@ export function FormationEditor({
                         (template) =>
                           template.name.trim().toLowerCase() === templateName.trim().toLowerCase(),
                       )
-                        ? 'Replace saved shape'
-                        : 'Save shape'}
+                        ? t('Replace saved shape')
+                        : t('Save shape')}
                     </button>
                   </form>
                 </fieldset>
 
                 <fieldset>
-                  <legend>Anchor</legend>
+                  <legend>{t('Anchor')}</legend>
                   <p className="subtle">
-                    Every tile is stored as an offset from here, so moving the anchor moves the
-                    whole formation and cannot change its shape. Or drag the anchor square on the
-                    map — every tile follows it.
+                    {t(
+                      'Every tile is stored as an offset from here, so moving the anchor moves the whole formation and cannot change its shape. Or drag the anchor square on the map — every tile follows it.',
+                    )}
                   </p>
                   <CoordinateInput
                     at={anchor}
                     busy={anchorMove.isPending}
                     fits={(to) => formationFitsAt(to, drawn)}
-                    label="Anchor"
+                    label={t('Anchor')}
                     onSubmit={moveAnchor}
-                    submitLabel="Move formation"
-                    whyNot="From there part of the formation would run off the map."
+                    submitLabel={t('Move formation')}
+                    whyNot={t('From there part of the formation would run off the map.')}
                   />
                   {/* THE OTHER THING AN ANCHOR CHANGE CAN MEAN: measure the plan
                       from somewhere else, and move nothing. */}
                   <p className="subtle">
-                    Or set the anchor somewhere else and leave every tile where it is — on a
-                    coordinate, or on a base or structure already drawn. It is saved at once, so
-                    save or discard your changes first.
+                    {t(
+                      'Or set the anchor somewhere else and leave every tile where it is — on a coordinate, or on a base or structure already drawn. It is saved at once, so save or discard your changes first.',
+                    )}
                   </p>
                   <CoordinateInput
                     at={anchor}
                     busy={reanchor.isPending}
                     fits={() => !unsaved}
-                    label="New anchor"
+                    label={t('New anchor')}
                     onSubmit={reanchorAt}
-                    submitLabel="Set anchor here"
-                    whyNot="Save or discard your changes first: setting the anchor rewrites every tile."
+                    submitLabel={t('Set anchor here')}
+                    whyNot={t(
+                      'Save or discard your changes first: setting the anchor rewrites every tile.',
+                    )}
                   />
                   <p className="hive-shapes">
                     <button
@@ -2167,18 +2267,18 @@ export function FormationEditor({
                       onClick={() => choosingAnchor(!pickingAnchor)}
                       type="button"
                     >
-                      Pick a base or structure on the map
+                      {t('Pick a base or structure on the map')}
                     </button>
                   </p>
                 </fieldset>
 
                 <fieldset>
-                  <legend>Look at</legend>
+                  <legend>{t('Look at')}</legend>
                   <CoordinateInput
                     at={centre}
-                    label="Centre the view on"
+                    label={t('Centre the view on')}
                     onSubmit={setCentre}
-                    submitLabel="Go there"
+                    submitLabel={t('Go there')}
                   />
                 </fieldset>
               </div>
@@ -2186,17 +2286,12 @@ export function FormationEditor({
           </section>
         </div>
         <p className="subtle">
-          Drag a name from the Members tab onto the map: on free ground it draws their base there,
-          on a base it puts them on it. To take somebody off without losing the base, press × on
-          their row. Click free ground to place a base, click a base to take it away (with whoever
-          is on it). Each one is {BASE_SPAN}x{BASE_SPAN} tiles and the coordinate is the middle.
-          Drag from empty ground to slide the map — or hold <kbd>ctrl</kbd>, which works while an
-          area tool is on too. Hold <kbd>ctrl</kbd> and use the wheel, or pinch, to zoom; the house
-          in the corner goes to the anchor and the frame shows the whole formation. The anchor is
-          the bright square, drawn over anything on it: drag it to move everything. Drag the corner
-          handle to resize the map, and the bar beside the panel to widen the panel. Shaded squares
-          are where the map last SAW somebody — a base that was destroyed or lost its shield has
-          been teleported somewhere random, so treat them as a hint and not as a wall.
+          {rich(
+            t(
+              'Drag a name from the Members tab onto the map: on free ground it draws their base there, on a base it puts them on it. To take somebody off without losing the base, press × on their row. Click free ground to place a base, click a base to take it away (with whoever is on it). Each one is {size} tiles and the coordinate is the middle. Drag from empty ground to slide the map — or hold {key}, which works while an area tool is on too. Hold {key} and use the wheel, or pinch, to zoom; the house in the corner goes to the anchor and the frame shows the whole formation. The anchor is the bright square, drawn over anything on it: drag it to move everything. Drag the corner handle to resize the map, and the bar beside the panel to widen the panel. Shaded squares are where the map last SAW somebody — a base that was destroyed or lost its shield has been teleported somewhere random, so treat them as a hint and not as a wall.',
+            ),
+            { size: `${BASE_SPAN}x${BASE_SPAN}`, key: <kbd>ctrl</kbd> },
+          )}
         </p>
       </div>
 
@@ -2206,23 +2301,25 @@ export function FormationEditor({
         {saveActions}
         {dirty ? (
           <p className="empty">
-            This list comes back once the shape is saved — it reads the saved tiles, and some of
-            these are not saved yet. Until then, drag names from the list on the Draw the shape tab
-            onto the bases; Save keeps them where they were dropped.
+            {t(
+              'This list comes back once the shape is saved — it reads the saved tiles, and some of these are not saved yet. Until then, drag names from the list on the Draw the shape tab onto the bases; Save keeps them where they were dropped.',
+            )}
           </p>
         ) : ordered.length === 0 ? (
           <p className="empty">
-            No member bases yet. Place some {BASE_SPAN}x{BASE_SPAN} bases above and save them.
+            {t('No member bases yet. Place some {size} bases above and save them.', {
+              size: `${BASE_SPAN}x${BASE_SPAN}`,
+            })}
           </p>
         ) : (
           <>
             <div className="hive-assign">
               <label>
-                <span>Fill in order of</span>
+                <span>{t('Fill in order of')}</span>
                 <Select onChange={(chosen) => setOrder(chosen as AssignOrder)} value={order}>
                   {ORDERS.map((option) => (
                     <option key={option} value={option}>
-                      {assignOrderLabel(option)}
+                      {t(assignOrderLabel(option))}
                     </option>
                   ))}
                 </Select>
@@ -2234,15 +2331,23 @@ export function FormationEditor({
                   setRefusal(
                     result.unplaced.length === 0
                       ? null
-                      : `${result.unplaced.length} member${result.unplaced.length === 1 ? ' has' : 's have'} no tile: the formation is smaller than the roster.`,
+                      : result.unplaced.length === 1
+                        ? t(
+                            '{count} member has no tile: the formation is smaller than the roster.',
+                            { count: result.unplaced.length },
+                          )
+                        : t(
+                            '{count} members have no tile: the formation is smaller than the roster.',
+                            { count: result.unplaced.length },
+                          ),
                   );
                 }}
                 type="button"
               >
-                Fill the empty tiles
+                {t('Fill the empty tiles')}
               </button>
               <button onClick={() => setAssignments(new Map())} type="button">
-                Empty every tile
+                {t('Empty every tile')}
               </button>
             </div>
             {/* PINS IN GROUPS, because the reason to pin is almost never one
@@ -2251,36 +2356,45 @@ export function FormationEditor({
               that does not say who is senior. */}
             <div className="hive-assign hive-pins">
               <span className="subtle">
-                {pinned.size} of {pinnableCount} filled tile{pinnableCount === 1 ? '' : 's'} pinned
+                {pinnableCount === 1
+                  ? t('{pinned} of {count} filled tile pinned', {
+                      pinned: pinned.size,
+                      count: pinnableCount,
+                    })
+                  : t('{pinned} of {count} filled tiles pinned', {
+                      pinned: pinned.size,
+                      count: pinnableCount,
+                    })}
               </span>
               <button
                 disabled={pinnableCount === 0}
                 onClick={() => pinWhere(() => true)}
                 type="button"
               >
-                Pin every filled tile
+                {t('Pin every filled tile')}
               </button>
               <button
                 disabled={pinnableCount === 0}
                 onClick={() => pinWhere((member) => (member.memberRank ?? 0) >= 4)}
                 type="button"
               >
-                Pin R4 and R5
+                {t('Pin R4 and R5')}
               </button>
               <button
                 disabled={pinned.size === 0}
                 onClick={() => setPinned(new Map())}
                 type="button"
               >
-                Unpin everything
+                {t('Unpin everything')}
               </button>
             </div>
             <p className="subtle">
-              Filling runs from the inside out: the innermost ring against Frankie is handed out
-              first, so whoever sorts highest above stands closest. Choosing somebody by hand pins
-              them, so a later fill leaves them where you put them — place the few whose position
-              matters and let everybody else fall in around them. Nothing here is written until you
-              press <strong>Save</strong> above, which saves the shape and the people together.
+              {rich(
+                t(
+                  'Filling runs from the inside out: the innermost ring against Frankie is handed out first, so whoever sorts highest above stands closest. Choosing somebody by hand pins them, so a later fill leaves them where you put them — place the few whose position matters and let everybody else fall in around them. Nothing here is written until you press {save} above, which saves the shape and the people together.',
+                ),
+                { save: <strong>{t('Save')}</strong> },
+              )}
             </p>
             {/* NAMED, NOT COUNTED. "6 members not placed" is the one number an
               officer cannot act on: the next thing they do is work out WHO,
@@ -2288,27 +2402,32 @@ export function FormationEditor({
             {unplaced.length > 0 && (
               <details className="hive-unplaced">
                 <summary>
-                  <strong>
-                    {unplaced.length} member{unplaced.length === 1 ? '' : 's'} not placed
-                  </strong>{' '}
-                  — nobody has told them where to go
+                  {rich(t('{members} — nobody has told them where to go'), {
+                    members: (
+                      <strong>
+                        {unplaced.length === 1
+                          ? t('{count} member not placed', { count: unplaced.length })
+                          : t('{count} members not placed', { count: unplaced.length })}
+                      </strong>
+                    ),
+                  })}
                 </summary>
                 <ul>
                   {sortMembers(unplaced, order).map((member) => (
-                    <li key={member.playerId}>{memberLabel(member)}</li>
+                    <li key={member.playerId}>{memberLabel(member, t)}</li>
                   ))}
                 </ul>
               </details>
             )}
             <div className="hive-assign">
               <label>
-                <span>Sort the list by</span>
+                <span>{t('Sort the list by')}</span>
                 <Select
                   onChange={(chosen) => setTableSort(chosen as 'name' | 'tile')}
                   value={tableSort}
                 >
-                  <option value="name">Member name (A–Z)</option>
-                  <option value="tile">Tile order (innermost first)</option>
+                  <option value="name">{t('Member name (A–Z)')}</option>
+                  <option value="tile">{t('Tile order (innermost first)')}</option>
                 </Select>
               </label>
               {/* THE TWO ORDERS ARE DIFFERENT QUESTIONS. Reading down for a
@@ -2324,10 +2443,10 @@ export function FormationEditor({
                     how a hive is actually planned and the table had no way to
                     say where ring 1 ended. The rows are already in ring order;
                     this only names what the order is. */}
-                  <th>Ring</th>
-                  <th>Teleport to</th>
-                  <th>Note</th>
-                  <th>Member</th>
+                  <th>{t('Ring')}</th>
+                  <th>{t('Teleport to')}</th>
+                  <th>{t('Note')}</th>
+                  <th>{t('Member')}</th>
                   <th>
                     {/* THE HEADER IS WHERE PEOPLE LOOK FOR SELECT-ALL, whatever
                       buttons sit above the table. Indeterminate when some are
@@ -2336,8 +2455,8 @@ export function FormationEditor({
                     <input
                       aria-label={
                         pinned.size === pinnableCount && pinnableCount > 0
-                          ? 'Unpin every tile'
-                          : 'Pin every filled tile'
+                          ? t('Unpin every tile')
+                          : t('Pin every filled tile')
                       }
                       checked={pinnableCount > 0 && pinned.size === pinnableCount}
                       disabled={pinnableCount === 0}
@@ -2355,7 +2474,7 @@ export function FormationEditor({
                       }}
                       type="checkbox"
                     />{' '}
-                    Pin
+                    {t('Pin')}
                   </th>
                 </tr>
               </thead>
@@ -2390,7 +2509,7 @@ export function FormationEditor({
                             );
                             setCopied(slot.slotId);
                           }}
-                          title="Copy this coordinate"
+                          title={t('Copy this coordinate')}
                           type="button"
                         >
                           <code>
@@ -2429,21 +2548,21 @@ export function FormationEditor({
                           }}
                           value={chosen}
                         >
-                          <option value="">— empty —</option>
+                          <option value="">{t('— empty —')}</option>
                           {/* RANK AND POWER IN THE OPTION, because the inner
                             ring is picked by hand and "who are my R4s" is the
                             question being answered while the list is open.
                             A name alone made that a separate lookup. */}
                           {members.map((member) => (
                             <option key={member.playerId} value={member.playerId}>
-                              {memberLabel(member)}
+                              {memberLabel(member, t)}
                             </option>
                           ))}
                         </Select>
                       </td>
                       <td>
                         <input
-                          aria-label={`Pin tile ${slot.ordinal}`}
+                          aria-label={t('Pin tile {number}', { number: slot.ordinal })}
                           checked={pinned.has(slot.slotId)}
                           disabled={chosen === ''}
                           onChange={(event) => {
@@ -2499,6 +2618,7 @@ function CoordinateInput({
   whyNot?: string;
   busy?: boolean;
 }) {
+  const t = useT();
   const [x, setX] = useState(String(at.x));
   const [y, setY] = useState(String(at.y));
   const [seed, setSeed] = useState(at);
@@ -2524,7 +2644,7 @@ function CoordinateInput({
       }}
     >
       <label>
-        <span>{label} x</span>
+        <span>{t('{label} x', { label })}</span>
         <input inputMode="numeric" onChange={(event) => setX(event.target.value)} value={x} />
       </label>
       <label>
@@ -2532,7 +2652,7 @@ function CoordinateInput({
         <input inputMode="numeric" onChange={(event) => setY(event.target.value)} value={y} />
       </label>
       <button disabled={!usable || busy || unchanged} type="submit">
-        {busy ? 'Moving…' : submitLabel}
+        {busy ? t('Moving…') : submitLabel}
       </button>
       {onMap && !usable && whyNot !== undefined && <p className="hive-coordinate__why">{whyNot}</p>}
     </form>

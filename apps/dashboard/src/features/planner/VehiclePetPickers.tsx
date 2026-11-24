@@ -8,6 +8,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { GameIcon, useIcons } from '../../lib/gameIcons';
 import { petName, usePetCatalogue } from '../../lib/heroes';
+import { useT } from '../../lib/i18n';
 import { LevelPicker } from './LevelPicker';
 import type { Account } from './accounts';
 import { fetchCatalogSubjects } from './data';
@@ -32,15 +33,17 @@ function useMaxima(kind: 'vehicle' | 'vehicle_part' | 'pet') {
 }
 
 export function VehiclePicker({ account, targets, onSet }: PickerProps) {
+  const t = useT();
   const vehicle = useMaxima('vehicle');
   const parts = useMaxima('vehicle_part');
-  if (vehicle.isPending || parts.isPending) return <p className="empty">Loading the vehicle…</p>;
+  if (vehicle.isPending || parts.isPending)
+    return <p className="empty">{t('Loading the vehicle…')}</p>;
   if (vehicle.isError) return <p className="error">{vehicle.error.message}</p>;
   if (parts.isError) return <p className="error">{parts.error.message}</p>;
   if (account.vehicle.level === undefined) {
     return (
       <p className="empty">
-        No vehicle on this account yet — it comes from a login (collector 1.6.0 or later).
+        {t('No vehicle on this account yet — it comes from a login (collector 1.6.0 or later).')}
       </p>
     );
   }
@@ -52,23 +55,26 @@ export function VehiclePicker({ account, targets, onSet }: PickerProps) {
         <thead>
           <tr>
             <th className="label" scope="col">
-              Vehicle
+              {t('Vehicle')}
             </th>
-            <th scope="col">Level</th>
+            <th scope="col">{t('Level')}</th>
           </tr>
         </thead>
         <tbody>
           <tr>
             <td className="label">
-              Vehicle level
+              {t('Vehicle level')}
               {account.vehicle.exp ? (
-                <span className="subtle"> · {account.vehicle.exp} exp toward the next</span>
+                <span className="subtle">
+                  {' '}
+                  · {t('{exp} exp toward the next', { exp: account.vehicle.exp })}
+                </span>
               ) : null}
             </td>
             <td>
               <LevelPicker
                 current={level}
-                label="Vehicle level"
+                label={t('Vehicle level')}
                 max={vehicle.data.get('0')?.maxLevel ?? level}
                 onChange={(to) =>
                   onSet({ kind: 'vehicle', subject: '0', name: 'Vehicle', from: level, to })
@@ -81,7 +87,7 @@ export function VehiclePicker({ account, targets, onSet }: PickerProps) {
           </tr>
           {slots.map((slot) => {
             const part = parts.data.get(slot);
-            const name = part?.name ?? `Part ${slot}`;
+            const name = part?.name ?? t('Part {slot}', { slot });
             const current = account.vehicleParts[slot] ?? 0;
             return (
               <tr key={slot}>
@@ -89,7 +95,7 @@ export function VehiclePicker({ account, targets, onSet }: PickerProps) {
                 <td>
                   <LevelPicker
                     current={current}
-                    label={`${name} level`}
+                    label={t('{name} level', { name })}
                     max={part?.maxLevel ?? current}
                     onChange={(to) =>
                       onSet({ kind: 'vehicle_part', subject: slot, name, from: current, to })
@@ -109,15 +115,16 @@ export function VehiclePicker({ account, targets, onSet }: PickerProps) {
 }
 
 export function PetPicker({ account, targets, onSet }: PickerProps) {
+  const t = useT();
   const maxima = useMaxima('pet');
   const catalogue = usePetCatalogue();
   const icons = useIcons('pet');
-  if (maxima.isPending || catalogue.isPending) return <p className="empty">Loading pets…</p>;
+  if (maxima.isPending || catalogue.isPending) return <p className="empty">{t('Loading pets…')}</p>;
   if (maxima.isError) return <p className="error">{maxima.error.message}</p>;
   if (account.pets.length === 0) {
     return (
       <p className="empty">
-        No pets on this account yet — they come from a login (collector 1.6.0 or later).
+        {t('No pets on this account yet — they come from a login (collector 1.6.0 or later).')}
       </p>
     );
   }
@@ -127,10 +134,10 @@ export function PetPicker({ account, targets, onSet }: PickerProps) {
         <thead>
           <tr>
             <th className="label" scope="col">
-              Pet
+              {t('Pet')}
             </th>
-            <th scope="col">Breakthrough</th>
-            <th scope="col">Level</th>
+            <th scope="col">{t('Breakthrough')}</th>
+            <th scope="col">{t('Level')}</th>
           </tr>
         </thead>
         <tbody>
@@ -147,11 +154,11 @@ export function PetPicker({ account, targets, onSet }: PickerProps) {
                 <td>{pet.breakthrough}</td>
                 <td>
                   {rarity === null ? (
-                    <span className="subtle">rarity unknown — run game-catalog</span>
+                    <span className="subtle">{t('rarity unknown — run game-catalog')}</span>
                   ) : (
                     <LevelPicker
                       current={pet.level}
-                      label={`${name} level`}
+                      label={t('{name} level', { name })}
                       max={maxima.data.get(String(rarity))?.maxLevel ?? pet.level}
                       onChange={(to) =>
                         onSet({

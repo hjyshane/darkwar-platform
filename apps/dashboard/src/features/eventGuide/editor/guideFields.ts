@@ -1,5 +1,6 @@
 // The guide row as the form holds it (0310): everything is text until Save.
 
+import { type Translate, english } from '../../../lib/i18n/core';
 import type { GuideInput } from '../guideData';
 import { type GuideRow, parseStartsRule } from '../guides';
 
@@ -47,30 +48,35 @@ export type GuideFormResult = { ok: true; input: GuideInput } | { ok: false; rea
 /** What the table would accept, or the sentence that says what it would not.
  * The database checks the same things; this is so the person is told before
  * they press Save, not after the round trip. */
-export function guideInputFrom(state: GuideFormState, guideId?: string): GuideFormResult {
+export function guideInputFrom(
+  state: GuideFormState,
+  guideId?: string,
+  t: Translate = english,
+): GuideFormResult {
   const title = state.title.trim();
-  if (title === '') return { ok: false, reason: 'The guide needs a title.' };
-  if (title.length > 120) return { ok: false, reason: 'The title is at most 120 characters.' };
+  if (title === '') return { ok: false, reason: t('The guide needs a title.') };
+  if (title.length > 120) return { ok: false, reason: t('The title is at most 120 characters.') };
   if (!SLUG.test(state.slug)) {
     return {
       ok: false,
-      reason:
+      reason: t(
         'The address uses lower-case letters, digits and hyphens, starts with a letter or digit, and is at most 80 characters.',
+      ),
     };
   }
   const weekday = state.weekday.trim();
   const time = state.time.trim();
   if ((weekday === '') !== (time === '')) {
-    return { ok: false, reason: 'Set both the weekday and the time, or neither.' };
+    return { ok: false, reason: t('Set both the weekday and the time, or neither.') };
   }
   const rule: Record<string, unknown> = {};
   if (weekday !== '') {
     const day = Number(weekday);
     if (!Number.isInteger(day) || day < 1 || day > 7) {
-      return { ok: false, reason: 'The weekday is 1 (Monday) to 7 (Sunday).' };
+      return { ok: false, reason: t('The weekday is 1 (Monday) to 7 (Sunday).') };
     }
     if (!CLOCK.test(time))
-      return { ok: false, reason: 'The time is a server-time clock, like 14:00.' };
+      return { ok: false, reason: t('The time is a server-time clock, like 14:00.') };
     rule.weekday = day;
     rule.time = time;
   }

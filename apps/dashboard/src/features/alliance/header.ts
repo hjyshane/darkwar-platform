@@ -5,6 +5,7 @@
 import type { LedTone } from '../../components/console/Led';
 import { compactNumber } from '../../lib/compactNumber';
 import { formatAge } from '../../lib/freshness';
+import { type Translate, english } from '../../lib/i18n/core';
 import { supabase } from '../../lib/supabase';
 import type { StandingRow } from './verdict';
 
@@ -23,14 +24,18 @@ export interface LedFact {
 /** How fresh the roster read is. Absent when no roster was ever captured,
  * which is every alliance but ours: a grey light there would say "unknown"
  * about something nobody expected to know. */
-export function rosterLed(capturedAt: string | null, now: Date): LedFact | null {
+export function rosterLed(
+  capturedAt: string | null,
+  now: Date,
+  t: Translate = english,
+): LedFact | null {
   if (capturedAt === null) return null;
   const hours = (now.getTime() - Date.parse(capturedAt)) / 3_600_000;
-  const age = formatAge(capturedAt, now).replace(/ ago$/, '');
+  const age = formatAge(capturedAt, now, t).replace(/ ago$/, '');
   return {
     tone: hours >= ROSTER_WARN_HOURS ? 'warn' : 'ok',
-    text: `Roster ${age}`,
-    title: `Newest roster capture: ${capturedAt}`,
+    text: t('Roster {age}', { age }),
+    title: t('Newest roster capture: {time}', { time: capturedAt }),
   };
 }
 
@@ -39,19 +44,21 @@ export function rosterLed(capturedAt: string | null, now: Date): LedFact | null 
 export function captureLed(
   membersFrom: 'roster' | 'last known',
   complete: boolean,
+  t: Translate = english,
 ): LedFact | null {
   if (membersFrom !== 'roster') return null;
   return complete
     ? {
         tone: 'ok',
-        text: 'Capture complete',
-        title: 'The newest roster capture saw every member the game reports.',
+        text: t('Capture complete'),
+        title: t('The newest roster capture saw every member the game reports.'),
       }
     : {
         tone: 'bad',
-        text: 'Capture cut short',
-        title:
+        text: t('Capture cut short'),
+        title: t(
           'The newest roster capture stopped before the end; a member missing from the list may not have been scrolled to.',
+        ),
       };
 }
 

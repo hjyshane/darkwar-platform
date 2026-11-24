@@ -1,6 +1,7 @@
 import { formatCoordinate } from '@dw/ui';
 import { StatTile } from '../../components/StatTile';
 import { formatAge } from '../../lib/freshness';
+import { useT } from '../../lib/i18n';
 import {
   type Atlas,
   type AtlasBase,
@@ -37,6 +38,7 @@ export function BaseRow({
   on: boolean;
   onChoose: (base: AtlasBase) => void;
 }) {
+  const t = useT();
   return (
     <li>
       <button
@@ -45,9 +47,9 @@ export function BaseRow({
         type="button"
       >
         <span className="atlas-base-row__who">
-          <strong>{base.name ?? 'unnamed'}</strong>
+          <strong>{base.name ?? t('unnamed')}</strong>
           <span className="subtle">
-            {base.hq !== null && `HQ ${base.hq} · `}
+            {base.hq !== null && `${t('HQ {level}', { level: base.hq })} · `}
             {formatCopyCoordinate(base.at)}
             {base.shieldEnd !== null && isShielded(base, new Date()) && (
               <> · 🛡 {shieldLeft(base.shieldEnd, new Date())}</>
@@ -80,18 +82,19 @@ export function AllianceDetail({
   onCentre: () => void;
   onChoose: (base: AtlasBase) => void;
 }) {
+  const t = useT();
   const alliance = atlas.alliances[index];
   if (alliance === undefined) return null;
   const summary = allianceSummary(atlas, index, now);
   const color = allianceColor(alliance.id, isOurs);
   return (
-    <section aria-label="Alliance" className="atlas-detail">
+    <section aria-label={t('Alliance')} className="atlas-detail">
       <div className="atlas-detail__bar">
         <button className="linklike" onClick={onBack} type="button">
-          ‹ All alliances
+          ‹ {t('All alliances')}
         </button>
         <button className="atlas-detail__action" onClick={onCentre} type="button">
-          Centre on the alliance
+          {t('Centre on the alliance')}
         </button>
       </div>
       <div className="atlas-detail__head" style={{ borderColor: color }}>
@@ -100,19 +103,22 @@ export function AllianceDetail({
           <strong>[{alliance.code ?? '?'}]</strong>
           <span className="subtle">
             {alliance.name ?? ''}
-            {isOurs && ' · your alliance'}
+            {isOurs && ` · ${t('your alliance')}`}
           </span>
         </div>
       </div>
       <div className="strip">
-        <StatTile label="Bases" value={plain.format(summary.bases)} />
-        <StatTile label="Shielded" value={plain.format(summary.shielded)} />
-        <StatTile label="Real power" value={formatPower(summary.realPower)} />
+        <StatTile label={t('Bases')} value={plain.format(summary.bases)} />
+        <StatTile label={t('Shielded')} value={plain.format(summary.shielded)} />
+        <StatTile label={t('Real power')} value={formatPower(summary.realPower)} />
       </div>
       <p className="subtle">
-        {summary.profilesRead} of {summary.bases} profiles read.
+        {t('{read} of {total} profiles read.', {
+          read: summary.profilesRead,
+          total: summary.bases,
+        })}
       </p>
-      <h3 className="atlas-detail__title">Strongest here</h3>
+      <h3 className="atlas-detail__title">{t('Strongest here')}</h3>
       <ol className="map-results atlas-strongest">
         {summary.strongest.map((base) => (
           <BaseRow
@@ -152,6 +158,7 @@ export function BaseDetail({
   onCopy: (base: AtlasBase) => void;
   onChoose: (base: AtlasBase) => void;
 }) {
+  const t = useT();
   const alliance = base.alliance >= 0 ? atlas.alliances[base.alliance] : undefined;
   const color = allianceColor(alliance?.id ?? null, isOurs);
   const shielded = isShielded(base, now) && base.shieldEnd !== null;
@@ -168,57 +175,67 @@ export function BaseDetail({
           ),
         ).slice(0, 12);
   return (
-    <section aria-label="Base" className="atlas-detail">
+    <section aria-label={t('Base')} className="atlas-detail">
       <div className="atlas-detail__bar">
         <button className="linklike" onClick={onBack} type="button">
-          {alliance?.code ? `‹ [${alliance.code}]` : '‹ All alliances'}
+          {alliance?.code ? `‹ [${alliance.code}]` : `‹ ${t('All alliances')}`}
         </button>
       </div>
       <div className="atlas-detail__head" style={{ borderColor: color }}>
         <Badge color={color} text={base.name ?? '?'} />
         <div>
-          <strong>{base.name ?? 'unnamed'}</strong>
+          <strong>{base.name ?? t('unnamed')}</strong>
           <span className="subtle">
-            {alliance ? `[${alliance.code ?? '?'}] ${alliance.name ?? ''}` : 'No alliance seen'}
+            {alliance ? `[${alliance.code ?? '?'}] ${alliance.name ?? ''}` : t('No alliance seen')}
           </span>
         </div>
-        <button aria-label="Close" className="atlas-detail__close" onClick={onClose} type="button">
+        <button
+          aria-label={t('Close')}
+          className="atlas-detail__close"
+          onClick={onClose}
+          type="button"
+        >
           ×
         </button>
       </div>
       <div className="strip">
-        <StatTile label="Real power" value={formatPower(base.power)} />
-        <StatTile label="HQ" value={base.hq === null ? '—' : String(base.hq)} />
+        <StatTile label={t('Real power')} value={formatPower(base.power)} />
+        <StatTile label={t('HQ')} value={base.hq === null ? '—' : String(base.hq)} />
         <StatTile
-          label="Shield"
+          label={t('Shield')}
           note={
             shielded && base.shieldEnd !== null
-              ? `until ${base.shieldEnd.toISOString().slice(5, 16).replace('T', ' ')} UTC`
+              ? t('until {time} UTC', {
+                  time: base.shieldEnd.toISOString().slice(5, 16).replace('T', ' '),
+                })
               : undefined
           }
           value={
             shielded && base.shieldEnd !== null
-              ? `🛡 ${shieldLeft(base.shieldEnd, now) ?? ''} left`
-              : 'No shield'
+              ? `🛡 ${t('{time} left', { time: shieldLeft(base.shieldEnd, now) ?? '' })}`
+              : t('No shield')
           }
         />
       </div>
       {home !== serverId && (
         <p className="subtle">
-          Started on server {home} — migrated to {serverId}.
+          {t('Started on server {home} — migrated to {server}.', { home, server: serverId })}
         </p>
       )}
       <p className="subtle">
-        {formatCoordinate(base.at)} · seen {formatAge(base.seenAt.toISOString(), now)}
-        {isStale(base, now) && ' — may have moved, and the shield may have changed'}
+        {formatCoordinate(base.at)} ·{' '}
+        {t('seen {age}', { age: formatAge(base.seenAt.toISOString(), now, t) })}
+        {isStale(base, now) && ` — ${t('may have moved, and the shield may have changed')}`}
       </p>
       <button className="atlas-detail__copy" onClick={() => onCopy(base)} type="button">
-        Copy coordinate
+        {t('Copy coordinate')}
       </button>
-      {copied && <output className="subtle">Copied {copied}</output>}
+      {copied && <output className="subtle">{t('Copied {text}', { text: copied })}</output>}
       {mates.length > 0 && (
         <>
-          <h3 className="atlas-detail__title">Strongest in [{alliance?.code ?? '?'}]</h3>
+          <h3 className="atlas-detail__title">
+            {t('Strongest in [{code}]', { code: alliance?.code ?? '?' })}
+          </h3>
           <ol className="map-results atlas-strongest">
             {mates.map((mate) => (
               <BaseRow base={mate} key={mate.gameUid} on={false} onChoose={onChoose} />

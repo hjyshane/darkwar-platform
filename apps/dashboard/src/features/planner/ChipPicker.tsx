@@ -11,6 +11,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Select } from '../../components/ui/Select';
+import { useT } from '../../lib/i18n';
 import { CHIP_MAX_LEVEL, chipLabel, chipSubjectName } from '../calculator/chips';
 import { fetchCatalogSubjects } from './data';
 import { type Target, targetKey } from './targets';
@@ -43,6 +44,7 @@ function states(from: number, to: number): number[] {
 }
 
 export function ChipPicker({ targets, onSet }: ChipPickerProps) {
+  const t = useT();
   const catalog = useQuery({
     queryKey: ['planner-catalog', 'chip', 'maxima'],
     queryFn: async () =>
@@ -52,7 +54,7 @@ export function ChipPicker({ targets, onSet }: ChipPickerProps) {
   const [asked, setAsked] = useState<Record<string, number>>({});
   const [nows, setNows] = useState<Record<string, number>>({});
 
-  if (catalog.isPending) return <p className="empty">Loading chips…</p>;
+  if (catalog.isPending) return <p className="empty">{t('Loading chips…')}</p>;
   if (catalog.isError) return <p className="error">{catalog.error.message}</p>;
   const qualities = [...catalog.data.keys()].sort((a, b) => Number(a) - Number(b));
   if (qualities.length === 0) return null;
@@ -63,10 +65,10 @@ export function ChipPicker({ targets, onSet }: ChipPickerProps) {
         <thead>
           <tr>
             <th className="label" scope="col">
-              Chip
+              {t('Chip')}
             </th>
-            <th scope="col">Now</th>
-            <th scope="col">Target</th>
+            <th scope="col">{t('Now')}</th>
+            <th scope="col">{t('Target')}</th>
           </tr>
         </thead>
         <tbody>
@@ -75,7 +77,8 @@ export function ChipPicker({ targets, onSet }: ChipPickerProps) {
             const count = chipRowCount(quality, asked[quality] ?? 1, targets.values());
             return states(1, count).map((n) => {
               const subject = `${quality}:${n}`;
-              const name = n === 1 ? chipSubjectName(quality) : `${chipSubjectName(quality)} ${n}`;
+              const name =
+                n === 1 ? chipSubjectName(quality, t) : `${chipSubjectName(quality, t)} ${n}`;
               const target = targets.get(targetKey('chip', subject));
               const now = target?.from ?? nows[subject] ?? 0;
               const to = target?.to ?? now;
@@ -91,17 +94,19 @@ export function ChipPicker({ targets, onSet }: ChipPickerProps) {
                         <button
                           className="link"
                           onClick={() => setAsked({ ...asked, [quality]: count + 1 })}
-                          title={`Plan another ${chipSubjectName(quality).toLowerCase()}`}
+                          title={t('Plan another {chip}', {
+                            chip: chipSubjectName(quality, t).toLowerCase(),
+                          })}
                           type="button"
                         >
-                          + another
+                          {`+ ${t('another')}`}
                         </button>
                       </>
                     )}
                   </td>
                   <td>
                     <Select
-                      aria-label={`${name}: now`}
+                      aria-label={t('{label}: now', { label: name })}
                       onChange={(chosen) => {
                         const from = Number(chosen);
                         setNows({ ...nows, [subject]: from });
@@ -119,10 +124,10 @@ export function ChipPicker({ targets, onSet }: ChipPickerProps) {
                   </td>
                   <td>
                     {now >= max ? (
-                      <span className="subtle level-max">max</span>
+                      <span className="subtle level-max">{t('max')}</span>
                     ) : (
                       <Select
-                        aria-label={`${name}: target`}
+                        aria-label={t('{label}: target', { label: name })}
                         onChange={(chosen) => {
                           // The target is about to be the record of "now"; if it
                           // is cleared again, the row still remembers.
@@ -146,8 +151,9 @@ export function ChipPicker({ targets, onSet }: ChipPickerProps) {
         </tbody>
       </table>
       <p className="note">
-        Chips are not in the login, so choose where each one stands now. EXP is counted in points
-        and duplicates in chips; neither is held as stock.
+        {t(
+          'Chips are not in the login, so choose where each one stands now. EXP is counted in points and duplicates in chips; neither is held as stock.',
+        )}
       </p>
     </div>
   );

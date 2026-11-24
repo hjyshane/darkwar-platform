@@ -3,6 +3,7 @@
 // is '' when nothing is known, and the header then shows no verdict.
 
 import { compactNumber } from '../../lib/compactNumber';
+import { type Translate, english } from '../../lib/i18n/core';
 
 export interface Neighbour {
   tag: string | null;
@@ -36,79 +37,119 @@ export interface VerdictPart {
 const text = (value: string): VerdictPart => ({ kind: 'text', text: value });
 const fig = (value: string): VerdictPart => ({ kind: 'figure', text: value });
 
-function tagged(neighbour: Neighbour): string {
-  return neighbour.tag ? `[${neighbour.tag}]` : 'the next alliance';
+/** A translated sentence as parts: each `{name}` in `figures` becomes a figure,
+ * each in `vars` running text, so the sentence stays whole in every language
+ * and the figures still land in `<code>` wherever its grammar puts them. */
+function sentence(
+  template: string,
+  figures: Readonly<Record<string, string>>,
+  vars: Readonly<Record<string, string | number>> = {},
+): VerdictPart[] {
+  const parts: VerdictPart[] = [];
+  for (const piece of template.split(/(\{\w+\})/)) {
+    const name = /^\{(\w+)\}$/.exec(piece)?.[1];
+    if (name !== undefined && name in figures) {
+      parts.push(fig(figures[name] as string));
+    } else if (name !== undefined && name in vars) {
+      parts.push(text(String(vars[name])));
+    } else if (piece !== '') {
+      parts.push(text(piece));
+    }
+  }
+  return parts;
+}
+
+function tagged(neighbour: Neighbour, t: Translate): string {
+  return neighbour.tag ? `[${neighbour.tag}]` : t('the next alliance');
 }
 
 /** The distance to the neighbour that matters: the lead over second place for
  * the leader, the gap to the place above for everybody else. Null when either
  * power was never read. */
-function gap(facts: AllianceVerdictFacts): { amount: string; rest: string } | null {
+function gap(
+  facts: AllianceVerdictFacts,
+  t: Translate,
+): { amount: string; ahead: boolean; alliance: string } | null {
   if (facts.rank === null || facts.power === null) return null;
   if (facts.rank === 1 && facts.below?.power != null) {
     return {
       amount: figure.format(facts.power - facts.below.power),
-      rest: ` ahead of ${tagged(facts.below)}`,
+      ahead: true,
+      alliance: tagged(facts.below, t),
     };
   }
   if (facts.rank > 1 && facts.above?.power != null) {
     return {
       amount: figure.format(facts.above.power - facts.power),
-      rest: ` behind ${tagged(facts.above)}`,
+      ahead: false,
+      alliance: tagged(facts.above, t),
     };
   }
   return null;
 }
 
 /** The gap as one phrase, for the rank cell's context line: `1.2G behind [ADET]`. */
-export function standingGap(facts: AllianceVerdictFacts): string | null {
-  const found = gap(facts);
-  return found === null ? null : `${found.amount}${found.rest}`;
+export function standingGap(facts: AllianceVerdictFacts, t: Translate = english): string | null {
+  const found = gap(facts, t);
+  if (found === null) return null;
+  const vars = { amount: found.amount, alliance: found.alliance };
+  return found.ahead
+    ? t('{amount} ahead of {alliance}', vars)
+    : t('{amount} behind {alliance}', vars);
 }
 
-function standing(facts: AllianceVerdictFacts): VerdictPart[] {
+function standing(facts: AllianceVerdictFacts, t: Translate): VerdictPart[] {
   if (facts.rank === null || facts.total === null || facts.serverId === null) return [];
-  const parts = [fig(`#${facts.rank}`), text(` of ${facts.total} alliances on ${facts.serverId}`)];
-  const found = gap(facts);
-  if (found !== null) parts.push(text(', '), fig(found.amount), text(found.rest));
-  parts.push(text('.'));
-  return parts;
+  const rank = `#${facts.rank}`;
+  const vars = { total: facts.total, server: facts.serverId };
+  const found = gap(facts, t);
+  if (found === null) {
+    return sentence(t('{rank} of {total} alliances on {server}.'), { rank }, vars);
+  }
+  const all = { ...vars, alliance: found.alliance };
+  return sentence(
+    found.ahead
+      ? t('{rank} of {total} alliances on {server}, {amount} ahead of {alliance}.')
+      : t('{rank} of {total} alliances on {server}, {amount} behind {alliance}.'),
+    { rank, amount: found.amount },
+    all,
+  );
 }
 
-function rules(facts: AllianceVerdictFacts): VerdictPart[] {
-  const minimums: VerdictPart[] = [];
-  if (facts.minPower !== null) minimums.push(fig(figure.format(facts.minPower)));
-  if (facts.minHq !== null) {
-    if (minimums.length > 0) minimums.push(text(' and '));
-    minimums.push(fig(`HQ ${facts.minHq}`));
+function rules(facts: AllianceVerdictFacts, t: Translate): VerdictPart[] {
+  const power = facts.minPower === null ? null : figure.format(facts.minPower);
+  const hq = facts.minHq === null ? null : `HQ ${facts.minHq}`;
+  const minimums =
+    power !== null && hq !== null
+      ? sentence(t('{power} and {hq} minimum.'), { power, hq })
+      : power !== null
+        ? sentence(t('{power} minimum.'), { power })
+        : hq !== null
+          ? sentence(t('{hq} minimum.'), { hq })
+          : [];
+  if (facts.joinRule === null) return minimums;
+  if (minimums.length === 0) {
+    return [text(facts.joinRule === 'approval' ? t('Joins need approval.') : t('Open join.'))];
   }
-  const join =
-    facts.joinRule === 'approval'
-      ? 'Joins need approval'
-      : facts.joinRule === 'open'
-        ? 'Open join'
-        : null;
-  if (join === null && minimums.length === 0) return [];
-  const parts: VerdictPart[] = [];
-  if (join !== null) parts.push(text(join));
-  if (join !== null && minimums.length > 0) parts.push(text(' · '));
-  if (minimums.length > 0) parts.push(...minimums, text(' minimum'));
-  parts.push(text('.'));
-  return parts;
+  const join = facts.joinRule === 'approval' ? t('Joins need approval') : t('Open join');
+  return [text(join), text(' · '), ...minimums];
 }
 
 /** The verdict as parts, the standing sentence then the join rules, either
  * dropped when its data is missing. Empty when nothing is known. */
-export function verdictParts(facts: AllianceVerdictFacts): VerdictPart[] {
-  const first = standing(facts);
-  const second = rules(facts);
+export function verdictParts(facts: AllianceVerdictFacts, t: Translate = english): VerdictPart[] {
+  const first = standing(facts, t);
+  const second = rules(facts, t);
   return first.length > 0 && second.length > 0
     ? [...first, text(' '), ...second]
     : [...first, ...second];
 }
 
-export function composeAllianceVerdict(facts: AllianceVerdictFacts): string {
-  return verdictParts(facts)
+export function composeAllianceVerdict(
+  facts: AllianceVerdictFacts,
+  t: Translate = english,
+): string {
+  return verdictParts(facts, t)
     .map((part) => part.text)
     .join('');
 }

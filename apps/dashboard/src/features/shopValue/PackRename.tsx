@@ -5,9 +5,11 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useT } from '../../lib/i18n';
 import { type PackGroup, savePackName } from './data';
 
 export function PackRename({ pack }: { pack: PackGroup }) {
+  const t = useT();
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<string | null>(null);
   const save = useMutation({
@@ -21,13 +23,15 @@ export function PackRename({ pack }: { pack: PackGroup }) {
   if (draft === null) {
     return (
       <button
-        aria-label={`Rename ${pack.name}`}
+        aria-label={t('Rename {name}', { name: pack.name })}
         className="link-button muted pack-rename-button"
         onClick={() => setDraft(pack.renamed ? pack.name : '')}
-        title={pack.renamed ? `Game name: ${pack.game_name}` : 'Rename this pack'}
+        title={
+          pack.renamed ? t('Game name: {name}', { name: pack.game_name }) : t('Rename this pack')
+        }
         type="button"
       >
-        rename
+        {t('rename')}
       </button>
     );
   }
@@ -40,7 +44,7 @@ export function PackRename({ pack }: { pack: PackGroup }) {
       }}
     >
       <input
-        aria-label={`New name for ${pack.game_name}`}
+        aria-label={t('New name for {name}', { name: pack.game_name })}
         // biome-ignore lint/a11y/noAutofocus: the field the reader just asked for
         autoFocus
         maxLength={80}
@@ -49,12 +53,12 @@ export function PackRename({ pack }: { pack: PackGroup }) {
         value={draft}
       />
       <button disabled={save.isPending} type="submit">
-        {save.isPending ? 'Saving…' : 'Save'}
+        {save.isPending ? t('Saving…') : t('Save')}
       </button>
       <button disabled={save.isPending} onClick={() => setDraft(null)} type="button">
-        Cancel
+        {t('Cancel')}
       </button>
-      <span className="muted"> empty = the game's name</span>
+      <span className="muted"> {t("empty = the game's name")}</span>
       {save.error && <span className="error"> {save.error.message}</span>}
     </form>
   );

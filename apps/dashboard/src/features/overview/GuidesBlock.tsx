@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { RichTitle } from '../../components/RichText';
+import { useT } from '../../lib/i18n';
 import { guideHash } from '../../lib/route';
 import { supabase } from '../../lib/supabase';
 
@@ -24,6 +25,7 @@ interface PinnedGuide {
 }
 
 export function GuidesBlock() {
+  const t = useT();
   const { data, error } = useQuery({
     queryKey: ['overview-guides'],
     queryFn: async (): Promise<PinnedGuide[]> => {
@@ -49,7 +51,7 @@ export function GuidesBlock() {
 
   return (
     <section aria-labelledby="overview-guides-heading">
-      <h2 id="overview-guides-heading">Guides</h2>
+      <h2 id="overview-guides-heading">{t('Guides')}</h2>
       <ul className="board-list">
         {data.map((guide) => (
           <li key={guide.guide_id}>
@@ -61,7 +63,7 @@ export function GuidesBlock() {
         ))}
       </ul>
       <p className="subtle">
-        <a href="#/guides">All guides</a>
+        <a href="#/guides">{t('All guides')}</a>
       </p>
     </section>
   );
