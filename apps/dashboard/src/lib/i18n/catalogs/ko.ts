@@ -2311,4 +2311,8 @@ export const ko: Catalog = {
   'Show original': '원문 보기',
   'Translating…': '번역 중…',
   'Translate into {language}': '{language}로 번역',
+  'Could not load {what}.': '{what}을(를) 불러오지 못했어요.',
+  'Trying again…': '다시 시도하는 중…',
+  'the hive plan': '하이브 계획',
+  "this week's events": '이번 주 이벤트',
 };

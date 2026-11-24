@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { QueryProblem } from '../../components/QueryProblem';
 import { rich, useT } from '../../lib/i18n';
 import { shareCoordinate } from '../../lib/shareCoordinate';
 import { SERVER_ZONE, browserZone, zonedDayKey, zonedTime } from '../../lib/timezone';
@@ -81,6 +82,24 @@ function HiveCard({ playerId }: { playerId: string | null }) {
   const live = (plans.data ?? []).find((p) => p.isActive && p.deletedAt === null) ?? null;
   const board = useBoard(live?.formationId ?? null);
   const [copied, setCopied] = useState(false);
+  // A failed read is said, not hidden: with no card a member assumes there is
+  // no plan, and turns up at the wrong tile.
+  if (plans.isError || board.isError) {
+    return (
+      <div className="panel home-card home-hive">
+        <p className="home-label">{t('Hive move')}</p>
+        <QueryProblem
+          // Only what failed is asked again.
+          onRetry={() => {
+            if (plans.isError) void plans.refetch();
+            if (board.isError) void board.refetch();
+          }}
+          retrying={plans.isFetching || board.isFetching}
+          what={t('the hive plan')}
+        />
+      </div>
+    );
+  }
   if (plans.isPending || live === null) {
     return null;
   }
@@ -150,13 +169,33 @@ function WeekCard({ playerId }: { playerId: string | null }) {
     return `${weekday} ${zonedTime(iso, zone)}`;
   };
   const localZone = browserZone();
+  const failed = guide.isError || times.isError || bg.isError;
   return (
     <div className="panel home-card">
       <h3 className="home-label">{t('This week')}</h3>
+      {/* Without this, a guide that did not load read as "No Alliance Duel
+          theme today" and missing times as no Black Gold at all. */}
+      {failed && (
+        <QueryProblem
+          onRetry={() => {
+            if (guide.isError) void guide.refetch();
+            if (times.isError) void times.refetch();
+            if (bg.isError) void bg.refetch();
+          }}
+          retrying={guide.isFetching || times.isFetching || bg.isFetching}
+          what={t("this week's events")}
+        />
+      )}
       <dl className="home-week">
         <dt>{t('Today')}</dt>
         <dd>
-          {duel ? <strong>Alliance Duel · {duel.name}</strong> : t('No Alliance Duel theme today.')}
+          {duel ? (
+            <strong>Alliance Duel · {duel.name}</strong>
+          ) : guide.isError ? (
+            '—'
+          ) : (
+            t('No Alliance Duel theme today.')
+          )}
         </dd>
         <dt>
           {next ? when(next.startsAt, SERVER_ZONE) : 'Black Gold'}

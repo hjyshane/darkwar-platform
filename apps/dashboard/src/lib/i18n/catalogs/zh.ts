@@ -2260,4 +2260,8 @@ export const zh: Catalog = {
   'Show original': '查看原文',
   'Translating…': '翻译中…',
   'Translate into {language}': '翻译成{language}',
+  'Could not load {what}.': '无法加载{what}。',
+  'Trying again…': '正在重试…',
+  'the hive plan': 'Hive 规划',
+  "this week's events": '本周活动',
 };

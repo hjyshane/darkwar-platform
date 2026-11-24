@@ -2352,4 +2352,8 @@ export const es: Catalog = {
   'Show original': 'Ver original',
   'Translating…': 'Traduciendo…',
   'Translate into {language}': 'Traducir al {language}',
+  'Could not load {what}.': 'No se pudo cargar {what}.',
+  'Trying again…': 'Reintentando…',
+  'the hive plan': 'el plan de Hive',
+  "this week's events": 'los eventos de esta semana',
 };

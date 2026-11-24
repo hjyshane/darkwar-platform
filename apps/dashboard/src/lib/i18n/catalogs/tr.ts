@@ -2336,4 +2336,8 @@ export const tr: Catalog = {
   'Show original': 'Orijinali göster',
   'Translating…': 'Çevriliyor…',
   'Translate into {language}': 'Çevir: {language}',
+  'Could not load {what}.': 'Yüklenemedi: {what}.',
+  'Trying again…': 'Tekrar deneniyor…',
+  'the hive plan': 'Hive planı',
+  "this week's events": 'bu haftanın etkinlikleri',
 };

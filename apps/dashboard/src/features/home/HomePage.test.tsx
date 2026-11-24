@@ -10,6 +10,8 @@ const mock = vi.hoisted(() => ({
   board: [] as unknown[],
   zone: 'Asia/Seoul',
   times: [] as unknown[],
+  failed: false,
+  refetches: 0,
 }));
 
 vi.mock('../../lib/supabase', () => ({ supabase: {} }));
@@ -34,11 +36,17 @@ vi.mock('./homeData', () => ({
   }),
 }));
 vi.mock('../hive/hiveFormations', () => ({
-  useFormations: () => ({ isPending: false, data: mock.plans }),
+  useFormations: () =>
+    mock.failed
+      ? { isPending: false, isError: true, refetch: () => mock.refetches++ }
+      : { isPending: false, data: mock.plans },
   useBoard: () => ({ data: mock.board }),
 }));
 vi.mock('../eventGuide/data', () => ({
-  useEventGuide: () => ({ data: { themes: [], scores: [], calendar: [] } }),
+  useEventGuide: () =>
+    mock.failed
+      ? { isError: true, refetch: () => mock.refetches++ }
+      : { data: { themes: [], scores: [], calendar: [] } },
   useCapturedTimes: () => ({ data: mock.times }),
 }));
 vi.mock('../overview/AnnouncementsBlock', () => ({ AnnouncementsBlock: () => <p>notices</p> }));
@@ -146,5 +154,18 @@ describe('HomePage', () => {
     show();
     expect(screen.queryByText(/Hive move/)).toBeNull();
     expect(screen.getByRole('link', { name: 'My account' })).toBeTruthy();
+  });
+
+  it('says when the hive plan and this week did not load, and asks again on request', () => {
+    mock.failed = true;
+    mock.refetches = 0;
+    show();
+    expect(screen.getByText(/Could not load the hive plan\./)).toBeTruthy();
+    expect(screen.getByText(/Could not load this week's events\./)).toBeTruthy();
+    // Not the empty sentence, which would claim there is no theme today.
+    expect(screen.queryByText('No Alliance Duel theme today.')).toBeNull();
+    for (const button of screen.getAllByRole('button', { name: 'Try again' })) button.click();
+    expect(mock.refetches).toBeGreaterThanOrEqual(2);
+    mock.failed = false;
   });
 });
