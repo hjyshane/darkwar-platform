@@ -43,6 +43,9 @@ import { RankTiersSetting } from './RankTiersSetting';
 import { SeasonBuildingAlertSetting } from './SeasonBuildingAlertSetting';
 import { SeasonsSetting } from './SeasonsSetting';
 import { ServerClashSetting } from './ServerClashSetting';
+import { SettingsHistory } from './SettingsHistory';
+import { SettingsSearch } from './SettingsSearch';
+import { SiteValuesSetting } from './SiteValuesSetting';
 import { TabVisibilitySetting } from './TabVisibilitySetting';
 import { TableLayoutSetting } from './TableLayoutSetting';
 import { settingsStrip } from './strip';
@@ -170,6 +173,10 @@ export function AdminPage({ group, section }: { group: AdminGroup; section: stri
             </p>
           )
         )}
+        {/* Every group's sections this reader may use, by name (2026-11-24). */}
+        <SettingsSearch
+          sections={ADMIN_GROUPS.flatMap((entry) => usableSectionsIn(entry.group, role, grants))}
+        />
         {/* Same markup and the same aria-current as the main nav, so the
             selected state cannot drift between the two bars. */}
         <nav aria-label="Settings groups" className="tabs subtabs">
@@ -413,6 +420,13 @@ function OperationsGroup({ section }: { section: string }) {
         </section>
       )}
 
+      {section === 'settings-history' && (
+        <section aria-labelledby="settings-history-heading">
+          <h2 id="settings-history-heading">Change history</h2>
+          <SettingsHistory />
+        </section>
+      )}
+
       {section === 'server-clash' && (
         <section aria-labelledby="server-clash-heading">
           <h2 id="server-clash-heading">Server clash data</h2>
@@ -434,6 +448,13 @@ function CatalogueGroup({ section }: { section: string }) {
         <section aria-labelledby="queue-heading">
           <h2 id="queue-heading">Upload queue</h2>
           <QueueStatus />
+        </section>
+      )}
+
+      {section === 'site-values' && (
+        <section aria-labelledby="site-values-heading">
+          <h2 id="site-values-heading">Site values</h2>
+          <SiteValuesSetting />
         </section>
       )}
 

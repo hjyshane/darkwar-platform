@@ -8624,6 +8624,39 @@ export type Database = {
           },
         ]
       }
+      settings_history: {
+        Row: {
+          alliance_id: string | null
+          changed_at: string
+          changed_by: string | null
+          history_id: number
+          item: string
+          new_value: Json | null
+          old_value: Json | null
+          source: string
+        }
+        Insert: {
+          alliance_id?: string | null
+          changed_at?: string
+          changed_by?: string | null
+          history_id?: never
+          item: string
+          new_value?: Json | null
+          old_value?: Json | null
+          source: string
+        }
+        Update: {
+          alliance_id?: string | null
+          changed_at?: string
+          changed_by?: string | null
+          history_id?: never
+          item?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          source?: string
+        }
+        Relationships: []
+      }
       shop_listing_snapshots: {
         Row: {
           captured_at: string
@@ -12138,6 +12171,10 @@ export type Database = {
       set_roster_membership: {
         Args: { p_member: boolean; p_player_id: string }
         Returns: number
+      }
+      set_server_tracked: {
+        Args: { p_server_id: number; p_tracked: boolean }
+        Returns: undefined
       }
       set_ui_override: {
         Args: {

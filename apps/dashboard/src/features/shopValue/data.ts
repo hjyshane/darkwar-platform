@@ -197,8 +197,11 @@ export const PACK_CATEGORIES: ReadonlyArray<PackCategory> = [
  * names the types carry on the collector's server (2026-10-11): 26 is every
  * Daily Package, 27 every weekly pass, 24 the goods packs with a pick, 15 the
  * ruby packs and the event-currency packs, 25 the passes. A type not listed
- * is Other: add it here when it turns up. */
-const CATEGORY_BY_TYPE: Readonly<Record<string, string>> = {
+ * is Other.
+ *
+ * Since 2026-11-24 this is only the default: an admin files a new type in
+ * Settings › Shared › Site values (`PACK_CATEGORY_BY_TYPE`) without a release. */
+export const DEFAULT_CATEGORY_BY_TYPE: Readonly<Record<string, string>> = {
   '26': 'daily',
   '41': 'daily',
   '27': 'weekly',
@@ -227,8 +230,11 @@ const CATEGORY_BY_TYPE: Readonly<Record<string, string>> = {
 
 const OTHER_CATEGORY = PACK_CATEGORIES[PACK_CATEGORIES.length - 1] as PackCategory;
 
-export function packCategory(type: string | null | undefined): PackCategory {
-  const key = type === null || type === undefined ? undefined : CATEGORY_BY_TYPE[type];
+export function packCategory(
+  type: string | null | undefined,
+  byType: Readonly<Record<string, string>> = DEFAULT_CATEGORY_BY_TYPE,
+): PackCategory {
+  const key = type === null || type === undefined ? undefined : byType[type];
   return PACK_CATEGORIES.find((c) => c.key === key) ?? OTHER_CATEGORY;
 }
 

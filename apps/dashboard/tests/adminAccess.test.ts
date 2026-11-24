@@ -158,9 +158,10 @@ group('what a group tells you', () => {
     // Shared (id `catalogue`): the catalogue, the event guides, and the pin
     // list an admin keeps.
     expect(missingIn('catalogue', 'officer', officer)).toEqual([
+      // Site values (2026-11-24) is the group's first section, and an admin's.
+      { kind: 'role', role: 'admin' },
       { kind: 'capability', capability: 'catalogue.write' },
       { kind: 'capability', capability: 'guide.write' },
-      { kind: 'role', role: 'admin' },
     ]);
   });
 
@@ -171,9 +172,10 @@ group('what a group tells you', () => {
   test('sections that only read are never listed as missing', () => {
     // Shared holds two read-only screens beside the ones that need a grant.
     expect(missingIn('catalogue', 'member', SEEDED)).toEqual([
+      // Site values (2026-11-24) is the group's first section, and an admin's.
+      { kind: 'role', role: 'admin' },
       { kind: 'capability', capability: 'catalogue.write' },
       { kind: 'capability', capability: 'guide.write' },
-      { kind: 'role', role: 'admin' },
     ]);
   });
 });

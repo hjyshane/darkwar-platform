@@ -168,6 +168,9 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
   // Everything above follows the alliance on screen; everything below is the
   // same whichever one that is. The catalogue is a fact about the game.
   // heroes, pets -> catalogue.write
+  // The settings registry (lib/settings/registry.ts) and the server group.
+  // Written straight to app_settings, which only an admin may (0032).
+  { group: 'catalogue', id: 'site-values-heading', heading: 'Site values', requires: adminOnly },
   {
     group: 'catalogue',
     id: 'heroes-heading',
@@ -242,6 +245,13 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     group: 'operations',
     id: 'queue-heading',
     heading: 'Upload queue',
+    requires: adminOnly,
+  },
+  // settings_history (0347) is readable by admins only.
+  {
+    group: 'operations',
+    id: 'settings-history-heading',
+    heading: 'Change history',
     requires: adminOnly,
   },
 ];
