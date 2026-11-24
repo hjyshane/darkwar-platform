@@ -76,6 +76,17 @@ describe('the admin arranging the menu', () => {
     expect(top(ctx(o))).not.toContain('Guides');
   });
 
+  it('shows an admin arranging the menu the officers’ group too, so it can be edited (codex review on #682)', () => {
+    const admin = { isAdmin: true, isOfficer: true, mayManageGiftCodes: true };
+    const ids = (c: NavContext) => buildNav(c).map((g) => g.id);
+    expect(ids(ctx(stored([]), admin))).not.toContain('officer');
+    const editing = buildNav(ctx(stored([]), { ...admin, showHiddenMenu: true }));
+    expect(editing.find((g) => g.id === 'officer')?.items.map((i) => i.edit?.scope)).toEqual([
+      'menu-officer',
+      'menu-officer',
+    ]);
+  });
+
   it('renames a group’s caption', () => {
     const o = stored([['menu-groups', 'watch', 'label', 'Alliance']]);
     expect(buildNav(ctx(o)).map((g) => g.label)).toEqual(['Alliance']);

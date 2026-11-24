@@ -3,9 +3,20 @@
 // save is lib/menuOverrides.ts's business; this only draws the buttons.
 // English only, like every admin control (owner, 2026-11-24).
 
+import { useIsMutating } from '@tanstack/react-query';
 import { useState } from 'react';
 import type { MenuEditRef } from '../../lib/menuOverrides';
 import { labelProblem, moveKey, useSaveOverrides } from '../../lib/uiOverrides';
+
+/** Every menu save shares this key: one in flight disables all the controls,
+ * so each move is computed from the order the last one left. */
+const MENU_SAVE = ['menu-edit'] as const;
+
+function useMenuSave() {
+  const save = useSaveOverrides(MENU_SAVE);
+  const busy = useIsMutating({ mutationKey: [...MENU_SAVE] }) > 0;
+  return { save, busy };
+}
 
 export function MenuEditControls({
   edit,
@@ -22,7 +33,7 @@ export function MenuEditControls({
   siblings?: readonly string[];
   canHide?: boolean;
 }) {
-  const save = useSaveOverrides();
+  const { save, busy } = useMenuSave();
   const [draft, setDraft] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const index = siblings?.indexOf(edit.key) ?? -1;
@@ -76,7 +87,7 @@ export function MenuEditControls({
           }}
           value={draft}
         />
-        <button disabled={save.isPending} onClick={rename} type="button">
+        <button disabled={busy} onClick={rename} type="button">
           Save
         </button>
         <button onClick={() => setDraft(null)} type="button">
@@ -104,7 +115,7 @@ export function MenuEditControls({
         <>
           <button
             aria-label={`Move ${label} up`}
-            disabled={index <= 0 || save.isPending}
+            disabled={index <= 0 || busy}
             onClick={() => move(-1)}
             title="Move up"
             type="button"
@@ -113,7 +124,7 @@ export function MenuEditControls({
           </button>
           <button
             aria-label={`Move ${label} down`}
-            disabled={index < 0 || index >= siblings.length - 1 || save.isPending}
+            disabled={index < 0 || index >= siblings.length - 1 || busy}
             onClick={() => move(1)}
             title="Move down"
             type="button"
@@ -125,7 +136,7 @@ export function MenuEditControls({
       {canHide && (
         <button
           aria-label={`${hidden ? 'Show' : 'Hide'} ${label}`}
-          disabled={save.isPending}
+          disabled={busy}
           onClick={() =>
             save.mutate([
               {
@@ -158,12 +169,12 @@ export function ResetMenuButton({
 }: {
   stored: ReadonlyArray<{ scope: string; key: string }>;
 }) {
-  const save = useSaveOverrides();
+  const { save, busy } = useMenuSave();
   if (stored.length === 0) return null;
   return (
     <button
       className="menu-reset"
-      disabled={save.isPending}
+      disabled={busy}
       onClick={() => {
         if (!window.confirm('Put every menu name, place and hidden entry back to the default?')) {
           return;

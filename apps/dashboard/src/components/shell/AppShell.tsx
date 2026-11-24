@@ -86,13 +86,16 @@ export function AppShell({
   // even while an admin is arranging it.
   const all = paletteEntries([
     ...groups.flatMap((group) =>
-      group.items
-        .filter((item) => item.hidden !== true)
-        .map((item) =>
-          item.children === undefined
-            ? item
-            : { ...item, children: item.children.filter((child) => child.hidden !== true) },
-        ),
+      group.items.flatMap((item) => {
+        if (item.hidden === true) return [];
+        if (item.children === undefined) return [item];
+        const children = item.children.filter((child) => child.hidden !== true);
+        // A folder whose screens are all hidden is gone for readers; its own
+        // address would open one of them.
+        if (children.length === 0) return [];
+        const opens = children[0]?.href ?? item.href;
+        return [{ ...item, href: opens, children }];
+      }),
     ),
     ...footer,
   ]);

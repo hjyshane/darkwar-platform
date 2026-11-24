@@ -100,6 +100,20 @@ function Entry({
   );
 }
 
+const NARROW = '(max-width: 56rem)';
+
+function useNarrow(): boolean {
+  const [narrow, setNarrow] = useState(() => window.matchMedia?.(NARROW).matches ?? false);
+  useEffect(() => {
+    const query = window.matchMedia?.(NARROW);
+    if (query === undefined) return;
+    const onChange = () => setNarrow(query.matches);
+    query.addEventListener('change', onChange);
+    return () => query.removeEventListener('change', onChange);
+  }, []);
+  return narrow;
+}
+
 /** The screens, all at once, grouped by what you came to do. */
 export function Sidebar({
   groups,
@@ -118,7 +132,11 @@ export function Sidebar({
   /** The entries an admin has changed, for "Reset the menu". */
   stored?: readonly MenuEditRef[];
 }) {
-  const editable = editing && !collapsed;
+  // The rail is collapsed only on a wide screen; below 56rem the sidebar is a
+  // drawer drawn open whatever the stored preference (shell.css), so editing
+  // must not wait on a collapse the admin cannot see or undo there.
+  const narrow = useNarrow();
+  const editable = editing && (!collapsed || narrow);
   const nav = useRef<HTMLElement>(null);
   const t = useT();
   const here = [...groups.flatMap((group) => group.items), ...footer]
@@ -161,7 +179,7 @@ export function Sidebar({
             </h2>
             {group.items.map((item) => (
               <Entry
-                collapsed={collapsed}
+                collapsed={collapsed && !editable}
                 editing={editable}
                 item={item}
                 key={item.key}

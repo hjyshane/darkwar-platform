@@ -240,9 +240,17 @@ function buildDefaultNav(ctx: NavContext): NavGroup[] {
       : [...menu, { id: 'officer' as const, label: t('Officer menu'), items: officer }];
   }
   const admin = buildAdminMenu(ctx);
-  return admin.length === 0
-    ? menu
-    : [...menu, { id: 'admin' as const, label: t('Admin menu'), items: admin }];
+  const withAdmin =
+    admin.length === 0
+      ? menu
+      : [...menu, { id: 'admin' as const, label: t('Admin menu'), items: admin }];
+  // An admin never has the officers' group, so while arranging the menu they
+  // are shown it too: otherwise nobody could rename, reorder or hide its
+  // entries (codex review on #682).
+  const officer = ctx.showHiddenMenu === true ? buildOfficerMenu(ctx) : [];
+  return officer.length === 0
+    ? withAdmin
+    : [...withAdmin, { id: 'officer' as const, label: t('Officer menu'), items: officer }];
 }
 
 /** The officer's extra group (owner, 2026-11-19): the two screens an officer
