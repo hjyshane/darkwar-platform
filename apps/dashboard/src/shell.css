@@ -1748,3 +1748,50 @@ button.shell-link {
     max-height: 14rem;
   }
 }
+
+/* ------------------------------------------------- arranging the menu (edit mode)
+ * An admin's controls beside each entry (menuOverrides.ts). Small and quiet:
+ * the menu still has to read as the menu while it is being arranged. */
+.menu-edit {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 0 var(--space-2) var(--space-1);
+}
+
+.shell-group-label .menu-edit {
+  padding: 0 0 0 var(--space-1);
+  text-transform: none;
+  vertical-align: middle;
+}
+
+.menu-edit button {
+  font-size: var(--text-xs);
+  line-height: 1.2;
+  padding: 0.1rem 0.35rem;
+}
+
+.menu-edit input {
+  font-size: var(--text-sm);
+  min-width: 0;
+  width: 11rem;
+}
+
+/* Hidden from everyone: drawn only in edit mode, dimmed and struck. */
+.menu-hidden > .shell-link,
+.menu-hidden > .shell-sublink {
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+
+.menu-edit-note {
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  margin: var(--space-2) var(--space-2) 0;
+}
+
+.menu-reset {
+  display: block;
+  font-size: var(--text-xs);
+  margin-top: var(--space-1);
+}

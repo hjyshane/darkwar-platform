@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
+import { useEditMode } from '../../lib/editMode';
 import { useT } from '../../lib/i18n';
+import { type MenuEditRef, storedMenuRefs } from '../../lib/menuOverrides';
 import { isAllowed, usePermissions } from '../../lib/permissions';
 import {
   HIVE,
@@ -25,7 +27,15 @@ export function useShellNav(
   route: Route,
   allianceId: string | null,
   hash: string,
-): { groups: NavGroup[]; footer: NavItem[]; crumbs: string[] } {
+): {
+  groups: NavGroup[];
+  footer: NavItem[];
+  crumbs: string[];
+  /** An admin in edit mode, arranging the menu. */
+  editingMenu: boolean;
+  /** The menu entries an admin has changed, for "Reset the menu". */
+  storedMenu: MenuEditRef[];
+} {
   const { data: session } = useSession();
   const { data: ownAlliance } = useOwnAlliance();
   const { data: permissions, isPending } = usePermissions();
@@ -35,6 +45,8 @@ export function useShellNav(
   const t = useT();
 
   const isAdmin = session?.role === 'admin';
+  const { editing } = useEditMode();
+  const editingMenu = editing && isAdmin;
   const now = new Date();
   const list = seasons.data ?? FALLBACK_SEASONS;
   const groups = buildNav({
@@ -68,6 +80,7 @@ export function useShellNav(
       ? undefined
       : isAllowed(permissions?.grants, session?.role, 'giftcodes.manage'),
     overrides,
+    showHiddenMenu: editingMenu,
     tabShown: (tab) => isTabShown(tabRules, tab, session?.role),
     t,
     seasonNames: {
@@ -76,7 +89,13 @@ export function useShellNav(
     },
   });
   const footer = buildFooter(route, isAdmin, adminGroupFromHash(hash), t);
-  return { groups, footer, crumbs: breadcrumb(groups, footer, route, t) };
+  return {
+    groups,
+    footer,
+    crumbs: breadcrumb(groups, footer, route, t),
+    editingMenu,
+    storedMenu: editingMenu ? storedMenuRefs(groups, overrides) : [],
+  };
 }
 
 /** The current time, refreshed on an interval: the top bar's clock. */

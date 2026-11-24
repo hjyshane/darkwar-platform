@@ -158,9 +158,13 @@ async function apply(change: OverrideChange): Promise<void> {
 }
 
 /** Save one or several changes together, then refresh every screen's names. */
-export function useSaveOverrides() {
+export function useSaveOverrides(mutationKey?: readonly unknown[]) {
   const queryClient = useQueryClient();
   return useMutation({
+    // A shared key lets sibling controls see each other's save in flight
+    // (useIsMutating) and wait: two moves computed from the same stale order
+    // would each overwrite the other's positions.
+    ...(mutationKey === undefined ? {} : { mutationKey: [...mutationKey] }),
     mutationFn: async (changes: readonly OverrideChange[]) => {
       for (const change of changes) {
         await apply(change);

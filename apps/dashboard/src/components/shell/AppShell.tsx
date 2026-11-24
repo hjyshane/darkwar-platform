@@ -52,7 +52,7 @@ export function AppShell({
   controls: ReactNode;
   children: ReactNode;
 }) {
-  const { groups, footer, crumbs } = useShellNav(route, allianceId, hash);
+  const { groups, footer, crumbs, editingMenu, storedMenu } = useShellNav(route, allianceId, hash);
   const t = useT();
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const [drawer, setDrawer] = useState(false);
@@ -82,7 +82,23 @@ export function AppShell({
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  const all = paletteEntries([...groups.flatMap((group) => group.items), ...footer]);
+  // Ctrl+K offers what readers see: an entry hidden from the menu is not listed,
+  // even while an admin is arranging it.
+  const all = paletteEntries([
+    ...groups.flatMap((group) =>
+      group.items.flatMap((item) => {
+        if (item.hidden === true) return [];
+        if (item.children === undefined) return [item];
+        const children = item.children.filter((child) => child.hidden !== true);
+        // A folder whose screens are all hidden is gone for readers; its own
+        // address would open one of them.
+        if (children.length === 0) return [];
+        const opens = children[0]?.href ?? item.href;
+        return [{ ...item, href: opens, children }];
+      }),
+    ),
+    ...footer,
+  ]);
   const toggleCollapsed = () => {
     const next = !collapsed;
     setCollapsed(next);
@@ -93,7 +109,14 @@ export function AppShell({
     <div
       className={`shell${collapsed ? ' shell-collapsed' : ''}${drawer ? ' shell-drawer-open' : ''}`}
     >
-      <Sidebar collapsed={collapsed} footer={footer} groups={groups} onCollapse={toggleCollapsed} />
+      <Sidebar
+        collapsed={collapsed}
+        editing={editingMenu}
+        footer={footer}
+        groups={groups}
+        onCollapse={toggleCollapsed}
+        stored={storedMenu}
+      />
       <button
         aria-label={t('Close the menu')}
         className="shell-scrim"
