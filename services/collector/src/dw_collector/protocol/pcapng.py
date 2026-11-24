@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import ipaddress
 import struct
-from collections.abc import Iterator
+from collections.abc import Container, Iterator
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -435,6 +435,36 @@ class TCPDirectionReassembler:
         return frames
 
 
+# Each game server listens on its own port: 8100 + server id. 580 → 8680,
+# 579 → 8679, 615 → 8715 — `account.login.new` lists it per account as
+# `accountArr[].port`, all on one host. One Windows machine runs several
+# BlueStacks instances, each account on its own server, so a reader fixed on
+# 8680 took exactly one of them and nothing said so: the others' files simply
+# ingested 0, like any quiet minute (2026-11-24, three instances, one read).
+GAME_PORT_BASE = 8100
+
+# Servers 500-799. Covers the group (565-588) and the sub-accounts seen on 629
+# and 661, stays clear of the ports local tooling likes (8080, 8443, 9000+).
+# The dumpcap filter in register-tasks.ps1 is this same range; change both.
+GAME_PORTS = range(GAME_PORT_BASE + 500, GAME_PORT_BASE + 800)
+
+# What a reader accepts as the game's side: one port, or any container of
+# them (`GAME_PORTS` by default).
+GamePorts = int | Container[int]
+
+
+def game_port(server_id: int) -> int:
+    return GAME_PORT_BASE + server_id
+
+
+def server_of_port(port: int) -> int:
+    return port - GAME_PORT_BASE
+
+
+def game_port_set(port: GamePorts) -> Container[int]:
+    return {port} if isinstance(port, int) else port
+
+
 # One TCP connection, as (client ip, client port, server ip, server port).
 # The same key for both directions, which is what lets a response be matched
 # to the login that opened its connection when several accounts share a file.
@@ -515,9 +545,14 @@ def restore_streams(streams: StreamTable, snapshot: StreamTable) -> None:
 
 
 def iter_extension_events(
-    path: Path, port: int = 8680, *, streams: StreamTable | None = None
+    path: Path, port: GamePorts = GAME_PORTS, *, streams: StreamTable | None = None
 ) -> Iterator[ExtensionEvent]:
     """Every SmartFox extension event in a capture, in stream order.
+
+    `port` is the game's side of a connection: every game port by default,
+    so several instances on several servers in one file all decode, each
+    event's `connection` naming the server port its account really used. A
+    single int narrows the reader to that one server.
 
     `streams` is the reassembly state. Left out, this file is read on its
     own and a frame it only begins is lost. Passed in, the same table is
@@ -532,12 +567,16 @@ def iter_extension_events(
     down with every segment here, and by `prune_idle_streams`, which the
     caller runs between files.
     """
+    ports = game_port_set(port)
     table: StreamTable = {} if streams is None else streams
     for record in read_pcapng_records(path):
         segment = parse_tcp(record.data, record.linktype)
         if segment is None or not segment.payload:
             continue
-        if port not in (segment.source_port, segment.destination_port):
+        # Responses come FROM a game port. A client port is ephemeral (49152+
+        # on Windows, 32768+ on Android) and never lands in the game range.
+        inbound = segment.source_port in ports
+        if not inbound and segment.destination_port not in ports:
             continue
         key = (
             segment.source_ip,
@@ -545,12 +584,17 @@ def iter_extension_events(
             segment.destination_ip,
             segment.destination_port,
         )
-        direction = "inbound" if segment.source_port == port else "outbound"
+        direction = "inbound" if inbound else "outbound"
         # The reassembler is per direction (`key` is as the packet travelled);
         # the connection is the same tuple read from the client's side.
         connection: Connection = (
-            (segment.destination_ip, segment.destination_port, segment.source_ip, port)
-            if direction == "inbound"
+            (
+                segment.destination_ip,
+                segment.destination_port,
+                segment.source_ip,
+                segment.source_port,
+            )
+            if inbound
             else key
         )
         stream = table.get(key)

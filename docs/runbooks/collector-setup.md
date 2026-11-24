@@ -86,7 +86,7 @@ uv run python -c "from scapy.all import IFACES; IFACES.show()"
 20초 검증 — 게임에서 연맹 멤버 목록을 여는 동안:
 
 ```powershell
-uv run python -c "from scapy.all import sniff; p=sniff(filter='tcp port 8680', iface='Intel(R) Ethernet Controller (3) I225-V', timeout=20); print('packets:', len(p))"
+uv run python -c "from scapy.all import sniff; p=sniff(filter='tcp portrange 8600-8899', iface='Intel(R) Ethernet Controller (3) I225-V', timeout=20); print('packets:', len(p))"
 ```
 
 ## BlueStacks 인스턴스 ↔ ADB 시리얼

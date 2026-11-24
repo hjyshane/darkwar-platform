@@ -276,7 +276,14 @@ $tasks = @(
         # Double quotes: these end up in a .cmd file, and cmd treats a single
         # quote as an ordinary character. With single quotes dumpcap saw
         # "8680'" as a separate argument and refused to start.
-        Args = "-i `"$Interface`" -f `"tcp port 8680`" -w `"$CaptureDir\cap.pcapng`" -b duration:$($timings.Rotation) -b files:$($timings.Files) -B 64"
+        #
+        # Every game port, not 580's alone. Each server listens on 8100 + its
+        # id (580 → 8680, 579 → 8679), and this machine runs several
+        # BlueStacks instances on several servers; with `tcp port 8680` only
+        # the 580 account was ever captured and the others' files ingested 0
+        # without a word (2026-11-24). The range is `GAME_PORTS` in
+        # protocol/pcapng.py (servers 500–799); change both together.
+        Args = "-i `"$Interface`" -f `"tcp portrange 8600-8899`" -w `"$CaptureDir\cap.pcapng`" -b duration:$($timings.Rotation) -b files:$($timings.Files) -B 64"
         Dir  = $CaptureDir
         Log  = "$LogDir\capture.log"
         # Match the WHOLE chain: wscript -> cmd -> uv -> python. The first

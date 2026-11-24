@@ -151,11 +151,14 @@ def ring_argv(dumpcap: str, interface: str, capture_dir: Path, *, game_port: int
     than a quoted command string, since this is handed straight to `Popen`
     with no shell in between.
 
-    `game_port` is `Settings.game_port`, never the `8680` hardcoded in
-    register-tasks.ps1 — that number is this repo's server group's port, not
-    a universal constant, and a player on a different port capturing nothing
-    while the process looks healthy is exactly the silent-failure shape this
-    repo has hit before (see `capture/live.py::check_interface`).
+    `game_port` is `Settings.game_port`, never a hardcoded `8680` — that
+    number is server 580's port (8100 + server id), not a universal constant,
+    and a player on a different port capturing nothing while the process
+    looks healthy is exactly the silent-failure shape this repo has hit
+    before (see `capture/live.py::check_interface`; the Windows collector
+    hit it with several instances on 2026-11-24 and now captures the whole
+    game port range, `protocol/pcapng.py::GAME_PORTS`). This app is one
+    player on one server, so one port is right here.
     """
     return [
         dumpcap,

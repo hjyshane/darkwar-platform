@@ -23,6 +23,8 @@ from dw_collector.envfile import load_env_file
 from dw_collector.ingest import ServerFollower, _ingest_capture, _ready_captures
 from dw_collector.models import Observation
 from dw_collector.protocol.pcapng import (
+    GAME_PORTS,
+    GamePorts,
     PcapError,
     StreamTable,
     prune_idle_streams,
@@ -33,6 +35,18 @@ from dw_collector.storage.journal import Journal, is_locked
 from dw_collector.sync.worker import DrainStats, SyncConfig, SyncWorker
 
 app = typer.Typer(no_args_is_help=True)
+
+# Each server listens on 8100 + its id. Left out, a reader takes every game
+# port, so several BlueStacks instances on several servers in one capture all
+# decode; given, it narrows to that one server's.
+_PORT_OPTION = typer.Option(
+    "--port",
+    help="one server's game port (8100 + server id); default every game port, 8600-8899",
+)
+
+
+def _game_ports(port: int | None) -> GamePorts:
+    return GAME_PORTS if port is None else port
 
 
 @app.callback()
@@ -647,7 +661,7 @@ def scan_capture(
     pcap: Annotated[Path, typer.Option(exists=True, dir_okay=False)],
     db: Annotated[Path | None, _DB_OPTION] = None,
     collected_from_server: Annotated[int, typer.Option()] = 580,
-    port: Annotated[int, typer.Option()] = 8680,
+    port: Annotated[int | None, _PORT_OPTION] = None,
     discover_only: Annotated[
         bool, typer.Option(help="record unknown-command shapes but ingest nothing")
     ] = False,
@@ -676,7 +690,7 @@ def scan_capture(
             pcap,
             collector_id=collector_id,
             collected_from_server=collected_from_server,
-            port=port,
+            port=_game_ports(port),
             discover_only=discover_only,
             fallback=fallback,
         )
@@ -712,7 +726,7 @@ def survey(
     max_per_source: Annotated[
         int, typer.Option(help="decode at most this many payloads per source")
     ] = 2000,
-    port: Annotated[int, typer.Option()] = 8680,
+    port: Annotated[int | None, _PORT_OPTION] = None,
 ) -> None:
     """Find what already-captured data could backfill, per member. Read only.
 
@@ -745,7 +759,7 @@ def survey(
     for path in captures:
         typer.echo(f"decoding {path.name} ...")
         try:
-            for command, captured_at, payload_json in iter_capture(path, port):
+            for command, captured_at, payload_json in iter_capture(path, _game_ports(port)):
                 found.add(command, captured_at, payload_json)
         except PcapError as exc:
             typer.echo(f"{path.name}  skipped: {exc}", err=True)
@@ -809,7 +823,7 @@ def ingest_dir(
     directory: Annotated[Path, typer.Option("--dir", exists=True, file_okay=False)],
     db: Annotated[Path | None, _DB_OPTION] = None,
     collected_from_server: Annotated[int, typer.Option()] = 580,
-    port: Annotated[int, typer.Option()] = 8680,
+    port: Annotated[int | None, _PORT_OPTION] = None,
     min_age_seconds: Annotated[
         float, typer.Option(help="skip files touched more recently than this")
     ] = 30.0,
@@ -904,7 +918,7 @@ def ingest_dir(
                     pcap,
                     collector_id=collector_id,
                     collected_from_server=collected_from_server,
-                    port=port,
+                    port=_game_ports(port),
                     discover_only=False,
                     fallback=fallback,
                     follower=follower,

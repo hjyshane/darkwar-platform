@@ -26,7 +26,13 @@ from pydantic import ValidationError
 from dw_collector import clock, pipeline
 from dw_collector.models import Observation
 from dw_collector.protocol.frames import extract_extension_event
-from dw_collector.protocol.pcapng import ExtensionEvent, TCPDirectionReassembler, TcpSegment
+from dw_collector.protocol.pcapng import (
+    ExtensionEvent,
+    GamePorts,
+    TCPDirectionReassembler,
+    TcpSegment,
+    game_port_set,
+)
 from dw_collector.request_log import request_observation
 from dw_collector.storage.journal import Journal
 
@@ -72,12 +78,14 @@ class CaptureSession:
         *,
         collector_id: uuid.UUID,
         collected_from_server_id: int,
-        port: int = DEFAULT_PORT,
+        port: GamePorts = DEFAULT_PORT,
     ) -> None:
         self.journal = journal
         self.collector_id = collector_id
         self.collected_from_server_id = collected_from_server_id
-        self.port = port
+        # The game's side of a connection: one port (dw-capture's live filter
+        # is single-port) or every game port (`GAME_PORTS`).
+        self.ports = game_port_set(port)
         self.stats = CaptureStats()
         self._streams: dict[tuple[str, int, str, int], TCPDirectionReassembler] = defaultdict(
             TCPDirectionReassembler
@@ -120,7 +128,9 @@ class CaptureSession:
         """Absorb one TCP segment; journals whatever completes because of it."""
         if not segment.payload:
             return
-        if self.port not in (segment.source_port, segment.destination_port):
+        # Responses come FROM the game port; our own requests are not data.
+        inbound = segment.source_port in self.ports
+        if not inbound and segment.destination_port not in self.ports:
             return
 
         self.stats.segments += 1
@@ -130,9 +140,6 @@ class CaptureSession:
             segment.destination_ip,
             segment.destination_port,
         )
-        # Responses come FROM the game port; our own requests are not data.
-        inbound = segment.source_port == self.port
-
         stream = self._streams[key]
         # The clock goes down with the segment so the reassembler can give up
         # on a gap that has been outstanding too long. Without it a gap only
