@@ -3,6 +3,8 @@ import { useMemo, useState } from 'react';
 import { StatTile } from '../../components/StatTile';
 import { useT } from '../../lib/i18n';
 import { type Translate, english } from '../../lib/i18n/core';
+import { BLACK_GOLD_TREND_BATTLES } from '../../lib/settings/registry';
+import { useSiteSetting } from '../../lib/settings/useSiteSetting';
 import { BattleMembersTable } from './BattleMembersTable';
 import {
   type Battle,
@@ -59,9 +61,10 @@ export function BattleDetail({ battle }: { battle: Battle }) {
   });
   // The alliance's recent scores per member, one query shared by every battle
   // that is opened; it feeds the trend column.
+  const trendBattles = useSiteSetting(BLACK_GOLD_TREND_BATTLES);
   const history = useQuery({
-    queryKey: ['blackGold', 'history', battle.alliance_external_id],
-    queryFn: () => fetchMemberScoreHistory(battle.alliance_external_id),
+    queryKey: ['blackGold', 'history', battle.alliance_external_id, trendBattles],
+    queryFn: () => fetchMemberScoreHistory(battle.alliance_external_id, trendBattles),
     staleTime: STALE_TIME,
   });
   const misses = useMemo(

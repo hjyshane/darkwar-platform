@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  CALENDAR_DEFAULT_SHOWN,
+  GAME_GUIDE_UPCOMING_TIMES,
   PACK_CATEGORY_BY_TYPE,
   RUBY_DOLLAR_RATE,
   SITE_SETTINGS,
@@ -55,7 +55,7 @@ describe('planImport', () => {
       format: 'dw-site-values',
       version: 1,
       exportedAt: '2026-11-24T00:00:00Z',
-      values: { 'site.calendar_default_shown': ['major'] },
+      values: { 'site.game_guide_upcoming_times': 6 },
       trackedServers: [580, 629, 700],
     });
     const result = planImport(text, SITE_SETTINGS, now, SERVERS);
@@ -63,7 +63,7 @@ describe('planImport', () => {
     expect(summary(result.plan.changes)).toEqual([
       // Left out of the file, so back to the default: the file is the whole picture.
       `${RUBY_DOLLAR_RATE.key} default`,
-      `${CALENDAR_DEFAULT_SHOWN.key} ["major"]`,
+      `${GAME_GUIDE_UPCOMING_TIMES.key} 6`,
       'server 581 false',
       'server 629 true',
       'server 700 true',

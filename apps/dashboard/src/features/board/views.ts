@@ -54,17 +54,19 @@ export function useRecordView(config: BoardConfig, postId: string): void {
  * size "the busiest post" is often busy by one view, and a tag that always
  * appears somewhere says nothing.
  */
+/** The default for Settings › Site values › "hot" mark (BOARD_HOT_SCORE). */
 const HOT_FLOOR = 5;
 
 export function hotPostIds(
   views: Record<string, ViewStat>,
   commentCounts: Record<string, number>,
   postIds: readonly string[],
+  floor: number = HOT_FLOOR,
 ): Set<string> {
   const hot = new Set<string>();
   for (const id of postIds) {
     const score = (views[id]?.recent ?? 0) + (commentCounts[id] ?? 0) * 3;
-    if (score >= HOT_FLOOR) {
+    if (score >= floor) {
       hot.add(id);
     }
   }

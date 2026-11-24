@@ -7,6 +7,7 @@ import {
   arrange,
   bucketOf,
   byServerDay,
+  categoryOf,
   changesIn,
   dayBlocks,
   endWithSeason,
@@ -174,11 +175,24 @@ describe('categories', () => {
     expect(inCategory(pack, new Set(['premium']))).toBe(true);
   });
 
-  it('reads the old shop category as premium and drops what it does not know', () => {
+  it('reads the old shop category as premium, keeps any well-formed key, drops the rest', () => {
     expect(knownCategory('shop')).toBe('premium');
     expect(knownCategory('season')).toBe('season');
-    expect(knownCategory('gacha')).toBeNull();
+    // A category an admin added (0351): whether it still exists is decided
+    // where the event is drawn (categoryOf), not here.
+    expect(knownCategory('c-guild-war')).toBe('c-guild-war');
+    expect(knownCategory('Gacha Event!')).toBeNull();
     expect(knownCategory(null)).toBeNull();
+  });
+
+  it('draws an event under its category only while that category exists', () => {
+    const known = new Set(['major', 'event', 'c-guild-war']);
+    expect(categoryOf({ category: 'c-guild-war' }, known)).toBe('c-guild-war');
+    // Removed from the admin's list: back under Events.
+    expect(categoryOf({ category: 'c-removed' }, known)).toBe('event');
+    expect(categoryOf({ category: null }, known)).toBe('event');
+    // Without a list, only the six built in are known.
+    expect(categoryOf({ category: 'c-guild-war' })).toBe('event');
   });
 });
 

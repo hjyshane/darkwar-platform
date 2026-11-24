@@ -2315,4 +2315,7 @@ export const ko: Catalog = {
   'Already in your language.': '이미 사용 중인 언어예요.',
   'Your browser cannot translate from this language into {language}.':
     '이 브라우저는 이 언어를 {language}로 번역할 수 없어요.',
+  'Category of {name}': '{name} 카테고리',
+  'Name it first to file it.': '먼저 이름을 붙여야 분류할 수 있어요.',
+  hidden: '숨김',
 };

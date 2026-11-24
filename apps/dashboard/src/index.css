@@ -8892,3 +8892,32 @@ button.server-link {
 .translate-compact .error {
   font-size: var(--text-sm);
 }
+
+/* Calendar categories an admin added (2026-11-24): four tones, in turn. */
+.calendar-cat-custom-0 {
+  --cat-bg: var(--ok-bg);
+  --cat-fg: var(--ok-fg);
+}
+.calendar-cat-custom-1 {
+  --cat-bg: var(--gold-bg);
+  --cat-fg: var(--gold-fg);
+}
+.calendar-cat-custom-2 {
+  --cat-bg: var(--tier-elite-bg);
+  --cat-fg: var(--tier-elite-fg);
+}
+.calendar-cat-custom-3 {
+  --cat-bg: var(--tier-commander-bg);
+  --cat-fg: var(--tier-commander-fg);
+}
+
+/* Edit mode on the calendar: file or hide an event in place. */
+.calendar-quick {
+  display: inline-flex;
+  gap: var(--space-1);
+  margin-left: var(--space-2);
+}
+
+.site-categories table {
+  width: auto;
+}

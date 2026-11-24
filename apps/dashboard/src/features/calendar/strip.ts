@@ -7,7 +7,7 @@
 
 import type { StripCell } from '../../components/Strip';
 import { type Translate, english } from '../../lib/i18n/core';
-import { type CalendarEvent, arrange, labelOf, serverWhen, until } from './data';
+import { type CalendarEvent, STANDING_AFTER_MS, arrange, labelOf, serverWhen, until } from './data';
 
 const plain = new Intl.NumberFormat('en');
 
@@ -15,8 +15,9 @@ export function calendarStrip(
   events: ReadonlyArray<CalendarEvent>,
   now: Date,
   t: Translate = english,
+  standingMs: number = STANDING_AFTER_MS,
 ): StripCell[] {
-  const { live, upcoming } = arrange(events, now);
+  const { live, upcoming } = arrange(events, now, standingMs);
   const endsNext = live[0];
   const startsNext = upcoming[0];
   return [

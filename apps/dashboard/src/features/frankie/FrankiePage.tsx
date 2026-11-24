@@ -14,6 +14,7 @@ import { StatTile } from '../../components/StatTile';
 import { Sparkline } from '../../components/ui/Sparkline';
 import { rich, useT } from '../../lib/i18n';
 import { type SortState, nextSort } from '../../lib/tableControls';
+import { useLowShare } from '../participation/data';
 import {
   type FrankieSortKey,
   type MemberSeries,
@@ -25,7 +26,6 @@ import {
 
 const STALE_TIME = 5 * 60_000;
 /** Under this share of the events a member is marked, as on Participation. */
-const LOW_SHARE = 0.5;
 
 function n(value: number): string {
   return value.toLocaleString('ko-KR');
@@ -58,7 +58,8 @@ function ChangeCell({ value }: { value: number | null }) {
 
 function MemberRow({ member, days }: { member: MemberSeries; days: readonly string[] }) {
   const t = useT();
-  const low = member.held > 0 && member.attended / member.held < LOW_SHARE;
+  const lowShare = useLowShare();
+  const low = member.held > 0 && member.attended / member.held < lowShare;
   return (
     <tr>
       <th className="label" scope="row">

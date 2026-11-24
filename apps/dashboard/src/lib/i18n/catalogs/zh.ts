@@ -2264,4 +2264,7 @@ export const zh: Catalog = {
   'Already in your language.': '已经是你的语言。',
   'Your browser cannot translate from this language into {language}.':
     '你的浏览器无法将这种语言翻译成{language}。',
+  'Category of {name}': '{name} 的分类',
+  'Name it first to file it.': '请先命名再分类。',
+  hidden: '已隐藏',
 };

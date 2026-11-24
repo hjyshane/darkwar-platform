@@ -1,5 +1,7 @@
 // Reading the participation report (0204) and writing typed attendance.
 
+import { LOW_PARTICIPATION_PERCENT } from '../../lib/settings/registry';
+import { useSiteSetting } from '../../lib/settings/useSiteSetting';
 import { supabase } from '../../lib/supabase';
 
 /** One event's typed attendance for one member over the range. `held` is how
@@ -423,14 +425,16 @@ export function share(part: number, whole: number): number | null {
   return whole > 0 ? part / whole : null;
 }
 
-/** Below this share of the days or events that were read, a cell is marked.
+/** The default for Settings › Shared › Site values › Low participation mark
+ * (LOW_PARTICIPATION_PERCENT), which every screen reads through
+ * useLowShare(). Below this share of the days or events read, a cell is marked.
  * Half: a member who shows up every other day is on the edge of the line an
  * officer would want to see without hunting for it. */
 export const LOW_SHARE = 0.5;
 
-export function isLow(part: number, whole: number): boolean {
+export function isLow(part: number, whole: number, threshold: number = LOW_SHARE): boolean {
   const s = share(part, whole);
-  return s !== null && s < LOW_SHARE;
+  return s !== null && s < threshold;
 }
 
 export type SortKey =
@@ -524,4 +528,9 @@ export async function saveBar(board: 'duel' | 'donation', value: number | null):
   if (error) {
     throw new Error(error.message);
   }
+}
+
+/** The low-participation line as a share (0..1), from Settings. */
+export function useLowShare(): number {
+  return useSiteSetting(LOW_PARTICIPATION_PERCENT) / 100;
 }

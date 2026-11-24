@@ -14,6 +14,7 @@ import { StatTile } from '../../components/StatTile';
 import { Sparkline } from '../../components/ui/Sparkline';
 import { rich, useT } from '../../lib/i18n';
 import { type SortState, nextSort } from '../../lib/tableControls';
+import { useLowShare } from '../participation/data';
 import {
   type BoardSortKey,
   type MemberSeries,
@@ -25,7 +26,6 @@ import {
 
 const STALE_TIME = 5 * 60_000;
 /** Under this share of the events a member is marked, as on Participation. */
-const LOW_SHARE = 0.5;
 
 export interface EventBoardConfig {
   /** `event_board`'s kind. */
@@ -126,7 +126,8 @@ function MemberRow({
   showTrend: boolean;
 }) {
   const t = useT();
-  const low = member.held > 0 && member.present / member.held < LOW_SHARE;
+  const lowShare = useLowShare();
+  const low = member.held > 0 && member.present / member.held < lowShare;
   return (
     <tr>
       <th className="label" scope="row">

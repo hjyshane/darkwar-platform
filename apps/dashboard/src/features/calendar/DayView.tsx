@@ -5,9 +5,8 @@
 // and lists the events that start or end inside it.
 
 import { useT } from '../../lib/i18n';
+import { useCalendarConfig } from './categories';
 import {
-  CATEGORIES,
-  CATEGORY_LABELS,
   type CalendarEvent,
   addDays,
   categoryOf,
@@ -46,6 +45,7 @@ export function DayView({
   onOpen: (event: CalendarEvent) => void;
 }) {
   const t = useT();
+  const config = useCalendarConfig();
   const running = events.filter((event) => runsOn(event, day));
   const blocks = dayBlocks(day);
   const rotation = PREP_ROTATION[weekdayOf(day)];
@@ -76,19 +76,21 @@ export function DayView({
         <p className="empty">{t('Nothing on the calendar for this day.')}</p>
       ) : (
         <div className="calendar-allday">
-          {CATEGORIES.map((category) => {
-            const list = running.filter((event) => categoryOf(event) === category);
+          {config.visible.map(({ key: category }) => {
+            const list = running.filter(
+              (event) => categoryOf(event, config.knownKeys) === category,
+            );
             if (list.length === 0) {
               return null;
             }
             return (
-              <div className={`calendar-allday-group calendar-cat-${category}`} key={category}>
-                <div className="calendar-lane-label">{t(CATEGORY_LABELS[category])}</div>
+              <div className={`calendar-allday-group ${config.className(category)}`} key={category}>
+                <div className="calendar-lane-label">{config.label(category, t)}</div>
                 <ul className="calendar-chips">
                   {list.map((event) => (
                     <li key={event.activity_id}>
                       <button
-                        className={`calendar-bar calendar-bar-start calendar-bar-end calendar-cat-${category}`}
+                        className={`calendar-bar calendar-bar-start calendar-bar-end ${config.className(category)}`}
                         onClick={() => onOpen(event)}
                         title={`${serverWhen(event.starts_at, now)} → ${serverWhen(event.ends_at, now)}`}
                         type="button"
@@ -114,7 +116,7 @@ export function DayView({
         {blocks.map((block) => {
           const current =
             Date.parse(block.from) <= now.getTime() && now.getTime() < Date.parse(block.to);
-          const changes = changesIn(events, block.from, block.to);
+          const changes = changesIn(events, block.from, block.to, config.standingMs);
           return (
             <li
               aria-current={current ? 'time' : undefined}
@@ -132,7 +134,9 @@ export function DayView({
                 <ul className="calendar-block-changes">
                   {changes.map(({ event, edge }) => (
                     <li key={`${edge}-${event.activity_id}`}>
-                      <span className={`calendar-tag calendar-cat-${categoryOf(event)}`}>
+                      <span
+                        className={`calendar-tag ${config.className(categoryOf(event, config.knownKeys))}`}
+                      >
                         {edge === 'starts' ? t('starts') : t('ends')}{' '}
                         {clock((edge === 'starts' ? event.starts_at : event.ends_at) ?? '')}
                       </span>{' '}

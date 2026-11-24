@@ -7,9 +7,7 @@ import { SERVER_ZONE, zonedDayKey } from '../../lib/timezone';
 import { type Battle, fetchBattles, outcome, teamLabel } from '../blackGold/data';
 import { fetchAllEventKinds } from '../participation/data';
 import {
-  ALWAYS_LISTED,
   type EventSummary,
-  OVERVIEW_DAYS,
   eventHref,
   fetchDuelDays,
   fetchVerdicts,
@@ -19,6 +17,11 @@ import {
   summariseDuel,
 } from './overview';
 import './alliance.css';
+import {
+  ALLIANCE_OVERVIEW_ALWAYS_LISTED,
+  ALLIANCE_OVERVIEW_DAYS,
+} from '../../lib/settings/registry';
+import { useSiteSetting } from '../../lib/settings/useSiteSetting';
 
 const compact = compactNumber(1);
 const plain = new Intl.NumberFormat('ko-KR');
@@ -30,7 +33,8 @@ const plain = new Intl.NumberFormat('ko-KR');
  * Offered on OUR page only: every source is scoped to the alliance being
  * viewed, so on somebody else's page it would put our events under their name. */
 export function AllianceOverview({ allianceId, now }: { allianceId: string; now?: Date }) {
-  const window = overviewWindow(now ?? new Date());
+  const days = useSiteSetting(ALLIANCE_OVERVIEW_DAYS);
+  const window = overviewWindow(now ?? new Date(), days);
   return (
     <div className="alliance-stack">
       <DuelPanel allianceId={allianceId} fromDay={window.fromDay} />
@@ -40,6 +44,7 @@ export function AllianceOverview({ allianceId, now }: { allianceId: string; now?
 }
 
 function DuelPanel({ allianceId, fromDay }: { allianceId: string; fromDay: string }) {
+  const overviewDays = useSiteSetting(ALLIANCE_OVERVIEW_DAYS);
   const { data, error, isPending } = useQuery({
     queryKey: ['alliance-overview', 'duel', allianceId, fromDay],
     queryFn: () => fetchDuelDays(allianceId, fromDay),
@@ -48,14 +53,14 @@ function DuelPanel({ allianceId, fromDay }: { allianceId: string; fromDay: strin
   const duel = summariseDuel(data ?? []);
   return (
     <section aria-label="Alliance Duel" className="alliance-panel">
-      <h2>{t('Alliance Duel · last {days} days', { days: OVERVIEW_DAYS })}</h2>
+      <h2>{t('Alliance Duel · last {days} days', { days: overviewDays })}</h2>
       {isPending ? (
         <p className="empty loading">{t('Loading…')}</p>
       ) : error ? (
         <p className="error">{t('Could not load the duel: {error}', { error: error.message })}</p>
       ) : duel.days === 0 ? (
         <p className="empty">
-          {t('No duel board has been read in the last {days} days.', { days: OVERVIEW_DAYS })}
+          {t('No duel board has been read in the last {days} days.', { days: overviewDays })}
         </p>
       ) : (
         <div className="stats overview-stats">
@@ -118,6 +123,8 @@ function verdictFigures(event: EventSummary, t: Translate): string {
 }
 
 function EventsPanel({ from, to, fromDay }: { from: string; to: string; fromDay: string }) {
+  const alwaysListed = useSiteSetting(ALLIANCE_OVERVIEW_ALWAYS_LISTED);
+  const overviewDays = useSiteSetting(ALLIANCE_OVERVIEW_DAYS);
   const t = useT();
   const verdicts = useQuery({
     queryKey: ['alliance-overview', 'events', from],
@@ -136,13 +143,13 @@ function EventsPanel({ from, to, fromDay }: { from: string; to: string; fromDay:
     (battle) => zonedDayKey(battle.battle_ended_at, SERVER_ZONE) >= fromDay,
   );
   // Named even when not held, so a blank is an answer rather than a gap.
-  const notHeld = ALWAYS_LISTED.filter((kind) => !events.some((event) => event.kind === kind));
+  const notHeld = alwaysListed.filter((kind) => !events.some((event) => event.kind === kind));
   const loading = verdicts.isPending || battles.isPending;
   const failure = verdicts.error ?? battles.error;
 
   return (
     <section aria-label={t('Alliance events')} className="alliance-panel">
-      <h2>{t('Alliance events · last {days} days', { days: OVERVIEW_DAYS })}</h2>
+      <h2>{t('Alliance events · last {days} days', { days: overviewDays })}</h2>
       {loading ? (
         <p className="empty loading">{t('Loading…')}</p>
       ) : failure ? (
@@ -190,7 +197,7 @@ function EventsPanel({ from, to, fromDay }: { from: string; to: string; fromDay:
                     <a href="#/black-gold">Black Gold</a>
                   </td>
                   <td className="subtle" colSpan={4}>
-                    {t('none in the last {days} days', { days: OVERVIEW_DAYS })}
+                    {t('none in the last {days} days', { days: overviewDays })}
                   </td>
                 </tr>
               )}
@@ -223,7 +230,7 @@ function EventsPanel({ from, to, fromDay }: { from: string; to: string; fromDay:
                     <a href={eventHref(kind)}>{kindLabel(kind, labels)}</a>
                   </td>
                   <td className="subtle" colSpan={4}>
-                    {t('none in the last {days} days', { days: OVERVIEW_DAYS })}
+                    {t('none in the last {days} days', { days: overviewDays })}
                   </td>
                 </tr>
               ))}
