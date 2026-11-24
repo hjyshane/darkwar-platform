@@ -22,7 +22,13 @@ from dw_collector import pipeline, registry
 from dw_collector.envfile import load_env_file
 from dw_collector.ingest import ServerFollower, _ingest_capture, _ready_captures
 from dw_collector.models import Observation
-from dw_collector.protocol.pcapng import PcapError
+from dw_collector.protocol.pcapng import (
+    PcapError,
+    StreamTable,
+    prune_idle_streams,
+    restore_streams,
+    snapshot_streams,
+)
 from dw_collector.storage.journal import Journal, is_locked
 from dw_collector.sync.worker import DrainStats, SyncConfig, SyncWorker
 
@@ -832,8 +838,15 @@ def ingest_dir(
     The point is dumpcap rather than dw-capture as the packet source. Live
     capture keeps one reassembler for the life of the process, so a stream
     that wedges stays wedged and the collector goes quiet while still
-    looking healthy. Reading files gives every file a fresh reassembler,
-    which bounds that failure to one file instead of to the rest of the run.
+    looking healthy. Reading files used to give every file a fresh
+    reassembler to bound that failure to one file — and lost every response
+    that dumpcap's 15-second rotation cut in two, since neither half decodes
+    alone (2026-11-24: four consecutive files read apart gave 74 frames,
+    read as one stream 165). Reassembly now carries across files, and the
+    wedge is bounded instead by the reassembler's gap timeout on the packet
+    clock and by dropping streams quiet for `STREAM_IDLE_SECONDS`. An
+    unreadable file still resets everything: its bytes are gone, so what
+    the table holds for them is garbage.
 
     Files already read are recorded in the journal, so restarting does not
     re-read the ring.
@@ -863,12 +876,27 @@ def ingest_dir(
         # from it were most of the loop's idle cost.
         done = _until_unlocked("journal", journal.ingested_captures)
         follower = ServerFollower(collected_from_server) if follow_login_server else None
+        # One reassembly table for the run: a frame the rotation cut in two
+        # completes in the next file. Pruned after every file, cleared when
+        # a file could not be read (see the docstring).
+        streams: StreamTable = {}
 
         def ingest_one(pcap: Path) -> None:
             # Every write in here is safe to repeat, which is what lets a
             # locked journal retry the whole file rather than skip it: the
             # observation ids are the file name plus the event's position,
-            # the inserts are `or ignore`, and the mark comes last.
+            # the inserts are `or ignore`, and the mark comes last. The
+            # reassembly table is the one thing a re-read would NOT repeat —
+            # it has consumed the file's segments and would see only
+            # retransmissions — so it goes back to where it was first.
+            before = snapshot_streams(streams)
+            try:
+                _ingest_one(pcap)
+            except BaseException:
+                restore_streams(streams, before)
+                raise
+
+        def _ingest_one(pcap: Path) -> None:
             fallback = datetime.now(tz=UTC)
             try:
                 result = _ingest_capture(
@@ -880,6 +908,7 @@ def ingest_dir(
                     discover_only=False,
                     fallback=fallback,
                     follower=follower,
+                    streams=streams,
                 )
             except (PcapError, OSError, ValueError) as exc:
                 # One unreadable file must not stop the loop — a
@@ -893,6 +922,7 @@ def ingest_dir(
                 # never be. A locked journal says nothing about the file, and
                 # marking the file done over it is how a capture is lost for
                 # good — see `_until_unlocked`.
+                streams.clear()
                 journal.mark_capture_ingested(pcap.name, 0)
                 done.add(pcap.name)
                 _discard_capture(pcap, wanted=delete_ingested)
@@ -900,6 +930,7 @@ def ingest_dir(
                 return
             journal.mark_capture_ingested(pcap.name, result.events)
             done.add(pcap.name)
+            prune_idle_streams(streams)
             # Only after the mark is committed: a deleted-but-unmarked
             # file would be data lost, a marked-but-undeleted one is just
             # a file the next poll skips.

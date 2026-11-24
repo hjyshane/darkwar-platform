@@ -3,8 +3,11 @@
 dw-capture keeps one reassembler for the life of the process, and when a
 stream wedges it goes quiet while still looking healthy — measured: the
 journal stopped at the second login and stayed there for 253 seconds while
-18KB crossed the wire. Reading files gives every file a fresh reassembler,
-so that failure is bounded to one file.
+18KB crossed the wire. Reading files used to give every file a fresh
+reassembler to bound that failure to one file; since 2026-11-24 the
+reassembly carries across files (a frame cut by the 15-second rotation was
+lost otherwise — see test_ingest_across_files.py) and the bound is the
+reassembler's gap timeout plus idle-stream pruning.
 """
 
 from __future__ import annotations

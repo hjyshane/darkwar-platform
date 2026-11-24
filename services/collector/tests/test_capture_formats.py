@@ -67,8 +67,8 @@ def _ethernet(ip: bytes) -> bytes:
     return b"\x02" * 6 + b"\x04" * 6 + struct.pack("!H", ether_type) + ip
 
 
-def _game_ipv4() -> bytes:
-    return _ipv4(_tcp(frame(ENVELOPE)))
+def _game_ipv4(*, seq: int = 1) -> bytes:
+    return _ipv4(_tcp(frame(ENVELOPE), seq=seq))
 
 
 # --- container builders ------------------------------------------------------

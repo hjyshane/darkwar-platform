@@ -36,7 +36,7 @@ from pydantic import ValidationError
 from dw_collector import normalize as _normalize  # noqa: F401  (registers normalizers)
 from dw_collector import pipeline, registry
 from dw_collector.models import Observation
-from dw_collector.protocol.pcapng import Connection, iter_extension_events
+from dw_collector.protocol.pcapng import Connection, StreamTable, iter_extension_events
 from dw_collector.request_log import request_observation
 from dw_collector.storage.journal import Journal
 
@@ -113,13 +113,20 @@ def _ingest_capture(
     discover_only: bool,
     fallback: datetime,
     follower: ServerFollower | None = None,
+    streams: StreamTable | None = None,
 ) -> ScanResult:
     """One capture file through the pipeline. Shared by scan-capture,
     ingest-dir, and the desktop app's ingest loop so none of the three can
-    drift from the one path that has been used by hand all along."""
+    drift from the one path that has been used by hand all along.
+
+    `streams` is the TCP reassembly state to continue from and leave behind.
+    The loops that read a ring pass one table for the whole run, so a frame
+    that dumpcap's rotation cut in two completes in the next file (see
+    `iter_extension_events`); a one-off `scan-capture` leaves it out.
+    """
     ingested = discovered = rejected = requests = 0
     commands: dict[str, int] = {}
-    for index, event in enumerate(iter_extension_events(pcap, port=port)):
+    for index, event in enumerate(iter_extension_events(pcap, port=port, streams=streams)):
         if follower is not None:
             if event.direction == "inbound":
                 follower.observe(event.connection, event.command, event.payload)
