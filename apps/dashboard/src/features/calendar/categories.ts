@@ -2,33 +2,27 @@
 // is): read from the settings registry, built once per change.
 
 import { useMemo } from 'react';
+import { useEditMode } from '../../lib/editMode';
 import {
   CALENDAR_CATEGORIES,
-  CALENDAR_DEFAULT_SHOWN,
   CALENDAR_HIDDEN_EVENTS,
   CALENDAR_STANDING_DAYS,
 } from '../../lib/settings/registry';
-import { useSiteSetting, useStoredSiteSettings } from '../../lib/settings/useSiteSetting';
+import { useSiteSetting } from '../../lib/settings/useSiteSetting';
 import { type CalendarConfig, calendarConfig } from './categoryModel';
 
 export * from './categoryModel';
 
-/** The calendar as an admin arranged it. Before anybody saved the category
- * list, the older "shown at first" setting still decides what is shown. */
+/** The calendar as an admin arranged it. In edit mode every category counts as
+ * visible, so each view draws a hidden category's events for the admin to look
+ * at and refile, instead of dropping them or filing them under Events. */
 export function useCalendarConfig(): CalendarConfig {
-  const stored = useStoredSiteSettings();
   const categories = useSiteSetting(CALENDAR_CATEGORIES);
-  const legacyShown = useSiteSetting(CALENDAR_DEFAULT_SHOWN);
   const hidden = useSiteSetting(CALENDAR_HIDDEN_EVENTS);
   const standingDays = useSiteSetting(CALENDAR_STANDING_DAYS);
-  const arranged = stored.data?.has(CALENDAR_CATEGORIES.key) === true;
-  return useMemo(() => {
-    const all = arranged
-      ? categories
-      : categories.map((category) => ({
-          ...category,
-          shownAtFirst: (legacyShown as readonly string[]).includes(category.key),
-        }));
-    return calendarConfig(all, hidden, standingDays);
-  }, [arranged, categories, legacyShown, hidden, standingDays]);
+  const { editing } = useEditMode();
+  return useMemo(
+    () => calendarConfig(categories, hidden, standingDays, editing),
+    [categories, hidden, standingDays, editing],
+  );
 }

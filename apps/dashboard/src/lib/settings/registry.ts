@@ -29,12 +29,6 @@ import {
   parseHiddenEvents,
 } from '../../features/calendar/categoryModel';
 import {
-  CATEGORIES,
-  CATEGORY_LABELS,
-  type Category,
-  DEFAULT_SHOWN,
-} from '../../features/calendar/data';
-import {
   DEFAULT_CATEGORY_BY_TYPE,
   DOLLARS_PER_RUBY,
   PACK_CATEGORIES,
@@ -202,15 +196,6 @@ export const PACK_CATEGORY_BY_TYPE = mapSetting({
   })),
 });
 
-export const CALENDAR_DEFAULT_SHOWN = choicesSetting<Category>({
-  key: 'site.calendar_default_shown',
-  label: 'Game calendar: shown at first',
-  help: 'The kinds of event the game calendar shows before a reader picks their own.',
-  usedOn: { label: 'Game calendar', href: '#/calendar' },
-  defaultValue: [...DEFAULT_SHOWN],
-  options: CATEGORIES.map((category) => ({ value: category, label: CATEGORY_LABELS[category] })),
-});
-
 export const DEFAULT_LANGUAGE = selectSetting<Language>({
   key: 'site.default_language',
   label: 'Default language',
@@ -344,11 +329,6 @@ export const SITE_SETTINGS: readonly AnySiteSetting[] = [
   ALLIANCE_OVERVIEW_ALWAYS_LISTED,
   GAME_GUIDE_UPCOMING_TIMES,
 ];
-
-/** Keys no longer drawn in Settings but still read, so a value an admin saved
- * before the setting moved keeps working (CALENDAR_DEFAULT_SHOWN became part of
- * CALENDAR_CATEGORIES on 2026-11-24). Fetched with the rest. */
-export const LEGACY_SITE_SETTINGS: readonly AnySiteSetting[] = [CALENDAR_DEFAULT_SHOWN];
 
 /** Whether a stored value is the default, compared as the reader sees it. */
 export function isDefault<T>(setting: SiteSetting<T>, value: T): boolean {

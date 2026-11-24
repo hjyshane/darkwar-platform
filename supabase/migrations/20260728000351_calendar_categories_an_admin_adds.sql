@@ -23,3 +23,25 @@ alter table public.event_names
   add constraint event_names_category_check check (
     category is null or category ~ '^[a-z][a-z0-9_-]{0,39}$'
   );
+
+-- The old "shown at first" choice (site.calendar_default_shown) becomes the
+-- category list's shownAtFirst flags, and the old row goes. The dashboard used
+-- to fall back to the old row whenever the new one was missing, which brought
+-- a retired choice back every time an admin reset the categories to default
+-- (codex review on #680). Moving it once here removes the fallback.
+insert into public.app_settings (key, value)
+select 'site.calendar_categories',
+       jsonb_agg(
+         jsonb_build_object(
+           'key', c.key, 'label', null, 'hidden', false,
+           'shownAtFirst', old.value ? c.key)
+         order by c.ord)
+  from public.app_settings old
+ cross join unnest(array['major', 'recurring', 'season', 'event', 'pass', 'premium'])
+       with ordinality as c(key, ord)
+ where old.key = 'site.calendar_default_shown'
+   and jsonb_typeof(old.value) = 'array'
+ group by old.value
+on conflict (key) do nothing;
+
+delete from public.app_settings where key = 'site.calendar_default_shown';

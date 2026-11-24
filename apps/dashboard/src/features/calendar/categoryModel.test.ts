@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { english } from '../../lib/i18n/core';
 import {
   DEFAULT_CATEGORIES,
+  MAX_CATEGORIES,
   calendarConfig,
   newCategoryKey,
   parseCalendarCategories,
@@ -58,6 +59,28 @@ describe('parseCalendarCategories', () => {
   });
 });
 
+describe('the category limit (codex review on #680)', () => {
+  it('drops only added categories past the limit, never a built-in or its flags', () => {
+    const added = Array.from({ length: 40 }, (_, n) => ({
+      key: `c-${n}`,
+      label: `Added ${n}`,
+      hidden: false,
+      shownAtFirst: true,
+    }));
+    const parsed = parseCalendarCategories([
+      ...added,
+      { key: 'premium', label: 'Shop', hidden: true, shownAtFirst: false },
+    ]);
+    expect(parsed).toHaveLength(MAX_CATEGORIES);
+    expect(parsed.find((c) => c.key === 'premium')).toEqual({
+      key: 'premium',
+      label: 'Shop',
+      hidden: true,
+      shownAtFirst: false,
+    });
+  });
+});
+
 describe('the calendar config', () => {
   const config = calendarConfig(
     parseCalendarCategories([
@@ -101,5 +124,17 @@ describe('keys and ids', () => {
   it('keeps only digit ids for hidden events, each once', () => {
     expect(parseHiddenEvents(['9001', '9001', 'x', 5, '12'])).toEqual(['9001', '12']);
     expect(parseHiddenEvents('9001')).toEqual([]);
+  });
+});
+
+describe('edit mode (codex review on #680)', () => {
+  it('draws every category for an admin, but still starts readers on the offered ones', () => {
+    const all = parseCalendarCategories([
+      { key: 'premium', label: null, hidden: true, shownAtFirst: true },
+    ]);
+    const editing = calendarConfig(all, [], 180, true);
+    expect(editing.visibleKeys.has('premium')).toBe(true);
+    expect(editing.visible).toHaveLength(all.length);
+    expect(editing.shownAtFirst).not.toContain('premium');
   });
 });

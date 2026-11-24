@@ -89,14 +89,15 @@ export function CalendarPage() {
   // an admin in edit mode sees them all, to bring one back.
   const onServer = useMemo(
     () =>
+      // Season end dates come from the whole server calendar first: hiding the
+      // Season Celebration must not stretch every other season event.
       endWithSeason(
-        (calendar.data ?? []).filter(
-          (event) =>
-            event.server_id === serverShown &&
-            (editing ||
-              (!config.hiddenEvents.has(event.activity_id) &&
-                config.visibleKeys.has(categoryOf(event, config.knownKeys)))),
-        ),
+        (calendar.data ?? []).filter((event) => event.server_id === serverShown),
+      ).filter(
+        (event) =>
+          editing ||
+          (!config.hiddenEvents.has(event.activity_id) &&
+            config.visibleKeys.has(categoryOf(event, config.knownKeys))),
       ),
     [calendar.data, serverShown, editing, config],
   );

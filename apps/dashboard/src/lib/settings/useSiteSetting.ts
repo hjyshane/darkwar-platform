@@ -7,12 +7,7 @@ import type { Json } from '@dw/shared-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { supabase } from '../supabase';
-import {
-  type AnySiteSetting,
-  LEGACY_SITE_SETTINGS,
-  SITE_SETTINGS,
-  type SiteSetting,
-} from './registry';
+import { type AnySiteSetting, SITE_SETTINGS, type SiteSetting } from './registry';
 
 export interface StoredSetting {
   value: unknown;
@@ -28,7 +23,7 @@ async function fetchSiteSettings(): Promise<ReadonlyMap<string, StoredSetting>> 
     .select('key, value, updated_at, updated_by')
     .in(
       'key',
-      [...SITE_SETTINGS, ...LEGACY_SITE_SETTINGS].map((setting) => setting.key),
+      SITE_SETTINGS.map((setting) => setting.key),
     );
   if (error) throw new Error(`settings query failed: ${error.message}`);
   return new Map(

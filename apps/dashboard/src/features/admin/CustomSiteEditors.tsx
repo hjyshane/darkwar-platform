@@ -8,6 +8,7 @@ import { english } from '../../lib/i18n/core';
 import type { CustomEditor } from '../../lib/settings/registry';
 import {
   type CalendarCategoryDef,
+  MAX_CATEGORIES,
   calendarConfig,
   isBuiltIn,
   newCategoryKey,
@@ -67,9 +68,10 @@ function CalendarCategoriesEditor({
     next.splice(index + by, 0, entry);
     onChange(next);
   };
+  const full = value.length >= MAX_CATEGORIES;
   const add = () => {
     const label = adding.trim();
-    if (label === '') return;
+    if (label === '' || full) return;
     const key = newCategoryKey(label, new Set(value.map((entry) => entry.key)));
     onChange([...value, { key, label, hidden: false, shownAtFirst: true }]);
     setAdding('');
@@ -172,9 +174,12 @@ function CalendarCategoriesEditor({
             value={adding}
           />
         </label>{' '}
-        <button disabled={adding.trim() === ''} onClick={add} type="button">
+        <button disabled={adding.trim() === '' || full} onClick={add} type="button">
           Add
         </button>
+        {full && (
+          <span className="subtle"> The list is full ({MAX_CATEGORIES}). Remove one first.</span>
+        )}
       </p>
       <p className="subtle">
         Events are filed from the Game calendar: officers with Edit next to an event's name, admins

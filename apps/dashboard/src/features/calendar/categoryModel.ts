@@ -27,7 +27,9 @@ export interface CalendarCategoryDef {
 
 export const CATEGORY_KEY = /^[a-z][a-z0-9_-]{0,39}$/;
 const BUILT_IN: ReadonlySet<string> = new Set(CATEGORIES);
-const MAX_CATEGORIES = 30;
+/** At most this many in the list, the built-ins included. The editor stops
+ * adding at the limit, so nothing an admin added is dropped on save. */
+export const MAX_CATEGORIES = 30;
 const MAX_LABEL = 40;
 
 export const DEFAULT_CATEGORIES: readonly CalendarCategoryDef[] = CATEGORIES.map((key) => ({
@@ -43,17 +45,22 @@ export function isBuiltIn(key: string): boolean {
 
 /** The stored list, checked: unknown shapes are dropped, duplicates and bad
  * keys skipped, and any built-in missing from it is put back at the end, so
- * an event filed under it can never lose its category. */
+ * an event filed under it can never lose its category. Past the limit only
+ * added categories are dropped, never a built-in with its name and flags. */
 export function parseCalendarCategories(raw: unknown): readonly CalendarCategoryDef[] {
   if (!Array.isArray(raw)) return DEFAULT_CATEGORIES;
   const out: CalendarCategoryDef[] = [];
   const seen = new Set<string>();
-  for (const entry of raw.slice(0, MAX_CATEGORIES)) {
+  let room = MAX_CATEGORIES - DEFAULT_CATEGORIES.length;
+  for (const entry of raw) {
     if (typeof entry !== 'object' || entry === null) continue;
     const { key, label, hidden, shownAtFirst } = entry as Record<string, unknown>;
     if (typeof key !== 'string' || !CATEGORY_KEY.test(key) || seen.has(key)) continue;
     const name = typeof label === 'string' ? label.trim().slice(0, MAX_LABEL) : '';
-    if (name === '' && !isBuiltIn(key)) continue;
+    if (!isBuiltIn(key)) {
+      if (name === '' || room === 0) continue;
+      room -= 1;
+    }
     seen.add(key);
     out.push({
       key,
@@ -92,7 +99,7 @@ export function newCategoryKey(label: string, taken: ReadonlySet<string>): strin
 export interface CalendarConfig {
   /** Every category, in the admin's order. */
   all: readonly CalendarCategoryDef[];
-  /** The categories readers are offered, in order. */
+  /** The categories readers are offered, in order; every one in edit mode. */
   visible: readonly CalendarCategoryDef[];
   /** Keys of the visible categories. */
   visibleKeys: ReadonlySet<string>;
@@ -113,8 +120,10 @@ export function calendarConfig(
   all: readonly CalendarCategoryDef[],
   hidden: readonly string[],
   standingDays: number,
+  editing = false,
 ): CalendarConfig {
-  const visible = all.filter((category) => !category.hidden);
+  const offered = all.filter((category) => !category.hidden);
+  const visible = editing ? all : offered;
   const byKey = new Map(all.map((category) => [category.key, category]));
   const custom = all.filter((category) => !isBuiltIn(category.key)).map((c) => c.key);
   return {
@@ -123,7 +132,7 @@ export function calendarConfig(
     visibleKeys: new Set(visible.map((category) => category.key)),
     knownKeys: new Set(all.map((category) => category.key)),
     hiddenEvents: new Set(hidden),
-    shownAtFirst: visible.filter((category) => category.shownAtFirst).map((c) => c.key),
+    shownAtFirst: offered.filter((category) => category.shownAtFirst).map((c) => c.key),
     standingMs: standingDays * 24 * 60 * 60 * 1000,
     label: (key, t) => {
       const def = byKey.get(key);
