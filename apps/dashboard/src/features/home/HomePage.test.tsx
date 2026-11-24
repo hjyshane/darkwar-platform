@@ -129,14 +129,14 @@ describe('HomePage', () => {
     expect(screen.queryByText(/your time/)).toBeNull();
   });
 
-  it('shows my Black Gold team and objective, and the calculator inside the upgrade card', () => {
+  it('shows my Black Gold team and objective, and no upgrade card', () => {
     show();
     expect(
       screen.getByText(/You are on Team A, starter\. Your objective: Military Base A — hold\./),
     ).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Building' }).getAttribute('href')).toContain(
-      '#/calculator?kind=building',
-    );
+    // The Upgrades card came out on 2026-11-24 (owner): the calculator is in the sidebar.
+    expect(screen.queryByText('Upgrades')).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Building' })).toBeNull();
     expect(screen.queryByText(/gift code/i)).toBeNull();
   });
 

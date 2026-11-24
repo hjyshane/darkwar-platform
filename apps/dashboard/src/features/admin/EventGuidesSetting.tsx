@@ -62,7 +62,7 @@ export function EventGuidesSetting() {
         the collector from the game’s own tables, unpublished: add rewards, stages, a prepare-now
         list and notes here, map each scoring action to the item it uses, then publish.{' '}
         <strong>Festivals</strong> the game does not describe in that data are typed here whole.
-        Members see published guides in the Guides tab of the Event guide.
+        Members see published guides in the Guides tab of the Game guide.
       </p>
 
       <div className="table-wrap">

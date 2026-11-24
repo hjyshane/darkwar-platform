@@ -1,6 +1,10 @@
 // The calculator's place in the app: its address, its sidebar entry, and who
 // is offered it. The page is game-wide reference data, so a community account
 // (0282) gets it beside the planner.
+//
+// Changed on 2026-11-24: in the member menu the entry is labelled "Tools". Its
+// address, its children and the tab key that hides it (`calculator`) are what
+// they were. A community account's entry is still called Calculator.
 import { describe, expect, it } from 'vitest';
 import { communityMayOpen } from '../../lib/communityAccess';
 import { navSection, routeFromHash } from '../../lib/route';
@@ -33,11 +37,13 @@ describe('the calculator route', () => {
     expect(navSection('calculator')).toBe('alliance');
   });
 
-  it('is in the sidebar, with the planner under it and not beside it', () => {
+  it('is in the sidebar as Tools, with the planner under it and not beside it', () => {
     const labels = items(member).map((i) => i.label);
-    expect(labels).toContain('Calculator');
+    expect(labels).toContain('Tools');
+    expect(labels).not.toContain('Calculator');
     expect(labels).not.toContain('Planner');
-    const entry = items({ ...member, route: 'calculator' }).find((i) => i.label === 'Calculator');
+    const entry = items({ ...member, route: 'calculator' }).find((i) => i.label === 'Tools');
+    expect(entry?.key).toBe(CALCULATOR_HASH);
     expect(entry?.href).toBe(CALCULATOR_HASH);
     expect(entry?.current).toBe(true);
     expect(entry?.children?.map((child) => child.label)).toEqual([
@@ -53,24 +59,34 @@ describe('the calculator route', () => {
     expect(communityMayOpen('calculator')).toBe(true);
     expect(items({ ...member, isCommunity: true }).map((i) => i.label)).toContain('Calculator');
     expect(tabKeyOf('calculator')).toBe('calculator');
+    // The member's entry is labelled Tools since 2026-11-24, and is still
+    // hidden by the `calculator` key.
     const hidden = items({ ...member, tabShown: (tab) => tab !== 'calculator' });
-    expect(hidden.map((i) => i.label)).not.toContain('Calculator');
+    expect(hidden.map((i) => i.label)).not.toContain('Tools');
+    expect(hidden.map((i) => i.key)).not.toContain(CALCULATOR_HASH);
+    const communityHidden = items({
+      ...member,
+      isCommunity: true,
+      tabShown: (tab) => tab !== 'calculator',
+    });
+    expect(communityHidden.map((i) => i.label)).not.toContain('Calculator');
   });
 
-  it('keeps the four 2026-11-18 entries under the admin tab setting: the calculator for everybody, the other three in the Admin menu', () => {
+  it('keeps the four 2026-11-18 entries under the admin tab setting: the calculator (as Tools) for everybody, the other three in the Admin menu', () => {
     // They were taken out of the code that day and came back the same day:
     // whether a role sees them is Settings → Tab visibility (0295), not a code
     // change. Since 2026-11-19 gift codes, the game calendar and shop value are
-    // filed in the admin's own group; the calculator is in everybody's menu.
+    // filed in the admin's own group; the calculator is in everybody's menu,
+    // labelled Tools since 2026-11-24.
     const admin = { ...member, isAdmin: true, isOfficer: true, mayManageGiftCodes: true };
-    expect(items(admin).map((i) => i.label)).toContain('Calculator');
+    expect(items(admin).map((i) => i.label)).toContain('Tools');
     expect(filed(admin, 'Roster')).toEqual(['Members', 'Gift codes']);
     expect(filed(admin, 'Game data')).toEqual(['Game calendar', 'Shop value']);
     const hidden = {
       ...admin,
       tabShown: (tab: string) => !['giftCodes', 'calendar', 'shopValue'].includes(tab),
     };
-    expect(items(hidden).map((i) => i.label)).toContain('Calculator');
+    expect(items(hidden).map((i) => i.label)).toContain('Tools');
     expect(everyLabel(hidden)).not.toContain('Gift codes');
     expect(everyLabel(hidden)).not.toContain('Game calendar');
     expect(everyLabel(hidden)).not.toContain('Shop value');
@@ -79,7 +95,7 @@ describe('the calculator route', () => {
     // An officer has the member menu and the Officer menu: the calculator and
     // Gift codes, and neither of the game-data two.
     const officer = { ...member, isOfficer: true, mayManageGiftCodes: true };
-    expect(items(officer).map((i) => i.label)).toContain('Calculator');
+    expect(items(officer).map((i) => i.label)).toContain('Tools');
     expect(items(officer).map((i) => i.label)).toContain('Gift codes');
     for (const label of ['Game calendar', 'Shop value']) {
       expect(everyLabel(officer)).not.toContain(label);

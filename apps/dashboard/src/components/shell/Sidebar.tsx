@@ -51,6 +51,9 @@ function Entry({ item, collapsed }: { item: NavItem; collapsed: boolean }) {
         <ul className="shell-sub">
           {item.children.map((child) => (
             <li key={child.key}>
+              {child.heading !== undefined && (
+                <span className="shell-subhead">{child.heading}</span>
+              )}
               <a
                 aria-current={child.current ? 'page' : undefined}
                 className="shell-sublink"

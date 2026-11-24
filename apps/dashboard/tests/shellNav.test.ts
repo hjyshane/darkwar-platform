@@ -1,3 +1,10 @@
+// The sidebar's groups and entries, what is current, and the top bar.
+//
+// Changed on 2026-11-24 (owner): the member menu is five entries, not six, in
+// the order Home, the alliance, Tools, Guides, Map. Hive is a screen under the
+// alliance (after Overview, the Merchant tester after it) instead of an entry;
+// Calculator is labelled Tools; "Event guide" is "Game guide"; and the event
+// screens under the alliance are two captioned runs, Events then Seasons.
 import { describe, expect, it } from 'vitest';
 import { type Route, routeFromHash } from '../src/lib/route';
 import type { Season } from '../src/lib/seasons';
@@ -49,10 +56,20 @@ const under = (ctx: NavContext, key: string) =>
     .flatMap((group) => group.items)
     .find((item) => item.key === key)?.children ?? [];
 
+/** The alliance's own screens, which come before any event (2026-11-24): its
+ * page, the hive plan, and the officers' Merchant tester. */
+const OWN_SCREENS = ['own-page', '#/hive', '#/base-placement'];
+
 /** The Events screens, each filed under our alliance's entry (2026-11-19):
- * everything there but the alliance's own page. */
+ * everything there but the alliance's own screens. */
 const eventsOf = (ctx: NavContext) =>
-  under(ctx, 'own-alliance').filter((child) => child.key !== 'own-page');
+  under(ctx, 'own-alliance').filter((child) => !OWN_SCREENS.includes(child.key));
+
+/** The captions drawn under the alliance entry, each with the screen it opens. */
+const headingsOf = (ctx: NavContext) =>
+  under(ctx, 'own-alliance')
+    .filter((child) => child.heading !== undefined)
+    .map((child) => [child.heading, child.label]);
 
 describe('buildNav', () => {
   it('lists the groups in the order the sidebar draws them', () => {
@@ -76,9 +93,10 @@ describe('buildNav', () => {
   });
 
   it('lists the entries of each group in order', () => {
-    const six = ['Home', 'Guides', 'Calculator', 'Hive', 'Map', 'CBFW'];
-    expect(labels(admin(), 'watch')).toEqual(six);
-    expect(labels(base(), 'watch')).toEqual(six);
+    // Five since 2026-11-24: Hive went under the alliance.
+    const five = ['Home', 'CBFW', 'Tools', 'Guides', 'Map'];
+    expect(labels(admin(), 'watch')).toEqual(five);
+    expect(labels(base(), 'watch')).toEqual(five);
     expect(labels(admin(), 'admin')).toEqual(['Servers', 'Roster', 'Game data']);
     expect(under(admin(), 'admin-servers').map((child) => [child.label, child.href])).toEqual([
       ['Server overview', '#/'],
@@ -96,13 +114,12 @@ describe('buildNav', () => {
     const community = base({ isCommunity: true });
     expect(labels(community, 'watch')).toEqual(['Overview', 'Rankings', 'Migration', 'Map']);
     expect(labels(community, 'alliance')).toEqual(['Calculator']);
-    expect(labels(community, 'events')).toEqual(['Game calendar', 'Event guide', 'Shop value']);
+    expect(labels(community, 'events')).toEqual(['Game calendar', 'Game guide', 'Shop value']);
   });
 
   it('keeps every address the old tabs had', () => {
-    // An admin's two groups between them: Hive beside our alliance's entry,
-    // the event screens under it, Members and the group-wide boards in the
-    // Admin menu.
+    // An admin's two groups between them: Hive and the event screens under our
+    // alliance's entry, Members and the group-wide boards in the Admin menu.
     const hrefs = hrefsOf(admin());
     for (const hash of [
       '#/',
@@ -155,7 +172,7 @@ describe('buildNav', () => {
     expect(sub(base({ isOfficer: false, isAdmin: true }))).toContain('Alarms');
   });
 
-  it('files Black Gold, Frankie, the clashes, Participation, Alarms and the seasons under the alliance, each a screen', () => {
+  it('files Black Gold, Frankie, the clashes, Participation and Alarms under the alliance as Events, then the seasons as Seasons, each a screen', () => {
     expect(eventsOf(admin()).map((child) => child.href)).toEqual([
       '#/black-gold',
       '#/frankie',
@@ -167,6 +184,15 @@ describe('buildNav', () => {
       '#/season2',
     ]);
     expect(eventsOf(admin()).every((child) => child.screen === true)).toBe(true);
+    // Two runs, each captioned on its first screen and nowhere else.
+    expect(headingsOf(admin())).toEqual([
+      ['Events', 'Black Gold'],
+      ['Seasons', 'Season 3'],
+    ]);
+    expect(headingsOf(base({ isOfficer: false }))).toEqual([
+      ['Events', 'Black Gold'],
+      ['Seasons', 'Season 3'],
+    ]);
     // The alliance's own page comes first, before any of them.
     expect(under(admin(), 'own-alliance')[0]).toMatchObject({
       key: 'own-page',
@@ -174,12 +200,24 @@ describe('buildNav', () => {
       href: '#/alliance/a1',
       screen: true,
     });
+    // Then Hive and the Merchant tester (2026-11-24), each a screen, uncaptioned.
+    expect(
+      under(admin(), 'own-alliance')
+        .slice(1, 3)
+        .map((child) => [child.label, child.href, child.screen, child.heading]),
+    ).toEqual([
+      ['Hive', '#/hive', true, undefined],
+      ['Merchant tester', '#/base-placement', true, undefined],
+    ]);
+    expect(under(admin(), 'own-alliance')).toHaveLength(3 + eventsOf(admin()).length);
     // There is no single Events screen holding them, and they are not
     // top-level entries either.
     expect(under(admin(), 'own-alliance').map((child) => child.label)).not.toContain('Events');
     const top = buildNav(admin()).flatMap((group) => group.items.map((item) => item.key));
     for (const hash of [
       '#/events',
+      '#/hive',
+      '#/base-placement',
       '#/black-gold',
       '#/frankie',
       '#/capital-clash',
@@ -191,7 +229,7 @@ describe('buildNav', () => {
     }
   });
 
-  it('draws the event screens in the arrangement an admin set, and hides them together', () => {
+  it('draws the event screens in the arrangement an admin set, seasons still last, and hides them together', () => {
     const overrides = overridesFromRows([
       { scope: 'events-hub', key: 'participation', kind: 'order', value: '0' },
       { scope: 'events-hub', key: 'frankie', kind: 'hidden', value: 'true' },
@@ -205,6 +243,32 @@ describe('buildNav', () => {
       ['Alarms', '#/alarms'],
       ['Season 3', '#/season'],
     ]);
+    // The captions follow the arrangement: each is on the first of its run.
+    expect(headingsOf(base({ overrides }))).toEqual([
+      ['Events', 'Participation'],
+      ['Seasons', 'Season 3'],
+    ]);
+    // An arrangement that puts a season first does not lift it out of its run
+    // (2026-11-24): the order holds within each run, seasons after the rest.
+    const seasonsFirst = overridesFromRows([
+      { scope: 'events-hub', key: 'season2', kind: 'order', value: '0' },
+      { scope: 'events-hub', key: 'season', kind: 'order', value: '1' },
+      { scope: 'events-hub', key: 'participation', kind: 'order', value: '2' },
+    ]);
+    expect(eventsOf(admin({ overrides: seasonsFirst })).map((child) => child.label)).toEqual([
+      'Participation',
+      'Black Gold',
+      'Frankie',
+      'Capital Clash',
+      'Server Clash',
+      'Alarms',
+      'Season 2',
+      'Season 3',
+    ]);
+    expect(headingsOf(admin({ overrides: seasonsFirst }))).toEqual([
+      ['Events', 'Participation'],
+      ['Seasons', 'Season 2'],
+    ]);
     // The bare `#/events` address opens the first as arranged.
     expect(
       eventsOf(base({ overrides, route: 'events' }))
@@ -213,7 +277,12 @@ describe('buildNav', () => {
     ).toEqual(['Participation']);
     // One tab key, `events`, stands for all of them.
     const hidden = base({ tabShown: (tab) => tab !== 'events' });
-    expect(under(hidden, 'own-alliance').map((child) => child.label)).toEqual(['Overview']);
+    expect(under(hidden, 'own-alliance').map((child) => child.label)).toEqual([
+      'Overview',
+      'Hive',
+      'Merchant tester',
+    ]);
+    expect(headingsOf(hidden)).toEqual([]);
   });
 
   it('waits for the permission grid before showing Members', () => {
@@ -234,14 +303,18 @@ describe('buildNav', () => {
   });
 
   it('names the alliance entry after our alliance, and plainly until it is known', () => {
-    expect(labels(base(), 'watch').at(-1)).toBe('CBFW');
-    // The event screens under it do not wait for the alliances table; the
-    // alliance's own page does.
-    expect(labels(base({ own: null }), 'watch').at(-1)).toBe('Alliance');
+    // Second, right after Home (2026-11-24; it was last).
+    expect(labels(base(), 'watch')[1]).toBe('CBFW');
+    // Hive and the event screens under it do not wait for the alliances table;
+    // the alliance's own page does.
+    expect(labels(base({ own: null }), 'watch')[1]).toBe('Alliance');
     expect(under(base({ own: null }), 'own-alliance').map((child) => child.key)).not.toContain(
       'own-page',
     );
-    expect(under(base({ own: null }), 'own-alliance')[0]?.href).toBe('#/black-gold');
+    // So until then the entry opens Hive, its first screen, and the events
+    // start at Black Gold as ever.
+    expect(under(base({ own: null }), 'own-alliance')[0]?.href).toBe('#/hive');
+    expect(eventsOf(base({ own: null }))[0]?.href).toBe('#/black-gold');
   });
 
   it('names the season entries from the seasons table', () => {
@@ -276,13 +349,16 @@ describe('buildNav', () => {
     }
     expect(current('season2', admin)).toEqual(['CBFW']);
     expect(current('home')).toEqual(['Home']);
-    expect(current('hive')).toEqual(['Hive']);
-    expect(current('calculator')).toEqual(['Calculator']);
+    // Hive and the Merchant tester are the alliance's since 2026-11-24.
+    expect(current('hive')).toEqual(['CBFW']);
+    expect(current('hive', admin)).toEqual(['CBFW']);
+    expect(current('basePlacement')).toEqual(['CBFW']);
+    expect(current('calculator')).toEqual(['Tools']);
     expect(current('map')).toEqual(['Map']);
-    // Filed under Calculator since 2026-11-20.
-    expect(current('planner')).toEqual(['Calculator']);
-    expect(current('planner', admin)).toEqual(['Calculator']);
-    // The event guide, a notice and a guide are all under Guides.
+    // Filed under Tools (then Calculator) since 2026-11-20.
+    expect(current('planner')).toEqual(['Tools']);
+    expect(current('planner', admin)).toEqual(['Tools']);
+    // The Game guide, a notice and a guide are all under Guides.
     expect(current('eventGuide')).toEqual(['Guides']);
     expect(current('notice')).toEqual(['Guides']);
     expect(current('guide')).toEqual(['Guides']);
@@ -332,21 +408,23 @@ describe('buildFooter and breadcrumb', () => {
       breadcrumb(buildNav(ctx({ route })), buildFooter(route, true), route);
 
     expect(at('home')).toEqual(['Menu', 'Home']);
-    expect(at('hive')).toEqual(['Menu', 'Hive']);
-    // A screen filed under an entry is named after it.
+    // A screen filed under an entry is named after it: Hive too, since
+    // 2026-11-24, and the Merchant tester.
+    expect(at('hive')).toEqual(['Menu', 'CBFW', 'Hive']);
+    expect(at('basePlacement')).toEqual(['Menu', 'CBFW', 'Merchant tester']);
     expect(
       breadcrumb(buildNav(base({ route: 'alliance', allianceId: 'a1' })), [], 'alliance'),
     ).toEqual(['Menu', 'CBFW', 'Overview']);
     expect(at('blackMoney')).toEqual(['Menu', 'CBFW', 'Black Gold']);
-    expect(at('eventGuide')).toEqual(['Menu', 'Guides', 'Event guide']);
+    expect(at('eventGuide')).toEqual(['Menu', 'Guides', 'Game guide']);
     expect(at('notice')).toEqual(['Menu', 'Guides', 'Notices']);
     // The admin's group.
     expect(at('rankings', admin)).toEqual(['Admin menu', 'Servers', 'Rankings']);
     expect(at('overview', admin)).toEqual(['Admin menu', 'Servers', 'Server overview']);
     expect(at('members', admin)).toEqual(['Admin menu', 'Roster', 'Members']);
     expect(at('shopValue', admin)).toEqual(['Admin menu', 'Game data', 'Shop value']);
-    expect(at('hive', admin)).toEqual(['Menu', 'Hive']);
-    expect(at('planner')).toEqual(['Menu', 'Calculator', 'Planner']);
+    expect(at('hive', admin)).toEqual(['Menu', 'CBFW', 'Hive']);
+    expect(at('planner')).toEqual(['Menu', 'Tools', 'Planner']);
     expect(at('account')).toEqual(['My account']);
     expect(at('player')).toEqual(['Player']);
   });

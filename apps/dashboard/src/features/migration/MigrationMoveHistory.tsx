@@ -3,7 +3,8 @@ import { useState } from 'react';
 import { Select } from '../../components/ui/Select';
 import { allianceHash, playerHash, serverHash } from '../../lib/route';
 import { SERVER_ZONE, zonedDayKey } from '../../lib/timezone';
-import { DEFAULT_SERVER, SERVERS } from './boards';
+import { useTrackedServers } from '../../lib/trackedServers';
+import { DEFAULT_SERVER } from './boards';
 import { num, power, signed } from './format';
 import {
   type ServerFlowRow,
@@ -106,6 +107,7 @@ export function MigrationMoveHistory() {
   // Fixed per choice, so the query key is stable across renders.
   const [sinceAt, setSinceAt] = useState<string | undefined>(undefined);
 
+  const tracked = useTrackedServers();
   const tally = useQuery({
     queryKey: ['migration', 'move-tally', sinceAt ?? 'all'],
     queryFn: () => fetchMoveTally(sinceAt),
@@ -123,7 +125,7 @@ export function MigrationMoveHistory() {
     setSinceAt(sinceIso(next, Date.now()));
   };
   const tallied = new Map((tally.data ?? []).map((t) => [t.server_id, t]));
-  const servers = [...new Set([...SERVERS, ...tallied.keys()])].sort((a, b) => a - b);
+  const servers = [...new Set([...tracked, ...tallied.keys()])].sort((a, b) => a - b);
 
   return (
     <>

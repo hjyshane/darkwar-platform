@@ -45,7 +45,6 @@ export interface AllianceStat {
   captured_at: string;
 }
 
-export const SERVERS: readonly number[] = Array.from({ length: 24 }, (_, i) => 565 + i);
 export const DEFAULT_SERVER = 580;
 
 export async function fetchServerTop(server: number): Promise<ServerTopRow[]> {

@@ -64,7 +64,7 @@ export function EventGuidePage({ tab: asked }: { tab: EventGuideTab }) {
         items={EVENT_GUIDE_TABS.filter((entry) => isEventGuideTabOpen(entry.id, isCommunity)).map(
           (entry) => ({ id: entry.id, label: entry.label }),
         )}
-        label="Event guide sections"
+        label="Game guide sections"
         onChange={(id) => {
           replaceHash(eventGuideHash(id));
         }}
@@ -116,7 +116,7 @@ function OurTimes({
           EV
         </span>
         <div>
-          <h2 id="guide-heading">Event guide</h2>
+          <h2 id="guide-heading">Game guide</h2>
           <p className="entity-meta">
             <span>Server time, UTC−2</span>
             {zoneLabel(browserZone()) !== zoneLabel(SERVER_ZONE) && (

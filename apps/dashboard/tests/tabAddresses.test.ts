@@ -140,16 +140,19 @@ describe('sidebar tabs for the alliance screens', () => {
     expect(filed(base({ route: 'members' }), 'watch', 'CBFW', 'Members')).toBeUndefined();
   });
 
-  it('lists the hive steps under Hive for a planner only', () => {
-    // A member, so the officer-only Merchant tester is not among the children.
+  it('keeps the hive steps on Hive, a screen under the alliance, for a planner only (2026-11-24)', () => {
+    // A member, so the officer-only Merchant tester is not beside it.
     const hive = (mayPlanHive: boolean | undefined, tab?: 'people') =>
-      entry(
+      filed(
         base({ route: 'hive', mayPlanHive, tabs: { hive: tab }, isOfficer: false }),
         'watch',
+        'CBFW',
         'Hive',
       );
 
-    expect(hive(true, 'people')?.children?.map((c) => [c.label, c.href, c.current])).toEqual([
+    // The steps are the screen's own tabs now: the page draws them, the
+    // sidebar keeps them for Ctrl+K.
+    expect(hive(true, 'people')?.tabs?.map((c) => [c.label, c.href, c.current])).toEqual([
       ['Plan', '#/hive', false],
       ['Draw the shape', '#/hive/shape', false],
       ['Who goes where', '#/hive/people', true],
@@ -157,24 +160,25 @@ describe('sidebar tabs for the alliance screens', () => {
     // The bare address is the plan.
     expect(
       hive(true)
-        ?.children?.filter((c) => c.current)
+        ?.tabs?.filter((c) => c.current)
         .map((c) => c.label),
     ).toEqual(['Plan']);
-    // Everybody else sees the plan and nothing else: the entry, with no steps.
-    expect(hive(false)).toMatchObject({ href: '#/hive', current: true });
-    expect(hive(false)?.children).toBeUndefined();
-    expect(hive(undefined)).toMatchObject({ href: '#/hive', current: true });
-    expect(hive(undefined)?.children).toBeUndefined();
-    // Hive is an entry of its own, not a screen under our alliance's.
+    // Everybody else sees the plan and nothing else: the screen, with no steps.
+    expect(hive(false)).toMatchObject({ href: '#/hive', current: true, screen: true });
+    expect(hive(false)?.tabs).toBeUndefined();
+    expect(hive(undefined)).toMatchObject({ href: '#/hive', current: true, screen: true });
+    expect(hive(undefined)?.tabs).toBeUndefined();
+    // Hive is a screen under our alliance's entry, not an entry of its own.
     const planner = base({ route: 'hive', mayPlanHive: true });
-    expect(filed(planner, 'watch', 'CBFW', 'Hive')).toBeUndefined();
+    expect(entry(planner, 'watch', 'Hive')).toBeUndefined();
+    expect(entry(planner, 'watch', 'CBFW')?.current).toBe(true);
   });
 
-  it('files the planner and the wait-time and resistance pages under Calculator', () => {
+  it('files the planner and the wait-time and resistance pages under Tools, which was Calculator', () => {
     const under = (ctx: NavContext) =>
       buildNav(ctx)
         .flatMap((group) => group.items)
-        .find((item) => item.label === 'Calculator');
+        .find((item) => item.label === 'Tools');
     for (const ctx of [base({ route: 'planner' }), admin({ route: 'planner' })]) {
       const entry = under(ctx);
       expect(entry?.current).toBe(true);
@@ -280,33 +284,43 @@ describe('sidebar tabs for the alliance screens', () => {
   });
 });
 
-describe('the Merchant tester under Hive (2026-11-20)', () => {
-  const hiveOf = (over: Partial<NavContext>) => entry(base(over), 'watch', 'Hive');
-  const tester = { label: 'Merchant tester', href: '#/base-placement' };
+describe('the Merchant tester beside Hive, under the alliance (2026-11-20, moved 2026-11-24)', () => {
+  const own = (over: Partial<NavContext>) => entry(base(over), 'watch', 'CBFW');
+  const ownScreens = (over: Partial<NavContext>) =>
+    own(over)
+      ?.children?.slice(0, 3)
+      .map((c) => c.label);
+  const tester = { label: 'Merchant tester', href: '#/base-placement', screen: true };
 
-  it('is offered to an officer and to an admin, after the planning steps', () => {
+  it('is offered to an officer and to an admin, right after Hive', () => {
     for (const ctx of [{ isOfficer: true }, { isOfficer: false, isAdmin: true }]) {
-      const labels = hiveOf({ ...ctx, mayPlanHive: true })?.children?.map((c) => c.label);
-      expect(labels).toEqual(['Plan', 'Draw the shape', 'Who goes where', 'Merchant tester']);
+      expect(ownScreens({ ...ctx, mayPlanHive: true })).toEqual([
+        'Overview',
+        'Hive',
+        'Merchant tester',
+      ]);
     }
   });
 
-  it('is the only child for an officer who does not plan the hive', () => {
-    expect(hiveOf({ mayPlanHive: false })?.children).toMatchObject([tester]);
+  it('is offered to an officer who does not plan the hive', () => {
+    expect(own({ mayPlanHive: false })?.children?.[2]).toMatchObject(tester);
   });
 
   it('is not offered to a member or a community account', () => {
-    expect(hiveOf({ isOfficer: false, mayPlanHive: true })?.children?.map((c) => c.label)).toEqual([
-      'Plan',
-      'Draw the shape',
-      'Who goes where',
-    ]);
-    expect(hiveOf({ isOfficer: true, isCommunity: true })?.children).toBeUndefined();
+    expect(
+      own({ isOfficer: false, mayPlanHive: true })?.children?.map((c) => c.label),
+    ).not.toContain('Merchant tester');
+    const community = buildNav(base({ isOfficer: true, isCommunity: true }))
+      .flatMap((group) => group.items)
+      .flatMap((item) => [item.label, ...(item.children ?? []).map((c) => c.label)]);
+    expect(community).not.toContain('Merchant tester');
   });
 
-  it('keeps Hive current, and marks itself current, on its own page', () => {
-    const open = hiveOf({ route: 'basePlacement' });
+  it('marks itself and the alliance entry current on its own page, and not Hive', () => {
+    const open = own({ route: 'basePlacement' });
     expect(open?.current).toBe(true);
-    expect(open?.children?.find((c) => c.href === '#/base-placement')?.current).toBe(true);
+    expect(open?.children?.filter((c) => c.current).map((c) => c.label)).toEqual([
+      'Merchant tester',
+    ]);
   });
 });
