@@ -12,154 +12,30 @@ import { PreviewBanner } from './components/ViewAs';
 import { AppShell } from './components/shell/AppShell';
 import { CharacterGate } from './features/auth/CharacterGate';
 import { LoginPage } from './features/auth/LoginPage';
-import { EventsTabs, useFirstEventsRoute } from './features/events/EventsTabs';
-import { HomePage } from './features/home/HomePage';
 import { isAlliancePinnedByHost } from './lib/activeAlliance';
 import { useRecordActivity } from './lib/activity';
-import { mayOpenSettings } from './lib/adminAccess';
 import { mustPickCharacter, openWhilePicking } from './lib/characterGate';
-import { CommunityGate, communityMayOpen } from './lib/communityAccess';
+import { communityMayOpen } from './lib/communityAccess';
 import { EditModeProvider } from './lib/editMode';
 import { LanguageProvider, useT } from './lib/i18n';
-import { Loading, PageSlot, lazyPage } from './lib/lazyPage';
-import { isAllowed, usePermissions } from './lib/permissions';
+import { Loading, PageSlot } from './lib/lazyPage';
 import { queryKeysForTopic, subscribeDataChanges } from './lib/realtime';
 import { useReplyAlerts } from './lib/replyAlerts';
 import { rememberReturnTo } from './lib/returnTo';
 import {
-  type AdminGroup,
-  type EventGuideTab,
   RANKING_TABS,
   type Route,
-  adminGroupFromHash,
-  adminSectionFromHash,
   allianceIdFromHash,
-  calculatorTabFromHash,
-  eventGuideTabFromHash,
-  guideIdFromHash,
-  inEventsHub,
   isRankingRoute,
   isStandaloneRoute,
-  mapServerIdFromHash,
-  noticeIdFromHash,
-  playerIdFromHash,
   routeFromHash,
-  serverIdFromHash,
 } from './lib/route';
 import { supabase } from './lib/supabase';
-import { isTabShown, tabKeyOf, useTabVisibility } from './lib/tabVisibility';
-import { useHash } from './lib/useHash';
+import { useMayView } from './lib/useMayView';
 import { useActiveAlliance } from './lib/useMyAlliances';
 import { useSession } from './lib/useSession';
 import { useSidewaysMouse } from './lib/useSidewaysMouse';
-
-// Every screen but the sign-in page and Home is fetched when it is first
-// opened (2026-11-24); `lib/lazyPage.tsx` says why and what a stale tab does.
-const AccountPage = lazyPage(() =>
-  import('./features/account/AccountPage').then((m) => m.AccountPage),
-);
-const AdminPage = lazyPage(() => import('./features/admin/AdminPage').then((m) => m.AdminPage));
-const AlarmsPage = lazyPage(() => import('./features/alarms/AlarmsPage').then((m) => m.AlarmsPage));
-const AlliancePage = lazyPage(() =>
-  import('./features/alliance/AlliancePage').then((m) => m.AlliancePage),
-);
-const ArenaPanel = lazyPage(() => import('./features/arena/ArenaPanel').then((m) => m.ArenaPanel));
-const BasePlacementPage = lazyPage(() =>
-  import('./features/basePlacement/BasePlacementPage').then((m) => m.BasePlacementPage),
-);
-const BlackGoldPage = lazyPage(() =>
-  import('./features/blackGold/BlackGoldPage').then((m) => m.BlackGoldPage),
-);
-const CalculatorPage = lazyPage(() =>
-  import('./features/calculator/CalculatorPage').then((m) => m.CalculatorPage),
-);
-const ResistanceCalculatorPage = lazyPage(() =>
-  import('./features/calculator/ResistanceCalculator').then((m) => m.ResistanceCalculatorPage),
-);
-const WaitCalculatorPage = lazyPage(() =>
-  import('./features/calculator/WaitCalculator').then((m) => m.WaitCalculatorPage),
-);
-const CalendarPage = lazyPage(() =>
-  import('./features/calendar/CalendarPage').then((m) => m.CalendarPage),
-);
-const CrossRankingsPanel = lazyPage(() =>
-  import('./features/crossRankings/CrossRankingsPanel').then((m) => m.CrossRankingsPanel),
-);
-const EventGuidePage = lazyPage(() =>
-  import('./features/eventGuide/EventGuidePage').then((m) => m.EventGuidePage),
-);
-const FrankiePage = lazyPage(() =>
-  import('./features/frankie/FrankiePage').then((m) => m.FrankiePage),
-);
-const GiftCodesPage = lazyPage(() =>
-  import('./features/giftCodes/GiftCodesPage').then((m) => m.GiftCodesPage),
-);
-const GuidePostPage = lazyPage(() =>
-  import('./features/guides/GuidePostPage').then((m) => m.GuidePostPage),
-);
-const GuidesPanel = lazyPage(() =>
-  import('./features/guides/GuidesPanel').then((m) => m.GuidesPanel),
-);
-const HivePage = lazyPage(() => import('./features/hive/HivePage').then((m) => m.HivePage));
-const PrivacyPage = lazyPage(() =>
-  import('./features/legal/PrivacyPage').then((m) => m.PrivacyPage),
-);
-const TermsPage = lazyPage(() => import('./features/legal/TermsPage').then((m) => m.TermsPage));
-const MapPage = lazyPage(() => import('./features/map/MapPage').then((m) => m.MapPage));
-const MigrationPage = lazyPage(() =>
-  import('./features/migration/MigrationPage').then((m) => m.MigrationPage),
-);
-const MonthCardsPage = lazyPage(() =>
-  import('./features/monthCards/MonthCardsPage').then((m) => m.MonthCardsPage),
-);
-const NoticePostPage = lazyPage(() =>
-  import('./features/notices/NoticePostPage').then((m) => m.NoticePostPage),
-);
-const NoticesPanel = lazyPage(() =>
-  import('./features/notices/NoticesPanel').then((m) => m.NoticesPanel),
-);
-const Overview = lazyPage(() =>
-  import('./features/overview/OverviewPanel').then((m) => m.Overview),
-);
-const ParticipationPage = lazyPage(() =>
-  import('./features/participation/ParticipationPage').then((m) => m.ParticipationPage),
-);
-const PlannerPage = lazyPage(() =>
-  import('./features/planner/PlannerPage').then((m) => m.PlannerPage),
-);
-const PlayerPage = lazyPage(() => import('./features/player/PlayerPage').then((m) => m.PlayerPage));
-const RankingsPanel = lazyPage(() =>
-  import('./features/rankings/RankingsPanel').then((m) => m.RankingsPanel),
-);
-const RosterPanel = lazyPage(() =>
-  import('./features/roster/RosterPanel').then((m) => m.RosterPanel),
-);
-const Season2Panel = lazyPage(() =>
-  import('./features/season/Season2Panel').then((m) => m.Season2Panel),
-);
-const SeasonPanel = lazyPage(() =>
-  import('./features/season/SeasonPanel').then((m) => m.SeasonPanel),
-);
-const ServerPage = lazyPage(() => import('./features/server/ServerPage').then((m) => m.ServerPage));
-const ShopValuePage = lazyPage(() =>
-  import('./features/shopValue/ShopValuePage').then((m) => m.ShopValuePage),
-);
-const CapitalClashPage = lazyPage(() =>
-  import('./features/eventBoard/EventBoardPage').then(
-    (m) =>
-      function CapitalClashPage() {
-        return <m.EventBoardPage config={m.CAPITAL_CLASH} />;
-      },
-  ),
-);
-const ServerClashPage = lazyPage(() =>
-  import('./features/eventBoard/EventBoardPage').then(
-    (m) =>
-      function ServerClashPage() {
-        return <m.EventBoardPage config={m.SERVER_CLASH} />;
-      },
-  ),
-);
+import { RoutePage } from './pages';
 
 function DataChangeSubscriber() {
   const queryClient = useQueryClient();
@@ -230,25 +106,6 @@ export const queryClient = new QueryClient({
 function subscribeHash(onChange: () => void) {
   window.addEventListener('hashchange', onChange);
   return () => window.removeEventListener('hashchange', onChange);
-}
-
-/** Whether this reader may be offered a gated screen (0063, 0064).
- *
- * Undefined while the grid is still loading, which callers must treat as
- * "not yet" rather than "no": rendering the tab and then taking it away is
- * worse than a tab that appears a beat late.
- *
- * This hides a tab. It does not withhold anything — RLS does that, and for
- * the arena it does it on all four tables (0064). A reader who types the
- * address gets the screen's own empty state, not the data.
- */
-function useMayView(capability: string): boolean | undefined {
-  const { data: session } = useSession();
-  const { data: permissions, isPending } = usePermissions();
-  if (isPending) {
-    return undefined;
-  }
-  return isAllowed(permissions?.grants, session?.role, capability);
 }
 
 /** The three boards behind Rankings, as a row inside the screen.
@@ -327,193 +184,6 @@ function HeaderAllianceSwitcher() {
   );
 }
 
-/** The calculator's three pages, by address: `#/calculator` (with its query)
- * is the cost page, `#/calculator/wait` the wait-time one and
- * `#/calculator/resistance` the virus-resistance one. */
-function CalculatorScreen() {
-  const hash = useHash();
-  switch (calculatorTabFromHash(hash)) {
-    case 'wait':
-      return <WaitCalculatorPage />;
-    case 'resistance':
-      return <ResistanceCalculatorPage />;
-    default:
-      return <CalculatorPage />;
-  }
-}
-
-function Screen({
-  route: addressRoute,
-  mapServerId,
-  eventGuideTab,
-}: {
-  route: Route;
-  mapServerId: number | null;
-  eventGuideTab: EventGuideTab;
-}) {
-  const { data: session } = useSession();
-  // The bare Events address opens the first tab of the arranged strip, not a
-  // fixed page.
-  const firstEvents = useFirstEventsRoute();
-  const route = addressRoute === 'events' ? firstEvents : addressRoute;
-  // Community reads the migration board too (0283 opens the server-level
-  // tables and every alliance's roster but ours). Nothing there is written.
-  const isOfficer =
-    session?.role === 'officer' || session?.role === 'admin' || session?.role === 'community';
-  const mayViewMembers = useMayView('members.view');
-  const mayViewArena = useMayView('arena.view');
-  const mayManageGiftCodes = useMayView('giftcodes.manage');
-  const tabRules = useTabVisibility();
-  // An admin can hide a tab from a role (0295). Typing the address gets the same
-  // answer as the missing entry; the policies underneath are the boundary.
-  const tabKey = tabKeyOf(route);
-  if (tabKey !== null && !isTabShown(tabRules, tabKey, session?.role)) {
-    return <p className="empty">An admin has hidden this page for your role.</p>;
-  }
-  switch (route) {
-    case 'members':
-      // Typing the address gets the same answer as the missing tab. Not a
-      // security boundary — RLS is, and every figure on that screen that is
-      // actually alliance-internal is member-only on its own table (0063's
-      // comment says which). This is about not putting a screen in front of
-      // someone it is not for.
-      if (mayViewMembers === undefined) {
-        return <Loading />;
-      }
-      if (!mayViewMembers) {
-        return (
-          <p className="empty">
-            The roster is for alliance members. <a href="#/login">Sign in</a> to see it.
-          </p>
-        );
-      }
-      return <RosterPanel />;
-    case 'rankings':
-      return <RankingsPanel />;
-    case 'crossRankings':
-      return <CrossRankingsPanel />;
-    case 'migration':
-      // Officers and admins only (0195), as a role, like the roster history
-      // the board folds (0066): who moved is read off the alliance rosters,
-      // and those are own-or-officer. RLS returns a member nothing; this says
-      // why rather than drawing an empty board.
-      if (!isOfficer) {
-        return (
-          <p className="empty">
-            The migration board is kept for officers: it is read off the alliance rosters.
-          </p>
-        );
-      }
-      return <MigrationPage />;
-    case 'season2':
-      // The nav hides this from anyone but an admin, and the panel checks the
-      // role again — hiding a tab hides it from the eye, not from the address
-      // bar, and the underlying view is readable by any member.
-      return <Season2Panel />;
-    case 'map':
-      // No capability gate, matching the season boards: world_city_snapshots
-      // is member-only at the policy level and the whole app is walled to
-      // members, so there is no ungated reader to explain an empty map to.
-      return <MapPage serverId={mapServerId} />;
-    case 'hive':
-      // No capability gate on the TAB, and that is the point of the screen:
-      // every member has to be able to read the tile they are being sent to.
-      // The writing half is gated inside the page on `hive.plan`, which is a
-      // capability rather than a role for 0045's reason — who may plan a hive
-      // move is exactly the kind of thing an alliance changes its mind about.
-      return <HivePage />;
-    case 'events':
-    case 'blackMoney':
-      // No capability gate, like the season boards: the three tables under it
-      // are member-only at the policy level (0178) and the app is walled to
-      // members, so there is no ungated reader to explain an empty page to.
-      return <BlackGoldPage />;
-    case 'planner':
-      // Owner-or-admin at the policy level (0205): a member sees only their own
-      // characters, so no capability gate.
-      return <PlannerPage />;
-    case 'calculator':
-      // Reference costs from the game's own tables: readable by every signed-in
-      // role, community included (0283), so no gate beyond the wall.
-      return <CalculatorScreen />;
-    case 'basePlacement':
-      // Officers and admins (owner, 2026-11-20), not community. Client-side
-      // only, so this hides the page; there is no policy underneath to match.
-      if (session?.role !== 'officer' && session?.role !== 'admin') {
-        return <p className="empty">The Merchant tester is for officers.</p>;
-      }
-      return <BasePlacementPage />;
-    case 'giftCodes':
-      // The tab is hidden from anyone without `giftcodes.manage`, and the
-      // tables and functions under it refuse them too (0251) - hiding a tab
-      // hides it from the eye, not from the address bar. This says why.
-      if (mayManageGiftCodes === undefined) {
-        return <Loading />;
-      }
-      if (!mayManageGiftCodes) {
-        return <p className="empty">Gift codes are kept for officers.</p>;
-      }
-      return <GiftCodesPage />;
-    case 'participation':
-      // No capability gate, for Black Gold's reason: every source under it is
-      // member-only at the policy level (0204's report is security invoker),
-      // and recording is gated inside the page on `data.enter`.
-      return <ParticipationPage />;
-    case 'alarms':
-      // No capability gate: the entries and boards are `schedule.view` at the
-      // policy level (0124, 0194), and the controls inside are offered on
-      // `schedule.manage`, which RLS enforces again on every write.
-      return <AlarmsPage />;
-    case 'frankie':
-      // No capability gate: the board and the report are member-only at the
-      // policy level (0277), like Participation's.
-      return <FrankiePage />;
-    case 'capitalClash':
-      // Member-only at the policy level, like Frankie's (0290).
-      return <CapitalClashPage />;
-    case 'serverClash':
-      return <ServerClashPage />;
-    case 'shopValue':
-      // No capability gate: every table behind it is member-only at the policy
-      // level (0215), and editing values is gated by RLS to officers and admins.
-      return <ShopValuePage />;
-    case 'eventGuide':
-      // Member-only at the policy level (0248); nothing in it is about a member.
-      return <EventGuidePage tab={eventGuideTab} />;
-    case 'calendar':
-      // No capability gate, for the same reason: the calendar is member-only at
-      // the policy level (0208), and naming events is gated by RLS to officers
-      // and admins, which the page mirrors to decide whether to offer it.
-      return <CalendarPage />;
-    case 'season':
-      // No capability gate. Both season tables are member-only at the
-      // policy level (0136) and the whole app is walled to members
-      // anyway, so there is no ungated reader to explain an empty board to.
-      return <SeasonPanel />;
-    case 'arena':
-      // Here the tab and the data agree: 0064 made all four arena tables
-      // member-only, so an ungated reader would get an empty board rather
-      // than a board. Saying why beats rendering nothing.
-      if (mayViewArena === undefined) {
-        return <Loading />;
-      }
-      if (!mayViewArena) {
-        return (
-          <p className="empty">
-            Arena boards are for alliance members. <a href="#/login">Sign in</a> to see them.
-          </p>
-        );
-      }
-      return <ArenaPanel />;
-    case 'home':
-      return <HomePage />;
-    default:
-      // Unknown addresses land here too, which is why the overview has to
-      // stand on its own with no data rather than assume it was navigated to.
-      return <Overview />;
-  }
-}
-
 // `community` (0282) passes the wall: it is signed in and admitted. What it may
 // open is `communityMayOpen`, applied to the page below.
 const MEMBER_ROLES = new Set(['community', 'member', 'officer', 'admin']);
@@ -527,14 +197,9 @@ export function App() {
   // Where to come back to after signing in is recorded in `Shell`, not here:
   // it depends on whether the reader was actually stopped by the wall, and the
   // session query that answers that only exists inside the provider below.
-  const serverId = serverIdFromHash(hash);
-  const mapServerId = mapServerIdFromHash(hash);
-  const playerId = playerIdFromHash(hash);
+  // The page itself reads the ids it needs from the address (pages.tsx); the
+  // shell needs only the alliance, to mark our own alliance's entry current.
   const allianceId = allianceIdFromHash(hash);
-  const guideId = guideIdFromHash(hash);
-  const noticeId = noticeIdFromHash(hash);
-  const adminGroup = adminGroupFromHash(hash);
-  const adminSection = adminSectionFromHash(hash);
   // No tab bar, and no wall — see `isStandaloneRoute` for why each of the four
   // is on that list. A server page is NOT: it is reached FROM the tabs, and
   // taking the way back away would strand the reader.
@@ -543,19 +208,7 @@ export function App() {
     <QueryClientProvider client={queryClient}>
       <LanguageProvider>
         <EditModeProvider>
-          <Shell
-            adminGroup={adminGroup}
-            adminSection={adminSection}
-            allianceId={allianceId}
-            guideId={guideId}
-            hash={hash}
-            noticeId={noticeId}
-            playerId={playerId}
-            route={route}
-            mapServerId={mapServerId}
-            serverId={serverId}
-            standalone={standalone}
-          />
+          <Shell allianceId={allianceId} hash={hash} route={route} standalone={standalone} />
         </EditModeProvider>
       </LanguageProvider>
     </QueryClientProvider>
@@ -564,26 +217,12 @@ export function App() {
 
 function Shell({
   route,
-  mapServerId,
-  serverId,
-  playerId,
   allianceId,
-  guideId,
-  noticeId,
-  adminGroup,
-  adminSection,
   standalone,
   hash,
 }: {
   route: Route;
-  mapServerId: number | null;
-  serverId: number | null;
-  playerId: string | null;
   allianceId: string | null;
-  guideId: string | null;
-  noticeId: string | null;
-  adminGroup: AdminGroup | null;
-  adminSection: string | null;
   standalone: boolean;
   /** The raw hash, only so the wall can remember what was asked for. */
   hash: string;
@@ -677,67 +316,8 @@ function Shell({
         </p>
       </section>
     </main>
-  ) : route === 'login' ? (
-    <LoginPage />
-  ) : route === 'terms' ? (
-    <TermsPage />
-  ) : route === 'privacy' ? (
-    <PrivacyPage />
-  ) : route === 'admin' && adminGroup !== null ? (
-    // A floor on the whole area, not a boundary: RLS refuses every write
-    // whatever renders here. What it stops is a signed-in account with no
-    // role being shown five groups of alliance settings and reading that
-    // as "I am nearly in". The one thing they can do is redeem a code, and
-    // that is on the sign-in page.
-    mayOpenSettings(session?.role) ? (
-      <AdminPage group={adminGroup} section={adminSection} />
-    ) : (
-      <main>
-        <section aria-labelledby="admin-closed-heading">
-          <h2 id="admin-closed-heading">Nothing here is yours</h2>
-          <p className="empty">
-            Settings are for alliance members. You are signed in as{' '}
-            <strong>{session?.role ?? 'viewer'}</strong>. <a href="#/login">Redeem a join code</a>{' '}
-            to be admitted.
-          </p>
-        </section>
-      </main>
-    )
-  ) : route === 'monthCards' ? (
-    <MonthCardsPage />
-  ) : route === 'account' ? (
-    <AccountPage />
-  ) : route === 'guides' ? (
-    <GuidesPanel />
-  ) : route === 'guide' && guideId !== null ? (
-    <GuidePostPage guideId={guideId} />
-  ) : route === 'notices' ? (
-    <NoticesPanel />
-  ) : route === 'notice' && noticeId !== null ? (
-    <NoticePostPage noticeId={noticeId} />
-  ) : route === 'server' && serverId !== null ? (
-    <ServerPage serverId={serverId} />
-  ) : route === 'player' && playerId !== null ? (
-    isCommunity ? (
-      <CommunityGate id={playerId} kind="player">
-        <PlayerPage playerId={playerId} />
-      </CommunityGate>
-    ) : (
-      <PlayerPage playerId={playerId} />
-    )
-  ) : route === 'alliance' && allianceId !== null ? (
-    isCommunity ? (
-      <CommunityGate id={allianceId} kind="alliance">
-        <AlliancePage allianceId={allianceId} />
-      </CommunityGate>
-    ) : (
-      <AlliancePage allianceId={allianceId} />
-    )
   ) : (
-    <main>
-      {inEventsHub(route) && <EventsTabs route={route} />}
-      <Screen eventGuideTab={eventGuideTabFromHash(hash)} mapServerId={mapServerId} route={route} />
-    </main>
+    <RoutePage hash={hash} route={route} />
   );
 
   return (

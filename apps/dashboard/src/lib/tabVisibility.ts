@@ -7,7 +7,8 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { APP_ROLES, type AppRole } from './permissions';
-import { type Route, inEventsHub, isRankingRoute } from './route';
+import type { Route } from './route';
+import { routeDef } from './routeTable';
 import { supabase } from './supabase';
 
 export interface TabChoice {
@@ -38,16 +39,10 @@ export const TABS: readonly TabChoice[] = [
 /** The roles an admin can hide a tab from: all but the admin, who always sees it. */
 export const HIDEABLE_ROLES: readonly AppRole[] = APP_ROLES.filter((role) => role !== 'admin');
 
-const KEYS = new Set(TABS.map((tab) => tab.key));
-
 /** The tab a screen belongs to, or null when it belongs to none of the choices
  * (a player, a server, settings, the account page). */
 export function tabKeyOf(route: Route): string | null {
-  if (isRankingRoute(route)) return 'rankings';
-  if (inEventsHub(route)) return 'events';
-  if (route === 'notice') return 'notices';
-  if (route === 'guide') return 'guides';
-  return KEYS.has(route) ? route : null;
+  return routeDef(route).tabKey;
 }
 
 /** `tab|role` -> shown. Only what an admin stored. */

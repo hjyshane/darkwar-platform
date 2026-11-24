@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import type { Route } from './route';
+import { routeDef } from './routeTable';
 import { supabase } from './supabase';
 import { type AppRole, useSession } from './useSession';
 
@@ -10,32 +11,9 @@ import { type AppRole, useSession } from './useSession';
  * about not drawing a screen that would be empty or would explain our
  * collector to a stranger — the database is the boundary either way.
  *
- * The list below is the whole of what the role is offered. A route that is
+ * The routes marked `community` in routeTable.ts are the whole of what the role is offered. A route that is
  * not on it renders "not available" rather than its own empty state. */
-const COMMUNITY_ROUTES: ReadonlySet<Route> = new Set<Route>([
-  'overview',
-  'rankings',
-  'crossRankings',
-  'arena',
-  'migration',
-  'map',
-  'planner',
-  // Game-wide reference costs, nothing of ours.
-  'calculator',
-  'calendar',
-  'eventGuide',
-  'shopValue',
-  // The pages the ranking rows link to. Ours are refused by `useIsOurs`
-  // below and, underneath, by the policies (0283, 0285).
-  'alliance',
-  'player',
-  // Where an account says which character it is, which the planner reads.
-  'account',
-  // Not the account's, but the way in and the pages that must stay readable.
-  'login',
-  'terms',
-  'privacy',
-]);
+// Each route's `community` flag in routeTable.ts.
 
 export function isCommunityRole(role: AppRole | null | undefined): boolean {
   return role === 'community';
@@ -43,7 +21,7 @@ export function isCommunityRole(role: AppRole | null | undefined): boolean {
 
 /** Whether a community account is offered this screen. */
 export function communityMayOpen(route: Route): boolean {
-  return COMMUNITY_ROUTES.has(route);
+  return routeDef(route).community === true;
 }
 
 /** True for a community account, false for everyone else and while the

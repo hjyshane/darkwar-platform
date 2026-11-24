@@ -49,6 +49,7 @@ import {
   isRankingRoute,
   merchantTesterOffered,
 } from './route';
+import { ALL_ROUTES, routeDef } from './routeTable';
 import type { Season } from './seasons';
 import { NO_OVERRIDES, type Overrides, arrange, isHidden, labelOf } from './uiOverrides';
 
@@ -157,33 +158,7 @@ export interface NavContext {
   t?: Translate;
 }
 
-const ICONS: Partial<Record<Route, IconName>> = {
-  overview: 'overview',
-  rankings: 'rankings',
-  migration: 'migration',
-  map: 'map',
-  members: 'members',
-  hive: 'hive',
-  season: 'season',
-  season2: 'season',
-  blackMoney: 'blackGold',
-  events: 'blackGold',
-  participation: 'participation',
-  alarms: 'calendar',
-  frankie: 'participation',
-  capitalClash: 'participation',
-  serverClash: 'participation',
-  planner: 'planner',
-  calculator: 'calculator',
-  giftCodes: 'blackGold',
-  calendar: 'calendar',
-  eventGuide: 'guide',
-  shopValue: 'shop',
-  notices: 'notices',
-  guides: 'guides',
-};
-
-const iconFor = (route: Route): IconName => ICONS[route] ?? 'overview';
+const iconFor = (route: Route): IconName => routeDef(route).icon ?? 'overview';
 
 /** The three ranking boards, each its own address. Arena only where the reader
  * may see it, and not before that is known: an entry that arrives and is taken
@@ -705,33 +680,12 @@ export function buildFooter(
 }
 
 /** Screens that belong to no group but still have a name to show in the top bar. */
-export const OTHER_LABELS: Partial<Record<Route, string>> = {
-  player: 'Player',
-  server: 'Server',
-  alliance: 'Alliance',
-  guide: 'Guide',
-  notice: 'Notice',
-  alarms: 'Alarms',
-  // In the Admin menu only since 2026-11-19; anybody else who opens one by
-  // its address still gets its name in the top bar.
-  overview: 'Server overview',
-  rankings: 'Rankings',
-  crossRankings: 'Rankings',
-  arena: 'Rankings',
-  migration: 'Migration',
-  members: 'Members',
-  giftCodes: 'Gift codes',
-  calendar: 'Game calendar',
-  shopValue: 'Shop value',
-  // Filed under Calculator; named here for a reader whose Calculator is hidden.
-  planner: 'Planner',
-  admin: 'Settings',
-  account: 'My account',
-  monthCards: 'Month cards',
-  terms: 'Terms',
-  privacy: 'Privacy',
-  login: 'Sign in',
-};
+export const OTHER_LABELS: Partial<Record<Route, string>> = Object.fromEntries(
+  ALL_ROUTES.flatMap((route) => {
+    const title = routeDef(route).title;
+    return title === undefined ? [] : [[route, title]];
+  }),
+);
 
 /** `["Menu", "Calculator"]`: the group and the screen, for the top bar. A screen
  * that is in no group (a player, a server) shows just its own name. A screen
