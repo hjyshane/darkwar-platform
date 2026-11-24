@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { TranslateControl, useContentTranslation } from '../../lib/contentTranslation';
 import { useT } from '../../lib/i18n';
 import { isAllowed, usePermissions } from '../../lib/permissions';
 import { useSession } from '../../lib/useSession';
@@ -46,7 +47,7 @@ function authorName(authors: Record<string, string>, authorId: string | null): s
   return authors[authorId] ?? '—';
 }
 
-function CommentBody({ comment }: { comment: BoardComment }) {
+function CommentBody({ comment, text }: { comment: BoardComment; text?: string }) {
   const t = useT();
   if (comment.deletedAt !== null) {
     return <p className="comment-deleted">{t('Deleted.')}</p>;
@@ -55,7 +56,7 @@ function CommentBody({ comment }: { comment: BoardComment }) {
   // which belong to somebody writing a guide and would turn a thread into a
   // shouting match. Line breaks are kept (`comment-body` sets pre-wrap) because
   // that is the only formatting a comment actually needs.
-  return <p className="comment-body">{comment.body}</p>;
+  return <p className="comment-body">{text ?? comment.body}</p>;
 }
 
 function Composer({
@@ -140,6 +141,9 @@ function Comment({
 }) {
   const t = useT();
   const [editing, setEditing] = useState(false);
+  const translation = useContentTranslation('comment', comment.id);
+  const [showTranslated, setShowTranslated] = useState(false);
+  const translated = showTranslated ? translation.data?.body : undefined;
   const edit = useEditComment(config, postId);
   const remove = useRemoveComment(config, postId);
 
@@ -175,11 +179,17 @@ function Comment({
           submitLabel={t('Save')}
         />
       ) : (
-        <CommentBody comment={comment} />
+        <CommentBody comment={comment} text={translated} />
       )}
 
       {!gone && !editing && (
         <div className="comment-actions">
+          <TranslateControl
+            compact
+            onShow={setShowTranslated}
+            shown={translated !== undefined}
+            state={translation}
+          />
           {onReply !== undefined && (
             <button onClick={onReply} type="button">
               {t('Reply')}

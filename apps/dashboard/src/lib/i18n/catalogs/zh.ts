@@ -2249,4 +2249,15 @@ export const zh: Catalog = {
   '✦ Treasure spots': '✦ 宝藏点',
   '🛡 Shielded bases': '🛡 有护盾的基地',
   '[attendance] Held': '举办日期',
+  'You have used your translations for today. Try again tomorrow.':
+    '今天的翻译次数已用完，请明天再试。',
+  'Translation is switched off.': '翻译功能已关闭。',
+  'Translation is not set up on this site yet.': '本站尚未设置翻译。',
+  'This could not be translated: it is gone, or not yours to read.':
+    '无法翻译：内容已不存在，或你无权查看。',
+  'The translation did not come back. Try again in a moment.': '翻译没有返回，请稍后再试。',
+  'Machine translation.': '机器翻译。',
+  'Show original': '查看原文',
+  'Translating…': '翻译中…',
+  'Translate into {language}': '翻译成{language}',
 };

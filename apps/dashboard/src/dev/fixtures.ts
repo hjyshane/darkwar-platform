@@ -4282,3 +4282,52 @@ FIXTURES.push(
     ],
   ],
 );
+
+// One notice opened on its own page, with a comment in Korean, so the
+// Translate controls (0349) can be looked at. The function itself is not
+// reachable here: pressing Translate shows the "did not come back" message.
+FIXTURES.push(
+  [
+    ['post', 'announcements', '44444444-4444-4444-8444-444444444401'],
+    {
+      post: {
+        id: '44444444-4444-4444-8444-444444444401',
+        title: 'Rally times this week',
+        body: 'Capital Clash starts Saturday 20:00 server time. Gather at #580[X:509 Y:391].',
+        pinned: true,
+        liveAt: ago(60 * 6),
+        createdAt: ago(60 * 6),
+        updatedAt: ago(60 * 6),
+        createdBy: '33333333-3333-4333-8333-333333333301',
+        tag: 'member',
+      },
+      author: 'you',
+    },
+  ],
+  [
+    ['comments', 'announcements', '44444444-4444-4444-8444-444444444401'],
+    {
+      threads: [
+        {
+          comment: {
+            id: '55555555-5555-4555-8555-555555555501',
+            parentId: null,
+            authorId: '33333333-3333-4333-8333-333333333302',
+            body: '토요일에 참석할게요!',
+            createdAt: ago(60 * 2),
+            updatedAt: ago(60 * 2),
+            deletedAt: null,
+          },
+          replies: [],
+        },
+      ],
+      authors: { '33333333-3333-4333-8333-333333333302': 'Officer Kim' },
+      viewerId: '33333333-3333-4333-8333-333333333301',
+      liveCount: 1,
+    },
+  ],
+  [
+    ['board-neighbours', 'announcements', '44444444-4444-4444-8444-444444444401'],
+    { newer: null, older: null },
+  ],
+);

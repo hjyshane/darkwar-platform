@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { RichText, RichTitle } from '../../components/RichText';
+import { TranslateControl, useContentTranslation } from '../../lib/contentTranslation';
 import { rich, useT } from '../../lib/i18n';
 import { supabase } from '../../lib/supabase';
 import { Comments } from './PostComments';
@@ -53,6 +54,10 @@ export function BoardPostPage({
   children?: React.ReactNode;
 }) {
   const t = useT();
+  // Translate what the author wrote, on the reader's request (0349).
+  const translation = useContentTranslation(config.table === 'guides' ? 'guide' : 'notice', postId);
+  const [showTranslated, setShowTranslated] = useState(false);
+  const translated = showTranslated ? translation.data : undefined;
   const markRead = useMarkRead(config);
   // Every open counts (0119), unlike the read mark above which is once per
   // account. The function refuses viewers and drafts, so this is safe to fire
@@ -150,7 +155,7 @@ export function BoardPostPage({
             under it, so the body starts somewhere. */}
         <header className="post-header">
           <h2>
-            <RichTitle title={post.title} />
+            <RichTitle title={translated?.title ?? post.title} />
             {post.pinned && <span className="badge badge-fresh">{t('pinned')}</span>}
             {post.liveAt === null && <span className="badge badge-missing">{t('draft')}</span>}
           </h2>
@@ -172,10 +177,17 @@ export function BoardPostPage({
             )}
           </div>
         </header>
+        <p className="post-translate">
+          <TranslateControl
+            onShow={setShowTranslated}
+            shown={translated !== undefined}
+            state={translation}
+          />
+        </p>
         {post.body.trim() === '' ? (
           <p className="empty">{t('No body — the title is all of it.')}</p>
         ) : (
-          <RichText body={post.body} />
+          <RichText body={translated?.body ?? post.body} />
         )}
         <ScrapButton config={config} postId={post.id} />
       </article>
