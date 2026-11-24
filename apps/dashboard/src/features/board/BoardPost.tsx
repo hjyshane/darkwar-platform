@@ -54,10 +54,6 @@ export function BoardPostPage({
   children?: React.ReactNode;
 }) {
   const t = useT();
-  // Translate what the author wrote, on the reader's request (0349).
-  const translation = useContentTranslation(config.table === 'guides' ? 'guide' : 'notice', postId);
-  const [showTranslated, setShowTranslated] = useState(false);
-  const translated = showTranslated ? translation.data : undefined;
   const markRead = useMarkRead(config);
   // Every open counts (0119), unlike the read mark above which is once per
   // account. The function refuses viewers and drafts, so this is safe to fire
@@ -103,6 +99,14 @@ export function BoardPostPage({
   });
 
   const found = data ?? null;
+  // Translate what the author wrote, in the reader's browser, on request.
+  // Keyed to this post: the previous/next links reuse this page for another.
+  const translation = useContentTranslation(`${config.table}:${postId}`, {
+    title: found?.post.title ?? '',
+    body: found?.post.body ?? '',
+  });
+  const [showTranslated, setShowTranslated] = useState(false);
+  const translated = showTranslated ? translation.data : undefined;
   // On whether the post EXISTS, not on the post itself: the row object is new on
   // every refetch, and depending on it would mark the post read again each time
   // the query settled. `mutate` is stable, so naming it costs nothing.

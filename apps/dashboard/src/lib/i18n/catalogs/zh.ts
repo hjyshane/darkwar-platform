@@ -2249,14 +2249,9 @@ export const zh: Catalog = {
   '✦ Treasure spots': '✦ 宝藏点',
   '🛡 Shielded bases': '🛡 有护盾的基地',
   '[attendance] Held': '举办日期',
-  'You have used your translations for today. Try again tomorrow.':
-    '今天的翻译次数已用完，请明天再试。',
-  'Translation is switched off.': '翻译功能已关闭。',
-  'Translation is not set up on this site yet.': '本站尚未设置翻译。',
-  'This could not be translated: it is gone, or not yours to read.':
-    '无法翻译：内容已不存在，或你无权查看。',
+  'Your browser could not tell which language this is.': '你的浏览器无法判断这段文字的语言。',
+  'Press Translate again to download the language pack.': '再按一次“翻译”以下载语言包。',
   'The translation did not come back. Try again in a moment.': '翻译没有返回，请稍后再试。',
-  'Machine translation.': '机器翻译。',
   'Show original': '查看原文',
   'Translating…': '翻译中…',
   'Translate into {language}': '翻译成{language}',
@@ -2264,4 +2259,11 @@ export const zh: Catalog = {
   'Trying again…': '正在重试…',
   'the hive plan': 'Hive 规划',
   "this week's events": '本周活动',
+  "Your browser can't translate here. Use its own Translate page instead (Chrome and Edge on a computer can translate right here).":
+    '你的浏览器无法在此处翻译。请使用浏览器自带的网页翻译（电脑上的 Chrome 和 Edge 可以直接在这里翻译）。',
+  'Translated by your browser.': '由你的浏览器翻译。',
+  'Downloading the translation model… {percent}%': '正在下载翻译模型… {percent}%',
+  'Already in your language.': '已经是你的语言。',
+  'Your browser cannot translate from this language into {language}.':
+    '你的浏览器无法将这种语言翻译成{language}。',
 };

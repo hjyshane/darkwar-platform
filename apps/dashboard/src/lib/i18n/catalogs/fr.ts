@@ -2351,16 +2351,12 @@ export const fr: Catalog = {
   '✦ Treasure spots': '✦ Emplacements de trésor',
   '🛡 Shielded bases': '🛡 Bases avec bouclier',
   '[attendance] Held': 'Tenu le',
-  'You have used your translations for today. Try again tomorrow.':
-    'Vous avez utilisé vos traductions du jour. Réessayez demain.',
-  'Translation is switched off.': 'La traduction est désactivée.',
-  'Translation is not set up on this site yet.':
-    "La traduction n'est pas encore configurée sur ce site.",
-  'This could not be translated: it is gone, or not yours to read.':
-    "Impossible de traduire : le contenu a disparu ou vous n'y avez pas accès.",
+  'Your browser could not tell which language this is.':
+    "Votre navigateur n'a pas pu déterminer la langue de ce texte.",
+  'Press Translate again to download the language pack.':
+    'Appuyez de nouveau sur Traduire pour télécharger le pack de langue.',
   'The translation did not come back. Try again in a moment.':
     "La traduction n'est pas revenue. Réessayez dans un instant.",
-  'Machine translation.': 'Traduction automatique.',
   'Show original': "Voir l'original",
   'Translating…': 'Traduction…',
   'Translate into {language}': 'Traduire en {language}',
@@ -2368,4 +2364,12 @@ export const fr: Catalog = {
   'Trying again…': 'Nouvel essai…',
   'the hive plan': 'le plan Hive',
   "this week's events": 'les événements de la semaine',
+  "Your browser can't translate here. Use its own Translate page instead (Chrome and Edge on a computer can translate right here).":
+    'Votre navigateur ne peut pas traduire ici. Utilisez sa propre traduction de page (Chrome et Edge sur ordinateur traduisent directement ici).',
+  'Translated by your browser.': 'Traduit par votre navigateur.',
+  'Downloading the translation model… {percent}%':
+    'Téléchargement du modèle de traduction… {percent} %',
+  'Already in your language.': 'Déjà dans votre langue.',
+  'Your browser cannot translate from this language into {language}.':
+    'Votre navigateur ne peut pas traduire cette langue en {language}.',
 };
