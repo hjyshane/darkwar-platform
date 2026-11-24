@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useT } from '../../lib/i18n';
 import type { NavGroup, NavItem } from '../../lib/shellNav';
 import { Icon } from './icons';
 
@@ -82,6 +83,7 @@ export function Sidebar({
   onCollapse: () => void;
 }) {
   const nav = useRef<HTMLElement>(null);
+  const t = useT();
   const here = [...groups.flatMap((group) => group.items), ...footer]
     .map(
       (item) => `${item.key}:${item.current}:${item.children?.find((child) => child.current)?.key}`,
@@ -106,7 +108,7 @@ export function Sidebar({
         </span>
         <span className="shell-brand-name">Dark War</span>
       </a>
-      <nav aria-label="Screens" className="shell-nav" ref={nav}>
+      <nav aria-label={t('Screens')} className="shell-nav" ref={nav}>
         {groups.map((group) => (
           <section aria-label={group.label} className="shell-group" key={group.id}>
             <h2 className="shell-group-label">{group.label}</h2>
@@ -121,7 +123,7 @@ export function Sidebar({
           <Entry collapsed={collapsed} item={item} key={item.key} />
         ))}
         <button
-          aria-label={collapsed ? 'Expand the sidebar' : 'Collapse the sidebar'}
+          aria-label={collapsed ? t('Expand the sidebar') : t('Collapse the sidebar')}
           className="shell-collapse"
           onClick={onCollapse}
           type="button"

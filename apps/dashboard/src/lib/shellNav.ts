@@ -20,6 +20,7 @@
 // first of them. Again, no address moved: `#/members`, `#/hive`, `#/events` and
 // `#/alliance/<uuid>/<view>` are what they were.
 
+import { type Translate, english } from './i18n/core';
 import {
   ADMIN_GROUPS,
   ALLIANCE_TABS,
@@ -150,6 +151,10 @@ export interface NavContext {
   mayViewArena?: boolean | undefined;
   /** Whether this reader holds `giftcodes.manage` (0251). Undefined while unknown. */
   mayManageGiftCodes?: boolean | undefined;
+  /** The reader's language (lib/i18n). English when absent, which is what the
+   * tests read. An admin's own names (0279) and season names are not passed
+   * through it: they are already what somebody chose to call them. */
+  t?: Translate;
 }
 
 const ICONS: Partial<Record<Route, IconName>> = {
@@ -184,11 +189,12 @@ const iconFor = (route: Route): IconName => ICONS[route] ?? 'overview';
  * may see it, and not before that is known: an entry that arrives and is taken
  * away is worse than one that arrives a beat late. */
 function rankingBoards(ctx: NavContext): NavChild[] {
+  const t = ctx.t ?? english;
   return RANKING_TABS.filter((board) => board.route !== 'arena' || ctx.mayViewArena === true).map(
     (board) => ({
       key: board.hash,
       href: board.hash,
-      label: board.label,
+      label: t(board.label),
       current: board.route === ctx.route,
     }),
   );
@@ -198,17 +204,18 @@ function rankingBoards(ctx: NavContext): NavChild[] {
  * planner, which is a screen of its own filed here. The planner had been
  * archived since 2026-11-12; the wait-time page came off the season board. */
 function calculatorChildren(ctx: NavContext): NavChild[] {
+  const t = ctx.t ?? english;
   return [
     ...CALCULATOR.tabs.map((entry) => ({
       key: CALCULATOR.hash(entry.id),
       href: CALCULATOR.hash(entry.id),
-      label: entry.label,
+      label: t(entry.label),
       current: ctx.route === 'calculator' && (ctx.tabs?.calculator ?? 'cost') === entry.id,
     })),
     {
       key: '#/planner',
       href: '#/planner',
-      label: 'Planner',
+      label: t('Planner'),
       current: ctx.route === 'planner',
       screen: true,
     },
@@ -227,6 +234,7 @@ function calculatorChildren(ctx: NavContext): NavChild[] {
  * No address moved: a screen with no entry still opens from its address or a
  * link, and what a role may READ is RLS's decision, never the menu's. */
 export function buildNav(ctx: NavContext): NavGroup[] {
+  const t = ctx.t ?? english;
   if (ctx.isCommunity === true) {
     return buildCommunityNav(ctx);
   }
@@ -235,12 +243,12 @@ export function buildNav(ctx: NavContext): NavGroup[] {
     const officer = ctx.isOfficer ? buildOfficerMenu(ctx) : [];
     return officer.length === 0
       ? menu
-      : [...menu, { id: 'officer' as const, label: 'Officer menu', items: officer }];
+      : [...menu, { id: 'officer' as const, label: t('Officer menu'), items: officer }];
   }
   const admin = buildAdminMenu(ctx);
   return admin.length === 0
     ? menu
-    : [...menu, { id: 'admin' as const, label: 'Admin menu', items: admin }];
+    : [...menu, { id: 'admin' as const, label: t('Admin menu'), items: admin }];
 }
 
 /** The officer's extra group (owner, 2026-11-19): the two screens an officer
@@ -249,6 +257,7 @@ export function buildNav(ctx: NavContext): NavGroup[] {
  * before the grid has answered; Tab visibility still hides either. An admin has
  * both under Roster in the Admin menu instead. */
 function buildOfficerMenu(ctx: NavContext): NavItem[] {
+  const t = ctx.t ?? english;
   const shown = ctx.tabShown ?? (() => true);
   return [
     ...(ctx.mayViewMembers === true && shown('members')
@@ -256,13 +265,13 @@ function buildOfficerMenu(ctx: NavContext): NavItem[] {
           {
             key: '#/members',
             href: '#/members',
-            label: 'Members',
+            label: t('Members'),
             icon: 'members' as const,
             current: ctx.route === 'members',
             children: MEMBERS.tabs.map((entry) => ({
               key: MEMBERS.hash(entry.id),
               href: MEMBERS.hash(entry.id),
-              label: entry.label,
+              label: t(entry.label),
               current: ctx.route === 'members' && (ctx.tabs?.members ?? 'settled') === entry.id,
             })),
           },
@@ -273,7 +282,7 @@ function buildOfficerMenu(ctx: NavContext): NavItem[] {
           {
             key: '#/gift-codes',
             href: '#/gift-codes',
-            label: 'Gift codes',
+            label: t('Gift codes'),
             icon: iconFor('giftCodes'),
             current: ctx.route === 'giftCodes',
           },
@@ -285,6 +294,7 @@ function buildOfficerMenu(ctx: NavContext): NavItem[] {
 /** What a `community` account (0282) is offered: the game-wide screens only.
  * Everything that is about our alliance is left out. */
 function buildCommunityNav(ctx: NavContext): NavGroup[] {
+  const t = ctx.t ?? english;
   const shown = ctx.tabShown ?? (() => true);
   const watch: NavItem[] = [
     ...OVERVIEW_TABS.filter((tab) => shown(tab.route)).map((tab) => ({
@@ -292,7 +302,7 @@ function buildCommunityNav(ctx: NavContext): NavGroup[] {
       href: tab.hash,
       // "Cross-Server Ranking" stands for the three boards behind it, so it
       // stays current on all of them.
-      label: tab.route === 'rankings' ? 'Rankings' : tab.label,
+      label: tab.route === 'rankings' ? t('Rankings') : t(tab.label),
       icon: iconFor(tab.route),
       current: tab.route === 'rankings' ? isRankingRoute(ctx.route) : tab.route === ctx.route,
       ...(tab.route === 'rankings' ? { children: rankingBoards(ctx) } : {}),
@@ -302,7 +312,7 @@ function buildCommunityNav(ctx: NavContext): NavGroup[] {
           {
             key: '#/map',
             href: '#/map',
-            label: 'Map',
+            label: t('Map'),
             icon: 'map' as const,
             current: ctx.route === 'map',
           },
@@ -316,7 +326,7 @@ function buildCommunityNav(ctx: NavContext): NavGroup[] {
   ).map((tab) => ({
     key: tab.hash,
     href: tab.hash,
-    label: tab.label,
+    label: t(tab.label),
     icon: iconFor(tab.route),
     // The planner is filed under it, so it stays current there too.
     current: tab.route === ctx.route || ctx.route === 'planner',
@@ -326,7 +336,7 @@ function buildCommunityNav(ctx: NavContext): NavGroup[] {
   const events: NavItem[] = EVENT_TABS.filter((tab) => shown(tab.route)).map((tab) => ({
     key: tab.hash,
     href: tab.hash,
-    label: tab.label,
+    label: t(tab.label),
     icon: iconFor(tab.route),
     current: tab.route === ctx.route,
     ...(tab.route === 'eventGuide'
@@ -335,7 +345,7 @@ function buildCommunityNav(ctx: NavContext): NavGroup[] {
             (entry) => ({
               key: eventGuideHash(entry.id),
               href: eventGuideHash(entry.id),
-              label: entry.label,
+              label: t(entry.label),
               current: ctx.route === 'eventGuide' && guideTab === entry.id,
             }),
           ),
@@ -343,9 +353,9 @@ function buildCommunityNav(ctx: NavContext): NavGroup[] {
       : {}),
   }));
   return [
-    { id: 'watch' as const, label: 'Watch', items: watch },
-    { id: 'alliance' as const, label: 'Tools', items: tools },
-    { id: 'events' as const, label: 'Events', items: events },
+    { id: 'watch' as const, label: t('Watch'), items: watch },
+    { id: 'alliance' as const, label: t('Tools'), items: tools },
+    { id: 'events' as const, label: t('Events'), items: events },
   ].filter((group) => group.items.length > 0);
 }
 
@@ -353,6 +363,7 @@ function buildCommunityNav(ctx: NavContext): NavGroup[] {
  * arrangement (0279) — renamed, reordered, hidden ones left out — and only the
  * ones this reader is offered (`eventsTabOffered`). */
 function eventScreens(ctx: NavContext): NavChild[] {
+  const t = ctx.t ?? english;
   const o = ctx.overrides ?? NO_OVERRIDES;
   const offered = arrange(
     EVENTS_HUB_TABS.filter((entry) => eventsTabOffered(entry.route, ctx)),
@@ -364,7 +375,7 @@ function eventScreens(ctx: NavContext): NavChild[] {
     route: entry.route,
     key: entry.hash,
     href: entry.hash,
-    label: labelOf(o, 'events-hub', entry.route, ctx.seasonNames[entry.hash] ?? entry.label),
+    label: labelOf(o, 'events-hub', entry.route, ctx.seasonNames[entry.hash] ?? t(entry.label)),
     // The bare `#/events` address opens the first of them.
     current: entry.route === ctx.route || (ctx.route === 'events' && index === 0),
     screen: true,
@@ -377,11 +388,11 @@ function eventScreens(ctx: NavContext): NavChild[] {
   return [
     ...captioned(
       screens.filter((entry) => !isSeasonRoute(entry.route)),
-      'Events',
+      t('Events'),
     ),
     ...captioned(
       screens.filter((entry) => isSeasonRoute(entry.route)),
-      'Seasons',
+      t('Seasons'),
     ),
   ];
 }
@@ -402,6 +413,7 @@ function isSeasonRoute(route: Route): boolean {
  * is offered (owner, 2026-11-19). It used to list Participation and Black Gold
  * and no other event, which read as the other events not existing. */
 export function buildMemberNav(ctx: NavContext): NavGroup[] {
+  const t = ctx.t ?? english;
   const shown = ctx.tabShown ?? (() => true);
   const route = ctx.route;
   const own = ctx.own;
@@ -413,7 +425,7 @@ export function buildMemberNav(ctx: NavContext): NavGroup[] {
           {
             key: '#/notices',
             href: '#/notices',
-            label: 'Notices',
+            label: t('Notices'),
             current: route === 'notices' || route === 'notice',
             screen: true,
           },
@@ -424,7 +436,7 @@ export function buildMemberNav(ctx: NavContext): NavGroup[] {
           {
             key: '#/guides',
             href: '#/guides',
-            label: 'Alliance guides',
+            label: t('Alliance guides'),
             current: route === 'guides' || route === 'guide',
             screen: true,
           },
@@ -435,7 +447,7 @@ export function buildMemberNav(ctx: NavContext): NavGroup[] {
           {
             key: '#/event-guide',
             href: '#/event-guide',
-            label: 'Game guide',
+            label: t('Game guide'),
             current: route === 'eventGuide',
             screen: true,
             // Its own strip, kept for Ctrl+K so typing "duel" finds the tab.
@@ -443,7 +455,7 @@ export function buildMemberNav(ctx: NavContext): NavGroup[] {
               (entry) => ({
                 key: eventGuideHash(entry.id),
                 href: eventGuideHash(entry.id),
-                label: entry.label,
+                label: t(entry.label),
                 current: route === 'eventGuide' && (ctx.eventGuideTab ?? 'today') === entry.id,
               }),
             ),
@@ -460,7 +472,7 @@ export function buildMemberNav(ctx: NavContext): NavGroup[] {
       ? HIVE.tabs.map((entry) => ({
           key: HIVE.hash(entry.id),
           href: HIVE.hash(entry.id),
-          label: entry.label,
+          label: t(entry.label),
           current: route === 'hive' && (ctx.tabs?.hive ?? 'plan') === entry.id,
         }))
       : [];
@@ -471,7 +483,7 @@ export function buildMemberNav(ctx: NavContext): NavGroup[] {
           {
             key: 'own-page',
             href: allianceHash(own.alliance_id),
-            label: 'Overview',
+            label: t('Overview'),
             current: onOwn,
             screen: true,
             // The page's own strip, kept here for Ctrl+K. Past names are left
@@ -482,7 +494,7 @@ export function buildMemberNav(ctx: NavContext): NavGroup[] {
             ).map((view) => ({
               key: allianceHash(own.alliance_id, view.id),
               href: allianceHash(own.alliance_id, view.id),
-              label: view.label,
+              label: t(view.label),
               current: onOwn && (ctx.tabs?.alliance ?? 'overview') === view.id,
             })),
           },
@@ -495,7 +507,7 @@ export function buildMemberNav(ctx: NavContext): NavGroup[] {
           {
             key: '#/hive',
             href: '#/hive',
-            label: 'Hive',
+            label: t('Hive'),
             current: route === 'hive',
             screen: true,
             ...(hiveTabs.length > 0 ? { tabs: hiveTabs } : {}),
@@ -508,7 +520,7 @@ export function buildMemberNav(ctx: NavContext): NavGroup[] {
           {
             key: MERCHANT_TESTER,
             href: MERCHANT_TESTER,
-            label: 'Merchant tester',
+            label: t('Merchant tester'),
             current: route === 'basePlacement',
             screen: true,
           },
@@ -528,14 +540,14 @@ export function buildMemberNav(ctx: NavContext): NavGroup[] {
   const firstAlliance = allianceChildren[0];
 
   const items: NavItem[] = [
-    single('#/home', 'Home', 'overview', route === 'home'),
+    single('#/home', t('Home'), 'overview', route === 'home'),
     ...(firstAlliance === undefined
       ? []
       : [
           {
             key: 'own-alliance',
             href: firstAlliance.href,
-            label: own?.label ?? 'Alliance',
+            label: own?.label ?? t('Alliance'),
             icon: 'alliance' as const,
             current: allianceChildren.some((child) => child.current),
             children: allianceChildren,
@@ -548,7 +560,7 @@ export function buildMemberNav(ctx: NavContext): NavGroup[] {
           {
             ...single(
               '#/calculator',
-              'Tools',
+              t('Tools'),
               'calculator',
               route === 'calculator' || route === 'planner',
             ),
@@ -562,15 +574,15 @@ export function buildMemberNav(ctx: NavContext): NavGroup[] {
           {
             key: 'guides-entry',
             href: firstGuide.href,
-            label: 'Guides',
+            label: t('Guides'),
             icon: 'guides' as const,
             current: guideChildren.some((child) => child.current),
             children: guideChildren,
           },
         ]),
-    ...(shown('map') ? [single('#/map', 'Map', 'map', route === 'map')] : []),
+    ...(shown('map') ? [single('#/map', t('Map'), 'map', route === 'map')] : []),
   ];
-  return [{ id: 'watch' as const, label: 'Menu', items }];
+  return [{ id: 'watch' as const, label: t('Menu'), items }];
 }
 
 /** The admin's extra group: every screen the six entries leave out, filed by
@@ -584,6 +596,7 @@ export function buildMemberNav(ctx: NavContext): NavGroup[] {
  * Settings stays in the footer, where it was. The gates each screen carried are
  * unchanged (`members.view`, `giftcodes.manage`, Tab visibility). */
 function buildAdminMenu(ctx: NavContext): NavItem[] {
+  const t = ctx.t ?? english;
   const shown = ctx.tabShown ?? (() => true);
   const route = ctx.route;
   const screen = (
@@ -601,11 +614,11 @@ function buildAdminMenu(ctx: NavContext): NavItem[] {
   });
 
   const servers: NavChild[] = [
-    ...(shown('overview') ? [screen('#/', 'Server overview', route === 'overview')] : []),
+    ...(shown('overview') ? [screen('#/', t('Server overview'), route === 'overview')] : []),
     ...(shown('rankings')
-      ? [screen('#/rankings', 'Rankings', isRankingRoute(route), rankingBoards(ctx))]
+      ? [screen('#/rankings', t('Rankings'), isRankingRoute(route), rankingBoards(ctx))]
       : []),
-    ...(shown('migration') ? [screen('#/migration', 'Migration', route === 'migration')] : []),
+    ...(shown('migration') ? [screen('#/migration', t('Migration'), route === 'migration')] : []),
   ];
   const roster: NavChild[] = [
     ...(ctx.mayViewMembers === true && shown('members')
@@ -617,19 +630,19 @@ function buildAdminMenu(ctx: NavContext): NavItem[] {
             MEMBERS.tabs.map((entry) => ({
               key: MEMBERS.hash(entry.id),
               href: MEMBERS.hash(entry.id),
-              label: entry.label,
+              label: t(entry.label),
               current: route === 'members' && (ctx.tabs?.members ?? 'settled') === entry.id,
             })),
           ),
         ]
       : []),
     ...(ctx.mayManageGiftCodes === true && shown('giftCodes')
-      ? [screen('#/gift-codes', 'Gift codes', route === 'giftCodes')]
+      ? [screen('#/gift-codes', t('Gift codes'), route === 'giftCodes')]
       : []),
   ];
   const gameData: NavChild[] = [
-    ...(shown('calendar') ? [screen('#/calendar', 'Game calendar', route === 'calendar')] : []),
-    ...(shown('shopValue') ? [screen('#/shop-value', 'Shop value', route === 'shopValue')] : []),
+    ...(shown('calendar') ? [screen('#/calendar', t('Game calendar'), route === 'calendar')] : []),
+    ...(shown('shopValue') ? [screen('#/shop-value', t('Shop value'), route === 'shopValue')] : []),
   ];
 
   const entry = (key: string, label: string, icon: IconName, children: NavChild[]): NavItem[] => {
@@ -648,9 +661,9 @@ function buildAdminMenu(ctx: NavContext): NavItem[] {
         ];
   };
   return [
-    ...entry('admin-servers', 'Servers', 'rankings', servers),
-    ...entry('admin-roster', 'Roster', 'members', roster),
-    ...entry('admin-game', 'Game data', 'calendar', gameData),
+    ...entry('admin-servers', t('Servers'), 'rankings', servers),
+    ...entry('admin-roster', t('Roster'), 'members', roster),
+    ...entry('admin-game', t('Game data'), 'calendar', gameData),
   ];
 }
 
@@ -659,6 +672,7 @@ export function buildFooter(
   route: Route,
   isAdmin: boolean,
   adminGroup: AdminGroup | null = null,
+  t: Translate = english,
 ): NavItem[] {
   return [
     ...(isAdmin
@@ -666,7 +680,7 @@ export function buildFooter(
           {
             key: '#/admin',
             href: '#/admin',
-            label: 'Settings',
+            label: t('Settings'),
             icon: 'settings' as const,
             current: route === 'admin',
             // The five groups. Sections inside a group stay a tab bar on the
@@ -674,7 +688,7 @@ export function buildFooter(
             children: ADMIN_GROUPS.map((entry) => ({
               key: adminHash(entry.group),
               href: adminHash(entry.group),
-              label: entry.label,
+              label: t(entry.label),
               current: route === 'admin' && (adminGroup ?? 'access') === entry.group,
             })),
           },
@@ -683,7 +697,7 @@ export function buildFooter(
     {
       key: '#/account',
       href: '#/account',
-      label: 'My account',
+      label: t('My account'),
       icon: 'account' as const,
       current: route === 'account',
     },
@@ -691,7 +705,7 @@ export function buildFooter(
 }
 
 /** Screens that belong to no group but still have a name to show in the top bar. */
-const OTHER_LABELS: Partial<Record<Route, string>> = {
+export const OTHER_LABELS: Partial<Record<Route, string>> = {
   player: 'Player',
   server: 'Server',
   alliance: 'Alliance',
@@ -727,6 +741,7 @@ export function breadcrumb(
   groups: readonly NavGroup[],
   footer: readonly NavItem[],
   route: Route,
+  t: Translate = english,
 ): string[] {
   for (const group of groups) {
     const item = group.items.find((entry) => entry.current);
@@ -739,7 +754,7 @@ export function breadcrumb(
   }
   const foot = footer.find((entry) => entry.current);
   if (foot !== undefined) return [foot.label];
-  return [OTHER_LABELS[route] ?? 'Dark War'];
+  return [t(OTHER_LABELS[route] ?? 'Dark War')];
 }
 
 // ----------------------------------------------------------------- status line
@@ -749,15 +764,17 @@ const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
 /** `28 min`, `2 h 10 min`, `3 d`: how long until something, coarse on purpose. */
-export function humanUntil(ms: number): string {
-  if (ms < MINUTE) return 'under a minute';
-  if (ms < HOUR) return `${Math.round(ms / MINUTE)} min`;
+export function humanUntil(ms: number, t: Translate = english): string {
+  if (ms < MINUTE) return t('under a minute');
+  if (ms < HOUR) return t('{minutes} min', { minutes: Math.round(ms / MINUTE) });
   if (ms < DAY) {
     const hours = Math.floor(ms / HOUR);
     const minutes = Math.round((ms - hours * HOUR) / MINUTE);
-    return minutes === 0 ? `${hours} h` : `${hours} h ${minutes} min`;
+    return minutes === 0
+      ? t('{hours} h', { hours })
+      : t('{hours} h {minutes} min', { hours, minutes });
   }
-  return `${Math.floor(ms / DAY)} d`;
+  return t('{days} d', { days: Math.floor(ms / DAY) });
 }
 
 /** What the top bar says about the season: which one is running, and when it
@@ -766,7 +783,11 @@ export function humanUntil(ms: number): string {
  * A season is current from its start. `endsAt` is the game's settle time, after
  * which nothing counts but the season has not yet been replaced: that gap is
  * the rest period, and the line says so instead of "ends Oct 5" for a month. */
-export function seasonLine(seasons: readonly Season[], now: Date): string | null {
+export function seasonLine(
+  seasons: readonly Season[],
+  now: Date,
+  t: Translate = english,
+): string | null {
   const at = now.getTime();
   const started = seasons
     .filter((season) => season.startsAt !== null && Date.parse(season.startsAt) <= at)
@@ -777,11 +798,18 @@ export function seasonLine(seasons: readonly Season[], now: Date): string | null
   if (started === undefined) return null;
   const ended = started.endsAt !== null && Date.parse(started.endsAt) <= at;
   if (ended && upcoming?.startsAt) {
-    return `${started.name} is over. ${upcoming.name} starts in ${humanUntil(Date.parse(upcoming.startsAt) - at)}`;
+    return t('{season} is over. {next} starts in {time}', {
+      season: started.name,
+      next: upcoming.name,
+      time: humanUntil(Date.parse(upcoming.startsAt) - at, t),
+    });
   }
-  if (ended) return `${started.name} is over`;
+  if (ended) return t('{season} is over', { season: started.name });
   if (started.endsAt !== null) {
-    return `${started.name} ends in ${humanUntil(Date.parse(started.endsAt) - at)}`;
+    return t('{season} ends in {time}', {
+      season: started.name,
+      time: humanUntil(Date.parse(started.endsAt) - at, t),
+    });
   }
   return started.name;
 }

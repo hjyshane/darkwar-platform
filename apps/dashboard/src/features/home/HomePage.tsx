@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { rich, useT } from '../../lib/i18n';
 import { shareCoordinate } from '../../lib/shareCoordinate';
 import { SERVER_ZONE, browserZone, zonedDayKey, zonedTime } from '../../lib/timezone';
 import { useSession } from '../../lib/useSession';
@@ -19,6 +20,7 @@ import { blackGoldLine, nextBlackGold, todaysDuel } from './homeModel';
  * Upgrades card (calculator links) came out on 2026-11-24 (owner): the
  * calculator is one sidebar entry away and the card held nothing else. */
 export function HomePage() {
+  const t = useT();
   const { data: session } = useSession();
   const playerId = session?.playerId ?? null;
   const me = useMyPlayer(playerId);
@@ -29,18 +31,22 @@ export function HomePage() {
   return (
     <section aria-labelledby="home-heading" className="home">
       <header className="home-head">
-        <h2 id="home-heading">Home</h2>
+        <h2 id="home-heading">{t('Home')}</h2>
         <p className="subtle">
-          {me.data?.name ?? (playerId === null ? 'No character linked' : '…')}
-          {me.data ? ` · Server ${me.data.serverId}` : ''} · {zonedTime(nowIso, SERVER_ZONE)} server
-          time
-          {showLocal && ` · ${zonedTime(nowIso, localZone)} your time`}
+          {me.data?.name ?? (playerId === null ? t('No character linked') : '…')}
+          {me.data ? ` · ${t('Server {server}', { server: me.data.serverId })}` : ''} ·{' '}
+          {t('{time} server time', { time: zonedTime(nowIso, SERVER_ZONE) })}
+          {showLocal && ` · ${t('{time} your time', { time: zonedTime(nowIso, localZone) })}`}
         </p>
       </header>
       {playerId === null && (
         <p className="empty">
-          Link your account to your character on <a href="#/account">My account</a> to see your tile
-          and your Black Gold team here.
+          {rich(
+            t(
+              'Link your account to your character on {account} to see your tile and your Black Gold team here.',
+            ),
+            { account: <a href="#/account">{t('My account')}</a> },
+          )}
         </p>
       )}
       {/* Pinned notices first, as tight one-line rows (owner, 2026-11-19): what
@@ -52,7 +58,7 @@ export function HomePage() {
       <HiveCard playerId={playerId} />
       <WeekCard playerId={playerId} />
       <div className="panel home-card">
-        <h3 className="home-label">From your officers</h3>
+        <h3 className="home-label">{t('From your officers')}</h3>
         <GuidesBlock />
       </div>
     </section>
@@ -70,6 +76,7 @@ function hasOwnClock(zone: string, iso: string): boolean {
 }
 
 function HiveCard({ playerId }: { playerId: string | null }) {
+  const t = useT();
   const plans = useFormations(null);
   const live = (plans.data ?? []).find((p) => p.isActive && p.deletedAt === null) ?? null;
   const board = useBoard(live?.formationId ?? null);
@@ -83,7 +90,7 @@ function HiveCard({ playerId }: { playerId: string | null }) {
   return (
     <div className="panel home-card home-hive">
       <p className="home-label">
-        Hive move · {live.name} <span className="badge badge-fresh">Plan live</span>
+        {t('Hive move')} · {live.name} <span className="badge badge-fresh">{t('Plan live')}</span>
       </p>
       {coordinate ? (
         <p className="home-coordinate">
@@ -91,14 +98,17 @@ function HiveCard({ playerId }: { playerId: string | null }) {
           {mine?.label ? <span className="subtle"> {mine.label}</span> : null}
         </p>
       ) : (
-        <p className="empty">You have no tile in this plan.</p>
+        <p className="empty">{t('You have no tile in this plan.')}</p>
       )}
       {/* The coordinate says where to teleport; the picture says where that is
           in the shape, which is what somebody checks before they spend the
           item (owner, 2026-11-19). */}
       {mine && <HiveSnapshot board={board.data ?? []} ownPlayerId={playerId} />}
       <p className="subtle">
-        Changed {zonedTime(live.editedAt, SERVER_ZONE)} by {live.editedByName ?? 'someone'}
+        {t('Changed {time} by {name}', {
+          time: zonedTime(live.editedAt, SERVER_ZONE),
+          name: live.editedByName ?? t('someone'),
+        })}
       </p>
       <p className="hive-actions">
         {coordinate && (
@@ -109,11 +119,11 @@ function HiveCard({ playerId }: { playerId: string | null }) {
             }}
             type="button"
           >
-            {copied ? 'Copied' : 'Copy coordinates'}
+            {copied ? t('Copied') : t('Copy coordinates')}
           </button>
         )}
         <a className="filter-chip" href="#/hive">
-          See the plan
+          {t('See the plan')}
         </a>
       </p>
     </div>
@@ -121,6 +131,7 @@ function HiveCard({ playerId }: { playerId: string | null }) {
 }
 
 function WeekCard({ playerId }: { playerId: string | null }) {
+  const t = useT();
   const guide = useEventGuide();
   const times = useCapturedTimes();
   const bg = useMyBlackGold(playerId);
@@ -135,25 +146,27 @@ function WeekCard({ playerId }: { playerId: string | null }) {
   // already Sunday morning in Seoul, and each clock has to name its own day.
   const when = (iso: string, zone: string) => {
     const day = new Date(`${zonedDayKey(iso, zone)}T00:00:00Z`);
-    const weekday = WEEKDAYS[(day.getUTCDay() + 6) % 7] ?? '';
+    const weekday = t(WEEKDAYS[(day.getUTCDay() + 6) % 7] ?? '');
     return `${weekday} ${zonedTime(iso, zone)}`;
   };
   const localZone = browserZone();
   return (
     <div className="panel home-card">
-      <h3 className="home-label">This week</h3>
+      <h3 className="home-label">{t('This week')}</h3>
       <dl className="home-week">
-        <dt>Today</dt>
+        <dt>{t('Today')}</dt>
         <dd>
-          {duel ? <strong>Alliance Duel · {duel.name}</strong> : 'No Alliance Duel theme today.'}
+          {duel ? <strong>Alliance Duel · {duel.name}</strong> : t('No Alliance Duel theme today.')}
         </dd>
         <dt>
           {next ? when(next.startsAt, SERVER_ZONE) : 'Black Gold'}
-          {next && <span className="home-week__local">server time</span>}
+          {next && <span className="home-week__local">{t('server time')}</span>}
           {/* The reader's own clock beside the game's (owner, 2026-11-19):
               the game shows server time, the alarm they set does not. */}
           {next && hasOwnClock(localZone, next.startsAt) && (
-            <span className="home-week__local">{when(next.startsAt, localZone)} your time</span>
+            <span className="home-week__local">
+              {t('{time} your time', { time: when(next.startsAt, localZone) })}
+            </span>
           )}
         </dt>
         <dd>
@@ -161,17 +174,19 @@ function WeekCard({ playerId }: { playerId: string | null }) {
           <br />
           <span className="subtle">
             {playerId === null
-              ? 'Link your character to see your team.'
+              ? t('Link your character to see your team.')
               : bg.isPending
                 ? '…'
-                : blackGoldLine(bg.data?.row ?? null, bg.data?.readAt ?? null)}
+                : blackGoldLine(bg.data?.row ?? null, bg.data?.readAt ?? null, t)}
             {bg.data?.objective &&
-              ` Your objective: ${bg.data.objective.label}${bg.data.objective.role ? ` — ${bg.data.objective.role}` : ''}.`}
+              ` ${t('Your objective: {objective}.', {
+                objective: `${bg.data.objective.label}${bg.data.objective.role ? ` — ${bg.data.objective.role}` : ''}`,
+              })}`}
           </span>
         </dd>
       </dl>
       <p>
-        <a href="#/event-guide">Game guide</a> · <a href="#/black-gold">Black Gold</a>
+        <a href="#/event-guide">{t('Game guide')}</a> · <a href="#/black-gold">Black Gold</a>
       </p>
     </div>
   );

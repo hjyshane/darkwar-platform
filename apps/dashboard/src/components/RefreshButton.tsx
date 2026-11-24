@@ -1,4 +1,5 @@
 import { useIsFetching, useQueryClient } from '@tanstack/react-query';
+import { useT } from '../lib/i18n';
 
 /**
  * Refetch whatever this screen is showing.
@@ -21,15 +22,16 @@ import { useIsFetching, useQueryClient } from '@tanstack/react-query';
 export function RefreshButton() {
   const queryClient = useQueryClient();
   const fetching = useIsFetching();
+  const t = useT();
   return (
     <button
       className="refresh"
       disabled={fetching > 0}
       onClick={() => void queryClient.invalidateQueries()}
-      title="Refetch this screen's data"
+      title={t("Refetch this screen's data")}
       type="button"
     >
-      {fetching > 0 ? 'Refreshing…' : 'Refresh'}
+      {fetching > 0 ? t('Refreshing…') : t('Refresh')}
     </button>
   );
 }

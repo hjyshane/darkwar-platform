@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useT } from '../../lib/i18n';
 import type { NavItem } from '../../lib/shellNav';
 import { Icon } from './icons';
 
@@ -16,6 +17,7 @@ export function CommandPalette({
   onClose: () => void;
 }) {
   const [query, setQuery] = useState('');
+  const t = useT();
   const [active, setActive] = useState(0);
   const input = useRef<HTMLInputElement>(null);
 
@@ -50,12 +52,12 @@ export function CommandPalette({
       }}
       role="presentation"
     >
-      <dialog aria-label="Go to a screen" className="palette" open>
+      <dialog aria-label={t('Go to a screen')} className="palette" open>
         <div className="palette-field">
           <Icon name="search" />
           <input
             aria-controls="palette-list"
-            aria-label="Go to a screen"
+            aria-label={t('Go to a screen')}
             onChange={(event) => {
               setQuery(event.target.value);
               setActive(0);
@@ -70,7 +72,7 @@ export function CommandPalette({
                 setActive((index) => Math.max(index - 1, 0));
               } else if (event.key === 'Enter') go(shown[active]);
             }}
-            placeholder="Go to a screen"
+            placeholder={t('Go to a screen')}
             ref={input}
             value={query}
           />
@@ -90,7 +92,7 @@ export function CommandPalette({
               </a>
             </li>
           ))}
-          {shown.length === 0 && <li className="palette-empty">No screen by that name.</li>}
+          {shown.length === 0 && <li className="palette-empty">{t('No screen by that name.')}</li>}
         </ul>
       </dialog>
     </div>

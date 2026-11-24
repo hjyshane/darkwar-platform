@@ -2,6 +2,7 @@
 // rows so every rule can be tested without a query. Clocks are SERVER TIME
 // (UTC-2), the one members read in game.
 
+import { type Translate, english } from '../../lib/i18n/core';
 import { DUEL, type Theme, serverNow, themesOf } from '../eventGuide/guide';
 
 /** Today's Alliance Duel theme, or null on Sunday (no Duel) or when the
@@ -22,13 +23,17 @@ export function todaysDuel(
 export function blackGoldLine(
   row: { team_index: number | null; state: number | null } | null,
   readAt: string | null,
+  t: Translate = english,
 ): string {
-  if (readAt === null) return 'No Black Gold signup list has been read yet.';
+  if (readAt === null) return t('No Black Gold signup list has been read yet.');
   if (row === null || row.team_index === null || (row.state !== 1 && row.state !== 2)) {
-    return 'You are not on a team in the latest signup list.';
+    return t('You are not on a team in the latest signup list.');
   }
-  const team = row.team_index === 1 ? 'Team A' : row.team_index === 2 ? 'Team B' : 'a team';
-  return `You are on ${team}, ${row.state === 1 ? 'starter' : 'substitute'}.`;
+  const team =
+    row.team_index === 1 ? t('Team A') : row.team_index === 2 ? t('Team B') : t('a team');
+  return row.state === 1
+    ? t('You are on {team}, starter.', { team })
+    : t('You are on {team}, substitute.', { team });
 }
 
 export interface TimedEntry {

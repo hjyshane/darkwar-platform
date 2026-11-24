@@ -1,5 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
+import { rich, useT } from '../../lib/i18n';
 import { takeReturnTo } from '../../lib/returnTo';
 import { supabase } from '../../lib/supabase';
 import { TERMS } from '../../lib/terms';
@@ -22,6 +23,7 @@ import { SignUpForm } from './SignUpForm';
  * which JWT the queries carry; what that JWT may read is decided by RLS.
  */
 export function LoginPage() {
+  const t = useT();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -91,7 +93,7 @@ export function LoginPage() {
     if (signInError) {
       // One neutral message: this form does not confirm which part was wrong,
       // nor whether the account exists.
-      setError('Sign-in failed.');
+      setError(t('Sign-in failed.'));
       return;
     }
     // Not straight to `takeReturnTo()`. Where to go depends on what this
@@ -152,9 +154,10 @@ export function LoginPage() {
     return (
       <main>
         <section aria-labelledby="login-heading" className="signin-card">
-          <h2 id="login-heading">{TERMS.signIn}</h2>
+          <h2 id="login-heading">{t(TERMS.signIn)}</h2>
           <p>
-            Signed in as {sessionEmail} — <strong>{session?.role ?? 'viewer'}</strong>.
+            {t('Signed in as {email}', { email: sessionEmail })} —{' '}
+            <strong>{session?.role ?? 'viewer'}</strong>.
           </p>
           {/* ONE SCREEN, ONE BUTTON (2026-11-18). The code and the character
               used to be two screens, the picker replacing the code form once
@@ -182,7 +185,7 @@ export function LoginPage() {
           )}
           {session !== undefined && session.role !== 'viewer' && (
             <>
-              <h3>Which characters are you?</h3>
+              <h3>{t('Which characters are you?')}</h3>
               <PlayerClaimForm />
               {/* A code is per alliance (0193), so a member of one can still
                   be invited into the other with the same account. */}
@@ -191,14 +194,14 @@ export function LoginPage() {
                   an officer to hand out, not for this page to suggest. */}
               {session.role !== 'community' && (
                 <details>
-                  <summary>Invited to another of our alliances?</summary>
+                  <summary>{t('Invited to another of our alliances?')}</summary>
                   <JoinCodeForm onRedeemed={() => refreshSession()} />
                 </details>
               )}
             </>
           )}
           <button onClick={() => void signOut()} type="button">
-            Sign out
+            {t('Sign out')}
           </button>
           {/* Only once there is something to leave. Offering it to a viewer
               would be offering to give up access they have not been granted,
@@ -215,7 +218,7 @@ export function LoginPage() {
     return (
       <main>
         <section aria-labelledby="login-heading" className="signin-card">
-          <h2 id="login-heading">Create an account</h2>
+          <h2 id="login-heading">{t('Create an account')}</h2>
           {/* Same treatment as signing in. A confirmation-free project hands
               back a session here, and sending that straight to the board would
               land a brand-new viewer on the wall — one step after creating the
@@ -229,7 +232,7 @@ export function LoginPage() {
             }}
           />
           <button onClick={() => setCreating(false)} type="button">
-            I already have an account
+            {t('I already have an account')}
           </button>
         </section>
       </main>
@@ -239,10 +242,10 @@ export function LoginPage() {
   return (
     <main>
       <section aria-labelledby="login-heading" className="signin-card">
-        <h2 id="login-heading">{TERMS.signIn}</h2>
+        <h2 id="login-heading">{t(TERMS.signIn)}</h2>
         <form onSubmit={(event) => void signIn(event)}>
           <label>
-            Email
+            {t('Email')}
             <input
               type="email"
               autoComplete="username"
@@ -252,7 +255,7 @@ export function LoginPage() {
             />
           </label>
           <label>
-            Password
+            {t('Password')}
             <input
               type="password"
               autoComplete="current-password"
@@ -262,7 +265,7 @@ export function LoginPage() {
             />
           </label>
           <button type="submit" disabled={busy}>
-            {busy ? 'Signing in…' : TERMS.signIn}
+            {busy ? t('Signing in…') : t(TERMS.signIn)}
           </button>
         </form>
         {error && <p className="error">{error}</p>}
@@ -276,17 +279,17 @@ export function LoginPage() {
             The label is on aria-label rather than on screen, so the row stays
             small without the icons being anonymous to a screen reader. */}
         <p className="signin-alt">
-          No account yet?{' '}
+          {t('No account yet?')}{' '}
           <button className="linklike" onClick={() => setCreating(true)} type="button">
-            Create one
+            {t('Create one')}
           </button>
           <span className="signin-providers">
             <button
-              aria-label="Continue with Discord"
+              aria-label={t('Continue with {provider}', { provider: 'Discord' })}
               className="provider-icon provider-discord"
               disabled={busy}
               onClick={() => void signInWithProvider('discord')}
-              title="Continue with Discord"
+              title={t('Continue with {provider}', { provider: 'Discord' })}
               type="button"
             >
               <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16">
@@ -297,11 +300,11 @@ export function LoginPage() {
               </svg>
             </button>
             <button
-              aria-label="Continue with Google"
+              aria-label={t('Continue with {provider}', { provider: 'Google' })}
               className="provider-icon provider-google"
               disabled={busy}
               onClick={() => void signInWithProvider('google')}
-              title="Continue with Google"
+              title={t('Continue with {provider}', { provider: 'Google' })}
               type="button"
             >
               <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16">
@@ -332,8 +335,10 @@ export function LoginPage() {
             means rather than as a checkbox: there is no separate consent to
             record, and a tick box that gates nothing is theatre. */}
         <p className="legal-consent">
-          Signing in means accepting the <a href="#/terms">Terms of Service</a> and the{' '}
-          <a href="#/privacy">Privacy Policy</a>.
+          {rich(t('Signing in means accepting the {terms} and the {privacy}.'), {
+            terms: <a href="#/terms">{t('Terms of Service')}</a>,
+            privacy: <a href="#/privacy">{t('Privacy Policy')}</a>,
+          })}
         </p>
       </section>
     </main>
