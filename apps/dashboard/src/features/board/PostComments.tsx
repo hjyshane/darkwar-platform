@@ -1,17 +1,27 @@
 import { useState } from 'react';
 import { TranslateControl, useContentTranslation } from '../../lib/contentTranslation';
 import { useT } from '../../lib/i18n';
+import type { Translate } from '../../lib/i18n/core';
 import { isAllowed, usePermissions } from '../../lib/permissions';
 import { useSession } from '../../lib/useSession';
 import type { BoardConfig } from './board';
 import {
   type BoardComment,
   type CommentThread,
+  CommentsTooFast,
   useAddComment,
   useComments,
   useEditComment,
   useRemoveComment,
 } from './comments';
+
+/** What the composer says when a comment was not saved. */
+function addError(error: Error | null, t: Translate): string | null {
+  if (error === null) return null;
+  return error instanceof CommentsTooFast
+    ? t('You are commenting too fast. Wait a minute, then try again.')
+    : error.message;
+}
 
 /** The thread under a post.
  *
@@ -270,7 +280,7 @@ function Thread({
             <li className="comment">
               <Composer
                 busy={add.isPending}
-                error={add.error?.message ?? null}
+                error={addError(add.error, t)}
                 label={t('Write a reply')}
                 onCancel={() => setReplying(false)}
                 onSubmit={(body) => {
@@ -356,7 +366,7 @@ export function Comments({ config, postId }: { config: BoardConfig; postId: stri
       {mayWrite && (
         <Composer
           busy={add.isPending}
-          error={add.error?.message ?? null}
+          error={addError(add.error, t)}
           label={t('Write a comment')}
           onSubmit={(body) => add.mutate({ body, parentId: null })}
           submitLabel={t('Comment')}

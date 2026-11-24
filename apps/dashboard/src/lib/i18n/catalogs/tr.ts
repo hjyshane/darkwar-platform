@@ -2347,4 +2347,6 @@ export const tr: Catalog = {
   'Category of {name}': 'Kategori: {name}',
   'Name it first to file it.': 'Sınıflandırmak için önce adlandır.',
   hidden: 'gizli',
+  'You are commenting too fast. Wait a minute, then try again.':
+    'Çok hızlı yorum yapıyorsunuz. Bir dakika bekleyip tekrar deneyin.',
 };

@@ -2371,4 +2371,6 @@ export const it: Catalog = {
   'Category of {name}': 'Categoria di {name}',
   'Name it first to file it.': 'Dagli prima un nome per classificarlo.',
   hidden: 'nascosta',
+  'You are commenting too fast. Wait a minute, then try again.':
+    'Stai commentando troppo in fretta. Aspetta un minuto e riprova.',
 };

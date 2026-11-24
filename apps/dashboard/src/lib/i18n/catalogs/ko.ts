@@ -2322,4 +2322,6 @@ export const ko: Catalog = {
   'Category of {name}': '{name} 카테고리',
   'Name it first to file it.': '먼저 이름을 붙여야 분류할 수 있어요.',
   hidden: '숨김',
+  'You are commenting too fast. Wait a minute, then try again.':
+    '댓글을 너무 빨리 쓰고 있어요. 잠시 기다렸다가 다시 시도하세요.',
 };

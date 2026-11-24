@@ -2334,4 +2334,6 @@ export const vi: Catalog = {
   'Category of {name}': 'Danh mục của {name}',
   'Name it first to file it.': 'Hãy đặt tên trước để phân loại.',
   hidden: 'đã ẩn',
+  'You are commenting too fast. Wait a minute, then try again.':
+    'Bạn đang bình luận quá nhanh. Hãy đợi một phút rồi thử lại.',
 };

@@ -2269,4 +2269,6 @@ export const zh: Catalog = {
   'Category of {name}': '{name} 的分类',
   'Name it first to file it.': '请先命名再分类。',
   hidden: '已隐藏',
+  'You are commenting too fast. Wait a minute, then try again.':
+    '你评论得太快了。请稍等一分钟再试。',
 };
