@@ -8882,3 +8882,13 @@ button.server-link {
   max-width: 8.5rem;
   padding: 0.2rem 0.4rem;
 }
+
+/* Translate on a post or a comment (0349). */
+.post-translate {
+  font-size: var(--text-sm);
+  margin: 0 0 var(--space-2);
+}
+
+.translate-compact .error {
+  font-size: var(--text-sm);
+}

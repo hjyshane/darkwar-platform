@@ -2324,4 +2324,16 @@ export const tr: Catalog = {
   '✦ Treasure spots': '✦ Hazine noktaları',
   '🛡 Shielded bases': '🛡 Kalkanlı üsler',
   '[attendance] Held': 'Yapıldığı gün',
+  'You have used your translations for today. Try again tomorrow.':
+    'Bugünkü çeviri hakkını kullandın. Yarın tekrar dene.',
+  'Translation is switched off.': 'Çeviri kapalı.',
+  'Translation is not set up on this site yet.': 'Bu sitede çeviri henüz ayarlanmadı.',
+  'This could not be translated: it is gone, or not yours to read.':
+    'Çevrilemedi: içerik silinmiş ya da okuma iznin yok.',
+  'The translation did not come back. Try again in a moment.':
+    'Çeviri gelmedi. Birazdan tekrar dene.',
+  'Machine translation.': 'Makine çevirisi.',
+  'Show original': 'Orijinali göster',
+  'Translating…': 'Çevriliyor…',
+  'Translate into {language}': 'Çevir: {language}',
 };

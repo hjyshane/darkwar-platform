@@ -2351,4 +2351,17 @@ export const fr: Catalog = {
   '✦ Treasure spots': '✦ Emplacements de trésor',
   '🛡 Shielded bases': '🛡 Bases avec bouclier',
   '[attendance] Held': 'Tenu le',
+  'You have used your translations for today. Try again tomorrow.':
+    'Vous avez utilisé vos traductions du jour. Réessayez demain.',
+  'Translation is switched off.': 'La traduction est désactivée.',
+  'Translation is not set up on this site yet.':
+    "La traduction n'est pas encore configurée sur ce site.",
+  'This could not be translated: it is gone, or not yours to read.':
+    "Impossible de traduire : le contenu a disparu ou vous n'y avez pas accès.",
+  'The translation did not come back. Try again in a moment.':
+    "La traduction n'est pas revenue. Réessayez dans un instant.",
+  'Machine translation.': 'Traduction automatique.',
+  'Show original': "Voir l'original",
+  'Translating…': 'Traduction…',
+  'Translate into {language}': 'Traduire en {language}',
 };
