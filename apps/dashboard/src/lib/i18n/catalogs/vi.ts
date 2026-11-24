@@ -2324,4 +2324,8 @@ export const vi: Catalog = {
   'Show original': 'Xem bản gốc',
   'Translating…': 'Đang dịch…',
   'Translate into {language}': 'Dịch sang {language}',
+  'Could not load {what}.': 'Không tải được {what}.',
+  'Trying again…': 'Đang thử lại…',
+  'the hive plan': 'kế hoạch Hive',
+  "this week's events": 'sự kiện tuần này',
 };

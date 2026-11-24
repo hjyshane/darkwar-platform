@@ -110,6 +110,17 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+      # The look-around build's invented data (src/dev/fixtures.ts: fake
+      # alliances, players, notices) must never reach the bundle cbfw.us
+      # serves. Only index.dev.html imports it today; this catches the day an
+      # import from a real screen pulls it in. The markers are strings that
+      # exist nowhere else.
+      - name: No look-around fixtures in the bundle
+        run: |
+          if grep -rlE 'fixture-alliance-|Rally times this week' apps/dashboard/dist; then
+            echo "::error::src/dev/fixtures.ts reached the production bundle (files above)."
+            exit 1
+          fi
 
   db:
     runs-on: ubuntu-latest

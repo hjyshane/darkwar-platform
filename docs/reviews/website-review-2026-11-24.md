@@ -41,16 +41,16 @@
 
 **D. 피처 플래그 · 기본값 복원 · 설정 검색 · import/export (각 S, A 위에)**
 
-### 3단계 — 품질
+### 3단계 — 품질 (2026-11-24 처리)
 
-- 쿼리 계층: `supabase.from(` 직접 호출 68곳, 인라인 `queryKey` 354곳 → 도메인별 `queryOptions` 팩토리 (M).
-- 거대 파일 분해: `FormationEditor.tsx` 2,552줄, `TileGrid.tsx` 1,426줄, `ShopValuePage.tsx` 1,008줄. 분해 전에 렌더 테스트부터 (L).
-- 공용 `<QueryState>`(로딩/빈 상태/오류+재시도) — 실패와 "데이터 없음"이 지금은 구분되지 않는다 (M).
-- 대형 표 행 `React.memo`, 1초 타이머를 말단 컴포넌트로 격리 (S–M).
-- `fetchAllPages` 직렬 페이지네이션(`lib/fetchAllPages.ts:13-30`) 병렬화 또는 서버 집계 (S).
-- `index.css` 8,794줄 → feature별 분할 (M, lazy와 함께).
-- 관리자 RPC × "member로 호출하면 실패" pgTAP 매트릭스 (M).
-- `knip`으로 미사용 export 측정, `dist`에 fixture 문자열이 없는지 CI 가드 (S).
+| 항목 | 결과 |
+|---|---|
+| 관리자 RPC × member 거절 pgTAP 매트릭스 | **스키마 전체 불변식으로 함**(`supabase/tests/990_schema_invariants_test.sql`): 모든 public 테이블 RLS 켜짐, 클라이언트가 부를 수 있는 SECURITY DEFINER 함수는 호출자를 확인하거나 검토된 예외, definer는 search_path 고정, anon 쓰기 권한 없음. 확인 결과 **구멍은 없었다**: anon이 부를 수 있는 definer 5개(claim_player 등)는 모두 역할 확인, 확인이 안 보이던 8개(하이브·BGB 쓰기)는 `internal.*_lock`이 hive.plan을 먼저 확인. |
+| 공용 로딩/오류 표시 | **홈부터 함**(`components/QueryProblem.tsx`): 하이브 카드가 실패 시 사라지고, 이번 주 카드가 실패를 "오늘 Alliance Duel 테마 없음"으로 보여 주던 것을 "불러오지 못함 + 다시 시도"로. 다른 화면은 이미 각자 오류 문구가 있어 일괄 교체는 안 함. |
+| dist에 fixture 유입 CI 가드 | **함**(ci.yml web 잡). |
+| fetchAllPages 병렬화 | **안 함 — 이득이 없다.** 호출처 셋 모두 보통 1,000행 한 페이지로 끝난다. |
+| 1초 타이머 격리 | **안 함 — 의도된 것.** HuntPins의 1초 틱은 트럭을 길 위로 움직이는 것이고, 사냥 화면이 열려 있을 때만 돈다. |
+| 쿼리 팩토리 / 거대 파일 분해 / CSS 분할 / knip | **보류.** 사용자에게 보이는 변화 없이 회귀 위험만 큰 리팩터다. 해당 파일을 기능 때문에 고칠 일이 생길 때 그 자리에서 나누는 편이 낫다. |
 
 ## 3. 패널 지적 중 걸러 낸 것
 

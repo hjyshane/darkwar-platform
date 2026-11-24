@@ -2364,4 +2364,8 @@ export const fr: Catalog = {
   'Show original': "Voir l'original",
   'Translating…': 'Traduction…',
   'Translate into {language}': 'Traduire en {language}',
+  'Could not load {what}.': 'Impossible de charger {what}.',
+  'Trying again…': 'Nouvel essai…',
+  'the hive plan': 'le plan Hive',
+  "this week's events": 'les événements de la semaine',
 };
