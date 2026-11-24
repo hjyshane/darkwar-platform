@@ -1137,13 +1137,15 @@ select:hover {
   ) {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
-  outline: none;
+  outline: 2px solid transparent;
+  outline-offset: 2px;
 }
 
 select:focus-visible {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
-  outline: none;
+  outline: 2px solid transparent;
+  outline-offset: 2px;
 }
 
 ::placeholder {
@@ -6876,7 +6878,8 @@ button.calendar-bar:focus-visible,
 .select-trigger:focus-visible {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
-  outline: none;
+  outline: 2px solid transparent;
+  outline-offset: 2px;
 }
 
 .select-value {
