@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useT } from '../lib/i18n';
 import {
   type ThemePreference,
   applyTheme,
@@ -23,6 +24,7 @@ import {
  */
 export function ThemeToggle() {
   const [preference, setPreference] = useState<ThemePreference>(readTheme);
+  const t = useT();
 
   const change = () => {
     const next = nextTheme(preference);
@@ -31,8 +33,10 @@ export function ThemeToggle() {
     storeTheme(next);
   };
 
-  const label = themeLabel(preference);
-  const sentence = `Colour theme: ${label}. Press for ${themeLabel(nextTheme(preference))}.`;
+  const sentence = t('Colour theme: {current}. Press for {next}.', {
+    current: t(themeLabel(preference)),
+    next: t(themeLabel(nextTheme(preference))),
+  });
   return (
     <button
       aria-label={sentence}

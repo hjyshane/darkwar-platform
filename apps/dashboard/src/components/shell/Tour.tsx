@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useT } from '../../lib/i18n';
 import { TOUR_STEPS, markTourSeen, nextStep, tourSeen } from '../../lib/tour';
 
 /** A short, dismissible walk through the frame, shown on a first visit.
@@ -8,6 +9,7 @@ import { TOUR_STEPS, markTourSeen, nextStep, tourSeen } from '../../lib/tour';
 export function Tour() {
   const [open, setOpen] = useState(() => !tourSeen());
   const [index, setIndex] = useState(0);
+  const t = useT();
   if (!open) {
     return null;
   }
@@ -18,19 +20,19 @@ export function Tour() {
     setOpen(false);
   };
   return (
-    <section aria-label="Welcome tour" className="tour">
+    <section aria-label={t('Welcome tour')} className="tour">
       <p className="tour-count">
-        {index + 1} of {TOUR_STEPS.length}
+        {t('{step} of {steps}', { step: index + 1, steps: TOUR_STEPS.length })}
       </p>
-      <h2 className="tour-title">{step?.title}</h2>
-      <p>{step?.body}</p>
+      <h2 className="tour-title">{step === undefined ? null : t(step.title)}</h2>
+      <p>{step === undefined ? null : t(step.body)}</p>
       <div className="tour-actions">
         <button onClick={() => (next === null ? close() : setIndex(next))} type="button">
-          {next === null ? 'Done' : 'Next'}
+          {next === null ? t('Done') : t('Next')}
         </button>
         {next !== null && (
           <button className="linklike" onClick={close} type="button">
-            Skip
+            {t('Skip')}
           </button>
         )}
       </div>

@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useState } from 'react';
+import { useT } from '../../lib/i18n';
 import type { Route } from '../../lib/route';
 import { paletteEntries } from '../../lib/shellNav';
 import { CommandPalette } from './CommandPalette';
@@ -52,6 +53,7 @@ export function AppShell({
   children: ReactNode;
 }) {
   const { groups, footer, crumbs } = useShellNav(route, allianceId, hash);
+  const t = useT();
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const [drawer, setDrawer] = useState(false);
   const [palette, setPalette] = useState(false);
@@ -93,7 +95,7 @@ export function AppShell({
     >
       <Sidebar collapsed={collapsed} footer={footer} groups={groups} onCollapse={toggleCollapsed} />
       <button
-        aria-label="Close the menu"
+        aria-label={t('Close the menu')}
         className="shell-scrim"
         onClick={() => setDrawer(false)}
         tabIndex={-1}
@@ -103,14 +105,14 @@ export function AppShell({
         <header className="shell-top">
           <button
             aria-expanded={drawer}
-            aria-label="Open the menu"
+            aria-label={t('Open the menu')}
             className="shell-menu"
             onClick={() => setDrawer((open) => !open)}
             type="button"
           >
             <Icon name="menu" size={18} />
           </button>
-          <nav aria-label="You are here" className="shell-crumbs">
+          <nav aria-label={t('You are here')} className="shell-crumbs">
             {crumbs.map((crumb, index) => (
               <span
                 aria-current={index === crumbs.length - 1 ? 'page' : undefined}
@@ -123,7 +125,7 @@ export function AppShell({
           </nav>
           <button className="shell-find" onClick={() => setPalette(true)} type="button">
             <Icon name="search" />
-            <span className="shell-find-text">Go to a screen</span>
+            <span className="shell-find-text">{t('Go to a screen')}</span>
             <kbd>Ctrl K</kbd>
           </button>
           <div className="shell-controls">{controls}</div>

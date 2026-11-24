@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/reac
 import { useEffect, useSyncExternalStore } from 'react';
 import { AllianceSwitcher } from './components/AllianceSwitcher';
 import { EditModeToggle } from './components/EditModeToggle';
+import { LanguagePicker } from './components/LanguagePicker';
 import { RefreshButton } from './components/RefreshButton';
 import { ReplyAlerts } from './components/ReplyAlerts';
 import { SignOutButton } from './components/SignOutButton';
@@ -19,7 +20,8 @@ import { mayOpenSettings } from './lib/adminAccess';
 import { mustPickCharacter, openWhilePicking } from './lib/characterGate';
 import { CommunityGate, communityMayOpen } from './lib/communityAccess';
 import { EditModeProvider } from './lib/editMode';
-import { PageSlot, lazyPage } from './lib/lazyPage';
+import { LanguageProvider, useT } from './lib/i18n';
+import { Loading, PageSlot, lazyPage } from './lib/lazyPage';
 import { isAllowed, usePermissions } from './lib/permissions';
 import { queryKeysForTopic, subscribeDataChanges } from './lib/realtime';
 import { useReplyAlerts } from './lib/replyAlerts';
@@ -290,13 +292,14 @@ function RankingBoards({ route }: { route: Route }) {
  */
 function AccountLink() {
   const { data: alerts } = useReplyAlerts();
+  const t = useT();
   const waiting = (alerts ?? []).length > 0;
   return (
     <a className="header-link" href="#/account">
-      My account
+      {t('My account')}
       {waiting && (
         // Named for a screen reader, since a coloured dot says nothing to one.
-        <span aria-label="You have unread replies" className="header-dot" role="status" />
+        <span aria-label={t('You have unread replies')} className="header-dot" role="status" />
       )}
     </a>
   );
@@ -375,7 +378,7 @@ function Screen({
       // comment says which). This is about not putting a screen in front of
       // someone it is not for.
       if (mayViewMembers === undefined) {
-        return <p className="empty loading">Loading…</p>;
+        return <Loading />;
       }
       if (!mayViewMembers) {
         return (
@@ -445,7 +448,7 @@ function Screen({
       // tables and functions under it refuse them too (0251) - hiding a tab
       // hides it from the eye, not from the address bar. This says why.
       if (mayManageGiftCodes === undefined) {
-        return <p className="empty loading">Loading…</p>;
+        return <Loading />;
       }
       if (!mayManageGiftCodes) {
         return <p className="empty">Gift codes are kept for officers.</p>;
@@ -492,7 +495,7 @@ function Screen({
       // member-only, so an ungated reader would get an empty board rather
       // than a board. Saying why beats rendering nothing.
       if (mayViewArena === undefined) {
-        return <p className="empty loading">Loading…</p>;
+        return <Loading />;
       }
       if (!mayViewArena) {
         return (
@@ -538,21 +541,23 @@ export function App() {
   const standalone = isStandaloneRoute(route);
   return (
     <QueryClientProvider client={queryClient}>
-      <EditModeProvider>
-        <Shell
-          adminGroup={adminGroup}
-          adminSection={adminSection}
-          allianceId={allianceId}
-          guideId={guideId}
-          hash={hash}
-          noticeId={noticeId}
-          playerId={playerId}
-          route={route}
-          mapServerId={mapServerId}
-          serverId={serverId}
-          standalone={standalone}
-        />
-      </EditModeProvider>
+      <LanguageProvider>
+        <EditModeProvider>
+          <Shell
+            adminGroup={adminGroup}
+            adminSection={adminSection}
+            allianceId={allianceId}
+            guideId={guideId}
+            hash={hash}
+            noticeId={noticeId}
+            playerId={playerId}
+            route={route}
+            mapServerId={mapServerId}
+            serverId={serverId}
+            standalone={standalone}
+          />
+        </EditModeProvider>
+      </LanguageProvider>
     </QueryClientProvider>
   );
 }
@@ -637,6 +642,8 @@ function Shell({
       {session?.email != null && <SignOutButton email={session.email} />}
       <EditModeToggle />
       <ThemeToggle />
+      {/* After the theme toggle, whose auto margin pushes the pair to the right. */}
+      <LanguagePicker />
     </>
   );
   // No sidebar while a character is owed: every entry in it would open the
@@ -653,7 +660,7 @@ function Shell({
     <LoginPage />
   ) : isPending && !standalone ? (
     <main>
-      <p className="empty loading">Loading…</p>
+      <Loading />
     </main>
   ) : picking ? (
     <CharacterGate />

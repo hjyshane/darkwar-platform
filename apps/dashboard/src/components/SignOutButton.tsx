@@ -1,5 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useT } from '../lib/i18n';
 import { supabase } from '../lib/supabase';
 
 /** Sign out, from the header, wherever you are.
@@ -18,6 +19,7 @@ import { supabase } from '../lib/supabase';
 export function SignOutButton({ email }: { email: string }) {
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
+  const t = useT();
 
   async function signOut(): Promise<void> {
     setBusy(true);
@@ -33,10 +35,10 @@ export function SignOutButton({ email }: { email: string }) {
       onClick={() => void signOut()}
       // The address, not just "Sign out": on a shared browser the useful
       // question is which account is about to be signed out of.
-      title={`Signed in as ${email}`}
+      title={t('Signed in as {email}', { email })}
       type="button"
     >
-      {busy ? 'Signing out…' : 'Sign out'}
+      {busy ? t('Signing out…') : t('Sign out')}
     </button>
   );
 }

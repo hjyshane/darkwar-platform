@@ -1,4 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
+import { useT } from '../lib/i18n';
+import { type Translate, english } from '../lib/i18n/core';
 import { supabase } from '../lib/supabase';
 
 /** Whether the board is still being fed.
@@ -34,19 +36,22 @@ async function fetchSyncStatus(): Promise<SyncState> {
   return (data as SyncState | null) ?? { last_heartbeat_at: null, is_live: null };
 }
 
-export function since(from: string, now: Date): string {
+export function since(from: string, now: Date, t: Translate = english): string {
   const minutes = Math.floor((now.getTime() - new Date(from).getTime()) / 60_000);
   if (minutes < 1) {
-    return 'moments ago';
+    return t('moments ago');
   }
   if (minutes < 60) {
-    return `${minutes}m ago`;
+    return t('{minutes}m ago', { minutes });
   }
   const hours = Math.floor(minutes / 60);
-  return hours < 24 ? `${hours}h ago` : `${Math.floor(hours / 24)}d ago`;
+  return hours < 24
+    ? t('{hours}h ago', { hours })
+    : t('{days}d ago', { days: Math.floor(hours / 24) });
 }
 
 export function SyncStatus({ now }: { now?: Date }) {
+  const t = useT();
   const { data } = useQuery({
     queryKey: ['sync-status'],
     queryFn: fetchSyncStatus,
@@ -68,12 +73,12 @@ export function SyncStatus({ now }: { now?: Date }) {
       // title says when it was last true.
       title={
         when === null
-          ? 'No collector has ever checked in'
-          : `Last checked in ${since(when, now ?? new Date())}`
+          ? t('No collector has ever checked in')
+          : t('Last checked in {when}', { when: since(when, now ?? new Date(), t) })
       }
     >
       <span className="sync-dot" />
-      {live ? 'Real-time sync' : 'Real-time sync stopped'}
+      {live ? t('Real-time sync') : t('Real-time sync stopped')}
     </span>
   );
 }

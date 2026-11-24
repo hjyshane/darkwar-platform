@@ -14,6 +14,7 @@
 // says so instead of leaving a white page.
 
 import { Component, type ComponentType, type ReactNode, Suspense, lazy } from 'react';
+import { useT } from './i18n';
 
 const RELOADED_AT = 'dw:chunk-reload-at';
 /** A second failure within this long of the reload is not a stale tab. */
@@ -77,19 +78,32 @@ class PageLoadBoundary extends Component<{ children: ReactNode }, BoundaryState>
 
   override render() {
     if (!this.state.failed) return this.props.children;
-    // No <main> of its own: some screens are drawn inside App's.
-    return (
-      <section aria-labelledby="page-failed-heading">
-        <h2 id="page-failed-heading">This page did not load</h2>
-        <p className="empty" role="alert">
-          The connection dropped, or the site was updated while this tab was open.{' '}
-          <button className="link-button" onClick={() => window.location.reload()} type="button">
-            Reload
-          </button>
-        </p>
-      </section>
-    );
+    return <PageFailed />;
   }
+}
+
+/** A function component so it can use the reader's language; the boundary
+ * itself has to be a class. No <main> of its own: some screens are drawn
+ * inside App's. */
+function PageFailed() {
+  const t = useT();
+  return (
+    <section aria-labelledby="page-failed-heading">
+      <h2 id="page-failed-heading">{t('This page did not load')}</h2>
+      <p className="empty" role="alert">
+        {t('The connection dropped, or the site was updated while this tab was open.')}{' '}
+        <button className="link-button" onClick={() => window.location.reload()} type="button">
+          {t('Reload')}
+        </button>
+      </p>
+    </section>
+  );
+}
+
+/** The line a screen shows while its data or its code is on the way. */
+export function Loading() {
+  const t = useT();
+  return <p className="empty loading">{t('Loading…')}</p>;
 }
 
 /** Around every routed screen: a loading line while its file arrives, and the
@@ -98,7 +112,7 @@ class PageLoadBoundary extends Component<{ children: ReactNode }, BoundaryState>
 export function PageSlot({ children, route }: { children: ReactNode; route: string }) {
   return (
     <PageLoadBoundary key={route}>
-      <Suspense fallback={<p className="empty loading">Loading…</p>}>{children}</Suspense>
+      <Suspense fallback={<Loading />}>{children}</Suspense>
     </PageLoadBoundary>
   );
 }

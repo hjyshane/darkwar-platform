@@ -1,4 +1,5 @@
 import { useCapturedTimes } from '../../features/eventGuide/data';
+import { useT } from '../../lib/i18n';
 import { FALLBACK_SEASONS, useSeasons } from '../../lib/seasons';
 import { humanUntil, nextUp, seasonLine } from '../../lib/shellNav';
 import { zonedTime } from '../../lib/timezone';
@@ -11,9 +12,10 @@ import { useNow } from './useShellNav';
  * work out by hand, and they are the part of this header no other tool has. */
 export function StatusLine() {
   const now = useNow(30_000);
+  const t = useT();
   const seasons = useSeasons();
   const times = useCapturedTimes();
-  const season = seasonLine(seasons.data ?? FALLBACK_SEASONS, now);
+  const season = seasonLine(seasons.data ?? FALLBACK_SEASONS, now, t);
   const next = nextUp(times.data ?? [], now);
 
   return (
@@ -21,12 +23,13 @@ export function StatusLine() {
       <span className="shell-status-item">
         <Icon name="clock" size={14} />
         <span className="shell-clock">{zonedTime(now.toISOString(), SERVER_ZONE)}</span>
-        <span className="shell-status-muted">server time, UTC−2</span>
+        <span className="shell-status-muted">{t('server time, UTC−2')}</span>
       </span>
       {season !== null && <span className="shell-status-item">{season}</span>}
       {next !== null && (
         <span className="shell-status-item">
-          Next: {next.title} in <span className="shell-next">{humanUntil(next.inMs)}</span>
+          {t('Next: {event} in', { event: next.title })}{' '}
+          <span className="shell-next">{humanUntil(next.inMs, t)}</span>
         </span>
       )}
     </div>

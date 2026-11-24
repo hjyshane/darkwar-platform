@@ -171,6 +171,23 @@ function FieldEditor({
           />
         </label>
       );
+    case 'select':
+      return (
+        <label htmlFor={`field-${id}`}>
+          Value{' '}
+          <select
+            id={`field-${id}`}
+            onChange={(event) => onChange(event.target.value)}
+            value={typeof value === 'string' ? value : ''}
+          >
+            {field.options.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      );
     case 'choices':
       return <ChoicesEditor onChange={onChange} options={field.options} value={value} />;
     case 'map':

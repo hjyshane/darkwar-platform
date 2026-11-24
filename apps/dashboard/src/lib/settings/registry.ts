@@ -33,6 +33,7 @@ import {
   DOLLARS_PER_RUBY,
   PACK_CATEGORIES,
 } from '../../features/shopValue/data';
+import { LANGUAGES, type Language } from '../i18n/core';
 
 export interface Choice {
   value: string;
@@ -42,6 +43,8 @@ export interface Choice {
 export type FieldSpec =
   /** A number between two bounds. */
   | { kind: 'number'; min: number; max: number; step: number; unit?: string }
+  /** One option from a fixed list. Stored as the option's value. */
+  | { kind: 'select'; options: readonly Choice[] }
   /** Any number of options from a fixed list. Stored as an array. */
   | { kind: 'choices'; options: readonly Choice[] }
   /** A table from a code to one of a fixed list. Stored as an object. */
@@ -82,6 +85,20 @@ export function numberSetting(
     parse: (raw) =>
       typeof raw === 'number' && Number.isFinite(raw) && raw >= min && raw <= max
         ? raw
+        : spec.defaultValue,
+  };
+}
+
+export function selectSetting<V extends string>(
+  spec: Omit<SiteSetting<V>, 'parse' | 'field'> & { options: readonly Choice[] },
+): SiteSetting<V> {
+  const { options, ...rest } = spec;
+  return {
+    ...rest,
+    field: { kind: 'select', options },
+    parse: (raw) =>
+      typeof raw === 'string' && options.some((option) => option.value === raw)
+        ? (raw as V)
         : spec.defaultValue,
   };
 }
@@ -175,8 +192,18 @@ export const CALENDAR_DEFAULT_SHOWN = choicesSetting<Category>({
   options: CATEGORIES.map((category) => ({ value: category, label: CATEGORY_LABELS[category] })),
 });
 
+export const DEFAULT_LANGUAGE = selectSetting<Language>({
+  key: 'site.default_language',
+  label: 'Default language',
+  help: "The language for a reader who has not picked one and whose browser asks for none of the site's languages. A reader's own pick, from the top bar, always wins.",
+  usedOn: { label: 'Home', href: '#/home' },
+  defaultValue: 'en',
+  options: LANGUAGES.map((language) => ({ value: language.code, label: language.name })),
+});
+
 /** Every entry, in the order Settings draws them. */
 export const SITE_SETTINGS: readonly AnySiteSetting[] = [
+  DEFAULT_LANGUAGE,
   RUBY_DOLLAR_RATE,
   PACK_CATEGORY_BY_TYPE,
   CALENDAR_DEFAULT_SHOWN,

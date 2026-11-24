@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useT } from '../../lib/i18n';
 import { isAllowed, usePermissions } from '../../lib/permissions';
 import {
   HIVE,
@@ -31,6 +32,7 @@ export function useShellNav(
   const seasons = useSeasons();
   const overrides = useUiOverrides();
   const tabRules = useTabVisibility();
+  const t = useT();
 
   const isAdmin = session?.role === 'admin';
   const now = new Date();
@@ -67,13 +69,14 @@ export function useShellNav(
       : isAllowed(permissions?.grants, session?.role, 'giftcodes.manage'),
     overrides,
     tabShown: (tab) => isTabShown(tabRules, tab, session?.role),
+    t,
     seasonNames: {
       '#/season': currentSeason(list, now)?.name,
       '#/season2': pastSeason(list, now)?.name,
     },
   });
-  const footer = buildFooter(route, isAdmin, adminGroupFromHash(hash));
-  return { groups, footer, crumbs: breadcrumb(groups, footer, route) };
+  const footer = buildFooter(route, isAdmin, adminGroupFromHash(hash), t);
+  return { groups, footer, crumbs: breadcrumb(groups, footer, route, t) };
 }
 
 /** The current time, refreshed on an interval: the top bar's clock. */
