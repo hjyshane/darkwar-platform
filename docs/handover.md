@@ -10,12 +10,13 @@
 
 ## 2. 사람 몫 / 막힌 것
 
-- **메인 PC Ingest에 APS zstd 키가 없다 (11-24, 확인함).** `C:\darkwar-platform\.env`에 `DW_APS_ZSTD_KEY_FILE`이
-  없고 `ingest.log`가 11-20부터 매 시작마다 `aps_zstd_key_unset` — 11-20 이후 이 PC의 압축 응답은 전부 버려졌다
-  (11-18 "Windows Ingest가 키로 돈다"는 미니 PC). 주인 몫: ① 미니 PC의 키 파일을 이 PC 저장소 밖에 복사 →
-  ② `.env`에 `DW_APS_ZSTD_KEY_FILE=<경로>` → ③ `DarkWar-Ingest` 재시작 → ④ `ingest.log`에 `aps_zstd_key_loaded`
-  → ⑤ 원하면 `backfill_aps.py`로 11-20 이후 파일 재투입. 같은 날 `ingest-dir`의 파일 경계 손실도 고쳤다(머지 뒤
-  main 당기고 Ingest 재시작해야 적용) — `log/2026-11.md` 11-24, `traps.md`.
+- **메인 PC Ingest — 키 들어감, 경계 손실 고침 (11-24, 확인함).** 11-20부터 이 PC의 `.env`에 `DW_APS_ZSTD_KEY_FILE`이
+  없어 압축 응답을 전부 버리고 있었다(`aps_zstd_key_unset`; 11-18 "Windows Ingest가 키로 돈다"는 미니 PC 얘기).
+  11-24 00:10 EST 키(`C:\DW_data\aps_zstd_v1_key.txt`, 미니 PC와 같은 `sha256=e9ed2813695e`) + #669(파일 경계
+  재조립 이어가기)로 재시작, `aps_zstd_key_loaded` 확인. **남은 것:** ① 미니 PC `git pull` + Ingest 재시작(#669 적용)
+  ② 이 PC 11-20~11-24 압축 응답 백필 — `backfill_aps.py`(미니 PC `C:\DW_data\aps\`)를 이 PC 링에 돌릴지 주인 결정.
+  `.env`에 줄을 덧붙일 때 **파일 끝 개행이 없어 앞 줄에 붙었다**(`DW_DASHBOARD_URL=…cbfw.usDW_APS_…`) — 고쳤지만
+  `Add-Content` 전에 끝 개행을 확인할 것. `log/2026-11.md` 11-24, `traps.md`.
 - **0346 대기 (11-21, 지도 타임아웃; 11-24에 0344→0346으로 번호 이동 — #664가 Black Gold의 0344와 main에서 충돌).** `map_atlas`의 `uids_old`가 `map_server_id is null`을 힙 필터로 걸어 서버의 모든 행을 읽고 있었다(`log/2026-11.md` 11-21). 0346은 부분 인덱스 하나(`world_city_old_rows_uid_idx`, 옛 행만이라 작음; 생성 중 SHARE 잠금으로 sync insert가 한 패스 대기). 주인 몫: ① `db push` → ② member로 580 지도를 몇 번 열어 타임아웃이 사라졌는지 → ③ `explain (analyze, buffers) select public.map_atlas(580)`에서 `CTE uids_old` 아래 `Filter: (map_server_id IS NULL)`가 없는지. **프로덕션 측정은 미실시**(세션이 `db query --linked`를 못 썼다); 로컬 144만 행에서 156/546 → 58 ms. 화면 문구는 PR 머지 시 deploy 잡이 배포.
 - **0343 대기 (11-20, 게임 데이터 테이블 브라우저).** 클라이언트 datatable 473개 전부를 Settings › Shared › Game data tables에서 읽는 화면(관리자 전용)과 `dw-collector game-dump`. 순서: ① 주인이 `db push`로 0343 적용 → ② 주 PC 체크아웃을 머지된 `main`으로 당긴 뒤 `uv run --no-sync --with "UnityPy>=1.25" --with "lupa>=2.8" dw-collector game-dump --bundles C:/DW_data/gamedata/base --bundles C:/DW_data/gamedata/bundles`(몇 분; `--dry-run`은 11-20에 473 테이블·131.7 MB·실패 0 확인함). 그 전에는 화면이 "No tables have been dumped yet"를 낸다. 화면은 둘러보기 빌드(픽스처)로만 봤고 **실 DB로는 미확인** — 14 MB짜리 `building`이 11조각으로 얼마나 걸리는지, 이름 검색 `ilike`가 8만 행에서 느린지는 올린 뒤 볼 것. `runbooks/game-data.md` 「전체 테이블 브라우저」.
 - **맵 스윕(`goto-sweep`) — 보류 (11-18, 주인 결정, 확인함).** 코드는 #623으로 main에 있다(게임의 좌표 이동 창으로 566–588을 서버당 70점, 이동 한 번 11.2초, 전체 약 5시간). 8시간 예약 `DarkWar-MapSweep`은 11-18에 등록했다가 주인 요청으로 **지웠다**(작업 스케줄러에 없음 확인). 지금은 주인이 자기 BlueStacks 매크로로 맵을 훑는다. 다시 켜려면 관리자 PowerShell에서 `powershell -ExecutionPolicy Bypass -File .\scripts\windows\register-map-sweep.ps1`(이 PC는 실행 정책 미설정이라 `-ExecutionPolicy Bypass`가 필요). BlueStacks 창 제목에 `collector`가 있어야 가드가 그 인스턴스를 고른다. `runbooks/map-sweep.md`.
