@@ -8850,3 +8850,28 @@ button.server-link {
 .settings-search-hits li {
   padding: 0.2rem 0;
 }
+
+/* A file picker's label drawn as a button (Site values › Import). The input
+ * itself is visually hidden; keyboard focus lands on it, so the label shows
+ * the ring when the input has it. */
+.button-like {
+  background: var(--bg-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  color: var(--fg);
+  cursor: pointer;
+  display: inline-block;
+  padding: var(--space-2) var(--space-3);
+}
+
+.button-like:hover {
+  background: var(--bg-hover);
+}
+
+.site-value-actions:has(input[type="file"]:focus-visible) .button-like {
+  box-shadow: var(--ring);
+}
+
+.site-import-plan ul {
+  margin: var(--space-2) 0;
+}

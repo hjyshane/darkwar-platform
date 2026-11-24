@@ -7,6 +7,8 @@
 
 import { supabase } from '../../lib/supabase';
 
+/** The default rate. What a screen uses is the setting `RUBY_DOLLAR_RATE`
+ * (lib/settings/registry.ts), which shop_pack_value reads too (0348). */
 export const DOLLARS_PER_RUBY = 0.0099;
 
 export type ValueSource = 'officer' | 'game' | 'estimated';
@@ -249,8 +251,8 @@ export function ratioLabel(ratio: number | null): string {
 }
 
 /** $ worth of `rubies`. */
-export function dollarsOf(rubies: number): number {
-  return Math.round(rubies * DOLLARS_PER_RUBY * 100) / 100;
+export function dollarsOf(rubies: number, rate: number = DOLLARS_PER_RUBY): number {
+  return Math.round(rubies * rate * 100) / 100;
 }
 
 export function money(value: number): string {
