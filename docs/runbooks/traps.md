@@ -110,8 +110,8 @@ uid마다 반복하는 loose index scan이다. 인덱스는 `(server_id, game_ui
 지도는 "canceling statement due to statement timeout"을 자주 냈다.
 
 - 반복 프로브(`limit 1`)의 **모든** 조건이 인덱스 안에 있는지 본다. 하나라도 밖이면 비용은 행 수에 비례한다.
-- 고치는 법은 그 조건을 담는 부분 인덱스(0344: `... where map_server_id is null`). 함수는 안 바꾼다.
-- 비용을 믿지 말고 플랜을 핀한다(59·60·344): `Filter: (<열> IS NULL)`이 그 CTE 아래 보이면 회귀다.
+- 고치는 법은 그 조건을 담는 부분 인덱스(0346: `... where map_server_id is null`). 함수는 안 바꾼다.
+- 비용을 믿지 말고 플랜을 핀한다(59·60·346): `Filter: (<열> IS NULL)`이 그 CTE 아래 보이면 회귀다.
 - 로컬 재현은 `scripts/pgtap/run.py`의 클러스터에 generate_series로 서버 모양대로 채우고 member 세션에서
   함수 본문을 `explain (analyze, buffers)`로 본다(prosrc에서 `p_server_id`를 치환; `map_server_id`도 매치되니
   단어 경계로).

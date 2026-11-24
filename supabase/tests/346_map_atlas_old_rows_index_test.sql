@@ -1,4 +1,4 @@
--- 0344: map_atlas's walk over the pre-0318 rows is an index, not a scan of the server.
+-- 0346: map_atlas's walk over the pre-0318 rows is an index, not a scan of the server.
 --
 -- 0269 asserted, in prose, that map_atlas costs what the server has in bases;
 -- 0318 quietly broke that for one of its two walks and no test noticed,
