@@ -59,28 +59,33 @@ export function useSiteSetting<T>(setting: SiteSetting<T>): T {
 
 /** Save a value, or `null` to go back to the default (the row is deleted, so
  * a later change of the default in the code reaches this site too). */
+export async function saveSiteSetting(key: string, value: unknown): Promise<void> {
+  if (value === null) {
+    const { error } = await supabase.from('app_settings').delete().eq('key', key);
+    if (error) throw new Error(error.message);
+    return;
+  }
+  const { data: auth } = await supabase.auth.getUser();
+  const { error } = await supabase.from('app_settings').upsert({
+    key,
+    // The parsed shape is what was validated; Json is wider than any of them.
+    value: value as Json,
+    updated_by: auth.user?.id ?? null,
+  });
+  if (error) throw new Error(error.message);
+}
+
+/** `saveSiteSetting` with the caches that read the value refreshed after. */
 export function useSaveSiteSetting() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: async ({ setting, value }: { setting: AnySiteSetting; value: unknown }) => {
-      if (value === null) {
-        const { error } = await supabase.from('app_settings').delete().eq('key', setting.key);
-        if (error) throw new Error(error.message);
-        return;
-      }
-      const { data: auth } = await supabase.auth.getUser();
-      const { error } = await supabase.from('app_settings').upsert({
-        key: setting.key,
-        // The parsed shape is what was validated; Json is wider than any of them.
-        value: value as Json,
-        updated_by: auth.user?.id ?? null,
-      });
-      if (error) throw new Error(error.message);
-    },
-    onSettled: async () => {
+    mutationFn: ({ setting, value }: { setting: AnySiteSetting; value: unknown }) =>
+      saveSiteSetting(setting.key, value),
+    onSettled: async (_data, _error, { setting }) => {
       await Promise.all([
         client.invalidateQueries({ queryKey: SITE_SETTINGS_KEY }),
         client.invalidateQueries({ queryKey: ['settings-history'] }),
+        ...(setting.alsoRefresh ?? []).map((queryKey) => client.invalidateQueries({ queryKey })),
       ]);
     },
   });

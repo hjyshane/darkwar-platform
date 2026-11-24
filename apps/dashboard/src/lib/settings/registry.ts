@@ -18,9 +18,9 @@
 // a score: a scoring change is a new scoring_version (CLAUDE.md), not a value
 // edited in place.
 //
-// NOT YET HERE, and why: the ruby's dollar value (0.0099) is also written into
-// the shop views (0215, 0216), so changing it on screen alone would make the
-// $ column and the value ratio disagree. It moves when those views read it.
+// The ruby's dollar value is read by the shop view too (0348,
+// ruby_dollar_rate()), with the same bounds, so the $ column and the value
+// ratio beside it move together.
 
 import {
   CATEGORIES,
@@ -28,7 +28,11 @@ import {
   type Category,
   DEFAULT_SHOWN,
 } from '../../features/calendar/data';
-import { DEFAULT_CATEGORY_BY_TYPE, PACK_CATEGORIES } from '../../features/shopValue/data';
+import {
+  DEFAULT_CATEGORY_BY_TYPE,
+  DOLLARS_PER_RUBY,
+  PACK_CATEGORIES,
+} from '../../features/shopValue/data';
 
 export interface Choice {
   value: string;
@@ -55,6 +59,9 @@ export interface SiteSetting<T> {
   defaultValue: T;
   /** The stored value as the reader uses it; the default when unreadable. */
   parse: (raw: unknown) => T;
+  /** Cached queries a change makes stale: figures the database computes from
+   * this value, which the screen would otherwise show until they expire. */
+  alsoRefresh?: readonly (readonly unknown[])[];
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: a list of settings of different value types
@@ -130,6 +137,21 @@ export function mapSetting(
 
 // --------------------------------------------------------------------- entries
 
+export const RUBY_DOLLAR_RATE = numberSetting({
+  key: 'site.ruby_dollar_rate',
+  label: 'Dollars per ruby',
+  help: 'What one ruby is worth in US dollars: every $ figure and value ratio on Shop value. Change it when the store prices of ruby packs change.',
+  usedOn: { label: 'Shop value', href: '#/shop-value' },
+  defaultValue: DOLLARS_PER_RUBY,
+  // The same bounds as ruby_dollar_rate() in the database (0348).
+  min: 0.0001,
+  max: 1,
+  step: 0.0001,
+  unit: '$',
+  // shop_pack_value multiplies by it (0348).
+  alsoRefresh: [['shop-packs']],
+});
+
 export const PACK_CATEGORY_BY_TYPE = mapSetting({
   key: 'site.pack_category_by_type',
   label: 'Pack categories',
@@ -155,6 +177,7 @@ export const CALENDAR_DEFAULT_SHOWN = choicesSetting<Category>({
 
 /** Every entry, in the order Settings draws them. */
 export const SITE_SETTINGS: readonly AnySiteSetting[] = [
+  RUBY_DOLLAR_RATE,
   PACK_CATEGORY_BY_TYPE,
   CALENDAR_DEFAULT_SHOWN,
 ];

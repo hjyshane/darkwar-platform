@@ -16,7 +16,7 @@ import { Strip } from '../../components/Strip';
 import { Select } from '../../components/ui/Select';
 import { Tabs } from '../../components/ui/Tabs';
 import { GameIcon, useItemIcons } from '../../lib/gameIcons';
-import { PACK_CATEGORY_BY_TYPE } from '../../lib/settings/registry';
+import { PACK_CATEGORY_BY_TYPE, RUBY_DOLLAR_RATE } from '../../lib/settings/registry';
 import { useSiteSetting } from '../../lib/settings/useSiteSetting';
 import { type SortState, nextSort, sortRows } from '../../lib/tableControls';
 import { useSession } from '../../lib/useSession';
@@ -136,6 +136,7 @@ function PickOption({
   icons: ReadonlyMap<string, string> | undefined;
   mayEdit: boolean;
 }) {
+  const rate = useSiteSetting(RUBY_DOLLAR_RATE);
   return (
     <>
       <tr className={counted ? 'pick-counted' : 'pick-passed'}>
@@ -152,7 +153,7 @@ function PickOption({
           )}
         </td>
         <td />
-        <td className="num">{money(dollarsOf(option.rubies))}</td>
+        <td className="num">{money(dollarsOf(option.rubies, rate))}</td>
         <td className="muted" colSpan={mayEdit ? 2 : 1}>
           {counted ? 'counted' : ''}
           {option.unvalued > 0 ? ` · ${option.unvalued} with no value` : ''}
@@ -168,7 +169,7 @@ function PickOption({
           </td>
           <td className="num">×{item.qty.toLocaleString('en')}</td>
           <td className="num">
-            {item.rubies === null ? '—' : money(dollarsOf(item.rubies * item.qty))}
+            {item.rubies === null ? '—' : money(dollarsOf(item.rubies * item.qty, rate))}
           </td>
           <td>
             <SourceTag source={item.source} />
@@ -279,6 +280,7 @@ function PackRow({
   hidden: boolean;
   onToggleHidden: () => void;
 }) {
+  const rate = useSiteSetting(RUBY_DOLLAR_RATE);
   const [open, setOpen] = useState(false);
   const byType = useSiteSetting(PACK_CATEGORY_BY_TYPE);
   // Only an opened pack asks for its contents' icons.
@@ -387,7 +389,7 @@ function PackRow({
                 <tr>
                   <td className="label">Rubies</td>
                   <td className="num">{pack.rubies.toLocaleString('en')}</td>
-                  <td className="num">{money(dollarsOf(pack.rubies))}</td>
+                  <td className="num">{money(dollarsOf(pack.rubies, rate))}</td>
                   <td />
                 </tr>
                 {pack.contents.map((item) => (
@@ -398,7 +400,7 @@ function PackRow({
                     </td>
                     <td className="num">×{item.qty.toLocaleString('en')}</td>
                     <td className="num">
-                      {item.rubies === null ? '—' : money(dollarsOf(item.rubies * item.qty))}
+                      {item.rubies === null ? '—' : money(dollarsOf(item.rubies * item.qty, rate))}
                     </td>
                     <td>
                       <SourceTag source={item.source} />
@@ -756,6 +758,7 @@ function ValueRow({
   mayEdit: boolean;
   icon: string | undefined;
 }) {
+  const rate = useSiteSetting(RUBY_DOLLAR_RATE);
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<{ name: string; rubies: string; note: string } | null>(null);
   const save = useMutation({
@@ -816,7 +819,7 @@ function ValueRow({
           />
         )}
       </td>
-      <td className="num">{money(dollarsOf(item.rubies))}</td>
+      <td className="num">{money(dollarsOf(item.rubies, rate))}</td>
       <td>
         <SourceTag source={item.source} />
       </td>

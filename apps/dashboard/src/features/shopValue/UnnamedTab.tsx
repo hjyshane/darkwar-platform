@@ -4,6 +4,8 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { RUBY_DOLLAR_RATE } from '../../lib/settings/registry';
+import { useSiteSetting } from '../../lib/settings/useSiteSetting';
 import { dollarsOf, fetchItemValues, fetchListings, fetchPacks, money, saveItemName } from './data';
 import { type ItemHint, type UnnamedItem, fetchHints, unnamedItems } from './unnamed';
 
@@ -44,6 +46,7 @@ function NameInput({ itemId }: { itemId: string }) {
 }
 
 function Seen({ item }: { item: UnnamedItem }) {
+  const rate = useSiteSetting(RUBY_DOLLAR_RATE);
   if (item.sightings.length === 0) {
     return (
       <span className="muted">
@@ -65,7 +68,7 @@ function Seen({ item }: { item: UnnamedItem }) {
             <>
               the <strong>{s.label}</strong>{' '}
               <span className="muted">
-                for {s.price.toLocaleString('en')} rubies ({money(dollarsOf(s.price))})
+                for {s.price.toLocaleString('en')} rubies ({money(dollarsOf(s.price, rate))})
               </span>
             </>
           )}

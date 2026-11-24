@@ -12031,6 +12031,7 @@ export type Database = {
           rows: number
         }[]
       }
+      ruby_dollar_rate: { Args: never; Returns: number }
       save_alliance_setting: {
         Args: { p_key: string; p_value: Json }
         Returns: undefined

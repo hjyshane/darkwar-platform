@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
+import { shortValue } from '../../lib/settings/history';
 import {
   type AnySiteSetting,
   type Choice,
@@ -8,7 +9,14 @@ import {
   isDefault,
   stableJson,
 } from '../../lib/settings/registry';
-import { useSaveSiteSetting, useStoredSiteSettings } from '../../lib/settings/useSiteSetting';
+import { type ImportPlan, buildExport, planImport } from '../../lib/settings/transfer';
+import {
+  SITE_SETTINGS_KEY,
+  type StoredSetting,
+  saveSiteSetting,
+  useSaveSiteSetting,
+  useStoredSiteSettings,
+} from '../../lib/settings/useSiteSetting';
 import { supabase } from '../../lib/supabase';
 import { TRACKED_SERVERS_KEY } from '../../lib/trackedServers';
 
@@ -30,6 +38,7 @@ export function SiteValuesSetting() {
         Changes take effect for everybody within a few minutes; every change is kept in{' '}
         <a href="#/admin/operations/settings-history">Change history</a>, where it can be undone.
       </p>
+      <TransferCard stored={stored.data} />
       <ServerGroupCard />
       {SITE_SETTINGS.map((setting) => (
         <SettingCard
@@ -326,13 +335,11 @@ interface ServerRow {
   is_tracked: boolean;
 }
 
-/** The group the server pickers list (`servers.is_tracked`). Not an
- * app_settings value: it is a column of the servers table, which the map
- * coverage reads too, so it is changed through set_server_tracked (0347). */
-function ServerGroupCard() {
-  const client = useQueryClient();
-  const servers = useQuery({
-    queryKey: ['servers', 'all-for-settings'],
+const ALL_SERVERS_KEY = ['servers', 'all-for-settings'] as const;
+
+function useAllServers() {
+  return useQuery({
+    queryKey: ALL_SERVERS_KEY,
     queryFn: async (): Promise<ServerRow[]> => {
       const { data, error } = await supabase
         .from('servers')
@@ -342,6 +349,28 @@ function ServerGroupCard() {
       return data ?? [];
     },
   });
+}
+
+async function setTracked(serverId: number, tracked: boolean): Promise<void> {
+  const { error } = await supabase.rpc('set_server_tracked', {
+    p_server_id: serverId,
+    p_tracked: tracked,
+  });
+  if (error) {
+    throw new Error(
+      error.code === 'PGRST202'
+        ? 'the database does not have this yet (migration 0347 is not applied)'
+        : `server ${serverId}: ${error.message}`,
+    );
+  }
+}
+
+/** The group the server pickers list (`servers.is_tracked`). Not an
+ * app_settings value: it is a column of the servers table, which the map
+ * coverage reads too, so it is changed through set_server_tracked (0347). */
+function ServerGroupCard() {
+  const client = useQueryClient();
+  const servers = useAllServers();
   const [draft, setDraft] = useState<ReadonlyMap<number, boolean>>(new Map());
   const [adding, setAdding] = useState('');
   const [message, setMessage] = useState<{ text: string; failed: boolean } | null>(null);
@@ -350,17 +379,7 @@ function ServerGroupCard() {
     mutationFn: async (changes: ReadonlyArray<[number, boolean]>) => {
       // One call per server, in order, so a refusal says which server.
       for (const [serverId, tracked] of changes) {
-        const { error } = await supabase.rpc('set_server_tracked', {
-          p_server_id: serverId,
-          p_tracked: tracked,
-        });
-        if (error) {
-          throw new Error(
-            error.code === 'PGRST202'
-              ? 'the database does not have this yet (migration 0347 is not applied)'
-              : `server ${serverId}: ${error.message}`,
-          );
-        }
+        await setTracked(serverId, tracked);
       }
     },
     onSuccess: () => {
@@ -462,6 +481,167 @@ function ServerGroupCard() {
           </button>
         )}
       </p>
+      {message !== null && (
+        <p className={message.failed ? 'error' : 'note'} role={message.failed ? 'alert' : 'status'}>
+          {message.text}
+        </p>
+      )}
+    </section>
+  );
+}
+
+// ------------------------------------------------------------- export / import
+
+/** Download what is set, or read a file back: the changes are listed first
+ * and written only on Apply (lib/settings/transfer.ts). */
+function TransferCard({ stored }: { stored: ReadonlyMap<string, StoredSetting> }) {
+  const client = useQueryClient();
+  const servers = useAllServers();
+  const [plan, setPlan] = useState<ImportPlan | null>(null);
+  const [message, setMessage] = useState<{ text: string; failed: boolean } | null>(null);
+
+  const apply = useMutation({
+    mutationFn: async (changes: ImportPlan['changes']) => {
+      for (const change of changes) {
+        if (change.kind === 'server') await setTracked(change.serverId, change.tracked);
+        else await saveSiteSetting(change.setting.key, change.value);
+      }
+    },
+    onSuccess: (_data, changes) => {
+      setPlan(null);
+      setMessage({
+        text: `Imported: ${changes.length} change${changes.length === 1 ? '' : 's'}.`,
+        failed: false,
+      });
+    },
+    onError: (error: Error) =>
+      setMessage({
+        text: `Stopped part way: ${error.message}. What was written is in Change history.`,
+        failed: true,
+      }),
+    onSettled: async () => {
+      await Promise.all([
+        client.invalidateQueries({ queryKey: SITE_SETTINGS_KEY }),
+        client.invalidateQueries({ queryKey: ['servers'] }),
+        client.invalidateQueries({ queryKey: ['settings-history'] }),
+        ...SITE_SETTINGS.flatMap((setting) => setting.alsoRefresh ?? []).map((queryKey) =>
+          client.invalidateQueries({ queryKey }),
+        ),
+      ]);
+    },
+  });
+
+  const download = () => {
+    const file = buildExport(
+      SITE_SETTINGS,
+      stored,
+      (servers.data ?? []).filter((row) => row.is_tracked).map((row) => row.server_id),
+      new Date(),
+    );
+    const url = URL.createObjectURL(
+      new Blob([`${JSON.stringify(file, null, 2)}\n`], { type: 'application/json' }),
+    );
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `site-values-${file.exportedAt.slice(0, 10)}.json`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const read = async (file: File) => {
+    setMessage(null);
+    const result = planImport(await file.text(), SITE_SETTINGS, stored, servers.data ?? []);
+    if (!result.ok) {
+      setPlan(null);
+      setMessage({ text: result.reason, failed: true });
+      return;
+    }
+    setPlan(result.plan);
+  };
+
+  const label = (key: string) => SITE_SETTINGS.find((setting) => setting.key === key)?.label ?? key;
+
+  return (
+    <section aria-labelledby="site-transfer" className="panel site-value">
+      <header className="site-value-head">
+        <h3 id="site-transfer">Export and import</h3>
+      </header>
+      <p className="subtle">
+        A file of everything on this page that is not at its default, and the server group. Import
+        lists what it would change before anything is written.
+      </p>
+      <p className="site-value-actions">
+        <button disabled={servers.isPending} onClick={download} type="button">
+          Export
+        </button>
+        <label className="button-like" htmlFor="site-import">
+          Import a file…
+        </label>
+        <input
+          accept="application/json,.json"
+          className="visually-hidden"
+          id="site-import"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            event.target.value = '';
+            if (file !== undefined) void read(file);
+          }}
+          type="file"
+        />
+      </p>
+      {plan !== null && (
+        <div className="site-import-plan">
+          {plan.changes.length === 0 ? (
+            <p className="note">The file matches what is set. Nothing to change.</p>
+          ) : (
+            <ul>
+              {plan.changes.map((change) =>
+                change.kind === 'server' ? (
+                  <li key={`server-${change.serverId}`}>
+                    Server {change.serverId}:{' '}
+                    {change.tracked ? 'into the group' : 'out of the group'}
+                  </li>
+                ) : (
+                  <li key={change.setting.key}>
+                    {change.setting.label}: <code>{shortValue(change.from, 40)}</code> →{' '}
+                    {change.value === null ? (
+                      'the default'
+                    ) : (
+                      <code>{shortValue(change.to, 40)}</code>
+                    )}
+                  </li>
+                ),
+              )}
+            </ul>
+          )}
+          {plan.unknownKeys.length > 0 && (
+            <p className="subtle">
+              Skipped, not known to this site: {plan.unknownKeys.join(', ')}.
+            </p>
+          )}
+          {plan.unreadable.length > 0 && (
+            <p className="error">
+              Skipped, the file's value cannot be read: {plan.unreadable.map(label).join(', ')}.
+            </p>
+          )}
+          <p className="site-value-actions">
+            <button
+              disabled={plan.changes.length === 0 || apply.isPending}
+              onClick={() => apply.mutate(plan.changes)}
+              type="button"
+            >
+              {apply.isPending
+                ? 'Applying…'
+                : `Apply ${plan.changes.length} change${plan.changes.length === 1 ? '' : 's'}`}
+            </button>
+            <button onClick={() => setPlan(null)} type="button">
+              Cancel
+            </button>
+          </p>
+        </div>
+      )}
       {message !== null && (
         <p className={message.failed ? 'error' : 'note'} role={message.failed ? 'alert' : 'status'}>
           {message.text}
