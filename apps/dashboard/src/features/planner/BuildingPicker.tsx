@@ -15,6 +15,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
+import { useT } from '../../lib/i18n';
 import { useSeasons } from '../../lib/seasons';
 import { LevelPicker } from './LevelPicker';
 import { FORMATION_IDS } from './categories';
@@ -34,6 +35,7 @@ interface PickerProps {
 }
 
 export function BuildingPicker({ levels, tiers, targets, onSet, onCurrent }: PickerProps) {
+  const t = useT();
   // From a login, the buildings it has. By hand, the buildings accounts have
   // (0286) plus any this one already has a level for. If nobody has logged in
   // yet there is nothing to go on, and the whole catalogue is offered.
@@ -65,7 +67,7 @@ export function BuildingPicker({ levels, tiers, targets, onSet, onCurrent }: Pic
     [seasons.data],
   );
 
-  if (subjects.isPending) return <p className="empty">Loading buildings…</p>;
+  if (subjects.isPending) return <p className="empty">{t('Loading buildings…')}</p>;
   if (subjects.isError) return <p className="error">{subjects.error.message}</p>;
 
   const upgradable = subjects.data.filter(
@@ -84,10 +86,10 @@ export function BuildingPicker({ levels, tiers, targets, onSet, onCurrent }: Pic
     <>
       <div className="row">
         <input
-          aria-label="Find a building"
+          aria-label={t('Find a building')}
           className="planner-filter"
           onChange={(e) => setFilter(e.target.value)}
-          placeholder="Find a building…"
+          placeholder={t('Find a building…')}
           type="search"
           value={filter}
         />
@@ -98,7 +100,7 @@ export function BuildingPicker({ levels, tiers, targets, onSet, onCurrent }: Pic
               onChange={(e) => setShowHidden(e.target.checked)}
               type="checkbox"
             />{' '}
-            show hidden and maxed ({hiddenCount})
+            {t('show hidden and maxed ({count})', { count: hiddenCount })}
           </label>
         )}
       </div>
@@ -107,9 +109,9 @@ export function BuildingPicker({ levels, tiers, targets, onSet, onCurrent }: Pic
           <thead>
             <tr>
               <th className="label" scope="col">
-                Building
+                {t('Building')}
               </th>
-              <th scope="col">Level</th>
+              <th scope="col">{t('Level')}</th>
               <th scope="col" />
             </tr>
           </thead>
@@ -146,7 +148,7 @@ export function BuildingPicker({ levels, tiers, targets, onSet, onCurrent }: Pic
                       onClick={() => toggleHidden(s.subject)}
                       type="button"
                     >
-                      {hidden.has(s.subject) ? 'unhide' : 'hide'}
+                      {hidden.has(s.subject) ? t('unhide') : t('hide')}
                     </button>
                   </td>
                 </tr>
@@ -155,7 +157,7 @@ export function BuildingPicker({ levels, tiers, targets, onSet, onCurrent }: Pic
           </tbody>
         </table>
       </div>
-      {rows.length === 0 && <p className="empty">No building to show.</p>}
+      {rows.length === 0 && <p className="empty">{t('No building to show.')}</p>}
     </>
   );
 }

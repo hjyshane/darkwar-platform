@@ -4,6 +4,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { rich, useT } from '../../lib/i18n';
 import { chipLabel } from '../calculator/chips';
 import { fetchTiers } from './data';
 import { levelText } from './levels';
@@ -22,6 +23,7 @@ export function useSavedPlans(enabled = true) {
 }
 
 export function SavedPlans() {
+  const t = useT();
   const plans = useSavedPlans();
   // A building's level is drawn as the game names it (a tier past 30).
   const tiers = useQuery({
@@ -39,22 +41,31 @@ export function SavedPlans() {
     },
   });
 
-  if (plans.isPending) return <p className="empty loading">Loading…</p>;
-  if (plans.isError) return <p className="error">Could not load plans: {plans.error.message}</p>;
+  if (plans.isPending) return <p className="empty loading">{t('Loading…')}</p>;
+  if (plans.isError)
+    return (
+      <p className="error">
+        {t('Could not load plans: {message}', { message: plans.error.message })}
+      </p>
+    );
   if (plans.data.length === 0) {
     return (
       <p className="empty">
-        No saved plan yet. Choose what to raise in the <a href="#/planner">Planner</a> and save it
-        under a name.
+        {rich(
+          t('No saved plan yet. Choose what to raise in the {planner} and save it under a name.'),
+          {
+            planner: <a href="#/planner">{t('Planner')}</a>,
+          },
+        )}
       </p>
     );
   }
 
   const tierMap = tiers.data ?? new Map();
-  const shown = (t: Target, level: number) =>
-    t.kind === 'building'
-      ? levelText(tierMap, t.subject, level)
-      : t.kind === 'chip'
+  const shown = (target: Target, level: number) =>
+    target.kind === 'building'
+      ? levelText(tierMap, target.subject, level)
+      : target.kind === 'chip'
         ? chipLabel(level)
         : String(level);
 
@@ -66,19 +77,23 @@ export function SavedPlans() {
           <div className="post-meta">
             {plan.accountName !== '' && <span className="post-tag">{plan.accountName}</span>}
             <span>
-              {plan.targets.length} {plan.targets.length === 1 ? 'upgrade' : 'upgrades'}
+              {plan.targets.length === 1
+                ? t('{count} upgrade', { count: plan.targets.length })
+                : t('{count} upgrades', { count: plan.targets.length })}
             </span>
-            <time dateTime={plan.updatedAt}>saved {day.format(new Date(plan.updatedAt))}</time>
+            <time dateTime={plan.updatedAt}>
+              {t('saved {date}', { date: day.format(new Date(plan.updatedAt)) })}
+            </time>
           </div>
           <ul className="chips saved-plan-targets">
-            {plan.targets.map((t) => (
-              <li className="saved-plan-target" key={`${t.kind}:${t.subject}`}>
-                {targetText(t, shown)}
+            {plan.targets.map((target) => (
+              <li className="saved-plan-target" key={`${target.kind}:${target.subject}`}>
+                {targetText(target, shown, t)}
               </li>
             ))}
           </ul>
           <div className="row saved-plan-actions">
-            <a href={planHash(plan.planId)}>Open in the planner</a>
+            <a href={planHash(plan.planId)}>{t('Open in the planner')}</a>
             {asking === plan.planId ? (
               <>
                 <button
@@ -86,20 +101,22 @@ export function SavedPlans() {
                   onClick={() => remove.mutate(plan.planId)}
                   type="button"
                 >
-                  {remove.isPending ? 'Deleting…' : 'Yes, delete it'}
+                  {remove.isPending ? t('Deleting…') : t('Yes, delete it')}
                 </button>
                 <button onClick={() => setAsking(null)} type="button">
-                  Keep it
+                  {t('Keep it')}
                 </button>
               </>
             ) : (
               <button onClick={() => setAsking(plan.planId)} type="button">
-                Delete
+                {t('Delete')}
               </button>
             )}
           </div>
           {remove.isError && asking === plan.planId && (
-            <p className="error">Could not delete it: {remove.error.message}</p>
+            <p className="error">
+              {t('Could not delete it: {message}', { message: remove.error.message })}
+            </p>
           )}
         </li>
       ))}

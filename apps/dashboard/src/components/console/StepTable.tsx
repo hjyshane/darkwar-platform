@@ -1,4 +1,5 @@
 import { type ReactNode, useState } from 'react';
+import { useT } from '../../lib/i18n';
 import './console.css';
 
 export interface StepColumn<Row> {
@@ -34,6 +35,7 @@ export function StepTable<Row>({
   foldAt = DEFAULT_FOLD,
   caption,
 }: StepTableProps<Row>) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const folded = !open && rows.length > foldAt;
   const shown = folded ? rows.slice(0, foldAt) : rows;
@@ -75,7 +77,7 @@ export function StepTable<Row>({
       </table>
       {folded && (
         <button className="step-fold" onClick={() => setOpen(true)} type="button">
-          Show all {rows.length}
+          {t('Show all {count}', { count: rows.length })}
         </button>
       )}
     </div>

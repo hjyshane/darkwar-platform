@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { rich, useT } from '../../lib/i18n';
 import { supabase } from '../../lib/supabase';
 import { extractGiftKey, pasteProblem } from './giftKey';
 
@@ -29,6 +30,7 @@ async function fetchMyKeys(): Promise<MyKey[]> {
  * be saved from this form: the database refuses a character that is not yours.
  */
 export function GiftKeyForm() {
+  const t = useT();
   const client = useQueryClient();
   const { data, error, isPending } = useQuery({ queryKey: ['my-gift-keys'], queryFn: fetchMyKeys });
   const [drafts, setDrafts] = useState<Record<number, string>>({});
@@ -54,7 +56,7 @@ export function GiftKeyForm() {
       setDrafts((now) => ({ ...now, [uid]: '' }));
       setAgreed((now) => ({ ...now, [uid]: false }));
       setProblem(null);
-      setNotice('Key saved. Gift codes sent for you will use it.');
+      setNotice(t('Key saved. Gift codes sent for you will use it.'));
       await refresh();
     },
     onError: (e: Error) => {
@@ -72,7 +74,7 @@ export function GiftKeyForm() {
     },
     onSuccess: async () => {
       setProblem(null);
-      setNotice('Key removed.');
+      setNotice(t('Key removed.'));
       await refresh();
     },
     onError: (e: Error) => {
@@ -85,7 +87,7 @@ export function GiftKeyForm() {
     const result = extractGiftKey(drafts[uid] ?? '');
     if (!result.ok) {
       setNotice(null);
-      setProblem(pasteProblem(result));
+      setProblem(pasteProblem(result, t));
       return;
     }
     save.mutate({ uid, key: result.key });
@@ -94,19 +96,21 @@ export function GiftKeyForm() {
   return (
     <div className="gift-key">
       <p className="subtle">
-        Codes can only be sent to you with a key from your own Gift Center link (the part after{' '}
-        <code>uuid=</code>). It is a login token for your Dark War store account, so it is
-        write-only: nobody, officers included, can read it back. It is used only to send gift codes
-        to your character, and you can remove it at any time.
+        {rich(
+          t(
+            'Codes can only be sent to you with a key from your own Gift Center link (the part after {param}). It is a login token for your Dark War store account, so it is write-only: nobody, officers included, can read it back. It is used only to send gift codes to your character, and you can remove it at any time.',
+          ),
+          { param: <code>uuid=</code> },
+        )}
       </p>
 
-      {isPending && <p className="empty loading">Loading…</p>}
+      {isPending && <p className="empty loading">{t('Loading…')}</p>}
       {error && <p className="error">{error.message}</p>}
       {data !== undefined && data.length === 0 && (
-        <p className="empty">No character is linked to this account yet.</p>
+        <p className="empty">{t('No character is linked to this account yet.')}</p>
       )}
       {notice && <p className="note">{notice}</p>}
-      {problem && <p className="error">Not saved: {problem}</p>}
+      {problem && <p className="error">{t('Not saved: {problem}', { problem })}</p>}
 
       {data?.map((mine) => (
         <form
@@ -121,12 +125,14 @@ export function GiftKeyForm() {
             <strong>{mine.name}</strong>{' '}
             <span className="muted">
               {mine.has_key
-                ? `key saved${mine.updated_at ? ` ${day.format(new Date(mine.updated_at))}` : ''}`
-                : 'no key saved'}
+                ? mine.updated_at
+                  ? t('key saved {date}', { date: day.format(new Date(mine.updated_at)) })
+                  : t('key saved')
+                : t('no key saved')}
             </span>
           </p>
           <label>
-            Your Gift Center link, or just the key
+            {t('Your Gift Center link, or just the key')}
             <input
               type="password"
               value={drafts[mine.game_uid] ?? ''}
@@ -141,7 +147,10 @@ export function GiftKeyForm() {
               checked={agreed[mine.game_uid] ?? false}
               onChange={(e) => setAgreed((now) => ({ ...now, [mine.game_uid]: e.target.checked }))}
             />{' '}
-            I understand this is a login token and I want it used to send gift codes to {mine.name}.
+            {t(
+              'I understand this is a login token and I want it used to send gift codes to {name}.',
+              { name: mine.name },
+            )}
           </label>
           <button
             type="submit"
@@ -149,7 +158,7 @@ export function GiftKeyForm() {
               save.isPending || !(agreed[mine.game_uid] ?? false) || !drafts[mine.game_uid]?.trim()
             }
           >
-            {mine.has_key ? 'Replace key' : 'Save key'}
+            {mine.has_key ? t('Replace key') : t('Save key')}
           </button>
           {mine.has_key && (
             <button
@@ -158,7 +167,7 @@ export function GiftKeyForm() {
               disabled={remove.isPending}
               onClick={() => remove.mutate(mine.game_uid)}
             >
-              Remove key
+              {t('Remove key')}
             </button>
           )}
         </form>

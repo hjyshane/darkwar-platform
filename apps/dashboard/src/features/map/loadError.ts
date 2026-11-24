@@ -4,6 +4,8 @@
 // one thing that helps is trying again: a timeout is the query running long
 // on a busy database, and the next try usually lands.
 
+import { type Translate, english } from '../../lib/i18n/core';
+
 /** PostgreSQL's statement_timeout, as the dashboard sees it through PostgREST. */
 export function isTimeout(error: unknown): boolean {
   const message = error instanceof Error ? error.message : typeof error === 'string' ? error : '';
@@ -16,8 +18,18 @@ export const FAILED_MESSAGE = 'The map could not be loaded. Refresh the page to 
 /** The sentence shown over the map's error. Only a non-timeout failure keeps
  * the database's words, as a detail after the sentence, since those are the
  * ones worth reporting. */
-export function loadErrorText(error: unknown): { message: string; detail: string | null } {
-  if (isTimeout(error)) return { message: TIMEOUT_MESSAGE, detail: null };
+export function loadErrorText(
+  error: unknown,
+  t: Translate = english,
+): { message: string; detail: string | null } {
+  // The keys repeat TIMEOUT_MESSAGE and FAILED_MESSAGE word for word: the
+  // catalogue scanner reads literal strings only.
+  if (isTimeout(error)) {
+    return {
+      message: t('The map took too long to load. Refresh the page to try again.'),
+      detail: null,
+    };
+  }
   const detail = error instanceof Error && error.message !== '' ? error.message : null;
-  return { message: FAILED_MESSAGE, detail };
+  return { message: t('The map could not be loaded. Refresh the page to try again.'), detail };
 }

@@ -12,6 +12,7 @@ import { useMemo, useState } from 'react';
 import { SortableTh } from '../../components/SortableTh';
 import { StatTile } from '../../components/StatTile';
 import { Sparkline } from '../../components/ui/Sparkline';
+import { rich, useT } from '../../lib/i18n';
 import { type SortState, nextSort } from '../../lib/tableControls';
 import {
   type BoardSortKey,
@@ -52,6 +53,7 @@ function percent(value: number): string {
 }
 
 function ChangeCell({ value }: { value: number | null }) {
+  const t = useT();
   if (value === null) {
     return <td className="num muted">—</td>;
   }
@@ -59,7 +61,7 @@ function ChangeCell({ value }: { value: number | null }) {
   return (
     <td
       className={`num ${up ? 'growth-up' : 'growth-down'}`}
-      title="Newest score against the one before it that the member also has."
+      title={t('Newest score against the one before it that the member also has.')}
     >
       {up ? '+' : '−'}
       {compactScore(Math.abs(value))}
@@ -77,15 +79,19 @@ function EventCell({
   score: number | null;
   damage: number | null;
 }) {
+  const t = useT();
   if (mark === false) {
     return (
-      <td className="num growth-down" title="Was not there.">
+      <td className="num growth-down" title={t('Was not there.')}>
         ✗
       </td>
     );
   }
   if (score !== null) {
-    const detail = damage === null ? n(score) : `${n(score)} · damage ${n(damage)}`;
+    const detail =
+      damage === null
+        ? n(score)
+        : t('{score} · damage {damage}', { score: n(score), damage: n(damage) });
     return (
       <td className="num" title={detail}>
         {compactScore(score)}
@@ -94,13 +100,13 @@ function EventCell({
   }
   if (mark === true) {
     return (
-      <td className="num" title="Took part; no score on record.">
+      <td className="num" title={t('Took part; no score on record.')}>
         ✓
       </td>
     );
   }
   return (
-    <td className="num muted" title="Not known: nobody recorded this member for the event.">
+    <td className="num muted" title={t('Not known: nobody recorded this member for the event.')}>
       ?
     </td>
   );
@@ -119,6 +125,7 @@ function MemberRow({
   hasDamage: boolean;
   showTrend: boolean;
 }) {
+  const t = useT();
   const low = member.held > 0 && member.present / member.held < LOW_SHARE;
   return (
     <tr>
@@ -127,10 +134,13 @@ function MemberRow({
       </th>
       <td
         className={`num ${low ? 'growth-down' : ''}`}
-        title={`Took part in ${member.present} of ${member.held} events on record; ${member.absent} recorded as not there.`}
+        title={t(
+          'Took part in {present} of {held} events on record; {absent} recorded as not there.',
+          { present: member.present, held: member.held, absent: member.absent },
+        )}
       >
         {low && (
-          <span aria-label="Under half" className="below-minimum">
+          <span aria-label={t('Under half')} className="below-minimum">
             ●
           </span>
         )}
@@ -181,6 +191,7 @@ function MemberRow({
 }
 
 export function EventBoardPage({ config }: { config: EventBoardConfig }) {
+  const t = useT();
   const query = useQuery({
     queryKey: ['event-board', config.kind],
     queryFn: () => fetchEventBoard(config.kind),
@@ -215,103 +226,108 @@ export function EventBoardPage({ config }: { config: EventBoardConfig }) {
           <div>
             <h2 id={headingId}>{config.title}</h2>
             <p className="entity-meta">
-              <span>{config.subtitle}</span>
-              <span>Server time, UTC−2</span>
+              <span>{t(config.subtitle)}</span>
+              <span>{t('Server time, UTC−2')}</span>
             </p>
           </div>
         </header>
         {report.events.length > 0 && (
           <div className="strip">
-            <StatTile hero label="Events on record" value={report.events.length} />
+            <StatTile hero label={t('Events on record')} value={report.events.length} />
             <StatTile
-              label="Latest event"
+              label={t('Latest event')}
               note={latest === undefined ? undefined : latest.day}
               value={
                 latest === undefined
                   ? null
                   : hasScore
                     ? compactScore(latest.totalScore)
-                    : `${latest.present} took part`
+                    : t('{count} took part', { count: latest.present })
               }
             />
             <StatTile
-              label="Latest turnout"
+              label={t('Latest turnout')}
               note={
                 latest === undefined
                   ? undefined
-                  : `${latest.present} of ${report.members.length} known to have taken part`
+                  : t('{count} of {total} known to have taken part', {
+                      count: latest.present,
+                      total: report.members.length,
+                    })
               }
               value={latest?.turnout == null ? null : percent(latest.turnout)}
             />
             <StatTile
-              label="Latest not there"
+              label={t('Latest not there')}
               note={
-                latest === undefined ? undefined : `${latest.unknown} more not known either way`
+                latest === undefined
+                  ? undefined
+                  : t('{count} more not known either way', { count: latest.unknown })
               }
               value={latest === undefined ? null : latest.absent}
             />
             {hasScore && (
               <StatTile
-                label="Best event"
+                label={t('Best event')}
                 note={best === null ? undefined : best.day}
                 value={best === null ? null : compactScore(best.totalScore)}
               />
             )}
             <StatTile
-              label="Never recorded"
-              note="members with no verdict on any event"
+              label={t('Never recorded')}
+              note={t('members with no verdict on any event')}
               value={neverRecorded}
             />
           </div>
         )}
       </div>
 
-      {query.isPending && <p className="empty loading">Loading…</p>}
+      {query.isPending && <p className="empty loading">{t('Loading…')}</p>}
       {query.error && (
         <p className="error">
-          Could not load {config.title}: {query.error.message}
+          {t('Could not load {name}: {error}', { name: config.title, error: query.error.message })}
         </p>
       )}
-      {query.data && report.events.length === 0 && <p className="empty">{config.emptyText}</p>}
+      {query.data && report.events.length === 0 && <p className="empty">{t(config.emptyText)}</p>}
 
       {report.events.length > 0 && (
         <div className="panel">
-          <h3>By event</h3>
+          <h3>{t('By event')}</h3>
           <div className="table-wrap">
             <table className="compact">
               <thead>
                 <tr>
                   <th className="label" scope="col">
-                    Event
+                    {t('Event')}
                   </th>
                   <th className="num" scope="col">
-                    Took part
+                    {t('Took part')}
                   </th>
                   <th className="num" scope="col">
-                    Not there
+                    {t('Not there')}
                   </th>
                   <th className="num" scope="col">
-                    Not known
+                    {t('Not known')}
                   </th>
                   <th className="num" scope="col">
-                    Turnout
+                    {t('Turnout')}
                   </th>
                   {hasScore && (
                     <>
                       <th className="num" scope="col">
-                        Total score
+                        {t('Total score')}
                       </th>
                       <th className="num" scope="col">
-                        Average
+                        {t('Average')}
                       </th>
                       <th className="num" scope="col">
-                        Against last
+                        {t('Against last')}
                       </th>
                     </>
                   )}
                   {hasDamage && (
                     <th className="num" scope="col">
-                      Total damage
+                      {t('Total damage')}
                     </th>
                   )}
                 </tr>
@@ -368,44 +384,44 @@ export function EventBoardPage({ config }: { config: EventBoardConfig }) {
 
       {report.events.length > 0 && (
         <div className="panel participation-board">
-          <h3>By member</h3>
+          <h3>{t('By member')}</h3>
           <div className="table-wrap">
             <table className="compact">
               <thead>
                 <tr>
                   <SortableTh className="label" onSort={onSort} sort={sort} sortKey="name">
-                    Member
+                    {t('Member')}
                   </SortableTh>
                   <SortableTh numeric onSort={onSort} sort={sort} sortKey="present">
-                    Took part
+                    {t('Took part')}
                   </SortableTh>
                   <th className="num" scope="col">
-                    Not there
+                    {t('Not there')}
                   </th>
                   {hasScore && (
                     <>
                       <SortableTh numeric onSort={onSort} sort={sort} sortKey="total">
-                        Total
+                        {t('Total')}
                       </SortableTh>
                       <SortableTh numeric onSort={onSort} sort={sort} sortKey="average">
-                        Average
+                        {t('Average')}
                       </SortableTh>
                       <SortableTh numeric onSort={onSort} sort={sort} sortKey="best">
-                        Best
+                        {t('Best')}
                       </SortableTh>
                       {showTrend && (
                         <>
                           <SortableTh numeric onSort={onSort} sort={sort} sortKey="change">
-                            Latest
+                            {t('Latest')}
                           </SortableTh>
-                          <th scope="col">Trend</th>
+                          <th scope="col">{t('Trend')}</th>
                         </>
                       )}
                     </>
                   )}
                   {hasDamage && (
                     <SortableTh numeric onSort={onSort} sort={sort} sortKey="damage">
-                      Damage
+                      {t('Damage')}
                     </SortableTh>
                   )}
                   {report.days.map((day) => (
@@ -430,10 +446,13 @@ export function EventBoardPage({ config }: { config: EventBoardConfig }) {
             </table>
           </div>
           <p className="note">
-            {config.rule} <strong>Took part</strong> is the events on record the member is known to
-            have taken part in; ● marks under half. ✓ took part, ✗ was not there, ? is not known,
-            which is never an absence. Trend draws the scores in date order and needs two. Hover a
-            figure for the exact number.
+            {t(config.rule)}{' '}
+            {rich(
+              t(
+                '{tookpart} is the events on record the member is known to have taken part in; ● marks under half. ✓ took part, ✗ was not there, ? is not known, which is never an absence. Trend draws the scores in date order and needs two. Hover a figure for the exact number.',
+              ),
+              { tookpart: <strong>{t('Took part')}</strong> },
+            )}
           </p>
         </div>
       )}

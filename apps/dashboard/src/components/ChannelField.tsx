@@ -1,5 +1,6 @@
 import { useId } from 'react';
 import { useChannelNames } from '../lib/channels';
+import { useT } from '../lib/i18n';
 
 /** The Discord channel picker every editor shows.
  *
@@ -34,6 +35,7 @@ export function ChannelField({
   /** What the empty option says, e.g. "Default for notices". */
   fallbackLabel: string;
 }) {
+  const t = useT();
   const { data: channels } = useChannelNames();
   const groupId = useId();
   // Channels the row already names but this reader cannot list, kept so an
@@ -51,7 +53,7 @@ export function ChannelField({
   };
   return (
     <fieldset aria-describedby={`${groupId}-hint`} className="field" id={id}>
-      <legend>Discord channels</legend>
+      <legend>{t('Discord channels')}</legend>
       <div className="field-checks">
         <label>
           <input checked={value.length === 0} onChange={() => onChange([])} type="checkbox" />
@@ -69,7 +71,7 @@ export function ChannelField({
         ))}
       </div>
       <p className="subtle" id={`${groupId}-hint`}>
-        Tick more than one to announce in more than one room. Each gets its own message.
+        {t('Tick more than one to announce in more than one room. Each gets its own message.')}
       </p>
     </fieldset>
   );

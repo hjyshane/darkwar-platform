@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { RichText, RichTitle } from '../../components/RichText';
+import { rich, useT } from '../../lib/i18n';
 import { supabase } from '../../lib/supabase';
 import { Comments } from './PostComments';
 import {
@@ -51,6 +52,7 @@ export function BoardPostPage({
    * here: which capability applies differs between the two boards. */
   children?: React.ReactNode;
 }) {
+  const t = useT();
   const markRead = useMarkRead(config);
   // Every open counts (0119), unlike the read mark above which is once per
   // account. The function refuses viewers and drafts, so this is safe to fire
@@ -110,14 +112,14 @@ export function BoardPostPage({
   if (isPending) {
     return (
       <main>
-        <p className="empty loading">Loading…</p>
+        <p className="empty loading">{t('Loading…')}</p>
       </main>
     );
   }
   if (error) {
     return (
       <main>
-        <p className="error">Could not load it: {error.message}</p>
+        <p className="error">{t('Could not load it: {message}', { message: error.message })}</p>
       </main>
     );
   }
@@ -125,8 +127,12 @@ export function BoardPostPage({
     return (
       <main>
         <p className="empty">
-          Nothing here with that address. It may have been deleted, or it may be a draft you cannot
-          see. <a href={backHref}>{backLabel}</a>
+          {rich(
+            t(
+              'Nothing here with that address. It may have been deleted, or it may be a draft you cannot see. {back}',
+            ),
+            { back: <a href={backHref}>{backLabel}</a> },
+          )}
         </p>
       </main>
     );
@@ -145,29 +151,29 @@ export function BoardPostPage({
         <header className="post-header">
           <h2>
             <RichTitle title={post.title} />
-            {post.pinned && <span className="badge badge-fresh">pinned</span>}
-            {post.liveAt === null && <span className="badge badge-missing">draft</span>}
+            {post.pinned && <span className="badge badge-fresh">{t('pinned')}</span>}
+            {post.liveAt === null && <span className="badge badge-missing">{t('draft')}</span>}
           </h2>
           <div className="post-meta">
             {tag !== null && <span className="post-tag">{tag}</span>}
             {author !== null && <span className="post-author">{author}</span>}
             <time dateTime={post.liveAt ?? post.createdAt}>
               {post.liveAt === null
-                ? `Written ${when.format(new Date(post.createdAt))} UTC`
-                : `${when.format(new Date(post.liveAt))} UTC`}
+                ? t('Written {time} UTC', { time: when.format(new Date(post.createdAt)) })
+                : t('{time} UTC', { time: when.format(new Date(post.liveAt)) })}
             </time>
             {/* Only when it differs. An "edited" stamp on every post would say
                 nothing; on the few that were, it says the version you are
                 reading is not the one that was announced. */}
             {post.updatedAt !== post.createdAt && (
               <span className="post-edited">
-                edited {when.format(new Date(post.updatedAt))} UTC
+                {t('edited {time} UTC', { time: when.format(new Date(post.updatedAt)) })}
               </span>
             )}
           </div>
         </header>
         {post.body.trim() === '' ? (
-          <p className="empty">No body — the title is all of it.</p>
+          <p className="empty">{t('No body — the title is all of it.')}</p>
         ) : (
           <RichText body={post.body} />
         )}
@@ -203,6 +209,7 @@ export function BoardPostPage({
  * announced.
  */
 function ScrapButton({ config, postId }: { config: BoardConfig; postId: string }) {
+  const t = useT();
   const { data: scraps } = useScraps();
   const toggle = useToggleScrap(config);
   // Undefined while loading is not "not scrapped": showing Scrap and then
@@ -223,7 +230,7 @@ function ScrapButton({ config, postId }: { config: BoardConfig; postId: string }
         onClick={() => toggle.mutate({ postId, scrapped })}
         type="button"
       >
-        {scrapped ? 'Remove from scraps' : 'Scrap this'}
+        {scrapped ? t('Remove from scraps') : t('Scrap this')}
       </button>
       {toggle.error !== null && <p className="error">{toggle.error.message}</p>}
     </div>
@@ -261,16 +268,17 @@ function PostNav({
   backLabel: string;
   hrefFor: (id: string) => string;
 }) {
+  const t = useT();
   const { data } = useNeighbours(config, postId, createdAt);
   const newer = data?.newer ?? null;
   const older = data?.older ?? null;
   return (
-    <nav aria-label="More on this board" className="post-nav">
+    <nav aria-label={t('More on this board')} className="post-nav">
       {newer === null ? (
-        <span className="post-nav-end">Newest here</span>
+        <span className="post-nav-end">{t('Newest here')}</span>
       ) : (
         <a className="post-nav-link" href={hrefFor(newer.id)}>
-          <span className="post-nav-dir">← Newer</span>
+          <span className="post-nav-dir">{t('← Newer')}</span>
           <span className="post-nav-title">
             <RichTitle title={newer.title} />
           </span>
@@ -280,10 +288,10 @@ function PostNav({
         {backLabel}
       </a>
       {older === null ? (
-        <span className="post-nav-end">Oldest here</span>
+        <span className="post-nav-end">{t('Oldest here')}</span>
       ) : (
         <a className="post-nav-link post-nav-right" href={hrefFor(older.id)}>
-          <span className="post-nav-dir">Older →</span>
+          <span className="post-nav-dir">{t('Older →')}</span>
           <span className="post-nav-title">
             <RichTitle title={older.title} />
           </span>

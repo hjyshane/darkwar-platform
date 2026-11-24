@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import { Select } from '../../../components/ui/Select';
+import { useT } from '../../../lib/i18n';
 import type { BoardPost, GuideInput } from '../guideData';
 import { type GuideRow, slugify } from '../guides';
 import { type GuideFormState, formFromGuide, guideInputFrom } from './guideFields';
 import '../guides.css';
-
-const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 const NEW_GUIDE: GuideFormState = {
   title: '',
@@ -35,12 +34,22 @@ export interface GuideFormProps {
  * post it links, and — for an event the game's calendar does not carry — when
  * it starts. */
 export function GuideForm({ guide, posts, onSave, onDelete, canDelete }: GuideFormProps) {
+  const t = useT();
+  const weekdays = [
+    t('Monday'),
+    t('Tuesday'),
+    t('Wednesday'),
+    t('Thursday'),
+    t('Friday'),
+    t('Saturday'),
+    t('Sunday'),
+  ];
   const [state, setState] = useState<GuideFormState>(guide ? formFromGuide(guide) : NEW_GUIDE);
   // A new guide's address follows its title until somebody edits the address.
   const [slugTouched, setSlugTouched] = useState(guide !== null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ text: string; failed: boolean } | null>(null);
-  const result = guideInputFrom(state, guide?.guide_id);
+  const result = guideInputFrom(state, guide?.guide_id, t);
   const hasActivity = guide?.activity_id != null;
 
   const set = <K extends keyof GuideFormState>(key: K, value: GuideFormState[K]) =>
@@ -51,9 +60,12 @@ export function GuideForm({ guide, posts, onSave, onDelete, canDelete }: GuideFo
     setBusy(true);
     try {
       await onSave(result.input);
-      setMessage({ text: 'Saved.', failed: false });
+      setMessage({ text: t('Saved.'), failed: false });
     } catch (failure) {
-      setMessage({ text: `Could not save: ${(failure as Error).message}`, failed: true });
+      setMessage({
+        text: t('Could not save: {error}', { error: (failure as Error).message }),
+        failed: true,
+      });
     } finally {
       setBusy(false);
     }
@@ -63,7 +75,9 @@ export function GuideForm({ guide, posts, onSave, onDelete, canDelete }: GuideFo
     if (!onDelete) return;
     if (
       !window.confirm(
-        'Delete this guide and all its sections? This cannot be undone. Re-importing recreates an imported guide, but not an officer’s sections.',
+        t(
+          'Delete this guide and all its sections? This cannot be undone. Re-importing recreates an imported guide, but not an officer’s sections.',
+        ),
       )
     ) {
       return;
@@ -72,7 +86,10 @@ export function GuideForm({ guide, posts, onSave, onDelete, canDelete }: GuideFo
     try {
       await onDelete();
     } catch (failure) {
-      setMessage({ text: `Could not delete: ${(failure as Error).message}`, failed: true });
+      setMessage({
+        text: t('Could not delete: {error}', { error: (failure as Error).message }),
+        failed: true,
+      });
       setBusy(false);
     }
   }
@@ -87,12 +104,14 @@ export function GuideForm({ guide, posts, onSave, onDelete, canDelete }: GuideFo
     >
       {hasActivity && (
         <p className="eg-reason">
-          Imported for activity {guide?.activity_id}. Its start comes from the game’s own calendar.
+          {t('Imported for activity {id}. Its start comes from the game’s own calendar.', {
+            id: guide?.activity_id ?? '',
+          })}
         </p>
       )}
       <div className="eg-form-row">
         <label className="eg-field">
-          Title
+          {t('Title')}
           <input
             maxLength={120}
             onChange={(e) => {
@@ -104,7 +123,7 @@ export function GuideForm({ guide, posts, onSave, onDelete, canDelete }: GuideFo
           />
         </label>
         <label className="eg-field">
-          Address
+          {t('Address')}
           <input
             maxLength={80}
             onChange={(e) => {
@@ -117,12 +136,12 @@ export function GuideForm({ guide, posts, onSave, onDelete, canDelete }: GuideFo
         </label>
       </div>
       <label className="eg-field">
-        Summary
+        {t('Summary')}
         <textarea onChange={(e) => set('summary', e.target.value)} value={state.summary} />
       </label>
       <div className="eg-form-row">
         <label className="eg-field">
-          Korean title (data only)
+          {t('Korean title (data only)')}
           <input
             onChange={(e) => set('title_ko', e.target.value)}
             type="text"
@@ -130,7 +149,7 @@ export function GuideForm({ guide, posts, onSave, onDelete, canDelete }: GuideFo
           />
         </label>
         <label className="eg-field">
-          Korean summary (data only)
+          {t('Korean summary (data only)')}
           <input
             onChange={(e) => set('summary_ko', e.target.value)}
             type="text"
@@ -140,10 +159,10 @@ export function GuideForm({ guide, posts, onSave, onDelete, canDelete }: GuideFo
       </div>
       <div className="eg-form-row">
         <label className="eg-field" htmlFor="eg-post">
-          Long-form post on the board
+          {t('Long-form post on the board')}
         </label>
         <Select id="eg-post" onChange={(value) => set('post_id', value)} value={state.post_id}>
-          <option value="">None</option>
+          <option value="">{t('None')}</option>
           {posts.map((post) => (
             <option key={post.guide_id} value={post.guide_id}>
               {post.title}
@@ -153,22 +172,22 @@ export function GuideForm({ guide, posts, onSave, onDelete, canDelete }: GuideFo
       </div>
 
       <fieldset className="eg-group" disabled={hasActivity}>
-        <legend className="eg-kind">When it starts (server time)</legend>
+        <legend className="eg-kind">{t('When it starts (server time)')}</legend>
         <p className="eg-reason">
           {hasActivity
-            ? 'Not used: the game’s calendar gives this event its times.'
-            : 'Used only when the game’s calendar has no time for this event.'}
+            ? t('Not used: the game’s calendar gives this event its times.')
+            : t('Used only when the game’s calendar has no time for this event.')}
         </p>
         <div className="eg-form-row">
           <div className="eg-field">
-            <span>Weekday</span>
+            <span>{t('Weekday')}</span>
             <Select
-              aria-label="Weekday"
+              aria-label={t('Weekday')}
               onChange={(value) => set('weekday', value)}
               value={state.weekday}
             >
-              <option value="">Not set</option>
-              {WEEKDAYS.map((name, index) => (
+              <option value="">{t('Not set')}</option>
+              {weekdays.map((name, index) => (
                 <option key={name} value={String(index + 1)}>
                   {name}
                 </option>
@@ -176,7 +195,7 @@ export function GuideForm({ guide, posts, onSave, onDelete, canDelete }: GuideFo
             </Select>
           </div>
           <label className="eg-field">
-            Time
+            {t('Time')}
             <input
               onChange={(e) => set('time', e.target.value)}
               placeholder="14:00"
@@ -185,7 +204,7 @@ export function GuideForm({ guide, posts, onSave, onDelete, canDelete }: GuideFo
             />
           </label>
           <label className="eg-field">
-            Servers
+            {t('Servers')}
             <input
               onChange={(e) => set('servers', e.target.value)}
               placeholder="577-584"
@@ -194,7 +213,7 @@ export function GuideForm({ guide, posts, onSave, onDelete, canDelete }: GuideFo
             />
           </label>
           <label className="eg-field">
-            Note
+            {t('Note')}
             <input onChange={(e) => set('note', e.target.value)} type="text" value={state.note} />
           </label>
         </div>
@@ -206,16 +225,16 @@ export function GuideForm({ guide, posts, onSave, onDelete, canDelete }: GuideFo
           onChange={(e) => set('published', e.target.checked)}
           type="checkbox"
         />
-        Published: members see it in the Guides tab
+        {t('Published: members see it in the Guides tab')}
       </label>
 
       <div className="eg-actions">
         <button className="primary" disabled={!result.ok || busy} type="submit">
-          Save guide
+          {t('Save guide')}
         </button>
         {guide && canDelete && onDelete && (
           <button disabled={busy} onClick={remove} type="button">
-            Delete guide
+            {t('Delete guide')}
           </button>
         )}
         {!result.ok && <span className="eg-reason">{result.reason}</span>}

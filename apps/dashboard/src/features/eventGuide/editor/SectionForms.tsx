@@ -1,3 +1,4 @@
+import { useT } from '../../../lib/i18n';
 import type {
   Drop,
   NotesPayload,
@@ -86,16 +87,17 @@ function RewardsForm({
   catalogue,
   iconSrc,
 }: Lookup & { payload: RewardsPayload; onChange: (next: RewardsPayload) => void }) {
+  const t = useT();
   const set = (items: RewardItem[]) => onChange({ items });
   return (
     <div className="eg-rows table-wrap">
       <table className="compact">
         <thead>
           <tr>
-            <th scope="col">Name</th>
-            <th scope="col">Kind</th>
-            <th scope="col">How it is earned</th>
-            <th scope="col">Item (optional)</th>
+            <th scope="col">{t('Name')}</th>
+            <th scope="col">{t('Kind')}</th>
+            <th scope="col">{t('How it is earned')}</th>
+            <th scope="col">{t('Item (optional)')}</th>
             <th scope="col" />
           </tr>
         </thead>
@@ -105,7 +107,7 @@ function RewardsForm({
             <tr key={index}>
               <td>
                 <input
-                  aria-label={`Name, reward ${index + 1}`}
+                  aria-label={t('Name, reward {n}', { n: index + 1 })}
                   onChange={(e) =>
                     set(setAt(payload.items, index, { ...item, label: e.target.value }))
                   }
@@ -115,18 +117,18 @@ function RewardsForm({
               </td>
               <td>
                 <input
-                  aria-label={`Kind, reward ${index + 1}`}
+                  aria-label={t('Kind, reward {n}', { n: index + 1 })}
                   onChange={(e) =>
                     set(setAt(payload.items, index, { ...item, kind: e.target.value }))
                   }
-                  placeholder="skin, title, frame…"
+                  placeholder={t('skin, title, frame…')}
                   type="text"
                   value={item.kind}
                 />
               </td>
               <td>
                 <input
-                  aria-label={`How, reward ${index + 1}`}
+                  aria-label={t('How, reward {n}', { n: index + 1 })}
                   onChange={(e) =>
                     set(setAt(payload.items, index, { ...item, how: e.target.value }))
                   }
@@ -147,7 +149,7 @@ function RewardsForm({
                 <RowButtons
                   index={index}
                   length={payload.items.length}
-                  noun="reward"
+                  noun={t('reward')}
                   onMove={(delta) => set(moveAt(payload.items, index, delta))}
                   onRemove={() => set(removeAt(payload.items, index))}
                 />
@@ -162,7 +164,7 @@ function RewardsForm({
         }
         type="button"
       >
-        Add reward
+        {t('Add reward')}
       </button>
     </div>
   );
@@ -177,6 +179,7 @@ function DropList({
   catalogue,
   iconSrc,
 }: Lookup & { drops: Drop[]; onChange: (next: Drop[]) => void; label: string }) {
+  const t = useT();
   return (
     <div className="eg-rows">
       {drops.map((drop, index) => (
@@ -192,16 +195,16 @@ function DropList({
             value={drop.item_ref}
           />
           <NumberField
-            label={`Quantity, ${label} drop ${index + 1}`}
+            label={t('Quantity, {label} drop {n}', { label, n: index + 1 })}
             onChange={(qty) => onChange(setAt(drops, index, { ...drop, qty: blank(qty) }))}
             value={drop.qty}
           />
           <button
-            aria-label={`Remove ${label} drop ${index + 1}`}
+            aria-label={t('Remove {label} drop {n}', { label, n: index + 1 })}
             onClick={() => onChange(removeAt(drops, index))}
             type="button"
           >
-            Remove
+            {t('Remove')}
           </button>
         </div>
       ))}
@@ -211,7 +214,7 @@ function DropList({
         }
         type="button"
       >
-        Add drop
+        {t('Add drop')}
       </button>
     </div>
   );
@@ -223,6 +226,7 @@ function StagesForm({
   catalogue,
   iconSrc,
 }: Lookup & { payload: StagesPayload; onChange: (next: StagesPayload) => void }) {
+  const t = useT();
   const lookup = { catalogue, iconSrc };
   const setGroups = (groups: StageGroup[]) => onChange({ ...payload, groups });
   return (
@@ -231,9 +235,9 @@ function StagesForm({
         // biome-ignore lint/suspicious/noArrayIndexKey: groups are edited in place by position
         <div className="eg-group" key={g}>
           <label className="eg-field">
-            Group name
+            {t('Group name')}
             <input
-              aria-label={`Name, group ${g + 1}`}
+              aria-label={t('Name, group {n}', { n: g + 1 })}
               onChange={(e) =>
                 setGroups(setAt(payload.groups, g, { ...group, label: e.target.value }))
               }
@@ -245,8 +249,8 @@ function StagesForm({
             <table className="compact">
               <thead>
                 <tr>
-                  <th scope="col">Stage</th>
-                  <th scope="col">Drops</th>
+                  <th scope="col">{t('Stage')}</th>
+                  <th scope="col">{t('Drops')}</th>
                   <th scope="col" />
                 </tr>
               </thead>
@@ -256,7 +260,7 @@ function StagesForm({
                   <tr key={s}>
                     <td>
                       <NumberField
-                        label={`Stage number, group ${g + 1} row ${s + 1}`}
+                        label={t('Stage number, group {group} row {n}', { group: g + 1, n: s + 1 })}
                         onChange={(n) =>
                           setGroups(
                             setAt(payload.groups, g, {
@@ -272,7 +276,7 @@ function StagesForm({
                       <DropList
                         {...lookup}
                         drops={stage.drops}
-                        label={`group ${g + 1} stage ${s + 1}`}
+                        label={t('group {group} stage {stage}', { group: g + 1, stage: s + 1 })}
                         onChange={(drops) =>
                           setGroups(
                             setAt(payload.groups, g, {
@@ -287,7 +291,7 @@ function StagesForm({
                       <RowButtons
                         index={s}
                         length={group.stages.length}
-                        noun={`stage in group ${g + 1}`}
+                        noun={t('stage in group {group}', { group: g + 1 })}
                         onMove={(delta) =>
                           setGroups(
                             setAt(payload.groups, g, {
@@ -323,14 +327,14 @@ function StagesForm({
               }
               type="button"
             >
-              Add stage
+              {t('Add stage')}
             </button>
             <button
-              aria-label={`Remove group ${g + 1}`}
+              aria-label={t('Remove group {n}', { n: g + 1 })}
               onClick={() => setGroups(removeAt(payload.groups, g))}
               type="button"
             >
-              Remove group
+              {t('Remove group')}
             </button>
           </div>
         </div>
@@ -339,14 +343,14 @@ function StagesForm({
         onClick={() => setGroups([...payload.groups, { label: '', stages: [] }])}
         type="button"
       >
-        Add group
+        {t('Add group')}
       </button>
       <fieldset className="eg-group">
-        <legend className="eg-kind">Totals row</legend>
+        <legend className="eg-kind">{t('Totals row')}</legend>
         <DropList
           {...lookup}
           drops={payload.totals}
-          label="total"
+          label={t('total')}
           onChange={(totals) => onChange({ ...payload, totals })}
         />
       </fieldset>
@@ -362,20 +366,21 @@ function PointTableForm({
   catalogue,
   iconSrc,
 }: Lookup & { payload: PointTablePayload; onChange: (next: PointTablePayload) => void }) {
+  const t = useT();
   const setRows = (rows: PointRow[]) => onChange({ ...payload, rows });
   return (
     <div className="eg-rows">
       <div className="eg-form-row">
         <div className="eg-field">
-          <span>Day</span>
+          <span>{t('Day')}</span>
           <NumberField
-            label="Day"
+            label={t('Day')}
             onChange={(day) => onChange({ ...payload, day: day === undefined ? null : day })}
             value={payload.day}
           />
         </div>
         <label className="eg-field">
-          Theme
+          {t('Theme')}
           <input
             onChange={(e) => onChange({ ...payload, theme: emptyText(e.target.value) })}
             type="text"
@@ -383,15 +388,15 @@ function PointTableForm({
           />
         </label>
       </div>
-      <p className="eg-reason">Leave Day empty for a theme that is not tied to one day.</p>
+      <p className="eg-reason">{t('Leave Day empty for a theme that is not tied to one day.')}</p>
       <div className="table-wrap">
         <table className="compact">
           <thead>
             <tr>
-              <th scope="col">Action</th>
-              <th scope="col">Points</th>
-              <th scope="col">Per</th>
-              <th scope="col">Item (optional)</th>
+              <th scope="col">{t('Action')}</th>
+              <th scope="col">{t('Points')}</th>
+              <th scope="col">{t('Per')}</th>
+              <th scope="col">{t('Item (optional)')}</th>
               <th scope="col" />
             </tr>
           </thead>
@@ -401,7 +406,7 @@ function PointTableForm({
               <tr key={index}>
                 <td>
                   <input
-                    aria-label={`Action, row ${index + 1}`}
+                    aria-label={t('Action, row {n}', { n: index + 1 })}
                     onChange={(e) =>
                       setRows(setAt(payload.rows, index, { ...row, action: e.target.value }))
                     }
@@ -411,7 +416,7 @@ function PointTableForm({
                 </td>
                 <td>
                   <NumberField
-                    label={`Points, row ${index + 1}`}
+                    label={t('Points, row {n}', { n: index + 1 })}
                     onChange={(points) =>
                       setRows(setAt(payload.rows, index, { ...row, points: blank(points) }))
                     }
@@ -420,7 +425,7 @@ function PointTableForm({
                 </td>
                 <td>
                   <NumberField
-                    label={`Per, row ${index + 1}`}
+                    label={t('Per, row {n}', { n: index + 1 })}
                     onChange={(per) =>
                       setRows(setAt(payload.rows, index, withField(row, 'per', per)))
                     }
@@ -444,7 +449,7 @@ function PointTableForm({
                   <RowButtons
                     index={index}
                     length={payload.rows.length}
-                    noun="row"
+                    noun={t('row')}
                     onMove={(delta) => setRows(moveAt(payload.rows, index, delta))}
                     onRemove={() => setRows(removeAt(payload.rows, index))}
                   />
@@ -460,7 +465,7 @@ function PointTableForm({
         }
         type="button"
       >
-        Add row
+        {t('Add row')}
       </button>
     </div>
   );
@@ -474,6 +479,7 @@ function PrepForm({
   catalogue,
   iconSrc,
 }: Lookup & { payload: PrepPayload; onChange: (next: PrepPayload) => void }) {
+  const t = useT();
   const set = (items: PrepItem[]) => onChange({ items });
   const edit = <K extends keyof PrepItem>(
     index: number,
@@ -486,12 +492,12 @@ function PrepForm({
       <table className="compact">
         <thead>
           <tr>
-            <th scope="col">Item</th>
-            <th scope="col">Unit</th>
-            <th scope="col">Points each</th>
-            <th scope="col">Shots each</th>
-            <th scope="col">Cap</th>
-            <th scope="col">Day</th>
+            <th scope="col">{t('Item')}</th>
+            <th scope="col">{t('Unit')}</th>
+            <th scope="col">{t('Points each')}</th>
+            <th scope="col">{t('Shots each')}</th>
+            <th scope="col">{t('Cap')}</th>
+            <th scope="col">{t('Day')}</th>
             <th scope="col" />
           </tr>
         </thead>
@@ -512,35 +518,35 @@ function PrepForm({
               </td>
               <td>
                 <NumberField
-                  label={`Unit, row ${index + 1}`}
+                  label={t('Unit, row {n}', { n: index + 1 })}
                   onChange={(unit) => edit(index, item, 'unit', blank(unit))}
                   value={item.unit}
                 />
               </td>
               <td>
                 <NumberField
-                  label={`Points each, row ${index + 1}`}
+                  label={t('Points each, row {n}', { n: index + 1 })}
                   onChange={(v) => edit(index, item, 'per_unit_points', v)}
                   value={item.per_unit_points}
                 />
               </td>
               <td>
                 <NumberField
-                  label={`Shots each, row ${index + 1}`}
+                  label={t('Shots each, row {n}', { n: index + 1 })}
                   onChange={(v) => edit(index, item, 'per_unit_shots', v)}
                   value={item.per_unit_shots}
                 />
               </td>
               <td>
                 <NumberField
-                  label={`Cap, row ${index + 1}`}
+                  label={t('Cap, row {n}', { n: index + 1 })}
                   onChange={(v) => edit(index, item, 'cap', v)}
                   value={item.cap}
                 />
               </td>
               <td>
                 <NumberField
-                  label={`Day, row ${index + 1}`}
+                  label={t('Day, row {n}', { n: index + 1 })}
                   onChange={(v) => edit(index, item, 'day', v)}
                   value={item.day}
                 />
@@ -549,7 +555,7 @@ function PrepForm({
                 <RowButtons
                   index={index}
                   length={payload.items.length}
-                  noun="row"
+                  noun={t('row')}
                   onMove={(delta) => set(moveAt(payload.items, index, delta))}
                   onRemove={() => set(removeAt(payload.items, index))}
                 />
@@ -559,8 +565,9 @@ function PrepForm({
         </tbody>
       </table>
       <p className="eg-reason">
-        Unit is how many of the item make one scored unit (1 for a shard, 1000 for a resource scored
-        per thousand).
+        {t(
+          'Unit is how many of the item make one scored unit (1 for a shard, 1000 for a resource scored per thousand).',
+        )}
       </p>
       <button
         onClick={() =>
@@ -568,7 +575,7 @@ function PrepForm({
         }
         type="button"
       >
-        Add row
+        {t('Add row')}
       </button>
     </div>
   );
@@ -583,6 +590,7 @@ function SourcesForm({
   payload: SourcesPayload;
   onChange: (next: SourcesPayload) => void;
 }) {
+  const t = useT();
   const setRows = (rows: SourceRow[]) => onChange({ ...payload, rows });
   return (
     <div className="eg-rows">
@@ -590,9 +598,9 @@ function SourcesForm({
         <table className="compact">
           <thead>
             <tr>
-              <th scope="col">Source</th>
-              <th scope="col">Rate</th>
-              <th scope="col">Cap</th>
+              <th scope="col">{t('Source')}</th>
+              <th scope="col">{t('Rate')}</th>
+              <th scope="col">{t('Cap')}</th>
               <th scope="col" />
             </tr>
           </thead>
@@ -602,7 +610,7 @@ function SourcesForm({
               <tr key={index}>
                 <td>
                   <input
-                    aria-label={`Source, row ${index + 1}`}
+                    aria-label={t('Source, row {n}', { n: index + 1 })}
                     onChange={(e) =>
                       setRows(setAt(payload.rows, index, { ...row, source: e.target.value }))
                     }
@@ -612,7 +620,7 @@ function SourcesForm({
                 </td>
                 <td>
                   <input
-                    aria-label={`Rate, row ${index + 1}`}
+                    aria-label={t('Rate, row {n}', { n: index + 1 })}
                     onChange={(e) =>
                       setRows(setAt(payload.rows, index, { ...row, rate: e.target.value }))
                     }
@@ -622,7 +630,7 @@ function SourcesForm({
                 </td>
                 <td>
                   <NumberField
-                    label={`Cap, row ${index + 1}`}
+                    label={t('Cap, row {n}', { n: index + 1 })}
                     onChange={(cap) =>
                       setRows(
                         setAt(payload.rows, index, { ...row, cap: cap === undefined ? null : cap }),
@@ -635,7 +643,7 @@ function SourcesForm({
                   <RowButtons
                     index={index}
                     length={payload.rows.length}
-                    noun="row"
+                    noun={t('row')}
                     onMove={(delta) => setRows(moveAt(payload.rows, index, delta))}
                     onRemove={() => setRows(removeAt(payload.rows, index))}
                   />
@@ -649,13 +657,13 @@ function SourcesForm({
         onClick={() => setRows([...payload.rows, { source: '', rate: '', cap: null }])}
         type="button"
       >
-        Add row
+        {t('Add row')}
       </button>
       <div className="eg-form-row">
         <div className="eg-field">
-          <span>Total cap</span>
+          <span>{t('Total cap')}</span>
           <NumberField
-            label="Total cap"
+            label={t('Total cap')}
             onChange={(total) =>
               onChange({ ...payload, total_cap: total === undefined ? null : total })
             }
@@ -663,7 +671,7 @@ function SourcesForm({
           />
         </div>
         <label className="eg-field">
-          Note
+          {t('Note')}
           <input
             onChange={(e) => onChange({ ...payload, note: emptyText(e.target.value) })}
             type="text"
@@ -684,19 +692,20 @@ function NotesForm({
   payload: NotesPayload;
   onChange: (next: NotesPayload) => void;
 }) {
+  const t = useT();
   return (
     <div className="eg-rows">
       <label className="eg-field">
-        Text
+        {t('Text')}
         <textarea
-          aria-label="Text"
+          aria-label={t('Text')}
           onChange={(e) => onChange({ ...payload, text: e.target.value })}
           value={payload.text}
         />
       </label>
-      <p className="eg-reason">A blank line starts a new paragraph.</p>
+      <p className="eg-reason">{t('A blank line starts a new paragraph.')}</p>
       <label className="eg-field">
-        Korean text (data only)
+        {t('Korean text (data only)')}
         <textarea
           onChange={(e) => onChange({ ...payload, text_ko: emptyText(e.target.value) })}
           value={payload.text_ko ?? ''}

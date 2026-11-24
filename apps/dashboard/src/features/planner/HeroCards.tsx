@@ -15,6 +15,7 @@ import { Select } from '../../components/ui/Select';
 import { Tabs } from '../../components/ui/Tabs';
 import { GameIcon, useIcons } from '../../lib/gameIcons';
 import { heroGradeName } from '../../lib/heroes';
+import { useT } from '../../lib/i18n';
 import { troopClassName } from '../../lib/troops';
 import { LevelPicker } from './LevelPicker';
 import { GearPromote, WeaponRank, gearPromoteText, weaponText } from './RankGlyphs';
@@ -46,6 +47,7 @@ function fromFilterId(id: string): number | undefined | 'all' {
 }
 
 export function HeroCards({ account, targets, onSet, onEdit }: HeroCardsProps) {
+  const t = useT();
   const editing = onEdit !== undefined;
   const [gradeFilter, setGradeFilter] = useState<number | undefined | 'all'>('all');
   const [classFilter, setClassFilter] = useState<number | undefined | 'all'>('all');
@@ -72,7 +74,7 @@ export function HeroCards({ account, targets, onSet, onEdit }: HeroCardsProps) {
     staleTime: 60 * 60_000,
   });
 
-  if (info.isPending || maxima.isPending) return <p className="empty">Loading heroes…</p>;
+  if (info.isPending || maxima.isPending) return <p className="empty">{t('Loading heroes…')}</p>;
   if (info.isError) return <p className="error">{info.error.message}</p>;
   if (maxima.isError) return <p className="error">{maxima.error.message}</p>;
 
@@ -85,7 +87,7 @@ export function HeroCards({ account, targets, onSet, onEdit }: HeroCardsProps) {
     .map((id) => ({
       id,
       level: account.heroLevels[id] ?? 0,
-      name: info.data.names.get(id) ?? `Hero ${id}`,
+      name: info.data.names.get(id) ?? t('Hero {id}', { id }),
       grade: info.data.grade.get(id),
       troopClass: info.data.troopClass.get(id),
     }))
@@ -120,17 +122,19 @@ export function HeroCards({ account, targets, onSet, onEdit }: HeroCardsProps) {
     <>
       {squads.length > 0 && (
         <Tabs
-          label="Squad"
+          label={t('Squad')}
           className="planner-tabs"
           items={[
-            { id: 'all' as const, label: 'Every hero' },
+            { id: 'all' as const, label: t('Every hero') },
             ...squads.map((s) => ({
               id: s.index,
-              label: `Squad ${s.index} (${s.heroes.length})`,
+              label: t('Squad {index} ({count})', { index: s.index, count: s.heroes.length }),
             })),
             {
               id: 'none' as const,
-              label: `In no squad (${all.filter((h) => !squadOf.has(h.id)).length})`,
+              label: t('In no squad ({count})', {
+                count: all.filter((h) => !squadOf.has(h.id)).length,
+              }),
             },
           ]}
           value={squadFilter}
@@ -138,10 +142,10 @@ export function HeroCards({ account, targets, onSet, onEdit }: HeroCardsProps) {
         />
       )}
       <Tabs
-        label="Hero grade"
+        label={t('Hero grade')}
         className="planner-tabs"
         items={[
-          { id: 'all', label: `All (${all.length})` },
+          { id: 'all', label: t('All ({count})', { count: all.length }) },
           ...grades.map((r) => ({
             id: filterId(r),
             className: r === undefined ? undefined : `chip-grade-${r}`,
@@ -152,13 +156,13 @@ export function HeroCards({ account, targets, onSet, onEdit }: HeroCardsProps) {
         onChange={(id) => setGradeFilter(fromFilterId(id))}
       />
       <Tabs
-        label="Hero class"
+        label={t('Hero class')}
         className="planner-tabs"
         items={[
-          { id: 'all', label: 'All classes' },
+          { id: 'all', label: t('All classes') },
           ...classes.map((c) => ({
             id: filterId(c),
-            label: `${c === undefined ? 'Class not set' : troopClassName(c)} (${all.filter((h) => h.troopClass === c).length})`,
+            label: `${c === undefined ? t('Class not set') : troopClassName(c)} (${all.filter((h) => h.troopClass === c).length})`,
           })),
         ]}
         value={filterId(classFilter)}
@@ -182,19 +186,21 @@ export function HeroCards({ account, targets, onSet, onEdit }: HeroCardsProps) {
                 {account.heroTrained.includes(hero.id) && (
                   <span
                     className="badge"
-                    title="In the Training Center: held at the lowest level of the five highest heroes"
+                    title={t(
+                      'In the Training Center: held at the lowest level of the five highest heroes',
+                    )}
                   >
-                    training center
+                    {t('training center')}
                   </span>
                 )}
               </h4>
               <dl>
                 <div className="planner-card-row">
-                  <dt>Level</dt>
+                  <dt>{t('Level')}</dt>
                   <dd>
                     <LevelPicker
                       current={hero.level}
-                      label={`${hero.name} level`}
+                      label={t('{name} level', { name: hero.name })}
                       max={maxOf('hero')}
                       onChange={(to) =>
                         onSet({
@@ -222,7 +228,7 @@ export function HeroCards({ account, targets, onSet, onEdit }: HeroCardsProps) {
                   const quality = piece?.quality ?? 0;
                   const subject = `${g.index}:${g.equipId}:${quality}`;
                   const held = targets.get(targetKey('hero_gear', subject));
-                  const name = `${hero.name} · ${piece?.name ?? `Gear ${g.equipId}`}`;
+                  const name = `${hero.name} · ${piece?.name ?? t('Gear {id}', { id: g.equipId })}`;
                   const set = (to: number, stageTo: number) =>
                     onSet({
                       kind: 'hero_gear',
@@ -237,10 +243,10 @@ export function HeroCards({ account, targets, onSet, onEdit }: HeroCardsProps) {
                     <div className="planner-card-row" key={subject}>
                       <dt className={`gear-quality-${quality}`}>
                         <GameIcon src={gearIcons.data?.get(String(g.equipId))} />
-                        {piece?.name ?? `Gear ${g.equipId}`}
+                        {piece?.name ?? t('Gear {id}', { id: g.equipId })}
                         {editing && (
                           <button
-                            aria-label={`Take off ${name}`}
+                            aria-label={t('Take off {name}', { name })}
                             className="link-button"
                             onClick={() =>
                               edit({ heroGear: account.heroGear.filter((_, i) => i !== g.index) })
@@ -255,7 +261,7 @@ export function HeroCards({ account, targets, onSet, onEdit }: HeroCardsProps) {
                       <dd>
                         <LevelPicker
                           current={g.level}
-                          label={`${name} level`}
+                          label={t('{name} level', { name })}
                           max={maxOf(`level:q${quality}`)}
                           onChange={(to) => set(to, held?.stageTo ?? g.promote)}
                           onCurrent={editing ? (level) => setGear(g.index, { level }) : undefined}
@@ -268,7 +274,7 @@ export function HeroCards({ account, targets, onSet, onEdit }: HeroCardsProps) {
                           <LevelPicker
                             current={g.promote}
                             glyph={(promote) => <GearPromote promote={promote} />}
-                            label={`${name} stage`}
+                            label={t('{name} stage', { name })}
                             max={maxOf('promote')}
                             onChange={(stageTo) => set(held?.to ?? g.level, stageTo)}
                             onCurrent={
@@ -276,7 +282,7 @@ export function HeroCards({ account, targets, onSet, onEdit }: HeroCardsProps) {
                             }
                             subject="promote"
                             target={held?.stageTo}
-                            text={gearPromoteText}
+                            text={(promote) => gearPromoteText(promote, t)}
                             tiers={NO_TIERS}
                           />
                         )}
@@ -286,10 +292,10 @@ export function HeroCards({ account, targets, onSet, onEdit }: HeroCardsProps) {
                 })}
                 {editing && (
                   <div className="planner-card-row">
-                    <dt>Add gear</dt>
+                    <dt>{t('Add gear')}</dt>
                     <dd>
                       <Select
-                        aria-label={`Add gear to ${hero.name}`}
+                        aria-label={t('Add gear to {name}', { name: hero.name })}
                         onChange={(chosen) => {
                           const equipId = Number(chosen);
                           if (!equipId) return;
@@ -302,7 +308,7 @@ export function HeroCards({ account, targets, onSet, onEdit }: HeroCardsProps) {
                         }}
                         value=""
                       >
-                        <option value="">Pick a piece…</option>
+                        <option value="">{t('Pick a piece…')}</option>
                         {[...info.data.gear.entries()]
                           .sort(
                             (a, b) =>
@@ -321,19 +327,19 @@ export function HeroCards({ account, targets, onSet, onEdit }: HeroCardsProps) {
                   <div className="planner-card-row">
                     <dt>
                       <GameIcon src={weaponIcons.data?.get(hero.id)} />
-                      Exclusive weapon
+                      {t('Exclusive weapon')}
                     </dt>
                     <dd>
                       <LevelPicker
                         current={weapon}
                         glyph={(level) => <WeaponRank level={level} />}
-                        label={`${hero.name} exclusive weapon`}
+                        label={t('{name} exclusive weapon', { name: hero.name })}
                         max={weaponMax}
                         onChange={(to) =>
                           onSet({
                             kind: 'exclusive',
                             subject: hero.id,
-                            name: `${hero.name} · exclusive weapon`,
+                            name: t('{name} · exclusive weapon', { name: hero.name }),
                             from: weapon,
                             to,
                           })

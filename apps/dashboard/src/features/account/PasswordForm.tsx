@@ -1,5 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useT } from '../../lib/i18n';
 import { supabase } from '../../lib/supabase';
 import { MIN_PASSWORD_LENGTH, canSubmitPassword, passwordProblem } from './password';
 
@@ -14,6 +15,7 @@ import { MIN_PASSWORD_LENGTH, canSubmitPassword, passwordProblem } from './passw
  * store the new one rather than filling the old.
  */
 export function PasswordForm() {
+  const t = useT();
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
   const [done, setDone] = useState(false);
@@ -32,7 +34,7 @@ export function PasswordForm() {
     },
   });
 
-  const problem = passwordProblem(next, confirm);
+  const problem = passwordProblem(next, confirm, t);
   const ready = canSubmitPassword(next, confirm);
 
   return (
@@ -47,11 +49,13 @@ export function PasswordForm() {
       }}
     >
       <p className="hint">
-        Changing it here needs no email, so it works even when the confirmation mail does not.
+        {t(
+          'Changing it here needs no email, so it works even when the confirmation mail does not.',
+        )}
       </p>
 
       <label htmlFor="new-password">
-        New password
+        {t('New password')}
         <input
           autoComplete="new-password"
           id="new-password"
@@ -63,7 +67,7 @@ export function PasswordForm() {
       </label>
 
       <label htmlFor="confirm-password">
-        Again
+        {t('Again')}
         <input
           autoComplete="new-password"
           id="confirm-password"
@@ -81,14 +85,16 @@ export function PasswordForm() {
 
       <div>
         <button disabled={!ready || change.isPending} type="submit">
-          {change.isPending ? 'Saving…' : 'Change password'}
+          {change.isPending ? t('Saving…') : t('Change password')}
         </button>
       </div>
 
       {change.error !== null && <p className="error">{change.error.message}</p>}
       {done && change.error === null && (
         <p className="hint">
-          Changed. Your other devices stay signed in — sign out there if that is not what you want.
+          {t(
+            'Changed. Your other devices stay signed in — sign out there if that is not what you want.',
+          )}
         </p>
       )}
     </form>

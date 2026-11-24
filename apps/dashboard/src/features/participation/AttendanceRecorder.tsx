@@ -9,6 +9,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Select } from '../../components/ui/Select';
+import { useT } from '../../lib/i18n';
 import {
   type EventKind,
   type Mark,
@@ -25,7 +26,7 @@ import {
 } from './data';
 import { gameDate } from './periods';
 
-const MARKS: ReadonlyArray<[Mark, string]> = [
+export const MARKS: ReadonlyArray<[Mark, string]> = [
   [true, 'Present'],
   [false, 'Absent'],
   [null, '—'],
@@ -40,6 +41,7 @@ export function AttendanceRecorder({
   members: ParticipationRow[];
   now: Date;
 }) {
+  const t = useT();
   const queryClient = useQueryClient();
   const today = gameDate(now);
   const [kind, setKind] = useState(kinds[0]?.kind ?? '');
@@ -136,7 +138,11 @@ export function AttendanceRecorder({
     onSuccess: (written) => {
       setDraft(new Map());
       setDraftScores(new Map());
-      setNote(`Saved ${written} change${written === 1 ? '' : 's'}.`);
+      setNote(
+        written === 1
+          ? t('Saved {count} change.', { count: written })
+          : t('Saved {count} changes.', { count: written }),
+      );
       void queryClient.invalidateQueries({ queryKey: ['event-attendance'] });
       void queryClient.invalidateQueries({ queryKey: ['participation'] });
     },
@@ -147,7 +153,7 @@ export function AttendanceRecorder({
   const declare = useMutation({
     mutationFn: () => declareEventDay(kind, heldOn, !declared),
     onSuccess: () => {
-      setNote(declared ? 'Taken off the held days.' : 'Marked as held.');
+      setNote(declared ? t('Taken off the held days.') : t('Marked as held.'));
       void queryClient.invalidateQueries({ queryKey: ['attendance-days'] });
       void queryClient.invalidateQueries({ queryKey: ['participation'] });
     },
@@ -160,16 +166,15 @@ export function AttendanceRecorder({
 
   return (
     <section aria-labelledby="attendance-heading">
-      <h3 id="attendance-heading">Record attendance</h3>
+      <h3 id="attendance-heading">{t('Record attendance')}</h3>
       <p className="subtle">
-        Pick the event and the game day it was held, tick each member, and save. Leaving somebody on
-        — means not recorded, which the report shows as a gap rather than an absence. Furnace Fury
-        is read from its member board and Capital Clash from its score board and who teleported to
-        the capital; a tick here overrides the board for that member.
+        {t(
+          'Pick the event and the game day it was held, tick each member, and save. Leaving somebody on — means not recorded, which the report shows as a gap rather than an absence. Furnace Fury is read from its member board and Capital Clash from its score board and who teleported to the capital; a tick here overrides the board for that member.',
+        )}
       </p>
       <div className="row">
         <label>
-          Event{' '}
+          {t('Event')}{' '}
           <Select
             onChange={(chosen) => {
               setKind(chosen);
@@ -186,7 +191,8 @@ export function AttendanceRecorder({
         </label>
         {pickable.length > 0 && (
           <label>
-            Held{' '}
+            {/* Not the battlefield's "Held" (holding a building): the day an event was held. */}
+            {t('[attendance] Held')}{' '}
             <Select
               onChange={(chosen) => {
                 setHeldOn(chosen);
@@ -194,7 +200,7 @@ export function AttendanceRecorder({
               }}
               value={pickable.some((day) => day.held_on === heldOn) ? heldOn : ''}
             >
-              <option value="">Pick a day…</option>
+              <option value="">{t('Pick a day…')}</option>
               {pickable.map((day) => (
                 <option key={day.held_on} value={day.held_on}>
                   {day.held_on}
@@ -205,7 +211,7 @@ export function AttendanceRecorder({
           </label>
         )}
         <label>
-          Held on (game day){' '}
+          {t('Held on (game day)')}{' '}
           <input
             max={today}
             onChange={(event) => {
@@ -221,41 +227,48 @@ export function AttendanceRecorder({
           onClick={() => declare.mutate()}
           title={
             declared
-              ? 'This day is on the list of days the event was held. Take it off.'
-              : 'Count this day as one the event was held, even if nobody is ticked.'
+              ? t('This day is on the list of days the event was held. Take it off.')
+              : t('Count this day as one the event was held, even if nobody is ticked.')
           }
           type="button"
         >
-          {declared ? 'Not held this day' : 'Mark as held'}
+          {declared ? t('Not held this day') : t('Mark as held')}
         </button>
         <button onClick={() => markEveryone(true)} type="button">
-          Everyone present
+          {t('Everyone present')}
         </button>
         <button onClick={resetDraft} type="button">
-          Undo changes
+          {t('Undo changes')}
         </button>
       </div>
 
       {stored.isPending ? (
-        <p className="empty loading">Loading…</p>
+        <p className="empty loading">{t('Loading…')}</p>
       ) : stored.error ? (
-        <p className="error">Could not load this day: {stored.error.message}</p>
+        <p className="error">
+          {t('Could not load this day: {error}', { error: stored.error.message })}
+        </p>
       ) : (
         <>
           <p className="subtle">
-            {label} on {heldOn}: {present} present, {absent} absent,{' '}
-            {members.length - present - absent} not recorded.
+            {t('{event} on {day}: {present} present, {absent} absent, {unrecorded} not recorded.', {
+              event: label,
+              day: heldOn,
+              present,
+              absent,
+              unrecorded: members.length - present - absent,
+            })}
           </p>
           <div className="table-wrap">
             <table className="compact">
               <thead>
                 <tr>
                   <th className="label" scope="col">
-                    Member
+                    {t('Member')}
                   </th>
-                  <th scope="col">Attendance</th>
+                  <th scope="col">{t('Attendance')}</th>
                   <th className="num" scope="col">
-                    Score
+                    {t('Score')}
                   </th>
                 </tr>
               </thead>
@@ -277,21 +290,25 @@ export function AttendanceRecorder({
                                 onChange={() => mark(member.player_id, value)}
                                 type="radio"
                               />{' '}
-                              {text}
+                              {t(text)}
                             </label>
                           ))}
                         </fieldset>
                       </td>
                       <td className="num">
                         <input
-                          aria-label={`Score for ${name}`}
+                          aria-label={t('Score for {name}', { name })}
                           inputMode="numeric"
                           min={0}
                           onChange={(event) => typeScore(member.player_id, event.target.value)}
                           placeholder={
                             scanned.data?.has(member.game_uid)
-                              ? `scanned ${scanned.data.get(member.game_uid)?.toLocaleString('ko-KR')}`
-                              : 'optional'
+                              ? t('scanned {score}', {
+                                  score:
+                                    scanned.data.get(member.game_uid)?.toLocaleString('ko-KR') ??
+                                    '',
+                                })
+                              : t('optional')
                           }
                           type="number"
                           value={scoreText(member.player_id)}
@@ -308,7 +325,7 @@ export function AttendanceRecorder({
 
       {badScores.length > 0 && (
         <p className="error">
-          A score is a whole number, 0 or more. Fix:{' '}
+          {t('A score is a whole number, 0 or more. Fix:')}{' '}
           {badScores
             .map(
               ([playerId]) =>
@@ -324,8 +341,10 @@ export function AttendanceRecorder({
           type="button"
         >
           {save.isPending
-            ? 'Saving…'
-            : `Save ${entries.length} change${entries.length === 1 ? '' : 's'}`}
+            ? t('Saving…')
+            : entries.length === 1
+              ? t('Save {count} change', { count: entries.length })
+              : t('Save {count} changes', { count: entries.length })}
         </button>
         {note && <span className="subtle">{note}</span>}
       </div>

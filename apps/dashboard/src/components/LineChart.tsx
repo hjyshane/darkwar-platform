@@ -1,4 +1,5 @@
 import { useContext, useId, useState } from 'react';
+import { useT } from '../lib/i18n';
 import {
   type Extent,
   type Point,
@@ -70,6 +71,7 @@ export function LineChart({
   height = 220,
   note,
 }: LineChartProps) {
+  const t = useT();
   const clipId = useId();
   const [active, setActive] = useState<number | null>(null);
 
@@ -257,12 +259,12 @@ export function LineChart({
             and that was the chart where naming matters most. */}
         <text className="chart-axis" x={4} y={box.padTop - 2}>
           {left.map((line) => line.name).join(' · ')}
-          {leftInverted ? ' (up is better)' : ''}
+          {leftInverted ? ` ${t('(up is better)')}` : ''}
         </text>
         {right.length > 0 && (
           <text className="chart-axis" textAnchor="end" x={box.width - 4} y={box.padTop - 2}>
             {right.map((line) => line.name).join(' · ')}
-            {rightInverted ? ' (up is better)' : ''}
+            {rightInverted ? ` ${t('(up is better)')}` : ''}
           </text>
         )}
 
@@ -360,9 +362,9 @@ export function LineChart({
           than "7 of 12". */}
       {times.length > 1 && (
         <label className="chart-scrub">
-          <span className="visually-hidden">Reading to read off {label}</span>
+          <span className="visually-hidden">{t('Reading to read off {label}', { label })}</span>
           <input
-            aria-valuetext={activeTime === null ? 'none selected' : formatTime(activeTime)}
+            aria-valuetext={activeTime === null ? t('none selected') : formatTime(activeTime)}
             max={times.length - 1}
             min={0}
             onChange={(event) => setActive(Number(event.target.value))}
@@ -390,7 +392,7 @@ export function LineChart({
         <span className="chart-readout">
           <strong>
             {activeTime === null
-              ? (note ?? 'Latest reading — hover the chart, or drag the slider.')
+              ? (note ?? t('Latest reading — hover the chart, or drag the slider.'))
               : formatTime(activeTime)}
           </strong>
           {/* Said once, in words. The legend entries look like the text they
@@ -400,8 +402,8 @@ export function LineChart({
           {series.length > 1 && (
             <span className="chart-hint">
               {isolated === null
-                ? 'Click a name below to show only that line'
-                : 'Showing one line — click its name again for all of them'}
+                ? t('Click a name below to show only that line')
+                : t('Showing one line — click its name again for all of them')}
             </span>
           )}
           {series.map((line) => {
@@ -421,18 +423,18 @@ export function LineChart({
                 onClick={() => setOnly((current) => (current === line.name ? null : line.name))}
                 title={
                   line.name === isolated
-                    ? 'Showing only this line. Press to show every line again.'
-                    : 'Press to show only this line.'
+                    ? t('Showing only this line. Press to show every line again.')
+                    : t('Press to show only this line.')
                 }
                 type="button"
               >
                 {line.name}{' '}
                 {reading === null ? (
-                  <span title="Never observed in this range">—</span>
+                  <span title={t('Never observed in this range')}>—</span>
                 ) : reading.exact ? (
                   format(reading.v)
                 ) : (
-                  <span title={`Nearest reading, taken ${formatTime(reading.t)}`}>
+                  <span title={t('Nearest reading, taken {time}', { time: formatTime(reading.t) })}>
                     ≈{format(reading.v)}
                   </span>
                 )}
@@ -448,7 +450,7 @@ export function LineChart({
         <caption>{label}</caption>
         <thead>
           <tr>
-            <th scope="col">When</th>
+            <th scope="col">{t('When')}</th>
             {series.map((line) => (
               <th key={line.name} scope="col">
                 {line.name}
@@ -465,7 +467,7 @@ export function LineChart({
                 const format = (line.axis ?? 'left') === 'right' ? rightFormat : formatValue;
                 return (
                   <td key={line.name}>
-                    {at === undefined || at.v === null ? 'not observed' : format(at.v)}
+                    {at === undefined || at.v === null ? t('not observed') : format(at.v)}
                   </td>
                 );
               })}

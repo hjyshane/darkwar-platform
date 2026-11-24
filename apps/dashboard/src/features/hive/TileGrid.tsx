@@ -17,6 +17,7 @@ import {
   footprintOf,
   formatTeleport,
 } from '../../lib/hiveFormation';
+import { useT } from '../../lib/i18n';
 import { TILE_H, TILE_W } from '../../lib/tileShape';
 import { MAP_SIZE_MAX, MAP_SIZE_MIN } from './mapPrefs';
 
@@ -255,6 +256,7 @@ function ResizeGrip({
   min: number;
   max: number;
 }) {
+  const t = useT();
   const [held, setHeld] = useState<{ x: number; y: number; width: number; limit: number } | null>(
     null,
   );
@@ -281,12 +283,12 @@ function ResizeGrip({
 
   return (
     <span
-      aria-label="Map size. Drag, or use the arrow keys; double-click to reset."
+      aria-label={t('Map size. Drag, or use the arrow keys; double-click to reset.')}
       aria-orientation="horizontal"
       aria-valuemax={max}
       aria-valuemin={min}
       aria-valuenow={Math.round(width)}
-      aria-valuetext={`${Math.round(width)} pixels wide`}
+      aria-valuetext={t('{width} pixels wide', { width: Math.round(width) })}
       className={held === null ? 'tile-frame__grip' : 'tile-frame__grip tile-frame__grip--held'}
       onDoubleClick={() => onResize(null)}
       onKeyDown={(event) => {
@@ -715,6 +717,7 @@ export function TileGrid({
   stampGhosts?: (at: Coordinate) => readonly StampGhost[];
   busy?: boolean;
 }) {
+  const t = useT();
   const surfaceRef = useRef<HTMLElement | null>(null);
   const surfaceWidth = useWidthOf(surfaceRef);
   // Pixels per tile, which is what decides whether a caption or a grid line
@@ -938,7 +941,10 @@ export function TileGrid({
           className={sighting.ours ? 'tile-grid__seen tile-grid__seen--ours' : 'tile-grid__seen'}
           key={sighting.key}
           style={boxStyle(view, sighting.at, BASE_SPAN)}
-          title={`${sighting.name ?? 'unnamed'} was last seen at ${formatTeleport(sighting.at)}`}
+          title={t('{name} was last seen at {coordinate}', {
+            name: sighting.name ?? t('unnamed'),
+            coordinate: formatTeleport(sighting.at),
+          })}
         />
       ))}
       {/* THE SHAPE A CLICK WOULD STAMP, under the pointer before the click. */}
@@ -1075,8 +1081,10 @@ export function TileGrid({
         style={boxStyle(view, anchorDrag?.moved === true ? anchorDrag.to : anchor, 1)}
         title={
           anchorGrabbable
-            ? `Anchor — ${formatTeleport(anchor)}. Drag it to move the whole formation.`
-            : `Anchor — ${formatTeleport(anchor)}`
+            ? t('Anchor — {coordinate}. Drag it to move the whole formation.', {
+                coordinate: formatTeleport(anchor),
+              })
+            : t('Anchor — {coordinate}', { coordinate: formatTeleport(anchor) })
         }
       />
     </>
@@ -1137,17 +1145,17 @@ export function TileGrid({
       <button
         aria-label={[
           sweeping
-            ? 'Drag out an area of tiles.'
+            ? t('Drag out an area of tiles.')
             : draggable
-              ? 'Pick a tile, or drag a base to move it.'
-              : 'Pick a tile.',
-          anchorGrabbable ? 'Drag the anchor square to move the whole formation.' : '',
+              ? t('Pick a tile, or drag a base to move it.')
+              : t('Pick a tile.'),
+          anchorGrabbable ? t('Drag the anchor square to move the whole formation.') : '',
           pannable
             ? sweeping
-              ? 'Hold ctrl and drag, or drag with the middle button, to slide the map.'
-              : 'Drag from empty ground, or hold ctrl, to slide the map.'
+              ? t('Hold ctrl and drag, or drag with the middle button, to slide the map.')
+              : t('Drag from empty ground, or hold ctrl, to slide the map.')
             : '',
-          'The coordinate boxes beside the map do the same without a pointer.',
+          t('The coordinate boxes beside the map do the same without a pointer.'),
         ]
           .filter(Boolean)
           .join(' ')}

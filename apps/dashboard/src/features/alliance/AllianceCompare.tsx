@@ -2,6 +2,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { LineChart } from '../../components/LineChart';
 import { isViewedAlliance } from '../../lib/activeAlliance';
 import { compactNumber } from '../../lib/compactNumber';
+import { useT } from '../../lib/i18n';
 import { allianceHash } from '../../lib/route';
 import type { Series } from '../../lib/series';
 import { supabase } from '../../lib/supabase';
@@ -142,6 +143,7 @@ function shortName(row: GrowthRow): string {
 }
 
 export function AllianceCompare({ serverId }: { serverId: number }) {
+  const t = useT();
   const growth = useQuery({
     queryKey: ['alliance-compare', serverId],
     queryFn: () => fetchGrowth(serverId),
@@ -181,15 +183,21 @@ export function AllianceCompare({ serverId }: { serverId: number }) {
   });
 
   if (growth.isPending) {
-    return <p className="empty loading">Loading…</p>;
+    return <p className="empty loading">{t('Loading…')}</p>;
   }
   if (growth.error) {
-    return <p className="error">Could not load the comparison: {growth.error.message}</p>;
+    return (
+      <p className="error">
+        {t('Could not load the comparison: {error}', { error: growth.error.message })}
+      </p>
+    );
   }
   if (rows.length === 0) {
     return (
       <p className="empty">
-        No alliance on server {serverId} has been seen in a captured ranking board yet.
+        {t('No alliance on server {server} has been seen in a captured ranking board yet.', {
+          server: serverId,
+        })}
       </p>
     );
   }
@@ -217,25 +225,40 @@ export function AllianceCompare({ serverId }: { serverId: number }) {
   return (
     <>
       <p className="subtle">
-        The {rows.length} strongest alliance{rows.length === 1 ? '' : 's'} on server {serverId}, by
-        power
+        {rows.length === 1
+          ? t('The {count} strongest alliance on server {server}, by power', {
+              count: rows.length,
+              server: serverId,
+            })
+          : t('The {count} strongest alliances on server {server}, by power', {
+              count: rows.length,
+              server: serverId,
+            })}
       </p>
 
       {history.error ? (
-        <p className="error">Could not load the history: {history.error.message}</p>
+        <p className="error">
+          {t('Could not load the history: {error}', { error: history.error.message })}
+        </p>
       ) : history.isPending && chosenIds.length > 0 ? (
-        <p className="empty">Loading the chart…</p>
+        <p className="empty">{t('Loading the chart…')}</p>
       ) : series.length === 0 ? (
         <p className="empty">
-          No alliance here has been captured twice yet, so there is nothing to compare. The ranking
-          boards are read when somebody opens them, not on a schedule.
+          {t(
+            'No alliance here has been captured twice yet, so there is nothing to compare. The ranking boards are read when somebody opens them, not on a schedule.',
+          )}
         </p>
       ) : (
         <LineChart
           formatTime={moment}
           formatValue={bigValue}
-          label={`Power over time for the top ${series.length} alliances on server ${serverId}`}
-          note="Ours is the thick line. Gaps are captures we do not have, not weeks nobody played."
+          label={t('Power over time for the top {count} alliances on server {server}', {
+            count: series.length,
+            server: serverId,
+          })}
+          note={t(
+            'Ours is the thick line. Gaps are captures we do not have, not weeks nobody played.',
+          )}
           series={series}
         />
       )}
@@ -245,15 +268,15 @@ export function AllianceCompare({ serverId }: { serverId: number }) {
           <thead>
             <tr>
               <th className="label" scope="col">
-                Alliance
+                {t('Alliance')}
               </th>
-              <th scope="col">Power</th>
-              <th scope="col">Change</th>
-              <th scope="col">Rank</th>
-              <th scope="col">Climb</th>
-              <th scope="col">Members</th>
+              <th scope="col">{t('Power')}</th>
+              <th scope="col">{t('Change')}</th>
+              <th scope="col">{t('Rank')}</th>
+              <th scope="col">{t('Climb')}</th>
+              <th scope="col">{t('Members')}</th>
               <th className="label" scope="col">
-                Measured over
+                {t('Measured over')}
               </th>
             </tr>
           </thead>
@@ -265,7 +288,7 @@ export function AllianceCompare({ serverId }: { serverId: number }) {
                     {row.code ? `[${row.code}] ` : ''}
                     {row.name ?? row.alliance_id.slice(0, 8)}
                   </a>
-                  {row.is_own && <span className="subtle"> · ours</span>}
+                  {row.is_own && <span className="subtle"> · {t('ours')}</span>}
                 </td>
                 <td className="num">{row.power_last === null ? '—' : bigValue(row.power_last)}</td>
                 {/* Dash for one reading, and it means unmeasured — the column
@@ -307,8 +330,11 @@ export function AllianceCompare({ serverId }: { serverId: number }) {
                 <td className="num">{row.member_count ?? '—'}</td>
                 <td className="label">
                   {row.readings < 2
-                    ? 'one sighting'
-                    : `${row.span_days.toFixed(1)} days · ${plain.format(row.readings)} readings`}
+                    ? t('one sighting')
+                    : t('{days} days · {count} readings', {
+                        days: row.span_days.toFixed(1),
+                        count: plain.format(row.readings),
+                      })}
                 </td>
               </tr>
             ))}

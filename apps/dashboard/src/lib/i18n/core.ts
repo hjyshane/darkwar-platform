@@ -51,8 +51,17 @@ export function fill(template: string, vars?: Vars): string {
   );
 }
 
+/** A key may start with a context, `[attendance] Held`, when one English word
+ * means two things on two screens and a language needs two words for it. The
+ * context is part of the key; English shows the text after it. */
+const CONTEXT = /^\[[a-z-]+\] /;
+
+export function withoutContext(text: string): string {
+  return text.replace(CONTEXT, '');
+}
+
 export function translator(catalog: Catalog | null): Translate {
-  return (text, vars) => fill(catalog?.[text] ?? text, vars);
+  return (text, vars) => fill(catalog?.[text] ?? withoutContext(text), vars);
 }
 
 /** English: what every pure function uses when nobody passes a translator. */

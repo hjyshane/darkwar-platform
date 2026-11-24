@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useT } from '../../lib/i18n';
 import { allianceHash } from '../../lib/route';
 import { supabase } from '../../lib/supabase';
 import { type KnownAlliance, namedServers, parseIntro } from './allies';
@@ -9,6 +10,7 @@ import './alliance.css';
  * alliance we know ON THAT SERVER is a link; every other character is text
  * exactly as written, so nothing an alliance typed is reinterpreted. */
 export function IntroText({ text, known }: { text: string; known: readonly KnownAlliance[] }) {
+  const t = useT();
   return (
     <div className="intro-text">
       {parseIntro(text, known).map((line, lineIndex) => (
@@ -21,7 +23,7 @@ export function IntroText({ text, known }: { text: string; known: readonly Known
                 href={allianceHash(segment.allianceId)}
                 // biome-ignore lint/suspicious/noArrayIndexKey: segments are positional
                 key={index}
-                title={`[${segment.tag}] on ${segment.serverId}`}
+                title={t('[{tag}] on {server}', { tag: segment.tag, server: segment.serverId })}
               >
                 {segment.tag}
               </a>
@@ -46,20 +48,21 @@ export interface AllianceIntroViewProps {
 }
 
 export function AllianceIntroView({ intro, announce, known }: AllianceIntroViewProps) {
+  const t = useT();
   if (intro === null && announce === null) return null;
   return (
-    <section aria-label="In the alliance's words" className="alliance-panel">
+    <section aria-label={t("In the alliance's words")} className="alliance-panel">
       {intro !== null && (
         <>
-          <h2>Intro</h2>
+          <h2>{t('Intro')}</h2>
           <IntroText known={known} text={intro} />
         </>
       )}
       {announce !== null &&
         (intro === null ? (
-          <h2>Announcement · members only</h2>
+          <h2>{t('Announcement · members only')}</h2>
         ) : (
-          <h3>Announcement · members only</h3>
+          <h3>{t('Announcement · members only')}</h3>
         ))}
       {announce !== null && <IntroText known={known} text={announce} />}
     </section>

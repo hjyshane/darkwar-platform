@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useT } from '../../lib/i18n';
 import { isAllowed, usePermissions } from '../../lib/permissions';
 import { useSession } from '../../lib/useSession';
 import type { BoardConfig } from './board';
@@ -46,8 +47,9 @@ function authorName(authors: Record<string, string>, authorId: string | null): s
 }
 
 function CommentBody({ comment }: { comment: BoardComment }) {
+  const t = useT();
   if (comment.deletedAt !== null) {
-    return <p className="comment-deleted">Deleted.</p>;
+    return <p className="comment-deleted">{t('Deleted.')}</p>;
   }
   // PLAIN TEXT, unlike a post. The board's markup carries colours and images,
   // which belong to somebody writing a guide and would turn a thread into a
@@ -73,6 +75,7 @@ function Composer({
   initial?: string;
   submitLabel: string;
 }) {
+  const t = useT();
   const [body, setBody] = useState(initial);
   const empty = body.trim() === '';
   return (
@@ -101,11 +104,11 @@ function Composer({
             refuses a blank comment (0113) and a round trip to be told so is a
             worse way to learn it. */}
         <button disabled={empty || busy} type="submit">
-          {busy ? 'Saving…' : submitLabel}
+          {busy ? t('Saving…') : submitLabel}
         </button>
         {onCancel !== undefined && (
           <button onClick={onCancel} type="button">
-            Cancel
+            {t('Cancel')}
           </button>
         )}
       </div>
@@ -135,6 +138,7 @@ function Comment({
    * offer it does not exist rather than being rendered and refused. */
   onReply?: () => void;
 }) {
+  const t = useT();
   const [editing, setEditing] = useState(false);
   const edit = useEditComment(config, postId);
   const remove = useRemoveComment(config, postId);
@@ -146,11 +150,15 @@ function Comment({
     <li className="comment">
       <div className="post-meta">
         <span className="post-author">{authorName(authors, comment.authorId)}</span>
-        <time dateTime={comment.createdAt}>{when.format(new Date(comment.createdAt))} UTC</time>
+        <time dateTime={comment.createdAt}>
+          {t('{time} UTC', { time: when.format(new Date(comment.createdAt)) })}
+        </time>
         {/* Only when it differs, as on the post above. An "edited" stamp on
             every comment would say nothing. */}
         {!gone && comment.updatedAt !== comment.createdAt && (
-          <span className="post-edited">edited {when.format(new Date(comment.updatedAt))} UTC</span>
+          <span className="post-edited">
+            {t('edited {time} UTC', { time: when.format(new Date(comment.updatedAt)) })}
+          </span>
         )}
       </div>
 
@@ -159,12 +167,12 @@ function Comment({
           busy={edit.isPending}
           error={edit.error?.message ?? null}
           initial={comment.body}
-          label="Edit your comment"
+          label={t('Edit your comment')}
           onCancel={() => setEditing(false)}
           onSubmit={(body) => {
             edit.mutate({ id: comment.id, body }, { onSuccess: () => setEditing(false) });
           }}
-          submitLabel="Save"
+          submitLabel={t('Save')}
         />
       ) : (
         <CommentBody comment={comment} />
@@ -174,12 +182,12 @@ function Comment({
         <div className="comment-actions">
           {onReply !== undefined && (
             <button onClick={onReply} type="button">
-              Reply
+              {t('Reply')}
             </button>
           )}
           {mine && (
             <button onClick={() => setEditing(true)} type="button">
-              Edit
+              {t('Edit')}
             </button>
           )}
           {/* Yours, or anybody's if you may take the post down. Keyed to the
@@ -192,7 +200,7 @@ function Comment({
               onClick={() => remove.mutate(comment.id)}
               type="button"
             >
-              Delete
+              {t('Delete')}
             </button>
           )}
         </div>
@@ -220,6 +228,7 @@ function Thread({
   config: BoardConfig;
   postId: string;
 }) {
+  const t = useT();
   const [replying, setReplying] = useState(false);
   const add = useAddComment(config, postId);
 
@@ -251,7 +260,7 @@ function Thread({
               <Composer
                 busy={add.isPending}
                 error={add.error?.message ?? null}
-                label="Write a reply"
+                label={t('Write a reply')}
                 onCancel={() => setReplying(false)}
                 onSubmit={(body) => {
                   add.mutate(
@@ -259,7 +268,7 @@ function Thread({
                     { onSuccess: () => setReplying(false) },
                   );
                 }}
-                submitLabel="Reply"
+                submitLabel={t('Reply')}
               />
             </li>
           )}
@@ -270,6 +279,7 @@ function Thread({
 }
 
 export function Comments({ config, postId }: { config: BoardConfig; postId: string }) {
+  const t = useT();
   const { data, error, isPending } = useComments(config, postId);
   const { data: session } = useSession();
   const { data: permissions } = usePermissions();
@@ -289,16 +299,16 @@ export function Comments({ config, postId }: { config: BoardConfig; postId: stri
   if (isPending) {
     return (
       <section className="comments">
-        <h3>Comments</h3>
-        <p className="empty loading">Loading…</p>
+        <h3>{t('Comments')}</h3>
+        <p className="empty loading">{t('Loading…')}</p>
       </section>
     );
   }
   if (error) {
     return (
       <section className="comments">
-        <h3>Comments</h3>
-        <p className="error">Could not load them: {error.message}</p>
+        <h3>{t('Comments')}</h3>
+        <p className="error">{t('Could not load them: {message}', { message: error.message })}</p>
       </section>
     );
   }
@@ -308,10 +318,13 @@ export function Comments({ config, postId }: { config: BoardConfig; postId: stri
     <section className="comments">
       {/* The count in the heading, because "are there any?" is the question
           somebody scrolling past the post is asking. */}
-      <h3>Comments{liveCount > 0 && <span className="comment-count">{liveCount}</span>}</h3>
+      <h3>
+        {t('Comments')}
+        {liveCount > 0 && <span className="comment-count">{liveCount}</span>}
+      </h3>
 
       {threads.length === 0 ? (
-        <p className="empty">Nothing yet.</p>
+        <p className="empty">{t('Nothing yet.')}</p>
       ) : (
         <ul className="comment-list">
           {threads.map((thread) => (
@@ -333,9 +346,9 @@ export function Comments({ config, postId }: { config: BoardConfig; postId: stri
         <Composer
           busy={add.isPending}
           error={add.error?.message ?? null}
-          label="Write a comment"
+          label={t('Write a comment')}
           onSubmit={(body) => add.mutate({ body, parentId: null })}
-          submitLabel="Comment"
+          submitLabel={t('Comment')}
         />
       )}
     </section>

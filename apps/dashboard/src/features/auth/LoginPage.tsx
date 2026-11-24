@@ -179,8 +179,15 @@ export function LoginPage() {
           {joined !== null && session?.role !== 'viewer' && (
             <p className={joined.note === null ? 'empty' : 'error'}>
               {joined.note ??
-                `Welcome — you are now ${joined.role}${joined.linked ? `, linked to ${joined.linked}` : ''}. `}
-              {joined.note === null && <a href="#/home">Go to Home</a>}
+                `${
+                  joined.linked
+                    ? t('Welcome — you are now {role}, linked to {name}.', {
+                        role: joined.role,
+                        name: joined.linked,
+                      })
+                    : t('Welcome — you are now {role}.', { role: joined.role })
+                } `}
+              {joined.note === null && <a href="#/home">{t('Go to Home')}</a>}
             </p>
           )}
           {session !== undefined && session.role !== 'viewer' && (

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useT } from '../../lib/i18n';
 import { isAllowed, usePermissions } from '../../lib/permissions';
 import { guideHash } from '../../lib/route';
 import { supabase } from '../../lib/supabase';
@@ -15,6 +16,7 @@ import { type Draft, GuideEditor, categoryLabel, useSaveGuide } from './GuidesPa
  * a guide is `guide.edit` (officers have it), a notice is admin-only.
  */
 export function GuidePostPage({ guideId }: { guideId: string }) {
+  const t = useT();
   const { data: session } = useSession();
   const { data: permissions } = usePermissions();
   const mayEdit = isAllowed(permissions?.grants, session?.role, 'guide.edit');
@@ -67,7 +69,7 @@ export function GuidePostPage({ guideId }: { guideId: string }) {
       // RLS filters rather than refusing, so a delete that removed nothing
       // reports success. The count is the only way to tell it apart.
       if (count === 0) {
-        throw new Error('Nothing was removed. That needs the delete capability.');
+        throw new Error(t('Nothing was removed. That needs the delete capability.'));
       }
     },
     onSuccess: () => {
@@ -79,11 +81,11 @@ export function GuidePostPage({ guideId }: { guideId: string }) {
   return (
     <BoardPostPage
       backHref="#/guides"
-      backLabel="All guides"
+      backLabel={t('All guides')}
       config={GUIDES}
       postId={guideId}
       hrefFor={guideHash}
-      tagLabel={categoryLabel}
+      tagLabel={(value) => categoryLabel(value, t)}
     >
       {draft !== null ? (
         <GuideEditor
@@ -106,7 +108,7 @@ export function GuidePostPage({ guideId }: { guideId: string }) {
                 onClick={() => editable.data != null && setDraft(editable.data)}
                 type="button"
               >
-                Edit
+                {t('Edit')}
               </button>
             )}
             {mayDelete && (
@@ -117,10 +119,13 @@ export function GuidePostPage({ guideId }: { guideId: string }) {
                   // A guide is deleted for good: the table keeps no history, so
                   // one misclick is unrecoverable without a database restore.
                   const title = editable.data?.title;
-                  const name = title ? `“${title}”` : 'this guide';
+                  const name = title ? `“${title}”` : t('this guide');
                   if (
                     window.confirm(
-                      `Delete ${name}? This cannot be undone. To only hide it, use Edit → Unpublish.`,
+                      t(
+                        'Delete {name}? This cannot be undone. To only hide it, use Edit → Unpublish.',
+                        { name },
+                      ),
                     )
                   ) {
                     remove.mutate();
@@ -128,7 +133,7 @@ export function GuidePostPage({ guideId }: { guideId: string }) {
                 }}
                 type="button"
               >
-                delete
+                {t('delete')}
               </button>
             )}
           </p>

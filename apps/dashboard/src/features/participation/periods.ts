@@ -6,6 +6,7 @@
 // when it STARTS inside the range, so adjacent ranges never share a day.
 
 import { resetWeekStart } from '@dw/game-clock';
+import { type Translate, english } from '../../lib/i18n/core';
 
 const DAY_MS = 86_400_000;
 const RESET_HOUR_MS = 2 * 3_600_000;
@@ -56,13 +57,19 @@ export function seasonPeriod(
   start: string = SEASON_START,
   name = 'Season 3',
   end: string | null = null,
+  t: Translate = english,
 ): Period {
   // A season that has ended stops at its end: the break after it is not part
   // of it (2026-10-11).
   const today = gameDayStart(now).getTime() + DAY_MS;
   const to = end === null ? today : Math.min(today, Date.parse(end));
   const from = Math.max(Date.parse(start), to - MAX_RANGE_DAYS * DAY_MS);
-  return { kind: 'season', from: iso(from), to: iso(to), label: `${name} (since ${day(from)})` };
+  return {
+    kind: 'season',
+    from: iso(from),
+    to: iso(to),
+    label: t('{season} (since {date})', { season: name, date: day(from) }),
+  };
 }
 
 /** A season that has ended, whole: its first game day to its last. Cut to the
@@ -72,6 +79,7 @@ export function endedSeasonPeriod(
   name: string,
   start: string | null,
   end: string | null,
+  t: Translate = english,
 ): Period | null {
   if (start === null || end === null) return null;
   const to = Date.parse(end);
@@ -82,7 +90,11 @@ export function endedSeasonPeriod(
     kind: 'previous',
     from: iso(from),
     to: iso(to),
-    label: `${name} · previous season (${day(from)} – ${day(to - DAY_MS)})`,
+    label: t('{season} · previous season ({from} – {to})', {
+      season: name,
+      from: day(from),
+      to: day(to - DAY_MS),
+    }),
   };
 }
 
@@ -94,6 +106,7 @@ export function breakPeriod(
   now: Date,
   endedAt: string | null,
   nextStart: string | null,
+  t: Translate = english,
 ): Period | null {
   if (endedAt === null) return null;
   const from = Date.parse(endedAt);
@@ -105,7 +118,7 @@ export function breakPeriod(
     kind: 'break',
     from: iso(from),
     to: iso(to),
-    label: `Season break (${day(from)} – ${day(to - DAY_MS)})`,
+    label: t('Season break ({from} – {to})', { from: day(from), to: day(to - DAY_MS) }),
   };
 }
 
@@ -114,6 +127,7 @@ export function roundPeriods(
   now: Date,
   start: string = SEASON_START,
   end: string | null = null,
+  t: Translate = english,
 ): Period[] {
   const anchor = Date.parse(start);
   const limit = end === null ? now.getTime() : Math.min(now.getTime(), Date.parse(end) - 1);
@@ -124,7 +138,11 @@ export function roundPeriods(
       kind: 'round',
       from: iso(start),
       to: iso(end),
-      label: `Round ${n}: ${day(start)} – ${day(end - DAY_MS)}`,
+      label: t('Round {number}: {from} – {to}', {
+        number: n,
+        from: day(start),
+        to: day(end - DAY_MS),
+      }),
     });
   }
   return rounds.reverse();
@@ -135,6 +153,7 @@ export function weekPeriods(
   now: Date,
   start: string = SEASON_START,
   end: string | null = null,
+  t: Translate = english,
 ): Period[] {
   const first = Date.parse(start);
   const limit = end === null ? now : new Date(Math.min(now.getTime(), Date.parse(end) - 1));
@@ -144,7 +163,7 @@ export function weekPeriods(
       kind: 'week',
       from: iso(start),
       to: iso(start + 7 * DAY_MS),
-      label: `Week of ${day(start)}`,
+      label: t('Week of {date}', { date: day(start) }),
     });
   }
   return weeks;
@@ -157,7 +176,12 @@ export function weekPeriods(
  * (MAX_RANGE_DAYS) is cut from its START, keeping the recent end, and the
  * label says so. The end is also cut at today: a game day that has not begun
  * has nothing to count. */
-export function customPeriod(fromDate: string, toDate: string, now: Date): Period | null {
+export function customPeriod(
+  fromDate: string,
+  toDate: string,
+  now: Date,
+  t: Translate = english,
+): Period | null {
   const pattern = /^\d{4}-\d{2}-\d{2}$/;
   if (!pattern.test(fromDate) || !pattern.test(toDate)) return null;
   const startMs = Date.parse(`${fromDate}T00:00:00.000Z`) + RESET_HOUR_MS;
@@ -172,7 +196,13 @@ export function customPeriod(fromDate: string, toDate: string, now: Date): Perio
     kind: 'custom',
     from: iso(from),
     to: iso(to),
-    label: `${day(from)} – ${day(to - DAY_MS)}${cut ? ` (last ${MAX_RANGE_DAYS} days of the range)` : ''}`,
+    label: cut
+      ? t('{from} – {to} (last {days} days of the range)', {
+          from: day(from),
+          to: day(to - DAY_MS),
+          days: MAX_RANGE_DAYS,
+        })
+      : `${day(from)} – ${day(to - DAY_MS)}`,
   };
 }
 

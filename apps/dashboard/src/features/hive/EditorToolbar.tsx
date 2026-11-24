@@ -15,12 +15,13 @@
 
 import type { MouseEvent as ReactMouseEvent } from 'react';
 import { BASE_SPAN, FRANKIE, TILE_COLOURS, type TileColour } from '../../lib/hiveFormation';
+import { useT } from '../../lib/i18n';
 import type { Brush, Tool } from './FormationEditor';
 import { Icon } from './MapControls';
 import type { FormationTemplate, MapFeature } from './hiveFormations';
-import type { StampShape } from './shapeStamp';
+import { type StampShape, shapeLabel } from './shapeStamp';
 
-const TOOLS: readonly { tool: Tool; label: string; hint: string; icon: string }[] = [
+export const TOOLS: readonly { tool: Tool; label: string; hint: string; icon: string }[] = [
   {
     tool: 'draw',
     label: 'Move a base',
@@ -59,15 +60,16 @@ const SHAPES_ICON = 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z';
 const ANCHOR_ICON = 'M12 2v5M12 17v5M2 12h5M17 12h5M12 8a4 4 0 1 0 0 8 4 4 0 1 0 0-8';
 const TRASH_ICON = 'M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13';
 
-/** The sizes a click most often puts down, a click away. */
-const SIZES: readonly { spanX: number; spanY: number; label: string }[] = [
+/** The sizes a click most often puts down, a click away. Each label is a
+ * translation key, filled with the size as `{x}` and `{y}`. */
+export const SIZES: readonly { spanX: number; spanY: number; label: string }[] = [
   { spanX: 1, spanY: 1, label: '1x1 marker' },
-  { spanX: 2, spanY: 2, label: '2x2' },
-  { spanX: BASE_SPAN, spanY: BASE_SPAN, label: `${BASE_SPAN}x${BASE_SPAN} base` },
+  { spanX: 2, spanY: 2, label: '{x}x{y}' },
+  { spanX: BASE_SPAN, spanY: BASE_SPAN, label: '{x}x{y} base' },
   {
     spanX: FRANKIE.spanX,
     spanY: FRANKIE.spanY,
-    label: `${FRANKIE.spanX}x${FRANKIE.spanY} Frankie`,
+    label: '{x}x{y} Frankie',
   },
 ];
 
@@ -132,18 +134,19 @@ export function EditorToolbar({
     onDeselect: () => void;
   };
 }) {
+  const t = useT();
   const sizeLabel = `${brush.spanX}x${brush.spanY}`;
   return (
-    <div aria-label="Map tools" className="map-toolbar" role="toolbar">
+    <div aria-label={t('Map tools')} className="map-toolbar" role="toolbar">
       {/* WHAT A DRAG DOES. */}
       <div className="map-toolbar__group">
         {TOOLS.map((entry) => (
           <button
-            aria-label={entry.label}
+            aria-label={t(entry.label)}
             aria-pressed={tool === entry.tool}
             key={entry.tool}
             onClick={() => onTool(entry.tool)}
-            title={`${entry.label} — ${entry.hint}`}
+            title={`${t(entry.label)} — ${t(entry.hint)}`}
             type="button"
           >
             <Icon d={entry.icon} />
@@ -154,25 +157,28 @@ export function EditorToolbar({
       {/* WHAT A CLICK PUTS DOWN: kind, size, colour. */}
       <div className="map-toolbar__group">
         <button
-          aria-label="A click puts down a member base"
+          aria-label={t('A click puts down a member base')}
           aria-pressed={brush.kind === 'base'}
           onClick={() => onBrush({ ...brush, kind: 'base' })}
-          title="Member base — somebody stands here"
+          title={t('Member base — somebody stands here')}
           type="button"
         >
           <Icon d={BASE_ICON} />
         </button>
         <button
-          aria-label="A click puts down a structure or marker"
+          aria-label={t('A click puts down a structure or marker')}
           aria-pressed={brush.kind === 'structure'}
           onClick={() => onBrush({ ...brush, kind: 'structure' })}
-          title="Structure or marker — ground that is spoken for"
+          title={t('Structure or marker — ground that is spoken for')}
           type="button"
         >
           <Icon d={STRUCTURE_ICON} />
         </button>
         <details className="map-toolbar__menu">
-          <summary aria-label={`Size ${sizeLabel}`} title="What size a click puts down">
+          <summary
+            aria-label={t('Size {size}', { size: sizeLabel })}
+            title={t('What size a click puts down')}
+          >
             {sizeLabel}
           </summary>
           <div className="map-toolbar__panel">
@@ -186,12 +192,12 @@ export function EditorToolbar({
                 }}
                 type="button"
               >
-                {size.label}
+                {t(size.label, { x: size.spanX, y: size.spanY })}
               </button>
             ))}
             <div className="map-toolbar__spans">
               <label>
-                <span>Wide</span>
+                <span>{t('Wide')}</span>
                 <input
                   max={32}
                   min={1}
@@ -203,7 +209,7 @@ export function EditorToolbar({
                 />
               </label>
               <label>
-                <span>Tall</span>
+                <span>{t('Tall')}</span>
                 <input
                   max={32}
                   min={1}
@@ -217,7 +223,7 @@ export function EditorToolbar({
             </div>
             {features.length > 0 && (
               <>
-                <p className="map-toolbar__note">From the list</p>
+                <p className="map-toolbar__note">{t('From the list')}</p>
                 {features.map((feature) => (
                   <button
                     aria-pressed={
@@ -243,14 +249,14 @@ export function EditorToolbar({
         </details>
         <details className="map-toolbar__menu">
           <summary
-            aria-label={`Colour ${brush.colour ?? 'default'}`}
-            title="What colour a click puts down"
+            aria-label={t('Colour {colour}', { colour: brush.colour ?? t('default') })}
+            title={t('What colour a click puts down')}
           >
             <span aria-hidden="true" className={swatchClass(brush.colour)} />
           </summary>
           <div className="map-toolbar__panel map-toolbar__swatches">
             <button
-              aria-label="Default colour"
+              aria-label={t('Default colour')}
               aria-pressed={brush.colour === null}
               className="hive-swatch"
               onClick={(event) => {
@@ -283,9 +289,9 @@ export function EditorToolbar({
       <div className="map-toolbar__group">
         <details className="map-toolbar__menu">
           <summary
-            aria-label="Shapes to stamp"
+            aria-label={t('Shapes to stamp')}
             className={armedKey === null ? undefined : 'map-toolbar__on'}
-            title="Pick a shape, then click the map to put it down — as often as you like"
+            title={t('Pick a shape, then click the map to put it down — as often as you like')}
           >
             <Icon d={SHAPES_ICON} />
           </summary>
@@ -300,10 +306,10 @@ export function EditorToolbar({
                 }}
                 type="button"
               >
-                {shape.label}
+                {shapeLabel(shape, t)}
               </button>
             ))}
-            {templates.length > 0 && <p className="map-toolbar__note">Saved shapes</p>}
+            {templates.length > 0 && <p className="map-toolbar__note">{t('Saved shapes')}</p>}
             {templates.map((template) => (
               <button
                 aria-pressed={armedKey === `template-${template.templateId}`}
@@ -324,22 +330,24 @@ export function EditorToolbar({
                 onClear();
                 closeMenu(event);
               }}
-              title="Take everything off the drawing. Nothing is saved until you press Save; Discard brings it back."
+              title={t(
+                'Take everything off the drawing. Nothing is saved until you press Save; Discard brings it back.',
+              )}
               type="button"
             >
-              <Icon d={TRASH_ICON} /> Clear the drawing
+              <Icon d={TRASH_ICON} /> {t('Clear the drawing')}
             </button>
           </div>
         </details>
         <button
-          aria-label="Set the anchor on a base or structure"
+          aria-label={t('Set the anchor on a base or structure')}
           aria-pressed={pickingAnchor}
           disabled={pickDisabled}
           onClick={onPickAnchor}
           title={
             pickDisabled
-              ? 'Save or discard your changes first: setting the anchor rewrites every tile.'
-              : 'Set the anchor on a base or structure — nothing on the map moves'
+              ? t('Save or discard your changes first: setting the anchor rewrites every tile.')
+              : t('Set the anchor on a base or structure — nothing on the map moves')
           }
           type="button"
         >
@@ -351,35 +359,37 @@ export function EditorToolbar({
       {tool === 'select' && (
         <div className="map-toolbar__group">
           {selection.count === 0 ? (
-            <span className="map-toolbar__note">Drag a box around tiles</span>
+            <span className="map-toolbar__note">{t('Drag a box around tiles')}</span>
           ) : (
             <>
-              <span className="map-toolbar__note">{selection.count} selected</span>
+              <span className="map-toolbar__note">
+                {t('{count} selected', { count: selection.count })}
+              </span>
               {(
                 [
-                  ['←', -1, 0, 'west'],
-                  ['→', 1, 0, 'east'],
-                  ['↑', 0, 1, 'north'],
-                  ['↓', 0, -1, 'south'],
+                  ['←', -1, 0, t('Nudge the selection one tile west'), t('One tile west')],
+                  ['→', 1, 0, t('Nudge the selection one tile east'), t('One tile east')],
+                  ['↑', 0, 1, t('Nudge the selection one tile north'), t('One tile north')],
+                  ['↓', 0, -1, t('Nudge the selection one tile south'), t('One tile south')],
                 ] as const
-              ).map(([glyph, byX, byY, way]) => (
+              ).map(([glyph, byX, byY, label, hint]) => (
                 <button
-                  aria-label={`Nudge the selection one tile ${way}`}
+                  aria-label={label}
                   key={glyph}
                   onClick={() => selection.onNudge(byX, byY)}
-                  title={`One tile ${way}`}
+                  title={hint}
                   type="button"
                 >
                   {glyph}
                 </button>
               ))}
               <details className="map-toolbar__menu">
-                <summary aria-label="Paint the selection" title="Paint the selection">
+                <summary aria-label={t('Paint the selection')} title={t('Paint the selection')}>
                   <span aria-hidden="true" className="hive-swatch hive-swatch--amber" />
                 </summary>
                 <div className="map-toolbar__panel map-toolbar__swatches">
                   <button
-                    aria-label="Paint the selection the default colour"
+                    aria-label={t('Paint the selection the default colour')}
                     className="hive-swatch"
                     onClick={(event) => {
                       selection.onPaint(null);
@@ -391,7 +401,7 @@ export function EditorToolbar({
                   </button>
                   {TILE_COLOURS.map((colour) => (
                     <button
-                      aria-label={`Paint the selection ${colour}`}
+                      aria-label={t('Paint the selection {colour}', { colour })}
                       className={swatchClass(colour)}
                       key={colour}
                       onClick={(event) => {
@@ -405,18 +415,18 @@ export function EditorToolbar({
                 </div>
               </details>
               <button
-                aria-label={`Remove the ${selection.count} selected`}
+                aria-label={t('Remove the {count} selected', { count: selection.count })}
                 className="map-toolbar__danger"
                 onClick={selection.onRemove}
-                title="Remove the selected tiles"
+                title={t('Remove the selected tiles')}
                 type="button"
               >
                 <Icon d={TRASH_ICON} />
               </button>
               <button
-                aria-label="Deselect"
+                aria-label={t('Deselect')}
                 onClick={selection.onDeselect}
-                title="Deselect"
+                title={t('Deselect')}
                 type="button"
               >
                 ×

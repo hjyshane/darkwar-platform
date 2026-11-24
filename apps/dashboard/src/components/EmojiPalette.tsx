@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useT } from '../lib/i18n';
 
 /** The emoji people actually reach for on an alliance board.
  *
@@ -12,7 +13,7 @@ import { useState } from 'react';
  * survives the trip to Discord unchanged and needs no rendering support at
  * all — which is the whole reason not to invent a `:shortcode:` syntax.
  */
-const GROUPS: { name: string; emoji: string[] }[] = [
+export const GROUPS: { name: string; emoji: string[] }[] = [
   { name: 'Calling', emoji: ['📢', '🔔', '❗', '‼️', '⚠️', '👀', '🙏', '🆘', '📌', '✅'] },
   { name: 'Time', emoji: ['⏰', '⌛', '📅', '🕘', '🔁', '🆕', '⏳', '🌙', '☀️'] },
   { name: 'War', emoji: ['⚔️', '🛡️', '🔥', '💥', '🏹', '🚩', '🏆', '💀', '🎯', '🤝'] },
@@ -27,10 +28,11 @@ const GROUPS: { name: string; emoji: string[] }[] = [
  * trying to read, and better than guessing which behaviour they wanted.
  */
 export function EmojiPalette({ onPick }: { onPick: (emoji: string) => void }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   return (
     <div className="emoji-palette">
-      <button aria-expanded={open} onClick={() => setOpen(!open)} title="Emoji" type="button">
+      <button aria-expanded={open} onClick={() => setOpen(!open)} title={t('Emoji')} type="button">
         🙂
       </button>
       {open && (
@@ -39,10 +41,10 @@ export function EmojiPalette({ onPick }: { onPick: (emoji: string) => void }) {
         // role onto a div. Not a `dialog`: it does not trap focus and it should
         // not, since Tab out of it lands back in the text, which is where
         // somebody who changed their mind wants to be.
-        <fieldset aria-label="Emoji" className="emoji-grid">
+        <fieldset aria-label={t('Emoji')} className="emoji-grid">
           {GROUPS.map((group) => (
             <div className="emoji-group" key={group.name}>
-              <span className="emoji-group-name">{group.name}</span>
+              <span className="emoji-group-name">{t(group.name)}</span>
               <div className="emoji-row">
                 {group.emoji.map((emoji) => (
                   <button

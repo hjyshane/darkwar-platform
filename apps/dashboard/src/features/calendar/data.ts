@@ -6,6 +6,7 @@
 // event that "ends Saturday" ends at Saturday's server midnight whatever the
 // reader's own clock says.
 
+import { type Translate, english } from '../../lib/i18n/core';
 import { supabase } from '../../lib/supabase';
 import { SERVER_ZONE, zonedDayKey, zonedTime } from '../../lib/timezone';
 
@@ -98,23 +99,26 @@ export function arrange(
 }
 
 /** "2d 4h", "5h 20m", "12m" — how long until `target`. */
-export function until(target: string, now: Date): string {
+export function until(target: string, now: Date, t: Translate = english): string {
   const minutes = Math.max(0, Math.round((Date.parse(target) - now.getTime()) / 60_000));
   const days = Math.floor(minutes / 1440);
   const hours = Math.floor((minutes % 1440) / 60);
   const mins = minutes % 60;
   if (days > 0) {
-    return `${days}d ${hours}h`;
+    return t('{days}d {hours}h', { days, hours });
   }
   if (hours > 0) {
-    return `${hours}h ${mins}m`;
+    return t('{hours}h {mins}m', { hours, mins });
   }
-  return `${mins}m`;
+  return t('{mins}m', { mins });
 }
 
 /** The name to show: what the game or an officer called it, or its id. */
-export function labelOf(event: Pick<CalendarEvent, 'name' | 'activity_id'>): string {
-  return event.name ?? `Event #${event.activity_id}`;
+export function labelOf(
+  event: Pick<CalendarEvent, 'name' | 'activity_id'>,
+  t: Translate = english,
+): string {
+  return event.name ?? t('Event #{id}', { id: event.activity_id });
 }
 
 /** An event nobody has identified: the server lists the id, the game client's
@@ -142,18 +146,18 @@ export function splitIdentified(events: ReadonlyArray<CalendarEvent>): {
 }
 
 /** What the card says an event is doing as of `now`. */
-export function statusOf(event: CalendarEvent, now: Date): string {
+export function statusOf(event: CalendarEvent, now: Date, t: Translate = english): string {
   switch (bucketOf(event, now)) {
     case 'live':
-      return `Running · ends in ${until(event.ends_at ?? '', now)}`;
+      return t('Running · ends in {time}', { time: until(event.ends_at ?? '', now, t) });
     case 'upcoming':
-      return `Starts in ${until(event.starts_at ?? '', now)}`;
+      return t('Starts in {time}', { time: until(event.starts_at ?? '', now, t) });
     case 'ended':
-      return 'Ended';
+      return t('Ended');
     case 'standing':
-      return 'Standing feature';
+      return t('Standing feature');
     default:
-      return 'No dates';
+      return t('No dates');
   }
 }
 

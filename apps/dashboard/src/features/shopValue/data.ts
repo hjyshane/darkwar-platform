@@ -5,6 +5,7 @@
 // value claims — in that order. VIP Points count as 0. A ruby is $0.0099:
 // every ruby-only pack is 100 rubies for $0.99.
 
+import { type Translate, english } from '../../lib/i18n/core';
 import { supabase } from '../../lib/supabase';
 
 /** The default rate. What a screen uses is the setting `RUBY_DOLLAR_RATE`
@@ -127,8 +128,8 @@ export interface ItemValue {
 
 /** How an item reads wherever it is listed: its name, never its code. The
  * code is for the tooltip. */
-export function itemLabel(item: { name: string | null }): string {
-  return item.name ?? 'Unnamed item';
+export function itemLabel(item: { name: string | null }, t: Translate = english): string {
+  return item.name ?? t('Unnamed item');
 }
 
 /** Ruby-shop types: 1 is the full-price shop, 2 and 3 the discount shops. */

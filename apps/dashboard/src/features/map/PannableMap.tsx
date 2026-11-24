@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { useT } from '../../lib/i18n';
 
 export const MIN_ZOOM = 1;
 /** Deep enough that one base fills a few hundred pixels and its name has room. */
@@ -89,6 +90,7 @@ export function PannableMap({
   /** Change `nonce` to send the window to `at` again, even to the same tile. */
   focus: { at: Coordinate; nonce: number } | null;
 }) {
+  const t = useT();
   const frame = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
   const [fullscreen, setFullscreen] = useState(false);
@@ -194,19 +196,19 @@ export function PannableMap({
       >
         <div className="pan-map__tools">
           <button
-            aria-label={fullscreen ? 'Leave full screen' : 'Full screen'}
+            aria-label={fullscreen ? t('Leave full screen') : t('Full screen')}
             onClick={toggleFullscreen}
             type="button"
           >
             {fullscreen ? '✕' : '⛶'}
           </button>
-          <button aria-label="Zoom in" onClick={() => step(1.3)} type="button">
+          <button aria-label={t('Zoom in')} onClick={() => step(1.3)} type="button">
             +
           </button>
-          <button aria-label="Zoom out" onClick={() => step(1 / 1.3)} type="button">
+          <button aria-label={t('Zoom out')} onClick={() => step(1 / 1.3)} type="button">
             −
           </button>
-          <button aria-label="Show the whole map" onClick={() => setView(HOME)} type="button">
+          <button aria-label={t('Show the whole map')} onClick={() => setView(HOME)} type="button">
             ⌂
           </button>
         </div>

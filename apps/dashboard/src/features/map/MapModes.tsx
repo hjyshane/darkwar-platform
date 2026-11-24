@@ -1,5 +1,6 @@
 import { type RefObject, useEffect, useRef, useState } from 'react';
 import { useIsCommunity } from '../../lib/communityAccess';
+import { useT } from '../../lib/i18n';
 import { MAP_LAYERS, type MapLayer, type MapLayers, hiddenCount } from './layers';
 
 /** What the map is being read for. Each mode is a preset over the same data:
@@ -51,6 +52,7 @@ export function MapModeMenu({
   mode: MapMode;
   onChange: (mode: MapMode) => void;
 }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   // The hive plan is our alliance's (0165); a community account (0282) cannot
@@ -70,7 +72,7 @@ export function MapModeMenu({
         onClick={() => setOpen((value) => !value)}
         type="button"
       >
-        {current?.label}
+        {current ? t(current.label) : undefined}
         <span aria-hidden="true" className="atlas-modes__caret">
           {open ? '▴' : '▾'}
         </span>
@@ -89,10 +91,10 @@ export function MapModeMenu({
                 setOpen(false);
               }}
               role="menuitemradio"
-              title={item.hint}
+              title={t(item.hint)}
               type="button"
             >
-              {item.label}
+              {t(item.label)}
             </button>
           ))}
         </div>
@@ -111,6 +113,7 @@ export function MapLayerMenu({
   layers: MapLayers;
   onChange: (layer: MapLayer, on: boolean) => void;
 }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   useDismiss(open, root, () => setOpen(false));
@@ -125,11 +128,13 @@ export function MapLayerMenu({
           hidden > 0 ? 'atlas-modes__button atlas-layers__button--some' : 'atlas-modes__button'
         }
         onClick={() => setOpen((value) => !value)}
-        title="Choose what the map draws"
+        title={t('Choose what the map draws')}
         type="button"
       >
-        Layers
-        {hidden > 0 && <span className="atlas-layers__badge">{hidden} off</span>}
+        {t('Layers')}
+        {hidden > 0 && (
+          <span className="atlas-layers__badge">{t('{count} off', { count: hidden })}</span>
+        )}
         <span aria-hidden="true" className="atlas-modes__caret">
           {open ? '▴' : '▾'}
         </span>
@@ -150,7 +155,7 @@ export function MapLayerMenu({
                 onChange={(event) => onChange(item.id, event.target.checked)}
                 type="checkbox"
               />
-              <span>{item.label}</span>
+              <span>{t(item.label)}</span>
             </label>
           ))}
         </div>

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { ArrangedTable, type Column } from '../../components/ArrangedTable';
 import { TableSearch } from '../../components/TableSearch';
+import { useT } from '../../lib/i18n';
 import { playerHash } from '../../lib/route';
 import type { ColumnSpec } from '../../lib/tableLayout';
 import { TERMS } from '../../lib/terms';
@@ -36,6 +37,7 @@ export interface SeasonBuildingTableProps {
 }
 
 export function SeasonBuildingTable({ grid, floors }: SeasonBuildingTableProps) {
+  const t = useT();
   const { query, setQuery, sort, onSort, view, shown, total } = useTableView(
     grid.members,
     SEARCH_FIELDS,
@@ -67,7 +69,11 @@ export function SeasonBuildingTable({ grid, floors }: SeasonBuildingTableProps) 
                 // Text inside the badge, not colour alone: the mark has to
                 // survive a monochrome screen and a reader who cannot tell
                 // the two colours apart.
-                <span aria-label={`Behind: ${why}`} className="behind-mark" title={why}>
+                <span
+                  aria-label={t('Behind: {buildings}', { buildings: why })}
+                  className="behind-mark"
+                  title={why}
+                >
                   !
                 </span>
               )}
@@ -105,11 +111,11 @@ export function SeasonBuildingTable({ grid, floors }: SeasonBuildingTableProps) 
         const stall = stallOf(row, kind, now);
         const hours = kind.stallHours ?? DEFAULT_STALL_HOURS;
         const title = [
-          behind ? `Below ${floor}` : null,
-          stall === 'stalled' ? `No change in ${hours}h` : null,
+          behind ? t('Below {floor}', { floor: floor ?? '' }) : null,
+          stall === 'stalled' ? t('No change in {hours}h', { hours }) : null,
           // Said out loud rather than left blank: a cell nobody has looked at
           // recently is not a verdict, and the reader should not read one.
-          stall === 'unobserved' ? 'Not seen in the last 48h' : null,
+          stall === 'unobserved' ? t('Not seen in the last 48h') : null,
         ]
           .filter(Boolean)
           .join(' · ');
@@ -133,16 +139,16 @@ export function SeasonBuildingTable({ grid, floors }: SeasonBuildingTableProps) 
       },
     }));
     return [...identity, ...buildings];
-  }, [grid.columns, grid.capturedAt, floors]);
+  }, [grid.columns, grid.capturedAt, floors, t]);
 
   if (grid.members.length === 0) {
-    return <p className="empty">No season buildings seen for our members yet.</p>;
+    return <p className="empty">{t('No season buildings seen for our members yet.')}</p>;
   }
   return (
     <>
       <TableSearch
-        label="Search members"
-        unit="members"
+        label={t('Search members')}
+        unit={t('members')}
         onChange={setQuery}
         shown={shown}
         total={total}
@@ -156,7 +162,7 @@ export function SeasonBuildingTable({ grid, floors }: SeasonBuildingTableProps) 
         sort={sort}
         tableId={TABLE_ID}
       />
-      {view.length === 0 && <p className="empty">No member matches “{query}”.</p>}
+      {view.length === 0 && <p className="empty">{t('No member matches “{query}”.', { query })}</p>}
       <MissingMembers grid={grid} />
     </>
   );
@@ -174,6 +180,7 @@ export function SeasonBuildingTable({ grid, floors }: SeasonBuildingTableProps) 
  * exactly the line that has to be read on the day it says 67.
  */
 function MissingMembers({ grid }: { grid: BuildingGrid }) {
+  const t = useT();
   const total = grid.rosterTotal;
   if (total === null || total <= grid.members.length) {
     return null;
@@ -181,9 +188,15 @@ function MissingMembers({ grid }: { grid: BuildingGrid }) {
   const missing = total - grid.members.length;
   return (
     <p className="subtle">
-      Showing {grid.members.length} of {total} members. {missing} {missing === 1 ? 'has' : 'have'}{' '}
-      no building observed yet — the map is only read where the collector is pointed, so this is a
-      gap in our coverage rather than a report about them.
+      {missing === 1
+        ? t(
+            'Showing {shown} of {total} members. {missing} has no building observed yet — the map is only read where the collector is pointed, so this is a gap in our coverage rather than a report about them.',
+            { shown: grid.members.length, total, missing },
+          )
+        : t(
+            'Showing {shown} of {total} members. {missing} have no building observed yet — the map is only read where the collector is pointed, so this is a gap in our coverage rather than a report about them.',
+            { shown: grid.members.length, total, missing },
+          )}
     </p>
   );
 }

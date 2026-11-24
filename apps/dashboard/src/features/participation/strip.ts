@@ -5,6 +5,7 @@
 // was read for the alliance), so they come from the first row. A bar that is not
 // set has no cell: no bar is not the same as nobody reaching it.
 
+import { type Translate, english } from '../../lib/i18n/core';
 import type { Bars, ParticipationRow } from './data';
 
 export interface StripCell {
@@ -15,40 +16,55 @@ export interface StripCell {
 }
 
 const plain = new Intl.NumberFormat('en');
-const unit = (count: number, word: string) =>
-  `${plain.format(count)} ${word}${count === 1 ? '' : 's'}`;
-
-export function participationStrip(rows: readonly ParticipationRow[], bars: Bars): StripCell[] {
+export function participationStrip(
+  rows: readonly ParticipationRow[],
+  bars: Bars,
+  t: Translate = english,
+): StripCell[] {
+  const days = (count: number) =>
+    count === 1
+      ? t('{count} day', { count: plain.format(count) })
+      : t('{count} days', { count: plain.format(count) });
+  const weeks = (count: number) =>
+    count === 1
+      ? t('{count} week of weekly totals', { count: plain.format(count) })
+      : t('{count} weeks of weekly totals', { count: plain.format(count) });
   const first = rows[0];
   if (first === undefined) return [];
   const reached = (pick: (row: ParticipationRow) => number | null) =>
     rows.filter((row) => (pick(row) ?? 0) > 0).length;
 
   const cells: StripCell[] = [
-    { label: 'Members', value: plain.format(rows.length) },
+    { label: t('Members'), value: plain.format(rows.length) },
     {
-      label: 'Duel board read',
-      value: unit(first.duel_days_read, 'day'),
-      note: `${unit(first.duel_weeks_read, 'week')} of weekly totals`,
+      label: t('Duel board read'),
+      value: days(first.duel_days_read),
+      note: weeks(first.duel_weeks_read),
     },
     {
-      label: 'Donation board read',
-      value: unit(first.donation_days_read, 'day'),
-      note: `${unit(first.donation_weeks_read, 'week')} of weekly totals`,
+      label: t('Donation board read'),
+      value: days(first.donation_days_read),
+      note: weeks(first.donation_weeks_read),
     },
   ];
   if (bars.duel !== null) {
     cells.push({
-      label: 'Reached the duel bar',
-      value: `${plain.format(reached((row) => row.duel_days_over))} of ${plain.format(rows.length)}`,
-      note: `${plain.format(bars.duel)} or more on a day`,
+      label: t('Reached the duel bar'),
+      value: t('{count} of {total}', {
+        count: plain.format(reached((row) => row.duel_days_over)),
+        total: plain.format(rows.length),
+      }),
+      note: t('{bar} or more on a day', { bar: plain.format(bars.duel) }),
     });
   }
   if (bars.donation !== null) {
     cells.push({
-      label: 'Reached the donation bar',
-      value: `${plain.format(reached((row) => row.donation_days_over))} of ${plain.format(rows.length)}`,
-      note: `${plain.format(bars.donation)} or more on a day`,
+      label: t('Reached the donation bar'),
+      value: t('{count} of {total}', {
+        count: plain.format(reached((row) => row.donation_days_over)),
+        total: plain.format(rows.length),
+      }),
+      note: t('{bar} or more on a day', { bar: plain.format(bars.donation) }),
     });
   }
   return cells;

@@ -1,6 +1,7 @@
 // One server week, Monday first, with room to read every bar: each category
 // under its own label, nothing folded. The default view.
 
+import { useT } from '../../lib/i18n';
 import { WEEKDAYS, mondayOf } from './MonthView';
 import { WeekGrid } from './WeekGrid';
 import { type CalendarEvent, addDays } from './data';
@@ -25,31 +26,32 @@ export function WeekView({
   onPickDay: (day: string) => void;
   onOpen: (event: CalendarEvent) => void;
 }) {
+  const t = useT();
   const monday = mondayOf(day);
   const keys = WEEKDAYS.map((_, index) => addDays(monday, index));
   const sunday = keys[6] ?? monday;
 
   return (
-    <section aria-label="Week">
+    <section aria-label={t('Week')}>
       <div className="row calendar-month-nav">
         <button onClick={() => onDay(addDays(monday, -7))} type="button">
-          ← Previous
+          {t('← Previous')}
         </button>
         <h3 className="calendar-month-title">
           {short(monday)} – {short(sunday)}
         </h3>
         <button onClick={() => onDay(addDays(monday, 7))} type="button">
-          Next →
+          {t('Next →')}
         </button>
         <button onClick={() => onDay(today)} type="button">
-          This week
+          {t('This week')}
         </button>
       </div>
       <div className="calendar-month">
         <WeekGrid
           days={keys.map((key, index) => ({
             key,
-            label: `${WEEKDAYS[index]} ${Number(key.slice(8))}`,
+            label: `${t(WEEKDAYS[index] ?? '')} ${Number(key.slice(8))}`,
           }))}
           events={events}
           onOpen={onOpen}

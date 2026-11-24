@@ -1,4 +1,5 @@
 import { getActiveAlliance } from '../../lib/activeAlliance';
+import { type Translate, english } from '../../lib/i18n/core';
 import { supabase } from '../../lib/supabase';
 import { SERVER_ZONE, zonedDayKey, zonedTime } from '../../lib/timezone';
 
@@ -51,8 +52,12 @@ export interface BlackGoldEvent {
   teams: Battle[];
 }
 
-export function teamLabel(teamIndex: number): string {
-  return teamIndex === 1 ? 'Team A' : teamIndex === 2 ? 'Team B' : `Team ${teamIndex}`;
+export function teamLabel(teamIndex: number, t: Translate = english): string {
+  return teamIndex === 1
+    ? t('Team A')
+    : teamIndex === 2
+      ? t('Team B')
+      : t('Team {index}', { index: teamIndex });
 }
 
 export type Outcome = 'win' | 'loss' | 'unknown';
@@ -62,8 +67,8 @@ export function outcome(battle: Pick<Battle, 'state'>): Outcome {
 }
 
 /** When the battle ended, on the game's clock (UTC−2), as the game shows it. */
-export function serverClock(iso: string): string {
-  return `${zonedTime(iso, SERVER_ZONE)} server`;
+export function serverClock(iso: string, t: Translate = english): string {
+  return t('{time} server', { time: zonedTime(iso, SERVER_ZONE) });
 }
 
 /** Group battles into events: the two teams of one event share a server day.

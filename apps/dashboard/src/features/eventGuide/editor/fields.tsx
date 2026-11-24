@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useT } from '../../../lib/i18n';
 import { numberOrUndefined } from './drafts';
 
 // Inputs the section forms share (0310).
@@ -56,11 +57,12 @@ export function RowButtons({
   onMove: (delta: -1 | 1) => void;
   onRemove: () => void;
 }) {
+  const t = useT();
   const n = index + 1;
   return (
     <span className="actions">
       <button
-        aria-label={`Move ${noun} ${n} up`}
+        aria-label={t('Move {noun} {n} up', { noun, n })}
         disabled={index === 0}
         onClick={() => onMove(-1)}
         type="button"
@@ -68,15 +70,15 @@ export function RowButtons({
         ↑
       </button>
       <button
-        aria-label={`Move ${noun} ${n} down`}
+        aria-label={t('Move {noun} {n} down', { noun, n })}
         disabled={index === length - 1}
         onClick={() => onMove(1)}
         type="button"
       >
         ↓
       </button>
-      <button aria-label={`Remove ${noun} ${n}`} onClick={onRemove} type="button">
-        Remove
+      <button aria-label={t('Remove {noun} {n}', { noun, n })} onClick={onRemove} type="button">
+        {t('Remove')}
       </button>
     </span>
   );

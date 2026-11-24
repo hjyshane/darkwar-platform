@@ -5,6 +5,7 @@
 
 import { BarCell } from '../../components/ui/BarCell';
 import { GameIcon, useIcons, useItemIcons } from '../../lib/gameIcons';
+import { useT } from '../../lib/i18n';
 import { chipLabel } from '../calculator/chips';
 import { exact, short } from './format';
 import { type Tiers, levelText } from './levels';
@@ -24,6 +25,7 @@ function Amount({ value }: { value: number }) {
 }
 
 export function Breakdown({ steps, goalNames, buffs, tiers, nameOf, have }: BreakdownProps) {
+  const t = useT();
   const groups = groupSteps(steps);
   const sums = totals(steps, buffs);
   const itemIcons = useItemIcons(sums.materials.filter((m) => m.type === 'item').map((m) => m.id));
@@ -32,7 +34,7 @@ export function Breakdown({ steps, goalNames, buffs, tiers, nameOf, have }: Brea
     (type === 'item' ? itemIcons : resourceIcons).data?.get(id);
   const time = (seconds: { buildSeconds: number; researchSeconds: number }) =>
     seconds.buildSeconds + seconds.researchSeconds > 0
-      ? duration(seconds.buildSeconds + seconds.researchSeconds)
+      ? duration(seconds.buildSeconds + seconds.researchSeconds, t)
       : null;
 
   // How many of the needed materials the account already covers in full, for
@@ -46,7 +48,10 @@ export function Breakdown({ steps, goalNames, buffs, tiers, nameOf, have }: Brea
         {groups.map((g) => {
           const part = totals(g.steps, buffs);
           const title = g.prerequisite
-            ? (g.name ?? `${g.kind === 'research' ? 'Research' : 'Building'} ${g.subject}`)
+            ? (g.name ??
+              (g.kind === 'research'
+                ? t('Research {subject}', { subject: g.subject })
+                : t('Building {subject}', { subject: g.subject })))
             : goalNames[g.goal];
           const levels =
             g.kind === 'building'
@@ -60,8 +65,11 @@ export function Breakdown({ steps, goalNames, buffs, tiers, nameOf, have }: Brea
               <h4>
                 {title}{' '}
                 {g.prerequisite && (
-                  <span className="badge" title={`Needed first by ${goalNames[g.goal]}`}>
-                    needed first
+                  <span
+                    className="badge"
+                    title={t('Needed first by {name}', { name: String(goalNames[g.goal]) })}
+                  >
+                    {t('needed first')}
                   </span>
                 )}
               </h4>
@@ -89,17 +97,24 @@ export function Breakdown({ steps, goalNames, buffs, tiers, nameOf, have }: Brea
         })}
       </div>
 
-      <h4>Total</h4>
+      <h4>{t('Total')}</h4>
       <p className="subtle">
-        {steps.length} steps. Build time {duration(sums.buildSeconds)}
-        {sums.researchSeconds > 0 && `, research time ${duration(sums.researchSeconds)}`} after
-        buffs.
+        {sums.researchSeconds > 0
+          ? t('{count} steps. Build time {build}, research time {research} after buffs.', {
+              count: steps.length,
+              build: duration(sums.buildSeconds, t),
+              research: duration(sums.researchSeconds, t),
+            })
+          : t('{count} steps. Build time {build} after buffs.', {
+              count: steps.length,
+              build: duration(sums.buildSeconds, t),
+            })}
       </p>
       {held.length > 0 && (
         <div className="coverage">
           <BarCell done={covered === held.length} max={held.length} value={covered} />
           <span className="coverage-text">
-            {covered} of {held.length} materials covered
+            {t('{covered} of {total} materials covered', { covered, total: held.length })}
           </span>
         </div>
       )}
@@ -108,19 +123,19 @@ export function Breakdown({ steps, goalNames, buffs, tiers, nameOf, have }: Brea
           <thead>
             <tr>
               <th className="label" scope="col">
-                Material
+                {t('Material')}
               </th>
               <th className="num" scope="col">
-                Needed
+                {t('Needed')}
               </th>
               <th className="num" scope="col">
-                Have
+                {t('Have')}
               </th>
               <th className="num" scope="col">
-                Missing
+                {t('Missing')}
               </th>
               <th scope="col">
-                <span className="visually-hidden">Covered</span>
+                <span className="visually-hidden">{t('Covered')}</span>
               </th>
             </tr>
           </thead>

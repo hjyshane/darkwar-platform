@@ -1,3 +1,4 @@
+import { useT } from '../lib/i18n';
 import { type SortState, ariaSort, sortLevel } from '../lib/tableControls';
 
 /** A column header you can sort by.
@@ -38,6 +39,7 @@ export function SortableTh({
   className?: string;
   children: React.ReactNode;
 }) {
+  const t = useT();
   const keys: readonly SortState[] = sort === null ? [] : Array.isArray(sort) ? sort : [sort];
   const active = keys.find((entry) => entry.key === sortKey);
   const level = sortLevel(sort, sortKey);
@@ -49,7 +51,7 @@ export function SortableTh({
         // Read off the click event, so the keyboard gets it too: shift+Enter on a
         // focused button reports the modifier the same way a shift-click does.
         onClick={(event) => onSort(sortKey, event.shiftKey || event.ctrlKey || event.metaKey)}
-        title="Click to sort. Shift-click to sort by this as well, within the first column."
+        title={t('Click to sort. Shift-click to sort by this as well, within the first column.')}
         type="button"
       >
         {children}

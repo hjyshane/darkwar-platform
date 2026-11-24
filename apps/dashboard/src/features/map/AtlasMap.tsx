@@ -1,6 +1,7 @@
 import { MAP_IMAGE_URL, MAP_INSET, toFraction } from '@dw/ui';
 import { type CSSProperties, type ReactNode, useMemo, useState } from 'react';
 import { useIcons } from '../../lib/gameIcons';
+import { useT } from '../../lib/i18n';
 import { AtlasHover } from './AtlasHover';
 import { useMapZoom } from './PannableMap';
 import {
@@ -67,6 +68,7 @@ export function AtlasMap({
   /** Extra layers drawn over the dots (trucks and plunder missions). */
   children?: ReactNode;
 }) {
+  const t = useT();
   const [hasImage, setHasImage] = useState(true);
   const now = new Date();
   const clumps = useMemo(() => clusters(atlas), [atlas]);
@@ -129,7 +131,7 @@ export function AtlasMap({
       <div className={hasImage ? 'map-frame' : 'map-frame map-frame--empty'}>
         {hasImage && (
           <img
-            alt="World map"
+            alt={t('World map')}
             className="map-frame__image"
             draggable={false}
             onError={() => setHasImage(false)}
@@ -155,7 +157,7 @@ export function AtlasMap({
             if (planning) classes.push('atlas-dot--plan');
             return (
               <button
-                aria-label={base.name ?? 'unnamed'}
+                aria-label={base.name ?? t('unnamed')}
                 className={classes.join(' ')}
                 data-uid={base.gameUid}
                 key={base.gameUid}
@@ -170,7 +172,7 @@ export function AtlasMap({
                   } as CSSProperties
                 }
                 tabIndex={-1}
-                title={`${base.name ?? 'unnamed'} — ${base.at.x}, ${base.at.y}`}
+                title={`${base.name ?? t('unnamed')} — ${base.at.x}, ${base.at.y}`}
                 type="button"
               >
                 {sprite && (
@@ -217,8 +219,8 @@ export function AtlasMap({
                   // In front of the tower standing on it, behind the one in front.
                   zIndex: 11 + slot.y,
                 }}
-                title={`${slot.playerName ?? 'Open tile'} · X:${slot.x} Y:${slot.y} · ${
-                  base ? 'in place' : 'not on its tile'
+                title={`${slot.playerName ?? t('Open tile')} · X:${slot.x} Y:${slot.y} · ${
+                  base ? t('in place') : t('not on its tile')
                 }`}
               >
                 {/* One label a tile, and only where it says something: a base
@@ -241,8 +243,9 @@ export function AtlasMap({
 /** The tag after a base's name: the shield time left when it has one, the real
  * power otherwise, and the HQ level when neither is known. */
 function NameChip({ base, now }: { base: AtlasBase; now: Date }) {
+  const t = useT();
   const left = isShielded(base, now) && base.shieldEnd ? shieldLeft(base.shieldEnd, now) : null;
   if (left) return <em className="atlas-dot__shield">{left}</em>;
   if (base.power !== null) return <em>{formatPower(base.power)}</em>;
-  return base.hq !== null ? <em>HQ{base.hq}</em> : null;
+  return base.hq !== null ? <em>{t('HQ{level}', { level: base.hq })}</em> : null;
 }

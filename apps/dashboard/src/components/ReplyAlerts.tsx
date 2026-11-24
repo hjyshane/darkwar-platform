@@ -1,3 +1,4 @@
+import { rich, useT } from '../lib/i18n';
 import { useMarkAlertsRead, useReplyAlerts } from '../lib/replyAlerts';
 import { guideHash, noticeHash } from '../lib/route';
 
@@ -22,6 +23,7 @@ const when = new Intl.DateTimeFormat('en-GB', {
 });
 
 export function ReplyAlerts() {
+  const t = useT();
   const { data } = useReplyAlerts();
   const markRead = useMarkAlertsRead();
 
@@ -34,17 +36,19 @@ export function ReplyAlerts() {
   }
 
   return (
-    <aside aria-label="New replies" className="reply-alerts">
+    <aside aria-label={t('New replies')} className="reply-alerts">
       <div className="reply-alerts-head">
         <strong>
-          {alerts.length} new {alerts.length === 1 ? 'reply' : 'replies'}
+          {alerts.length === 1
+            ? t('{count} new reply', { count: alerts.length })
+            : t('{count} new replies', { count: alerts.length })}
         </strong>
         <button
           disabled={markRead.isPending}
           onClick={() => markRead.mutate(alerts.map((alert) => alert.notificationId))}
           type="button"
         >
-          Mark all read
+          {t('Mark all read')}
         </button>
       </div>
       <ul>
@@ -56,10 +60,16 @@ export function ReplyAlerts() {
             >
               {/* The name first, because "who answered me" is the question.
                   A dash where a name cannot be resolved, never "Unknown". */}
-              <span className="post-author">{alert.authorName ?? '—'}</span> replied on the{' '}
-              {alert.board === 'guide' ? 'guides' : 'notices'} board
+              {rich(
+                alert.board === 'guide'
+                  ? t('{name} replied on the guides board')
+                  : t('{name} replied on the notices board'),
+                { name: <span className="post-author">{alert.authorName ?? '—'}</span> },
+              )}
             </a>
-            <time dateTime={alert.createdAt}>{when.format(new Date(alert.createdAt))} UTC</time>
+            <time dateTime={alert.createdAt}>
+              {t('{time} UTC', { time: when.format(new Date(alert.createdAt)) })}
+            </time>
           </li>
         ))}
       </ul>

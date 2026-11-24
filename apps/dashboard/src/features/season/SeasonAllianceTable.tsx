@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { ArrangedTable, type Column } from '../../components/ArrangedTable';
 import { TableSearch } from '../../components/TableSearch';
+import { useT } from '../../lib/i18n';
 import { allianceHash, serverHash } from '../../lib/route';
 import type { ColumnSpec } from '../../lib/tableLayout';
 import { TERMS } from '../../lib/terms';
@@ -39,13 +40,14 @@ function formatNumber(value: number | null): string {
  * colours. The title spells it out for a screen reader.
  */
 function Movement({ row }: { row: SeasonAllianceRow }) {
+  const t = useT();
   const moved = movement(row.rank, row.previousRank);
   if (moved === null) {
     return <span className="muted">—</span>;
   }
   if (moved.direction === 'flat') {
     return (
-      <span className="muted" title="No change since the previous board">
+      <span className="muted" title={t('No change since the previous board')}>
         –
       </span>
     );
@@ -54,7 +56,15 @@ function Movement({ row }: { row: SeasonAllianceRow }) {
   return (
     <span
       className={up ? 'movement-up' : 'movement-down'}
-      title={`${up ? 'Up' : 'Down'} ${moved.places} ${moved.places === 1 ? 'place' : 'places'} since the previous board`}
+      title={
+        up
+          ? moved.places === 1
+            ? t('Up {count} place since the previous board', { count: moved.places })
+            : t('Up {count} places since the previous board', { count: moved.places })
+          : moved.places === 1
+            ? t('Down {count} place since the previous board', { count: moved.places })
+            : t('Down {count} places since the previous board', { count: moved.places })
+      }
     >
       {up ? '▲' : '▼'} {moved.places}
     </span>
@@ -62,6 +72,7 @@ function Movement({ row }: { row: SeasonAllianceRow }) {
 }
 
 export function SeasonAllianceTable({ rows }: { rows: SeasonAllianceRow[] }) {
+  const t = useT();
   const { query, setQuery, sort, onSort, view, shown, total } = useTableView(rows, SEARCH_FIELDS, {
     key: 'rank',
     direction: 'asc',
@@ -131,13 +142,13 @@ export function SeasonAllianceTable({ rows }: { rows: SeasonAllianceRow[] }) {
   );
 
   if (rows.length === 0) {
-    return <p className="empty">No season alliance board captured yet.</p>;
+    return <p className="empty">{t('No season alliance board captured yet.')}</p>;
   }
   return (
     <>
       <TableSearch
-        label="Search alliances"
-        unit="alliances"
+        label={t('Search alliances')}
+        unit={t('alliances')}
         onChange={setQuery}
         shown={shown}
         total={total}
@@ -151,7 +162,9 @@ export function SeasonAllianceTable({ rows }: { rows: SeasonAllianceRow[] }) {
         sort={sort}
         tableId={TABLE_ID}
       />
-      {view.length === 0 && <p className="empty">No alliance matches “{query}”.</p>}
+      {view.length === 0 && (
+        <p className="empty">{t('No alliance matches “{query}”.', { query })}</p>
+      )}
     </>
   );
 }

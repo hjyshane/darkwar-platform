@@ -11,6 +11,8 @@
 
 import { useState } from 'react';
 import { useEditMode } from '../../lib/editMode';
+import { useT } from '../../lib/i18n';
+import { type Translate, english } from '../../lib/i18n/core';
 import { EVENTS_HUB_TABS, type NavTab, type Route, eventsTabOffered } from '../../lib/route';
 import { FALLBACK_SEASONS, currentSeason, pastSeason, useSeasons } from '../../lib/seasons';
 import {
@@ -41,11 +43,12 @@ export function eventsTabs(
   defaults: Readonly<Record<string, string | undefined>>,
   o: Overrides,
   showHidden: boolean,
+  t: Translate = english,
 ): ShownTab[] {
   return arrange(tabs, (tab) => tab.route, o, EVENTS_SCOPE)
     .map((tab) => ({
       ...tab,
-      shownLabel: labelOf(o, EVENTS_SCOPE, tab.route, defaults[tab.hash] ?? tab.label),
+      shownLabel: labelOf(o, EVENTS_SCOPE, tab.route, defaults[tab.hash] ?? t(tab.label)),
       hidden: isHidden(o, EVENTS_SCOPE, tab.route),
     }))
     .filter((tab) => showHidden || !tab.hidden);
@@ -65,6 +68,7 @@ export function useFirstEventsRoute(): Route {
 }
 
 export function EventsTabs({ route }: { route: Route }) {
+  const t = useT();
   const { data: session } = useSession();
   const seasons = useSeasons();
   const overrides = useUiOverrides();
@@ -85,7 +89,7 @@ export function EventsTabs({ route }: { route: Route }) {
   const offered = EVENTS_HUB_TABS.filter((tab) =>
     eventsTabOffered(tab.route, { isAdmin, isOfficer: session?.role === 'officer' }),
   );
-  const tabs = eventsTabs(offered, defaults, overrides, editing);
+  const tabs = eventsTabs(offered, defaults, overrides, editing, t);
   const shown = tabs.filter((tab) => !tab.hidden);
   // `events` is the bare address and shows the first tab.
   const active = route === 'events' ? shown[0]?.route : route;
@@ -139,7 +143,7 @@ export function EventsTabs({ route }: { route: Route }) {
 
   if (!editing) {
     return (
-      <nav aria-label="Events" className="tabs row">
+      <nav aria-label={t('Events')} className="tabs row">
         {shown.map((tab) => (
           <a
             aria-current={tab.route === active ? 'page' : undefined}

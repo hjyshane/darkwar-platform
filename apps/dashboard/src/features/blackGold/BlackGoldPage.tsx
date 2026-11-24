@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Fragment, useState } from 'react';
 import { Strip } from '../../components/Strip';
+import { useT } from '../../lib/i18n';
 import { TERMS } from '../../lib/terms';
 import { BattleDetail, STALE_TIME, num } from './BattleDetail';
 import { Battlefield } from './BattlefieldMap';
@@ -20,13 +21,14 @@ import { blackGoldStrip } from './strip';
 const COLUMNS = 6;
 
 function ResultBadge({ battle }: { battle: Battle }) {
+  const t = useT();
   const o = outcome(battle);
   if (o === 'unknown') return <span className="muted">—</span>;
   // Glyph AND word, not colour alone: the colour reinforces what is written.
   return o === 'win' ? (
-    <span className="badge badge-win">✓ Win</span>
+    <span className="badge badge-win">✓ {t('Win')}</span>
   ) : (
-    <span className="badge badge-loss">✗ Loss</span>
+    <span className="badge badge-loss">✗ {t('Loss')}</span>
   );
 }
 
@@ -48,6 +50,7 @@ function Score({ battle }: { battle: Battle }) {
 }
 
 export function BlackGoldPage() {
+  const t = useT();
   const battles = useQuery({
     queryKey: ['blackGold', 'battles'],
     queryFn: fetchBattles,
@@ -70,12 +73,12 @@ export function BlackGoldPage() {
           <div>
             <h2 id="black-gold-heading">{TERMS.blackGold}</h2>
             <p className="entity-meta">
-              <span>Our two teams, event by event</span>
-              <span>Server time, UTC−2</span>
+              <span>{t('Our two teams, event by event')}</span>
+              <span>{t('Server time, UTC−2')}</span>
             </p>
           </div>
         </header>
-        {battles.data && <Strip cells={blackGoldStrip(battles.data)} />}
+        {battles.data && <Strip cells={blackGoldStrip(battles.data, t)} />}
       </div>
 
       <Battlefield />
@@ -83,12 +86,14 @@ export function BlackGoldPage() {
       <BgbPlanPanel />
 
       <div className="panel">
-        {battles.isPending && <p className="empty loading">Loading…</p>}
+        {battles.isPending && <p className="empty loading">{t('Loading…')}</p>}
         {battles.error && (
-          <p className="error">Could not load the battles: {battles.error.message}</p>
+          <p className="error">
+            {t('Could not load the battles: {error}', { error: battles.error.message })}
+          </p>
         )}
         {battles.data && events.length === 0 && (
-          <p className="empty">No Black Gold battle has been captured yet.</p>
+          <p className="empty">{t('No Black Gold battle has been captured yet.')}</p>
         )}
 
         {events.length > 0 && (
@@ -98,15 +103,15 @@ export function BlackGoldPage() {
             <table className="compact bm-events">
               <thead>
                 <tr>
-                  <th scope="col">Event</th>
-                  <th scope="col">Team</th>
-                  <th scope="col">Result</th>
-                  <th scope="col">Opponent</th>
+                  <th scope="col">{t('Event')}</th>
+                  <th scope="col">{t('Team')}</th>
+                  <th scope="col">{t('Result')}</th>
+                  <th scope="col">{t('Opponent')}</th>
                   <th scope="col" className="numeric">
-                    Score <span className="muted">(us : them)</span>
+                    {t('Score')} <span className="muted">{t('(us : them)')}</span>
                   </th>
                   <th scope="col" className="numeric">
-                    Entered
+                    {t('Entered')}
                   </th>
                 </tr>
               </thead>
@@ -130,9 +135,9 @@ export function BlackGoldPage() {
                               onClick={() => setOpenKey(open ? null : key)}
                             >
                               <span aria-hidden="true">{open ? '▾' : '▸'}</span>{' '}
-                              {teamLabel(battle.team_index)}
+                              {teamLabel(battle.team_index, t)}
                             </button>{' '}
-                            <span className="muted">{serverClock(battle.battle_ended_at)}</span>
+                            <span className="muted">{serverClock(battle.battle_ended_at, t)}</span>
                           </td>
                           <td>
                             <ResultBadge battle={battle} />
@@ -165,12 +170,9 @@ export function BlackGoldPage() {
 
         {events.length > 0 && (
           <p className="note">
-            Open a team to see who was listed and who played. The list is the last signup reading
-            taken before the battle ended. Scores come from the battle report, which every member
-            gets as alliance mail; until one of our accounts loads it into the collector, who played
-            is unknown rather than nobody. An older report is further down the mailbox — scrolling
-            to it is enough to capture it. The team score is the battle&apos;s own points and is not
-            the sum of the players&apos; scores.
+            {t(
+              "Open a team to see who was listed and who played. The list is the last signup reading taken before the battle ended. Scores come from the battle report, which every member gets as alliance mail; until one of our accounts loads it into the collector, who played is unknown rather than nobody. An older report is further down the mailbox — scrolling to it is enough to capture it. The team score is the battle's own points and is not the sum of the players' scores.",
+            )}
           </p>
         )}
       </div>

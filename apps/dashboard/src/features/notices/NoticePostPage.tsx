@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useT } from '../../lib/i18n';
 import { noticeHash } from '../../lib/route';
 import { supabase } from '../../lib/supabase';
 import { useSession } from '../../lib/useSession';
@@ -17,6 +18,7 @@ import {
  * is added is editing and removal, which are admin-only (RLS on
  * `announcements`, not this file). */
 export function NoticePostPage({ noticeId }: { noticeId: string }) {
+  const t = useT();
   const { data: session } = useSession();
   const isAdmin = session?.role === 'admin';
   const [draft, setDraft] = useState<NoticeDraft | null>(null);
@@ -81,11 +83,11 @@ export function NoticePostPage({ noticeId }: { noticeId: string }) {
   return (
     <BoardPostPage
       backHref="#/notices"
-      backLabel="All notices"
+      backLabel={t('All notices')}
       config={NOTICES}
       postId={noticeId}
       hrefFor={noticeHash}
-      tagLabel={visibilityLabel}
+      tagLabel={(value) => visibilityLabel(value, t)}
     >
       {draft !== null ? (
         <NoticeEditor

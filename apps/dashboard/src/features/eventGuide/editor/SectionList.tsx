@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { type Translate, useT } from '../../../lib/i18n';
 import type { PickerResult } from '../guideData';
 import type { ScoreItemMap } from '../scoreItems';
 import { isSectionKind } from '../sections/common';
@@ -43,6 +44,24 @@ export interface SectionListProps {
 
 const STEP = 10;
 
+/** A section kind as the editor names it: `point_table` reads "point table". */
+function kindLabel(kind: SectionKind, t: Translate): string {
+  switch (kind) {
+    case 'rewards':
+      return t('rewards');
+    case 'stages':
+      return t('stages');
+    case 'point_table':
+      return t('point table');
+    case 'prep':
+      return t('prep');
+    case 'sources':
+      return t('sources');
+    case 'notes':
+      return t('notes');
+  }
+}
+
 /** A section being written, not yet in the table. */
 interface NewDraft {
   key: string;
@@ -50,6 +69,7 @@ interface NewDraft {
 }
 
 export function SectionList(props: SectionListProps) {
+  const t = useT();
   const { sections, onSaveSection } = props;
   const { guideId } = props;
   const [drafts, setDrafts] = useState<NewDraft[]>([]);
@@ -98,17 +118,17 @@ export function SectionList(props: SectionListProps) {
         ))}
       </ul>
       <div className="eg-actions">
-        <span className="eg-kind">Add a section</span>
+        <span className="eg-kind">{t('Add a section')}</span>
         {SECTION_KINDS.map((kind) => (
           <button
-            aria-label={`Add ${kind} section`}
+            aria-label={t('Add {kind} section', { kind })}
             key={kind}
             onClick={() =>
               setDrafts((all) => [...all, { key: `${kind}-${Date.now()}-${all.length}`, kind }])
             }
             type="button"
           >
-            {kind.replace('_', ' ')}
+            {kindLabel(kind, t)}
           </button>
         ))}
       </div>
@@ -129,6 +149,7 @@ function ClientSection({
   canDelete,
   search,
 }: SectionListProps & { section: GuideSection }) {
+  const t = useT();
   const parsed = parseSection(section.kind, section.payload);
   const [message, setMessage] = useState<string | null>(null);
   const run = (work: Promise<void>) =>
@@ -149,19 +170,19 @@ function ClientSection({
   return (
     <>
       <div className="eg-section-head">
-        <strong>{section.title ?? 'Imported scores'}</strong>
-        <span className="eg-kind">point table · imported</span>
+        <strong>{section.title ?? t('Imported scores')}</strong>
+        <span className="eg-kind">{t('point table · imported')}</span>
       </div>
-      <p className="eg-reason">Written by the importer. Re-import to refresh.</p>
+      <p className="eg-reason">{t('Written by the importer. Re-import to refresh.')}</p>
       <div className="eg-rows table-wrap">
         <table className="compact">
           <thead>
             <tr>
-              <th scope="col">Action</th>
+              <th scope="col">{t('Action')}</th>
               <th className="num" scope="col">
-                Points
+                {t('Points')}
               </th>
-              <th scope="col">Item (shared by every event that reuses this score)</th>
+              <th scope="col">{t('Item (shared by every event that reuses this score)')}</th>
             </tr>
           </thead>
           <tbody>
@@ -219,6 +240,7 @@ function OfficerSection({
   onDeleteSection,
   onDiscard,
 }: SectionListProps & { initial: Initial; onDiscard?: () => void }) {
+  const t = useT();
   // A section being written starts from emptyPayload, which need not PARSE
   // (empty notes have no text yet): the form is where it gets valid. A stored
   // section must parse, or the guide leaves it out and so does this form.
@@ -250,10 +272,10 @@ function OfficerSection({
   // Bound here: `save` below is a hoisted declaration, which TypeScript does
   // not narrow `kind` inside.
   const sectionKind: SectionKind = kind;
-  const result = validateDraft(sectionKind, payload);
+  const result = validateDraft(sectionKind, payload, t);
   const orderNumber = Number(order);
   const orderOk = order.trim() !== '' && Number.isInteger(orderNumber);
-  const reason = result.ok ? (orderOk ? null : 'Order must be a whole number.') : result.reason;
+  const reason = result.ok ? (orderOk ? null : t('Order must be a whole number.')) : result.reason;
 
   async function save() {
     if (reason !== null) return;
@@ -267,9 +289,12 @@ function OfficerSection({
         sort_order: orderNumber,
         payload: result.ok ? result.section.payload : payload,
       });
-      setMessage({ text: 'Saved.', failed: false });
+      setMessage({ text: t('Saved.'), failed: false });
     } catch (failure) {
-      setMessage({ text: `Could not save: ${(failure as Error).message}`, failed: true });
+      setMessage({
+        text: t('Could not save: {error}', { error: (failure as Error).message }),
+        failed: true,
+      });
     } finally {
       setBusy(false);
     }
@@ -280,12 +305,15 @@ function OfficerSection({
       onDiscard?.();
       return;
     }
-    if (!window.confirm('Delete this section? This cannot be undone.')) return;
+    if (!window.confirm(t('Delete this section? This cannot be undone.'))) return;
     setBusy(true);
     try {
       await onDeleteSection(initial.section_id);
     } catch (failure) {
-      setMessage({ text: `Could not delete: ${(failure as Error).message}`, failed: true });
+      setMessage({
+        text: t('Could not delete: {error}', { error: (failure as Error).message }),
+        failed: true,
+      });
       setBusy(false);
     }
   }
@@ -293,16 +321,16 @@ function OfficerSection({
   return (
     <>
       <div className="eg-section-head">
-        <span className="eg-kind">{kind.replace('_', ' ')}</span>
-        {initial.section_id === undefined && <span className="eg-draft">NEW</span>}
+        <span className="eg-kind">{kindLabel(kind, t)}</span>
+        {initial.section_id === undefined && <span className="eg-draft">{t('NEW')}</span>}
       </div>
       <div className="eg-form-row">
         <label className="eg-field">
-          Title (optional)
+          {t('Title (optional)')}
           <input onChange={(e) => setTitle(e.target.value)} type="text" value={title} />
         </label>
         <label className="eg-field">
-          Order
+          {t('Order')}
           <input
             inputMode="numeric"
             onChange={(e) => setOrder(e.target.value)}
@@ -320,11 +348,11 @@ function OfficerSection({
       />
       <div className="eg-actions">
         <button className="primary" disabled={reason !== null || busy} onClick={save} type="button">
-          Save section
+          {t('Save section')}
         </button>
         {(canDelete || initial.section_id === undefined) && (
           <button disabled={busy} onClick={remove} type="button">
-            {initial.section_id === undefined ? 'Discard' : 'Delete section'}
+            {initial.section_id === undefined ? t('Discard') : t('Delete section')}
           </button>
         )}
         {reason !== null && <span className="eg-reason">{reason}</span>}
@@ -343,24 +371,27 @@ function UnreadableSection({
   canDelete: boolean;
   onDelete: () => Promise<void>;
 }) {
+  const t = useT();
   return (
     <>
       <div className="eg-section-head">
-        <strong>{title ?? 'Untitled section'}</strong>
+        <strong>{title ?? t('Untitled section')}</strong>
       </div>
-      <p className="error">This section cannot be read.</p>
+      <p className="error">{t('This section cannot be read.')}</p>
       <p className="eg-reason">
-        Its data does not match its kind, so the guide leaves it out. Delete it and write it again.
+        {t(
+          'Its data does not match its kind, so the guide leaves it out. Delete it and write it again.',
+        )}
       </p>
       {canDelete && (
         <div className="eg-actions">
           <button
             onClick={() => {
-              if (window.confirm('Delete this section? This cannot be undone.')) void onDelete();
+              if (window.confirm(t('Delete this section? This cannot be undone.'))) void onDelete();
             }}
             type="button"
           >
-            Delete section
+            {t('Delete section')}
           </button>
         </div>
       )}

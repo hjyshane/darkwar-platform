@@ -1,3 +1,5 @@
+import { type Translate, english } from '../../lib/i18n/core';
+
 /** Changing the address your account signs in with.
  *
  * UNLIKE THE PASSWORD, THIS ONE NEEDS EMAIL TO WORK. `updateUser({ email })`
@@ -19,19 +21,23 @@
  * strict regex here would reject valid addresses that the real validator
  * accepts, which is the worse failure.
  */
-export function emailProblem(next: string, current: string | null): string | null {
+export function emailProblem(
+  next: string,
+  current: string | null,
+  t: Translate = english,
+): string | null {
   const trimmed = next.trim();
   if (trimmed === '') {
     return null;
   }
   if (!trimmed.includes('@') || trimmed.startsWith('@') || trimmed.endsWith('@')) {
-    return 'That does not look like an address.';
+    return t('That does not look like an address.');
   }
   if (trimmed.includes(' ')) {
-    return 'Addresses do not contain spaces.';
+    return t('Addresses do not contain spaces.');
   }
   if (current !== null && trimmed.toLowerCase() === current.toLowerCase()) {
-    return 'That is already your address.';
+    return t('That is already your address.');
   }
   return null;
 }

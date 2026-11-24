@@ -522,7 +522,7 @@ export interface AssignableMember {
 /** How the strongest member is decided when filling a formation. */
 export type AssignOrder = 'power' | 'hq' | 'rank' | 'name';
 
-const ORDER_LABELS: Record<AssignOrder, string> = {
+export const ORDER_LABELS: Record<AssignOrder, string> = {
   power: 'Power, strongest first',
   hq: 'HQ level, highest first',
   rank: 'Alliance rank, R5 first',

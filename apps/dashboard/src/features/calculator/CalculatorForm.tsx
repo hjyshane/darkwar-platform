@@ -4,6 +4,7 @@
 
 import { useId, useState } from 'react';
 import { Select } from '../../components/ui/Select';
+import { rich, useT } from '../../lib/i18n';
 import type { Subject } from '../planner/data';
 import type { Tiers } from '../planner/levels';
 import {
@@ -65,6 +66,7 @@ export function CalculatorForm({
   onTree,
   onChange,
 }: CalculatorFormProps) {
+  const t = useT();
   const id = useId();
   const [query, setQuery] = useState('');
   const fields = buffFields(state.kind);
@@ -76,7 +78,7 @@ export function CalculatorForm({
     current !== null && !found.some((s) => s.subject === current.subject)
       ? [current, ...found]
       : found;
-  const name = (level: number) => levelName(state.kind, state.subject ?? '', level, tiers);
+  const name = (level: number) => levelName(state.kind, state.subject ?? '', level, tiers, t);
 
   const pick = (subjectId: string) => {
     const next = pool.find((s) => s.subject === subjectId);
@@ -90,11 +92,11 @@ export function CalculatorForm({
   return (
     <form className="calc-form" onSubmit={(event) => event.preventDefault()}>
       <div className="field">
-        <label htmlFor={`${id}-kind`}>Kind</label>
+        <label htmlFor={`${id}-kind`}>{t('Kind')}</label>
         <Select id={`${id}-kind`} onChange={(v) => onKind(v as FormKind)} value={formKind}>
           {KIND_OPTIONS.map((kind) => (
             <option key={kind.id} value={kind.id}>
-              {kind.label}
+              {t(kind.label)}
             </option>
           ))}
         </Select>
@@ -102,7 +104,7 @@ export function CalculatorForm({
 
       {formKind === 'season' && seasons.length > 0 && (
         <div className="field">
-          <label htmlFor={`${id}-season`}>Season</label>
+          <label htmlFor={`${id}-season`}>{t('Season')}</label>
           <Select
             id={`${id}-season`}
             onChange={(v) => onSeason(Number(v))}
@@ -119,7 +121,7 @@ export function CalculatorForm({
 
       {trees.length > 0 && (
         <div className="field">
-          <label htmlFor={`${id}-tree`}>Tree</label>
+          <label htmlFor={`${id}-tree`}>{t('Tree')}</label>
           <Select id={`${id}-tree`} onChange={(v) => onTree(Number(v))} value={tree ?? ''}>
             {trees.map((group) => (
               <option key={group.tabId} value={group.tabId}>
@@ -132,12 +134,12 @@ export function CalculatorForm({
 
       {pool.length > 8 && (
         <div className="field">
-          <label htmlFor={`${id}-find`}>Find</label>
+          <label htmlFor={`${id}-find`}>{t('Find')}</label>
           <input
             autoComplete="off"
             id={`${id}-find`}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Name, English or Korean"
+            placeholder={t('Name, English or Korean')}
             type="search"
             value={query}
           />
@@ -145,14 +147,16 @@ export function CalculatorForm({
       )}
 
       <div className="field">
-        <label htmlFor={`${id}-subject`}>Subject</label>
+        <label htmlFor={`${id}-subject`}>{t('Subject')}</label>
         <Select
           disabled={loading}
           id={`${id}-subject`}
           onChange={pick}
           value={current?.subject ?? ''}
         >
-          <option value="">{loading ? 'Loading…' : `Choose (${found.length})`}</option>
+          <option value="">
+            {loading ? t('Loading…') : t('Choose ({count})', { count: found.length })}
+          </option>
           {options.map((s) => (
             <option key={s.subject} value={s.subject}>
               {s.name}
@@ -164,7 +168,7 @@ export function CalculatorForm({
       {current !== null && (
         <div className="calc-pair">
           <div className="field">
-            <label htmlFor={`${id}-from`}>From</label>
+            <label htmlFor={`${id}-from`}>{t('From')}</label>
             <Select
               id={`${id}-from`}
               onChange={(v) => {
@@ -181,7 +185,7 @@ export function CalculatorForm({
             </Select>
           </div>
           <div className="field">
-            <label htmlFor={`${id}-to`}>To</label>
+            <label htmlFor={`${id}-to`}>{t('To')}</label>
             <Select
               id={`${id}-to`}
               onChange={(v) => onChange({ ...state, to: Number(v) })}
@@ -203,7 +207,7 @@ export function CalculatorForm({
           <div className="calc-pair">
             {fields.speed && (
               <div className="field">
-                <label htmlFor={`${id}-speed`}>Speed bonus %</label>
+                <label htmlFor={`${id}-speed`}>{t('Speed bonus %')}</label>
                 <input
                   id={`${id}-speed`}
                   inputMode="decimal"
@@ -219,7 +223,7 @@ export function CalculatorForm({
             )}
             {fields.cost && (
               <div className="field">
-                <label htmlFor={`${id}-cost`}>Cost reduction %</label>
+                <label htmlFor={`${id}-cost`}>{t('Cost reduction %')}</label>
                 <input
                   id={`${id}-cost`}
                   inputMode="decimal"
@@ -242,20 +246,22 @@ export function CalculatorForm({
         // Open when the link asked for it, so a shared link shows why its
         // totals are larger.
         <details className="calc-advanced" open={state.prereqs || undefined}>
-          <summary>Advanced</summary>
+          <summary>{t('Advanced')}</summary>
           <label className="calc-check">
             <input
               checked={state.prereqs}
               onChange={(event) => onChange({ ...state, prereqs: event.target.checked })}
               type="checkbox"
             />
-            Include what it needs first
+            {t('Include what it needs first')}
           </label>
           <p className="calc-hint">
             {state.kind === 'research'
-              ? 'The research and buildings this range asks for, priced with it.'
-              : 'The other buildings this range asks for, priced with it.'}{' '}
-            For one account's own levels and stock, open the <a href="#/planner">planner</a>.
+              ? t('The research and buildings this range asks for, priced with it.')
+              : t('The other buildings this range asks for, priced with it.')}{' '}
+            {rich(t("For one account's own levels and stock, open the {planner}."), {
+              planner: <a href="#/planner">{t('planner')}</a>,
+            })}
           </p>
         </details>
       )}

@@ -8,6 +8,7 @@
 
 import type { Coordinate } from '@dw/ui';
 import { useQuery } from '@tanstack/react-query';
+import { type Translate, english } from '../../lib/i18n/core';
 import { shareCoordinate } from '../../lib/shareCoordinate';
 import { supabase } from '../../lib/supabase';
 
@@ -60,12 +61,12 @@ export function shareLabel(site: Pick<TreasureSite, 'serverId' | 'gameAt'>): str
 }
 
 /** One line for a pin's tooltip. */
-export function siteTitle(site: TreasureSite): string {
+export function siteTitle(site: TreasureSite, t: Translate = english): string {
   const state = isUnlit(site)
-    ? 'unlit lantern'
+    ? t('unlit lantern')
     : site.status === 2
-      ? `open · ${site.participants} exploring`
-      : 'being lit';
+      ? t('open · {count} exploring', { count: site.participants })
+      : t('being lit');
   return `Large Treasure Spot · ${shareLabel(site)} · ${state}`;
 }
 

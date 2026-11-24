@@ -4,6 +4,8 @@
 // a login token for the player's store account: nothing in here logs, stores or
 // returns more than the one value that was asked for.
 
+import { type Translate, english } from '../../lib/i18n/core';
+
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
 const UUID_PARAM = /[?&]uuid=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i;
 
@@ -34,13 +36,18 @@ export function extractGiftKey(pasted: string): KeyPaste {
   return { ok: true, key: [...found][0] as string };
 }
 
-export function pasteProblem(result: Exclude<KeyPaste, { ok: true }>): string {
+export function pasteProblem(
+  result: Exclude<KeyPaste, { ok: true }>,
+  t: Translate = english,
+): string {
   switch (result.reason) {
     case 'empty':
-      return 'Paste your Gift Center link, or the key from it.';
+      return t('Paste your Gift Center link, or the key from it.');
     case 'none':
-      return 'No key found there. It looks like 8-4-4-4-12 letters and digits, after uuid= in the link.';
+      return t(
+        'No key found there. It looks like 8-4-4-4-12 letters and digits, after uuid= in the link.',
+      );
     case 'several':
-      return 'More than one key in that text. Paste only your own link.';
+      return t('More than one key in that text. Paste only your own link.');
   }
 }

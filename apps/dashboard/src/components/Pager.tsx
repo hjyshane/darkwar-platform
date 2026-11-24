@@ -1,3 +1,4 @@
+import { useT } from '../lib/i18n';
 import { pageNumbers } from '../lib/pagination';
 
 /** << ‹ 1 2 3 › >>
@@ -19,6 +20,7 @@ export function Pager({
   pageCount: number;
   onGo: (page: number) => void;
 }) {
+  const t = useT();
   // One page needs no pager. Drawing a disabled "1" is furniture that says
   // nothing.
   if (pageCount <= 1) {
@@ -27,12 +29,12 @@ export function Pager({
   const first = page === 1;
   const last = page === pageCount;
   return (
-    <nav aria-label="Pages" className="pager">
-      <button aria-label="First page" disabled={first} onClick={() => onGo(1)} type="button">
+    <nav aria-label={t('Pages')} className="pager">
+      <button aria-label={t('First page')} disabled={first} onClick={() => onGo(1)} type="button">
         «
       </button>
       <button
-        aria-label="Previous page"
+        aria-label={t('Previous page')}
         disabled={first}
         onClick={() => onGo(page - 1)}
         type="button"
@@ -50,10 +52,20 @@ export function Pager({
           {number}
         </button>
       ))}
-      <button aria-label="Next page" disabled={last} onClick={() => onGo(page + 1)} type="button">
+      <button
+        aria-label={t('Next page')}
+        disabled={last}
+        onClick={() => onGo(page + 1)}
+        type="button"
+      >
         ›
       </button>
-      <button aria-label="Last page" disabled={last} onClick={() => onGo(pageCount)} type="button">
+      <button
+        aria-label={t('Last page')}
+        disabled={last}
+        onClick={() => onGo(pageCount)}
+        type="button"
+      >
         »
       </button>
     </nav>

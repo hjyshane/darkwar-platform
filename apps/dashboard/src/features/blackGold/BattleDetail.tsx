@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { StatTile } from '../../components/StatTile';
+import { useT } from '../../lib/i18n';
+import { type Translate, english } from '../../lib/i18n/core';
 import { BattleMembersTable } from './BattleMembersTable';
 import {
   type Battle,
@@ -23,8 +25,8 @@ export function num(value: number | null | undefined): string {
  * invalidation still applies when a capture lands. */
 export const STALE_TIME = 10 * 60_000;
 
-function opponentLabel(battle: Battle): string {
-  return battle.enemy_abbr ? `[${battle.enemy_abbr}]` : 'opponent';
+function opponentLabel(battle: Battle, t: Translate = english): string {
+  return battle.enemy_abbr ? `[${battle.enemy_abbr}]` : t('opponent');
 }
 
 /** What opens under a battle's row: the figures, then who was there.
@@ -33,6 +35,7 @@ function opponentLabel(battle: Battle): string {
  * is open, and so closing the row drops it from the page rather than leaving
  * a table nobody is looking at mounted below the fold. */
 export function BattleDetail({ battle }: { battle: Battle }) {
+  const t = useT();
   const [showOpponent, setShowOpponent] = useState(false);
   const members = useQuery({
     queryKey: ['blackGold', 'members', battle.battle_ended_at, battle.team_index],
@@ -71,12 +74,12 @@ export function BattleDetail({ battle }: { battle: Battle }) {
     <div className="bm-detail">
       <div className="stats">
         <StatTile
-          label="Entered"
+          label={t('Entered')}
           value={num(battle.user_num)}
-          note={`of ${num(battle.max_user_num)} starter places`}
+          note={t('of {count} starter places', { count: num(battle.max_user_num) })}
         />
         <StatTile
-          label="On the list"
+          label={t('On the list')}
           value={
             battle.signup_read_at === null
               ? '—'
@@ -84,30 +87,34 @@ export function BattleDetail({ battle }: { battle: Battle }) {
           }
           note={
             battle.signup_read_at === null
-              ? 'no signup reading before this battle'
-              : 'starters + substitutes'
+              ? t('no signup reading before this battle')
+              : t('starters + substitutes')
           }
         />
         <StatTile
-          label="Did not play"
+          label={t('Did not play')}
           value={battle.report_seen ? num(absent.length) : '—'}
           note={
-            battle.report_seen ? 'listed, but not in the battle report' : 'report not captured yet'
+            battle.report_seen
+              ? t('listed, but not in the battle report')
+              : t('report not captured yet')
           }
         />
       </div>
 
-      {members.isPending && <p className="empty loading">Loading…</p>}
+      {members.isPending && <p className="empty loading">{t('Loading…')}</p>}
       {members.error && (
-        <p className="error">Could not load the members: {members.error.message}</p>
+        <p className="error">
+          {t('Could not load the members: {error}', { error: members.error.message })}
+        </p>
       )}
       {members.data && (
         <BattleMembersTable history={history.data} members={members.data} misses={misses} />
       )}
       <p className="note">
-        Starter miss and Sub miss count every battle since the 2026-09-27 event in which the member
-        was listed in that role and is not in the battle report — shown as misses out of those
-        battles. Battles whose report has not been captured do not count either way.
+        {t(
+          'Starter miss and Sub miss count every battle since the 2026-09-27 event in which the member was listed in that role and is not in the battle report — shown as misses out of those battles. Battles whose report has not been captured do not count either way.',
+        )}
       </p>
 
       {battle.report_seen && (
@@ -118,16 +125,20 @@ export function BattleDetail({ battle }: { battle: Battle }) {
             aria-pressed={showOpponent}
             onClick={() => setShowOpponent((on) => !on)}
           >
-            {showOpponent ? 'Hide' : 'Show'} {opponentLabel(battle)} players
+            {showOpponent
+              ? t('Hide {opponent} players', { opponent: opponentLabel(battle, t) })
+              : t('Show {opponent} players', { opponent: opponentLabel(battle, t) })}
           </button>
         </p>
       )}
       {showOpponent && (
         <>
-          <h4>{opponentLabel(battle)} players</h4>
-          {opponents.isPending && <p className="empty loading">Loading…</p>}
+          <h4>{t('{opponent} players', { opponent: opponentLabel(battle, t) })}</h4>
+          {opponents.isPending && <p className="empty loading">{t('Loading…')}</p>}
           {opponents.error && (
-            <p className="error">Could not load the opponent: {opponents.error.message}</p>
+            <p className="error">
+              {t('Could not load the opponent: {error}', { error: opponents.error.message })}
+            </p>
           )}
           {opponents.data && (
             <BattleMembersTable members={opponents.data.map(opponentAsMember)} side="theirs" />

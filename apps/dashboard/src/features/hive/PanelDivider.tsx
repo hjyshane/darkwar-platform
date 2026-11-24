@@ -2,6 +2,7 @@
 // panel wider or narrower — for the alliance whose names do not fit.
 
 import { useState } from 'react';
+import { useT } from '../../lib/i18n';
 
 /** How far one arrow-key press moves it, in CSS pixels; Shift moves three. */
 const KEY_STEP = 20;
@@ -23,16 +24,17 @@ export function PanelDivider({
   max: number;
   onResize: (width: number | null) => void;
 }) {
+  const t = useT();
   const [held, setHeld] = useState<{ x: number; width: number } | null>(null);
   const report = (next: number) => onResize(Math.round(Math.min(max, Math.max(min, next))));
 
   return (
     <span
-      aria-label="Panel width. Drag, or use the arrow keys; double-click to reset."
+      aria-label={t('Panel width. Drag, or use the arrow keys; double-click to reset.')}
       aria-valuemax={max}
       aria-valuemin={min}
       aria-valuenow={Math.round(width)}
-      aria-valuetext={`${Math.round(width)} pixels wide`}
+      aria-valuetext={t('{width} pixels wide', { width: Math.round(width) })}
       className={
         held === null ? 'hive-panel__divider' : 'hive-panel__divider hive-panel__divider--held'
       }

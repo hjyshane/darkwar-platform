@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Select } from '../../components/ui/Select';
 import { getActiveAlliance, isAlliancePinnedByHost } from '../../lib/activeAlliance';
+import { useT } from '../../lib/i18n';
 import { supabase } from '../../lib/supabase';
 
 type ClaimablePlayer = { player_id: string; current_name: string | null; code: string | null };
@@ -68,6 +69,7 @@ async function fetchMyPlayers(): Promise<LinkedPlayer[]> {
  * first character linked is the one the account is shown as.
  */
 export function PlayerClaimForm() {
+  const t = useT();
   const queryClient = useQueryClient();
   const { data: chosenAlliance } = useQuery({
     queryKey: ['chosen-alliance'],
@@ -120,16 +122,19 @@ export function PlayerClaimForm() {
     }
     // Name it back: the risk in this form is picking the wrong row out of a
     // long list, and right now is when that is cheap to notice.
-    const name = nameOf(playerId) ?? 'that character';
+    const name = nameOf(playerId) ?? t('that character');
     void run(
       () => supabase.rpc('claim_player', { p_player_id: playerId }),
-      `Linked ${name}. Remove it below if that is wrong.`,
+      t('Linked {name}. Remove it below if that is wrong.', { name }),
     );
   }
 
   function remove(id: string) {
-    const name = nameOf(id) ?? 'that character';
-    void run(() => supabase.rpc('unlink_player', { p_player_id: id }), `Removed ${name}.`);
+    const name = nameOf(id) ?? t('that character');
+    void run(
+      () => supabase.rpc('unlink_player', { p_player_id: id }),
+      t('Removed {name}.', { name }),
+    );
   }
 
   const linked = new Set((mine ?? []).map((p) => p.player_id));
@@ -140,18 +145,19 @@ export function PlayerClaimForm() {
         <ul className="linked-players">
           {mine.map((player, index) => (
             <li key={player.player_id}>
-              <strong>{player.current_name ?? 'a character with no name yet'}</strong>
-              {index === 0 && ' (shown as)'}{' '}
+              <strong>{player.current_name ?? t('a character with no name yet')}</strong>
+              {index === 0 && ` ${t('(shown as)')}`}{' '}
               <button disabled={busy} onClick={() => remove(player.player_id)} type="button">
-                Remove
+                {t('Remove')}
               </button>
             </li>
           ))}
         </ul>
       ) : (
         <p className="empty">
-          No character linked yet. This takes effect as soon as you pick, and an admin can move it
-          later.
+          {t(
+            'No character linked yet. This takes effect as soon as you pick, and an admin can move it later.',
+          )}
         </p>
       )}
       {/* One character per account on this screen (decided 2026-09-29): the
@@ -160,9 +166,9 @@ export function PlayerClaimForm() {
       {(mine === undefined || mine.length === 0) && (
         <form onSubmit={add}>
           <label>
-            Character
+            {t('Character')}
             <Select onChange={setPlayerId} value={playerId}>
-              <option value="">Choose…</option>
+              <option value="">{t('Choose…')}</option>
               {(players ?? [])
                 .filter((player) => !linked.has(player.player_id))
                 .map((player) => (
@@ -174,7 +180,7 @@ export function PlayerClaimForm() {
             </Select>
           </label>
           <button disabled={busy || playerId === ''} type="submit">
-            {busy ? 'Linking…' : 'This is me'}
+            {busy ? t('Linking…') : t('This is me')}
           </button>
         </form>
       )}

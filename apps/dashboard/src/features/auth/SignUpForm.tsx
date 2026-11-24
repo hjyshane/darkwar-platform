@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useT } from '../../lib/i18n';
 import { supabase } from '../../lib/supabase';
 
 /** Create an account.
@@ -19,6 +20,7 @@ import { supabase } from '../../lib/supabase';
  * more honest than assuming either.
  */
 export function SignUpForm({ onSignedIn }: { onSignedIn: (email: string) => void }) {
+  const t = useT();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -42,7 +44,7 @@ export function SignUpForm({ onSignedIn }: { onSignedIn: (email: string) => void
     }
     setFailed(false);
     if (data.session === null) {
-      setMessage('Check your email for a confirmation link, then sign in.');
+      setMessage(t('Check your email for a confirmation link, then sign in.'));
       return;
     }
     // The address goes back with it. The caller shows the signed-in view
@@ -54,11 +56,12 @@ export function SignUpForm({ onSignedIn }: { onSignedIn: (email: string) => void
   return (
     <form onSubmit={(event) => void signUp(event)}>
       <p className="empty">
-        An account starts with no access. Once you have confirmed it and signed in, enter the
-        invitation code an officer gave you.
+        {t(
+          'An account starts with no access. Once you have confirmed it and signed in, enter the invitation code an officer gave you.',
+        )}
       </p>
       <label>
-        Email
+        {t('Email')}
         <input
           autoComplete="username"
           onChange={(event) => setEmail(event.target.value)}
@@ -68,7 +71,7 @@ export function SignUpForm({ onSignedIn }: { onSignedIn: (email: string) => void
         />
       </label>
       <label>
-        Password
+        {t('Password')}
         <input
           autoComplete="new-password"
           // The database is not the place this is enforced; GoTrue is, and
@@ -82,7 +85,7 @@ export function SignUpForm({ onSignedIn }: { onSignedIn: (email: string) => void
         />
       </label>
       <button disabled={busy} type="submit">
-        {busy ? 'Creating…' : 'Create account'}
+        {busy ? t('Creating…') : t('Create account')}
       </button>
       {message && <p className={failed ? 'error' : 'empty'}>{message}</p>}
     </form>

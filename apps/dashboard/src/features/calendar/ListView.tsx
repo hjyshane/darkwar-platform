@@ -3,6 +3,7 @@
 // day picked it is one list of everything running on that day.
 
 import { useMemo } from 'react';
+import { type Translate, useT } from '../../lib/i18n';
 import { EventName } from './EventName';
 import {
   type Bucket,
@@ -15,25 +16,27 @@ import {
   until,
 } from './data';
 
-const SECTIONS: ReadonlyArray<{ bucket: Bucket; title: string; blurb: string; open: boolean }> = [
-  { bucket: 'live', title: 'Running now', blurb: 'Soonest to end first.', open: true },
-  { bucket: 'upcoming', title: 'Coming up', blurb: 'Soonest to start first.', open: true },
+const sections = (
+  t: Translate,
+): ReadonlyArray<{ bucket: Bucket; title: string; blurb: string; open: boolean }> => [
+  { bucket: 'live', title: t('Running now'), blurb: t('Soonest to end first.'), open: true },
+  { bucket: 'upcoming', title: t('Coming up'), blurb: t('Soonest to start first.'), open: true },
   {
     bucket: 'ended',
-    title: 'Just ended',
-    blurb: 'Still on the calendar the server sent, already over.',
+    title: t('Just ended'),
+    blurb: t('Still on the calendar the server sent, already over.'),
     open: false,
   },
   {
     bucket: 'standing',
-    title: 'Standing features',
-    blurb: 'Run for half a year or more — part of the game rather than an event.',
+    title: t('Standing features'),
+    blurb: t('Run for half a year or more — part of the game rather than an event.'),
     open: false,
   },
   {
     bucket: 'untimed',
-    title: 'No dates',
-    blurb: 'Listed by the server without a start or end.',
+    title: t('No dates'),
+    blurb: t('Listed by the server without a start or end.'),
     open: false,
   },
 ];
@@ -51,21 +54,22 @@ export function EventTable({
   mayName: boolean;
   onOpen: (event: CalendarEvent) => void;
 }) {
+  const t = useT();
   return (
     <div className="table-wrap">
       <table>
         <thead>
           <tr>
-            <th scope="col">Event</th>
-            <th scope="col">Starts</th>
-            <th scope="col">Ends</th>
+            <th scope="col">{t('Event')}</th>
+            <th scope="col">{t('Starts')}</th>
+            <th scope="col">{t('Ends')}</th>
             {countdown !== null && (
               <th className="num" scope="col">
-                {countdown === 'end' ? 'Ends in' : 'Starts in'}
+                {countdown === 'end' ? t('Ends in') : t('Starts in')}
               </th>
             )}
-            <th className="num" scope="col" title="HQ level the event needs">
-              HQ
+            <th className="num" scope="col" title={t('HQ level the event needs')}>
+              {t('HQ')}
             </th>
           </tr>
         </thead>
@@ -81,7 +85,7 @@ export function EventTable({
                 <td className="num">
                   {(() => {
                     const at = countdown === 'end' ? event.ends_at : event.starts_at;
-                    return at === null ? '—' : until(at, now);
+                    return at === null ? '—' : until(at, now, t);
                   })()}
                 </td>
               )}
@@ -109,6 +113,7 @@ function CategoryList({
   mayName: boolean;
   onOpen: (event: CalendarEvent) => void;
 }) {
+  const t = useT();
   const arranged = useMemo(() => arrange(events, now), [events, now]);
   if (day !== '') {
     return (
@@ -117,7 +122,7 @@ function CategoryList({
   }
   return (
     <>
-      {SECTIONS.map(({ bucket, title, blurb, open }) => {
+      {sections(t).map(({ bucket, title, blurb, open }) => {
         const list = arranged[bucket];
         if (list.length === 0) {
           return null;
@@ -160,14 +165,15 @@ export function ListView({
   mayName: boolean;
   onOpen: (event: CalendarEvent) => void;
 }) {
+  const t = useT();
   if (events.length === 0) {
-    return <p className="empty">Nothing matches. Clear the search or pick another day.</p>;
+    return <p className="empty">{t('Nothing matches. Clear the search or pick another day.')}</p>;
   }
   return (
     <>
-      {day !== '' && <h3>Running on {day}</h3>}
+      {day !== '' && <h3>{t('Running on {day}', { day })}</h3>}
       {CATEGORIES.map((category) => {
-        const title = CATEGORY_LABELS[category];
+        const title = t(CATEGORY_LABELS[category]);
         const list = events.filter((event) => categoryOf(event) === category);
         if (list.length === 0) {
           return null;

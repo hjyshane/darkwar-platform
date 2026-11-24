@@ -20,6 +20,7 @@ import {
   ringOffsets,
   tileFitsOnMap,
 } from '../../lib/hiveFormation';
+import { type Translate, english } from '../../lib/i18n/core';
 import type { LayoutTile } from './hiveFormations';
 
 /** One tile of a shape, as an offset from the square the shape is put on. */
@@ -75,6 +76,17 @@ export const BUILT_IN_SHAPES: readonly StampShape[] = [
   },
 ];
 
+/** A shape's name as shown: the built-in blocks and rings in the reader's
+ * language, anything else (Frankie, a saved shape's name) as it is. */
+export function shapeLabel(shape: StampShape, t: Translate = english): string {
+  const built = /^(block|ring)-(\d+)$/.exec(shape.key);
+  if (built === null) {
+    return shape.label;
+  }
+  const size = `${built[2]}x${built[2]}`;
+  return built[1] === 'block' ? t('{size} block', { size }) : t('{size} ring', { size });
+}
+
 /** A saved shape as a stamp: its tiles round the square its anchor was on. */
 export function shapeFromTemplate(tiles: readonly LayoutTile[]): ShapeTile[] {
   return tiles.map((tile) => ({
@@ -123,20 +135,34 @@ export function stampPlan(
 }
 
 /** What a stamp did, when it did not simply put everything down. */
-export function stampSummary(plan: readonly StampedTile[]): string | null {
+export function stampSummary(plan: readonly StampedTile[], t: Translate = english): string | null {
   const placed = plan.filter((tile) => tile.fate === 'placed').length;
   const taken = plan.filter((tile) => tile.fate === 'taken').length;
   const offMap = plan.filter((tile) => tile.fate === 'off-map').length;
   if (taken === 0 && offMap === 0) {
     return null;
   }
-  const why = [
-    taken === 0 ? '' : `${taken} would land on tiles already drawn`,
-    offMap === 0 ? '' : `${offMap} would run off the map`,
-  ]
-    .filter(Boolean)
-    .join(' and ');
-  return placed === 0
-    ? `Nothing put down: ${why}.`
-    : `Put down ${placed} of ${plan.length} tiles; ${why}, so ${taken + offMap === 1 ? 'it was' : 'they were'} left out.`;
+  const why =
+    taken !== 0 && offMap !== 0
+      ? t('{taken} would land on tiles already drawn and {offmap} would run off the map', {
+          taken,
+          offmap: offMap,
+        })
+      : taken !== 0
+        ? t('{taken} would land on tiles already drawn', { taken })
+        : t('{offmap} would run off the map', { offmap: offMap });
+  if (placed === 0) {
+    return t('Nothing put down: {why}.', { why });
+  }
+  return taken + offMap === 1
+    ? t('Put down {placed} of {total} tiles; {why}, so it was left out.', {
+        placed,
+        total: plan.length,
+        why,
+      })
+    : t('Put down {placed} of {total} tiles; {why}, so they were left out.', {
+        placed,
+        total: plan.length,
+        why,
+      });
 }

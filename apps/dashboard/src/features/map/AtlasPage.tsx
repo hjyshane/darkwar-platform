@@ -2,6 +2,7 @@ import { type Coordinate, formatCoordinate } from '@dw/ui';
 import { useMemo, useState } from 'react';
 import { Tabs } from '../../components/ui/Tabs';
 import { formatAge } from '../../lib/freshness';
+import { useT } from '../../lib/i18n';
 import { shareCoordinate } from '../../lib/shareCoordinate';
 import { useActiveAlliance } from '../../lib/useMyAlliances';
 import { AtlasMap } from './AtlasMap';
@@ -72,6 +73,7 @@ export function AtlasPage({
   servers: readonly ScannedServer[];
   onServer: (id: number) => void;
 }) {
+  const t = useT();
   const { data, isPending, error, refetch } = useAtlas(serverId);
   const sweptAt = servers.find((server) => server.serverId === serverId)?.sweptAt;
   const { active: mine } = useActiveAlliance();
@@ -123,7 +125,7 @@ export function AtlasPage({
   if (mode === 'plunder') lit = new Set();
   // Plan keeps the bases that stand on their tile bright and the rest behind them.
   if (planMatch !== null) {
-    lit = new Set(planMatch.tiles.flatMap((t) => (t.base ? [t.base.gameUid] : [])));
+    lit = new Set(planMatch.tiles.flatMap((tile) => (tile.base ? [tile.base.gameUid] : [])));
   }
   // A search or a filter is asking about bases, not alliances.
   const searching = query.trim().length > 0 || filterActive(baseFilter);
@@ -238,7 +240,7 @@ export function AtlasPage({
     null,
   );
 
-  if (isPending) return <p className="empty loading">Loading…</p>;
+  if (isPending) return <p className="empty loading">{t('Loading…')}</p>;
   if (error) return <MapLoadError error={error} onRetry={() => void refetch()} />;
 
   return (
@@ -273,10 +275,10 @@ export function AtlasPage({
           {planMatch !== null && (
             <span className="atlas-chip atlas-chip--static">
               {plan.loading
-                ? 'Plan…'
+                ? t('Plan…')
                 : plan.formation === null
-                  ? `No hive plan for ${serverId}`
-                  : `${plan.formation.name} · ${planMatch.placed}/${planMatch.total} in place`}
+                  ? t('No hive plan for {server}', { server: serverId })
+                  : `${plan.formation.name} · ${t('{placed}/{total} in place', { placed: planMatch.placed, total: planMatch.total })}`}
             </span>
           )}
           {selected !== null && (
@@ -285,7 +287,7 @@ export function AtlasPage({
             // jumps to the detail, and its × lets go without scrolling for it.
             <span className="atlas-chip atlas-chip--selected">
               <button
-                aria-label={`Show details for ${selected.name ?? 'unnamed'}`}
+                aria-label={t('Show details for {name}', { name: selected.name ?? t('unnamed') })}
                 className="atlas-chip__main"
                 onClick={() =>
                   document
@@ -294,10 +296,10 @@ export function AtlasPage({
                 }
                 type="button"
               >
-                {selected.name ?? 'unnamed'} · {formatPower(selected.power)}
+                {selected.name ?? t('unnamed')} · {formatPower(selected.power)}
               </button>
               <button
-                aria-label={`Clear ${selected.name ?? 'unnamed'}`}
+                aria-label={t('Clear {name}', { name: selected.name ?? t('unnamed') })}
                 className="atlas-chip__x"
                 onClick={() => setSelectedUid(null)}
                 type="button"
@@ -308,7 +310,9 @@ export function AtlasPage({
           )}
           {pickedAlliance !== undefined && (
             <button
-              aria-label={`Show every alliance again (now [${pickedAlliance.code ?? '?'}])`}
+              aria-label={t('Show every alliance again (now [{code}])', {
+                code: pickedAlliance.code ?? '?',
+              })}
               className="atlas-chip"
               onClick={showAllAlliances}
               type="button"
@@ -329,7 +333,7 @@ export function AtlasPage({
                 {message}
               </p>
             ))}
-            {copied && selected === null && <output>Copied {copied}</output>}
+            {copied && selected === null && <output>{t('Copied {text}', { text: copied })}</output>}
           </div>
         )}
       </div>
@@ -337,37 +341,48 @@ export function AtlasPage({
       <aside className="hunt-side">
         <div className="atlas-side__top">
           <label className="atlas-state">
-            <span>State</span>
+            <span>{t('State')}</span>
             <select onChange={(event) => onServer(Number(event.target.value))} value={serverId}>
               {servers.map((server) => (
                 <option key={server.serverId} value={server.serverId}>
-                  {server.serverId} · {formatAge(server.sweptAt, now)}
+                  {server.serverId} · {formatAge(server.sweptAt, now, t)}
                 </option>
               ))}
             </select>
           </label>
           <span className="atlas-meta">
-            {atlas.bases.length.toLocaleString('en')} bases · {atlas.alliances.length} alliances
-            {newest !== null && ` · ${formatAge(newest.toISOString(), now)}`}
+            {t('{bases} bases · {alliances} alliances', {
+              bases: atlas.bases.length.toLocaleString('en'),
+              alliances: atlas.alliances.length,
+            })}
+            {newest !== null && ` · ${formatAge(newest.toISOString(), now, t)}`}
           </span>
         </div>
 
         {sweptAt !== undefined && isOldSweep(sweptAt, now) && (
           <output className="subtle atlas-old-sweep">
-            Server {serverId} was last swept {formatAge(sweptAt, now)}. Bases here may have moved or
-            left, so treat this map as a snapshot, not as live.
+            {t(
+              'Server {server} was last swept {age}. Bases here may have moved or left, so treat this map as a snapshot, not as live.',
+              { server: serverId, age: formatAge(sweptAt, now, t) },
+            )}
           </output>
         )}
 
         <Tabs
           className="atlas-side__tabs"
-          label="Panel"
+          label={t('Panel')}
           items={[
-            { id: 'atlas' as const, label: 'Atlas' },
-            { id: 'trucks' as const, label: `Trucks (${hunt.worth.length})` },
-            { id: 'missions' as const, label: `Missions (${hunt.open.length})` },
-            { id: 'treasure' as const, label: `Treasure (${hunt.treasure.length})` },
-            { id: 'moves' as const, label: 'Moves' },
+            { id: 'atlas' as const, label: t('Atlas') },
+            { id: 'trucks' as const, label: t('Trucks ({count})', { count: hunt.worth.length }) },
+            {
+              id: 'missions' as const,
+              label: t('Missions ({count})', { count: hunt.open.length }),
+            },
+            {
+              id: 'treasure' as const,
+              label: t('Treasure ({count})', { count: hunt.treasure.length }),
+            },
+            { id: 'moves' as const, label: t('Moves') },
           ]}
           onChange={setPanel}
           value={panel}
@@ -376,7 +391,7 @@ export function AtlasPage({
         {/* Search and the base filters ask about bases, so they belong to Atlas. */}
         <div className="atlas-side__filters" hidden={panel !== 'atlas'}>
           <label className="map-search">
-            <span className="visually-hidden">Search</span>
+            <span className="visually-hidden">{t('Search')}</span>
             <input
               autoComplete="off"
               onChange={(event) => {
@@ -387,7 +402,7 @@ export function AtlasPage({
                 const found = searchAtlas(atlas, next);
                 if (found.kind === 'coordinate') goTo(found.at, null);
               }}
-              placeholder="Player, alliance or X:Y"
+              placeholder={t('Player, alliance or X:Y')}
               type="search"
               value={query}
             />
@@ -395,22 +410,24 @@ export function AtlasPage({
           {query.trim().length > 0 &&
             query.trim().length < MIN_SEARCH &&
             search.kind === 'none' && (
-              <p className="subtle">Keep typing — {MIN_SEARCH} characters or more.</p>
+              <p className="subtle">
+                {t('Keep typing — {count} characters or more.', { count: MIN_SEARCH })}
+              </p>
             )}
 
           <Tabs
-            label="Shield"
+            label={t('Shield')}
             items={[
-              { id: 'all' as const, label: 'All' },
-              { id: 'shielded' as const, label: 'Shield' },
-              { id: 'open' as const, label: 'No shield' },
+              { id: 'all' as const, label: t('All') },
+              { id: 'shielded' as const, label: t('Shield') },
+              { id: 'open' as const, label: t('No shield') },
             ]}
             onChange={(shield) => setBaseFilter({ ...baseFilter, shield })}
             value={baseFilter.shield}
           />
           <div className="atlas-range">
             <label>
-              <span>HQ from</span>
+              <span>{t('HQ from')}</span>
               <input
                 max={99}
                 min={1}
@@ -423,7 +440,7 @@ export function AtlasPage({
               />
             </label>
             <label>
-              <span>to</span>
+              <span>{t('to')}</span>
               <input
                 max={99}
                 min={1}
@@ -436,19 +453,19 @@ export function AtlasPage({
               />
             </label>
             <label>
-              <span>Power under</span>
+              <span>{t('Power under')}</span>
               <input
                 onChange={(event) => {
                   setPowerText(event.target.value);
                   setBaseFilter({ ...baseFilter, powerUnder: parsePower(event.target.value) });
                 }}
-                placeholder="e.g. 135m"
+                placeholder={t('e.g. 135m')}
                 value={powerText}
               />
             </label>
           </div>
           <details className="atlas-filters">
-            <summary>Layers and help</summary>
+            <summary>{t('Layers and help')}</summary>
             <label>
               <input
                 checked={baseFilter.hideStale}
@@ -457,16 +474,18 @@ export function AtlasPage({
                 }
                 type="checkbox"
               />
-              <span>Hide sightings over a day old</span>
+              <span>{t('Hide sightings over a day old')}</span>
             </label>
             <p className="subtle">
-              The Layers pill on the map hides ◆ trucks, ■ missions, ✦ treasure spots, or the bases
-              with or without a shield ({placedTrucks.length} trucks on this map).
+              {t(
+                'The Layers pill on the map hides ◆ trucks, ■ missions, ✦ treasure spots, or the bases with or without a shield ({count} trucks on this map).',
+                { count: placedTrucks.length },
+              )}
             </p>
             <p className="subtle">
-              Each dot is a base seen in a sweep, coloured by the alliance its player was last seen
-              in; faded dots were last seen over a day ago. Drag to move, wheel or +/− to zoom in
-              until every tower is clear; clicking copies the coordinate.
+              {t(
+                'Each dot is a base seen in a sweep, coloured by the alliance its player was last seen in; faded dots were last seen over a day ago. Drag to move, wheel or +/− to zoom in until every tower is clear; clicking copies the coordinate.',
+              )}
             </p>
           </details>
         </div>
@@ -507,11 +526,13 @@ export function AtlasPage({
             <>
               {atlas.alliances.length === 0 && (
                 <p className="empty">
-                  No swept base on server {serverId} has a known alliance yet.
+                  {t('No swept base on server {server} has a known alliance yet.', {
+                    server: serverId,
+                  })}
                 </p>
               )}
               {search.kind === 'text' && visible.length === 0 && (
-                <p className="empty">No alliance matches that. Players do: see Bases.</p>
+                <p className="empty">{t('No alliance matches that. Players do: see Bases.')}</p>
               )}
               <ul className="map-results atlas-ranking">
                 {visible.map((index) => {
@@ -533,14 +554,16 @@ export function AtlasPage({
                         />
                         <span className="atlas-ranking__name">
                           <strong>[{alliance.code ?? '?'}]</strong> {alliance.name ?? ''}
-                          {isOurs && <em> · your alliance</em>}
+                          {isOurs && <em> · {t('your alliance')}</em>}
                         </span>
                         <span className="atlas-ranking__count">
-                          {alliance.bases} base{alliance.bases === 1 ? '' : 's'}
+                          {alliance.bases === 1
+                            ? t('{count} base', { count: alliance.bases })
+                            : t('{count} bases', { count: alliance.bases })}
                           <span className="subtle"> · {formatPower(alliance.power)}</span>
                           {(shielded[index] ?? 0) > 0 && (
                             <span className="subtle atlas-ranking__shield">
-                              {shielded[index]} shielded
+                              {t('{count} shielded', { count: shielded[index] ?? 0 })}
                             </span>
                           )}
                         </span>
@@ -561,9 +584,11 @@ export function AtlasPage({
               {searching && (
                 <>
                   {search.kind === 'coordinate' && (
-                    <p className="subtle">Nearest to {formatCoordinate(search.at)}.</p>
+                    <p className="subtle">
+                      {t('Nearest to {coordinate}.', { coordinate: formatCoordinate(search.at) })}
+                    </p>
                   )}
-                  {listed.length === 0 && <p className="empty">Nobody matches.</p>}
+                  {listed.length === 0 && <p className="empty">{t('Nobody matches.')}</p>}
                   <ul className="map-results">
                     {rows.map((base) => {
                       const alliance =
@@ -577,16 +602,17 @@ export function AtlasPage({
                           >
                             <strong>
                               {alliance?.code ? `[${alliance.code}] ` : ''}
-                              {base.name ?? 'unnamed'}
+                              {base.name ?? t('unnamed')}
                             </strong>
                             <span className="subtle">
                               {formatCoordinate(base.at)}
-                              {base.hq !== null && ` · HQ ${base.hq}`} · {formatPower(base.power)} ·{' '}
-                              {formatAge(base.seenAt.toISOString(), now)}
+                              {base.hq !== null && ` · ${t('HQ {level}', { level: base.hq })}`} ·{' '}
+                              {formatPower(base.power)} ·{' '}
+                              {formatAge(base.seenAt.toISOString(), now, t)}
                               {base.shieldEnd !== null && isShielded(base, now)
-                                ? ` · 🛡 ${shieldLeft(base.shieldEnd, now) ?? ''} left`
-                                : ' · no shield'}
-                              {isStale(base, now) && ' (may have moved)'}
+                                ? ` · 🛡 ${t('{time} left', { time: shieldLeft(base.shieldEnd, now) ?? '' })}`
+                                : ` · ${t('no shield')}`}
+                              {isStale(base, now) && ` (${t('may have moved')})`}
                             </span>
                           </button>
                         </li>
@@ -595,7 +621,7 @@ export function AtlasPage({
                   </ul>
                   {!showAll && ranked.length > BASES_SHOWN && (
                     <button className="linklike" onClick={() => setShowAll(true)} type="button">
-                      Show all {ranked.length}
+                      {t('Show all {count}', { count: ranked.length })}
                     </button>
                   )}
                 </>

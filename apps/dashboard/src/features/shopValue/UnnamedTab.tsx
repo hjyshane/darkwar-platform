@@ -4,6 +4,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { rich, useT } from '../../lib/i18n';
 import { RUBY_DOLLAR_RATE } from '../../lib/settings/registry';
 import { useSiteSetting } from '../../lib/settings/useSiteSetting';
 import { dollarsOf, fetchItemValues, fetchListings, fetchPacks, money, saveItemName } from './data';
@@ -12,6 +13,7 @@ import { type ItemHint, type UnnamedItem, fetchHints, unnamedItems } from './unn
 const STALE_TIME = 5 * 60_000;
 
 function NameInput({ itemId }: { itemId: string }) {
+  const t = useT();
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState('');
   const save = useMutation({
@@ -31,14 +33,14 @@ function NameInput({ itemId }: { itemId: string }) {
       }}
     >
       <input
-        aria-label={`Name for item ${itemId}`}
+        aria-label={t('Name for item {id}', { id: itemId })}
         maxLength={80}
         onChange={(e) => setDraft(e.target.value)}
-        placeholder="Name it…"
+        placeholder={t('Name it…')}
         value={draft}
       />
       <button disabled={draft.trim() === '' || save.isPending} type="submit">
-        {save.isPending ? 'Saving…' : 'Save'}
+        {save.isPending ? t('Saving…') : t('Save')}
       </button>
       {save.error && <span className="error"> {save.error.message}</span>}
     </form>
@@ -46,12 +48,14 @@ function NameInput({ itemId }: { itemId: string }) {
 }
 
 function Seen({ item }: { item: UnnamedItem }) {
+  const t = useT();
   const rate = useSiteSetting(RUBY_DOLLAR_RATE);
   if (item.sightings.length === 0) {
     return (
       <span className="muted">
-        in no pack or shop entry captured —{' '}
-        {item.source === 'game' ? "only the game's own Ruby price list" : 'only the value list'}
+        {item.source === 'game'
+          ? t("in no pack or shop entry captured — only the game's own Ruby price list")
+          : t('in no pack or shop entry captured — only the value list')}
       </span>
     );
   }
@@ -59,19 +63,24 @@ function Seen({ item }: { item: UnnamedItem }) {
     <ul className="unnamed-seen">
       {item.sightings.map((s) => (
         <li key={`${s.where}|${s.label}|${s.qty}|${s.price}`}>
-          ×{s.qty.toLocaleString('en')} in{' '}
-          {s.where === 'pack' ? (
-            <>
-              <strong>{s.label}</strong> <span className="muted">({money(s.price)})</span>
-            </>
-          ) : (
-            <>
-              the <strong>{s.label}</strong>{' '}
-              <span className="muted">
-                for {s.price.toLocaleString('en')} rubies ({money(dollarsOf(s.price, rate))})
-              </span>
-            </>
-          )}
+          {s.where === 'pack'
+            ? rich(t('×{qty} in {pack} {price}'), {
+                qty: s.qty.toLocaleString('en'),
+                pack: <strong>{s.label}</strong>,
+                price: <span className="muted">({money(s.price)})</span>,
+              })
+            : rich(t('×{qty} in the {shop} {price}'), {
+                qty: s.qty.toLocaleString('en'),
+                shop: <strong>{s.label}</strong>,
+                price: (
+                  <span className="muted">
+                    {t('for {rubies} rubies ({dollars})', {
+                      rubies: s.price.toLocaleString('en'),
+                      dollars: money(dollarsOf(s.price, rate)),
+                    })}
+                  </span>
+                ),
+              })}
         </li>
       ))}
     </ul>
@@ -79,21 +88,21 @@ function Seen({ item }: { item: UnnamedItem }) {
 }
 
 function Hint({ hint }: { hint: ItemHint | undefined }) {
-  if (!hint) return <span className="muted">not in the game data</span>;
+  const t = useT();
+  if (!hint) return <span className="muted">{t('not in the game data')}</span>;
   return (
     <span className="muted">
-      type {hint.item_type ?? '—'} · quality {hint.quality ?? '—'}
-      {hint.icon && (
-        <>
-          {' '}
-          · icon <code>{hint.icon}</code>
-        </>
-      )}
+      {t('type {type} · quality {quality}', {
+        type: hint.item_type ?? '—',
+        quality: hint.quality ?? '—',
+      })}
+      {hint.icon && <> · {rich(t('icon {name}'), { name: <code>{hint.icon}</code> })}</>}
     </span>
   );
 }
 
 export function UnnamedTab({ mayEdit }: { mayEdit: boolean }) {
+  const t = useT();
   const packs = useQuery({ queryKey: ['shop-packs'], queryFn: fetchPacks, staleTime: STALE_TIME });
   const listings = useQuery({
     queryKey: ['shop-listings'],
@@ -107,7 +116,7 @@ export function UnnamedTab({ mayEdit }: { mayEdit: boolean }) {
   });
   const items =
     packs.data && listings.data && values.data
-      ? unnamedItems(packs.data, listings.data, values.data)
+      ? unnamedItems(packs.data, listings.data, values.data, t)
       : null;
   const ids = (items ?? []).map((i) => i.item_id);
   const hints = useQuery({
@@ -118,36 +127,37 @@ export function UnnamedTab({ mayEdit }: { mayEdit: boolean }) {
   });
 
   const failed = packs.error ?? listings.error ?? values.error;
-  if (failed) return <p className="error">Could not load: {failed.message}</p>;
-  if (items === null) return <p className="empty loading">Loading…</p>;
-  if (items.length === 0) return <p className="empty">Every item has a name.</p>;
+  if (failed)
+    return <p className="error">{t('Could not load: {message}', { message: failed.message })}</p>;
+  if (items === null) return <p className="empty loading">{t('Loading…')}</p>;
+  if (items.length === 0) return <p className="empty">{t('Every item has a name.')}</p>;
 
   return (
     <>
       <p className="subtle">
-        {items.length} items have no name. Each is listed with the packs and shop entries it comes
-        in, and what the game data says about it — the icon name is often the best clue: items
-        sharing an icon are usually one family at different levels. An item found nowhere but the
-        game's own price list is often one the game has retired, its text gone from every language.
-        {mayEdit ? ' Name one here and it shows everywhere.' : ''}
+        {t(
+          "{count} items have no name. Each is listed with the packs and shop entries it comes in, and what the game data says about it — the icon name is often the best clue: items sharing an icon are usually one family at different levels. An item found nowhere but the game's own price list is often one the game has retired, its text gone from every language.",
+          { count: items.length },
+        )}
+        {mayEdit ? ` ${t('Name one here and it shows everywhere.')}` : ''}
       </p>
       <div className="table-wrap">
         <table className="compact">
           <thead>
             <tr>
               <th className="label" scope="col">
-                Item code
+                {t('Item code')}
               </th>
               <th className="label" scope="col">
-                Where it turns up
+                {t('Where it turns up')}
               </th>
               <th className="label" scope="col">
-                Game data
+                {t('Game data')}
               </th>
               <th className="num" scope="col">
-                Value
+                {t('Value')}
               </th>
-              {mayEdit && <th scope="col">Name</th>}
+              {mayEdit && <th scope="col">{t('Name')}</th>}
             </tr>
           </thead>
           <tbody>
@@ -167,7 +177,7 @@ export function UnnamedTab({ mayEdit }: { mayEdit: boolean }) {
                     '—'
                   ) : (
                     <span title={item.source ?? undefined}>
-                      {item.rubies.toLocaleString('en')} rubies
+                      {t('{count} rubies', { count: item.rubies.toLocaleString('en') })}
                     </span>
                   )}
                 </td>

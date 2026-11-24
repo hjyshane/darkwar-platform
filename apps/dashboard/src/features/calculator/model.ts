@@ -6,6 +6,7 @@
 // every figure comes back out of its totals(), so the reference page cannot
 // drift from the planner (the spec's first anti-goal).
 
+import { type Translate, english } from '../../lib/i18n/core';
 import { weaponSegments, weaponText } from '../planner/RankGlyphs';
 import { exact, short } from '../planner/format';
 import { type Tiers, levelText } from '../planner/levels';
@@ -115,8 +116,9 @@ export function levelName(
   subject: string,
   level: number,
   tiers: Tiers,
+  t: Translate = english,
 ): string {
-  if (kind === 'building') return level === 0 ? 'Not built' : levelText(tiers, subject, level);
+  if (kind === 'building') return level === 0 ? t('Not built') : levelText(tiers, subject, level);
   if (kind === 'exclusive') return weaponText(level);
   if (kind === 'chip') return chipLabel(level);
   return String(level);
@@ -269,6 +271,7 @@ export function notesFor(
   state: CalculatorState,
   sums: Totals,
   cards: ReadonlyArray<ExpCard>,
+  t: Translate = english,
 ): string[] {
   const notes: string[] = [];
   if (state.kind === 'chip') {
@@ -282,34 +285,51 @@ export function notesFor(
       const card = [...cards].filter((c) => c.amount > 0).sort((a, b) => b.amount - a.amount)[0];
       notes.push(
         card === undefined
-          ? `${short(exp)} star-up EXP`
-          : `${short(exp)} EXP = ${exact(Math.ceil(exp / card.amount))} × ${card.name} (${exact(card.amount)} each)`,
+          ? t('{amount} star-up EXP', { amount: short(exp) })
+          : t('{amount} EXP = {cards} × {card} ({each} each)', {
+              amount: short(exp),
+              cards: exact(Math.ceil(exp / card.amount)),
+              card: card.name,
+              each: exact(card.amount),
+            }),
       );
     }
     if (duplicates > 0) {
-      notes.push(`${exact(duplicates)} duplicate${duplicates === 1 ? '' : 's'} of the same chip`);
+      notes.push(
+        duplicates === 1
+          ? t('{count} duplicate of the same chip', { count: exact(duplicates) })
+          : t('{count} duplicates of the same chip', { count: exact(duplicates) }),
+      );
     }
   }
   if (state.kind === 'building' && !state.prereqs) {
-    notes.push('Buildings this needs first are not included; Advanced adds them.');
+    notes.push(t('Buildings this needs first are not included; Advanced adds them.'));
   }
   if (state.kind === 'research' && !state.prereqs) {
-    notes.push('Research and buildings this needs first are not included; Advanced adds them.');
+    notes.push(t('Research and buildings this needs first are not included; Advanced adds them.'));
   }
   if (state.kind === 'vehicle_part') {
-    notes.push('Every vehicle part costs the same.');
+    notes.push(t('Every vehicle part costs the same.'));
   }
   if (state.kind === 'exclusive') {
-    notes.push('Every exclusive weapon takes the same count, in its own fragments.');
+    notes.push(t('Every exclusive weapon takes the same count, in its own fragments.'));
   }
   if (state.kind === 'exclusive' && weaponSegments(state.to).awakening > 0) {
-    notes.push('Red ranks open season by season.');
+    notes.push(t('Red ranks open season by season.'));
   }
   if (state.kind === 'pet') {
     const breaks = breakthroughsCrossed(state.from, state.to, 0);
     if (breaks.length > 0) {
       notes.push(
-        `Includes ${breaks.length} breakthrough${breaks.length === 1 ? '' : 's'} (level${breaks.length === 1 ? '' : 's'} ${breaks.join(', ')}).`,
+        breaks.length === 1
+          ? t('Includes {count} breakthrough (level {levels}).', {
+              count: breaks.length,
+              levels: breaks.join(', '),
+            })
+          : t('Includes {count} breakthroughs (levels {levels}).', {
+              count: breaks.length,
+              levels: breaks.join(', '),
+            }),
       );
     }
   }

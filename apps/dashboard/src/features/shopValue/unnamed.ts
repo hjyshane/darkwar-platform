@@ -3,6 +3,7 @@
 // are: the packs that hold them and how many, the Ruby-shop entries that sell
 // them, and what the game data says about them (type, quality, icon name).
 
+import { type Translate, english } from '../../lib/i18n/core';
 import { supabase } from '../../lib/supabase';
 import { type ItemValue, type ListingValue, type PackValue, SHOP_LABELS } from './data';
 
@@ -31,6 +32,7 @@ export function unnamedItems(
   packs: ReadonlyArray<PackValue>,
   listings: ReadonlyArray<ListingValue>,
   values: ReadonlyArray<ItemValue>,
+  t: Translate = english,
 ): UnnamedItem[] {
   const found = new Map<string, UnnamedItem>();
   const entry = (id: string) => {
@@ -70,7 +72,10 @@ export function unnamedItems(
     if (row.item_id !== null && row.name === null) {
       add(row.item_id, {
         where: 'shop',
-        label: SHOP_LABELS[row.shop_type] ?? `Shop ${row.shop_type}`,
+        label:
+          SHOP_LABELS[row.shop_type] === undefined
+            ? t('Shop {type}', { type: row.shop_type })
+            : t(SHOP_LABELS[row.shop_type] as string),
         qty: row.qty,
         price: row.price,
         server_id: row.server_id,

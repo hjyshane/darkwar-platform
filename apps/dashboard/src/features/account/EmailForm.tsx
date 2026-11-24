@@ -1,5 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
+import { rich, useT } from '../../lib/i18n';
 import { supabase } from '../../lib/supabase';
 import { useSession } from '../../lib/useSession';
 import { canSubmitEmail, emailProblem } from './email';
@@ -13,6 +14,7 @@ import { canSubmitEmail, emailProblem } from './email';
  * ("accepted, then silence") is indistinguishable from a broken button.
  */
 export function EmailForm() {
+  const t = useT();
   const { data: session } = useSession();
   const current = session?.email ?? null;
   const [next, setNext] = useState('');
@@ -31,7 +33,7 @@ export function EmailForm() {
     },
   });
 
-  const problem = emailProblem(next, current);
+  const problem = emailProblem(next, current, t);
   const ready = canSubmitEmail(next, current);
 
   return (
@@ -46,11 +48,11 @@ export function EmailForm() {
       }}
     >
       <p className="hint">
-        Signing in as <strong>{current ?? '—'}</strong>.
+        {rich(t('Signing in as {email}.'), { email: <strong>{current ?? '—'}</strong> })}
       </p>
 
       <label htmlFor="new-email">
-        New address
+        {t('New address')}
         <input
           autoComplete="email"
           id="new-email"
@@ -64,15 +66,16 @@ export function EmailForm() {
 
       <div>
         <button disabled={!ready || change.isPending} type="submit">
-          {change.isPending ? 'Sending…' : 'Send confirmation'}
+          {change.isPending ? t('Sending…') : t('Send confirmation')}
         </button>
       </div>
 
       {change.error !== null && <p className="error">{change.error.message}</p>}
       {sent && change.error === null && (
         <p className="hint">
-          Confirmation sent. The address does not change until the link is opened — and it goes to
-          both your old and your new address.
+          {t(
+            'Confirmation sent. The address does not change until the link is opened — and it goes to both your old and your new address.',
+          )}
         </p>
       )}
 
@@ -80,8 +83,9 @@ export function EmailForm() {
           unconfigured this request succeeds and then nothing arrives, which
           looks exactly like a broken button. */}
       <p className="hint">
-        This needs email to work. If confirmation mail is not arriving yet, the address will not
-        change — your password can still be changed above, which needs no email.
+        {t(
+          'This needs email to work. If confirmation mail is not arriving yet, the address will not change — your password can still be changed above, which needs no email.',
+        )}
       </p>
     </form>
   );

@@ -2,6 +2,8 @@ import { useMemo } from 'react';
 import { ArrangedTable, type Column } from '../../components/ArrangedTable';
 import { TableSearch } from '../../components/TableSearch';
 import { Sparkline } from '../../components/ui/Sparkline';
+import { useT } from '../../lib/i18n';
+import { type Translate, english } from '../../lib/i18n/core';
 import { playerHash } from '../../lib/route';
 import type { ColumnSpec } from '../../lib/tableLayout';
 import { TERMS } from '../../lib/terms';
@@ -52,12 +54,16 @@ function missCell(misses: number | null, battles: number | undefined) {
   return misses > 0 ? <span className="behind-mark">{text}</span> : text;
 }
 
-function slotLabel(slot: BattleMember['slot']): string {
-  return slot === 'starter' ? 'Starter' : slot === 'substitute' ? 'Substitute' : 'Not listed';
+function slotLabel(slot: BattleMember['slot'], t: Translate = english): string {
+  return slot === 'starter'
+    ? t('Starter')
+    : slot === 'substitute'
+      ? t('Substitute')
+      : t('Not listed');
 }
 
-function playedLabel(played: boolean | null): string {
-  return played === null ? '—' : played ? 'Played' : 'Did not play';
+function playedLabel(played: boolean | null, t: Translate = english): string {
+  return played === null ? '—' : played ? t('Played') : t('Did not play');
 }
 
 /** Numeric sort keys for the two text columns, so sorting groups them in the
@@ -87,6 +93,7 @@ export function BattleMembersTable({
    * another alliance, and everyone in their half of the report played. */
   side?: 'ours' | 'theirs';
 }) {
+  const t = useT();
   const rows = useMemo<Row[]>(
     () =>
       members.map((m) => ({
@@ -131,7 +138,7 @@ export function BattleMembersTable({
         label: TERMS.blackGoldSlot,
         sortKey: 'slotOrder',
         className: 'label',
-        cell: (row) => slotLabel(row.slot),
+        cell: (row) => slotLabel(row.slot, t),
       },
       {
         id: 'played',
@@ -140,9 +147,9 @@ export function BattleMembersTable({
         className: 'label',
         cell: (row) =>
           row.played === false ? (
-            <span className="behind-mark">{playedLabel(row.played)}</span>
+            <span className="behind-mark">{playedLabel(row.played, t)}</span>
           ) : (
-            playedLabel(row.played)
+            playedLabel(row.played, t)
           ),
       },
       {
@@ -176,20 +183,20 @@ export function BattleMembersTable({
       part('collect', TERMS.blackGoldCollect, 'collect_score'),
       part('escort', TERMS.blackGoldEscort, 'escort_score'),
     ];
-  }, [history]);
+  }, [history, t]);
   const shownColumns = useMemo(
     () => (side === 'ours' ? columns : columns.filter((c) => !OURS_ONLY.has(c.id))),
     [columns, side],
   );
 
   if (rows.length === 0) {
-    return <p className="empty">Nobody is on the list or in a report for this battle.</p>;
+    return <p className="empty">{t('Nobody is on the list or in a report for this battle.')}</p>;
   }
   return (
     <>
       <TableSearch
-        label="Search members"
-        unit="members"
+        label={t('Search members')}
+        unit={t('members')}
         onChange={setQuery}
         shown={shown}
         total={total}
@@ -203,7 +210,7 @@ export function BattleMembersTable({
         sort={sort}
         tableId={side === 'ours' ? TABLE_ID : OPPONENT_TABLE_ID}
       />
-      {view.length === 0 && <p className="empty">No member matches “{query}”.</p>}
+      {view.length === 0 && <p className="empty">{t('No member matches “{query}”.', { query })}</p>}
     </>
   );
 }

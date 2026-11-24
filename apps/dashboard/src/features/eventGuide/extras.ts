@@ -2,6 +2,7 @@
 // best things to do in a theme, and the alliance's own event times. Pure, so
 // each claim can be checked on its own; every clock is server time, UTC-2.
 
+import { type Translate, english } from '../../lib/i18n/core';
 import { SERVER_ZONE, zonedDayKey, zonedTime } from '../../lib/timezone';
 import { SLOT_HOURS, type ScoreSource, type Theme, actionText, scoresOf, slotStart } from './guide';
 
@@ -25,10 +26,11 @@ export function bestActions(
   activity: string,
   eventId: string,
   count: number,
+  t: Translate = english,
 ): string[] {
   return scoresOf(scores, activity, eventId)
     .slice(0, count)
-    .map((row) => actionText(row.action, row.per_value));
+    .map((row) => actionText(row.action, row.per_value, t));
 }
 
 export interface TimeRow {

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useT } from '../lib/i18n';
 import {
   type Block,
   type ImageSize,
@@ -147,20 +148,21 @@ function PostImage({ src, alt, size }: { src: string; alt: string; size: ImageSi
   // EVERY SIZE STAYS OPENABLE, including small. The author's choice sets where
   // the picture starts, not what the reader is allowed to see — somebody who
   // cannot make out a thumbnail should be one press away from the full thing.
+  const t = useT();
   const [expanded, setExpanded] = useState(size === 'wide');
 
   if (error) {
     // Said rather than left as a broken frame. A reader who cannot load the
     // picture should know it is a permission or a network problem and not that the
     // author forgot to attach anything.
-    return <p className="empty">A picture here could not be loaded.</p>;
+    return <p className="empty">{t('A picture here could not be loaded.')}</p>;
   }
   if (isPending || signed == null) {
     // A placeholder of the right shape, so the text below does not jump when the
     // picture arrives.
     return (
       <figure className="rich-image rich-image-pending">
-        <p className="empty">Loading the picture…</p>
+        <p className="empty">{t('Loading the picture…')}</p>
       </figure>
     );
   }
@@ -175,7 +177,7 @@ function PostImage({ src, alt, size }: { src: string; alt: string; size: ImageSi
         aria-expanded={expanded}
         className="rich-image-button"
         onClick={() => setExpanded(!expanded)}
-        title={expanded ? 'Shrink back' : 'Fill the page width'}
+        title={expanded ? t('Shrink back') : t('Fill the page width')}
         type="button"
       >
         <img alt={alt} loading="lazy" src={signed} />

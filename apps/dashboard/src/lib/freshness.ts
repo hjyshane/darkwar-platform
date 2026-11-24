@@ -1,6 +1,8 @@
 // FR-UI-007/008: every important number carries its source timestamp, and
 // stale/missing data must be visually distinct from fresh data.
 
+import { type Translate, english } from './i18n/core';
+
 export type Freshness = 'fresh' | 'stale' | 'missing';
 
 // A DAY, not an hour.
@@ -28,20 +30,20 @@ export function classifyFreshness(capturedAt: string | null, now: Date): Freshne
   return age > STALE_AFTER_MS ? 'stale' : 'fresh';
 }
 
-export function formatAge(capturedAt: string, now: Date): string {
+export function formatAge(capturedAt: string, now: Date, t: Translate = english): string {
   const ageMs = Math.max(0, now.getTime() - new Date(capturedAt).getTime());
   const minutes = Math.floor(ageMs / 60_000);
   if (minutes < 1) {
-    return 'just now';
+    return t('just now');
   }
   if (minutes < 60) {
-    return `${minutes}m ago`;
+    return t('{minutes}m ago', { minutes });
   }
   const hours = Math.floor(minutes / 60);
   if (hours < 24) {
-    return `${hours}h ago`;
+    return t('{hours}h ago', { hours });
   }
-  return `${Math.floor(hours / 24)}d ago`;
+  return t('{days}d ago', { days: Math.floor(hours / 24) });
 }
 
 /** Presence as a phrase.

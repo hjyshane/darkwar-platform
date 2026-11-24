@@ -6,6 +6,7 @@
 // A bar that carries on past the week edge is drawn square on that side;
 // only a real start or end is rounded.
 
+import { useT } from '../../lib/i18n';
 import {
   CATEGORY_LABELS,
   type CalendarEvent,
@@ -25,6 +26,7 @@ function Bar({
   row: number;
   onOpen: (event: CalendarEvent) => void;
 }) {
+  const t = useT();
   const category = categoryOf(bar.event);
   const classes = [
     'calendar-bar',
@@ -40,10 +42,10 @@ function Bar({
       onClick={() => onOpen(bar.event)}
       type="button"
       style={{ gridColumn: `${bar.start + 1} / ${bar.end + 2}`, gridRow: row }}
-      title={`${labelOf(bar.event)} (${CATEGORY_LABELS[category]}): ${serverWhen(bar.event.starts_at)} → ${serverWhen(bar.event.ends_at)}`}
+      title={`${labelOf(bar.event, t)} (${t(CATEGORY_LABELS[category])}): ${serverWhen(bar.event.starts_at)} → ${serverWhen(bar.event.ends_at)}`}
     >
       {!bar.startsHere && <span aria-hidden="true">◀ </span>}
-      {labelOf(bar.event)}
+      {labelOf(bar.event, t)}
     </button>
   );
 }
@@ -72,6 +74,7 @@ export function WeekGrid({
   /** The week view: taller day cells, labelled groups. */
   tall?: boolean;
 }) {
+  const t = useT();
   const keys = days.map((day) => day.key);
   const groups = groupedWeekBars(events, keys);
 
@@ -107,7 +110,7 @@ export function WeekGrid({
           style={{ gridColumn: column + 1, gridRow: `1 / ${rows + 1}` }}
         >
           <button
-            aria-label={`Open ${day.key}`}
+            aria-label={t('Open {day}', { day: day.key })}
             className="calendar-date-button"
             onClick={() => onPickDay(day.key)}
             type="button"
@@ -123,7 +126,7 @@ export function WeekGrid({
             key={`label-${group.category}`}
             style={{ gridColumn: '1 / 8', gridRow: labelRow }}
           >
-            {CATEGORY_LABELS[group.category]}
+            {t(CATEGORY_LABELS[group.category])}
           </div>
         ),
         ...group.bars.map((bar) => (

@@ -76,6 +76,12 @@ describe('translate', () => {
     expect(translator({})('Sign out')).toBe('Sign out');
   });
 
+  it('shows English without a key\'s context, and lets a language tell the two apart', () => {
+    expect(english('[attendance] Held')).toBe('Held');
+    const ko = translator({ Held: '점령 중', '[attendance] Held': '개최일' });
+    expect([ko('Held'), ko('[attendance] Held')]).toEqual(['점령 중', '개최일']);
+  });
+
   it('picks the stored choice, then the browser, then the site default', () => {
     expect(pickLanguage('de', ['ko-KR'], 'en')).toBe('de');
     expect(pickLanguage(null, ['xx', 'ko-KR', 'en'], 'en')).toBe('ko');

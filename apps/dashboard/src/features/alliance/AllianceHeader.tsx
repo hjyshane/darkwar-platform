@@ -3,6 +3,7 @@ import { Cell, CellGrid } from '../../components/console/Cell';
 import { Led } from '../../components/console/Led';
 import { Verdict } from '../../components/console/Verdict';
 import { compactNumber } from '../../lib/compactNumber';
+import { rich, useT } from '../../lib/i18n';
 import { playerHash } from '../../lib/route';
 import { TERMS } from '../../lib/terms';
 import { countryName, languageName } from './codes';
@@ -66,6 +67,7 @@ export function AllianceHeaderView({
   readings,
   now,
 }: AllianceHeaderViewProps) {
+  const t = useT();
   const facts: AllianceVerdictFacts = {
     ...standingFacts(standing ?? [], allianceId),
     serverId,
@@ -73,10 +75,11 @@ export function AllianceHeaderView({
     minPower: info?.min_power ?? null,
     minHq: info?.min_hq ?? null,
   };
-  const parts = verdictParts(facts);
-  const leds = [rosterLed(rosterCapturedAt, now), captureLed(membersFrom, rosterComplete)].filter(
-    (led) => led !== null,
-  );
+  const parts = verdictParts(facts, t);
+  const leds = [
+    rosterLed(rosterCapturedAt, now, t),
+    captureLed(membersFrom, rosterComplete, t),
+  ].filter((led) => led !== null);
   const delta = powerDelta(readings ?? [], now);
   const minimums = [
     info?.min_power != null ? compact.format(info.min_power) : null,
@@ -110,24 +113,28 @@ export function AllianceHeaderView({
       )}
       <CellGrid columns={3}>
         <Cell
-          context={delta === null ? undefined : `${signedCompact(delta)} in 7d`}
+          context={delta === null ? undefined : t('{delta} in 7d', { delta: signedCompact(delta) })}
           hero
-          label={TERMS.power}
+          label={t(TERMS.power)}
           tone={delta === null || delta === 0 ? 'neutral' : delta > 0 ? 'up' : 'down'}
           value={power === null ? null : compact.format(power)}
         />
         <Cell
-          context={standingGap(facts) ?? undefined}
-          label="Rank on server"
+          context={standingGap(facts, t) ?? undefined}
+          label={t('Rank on server')}
           unit={facts.total === null ? undefined : `/${facts.total}`}
           value={facts.rank === null ? null : `#${facts.rank}`}
         />
         <Cell
-          context={observed > 0 ? `${plain.format(observed)} observed` : 'none observed'}
-          label={TERMS.members}
+          context={
+            observed > 0
+              ? t('{count} observed', { count: plain.format(observed) })
+              : t('none observed')
+          }
+          label={t(TERMS.members)}
           note={
             membersFrom === 'last known' && observed > 0
-              ? 'last known alliance, not cleared when somebody leaves'
+              ? t('last known alliance, not cleared when somebody leaves')
               : undefined
           }
           unit={info?.max_members != null ? `/${info.max_members}` : undefined}
@@ -136,17 +143,17 @@ export function AllianceHeaderView({
         {/* The raw integer under an honest label: whether 1 means "needs
             approval" or "open join" is unconfirmed (0313 column comment). */}
         <Cell
-          context={info?.join_approval != null ? 'meaning unconfirmed' : undefined}
-          label="Join (raw)"
+          context={info?.join_approval != null ? t('meaning unconfirmed') : undefined}
+          label={t('Join (raw)')}
           value={info?.join_approval ?? null}
         />
-        <Cell label="Minimums" value={minimums.length > 0 ? minimums.join(' · ') : null} />
+        <Cell label={t('Minimums')} value={minimums.length > 0 ? minimums.join(' · ') : null} />
         {/* Words, not a figure: smaller, and wrapping at spaces instead of
             mid-word like the kit's figures do. */}
         <Cell
           classNames={{ value: 'cell-value-words' }}
           context={countryName(info?.country ?? null) ?? undefined}
-          label="Language"
+          label={t('Language')}
           value={languageName(info?.language ?? null)}
         />
       </CellGrid>
@@ -196,6 +203,7 @@ export function AllianceHeader({ now, ...detail }: AllianceHeaderProps) {
 /** "Leader <name>" for the identity line. get.al.info names the leader by game
  * uid; nothing renders until that resolves to a player we know. */
 export function AllianceLeader({ allianceId }: { allianceId: string }) {
+  const t = useT();
   const info = useQuery({
     queryKey: ['alliance-info', allianceId],
     queryFn: () => fetchAllianceInfo(allianceId),
@@ -209,7 +217,9 @@ export function AllianceLeader({ allianceId }: { allianceId: string }) {
   if (leader.data === null || leader.data === undefined) return null;
   return (
     <span>
-      Leader <a href={playerHash(leader.data.playerId)}>{leader.data.name ?? '—'}</a>
+      {rich(t('Leader {name}'), {
+        name: <a href={playerHash(leader.data.playerId)}>{leader.data.name ?? '—'}</a>,
+      })}
     </span>
   );
 }

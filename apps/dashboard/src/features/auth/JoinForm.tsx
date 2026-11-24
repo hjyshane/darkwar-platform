@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Select } from '../../components/ui/Select';
+import { useT } from '../../lib/i18n';
 import { isCodeComplete, joinCodeFrom } from '../../lib/joinCode';
 import { supabase } from '../../lib/supabase';
 import { CodeBoxes } from './JoinCodeForm';
@@ -29,6 +30,7 @@ interface RosterEntry {
  * scan. One button redeems the code, then links the character (see
  * joinAndClaim.ts for why that order is forced). */
 export function JoinForm({ onJoined }: { onJoined: (outcome: Joined) => void }) {
+  const t = useT();
   const [first, setFirst] = useState('');
   const [second, setSecond] = useState('');
   const [picked, setPicked] = useState('');
@@ -67,7 +69,7 @@ export function JoinForm({ onJoined }: { onJoined: (outcome: Joined) => void }) 
     event.preventDefault();
     setBusy(true);
     setRefusal(null);
-    const outcome = await joinAndClaim(joinCodeFrom(first, second), choice());
+    const outcome = await joinAndClaim(joinCodeFrom(first, second), choice(), t);
     setBusy(false);
     if (outcome.kind === 'refused') {
       setRefusal(outcome.message);
@@ -78,42 +80,45 @@ export function JoinForm({ onJoined }: { onJoined: (outcome: Joined) => void }) 
 
   return (
     <form className="join-form" onSubmit={(event) => void submit(event)}>
-      <h3>Join your alliance</h3>
+      <h3>{t('Join your alliance')}</h3>
       <p className="empty">
-        Enter the invitation code an officer gave you and pick your character. Alliance-only pages
-        open as soon as the code is accepted.
+        {t(
+          'Enter the invitation code an officer gave you and pick your character. Alliance-only pages open as soon as the code is accepted.',
+        )}
       </p>
       <CodeBoxes first={first} onFirst={setFirst} onSecond={setSecond} second={second} />
       <label>
-        Your character
+        {t('Your character')}
         <Select onChange={setPicked} value={picked}>
-          <option value="">Choose…</option>
+          <option value="">{t('Choose…')}</option>
           {entries.map((entry) => (
             <option key={entry.player_id} value={entry.player_id}>
               {entry.name}
               {showCode ? ` [${entry.alliance_code}]` : ''}
             </option>
           ))}
-          <option value={TYPE_IT}>Not in the list — type it</option>
+          <option value={TYPE_IT}>{t('Not in the list — type it')}</option>
         </Select>
       </label>
       {roster.error && (
-        <p className="error">Could not load the member list; type your name or UID instead.</p>
+        <p className="error">
+          {t('Could not load the member list; type your name or UID instead.')}
+        </p>
       )}
       {picked === TYPE_IT && (
         <label>
-          In-game name or UID
+          {t('In-game name or UID')}
           <input
             autoComplete="off"
             onChange={(event) => setTyped(event.target.value)}
-            placeholder="Exactly as in the game, or the number in your profile"
+            placeholder={t('Exactly as in the game, or the number in your profile')}
             spellCheck={false}
             value={typed}
           />
         </label>
       )}
       <button disabled={busy || !isCodeComplete(first, second)} type="submit">
-        {busy ? 'Joining…' : 'Join'}
+        {busy ? t('Joining…') : t('Join')}
       </button>
       {refusal && <p className="error">{refusal}</p>}
     </form>

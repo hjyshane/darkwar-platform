@@ -1,3 +1,4 @@
+import { useT } from '../lib/i18n';
 import { serverHash } from '../lib/route';
 import type { ServerCount } from '../lib/serverFilter';
 
@@ -14,19 +15,20 @@ export function ServerChips({
   value: number | null;
   onChange: (server: number | null) => void;
 }) {
+  const t = useT();
   if (servers.length === 0) {
     return null;
   }
   const total = servers.reduce((sum, server) => sum + server.count, 0);
   return (
-    <nav aria-label="Filter by server" className="server-links">
+    <nav aria-label={t('Filter by server')} className="server-links">
       <button
         aria-pressed={value === null}
         className="server-link"
         onClick={() => onChange(null)}
         type="button"
       >
-        All servers ({servers.length}) · {total}
+        {t('All servers ({count}) · {total}', { count: servers.length, total })}
       </button>
       {servers.map((server) => (
         <button
@@ -41,7 +43,7 @@ export function ServerChips({
       ))}
       {value !== null && (
         <a className="server-link server-link-open" href={serverHash(value)}>
-          Open server {value} →
+          {t('Open server {server} →', { server: value })}
         </a>
       )}
     </nav>

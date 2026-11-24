@@ -11,6 +11,7 @@ import {
   offsetKey,
   tileCaption,
 } from '../../lib/hiveFormation';
+import { rich, useT } from '../../lib/i18n';
 import { isAllowed, usePermissions } from '../../lib/permissions';
 import { HIVE, HIVE_NEW, type HiveTab } from '../../lib/route';
 import { shareCoordinate } from '../../lib/shareCoordinate';
@@ -60,6 +61,7 @@ import { hiveStrip } from './strip';
  * side of producing that coordinate.
  */
 export function HivePage() {
+  const t = useT();
   const { data: session } = useSession();
   const { data: permissions } = usePermissions();
   const mayPlan = isAllowed(permissions?.grants, session?.role, 'hive.plan');
@@ -135,10 +137,14 @@ export function HivePage() {
   const ranks = new Map((members.data ?? []).map((member) => [member.playerId, member.memberRank]));
 
   if (allPlans.isPending) {
-    return <p className="empty loading">Loading…</p>;
+    return <p className="empty loading">{t('Loading…')}</p>;
   }
   if (allPlans.error) {
-    return <p className="error">Could not load formations: {(allPlans.error as Error).message}</p>;
+    return (
+      <p className="error">
+        {t('Could not load formations: {message}', { message: (allPlans.error as Error).message })}
+      </p>
+    );
   }
 
   /** To the new-formation page: a step in the history, so back returns. */
@@ -157,13 +163,13 @@ export function HivePage() {
             <h2 id="hive-heading">{TERMS.hive}</h2>
             {creating ? (
               <p className="entity-meta">
-                <span>New formation</span>
+                <span>{t('New formation')}</span>
               </p>
             ) : (
               formation !== null && (
                 <p className="entity-meta">
                   <span>{formation.name}</span>
-                  <span>Server {formation.serverId}</span>
+                  <span>{t('Server {server}', { server: formation.serverId })}</span>
                 </p>
               )
             )}
@@ -171,10 +177,15 @@ export function HivePage() {
         </header>
         {!creating && formation !== null && (
           <div className="strip">
-            {hiveStrip(formation, board.data ?? [], {
-              x: formation.anchorX,
-              y: formation.anchorY,
-            }).map((cell, index) => (
+            {hiveStrip(
+              formation,
+              board.data ?? [],
+              {
+                x: formation.anchorX,
+                y: formation.anchorY,
+              },
+              t,
+            ).map((cell, index) => (
               <StatTile
                 hero={index === 0}
                 key={cell.label}
@@ -207,15 +218,17 @@ export function HivePage() {
       ) : formation === null ? (
         <>
           <p className="empty">
-            No formation has been drawn yet.{' '}
+            {t('No formation has been drawn yet.')}{' '}
             {mayPlan
-              ? 'Start one, then draw its shape on the map and say who goes where.'
-              : 'An officer draws one before a hive move; your tile will appear here when they do.'}
+              ? t('Start one, then draw its shape on the map and say who goes where.')
+              : t(
+                  'An officer draws one before a hive move; your tile will appear here when they do.',
+                )}
           </p>
           {mayPlan && (
             <p className="hive-edit-cta">
               <button className="primary" onClick={startNew} type="button">
-                Start a new formation
+                {t('Start a new formation')}
               </button>
             </p>
           )}
@@ -230,7 +243,7 @@ export function HivePage() {
           />
           <div className="hive-picker">
             <label>
-              <span>Server</span>
+              <span>{t('Server')}</span>
               <Select
                 onChange={(chosen) => {
                   setChosenServer(Number.parseInt(chosen, 10));
@@ -247,7 +260,7 @@ export function HivePage() {
               </Select>
             </label>
             <label>
-              <span>Formation</span>
+              <span>{t('Formation')}</span>
               <Select
                 onChange={(chosen) => setChosenFormation(chosen)}
                 value={formation.formationId}
@@ -255,13 +268,15 @@ export function HivePage() {
                 {formations.map((candidate) => (
                   <option key={candidate.formationId} value={candidate.formationId}>
                     {candidate.name}
-                    {candidate.isActive ? ' · live' : ''}
+                    {candidate.isActive ? ` · ${t('live')}` : ''}
                   </option>
                 ))}
                 {/* The plan on screen, though deleted, so the picker does not
                     claim another plan is the one being looked at. */}
                 {deletedUnderUs && (
-                  <option value={formation.formationId}>{formation.name} · deleted</option>
+                  <option value={formation.formationId}>
+                    {formation.name} · {t('deleted')}
+                  </option>
                 )}
               </Select>
             </label>
@@ -270,7 +285,7 @@ export function HivePage() {
                 drawing tab only, between the tabs and the map. */}
             {mayPlan && (
               <button onClick={startNew} type="button">
-                New formation
+                {t('New formation')}
               </button>
             )}
           </div>
@@ -282,8 +297,11 @@ export function HivePage() {
               tabs: the plan is all they have. */}
           {mayPlan && (
             <Tabs
-              label="Hive view"
-              items={HIVE.tabs.map((candidate) => ({ id: candidate.id, label: candidate.label }))}
+              label={t('Hive view')}
+              items={HIVE.tabs.map((candidate) => ({
+                id: candidate.id,
+                label: t(candidate.label),
+              }))}
               value={tab}
               onChange={setTab}
             />
@@ -298,14 +316,15 @@ export function HivePage() {
           {mayPlan && tab === 'plan' && (
             <p className="hive-edit-cta">
               <button onClick={() => setTab('shape')} type="button">
-                Edit this layout
+                {t('Edit this layout')}
               </button>
               <button onClick={() => setTab('people')} type="button">
-                Assign members
+                {t('Assign members')}
               </button>
               <span className="subtle">
-                Draw the shape on the map, then say who goes where. To start a different layout,
-                press New formation.
+                {t(
+                  'Draw the shape on the map, then say who goes where. To start a different layout, press New formation.',
+                )}
               </span>
             </p>
           )}
@@ -384,11 +403,16 @@ function MyTile({
   formation: Formation;
   playerId: string | null;
 }) {
+  const t = useT();
   if (playerId === null) {
     return (
       <p className="subtle">
-        This account is not linked to a character yet, so it cannot say which tile is yours. Link it
-        from <a href="#/account">My account</a> and it will.
+        {rich(
+          t(
+            'This account is not linked to a character yet, so it cannot say which tile is yours. Link it from {account} and it will.',
+          ),
+          { account: <a href="#/account">{t('My account')}</a> },
+        )}
       </p>
     );
   }
@@ -396,20 +420,20 @@ function MyTile({
   if (mine === undefined) {
     return (
       <p className="empty">
-        You have no tile in <strong>{formation.name}</strong> yet.
+        {rich(t('You have no tile in {name} yet.'), { name: <strong>{formation.name}</strong> })}
       </p>
     );
   }
   return (
     <p className="hive-mine">
-      <span>Your tile in {formation.name}</span>
+      <span>{t('Your tile in {name}', { name: formation.name })}</span>
       <strong>
         <code>{shareCoordinate(formation.serverId, { x: mine.x, y: mine.y })}</code>
       </strong>
       {mine.label !== '' && <span>{mine.label}</span>}
       {!formation.isActive && (
         <span className="hive-mine__draft">
-          This plan is not live yet — wait for the officer to say so before you teleport.
+          {t('This plan is not live yet — wait for the officer to say so before you teleport.')}
         </span>
       )}
     </p>
@@ -439,6 +463,7 @@ function Overview({
   /** Player id to in-game rank (1-5), for colouring bases by rank. */
   ranks: ReadonlyMap<string, number | null>;
 }) {
+  const t = useT();
   const queryClient = useQueryClient();
   const [copied, setCopied] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -511,8 +536,15 @@ function Overview({
     <>
       {departed.length > 0 && (
         <p className="subtle">
-          {departed.length} tile{departed.length === 1 ? ' is' : 's are'} empty again because the
-          member left the alliance ({departed.map((slot) => slot.departedName).join(', ')}).
+          {departed.length === 1
+            ? t('{count} tile is empty again because the member left the alliance ({names}).', {
+                count: departed.length,
+                names: departed.map((slot) => slot.departedName).join(', '),
+              })
+            : t('{count} tiles are empty again because the member left the alliance ({names}).', {
+                count: departed.length,
+                names: departed.map((slot) => slot.departedName).join(', '),
+              })}
         </p>
       )}
 
@@ -542,7 +574,7 @@ function Overview({
                 <MapKey colourBy={prefs.colourBy} tally={rankTally(bases)} />
                 <MapNav
                   anchor={anchor}
-                  fitLabel="Whole plan"
+                  fitLabel={t('Whole plan')}
                   fitted={zoom === null && centre === null}
                   onFit={() => {
                     setZoom(null);
@@ -558,9 +590,12 @@ function Overview({
             window={view}
           />
           <p className="subtle">
-            Drag the map to slide it. Hold <kbd>ctrl</kbd> and use the wheel, or pinch, to zoom; the
-            house goes to the anchor and the frame shows the whole plan. Drag the corner handle to
-            make the map bigger or smaller.
+            {rich(
+              t(
+                'Drag the map to slide it. Hold {key} and use the wheel, or pinch, to zoom; the house goes to the anchor and the frame shows the whole plan. Drag the corner handle to make the map bigger or smaller.',
+              ),
+              { key: <kbd>ctrl</kbd> },
+            )}
           </p>
         </div>
 
@@ -590,7 +625,9 @@ function Overview({
           {board.length > 0 && <pre className="hive-list">{text}</pre>}
           {!mayPlan && (
             <p className="subtle">
-              Layouts are drawn by officers with hive access (R4/R5). Ask one to change yours.
+              {t(
+                'Layouts are drawn by officers with hive access (R4/R5). Ask one to change yours.',
+              )}
             </p>
           )}
         </div>
@@ -622,17 +659,18 @@ function OverviewActions({
   removing: boolean;
   standing: boolean;
 }) {
+  const t = useT();
   return (
     <>
       <div className="hive-actions">
         <button onClick={onCopy} type="button">
-          {copied ? 'Copied' : 'Copy the list'}
+          {copied ? t('Copied') : t('Copy the list')}
         </button>
         {/* Neither applies to a plan that is already deleted: the notice at
             the top offers to restore it instead. */}
         {mayPlan && !formation.isActive && formation.deletedAt === null && (
           <button disabled={standing} onClick={onStand} type="button">
-            Make this the live plan
+            {t('Make this the live plan')}
           </button>
         )}
         {/* TWO PRESSES, following LeaveAllianceForm. Since 0330 a delete can
@@ -642,15 +680,15 @@ function OverviewActions({
         {mayPlan && formation.deletedAt === null && (
           <button disabled={removing} onClick={onDelete} type="button">
             {removing
-              ? 'Deleting…'
+              ? t('Deleting…')
               : confirming
-                ? `Delete ${formation.name}? It can be restored for 30 days.`
-                : 'Delete this formation'}
+                ? t('Delete {name}? It can be restored for 30 days.', { name: formation.name })
+                : t('Delete this formation')}
           </button>
         )}
         {confirming && !removing && (
           <button onClick={onCancel} type="button">
-            Keep it
+            {t('Keep it')}
           </button>
         )}
       </div>
@@ -673,12 +711,15 @@ function NewFormation({
   plans: readonly Formation[];
   onCreated: (created: { formationId: string; serverId: number }) => void;
 }) {
+  const t = useT();
   const queryClient = useQueryClient();
   const [serverId, setServerId] = useState<number | null>(initialServer ?? servers[0] ?? null);
   const [name, setName] = useState('');
   const [x, setX] = useState('500');
   const [y, setY] = useState('500');
-  const suggested = `Formation ${plans.filter((plan) => plan.serverId === serverId).length + 1}`;
+  const suggested = t('Formation {number}', {
+    number: plans.filter((plan) => plan.serverId === serverId).length + 1,
+  });
   const create = useMutation({
     mutationFn: (on: number) =>
       createFormation({
@@ -696,13 +737,14 @@ function NewFormation({
 
   return (
     <div className="hive-new">
-      <h3>Start a new formation</h3>
+      <h3>{t('Start a new formation')}</h3>
       <p className="subtle">
-        It starts with nothing drawn. Next you draw its shape on the map, then say who goes where.
-        The anchor is the square every tile is measured from; it can be moved later.
+        {t(
+          'It starts with nothing drawn. Next you draw its shape on the map, then say who goes where. The anchor is the square every tile is measured from; it can be moved later.',
+        )}
       </p>
       {serverId === null ? (
-        <p className="empty">There is no server to put a formation on.</p>
+        <p className="empty">{t('There is no server to put a formation on.')}</p>
       ) : (
         <form
           className="hive-coordinate"
@@ -712,7 +754,7 @@ function NewFormation({
           }}
         >
           <label>
-            <span>Server</span>
+            <span>{t('Server')}</span>
             <Select
               onChange={(chosen) => setServerId(Number.parseInt(chosen, 10))}
               value={serverId}
@@ -725,7 +767,7 @@ function NewFormation({
             </Select>
           </label>
           <label>
-            <span>Name</span>
+            <span>{t('Name')}</span>
             <input
               onChange={(event) => setName(event.target.value)}
               placeholder={suggested}
@@ -733,7 +775,7 @@ function NewFormation({
             />
           </label>
           <label>
-            <span>Anchor x</span>
+            <span>{t('Anchor x')}</span>
             <input inputMode="numeric" onChange={(event) => setX(event.target.value)} value={x} />
           </label>
           <label>
@@ -741,12 +783,14 @@ function NewFormation({
             <input inputMode="numeric" onChange={(event) => setY(event.target.value)} value={y} />
           </label>
           <button disabled={create.isPending} type="submit">
-            {create.isPending ? 'Creating…' : `Create on server ${serverId}`}
+            {create.isPending
+              ? t('Creating…')
+              : t('Create on server {server}', { server: serverId })}
           </button>
           {/* In place of this page, not a new step: back from the hive is
               then wherever the officer was before they pressed New. */}
           <button onClick={() => replaceHash(HIVE.hash('plan'))} type="button">
-            Cancel
+            {t('Cancel')}
           </button>
         </form>
       )}

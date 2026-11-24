@@ -7,6 +7,8 @@ import { Cell, CellGrid } from '../../components/console/Cell';
 import { type StepColumn, StepTable } from '../../components/console/StepTable';
 import { Select } from '../../components/ui/Select';
 import { GameIcon, useIcons, useItemIcons } from '../../lib/gameIcons';
+import { useT } from '../../lib/i18n';
+import { type Translate, english } from '../../lib/i18n/core';
 import type { Names } from '../planner/data';
 import { exact, short } from '../planner/format';
 import type { Tiers } from '../planner/levels';
@@ -38,12 +40,15 @@ function materialName(
   material: MaterialTotal,
   names: Names | undefined,
   kind: CalculatorState['kind'],
+  t: Translate = english,
 ): string {
-  if (material.type === 'counter') return counterName(material.id);
+  if (material.type === 'counter') return counterName(material.id, t);
   // One entry prices every weapon; the fragments are whichever weapon's.
-  if (kind === 'exclusive' && material.type === 'item') return 'Weapon fragments';
-  if (material.type === 'item') return names?.items.get(material.id) ?? `Item ${material.id}`;
-  return names?.resources.get(material.id) ?? `Resource ${material.id}`;
+  if (kind === 'exclusive' && material.type === 'item') return t('Weapon fragments');
+  if (material.type === 'item') {
+    return names?.items.get(material.id) ?? t('Item {id}', { id: material.id });
+  }
+  return names?.resources.get(material.id) ?? t('Resource {id}', { id: material.id });
 }
 
 function Amount({ value }: { value: number | undefined }) {
@@ -66,6 +71,7 @@ export function CalculatorResult({
   names,
   tiers,
 }: CalculatorResultProps) {
+  const t = useT();
   const itemIcons = useItemIcons(table.materials.filter((m) => m.type === 'item').map((m) => m.id));
   const resourceIcons = useIcons('resource');
   // Icons are the game's art and members-only (0232): a viewer who may not
@@ -79,12 +85,12 @@ export function CalculatorResult({
 
   const stepLabel = (row: StepRow, total: string): ReactNode => {
     if (row.level === null) return total;
-    if (row.kind === 'pet_break') return `Breakthrough at ${row.level}`;
+    if (row.kind === 'pet_break') return t('Breakthrough at {level}', { level: row.level });
     if (row.climb !== undefined) {
       // A building or research needed first: its own kind's level names.
       const { climb } = row;
       const kind = row.kind === 'research' ? 'research' : 'building';
-      const name = (level: number) => levelName(kind, row.subject, level, tiers);
+      const name = (level: number) => levelName(kind, row.subject, level, tiers, t);
       if (onHave === undefined) return `${climb.name} · ${name(climb.from)} → ${name(climb.to)}`;
       // Where it stands is the reader's to say: from the least the range's
       // from level allows, up to the level needed (which costs nothing).
@@ -93,7 +99,7 @@ export function CalculatorResult({
         <span className="calc-have">
           {climb.name}
           <Select
-            aria-label={`${climb.name}: level now`}
+            aria-label={t('{name}: level now', { name: climb.name })}
             onChange={(v) => onHave(kind, row.subject, Number(v))}
             value={climb.from}
           >
@@ -107,7 +113,7 @@ export function CalculatorResult({
         </span>
       );
     }
-    const name = (level: number) => levelName(state.kind, row.subject, level, tiers);
+    const name = (level: number) => levelName(state.kind, row.subject, level, tiers, t);
     return `${name(row.level - 1)} → ${name(row.level)}`;
   };
 
@@ -120,7 +126,7 @@ export function CalculatorResult({
         header: (
           <span className="calc-amount">
             <GameIcon size={16} src={icon(material)} />
-            {materialName(material, names, state.kind)}
+            {materialName(material, names, state.kind, t)}
           </span>
         ),
         numeric: true,
@@ -131,7 +137,7 @@ export function CalculatorResult({
       ? [
           {
             key: 'time',
-            header: 'Time',
+            header: t('Time'),
             numeric: true,
             cell: (row: StepRow) =>
               row.seconds > 0 ? duration(row.seconds) : <span className="calc-none">—</span>,
@@ -152,13 +158,13 @@ export function CalculatorResult({
     <>
       <div>
         <fieldset className="calc-totals">
-          <legend className="calc-heading">Totals</legend>
+          <legend className="calc-heading">{t('Totals')}</legend>
           <CellGrid>
             {table.total.seconds > 0 && (
               <Cell
-                context={buffContext(state.speed, '+', 'speed')}
+                context={buffContext(state.speed, '+', t('speed'))}
                 hero
-                label="Time"
+                label={t('Time')}
                 value={duration(table.total.seconds)}
               />
             )}
@@ -166,11 +172,11 @@ export function CalculatorResult({
               <Cell
                 context={
                   state.kind === 'building' && material.type === 'resource'
-                    ? buffContext(state.cost, '−', 'cost')
+                    ? buffContext(state.cost, '−', t('cost'))
                     : undefined
                 }
                 key={materialKey(material)}
-                label={materialName(material, names, state.kind)}
+                label={materialName(material, names, state.kind, t)}
                 value={
                   <span className="calc-amount" title={exact(material.amount)}>
                     <GameIcon size={18} src={icon(material)} />
@@ -179,7 +185,7 @@ export function CalculatorResult({
                 }
               />
             ))}
-            <Cell label="Steps" value={table.rows.length} />
+            <Cell label={t('Steps')} value={table.rows.length} />
           </CellGrid>
         </fieldset>
         {notes.length > 0 && (
@@ -193,8 +199,8 @@ export function CalculatorResult({
 
       {needed !== null && (
         <StepTable
-          caption="Needed first"
-          columns={columnsFor('Upgrade', 'Needed first')}
+          caption={t('Needed first')}
+          columns={columnsFor(t('Upgrade'), t('Needed first'))}
           foldAt={FOLD_AT}
           rowKey={(row) => row.key}
           rows={needed.rows}
@@ -202,8 +208,8 @@ export function CalculatorResult({
         />
       )}
       <StepTable
-        caption="Step by step"
-        columns={columnsFor('Step', needed === null ? 'Total' : 'This range alone')}
+        caption={t('Step by step')}
+        columns={columnsFor(t('Step'), needed === null ? t('Total') : t('This range alone'))}
         foldAt={FOLD_AT}
         rowKey={(row) => row.key}
         rows={own.rows}

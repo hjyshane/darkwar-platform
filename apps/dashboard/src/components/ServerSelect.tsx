@@ -1,3 +1,4 @@
+import { useT } from '../lib/i18n';
 import { serverHash } from '../lib/route';
 import type { ServerCount } from '../lib/serverFilter';
 import { Select } from './ui/Select';
@@ -17,19 +18,20 @@ export function ServerSelect({
   value: number | null;
   onChange: (server: number | null) => void;
 }) {
+  const t = useT();
   if (servers.length === 0) {
     return null;
   }
   const total = servers.reduce((sum, server) => sum + server.count, 0);
   return (
-    <nav aria-label="Filter by server" className="server-links">
+    <nav aria-label={t('Filter by server')} className="server-links">
       <Select
-        aria-label="Server"
+        aria-label={t('Server')}
         onChange={(next) => onChange(next === ALL ? null : Number(next))}
         value={value === null ? ALL : value}
       >
         <option value={ALL}>
-          All servers ({servers.length}) · {total}
+          {t('All servers ({count}) · {total}', { count: servers.length, total })}
         </option>
         {servers.map((server) => (
           <option key={server.id} value={server.id}>
@@ -39,7 +41,7 @@ export function ServerSelect({
       </Select>
       {value !== null && (
         <a className="server-link server-link-open" href={serverHash(value)}>
-          Open server {value} →
+          {t('Open server {server} →', { server: value })}
         </a>
       )}
     </nav>

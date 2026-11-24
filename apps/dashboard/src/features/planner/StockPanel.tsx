@@ -9,6 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Tabs } from '../../components/ui/Tabs';
 import { GameIcon, useIcons, useItemIcons } from '../../lib/gameIcons';
+import { useT } from '../../lib/i18n';
 import { supabase } from '../../lib/supabase';
 import { fetchMaterialNames } from './data';
 import { exact, short } from './format';
@@ -79,7 +80,7 @@ async function fetchMaterials(): Promise<Material[]> {
 const VEHICLE_ITEMS = new Set(['200034']);
 
 /** Where a material shows up, in the order a player thinks of it. */
-const GROUPS: ReadonlyArray<[string, (m: Material) => boolean]> = [
+export const GROUPS: ReadonlyArray<[string, (m: Material) => boolean]> = [
   ['Resources', (m) => m.type === 'resource'],
   [
     'Vehicle',
@@ -146,6 +147,7 @@ function storeOpen(open: boolean): void {
 }
 
 export function StockPanel({ have, onHave, edited }: StockPanelProps) {
+  const t = useT();
   const materials = useQuery({
     queryKey: ['planner-materials'],
     queryFn: fetchMaterials,
@@ -164,7 +166,7 @@ export function StockPanel({ have, onHave, edited }: StockPanelProps) {
   const itemIcons = useItemIcons(itemIds);
   const resourceIcons = useIcons('resource');
 
-  if (materials.isPending) return <p className="empty">Loading materials…</p>;
+  if (materials.isPending) return <p className="empty">{t('Loading materials…')}</p>;
   if (materials.isError) return <p className="error">{materials.error.message}</p>;
 
   const nameOf = (m: Material) =>
@@ -207,22 +209,22 @@ export function StockPanel({ have, onHave, edited }: StockPanelProps) {
     >
       <summary className="planner-stock-head">
         <span>
-          <h3>Stock</h3>
-          <span className="subtle">everything an upgrade costs, and how much you hold</span>
+          <h3>{t('Stock')}</h3>
+          <span className="subtle">{t('everything an upgrade costs, and how much you hold')}</span>
         </span>
         <span aria-hidden="true" className="planner-stock-toggle">
-          {open ? '▴ Hide' : '▾ Show'}
+          {open ? `▴ ${t('Hide')}` : `▾ ${t('Show')}`}
         </span>
       </summary>
       {/* A tab per category; a search looks through all of them. */}
       <Tabs
-        label="Stock category"
+        label={t('Stock category')}
         className="planner-tabs"
         items={sections.map(([label, rows]) => ({
           id: label,
           label: (
             <>
-              {label} ({rows.length})
+              {t(label)} ({rows.length})
             </>
           ),
         }))}
@@ -233,10 +235,10 @@ export function StockPanel({ have, onHave, edited }: StockPanelProps) {
         }}
       />
       <input
-        aria-label="Find a material"
+        aria-label={t('Find a material')}
         className="planner-filter"
         onChange={(e) => setFilter(e.target.value)}
-        placeholder="Find a material…"
+        placeholder={t('Find a material…')}
         type="search"
         value={filter}
       />
@@ -244,7 +246,7 @@ export function StockPanel({ have, onHave, edited }: StockPanelProps) {
         .filter(([label]) => needle !== '' || label === shownGroup)
         .map(([label, rows]) => (
           <section className="planner-stock-group" key={label}>
-            {needle !== '' && <h4>{label}</h4>}
+            {needle !== '' && <h4>{t(label)}</h4>}
             <div className="planner-stock-grid">
               {rows.map((m) => {
                 const key = `${m.type}:${m.id}`;
@@ -261,7 +263,7 @@ export function StockPanel({ have, onHave, edited }: StockPanelProps) {
                       {edited.has(key) && (
                         <span
                           className="muted planner-stock-edited"
-                          title="Typed over the login's figure"
+                          title={t("Typed over the login's figure")}
                         >
                           ✎
                         </span>
@@ -271,7 +273,7 @@ export function StockPanel({ have, onHave, edited }: StockPanelProps) {
                       {short(held)}
                     </span>
                     <input
-                      aria-label={`Have ${nameOf(m)}`}
+                      aria-label={t('Have {name}', { name: nameOf(m) })}
                       min={0}
                       onChange={(e) => onHave(m.type, m.id, Number(e.target.value) || 0)}
                       type="number"

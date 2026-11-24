@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useT } from '../../lib/i18n';
 import { TERMS } from '../../lib/terms';
 import { AtlasPage } from './AtlasPage';
 import { MapLoadError } from './MapLoadError';
@@ -12,6 +13,7 @@ import { useScannedServers } from './mapLocations';
  * "nobody is there".
  */
 export function MapPage({ serverId }: { serverId: number | null }) {
+  const t = useT();
   const { data: servers, isPending, error, refetch } = useScannedServers();
   const [chosen, setChosen] = useState<number | null>(serverId);
 
@@ -21,7 +23,7 @@ export function MapPage({ serverId }: { serverId: number | null }) {
   const active = chosen ?? serverId ?? servers?.[0]?.serverId ?? null;
 
   if (isPending) {
-    return <p className="empty loading">Loading…</p>;
+    return <p className="empty loading">{t('Loading…')}</p>;
   }
   if (error) {
     return <MapLoadError error={error} onRetry={() => void refetch()} />;
@@ -31,8 +33,9 @@ export function MapPage({ serverId }: { serverId: number | null }) {
       <section aria-labelledby="map-heading">
         <h2 id="map-heading">{TERMS.map}</h2>
         <p className="empty">
-          No server has been swept yet. A position exists only where the collector has been pointed,
-          so a server has to be visited before anyone on it has one.
+          {t(
+            'No server has been swept yet. A position exists only where the collector has been pointed, so a server has to be visited before anyone on it has one.',
+          )}
         </p>
       </section>
     );

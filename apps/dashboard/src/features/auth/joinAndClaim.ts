@@ -8,6 +8,7 @@
 // name does not match exactly one character, the account is still a member
 // and the picker (which can now read the roster) takes over.
 
+import { type Translate, english } from '../../lib/i18n/core';
 import { supabase } from '../../lib/supabase';
 
 /** A typed name as an exact, case-insensitive `ilike` pattern. */
@@ -20,10 +21,16 @@ export type JoinOutcome =
   | { kind: 'joined'; role: string; linked: string | null; note: string | null };
 
 /** What to tell the reader when the name did not settle it. */
-export function unmatchedNote(name: string, matches: number): string {
+export function unmatchedNote(name: string, matches: number, t: Translate = english): string {
   return matches === 0
-    ? `You're in, but no character in our alliances matches "${name}". Pick yours below — or ask an officer if the collector has not seen you yet.`
-    : `You're in. ${matches} characters match "${name}" — pick yours below.`;
+    ? t(
+        'You\'re in, but no character in our alliances matches "{name}". Pick yours below — or ask an officer if the collector has not seen you yet.',
+        { name },
+      )
+    : t('You\'re in. {count} characters match "{name}" — pick yours below.', {
+        count: matches,
+        name,
+      });
 }
 
 /** Who the reader says they are: a row picked from the roster, or text typed
@@ -53,7 +60,11 @@ async function findTyped(text: string): Promise<{ playerId: string; name: string
   return data.map((row) => ({ playerId: row.player_id, name: row.current_name ?? trimmed }));
 }
 
-export async function joinAndClaim(code: string, choice: CharacterChoice): Promise<JoinOutcome> {
+export async function joinAndClaim(
+  code: string,
+  choice: CharacterChoice,
+  t: Translate = english,
+): Promise<JoinOutcome> {
   const { data: role, error } = await supabase.rpc('redeem_join_code', { p_code: code });
   if (error) {
     // The lockout: about the caller, not about which codes exist (0021).
@@ -61,7 +72,7 @@ export async function joinAndClaim(code: string, choice: CharacterChoice): Promi
   }
   if (role === null) {
     // Wrong, expired, revoked and used up alike, as JoinCodeForm says.
-    return { kind: 'refused', message: 'That code is not valid.' };
+    return { kind: 'refused', message: t('That code is not valid.') };
   }
   if (choice.kind === 'none' || (choice.kind === 'typed' && choice.text.trim() === '')) {
     return { kind: 'joined', role, linked: null, note: null };
@@ -78,7 +89,7 @@ export async function joinAndClaim(code: string, choice: CharacterChoice): Promi
         kind: 'joined',
         role,
         linked: null,
-        note: unmatchedNote(choice.text.trim(), found?.length ?? 0),
+        note: unmatchedNote(choice.text.trim(), found?.length ?? 0, t),
       };
     }
     target = only;
@@ -92,7 +103,10 @@ export async function joinAndClaim(code: string, choice: CharacterChoice): Promi
       kind: 'joined',
       role,
       linked: null,
-      note: `You're in, but ${target.name} could not be linked: ${claimError.message}`,
+      note: t("You're in, but {name} could not be linked: {message}", {
+        name: target.name,
+        message: claimError.message,
+      }),
     };
   }
   return { kind: 'joined', role, linked: target.name, note: null };

@@ -3,6 +3,7 @@
 // day's view.
 
 import { calendarRange, dayKey, isOutsideMonth, rangeLabel } from '../../lib/calendar';
+import { useT } from '../../lib/i18n';
 import { WeekGrid } from './WeekGrid';
 import { type CalendarEvent, addDays } from './data';
 
@@ -24,6 +25,7 @@ export function MonthView({
   onPickDay: (day: string) => void;
   onOpen: (event: CalendarEvent) => void;
 }) {
+  const t = useT();
   const anchor = new Date(`${day.slice(0, 8)}01T00:00:00Z`);
   const days = calendarRange('month', anchor).days;
   const weeks: Date[][] = [];
@@ -37,23 +39,23 @@ export function MonthView({
   };
 
   return (
-    <section aria-label="Month">
+    <section aria-label={t('Month')}>
       <div className="row calendar-month-nav">
         <button onClick={() => shiftMonth(-1)} type="button">
-          ← Previous
+          {t('← Previous')}
         </button>
         <h3 className="calendar-month-title">{rangeLabel('month', anchor)}</h3>
         <button onClick={() => shiftMonth(1)} type="button">
-          Next →
+          {t('Next →')}
         </button>
         <button onClick={() => onDay(today)} type="button">
-          Today
+          {t('Today')}
         </button>
       </div>
       <div className="calendar-month">
         <div className="calendar-weekdays" aria-hidden="true">
           {WEEKDAYS.map((name) => (
-            <div key={name}>{name}</div>
+            <div key={name}>{t(name)}</div>
           ))}
         </div>
         {weeks.map((week) => (

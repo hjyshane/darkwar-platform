@@ -27,6 +27,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { StatTile } from '../../components/StatTile';
 import { Tabs } from '../../components/ui/Tabs';
 import { useIsCommunity } from '../../lib/communityAccess';
+import { rich, useT } from '../../lib/i18n';
 import { ACCOUNT_PLANS, plannerKindFromHash } from '../../lib/route';
 import { replaceHash, useHash } from '../../lib/useHash';
 import { chipLabel, counterName } from '../calculator/chips';
@@ -55,7 +56,7 @@ import { plannerStrip } from './strip';
 import { type Target, goalsOf, withTarget } from './targets';
 
 type Section = 'building' | 'research' | 'heroes' | 'vehicle' | 'pets';
-const SECTIONS: ReadonlyArray<[Section, string]> = [
+export const SECTIONS: ReadonlyArray<[Section, string]> = [
   ['building', 'Buildings'],
   ['research', 'Research'],
   ['heroes', 'Heroes'],
@@ -91,6 +92,7 @@ function BuffInput({
 const SCRATCH = blankAccount('scratch', 'Your account', null);
 
 export function PlannerPage() {
+  const t = useT();
   const isCommunity = useIsCommunity();
   const accounts = useQuery({
     queryKey: ['planner-accounts'],
@@ -174,7 +176,7 @@ export function PlannerPage() {
   });
 
   const now = Date.now();
-  const activeTimed = (account?.timedEffects ?? []).filter((t) => t.end > now);
+  const activeTimed = (account?.timedEffects ?? []).filter((timed) => timed.end > now);
   const base = account
     ? buffsFrom(
         account.effects,
@@ -189,7 +191,7 @@ export function PlannerPage() {
       }
     : null;
 
-  const { goals, names: goalNames } = useMemo(() => goalsOf(targets.values()), [targets]);
+  const { goals, names: goalNames } = useMemo(() => goalsOf(targets.values(), t), [targets, t]);
   const levels = useMemo(() => new Map(Object.entries(account?.buildings ?? {})), [account]);
   // Research the account already has, so a prerequisite research it has met is
   // not planned again (0243).
@@ -219,13 +221,15 @@ export function PlannerPage() {
   if (accounts.isPending)
     return (
       <main>
-        <p className="empty">Loading accounts…</p>
+        <p className="empty">{t('Loading accounts…')}</p>
       </main>
     );
   if (accounts.isError)
     return (
       <main>
-        <p className="error">Could not load accounts: {accounts.error.message}</p>
+        <p className="error">
+          {t('Could not load accounts: {message}', { message: accounts.error.message })}
+        </p>
       </main>
     );
   const switchTo = (id: string) => {
@@ -253,10 +257,11 @@ export function PlannerPage() {
   if (!account) {
     return (
       <main>
-        <h2>Material planner</h2>
+        <h2>{t('Material planner')}</h2>
         <p className="empty">
-          No account to plan for yet. A character's levels, items and buffs arrive with its next
-          login the collector sees — or enter them by hand:
+          {t(
+            "No account to plan for yet. A character's levels, items and buffs arrive with its next login the collector sees — or enter them by hand:",
+          )}
         </p>
         {bar}
       </main>
@@ -298,13 +303,13 @@ export function PlannerPage() {
     edit({ ...account, effects: { ...account.effects, [id]: value } });
   const nameOf = (type: string, id: string) =>
     type === 'counter'
-      ? counterName(id)
+      ? counterName(id, t)
       : ((type === 'item' ? names.data?.items.get(id) : names.data?.resources.get(id)) ??
         `${type} ${id}`);
-  const shown = (t: Target, level: number) =>
-    t.kind === 'building'
-      ? levelText(tierMap, t.subject, level)
-      : t.kind === 'chip'
+  const shown = (target: Target, level: number) =>
+    target.kind === 'building'
+      ? levelText(tierMap, target.subject, level)
+      : target.kind === 'chip'
         ? chipLabel(level)
         : String(level);
 
@@ -316,19 +321,23 @@ export function PlannerPage() {
             PL
           </span>
           <div>
-            <h2>Material planner</h2>
+            <h2>{t('Material planner')}</h2>
             <p className="entity-meta">
               <span>{account.name}</span>
               <span>
-                {scratch ? 'Nothing is saved' : manual ? 'Entered by hand' : 'From the login'}
+                {scratch
+                  ? t('Nothing is saved')
+                  : manual
+                    ? t('Entered by hand')
+                    : t('From the login')}
               </span>
-              <span>Costs are the game's own</span>
+              <span>{t("Costs are the game's own")}</span>
             </p>
           </div>
         </header>
         {base && (
           <div className="strip">
-            {plannerStrip(base, extra, targets.size).map((cell, index) => (
+            {plannerStrip(base, extra, targets.size, t).map((cell, index) => (
               <StatTile
                 hero={index === 0}
                 key={cell.label}
@@ -341,19 +350,21 @@ export function PlannerPage() {
         )}
         {!manual && (
           <p className="entity-foot">
-            Levels, stock and buffs are {account.name}'s, from the login the collector saw at{' '}
-            {account.capturedAt.slice(0, 16).replace('T', ' ')} UTC. A buff or stock figure typed
-            over it below lasts for the visit; a plan you save keeps what you chose to raise.
+            {t(
+              "Levels, stock and buffs are {name}'s, from the login the collector saw at {time} UTC. A buff or stock figure typed over it below lasts for the visit; a plan you save keeps what you chose to raise.",
+              { name: account.name, time: account.capturedAt.slice(0, 16).replace('T', ' ') },
+            )}
           </p>
         )}
       </div>
 
       {bar}
       {scratch && (
-        <section aria-label="Your levels" className="planner-manual">
+        <section aria-label={t('Your levels')} className="planner-manual">
           <span>
-            Type the level you are at now in each list under What to raise, then pick the level you
-            want. Your levels, buffs and stock are not saved; a plan you save keeps what you chose.
+            {t(
+              'Type the level you are at now in each list under What to raise, then pick the level you want. Your levels, buffs and stock are not saved; a plan you save keeps what you chose.',
+            )}
           </span>
         </section>
       )}
@@ -374,27 +385,27 @@ export function PlannerPage() {
       {/* What every figure below is worked out from, kept short: the buffs on
           one line, the stock list folded away until it is wanted. */}
       <section aria-labelledby="planner-buffs" className="planner-settings">
-        <h3 id="planner-buffs">Buffs and stock</h3>
+        <h3 id="planner-buffs">{t('Buffs and stock')}</h3>
         {manual && (
           <div className="planner-buffs">
             <span
               className="planner-buffs-label"
-              title="The totals the game shows under Detail → Develop"
+              title={t('The totals the game shows under Detail → Develop')}
             >
-              Yours
+              {t('Yours')}
             </span>
             <BuffInput
-              label="Build speed"
+              label={t('Build speed')}
               onChange={(v) => setEffect(EFFECT_IDS.constructionSpeed, v)}
               value={account.effects[EFFECT_IDS.constructionSpeed] ?? 0}
             />
             <BuffInput
-              label="Research speed"
+              label={t('Research speed')}
               onChange={(v) => setEffect(EFFECT_IDS.researchSpeed, v)}
               value={account.effects[EFFECT_IDS.researchSpeed] ?? 0}
             />
             <BuffInput
-              label="Cost reduction"
+              label={t('Cost reduction')}
               onChange={(v) => setEffect(EFFECT_IDS.costReduction, v)}
               value={account.effects[EFFECT_IDS.costReduction] ?? 0}
             />
@@ -403,31 +414,31 @@ export function PlannerPage() {
         <div className="planner-buffs">
           <span
             className="planner-buffs-label"
-            title="A presidential or emergency-project buff, on top of the account's own"
+            title={t("A presidential or emergency-project buff, on top of the account's own")}
           >
-            Added on top
+            {t('Added on top')}
           </span>
           <BuffInput
-            label="Build speed"
+            label={t('Build speed')}
             onChange={(v) => setExtra({ ...extra, constructionSpeed: v })}
             value={extra.constructionSpeed}
           />
           <BuffInput
-            label="Research speed"
+            label={t('Research speed')}
             onChange={(v) => setExtra({ ...extra, researchSpeed: v })}
             value={extra.researchSpeed}
           />
           <BuffInput
-            label="Cost reduction"
+            label={t('Cost reduction')}
             onChange={(v) => setExtra({ ...extra, costReduction: v })}
             value={extra.costReduction}
           />
         </div>
         {activeTimed.length > 0 && (
           <fieldset className="row">
-            <legend className="subtle">Timed buffs running at that login</legend>
-            {activeTimed.map((t, i) => (
-              <label key={`${t.effect}-${i}`}>
+            <legend className="subtle">{t('Timed buffs running at that login')}</legend>
+            {activeTimed.map((timed, i) => (
+              <label key={`${timed.effect}-${i}`}>
                 <input
                   checked={timedOn.has(i)}
                   onChange={() =>
@@ -440,8 +451,11 @@ export function PlannerPage() {
                   }
                   type="checkbox"
                 />{' '}
-                effect {t.effect} +{t.value} (until{' '}
-                {new Date(t.end).toISOString().slice(5, 16).replace('T', ' ')})
+                {t('effect {effect} +{value} (until {end})', {
+                  effect: timed.effect,
+                  value: timed.value,
+                  end: new Date(timed.end).toISOString().slice(5, 16).replace('T', ' '),
+                })}
               </label>
             ))}
           </fieldset>
@@ -454,11 +468,11 @@ export function PlannerPage() {
       </section>
 
       <section aria-labelledby="planner-goals">
-        <h3 id="planner-goals">What to raise</h3>
+        <h3 id="planner-goals">{t('What to raise')}</h3>
         <Tabs
-          label="Kind of thing to raise"
+          label={t('Kind of thing to raise')}
           className="planner-tabs"
-          items={SECTIONS.map(([value, label]) => ({ id: value, label }))}
+          items={SECTIONS.map(([value, label]) => ({ id: value, label: t(label) }))}
           value={section}
           onChange={setSection}
         />
@@ -500,7 +514,8 @@ export function PlannerPage() {
                         (cur) =>
                           new Map(
                             [...cur].filter(
-                              ([, t]) => !['hero', 'hero_gear', 'exclusive'].includes(t.kind),
+                              ([, target]) =>
+                                !['hero', 'hero_gear', 'exclusive'].includes(target.kind),
                             ),
                           ),
                       );
@@ -515,16 +530,16 @@ export function PlannerPage() {
         </div>
 
         {targets.size > 0 && (
-          <ul className="chips planner-chosen" aria-label="Chosen">
-            {[...targets.entries()].map(([key, t]) => (
+          <ul className="chips planner-chosen" aria-label={t('Chosen')}>
+            {[...targets.entries()].map(([key, target]) => (
               <li key={key}>
                 <button
                   className="filter-chip"
                   onClick={() => remove(key)}
-                  title="Remove"
+                  title={t('Remove')}
                   type="button"
                 >
-                  {targetText(t, shown)} ✕
+                  {targetText(target, shown, t)} ✕
                 </button>
               </li>
             ))}
@@ -536,7 +551,7 @@ export function PlannerPage() {
             onChange={(e) => setWithPrereqs(e.target.checked)}
             type="checkbox"
           />{' '}
-          Include the buildings a building needs first
+          {t('Include the buildings a building needs first')}
         </label>
 
         {/* Saving keeps the choices, not the account: opened again, the plan
@@ -557,11 +572,11 @@ export function PlannerPage() {
           }}
         >
           <label>
-            Plan name{' '}
+            {t('Plan name')}{' '}
             <input
               maxLength={80}
               onChange={(e) => setPlanName(e.target.value)}
-              placeholder="e.g. HQ 31 push"
+              placeholder={t('e.g. HQ 31 push')}
               value={planName}
             />
           </label>
@@ -569,7 +584,7 @@ export function PlannerPage() {
             disabled={targets.size === 0 || planName.trim() === '' || keep.isPending}
             type="submit"
           >
-            {keep.isPending ? 'Saving…' : planId === null ? 'Save plan' : 'Save changes'}
+            {keep.isPending ? t('Saving…') : planId === null ? t('Save plan') : t('Save changes')}
           </button>
           {planId !== null && (
             <button
@@ -578,35 +593,54 @@ export function PlannerPage() {
                 setPlanId(null);
                 keep.reset();
               }}
-              title="Stop writing over the saved plan: the next Save makes a new one"
+              title={t('Stop writing over the saved plan: the next Save makes a new one')}
               type="button"
             >
-              Save as a new plan
+              {t('Save as a new plan')}
             </button>
           )}
           {keep.isSuccess && planId !== null && (
             <output className="subtle">
-              Saved. It is under <a href={ACCOUNT_PLANS}>My account → Plans</a>.
+              {rich(t('Saved. It is under {link}.'), {
+                link: <a href={ACCOUNT_PLANS}>{t('My account → Plans')}</a>,
+              })}
             </output>
           )}
-          {keep.isError && <span className="error">Could not save: {keep.error.message}</span>}
+          {keep.isError && (
+            <span className="error">
+              {t('Could not save: {message}', { message: keep.error.message })}
+            </span>
+          )}
           {wantedPlan !== null && plans.isSuccess && opened !== wantedPlan && (
-            <span className="error">That saved plan is not there any more.</span>
+            <span className="error">{t('That saved plan is not there any more.')}</span>
           )}
         </form>
       </section>
 
       {goals.length > 0 && (
         <section aria-labelledby="planner-result">
-          <h3 id="planner-result">What it takes</h3>
-          {book.isPending && <p className="empty">Adding it up…</p>}
-          {book.isError && <p className="error">Could not load costs: {book.error.message}</p>}
+          <h3 id="planner-result">{t('What it takes')}</h3>
+          {book.isPending && <p className="empty">{t('Adding it up…')}</p>}
+          {book.isError && (
+            <p className="error">
+              {t('Could not load costs: {message}', { message: book.error.message })}
+            </p>
+          )}
           {planned && buffs && (
             <>
               {planned.gaps.length > 0 && (
                 <p className="error">
-                  Past the game's maximum or not in the catalogue:{' '}
-                  {planned.gaps.map((g) => `${g.kind} ${g.subject} level ${g.level}`).join(', ')}.
+                  {t("Past the game's maximum or not in the catalogue: {list}.", {
+                    list: planned.gaps
+                      .map((g) =>
+                        t('{kind} {subject} level {level}', {
+                          kind: g.kind,
+                          subject: g.subject,
+                          level: g.level,
+                        }),
+                      )
+                      .join(', '),
+                  })}
                 </p>
               )}
               <Breakdown
@@ -618,8 +652,9 @@ export function PlannerPage() {
                 tiers={tierMap}
               />
               <p className="note">
-                Have is the Stock list at the top of the page; change a figure there. Construction
-                cost reduction applies to building resources, not to items such as Precision Parts.
+                {t(
+                  'Have is the Stock list at the top of the page; change a figure there. Construction cost reduction applies to building resources, not to items such as Precision Parts.',
+                )}
               </p>
             </>
           )}

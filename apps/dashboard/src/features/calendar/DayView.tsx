@@ -4,6 +4,7 @@
 // its Survival Preparedness theme (the weekday order is still to be entered)
 // and lists the events that start or end inside it.
 
+import { useT } from '../../lib/i18n';
 import {
   CATEGORIES,
   CATEGORY_LABELS,
@@ -44,6 +45,7 @@ export function DayView({
   onDay: (day: string) => void;
   onOpen: (event: CalendarEvent) => void;
 }) {
+  const t = useT();
   const running = events.filter((event) => runsOn(event, day));
   const blocks = dayBlocks(day);
   const rotation = PREP_ROTATION[weekdayOf(day)];
@@ -55,23 +57,23 @@ export function DayView({
   });
 
   return (
-    <section aria-label="Day">
+    <section aria-label={t('Day')}>
       <div className="row calendar-month-nav">
         <button onClick={() => onDay(addDays(day, -1))} type="button">
-          ← Previous
+          {t('← Previous')}
         </button>
         <h3 className="calendar-month-title">{title}</h3>
         <button onClick={() => onDay(addDays(day, 1))} type="button">
-          Next →
+          {t('Next →')}
         </button>
         <button onClick={() => onDay(today)} type="button">
-          Today
+          {t('Today')}
         </button>
       </div>
 
-      <h4 className="calendar-heading">All day</h4>
+      <h4 className="calendar-heading">{t('All day')}</h4>
       {running.length === 0 ? (
-        <p className="empty">Nothing on the calendar for this day.</p>
+        <p className="empty">{t('Nothing on the calendar for this day.')}</p>
       ) : (
         <div className="calendar-allday">
           {CATEGORIES.map((category) => {
@@ -81,7 +83,7 @@ export function DayView({
             }
             return (
               <div className={`calendar-allday-group calendar-cat-${category}`} key={category}>
-                <div className="calendar-lane-label">{CATEGORY_LABELS[category]}</div>
+                <div className="calendar-lane-label">{t(CATEGORY_LABELS[category])}</div>
                 <ul className="calendar-chips">
                   {list.map((event) => (
                     <li key={event.activity_id}>
@@ -91,7 +93,7 @@ export function DayView({
                         title={`${serverWhen(event.starts_at, now)} → ${serverWhen(event.ends_at, now)}`}
                         type="button"
                       >
-                        {labelOf(event)}
+                        {labelOf(event, t)}
                       </button>
                     </li>
                   ))}
@@ -102,10 +104,11 @@ export function DayView({
         </div>
       )}
 
-      <h4 className="calendar-heading">Every four hours</h4>
+      <h4 className="calendar-heading">{t('Every four hours')}</h4>
       <p className="subtle">
-        Survival Preparedness turns over at server midnight and every four hours after. Each block
-        lists what starts or ends in it.
+        {t(
+          'Survival Preparedness turns over at server midnight and every four hours after. Each block lists what starts or ends in it.',
+        )}
       </p>
       <ol className="calendar-blocks">
         {blocks.map((block) => {
@@ -122,19 +125,19 @@ export function DayView({
                 {clock(block.from)}–{block.index === 5 ? '24:00' : clock(block.to)}
               </div>
               <div className="calendar-block-prep">
-                <span className="muted">Survival Preparedness:</span>{' '}
-                {rotation?.[block.index] ?? <span className="muted">to be added</span>}
+                <span className="muted">{t('Survival Preparedness:')}</span>{' '}
+                {rotation?.[block.index] ?? <span className="muted">{t('to be added')}</span>}
               </div>
               {changes.length > 0 && (
                 <ul className="calendar-block-changes">
                   {changes.map(({ event, edge }) => (
                     <li key={`${edge}-${event.activity_id}`}>
                       <span className={`calendar-tag calendar-cat-${categoryOf(event)}`}>
-                        {edge === 'starts' ? 'starts' : 'ends'}{' '}
+                        {edge === 'starts' ? t('starts') : t('ends')}{' '}
                         {clock((edge === 'starts' ? event.starts_at : event.ends_at) ?? '')}
                       </span>{' '}
                       <button className="calendar-open" onClick={() => onOpen(event)} type="button">
-                        {labelOf(event)}
+                        {labelOf(event, t)}
                       </button>
                     </li>
                   ))}

@@ -5,12 +5,13 @@
 // the win rate: unknown is not a loss. The note says how many there are.
 
 import type { StripCell } from '../../components/Strip';
+import { type Translate, english } from '../../lib/i18n/core';
 import { SERVER_ZONE, zonedDayKey } from '../../lib/timezone';
 import { type Battle, outcome, teamLabel } from './data';
 
 const plain = new Intl.NumberFormat('en');
 
-export function blackGoldStrip(battles: readonly Battle[]): StripCell[] {
+export function blackGoldStrip(battles: readonly Battle[], t: Translate = english): StripCell[] {
   if (battles.length === 0) return [];
   let wins = 0;
   let losses = 0;
@@ -26,30 +27,41 @@ export function blackGoldStrip(battles: readonly Battle[]): StripCell[] {
   const latestResult = latest === undefined ? 'unknown' : outcome(latest);
   return [
     {
-      label: 'Record',
+      label: t('Record'),
       value: `${wins} – ${losses}`,
       note:
         unknown === 0
-          ? `${plain.format(battles.length)} battles captured`
-          : `${plain.format(battles.length)} captured, ${plain.format(unknown)} with no result yet`,
+          ? t('{count} battles captured', { count: plain.format(battles.length) })
+          : t('{count} captured, {unknown} with no result yet', {
+              count: plain.format(battles.length),
+              unknown: plain.format(unknown),
+            }),
     },
     {
-      label: 'Win rate',
+      label: t('Win rate'),
       value: known === 0 ? null : `${Math.round((wins / known) * 100)}%`,
-      note: known === 0 ? undefined : `of ${plain.format(known)} with a result`,
+      note: known === 0 ? undefined : t('of {count} with a result', { count: plain.format(known) }),
     },
     {
-      label: 'Latest',
-      value: latestResult === 'win' ? 'Win' : latestResult === 'loss' ? 'Loss' : 'Result unknown',
+      label: t('Latest'),
+      value:
+        latestResult === 'win'
+          ? t('Win')
+          : latestResult === 'loss'
+            ? t('Loss')
+            : t('Result unknown'),
       note:
         latest === undefined
           ? undefined
-          : `${zonedDayKey(latest.battle_ended_at, SERVER_ZONE)} · ${teamLabel(latest.team_index)}`,
+          : `${zonedDayKey(latest.battle_ended_at, SERVER_ZONE)} · ${teamLabel(latest.team_index, t)}`,
     },
     {
-      label: 'Reports in',
-      value: `${plain.format(reports)} of ${plain.format(battles.length)}`,
-      note: 'who played is known only from a report',
+      label: t('Reports in'),
+      value: t('{count} of {total}', {
+        count: plain.format(reports),
+        total: plain.format(battles.length),
+      }),
+      note: t('who played is known only from a report'),
     },
   ];
 }

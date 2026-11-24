@@ -8,6 +8,7 @@ import {
   layoutMarkers,
 } from '@dw/ui';
 import { type SyntheticEvent, useState } from 'react';
+import { rich, useT } from '../../lib/i18n';
 
 // The layout maths (position, label rules, classes, title) lives in
 // @dw/ui's mapLayout — shared with the desktop app, which draws this same
@@ -43,6 +44,7 @@ export function MapCanvas({
   /** Given, every pin becomes clickable. */
   onSelect?: (marker: MapMarker) => void;
 }) {
+  const t = useT();
   // An absent image is a normal state, not an error: the feature works
   // without it and says so, rather than showing a broken-image glyph over a
   // marker that is in the right place.
@@ -91,7 +93,7 @@ export function MapCanvas({
       <div className={hasImage ? 'map-frame' : 'map-frame map-frame--empty'}>
         {hasImage && (
           <img
-            alt="World map"
+            alt={t('World map')}
             className="map-frame__image"
             onError={() => setHasImage(false)}
             onLoad={checkImageSize}
@@ -134,8 +136,12 @@ export function MapCanvas({
       </div>
       {!hasImage && (
         <figcaption className="subtle">
-          No map picture yet — positions are drawn on the grid. Drop the image at{' '}
-          <code>apps/dashboard/public/map.png</code> and it appears behind them.
+          {rich(
+            t(
+              'No map picture yet — positions are drawn on the grid. Drop the image at {path} and it appears behind them.',
+            ),
+            { path: <code>apps/dashboard/public/map.png</code> },
+          )}
         </figcaption>
       )}
       {sizeWarning && (
