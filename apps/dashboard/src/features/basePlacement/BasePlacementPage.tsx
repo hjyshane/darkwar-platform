@@ -6,7 +6,8 @@
 // and the rules are in placement.ts.
 
 import { useMemo, useState } from 'react';
-import { DEFAULT_SERVER, SERVERS } from '../migration/boards';
+import { useTrackedServers } from '../../lib/trackedServers';
+import { DEFAULT_SERVER } from '../migration/boards';
 import './basePlacement.css';
 import {
   BASE_SIZE,
@@ -80,8 +81,13 @@ export function parseState(raw: string | null): State {
       bases.push({ x: b.x, y: b.y });
     }
     // Layouts saved before the server was asked for have none: they keep
-    // their bases and take the default.
-    const server = SERVERS.find((id) => id === data.server) ?? DEFAULT_SERVER;
+    // their bases and take the default. Any server number is kept: the group
+    // is data now (`servers.is_tracked`), and the picker lists a saved one
+    // that has left it rather than silently moving the layout.
+    const server =
+      typeof data.server === 'number' && Number.isInteger(data.server) && data.server > 0
+        ? data.server
+        : DEFAULT_SERVER;
     return { server, structures, bases };
   } catch {
     return DEFAULT_STATE;
@@ -131,6 +137,8 @@ export function BasePlacementPage() {
   const [hover, setHover] = useState<Cell | null>(null);
   const [typed, setTyped] = useState({ x: '', y: '' });
   const [said, setSaid] = useState<string | null>(null);
+  const tracked = useTrackedServers();
+  const serverChoices = tracked.includes(state.server) ? tracked : [...tracked, state.server];
 
   const update = (next: State) => {
     setState(next);
@@ -378,7 +386,7 @@ export function BasePlacementPage() {
                 onChange={(event) => update({ ...state, server: Number(event.target.value) })}
                 value={state.server}
               >
-                {SERVERS.map((id) => (
+                {serverChoices.map((id) => (
                   <option key={id} value={id}>
                     #{id}
                   </option>

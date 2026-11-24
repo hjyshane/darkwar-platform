@@ -17,16 +17,16 @@
 
 ## 2. 우선순위 로드맵
 
-### 1단계 — 바로 (각 반나절 이하)
+### 1단계 — 바로 (2026-11-24 처리)
 
-| # | 항목 | 근거 | 상태 |
-|---|---|---|---|
-| 1 | 보안 헤더 추가: `public/_headers`에 CSP, `X-Content-Type-Options`, `Referrer-Policy`, `frame-ancestors 'none'` | `public/`에 `map.webp`·`privacy.html`·`terms.html`뿐, `wrangler.jsonc`는 assets만 선언 | 확인함 |
-| 2 | 라우트 단위 `React.lazy` + `Suspense` (hive, map, shopValue, planner, calculator, admin, eventGuide/editor 순) | `src`에 `lazy(` 0건, `App.tsx`가 feature 약 40개 정적 import | 확인함 (효과 수치는 미측정) |
-| 3 | 캐시 헤더: `/assets/*` immutable, `index.html` no-cache | `_headers` 없음 | 확인함 |
-| 4 | 서버 목록을 데이터로: `SERVERS = 565..588` 상수 제거 | `features/migration/boards.ts:48`. 그 외 577–584 숫자가 든 파일 약 20개 | 확인함 |
-| 5 | 홈 온보딩: "캐릭터 연결" 체크리스트를 홈 최상단에 | `HomePage.tsx`가 `playerId === null`에 안내 한 줄, 카드 대부분 빈 화면 | 미확인(패널 보고) |
-| 6 | 백업/복구 런북 + PITR 여부 확인 | `docs/runbooks`에 backup/restore 없음 | 미확인(패널 보고) |
+| # | 항목 | 결과 |
+|---|---|---|
+| 1 | 보안 헤더 | **함.** `apps/dashboard/public/_headers`: CSP(스크립트는 자기 출처만, 연결·이미지는 Supabase 프로젝트 하나), `nosniff`, `Referrer-Policy`, `X-Frame-Options: DENY`, `Permissions-Policy`. 프로덕션 빌드에 같은 CSP를 씌워 로그인·약관·개인정보 페이지에서 위반 0 확인. **cbfw.us에서는 머지 뒤 확인 필요**(로그인 상태로 지도·이미지·실시간). |
+| 2 | 라우트 단위 지연 로딩 | **함.** 첫 진입 JS가 gzip 447 KB → 176 KB(1,567 KB → 598 KB). 홈·로그인·캐릭터 선택만 즉시, 나머지 화면은 열 때 받는다. 배포 직후 옛 탭이 사라진 파일을 찾으면 한 번 새로고침하고, 그래도 안 되면 "This page did not load" + Reload(`lib/lazyPage.tsx`). |
+| 3 | 캐시 헤더 | **함.** `/assets/*`는 1년 immutable. `index.html`은 Cloudflare 기본(max-age=0, 재검증) 그대로. |
+| 4 | 서버 목록을 데이터로 | **읽기만 함.** 이동 화면 둘과 Merchant tester가 `servers.is_tracked`(0264가 565–588로 설정)를 읽는다. 상수는 대체값으로 남김. 어드민이 화면에서 켜고 끄는 것은 2단계 A(설정 레지스트리) 몫 — 쓰기 RPC와 pgTAP가 필요하다. |
+| 5 | 홈 온보딩 | **안 함 — 전제가 틀렸다.** 캐릭터가 없는 멤버·임원은 이미 캐릭터 선택 화면(`CharacterGate`)을 먼저 거친다. 홈의 "Link your account" 줄은 관리자에게만 보인다. |
+| 6 | 백업/복구 | **런북만 씀**(`docs/runbooks/backup.md`), 한 번도 안 돌림. 2026-08 기준 무료 티어라 관리형 백업이 없을 가능성 — 주인 확인 필요. |
 
 ### 2단계 — 구조 (어드민 자유도의 본체)
 

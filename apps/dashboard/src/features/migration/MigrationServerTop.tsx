@@ -2,8 +2,9 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Select } from '../../components/ui/Select';
 import { SERVER_ZONE, zonedDayKey, zonedTime } from '../../lib/timezone';
+import { useTrackedServers } from '../../lib/trackedServers';
 import { TierBadge } from './TierBadge';
-import { DEFAULT_SERVER, SERVERS, fetchServerTop } from './boards';
+import { DEFAULT_SERVER, fetchServerTop } from './boards';
 import { tierOf } from './candidates';
 import { num, power } from './format';
 
@@ -18,6 +19,7 @@ function serverTime(iso: string): string {
  * list alone, since that is what the game cuts the tiers on. */
 export function MigrationServerTop() {
   const [server, setServer] = useState(DEFAULT_SERVER);
+  const servers = useTrackedServers();
   const list = useQuery({
     queryKey: ['migration', 'server-top', server],
     queryFn: () => fetchServerTop(server),
@@ -33,7 +35,7 @@ export function MigrationServerTop() {
         <label>
           Server{' '}
           <Select value={String(server)} onChange={(value) => setServer(Number(value))}>
-            {SERVERS.map((s) => (
+            {servers.map((s) => (
               <option key={s} value={String(s)}>
                 {s}
               </option>

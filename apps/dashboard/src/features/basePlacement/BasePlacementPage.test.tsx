@@ -1,8 +1,13 @@
 // What the page says about a layout. The rules are pinned in placement.test.ts;
 // this is that the buttons and the verdict are wired to them.
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BasePlacementPage, parseState } from './BasePlacementPage';
+
+// The group comes from the database; the page is tested on the fallback list.
+vi.mock('../../lib/trackedServers', () => ({
+  useTrackedServers: () => Array.from({ length: 24 }, (_, i) => 565 + i),
+}));
 
 beforeEach(() => window.localStorage.clear());
 afterEach(cleanup);

@@ -1,0 +1,37 @@
+# Response headers for cbfw.us (Cloudflare Workers static assets).
+# Vite copies this file into dist/; Cloudflare reads it and does not serve it.
+#
+# WHY A CSP. The Supabase session lives in the browser, so one script injected
+# into the page is a stolen account. RichText renders posts as React nodes and
+# never as HTML, which is the first line; this is the second, so that a future
+# slip in the first does not hand the session to another origin.
+#
+# WHAT IT ALLOWS, AND WHY EACH:
+#   script-src  'self' only: one module bundle plus its lazy chunks, no inline
+#               script anywhere (checked 2026-11-24, and Cloudflare injects
+#               no analytics beacon on this zone).
+#   style-src   'unsafe-inline' for the two static pages (privacy.html and
+#               terms.html each carry a <style> block). A style cannot run code.
+#   connect-src the Supabase project: REST, auth, storage and the Realtime
+#               socket. The project's URL is the VITE_SUPABASE_URL repository
+#               variable; CHANGE THIS LINE IF THE PROJECT EVER MOVES, or every
+#               query is refused.
+#   img-src     the same project's storage (post images, signed images), plus
+#               data: and blob: for game icons and image uploads in the editor.
+#
+# A LOCAL `pnpm build` points at 127.0.0.1:54321, which this policy refuses.
+# That bundle must never be deployed (CLAUDE.md), so nothing is lost; serve
+# dist/ through `vite preview`, which does not read this file, to look at it.
+
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://balpuvkvpiqvclibajje.supabase.co; connect-src 'self' https://balpuvkvpiqvclibajje.supabase.co wss://balpuvkvpiqvclibajje.supabase.co; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
+
+# Vite puts a content hash in every file name under /assets/, so a file there
+# never changes: cache it for a year. index.html keeps Cloudflare's default
+# (max-age=0, must-revalidate), which is what makes a release show up at once.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

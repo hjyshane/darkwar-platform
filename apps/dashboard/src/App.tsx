@@ -9,52 +9,17 @@ import { SyncStatus } from './components/SyncStatus';
 import { ThemeToggle } from './components/ThemeToggle';
 import { PreviewBanner } from './components/ViewAs';
 import { AppShell } from './components/shell/AppShell';
-import { AccountPage } from './features/account/AccountPage';
-import { AdminPage } from './features/admin/AdminPage';
-import { AlarmsPage } from './features/alarms/AlarmsPage';
-import { AlliancePage } from './features/alliance/AlliancePage';
-import { ArenaPanel } from './features/arena/ArenaPanel';
 import { CharacterGate } from './features/auth/CharacterGate';
 import { LoginPage } from './features/auth/LoginPage';
-import { BasePlacementPage } from './features/basePlacement/BasePlacementPage';
-import { BlackGoldPage } from './features/blackGold/BlackGoldPage';
-import { CalculatorPage } from './features/calculator/CalculatorPage';
-import { ResistanceCalculatorPage } from './features/calculator/ResistanceCalculator';
-import { WaitCalculatorPage } from './features/calculator/WaitCalculator';
-import { CalendarPage } from './features/calendar/CalendarPage';
-import { CrossRankingsPanel } from './features/crossRankings/CrossRankingsPanel';
-import { CAPITAL_CLASH, EventBoardPage, SERVER_CLASH } from './features/eventBoard/EventBoardPage';
-import { EventGuidePage } from './features/eventGuide/EventGuidePage';
 import { EventsTabs, useFirstEventsRoute } from './features/events/EventsTabs';
-import { FrankiePage } from './features/frankie/FrankiePage';
-import { GiftCodesPage } from './features/giftCodes/GiftCodesPage';
-import { GuidePostPage } from './features/guides/GuidePostPage';
-import { GuidesPanel } from './features/guides/GuidesPanel';
-import { HivePage } from './features/hive/HivePage';
 import { HomePage } from './features/home/HomePage';
-import { PrivacyPage } from './features/legal/PrivacyPage';
-import { TermsPage } from './features/legal/TermsPage';
-import { MapPage } from './features/map/MapPage';
-import { MigrationPage } from './features/migration/MigrationPage';
-import { MonthCardsPage } from './features/monthCards/MonthCardsPage';
-import { NoticePostPage } from './features/notices/NoticePostPage';
-import { NoticesPanel } from './features/notices/NoticesPanel';
-import { Overview } from './features/overview/OverviewPanel';
-import { ParticipationPage } from './features/participation/ParticipationPage';
-import { PlannerPage } from './features/planner/PlannerPage';
-import { PlayerPage } from './features/player/PlayerPage';
-import { RankingsPanel } from './features/rankings/RankingsPanel';
-import { RosterPanel } from './features/roster/RosterPanel';
-import { Season2Panel } from './features/season/Season2Panel';
-import { SeasonPanel } from './features/season/SeasonPanel';
-import { ServerPage } from './features/server/ServerPage';
-import { ShopValuePage } from './features/shopValue/ShopValuePage';
 import { isAlliancePinnedByHost } from './lib/activeAlliance';
 import { useRecordActivity } from './lib/activity';
 import { mayOpenSettings } from './lib/adminAccess';
 import { mustPickCharacter, openWhilePicking } from './lib/characterGate';
 import { CommunityGate, communityMayOpen } from './lib/communityAccess';
 import { EditModeProvider } from './lib/editMode';
+import { PageSlot, lazyPage } from './lib/lazyPage';
 import { isAllowed, usePermissions } from './lib/permissions';
 import { queryKeysForTopic, subscribeDataChanges } from './lib/realtime';
 import { useReplyAlerts } from './lib/replyAlerts';
@@ -85,6 +50,114 @@ import { useHash } from './lib/useHash';
 import { useActiveAlliance } from './lib/useMyAlliances';
 import { useSession } from './lib/useSession';
 import { useSidewaysMouse } from './lib/useSidewaysMouse';
+
+// Every screen but the sign-in page and Home is fetched when it is first
+// opened (2026-11-24); `lib/lazyPage.tsx` says why and what a stale tab does.
+const AccountPage = lazyPage(() =>
+  import('./features/account/AccountPage').then((m) => m.AccountPage),
+);
+const AdminPage = lazyPage(() => import('./features/admin/AdminPage').then((m) => m.AdminPage));
+const AlarmsPage = lazyPage(() => import('./features/alarms/AlarmsPage').then((m) => m.AlarmsPage));
+const AlliancePage = lazyPage(() =>
+  import('./features/alliance/AlliancePage').then((m) => m.AlliancePage),
+);
+const ArenaPanel = lazyPage(() => import('./features/arena/ArenaPanel').then((m) => m.ArenaPanel));
+const BasePlacementPage = lazyPage(() =>
+  import('./features/basePlacement/BasePlacementPage').then((m) => m.BasePlacementPage),
+);
+const BlackGoldPage = lazyPage(() =>
+  import('./features/blackGold/BlackGoldPage').then((m) => m.BlackGoldPage),
+);
+const CalculatorPage = lazyPage(() =>
+  import('./features/calculator/CalculatorPage').then((m) => m.CalculatorPage),
+);
+const ResistanceCalculatorPage = lazyPage(() =>
+  import('./features/calculator/ResistanceCalculator').then((m) => m.ResistanceCalculatorPage),
+);
+const WaitCalculatorPage = lazyPage(() =>
+  import('./features/calculator/WaitCalculator').then((m) => m.WaitCalculatorPage),
+);
+const CalendarPage = lazyPage(() =>
+  import('./features/calendar/CalendarPage').then((m) => m.CalendarPage),
+);
+const CrossRankingsPanel = lazyPage(() =>
+  import('./features/crossRankings/CrossRankingsPanel').then((m) => m.CrossRankingsPanel),
+);
+const EventGuidePage = lazyPage(() =>
+  import('./features/eventGuide/EventGuidePage').then((m) => m.EventGuidePage),
+);
+const FrankiePage = lazyPage(() =>
+  import('./features/frankie/FrankiePage').then((m) => m.FrankiePage),
+);
+const GiftCodesPage = lazyPage(() =>
+  import('./features/giftCodes/GiftCodesPage').then((m) => m.GiftCodesPage),
+);
+const GuidePostPage = lazyPage(() =>
+  import('./features/guides/GuidePostPage').then((m) => m.GuidePostPage),
+);
+const GuidesPanel = lazyPage(() =>
+  import('./features/guides/GuidesPanel').then((m) => m.GuidesPanel),
+);
+const HivePage = lazyPage(() => import('./features/hive/HivePage').then((m) => m.HivePage));
+const PrivacyPage = lazyPage(() =>
+  import('./features/legal/PrivacyPage').then((m) => m.PrivacyPage),
+);
+const TermsPage = lazyPage(() => import('./features/legal/TermsPage').then((m) => m.TermsPage));
+const MapPage = lazyPage(() => import('./features/map/MapPage').then((m) => m.MapPage));
+const MigrationPage = lazyPage(() =>
+  import('./features/migration/MigrationPage').then((m) => m.MigrationPage),
+);
+const MonthCardsPage = lazyPage(() =>
+  import('./features/monthCards/MonthCardsPage').then((m) => m.MonthCardsPage),
+);
+const NoticePostPage = lazyPage(() =>
+  import('./features/notices/NoticePostPage').then((m) => m.NoticePostPage),
+);
+const NoticesPanel = lazyPage(() =>
+  import('./features/notices/NoticesPanel').then((m) => m.NoticesPanel),
+);
+const Overview = lazyPage(() =>
+  import('./features/overview/OverviewPanel').then((m) => m.Overview),
+);
+const ParticipationPage = lazyPage(() =>
+  import('./features/participation/ParticipationPage').then((m) => m.ParticipationPage),
+);
+const PlannerPage = lazyPage(() =>
+  import('./features/planner/PlannerPage').then((m) => m.PlannerPage),
+);
+const PlayerPage = lazyPage(() => import('./features/player/PlayerPage').then((m) => m.PlayerPage));
+const RankingsPanel = lazyPage(() =>
+  import('./features/rankings/RankingsPanel').then((m) => m.RankingsPanel),
+);
+const RosterPanel = lazyPage(() =>
+  import('./features/roster/RosterPanel').then((m) => m.RosterPanel),
+);
+const Season2Panel = lazyPage(() =>
+  import('./features/season/Season2Panel').then((m) => m.Season2Panel),
+);
+const SeasonPanel = lazyPage(() =>
+  import('./features/season/SeasonPanel').then((m) => m.SeasonPanel),
+);
+const ServerPage = lazyPage(() => import('./features/server/ServerPage').then((m) => m.ServerPage));
+const ShopValuePage = lazyPage(() =>
+  import('./features/shopValue/ShopValuePage').then((m) => m.ShopValuePage),
+);
+const CapitalClashPage = lazyPage(() =>
+  import('./features/eventBoard/EventBoardPage').then(
+    (m) =>
+      function CapitalClashPage() {
+        return <m.EventBoardPage config={m.CAPITAL_CLASH} />;
+      },
+  ),
+);
+const ServerClashPage = lazyPage(() =>
+  import('./features/eventBoard/EventBoardPage').then(
+    (m) =>
+      function ServerClashPage() {
+        return <m.EventBoardPage config={m.SERVER_CLASH} />;
+      },
+  ),
+);
 
 function DataChangeSubscriber() {
   const queryClient = useQueryClient();
@@ -394,9 +467,9 @@ function Screen({
       return <FrankiePage />;
     case 'capitalClash':
       // Member-only at the policy level, like Frankie's (0290).
-      return <EventBoardPage config={CAPITAL_CLASH} />;
+      return <CapitalClashPage />;
     case 'serverClash':
-      return <EventBoardPage config={SERVER_CLASH} />;
+      return <ServerClashPage />;
     case 'shopValue':
       // No capability gate: every table behind it is member-only at the policy
       // level (0215), and editing values is gated by RLS to officers and admins.
@@ -670,7 +743,7 @@ function Shell({
               it solves is that the answer is somewhere they are not (0117). */}
           <ReplyAlerts />
           <RankingBoards route={route} />
-          {page}
+          <PageSlot route={route}>{page}</PageSlot>
         </AppShell>
       ) : (
         <>
@@ -682,7 +755,7 @@ function Shell({
               {controls}
             </h1>
           </header>
-          {page}
+          <PageSlot route={route}>{page}</PageSlot>
         </>
       )}
     </>
