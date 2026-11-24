@@ -1,4 +1,9 @@
--- 0344: map_atlas finds the pre-0318 rows by an index, not by reading every row the server ever had.
+-- 0346: map_atlas finds the pre-0318 rows by an index, not by reading every row the server ever had.
+--
+-- (Numbered 0344 on its branch and merged as #664 while main already carried
+-- Black Gold's 0344 - the CLAUDE.md trap, fourth time. Renumbered here; the
+-- index and the test are unchanged. Neither 0344 had been pushed to
+-- production at the time, so nothing there refers to the old number.)
 --
 -- WHAT THE MAP SAID. "Could not load the map: map query failed: canceling
 -- statement due to statement timeout", often, since the 8-hour sweeps of every
@@ -64,4 +69,4 @@ create index world_city_old_rows_uid_idx
   where map_server_id is null;
 
 comment on index public.world_city_old_rows_uid_idx is
-  'The rows written before 0318 (no map_server_id), in the order map_atlas''s uids_old walks them (0344). Nothing written since 0318 lands here, so it stays small.';
+  'The rows written before 0318 (no map_server_id), in the order map_atlas''s uids_old walks them (0346). Nothing written since 0318 lands here, so it stays small.';

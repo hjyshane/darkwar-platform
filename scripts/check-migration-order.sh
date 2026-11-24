@@ -25,7 +25,9 @@ fi
 version() { basename "$1" | sed -E 's/_.*//'; }
 
 highest=$(git ls-tree --name-only "$base" "$dir/" | while read -r f; do version "$f"; done | sort | tail -1)
-added=$(git diff --name-only --diff-filter=A "$base" HEAD -- "$dir" || true)
+# --no-renames: a renumbered migration is a rename to git, which --diff-filter=A
+# would skip - and a renumber is exactly the change this script is for (0346).
+added=$(git diff --name-only --no-renames --diff-filter=A "$base" HEAD -- "$dir" || true)
 
 if [ -z "$added" ]; then
   echo "no migrations added; nothing to order"
