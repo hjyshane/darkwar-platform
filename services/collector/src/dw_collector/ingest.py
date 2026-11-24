@@ -36,7 +36,12 @@ from pydantic import ValidationError
 from dw_collector import normalize as _normalize  # noqa: F401  (registers normalizers)
 from dw_collector import pipeline, registry
 from dw_collector.models import Observation
-from dw_collector.protocol.pcapng import Connection, StreamTable, iter_extension_events
+from dw_collector.protocol.pcapng import (
+    Connection,
+    GamePorts,
+    StreamTable,
+    iter_extension_events,
+)
 from dw_collector.request_log import request_observation
 from dw_collector.storage.journal import Journal
 
@@ -109,7 +114,7 @@ def _ingest_capture(
     *,
     collector_id: uuid.UUID,
     collected_from_server: int,
-    port: int,
+    port: GamePorts,
     discover_only: bool,
     fallback: datetime,
     follower: ServerFollower | None = None,

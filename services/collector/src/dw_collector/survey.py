@@ -38,6 +38,10 @@ from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from dw_collector.protocol.pcapng import GamePorts
 from typing import Any
 
 from dw_collector import normalize as _normalize  # noqa: F401  (registers normalizers)
@@ -382,7 +386,7 @@ def capture_files(paths: Iterable[Path]) -> list[Path]:
     return files
 
 
-def iter_capture(path: Path, port: int) -> Iterator[tuple[str, datetime, str]]:
+def iter_capture(path: Path, port: GamePorts) -> Iterator[tuple[str, datetime, str]]:
     """Inbound responses in one capture, decoded by the collector's own
     decoder — the same one scan-capture uses, so the survey and the pipeline
     cannot disagree about what a packet said."""

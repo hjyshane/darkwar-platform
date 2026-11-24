@@ -296,3 +296,24 @@ The process cannot access the file because it is being used by another process. 
 curl은 통과시키므로 놓치기 쉽다. 즐겨찾기 해제가 안 되는 것처럼 보인 원인이 이것이었고 앱은 정상이었다. (목 서버로 앱을 돌릴 때만 해당.)
 
 *출처: log/2026-08-and-earlier-tail.md, "Mac에서 만든 것 중 저장소에 없는 것"*
+
+---
+
+## 함정 — 게임 포트는 서버마다 다르다: 8100 + 서버 번호
+
+`tcp port 8680`은 **580 서버 하나**의 포트다(579 → 8679, 615 → 8715; `account.login.new`의
+`accountArr[].port`). 메인 PC에서 BlueStacks 세 개를 돌리는데 대시보드에 한 계정만 보이던 원인:
+dumpcap 필터와 리더(`protocol/pcapng.py`, `capture/session.py`)가 둘 다 8680에 고정이라 579·629
+계정의 패킷은 파일에 들어가지도 않았고, 그 파일은 `ingested=0`으로 조용한 1분과 똑같이 보였다
+(2026-11-24).
+
+- **확인법**: `Get-NetTCPConnection -State Established`에서 HD-Player PID의 원격 포트를 본다.
+  8680이 아니면 그 인스턴스는 수집되지 않는다(필터 설계, 파이프라인 고장이 아니다).
+- **고침**: dumpcap `tcp portrange 8600-8899`(서버 500–799)와 리더 기본값 `GAME_PORTS`. 둘은
+  같은 범위여야 한다 — 하나만 바꾸면 아무 일도 안 일어난다. 데스크톱 앱은 한 계정이라 단일 포트
+  그대로.
+- `--follow-login-server`가 연결마다 `init.user.serverId`로 라벨하므로 포트만 열리면 계정별
+  `collected_from_server_id`는 따라온다. sync의 `ensure_servers()`가 모르는 서버(629)를 등록해
+  FK도 통과.
+
+*출처: log/2026-11.md, 2026-11-24 (게임 포트 범위)*
