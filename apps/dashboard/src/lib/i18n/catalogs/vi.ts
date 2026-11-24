@@ -2312,4 +2312,16 @@ export const vi: Catalog = {
   '✦ Treasure spots': '✦ Điểm kho báu',
   '🛡 Shielded bases': '🛡 Căn cứ có khiên',
   '[attendance] Held': 'Diễn ra ngày',
+  'You have used your translations for today. Try again tomorrow.':
+    'Bạn đã dùng hết lượt dịch hôm nay. Hãy thử lại vào ngày mai.',
+  'Translation is switched off.': 'Tính năng dịch đang tắt.',
+  'Translation is not set up on this site yet.': 'Trang này chưa thiết lập tính năng dịch.',
+  'This could not be translated: it is gone, or not yours to read.':
+    'Không thể dịch: nội dung đã bị xóa hoặc bạn không có quyền xem.',
+  'The translation did not come back. Try again in a moment.':
+    'Bản dịch chưa trả về. Hãy thử lại sau giây lát.',
+  'Machine translation.': 'Bản dịch máy.',
+  'Show original': 'Xem bản gốc',
+  'Translating…': 'Đang dịch…',
+  'Translate into {language}': 'Dịch sang {language}',
 };

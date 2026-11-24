@@ -34,7 +34,7 @@ describe('the settings registry', () => {
 
   it('reads anything unreadable as the default, so a broken value cannot take a screen down', () => {
     for (const setting of SITE_SETTINGS) {
-      for (const junk of [null, 'x', 42, true, [1, 2]]) {
+      for (const junk of [null, 'x', -42, true, [1, 2]]) {
         const parsed = setting.parse(junk);
         // Either the default, or (for a choice list given an array) a valid empty pick.
         expect(

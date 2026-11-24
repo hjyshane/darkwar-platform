@@ -2335,4 +2335,17 @@ export const de: Catalog = {
   '✦ Treasure spots': '✦ Schatzorte',
   '🛡 Shielded bases': '🛡 Basen mit Schild',
   '[attendance] Held': 'Stattgefunden am',
+  'You have used your translations for today. Try again tomorrow.':
+    'Du hast deine Übersetzungen für heute aufgebraucht. Versuch es morgen wieder.',
+  'Translation is switched off.': 'Die Übersetzung ist ausgeschaltet.',
+  'Translation is not set up on this site yet.':
+    'Die Übersetzung ist auf dieser Seite noch nicht eingerichtet.',
+  'This could not be translated: it is gone, or not yours to read.':
+    'Übersetzen nicht möglich: Der Inhalt ist weg oder du darfst ihn nicht lesen.',
+  'The translation did not come back. Try again in a moment.':
+    'Die Übersetzung kam nicht zurück. Versuch es gleich noch einmal.',
+  'Machine translation.': 'Maschinelle Übersetzung.',
+  'Show original': 'Original anzeigen',
+  'Translating…': 'Wird übersetzt…',
+  'Translate into {language}': 'Übersetzen: {language}',
 };

@@ -201,9 +201,22 @@ export const DEFAULT_LANGUAGE = selectSetting<Language>({
   options: LANGUAGES.map((language) => ({ value: language.code, label: language.name })),
 });
 
+export const TRANSLATION_DAILY_LIMIT = numberSetting({
+  key: 'site.translation_daily_limit',
+  label: 'Translations per reader per day',
+  help: 'How many notices, guides and comments one reader may have machine-translated in a day (each costs a model call; a translation somebody already asked for is free). 0 turns the Translate button off.',
+  usedOn: { label: 'Notices', href: '#/notices' },
+  // The same default and bounds the translate function reads (dailyLimit).
+  defaultValue: 20,
+  min: 0,
+  max: 1000,
+  step: 1,
+});
+
 /** Every entry, in the order Settings draws them. */
 export const SITE_SETTINGS: readonly AnySiteSetting[] = [
   DEFAULT_LANGUAGE,
+  TRANSLATION_DAILY_LIMIT,
   RUBY_DOLLAR_RATE,
   PACK_CATEGORY_BY_TYPE,
   CALENDAR_DEFAULT_SHOWN,

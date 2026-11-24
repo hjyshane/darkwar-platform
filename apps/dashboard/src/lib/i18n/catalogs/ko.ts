@@ -2299,4 +2299,16 @@ export const ko: Catalog = {
   '✦ Treasure spots': '✦ 보물 위치',
   '🛡 Shielded bases': '🛡 보호막 있는 기지',
   '[attendance] Held': '개최일',
+  'You have used your translations for today. Try again tomorrow.':
+    '오늘 번역 횟수를 모두 썼어요. 내일 다시 시도해 주세요.',
+  'Translation is switched off.': '번역 기능이 꺼져 있어요.',
+  'Translation is not set up on this site yet.': '이 사이트에는 아직 번역이 설정되지 않았어요.',
+  'This could not be translated: it is gone, or not yours to read.':
+    '번역할 수 없어요: 글이 없어졌거나 볼 수 없는 글이에요.',
+  'The translation did not come back. Try again in a moment.':
+    '번역 결과가 오지 않았어요. 잠시 후 다시 시도해 주세요.',
+  'Machine translation.': '기계 번역이에요.',
+  'Show original': '원문 보기',
+  'Translating…': '번역 중…',
+  'Translate into {language}': '{language}로 번역',
 };
