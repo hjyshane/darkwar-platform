@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { parseAmount } from '../../features/calculator/wait';
 import { de } from './catalogs/de';
 import { es } from './catalogs/es';
 import { fr } from './catalogs/fr';
@@ -59,6 +60,20 @@ describe('the catalogues', () => {
         expect(wrong).toEqual([]);
       });
 
+      it('writes example amounts the calculator can read back', () => {
+        // An "e.g. 8,500" hint is copied into an input that parseAmount reads:
+        // 8.500 would come back as 8.5 (codex review on #676).
+        const wrong = Object.entries(catalog)
+          .filter(([key]) => /^e\.g\. [\d,]+$/.test(key))
+          .filter(([key, value]) => {
+            const english = parseAmount(key.slice('e.g. '.length));
+            const digits = value.match(/\d[\d,\s\u00a0\u202f]*/)?.[0] ?? '';
+            return parseAmount(digits) !== english;
+          })
+          .map(([key, value]) => `${key} -> ${value}`);
+        expect(wrong).toEqual([]);
+      });
+
       it('leaves no translation empty', () => {
         expect(Object.entries(catalog).filter(([, value]) => value.trim() === '')).toEqual([]);
       });
@@ -76,7 +91,7 @@ describe('translate', () => {
     expect(translator({})('Sign out')).toBe('Sign out');
   });
 
-  it('shows English without a key\'s context, and lets a language tell the two apart', () => {
+  it("shows English without a key's context, and lets a language tell the two apart", () => {
     expect(english('[attendance] Held')).toBe('Held');
     const ko = translator({ Held: '점령 중', '[attendance] Held': '개최일' });
     expect([ko('Held'), ko('[attendance] Held')]).toEqual(['점령 중', '개최일']);
