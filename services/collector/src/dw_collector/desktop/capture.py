@@ -55,7 +55,13 @@ from pathlib import Path
 from typing import IO
 
 from dw_collector.ingest import ScanResult, _ingest_capture, _ready_captures
-from dw_collector.protocol.pcapng import PcapError
+from dw_collector.protocol.pcapng import (
+    PcapError,
+    StreamTable,
+    prune_idle_streams,
+    restore_streams,
+    snapshot_streams,
+)
 from dw_collector.storage.journal import Journal, is_locked
 
 log = logging.getLogger(__name__)
@@ -347,6 +353,10 @@ class Supervisor:
         self._journal_factory = journal_factory
         self._ingest_capture = ingest_capture
         self._ready_captures = ready_captures
+        # TCP reassembly carried from one ring file to the next, so a frame
+        # the rotation cut in two completes (same as `ingest-dir`). Touched
+        # only by the ingest thread.
+        self._ingest_streams: StreamTable = {}
         self._ingest_thread: threading.Thread | None = None
         self._ingest_stop = threading.Event()
         # Guards the three counters only — same split as
@@ -739,7 +749,20 @@ class Supervisor:
 
     def _ingest_file(self, journal: Journal, pcap: Path, game_port: int) -> None:
         """One file in, marked, and counted. A locked journal raises out of
-        here unmarked; see `_ingest_once`."""
+        here unmarked; see `_ingest_once`.
+
+        The next pass re-reads an unmarked file, and the reassembly table
+        must meet it as a first read — a table that has already consumed the
+        file sees only retransmissions and yields nothing — so on any
+        failure the table goes back to where it was before the file."""
+        before = snapshot_streams(self._ingest_streams)
+        try:
+            self._ingest_file_unguarded(journal, pcap, game_port)
+        except BaseException:
+            restore_streams(self._ingest_streams, before)
+            raise
+
+    def _ingest_file_unguarded(self, journal: Journal, pcap: Path, game_port: int) -> None:
         fallback = datetime.now(tz=UTC)
         try:
             result = self._ingest_capture(
@@ -750,6 +773,7 @@ class Supervisor:
                 port=game_port,
                 discover_only=False,
                 fallback=fallback,
+                streams=self._ingest_streams,
             )
         except (PcapError, OSError, ValueError, sqlite3.DatabaseError) as exc:
             # `sqlite3.DatabaseError` added for Finding 1:
@@ -764,10 +788,14 @@ class Supervisor:
             # and the file is read again on the next pass.
             if is_locked(exc):
                 raise
+            # The file's bytes are gone, so whatever the table holds for its
+            # streams is garbage; start them afresh.
+            self._ingest_streams.clear()
             journal.mark_capture_ingested(pcap.name, 0)
             log.warning(f"dw_capture.unreadable_capture: {pcap.name}", exc_info=True)
             return
         journal.mark_capture_ingested(pcap.name, result.events)
+        prune_idle_streams(self._ingest_streams)
         with self._ingest_status_lock:
             self._ingest_files_ingested += 1
             self._ingest_rows_written += result.events

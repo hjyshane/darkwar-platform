@@ -62,7 +62,7 @@ def _run(
     follower: ServerFollower | None,
     name: str = "a.pcapng",
 ) -> None:
-    def fake(_pcap: Path, *, port: int) -> Iterator[SimpleNamespace]:
+    def fake(_pcap: Path, *, port: int, streams: object = None) -> Iterator[SimpleNamespace]:
         return iter(events)
 
     monkeypatch.setattr(ingest, "iter_extension_events", fake)

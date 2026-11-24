@@ -37,6 +37,7 @@ from dw_collector.storage.journal import BUSY_TIMEOUT_SECONDS, Journal, is_locke
 from dw_collector.sync.__main__ import CATCH_UP_DELAY, drain_step
 from tests.conftest import load_observation
 from tests.test_capture_formats import _classic, _game_ipv4
+from tests.test_protocol import ENVELOPE, frame
 from tests.test_sync_worker import FakeSupabase, _worker
 
 runner = CliRunner()
@@ -147,9 +148,12 @@ def test_only_a_lock_counts_as_locked() -> None:
 # --- ingest-dir ------------------------------------------------------------------
 
 
-def _capture(path: Path) -> Path:
-    """One readable file holding one game response."""
-    path.write_bytes(_classic([struct.pack("<I", 2) + _game_ipv4()], LINKTYPE_NULL))
+def _capture(path: Path, *, seq: int = 1) -> Path:
+    """One readable file holding one game response. Consecutive files of one
+    ring continue the TCP stream, so a second file takes a later `seq`; the
+    same bytes twice would be a retransmission to the reassembly table
+    `ingest-dir` now carries across files."""
+    path.write_bytes(_classic([struct.pack("<I", 2) + _game_ipv4(seq=seq)], LINKTYPE_NULL))
     return path
 
 
@@ -176,7 +180,7 @@ def test_ingest_dir_waits_out_a_lock_and_then_ingests_the_same_file(
     directory = tmp_path / "live"
     directory.mkdir()
     first = _capture(directory / "cap_06135_20261118203842.pcap")
-    _capture(directory / "cap_06136_20261118203857.pcap")
+    _capture(directory / "cap_06136_20261118203857.pcap", seq=1 + len(frame(ENVELOPE)))
     monkeypatch.setattr(journal_module, "BUSY_TIMEOUT_SECONDS", 0.05)
 
     waits: list[float] = []

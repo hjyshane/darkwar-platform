@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import ipaddress
 import struct
-from collections import defaultdict
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -312,6 +311,12 @@ MAX_PENDING_SEGMENTS = 64
 # far below the "silent until restarted" this replaced.
 GAP_TIMEOUT_SECONDS = 10.0
 
+# A segment this far BEHIND the stream's position is a new connection, not a
+# retransmission (see `TCPDirectionReassembler.feed`). A real retransmission
+# is at most a receive window behind; the largest response ever seen is
+# ~256 KB; 16 MiB is far past both and far short of a random 32-bit ISN.
+STREAM_RESET_REWIND_BYTES = 16 * 1024 * 1024
+
 
 def _configured_decoder() -> SmartFoxStreamDecoder:
     return SmartFoxStreamDecoder(aps=aps_zstd.configured())
@@ -332,14 +337,49 @@ class TCPDirectionReassembler:
     gap_skips: int = 0
     # When the current gap first appeared. None while nothing is waiting.
     gap_since: datetime | None = None
+    # The packet clock of the last segment fed, when the caller gave one.
+    # `prune_idle_streams` reads it to drop a stream that has gone quiet.
+    last_fed_at: datetime | None = None
+
+    def copy(self) -> TCPDirectionReassembler:
+        """An independent reassembler in this one's state: same position,
+        same buffered bytes, same key object (the key is read-only)."""
+        decoder = SmartFoxStreamDecoder(aps=self.decoder.aps)
+        decoder.buffer = bytearray(self.decoder.buffer)
+        decoder.resync_bytes = self.decoder.resync_bytes
+        return TCPDirectionReassembler(
+            decoder=decoder,
+            next_sequence=self.next_sequence,
+            pending=dict(self.pending),
+            gap_skips=self.gap_skips,
+            gap_since=self.gap_since,
+            last_fed_at=self.last_fed_at,
+        )
 
     def feed(
         self, sequence: int, payload: bytes, *, now: datetime | None = None
     ) -> list[SmartFoxFrame]:
         if not payload:
             return []
+        if now is not None:
+            self.last_fed_at = now
         if self.next_sequence is None:
             self.next_sequence = sequence
+
+        if self.next_sequence - sequence > STREAM_RESET_REWIND_BYTES:
+            # Not a retransmission: a new connection on the same four-tuple
+            # (the client reused its port after a reconnect) that drew a
+            # lower initial sequence number. Treating it as old data would
+            # drop every segment it ever sends — and keep this stream alive
+            # doing so, since each one still counts as traffic. Reading a
+            # file afresh used to bound that to 15 seconds; a table carried
+            # across files has to recognise it. The same test also catches a
+            # 32-bit sequence wrap, which the old code read as retransmission
+            # for the rest of the connection.
+            self.next_sequence = sequence
+            self.pending.clear()
+            self.gap_since = None
+            self.decoder.buffer.clear()
 
         end_sequence = sequence + len(payload)
         if end_sequence <= self.next_sequence:
@@ -414,9 +454,85 @@ class ExtensionEvent:
     connection: Connection | None = None
 
 
-def iter_extension_events(path: Path, port: int = 8680) -> Iterator[ExtensionEvent]:
-    """Every SmartFox extension event in a capture, in stream order."""
-    streams: dict[Connection, TCPDirectionReassembler] = defaultdict(TCPDirectionReassembler)
+# Reassembly state keyed by TCP direction, (src ip, src port, dst ip, dst
+# port) as the packet travelled. One table carried across consecutive capture
+# files is what lets a frame cut by dumpcap's rotation complete in the next
+# file; see `iter_extension_events`.
+StreamTable = dict[tuple[str, int, str, int], TCPDirectionReassembler]
+
+# A direction with no segment for this long (packet clock) is dropped from a
+# shared table. Long enough that a normal lull — the game idling between
+# pushes — keeps its state, short enough that the table does not keep every
+# connection the machine ever opened. A dropped stream that speaks again
+# simply starts afresh, which is what every stream did before tables were
+# shared at all.
+STREAM_IDLE_SECONDS = 300.0
+
+
+def prune_idle_streams(
+    streams: StreamTable,
+    *,
+    now: datetime | None = None,
+    idle_seconds: float = STREAM_IDLE_SECONDS,
+) -> int:
+    """Drop every stream whose last segment is older than `idle_seconds`
+    before `now`; returns how many went. `now` is the packet clock of the
+    newest traffic read, not the wall clock: a backlog replayed at speed is
+    still consecutive traffic, and a stream that was quiet across a real gap
+    in capture time is not. Left out, it is the newest segment any stream in
+    the table has seen, which is what a loop that just read a file wants."""
+    if now is None:
+        seen = [s.last_fed_at for s in streams.values() if s.last_fed_at is not None]
+        if not seen:
+            return 0
+        now = max(seen)
+    stale = [
+        key
+        for key, stream in streams.items()
+        if stream.last_fed_at is not None
+        and (now - stream.last_fed_at).total_seconds() > idle_seconds
+    ]
+    for key in stale:
+        del streams[key]
+    return len(stale)
+
+
+def snapshot_streams(streams: StreamTable) -> StreamTable:
+    """An independent copy of the table, to go back to if reading the next
+    file has to be repeated. A read that is retried — the journal was locked,
+    and `ingest-dir` re-reads the whole file once it clears — feeds the same
+    segments again, and a table that has already consumed them sees only
+    retransmissions and yields nothing; the retry would then mark the file
+    done with zero events. Restoring the table first makes the retry a
+    first read."""
+    return {key: stream.copy() for key, stream in streams.items()}
+
+
+def restore_streams(streams: StreamTable, snapshot: StreamTable) -> None:
+    """Put `streams` back to `snapshot`, in place (callers hold the dict)."""
+    streams.clear()
+    streams.update(snapshot)
+
+
+def iter_extension_events(
+    path: Path, port: int = 8680, *, streams: StreamTable | None = None
+) -> Iterator[ExtensionEvent]:
+    """Every SmartFox extension event in a capture, in stream order.
+
+    `streams` is the reassembly state. Left out, this file is read on its
+    own and a frame it only begins is lost. Passed in, the same table is
+    used for the next file too, so a response that dumpcap's 15-second
+    rotation cut in two completes where its second half arrives — the first
+    half closed one file, the rest opened the next, and per-file reading
+    found neither. Measured 2026-11-24: four consecutive files read apart
+    gave 74 frames, read as one stream 165.
+
+    What bounded a wedged stream before — the file ending — is replaced by
+    the reassembler's own gap timeout, which is why the packet clock goes
+    down with every segment here, and by `prune_idle_streams`, which the
+    caller runs between files.
+    """
+    table: StreamTable = {} if streams is None else streams
     for record in read_pcapng_records(path):
         segment = parse_tcp(record.data, record.linktype)
         if segment is None or not segment.payload:
@@ -437,7 +553,10 @@ def iter_extension_events(path: Path, port: int = 8680) -> Iterator[ExtensionEve
             if direction == "inbound"
             else key
         )
-        for frame in streams[key].feed(segment.sequence, segment.payload):
+        stream = table.get(key)
+        if stream is None:
+            stream = table[key] = TCPDirectionReassembler()
+        for frame in stream.feed(segment.sequence, segment.payload, now=record.captured_at):
             event = extract_extension_event(frame.object)
             if event is None:
                 continue
