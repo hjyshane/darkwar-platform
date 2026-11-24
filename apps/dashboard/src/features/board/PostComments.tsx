@@ -141,7 +141,8 @@ function Comment({
 }) {
   const t = useT();
   const [editing, setEditing] = useState(false);
-  const translation = useContentTranslation('comment', comment.id);
+  // Keyed to the body: an edit drops the translation of the old text.
+  const translation = useContentTranslation('comment', comment.id, comment.body);
   const [showTranslated, setShowTranslated] = useState(false);
   const translated = showTranslated ? translation.data?.body : undefined;
   const edit = useEditComment(config, postId);

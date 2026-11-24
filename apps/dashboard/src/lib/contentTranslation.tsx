@@ -40,10 +40,12 @@ class TranslateError extends Error {
   }
 }
 
-/** Translate one post or comment into the reader's language. Picking another
- * language drops what was shown, so a reader never sees a translation into a
- * language they just left. */
-export function useContentTranslation(kind: TranslatableKind, id: string) {
+/** Translate one post or comment into the reader's language. What was
+ * translated is dropped when the language, the post, or the text itself
+ * changes (another post opened in the same page, a comment edited), so a
+ * reader never sees a translation of something that is no longer on screen.
+ * `source` is the text as shown; any change to it counts. */
+export function useContentTranslation(kind: TranslatableKind, id: string, source: string) {
   const { language } = useLanguage();
   const mutation = useMutation({
     mutationFn: async (): Promise<Translated> => {
@@ -59,8 +61,8 @@ export function useContentTranslation(kind: TranslatableKind, id: string) {
     },
   });
   const { reset } = mutation;
-  // biome-ignore lint/correctness/useExhaustiveDependencies: a new language is the trigger
-  useEffect(() => reset(), [language, reset]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: each of these is a trigger, not an input
+  useEffect(() => reset(), [language, kind, id, source, reset]);
   return { ...mutation, language };
 }
 
