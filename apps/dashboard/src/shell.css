@@ -147,7 +147,8 @@ button.shell-link {
 .shell-menu:focus-visible,
 .shell-find:focus-visible {
   box-shadow: var(--ring);
-  outline: none;
+  outline: 2px solid transparent;
+  outline-offset: 2px;
 }
 
 .shell-foot {
@@ -422,6 +423,14 @@ button.shell-link {
   display: flex;
   gap: var(--space-2);
   padding: var(--space-3);
+}
+
+.palette-field:focus-within {
+  /* The search box draws no border of its own (it fills the row), so the row
+   * shows focus: an accent line, and an outline high-contrast mode can paint. */
+  border-bottom-color: var(--accent);
+  box-shadow: inset 0 -1px 0 var(--accent);
+  outline: 2px solid transparent;
 }
 
 .palette-field input {
@@ -1271,7 +1280,8 @@ button.shell-link {
 
 .shell-sublink:focus-visible {
   box-shadow: var(--ring);
-  outline: none;
+  outline: 2px solid transparent;
+  outline-offset: 2px;
 }
 
 /* The collapsed rail is icons only. */

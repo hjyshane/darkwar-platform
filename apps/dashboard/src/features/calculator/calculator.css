@@ -61,7 +61,8 @@
 
 .calc-form input:focus-visible {
   border-color: var(--accent);
-  outline: none;
+  outline: 2px solid transparent;
+  outline-offset: 2px;
 }
 
 /* From and to, and the two buffs, side by side; each keeps its own label. */
