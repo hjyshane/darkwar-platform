@@ -5,16 +5,8 @@
 import { useMemo } from 'react';
 import { type Translate, useT } from '../../lib/i18n';
 import { EventName } from './EventName';
-import {
-  type Bucket,
-  CATEGORIES,
-  CATEGORY_LABELS,
-  type CalendarEvent,
-  arrange,
-  categoryOf,
-  serverWhen,
-  until,
-} from './data';
+import { useCalendarConfig } from './categories';
+import { type Bucket, type CalendarEvent, arrange, categoryOf, serverWhen, until } from './data';
 
 const sections = (
   t: Translate,
@@ -114,7 +106,8 @@ function CategoryList({
   onOpen: (event: CalendarEvent) => void;
 }) {
   const t = useT();
-  const arranged = useMemo(() => arrange(events, now), [events, now]);
+  const { standingMs } = useCalendarConfig();
+  const arranged = useMemo(() => arrange(events, now, standingMs), [events, now, standingMs]);
   if (day !== '') {
     return (
       <EventTable countdown={null} events={events} mayName={mayName} now={now} onOpen={onOpen} />
@@ -166,22 +159,23 @@ export function ListView({
   onOpen: (event: CalendarEvent) => void;
 }) {
   const t = useT();
+  const config = useCalendarConfig();
   if (events.length === 0) {
     return <p className="empty">{t('Nothing matches. Clear the search or pick another day.')}</p>;
   }
   return (
     <>
       {day !== '' && <h3>{t('Running on {day}', { day })}</h3>}
-      {CATEGORIES.map((category) => {
-        const title = t(CATEGORY_LABELS[category]);
-        const list = events.filter((event) => categoryOf(event) === category);
+      {config.visible.map(({ key: category }) => {
+        const title = config.label(category, t);
+        const list = events.filter((event) => categoryOf(event, config.knownKeys) === category);
         if (list.length === 0) {
           return null;
         }
         return (
           <section
             aria-label={title}
-            className={`calendar-group calendar-cat-${category}`}
+            className={`calendar-group ${config.className(category)}`}
             key={category}
           >
             <h3 className="calendar-group-title">

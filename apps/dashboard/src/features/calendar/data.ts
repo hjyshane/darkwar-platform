@@ -37,7 +37,8 @@ export interface CalendarEvent {
   server_id: number;
   activity_id: string;
   name: string | null;
-  category: Category | null;
+  /** A built-in category (0211) or one an admin added (0351); null when not filed. */
+  category: string | null;
   activity_type: number | null;
   starts_at: string | null;
   ends_at: string | null;
@@ -49,20 +50,35 @@ export interface CalendarEvent {
 export type Bucket = 'live' | 'upcoming' | 'ended' | 'standing' | 'untimed';
 
 /** An event that runs this long is part of the game, not an event on the
- * calendar — the login lists them with ends in 2044 and beyond. */
-const STANDING_AFTER_MS = 180 * 24 * 60 * 60 * 1000;
+ * calendar — the login lists them with ends in 2044 and beyond. The default
+ * for Settings › Site values › standing events (CALENDAR_STANDING_DAYS); every
+ * helper below takes the setting's value as `standingMs`. */
+export const STANDING_AFTER_MS = 180 * 24 * 60 * 60 * 1000;
+
+/** Whether an event runs long enough to be part of the game. */
+export function isStanding(event: CalendarEvent, standingMs: number = STANDING_AFTER_MS): boolean {
+  return (
+    event.starts_at !== null &&
+    event.ends_at !== null &&
+    Date.parse(event.ends_at) - Date.parse(event.starts_at) >= standingMs
+  );
+}
 
 /** Which part of the list an event belongs in, as of `now`.
  *
  * `standing` before `live`: a permanent feature is technically running, but
  * listing it among this week's events buries the ones that end on Sunday. */
-export function bucketOf(event: CalendarEvent, now: Date): Bucket {
+export function bucketOf(
+  event: CalendarEvent,
+  now: Date,
+  standingMs: number = STANDING_AFTER_MS,
+): Bucket {
   if (event.starts_at === null || event.ends_at === null) {
     return 'untimed';
   }
   const start = Date.parse(event.starts_at);
   const end = Date.parse(event.ends_at);
-  if (end - start >= STANDING_AFTER_MS) {
+  if (end - start >= standingMs) {
     return 'standing';
   }
   if (end <= now.getTime()) {
@@ -75,6 +91,7 @@ export function bucketOf(event: CalendarEvent, now: Date): Bucket {
 export function arrange(
   events: ReadonlyArray<CalendarEvent>,
   now: Date,
+  standingMs: number = STANDING_AFTER_MS,
 ): Record<Bucket, CalendarEvent[]> {
   const out: Record<Bucket, CalendarEvent[]> = {
     live: [],
@@ -84,7 +101,7 @@ export function arrange(
     untimed: [],
   };
   for (const event of events) {
-    out[bucketOf(event, now)].push(event);
+    out[bucketOf(event, now, standingMs)].push(event);
   }
   const by = (field: 'starts_at' | 'ends_at') => (a: CalendarEvent, b: CalendarEvent) =>
     Date.parse(a[field] ?? '') - Date.parse(b[field] ?? '') ||
@@ -146,8 +163,13 @@ export function splitIdentified(events: ReadonlyArray<CalendarEvent>): {
 }
 
 /** What the card says an event is doing as of `now`. */
-export function statusOf(event: CalendarEvent, now: Date, t: Translate = english): string {
-  switch (bucketOf(event, now)) {
+export function statusOf(
+  event: CalendarEvent,
+  now: Date,
+  t: Translate = english,
+  standingMs: number = STANDING_AFTER_MS,
+): string {
+  switch (bucketOf(event, now, standingMs)) {
     case 'live':
       return t('Running · ends in {time}', { time: until(event.ends_at ?? '', now, t) });
     case 'upcoming':
@@ -189,12 +211,24 @@ export function lastServerDay(endsAt: string): string {
 }
 
 /** Unclassified events count as events: most of the calendar is play. */
-export function categoryOf(event: Pick<CalendarEvent, 'category'>): Category {
-  return event.category ?? 'event';
+/** The category an event is drawn under: its own when that category exists
+ * (`known`: every key an admin has, hidden ones included; the built-ins when
+ * not given), else "Events", where an unfiled event has always gone. */
+export function categoryOf(
+  event: Pick<CalendarEvent, 'category'>,
+  known: ReadonlySet<string> = BUILT_IN_KEYS,
+): string {
+  return event.category !== null && known.has(event.category) ? event.category : 'event';
 }
 
-export function inCategory(event: CalendarEvent, shown: ReadonlySet<Category>): boolean {
-  return shown.has(categoryOf(event));
+const BUILT_IN_KEYS: ReadonlySet<string> = new Set(CATEGORIES);
+
+export function inCategory(
+  event: CalendarEvent,
+  shown: ReadonlySet<string>,
+  known?: ReadonlySet<string>,
+): boolean {
+  return shown.has(categoryOf(event, known));
 }
 
 /** activity_panel.type of Season Celebration, the finale: it starts the
@@ -252,7 +286,9 @@ export interface Search {
   text: string;
   /** `YYYY-MM-DD` server day, or '' for any. */
   day: string;
-  shown: ReadonlySet<Category>;
+  shown: ReadonlySet<string>;
+  /** Every category key that exists (categoryOf). */
+  known?: ReadonlySet<string>;
 }
 
 /** The list's filter: name contains the text (or the id does), the event runs
@@ -261,7 +297,7 @@ export function search(events: ReadonlyArray<CalendarEvent>, query: Search): Cal
   const text = query.text.trim().toLowerCase();
   return events.filter(
     (event) =>
-      inCategory(event, query.shown) &&
+      inCategory(event, query.shown, query.known) &&
       (text === '' ||
         labelOf(event).toLowerCase().includes(text) ||
         event.activity_id.includes(text)) &&
@@ -271,7 +307,10 @@ export function search(events: ReadonlyArray<CalendarEvent>, query: Search): Cal
 
 /** For the month grid: which events start and which end on each server day.
  * Standing features are left off — a bar that never ends is not news. */
-export function byServerDay(events: ReadonlyArray<CalendarEvent>): {
+export function byServerDay(
+  events: ReadonlyArray<CalendarEvent>,
+  standingMs: number = STANDING_AFTER_MS,
+): {
   starts: Map<string, CalendarEvent[]>;
   ends: Map<string, CalendarEvent[]>;
 } {
@@ -284,7 +323,7 @@ export function byServerDay(events: ReadonlyArray<CalendarEvent>): {
     if (event.starts_at === null || event.ends_at === null) {
       continue;
     }
-    if (Date.parse(event.ends_at) - Date.parse(event.starts_at) >= STANDING_AFTER_MS) {
+    if (isStanding(event, standingMs)) {
       continue;
     }
     push(starts, serverDay(event.starts_at), event);
@@ -338,11 +377,13 @@ export async function fetchEventText(activityId: string): Promise<EventText> {
 
 /** A category the dashboard knows, or null. 'shop' (0210) became 'premium'
  * in 0211; until that migration is applied the old value still arrives. */
-export function knownCategory(value: string | null): Category | null {
+export function knownCategory(value: string | null): string | null {
   if (value === 'shop') {
     return 'premium';
   }
-  return (CATEGORIES as ReadonlyArray<string>).includes(value ?? '') ? (value as Category) : null;
+  // Any well-formed key: whether it still exists is the admin's list's call,
+  // made where the event is drawn (categoryOf).
+  return value !== null && /^[a-z][a-z0-9_-]{0,39}$/.test(value) ? value : null;
 }
 
 /** Name an event and put it in a category. An empty name removes the row,
@@ -350,7 +391,7 @@ export function knownCategory(value: string | null): Category | null {
 export async function saveEventName(
   activityId: string,
   name: string,
-  category: Category,
+  category: string,
 ): Promise<void> {
   const trimmed = name.trim();
   const { error } =
@@ -386,7 +427,11 @@ export interface WeekBar {
  * they are never behind "+N more"; then longer bars, then earlier ones, so a
  * week-long event takes the top lane and short ones fill the gaps under it. Standing features are left off — a bar across every
  * week is not news. */
-export function weekBars(events: ReadonlyArray<CalendarEvent>, week: string[]): WeekBar[] {
+export function weekBars(
+  events: ReadonlyArray<CalendarEvent>,
+  week: string[],
+  standingMs: number = STANDING_AFTER_MS,
+): WeekBar[] {
   const first = week[0];
   const last = week[week.length - 1];
   if (first === undefined || last === undefined) {
@@ -397,7 +442,7 @@ export function weekBars(events: ReadonlyArray<CalendarEvent>, week: string[]): 
     if (event.starts_at === null || event.ends_at === null) {
       continue;
     }
-    if (Date.parse(event.ends_at) - Date.parse(event.starts_at) >= STANDING_AFTER_MS) {
+    if (isStanding(event, standingMs)) {
       continue;
     }
     const from = serverDay(event.starts_at);
@@ -435,7 +480,7 @@ export function weekBars(events: ReadonlyArray<CalendarEvent>, week: string[]): 
 
 /** One category's bars within a week: its own lanes, numbered from 0. */
 export interface WeekGroup {
-  category: Category;
+  category: string;
   bars: WeekBar[];
   lanes: number;
 }
@@ -443,12 +488,19 @@ export interface WeekGroup {
 /** A week's bars grouped by category, in CATEGORIES order, each group packed
  * into its own lanes. Empty categories are left out. Nothing is cut: the
  * calendar has room for every lane, so no "+N more". */
-export function groupedWeekBars(events: ReadonlyArray<CalendarEvent>, week: string[]): WeekGroup[] {
+export function groupedWeekBars(
+  events: ReadonlyArray<CalendarEvent>,
+  week: string[],
+  order: readonly string[] = CATEGORIES,
+  standingMs: number = STANDING_AFTER_MS,
+): WeekGroup[] {
   const groups: WeekGroup[] = [];
-  for (const category of CATEGORIES) {
+  const known = new Set(order);
+  for (const category of order) {
     const bars = weekBars(
-      events.filter((event) => categoryOf(event) === category),
+      events.filter((event) => categoryOf(event, known) === category),
       week,
+      standingMs,
     );
     if (bars.length > 0) {
       groups.push({
@@ -481,6 +533,7 @@ export function changesIn(
   events: ReadonlyArray<CalendarEvent>,
   from: string,
   to: string,
+  standingMs: number = STANDING_AFTER_MS,
 ): { event: CalendarEvent; edge: 'starts' | 'ends' }[] {
   const lo = Date.parse(from);
   const hi = Date.parse(to);
@@ -489,7 +542,7 @@ export function changesIn(
     if (event.starts_at === null || event.ends_at === null) {
       continue;
     }
-    if (Date.parse(event.ends_at) - Date.parse(event.starts_at) >= STANDING_AFTER_MS) {
+    if (isStanding(event, standingMs)) {
       continue;
     }
     const start = Date.parse(event.starts_at);

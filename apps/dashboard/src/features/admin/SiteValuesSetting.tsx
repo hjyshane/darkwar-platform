@@ -19,6 +19,7 @@ import {
 } from '../../lib/settings/useSiteSetting';
 import { supabase } from '../../lib/supabase';
 import { TRACKED_SERVERS_KEY } from '../../lib/trackedServers';
+import { CustomFieldEditor } from './CustomSiteEditors';
 
 /** Settings › Shared › Site values: every entry of the settings registry, drawn
  * from its description, plus the server group. Nothing on this screen is
@@ -201,6 +202,8 @@ function FieldEditor({
           value={value}
         />
       );
+    case 'custom':
+      return <CustomFieldEditor editor={field.editor} onChange={onChange} value={value} />;
   }
 }
 

@@ -20,15 +20,19 @@ import { fetchAllPages } from '../../lib/fetchAllPages';
 import { supabase } from '../../lib/supabase';
 
 /** How far back the Overview looks. */
+/** The default for Settings › Site values (ALLIANCE_OVERVIEW_DAYS). */
 export const OVERVIEW_DAYS = 14;
 const DAY_MS = 24 * 3_600_000;
 
 /** The window, anchored to the UTC day so the query key holds still while the
  * page is open. It runs a day past now, like `event_board`, so an event dated
  * on today's game day is inside it whatever the hour. */
-export function overviewWindow(now: Date): { from: string; to: string; fromDay: string } {
+export function overviewWindow(
+  now: Date,
+  days: number = OVERVIEW_DAYS,
+): { from: string; to: string; fromDay: string } {
   const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
-  const from = new Date(today - OVERVIEW_DAYS * DAY_MS).toISOString();
+  const from = new Date(today - days * DAY_MS).toISOString();
   return { from, to: new Date(today + 2 * DAY_MS).toISOString(), fromDay: from.slice(0, 10) };
 }
 
@@ -182,4 +186,6 @@ export function kindLabel(kind: string, labels: Readonly<Record<string, string>>
 /** The events the Overview always answers for, held or not: a line saying
  * "none in the window" beats a reader wondering whether it was looked for.
  * Every other event (a season clash, a merchant war) shows only when held. */
+// The default for Settings › Site values › events always listed
+// (ALLIANCE_OVERVIEW_ALWAYS_LISTED), which the Overview reads.
 export const ALWAYS_LISTED: readonly string[] = ['frankie', 'capital_clash', 'server_clash'];

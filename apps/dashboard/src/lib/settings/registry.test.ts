@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_SHOWN } from '../../features/calendar/data';
 import { DEFAULT_CATEGORY_BY_TYPE, packCategory } from '../../features/shopValue/data';
 import { ADMIN_SECTIONS } from '../adminAccess';
 import { canUndo, describeItem, shortValue } from './history';
 import {
-  CALENDAR_DEFAULT_SHOWN,
   PACK_CATEGORY_BY_TYPE,
   SITE_SETTINGS,
+  choicesSetting,
   isDefault,
   numberSetting,
   stableJson,
@@ -22,7 +21,6 @@ describe('the settings registry', () => {
 
   it('starts every entry at the constant it replaced', () => {
     expect(PACK_CATEGORY_BY_TYPE.defaultValue).toBe(DEFAULT_CATEGORY_BY_TYPE);
-    expect(new Set(CALENDAR_DEFAULT_SHOWN.defaultValue)).toEqual(DEFAULT_SHOWN);
     for (const setting of SITE_SETTINGS) {
       // The default must survive its own parser, or the form would show a
       // value nobody can save back.
@@ -61,10 +59,19 @@ describe('the settings registry', () => {
   });
 
   it('keeps a choice list in the options order and drops unknown choices', () => {
-    expect(CALENDAR_DEFAULT_SHOWN.parse(['premium', 'major', 'nonsense', 'major'])).toEqual([
-      'major',
-      'premium',
-    ]);
+    const kinds = choicesSetting<'a' | 'b' | 'c'>({
+      key: 'site.test_kinds',
+      label: 'Kinds',
+      help: '',
+      usedOn: { label: 'Home', href: '#/home' },
+      defaultValue: [],
+      options: [
+        { value: 'a', label: 'A' },
+        { value: 'b', label: 'B' },
+        { value: 'c', label: 'C' },
+      ],
+    });
+    expect(kinds.parse(['c', 'a', 'nonsense', 'a'])).toEqual(['a', 'c']);
   });
 
   it('compares maps by content, not key order', () => {
@@ -132,7 +139,7 @@ describe('the change history', () => {
   });
 
   it('offers undo only for site-wide settings, and never for the alliance pin', () => {
-    expect(canUndo({ source: 'app_settings', item: 'site.calendar_default_shown' })).toBe(true);
+    expect(canUndo({ source: 'app_settings', item: 'site.calendar_categories' })).toBe(true);
     expect(canUndo({ source: 'app_settings', item: 'own_alliance' })).toBe(false);
     expect(canUndo({ source: 'alliance_settings', item: 'rank_tiers' })).toBe(false);
     expect(canUndo({ source: 'role_permissions', item: 'member:members.view' })).toBe(false);

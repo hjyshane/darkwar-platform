@@ -2344,4 +2344,7 @@ export const tr: Catalog = {
   'Already in your language.': 'Zaten senin dilinde.',
   'Your browser cannot translate from this language into {language}.':
     'Tarayıcın bu dili çeviremiyor: {language}.',
+  'Category of {name}': 'Kategori: {name}',
+  'Name it first to file it.': 'Sınıflandırmak için önce adlandır.',
+  hidden: 'gizli',
 };

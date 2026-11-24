@@ -43,6 +43,7 @@ import {
   isLow,
   sortRows,
   tallyCounts,
+  useLowShare,
 } from './data';
 import {
   type Period,
@@ -101,11 +102,12 @@ function DaysCell({
   read: number;
   unit: string;
 }) {
+  const lowShare = useLowShare();
   const t = useT();
   if (read === 0) {
     return <td className="num muted">—</td>;
   }
-  const low = isLow(scored, read);
+  const low = isLow(scored, read, lowShare);
   const off = read - onBoard;
   return (
     <td
@@ -136,11 +138,12 @@ function DaysCell({
 
 /** Days the daily board reached the bar, out of the days it was read. */
 function OverCell({ over, read, bar }: { over: number | null; read: number; bar: number }) {
+  const lowShare = useLowShare();
   const t = useT();
   if (over === null || read === 0) {
     return <td className="num muted">—</td>;
   }
-  const low = isLow(over, read);
+  const low = isLow(over, read, lowShare);
   return (
     <td
       className={`num ${low ? 'growth-down' : ''}`}
@@ -219,12 +222,13 @@ function BlackGoldCell({ row }: { row: ParticipationRow }) {
 }
 
 function TypedCell({ kind, tally }: { kind: string; tally: TypedTally | undefined }) {
+  const lowShare = useLowShare();
   const t = useT();
   if (tally === undefined || tally.held === 0) {
     return <td className="num muted">—</td>;
   }
   const { missed, unrecorded } = tallyCounts(kind, tally);
-  const low = isLow(tally.attended, tally.held);
+  const low = isLow(tally.attended, tally.held, lowShare);
   return (
     <td
       className={`num ${low ? 'growth-down' : ''}`}

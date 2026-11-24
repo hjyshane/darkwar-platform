@@ -7,8 +7,8 @@
 // only a real start or end is rounded.
 
 import { useT } from '../../lib/i18n';
+import { useCalendarConfig } from './categories';
 import {
-  CATEGORY_LABELS,
   type CalendarEvent,
   type WeekBar,
   categoryOf,
@@ -27,10 +27,11 @@ function Bar({
   onOpen: (event: CalendarEvent) => void;
 }) {
   const t = useT();
-  const category = categoryOf(bar.event);
+  const config = useCalendarConfig();
+  const category = categoryOf(bar.event, config.knownKeys);
   const classes = [
     'calendar-bar',
-    `calendar-cat-${category}`,
+    config.className(category),
     bar.startsHere ? 'calendar-bar-start' : '',
     bar.endsHere ? 'calendar-bar-end' : '',
   ]
@@ -42,7 +43,7 @@ function Bar({
       onClick={() => onOpen(bar.event)}
       type="button"
       style={{ gridColumn: `${bar.start + 1} / ${bar.end + 2}`, gridRow: row }}
-      title={`${labelOf(bar.event, t)} (${t(CATEGORY_LABELS[category])}): ${serverWhen(bar.event.starts_at)} → ${serverWhen(bar.event.ends_at)}`}
+      title={`${labelOf(bar.event, t)} (${config.label(category, t)}): ${serverWhen(bar.event.starts_at)} → ${serverWhen(bar.event.ends_at)}`}
     >
       {!bar.startsHere && <span aria-hidden="true">◀ </span>}
       {labelOf(bar.event, t)}
@@ -76,7 +77,13 @@ export function WeekGrid({
 }) {
   const t = useT();
   const keys = days.map((day) => day.key);
-  const groups = groupedWeekBars(events, keys);
+  const config = useCalendarConfig();
+  const groups = groupedWeekBars(
+    events,
+    keys,
+    config.visible.map((category) => category.key),
+    config.standingMs,
+  );
 
   // Row 1 holds the dates. Each group takes a label row (week view only) and
   // its lanes.
@@ -122,11 +129,11 @@ export function WeekGrid({
       {placed.map(({ group, labelRow, firstLane }) => [
         labelRow !== null && (
           <div
-            className={`calendar-lane-label calendar-cat-${group.category}`}
+            className={`calendar-lane-label ${config.className(group.category)}`}
             key={`label-${group.category}`}
             style={{ gridColumn: '1 / 8', gridRow: labelRow }}
           >
-            {t(CATEGORY_LABELS[group.category])}
+            {config.label(group.category, t)}
           </div>
         ),
         ...group.bars.map((bar) => (

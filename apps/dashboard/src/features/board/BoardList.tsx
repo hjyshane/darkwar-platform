@@ -1,6 +1,8 @@
 import { Pager } from '../../components/Pager';
 import { RichTitle } from '../../components/RichText';
 import { useT } from '../../lib/i18n';
+import { BOARD_HOT_SCORE } from '../../lib/settings/registry';
+import { useSiteSetting } from '../../lib/settings/useSiteSetting';
 import type { BoardPage, BoardPost } from './board';
 import { hotPostIds, topPostId } from './views';
 
@@ -120,6 +122,7 @@ export function BoardList({
   tagLabel: (tag: string | null) => string | null;
   empty: React.ReactNode;
 }) {
+  const hotScore = useSiteSetting(BOARD_HOT_SCORE);
   const t = useT();
   if (data.posts.length === 0 && data.pinned.length === 0) {
     return <p className="empty">{empty}</p>;
@@ -128,7 +131,7 @@ export function BoardList({
   // that skipped the pinned ones would be a different claim from the one the
   // tag makes.
   const onScreen = [...data.pinned, ...data.posts].map((post) => post.id);
-  const hot = hotPostIds(data.views, data.commentCounts, onScreen);
+  const hot = hotPostIds(data.views, data.commentCounts, onScreen, hotScore);
   const top = topPostId(data.views, onScreen);
   return (
     <>

@@ -14,9 +14,12 @@ select is(
     where activity_id in ('111001', '41101', '2010')),
   array['major', 'pass', 'season'],
   'the new categories are accepted');
+-- 'shop' itself is a well-formed key again since 0351 (any slug is); what
+-- 0211 did was move the rows, and the dashboard still reads 'shop' as
+-- 'premium' (knownCategory). The shape is what the table guards now.
 select throws_ok(
-  $$ update public.event_names set category = 'shop' where activity_id = '2010' $$,
-  '23514', null, 'shop is no longer a category');
+  $$ update public.event_names set category = 'SHOP' where activity_id = '2010' $$,
+  '23514', null, 'a category that is not a lowercase slug is refused');
 select lives_ok(
   $$ update public.event_names set category = null where activity_id = '2010' $$,
   'unclassified is still allowed');

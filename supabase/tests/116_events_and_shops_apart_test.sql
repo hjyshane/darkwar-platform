@@ -22,10 +22,12 @@ select is((select category from public.event_schedule_current where activity_id 
   'premium', 'a pack is a premium entry');
 select is((select activity_type from public.event_schedule_current where activity_id = '111001'),
   54, 'the activity type rides along');
--- 3. Only the known categories exist (0211).
+-- 3. A category is a slug (0351): any key an admin made passes, so the
+-- refusal that matters is a malformed one. (Until 0351 only the six built-ins
+-- did; which keys exist is now Settings' list, not the table's.)
 select throws_ok(
-  $$ update public.event_names set category = 'gacha' where activity_id = '300004' $$,
-  '23514', null, 'an unknown category is refused');
+  $$ update public.event_names set category = 'Gacha Event!' where activity_id = '300004' $$,
+  '23514', null, 'a category that is not a lowercase slug is refused');
 -- 4. The recreated view still refuses anon.
 select ok(not has_table_privilege('anon', 'public.event_schedule_current', 'select'),
   'anon still cannot read the calendar');

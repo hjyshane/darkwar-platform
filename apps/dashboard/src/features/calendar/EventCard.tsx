@@ -12,8 +12,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
 import { useT } from '../../lib/i18n';
 import { EventName } from './EventName';
+import { useCalendarConfig } from './categories';
 import {
-  CATEGORY_LABELS,
   type CalendarEvent,
   categoryOf,
   fetchEventText,
@@ -38,6 +38,7 @@ export function EventCard({
   onClose: () => void;
 }) {
   const t = useT();
+  const config = useCalendarConfig();
   const dialog = useRef<HTMLDialogElement>(null);
   const unidentified = isUnidentified(event);
   const text = useQuery({
@@ -59,7 +60,7 @@ export function EventCard({
     }
   }, []);
 
-  const category = categoryOf(event);
+  const category = categoryOf(event, config.knownKeys);
   const titleId = `event-card-${event.activity_id}`;
 
   return (
@@ -90,12 +91,12 @@ export function EventCard({
               <span className="badge">{t('Unidentified')}</span>
             ) : (
               <span
-                className={`calendar-bar calendar-bar-start calendar-bar-end calendar-cat-${category}`}
+                className={`calendar-bar calendar-bar-start calendar-bar-end ${config.className(category)}`}
               >
-                {t(CATEGORY_LABELS[category])}
+                {config.label(category, t)}
               </span>
             )}
-            <span className="subtle">{statusOf(event, now, t)}</span>
+            <span className="subtle">{statusOf(event, now, t, config.standingMs)}</span>
           </p>
         </div>
         <button

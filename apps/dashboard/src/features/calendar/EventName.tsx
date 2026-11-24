@@ -5,16 +5,12 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Select } from '../../components/ui/Select';
+import { useEditMode } from '../../lib/editMode';
 import { useT } from '../../lib/i18n';
-import {
-  CATEGORIES,
-  CATEGORY_LABELS,
-  type CalendarEvent,
-  type Category,
-  categoryOf,
-  labelOf,
-  saveEventName,
-} from './data';
+import { CALENDAR_HIDDEN_EVENTS } from '../../lib/settings/registry';
+import { useSaveSiteSetting } from '../../lib/settings/useSiteSetting';
+import { useCalendarConfig } from './categories';
+import { type CalendarEvent, categoryOf, labelOf, saveEventName } from './data';
 
 export function EventName({
   event,
@@ -28,9 +24,12 @@ export function EventName({
 }) {
   const t = useT();
   const queryClient = useQueryClient();
-  const [draft, setDraft] = useState<{ name: string; category: Category } | null>(null);
+  const config = useCalendarConfig();
+  const { editing } = useEditMode();
+  const saveSetting = useSaveSiteSetting();
+  const [draft, setDraft] = useState<{ name: string; category: string } | null>(null);
   const save = useMutation({
-    mutationFn: (value: { name: string; category: Category }) =>
+    mutationFn: (value: { name: string; category: string }) =>
       saveEventName(event.activity_id, value.name, value.category),
     onSuccess: () => {
       setDraft(null);
@@ -58,11 +57,49 @@ export function EventName({
           <button
             aria-label={t('Edit {name}', { name: labelOf(event, t) })}
             className="calendar-name-button"
-            onClick={() => setDraft({ name: event.name ?? '', category: categoryOf(event) })}
+            onClick={() =>
+              setDraft({ name: event.name ?? '', category: categoryOf(event, config.knownKeys) })
+            }
             type="button"
           >
             {event.name === null ? t('Name it') : t('Edit')}
           </button>
+        )}
+        {/* Edit mode (admins): file the event and hide it without opening the
+            form. Filing needs a name, the column it is kept in (0208). */}
+        {editing && (
+          <span className="calendar-quick">
+            <Select
+              aria-label={t('Category of {name}', { name: labelOf(event, t) })}
+              disabled={event.name === null || save.isPending}
+              onChange={(chosen) => save.mutate({ name: event.name ?? '', category: chosen })}
+              title={event.name === null ? t('Name it first to file it.') : undefined}
+              value={categoryOf(event, config.knownKeys)}
+            >
+              {config.all.map((category) => (
+                <option key={category.key} value={category.key}>
+                  {config.label(category.key, t)}
+                  {category.hidden ? ` (${t('hidden')})` : ''}
+                </option>
+              ))}
+            </Select>
+            <button
+              disabled={saveSetting.isPending}
+              onClick={() => {
+                const hidden = config.hiddenEvents.has(event.activity_id);
+                const next = hidden
+                  ? [...config.hiddenEvents].filter((id) => id !== event.activity_id)
+                  : [...config.hiddenEvents, event.activity_id];
+                saveSetting.mutate({
+                  setting: CALENDAR_HIDDEN_EVENTS,
+                  value: next.length === 0 ? null : next,
+                });
+              }}
+              type="button"
+            >
+              {config.hiddenEvents.has(event.activity_id) ? t('Show') : t('Hide')}
+            </button>
+          </span>
         )}
       </>
     );
@@ -85,12 +122,13 @@ export function EventName({
         />
         <Select
           aria-label={t('Category')}
-          onChange={(chosen) => setDraft({ ...draft, category: chosen as Category })}
+          onChange={(chosen) => setDraft({ ...draft, category: chosen })}
           value={draft.category}
         >
-          {CATEGORIES.map((value) => (
-            <option key={value} value={value}>
-              {t(CATEGORY_LABELS[value])}
+          {config.all.map((category) => (
+            <option key={category.key} value={category.key}>
+              {config.label(category.key, t)}
+              {category.hidden ? ` (${t('hidden')})` : ''}
             </option>
           ))}
         </Select>

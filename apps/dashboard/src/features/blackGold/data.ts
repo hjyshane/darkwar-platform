@@ -212,6 +212,7 @@ export function foldScoreHistory(
  * 1,000 rows without saying so, and a short page is the end. */
 export async function fetchMemberScoreHistory(
   allianceExternalId: string,
+  limit: number = TREND_BATTLES,
 ): Promise<Map<number, (number | null)[]>> {
   const PAGE = 1000;
   const rows: ScoreRow[] = [];
@@ -230,7 +231,7 @@ export async function fetchMemberScoreHistory(
     rows.push(...((data ?? []) as ScoreRow[]));
     if ((data ?? []).length < PAGE) break;
   }
-  return foldScoreHistory(rows);
+  return foldScoreHistory(rows, limit);
 }
 
 /** Every battle, newest first. ~2 per event since 2026-04 — far under 1,000. */

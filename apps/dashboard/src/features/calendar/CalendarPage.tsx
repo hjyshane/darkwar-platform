@@ -15,20 +15,18 @@ import { useMemo, useState } from 'react';
 import { Strip } from '../../components/Strip';
 import { Select } from '../../components/ui/Select';
 import { Tabs } from '../../components/ui/Tabs';
+import { useEditMode } from '../../lib/editMode';
 import { useT } from '../../lib/i18n';
-import { CALENDAR_DEFAULT_SHOWN } from '../../lib/settings/registry';
-import { useSiteSetting } from '../../lib/settings/useSiteSetting';
 import { useSession } from '../../lib/useSession';
 import { DayView } from './DayView';
 import { EventCard } from './EventCard';
 import { EventTable, ListView } from './ListView';
 import { MonthView } from './MonthView';
 import { WeekView } from './WeekView';
+import { useCalendarConfig } from './categories';
 import {
-  CATEGORIES,
-  CATEGORY_LABELS,
   type CalendarEvent,
-  type Category,
+  categoryOf,
   endWithSeason,
   fetchCalendar,
   inCategory,
@@ -64,11 +62,20 @@ export function CalendarPage() {
   const today = serverDay(now.toISOString());
   // The server day the week, day and month views are on.
   const [focus, setFocus] = useState(today);
-  // What an admin chose to show first (Settings › Shared › Site values), until
-  // the reader toggles a category; from then on, theirs.
-  const shownAtFirst = useSiteSetting(CALENDAR_DEFAULT_SHOWN);
-  const [picked, setPicked] = useState<ReadonlySet<Category> | null>(null);
-  const shown = useMemo(() => picked ?? new Set(shownAtFirst), [picked, shownAtFirst]);
+  // The admin's arrangement (Settings › Shared › Site values): categories,
+  // their order, which are shown first, hidden events. What is shown first
+  // holds until the reader toggles a category; from then on, theirs.
+  const config = useCalendarConfig();
+  const { editing } = useEditMode();
+  const shownAtFirst = config.shownAtFirst;
+  const [picked, setPicked] = useState<ReadonlySet<string> | null>(null);
+  const shown = useMemo(
+    () =>
+      new Set(
+        [...(picked ?? shownAtFirst)].filter((key) => config.visibleKeys.has(key) || editing),
+      ),
+    [picked, shownAtFirst, config.visibleKeys, editing],
+  );
   const [text, setText] = useState('');
   const [day, setDay] = useState('');
 
@@ -78,19 +85,31 @@ export function CalendarPage() {
   );
   const [server, setServer] = useState<number | null>(null);
   const serverShown = server ?? servers[0] ?? null;
+  // Hidden events and events in a hidden category are gone for everybody, but
+  // an admin in edit mode sees them all, to bring one back.
   const onServer = useMemo(
-    () => endWithSeason((calendar.data ?? []).filter((event) => event.server_id === serverShown)),
-    [calendar.data, serverShown],
+    () =>
+      // Season end dates come from the whole server calendar first: hiding the
+      // Season Celebration must not stretch every other season event.
+      endWithSeason(
+        (calendar.data ?? []).filter((event) => event.server_id === serverShown),
+      ).filter(
+        (event) =>
+          editing ||
+          (!config.hiddenEvents.has(event.activity_id) &&
+            config.visibleKeys.has(categoryOf(event, config.knownKeys))),
+      ),
+    [calendar.data, serverShown, editing, config],
   );
   // An event with no name is not drawn: it is listed apart, under the views.
   const { identified, unidentified } = useMemo(() => splitIdentified(onServer), [onServer]);
   const inMonth = useMemo(
-    () => identified.filter((event) => inCategory(event, shown)),
-    [identified, shown],
+    () => identified.filter((event) => inCategory(event, shown, config.knownKeys)),
+    [identified, shown, config.knownKeys],
   );
   const listed = useMemo(
-    () => search(identified, { text, day, shown }),
-    [identified, text, day, shown],
+    () => search(identified, { text, day, shown, known: config.knownKeys }),
+    [identified, text, day, shown, config.knownKeys],
   );
   // The open card, by id: the event is looked up again on every render, so a
   // rename made from the card shows on it.
@@ -101,7 +120,7 @@ export function CalendarPage() {
     setFocus(picked);
     setView('day');
   };
-  const toggle = (category: Category) =>
+  const toggle = (category: string) =>
     setPicked((current) => {
       const next = new Set(current ?? shownAtFirst);
       if (next.has(category)) {
@@ -159,7 +178,7 @@ export function CalendarPage() {
             </p>
           </div>
         </header>
-        <Strip cells={calendarStrip(identified, now, t)} />
+        <Strip cells={calendarStrip(identified, now, t, config.standingMs)} />
         <p className="entity-foot">
           {t('From the login the collector saw at {when}.', {
             when: serverWhen(onServer[0]?.seen_at ?? null),
@@ -177,17 +196,18 @@ export function CalendarPage() {
           />
           <fieldset className="calendar-toggle">
             <legend className="visually-hidden">{t('Show')}</legend>
-            {CATEGORIES.map((value) => (
+            {(editing ? config.all : config.visible).map(({ key: value, hidden }) => (
               <button
                 aria-pressed={shown.has(value)}
                 className={
-                  shown.has(value) ? `calendar-toggle-on calendar-cat-${value}` : undefined
+                  shown.has(value) ? `calendar-toggle-on ${config.className(value)}` : undefined
                 }
                 key={value}
                 onClick={() => toggle(value)}
                 type="button"
               >
-                {t(CATEGORY_LABELS[value])}
+                {config.label(value, t)}
+                {hidden ? ` (${t('hidden')})` : ''}
               </button>
             ))}
           </fieldset>
@@ -207,14 +227,16 @@ export function CalendarPage() {
 
         {view !== 'list' && (
           <p className="subtle calendar-legend">
-            {CATEGORIES.filter((value) => shown.has(value)).map((value) => (
-              <span
-                className={`calendar-bar calendar-cat-${value} calendar-bar-start calendar-bar-end calendar-legend-chip`}
-                key={value}
-              >
-                {t(CATEGORY_LABELS[value])}
-              </span>
-            ))}
+            {config.all
+              .filter(({ key }) => shown.has(key))
+              .map(({ key: value }) => (
+                <span
+                  className={`calendar-bar ${config.className(value)} calendar-bar-start calendar-bar-end calendar-legend-chip`}
+                  key={value}
+                >
+                  {config.label(value, t)}
+                </span>
+              ))}
             {t(
               'Bars run from the first to the last server day (UTC−2). Pick a date to open that day, or an event to see what it is.',
             )}

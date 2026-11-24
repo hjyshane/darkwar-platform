@@ -8,6 +8,8 @@ import {
   eventGuideHash,
   isEventGuideTabOpen,
 } from '../../lib/route';
+import { GAME_GUIDE_UPCOMING_TIMES } from '../../lib/settings/registry';
+import { useSiteSetting } from '../../lib/settings/useSiteSetting';
 import { humanUntil } from '../../lib/shellNav';
 import { SERVER_ZONE, browserZone, zoneLabel, zonedDayKey, zonedTime } from '../../lib/timezone';
 import { replaceHash } from '../../lib/useHash';
@@ -29,8 +31,6 @@ import {
   weekGrid,
   worth,
 } from './guide';
-
-const HOW_MANY_TIMES = 4;
 
 /** ` (22:30)` after a server time, or nothing where the reader's clock is the
  * server's. */
@@ -112,8 +112,9 @@ function OurTimes({
   ours: boolean;
 }) {
   const t = useT();
+  const howMany = useSiteSetting(GAME_GUIDE_UPCOMING_TIMES);
   const now = Date.now();
-  const ahead = rows.filter((row) => Date.parse(row.startsAt) > now).slice(0, HOW_MANY_TIMES);
+  const ahead = rows.filter((row) => Date.parse(row.startsAt) > now).slice(0, howMany);
   return (
     <div className="entity">
       <header className="entity-head">

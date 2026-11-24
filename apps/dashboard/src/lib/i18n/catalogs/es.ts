@@ -2360,4 +2360,7 @@ export const es: Catalog = {
   'Already in your language.': 'Ya está en tu idioma.',
   'Your browser cannot translate from this language into {language}.':
     'Tu navegador no puede traducir este idioma al {language}.',
+  'Category of {name}': 'Categoría de {name}',
+  'Name it first to file it.': 'Ponle nombre primero para clasificarlo.',
+  hidden: 'oculta',
 };

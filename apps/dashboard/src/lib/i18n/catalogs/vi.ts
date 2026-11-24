@@ -2331,4 +2331,7 @@ export const vi: Catalog = {
   'Already in your language.': 'Đã ở ngôn ngữ của bạn.',
   'Your browser cannot translate from this language into {language}.':
     'Trình duyệt của bạn không dịch được ngôn ngữ này sang {language}.',
+  'Category of {name}': 'Danh mục của {name}',
+  'Name it first to file it.': 'Hãy đặt tên trước để phân loại.',
+  hidden: 'đã ẩn',
 };
