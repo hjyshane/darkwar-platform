@@ -99,13 +99,12 @@ export function BoardPostPage({
   });
 
   const found = data ?? null;
-  // Translate what the author wrote, on the reader's request (0349). Keyed to
-  // this post's text: the previous/next links reuse this page for another post.
-  const translation = useContentTranslation(
-    config.table === 'guides' ? 'guide' : 'notice',
-    postId,
-    found === null ? '' : `${found.post.title}\n${found.post.body}`,
-  );
+  // Translate what the author wrote, in the reader's browser, on request.
+  // Keyed to this post: the previous/next links reuse this page for another.
+  const translation = useContentTranslation(`${config.table}:${postId}`, {
+    title: found?.post.title ?? '',
+    body: found?.post.body ?? '',
+  });
   const [showTranslated, setShowTranslated] = useState(false);
   const translated = showTranslated ? translation.data : undefined;
   // On whether the post EXISTS, not on the post itself: the row object is new on

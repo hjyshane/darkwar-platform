@@ -2324,15 +2324,8 @@ export const tr: Catalog = {
   '✦ Treasure spots': '✦ Hazine noktaları',
   '🛡 Shielded bases': '🛡 Kalkanlı üsler',
   '[attendance] Held': 'Yapıldığı gün',
-  'You have used your translations for today. Try again tomorrow.':
-    'Bugünkü çeviri hakkını kullandın. Yarın tekrar dene.',
-  'Translation is switched off.': 'Çeviri kapalı.',
-  'Translation is not set up on this site yet.': 'Bu sitede çeviri henüz ayarlanmadı.',
-  'This could not be translated: it is gone, or not yours to read.':
-    'Çevrilemedi: içerik silinmiş ya da okuma iznin yok.',
   'The translation did not come back. Try again in a moment.':
     'Çeviri gelmedi. Birazdan tekrar dene.',
-  'Machine translation.': 'Makine çevirisi.',
   'Show original': 'Orijinali göster',
   'Translating…': 'Çevriliyor…',
   'Translate into {language}': 'Çevir: {language}',
@@ -2340,4 +2333,11 @@ export const tr: Catalog = {
   'Trying again…': 'Tekrar deneniyor…',
   'the hive plan': 'Hive planı',
   "this week's events": 'bu haftanın etkinlikleri',
+  "Your browser can't translate here. Use its own Translate page instead (Chrome and Edge on a computer can translate right here).":
+    'Tarayıcın burada çeviri yapamıyor. Bunun yerine tarayıcının sayfa çevirisini kullan (bilgisayardaki Chrome ve Edge burada doğrudan çevirir).',
+  'Translated by your browser.': 'Tarayıcın tarafından çevrildi.',
+  'Downloading the translation model… {percent}%': 'Çeviri modeli indiriliyor… %{percent}',
+  'Already in your language.': 'Zaten senin dilinde.',
+  'Your browser cannot translate from this language into {language}.':
+    'Tarayıcın bu dili çeviremiyor: {language}.',
 };
