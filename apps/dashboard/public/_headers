@@ -7,13 +7,16 @@
 # slip in the first does not hand the session to another origin.
 #
 # WHAT IT ALLOWS, AND WHY EACH:
-#   script-src  'self' only: one module bundle plus its lazy chunks, no inline
-#               script anywhere (checked 2026-11-24, and Cloudflare injects
-#               no analytics beacon on this zone).
+#   script-src  'self': one module bundle plus its lazy chunks, no inline
+#               script anywhere. And Cloudflare Web Analytics' beacon, which
+#               Cloudflare injects into the page on this zone: the first CSP
+#               (2026-11-24) said it did not, and blocked it on production
+#               the same day (seen 11-25). Drop both cloudflareinsights hosts
+#               if Web Analytics is ever switched off.
 #   style-src   'unsafe-inline' for the two static pages (privacy.html and
 #               terms.html each carry a <style> block). A style cannot run code.
 #   connect-src the Supabase project: REST, auth, storage and the Realtime
-#               socket. The project's URL is the VITE_SUPABASE_URL repository
+#               socket; and cloudflareinsights.com, where the beacon reports. The project's URL is the VITE_SUPABASE_URL repository
 #               variable; CHANGE THIS LINE IF THE PROJECT EVER MOVES, or every
 #               query is refused.
 #   img-src     the same project's storage (post images, signed images), plus
@@ -24,7 +27,7 @@
 # dist/ through `vite preview`, which does not read this file, to look at it.
 
 /*
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://balpuvkvpiqvclibajje.supabase.co; connect-src 'self' https://balpuvkvpiqvclibajje.supabase.co wss://balpuvkvpiqvclibajje.supabase.co; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://balpuvkvpiqvclibajje.supabase.co; connect-src 'self' https://balpuvkvpiqvclibajje.supabase.co wss://balpuvkvpiqvclibajje.supabase.co https://cloudflareinsights.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   X-Frame-Options: DENY
