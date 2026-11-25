@@ -38,7 +38,7 @@ SQL Editor(postgres로 실행됨)에서 한 트랜잭션으로. 대시보드는 
 
 ```sql
 -- 1) 멤버 한 명의 uid (간부 아닌 member)
-select m.user_id, m.role, a.name
+select m.user_id, m.role, a.current_name
   from public.alliance_memberships m join public.alliances a on a.alliance_id = m.alliance_id
  where a.is_own and m.role = 'member' limit 3;
 
@@ -106,7 +106,7 @@ select e.schedule_event_id, e.title, e.starts_at, count(r.*) filter (where r.ena
  where e.alliance_id::text like 'b9daa299%' and e.starts_at > now()
  group by 1,2,3 order by 3 limit 20;
 ```
-(열 이름은 0321–0323 기준 추정 — 틀리면 `\d public.schedule_events`.)
+(`schedule_events.alliance_id`는 0192, `schedule_reminders.enabled`는 0322에 있음 — 확인함.)
 
 **탭 확인 6가지 (handover §2, 로그인 상태로, 미실시):**
 
