@@ -21,7 +21,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(9);
+select plan(7);
 
 insert into auth.users (id, instance_id, aud, role, email) values
   ('00000000-0000-4000-8000-000000650001', '00000000-0000-0000-0000-000000000000',
@@ -102,30 +102,21 @@ from public.alliances a where a.external_id = 'refresh-al-64';
 select is(pg_temp.current_ids(), 'RefAlpha',
   'a member absent from the newest batch is pruned');
 
--- 4. A viewer calling refresh directly is turned away at the gate: nothing
--- moves, nothing is wiped.
+-- 4. Nobody signed in calls the refresh directly any more (0352): it runs
+-- from the snapshot triggers, whose writers are the collector and the owner.
 set role authenticated;
 select set_config('request.jwt.claims',
   '{"sub":"00000000-0000-4000-8000-000000650003","role":"authenticated"}', true);
-select lives_ok('select public.refresh_member_roster()',
-  'a viewer may call refresh without error');
+select throws_ok('select public.refresh_member_roster()', '42501', null,
+  'a signed-in caller may not call the refresh (0352)');
 reset role;
 
 select is(pg_temp.current_ids(), 'RefAlpha',
-  'and the gate made it a no-op — the table is untouched');
+  'and the refusal left the table untouched');
 
--- 5. The empty guard: a member whose refresh legitimately computes an empty
--- roster (no own alliance at that moment) must not empty the table either.
-update public.alliances set is_own = false where external_id = 'refresh-al-64';
-set role authenticated;
-select set_config('request.jwt.claims',
-  '{"sub":"00000000-0000-4000-8000-000000650001","role":"authenticated"}', true);
-select lives_ok('select public.refresh_member_roster()',
-  'a member may refresh while no alliance is marked own');
-reset role;
-
-select is(pg_temp.current_ids(), 'RefAlpha',
-  'an empty answer never replaces a populated table');
+-- 5. (Until 0352: "a member's refresh that computes an empty roster leaves the
+-- table alone". That guard sits on the member-call path, which 0352 closed;
+-- the collector's full refresh is covered by 2-3 above.)
 
 -- 6. anon cannot even ask.
 select ok(

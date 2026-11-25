@@ -158,6 +158,15 @@ export function useComments(config: BoardConfig, postId: string) {
  * and pins it on update — an author field the author can write is not an
  * author field (0033's rule, fourth time).
  */
+/** The database refused a comment because this account wrote too many in the
+ * last minute or hour (0352, SQLSTATE DW429). Its own class so the composer
+ * can say so in the reader's language rather than the database's English. */
+export class CommentsTooFast extends Error {
+  constructor() {
+    super('too many comments: wait a minute, then try again');
+  }
+}
+
 export function useAddComment(config: BoardConfig, postId: string) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -178,7 +187,7 @@ export function useAddComment(config: BoardConfig, postId: string) {
         ? comments.insert({ guide_id: postId, body, parent_comment_id: parentId })
         : comments.insert({ announcement_id: postId, body, parent_comment_id: parentId }));
       if (error) {
-        throw new Error(error.message);
+        throw error.code === 'DW429' ? new CommentsTooFast() : new Error(error.message);
       }
     },
     onSuccess: () => {
