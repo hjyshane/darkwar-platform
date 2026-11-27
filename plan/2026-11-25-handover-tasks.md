@@ -141,4 +141,18 @@ select e.schedule_event_id, e.title, e.starts_at, count(r.*) filter (where r.ena
 
 **무해.** 오퍼만 있고 카탈로그에 없는 id 4개(`26032430/35/40`, `83012`) — 뷰가 카탈로그에서 출발하니 안 보임. 이름 없는 `261000001/2`는 $0이라 `dollars > 0` 필터에 걸러짐. 아이템 이름은 `catalog.py`가 `{0}`를 `name_value`로 치환하니 문제 없음.
 
-**고침(11-26, 이 가지).** ⑥ 0353 `shop_pack_value`: `pack_items` CTE가 팩 목록과 화면 목록을 아이템별로 합산(pgTAP `353_…` 9개, 전체 244파일 로컬 통과). ⑤ `shop_offers` 1.1.0: `weekCards[].reward × time` → `track='daily'`, `levels`=일수(파서 테스트 43개). 대시보드는 'daily'일 때 문구 하나. **남음:** ③ `stageArr` 읽기, ①② 명령 찾기(스윕), ⑦⑧은 보류. 적용은 `db push`(0353) + 두 PC Ingest 재시작, 순서 무관.
+**고침(11-26, 이 가지).** ⑥ 0353 `shop_pack_value`: `pack_items` CTE가 팩 목록과 화면 목록을 아이템별로 합산(pgTAP `353_…` 9개, 전체 244파일 로컬 통과). ⑤ `shop_offers` 1.1.0: `weekCards[].reward × time` → `track='daily'`, `levels`=일수(파서 테스트 43개). 대시보드는 'daily'일 때 문구 하나. 적용은 `db push`(0353) + 두 PC Ingest 재시작, 순서 무관.
+
+**스윕 결과(11-26 23:20–00:05Z 저널, rowid 13735945–13764725, 28,781행; 확인함).** 상점 탭을 여는 동안 본계정(580)이 보낸 요청은 `get.package.choose.activity.info`(23:40:05)·`growth.plan.cur.exchange`·`get.flash.sale.activity.info`(23:41:08)·`lucky.card.act.info`·`select.battlepass.series`(23:41:23, 영웅 선택)·`custom.package.choose.reward`×7(23:42–43)뿐. **Weekly/Monthly Pass·Hero Code·Ruby Shop·Dawn Badge·Daily Sale·Mega Bargain·Apoca 화면은 요청을 안 보낸다** — 전부 로그인 응답으로 그린다.
+
+| 화면 | 명령 / 자리 | 증거 | 판정 |
+|---|---|---|---|
+| Hero Code `9008` | `get.hero.month.card.info` (로그인; `activityId` 330001, `rewardArr[30]{day,reward,state}`, `buy`) | 1–5일차가 스크린샷과 동일(조각 10·Food Level Chest 5·Prime Recruitment Ticket 10·책 200·광석 1,000). 페이로드에 exchange id 없음 → 클라이언트 `hero_monthcard.exchange`가 24행 전부 `9008` | **승격 후보**: 팩 9008 오퍼 행, 30일 합산, 상수 `9008`(출처 주석) |
+| Super Monthly Pass `9007`/`9009` (t5) | `exchange.info` 행의 `item_use` `222027;1|222028;1|222031;1`(VIP {0}일·Formation IV·Deluxe Cosmetic) + `reward` `105100;1` | `shop.py`는 `item`만 읽음. 매일 수령분은 클라이언트 `monthcard` 9007 `reward_show`(특전 표시용), 서버 응답 없음 | `shop.py`에 `item_use`+`reward` 추가(카탈로그 12행: t5 둘, Dawn Badge t46 열 — `9990012`=배지 ×N). 특전 가치는 별도 |
+| Treasure of the Day `80983`/`80969` | `get.month.pay.act.info` (`stageArr` 30 = 충전일 달력) | 매일 바뀌는 1종은 어느 응답에도 없음; 화면 열어도 요청 없음 | 보류 |
+| Exclusive Equipment Choice Pack `25070701–05` | `get.package.choose.activity.info` (로그인+열 때; `packageArr[].item` `"조각id;수;exchangeId;1|…"`, `chooseId`=고른 영웅) | 9영웅 × 5단계, 각 항목에 exchange id가 박혀 있음 | **승격 후보**: 오퍼 행 + 고른 조각 내용물 |
+| Flash Sale | `get.flash.sale.activity.info` (`roundArr[24]{roundStartTime, exchangeArr[4]{id}}`) | `id`가 `73`·`57` 같은 작은 정수 — exchange id 아님, 클라이언트 표 대응 필요(덤프에 flash 이름 표 없음) | 조사 필요 |
+| Legend BP 영웅 선택 | `select.battlepass.series` (`battlePass`, `series`, `stateInfo`) | `get.battlepass.info`와 같은 모양 | 별칭 등록이면 됨 |
+| 무료 팩 | `free.exchange.info` (34개, `dollar` 0, 이름·`item` 있음) | `exchange.info`에서 이름 없던 `261000001/2`는 여기에도 없음 | 가치 0, 보류 |
+
+**남음:** 위 승격 후보 둘(Hero Code·Choice Pack) + `shop.py` `item_use`/`reward`, Flash Sale 표 대응, ⑦⑧ 보류.
