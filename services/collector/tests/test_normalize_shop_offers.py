@@ -142,12 +142,41 @@ def test_a_radar_card_pays_its_paid_rewards() -> None:
     assert {"id": "253042", "qty": 20} in packs["240000007"]["items"]
 
 
+def test_week_card_pays_its_daily_reward_for_its_days() -> None:
+    """The pack's own list is the instant grant; the card's `reward` x `time`
+    is what the week pays on top (1.1.0). The Precision Parts Weekly Pass:
+    8 parts, 3 one-hour speedups and 50 boxes a day for 7 days."""
+    week = _by_pack("get.week.card.info/week_cards_v1.json")
+
+    parts = week["83013"]
+    assert parts["track"] == "daily"
+    assert parts["levels"] == 7
+    assert parts["items"] == [
+        {"id": "253042", "qty": 56},
+        {"id": "200213", "qty": 21},
+        {"id": "252016", "qty": 350},
+    ]
+    assert parts["raw"]["repeat"] == 7 and len(parts["raw"]["rewards"]) == 1
+    assert week["83009"]["items"] == [{"id": "230110", "qty": 21}, {"id": "230104", "qty": 8400}]
+
+
+def test_week_card_without_a_reward_list_is_named_bare() -> None:
+    """A custom pass's days are picks made on another screen: no contents."""
+    week = _by_pack("get.week.card.info/week_cards_v1.json")
+    assert week["26072305"]["items"] == [] and week["26072305"]["track"] is None
+
+    observation = load_observation("get.week.card.info/week_cards_v1.json")
+    odd = observation.model_copy(deep=True)
+    odd.payload["weekCards"][1]["time"] = 0  # 83013
+    odd.payload["weekCards"][2]["reward"] = "nope"  # 83017
+    odd.payload["weekCards"][0]["time"] = True  # 83009
+    rows = {r.row["pack_id"]: r.row for r in shop_offers.normalize_week_cards(odd)}
+    assert set(rows) == set(week)
+    assert all(r["items"] == [] and r["track"] is None for r in rows.values())
+
+
 def test_cards_and_gifts_are_named_without_contents() -> None:
     """Their packs list their own contents; the row only says "sold here"."""
-    week = _by_pack("get.week.card.info/week_cards_v1.json")
-    assert "83009" in week and "26072305" in week
-    assert all(p["items"] == [] and p["track"] is None for p in week.values())
-
     assert set(_by_pack("get.season.week.card.info/season_week_card_v1.json")) == {"83109"}
     assert set(_by_pack("multi.choice.gift.info/gifts_v1.json")) == {
         "26032445",

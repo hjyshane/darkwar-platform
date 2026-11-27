@@ -3,6 +3,8 @@ import type { Catalog } from '../core';
 export const it: Catalog = {
   'A player or alliance page is a header plus one tab at a time. Growth is first; the rest sit beside it.':
     "Una pagina giocatore o alleanza è un'intestazione più una scheda alla volta. Prima c'è la crescita; le altre stanno accanto.",
+  "A weekly card: what it pays each day over its days, read from the game's own screen, added to the grant the pack lists.":
+    'Carta settimanale: ciò che paga ogni giorno per la sua durata, letto dalla schermata del gioco, in aggiunta a ciò che il pacchetto concede subito.',
   Access: 'Accesso',
   Activity: 'Attività',
   'Admin menu': 'Menu admin',

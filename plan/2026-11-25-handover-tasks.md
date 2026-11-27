@@ -118,3 +118,27 @@ select e.schedule_event_id, e.title, e.starts_at, count(r.*) filter (where r.ena
 6. 숨긴 게임 항목이 다음 `alarms-calendar` 실행 뒤에도 숨겨져 있다.
 
 브라우저로 1·2·4·6은 이 세션이 할 수 있다 — cbfw.us에 로그인된 세션이 앱 브라우저에 있어야 함(11-15엔 없었다).
+
+## 6. Packs 탭 vs 실제 상점 화면 — 로컬 데이터로 대조 (11-26)
+
+주인이 본계정 상점 스크린샷 31장을 보냄. 탭을 열지 않고 주 PC 저널(`live.db`)의 `exchange.info` 카탈로그(11-26 02:00Z 277행, 11-21 357행)·당일 `shop_pack_offers` 53행·번들 로컬라이즈 사전으로 대조. 스크립트와 중간 파일은 세션 스크래치(`compare.py`, `compare.out`), 저장소 밖.
+
+**맞는 것(확인함).** 가격은 전부 일치(배지/100 = `dollars`; Dawn Badge Pack 10단계가 $0.99=100부터 선형). Hero Battle Pass `250325001` 내용물 6종 수량까지 정확(금상자 70·1K루비 2·책 1,200·보라 400·금괴 30·빨간상자 16). Event Monthly Pass `240000007` 즉시 지급 4종 정확. Mod Vehicle Combo Pack 3상자 = `26032445/50/55`. Mega Bargain·Pack Shop·Flash Sale·Daily Sale 묶음(`Integrated Daily Sale Package` 700루비)·Exclusive Equipment Choice Pack·Customize Equipment(`3020xx`/`30204x` 두 회차)·Login Value Gift·Road to Dawn·Industrial Age BP 전부 카탈로그에 있고 내용물 있음.
+
+**비어 있는 것(탭이 내용물 없이 보이거나 숨김).**
+
+1. **Hero Code `9008` $24.99 (t666)** — `items` 빈 값, 화면 명령 없음 → `contents_listed=false`로 **숨겨짐**. 실제: 30일 달력(10/31–11/29) 매일 조각 10 / 빨간상자 5 / 금괴 10 / 책 200 / 부스트 광석 1,000 순환. 명령 미확인(캡처 스윕 필요).
+2. **Super Monthly Pass `9007` $9.99 rb=1000 (t5)** — `items` 빈 값 → 루비 1,000만 계산. 실제(Troop Skin: Revenge, 30일): 스킨·루비 1,000·30d 아이템·프레임 + **매일 ×30: 10개 아이템·VIP 1·루비 100 → 루비만 +3,000**. 명령 미확인.
+3. **Treasure of the Day `80983`(rb 100)·`80969`(rb 0) $0.99** — 둘 다 빈 값, `get.month.pay.act.info` `para2/para3`. rb=0 쪽은 $0.99에 아무것도 없는 행으로 보임. 실제(Apoca Treasure Guide): 루비 100 + 날마다 바뀌는 1종(정밀부품 8 / 코어 5 / 설계도 3+티타늄 12+기어 600 / 별 250 / 1h×6) + 자원 100×3, 그리고 충전일 달력 30단계가 `stageArr[].reward`에 있다. 파서가 의도적으로 내용물을 안 쓴다(0337 주석).
+4. Dawn Badge Pack t46 ×10 — 빈 값·숨김. 배지 상점이니 그대로 둬도 됨.
+
+**과소평가(내용물 일부만).**
+
+5. **주간 패스 7종(t27, SOLD)** — 탭은 "구매 즉시" 분만 계산. `get.week.card.info` `weekCards[].reward`(매일 수령분)와 `time`(7)이 페이로드에 있는데 파서가 안 읽음("the pack lists its own"). Precision Parts Weekly Pass: 즉시 부품 10 vs 매일 부품 8·1h×3·보라 50 ×7일. Custom Weekly Pass: 매일 2(Value)/4(Elite) 슬롯 선택 ×7 — 9개 선택지(칩 30·부품 10·펫책 2·코어 3·장비상자 2·별 150·광석 1,200·1h×8·금 1M×6).
+6. **Event Monthly Pass `240000007`** — 카탈로그 `items`(즉시 4종)가 있어서 뷰가 오퍼 `items`(목표 보상: 부품 60·3h×15·빨간상자 10, `scoreRewardArr[].payReward`)를 버림(`latest` CTE: pack items 비어 있을 때만 offer items). 둘 다 더해야 함.
+7. Daily Sale(Guy 메달 99/199/399) = Pioneer/Commander/Overlord Package `83022/23/24` — 영웅 조각 2/3/5가 `items`에 없음(새로고침으로 영웅이 바뀌는 항목).
+8. `<b>100</b>-Ruby Pack` `250000002` rb=100 — 첫 구매 2배(100+100, 6단계 전부 평생 1회)가 반영 안 됨.
+
+**무해.** 오퍼만 있고 카탈로그에 없는 id 4개(`26032430/35/40`, `83012`) — 뷰가 카탈로그에서 출발하니 안 보임. 이름 없는 `261000001/2`는 $0이라 `dollars > 0` 필터에 걸러짐. 아이템 이름은 `catalog.py`가 `{0}`를 `name_value`로 치환하니 문제 없음.
+
+**고침(11-26, 이 가지).** ⑥ 0353 `shop_pack_value`: `pack_items` CTE가 팩 목록과 화면 목록을 아이템별로 합산(pgTAP `353_…` 9개, 전체 244파일 로컬 통과). ⑤ `shop_offers` 1.1.0: `weekCards[].reward × time` → `track='daily'`, `levels`=일수(파서 테스트 43개). 대시보드는 'daily'일 때 문구 하나. **남음:** ③ `stageArr` 읽기, ①② 명령 찾기(스윕), ⑦⑧은 보류. 적용은 `db push`(0353) + 두 PC Ingest 재시작, 순서 무관.

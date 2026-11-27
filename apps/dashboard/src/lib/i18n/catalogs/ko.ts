@@ -3,6 +3,8 @@ import type { Catalog } from '../core';
 export const ko: Catalog = {
   'A player or alliance page is a header plus one tab at a time. Growth is first; the rest sit beside it.':
     '플레이어·연맹 페이지는 헤더와 한 번에 하나씩 보이는 탭으로 구성돼요. 성장 탭이 맨 앞이고 나머지는 그 옆에 있어요.',
+  "A weekly card: what it pays each day over its days, read from the game's own screen, added to the grant the pack lists.":
+    '주간 카드: 게임 화면에서 읽은 매일 수령 보상을 기간만큼 더한 값이에요. 팩에 적힌 즉시 지급분에 얹어져요.',
   Access: '접근 권한',
   Activity: '활동',
   'Admin menu': '관리자 메뉴',

@@ -3,6 +3,8 @@ import type { Catalog } from '../core';
 export const vi: Catalog = {
   'A player or alliance page is a header plus one tab at a time. Growth is first; the rest sit beside it.':
     'Trang người chơi hoặc liên minh gồm phần đầu trang và mỗi lần một thẻ. Tăng trưởng đứng đầu; các thẻ khác nằm bên cạnh.',
+  "A weekly card: what it pays each day over its days, read from the game's own screen, added to the grant the pack lists.":
+    'Thẻ tuần: phần thưởng nhận mỗi ngày trong suốt thời hạn, đọc từ màn hình trò chơi, cộng thêm vào phần gói cấp ngay.',
   Access: 'Quyền truy cập',
   Activity: 'Hoạt động',
   'Admin menu': 'Menu quản trị',

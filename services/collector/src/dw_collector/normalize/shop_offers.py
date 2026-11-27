@@ -19,7 +19,7 @@ passes, 1 of 7 season weekly cards, 1 of 2 radar cards).
     get.season.battlepass.info        packageIds "a;b"              a: middle, b: specialReward
     growth.plan.info                  exchangeId                    stageInfo[].specialReward
     get.month.detect.card             monthDetectCards[].exchangeId scoreRewardArr[].payReward
-    get.week.card.info                weekCards[].exchange_id       (the pack lists its own)
+    get.week.card.info                weekCards[].exchange_id       reward x time (daily claims)
     get.season.week.card.info         exchangeId                    (the pack lists its own)
     multi.choice.gift.info            gifts[].exchangeId            (the pack lists its own)
     get.custom.package.activity.info  exchangeIds "a;b;…"           (the pack lists its own)
@@ -40,8 +40,10 @@ on, so which pack unlocks which track rests on the names:
     unlocks is not known and no contents are written.
 
 Contents are the track's rewards summed over every level — what the pack
-pays a buyer who finishes it. Only reward type 7 (an item) is counted; other
-types stay in `raw`.
+pays a buyer who finishes it. A weekly card's are its `reward` claimed once
+a day for `time` days (1.1.0: the pack's own list is the "buy to instantly
+get" part, which the view adds to this). Only reward type 7 (an item) is
+counted; other types stay in `raw`.
 
 Per-account progress (level, exp, claimed states, tasks) is left out of
 `raw` and so out of the key. The key carries the capture DAY: a pack row is
@@ -58,8 +60,10 @@ from typing import Any
 from dw_collector.models import NormalizedRow, Observation, entry_idempotency_key, stable_uuid
 from dw_collector.registry import register
 
-PARSER_VERSION = "1.0.0"
+PARSER_VERSION = "1.1.0"
 ITEM_REWARD = 7
+# A weekly card's `time` is days; a value outside this is not a card we know.
+MAX_CARD_DAYS = 400
 
 
 def _pack_id(value: Any) -> str | None:
@@ -118,8 +122,12 @@ def _row(
     activity_id: Any = None,
     track: str | None = None,
     rewards: list[list[Any]] | None = None,
+    repeat: int = 1,
     extra: dict[str, Any] | None = None,
 ) -> NormalizedRow:
+    """One offer row. `rewards` is a list of reward lists (one per level);
+    `repeat` says how many times the whole list is paid (a weekly card's
+    `reward` x its days), so items and levels are multiplied by it."""
     activity = _pack_id(activity_id)
     raw: dict[str, Any] = {"pack_id": pack_id, **(extra or {})}
     if activity is not None:
@@ -127,6 +135,8 @@ def _row(
     if track is not None:
         raw["track"] = track
         raw["rewards"] = rewards or []
+        if repeat != 1:
+            raw["repeat"] = repeat
     key = entry_idempotency_key(
         observation, f"offer:{pack_id}", observation.captured_at.date().isoformat(), raw
     )
@@ -146,8 +156,8 @@ def _row(
             "pack_id": pack_id,
             "activity_id": activity,
             "track": track,
-            "items": _items(rewards or []),
-            "levels": len(rewards) if track is not None and rewards is not None else None,
+            "items": _items((rewards or []) * repeat),
+            "levels": len(rewards) * repeat if track is not None and rewards is not None else None,
         },
     )
 
@@ -257,13 +267,38 @@ def normalize_month_detect_card(observation: Observation) -> list[NormalizedRow]
     return _unique(rows)
 
 
+def _card_days(value: Any) -> int | None:
+    if isinstance(value, bool) or not isinstance(value, int):
+        return None
+    return value if 1 <= value <= MAX_CARD_DAYS else None
+
+
 @register("get.week.card.info")
 def normalize_week_cards(observation: Observation) -> list[NormalizedRow]:
+    """A card's `reward` is what it pays each day for `time` days — the part
+    of a weekly pass the pack's own list (the instant grant) leaves out. A
+    card without a reward list (the custom passes, whose days are picks made
+    elsewhere) is named bare, as before."""
     cards = observation.payload.get("weekCards")
     rows: list[NormalizedRow] = []
     for card in cards if isinstance(cards, list) else []:
         pack_id = _pack_id(card.get("exchange_id")) if isinstance(card, dict) else None
-        if pack_id is not None:
+        if pack_id is None:
+            continue
+        reward = card.get("reward")
+        days = _card_days(card.get("time"))
+        if isinstance(reward, list) and reward and days is not None:
+            rows.append(
+                _row(
+                    observation,
+                    pack_id,
+                    track="daily",
+                    rewards=[reward],
+                    repeat=days,
+                    extra={"card": card.get("id")},
+                )
+            )
+        else:
             rows.append(_row(observation, pack_id, extra={"card": card.get("id")}))
     return _unique(rows)
 

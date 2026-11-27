@@ -3,6 +3,8 @@ import type { Catalog } from '../core';
 export const tr: Catalog = {
   'A player or alliance page is a header plus one tab at a time. Growth is first; the rest sit beside it.':
     'Oyuncu veya ittifak sayfası bir başlık ve tek seferde bir sekmeden oluşur. İlk sekme Gelişim; diğerleri yanında durur.',
+  "A weekly card: what it pays each day over its days, read from the game's own screen, added to the grant the pack lists.":
+    'Haftalık kart: süresi boyunca her gün ödediği, oyun ekranından okunur ve paketin anında verdiğine eklenir.',
   Access: 'Erişim',
   Activity: 'Aktivite',
   'Admin menu': 'Yönetici menüsü',

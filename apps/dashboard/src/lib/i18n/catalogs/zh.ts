@@ -3,6 +3,8 @@ import type { Catalog } from '../core';
 export const zh: Catalog = {
   'A player or alliance page is a header plus one tab at a time. Growth is first; the rest sit beside it.':
     '玩家或联盟页面由页头和每次显示一个的标签页组成。“成长”排在最前，其余在它旁边。',
+  "A weekly card: what it pays each day over its days, read from the game's own screen, added to the grant the pack lists.":
+    '周卡：按天领取的奖励乘以天数，读自游戏自己的界面，加在礼包立即发放的部分之上。',
   Access: '访问权限',
   Activity: '活跃度',
   'Admin menu': '管理员菜单',
