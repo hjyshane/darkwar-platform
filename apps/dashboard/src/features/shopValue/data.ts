@@ -96,6 +96,9 @@ export interface PackValue {
   /** Days a daily card's picks are made over (0354): choice_rubies counts
    * every day, `choices` shows one day's. Null when the picks are made once. */
   pick_days?: number | null;
+  /** Rubies an officer entered as an extra (game_pack_extras, 0355), beyond
+   * the pack's own `rubies`; extra items are already in `contents`. */
+  extra_rubies?: number | null;
 }
 
 export interface ListingValue {

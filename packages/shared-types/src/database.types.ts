@@ -4594,6 +4594,45 @@ export type Database = {
         }
         Relationships: []
       }
+      game_pack_extras: {
+        Row: {
+          extra_id: number
+          item_id: string | null
+          item_key: string | null
+          match_kind: string
+          match_value: string
+          note: string | null
+          qty: number
+          repeat: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          extra_id?: never
+          item_id?: string | null
+          item_key?: never
+          match_kind: string
+          match_value: string
+          note?: string | null
+          qty: number
+          repeat?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          extra_id?: never
+          item_id?: string | null
+          item_key?: never
+          match_kind?: string
+          match_value?: string
+          note?: string | null
+          qty?: number
+          repeat?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       game_pack_picks: {
         Row: {
           item_id: string
@@ -11075,6 +11114,7 @@ export type Database = {
           contents_listed: boolean | null
           dollars: number | null
           ends_at: string | null
+          extra_rubies: number | null
           is_show: string | null
           item_rubies: number | null
           name: string | null

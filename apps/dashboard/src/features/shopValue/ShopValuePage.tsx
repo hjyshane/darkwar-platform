@@ -21,6 +21,7 @@ import { PACK_CATEGORY_BY_TYPE, RUBY_DOLLAR_RATE } from '../../lib/settings/regi
 import { useSiteSetting } from '../../lib/settings/useSiteSetting';
 import { type SortState, nextSort, sortRows } from '../../lib/tableControls';
 import { useSession } from '../../lib/useSession';
+import { PackExtras } from './PackExtras';
 import { PackRename } from './PackRename';
 import { UnnamedTab } from './UnnamedTab';
 import {
@@ -463,6 +464,17 @@ function PackRow({
                   <td className="num">{money(dollarsOf(pack.rubies, rate))}</td>
                   <td />
                 </tr>
+                {(pack.extra_rubies ?? 0) > 0 && (
+                  <tr>
+                    <td className="label">
+                      {t('Extra rubies')}{' '}
+                      <span className="muted">({t('entered by an officer')})</span>
+                    </td>
+                    <td className="num">{(pack.extra_rubies ?? 0).toLocaleString('en')}</td>
+                    <td className="num">{money(dollarsOf(pack.extra_rubies ?? 0, rate))}</td>
+                    <td />
+                  </tr>
+                )}
                 {pack.contents.map((item) => (
                   <tr key={item.id}>
                     <td className="label">
@@ -519,6 +531,7 @@ function PackRow({
                 })}
               </tbody>
             </table>
+            <PackExtras mayEdit={mayEdit} pack={pack} />
           </td>
         </tr>
       )}
