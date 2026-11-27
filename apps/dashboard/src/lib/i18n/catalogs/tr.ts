@@ -161,6 +161,7 @@ export const tr: Catalog = {
   'You have no tile in this plan.': 'Bu planda yerin yok.',
   'Your objective: {objective}.': 'Hedefin: {objective}.',
   'a team': 'bir takım',
+  'every day for {days} days': '{days} gün boyunca her gün',
   'moments ago': 'az önce',
   'server time': 'sunucu saati',
   'server time, UTC−2': 'sunucu saati, UTC−2',

@@ -164,19 +164,25 @@ def test_week_card_pays_its_daily_reward_for_its_days() -> None:
     assert week["83009"]["items"] == [{"id": "230110", "qty": 21}, {"id": "230104", "qty": 8400}]
 
 
-def test_week_card_without_a_reward_list_is_named_bare() -> None:
-    """A custom pass's days are picks made on another screen: no contents."""
+def test_week_card_without_a_reward_list_keeps_its_days_and_no_contents() -> None:
+    """A custom pass's days are picks made on another screen (game_pack_picks,
+    0278): the row carries the days so the view counts the picks per day
+    (0354), and lists nothing itself."""
     week = _by_pack("get.week.card.info/week_cards_v1.json")
-    assert week["26072305"]["items"] == [] and week["26072305"]["track"] is None
+    custom = week["26072305"]
+    assert custom["items"] == [] and custom["track"] == "daily" and custom["levels"] == 7
+    assert custom["raw"]["levels"] == 7 and custom["raw"]["rewards"] == []
 
     observation = load_observation("get.week.card.info/week_cards_v1.json")
     odd = observation.model_copy(deep=True)
-    odd.payload["weekCards"][1]["time"] = 0  # 83013
-    odd.payload["weekCards"][2]["reward"] = "nope"  # 83017
-    odd.payload["weekCards"][0]["time"] = True  # 83009
+    odd.payload["weekCards"][1]["time"] = 0  # 83013: no days -> named bare
+    odd.payload["weekCards"][2]["reward"] = "nope"  # 83017: days, no list -> daily, empty
+    odd.payload["weekCards"][0]["time"] = True  # 83009: not a day count -> bare
     rows = {r.row["pack_id"]: r.row for r in shop_offers.normalize_week_cards(odd)}
     assert set(rows) == set(week)
-    assert all(r["items"] == [] and r["track"] is None for r in rows.values())
+    assert all(r["items"] == [] for r in rows.values())
+    assert rows["83013"]["track"] is None and rows["83009"]["track"] is None
+    assert rows["83017"]["track"] == "daily" and rows["83017"]["levels"] == 7
 
 
 def test_cards_and_gifts_are_named_without_contents() -> None:

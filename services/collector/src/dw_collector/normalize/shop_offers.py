@@ -71,7 +71,7 @@ from typing import Any
 from dw_collector.models import NormalizedRow, Observation, entry_idempotency_key, stable_uuid
 from dw_collector.registry import register
 
-PARSER_VERSION = "1.2.0"
+PARSER_VERSION = "1.3.0"
 ITEM_REWARD = 7
 # A weekly card's `time` is days; a value outside this is not a card we know.
 MAX_CARD_DAYS = 400
@@ -138,11 +138,14 @@ def _row(
     track: str | None = None,
     rewards: list[list[Any]] | None = None,
     repeat: int = 1,
+    levels: int | None = None,
     extra: dict[str, Any] | None = None,
 ) -> NormalizedRow:
     """One offer row. `rewards` is a list of reward lists (one per level);
     `repeat` says how many times the whole list is paid (a weekly card's
-    `reward` x its days), so items and levels are multiplied by it."""
+    `reward` x its days), so items and levels are multiplied by it. `levels`
+    overrides the count for a track whose rewards are not in the answer (a
+    custom weekly card: its days are picks made elsewhere, 0278)."""
     activity = _pack_id(activity_id)
     raw: dict[str, Any] = {"pack_id": pack_id, **(extra or {})}
     if activity is not None:
@@ -152,6 +155,10 @@ def _row(
         raw["rewards"] = rewards or []
         if repeat != 1:
             raw["repeat"] = repeat
+        if levels is not None:
+            raw["levels"] = levels
+    if levels is None and track is not None and rewards is not None:
+        levels = len(rewards) * repeat
     key = entry_idempotency_key(
         observation, f"offer:{pack_id}", observation.captured_at.date().isoformat(), raw
     )
@@ -172,7 +179,7 @@ def _row(
             "activity_id": activity,
             "track": track,
             "items": _items((rewards or []) * repeat),
-            "levels": len(rewards) * repeat if track is not None and rewards is not None else None,
+            "levels": levels,
         },
     )
 
@@ -292,8 +299,10 @@ def _card_days(value: Any) -> int | None:
 def normalize_week_cards(observation: Observation) -> list[NormalizedRow]:
     """A card's `reward` is what it pays each day for `time` days — the part
     of a weekly pass the pack's own list (the instant grant) leaves out. A
-    card without a reward list (the custom passes, whose days are picks made
-    elsewhere) is named bare, as before."""
+    card without a reward list but with days (the custom passes, whose days
+    are picks from game_pack_picks) is written as a daily track with those
+    days and no items, so the view counts the picks per day (1.3.0, 0354);
+    a card with neither is named bare."""
     cards = observation.payload.get("weekCards")
     rows: list[NormalizedRow] = []
     for card in cards if isinstance(cards, list) else []:
@@ -310,6 +319,20 @@ def normalize_week_cards(observation: Observation) -> list[NormalizedRow]:
                     track="daily",
                     rewards=[reward],
                     repeat=days,
+                    extra={"card": card.get("id")},
+                )
+            )
+        elif days is not None:
+            # A custom pass: its days are picks (game_pack_picks, 0278), not
+            # a reward list. The row says how many days there are, so the
+            # view can count the picks once per day (0354).
+            rows.append(
+                _row(
+                    observation,
+                    pack_id,
+                    track="daily",
+                    rewards=[],
+                    levels=days,
                     extra={"card": card.get("id")},
                 )
             )

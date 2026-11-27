@@ -162,6 +162,7 @@ export const es: Catalog = {
   'You have no tile in this plan.': 'No tienes casilla en este plan.',
   'Your objective: {objective}.': 'Tu objetivo: {objective}.',
   'a team': 'un equipo',
+  'every day for {days} days': 'cada día durante {days} días',
   'moments ago': 'hace un momento',
   'server time': 'hora del servidor',
   'server time, UTC−2': 'hora del servidor, UTC−2',

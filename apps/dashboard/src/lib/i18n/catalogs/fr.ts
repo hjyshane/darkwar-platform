@@ -163,6 +163,7 @@ export const fr: Catalog = {
   'You have no tile in this plan.': "Vous n'avez pas d'emplacement dans ce plan.",
   'Your objective: {objective}.': 'Votre objectif : {objective}.',
   'a team': 'une équipe',
+  'every day for {days} days': 'chaque jour pendant {days} jours',
   'moments ago': "à l'instant",
   'server time': 'heure du serveur',
   'server time, UTC−2': 'heure du serveur, UTC−2',

@@ -159,6 +159,7 @@ export const zh: Catalog = {
   'You have no tile in this plan.': '此规划中没有你的地块。',
   'Your objective: {objective}.': '你的目标：{objective}。',
   'a team': '某队',
+  'every day for {days} days': '每天一次，共 {days} 天',
   'moments ago': '刚刚',
   'server time': '服务器时间',
   'server time, UTC−2': '服务器时间，UTC−2',

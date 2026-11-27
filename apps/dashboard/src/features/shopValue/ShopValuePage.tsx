@@ -376,6 +376,9 @@ function PackRow({
               {pack.choices.length === 1
                 ? t('{count} pick', { count: pack.choices.length })
                 : t('{count} picks', { count: pack.choices.length })}
+              {(pack.pick_days ?? 0) > 1 && (
+                <> · {t('every day for {days} days', { days: pack.pick_days ?? 0 })}</>
+              )}
             </span>
           )}
           <VariantMark mayEdit={mayEdit} pack={pack} />

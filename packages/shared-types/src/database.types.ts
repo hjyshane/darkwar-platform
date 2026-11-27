@@ -11085,6 +11085,7 @@ export type Database = {
           offered: boolean | null
           pack_id: string | null
           pack_type: string | null
+          pick_days: number | null
           rubies: number | null
           server_id: number | null
           show_type: string | null

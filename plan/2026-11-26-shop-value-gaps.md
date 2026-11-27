@@ -8,7 +8,7 @@
 
 머지·적용 → ③⑥⑦ (코드 없음, 탭에서 확인·입력) → ① (뷰 한 줄) → `game_pack_extras` 표 (②④⑤ 한꺼번에) → ⑤ 조사 → Flash Sale(덤프 갱신 뒤).
 
-## ① Custom Weekly Pass — 매일 픽을 7일치로
+## ① Custom Weekly Pass — 매일 픽을 7일치로 — **했음 (11-26, #686: 파서 1.3.0 + 0354 + `pick_days` 캡션)**
 
 - **현상:** 픽(2 또는 4 슬롯)은 하루치로 한 번 계산. 실제는 7일 매일.
 - **근거:** `custom_weekly_card` slotnum 2/3(덤프 11-20; 화면은 Elite 4 → 덤프가 낡았거나 서버 차이. 새 덤프 뒤 `game-catalog` 재업로드로 확인), `get.week.card.info` 커스텀 패스 행은 `reward` 없음 → 1.1.0 `track='daily'` 행 안 생김.

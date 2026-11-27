@@ -162,6 +162,7 @@ export const it: Catalog = {
   'You have no tile in this plan.': 'Non hai una posizione in questo piano.',
   'Your objective: {objective}.': 'Il tuo obiettivo: {objective}.',
   'a team': 'una squadra',
+  'every day for {days} days': 'ogni giorno per {days} giorni',
   'moments ago': 'poco fa',
   'server time': 'ora del server',
   'server time, UTC−2': 'ora del server, UTC−2',

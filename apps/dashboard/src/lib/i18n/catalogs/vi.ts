@@ -162,6 +162,7 @@ export const vi: Catalog = {
   'You have no tile in this plan.': 'Bạn không có ô nào trong kế hoạch này.',
   'Your objective: {objective}.': 'Mục tiêu của bạn: {objective}.',
   'a team': 'một đội',
+  'every day for {days} days': 'mỗi ngày trong {days} ngày',
   'moments ago': 'vừa xong',
   'server time': 'giờ máy chủ',
   'server time, UTC−2': 'giờ máy chủ, UTC−2',

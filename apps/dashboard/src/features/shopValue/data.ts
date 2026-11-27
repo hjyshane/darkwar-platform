@@ -93,6 +93,9 @@ export interface PackValue {
    * its screen: the track ('special', 'middle', 'paid'). */
   offer_track?: string | null;
   offer_source?: string | null;
+  /** Days a daily card's picks are made over (0354): choice_rubies counts
+   * every day, `choices` shows one day's. Null when the picks are made once. */
+  pick_days?: number | null;
 }
 
 export interface ListingValue {

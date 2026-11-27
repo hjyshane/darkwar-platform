@@ -162,6 +162,7 @@ export const ko: Catalog = {
   'You have no tile in this plan.': '이 계획에 내 타일이 없어요.',
   'Your objective: {objective}.': '내 목표: {objective}.',
   'a team': '한 팀',
+  'every day for {days} days': '매일, {days}일 동안',
   'moments ago': '방금',
   'server time': '서버 시간',
   'server time, UTC−2': '서버 시간, UTC−2',
