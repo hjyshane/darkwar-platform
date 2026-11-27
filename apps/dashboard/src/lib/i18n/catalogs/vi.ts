@@ -1,6 +1,8 @@
 import type { Catalog } from '../core';
 
 export const vi: Catalog = {
+  "A choice pack: the fragments of the hero picked on the game's screen, added to the pack's own list. Another hero gives other fragments at the same price.":
+    'Gói tùy chọn: mảnh của anh hùng đã chọn trên màn hình trò chơi, cộng vào danh sách riêng của gói. Chọn anh hùng khác sẽ nhận mảnh khác với cùng giá.',
   'A player or alliance page is a header plus one tab at a time. Growth is first; the rest sit beside it.':
     'Trang người chơi hoặc liên minh gồm phần đầu trang và mỗi lần một thẻ. Tăng trưởng đứng đầu; các thẻ khác nằm bên cạnh.',
   "A weekly card: what it pays each day over its days, read from the game's own screen, added to the grant the pack lists.":

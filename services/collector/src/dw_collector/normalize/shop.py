@@ -5,6 +5,11 @@ THE PACKS. `exchange.info` lists every pack the server offers the account
 `item` the contents as "id;qty|id;qty", `resource` resources the same way
 (resource 15 is Ruby), `percent` the game's own value claim, `start`/`end` the
 window in epoch ms. `reward` is the same id for every pack and says nothing.
+`item_use` (1.2.0) is a second contents list in the same shape, used by the
+packs that grant something other than goods: the Super Monthly Pass (VIP
+days, a formation slot, a cosmetic) and the Dawn Badge Packs (badge 9990012
+x N). On 2026-11-26 it was set on 16 of 472 packs, 12 of them with `item`
+empty; those 12 were priced as empty before.
 
 THE SHOPS. `user.get.shop.info` answers for one shop type at a time
 (`type`): each `shopInfo` entry is an item (`goods`, `goods_num`) at a price
@@ -24,7 +29,7 @@ from typing import Any
 from dw_collector.models import NormalizedRow, Observation, entry_idempotency_key, stable_uuid
 from dw_collector.registry import register
 
-PARSER_VERSION = "1.1.0"
+PARSER_VERSION = "1.2.0"
 RUBY_RESOURCE = "15"
 _ACCOUNT_FIELDS = frozenset({"bought", "buys", "buy_times", "chooseRecord"})
 
@@ -118,7 +123,7 @@ def normalize_packs(observation: Observation) -> list[NormalizedRow]:
                     "claimed_percent": None if percent is None else int(percent),
                     "items": [
                         {"id": item_id, "qty": _qty(qty)}
-                        for item_id, qty in _pairs(pack.get("item"))
+                        for item_id, qty in _pairs(pack.get("item")) + _pairs(pack.get("item_use"))
                     ],
                     "starts_at": _ms(pack.get("start")),
                     "ends_at": _ms(pack.get("end")),

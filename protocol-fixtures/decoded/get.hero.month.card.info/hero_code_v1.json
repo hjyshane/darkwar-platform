@@ -1,0 +1,407 @@
+{
+  "observation_id": "00000000-0000-4000-8000-0000000f0011",
+  "collector_id": "00000000-0000-4000-8000-00000000c777",
+  "source_command": "get.hero.month.card.info",
+  "captured_at": "2026-11-26T23:22:50.468507+00:00",
+  "collected_from_server_id": 580,
+  "payload": {
+    "_id": 94,
+    "_time": 0,
+    "activityId": 330001,
+    "buy": 0,
+    "endTime": 1796004000000,
+    "rewardArr": [
+      {
+        "day": 1,
+        "reward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "210454",
+              "num": 10
+            }
+          }
+        ],
+        "state": 0
+      },
+      {
+        "day": 2,
+        "reward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "210922",
+              "num": 5
+            }
+          }
+        ],
+        "state": 0
+      },
+      {
+        "day": 3,
+        "reward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "230100",
+              "num": 10
+            }
+          }
+        ],
+        "state": 0
+      },
+      {
+        "day": 4,
+        "reward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "230101",
+              "num": 200
+            }
+          }
+        ],
+        "state": 0
+      },
+      {
+        "day": 5,
+        "reward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "230104",
+              "num": 1000
+            }
+          }
+        ],
+        "state": 0
+      },
+      {
+        "day": 6,
+        "reward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "210454",
+              "num": 10
+            }
+          }
+        ],
+        "state": 0
+      },
+      {
+        "day": 7,
+        "reward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "210922",
+              "num": 5
+            }
+          }
+        ],
+        "state": 0
+      },
+      {
+        "day": 8,
+        "reward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "230100",
+              "num": 10
+            }
+          }
+        ],
+        "state": 0
+      },
+      {
+        "day": 9,
+        "reward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "230101",
+              "num": 200
+            }
+          }
+        ],
+        "state": 0
+      },
+      {
+        "day": 10,
+        "reward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "230104",
+              "num": 1000
+            }
+          }
+        ],
+        "state": 0
+      },
+      {
+        "day": 11,
+        "reward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "210454",
+              "num": 10
+            }
+          }
+        ],
+        "state": 0
+      },
+      {
+        "day": 12,
+        "reward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "210922",
+              "num": 5
+            }
+          }
+        ],
+        "state": 0
+      },
+      {
+        "day": 13,
+        "reward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "230100",
+              "num": 10
+            }
+          }
+        ],
+        "state": 0
+      },
+      {
+        "day": 14,
+        "reward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "230101",
+              "num": 200
+            }
+          }
+        ],
+        "state": 0
+      },
+      {
+        "day": 15,
+        "reward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "230104",
+              "num": 1000
+            }
+          }
+        ],
+        "state": 0
+      },
+      {
+        "day": 16,
+        "reward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "210454",
+              "num": 10
+            }
+          }
+        ],
+        "state": 0
+      },
+      {
+        "day": 17,
+        "reward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "210922",
+              "num": 5
+            }
+          }
+        ],
+        "state": 0
+      },
+      {
+        "day": 18,
+        "reward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "230100",
+              "num": 10
+            }
+          }
+        ],
+        "state": 0
+      },
+      {
+        "day": 19,
+        "reward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "230101",
+              "num": 200
+            }
+          }
+        ],
+        "state": 0
+      },
+      {
+        "day": 20,
+        "reward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "230104",
+              "num": 1000
+            }
+          }
+        ],
+        "state": 0
+      },
+      {
+        "day": 21,
+        "reward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "210454",
+              "num": 10
+            }
+          }
+        ],
+        "state": 0
+      },
+      {
+        "day": 22,
+        "reward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "210922",
+              "num": 5
+            }
+          }
+        ],
+        "state": 0
+      },
+      {
+        "day": 23,
+        "reward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "230100",
+              "num": 10
+            }
+          }
+        ],
+        "state": 0
+      },
+      {
+        "day": 24,
+        "reward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "230101",
+              "num": 200
+            }
+          }
+        ],
+        "state": 0
+      },
+      {
+        "day": 25,
+        "reward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "230104",
+              "num": 1000
+            }
+          }
+        ],
+        "state": 0
+      },
+      {
+        "day": 26,
+        "reward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "210454",
+              "num": 10
+            }
+          }
+        ],
+        "state": 0
+      },
+      {
+        "day": 27,
+        "reward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "210922",
+              "num": 5
+            }
+          }
+        ],
+        "state": 0
+      },
+      {
+        "day": 28,
+        "reward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "230100",
+              "num": 10
+            }
+          }
+        ],
+        "state": 0
+      },
+      {
+        "day": 29,
+        "reward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "230101",
+              "num": 200
+            }
+          }
+        ],
+        "state": 0
+      },
+      {
+        "day": 30,
+        "reward": [
+          {
+            "type": 7,
+            "value": {
+              "id": "230104",
+              "num": 1000
+            }
+          }
+        ],
+        "state": 0
+      }
+    ],
+    "startTime": 1793412000000
+  }
+}

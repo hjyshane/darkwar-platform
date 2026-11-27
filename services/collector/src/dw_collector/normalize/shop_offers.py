@@ -24,6 +24,17 @@ passes, 1 of 7 season weekly cards, 1 of 2 radar cards).
     multi.choice.gift.info            gifts[].exchangeId            (the pack lists its own)
     get.custom.package.activity.info  exchangeIds "a;b;…"           (the pack lists its own)
     get.month.pay.act.info            para2, para3                  not read — see below
+    get.hero.month.card.info          (none: Hero Code = 9008)      rewardArr[].reward, 30 days
+    get.package.choose.activity.info  packageArr[].item (3rd field)  the picked hero's fragments
+
+The last two (1.2.0, 2026-11-26) came from a sweep of what the store screens
+ask for: most ask nothing and draw from these login answers. Hero Code's
+answer carries no exchange id at all; the client's `hero_monthcard` table
+maps every one of its 24 rows to exchange 9008, the only pack of type 666,
+so the id is a constant here. The Choice Pack's answer lists nine heroes,
+each with five tiers as "fragmentId;num;exchangeId;1|…"; `chooseId` is the
+hero the account has picked, and only that hero's tiers are named — the
+others are the same five packs with different fragments, not other offers.
 
 WHAT IS INFERRED, NOT OBSERVED. Nobody has bought one of these with capture
 on, so which pack unlocks which track rests on the names:
@@ -60,10 +71,14 @@ from typing import Any
 from dw_collector.models import NormalizedRow, Observation, entry_idempotency_key, stable_uuid
 from dw_collector.registry import register
 
-PARSER_VERSION = "1.1.0"
+PARSER_VERSION = "1.2.0"
 ITEM_REWARD = 7
 # A weekly card's `time` is days; a value outside this is not a card we know.
 MAX_CARD_DAYS = 400
+# Hero Code's pack. The screen's answer names no exchange id; the client's
+# `hero_monthcard` datatable (24 rows, every cycle since launch) says
+# exchange 9008 for all of them, and 9008 is the catalog's one type-666 pack.
+HERO_CODE_PACK_ID = "9008"
 
 
 def _pack_id(value: Any) -> str | None:
@@ -350,4 +365,79 @@ def normalize_month_pay(observation: Observation) -> list[NormalizedRow]:
                     extra={"field": field},
                 )
             )
+    return _unique(rows)
+
+
+@register("get.hero.month.card.info")
+def normalize_hero_month_card(observation: Observation) -> list[NormalizedRow]:
+    """Hero Code: a 30-day calendar, one reward list a day. `state` is the
+    account's claim progress and `buy` whether it bought; neither is kept.
+    The screen sends no exchange id (see HERO_CODE_PACK_ID)."""
+    payload = observation.payload
+    days = payload.get("rewardArr")
+    if not isinstance(days, list) or not days:
+        return []
+    rewards = _reward_lists(days, "reward")
+    if not rewards:
+        return []
+    return [
+        _row(
+            observation,
+            HERO_CODE_PACK_ID,
+            activity_id=payload.get("activityId"),
+            track="daily",
+            rewards=rewards,
+        )
+    ]
+
+
+def _choice_tiers(spec: Any) -> list[tuple[str, str, float]]:
+    """ "253072;10;25070701;1|253072;20;25070702;1" →
+    [(pack "25070701", fragment "253072", 10.0), …]. The fourth field is
+    always 1 and is not read."""
+    out: list[tuple[str, str, float]] = []
+    if not isinstance(spec, str):
+        return out
+    for part in spec.split("|"):
+        fields = [f.strip() for f in part.split(";")]
+        if len(fields) < 3 or not fields[0].isdigit() or not fields[2].isdigit():
+            continue
+        try:
+            out.append((fields[2], fields[0], float(fields[1])))
+        except ValueError:
+            continue
+    return out
+
+
+@register("get.package.choose.activity.info")
+def normalize_package_choose(observation: Observation) -> list[NormalizedRow]:
+    """Exclusive Equipment Choice Pack: five tiers, each a pack, whose
+    fragment depends on the hero picked (`chooseId`). The picked hero's
+    tiers are named with that fragment as their contents; `buyExchangeArr`
+    (what the account bought) is left out."""
+    payload = observation.payload
+    packages = payload.get("packageArr")
+    chosen = str(payload.get("chooseId", "")).strip()
+    if not isinstance(packages, list) or not chosen:
+        return []
+    picked = next(
+        (p for p in packages if isinstance(p, dict) and str(p.get("id", "")).strip() == chosen),
+        None,
+    )
+    if picked is None:
+        return []
+    rows: list[NormalizedRow] = []
+    for pack_id, fragment, num in _choice_tiers(picked.get("item")):
+        if num <= 0:
+            continue
+        rows.append(
+            _row(
+                observation,
+                pack_id,
+                activity_id=payload.get("activityId"),
+                track="choice",
+                rewards=[[{"type": ITEM_REWARD, "value": {"id": fragment, "num": num}}]],
+                extra={"hero": chosen, "equip": picked.get("exclusive_equip")},
+            )
+        )
     return _unique(rows)

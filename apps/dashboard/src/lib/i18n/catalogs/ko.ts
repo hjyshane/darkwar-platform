@@ -1,6 +1,8 @@
 import type { Catalog } from '../core';
 
 export const ko: Catalog = {
+  "A choice pack: the fragments of the hero picked on the game's screen, added to the pack's own list. Another hero gives other fragments at the same price.":
+    '선택 팩: 게임 화면에서 고른 영웅의 조각이 팩 자체 목록에 더해져요. 다른 영웅을 고르면 같은 가격에 다른 조각이에요.',
   'A player or alliance page is a header plus one tab at a time. Growth is first; the rest sit beside it.':
     '플레이어·연맹 페이지는 헤더와 한 번에 하나씩 보이는 탭으로 구성돼요. 성장 탭이 맨 앞이고 나머지는 그 옆에 있어요.',
   "A weekly card: what it pays each day over its days, read from the game's own screen, added to the grant the pack lists.":

@@ -155,4 +155,4 @@ select e.schedule_event_id, e.title, e.starts_at, count(r.*) filter (where r.ena
 | Legend BP 영웅 선택 | `select.battlepass.series` (`battlePass`, `series`, `stateInfo`) | `get.battlepass.info`와 같은 모양 | 별칭 등록이면 됨 |
 | 무료 팩 | `free.exchange.info` (34개, `dollar` 0, 이름·`item` 있음) | `exchange.info`에서 이름 없던 `261000001/2`는 여기에도 없음 | 가치 0, 보류 |
 
-**남음:** 위 승격 후보 둘(Hero Code·Choice Pack) + `shop.py` `item_use`/`reward`, Flash Sale 표 대응, ⑦⑧ 보류.
+**승격함(11-26, 이 가지, shop_offers 1.2.0 · shop 1.2.0).** Hero Code → `get.hero.month.card.info`(팩 9008 상수, 30일 합산, `track='daily'`); Choice Pack → `get.package.choose.activity.info`(고른 영웅의 5단계, 조각 내용물, `track='choice'`); `shop.py`가 `item_use`도 읽음(Super Monthly Pass·Dawn Badge 12행; `reward`는 0337 이래 "모든 팩이 같은 id"라 뺐다 — 11-26엔 9007·9009만 `105100;1`, 이름 없는 아이템). 픽스처 셋(`hero_code_v1`·`choice_pack_v1`·`item_use_v1`, 수집 계정 579의 로그인 응답), 파서 테스트 70개, 대시보드 'choice' 문구. **남음:** Flash Sale 표 대응(유망), `select.battlepass.series` 별칭(참고), Treasure of the Day 매일 1종, ⑦⑧ 보류.

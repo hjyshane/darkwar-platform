@@ -224,6 +224,36 @@
       "command": "get.month.pay.act.info",
       "status": "promoted",
       "verdict": "승격 완료 (2026-11-19 · shop_offers 파서 1.0.0, 0337)"
+    },
+    {
+      "command": "get.hero.month.card.info",
+      "status": "promoted",
+      "verdict": "승격 완료 (2026-11-26 · shop_offers 파서 1.2.0)",
+      "note": "Hero Code: 팩 9008 상수(클라이언트 hero_monthcard.exchange), rewardArr 30일 합산"
+    },
+    {
+      "command": "get.package.choose.activity.info",
+      "status": "promoted",
+      "verdict": "승격 완료 (2026-11-26 · shop_offers 파서 1.2.0)",
+      "note": "Exclusive Equipment Choice Pack: 고른 영웅(chooseId)의 5단계, 조각이 내용물"
+    },
+    {
+      "command": "get.flash.sale.activity.info",
+      "status": "promising",
+      "verdict": "유망 (2026-11-26)",
+      "note": "roundArr[24].exchangeArr[].id가 작은 정수 — 클라이언트 표 대응이 먼저"
+    },
+    {
+      "command": "select.battlepass.series",
+      "status": "reference",
+      "verdict": "참고 (2026-11-26)",
+      "note": "get.battlepass.info와 같은 모양; 별칭 등록이면 됨"
+    },
+    {
+      "command": "free.exchange.info",
+      "status": "hold",
+      "verdict": "보류 (2026-11-26)",
+      "note": "무료 팩 34개, 값 0"
     }
   ]
 }

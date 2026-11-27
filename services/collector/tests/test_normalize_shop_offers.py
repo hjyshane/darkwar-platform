@@ -21,9 +21,13 @@ COMMANDS = {
     "multi.choice.gift.info": shop_offers.normalize_multi_choice_gift,
     "get.custom.package.activity.info": shop_offers.normalize_custom_package_activity,
     "get.month.pay.act.info": shop_offers.normalize_month_pay,
+    "get.hero.month.card.info": shop_offers.normalize_hero_month_card,
+    "get.package.choose.activity.info": shop_offers.normalize_package_choose,
 }
 
 FIXTURES = [
+    "get.hero.month.card.info/hero_code_v1.json",
+    "get.package.choose.activity.info/choice_pack_v1.json",
     "get.battlepass.info/two_pack_pass_v1.json",
     "get.battlepass.info/series_pass_v1.json",
     "get.season.battlepass.info/season_pass_v1.json",
@@ -260,3 +264,73 @@ def test_changed_rewards_make_a_new_row() -> None:
     (b,) = shop_offers.normalize_growth_plan(changed)
 
     assert a.idempotency_key != b.idempotency_key
+
+
+def test_hero_code_is_pack_9008_paid_over_thirty_days() -> None:
+    """The screen names no pack; the client's hero_monthcard table maps every
+    cycle to exchange 9008. Day 1 is 10 fragments, day 5 is 1,000 Boost Ore."""
+    (row,) = _rows("get.hero.month.card.info/hero_code_v1.json")
+
+    assert row.row["pack_id"] == shop_offers.HERO_CODE_PACK_ID == "9008"
+    assert row.row["track"] == "daily" and row.row["levels"] == 30
+    assert row.row["activity_id"] == "330001"
+    items = {i["id"]: i["qty"] for i in row.row["items"]}
+    assert items["210454"] == 60  # 10 fragments on days 1, 6, 11, 16, 21, 26
+    assert items["230104"] == 6000  # 1,000 Boost Ore every fifth day, six times
+    assert "state" not in str(row.row["raw"]["rewards"]) and "buy" not in row.row["raw"]
+
+
+def test_hero_code_progress_is_not_part_of_the_offer() -> None:
+    first = load_observation("get.hero.month.card.info/hero_code_v1.json")
+    claimed = first.model_copy(deep=True)
+    claimed.payload["buy"] = 1
+    for day in claimed.payload["rewardArr"]:
+        day["state"] = 2
+
+    (a,) = shop_offers.normalize_hero_month_card(first)
+    (b,) = shop_offers.normalize_hero_month_card(claimed)
+    assert a.idempotency_key == b.idempotency_key
+
+
+def test_choice_pack_names_the_picked_heros_five_tiers_with_its_fragment() -> None:
+    packs = _by_pack("get.package.choose.activity.info/choice_pack_v1.json")
+
+    assert sorted(packs) == ["25070701", "25070702", "25070703", "25070704", "25070705"]
+    assert packs["25070701"]["items"] == [{"id": "253072", "qty": 10}]
+    assert packs["25070705"]["items"] == [{"id": "253072", "qty": 200}]
+    assert packs["25070701"]["track"] == "choice" and packs["25070701"]["levels"] == 1
+    assert packs["25070701"]["raw"]["hero"] == "10007"
+    assert "buyExchangeArr" not in packs["25070701"]["raw"]
+
+
+def test_choosing_another_hero_changes_the_contents_and_the_key() -> None:
+    first = load_observation("get.package.choose.activity.info/choice_pack_v1.json")
+    other = first.model_copy(deep=True)
+    other.payload["chooseId"] = "10008"
+    bought = first.model_copy(deep=True)
+    bought.payload["buyExchangeArr"] = ["25070701"]
+
+    a = _by_pack_rows(shop_offers.normalize_package_choose(first))
+    b = _by_pack_rows(shop_offers.normalize_package_choose(other))
+    c = _by_pack_rows(shop_offers.normalize_package_choose(bought))
+    assert b["25070701"].row["items"] == [{"id": "253073", "qty": 10}]
+    assert a["25070701"].idempotency_key != b["25070701"].idempotency_key
+    assert a["25070701"].idempotency_key == c["25070701"].idempotency_key
+
+
+def test_choice_pack_with_an_unknown_or_missing_choice_writes_nothing() -> None:
+    first = load_observation("get.package.choose.activity.info/choice_pack_v1.json")
+    nobody = first.model_copy(deep=True)
+    nobody.payload["chooseId"] = "99999"
+    blank = first.model_copy(deep=True)
+    blank.payload["chooseId"] = ""
+    odd = first.model_copy(deep=True)
+    odd.payload["packageArr"][0]["item"] = "253072;ten;25070701;1|x;1;2;3|;;;"
+
+    assert shop_offers.normalize_package_choose(nobody) == []
+    assert shop_offers.normalize_package_choose(blank) == []
+    assert shop_offers.normalize_package_choose(odd) == []
+
+
+def _by_pack_rows(rows):  # type: ignore[no-untyped-def]
+    return {r.row["pack_id"]: r for r in rows}

@@ -437,7 +437,14 @@ function PackRow({
                 )}
               </p>
             )}
-            {pack.offer_track && pack.offer_track !== 'daily' && (
+            {pack.offer_track === 'choice' && (
+              <p className="subtle">
+                {t(
+                  "A choice pack: the fragments of the hero picked on the game's screen, added to the pack's own list. Another hero gives other fragments at the same price.",
+                )}
+              </p>
+            )}
+            {pack.offer_track && pack.offer_track !== 'daily' && pack.offer_track !== 'choice' && (
               <p className="subtle">
                 {t(
                   "A pass: this is what its {track} track pays over all its levels, read from the game's own screen. The value assumes every level is reached.",

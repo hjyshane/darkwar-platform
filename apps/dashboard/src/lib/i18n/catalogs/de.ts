@@ -1,6 +1,8 @@
 import type { Catalog } from '../core';
 
 export const de: Catalog = {
+  "A choice pack: the fragments of the hero picked on the game's screen, added to the pack's own list. Another hero gives other fragments at the same price.":
+    'Wahlpaket: die Fragmente des im Spiel gewählten Helden, zur eigenen Liste des Pakets hinzugefügt. Ein anderer Held gibt andere Fragmente zum selben Preis.',
   'A player or alliance page is a header plus one tab at a time. Growth is first; the rest sit beside it.':
     'Eine Spieler- oder Allianzseite besteht aus einem Kopfbereich und jeweils einem Tab. Wachstum kommt zuerst, die anderen liegen daneben.',
   "A weekly card: what it pays each day over its days, read from the game's own screen, added to the grant the pack lists.":

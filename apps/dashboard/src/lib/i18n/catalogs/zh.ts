@@ -1,6 +1,8 @@
 import type { Catalog } from '../core';
 
 export const zh: Catalog = {
+  "A choice pack: the fragments of the hero picked on the game's screen, added to the pack's own list. Another hero gives other fragments at the same price.":
+    '自选礼包：在游戏界面选中英雄的碎片，加在礼包自身列表之上。换一个英雄，同样价格得到的是另一种碎片。',
   'A player or alliance page is a header plus one tab at a time. Growth is first; the rest sit beside it.':
     '玩家或联盟页面由页头和每次显示一个的标签页组成。“成长”排在最前，其余在它旁边。',
   "A weekly card: what it pays each day over its days, read from the game's own screen, added to the grant the pack lists.":

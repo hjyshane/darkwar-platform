@@ -43,6 +43,22 @@ def test_rubies_given_as_a_resource_count_as_rubies() -> None:
     assert rows[1].row["items"] == []
 
 
+def test_item_use_is_contents_too() -> None:
+    """The Super Monthly Pass and the Dawn Badge Packs list what they grant in
+    `item_use`, with `item` empty; a pack with `item` keeps it (1.2.0)."""
+    observation = load_observation("exchange.info/item_use_v1.json")
+    rows = {r.row["pack_id"]: r.row for r in _packs(observation)}
+
+    assert rows["9007"]["items"] == [
+        {"id": "222027", "qty": 1},
+        {"id": "222028", "qty": 1},
+        {"id": "222031", "qty": 1},
+    ]
+    assert rows["26020301"]["items"] == [{"id": "9990012", "qty": 100}]
+    assert rows["25070701"]["items"][0] == {"id": "210921", "qty": 10}
+    assert len(rows["25070701"]["items"]) == 4
+
+
 def test_a_pack_without_a_price_or_a_numeric_id_is_skipped() -> None:
     rows = _packs(load_observation("exchange.info/packs_v1.json"))
 
